@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"go.mongodb.org/mongo-driver/mongo"
@@ -29,6 +30,7 @@ import (
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/setting"
+	"github.com/koderover/zadig/v2/pkg/tool/cache"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
@@ -40,7 +42,6 @@ func RunningTasks() []*commonmodels.WorkflowQueue {
 		return tasks
 	}
 	for _, t := range queueTasks {
-		// task状态为TaskQueued说明task已经被send到nsq,wd已经开始处理但是没有返回ack
 		if t.Status == config.StatusRunning || t.Status == config.StatusWaitingApprove {
 			tasks = append(tasks, t)
 		}
@@ -139,28 +140,80 @@ func WorfklowTaskSender() {
 	for {
 		time.Sleep(time.Second * 3)
 
+		mutex := cache.NewRedisLock("workflow-task-sender")
+		if err := mutex.TryLock(); err != nil {
+			continue
+		}
+
 		sysSetting, err := commonrepo.NewSystemSettingColl().Get()
 		if err != nil {
 			log.Errorf("get system stettings error: %v", err)
 		}
 		//c.checkAgents()
 		if !hasAgentAvaiable(int(sysSetting.WorkflowConcurrency)) {
+			mutex.Unlock()
 			continue
 		}
 		waitingTasks, err := WaitingTasks()
 		if err != nil || len(waitingTasks) == 0 {
+			mutex.Unlock()
 			continue
 		}
 		var t *commonmodels.WorkflowQueue
 		for _, task := range waitingTasks {
+			var concurrency int
 			workflow, err := commonrepo.NewWorkflowV4Coll().Find(task.WorkflowName)
 			if err != nil {
 				log.Errorf("WorkflowV4 Queue: find workflow %s error: %v", task.WorkflowName, err)
-				Remove(task)
-				continue
+				switch task.Type {
+				case config.WorkflowTaskTypeScanning:
+					segs := strings.Split(task.WorkflowName, "-")
+					if len(segs) != 3 {
+						log.Errorf("invalid scanning workflow name: %s", task.WorkflowName)
+						Remove(task)
+						continue
+					}
+					scanningInfo, err := commonrepo.NewScanningColl().GetByID(segs[2])
+					if err != nil {
+						log.Errorf("failed to find scanning of id: %s, error: %s", segs[2], err)
+						Remove(task)
+						continue
+					}
+					concurrencyNum := -1
+					if scanningInfo.AdvancedSetting != nil {
+						concurrencyNum = scanningInfo.AdvancedSetting.ConcurrencyLimit
+					}
+					if concurrencyNum == 0 {
+						concurrencyNum = -1
+					}
+					concurrency = concurrencyNum
+				case config.WorkflowTaskTypeTesting:
+					testingInfo, err := commonrepo.NewTestingColl().Find(task.WorkflowDisplayName, task.ProjectName)
+					if err != nil {
+						log.Errorf("failed to find test of name: %s in project: %s, error: %s", task.WorkflowDisplayName, task.ProjectName, err)
+						Remove(task)
+						continue
+					}
+					concurrencyNum := -1
+					if testingInfo.PreTest != nil {
+						concurrencyNum = testingInfo.PreTest.ConcurrencyLimit
+					}
+					if concurrencyNum == 0 {
+						concurrencyNum = -1
+					}
+					concurrency = concurrencyNum
+				case config.WorkflowTaskTypeDelivery:
+					concurrency = -1
+				default:
+					log.Errorf("unsupported task type: %s, removing from queue", task.Type)
+					Remove(task)
+					continue
+				}
+			} else {
+				concurrency = workflow.ConcurrencyLimit
 			}
 			// no concurrency limit, run task
-			if workflow.ConcurrencyLimit == -1 {
+			if concurrency == -1 {
 				t = task
 				break
 			}
@@ -174,20 +227,22 @@ func WorfklowTaskSender() {
 				log.Errorf("WorkflowV4 Queue: find waiting approve workflow %s error: %v", task.WorkflowName, err)
 				continue
 			}
-			if len(resp)+len(resp2) < workflow.ConcurrencyLimit {
+			if len(resp)+len(resp2) < concurrency {
 				t = task
 				break
 			}
 		}
 		// no task to run
 		if t == nil {
+			mutex.Unlock()
 			continue
 		}
 		// update agent and queue
 		if err := updateQueueAndRunTask(t, int(sysSetting.BuildConcurrency)); err != nil {
+			mutex.Unlock()
 			continue
 		}
-
+		mutex.Unlock()
 	}
 }
 
@@ -328,6 +383,7 @@ func ConvertTaskToQueue(task *commonmodels.WorkflowTask) *commonmodels.WorkflowQ
 		TaskCreator:         task.TaskCreator,
 		TaskRevoker:         task.TaskRevoker,
 		CreateTime:          task.CreateTime,
+		Type:                task.Type,
 	}
 }
 

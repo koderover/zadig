@@ -294,7 +294,7 @@ func TriggerTestByGiteeEvent(event interface{}, baseURI, requestID string, log *
 					args.RepoName = item.MainRepo.RepoName
 
 					// 3. create task with args
-					if resp, err := testingservice.CreateTestTask(args, log); err != nil {
+					if resp, err := testingservice.CreateTestTaskV2(args, "webhook", "", "", log); err != nil {
 						log.Errorf("failed to create testing task when receive event %v due to %s ", event, err)
 						mErr = multierror.Append(mErr, err)
 					} else {

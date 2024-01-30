@@ -21,7 +21,6 @@ import (
 
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	templatemodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models/template"
-	commontypes "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/types"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/types"
 )
@@ -71,10 +70,8 @@ type ProductResp struct {
 	IsProd      bool                             `json:"is_prod"`
 	Source      string                           `json:"source"`
 
-	DefaultValues string                     `bson:"default_values,omitempty"       json:"default_values,omitempty"`
-	YamlData      *templatemodels.CustomYaml `bson:"yaml_data,omitempty"            json:"yaml_data,omitempty"`
+	YamlData *templatemodels.CustomYaml `bson:"yaml_data,omitempty"            json:"yaml_data,omitempty"`
 	// GlobalValues for k8s projects
-	GlobalVariables []*commontypes.GlobalVariableKV `bson:"global_variables,omitempty"     json:"global_variables,omitempty"`
 }
 
 type ProductRenderset struct {
@@ -114,15 +111,16 @@ type PmHealthCheck struct {
 }
 
 type PrivateKeyHosts struct {
-	ID           primitive.ObjectID    `json:"id,omitempty"`
-	IP           string                `json:"ip"`
-	Port         int64                 `json:"port"`
-	Status       setting.PMHostStatus  `json:"status"`
-	Error        string                `json:"error"`
-	Probe        *types.Probe          `json:"probe"`
-	UpdateStatus bool                  `json:"update_status"`
-	Agent        *commonmodels.VMAgent `json:"agent,omitempty"`
-	Type         string                `json:"type"`
+	ID               primitive.ObjectID    `json:"id,omitempty"`
+	IP               string                `json:"ip"`
+	Port             int64                 `json:"port"`
+	Status           setting.PMHostStatus  `json:"status"`
+	Error            string                `json:"error"`
+	Probe            *types.Probe          `json:"probe"`
+	UpdateStatus     bool                  `json:"update_status"`
+	ScheduleWorkflow bool                  `json:"schedule_workflow"`
+	Agent            *commonmodels.VMAgent `json:"agent,omitempty"`
+	Type             string                `json:"type"`
 }
 
 type EnvStatus struct {

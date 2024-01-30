@@ -28,29 +28,29 @@ import (
 )
 
 type PrivateKey struct {
-	ID               primitive.ObjectID   `bson:"_id,omitempty"          json:"id,omitempty"`
-	Name             string               `bson:"name"                   json:"name"`
-	Description      string               `bson:"description"            json:"description"`
-	UserName         string               `bson:"user_name"              json:"user_name"`
-	IP               string               `bson:"ip"                     json:"ip"`
-	Port             int64                `bson:"port"                   json:"port"`
-	Status           setting.PMHostStatus `bson:"status"                 json:"status"`
-	Label            string               `bson:"label"                  json:"label"`
-	IsProd           bool                 `bson:"is_prod"                json:"is_prod"`
-	IsLogin          bool                 `bson:"is_login"               json:"is_login"`
-	PrivateKey       string               `bson:"private_key"            json:"private_key"`
-	CreateTime       int64                `bson:"create_time"            json:"create_time"`
-	UpdateTime       int64                `bson:"update_time"            json:"update_time"`
-	UpdateBy         string               `bson:"update_by"              json:"update_by"`
-	Provider         int8                 `bson:"provider"               json:"provider"`
-	Probe            *types.Probe         `bson:"probe"                  json:"probe"`
-	ProjectName      string               `bson:"project_name,omitempty" json:"project_name"`
-	UpdateStatus     bool                 `bson:"-"                      json:"update_status"`
-	ScheduleWorkflow bool                 `bson:"schedule_workflow"      json:"schedule_workflow"`
-	Error            string               `bson:"error"                  json:"error"`
-	Agent            *VMAgent             `bson:"agent"                  json:"agent,omitempty"`
-	VMInfo           *VMInfo              `bson:"vm_info"                json:"vm_info,omitempty"`
-	Type             string               `bson:"type"                   json:"type"`
+	ID           primitive.ObjectID   `bson:"_id,omitempty"          json:"id,omitempty"`
+	Name         string               `bson:"name"                   json:"name"`
+	Description  string               `bson:"description"            json:"description"`
+	UserName     string               `bson:"user_name"              json:"user_name"`
+	IP           string               `bson:"ip"                     json:"ip"`
+	Port         int64                `bson:"port"                   json:"port"`
+	Status       setting.PMHostStatus `bson:"status"                 json:"status"`
+	Label        string               `bson:"label"                  json:"label"`
+	IsProd       bool                 `bson:"is_prod"                json:"is_prod"`
+	PrivateKey   string               `bson:"private_key"            json:"private_key"`
+	CreateTime   int64                `bson:"create_time"            json:"create_time"`
+	UpdateTime   int64                `bson:"update_time"            json:"update_time"`
+	UpdateBy     string               `bson:"update_by"              json:"update_by"`
+	Provider     int8                 `bson:"provider"               json:"provider"`
+	Probe        *types.Probe         `bson:"probe"                  json:"probe"`
+	ProjectName  string               `bson:"project_name,omitempty" json:"project_name"`
+	UpdateStatus bool                 `bson:"-"                      json:"update_status"`
+	// ScheduleWorkflow equals to true means this vm is agent type, false means this vm is ssh type
+	ScheduleWorkflow bool     `bson:"schedule_workflow"      json:"schedule_workflow"`
+	Error            string   `bson:"error"                  json:"error"`
+	Agent            *VMAgent `bson:"agent"                  json:"agent,omitempty"`
+	VMInfo           *VMInfo  `bson:"vm_info"                json:"vm_info,omitempty"`
+	Type             string   `bson:"type"                   json:"type"`
 }
 
 type VMInfo struct {

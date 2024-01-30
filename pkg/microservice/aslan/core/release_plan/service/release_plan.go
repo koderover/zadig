@@ -156,8 +156,9 @@ type UpdateReleasePlanArgs struct {
 }
 
 func UpdateReleasePlan(c *handler.Context, planID string, args *UpdateReleasePlanArgs) error {
-	getLock(planID).Lock()
-	defer getLock(planID).Unlock()
+	approveLock := getLock(planID)
+	approveLock.Lock()
+	defer approveLock.Unlock()
 
 	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
 	defer cancel()
@@ -216,8 +217,9 @@ type ExecuteReleaseJobArgs struct {
 }
 
 func ExecuteReleaseJob(c *handler.Context, planID string, args *ExecuteReleaseJobArgs) error {
-	getLock(planID).Lock()
-	defer getLock(planID).Unlock()
+	approveLock := getLock(planID)
+	approveLock.Lock()
+	defer approveLock.Unlock()
 
 	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
 	defer cancel()
@@ -285,8 +287,9 @@ func ExecuteReleaseJob(c *handler.Context, planID string, args *ExecuteReleaseJo
 }
 
 func UpdateReleasePlanStatus(c *handler.Context, planID, status string) error {
-	getLock(planID).Lock()
-	defer getLock(planID).Unlock()
+	approveLock := getLock(planID)
+	approveLock.Lock()
+	defer approveLock.Unlock()
 
 	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
 	defer cancel()
@@ -376,8 +379,9 @@ type ApproveRequest struct {
 }
 
 func ApproveReleasePlan(c *handler.Context, planID string, req *ApproveRequest) error {
-	getLock(planID).Lock()
-	defer getLock(planID).Unlock()
+	approveLock := getLock(planID)
+	approveLock.Lock()
+	defer approveLock.Unlock()
 
 	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
 	defer cancel()
@@ -394,19 +398,21 @@ func ApproveReleasePlan(c *handler.Context, planID string, req *ApproveRequest) 
 		return errors.Errorf("plan approval is nil or not native approval")
 	}
 
-	approveWithL, ok := approvalservice.GlobalApproveMap.GetApproval(plan.Approval.NativeApproval.InstanceCode)
+	approvalKey := plan.Approval.NativeApproval.InstanceCode
+	approval, ok := approvalservice.GlobalApproveMap.GetApproval(approvalKey)
 	if !ok {
 		// restore data after restart aslan
 		log.Infof("updateNativeApproval: approval instance code %s not found, set it", plan.Approval.NativeApproval.InstanceCode)
-		approveWithL = &approvalservice.ApproveWithLock{Approval: plan.Approval.NativeApproval}
-		approvalservice.GlobalApproveMap.SetApproval(plan.Approval.NativeApproval.InstanceCode, approveWithL)
+		approvalservice.GlobalApproveMap.SetApproval(plan.Approval.NativeApproval.InstanceCode, plan.Approval.NativeApproval)
 	}
-	if err = approveWithL.DoApproval(c.UserName, c.UserID, req.Comment, req.Approve); err != nil {
+
+	approval, err = approvalservice.GlobalApproveMap.DoApproval(approvalKey, c.UserName, c.UserID, req.Comment, req.Approve)
+	if err != nil {
 		return errors.Wrap(err, "do approval")
 	}
 
-	plan.Approval.NativeApproval = approveWithL.Approval
-	approved, _, err := approveWithL.IsApproval()
+	plan.Approval.NativeApproval = approval
+	approved, _, err := approvalservice.GlobalApproveMap.IsApproval(approvalKey)
 	if err != nil {
 		plan.Approval.Status = config.StatusReject
 	}

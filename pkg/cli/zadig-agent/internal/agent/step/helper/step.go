@@ -21,9 +21,11 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"runtime"
 	"strings"
 
 	"go.uber.org/zap"
+	"golang.org/x/text/encoding/simplifiedchinese"
 
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/common"
 	util "github.com/koderover/zadig/v2/pkg/cli/zadig-agent/util/file"
@@ -134,7 +136,18 @@ func HandleCmdOutput(pipe io.ReadCloser, needPersistentLog bool, logFile string,
 			break
 		}
 
-		//logger.Printf("%s", maskSecretEnvs(string(lineBytes), secretEnvs))
+		if runtime.GOOS == "windows" {
+			decodeBytes, err := simplifiedchinese.GB18030.NewDecoder().Bytes(lineBytes)
+			if err != nil {
+				logger.Errorf("failed to decode to GB18030, source: %s, err: %v", lineBytes, err)
+			} else {
+				tmpStr := string(decodeBytes)
+				if strings.HasSuffix(tmpStr, "\r\n") {
+					tmpStr = strings.TrimSuffix(tmpStr, "\r\n") + "\n"
+					lineBytes = []byte(tmpStr)
+				}
+			}
+		}
 
 		if needPersistentLog {
 			err := util.WriteFile(logFile, lineBytes, 0700)

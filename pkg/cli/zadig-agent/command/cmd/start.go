@@ -93,7 +93,7 @@ func startPreRun(serverURL, token, workDir string) error {
 		}
 
 		viper.Set(common.AGENT_INSTALL_TIME, time.Now().Unix())
-		viper.Set(common.AGENT_VERSION, agentconfig.AGENT_VERSION)
+		viper.Set(common.AGENT_VERSION, agentconfig.BuildAgentVersion)
 		user, err := osutil.GetOSCurrentUser()
 		if err != nil {
 			return err

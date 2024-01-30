@@ -461,11 +461,17 @@ func (j *TestingJob) toJobtask(testing *commonmodels.TestModule, defaultS3 *comm
 			StepType:  config.StepJunitReport,
 			Onfailure: true,
 			Spec: &step.StepJunitReportSpec{
-				ReportDir: testingInfo.TestResultPath,
-				S3DestDir: path.Join(j.workflow.Name, fmt.Sprint(taskID), jobTask.Name, "junit"),
-				TestName:  testing.Name,
-				DestDir:   "/tmp",
-				FileName:  "merged.xml",
+				SourceWorkflow: j.workflow.Name,
+				SourceJobKey:   j.job.Name,
+				TaskID:         taskID,
+				ReportDir:      testingInfo.TestResultPath,
+				S3DestDir:      path.Join(j.workflow.Name, fmt.Sprint(taskID), jobTask.Name, "junit"),
+				TestName:       testing.Name,
+				TestProject:    testing.ProjectName,
+				DestDir:        "/tmp",
+				FileName:       "merged.xml",
+				ServiceName:    serviceName,
+				ServiceModule:  serviceModule,
 			},
 		}
 		jobTaskSpec.Steps = append(jobTaskSpec.Steps, junitStep)

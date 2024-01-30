@@ -30,6 +30,7 @@ import (
 
 	"github.com/cenkalti/backoff/v4"
 	"github.com/hashicorp/go-multierror"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
@@ -66,6 +67,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/setting"
 	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
 	"github.com/koderover/zadig/v2/pkg/tool/analysis"
+	"github.com/koderover/zadig/v2/pkg/tool/cache"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/helmclient"
 	helmtool "github.com/koderover/zadig/v2/pkg/tool/helmclient"
@@ -192,11 +194,9 @@ func ListProducts(userID, projectName string, envNames []string, production bool
 	return res, nil
 }
 
-var mutexAutoCreate sync.RWMutex
-
 // AutoCreateProduct happens in onboarding progress of pm project
 func AutoCreateProduct(productName, envType, requestID string, log *zap.SugaredLogger) []*EnvStatus {
-
+	mutexAutoCreate := cache.NewRedisLock(fmt.Sprintf("auto_create_project:%s", productName))
 	mutexAutoCreate.Lock()
 	defer func() {
 		mutexAutoCreate.Unlock()
@@ -218,7 +218,185 @@ func AutoCreateProduct(productName, envType, requestID string, log *zap.SugaredL
 	return envStatus
 }
 
-var mutexAutoUpdate sync.RWMutex
+func InitializeEnvironment(projectKey string, envArgs []*commonmodels.Product, envType string, log *zap.SugaredLogger) error {
+	switch envType {
+	case config.ProjectTypeVM:
+		return initializeVMEnvironmentAndWorkflow(projectKey, envArgs, log)
+	default:
+		return fmt.Errorf("unsupported env type: %s", envType)
+	}
+}
+
+func initializeVMEnvironmentAndWorkflow(projectKey string, envArgs []*commonmodels.Product, log *zap.SugaredLogger) error {
+	if len(envArgs) == 0 || envArgs == nil {
+		return fmt.Errorf("env cannot be empty")
+	}
+	mutexAutoCreate := cache.NewRedisLock(fmt.Sprintf("initialize_vm_project:%s", projectKey))
+	err := mutexAutoCreate.TryLock()
+	defer func() {
+		mutexAutoCreate.Unlock()
+	}()
+
+	if err != nil {
+		log.Errorf("failed to acquire lock to initialize vm environment, err: %s", err)
+		return fmt.Errorf("failed to acquire lock to initialize vm environment, err: %s", err)
+	}
+
+	retErr := new(multierror.Error)
+	for _, arg := range envArgs {
+		err := CreateProduct("system", "", &ProductCreateArg{Product: arg}, log)
+		if err != nil {
+			log.Errorf("failed to initialize project env: create env [%s] error: %s", arg.EnvName, err)
+			retErr = multierror.Append(retErr, err)
+		}
+	}
+
+	for _, arg := range envArgs {
+		wf, err := generateCustomWorkflow(arg, true)
+		if err != nil {
+			log.Errorf("failed to generate workflow: %s, error: %s", fmt.Sprintf("%s-workflow-%s", arg.ProductName, arg.EnvName), err)
+			retErr = multierror.Append(retErr, fmt.Errorf("failed to generate workflow: %s, error: %s", fmt.Sprintf("%s-workflow-%s", arg.ProductName, arg.EnvName), err))
+			continue
+		}
+		err = workflow.CreateWorkflowV4(setting.SystemUser, wf, log)
+		if err != nil {
+			log.Errorf("failed to create workflow: %s, error: %s", wf.Name, err)
+			retErr = multierror.Append(retErr, fmt.Errorf("failed to create workflow: %s, error: %s", wf.Name, err))
+			continue
+		}
+	}
+
+	opsWorkflow, err := generateCustomWorkflow(envArgs[0], false)
+	if err != nil {
+		log.Errorf("failed to generate workflow: %s, error: %s", fmt.Sprintf("%s-workflow-ops", envArgs[0].ProductName), err)
+		retErr = multierror.Append(retErr, fmt.Errorf("failed to generate workflow: %s, error: %s", fmt.Sprintf("%s-workflow-ops", envArgs[0].ProductName), err))
+	} else {
+		err = workflow.CreateWorkflowV4(setting.SystemUser, opsWorkflow, log)
+		if err != nil {
+			log.Errorf("failed to create workflow: %s, error: %s", opsWorkflow.Name, err)
+			retErr = multierror.Append(retErr, fmt.Errorf("failed to create workflow: %s, error: %s", opsWorkflow.Name, err))
+		}
+	}
+
+	return retErr.ErrorOrNil()
+}
+
+func generateCustomWorkflow(arg *models.Product, enableBuildStage bool) (*models.WorkflowV4, error) {
+	workflowName := fmt.Sprintf("%s-workflow-%s", arg.ProductName, arg.EnvName)
+	if !enableBuildStage {
+		workflowName = fmt.Sprintf("%s-workflow-ops", arg.ProductName)
+	}
+	ret := &models.WorkflowV4{
+		Name:             workflowName,
+		DisplayName:      workflowName,
+		Stages:           nil,
+		Project:          arg.ProductName,
+		CreatedBy:        setting.SystemUser,
+		CreateTime:       time.Now().Unix(),
+		ConcurrencyLimit: -1,
+	}
+
+	stages := make([]*commonmodels.WorkflowStage, 0)
+
+	s3storageID := ""
+	s3storage, err := commonrepo.NewS3StorageColl().FindDefault()
+	if err != nil {
+		log.Errorf("S3Storage.FindDefault error: %v", err)
+	} else {
+		projectSet := sets.NewString(s3storage.Projects...)
+		if projectSet.Has(arg.ProductName) || projectSet.Has(setting.AllProjects) {
+			s3storageID = s3storage.ID.Hex()
+		}
+	}
+
+	spec := &commonmodels.ZadigVMDeployJobSpec{
+		Env:         arg.EnvName,
+		Source:      config.SourceRuntime,
+		S3StorageID: s3storageID,
+	}
+	if enableBuildStage {
+		productTmpl, err := templaterepo.NewProductColl().Find(arg.ProductName)
+		if err != nil {
+			errMsg := fmt.Sprintf("[ProductTmpl.Find] %s error: %v", arg.ProductName, err)
+			log.Error(errMsg)
+			return nil, err
+		}
+
+		services, err := commonrepo.NewServiceColl().ListMaxRevisionsForServices(productTmpl.AllTestServiceInfos(), "")
+		if err != nil {
+			log.Errorf("ServiceTmpl.ListMaxRevisionsByProject error: %v", err)
+			return nil, err
+		}
+
+		buildList, err := commonrepo.NewBuildColl().List(&commonrepo.BuildListOption{
+			ProductName: arg.ProductName,
+		})
+		if err != nil {
+			log.Errorf("[Build.List] error: %v", err)
+			return nil, err
+		}
+		buildMap := map[string]*commonmodels.Build{}
+		for _, build := range buildList {
+			for _, target := range build.Targets {
+				buildMap[target.ServiceName] = build
+			}
+		}
+
+		buildTargetSet := sets.NewString()
+		serviceAndBuilds := []*commonmodels.ServiceAndBuild{}
+		for _, serviceTmpl := range services {
+			if build, ok := buildMap[serviceTmpl.ServiceName]; ok {
+				for _, target := range build.Targets {
+					key := fmt.Sprintf("%s-%s", target.ServiceName, target.ServiceModule)
+					if buildTargetSet.Has(key) {
+						continue
+					}
+					buildTargetSet.Insert(key)
+
+					serviceAndBuild := &commonmodels.ServiceAndBuild{
+						ServiceName:   target.ServiceName,
+						ServiceModule: target.ServiceModule,
+						BuildName:     build.Name,
+					}
+					serviceAndBuilds = append(serviceAndBuilds, serviceAndBuild)
+				}
+			}
+		}
+
+		buildJobName := "构建"
+		buildJob := &commonmodels.Job{
+			Name:    buildJobName,
+			JobType: config.JobZadigBuild,
+			Spec: &commonmodels.ZadigBuildJobSpec{
+				DockerRegistryID: arg.RegistryID,
+				ServiceAndBuilds: serviceAndBuilds,
+			},
+		}
+		stage := &commonmodels.WorkflowStage{
+			Name: "构建",
+			Jobs: []*commonmodels.Job{buildJob},
+		}
+
+		stages = append(stages, stage)
+
+		spec.Source = config.SourceFromJob
+		spec.JobName = buildJobName
+	}
+	deployJob := &commonmodels.Job{
+		Name:    "主机部署",
+		JobType: config.JobZadigVMDeploy,
+		Spec:    spec,
+	}
+	stage := &commonmodels.WorkflowStage{
+		Name: "主机部署",
+		Jobs: []*commonmodels.Job{deployJob},
+	}
+	stages = append(stages, stage)
+
+	ret.Stages = stages
+
+	return ret, nil
+}
 
 type UpdateServiceArg struct {
 	ServiceName    string                          `json:"service_name"`
@@ -232,7 +410,11 @@ type UpdateEnv struct {
 }
 
 func UpdateMultipleK8sEnv(args []*UpdateEnv, envNames []string, productName, requestID string, force, production bool, log *zap.SugaredLogger) ([]*EnvStatus, error) {
-	mutexAutoUpdate.Lock()
+	mutexAutoUpdate := cache.NewRedisLock(fmt.Sprintf("update_multiple_product:%s", productName))
+	err := mutexAutoUpdate.Lock()
+	if err != nil {
+		return nil, e.ErrUpdateEnv.AddErr(fmt.Errorf("failed to acquire lock, err: %s", err))
+	}
 	defer func() {
 		mutexAutoUpdate.Unlock()
 	}()
@@ -416,9 +598,10 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]st
 	serviceRevisionMap := getServiceRevisionMap(prodRevs.ServiceRevisions)
 
 	updateProd.Status = setting.ProductStatusUpdating
+	updateProd.Error = ""
 	updateProd.ShareEnv = existedProd.ShareEnv
 
-	if err := commonrepo.NewProductColl().UpdateStatus(envName, productName, setting.ProductStatusUpdating); err != nil {
+	if err := commonrepo.NewProductColl().UpdateStatusAndError(envName, productName, setting.ProductStatusUpdating, ""); err != nil {
 		log.Errorf("[%s][P:%s] Product.UpdateStatus error: %v", envName, productName, err)
 		mongotool.AbortTransaction(session)
 		return e.ErrUpdateEnv.AddDesc(e.UpdateEnvStatusErrMsg)
@@ -775,7 +958,7 @@ func updateHelmProduct(productName, envName, username, requestID string, overrid
 	}
 
 	// set status to updating
-	if err := commonrepo.NewProductColl().UpdateStatus(envName, productName, setting.ProductStatusUpdating); err != nil {
+	if err := commonrepo.NewProductColl().UpdateStatusAndError(envName, productName, setting.ProductStatusUpdating, ""); err != nil {
 		log.Errorf("[%s][P:%s] Product.UpdateStatus error: %v", envName, productName, err)
 		return e.ErrUpdateEnv.AddDesc(e.UpdateEnvStatusErrMsg)
 	}
@@ -940,7 +1123,7 @@ func updateHelmChartProduct(productName, envName, username, requestID string, ov
 	}
 
 	// set status to updating
-	if err := commonrepo.NewProductColl().UpdateStatus(envName, productName, setting.ProductStatusUpdating); err != nil {
+	if err := commonrepo.NewProductColl().UpdateStatusAndError(envName, productName, setting.ProductStatusUpdating, ""); err != nil {
 		log.Errorf("[%s][P:%s] Product.UpdateStatus error: %v", envName, productName, err)
 		return e.ErrUpdateEnv.AddDesc(e.UpdateEnvStatusErrMsg)
 	}
@@ -1191,7 +1374,7 @@ func GeneEstimatedValues(productName, envName, serviceOrReleaseName, scene, form
 			return nil, fmt.Errorf("failed to new helm client, err %s", err)
 		}
 
-		valuesYaml, err := client.GetChartValues(commonutil.GeneHelmRepo(chartRepo), productName, serviceOrReleaseName, arg.ChartRepo, arg.ChartName, arg.ChartVersion)
+		valuesYaml, err := client.GetChartValues(commonutil.GeneHelmRepo(chartRepo), productName, serviceOrReleaseName, arg.ChartRepo, arg.ChartName, arg.ChartVersion, arg.Production)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get chart values, chartRepo: %s, chartName: %s, chartVersion: %s, err %s", arg.ChartRepo, arg.ChartName, arg.ChartVersion, err)
 		}
@@ -1606,7 +1789,7 @@ func updateHelmProductVariable(productResp *commonmodels.Product, userName, requ
 	}
 
 	// set product status to updating
-	if err := commonrepo.NewProductColl().UpdateStatus(envName, productName, setting.ProductStatusUpdating); err != nil {
+	if err := commonrepo.NewProductColl().UpdateStatusAndError(envName, productName, setting.ProductStatusUpdating, ""); err != nil {
 		log.Errorf("[%s][P:%s] Product.UpdateStatus error: %v", envName, productName, err)
 		return e.ErrUpdateEnv.AddDesc(e.UpdateEnvStatusErrMsg)
 	}
@@ -1628,12 +1811,14 @@ func updateHelmProductVariable(productResp *commonmodels.Product, userName, requ
 	return nil
 }
 
-var mutexUpdateMultiHelm sync.RWMutex
-
 func UpdateMultipleHelmEnv(requestID, userName string, args *UpdateMultiHelmProductArg, production bool, log *zap.SugaredLogger) ([]*EnvStatus, error) {
-	mutexUpdateMultiHelm.Lock()
+	mutexAutoUpdate := cache.NewRedisLock(fmt.Sprintf("update_multiple_product:%s", args.ProductName))
+	err := mutexAutoUpdate.Lock()
+	if err != nil {
+		return nil, e.ErrUpdateEnv.AddErr(fmt.Errorf("failed to acquire lock, err: %s", err))
+	}
 	defer func() {
-		mutexUpdateMultiHelm.Unlock()
+		mutexAutoUpdate.Unlock()
 	}()
 
 	envNames, productName := args.EnvNames, args.ProductName
@@ -1704,7 +1889,12 @@ func UpdateMultipleHelmEnv(requestID, userName string, args *UpdateMultiHelmProd
 }
 
 func UpdateMultipleHelmChartEnv(requestID, userName string, args *UpdateMultiHelmProductArg, production bool, log *zap.SugaredLogger) ([]*EnvStatus, error) {
-	mutexUpdateMultiHelm.Lock()
+	mutexUpdateMultiHelm := cache.NewRedisLock(fmt.Sprintf("update_multiple_product:%s", args.ProductName))
+
+	err := mutexUpdateMultiHelm.Lock()
+	if err != nil {
+		return nil, e.ErrUpdateEnv.AddErr(fmt.Errorf("failed to acquire lock, err: %s", err))
+	}
 	defer func() {
 		mutexUpdateMultiHelm.Unlock()
 	}()
@@ -2882,7 +3072,7 @@ func proceedHelmRelease(productResp *commonmodels.Product, helmClient *helmtool.
 			}
 
 			chartRef := fmt.Sprintf("%s/%s", param.RenderChart.ChartRepo, param.RenderChart.ChartName)
-			localPath := config.LocalServicePathWithRevision(param.ProductName, param.ReleaseName, param.RenderChart.ChartVersion, true)
+			localPath := config.LocalServicePathWithRevision(param.ProductName, param.ReleaseName, param.RenderChart.ChartVersion, param.Production)
 			// remove local file to untar
 			_ = os.RemoveAll(localPath)
 

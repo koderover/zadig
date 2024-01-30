@@ -17,8 +17,6 @@ limitations under the License.
 package dto
 
 import (
-	"sync"
-
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
@@ -75,7 +73,6 @@ type Task struct {
 	StorageURI    string                     `bson:"storage_uri,omitempty"          json:"storage_uri,omitempty"`
 	// interface{} 为types.TestReport
 	TestReports      map[string]interface{}       `bson:"test_reports,omitempty" json:"test_reports,omitempty"`
-	RwLock           sync.Mutex                   `bson:"-"                      json:"-"`
 	ResetImage       bool                         `bson:"resetImage"             json:"resetImage"`
 	ResetImagePolicy setting.ResetImagePolicyType `bson:"reset_image_policy"     json:"reset_image_policy"`
 	TriggerBy        *models.TriggerBy            `bson:"trigger_by,omitempty"   json:"trigger_by,omitempty"`

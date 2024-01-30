@@ -107,39 +107,6 @@ func GetDeliveryArtifact(deliveryArtifactArgs *commonrepo.DeliveryArtifactArgs, 
 	return deliveryArtifactMapInfo, nil
 }
 
-func InsertDeliveryArtifact(args *DeliveryArtifactInfo, log *zap.SugaredLogger) (string, error) {
-	deliveryArtifact := args.DeliveryArtifact
-	deliveryArtifact.CreatedTime = time.Now().Unix()
-
-	if deliveryArtifact.ImageTag != "" {
-		deliveryArtifacts, _, _ := commonrepo.NewDeliveryArtifactColl().List(&commonrepo.DeliveryArtifactArgs{Name: deliveryArtifact.Name, Type: deliveryArtifact.Type, ImageTag: deliveryArtifact.ImageTag})
-		if len(deliveryArtifacts) > 0 {
-			log.Errorf("artifact name:%s type:%s tag:%s already exist", deliveryArtifact.Name, deliveryArtifact.Type, deliveryArtifact.ImageTag)
-			return "", e.ErrCreateArtifactFailed
-		}
-	}
-	err := commonrepo.NewDeliveryArtifactColl().Insert(deliveryArtifact)
-	if err != nil {
-		log.Errorf("insert deliveryArtifact error: %v", err)
-		return "", e.ErrCreateArtifact
-	}
-	for _, deliveryActivity := range args.DeliveryActivities {
-		deliveryActivity.ArtifactID = deliveryArtifact.ID
-		deliveryActivity.CreatedTime = deliveryArtifact.CreatedTime
-		deliveryActivity.CreatedBy = deliveryArtifact.CreatedBy
-		err = commonrepo.NewDeliveryActivityColl().Insert(deliveryActivity)
-		if err != nil {
-			log.Errorf("insert deliveryActivity error: %v", err)
-			return "", e.ErrCreateActivity
-		}
-	}
-	return deliveryArtifact.ID.Hex(), nil
-}
-
-func UpdateDeliveryArtifact(args *commonrepo.DeliveryArtifactArgs, log *zap.SugaredLogger) error {
-	return commonrepo.NewDeliveryArtifactColl().Update(args)
-}
-
 func InsertDeliveryActivities(args *commonmodels.DeliveryActivity, deliveryArtifactID string, log *zap.SugaredLogger) error {
 	artifact, _ := commonrepo.NewDeliveryArtifactColl().Get(&commonrepo.DeliveryArtifactArgs{ID: deliveryArtifactID})
 	if artifact == nil {

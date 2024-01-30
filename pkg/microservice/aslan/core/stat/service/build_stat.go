@@ -99,40 +99,6 @@ func GetBuildStatByProdutName(productName string, startTimestamp int64, log *zap
 		//循环task任务获取需要的数据
 		for _, taskPreview := range taskDateMap[taskDate] {
 			switch taskP := taskPreview.(type) {
-			case *taskmodels.Task:
-				stages := taskP.Stages
-				for _, subStage := range stages {
-					taskType := subStage.TaskType
-					switch taskType {
-					case config.TaskBuild:
-						// 获取构建时长
-						for _, subTask := range subStage.SubTasks {
-							buildInfo, err := base.ToBuildTask(subTask)
-							if err != nil {
-								log.Errorf("BuildStat ToBuildTask err:%v", err)
-								continue
-							}
-							if buildInfo.TaskStatus == config.StatusPassed {
-								totalSuccess++
-							} else if buildInfo.TaskStatus == config.StatusFailed {
-								totalFailure++
-							} else if buildInfo.TaskStatus == config.StatusTimeout {
-								totalTimeout++
-							} else {
-								continue
-							}
-
-							totalDuration += buildInfo.EndTime - buildInfo.StartTime
-							maxDurationPipeline := new(models.PipelineInfo)
-							maxDurationPipeline.PipelineName = taskP.PipelineName
-							maxDurationPipeline.DisplayName = taskP.PipelineDisplayName
-							maxDurationPipeline.TaskID = taskP.TaskID
-							maxDurationPipeline.Type = string(taskP.Type)
-							maxDurationPipeline.MaxDuration = buildInfo.EndTime - buildInfo.StartTime
-							maxDurationPipelines = append(maxDurationPipelines, maxDurationPipeline)
-						}
-					}
-				}
 			case *commonmodels.WorkflowTask:
 				stages := taskP.Stages
 				for _, stage := range stages {

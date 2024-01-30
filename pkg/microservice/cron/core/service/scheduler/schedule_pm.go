@@ -35,7 +35,8 @@ func (c *CronClient) UpdatePmHostStatusScheduler(log *zap.SugaredLogger) {
 
 	log.Info("start init pm host status scheduler..")
 	for _, hostElem := range hosts {
-		if hostElem.Type == setting.NewVMType && hostElem.Agent != nil {
+		if hostElem.Type == setting.NewVMType && hostElem.Agent != nil && hostElem.ScheduleWorkflow && hostElem.Agent.LastHeartbeatTime != 0 {
+			// agent
 			if hostElem.Status != setting.VMNormal {
 				continue
 			}
@@ -53,49 +54,50 @@ func (c *CronClient) UpdatePmHostStatusScheduler(log *zap.SugaredLogger) {
 					}
 				}
 			}
-			continue
+		} else if hostElem.IP != "" && !hostElem.ScheduleWorkflow {
+			// ssh
+			go func(hostPm *service.PrivateKeyHosts, log *zap.SugaredLogger) {
+				if hostPm.Port == 0 {
+					hostPm.Port = setting.PMHostDefaultPort
+				}
+				newStatus := setting.PMHostStatusAbnormal
+				if hostPm.Probe == nil {
+					hostPm.Probe = &types.Probe{ProbeScheme: setting.ProtocolTCP}
+				}
+				var err error
+				msg := ""
+
+				switch hostPm.Probe.ProbeScheme {
+				case setting.ProtocolHTTP, setting.ProtocolHTTPS:
+					if hostPm.Probe.HttpProbe == nil {
+						break
+					}
+					msg, err = doHTTPProbe(string(hostPm.Probe.ProbeScheme), hostPm.IP, hostPm.Probe.HttpProbe.Path, hostPm.Probe.HttpProbe.Port, hostPm.Probe.HttpProbe.HTTPHeaders, time.Duration(hostPm.Probe.HttpProbe.TimeOutSecond)*time.Second, hostPm.Probe.HttpProbe.ResponseSuccessFlag, log)
+					if err != nil {
+						log.Warnf("doHttpProbe err:%s", err)
+					}
+				case setting.ProtocolTCP:
+					msg, err = doTCPProbe(hostPm.IP, int(hostPm.Port), 3*time.Second, log)
+					if err != nil {
+						log.Warnf("doTCPProbe TCP %s:%d err: %s)", hostPm.IP, hostPm.Port, err)
+					}
+				}
+
+				if msg == Success {
+					newStatus = setting.PMHostStatusNormal
+				}
+
+				if hostPm.Status == newStatus {
+					return
+				}
+				hostPm.Status = newStatus
+				hostPm.Error = errors.New("probe failed to connect to the host").Error()
+
+				err = c.AslanCli.UpdatePmHost(hostPm, log)
+				if err != nil {
+					log.Error(err)
+				}
+			}(hostElem, log)
 		}
-		go func(hostPm *service.PrivateKeyHosts, log *zap.SugaredLogger) {
-			if hostPm.Port == 0 {
-				hostPm.Port = setting.PMHostDefaultPort
-			}
-			newStatus := setting.PMHostStatusAbnormal
-			if hostPm.Probe == nil {
-				hostPm.Probe = &types.Probe{ProbeScheme: setting.ProtocolTCP}
-			}
-			var err error
-			msg := ""
-
-			switch hostPm.Probe.ProbeScheme {
-			case setting.ProtocolHTTP, setting.ProtocolHTTPS:
-				if hostPm.Probe.HttpProbe == nil {
-					break
-				}
-				msg, err = doHTTPProbe(string(hostPm.Probe.ProbeScheme), hostPm.IP, hostPm.Probe.HttpProbe.Path, hostPm.Probe.HttpProbe.Port, hostPm.Probe.HttpProbe.HTTPHeaders, time.Duration(hostPm.Probe.HttpProbe.TimeOutSecond)*time.Second, hostPm.Probe.HttpProbe.ResponseSuccessFlag, log)
-				if err != nil {
-					log.Warnf("doHttpProbe err:%s", err)
-				}
-			case setting.ProtocolTCP:
-				msg, err = doTCPProbe(hostPm.IP, int(hostPm.Port), 3*time.Second, log)
-				if err != nil {
-					log.Warnf("doTCPProbe TCP %s:%d err: %s)", hostPm.IP, hostPm.Port, err)
-				}
-			}
-
-			if msg == Success {
-				newStatus = setting.PMHostStatusNormal
-			}
-
-			if hostPm.Status == newStatus {
-				return
-			}
-			hostPm.Status = newStatus
-			hostPm.Error = errors.New("probe failed to connect to the host").Error()
-
-			err = c.AslanCli.UpdatePmHost(hostPm, log)
-			if err != nil {
-				log.Error(err)
-			}
-		}(hostElem, log)
 	}
 }

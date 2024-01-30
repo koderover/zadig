@@ -17,87 +17,119 @@
 package approval
 
 import (
+	"encoding/json"
+	"errors"
 	"fmt"
-	"sync"
 	"time"
 
+	"github.com/redis/go-redis/v9"
+
+	config2 "github.com/koderover/zadig/v2/pkg/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/v2/pkg/tool/cache"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
-type ApproveMap struct {
-	m map[string]*ApproveWithLock
-	sync.RWMutex
+type GlobalApproveManager struct {
 }
 
-type ApproveWithLock struct {
-	Approval *commonmodels.NativeApproval
-	sync.RWMutex
+var GlobalApproveMap GlobalApproveManager
+
+func approveKey(instanceID string) string {
+	return fmt.Sprintf("native-approve-%s", instanceID)
 }
 
-var GlobalApproveMap ApproveMap
-
-func init() {
-	GlobalApproveMap.m = make(map[string]*ApproveWithLock, 0)
+func approveLockKey(instanceID string) string {
+	return fmt.Sprintf("native-approve-lock-%s", instanceID)
 }
 
-func (c *ApproveMap) SetApproval(key string, value *ApproveWithLock) {
-	c.Lock()
-	defer c.Unlock()
-	c.m[key] = value
+func (c *GlobalApproveManager) SetApproval(key string, value *commonmodels.NativeApproval) {
+	bytes, _ := json.Marshal(value)
+	cache.NewRedisCache(config2.RedisCommonCacheTokenDB()).Write(approveKey(key), string(bytes), time.Duration(value.Timeout)*time.Minute)
 }
 
-func (c *ApproveMap) GetApproval(key string) (*ApproveWithLock, bool) {
-	c.RLock()
-	defer c.RUnlock()
-	v, existed := c.m[key]
-	return v, existed
-}
-func (c *ApproveMap) DeleteApproval(key string) {
-	c.Lock()
-	defer c.Unlock()
-	delete(c.m, key)
+func (c *GlobalApproveManager) GetApproval(key string) (*commonmodels.NativeApproval, bool) {
+	value, err := cache.NewRedisCache(config2.RedisCommonCacheTokenDB()).GetString(approveKey(key))
+	if err != nil && !errors.Is(err, redis.Nil) {
+		log.Errorf("get approval from redis error: %v", err)
+		return nil, false
+	}
+
+	if errors.Is(err, redis.Nil) {
+		return nil, false
+	}
+
+	approval := &commonmodels.NativeApproval{}
+	err = json.Unmarshal([]byte(value), approval)
+	if err != nil {
+		log.Errorf("unmarshal approval error: %v", err)
+		return nil, false
+	}
+	return approval, true
 }
 
-func (c *ApproveWithLock) IsApproval() (bool, int, error) {
-	c.Lock()
-	defer c.Unlock()
+func (c *GlobalApproveManager) DeleteApproval(key string) {
+	cache.NewRedisCache(config2.RedisCommonCacheTokenDB()).Delete(approveKey(key))
+}
+
+func (c *GlobalApproveManager) DoApproval(key, userName, userID, comment string, approve bool) (*commonmodels.NativeApproval, error) {
+	redisMutex := cache.NewRedisLock(approveLockKey(key))
+	redisMutex.Lock()
+	defer redisMutex.Unlock()
+
+	approvalData, ok := c.GetApproval(key)
+	if !ok {
+		return nil, fmt.Errorf("not found approval")
+	}
+
+	meetUser := false
+	for _, user := range approvalData.ApproveUsers {
+		if user.UserID != userID {
+			continue
+		}
+		if user.RejectOrApprove != "" {
+			return nil, fmt.Errorf("%s have %s already", userName, user.RejectOrApprove)
+		}
+		user.Comment = comment
+		user.OperationTime = time.Now().Unix()
+		if approve {
+			user.RejectOrApprove = config.Approve
+			meetUser = true
+			break
+		} else {
+			user.RejectOrApprove = config.Reject
+			meetUser = true
+			break
+		}
+	}
+	if !meetUser {
+		return nil, fmt.Errorf("user %s has no authority to Approve", userName)
+	}
+
+	c.SetApproval(key, approvalData)
+	return approvalData, nil
+}
+
+func (c *GlobalApproveManager) IsApproval(key string) (bool, int, error) {
+	approval, ok := c.GetApproval(key)
+	if !ok {
+		return false, 0, fmt.Errorf("not found approval")
+	}
+
 	ApproveCount := 0
-	for _, user := range c.Approval.ApproveUsers {
+	for _, user := range approval.ApproveUsers {
 		if user.RejectOrApprove == config.Reject {
-			c.Approval.RejectOrApprove = config.Reject
+			approval.RejectOrApprove = config.Reject
 			return false, ApproveCount, fmt.Errorf("%s reject this task", user.UserName)
 		}
 		if user.RejectOrApprove == config.Approve {
 			ApproveCount++
 		}
 	}
-	if ApproveCount >= c.Approval.NeededApprovers {
-		c.Approval.RejectOrApprove = config.Approve
+	if ApproveCount >= approval.NeededApprovers {
+		approval.RejectOrApprove = config.Approve
 		return true, ApproveCount, nil
 	}
 	return false, ApproveCount, nil
-}
-
-func (c *ApproveWithLock) DoApproval(userName, userID, comment string, appvove bool) error {
-	c.Lock()
-	defer c.Unlock()
-	for _, user := range c.Approval.ApproveUsers {
-		if user.UserID != userID {
-			continue
-		}
-		if user.RejectOrApprove != "" {
-			return fmt.Errorf("%s have %s already", userName, user.RejectOrApprove)
-		}
-		user.Comment = comment
-		user.OperationTime = time.Now().Unix()
-		if appvove {
-			user.RejectOrApprove = config.Approve
-			return nil
-		} else {
-			user.RejectOrApprove = config.Reject
-			return nil
-		}
-	}
-	return fmt.Errorf("user %s has no authority to Approve", userName)
 }

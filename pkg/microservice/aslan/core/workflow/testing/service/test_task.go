@@ -19,7 +19,9 @@ package service
 import (
 	"fmt"
 	"sort"
+	"strconv"
 
+	"github.com/koderover/zadig/v2/pkg/types"
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
@@ -135,5 +137,314 @@ func CreateTestTask(args *commonmodels.TestTaskArgs, log *zap.SugaredLogger) (*C
 
 	_ = scmnotify.NewService().UpdateWebhookCommentForTest(task, log)
 	resp := &CreateTaskResp{PipelineName: pipelineName, TaskID: nextTaskID}
+	return resp, nil
+}
+
+// CreateTestTaskV2 creates a test task, but with the new custom workflow engine
+func CreateTestTaskV2(args *commonmodels.TestTaskArgs, username, account, userID string, log *zap.SugaredLogger) (*CreateTaskResp, error) {
+	if args == nil {
+		return nil, fmt.Errorf("args should not be nil")
+	}
+
+	testInfo, err := commonrepo.NewTestingColl().Find(args.TestName, args.ProductName)
+	if err != nil {
+		log.Errorf("find test[%s] error: %v", args.TestName, err)
+		return nil, fmt.Errorf("find test[%s] error: %v", args.TestName, err)
+	}
+
+	for _, repo := range testInfo.Repos {
+		workflowservice.SetRepoInfo(repo, testInfo.Repos, log)
+	}
+
+	testWorkflow, err := generateCustomWorkflowFromTestingModule(testInfo, args)
+
+	createResp, err := workflowservice.CreateWorkflowTaskV4(&workflowservice.CreateWorkflowTaskV4Args{
+		Name:    username,
+		Account: account,
+		UserID:  userID,
+		Type:    config.WorkflowTaskTypeTesting,
+	}, testWorkflow, log)
+
+	if createResp != nil {
+		return &CreateTaskResp{
+			PipelineName: createResp.WorkflowName,
+			TaskID:       createResp.TaskID,
+		}, err
+	}
+
+	return nil, err
+}
+
+type TestTaskList struct {
+	Total int                       `json:"total"`
+	Tasks []*commonrepo.TaskPreview `json:"tasks"`
+}
+
+func ListTestTask(testName, projectKey string, pageNum, pageSize int, log *zap.SugaredLogger) (*TestTaskList, error) {
+	workflowName := fmt.Sprintf(setting.TestWorkflowNamingConvention, testName)
+	workflowTasks, total, err := commonrepo.NewworkflowTaskv4Coll().List(&commonrepo.ListWorkflowTaskV4Option{
+		WorkflowName: workflowName,
+		ProjectName:  projectKey,
+		Skip:         (pageNum - 1) * pageSize,
+		Limit:        pageSize,
+	})
+
+	if err != nil {
+		log.Errorf("failed to find testing module task of test: %s (common workflow name: %s), error: %s", testName, workflowName, err)
+		return nil, err
+	}
+
+	taskPreviewList := make([]*commonrepo.TaskPreview, 0)
+
+	for _, testTask := range workflowTasks {
+		testResultMap := make(map[string]interface{})
+
+		testResultList, err := commonrepo.NewCustomWorkflowTestReportColl().ListByWorkflow(workflowName, testName, testTask.TaskID)
+		if err != nil {
+			log.Errorf("failed to list junit test report for workflow: %s, error: %s", workflowName, err)
+			return nil, fmt.Errorf("failed to list junit test report for workflow: %s, error: %s", workflowName, err)
+		}
+
+		for _, testResult := range testResultList {
+			mapKey := testName
+			if testResult.TestName != "" {
+				mapKey = testResult.TestName
+			}
+			testResultMap[mapKey] = &commonmodels.TestSuite{
+				Tests:     testResult.TestCaseNum,
+				Failures:  testResult.FailedCaseNum,
+				Successes: testResult.SuccessCaseNum,
+				Skips:     testResult.SkipCaseNum,
+				Errors:    testResult.ErrorCaseNum,
+				Time:      testResult.TestTime,
+				TestCases: testResult.TestCases,
+				Name:      testResult.TestName,
+			}
+		}
+
+		taskPreviewList = append(taskPreviewList, &commonrepo.TaskPreview{
+			TaskID:       testTask.TaskID,
+			TaskCreator:  testTask.TaskCreator,
+			ProductName:  projectKey,
+			PipelineName: testName,
+			Status:       testTask.Status,
+			CreateTime:   testTask.CreateTime,
+			StartTime:    testTask.StartTime,
+			EndTime:      testTask.EndTime,
+			TestReports:  testResultMap,
+		})
+	}
+
+	return &TestTaskList{
+		Total: int(total),
+		Tasks: taskPreviewList,
+	}, nil
+}
+
+func GetTestTaskDetail(projectKey, testName string, taskID int64, log *zap.SugaredLogger) (*task.Task, error) {
+	workflowName := fmt.Sprintf(setting.TestWorkflowNamingConvention, testName)
+	workflowTask, err := commonrepo.NewworkflowTaskv4Coll().Find(workflowName, taskID)
+	if err != nil {
+		log.Errorf("failed to find workflow task %d for test: %s, error: %s", taskID, testName, err)
+		return nil, err
+	}
+
+	testResultMap := make(map[string]interface{})
+
+	testResultList, err := commonrepo.NewCustomWorkflowTestReportColl().ListByWorkflow(workflowName, testName, taskID)
+	if err != nil {
+		log.Errorf("failed to list junit test report for workflow: %s, error: %s", workflowName, err)
+		return nil, fmt.Errorf("failed to list junit test report for workflow: %s, error: %s", workflowName, err)
+	}
+
+	reportReady := false
+	if len(testResultList) > 0 {
+		reportReady = true
+	}
+
+	for _, testResult := range testResultList {
+		mapKey := testName
+		if testResult.TestName != "" {
+			mapKey = testResult.TestName
+		}
+		testResultMap[mapKey] = &commonmodels.TestSuite{
+			Tests:     testResult.TestCaseNum,
+			Failures:  testResult.FailedCaseNum,
+			Successes: testResult.SuccessCaseNum,
+			Skips:     testResult.SkipCaseNum,
+			Errors:    testResult.ErrorCaseNum,
+			Time:      testResult.TestTime,
+			TestCases: testResult.TestCases,
+			Name:      testResult.TestName,
+		}
+	}
+
+	if len(workflowTask.WorkflowArgs.Stages) != 1 || len(workflowTask.WorkflowArgs.Stages[0].Jobs) != 1 {
+		errMsg := fmt.Sprintf("invalid test task!")
+		log.Errorf(errMsg)
+		return nil, fmt.Errorf(errMsg)
+	}
+
+	stages := make([]*commonmodels.Stage, 0)
+
+	subTaskInfo := make(map[string]map[string]interface{})
+
+	args := new(commonmodels.ZadigTestingJobSpec)
+	err = commonmodels.IToi(workflowTask.WorkflowArgs.Stages[0].Jobs[0].Spec, args)
+	if err != nil {
+		log.Errorf("failed to decode testing job args, err: %s", err)
+		return nil, err
+	}
+
+	if len(args.TestModules) != 1 {
+		log.Errorf("wrong test length: %d", len(args.TestModules))
+		return nil, fmt.Errorf("wrong test length: %d", len(args.TestModules))
+	}
+
+	spec := new(workflowservice.ZadigTestingJobSpec)
+	err = commonmodels.IToi(workflowTask.WorkflowArgs.Stages[0].Jobs[0].Spec, spec)
+	if err != nil {
+		log.Errorf("failed to decode testing job spec , err: %s", err)
+		return nil, err
+	}
+
+	subTaskInfo[testName] = map[string]interface{}{
+		"start_time": workflowTask.Stages[0].Jobs[0].StartTime,
+		"end_time":   workflowTask.Stages[0].Jobs[0].EndTime,
+		"status":     workflowTask.Stages[0].Jobs[0].Status,
+		"job_ctx": struct {
+			IsHasArtifact bool                `json:"is_has_artifact"`
+			Builds        []*types.Repository `json:"builds"`
+		}{
+			spec.Archive,
+			args.TestModules[0].Repos,
+		},
+		"report_ready": reportReady,
+		"type":         "testingv2",
+	}
+
+	stages = append(stages, &commonmodels.Stage{
+		TaskType:  "testingv2",
+		Status:    workflowTask.Stages[0].Status,
+		SubTasks:  subTaskInfo,
+		StartTime: workflowTask.Stages[0].StartTime,
+		EndTime:   workflowTask.Stages[0].EndTime,
+		TypeName:  workflowTask.Stages[0].Name,
+	})
+
+	return &task.Task{
+		TaskID:              workflowTask.TaskID,
+		ProductName:         workflowTask.ProjectName,
+		PipelineName:        workflowName,
+		PipelineDisplayName: testName,
+		Type:                "test",
+		Status:              workflowTask.Status,
+		TaskCreator:         workflowTask.TaskCreator,
+		TaskRevoker:         workflowTask.TaskRevoker,
+		CreateTime:          workflowTask.CreateTime,
+		StartTime:           workflowTask.StartTime,
+		EndTime:             workflowTask.EndTime,
+		Stages:              stages,
+		TestReports:         testResultMap,
+		IsRestart:           workflowTask.IsRestart,
+	}, nil
+}
+
+func GetTestTaskReportDetail(projectKey, testName string, taskID int64, log *zap.SugaredLogger) ([]*commonmodels.TestSuite, error) {
+	workflowName := fmt.Sprintf(setting.TestWorkflowNamingConvention, testName)
+	testResults := make([]*commonmodels.TestSuite, 0)
+
+	testResultList, err := commonrepo.NewCustomWorkflowTestReportColl().ListByWorkflow(workflowName, testName, taskID)
+	if err != nil {
+		log.Errorf("failed to list junit test report for workflow: %s, error: %s", workflowName, err)
+		return nil, fmt.Errorf("failed to list junit test report for workflow: %s, error: %s", workflowName, err)
+	}
+
+	for _, testResult := range testResultList {
+		testResults = append(testResults, &commonmodels.TestSuite{
+			Tests:     testResult.TestCaseNum,
+			Failures:  testResult.FailedCaseNum,
+			Successes: testResult.SuccessCaseNum,
+			Skips:     testResult.SkipCaseNum,
+			Errors:    testResult.ErrorCaseNum,
+			Time:      testResult.TestTime,
+			TestCases: testResult.TestCases,
+			Name:      testResult.TestName,
+		})
+	}
+
+	return testResults, nil
+}
+
+func generateCustomWorkflowFromTestingModule(testInfo *commonmodels.Testing, args *commonmodels.TestTaskArgs) (*commonmodels.WorkflowV4, error) {
+	concurrencyLimit := 1
+	if testInfo.PreTest != nil {
+		concurrencyLimit = testInfo.PreTest.ConcurrencyLimit
+	}
+	// compatibility code
+	if concurrencyLimit == 0 {
+		concurrencyLimit = -1
+	}
+
+	resp := &commonmodels.WorkflowV4{
+		Name:             fmt.Sprintf(setting.TestWorkflowNamingConvention, testInfo.Name),
+		DisplayName:      testInfo.Name,
+		Stages:           nil,
+		Project:          testInfo.ProductName,
+		CreatedBy:        "system",
+		ConcurrencyLimit: concurrencyLimit,
+		NotifyCtls:       testInfo.NotifyCtls,
+		NotificationID:   args.NotificationID,
+	}
+
+	pr, _ := strconv.Atoi(args.MergeRequestID)
+	for i, build := range testInfo.Repos {
+		if build.Source == args.Source && build.RepoOwner == args.RepoOwner && build.RepoName == args.RepoName {
+			testInfo.Repos[i].PR = pr
+			if pr != 0 {
+				testInfo.Repos[i].PRs = []int{pr}
+			}
+			if args.Branch != "" {
+				testInfo.Repos[i].Branch = args.Branch
+			}
+		}
+	}
+
+	stage := make([]*commonmodels.WorkflowStage, 0)
+
+	job := make([]*commonmodels.Job, 0)
+	job = append(job, &commonmodels.Job{
+		Name:    testInfo.Name,
+		JobType: config.JobZadigTesting,
+		Skipped: false,
+		Spec: &commonmodels.ZadigTestingJobSpec{
+			TestType:       "",
+			Source:         config.SourceRuntime,
+			JobName:        "",
+			OriginJobName:  "",
+			TargetServices: nil,
+			TestModules: []*commonmodels.TestModule{
+				{
+					Name:        testInfo.Name,
+					ProjectName: testInfo.ProductName,
+					KeyVals:     testInfo.PreTest.Envs,
+					Repos:       testInfo.Repos,
+				},
+			},
+			ServiceAndTests: nil,
+		},
+		RunPolicy:      "",
+		ServiceModules: nil,
+	})
+
+	stage = append(stage, &commonmodels.WorkflowStage{
+		Name:     "test",
+		Parallel: false,
+		Approval: nil,
+		Jobs:     job,
+	})
+
+	resp.Stages = stage
+
 	return resp, nil
 }

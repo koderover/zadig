@@ -257,6 +257,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		environments.GET("/:name/workloads", ListWorkloadsInEnv)
 
 		environments.GET("/:name/helm/releases", ListReleases)
+		environments.DELETE("/:name/helm/releases", DeleteHelmReleases)
 		environments.GET("/:name/helm/values", GetChartValues)
 		environments.GET("/:name/helm/charts", GetChartInfos)
 		environments.GET("/:name/helm/images", GetImageInfos)
@@ -265,6 +266,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		environments.PUT("/:name/services", DeleteProductServices)
 		environments.GET("/:name/services/:serviceName", GetService)
 		environments.PUT("/:name/services/:serviceName", UpdateService)
+		environments.GET("/:name/services/:serviceName/yaml", FetchServiceYaml)
 		environments.POST("/:name/services/:serviceName/preview", PreviewService)
 		environments.POST("/:name/services/preview/batch", BatchPreviewServices)
 		environments.POST("/:name/services/:serviceName/restart", RestartService)
@@ -327,6 +329,11 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	bundles := router.Group("bundle-resources")
 	{
 		bundles.GET("", GetBundleResources)
+	}
+
+	initialize := router.Group("init")
+	{
+		initialize.POST("/type/:envType", InitializeEnv)
 	}
 }
 

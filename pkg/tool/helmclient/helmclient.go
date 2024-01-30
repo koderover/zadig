@@ -802,9 +802,9 @@ func (hClient *HelmClient) PushChart(repoEntry *repo.Entry, chartPath string) er
 	}
 }
 
-func (hClient *HelmClient) GetChartValues(repoEntry *repo.Entry, projectName, releaseName, chartRepo, chartName, chartVersion string) (string, error) {
+func (hClient *HelmClient) GetChartValues(repoEntry *repo.Entry, projectName, releaseName, chartRepo, chartName, chartVersion string, isProduction bool) (string, error) {
 	chartRef := fmt.Sprintf("%s/%s", chartRepo, chartName)
-	localPath := config.LocalServicePathWithRevision(projectName, releaseName, chartVersion, true)
+	localPath := config.LocalServicePathWithRevision(projectName, releaseName, chartVersion, isProduction)
 	// remove local file to untar
 	_ = os.RemoveAll(localPath)
 

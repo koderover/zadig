@@ -136,6 +136,19 @@ func InCompletedStatus() []Status {
 	return []Status{StatusCreated, StatusRunning, StatusWaiting, StatusQueued, StatusBlocked, QueueItemPending, StatusPrepare, StatusWaitingApprove}
 }
 
+func CompletedStatus() []Status {
+	return []Status{StatusPassed, StatusFailed, StatusTimeout, StatusCancelled, StatusReject}
+}
+
+type CustomWorkflowTaskType string
+
+const (
+	WorkflowTaskTypeWorkflow CustomWorkflowTaskType = "workflow"
+	WorkflowTaskTypeTesting  CustomWorkflowTaskType = "test"
+	WorkflowTaskTypeScanning CustomWorkflowTaskType = "scan"
+	WorkflowTaskTypeDelivery CustomWorkflowTaskType = "delivery"
+)
+
 type TaskStatus string
 
 const (
@@ -177,12 +190,15 @@ type StepType string
 const (
 	StepTools             StepType = "tools"
 	StepShell             StepType = "shell"
+	StepBatchFile         StepType = "batch_file"
+	StepPowerShell        StepType = "powershell"
 	StepGit               StepType = "git"
 	StepDockerBuild       StepType = "docker_build"
 	StepDeploy            StepType = "deploy"
 	StepHelmDeploy        StepType = "helm_deploy"
 	StepCustomDeploy      StepType = "custom_deploy"
 	StepImageDistribute   StepType = "image_distribute"
+	StepDownloadArtifact  StepType = "download_artifact"
 	StepArchive           StepType = "archive"
 	StepArchiveDistribute StepType = "archive_distribute"
 	StepJunitReport       StepType = "junit_report"
@@ -205,6 +221,7 @@ const (
 	JobZadigScanning        JobType = "zadig-scanning"
 	JobCustomDeploy         JobType = "custom-deploy"
 	JobZadigDeploy          JobType = "zadig-deploy"
+	JobZadigVMDeploy        JobType = "zadig-vm-deploy"
 	JobZadigHelmDeploy      JobType = "zadig-helm-deploy"
 	JobZadigHelmChartDeploy JobType = "zadig-helm-chart-deploy"
 	JobFreestyle            JobType = "freestyle"

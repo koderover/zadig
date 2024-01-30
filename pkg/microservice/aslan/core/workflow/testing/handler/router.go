@@ -30,6 +30,12 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		testReport.GET("workflowv4/:workflowName/id/:id/job/:jobName", GetWorkflowV4HTMLTestReport)
 	}
 
+	// sse apis
+	sse := router.Group("sse")
+	{
+		sse.GET("/:testName/tasks/:taskID", GetTestingTaskSSE)
+	}
+
 	// ---------------------------------------------------------------------------------------
 	// 系统测试接口
 	// ---------------------------------------------------------------------------------------
@@ -38,7 +44,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		itReport.GET("/pipelines/:pipelineName/id/:id/names/:testName", GetLocalTestSuite)
 		itReport.GET("/workflowv4/:workflowName/id/:id/job/:jobName", GetWorkflowV4LocalTestSuite)
 		itReport.GET("/workflow/:pipelineName/id/:id/names/:testName/service/:serviceName", GetWorkflowLocalTestSuite)
-		itReport.GET("/latest/service/:serviceName", GetTestLocalTestSuite)
+		itReport.GET("/latest/service/:testName", GetTestLocalTestSuite)
 	}
 
 	// ---------------------------------------------------------------------------------------
@@ -90,8 +96,15 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	testTask := router.Group("testtask")
 	{
 		testTask.POST("", CreateTestTask)
-		testTask.POST("/productName/:productName/id/:id/pipelines/:name/restart", RestartTestTask)
-		testTask.DELETE("/productName/:productName/id/:id/pipelines/:name", CancelTestTaskV2)
+		testTask.GET("", ListTestTask)
+		testTask.DELETE("", CancelTestTaskV3)
+		testTask.GET("/detail", GetTestTaskInfo)
+		testTask.GET("/report", GetTestTaskReportInfo)
+		testTask.POST("/restart", RestartTestTaskV2)
+		testTask.GET("/artifact", GetTestingTaskArtifact)
+		// TODO:  below is the deprecated apis, remove after 2.2.0
+		//testTask.POST("/productName/:productName/id/:id/pipelines/:name/restart", RestartTestTask)
+		//testTask.DELETE("/productName/:productName/id/:id/pipelines/:name", CancelTestTaskV2)
 	}
 
 	// ---------------------------------------------------------------------------------------
@@ -100,6 +113,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	workspace := router.Group("workspace")
 	{
 		workspace.GET("/workflow/:pipelineName/taskId/:taskId", GetTestArtifactInfo)
+		workspace.GET("/testing/:testName/taskId/:taskId", GetTestArtifactInfoV2)
 		workspace.GET("/workflowv4/:workflowName/taskId/:taskId/job/:jobName", GetWorkflowV4TestArtifactInfo)
 	}
 }

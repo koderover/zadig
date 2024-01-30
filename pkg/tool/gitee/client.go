@@ -18,23 +18,22 @@ package gitee
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/url"
-	"sync"
 	"time"
 
 	"gitee.com/openeuler/go-gitee/gitee"
 	"golang.org/x/oauth2"
 
 	"github.com/koderover/zadig/v2/pkg/shared/client/systemconfig"
+	"github.com/koderover/zadig/v2/pkg/tool/cache"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
 type Client struct {
 	*gitee.APIClient
 }
-
-var mu = &sync.RWMutex{}
 
 func NewClient(id int, address, accessToken, proxyAddr string, enableProxy bool) *Client {
 	var (
@@ -58,8 +57,13 @@ func NewClient(id int, address, accessToken, proxyAddr string, enableProxy bool)
 	}
 
 	if accessToken != "" {
-		mu.Lock()
+		mu := cache.NewRedisLock(fmt.Sprintf("gitee_token_refresh:%d", id))
+		err := mu.Lock()
+		if err != nil {
+			log.Errorf("failed to acquire lock, err: %s", err)
+		}
 		defer mu.Unlock()
+
 		ch, err := systemconfig.New().GetCodeHost(id)
 		// The normal expiration time is 86400
 		if err == nil && (time.Now().Unix()-ch.UpdatedAt) >= 86000 {

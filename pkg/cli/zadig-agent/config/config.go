@@ -70,6 +70,10 @@ type AgentConfig struct {
 	ErrMsg            string `yaml:"err_msg"`
 	ScheduleWorkflow  bool   `yaml:"schedule_workflow"`
 	WorkDirectory     string `yaml:"work_directory"`
+	BuildGoVersion    string `yaml:"build_go_version"`
+	BuildCommit       string `yaml:"build_commit"`
+	BuildTime         string `yaml:"build_time"`
+	EnableDebug       bool   `yaml:"enable_debug"`
 }
 
 func InitConfig() bool {
@@ -96,8 +100,14 @@ func InitConfig() bool {
 		if err != nil {
 			log.Panicf("failed to unmarshal agent config file: %v", err)
 		}
+
 		if config.Token != "" && config.ServerURL != "" {
 			agentConfig = config
+			agentConfig.AgentVersion = BuildAgentVersion
+			agentConfig.BuildCommit = BuildCommit
+			agentConfig.BuildGoVersion = BuildGoVersion
+			agentConfig.BuildTime = BuildTime
+
 			return true
 		}
 		err = os.Remove(path)
@@ -378,6 +388,26 @@ func GetWorkDirectory() string {
 	return agentConfig.WorkDirectory
 }
 
+func GetEnableDebug() bool {
+	return agentConfig.EnableDebug
+}
+
+func GetAgentVersion() string {
+	return agentConfig.AgentVersion
+}
+
+func GetBuildCommit() string {
+	return agentConfig.BuildCommit
+}
+
+func GetBuildGoVersion() string {
+	return agentConfig.BuildGoVersion
+}
+
+func GetBuildTime() string {
+	return agentConfig.BuildTime
+}
+
 func GetAgentConfig() (*AgentConfig, error) {
 	if agentConfig == nil {
 		path, err := GetAgentConfigFilePath()
@@ -404,6 +434,10 @@ func GetAgentConfig() (*AgentConfig, error) {
 			}
 
 			agentConfig = config
+			agentConfig.AgentVersion = BuildAgentVersion
+			agentConfig.BuildCommit = BuildCommit
+			agentConfig.BuildGoVersion = BuildGoVersion
+			agentConfig.BuildTime = BuildTime
 			return config, nil
 		} else {
 			return nil, fmt.Errorf("agent config file not found")
@@ -487,13 +521,14 @@ func BatchUpdateAgentConfig(config *AgentConfig) error {
 		oldConfig.CacheType = config.CacheType
 	}
 
-	if config.AgentVersion != "" {
-		oldConfig.AgentVersion = config.AgentVersion
-	}
-
 	if config.ZadigVersion != "" {
 		oldConfig.ZadigVersion = config.ZadigVersion
 	}
+
+	oldConfig.AgentVersion = BuildAgentVersion
+	oldConfig.BuildCommit = BuildCommit
+	oldConfig.BuildGoVersion = BuildGoVersion
+	oldConfig.BuildTime = BuildTime
 
 	err = UpdateAgentConfigFile(oldConfig, path)
 	if err != nil {

@@ -25,6 +25,7 @@ import (
 	"strconv"
 	"strings"
 
+	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -484,7 +485,9 @@ func ListPipelineTasksV2Result(name string, typeString config.PipelineType, quer
 func GetPipelineTaskV2(taskID int64, pipelineName string, typeString config.PipelineType, log *zap.SugaredLogger) (*task.Task, error) {
 	resp, err := commonrepo.NewTaskColl().Find(taskID, pipelineName, typeString)
 	if err != nil {
-		log.Errorf("[%d:%s] PipelineTaskV2.Find error: %v", taskID, pipelineName, err)
+		if err != mongo.ErrNoDocuments {
+			log.Errorf("[%d:%s] PipelineTaskV2.Find error: %v", taskID, pipelineName, err)
+		}
 		return resp, e.ErrGetTask
 	}
 

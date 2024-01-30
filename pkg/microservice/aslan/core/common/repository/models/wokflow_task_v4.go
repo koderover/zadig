@@ -27,37 +27,42 @@ import (
 )
 
 type WorkflowTask struct {
-	ID                  primitive.ObjectID `bson:"_id,omitempty"             json:"id,omitempty"`
-	TaskID              int64              `bson:"task_id"                   json:"task_id"`
-	WorkflowName        string             `bson:"workflow_name"             json:"workflow_name"`
-	WorkflowHash        string             `bson:"workflow_hash"             json:"workflow_hash"`
-	WorkflowDisplayName string             `bson:"workflow_display_name"     json:"workflow_display_name"`
-	Params              []*Param           `bson:"params"                    json:"params"`
-	WorkflowArgs        *WorkflowV4        `bson:"workflow_args"             json:"workflow_args"`
-	OriginWorkflowArgs  *WorkflowV4        `bson:"origin_workflow_args"      json:"origin_workflow_args"`
-	KeyVals             []*KeyVal          `bson:"key_vals"                  json:"key_vals"`
-	GlobalContext       map[string]string  `bson:"global_context"            json:"global_context"`
-	ClusterIDMap        map[string]bool    `bson:"cluster_id_map"            json:"cluster_id_map"`
-	Status              config.Status      `bson:"status"                    json:"status,omitempty"`
-	TaskCreator         string             `bson:"task_creator"              json:"task_creator,omitempty"`
-	TaskCreatorPhone    string             `bson:"task_creator_phone"        json:"task_creator_phone"`
-	TaskCreatorEmail    string             `bson:"task_creator_email"        json:"task_creator_email"`
-	TaskRevoker         string             `bson:"task_revoker,omitempty"    json:"task_revoker,omitempty"`
-	CreateTime          int64              `bson:"create_time"               json:"create_time,omitempty"`
-	StartTime           int64              `bson:"start_time"                json:"start_time,omitempty"`
-	EndTime             int64              `bson:"end_time"                  json:"end_time,omitempty"`
-	Stages              []*StageTask       `bson:"stages"                    json:"stages"`
-	ProjectName         string             `bson:"project_name,omitempty"    json:"project_name,omitempty"`
-	IsDeleted           bool               `bson:"is_deleted"                json:"is_deleted"`
-	IsArchived          bool               `bson:"is_archived"               json:"is_archived"`
-	Error               string             `bson:"error,omitempty"           json:"error,omitempty"`
-	IsRestart           bool               `bson:"is_restart"                json:"is_restart"`
-	IsDebug             bool               `bson:"is_debug"                  json:"is_debug"`
-	ShareStorages       []*ShareStorage    `bson:"share_storages"            json:"share_storages"`
+	ID                  primitive.ObjectID            `bson:"_id,omitempty"             json:"id,omitempty"`
+	TaskID              int64                         `bson:"task_id"                   json:"task_id"`
+	WorkflowName        string                        `bson:"workflow_name"             json:"workflow_name"`
+	WorkflowDisplayName string                        `bson:"workflow_display_name"     json:"workflow_display_name"`
+	Params              []*Param                      `bson:"params"                    json:"params"`
+	WorkflowArgs        *WorkflowV4                   `bson:"workflow_args"             json:"workflow_args"`
+	OriginWorkflowArgs  *WorkflowV4                   `bson:"origin_workflow_args"      json:"origin_workflow_args"`
+	KeyVals             []*KeyVal                     `bson:"key_vals"                  json:"key_vals"`
+	GlobalContext       map[string]string             `bson:"global_context"            json:"global_context"`
+	ClusterIDMap        map[string]bool               `bson:"cluster_id_map"            json:"cluster_id_map"`
+	Status              config.Status                 `bson:"status"                    json:"status,omitempty"`
+	TaskCreator         string                        `bson:"task_creator"              json:"task_creator,omitempty"`
+	TaskCreatorPhone    string                        `bson:"task_creator_phone"        json:"task_creator_phone"`
+	TaskCreatorEmail    string                        `bson:"task_creator_email"        json:"task_creator_email"`
+	TaskRevoker         string                        `bson:"task_revoker,omitempty"    json:"task_revoker,omitempty"`
+	CreateTime          int64                         `bson:"create_time"               json:"create_time,omitempty"`
+	StartTime           int64                         `bson:"start_time"                json:"start_time,omitempty"`
+	EndTime             int64                         `bson:"end_time"                  json:"end_time,omitempty"`
+	Stages              []*StageTask                  `bson:"stages"                    json:"stages"`
+	ProjectName         string                        `bson:"project_name,omitempty"    json:"project_name,omitempty"`
+	IsDeleted           bool                          `bson:"is_deleted"                json:"is_deleted"`
+	IsArchived          bool                          `bson:"is_archived"               json:"is_archived"`
+	Error               string                        `bson:"error,omitempty"           json:"error,omitempty"`
+	IsRestart           bool                          `bson:"is_restart"                json:"is_restart"`
+	IsDebug             bool                          `bson:"is_debug"                  json:"is_debug"`
+	ShareStorages       []*ShareStorage               `bson:"share_storages"            json:"share_storages"`
+	Type                config.CustomWorkflowTaskType `bson:"type"                      json:"type"`
 }
 
 func (WorkflowTask) TableName() string {
 	return "workflow_task"
+}
+
+func (task *WorkflowTask) Finished() bool {
+	status := task.Status
+	return status == config.StatusPassed || status == config.StatusFailed || status == config.StatusTimeout || status == config.StatusCancelled
 }
 
 type StageTask struct {
@@ -614,4 +619,5 @@ type WorkflowTaskCtx struct {
 	GlobalContextEach           func(f func(k, v string) bool)
 	ClusterIDAdd                func(clusterID string)
 	SetStatus                   func(status config.Status)
+	StartTime                   time.Time
 }

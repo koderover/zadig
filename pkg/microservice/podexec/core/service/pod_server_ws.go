@@ -29,7 +29,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/workflowcontroller"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
@@ -119,14 +118,17 @@ func DebugWorkflow(c *gin.Context) {
 }
 
 func debugWorkflow(c *gin.Context, workflowName, jobName string, taskID int64, logger *zap.SugaredLogger) error {
-	w := workflowcontroller.GetWorkflowTaskInMap(workflowName, taskID)
-	if w == nil {
-		logger.Error("debug workflow failed: not found task")
-		return e.ErrInvalidParam.AddDesc("工作流任务已完成或不存在")
+	workflowTask, err := commonrepo.NewworkflowTaskv4Coll().Find(workflowName, taskID)
+	if err != nil {
+		return e.ErrStopDebugShell.AddDesc(fmt.Sprintf("failed to find task: %s", err))
 	}
+	if workflowTask.Finished() {
+		return e.ErrStopDebugShell.AddDesc("task has been finished")
+	}
+
 	var task *commonmodels.JobTask
 FOR:
-	for _, stage := range w.WorkflowTask.Stages {
+	for _, stage := range workflowTask.Stages {
 		for _, jobTask := range stage.Jobs {
 			if jobTask.Name == jobName {
 				task = jobTask

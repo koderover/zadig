@@ -18,6 +18,7 @@ package step
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/helper/log"
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/agent/step/archive"
@@ -45,6 +46,16 @@ func RunStep(ctx context.Context, jobCtx *jobctl.JobContext, step *commonmodels.
 	var err error
 
 	switch step.StepType {
+	case "batch_file":
+		stepInstance, err = script.NewBatchFileStep(jobCtx.Outputs, step.Spec, dirs, envs, secretEnvs, logger)
+		if err != nil {
+			return err
+		}
+	case "powershell":
+		stepInstance, err = script.NewPowerShellStep(jobCtx.Outputs, step.Spec, dirs, envs, secretEnvs, logger)
+		if err != nil {
+			return err
+		}
 	case "shell":
 		stepInstance, err = script.NewShellStep(jobCtx.Outputs, step.Spec, dirs, envs, secretEnvs, logger)
 		if err != nil {
@@ -70,6 +81,11 @@ func RunStep(ctx context.Context, jobCtx *jobctl.JobContext, step *commonmodels.
 		if err != nil {
 			return err
 		}
+	case "download_artifact":
+		stepInstance, err = archive.NewDownloadArtifactStep(step.Spec, dirs, envs, secretEnvs, logger)
+		if err != nil {
+			return err
+		}
 	case "tools":
 		return nil
 	case "debug_before":
@@ -80,7 +96,7 @@ func RunStep(ctx context.Context, jobCtx *jobctl.JobContext, step *commonmodels.
 		//err := fmt.Errorf("step type: %s does not match any known type", step.StepType)
 		//log.Error(err)
 		//return err
-		logger.Infof("step type: %s does not match any known type", step.StepType)
+		logger.Infof(fmt.Sprintf("step type: %s does not match any known type", step.StepType))
 	}
 	if err := stepInstance.Run(ctx); err != nil {
 		return err

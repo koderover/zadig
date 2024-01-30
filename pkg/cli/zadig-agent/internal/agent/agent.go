@@ -93,9 +93,15 @@ func (c *AgentController) PollingJob(ctx context.Context) {
 					time.Sleep(common.DefaultAgentPollingInterval * time.Second)
 					continue
 				}
+
 				if job != nil && job.ID != "" {
 					c.JobChan <- job
 					c.CurrentJobNum++
+					log.Infof("PollingJob: received job workflow name: %v, task id: %v, project name: %v, job name: %v",
+						job.WorkflowName, job.TaskID, job.ProjectName, job.JobName)
+					if config.GetEnableDebug() {
+						log.Debugf("received job detail: %+v", job)
+					}
 				}
 
 				time.Sleep(common.DefaultAgentPollingInterval * time.Second)
@@ -192,7 +198,8 @@ func (c *AgentController) RunSingleJob(ctx context.Context, job *types.ZadigJobT
 			log.Infof("workflow %s job %s finished.", job.WorkflowName, job.JobName)
 
 			if e := executor.JobResult.GetError(); e != nil {
-				return executor.Reporter.FinishedJobReport(common.StatusFailed, e)
+				log.Errorf("workflow %s job %s failed, error: %v", job.WorkflowName, job.JobName, e)
+				return executor.Reporter.FinishedJobReport(common.StatusFailed, nil)
 			}
 
 			if err != nil {

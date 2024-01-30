@@ -21,49 +21,58 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 	"time"
 
 	"go.uber.org/zap"
 
+	utilconfig "github.com/koderover/zadig/v2/pkg/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	vmmodel "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models/vm"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/setting"
+	"github.com/koderover/zadig/v2/pkg/tool/cache"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	s3tool "github.com/koderover/zadig/v2/pkg/tool/s3"
 	"github.com/koderover/zadig/v2/pkg/util"
 )
 
-var VMJobStatus = VMJobStatusMap{
-	StatusMap: sync.Map{},
-}
+var VMJobStatus = VMJobStatusMap{}
 
 type VMJobStatusMap struct {
-	StatusMap sync.Map
 }
 
-func (v *VMJobStatusMap) Exist(key string) bool {
-	_, ok := v.StatusMap.Load(key)
-	return ok
+func vmJobKey(key string) string {
+	return fmt.Sprintf("vm-job-%s", key)
+}
+
+func (v *VMJobStatusMap) Exists(key string) bool {
+	exists, err := cache.NewRedisCache(utilconfig.RedisCommonCacheTokenDB()).Exists(vmJobKey(key))
+	if err != nil {
+		log.Errorf("redis check err: %s for key: %s", err, vmJobKey(key))
+	}
+	return exists
 }
 
 func (v *VMJobStatusMap) Set(key string) {
-	v.StatusMap.Store(key, struct{}{})
+	// use the timeout value of task timeout should be better
+	err := cache.NewRedisCache(utilconfig.RedisCommonCacheTokenDB()).SetNX(vmJobKey(key), "1", 24*time.Hour)
+	if err != nil {
+		log.Errorf("reids set nx err: %s for key: %s", err, vmJobKey(key))
+	}
 }
 
 func (v *VMJobStatusMap) Delete(key string) {
-	v.StatusMap.Delete(key)
+	cache.NewRedisCache(utilconfig.RedisCommonCacheTokenDB()).Delete(vmJobKey(key))
 }
 
 func savaVMJobLog(job *vmmodel.VMJob, log string, logger *zap.SugaredLogger) (err error) {
-	if !VMJobStatus.Exist(job.ID.Hex()) && job.Status == string(config.StatusRunning) {
+	if job.Status == string(config.StatusRunning) {
 		VMJobStatus.Set(job.ID.Hex())
 	}
 
 	var file string
 	if job != nil && job.LogFile == "" && log != "" {
-		file, err = util.CreateFileInCurrentDir(job.ID.Hex())
+		file, err = util.CreateVMJobLogFile(job.ID.Hex())
 		if err != nil {
 			return fmt.Errorf("failed to generate tmp file, error: %s", err)
 		}
@@ -80,13 +89,14 @@ func savaVMJobLog(job *vmmodel.VMJob, log string, logger *zap.SugaredLogger) (er
 	}
 
 	// after the task execution ends, synchronize the logs in the file to s3
-	if job.Status == string(config.StatusCancelled) || job.Status == string(config.StatusTimeout) || job.Status == string(config.StatusFailed) || job.Status == string(config.StatusPassed) {
-		VMJobStatus.Delete(job.ID.Hex())
-
+	if job.JobFinished() {
 		if err = uploadVMJobLog2S3(job); err != nil {
 			logger.Errorf("failed to upload job log to s3, project:%s workflow:%s taskID%d error: %s", job.ProjectName, job.WorkflowName, job.TaskID, err)
 			return fmt.Errorf("failed to upload job log to s3, project:%s workflow:%s taskID%d error: %s", job.ProjectName, job.WorkflowName, job.TaskID, err)
 		}
+
+		time.Sleep(1000 * time.Millisecond)
+		VMJobStatus.Delete(job.ID.Hex())
 	}
 	return
 }

@@ -192,7 +192,6 @@ func RestartService(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -276,6 +275,30 @@ func RestartProductionService(c *gin.Context) {
 		"重启", "环境-服务", fmt.Sprintf("环境名称:%s,服务名称:%s", c.Param("name"), c.Param("serviceName")),
 		"", ctx.Logger, args.EnvName)
 	ctx.Err = service.RestartService(args.EnvName, args, ctx.Logger)
+}
+
+type FetchServiceYamlResponse struct {
+	Yaml string `json:"yaml"`
+}
+
+// @Summary Fetch Service Yaml
+// @Description  Fetch Service Yaml
+// @Tags 	environment
+// @Accept 	json
+// @Produce json
+// @Param 	projectName		query		string								true	"project name"
+// @Param 	name			path		string								true	"env name"
+// @Param 	serviceName		path		string								true	"service name"
+// @Success 200 			{object}    FetchServiceYamlResponse
+// @Router /api/aslan/environment/environments/{name}/services/{serviceName}/yaml [get]
+func FetchServiceYaml(c *gin.Context) {
+	// TODO: add authorization probably
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	resp := new(FetchServiceYamlResponse)
+	resp.Yaml, ctx.Err = service.FetchServiceYaml(c.Query("projectName"), c.Param("name"), c.Param("serviceName"), ctx.Logger)
+	ctx.Resp = resp
 }
 
 // @Summary Preview service
@@ -368,7 +391,6 @@ func UpdateService(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -600,7 +622,6 @@ func ScaleNewService(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return

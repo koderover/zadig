@@ -507,6 +507,21 @@ func (s *Service) UpdateWebhookCommentForWorkflowV4(task *models.WorkflowTask, l
 				Status: status,
 			}
 
+			if task.Type == config.WorkflowTaskTypeScanning {
+				segs := strings.Split(task.WorkflowName, "-")
+				if len(segs) != 3 {
+					logger.Errorf("invalid workflow task originated from scanning. workflow name: %s", task.WorkflowName)
+					return fmt.Errorf("invalid workflow task originated from scanning. workflow name: %s", task.WorkflowName)
+				}
+				scmTask.ScanningName = task.WorkflowDisplayName
+				scmTask.ScanningID = segs[2]
+
+			}
+
+			if task.Type == config.WorkflowTaskTypeTesting {
+				scmTask.TestName = task.WorkflowDisplayName
+			}
+
 			tasks = append(tasks, scmTask)
 			taskExist = true
 		} else {
@@ -515,13 +530,31 @@ func (s *Service) UpdateWebhookCommentForWorkflowV4(task *models.WorkflowTask, l
 	}
 
 	if !taskExist {
-		tasks = append(tasks, &models.NotificationTask{
+		scmTask := &models.NotificationTask{
 			ProductName:         task.ProjectName,
 			WorkflowName:        task.WorkflowName,
 			ID:                  task.TaskID,
 			WorkflowDisplayName: task.WorkflowDisplayName,
 			Status:              status,
-		})
+		}
+
+		if task.Type == config.WorkflowTaskTypeScanning {
+			segs := strings.Split(task.WorkflowName, "-")
+			if len(segs) != 3 {
+				logger.Errorf("invalid workflow task originated from scanning. workflow name: %s", task.WorkflowName)
+				return fmt.Errorf("invalid workflow task originated from scanning. workflow name: %s", task.WorkflowName)
+			}
+			scmTask.ScanningName = task.WorkflowDisplayName
+			scmTask.ScanningID = segs[2]
+
+		}
+
+		if task.Type == config.WorkflowTaskTypeTesting {
+			scmTask.TestName = task.WorkflowDisplayName
+		}
+
+		tasks = append(tasks, scmTask)
+
 		shouldComment = true
 	}
 

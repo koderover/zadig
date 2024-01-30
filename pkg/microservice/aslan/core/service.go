@@ -35,28 +35,18 @@ import (
 	commonconfig "github.com/koderover/zadig/v2/pkg/config"
 	configbase "github.com/koderover/zadig/v2/pkg/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
-	modeMongodb "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/collaboration/repository/mongodb"
-	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/ai"
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
-	vmcommonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/vm"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/webhook"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/workflowcontroller"
 	environmentservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/environment/service"
-	labelMongodb "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/label/repository/mongodb"
 	multiclusterservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/multicluster/service"
 	releaseplanservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/release_plan/service"
-	systemrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/repository/mongodb"
 	systemservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/service"
-	templateservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/templatestore/service"
 	workflowservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow"
 	hubserverconfig "github.com/koderover/zadig/v2/pkg/microservice/hubserver/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/hubserver/core/repository/mongodb"
 	mongodb2 "github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/codehost/repository/mongodb"
-	configmongodb "github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/email/repository/mongodb"
 	configservice "github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/features/service"
-	userdb "github.com/koderover/zadig/v2/pkg/microservice/user/core/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
 	"github.com/koderover/zadig/v2/pkg/tool/git/gitlab"
@@ -131,7 +121,7 @@ func Start(ctx context.Context) {
 		Development: commonconfig.Mode() != setting.ReleaseMode,
 	})
 
-	initDatabase()
+	initDatabaseConnection()
 	initKlock()
 	initReleasePlanWatcher()
 
@@ -144,9 +134,8 @@ func Start(ctx context.Context) {
 
 	systemservice.SetProxyConfig()
 
-	workflowservice.InitPipelineController()
-	// update offical plugins
-	workflowservice.UpdateOfficalPluginRepository(log.SugaredLogger())
+	//workflowservice.InitPipelineController()
+
 	workflowcontroller.InitWorkflowController()
 	// 如果集群环境所属的项目不存在，则删除此集群环境
 	environmentservice.CleanProducts()
@@ -330,23 +319,23 @@ func initReleasePlanWatcher() {
 	go releaseplanservice.WatchApproval()
 }
 
-func initDatabase() {
+func initDatabaseConnection() {
 	err := gormtool.Open(configbase.MysqlUser(),
 		configbase.MysqlPassword(),
 		configbase.MysqlHost(),
-		config.MysqlDexDB(),
+		configbase.MysqlDexDB(),
 	)
 	if err != nil {
-		log.Panicf("Failed to open database %s", config.MysqlDexDB())
+		log.Panicf("Failed to open database %s", configbase.MysqlDexDB())
 	}
 
 	err = gormtool.Open(configbase.MysqlUser(),
 		configbase.MysqlPassword(),
 		configbase.MysqlHost(),
-		config.MysqlUserDB(),
+		configbase.MysqlUserDB(),
 	)
 	if err != nil {
-		log.Panicf("Failed to open database %s", config.MysqlUserDB())
+		log.Panicf("Failed to open database %s", configbase.MysqlUserDB())
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -357,140 +346,6 @@ func initDatabase() {
 	if err := mongotool.Ping(ctx); err != nil {
 		panic(fmt.Errorf("failed to connect to mongo, error: %s", err))
 	}
-
-	idxCtx, idxCancel := context.WithTimeout(ctx, 10*time.Minute)
-	defer idxCancel()
-
-	var wg sync.WaitGroup
-	for _, r := range []indexer{
-		// aslan related db index
-		template.NewProductColl(),
-		commonrepo.NewBasicImageColl(),
-		commonrepo.NewBuildColl(),
-		commonrepo.NewCallbackRequestColl(),
-		commonrepo.NewConfigurationManagementColl(),
-		commonrepo.NewCounterColl(),
-		commonrepo.NewCronjobColl(),
-		commonrepo.NewDeliveryActivityColl(),
-		commonrepo.NewDeliveryArtifactColl(),
-		commonrepo.NewDeliveryBuildColl(),
-		commonrepo.NewDeliveryDeployColl(),
-		commonrepo.NewDeliveryDistributeColl(),
-		commonrepo.NewDeliverySecurityColl(),
-		commonrepo.NewDeliveryTestColl(),
-		commonrepo.NewDeliveryVersionColl(),
-		commonrepo.NewDiffNoteColl(),
-		commonrepo.NewDindCleanColl(),
-		commonrepo.NewIMAppColl(),
-		commonrepo.NewObservabilityColl(),
-		commonrepo.NewFavoriteColl(),
-		commonrepo.NewGithubAppColl(),
-		commonrepo.NewHelmRepoColl(),
-		commonrepo.NewInstallColl(),
-		commonrepo.NewItReportColl(),
-		commonrepo.NewK8SClusterColl(),
-		commonrepo.NewNotificationColl(),
-		commonrepo.NewNotifyColl(),
-		commonrepo.NewPipelineColl(),
-		commonrepo.NewPrivateKeyColl(),
-		commonrepo.NewProductColl(),
-		commonrepo.NewProxyColl(),
-		commonrepo.NewQueueColl(),
-		commonrepo.NewRegistryNamespaceColl(),
-		commonrepo.NewS3StorageColl(),
-		commonrepo.NewServiceColl(),
-		commonrepo.NewProductionServiceColl(),
-		commonrepo.NewStrategyColl(),
-		commonrepo.NewStatsColl(),
-		commonrepo.NewSubscriptionColl(),
-		commonrepo.NewSystemSettingColl(),
-		commonrepo.NewTaskColl(),
-		commonrepo.NewTestTaskStatColl(),
-		commonrepo.NewTestingColl(),
-		commonrepo.NewWebHookColl(),
-		commonrepo.NewWebHookUserColl(),
-		commonrepo.NewWorkflowColl(),
-		commonrepo.NewWorkflowStatColl(),
-		commonrepo.NewWorkLoadsStatColl(),
-		commonrepo.NewServicesInExternalEnvColl(),
-		commonrepo.NewExternalLinkColl(),
-		commonrepo.NewChartColl(),
-		commonrepo.NewDockerfileTemplateColl(),
-		commonrepo.NewProjectClusterRelationColl(),
-		commonrepo.NewEnvResourceColl(),
-		commonrepo.NewEnvSvcDependColl(),
-		commonrepo.NewBuildTemplateColl(),
-		commonrepo.NewScanningColl(),
-		commonrepo.NewWorkflowV4Coll(),
-		commonrepo.NewworkflowTaskv4Coll(),
-		commonrepo.NewWorkflowQueueColl(),
-		commonrepo.NewPluginRepoColl(),
-		commonrepo.NewWorkflowViewColl(),
-		commonrepo.NewWorkflowV4TemplateColl(),
-		commonrepo.NewVariableSetColl(),
-		commonrepo.NewJobInfoColl(),
-		commonrepo.NewStatDashboardConfigColl(),
-		commonrepo.NewProjectManagementColl(),
-		commonrepo.NewImageTagsCollColl(),
-		commonrepo.NewLLMIntegrationColl(),
-		commonrepo.NewReleasePlanColl(),
-		commonrepo.NewReleasePlanLogColl(),
-		commonrepo.NewEnvServiceVersionColl(),
-
-		// msg queue
-		commonrepo.NewMsgQueueCommonColl(),
-		commonrepo.NewMsgQueuePipelineTaskColl(),
-
-		systemrepo.NewAnnouncementColl(),
-		systemrepo.NewOperationLogColl(),
-		labelMongodb.NewLabelColl(),
-		labelMongodb.NewLabelBindingColl(),
-		modeMongodb.NewCollaborationModeColl(),
-		modeMongodb.NewCollaborationInstanceColl(),
-
-		// config related db index
-		configmongodb.NewEmailHostColl(),
-
-		// user related db index
-		userdb.NewUserSettingColl(),
-
-		// env AI analysis related db index
-		ai.NewEnvAIAnalysisColl(),
-
-		// project group related db index
-		commonrepo.NewProjectGroupColl(),
-
-		// db instances
-		commonrepo.NewDBInstanceColl(),
-
-		// vm job related db index
-		vmcommonrepo.NewVMJobColl(),
-	} {
-		wg.Add(1)
-		go func(r indexer) {
-			defer wg.Done()
-			if err := r.EnsureIndex(idxCtx); err != nil {
-				panic(fmt.Errorf("failed to create index for %s, error: %s", r.GetCollectionName(), err))
-			}
-		}(r)
-	}
-
-	wg.Wait()
-
-	// 初始化数据
-	commonrepo.NewInstallColl().InitInstallData(systemservice.InitInstallMap())
-	commonrepo.NewBasicImageColl().InitBasicImageData(systemservice.InitbasicImageInfos())
-	commonrepo.NewSystemSettingColl().InitSystemSettings()
-	templateservice.InitWorkflowTemplate()
-
-	if err := commonrepo.NewS3StorageColl().InitData(); err != nil {
-		log.Warnf("Failed to init S3 data: %s", err)
-	}
-}
-
-type indexer interface {
-	EnsureIndex(ctx context.Context) error
-	GetCollectionName() string
 }
 
 // InitializeConfigFeatureGates initialize feature gates for the old config service module.

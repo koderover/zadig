@@ -135,14 +135,12 @@ func SetConfig(key, value string) *exec.Cmd {
 	return exec.Command(
 		"git",
 		"config",
-		"--global",
+		"--local",
 		key,
 		value,
 	)
 }
 
-// SetConfig returns command: git config --global $KEY $VA
-// e.g. git config --global user.name username
 func Gc() *exec.Cmd {
 	return exec.Command(
 		"git",

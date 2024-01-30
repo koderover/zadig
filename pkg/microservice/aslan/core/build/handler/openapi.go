@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	"github.com/gin-gonic/gin"
+	"github.com/koderover/zadig/v2/pkg/types"
 
 	buildservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/build/service"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
@@ -31,7 +32,6 @@ func OpenAPICreateBuildModule(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -136,8 +136,14 @@ func OpenAPIDeleteBuildModule(c *gin.Context) {
 }
 
 func OpenAPIListBuildModules(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
 
 	projectKey := c.Query("projectKey")
 	if projectKey == "" {
@@ -146,9 +152,40 @@ func OpenAPIListBuildModules(c *gin.Context) {
 	}
 
 	args := new(buildservice.OpenAPIPageParamsFromReq)
-	err := c.BindQuery(args)
+	err = c.BindQuery(args)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		return
+	}
+
+	// TODO: Authorization leak
+	// this API is sometimes used in edit env scenario, thus giving the edit/create workflow permission
+	// authorization check
+	permitted := false
+
+	if ctx.Resources.IsSystemAdmin {
+		permitted = true
+	} else if projectAuthInfo, ok := ctx.Resources.ProjectAuthInfo[projectKey]; ok {
+		// first check if the user is projectAdmin
+		if projectAuthInfo.IsProjectAdmin {
+			permitted = true
+		}
+
+		// then check if user has edit workflow permission
+		if projectAuthInfo.Env.EditConfig ||
+			projectAuthInfo.Build.View {
+			permitted = true
+		}
+
+		// finally check if the permission is given by collaboration mode
+		collaborationAuthorizedEdit, err := internalhandler.CheckPermissionGivenByCollaborationMode(ctx.UserID, projectKey, types.ResourceTypeEnvironment, types.EnvActionEditConfig)
+		if err == nil && collaborationAuthorizedEdit {
+			permitted = true
+		}
+	}
+
+	if !permitted {
+		ctx.UnAuthorized = true
 		return
 	}
 
@@ -156,8 +193,14 @@ func OpenAPIListBuildModules(c *gin.Context) {
 }
 
 func OpenAPIGetBuildModule(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
 
 	name := c.Param("name")
 	if name == "" {
@@ -168,6 +211,19 @@ func OpenAPIGetBuildModule(c *gin.Context) {
 	if projectKey == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("empty projectKey.")
 		return
+	}
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].Build.View {
+			ctx.UnAuthorized = true
+			return
+		}
 	}
 
 	ctx.Resp, ctx.Err = buildservice.OpenAPIGetBuildModule(name, projectKey, ctx.Logger)

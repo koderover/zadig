@@ -343,12 +343,12 @@ func DeleteWorkflowV4(name string, logger *zap.SugaredLogger) error {
 func ListWorkflowV4(projectName, viewName, userID string, names, v4Names []string, policyFound bool, logger *zap.SugaredLogger) ([]*Workflow, error) {
 	resp := make([]*Workflow, 0)
 	var err error
-	ignoreWorkflow := false
+	//ignoreWorkflow := false
 	ignoreWorkflowV4 := false
 	if viewName == "" {
-		if policyFound && len(names) == 0 {
-			ignoreWorkflow = true
-		}
+		//if policyFound && len(names) == 0 {
+		//	ignoreWorkflow = true
+		//}
 		if policyFound && len(v4Names) == 0 {
 			ignoreWorkflowV4 = true
 		}
@@ -358,9 +358,9 @@ func ListWorkflowV4(projectName, viewName, userID string, names, v4Names []strin
 			logger.Errorf("filterWorkflowNames error: %s", err)
 			return resp, err
 		}
-		if len(names) == 0 {
-			ignoreWorkflow = true
-		}
+		//if len(names) == 0 {
+		//	ignoreWorkflow = true
+		//}
 		if len(v4Names) == 0 {
 			ignoreWorkflowV4 = true
 		}
@@ -380,12 +380,12 @@ func ListWorkflowV4(projectName, viewName, userID string, names, v4Names []strin
 	workflow := []*Workflow{}
 
 	// distribute center only surpport custom workflow.
-	if !ignoreWorkflow && projectName != setting.EnterpriseProject {
-		workflow, err = ListWorkflows([]string{projectName}, userID, names, logger)
-		if err != nil {
-			return resp, err
-		}
-	}
+	//if !ignoreWorkflow && projectName != setting.EnterpriseProject {
+	//	workflow, err = ListWorkflows([]string{projectName}, userID, names, logger)
+	//	if err != nil {
+	//		return resp, err
+	//	}
+	//}
 
 	workflowList := []string{}
 	for _, wV4 := range workflowV4List {

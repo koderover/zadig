@@ -297,6 +297,11 @@ func SetTriggerBuilds(builds []*types.Repository, buildArgs []*types.Repository,
 	return nil
 }
 
+// SetRepoInfo set the information of the build param into the buildArgs, meanwhile add commit ID information into it
+func SetRepoInfo(build *types.Repository, buildArgs []*types.Repository, log *zap.SugaredLogger) {
+	setBuildInfo(build, buildArgs, log)
+}
+
 func setBuildInfo(build *types.Repository, buildArgs []*types.Repository, log *zap.SugaredLogger) {
 	codeHostInfo, err := systemconfig.New().GetCodeHost(build.CodehostID)
 	if err != nil {

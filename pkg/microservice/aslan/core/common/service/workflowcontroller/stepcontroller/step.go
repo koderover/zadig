@@ -75,12 +75,18 @@ func instantiateStepCtl(step *commonmodels.StepTask, workflowCtx *commonmodels.W
 		stepCtl, err = NewGitCtl(step, logger)
 	case config.StepShell:
 		stepCtl, err = NewShellCtl(step, logger)
+	case config.StepPowerShell:
+		stepCtl, err = NewBatchFileCtl(step, logger)
+	case config.StepBatchFile:
+		stepCtl, err = NewBatchFileCtl(step, logger)
 	case config.StepDockerBuild:
-		stepCtl, err = NewDockerBuildCtl(step, logger)
+		stepCtl, err = NewDockerBuildCtl(step, workflowCtx, logger)
 	case config.StepTools:
 		stepCtl, err = NewToolInstallCtl(step, jobPath, logger)
 	case config.StepArchive:
-		stepCtl, err = NewArchiveCtl(step, logger)
+		stepCtl, err = NewArchiveCtl(step, workflowCtx, logger)
+	case config.StepDownloadArtifact:
+		stepCtl, err = NewDownloadArtifactCtl(step, logger)
 	case config.StepJunitReport:
 		stepCtl, err = NewJunitReportCtl(step, logger)
 	case config.StepTarArchive:

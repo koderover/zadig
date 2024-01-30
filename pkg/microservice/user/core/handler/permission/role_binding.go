@@ -18,6 +18,7 @@ package permission
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"strings"
 
@@ -58,8 +59,14 @@ type createRoleBindingReq struct {
 }
 
 func CreateRoleBinding(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
 
 	data, err := c.GetRawData()
 	if err != nil {
@@ -81,21 +88,51 @@ func CreateRoleBinding(c *gin.Context) {
 		return
 	}
 
-	// TODO: restore it, add user group logic to it
-	//detail := ""
-	//for _, arg := range args {
-	//	userInfo, err := userservice.GetUser(arg.UID, ctx.Logger)
-	//	if err != nil {
-	//		ctx.Err = e.ErrInvalidParam.AddErr(err)
-	//		return
-	//	}
-	//	username := ""
-	//	if userInfo != nil {
-	//		username = userInfo.Name
-	//	}
-	//	detail += "用户：" + username + "，角色名称：" + arg.Role + "\n"
-	//}
-	//internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneProject, "创建", "角色绑定", detail, string(data), ctx.Logger, "")
+	detail := ""
+	for _, arg := range req.Identities {
+		if arg.IdentityType == "user" {
+			userInfo, err := user.GetUser(arg.UID, ctx.Logger)
+			if err != nil {
+				ctx.Err = e.ErrInvalidParam.AddErr(err)
+				return
+			}
+			username := ""
+			if userInfo != nil {
+				username = userInfo.Name
+			}
+			detail += "用户：" + username + "，"
+		} else if arg.IdentityType == "group" {
+			groupInfo, err := user.GetUserGroup(arg.GID, ctx.Logger)
+			if err != nil {
+				ctx.Err = e.ErrInvalidParam.AddErr(err)
+				return
+			}
+			username := ""
+			if groupInfo != nil {
+				username = groupInfo.Name
+			}
+			detail += "用户组：" + username + "，"
+		}
+	}
+	detail += "角色名称：" + req.Role + "\n"
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneProject, "创建", "角色绑定", detail, string(data), ctx.Logger, "")
+
+	if !ctx.Resources.IsSystemAdmin {
+		if projectName == "*" {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectName]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
 
 	ctx.Err = permission.CreateRoleBindings(req.Role, projectName, req.Identities, ctx.Logger)
 }
@@ -105,8 +142,14 @@ type updateRoleBindingForUserReq struct {
 }
 
 func UpdateRoleBindingForUser(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
 
 	data, err := c.GetRawData()
 	if err != nil {
@@ -150,12 +193,35 @@ func UpdateRoleBindingForUser(c *gin.Context) {
 
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneProject, "更新", "角色绑定", detail, string(data), ctx.Logger, "")
 
+	if !ctx.Resources.IsSystemAdmin {
+		if projectName == "*" {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectName]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
 	ctx.Err = permission.UpdateRoleBindingForUser(userID, projectName, args.Roles, ctx.Logger)
 }
 
 func DeleteRoleBindingForUser(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
 
 	data, err := c.GetRawData()
 	if err != nil {
@@ -190,12 +256,35 @@ func DeleteRoleBindingForUser(c *gin.Context) {
 
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneProject, "删除", "角色绑定", detail, string(data), ctx.Logger, "")
 
+	if !ctx.Resources.IsSystemAdmin {
+		if projectName == "*" {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectName]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
 	ctx.Err = permission.DeleteRoleBindingForUser(userID, projectName, ctx.Logger)
 }
 
 func UpdateRoleBindingForGroup(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
 
 	data, err := c.GetRawData()
 	if err != nil {
@@ -239,12 +328,35 @@ func UpdateRoleBindingForGroup(c *gin.Context) {
 
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneProject, "更新", "角色绑定", detail, string(data), ctx.Logger, "")
 
+	if !ctx.Resources.IsSystemAdmin {
+		if projectName == "*" {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectName]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
 	ctx.Err = permission.UpdateRoleBindingForUserGroup(groupID, projectName, args.Roles, ctx.Logger)
 }
 
 func DeleteRoleBindingForGroup(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
 
 	data, err := c.GetRawData()
 	if err != nil {
@@ -278,6 +390,23 @@ func DeleteRoleBindingForGroup(c *gin.Context) {
 	detail := "用户组：" + groupName
 
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneProject, "删除", "角色绑定", detail, string(data), ctx.Logger, "")
+
+	if !ctx.Resources.IsSystemAdmin {
+		if projectName == "*" {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectName]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
 
 	ctx.Err = permission.DeleteRoleBindingForUserGroup(groupID, projectName, ctx.Logger)
 }

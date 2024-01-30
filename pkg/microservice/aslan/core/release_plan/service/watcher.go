@@ -18,6 +18,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/pkg/errors"
@@ -27,6 +28,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/v2/pkg/tool/cache"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
@@ -34,12 +36,20 @@ func WatchExecutingWorkflow() {
 	log := log.SugaredLogger().With("service", "WatchExecutingWorkflow")
 	for {
 		time.Sleep(time.Second * 3)
+
+		releasePlanListLock := cache.NewRedisLockWithExpiry(fmt.Sprint("release-plan-watch-lock"), time.Minute*5)
+		err := releasePlanListLock.TryLock()
+		if err != nil {
+			continue
+		}
+
 		t := time.Now()
 		list, _, err := mongodb.NewReleasePlanColl().ListByOptions(&mongodb.ListReleasePlanOption{
 			Status: config.StatusExecuting,
 		})
 		if err != nil {
 			log.Errorf("list executing workflow error: %v", err)
+			releasePlanListLock.Unlock()
 			continue
 		}
 		for _, plan := range list {
@@ -48,12 +58,17 @@ func WatchExecutingWorkflow() {
 		if time.Since(t) > time.Millisecond*200 {
 			log.Warnf("watch executing workflow cost %s", time.Since(t))
 		}
+		releasePlanListLock.Unlock()
 	}
 }
 
 func updatePlanWorkflowReleaseJob(plan *models.ReleasePlan, log *zap.SugaredLogger) {
-	getLock(plan.ID.Hex()).Lock()
-	defer getLock(plan.ID.Hex()).Unlock()
+	releaseLock := getLock(plan.ID.Hex())
+	lockErr := releaseLock.TryLock()
+	if lockErr != nil {
+		return
+	}
+	defer releaseLock.Unlock()
 
 	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
 	defer cancel()
@@ -101,6 +116,12 @@ func updatePlanWorkflowReleaseJob(plan *models.ReleasePlan, log *zap.SugaredLogg
 func WatchApproval() {
 	log := log.SugaredLogger().With("service", "WatchApproval")
 	for {
+		releasePlanApprovalLock := cache.NewRedisLockWithExpiry(fmt.Sprint("release-plan-approval-lock"), time.Minute*5)
+		err := releasePlanApprovalLock.TryLock()
+		if err != nil {
+			continue
+		}
+
 		time.Sleep(time.Second * 3)
 		t := time.Now()
 		list, _, err := mongodb.NewReleasePlanColl().ListByOptions(&mongodb.ListReleasePlanOption{
@@ -118,12 +139,18 @@ func WatchApproval() {
 		if time.Since(t) > time.Millisecond*200 {
 			log.Warnf("watch approval workflow cost %s", time.Since(t))
 		}
+
+		releasePlanApprovalLock.Unlock()
 	}
 }
 
 func updatePlanApproval(plan *models.ReleasePlan) error {
-	getLock(plan.ID.Hex()).Lock()
-	defer getLock(plan.ID.Hex()).Unlock()
+	approveLock := getLock(plan.ID.Hex())
+	lockErr := approveLock.TryLock()
+	if lockErr != nil {
+		return nil
+	}
+	defer approveLock.Unlock()
 
 	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
 	defer cancel()

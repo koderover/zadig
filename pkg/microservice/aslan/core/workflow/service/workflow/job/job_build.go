@@ -312,11 +312,12 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		}
 		jobTaskSpec.Steps = append(jobTaskSpec.Steps, toolInstallStep)
 		// init git clone step
+		repos := renderRepos(build.Repos, buildInfo.Repos, jobTaskSpec.Properties.Envs)
 		gitStep := &commonmodels.StepTask{
 			Name:     build.ServiceName + "-git",
 			JobName:  jobTask.Name,
 			StepType: config.StepGit,
-			Spec:     step.StepGitSpec{Repos: renderRepos(build.Repos, buildInfo.Repos, jobTaskSpec.Properties.Envs)},
+			Spec:     step.StepGitSpec{Repos: repos},
 		}
 		jobTaskSpec.Steps = append(jobTaskSpec.Steps, gitStep)
 		// init debug before step
@@ -327,20 +328,37 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		}
 		jobTaskSpec.Steps = append(jobTaskSpec.Steps, debugBeforeStep)
 		// init shell step
+		scripts := []string{}
 		dockerLoginCmd := `docker login -u "$DOCKER_REGISTRY_AK" -p "$DOCKER_REGISTRY_SK" "$DOCKER_REGISTRY_HOST" &> /dev/null`
-		scripts := append([]string{dockerLoginCmd}, strings.Split(replaceWrapLine(buildInfo.Scripts), "\n")...)
-		if jobTask.Infrastructure != setting.JobVMInfrastructure {
+		if jobTask.Infrastructure == setting.JobVMInfrastructure {
+			scripts = append(scripts, strings.Split(replaceWrapLine(buildInfo.Scripts), "\n")...)
+		} else {
+			scripts = append([]string{dockerLoginCmd}, strings.Split(replaceWrapLine(buildInfo.Scripts), "\n")...)
 			scripts = append(scripts, outputScript(outputs)...)
 		}
-		shellStep := &commonmodels.StepTask{
-			Name:     build.ServiceName + "-shell",
-			JobName:  jobTask.Name,
-			StepType: config.StepShell,
-			Spec: &step.StepShellSpec{
-				Scripts: scripts,
-			},
+		scriptStep := &commonmodels.StepTask{
+			JobName: jobTask.Name,
 		}
-		jobTaskSpec.Steps = append(jobTaskSpec.Steps, shellStep)
+		if buildInfo.ScriptType == types.ScriptTypeShell || buildInfo.ScriptType == "" {
+			scriptStep.Name = build.ServiceName + "-shell"
+			scriptStep.StepType = config.StepShell
+			scriptStep.Spec = &step.StepShellSpec{
+				Scripts: scripts,
+			}
+		} else if buildInfo.ScriptType == types.ScriptTypeBatchFile {
+			scriptStep.Name = build.ServiceName + "-batchfile"
+			scriptStep.StepType = config.StepBatchFile
+			scriptStep.Spec = &step.StepBatchFileSpec{
+				Scripts: scripts,
+			}
+		} else if buildInfo.ScriptType == types.ScriptTypePowerShell {
+			scriptStep.Name = build.ServiceName + "-powershell"
+			scriptStep.StepType = config.StepPowerShell
+			scriptStep.Spec = &step.StepPowerShellSpec{
+				Scripts: scripts,
+			}
+		}
+		jobTaskSpec.Steps = append(jobTaskSpec.Steps, scriptStep)
 		// init debug after step
 		debugAfterStep := &commonmodels.StepTask{
 			Name:     build.ServiceName + "-debug_after",
@@ -365,7 +383,7 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 					Source:                buildInfo.PostBuild.DockerBuild.Source,
 					WorkDir:               buildInfo.PostBuild.DockerBuild.WorkDir,
 					DockerFile:            buildInfo.PostBuild.DockerBuild.DockerFile,
-					ImageName:             "$IMAGE",
+					ImageName:             image,
 					ImageReleaseTag:       imageTag,
 					BuildArgs:             buildInfo.PostBuild.DockerBuild.BuildArgs,
 					DockerTemplateContent: dockefileContent,
@@ -376,6 +394,7 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 						Password:         registry.SecretKey,
 						Namespace:        registry.Namespace,
 					},
+					Repos: repos,
 				},
 			}
 			jobTaskSpec.Steps = append(jobTaskSpec.Steps, dockerBuildStep)
@@ -385,8 +404,14 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		if buildInfo.PostBuild != nil && buildInfo.PostBuild.FileArchive != nil && buildInfo.PostBuild.FileArchive.FileLocation != "" {
 			uploads := []*step.Upload{
 				{
-					FilePath:        path.Join(buildInfo.PostBuild.FileArchive.FileLocation, build.Package),
-					DestinationPath: path.Join(j.workflow.Name, fmt.Sprint(taskID), jobTask.Name, "archive"),
+					IsFileArchive:       true,
+					Name:                build.Package,
+					ServiceName:         build.ServiceName,
+					ServiceModule:       build.ServiceModule,
+					JobTaskName:         jobTask.Name,
+					PackageFileLocation: buildInfo.PostBuild.FileArchive.FileLocation,
+					FilePath:            path.Join(buildInfo.PostBuild.FileArchive.FileLocation, build.Package),
+					DestinationPath:     path.Join(j.workflow.Name, fmt.Sprint(taskID), jobTask.Name, "archive"),
 				},
 			}
 			archiveStep := &commonmodels.StepTask{
@@ -396,6 +421,7 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 				Spec: step.StepArchiveSpec{
 					UploadDetail: uploads,
 					S3:           modelS3toS3(defaultS3),
+					Repos:        repos,
 				},
 			}
 			jobTaskSpec.Steps = append(jobTaskSpec.Steps, archiveStep)
@@ -539,6 +565,7 @@ func fillBuildDetail(moduleBuild *commonmodels.Build, serviceName, serviceModule
 	moduleBuild.Timeout = buildTemplate.Timeout
 	moduleBuild.PreBuild = buildTemplate.PreBuild
 	moduleBuild.JenkinsBuild = buildTemplate.JenkinsBuild
+	moduleBuild.ScriptType = buildTemplate.ScriptType
 	moduleBuild.Scripts = buildTemplate.Scripts
 	moduleBuild.PostBuild = buildTemplate.PostBuild
 	moduleBuild.SSHs = buildTemplate.SSHs

@@ -98,9 +98,10 @@ type PreTest struct {
 	// Envs stores user defined env key val for build
 	Envs []*KeyVal `bson:"envs,omitempty"              json:"envs"`
 	// EnableProxy
-	EnableProxy bool   `bson:"enable_proxy"           json:"enable_proxy"`
-	ClusterID   string `bson:"cluster_id"             json:"cluster_id"`
-	StrategyID  string `bson:"strategy_id"            json:"strategy_id"`
+	EnableProxy      bool   `bson:"enable_proxy"           json:"enable_proxy"`
+	ClusterID        string `bson:"cluster_id"             json:"cluster_id"`
+	StrategyID       string `bson:"strategy_id"            json:"strategy_id"`
+	ConcurrencyLimit int    `bson:"concurrency_limit"      json:"concurrency_limit"`
 	// TODO: Deprecated.
 	Namespace string `bson:"namespace"              json:"namespace"`
 }

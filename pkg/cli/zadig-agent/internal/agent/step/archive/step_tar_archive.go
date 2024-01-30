@@ -45,7 +45,7 @@ type TarArchiveStep struct {
 }
 
 func NewTararchiveStep(spec interface{}, dirs *types.AgentWorkDirs, envs, secretEnvs []string, logger *log.JobLogger) (*TarArchiveStep, error) {
-	tarArchiveStep := &TarArchiveStep{dirs: dirs, envs: envs, secretEnvs: secretEnvs, logger: logger}
+	tarArchiveStep := &TarArchiveStep{dirs: dirs, workspace: dirs.Workspace, envs: envs, secretEnvs: secretEnvs, logger: logger}
 	yamlBytes, err := yaml.Marshal(spec)
 	if err != nil {
 		return tarArchiveStep, fmt.Errorf("marshal spec %+v failed", spec)
@@ -99,7 +99,10 @@ func (s *TarArchiveStep) Run(ctx context.Context) error {
 		s.logger.Errorf("failed to create %s err: %s", tarName, err)
 		return err
 	}
-	_ = temp.Close()
+	err = temp.Close()
+	if err != nil {
+		return fmt.Errorf("failed to close %s err: %s", tarName, err)
+	}
 	cmd := exec.Command("tar", cmdAndArtifactFullPaths...)
 	cmd.Stderr = os.Stderr
 	if err = cmd.Run(); err != nil {
@@ -108,6 +111,7 @@ func (s *TarArchiveStep) Run(ctx context.Context) error {
 	}
 
 	objectKey := filepath.Join(s.spec.S3DestDir, s.spec.FileName)
+	objectKey = filepath.ToSlash(objectKey)
 	if err := client.Upload(s.spec.S3Storage.Bucket, tarName, objectKey); err != nil {
 		return err
 	}

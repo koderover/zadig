@@ -19,6 +19,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"os"
 	"sort"
 	"strings"
 	"sync"
@@ -28,15 +29,18 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
 
+	config2 "github.com/koderover/zadig/v2/pkg/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
 	"github.com/koderover/zadig/v2/pkg/shared/kube/wrapper"
+	"github.com/koderover/zadig/v2/pkg/tool/cache"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/podexec"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/types"
 )
 
@@ -86,7 +90,15 @@ func CleanImageCache(logger *zap.SugaredLogger) error {
 	//       Since `golang-1.18`, `sync.Mutex` provides a `TryLock()` method. For now, we can continue with the previous
 	//       logic and replace it with `TryLock()` after upgrading to `golang-1.18+` to return immediately.
 	startTime := time.Now()
-	cleanCacheLock.Lock()
+
+	// we use a long expiry lock since cleaning dind cache may take some time
+	cleanCacheLock := cache.NewRedisLockWithExpiry("dind-cache-clean", time.Minute*20)
+
+	err := cleanCacheLock.Lock()
+	if err != nil {
+		log.Errorf("failed to acquire redis lock, err: %s", err)
+		return fmt.Errorf("failed to clean cleanning progress: another cleaning process is running")
+	}
 	defer cleanCacheLock.Unlock()
 
 	dindCleans, err := commonrepo.NewDindCleanColl().List()
@@ -214,6 +226,10 @@ func CleanImageCache(logger *zap.SugaredLogger) error {
 	}
 
 	return nil
+}
+
+func CleanSharedStorage() error {
+	return os.RemoveAll(config2.DataPath())
 }
 
 // GetOrCreateCleanCacheState 获取清理镜像缓存状态，如果数据库中没有数据返回一个临时对象

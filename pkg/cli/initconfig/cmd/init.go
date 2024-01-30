@@ -17,17 +17,31 @@ limitations under the License.
 package cmd
 
 import (
+	"context"
 	_ "embed"
+	"fmt"
+	"sync"
 	"time"
 
+	workflowservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/spf13/cobra"
 
 	"github.com/koderover/zadig/v2/pkg/config"
-	"github.com/koderover/zadig/v2/pkg/setting"
+	modeMongodb "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/collaboration/repository/mongodb"
+	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/ai"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
+	vmcommonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/vm"
+	labelMongodb "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/label/repository/mongodb"
+	systemrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/repository/mongodb"
+	systemservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/service"
+	templateservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/templatestore/service"
+	configmongodb "github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/email/repository/mongodb"
+	userdb "github.com/koderover/zadig/v2/pkg/microservice/user/core/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/shared/client/aslan"
-	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
-	"github.com/koderover/zadig/v2/pkg/tool/kube/updater"
+	gormtool "github.com/koderover/zadig/v2/pkg/tool/gorm"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
+	mongotool "github.com/koderover/zadig/v2/pkg/tool/mongo"
 )
 
 func init() {
@@ -48,48 +62,200 @@ var initCmd = &cobra.Command{
 	},
 }
 
+type indexer interface {
+	EnsureIndex(ctx context.Context) error
+	GetCollectionName() string
+}
+
 func run() error {
-	for {
-		err := Healthz()
-		if err == nil {
-			break
-		}
-		log.Error(err)
-		time.Sleep(10 * time.Second)
+	// initialize connection to both databases
+	err := gormtool.Open(config.MysqlUser(),
+		config.MysqlPassword(),
+		config.MysqlHost(),
+		config.MysqlDexDB(),
+	)
+	if err != nil {
+		log.Panicf("Failed to open database %s", config.MysqlDexDB())
 	}
-	err := initSystemConfig()
+
+	err = gormtool.Open(config.MysqlUser(),
+		config.MysqlPassword(),
+		config.MysqlHost(),
+		config.MysqlUserDB(),
+	)
+	if err != nil {
+		log.Panicf("Failed to open database %s", config.MysqlUserDB())
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	defer cancel()
+
+	// mongodb initialization
+	mongotool.Init(ctx, config.MongoURI())
+	if err := mongotool.Ping(ctx); err != nil {
+		panic(fmt.Errorf("failed to connect to mongo, error: %s", err))
+	}
+
+	createOrUpdateMongodbIndex(ctx)
+
+	err = initSystemData()
 	if err == nil {
 		log.Info("zadig init success")
 	}
+
 	return err
 }
 
-func initSystemConfig() error {
+func createOrUpdateMongodbIndex(ctx context.Context) {
+	var wg sync.WaitGroup
+	for _, r := range []indexer{
+		// aslan related db index
+		template.NewProductColl(),
+		commonrepo.NewBasicImageColl(),
+		commonrepo.NewBuildColl(),
+		commonrepo.NewCallbackRequestColl(),
+		commonrepo.NewConfigurationManagementColl(),
+		commonrepo.NewCounterColl(),
+		commonrepo.NewCronjobColl(),
+		commonrepo.NewCustomWorkflowTestReportColl(),
+		commonrepo.NewDeliveryActivityColl(),
+		commonrepo.NewDeliveryArtifactColl(),
+		commonrepo.NewDeliveryBuildColl(),
+		commonrepo.NewDeliveryDeployColl(),
+		commonrepo.NewDeliveryDistributeColl(),
+		commonrepo.NewDeliverySecurityColl(),
+		commonrepo.NewDeliveryTestColl(),
+		commonrepo.NewDeliveryVersionColl(),
+		commonrepo.NewDiffNoteColl(),
+		commonrepo.NewDindCleanColl(),
+		commonrepo.NewIMAppColl(),
+		commonrepo.NewObservabilityColl(),
+		commonrepo.NewFavoriteColl(),
+		commonrepo.NewGithubAppColl(),
+		commonrepo.NewHelmRepoColl(),
+		commonrepo.NewInstallColl(),
+		commonrepo.NewItReportColl(),
+		commonrepo.NewK8SClusterColl(),
+		commonrepo.NewNotificationColl(),
+		commonrepo.NewNotifyColl(),
+		commonrepo.NewPipelineColl(),
+		commonrepo.NewPrivateKeyColl(),
+		commonrepo.NewProductColl(),
+		commonrepo.NewProxyColl(),
+		commonrepo.NewQueueColl(),
+		commonrepo.NewRegistryNamespaceColl(),
+		commonrepo.NewS3StorageColl(),
+		commonrepo.NewServiceColl(),
+		commonrepo.NewProductionServiceColl(),
+		commonrepo.NewStrategyColl(),
+		commonrepo.NewStatsColl(),
+		commonrepo.NewSubscriptionColl(),
+		commonrepo.NewSystemSettingColl(),
+		commonrepo.NewTaskColl(),
+		commonrepo.NewTestTaskStatColl(),
+		commonrepo.NewTestingColl(),
+		commonrepo.NewWebHookColl(),
+		commonrepo.NewWebHookUserColl(),
+		commonrepo.NewWorkflowColl(),
+		commonrepo.NewWorkflowStatColl(),
+		commonrepo.NewWorkLoadsStatColl(),
+		commonrepo.NewServicesInExternalEnvColl(),
+		commonrepo.NewExternalLinkColl(),
+		commonrepo.NewChartColl(),
+		commonrepo.NewDockerfileTemplateColl(),
+		commonrepo.NewProjectClusterRelationColl(),
+		commonrepo.NewEnvResourceColl(),
+		commonrepo.NewEnvSvcDependColl(),
+		commonrepo.NewBuildTemplateColl(),
+		commonrepo.NewScanningColl(),
+		commonrepo.NewWorkflowV4Coll(),
+		commonrepo.NewworkflowTaskv4Coll(),
+		commonrepo.NewWorkflowQueueColl(),
+		commonrepo.NewPluginRepoColl(),
+		commonrepo.NewWorkflowViewColl(),
+		commonrepo.NewWorkflowV4TemplateColl(),
+		commonrepo.NewVariableSetColl(),
+		commonrepo.NewJobInfoColl(),
+		commonrepo.NewStatDashboardConfigColl(),
+		commonrepo.NewProjectManagementColl(),
+		commonrepo.NewImageTagsCollColl(),
+		commonrepo.NewLLMIntegrationColl(),
+		commonrepo.NewReleasePlanColl(),
+		commonrepo.NewReleasePlanLogColl(),
+		commonrepo.NewEnvServiceVersionColl(),
+
+		// msg queue
+		commonrepo.NewMsgQueueCommonColl(),
+		commonrepo.NewMsgQueuePipelineTaskColl(),
+
+		systemrepo.NewAnnouncementColl(),
+		systemrepo.NewOperationLogColl(),
+		labelMongodb.NewLabelColl(),
+		labelMongodb.NewLabelBindingColl(),
+		modeMongodb.NewCollaborationModeColl(),
+		modeMongodb.NewCollaborationInstanceColl(),
+
+		// config related db index
+		configmongodb.NewEmailHostColl(),
+
+		// user related db index
+		userdb.NewUserSettingColl(),
+
+		// env AI analysis related db index
+		ai.NewEnvAIAnalysisColl(),
+
+		// project group related db index
+		commonrepo.NewProjectGroupColl(),
+
+		// db instances
+		commonrepo.NewDBInstanceColl(),
+
+		// vm job related db index
+		vmcommonrepo.NewVMJobColl(),
+	} {
+		wg.Add(1)
+		go func(r indexer) {
+			defer wg.Done()
+			if err := r.EnsureIndex(ctx); err != nil {
+				panic(fmt.Errorf("failed to create index for %s, error: %s", r.GetCollectionName(), err))
+			}
+		}(r)
+	}
+
+	wg.Wait()
+}
+
+func initSystemData() error {
 	if err := createLocalCluster(); err != nil {
 		log.Errorf("createLocalCluster err:%s", err)
 		return err
 	}
 
-	if err := scaleWarpdrive(); err != nil {
-		log.Errorf("scale warpdrive err: %s", err)
+	commonrepo.NewBasicImageColl().InitBasicImageData(systemservice.InitbasicImageInfos())
+
+	templateservice.InitWorkflowTemplate()
+
+	// update offical plugins
+	workflowservice.UpdateOfficalPluginRepository(log.SugaredLogger())
+
+	if err := commonrepo.NewInstallColl().InitInstallData(systemservice.InitInstallMap()); err != nil {
+		log.Errorf("initialize Install Data err:%s", err)
 		return err
 	}
 
-	return nil
-}
-
-func scaleWarpdrive() error {
-	cfg, err := aslan.New(config.AslanServiceAddress()).GetWorkflowConcurrencySetting()
-	if err == nil {
-		client, err := kubeclient.GetKubeClient(config.HubServerServiceAddress(), setting.LocalClusterID)
-		if err != nil {
-			return err
-		}
-		return updater.ScaleDeployment(config.Namespace(), config.WarpDriveServiceName(), int(cfg.WorkflowConcurrency), client)
+	if err := commonrepo.NewSystemSettingColl().InitSystemSettings(); err != nil {
+		log.Errorf("initialize system settings err:%s", err)
+		return err
 	}
 
-	log.Errorf("Failed to get workflow concurrency settings, error: %s", err)
-	return err
+	if err := commonrepo.NewS3StorageColl().InitData(); err != nil {
+		log.Warnf("Failed to init S3 data: %s", err)
+	}
+
+	if err := clearSharedStorage(); err != nil {
+		log.Errorf("failed to clear aslan shared storage, error: %s", err)
+	}
+	return nil
 }
 
 func createLocalCluster() error {
@@ -101,4 +267,8 @@ func createLocalCluster() error {
 		return nil
 	}
 	return aslan.New(config.AslanServiceAddress()).AddLocalCluster()
+}
+
+func clearSharedStorage() error {
+	return aslan.New(config.AslanServiceAddress()).ClearSharedStorage()
 }

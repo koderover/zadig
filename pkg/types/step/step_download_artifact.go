@@ -1,5 +1,5 @@
 /*
-Copyright 2023 The KodeRover Authors.
+Copyright 2024 The KodeRover Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,8 +14,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package script
+package step
 
-func generateScript(spec *StepShellSpec, workspace string, logger *log.JobLogger) (string, error) {
-	return "", nil
+type StepDownloadArtifactSpec struct {
+	Artifact string `bson:"artifact"                           json:"artifact"                                  yaml:"artifact"`
+	S3       *S3    `bson:"s3_storage"                         json:"s3_storage"                                yaml:"s3_storage"`
 }

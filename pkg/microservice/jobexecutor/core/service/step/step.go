@@ -66,6 +66,11 @@ func RunStep(ctx context.Context, step *meta.Step, workspace, paths string, envs
 		if err != nil {
 			return err
 		}
+	case "download_artifact":
+		stepInstance, err = NewDownloadArtifactStep(step.Spec, workspace, envs, secretEnvs)
+		if err != nil {
+			return err
+		}
 	case "junit_report":
 		stepInstance, err = NewJunitReportStep(step.Spec, workspace, envs, secretEnvs)
 		if err != nil {

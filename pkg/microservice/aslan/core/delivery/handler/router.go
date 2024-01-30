@@ -29,21 +29,15 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		deliveryArtifact.GET("", ListDeliveryArtifacts)
 		deliveryArtifact.GET("/:id", GetDeliveryArtifact)
 		deliveryArtifact.GET("/image", GetDeliveryArtifactIDByImage)
-		//deliveryArtifact.POST("", CreateDeliveryArtifacts)
-		//deliveryArtifact.POST("/:id", UpdateDeliveryArtifact)
 		deliveryArtifact.POST("/:id/activities", CreateDeliveryActivities)
 	}
-
-	//deliveryProduct := router.Group("products")
-	//{
-	//	deliveryProduct.GET("/:releaseId", GetProductByDeliveryInfo)
-	//}
 
 	deliveryRelease := router.Group("releases")
 	{
 		deliveryRelease.GET("/:id", GetDeliveryVersion)
 		deliveryRelease.GET("", ListDeliveryVersion)
 		deliveryRelease.DELETE("/:id", GetProductNameByDelivery, DeleteDeliveryVersion)
+		deliveryRelease.POST("/k8s", CreateK8SDeliveryVersion)
 		deliveryRelease.POST("/helm", CreateHelmDeliveryVersion)
 		deliveryRelease.POST("/helm/global-variables", ApplyDeliveryGlobalVariables)
 		deliveryRelease.GET("/helm/charts", DownloadDeliveryChart)
@@ -53,22 +47,10 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		deliveryRelease.GET("/helm/charts/fileContent", GetDeliveryChartFileContent)
 	}
 
-	//deliveryPackage := router.Group("packages")
-	//{
-	//	deliveryPackage.GET("", ListPackagesVersion)
-	//}
-
 	// deprecated, this functionality is removed
 	deliveryService := router.Group("servicenames")
 	{
 		deliveryService.GET("", ListDeliveryServiceNames)
 	}
 
-	// TODO: used by task type security in product workflow, now deprecated, removing after one version
-	//deliverySecurity := router.Group("security")
-	//{
-	//	deliverySecurity.GET("/stats", ListDeliverySecurityStatistics)
-	//	deliverySecurity.GET("", ListDeliverySecurity)
-	//	deliverySecurity.POST("", CreateDeliverySecurity)
-	//}
 }

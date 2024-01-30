@@ -37,6 +37,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/yaml"
 
+	fileutil "github.com/koderover/zadig/v2/pkg/cli/zadig-agent/util/file"
 	configbase "github.com/koderover/zadig/v2/pkg/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
@@ -254,7 +255,6 @@ func GetProductionHelmServiceFilePath(serviceName, productName string, revision 
 	return GetProductionHelmFilePath(productName, serviceName, revision, dir)
 }
 
-// TODO add production parameter
 func GetFileContent(serviceName, productName string, param *GetFileContentParam, log *zap.SugaredLogger) (string, error) {
 	filePath, fileName, revision, forDelivery := param.FilePath, param.FileName, param.Revision, param.DeliveryVersion
 	svc, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
@@ -283,7 +283,18 @@ func GetFileContent(serviceName, productName string, param *GetFileContentParam,
 	}
 
 	if forDelivery {
+		originBase := base
 		base = config.LocalDeliveryChartPathWithRevision(productName, serviceName, revision)
+		if exists, err := fileutil.PathExists(base); !exists || err != nil {
+			fullPath := filepath.Join(originBase, svc.ServiceName)
+			err := copy.Copy(fullPath, filepath.Join(base, svc.ServiceName))
+			if err != nil {
+				return "", err
+			}
+		}
+		defer func() {
+			os.RemoveAll(base)
+		}()
 	}
 
 	file := filepath.Join(base, serviceName, filePath, fileName)

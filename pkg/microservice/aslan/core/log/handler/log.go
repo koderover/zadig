@@ -167,3 +167,28 @@ func GetScanningContainerLogs(c *gin.Context) {
 
 	ctx.Resp, ctx.Err = logservice.GetScanningContainerLogs(id, taskID, ctx.Logger)
 }
+
+func GetTestingContainerLogs(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	testName := c.Param("test_name")
+	if testName == "" {
+		ctx.Err = fmt.Errorf("testName must be provided")
+		return
+	}
+
+	taskIDStr := c.Param("task_id")
+	if taskIDStr == "" {
+		ctx.Err = fmt.Errorf("task_id must be provided")
+		return
+	}
+
+	taskID, err := strconv.ParseInt(taskIDStr, 10, 64)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid task id")
+		return
+	}
+
+	ctx.Resp, ctx.Err = logservice.GetTestingContainerLogs(testName, taskID, ctx.Logger)
+}

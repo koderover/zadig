@@ -111,6 +111,22 @@ func (c *JobInfoColl) GetTestJobs(startTime, endTime int64, projectName string) 
 	return resp, err
 }
 
+func (c *JobInfoColl) GetTestJobsByWorkflow(workflowName string) ([]*models.JobInfo, error) {
+	query := bson.M{}
+	query["workflow_name"] = workflowName
+	query["type"] = config.JobZadigTesting
+
+	resp := make([]*models.JobInfo, 0)
+
+	cursor, err := c.Find(context.Background(), query, options.Find().SetSort(bson.D{{"task_id", -1}}))
+	if err != nil {
+		return nil, err
+	}
+	err = cursor.All(context.TODO(), &resp)
+
+	return resp, err
+}
+
 func (c *JobInfoColl) GetBuildJobs(startTime, endTime int64, projectName string) ([]*models.JobInfo, error) {
 	query := bson.M{}
 	query["start_time"] = bson.M{"$gte": startTime, "$lt": endTime}

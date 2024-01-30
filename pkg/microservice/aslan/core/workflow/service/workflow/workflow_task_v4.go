@@ -17,9 +17,9 @@ limitations under the License.
 package workflow
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"math"
 	"path/filepath"
 	"strings"
 	"time"
@@ -27,12 +27,9 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"gorm.io/gorm/utils"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	"github.com/koderover/zadig/v2/pkg/shared/client/user"
-
+	config2 "github.com/koderover/zadig/v2/pkg/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
@@ -48,10 +45,9 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/job"
 	jobctl "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/job"
 	"github.com/koderover/zadig/v2/pkg/setting"
-	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
+	"github.com/koderover/zadig/v2/pkg/shared/client/user"
+	"github.com/koderover/zadig/v2/pkg/tool/cache"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
-	"github.com/koderover/zadig/v2/pkg/tool/kube/getter"
-	"github.com/koderover/zadig/v2/pkg/tool/kube/podexec"
 	larktool "github.com/koderover/zadig/v2/pkg/tool/lark"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	s3tool "github.com/koderover/zadig/v2/pkg/tool/s3"
@@ -59,12 +55,6 @@ import (
 	jobspec "github.com/koderover/zadig/v2/pkg/types/job"
 	"github.com/koderover/zadig/v2/pkg/types/step"
 	stepspec "github.com/koderover/zadig/v2/pkg/types/step"
-)
-
-const (
-	checkShellStepStart  = "ls /zadig/debug/shell_step"
-	checkShellStepDone   = "ls /zadig/debug/shell_step_done"
-	setOrUnsetBreakpoint = "%s /zadig/debug/breakpoint_%s"
 )
 
 type CreateTaskV4Resp struct {
@@ -120,6 +110,7 @@ type JobTaskPreview struct {
 type ZadigBuildJobSpec struct {
 	Repos         []*types.Repository    `bson:"repos"           json:"repos"`
 	Image         string                 `bson:"image"           json:"image"`
+	Package       string                 `bson:"package"         json:"package"`
 	ServiceName   string                 `bson:"service_name"    json:"service_name"`
 	ServiceModule string                 `bson:"service_module"  json:"service_module"`
 	Envs          []*commonmodels.KeyVal `bson:"envs"            json:"envs"`
@@ -306,6 +297,7 @@ type CreateWorkflowTaskV4Args struct {
 	Name    string
 	Account string
 	UserID  string
+	Type    config.CustomWorkflowTaskType
 }
 
 func CreateWorkflowTaskV4ByBuildInTrigger(triggerName string, args *commonmodels.WorkflowV4, log *zap.SugaredLogger) (*CreateTaskV4Resp, error) {
@@ -339,12 +331,6 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 	// if account is not set, use name as account
 	if args.Account == "" {
 		args.Account = args.Name
-	}
-
-	dbWorkflow, err := commonrepo.NewWorkflowV4Coll().Find(workflow.Name)
-	if err != nil {
-		log.Errorf("cannot find workflow %s, the error is: %v", workflow.Name, err)
-		return nil, e.ErrFindWorkflow.AddDesc(err.Error())
 	}
 
 	if err := jobctl.InstantiateWorkflow(workflow); err != nil {
@@ -403,7 +389,6 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 	workflowTask.KeyVals = workflow.KeyVals
 	workflowTask.ShareStorages = workflow.ShareStorages
 	workflowTask.IsDebug = workflow.Debug
-	workflowTask.WorkflowHash = fmt.Sprintf("%x", dbWorkflow.CalculateHash())
 	// set workflow params repo info, like commitid, branch etc.
 	setZadigParamRepos(workflow, log)
 	for _, stage := range workflow.Stages {
@@ -486,6 +471,10 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 	workflowTask.WorkflowArgs = workflow
 	workflowTask.Status = config.StatusCreated
 	workflowTask.StartTime = time.Now().Unix()
+	workflowTask.Type = args.Type
+	if args.Type == "" {
+		workflowTask.Type = config.WorkflowTaskTypeWorkflow
+	}
 
 	workflowTask.WorkflowArgs, _, err = service.FillServiceModules2Jobs(workflowTask.WorkflowArgs)
 	if err != nil {
@@ -602,247 +591,46 @@ func RetryWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredL
 }
 
 func SetWorkflowTaskV4Breakpoint(workflowName, jobName string, taskID int64, set bool, position string, logger *zap.SugaredLogger) error {
-	w := workflowcontroller.GetWorkflowTaskInMap(workflowName, taskID)
-	if w == nil {
-		logger.Error("set workflowTaskV4 breakpoint failed: not found task")
-		return e.ErrSetBreakpoint.AddDesc("工作流任务已完成或不存在")
+	event := &workflowcontroller.WorkflowDebugEvent{
+		EventType: workflowcontroller.WorkflowDebugEventSetBreakPoint,
+		JobName:   jobName,
+		TaskID:    taskID,
+		Set:       set,
+		Position:  position,
 	}
-	w.Lock()
-	var ack func()
-	defer func() {
-		if ack != nil {
-			ack()
-		}
-		w.Unlock()
-	}()
-	var task *commonmodels.JobTask
-FOR:
-	for _, stage := range w.WorkflowTask.Stages {
-		for _, jobTask := range stage.Jobs {
-			if jobTask.Name == jobName {
-				task = jobTask
-				break FOR
-			}
-		}
-	}
-	if task == nil {
-		logger.Error("set workflowTaskV4 breakpoint failed: not found job")
-		return e.ErrSetBreakpoint.AddDesc("当前任务不存在")
-	}
-	// job task has not run, update data in memory and ack
-	if task.Status == "" {
-		switch position {
-		case "before":
-			task.BreakpointBefore = set
-			ack = w.Ack
-		case "after":
-			task.BreakpointAfter = set
-			ack = w.Ack
-		}
-		logger.Infof("set workflowTaskV4 breakpoint success: %s-%s %v", jobName, position, set)
-		return nil
-	}
-
-	jobTaskSpec := &commonmodels.JobTaskFreestyleSpec{}
-	if err := commonmodels.IToi(task.Spec, jobTaskSpec); err != nil {
-		logger.Errorf("set workflowTaskV4 breakpoint failed: IToi %v", err)
-		return e.ErrSetBreakpoint.AddDesc("修改断点意外失败: convert job task spec")
-	}
-
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), jobTaskSpec.Properties.ClusterID)
+	bytes, _ := json.Marshal(event)
+	err := cache.NewRedisCache(config2.RedisCommonCacheTokenDB()).Publish(workflowcontroller.WorkflowDebugChanKey(workflowName, taskID), string(bytes))
 	if err != nil {
-		log.Errorf("set workflowTaskV4 breakpoint failed: get kube client error: %s", err)
-		return e.ErrSetBreakpoint.AddDesc("修改断点意外失败: get kube client")
+		return e.ErrStopDebugShell.AddDesc(fmt.Sprintf("failed to set workflow breakpoint, err: %s", err))
 	}
-	clientSet, err := kubeclient.GetClientset(config.HubServerAddress(), jobTaskSpec.Properties.ClusterID)
-	if err != nil {
-		log.Errorf("set workflowTaskV4 breakpoint failed: get kube client set error: %s", err)
-		return e.ErrSetBreakpoint.AddDesc("修改断点意外失败: get kube client set")
-	}
-	restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), jobTaskSpec.Properties.ClusterID)
-	if err != nil {
-		log.Errorf("set workflowTaskV4 breakpoint failed: get kube rest config error: %s", err)
-		return e.ErrSetBreakpoint.AddDesc("修改断点意外失败: get kube rest config")
-	}
-
-	// job task is running, check whether shell step has run, and touch breakpoint file
-	// if job task status is debug_after, only breakpoint operation can do is unset breakpoint_after, which should be done by StopDebugWorkflowTaskJobV4
-	// if job task status is prepare, setting breakpoints has a low probability of not taking effect, and the current design allows for this flaw
-	if task.Status == config.StatusRunning || task.Status == config.StatusDebugBefore || task.Status == config.StatusPrepare {
-		pods, err := getter.ListPods(jobTaskSpec.Properties.Namespace, labels.Set{"job-name": task.K8sJobName}.AsSelector(), kubeClient)
-		if err != nil {
-			logger.Errorf("set workflowTaskV4 breakpoint failed: list pods %v", err)
-			return e.ErrSetBreakpoint.AddDesc("修改断点意外失败: ListPods")
-		}
-		if len(pods) == 0 {
-			logger.Error("set workflowTaskV4 breakpoint failed: list pods num 0")
-			return e.ErrSetBreakpoint.AddDesc("修改断点意外失败: ListPods num 0")
-		}
-		pod := pods[0]
-		switch pod.Status.Phase {
-		case corev1.PodRunning:
-		default:
-			logger.Errorf("set workflowTaskV4 breakpoint failed: pod status is %s", pod.Status.Phase)
-			return e.ErrSetBreakpoint.AddDesc(fmt.Sprintf("当前任务状态 %s 无法修改断点", pod.Status.Phase))
-		}
-		exec := func(cmd string) bool {
-			opt := podexec.ExecOptions{
-				Namespace:     jobTaskSpec.Properties.Namespace,
-				PodName:       pod.Name,
-				ContainerName: pod.Spec.Containers[0].Name,
-				Command:       []string{"sh", "-c", cmd},
-			}
-			_, stderr, success, _ := podexec.KubeExec(clientSet, restConfig, opt)
-			logger.Errorf("set workflowTaskV4 breakpoint exec %s error: %s", cmd, stderr)
-			return success
-		}
-		touchOrRemove := func(set bool) string {
-			if set {
-				return "touch"
-			}
-			return "rm"
-		}
-		switch position {
-		case "before":
-			if exec(checkShellStepStart) {
-				logger.Error("set workflowTaskV4 before breakpoint failed: shell step has started")
-				return e.ErrSetBreakpoint.AddDesc("当前任务已开始运行脚本，无法修改前断点")
-			}
-			exec(fmt.Sprintf(setOrUnsetBreakpoint, touchOrRemove(set), position))
-		case "after":
-			if exec(checkShellStepDone) {
-				logger.Error("set workflowTaskV4 after breakpoint failed: shell step has been done")
-				return e.ErrSetBreakpoint.AddDesc("当前任务已运行完脚本，无法修改后断点")
-			}
-			exec(fmt.Sprintf(setOrUnsetBreakpoint, touchOrRemove(set), position))
-		}
-		// update data in memory and ack
-		switch position {
-		case "before":
-			task.BreakpointBefore = set
-			ack = w.Ack
-		case "after":
-			task.BreakpointAfter = set
-			ack = w.Ack
-		}
-		logger.Infof("set workflowTaskV4 breakpoint success: %s-%s %v", jobName, position, set)
-		return nil
-	}
-	logger.Errorf("set workflowTaskV4 breakpoint failed: job status is %s", task.Status)
-	return e.ErrSetBreakpoint.AddDesc("当前任务状态无法修改断点 ")
+	return nil
 }
 
 func EnableDebugWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredLogger) error {
-	w := workflowcontroller.GetWorkflowTaskInMap(workflowName, taskID)
-	if w == nil {
-		logger.Error("set workflowTaskV4 breakpoint failed: not found task")
-		return e.ErrStopDebugShell.AddDesc("工作流任务已完成或不存在")
+	event := &workflowcontroller.WorkflowDebugEvent{
+		EventType: workflowcontroller.WorkflowDebugEventSetBreakPoint,
+		TaskID:    taskID,
 	}
-	w.Lock()
-	var ack func()
-	defer func() {
-		if ack != nil {
-			ack()
-		}
-		w.Unlock()
-	}()
-	t := w.WorkflowTask
-	if t.IsDebug {
-		return e.ErrStopDebugShell.AddDesc("任务已开启调试模式")
+	bytes, _ := json.Marshal(event)
+	err := cache.NewRedisCache(config2.RedisCommonCacheTokenDB()).Publish(workflowcontroller.WorkflowDebugChanKey(workflowName, taskID), string(bytes))
+	if err != nil {
+		return e.ErrEnableDebug.AddDesc(fmt.Sprintf("failed to set workflow breakpoint, err: %s", err))
 	}
-	t.IsDebug = true
-	ack = w.Ack
-	logger.Infof("enable workflowTaskV4 debug mode success: %s-%d", workflowName, taskID)
 	return nil
 }
 
 func StopDebugWorkflowTaskJobV4(workflowName, jobName string, taskID int64, position string, logger *zap.SugaredLogger) error {
-	w := workflowcontroller.GetWorkflowTaskInMap(workflowName, taskID)
-	if w == nil {
-		logger.Error("stop debug workflowTaskV4 job failed: not found task")
-		return e.ErrStopDebugShell.AddDesc("工作流任务已完成或不存在")
+	event := &workflowcontroller.WorkflowDebugEvent{
+		EventType: workflowcontroller.WorkflowDebugEventDeleteDebug,
+		JobName:   jobName,
+		Position:  position,
+		TaskID:    taskID,
 	}
-	w.Lock()
-	var ack func()
-	defer func() {
-		if ack != nil {
-			ack()
-		}
-		w.Unlock()
-	}()
-
-	var task *commonmodels.JobTask
-FOR:
-	for _, stage := range w.WorkflowTask.Stages {
-		for _, jobTask := range stage.Jobs {
-			if jobTask.Name == jobName {
-				task = jobTask
-				break FOR
-			}
-		}
-	}
-	if task == nil {
-		logger.Error("stop workflowTaskV4 debug shell failed: not found job")
-		return e.ErrStopDebugShell.AddDesc("Job不存在")
-	}
-	jobTaskSpec := &commonmodels.JobTaskFreestyleSpec{}
-	if err := commonmodels.IToi(task.Spec, jobTaskSpec); err != nil {
-		logger.Errorf("stop workflowTaskV4 debug shell failed: IToi %v", err)
-		return e.ErrStopDebugShell.AddDesc("结束调试意外失败")
-	}
-
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), jobTaskSpec.Properties.ClusterID)
+	bytes, _ := json.Marshal(event)
+	err := cache.NewRedisCache(config2.RedisCommonCacheTokenDB()).Publish(workflowcontroller.WorkflowDebugChanKey(workflowName, taskID), string(bytes))
 	if err != nil {
-		log.Errorf("stop workflowTaskV4 debug shell failed: get kube client error: %s", err)
-		return e.ErrSetBreakpoint.AddDesc("结束调试意外失败: get kube client")
+		return e.ErrEnableDebug.AddDesc(fmt.Sprintf("failed to set workflow breakpoint, err: %s", err))
 	}
-	clientSet, err := kubeclient.GetClientset(config.HubServerAddress(), jobTaskSpec.Properties.ClusterID)
-	if err != nil {
-		log.Errorf("stop workflowTaskV4 debug shell failed: get kube client set error: %s", err)
-		return e.ErrSetBreakpoint.AddDesc("结束调试意外失败: get kube client set")
-	}
-	restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), jobTaskSpec.Properties.ClusterID)
-	if err != nil {
-		log.Errorf("stop workflowTaskV4 debug shell failed: get kube rest config error: %s", err)
-		return e.ErrSetBreakpoint.AddDesc("结束调试意外失败: get kube rest config")
-	}
-
-	pods, err := getter.ListPods(jobTaskSpec.Properties.Namespace, labels.Set{"job-name": task.K8sJobName}.AsSelector(), kubeClient)
-	if err != nil {
-		logger.Errorf("stop workflowTaskV4 debug shell failed: list pods %v", err)
-		return e.ErrStopDebugShell.AddDesc("结束调试意外失败: ListPods")
-	}
-	if len(pods) == 0 {
-		logger.Error("stop workflowTaskV4 debug shell failed: list pods num 0")
-		return e.ErrStopDebugShell.AddDesc("结束调试意外失败: ListPods num 0")
-	}
-	pod := pods[0]
-	switch pod.Status.Phase {
-	case corev1.PodRunning:
-	default:
-		logger.Errorf("stop workflowTaskV4 debug shell failed: pod status is %s", pod.Status.Phase)
-		return e.ErrStopDebugShell.AddDesc(fmt.Sprintf("Job 状态 %s 无法结束调试", pod.Status.Phase))
-	}
-	exec := func(cmd string) bool {
-		opt := podexec.ExecOptions{
-			Namespace:     jobTaskSpec.Properties.Namespace,
-			PodName:       pod.Name,
-			ContainerName: pod.Spec.Containers[0].Name,
-			Command:       []string{"sh", "-c", cmd},
-		}
-		_, stderr, success, _ := podexec.KubeExec(clientSet, restConfig, opt)
-		logger.Errorf("stop workflowTaskV4 debug shell exec %s error: %s", cmd, stderr)
-		return success
-	}
-
-	if !exec(fmt.Sprintf("ls /zadig/debug/breakpoint_%s", position)) {
-		logger.Errorf("set workflowTaskV4 %s breakpoint failed: not found file", position)
-		return e.ErrStopDebugShell.AddDesc("未找到断点文件")
-	}
-	exec(fmt.Sprintf("rm /zadig/debug/breakpoint_%s", position))
-
-	ack = w.Ack
-	logger.Infof("stop workflowTaskV4 debug shell success: %s-%d", workflowName, taskID)
 	return nil
 }
 
@@ -981,45 +769,21 @@ func ListWorkflowTaskV4ByFilter(filter *TaskHistoryFilter, filterList []string, 
 
 					// get test report
 					testModules := make([]*commonmodels.WorkflowTestModule, 0)
-					for _, runningStage := range task.Stages {
-						if runningStage.Name != stage.Name {
-							continue
-						}
-						for _, runningJob := range runningStage.Jobs {
-							if runningJob.JobType != string(config.JobZadigTesting) {
-								continue
-							}
-							jobInfo := new(commonmodels.TaskJobInfo)
-							if err := commonmodels.IToi(runningJob.JobInfo, jobInfo); err != nil {
-								return nil, 0, err
-							}
+					testResultList, err := commonrepo.NewCustomWorkflowTestReportColl().ListByWorkflow(filter.WorkflowName, job.Name, task.TaskID)
+					if err != nil {
+						log.Errorf("failed to list junit test report for workflow: %s, error: %s", filter.WorkflowName, err)
+						return nil, 0, fmt.Errorf("failed to list junit test report for workflow: %s, error: %s", filter.WorkflowName, err)
+					}
 
-							if job.Name == jobInfo.JobName {
-								result, _ := service.GetWorkflowV4LocalTestSuite(task.WorkflowName, runningJob.Name, task.TaskID, logger)
-								if result != nil && result.FunctionTestSuite != nil {
-									duration := 0.0
-									for _, testCase := range result.FunctionTestSuite.TestCases {
-										duration += testCase.Time
-									}
-									testModule := &commonmodels.WorkflowTestModule{
-										RunningJobName: runningJob.Name,
-										Type:           "function",
-										TestName:       result.FunctionTestSuite.Name,
-										TestCaseNum:    result.FunctionTestSuite.Tests,
-										SuccessCaseNum: result.FunctionTestSuite.Successes,
-									}
-									if testModule.TestName == "" {
-										keys := strings.Split(runningJob.Key, ".")
-										testModule.TestName = keys[len(keys)-1]
-									}
-									if result.FunctionTestSuite.Time == 0 {
-										result.FunctionTestSuite.Time = math.Round(duration*1000) / 1000
-									}
-									testModule.TestTime = result.FunctionTestSuite.Time
-									testModules = append(testModules, testModule)
-								}
-							}
-						}
+					for _, testResult := range testResultList {
+						testModules = append(testModules, &commonmodels.WorkflowTestModule{
+							RunningJobName: job.Name,
+							Type:           "function",
+							TestName:       testResult.ZadigTestName,
+							TestCaseNum:    testResult.TestCaseNum,
+							SuccessCaseNum: testResult.SuccessCaseNum,
+							TestTime:       testResult.TestTime,
+						})
 					}
 					jobPreview.TestModules = testModules
 				case config.JobZadigDistributeImage:
@@ -1256,7 +1020,8 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, 
 					continue
 				}
 			}
-			// get image from global context
+
+			// get from global context
 			imageContextKey := workflowcontroller.GetContextKey(jobspec.GetJobOutputKey(job.Key, "IMAGE"))
 			if context != nil {
 				spec.Image = context[imageContextKey]
@@ -1269,6 +1034,16 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, 
 					commonmodels.IToi(step.Spec, &stepSpec)
 					spec.Repos = stepSpec.Repos
 					continue
+				}
+				if step.StepType == config.StepArchive {
+					stepSpec := &stepspec.StepArchiveSpec{}
+					if err := commonmodels.IToi(step.Spec, &stepSpec); err != nil {
+						continue
+					}
+
+					if len(stepSpec.UploadDetail) > 0 {
+						spec.Package = stepSpec.UploadDetail[len(stepSpec.UploadDetail)-1].DestinationPath + "/" + stepSpec.UploadDetail[len(stepSpec.UploadDetail)-1].Name
+					}
 				}
 			}
 			jobPreview.Spec = spec
@@ -1427,6 +1202,51 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, 
 			spec.SkipCheckRunStatus = taskJobSpec.SkipCheckRunStatus
 			spec.DeployHelmCharts = append(spec.DeployHelmCharts, taskJobSpec.DeployHelmChart)
 			jobPreview.Spec = spec
+		case string(config.JobZadigVMDeploy):
+			spec := commonmodels.ZadigVMDeployJobSpec{}
+			taskJobSpec := &commonmodels.JobTaskFreestyleSpec{}
+			if err := commonmodels.IToi(job.Spec, taskJobSpec); err != nil {
+				continue
+			}
+
+			serviceModule := ""
+			serviceName := ""
+			for _, arg := range taskJobSpec.Properties.Envs {
+				if arg.Key == "ENV_NAME" {
+					spec.Env = arg.Value
+					continue
+				}
+				if arg.Key == "SERVICE_MODULE" {
+					serviceModule = arg.Value
+				}
+				if arg.Key == "SERVICE_NAME" {
+					serviceName = arg.Value
+				}
+			}
+
+			serviceAndVMDeploy := []*commonmodels.ServiceAndVMDeploy{}
+			for _, step := range taskJobSpec.Steps {
+				if step.StepType == config.StepDownloadArtifact {
+					stepSpec := &stepspec.StepDownloadArtifactSpec{}
+					if err := commonmodels.IToi(step.Spec, &stepSpec); err != nil {
+						continue
+					}
+
+					url := stepSpec.S3.Endpoint + "/" + stepSpec.S3.Bucket + "/"
+					if len(stepSpec.S3.Subfolder) > 0 {
+						url += strings.TrimLeft(stepSpec.S3.Subfolder, "/")
+					}
+					url += "/" + stepSpec.Artifact
+					serviceAndVMDeploy = append(serviceAndVMDeploy, &commonmodels.ServiceAndVMDeploy{
+						ServiceName:   serviceName,
+						ServiceModule: serviceModule,
+						ArtifactURL:   url,
+					})
+				}
+			}
+			spec.ServiceAndVMDeploys = serviceAndVMDeploy
+
+			jobPreview.Spec = spec
 		case string(config.JobPlugin):
 			taskJobSpec := &commonmodels.JobTaskPluginSpec{}
 			if err := commonmodels.IToi(job.Spec, taskJobSpec); err != nil {
@@ -1584,7 +1404,7 @@ func workflowTaskLint(workflowTask *commonmodels.WorkflowTask, logger *zap.Sugar
 		}
 
 		// deal with users in user groups
-		if stage.Approval != nil && stage.Approval.Type == config.NativeApproval && len(stage.Approval.NativeApproval.ApproveUsers) != 0 {
+		if stage.Approval != nil && stage.Approval.Type == config.NativeApproval && stage.Approval.NativeApproval != nil && len(stage.Approval.NativeApproval.ApproveUsers) != 0 {
 			newApproveUserList := make([]*commonmodels.User, 0)
 			userSet := sets.NewString()
 			for _, approveUser := range stage.Approval.NativeApproval.ApproveUsers {

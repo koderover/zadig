@@ -26,13 +26,16 @@ import (
 	"sync"
 
 	"go.uber.org/zap"
+	"gopkg.in/natefinch/lumberjack.v2"
 )
 
 type JobLogger struct {
-	mu      sync.Mutex
-	writer  io.Writer
-	logger  *zap.SugaredLogger
-	logPath string
+	mu               sync.Mutex
+	writer           io.Writer
+	logger           *zap.SugaredLogger
+	lumberjackLogger *lumberjack.Logger
+	logPath          string
+	isClosed         bool
 }
 
 func NewJobLogger(logfile string) *JobLogger {
@@ -49,12 +52,13 @@ func NewJobLogger(logfile string) *JobLogger {
 		NoLogLevel: true,
 	}
 
-	return &JobLogger{
+	jobLogger := &JobLogger{
 		mu:      sync.Mutex{},
 		writer:  file,
-		logger:  InitJobLogger(cfg),
 		logPath: logfile,
 	}
+	jobLogger.logger, jobLogger.lumberjackLogger = InitJobLogger(cfg)
+	return jobLogger
 }
 
 func (l *JobLogger) Printf(format string, a ...any) {
@@ -184,7 +188,7 @@ func (l *JobLogger) ReadByRowNum(offset, curNum, num int64) ([]byte, int64, int6
 	// Seek to the beginning of the file
 	_, err = file.Seek(offset, 0)
 	if err != nil {
-		return nil, 0, 0, false, fmt.Errorf("failed to seek to the beginning of the file: %v", err)
+		return nil, 0, 0, false, fmt.Errorf("failed to seek to %v offset of the file: %v", offset, err)
 	}
 
 	// Create a buffered reader
@@ -197,14 +201,12 @@ func (l *JobLogger) ReadByRowNum(offset, curNum, num int64) ([]byte, int64, int6
 	var resultBuffer bytes.Buffer
 
 	// Read the file line by line until reaching the specified line count or end of file
-	for lineCount < curNum+num {
+	for lineCount < num {
 		line, err := reader.ReadString('\n')
 		if err == nil || err == io.EOF {
 			// If the current line number is within the specified range, append the line data to the result buffer
-			if lineCount >= curNum {
-				resultBuffer.WriteString(line)
-				offset += int64(len(line))
-			}
+			resultBuffer.WriteString(line)
+			offset += int64(len(line))
 			lineCount++
 
 			if err == io.EOF {
@@ -222,6 +224,35 @@ func (l *JobLogger) GetLogfilePath() string {
 }
 
 func (l *JobLogger) Close() {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	if l.isClosed {
+		return
+	}
+
+	closer, ok := l.writer.(io.Closer)
+	if ok {
+		if err := closer.Close(); err != nil {
+			Errorf("failed to close writer, error: %s", err)
+		}
+	}
+
+	if l.lumberjackLogger != nil {
+		if err := l.lumberjackLogger.Close(); err != nil {
+			Errorf("failed to close lumberjack logger, error: %s", err)
+		}
+	}
+
+	err := l.logger.Sync()
+	if err != nil {
+		Errorf("failed to sync job logger, error: %s", err)
+	}
+
+	l.isClosed = true
+}
+
+func (l *JobLogger) Sync() {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 

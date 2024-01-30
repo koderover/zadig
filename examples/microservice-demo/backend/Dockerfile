@@ -1,4 +1,4 @@
-FROM ubuntu:14.04
+FROM koderover.tencentcloudcr.com/koderover-demo/ubuntu:20.04
 
 WORKDIR /workspace
 

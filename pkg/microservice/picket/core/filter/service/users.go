@@ -20,7 +20,6 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/koderover/zadig/v2/pkg/setting"
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/v2/pkg/shared/client/user"
@@ -35,45 +34,25 @@ func DeleteUser(userID string, header http.Header, qs url.Values, _ *zap.Sugared
 	return user.New().DeleteUser(userID, header, qs)
 }
 
-func SearchUsers(header http.Header, qs url.Values, args *user.SearchArgs, log *zap.SugaredLogger) (*types.UsersResp, error) {
+func SearchUsers(header http.Header, qs url.Values, args *user.SearchArgs, log *zap.SugaredLogger) (*types.UsersBriefResp, error) {
 	users, err := user.New().SearchUsers(header, qs, args)
 	if err != nil {
 		log.Errorf("search users err :%s", err)
 		return nil, err
 	}
 
-	res := &types.UsersResp{
-		Users:      make([]*types.UserInfo, 0),
+	res := &types.UsersBriefResp{
+		Users:      make([]*types.UserBriefInfo, 0),
 		TotalCount: users.TotalCount,
 	}
 
 	for _, uInfo := range users.Users {
-		userInfo := &types.UserInfo{
-			LastLoginTime: uInfo.LastLoginTime,
-			Uid:           uInfo.Uid,
-			Name:          uInfo.Name,
-			IdentityType:  uInfo.IdentityType,
-			Email:         uInfo.Email,
-			Phone:         uInfo.Phone,
-			Account:       uInfo.Account,
-			APIToken:      uInfo.APIToken,
+		userInfo := &types.UserBriefInfo{
+			UID:          uInfo.Uid,
+			Name:         uInfo.Name,
+			IdentityType: uInfo.IdentityType,
+			Account:      uInfo.Account,
 		}
-		roles, err := user.New().ListRoles("*", uInfo.Uid)
-		if err != nil {
-			log.Errorf("failed to get user role info for user: %s[%s], error: %s", uInfo.Name, uInfo.Account, err)
-			return nil, err
-		}
-		rolebindings := make([]*types.RoleBinding, 0)
-		for _, role := range roles {
-			rolebindings = append(rolebindings, &types.RoleBinding{
-				UID:  uInfo.Uid,
-				Role: role.Name,
-			})
-			if role.Name == string(setting.SystemAdmin) {
-				userInfo.Admin = true
-			}
-		}
-		userInfo.SystemRoleBindings = rolebindings
 
 		res.Users = append(res.Users, userInfo)
 	}

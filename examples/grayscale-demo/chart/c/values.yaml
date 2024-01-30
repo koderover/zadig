@@ -1,0 +1,26 @@
+# Default values for a.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+replicaCount: 1
+
+image:
+  repository: koderover.tencentcloudcr.com/koderover-demo/myapp-3
+  pullPolicy: Always
+  tag: v0.1.1
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8082
+
+resources:
+  limits:
+    cpu: 100m
+    memory: 128Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+imagePullSecrets:
+  - name: qn-registry-secret

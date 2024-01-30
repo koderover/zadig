@@ -38,6 +38,7 @@ const (
 	ENVRedisUserName           = "REDIS_USERNAME"
 	ENVRedisPassword           = "REDIS_PASSWORD"
 	ENVRedisUserTokenDB        = "REDIS_USER_TOKEN_DB"
+	ENVRedisCommonCacheTokenDB = "REDIS_COMMON_CACHE_DB"
 
 	// Aslan
 	ENVPodName              = "BE_POD_NAME"
@@ -316,6 +317,7 @@ const (
 )
 
 const (
+	DeliveryVersionTypeYaml        = "K8SYaml"
 	DeliveryVersionTypeChart       = "HelmChart"
 	DeliveryVersionTypeK8SWorkflow = "K8SWorkflow"
 )
@@ -517,6 +519,9 @@ const (
 	FunctionTest = "function"
 	// PerformanceTest 性能测试
 	PerformanceTest = "performance"
+
+	TestWorkflowNamingConvention = "zadig-testing-%s"
+	ScanWorkflowNamingConvention = "zadig-scanning-%s"
 )
 
 const (
@@ -830,6 +835,7 @@ const (
 const (
 	// NewVMType agent type
 	NewVMType = "agent"
+
 	// vm status
 	VMCreated    = "created"
 	VMRegistered = "registered"
@@ -854,6 +860,7 @@ const (
 	LinuxArm64 = "linux_arm64"
 	MacOSAmd64 = "darwin_amd64"
 	MacOSArm64 = "darwin_arm64"
+	WinAmd64   = "windows_amd64"
 
 	// vm cache type
 	VmCache     = "vm"

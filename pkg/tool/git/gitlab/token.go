@@ -18,10 +18,10 @@ package gitlab
 
 import (
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/koderover/zadig/v2/pkg/shared/client/systemconfig"
+	"github.com/koderover/zadig/v2/pkg/tool/cache"
 	"github.com/koderover/zadig/v2/pkg/tool/httpclient"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
@@ -37,15 +37,18 @@ type AccessToken struct {
 
 const TokenExpirationThreshold int64 = 7000
 
-var mu = &sync.RWMutex{}
-
 func UpdateGitlabToken(id int, accessToken string) (string, error) {
 	// if accessToken is empty, then it is either of ssh token type or username/password, we return empty
 	if accessToken == "" {
 		return "", nil
 	}
 
-	mu.Lock()
+	mu := cache.NewRedisLockWithExpiry(fmt.Sprintf("gitlab_token_refresh:%d", id), time.Second*10)
+	err := mu.Lock()
+	if err != nil {
+		log.Errorf("failed to acquire gitlab token refresh lock, err: %s", err)
+		return "", fmt.Errorf("failed to update gitlab token, err: %s", err)
+	}
 	defer mu.Unlock()
 
 	ch, err := systemconfig.New().GetRawCodeHost(id)
