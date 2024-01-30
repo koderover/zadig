@@ -28,7 +28,7 @@ import (
 
 func FeatureEnabled(f string, log *zap.SugaredLogger) (bool, error) {
 	featureLock := cache.NewRedisLock("feature_gate")
-	err := featureLock.Lock()
+	featureLock.Lock()
 	defer func() {
 		featureLock.Unlock()
 	}()
@@ -55,12 +55,12 @@ type FeatureReq struct {
 
 func UpdateOrCreateFeature(req *FeatureReq, log *zap.SugaredLogger) error {
 	featureLock := cache.NewRedisLock("feature_gate")
-	err := featureLock.Lock()
+	featureLock.Lock()
 	defer func() {
 		featureLock.Unlock()
 	}()
 
-	err = mongodb.NewFeatureColl().UpdateOrCreateFeature(context.TODO(), &models.Feature{
+	err := mongodb.NewFeatureColl().UpdateOrCreateFeature(context.TODO(), &models.Feature{
 		Name:    req.Name,
 		Enabled: req.Enabled,
 	})
