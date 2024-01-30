@@ -19,6 +19,7 @@ package service
 import (
 	"context"
 
+	"github.com/koderover/zadig/v2/pkg/tool/cache"
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/features/repository/models"
@@ -26,6 +27,12 @@ import (
 )
 
 func FeatureEnabled(f string, log *zap.SugaredLogger) (bool, error) {
+	featureLock := cache.NewRedisLock("feature_gate")
+	featureLock.Lock()
+	defer func() {
+		featureLock.Unlock()
+	}()
+
 	features, err := mongodb.NewFeatureColl().ListFeatures()
 	if err != nil {
 		log.Errorf("failed to get feature:%s from the db, error: %s", f, err)
@@ -47,6 +54,12 @@ type FeatureReq struct {
 }
 
 func UpdateOrCreateFeature(req *FeatureReq, log *zap.SugaredLogger) error {
+	featureLock := cache.NewRedisLock("feature_gate")
+	featureLock.Lock()
+	defer func() {
+		featureLock.Unlock()
+	}()
+
 	err := mongodb.NewFeatureColl().UpdateOrCreateFeature(context.TODO(), &models.Feature{
 		Name:    req.Name,
 		Enabled: req.Enabled,
