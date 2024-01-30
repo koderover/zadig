@@ -28,7 +28,7 @@ import (
 
 func FeatureEnabled(f string, log *zap.SugaredLogger) (bool, error) {
 	featureLock := cache.NewRedisLock("feature_gate")
-	err := featureLock.TryLock()
+	err := featureLock.Lock()
 	defer func() {
 		featureLock.Unlock()
 	}()
@@ -55,7 +55,7 @@ type FeatureReq struct {
 
 func UpdateOrCreateFeature(req *FeatureReq, log *zap.SugaredLogger) error {
 	featureLock := cache.NewRedisLock("feature_gate")
-	err := featureLock.TryLock()
+	err := featureLock.Lock()
 	defer func() {
 		featureLock.Unlock()
 	}()
