@@ -35,7 +35,12 @@ func GetFeature(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	name := c.Param("name")
-	enabled := service.Features.FeatureEnabled(service.Feature(name))
+	enabled, err := service.FeatureEnabled(name, ctx.Logger)
+
+	if err != nil {
+		ctx.Err = err
+		return
+	}
 
 	ctx.Resp = &feature{
 		Name:    c.Param("name"),
@@ -64,5 +69,5 @@ func UpdateOrCreateFeature(c *gin.Context) {
 		ctx.Err = err
 		return
 	}
-	ctx.Err = service.UpdateOrCreateFeature(req)
+	ctx.Err = service.UpdateOrCreateFeature(req, ctx.Logger)
 }

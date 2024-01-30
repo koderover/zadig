@@ -46,7 +46,6 @@ import (
 	hubserverconfig "github.com/koderover/zadig/v2/pkg/microservice/hubserver/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/hubserver/core/repository/mongodb"
 	mongodb2 "github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/codehost/repository/mongodb"
-	configservice "github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/features/service"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
 	"github.com/koderover/zadig/v2/pkg/tool/git/gitlab"
@@ -128,9 +127,6 @@ func Start(ctx context.Context) {
 	initService()
 	initDinD()
 	initResourcesForExternalClusters()
-
-	// old config service initialization, it didn't panic or stop if it fails, so I will just keep it that way.
-	InitializeConfigFeatureGates()
 
 	systemservice.SetProxyConfig()
 
@@ -346,21 +342,4 @@ func initDatabaseConnection() {
 	if err := mongotool.Ping(ctx); err != nil {
 		panic(fmt.Errorf("failed to connect to mongo, error: %s", err))
 	}
-}
-
-// InitializeConfigFeatureGates initialize feature gates for the old config service module.
-// Currently, the function of this part is unknown. But we will keep it just to make sure.
-func InitializeConfigFeatureGates() error {
-	flagFG, err := configservice.FlagToFeatureGates(config.Features())
-	if err != nil {
-		log.Errorf("FlagToFeatureGates err:%s", err)
-		return err
-	}
-	dbFG, err := configservice.DBToFeatureGates()
-	if err != nil {
-		log.Errorf("DBToFeatureGates err:%s", err)
-		return err
-	}
-	configservice.Features.MergeFeatureGates(flagFG, dbFG)
-	return nil
 }
