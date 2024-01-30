@@ -132,7 +132,7 @@ func SetWorkflowTasksCustomFields(c *gin.Context) {
 		return
 	}
 
-	workflowName := c.Param("name")
+	workflowName := c.Param("workflowName")
 	projectKey := c.Query("projectName")
 	args := new(commonmodels.CustomField)
 	data, err := c.GetRawData()
@@ -168,7 +168,7 @@ func GetWorkflowTasksCustomFields(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	workflowName := c.Param("name")
+	workflowName := c.Param("workflowName")
 	projectName := c.Query("projectName")
 
 	ctx.Resp, ctx.Err = workflow.GetWorkflowTasksCustomFields(projectName, workflowName, ctx.Logger)
