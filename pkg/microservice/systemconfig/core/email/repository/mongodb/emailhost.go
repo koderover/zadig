@@ -58,7 +58,7 @@ func (c *EmailHostColl) Find() (*models.EmailHost, error) {
 
 	err := c.Collection.FindOne(ctx, query).Decode(emailHost)
 	if err != nil {
-		return nil, nil
+		return nil, err
 	}
 	return emailHost, nil
 }
