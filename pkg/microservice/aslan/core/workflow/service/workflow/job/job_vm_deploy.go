@@ -512,16 +512,16 @@ func getVMDeployJobVariables(vmDeploy *commonmodels.ServiceAndVMDeploy, buildInf
 	envHostIPsMap := map[string][]string{}
 	addedHostIDs := sets.String{}
 	for _, svc := range services {
-		log.Debugf("svc name:%s, revision:%d", svc.ServiceName, svc.Revision)
+		if svc.ServiceName != vmDeploy.ServiceName {
+			continue
+		}
 		for _, envConfig := range svc.EnvConfigs {
 			for _, hostID := range envConfig.HostIDs {
-				log.Debugf("env name: %s, host id: %s", envConfig.EnvName, hostID)
 				if agentVMIDs.Has(hostID) || addedHostIDs.Has(hostID) {
 					continue
 				}
 				if vm, ok := IDvmMap[hostID]; ok {
 					addedHostIDs.Insert(hostID)
-					log.Debugf("vm name %s, ip %s", vm.Name, vm.IP)
 					envHostNamesMap[envConfig.EnvName] = append(envHostNamesMap[envConfig.EnvName], vm.Name)
 					envHostIPsMap[envConfig.EnvName] = append(envHostIPsMap[envConfig.EnvName], vm.IP)
 
@@ -544,7 +544,6 @@ func getVMDeployJobVariables(vmDeploy *commonmodels.ServiceAndVMDeploy, buildInf
 				}
 			}
 			for _, label := range envConfig.Labels {
-				log.Debugf("label:%s", label)
 				for _, vm := range labelVMsMap[label] {
 					if agentVMIDs.Has(vm.ID.Hex()) || addedHostIDs.Has(vm.ID.Hex()) {
 						continue
