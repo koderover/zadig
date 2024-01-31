@@ -62,7 +62,7 @@ CREATE TABLE IF NOT EXISTS `role` (
     `name`        varchar(32) NOT NULL COMMENT '角色名称',
     `description` varchar(64) NOT NULL COMMENT '描述',
     `type`        int(11) NOT NULL COMMENT '资源范围，1-系统自带， 2-用户自定义',
-    `namespace`   varchar(32) NOT NULL COMMENT '所属项目，*为全局角色标记',
+    `namespace`   varchar(64) NOT NULL COMMENT '所属项目，*为全局角色标记',
     PRIMARY KEY (`id`),
     UNIQUE KEY `namespaced_role` (`namespace`, `name`)
 ) ENGINE = InnoDB CHARACTER SET = utf8 COLLATE = utf8_general_ci COMMENT = '角色表' ROW_FORMAT = Compact;
