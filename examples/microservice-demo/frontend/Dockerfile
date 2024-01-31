@@ -7,7 +7,7 @@ COPY . /frontend
 RUN make install-frontend-dep build-frontend
 
 
-FROM nginx:1.16.0
+FROM koderover.tencentcloudcr.com/koderover-demo/nginx:1.16.0
 
 WORKDIR /frontend
 
