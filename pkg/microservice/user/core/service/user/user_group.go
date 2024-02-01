@@ -61,11 +61,13 @@ func GetUserGroupByUID(uid string) ([]string, error) {
 	}
 
 	resp := make([]string, 0)
+	req := make([]interface{}, 0)
 	for _, group := range groups {
 		resp = append(resp, group.GroupID)
+		req = append(req, group.GroupID)
 	}
 
-	err = userCache.AddElementsToSet(userGroupKey, setting.CacheExpireTime, resp...)
+	err = userCache.AddElementsToSet(userGroupKey, setting.CacheExpireTime, req...)
 	if err != nil {
 		// nothing should be returned since setting data into cache does not affect final result
 		log.Warnf("failed to add group IDs into user cache, error: %s", err)
