@@ -19,6 +19,7 @@ package jobcontroller
 import (
 	"context"
 	"fmt"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"time"
 
 	"github.com/pkg/errors"
@@ -66,6 +67,7 @@ func NewBlueGreenReleaseV2JobCtl(job *commonmodels.JobTask, workflowCtx *commonm
 }
 
 func (c *BlueGreenReleaseV2JobCtl) Clean(ctx context.Context) {
+	log.Infof("------- start to clean blue green release data")
 	env, err := mongodb.NewProductColl().Find(&mongodb.ProductFindOptions{
 		Name:    c.workflowCtx.ProjectName,
 		EnvName: c.jobTaskSpec.Env,
