@@ -169,7 +169,7 @@ func UpdateRole(ns string, req *CreateRoleReq, log *zap.SugaredLogger) error {
 	}
 
 	actionIDList := make([]uint, 0)
-	actionList := make([]interface{}, 0)
+	actionList := make([]string, 0)
 	for _, action := range req.Actions {
 		// if the action is not in the action cache, get one.
 		if _, ok := ActionMap[action]; !ok {
