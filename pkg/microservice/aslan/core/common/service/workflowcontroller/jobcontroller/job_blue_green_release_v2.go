@@ -241,27 +241,6 @@ func (c *BlueGreenReleaseV2JobCtl) run(ctx context.Context) error {
 	c.jobTaskSpec.Events.Info(fmt.Sprintf("update green service %s selector success", c.jobTaskSpec.Service.GreenServiceName))
 	c.ack()
 
-	// offline blue service and deployment
-	//c.jobTaskSpec.Events.Info(fmt.Sprintf("wait for blue deployment %s be deleted", c.jobTaskSpec.Service.BlueDeploymentName))
-	//c.ack()
-	//err = updater.DeleteDeploymentAndWait(c.namespace, c.jobTaskSpec.Service.BlueDeploymentName, c.kubeClient)
-	//if err != nil {
-	//	msg := fmt.Sprintf("can't delete blue deployment %s, err: %v", c.jobTaskSpec.Service.BlueDeploymentName, err)
-	//	logError(c.job, msg, c.logger)
-	//	c.jobTaskSpec.Events.Error(msg)
-	//	return errors.New(msg)
-	//}
-	//c.jobTaskSpec.Events.Info(fmt.Sprintf("delete blue deployment %s success", c.jobTaskSpec.Service.BlueDeploymentName))
-	//c.ack()
-	//err = updater.DeleteService(c.namespace, c.jobTaskSpec.Service.BlueServiceName, c.kubeClient)
-	//if err != nil {
-	//	msg := fmt.Sprintf("can't delete blue service %s, err: %v", c.jobTaskSpec.Service.BlueServiceName, err)
-	//	logError(c.job, msg, c.logger)
-	//	c.jobTaskSpec.Events.Error(msg)
-	//	return errors.New(msg)
-	//}
-	//c.jobTaskSpec.Events.Info(fmt.Sprintf("delete blue service %s success", c.jobTaskSpec.Service.BlueServiceName))
-
 	return nil
 }
 
