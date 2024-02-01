@@ -109,8 +109,8 @@ func (c *BlueGreenReleaseV2JobCtl) Clean(ctx context.Context) {
 		return
 	}
 	// must remove service selector before remove pods labels
-	if _, ok := greenService.Spec.Selector[config.BlueGreenVerionLabelName]; ok {
-		delete(greenService.Spec.Selector, config.BlueGreenVerionLabelName)
+	if _, ok := greenService.Spec.Selector[config.BlueGreenVersionLabelName]; ok {
+		delete(greenService.Spec.Selector, config.BlueGreenVersionLabelName)
 		if err := updater.CreateOrPatchService(greenService, c.kubeClient); err != nil {
 			c.logger.Errorf("delete origin label for service error: %v", err)
 			return
@@ -125,8 +125,8 @@ func (c *BlueGreenReleaseV2JobCtl) Clean(ctx context.Context) {
 		if pod.Labels == nil {
 			continue
 		}
-		if _, ok := pod.Labels[config.BlueGreenVerionLabelName]; ok {
-			removeLabelPatch := fmt.Sprintf(`{"metadata":{"labels":{"%s":null}}}`, config.BlueGreenVerionLabelName)
+		if _, ok := pod.Labels[config.BlueGreenVersionLabelName]; ok {
+			removeLabelPatch := fmt.Sprintf(`{"metadata":{"labels":{"%s":null}}}`, config.BlueGreenVersionLabelName)
 			if err := updater.PatchPod(c.namespace, pod.Name, []byte(removeLabelPatch), c.kubeClient); err != nil {
 				c.logger.Errorf("remove origin label to pod error: %v", err)
 				continue
@@ -229,7 +229,8 @@ func (c *BlueGreenReleaseV2JobCtl) run(ctx context.Context) error {
 		c.jobTaskSpec.Events.Error(msg)
 		return errors.New(msg)
 	}
-	delete(greenService.Spec.Selector, config.BlueGreenVerionLabelName)
+	// technically some request will be routed to blue service since the config.BlueGreenVersionLabelName is removed
+	delete(greenService.Spec.Selector, config.BlueGreenVersionLabelName)
 	err = updater.CreateOrPatchService(greenService, c.kubeClient)
 	if err != nil {
 		msg := fmt.Sprintf("can't update green service %s selector, err: %v", c.jobTaskSpec.Service.GreenServiceName, err)
@@ -241,25 +242,25 @@ func (c *BlueGreenReleaseV2JobCtl) run(ctx context.Context) error {
 	c.ack()
 
 	// offline blue service and deployment
-	c.jobTaskSpec.Events.Info(fmt.Sprintf("wait for blue deployment %s be deleted", c.jobTaskSpec.Service.BlueDeploymentName))
-	c.ack()
-	err = updater.DeleteDeploymentAndWait(c.namespace, c.jobTaskSpec.Service.BlueDeploymentName, c.kubeClient)
-	if err != nil {
-		msg := fmt.Sprintf("can't delete blue deployment %s, err: %v", c.jobTaskSpec.Service.BlueDeploymentName, err)
-		logError(c.job, msg, c.logger)
-		c.jobTaskSpec.Events.Error(msg)
-		return errors.New(msg)
-	}
-	c.jobTaskSpec.Events.Info(fmt.Sprintf("delete blue deployment %s success", c.jobTaskSpec.Service.BlueDeploymentName))
-	c.ack()
-	err = updater.DeleteService(c.namespace, c.jobTaskSpec.Service.BlueServiceName, c.kubeClient)
-	if err != nil {
-		msg := fmt.Sprintf("can't delete blue service %s, err: %v", c.jobTaskSpec.Service.BlueServiceName, err)
-		logError(c.job, msg, c.logger)
-		c.jobTaskSpec.Events.Error(msg)
-		return errors.New(msg)
-	}
-	c.jobTaskSpec.Events.Info(fmt.Sprintf("delete blue service %s success", c.jobTaskSpec.Service.BlueServiceName))
+	//c.jobTaskSpec.Events.Info(fmt.Sprintf("wait for blue deployment %s be deleted", c.jobTaskSpec.Service.BlueDeploymentName))
+	//c.ack()
+	//err = updater.DeleteDeploymentAndWait(c.namespace, c.jobTaskSpec.Service.BlueDeploymentName, c.kubeClient)
+	//if err != nil {
+	//	msg := fmt.Sprintf("can't delete blue deployment %s, err: %v", c.jobTaskSpec.Service.BlueDeploymentName, err)
+	//	logError(c.job, msg, c.logger)
+	//	c.jobTaskSpec.Events.Error(msg)
+	//	return errors.New(msg)
+	//}
+	//c.jobTaskSpec.Events.Info(fmt.Sprintf("delete blue deployment %s success", c.jobTaskSpec.Service.BlueDeploymentName))
+	//c.ack()
+	//err = updater.DeleteService(c.namespace, c.jobTaskSpec.Service.BlueServiceName, c.kubeClient)
+	//if err != nil {
+	//	msg := fmt.Sprintf("can't delete blue service %s, err: %v", c.jobTaskSpec.Service.BlueServiceName, err)
+	//	logError(c.job, msg, c.logger)
+	//	c.jobTaskSpec.Events.Error(msg)
+	//	return errors.New(msg)
+	//}
+	//c.jobTaskSpec.Events.Info(fmt.Sprintf("delete blue service %s success", c.jobTaskSpec.Service.BlueServiceName))
 
 	return nil
 }

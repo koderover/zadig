@@ -389,10 +389,10 @@ const (
 
 // for custom blue-green release job
 const (
-	BlueGreenVerionLabelName = "zadig-blue-green-version"
-	BlueServiceNameSuffix    = "-zadig-blue"
-	OriginVersion            = "origin"
-	BlueVersion              = "blue"
+	BlueGreenVersionLabelName = "zadig-blue-green-version"
+	BlueServiceNameSuffix     = "-zadig-blue"
+	OriginVersion             = "origin"
+	BlueVersion               = "blue"
 )
 
 // for custom gray release job

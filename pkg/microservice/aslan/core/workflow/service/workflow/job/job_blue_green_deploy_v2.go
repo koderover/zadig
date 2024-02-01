@@ -125,7 +125,7 @@ func (j *BlueGreenDeployV2Job) SetPreset() error {
 					if service.Spec.Selector == nil {
 						service.Spec.Selector = make(map[string]string)
 					}
-					service.Spec.Selector[config.BlueGreenVerionLabelName] = config.BlueVersion
+					service.Spec.Selector[config.BlueGreenVersionLabelName] = config.BlueVersion
 					target.BlueServiceYaml, err = toYaml(service)
 					if err != nil {
 						return errors.Errorf("failed to marshal service %s service object: %v", target.ServiceName, err)
@@ -237,10 +237,10 @@ func (j *BlueGreenDeployV2Job) ToJobs(taskID int64) ([]*commonmodels.JobTask, er
 					types.ZadigReleaseServiceNameLabelKey: target.ServiceName,
 				})
 				deployment.Spec.Selector.MatchLabels = addLabels(deployment.Spec.Selector.MatchLabels, map[string]string{
-					config.BlueGreenVerionLabelName: config.BlueVersion,
+					config.BlueGreenVersionLabelName: config.BlueVersion,
 				})
 				deployment.Spec.Template.Labels = addLabels(deployment.Spec.Template.Labels, map[string]string{
-					config.BlueGreenVerionLabelName: config.BlueVersion,
+					config.BlueGreenVersionLabelName: config.BlueVersion,
 				})
 				deploymentYaml, err = toYaml(deployment)
 				if err != nil {

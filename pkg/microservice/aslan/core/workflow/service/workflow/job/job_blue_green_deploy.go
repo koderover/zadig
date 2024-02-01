@@ -97,7 +97,7 @@ func (j *BlueGreenDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, erro
 			logger.Error(msg)
 			return resp, errors.New(msg)
 		}
-		delete(service.Spec.Selector, config.BlueGreenVerionLabelName)
+		delete(service.Spec.Selector, config.BlueGreenVersionLabelName)
 		selector := labels.Set(service.Spec.Selector).AsSelector()
 		deployments, err := getter.ListDeployments(j.spec.Namespace, selector, kubeClient)
 		if err != nil {
