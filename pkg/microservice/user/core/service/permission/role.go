@@ -19,14 +19,21 @@ package permission
 import (
 	"fmt"
 
+	"github.com/koderover/zadig/v2/pkg/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/user/core/repository"
 	"github.com/koderover/zadig/v2/pkg/microservice/user/core/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/user/core/repository/orm"
 	"github.com/koderover/zadig/v2/pkg/setting"
+	"github.com/koderover/zadig/v2/pkg/tool/cache"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/types"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 	"k8s.io/apimachinery/pkg/util/sets"
+)
+
+const (
+	RoleActionKeyFormat = "role_action_%d"
 )
 
 // ActionMap is the local cache for all the actions' ID, the key is the action name
@@ -40,6 +47,43 @@ type CreateRoleReq struct {
 	Namespace string   `json:"namespace"`
 	Desc      string   `json:"desc,omitempty"`
 	Type      string   `json:"type,omitempty"`
+}
+
+// ListActionByRole list all actions permitted by a role ID with cache.
+// note: since now global action and projected action are mutually exclusive in a role, we use this function
+// change this function if necessary.
+func ListActionByRole(roleID uint) ([]string, error) {
+	roleActionKey := fmt.Sprintf(RoleActionKeyFormat, roleID)
+	actionCache := cache.NewRedisCache(config.RedisCommonCacheTokenDB())
+
+	// check if the cache has been set
+	exists, err := actionCache.Exists(roleActionKey)
+	if err == nil && exists {
+		resp, err2 := actionCache.ListSetMembers(roleActionKey)
+		if err2 == nil {
+			// if we got the data from cache, simply return it
+			return resp, nil
+		}
+	}
+
+	actions, err := orm.ListActionByRole(roleID, repository.DB)
+	if err != nil {
+		log.Errorf("failed to list actions by role id: %d from database, error: %s", roleID, err)
+		return nil, fmt.Errorf("failed to list actions by role id: %d from database, error: %s", roleID, err)
+	}
+
+	resp := make([]string, 0)
+	for _, action := range actions {
+		resp = append(resp, action.Action)
+	}
+
+	err = actionCache.AddElementsToSet(roleActionKey, resp, setting.CacheExpireTime)
+	if err != nil {
+		// nothing should be returned since setting data into cache does not affect final result
+		log.Warnf("failed to add actions into role-action cache, error: %s", err)
+	}
+
+	return resp, nil
 }
 
 func CreateRole(ns string, req *CreateRoleReq, log *zap.SugaredLogger) error {
@@ -65,6 +109,7 @@ func CreateRole(ns string, req *CreateRoleReq, log *zap.SugaredLogger) error {
 	}
 
 	actionIDList := make([]uint, 0)
+	actionList := make([]string, 0)
 	for _, action := range req.Actions {
 		// if the action is not in the action cache, get one.
 		if _, ok := ActionMap[action]; !ok {
@@ -77,6 +122,7 @@ func CreateRole(ns string, req *CreateRoleReq, log *zap.SugaredLogger) error {
 			ActionMap[action] = act.ID
 		}
 		actionIDList = append(actionIDList, ActionMap[action])
+		actionList = append(actionList, action)
 	}
 
 	err = orm.BulkCreateRoleActionBindings(role.ID, actionIDList, tx)
@@ -87,6 +133,14 @@ func CreateRole(ns string, req *CreateRoleReq, log *zap.SugaredLogger) error {
 	}
 
 	tx.Commit()
+
+	// after committing to db, save it to the cache if possible
+	roleActionKey := fmt.Sprintf(RoleActionKeyFormat, role.ID)
+	actionCache := cache.NewRedisCache(config.RedisCommonCacheTokenDB())
+	err = actionCache.AddElementsToSet(roleActionKey, actionList, setting.CacheExpireTime)
+	if err != nil {
+		log.Warnf("failed to add actions into role-action cache, error: %s", err)
+	}
 
 	return nil
 }
@@ -111,6 +165,7 @@ func UpdateRole(ns string, req *CreateRoleReq, log *zap.SugaredLogger) error {
 	}
 
 	actionIDList := make([]uint, 0)
+	actionList := make([]string, 0)
 	for _, action := range req.Actions {
 		// if the action is not in the action cache, get one.
 		if _, ok := ActionMap[action]; !ok {
@@ -123,6 +178,7 @@ func UpdateRole(ns string, req *CreateRoleReq, log *zap.SugaredLogger) error {
 			ActionMap[action] = act.ID
 		}
 		actionIDList = append(actionIDList, ActionMap[action])
+		actionList = append(actionList, action)
 	}
 
 	err = orm.BulkCreateRoleActionBindings(roleInfo.ID, actionIDList, tx)
@@ -138,6 +194,20 @@ func UpdateRole(ns string, req *CreateRoleReq, log *zap.SugaredLogger) error {
 	}, tx)
 
 	tx.Commit()
+
+	// after committing to db, save it to the cache if possible
+	roleActionKey := fmt.Sprintf(RoleActionKeyFormat, roleInfo.ID)
+	actionCache := cache.NewRedisCache(config.RedisCommonCacheTokenDB())
+	// removing the whole cache and re-adding them.
+	err = actionCache.Delete(roleActionKey)
+	if err != nil {
+		log.Warnf("failed to remove actions from role-action cache, error: %s", err)
+	}
+
+	err = actionCache.AddElementsToSet(roleActionKey, actionList, setting.CacheExpireTime)
+	if err != nil {
+		log.Warnf("failed to add actions into role-action cache, error: %s", err)
+	}
 
 	return nil
 }

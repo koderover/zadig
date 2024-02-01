@@ -538,6 +538,10 @@ const (
 )
 
 const (
+	CacheExpireTime = 1 * time.Hour
+)
+
+const (
 	Version = "stable"
 
 	EnvRecyclePolicyAlways     = "always"
