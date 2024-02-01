@@ -348,8 +348,8 @@ func GetBizDirServiceDetail(projectName, serviceName string) ([]GetBizDirService
 				ProductName: projectName,
 			}, env.Production)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get service template for productName: %s, serviceName: %s, error: %v",
-					prodSvc.ProductName, prodSvc.ServiceName, err)
+				return nil, fmt.Errorf("failed to get service template for productName: %s, serviceName: %s, production: %v, error: %v",
+					projectName, serviceName, env.Production, err)
 			}
 			detail.UpdateTime = serviceTmpl.DeployTime
 
