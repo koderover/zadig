@@ -65,7 +65,7 @@ func GetUserGroupByUID(uid string) ([]string, error) {
 		resp = append(resp, group.GroupID)
 	}
 
-	err = userCache.AddElementsToSet(userGroupKey, resp)
+	err = userCache.AddElementsToSet(userGroupKey, resp, setting.CacheExpireTime)
 	if err != nil {
 		// nothing should be returned since setting data into cache does not affect final result
 		log.Warnf("failed to add group IDs into user cache, error: %s", err)
@@ -241,7 +241,7 @@ func BulkAddUserToUserGroup(groupID string, uids []string, logger *zap.SugaredLo
 
 	for _, uid := range uids {
 		userGroupKey := fmt.Sprintf(UserGroupCacheKeyFormat, uid)
-		err := userCache.AddElementsToSet(userGroupKey, []string{groupID})
+		err := userCache.AddElementsToSet(userGroupKey, []string{groupID}, setting.CacheExpireTime)
 		if err != nil {
 			log.Warnf("failed to add group id: %s into uid: %s 's group id cache, error: %s", groupID, uid, err)
 		}

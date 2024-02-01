@@ -48,9 +48,6 @@ func (s *AuthServer) Check(ctx context.Context, request *ext_authz_v3.CheckReque
 
 	resp := &ext_authz_v3.CheckResponse{}
 
-	fmt.Println("REQUEST IN")
-	curr := time.Now().Unix()
-
 	isPublicRequest := permission.IsPublicURL(requestPath, method)
 
 	userToken := ""
@@ -161,7 +158,6 @@ func (s *AuthServer) Check(ctx context.Context, request *ext_authz_v3.CheckReque
 		}
 	}
 
-	fmt.Println("REQUEST OUT, time taken:", time.Now().Unix()-curr)
 	resp.Status = &rpc_status.Status{Code: int32(code.Code_OK)}
 	resp.HttpResponse = &ext_authz_v3.CheckResponse_OkResponse{OkResponse: &ext_authz_v3.OkHttpResponse{}}
 	logger.Info("Request Allowed",
