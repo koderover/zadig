@@ -237,6 +237,10 @@ func DeleteUserGroup(groupID string, logger *zap.SugaredLogger) error {
 }
 
 func BulkAddUserToUserGroup(groupID string, uids []string, logger *zap.SugaredLogger) error {
+	err := orm.BulkCreateGroupBindings(groupID, uids, repository.DB)
+	if err != nil {
+		return err
+	}
 	userCache := cache.NewRedisCache(config.RedisCommonCacheTokenDB())
 
 	for _, uid := range uids {
@@ -247,10 +251,14 @@ func BulkAddUserToUserGroup(groupID string, uids []string, logger *zap.SugaredLo
 		}
 	}
 
-	return orm.BulkCreateGroupBindings(groupID, uids, repository.DB)
+	return nil
 }
 
 func BulkRemoveUserFromUserGroup(groupID string, uids []string, logger *zap.SugaredLogger) error {
+	err := orm.BulkDeleteGroupBindings(groupID, uids, repository.DB)
+	if err != nil {
+		return err
+	}
 	userCache := cache.NewRedisCache(config.RedisCommonCacheTokenDB())
 
 	for _, uid := range uids {
@@ -261,5 +269,5 @@ func BulkRemoveUserFromUserGroup(groupID string, uids []string, logger *zap.Suga
 		}
 	}
 
-	return orm.BulkDeleteGroupBindings(groupID, uids, repository.DB)
+	return nil
 }
