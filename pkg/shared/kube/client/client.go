@@ -71,6 +71,9 @@ func GetKubeClientSet(hubServerAddr, clusterID string) (*kubernetes.Clientset, e
 	if err != nil {
 		return nil, err
 	}
+	if cluster.Status != setting.Normal {
+		return nil, fmt.Errorf("无法连接集群: %s, 状态: %s", cluster.Name, cluster.Status)
+	}
 	switch cluster.Type {
 	case setting.AgentClusterType, "":
 		return multicluster.GetKubeClientSet(hubServerAddr, clusterID)

@@ -269,6 +269,7 @@ type GetBizDirServiceDetailResponse struct {
 	Images       []string `json:"images"`
 	ChartVersion string   `json:"chart_version"`
 	UpdateTime   int64    `json:"update_time"`
+	Error        string   `json:"error"`
 }
 
 func GetBizDirServiceDetail(projectName, serviceName string) ([]GetBizDirServiceDetailResponse, error) {
@@ -294,15 +295,6 @@ func GetBizDirServiceDetail(projectName, serviceName string) ([]GetBizDirService
 		}
 
 		if project.IsK8sYamlProduct() {
-			cls, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), env.ClusterID)
-			if err != nil {
-				return resp, e.ErrGetBizDirServiceDetail.AddDesc(err.Error())
-			}
-			informer, err := informer.NewInformer(env.ClusterID, env.Namespace, cls)
-			if err != nil {
-				return resp, e.ErrGetBizDirServiceDetail.AddDesc(err.Error())
-			}
-
 			detail := GetBizDirServiceDetailResponse{
 				ProjectName: env.ProductName,
 				EnvName:     env.EnvName,
@@ -317,23 +309,36 @@ func GetBizDirServiceDetail(projectName, serviceName string) ([]GetBizDirService
 				ProductName: prodSvc.ProductName,
 			}, env.Production)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get service template for productName: %s, serviceName: %s, revision %d, error: %v",
+				detail.Error = err.Error()
+				log.Warnf("[BIZDIR] failed to get service template for productName: %s, serviceName: %s, revision %d, error: %v",
 					prodSvc.ProductName, prodSvc.ServiceName, prodSvc.Revision, err)
+				resp = append(resp, detail)
+				continue
 			}
 
-			serviceStatus := commonservice.QueryPodsStatus(env, serviceTmpl, serviceTmpl.ServiceName, cls, informer, log.SugaredLogger())
+			cls, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), env.ClusterID)
+			if err != nil {
+				detail.Error = err.Error()
+				log.Warnf("[BIZDIR] failed to get service status & image info due to kube client creation, err: %s", err)
+				resp = append(resp, detail)
+				continue
+			}
+			inf, err := informer.NewInformer(env.ClusterID, env.Namespace, cls)
+			if err != nil {
+				detail.Error = err.Error()
+				log.Warnf("[BIZDIR] failed to get service status & image info due to kube informer creation, err: %s", err)
+				resp = append(resp, detail)
+				continue
+			}
+
+			serviceStatus := commonservice.QueryPodsStatus(env, serviceTmpl, serviceName, cls, inf, log.SugaredLogger())
 			detail.Status = serviceStatus.PodStatus
 			detail.Images = serviceStatus.Images
 
 			resp = append(resp, detail)
 		} else if project.IsHostProduct() {
-			cls, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), env.ClusterID)
-			if err != nil {
-				return resp, e.ErrGetBizDirServiceDetail.AddDesc(err.Error())
-			}
-			informer, err := informer.NewInformer(env.ClusterID, env.Namespace, cls)
-			if err != nil {
-				return resp, e.ErrGetBizDirServiceDetail.AddDesc(err.Error())
+			if env.Production {
+				continue
 			}
 
 			detail := GetBizDirServiceDetailResponse{
@@ -348,10 +353,28 @@ func GetBizDirServiceDetail(projectName, serviceName string) ([]GetBizDirService
 				ProductName: projectName,
 			}, env.Production)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get service template for productName: %s, serviceName: %s, error: %v",
-					prodSvc.ProductName, prodSvc.ServiceName, err)
+				detail.Error = err.Error()
+				log.Warnf("failed to get service template for productName: %s, serviceName: %s, error: %v",
+					env.ProductName, serviceName, err)
+				resp = append(resp, detail)
+				continue
 			}
 			detail.UpdateTime = serviceTmpl.DeployTime
+
+			cls, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), env.ClusterID)
+			if err != nil {
+				detail.Error = err.Error()
+				log.Warnf("[BIZDIR] failed to get service status & image info due to kube client creation, err: %s", err)
+				resp = append(resp, detail)
+				continue
+			}
+			informer, err := informer.NewInformer(env.ClusterID, env.Namespace, cls)
+			if err != nil {
+				detail.Error = err.Error()
+				log.Warnf("[BIZDIR] failed to get service status & image info due to kube informer creation, err: %s", err)
+				resp = append(resp, detail)
+				continue
+			}
 
 			serviceStatus := commonservice.QueryPodsStatus(env, serviceTmpl, serviceTmpl.ServiceName, cls, informer, log.SugaredLogger())
 			detail.Status = serviceStatus.PodStatus
@@ -359,17 +382,6 @@ func GetBizDirServiceDetail(projectName, serviceName string) ([]GetBizDirService
 
 			resp = append(resp, detail)
 		} else if project.IsHelmProduct() {
-			restConfig, err := kube.GetRESTConfig(env.ClusterID)
-			if err != nil {
-				log.Errorf("GetRESTConfig error: %s", err)
-				return nil, fmt.Errorf("failed to get k8s rest config, err: %s", err)
-			}
-			helmClient, err := helmtool.NewClientFromRestConf(restConfig, env.Namespace)
-			if err != nil {
-				log.Errorf("[%s][%s] NewClientFromRestConf error: %s", env.EnvName, projectName, err)
-				return nil, fmt.Errorf("failed to init helm client, err: %s", err)
-			}
-
 			svcToReleaseNameMap, err := commonutil.GetServiceNameToReleaseNameMap(env)
 			if err != nil {
 				return nil, fmt.Errorf("failed to build release-service map: %s", err)
@@ -387,6 +399,17 @@ func GetBizDirServiceDetail(projectName, serviceName string) ([]GetBizDirService
 				Type:        setting.HelmDeployType,
 			}
 
+			restConfig, err := kube.GetRESTConfig(env.ClusterID)
+			if err != nil {
+				log.Errorf("GetRESTConfig error: %s", err)
+				return nil, fmt.Errorf("failed to get k8s rest config, err: %s", err)
+			}
+			helmClient, err := helmtool.NewClientFromRestConf(restConfig, env.Namespace)
+			if err != nil {
+				log.Errorf("[%s][%s] NewClientFromRestConf error: %s", env.EnvName, projectName, err)
+				return nil, fmt.Errorf("failed to init helm client, err: %s", err)
+			}
+
 			listClient := action.NewList(helmClient.ActionConfig)
 			listClient.Filter = releaseName
 			releases, err := listClient.Run()
@@ -394,10 +417,14 @@ func GetBizDirServiceDetail(projectName, serviceName string) ([]GetBizDirService
 				return nil, e.ErrGetBizDirServiceDetail.AddErr(fmt.Errorf("failed to list helm releases by %s, error: %v", serviceName, err))
 			}
 			if len(releases) == 0 {
+				resp = append(resp, detail)
 				continue
 			}
 			if len(releases) > 1 {
-				return nil, e.ErrGetBizDirServiceDetail.AddDesc("helm release number is not equal to 1")
+				detail.Error = "helm release number is not equal to 1"
+				log.Warnf("helm release number is not equal to 1")
+				resp = append(resp, detail)
+				continue
 			}
 
 			detail.Status = string(releases[0].Info.Status)
@@ -419,15 +446,22 @@ func GetBizDirServiceDetail(projectName, serviceName string) ([]GetBizDirService
 				prodSvc.ServiceName, setting.PMDeployType, prodSvc.ProductName, "", prodSvc.Revision, log.SugaredLogger(),
 			)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get service template for productName: %s, serviceName: %s, revision %d, error: %v",
+				detail.Error = fmt.Sprintf("failed to get service template for productName: %s, serviceName: %s, revision %d, error: %v",
 					prodSvc.ProductName, prodSvc.ServiceName, prodSvc.Revision, err)
+				log.Warnf("failed to get service template for productName: %s, serviceName: %s, revision %d, error: %v",
+					prodSvc.ProductName, prodSvc.ServiceName, prodSvc.Revision, err)
+				resp = append(resp, detail)
+				continue
 			}
 
 			if len(serviceTmpl.EnvStatuses) > 0 {
 				envStatuses := make([]*commonmodels.EnvStatus, 0)
 				filterEnvStatuses, err := pm.GenerateEnvStatus(serviceTmpl.EnvConfigs, log.NopSugaredLogger())
 				if err != nil {
-					return nil, fmt.Errorf("failed to generate env status for productName: %s, serviceName: %s, revision %d, error: %v", prodSvc.ProductName, prodSvc.ServiceName, prodSvc.Revision, err)
+					detail.Error = fmt.Sprintf("failed to generate env status for productName: %s, serviceName: %s, revision %d, error: %v", prodSvc.ProductName, prodSvc.ServiceName, prodSvc.Revision, err)
+					log.Warnf("failed to generate env status for productName: %s, serviceName: %s, revision %d, error: %v", prodSvc.ProductName, prodSvc.ServiceName, prodSvc.Revision, err)
+					resp = append(resp, detail)
+					continue
 				}
 				filterEnvStatusSet := sets.NewString()
 				for _, v := range filterEnvStatuses {
