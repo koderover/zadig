@@ -38,7 +38,7 @@ const (
 	ENVRedisUserName           = "REDIS_USERNAME"
 	ENVRedisPassword           = "REDIS_PASSWORD"
 	ENVRedisUserTokenDB        = "REDIS_USER_TOKEN_DB"
-	ENVRedisCommonCacheTokenDB = "REDIS_COMMON_CACHE_DB"
+	ENVRedisCommonCacheDB      = "REDIS_COMMON_CACHE_DB"
 
 	// Aslan
 	ENVPodName              = "BE_POD_NAME"
