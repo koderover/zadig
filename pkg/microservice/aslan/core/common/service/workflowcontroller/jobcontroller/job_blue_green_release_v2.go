@@ -172,6 +172,8 @@ func (c *BlueGreenReleaseV2JobCtl) run(ctx context.Context) error {
 		return errors.New(msg)
 	}
 
+	log.Infof("----------- blue green release run start")
+
 	// update green deployment image to new version
 	for _, v := range c.jobTaskSpec.Service.ServiceAndImage {
 		err := updater.UpdateDeploymentImage(c.namespace, c.jobTaskSpec.Service.GreenDeploymentName, v.ServiceModule, v.Image, c.kubeClient)
