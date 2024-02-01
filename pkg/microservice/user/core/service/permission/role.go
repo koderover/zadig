@@ -73,16 +73,16 @@ func ListActionByRole(roleID uint) ([]string, error) {
 	}
 
 	resp := make([]string, 0)
-	req := make([]interface{}, 0)
 	for _, action := range actions {
 		resp = append(resp, action.Action)
-		req = append(req, action.Action)
 	}
 
-	err = actionCache.AddElementsToSet(roleActionKey, setting.CacheExpireTime, req...)
-	if err != nil {
-		// nothing should be returned since setting data into cache does not affect final result
-		log.Warnf("failed to add actions into role-action cache, error: %s", err)
+	if len(resp) != 0 {
+		err = actionCache.AddElementsToSet(roleActionKey, setting.CacheExpireTime, resp...)
+		if err != nil {
+			// nothing should be returned since setting data into cache does not affect final result
+			log.Warnf("failed to add actions into role-action cache, error: %s", err)
+		}
 	}
 
 	return resp, nil
@@ -111,7 +111,7 @@ func CreateRole(ns string, req *CreateRoleReq, log *zap.SugaredLogger) error {
 	}
 
 	actionIDList := make([]uint, 0)
-	actionList := make([]interface{}, 0)
+	actionList := make([]string, 0)
 	for _, action := range req.Actions {
 		// if the action is not in the action cache, get one.
 		if _, ok := ActionMap[action]; !ok {
@@ -137,11 +137,13 @@ func CreateRole(ns string, req *CreateRoleReq, log *zap.SugaredLogger) error {
 	tx.Commit()
 
 	// after committing to db, save it to the cache if possible
-	roleActionKey := fmt.Sprintf(RoleActionKeyFormat, role.ID)
-	actionCache := cache.NewRedisCache(config.RedisCommonCacheTokenDB())
-	err = actionCache.AddElementsToSet(roleActionKey, setting.CacheExpireTime, actionList...)
-	if err != nil {
-		log.Warnf("failed to add actions into role-action cache, error: %s", err)
+	if len(actionList) != 0 {
+		roleActionKey := fmt.Sprintf(RoleActionKeyFormat, role.ID)
+		actionCache := cache.NewRedisCache(config.RedisCommonCacheTokenDB())
+		err = actionCache.AddElementsToSet(roleActionKey, setting.CacheExpireTime, actionList...)
+		if err != nil {
+			log.Warnf("failed to add actions into role-action cache, error: %s", err)
+		}
 	}
 
 	return nil
@@ -206,9 +208,11 @@ func UpdateRole(ns string, req *CreateRoleReq, log *zap.SugaredLogger) error {
 		log.Warnf("failed to remove actions from role-action cache, error: %s", err)
 	}
 
-	err = actionCache.AddElementsToSet(roleActionKey, setting.CacheExpireTime, actionList...)
-	if err != nil {
-		log.Warnf("failed to add actions into role-action cache, error: %s", err)
+	if len(actionList) != 0 {
+		err = actionCache.AddElementsToSet(roleActionKey, setting.CacheExpireTime, actionList...)
+		if err != nil {
+			log.Warnf("failed to add actions into role-action cache, error: %s", err)
+		}
 	}
 
 	return nil

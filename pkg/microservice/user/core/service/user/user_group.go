@@ -20,7 +20,6 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
-	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/v2/pkg/config"
@@ -29,6 +28,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/user/core/repository/orm"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/tool/cache"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/types"
 )
 
@@ -61,16 +61,16 @@ func GetUserGroupByUID(uid string) ([]string, error) {
 	}
 
 	resp := make([]string, 0)
-	req := make([]interface{}, 0)
 	for _, group := range groups {
 		resp = append(resp, group.GroupID)
-		req = append(req, group.GroupID)
 	}
 
-	err = userCache.AddElementsToSet(userGroupKey, setting.CacheExpireTime, req...)
-	if err != nil {
-		// nothing should be returned since setting data into cache does not affect final result
-		log.Warnf("failed to add group IDs into user cache, error: %s", err)
+	if len(resp) != 0 {
+		err = userCache.AddElementsToSet(userGroupKey, setting.CacheExpireTime, resp...)
+		if err != nil {
+			// nothing should be returned since setting data into cache does not affect final result
+			log.Warnf("failed to add group IDs into user cache, error: %s", err)
+		}
 	}
 
 	return resp, nil
