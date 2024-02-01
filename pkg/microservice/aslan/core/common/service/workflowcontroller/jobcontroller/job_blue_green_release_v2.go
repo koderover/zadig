@@ -193,13 +193,13 @@ func (c *BlueGreenReleaseV2JobCtl) run(ctx context.Context) error {
 	}
 
 	timeout := time.After(time.Duration(3) * time.Minute)
-	func() {
+	err = func() error {
 		c.logger.Infof("waiting green deploy update")
 		defer c.logger.Infof("green deploy wait update finished")
 		for {
 			select {
 			case <-timeout:
-				return
+				return errors.New("wait timeout")
 			default:
 				time.Sleep(time.Second * 3)
 				d, found, e := getter.GetDeployment(c.namespace, c.jobTaskSpec.Service.GreenDeploymentName, c.kubeClient)
@@ -209,18 +209,43 @@ func (c *BlueGreenReleaseV2JobCtl) run(ctx context.Context) error {
 				}
 				if !found {
 					c.logger.Infof("green deploy: %s not found", c.jobTaskSpec.Service.GreenDeploymentName)
-					return
+					return fmt.Errorf("green deploy: %s not found", c.jobTaskSpec.Service.GreenDeploymentName)
 				}
 				ready := wrapper.Deployment(d).Ready()
 				if !ready {
 					break
 				}
+				// we need to add
 				if ready {
-					return
+					pods, err := getter.ListPods(c.namespace, labels.Set(d.Spec.Selector.MatchLabels).AsSelector(), c.kubeClient)
+					if err != nil {
+						c.logger.Errorf("list green deployment %s pods error: %v", c.jobTaskSpec.Service.GreenDeploymentName, err)
+						return fmt.Errorf("list green deployment %s pods error: %v", c.jobTaskSpec.Service.GreenDeploymentName, err)
+					}
+					for _, pod := range pods {
+						if pod.Labels == nil {
+							pod.Labels = make(map[string]string)
+							continue
+						}
+						if _, ok := pod.Labels[config.BlueGreenVersionLabelName]; !ok {
+							addLabelPatch := fmt.Sprintf(`{"metadata":{"labels":{"%s":"%s"}}}`, config.BlueGreenVersionLabelName, config.OriginVersion)
+							if err := updater.PatchPod(c.namespace, pod.Name, []byte(addLabelPatch), c.kubeClient); err != nil {
+								c.logger.Errorf("remove origin label to pod error: %v", err)
+								continue
+							}
+						}
+					}
 				}
+				return nil
 			}
 		}
 	}()
+
+	if err != nil {
+		c.jobTaskSpec.Events.Info(fmt.Sprintf("failed to wait green deploy: %s ready, err: %s", c.jobTaskSpec.Service.GreenDeploymentName, err))
+		c.ack()
+		return errors.New(fmt.Sprintf("failed to wait green deploy: %s ready, err: %s", c.jobTaskSpec.Service.GreenDeploymentName, err))
+	}
 
 	c.jobTaskSpec.Events.Info(fmt.Sprintf("update deployment %s image success", c.jobTaskSpec.Service.GreenDeploymentName))
 	c.ack()
