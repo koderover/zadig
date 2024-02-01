@@ -39,12 +39,7 @@ const (
 // ActionMap is the local cache for all the actions' ID, the key is the action name
 // Note that there is no way to change action after the service start, the local cache won't
 // have an expiration mechanism.
-var ActionMap = make(map[string]*ActionInfo)
-
-type ActionInfo struct {
-	ID     uint
-	Action string
-}
+var ActionMap = make(map[string]uint)
 
 type CreateRoleReq struct {
 	Name      string   `json:"name"`
@@ -124,13 +119,10 @@ func CreateRole(ns string, req *CreateRoleReq, log *zap.SugaredLogger) error {
 				tx.Rollback()
 				return fmt.Errorf("failed to find verb: %s in request, action might not exist", action)
 			}
-			ActionMap[action] = &ActionInfo{
-				ID:     act.ID,
-				Action: act.Action,
-			}
+			ActionMap[action] = act.ID
 		}
-		actionIDList = append(actionIDList, ActionMap[action].ID)
-		actionList = append(actionList, ActionMap[action].Action)
+		actionIDList = append(actionIDList, ActionMap[action])
+		actionList = append(actionList, action)
 	}
 
 	err = orm.BulkCreateRoleActionBindings(role.ID, actionIDList, tx)
@@ -183,13 +175,10 @@ func UpdateRole(ns string, req *CreateRoleReq, log *zap.SugaredLogger) error {
 				tx.Rollback()
 				return fmt.Errorf("failed to find verb: %s in request, action might not exist", action)
 			}
-			ActionMap[action] = &ActionInfo{
-				ID:     act.ID,
-				Action: act.Action,
-			}
+			ActionMap[action] = act.ID
 		}
-		actionIDList = append(actionIDList, ActionMap[action].ID)
-		actionList = append(actionList, ActionMap[action].Action)
+		actionIDList = append(actionIDList, ActionMap[action])
+		actionList = append(actionList, action)
 	}
 
 	err = orm.BulkCreateRoleActionBindings(roleInfo.ID, actionIDList, tx)
