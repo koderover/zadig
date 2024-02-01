@@ -263,7 +263,7 @@ func BulkRemoveUserFromUserGroup(groupID string, uids []string, logger *zap.Suga
 
 	for _, uid := range uids {
 		userGroupKey := fmt.Sprintf(UserGroupCacheKeyFormat, uid)
-		err := userCache.RemoveElementsFromSet(userGroupKey, []string{groupID})
+		err := userCache.RemoveElementsFromSet(userGroupKey, []interface{}{groupID})
 		if err != nil {
 			log.Warnf("failed to remove group id: %s from uid: %s 's group id cache, error: %s", groupID, uid, err)
 		}

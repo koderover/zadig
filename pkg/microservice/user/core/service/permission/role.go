@@ -73,11 +73,13 @@ func ListActionByRole(roleID uint) ([]string, error) {
 	}
 
 	resp := make([]string, 0)
+	req := make([]interface{}, 0)
 	for _, action := range actions {
 		resp = append(resp, action.Action)
+		req = append(req, action.Action)
 	}
 
-	err = actionCache.AddElementsToSet(roleActionKey, setting.CacheExpireTime, resp...)
+	err = actionCache.AddElementsToSet(roleActionKey, setting.CacheExpireTime, req...)
 	if err != nil {
 		// nothing should be returned since setting data into cache does not affect final result
 		log.Warnf("failed to add actions into role-action cache, error: %s", err)
@@ -109,7 +111,7 @@ func CreateRole(ns string, req *CreateRoleReq, log *zap.SugaredLogger) error {
 	}
 
 	actionIDList := make([]uint, 0)
-	actionList := make([]string, 0)
+	actionList := make([]interface{}, 0)
 	for _, action := range req.Actions {
 		// if the action is not in the action cache, get one.
 		if _, ok := ActionMap[action]; !ok {
@@ -165,7 +167,7 @@ func UpdateRole(ns string, req *CreateRoleReq, log *zap.SugaredLogger) error {
 	}
 
 	actionIDList := make([]uint, 0)
-	actionList := make([]string, 0)
+	actionList := make([]interface{}, 0)
 	for _, action := range req.Actions {
 		// if the action is not in the action cache, get one.
 		if _, ok := ActionMap[action]; !ok {
