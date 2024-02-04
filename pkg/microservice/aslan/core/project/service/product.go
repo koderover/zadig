@@ -408,47 +408,47 @@ func optimizeServiceYaml(projectName string, serviceInfo []*commonmodels.Service
 	}
 
 	// service info may be stored in service_in_external_env
-	servicesInExternalEnv, _ := commonrepo.NewServicesInExternalEnvColl().List(&commonrepo.ServicesInExternalEnvArgs{
-		ProductName: projectName,
-	})
-	for _, svcInExternal := range servicesInExternalEnv {
-		if !svcSets.Has(svcInExternal.ServiceName) {
-			continue
-		}
-
-		kClient, ok := k8sClientMap[svcInExternal.EnvName]
-		if !ok {
-			continue
-		}
-
-		svc := svcMap[svcInExternal.ServiceName]
-		switch svc.WorkloadType {
-		case setting.Deployment:
-			bs, exists, err := getter.GetDeploymentYamlFormat(k8sNsMap[svcInExternal.EnvName], svcInExternal.ServiceName, kClient)
-			if err != nil {
-				log.Errorf("failed to get deploy %s, err: %s", svcInExternal.ServiceName, err)
-				continue
-			}
-			if !exists {
-				continue
-			}
-			log.Infof("optimize yaml of deployment %s defined in service_in_external_env", svcInExternal.ServiceName)
-			svcSets.Delete(svcInExternal.ServiceName)
-			svc.Yaml = string(bs)
-		case setting.StatefulSet:
-			bs, exists, err := getter.GetStatefulSetYaml(k8sNsMap[svcInExternal.EnvName], svcInExternal.ServiceName, kClient)
-			if err != nil {
-				log.Errorf("failed to get sts %s, err: %s", svcInExternal.ServiceName, err)
-				continue
-			}
-			if !exists {
-				continue
-			}
-			log.Infof("optimize yaml of sts %s defined in service_in_external_env", svcInExternal.ServiceName)
-			svcSets.Delete(svcInExternal.ServiceName)
-			svc.Yaml = string(bs)
-		}
-	}
+	//servicesInExternalEnv, _ := commonrepo.NewServicesInExternalEnvColl().List(&commonrepo.ServicesInExternalEnvArgs{
+	//	ProductName: projectName,
+	//})
+	//for _, svcInExternal := range servicesInExternalEnv {
+	//	if !svcSets.Has(svcInExternal.ServiceName) {
+	//		continue
+	//	}
+	//
+	//	kClient, ok := k8sClientMap[svcInExternal.EnvName]
+	//	if !ok {
+	//		continue
+	//	}
+	//
+	//	svc := svcMap[svcInExternal.ServiceName]
+	//	switch svc.WorkloadType {
+	//	case setting.Deployment:
+	//		bs, exists, err := getter.GetDeploymentYamlFormat(k8sNsMap[svcInExternal.EnvName], svcInExternal.ServiceName, kClient)
+	//		if err != nil {
+	//			log.Errorf("failed to get deploy %s, err: %s", svcInExternal.ServiceName, err)
+	//			continue
+	//		}
+	//		if !exists {
+	//			continue
+	//		}
+	//		log.Infof("optimize yaml of deployment %s defined in service_in_external_env", svcInExternal.ServiceName)
+	//		svcSets.Delete(svcInExternal.ServiceName)
+	//		svc.Yaml = string(bs)
+	//	case setting.StatefulSet:
+	//		bs, exists, err := getter.GetStatefulSetYaml(k8sNsMap[svcInExternal.EnvName], svcInExternal.ServiceName, kClient)
+	//		if err != nil {
+	//			log.Errorf("failed to get sts %s, err: %s", svcInExternal.ServiceName, err)
+	//			continue
+	//		}
+	//		if !exists {
+	//			continue
+	//		}
+	//		log.Infof("optimize yaml of sts %s defined in service_in_external_env", svcInExternal.ServiceName)
+	//		svcSets.Delete(svcInExternal.ServiceName)
+	//		svc.Yaml = string(bs)
+	//	}
+	//}
 	return nil
 }
 

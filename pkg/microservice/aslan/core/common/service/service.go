@@ -324,52 +324,69 @@ func ListWorkloadTemplate(productName, envName string, log *zap.SugaredLogger) (
 	var err error
 	resp := new(ServiceTmplResp)
 	resp.Data = make([]*ServiceProductMap, 0)
-	productTmpl, err := templaterepo.NewProductColl().Find(productName)
+
+	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: productName, EnvName: envName})
 	if err != nil {
-		log.Errorf("Can not find project %s, error: %s", productName, err)
-		return resp, e.ErrListTemplate.AddDesc(err.Error())
+		return nil, e.ErrListTemplate.AddErr(fmt.Errorf("failed to get productinfo: %s/%s, err: %s", productName, envName, err))
 	}
 
-	// service in template_services
-	services, err := commonrepo.NewServiceColl().ListExternalWorkloadsBy(productName, envName)
-	if err != nil {
-		log.Errorf("Failed to list external services by %+v, err: %s", productTmpl.AllTestServiceInfos(), err)
-		return resp, e.ErrListTemplate.AddDesc(err.Error())
-	}
-
-	currentServiceNames := sets.NewString()
-	for _, service := range services {
-		currentServiceNames.Insert(service.ServiceName)
-	}
-
-	// service in services_in_external_env
-	servicesInExternalEnv, _ := commonrepo.NewServicesInExternalEnvColl().List(&commonrepo.ServicesInExternalEnvArgs{
-		ProductName: productName,
-		EnvName:     envName,
-	})
-
-	externalServiceNames := sets.NewString()
-	for _, serviceInExternalEnv := range servicesInExternalEnv {
-		if !currentServiceNames.Has(serviceInExternalEnv.ServiceName) {
-			externalServiceNames.Insert(serviceInExternalEnv.ServiceName)
-		}
-	}
-
-	if len(externalServiceNames) > 0 {
-		newServices, _ := commonrepo.NewServiceColl().ListExternalWorkloadsBy(productName, "", externalServiceNames.List()...)
-		services = append(services, newServices...)
-	}
-
-	for _, serviceObject := range services {
+	for _, serviceObject := range productInfo.GetSvcList() {
 		spmap := &ServiceProductMap{
 			Service:     serviceObject.ServiceName,
 			Type:        serviceObject.Type,
-			Source:      serviceObject.Source,
+			Source:      setting.SourceFromExternal,
 			ProductName: serviceObject.ProductName,
 			Containers:  serviceObject.Containers,
 		}
 		resp.Data = append(resp.Data, spmap)
 	}
+
+	//productTmpl, err := templaterepo.NewProductColl().Find(productName)
+	//if err != nil {
+	//	log.Errorf("Can not find project %s, error: %s", productName, err)
+	//	return resp, e.ErrListTemplate.AddDesc(err.Error())
+	//}
+	//
+	//// service in template_services
+	//services, err := commonrepo.NewServiceColl().ListExternalWorkloadsBy(productName, envName)
+	//if err != nil {
+	//	log.Errorf("Failed to list external services by %+v, err: %s", productTmpl.AllTestServiceInfos(), err)
+	//	return resp, e.ErrListTemplate.AddDesc(err.Error())
+	//}
+	//
+	//currentServiceNames := sets.NewString()
+	//for _, service := range services {
+	//	currentServiceNames.Insert(service.ServiceName)
+	//}
+	//
+	//// service in services_in_external_env
+	//servicesInExternalEnv, _ := commonrepo.NewServicesInExternalEnvColl().List(&commonrepo.ServicesInExternalEnvArgs{
+	//	ProductName: productName,
+	//	EnvName:     envName,
+	//})
+	//
+	//externalServiceNames := sets.NewString()
+	//for _, serviceInExternalEnv := range servicesInExternalEnv {
+	//	if !currentServiceNames.Has(serviceInExternalEnv.ServiceName) {
+	//		externalServiceNames.Insert(serviceInExternalEnv.ServiceName)
+	//	}
+	//}
+	//
+	//if len(externalServiceNames) > 0 {
+	//	newServices, _ := commonrepo.NewServiceColl().ListExternalWorkloadsBy(productName, "", externalServiceNames.List()...)
+	//	services = append(services, newServices...)
+	//}
+	//
+	//for _, serviceObject := range services {
+	//	spmap := &ServiceProductMap{
+	//		Service:     serviceObject.ServiceName,
+	//		Type:        serviceObject.Type,
+	//		Source:      serviceObject.Source,
+	//		ProductName: serviceObject.ProductName,
+	//		Containers:  serviceObject.Containers,
+	//	}
+	//	resp.Data = append(resp.Data, spmap)
+	//}
 
 	return resp, nil
 }
