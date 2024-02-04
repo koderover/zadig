@@ -20,8 +20,10 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/http/pprof"
 	"time"
 
+	"github.com/gorilla/mux"
 	commonconfig "github.com/koderover/zadig/v2/pkg/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/cron/core/service/scheduler"
@@ -61,6 +63,21 @@ func Serve(ctx context.Context) error {
 		defer cancel()
 		if err := server.Shutdown(ctx); err != nil {
 			log.Errorf("Failed to stop server, error: %s", err)
+		}
+	}()
+
+	// pprof service, you can access it by {your_ip}:8888/debug/pprof
+	go func() {
+		router := mux.NewRouter()
+		router.Handle("/debug/pprof", http.HandlerFunc(pprof.Index))
+		router.Handle("/debug/pprof/cmdline", http.HandlerFunc(pprof.Cmdline))
+		router.Handle("/debug/pprof/profile", http.HandlerFunc(pprof.Profile))
+		router.Handle("/debug/pprof/symbol", http.HandlerFunc(pprof.Symbol))
+		router.Handle("/debug/pprof/trace", http.HandlerFunc(pprof.Trace))
+		router.Handle("/debug/pprof/{cmd}", http.HandlerFunc(pprof.Index))
+		err := http.ListenAndServe("0.0.0.0:8888", router)
+		if err != nil {
+			log.Fatal(err)
 		}
 	}()
 
