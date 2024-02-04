@@ -540,16 +540,16 @@ func transferProducts(user string, projectInfo *template.Product, templateServic
 		product.Services = [][]*commonmodels.ProductService{productServices}
 
 		// update workload stat
-		workloadStat, err := commonrepo.NewWorkLoadsStatColl().Find(product.ClusterID, product.Namespace)
-		if err != nil {
-			log.Errorf("workflowStat not found error:%s", err)
-		}
-		if workloadStat != nil {
-			workloadStat.Workloads = commonservice.FilterWorkloadsByEnv(workloadStat.Workloads, product.ProductName, product.EnvName)
-			if err := commonrepo.NewWorkLoadsStatColl().UpdateWorkloads(workloadStat); err != nil {
-				log.Errorf("update workloads fail error:%s", err)
-			}
-		}
+		//workloadStat, err := commonrepo.NewWorkLoadsStatColl().Find(product.ClusterID, product.Namespace)
+		//if err != nil {
+		//	log.Errorf("workflowStat not found error:%s", err)
+		//}
+		//if workloadStat != nil {
+		//	workloadStat.Workloads = commonservice.FilterWorkloadsByEnv(workloadStat.Workloads, product.ProductName, product.EnvName)
+		//	if err := commonrepo.NewWorkLoadsStatColl().UpdateWorkloads(workloadStat); err != nil {
+		//		log.Errorf("update workloads fail error:%s", err)
+		//	}
+		//}
 
 		// mark service as only import
 		for _, svc := range product.GetServiceMap() {
@@ -566,16 +566,16 @@ func transferProducts(user string, projectInfo *template.Product, templateServic
 }
 
 func saveWorkloadStats(clusterID, namespace, productName, envName string) {
-	workloadStat, err := commonrepo.NewWorkLoadsStatColl().Find(clusterID, namespace)
-	if err != nil {
-		log.Errorf("failed to get workload stat data, err: %s", err)
-		return
-	}
-
-	workloadStat.Workloads = commonservice.FilterWorkloadsByEnv(workloadStat.Workloads, productName, envName)
-	if err := commonrepo.NewWorkLoadsStatColl().UpdateWorkloads(workloadStat); err != nil {
-		log.Errorf("update workloads fail error:%s", err)
-	}
+	//workloadStat, err := commonrepo.NewWorkLoadsStatColl().Find(clusterID, namespace)
+	//if err != nil {
+	//	log.Errorf("failed to get workload stat data, err: %s", err)
+	//	return
+	//}
+	//
+	//workloadStat.Workloads = commonservice.FilterWorkloadsByEnv(workloadStat.Workloads, productName, envName)
+	//if err := commonrepo.NewWorkLoadsStatColl().UpdateWorkloads(workloadStat); err != nil {
+	//	log.Errorf("update workloads fail error:%s", err)
+	//}
 }
 
 // UpdateProject 更新项目
@@ -758,18 +758,18 @@ func DeleteProductTemplate(userName, productName, requestID string, isDelete boo
 	// delete data in workload_stat
 	// TODO this function should be removed after workload_stat is deprecated
 	go func() {
-		workloads, _ := commonrepo.NewWorkLoadsStatColl().FindByProductName(productName)
-		for _, v := range workloads {
-			// update workloads
-			tmp := []commonmodels.Workload{}
-			for _, vv := range v.Workloads {
-				if vv.ProductName != productName {
-					tmp = append(tmp, vv)
-				}
-			}
-			v.Workloads = tmp
-			commonrepo.NewWorkLoadsStatColl().UpdateWorkloads(v)
-		}
+		//workloads, _ := commonrepo.NewWorkLoadsStatColl().FindByProductName(productName)
+		//for _, v := range workloads {
+		//	// update workloads
+		//	tmp := []commonmodels.Workload{}
+		//	for _, vv := range v.Workloads {
+		//		if vv.ProductName != productName {
+		//			tmp = append(tmp, vv)
+		//		}
+		//	}
+		//	v.Workloads = tmp
+		//	commonrepo.NewWorkLoadsStatColl().UpdateWorkloads(v)
+		//}
 	}()
 
 	// delete servicesInExternalEnv data
