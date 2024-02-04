@@ -383,8 +383,10 @@ func (c *CronClient) compareHelmProductEnvRevision(currentProductRevisions []*se
 
 // compare environments and then services
 func (c *CronClient) comparePMProductRevision(currentProductRevisions []*service.ProductRevision, log *zap.SugaredLogger) {
+	c.lastPMProductRevisionsRWMutex.Lock()
 	if len(c.lastPMProductRevisions) == 0 {
 		c.lastPMProductRevisions = currentProductRevisions
+		c.lastPMProductRevisionsRWMutex.Unlock()
 		return
 	}
 	deleteProductRevisions := make([]*service.ProductRevision, 0)
@@ -404,6 +406,7 @@ func (c *CronClient) comparePMProductRevision(currentProductRevisions []*service
 			deleteProductRevisions = append(deleteProductRevisions, lastProductRevision)
 		}
 	}
+	c.lastPMProductRevisionsRWMutex.Unlock()
 	//已经删除的环境，如果包含非k8s服务，则清除定时器
 	for _, env := range deleteProductRevisions {
 		for _, serviceRevision := range env.ServiceRevisions {
@@ -543,7 +546,9 @@ func (c *CronClient) comparePMProductRevision(currentProductRevisions []*service
 		c.lastServiceSchedulersRWMutex.Unlock()
 	}
 
+	c.lastPMProductRevisionsRWMutex.Lock()
 	c.lastPMProductRevisions = currentProductRevisions
+	c.lastPMProductRevisionsRWMutex.Unlock()
 }
 
 const (

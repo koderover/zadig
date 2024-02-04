@@ -59,6 +59,8 @@ type CronClient struct {
 	lastEnvSchedulerDataRWMutex         sync.RWMutex
 	lastEnvResourceSchedulerDataRWMutex sync.RWMutex
 	enabledMapRWMutex                   sync.RWMutex
+	lastPMProductRevisionsRWMutex       sync.RWMutex
+	lastHelmProductRevisionsRWMutex     sync.RWMutex
 
 	log *zap.SugaredLogger
 }
