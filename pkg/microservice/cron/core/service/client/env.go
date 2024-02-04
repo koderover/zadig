@@ -109,6 +109,8 @@ func (c *Client) GetEnvService(productName, envName string, log *zap.SugaredLogg
 		if err == nil {
 			if err = json.Unmarshal(body, &envObj); err == nil {
 				return envObj, nil
+			} else {
+				log.Errorf("GetService response body unmarshal error: %v", err)
 			}
 		}
 	}

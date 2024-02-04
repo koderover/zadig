@@ -53,7 +53,7 @@ func (c *CronClient) UpsertEnvServiceScheduler(log *zap.SugaredLogger) {
 
 		envObj, err := c.AslanCli.GetEnvService(env.ProductName, env.EnvName, log)
 		if err != nil {
-			log.Error("GetEnvService productName:%s envName:%s err:%v", env.ProductName, env.EnvName, err)
+			log.Errorf("GetEnvService productName: %s envName: %s err: %v", env.ProductName, env.EnvName, err)
 			continue
 		}
 		envServiceNames := sets.String{}
