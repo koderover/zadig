@@ -165,11 +165,18 @@ func (c *CronClient) UpsertWorkflowScheduler(log *zap.SugaredLogger) {
 				continue
 			}
 			log.Warnf("[%s]deleted workflow detached", name)
+
+			c.SchedulerControllerRWMutex.RLock()
 			if _, ok := c.SchedulerController[name]; ok {
 				c.SchedulerController[name] <- true
 			}
+			c.SchedulerControllerRWMutex.RUnlock()
+
 			delete(c.Schedulers, name)
+
+			c.lastSchedulersRWMutex.Lock()
 			delete(c.lastSchedulers, name)
+			c.lastSchedulersRWMutex.Unlock()
 		}
 	}
 	c.SchedulersRWMutex.Unlock()

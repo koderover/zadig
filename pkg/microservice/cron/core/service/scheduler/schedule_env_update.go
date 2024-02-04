@@ -73,13 +73,11 @@ func (c *CronClient) UpsertEnvValueSyncScheduler(log *zap.SugaredLogger) {
 		c.lastEnvSchedulerData[envKey] = envObj
 
 		c.SchedulerControllerRWMutex.Lock()
-		defer c.SchedulerControllerRWMutex.Unlock()
 		if _, ok := c.SchedulerController[envKey]; ok {
 			c.SchedulerController[envKey] <- true
 		}
 
 		c.SchedulersRWMutex.Lock()
-		defer c.SchedulersRWMutex.Unlock()
 		if _, ok := c.Schedulers[envKey]; ok {
 			c.Schedulers[envKey].Clear()
 			delete(c.Schedulers, envKey)
