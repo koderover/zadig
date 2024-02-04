@@ -19,7 +19,6 @@ package jobcontroller
 import (
 	"context"
 	"fmt"
-	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"time"
 
 	"github.com/pkg/errors"
@@ -67,7 +66,6 @@ func NewBlueGreenReleaseV2JobCtl(job *commonmodels.JobTask, workflowCtx *commonm
 }
 
 func (c *BlueGreenReleaseV2JobCtl) Clean(ctx context.Context) {
-	log.Infof("------- start to clean blue green release data")
 	env, err := mongodb.NewProductColl().Find(&mongodb.ProductFindOptions{
 		Name:    c.workflowCtx.ProjectName,
 		EnvName: c.jobTaskSpec.Env,
@@ -172,8 +170,6 @@ func (c *BlueGreenReleaseV2JobCtl) run(ctx context.Context) error {
 		return errors.New(msg)
 	}
 
-	log.Infof("----------- blue green release run start")
-
 	// update green deployment image to new version
 	for _, v := range c.jobTaskSpec.Service.ServiceAndImage {
 		err := updater.UpdateDeploymentImage(c.namespace, c.jobTaskSpec.Service.GreenDeploymentName, v.ServiceModule, v.Image, c.kubeClient)
@@ -249,27 +245,6 @@ func (c *BlueGreenReleaseV2JobCtl) run(ctx context.Context) error {
 
 	c.jobTaskSpec.Events.Info(fmt.Sprintf("update deployment %s image success", c.jobTaskSpec.Service.GreenDeploymentName))
 	c.ack()
-
-	// green service selector stays unchanged, so no request will be routed to blue service
-	// rollback green service selector, change endpoint to green services just updated
-	//greenService, found, err := getter.GetService(c.namespace, c.jobTaskSpec.Service.GreenServiceName, c.kubeClient)
-	//if err != nil || !found {
-	//	msg := fmt.Sprintf("can't get green service %s, err: %v", c.jobTaskSpec.Service.GreenServiceName, err)
-	//	logError(c.job, msg, c.logger)
-	//	c.jobTaskSpec.Events.Error(msg)
-	//	return errors.New(msg)
-	//}
-	//// technically some request will be routed to blue service since the config.BlueGreenVersionLabelName is removed
-	//delete(greenService.Spec.Selector, config.BlueGreenVersionLabelName)
-	//err = updater.CreateOrPatchService(greenService, c.kubeClient)
-	//if err != nil {
-	//	msg := fmt.Sprintf("can't update green service %s selector, err: %v", c.jobTaskSpec.Service.GreenServiceName, err)
-	//	logError(c.job, msg, c.logger)
-	//	c.jobTaskSpec.Events.Error(msg)
-	//	return errors.New(msg)
-	//}
-	//c.jobTaskSpec.Events.Info(fmt.Sprintf("update green service %s selector success", c.jobTaskSpec.Service.GreenServiceName))
-	//c.ack()
 
 	return nil
 }
