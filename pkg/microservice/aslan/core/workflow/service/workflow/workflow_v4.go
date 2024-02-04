@@ -2545,7 +2545,7 @@ func GetBlueGreenServiceK8sServiceYaml(projectName, envName, serviceName string)
 			if service.Spec.Selector == nil {
 				service.Spec.Selector = make(map[string]string)
 			}
-			service.Spec.Selector[config.BlueGreenVerionLabelName] = config.BlueVersion
+			service.Spec.Selector[config.BlueGreenVersionLabelName] = config.BlueVersion
 			serviceYaml, err = toYaml(service)
 			if err != nil {
 				return "", errors.Errorf("failed to marshal service %s service object: %v", serviceName, err)

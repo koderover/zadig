@@ -109,7 +109,7 @@ func (c *BlueGreenDeployJobCtl) run(ctx context.Context) error {
 		break
 	}
 	// if label not exist, we think this was the first time to deploy, so we need to add the label
-	if previousLabel, ok := deployment.ObjectMeta.Labels[config.BlueGreenVerionLabelName]; !ok {
+	if previousLabel, ok := deployment.ObjectMeta.Labels[config.BlueGreenVersionLabelName]; !ok {
 		c.jobTaskSpec.FirstDeploy = true
 		c.jobTaskSpec.Events.Info(fmt.Sprintf("deployment %s was the first time blue-green deploy by zadig", c.jobTaskSpec.WorkloadName))
 		c.ack()
@@ -122,7 +122,7 @@ func (c *BlueGreenDeployJobCtl) run(ctx context.Context) error {
 			return errors.New(msg)
 		}
 		for _, pod := range pods {
-			addlabelPatch := fmt.Sprintf(`{"metadata":{"labels":{"%s":"%s"}}}`, config.BlueGreenVerionLabelName, config.OriginVersion)
+			addlabelPatch := fmt.Sprintf(`{"metadata":{"labels":{"%s":"%s"}}}`, config.BlueGreenVersionLabelName, config.OriginVersion)
 			if err := updater.PatchPod(c.jobTaskSpec.Namespace, pod.Name, []byte(addlabelPatch), c.kubeClient); err != nil {
 				msg := fmt.Sprintf("add origin label to pod error: %v", err)
 				logError(c.job, msg, c.logger)
@@ -132,7 +132,7 @@ func (c *BlueGreenDeployJobCtl) run(ctx context.Context) error {
 		}
 		c.jobTaskSpec.Events.Info("add origin label to pods")
 		c.ack()
-		service.Spec.Selector[config.BlueGreenVerionLabelName] = config.OriginVersion
+		service.Spec.Selector[config.BlueGreenVersionLabelName] = config.OriginVersion
 		if err := updater.CreateOrPatchService(service, c.kubeClient); err != nil {
 			msg := fmt.Sprintf("add origin label selector to serivce: %s error: %v", c.jobTaskSpec.K8sServiceName, err)
 			logError(c.job, msg, c.logger)
@@ -143,8 +143,8 @@ func (c *BlueGreenDeployJobCtl) run(ctx context.Context) error {
 		c.ack()
 	} else {
 		// ensure service have the label selector match deployments.
-		if _, ok := service.Spec.Selector[config.BlueGreenVerionLabelName]; !ok {
-			service.Spec.Selector[config.BlueGreenVerionLabelName] = previousLabel
+		if _, ok := service.Spec.Selector[config.BlueGreenVersionLabelName]; !ok {
+			service.Spec.Selector[config.BlueGreenVersionLabelName] = previousLabel
 			if err := updater.CreateOrPatchService(service, c.kubeClient); err != nil {
 				msg := fmt.Sprintf("add label selector to serivce: %s error: %v", c.jobTaskSpec.K8sServiceName, err)
 				logError(c.job, msg, c.logger)
@@ -158,7 +158,7 @@ func (c *BlueGreenDeployJobCtl) run(ctx context.Context) error {
 	blueService := service.DeepCopy()
 	blueService.Name = c.jobTaskSpec.BlueK8sServiceName
 	c.jobTaskSpec.BlueK8sServiceName = blueService.Name
-	blueService.Spec.Selector[config.BlueGreenVerionLabelName] = c.jobTaskSpec.Version
+	blueService.Spec.Selector[config.BlueGreenVersionLabelName] = c.jobTaskSpec.Version
 	// clean service extra infos may confilict.
 	blueService.Spec.ClusterIPs = []string{}
 	if blueService.Spec.ClusterIP != "None" {
@@ -185,9 +185,9 @@ func (c *BlueGreenDeployJobCtl) run(ctx context.Context) error {
 		}
 		blueDeployment.Spec.Template.Spec.Containers[i].Image = c.jobTaskSpec.Image
 	}
-	blueDeployment.Labels[config.BlueGreenVerionLabelName] = c.jobTaskSpec.Version
-	blueDeployment.Spec.Selector.MatchLabels[config.BlueGreenVerionLabelName] = c.jobTaskSpec.Version
-	blueDeployment.Spec.Template.Labels[config.BlueGreenVerionLabelName] = c.jobTaskSpec.Version
+	blueDeployment.Labels[config.BlueGreenVersionLabelName] = c.jobTaskSpec.Version
+	blueDeployment.Spec.Selector.MatchLabels[config.BlueGreenVersionLabelName] = c.jobTaskSpec.Version
+	blueDeployment.Spec.Template.Labels[config.BlueGreenVersionLabelName] = c.jobTaskSpec.Version
 	blueDeployment.ObjectMeta.ResourceVersion = ""
 	if err := updater.CreateOrPatchDeployment(blueDeployment, c.kubeClient); err != nil {
 		msg := fmt.Sprintf("create blue deployment: %s error: %v", c.jobTaskSpec.BlueWorkloadName, err)
