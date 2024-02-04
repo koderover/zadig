@@ -35,14 +35,20 @@ func buildEnvResourceCronKey(envResource *service.EnvResource) string {
 
 func (c *CronClient) deleteEnvResourceScheduler(envResourceKey string) {
 	log.Infof("deleting single env resource scheduler: %s", envResourceKey)
+
+	c.SchedulerControllerRWMutex.Lock()
 	if _, ok := c.SchedulerController[envResourceKey]; ok {
 		c.SchedulerController[envResourceKey] <- true
 		delete(c.SchedulerController, envResourceKey)
 	}
+	c.SchedulerControllerRWMutex.Unlock()
+
+	c.SchedulersRWMutex.Lock()
 	if _, ok := c.Schedulers[envResourceKey]; ok {
 		c.Schedulers[envResourceKey].Clear()
 		delete(c.Schedulers, envResourceKey)
 	}
+	c.SchedulersRWMutex.Unlock()
 }
 
 func (c *CronClient) UpsertEnvResourceSyncScheduler(log *zap.SugaredLogger) {
@@ -84,8 +90,14 @@ func (c *CronClient) UpsertEnvResourceSyncScheduler(log *zap.SugaredLogger) {
 			newScheduler.Every(EnvUpdateInterval).Seconds().Do(c.RunScheduledEnvResourceUpdate, envResource.ProductName, envResource.EnvName, envResource.Type, envResource.Name, log)
 
 			log.Infof("[%s] add env resource schedulers..", envResourceKey)
+			c.SchedulersRWMutex.Lock()
 			c.Schedulers[envResourceKey] = newScheduler
+
+			c.SchedulerControllerRWMutex.Lock()
 			c.SchedulerController[envResourceKey] = c.Schedulers[envResourceKey].Start()
+
+			c.SchedulersRWMutex.Unlock()
+			c.SchedulerControllerRWMutex.Unlock()
 		}
 
 	}
