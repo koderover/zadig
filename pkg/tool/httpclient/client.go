@@ -145,6 +145,8 @@ func (c *Client) Request(method, url string, rfs ...RequestFunc) (*resty.Respons
 	}
 	r := c.R()
 
+	r.SetHeader("HTTP", "HTTP/1.1")
+
 	for _, rf := range rfs {
 		rf(r)
 	}
