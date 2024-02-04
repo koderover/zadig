@@ -96,6 +96,7 @@ func (c *CronClient) UpsertEnvServiceScheduler(log *zap.SugaredLogger) {
 				}
 
 				for _, healthCheck := range svc.HealthChecks {
+					// @todo key 2
 					key := "service-" + serviceRevision.ServiceName + "-" + env.ProductName + "-" + setting.PMDeployType + "-" +
 						env.EnvName + "-" + envStatus.HostID + "-" + healthCheck.Protocol + "-" + strconv.Itoa(healthCheck.Port) + "-" + healthCheck.Path
 					taskMap[key] = true
@@ -108,14 +109,17 @@ func (c *CronClient) UpsertEnvServiceScheduler(log *zap.SugaredLogger) {
 					if scheduler, ok := c.Schedulers[key]; ok {
 						scheduler.Clear()
 						delete(c.Schedulers, key)
+						log.Debugf("[%s] scheduler service clear..", key)
 					}
 
 					newScheduler := gocron.NewScheduler()
 					BuildScheduledEnvJob(newScheduler, healthCheck).Do(c.RunScheduledService, svc, healthCheck, envStatus.Address, env.EnvName, envStatus.HostID, log)
 					c.Schedulers[key] = newScheduler
-					log.Infof("[%s] service schedulers..", key)
-					c.Schedulers[key].Start()
 					c.SchedulersRWMutex.Unlock()
+
+					log.Infof("[%s] service schedulers..", key)
+					// @todo clean up the old scheduler
+					c.Schedulers[key].Start()
 				}
 			}
 			break
@@ -358,7 +362,6 @@ func (c *CronClient) compareHelmProductEnvRevision(currentProductRevisions []*se
 	for _, r := range currentProductRevisions {
 		curEnvSet.Insert(buildEnvNameKey(r))
 	}
-	c.lastHelmProductRevisionsRWMutex.Lock()
 	for _, lastProductRevision := range c.lastHelmProductRevisions {
 		if !curEnvSet.Has(buildEnvNameKey(lastProductRevision)) {
 			deleteProductRevisions = append(deleteProductRevisions, lastProductRevision)
@@ -523,6 +526,7 @@ func (c *CronClient) comparePMProductRevision(currentProductRevisions []*service
 		}
 		envName := strings.Split(key, "-")[1]
 		productName := strings.Split(key, "-")[0]
+		// @todo key 1
 		key := "service-" + oldRevisionService.ServiceName + "-" + productName + "-" + setting.PMDeployType + "-" +
 			envName
 

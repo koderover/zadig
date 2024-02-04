@@ -74,17 +74,16 @@ func (c *CronClient) UpsertWorkflowScheduler(log *zap.SugaredLogger) {
 
 		c.SchedulersRWMutex.Lock()
 		c.Schedulers[key] = newScheduler
+		c.SchedulersRWMutex.Unlock()
 
 		log.Infof("[%s] building schedulers..", key)
 		// 停掉旧的scheduler
-		c.SchedulerControllerRWMutex.Lock()
 		if _, ok := c.SchedulerController[key]; ok {
 			c.SchedulerController[key] <- true
 		}
 		log.Infof("[%s]lens of scheduler: %d", key, c.Schedulers[key].Len())
+		c.SchedulerControllerRWMutex.Lock()
 		c.SchedulerController[key] = c.Schedulers[key].Start()
-
-		c.SchedulersRWMutex.Unlock()
 		c.SchedulerControllerRWMutex.Unlock()
 	}
 
@@ -129,17 +128,16 @@ func (c *CronClient) UpsertWorkflowScheduler(log *zap.SugaredLogger) {
 
 		c.SchedulersRWMutex.Lock()
 		c.Schedulers[key] = newScheduler
+		c.SchedulersRWMutex.Unlock()
 
 		log.Infof("[%s] building schedulers..", key)
 		// 停掉旧的scheduler
-		c.SchedulerControllerRWMutex.Lock()
 		if _, ok := c.SchedulerController[key]; ok {
 			c.SchedulerController[key] <- true
 		}
 		log.Infof("[%s]lens of scheduler: %d", key, c.Schedulers[key].Len())
+		c.SchedulerControllerRWMutex.Lock()
 		c.SchedulerController[key] = c.Schedulers[key].Start()
-
-		c.SchedulersRWMutex.Unlock()
 		c.SchedulerControllerRWMutex.Unlock()
 	}
 

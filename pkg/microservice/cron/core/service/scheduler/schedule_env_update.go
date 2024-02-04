@@ -74,7 +74,6 @@ func (c *CronClient) UpsertEnvValueSyncScheduler(log *zap.SugaredLogger) {
 		c.lastEnvSchedulerData[envKey] = envObj
 		c.lastEnvSchedulerDataRWMutex.Unlock()
 
-		c.SchedulerControllerRWMutex.Lock()
 		if _, ok := c.SchedulerController[envKey]; ok {
 			c.SchedulerController[envKey] <- true
 		}
@@ -84,6 +83,7 @@ func (c *CronClient) UpsertEnvValueSyncScheduler(log *zap.SugaredLogger) {
 			c.Schedulers[envKey].Clear()
 			delete(c.Schedulers, envKey)
 		}
+		c.SchedulersRWMutex.Unlock()
 
 		if !needCreateProdSchedule(envObj) {
 			continue
@@ -91,11 +91,13 @@ func (c *CronClient) UpsertEnvValueSyncScheduler(log *zap.SugaredLogger) {
 
 		newScheduler := gocron.NewScheduler()
 		newScheduler.Every(EnvUpdateInterval).Seconds().Do(c.RunScheduledEnvUpdate, env.ProductName, env.EnvName, log)
+		c.SchedulersRWMutex.Lock()
 		c.Schedulers[envKey] = newScheduler
-		log.Infof("[%s] add schedulers..", envKey)
-		c.SchedulerController[envKey] = c.Schedulers[envKey].Start()
-
 		c.SchedulersRWMutex.Unlock()
+
+		log.Infof("[%s] add schedulers..", envKey)
+		c.SchedulerControllerRWMutex.Lock()
+		c.SchedulerController[envKey] = c.Schedulers[envKey].Start()
 		c.SchedulerControllerRWMutex.Unlock()
 	}
 }

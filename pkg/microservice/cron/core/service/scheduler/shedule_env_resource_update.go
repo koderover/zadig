@@ -96,11 +96,10 @@ func (c *CronClient) UpsertEnvResourceSyncScheduler(log *zap.SugaredLogger) {
 			log.Infof("[%s] add env resource schedulers..", envResourceKey)
 			c.SchedulersRWMutex.Lock()
 			c.Schedulers[envResourceKey] = newScheduler
+			c.SchedulersRWMutex.Unlock()
 
 			c.SchedulerControllerRWMutex.Lock()
 			c.SchedulerController[envResourceKey] = c.Schedulers[envResourceKey].Start()
-
-			c.SchedulersRWMutex.Unlock()
 			c.SchedulerControllerRWMutex.Unlock()
 		}
 
