@@ -27,6 +27,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/user/core/repository"
 	"github.com/koderover/zadig/v2/pkg/microservice/user/core/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/microservice/user/core/repository/orm"
+	"github.com/koderover/zadig/v2/pkg/microservice/user/core/service/user"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/types"
@@ -213,33 +214,26 @@ func GetUserRules(uid string, log *zap.SugaredLogger) (*GetUserRulesResp, error)
 	var isSystemAdmin bool
 	projectAdminList := make([]string, 0)
 	tx := repository.DB.Begin()
-	groupIDList := make([]string, 0)
 	// find the user groups this uid belongs to, if none it is ok
-	groups, err := orm.ListUserGroupByUID(uid, tx)
+	groupIDList, err := user.GetUserGroupByUID(uid)
 	if err != nil {
-		tx.Rollback()
-		log.Errorf("failed to find user group for user: %s, error: %s", uid, err)
-		return nil, fmt.Errorf("failed to get user permission, cannot find the user group for user, error: %s", err)
+		log.Errorf("cannot find user group by uid: %s, error: %s", uid, err)
+		return nil, err
 	}
 
-	for _, group := range groups {
-		groupIDList = append(groupIDList, group.GroupID)
-	}
-
-	allUserGroup, err := orm.GetAllUserGroup(tx)
-	if err != nil || allUserGroup.GroupID == "" {
-		tx.Rollback()
+	allUserGroupID, err := user.GetAllUserGroup()
+	if err != nil {
 		log.Errorf("failed to find user group for %s, error: %s", "所有用户", err)
 		return nil, fmt.Errorf("failed to find user group for %s, error: %s", "所有用户", err)
 	}
 
-	groupIDList = append(groupIDList, allUserGroup.GroupID)
+	groupIDList = append(groupIDList, allUserGroupID)
 
 	projectVerbMap := make(map[string][]string)
 	systemVerbs := make([]string, 0)
-	// TODO: add some powerful cache here
 	roleActionMap := make(map[uint]sets.String)
 
+	// TODO: improve this with cache
 	roles, err := orm.ListRoleByUID(uid, tx)
 	if err != nil {
 		tx.Rollback()
@@ -257,8 +251,7 @@ func GetUserRules(uid string, log *zap.SugaredLogger) (*GetUserRulesResp, error)
 			projectAdminList = append(projectAdminList, role.Namespace)
 		}
 
-		// TODO: improve this with cache
-		actions, err := orm.ListActionByRole(role.ID, tx)
+		actions, err := ListActionByRole(role.ID)
 		if err != nil {
 			tx.Rollback()
 			log.Errorf("failed to list action for role: %s in namespace %s, error: %s", role.Name, role.Namespace, err)
@@ -270,24 +263,25 @@ func GetUserRules(uid string, log *zap.SugaredLogger) (*GetUserRulesResp, error)
 		}
 
 		for _, action := range actions {
-			roleActionMap[role.ID].Insert(action.Action)
+			roleActionMap[role.ID].Insert(action)
 		}
 
 		switch role.Namespace {
 		case GeneralNamespace:
 			for _, action := range actions {
-				systemVerbs = append(systemVerbs, action.Action)
+				systemVerbs = append(systemVerbs, action)
 			}
 		default:
 			if _, ok := projectVerbMap[role.Namespace]; !ok {
 				projectVerbMap[role.Namespace] = make([]string, 0)
 			}
 			for _, action := range actions {
-				projectVerbMap[role.Namespace] = append(projectVerbMap[role.Namespace], action.Action)
+				projectVerbMap[role.Namespace] = append(projectVerbMap[role.Namespace], action)
 			}
 		}
 	}
 
+	// TODO: improve this with cache
 	groupRoles, err := orm.ListRoleByGroupIDs(groupIDList, tx)
 	if err != nil {
 		tx.Rollback()
@@ -312,7 +306,7 @@ func GetUserRules(uid string, log *zap.SugaredLogger) (*GetUserRulesResp, error)
 			continue
 		}
 
-		actions, err := orm.ListActionByRole(role.ID, repository.DB)
+		actions, err := ListActionByRole(role.ID)
 		if err != nil {
 			tx.Rollback()
 			log.Errorf("failed to find action bindings for role: %s, error: %s", role.Name, err)
@@ -322,14 +316,14 @@ func GetUserRules(uid string, log *zap.SugaredLogger) (*GetUserRulesResp, error)
 		switch role.Namespace {
 		case GeneralNamespace:
 			for _, action := range actions {
-				systemVerbs = append(systemVerbs, action.Action)
+				systemVerbs = append(systemVerbs, action)
 			}
 		default:
 			if _, ok := projectVerbMap[role.Namespace]; !ok {
 				projectVerbMap[role.Namespace] = make([]string, 0)
 			}
 			for _, action := range actions {
-				projectVerbMap[role.Namespace] = append(projectVerbMap[role.Namespace], action.Action)
+				projectVerbMap[role.Namespace] = append(projectVerbMap[role.Namespace], action)
 			}
 		}
 	}

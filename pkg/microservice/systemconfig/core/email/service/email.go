@@ -19,6 +19,7 @@ package service
 import (
 	"time"
 
+	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/v2/pkg/config"
@@ -28,12 +29,19 @@ import (
 	"github.com/koderover/zadig/v2/pkg/tool/crypto"
 )
 
-func GetEmailHost(_ *zap.SugaredLogger) (*models.EmailHost, error) {
+func GetEmailHost(log *zap.SugaredLogger) (*models.EmailHost, error) {
 	host, err := mongodb.NewEmailHostColl().Find()
-	if host != nil {
-		host.Password = "***"
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return nil, nil
+		}
+		log.Errorf("failed to find email host, error: %s", err)
+		return nil, err
 	}
-	return host, err
+
+	host.Password = "***"
+
+	return host, nil
 }
 
 func GetEmailHostInternal(_ *zap.SugaredLogger) (*models.EmailHost, error) {

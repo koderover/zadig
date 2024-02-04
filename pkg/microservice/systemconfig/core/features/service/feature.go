@@ -18,88 +18,34 @@ package service
 
 import (
 	"context"
-	"strconv"
-	"strings"
+
+	"github.com/koderover/zadig/v2/pkg/tool/cache"
+	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/features/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/features/repository/mongodb"
-	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
-type Feature string
+func FeatureEnabled(f string, log *zap.SugaredLogger) (bool, error) {
+	featureLock := cache.NewRedisLock("feature_gate")
+	featureLock.Lock()
+	defer func() {
+		featureLock.Unlock()
+	}()
 
-const (
-	ModernWorkflow             Feature = "ModernWorkflow"
-	CommunityProjectRepository Feature = "CommunityProjectRepository"
-	UserRegistration           Feature = "UserRegistration"
-)
-
-type FeatureGates map[Feature]bool
-
-var Features FeatureGates = map[Feature]bool{
-	ModernWorkflow:             false,
-	CommunityProjectRepository: false,
-	UserRegistration:           true,
-}
-
-func (fg FeatureGates) EnabledFeatures() []Feature {
-	var res []Feature
-
-	for k, v := range fg {
-		if v {
-			res = append(res, k)
-		}
-	}
-
-	return res
-}
-
-func (fg FeatureGates) FeatureEnabled(f Feature) bool {
-	return fg[f]
-}
-
-// MergeFeatureGates merge feature config from different source
-// latter feature configs will be overridden by former ones
-func (fg FeatureGates) MergeFeatureGates(fs ...FeatureGates) {
-	for _, v := range fs {
-		for k, vv := range v {
-			fg[k] = vv
-		}
-	}
-}
-
-func DBToFeatureGates() (FeatureGates, error) {
-	fg := make(FeatureGates)
-	fs, err := mongodb.NewFeatureColl().ListFeatures()
+	features, err := mongodb.NewFeatureColl().ListFeatures()
 	if err != nil {
-		log.Errorf("list features err:%s", err)
-		return nil, err
+		log.Errorf("failed to get feature:%s from the db, error: %s", f, err)
+		return false, err
 	}
 
-	for _, v := range fs {
-		fg[Feature(v.Name)] = v.Enabled
-	}
-	return fg, nil
-}
-
-func FlagToFeatureGates(s string) (FeatureGates, error) {
-	res := make(FeatureGates)
-
-	fs := strings.Split(s, ",")
-	for _, f := range fs {
-		kv := strings.Split(f, "=")
-		if len(kv) != 2 {
-			continue
+	for _, feature := range features {
+		if feature.Name == f {
+			return feature.Enabled, nil
 		}
-		boolValue, err := strconv.ParseBool(kv[1])
-		if err != nil {
-			log.Errorf("invalid value of %s=%s, err: %v", kv[0], kv[1], err)
-			return nil, err
-		}
-		res[Feature(kv[0])] = boolValue
 	}
 
-	return res, nil
+	return false, nil
 }
 
 type FeatureReq struct {
@@ -107,16 +53,21 @@ type FeatureReq struct {
 	Enabled bool   `json:"enabled"`
 }
 
-func UpdateOrCreateFeature(req *FeatureReq) error {
-	if err := mongodb.NewFeatureColl().UpdateOrCreateFeature(context.TODO(), &models.Feature{
+func UpdateOrCreateFeature(req *FeatureReq, log *zap.SugaredLogger) error {
+	featureLock := cache.NewRedisLock("feature_gate")
+	featureLock.Lock()
+	defer func() {
+		featureLock.Unlock()
+	}()
+
+	err := mongodb.NewFeatureColl().UpdateOrCreateFeature(context.TODO(), &models.Feature{
 		Name:    req.Name,
 		Enabled: req.Enabled,
-	}); err != nil {
-		return err
+	})
+
+	if err != nil {
+		log.Errorf("failed to update feature gate: %s, err: %s", req.Name, err)
 	}
-	fg := FeatureGates{
-		Feature(req.Name): req.Enabled,
-	}
-	Features.MergeFeatureGates(fg)
-	return nil
+
+	return err
 }

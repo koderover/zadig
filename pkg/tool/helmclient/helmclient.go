@@ -144,7 +144,7 @@ func NewClientFromNamespace(clusterID, namespace string) (*HelmClient, error) {
 }
 
 // NewClientFromRestConf returns a new Helm client constructed with the provided REST config options
-// used to list/uninstall helm release
+// only used to list/uninstall helm release because kubeClient is nil
 func NewClientFromRestConf(restConfig *rest.Config, ns string) (*HelmClient, error) {
 	hcClient, err := hc.NewClientFromRestConf(&hc.RestConfClientOptions{
 		Options: &hc.Options{
@@ -824,7 +824,12 @@ func (hClient *HelmClient) GetChartValues(repoEntry *repo.Entry, projectName, re
 
 // NOTE: When using this method, pay attention to whether restConfig is present in the original client.
 func (hClient *HelmClient) Clone() (*HelmClient, error) {
-	return NewClientFromRestConf(hClient.RestConfig, hClient.Namespace)
+	ret, err := NewClientFromRestConf(hClient.RestConfig, hClient.Namespace)
+	if err != nil {
+		return nil, err
+	}
+	ret.kubeClient = hClient.kubeClient
+	return ret, nil
 }
 
 // mergeInstallOptions merges values of the provided chart to helm install options used by the client.

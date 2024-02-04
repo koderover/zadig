@@ -512,6 +512,9 @@ func getVMDeployJobVariables(vmDeploy *commonmodels.ServiceAndVMDeploy, buildInf
 	envHostIPsMap := map[string][]string{}
 	addedHostIDs := sets.String{}
 	for _, svc := range services {
+		if svc.ServiceName != vmDeploy.ServiceName {
+			continue
+		}
 		for _, envConfig := range svc.EnvConfigs {
 			for _, hostID := range envConfig.HostIDs {
 				if agentVMIDs.Has(hostID) || addedHostIDs.Has(hostID) {

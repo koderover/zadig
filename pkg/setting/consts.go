@@ -38,7 +38,7 @@ const (
 	ENVRedisUserName           = "REDIS_USERNAME"
 	ENVRedisPassword           = "REDIS_PASSWORD"
 	ENVRedisUserTokenDB        = "REDIS_USER_TOKEN_DB"
-	ENVRedisCommonCacheTokenDB = "REDIS_COMMON_CACHE_DB"
+	ENVRedisCommonCacheDB      = "REDIS_COMMON_CACHE_DB"
 
 	// Aslan
 	ENVPodName              = "BE_POD_NAME"
@@ -535,6 +535,10 @@ const (
 	UbuntuBionic = "bionic"
 	// TestOnly ...
 	TestOnly = "test"
+)
+
+const (
+	CacheExpireTime = 1 * time.Hour
 )
 
 const (

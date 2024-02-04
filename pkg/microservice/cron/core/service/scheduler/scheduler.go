@@ -290,7 +290,7 @@ func (c *CronClient) InitHealthCheckScheduler() {
 
 	c.Schedulers[InitHealthCheckScheduler] = gocron.NewScheduler()
 
-	c.Schedulers[InitHealthCheckScheduler].Every(10).Seconds().Do(c.UpsertEnvServiceScheduler, c.log)
+	c.Schedulers[InitHealthCheckScheduler].Every(20).Seconds().Do(c.UpsertEnvServiceScheduler, c.log)
 
 	c.Schedulers[InitHealthCheckScheduler].Start()
 }

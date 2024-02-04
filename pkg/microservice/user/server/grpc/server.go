@@ -157,6 +157,7 @@ func (s *AuthServer) Check(ctx context.Context, request *ext_authz_v3.CheckReque
 			}
 		}
 	}
+
 	resp.Status = &rpc_status.Status{Code: int32(code.Code_OK)}
 	resp.HttpResponse = &ext_authz_v3.CheckResponse_OkResponse{OkResponse: &ext_authz_v3.OkHttpResponse{}}
 	logger.Info("Request Allowed",
