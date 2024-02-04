@@ -470,24 +470,31 @@ func (c *CronClient) comparePMProductRevision(currentProductRevisions []*service
 			}
 			key := "service-" + deleteSvcRevision.ServiceName + "-" + productName + "-" + setting.PMDeployType + "-" +
 				envName
+
+			c.SchedulersRWMutex.Lock()
 			for scheduleKey := range c.Schedulers {
 				if strings.Contains(scheduleKey, key) {
 					c.Schedulers[scheduleKey].Clear()
 					delete(c.Schedulers, scheduleKey)
 				}
 			}
+			c.SchedulersRWMutex.Unlock()
 
+			c.lastSchedulersRWMutex.Lock()
 			for lastScheduleKey := range c.lastSchedulers {
 				if strings.Contains(lastScheduleKey, key) {
 					delete(c.lastSchedulers, lastScheduleKey)
 				}
 			}
+			c.lastSchedulersRWMutex.Unlock()
 
+			c.lastServiceSchedulersRWMutex.Lock()
 			for lastServiceSchedulerKey := range c.lastServiceSchedulers {
 				if strings.Contains(lastServiceSchedulerKey, key) {
 					delete(c.lastServiceSchedulers, lastServiceSchedulerKey)
 				}
 			}
+			c.lastServiceSchedulersRWMutex.Unlock()
 		}
 	}
 
@@ -509,24 +516,31 @@ func (c *CronClient) comparePMProductRevision(currentProductRevisions []*service
 		productName := strings.Split(key, "-")[0]
 		key := "service-" + oldRevisionService.ServiceName + "-" + productName + "-" + setting.PMDeployType + "-" +
 			envName
+
+		c.SchedulersRWMutex.Lock()
 		for scheduleKey := range c.Schedulers {
 			if strings.Contains(scheduleKey, key) {
 				c.Schedulers[scheduleKey].Clear()
 				delete(c.Schedulers, scheduleKey)
 			}
 		}
+		c.SchedulersRWMutex.Unlock()
 
+		c.lastSchedulersRWMutex.Lock()
 		for lastScheduleKey := range c.lastSchedulers {
 			if strings.Contains(lastScheduleKey, key) {
 				delete(c.lastSchedulers, lastScheduleKey)
 			}
 		}
+		c.lastSchedulersRWMutex.Unlock()
 
+		c.lastServiceSchedulersRWMutex.Lock()
 		for lastServiceSchedulerKey := range c.lastServiceSchedulers {
 			if strings.Contains(lastServiceSchedulerKey, key) {
 				delete(c.lastServiceSchedulers, lastServiceSchedulerKey)
 			}
 		}
+		c.lastServiceSchedulersRWMutex.Unlock()
 	}
 
 	c.lastPMProductRevisions = currentProductRevisions

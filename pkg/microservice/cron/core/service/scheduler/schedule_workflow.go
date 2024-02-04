@@ -44,6 +44,8 @@ func (c *CronClient) UpsertWorkflowScheduler(log *zap.SugaredLogger) {
 			workflow.Schedules = &service.ScheduleCtrl{}
 		}
 
+		c.enabledMapRWMutex.Lock()
+		c.lastSchedulersRWMutex.Lock()
 		if _, ok := c.lastSchedulers[key]; ok && reflect.DeepEqual(workflow.Schedules.Items, c.lastSchedulers[key]) {
 			// 增加判断：enabled的值未被更新时才能跳过
 			if enabled, ok := c.enabledMap[key]; ok && enabled == workflow.Schedules.Enabled {
@@ -52,6 +54,8 @@ func (c *CronClient) UpsertWorkflowScheduler(log *zap.SugaredLogger) {
 		}
 		c.enabledMap[key] = workflow.Schedules.Enabled
 		c.lastSchedulers[key] = workflow.Schedules.Items
+		c.enabledMapRWMutex.Unlock()
+		c.lastSchedulersRWMutex.Unlock()
 
 		newScheduler := gocron.NewScheduler()
 		for _, schedule := range workflow.Schedules.Items {
@@ -94,6 +98,9 @@ func (c *CronClient) UpsertWorkflowScheduler(log *zap.SugaredLogger) {
 	for _, pipeline := range pipelines {
 		key := "pipeline-" + pipeline.Name
 		taskMap[key] = true
+
+		c.enabledMapRWMutex.Lock()
+		c.lastSchedulersRWMutex.Lock()
 		if _, ok := c.lastSchedulers[key]; ok && reflect.DeepEqual(pipeline.Schedules.Items, c.lastSchedulers[key]) {
 			// 增加判断：enabled的值未被更新时才能跳过
 			if enabled, ok := c.enabledMap[key]; ok && enabled == pipeline.Schedules.Enabled {
@@ -102,6 +109,8 @@ func (c *CronClient) UpsertWorkflowScheduler(log *zap.SugaredLogger) {
 		}
 		c.enabledMap[key] = pipeline.Schedules.Enabled
 		c.lastSchedulers[key] = pipeline.Schedules.Items
+		c.enabledMapRWMutex.Unlock()
+		c.lastSchedulersRWMutex.Unlock()
 
 		newScheduler := gocron.NewScheduler()
 		for _, schedule := range pipeline.Schedules.Items {
