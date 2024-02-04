@@ -61,9 +61,11 @@ func (c *CronClient) UpsertEnvResourceSyncScheduler(log *zap.SugaredLogger) {
 	log.Info("start init env resource sync scheduler.")
 
 	lastScheduler := sets.NewString()
+	c.lastEnvResourceSchedulerDataRWMutex.RLock()
 	for k := range c.lastEnvResourceSchedulerData {
 		lastScheduler.Insert(k)
 	}
+	c.lastEnvResourceSchedulerDataRWMutex.RUnlock()
 
 	for _, env := range envs {
 		envResources, err := c.AslanCli.ListEnvResources(env.ProductName, env.EnvName, log)
@@ -77,12 +79,14 @@ func (c *CronClient) UpsertEnvResourceSyncScheduler(log *zap.SugaredLogger) {
 
 			lastScheduler.Delete(envResourceKey)
 
+			c.lastEnvResourceSchedulerDataRWMutex.Lock()
 			if lastEnvResConfig, ok := c.lastEnvResourceSchedulerData[envResourceKey]; ok {
 				if envResource.CreateTime == lastEnvResConfig.CreateTime {
 					continue
 				}
 			}
 			c.lastEnvResourceSchedulerData[envResourceKey] = envResource
+			c.lastEnvResourceSchedulerDataRWMutex.Unlock()
 
 			c.deleteEnvResourceScheduler(envResourceKey)
 
@@ -104,7 +108,9 @@ func (c *CronClient) UpsertEnvResourceSyncScheduler(log *zap.SugaredLogger) {
 
 	for _, k := range lastScheduler.List() {
 		c.deleteEnvResourceScheduler(k)
+		c.lastEnvResourceSchedulerDataRWMutex.Lock()
 		delete(c.lastEnvResourceSchedulerData, k)
+		c.lastEnvResourceSchedulerDataRWMutex.Unlock()
 	}
 }
 
