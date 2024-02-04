@@ -347,8 +347,10 @@ func buildEnvNameKey(productRevision *service.ProductRevision) string {
 }
 
 func (c *CronClient) compareHelmProductEnvRevision(currentProductRevisions []*service.ProductRevision, log *zap.SugaredLogger) {
+	c.lastHelmProductRevisionsRWMutex.Lock()
 	if len(c.lastHelmProductRevisions) == 0 {
 		c.lastHelmProductRevisions = currentProductRevisions
+		c.lastHelmProductRevisionsRWMutex.Unlock()
 		return
 	}
 	deleteProductRevisions := make([]*service.ProductRevision, 0)
@@ -356,11 +358,13 @@ func (c *CronClient) compareHelmProductEnvRevision(currentProductRevisions []*se
 	for _, r := range currentProductRevisions {
 		curEnvSet.Insert(buildEnvNameKey(r))
 	}
+	c.lastHelmProductRevisionsRWMutex.Lock()
 	for _, lastProductRevision := range c.lastHelmProductRevisions {
 		if !curEnvSet.Has(buildEnvNameKey(lastProductRevision)) {
 			deleteProductRevisions = append(deleteProductRevisions, lastProductRevision)
 		}
 	}
+	c.lastHelmProductRevisionsRWMutex.Unlock()
 	// delete related schedulers when env is deleted
 	for _, env := range deleteProductRevisions {
 		envKey := buildEnvNameKey(env)
@@ -378,7 +382,9 @@ func (c *CronClient) compareHelmProductEnvRevision(currentProductRevisions []*se
 		}
 		c.SchedulersRWMutex.Unlock()
 	}
+	c.lastHelmProductRevisionsRWMutex.Lock()
 	c.lastHelmProductRevisions = currentProductRevisions
+	c.lastHelmProductRevisionsRWMutex.Unlock()
 }
 
 // compare environments and then services
