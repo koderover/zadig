@@ -20,6 +20,7 @@ import (
 	"database/sql"
 	"fmt"
 
+	"github.com/koderover/zadig/v2/pkg/microservice/user/core/service/user"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -51,17 +52,12 @@ func GetUserAuthInfo(uid string, logger *zap.SugaredLogger) (*AuthorizedResource
 		return generateAdminRoleResource(), nil
 	}
 
-	groupIDList := make([]string, 0)
 	// find the user groups this uid belongs to, if none it is ok
-	groups, err := orm.ListUserGroupByUID(uid, tx)
+	groupIDList, err := user.GetUserGroupByUID(uid)
 	if err != nil {
 		tx.Rollback()
 		logger.Errorf("failed to find user group for user: %s, error: %s", uid, err)
 		return nil, fmt.Errorf("failed to get user permission, cannot find the user group for user, error: %s", err)
-	}
-
-	for _, group := range groups {
-		groupIDList = append(groupIDList, group.GroupID)
 	}
 
 	allUserGroup, err := orm.GetAllUserGroup(tx)
@@ -81,7 +77,7 @@ func GetUserAuthInfo(uid string, logger *zap.SugaredLogger) (*AuthorizedResource
 	// TODO: add some powerful cache here
 	roleActionMap := make(map[uint]sets.String)
 
-	roles, err := orm.ListRoleByUID(uid, tx)
+	roles, err := ListRoleByUID(uid)
 	if err != nil {
 		tx.Rollback()
 		logger.Errorf("failed to list roles for uid: %s, error: %s", uid, err)

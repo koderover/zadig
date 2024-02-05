@@ -211,7 +211,6 @@ type GetUserRulesResp struct {
 func GetUserRules(uid string, log *zap.SugaredLogger) (*GetUserRulesResp, error) {
 	var isSystemAdmin bool
 	projectAdminList := make([]string, 0)
-	tx := repository.DB.Begin()
 	// find the user groups this uid belongs to, if none it is ok
 	groupIDList, err := user.GetUserGroupByUID(uid)
 	if err != nil {
@@ -232,12 +231,12 @@ func GetUserRules(uid string, log *zap.SugaredLogger) (*GetUserRulesResp, error)
 
 	roles, err := ListRoleByUID(uid)
 	if err != nil {
-		tx.Rollback()
 		log.Errorf("failed to list roles for uid: %s, error: %s", uid, err)
 		return nil, fmt.Errorf("failed to list roles for uid: %s, error: %s", uid, err)
 	}
 
 	for _, role := range roles {
+		log.Infof(">>>>>>>>>>>> role name: %s, role namespace: %s <<<<<<<<<<<<<<<<<<<", role.Name, role.Namespace)
 		// system admins
 		if role.Namespace == GeneralNamespace && role.Name == AdminRole {
 			isSystemAdmin = true
@@ -249,7 +248,6 @@ func GetUserRules(uid string, log *zap.SugaredLogger) (*GetUserRulesResp, error)
 
 		actions, err := ListActionByRole(role.ID)
 		if err != nil {
-			tx.Rollback()
 			log.Errorf("failed to list action for role: %s in namespace %s, error: %s", role.Name, role.Namespace, err)
 			return nil, err
 		}
@@ -275,7 +273,6 @@ func GetUserRules(uid string, log *zap.SugaredLogger) (*GetUserRulesResp, error)
 	for _, gid := range groupIDList {
 		groupRoles, err := ListRoleByGID(gid)
 		if err != nil {
-			tx.Rollback()
 			log.Errorf("failed to list user roles by group list for user: %s in group: %s, error: %s", uid, gid, err)
 			return nil, fmt.Errorf("failed to list user roles by group list for user: %s in group: %s, error: %s", uid, gid, err)
 		}
@@ -304,7 +301,6 @@ func GetUserRules(uid string, log *zap.SugaredLogger) (*GetUserRulesResp, error)
 
 		actions, err := ListActionByRole(role.ID)
 		if err != nil {
-			tx.Rollback()
 			log.Errorf("failed to find action bindings for role: %s, error: %s", role.Name, err)
 			return nil, fmt.Errorf("failed to find action bindings for role: %s, error: %s", role.Name, err)
 		}
@@ -317,7 +313,6 @@ func GetUserRules(uid string, log *zap.SugaredLogger) (*GetUserRulesResp, error)
 		}
 	}
 
-	tx.Commit()
 	return &GetUserRulesResp{
 		IsSystemAdmin:    isSystemAdmin,
 		SystemVerbs:      systemVerbs,
