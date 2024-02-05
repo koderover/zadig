@@ -35,7 +35,7 @@ type ScanningTemplate struct {
 	Envs []*KeyVal `bson:"envs" json:"envs"`
 	// Script is for other type only
 	Script           string                   `bson:"script"                json:"script"`
-	AdvancedSetting  *ScanningAdvancedSetting `bson:"advanced_setting"      json:"advanced_setting"`
+	AdvancedSetting  *ScanningAdvancedSetting `bson:"advanced_settings"      json:"advanced_settings"`
 	CheckQualityGate bool                     `bson:"check_quality_gate"    json:"check_quality_gate"`
 
 	CreatedAt int64  `bson:"created_at" json:"created_at"`
