@@ -299,7 +299,7 @@ func CreateRole(ns string, req *CreateRoleReq, log *zap.SugaredLogger) error {
 
 	err = actionCache.Delete(roleActionKey)
 	if err != nil {
-		log.Warnf("failed to add flush role-action cache, key: %s, error: %s", roleActionKey, err)
+		log.Warnf("failed to flush role-action cache, key: %s, error: %s", roleActionKey, err)
 	}
 
 	go func(key string, redisCache *cache.RedisCache) {
@@ -366,7 +366,7 @@ func UpdateRole(ns string, req *CreateRoleReq, log *zap.SugaredLogger) error {
 
 	err = actionCache.Delete(roleActionKey)
 	if err != nil {
-		log.Warnf("failed to add actions into role-action cache, error: %s", err)
+		log.Warnf("failed to flush actions from role-action cache, error: %s", err)
 	}
 
 	go func(key string, redisCache *cache.RedisCache) {
