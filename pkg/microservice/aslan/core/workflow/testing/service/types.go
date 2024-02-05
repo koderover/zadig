@@ -183,6 +183,7 @@ func ConvertToDBScanningModule(args *Scanning) *commonmodels.Scanning {
 		CheckQualityGate: args.CheckQualityGate,
 		Outputs:          args.Outputs,
 		Envs:             args.Envs,
+		TemplateID:       args.TemplateID,
 	}
 }
 
