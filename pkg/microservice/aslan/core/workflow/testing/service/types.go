@@ -45,6 +45,8 @@ type Scanning struct {
 	CheckQualityGate bool                                  `json:"check_quality_gate"`
 	Outputs          []*commonmodels.Output                `json:"outputs"`
 	NotifyCtls       []*commonmodels.NotifyCtl             `json:"notify_ctls"`
+	// template IDs
+	TemplateID string `json:"template_id"`
 }
 
 // TODO: change the logic of create scanning
@@ -205,6 +207,7 @@ func ConvertDBScanningModule(scanning *commonmodels.Scanning) *Scanning {
 		CheckQualityGate: scanning.CheckQualityGate,
 		Outputs:          scanning.Outputs,
 		Envs:             scanning.Envs,
+		TemplateID:       scanning.TemplateID,
 	}
 }
 
