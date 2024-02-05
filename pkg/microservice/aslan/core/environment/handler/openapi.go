@@ -30,6 +30,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/environment/service"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
@@ -291,6 +292,12 @@ func OpenAPIDeleteProductionYamlServiceFromEnv(c *gin.Context) {
 		}
 	}
 
+	err = commonutil.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+
 	ctx.Err = service.DeleteProductServices(ctx.UserName, ctx.RequestID, req.EnvName, projectKey, req.ServiceNames, true, ctx.Logger)
 }
 
@@ -351,6 +358,12 @@ func OpenAPIApplyProductionYamlService(c *gin.Context) {
 				return
 			}
 		}
+	}
+
+	err = commonutil.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
+		return
 	}
 
 	_, err = service.OpenAPIApplyYamlService(projectKey, req, true, ctx.RequestID, ctx.Logger)
@@ -455,6 +468,12 @@ func OpenAPIUpdateProductionCommonEnvCfg(c *gin.Context) {
 		}
 	}
 
+	err = commonutil.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+
 	ctx.Err = service.OpenAPIUpdateCommonEnvCfg(projectKey, args, ctx.UserName, ctx.Logger)
 }
 
@@ -510,6 +529,12 @@ func OpenAPICreateCommonEnvCfg(c *gin.Context) {
 		}
 	}
 
+	err = commonutil.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+
 	ctx.Err = service.OpenAPICreateCommonEnvCfg(args.ProductName, args, ctx.UserName, ctx.Logger)
 }
 
@@ -520,6 +545,12 @@ func OpenAPIListProductionCommonEnvCfg(c *gin.Context) {
 	projectName, envName, err := generalOpenAPIRequestValidate(c)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	err = commonutil.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
 		return
 	}
 
@@ -538,6 +569,12 @@ func OpenAPIGetProductionCommonEnvCfg(c *gin.Context) {
 	cfgName := c.Param("cfgName")
 	if cfgName == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("cfgName is empty")
+		return
+	}
+
+	err = commonutil.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
 		return
 	}
 
@@ -658,6 +695,12 @@ func OpenAPIDeleteProductionEnvCommonEnvCfg(c *gin.Context) {
 		}
 	}
 
+	err = commonutil.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+
 	ctx.Err = service.OpenAPIDeleteProductionEnvCommonEnvCfg(projectName, envName, cfgType, cfgName, ctx.Logger)
 }
 
@@ -736,6 +779,12 @@ func OpenAPIDeleteProductionEnv(c *gin.Context) {
 		}
 	}
 
+	err = commonutil.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+
 	ctx.Err = service.DeleteProductionProduct(ctx.UserName, envName, projectName, ctx.RequestID, ctx.Logger)
 }
 
@@ -780,6 +829,12 @@ func OpenAPICreateProductionEnv(c *gin.Context) {
 			ctx.UnAuthorized = true
 			return
 		}
+	}
+
+	err = commonutil.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
+		return
 	}
 
 	ctx.Err = service.OpenAPICreateProductionEnv(args, ctx.UserName, ctx.RequestID, ctx.Logger)
@@ -843,6 +898,12 @@ func OpenAPIGetProductionEnvDetail(c *gin.Context) {
 	projectName, envName, err := generalOpenAPIRequestValidate(c)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	err = commonutil.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
 		return
 	}
 
@@ -966,6 +1027,12 @@ func OpenAPIUpdateGlobalVariables(c *gin.Context) {
 	}
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "(OpenAPI)"+"更新", "测试环境管理-更新全局变量", envName, string(data), ctx.Logger, envName)
 
+	err = commonutil.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+
 	ctx.Err = service.OpenAPIUpdateGlobalVariables(args, ctx.UserName, ctx.RequestID, projectName, envName, ctx.Logger)
 }
 
@@ -1008,6 +1075,12 @@ func OpenAPIUpdateProductionYamlServices(c *gin.Context) {
 			ctx.UnAuthorized = true
 			return
 		}
+	}
+
+	err = commonutil.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
+		return
 	}
 
 	ctx.Err = service.OpenAPIUpdateYamlService(args, ctx.UserName, ctx.RequestID, projectName, envName, true, ctx.Logger)
@@ -1054,6 +1127,12 @@ func OpenAPIUpdateProductionGlobalVariables(c *gin.Context) {
 		}
 	}
 
+	err = commonutil.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+
 	ctx.Err = service.OpenAPIUpdateGlobalVariables(args, ctx.UserName, ctx.RequestID, projectName, envName, ctx.Logger)
 }
 
@@ -1095,6 +1174,12 @@ func OpenAPIUpdateProductionEnvBasicInfo(c *gin.Context) {
 			ctx.UnAuthorized = true
 			return
 		}
+	}
+
+	err = commonutil.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
+		return
 	}
 
 	ctx.Err = service.OpenAPIUpdateEnvBasicInfo(args, ctx.UserName, projectName, envName, true, ctx.Logger)
@@ -1185,6 +1270,12 @@ func OpenAPIListProductionEnvs(c *gin.Context) {
 		return
 	}
 
+	err = commonutil.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+
 	ctx.Resp, ctx.Err = service.OpenAPIListProductionEnvs(ctx.UserID, projectKey, envFilter, ctx.Logger)
 }
 
@@ -1224,6 +1315,12 @@ func OpenAPIRestartService(c *gin.Context) {
 				return
 			}
 		}
+	}
+
+	err = commonutil.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
+		return
 	}
 
 	ctx.Err = service.OpenAPIRestartService(projectName, envName, serviceName, ctx.Logger)
