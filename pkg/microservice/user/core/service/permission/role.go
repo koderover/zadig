@@ -39,11 +39,11 @@ const (
 	RoleActionKeyFormat = "role_action_%d"
 
 	UIDRoleKeyFormat  = "uid_role_%s"
-	UIDRoleDataFormat = "%d++%s"
+	UIDRoleDataFormat = "%d++%s++%s"
 	UIDRoleLock       = "lock_uid_role_%s"
 
 	GIDRoleKeyFormat  = "gid_role_%s"
-	GIDRoleDataFormat = "%d++%s"
+	GIDRoleDataFormat = "%d++%s++%s"
 	GIDRoleLock       = "lock_gid_role_%s"
 )
 
@@ -76,7 +76,7 @@ func ListRoleByUID(uid string) ([]*types.Role, error) {
 			// if we got the data from cache, simply return it\
 			for _, roleInfo := range resp {
 				roleInfos := strings.Split(roleInfo, "++")
-				if len(roleInfos) != 2 {
+				if len(roleInfos) != 3 {
 					// if the data is corrupted, stop using it.
 					useCache = false
 					break
@@ -92,6 +92,7 @@ func ListRoleByUID(uid string) ([]*types.Role, error) {
 				response = append(response, &types.Role{
 					ID:        uint(roleID),
 					Namespace: roleInfos[1],
+					Name:      roleInfos[2],
 				})
 			}
 		} else {
@@ -116,8 +117,9 @@ func ListRoleByUID(uid string) ([]*types.Role, error) {
 		response = append(response, &types.Role{
 			ID:        role.ID,
 			Namespace: role.Namespace,
+			Name:      role.Name,
 		})
-		cacheData = append(cacheData, fmt.Sprintf(UIDRoleDataFormat, role.ID, role.Namespace))
+		cacheData = append(cacheData, fmt.Sprintf(UIDRoleDataFormat, role.ID, role.Namespace, role.Name))
 	}
 
 	err = roleCache.Delete(uidRoleKey)
@@ -150,7 +152,7 @@ func ListRoleByGID(gid string) ([]*types.Role, error) {
 			// if we got the data from cache, simply return it\
 			for _, roleInfo := range resp {
 				roleInfos := strings.Split(roleInfo, "++")
-				if len(roleInfos) != 2 {
+				if len(roleInfos) != 3 {
 					// if the data is corrupted, stop using it.
 					useCache = false
 					break
@@ -166,6 +168,7 @@ func ListRoleByGID(gid string) ([]*types.Role, error) {
 				response = append(response, &types.Role{
 					ID:        uint(roleID),
 					Namespace: roleInfos[1],
+					Name:      roleInfos[2],
 				})
 			}
 		} else {
@@ -190,8 +193,9 @@ func ListRoleByGID(gid string) ([]*types.Role, error) {
 		response = append(response, &types.Role{
 			ID:        role.ID,
 			Namespace: role.Namespace,
+			Name:      role.Name,
 		})
-		cacheData = append(cacheData, fmt.Sprintf(GIDRoleDataFormat, role.ID, role.Namespace))
+		cacheData = append(cacheData, fmt.Sprintf(GIDRoleDataFormat, role.ID, role.Namespace, role.Name))
 	}
 
 	err = roleCache.Delete(gidRoleKey)
