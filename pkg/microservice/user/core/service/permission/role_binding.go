@@ -18,9 +18,12 @@ package permission
 
 import (
 	"fmt"
+	"time"
 
+	"github.com/koderover/zadig/v2/pkg/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/user/core/repository"
 	"github.com/koderover/zadig/v2/pkg/microservice/user/core/repository/orm"
+	"github.com/koderover/zadig/v2/pkg/tool/cache"
 	"github.com/koderover/zadig/v2/pkg/types"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -228,6 +231,39 @@ func CreateRoleBindings(role, ns string, identityList []*types.Identity, log *za
 		return fmt.Errorf("failed to create group role binding for role: %s, error: %s", role, err)
 	}
 
+	roleCache := cache.NewRedisCache(config.RedisCommonCacheTokenDB())
+
+	// flush cache for every identity that is affected
+	for _, uid := range userIDList {
+		uidRoleKey := fmt.Sprintf(UIDRoleKeyFormat, uid)
+		err = roleCache.Delete(uidRoleKey)
+		if err != nil {
+			log.Warnf("failed to flush user-role cache for key: %s, error: %s", uidRoleKey, err)
+		}
+	}
+
+	for _, gid := range groupIDList {
+		gidRoleKey := fmt.Sprintf(UIDRoleKeyFormat, gid)
+		err = roleCache.Delete(gidRoleKey)
+		if err != nil {
+			log.Warnf("failed to flush user-role cache for key: %s, error: %s", gidRoleKey, err)
+		}
+	}
+
+	go func(uids, gids []string, redisCache *cache.RedisCache) {
+		time.Sleep(2 * time.Second)
+
+		for _, uid := range uids {
+			uidRoleKey := fmt.Sprintf(UIDRoleKeyFormat, uid)
+			err = roleCache.Delete(uidRoleKey)
+		}
+
+		for _, gid := range gids {
+			gidRoleKey := fmt.Sprintf(UIDRoleKeyFormat, gid)
+			err = roleCache.Delete(gidRoleKey)
+		}
+	}(userIDList, groupIDList, roleCache)
+
 	tx.Commit()
 	return nil
 }
@@ -264,6 +300,18 @@ func UpdateRoleBindingForUser(uid, namespace string, roles []string, log *zap.Su
 
 	tx.Commit()
 
+	roleCache := cache.NewRedisCache(config.RedisCommonCacheTokenDB())
+	uidRoleKey := fmt.Sprintf(UIDRoleKeyFormat, uid)
+	err = roleCache.Delete(uidRoleKey)
+	if err != nil {
+		log.Warnf("failed to flush user-role cache for key: %s, error: %s", uidRoleKey, err)
+	}
+
+	go func(key string, redisCache *cache.RedisCache) {
+		time.Sleep(2 * time.Second)
+		redisCache.Delete(key)
+	}(uidRoleKey, roleCache)
+
 	return nil
 }
 
@@ -278,6 +326,18 @@ func DeleteRoleBindingForUser(uid, namespace string, log *zap.SugaredLogger) err
 	}
 
 	tx.Commit()
+
+	roleCache := cache.NewRedisCache(config.RedisCommonCacheTokenDB())
+	uidRoleKey := fmt.Sprintf(UIDRoleKeyFormat, uid)
+	err = roleCache.Delete(uidRoleKey)
+	if err != nil {
+		log.Warnf("failed to flush user-role cache for key: %s, error: %s", uidRoleKey, err)
+	}
+
+	go func(key string, redisCache *cache.RedisCache) {
+		time.Sleep(2 * time.Second)
+		redisCache.Delete(key)
+	}(uidRoleKey, roleCache)
 
 	return nil
 }
@@ -314,6 +374,18 @@ func UpdateRoleBindingForUserGroup(gid, namespace string, roles []string, log *z
 
 	tx.Commit()
 
+	roleCache := cache.NewRedisCache(config.RedisCommonCacheTokenDB())
+	gidRoleKey := fmt.Sprintf(GIDRoleKeyFormat, gid)
+	err = roleCache.Delete(gidRoleKey)
+	if err != nil {
+		log.Warnf("failed to flush user-role cache for key: %s, error: %s", gidRoleKey, err)
+	}
+
+	go func(key string, redisCache *cache.RedisCache) {
+		time.Sleep(2 * time.Second)
+		redisCache.Delete(key)
+	}(gidRoleKey, roleCache)
+
 	return nil
 }
 
@@ -328,6 +400,18 @@ func DeleteRoleBindingForUserGroup(gid, namespace string, log *zap.SugaredLogger
 	}
 
 	tx.Commit()
+
+	roleCache := cache.NewRedisCache(config.RedisCommonCacheTokenDB())
+	gidRoleKey := fmt.Sprintf(GIDRoleKeyFormat, gid)
+	err = roleCache.Delete(gidRoleKey)
+	if err != nil {
+		log.Warnf("failed to flush user-role cache for key: %s, error: %s", gidRoleKey, err)
+	}
+
+	go func(key string, redisCache *cache.RedisCache) {
+		time.Sleep(2 * time.Second)
+		redisCache.Delete(key)
+	}(gidRoleKey, roleCache)
 
 	return nil
 }
