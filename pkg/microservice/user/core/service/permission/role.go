@@ -18,6 +18,9 @@ package permission
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
+	"time"
 
 	"github.com/koderover/zadig/v2/pkg/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/user/core/repository"
@@ -34,6 +37,14 @@ import (
 
 const (
 	RoleActionKeyFormat = "role_action_%d"
+
+	UIDRoleKeyFormat  = "uid_role_%s"
+	UIDRoleDataFormat = "%d++%s"
+	UIDRoleLock       = "lock_uid_role_%s"
+
+	GIDRoleKeyFormat  = "gid_role_%s"
+	GIDRoleDataFormat = "%d++%s"
+	GIDRoleLock       = "lock_gid_role_%s"
 )
 
 // ActionMap is the local cache for all the actions' ID, the key is the action name
@@ -47,6 +58,154 @@ type CreateRoleReq struct {
 	Namespace string   `json:"namespace"`
 	Desc      string   `json:"desc,omitempty"`
 	Type      string   `json:"type,omitempty"`
+}
+
+// ListRoleByUID lists all roles by uid with cache.
+// WARNING: this function only returns roleID and namespace, DO NOT use other fields.
+func ListRoleByUID(uid string) ([]*types.Role, error) {
+	uidRoleKey := fmt.Sprintf(UIDRoleKeyFormat, uid)
+	roleCache := cache.NewRedisCache(config.RedisCommonCacheTokenDB())
+
+	useCache := true
+	response := make([]*types.Role, 0)
+	// check if the cache has been set
+	exists, err := roleCache.Exists(uidRoleKey)
+	if err == nil && exists {
+		resp, err2 := roleCache.ListSetMembers(uidRoleKey)
+		if err2 == nil {
+			// if we got the data from cache, simply return it\
+			for _, roleInfo := range resp {
+				roleInfos := strings.Split(roleInfo, "++")
+				if len(roleInfos) != 2 {
+					// if the data is corrupted, stop using it.
+					useCache = false
+					break
+				}
+
+				roleID, err := strconv.Atoi(roleInfos[0])
+				if err != nil {
+					log.Warnf("invalid role id: %s", roleInfos[0])
+					useCache = false
+					break
+				}
+
+				response = append(response, &types.Role{
+					ID:        uint(roleID),
+					Namespace: roleInfos[1],
+				})
+			}
+		} else {
+			useCache = false
+		}
+	}
+
+	if useCache {
+		return response, nil
+	}
+
+	// if we don't use cache, flush the data
+	response = make([]*types.Role, 0)
+	cacheData := make([]string, 0)
+
+	roles, err := orm.ListRoleByUID(uid, repository.DB)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, role := range roles {
+		response = append(response, &types.Role{
+			ID:        role.ID,
+			Namespace: role.Namespace,
+		})
+		cacheData = append(cacheData, fmt.Sprintf(UIDRoleDataFormat, role.ID, role.Namespace))
+	}
+
+	err = roleCache.Delete(uidRoleKey)
+	if err != nil {
+		log.Warnf("failed to flush cache for key: %s, err: %s", uidRoleKey, err)
+		return response, nil
+	}
+
+	err = roleCache.AddElementsToSet(uidRoleKey, cacheData, setting.CacheExpireTime)
+	if err != nil {
+		log.Warnf("failed to add cache to key: %s, err: %s", uidRoleKey, err)
+	}
+
+	return response, nil
+}
+
+// ListRoleByGID lists all roles by gid with cache.
+// WARNING: this function only returns roleID and namespace, DO NOT use other fields.
+func ListRoleByGID(gid string) ([]*types.Role, error) {
+	gidRoleKey := fmt.Sprintf(GIDRoleKeyFormat, gid)
+	roleCache := cache.NewRedisCache(config.RedisCommonCacheTokenDB())
+
+	useCache := true
+	response := make([]*types.Role, 0)
+	// check if the cache has been set
+	exists, err := roleCache.Exists(gidRoleKey)
+	if err == nil && exists {
+		resp, err2 := roleCache.ListSetMembers(gidRoleKey)
+		if err2 == nil {
+			// if we got the data from cache, simply return it\
+			for _, roleInfo := range resp {
+				roleInfos := strings.Split(roleInfo, "++")
+				if len(roleInfos) != 2 {
+					// if the data is corrupted, stop using it.
+					useCache = false
+					break
+				}
+
+				roleID, err := strconv.Atoi(roleInfos[0])
+				if err != nil {
+					log.Warnf("invalid role id: %s", roleInfos[0])
+					useCache = false
+					break
+				}
+
+				response = append(response, &types.Role{
+					ID:        uint(roleID),
+					Namespace: roleInfos[1],
+				})
+			}
+		} else {
+			useCache = false
+		}
+	}
+
+	if useCache {
+		return response, nil
+	}
+
+	// if we don't use cache, flush the data
+	response = make([]*types.Role, 0)
+	cacheData := make([]string, 0)
+
+	roles, err := orm.ListRoleByGroupIDs([]string{gid}, repository.DB)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, role := range roles {
+		response = append(response, &types.Role{
+			ID:        role.ID,
+			Namespace: role.Namespace,
+		})
+		cacheData = append(cacheData, fmt.Sprintf(GIDRoleDataFormat, role.ID, role.Namespace))
+	}
+
+	err = roleCache.Delete(gidRoleKey)
+	if err != nil {
+		log.Warnf("failed to flush cache for key: %s, err: %s", gidRoleKey, err)
+		return response, nil
+	}
+
+	err = roleCache.AddElementsToSet(gidRoleKey, cacheData, setting.CacheExpireTime)
+	if err != nil {
+		log.Warnf("failed to add cache to key: %s, err: %s", gidRoleKey, err)
+	}
+
+	return response, nil
 }
 
 // ListActionByRole list all actions permitted by a role ID with cache.
@@ -137,10 +296,16 @@ func CreateRole(ns string, req *CreateRoleReq, log *zap.SugaredLogger) error {
 	// after committing to db, save it to the cache if possible
 	roleActionKey := fmt.Sprintf(RoleActionKeyFormat, role.ID)
 	actionCache := cache.NewRedisCache(config.RedisCommonCacheTokenDB())
-	err = actionCache.AddElementsToSet(roleActionKey, actionList, setting.CacheExpireTime)
+
+	err = actionCache.Delete(roleActionKey)
 	if err != nil {
-		log.Warnf("failed to add actions into role-action cache, error: %s", err)
+		log.Warnf("failed to add flush role-action cache, key: %s, error: %s", roleActionKey, err)
 	}
+
+	go func(key string, redisCache *cache.RedisCache) {
+		time.Sleep(2 * time.Second)
+		redisCache.Delete(key)
+	}(roleActionKey, actionCache)
 
 	return nil
 }
@@ -204,10 +369,15 @@ func UpdateRole(ns string, req *CreateRoleReq, log *zap.SugaredLogger) error {
 		log.Warnf("failed to remove actions from role-action cache, error: %s", err)
 	}
 
-	err = actionCache.AddElementsToSet(roleActionKey, actionList, setting.CacheExpireTime)
+	err = actionCache.Delete(roleActionKey)
 	if err != nil {
 		log.Warnf("failed to add actions into role-action cache, error: %s", err)
 	}
+
+	go func(key string, redisCache *cache.RedisCache) {
+		time.Sleep(2 * time.Second)
+		redisCache.Delete(key)
+	}(roleActionKey, actionCache)
 
 	return nil
 }
