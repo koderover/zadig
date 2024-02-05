@@ -20,7 +20,6 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/koderover/zadig/v2/pkg/microservice/user/core/service/user"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -28,58 +27,48 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/user/core/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/user/core/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/microservice/user/core/repository/orm"
-	"github.com/koderover/zadig/v2/pkg/setting"
+	"github.com/koderover/zadig/v2/pkg/microservice/user/core/service/user"
 	"github.com/koderover/zadig/v2/pkg/types"
 )
 
 func GetUserAuthInfo(uid string, logger *zap.SugaredLogger) (*AuthorizedResources, error) {
-	tx := repository.DB.Begin(&sql.TxOptions{ReadOnly: true})
 	// system calls
 	if uid == "" {
-		tx.Commit()
 		return generateAdminRoleResource(), nil
 	}
 
-	isSystemAdmin, err := checkUserIsSystemAdmin(uid, tx)
+	isSystemAdmin, err := checkUserIsSystemAdmin(uid, repository.DB)
 	if err != nil {
-		tx.Rollback()
 		logger.Errorf("failed to check if the user is system admin for uid: %s, error: %s", uid, err)
 		return nil, fmt.Errorf("failed to check if the user is system admin for uid: %s, error: %s", uid, err)
 	}
 
 	if isSystemAdmin {
-		tx.Commit()
 		return generateAdminRoleResource(), nil
 	}
 
 	// find the user groups this uid belongs to, if none it is ok
 	groupIDList, err := user.GetUserGroupByUID(uid)
 	if err != nil {
-		tx.Rollback()
 		logger.Errorf("failed to find user group for user: %s, error: %s", uid, err)
 		return nil, fmt.Errorf("failed to get user permission, cannot find the user group for user, error: %s", err)
 	}
 
-	allUserGroup, err := orm.GetAllUserGroup(tx)
-	if err != nil || allUserGroup.GroupID == "" {
-		tx.Rollback()
+	allUserGroup, err := user.GetAllUserGroup()
+	if err != nil || allUserGroup == "" {
 		logger.Errorf("failed to find user group for %s, error: %s", "所有用户", err)
 		return nil, fmt.Errorf("failed to find user group for %s, error: %s", "所有用户", err)
 	}
 
-	groupIDList = append(groupIDList, allUserGroup.GroupID)
+	groupIDList = append(groupIDList, allUserGroup)
 
 	// generate system actions for user
 	systemActions := generateDefaultSystemActions()
 	// we generate a map of namespaced(project) permission
 	projectActionMap := make(map[string]*ProjectActions)
 
-	// TODO: add some powerful cache here
-	roleActionMap := make(map[uint]sets.String)
-
 	roles, err := ListRoleByUID(uid)
 	if err != nil {
-		tx.Rollback()
 		logger.Errorf("failed to list roles for uid: %s, error: %s", uid, err)
 		return nil, fmt.Errorf("failed to list roles for uid: %s, error: %s", uid, err)
 	}
@@ -98,45 +87,41 @@ func GetUserAuthInfo(uid string, logger *zap.SugaredLogger) (*AuthorizedResource
 		}
 
 		// first get actions from the roles
-		actions, err := orm.ListActionByRole(role.ID, tx)
+		actions, err := ListActionByRole(role.ID)
 		if err != nil {
-			tx.Rollback()
 			logger.Errorf("failed to list action for role: %s in namespace %s, error: %s", role.Name, role.Namespace, err)
 			return nil, err
 		}
 
-		if _, ok := roleActionMap[role.ID]; !ok {
-			roleActionMap[role.ID] = sets.NewString()
-		}
-
 		for _, action := range actions {
-			roleActionMap[role.ID].Insert(action.Action)
-			switch action.Scope {
-			case setting.ActionTypeSystem:
-				modifySystemAction(systemActions, action.Action)
-			case setting.ActionTypeProject:
-				modifyUserProjectAuth(projectActionMap[role.Namespace], action.Action)
+			switch role.Namespace {
+			case GeneralNamespace:
+				modifySystemAction(systemActions, action)
+			default:
+				modifyUserProjectAuth(projectActionMap[role.Namespace], action)
 			}
 		}
 	}
 
-	groupRoles, err := orm.ListRoleByGroupIDs(groupIDList, tx)
-	if err != nil {
-		tx.Rollback()
-		logger.Errorf("failed to find role for user's group for user: %s, error: %s", uid, err)
-		return nil, fmt.Errorf("failed to find role for user's group for user: %s, error: %s", uid, err)
+	groupRoleMap := make(map[uint]*types.Role)
+
+	for _, gid := range groupIDList {
+		groupRoles, err := ListRoleByGID(gid)
+		if err != nil {
+			logger.Errorf("failed to list user roles by group list for user: %s in group: %s, error: %s", uid, gid, err)
+			return nil, fmt.Errorf("failed to list user roles by group list for user: %s in group: %s, error: %s", uid, gid, err)
+		}
+
+		for _, role := range groupRoles {
+			groupRoleMap[role.ID] = role
+		}
 	}
 
-	for _, role := range groupRoles {
+	for _, role := range groupRoleMap {
 		if role.Namespace != GeneralNamespace {
 			if _, ok := projectActionMap[role.Namespace]; !ok {
 				projectActionMap[role.Namespace] = generateDefaultProjectActions()
 			}
-		}
-
-		// if the role has been seen previously, it has already been processed in user
-		if _, ok := roleActionMap[role.ID]; ok {
-			continue
 		}
 
 		if role.Name == ProjectAdminRole {
@@ -144,29 +129,21 @@ func GetUserAuthInfo(uid string, logger *zap.SugaredLogger) (*AuthorizedResource
 		}
 
 		// first get actions from the roles
-		actions, err := orm.ListActionByRole(role.ID, tx)
+		actions, err := ListActionByRole(role.ID)
 		if err != nil {
-			tx.Rollback()
 			logger.Errorf("failed to list action for role: %s in namespace %s, error: %s", role.Name, role.Namespace, err)
 			return nil, err
 		}
 
-		if _, ok := roleActionMap[role.ID]; !ok {
-			roleActionMap[role.ID] = sets.NewString()
-		}
-
 		for _, action := range actions {
-			roleActionMap[role.ID].Insert(action.Action)
-			switch action.Scope {
-			case setting.ActionTypeSystem:
-				modifySystemAction(systemActions, action.Action)
-			case setting.ActionTypeProject:
-				modifyUserProjectAuth(projectActionMap[role.Namespace], action.Action)
+			switch role.Namespace {
+			case GeneralNamespace:
+				modifySystemAction(systemActions, action)
+			default:
+				modifyUserProjectAuth(projectActionMap[role.Namespace], action)
 			}
 		}
 	}
-
-	tx.Commit()
 
 	projectInfo := make(map[string]ProjectActions)
 	for proj, actions := range projectActionMap {
