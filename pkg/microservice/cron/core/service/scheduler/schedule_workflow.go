@@ -49,13 +49,15 @@ func (c *CronClient) UpsertWorkflowScheduler(log *zap.SugaredLogger) {
 		if _, ok := c.lastSchedulers[key]; ok && reflect.DeepEqual(workflow.Schedules.Items, c.lastSchedulers[key]) {
 			// 增加判断：enabled的值未被更新时才能跳过
 			if enabled, ok := c.enabledMap[key]; ok && enabled == workflow.Schedules.Enabled {
+				c.lastSchedulersRWMutex.Unlock()
+				c.enabledMapRWMutex.Unlock()
 				continue
 			}
 		}
 		c.enabledMap[key] = workflow.Schedules.Enabled
 		c.lastSchedulers[key] = workflow.Schedules.Items
-		c.enabledMapRWMutex.Unlock()
 		c.lastSchedulersRWMutex.Unlock()
+		c.enabledMapRWMutex.Unlock()
 
 		newScheduler := gocron.NewScheduler()
 		for _, schedule := range workflow.Schedules.Items {
@@ -78,9 +80,13 @@ func (c *CronClient) UpsertWorkflowScheduler(log *zap.SugaredLogger) {
 
 		log.Infof("[%s] building schedulers..", key)
 		// 停掉旧的scheduler
-		if _, ok := c.SchedulerController[key]; ok {
-			c.SchedulerController[key] <- true
+		c.SchedulerControllerRWMutex.Lock()
+		sc, ok := c.SchedulerController[key]
+		c.SchedulerControllerRWMutex.Unlock()
+		if ok {
+			sc <- true
 		}
+
 		log.Infof("[%s]lens of scheduler: %d", key, c.Schedulers[key].Len())
 		c.SchedulerControllerRWMutex.Lock()
 		c.SchedulerController[key] = c.Schedulers[key].Start()
@@ -103,13 +109,15 @@ func (c *CronClient) UpsertWorkflowScheduler(log *zap.SugaredLogger) {
 		if _, ok := c.lastSchedulers[key]; ok && reflect.DeepEqual(pipeline.Schedules.Items, c.lastSchedulers[key]) {
 			// 增加判断：enabled的值未被更新时才能跳过
 			if enabled, ok := c.enabledMap[key]; ok && enabled == pipeline.Schedules.Enabled {
+				c.lastSchedulersRWMutex.Unlock()
+				c.enabledMapRWMutex.Unlock()
 				continue
 			}
 		}
 		c.enabledMap[key] = pipeline.Schedules.Enabled
 		c.lastSchedulers[key] = pipeline.Schedules.Items
-		c.enabledMapRWMutex.Unlock()
 		c.lastSchedulersRWMutex.Unlock()
+		c.enabledMapRWMutex.Unlock()
 
 		newScheduler := gocron.NewScheduler()
 		for _, schedule := range pipeline.Schedules.Items {
@@ -132,9 +140,13 @@ func (c *CronClient) UpsertWorkflowScheduler(log *zap.SugaredLogger) {
 
 		log.Infof("[%s] building schedulers..", key)
 		// 停掉旧的scheduler
-		if _, ok := c.SchedulerController[key]; ok {
-			c.SchedulerController[key] <- true
+		c.SchedulerControllerRWMutex.Lock()
+		sc, ok := c.SchedulerController[key]
+		c.SchedulerControllerRWMutex.Unlock()
+		if ok {
+			sc <- true
 		}
+
 		log.Infof("[%s]lens of scheduler: %d", key, c.Schedulers[key].Len())
 		c.SchedulerControllerRWMutex.Lock()
 		c.SchedulerController[key] = c.Schedulers[key].Start()
@@ -148,7 +160,6 @@ func (c *CronClient) UpsertWorkflowScheduler(log *zap.SugaredLogger) {
 		UpsertColliePipelineScheduler, InitHelmEnvSyncValuesScheduler, EnvResourceSyncScheduler)
 
 	// 停掉已被删除的pipeline对应的scheduler
-	c.SchedulersRWMutex.Lock()
 	for name := range c.Schedulers {
 		if _, ok := taskMap[name]; !ok && !ScheduleNames.Has(name) {
 			// exclude service heath check timers
@@ -174,19 +185,21 @@ func (c *CronClient) UpsertWorkflowScheduler(log *zap.SugaredLogger) {
 			log.Warnf("[%s]deleted workflow detached", name)
 
 			c.SchedulerControllerRWMutex.RLock()
-			if _, ok := c.SchedulerController[name]; ok {
-				c.SchedulerController[name] <- true
-			}
+			sc, ok := c.SchedulerController[name]
 			c.SchedulerControllerRWMutex.RUnlock()
+			if ok {
+				sc <- true
+			}
 
+			c.SchedulersRWMutex.Lock()
 			delete(c.Schedulers, name)
+			c.SchedulersRWMutex.Unlock()
 
 			c.lastSchedulersRWMutex.Lock()
 			delete(c.lastSchedulers, name)
 			c.lastSchedulersRWMutex.Unlock()
 		}
 	}
-	c.SchedulersRWMutex.Unlock()
 }
 
 // RunScheduledTask ...

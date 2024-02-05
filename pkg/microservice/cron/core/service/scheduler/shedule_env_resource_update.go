@@ -37,11 +37,14 @@ func (c *CronClient) deleteEnvResourceScheduler(envResourceKey string) {
 	log.Infof("deleting single env resource scheduler: %s", envResourceKey)
 
 	c.SchedulerControllerRWMutex.Lock()
-	if _, ok := c.SchedulerController[envResourceKey]; ok {
-		c.SchedulerController[envResourceKey] <- true
-		delete(c.SchedulerController, envResourceKey)
-	}
+	sc, ok := c.SchedulerController[envResourceKey]
 	c.SchedulerControllerRWMutex.Unlock()
+	if ok {
+		sc <- true
+		c.SchedulerControllerRWMutex.Lock()
+		delete(c.SchedulerController, envResourceKey)
+		c.SchedulerControllerRWMutex.Unlock()
+	}
 
 	c.SchedulersRWMutex.Lock()
 	if _, ok := c.Schedulers[envResourceKey]; ok {

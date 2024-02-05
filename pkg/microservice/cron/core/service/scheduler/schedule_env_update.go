@@ -68,14 +68,18 @@ func (c *CronClient) UpsertEnvValueSyncScheduler(log *zap.SugaredLogger) {
 		if lastEnvData, ok := c.lastEnvSchedulerData[envKey]; ok {
 			// render not changed, no need to update scheduler
 			if lastEnvData.UpdateTime == envObj.UpdateTime {
+				c.lastEnvSchedulerDataRWMutex.Unlock()
 				continue
 			}
 		}
 		c.lastEnvSchedulerData[envKey] = envObj
 		c.lastEnvSchedulerDataRWMutex.Unlock()
 
-		if _, ok := c.SchedulerController[envKey]; ok {
-			c.SchedulerController[envKey] <- true
+		c.SchedulerControllerRWMutex.Lock()
+		sc, ok := c.SchedulerController[envKey]
+		c.SchedulerControllerRWMutex.Unlock()
+		if ok {
+			sc <- true
 		}
 
 		c.SchedulersRWMutex.Lock()
