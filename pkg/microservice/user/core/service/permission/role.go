@@ -98,6 +98,8 @@ func ListRoleByUID(uid string) ([]*types.Role, error) {
 		} else {
 			useCache = false
 		}
+	} else {
+		useCache = false
 	}
 
 	if useCache {
