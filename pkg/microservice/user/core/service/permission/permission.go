@@ -46,25 +46,25 @@ func GetUserPermissionByProject(uid, projectName string, log *zap.SugaredLogger)
 	tx := repository.DB.Begin()
 	groupIDList := make([]string, 0)
 	// find the user groups this uid belongs to, if none it is ok
-	groups, err := orm.ListUserGroupByUID(uid, tx)
+	groups, err := user.GetUserGroupByUID(uid)
 	if err != nil {
 		tx.Rollback()
 		log.Errorf("failed to find user group for user: %s, error: %s", uid, err)
 		return nil, fmt.Errorf("failed to get user permission, cannot find the user group for user, error: %s", err)
 	}
 
-	for _, group := range groups {
-		groupIDList = append(groupIDList, group.GroupID)
+	for _, groupID := range groups {
+		groupIDList = append(groupIDList, groupID)
 	}
 
-	allUserGroup, err := orm.GetAllUserGroup(tx)
-	if err != nil || allUserGroup.GroupID == "" {
+	allUserGroup, err := user.GetAllUserGroup()
+	if err != nil || allUserGroup == "" {
 		tx.Rollback()
 		log.Errorf("failed to find user group for %s, error: %s", "所有用户", err)
 		return nil, fmt.Errorf("failed to find user group for %s, error: %s", "所有用户", err)
 	}
 
-	groupIDList = append(groupIDList, allUserGroup.GroupID)
+	groupIDList = append(groupIDList, allUserGroup)
 
 	// first find if the user is the system admin
 	isSystemAdmin, err := checkUserIsSystemAdmin(uid, tx)
