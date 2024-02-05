@@ -233,7 +233,6 @@ func GetUserRules(uid string, log *zap.SugaredLogger) (*GetUserRulesResp, error)
 	}
 
 	for _, role := range roles {
-		log.Infof(">>>>>>>>>>>> role name: %s, role namespace: %s <<<<<<<<<<<<<<<<<<<", role.Name, role.Namespace)
 		// system admins
 		if role.Namespace == GeneralNamespace && role.Name == AdminRole {
 			isSystemAdmin = true
