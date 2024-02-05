@@ -138,6 +138,7 @@ func GetScanningTemplateReference(id string, logger *zap.SugaredLogger) ([]*temp
 	for _, reference := range referenceList {
 		ret = append(ret, &template.ScanningTemplateReference{
 			ScanningName: reference.Name,
+			ScanningID:   reference.ID.Hex(),
 			ProjectName:  reference.ProjectName,
 		})
 	}

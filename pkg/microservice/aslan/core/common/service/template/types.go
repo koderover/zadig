@@ -91,5 +91,6 @@ type BuildTemplateReference struct {
 
 type ScanningTemplateReference struct {
 	ScanningName string `json:"scanning_name"`
+	ScanningID   string `json:"id"`
 	ProjectName  string `json:"project_name"`
 }
