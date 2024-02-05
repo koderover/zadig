@@ -363,11 +363,6 @@ func UpdateRole(ns string, req *CreateRoleReq, log *zap.SugaredLogger) error {
 	// after committing to db, save it to the cache if possible
 	roleActionKey := fmt.Sprintf(RoleActionKeyFormat, roleInfo.ID)
 	actionCache := cache.NewRedisCache(config.RedisCommonCacheTokenDB())
-	// removing the whole cache and re-adding them.
-	err = actionCache.Delete(roleActionKey)
-	if err != nil {
-		log.Warnf("failed to remove actions from role-action cache, error: %s", err)
-	}
 
 	err = actionCache.Delete(roleActionKey)
 	if err != nil {
