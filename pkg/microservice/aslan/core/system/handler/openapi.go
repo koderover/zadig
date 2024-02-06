@@ -228,5 +228,5 @@ func OpenAPIDeleteCluster(c *gin.Context) {
 	}
 
 	internalhandler.InsertOperationLog(c, ctx.UserName+"(openAPI)", "", "删除", "资源配置-集群", c.Param("id"), "", ctx.Logger)
-	ctx.Err = service.OpenAPIDeleteCluster(ctx.UserName, c.Query("projectName"), ctx.Logger)
+	ctx.Err = service.OpenAPIDeleteCluster(ctx.UserName, c.Query("id"), ctx.Logger)
 }
