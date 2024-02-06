@@ -97,8 +97,14 @@ func OpenAPIListRegistry(c *gin.Context) {
 }
 
 func OpenAPIGetRegistry(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -124,8 +130,14 @@ func OpenAPIGetRegistry(c *gin.Context) {
 }
 
 func OpenAPIUpdateRegistry(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -173,8 +185,14 @@ func OpenAPIListCluster(c *gin.Context) {
 }
 
 func OpenAPIUpdateCluster(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -194,8 +212,14 @@ func OpenAPIUpdateCluster(c *gin.Context) {
 }
 
 func OpenAPIDeleteCluster(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
