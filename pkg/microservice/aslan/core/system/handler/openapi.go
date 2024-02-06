@@ -20,10 +20,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/gin-gonic/gin"
+	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	"io"
-
-	"github.com/gin-gonic/gin"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/service"
@@ -122,6 +122,42 @@ func OpenAPIGetRegistry(c *gin.Context) {
 		Namespace: registry.Namespace,
 	}
 	ctx.Resp = ret
+}
+
+func OpenAPIUpdateRegistry(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		ctx.UnAuthorized = true
+		return
+	}
+
+	_, _, err := commonservice.FindRegistryById(c.Param("id"), true, ctx.Logger)
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+
+	args := new(commonmodels.RegistryNamespace)
+
+	if err := c.BindJSON(args); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	if err := args.Validate(); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+	if err := args.LicenseValidate(); err != nil {
+		ctx.Err = err
+		return
+	}
+
+	internalhandler.InsertOperationLog(c, ctx.UserName+"(openAPI)", "", "更新", "资源配置-镜像仓库", c.Param("id"), "", ctx.Logger)
+	ctx.Err = service.UpdateRegistryNamespace(ctx.UserName, c.Param("id"), args, ctx.Logger)
 }
 
 func OpenAPIListCluster(c *gin.Context) {

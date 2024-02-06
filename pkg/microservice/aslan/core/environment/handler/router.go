@@ -363,8 +363,6 @@ func (*OpenAPIRouter) Inject(router *gin.RouterGroup) {
 		common.GET("/:name/variable", OpenAPIGetEnvGlobalVariables)
 		common.PUT("/:name/variable", OpenAPIUpdateGlobalVariables)
 
-		common.PUT("/:name/registry", OpenAPIUpdateRegistry)
-
 		common.POST("/:name/service/:serviceName/restart", OpenAPIRestartService)
 	}
 
