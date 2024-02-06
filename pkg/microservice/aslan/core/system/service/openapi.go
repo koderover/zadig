@@ -17,6 +17,7 @@ limitations under the License.
 package service
 
 import (
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/kube"
 	"time"
 
 	"go.uber.org/zap"
@@ -70,4 +71,30 @@ func OpenAPIListCluster(projectName string, logger *zap.SugaredLogger) ([]*OpenA
 	}
 
 	return resp, nil
+}
+
+func OpenAPIDeleteCluster(userName, clusterID string, logger *zap.SugaredLogger) error {
+	return cluster.DeleteCluster(userName, clusterID, logger)
+}
+
+func OpenAPIUpdateCluster(clusterID string, clusterInfo *OpenAPICluster, logger *zap.SugaredLogger) error {
+	curClusterInfo, err := cluster.GetCluster(clusterID, logger)
+	if err != nil {
+		return nil
+	}
+
+	curClusterInfo.Name = clusterInfo.Name
+	curClusterInfo.Description = clusterInfo.Description
+	if curClusterInfo.AdvancedConfig == nil {
+		curClusterInfo.AdvancedConfig = &commonmodels.AdvancedConfig{}
+	}
+	curClusterInfo.AdvancedConfig.ProjectNames = clusterInfo.ProjectNames
+
+	clusterSvc, err := kube.NewService("")
+	if err != nil {
+		return err
+	}
+	// only update basic info of cluster, like name, description etc
+	_, err = clusterSvc.UpdateCluster(clusterID, curClusterInfo, logger)
+	return err
 }

@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	"io"
 
 	"github.com/gin-gonic/gin"
@@ -96,9 +97,71 @@ func OpenAPIListRegistry(c *gin.Context) {
 	ctx.Resp = resp
 }
 
+func OpenAPIGetRegistry(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		ctx.UnAuthorized = true
+		return
+	}
+
+	registry, _, err := commonservice.FindRegistryById(c.Param("id"), true, ctx.Logger)
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+
+	ret := &service.OpenAPIRegistry{
+		ID:        registry.ID.Hex(),
+		Address:   registry.RegAddr,
+		Provider:  config.RegistryProvider(registry.RegProvider),
+		Region:    registry.Region,
+		IsDefault: registry.IsDefault,
+		Namespace: registry.Namespace,
+	}
+	ctx.Resp = ret
+}
+
 func OpenAPIListCluster(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	ctx.Resp, ctx.Err = service.OpenAPIListCluster(c.Query("projectName"), ctx.Logger)
+}
+
+func OpenAPIUpdateCluster(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		ctx.UnAuthorized = true
+		return
+	}
+
+	args := new(service.OpenAPICluster)
+	if err := c.BindJSON(args); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		log.Errorf("Failed to bind data: %s", err)
+		return
+	}
+	internalhandler.InsertOperationLog(c, ctx.UserName+"(openAPI)", "", "更新", "资源配置-集群", c.Param("id"), "", ctx.Logger)
+
+	ctx.Err = service.OpenAPIUpdateCluster(c.Param("id"), args, ctx.Logger)
+}
+
+func OpenAPIDeleteCluster(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		ctx.UnAuthorized = true
+		return
+	}
+
+	internalhandler.InsertOperationLog(c, ctx.UserName+"(openAPI)", "", "删除", "资源配置-集群", c.Param("id"), "", ctx.Logger)
+	ctx.Err = service.OpenAPIDeleteCluster(ctx.UserName, c.Query("projectName"), ctx.Logger)
 }
