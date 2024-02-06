@@ -19,6 +19,7 @@ package service
 import (
 	"fmt"
 
+	templaterepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/template"
 	"go.uber.org/zap"
 
@@ -136,10 +137,16 @@ func GetScanningTemplateReference(id string, logger *zap.SugaredLogger) ([]*temp
 	}
 
 	for _, reference := range referenceList {
+		projectInfo, err := templaterepo.NewProductColl().Find(reference.ProjectName)
+		if err != nil {
+			logger.Errorf("failed to get project info for template: %s, error: %s", id, err)
+			return nil, err
+		}
 		ret = append(ret, &template.ScanningTemplateReference{
 			ScanningName: reference.Name,
 			ScanningID:   reference.ID.Hex(),
 			ProjectName:  reference.ProjectName,
+			DisplayName:  projectInfo.ProjectName,
 		})
 	}
 	return ret, nil
