@@ -208,7 +208,7 @@ func OpenAPIUpdateCluster(c *gin.Context) {
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName+"(openAPI)", "", "更新", "资源配置-集群", c.Param("id"), "", ctx.Logger)
 
-	ctx.Err = service.OpenAPIUpdateCluster(c.Param("id"), args, ctx.Logger)
+	ctx.Err = service.OpenAPIUpdateCluster(ctx.UserName, c.Param("id"), args, ctx.Logger)
 }
 
 func OpenAPIDeleteCluster(c *gin.Context) {

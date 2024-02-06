@@ -17,6 +17,7 @@ limitations under the License.
 package service
 
 import (
+	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/kube"
 	"time"
 
@@ -47,6 +48,18 @@ func OpenAPICreateRegistry(username string, req *OpenAPICreateRegistryReq, logge
 	return CreateRegistryNamespace(username, reg, logger)
 }
 
+func getProjectNames(clusterID string, logger *zap.SugaredLogger) (projectNames []string) {
+	projectClusterRelations, err := commonrepo.NewProjectClusterRelationColl().List(&commonrepo.ProjectClusterRelationOption{ClusterID: clusterID})
+	if err != nil {
+		logger.Errorf("Failed to list projectClusterRelation, err:%s", err)
+		return []string{}
+	}
+	for _, projectClusterRelation := range projectClusterRelations {
+		projectNames = append(projectNames, projectClusterRelation.ProjectName)
+	}
+	return projectNames
+}
+
 func OpenAPIListCluster(projectName string, logger *zap.SugaredLogger) ([]*OpenAPICluster, error) {
 	clusters, err := cluster.ListClusters([]string{}, projectName, logger)
 	if err != nil {
@@ -67,6 +80,7 @@ func OpenAPIListCluster(projectName string, logger *zap.SugaredLogger) ([]*OpenA
 			Local:        cl.Local,
 			Status:       string(cl.Status),
 			Type:         cl.Type,
+			ProjectNames: getProjectNames(cl.ID, logger),
 		})
 	}
 
@@ -77,7 +91,7 @@ func OpenAPIDeleteCluster(userName, clusterID string, logger *zap.SugaredLogger)
 	return cluster.DeleteCluster(userName, clusterID, logger)
 }
 
-func OpenAPIUpdateCluster(clusterID string, clusterInfo *OpenAPICluster, logger *zap.SugaredLogger) error {
+func OpenAPIUpdateCluster(userName, clusterID string, clusterInfo *OpenAPICluster, logger *zap.SugaredLogger) error {
 	curClusterInfo, err := cluster.GetCluster(clusterID, logger)
 	if err != nil {
 		return nil
@@ -94,6 +108,23 @@ func OpenAPIUpdateCluster(clusterID string, clusterInfo *OpenAPICluster, logger 
 	if err != nil {
 		return err
 	}
+
+	// Delete all projects associated with clusterID
+	err = commonrepo.NewProjectClusterRelationColl().Delete(&commonrepo.ProjectClusterRelationOption{ClusterID: clusterID})
+	if err != nil {
+		logger.Errorf("Failed to delete projectClusterRelation err:%s", err)
+	}
+	for _, projectName := range clusterInfo.ProjectNames {
+		err = commonrepo.NewProjectClusterRelationColl().Create(&commonmodels.ProjectClusterRelation{
+			ProjectName: projectName,
+			ClusterID:   clusterID,
+			CreatedBy:   userName,
+		})
+		if err != nil {
+			logger.Errorf("Failed to create projectClusterRelation err:%s", err)
+		}
+	}
+
 	// only update basic info of cluster, like name, description etc
 	_, err = clusterSvc.UpdateCluster(clusterID, curClusterInfo, logger)
 	return err
