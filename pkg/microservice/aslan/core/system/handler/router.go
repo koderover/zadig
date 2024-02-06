@@ -425,14 +425,14 @@ func (*OpenAPIRouter) Inject(router *gin.RouterGroup) {
 	{
 		reg.POST("", OpenAPICreateRegistry)
 		reg.GET("", OpenAPIListRegistry)
-		reg.GET(":id", OpenAPIGetRegistry)
-		reg.PUT(":id", OpenAPIUpdateRegistry)
+		reg.GET("/:id", OpenAPIGetRegistry)
+		reg.PUT("/:id", OpenAPIUpdateRegistry)
 	}
 
 	cluster := router.Group("cluster")
 	{
 		cluster.GET("", OpenAPIListCluster)
-		cluster.PUT(":id", OpenAPIUpdateCluster)
-		cluster.DELETE(":id", OpenAPIDeleteCluster)
+		cluster.PUT("/:id", OpenAPIUpdateCluster)
+		cluster.DELETE("/:id", OpenAPIDeleteCluster)
 	}
 }

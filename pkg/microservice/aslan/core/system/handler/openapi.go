@@ -21,7 +21,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/gin-gonic/gin"
-	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	"io"
 
@@ -134,30 +133,36 @@ func OpenAPIUpdateRegistry(c *gin.Context) {
 		return
 	}
 
-	_, _, err := commonservice.FindRegistryById(c.Param("id"), true, ctx.Logger)
+	registryInfo, _, err := commonservice.FindRegistryById(c.Param("id"), true, ctx.Logger)
 	if err != nil {
 		ctx.Err = err
 		return
 	}
 
-	args := new(commonmodels.RegistryNamespace)
+	args := new(service.OpenAPIRegistry)
 
 	if err := c.BindJSON(args); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
-	if err := args.Validate(); err != nil {
+	registryInfo.RegAddr = args.Address
+	registryInfo.Namespace = args.Namespace
+	registryInfo.RegProvider = string(args.Provider)
+	registryInfo.Region = args.Region
+	registryInfo.IsDefault = args.IsDefault
+
+	if err := registryInfo.Validate(); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
 	}
-	if err := args.LicenseValidate(); err != nil {
+	if err := registryInfo.LicenseValidate(); err != nil {
 		ctx.Err = err
 		return
 	}
 
 	internalhandler.InsertOperationLog(c, ctx.UserName+"(openAPI)", "", "更新", "资源配置-镜像仓库", c.Param("id"), "", ctx.Logger)
-	ctx.Err = service.UpdateRegistryNamespace(ctx.UserName, c.Param("id"), args, ctx.Logger)
+	ctx.Err = service.UpdateRegistryNamespace(ctx.UserName, c.Param("id"), registryInfo, ctx.Logger)
 }
 
 func OpenAPIListCluster(c *gin.Context) {
