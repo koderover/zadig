@@ -364,6 +364,13 @@ func (*OpenAPIRouter) Inject(router *gin.RouterGroup) {
 		common.PUT("/:name/variable", OpenAPIUpdateGlobalVariables)
 
 		common.POST("/:name/service/:serviceName/restart", OpenAPIRestartService)
+
+		common.GET("/:name/check/workloads/k8services", OpenAPICheckWorkloadsK8sServices)
+		common.POST("/:name/share/enable", OpenAPIEnableBaseEnv)
+		common.DELETE("/:name/share/enable", OpenAPIDsiableBaseEnv)
+		common.GET("/:name/check/sharenv/:op/ready", OpenAPICheckShareEnvReady)
+		common.GET("/:name/share/portal/:serviceName", OpenAPIGetPortalService)
+		common.POST("/:name/share/portal/:serviceName", OpenAPISetPortalService)
 	}
 
 	production := router.Group("production")

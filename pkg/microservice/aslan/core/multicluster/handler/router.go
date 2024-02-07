@@ -60,3 +60,12 @@ func (*Router) Inject(router *gin.RouterGroup) {
 
 	router.GET("/check/ephemeralcontainers", CheckEphemeralContainers)
 }
+
+type OpenAPIRouter struct{}
+
+func (*OpenAPIRouter) Inject(router *gin.RouterGroup) {
+	istio := router.Group("istio")
+	{
+		istio.GET("/check/:id", OpenAPICheckIstiod)
+	}
+}
