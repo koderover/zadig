@@ -386,3 +386,46 @@ func GetReleaseInstanceDeployStatus(c *gin.Context) {
 
 	ctx.Resp, ctx.Err = service.GetReleaseInstanceDeployStatus(c.Query("projectName"), request)
 }
+
+type OpenAPIListKubeEventResponse struct {
+	Reason string `json:"reason,omitempty"`
+	// A human-readable description of the status of this operation.
+	Message string `json:"message,omitempty" protobuf:"bytes,4,opt,name=message"`
+	// The time at which the event was first recorded. (Time of server receipt is in TypeMeta.)
+	FirstSeen int64 `json:"first_seen,omitempty"`
+	// The time at which the most recent occurrence of this event was recorded.
+	LastSeen int64 `json:"last_seen,omitempty"`
+	// The number of times this event has occurred.
+	Count int32 `json:"count,omitempty"`
+	// Type of this event (Normal, Warning), new types could be added in the future
+	Type string `json:"type,omitempty"`
+}
+
+func OpenAPIListKubeEvents(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	envName := c.Query("envName")
+	productName := c.Query("projectKey")
+	name := c.Query("name")
+	rtype := c.Query("type")
+
+	origResp, err := service.ListKubeEvents(envName, productName, name, rtype, ctx.Logger)
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+	resp := make([]*OpenAPIListKubeEventResponse, 0)
+	for _, or := range origResp {
+		resp = append(resp, &OpenAPIListKubeEventResponse{
+			Reason:    or.Reason,
+			Message:   or.Message,
+			FirstSeen: or.FirstSeen,
+			LastSeen:  or.LastSeen,
+			Count:     or.Count,
+			Type:      or.Type,
+		})
+	}
+	ctx.Resp = resp
+	return
+}

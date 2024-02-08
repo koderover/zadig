@@ -1395,6 +1395,12 @@ func OpenAPIEnableBaseEnv(c *gin.Context) {
 		}
 	}
 
+	err = commonutil.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+
 	ctx.Err = service.EnableBaseEnv(c, envName, projectKey)
 }
 
@@ -1434,7 +1440,26 @@ func OpenAPIDsiableBaseEnv(c *gin.Context) {
 		}
 	}
 
+	err = commonutil.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+
 	ctx.Err = service.DisableBaseEnv(c, envName, projectKey)
+}
+
+type OpenAPIShareEnvReadyResponse struct {
+	IsReady bool                       `json:"is_ready"`
+	Checks  OpenAPIShareEnvReadyChecks `json:"checks"`
+}
+
+type OpenAPIShareEnvReadyChecks struct {
+	NamespaceHasIstioLabel  bool `json:"namespace_has_istio_label"`
+	VirtualServicesDeployed bool `json:"virtualservice_deployed"`
+	PodsHaveIstioProxy      bool `json:"pods_have_istio_proxy"`
+	WorkloadsReady          bool `json:"workloads_ready"`
+	WorkloadsHaveK8sService bool `json:"workloads_have_k8s_service"`
 }
 
 func OpenAPICheckShareEnvReady(c *gin.Context) {
@@ -1469,7 +1494,30 @@ func OpenAPICheckShareEnvReady(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.Err = service.CheckShareEnvReady(c, envName, c.Param("op"), projectKey)
+	origResp, err := service.CheckShareEnvReady(c, envName, c.Param("op"), projectKey)
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+
+	resp := OpenAPIShareEnvReadyResponse{
+		IsReady: origResp.IsReady,
+		Checks: OpenAPIShareEnvReadyChecks{
+			NamespaceHasIstioLabel:  origResp.Checks.NamespaceHasIstioLabel,
+			VirtualServicesDeployed: origResp.Checks.VirtualServicesDeployed,
+			PodsHaveIstioProxy:      origResp.Checks.PodsHaveIstioProxy,
+			WorkloadsReady:          origResp.Checks.WorkloadsReady,
+			WorkloadsHaveK8sService: origResp.Checks.WorkloadsHaveK8sService,
+		},
+	}
+	ctx.Resp = resp
+
+	return
+}
+
+type OpenAPIGetPortalServiceResponse struct {
+	DefaultGatewayAddress string                           `json:"default_gateway_address"`
+	Servers               []OpenAPISetPortalServiceRequest `json:"servers"`
 }
 
 func OpenAPIGetPortalService(c *gin.Context) {
@@ -1510,7 +1558,31 @@ func OpenAPIGetPortalService(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.Err = service.GetPortalService(c, projectKey, envName, serviceName)
+	origResp, err := service.GetPortalService(c, projectKey, envName, serviceName)
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+
+	resp := OpenAPIGetPortalServiceResponse{
+		DefaultGatewayAddress: origResp.DefaultGatewayAddress,
+		Servers:               []OpenAPISetPortalServiceRequest{},
+	}
+	for _, r := range origResp.Servers {
+		resp.Servers = append(resp.Servers, OpenAPISetPortalServiceRequest{
+			Host:         r.Host,
+			PortNumber:   r.PortNumber,
+			PortProtocol: r.PortProtocol,
+		})
+	}
+
+	return
+}
+
+type OpenAPISetPortalServiceRequest struct {
+	Host         string `json:"host"`
+	PortNumber   uint32 `json:"port_number"`
+	PortProtocol string `json:"port_protocol"`
 }
 
 func OpenAPISetPortalService(c *gin.Context) {
@@ -1551,13 +1623,28 @@ func OpenAPISetPortalService(c *gin.Context) {
 		}
 	}
 
-	req := []service.SetupPortalServiceRequest{}
+	req := []OpenAPISetPortalServiceRequest{}
 	err = c.ShouldBindJSON(&req)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
-	ctx.Err = service.SetupPortalService(c, projectKey, envName, serviceName, req)
+	origReq := []service.SetupPortalServiceRequest{}
+	for _, r := range req {
+		origReq = append(origReq, service.SetupPortalServiceRequest{
+			Host:         r.Host,
+			PortNumber:   r.PortNumber,
+			PortProtocol: r.PortProtocol,
+		})
+	}
+
+	err = commonutil.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+
+	ctx.Err = service.SetupPortalService(c, projectKey, envName, serviceName, origReq)
 	return
 }

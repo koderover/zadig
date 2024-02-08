@@ -23,6 +23,7 @@ import (
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/types"
 
+	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/environment/service"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
@@ -91,6 +92,12 @@ func EnableBaseEnv(c *gin.Context) {
 		}
 	}
 
+	err = commonutil.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+
 	ctx.Err = service.EnableBaseEnv(c, envName, projectKey)
 }
 
@@ -125,6 +132,12 @@ func DisableBaseEnv(c *gin.Context) {
 				return
 			}
 		}
+	}
+
+	err = commonutil.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
+		return
 	}
 
 	ctx.Err = service.DisableBaseEnv(c, envName, projectKey)
@@ -251,6 +264,12 @@ func SetupPortalService(c *gin.Context) {
 	err = c.ShouldBindJSON(&req)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	err = commonutil.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
 		return
 	}
 

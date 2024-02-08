@@ -340,6 +340,13 @@ func (*Router) Inject(router *gin.RouterGroup) {
 type OpenAPIRouter struct{}
 
 func (*OpenAPIRouter) Inject(router *gin.RouterGroup) {
+	image := router.Group("image")
+	{
+		image.POST("/deployment/:envName", OpenAPIUpdateDeploymentContainerImage)
+		image.POST("/statefulset/:envName", OpenAPIUpdateStatefulSetContainerImage)
+		image.POST("/cronjob/:envName", OpenAPIUpdateCronJobContainerImage)
+	}
+
 	common := router.Group("")
 	{
 		common.GET("", OpenAPIListEnvs)
@@ -363,6 +370,7 @@ func (*OpenAPIRouter) Inject(router *gin.RouterGroup) {
 		common.GET("/:name/variable", OpenAPIGetEnvGlobalVariables)
 		common.PUT("/:name/variable", OpenAPIUpdateGlobalVariables)
 
+		common.GET("/:name/services/:serviceName", OpenAPIGetService)
 		common.POST("/:name/service/:serviceName/restart", OpenAPIRestartService)
 
 		common.GET("/:name/check/workloads/k8services", OpenAPICheckWorkloadsK8sServices)
@@ -395,6 +403,12 @@ func (*OpenAPIRouter) Inject(router *gin.RouterGroup) {
 		production.GET("/:name/variable", OpenAPIGetProductionEnvGlobalVariables)
 		production.PUT("/:name/variable", OpenAPIUpdateProductionGlobalVariables)
 
+		production.GET("/:name/services/:serviceName", OpenAPIGetProductionService)
 		production.POST("/:name/service/:serviceName/restart", OpenAPIRestartService)
+	}
+
+	kube := router.Group("kube")
+	{
+		kube.GET("/events", OpenAPIListKubeEvents)
 	}
 }

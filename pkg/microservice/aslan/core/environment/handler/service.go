@@ -28,6 +28,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/environment/service"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
+	internalresource "github.com/koderover/zadig/v2/pkg/shared/kube/resource"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 )
 
@@ -774,4 +775,137 @@ func GetServiceContainer(c *gin.Context) {
 	}
 
 	ctx.Err = service.GetServiceContainer(envName, projectKey, serviceName, container, ctx.Logger)
+}
+
+type OpenAPIGetServiceResponse struct {
+	ServiceName string                       `json:"service_name"`
+	Scales      []*internalresource.Workload `json:"scales"`
+	Ingress     []*internalresource.Ingress  `json:"ingress"`
+	Services    []*internalresource.Service  `json:"service_endpoints"`
+	CronJobs    []*internalresource.CronJob  `json:"cron_jobs"`
+	Namespace   string                       `json:"namespace"`
+	EnvName     string                       `json:"env_name"`
+	ProductName string                       `json:"product_name"`
+	GroupName   string                       `json:"group_name"`
+	Workloads   []*commonservice.Workload    `json:"-"`
+}
+
+func OpenAPIGetService(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	envName := c.Param("name")
+	projectKey := c.Query("projectName")
+	serviceName := c.Param("serviceName")
+	workLoadType := c.Query("workLoadType")
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].Env.View {
+			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionView)
+			if err != nil || !permitted {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
+	}
+
+	origResp, err := service.GetService(envName, projectKey, serviceName, false, workLoadType, ctx.Logger)
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+
+	ctx.Resp = OpenAPIGetServiceResponse{
+		ServiceName: origResp.ServiceName,
+		Scales:      origResp.Scales,
+		Ingress:     origResp.Ingress,
+		Services:    origResp.Services,
+		CronJobs:    origResp.CronJobs,
+		Namespace:   origResp.Namespace,
+		EnvName:     origResp.EnvName,
+		ProductName: origResp.ProductName,
+		GroupName:   origResp.GroupName,
+		Workloads:   origResp.Workloads,
+	}
+	return
+}
+
+func OpenAPIGetProductionService(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	envName := c.Param("name")
+	projectKey := c.Query("projectName")
+	serviceName := c.Param("serviceName")
+	workLoadType := c.Query("workLoadType")
+
+	// TODO: Authorization leak
+	// Authorization checks
+	permitted := false
+
+	if ctx.Resources.IsSystemAdmin {
+		permitted = true
+	} else if projectedAuthInfo, ok := ctx.Resources.ProjectAuthInfo[projectKey]; ok {
+		if projectedAuthInfo.IsProjectAdmin {
+			permitted = true
+		}
+
+		if projectedAuthInfo.ProductionEnv.View ||
+			projectedAuthInfo.ProductionEnv.ManagePods {
+			permitted = true
+		}
+
+		readPermitted, _ := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionView)
+		if readPermitted {
+			permitted = true
+		}
+
+		editPermitted, _ := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionManagePod)
+		if editPermitted {
+			permitted = true
+		}
+	}
+
+	if !permitted {
+		ctx.UnAuthorized = true
+		return
+	}
+
+	origResp, err := service.GetService(envName, projectKey, serviceName, true, workLoadType, ctx.Logger)
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+
+	ctx.Resp = OpenAPIGetServiceResponse{
+		ServiceName: origResp.ServiceName,
+		Scales:      origResp.Scales,
+		Ingress:     origResp.Ingress,
+		Services:    origResp.Services,
+		CronJobs:    origResp.CronJobs,
+		Namespace:   origResp.Namespace,
+		EnvName:     origResp.EnvName,
+		ProductName: origResp.ProductName,
+		GroupName:   origResp.GroupName,
+		Workloads:   origResp.Workloads,
+	}
+	return
 }

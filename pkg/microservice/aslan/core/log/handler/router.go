@@ -55,3 +55,12 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		sse.GET("/jenkins/:id/:jobName/:jobID", GetJenkinsJobContainerLogsSSE)
 	}
 }
+
+type OpenAPIRouter struct{}
+
+func (*OpenAPIRouter) Inject(router *gin.RouterGroup) {
+	sse := router.Group("sse")
+	{
+		sse.GET("/pods/:podName/containers/:containerName", OpenAPIGetContainerLogsSSE)
+	}
+}
