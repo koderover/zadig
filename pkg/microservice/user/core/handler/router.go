@@ -132,7 +132,7 @@ type OpenAPIRouter struct{}
 func (*OpenAPIRouter) Inject(router *gin.RouterGroup) {
 	users := router.Group("users")
 	{
-		users.POST("", user.ListUsersBrief)
+		users.GET("", user.ListUsersBrief)
 	}
 
 	usergroups := router.Group("user-groups")
