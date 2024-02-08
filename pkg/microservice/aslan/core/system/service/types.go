@@ -210,16 +210,17 @@ type OpenAPIRegistry struct {
 }
 
 type OpenAPICluster struct {
-	ID           string `json:"cluster_id"`
-	Name         string `json:"name"`
-	Production   bool   `json:"production"`
-	Description  string `json:"description"`
-	ProviderName string `json:"provider_name"`
-	CreatedBy    string `json:"created_by"`
-	CreatedTime  int64  `json:"created_time"`
-	Local        bool   `json:"local"`
-	Status       string `json:"status"`
-	Type         string `json:"type"`
+	ID           string   `json:"cluster_id"`
+	Name         string   `json:"name"`
+	Production   bool     `json:"production"`
+	Description  string   `json:"description"`
+	ProviderName string   `json:"provider_name"`
+	CreatedBy    string   `json:"created_by"`
+	CreatedTime  int64    `json:"created_time"`
+	Local        bool     `json:"local"`
+	Status       string   `json:"status"`
+	Type         string   `json:"type"`
+	ProjectNames []string `json:"project_names"`
 }
 
 type SecurityAndPrivacySettings struct {
