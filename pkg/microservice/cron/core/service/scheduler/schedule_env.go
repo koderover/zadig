@@ -48,12 +48,11 @@ func (c *CronClient) UpsertEnvServiceScheduler(log *zap.SugaredLogger) {
 	c.comparePMProductRevision(envs, log)
 
 	log.Info("start init env scheduler..")
-	taskMap := make(map[string]bool)
 	for _, env := range envs {
 
 		envObj, err := c.AslanCli.GetEnvService(env.ProductName, env.EnvName, log)
 		if err != nil {
-			log.Error("GetEnvService productName:%s envName:%s err:%v", env.ProductName, env.EnvName, err)
+			log.Errorf("GetEnvService productName: %s envName: %s err: %v", env.ProductName, env.EnvName, err)
 			continue
 		}
 		envServiceNames := sets.String{}
@@ -69,22 +68,30 @@ func (c *CronClient) UpsertEnvServiceScheduler(log *zap.SugaredLogger) {
 			}
 
 			svc, _ := c.AslanCli.GetService(serviceRevision.ServiceName, env.ProductName, setting.PMDeployType, serviceRevision.CurrentRevision, log)
+			// delete scheduler if service is not exist or healthChecks or envConfigs is empty
 			if svc == nil || len(svc.HealthChecks) == 0 || len(svc.EnvConfigs) == 0 || !envServiceNames.Has(serviceRevision.ServiceName) {
-				key := "service-" + serviceRevision.ServiceName + "-" + setting.PMDeployType + "-" + env.EnvName
+				key := "service-" + serviceRevision.ServiceName + "-" + env.ProductName + "-" + setting.PMDeployType + "-" + env.EnvName
+
+				c.SchedulersRWMutex.Lock()
 				for scheduleKey := range c.Schedulers {
 					if strings.Contains(scheduleKey, key) {
 						c.Schedulers[scheduleKey].Clear()
 						delete(c.Schedulers, scheduleKey)
 					}
 				}
+				c.SchedulersRWMutex.Unlock()
 
+				c.lastSchedulersRWMutex.Lock()
 				for lastScheduleKey := range c.lastSchedulers {
 					if strings.Contains(lastScheduleKey, key) {
 						delete(c.lastSchedulers, lastScheduleKey)
 					}
 				}
+				c.lastSchedulersRWMutex.Unlock()
 				continue
 			}
+
+			// add scheduler if service is exist and healthChecks is not empty
 			for _, envStatus := range svc.EnvStatuses {
 				if envStatus.EnvName != env.EnvName {
 					continue
@@ -93,20 +100,35 @@ func (c *CronClient) UpsertEnvServiceScheduler(log *zap.SugaredLogger) {
 				for _, healthCheck := range svc.HealthChecks {
 					key := "service-" + serviceRevision.ServiceName + "-" + env.ProductName + "-" + setting.PMDeployType + "-" +
 						env.EnvName + "-" + envStatus.HostID + "-" + healthCheck.Protocol + "-" + strconv.Itoa(healthCheck.Port) + "-" + healthCheck.Path
-					taskMap[key] = true
 
+					c.lastServiceSchedulersRWMutex.Lock()
 					c.lastServiceSchedulers[key] = serviceRevision
+					c.lastServiceSchedulersRWMutex.Unlock()
 
+					c.SchedulerControllerRWMutex.Lock()
+					sc, ok := c.SchedulerController[key]
+					c.SchedulerControllerRWMutex.Unlock()
+					if ok {
+						sc <- true
+					}
+
+					c.SchedulersRWMutex.Lock()
 					if scheduler, ok := c.Schedulers[key]; ok {
 						scheduler.Clear()
 						delete(c.Schedulers, key)
 					}
+					c.SchedulersRWMutex.Unlock()
 
 					newScheduler := gocron.NewScheduler()
 					BuildScheduledEnvJob(newScheduler, healthCheck).Do(c.RunScheduledService, svc, healthCheck, envStatus.Address, env.EnvName, envStatus.HostID, log)
+					c.SchedulersRWMutex.Lock()
 					c.Schedulers[key] = newScheduler
+					c.SchedulersRWMutex.Unlock()
+
 					log.Infof("[%s] service schedulers..", key)
-					c.Schedulers[key].Start()
+					c.SchedulerControllerRWMutex.Lock()
+					c.SchedulerController[key] = c.Schedulers[key].Start()
+					c.SchedulerControllerRWMutex.Unlock()
 				}
 			}
 			break
@@ -338,8 +360,10 @@ func buildEnvNameKey(productRevision *service.ProductRevision) string {
 }
 
 func (c *CronClient) compareHelmProductEnvRevision(currentProductRevisions []*service.ProductRevision, log *zap.SugaredLogger) {
+	c.lastHelmProductRevisionsRWMutex.Lock()
 	if len(c.lastHelmProductRevisions) == 0 {
 		c.lastHelmProductRevisions = currentProductRevisions
+		c.lastHelmProductRevisionsRWMutex.Unlock()
 		return
 	}
 	deleteProductRevisions := make([]*service.ProductRevision, 0)
@@ -352,24 +376,36 @@ func (c *CronClient) compareHelmProductEnvRevision(currentProductRevisions []*se
 			deleteProductRevisions = append(deleteProductRevisions, lastProductRevision)
 		}
 	}
+	c.lastHelmProductRevisionsRWMutex.Unlock()
 	// delete related schedulers when env is deleted
 	for _, env := range deleteProductRevisions {
 		envKey := buildEnvNameKey(env)
-		if _, ok := c.SchedulerController[envKey]; ok {
-			c.SchedulerController[envKey] <- true
+
+		c.SchedulerControllerRWMutex.Lock()
+		sc, ok := c.SchedulerController[envKey]
+		c.SchedulerControllerRWMutex.Unlock()
+		if ok {
+			sc <- true
 		}
+
+		c.SchedulersRWMutex.Lock()
 		if _, ok := c.Schedulers[envKey]; ok {
 			c.Schedulers[envKey].Clear()
 			delete(c.Schedulers, envKey)
 		}
+		c.SchedulersRWMutex.Unlock()
 	}
+	c.lastHelmProductRevisionsRWMutex.Lock()
 	c.lastHelmProductRevisions = currentProductRevisions
+	c.lastHelmProductRevisionsRWMutex.Unlock()
 }
 
 // compare environments and then services
 func (c *CronClient) comparePMProductRevision(currentProductRevisions []*service.ProductRevision, log *zap.SugaredLogger) {
+	c.lastPMProductRevisionsRWMutex.Lock()
 	if len(c.lastPMProductRevisions) == 0 {
 		c.lastPMProductRevisions = currentProductRevisions
+		c.lastPMProductRevisionsRWMutex.Unlock()
 		return
 	}
 	deleteProductRevisions := make([]*service.ProductRevision, 0)
@@ -389,6 +425,7 @@ func (c *CronClient) comparePMProductRevision(currentProductRevisions []*service
 			deleteProductRevisions = append(deleteProductRevisions, lastProductRevision)
 		}
 	}
+	c.lastPMProductRevisionsRWMutex.Unlock()
 	//已经删除的环境，如果包含非k8s服务，则清除定时器
 	for _, env := range deleteProductRevisions {
 		for _, serviceRevision := range env.ServiceRevisions {
@@ -397,24 +434,31 @@ func (c *CronClient) comparePMProductRevision(currentProductRevisions []*service
 			}
 			key := "service-" + serviceRevision.ServiceName + "-" + env.ProductName + "-" + setting.PMDeployType + "-" +
 				env.EnvName
+
+			c.SchedulersRWMutex.Lock()
 			for scheduleKey := range c.Schedulers {
 				if strings.Contains(scheduleKey, key) {
 					c.Schedulers[scheduleKey].Clear()
 					delete(c.Schedulers, scheduleKey)
 				}
 			}
+			c.SchedulersRWMutex.Unlock()
 
+			c.lastSchedulersRWMutex.Lock()
 			for lastScheduleKey := range c.lastSchedulers {
 				if strings.Contains(lastScheduleKey, key) {
 					delete(c.lastSchedulers, lastScheduleKey)
 				}
 			}
+			c.lastSchedulersRWMutex.Unlock()
 
+			c.lastServiceSchedulersRWMutex.Lock()
 			for lastServiceSchedulerKey := range c.lastServiceSchedulers {
 				if strings.Contains(lastServiceSchedulerKey, key) {
 					delete(c.lastServiceSchedulers, lastServiceSchedulerKey)
 				}
 			}
+			c.lastServiceSchedulersRWMutex.Unlock()
 		}
 	}
 	// 已经删除的服务，如果是非k8s，则清除定时器
@@ -448,24 +492,31 @@ func (c *CronClient) comparePMProductRevision(currentProductRevisions []*service
 			}
 			key := "service-" + deleteSvcRevision.ServiceName + "-" + productName + "-" + setting.PMDeployType + "-" +
 				envName
+
+			c.SchedulersRWMutex.Lock()
 			for scheduleKey := range c.Schedulers {
 				if strings.Contains(scheduleKey, key) {
 					c.Schedulers[scheduleKey].Clear()
 					delete(c.Schedulers, scheduleKey)
 				}
 			}
+			c.SchedulersRWMutex.Unlock()
 
+			c.lastSchedulersRWMutex.Lock()
 			for lastScheduleKey := range c.lastSchedulers {
 				if strings.Contains(lastScheduleKey, key) {
 					delete(c.lastSchedulers, lastScheduleKey)
 				}
 			}
+			c.lastSchedulersRWMutex.Unlock()
 
+			c.lastServiceSchedulersRWMutex.Lock()
 			for lastServiceSchedulerKey := range c.lastServiceSchedulers {
 				if strings.Contains(lastServiceSchedulerKey, key) {
 					delete(c.lastServiceSchedulers, lastServiceSchedulerKey)
 				}
 			}
+			c.lastServiceSchedulersRWMutex.Unlock()
 		}
 	}
 
@@ -487,27 +538,36 @@ func (c *CronClient) comparePMProductRevision(currentProductRevisions []*service
 		productName := strings.Split(key, "-")[0]
 		key := "service-" + oldRevisionService.ServiceName + "-" + productName + "-" + setting.PMDeployType + "-" +
 			envName
+
+		c.SchedulersRWMutex.Lock()
 		for scheduleKey := range c.Schedulers {
 			if strings.Contains(scheduleKey, key) {
 				c.Schedulers[scheduleKey].Clear()
 				delete(c.Schedulers, scheduleKey)
 			}
 		}
+		c.SchedulersRWMutex.Unlock()
 
+		c.lastSchedulersRWMutex.Lock()
 		for lastScheduleKey := range c.lastSchedulers {
 			if strings.Contains(lastScheduleKey, key) {
 				delete(c.lastSchedulers, lastScheduleKey)
 			}
 		}
+		c.lastSchedulersRWMutex.Unlock()
 
+		c.lastServiceSchedulersRWMutex.Lock()
 		for lastServiceSchedulerKey := range c.lastServiceSchedulers {
 			if strings.Contains(lastServiceSchedulerKey, key) {
 				delete(c.lastServiceSchedulers, lastServiceSchedulerKey)
 			}
 		}
+		c.lastServiceSchedulersRWMutex.Unlock()
 	}
 
+	c.lastPMProductRevisionsRWMutex.Lock()
 	c.lastPMProductRevisions = currentProductRevisions
+	c.lastPMProductRevisionsRWMutex.Unlock()
 }
 
 const (
