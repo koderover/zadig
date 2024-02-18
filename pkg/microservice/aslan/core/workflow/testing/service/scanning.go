@@ -217,6 +217,28 @@ func CreateScanningTask(id string, req []*ScanningRepoInfo, notificationID, user
 		return 0, err
 	}
 
+	// if a scanning uses template, we use the information in the template
+	if len(scanningInfo.TemplateID) != 0 {
+		templateInfo, err := commonrepo.NewScanningTemplateColl().Find(&commonrepo.ScanningTemplateQueryOption{
+			ID: scanningInfo.TemplateID,
+		})
+		if err != nil {
+			log.Errorf("failed to get scanning template from mongodb, the error is: %s", err)
+			return 0, err
+		}
+
+		scanningInfo.ScannerType = templateInfo.ScannerType
+		scanningInfo.EnableScanner = templateInfo.EnableScanner
+		scanningInfo.ImageID = templateInfo.ImageID
+		scanningInfo.SonarID = templateInfo.SonarID
+		scanningInfo.Installs = templateInfo.Installs
+		scanningInfo.Parameter = templateInfo.Parameter
+		scanningInfo.Envs = templateInfo.Envs
+		scanningInfo.Script = templateInfo.Script
+		scanningInfo.AdvancedSetting = templateInfo.AdvancedSetting
+		scanningInfo.CheckQualityGate = templateInfo.CheckQualityGate
+	}
+
 	scanningName := fmt.Sprintf("%s-%s-%s", scanningInfo.Name, id, "scanning-job")
 
 	nextTaskID, err := commonrepo.NewCounterColl().GetNextSeq(fmt.Sprintf(setting.ScanningTaskFmt, scanningName))
