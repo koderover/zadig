@@ -163,7 +163,7 @@ func (*OpenAPIRouter) Inject(router *gin.RouterGroup) {
 
 		resourceAction := policy.Group("resource-actions")
 		{
-			resourceAction.GET("", permission.GetResourceActionDefinitions)
+			resourceAction.GET("", permission.OpenAPIGetResourceActionDefinitions)
 		}
 	}
 }
