@@ -137,28 +137,28 @@ func (*OpenAPIRouter) Inject(router *gin.RouterGroup) {
 
 	usergroups := router.Group("user-groups")
 	{
-		usergroups.GET("", user.ListUserGroups)
+		usergroups.GET("", user.OpenApiListUserGroups)
 	}
 
 	policy := router.Group("policy")
 	{
 		roles := policy.Group("/roles")
 		{
-			roles.POST("", permission.CreateRole)
-			roles.PUT("/:name", permission.UpdateRole)
-			roles.GET("", permission.ListRoles)
-			roles.GET("/:name", permission.GetRole)
-			roles.DELETE("/:name", permission.DeleteRole)
+			roles.POST("", permission.OpenAPICreateRole)
+			roles.PUT("/:name", permission.OpenAPIUpdateRole)
+			roles.GET("", permission.OpenAPIListRoles)
+			roles.GET("/:name", permission.OpenAPIGetRole)
+			roles.DELETE("/:name", permission.OpenAPIDeleteRole)
 		}
 
 		roleBindings := policy.Group("/role-bindings")
 		{
-			roleBindings.GET("", permission.ListRoleBindings)
-			roleBindings.POST("", permission.CreateRoleBinding)
-			roleBindings.POST("/user/:uid", permission.UpdateRoleBindingForUser)
-			roleBindings.DELETE("/user/:uid", permission.DeleteRoleBindingForUser)
-			roleBindings.POST("/group/:gid", permission.UpdateRoleBindingForGroup)
-			roleBindings.DELETE("/group/:gid", permission.DeleteRoleBindingForGroup)
+			roleBindings.GET("", permission.OpenAPIListRoleBindings)
+			roleBindings.POST("", permission.OpenAPICreateRoleBinding)
+			roleBindings.POST("/user/:uid", permission.OpenAPIUpdateRoleBindingForUser)
+			roleBindings.DELETE("/user/:uid", permission.OpenAPIDeleteRoleBindingForUser)
+			roleBindings.POST("/group/:gid", permission.OpenAPIUpdateRoleBindingForGroup)
+			roleBindings.DELETE("/group/:gid", permission.OpenAPIDeleteRoleBindingForGroup)
 		}
 
 		resourceAction := policy.Group("resource-actions")

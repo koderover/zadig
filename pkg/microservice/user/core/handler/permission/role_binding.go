@@ -19,6 +19,7 @@ package permission
 import (
 	"bytes"
 	"fmt"
+	userhandler "github.com/koderover/zadig/v2/pkg/microservice/user/core/handler/user"
 	"io"
 	"strings"
 
@@ -32,6 +33,50 @@ import (
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/types"
 )
+
+func OpenAPIListRoleBindings(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	err := userhandler.GenerateUserAuthInfo(ctx)
+	if err != nil {
+		ctx.UnAuthorized = true
+		ctx.Err = fmt.Errorf("failed to generate user authorization info, error: %s", err)
+		return
+	}
+
+	projectName := c.Query("namespace")
+	if projectName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("namespace is empty")
+		return
+	}
+
+	if !ctx.Resources.IsSystemAdmin {
+		if projectName == "*" {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectName]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	uid := c.Query("uid")
+	gid := c.Query("gid")
+	if uid != "" && gid != "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("cannot pass uid and gid together")
+		return
+	}
+
+	ctx.Resp, ctx.Err = permission.ListRoleBindings(projectName, uid, gid, ctx.Logger)
+}
 
 func ListRoleBindings(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
@@ -58,6 +103,20 @@ type createRoleBindingReq struct {
 	Role       string            `json:"role"`
 }
 
+func OpenAPICreateRoleBinding(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	ctx.UserName = ctx.UserName + "(openAPI)"
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	CreateRoleBindingImpl(c, ctx)
+}
+
 func CreateRoleBinding(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -68,6 +127,10 @@ func CreateRoleBinding(c *gin.Context) {
 		return
 	}
 
+	CreateRoleBindingImpl(c, ctx)
+}
+
+func CreateRoleBindingImpl(c *gin.Context, ctx *internalhandler.Context) {
 	data, err := c.GetRawData()
 	if err != nil {
 		log.Errorf("CreateRoleBinding c.GetRawData() err : %v", err)
@@ -141,6 +204,20 @@ type updateRoleBindingForUserReq struct {
 	Roles []string `json:"roles"`
 }
 
+func OpenAPIUpdateRoleBindingForUser(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	ctx.UserName = ctx.UserName + "(openAPI)"
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	UpdateRoleBindingForUserImpl(c, ctx)
+}
+
 func UpdateRoleBindingForUser(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -150,6 +227,11 @@ func UpdateRoleBindingForUser(c *gin.Context) {
 		ctx.UnAuthorized = true
 		return
 	}
+
+	UpdateRoleBindingForUserImpl(c, ctx)
+}
+
+func UpdateRoleBindingForUserImpl(c *gin.Context, ctx *internalhandler.Context) {
 
 	data, err := c.GetRawData()
 	if err != nil {
@@ -213,6 +295,20 @@ func UpdateRoleBindingForUser(c *gin.Context) {
 	ctx.Err = permission.UpdateRoleBindingForUser(userID, projectName, args.Roles, ctx.Logger)
 }
 
+func OpenAPIDeleteRoleBindingForUser(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	ctx.UserName = ctx.UserName + "(openAPI)"
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	DeleteRoleBindingForUserImpl(c, ctx)
+}
+
 func DeleteRoleBindingForUser(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -222,6 +318,11 @@ func DeleteRoleBindingForUser(c *gin.Context) {
 		ctx.UnAuthorized = true
 		return
 	}
+
+	DeleteRoleBindingForUserImpl(c, ctx)
+}
+
+func DeleteRoleBindingForUserImpl(c *gin.Context, ctx *internalhandler.Context) {
 
 	data, err := c.GetRawData()
 	if err != nil {
@@ -276,6 +377,20 @@ func DeleteRoleBindingForUser(c *gin.Context) {
 	ctx.Err = permission.DeleteRoleBindingForUser(userID, projectName, ctx.Logger)
 }
 
+func OpenAPIUpdateRoleBindingForGroup(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	ctx.UserName = ctx.UserName + "(openAPI)"
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	UpdateRoleBindingForGroupImpl(c, ctx)
+}
+
 func UpdateRoleBindingForGroup(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -285,6 +400,11 @@ func UpdateRoleBindingForGroup(c *gin.Context) {
 		ctx.UnAuthorized = true
 		return
 	}
+
+	UpdateRoleBindingForGroupImpl(c, ctx)
+}
+
+func UpdateRoleBindingForGroupImpl(c *gin.Context, ctx *internalhandler.Context) {
 
 	data, err := c.GetRawData()
 	if err != nil {
@@ -348,6 +468,19 @@ func UpdateRoleBindingForGroup(c *gin.Context) {
 	ctx.Err = permission.UpdateRoleBindingForUserGroup(groupID, projectName, args.Roles, ctx.Logger)
 }
 
+func OpenAPIDeleteRoleBindingForGroup(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	ctx.UserName = ctx.UserName + "(openAPI)"
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+	DeleteRoleBindingForGroupImpl(c, ctx)
+}
+
 func DeleteRoleBindingForGroup(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -357,6 +490,10 @@ func DeleteRoleBindingForGroup(c *gin.Context) {
 		ctx.UnAuthorized = true
 		return
 	}
+	DeleteRoleBindingForGroupImpl(c, ctx)
+}
+
+func DeleteRoleBindingForGroupImpl(c *gin.Context, ctx *internalhandler.Context) {
 
 	data, err := c.GetRawData()
 	if err != nil {
