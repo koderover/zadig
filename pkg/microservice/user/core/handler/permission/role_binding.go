@@ -19,12 +19,12 @@ package permission
 import (
 	"bytes"
 	"fmt"
-	userhandler "github.com/koderover/zadig/v2/pkg/microservice/user/core/handler/user"
 	"io"
 	"strings"
 
 	"github.com/gin-gonic/gin"
 
+	userhandler "github.com/koderover/zadig/v2/pkg/microservice/user/core/handler/user"
 	"github.com/koderover/zadig/v2/pkg/microservice/user/core/service/permission"
 	"github.com/koderover/zadig/v2/pkg/microservice/user/core/service/user"
 	"github.com/koderover/zadig/v2/pkg/setting"

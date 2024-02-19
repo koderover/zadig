@@ -334,7 +334,6 @@ func DeleteRole(c *gin.Context) {
 }
 
 func DeleteRoleImpl(c *gin.Context, ctx *internalhandler.Context) {
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	name := c.Param("name")
 	projectName := c.Query("namespace")
