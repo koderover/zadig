@@ -18,11 +18,12 @@ package permission
 
 import (
 	"fmt"
+
 	"github.com/gin-gonic/gin"
-	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/user/core/service/permission"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
+	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 )
 
 func OpenAPIGetResourceActionDefinitions(c *gin.Context) {
