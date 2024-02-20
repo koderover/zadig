@@ -195,20 +195,26 @@ func OpenAPIListUsersBrief(c *gin.Context) {
 		return
 	}
 
-	args := &user.QueryArgs{}
-	if err := c.ShouldBindJSON(args); err != nil {
+	args := &user.OpenAPIQueryArgs{}
+	if err := c.ShouldBindQuery(args); err != nil {
 		ctx.Err = err
 		return
 	}
 
+	tarnsArg := &user.QueryArgs{
+		Page:    args.PageNum,
+		PerPage: args.PageSize,
+		Account: args.Account,
+	}
+
 	var resp *types.UsersResp
 	if len(args.Account) > 0 {
-		if len(args.IdentityType) == 0 {
-			args.IdentityType = config.SystemIdentityType
+		if len(tarnsArg.IdentityType) == 0 {
+			tarnsArg.IdentityType = config.SystemIdentityType
 		}
-		resp, err = user.SearchUserByAccount(args, ctx.Logger)
+		resp, err = user.SearchUserByAccount(tarnsArg, ctx.Logger)
 	} else {
-		resp, err = user.SearchUsers(args, ctx.Logger)
+		resp, err = user.SearchUsers(tarnsArg, ctx.Logger)
 	}
 
 	if err != nil {

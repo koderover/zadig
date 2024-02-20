@@ -62,13 +62,19 @@ type UpdateUserInfo struct {
 	Phone string `json:"phone,omitempty"`
 }
 
+type OpenAPIQueryArgs struct {
+	PageNum  int    `json:"page_num,omitempty" form:"pageNum"`
+	PageSize int    `json:"page_size,omitempty" form:"pageSize"`
+	Account  string `json:"account,omitempty" form:"account"`
+}
+
 type QueryArgs struct {
 	Name         string   `json:"name,omitempty"`
-	Account      string   `json:"account,omitempty"`
+	Account      string   `json:"account,omitempty" form:"account"`
 	IdentityType string   `json:"identity_type,omitempty"`
 	UIDs         []string `json:"uids,omitempty"`
-	PerPage      int      `json:"per_page,omitempty"`
-	Page         int      `json:"page,omitempty"`
+	PerPage      int      `json:"per_page,omitempty" form:"perPage"`
+	Page         int      `json:"page,omitempty" form:"page"`
 }
 
 type Password struct {
