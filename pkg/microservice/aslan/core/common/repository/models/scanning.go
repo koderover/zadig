@@ -27,6 +27,7 @@ import (
 type Scanning struct {
 	ID          primitive.ObjectID `bson:"_id,omitempty" json:"id,omitempty"`
 	Name        string             `bson:"name"          json:"name"`
+	TemplateID  string             `bson:"template_id"   json:"template_id"`
 	ProjectName string             `bson:"project_name"  json:"project_name"`
 	Description string             `bson:"description"   json:"description"`
 	ScannerType string             `bson:"scanner_type"  json:"scanner_type"`

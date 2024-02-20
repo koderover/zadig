@@ -138,6 +138,29 @@ func (j *ScanningJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		if err != nil {
 			return resp, fmt.Errorf("find scanning: %s error: %v", scanning.Name, err)
 		}
+
+		// if a scanning uses template, we use the information in the template
+		if len(scanningInfo.TemplateID) != 0 {
+			templateInfo, err := commonrepo.NewScanningTemplateColl().Find(&commonrepo.ScanningTemplateQueryOption{
+				ID: scanningInfo.TemplateID,
+			})
+			if err != nil {
+				log.Errorf("failed to get scanning template from mongodb, the error is: %s", err)
+				return nil, err
+			}
+
+			scanningInfo.ScannerType = templateInfo.ScannerType
+			scanningInfo.EnableScanner = templateInfo.EnableScanner
+			scanningInfo.ImageID = templateInfo.ImageID
+			scanningInfo.SonarID = templateInfo.SonarID
+			scanningInfo.Installs = templateInfo.Installs
+			scanningInfo.Parameter = templateInfo.Parameter
+			scanningInfo.Envs = templateInfo.Envs
+			scanningInfo.Script = templateInfo.Script
+			scanningInfo.AdvancedSetting = templateInfo.AdvancedSetting
+			scanningInfo.CheckQualityGate = templateInfo.CheckQualityGate
+		}
+
 		basicImage, err := commonrepo.NewBasicImageColl().Find(scanningInfo.ImageID)
 		if err != nil {
 			return resp, fmt.Errorf("find basic image: %s error: %v", scanningInfo.ImageID, err)

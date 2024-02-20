@@ -84,4 +84,14 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		workflow.GET("/:id", GetWorkflowTemplateByID)
 		workflow.DELETE("/:id", DeleteWorkflowTemplateByID)
 	}
+
+	scanning := router.Group("scanning")
+	{
+		scanning.POST("", CreateScanningTemplate)
+		scanning.PUT("/:id", UpdateScanningTemplate)
+		scanning.GET("", ListScanningTemplates)
+		scanning.GET("/:id", GetScanningTemplate)
+		scanning.DELETE("/:id", DeleteScanningTemplate)
+		scanning.GET("/:id/reference", GetScanningTemplateReference)
+	}
 }

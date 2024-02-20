@@ -22,7 +22,6 @@ import (
 	"go.uber.org/zap"
 
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/template"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
@@ -56,15 +55,15 @@ func AddBuildTemplate(userName string, build *commonmodels.BuildTemplate, logger
 }
 
 func GetBuildTemplateByName(name string) (*commonmodels.BuildTemplate, error) {
-	return mongodb.NewBuildTemplateColl().Find(&commonrepo.BuildTemplateQueryOption{Name: name})
+	return commonrepo.NewBuildTemplateColl().Find(&commonrepo.BuildTemplateQueryOption{Name: name})
 }
 
 func GetBuildTemplateByID(idStr string) (*commonmodels.BuildTemplate, error) {
-	return mongodb.NewBuildTemplateColl().Find(&commonrepo.BuildTemplateQueryOption{ID: idStr})
+	return commonrepo.NewBuildTemplateColl().Find(&commonrepo.BuildTemplateQueryOption{ID: idStr})
 }
 
 func ListBuildTemplates(pageNum, pageSize int) (*BuildTemplateListResp, error) {
-	buildTemplates, count, err := mongodb.NewBuildTemplateColl().List(pageNum, pageSize)
+	buildTemplates, count, err := commonrepo.NewBuildTemplateColl().List(pageNum, pageSize)
 	if err != nil {
 		return nil, err
 	}
@@ -87,7 +86,7 @@ func RemoveBuildTemplate(id string, logger *zap.SugaredLogger) error {
 	}
 
 	// when template build is used by particular builds, this template can't be deleted
-	usedModules, err := mongodb.NewBuildColl().List(&commonrepo.BuildListOption{
+	usedModules, err := commonrepo.NewBuildColl().List(&commonrepo.BuildListOption{
 		TemplateID: id,
 	})
 	if err != nil {
@@ -97,7 +96,7 @@ func RemoveBuildTemplate(id string, logger *zap.SugaredLogger) error {
 		return fmt.Errorf("template build has beed used, can't be deleted")
 	}
 
-	err = mongodb.NewBuildTemplateColl().DeleteByID(id)
+	err = commonrepo.NewBuildTemplateColl().DeleteByID(id)
 	if err != nil {
 		logger.Errorf("Failed to delete build template %s, err: %s", id, err)
 		return err
@@ -109,11 +108,11 @@ func UpdateBuildTemplate(id string, buildTemplate *commonmodels.BuildTemplate, l
 	_, err := commonrepo.NewBuildTemplateColl().Find(&commonrepo.BuildTemplateQueryOption{
 		ID: id,
 	})
-	if err := commonutil.CheckDefineResourceParam(buildTemplate.PreBuild.ResReq, buildTemplate.PreBuild.ResReqSpec); err != nil {
-		return e.ErrCreateBuildModule.AddDesc(err.Error())
-	}
 	if err != nil {
 		return err
+	}
+	if err := commonutil.CheckDefineResourceParam(buildTemplate.PreBuild.ResReq, buildTemplate.PreBuild.ResReqSpec); err != nil {
+		return e.ErrCreateBuildModule.AddDesc(err.Error())
 	}
 	return commonrepo.NewBuildTemplateColl().Update(id, buildTemplate)
 }

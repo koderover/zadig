@@ -422,3 +422,19 @@ func GetJenkinsJobContainerLogsSSE(c *gin.Context) {
 		logservice.JenkinsJobLogStream(ctx1, c.Param("id"), c.Param("jobName"), jobID, streamChan)
 	}, ctx.Logger)
 }
+
+func OpenAPIGetContainerLogsSSE(c *gin.Context) {
+	logger := ginzap.WithContext(c).Sugar()
+
+	tails, err := strconv.ParseInt(c.Query("tails"), 10, 64)
+	if err != nil {
+		tails = int64(10)
+	}
+
+	envName := c.Query("envName")
+	productName := c.Query("projectKey")
+
+	internalhandler.Stream(c, func(ctx context.Context, streamChan chan interface{}) {
+		logservice.ContainerLogStream(ctx, streamChan, envName, productName, c.Param("podName"), c.Param("containerName"), true, tails, logger)
+	}, logger)
+}

@@ -1325,3 +1325,326 @@ func OpenAPIRestartService(c *gin.Context) {
 
 	ctx.Err = service.OpenAPIRestartService(projectName, envName, serviceName, ctx.Logger)
 }
+
+func OpenAPICheckWorkloadsK8sServices(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectKey, envName, err := generalOpenAPIRequestValidate(c)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].Env.EditConfig {
+			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionEditConfig)
+			if err != nil || !permitted {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
+	}
+
+	ctx.Resp, ctx.Err = service.CheckWorkloadsK8sServices(c, envName, projectKey)
+}
+
+func OpenAPIEnableBaseEnv(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectKey, envName, err := generalOpenAPIRequestValidate(c)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "OpenAPI-开启自测模式", "环境", envName, "", ctx.Logger, envName)
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].Env.EditConfig {
+			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionEditConfig)
+			if err != nil || !permitted {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
+	}
+
+	err = commonutil.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+
+	ctx.Err = service.EnableBaseEnv(c, envName, projectKey)
+}
+
+func OpenAPIDsiableBaseEnv(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectKey, envName, err := generalOpenAPIRequestValidate(c)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv,
+		"OpenAPI-关闭自测模式", "环境", envName,
+		"", ctx.Logger, envName)
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].Env.EditConfig {
+			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionEditConfig)
+			if err != nil || !permitted {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
+	}
+
+	err = commonutil.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+
+	ctx.Err = service.DisableBaseEnv(c, envName, projectKey)
+}
+
+type OpenAPIShareEnvReadyResponse struct {
+	IsReady bool                       `json:"is_ready"`
+	Checks  OpenAPIShareEnvReadyChecks `json:"checks"`
+}
+
+type OpenAPIShareEnvReadyChecks struct {
+	NamespaceHasIstioLabel  bool `json:"namespace_has_istio_label"`
+	VirtualServicesDeployed bool `json:"virtualservice_deployed"`
+	PodsHaveIstioProxy      bool `json:"pods_have_istio_proxy"`
+	WorkloadsReady          bool `json:"workloads_ready"`
+	WorkloadsHaveK8sService bool `json:"workloads_have_k8s_service"`
+}
+
+func OpenAPICheckShareEnvReady(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectKey, envName, err := generalOpenAPIRequestValidate(c)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].Env.EditConfig {
+			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionEditConfig)
+			if err != nil || !permitted {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
+	}
+
+	origResp, err := service.CheckShareEnvReady(c, envName, c.Param("op"), projectKey)
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+
+	resp := OpenAPIShareEnvReadyResponse{
+		IsReady: origResp.IsReady,
+		Checks: OpenAPIShareEnvReadyChecks{
+			NamespaceHasIstioLabel:  origResp.Checks.NamespaceHasIstioLabel,
+			VirtualServicesDeployed: origResp.Checks.VirtualServicesDeployed,
+			PodsHaveIstioProxy:      origResp.Checks.PodsHaveIstioProxy,
+			WorkloadsReady:          origResp.Checks.WorkloadsReady,
+			WorkloadsHaveK8sService: origResp.Checks.WorkloadsHaveK8sService,
+		},
+	}
+	ctx.Resp = resp
+
+	return
+}
+
+type OpenAPIGetPortalServiceResponse struct {
+	DefaultGatewayAddress string                           `json:"default_gateway_address"`
+	Servers               []OpenAPISetPortalServiceRequest `json:"servers"`
+}
+
+func OpenAPIGetPortalService(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectKey, envName, err := generalOpenAPIRequestValidate(c)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	serviceName := c.Param("serviceName")
+	if serviceName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("serviceName is empty")
+		return
+	}
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].Env.EditConfig {
+			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionEditConfig)
+			if err != nil || !permitted {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
+	}
+
+	origResp, err := service.GetPortalService(c, projectKey, envName, serviceName)
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+
+	resp := OpenAPIGetPortalServiceResponse{
+		DefaultGatewayAddress: origResp.DefaultGatewayAddress,
+		Servers:               []OpenAPISetPortalServiceRequest{},
+	}
+	for _, r := range origResp.Servers {
+		resp.Servers = append(resp.Servers, OpenAPISetPortalServiceRequest{
+			Host:         r.Host,
+			PortNumber:   r.PortNumber,
+			PortProtocol: r.PortProtocol,
+		})
+	}
+
+	return
+}
+
+type OpenAPISetPortalServiceRequest struct {
+	Host         string `json:"host"`
+	PortNumber   uint32 `json:"port_number"`
+	PortProtocol string `json:"port_protocol"`
+}
+
+func OpenAPISetPortalService(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectKey, envName, err := generalOpenAPIRequestValidate(c)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	serviceName := c.Param("serviceName")
+	if serviceName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("serviceName is empty")
+		return
+	}
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].Env.EditConfig {
+			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionEditConfig)
+			if err != nil || !permitted {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
+	}
+
+	req := []OpenAPISetPortalServiceRequest{}
+	err = c.ShouldBindJSON(&req)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	origReq := []service.SetupPortalServiceRequest{}
+	for _, r := range req {
+		origReq = append(origReq, service.SetupPortalServiceRequest{
+			Host:         r.Host,
+			PortNumber:   r.PortNumber,
+			PortProtocol: r.PortProtocol,
+		})
+	}
+
+	err = commonutil.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+
+	ctx.Err = service.SetupPortalService(c, projectKey, envName, serviceName, origReq)
+	return
+}
