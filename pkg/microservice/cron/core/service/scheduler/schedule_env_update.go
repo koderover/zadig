@@ -64,20 +64,30 @@ func (c *CronClient) UpsertEnvValueSyncScheduler(log *zap.SugaredLogger) {
 		}
 
 		envKey := buildEnvNameKey(env)
+		c.lastEnvSchedulerDataRWMutex.Lock()
 		if lastEnvData, ok := c.lastEnvSchedulerData[envKey]; ok {
 			// render not changed, no need to update scheduler
 			if lastEnvData.UpdateTime == envObj.UpdateTime {
+				c.lastEnvSchedulerDataRWMutex.Unlock()
 				continue
 			}
 		}
 		c.lastEnvSchedulerData[envKey] = envObj
-		if _, ok := c.SchedulerController[envKey]; ok {
-			c.SchedulerController[envKey] <- true
+		c.lastEnvSchedulerDataRWMutex.Unlock()
+
+		c.SchedulerControllerRWMutex.Lock()
+		sc, ok := c.SchedulerController[envKey]
+		c.SchedulerControllerRWMutex.Unlock()
+		if ok {
+			sc <- true
 		}
+
+		c.SchedulersRWMutex.Lock()
 		if _, ok := c.Schedulers[envKey]; ok {
 			c.Schedulers[envKey].Clear()
 			delete(c.Schedulers, envKey)
 		}
+		c.SchedulersRWMutex.Unlock()
 
 		if !needCreateProdSchedule(envObj) {
 			continue
@@ -85,9 +95,14 @@ func (c *CronClient) UpsertEnvValueSyncScheduler(log *zap.SugaredLogger) {
 
 		newScheduler := gocron.NewScheduler()
 		newScheduler.Every(EnvUpdateInterval).Seconds().Do(c.RunScheduledEnvUpdate, env.ProductName, env.EnvName, log)
+		c.SchedulersRWMutex.Lock()
 		c.Schedulers[envKey] = newScheduler
+		c.SchedulersRWMutex.Unlock()
+
 		log.Infof("[%s] add schedulers..", envKey)
+		c.SchedulerControllerRWMutex.Lock()
 		c.SchedulerController[envKey] = c.Schedulers[envKey].Start()
+		c.SchedulerControllerRWMutex.Unlock()
 	}
 }
 

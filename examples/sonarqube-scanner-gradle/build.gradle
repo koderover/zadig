@@ -1,0 +1,60 @@
+plugins {
+    id "jacoco"
+    id "java"
+    id "application"
+    id("org.sonarqube") version "4.3.0.3225"
+}
+
+description = 'Example of Sonar Scanner for Gradle Usage'
+version = '1.0'
+
+sonar {
+    properties {
+        property('sonar.projectName', 'Example of SonarQube Scanner for Gradle Usage')
+        property("sonar.projectKey", "sonarqube-scanner-gradle")
+        property("sonar.sources", "src/main")
+        property "sonar.tests", "src/test"
+    }
+}
+
+// In this section you declare where to find the dependencies of your project
+repositories {
+    // Use jcenter for resolving your dependencies.
+    // You can declare any Maven/Ivy/file repository here.
+    mavenCentral()
+}
+
+dependencies {
+    // This dependency is found on compile classpath of this component and consumers.
+    implementation 'com.google.guava:guava:31.1-jre'
+
+    // Use JUnit test framework
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.9.2'
+    implementation 'org.junit.jupiter:junit-jupiter:5.9.2'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+// Apply a specific Java toolchain to ease working on different environments.
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+    sourceSets.main.java.srcDirs = ['src']
+}
+
+application {
+    // Define the main class for the application.
+    mainClass='com.acme.App'
+}
+
+test {
+    // Use JUnit Platform for unit tests.
+    useJUnitPlatform()
+}
+
+jacocoTestReport {
+    reports {
+        xml.required = true
+        html.outputLocation = layout.buildDirectory.dir('jacocoHtml')
+    }
+}

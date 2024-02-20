@@ -20,11 +20,11 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/gin-gonic/gin"
 	"io"
 
-	"github.com/gin-gonic/gin"
-
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
+	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/service"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
@@ -96,9 +96,137 @@ func OpenAPIListRegistry(c *gin.Context) {
 	ctx.Resp = resp
 }
 
+func OpenAPIGetRegistry(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		ctx.UnAuthorized = true
+		return
+	}
+
+	registry, _, err := commonservice.FindRegistryById(c.Param("id"), true, ctx.Logger)
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+
+	ret := &service.OpenAPIRegistry{
+		ID:        registry.ID.Hex(),
+		Address:   registry.RegAddr,
+		Provider:  config.RegistryProvider(registry.RegProvider),
+		Region:    registry.Region,
+		IsDefault: registry.IsDefault,
+		Namespace: registry.Namespace,
+	}
+	ctx.Resp = ret
+}
+
+func OpenAPIUpdateRegistry(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		ctx.UnAuthorized = true
+		return
+	}
+
+	registryInfo, _, err := commonservice.FindRegistryById(c.Param("id"), true, ctx.Logger)
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+
+	args := new(service.OpenAPIRegistry)
+
+	if err := c.BindJSON(args); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	registryInfo.RegAddr = args.Address
+	registryInfo.Namespace = args.Namespace
+	registryInfo.RegProvider = string(args.Provider)
+	registryInfo.Region = args.Region
+	registryInfo.IsDefault = args.IsDefault
+
+	if err := registryInfo.Validate(); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+	if err := registryInfo.LicenseValidate(); err != nil {
+		ctx.Err = err
+		return
+	}
+
+	internalhandler.InsertOperationLog(c, ctx.UserName+"(openAPI)", "", "更新", "资源配置-镜像仓库", c.Param("id"), "", ctx.Logger)
+	ctx.Err = service.UpdateRegistryNamespace(ctx.UserName, c.Param("id"), registryInfo, ctx.Logger)
+}
+
 func OpenAPIListCluster(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	ctx.Resp, ctx.Err = service.OpenAPIListCluster(c.Query("projectName"), ctx.Logger)
+}
+
+func OpenAPIUpdateCluster(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		ctx.UnAuthorized = true
+		return
+	}
+
+	args := new(service.OpenAPICluster)
+	if err := c.BindJSON(args); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		log.Errorf("Failed to bind data: %s", err)
+		return
+	}
+	internalhandler.InsertOperationLog(c, ctx.UserName+"(openAPI)", "", "更新", "资源配置-集群", c.Param("id"), "", ctx.Logger)
+
+	ctx.Err = service.OpenAPIUpdateCluster(ctx.UserName, c.Param("id"), args, ctx.Logger)
+}
+
+func OpenAPIDeleteCluster(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		ctx.UnAuthorized = true
+		return
+	}
+
+	internalhandler.InsertOperationLog(c, ctx.UserName+"(openAPI)", "", "删除", "资源配置-集群", c.Param("id"), "", ctx.Logger)
+	ctx.Err = service.OpenAPIDeleteCluster(ctx.UserName, c.Param("id"), ctx.Logger)
 }

@@ -35,14 +35,23 @@ func buildEnvResourceCronKey(envResource *service.EnvResource) string {
 
 func (c *CronClient) deleteEnvResourceScheduler(envResourceKey string) {
 	log.Infof("deleting single env resource scheduler: %s", envResourceKey)
-	if _, ok := c.SchedulerController[envResourceKey]; ok {
-		c.SchedulerController[envResourceKey] <- true
+
+	c.SchedulerControllerRWMutex.Lock()
+	sc, ok := c.SchedulerController[envResourceKey]
+	c.SchedulerControllerRWMutex.Unlock()
+	if ok {
+		sc <- true
+		c.SchedulerControllerRWMutex.Lock()
 		delete(c.SchedulerController, envResourceKey)
+		c.SchedulerControllerRWMutex.Unlock()
 	}
+
+	c.SchedulersRWMutex.Lock()
 	if _, ok := c.Schedulers[envResourceKey]; ok {
 		c.Schedulers[envResourceKey].Clear()
 		delete(c.Schedulers, envResourceKey)
 	}
+	c.SchedulersRWMutex.Unlock()
 }
 
 func (c *CronClient) UpsertEnvResourceSyncScheduler(log *zap.SugaredLogger) {
@@ -55,9 +64,11 @@ func (c *CronClient) UpsertEnvResourceSyncScheduler(log *zap.SugaredLogger) {
 	log.Info("start init env resource sync scheduler.")
 
 	lastScheduler := sets.NewString()
+	c.lastEnvResourceSchedulerDataRWMutex.RLock()
 	for k := range c.lastEnvResourceSchedulerData {
 		lastScheduler.Insert(k)
 	}
+	c.lastEnvResourceSchedulerDataRWMutex.RUnlock()
 
 	for _, env := range envs {
 		envResources, err := c.AslanCli.ListEnvResources(env.ProductName, env.EnvName, log)
@@ -71,12 +82,14 @@ func (c *CronClient) UpsertEnvResourceSyncScheduler(log *zap.SugaredLogger) {
 
 			lastScheduler.Delete(envResourceKey)
 
+			c.lastEnvResourceSchedulerDataRWMutex.Lock()
 			if lastEnvResConfig, ok := c.lastEnvResourceSchedulerData[envResourceKey]; ok {
 				if envResource.CreateTime == lastEnvResConfig.CreateTime {
 					continue
 				}
 			}
 			c.lastEnvResourceSchedulerData[envResourceKey] = envResource
+			c.lastEnvResourceSchedulerDataRWMutex.Unlock()
 
 			c.deleteEnvResourceScheduler(envResourceKey)
 
@@ -84,15 +97,22 @@ func (c *CronClient) UpsertEnvResourceSyncScheduler(log *zap.SugaredLogger) {
 			newScheduler.Every(EnvUpdateInterval).Seconds().Do(c.RunScheduledEnvResourceUpdate, envResource.ProductName, envResource.EnvName, envResource.Type, envResource.Name, log)
 
 			log.Infof("[%s] add env resource schedulers..", envResourceKey)
+			c.SchedulersRWMutex.Lock()
 			c.Schedulers[envResourceKey] = newScheduler
+			c.SchedulersRWMutex.Unlock()
+
+			c.SchedulerControllerRWMutex.Lock()
 			c.SchedulerController[envResourceKey] = c.Schedulers[envResourceKey].Start()
+			c.SchedulerControllerRWMutex.Unlock()
 		}
 
 	}
 
 	for _, k := range lastScheduler.List() {
 		c.deleteEnvResourceScheduler(k)
+		c.lastEnvResourceSchedulerDataRWMutex.Lock()
 		delete(c.lastEnvResourceSchedulerData, k)
+		c.lastEnvResourceSchedulerDataRWMutex.Unlock()
 	}
 }
 

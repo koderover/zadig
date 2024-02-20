@@ -130,7 +130,7 @@ func (s *ToolInstallStep) runIntallationScripts(tool *step.Tool) error {
 		scripts = append(scripts, disProxyScript)
 	}
 	uid, _ := uuid.NewUUID()
-	file := filepath.Join(os.TempDir(), fmt.Sprintf("install_script_%d.sh", uid))
+	file := filepath.Join(os.TempDir(), fmt.Sprintf("install_script_%d.sh", uid.ID()))
 	if err := ioutil.WriteFile(file, []byte(strings.Join(scripts, "\n")), 0700); err != nil {
 		return fmt.Errorf("write script file error: %v", err)
 	}

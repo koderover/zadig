@@ -17,12 +17,6 @@ API 网关：
 Zadig 核心业务：
 - Aslan：项目，环境，服务，工作流，构建配置，系统配置等系统功能
 - Workflow Runner：
-  - warpdrive：工作流引擎，负责 reaper、predator 实例的创建销毁等管理操作
-  - reaper：负责执行单个工作流作业中的构建、测试等任务
-  - predator：负责执行单个工作流作业中的镜像分发任务
-  - plugins：工作流插件
-    - Jenkins-plugin: 用于触发 Jenkins Job，显示状态和结果等
-- Custom Workflow Runner：
   - job-executor：用于在 K8s Pod 上执行自定义工作流任务的组件
   - Job-agent: 用于在虚拟机上执行自定义工作流任务的组件
 - Cron：定时任务，包括环境的回收，K8s 资源的清理等

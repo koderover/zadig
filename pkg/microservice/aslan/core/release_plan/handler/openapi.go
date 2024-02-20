@@ -21,6 +21,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/release_plan/service"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
@@ -53,6 +54,12 @@ func OpenAPIListReleasePlans(c *gin.Context) {
 		return
 	}
 
+	err = commonutil.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+
 	ctx.Resp, ctx.Err = service.OpenAPIListReleasePlans(opt.PageNum, opt.PageSize)
 }
 
@@ -71,6 +78,12 @@ func OpenAPIGetReleasePlan(c *gin.Context) {
 	//	ctx.UnAuthorized = true
 	//	return
 	//}
+
+	err = commonutil.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
+		return
+	}
 
 	ctx.Resp, ctx.Err = service.OpenAPIGetReleasePlan(c.Param("id"))
 }
@@ -94,6 +107,12 @@ func OpenAPICreateReleasePlan(c *gin.Context) {
 	opt := new(service.OpenAPICreateReleasePlanArgs)
 	if err := c.ShouldBindJSON(&opt); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		return
+	}
+
+	err = commonutil.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
 		return
 	}
 

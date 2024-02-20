@@ -134,7 +134,7 @@ func (c *BlueGreenDeployV2JobCtl) run(ctx context.Context) error {
 		return errors.New(msg)
 	}
 	for _, pod := range pods {
-		addlabelPatch := fmt.Sprintf(`{"metadata":{"labels":{"%s":"%s"}}}`, config.BlueGreenVerionLabelName, config.OriginVersion)
+		addlabelPatch := fmt.Sprintf(`{"metadata":{"labels":{"%s":"%s"}}}`, config.BlueGreenVersionLabelName, config.OriginVersion)
 		if err := updater.PatchPod(c.namespace, pod.Name, []byte(addlabelPatch), c.kubeClient); err != nil {
 			msg := fmt.Sprintf("add origin label to pod error: %v", err)
 			logError(c.job, msg, c.logger)
@@ -146,7 +146,7 @@ func (c *BlueGreenDeployV2JobCtl) run(ctx context.Context) error {
 	c.ack()
 
 	// green service selector add original version label
-	greenService.Spec.Selector[config.BlueGreenVerionLabelName] = config.OriginVersion
+	greenService.Spec.Selector[config.BlueGreenVersionLabelName] = config.OriginVersion
 	if err := updater.CreateOrPatchService(greenService, c.kubeClient); err != nil {
 		msg := fmt.Sprintf("add origin label selector to green serivce: %s error: %v", greenService.Name, err)
 		logError(c.job, msg, c.logger)

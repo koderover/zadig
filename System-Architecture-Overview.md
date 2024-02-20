@@ -17,12 +17,6 @@ API Gateway:
 Zadig Core:
 - Aslan: main service for all business logic. Project, environment, service, workflow, build, system management are all in this service.
 - Workflow Runner:
-  - warpdrive: workflow engine, manages reaper and predator
-  - reaper: workflow runner. Used for building, testing tasks. 
-  - predator: workflow runner. Used for distribute tasks.
-  - plugins: workflow plugins
-    - Jenkins-plugin: workflow runner. Used as connector to trigger Jenkins job and retrieve job information.
-- Custom Workflow Runner:
   - job-executor: workflow runner used to execute custom tasks on pods
   - Job-agent: workflow runner used to execute custom tasks on VMs
 - cron: cronjob runner

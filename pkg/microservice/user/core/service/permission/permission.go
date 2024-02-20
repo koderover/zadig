@@ -28,7 +28,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/user/core/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/microservice/user/core/repository/orm"
 	"github.com/koderover/zadig/v2/pkg/microservice/user/core/service/user"
-	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/types"
 )
@@ -44,38 +43,33 @@ type GetUserRulesByProjectResp struct {
 func GetUserPermissionByProject(uid, projectName string, log *zap.SugaredLogger) (*GetUserRulesByProjectResp, error) {
 	projectVerbSet := sets.NewString()
 
-	tx := repository.DB.Begin()
 	groupIDList := make([]string, 0)
 	// find the user groups this uid belongs to, if none it is ok
-	groups, err := orm.ListUserGroupByUID(uid, tx)
+	groups, err := user.GetUserGroupByUID(uid)
 	if err != nil {
-		tx.Rollback()
 		log.Errorf("failed to find user group for user: %s, error: %s", uid, err)
 		return nil, fmt.Errorf("failed to get user permission, cannot find the user group for user, error: %s", err)
 	}
 
-	for _, group := range groups {
-		groupIDList = append(groupIDList, group.GroupID)
+	for _, groupID := range groups {
+		groupIDList = append(groupIDList, groupID)
 	}
 
-	allUserGroup, err := orm.GetAllUserGroup(tx)
-	if err != nil || allUserGroup.GroupID == "" {
-		tx.Rollback()
+	allUserGroup, err := user.GetAllUserGroup()
+	if err != nil || allUserGroup == "" {
 		log.Errorf("failed to find user group for %s, error: %s", "所有用户", err)
 		return nil, fmt.Errorf("failed to find user group for %s, error: %s", "所有用户", err)
 	}
 
-	groupIDList = append(groupIDList, allUserGroup.GroupID)
+	groupIDList = append(groupIDList, allUserGroup)
 
 	// first find if the user is the system admin
-	isSystemAdmin, err := checkUserIsSystemAdmin(uid, tx)
+	isSystemAdmin, err := checkUserIsSystemAdmin(uid, repository.DB)
 	if err != nil {
-		tx.Rollback()
 		return nil, err
 	}
 
 	if isSystemAdmin {
-		tx.Commit()
 		return &GetUserRulesByProjectResp{
 			IsSystemAdmin: true,
 		}, nil
@@ -86,24 +80,24 @@ func GetUserPermissionByProject(uid, projectName string, log *zap.SugaredLogger)
 
 	// deal with the roles next
 	// firstly, user itself.
-	roles, err := orm.ListRoleByUIDAndNamespace(uid, projectName, tx)
+	roles, err := ListRoleByUID(uid)
 	if err != nil {
-		tx.Rollback()
 		log.Errorf("failed to find role for user: %s in project: %s, error: %s", uid, projectName, err)
 		return nil, fmt.Errorf("failed to find role for user: %s in project: %s, error: %s", uid, projectName, err)
 	}
 
 	for _, role := range roles {
+		if role.Namespace != projectName {
+			continue
+		}
 		// if the user has project admin role,
 		if role.Name == ProjectAdminRole {
-			tx.Commit()
 			return &GetUserRulesByProjectResp{
 				IsProjectAdmin: true,
 			}, nil
 		}
-		actions, err := orm.ListActionByRole(role.ID, repository.DB)
+		actions, err := ListActionByRole(role.ID)
 		if err != nil {
-			tx.Rollback()
 			log.Errorf("failed to find action bindings for role: %s, error: %s", role.Name, err)
 			return nil, fmt.Errorf("failed to find action bindings for role: %s, error: %s", role.Name, err)
 		}
@@ -112,23 +106,29 @@ func GetUserPermissionByProject(uid, projectName string, log *zap.SugaredLogger)
 		}
 
 		for _, action := range actions {
-			projectVerbSet.Insert(action.Action)
-			roleActionMap[role.ID].Insert(action.Action)
+			projectVerbSet.Insert(action)
+			roleActionMap[role.ID].Insert(action)
 		}
 	}
 
 	// after dealing with the user's groups role bindings
-	groupRoles, err := orm.ListRoleByGroupIDsAndNamespace(groupIDList, projectName, tx)
-	if err != nil {
-		tx.Rollback()
-		log.Errorf("failed to find role for user's group for user: %s in project: %s, error: %s", uid, projectName, err)
-		return nil, fmt.Errorf("failed to find role for user's group for user: %s in project: %s, error: %s", uid, projectName, err)
+	groupRoleMap := make(map[uint]*types.Role)
+
+	for _, gid := range groupIDList {
+		groupRoles, err := ListRoleByGID(gid)
+		if err != nil {
+			log.Errorf("failed to find role for user's group for user: %s in project: %s, error: %s", uid, projectName, err)
+			return nil, fmt.Errorf("failed to find role for user's group for user: %s in project: %s, error: %s", uid, projectName, err)
+		}
+
+		for _, role := range groupRoles {
+			groupRoleMap[role.ID] = role
+		}
 	}
 
-	for _, role := range groupRoles {
+	for _, role := range groupRoleMap {
 		// if the user's group has project admin role,
 		if role.Name == ProjectAdminRole {
-			tx.Commit()
 			return &GetUserRulesByProjectResp{
 				IsProjectAdmin: true,
 			}, nil
@@ -140,7 +140,6 @@ func GetUserPermissionByProject(uid, projectName string, log *zap.SugaredLogger)
 
 		actions, err := orm.ListActionByRole(role.ID, repository.DB)
 		if err != nil {
-			tx.Rollback()
 			log.Errorf("failed to find action bindings for role: %s, error: %s", role.Name, err)
 			return nil, fmt.Errorf("failed to find action bindings for role: %s, error: %s", role.Name, err)
 		}
@@ -155,7 +154,6 @@ func GetUserPermissionByProject(uid, projectName string, log *zap.SugaredLogger)
 	// finally check the collaboration instance, set all the permission granted by collaboration instance to the corresponding map
 	collaborationInstance, err := mongodb.NewCollaborationInstanceColl().FindInstance(uid, projectName)
 	if err != nil {
-		tx.Commit()
 		// if no collaboration mode is found, simple ignore it, it is a warn level log, no necessarily an error.
 		log.Warnf("failed to find collaboration instance for user: %s, error: %s", uid, err)
 		return &GetUserRulesByProjectResp{
@@ -194,8 +192,6 @@ func GetUserPermissionByProject(uid, projectName string, log *zap.SugaredLogger)
 		envMap[env.Name] = envVerbs
 	}
 
-	tx.Commit()
-
 	return &GetUserRulesByProjectResp{
 		ProjectVerbs:        projectVerbSet.List(),
 		WorkflowVerbsMap:    workflowMap,
@@ -204,16 +200,14 @@ func GetUserPermissionByProject(uid, projectName string, log *zap.SugaredLogger)
 }
 
 type GetUserRulesResp struct {
-	IsSystemAdmin    bool                `json:"is_system_admin"`
-	ProjectAdminList []string            `json:"project_admin_list"`
-	ProjectVerbMap   map[string][]string `json:"project_verb_map"`
-	SystemVerbs      []string            `json:"system_verbs"`
+	IsSystemAdmin    bool     `json:"is_system_admin"`
+	ProjectAdminList []string `json:"project_admin_list"`
+	SystemVerbs      []string `json:"system_verbs"`
 }
 
 func GetUserRules(uid string, log *zap.SugaredLogger) (*GetUserRulesResp, error) {
 	var isSystemAdmin bool
 	projectAdminList := make([]string, 0)
-	tx := repository.DB.Begin()
 	// find the user groups this uid belongs to, if none it is ok
 	groupIDList, err := user.GetUserGroupByUID(uid)
 	if err != nil {
@@ -229,14 +223,11 @@ func GetUserRules(uid string, log *zap.SugaredLogger) (*GetUserRulesResp, error)
 
 	groupIDList = append(groupIDList, allUserGroupID)
 
-	projectVerbMap := make(map[string][]string)
 	systemVerbs := make([]string, 0)
 	roleActionMap := make(map[uint]sets.String)
 
-	// TODO: improve this with cache
-	roles, err := orm.ListRoleByUID(uid, tx)
+	roles, err := ListRoleByUID(uid)
 	if err != nil {
-		tx.Rollback()
 		log.Errorf("failed to list roles for uid: %s, error: %s", uid, err)
 		return nil, fmt.Errorf("failed to list roles for uid: %s, error: %s", uid, err)
 	}
@@ -253,7 +244,6 @@ func GetUserRules(uid string, log *zap.SugaredLogger) (*GetUserRulesResp, error)
 
 		actions, err := ListActionByRole(role.ID)
 		if err != nil {
-			tx.Rollback()
 			log.Errorf("failed to list action for role: %s in namespace %s, error: %s", role.Name, role.Namespace, err)
 			return nil, err
 		}
@@ -271,25 +261,24 @@ func GetUserRules(uid string, log *zap.SugaredLogger) (*GetUserRulesResp, error)
 			for _, action := range actions {
 				systemVerbs = append(systemVerbs, action)
 			}
-		default:
-			if _, ok := projectVerbMap[role.Namespace]; !ok {
-				projectVerbMap[role.Namespace] = make([]string, 0)
-			}
-			for _, action := range actions {
-				projectVerbMap[role.Namespace] = append(projectVerbMap[role.Namespace], action)
-			}
 		}
 	}
 
-	// TODO: improve this with cache
-	groupRoles, err := orm.ListRoleByGroupIDs(groupIDList, tx)
-	if err != nil {
-		tx.Rollback()
-		log.Errorf("failed to list user roles by group list for user: %s, error: %s", uid, err)
-		return nil, fmt.Errorf("failed to list user roles by group list for user: %s, error: %s", uid, err)
+	groupRoleMap := make(map[uint]*types.Role)
+
+	for _, gid := range groupIDList {
+		groupRoles, err := ListRoleByGID(gid)
+		if err != nil {
+			log.Errorf("failed to list user roles by group list for user: %s in group: %s, error: %s", uid, gid, err)
+			return nil, fmt.Errorf("failed to list user roles by group list for user: %s in group: %s, error: %s", uid, gid, err)
+		}
+
+		for _, role := range groupRoles {
+			groupRoleMap[role.ID] = role
+		}
 	}
 
-	for _, role := range groupRoles {
+	for _, role := range groupRoleMap {
 		// system admins
 		if role.Namespace == GeneralNamespace && role.Name == AdminRole {
 			isSystemAdmin = true
@@ -308,7 +297,6 @@ func GetUserRules(uid string, log *zap.SugaredLogger) (*GetUserRulesResp, error)
 
 		actions, err := ListActionByRole(role.ID)
 		if err != nil {
-			tx.Rollback()
 			log.Errorf("failed to find action bindings for role: %s, error: %s", role.Name, err)
 			return nil, fmt.Errorf("failed to find action bindings for role: %s, error: %s", role.Name, err)
 		}
@@ -318,46 +306,11 @@ func GetUserRules(uid string, log *zap.SugaredLogger) (*GetUserRulesResp, error)
 			for _, action := range actions {
 				systemVerbs = append(systemVerbs, action)
 			}
-		default:
-			if _, ok := projectVerbMap[role.Namespace]; !ok {
-				projectVerbMap[role.Namespace] = make([]string, 0)
-			}
-			for _, action := range actions {
-				projectVerbMap[role.Namespace] = append(projectVerbMap[role.Namespace], action)
-			}
 		}
 	}
 
-	for project := range projectVerbMap {
-		// collaboration mode is a special that does not have rule and verbs, we manually check if the user is permitted to
-		// get workflow and environment
-		workflowReadPermission, err := internalhandler.CheckPermissionGivenByCollaborationMode(uid, project, types.ResourceTypeWorkflow, types.WorkflowActionView)
-		if err != nil {
-			// there are cases where the users do not have any collaboration modes, hence no instances found
-			// in these cases we just ignore the error, and set permission to false
-			//log.Warnf("failed to read collaboration permission for project: %s, error: %s", project, err)
-			workflowReadPermission = false
-		}
-		if workflowReadPermission {
-			projectVerbMap[project] = append(projectVerbMap[project], types.WorkflowActionView)
-		}
-
-		envReadPermission, err := internalhandler.CheckPermissionGivenByCollaborationMode(uid, project, types.ResourceTypeEnvironment, types.EnvActionView)
-		if err != nil {
-			// there are cases where the users do not have any collaboration modes, hence no instances found
-			// in these cases we just ignore the error, and set permission to false
-			//log.Warnf("failed to read collaboration permission for project: %s, error: %s", project, err)
-			envReadPermission = false
-		}
-		if envReadPermission {
-			projectVerbMap[project] = append(projectVerbMap[project], types.EnvActionView)
-		}
-	}
-
-	tx.Commit()
 	return &GetUserRulesResp{
 		IsSystemAdmin:    isSystemAdmin,
-		ProjectVerbMap:   projectVerbMap,
 		SystemVerbs:      systemVerbs,
 		ProjectAdminList: projectAdminList,
 	}, nil

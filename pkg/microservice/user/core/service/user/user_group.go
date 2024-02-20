@@ -18,6 +18,7 @@ package user
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
@@ -245,10 +246,15 @@ func BulkAddUserToUserGroup(groupID string, uids []string, logger *zap.SugaredLo
 
 	for _, uid := range uids {
 		userGroupKey := fmt.Sprintf(UserGroupCacheKeyFormat, uid)
-		err := userCache.AddElementsToSet(userGroupKey, []string{groupID}, setting.CacheExpireTime)
+		err := userCache.Delete(userGroupKey)
 		if err != nil {
-			log.Warnf("failed to add group id: %s into uid: %s 's group id cache, error: %s", groupID, uid, err)
+			log.Warnf("failed to flush uid: %s's group id cache, error: %s", uid, err)
 		}
+
+		go func(userGroupKey string, redisCache *cache.RedisCache) {
+			time.Sleep(2 * time.Second)
+			redisCache.Delete(userGroupKey)
+		}(userGroupKey, userCache)
 	}
 
 	return nil
@@ -263,10 +269,15 @@ func BulkRemoveUserFromUserGroup(groupID string, uids []string, logger *zap.Suga
 
 	for _, uid := range uids {
 		userGroupKey := fmt.Sprintf(UserGroupCacheKeyFormat, uid)
-		err := userCache.RemoveElementsFromSet(userGroupKey, []string{groupID})
+		err := userCache.Delete(userGroupKey)
 		if err != nil {
-			log.Warnf("failed to remove group id: %s from uid: %s 's group id cache, error: %s", groupID, uid, err)
+			log.Warnf("failed to flush uid: %s 's group id cache, error: %s", uid, err)
 		}
+
+		go func(userGroupKey string, redisCache *cache.RedisCache) {
+			time.Sleep(2 * time.Second)
+			redisCache.Delete(userGroupKey)
+		}(userGroupKey, userCache)
 	}
 
 	return nil

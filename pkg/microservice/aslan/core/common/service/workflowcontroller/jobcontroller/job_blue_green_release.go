@@ -76,7 +76,7 @@ func (c *BlueGreenReleaseJobCtl) Clean(ctx context.Context) {
 	}
 	//
 	// service point to new deployment means blue green release succeed.
-	if label, exist := service.Spec.Selector[config.BlueGreenVerionLabelName]; !exist || label == c.jobTaskSpec.Version {
+	if label, exist := service.Spec.Selector[config.BlueGreenVersionLabelName]; !exist || label == c.jobTaskSpec.Version {
 		return
 	}
 	// clear intermediate state resources
@@ -84,13 +84,13 @@ func (c *BlueGreenReleaseJobCtl) Clean(ctx context.Context) {
 		c.logger.Errorf("delete old deployment error: %v", err)
 	}
 	// if it was the first time blue-green deployment, clean the origin labels.
-	if service.Spec.Selector[config.BlueGreenVerionLabelName] == config.OriginVersion {
-		delete(service.Spec.Selector, config.BlueGreenVerionLabelName)
+	if service.Spec.Selector[config.BlueGreenVersionLabelName] == config.OriginVersion {
+		delete(service.Spec.Selector, config.BlueGreenVersionLabelName)
 		if err := updater.CreateOrPatchService(service, kubeClient); err != nil {
 			c.logger.Errorf("delete origin label for service error: %v", err)
 			return
 		}
-		service.Spec.Selector[config.BlueGreenVerionLabelName] = config.OriginVersion
+		service.Spec.Selector[config.BlueGreenVersionLabelName] = config.OriginVersion
 		selector := labels.Set(service.Spec.Selector).AsSelector()
 		pods, err := getter.ListPods(c.jobTaskSpec.Namespace, selector, kubeClient)
 		if err != nil {
@@ -98,10 +98,10 @@ func (c *BlueGreenReleaseJobCtl) Clean(ctx context.Context) {
 			return
 		}
 		for _, pod := range pods {
-			if pod.ObjectMeta.Labels[config.BlueGreenVerionLabelName] != config.OriginVersion {
+			if pod.ObjectMeta.Labels[config.BlueGreenVersionLabelName] != config.OriginVersion {
 				continue
 			}
-			deleteLabelPatch := fmt.Sprintf(`{"metadata":{"labels":{"%s":null}}}`, config.BlueGreenVerionLabelName)
+			deleteLabelPatch := fmt.Sprintf(`{"metadata":{"labels":{"%s":null}}}`, config.BlueGreenVersionLabelName)
 			if err := updater.PatchPod(c.jobTaskSpec.Namespace, pod.Name, []byte(deleteLabelPatch), kubeClient); err != nil {
 				c.logger.Errorf("patch pod error: %v", err)
 			}
@@ -127,7 +127,7 @@ func (c *BlueGreenReleaseJobCtl) Run(ctx context.Context) {
 		logError(c.job, msg, c.logger)
 		return
 	}
-	service.Spec.Selector[config.BlueGreenVerionLabelName] = c.jobTaskSpec.Version
+	service.Spec.Selector[config.BlueGreenVersionLabelName] = c.jobTaskSpec.Version
 	if err := updater.CreateOrPatchService(service, c.kubeClient); err != nil {
 		msg := fmt.Sprintf("point service: %s to deployment: %s failed: %v", c.jobTaskSpec.K8sServiceName, c.jobTaskSpec.BlueWorkloadName, err)
 		logError(c.job, msg, c.logger)

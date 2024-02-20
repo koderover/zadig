@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"sync"
 	"time"
 
 	"github.com/jasonlvhit/gocron"
@@ -50,7 +51,18 @@ type CronClient struct {
 	enabledMap                   map[string]bool
 	lastPMProductRevisions       []*service.ProductRevision
 	lastHelmProductRevisions     []*service.ProductRevision
-	log                          *zap.SugaredLogger
+
+	SchedulersRWMutex                   sync.RWMutex
+	SchedulerControllerRWMutex          sync.RWMutex
+	lastSchedulersRWMutex               sync.RWMutex
+	lastServiceSchedulersRWMutex        sync.RWMutex
+	lastEnvSchedulerDataRWMutex         sync.RWMutex
+	lastEnvResourceSchedulerDataRWMutex sync.RWMutex
+	enabledMapRWMutex                   sync.RWMutex
+	lastPMProductRevisionsRWMutex       sync.RWMutex
+	lastHelmProductRevisionsRWMutex     sync.RWMutex
+
+	log *zap.SugaredLogger
 }
 
 type CronV3Client struct {

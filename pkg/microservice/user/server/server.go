@@ -20,9 +20,11 @@ import (
 	"context"
 	"net"
 	"net/http"
+	"net/http/pprof"
 	"time"
 
 	ext_authz_v3 "github.com/envoyproxy/go-control-plane/envoy/service/auth/v3"
+	"github.com/gorilla/mux"
 	"google.golang.org/grpc"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/user/core"
@@ -69,6 +71,21 @@ func Serve(ctx context.Context) error {
 		log.Infof("grpc server stating on port: %d.....", 8080)
 		if err := grpcServer.Serve(listen); err != nil {
 			log.Fatalf("failed to start grpc server, error: %s", err)
+		}
+	}()
+
+	// pprof service, you can access it by {your_ip}:8888/debug/pprof
+	go func() {
+		router := mux.NewRouter()
+		router.Handle("/debug/pprof", http.HandlerFunc(pprof.Index))
+		router.Handle("/debug/pprof/cmdline", http.HandlerFunc(pprof.Cmdline))
+		router.Handle("/debug/pprof/profile", http.HandlerFunc(pprof.Profile))
+		router.Handle("/debug/pprof/symbol", http.HandlerFunc(pprof.Symbol))
+		router.Handle("/debug/pprof/trace", http.HandlerFunc(pprof.Trace))
+		router.Handle("/debug/pprof/{cmd}", http.HandlerFunc(pprof.Index))
+		err := http.ListenAndServe("0.0.0.0:8888", router)
+		if err != nil {
+			log.Fatal(err)
 		}
 	}()
 

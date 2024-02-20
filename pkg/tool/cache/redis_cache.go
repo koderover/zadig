@@ -126,6 +126,9 @@ func (c *RedisCache) ListSetMembers(key string) ([]string, error) {
 }
 
 func (c *RedisCache) AddElementsToSet(key string, elements []string, ttl time.Duration) error {
+	if len(elements) == 0 {
+		return nil
+	}
 	err := c.redisClient.SAdd(context.Background(), key, elements).Err()
 	if err != nil {
 		return err
@@ -135,5 +138,8 @@ func (c *RedisCache) AddElementsToSet(key string, elements []string, ttl time.Du
 }
 
 func (c *RedisCache) RemoveElementsFromSet(key string, elements []string) error {
+	if len(elements) == 0 {
+		return nil
+	}
 	return c.redisClient.SRem(context.Background(), key, elements).Err()
 }

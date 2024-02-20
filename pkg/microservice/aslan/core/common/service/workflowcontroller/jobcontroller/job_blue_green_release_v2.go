@@ -109,8 +109,8 @@ func (c *BlueGreenReleaseV2JobCtl) Clean(ctx context.Context) {
 		return
 	}
 	// must remove service selector before remove pods labels
-	if _, ok := greenService.Spec.Selector[config.BlueGreenVerionLabelName]; ok {
-		delete(greenService.Spec.Selector, config.BlueGreenVerionLabelName)
+	if _, ok := greenService.Spec.Selector[config.BlueGreenVersionLabelName]; ok {
+		delete(greenService.Spec.Selector, config.BlueGreenVersionLabelName)
 		if err := updater.CreateOrPatchService(greenService, c.kubeClient); err != nil {
 			c.logger.Errorf("delete origin label for service error: %v", err)
 			return
@@ -125,8 +125,8 @@ func (c *BlueGreenReleaseV2JobCtl) Clean(ctx context.Context) {
 		if pod.Labels == nil {
 			continue
 		}
-		if _, ok := pod.Labels[config.BlueGreenVerionLabelName]; ok {
-			removeLabelPatch := fmt.Sprintf(`{"metadata":{"labels":{"%s":null}}}`, config.BlueGreenVerionLabelName)
+		if _, ok := pod.Labels[config.BlueGreenVersionLabelName]; ok {
+			removeLabelPatch := fmt.Sprintf(`{"metadata":{"labels":{"%s":null}}}`, config.BlueGreenVersionLabelName)
 			if err := updater.PatchPod(c.namespace, pod.Name, []byte(removeLabelPatch), c.kubeClient); err != nil {
 				c.logger.Errorf("remove origin label to pod error: %v", err)
 				continue
@@ -189,13 +189,13 @@ func (c *BlueGreenReleaseV2JobCtl) run(ctx context.Context) error {
 	}
 
 	timeout := time.After(time.Duration(3) * time.Minute)
-	func() {
+	err = func() error {
 		c.logger.Infof("waiting green deploy update")
 		defer c.logger.Infof("green deploy wait update finished")
 		for {
 			select {
 			case <-timeout:
-				return
+				return errors.New("wait timeout")
 			default:
 				time.Sleep(time.Second * 3)
 				d, found, e := getter.GetDeployment(c.namespace, c.jobTaskSpec.Service.GreenDeploymentName, c.kubeClient)
@@ -205,61 +205,46 @@ func (c *BlueGreenReleaseV2JobCtl) run(ctx context.Context) error {
 				}
 				if !found {
 					c.logger.Infof("green deploy: %s not found", c.jobTaskSpec.Service.GreenDeploymentName)
-					return
+					return fmt.Errorf("green deploy: %s not found", c.jobTaskSpec.Service.GreenDeploymentName)
 				}
 				ready := wrapper.Deployment(d).Ready()
 				if !ready {
 					break
 				}
+				// we need to add
 				if ready {
-					return
+					pods, err := getter.ListPods(c.namespace, labels.Set(d.Spec.Selector.MatchLabels).AsSelector(), c.kubeClient)
+					if err != nil {
+						c.logger.Errorf("list green deployment %s pods error: %v", c.jobTaskSpec.Service.GreenDeploymentName, err)
+						return fmt.Errorf("list green deployment %s pods error: %v", c.jobTaskSpec.Service.GreenDeploymentName, err)
+					}
+					for _, pod := range pods {
+						if pod.Labels == nil {
+							pod.Labels = make(map[string]string)
+							continue
+						}
+						if _, ok := pod.Labels[config.BlueGreenVersionLabelName]; !ok {
+							addLabelPatch := fmt.Sprintf(`{"metadata":{"labels":{"%s":"%s"}}}`, config.BlueGreenVersionLabelName, config.OriginVersion)
+							if err := updater.PatchPod(c.namespace, pod.Name, []byte(addLabelPatch), c.kubeClient); err != nil {
+								c.logger.Errorf("remove origin label to pod error: %v", err)
+								continue
+							}
+						}
+					}
 				}
+				return nil
 			}
 		}
 	}()
 
+	if err != nil {
+		c.jobTaskSpec.Events.Info(fmt.Sprintf("failed to wait green deploy: %s ready, err: %s", c.jobTaskSpec.Service.GreenDeploymentName, err))
+		c.ack()
+		return errors.New(fmt.Sprintf("failed to wait green deploy: %s ready, err: %s", c.jobTaskSpec.Service.GreenDeploymentName, err))
+	}
+
 	c.jobTaskSpec.Events.Info(fmt.Sprintf("update deployment %s image success", c.jobTaskSpec.Service.GreenDeploymentName))
 	c.ack()
-
-	// rollback green service selector, change endpoint to green services just updated
-	greenService, found, err := getter.GetService(c.namespace, c.jobTaskSpec.Service.GreenServiceName, c.kubeClient)
-	if err != nil || !found {
-		msg := fmt.Sprintf("can't get green service %s, err: %v", c.jobTaskSpec.Service.GreenServiceName, err)
-		logError(c.job, msg, c.logger)
-		c.jobTaskSpec.Events.Error(msg)
-		return errors.New(msg)
-	}
-	delete(greenService.Spec.Selector, config.BlueGreenVerionLabelName)
-	err = updater.CreateOrPatchService(greenService, c.kubeClient)
-	if err != nil {
-		msg := fmt.Sprintf("can't update green service %s selector, err: %v", c.jobTaskSpec.Service.GreenServiceName, err)
-		logError(c.job, msg, c.logger)
-		c.jobTaskSpec.Events.Error(msg)
-		return errors.New(msg)
-	}
-	c.jobTaskSpec.Events.Info(fmt.Sprintf("update green service %s selector success", c.jobTaskSpec.Service.GreenServiceName))
-	c.ack()
-
-	// offline blue service and deployment
-	c.jobTaskSpec.Events.Info(fmt.Sprintf("wait for blue deployment %s be deleted", c.jobTaskSpec.Service.BlueDeploymentName))
-	c.ack()
-	err = updater.DeleteDeploymentAndWait(c.namespace, c.jobTaskSpec.Service.BlueDeploymentName, c.kubeClient)
-	if err != nil {
-		msg := fmt.Sprintf("can't delete blue deployment %s, err: %v", c.jobTaskSpec.Service.BlueDeploymentName, err)
-		logError(c.job, msg, c.logger)
-		c.jobTaskSpec.Events.Error(msg)
-		return errors.New(msg)
-	}
-	c.jobTaskSpec.Events.Info(fmt.Sprintf("delete blue deployment %s success", c.jobTaskSpec.Service.BlueDeploymentName))
-	c.ack()
-	err = updater.DeleteService(c.namespace, c.jobTaskSpec.Service.BlueServiceName, c.kubeClient)
-	if err != nil {
-		msg := fmt.Sprintf("can't delete blue service %s, err: %v", c.jobTaskSpec.Service.BlueServiceName, err)
-		logError(c.job, msg, c.logger)
-		c.jobTaskSpec.Events.Error(msg)
-		return errors.New(msg)
-	}
-	c.jobTaskSpec.Events.Info(fmt.Sprintf("delete blue service %s success", c.jobTaskSpec.Service.BlueServiceName))
 
 	return nil
 }

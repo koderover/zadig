@@ -6,6 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	svcservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/service/service"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
@@ -70,6 +71,12 @@ func LoadProductionServiceFromYamlTemplateOpenAPI(c *gin.Context) {
 
 	bs, _ := json.Marshal(req)
 	internalhandler.InsertOperationLog(c, ctx.UserName+"(OpenAPI)", req.ProjectKey, "新增", "项目管理-生产服务", fmt.Sprintf("服务名称:%s", req.ServiceName), string(bs), ctx.Logger)
+
+	err := commonutil.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
+		return
+	}
 
 	ctx.Err = svcservice.OpenAPILoadServiceFromYamlTemplate(ctx.UserName, req, false, ctx.Logger)
 }
@@ -162,6 +169,12 @@ func CreateRawProductionYamlServicesOpenAPI(c *gin.Context) {
 		}
 	}
 
+	err = commonutil.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+
 	ctx.Err = svcservice.CreateRawYamlServicesOpenAPI(ctx.UserName, projectKey, req, ctx.Logger)
 }
 
@@ -242,6 +255,12 @@ func UpdateProductionServiceConfigOpenAPI(c *gin.Context) {
 			ctx.UnAuthorized = true
 			return
 		}
+	}
+
+	err = commonutil.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
+		return
 	}
 
 	ctx.Err = svcservice.OpenAPIProductionUpdateServiceConfig(ctx.UserName, args, ctx.Logger)
@@ -334,6 +353,12 @@ func UpdateProductionServiceVariableOpenAPI(c *gin.Context) {
 		}
 	}
 
+	err = commonutil.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+
 	ctx.Err = svcservice.OpenAPIUpdateProductionServiceVariable(ctx.UserName, projectKey, serviceName, req, ctx.Logger)
 }
 
@@ -411,6 +436,12 @@ func DeleteProductionServicesOpenAPI(c *gin.Context) {
 		}
 	}
 
+	err = commonutil.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+
 	ctx.Err = svcservice.DeleteProductionServiceTemplate(serviceName, projectKey, ctx.Logger)
 }
 
@@ -449,6 +480,12 @@ func GetProductionYamlServiceOpenAPI(c *gin.Context) {
 		return
 	}
 
+	err := commonutil.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+
 	ctx.Resp, ctx.Err = svcservice.GetProductionYamlServiceOpenAPI(projectKey, serviceName, ctx.Logger)
 }
 
@@ -477,6 +514,12 @@ func ListProductionYamlServicesOpenAPI(c *gin.Context) {
 	projectKey := c.Query("projectKey")
 	if projectKey == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("projectKey cannot be empty")
+		return
+	}
+
+	err := commonutil.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
 		return
 	}
 
