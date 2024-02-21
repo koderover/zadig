@@ -265,6 +265,7 @@ func AutoCreateWorkflow(productName string, log *zap.SugaredLogger) *EnvStatus {
 					},
 					Jobs: []*commonmodels.Job{buildJob},
 				}
+				log.Debugf("1 name: %v, parallel: %v", stage.Name, stage.Parallel)
 				workflow.Stages = append(workflow.Stages, stage)
 			}
 
@@ -291,6 +292,7 @@ func AutoCreateWorkflow(productName string, log *zap.SugaredLogger) *EnvStatus {
 					},
 					Jobs: []*commonmodels.Job{deployJob},
 				}
+				log.Debugf("2 name: %v, parallel: %v", stage.Name, stage.Parallel)
 				workflow.Stages = append(workflow.Stages, stage)
 			} else {
 				spec := &commonmodels.ZadigDeployJobSpec{
@@ -319,6 +321,7 @@ func AutoCreateWorkflow(productName string, log *zap.SugaredLogger) *EnvStatus {
 					},
 					Jobs: []*commonmodels.Job{deployJob},
 				}
+				log.Debugf("3 name: %v, parallel: %v", stage.Name, stage.Parallel)
 				workflow.Stages = append(workflow.Stages, stage)
 			}
 

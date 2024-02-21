@@ -81,12 +81,14 @@ func (c *CronClient) UpdatePmHostStatusScheduler(log *zap.SugaredLogger) {
 					if err != nil {
 						log.Warnf("doTCPProbe TCP %s:%d err: %s)", hostPm.IP, hostPm.Port, err)
 					}
+					log.Debugf("doTCPProbe TCP %s:%d msg: %s, err: %s", hostPm.IP, hostPm.Port, msg, err)
 				}
 
 				if msg == Success {
 					newStatus = setting.PMHostStatusNormal
 				}
 
+				log.Debugf("hostPm.Status:%s, newStatus:%s", hostPm.Status, newStatus)
 				if hostPm.Status == newStatus {
 					return
 				}
@@ -97,6 +99,7 @@ func (c *CronClient) UpdatePmHostStatusScheduler(log *zap.SugaredLogger) {
 				if err != nil {
 					log.Error(err)
 				}
+				log.Debugf("update pm host status, hostPm:%+v", hostPm)
 			}(hostElem, log)
 		}
 	}

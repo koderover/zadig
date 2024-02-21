@@ -62,10 +62,12 @@ func (c *CronClient) UpsertEnvServiceScheduler(log *zap.SugaredLogger) {
 			}
 		}
 
+		log.Debugf("-1")
 		for _, serviceRevision := range env.ServiceRevisions {
 			if serviceRevision.Type != setting.PMDeployType {
 				continue
 			}
+			log.Debugf("0")
 
 			svc, _ := c.AslanCli.GetService(serviceRevision.ServiceName, env.ProductName, setting.PMDeployType, serviceRevision.CurrentRevision, log)
 			// delete scheduler if service is not exist or healthChecks or envConfigs is empty
@@ -91,12 +93,14 @@ func (c *CronClient) UpsertEnvServiceScheduler(log *zap.SugaredLogger) {
 				continue
 			}
 
+			log.Debugf("1")
 			// add scheduler if service is exist and healthChecks is not empty
 			for _, envStatus := range svc.EnvStatuses {
 				if envStatus.EnvName != env.EnvName {
 					continue
 				}
 
+				log.Debugf("2 envName: %s, address: %s, hostID: %s", envStatus.EnvName, envStatus.Address, envStatus.HostID)
 				for _, healthCheck := range svc.HealthChecks {
 					key := "service-" + serviceRevision.ServiceName + "-" + env.ProductName + "-" + setting.PMDeployType + "-" +
 						env.EnvName + "-" + envStatus.HostID + "-" + healthCheck.Protocol + "-" + strconv.Itoa(healthCheck.Port) + "-" + healthCheck.Path
@@ -112,6 +116,7 @@ func (c *CronClient) UpsertEnvServiceScheduler(log *zap.SugaredLogger) {
 						sc <- true
 					}
 
+					log.Debugf("3")
 					c.SchedulersRWMutex.Lock()
 					if scheduler, ok := c.Schedulers[key]; ok {
 						scheduler.Clear()
@@ -119,6 +124,7 @@ func (c *CronClient) UpsertEnvServiceScheduler(log *zap.SugaredLogger) {
 					}
 					c.SchedulersRWMutex.Unlock()
 
+					log.Debugf("4")
 					newScheduler := gocron.NewScheduler()
 					BuildScheduledEnvJob(newScheduler, healthCheck).Do(c.RunScheduledService, svc, healthCheck, envStatus.Address, env.EnvName, envStatus.HostID, log)
 					c.SchedulersRWMutex.Lock()
