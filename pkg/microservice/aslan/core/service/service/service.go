@@ -229,7 +229,7 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, userName string, args *K
 
 	//serviceInExternalEnvCol := commonrepo.NewServiceInExternalEnvWithSess(session)
 	productCol := commonrepo.NewProductCollWithSession(session)
-	workloadStatCol := commonrepo.NewWorkLoadsStatCollWithSession(session)
+	//workloadStatCol := commonrepo.NewWorkLoadsStatCollWithSession(session)
 
 	mongotool.StartTransaction(session)
 
@@ -334,26 +334,26 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, userName string, args *K
 		}
 	}
 
-	workLoadStat, err := workloadStatCol.Find(args.ClusterID, args.Namespace)
-	if err != nil {
-		workLoadStat = &commonmodels.WorkloadStat{
-			ClusterID: args.ClusterID,
-			Namespace: args.Namespace,
-			Workloads: workloadsTmp,
-		}
-		err = workloadStatCol.Create(workLoadStat)
-		if err != nil {
-			mongotool.AbortTransaction(session)
-			return e.ErrCreateProduct.AddErr(err)
-		}
-	} else {
-		workLoadStat.Workloads = replaceWorkloads(workLoadStat.Workloads, workloadsTmp, args.EnvName)
-		err = workloadStatCol.UpdateWorkloads(workLoadStat)
-		if err != nil {
-			mongotool.AbortTransaction(session)
-			return e.ErrCreateProduct.AddErr(err)
-		}
-	}
+	//workLoadStat, err := workloadStatCol.Find(args.ClusterID, args.Namespace)
+	//if err != nil {
+	//	workLoadStat = &commonmodels.WorkloadStat{
+	//		ClusterID: args.ClusterID,
+	//		Namespace: args.Namespace,
+	//		Workloads: workloadsTmp,
+	//	}
+	//	err = workloadStatCol.Create(workLoadStat)
+	//	if err != nil {
+	//		mongotool.AbortTransaction(session)
+	//		return e.ErrCreateProduct.AddErr(err)
+	//	}
+	//} else {
+	//	workLoadStat.Workloads = replaceWorkloads(workLoadStat.Workloads, workloadsTmp, args.EnvName)
+	//	err = workloadStatCol.UpdateWorkloads(workLoadStat)
+	//	if err != nil {
+	//		mongotool.AbortTransaction(session)
+	//		return e.ErrCreateProduct.AddErr(err)
+	//	}
+	//}
 	return mongotool.CommitTransaction(session)
 }
 
@@ -597,24 +597,24 @@ func UpdateWorkloads(ctx context.Context, requestID, username, productName, envN
 //	return result
 //}
 
-func replaceWorkloads(existWorkloads []commonmodels.Workload, newWorkloads []commonmodels.Workload, envName string) []commonmodels.Workload {
-	var result []commonmodels.Workload
-	workloadMap := map[string]commonmodels.Workload{}
-	for _, workload := range existWorkloads {
-		if workload.EnvName != envName {
-			workloadMap[workload.Name] = workload
-			result = append(result, workload)
-		}
-	}
-
-	for _, newWorkload := range newWorkloads {
-		if _, ok := workloadMap[newWorkload.Name]; !ok {
-			result = append(result, newWorkload)
-		}
-	}
-
-	return result
-}
+//func replaceWorkloads(existWorkloads []commonmodels.Workload, newWorkloads []commonmodels.Workload, envName string) []commonmodels.Workload {
+//	var result []commonmodels.Workload
+//	workloadMap := map[string]commonmodels.Workload{}
+//	for _, workload := range existWorkloads {
+//		if workload.EnvName != envName {
+//			workloadMap[workload.Name] = workload
+//			result = append(result, workload)
+//		}
+//	}
+//
+//	for _, newWorkload := range newWorkloads {
+//		if _, ok := workloadMap[newWorkload.Name]; !ok {
+//			result = append(result, newWorkload)
+//		}
+//	}
+//
+//	return result
+//}
 
 // CreateWorkloadTemplate only use for host projects
 func CreateWorkloadTemplate(userName string, args *commonmodels.Service, session mongo.Session, log *zap.SugaredLogger) (*commonmodels.Service, error) {
