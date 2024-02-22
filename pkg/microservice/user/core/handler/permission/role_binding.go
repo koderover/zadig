@@ -25,7 +25,6 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/user/core/service/permission"
-	"github.com/koderover/zadig/v2/pkg/microservice/user/core/service/user"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
@@ -91,7 +90,7 @@ func CreateRoleBinding(c *gin.Context) {
 	detail := ""
 	for _, arg := range req.Identities {
 		if arg.IdentityType == "user" {
-			userInfo, err := user.GetUser(arg.UID, ctx.Logger)
+			userInfo, err := permission.GetUser(arg.UID, ctx.Logger)
 			if err != nil {
 				ctx.Err = e.ErrInvalidParam.AddErr(err)
 				return
@@ -102,7 +101,7 @@ func CreateRoleBinding(c *gin.Context) {
 			}
 			detail += "用户：" + username + "，"
 		} else if arg.IdentityType == "group" {
-			groupInfo, err := user.GetUserGroup(arg.GID, ctx.Logger)
+			groupInfo, err := permission.GetUserGroup(arg.GID, ctx.Logger)
 			if err != nil {
 				ctx.Err = e.ErrInvalidParam.AddErr(err)
 				return
@@ -175,7 +174,7 @@ func UpdateRoleBindingForUser(c *gin.Context) {
 		return
 	}
 
-	userInfo, err := user.GetUser(userID, ctx.Logger)
+	userInfo, err := permission.GetUser(userID, ctx.Logger)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
@@ -242,7 +241,7 @@ func DeleteRoleBindingForUser(c *gin.Context) {
 		return
 	}
 
-	userInfo, err := user.GetUser(userID, ctx.Logger)
+	userInfo, err := permission.GetUser(userID, ctx.Logger)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
@@ -310,7 +309,7 @@ func UpdateRoleBindingForGroup(c *gin.Context) {
 		return
 	}
 
-	groupInfo, err := user.GetUserGroup(groupID, ctx.Logger)
+	groupInfo, err := permission.GetUserGroup(groupID, ctx.Logger)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
@@ -377,7 +376,7 @@ func DeleteRoleBindingForGroup(c *gin.Context) {
 		return
 	}
 
-	groupInfo, err := user.GetUserGroup(groupID, ctx.Logger)
+	groupInfo, err := permission.GetUserGroup(groupID, ctx.Logger)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return

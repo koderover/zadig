@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package user
+package permission
 
 import (
 	_ "embed"
@@ -257,6 +257,26 @@ func SearchUserByAccount(args *QueryArgs, logger *zap.SugaredLogger) (*types.Use
 		return nil, err
 	}
 	usersInfo := mergeUserLogin([]models.User{*user}, *userLogins, logger)
+
+	for _, uInfo := range usersInfo {
+		roles, err := ListRolesByNamespaceAndUserID("*", uInfo.Uid, logger)
+		if err != nil {
+			logger.Errorf("failed to get user role info for user: %s[%s], error: %s", uInfo.Name, uInfo.Account, err)
+			return nil, err
+		}
+		rolebindings := make([]*types.RoleBinding, 0)
+		for _, role := range roles {
+			rolebindings = append(rolebindings, &types.RoleBinding{
+				UID:  uInfo.Uid,
+				Role: role.Name,
+			})
+			if role.Name == string(setting.SystemAdmin) {
+				uInfo.Admin = true
+			}
+		}
+		uInfo.SystemRoleBindings = rolebindings
+	}
+
 	return &types.UsersResp{
 		Users:      usersInfo,
 		TotalCount: int64(len(usersInfo)),
@@ -290,6 +310,26 @@ func SearchUsers(args *QueryArgs, logger *zap.SugaredLogger) (*types.UsersResp, 
 		return nil, err
 	}
 	usersInfo := mergeUserLogin(users, *userLogins, logger)
+
+	for _, uInfo := range usersInfo {
+		roles, err := ListRolesByNamespaceAndUserID("*", uInfo.Uid, logger)
+		if err != nil {
+			logger.Errorf("failed to get user role info for user: %s[%s], error: %s", uInfo.Name, uInfo.Account, err)
+			return nil, err
+		}
+		rolebindings := make([]*types.RoleBinding, 0)
+		for _, role := range roles {
+			rolebindings = append(rolebindings, &types.RoleBinding{
+				UID:  uInfo.Uid,
+				Role: role.Name,
+			})
+			if role.Name == string(setting.SystemAdmin) {
+				uInfo.Admin = true
+			}
+		}
+		uInfo.SystemRoleBindings = rolebindings
+	}
+
 	return &types.UsersResp{
 		Users:      usersInfo,
 		TotalCount: count,
@@ -332,6 +372,26 @@ func SearchUsersByUIDs(uids []string, logger *zap.SugaredLogger) (*types.UsersRe
 		return nil, err
 	}
 	usersInfo := mergeUserLogin(users, *userLogins, logger)
+
+	for _, uInfo := range usersInfo {
+		roles, err := ListRolesByNamespaceAndUserID("*", uInfo.Uid, logger)
+		if err != nil {
+			logger.Errorf("failed to get user role info for user: %s[%s], error: %s", uInfo.Name, uInfo.Account, err)
+			return nil, err
+		}
+		rolebindings := make([]*types.RoleBinding, 0)
+		for _, role := range roles {
+			rolebindings = append(rolebindings, &types.RoleBinding{
+				UID:  uInfo.Uid,
+				Role: role.Name,
+			})
+			if role.Name == string(setting.SystemAdmin) {
+				uInfo.Admin = true
+			}
+		}
+		uInfo.SystemRoleBindings = rolebindings
+	}
+
 	return &types.UsersResp{
 		Users:      usersInfo,
 		TotalCount: int64(len(usersInfo)),

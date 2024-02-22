@@ -19,7 +19,10 @@ package migrate
 import (
 	"context"
 	"fmt"
+	"strings"
 
+	internalmongodb "github.com/koderover/zadig/v2/pkg/cli/upgradeassistant/internal/repository/mongodb"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/environment/service"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 
@@ -30,6 +33,7 @@ import (
 	templaterepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
+	"github.com/koderover/zadig/v2/pkg/types"
 )
 
 func init() {
@@ -38,15 +42,15 @@ func init() {
 }
 
 func V210ToV220() error {
-	log.Infof("-------- start migrate predeploy to build --------")
-	err := migratePreDeployToBuild()
-	if err != nil {
-		log.Errorf("migratePreDeployToBuild error: %s", err)
-		return err
-	}
+	//log.Infof("-------- start migrate predeploy to build --------")
+	//err := migratePreDeployToBuild()
+	//if err != nil {
+	//	log.Errorf("migratePreDeployToBuild error: %s", err)
+	//	return err
+	//}
 
 	log.Infof("-------- start migrate product workflow to custom workflow --------")
-	err = migrateProductWorkflowToCustomWorkflow()
+	err := migrateProductWorkflowToCustomWorkflow()
 	if err != nil {
 		log.Errorf("migrate product workflow to custom workflow error: %s", err)
 		return err
@@ -119,14 +123,15 @@ func migrateProductWorkflowToCustomWorkflow() error {
 	logger := log.SugaredLogger()
 	productWorkflows, err := mongodb.NewWorkflowColl().List(&mongodb.ListWorkflowOption{})
 	if err != nil {
-		log.Infof("failed to list product workflow from db, error: %s", err)
+		logger.Errorf("failed to list product workflow from db, error: %s", err)
 		return err
 	}
 
 	for _, wf := range productWorkflows {
+		logger.Infof("migrating product workflow: %s to custom workflow.......", wf.Name)
 		newWorkflow, err := generateCustomWorkflowFromProductWorkflow(wf)
 		if err != nil {
-			logger.Infof("failed to generate custom workflow for product workflow: %s, error: %s", wf.Name, err)
+			logger.Errorf("failed to generate custom workflow for product workflow: %s, error: %s", wf.Name, err)
 			return err
 		}
 
@@ -136,18 +141,80 @@ func migrateProductWorkflowToCustomWorkflow() error {
 			return err
 		}
 
-		presetInfo, err := workflow.GetWebhookForWorkflowV4Preset(newWorkflow.Name, "", logger)
-		if err != nil {
-			logger.Errorf("failed to generate workflow preset for custom workflow: %s, error: %s", newWorkflow.Name, err)
-			return err
-		}
+		if wf.HookCtl != nil && len(wf.HookCtl.Items) > 0 {
+			presetInfo, err := workflow.GetWebhookForWorkflowV4Preset(newWorkflow.Name, "", logger)
+			if err != nil {
+				logger.Errorf("failed to generate workflow preset for custom workflow: %s, error: %s", newWorkflow.Name, err)
+				return err
+			}
 
-		if wf.HookCtl != nil && wf.HookCtl.Enabled && len(wf.HookCtl.Items) > 0 {
 			for i, hook := range wf.HookCtl.Items {
+				for _, stage := range presetInfo.WorkflowArg.Stages {
+					if stage.Name == "构建" {
+						// if the workflow has a build stage in it
+						buildJobSpec := new(models.ZadigBuildJobSpec)
+						err = models.IToi(stage.Jobs[0].Spec, buildJobSpec)
+						if err != nil {
+							logger.Errorf("failed to decode workflow spec, error: %s", err)
+							return err
+						}
+						targets := make([]*models.ServiceAndBuild, 0)
+						for _, buildTarget := range hook.WorkflowArgs.Target {
+							for _, svc := range buildJobSpec.ServiceAndBuilds {
+								if svc.ServiceName == buildTarget.ServiceName && svc.ServiceModule == buildTarget.Name {
+									// set repos
+									targets = append(targets, svc)
+								}
+							}
+						}
+						buildJobSpec.ServiceAndBuilds = targets
+
+						stage.Jobs[0].Spec = buildJobSpec
+					}
+
+					if stage.Name == "部署" {
+						// if the workflow has a deploy stage in it
+						switch stage.Jobs[0].JobType {
+						case config.JobZadigVMDeploy:
+							buildJobSpec := new(models.ZadigVMDeployJobSpec)
+							err = models.IToi(stage.Jobs[0].Spec, buildJobSpec)
+							if err != nil {
+								logger.Errorf("failed to decode workflow spec, error: %s", err)
+								return err
+							}
+
+							if hook.WorkflowArgs.EnvUpdatePolicy == "all" {
+								buildJobSpec.Env = hook.WorkflowArgs.Namespace
+							} else {
+								envs := strings.Split(hook.WorkflowArgs.Namespace, ",")
+								buildJobSpec.Env = envs[0]
+							}
+
+							stage.Jobs[0].Spec = buildJobSpec
+						case config.JobZadigDeploy:
+							buildJobSpec := new(models.ZadigDeployJobSpec)
+							err = models.IToi(stage.Jobs[0].Spec, buildJobSpec)
+							if err != nil {
+								logger.Errorf("failed to decode workflow spec, error: %s", err)
+								return err
+							}
+
+							if hook.WorkflowArgs.EnvUpdatePolicy == "all" {
+								buildJobSpec.Env = hook.WorkflowArgs.Namespace
+							} else {
+								envs := strings.Split(hook.WorkflowArgs.Namespace, ",")
+								buildJobSpec.Env = envs[0]
+							}
+							stage.Jobs[0].Spec = buildJobSpec
+						}
+
+					}
+				}
+
 				newWebhook := &models.WorkflowV4Hook{
 					Name:        fmt.Sprintf("hook-%d", i),
 					AutoCancel:  hook.AutoCancel,
-					Enabled:     true,
+					Enabled:     wf.HookCtl.Enabled,
 					MainRepo:    hook.MainRepo,
 					Description: "",
 					Repos:       nil,
@@ -162,8 +229,17 @@ func migrateProductWorkflowToCustomWorkflow() error {
 			}
 		}
 
-		if wf.Schedules != nil && wf.Schedules.Enabled && len(wf.Schedules.Items) > 0 {
-			for i, cron := range wf.Schedules.Items {
+		if wf.ScheduleEnabled {
+			crons, err := mongodb.NewCronjobColl().List(&mongodb.ListCronjobParam{
+				ParentName: wf.Name,
+				ParentType: config.WorkflowCronjob,
+			})
+			if err != nil {
+				logger.Errorf("failed to find job for workflow: %s, error: %s", wf.Name, err)
+				return err
+			}
+			for i, cron := range crons {
+				logger.Infof("creating cron for workflow: %s", wf.Name)
 				cronJobPreset, err := workflow.GetCronForWorkflowV4Preset(newWorkflow.Name, "", logger)
 				if err != nil {
 					logger.Errorf("failed to generate workflow preset for custom workflow %s, error: %s")
@@ -178,16 +254,46 @@ func migrateProductWorkflowToCustomWorkflow() error {
 							logger.Errorf("failed to decode workflow spec, error: %s", err)
 							return err
 						}
+						targets := make([]*models.ServiceAndBuild, 0)
 						for _, buildTarget := range cron.WorkflowArgs.Target {
 							for _, svc := range buildJobSpec.ServiceAndBuilds {
 								if svc.ServiceName == buildTarget.ServiceName && svc.ServiceModule == buildTarget.Name {
 									// set repos
-									buildTarget.Build.Repos = svc.Repos
+									svc.Repos = buildTarget.Build.Repos
+									targets = append(targets, svc)
 								}
 							}
 						}
+						buildJobSpec.ServiceAndBuilds = targets
 
 						stage.Jobs[0].Spec = buildJobSpec
+					}
+
+					if stage.Name == "部署" {
+						// if the workflow has a deploy stage in it
+						switch stage.Jobs[0].JobType {
+						case config.JobZadigVMDeploy:
+							buildJobSpec := new(models.ZadigVMDeployJobSpec)
+							err = models.IToi(stage.Jobs[0].Spec, buildJobSpec)
+							if err != nil {
+								logger.Errorf("failed to decode workflow spec, error: %s", err)
+								return err
+							}
+
+							buildJobSpec.Env = cron.WorkflowArgs.Namespace
+							stage.Jobs[0].Spec = buildJobSpec
+						case config.JobZadigDeploy:
+							buildJobSpec := new(models.ZadigDeployJobSpec)
+							err = models.IToi(stage.Jobs[0].Spec, buildJobSpec)
+							if err != nil {
+								logger.Errorf("failed to decode workflow spec, error: %s", err)
+								return err
+							}
+
+							buildJobSpec.Env = cron.WorkflowArgs.Namespace
+							stage.Jobs[0].Spec = buildJobSpec
+						}
+
 					}
 
 					if stage.Name == "测试" {
@@ -218,9 +324,9 @@ func migrateProductWorkflowToCustomWorkflow() error {
 					Time:           cron.Time,
 					Cron:           cron.Cron,
 					ProductName:    wf.ProductTmplName,
-					MaxFailure:     cron.MaxFailures,
+					MaxFailure:     cron.MaxFailure,
 					WorkflowV4Args: cronJobPreset.WorkflowV4Args,
-					JobType:        string(cron.Type),
+					JobType:        cron.JobType,
 					Enabled:        true,
 				}
 
@@ -236,8 +342,8 @@ func migrateProductWorkflowToCustomWorkflow() error {
 		if wf.HookCtl != nil && wf.HookCtl.Enabled {
 			wf.HookCtl.Enabled = false
 		}
-		if wf.Schedules != nil && wf.Schedules.Enabled {
-			wf.Schedules.Enabled = false
+		if wf.ScheduleEnabled {
+			wf.ScheduleEnabled = false
 		}
 
 		err = workflow.UpdateWorkflow(wf, logger)
@@ -245,6 +351,8 @@ func migrateProductWorkflowToCustomWorkflow() error {
 			logger.Errorf("failed to disable product workflow [%s]'s cron scheduler and webhooks, error: %s", wf.Name, err)
 			return err
 		}
+
+		logger.Infof("product workflow: %s migration done.", wf.Name)
 	}
 
 	return nil
@@ -282,6 +390,11 @@ func generateCustomWorkflowFromProductWorkflow(productWorkflow *models.Workflow)
 
 	stages := make([]*models.WorkflowStage, 0)
 
+	defaultObjectStorage, err := mongodb.NewS3StorageColl().FindDefault()
+	if err != nil {
+		return nil, err
+	}
+
 	// create the stages based on their priority, first would be the build, which comes with a default deploy stage
 	if productWorkflow.BuildStage != nil && productWorkflow.BuildStage.Enabled {
 		buildStage := &models.WorkflowStage{
@@ -294,29 +407,40 @@ func generateCustomWorkflowFromProductWorkflow(productWorkflow *models.Workflow)
 			return nil, err
 		}
 
-		defaultObjectStorage, err := mongodb.NewS3StorageColl().FindDefault()
-		if err != nil {
-			return nil, err
-		}
-
 		serviceAndBuilds := make([]*models.ServiceAndBuild, 0)
 		for _, module := range productWorkflow.BuildStage.Modules {
 			// if a module is hidden, we don't add it to the service and modules
 			if !module.HideServiceModule {
+				repos := make([]*types.Repository, 0)
+				for _, item := range module.BranchFilter {
+					ch, err := internalmongodb.NewCodehostColl().GetByID(item.CodehostID)
+					if err != nil {
+						log.Errorf("failed to get codehost of id: %d, error: %s", item.CodehostID, err)
+						return nil, err
+					}
+					repos = append(repos, &types.Repository{
+						Source:        ch.Type,
+						CodehostID:    item.CodehostID,
+						Branch:        item.DefaultBranch,
+						RepoName:      item.RepoName,
+						RepoNamespace: item.RepoNamespace,
+						RepoOwner:     item.RepoOwner,
+					})
+				}
 				serviceAndBuilds = append(serviceAndBuilds, &models.ServiceAndBuild{
 					ServiceName:   module.Target.ServiceName,
 					ServiceModule: module.Target.ServiceModule,
 					BuildName:     module.Target.BuildName,
 					ImageName:     module.Target.ServiceModule,
 					KeyVals:       module.Target.Envs,
-					Repos:         module.Target.Repos,
+					Repos:         repos,
 				})
 			}
 		}
 
 		jobs := make([]*models.Job, 0)
 		jobs = append(jobs, &models.Job{
-			Name:    "zadig-build",
+			Name:    "build",
 			JobType: config.JobZadigBuild,
 			Skipped: false,
 			Spec: &models.ZadigBuildJobSpec{
@@ -344,12 +468,22 @@ func generateCustomWorkflowFromProductWorkflow(productWorkflow *models.Workflow)
 				DeployContents: []config.DeployContent{
 					config.DeployImage,
 				},
-				JobName:    "zadig-build",
+				JobName:    "build",
 				DeployType: project.ProductFeature.DeployType,
 			}
 
+			if spec.Env == "" {
+				envs, err := service.ListProducts("system", productWorkflow.ProductTmplName, []string{}, false, log.SugaredLogger())
+				if err != nil {
+					return nil, err
+				}
+				if len(envs) > 0 {
+					spec.Env = envs[0].Name
+				}
+			}
+
 			deployJobs = append(deployJobs, &models.Job{
-				Name:    "zadig部署",
+				Name:    "deploy",
 				JobType: config.JobZadigDeploy,
 				Spec:    spec,
 			})
@@ -358,12 +492,12 @@ func generateCustomWorkflowFromProductWorkflow(productWorkflow *models.Workflow)
 				Env:         productWorkflow.EnvName,
 				S3StorageID: defaultObjectStorage.ID.Hex(),
 				Source:      config.SourceFromJob,
-				JobName:     "zadig-build",
+				JobName:     "build",
 			}
 
 			deployJobs = append(deployJobs, &models.Job{
-				Name:    "zadig部署",
-				JobType: config.JobZadigDeploy,
+				Name:    "deploy",
+				JobType: config.JobZadigVMDeploy,
 				Spec:    spec,
 			})
 		}
@@ -379,14 +513,14 @@ func generateCustomWorkflowFromProductWorkflow(productWorkflow *models.Workflow)
 			for i, distribute := range productWorkflow.DistributeStage.Releases {
 				distributeSpec := &models.ZadigDistributeImageJobSpec{
 					Source:                   config.SourceFromJob,
-					JobName:                  "zadig-build",
+					JobName:                  "build",
 					TargetRegistryID:         distribute.RepoID,
 					Timeout:                  10,
 					EnableTargetImageTagRule: false,
 				}
 
 				distributeJobs = append(distributeJobs, &models.Job{
-					Name:    fmt.Sprintf("zadig-distribute-%d", i),
+					Name:    fmt.Sprintf("distribute-%d", i),
 					JobType: config.JobZadigDistributeImage,
 					Spec:    distributeSpec,
 				})
@@ -398,14 +532,14 @@ func generateCustomWorkflowFromProductWorkflow(productWorkflow *models.Workflow)
 						DeployContents: []config.DeployContent{
 							config.DeployImage,
 						},
-						JobName: fmt.Sprintf("zadig-distribute-%d", i),
+						JobName: fmt.Sprintf("distribute-%d", i),
 					}
 
 					if project.ProductFeature != nil {
 						deploySpec.DeployType = project.ProductFeature.DeployType
 					}
 					deployAfterDistributeJobs = append(deployAfterDistributeJobs, &models.Job{
-						Name:    fmt.Sprintf("zadig-deploy-%d", i),
+						Name:    fmt.Sprintf("deploy-%d", i),
 						JobType: config.JobZadigDeploy,
 						Spec:    deploySpec,
 					})
@@ -436,35 +570,72 @@ func generateCustomWorkflowFromProductWorkflow(productWorkflow *models.Workflow)
 			Parallel: true,
 		}
 
-		serviceAndImages := make([]*models.ServiceAndImage, 0)
-
-		for _, module := range productWorkflow.ArtifactStage.Modules {
-			if !module.HideServiceModule {
-				serviceAndImages = append(serviceAndImages, &models.ServiceAndImage{
-					ServiceName:   module.Target.ServiceName,
-					ServiceModule: module.Target.ServiceModule,
-				})
-			}
-		}
-
 		deployJobs := make([]*models.Job, 0)
-		spec := &models.ZadigDeployJobSpec{
-			Env:    productWorkflow.EnvName,
-			Source: config.SourceRuntime,
-			DeployContents: []config.DeployContent{
-				config.DeployImage,
-			},
-			ServiceAndImages: serviceAndImages,
+		if project.ProductFeature == nil {
+			return nil, fmt.Errorf("product feature cannot be nil")
 		}
+		if project.ProductFeature.BasicFacility == "kubernetes" {
+			serviceAndImages := make([]*models.ServiceAndImage, 0)
 
-		if project.ProductFeature != nil {
-			spec.DeployType = project.ProductFeature.DeployType
+			for _, module := range productWorkflow.ArtifactStage.Modules {
+				if !module.HideServiceModule {
+					serviceAndImages = append(serviceAndImages, &models.ServiceAndImage{
+						ServiceName:   module.Target.ServiceName,
+						ServiceModule: module.Target.ServiceModule,
+					})
+				}
+			}
+
+			spec := &models.ZadigDeployJobSpec{
+				Env:    productWorkflow.EnvName,
+				Source: config.SourceRuntime,
+				DeployContents: []config.DeployContent{
+					config.DeployImage,
+				},
+				ServiceAndImages: serviceAndImages,
+				DeployType:       project.ProductFeature.DeployType,
+			}
+
+			if spec.Env == "" {
+				envs, err := service.ListProducts("system", productWorkflow.ProductTmplName, []string{}, false, log.SugaredLogger())
+				if err != nil {
+					return nil, err
+				}
+				if len(envs) > 0 {
+					spec.Env = envs[0].Name
+				}
+			}
+
+			deployJobs = append(deployJobs, &models.Job{
+				Name:    "deploy",
+				JobType: config.JobZadigDeploy,
+				Spec:    spec,
+			})
+		} else if project.ProductFeature.BasicFacility == "cloud_host" {
+			serviceAndImages := make([]*models.ServiceAndVMDeploy, 0)
+
+			for _, module := range productWorkflow.ArtifactStage.Modules {
+				if !module.HideServiceModule {
+					serviceAndImages = append(serviceAndImages, &models.ServiceAndVMDeploy{
+						ServiceName:   module.Target.ServiceName,
+						ServiceModule: module.Target.ServiceModule,
+					})
+				}
+			}
+
+			spec := &models.ZadigVMDeployJobSpec{
+				Env:         productWorkflow.EnvName,
+				S3StorageID: defaultObjectStorage.ID.Hex(),
+				Source:      config.SourceRuntime,
+				JobName:     "build",
+			}
+
+			deployJobs = append(deployJobs, &models.Job{
+				Name:    "deploy",
+				JobType: config.JobZadigVMDeploy,
+				Spec:    spec,
+			})
 		}
-		deployJobs = append(deployJobs, &models.Job{
-			Name:    "zadig部署",
-			JobType: config.JobZadigDeploy,
-			Spec:    spec,
-		})
 
 		deployStage.Jobs = deployJobs
 		stages = append(stages, deployStage)
@@ -495,7 +666,7 @@ func generateCustomWorkflowFromProductWorkflow(productWorkflow *models.Workflow)
 		}
 
 		testJobs = append(testJobs, &models.Job{
-			Name:    "zadig测试",
+			Name:    "test",
 			JobType: config.JobZadigTesting,
 			Spec:    spec,
 		})

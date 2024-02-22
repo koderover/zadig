@@ -20,9 +20,8 @@ import (
 	"fmt"
 
 	"github.com/gin-gonic/gin"
-	"github.com/koderover/zadig/v2/pkg/microservice/user/core/service/user"
-
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
+	"github.com/koderover/zadig/v2/pkg/microservice/user/core/service/permission"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 )
@@ -64,7 +63,7 @@ func CreateUserGroup(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = user.CreateUserGroup(req.Name, req.Description, req.UIDs, ctx.Logger)
+	ctx.Err = permission.CreateUserGroup(req.Name, req.Description, req.UIDs, ctx.Logger)
 }
 
 type listUserGroupsReq struct {
@@ -74,8 +73,8 @@ type listUserGroupsReq struct {
 }
 
 type listUserGroupResp struct {
-	GroupList []*user.UserGroupResp `json:"group_list"`
-	Count     int64                 `json:"total"`
+	GroupList []*permission.UserGroupResp `json:"group_list"`
+	Count     int64                       `json:"total"`
 }
 
 func ListUserGroups(c *gin.Context) {
@@ -90,7 +89,7 @@ func ListUserGroups(c *gin.Context) {
 		return
 	}
 
-	groupList, count, err := user.ListUserGroups(query.Name, query.PageNum, query.PageSize, ctx.Logger)
+	groupList, count, err := permission.ListUserGroups(query.Name, query.PageNum, query.PageSize, ctx.Logger)
 
 	if err != nil {
 		ctx.Err = err
@@ -124,7 +123,7 @@ func GetUserGroup(c *gin.Context) {
 
 	groupID := c.Param("id")
 
-	ctx.Resp, ctx.Err = user.GetUserGroup(groupID, ctx.Logger)
+	ctx.Resp, ctx.Err = permission.GetUserGroup(groupID, ctx.Logger)
 }
 
 func UpdateUserGroupInfo(c *gin.Context) {
@@ -159,7 +158,7 @@ func UpdateUserGroupInfo(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = user.UpdateUserGroupInfo(groupID, req.Name, req.Description, ctx.Logger)
+	ctx.Err = permission.UpdateUserGroupInfo(groupID, req.Name, req.Description, ctx.Logger)
 }
 
 func DeleteUserGroup(c *gin.Context) {
@@ -183,7 +182,7 @@ func DeleteUserGroup(c *gin.Context) {
 
 	groupID := c.Param("id")
 
-	ctx.Err = user.DeleteUserGroup(groupID, ctx.Logger)
+	ctx.Err = permission.DeleteUserGroup(groupID, ctx.Logger)
 }
 
 type bulkUserReq struct {
@@ -222,7 +221,7 @@ func BulkAddUserToUserGroup(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = user.BulkAddUserToUserGroup(groupID, req.UIDs, ctx.Logger)
+	ctx.Err = permission.BulkAddUserToUserGroup(groupID, req.UIDs, ctx.Logger)
 }
 
 func BulkRemoveUserFromUserGroup(c *gin.Context) {
@@ -257,5 +256,5 @@ func BulkRemoveUserFromUserGroup(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = user.BulkRemoveUserFromUserGroup(groupID, req.UIDs, ctx.Logger)
+	ctx.Err = permission.BulkRemoveUserFromUserGroup(groupID, req.UIDs, ctx.Logger)
 }

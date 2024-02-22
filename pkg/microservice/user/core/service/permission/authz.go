@@ -27,7 +27,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/user/core/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/user/core/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/microservice/user/core/repository/orm"
-	"github.com/koderover/zadig/v2/pkg/microservice/user/core/service/user"
 	"github.com/koderover/zadig/v2/pkg/types"
 )
 
@@ -48,13 +47,13 @@ func GetUserAuthInfo(uid string, logger *zap.SugaredLogger) (*AuthorizedResource
 	}
 
 	// find the user groups this uid belongs to, if none it is ok
-	groupIDList, err := user.GetUserGroupByUID(uid)
+	groupIDList, err := GetUserGroupByUID(uid)
 	if err != nil {
 		logger.Errorf("failed to find user group for user: %s, error: %s", uid, err)
 		return nil, fmt.Errorf("failed to get user permission, cannot find the user group for user, error: %s", err)
 	}
 
-	allUserGroup, err := user.GetAllUserGroup()
+	allUserGroup, err := GetAllUserGroup()
 	if err != nil || allUserGroup == "" {
 		logger.Errorf("failed to find user group for %s, error: %s", "所有用户", err)
 		return nil, fmt.Errorf("failed to find user group for %s, error: %s", "所有用户", err)
