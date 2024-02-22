@@ -94,6 +94,19 @@ func (c *CodehostColl) List() ([]*models.CodeHost, error) {
 	return codeHosts, nil
 }
 
+func (c *CodehostColl) GetByID(id int) (*models.CodeHost, error) {
+	query := bson.M{
+		"id": id,
+	}
+
+	codehost := new(models.CodeHost)
+	if err := c.Collection.FindOne(context.TODO(), query).Decode(codehost); err != nil {
+		return nil, err
+	}
+
+	return codehost, nil
+}
+
 type CodehostColl struct {
 	*mongo.Collection
 

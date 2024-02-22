@@ -28,13 +28,13 @@ import (
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/gin-gonic/gin"
+	"github.com/koderover/zadig/v2/pkg/microservice/user/core/service/permission"
 	"github.com/koderover/zadig/v2/pkg/tool/cache"
 	"golang.org/x/oauth2"
 
 	configbase "github.com/koderover/zadig/v2/pkg/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/user/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/user/core/service/login"
-	"github.com/koderover/zadig/v2/pkg/microservice/user/core/service/user"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/shared/client/aslan"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
@@ -154,7 +154,7 @@ func Callback(c *gin.Context) {
 
 	claims.IssuedAt = time.Now().Unix()
 
-	user, err := user.SyncUser(&user.SyncUserInfo{
+	user, err := permission.SyncUser(&permission.SyncUserInfo{
 		Account:      claims.PreferredUsername,
 		Name:         claims.Name,
 		Email:        claims.Email,

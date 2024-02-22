@@ -20,10 +20,10 @@ import (
 	"fmt"
 
 	"github.com/gin-gonic/gin"
+	"github.com/koderover/zadig/v2/pkg/microservice/user/core/service/permission"
 	"github.com/koderover/zadig/v2/pkg/types"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/user/config"
-	"github.com/koderover/zadig/v2/pkg/microservice/user/core/service/user"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
@@ -51,14 +51,14 @@ func SyncLdapUser(c *gin.Context) {
 
 	ldapID := c.Param("ldapId")
 
-	ctx.Err = user.SearchAndSyncUser(ldapID, ctx.Logger)
+	ctx.Err = permission.SearchAndSyncUser(ldapID, ctx.Logger)
 }
 
 func CountSystemUsers(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = user.GetUserCount(ctx.Logger)
+	ctx.Resp, ctx.Err = permission.GetUserCount(ctx.Logger)
 }
 
 func CheckDuplicateUser(c *gin.Context) {
@@ -67,7 +67,7 @@ func CheckDuplicateUser(c *gin.Context) {
 
 	username := c.Query("username")
 
-	ctx.Err = user.CheckDuplicateUser(username, ctx.Logger)
+	ctx.Err = permission.CheckDuplicateUser(username, ctx.Logger)
 }
 
 func GetUser(c *gin.Context) {
@@ -91,7 +91,7 @@ func GetUser(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.Err = user.GetUser(c.Param("uid"), ctx.Logger)
+	ctx.Resp, ctx.Err = permission.GetUser(c.Param("uid"), ctx.Logger)
 }
 
 func DeleteUser(c *gin.Context) {
@@ -112,7 +112,7 @@ func DeleteUser(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = user.DeleteUserByUID(c.Param("uid"), ctx.Logger)
+	ctx.Err = permission.DeleteUserByUID(c.Param("uid"), ctx.Logger)
 }
 
 func GetPersonalUser(c *gin.Context) {
@@ -123,7 +123,7 @@ func GetPersonalUser(c *gin.Context) {
 		ctx.Err = e.ErrForbidden
 		return
 	}
-	ctx.Resp, ctx.Err = user.GetUser(uid, ctx.Logger)
+	ctx.Resp, ctx.Err = permission.GetUser(uid, ctx.Logger)
 }
 
 func GetUserSetting(c *gin.Context) {
@@ -134,7 +134,7 @@ func GetUserSetting(c *gin.Context) {
 		ctx.Err = e.ErrForbidden
 		return
 	}
-	ctx.Resp, ctx.Err = user.GetUserSetting(uid, ctx.Logger)
+	ctx.Resp, ctx.Err = permission.GetUserSetting(uid, ctx.Logger)
 }
 
 func ListUsers(c *gin.Context) {
@@ -156,20 +156,20 @@ func ListUsers(c *gin.Context) {
 		return
 	}
 
-	args := &user.QueryArgs{}
+	args := &permission.QueryArgs{}
 	if err := c.ShouldBindJSON(args); err != nil {
 		ctx.Err = err
 		return
 	}
 	if len(args.UIDs) > 0 {
-		ctx.Resp, ctx.Err = user.SearchUsersByUIDs(args.UIDs, ctx.Logger)
+		ctx.Resp, ctx.Err = permission.SearchUsersByUIDs(args.UIDs, ctx.Logger)
 	} else if len(args.Account) > 0 {
 		if len(args.IdentityType) == 0 {
 			args.IdentityType = config.SystemIdentityType
 		}
-		ctx.Resp, ctx.Err = user.SearchUserByAccount(args, ctx.Logger)
+		ctx.Resp, ctx.Err = permission.SearchUserByAccount(args, ctx.Logger)
 	} else {
-		ctx.Resp, ctx.Err = user.SearchUsers(args, ctx.Logger)
+		ctx.Resp, ctx.Err = permission.SearchUsers(args, ctx.Logger)
 	}
 }
 
@@ -250,7 +250,7 @@ func ListUsersBrief(c *gin.Context) {
 		return
 	}
 
-	args := &user.QueryArgs{}
+	args := &permission.QueryArgs{}
 	if err := c.ShouldBindJSON(args); err != nil {
 		ctx.Err = err
 		return
@@ -258,14 +258,14 @@ func ListUsersBrief(c *gin.Context) {
 
 	var resp *types.UsersResp
 	if len(args.UIDs) > 0 {
-		resp, err = user.SearchUsersByUIDs(args.UIDs, ctx.Logger)
+		resp, err = permission.SearchUsersByUIDs(args.UIDs, ctx.Logger)
 	} else if len(args.Account) > 0 {
 		if len(args.IdentityType) == 0 {
 			args.IdentityType = config.SystemIdentityType
 		}
-		resp, err = user.SearchUserByAccount(args, ctx.Logger)
+		resp, err = permission.SearchUserByAccount(args, ctx.Logger)
 	} else {
-		resp, err = user.SearchUsers(args, ctx.Logger)
+		resp, err = permission.SearchUsers(args, ctx.Logger)
 	}
 
 	if err != nil {
@@ -307,12 +307,12 @@ func CreateUser(c *gin.Context) {
 		return
 	}
 
-	args := &user.User{}
+	args := &permission.User{}
 	if err := c.ShouldBindJSON(args); err != nil {
 		ctx.Err = err
 		return
 	}
-	ctx.Resp, ctx.Err = user.CreateUser(args, ctx.Logger)
+	ctx.Resp, ctx.Err = permission.CreateUser(args, ctx.Logger)
 }
 
 func UpdateUser(c *gin.Context) {
@@ -333,19 +333,19 @@ func UpdateUser(c *gin.Context) {
 		return
 	}
 
-	args := &user.UpdateUserInfo{}
+	args := &permission.UpdateUserInfo{}
 	if err := c.ShouldBindJSON(args); err != nil {
 		ctx.Err = err
 		return
 	}
 	uid := c.Param("uid")
-	ctx.Err = user.UpdateUser(uid, args, ctx.Logger)
+	ctx.Err = permission.UpdateUser(uid, args, ctx.Logger)
 }
 
 func UpdatePersonalUser(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	args := &user.UpdateUserInfo{}
+	args := &permission.UpdateUserInfo{}
 	if err := c.ShouldBindJSON(args); err != nil {
 		ctx.Err = err
 		return
@@ -355,13 +355,13 @@ func UpdatePersonalUser(c *gin.Context) {
 		ctx.Err = e.ErrForbidden
 		return
 	}
-	ctx.Err = user.UpdateUser(uid, args, ctx.Logger)
+	ctx.Err = permission.UpdateUser(uid, args, ctx.Logger)
 }
 
 func UpdateUserSetting(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	args := &user.UserSetting{}
+	args := &permission.UserSetting{}
 	if err := c.ShouldBindJSON(args); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
@@ -371,46 +371,46 @@ func UpdateUserSetting(c *gin.Context) {
 		ctx.Err = e.ErrForbidden
 		return
 	}
-	ctx.Err = user.UpdateUserSetting(uid, args)
+	ctx.Err = permission.UpdateUserSetting(uid, args)
 }
 
 func SignUp(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	args := &user.User{}
+	args := &permission.User{}
 	if err := c.ShouldBindJSON(args); err != nil {
 		ctx.Err = err
 		return
 	}
-	ctx.Resp, ctx.Err = user.CreateUser(args, ctx.Logger)
+	ctx.Resp, ctx.Err = permission.CreateUser(args, ctx.Logger)
 }
 
 func Retrieve(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	ctx.Resp, ctx.Err = user.Retrieve(c.Query("account"), ctx.Logger)
+	ctx.Resp, ctx.Err = permission.Retrieve(c.Query("account"), ctx.Logger)
 }
 
 func UpdatePassword(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	args := &user.Password{}
+	args := &permission.Password{}
 	if err := c.ShouldBindJSON(args); err != nil {
 		ctx.Err = err
 		return
 	}
 	args.Uid = c.Param("uid")
-	ctx.Err = user.UpdatePassword(args, ctx.Logger)
+	ctx.Err = permission.UpdatePassword(args, ctx.Logger)
 }
 
 func Reset(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	args := &user.ResetParams{}
+	args := &permission.ResetParams{}
 	if err := c.ShouldBindJSON(args); err != nil {
 		ctx.Err = err
 		return
 	}
 	args.Uid = ctx.UserID
-	ctx.Err = user.Reset(args, ctx.Logger)
+	ctx.Err = permission.Reset(args, ctx.Logger)
 }
