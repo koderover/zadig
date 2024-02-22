@@ -98,7 +98,9 @@ func TriggerScanningByGithubEvent(event interface{}, requestID string, log *zap.
 
 					triggerRepoInfo = append(triggerRepoInfo, repoInfo)
 
-					if resp, err := scanningservice.CreateScanningTaskV2(scanning.ID.Hex(), "webhook", "", "", triggerRepoInfo, "", log); err != nil {
+					if resp, err := scanningservice.CreateScanningTaskV2(scanning.ID.Hex(), "webhook", "", "", &scanningservice.CreateScanningTaskReq{
+						Repos: triggerRepoInfo,
+					}, "", log); err != nil {
 						log.Errorf("failed to create testing task when receive event %v due to %v ", event, err)
 						mErr = multierror.Append(mErr, err)
 					} else {

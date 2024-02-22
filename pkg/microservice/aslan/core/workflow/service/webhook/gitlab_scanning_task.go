@@ -105,7 +105,9 @@ func TriggerScanningByGitlabEvent(event interface{}, baseURI, requestID string, 
 						notificationID = notification.ID.Hex()
 					}
 
-					if resp, err := scanningservice.CreateScanningTaskV2(scanning.ID.Hex(), "webhook", "", "", triggerRepoInfo, notificationID, log); err != nil {
+					if resp, err := scanningservice.CreateScanningTaskV2(scanning.ID.Hex(), "webhook", "", "", &scanningservice.CreateScanningTaskReq{
+						Repos: triggerRepoInfo,
+					}, notificationID, log); err != nil {
 						log.Errorf("failed to create testing task when receive event %v due to %v ", event, err)
 						mErr = multierror.Append(mErr, err)
 					} else {
