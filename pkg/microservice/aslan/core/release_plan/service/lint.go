@@ -40,6 +40,9 @@ func lintReleaseJob(_type config.ReleasePlanJobType, spec interface{}) error {
 		if err := models.IToi(spec, w); err != nil {
 			return fmt.Errorf("invalid workflow spec: %v", err)
 		}
+		w.Workflow.UpdateHash()
+		spec = w
+		_ = spec
 		return lintWorkflow(w.Workflow)
 	default:
 		return fmt.Errorf("invalid release job type: %s", _type)

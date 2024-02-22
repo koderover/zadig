@@ -272,6 +272,16 @@ func (u *CreateReleaseJobUpdater) Update(plan *models.ReleasePlan) (before inter
 		Type: u.Type,
 		Spec: u.Spec,
 	}
+
+	if job.Type == config.JobWorkflow {
+		w := new(models.WorkflowReleaseJobSpec)
+		if err := models.IToi(job.Spec, w); err != nil {
+			return nil, nil, fmt.Errorf("invalid workflow spec: %v", err)
+		}
+		w.Workflow.UpdateHash()
+		job.Spec = w
+	}
+
 	plan.Jobs = append(plan.Jobs, job)
 	return
 }
@@ -321,6 +331,16 @@ func (u *UpdateReleaseJobUpdater) Update(plan *models.ReleasePlan) (before inter
 			job.Name = u.Name
 			job.Spec = u.Spec
 			job.Updated = true
+
+			if job.Type == config.JobWorkflow {
+				w := new(models.WorkflowReleaseJobSpec)
+				if err := models.IToi(job.Spec, w); err != nil {
+					return nil, nil, fmt.Errorf("invalid workflow spec: %v", err)
+				}
+				w.Workflow.UpdateHash()
+				job.Spec = w
+			}
+
 			return
 		}
 	}
