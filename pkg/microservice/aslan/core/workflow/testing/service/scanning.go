@@ -439,7 +439,7 @@ func CreateScanningTask(id string, req []*ScanningRepoInfo, notificationID, user
 }
 
 // CreateScanningTaskV2 uses notificationID if the task is triggered by webhook, otherwise it should be empty
-func CreateScanningTaskV2(id, username, account, userID string, req []*ScanningRepoInfo, notificationID string, log *zap.SugaredLogger) (int64, error) {
+func CreateScanningTaskV2(id, username, account, userID string, req *CreateScanningTaskReq, notificationID string, log *zap.SugaredLogger) (int64, error) {
 	scanningInfo, err := commonrepo.NewScanningColl().GetByID(id)
 	if err != nil {
 		log.Errorf("failed to get scanning from mongodb, the error is: %s", err)
@@ -577,7 +577,7 @@ func GetScanningTaskInfo(scanningID string, taskID int64, log *zap.SugaredLogger
 	}, nil
 }
 
-func generateCustomWorkflowFromScanningModule(scanInfo *commonmodels.Scanning, args []*ScanningRepoInfo, notificationID string, log *zap.SugaredLogger) (*commonmodels.WorkflowV4, error) {
+func generateCustomWorkflowFromScanningModule(scanInfo *commonmodels.Scanning, args *CreateScanningTaskReq, notificationID string, log *zap.SugaredLogger) (*commonmodels.WorkflowV4, error) {
 	concurrencyLimit := 1
 	if scanInfo.AdvancedSetting != nil {
 		concurrencyLimit = scanInfo.AdvancedSetting.ConcurrencyLimit
@@ -602,7 +602,7 @@ func generateCustomWorkflowFromScanningModule(scanInfo *commonmodels.Scanning, a
 
 	repos := make([]*types.Repository, 0)
 
-	for _, arg := range args {
+	for _, arg := range args.Repos {
 		rep, err := systemconfig.New().GetCodeHost(arg.CodehostID)
 		if err != nil {
 			log.Errorf("failed to get codehost info from mongodb, the error is: %s", err)
@@ -634,6 +634,7 @@ func generateCustomWorkflowFromScanningModule(scanInfo *commonmodels.Scanning, a
 		Name:        scanInfo.Name,
 		ProjectName: scanInfo.ProjectName,
 		Repos:       repos,
+		KeyVals:     args.KeyVals,
 	}
 
 	job := make([]*commonmodels.Job, 0)

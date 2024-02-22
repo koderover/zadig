@@ -428,7 +428,7 @@ type ScanningModule struct {
 	Name             string              `bson:"name"                yaml:"name"             json:"name"`
 	ProjectName      string              `bson:"project_name"        yaml:"project_name"     json:"project_name"`
 	Repos            []*types.Repository `bson:"repos"               yaml:"repos"            json:"repos"`
-	Envs             []*KeyVal           `bson:"envs"                yaml:"envs"             json:"envs"`
+	KeyVals          []*KeyVal           `bson:"key_vals"            yaml:"key_vals"         json:"key_vals"`
 	ShareStorageInfo *ShareStorageInfo   `bson:"share_storage_info"   yaml:"share_storage_info"   json:"share_storage_info"`
 }
 
