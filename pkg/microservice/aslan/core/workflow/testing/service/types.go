@@ -120,6 +120,11 @@ type ListScanningRespItem struct {
 	ClusterID  string              `json:"cluster_id"`
 }
 
+type CreateScanningTaskReq struct {
+	KeyVals []*commonmodels.KeyVal `json:"key_vals"`
+	Repos   []*ScanningRepoInfo    `json:"repos"`
+}
+
 type ScanningRepoInfo struct {
 	CodehostID    int    `json:"codehost_id"`
 	Source        string `json:"source"`

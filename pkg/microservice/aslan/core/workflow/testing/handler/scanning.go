@@ -330,7 +330,8 @@ func CreateScanningTask(c *gin.Context) {
 	projectKey := c.GetString("projectKey")
 	scanningID := c.Param("id")
 
-	req := make([]*service.ScanningRepoInfo, 0)
+	//req := make([]*service.ScanningRepoInfo, 0)
+	req := new(service.CreateScanningTaskReq)
 	data, err := c.GetRawData()
 	if err != nil {
 		log.Errorf("Create scanning task c.GetRawData() err : %v", err)
