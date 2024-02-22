@@ -70,7 +70,8 @@ type OpenAPICreateScanningReq struct {
 type OpenAPICreateScanningTaskReq struct {
 	ProjectName string
 	ScanName    string
-	ScanRepos   []*ScanningRepoInfo `json:"scan_repos"`
+	ScanRepos   []*ScanningRepoInfo    `json:"scan_repos"`
+	ScanKVs     []*commonmodels.KeyVal `json:"scan_kvs"`
 }
 
 func (s *OpenAPICreateScanningTaskReq) Validate() (bool, error) {

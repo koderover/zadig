@@ -67,7 +67,10 @@ func OpenAPICreateScanningTask(username, account, userID string, args *OpenAPICr
 		}
 	}
 
-	return CreateScanningTaskV2(scan.ID.Hex(), username, account, userID, scanDatas, "", log)
+	return CreateScanningTaskV2(scan.ID.Hex(), username, account, userID, &CreateScanningTaskReq{
+		KeyVals: args.ScanKVs,
+		Repos:   scanDatas,
+	}, "", log)
 }
 
 func generateScanningModuleFromOpenAPIInput(req *OpenAPICreateScanningReq, log *zap.SugaredLogger) (*Scanning, error) {
