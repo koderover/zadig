@@ -304,6 +304,9 @@ func TransferHostProject(user, projectName string, log *zap.SugaredLogger) (err 
 	}
 
 	projectInfo.ProductFeature.CreateEnvType = "system"
+	for _, svc := range services {
+		svc.WorkloadType = ""
+	}
 
 	if err = saveServices(projectName, user, services); err != nil {
 		return err
@@ -334,7 +337,6 @@ func transferServices(user string, projectInfo *template.Product, logger *zap.Su
 		svc.Source = setting.SourceFromZadig
 		svc.CreateBy = user
 		svc.EnvName = ""
-		svc.WorkloadType = ""
 	}
 	return templateServices, nil
 }
@@ -539,7 +541,7 @@ func transferProducts(user string, projectInfo *template.Product, templateServic
 
 			containers := make([]*resource.ContainerImage, 0)
 			log.Infof("-------- service type %s, service name %s, env %s --------", svcTemplate.Type, svcTemplate.ServiceName, product.EnvName)
-			if svcTemplate.Type == setting.Deployment {
+			if svcTemplate.WorkloadType == setting.Deployment {
 				deploy, exist, err := getter.GetDeployment(product.Namespace, svcTemplate.ServiceName, kubeClient)
 				if deploy != nil && exist && err == nil {
 					log.Infof("------- find deploy info for service %s, env %s -------", svcTemplate.ServiceName, product.EnvName)

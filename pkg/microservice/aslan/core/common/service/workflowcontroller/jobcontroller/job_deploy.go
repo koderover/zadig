@@ -169,7 +169,6 @@ func (c *DeployJobCtl) run(ctx context.Context) error {
 		return errors.New(msg)
 	}
 
-	log.Infof("------ envtype: %s", c.jobTaskSpec.CreateEnvType)
 	if c.jobTaskSpec.CreateEnvType == "system" {
 		var updateRevision bool
 		if slices.Contains(c.jobTaskSpec.DeployContents, config.DeployConfig) && c.jobTaskSpec.UpdateConfig {
@@ -241,7 +240,6 @@ func (c *DeployJobCtl) run(ctx context.Context) error {
 		return nil
 	}
 
-	log.Infof("------ serviceName: %s, serviceType: %s", c.jobTaskSpec.CreateEnvType, c.jobTaskSpec.ServiceType)
 	// get servcie info
 	var (
 		serviceInfo *commonmodels.Service
