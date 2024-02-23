@@ -18,11 +18,17 @@ package rest
 
 import (
 	"github.com/gin-gonic/gin"
-
 	"github.com/koderover/zadig/v2/pkg/microservice/user/core/handler"
 )
 
 func (s *engine) injectRouterGroup(router *gin.RouterGroup) {
+
+	for name, r := range map[string]injector{
+		"/openapi/": new(handler.OpenAPIRouter),
+	} {
+		r.Inject(router.Group(name))
+	}
+
 	for _, r := range []injector{
 		new(handler.Router),
 	} {

@@ -126,3 +126,44 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		}
 	}
 }
+
+type OpenAPIRouter struct{}
+
+func (*OpenAPIRouter) Inject(router *gin.RouterGroup) {
+	users := router.Group("users")
+	{
+		users.GET("", user.OpenAPIListUsersBrief)
+	}
+
+	usergroups := router.Group("user-groups")
+	{
+		usergroups.GET("", user.OpenApiListUserGroups)
+	}
+
+	policy := router.Group("policy")
+	{
+		roles := policy.Group("/roles")
+		{
+			roles.POST("", permission.OpenAPICreateRole)
+			roles.PUT("/:name", permission.OpenAPIUpdateRole)
+			roles.GET("", permission.OpenAPIListRoles)
+			roles.GET("/:name", permission.OpenAPIGetRole)
+			roles.DELETE("/:name", permission.OpenAPIDeleteRole)
+		}
+
+		roleBindings := policy.Group("/role-bindings")
+		{
+			roleBindings.GET("", permission.OpenAPIListRoleBindings)
+			roleBindings.POST("", permission.OpenAPICreateRoleBinding)
+			roleBindings.POST("/user/:uid", permission.OpenAPIUpdateRoleBindingForUser)
+			roleBindings.DELETE("/user/:uid", permission.OpenAPIDeleteRoleBindingForUser)
+			roleBindings.POST("/group/:gid", permission.OpenAPIUpdateRoleBindingForGroup)
+			roleBindings.DELETE("/group/:gid", permission.OpenAPIDeleteRoleBindingForGroup)
+		}
+
+		resourceAction := policy.Group("resource-actions")
+		{
+			resourceAction.GET("", permission.OpenAPIGetResourceActionDefinitions)
+		}
+	}
+}

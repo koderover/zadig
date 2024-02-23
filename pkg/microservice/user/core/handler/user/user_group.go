@@ -73,9 +73,52 @@ type listUserGroupsReq struct {
 	Name     string `json:"name"      form:"name"`
 }
 
+type openAPIListUserGroupReq struct {
+	PageNum  int    `json:"page_num"  form:"pageNum"`
+	PageSize int    `json:"page_size" form:"pageSize"`
+	Name     string `json:"name"      form:"name"`
+}
+
 type listUserGroupResp struct {
 	GroupList []*user.UserGroupResp `json:"group_list"`
 	Count     int64                 `json:"total"`
+}
+
+func OpenApiListUserGroups(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	err := GenerateUserAuthInfo(ctx)
+	if err != nil {
+		ctx.UnAuthorized = true
+		ctx.Err = fmt.Errorf("failed to generate user authorization info, error: %s", err)
+		return
+	}
+
+	if !ctx.Resources.IsSystemAdmin {
+		ctx.UnAuthorized = true
+		return
+	}
+
+	// everyone can list user groups
+	query := new(openAPIListUserGroupReq)
+	err = c.BindQuery(&query)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam
+		return
+	}
+
+	groupList, count, err := user.ListUserGroups(query.Name, query.PageNum, query.PageSize, ctx.Logger)
+
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+
+	ctx.Resp = &listUserGroupResp{
+		GroupList: groupList,
+		Count:     count,
+	}
 }
 
 func ListUserGroups(c *gin.Context) {

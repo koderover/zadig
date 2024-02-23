@@ -33,9 +33,22 @@ import (
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
+func OpenAPICreateRole(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	ctx.UserName = ctx.UserName + "(openAPI)"
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	CreateRoleImpl(c, ctx)
+}
+
 func CreateRole(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	CreateRoleImpl(c, ctx)
+}
+
+func CreateRoleImpl(c *gin.Context, ctx *internalhandler.Context) {
 
 	data, err := c.GetRawData()
 	if err != nil {
@@ -107,9 +120,22 @@ func CreateRole(c *gin.Context) {
 	ctx.Err = permission.CreateRole(projectName, args, ctx.Logger)
 }
 
+func OpenAPIUpdateRole(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	ctx.UserName = ctx.UserName + "(openAPI)"
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	UpdateRoleImpl(c, ctx)
+}
+
 func UpdateRole(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	UpdateRoleImpl(c, ctx)
+}
+
+func UpdateRoleImpl(c *gin.Context, ctx *internalhandler.Context) {
 
 	data, err := c.GetRawData()
 	if err != nil {
@@ -183,6 +209,48 @@ func UpdateRole(c *gin.Context) {
 	ctx.Err = permission.UpdateRole(projectName, args, ctx.Logger)
 }
 
+func OpenAPIListRoles(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	err := userhandler.GenerateUserAuthInfo(ctx)
+	if err != nil {
+		ctx.UnAuthorized = true
+		ctx.Err = fmt.Errorf("failed to generate user authorization info, error: %s", err)
+		return
+	}
+
+	projectName := c.Query("namespace")
+	if projectName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("args namespace can't be empty")
+		return
+	}
+
+	if !ctx.Resources.IsSystemAdmin {
+		if projectName == "*" {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectName]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	uid := c.Query("uid")
+	if uid == "" {
+		ctx.Resp, ctx.Err = permission.ListRolesByNamespace(projectName, ctx.Logger)
+	} else {
+		ctx.Resp, ctx.Err = permission.ListRolesByNamespaceAndUserID(projectName, uid, ctx.Logger)
+	}
+}
+
 func ListRoles(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -200,6 +268,43 @@ func ListRoles(c *gin.Context) {
 	}
 }
 
+func OpenAPIGetRole(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	err := userhandler.GenerateUserAuthInfo(ctx)
+	if err != nil {
+		ctx.UnAuthorized = true
+		ctx.Err = fmt.Errorf("failed to generate user authorization info, error: %s", err)
+		return
+	}
+
+	projectName := c.Query("namespace")
+	if projectName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("args namespace can't be empty")
+		return
+	}
+
+	if !ctx.Resources.IsSystemAdmin {
+		if projectName == "*" {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectName]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	ctx.Resp, ctx.Err = permission.GetRole(projectName, c.Param("name"), ctx.Logger)
+}
+
 func GetRole(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -213,9 +318,22 @@ func GetRole(c *gin.Context) {
 	ctx.Resp, ctx.Err = permission.GetRole(projectName, c.Param("name"), ctx.Logger)
 }
 
+func OpenAPIDeleteRole(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	ctx.UserName = ctx.UserName + "(openAPI)"
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	DeleteRoleImpl(c, ctx)
+}
+
 func DeleteRole(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	DeleteRoleImpl(c, ctx)
+}
+
+func DeleteRoleImpl(c *gin.Context, ctx *internalhandler.Context) {
 
 	name := c.Param("name")
 	projectName := c.Query("namespace")
