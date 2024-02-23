@@ -20,6 +20,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/koderover/zadig/v2/pkg/shared/kube/resource"
+	"github.com/koderover/zadig/v2/pkg/shared/kube/wrapper"
 	"regexp"
 	"sort"
 	"strconv"
@@ -512,6 +514,12 @@ func transferProducts(user string, projectInfo *template.Product, templateServic
 
 	// build rendersets and services, set necessary attributes
 	for _, product := range products {
+
+		kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), product.ClusterID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to generate kube client for product %s, error: %s", product.ProductName, err)
+		}
+
 		currentWorkloads, err := commonservice.ListWorkloadTemplate(projectInfo.ProductName, product.EnvName, logger)
 		if err != nil {
 			return nil, err
@@ -528,12 +536,34 @@ func transferProducts(user string, projectInfo *template.Product, templateServic
 			if err != nil {
 				log.Errorf("failed to load resources from manifest, error: %s", err)
 			}
+
+			containers := make([]*resource.ContainerImage, 0)
+			if svcTemplate.Type == setting.Deployment {
+				deploy, exist, err := getter.GetDeployment(product.Namespace, svcTemplate.ServiceName, kubeClient)
+				if deploy != nil && exist && err == nil {
+					containers = wrapper.Deployment(deploy).GetContainers()
+				}
+			} else if svcTemplate.Type == setting.StatefulSet {
+				sts, exist, err := getter.GetStatefulSet(product.Namespace, svcTemplate.ServiceName, kubeClient)
+				if sts != nil && exist && err == nil {
+					containers = wrapper.StatefulSet(sts).GetContainers()
+				}
+			}
+			prodSvcContainers := make([]*commonmodels.Container, 0)
+			for _, c := range containers {
+				prodSvcContainers = append(prodSvcContainers, &commonmodels.Container{
+					Name:      c.Name,
+					Image:     c.Image,
+					ImageName: c.ImageName,
+				})
+			}
+
 			productServices = append(productServices, &commonmodels.ProductService{
 				ServiceName: workload.Service,
 				ProductName: product.ProductName,
 				Type:        svcTemplate.Type,
 				Revision:    svcTemplate.Revision,
-				Containers:  svcTemplate.Containers,
+				Containers:  prodSvcContainers,
 				Resources:   resources,
 			})
 		}

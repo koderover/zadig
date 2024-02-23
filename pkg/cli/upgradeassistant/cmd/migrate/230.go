@@ -125,7 +125,6 @@ func migrateHostProjectData() error {
 			//	return ret
 			//}
 
-			//cls, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), product.ClusterID)
 			//if err != nil {
 			//	log.Errorf("Failed to get kube client for cluster: %s, the error is: %s", product.ClusterID, err)
 			//	continue
