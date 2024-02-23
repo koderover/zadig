@@ -18,15 +18,11 @@ package migrate
 
 import (
 	"github.com/koderover/zadig/v2/pkg/cli/upgradeassistant/internal/upgradepath"
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/v2/pkg/setting"
-	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
-	"github.com/koderover/zadig/v2/pkg/tool/kube/informer"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -78,12 +74,12 @@ func migrateHostProjectData() error {
 			tempSvcMap[svc.ServiceName] = svc
 		}
 
-		getSvcRevision := func(svcName string) int64 {
-			if svc, ok := tempSvcMap[svcName]; ok {
-				return svc.Revision
-			}
-			return 1
-		}
+		//getSvcRevision := func(svcName string) int64 {
+		//	if svc, ok := tempSvcMap[svcName]; ok {
+		//		return svc.Revision
+		//	}
+		//	return 1
+		//}
 
 		products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
 			Name: project.ProductName,
@@ -119,45 +115,44 @@ func migrateHostProjectData() error {
 				svcNameList.Insert(singleSvc.ServiceName)
 			}
 
-			filter := func(services []*service.Workload) []*service.Workload {
-				ret := make([]*service.Workload, 0)
-				for _, svc := range services {
-					if svcNameList.Has(svc.ServiceName) {
-						ret = append(ret, svc)
-					}
-				}
-				return ret
-			}
+			//filter := func(services []*service.Workload) []*service.Workload {
+			//	ret := make([]*service.Workload, 0)
+			//	for _, svc := range services {
+			//		if svcNameList.Has(svc.ServiceName) {
+			//			ret = append(ret, svc)
+			//		}
+			//	}
+			//	return ret
+			//}
 
-			cls, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), product.ClusterID)
-			if err != nil {
-				log.Errorf("Failed to get kube client for cluster: %s, the error is: %s", product.ClusterID, err)
-				continue
-			}
-			sharedInformer, err := informer.NewInformer(product.ClusterID, product.Namespace, cls)
-			if err != nil {
-				log.Errorf("[%s][%s] error: %v", product.EnvName, product.Namespace, err)
-				continue
-			}
-			version, err := cls.Discovery().ServerVersion()
-			if err != nil {
-				log.Errorf("Failed to get server version info for cluster: %s, the error is: %s", product.ClusterID, err)
-				continue
-			}
-
-			_, workloads, err := service.ListWorkloads(product.EnvName, product.ProductName, -1, -1, sharedInformer, version, log.SugaredLogger(), []service.FilterFunc{filter}...)
-			if err != nil {
-				log.Errorf("ListWorkloadDetails err:%s", err)
-				continue
-			}
+			//cls, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), product.ClusterID)
+			//if err != nil {
+			//	log.Errorf("Failed to get kube client for cluster: %s, the error is: %s", product.ClusterID, err)
+			//	continue
+			//}
+			//sharedInformer, err := informer.NewInformer(product.ClusterID, product.Namespace, cls)
+			//if err != nil {
+			//	log.Errorf("[%s][%s] error: %v", product.EnvName, product.Namespace, err)
+			//	continue
+			//}
+			//version, err := cls.Discovery().ServerVersion()
+			//if err != nil {
+			//	log.Errorf("Failed to get server version info for cluster: %s, the error is: %s", product.ClusterID, err)
+			//	continue
+			//}
+			//
+			//_, workloads, err := service.ListWorkloads(product.EnvName, product.ProductName, -1, -1, sharedInformer, version, log.SugaredLogger(), []service.FilterFunc{filter}...)
+			//if err != nil {
+			//	log.Errorf("ListWorkloadDetails err:%s", err)
+			//	continue
+			//}
 
 			// fetch workload from namespace and extract resource / container info
+			// note the image data in container may not be correct
 			productSvcs := make([]*models.ProductService, 0)
-			for _, workload := range workloads {
 
-				templateSvc := tempSvcMap[workload.Name]
-				if templateSvc == nil {
-					log.Errorf("failed to find service %s in template", workload.Name)
+			for _, templateSvc := range tempSvcMap {
+				if !svcNameList.Has(templateSvc.ServiceName) {
 					continue
 				}
 
@@ -168,7 +163,7 @@ func migrateHostProjectData() error {
 				}
 
 				containers := make([]*models.Container, 0)
-				for _, c := range workload.Containers {
+				for _, c := range templateSvc.Containers {
 					containers = append(containers, &models.Container{
 						Name:      c.Name,
 						Image:     c.Image,
@@ -177,10 +172,10 @@ func migrateHostProjectData() error {
 				}
 
 				productSvc := &models.ProductService{
-					ServiceName:    workload.Name,
+					ServiceName:    templateSvc.ServiceName,
 					ProductName:    product.ProductName,
-					Type:           workload.Type,
-					Revision:       getSvcRevision(workload.Name),
+					Type:           templateSvc.WorkloadType,
+					Revision:       templateSvc.Revision,
 					Containers:     containers,
 					Resources:      resources,
 					DeployStrategy: setting.ServiceDeployStrategyDeploy,
@@ -189,6 +184,43 @@ func migrateHostProjectData() error {
 				productSvc.GetServiceRender()
 				productSvcs = append(productSvcs, productSvc)
 			}
+
+			//for _, workload := range workloads {
+			//
+			//	templateSvc := tempSvcMap[workload.Name]
+			//	if templateSvc == nil {
+			//		log.Errorf("failed to find service %s in template", workload.Name)
+			//		continue
+			//	}
+			//
+			//	resources, err := kube.ManifestToResource(templateSvc.Yaml)
+			//	if err != nil {
+			//		log.Errorf("ManifestToResource err:%s", err)
+			//		continue
+			//	}
+			//
+			//	containers := make([]*models.Container, 0)
+			//	for _, c := range workload.Containers {
+			//		containers = append(containers, &models.Container{
+			//			Name:      c.Name,
+			//			Image:     c.Image,
+			//			ImageName: c.ImageName,
+			//		})
+			//	}
+			//
+			//	productSvc := &models.ProductService{
+			//		ServiceName:    workload.Name,
+			//		ProductName:    product.ProductName,
+			//		Type:           workload.Type,
+			//		Revision:       getSvcRevision(workload.Name),
+			//		Containers:     containers,
+			//		Resources:      resources,
+			//		DeployStrategy: setting.ServiceDeployStrategyDeploy,
+			//	}
+			//
+			//	productSvc.GetServiceRender()
+			//	productSvcs = append(productSvcs, productSvc)
+			//}
 			product.Services = make([][]*models.ProductService, 0)
 			product.Services = append(product.Services, productSvcs)
 
