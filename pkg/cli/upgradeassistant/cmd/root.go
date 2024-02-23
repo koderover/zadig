@@ -22,11 +22,11 @@ import (
 	"sync"
 	"syscall"
 
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/webhook"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
 	"github.com/koderover/zadig/v2/pkg/config"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/webhook"
 	"github.com/koderover/zadig/v2/pkg/microservice/user/core/repository"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	gormtool "github.com/koderover/zadig/v2/pkg/tool/gorm"
