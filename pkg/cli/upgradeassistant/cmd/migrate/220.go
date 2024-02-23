@@ -634,10 +634,11 @@ func generateCustomWorkflowFromProductWorkflow(productWorkflow *models.Workflow)
 			}
 
 			spec := &models.ZadigVMDeployJobSpec{
-				Env:         productWorkflow.EnvName,
-				S3StorageID: defaultObjectStorage.ID.Hex(),
-				Source:      config.SourceRuntime,
-				JobName:     "build",
+				Env:                 productWorkflow.EnvName,
+				S3StorageID:         defaultObjectStorage.ID.Hex(),
+				Source:              config.SourceRuntime,
+				JobName:             "build",
+				ServiceAndVMDeploys: serviceAndImages,
 			}
 
 			if spec.Env == "" {
