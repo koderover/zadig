@@ -107,7 +107,7 @@ func OpenApiListUserGroups(c *gin.Context) {
 		return
 	}
 
-	groupList, count, err := user.ListUserGroups(query.Name, query.PageNum, query.PageSize, ctx.Logger)
+	groupList, count, err := permission.ListUserGroups(query.Name, query.PageNum, query.PageSize, ctx.Logger)
 
 	if err != nil {
 		ctx.Err = err
