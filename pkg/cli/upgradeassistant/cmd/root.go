@@ -60,7 +60,7 @@ func init() {
 
 	ctx, _ := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
 	go StartControllers(ctx.Done())
-	//initMysql()
+	initMysql()
 }
 
 func initConfig() {

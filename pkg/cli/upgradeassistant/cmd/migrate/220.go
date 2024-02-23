@@ -42,15 +42,15 @@ func init() {
 }
 
 func V210ToV220() error {
-	//log.Infof("-------- start migrate predeploy to build --------")
-	//err := migratePreDeployToBuild()
-	//if err != nil {
-	//	log.Errorf("migratePreDeployToBuild error: %s", err)
-	//	return err
-	//}
+	log.Infof("-------- start migrate predeploy to build --------")
+	err := migratePreDeployToBuild()
+	if err != nil {
+		log.Errorf("migratePreDeployToBuild error: %s", err)
+		return err
+	}
 
 	log.Infof("-------- start migrate product workflow to custom workflow --------")
-	err := migrateProductWorkflowToCustomWorkflow()
+	err = migrateProductWorkflowToCustomWorkflow()
 	if err != nil {
 		log.Errorf("migrate product workflow to custom workflow error: %s", err)
 		return err
