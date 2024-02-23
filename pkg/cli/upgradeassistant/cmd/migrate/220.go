@@ -495,6 +495,16 @@ func generateCustomWorkflowFromProductWorkflow(productWorkflow *models.Workflow)
 				JobName:     "build",
 			}
 
+			if spec.Env == "" {
+				envs, err := service.ListProducts("system", productWorkflow.ProductTmplName, []string{}, false, log.SugaredLogger())
+				if err != nil {
+					return nil, err
+				}
+				if len(envs) > 0 {
+					spec.Env = envs[0].Name
+				}
+			}
+
 			deployJobs = append(deployJobs, &models.Job{
 				Name:    "deploy",
 				JobType: config.JobZadigVMDeploy,
@@ -628,6 +638,16 @@ func generateCustomWorkflowFromProductWorkflow(productWorkflow *models.Workflow)
 				S3StorageID: defaultObjectStorage.ID.Hex(),
 				Source:      config.SourceRuntime,
 				JobName:     "build",
+			}
+
+			if spec.Env == "" {
+				envs, err := service.ListProducts("system", productWorkflow.ProductTmplName, []string{}, false, log.SugaredLogger())
+				if err != nil {
+					return nil, err
+				}
+				if len(envs) > 0 {
+					spec.Env = envs[0].Name
+				}
 			}
 
 			deployJobs = append(deployJobs, &models.Job{
