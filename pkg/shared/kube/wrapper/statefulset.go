@@ -17,6 +17,7 @@ limitations under the License.
 package wrapper
 
 import (
+	"github.com/koderover/zadig/v2/pkg/util"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 
@@ -89,7 +90,7 @@ func (w *statefulSet) GetKind() string {
 func (w *statefulSet) GetContainers() []*resource.ContainerImage {
 	containers := make([]*resource.ContainerImage, 0, len(w.Spec.Template.Spec.Containers))
 	for _, c := range w.Spec.Template.Spec.Containers {
-		containers = append(containers, &resource.ContainerImage{Name: c.Name, Image: c.Image})
+		containers = append(containers, &resource.ContainerImage{Name: c.Name, Image: c.Image, ImageName: util.ExtractImageName(c.Image)})
 	}
 	return containers
 }

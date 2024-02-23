@@ -30,6 +30,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"time"
 )
 
 func init() {
@@ -40,6 +41,7 @@ func init() {
 func V220ToV230() error {
 	log.Infof("-------- start migrate host project data --------")
 	err := migrateHostProjectData()
+	time.Sleep(time.Second * 100)
 	if err != nil {
 		log.Errorf("migrateHostProjectData error: %s", err)
 		return err
@@ -49,6 +51,10 @@ func V220ToV230() error {
 }
 
 func V230ToV220() error {
+	return nil
+}
+
+func migrateHostProjectData() error {
 
 	allProjects, err := template.NewProductColl().ListWithOption(&template.ProductListOpt{
 		DeployType:    setting.K8SDeployType,
@@ -73,101 +79,125 @@ func V230ToV220() error {
 		}
 
 		getSvcRevision := func(svcName string) int64 {
-			if svc, ok := tempSvcMap[svc]; ok {
+			if svc, ok := tempSvcMap[svcName]; ok {
 				return svc.Revision
 			}
 			return 1
 		}
 
-		product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
 			Name: project.ProductName,
 		})
 		if err != nil {
-			return errors.WithMessagef(err, "failed to find product %s", project.ProductName)
-		}
-		// product data has been handled
-		if len(product.Services) > 0 {
-			continue
+			return errors.WithMessagef(err, "failed to find product %s, err: %s", project.ProductName, err)
 		}
 
-		productServices, err := commonrepo.NewServiceColl().ListExternalWorkloadsBy(project.ProductName, product.EnvName)
-		if err != nil {
-			log.Errorf("ListWorkloadDetails ListExternalServicesBy err:%s", err)
-			return errors.Wrapf(err, "failed to list external services for product %s", project.ProductName)
-		}
+		for _, product := range products {
+			// product data has been handled
+			if len(product.Services) > 0 {
+				continue
+			}
 
-		servicesInExternalEnv, _ := commonrepo.NewServicesInExternalEnvColl().List(&commonrepo.ServicesInExternalEnvArgs{
-			ProductName: project.ProductName,
-			EnvName:     product.EnvName,
-		})
+			log.Infof("------- handling single data for product %s, env %s -------", product.ProductName, product.EnvName)
 
-		svcNameList := sets.NewString()
-		for _, singleProductSvc := range productServices {
-			svcNameList.Insert(singleProductSvc.ServiceName)
-		}
-		for _, singleSvc := range servicesInExternalEnv {
-			svcNameList.Insert(singleSvc.ServiceName)
-		}
+			productServices, err := commonrepo.NewServiceColl().ListExternalWorkloadsBy(project.ProductName, product.EnvName)
+			if err != nil {
+				log.Errorf("ListWorkloadDetails ListExternalServicesBy err:%s", err)
+				return errors.Wrapf(err, "failed to list external services for product %s", project.ProductName)
+			}
 
-		filter := func(services []*service.Workload) []*service.Workload {
-			ret := make([]*service.Workload, 0)
-			for _, svc := range services {
-				if svcNameList.Has(svc.ServiceName) {
-					ret = append(ret, svc)
+			servicesInExternalEnv, _ := commonrepo.NewServicesInExternalEnvColl().List(&commonrepo.ServicesInExternalEnvArgs{
+				ProductName: project.ProductName,
+				EnvName:     product.EnvName,
+			})
+
+			svcNameList := sets.NewString()
+			for _, singleProductSvc := range productServices {
+				svcNameList.Insert(singleProductSvc.ServiceName)
+			}
+			for _, singleSvc := range servicesInExternalEnv {
+				svcNameList.Insert(singleSvc.ServiceName)
+			}
+
+			filter := func(services []*service.Workload) []*service.Workload {
+				ret := make([]*service.Workload, 0)
+				for _, svc := range services {
+					if svcNameList.Has(svc.ServiceName) {
+						ret = append(ret, svc)
+					}
 				}
-			}
-			return ret
-		}
-
-		cls, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), product.ClusterID)
-		if err != nil {
-			log.Errorf("Failed to get kube client for cluster: %s, the error is: %s", product.ClusterID, err)
-		}
-		sharedInformer, err := informer.NewInformer(product.ClusterID, product.Namespace, cls)
-		if err != nil {
-			log.Errorf("[%s][%s] error: %v", product.EnvName, product.Namespace, err)
-			continue
-		}
-		version, err := cls.Discovery().ServerVersion()
-		if err != nil {
-			log.Errorf("Failed to get server version info for cluster: %s, the error is: %s", product.ClusterID, err)
-			continue
-		}
-
-		_, workloads, err := service.ListWorkloads(product.EnvName, product.ProductName, -1, -1, sharedInformer, version, log.SugaredLogger(), []service.FilterFunc{filter}...)
-		if err != nil {
-			log.Errorf("ListWorkloadDetails err:%s", err)
-			continue
-		}
-
-		productSvcs := make([]*models.ProductService, 0)
-		for _, workload := range workloads {
-
-			resources, err := kube.ManifestToResource(svcTemplate.Yaml)
-
-			productSvc := &models.ProductService{
-				ServiceName:    workload.Name,
-				ProductName:    product.ProductName,
-				Type:           workload.Type,
-				Revision:       getSvcRevision(workload.Name),
-				Containers:     nil,
-				Resources:      nil,
-				Render:         nil,
-				DeployStrategy: setting.ServiceDeployStrategyDeploy,
+				return ret
 			}
 
-			productSvc.GetServiceRender()
-			productSvcs = append(productSvcs, productSvc)
+			cls, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), product.ClusterID)
+			if err != nil {
+				log.Errorf("Failed to get kube client for cluster: %s, the error is: %s", product.ClusterID, err)
+				continue
+			}
+			sharedInformer, err := informer.NewInformer(product.ClusterID, product.Namespace, cls)
+			if err != nil {
+				log.Errorf("[%s][%s] error: %v", product.EnvName, product.Namespace, err)
+				continue
+			}
+			version, err := cls.Discovery().ServerVersion()
+			if err != nil {
+				log.Errorf("Failed to get server version info for cluster: %s, the error is: %s", product.ClusterID, err)
+				continue
+			}
+
+			_, workloads, err := service.ListWorkloads(product.EnvName, product.ProductName, -1, -1, sharedInformer, version, log.SugaredLogger(), []service.FilterFunc{filter}...)
+			if err != nil {
+				log.Errorf("ListWorkloadDetails err:%s", err)
+				continue
+			}
+
+			// fetch workload from namespace and extract resource / container info
+			productSvcs := make([]*models.ProductService, 0)
+			for _, workload := range workloads {
+
+				templateSvc := tempSvcMap[workload.Name]
+				if templateSvc == nil {
+					log.Errorf("failed to find service %s in template", workload.Name)
+					continue
+				}
+
+				resources, err := kube.ManifestToResource(templateSvc.Yaml)
+				if err != nil {
+					log.Errorf("ManifestToResource err:%s", err)
+					continue
+				}
+
+				containers := make([]*models.Container, 0)
+				for _, c := range workload.Containers {
+					containers = append(containers, &models.Container{
+						Name:      c.Name,
+						Image:     c.Image,
+						ImageName: c.ImageName,
+					})
+				}
+
+				productSvc := &models.ProductService{
+					ServiceName:    workload.Name,
+					ProductName:    product.ProductName,
+					Type:           workload.Type,
+					Revision:       getSvcRevision(workload.Name),
+					Containers:     containers,
+					Resources:      resources,
+					DeployStrategy: setting.ServiceDeployStrategyDeploy,
+				}
+
+				productSvc.GetServiceRender()
+				productSvcs = append(productSvcs, productSvc)
+			}
+			product.Services = make([][]*models.ProductService, 0)
+			product.Services = append(product.Services, productSvcs)
+
+			err = commonrepo.NewProductColl().Update(product)
+			if err != nil {
+				log.Errorf("Failed to update product %s, the error is: %s", product.ProductName, err)
+				continue
+			}
 		}
-		product.Services = make([][]*models.ProductService, 0)
-		product.Services = append(product.Services, productSvcs)
 	}
-
-	return nil
-}
-
-// migrate
-func migrateHostProjectData() error {
-
 	return nil
 }

@@ -649,20 +649,21 @@ func (f *workloadFilter) Match(workload *Workload) bool {
 }
 
 type Workload struct {
-	EnvName           string                 `json:"env_name"`
-	Name              string                 `json:"name"`
-	Type              string                 `json:"type"`
-	ServiceName       string                 `json:"-"`
-	DeployedFromZadig bool                   `json:"-"`
-	ProductName       string                 `json:"product_name"`
-	Replicas          int32                  `json:"-"`
-	Spec              corev1.PodTemplateSpec `json:"-"`
-	Images            []string               `json:"-"`
-	Ready             bool                   `json:"ready"`
-	Annotation        map[string]string      `json:"-"`
-	Status            string                 `json:"-"`
-	ReleaseName       string                 `json:"-"` //ReleaseName refers to the releaseName of helm services
-	ChartName         string                 `json:"-"` //ChartName refers to chartName of helm services
+	EnvName           string                     `json:"env_name"`
+	Name              string                     `json:"name"`
+	Type              string                     `json:"type"`
+	ServiceName       string                     `json:"-"`
+	DeployedFromZadig bool                       `json:"-"`
+	ProductName       string                     `json:"product_name"`
+	Replicas          int32                      `json:"-"`
+	Spec              corev1.PodTemplateSpec     `json:"-"`
+	Images            []string                   `json:"-"`
+	Containers        []*resource.ContainerImage `json:"-"`
+	Ready             bool                       `json:"ready"`
+	Annotation        map[string]string          `json:"-"`
+	Status            string                     `json:"-"`
+	ReleaseName       string                     `json:"-"` //ReleaseName refers to the releaseName of helm services
+	ChartName         string                     `json:"-"` //ChartName refers to chartName of helm services
 }
 
 // fillServiceName set service name defined in zadig to workloads, this would be helpful for helm release view
@@ -713,6 +714,7 @@ func ListWorkloads(envName, productName string, perPage, page int, informer info
 			Type:       setting.Deployment,
 			Replicas:   *v.Spec.Replicas,
 			Images:     wrapper.Deployment(v).ImageInfos(),
+			Containers: wrapper.Deployment(v).GetContainers(),
 			Ready:      wrapper.Deployment(v).Ready(),
 			Annotation: v.Annotations,
 		})
@@ -728,6 +730,7 @@ func ListWorkloads(envName, productName string, perPage, page int, informer info
 			Type:       setting.StatefulSet,
 			Replicas:   *v.Spec.Replicas,
 			Images:     wrapper.StatefulSet(v).ImageInfos(),
+			Containers: wrapper.StatefulSet(v).GetContainers(),
 			Ready:      wrapper.StatefulSet(v).Ready(),
 			Annotation: v.Annotations,
 		})

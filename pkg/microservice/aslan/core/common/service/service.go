@@ -1552,6 +1552,7 @@ func ToDeploymentWorkload(v *appsv1.Deployment) *Workload {
 		Spec:       v.Spec.Template,
 		Type:       setting.Deployment,
 		Images:     wrapper.Deployment(v).ImageInfos(),
+		Containers: wrapper.Deployment(v).GetContainers(),
 		Ready:      wrapper.Deployment(v).Ready(),
 		Annotation: v.Annotations,
 	}
@@ -1564,6 +1565,7 @@ func toStsWorkload(v *appsv1.StatefulSet) *Workload {
 		Spec:       v.Spec.Template,
 		Type:       setting.StatefulSet,
 		Images:     wrapper.StatefulSet(v).ImageInfos(),
+		Containers: wrapper.StatefulSet(v).GetContainers(),
 		Ready:      wrapper.StatefulSet(v).Ready(),
 		Annotation: v.Annotations,
 	}
