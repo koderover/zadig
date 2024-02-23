@@ -63,6 +63,7 @@ func (j *ScanningJob) SetPreset() error {
 			continue
 		}
 		scanning.Repos = mergeRepos(scanningInfo.Repos, scanning.Repos)
+		scanning.KeyVals = renderKeyVals(scanning.KeyVals, scanningInfo.Envs)
 	}
 	j.job.Spec = j.spec
 	return nil
@@ -205,7 +206,7 @@ func (j *ScanningJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			StrategyID:          scanningInfo.AdvancedSetting.StrategyID,
 			BuildOS:             scanningImage,
 			ImageFrom:           setting.ImageFromCustom,
-			Envs:                envs,
+			Envs:                renderKeyVals(scanning.KeyVals, scanningInfo.Envs),
 			Registries:          registries,
 			ShareStorageDetails: getShareStorageDetail(j.workflow.ShareStorages, scanning.ShareStorageInfo, j.workflow.Name, taskID),
 		}

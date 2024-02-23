@@ -17,10 +17,16 @@ limitations under the License.
 package cmd
 
 import (
+	"context"
+	"os/signal"
+	"sync"
+	"syscall"
+
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
 	"github.com/koderover/zadig/v2/pkg/config"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/webhook"
 	"github.com/koderover/zadig/v2/pkg/microservice/user/core/repository"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	gormtool "github.com/koderover/zadig/v2/pkg/tool/gorm"
@@ -41,22 +47,24 @@ func Execute() error {
 func init() {
 	cobra.OnInitialize(initConfig)
 
+	log.Init(&log.Config{
+		Level:    "debug",
+		NoCaller: false,
+	})
+
 	rootCmd.PersistentFlags().StringP("connection-string", "c", "", "mongodb connection string")
 	rootCmd.PersistentFlags().StringP("database", "d", "", "name of the database")
 
 	_ = viper.BindPFlag(setting.ENVMongoDBConnectionString, rootCmd.PersistentFlags().Lookup("connection-string"))
 	_ = viper.BindPFlag(setting.ENVAslanDBName, rootCmd.PersistentFlags().Lookup("database"))
 
+	ctx, _ := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
+	go StartControllers(ctx.Done())
 	//initMysql()
 }
 
 func initConfig() {
 	viper.AutomaticEnv()
-
-	log.Init(&log.Config{
-		Level:    "debug",
-		NoCaller: true,
-	})
 }
 
 func initMysql() {
@@ -76,4 +84,32 @@ func initMysql() {
 	}
 	sqlDB.SetMaxIdleConns(10)
 	sqlDB.SetMaxOpenConns(200)
+}
+
+const (
+	webhookController = iota
+)
+
+type Controller interface {
+	Run(workers int, stopCh <-chan struct{})
+}
+
+func StartControllers(stopCh <-chan struct{}) {
+	controllerWorkers := map[int]int{
+		webhookController: 1,
+	}
+	controllers := map[int]Controller{
+		webhookController: webhook.NewWebhookController(),
+	}
+
+	var wg sync.WaitGroup
+	for name, c := range controllers {
+		wg.Add(1)
+		go func(name int, c Controller) {
+			defer wg.Done()
+			c.Run(controllerWorkers[name], stopCh)
+		}(name, c)
+	}
+
+	wg.Wait()
 }

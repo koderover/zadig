@@ -48,7 +48,7 @@ func IsPublicURL(reqPath, method string) bool {
 	realPath := segments[0]
 
 	// not starting with api means this is a frontend request, making it public
-	if !strings.HasPrefix(realPath, "/api") {
+	if !strings.HasPrefix(realPath, "/api") && !strings.HasPrefix(realPath, "/openapi") {
 		return true
 	}
 

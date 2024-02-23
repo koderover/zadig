@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/elliotchance/orderedmap/v2"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -270,11 +271,17 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 	timeout := templateProduct.Timeout * 60
 
 	if j.spec.DeployType == setting.K8SDeployType {
-		deployServiceMap := map[string][]*commonmodels.ServiceAndImage{}
+		deployServiceMap := orderedmap.NewOrderedMap[string, []*commonmodels.ServiceAndImage]()
 		for _, deploy := range j.spec.ServiceAndImages {
-			deployServiceMap[deploy.ServiceName] = append(deployServiceMap[deploy.ServiceName], deploy)
+			preDeploy, ok := deployServiceMap.Get(deploy.ServiceName)
+			if !ok {
+				preDeploy = []*commonmodels.ServiceAndImage{}
+			}
+			deployServiceMap.Set(deploy.ServiceName, append(preDeploy, deploy))
 		}
-		for serviceName, deploys := range deployServiceMap {
+		for el := deployServiceMap.Front(); el != nil; el = el.Next() {
+			serviceName := el.Key
+			deploys := el.Value
 			jobTaskSpec := &commonmodels.JobTaskDeploySpec{
 				Env:                envName,
 				SkipCheckRunStatus: j.spec.SkipCheckRunStatus,

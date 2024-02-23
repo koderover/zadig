@@ -386,8 +386,9 @@ func generateCustomWorkflow(arg *models.Product, enableBuildStage bool) (*models
 			},
 		}
 		stage := &commonmodels.WorkflowStage{
-			Name: "构建",
-			Jobs: []*commonmodels.Job{buildJob},
+			Name:     "构建",
+			Jobs:     []*commonmodels.Job{buildJob},
+			Parallel: true,
 		}
 
 		stages = append(stages, stage)

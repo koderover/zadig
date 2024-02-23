@@ -360,6 +360,7 @@ func updateQueueAndRunTask(t *commonmodels.WorkflowQueue, jobConcurrency int) er
 		logger.Errorf("%s:%d update t status error", t.WorkflowName, t.TaskID)
 		return fmt.Errorf("%s:%d update t status error", t.WorkflowName, t.TaskID)
 	}
+
 	ctx := context.Background()
 	go NewWorkflowController(workflowTask, logger).Run(ctx, jobConcurrency)
 	return nil

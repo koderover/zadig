@@ -27,7 +27,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/user/core/repository"
 	"github.com/koderover/zadig/v2/pkg/microservice/user/core/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/microservice/user/core/repository/orm"
-	"github.com/koderover/zadig/v2/pkg/microservice/user/core/service/user"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/types"
 )
@@ -45,7 +44,7 @@ func GetUserPermissionByProject(uid, projectName string, log *zap.SugaredLogger)
 
 	groupIDList := make([]string, 0)
 	// find the user groups this uid belongs to, if none it is ok
-	groups, err := user.GetUserGroupByUID(uid)
+	groups, err := GetUserGroupByUID(uid)
 	if err != nil {
 		log.Errorf("failed to find user group for user: %s, error: %s", uid, err)
 		return nil, fmt.Errorf("failed to get user permission, cannot find the user group for user, error: %s", err)
@@ -55,7 +54,7 @@ func GetUserPermissionByProject(uid, projectName string, log *zap.SugaredLogger)
 		groupIDList = append(groupIDList, groupID)
 	}
 
-	allUserGroup, err := user.GetAllUserGroup()
+	allUserGroup, err := GetAllUserGroup()
 	if err != nil || allUserGroup == "" {
 		log.Errorf("failed to find user group for %s, error: %s", "所有用户", err)
 		return nil, fmt.Errorf("failed to find user group for %s, error: %s", "所有用户", err)
@@ -209,13 +208,13 @@ func GetUserRules(uid string, log *zap.SugaredLogger) (*GetUserRulesResp, error)
 	var isSystemAdmin bool
 	projectAdminList := make([]string, 0)
 	// find the user groups this uid belongs to, if none it is ok
-	groupIDList, err := user.GetUserGroupByUID(uid)
+	groupIDList, err := GetUserGroupByUID(uid)
 	if err != nil {
 		log.Errorf("cannot find user group by uid: %s, error: %s", uid, err)
 		return nil, err
 	}
 
-	allUserGroupID, err := user.GetAllUserGroup()
+	allUserGroupID, err := GetAllUserGroup()
 	if err != nil {
 		log.Errorf("failed to find user group for %s, error: %s", "所有用户", err)
 		return nil, fmt.Errorf("failed to find user group for %s, error: %s", "所有用户", err)

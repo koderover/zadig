@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package user
+package permission
 
 import (
 	_ "embed"
@@ -62,13 +62,19 @@ type UpdateUserInfo struct {
 	Phone string `json:"phone,omitempty"`
 }
 
+type OpenAPIQueryArgs struct {
+	PageNum  int    `json:"page_num,omitempty" form:"pageNum"`
+	PageSize int    `json:"page_size,omitempty" form:"pageSize"`
+	Account  string `json:"account,omitempty" form:"account"`
+}
+
 type QueryArgs struct {
 	Name         string   `json:"name,omitempty"`
-	Account      string   `json:"account,omitempty"`
+	Account      string   `json:"account,omitempty" form:"account"`
 	IdentityType string   `json:"identity_type,omitempty"`
 	UIDs         []string `json:"uids,omitempty"`
-	PerPage      int      `json:"per_page,omitempty"`
-	Page         int      `json:"page,omitempty"`
+	PerPage      int      `json:"per_page,omitempty" form:"perPage"`
+	Page         int      `json:"page,omitempty" form:"page"`
 }
 
 type Password struct {
@@ -257,6 +263,26 @@ func SearchUserByAccount(args *QueryArgs, logger *zap.SugaredLogger) (*types.Use
 		return nil, err
 	}
 	usersInfo := mergeUserLogin([]models.User{*user}, *userLogins, logger)
+
+	for _, uInfo := range usersInfo {
+		roles, err := ListRolesByNamespaceAndUserID("*", uInfo.Uid, logger)
+		if err != nil {
+			logger.Errorf("failed to get user role info for user: %s[%s], error: %s", uInfo.Name, uInfo.Account, err)
+			return nil, err
+		}
+		rolebindings := make([]*types.RoleBinding, 0)
+		for _, role := range roles {
+			rolebindings = append(rolebindings, &types.RoleBinding{
+				UID:  uInfo.Uid,
+				Role: role.Name,
+			})
+			if role.Name == string(setting.SystemAdmin) {
+				uInfo.Admin = true
+			}
+		}
+		uInfo.SystemRoleBindings = rolebindings
+	}
+
 	return &types.UsersResp{
 		Users:      usersInfo,
 		TotalCount: int64(len(usersInfo)),
@@ -290,6 +316,26 @@ func SearchUsers(args *QueryArgs, logger *zap.SugaredLogger) (*types.UsersResp, 
 		return nil, err
 	}
 	usersInfo := mergeUserLogin(users, *userLogins, logger)
+
+	for _, uInfo := range usersInfo {
+		roles, err := ListRolesByNamespaceAndUserID("*", uInfo.Uid, logger)
+		if err != nil {
+			logger.Errorf("failed to get user role info for user: %s[%s], error: %s", uInfo.Name, uInfo.Account, err)
+			return nil, err
+		}
+		rolebindings := make([]*types.RoleBinding, 0)
+		for _, role := range roles {
+			rolebindings = append(rolebindings, &types.RoleBinding{
+				UID:  uInfo.Uid,
+				Role: role.Name,
+			})
+			if role.Name == string(setting.SystemAdmin) {
+				uInfo.Admin = true
+			}
+		}
+		uInfo.SystemRoleBindings = rolebindings
+	}
+
 	return &types.UsersResp{
 		Users:      usersInfo,
 		TotalCount: count,
@@ -332,6 +378,26 @@ func SearchUsersByUIDs(uids []string, logger *zap.SugaredLogger) (*types.UsersRe
 		return nil, err
 	}
 	usersInfo := mergeUserLogin(users, *userLogins, logger)
+
+	for _, uInfo := range usersInfo {
+		roles, err := ListRolesByNamespaceAndUserID("*", uInfo.Uid, logger)
+		if err != nil {
+			logger.Errorf("failed to get user role info for user: %s[%s], error: %s", uInfo.Name, uInfo.Account, err)
+			return nil, err
+		}
+		rolebindings := make([]*types.RoleBinding, 0)
+		for _, role := range roles {
+			rolebindings = append(rolebindings, &types.RoleBinding{
+				UID:  uInfo.Uid,
+				Role: role.Name,
+			})
+			if role.Name == string(setting.SystemAdmin) {
+				uInfo.Admin = true
+			}
+		}
+		uInfo.SystemRoleBindings = rolebindings
+	}
+
 	return &types.UsersResp{
 		Users:      usersInfo,
 		TotalCount: int64(len(usersInfo)),
