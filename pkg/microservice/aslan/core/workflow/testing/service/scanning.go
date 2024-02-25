@@ -181,6 +181,15 @@ func GetScanningModuleByID(id string, log *zap.SugaredLogger) (*Scanning, error)
 				}
 			}
 		}
+
+		if scanning.AdvancedSetting.Cache == nil {
+			scanning.AdvancedSetting.Cache = &commonmodels.ScanningCacheSetting{
+				CacheEnable:  false,
+				CacheDirType: "",
+				CacheUserDir: "",
+			}
+		}
+
 		if scanning.AdvancedSetting.ConcurrencyLimit == 0 {
 			scanning.AdvancedSetting.ConcurrencyLimit = -1
 		}
