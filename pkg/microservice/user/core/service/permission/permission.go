@@ -152,7 +152,7 @@ func GetUserPermissionByProject(uid, projectName string, log *zap.SugaredLogger)
 	}
 
 	// finally check the collaboration instance, set all the permission granted by collaboration instance to the corresponding map
-	collaborationInstance, err := mongodb.NewCollaborationInstanceColl().FindInstance(uid, projectName)
+	collaborationInstances, err := mongodb.NewCollaborationInstanceColl().FindInstance(uid, projectName)
 	if err != nil {
 		// if no collaboration mode is found, simple ignore it, it is a warn level log, no necessarily an error.
 		log.Warnf("failed to find collaboration instance for user: %s, error: %s", uid, err)
@@ -164,32 +164,34 @@ func GetUserPermissionByProject(uid, projectName string, log *zap.SugaredLogger)
 	workflowMap := make(map[string][]string)
 	envMap := make(map[string][]string)
 
-	// TODO: currently this map will have some problems when there is a naming conflict between product workflow and common workflow. fix it.
-	for _, workflow := range collaborationInstance.Workflows {
-		workflowVerbs := make([]string, 0)
-		for _, verb := range workflow.Verbs {
-			// special case: if the user have workflow view permission in collaboration mode, we add read workflow permission in the resp
-			if verb == types.WorkflowActionView {
-				projectVerbSet.Insert(types.WorkflowActionView)
+	for _, collaborationInstance := range collaborationInstances {
+		// TODO: currently this map will have some problems when there is a naming conflict between product workflow and common workflow. fix it.
+		for _, workflow := range collaborationInstance.Workflows {
+			workflowVerbs := make([]string, 0)
+			for _, verb := range workflow.Verbs {
+				// special case: if the user have workflow view permission in collaboration mode, we add read workflow permission in the resp
+				if verb == types.WorkflowActionView {
+					projectVerbSet.Insert(types.WorkflowActionView)
+				}
+				workflowVerbs = append(workflowVerbs, verb)
 			}
-			workflowVerbs = append(workflowVerbs, verb)
+			workflowMap[workflow.Name] = workflowVerbs
 		}
-		workflowMap[workflow.Name] = workflowVerbs
-	}
 
-	for _, env := range collaborationInstance.Products {
-		envVerbs := make([]string, 0)
-		for _, verb := range env.Verbs {
-			// special case: if the user have env view permission in collaboration mode, we add read env permission in the resp
-			if verb == types.EnvActionView {
-				projectVerbSet.Insert(types.EnvActionView)
+		for _, env := range collaborationInstance.Products {
+			envVerbs := make([]string, 0)
+			for _, verb := range env.Verbs {
+				// special case: if the user have env view permission in collaboration mode, we add read env permission in the resp
+				if verb == types.EnvActionView {
+					projectVerbSet.Insert(types.EnvActionView)
+				}
+				if verb == types.ProductionEnvActionView {
+					projectVerbSet.Insert(types.ProductionEnvActionView)
+				}
+				envVerbs = append(envVerbs, verb)
 			}
-			if verb == types.ProductionEnvActionView {
-				projectVerbSet.Insert(types.ProductionEnvActionView)
-			}
-			envVerbs = append(envVerbs, verb)
+			envMap[env.Name] = envVerbs
 		}
-		envMap[env.Name] = envVerbs
 	}
 
 	return &GetUserRulesByProjectResp{
