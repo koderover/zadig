@@ -160,17 +160,25 @@ func GetUserAuthInfo(uid string, logger *zap.SugaredLogger) (*AuthorizedResource
 
 func CheckCollaborationModePermission(uid, projectKey, resource, resourceName, action string) (hasPermission bool, err error) {
 	hasPermission = false
-	collabInstance, findErr := mongodb.NewCollaborationInstanceColl().FindInstance(uid, projectKey)
+	collabInstances, findErr := mongodb.NewCollaborationInstanceColl().FindInstance(uid, projectKey)
 	if findErr != nil {
 		err = findErr
 		return
 	}
 
+	workflows := make([]models.WorkflowCIItem, 0)
+	envs := make([]models.ProductCIItem, 0)
+
+	for _, collabInstance := range collabInstances {
+		workflows = append(workflows, collabInstance.Workflows...)
+		envs = append(envs, collabInstance.Products...)
+	}
+
 	switch resource {
 	case types.ResourceTypeWorkflow:
-		hasPermission = checkWorkflowPermission(collabInstance.Workflows, resourceName, action)
+		hasPermission = checkWorkflowPermission(workflows, resourceName, action)
 	case types.ResourceTypeEnvironment:
-		hasPermission = checkEnvPermission(collabInstance.Products, resourceName, action)
+		hasPermission = checkEnvPermission(envs, resourceName, action)
 	default:
 		return
 	}
@@ -179,31 +187,34 @@ func CheckCollaborationModePermission(uid, projectKey, resource, resourceName, a
 
 func CheckPermissionGivenByCollaborationMode(uid, projectKey, resource, action string) (hasPermission bool, err error) {
 	hasPermission = false
-	collabInstance, findErr := mongodb.NewCollaborationInstanceColl().FindInstance(uid, projectKey)
+	collabInstances, findErr := mongodb.NewCollaborationInstanceColl().FindInstance(uid, projectKey)
 	if findErr != nil {
 		err = findErr
 		return
 	}
 
-	if resource == types.ResourceTypeWorkflow {
-		for _, workflow := range collabInstance.Workflows {
-			for _, verb := range workflow.Verbs {
-				if action == verb {
-					hasPermission = true
-					return
+	for _, collabInstance := range collabInstances {
+		if resource == types.ResourceTypeWorkflow {
+			for _, workflow := range collabInstance.Workflows {
+				for _, verb := range workflow.Verbs {
+					if action == verb {
+						hasPermission = true
+						return
+					}
 				}
 			}
-		}
-	} else if resource == types.ResourceTypeEnvironment {
-		for _, env := range collabInstance.Products {
-			for _, verb := range env.Verbs {
-				if action == verb {
-					hasPermission = true
-					return
+		} else if resource == types.ResourceTypeEnvironment {
+			for _, env := range collabInstance.Products {
+				for _, verb := range env.Verbs {
+					if action == verb {
+						hasPermission = true
+						return
+					}
 				}
 			}
 		}
 	}
+
 	return
 }
 
@@ -384,7 +395,7 @@ func ListAuthorizedProjectByVerb(uid, resource, verb string, logger *zap.Sugared
 
 // ListAuthorizedWorkflow lists all workflows authorized by collaboration mode
 func ListAuthorizedWorkflow(uid, projectKey string, logger *zap.SugaredLogger) ([]string, []string, error) {
-	collaborationInstance, err := mongodb.NewCollaborationInstanceColl().FindInstance(uid, projectKey)
+	collaborationInstances, err := mongodb.NewCollaborationInstanceColl().FindInstance(uid, projectKey)
 	if err != nil {
 		logger.Errorf("failed to find user collaboration mode, error: %s", err)
 		return nil, nil, fmt.Errorf("failed to find user collaboration mode, error: %s", err)
@@ -393,19 +404,22 @@ func ListAuthorizedWorkflow(uid, projectKey string, logger *zap.SugaredLogger) (
 	authorizedWorkflows := make([]string, 0)
 	authorizedCustomWorkflows := make([]string, 0)
 
-	for _, workflow := range collaborationInstance.Workflows {
-		for _, verb := range workflow.Verbs {
-			// if the user actually has view permission
-			if verb == types.WorkflowActionView {
-				switch workflow.WorkflowType {
-				case types.WorkflowTypeCustomeWorkflow:
-					authorizedCustomWorkflows = append(authorizedCustomWorkflows, workflow.Name)
-				default:
-					// if a workflow does not have a type, it is a product workflow.
-					authorizedWorkflows = append(authorizedWorkflows, workflow.Name)
+	for _, collaborationInstance := range collaborationInstances {
+		for _, workflow := range collaborationInstance.Workflows {
+			for _, verb := range workflow.Verbs {
+				// if the user actually has view permission
+				if verb == types.WorkflowActionView {
+					switch workflow.WorkflowType {
+					case types.WorkflowTypeCustomeWorkflow:
+						authorizedCustomWorkflows = append(authorizedCustomWorkflows, workflow.Name)
+					default:
+						// if a workflow does not have a type, it is a product workflow.
+						authorizedWorkflows = append(authorizedWorkflows, workflow.Name)
+					}
 				}
 			}
 		}
+
 	}
 
 	return authorizedWorkflows, authorizedCustomWorkflows, nil
@@ -417,20 +431,22 @@ func ListAuthorizedEnvs(uid, projectKey string, logger *zap.SugaredLogger) (read
 
 	readEnvSet := sets.NewString()
 	editEnvSet := sets.NewString()
-	collaborationInstance, findErr := mongodb.NewCollaborationInstanceColl().FindInstance(uid, projectKey)
+	collaborationInstances, findErr := mongodb.NewCollaborationInstanceColl().FindInstance(uid, projectKey)
 	if findErr != nil {
 		logger.Errorf("failed to find user collaboration mode, error: %s", findErr)
 		err = fmt.Errorf("failed to find user collaboration mode, error: %s", findErr)
 		return
 	}
 
-	for _, env := range collaborationInstance.Products {
-		for _, verb := range env.Verbs {
-			if verb == types.EnvActionView || verb == types.ProductionEnvActionView {
-				readEnvSet.Insert(env.Name)
-			}
-			if verb == types.EnvActionEditConfig || verb == types.ProductionEnvActionEditConfig {
-				editEnvSet.Insert(env.Name)
+	for _, collaborationInstance := range collaborationInstances {
+		for _, env := range collaborationInstance.Products {
+			for _, verb := range env.Verbs {
+				if verb == types.EnvActionView || verb == types.ProductionEnvActionView {
+					readEnvSet.Insert(env.Name)
+				}
+				if verb == types.EnvActionEditConfig || verb == types.ProductionEnvActionEditConfig {
+					editEnvSet.Insert(env.Name)
+				}
 			}
 		}
 	}
