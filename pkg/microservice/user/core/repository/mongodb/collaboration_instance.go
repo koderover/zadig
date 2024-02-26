@@ -52,7 +52,7 @@ func (c *CollaborationInstanceColl) FindInstance(uid, projectKey string) ([]*mod
 	if err != nil {
 		return nil, err
 	}
-	err = cursor.Decode(res)
+	err = cursor.All(context.TODO(), res)
 	if err != nil {
 		return nil, err
 	}
