@@ -942,6 +942,7 @@ func mergeRepos(templateRepos []*types.Repository, customRepos []*types.Reposito
 			repo.Tag = cv.Tag
 			repo.PR = cv.PR
 			repo.PRs = cv.PRs
+			repo.FilterRegexp = cv.FilterRegexp
 		}
 	}
 	return templateRepos
