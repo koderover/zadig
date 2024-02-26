@@ -122,6 +122,10 @@ func (s *Service) CreateCluster(cluster *models.K8SCluster, id string, logger *z
 		cluster.Local = true
 		cluster.DindCfg = nil
 	}
+	if cluster.Type == setting.KubeConfigClusterType {
+		// kube config type is always connected
+		cluster.Status = setting.Normal
+	}
 	err = s.coll.Create(cluster, id)
 	if err != nil {
 		return nil, e.ErrCreateCluster.AddErr(err)
