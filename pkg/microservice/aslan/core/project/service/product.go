@@ -540,11 +540,9 @@ func transferProducts(user string, projectInfo *template.Product, templateServic
 			}
 
 			containers := make([]*resource.ContainerImage, 0)
-			log.Infof("-------- service type %s, service name %s, env %s --------", svcTemplate.Type, svcTemplate.ServiceName, product.EnvName)
 			if svcTemplate.WorkloadType == setting.Deployment {
 				deploy, exist, err := getter.GetDeployment(product.Namespace, svcTemplate.ServiceName, kubeClient)
 				if deploy != nil && exist && err == nil {
-					log.Infof("------- find deploy info for service %s, env %s -------", svcTemplate.ServiceName, product.EnvName)
 					containers = wrapper.Deployment(deploy).GetContainers()
 				}
 			} else if svcTemplate.Type == setting.StatefulSet {

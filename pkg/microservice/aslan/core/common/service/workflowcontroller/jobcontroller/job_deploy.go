@@ -24,8 +24,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/koderover/zadig/v2/pkg/tool/log"
-
 	"github.com/hashicorp/go-multierror"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -129,8 +127,6 @@ func (c *DeployJobCtl) run(ctx context.Context) error {
 		logError(c.job, msg, c.logger)
 		return errors.New(msg)
 	}
-
-	log.Infof("------ deploy running %s/%s", c.workflowCtx.ProjectName, c.jobTaskSpec.Env)
 
 	c.namespace = env.Namespace
 	c.jobTaskSpec.ClusterID = env.ClusterID
