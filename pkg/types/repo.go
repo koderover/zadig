@@ -58,7 +58,7 @@ type Repository struct {
 	// Now EnableProxy is not something we store. We decide this on runtime
 	EnableProxy bool `bson:"-"       json:"enable_proxy,omitempty"                         yaml:"enable_proxy,omitempty"`
 	// FilterRegexp is the regular expression filter for the branches and tags
-	FilterRegexp string `bson:"-"    json:"filter_regexp,omitempty"                        yaml:"filter_regexp,omitempty"`
+	FilterRegexp string `bson:"filter_regexp,omitempty"    json:"filter_regexp,omitempty"                        yaml:"filter_regexp,omitempty"`
 	// The address of the code base input of the other type
 	AuthType           AuthType `bson:"auth_type,omitempty"             json:"auth_type,omitempty"               yaml:"auth_type,omitempty"`
 	SSHKey             string   `bson:"ssh_key,omitempty"               json:"ssh_key,omitempty"                 yaml:"ssh_key,omitempty"`
