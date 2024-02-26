@@ -500,7 +500,7 @@ func getVMDeployJobVariables(vmDeploy *commonmodels.ServiceAndVMDeploy, buildInf
 				log.Errorf("base64 decode failed ip:%s, error:%s", ip, err)
 				continue
 			}
-			ret = append(ret, &commonmodels.KeyVal{Key: agentName + "_PK", Value: string(privateKey), IsCredential: false})
+			ret = append(ret, &commonmodels.KeyVal{Key: agentName + "_PK_CONTENT", Value: string(privateKey), IsCredential: false})
 			ret = append(ret, &commonmodels.KeyVal{Key: agentName + "_USERNAME", Value: userName, IsCredential: false})
 			ret = append(ret, &commonmodels.KeyVal{Key: agentName + "_IP", Value: ip, IsCredential: false})
 			ret = append(ret, &commonmodels.KeyVal{Key: agentName + "_PORT", Value: strconv.Itoa(int(port)), IsCredential: false})
