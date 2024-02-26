@@ -220,9 +220,13 @@ func (j *ScanningJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			jobTaskSpec.Properties.CacheEnable = false
 		} else {
 			jobTaskSpec.Properties.Cache = clusterInfo.Cache
-			jobTaskSpec.Properties.CacheEnable = scanningInfo.AdvancedSetting.Cache.CacheEnable
-			jobTaskSpec.Properties.CacheDirType = scanningInfo.AdvancedSetting.Cache.CacheDirType
-			jobTaskSpec.Properties.CacheUserDir = scanningInfo.AdvancedSetting.Cache.CacheUserDir
+			if scanningInfo.AdvancedSetting.Cache != nil {
+				jobTaskSpec.Properties.CacheEnable = scanningInfo.AdvancedSetting.Cache.CacheEnable
+				jobTaskSpec.Properties.CacheDirType = scanningInfo.AdvancedSetting.Cache.CacheDirType
+				jobTaskSpec.Properties.CacheUserDir = scanningInfo.AdvancedSetting.Cache.CacheUserDir
+			} else {
+				jobTaskSpec.Properties.CacheEnable = false
+			}
 		}
 
 		if len(scanning.Repos) > 0 {
