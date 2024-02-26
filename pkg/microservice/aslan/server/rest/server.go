@@ -19,7 +19,9 @@ package rest
 import (
 	"net/http"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+
 	"github.com/koderover/zadig/v2/pkg/config"
 	ginmiddleware "github.com/koderover/zadig/v2/pkg/middleware/gin"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
@@ -36,6 +38,7 @@ func NewEngine() *engine {
 
 	gin.SetMode(s.mode)
 
+	s.Use(cors.Default())
 	s.injectMiddlewares()
 	s.injectRouters()
 
