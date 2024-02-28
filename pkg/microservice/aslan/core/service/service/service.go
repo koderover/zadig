@@ -251,7 +251,7 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, userName string, args *K
 			if serviceString.Has(tempWorkload.Name) {
 				productSvc.Containers = templateSvcs[tempWorkload.Name].Containers
 				productSvc.Resources, _ = kube.ManifestToResource(templateSvcs[tempWorkload.Name].Yaml)
-				productServices = append(productServices, productSvc)
+				//productServices = append(productServices, productSvc)
 				//return serviceInExternalEnvCol.Create(&commonmodels.ServicesInExternalEnv{
 				//	ProductName: args.ProductName,
 				//	ServiceName: tempWorkload.Name,
