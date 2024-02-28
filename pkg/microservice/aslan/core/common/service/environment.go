@@ -652,6 +652,7 @@ type Workload struct {
 	ProductName       string                 `json:"product_name"`
 	Replicas          int32                  `json:"-"`
 	Spec              corev1.PodTemplateSpec `json:"-"`
+	Selector          *metav1.LabelSelector  `json:"-"`
 	Images            []string               `json:"-"`
 	Ready             bool                   `json:"ready"`
 	Annotation        map[string]string      `json:"-"`
@@ -705,6 +706,7 @@ func ListWorkloads(envName, productName string, perPage, page int, informer info
 		workLoads = append(workLoads, &Workload{
 			Name:       v.Name,
 			Spec:       v.Spec.Template,
+			Selector:   v.Spec.Selector,
 			Type:       setting.Deployment,
 			Replicas:   *v.Spec.Replicas,
 			Images:     wrapper.Deployment(v).ImageInfos(),
@@ -720,6 +722,7 @@ func ListWorkloads(envName, productName string, perPage, page int, informer info
 		workLoads = append(workLoads, &Workload{
 			Name:       v.Name,
 			Spec:       v.Spec.Template,
+			Selector:   v.Spec.Selector,
 			Type:       setting.StatefulSet,
 			Replicas:   *v.Spec.Replicas,
 			Images:     wrapper.StatefulSet(v).ImageInfos(),
@@ -877,7 +880,7 @@ func ListWorkloadDetails(envName, clusterID, namespace, productName string, perP
 		}
 
 		if workload.Type == setting.Deployment || workload.Type == setting.StatefulSet {
-			selector := labels.SelectorFromSet(workload.Spec.Labels)
+			selector := labels.SelectorFromSet(workload.Selector.MatchLabels)
 			// Note: In some scenarios, such as environment sharing, there may be more containers in Pod than workload.
 			// We call GetSelectedPodsInfo to get the status and readiness to keep same logic with k8s projects
 			productRespInfo.Status, productRespInfo.Ready, productRespInfo.Images = kube.GetSelectedPodsInfo(selector, informer, workload.Images, log)
@@ -901,7 +904,7 @@ func FindServiceFromIngress(hostInfos []resource.HostInfo, currentWorkload *Work
 		return []resource.HostInfo{}
 	}
 	serviceName := ""
-	podLabels := labels.Set(currentWorkload.Spec.Labels)
+	podLabels := labels.Set(currentWorkload.Selector.MatchLabels)
 	for _, svc := range allServices {
 		if len(svc.Spec.Selector) == 0 {
 			continue
