@@ -263,7 +263,7 @@ func (c *ServiceColl) Find(opt *ServiceFindOption) (*models.Service, error) {
 
 	err := c.FindOne(mongotool.SessionContext(context.TODO(), c.Session), query, opts).Decode(service)
 	if err != nil {
-		if err == mongo.ErrNoDocuments && opt.IgnoreNoDocumentErr {
+		if errors.Is(err, mongo.ErrNoDocuments) && opt.IgnoreNoDocumentErr {
 			return nil, nil
 		}
 		return nil, err

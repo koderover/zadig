@@ -80,11 +80,14 @@ func (c *ProductionServiceColl) Create(args *models.Service) error {
 	return err
 }
 
-func (c *ProductionServiceColl) Delete(serviceName, productName, status string, revision int64) error {
+func (c *ProductionServiceColl) Delete(serviceName, serviceType, productName, status string, revision int64) error {
 	query := bson.M{}
 	query["service_name"] = serviceName
 	query["product_name"] = productName
 	query["revision"] = revision
+	if serviceType != "" {
+		query["type"] = serviceType
+	}
 
 	if status != "" {
 		query["status"] = status
@@ -93,7 +96,7 @@ func (c *ProductionServiceColl) Delete(serviceName, productName, status string, 
 		return nil
 	}
 
-	_, err := c.DeleteMany(context.TODO(), query)
+	_, err := c.DeleteMany(mongotool.SessionContext(context.TODO(), c.Session), query)
 	return err
 }
 

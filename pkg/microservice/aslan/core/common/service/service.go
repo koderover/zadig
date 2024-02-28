@@ -320,7 +320,7 @@ func GetEstimatedMergedVariables(services []*commonmodels.Service, product *temp
 }
 
 // ListWorkloadTemplate 列出实例模板
-func ListWorkloadTemplate(productName, envName string, log *zap.SugaredLogger) (*ServiceTmplResp, error) {
+func ListWorkloadTemplate(productName, envName string, production bool, log *zap.SugaredLogger) (*ServiceTmplResp, error) {
 	var err error
 	resp := new(ServiceTmplResp)
 	resp.Data = make([]*ServiceProductMap, 0)

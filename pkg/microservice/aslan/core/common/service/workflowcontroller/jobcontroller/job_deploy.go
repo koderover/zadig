@@ -166,98 +166,98 @@ func (c *DeployJobCtl) run(ctx context.Context) error {
 	}
 
 	// k8s projects
-	if c.jobTaskSpec.CreateEnvType == "system" {
-		var updateRevision bool
-		if slices.Contains(c.jobTaskSpec.DeployContents, config.DeployConfig) && c.jobTaskSpec.UpdateConfig {
-			updateRevision = true
-		}
+	//if c.jobTaskSpec.CreateEnvType == "system" {
+	var updateRevision bool
+	if slices.Contains(c.jobTaskSpec.DeployContents, config.DeployConfig) && c.jobTaskSpec.UpdateConfig {
+		updateRevision = true
+	}
 
-		varsYaml := ""
-		varKVs := []*commontypes.RenderVariableKV{}
-		if slices.Contains(c.jobTaskSpec.DeployContents, config.DeployVars) {
-			varsYaml, err = commontypes.RenderVariableKVToYaml(c.jobTaskSpec.VariableKVs)
-			if err != nil {
-				msg := fmt.Sprintf("generate vars yaml error: %v", err)
-				logError(c.job, msg, c.logger)
-				return errors.New(msg)
-			}
-			varKVs = c.jobTaskSpec.VariableKVs
-		}
-		containers := []*commonmodels.Container{}
-		if slices.Contains(c.jobTaskSpec.DeployContents, config.DeployImage) {
-			for _, serviceImage := range c.jobTaskSpec.ServiceAndImages {
-				containers = append(containers, &commonmodels.Container{
-					Name:      serviceImage.ServiceModule,
-					Image:     serviceImage.Image,
-					ImageName: util.ExtractImageName(serviceImage.Image),
-				})
-			}
-		}
-
-		option := &kube.GeneSvcYamlOption{
-			ProductName:           env.ProductName,
-			EnvName:               c.jobTaskSpec.Env,
-			ServiceName:           c.jobTaskSpec.ServiceName,
-			UpdateServiceRevision: updateRevision,
-			VariableYaml:          varsYaml,
-			VariableKVs:           varKVs,
-			Containers:            containers,
-		}
-		updatedYaml, revision, resources, err := kube.GenerateRenderedYaml(option)
+	varsYaml := ""
+	varKVs := []*commontypes.RenderVariableKV{}
+	if slices.Contains(c.jobTaskSpec.DeployContents, config.DeployVars) {
+		varsYaml, err = commontypes.RenderVariableKVToYaml(c.jobTaskSpec.VariableKVs)
 		if err != nil {
-			msg := fmt.Sprintf("generate service yaml error: %v", err)
+			msg := fmt.Sprintf("generate vars yaml error: %v", err)
 			logError(c.job, msg, c.logger)
 			return errors.New(msg)
 		}
-		c.jobTaskSpec.YamlContent = updatedYaml
-		c.ack()
-
-		currentYaml, _, err := kube.FetchCurrentAppliedYaml(option)
-		if err != nil {
-			msg := fmt.Sprintf("get current service yaml error: %v", err)
-			logError(c.job, msg, c.logger)
-			return errors.New(msg)
+		varKVs = c.jobTaskSpec.VariableKVs
+	}
+	containers := []*commonmodels.Container{}
+	if slices.Contains(c.jobTaskSpec.DeployContents, config.DeployImage) {
+		for _, serviceImage := range c.jobTaskSpec.ServiceAndImages {
+			containers = append(containers, &commonmodels.Container{
+				Name:      serviceImage.ServiceModule,
+				Image:     serviceImage.Image,
+				ImageName: util.ExtractImageName(serviceImage.Image),
+			})
 		}
+	}
 
-		// if not only deploy image, we will redeploy service
-		if !onlyDeployImage(c.jobTaskSpec.DeployContents) {
-			if err := c.updateSystemService(env, currentYaml, updatedYaml, c.jobTaskSpec.VariableKVs, revision, containers, updateRevision, c.jobTaskSpec.ServiceName); err != nil {
-				logError(c.job, err.Error(), c.logger)
-				return err
-			}
+	option := &kube.GeneSvcYamlOption{
+		ProductName:           env.ProductName,
+		EnvName:               c.jobTaskSpec.Env,
+		ServiceName:           c.jobTaskSpec.ServiceName,
+		UpdateServiceRevision: updateRevision,
+		VariableYaml:          varsYaml,
+		VariableKVs:           varKVs,
+		Containers:            containers,
+	}
+	updatedYaml, revision, resources, err := kube.GenerateRenderedYaml(option)
+	if err != nil {
+		msg := fmt.Sprintf("generate service yaml error: %v", err)
+		logError(c.job, msg, c.logger)
+		return errors.New(msg)
+	}
+	c.jobTaskSpec.YamlContent = updatedYaml
+	c.ack()
 
-			return nil
-		}
-		// if only deploy image, we only patch image.
-		if err := c.updateServiceModuleImages(ctx, resources, env); err != nil {
+	currentYaml, _, err := kube.FetchCurrentAppliedYaml(option)
+	if err != nil {
+		msg := fmt.Sprintf("get current service yaml error: %v", err)
+		logError(c.job, msg, c.logger)
+		return errors.New(msg)
+	}
+
+	// if not only deploy image, we will redeploy service
+	if !onlyDeployImage(c.jobTaskSpec.DeployContents) {
+		if err := c.updateSystemService(env, currentYaml, updatedYaml, c.jobTaskSpec.VariableKVs, revision, containers, updateRevision, c.jobTaskSpec.ServiceName); err != nil {
 			logError(c.job, err.Error(), c.logger)
 			return err
 		}
 
 		return nil
 	}
-
-	// host projects
-	var (
-		serviceInfo *commonmodels.Service
-	)
-	serviceInfo, err = commonrepo.NewServiceColl().Find(
-		&commonrepo.ServiceFindOption{
-			ServiceName:   c.jobTaskSpec.ServiceName,
-			ProductName:   c.workflowCtx.ProjectName,
-			ExcludeStatus: setting.ProductStatusDeleting,
-			Type:          c.jobTaskSpec.ServiceType,
-		})
-	if err != nil {
-		msg := fmt.Sprintf("find service %s error: %v", c.jobTaskSpec.ServiceName, err)
-		logError(c.job, msg, c.logger)
-		return errors.New(msg)
-	}
-
-	if err := c.updateServiceModuleImages(ctx, []*kube.WorkloadResource{{Type: serviceInfo.WorkloadType, Name: c.jobTaskSpec.ServiceName}}, env); err != nil {
+	// if only deploy image, we only patch image.
+	if err := c.updateServiceModuleImages(ctx, resources, env); err != nil {
 		logError(c.job, err.Error(), c.logger)
 		return err
 	}
+
+	return nil
+	//}
+
+	// host projects
+	//var (
+	//	serviceInfo *commonmodels.Service
+	//)
+	//serviceInfo, err = commonrepo.NewServiceColl().Find(
+	//	&commonrepo.ServiceFindOption{
+	//		ServiceName:   c.jobTaskSpec.ServiceName,
+	//		ProductName:   c.workflowCtx.ProjectName,
+	//		ExcludeStatus: setting.ProductStatusDeleting,
+	//		Type:          c.jobTaskSpec.ServiceType,
+	//	})
+	//if err != nil {
+	//	msg := fmt.Sprintf("find service %s error: %v", c.jobTaskSpec.ServiceName, err)
+	//	logError(c.job, msg, c.logger)
+	//	return errors.New(msg)
+	//}
+	//
+	//if err := c.updateServiceModuleImages(ctx, []*kube.WorkloadResource{{Type: serviceInfo.WorkloadType, Name: c.jobTaskSpec.ServiceName}}, env); err != nil {
+	//	logError(c.job, err.Error(), c.logger)
+	//	return err
+	//}
 
 	return nil
 }

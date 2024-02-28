@@ -522,7 +522,7 @@ func transferProducts(user string, projectInfo *template.Product, templateServic
 			return nil, fmt.Errorf("failed to generate kube client for product %s, error: %s", product.ProductName, err)
 		}
 
-		currentWorkloads, err := commonservice.ListWorkloadTemplate(projectInfo.ProductName, product.EnvName, logger)
+		currentWorkloads, err := commonservice.ListWorkloadTemplate(projectInfo.ProductName, product.EnvName, product.Production, logger)
 		if err != nil {
 			return nil, err
 		}
@@ -1125,7 +1125,7 @@ func reParseServices(userName, requestID string, serviceList []*commonmodels.Ser
 				break
 			}
 		} else {
-			if err = commonrepo.NewProductionServiceColl().Delete(serviceTmpl.ServiceName, serviceTmpl.ProductName, setting.ProductStatusDeleting, serviceTmpl.Revision); err != nil {
+			if err = commonrepo.NewProductionServiceColl().Delete(serviceTmpl.ServiceName, "", serviceTmpl.ProductName, setting.ProductStatusDeleting, serviceTmpl.Revision); err != nil {
 				log.Errorf("helmService.update delete production service %s error: %v", serviceTmpl.ServiceName, err)
 				break
 			}
@@ -1149,7 +1149,7 @@ func reParseServices(userName, requestID string, serviceList []*commonmodels.Ser
 					continue
 				}
 			} else {
-				if err = commonrepo.NewProductionServiceColl().Delete(serviceTmpl.ServiceName, serviceTmpl.ProductName, "", serviceTmpl.Revision); err != nil {
+				if err = commonrepo.NewProductionServiceColl().Delete(serviceTmpl.ServiceName, "", serviceTmpl.ProductName, "", serviceTmpl.Revision); err != nil {
 					log.Errorf("helmService.update delete %s error: %v", serviceTmpl.ServiceName, err)
 					continue
 				}
