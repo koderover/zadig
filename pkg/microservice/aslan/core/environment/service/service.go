@@ -266,6 +266,7 @@ func GetServiceWorkloads(svcTmpl *commonmodels.Service, env *commonmodels.Produc
 			ret = append(ret, &commonservice.Workload{
 				Name:       wd.Name,
 				Spec:       wd.Spec.Template,
+				Selector:   wd.Spec.Selector,
 				Type:       setting.Deployment,
 				Images:     wd.ImageInfos(),
 				Containers: wd.GetContainers(),
@@ -283,6 +284,7 @@ func GetServiceWorkloads(svcTmpl *commonmodels.Service, env *commonmodels.Produc
 			ret = append(ret, &commonservice.Workload{
 				Name:       ws.Name,
 				Spec:       ws.Spec.Template,
+				Selector:   ws.Spec.Selector,
 				Type:       setting.StatefulSet,
 				Images:     ws.ImageInfos(),
 				Containers: ws.GetContainers(),
