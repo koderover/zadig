@@ -41,13 +41,20 @@ func (c *CollaborationInstanceColl) GetCollectionName() string {
 	return c.coll
 }
 
-func (c *CollaborationInstanceColl) FindInstance(uid, projectKey string) (*models.CollaborationInstance, error) {
-	res := &models.CollaborationInstance{}
+func (c *CollaborationInstanceColl) FindInstance(uid, projectKey string) ([]*models.CollaborationInstance, error) {
+	res := make([]*models.CollaborationInstance, 0)
 
 	query := bson.M{}
 	query["project_name"] = projectKey
 	query["user_uid"] = uid
 
-	err := c.FindOne(context.TODO(), query).Decode(res)
-	return res, err
+	cursor, err := c.Find(context.TODO(), query)
+	if err != nil {
+		return nil, err
+	}
+	err = cursor.All(context.TODO(), &res)
+	if err != nil {
+		return nil, err
+	}
+	return res, nil
 }

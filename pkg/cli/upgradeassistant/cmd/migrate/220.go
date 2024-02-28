@@ -23,6 +23,7 @@ import (
 
 	internalmongodb "github.com/koderover/zadig/v2/pkg/cli/upgradeassistant/internal/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/environment/service"
+	"github.com/koderover/zadig/v2/pkg/util/boolptr"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 
@@ -402,9 +403,36 @@ func generateCustomWorkflowFromProductWorkflow(productWorkflow *models.Workflow)
 			Parallel: true,
 		}
 
-		defaultRegistry, err := mongodb.NewRegistryNamespaceColl().Find(&mongodb.FindRegOps{IsDefault: true})
+		envName := productWorkflow.EnvName
+		if envName == "" {
+			envs, err := service.ListProducts("system", productWorkflow.ProductTmplName, []string{}, false, log.SugaredLogger())
+			if err != nil {
+				return nil, err
+			}
+			if len(envs) > 0 {
+				envName = envs[0].Name
+			}
+		}
+
+		env, err := mongodb.NewProductColl().Find(&mongodb.ProductFindOptions{
+			Name:       productWorkflow.ProductTmplName,
+			EnvName:    envName,
+			Production: boolptr.False(),
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to find env %s/%s, err: %v", productWorkflow.ProductTmplName, envName, err)
+		}
+
+		// use env registry
+		registry, err := mongodb.NewRegistryNamespaceColl().Find(&mongodb.FindRegOps{IsDefault: true})
 		if err != nil {
 			return nil, err
+		}
+		if env.RegistryID != "" {
+			registry, err = mongodb.NewRegistryNamespaceColl().Find(&mongodb.FindRegOps{ID: env.RegistryID})
+			if err != nil {
+				return nil, err
+			}
 		}
 
 		serviceAndBuilds := make([]*models.ServiceAndBuild, 0)
@@ -444,7 +472,7 @@ func generateCustomWorkflowFromProductWorkflow(productWorkflow *models.Workflow)
 			JobType: config.JobZadigBuild,
 			Skipped: false,
 			Spec: &models.ZadigBuildJobSpec{
-				DockerRegistryID: defaultRegistry.ID.Hex(),
+				DockerRegistryID: registry.ID.Hex(),
 				ServiceAndBuilds: serviceAndBuilds,
 			},
 		})
@@ -463,23 +491,13 @@ func generateCustomWorkflowFromProductWorkflow(productWorkflow *models.Workflow)
 		}
 		if project.ProductFeature.BasicFacility == "kubernetes" {
 			spec := &models.ZadigDeployJobSpec{
-				Env:    productWorkflow.EnvName,
+				Env:    envName,
 				Source: config.SourceFromJob,
 				DeployContents: []config.DeployContent{
 					config.DeployImage,
 				},
 				JobName:    "build",
 				DeployType: project.ProductFeature.DeployType,
-			}
-
-			if spec.Env == "" {
-				envs, err := service.ListProducts("system", productWorkflow.ProductTmplName, []string{}, false, log.SugaredLogger())
-				if err != nil {
-					return nil, err
-				}
-				if len(envs) > 0 {
-					spec.Env = envs[0].Name
-				}
 			}
 
 			deployJobs = append(deployJobs, &models.Job{
@@ -489,7 +507,7 @@ func generateCustomWorkflowFromProductWorkflow(productWorkflow *models.Workflow)
 			})
 		} else if project.ProductFeature.BasicFacility == "cloud_host" {
 			spec := &models.ZadigVMDeployJobSpec{
-				Env:         productWorkflow.EnvName,
+				Env:         envName,
 				S3StorageID: defaultObjectStorage.ID.Hex(),
 				Source:      config.SourceFromJob,
 				JobName:     "build",
@@ -624,10 +642,21 @@ func generateCustomWorkflowFromProductWorkflow(productWorkflow *models.Workflow)
 			}
 
 			spec := &models.ZadigVMDeployJobSpec{
-				Env:         productWorkflow.EnvName,
-				S3StorageID: defaultObjectStorage.ID.Hex(),
-				Source:      config.SourceRuntime,
-				JobName:     "build",
+				Env:                 productWorkflow.EnvName,
+				S3StorageID:         defaultObjectStorage.ID.Hex(),
+				Source:              config.SourceRuntime,
+				JobName:             "build",
+				ServiceAndVMDeploys: serviceAndImages,
+			}
+
+			if spec.Env == "" {
+				envs, err := service.ListProducts("system", productWorkflow.ProductTmplName, []string{}, false, log.SugaredLogger())
+				if err != nil {
+					return nil, err
+				}
+				if len(envs) > 0 {
+					spec.Env = envs[0].Name
+				}
 			}
 
 			deployJobs = append(deployJobs, &models.Job{
