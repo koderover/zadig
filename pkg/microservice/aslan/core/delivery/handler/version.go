@@ -19,12 +19,12 @@ package handler
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"net/http"
 	"strings"
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	deliveryservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/delivery/service"
@@ -56,7 +56,6 @@ func GetDeliveryVersion(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -76,6 +75,30 @@ func GetDeliveryVersion(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("id can't be empty!")
 		return
 	}
+	projectKey := c.Query("projectName")
+	if projectKey == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("projectName can't be empty!")
+		return
+	}
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].Version.View {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	err = commonutil.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+
 	version := new(commonrepo.DeliveryVersionArgs)
 	version.ID = ID
 	ctx.Resp, ctx.Err = deliveryservice.GetDetailReleaseData(version, ctx.Logger)
@@ -100,28 +123,16 @@ func ListDeliveryVersion(c *gin.Context) {
 
 	projectKey := args.ProjectName
 
-	// FIXME: when called directly from delivery center, the project key is empty, we do a dc authz check
-	if projectKey == "" {
-		// authorization checks
-		if !ctx.Resources.IsSystemAdmin {
-			if !ctx.Resources.SystemActions.DeliveryCenter.ViewVersion {
-				ctx.UnAuthorized = true
-				return
-			}
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
 		}
-	} else {
-		// FIXME: otherwise it is called from version control in a project, we check for the project authz
-		if !ctx.Resources.IsSystemAdmin {
-			if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
-				ctx.UnAuthorized = true
-				return
-			}
 
-			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-				!ctx.Resources.ProjectAuthInfo[projectKey].Version.View {
-				ctx.UnAuthorized = true
-				return
-			}
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].Version.View {
+			ctx.UnAuthorized = true
+			return
 		}
 	}
 
@@ -271,7 +282,6 @@ func CreateHelmDeliveryVersion(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -310,7 +320,6 @@ func DeleteDeliveryVersion(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -378,7 +387,6 @@ func ListDeliveryServiceNames(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -386,28 +394,16 @@ func ListDeliveryServiceNames(c *gin.Context) {
 
 	projectKey := c.Query("projectName")
 
-	// FIXME: when called directly from delivery center, the project key is empty, we do a dc authz check
-	if projectKey == "" {
-		// authorization checks
-		if !ctx.Resources.IsSystemAdmin {
-			if !ctx.Resources.SystemActions.DeliveryCenter.ViewVersion {
-				ctx.UnAuthorized = true
-				return
-			}
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
 		}
-	} else {
-		// FIXME: otherwise it is called from version control in a project, we check for the project authz
-		if !ctx.Resources.IsSystemAdmin {
-			if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
-				ctx.UnAuthorized = true
-				return
-			}
 
-			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-				!ctx.Resources.ProjectAuthInfo[projectKey].Version.View {
-				ctx.UnAuthorized = true
-				return
-			}
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].Version.View {
+			ctx.UnAuthorized = true
+			return
 		}
 	}
 
