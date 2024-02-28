@@ -165,6 +165,7 @@ func (c *DeployJobCtl) run(ctx context.Context) error {
 		return errors.New(msg)
 	}
 
+	// k8s projects
 	if c.jobTaskSpec.CreateEnvType == "system" {
 		var updateRevision bool
 		if slices.Contains(c.jobTaskSpec.DeployContents, config.DeployConfig) && c.jobTaskSpec.UpdateConfig {
@@ -236,7 +237,7 @@ func (c *DeployJobCtl) run(ctx context.Context) error {
 		return nil
 	}
 
-	// get servcie info
+	// host projects
 	var (
 		serviceInfo *commonmodels.Service
 	)

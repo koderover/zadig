@@ -218,7 +218,16 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, userName string, args *K
 
 	serviceString := sets.NewString()
 	templateSvcs := make(map[string]*commonmodels.Service)
-	services, _ := commonrepo.NewServiceColl().ListExternalWorkloadsBy(args.ProductName, "")
+	//services, _ := commonrepo.NewServiceColl().ListExternalWorkloadsBy(args.ProductName, "")
+	//for _, v := range services {
+	//	serviceString.Insert(v.ServiceName)
+	//	templateSvcs[v.ServiceName] = v
+	//}
+
+	services, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(args.ProductName)
+	if err != nil {
+		return e.ErrCreateEnv.AddErr(fmt.Errorf("ListMaxRevisionsByProduct err : %s", err))
+	}
 	for _, v := range services {
 		serviceString.Insert(v.ServiceName)
 		templateSvcs[v.ServiceName] = v

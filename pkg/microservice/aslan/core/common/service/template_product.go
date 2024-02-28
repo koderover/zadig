@@ -19,15 +19,13 @@ package service
 import (
 	"fmt"
 
-	"go.uber.org/zap"
-	"k8s.io/apimachinery/pkg/util/sets"
-
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
+	"go.uber.org/zap"
 )
 
 type PipelineResource struct {
@@ -47,23 +45,25 @@ func GetProductTemplate(productName string, log *zap.SugaredLogger) (*template.P
 	}
 
 	var totalServices []*models.Service
-	if resp.ProductFeature != nil && resp.ProductFeature.CreateEnvType == setting.SourceFromExternal {
-		totalServices, err = commonrepo.NewServiceColl().ListExternalWorkloadsBy(productName, "")
-		if err != nil {
-			return resp, fmt.Errorf("ListExternalWorkloadsBy err : %s", err)
-		}
-		serviceNamesSet := sets.NewString()
-		for _, service := range totalServices {
-			serviceNamesSet.Insert(service.ServiceName)
-		}
-		if len(resp.Services) > 0 {
-			resp.Services[0] = serviceNamesSet.List()
-		}
-	} else {
-		totalServices, err = commonrepo.NewServiceColl().ListMaxRevisionsByProduct(productName)
-		if err != nil {
-			return resp, fmt.Errorf("ListMaxRevisionsByProduct err : %s", err)
-		}
+	//if resp.ProductFeature != nil && resp.ProductFeature.CreateEnvType == setting.SourceFromExternal {
+	//	totalServices, err = commonrepo.NewServiceColl().ListExternalWorkloadsBy(productName, "")
+	//	if err != nil {
+	//		return resp, fmt.Errorf("ListExternalWorkloadsBy err : %s", err)
+	//	}
+	//	serviceNamesSet := sets.NewString()
+	//	for _, service := range totalServices {
+	//		serviceNamesSet.Insert(service.ServiceName)
+	//	}
+	//	if len(resp.Services) > 0 {
+	//		resp.Services[0] = serviceNamesSet.List()
+	//	}
+	//} else {
+	//
+	//}
+
+	totalServices, err = commonrepo.NewServiceColl().ListMaxRevisionsByProduct(productName)
+	if err != nil {
+		return resp, fmt.Errorf("ListMaxRevisionsByProduct err : %s", err)
 	}
 
 	totalBuilds, err := commonrepo.NewBuildColl().List(&commonrepo.BuildListOption{ProductName: productName, IsSort: true})
