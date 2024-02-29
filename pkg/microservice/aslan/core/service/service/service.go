@@ -222,10 +222,7 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, userName string, args *K
 	services, err := repository.ListMaxRevisions(&commonrepo.ServiceListOption{
 		ProductName: args.ProductName,
 	}, production)
-	//services, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(args.ProductName)
-	//if err != nil {
-	//	return e.ErrCreateEnv.AddErr(fmt.Errorf("ListMaxRevisionsByProduct err : %s", err))
-	//}
+
 	for _, v := range services {
 		serviceString.Insert(v.ServiceName)
 		templateSvcs[v.ServiceName] = v

@@ -235,31 +235,6 @@ func (c *DeployJobCtl) run(ctx context.Context) error {
 	}
 
 	return nil
-	//}
-
-	// host projects
-	//var (
-	//	serviceInfo *commonmodels.Service
-	//)
-	//serviceInfo, err = commonrepo.NewServiceColl().Find(
-	//	&commonrepo.ServiceFindOption{
-	//		ServiceName:   c.jobTaskSpec.ServiceName,
-	//		ProductName:   c.workflowCtx.ProjectName,
-	//		ExcludeStatus: setting.ProductStatusDeleting,
-	//		Type:          c.jobTaskSpec.ServiceType,
-	//	})
-	//if err != nil {
-	//	msg := fmt.Sprintf("find service %s error: %v", c.jobTaskSpec.ServiceName, err)
-	//	logError(c.job, msg, c.logger)
-	//	return errors.New(msg)
-	//}
-	//
-	//if err := c.updateServiceModuleImages(ctx, []*kube.WorkloadResource{{Type: serviceInfo.WorkloadType, Name: c.jobTaskSpec.ServiceName}}, env); err != nil {
-	//	logError(c.job, err.Error(), c.logger)
-	//	return err
-	//}
-
-	return nil
 }
 
 func onlyDeployImage(deployContents []config.DeployContent) bool {
