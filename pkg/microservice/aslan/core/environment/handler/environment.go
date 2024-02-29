@@ -2469,24 +2469,7 @@ func ListWorkloads(c *gin.Context) {
 	}
 
 	count, services, err := commonservice.ListWorkloadDetails("", args.ClusterID, args.Namespace, "", args.PerPage, args.Page, ctx.Logger, func(workloads []*commonservice.Workload) []*commonservice.Workload {
-		//workloadStat, _ := mongodb.NewWorkLoadsStatColl().Find(args.ClusterID, args.Namespace)
 		workloadM := map[string]commonmodels.Workload{}
-		//for _, workload := range workloadStat.Workloads {
-		//	workloadM[workload.Name] = workload
-		//}
-		//
-		//// add services in external env data
-		//servicesInExternalEnv, _ := mongodb.NewServicesInExternalEnvColl().List(&mongodb.ServicesInExternalEnvArgs{
-		//	Namespace: args.Namespace,
-		//	ClusterID: args.ClusterID,
-		//})
-		//
-		//for _, serviceInExternalEnv := range servicesInExternalEnv {
-		//	workloadM[serviceInExternalEnv.ServiceName] = commonmodels.Workload{
-		//		EnvName:     serviceInExternalEnv.EnvName,
-		//		ProductName: serviceInExternalEnv.ProductName,
-		//	}
-		//}
 
 		// find workloads existed in other envs
 		sharedNSEnvs, err := mongodb.NewProductColl().ListEnvByNamespace(args.ClusterID, args.Namespace)

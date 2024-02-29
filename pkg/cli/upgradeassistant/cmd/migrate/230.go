@@ -115,37 +115,6 @@ func migrateHostProjectData() error {
 				svcNameList.Insert(singleSvc.ServiceName)
 			}
 
-			//filter := func(services []*service.Workload) []*service.Workload {
-			//	ret := make([]*service.Workload, 0)
-			//	for _, svc := range services {
-			//		if svcNameList.Has(svc.ServiceName) {
-			//			ret = append(ret, svc)
-			//		}
-			//	}
-			//	return ret
-			//}
-
-			//if err != nil {
-			//	log.Errorf("Failed to get kube client for cluster: %s, the error is: %s", product.ClusterID, err)
-			//	continue
-			//}
-			//sharedInformer, err := informer.NewInformer(product.ClusterID, product.Namespace, cls)
-			//if err != nil {
-			//	log.Errorf("[%s][%s] error: %v", product.EnvName, product.Namespace, err)
-			//	continue
-			//}
-			//version, err := cls.Discovery().ServerVersion()
-			//if err != nil {
-			//	log.Errorf("Failed to get server version info for cluster: %s, the error is: %s", product.ClusterID, err)
-			//	continue
-			//}
-			//
-			//_, workloads, err := service.ListWorkloads(product.EnvName, product.ProductName, -1, -1, sharedInformer, version, log.SugaredLogger(), []service.FilterFunc{filter}...)
-			//if err != nil {
-			//	log.Errorf("ListWorkloadDetails err:%s", err)
-			//	continue
-			//}
-
 			// fetch workload from namespace and extract resource / container info
 			// note the image data in container may not be correct
 			productSvcs := make([]*models.ProductService, 0)
@@ -184,42 +153,6 @@ func migrateHostProjectData() error {
 				productSvcs = append(productSvcs, productSvc)
 			}
 
-			//for _, workload := range workloads {
-			//
-			//	templateSvc := tempSvcMap[workload.Name]
-			//	if templateSvc == nil {
-			//		log.Errorf("failed to find service %s in template", workload.Name)
-			//		continue
-			//	}
-			//
-			//	resources, err := kube.ManifestToResource(templateSvc.Yaml)
-			//	if err != nil {
-			//		log.Errorf("ManifestToResource err:%s", err)
-			//		continue
-			//	}
-			//
-			//	containers := make([]*models.Container, 0)
-			//	for _, c := range workload.Containers {
-			//		containers = append(containers, &models.Container{
-			//			Name:      c.Name,
-			//			Image:     c.Image,
-			//			ImageName: c.ImageName,
-			//		})
-			//	}
-			//
-			//	productSvc := &models.ProductService{
-			//		ServiceName:    workload.Name,
-			//		ProductName:    product.ProductName,
-			//		Type:           workload.Type,
-			//		Revision:       getSvcRevision(workload.Name),
-			//		Containers:     containers,
-			//		Resources:      resources,
-			//		DeployStrategy: setting.ServiceDeployStrategyDeploy,
-			//	}
-			//
-			//	productSvc.GetServiceRender()
-			//	productSvcs = append(productSvcs, productSvc)
-			//}
 			product.Services = make([][]*models.ProductService, 0)
 			product.Services = append(product.Services, productSvcs)
 
