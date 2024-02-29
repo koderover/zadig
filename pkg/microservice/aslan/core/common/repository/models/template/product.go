@@ -174,8 +174,8 @@ func (p *ProductFeature) GetDeployType() string {
 		return setting.K8SDeployType
 	}
 	var deployType string
-	if p.CreateEnvType == "external" {
-		deployType = "external"
+	if p.CreateEnvType == setting.SourceFromExternal {
+		deployType = setting.SourceFromExternal
 	} else if p.BasicFacility == "cloud_host" {
 		deployType = "cloud_host"
 	} else {

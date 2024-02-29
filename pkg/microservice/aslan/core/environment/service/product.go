@@ -337,7 +337,7 @@ func buildProductResp(envName string, prod *commonmodels.Product, log *zap.Sugar
 	prodResp.Error = ""
 
 	switch prod.Source {
-	case setting.SourceFromExternal, setting.SourceFromHelm:
+	case setting.SourceFromHelm:
 		prodResp.Status, errObj = CalculateNonK8sProductStatus(prod, log)
 	default:
 		prodResp.Status, errObj = CalculateK8sProductStatus(prod, log)

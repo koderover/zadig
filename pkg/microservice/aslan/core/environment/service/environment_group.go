@@ -49,11 +49,10 @@ type EnvGroupRequest struct {
 	ServiceName string `form:"serviceName"`
 }
 
-// CalculateNonK8sProductStatus calculate product status for non k8s product: Helm + Host
+// CalculateNonK8sProductStatus calculate product status for non k8s product: Helm
 func CalculateNonK8sProductStatus(productInfo *commonmodels.Product, log *zap.SugaredLogger) (string, error) {
 	productName, envName, retStatus := productInfo.ProductName, productInfo.EnvName, setting.PodRunning
 	_, workloads, err := commonservice.ListWorkloadsInEnv(envName, productName, "", 0, 0, log)
-	log.Infof("-------- workload count: %d", len(workloads))
 	if err != nil {
 		return retStatus, e.ErrListGroups.AddDesc(err.Error())
 	}

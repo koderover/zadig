@@ -1017,17 +1017,6 @@ func buildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*co
 		return nil, e.ErrGetService.AddDesc(fmt.Sprintf("failed to find project %s, err: %v", productInfo.ProductName, err))
 	}
 
-	if project.ProductFeature != nil && project.ProductFeature.CreateEnvType == "external" {
-		for _, svc := range templateSvcs {
-			ret.Services = append(ret.Services, &EnvService{
-				ServiceName:    svc.ServiceName,
-				ServiceModules: svc.Containers,
-				Deployed:       true,
-			})
-		}
-		return ret, nil
-	}
-
 	productTemplateSvcs, err := commonutil.GetProductUsedTemplateSvcs(productInfo)
 	if err != nil {
 		return nil, e.ErrGetService.AddErr(errors.Wrapf(err, "failed to find product template services for env %s:%s", productName, envName))
@@ -1297,16 +1286,7 @@ func GetServiceImpl(serviceName string, serviceTmpl *commonmodels.Service, workL
 
 	namespace := env.Namespace
 	switch env.Source {
-	case setting.SourceFromExternal, setting.SourceFromHelm:
-		// helm and external
-		if env.Source == setting.SourceFromExternal {
-			svcOpt := &commonrepo.ServiceFindOption{ProductName: productName, ServiceName: serviceName, Type: setting.K8SDeployType}
-			modelSvc, err := commonrepo.NewServiceColl().Find(svcOpt)
-			if err != nil {
-				return nil, e.ErrGetService.AddErr(err)
-			}
-			workLoadType = modelSvc.WorkloadType
-		}
+	case setting.SourceFromHelm:
 		k8sServices, _ := getter.ListServicesWithCache(nil, inf)
 		switch workLoadType {
 		case setting.StatefulSet:
@@ -1354,7 +1334,7 @@ func GetServiceImpl(serviceName string, serviceTmpl *commonmodels.Service, workL
 			return nil, e.ErrGetService.AddDesc(fmt.Sprintf("service %s not found, unknow type", serviceName))
 		}
 	default:
-		// k8s
+		// k8s + host
 		service := env.GetServiceMap()[serviceName]
 		if service == nil {
 			return nil, e.ErrGetService.AddDesc(fmt.Sprintf("failed to find service in environment: %s", envName))
