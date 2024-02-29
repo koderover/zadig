@@ -155,7 +155,7 @@ func GetServiceNameToReleaseNameMap(prod *models.Product) (map[string]string, er
 
 // update product image info
 func UpdateProductImage(envName, productName, serviceName string, targets map[string]string, userName string, logger *zap.SugaredLogger) error {
-	redisMutex := cache.NewRedisLock(fmt.Sprintf("updateProductImage-%s-%s", productName, envName))
+	redisMutex := cache.NewRedisLock(fmt.Sprintf("UpdateProductImage:%s:%s", productName, envName))
 	redisMutex.Lock()
 	defer redisMutex.Unlock()
 
