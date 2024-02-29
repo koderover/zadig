@@ -91,7 +91,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		workload.PUT("", UpdateWorkloads)
 
 		workload.POST("/production", CreateProductionK8sWorkloads)
-		workload.POST("/production", ListProductionWorkloadTemplate)
+		workload.GET("/production", ListProductionWorkloadTemplate)
 		workload.PUT("/production", UpdateProductionWorkloads)
 	}
 

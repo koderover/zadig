@@ -4089,7 +4089,7 @@ func EnvSleep(productName, envName string, isEnable, isProduction bool, log *zap
 		}
 	}
 
-	if templateProduct.IsK8sYamlProduct() {
+	if templateProduct.IsK8sYamlProduct() || templateProduct.IsHostProduct() {
 		prodSvcMap := prod.GetServiceMap()
 		svcs, err := commonutil.GetProductUsedTemplateSvcs(prod)
 		if err != nil {
@@ -4132,25 +4132,6 @@ func EnvSleep(productName, envName string, isEnable, isProduction bool, log *zap
 						newScaleNumMap[workLoad.Name] = int(workLoad.Replicas)
 					}
 				}
-			}
-		}
-	} else if templateProduct.IsHostProduct() {
-		svcTmpls, err := repository.ListMaxRevisionsServices(productName, prod.Production)
-		if err != nil {
-			err = fmt.Errorf("failed to list services, productName: %s, isProduction: %v, err: %s", productName, prod.Production, err)
-			log.Error(err)
-			return e.ErrEnvSleep.AddErr(err)
-		}
-		for _, svcTmpl := range svcTmpls {
-			if workLoad, ok := scaleMap[svcTmpl.ServiceName]; ok {
-				workLoad.ServiceName = svcTmpl.ServiceName
-				workLoad.DeployedFromZadig = true
-				newScaleNumMap[workLoad.Name] = int(workLoad.Replicas)
-			}
-			if workLoad, ok := cronjobMap[svcTmpl.ServiceName]; ok {
-				workLoad.ServiceName = svcTmpl.ServiceName
-				workLoad.DeployedFromZadig = true
-				newScaleNumMap[workLoad.Name] = int(workLoad.Replicas)
 			}
 		}
 	} else if templateProduct.IsHelmProduct() {
