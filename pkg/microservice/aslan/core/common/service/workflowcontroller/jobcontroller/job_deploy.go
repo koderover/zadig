@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/hashicorp/go-multierror"
@@ -435,11 +436,17 @@ BetaCronLoop:
 
 func (c *DeployJobCtl) updateServiceModuleImages(ctx context.Context, resources []*kube.WorkloadResource, env *commonmodels.Product) error {
 	errList := new(multierror.Error)
+	wg := sync.WaitGroup{}
 	for _, serviceModule := range c.jobTaskSpec.ServiceAndImages {
-		if err := c.updateExternalServiceModule(ctx, resources, env, serviceModule); err != nil {
-			errList = multierror.Append(errList, err)
-		}
+		wg.Add(1)
+		go func(serviceModule *commonmodels.DeployServiceModule) {
+			defer wg.Done()
+			if err := c.updateExternalServiceModule(ctx, resources, env, serviceModule); err != nil {
+				errList = multierror.Append(errList, err)
+			}
+		}(serviceModule)
 	}
+	wg.Wait()
 	if err := errList.ErrorOrNil(); err != nil {
 		return err
 	}
