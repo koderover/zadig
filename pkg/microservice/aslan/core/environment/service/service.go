@@ -269,6 +269,7 @@ func GetServiceWorkloads(svcTmpl *commonmodels.Service, env *commonmodels.Produc
 				Selector:   wd.Spec.Selector,
 				Type:       setting.Deployment,
 				Images:     wd.ImageInfos(),
+				Containers: wd.GetContainers(),
 				Ready:      wd.Ready(),
 				Annotation: wd.Annotations,
 			})
@@ -286,6 +287,7 @@ func GetServiceWorkloads(svcTmpl *commonmodels.Service, env *commonmodels.Produc
 				Selector:   ws.Spec.Selector,
 				Type:       setting.StatefulSet,
 				Images:     ws.ImageInfos(),
+				Containers: ws.GetContainers(),
 				Ready:      ws.Ready(),
 				Annotation: ws.Annotations,
 			})

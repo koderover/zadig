@@ -148,10 +148,6 @@ func UpdateContainerImage(requestID, username string, args *UpdateContainerImage
 			return e.ErrUpdateConainterImage.AddDesc(fmt.Sprintf("不支持的资源类型: %s", args.Type))
 		}
 
-		if product.Source == setting.SourceFromExternal {
-			return nil
-		}
-
 		// update image info in product.services.container
 		prodSvc := product.GetServiceMap()[args.ServiceName]
 		if prodSvc == nil {

@@ -220,30 +220,6 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 	}
 
 	productServiceMap := product.GetServiceMap()
-	workloadTypeMap := make(map[string]string)
-
-	if project.IsHostProduct() {
-		productServices, err := commonrepo.NewServiceColl().ListExternalWorkloadsBy(j.workflow.Project, envName)
-		if err != nil {
-			return resp, fmt.Errorf("failed to list external workload, err: %v", err)
-		}
-		for _, service := range productServices {
-			productServiceMap[service.ServiceName] = &commonmodels.ProductService{
-				ServiceName: service.ServiceName,
-				Containers:  service.Containers,
-			}
-			workloadTypeMap[service.ServiceName] = service.WorkloadType
-		}
-		servicesInExternalEnv, _ := commonrepo.NewServicesInExternalEnvColl().List(&commonrepo.ServicesInExternalEnvArgs{
-			ProductName: j.workflow.Project,
-			EnvName:     envName,
-		})
-		for _, service := range servicesInExternalEnv {
-			productServiceMap[service.ServiceName] = &commonmodels.ProductService{
-				ServiceName: service.ServiceName,
-			}
-		}
-	}
 
 	// get deploy info from previous build job
 	if j.spec.Source == config.SourceFromJob {
@@ -353,9 +329,8 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 				Name: jobNameFormat(serviceName + "-" + j.job.Name),
 				Key:  strings.Join([]string{j.job.Name, serviceName}, "."),
 				JobInfo: map[string]string{
-					JobNameKey:      j.job.Name,
-					"service_name":  serviceName,
-					"workload_type": workloadTypeMap[serviceName],
+					JobNameKey:     j.job.Name,
+					"service_name": serviceName,
 				},
 				JobType: string(config.JobZadigDeploy),
 				Spec:    jobTaskSpec,
