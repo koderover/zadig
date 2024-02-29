@@ -438,7 +438,6 @@ func fillServiceInfo(svcList []*ServiceResp, productInfo *models.Product) {
 // ListWorkloadDetailsInEnv returns all workloads in the given env which meet the filter.
 // this function is used for two scenarios: 1. calculate product status 2. list workflow details
 func BuildWorkloadFilterFunc(productInfo *models.Product, projectInfo *templatemodels.Product, filter string, log *zap.SugaredLogger) ([]FilterFunc, error) {
-	//productName, envName := productInfo.ProductName, productInfo.EnvName
 	filterArray := []FilterFunc{
 		func(workloads []*Workload) []*Workload {
 			if !projectInfo.IsHostProduct() {
