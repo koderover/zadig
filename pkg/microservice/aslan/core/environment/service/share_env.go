@@ -1580,7 +1580,7 @@ func getDefaultIstioIngressGatewayAddress(ctx context.Context, serviceName, gate
 		return "", fmt.Errorf("failed to get istio default ingress gateway %s in ns %s, err: %w", "istio-ingressgateway", "istio-system", err)
 	}
 	if len(gatewaySvc.Status.LoadBalancer.Ingress) == 0 {
-		return "", e.ErrGetPortalService.AddDesc("istio default gateway's lb doesn't have ip address")
+		return "", e.ErrGetPortalService.AddDesc("istio default gateway's lb doesn't have ip address or hostname")
 	}
 	for _, ing := range gatewaySvc.Status.LoadBalancer.Ingress {
 		if ing.IP != "" {
