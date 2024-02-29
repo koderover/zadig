@@ -230,45 +230,7 @@ func GetProductEnvNamespace(envName, productName, namespace string) string {
 func GetProductTargetMap(prod *commonmodels.Product) (map[string][]commonmodels.DeployEnv, map[string]string) {
 	resp := make(map[string][]commonmodels.DeployEnv)
 	imageNameM := make(map[string]string)
-	//if prod.Source == setting.SourceFromExternal {
-	//	services, _ := commonrepo.NewServiceColl().ListExternalWorkloadsBy(prod.ProductName, prod.EnvName)
-	//
-	//	currentServiceNames := sets.NewString()
-	//	for _, service := range services {
-	//		currentServiceNames.Insert(service.ServiceName)
-	//	}
-	//
-	//	servicesInExternalEnv, _ := commonrepo.NewServicesInExternalEnvColl().List(&commonrepo.ServicesInExternalEnvArgs{
-	//		ProductName: prod.ProductName,
-	//		EnvName:     prod.EnvName,
-	//	})
-	//
-	//	externalServiceNames := sets.NewString()
-	//	for _, serviceInExternalEnv := range servicesInExternalEnv {
-	//		if !currentServiceNames.Has(serviceInExternalEnv.ServiceName) {
-	//			externalServiceNames.Insert(serviceInExternalEnv.ServiceName)
-	//		}
-	//	}
-	//
-	//	if len(externalServiceNames) > 0 {
-	//		newServices, _ := commonrepo.NewServiceColl().ListExternalWorkloadsBy(prod.ProductName, "", externalServiceNames.List()...)
-	//		for _, service := range newServices {
-	//			services = append(services, service)
-	//		}
-	//	}
-	//
-	//	for _, service := range services {
-	//		for _, container := range service.Containers {
-	//			env := service.ServiceName + "/" + container.Name
-	//			deployEnv := commonmodels.DeployEnv{Type: setting.K8SDeployType, Env: env}
-	//			target := strings.Join([]string{service.ProductName, service.ServiceName, container.Name}, SplitSymbol)
-	//			resp[target] = append(resp[target], deployEnv)
-	//
-	//			imageNameM[target] = util.GetImageNameFromContainerInfo(container.ImageName, container.Name)
-	//		}
-	//	}
-	//	return resp, imageNameM
-	//}
+
 	for _, services := range prod.Services {
 		for _, serviceObj := range services {
 			switch serviceObj.Type {

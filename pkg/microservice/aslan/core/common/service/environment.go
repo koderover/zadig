@@ -445,28 +445,12 @@ func BuildWorkloadFilterFunc(productInfo *models.Product, projectInfo *templatem
 				return workloads
 			}
 
-			//productServices, err := commonrepo.NewServiceColl().ListExternalWorkloadsBy(productName, envName)
-			//if err != nil {
-			//	log.Errorf("ListWorkloadDetails ListExternalServicesBy err:%s", err)
-			//	return workloads
-			//}
 			productServiceNames := sets.NewString()
 			for _, svc := range productInfo.GetServiceMap() {
 				if len(svc.Resources) > 0 {
 					productServiceNames.Insert(svc.Resources[0].Name)
 				}
 			}
-			//for _, productService := range productServices {
-			//	productServiceNames.Insert(productService.ServiceName)
-			//}
-			//// add services in external env data
-			//servicesInExternalEnv, _ := commonrepo.NewServicesInExternalEnvColl().List(&commonrepo.ServicesInExternalEnvArgs{
-			//	ProductName: productName,
-			//	EnvName:     envName,
-			//})
-			//for _, serviceInExternalEnv := range servicesInExternalEnv {
-			//	productServiceNames.Insert(serviceInExternalEnv.ServiceName)
-			//}
 
 			var res []*Workload
 			for _, workload := range workloads {

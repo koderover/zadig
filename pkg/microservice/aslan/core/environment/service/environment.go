@@ -2099,59 +2099,6 @@ func DeleteProduct(username, envName, productName, requestID string, isDelete bo
 			log.Errorf("Product.Delete error: %v", err)
 		}
 
-		//tempProduct, err := mongotemplate.NewProductColl().Find(productName)
-		//if err != nil {
-		//	log.Errorf("project not found error:%s", err)
-		//}
-
-		//if tempProduct.IsHostProduct() {
-		//workloadStat, err := commonrepo.NewWorkLoadsStatColl().Find(productInfo.ClusterID, productInfo.Namespace)
-		//if err != nil {
-		//	log.Errorf("workflowStat not found error:%s", err)
-		//}
-		//if workloadStat != nil {
-		//	workloadStat.Workloads = commonservice.FilterWorkloadsByEnv(workloadStat.Workloads, productName, productInfo.EnvName)
-		//	if err := commonrepo.NewWorkLoadsStatColl().UpdateWorkloads(workloadStat); err != nil {
-		//		log.Errorf("update workloads fail error:%s", err)
-		//	}
-		//}
-		//
-		//currentEnvServices, err := commonrepo.NewServiceColl().ListExternalWorkloadsBy(productName, envName)
-		//if err != nil {
-		//	log.Errorf("failed to list external workload, error:%s", err)
-		//}
-		//
-		//externalEnvServices, err := commonrepo.NewServicesInExternalEnvColl().List(&commonrepo.ServicesInExternalEnvArgs{
-		//	ProductName:    productName,
-		//	ExcludeEnvName: envName,
-		//})
-		//if err != nil {
-		//	log.Errorf("failed to list external service, error:%s", err)
-		//}
-		//
-		//externalEnvServiceM := make(map[string]bool)
-		//for _, externalEnvService := range externalEnvServices {
-		//	externalEnvServiceM[externalEnvService.ServiceName] = true
-		//}
-		//
-		//deleteServices := sets.NewString()
-		//for _, currentEnvService := range currentEnvServices {
-		//	if _, isExist := externalEnvServiceM[currentEnvService.ServiceName]; !isExist {
-		//		deleteServices.Insert(currentEnvService.ServiceName)
-		//	}
-		//}
-		//err = commonrepo.NewServiceColl().BatchUpdateExternalServicesStatus(productName, "", setting.ProductStatusDeleting, deleteServices.List())
-		//if err != nil {
-		//	log.Errorf("UpdateStatus external services error:%s", err)
-		//}
-		//// delete services_in_external_env data
-		//if err = commonrepo.NewServicesInExternalEnvColl().Delete(&commonrepo.ServicesInExternalEnvArgs{
-		//	ProductName: productName,
-		//	EnvName:     envName,
-		//}); err != nil {
-		//	log.Errorf("remove services in external env error:%s", err)
-		//}
-		//}
 	case setting.SourceFromPM:
 		err = commonrepo.NewProductColl().Delete(envName, productName)
 		if err != nil {

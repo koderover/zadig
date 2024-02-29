@@ -20,8 +20,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/koderover/zadig/v2/pkg/shared/kube/resource"
-	"github.com/koderover/zadig/v2/pkg/shared/kube/wrapper"
 	"regexp"
 	"sort"
 	"strconv"
@@ -54,6 +52,8 @@ import (
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/shared/client/user"
 	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
+	"github.com/koderover/zadig/v2/pkg/shared/kube/resource"
+	"github.com/koderover/zadig/v2/pkg/shared/kube/wrapper"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
@@ -346,10 +346,8 @@ func transferServices(user string, projectInfo *template.Product, logger *zap.Su
 // CronJob workload is not needed to be handled here since is not supported till version 1.18.0
 func optimizeServiceYaml(projectName string, serviceInfo []*commonmodels.Service) error {
 	svcMap := make(map[string]*commonmodels.Service)
-	svcSets := sets.NewString()
 	for _, svc := range serviceInfo {
 		svcMap[svc.ServiceName] = svc
-		svcSets.Insert(svc.ServiceName)
 	}
 
 	products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
@@ -390,7 +388,6 @@ func optimizeServiceYaml(projectName string, serviceInfo []*commonmodels.Service
 				continue
 			}
 			log.Infof("optimize yaml of deployment %s defined in services", svc.ServiceName)
-			svcSets.Delete(svc.ServiceName)
 			svc.Yaml = string(bs)
 		case setting.StatefulSet:
 			bs, exists, err := getter.GetStatefulSetYaml(k8sNsMap[svc.EnvName], svc.ServiceName, kClient)
@@ -402,57 +399,10 @@ func optimizeServiceYaml(projectName string, serviceInfo []*commonmodels.Service
 				continue
 			}
 			log.Infof("optimize yaml of sts %s defined in services", svc.ServiceName)
-			svcSets.Delete(svc.ServiceName)
 			svc.Yaml = string(bs)
 		}
 	}
 
-	if svcSets.Len() == 0 {
-		return nil
-	}
-
-	// service info may be stored in service_in_external_env
-	//servicesInExternalEnv, _ := commonrepo.NewServicesInExternalEnvColl().List(&commonrepo.ServicesInExternalEnvArgs{
-	//	ProductName: projectName,
-	//})
-	//for _, svcInExternal := range servicesInExternalEnv {
-	//	if !svcSets.Has(svcInExternal.ServiceName) {
-	//		continue
-	//	}
-	//
-	//	kClient, ok := k8sClientMap[svcInExternal.EnvName]
-	//	if !ok {
-	//		continue
-	//	}
-	//
-	//	svc := svcMap[svcInExternal.ServiceName]
-	//	switch svc.WorkloadType {
-	//	case setting.Deployment:
-	//		bs, exists, err := getter.GetDeploymentYamlFormat(k8sNsMap[svcInExternal.EnvName], svcInExternal.ServiceName, kClient)
-	//		if err != nil {
-	//			log.Errorf("failed to get deploy %s, err: %s", svcInExternal.ServiceName, err)
-	//			continue
-	//		}
-	//		if !exists {
-	//			continue
-	//		}
-	//		log.Infof("optimize yaml of deployment %s defined in service_in_external_env", svcInExternal.ServiceName)
-	//		svcSets.Delete(svcInExternal.ServiceName)
-	//		svc.Yaml = string(bs)
-	//	case setting.StatefulSet:
-	//		bs, exists, err := getter.GetStatefulSetYaml(k8sNsMap[svcInExternal.EnvName], svcInExternal.ServiceName, kClient)
-	//		if err != nil {
-	//			log.Errorf("failed to get sts %s, err: %s", svcInExternal.ServiceName, err)
-	//			continue
-	//		}
-	//		if !exists {
-	//			continue
-	//		}
-	//		log.Infof("optimize yaml of sts %s defined in service_in_external_env", svcInExternal.ServiceName)
-	//		svcSets.Delete(svcInExternal.ServiceName)
-	//		svc.Yaml = string(bs)
-	//	}
-	//}
 	return nil
 }
 
@@ -473,20 +423,10 @@ func saveServices(projectName, username string, services []*commonmodels.Service
 
 func saveProducts(products []*commonmodels.Product) error {
 	for _, product := range products {
-
-		//err := commonrepo.NewServicesInExternalEnvColl().Delete(&commonrepo.ServicesInExternalEnvArgs{
-		//	ProductName: product.ProductName,
-		//	EnvName:     product.EnvName,
-		//})
-		//if err != nil && err != mongo.ErrNoDocuments {
-		//	return err
-		//}
-
 		err := commonrepo.NewProductColl().Update(product)
 		if err != nil {
 			return err
 		}
-		saveWorkloadStats(product.ClusterID, product.Namespace, product.ProductName, product.EnvName)
 	}
 	return nil
 }
@@ -571,18 +511,6 @@ func transferProducts(user string, projectInfo *template.Product, templateServic
 		}
 		product.Services = [][]*commonmodels.ProductService{productServices}
 
-		// update workload stat
-		//workloadStat, err := commonrepo.NewWorkLoadsStatColl().Find(product.ClusterID, product.Namespace)
-		//if err != nil {
-		//	log.Errorf("workflowStat not found error:%s", err)
-		//}
-		//if workloadStat != nil {
-		//	workloadStat.Workloads = commonservice.FilterWorkloadsByEnv(workloadStat.Workloads, product.ProductName, product.EnvName)
-		//	if err := commonrepo.NewWorkLoadsStatColl().UpdateWorkloads(workloadStat); err != nil {
-		//		log.Errorf("update workloads fail error:%s", err)
-		//	}
-		//}
-
 		// mark service as only import
 		for _, svc := range product.GetServiceMap() {
 			product.ServiceDeployStrategy = commonutil.SetServiceDeployStrategyImport(product.ServiceDeployStrategy, svc.ServiceName)
@@ -595,19 +523,6 @@ func transferProducts(user string, projectInfo *template.Product, templateServic
 	}
 
 	return products, nil
-}
-
-func saveWorkloadStats(clusterID, namespace, productName, envName string) {
-	//workloadStat, err := commonrepo.NewWorkLoadsStatColl().Find(clusterID, namespace)
-	//if err != nil {
-	//	log.Errorf("failed to get workload stat data, err: %s", err)
-	//	return
-	//}
-	//
-	//workloadStat.Workloads = commonservice.FilterWorkloadsByEnv(workloadStat.Workloads, productName, envName)
-	//if err := commonrepo.NewWorkLoadsStatColl().UpdateWorkloads(workloadStat); err != nil {
-	//	log.Errorf("update workloads fail error:%s", err)
-	//}
 }
 
 // UpdateProject 更新项目
@@ -786,31 +701,6 @@ func DeleteProductTemplate(userName, productName, requestID string, isDelete boo
 			commonservice.ProcessServiceWebhook(nil, s, s.ServiceName, log)
 		}
 	}()
-
-	// delete data in workload_stat
-	// TODO this function should be removed after workload_stat is deprecated
-	go func() {
-		//workloads, _ := commonrepo.NewWorkLoadsStatColl().FindByProductName(productName)
-		//for _, v := range workloads {
-		//	// update workloads
-		//	tmp := []commonmodels.Workload{}
-		//	for _, vv := range v.Workloads {
-		//		if vv.ProductName != productName {
-		//			tmp = append(tmp, vv)
-		//		}
-		//	}
-		//	v.Workloads = tmp
-		//	commonrepo.NewWorkLoadsStatColl().UpdateWorkloads(v)
-		//}
-	}()
-
-	// delete servicesInExternalEnv data
-	// TODO this function should be removed after services_in_external_env is deprecated
-	//go func() {
-	//	_ = commonrepo.NewServicesInExternalEnvColl().Delete(&commonrepo.ServicesInExternalEnvArgs{
-	//		ProductName: productName,
-	//	})
-	//}()
 
 	// delete privateKey data
 	go func() {
