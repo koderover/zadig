@@ -338,8 +338,10 @@ func UpgradeHelmRelease(product *commonmodels.Product, productSvc *commonmodels.
 
 	productColl := commonrepo.NewProductCollWithSession(session)
 
-	// select product info and render info from db, in case of concurrent update caused data override issue
-	// those code can be optimized if MongoDB version are newer than 4.0
+	envLock := cache.NewRedisLock(fmt.Sprintf("UpgradeHelmRelease:%s:%s", product.ProductName, product.EnvName))
+	envLock.Lock()
+	defer envLock.Unlock()
+
 	newProductInfo, err := productColl.Find(&commonrepo.ProductFindOptions{Name: product.ProductName, EnvName: product.EnvName})
 	if err != nil {
 		mongo.AbortTransaction(session)
