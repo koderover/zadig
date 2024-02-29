@@ -173,7 +173,6 @@ func UpdateProductImage(envName, productName, serviceName string, targets map[st
 					if image, ok := targets[container.Name]; ok {
 						prod.Services[i][j].Containers[l].Image = image
 						prod.Services[i][j].Containers[l].ImageName = util.ExtractImageName(image)
-						log.Debugf("update product image, serviceName: %s, containerName: %s, image: %s", serviceName, container.Name, image)
 					}
 				}
 			}
