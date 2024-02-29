@@ -53,6 +53,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/informer"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/updater"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/types/job"
 )
 
@@ -426,6 +427,7 @@ BetaCronLoop:
 	if !replaced {
 		return fmt.Errorf("service %s container name %s is not found in env %s", c.jobTaskSpec.ServiceName, serviceModule.ServiceModule, c.jobTaskSpec.Env)
 	}
+	log.Debugf("update service %s container %s image to %s", c.jobTaskSpec.ServiceName, serviceModule.ServiceModule, serviceModule.Image)
 	if err := commonutil.UpdateProductImage(env.EnvName, c.workflowCtx.ProjectName, c.jobTaskSpec.ServiceName, map[string]string{serviceModule.ServiceModule: serviceModule.Image}, c.workflowCtx.WorkflowTaskCreatorUsername, c.logger); err != nil {
 		return err
 	}
