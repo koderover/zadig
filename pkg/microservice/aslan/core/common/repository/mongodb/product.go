@@ -32,6 +32,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/types"
 	"github.com/koderover/zadig/v2/pkg/setting"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 	mongotool "github.com/koderover/zadig/v2/pkg/tool/mongo"
 )
 
@@ -424,6 +425,13 @@ func (c *ProductColl) Update(args *models.Product) error {
 		changePayload["pre_sleep_status"] = args.PreSleepStatus
 	}
 	change := bson.M{"$set": changePayload}
+	for _, svcGroup := range args.Services {
+		for _, svc := range svcGroup {
+			for _, c := range svc.Containers {
+				log.Debugf("container: %+v", c)
+			}
+		}
+	}
 	_, err := c.UpdateOne(mongotool.SessionContext(context.TODO(), c.Session), query, change)
 	return err
 }
