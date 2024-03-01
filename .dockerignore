@@ -1,8 +1,4 @@
 /*
-!/cmd
-!/pkg
-!/go.mod
-!/go.sum
-!/resource-server-nginx.conf
+!/v2
 !/version
 !/docker
