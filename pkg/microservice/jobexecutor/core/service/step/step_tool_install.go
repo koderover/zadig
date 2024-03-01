@@ -91,6 +91,7 @@ func (s *ToolInstallStep) runIntallationScripts(tool *step.Tool) error {
 		tmpPath = path.Join(os.TempDir(), fileName)
 		s3client, err := s3tool.NewClient(s.spec.S3Storage.Endpoint, s.spec.S3Storage.Ak, s.spec.S3Storage.Sk, s.spec.S3Storage.Region, s.spec.S3Storage.Insecure, forcedPathStyle)
 		if err == nil {
+			log.Debugf("1")
 			objectKey := GetObjectPath(fileName, s.spec.S3Storage.Subfolder)
 			err = s3client.Download(
 				s.spec.S3Storage.Bucket,
@@ -102,7 +103,7 @@ func (s *ToolInstallStep) runIntallationScripts(tool *step.Tool) error {
 			if err != nil {
 				err := httpclient.Download(tool.Download, tmpPath)
 				if err != nil {
-					return err
+					return fmt.Errorf("download package %s error: %v", tool.Download, err)
 				}
 				s3client.Upload(
 					s.spec.S3Storage.Bucket,
@@ -112,6 +113,7 @@ func (s *ToolInstallStep) runIntallationScripts(tool *step.Tool) error {
 				fmt.Printf("Package loaded from url: %s\n", tool.Download)
 			}
 		} else {
+			log.Debugf("2")
 			err := httpclient.Download(tool.Download, tmpPath)
 			if err != nil {
 				return err
