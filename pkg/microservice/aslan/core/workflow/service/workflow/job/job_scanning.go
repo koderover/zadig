@@ -62,6 +62,10 @@ func (j *ScanningJob) SetPreset() error {
 			log.Errorf("find scanning: %s error: %v", scanning.Name, err)
 			continue
 		}
+		if err := fillScanningDetail(scanningInfo); err != nil {
+			log.Errorf("fill scanning: %s detail error: %v", scanningInfo.Name, err)
+			continue
+		}
 		scanning.Repos = mergeRepos(scanningInfo.Repos, scanning.Repos)
 		scanning.KeyVals = renderKeyVals(scanning.KeyVals, scanningInfo.Envs)
 	}
@@ -140,26 +144,8 @@ func (j *ScanningJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			return resp, fmt.Errorf("find scanning: %s error: %v", scanning.Name, err)
 		}
 
-		// if a scanning uses template, we use the information in the template
-		if len(scanningInfo.TemplateID) != 0 {
-			templateInfo, err := commonrepo.NewScanningTemplateColl().Find(&commonrepo.ScanningTemplateQueryOption{
-				ID: scanningInfo.TemplateID,
-			})
-			if err != nil {
-				log.Errorf("failed to get scanning template from mongodb, the error is: %s", err)
-				return nil, err
-			}
-
-			scanningInfo.ScannerType = templateInfo.ScannerType
-			scanningInfo.EnableScanner = templateInfo.EnableScanner
-			scanningInfo.ImageID = templateInfo.ImageID
-			scanningInfo.SonarID = templateInfo.SonarID
-			scanningInfo.Installs = templateInfo.Installs
-			scanningInfo.Parameter = templateInfo.Parameter
-			scanningInfo.Envs = templateInfo.Envs
-			scanningInfo.Script = templateInfo.Script
-			scanningInfo.AdvancedSetting = templateInfo.AdvancedSetting
-			scanningInfo.CheckQualityGate = templateInfo.CheckQualityGate
+		if err := fillScanningDetail(scanningInfo); err != nil {
+			return nil, err
 		}
 
 		basicImage, err := commonrepo.NewBasicImageColl().Find(scanningInfo.ImageID)
@@ -206,7 +192,7 @@ func (j *ScanningJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			StrategyID:          scanningInfo.AdvancedSetting.StrategyID,
 			BuildOS:             scanningImage,
 			ImageFrom:           setting.ImageFromCustom,
-			Envs:                renderKeyVals(scanning.KeyVals, scanningInfo.Envs),
+			Envs:                append(envs, renderKeyVals(scanning.KeyVals, scanningInfo.Envs)...),
 			Registries:          registries,
 			ShareStorageDetails: getShareStorageDetail(j.workflow.ShareStorages, scanning.ShareStorageInfo, j.workflow.Name, taskID),
 		}
@@ -321,7 +307,7 @@ func (j *ScanningJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			if scanningInfo.EnableScanner {
 				sonarConfig := fmt.Sprintf("sonar.login=%s\nsonar.host.url=%s\n%s", sonarInfo.Token, sonarInfo.ServerAddress, scanningInfo.Parameter)
 				sonarConfig = strings.ReplaceAll(sonarConfig, "$branch", branch)
-				sonarScript := fmt.Sprintf("set -e\ncd %s\ncat > sonar-project.properties << EOF\n%s\nEOF\nsonar-scanner", repoName, sonarConfig)
+				sonarScript := fmt.Sprintf("set -e\ncd %s\ncat > sonar-project.properties << EOF\n%s\nEOF\nsonar-scanner", repoName, renderEnv(sonarConfig, jobTaskSpec.Properties.Envs))
 				sonarShellStep := &commonmodels.StepTask{
 					Name:     scanning.Name + "-sonar-shell",
 					JobName:  jobTask.Name,
@@ -407,4 +393,29 @@ func getScanningJobVariables(repos []*types.Repository, taskID int64, project, w
 	ret = append(ret, getReposVariables(repos)...)
 
 	return ret
+}
+
+func fillScanningDetail(moduleScanning *commonmodels.Scanning) error {
+	if moduleScanning.TemplateID == "" {
+		return nil
+	}
+	templateInfo, err := commonrepo.NewScanningTemplateColl().Find(&commonrepo.ScanningTemplateQueryOption{
+		ID: moduleScanning.TemplateID,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to find scanning template with id: %s, err: %s", moduleScanning.TemplateID, err)
+	}
+
+	moduleScanning.ScannerType = templateInfo.ScannerType
+	moduleScanning.EnableScanner = templateInfo.EnableScanner
+	moduleScanning.ImageID = templateInfo.ImageID
+	moduleScanning.SonarID = templateInfo.SonarID
+	moduleScanning.Installs = templateInfo.Installs
+	moduleScanning.Parameter = templateInfo.Parameter
+	moduleScanning.Envs = commonservice.MergeBuildEnvs(templateInfo.Envs, moduleScanning.Envs)
+	moduleScanning.Script = templateInfo.Script
+	moduleScanning.AdvancedSetting = templateInfo.AdvancedSetting
+	moduleScanning.CheckQualityGate = templateInfo.CheckQualityGate
+
+	return nil
 }
