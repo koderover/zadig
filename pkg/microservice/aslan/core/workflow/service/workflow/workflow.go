@@ -18,6 +18,7 @@ package workflow
 
 import (
 	"fmt"
+	"github.com/koderover/zadig/v2/pkg/util"
 	"sort"
 	"time"
 
@@ -38,7 +39,6 @@ import (
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/types"
-	"github.com/koderover/zadig/v2/pkg/util"
 )
 
 type EnvStatus struct {
@@ -162,23 +162,20 @@ func AutoCreateWorkflow(productName string, log *zap.SugaredLogger) *EnvStatus {
 		}
 	}
 
-	// helm/k8syaml project may have customized products, use the real created products
-	if productTmpl.IsHelmProduct() || productTmpl.IsK8sYamlProduct() || productTmpl.IsHostProduct() {
-		productList, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
-			Name:       productName,
-			Production: util.GetBoolPointer(false),
-		})
-		if err != nil {
-			log.Errorf("fialed to list products, projectName %s, err %s", productName, err)
-		}
+	productList, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
+		Name:       productName,
+		Production: util.GetBoolPointer(false),
+	})
+	if err != nil {
+		log.Errorf("fialed to list products, projectName %s, err %s", productName, err)
+	}
 
-		createArgs.clear()
-		for _, product := range productList {
-			createArgs.addWorkflowArg(product.EnvName, product.RegistryID, true)
-		}
-		if !productTmpl.IsHostProduct() {
-			createArgs.addWorkflowArg("", "", false)
-		}
+	createArgs.clear()
+	for _, product := range productList {
+		createArgs.addWorkflowArg(product.EnvName, product.RegistryID, true)
+	}
+	if !productTmpl.IsHostProduct() {
+		createArgs.addWorkflowArg("", "", false)
 	}
 
 	workflowSet := sets.NewString()
