@@ -119,7 +119,7 @@ type ListScanningRespItem struct {
 	UpdatedAt  int64                  `json:"updated_at"`
 	Repos      []*types.Repository    `json:"repos"`
 	ClusterID  string                 `json:"cluster_id"`
-	Envs       []*commonmodels.KeyVal `json:"envs"`
+	Envs       []*commonmodels.KeyVal `json:"key_vals"`
 }
 
 type CreateScanningTaskReq struct {
