@@ -112,13 +112,14 @@ func (req *OpenAPICreateScanningReq) Validate() (bool, error) {
 }
 
 type ListScanningRespItem struct {
-	ID         string              `json:"id"`
-	Name       string              `json:"name"`
-	Statistics *ScanningStatistic  `json:"statistics"`
-	CreatedAt  int64               `json:"created_at"`
-	UpdatedAt  int64               `json:"updated_at"`
-	Repos      []*types.Repository `json:"repos"`
-	ClusterID  string              `json:"cluster_id"`
+	ID         string                 `json:"id"`
+	Name       string                 `json:"name"`
+	Statistics *ScanningStatistic     `json:"statistics"`
+	CreatedAt  int64                  `json:"created_at"`
+	UpdatedAt  int64                  `json:"updated_at"`
+	Repos      []*types.Repository    `json:"repos"`
+	ClusterID  string                 `json:"cluster_id"`
+	Envs       []*commonmodels.KeyVal `json:"envs"`
 }
 
 type CreateScanningTaskReq struct {
