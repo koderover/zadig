@@ -750,40 +750,40 @@ func ensureWorkflowV4Resp(encryptedKey string, workflow *commonmodels.WorkflowV4
 				}
 				job.Spec = spec
 			}
-			//if job.JobType == config.JobZadigScanning {
-			//	spec := &commonmodels.ZadigScanningJobSpec{}
-			//	if err := commonmodels.IToi(job.Spec, spec); err != nil {
-			//		logger.Errorf(err.Error())
-			//		return e.ErrFindWorkflow.AddErr(err)
-			//	}
-			//
-			//	for _, scanning := range spec.Scannings {
-			//		scanningInfo, err := commonrepo.NewScanningColl().Find(scanning.ProjectName, scanning.Name)
-			//		if err != nil {
-			//			logger.Errorf(err.Error())
-			//			return e.ErrFindWorkflow.AddErr(err)
-			//		}
-			//
-			//		if scanningInfo.TemplateID != "" {
-			//			templateEnvs := []*commonmodels.KeyVal{}
-			//			scanningTemplate, err := commonrepo.NewScanningTemplateColl().Find(&commonrepo.ScanningTemplateQueryOption{
-			//				ID: scanningInfo.TemplateID,
-			//			})
-			//			// if template not found, envs are empty, but do not block user.
-			//			if err != nil {
-			//				logger.Error("scanning job: %s, template not found", scanningInfo.Name)
-			//			} else {
-			//				templateEnvs = scanningTemplate.Envs
-			//			}
-			//
-			//			kvs := commonservice.MergeBuildEnvs(templateEnvs, scanningInfo.Envs)
-			//
-			//			// if build template update any keyvals, merge it.
-			//			scanning.KeyVals = commonservice.MergeBuildEnvs(kvs, scanning.KeyVals)
-			//		}
-			//	}
-			//  job.Spec = spec
-			//}
+			if job.JobType == config.JobZadigScanning {
+				spec := &commonmodels.ZadigScanningJobSpec{}
+				if err := commonmodels.IToi(job.Spec, spec); err != nil {
+					logger.Errorf(err.Error())
+					return e.ErrFindWorkflow.AddErr(err)
+				}
+
+				for _, scanning := range spec.Scannings {
+					scanningInfo, err := commonrepo.NewScanningColl().Find(scanning.ProjectName, scanning.Name)
+					if err != nil {
+						logger.Errorf(err.Error())
+						return e.ErrFindWorkflow.AddErr(err)
+					}
+
+					if scanningInfo.TemplateID != "" {
+						templateEnvs := []*commonmodels.KeyVal{}
+						scanningTemplate, err := commonrepo.NewScanningTemplateColl().Find(&commonrepo.ScanningTemplateQueryOption{
+							ID: scanningInfo.TemplateID,
+						})
+						// if template not found, envs are empty, but do not block user.
+						if err != nil {
+							logger.Error("scanning job: %s, template not found", scanningInfo.Name)
+						} else {
+							templateEnvs = scanningTemplate.Envs
+						}
+
+						kvs := commonservice.MergeBuildEnvs(templateEnvs, scanningInfo.Envs)
+
+						// if build template update any keyvals, merge it.
+						scanning.KeyVals = commonservice.MergeBuildEnvs(kvs, scanning.KeyVals)
+					}
+				}
+				job.Spec = spec
+			}
 			if job.JobType == config.JobWorkflowTrigger {
 				spec := &commonmodels.WorkflowTriggerJobSpec{}
 				if err := commonmodels.IToi(job.Spec, spec); err != nil {
