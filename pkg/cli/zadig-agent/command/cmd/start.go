@@ -19,10 +19,12 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/command/cmd/agent"
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/command/cmd/start"
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/config"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
@@ -31,6 +33,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/common"
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/register"
 	osutil "github.com/koderover/zadig/v2/pkg/cli/zadig-agent/util/os"
+	pkglog "github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
 func init() {
@@ -84,6 +87,8 @@ func startPreRun(serverURL, token, workDir string) error {
 	// init Viper
 	// automatically load environment variables
 	viper.AutomaticEnv()
+
+	initPkgLog()
 
 	if !agentconfig.InitConfig() {
 		log.Infof("agent config file not found, start to register agent to zadig-server.")
@@ -139,4 +144,17 @@ func resetAgentRunningFile() {
 			log.Errorf("failed to remove stop file: %v", err)
 		}
 	}
+}
+
+func initPkgLog() {
+	path, err := config.GetAgentLogPath()
+	if err != nil {
+		panic(err)
+	}
+
+	pkglog.Init(&pkglog.Config{
+		Level:      "debug",
+		Filename:   filepath.Join(path, "zadig-agent.log"),
+		SendToFile: true,
+	})
 }
