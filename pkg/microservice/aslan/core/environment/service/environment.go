@@ -693,6 +693,39 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]st
 					}
 
 				}(prodServiceGroup[svcIndex])
+			} else if prodService.Type == setting.PMDeployType {
+				opt := &commonrepo.ServiceFindOption{
+					ServiceName: prodService.ServiceName,
+					Type:        prodService.Type,
+					Revision:    prodService.Revision,
+					ProductName: productName,
+				}
+				serviceTmpl, err := commonrepo.NewServiceColl().Find(opt)
+				if err != nil {
+					err = fmt.Errorf("serviceTmpl.Find %s/%s/%d error: %v", prodService.ProductName, prodService.ServiceName, prodService.Revision, err)
+					log.Error(err)
+					return err
+				}
+
+				found := false
+				for _, envConfig := range serviceTmpl.EnvConfigs {
+					if envConfig.EnvName == envName {
+						found = true
+					}
+				}
+				if !found {
+					serviceTmpl.EnvConfigs = append(serviceTmpl.EnvConfigs, &commonmodels.EnvConfig{
+						EnvName: envName,
+					})
+
+					err = commonrepo.NewServiceColl().UpdateServiceEnvConfigs(serviceTmpl)
+					if err != nil {
+						err = fmt.Errorf("update service %s/%s/%d env configs error: %v", serviceTmpl.ProductName, serviceTmpl.ServiceName, serviceTmpl.Revision, err)
+						log.Error(err)
+						return err
+					}
+				}
+
 			}
 		}
 		wg.Wait()

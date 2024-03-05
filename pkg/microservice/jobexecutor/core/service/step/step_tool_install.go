@@ -102,7 +102,7 @@ func (s *ToolInstallStep) runIntallationScripts(tool *step.Tool) error {
 			if err != nil {
 				err := httpclient.Download(tool.Download, tmpPath)
 				if err != nil {
-					return err
+					return fmt.Errorf("download package %s error: %v", tool.Download, err)
 				}
 				s3client.Upload(
 					s.spec.S3Storage.Bucket,
