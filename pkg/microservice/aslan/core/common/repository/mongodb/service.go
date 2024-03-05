@@ -394,6 +394,22 @@ func (c *ServiceColl) UpdateServiceContainers(args *models.Service) error {
 	return err
 }
 
+func (c *ServiceColl) UpdateServiceEnvConfigs(args *models.Service) error {
+	if args == nil {
+		return errors.New("nil ServiceTmplObject")
+	}
+	args.ProductName = strings.TrimSpace(args.ProductName)
+	args.ServiceName = strings.TrimSpace(args.ServiceName)
+
+	query := bson.M{"product_name": args.ProductName, "service_name": args.ServiceName, "revision": args.Revision}
+	changeMap := bson.M{
+		"env_configs": args.EnvConfigs,
+	}
+	change := bson.M{"$set": changeMap}
+	_, err := c.UpdateOne(context.TODO(), query, change)
+	return err
+}
+
 func (c *ServiceColl) TransferServiceSource(productName, serviceName, source, newSource, username, yaml string) error {
 	query := bson.M{"product_name": productName, "source": source, "service_name": serviceName}
 
