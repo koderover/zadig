@@ -780,6 +780,9 @@ func ensureWorkflowV4Resp(encryptedKey string, workflow *commonmodels.WorkflowV4
 
 						// if build template update any keyvals, merge it.
 						scanning.KeyVals = commonservice.MergeBuildEnvs(kvs, scanning.KeyVals)
+					} else {
+						// otherwise just merge the envs in the
+						scanning.KeyVals = commonservice.MergeBuildEnvs(scanningInfo.Envs, scanning.KeyVals)
 					}
 				}
 				job.Spec = spec

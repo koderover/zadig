@@ -1132,6 +1132,7 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, 
 			}
 			for _, arg := range taskJobSpec.Properties.Envs {
 				if arg.Key == "SONAR_LINK" {
+					fmt.Printf("%+v", taskJobSpec.Properties.Envs)
 					spec.LinkURL = renderEnv(arg.Value, taskJobSpec.Properties.Envs)
 					continue
 				}
