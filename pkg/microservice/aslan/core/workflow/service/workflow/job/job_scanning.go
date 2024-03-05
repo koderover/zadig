@@ -283,7 +283,7 @@ func (j *ScanningJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			}
 
 			projectKey := sonar.GetSonarProjectKeyFromConfig(scanningInfo.Parameter)
-			resultAddr, err := sonar.GetSonarAddressWithProjectKey(sonarInfo.ServerAddress, projectKey)
+			resultAddr, err := sonar.GetSonarAddressWithProjectKey(sonarInfo.ServerAddress, renderEnv(projectKey, jobTaskSpec.Properties.Envs))
 			if err != nil {
 				log.Errorf("failed to get sonar address with project key, error: %s", err)
 			}
