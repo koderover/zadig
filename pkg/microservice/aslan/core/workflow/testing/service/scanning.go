@@ -580,7 +580,7 @@ func GetScanningTaskInfo(scanningID string, taskID int64, log *zap.SugaredLogger
 	}
 
 	jobTaskSpec := new(commonmodels.JobTaskFreestyleSpec)
-	err = commonmodels.IToi(workflowTask.Stages[0].Jobs[0].Spec, spec)
+	err = commonmodels.IToi(workflowTask.Stages[0].Jobs[0].Spec, jobTaskSpec)
 	if err != nil {
 		log.Errorf("failed to decode scanning job spec, err: %s", err)
 		return nil, err
@@ -594,9 +594,6 @@ func GetScanningTaskInfo(scanningID string, taskID int64, log *zap.SugaredLogger
 		}
 
 		projectKey := sonar.GetSonarProjectKeyFromConfig(scanningInfo.Parameter)
-		fmt.Println(">>>>>>>>>>>>>>>>>>>>> stuff:", workflowTask.Stages[0].Jobs[0].Spec)
-		fmt.Println(">>>>>>>>>>>>>>>>>>>>> projectKey:", projectKey)
-		fmt.Println(">>>>>>>>>>>>>>>>>>>>> Envs:", len(jobTaskSpec.Properties.Envs), "........", jobTaskSpec.Properties.Envs)
 		resultAddr, err = sonar.GetSonarAddressWithProjectKey(sonarInfo.ServerAddress, renderEnv(projectKey, jobTaskSpec.Properties.Envs))
 		if err != nil {
 			log.Errorf("failed to get sonar address with project key, error: %s", err)
