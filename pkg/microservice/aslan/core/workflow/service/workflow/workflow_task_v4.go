@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -1131,7 +1132,7 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, 
 			}
 			for _, arg := range taskJobSpec.Properties.Envs {
 				if arg.Key == "SONAR_LINK" {
-					spec.LinkURL = arg.Value
+					spec.LinkURL = renderEnv(arg.Value, taskJobSpec.Properties.Envs)
 					continue
 				}
 				if arg.Key == "SCANNING_NAME" {
@@ -1635,4 +1636,19 @@ func ListWorkflowFilterInfo(project, workflow, typeName string, jobName string, 
 	default:
 		return nil, fmt.Errorf("queryType parameter is invalid")
 	}
+}
+
+func renderEnv(data string, kvs []*commonmodels.KeyVal) string {
+	mapper := func(data string) string {
+		for _, envar := range kvs {
+			if data != envar.Key {
+				continue
+			}
+
+			return envar.Value
+		}
+
+		return fmt.Sprintf("$%s", data)
+	}
+	return os.Expand(data, mapper)
 }

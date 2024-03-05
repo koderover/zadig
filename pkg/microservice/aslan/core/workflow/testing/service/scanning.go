@@ -137,7 +137,8 @@ func ListScanningModule(projectName string, log *zap.SugaredLogger) ([]*ListScan
 		} else {
 			avgRuntime = 0
 		}
-		resp = append(resp, &ListScanningRespItem{
+
+		item := &ListScanningRespItem{
 			ID:   scanning.ID.Hex(),
 			Name: scanning.Name,
 			Statistics: &ScanningStatistic{
@@ -149,7 +150,19 @@ func ListScanningModule(projectName string, log *zap.SugaredLogger) ([]*ListScan
 			UpdatedAt: scanning.UpdatedAt,
 			ClusterID: scanning.AdvancedSetting.ClusterID,
 			Envs:      scanning.Envs,
-		})
+		}
+
+		if scanning.TemplateID != "" {
+			tmpl, err := commonrepo.NewScanningTemplateColl().Find(&commonrepo.ScanningTemplateQueryOption{ID: scanning.TemplateID})
+			if err != nil {
+				// we print error in logger but we don't block the listing
+				log.Errorf("failed to find scanning of id: %s, error: %s", scanning.TemplateID, err)
+			} else {
+				item.Envs = renderKeyVals(scanning.Envs, tmpl.Envs)
+			}
+		}
+
+		resp = append(resp, item)
 	}
 	return resp, total, nil
 }
@@ -194,6 +207,16 @@ func GetScanningModuleByID(id string, log *zap.SugaredLogger) (*Scanning, error)
 		if scanning.AdvancedSetting.ConcurrencyLimit == 0 {
 			scanning.AdvancedSetting.ConcurrencyLimit = -1
 		}
+	}
+
+	if scanning.TemplateID != "" {
+		tmpl, err := commonrepo.NewScanningTemplateColl().Find(&commonrepo.ScanningTemplateQueryOption{ID: scanning.TemplateID})
+		if err != nil {
+			// we print error in logger but we don't block the listing
+			log.Errorf("failed to find scanning of id: %s, error: %s", scanning.TemplateID, err)
+			return nil, err
+		}
+		scanning.Envs = renderKeyVals(scanning.Envs, tmpl.Envs)
 	}
 
 	return ConvertDBScanningModule(scanning), nil
@@ -640,11 +663,23 @@ func generateCustomWorkflowFromScanningModule(scanInfo *commonmodels.Scanning, a
 		})
 	}
 
+	kvs := args.KeyVals
+
+	if scanInfo.TemplateID != "" {
+		template, err := commonrepo.NewScanningTemplateColl().Find(&commonrepo.ScanningTemplateQueryOption{ID: scanInfo.TemplateID})
+		if err != nil {
+			log.Errorf("failed to get scanning template, id: %s, error: %s", scanInfo.TemplateID, err)
+			return nil, err
+		}
+
+		kvs = commonservice.MergeBuildEnvs(template.Envs, scanInfo.Envs)
+	}
+
 	scan := &commonmodels.ScanningModule{
 		Name:        scanInfo.Name,
 		ProjectName: scanInfo.ProjectName,
 		Repos:       repos,
-		KeyVals:     args.KeyVals,
+		KeyVals:     renderKeyVals(args.KeyVals, kvs),
 	}
 
 	job := make([]*commonmodels.Job, 0)
@@ -667,4 +702,18 @@ func generateCustomWorkflowFromScanningModule(scanInfo *commonmodels.Scanning, a
 	resp.Stages = stage
 
 	return resp, nil
+}
+
+func renderKeyVals(input, origin []*commonmodels.KeyVal) []*commonmodels.KeyVal {
+	for i, originKV := range origin {
+		for _, inputKV := range input {
+			if originKV.Key == inputKV.Key {
+				// always use origin credential config.
+				isCredential := originKV.IsCredential
+				origin[i] = inputKV
+				origin[i].IsCredential = isCredential
+			}
+		}
+	}
+	return origin
 }
