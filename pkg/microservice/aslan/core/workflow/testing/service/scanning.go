@@ -19,6 +19,8 @@ package service
 import (
 	"context"
 	"fmt"
+	"github.com/koderover/zadig/v2/pkg/tool/sonar"
+	"os"
 	"sort"
 	"strings"
 	"time"
@@ -39,7 +41,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/shared/client/systemconfig"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
-	"github.com/koderover/zadig/v2/pkg/tool/sonar"
 	"github.com/koderover/zadig/v2/pkg/types"
 )
 
@@ -560,20 +561,6 @@ func GetScanningTaskInfo(scanningID string, taskID int64, log *zap.SugaredLogger
 
 	resultAddr := ""
 
-	if scanningInfo.ScannerType == "sonarQube" {
-		sonarInfo, err := commonrepo.NewSonarIntegrationColl().GetByID(context.TODO(), scanningInfo.SonarID)
-		if err != nil {
-			log.Errorf("failed to get sonar integration info, error: %s", err)
-			return nil, err
-		}
-
-		projectKey := sonar.GetSonarProjectKeyFromConfig(scanningInfo.Parameter)
-		resultAddr, err = sonar.GetSonarAddressWithProjectKey(sonarInfo.ServerAddress, projectKey)
-		if err != nil {
-			log.Errorf("failed to get sonar address with project key, error: %s", err)
-		}
-	}
-
 	if len(workflowTask.Stages) != 1 || len(workflowTask.Stages[0].Jobs) != 1 {
 		errMsg := fmt.Sprintf("invalid test task!")
 		log.Errorf(errMsg)
@@ -590,6 +577,23 @@ func GetScanningTaskInfo(scanningID string, taskID int64, log *zap.SugaredLogger
 	if len(spec.Scannings) != 1 {
 		log.Errorf("invalid scanning custom workflow scan list length: expect 1")
 		return nil, fmt.Errorf("invalid scanning custom workflow scan list length: expect 1")
+	}
+
+	jobTaskSpec := new(commonmodels.JobTaskFreestyleSpec)
+	err = commonmodels.IToi(workflowTask.Stages[0].Jobs[0].Spec, spec)
+
+	if scanningInfo.ScannerType == "sonarQube" {
+		sonarInfo, err := commonrepo.NewSonarIntegrationColl().GetByID(context.TODO(), scanningInfo.SonarID)
+		if err != nil {
+			log.Errorf("failed to get sonar integration info, error: %s", err)
+			return nil, err
+		}
+
+		projectKey := sonar.GetSonarProjectKeyFromConfig(scanningInfo.Parameter)
+		resultAddr, err = sonar.GetSonarAddressWithProjectKey(sonarInfo.ServerAddress, renderEnv(projectKey, jobTaskSpec.Properties.Envs))
+		if err != nil {
+			log.Errorf("failed to get sonar address with project key, error: %s", err)
+		}
 	}
 
 	repoInfo := spec.Scannings[0].Repos
@@ -716,4 +720,19 @@ func renderKeyVals(input, origin []*commonmodels.KeyVal) []*commonmodels.KeyVal 
 		}
 	}
 	return origin
+}
+
+func renderEnv(data string, kvs []*commonmodels.KeyVal) string {
+	mapper := func(data string) string {
+		for _, envar := range kvs {
+			if data != envar.Key {
+				continue
+			}
+
+			return envar.Value
+		}
+
+		return fmt.Sprintf("$%s", data)
+	}
+	return os.Expand(data, mapper)
 }
