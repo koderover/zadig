@@ -4,8 +4,10 @@
 # Please make sure you have the right version of docker.
 .PHONY: microservice.push swag zadig-agent zadig-agent-clean
 
-IMAGE_REPOSITORY ?= koderover.tencentcloudcr.com/test
+IMAGE_REPOSITORY ?= koderover.tencentcloudcr.com/koderover-public
 IMAGE_REPOSITORY := $(IMAGE_REPOSITORY)
+DEV_IMAGE_REPOSITORY ?= koderover.tencentcloudcr.com/test
+DEV_IMAGE_REPOSITORY := $(DEV_IMAGE_REPOSITORY)
 VERSION ?= $(shell date +'%Y%m%d%H%M%S')
 VERSION := $(VERSION)
 MICROSERVICE_TARGETS = aslan cron executor hub-agent hub-server init jenkins-plugin packager-plugin predator-plugin ua user warpdrive
@@ -30,7 +32,7 @@ debugtools: prereq $(DEBUG_TOOLS_TARGETS:=.push)
 
 # for zadig developers ONLY:
 # the command below is used to generate amd64 file for daily developing purpose
-%.dev: MAKE_IMAGE_TAG ?= ${IMAGE_REPOSITORY}/$*:${VERSION}
+%.dev: MAKE_IMAGE_TAG ?= ${DEV_IMAGE_REPOSITORY}/$*:${VERSION}
 %.dev:
 	@docker buildx build -t ${MAKE_IMAGE_TAG} --platform linux/amd64 -f docker/$*.Dockerfile --push .
 
