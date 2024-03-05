@@ -594,6 +594,7 @@ func GetScanningTaskInfo(scanningID string, taskID int64, log *zap.SugaredLogger
 		}
 
 		projectKey := sonar.GetSonarProjectKeyFromConfig(scanningInfo.Parameter)
+		fmt.Println(">>>>>>>>>>>>>>>>>>>>> stuff:", workflowTask.Stages[0].Jobs[0].Spec)
 		fmt.Println(">>>>>>>>>>>>>>>>>>>>> projectKey:", projectKey)
 		fmt.Println(">>>>>>>>>>>>>>>>>>>>> Envs:", len(jobTaskSpec.Properties.Envs), "........", jobTaskSpec.Properties.Envs)
 		resultAddr, err = sonar.GetSonarAddressWithProjectKey(sonarInfo.ServerAddress, renderEnv(projectKey, jobTaskSpec.Properties.Envs))
