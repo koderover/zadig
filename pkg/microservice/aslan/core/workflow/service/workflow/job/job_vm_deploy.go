@@ -348,14 +348,19 @@ func (j *VMDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 				s3Storage.Subfolder = fmt.Sprintf("%s/%d/%s", vmDeployInfo.WorkflowName, vmDeployInfo.TaskID, "file")
 			}
 		} else if vmDeployInfo.WorkflowType == config.WorkflowTypeV4 {
+			log.Debugf("s3Storage.Subfolder: %s", s3Storage.Subfolder)
 			if s3Storage.Subfolder != "" {
+				log.Debugf("1")
 				s3Storage.Subfolder = fmt.Sprintf("%s/%s/%d/%s/%s", s3Storage.Subfolder, vmDeployInfo.WorkflowName, vmDeployInfo.TaskID, vmDeployInfo.JobTaskName, "archive")
 			} else {
+				log.Debugf("2")
 				s3Storage.Subfolder = fmt.Sprintf("%s/%d/%s/%s", vmDeployInfo.WorkflowName, vmDeployInfo.TaskID, vmDeployInfo.JobTaskName, "archive")
 			}
+			log.Debugf("after s3Storage.Subfolder: %s", s3Storage.Subfolder)
 		} else {
 			return resp, fmt.Errorf("unknown workflow type %s", vmDeployInfo.WorkflowType)
 		}
+		log.Debugf("vmDeployInfo.FileName: %s", vmDeployInfo.FileName)
 		// init download artifact step
 		downloadArtifactStep := &commonmodels.StepTask{
 			Name:     vmDeployInfo.ServiceName + "-download-artifact",
