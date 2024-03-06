@@ -19,7 +19,6 @@ package handler
 import (
 	"context"
 	"fmt"
-	"github.com/koderover/zadig/v2/pkg/types"
 	"strconv"
 
 	"github.com/gin-contrib/sse"
@@ -34,6 +33,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/setting"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
+	"github.com/koderover/zadig/v2/pkg/types"
 	"github.com/koderover/zadig/v2/pkg/util/ginzap"
 )
 

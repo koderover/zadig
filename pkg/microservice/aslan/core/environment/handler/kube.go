@@ -18,7 +18,6 @@ package handler
 
 import (
 	"fmt"
-	"github.com/koderover/zadig/v2/pkg/types"
 	"net/http"
 	"path/filepath"
 
@@ -28,6 +27,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/setting"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
+	"github.com/koderover/zadig/v2/pkg/types"
 )
 
 // kubernetes resources apis will not have authorization for now
