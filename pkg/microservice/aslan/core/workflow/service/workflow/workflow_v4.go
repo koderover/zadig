@@ -758,7 +758,11 @@ func ensureWorkflowV4Resp(encryptedKey string, workflow *commonmodels.WorkflowV4
 				}
 
 				for _, scanning := range spec.Scannings {
-					scanningInfo, err := commonrepo.NewScanningColl().Find(scanning.ProjectName, scanning.Name)
+					projectName := scanning.ProjectName
+					if projectName == "" {
+						projectName = workflow.Project
+					}
+					scanningInfo, err := commonrepo.NewScanningColl().Find(projectName, scanning.Name)
 					if err != nil {
 						logger.Errorf(err.Error())
 						return e.ErrFindWorkflow.AddErr(err)
