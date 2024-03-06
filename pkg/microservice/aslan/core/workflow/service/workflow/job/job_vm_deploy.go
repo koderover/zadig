@@ -205,6 +205,7 @@ func (j *VMDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 	}
 
 	var s3Storage *commonmodels.S3Storage
+	originS3StorageSubfolder := ""
 	// get deploy info from previous build job
 	if j.spec.Source == config.SourceFromJob {
 		// adapt to the front end, use the direct quoted job name
@@ -220,6 +221,7 @@ func (j *VMDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		if err != nil {
 			return resp, fmt.Errorf("find default s3 storage error: %v", err)
 		}
+		originS3StorageSubfolder = s3Storage.Subfolder
 		// clear service and image list to prevent old data from remaining
 		j.spec.ServiceAndVMDeploys = targets
 		j.spec.S3StorageID = s3Storage.ID.Hex()
@@ -228,9 +230,12 @@ func (j *VMDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		if err != nil {
 			return resp, fmt.Errorf("find s3 storage id: %s, error: %v", j.spec.S3StorageID, err)
 		}
+		originS3StorageSubfolder = s3Storage.Subfolder
 	}
 
 	for _, vmDeployInfo := range j.spec.ServiceAndVMDeploys {
+		s3Storage.Subfolder = originS3StorageSubfolder
+
 		service, ok := serviceMap[vmDeployInfo.ServiceName]
 		if !ok {
 			return resp, fmt.Errorf("service %s not found", vmDeployInfo.ServiceName)
@@ -348,19 +353,14 @@ func (j *VMDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 				s3Storage.Subfolder = fmt.Sprintf("%s/%d/%s", vmDeployInfo.WorkflowName, vmDeployInfo.TaskID, "file")
 			}
 		} else if vmDeployInfo.WorkflowType == config.WorkflowTypeV4 {
-			log.Debugf("s3Storage.Subfolder: %s", s3Storage.Subfolder)
 			if s3Storage.Subfolder != "" {
-				log.Debugf("1")
 				s3Storage.Subfolder = fmt.Sprintf("%s/%s/%d/%s/%s", s3Storage.Subfolder, vmDeployInfo.WorkflowName, vmDeployInfo.TaskID, vmDeployInfo.JobTaskName, "archive")
 			} else {
-				log.Debugf("2")
 				s3Storage.Subfolder = fmt.Sprintf("%s/%d/%s/%s", vmDeployInfo.WorkflowName, vmDeployInfo.TaskID, vmDeployInfo.JobTaskName, "archive")
 			}
-			log.Debugf("after s3Storage.Subfolder: %s", s3Storage.Subfolder)
 		} else {
 			return resp, fmt.Errorf("unknown workflow type %s", vmDeployInfo.WorkflowType)
 		}
-		log.Debugf("vmDeployInfo.FileName: %s", vmDeployInfo.FileName)
 		// init download artifact step
 		downloadArtifactStep := &commonmodels.StepTask{
 			Name:     vmDeployInfo.ServiceName + "-download-artifact",
