@@ -167,6 +167,12 @@ func (*Router) Inject(router *gin.RouterGroup) {
 
 		production.GET("/kube/pods/:podName/file", DownloadFileFromPod)
 		production.DELETE("/kube/:name/pods/:podName", DeletePod)
+		production.GET("/kube/workloads/:workloadType", ListProductionK8sResOverview)
+		production.GET("/kube/workloads/:workloadType/:workloadName", GetProductionK8sWorkflowDetail)
+		production.GET("/kube/resources/:resourceType", ListProductionK8sResOverview)
+		production.GET("/kube/yaml", GetProductionK8sResourceYaml)
+		production.GET("/kube/events", ListProductionKubeEvents)
+		production.GET("/pods", ListProductionPodsInfo)
 
 		production.GET("/environments/:name/helm/releases", ListProductionReleases)
 		production.DELETE("/environments/:name/helm/releases", DeleteProductionHelmReleases)

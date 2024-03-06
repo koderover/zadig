@@ -52,6 +52,22 @@ func GetContainerLogsSSE(c *gin.Context) {
 	}, logger)
 }
 
+func GetProductionEnvContainerLogsSSE(c *gin.Context) {
+	logger := ginzap.WithContext(c).Sugar()
+
+	tails, err := strconv.ParseInt(c.Query("tails"), 10, 64)
+	if err != nil {
+		tails = int64(10)
+	}
+
+	envName := c.Query("envName")
+	productName := c.Query("projectName")
+
+	internalhandler.Stream(c, func(ctx context.Context, streamChan chan interface{}) {
+		logservice.ContainerLogStream(ctx, streamChan, envName, productName, c.Param("podName"), c.Param("containerName"), true, tails, logger)
+	}, logger)
+}
+
 func GetBuildJobContainerLogsSSE(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 

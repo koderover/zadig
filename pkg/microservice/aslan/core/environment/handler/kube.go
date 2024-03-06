@@ -18,6 +18,7 @@ package handler
 
 import (
 	"fmt"
+	"github.com/koderover/zadig/v2/pkg/types"
 	"net/http"
 	"path/filepath"
 
@@ -38,7 +39,13 @@ type ListServicePodsArgs struct {
 }
 
 func ListKubeEvents(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	envName := c.Query("envName")
@@ -46,6 +53,54 @@ func ListKubeEvents(c *gin.Context) {
 	name := c.Query("name")
 	rtype := c.Query("type")
 
+	projectKey := c.Query("projectName")
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !(ctx.Resources.ProjectAuthInfo[projectKey].Env.View ||
+			ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin) {
+			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionView)
+			if err != nil || !permitted {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
+	}
+	ctx.Resp, ctx.Err = service.ListKubeEvents(envName, productName, name, rtype, ctx.Logger)
+}
+
+func ListProductionKubeEvents(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	envName := c.Query("envName")
+	productName := c.Query("projectName")
+	name := c.Query("name")
+	rtype := c.Query("type")
+
+	projectKey := c.Query("projectName")
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !(ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.View ||
+			ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin) {
+			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionView)
+			if err != nil || !permitted {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
+	}
 	ctx.Resp, ctx.Err = service.ListKubeEvents(envName, productName, name, rtype, ctx.Logger)
 }
 
@@ -205,6 +260,48 @@ func ListPodsInfo(c *gin.Context) {
 	ctx.Resp, ctx.Err = service.ListPodsInfo(projectKey, envName, ctx.Logger)
 }
 
+func ListProductionPodsInfo(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectKey := c.Query("projectName")
+	if projectKey == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("projectName can't be empty")
+		return
+	}
+	envName := c.Query("envName")
+	if envName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("envName can't be empty")
+		return
+	}
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !(ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.View ||
+			ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin) {
+			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionView)
+			if err != nil || !permitted {
+				ctx.UnAuthorized = true
+				return
+			}
+			return
+		}
+	}
+
+	ctx.Resp, ctx.Err = service.ListPodsInfo(projectKey, envName, ctx.Logger)
+}
+
 // @Summary Get Pods Detail Info
 // @Description Get Pods Detail Info
 // @Tags 	environment
@@ -279,14 +376,74 @@ func ListAllK8sResourcesInNamespace(c *gin.Context) {
 }
 
 func ListK8sResOverview(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	queryParam := &service.FetchResourceArgs{}
-	err := c.BindQuery(queryParam)
+	err = c.BindQuery(queryParam)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
+	}
+
+	projectKey := c.Query("projectName")
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !(ctx.Resources.ProjectAuthInfo[projectKey].Env.View ||
+			ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin) {
+			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, queryParam.EnvName, types.EnvActionView)
+			if err != nil || !permitted {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
+	}
+
+	queryParam.ResourceTypes = c.Param("workloadType")
+	if len(queryParam.ResourceTypes) == 0 {
+		queryParam.ResourceTypes = c.Param("resourceType")
+	}
+	ctx.Resp, ctx.Err = service.ListK8sResOverview(queryParam, ctx.Logger)
+}
+
+func ListProductionK8sResOverview(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	queryParam := &service.FetchResourceArgs{}
+	err = c.BindQuery(queryParam)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	projectKey := c.Query("projectName")
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !(ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.View ||
+			ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin) {
+			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, queryParam.EnvName, types.ProductionEnvActionView)
+			if err != nil || !permitted {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
 	}
 
 	queryParam.ResourceTypes = c.Param("workloadType")
@@ -297,28 +454,144 @@ func ListK8sResOverview(c *gin.Context) {
 }
 
 func GetK8sResourceYaml(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	queryParam := &service.FetchResourceArgs{}
-	err := c.BindQuery(queryParam)
+	err = c.BindQuery(queryParam)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
+	}
+
+	projectKey := c.Query("projectName")
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !(ctx.Resources.ProjectAuthInfo[projectKey].Env.View ||
+			ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin) {
+			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, queryParam.EnvName, types.EnvActionView)
+			if err != nil || !permitted {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
+	}
+
+	ctx.Resp, ctx.Err = service.GetK8sResourceYaml(queryParam, ctx.Logger)
+}
+
+func GetProductionK8sResourceYaml(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	queryParam := &service.FetchResourceArgs{}
+	err = c.BindQuery(queryParam)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	projectKey := c.Query("projectName")
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !(ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.View ||
+			ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin) {
+			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, queryParam.EnvName, types.ProductionEnvActionView)
+			if err != nil || !permitted {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
 	}
 
 	ctx.Resp, ctx.Err = service.GetK8sResourceYaml(queryParam, ctx.Logger)
 }
 
 func GetK8sWorkflowDetail(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	queryParam := &service.FetchResourceArgs{}
-	err := c.BindQuery(queryParam)
+	err = c.BindQuery(queryParam)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
+	}
+
+	projectKey := c.Query("projectName")
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !(ctx.Resources.ProjectAuthInfo[projectKey].Env.View ||
+			ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin) {
+			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, queryParam.EnvName, types.EnvActionView)
+			if err != nil || !permitted {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
+	}
+
+	workloadType := c.Param("workloadType")
+	workloadName := c.Param("workloadName")
+
+	ctx.Resp, ctx.Err = service.GetWorkloadDetail(queryParam, workloadType, workloadName, ctx.Logger)
+}
+
+func GetProductionK8sWorkflowDetail(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	queryParam := &service.FetchResourceArgs{}
+	err = c.BindQuery(queryParam)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	projectKey := c.Query("projectName")
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !(ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.View ||
+			ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin) {
+			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, queryParam.EnvName, types.ProductionEnvActionView)
+			if err != nil || !permitted {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
 	}
 
 	workloadType := c.Param("workloadType")
