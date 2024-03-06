@@ -198,6 +198,8 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		// k8s resources operations
 		production.POST("/environments/:name/services/:serviceName/scaleNew", ScaleNewProductionService)
 		production.POST("/image/deployment/:envName", UpdateProductionDeploymentContainerImage)
+		production.POST("/image/statefulset/:envName", UpdateProductionStatefulSetContainerImage)
+		production.POST("/image/cronjob/:envName", UpdateProductionCronJobContainerImage)
 
 		production.GET("/rendersets/variables", GetProductionServiceVariables)
 		production.POST("/rendersets/renderchart", GetServiceRenderCharts)
