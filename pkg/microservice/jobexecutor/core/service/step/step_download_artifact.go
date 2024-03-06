@@ -77,7 +77,7 @@ func (s *DownloadArtifactStep) Run(ctx context.Context) error {
 	destPath := path.Join(s.workspace, "artifact", artifact)
 	err = client.Download(s.spec.S3.Bucket, objectKey, destPath)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to download artifact from s3 bucketName: %s, objectKey: %s, destPath: %s, err: %s", s.spec.S3.Bucket, objectKey, destPath, err)
 	}
 	return nil
 }
