@@ -346,6 +346,55 @@ func GetPodsDetailInfo(c *gin.Context) {
 		}
 		if !(ctx.Resources.ProjectAuthInfo[projectKey].Env.View ||
 			ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin) {
+			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionView)
+			if err != nil || !permitted {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
+	}
+
+	ctx.Resp, ctx.Err = service.GetPodDetailInfo(projectKey, envName, podName, ctx.Logger)
+}
+
+func GetProductionPodsDetailInfo(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectKey := c.Query("projectName")
+	if projectKey == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("projectName can't be empty")
+		return
+	}
+	envName := c.Query("envName")
+	if envName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("envName can't be empty")
+		return
+	}
+	podName := c.Param("podName")
+	if podName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("podName can't be empty")
+		return
+	}
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !(ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.View ||
+			ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin) {
+			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionView)
+			if err != nil || !permitted {
+				ctx.UnAuthorized = true
+				return
+			}
 			ctx.UnAuthorized = true
 			return
 		}
