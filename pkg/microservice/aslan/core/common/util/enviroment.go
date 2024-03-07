@@ -14,6 +14,7 @@ import (
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/repository"
+	"github.com/koderover/zadig/v2/pkg/tool/cache"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/tool/mongo"
 	mongotool "github.com/koderover/zadig/v2/pkg/tool/mongo"
@@ -154,6 +155,10 @@ func GetServiceNameToReleaseNameMap(prod *models.Product) (map[string]string, er
 
 // update product image info
 func UpdateProductImage(envName, productName, serviceName string, targets map[string]string, userName string, logger *zap.SugaredLogger) error {
+	redisMutex := cache.NewRedisLock(fmt.Sprintf("UpdateProductImage:%s:%s", productName, envName))
+	redisMutex.Lock()
+	defer redisMutex.Unlock()
+
 	prod, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{EnvName: envName, Name: productName})
 
 	if err != nil {

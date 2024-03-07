@@ -21,6 +21,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models/template"
 	"github.com/koderover/zadig/v2/pkg/microservice/warpdrive/core/service/types/task"
 	"github.com/koderover/zadig/v2/pkg/setting"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 type Product struct {
@@ -75,6 +76,11 @@ type RenderChart struct {
 	OverrideValues string      `json:"override_values,omitempty"`
 }
 
+type ServiceResource struct {
+	schema.GroupVersionKind
+	Name string
+}
+
 type Service struct {
 	ServiceName string                  `bson:"service_name"               json:"service_name"`
 	Type        string                  `bson:"type"                       json:"type"`
@@ -83,6 +89,7 @@ type Service struct {
 	Configs     []*Config               `bson:"configs,omitempty"          json:"configs,omitempty"`
 	Render      *template.ServiceRender `bson:"render,omitempty"           json:"render,omitempty"` // 记录每个服务render信息 便于更新单个服务
 	EnvConfigs  []*EnvConfig            `bson:"-"                          json:"env_configs,omitempty"`
+	Resources   []*ServiceResource      `bson:"resources,omitempty"        json:"resources,omitempty"`
 }
 
 // Config ...
@@ -110,4 +117,8 @@ func (p *Product) GetServiceMap() map[string]*Service {
 
 func (p *Product) IsSleeping() bool {
 	return p.Status == setting.ProductStatusSleeping
+}
+
+func (p *Product) IsHostProject() bool {
+	return p.Source == setting.SourceFromExternal
 }

@@ -140,7 +140,6 @@ func waitForNativeApprove(ctx context.Context, stage *commonmodels.StageTask, wo
 	approveKey := fmt.Sprintf("%s-%d-%s", workflowCtx.WorkflowName, workflowCtx.TaskID, stage.Name)
 	approvalservice.GlobalApproveMap.SetApproval(approveKey, approval)
 	defer func() {
-		log.Infof("----- start to delete approval")
 		approvalservice.GlobalApproveMap.DeleteApproval(approveKey)
 		ack()
 	}()

@@ -39,7 +39,6 @@ import (
 
 	configbase "github.com/koderover/zadig/v2/pkg/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/warpdrive/config"
-	"github.com/koderover/zadig/v2/pkg/microservice/warpdrive/core/service/types"
 	"github.com/koderover/zadig/v2/pkg/microservice/warpdrive/core/service/types/task"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
@@ -189,16 +188,7 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 	containerName := p.Task.ContainerName
 	containerName = strings.TrimSuffix(containerName, "_"+p.Task.ServiceName)
 
-	// get servcie info
-	var (
-		serviceInfo *types.ServiceTmpl
-	)
-	// TODO FIXME: the revision of the service info should be the value in product service
-	serviceInfo, err = p.getService(ctx, p.Task.ServiceName, p.Task.ServiceType, p.Task.ProductName, 0)
-	if err != nil {
-		return
-	}
-	if serviceInfo.WorkloadType == "" {
+	if !productInfo.IsHostProject() {
 		deployments, statefulSets, cronJobs, cronJobBetas, errFoundWorkload := fetchRelatedWorkloads(ctx, p.Task.EnvName, p.Task.Namespace, p.Task.ProductName, p.Task.ServiceName, p.kubeClient, version, p.httpClient, p.Log)
 		if errFoundWorkload != nil {
 			err = errors.WithMessage(errFoundWorkload, "failed to fetch related workloads")
@@ -301,7 +291,14 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 			}
 		}
 	} else {
-		switch serviceInfo.WorkloadType {
+		productSvc := productInfo.GetServiceMap()[p.Task.ServiceName]
+		if productSvc == nil || len(productSvc.Resources) == 0 {
+			err = fmt.Errorf("service: %s not found", p.Task.ServiceName)
+			return
+		}
+		resType := productSvc.Resources[0].Kind
+
+		switch resType {
 		case setting.StatefulSet:
 			var statefulSet *appsv1.StatefulSet
 			var found bool
@@ -425,20 +422,6 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 			"container %s is not found in resources ", containerName)
 		return
 	}
-}
-
-func (p *DeployTaskPlugin) getService(ctx context.Context, name, serviceType, productName string, revision int64) (*types.ServiceTmpl, error) {
-	url := fmt.Sprintf("/api/service/services/%s/%s", name, serviceType)
-
-	s := &types.ServiceTmpl{}
-	_, err := p.httpClient.Get(url, httpclient.SetResult(s), httpclient.SetQueryParams(map[string]string{
-		"projectName": productName,
-		"revision":    fmt.Sprintf("%d", revision),
-	}))
-	if err != nil {
-		return nil, err
-	}
-	return s, nil
 }
 
 type CreateK8SEnvServiceVersionRequest struct {

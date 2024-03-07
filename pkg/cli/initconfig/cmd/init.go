@@ -158,8 +158,6 @@ func createOrUpdateMongodbIndex(ctx context.Context) {
 		commonrepo.NewWebHookUserColl(),
 		commonrepo.NewWorkflowColl(),
 		commonrepo.NewWorkflowStatColl(),
-		commonrepo.NewWorkLoadsStatColl(),
-		commonrepo.NewServicesInExternalEnvColl(),
 		commonrepo.NewExternalLinkColl(),
 		commonrepo.NewChartColl(),
 		commonrepo.NewDockerfileTemplateColl(),

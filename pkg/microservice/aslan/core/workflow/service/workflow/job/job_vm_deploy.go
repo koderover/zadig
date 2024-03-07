@@ -29,6 +29,7 @@ import (
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
+	codehostdb "github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/codehost/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/types"
@@ -204,6 +205,7 @@ func (j *VMDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 	}
 
 	var s3Storage *commonmodels.S3Storage
+	originS3StorageSubfolder := ""
 	// get deploy info from previous build job
 	if j.spec.Source == config.SourceFromJob {
 		// adapt to the front end, use the direct quoted job name
@@ -219,6 +221,7 @@ func (j *VMDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		if err != nil {
 			return resp, fmt.Errorf("find default s3 storage error: %v", err)
 		}
+		originS3StorageSubfolder = s3Storage.Subfolder
 		// clear service and image list to prevent old data from remaining
 		j.spec.ServiceAndVMDeploys = targets
 		j.spec.S3StorageID = s3Storage.ID.Hex()
@@ -227,9 +230,12 @@ func (j *VMDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		if err != nil {
 			return resp, fmt.Errorf("find s3 storage id: %s, error: %v", j.spec.S3StorageID, err)
 		}
+		originS3StorageSubfolder = s3Storage.Subfolder
 	}
 
 	for _, vmDeployInfo := range j.spec.ServiceAndVMDeploys {
+		s3Storage.Subfolder = originS3StorageSubfolder
+
 		service, ok := serviceMap[vmDeployInfo.ServiceName]
 		if !ok {
 			return resp, fmt.Errorf("service %s not found", vmDeployInfo.ServiceName)
@@ -336,7 +342,7 @@ func (j *VMDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			Name:     vmDeployInfo.ServiceName + "-git",
 			JobName:  jobTask.Name,
 			StepType: config.StepGit,
-			Spec:     step.StepGitSpec{Repos: renderRepos(vmDeployInfo.Repos, buildInfo.DeployRepos, jobTaskSpec.Properties.Envs)},
+			Spec:     step.StepGitSpec{Repos: vmRenderRepos(buildInfo.DeployRepos, jobTaskSpec.Properties.Envs)},
 		}
 		jobTaskSpec.Steps = append(jobTaskSpec.Steps, gitStep)
 
@@ -584,4 +590,21 @@ func getVMDeployJobVariables(vmDeploy *commonmodels.ServiceAndVMDeploy, buildInf
 	}
 	ret = append(ret, &commonmodels.KeyVal{Key: "PKG_FILE", Value: vmDeploy.FileName, IsCredential: false})
 	return ret
+}
+
+func vmRenderRepos(repos []*types.Repository, kvs []*commonmodels.KeyVal) []*types.Repository {
+	for _, inputRepo := range repos {
+		inputRepo.CheckoutPath = renderEnv(inputRepo.CheckoutPath, kvs)
+		if inputRepo.RemoteName == "" {
+			inputRepo.RemoteName = "origin"
+		}
+		if inputRepo.Source == types.ProviderOther {
+			codeHostInfo, err := codehostdb.NewCodehostColl().GetCodeHostByID(inputRepo.CodehostID, false)
+			if err == nil {
+				inputRepo.PrivateAccessToken = codeHostInfo.PrivateAccessToken
+				inputRepo.SSHKey = codeHostInfo.SSHKey
+			}
+		}
+	}
+	return repos
 }
