@@ -132,11 +132,13 @@ func UpdateDeploymentContainerImage(c *gin.Context) {
 
 		collabPermittedConfig, err := internalhandler.GetCollaborationModePermission(ctx.UserID, args.ProductName, types.ResourceTypeEnvironment, args.EnvName, types.EnvActionEditConfig)
 		if err == nil {
+			fmt.Println("aaaaaaaaa")
 			permitted = collabPermittedConfig
 		}
 
 		collabPermittedManagePod, err := internalhandler.GetCollaborationModePermission(ctx.UserID, args.ProductName, types.ResourceTypeEnvironment, args.EnvName, types.EnvActionManagePod)
 		if err == nil {
+			fmt.Println("bbbbbbbb")
 			permitted = collabPermittedManagePod
 		}
 	}
