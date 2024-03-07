@@ -83,6 +83,12 @@ func (c *client) CreateNotify(sender string, nf *models.Notify) error {
 		}
 
 		nf.Content = content
+	case config.WorkflowTaskStatus:
+		var content *models.WorkflowTaskStatusCtx
+		if err = json.Unmarshal(b, &content); err != nil {
+			return fmt.Errorf("[%s] convert workflowtaskstatus error: %v", sender, err)
+		}
+		nf.Content = content
 	default:
 		return fmt.Errorf("notify type not found")
 	}
@@ -289,7 +295,6 @@ func (c *client) ProccessNotify(notify *models.Notify) error {
 		if err := c.sendSubscribedNotify(notify); err != nil {
 			return fmt.Errorf("[%s] send notify error: %v", notify.Receiver, err)
 		}
-
 	default:
 		return fmt.Errorf("notifytype match error")
 	}

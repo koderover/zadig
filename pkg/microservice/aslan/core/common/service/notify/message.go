@@ -52,6 +52,21 @@ func SendMessage(sender, title, content, requestID string, log *zap.SugaredLogge
 	}
 }
 
+func SendWorkflowTaskStatusMsg(receiver string, content *models.WorkflowTaskStatusCtx, log *zap.SugaredLogger) {
+	nf := &models.Notify{
+		Type:       config.WorkflowTaskStatus,
+		Receiver:   receiver,
+		Content:    content,
+		CreateTime: time.Now().Unix(),
+		IsRead:     false,
+	}
+
+	notifyClient := NewNotifyClient()
+	if err := notifyClient.CreateNotify(receiver, nf); err != nil {
+		log.Errorf("create message notify error: %v", err)
+	}
+}
+
 func SendFailedTaskMessage(username, productName, name, requestID string, workflowType config.PipelineType, err error, log *zap.SugaredLogger) {
 	title := "创建工作流任务失败"
 
