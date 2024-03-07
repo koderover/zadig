@@ -54,14 +54,14 @@ func processGithub(payload []byte, req *http.Request, requestID string, log *zap
 	errs := &multierror.Error{}
 
 	// trigger classic pipeline
-	_, err := webhook.ProcessGithubHook(payload, req, requestID, log)
-	if err != nil {
-		log.Errorf("error happens to trigger classic pipeline %v", err)
-		errs = multierror.Append(errs, err)
-	}
+	//_, err := webhook.ProcessGithubHook(payload, req, requestID, log)
+	//if err != nil {
+	//	log.Errorf("error happens to trigger classic pipeline %v", err)
+	//	errs = multierror.Append(errs, err)
+	//}
 
 	// trigger workflow
-	err = webhook.ProcessGithubWebHook(payload, req, requestID, log)
+	err := webhook.ProcessGithubWebHook(payload, req, requestID, log)
 
 	if err != nil {
 		log.Errorf("error happens to trigger workflow %v", err)
