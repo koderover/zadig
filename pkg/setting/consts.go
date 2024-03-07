@@ -772,7 +772,7 @@ const (
 
 const (
 	JobNameRegx  = "^[a-z\u4e00-\u9fa5][a-z0-9\u4e00-\u9fa5-]{0,31}$"
-	WorkflowRegx = "^[a-z0-9-]+$"
+	WorkflowRegx = "^[a-zA-Z0-9-]+$"
 )
 
 type WorkflowCategory string
