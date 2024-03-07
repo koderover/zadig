@@ -34,6 +34,7 @@ require (
 	github.com/go-redsync/redsync/v4 v4.11.0
 	github.com/go-resty/resty/v2 v2.7.0
 	github.com/go-sql-driver/mysql v1.7.1
+	github.com/godoes/gorm-dameng v0.0.8
 	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/golang/protobuf v1.5.3
 	github.com/google/gnostic v0.6.9
@@ -88,7 +89,7 @@ require (
 	golang.org/x/net v0.15.0
 	golang.org/x/oauth2 v0.5.0
 	golang.org/x/sync v0.3.0
-	golang.org/x/text v0.13.0
+	golang.org/x/text v0.14.0
 	google.golang.org/genproto v0.0.0-20220628213854-d9e0b6570c03
 	google.golang.org/grpc v1.47.0
 	google.golang.org/protobuf v1.30.0
@@ -97,7 +98,7 @@ require (
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
 	gorm.io/driver/mysql v1.3.6
-	gorm.io/gorm v1.23.8
+	gorm.io/gorm v1.25.7
 	helm.sh/helm/v3 v3.9.1
 	istio.io/api v0.0.0-20221109202042-b9e5d446a83d
 	istio.io/client-go v1.16.0
@@ -188,7 +189,7 @@ require (
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0 // indirect
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
-	github.com/golang/snappy v0.0.3 // indirect
+	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/btree v1.0.1 // indirect
 	github.com/google/flatbuffers v1.12.1 // indirect
 	github.com/google/go-cmp v0.5.9 // indirect

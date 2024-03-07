@@ -33,6 +33,7 @@ const (
 	ENVMysqlPassword           = "MYSQL_PASSWORD"
 	ENVMysqlHost               = "MYSQL_HOST"
 	ENVMysqlUserDb             = "MYSQL_USER_DB"
+	ENVMysqlUseDM              = "MYSQL_USE_DM"
 	ENVRedisHost               = "REDIS_HOST"
 	ENVRedisPort               = "REDIS_PORT"
 	ENVRedisUserName           = "REDIS_USERNAME"
