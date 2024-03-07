@@ -200,7 +200,7 @@ func GetTestingContainerLogs(testName string, taskID int64, log *zap.SugaredLogg
 		return "", fmt.Errorf("convert job info to task job info error: %v", err)
 	}
 
-	buildJobNamePrefix := fmt.Sprintf("%s-%s-%s", jobInfo.JobName, jobInfo.TestingName, jobInfo.RandStr)
+	buildJobNamePrefix := strings.ToLower(fmt.Sprintf("%s-%s-%s", jobInfo.JobName, jobInfo.TestingName, jobInfo.RandStr))
 	buildLog, err := getContainerLogFromS3(workflowName, buildJobNamePrefix, taskID, log)
 	if err != nil {
 		return "", err
