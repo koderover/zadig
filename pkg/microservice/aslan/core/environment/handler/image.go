@@ -122,9 +122,7 @@ func UpdateDeploymentContainerImage(c *gin.Context) {
 	} else if projectAuthInfo, ok := ctx.Resources.ProjectAuthInfo[args.ProductName]; ok {
 		if projectAuthInfo.IsProjectAdmin {
 			permitted = true
-		}
-
-		if projectAuthInfo.Env.EditConfig || projectAuthInfo.Env.ManagePods {
+		} else if projectAuthInfo.Env.EditConfig || projectAuthInfo.Env.ManagePods {
 			permitted = true
 		} else {
 			collabPermittedConfig, err := internalhandler.GetCollaborationModePermission(ctx.UserID, args.ProductName, types.ResourceTypeEnvironment, args.EnvName, types.EnvActionEditConfig)
@@ -190,13 +188,9 @@ func UpdateProductionDeploymentContainerImage(c *gin.Context) {
 	} else if projectAuthInfo, ok := ctx.Resources.ProjectAuthInfo[args.ProductName]; ok {
 		if projectAuthInfo.IsProjectAdmin {
 			permitted = true
-		}
-
-		if projectAuthInfo.ProductionEnv.EditConfig || projectAuthInfo.ProductionEnv.ManagePods {
+		} else if projectAuthInfo.ProductionEnv.EditConfig || projectAuthInfo.ProductionEnv.ManagePods {
 			permitted = true
-		}
-
-		if !permitted {
+		} else {
 			collabPermittedConfig, err := internalhandler.GetCollaborationModePermission(ctx.UserID, args.ProductName, types.ResourceTypeEnvironment, args.EnvName, types.EnvActionEditConfig)
 			if err == nil {
 				permitted = collabPermittedConfig
