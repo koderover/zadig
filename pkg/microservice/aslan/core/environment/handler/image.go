@@ -23,7 +23,6 @@ import (
 	"io"
 
 	"github.com/gin-gonic/gin"
-	"github.com/koderover/zadig/v2/pkg/types"
 
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/environment/service"
@@ -31,6 +30,7 @@ import (
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
+	"github.com/koderover/zadig/v2/pkg/types"
 )
 
 func UpdateStatefulSetContainerImage(c *gin.Context) {
@@ -38,7 +38,6 @@ func UpdateStatefulSetContainerImage(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -94,7 +93,6 @@ func UpdateDeploymentContainerImage(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -128,18 +126,18 @@ func UpdateDeploymentContainerImage(c *gin.Context) {
 
 		if projectAuthInfo.Env.EditConfig || projectAuthInfo.Env.ManagePods {
 			permitted = true
-		}
+		} else {
+			collabPermittedConfig, err := internalhandler.GetCollaborationModePermission(ctx.UserID, args.ProductName, types.ResourceTypeEnvironment, args.EnvName, types.EnvActionEditConfig)
+			if err == nil {
+				permitted = collabPermittedConfig
+			}
 
-		collabPermittedConfig, err := internalhandler.GetCollaborationModePermission(ctx.UserID, args.ProductName, types.ResourceTypeEnvironment, args.EnvName, types.EnvActionEditConfig)
-		if err == nil {
-			fmt.Println("aaaaaaaaa")
-			permitted = collabPermittedConfig
-		}
-
-		collabPermittedManagePod, err := internalhandler.GetCollaborationModePermission(ctx.UserID, args.ProductName, types.ResourceTypeEnvironment, args.EnvName, types.EnvActionManagePod)
-		if err == nil {
-			fmt.Println("bbbbbbbb")
-			permitted = collabPermittedManagePod
+			if !permitted {
+				collabPermittedManagePod, err := internalhandler.GetCollaborationModePermission(ctx.UserID, args.ProductName, types.ResourceTypeEnvironment, args.EnvName, types.EnvActionManagePod)
+				if err == nil {
+					permitted = collabPermittedManagePod
+				}
+			}
 		}
 	}
 
@@ -163,7 +161,6 @@ func UpdateProductionDeploymentContainerImage(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -199,14 +196,18 @@ func UpdateProductionDeploymentContainerImage(c *gin.Context) {
 			permitted = true
 		}
 
-		collabPermittedConfig, err := internalhandler.GetCollaborationModePermission(ctx.UserID, args.ProductName, types.ResourceTypeEnvironment, args.EnvName, types.EnvActionEditConfig)
-		if err == nil {
-			permitted = collabPermittedConfig
-		}
+		if !permitted {
+			collabPermittedConfig, err := internalhandler.GetCollaborationModePermission(ctx.UserID, args.ProductName, types.ResourceTypeEnvironment, args.EnvName, types.EnvActionEditConfig)
+			if err == nil {
+				permitted = collabPermittedConfig
+			}
 
-		collabPermittedManagePod, err := internalhandler.GetCollaborationModePermission(ctx.UserID, args.ProductName, types.ResourceTypeEnvironment, args.EnvName, types.EnvActionManagePod)
-		if err == nil {
-			permitted = collabPermittedManagePod
+			if !permitted {
+				collabPermittedManagePod, err := internalhandler.GetCollaborationModePermission(ctx.UserID, args.ProductName, types.ResourceTypeEnvironment, args.EnvName, types.EnvActionManagePod)
+				if err == nil {
+					permitted = collabPermittedManagePod
+				}
+			}
 		}
 	}
 
@@ -235,7 +236,6 @@ func UpdateCronJobContainerImage(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -299,7 +299,6 @@ func OpenAPIUpdateDeploymentContainerImage(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -376,7 +375,6 @@ func OpenAPIUpdateStatefulSetContainerImage(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -442,7 +440,6 @@ func OpenAPIUpdateCronJobContainerImage(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
