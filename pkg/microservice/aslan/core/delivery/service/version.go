@@ -1094,7 +1094,7 @@ func buildDeliveryImages(productInfo *commonmodels.Product, targetRegistry *comm
 			deliveryDeploy.DeletedAt = 0
 			err = commonrepo.NewDeliveryDeployColl().Insert(deliveryDeploy)
 			if err != nil {
-				return fmt.Errorf("failed to insert deliveryDeploy, serviceName: %s", yamlData.ServiceName)
+				return fmt.Errorf("failed to insert deliveryDeploy, serviceName: %s, imageName: %s, image: %s, err: %v", deliveryDeploy.ServiceName, deliveryDeploy.ContainerName, deliveryDeploy.Image, err)
 			}
 		}
 	}
