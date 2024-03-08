@@ -190,19 +190,6 @@ func UpdateMultiProducts(c *gin.Context) {
 		return
 	}
 
-	// authorization checks
-	if !ctx.Resources.IsSystemAdmin {
-		if _, ok := ctx.Resources.ProjectAuthInfo[request.ProjectName]; !ok {
-			ctx.UnAuthorized = true
-			return
-		}
-		if !ctx.Resources.ProjectAuthInfo[request.ProjectName].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[request.ProjectName].Env.EditConfig {
-			ctx.UnAuthorized = true
-			return
-		}
-	}
-
 	// this function has several implementations, we do the authorization checks in the individual function.
 	updateMultiEnvWrapper(c, request, false, ctx)
 }
@@ -1769,6 +1756,8 @@ func updateMultiHelmChartEnv(c *gin.Context, request *service.UpdateEnvRequest, 
 		if production {
 			if projectAuthInfo.ProductionEnv.EditConfig {
 				permitted = true
+			} else {
+				permitted = true
 			}
 		} else {
 			if projectAuthInfo.Env.EditConfig {
@@ -1842,8 +1831,13 @@ func updateMultiCvmEnv(c *gin.Context, request *service.UpdateEnvRequest, ctx *i
 
 		if !ctx.Resources.ProjectAuthInfo[request.ProjectName].IsProjectAdmin &&
 			!ctx.Resources.ProjectAuthInfo[request.ProjectName].Env.EditConfig {
-			ctx.UnAuthorized = true
-			return
+			for _, envName := range envNames {
+				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, request.ProjectName, types.ResourceTypeEnvironment, envName, types.EnvActionManagePod)
+				if err != nil || !permitted {
+					ctx.UnAuthorized = true
+					return
+				}
+			}
 		}
 	}
 
