@@ -64,8 +64,6 @@ func mergeContainers(currentContainer []*models.Container, newContainers ...[]*m
 			if curContainer, ok := containerMap[container.Name]; ok {
 				curContainer.Image = container.Image
 				curContainer.ImageName = container.ImageName
-			} else {
-				containerMap[container.Name] = container
 			}
 		}
 	}
