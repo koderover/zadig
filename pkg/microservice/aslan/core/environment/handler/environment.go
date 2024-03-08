@@ -697,8 +697,11 @@ func UpdateProductionProductRegistry(c *gin.Context) {
 		}
 		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
 			!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.EditConfig {
-			ctx.UnAuthorized = true
-			return
+			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionEditConfig)
+			if err != nil || !permitted {
+				ctx.UnAuthorized = true
+				return
+			}
 		}
 	}
 
@@ -1421,8 +1424,11 @@ func UpdateProductionEnvK8sProductGlobalVariables(c *gin.Context) {
 		}
 		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
 			!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.EditConfig {
-			ctx.UnAuthorized = true
-			return
+			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionEditConfig)
+			if err != nil || !permitted {
+				ctx.UnAuthorized = true
+				return
+			}
 		}
 	}
 
@@ -1553,8 +1559,11 @@ func UpdateProductionEnvHelmProductCharts(c *gin.Context) {
 		}
 		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
 			!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.EditConfig {
-			ctx.UnAuthorized = true
-			return
+			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionManagePod)
+			if err != nil || !permitted {
+				ctx.UnAuthorized = true
+				return
+			}
 		}
 	}
 
@@ -2209,7 +2218,6 @@ func DeleteProductionProductServices(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -2238,8 +2246,11 @@ func DeleteProductionProductServices(c *gin.Context) {
 		}
 		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
 			!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.EditConfig {
-			ctx.UnAuthorized = true
-			return
+			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionManagePod)
+			if err != nil || !permitted {
+				ctx.UnAuthorized = true
+				return
+			}
 		}
 	}
 
@@ -2338,8 +2349,11 @@ func DeleteProductionHelmReleases(c *gin.Context) {
 		}
 		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
 			!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.EditConfig {
-			ctx.UnAuthorized = true
-			return
+			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionManagePod)
+			if err != nil || !permitted {
+				ctx.UnAuthorized = true
+				return
+			}
 		}
 	}
 

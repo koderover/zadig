@@ -468,8 +468,11 @@ func UpdateProductionService(c *gin.Context) {
 		}
 		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
 			!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.EditConfig {
-			ctx.UnAuthorized = true
-			return
+			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionManagePod)
+			if err != nil || !permitted {
+				ctx.UnAuthorized = true
+				return
+			}
 		}
 	}
 
