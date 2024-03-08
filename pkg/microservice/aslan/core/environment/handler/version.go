@@ -59,6 +59,7 @@ func ListEnvServiceVersions(c *gin.Context) {
 		}
 		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
 			!ctx.Resources.ProjectAuthInfo[projectKey].Env.View {
+
 			ctx.UnAuthorized = true
 			return
 		}

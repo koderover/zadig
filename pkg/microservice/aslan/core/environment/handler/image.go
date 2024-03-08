@@ -104,11 +104,11 @@ func UpdateProductionStatefulSetContainerImage(c *gin.Context) {
 
 	data, err := c.GetRawData()
 	if err != nil {
-		log.Errorf("UpdateStatefulSetContainerImage c.GetRawData() err : %v", err)
+		log.Errorf("UpdateProductionStatefulSetContainerImage c.GetRawData() err : %v", err)
 		return
 	}
 	if err = json.Unmarshal(data, args); err != nil {
-		log.Errorf("UpdateStatefulSetContainerImage json.Unmarshal err : %v", err)
+		log.Errorf("UpdateProductionStatefulSetContainerImage json.Unmarshal err : %v", err)
 		return
 	}
 
@@ -233,7 +233,7 @@ func UpdateProductionDeploymentContainerImage(c *gin.Context) {
 
 	internalhandler.InsertDetailedOperationLog(
 		c, ctx.UserName, args.ProductName, setting.OperationSceneEnv,
-		"更新", "环境-服务镜像",
+		"更新", "生产环境-服务镜像",
 		fmt.Sprintf("环境名称:%s,服务名称:%s,Deployment:%s", args.EnvName, args.ServiceName, args.Name),
 		string(data), ctx.Logger, args.EnvName)
 
@@ -247,13 +247,12 @@ func UpdateProductionDeploymentContainerImage(c *gin.Context) {
 		} else if projectAuthInfo.ProductionEnv.EditConfig || projectAuthInfo.ProductionEnv.ManagePods {
 			permitted = true
 		} else {
-			collabPermittedConfig, err := internalhandler.GetCollaborationModePermission(ctx.UserID, args.ProductName, types.ResourceTypeEnvironment, args.EnvName, types.EnvActionEditConfig)
+			collabPermittedConfig, err := internalhandler.GetCollaborationModePermission(ctx.UserID, args.ProductName, types.ResourceTypeEnvironment, args.EnvName, types.ProductionEnvActionEditConfig)
 			if err == nil {
 				permitted = collabPermittedConfig
 			}
-
 			if !permitted {
-				collabPermittedManagePod, err := internalhandler.GetCollaborationModePermission(ctx.UserID, args.ProductName, types.ResourceTypeEnvironment, args.EnvName, types.EnvActionManagePod)
+				collabPermittedManagePod, err := internalhandler.GetCollaborationModePermission(ctx.UserID, args.ProductName, types.ResourceTypeEnvironment, args.EnvName, types.ProductionEnvActionManagePod)
 				if err == nil {
 					permitted = collabPermittedManagePod
 				}

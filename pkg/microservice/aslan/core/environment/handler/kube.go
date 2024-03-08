@@ -265,7 +265,6 @@ func ListProductionPodsInfo(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -295,7 +294,6 @@ func ListProductionPodsInfo(c *gin.Context) {
 				ctx.UnAuthorized = true
 				return
 			}
-			return
 		}
 	}
 
