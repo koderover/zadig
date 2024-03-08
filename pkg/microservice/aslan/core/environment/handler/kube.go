@@ -252,8 +252,11 @@ func ListPodsInfo(c *gin.Context) {
 		}
 		if !(ctx.Resources.ProjectAuthInfo[projectKey].Env.View ||
 			ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin) {
-			ctx.UnAuthorized = true
-			return
+			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionView)
+			if err != nil || !permitted {
+				ctx.UnAuthorized = true
+				return
+			}
 		}
 	}
 
@@ -393,8 +396,6 @@ func GetProductionPodsDetailInfo(c *gin.Context) {
 				ctx.UnAuthorized = true
 				return
 			}
-			ctx.UnAuthorized = true
-			return
 		}
 	}
 
