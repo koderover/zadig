@@ -45,7 +45,6 @@ Zadig 后端使用 Go 语言，在您贡献代码之前，本地需安装 Go 1.1
 | cron            | deployment/corn            |
 | hub-server      | deployment/hub-server      |
 | resource-server | deployment/resource-server |
-| warpdrive       | deployment/warpdrive       |
 
 
 
