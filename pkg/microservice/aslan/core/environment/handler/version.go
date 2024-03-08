@@ -18,6 +18,7 @@ package handler
 
 import (
 	"fmt"
+	"github.com/koderover/zadig/v2/pkg/types"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -50,6 +51,11 @@ func ListEnvServiceVersions(c *gin.Context) {
 	}
 
 	projectKey := c.Query("projectName")
+	envName := c.Param("name")
+	if envName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("empty name")
+		return
+	}
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -59,16 +65,12 @@ func ListEnvServiceVersions(c *gin.Context) {
 		}
 		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
 			!ctx.Resources.ProjectAuthInfo[projectKey].Env.View {
-
-			ctx.UnAuthorized = true
-			return
+			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionView)
+			if err != nil || !permitted {
+				ctx.UnAuthorized = true
+				return
+			}
 		}
-	}
-
-	envName := c.Param("name")
-	if envName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("empty name")
-		return
 	}
 
 	serviceName := c.Param("serviceName")
@@ -109,6 +111,11 @@ func ListProductionEnvServiceVersions(c *gin.Context) {
 	}
 
 	projectKey := c.Query("projectName")
+	envName := c.Param("name")
+	if envName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("empty name")
+		return
+	}
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -118,15 +125,12 @@ func ListProductionEnvServiceVersions(c *gin.Context) {
 		}
 		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
 			!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.View {
-			ctx.UnAuthorized = true
-			return
+			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionView)
+			if err != nil || !permitted {
+				ctx.UnAuthorized = true
+				return
+			}
 		}
-	}
-
-	envName := c.Param("name")
-	if envName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("empty name")
-		return
 	}
 
 	serviceName := c.Param("serviceName")
@@ -168,6 +172,11 @@ func GetEnvServiceVersionYaml(c *gin.Context) {
 	}
 
 	projectKey := c.Query("projectName")
+	envName := c.Param("name")
+	if envName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("empty name")
+		return
+	}
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -177,15 +186,12 @@ func GetEnvServiceVersionYaml(c *gin.Context) {
 		}
 		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
 			!ctx.Resources.ProjectAuthInfo[projectKey].Env.View {
-			ctx.UnAuthorized = true
-			return
+			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionView)
+			if err != nil || !permitted {
+				ctx.UnAuthorized = true
+				return
+			}
 		}
-	}
-
-	envName := c.Param("name")
-	if envName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("empty name")
-		return
 	}
 
 	serviceName := c.Param("serviceName")
@@ -233,6 +239,11 @@ func GetProductionEnvServiceVersionYaml(c *gin.Context) {
 	}
 
 	projectKey := c.Query("projectName")
+	envName := c.Param("name")
+	if envName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("empty name")
+		return
+	}
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -242,15 +253,12 @@ func GetProductionEnvServiceVersionYaml(c *gin.Context) {
 		}
 		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
 			!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.View {
-			ctx.UnAuthorized = true
-			return
+			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionView)
+			if err != nil || !permitted {
+				ctx.UnAuthorized = true
+				return
+			}
 		}
-	}
-
-	envName := c.Param("name")
-	if envName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("empty name")
-		return
 	}
 
 	serviceName := c.Param("serviceName")
@@ -299,6 +307,11 @@ func DiffEnvServiceVersions(c *gin.Context) {
 	}
 
 	projectKey := c.Query("projectName")
+	envName := c.Param("name")
+	if envName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("empty name")
+		return
+	}
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -308,15 +321,12 @@ func DiffEnvServiceVersions(c *gin.Context) {
 		}
 		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
 			!ctx.Resources.ProjectAuthInfo[projectKey].Env.View {
-			ctx.UnAuthorized = true
-			return
+			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionView)
+			if err != nil || !permitted {
+				ctx.UnAuthorized = true
+				return
+			}
 		}
-	}
-
-	envName := c.Param("name")
-	if envName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("empty name")
-		return
 	}
 
 	serviceName := c.Param("serviceName")
@@ -370,6 +380,11 @@ func DiffProductionEnvServiceVersions(c *gin.Context) {
 	}
 
 	projectKey := c.Query("projectName")
+	envName := c.Param("name")
+	if envName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("empty name")
+		return
+	}
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -379,15 +394,12 @@ func DiffProductionEnvServiceVersions(c *gin.Context) {
 		}
 		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
 			!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.View {
-			ctx.UnAuthorized = true
-			return
+			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionView)
+			if err != nil || !permitted {
+				ctx.UnAuthorized = true
+				return
+			}
 		}
-	}
-
-	envName := c.Param("name")
-	if envName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("empty name")
-		return
 	}
 
 	serviceName := c.Param("serviceName")
@@ -439,6 +451,11 @@ func RollbackEnvServiceVersion(c *gin.Context) {
 	}
 
 	projectKey := c.Query("projectName")
+	envName := c.Param("name")
+	if envName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("empty name")
+		return
+	}
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -448,15 +465,12 @@ func RollbackEnvServiceVersion(c *gin.Context) {
 		}
 		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
 			!ctx.Resources.ProjectAuthInfo[projectKey].Env.EditConfig {
-			ctx.UnAuthorized = true
-			return
+			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionEditConfig)
+			if err != nil || !permitted {
+				ctx.UnAuthorized = true
+				return
+			}
 		}
-	}
-
-	envName := c.Param("name")
-	if envName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("empty name")
-		return
 	}
 
 	serviceName := c.Param("serviceName")
@@ -510,6 +524,11 @@ func RollbackProductionEnvServiceVersion(c *gin.Context) {
 	}
 
 	projectKey := c.Query("projectName")
+	envName := c.Param("name")
+	if envName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("empty name")
+		return
+	}
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -519,15 +538,12 @@ func RollbackProductionEnvServiceVersion(c *gin.Context) {
 		}
 		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
 			!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.EditConfig {
-			ctx.UnAuthorized = true
-			return
+			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionEditConfig)
+			if err != nil || !permitted {
+				ctx.UnAuthorized = true
+				return
+			}
 		}
-	}
-
-	envName := c.Param("name")
-	if envName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("empty name")
-		return
 	}
 
 	serviceName := c.Param("serviceName")
