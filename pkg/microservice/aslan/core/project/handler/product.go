@@ -585,8 +585,12 @@ func GetProductionGlobalVariables(c *gin.Context) {
 			!ctx.Resources.ProjectAuthInfo[projectKey].ProductionService.Edit &&
 			!ctx.Resources.ProjectAuthInfo[projectKey].ProductionService.View &&
 			!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.EditConfig {
-			ctx.UnAuthorized = true
-			return
+
+			permittedByCollaborationMode, err := internalhandler.CheckPermissionGivenByCollaborationMode(ctx.UserID, projectKey, types.ResourceTypeEnvironment, types.ProductionEnvActionEditConfig)
+			if err != nil || !permittedByCollaborationMode {
+				ctx.UnAuthorized = true
+				return
+			}
 		}
 	}
 
