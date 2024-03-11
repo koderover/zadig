@@ -20,7 +20,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/bndr/gojenkins"
+	"github.com/koderover/gojenkins"
 	"go.uber.org/zap"
 
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"

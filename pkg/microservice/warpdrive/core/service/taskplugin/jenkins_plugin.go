@@ -21,9 +21,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/bndr/gojenkins"
+	"github.com/koderover/gojenkins"
 	"go.uber.org/zap"
-	yaml "gopkg.in/yaml.v3"
+	"gopkg.in/yaml.v3"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
