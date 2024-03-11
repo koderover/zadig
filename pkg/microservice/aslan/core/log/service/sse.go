@@ -27,7 +27,7 @@ import (
 	"strings"
 	"time"
 
-	jenkins "github.com/bndr/gojenkins"
+	jenkins "github.com/koderover/gojenkins"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"

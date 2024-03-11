@@ -23,7 +23,7 @@ import (
 	"net/http"
 	"time"
 
-	jenkins "github.com/bndr/gojenkins"
+	jenkins "github.com/koderover/gojenkins"
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
