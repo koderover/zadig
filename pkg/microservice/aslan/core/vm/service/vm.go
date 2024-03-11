@@ -186,7 +186,7 @@ func generateAgentRecoveryCmd(vm *commonmodels.PrivateKey) (*RecoveryAgentCmd, e
 						"start C:\\Users\\Administrator\\zadig-agent.exe start --server-url %s --token %s",
 					downloadWinAMD64URL, winAMD64Name, serverURL, token),
 				"powershell": fmt.Sprintf(
-					"curl -L %s -o %s \n"+
+					"curl %s -o %s \n"+
 						"tar xzf %s -C C:\\Users\\Administrator \n "+
 						"Remove-Item -Path \"C:\\Users\\Administrator\\%s\" -ErrorAction SilentlyContinue \n"+
 						"move -Force C:\\Users\\Administrator\\%s C:\\Users\\Administrator\\zadig-agent.exe \n "+
@@ -298,7 +298,7 @@ func generateAgentUpgradeCmd(vm *commonmodels.PrivateKey, logger *zap.SugaredLog
 				"powershell": fmt.Sprintf(
 					"C:\\Users\\Administrator\\zadig-agent.exe stop\n "+
 						"Remove-Item -Path C:\\Users\\Administrator\\zadig-agent.exe -ErrorAction SilentlyContinue \n "+
-						"curl -L %s -o %s \n"+
+						"curl %s -o %s \n"+
 						"tar xzf %s -C C:\\Users\\Administrator \n "+
 						"Remove-Item -Path \"C:\\Users\\Administrator\\%s\" -ErrorAction SilentlyContinue \n"+
 						"move -Force C:\\Users\\Administrator\\%s C:\\Users\\Administrator\\zadig-agent.exe \n "+
@@ -735,7 +735,7 @@ func GenerateAgentAccessCmds(vm *commonmodels.PrivateKey) (*AgentAccessCmds, err
 						"start C:\\Users\\Administrator\\zadig-agent.exe start --server-url %s --token %s",
 					downloadWinAMD64URL, winAMD64Name, serverURL, token),
 				"powershell": fmt.Sprintf(
-					"curl -L %s -o %s \n"+
+					"curl %s -o %s \n"+
 						"tar xzf %s -C C:\\Users\\Administrator \n "+
 						"Remove-Item -Path \"C:\\Users\\Administrator\\%s\" -ErrorAction SilentlyContinue \n"+
 						"move -Force C:\\Users\\Administrator\\%s C:\\Users\\Administrator\\zadig-agent.exe \n "+
