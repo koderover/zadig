@@ -20,10 +20,10 @@ import (
 	"fmt"
 
 	"github.com/gin-gonic/gin"
-
 	buildservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/build/service"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
+	"github.com/koderover/zadig/v2/pkg/types"
 )
 
 func OpenAPICreateBuildModule(c *gin.Context) {
@@ -149,6 +149,35 @@ func OpenAPIListBuildModules(c *gin.Context) {
 	err := c.BindQuery(args)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		return
+	}
+
+	// TODO: Authorization leak
+	// this API is sometimes used in edit env scenario, thus giving the edit/create workflow permission
+	// authorization check
+	permitted := false
+
+	if ctx.Resources.IsSystemAdmin {
+		permitted = true
+	} else if projectAuthInfo, ok := ctx.Resources.ProjectAuthInfo[projectKey]; ok {
+		// first check if the user is projectAdmin
+		if projectAuthInfo.IsProjectAdmin {
+			permitted = true
+		} else if projectAuthInfo.Env.EditConfig ||
+			projectAuthInfo.Build.View {
+			// then check if user has edit workflow permission
+			permitted = true
+		} else {
+			// finally check if the permission is given by collaboration mode
+			collaborationAuthorizedEdit, err := internalhandler.CheckPermissionGivenByCollaborationMode(ctx.UserID, projectKey, types.ResourceTypeEnvironment, types.EnvActionEditConfig)
+			if err == nil && collaborationAuthorizedEdit {
+				permitted = true
+			}
+		}
+	}
+
+	if !permitted {
+		ctx.UnAuthorized = true
 		return
 	}
 
