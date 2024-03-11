@@ -84,18 +84,16 @@ func AutoCreateWorkflow(c *gin.Context) {
 		// first check if the user is projectAdmin
 		if projectAuthInfo.IsProjectAdmin {
 			permitted = true
-		}
-
-		// then check if user has edit workflow permission
-		if projectAuthInfo.Workflow.Create ||
+		} else if projectAuthInfo.Workflow.Create ||
 			projectAuthInfo.Env.EditConfig {
+			// then check if user has edit workflow permission
 			permitted = true
-		}
-
-		// finally check if the permission is given by collaboration mode
-		collaborationAuthorizedEdit, err := internalhandler.CheckPermissionGivenByCollaborationMode(ctx.UserID, projectKey, types.ResourceTypeEnvironment, types.EnvActionEditConfig)
-		if err == nil && collaborationAuthorizedEdit {
-			permitted = true
+		} else {
+			// finally check if the permission is given by collaboration mode
+			collaborationAuthorizedEdit, err := internalhandler.CheckPermissionGivenByCollaborationMode(ctx.UserID, projectKey, types.ResourceTypeEnvironment, types.EnvActionEditConfig)
+			if err == nil && collaborationAuthorizedEdit {
+				permitted = true
+			}
 		}
 	}
 
