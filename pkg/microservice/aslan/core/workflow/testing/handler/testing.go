@@ -210,19 +210,17 @@ func GetTestModule(c *gin.Context) {
 		// first check if the user is projectAdmin
 		if projectAuthInfo.IsProjectAdmin {
 			permitted = true
-		}
-
-		// then check if user has edit workflow permission
-		if projectAuthInfo.Workflow.Edit ||
+		} else if projectAuthInfo.Workflow.Edit ||
 			projectAuthInfo.Workflow.Create ||
 			projectAuthInfo.Test.View {
+			// then check if user has edit workflow permission
 			permitted = true
-		}
-
-		// finally check if the permission is given by collaboration mode
-		collaborationAuthorizedEdit, err := internalhandler.CheckPermissionGivenByCollaborationMode(ctx.UserID, projectKey, types.ResourceTypeWorkflow, types.WorkflowActionEdit)
-		if err == nil && collaborationAuthorizedEdit {
-			permitted = true
+		} else {
+			// finally check if the permission is given by collaboration mode
+			collaborationAuthorizedEdit, err := internalhandler.CheckPermissionGivenByCollaborationMode(ctx.UserID, projectKey, types.ResourceTypeWorkflow, types.WorkflowActionEdit)
+			if err == nil && collaborationAuthorizedEdit {
+				permitted = true
+			}
 		}
 	}
 

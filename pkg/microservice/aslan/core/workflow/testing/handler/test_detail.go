@@ -48,23 +48,19 @@ func ListDetailTestModules(c *gin.Context) {
 			// first check if the user is projectAdmin
 			if projectAuthInfo.IsProjectAdmin {
 				authorized = true
-			}
-
-			// then check if the user has view test permission
-			if projectAuthInfo.Test.View {
+			} else if projectAuthInfo.Test.View {
+				// then check if the user has view test permission
 				authorized = true
-			}
-
-			// then check if user has edit workflow permission
-			if projectAuthInfo.Workflow.Edit ||
+			} else if projectAuthInfo.Workflow.Edit ||
 				projectAuthInfo.Workflow.Create {
+				// then check if user has edit workflow permission
 				authorized = true
-			}
-
-			// finally check if the permission is given by collaboration mode
-			collaborationAuthorized, err := internalhandler.CheckPermissionGivenByCollaborationMode(ctx.UserID, projectKey, types.ResourceTypeWorkflow, types.WorkflowActionEdit)
-			if err == nil {
-				authorized = collaborationAuthorized
+			} else {
+				// finally check if the permission is given by collaboration mode
+				collaborationAuthorized, err := internalhandler.CheckPermissionGivenByCollaborationMode(ctx.UserID, projectKey, types.ResourceTypeWorkflow, types.WorkflowActionEdit)
+				if err == nil {
+					authorized = collaborationAuthorized
+				}
 			}
 		}
 		if !authorized {
