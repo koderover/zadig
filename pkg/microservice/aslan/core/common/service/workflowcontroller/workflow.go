@@ -591,6 +591,7 @@ func (c *workflowCtl) updateWorkflowTask() {
 	if err := commonrepo.NewworkflowTaskv4Coll().Update(c.workflowTask.ID.Hex(), c.workflowTask); err != nil {
 		c.logger.Errorf("update workflow task v4 failed,error: %v", err)
 	}
+	SendWorkflowNotifyMessage(c.workflowTask, c.workflowTask.TaskCreator, c.workflowTask.Status, c.logger)
 
 	if c.workflowTask.Status == config.StatusPassed || c.workflowTask.Status == config.StatusFailed || c.workflowTask.Status == config.StatusTimeout || c.workflowTask.Status == config.StatusCancelled || c.workflowTask.Status == config.StatusReject {
 		c.logger.Infof("%s:%d:%v task done", c.workflowTask.WorkflowName, c.workflowTask.TaskID, c.workflowTask.Status)
