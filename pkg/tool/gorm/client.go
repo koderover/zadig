@@ -18,7 +18,11 @@ package gorm
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
 
+	dameng "github.com/godoes/gorm-dameng"
+	"github.com/koderover/zadig/v2/pkg/config"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 )
@@ -51,11 +55,34 @@ func Close() {
 }
 
 func openDB(username, password, host, db string) (*gorm.DB, error) {
+	if !config.MysqlUseDM() {
+		// refer https://github.com/go-sql-driver/mysql#dsn-data-source-name for details
+		dsn := fmt.Sprintf(
+			"%s:%s@tcp(%s)/%s?charset=utf8mb4&parseTime=True&loc=Local",
+			username, password, host, db,
+		)
+		return gorm.Open(mysql.Open(dsn), &gorm.Config{})
+	} else {
+		ip := ""
+		port := 5236
+		hostArr := strings.Split(host, ":")
+		if len(hostArr) == 2 {
+			ip = hostArr[0]
+			tmpPort, err := strconv.Atoi(hostArr[1])
+			if err != nil {
+				return nil, fmt.Errorf("invalid port: %s", hostArr[1])
+			}
+			port = tmpPort
+		} else if len(hostArr) == 1 {
+			ip = hostArr[0]
+		} else {
+			return nil, fmt.Errorf("invalid host: %s", host)
+		}
 
-	// refer https://github.com/go-sql-driver/mysql#dsn-data-source-name for details
-	dsn := fmt.Sprintf(
-		"%s:%s@tcp(%s)/%s?charset=utf8mb4&parseTime=True&loc=Local",
-		username, password, host, db,
-	)
-	return gorm.Open(mysql.Open(dsn), &gorm.Config{})
+		options := map[string]string{
+			"schema": "SYSDBA",
+		}
+		dsn := dameng.BuildUrl(username, password, ip, port, options)
+		return gorm.Open(dameng.Open(dsn), &gorm.Config{})
+	}
 }
