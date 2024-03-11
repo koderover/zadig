@@ -523,18 +523,16 @@ func GetGlobalVariables(c *gin.Context) {
 	} else if projectedAuthInfo, ok := ctx.Resources.ProjectAuthInfo[projectKey]; ok {
 		if projectedAuthInfo.IsProjectAdmin {
 			permitted = true
-		}
-
-		if projectedAuthInfo.Service.Edit ||
+		} else if projectedAuthInfo.Service.Edit ||
 			projectedAuthInfo.Service.View ||
 			projectedAuthInfo.Env.EditConfig ||
 			projectedAuthInfo.Env.Create {
 			permitted = true
-		}
-
-		permittedByCollaborationMode, err := internalhandler.CheckPermissionGivenByCollaborationMode(ctx.UserID, projectKey, types.ResourceTypeEnvironment, types.EnvActionEditConfig)
-		if err == nil {
-			permitted = permittedByCollaborationMode
+		} else {
+			permittedByCollaborationMode, err := internalhandler.CheckPermissionGivenByCollaborationMode(ctx.UserID, projectKey, types.ResourceTypeEnvironment, types.EnvActionEditConfig)
+			if err == nil {
+				permitted = permittedByCollaborationMode
+			}
 		}
 	}
 

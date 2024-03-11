@@ -64,21 +64,16 @@ func ListSvcsInEnv(c *gin.Context) {
 	} else if projectedAuthInfo, ok := ctx.Resources.ProjectAuthInfo[projectKey]; ok {
 		if projectedAuthInfo.IsProjectAdmin {
 			permitted = true
-		}
-
-		if projectedAuthInfo.Env.View ||
+		} else if projectedAuthInfo.Env.View ||
 			projectedAuthInfo.Workflow.Execute {
 			permitted = true
-		}
-
-		collaborationViewEnvPermitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionView)
-		if err == nil && collaborationViewEnvPermitted {
+		} else if collaborationViewEnvPermitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionView); err != nil && collaborationViewEnvPermitted {
 			permitted = true
-		}
-
-		collaborationAuthorizedEdit, err := internalhandler.CheckPermissionGivenByCollaborationMode(ctx.UserID, projectKey, types.ResourceTypeWorkflow, types.WorkflowActionRun)
-		if err == nil && collaborationAuthorizedEdit {
-			permitted = true
+		} else {
+			collaborationAuthorizedEdit, err := internalhandler.CheckPermissionGivenByCollaborationMode(ctx.UserID, projectKey, types.ResourceTypeWorkflow, types.WorkflowActionRun)
+			if err == nil && collaborationAuthorizedEdit {
+				permitted = true
+			}
 		}
 	}
 
