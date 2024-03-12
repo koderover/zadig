@@ -385,10 +385,22 @@ func (j *VMDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		scriptStep := &commonmodels.StepTask{
 			JobName: jobTask.Name,
 		}
-		if buildInfo.ScriptType == types.ScriptTypeShell || buildInfo.ScriptType == "" {
+		if buildInfo.PMDeployScriptType == types.ScriptTypeShell || buildInfo.PMDeployScriptType == "" {
 			scriptStep.Name = vmDeployInfo.ServiceName + "-shell"
 			scriptStep.StepType = config.StepShell
 			scriptStep.Spec = &step.StepShellSpec{
+				Scripts: scripts,
+			}
+		} else if buildInfo.PMDeployScriptType == types.ScriptTypeBatchFile {
+			scriptStep.Name = vmDeployInfo.ServiceName + "-batchfile"
+			scriptStep.StepType = config.StepBatchFile
+			scriptStep.Spec = &step.StepBatchFileSpec{
+				Scripts: scripts,
+			}
+		} else if buildInfo.PMDeployScriptType == types.ScriptTypePowerShell {
+			scriptStep.Name = vmDeployInfo.ServiceName + "-powershell"
+			scriptStep.StepType = config.StepPowerShell
+			scriptStep.Spec = &step.StepPowerShellSpec{
 				Scripts: scripts,
 			}
 		}
@@ -586,7 +598,13 @@ func getVMDeployJobVariables(vmDeploy *commonmodels.ServiceAndVMDeploy, buildInf
 	if infrastructure != setting.JobVMInfrastructure {
 		ret = append(ret, &commonmodels.KeyVal{Key: "ARTIFACT", Value: "/workspace/artifact/" + vmDeploy.FileName, IsCredential: false})
 	} else {
-		ret = append(ret, &commonmodels.KeyVal{Key: "ARTIFACT", Value: "$WORKSPACE/artifact/" + vmDeploy.FileName, IsCredential: false})
+		if buildInfo.PMDeployScriptType == types.ScriptTypeShell || buildInfo.PMDeployScriptType == "" {
+			ret = append(ret, &commonmodels.KeyVal{Key: "ARTIFACT", Value: "$WORKSPACE/artifact/" + vmDeploy.FileName, IsCredential: false})
+		} else if buildInfo.PMDeployScriptType == types.ScriptTypeBatchFile {
+			ret = append(ret, &commonmodels.KeyVal{Key: "ARTIFACT", Value: "%WORKSPACE%\\artifact\\" + vmDeploy.FileName, IsCredential: false})
+		} else if buildInfo.PMDeployScriptType == types.ScriptTypePowerShell {
+			ret = append(ret, &commonmodels.KeyVal{Key: "ARTIFACT", Value: "$env:WORKSPACE\\artifact\\" + vmDeploy.FileName, IsCredential: false})
+		}
 	}
 	ret = append(ret, &commonmodels.KeyVal{Key: "PKG_FILE", Value: vmDeploy.FileName, IsCredential: false})
 	return ret
