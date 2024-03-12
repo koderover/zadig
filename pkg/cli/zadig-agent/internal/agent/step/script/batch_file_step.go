@@ -70,7 +70,7 @@ func (s *BatchFileStep) Run(ctx context.Context) error {
 		s.Logger.Infof(fmt.Sprintf("Script Execution ended. Duration: %.2f seconds.", time.Since(start).Seconds()))
 	}()
 
-	userScriptFile, err := generateBatchFile(s.spec, s.dirs, s.JobOutput, s.Logger)
+	userScriptFile, err := generateBatchFile(s.spec, s.dirs, s.JobOutput, s.envs, s.Logger)
 	if err != nil {
 		return fmt.Errorf("generate script failed: %v", err)
 	}
@@ -118,11 +118,18 @@ func (s *BatchFileStep) Run(ctx context.Context) error {
 	return cmd.Wait()
 }
 
-func generateBatchFile(spec *StepBatchFileSpec, dirs *types.AgentWorkDirs, jobOutput []string, logger *log.JobLogger) (string, error) {
+func generateBatchFile(spec *StepBatchFileSpec, dirs *types.AgentWorkDirs, jobOutput, envs []string, logger *log.JobLogger) (string, error) {
 	if len(spec.Scripts) == 0 {
 		return "", nil
 	}
 	scripts := []string{}
+	for _, env := range envs {
+		if strings.HasPrefix(env, "ARTIFACT=") {
+			scripts = append(scripts, fmt.Sprintf("set %s", env))
+			break
+		}
+	}
+
 	scripts = append(scripts, spec.Scripts...)
 
 	// add job output to script
