@@ -34,11 +34,19 @@ import (
 	"github.com/koderover/zadig/v2/pkg/setting"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
+	"github.com/koderover/zadig/v2/pkg/types"
 	"github.com/koderover/zadig/v2/pkg/util/ginzap"
 )
 
 func GetContainerLogsSSE(c *gin.Context) {
 	logger := ginzap.WithContext(c).Sugar()
+
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
 
 	tails, err := strconv.ParseInt(c.Query("tails"), 10, 64)
 	if err != nil {
@@ -47,6 +55,62 @@ func GetContainerLogsSSE(c *gin.Context) {
 
 	envName := c.Query("envName")
 	productName := c.Query("projectName")
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[productName]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !(ctx.Resources.ProjectAuthInfo[productName].Env.View ||
+			ctx.Resources.ProjectAuthInfo[productName].IsProjectAdmin) {
+			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, productName, types.ResourceTypeEnvironment, envName, types.EnvActionView)
+			if err != nil || !permitted {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
+	}
+
+	internalhandler.Stream(c, func(ctx context.Context, streamChan chan interface{}) {
+		logservice.ContainerLogStream(ctx, streamChan, envName, productName, c.Param("podName"), c.Param("containerName"), true, tails, logger)
+	}, logger)
+}
+
+func GetProductionEnvContainerLogsSSE(c *gin.Context) {
+	logger := ginzap.WithContext(c).Sugar()
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	tails, err := strconv.ParseInt(c.Query("tails"), 10, 64)
+	if err != nil {
+		tails = int64(10)
+	}
+
+	envName := c.Query("envName")
+	productName := c.Query("projectName")
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[productName]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !(ctx.Resources.ProjectAuthInfo[productName].ProductionEnv.View ||
+			ctx.Resources.ProjectAuthInfo[productName].IsProjectAdmin) {
+			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, productName, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionView)
+			if err != nil || !permitted {
+				ctx.UnAuthorized = true
+				return
+			}
+			ctx.UnAuthorized = true
+			return
+		}
+	}
 
 	internalhandler.Stream(c, func(ctx context.Context, streamChan chan interface{}) {
 		logservice.ContainerLogStream(ctx, streamChan, envName, productName, c.Param("podName"), c.Param("containerName"), true, tails, logger)
