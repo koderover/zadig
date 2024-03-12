@@ -55,6 +55,7 @@ type Build struct {
 	DeployInfrastructure string              `bson:"deploy_infrastructure"         json:"deploy_infrastructure"`
 	DeployVMLabels       []string            `bson:"deploy_vm_labels"              json:"deploy_vm_labels"`
 	DeployRepos          []*types.Repository `bson:"deploy_repos"                  json:"deploy_repos"`
+	PMDeployScriptType   types.ScriptType    `bson:"pm_deploy_script_type"         json:"pm_deploy_script_type"`
 	PMDeployScripts      string              `bson:"pm_deploy_scripts"             json:"pm_deploy_scripts"`
 
 	// New since V1.10.0.
