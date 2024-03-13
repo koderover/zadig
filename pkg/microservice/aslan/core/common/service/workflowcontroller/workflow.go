@@ -558,7 +558,7 @@ func updateworkflowStatus(workflow *commonmodels.WorkflowTask) {
 		}
 	}
 	if workflow.Status != workflowStatus {
-		SendWorkflowNotifyMessage(workflow, workflow.TaskCreator, workflow.Status, log.SugaredLogger())
+		SendWorkflowNotifyMessage(workflow, workflow.TaskCreator, workflowStatus, log.SugaredLogger())
 	}
 	workflow.Status = workflowStatus
 }
