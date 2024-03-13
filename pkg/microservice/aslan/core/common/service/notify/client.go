@@ -75,7 +75,6 @@ func (c *client) checkWorkflowNotifySubscribed(receiver string) bool {
 			if r.PipelineStatus == "*" {
 				return true
 			}
-			return true
 		}
 	}
 	return false
