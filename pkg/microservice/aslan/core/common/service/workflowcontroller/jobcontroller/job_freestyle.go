@@ -19,6 +19,7 @@ package jobcontroller
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"strings"
 	"time"
 
@@ -44,6 +45,7 @@ import (
 	krkubeclient "github.com/koderover/zadig/v2/pkg/tool/kube/client"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/informer"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/updater"
+	"github.com/koderover/zadig/v2/pkg/types/step"
 )
 
 const (
@@ -454,6 +456,79 @@ func BuildJobExcutorContext(jobTaskSpec *commonmodels.JobTaskFreestyleSpec, job 
 }
 
 func (c *FreestyleJobCtl) SaveInfo(ctx context.Context) error {
+	// save delivery artifact for archive step
+	if c.job.Status == config.StatusPassed {
+		for _, stepTask := range c.jobTaskSpec.Steps {
+			if stepTask.StepType == config.StepArchive {
+				yamlString, err := yaml.Marshal(stepTask.Spec)
+				if err != nil {
+					return fmt.Errorf("marshal archive spec error: %v", err)
+				}
+				archiveSpec := &step.StepArchiveSpec{}
+				if err := yaml.Unmarshal(yamlString, &archiveSpec); err != nil {
+					return fmt.Errorf("unmarshal archive spec error: %v", err)
+				}
+
+				for _, upload := range archiveSpec.UploadDetail {
+					if !upload.IsFileArchive {
+						continue
+					}
+					deliveryArtifact := new(commonmodels.DeliveryArtifact)
+					deliveryArtifact.CreatedBy = c.workflowCtx.WorkflowTaskCreatorUsername
+					deliveryArtifact.CreatedTime = time.Now().Unix()
+					deliveryArtifact.Source = string(config.WorkflowTypeV4)
+					deliveryArtifact.Name = upload.ServiceModule + "_" + upload.ServiceName
+					// TODO(Ray) file类型的交付物名称存放在Image和ImageTag字段是不规范的，优化时需要考虑历史数据的兼容问题。
+					deliveryArtifact.Image = upload.Name
+					deliveryArtifact.ImageTag = upload.Name
+					deliveryArtifact.Type = string(config.File)
+					deliveryArtifact.PackageFileLocation = upload.PackageFileLocation
+					deliveryArtifact.PackageStorageURI = archiveSpec.S3.Endpoint + "/" + archiveSpec.S3.Bucket
+					err := mongodb.NewDeliveryArtifactColl().Insert(deliveryArtifact)
+					if err != nil {
+						return fmt.Errorf("archiveCtl AfterRun: insert delivery artifact error: %v", err)
+					}
+
+					deliveryActivity := new(commonmodels.DeliveryActivity)
+					deliveryActivity.Type = setting.BuildType
+					deliveryActivity.ArtifactID = deliveryArtifact.ID
+					deliveryActivity.JobTaskName = upload.JobTaskName
+					deliveryActivity.URL = fmt.Sprintf("/v1/projects/detail/%s/pipelines/custom/%s/%d?display_name=%s", c.workflowCtx.ProjectName, c.workflowCtx.WorkflowName, c.workflowCtx.TaskID, url.QueryEscape(c.workflowCtx.WorkflowDisplayName))
+					commits := make([]*commonmodels.ActivityCommit, 0)
+					for _, repo := range archiveSpec.Repos {
+						deliveryCommit := new(commonmodels.ActivityCommit)
+						deliveryCommit.Address = repo.Address
+						deliveryCommit.Source = repo.Source
+						deliveryCommit.RepoOwner = repo.RepoOwner
+						deliveryCommit.RepoName = repo.RepoName
+						deliveryCommit.Branch = repo.Branch
+						deliveryCommit.Tag = repo.Tag
+						deliveryCommit.PR = repo.PR
+						deliveryCommit.PRs = repo.PRs
+						deliveryCommit.CommitID = repo.CommitID
+						deliveryCommit.CommitMessage = repo.CommitMessage
+						deliveryCommit.AuthorName = repo.AuthorName
+
+						commits = append(commits, deliveryCommit)
+					}
+					deliveryActivity.Commits = commits
+
+					deliveryActivity.CreatedBy = c.workflowCtx.WorkflowTaskCreatorUsername
+					deliveryActivity.CreatedTime = time.Now().Unix()
+					deliveryActivity.StartTime = c.workflowCtx.StartTime.Unix()
+					deliveryActivity.EndTime = time.Now().Unix()
+
+					err = mongodb.NewDeliveryActivityColl().Insert(deliveryActivity)
+					if err != nil {
+						return fmt.Errorf("archiveCtl AfterRun: build deliveryActivityColl insert err:%v", err)
+					}
+				}
+
+				break
+			}
+		}
+	}
+
 	return mongodb.NewJobInfoColl().Create(context.TODO(), &commonmodels.JobInfo{
 		Type:                c.job.JobType,
 		WorkflowName:        c.workflowCtx.WorkflowName,
