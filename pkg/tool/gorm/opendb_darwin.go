@@ -1,3 +1,6 @@
+//go:build darwin
+// +build darwin
+
 /*
 Copyright 2021 The KodeRover Authors.
 
@@ -17,32 +20,22 @@ limitations under the License.
 package gorm
 
 import (
+	"fmt"
+
+	"github.com/koderover/zadig/v2/pkg/config"
+	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 )
 
-var connections = make(map[string]*gorm.DB)
-
-func getConnection(db string) *gorm.DB {
-	return connections[db]
-}
-
-func Open(username, password, host, db string) error {
-	conn, err := openDB(username, password, host, db)
-	if err != nil {
-		return err
+func openDB(username, password, host, db string) (*gorm.DB, error) {
+	// refer https://github.com/go-sql-driver/mysql#dsn-data-source-name for details
+	if !config.MysqlUseDM() {
+		dsn := fmt.Sprintf(
+			"%s:%s@tcp(%s)/%s?charset=utf8mb4&parseTime=True&loc=Local",
+			username, password, host, db,
+		)
+		return gorm.Open(mysql.Open(dsn), &gorm.Config{})
+	} else {
+		return nil, fmt.Errorf("dm database is not supported on darwin")
 	}
-
-	connections[db] = conn
-
-	return nil
-}
-
-func DB(db string) *gorm.DB {
-	return getConnection(db)
-}
-
-func Close() {
-	//for _, conn := range connections {
-	//	conn.Close()
-	//}
 }
