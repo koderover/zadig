@@ -19,6 +19,7 @@ package jobcontroller
 import (
 	"context"
 	"fmt"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"sort"
 	"strings"
 	"sync"
@@ -481,7 +482,17 @@ func workLoadDeployStat(kubeClient client.Client, namespace string, labelMaps []
 	return nil
 }
 
-func (c *DeployJobCtl) getResourcesPodOwnerUID() ([]commonmodels.Resource, error) {
+func (c *DeployJobCtl) getResourcesPodOwnerUIDImpl(strict bool) ([]commonmodels.Resource, error) {
+	containerMap := make(map[string]*commonmodels.Container)
+	if strict && slices.Contains(c.jobTaskSpec.DeployContents, config.DeployImage) {
+		for _, serviceImage := range c.jobTaskSpec.ServiceAndImages {
+			containerMap[serviceImage.ServiceModule] = &commonmodels.Container{
+				Name:      serviceImage.ServiceModule,
+				Image:     serviceImage.Image,
+				ImageName: util.ExtractImageName(serviceImage.Image),
+			}
+		}
+	}
 	newResources := []commonmodels.Resource{}
 	for _, resource := range c.jobTaskSpec.ReplaceResources {
 		switch resource.Kind {
@@ -500,8 +511,7 @@ func (c *DeployJobCtl) getResourcesPodOwnerUID() ([]commonmodels.Resource, error
 			if err != nil {
 				return nil, err
 			}
-			// esure latest replicaset to be created
-			time.Sleep(3 * time.Second)
+			// ensure latest replicaset to be created
 			replicaSets, err := getter.ListReplicaSets(c.namespace, selector, c.kubeClient)
 			if err != nil {
 				return newResources, err
@@ -519,9 +529,45 @@ func (c *DeployJobCtl) getResourcesPodOwnerUID() ([]commonmodels.Resource, error
 			sort.Slice(owned, func(i, j int) bool {
 				return owned[i].CreationTimestamp.After(owned[j].CreationTimestamp.Time)
 			})
+
+			if len(containerMap) > 0 {
+				owner := owned[0]
+				for _, image := range owner.Spec.Template.Spec.Containers {
+					if replicaContainer, ok := containerMap[image.Name]; ok {
+						if replicaContainer.Image != image.Image {
+							log.Infof("+++++++++ meeting not same container: %s/%s", replicaContainer.Name, replicaContainer.Image)
+							return nil, nil
+						} else {
+							log.Infof("-------- meeting same container: %s/%s", replicaContainer.Name, replicaContainer.Image)
+						}
+					}
+				}
+			}
+
 			resource.PodOwnerUID = string(owned[0].ObjectMeta.UID)
 		}
 		newResources = append(newResources, resource)
+	}
+	return newResources, nil
+}
+
+func (c *DeployJobCtl) getResourcesPodOwnerUID() ([]commonmodels.Resource, error) {
+	timeout := time.After(time.Second * 20)
+	var newResources []commonmodels.Resource
+	var err error
+	for {
+		if len(newResources) > 0 || err != nil {
+			break
+		}
+		select {
+		case <-timeout:
+			newResources, err = c.getResourcesPodOwnerUIDImpl(false)
+			break
+		default:
+			time.Sleep(2 * time.Second)
+			newResources, err = c.getResourcesPodOwnerUIDImpl(true)
+			break
+		}
 	}
 	return newResources, nil
 }
