@@ -523,18 +523,16 @@ func GetGlobalVariables(c *gin.Context) {
 	} else if projectedAuthInfo, ok := ctx.Resources.ProjectAuthInfo[projectKey]; ok {
 		if projectedAuthInfo.IsProjectAdmin {
 			permitted = true
-		}
-
-		if projectedAuthInfo.Service.Edit ||
+		} else if projectedAuthInfo.Service.Edit ||
 			projectedAuthInfo.Service.View ||
 			projectedAuthInfo.Env.EditConfig ||
 			projectedAuthInfo.Env.Create {
 			permitted = true
-		}
-
-		permittedByCollaborationMode, err := internalhandler.CheckPermissionGivenByCollaborationMode(ctx.UserID, projectKey, types.ResourceTypeEnvironment, types.EnvActionEditConfig)
-		if err == nil {
-			permitted = permittedByCollaborationMode
+		} else {
+			permittedByCollaborationMode, err := internalhandler.CheckPermissionGivenByCollaborationMode(ctx.UserID, projectKey, types.ResourceTypeEnvironment, types.EnvActionEditConfig)
+			if err == nil {
+				permitted = permittedByCollaborationMode
+			}
 		}
 	}
 
@@ -585,8 +583,12 @@ func GetProductionGlobalVariables(c *gin.Context) {
 			!ctx.Resources.ProjectAuthInfo[projectKey].ProductionService.Edit &&
 			!ctx.Resources.ProjectAuthInfo[projectKey].ProductionService.View &&
 			!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.EditConfig {
-			ctx.UnAuthorized = true
-			return
+
+			permittedByCollaborationMode, err := internalhandler.CheckPermissionGivenByCollaborationMode(ctx.UserID, projectKey, types.ResourceTypeEnvironment, types.ProductionEnvActionEditConfig)
+			if err != nil || !permittedByCollaborationMode {
+				ctx.UnAuthorized = true
+				return
+			}
 		}
 	}
 

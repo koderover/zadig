@@ -1094,7 +1094,7 @@ func buildDeliveryImages(productInfo *commonmodels.Product, targetRegistry *comm
 			deliveryDeploy.DeletedAt = 0
 			err = commonrepo.NewDeliveryDeployColl().Insert(deliveryDeploy)
 			if err != nil {
-				return fmt.Errorf("failed to insert deliveryDeploy, serviceName: %s", yamlData.ServiceName)
+				return fmt.Errorf("failed to insert deliveryDeploy, serviceName: %s, imageName: %s, image: %s, err: %v", deliveryDeploy.ServiceName, deliveryDeploy.ContainerName, deliveryDeploy.Image, err)
 			}
 		}
 	}
@@ -2194,9 +2194,9 @@ func generateCustomWorkflowFromDeliveryVersion(productInfo *commonmodels.Product
 	for sourceRegistry, serviceNameImageDatasMap := range registryDatasMap {
 		for serviceName, imageDatas := range serviceNameImageDatasMap {
 			for _, imageData := range imageDatas {
-				sourceContainter := serviceNameContainerMap[serviceName][imageData.ImageName]
+				sourceContainter := serviceNameContainerMap[serviceName][imageData.ContainerName]
 				if sourceContainter == nil {
-					return nil, fmt.Errorf("can't find source container for image: %s", imageData.Image)
+					return nil, fmt.Errorf("can't find source container: %s", imageData.ContainerName)
 				}
 				sourceImage := sourceContainter.Image
 				sourceTagStr := strings.Split(sourceImage, ":")

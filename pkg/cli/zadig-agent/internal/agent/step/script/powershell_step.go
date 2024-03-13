@@ -70,7 +70,7 @@ func (s *PowerShellStep) Run(ctx context.Context) error {
 		s.Logger.Infof(fmt.Sprintf("Script Execution ended. Duration: %.2f seconds.", time.Since(start).Seconds()))
 	}()
 
-	userScriptFile, err := generatePowerShellScript(s.spec, s.dirs, s.JobOutput, s.Logger)
+	userScriptFile, err := generatePowerShellScript(s.spec, s.dirs, s.JobOutput, s.envs, s.Logger)
 	if err != nil {
 		return fmt.Errorf("generate script failed: %v", err)
 	}
@@ -118,11 +118,23 @@ func (s *PowerShellStep) Run(ctx context.Context) error {
 	return cmd.Wait()
 }
 
-func generatePowerShellScript(spec *StepPowerShellSpec, dirs *types.AgentWorkDirs, jobOutput []string, logger *log.JobLogger) (string, error) {
+func generatePowerShellScript(spec *StepPowerShellSpec, dirs *types.AgentWorkDirs, jobOutput, envs []string, logger *log.JobLogger) (string, error) {
 	if len(spec.Scripts) == 0 {
 		return "", nil
 	}
 	scripts := []string{}
+	for _, env := range envs {
+		if strings.HasPrefix(env, "ARTIFACT=") {
+			envArr := strings.Split(env, "=")
+			if len(envArr) != 2 {
+				return "", fmt.Errorf("invalid env: %s", env)
+			}
+			key := envArr[0]
+			value := envArr[1]
+			scripts = append(scripts, fmt.Sprintf("$env:%s=\"%s\"", key, value))
+			break
+		}
+	}
 	scripts = append(scripts, spec.Scripts...)
 
 	// add job output to script

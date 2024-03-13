@@ -167,6 +167,13 @@ func (*Router) Inject(router *gin.RouterGroup) {
 
 		production.GET("/kube/pods/:podName/file", DownloadFileFromPod)
 		production.DELETE("/kube/:name/pods/:podName", DeletePod)
+		production.GET("/kube/workloads/:workloadType", ListProductionK8sResOverview)
+		production.GET("/kube/workloads/:workloadType/:workloadName", GetProductionK8sWorkflowDetail)
+		production.GET("/kube/resources/:resourceType", ListProductionK8sResOverview)
+		production.GET("/kube/yaml", GetProductionK8sResourceYaml)
+		production.GET("/kube/events", ListProductionKubeEvents)
+		production.GET("/kube/pods", ListProductionPodsInfo)
+		production.GET("/kube/pods/:podName", GetProductionPodsDetailInfo)
 
 		production.GET("/environments/:name/helm/releases", ListProductionReleases)
 		production.DELETE("/environments/:name/helm/releases", DeleteProductionHelmReleases)
@@ -191,6 +198,8 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		// k8s resources operations
 		production.POST("/environments/:name/services/:serviceName/scaleNew", ScaleNewProductionService)
 		production.POST("/image/deployment/:envName", UpdateProductionDeploymentContainerImage)
+		production.POST("/image/statefulset/:envName", UpdateProductionStatefulSetContainerImage)
+		production.POST("/image/cronjob/:envName", UpdateProductionCronJobContainerImage)
 
 		production.GET("/rendersets/variables", GetProductionServiceVariables)
 		production.POST("/rendersets/renderchart", GetServiceRenderCharts)

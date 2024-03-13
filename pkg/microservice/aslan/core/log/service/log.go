@@ -81,7 +81,7 @@ func GetWorkflowTestJobContainerLogs(pipelineName, serviceName, pipelineType str
 }
 
 func getContainerLogFromS3(pipelineName, filenamePrefix string, taskID int64, log *zap.SugaredLogger) (string, error) {
-	fileName := strings.Replace(strings.ToLower(filenamePrefix), "_", "-", -1)
+	fileName := strings.Replace(filenamePrefix, "_", "-", -1)
 	fileName += ".log"
 	tempFile, _ := util.GenerateTmpFile()
 	defer func() {
@@ -200,7 +200,7 @@ func GetTestingContainerLogs(testName string, taskID int64, log *zap.SugaredLogg
 		return "", fmt.Errorf("convert job info to task job info error: %v", err)
 	}
 
-	buildJobNamePrefix := fmt.Sprintf("%s-%s-%s", jobInfo.JobName, jobInfo.TestingName, jobInfo.RandStr)
+	buildJobNamePrefix := strings.ToLower(fmt.Sprintf("%s-%s-%s", jobInfo.JobName, jobInfo.TestingName, jobInfo.RandStr))
 	buildLog, err := getContainerLogFromS3(workflowName, buildJobNamePrefix, taskID, log)
 	if err != nil {
 		return "", err

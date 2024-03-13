@@ -894,7 +894,7 @@ func LintWorkflowV4(workflow *commonmodels.WorkflowV4, logger *zap.SugaredLogger
 		return e.ErrUpsertWorkflow.AddErr(err)
 	}
 	if !match {
-		errMsg := "工作流标识支持小写字母、数字和中划线"
+		errMsg := "工作流标识支持大小写字母、数字和中划线"
 		logger.Error(errMsg)
 		return e.ErrUpsertWorkflow.AddDesc(errMsg)
 	}
