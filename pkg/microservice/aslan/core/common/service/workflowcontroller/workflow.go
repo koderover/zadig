@@ -150,7 +150,9 @@ func CancelWorkflowTask(userName, workflowName string, taskID int64, logger *zap
 func (c *workflowCtl) setWorkflowStatus(status config.Status) {
 	if c.workflowTask.Status != status {
 		if status == config.StatusWaitingApprove {
+			log.Infof("------- meeting wait approve status")
 			for _, stage := range c.workflowTask.Stages {
+				log.Infof("------- stage status: %s", stage.Status)
 				if stage.Status == config.StatusWaitingApprove {
 					if stage.Approval != nil && stage.Approval.Type == config.NativeApproval {
 						for _, approveUser := range stage.Approval.NativeApproval.ApproveUsers {
