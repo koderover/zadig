@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"sync"
 
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -233,6 +234,10 @@ func (j *VMDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		originS3StorageSubfolder = s3Storage.Subfolder
 	}
 
+	var (
+		buildMap         sync.Map
+		buildTemplateMap sync.Map
+	)
 	for _, vmDeployInfo := range j.spec.ServiceAndVMDeploys {
 		s3Storage.Subfolder = originS3StorageSubfolder
 
@@ -240,12 +245,19 @@ func (j *VMDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		if !ok {
 			return resp, fmt.Errorf("service %s not found", vmDeployInfo.ServiceName)
 		}
-		buildInfo, err := commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: service.BuildName, ProductName: j.workflow.Project})
-		if err != nil {
-			return resp, fmt.Errorf("find build: %s error: %v", service.BuildName, err)
+		var buildInfo *commonmodels.Build
+		buildMapValue, ok := buildMap.Load(service.BuildName)
+		if !ok {
+			buildInfo, err = commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: service.BuildName, ProductName: j.workflow.Project})
+			if err != nil {
+				return resp, fmt.Errorf("find build: %s error: %v", service.BuildName, err)
+			}
+			buildMap.Store(service.BuildName, buildInfo)
+		} else {
+			buildInfo = buildMapValue.(*commonmodels.Build)
 		}
 		// it only fills build detail created from template
-		if err := fillBuildDetail(buildInfo, vmDeployInfo.ServiceName, vmDeployInfo.ServiceName); err != nil {
+		if err := fillBuildDetail(buildInfo, vmDeployInfo.ServiceName, vmDeployInfo.ServiceName, &buildTemplateMap); err != nil {
 			return resp, err
 		}
 		basicImage, err := commonrepo.NewBasicImageColl().Find(buildInfo.PreDeploy.ImageID)

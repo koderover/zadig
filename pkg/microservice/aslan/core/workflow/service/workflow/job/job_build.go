@@ -22,6 +22,7 @@ import (
 	"os"
 	"path"
 	"strings"
+	"sync"
 
 	aslanUtil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
@@ -78,14 +79,29 @@ func (j *BuildJob) SetPreset() error {
 		return fmt.Errorf("get services map error: %v", err)
 	}
 
+	var buildMap sync.Map
+	var buildTemplateMap sync.Map
 	newBuilds := make([]*commonmodels.ServiceAndBuild, 0)
 	for _, build := range j.spec.ServiceAndBuilds {
-		buildInfo, err := commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: build.BuildName, ProductName: j.workflow.Project})
-		if err != nil {
-			log.Errorf("find build: %s error: %v", build.BuildName, err)
-			continue
+		var buildInfo *commonmodels.Build
+		buildMapValue, ok := buildMap.Load(build.BuildName)
+		if !ok {
+			buildInfo, err = commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: build.BuildName, ProductName: j.workflow.Project})
+			if err != nil {
+				log.Errorf("find build: %s error: %v", build.BuildName, err)
+				buildMap.Store(build.BuildName, nil)
+				continue
+			}
+			buildMap.Store(build.BuildName, buildInfo)
+		} else {
+			if buildMapValue == nil {
+				log.Errorf("find build: %s error: %v", build.BuildName, err)
+				continue
+			}
+			buildInfo = buildMapValue.(*commonmodels.Build)
 		}
-		if err := fillBuildDetail(buildInfo, build.ServiceName, build.ServiceModule); err != nil {
+
+		if err := fillBuildDetail(buildInfo, build.ServiceName, build.ServiceModule, &buildTemplateMap); err != nil {
 			log.Errorf("fill build: %s detail error: %v", build.BuildName, err)
 			continue
 		}
@@ -125,13 +141,31 @@ func (j *BuildJob) GetRepos() ([]*types.Repository, error) {
 		return resp, err
 	}
 
+	var (
+		err              error
+		buildMap         sync.Map
+		buildTemplateMap sync.Map
+	)
 	for _, build := range j.spec.ServiceAndBuilds {
-		buildInfo, err := commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: build.BuildName})
-		if err != nil {
-			log.Errorf("find build: %s error: %v", build.BuildName, err)
-			continue
+		var buildInfo *commonmodels.Build
+		buildMapValue, ok := buildMap.Load(build.BuildName)
+		if !ok {
+			buildInfo, err = commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: build.BuildName, ProductName: j.workflow.Project})
+			if err != nil {
+				log.Errorf("find build: %s error: %v", build.BuildName, err)
+				buildMap.Store(build.BuildName, nil)
+				continue
+			}
+			buildMap.Store(build.BuildName, buildInfo)
+		} else {
+			if buildMapValue == nil {
+				log.Errorf("find build: %s error: %v", build.BuildName, err)
+				continue
+			}
+			buildInfo = buildMapValue.(*commonmodels.Build)
 		}
-		if err := fillBuildDetail(buildInfo, build.ServiceName, build.ServiceModule); err != nil {
+
+		if err := fillBuildDetail(buildInfo, build.ServiceName, build.ServiceModule, &buildTemplateMap); err != nil {
 			log.Errorf("fill build: %s detail error: %v", build.BuildName, err)
 			continue
 		}
@@ -204,6 +238,10 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		return resp, fmt.Errorf("find default s3 storage error: %v", err)
 	}
 
+	var (
+		buildMap         sync.Map
+		buildTemplateMap sync.Map
+	)
 	for _, build := range j.spec.ServiceAndBuilds {
 		imageTag := commonservice.ReleaseCandidate(build.Repos, taskID, j.workflow.Project, build.ServiceModule, "", build.ImageName, "image")
 
@@ -217,12 +255,19 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 
 		build.Package = fmt.Sprintf("%s.tar.gz", commonservice.ReleaseCandidate(build.Repos, taskID, j.workflow.Project, build.ServiceModule, "", build.ImageName, "tar"))
 
-		buildInfo, err := commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: build.BuildName, ProductName: j.workflow.Project})
-		if err != nil {
-			return resp, fmt.Errorf("find build: %s error: %v", build.BuildName, err)
+		var buildInfo *commonmodels.Build
+		buildMapValue, ok := buildMap.Load(build.BuildName)
+		if !ok {
+			buildInfo, err = commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: build.BuildName, ProductName: j.workflow.Project})
+			if err != nil {
+				return resp, fmt.Errorf("find build: %s error: %v", build.BuildName, err)
+			}
+			buildMap.Store(build.BuildName, buildInfo)
+		} else {
+			buildInfo = buildMapValue.(*commonmodels.Build)
 		}
 		// it only fills build detail created from template
-		if err := fillBuildDetail(buildInfo, build.ServiceName, build.ServiceModule); err != nil {
+		if err := fillBuildDetail(buildInfo, build.ServiceName, build.ServiceModule, &buildTemplateMap); err != nil {
 			return resp, err
 		}
 		basicImage, err := commonrepo.NewBasicImageColl().Find(buildInfo.PreBuild.ImageID)
@@ -551,15 +596,24 @@ func modelS3toS3(modelS3 *commonmodels.S3Storage) *step.S3 {
 	return resp
 }
 
-func fillBuildDetail(moduleBuild *commonmodels.Build, serviceName, serviceModule string) error {
+func fillBuildDetail(moduleBuild *commonmodels.Build, serviceName, serviceModule string, buildTemplateMap *sync.Map) error {
 	if moduleBuild.TemplateID == "" {
 		return nil
 	}
-	buildTemplate, err := commonrepo.NewBuildTemplateColl().Find(&commonrepo.BuildTemplateQueryOption{
-		ID: moduleBuild.TemplateID,
-	})
-	if err != nil {
-		return fmt.Errorf("failed to find build template with id: %s, err: %s", moduleBuild.TemplateID, err)
+
+	var err error
+	var buildTemplate *commonmodels.BuildTemplate
+	buildTemplateMapValue, ok := buildTemplateMap.Load(moduleBuild.TemplateID)
+	if !ok {
+		buildTemplate, err = commonrepo.NewBuildTemplateColl().Find(&commonrepo.BuildTemplateQueryOption{
+			ID: moduleBuild.TemplateID,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to find build template with id: %s, err: %s", moduleBuild.TemplateID, err)
+		}
+		buildTemplateMap.Store(moduleBuild.TemplateID, buildTemplate)
+	} else {
+		buildTemplate = buildTemplateMapValue.(*commonmodels.BuildTemplate)
 	}
 
 	moduleBuild.Timeout = buildTemplate.Timeout
