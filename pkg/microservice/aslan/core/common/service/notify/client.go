@@ -64,6 +64,20 @@ func NewNotifyClient() *client {
 	}
 }
 
+func (c *client) checkWorkflowNotifySubscribed(receiver string) bool {
+	resp, err := c.ListSubscriptions(receiver)
+	if err != nil {
+		log.Errorf("failed to check workflow notify switch, err: %s", err)
+		return false
+	}
+	for _, r := range resp {
+		if r.Type == config.PipelineStatus || r.Type == config.WorkflowTaskStatus {
+			return true
+		}
+	}
+	return false
+}
+
 func (c *client) CreateNotify(sender string, nf *models.Notify) error {
 	b, err := json.Marshal(nf.Content)
 	if err != nil {
@@ -84,6 +98,9 @@ func (c *client) CreateNotify(sender string, nf *models.Notify) error {
 
 		nf.Content = content
 	case config.WorkflowTaskStatus:
+		if !c.checkWorkflowNotifySubscribed(sender) {
+			return nil
+		}
 		var content *models.WorkflowTaskStatusCtx
 		if err = json.Unmarshal(b, &content); err != nil {
 			return fmt.Errorf("[%s] convert workflowtaskstatus error: %v", sender, err)
