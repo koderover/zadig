@@ -72,6 +72,9 @@ func (c *client) checkWorkflowNotifySubscribed(receiver string) bool {
 	}
 	for _, r := range resp {
 		if r.Type == config.PipelineStatus || r.Type == config.WorkflowTaskStatus {
+			if r.PipelineStatus == "*" {
+				return true
+			}
 			return true
 		}
 	}
