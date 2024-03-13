@@ -19,13 +19,13 @@ package jobcontroller
 import (
 	"context"
 	"fmt"
-	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"sort"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/hashicorp/go-multierror"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"golang.org/x/exp/slices"
