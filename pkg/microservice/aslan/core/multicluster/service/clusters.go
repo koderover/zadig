@@ -552,9 +552,9 @@ func UpdateCluster(id string, args *K8SCluster, logger *zap.SugaredLogger) (*com
 	//       Depends on product design.
 	// TODO: Currently can't change cluster to right config, if previous config is wrong.
 	if args.Cache.MediumType == types.NFSMedium && args.Cache.NFSProperties.ProvisionType == types.DynamicProvision {
-		if id == setting.LocalClusterID {
-			args.DindCfg = nil
-		}
+		//if id == setting.LocalClusterID {
+		//	args.DindCfg = nil
+		//}
 
 		if err := createDynamicPVC(id, "cache", &args.Cache.NFSProperties, logger); err != nil {
 			return nil, err
