@@ -131,7 +131,6 @@ func CancelWorkflowTask(userName, workflowName string, taskID int64, logger *zap
 		logger.Errorf("[%s] update task: %s:%d error: %v", userName, workflowName, taskID, err)
 		return err
 	}
-	SendWorkflowNotifyMessage(t, userName, t.Status, logger)
 
 	// Updating the comment in the git repository, this will not cause the function to return error if this function call fails
 	if err := scmnotify.NewService().UpdateWebhookCommentForWorkflowV4(t, logger); err != nil {
@@ -149,7 +148,6 @@ func CancelWorkflowTask(userName, workflowName string, taskID int64, logger *zap
 }
 
 func (c *workflowCtl) setWorkflowStatus(status config.Status) {
-	log.Infof("----- setting status: %s", status)
 	if c.workflowTask.Status != status {
 		if status == config.StatusWaitingApprove {
 			for _, stage := range c.workflowTask.Stages {
