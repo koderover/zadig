@@ -535,10 +535,8 @@ func (c *DeployJobCtl) getResourcesPodOwnerUIDImpl(strict bool) ([]commonmodels.
 				for _, image := range owner.Spec.Template.Spec.Containers {
 					if replicaContainer, ok := containerMap[image.Name]; ok {
 						if replicaContainer.Image != image.Image {
-							log.Infof("+++++++++ meeting not same container: %s/%s", replicaContainer.Name, replicaContainer.Image)
+							log.Infof("meeting different container: %s/%s", replicaContainer.Name, replicaContainer.Image)
 							return nil, nil
-						} else {
-							log.Infof("-------- meeting same container: %s/%s", replicaContainer.Name, replicaContainer.Image)
 						}
 					}
 				}
