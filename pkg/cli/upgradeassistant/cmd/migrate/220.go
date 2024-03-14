@@ -133,7 +133,7 @@ func migrateProductWorkflowToCustomWorkflow() error {
 		newWorkflow, err := generateCustomWorkflowFromProductWorkflow(wf)
 		if err != nil {
 			logger.Errorf("failed to generate custom workflow for product workflow: %s, error: %s", wf.Name, err)
-			return err
+			continue
 		}
 
 		err = workflow.CreateWorkflowV4("system", newWorkflow, log.SugaredLogger())
