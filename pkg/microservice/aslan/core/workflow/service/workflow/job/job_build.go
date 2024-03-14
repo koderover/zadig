@@ -23,6 +23,7 @@ import (
 	"path"
 	"strings"
 	"sync"
+	"time"
 
 	aslanUtil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
@@ -68,6 +69,7 @@ func (j *BuildJob) Instantiate() error {
 // Updated @2023-03-30 before v1.17.0
 // Updated @2023-04-07 after v1.17.0 revert to old version
 func (j *BuildJob) SetPreset() error {
+	start := time.Now()
 	j.spec = &commonmodels.ZadigBuildJobSpec{}
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return err
@@ -78,6 +80,9 @@ func (j *BuildJob) SetPreset() error {
 	if err != nil {
 		return fmt.Errorf("get services map error: %v", err)
 	}
+	end1 := time.Now()
+	elapsed1 := end1.Sub(start)
+	log.Debugf("BuildJob SetPreset elapsed1: %v", elapsed1)
 
 	var buildMap sync.Map
 	var buildTemplateMap sync.Map
@@ -131,6 +136,10 @@ func (j *BuildJob) SetPreset() error {
 	}
 	j.spec.ServiceAndBuilds = newBuilds
 	j.job.Spec = j.spec
+
+	end2 := time.Now()
+	elapsed2 := end2.Sub(start)
+	log.Debugf("BuildJob SetPreset elapsed2: %v", elapsed2)
 	return nil
 }
 

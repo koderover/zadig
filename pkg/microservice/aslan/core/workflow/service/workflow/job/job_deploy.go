@@ -19,6 +19,7 @@ package job
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/elliotchance/orderedmap/v2"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
@@ -109,6 +110,7 @@ func (j *DeployJob) getOriginReferedJobTargets(jobName string) ([]*commonmodels.
 }
 
 func (j *DeployJob) SetPreset() error {
+	start := time.Now()
 	j.spec = &commonmodels.ZadigDeployJobSpec{}
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return err
@@ -123,10 +125,17 @@ func (j *DeployJob) SetPreset() error {
 	if project.ProductFeature != nil {
 		j.spec.DeployType = project.ProductFeature.DeployType
 	}
+	end1 := time.Now()
+	elapsed1 := end1.Sub(start)
+	log.Debugf("DeployJob SetPreset elapsed1: %v", elapsed1)
 	// if quoted job quote another job, then use the service and image of the quoted job
 	if j.spec.Source == config.SourceFromJob {
 		j.spec.OriginJobName = j.spec.JobName
 		j.spec.JobName = getOriginJobName(j.workflow, j.spec.JobName)
+
+		end2 := time.Now()
+		elapsed2 := end2.Sub(start)
+		log.Debugf("DeployJob SetPreset elapsed2.1: %v", elapsed2)
 	} else if j.spec.Source == config.SourceRuntime {
 		envName := strings.ReplaceAll(j.spec.Env, setting.FixedValueMark, "")
 		product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: j.workflow.Project, EnvName: envName})
@@ -171,6 +180,9 @@ func (j *DeployJob) SetPreset() error {
 			}
 		}
 
+		end2 := time.Now()
+		elapsed2 := end2.Sub(start)
+		log.Debugf("DeployJob SetPreset elapsed2.2: %v", elapsed2)
 	}
 
 	return nil
