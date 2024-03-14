@@ -17,9 +17,12 @@ limitations under the License.
 package step
 
 type StepTarArchiveSpec struct {
-	ResultDirs []string `bson:"result_dirs"                 json:"result_dirs"                      yaml:"result_dirs"`
-	DestDir    string   `bson:"dest_dir"                   json:"dest_dir"                          yaml:"dest_dir"`
-	S3DestDir  string   `bson:"s3_dest_dir"                json:"s3_dest_dir"                       yaml:"s3_dest_dir"`
-	FileName   string   `bson:"file_name"                  json:"file_name"                         yaml:"file_name"`
-	S3Storage  *S3      `bson:"s3_storage"                 json:"s3_storage"                        yaml:"s3_storage"`
+	ResultDirs   []string `bson:"result_dirs"                json:"result_dirs"                       yaml:"result_dirs"`
+	AbsResultDir bool     `bson:"abs_result_dir"             json:"abs_result_dir"                    yaml:"abs_result_dir"`
+	DestDir      string   `bson:"dest_dir"                   json:"dest_dir"                          yaml:"dest_dir"`
+	S3DestDir    string   `bson:"s3_dest_dir"                json:"s3_dest_dir"                       yaml:"s3_dest_dir"`
+	TarDir       string   `bson:"tar_dir"                    json:"tar_dir"                           yaml:"tar_dir"`
+	ChangeTarDir bool     `bson:"change_tar_dir"             json:"change_tar_dir"                    yaml:"change_tar_dir"`
+	FileName     string   `bson:"file_name"                  json:"file_name"                         yaml:"file_name"`
+	S3Storage    *S3      `bson:"s3_storage"                 json:"s3_storage"                        yaml:"s3_storage"`
 }

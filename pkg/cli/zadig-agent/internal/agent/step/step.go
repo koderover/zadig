@@ -77,12 +77,12 @@ func RunStep(ctx context.Context, jobCtx *jobctl.JobContext, step *commonmodels.
 			return err
 		}
 	case "tar_archive":
-		stepInstance, err = archive.NewTararchiveStep(step.Spec, dirs, envs, secretEnvs, logger)
+		stepInstance, err = archive.NewTarArchiveStep(step.Spec, dirs, envs, secretEnvs, logger)
 		if err != nil {
 			return err
 		}
-	case "download_artifact":
-		stepInstance, err = archive.NewDownloadArtifactStep(step.Spec, dirs, envs, secretEnvs, logger)
+	case "download_archive":
+		stepInstance, err = archive.NewDownloadArchiveStep(step.Spec, dirs, envs, secretEnvs, logger)
 		if err != nil {
 			return err
 		}

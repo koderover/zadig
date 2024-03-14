@@ -365,9 +365,10 @@ func (j *VMDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		downloadArtifactStep := &commonmodels.StepTask{
 			Name:     vmDeployInfo.ServiceName + "-download-artifact",
 			JobName:  jobTask.Name,
-			StepType: config.StepDownloadArtifact,
-			Spec: step.StepDownloadArtifactSpec{
-				Artifact: vmDeployInfo.FileName,
+			StepType: config.StepDownloadArchive,
+			Spec: step.StepDownloadArchiveSpec{
+				FileName: vmDeployInfo.FileName,
+				DestDir:  "artifact",
 				S3:       modelS3toS3(s3Storage),
 			},
 		}

@@ -266,6 +266,7 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		jobTaskSpec.Properties.Envs = append(jobTaskSpec.Properties.CustomEnvs, getBuildJobVariables(build, taskID, j.workflow.Project, j.workflow.Name, j.workflow.DisplayName, image, jobTask.Infrastructure, registry, logger)...)
 		jobTaskSpec.Properties.UseHostDockerDaemon = buildInfo.PreBuild.UseHostDockerDaemon
 
+		cacheS3 := &commonmodels.S3Storage{}
 		if jobTask.Infrastructure == setting.JobVMInfrastructure {
 			jobTaskSpec.Properties.CacheEnable = buildInfo.CacheEnable
 			jobTaskSpec.Properties.CacheDirType = buildInfo.CacheDirType
@@ -285,9 +286,18 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 				jobTaskSpec.Properties.CacheUserDir = buildInfo.CacheUserDir
 			}
 
-			if jobTaskSpec.Properties.CacheEnable && jobTaskSpec.Properties.Cache.MediumType == types.NFSMedium {
+			if jobTaskSpec.Properties.CacheEnable {
 				jobTaskSpec.Properties.CacheUserDir = renderEnv(jobTaskSpec.Properties.CacheUserDir, jobTaskSpec.Properties.Envs)
-				jobTaskSpec.Properties.Cache.NFSProperties.Subpath = renderEnv(jobTaskSpec.Properties.Cache.NFSProperties.Subpath, jobTaskSpec.Properties.Envs)
+				log.Debugf("jobTaskSpec.Properties.CacheUserDir: %s", jobTaskSpec.Properties.CacheUserDir)
+				if jobTaskSpec.Properties.Cache.MediumType == types.NFSMedium {
+					jobTaskSpec.Properties.Cache.NFSProperties.Subpath = renderEnv(jobTaskSpec.Properties.Cache.NFSProperties.Subpath, jobTaskSpec.Properties.Envs)
+				} else if jobTaskSpec.Properties.Cache.MediumType == types.ObjectMedium {
+					cacheS3, err = commonrepo.NewS3StorageColl().Find(jobTaskSpec.Properties.Cache.ObjectProperties.ID)
+					if err != nil {
+						return resp, fmt.Errorf("find cache s3 storage: %s error: %v", jobTaskSpec.Properties.Cache.ObjectProperties.ID, err)
+					}
+
+				}
 			}
 		}
 
@@ -311,6 +321,29 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			Spec:     step.StepToolInstallSpec{Installs: tools},
 		}
 		jobTaskSpec.Steps = append(jobTaskSpec.Steps, toolInstallStep)
+
+		if jobTaskSpec.Properties.CacheEnable && jobTaskSpec.Properties.Cache.MediumType == types.ObjectMedium {
+			cacheDir := "/workspace"
+			if jobTaskSpec.Properties.CacheDirType == types.UserDefinedCacheDir {
+				cacheDir = jobTaskSpec.Properties.CacheUserDir
+			}
+			// init download archive/cache step
+			downloadArchiveStep := &commonmodels.StepTask{
+				Name:     fmt.Sprintf("%s-%s", build.ServiceName, "download-archive"),
+				JobName:  jobTask.Name,
+				StepType: config.StepDownloadArchive,
+				Spec: step.StepDownloadArchiveSpec{
+					UnTar:          true,
+					IgnoreNotExist: true,
+					FileName:       setting.BuildOSSCacheFileName,
+					ObjectPath:     fmt.Sprintf("%s/%s/%s/cache", j.workflow.Name, build.ServiceName, build.ServiceModule),
+					DestDir:        cacheDir,
+					S3:             modelS3toS3(cacheS3),
+				},
+			}
+			jobTaskSpec.Steps = append(jobTaskSpec.Steps, downloadArchiveStep)
+		}
+
 		// init git clone step
 		repos := renderRepos(build.Repos, buildInfo.Repos, jobTaskSpec.Properties.Envs)
 		gitStep := &commonmodels.StepTask{
@@ -398,6 +431,29 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 				},
 			}
 			jobTaskSpec.Steps = append(jobTaskSpec.Steps, dockerBuildStep)
+		}
+
+		if jobTaskSpec.Properties.CacheEnable && jobTaskSpec.Properties.Cache.MediumType == types.ObjectMedium {
+			cacheDir := "/workspace"
+			if jobTaskSpec.Properties.CacheDirType == types.UserDefinedCacheDir {
+				cacheDir = jobTaskSpec.Properties.CacheUserDir
+			}
+			// init tar archive/cache step
+			tarArchiveStep := &commonmodels.StepTask{
+				Name:     fmt.Sprintf("%s-%s", build.ServiceName, "tar-archive"),
+				JobName:  jobTask.Name,
+				StepType: config.StepTarArchive,
+				Spec: step.StepTarArchiveSpec{
+					FileName:     setting.BuildOSSCacheFileName,
+					ResultDirs:   []string{"."},
+					AbsResultDir: true,
+					TarDir:       cacheDir,
+					ChangeTarDir: true,
+					S3DestDir:    fmt.Sprintf("%s/%s/%s/cache", j.workflow.Name, build.ServiceName, build.ServiceModule),
+					S3Storage:    modelS3toS3(cacheS3),
+				},
+			}
+			jobTaskSpec.Steps = append(jobTaskSpec.Steps, tarArchiveStep)
 		}
 
 		// init archive step

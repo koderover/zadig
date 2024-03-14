@@ -40,7 +40,7 @@ type TarArchiveStep struct {
 	workspace  string
 }
 
-func NewTararchiveStep(spec interface{}, workspace string, envs, secretEnvs []string) (*TarArchiveStep, error) {
+func NewTarArchiveStep(spec interface{}, workspace string, envs, secretEnvs []string) (*TarArchiveStep, error) {
 	tarArchiveStep := &TarArchiveStep{workspace: workspace, envs: envs, secretEnvs: secretEnvs}
 	yamlBytes, err := yaml.Marshal(spec)
 	if err != nil {
@@ -69,15 +69,20 @@ func (s *TarArchiveStep) Run(ctx context.Context) error {
 	cmdAndArtifactFullPaths := make([]string, 0)
 	cmdAndArtifactFullPaths = append(cmdAndArtifactFullPaths, "-czf")
 	cmdAndArtifactFullPaths = append(cmdAndArtifactFullPaths, tarName)
+	if s.spec.ChangeTarDir {
+		cmdAndArtifactFullPaths = append(cmdAndArtifactFullPaths, "--exclude", tarName, "-C", s.spec.TarDir)
+	}
+
 	envMap := makeEnvMap(s.envs, s.secretEnvs)
 	for _, artifactPath := range s.spec.ResultDirs {
 		if len(artifactPath) == 0 {
 			continue
 		}
 		artifactPath = replaceEnvWithValue(artifactPath, envMap)
-		artifactPath = strings.TrimPrefix(artifactPath, "/")
-
-		artifactPath := filepath.Join(s.workspace, artifactPath)
+		if !s.spec.AbsResultDir {
+			artifactPath = strings.TrimPrefix(artifactPath, "/")
+			artifactPath = filepath.Join(s.workspace, artifactPath)
+		}
 		isDir, err := fs.IsDir(artifactPath)
 		if err != nil || !isDir {
 			log.Errorf("artifactPath is not exist  %s err: %s", artifactPath, err)
@@ -99,13 +104,13 @@ func (s *TarArchiveStep) Run(ctx context.Context) error {
 	cmd := exec.Command("tar", cmdAndArtifactFullPaths...)
 	cmd.Stderr = os.Stderr
 	if err = cmd.Run(); err != nil {
-		log.Errorf("failed to compress %s err:%s", tarName, err)
+		log.Errorf("failed to compress %s, cmd: %s, err: %s", tarName, cmd.String(), err)
 		return err
 	}
 
 	objectKey := filepath.Join(s.spec.S3DestDir, s.spec.FileName)
 	if err := client.Upload(s.spec.S3Storage.Bucket, tarName, objectKey); err != nil {
-		return err
+		return fmt.Errorf("failed to upload archive to s3, bucketName: %s, src: %s, objectKey: %s, err: %s", s.spec.S3Storage.Bucket, tarName, objectKey, err)
 	}
 	log.Infof("Finish archive %s.", s.spec.FileName)
 	return nil

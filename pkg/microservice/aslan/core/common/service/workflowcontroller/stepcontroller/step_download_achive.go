@@ -27,26 +27,26 @@ import (
 	"github.com/koderover/zadig/v2/pkg/types/step"
 )
 
-type downloadArtifactCtl struct {
+type downloadArchiveCtl struct {
 	step             *commonmodels.StepTask
-	downloadArtifact *step.StepDownloadArtifactSpec
+	downloadArtifact *step.StepDownloadArchiveSpec
 	log              *zap.SugaredLogger
 }
 
-func NewDownloadArtifactCtl(stepTask *commonmodels.StepTask, log *zap.SugaredLogger) (*downloadArtifactCtl, error) {
+func NewDownloadArchiveCtl(stepTask *commonmodels.StepTask, log *zap.SugaredLogger) (*downloadArchiveCtl, error) {
 	yamlString, err := yaml.Marshal(stepTask.Spec)
 	if err != nil {
 		return nil, fmt.Errorf("marshal archive spec error: %v", err)
 	}
-	downloadArtifactSpec := &step.StepDownloadArtifactSpec{}
-	if err := yaml.Unmarshal(yamlString, &downloadArtifactSpec); err != nil {
+	downloadArchiveSpec := &step.StepDownloadArchiveSpec{}
+	if err := yaml.Unmarshal(yamlString, &downloadArchiveSpec); err != nil {
 		return nil, fmt.Errorf("unmarshal archive spec error: %v", err)
 	}
-	stepTask.Spec = downloadArtifactSpec
-	return &downloadArtifactCtl{downloadArtifact: downloadArtifactSpec, log: log, step: stepTask}, nil
+	stepTask.Spec = downloadArchiveSpec
+	return &downloadArchiveCtl{downloadArtifact: downloadArchiveSpec, log: log, step: stepTask}, nil
 }
 
-func (s *downloadArtifactCtl) PreRun(ctx context.Context) error {
+func (s *downloadArchiveCtl) PreRun(ctx context.Context) error {
 	if s.downloadArtifact.S3 != nil {
 		return nil
 	}
@@ -54,6 +54,6 @@ func (s *downloadArtifactCtl) PreRun(ctx context.Context) error {
 	return nil
 }
 
-func (s *downloadArtifactCtl) AfterRun(ctx context.Context) error {
+func (s *downloadArchiveCtl) AfterRun(ctx context.Context) error {
 	return nil
 }
