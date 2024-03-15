@@ -62,9 +62,12 @@ func (s *DockerBuildStep) Run(ctx context.Context) error {
 		log.Infof("Docker build ended. Duration: %.2f seconds.", time.Since(start).Seconds())
 	}()
 
-	log.Infof("-------- envs data: %v", s.envs)
-
 	envMap := makeEnvMap(s.envs, s.secretEnvs)
+	if image, ok := envMap["IMAGE"]; ok {
+		log.Infof("----- setting image name to value: %s from %s", image, s.spec.ImageName)
+		s.spec.ImageName = image
+	}
+
 	s.spec.WorkDir = replaceEnvWithValue(s.spec.WorkDir, envMap)
 	s.spec.DockerFile = replaceEnvWithValue(s.spec.DockerFile, envMap)
 	s.spec.BuildArgs = replaceEnvWithValue(s.spec.BuildArgs, envMap)
