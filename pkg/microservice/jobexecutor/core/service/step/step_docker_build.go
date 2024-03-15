@@ -62,6 +62,8 @@ func (s *DockerBuildStep) Run(ctx context.Context) error {
 		log.Infof("Docker build ended. Duration: %.2f seconds.", time.Since(start).Seconds())
 	}()
 
+	log.Infof("-------- envs data: %v", s.envs)
+
 	envMap := makeEnvMap(s.envs, s.secretEnvs)
 	s.spec.WorkDir = replaceEnvWithValue(s.spec.WorkDir, envMap)
 	s.spec.DockerFile = replaceEnvWithValue(s.spec.DockerFile, envMap)
@@ -132,6 +134,9 @@ func (s *DockerBuildStep) dockerCommands() []*exec.Cmd {
 	if s.spec.WorkDir == "" {
 		s.spec.WorkDir = "."
 	}
+
+	//s.workflowCtx.GlobalContextSet(job.GetJobOutputKey(c.job.Key+"."+svc.ServiceModule, IMAGEKEY), svc.Image)
+
 	cmds = append(
 		cmds,
 		dockerBuildCmd(
