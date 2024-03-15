@@ -64,7 +64,6 @@ func (s *DockerBuildStep) Run(ctx context.Context) error {
 
 	envMap := makeEnvMap(s.envs, s.secretEnvs)
 	if image, ok := envMap["IMAGE"]; ok {
-		log.Infof("----- setting image name to value: %s from %s", image, s.spec.ImageName)
 		s.spec.ImageName = image
 	}
 
