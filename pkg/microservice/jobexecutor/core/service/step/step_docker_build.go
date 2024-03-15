@@ -137,8 +137,6 @@ func (s *DockerBuildStep) dockerCommands() []*exec.Cmd {
 		s.spec.WorkDir = "."
 	}
 
-	//s.workflowCtx.GlobalContextSet(job.GetJobOutputKey(c.job.Key+"."+svc.ServiceModule, IMAGEKEY), svc.Image)
-
 	cmds = append(
 		cmds,
 		dockerBuildCmd(
