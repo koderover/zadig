@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
@@ -60,19 +59,15 @@ func (j *NacosJob) SetPreset() error {
 	j.job.Spec = j.spec
 	originNamespaceID := strings.ReplaceAll(j.spec.NamespaceID, setting.FixedValueMark, "")
 
-	before := time.Now()
-	log.Debugf("start NacosJob SetPreset")
 	nacosConfigs, err := commonservice.ListNacosConfig(j.spec.NacosID, originNamespaceID, log.SugaredLogger())
 	if err != nil {
 		return fmt.Errorf("fail to list nacos config: %w", err)
 	}
-	log.Debugf("NacosJob elapsed time 1: %v", time.Since(before))
 
 	namespaces, err := commonservice.ListNacosNamespace(j.spec.NacosID, log.SugaredLogger())
 	if err != nil {
 		return fmt.Errorf("failed to list nacos namespace")
 	}
-	log.Debugf("NacosJob elapsed time 2: %v", time.Since(before))
 
 	namespaceName := ""
 	for _, namespace := range namespaces {
@@ -95,8 +90,6 @@ func (j *NacosJob) SetPreset() error {
 		configSet = sets.NewString(j.spec.NacosDataRange...)
 	}
 
-	log.Debugf("NacosJob elapsed time 3: %v", time.Since(before))
-
 	newDatas := []*types.NacosConfig{}
 	for _, data := range j.spec.NacosDatas {
 		if !isNacosDataFiltered(data, configSet) {
@@ -111,7 +104,6 @@ func (j *NacosJob) SetPreset() error {
 		newDatas = append(newDatas, newData)
 	}
 
-	log.Debugf("NacosJob elapsed time 4: %v", time.Since(before))
 	newFilterDatas := []*types.NacosConfig{}
 	for _, data := range nacosConfigsMap {
 		if !isNacosDataFiltered(data, configSet) {
@@ -121,7 +113,6 @@ func (j *NacosJob) SetPreset() error {
 		newFilterDatas = append(newFilterDatas, data)
 	}
 
-	log.Debugf("NacosJob elapsed time 5: %v", time.Since(before))
 	j.spec.NacosDatas = newDatas
 	j.spec.NacosFilteredData = newFilterDatas
 	return nil
