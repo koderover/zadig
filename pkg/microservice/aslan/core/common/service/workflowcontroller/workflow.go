@@ -20,7 +20,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/notify"
 	"strings"
 	"sync"
 	"time"
@@ -37,6 +36,7 @@ import (
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/instantmessage"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/notify"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/scmnotify"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/workflowcontroller/jobcontroller"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/workflowstat"
@@ -151,9 +151,7 @@ func CancelWorkflowTask(userName, workflowName string, taskID int64, logger *zap
 func (c *workflowCtl) setWorkflowStatus(status config.Status) {
 	if c.workflowTask.Status != status {
 		if status == config.StatusWaitingApprove {
-			log.Infof("------- meeting wait approve status")
 			for _, stage := range c.workflowTask.Stages {
-				log.Infof("------- stage status: %s", stage.Status)
 				if stage.Status == config.StatusWaitingApprove {
 					if stage.Approval != nil && stage.Approval.Type == config.NativeApproval {
 						for _, approveUser := range stage.Approval.NativeApproval.ApproveUsers {
