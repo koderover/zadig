@@ -4875,6 +4875,149 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/aslan/template/release_plan": {
+            "get": {
+                "description": "List Release Plan Template",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "template"
+                ],
+                "summary": "List Release Plan Template",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.ReleasePlanTemplate"
+                            }
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Update Release Plan Template",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "template"
+                ],
+                "summary": "Update Release Plan Template",
+                "parameters": [
+                    {
+                        "description": "body",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.ReleasePlanTemplate"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            },
+            "post": {
+                "description": "Create Release Plan Template",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "template"
+                ],
+                "summary": "Create Release Plan Template",
+                "parameters": [
+                    {
+                        "description": "body",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.ReleasePlanTemplate"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/api/aslan/template/release_plan/{id}": {
+            "get": {
+                "description": "Get Release Plan Template by ID",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "template"
+                ],
+                "summary": "Get Release Plan Template by ID",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "template ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.ReleasePlanTemplate"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Delete Release Plan Template by ID",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "template"
+                ],
+                "summary": "Delete Release Plan Template by ID",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "template ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
         "/api/aslan/template/yaml": {
             "post": {
                 "description": "Create yaml template",
@@ -5147,6 +5290,30 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "config.ApprovalType": {
+            "type": "string",
+            "enum": [
+                "native",
+                "lark",
+                "dingtalk"
+            ],
+            "x-enum-varnames": [
+                "NativeApproval",
+                "LarkApproval",
+                "DingTalkApproval"
+            ]
+        },
+        "config.ApproveOrReject": {
+            "type": "string",
+            "enum": [
+                "approve",
+                "reject"
+            ],
+            "x-enum-varnames": [
+                "Approve",
+                "Reject"
+            ]
+        },
         "config.CollaborationType": {
             "type": "string",
             "enum": [
@@ -5217,6 +5384,79 @@ const docTemplate = `{
             "x-enum-varnames": [
                 "JiraBasicAuth",
                 "JiraPersonalAccessToken"
+            ]
+        },
+        "config.ReleasePlanJobStatus": {
+            "type": "string",
+            "enum": [
+                "todo",
+                "done",
+                "failed",
+                "running"
+            ],
+            "x-enum-varnames": [
+                "ReleasePlanJobStatusTodo",
+                "ReleasePlanJobStatusDone",
+                "ReleasePlanJobStatusFailed",
+                "ReleasePlanJobStatusRunning"
+            ]
+        },
+        "config.ReleasePlanJobType": {
+            "type": "string",
+            "enum": [
+                "text",
+                "workflow"
+            ],
+            "x-enum-varnames": [
+                "JobText",
+                "JobWorkflow"
+            ]
+        },
+        "github_com_koderover_zadig_v2_pkg_microservice_aslan_config.Status": {
+            "type": "string",
+            "enum": [
+                "disabled",
+                "created",
+                "running",
+                "passed",
+                "skipped",
+                "failed",
+                "timeout",
+                "cancelled",
+                "waiting",
+                "queued",
+                "blocked",
+                "pending",
+                "changed",
+                "notRun",
+                "prepare",
+                "reject",
+                "distributed",
+                "waitforapprove",
+                "debug_before",
+                "debug_after"
+            ],
+            "x-enum-varnames": [
+                "StatusDisabled",
+                "StatusCreated",
+                "StatusRunning",
+                "StatusPassed",
+                "StatusSkipped",
+                "StatusFailed",
+                "StatusTimeout",
+                "StatusCancelled",
+                "StatusWaiting",
+                "StatusQueued",
+                "StatusBlocked",
+                "QueueItemPending",
+                "StatusChanged",
+                "StatusNotRun",
+                "StatusPrepare",
+                "StatusReject",
+                "StatusDistributed",
+                "StatusWaitingApprove",
+                "StatusDebugBefore",
+                "StatusDebugAfter"
             ]
         },
         "github_com_koderover_zadig_v2_pkg_microservice_aslan_core_common_service.EnvService": {
@@ -5374,6 +5614,14 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/template.RenderKV"
                     }
+                },
+                "yaml_data": {
+                    "description": "used for cron service",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/template.CustomYaml"
+                        }
+                    ]
                 }
             }
         },
@@ -5668,6 +5916,19 @@ const docTemplate = `{
                 }
             }
         },
+        "lark.ApproveType": {
+            "type": "string",
+            "enum": [
+                "AND",
+                "OR",
+                "SEQUENTIAL"
+            ],
+            "x-enum-varnames": [
+                "ApproveTypeAnd",
+                "ApproveTypeOr",
+                "ApproveTypeSequential"
+            ]
+        },
         "models.AnalysisConfig": {
             "type": "object",
             "properties": {
@@ -5676,6 +5937,38 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/models.ResourceType"
                     }
+                }
+            }
+        },
+        "models.Approval": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "dingtalk_approval": {
+                    "$ref": "#/definitions/models.DingTalkApproval"
+                },
+                "enabled": {
+                    "type": "boolean"
+                },
+                "end_time": {
+                    "type": "integer"
+                },
+                "lark_approval": {
+                    "$ref": "#/definitions/models.LarkApproval"
+                },
+                "native_approval": {
+                    "$ref": "#/definitions/models.NativeApproval"
+                },
+                "start_time": {
+                    "type": "integer"
+                },
+                "status": {
+                    "$ref": "#/definitions/github_com_koderover_zadig_v2_pkg_microservice_aslan_config.Status"
+                },
+                "type": {
+                    "$ref": "#/definitions/config.ApprovalType"
                 }
             }
         },
@@ -5921,6 +6214,76 @@ const docTemplate = `{
                 }
             }
         },
+        "models.DingTalkApproval": {
+            "type": "object",
+            "properties": {
+                "approval_id": {
+                    "description": "ID: dintalk im app mongodb id",
+                    "type": "string"
+                },
+                "approval_nodes": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.DingTalkApprovalNode"
+                    }
+                },
+                "default_approval_initiator": {
+                    "description": "DefaultApprovalInitiator if not set, use workflow task creator as approval initiator",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.DingTalkApprovalUser"
+                        }
+                    ]
+                },
+                "instance_code": {
+                    "description": "InstanceCode: dingtalk approval instance code",
+                    "type": "string"
+                },
+                "timeout": {
+                    "type": "integer"
+                }
+            }
+        },
+        "models.DingTalkApprovalNode": {
+            "type": "object",
+            "properties": {
+                "approve_users": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.DingTalkApprovalUser"
+                    }
+                },
+                "reject_or_approve": {
+                    "$ref": "#/definitions/config.ApproveOrReject"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.DingTalkApprovalUser": {
+            "type": "object",
+            "properties": {
+                "avatar": {
+                    "type": "string"
+                },
+                "comment": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "operation_time": {
+                    "type": "integer"
+                },
+                "reject_or_approve": {
+                    "$ref": "#/definitions/config.ApproveOrReject"
+                }
+            }
+        },
         "models.EnvConfig": {
             "type": "object",
             "properties": {
@@ -6129,6 +6492,107 @@ const docTemplate = `{
                 },
                 "updated_by": {
                     "type": "string"
+                }
+            }
+        },
+        "models.LarkApproval": {
+            "type": "object",
+            "properties": {
+                "approval_id": {
+                    "description": "ID: lark im app mongodb id",
+                    "type": "string"
+                },
+                "approval_nodes": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.LarkApprovalNode"
+                    }
+                },
+                "approve_users": {
+                    "description": "Deprecated: use ApprovalNodes instead",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.LarkApprovalUser"
+                    }
+                },
+                "default_approval_initiator": {
+                    "description": "DefaultApprovalInitiator if not set, use workflow task creator as approval initiator",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.LarkApprovalUser"
+                        }
+                    ]
+                },
+                "instance_code": {
+                    "description": "InstanceCode: lark approval instance code",
+                    "type": "string"
+                },
+                "timeout": {
+                    "type": "integer"
+                }
+            }
+        },
+        "models.LarkApprovalNode": {
+            "type": "object",
+            "properties": {
+                "approve_users": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.LarkApprovalUser"
+                    }
+                },
+                "reject_or_approve": {
+                    "$ref": "#/definitions/config.ApproveOrReject"
+                },
+                "type": {
+                    "$ref": "#/definitions/lark.ApproveType"
+                }
+            }
+        },
+        "models.LarkApprovalUser": {
+            "type": "object",
+            "properties": {
+                "avatar": {
+                    "type": "string"
+                },
+                "comment": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "operation_time": {
+                    "type": "integer"
+                },
+                "reject_or_approve": {
+                    "$ref": "#/definitions/config.ApproveOrReject"
+                }
+            }
+        },
+        "models.NativeApproval": {
+            "type": "object",
+            "properties": {
+                "approve_users": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.User"
+                    }
+                },
+                "instance_code": {
+                    "description": "InstanceCode: native approval instance code, save for working after restart aslan",
+                    "type": "string"
+                },
+                "needed_approvers": {
+                    "type": "integer"
+                },
+                "reject_or_approve": {
+                    "$ref": "#/definitions/config.ApproveOrReject"
+                },
+                "timeout": {
+                    "type": "integer"
                 }
             }
         },
@@ -6436,6 +6900,74 @@ const docTemplate = `{
                 },
                 "update_time": {
                     "type": "integer"
+                }
+            }
+        },
+        "models.ReleaseJob": {
+            "type": "object",
+            "properties": {
+                "executed_by": {
+                    "type": "string"
+                },
+                "executed_time": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "last_status": {
+                    "description": "ReleasePlan can return to PlanningStatus when some release jobs have been executed\nSo we need to record the last status of the release job",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/config.ReleasePlanJobStatus"
+                        }
+                    ]
+                },
+                "name": {
+                    "type": "string"
+                },
+                "spec": {},
+                "status": {
+                    "$ref": "#/definitions/config.ReleasePlanJobStatus"
+                },
+                "type": {
+                    "$ref": "#/definitions/config.ReleasePlanJobType"
+                },
+                "updated": {
+                    "description": "Updated is used to indicate whether the release job has been updated",
+                    "type": "boolean"
+                }
+            }
+        },
+        "models.ReleasePlanTemplate": {
+            "type": "object",
+            "properties": {
+                "approval": {
+                    "$ref": "#/definitions/models.Approval"
+                },
+                "create_time": {
+                    "type": "integer"
+                },
+                "created_by": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "jobs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ReleaseJob"
+                    }
+                },
+                "template_name": {
+                    "type": "string"
+                },
+                "update_time": {
+                    "type": "integer"
+                },
+                "updated_by": {
+                    "type": "string"
                 }
             }
         },
@@ -6747,6 +7279,35 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "version": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.User": {
+            "type": "object",
+            "properties": {
+                "comment": {
+                    "type": "string"
+                },
+                "group_id": {
+                    "type": "string"
+                },
+                "group_name": {
+                    "type": "string"
+                },
+                "operation_time": {
+                    "type": "integer"
+                },
+                "reject_or_approve": {
+                    "$ref": "#/definitions/config.ApproveOrReject"
+                },
+                "type": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "string"
+                },
+                "user_name": {
                     "type": "string"
                 }
             }
@@ -7496,6 +8057,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "env_name": {
+                    "type": "string"
+                },
+                "error": {
                     "type": "string"
                 },
                 "images": {

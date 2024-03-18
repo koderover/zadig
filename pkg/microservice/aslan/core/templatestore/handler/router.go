@@ -94,4 +94,13 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		scanning.DELETE("/:id", DeleteScanningTemplate)
 		scanning.GET("/:id/reference", GetScanningTemplateReference)
 	}
+
+	releasePlan := router.Group("release_plan")
+	{
+		releasePlan.POST("", CreateReleasePlanTemplate)
+		releasePlan.PUT("", UpdateReleasePlanTemplate)
+		releasePlan.GET("", ListReleasePlanTemplate)
+		releasePlan.GET("/:id", GetReleasePlanTemplateByID)
+		releasePlan.DELETE("/:id", DeleteReleasePlanTemplateByID)
+	}
 }
