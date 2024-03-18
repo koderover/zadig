@@ -437,6 +437,10 @@ func buildJob(jobType, jobImage, jobName, clusterID, currentNamespace string, re
 		JobName: jobTask.K8sJobName,
 	})
 
+	annotaions := map[string]string{
+		"hello": "world",
+	}
+
 	ImagePullSecrets, err := getImagePullSecrets(jobTaskSpec.Properties.Registries)
 	if err != nil {
 		return nil, err
@@ -457,7 +461,8 @@ func buildJob(jobType, jobImage, jobName, clusterID, currentNamespace string, re
 			ActiveDeadlineSeconds: int64Ptr(jobTaskSpec.Properties.Timeout*60 + 3600),
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels: labels,
+					Labels:      labels,
+					Annotations: annotaions,
 				},
 				Spec: corev1.PodSpec{
 					RestartPolicy:      corev1.RestartPolicyNever,
