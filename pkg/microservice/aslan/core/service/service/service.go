@@ -233,7 +233,10 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, userName string, args *K
 
 	productCol := commonrepo.NewProductCollWithSession(session)
 
-	mongotool.StartTransaction(session)
+	err = mongotool.StartTransaction(session)
+	if err != nil {
+		return e.ErrCreateEnv.AddDesc("failed to start transaction")
+	}
 
 	productServices := make([]*commonmodels.ProductService, 0)
 
@@ -312,7 +315,7 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, userName string, args *K
 		Name:    args.ProductName,
 		EnvName: args.EnvName,
 	}); err != nil {
-		if err := service.CreateProduct(userName, requestID, &service.ProductCreateArg{&commonmodels.Product{
+		if err := service.CreateProduct(userName, requestID, &service.ProductCreateArg{Product: &commonmodels.Product{
 			ProductName: args.ProductName,
 			Source:      setting.SourceFromExternal,
 			ClusterID:   args.ClusterID,
@@ -321,8 +324,9 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, userName string, args *K
 			Namespace:   args.Namespace,
 			UpdateBy:    userName,
 			IsExisted:   true,
+			Production:  production,
 			Services:    [][]*commonmodels.ProductService{productServices},
-		}, session}, log); err != nil {
+		}, Session: session}, log); err != nil {
 			mongotool.AbortTransaction(session)
 			return e.ErrCreateProduct.AddDesc("create product Error for unknown reason")
 		}
@@ -365,7 +369,10 @@ func UpdateWorkloads(ctx context.Context, requestID, username, productName, envN
 	session := mongotool.Session()
 	defer session.EndSession(context.TODO())
 
-	mongotool.StartTransaction(session)
+	err = mongotool.StartTransaction(session)
+	if err != nil {
+		return fmt.Errorf("failed to start transaction")
+	}
 
 	productInfo, err := commonrepo.NewProductCollWithSession(session).Find(&commonrepo.ProductFindOptions{
 		Name:    productName,
