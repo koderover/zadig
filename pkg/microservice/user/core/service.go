@@ -21,6 +21,7 @@ import (
 	"database/sql"
 	_ "embed"
 	"fmt"
+	"strings"
 	"time"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -69,6 +70,9 @@ func initDatabase() {
 		configbase.MysqlHost(),
 		config.MysqlDexDB(),
 	)
+	if err != nil {
+		log.Panicf("Failed to open database %s", config.MysqlDexDB())
+	}
 
 	repository.DB = gormtool.DB(config.MysqlUserDB())
 	sqlDB, err := repository.DB.DB()
@@ -105,11 +109,17 @@ func Stop(_ context.Context) {
 //go:embed init/mysql.sql
 var userSchema []byte
 
+//go:embed init/dm_mysql.sql
+var dmUserSchema []byte
+
 //go:embed init/dex_database.sql
 var dexSchema []byte
 
 //go:embed init/action_initialization.sql
 var actionData []byte
+
+//go:embed init/dm_action_initialization.sql
+var dmActionData []byte
 
 var readOnlyAction = []string{
 	permissionservice.VerbGetDelivery,
@@ -127,36 +137,66 @@ func InitializeUserDBAndTables() {
 	if len(userSchema) == 0 {
 		return
 	}
-	dsn := fmt.Sprintf(
-		"%s:%s@tcp(%s)/?charset=utf8&multiStatements=true",
-		configbase.MysqlUser(), configbase.MysqlPassword(), configbase.MysqlHost(),
-	)
-	db, err := sql.Open("mysql", dsn)
-	if err != nil {
-		log.Panic(err)
-	}
-	defer db.Close()
-	initSql := fmt.Sprintf(string(userSchema), config.MysqlUserDB(), config.MysqlUserDB())
-	_, err = db.Exec(initSql)
 
-	if err != nil {
-		log.Panic(err)
+	if !configbase.MysqlUseDM() {
+		dsn := fmt.Sprintf(
+			"%s:%s@tcp(%s)/?charset=utf8&multiStatements=true",
+			configbase.MysqlUser(), configbase.MysqlPassword(), configbase.MysqlHost(),
+		)
+		db, err := sql.Open("mysql", dsn)
+		if err != nil {
+			log.Panic(err)
+		}
+		defer db.Close()
+
+		initSql := fmt.Sprintf(string(userSchema), config.MysqlUserDB(), config.MysqlUserDB())
+		_, err = db.Exec(initSql)
+		if err != nil {
+			log.Panic(err)
+		}
+
+		dexDatabaseSql := fmt.Sprintf(string(dexSchema), config.MysqlDexDB())
+		_, err = db.Exec(dexDatabaseSql)
+
+		if err != nil {
+			log.Panic(err)
+		}
+	} else {
+		dsn := fmt.Sprintf(
+			"dm://%s:%s@%s",
+			configbase.MysqlUser(), configbase.MysqlPassword(), configbase.MysqlHost(),
+		)
+		db, err := sql.Open("dm", dsn)
+		if err != nil {
+			log.Panic(err)
+		}
+		defer db.Close()
+
+		schemaArr := strings.Split(string(dmUserSchema), "\n\n")
+		for _, schema := range schemaArr {
+			_, err = db.Exec(schema)
+			if err != nil {
+				log.Panic(err)
+			}
+		}
 	}
 
-	dexDatabaseSql := fmt.Sprintf(string(dexSchema), config.MysqlDexDB())
-	_, err = db.Exec(dexDatabaseSql)
-
-	if err != nil {
-		log.Panic(err)
-	}
 }
 
 func initializeSystemActions() {
 	fmt.Println("initializing system actions...")
-	err := repository.DB.Exec(string(actionData)).Error
-
-	if err != nil {
-		log.Panic(err)
+	if !configbase.MysqlUseDM() {
+		err := repository.DB.Exec(string(actionData)).Error
+		if err != nil {
+			log.Panic(err)
+		}
+	} else {
+		// @todo need to optimize the dm action sql
+		// dm doesn't support ON DUPLICATE KEY UPDATE, but it can be replace by MERGE INTO
+		err := repository.DB.Exec(string(dmActionData)).Error
+		if err != nil {
+			log.Panic(err)
+		}
 	}
 	fmt.Println("system actions initialized...")
 }

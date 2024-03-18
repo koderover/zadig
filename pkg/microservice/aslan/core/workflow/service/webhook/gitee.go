@@ -85,13 +85,13 @@ func ProcessGiteeHook(payload []byte, req *http.Request, requestID string, log *
 			errorList = multierror.Append(errorList, err)
 		}
 		// build webhook
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			if err = TriggerWorkflowByGiteeEvent(event, baseURI, requestID, log); err != nil {
-				errorList = multierror.Append(errorList, err)
-			}
-		}()
+		//wg.Add(1)
+		//go func() {
+		//	defer wg.Done()
+		//	if err = TriggerWorkflowByGiteeEvent(event, baseURI, requestID, log); err != nil {
+		//		errorList = multierror.Append(errorList, err)
+		//	}
+		//}()
 
 		//test webhook
 		wg.Add(1)
@@ -120,13 +120,13 @@ func ProcessGiteeHook(payload []byte, req *http.Request, requestID string, log *
 		}
 
 		// build webhook
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			if err = TriggerWorkflowByGiteeEvent(event, baseURI, requestID, log); err != nil {
-				errorList = multierror.Append(errorList, err)
-			}
-		}()
+		//wg.Add(1)
+		//go func() {
+		//	defer wg.Done()
+		//	if err = TriggerWorkflowByGiteeEvent(event, baseURI, requestID, log); err != nil {
+		//		errorList = multierror.Append(errorList, err)
+		//	}
+		//}()
 
 		//test webhook
 		wg.Add(1)
@@ -146,13 +146,13 @@ func ProcessGiteeHook(payload []byte, req *http.Request, requestID string, log *
 		}()
 	case *gitee.TagPushEvent:
 		// build webhook
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			if err = TriggerWorkflowByGiteeEvent(event, baseURI, requestID, log); err != nil {
-				errorList = multierror.Append(errorList, err)
-			}
-		}()
+		//wg.Add(1)
+		//go func() {
+		//	defer wg.Done()
+		//	if err = TriggerWorkflowByGiteeEvent(event, baseURI, requestID, log); err != nil {
+		//		errorList = multierror.Append(errorList, err)
+		//	}
+		//}()
 
 		//test webhook
 		wg.Add(1)

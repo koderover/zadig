@@ -20,12 +20,11 @@ import (
 	"fmt"
 
 	"github.com/gin-gonic/gin"
-	"github.com/koderover/zadig/v2/pkg/types"
-
 	buildservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/build/service"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
+	"github.com/koderover/zadig/v2/pkg/types"
 )
 
 func OpenAPICreateBuildModule(c *gin.Context) {
@@ -176,18 +175,16 @@ func OpenAPIListBuildModules(c *gin.Context) {
 		// first check if the user is projectAdmin
 		if projectAuthInfo.IsProjectAdmin {
 			permitted = true
-		}
-
-		// then check if user has edit workflow permission
-		if projectAuthInfo.Env.EditConfig ||
+		} else if projectAuthInfo.Env.EditConfig ||
 			projectAuthInfo.Build.View {
+			// then check if user has edit workflow permission
 			permitted = true
-		}
-
-		// finally check if the permission is given by collaboration mode
-		collaborationAuthorizedEdit, err := internalhandler.CheckPermissionGivenByCollaborationMode(ctx.UserID, projectKey, types.ResourceTypeEnvironment, types.EnvActionEditConfig)
-		if err == nil && collaborationAuthorizedEdit {
-			permitted = true
+		} else {
+			// finally check if the permission is given by collaboration mode
+			collaborationAuthorizedEdit, err := internalhandler.CheckPermissionGivenByCollaborationMode(ctx.UserID, projectKey, types.ResourceTypeEnvironment, types.EnvActionEditConfig)
+			if err == nil && collaborationAuthorizedEdit {
+				permitted = true
+			}
 		}
 	}
 

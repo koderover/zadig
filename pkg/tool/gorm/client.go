@@ -17,9 +17,6 @@ limitations under the License.
 package gorm
 
 import (
-	"fmt"
-
-	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 )
 
@@ -48,14 +45,4 @@ func Close() {
 	//for _, conn := range connections {
 	//	conn.Close()
 	//}
-}
-
-func openDB(username, password, host, db string) (*gorm.DB, error) {
-
-	// refer https://github.com/go-sql-driver/mysql#dsn-data-source-name for details
-	dsn := fmt.Sprintf(
-		"%s:%s@tcp(%s)/%s?charset=utf8mb4&parseTime=True&loc=Local",
-		username, password, host, db,
-	)
-	return gorm.Open(mysql.Open(dsn), &gorm.Config{})
 }

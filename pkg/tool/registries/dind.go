@@ -26,6 +26,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/dynamic"
 
 	"github.com/koderover/zadig/v2/pkg/tool/log"
@@ -42,6 +43,7 @@ func PrepareDinD(dynamicClient dynamic.Interface, namespace string, regList []*R
 	mountFlag := false
 	insecureFlag := false
 	sourceList := make([]interface{}, 0)
+	insecureMap := sets.NewString()
 
 	for _, reg := range regList {
 		// compatibility changes before 1.11
@@ -51,34 +53,40 @@ func PrepareDinD(dynamicClient dynamic.Interface, namespace string, regList []*R
 			// if a registry is marked as insecure, we add a record to insecure-registries
 			if !reg.AdvancedSetting.TLSEnabled {
 				insecureFlag = true
-				insecureRegistryList = append(insecureRegistryList, fmt.Sprintf("--insecure-registry=%s", addr[1]))
+				if !insecureMap.Has(addr[1]) {
+					insecureRegistryList = append(insecureRegistryList, fmt.Sprintf("--insecure-registry=%s", addr[1]))
+					insecureMap.Insert(addr[1])
+				}
 			}
 			// if a registry is marked as secure and a TLS cert is given, we mount this certificate to dind daemon
 			if reg.AdvancedSetting.TLSEnabled && reg.AdvancedSetting.TLSCert != "" {
-				mountName := fmt.Sprintf("%s-cert", reg.ID.Hex())
-				err := ensureCertificateSecret(dynamicClient, mountName, namespace, reg.AdvancedSetting.TLSCert)
-				if err != nil {
-					log.Errorf("failed to ensure secret: %s, the error is: %s", mountName, err)
-					return err
-				}
-				// create secret mount info
-				secretMount := map[string]interface{}{
-					"name": mountName,
-					"items": []interface{}{
-						map[string]interface{}{
-							"key":  "ca.crt",
-							"path": fmt.Sprintf("%s/%s", addr[1], "ca.crt"),
+				if !insecureMap.Has(addr[1]) {
+					mountName := fmt.Sprintf("%s-cert", reg.ID.Hex())
+					err := ensureCertificateSecret(dynamicClient, mountName, namespace, reg.AdvancedSetting.TLSCert)
+					if err != nil {
+						log.Errorf("failed to ensure secret: %s, the error is: %s", mountName, err)
+						return err
+					}
+					// create secret mount info
+					secretMount := map[string]interface{}{
+						"name": mountName,
+						"items": []interface{}{
+							map[string]interface{}{
+								"key":  "ca.crt",
+								"path": fmt.Sprintf("%s/%s", addr[1], "ca.crt"),
+							},
 						},
-					},
+					}
+
+					// create projected volumes sources list
+					sourceList = append(sourceList, map[string]interface{}{
+						"secret": secretMount,
+					})
+
+					// set mountFlag to add mounting volume to dind
+					mountFlag = true
+					insecureMap.Insert(addr[1])
 				}
-
-				// create projected volumes sources list
-				sourceList = append(sourceList, map[string]interface{}{
-					"secret": secretMount,
-				})
-
-				// set mountFlag to add mounting volume to dind
-				mountFlag = true
 			}
 		}
 	}

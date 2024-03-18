@@ -247,6 +247,10 @@ func MysqlDexDB() string {
 	return viper.GetString(setting.ENVMysqlDexDB)
 }
 
+func MysqlUseDM() bool {
+	return viper.GetBool(setting.ENVMysqlUseDM)
+}
+
 func Namespace() string {
 	return viper.GetString(setting.ENVNamespace)
 }

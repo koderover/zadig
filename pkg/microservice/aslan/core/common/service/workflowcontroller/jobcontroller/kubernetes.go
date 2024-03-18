@@ -1139,9 +1139,9 @@ func saveContainerLog(namespace, clusterID, workflowName, jobName string, taskID
 		if err = saveFile(buf, tempFileName); err == nil {
 
 			if store.Subfolder != "" {
-				store.Subfolder = fmt.Sprintf("%s/%s/%d/%s", store.Subfolder, strings.ToLower(workflowName), taskID, "log")
+				store.Subfolder = fmt.Sprintf("%s/%s/%d/%s", store.Subfolder, workflowName, taskID, "log")
 			} else {
-				store.Subfolder = fmt.Sprintf("%s/%d/%s", strings.ToLower(workflowName), taskID, "log")
+				store.Subfolder = fmt.Sprintf("%s/%d/%s", workflowName, taskID, "log")
 			}
 			forcedPathStyle := true
 			if store.Provider == setting.ProviderSourceAli {
@@ -1151,7 +1151,7 @@ func saveContainerLog(namespace, clusterID, workflowName, jobName string, taskID
 			if err != nil {
 				return fmt.Errorf("saveContainerLog s3 create client error: %v", err)
 			}
-			fileName := strings.Replace(strings.ToLower(jobName), "_", "-", -1)
+			fileName := strings.Replace(jobName, "_", "-", -1)
 			objectKey := GetObjectPath(store.Subfolder, fileName+".log")
 			if err = s3client.Upload(
 				store.Bucket,

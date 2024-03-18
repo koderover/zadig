@@ -750,6 +750,47 @@ func ensureWorkflowV4Resp(encryptedKey string, workflow *commonmodels.WorkflowV4
 				}
 				job.Spec = spec
 			}
+			if job.JobType == config.JobZadigScanning {
+				spec := &commonmodels.ZadigScanningJobSpec{}
+				if err := commonmodels.IToi(job.Spec, spec); err != nil {
+					logger.Errorf(err.Error())
+					return e.ErrFindWorkflow.AddErr(err)
+				}
+
+				for _, scanning := range spec.Scannings {
+					projectName := scanning.ProjectName
+					if projectName == "" {
+						projectName = workflow.Project
+					}
+					scanningInfo, err := commonrepo.NewScanningColl().Find(projectName, scanning.Name)
+					if err != nil {
+						logger.Errorf(err.Error())
+						return e.ErrFindWorkflow.AddErr(err)
+					}
+
+					if scanningInfo.TemplateID != "" {
+						templateEnvs := []*commonmodels.KeyVal{}
+						scanningTemplate, err := commonrepo.NewScanningTemplateColl().Find(&commonrepo.ScanningTemplateQueryOption{
+							ID: scanningInfo.TemplateID,
+						})
+						// if template not found, envs are empty, but do not block user.
+						if err != nil {
+							logger.Error("scanning job: %s, template not found", scanningInfo.Name)
+						} else {
+							templateEnvs = scanningTemplate.Envs
+						}
+
+						kvs := commonservice.MergeBuildEnvs(templateEnvs, scanningInfo.Envs)
+
+						// if build template update any keyvals, merge it.
+						scanning.KeyVals = commonservice.MergeBuildEnvs(kvs, scanning.KeyVals)
+					} else {
+						// otherwise just merge the envs in the
+						scanning.KeyVals = commonservice.MergeBuildEnvs(scanningInfo.Envs, scanning.KeyVals)
+					}
+				}
+				job.Spec = spec
+			}
 			if job.JobType == config.JobWorkflowTrigger {
 				spec := &commonmodels.WorkflowTriggerJobSpec{}
 				if err := commonmodels.IToi(job.Spec, spec); err != nil {
@@ -853,7 +894,7 @@ func LintWorkflowV4(workflow *commonmodels.WorkflowV4, logger *zap.SugaredLogger
 		return e.ErrUpsertWorkflow.AddErr(err)
 	}
 	if !match {
-		errMsg := "工作流标识支持小写字母、数字和中划线"
+		errMsg := "工作流标识支持大小写字母、数字和中划线"
 		logger.Error(errMsg)
 		return e.ErrUpsertWorkflow.AddDesc(errMsg)
 	}
