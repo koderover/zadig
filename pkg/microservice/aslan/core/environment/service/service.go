@@ -181,7 +181,7 @@ func GetService(envName, productName, serviceName string, production bool, workL
 		return nil, e.ErrGetService.AddErr(errors.Wrapf(err, "failed to find project %s", productName))
 	}
 	var serviceTmpl *commonmodels.Service
-	if projectInfo.IsK8sYamlProduct() {
+	if projectInfo.IsK8sYamlProduct() || projectInfo.IsHostProduct() {
 		productSvc := env.GetServiceMap()[serviceName]
 		if productSvc != nil {
 			serviceTmpl, err = repository.QueryTemplateService(&commonrepo.ServiceFindOption{
