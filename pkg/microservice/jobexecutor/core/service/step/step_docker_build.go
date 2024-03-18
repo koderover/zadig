@@ -63,6 +63,10 @@ func (s *DockerBuildStep) Run(ctx context.Context) error {
 	}()
 
 	envMap := makeEnvMap(s.envs, s.secretEnvs)
+	if image, ok := envMap["IMAGE"]; ok {
+		s.spec.ImageName = image
+	}
+
 	s.spec.WorkDir = replaceEnvWithValue(s.spec.WorkDir, envMap)
 	s.spec.DockerFile = replaceEnvWithValue(s.spec.DockerFile, envMap)
 	s.spec.BuildArgs = replaceEnvWithValue(s.spec.BuildArgs, envMap)
@@ -132,6 +136,7 @@ func (s *DockerBuildStep) dockerCommands() []*exec.Cmd {
 	if s.spec.WorkDir == "" {
 		s.spec.WorkDir = "."
 	}
+
 	cmds = append(
 		cmds,
 		dockerBuildCmd(
