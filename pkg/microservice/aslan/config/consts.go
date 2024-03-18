@@ -566,6 +566,7 @@ type ReleasePlanJobStatus string
 const (
 	ReleasePlanJobStatusTodo    ReleasePlanJobStatus = "todo"
 	ReleasePlanJobStatusDone    ReleasePlanJobStatus = "done"
+	ReleasePlanJobStatusSkipped ReleasePlanJobStatus = "skipped"
 	ReleasePlanJobStatusFailed  ReleasePlanJobStatus = "failed"
 	ReleasePlanJobStatusRunning ReleasePlanJobStatus = "running"
 )

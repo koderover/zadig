@@ -225,6 +225,32 @@ func ExecuteReleaseJob(c *gin.Context) {
 	ctx.Err = service.ExecuteReleaseJob(ctx, c.Param("id"), req)
 }
 
+func SkipReleaseJob(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	err = commonutil.CheckZadigEnterpriseLicense()
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+
+	req := new(service.SkipReleaseJobArgs)
+	if err := c.ShouldBindJSON(req); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		return
+	}
+
+	// only release plan manager can skip release job
+	// so no need to check authorization there
+	ctx.Err = service.SkipReleaseJob(ctx, c.Param("id"), req)
+}
+
 func UpdateReleaseJobStatus(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
