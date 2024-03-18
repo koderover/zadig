@@ -137,7 +137,7 @@ func (c *Client) ListConfigs(namespaceID string) ([]*types.NacosConfig, error) {
 	url := "/v1/cs/configs"
 	resp := []*types.NacosConfig{}
 	pageNum := 1
-	pageSize := 20
+	pageSize := 500
 	end := false
 	for !end {
 		res := &configResp{}
