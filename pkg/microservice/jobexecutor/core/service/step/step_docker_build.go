@@ -127,7 +127,7 @@ func (s *DockerBuildStep) runDockerBuild() error {
 		outScanner := bufio.NewScanner(cmdOutReader)
 		go func() {
 			for outScanner.Scan() {
-				fmt.Printf("[%s]    %s\n", time.Now().Format(setting.WorkflowTimeFormat), outScanner.Text())
+				fmt.Printf("%s    %s\n", time.Now().Format(setting.WorkflowTimeFormat), outScanner.Text())
 			}
 		}()
 
@@ -139,7 +139,7 @@ func (s *DockerBuildStep) runDockerBuild() error {
 		errScanner := bufio.NewScanner(cmdErrReader)
 		go func() {
 			for errScanner.Scan() {
-				fmt.Printf("[%s]    %s\n", time.Now().Format(setting.WorkflowTimeFormat), errScanner.Text())
+				fmt.Printf("%s    %s\n", time.Now().Format(setting.WorkflowTimeFormat), errScanner.Text())
 			}
 		}()
 

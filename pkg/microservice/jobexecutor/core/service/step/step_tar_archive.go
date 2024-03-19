@@ -108,7 +108,7 @@ func (s *TarArchiveStep) Run(ctx context.Context) error {
 	outScanner := bufio.NewScanner(cmdOutReader)
 	go func() {
 		for outScanner.Scan() {
-			fmt.Printf("[%s]    %s\n", time.Now().Format(setting.WorkflowTimeFormat), outScanner.Text())
+			fmt.Printf("%s    %s\n", time.Now().Format(setting.WorkflowTimeFormat), outScanner.Text())
 		}
 	}()
 
@@ -120,7 +120,7 @@ func (s *TarArchiveStep) Run(ctx context.Context) error {
 	errScanner := bufio.NewScanner(cmdErrReader)
 	go func() {
 		for errScanner.Scan() {
-			fmt.Printf("[%s]    %s\n", time.Now().Format(setting.WorkflowTimeFormat), errScanner.Text())
+			fmt.Printf("%s    %s\n", time.Now().Format(setting.WorkflowTimeFormat), errScanner.Text())
 		}
 	}()
 

@@ -142,7 +142,7 @@ func handleCmdOutput(pipe io.ReadCloser, needPersistentLog bool, logFile string,
 			break
 		}
 
-		fmt.Printf("[%s]    %s", time.Now().Format(setting.WorkflowTimeFormat), maskSecretEnvs(string(lineBytes), secretEnvs))
+		fmt.Printf("%s    %s", time.Now().Format(setting.WorkflowTimeFormat), maskSecretEnvs(string(lineBytes), secretEnvs))
 
 		if needPersistentLog {
 			err := util.WriteFile(logFile, lineBytes, 0700)
