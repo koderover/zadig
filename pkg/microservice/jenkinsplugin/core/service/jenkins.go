@@ -27,7 +27,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/koderover/gojenkins"
+	"github.com/bndr/gojenkins"
 	"gopkg.in/yaml.v3"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/jenkinsplugin/config"

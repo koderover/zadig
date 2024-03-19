@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/koderover/gojenkins"
+	"github.com/bndr/gojenkins"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
 	"k8s.io/client-go/kubernetes"
