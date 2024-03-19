@@ -17,10 +17,10 @@ limitations under the License.
 package step
 
 type StepDownloadArchiveSpec struct {
-	FileName       string `bson:"file_name"                          json:"file_name"                                 yaml:"file_name"`
-	ObjectPath     string `bson:"object_path"                        json:"object_path"                               yaml:"object_path"`
-	DestDir        string `bson:"dest_dir"                           json:"dest_dir"                                  yaml:"dest_dir"`
-	UnTar          bool   `bson:"untar"                              json:"untar"                                     yaml:"untar"`
-	IgnoreNotExist bool   `bson:"ignore_not_exist"                   json:"ignore_not_exist"                           yaml:"ignore_not_exist"`
-	S3             *S3    `bson:"s3_storage"                         json:"s3_storage"                                yaml:"s3_storage"`
+	FileName   string `bson:"file_name"                          json:"file_name"                                 yaml:"file_name"`
+	ObjectPath string `bson:"object_path"                        json:"object_path"                               yaml:"object_path"`
+	DestDir    string `bson:"dest_dir"                           json:"dest_dir"                                  yaml:"dest_dir"`
+	UnTar      bool   `bson:"untar"                              json:"untar"                                     yaml:"untar"`
+	IgnoreErr  bool   `bson:"ignore_err"                         json:"ignore_err"                                yaml:"ignore_err"`
+	S3         *S3    `bson:"s3_storage"                         json:"s3_storage"                                yaml:"s3_storage"`
 }

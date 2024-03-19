@@ -24,5 +24,6 @@ type StepTarArchiveSpec struct {
 	TarDir       string   `bson:"tar_dir"                    json:"tar_dir"                           yaml:"tar_dir"`
 	ChangeTarDir bool     `bson:"change_tar_dir"             json:"change_tar_dir"                    yaml:"change_tar_dir"`
 	FileName     string   `bson:"file_name"                  json:"file_name"                         yaml:"file_name"`
+	IgnoreErr    bool     `bson:"ignore_err"                 json:"ignore_err"                        yaml:"ignore_err"`
 	S3Storage    *S3      `bson:"s3_storage"                 json:"s3_storage"                        yaml:"s3_storage"`
 }

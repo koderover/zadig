@@ -288,7 +288,6 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 
 			if jobTaskSpec.Properties.CacheEnable {
 				jobTaskSpec.Properties.CacheUserDir = renderEnv(jobTaskSpec.Properties.CacheUserDir, jobTaskSpec.Properties.Envs)
-				log.Debugf("jobTaskSpec.Properties.CacheUserDir: %s", jobTaskSpec.Properties.CacheUserDir)
 				if jobTaskSpec.Properties.Cache.MediumType == types.NFSMedium {
 					jobTaskSpec.Properties.Cache.NFSProperties.Subpath = renderEnv(jobTaskSpec.Properties.Cache.NFSProperties.Subpath, jobTaskSpec.Properties.Envs)
 				} else if jobTaskSpec.Properties.Cache.MediumType == types.ObjectMedium {
@@ -333,12 +332,12 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 				JobName:  jobTask.Name,
 				StepType: config.StepDownloadArchive,
 				Spec: step.StepDownloadArchiveSpec{
-					UnTar:          true,
-					IgnoreNotExist: true,
-					FileName:       setting.BuildOSSCacheFileName,
-					ObjectPath:     fmt.Sprintf("%s/%s/%s/cache", j.workflow.Name, build.ServiceName, build.ServiceModule),
-					DestDir:        cacheDir,
-					S3:             modelS3toS3(cacheS3),
+					UnTar:      true,
+					IgnoreErr:  true,
+					FileName:   setting.BuildOSSCacheFileName,
+					ObjectPath: fmt.Sprintf("%s/cache/%s/%s", j.workflow.Name, build.ServiceName, build.ServiceModule),
+					DestDir:    cacheDir,
+					S3:         modelS3toS3(cacheS3),
 				},
 			}
 			jobTaskSpec.Steps = append(jobTaskSpec.Steps, downloadArchiveStep)
@@ -449,7 +448,8 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 					AbsResultDir: true,
 					TarDir:       cacheDir,
 					ChangeTarDir: true,
-					S3DestDir:    fmt.Sprintf("%s/%s/%s/cache", j.workflow.Name, build.ServiceName, build.ServiceModule),
+					S3DestDir:    fmt.Sprintf("%s/cache/%s/%s", j.workflow.Name, build.ServiceName, build.ServiceModule),
+					IgnoreErr:    true,
 					S3Storage:    modelS3toS3(cacheS3),
 				},
 			}

@@ -67,13 +67,22 @@ func (s *TarArchiveStep) Run(ctx context.Context) error {
 	}
 	client, err := s3.NewClient(s.spec.S3Storage.Endpoint, s.spec.S3Storage.Ak, s.spec.S3Storage.Sk, s.spec.S3Storage.Region, s.spec.S3Storage.Insecure, forcedPathStyle)
 	if err != nil {
-		return fmt.Errorf("failed to create s3 client to upload file, err: %s", err)
+		if s.spec.IgnoreErr {
+			s.logger.Errorf("failed to create s3 client to upload file, err: %s", err)
+			return nil
+		} else {
+			return fmt.Errorf("failed to create s3 client to upload file, err: %s", err)
+		}
 	}
+
+	envMap := helper.MakeEnvMap(s.envs, s.secretEnvs)
 	tarName := filepath.Join(s.spec.DestDir, s.spec.FileName)
+	tarName = replaceEnvWithValue(tarName, envMap)
+	s.spec.TarDir = replaceEnvWithValue(s.spec.TarDir, envMap)
+
 	cmdAndArtifactFullPaths := make([]string, 0)
 	cmdAndArtifactFullPaths = append(cmdAndArtifactFullPaths, "-czf")
 	cmdAndArtifactFullPaths = append(cmdAndArtifactFullPaths, tarName)
-	envMap := helper.MakeEnvMap(s.envs, s.secretEnvs)
 	for _, artifactPath := range s.spec.ResultDirs {
 		if len(artifactPath) == 0 {
 			continue
@@ -96,8 +105,12 @@ func (s *TarArchiveStep) Run(ctx context.Context) error {
 
 	temp, err := os.Create(tarName)
 	if err != nil {
-		s.logger.Errorf("failed to create %s err: %s", tarName, err)
-		return err
+		if s.spec.IgnoreErr {
+			s.logger.Errorf("failed to create %s err: %s", tarName, err)
+			return nil
+		} else {
+			return fmt.Errorf("failed to create %s err: %s", tarName, err)
+		}
 	}
 	err = temp.Close()
 	if err != nil {
@@ -106,14 +119,23 @@ func (s *TarArchiveStep) Run(ctx context.Context) error {
 	cmd := exec.Command("tar", cmdAndArtifactFullPaths...)
 	cmd.Stderr = os.Stderr
 	if err = cmd.Run(); err != nil {
-		s.logger.Errorf("failed to compress %s err:%s", tarName, err)
-		return err
+		if s.spec.IgnoreErr {
+			s.logger.Errorf("failed to compress %s, cmd: %s, err: %s", tarName, cmd.String(), err)
+			return nil
+		} else {
+			return fmt.Errorf("failed to compress %s, cmd: %s, err: %s", tarName, cmd.String(), err)
+		}
 	}
 
 	objectKey := filepath.Join(s.spec.S3DestDir, s.spec.FileName)
 	objectKey = filepath.ToSlash(objectKey)
 	if err := client.Upload(s.spec.S3Storage.Bucket, tarName, objectKey); err != nil {
-		return err
+		if s.spec.IgnoreErr {
+			s.logger.Errorf("failed to upload archive to s3, bucketName: %s, src: %s, objectKey: %s, err: %s", s.spec.S3Storage.Bucket, tarName, objectKey, err)
+			return nil
+		} else {
+			return fmt.Errorf("failed to upload archive to s3, bucketName: %s, src: %s, objectKey: %s, err: %s", s.spec.S3Storage.Bucket, tarName, objectKey, err)
+		}
 	}
 	s.logger.Infof("Finish archive %s.", s.spec.FileName)
 	return nil

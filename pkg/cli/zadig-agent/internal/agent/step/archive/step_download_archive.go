@@ -26,8 +26,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws/awserr"
-	awss3 "github.com/aws/aws-sdk-go/service/s3"
 	"gopkg.in/yaml.v2"
 
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/helper/log"
@@ -68,6 +66,7 @@ func (s *DownloadArchiveStep) Run(ctx context.Context) error {
 
 	envmaps := helper.MakeEnvMap(s.envs, s.secretEnvs)
 	fileName := replaceEnvWithValue(s.spec.FileName, envmaps)
+	s.spec.DestDir = replaceEnvWithValue(s.spec.DestDir, envmaps)
 	s.logger.Infof(fmt.Sprintf("Start download artifact %s.", fileName))
 
 	forcedPathStyle := true
@@ -76,7 +75,12 @@ func (s *DownloadArchiveStep) Run(ctx context.Context) error {
 	}
 	client, err := s3.NewClient(s.spec.S3.Endpoint, s.spec.S3.Ak, s.spec.S3.Sk, s.spec.S3.Region, s.spec.S3.Insecure, forcedPathStyle)
 	if err != nil {
-		return fmt.Errorf("failed to create s3 client to upload file, err: %s", err)
+		if s.spec.IgnoreErr {
+			log.Errorf("failed to create s3 client to upload file, err: %s", err)
+			return nil
+		} else {
+			return fmt.Errorf("failed to create s3 client to upload file, err: %s", err)
+		}
 	}
 
 	destPath := path.Join(s.workspace, s.spec.DestDir, fileName)
@@ -84,11 +88,10 @@ func (s *DownloadArchiveStep) Run(ctx context.Context) error {
 	if s.spec.UnTar {
 		err = client.Download(s.spec.S3.Bucket, objectKey, destPath)
 		if err != nil {
-			if e, ok := err.(awserr.Error); ok && e.Code() == awss3.ErrCodeNoSuchKey {
-				if s.spec.IgnoreNotExist {
-					log.Warnf("archive not found in s3, bucketName: %s, objectKey: %s", s.spec.S3.Bucket, objectKey)
-					return nil
-				}
+			if s.spec.IgnoreErr {
+				log.Errorf("download archive err, bucketName: %s, objectKey: %s, err: %v", s.spec.S3.Bucket, objectKey, err)
+				return nil
+			} else {
 				return fmt.Errorf("failed to download archive from s3, bucketName: %s, objectKey: %s, destPath: %s, err: %s", s.spec.S3.Bucket, objectKey, destPath, err)
 			}
 		}
@@ -99,24 +102,40 @@ func (s *DownloadArchiveStep) Run(ctx context.Context) error {
 			}()
 			err = client.Download(s.spec.S3.Bucket, objectKey, sourceFilename)
 			if err != nil {
-				if e, ok := err.(awserr.Error); ok && e.Code() == awss3.ErrCodeNoSuchKey {
-					if s.spec.IgnoreNotExist {
-						log.Warnf("archive not found in s3, bucketName: %s, objectKey: %s", s.spec.S3.Bucket, objectKey)
-						return nil
-					}
-					return fmt.Errorf("failed to download archive from s3, bucketName: %s, objectKey: %s, dest: %s, err: %s", s.spec.S3.Bucket, objectKey, sourceFilename, err)
+				if s.spec.IgnoreErr {
+					log.Errorf("failed to download archive from s3, bucketName: %s, objectKey: %s, err: %v", s.spec.S3.Bucket, objectKey, err)
+					return nil
+				} else {
+					return fmt.Errorf("failed to download archive from s3, bucketName: %s, objectKey: %s, destPath: %s, err: %s", s.spec.S3.Bucket, objectKey, destPath, err)
 				}
 			}
 
 			destPath = s.spec.DestDir
 			if err = os.MkdirAll(destPath, os.ModePerm); err != nil {
-				return fmt.Errorf("failed to MkdirAll destPath %s, err: %s", destPath, err)
+				if s.spec.IgnoreErr {
+					log.Errorf("failed to MkdirAll destPath %s, err: %s", destPath, err)
+					return nil
+				} else {
+					return fmt.Errorf("failed to MkdirAll destPath %s, err: %s", destPath, err)
+				}
 			}
 			out := bytes.NewBufferString("")
 			cmd := exec.Command("tar", "xzf", sourceFilename, "-C", destPath)
 			cmd.Stderr = out
 			if err := cmd.Run(); err != nil {
-				return fmt.Errorf("cmd: %s, err: %s %v", cmd.String(), out.String(), err)
+				if s.spec.IgnoreErr {
+					log.Errorf("cmd: %s, err: %s %v", cmd.String(), out.String(), err)
+					return nil
+				} else {
+					return fmt.Errorf("cmd: %s, err: %s %v", cmd.String(), out.String(), err)
+				}
+			}
+		} else {
+			if s.spec.IgnoreErr {
+				log.Errorf("failed to GenerateTmpFile, err: %s", err)
+				return nil
+			} else {
+				return fmt.Errorf("failed to GenerateTmpFile, err: %s", err)
 			}
 		}
 	}

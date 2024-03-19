@@ -563,7 +563,6 @@ func (r *Reaper) AfterExec() error {
 		return fmt.Errorf("failed to run deploy scripts on physical machine: %s", err)
 	}
 
-	// @note object storage cache
 	// Upload workspace cache if the user turns on caching and uses object storage.
 	// Note: Whether the cache is uploaded successfully or not cannot hinder the progress of the overall process,
 	//       so only exceptions are printed here and the process is not interrupted.
