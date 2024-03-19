@@ -314,6 +314,8 @@ const (
 	FunctionTestType = "function"
 
 	AllProjects = "<all_projects>"
+
+	BuildOSSCacheFileName = "zadig-build-cache.tar.gz"
 )
 
 const (

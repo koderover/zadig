@@ -1227,8 +1227,8 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, 
 
 			serviceAndVMDeploy := []*commonmodels.ServiceAndVMDeploy{}
 			for _, step := range taskJobSpec.Steps {
-				if step.StepType == config.StepDownloadArtifact {
-					stepSpec := &stepspec.StepDownloadArtifactSpec{}
+				if step.StepType == config.StepDownloadArchive {
+					stepSpec := &stepspec.StepDownloadArchiveSpec{}
 					if err := commonmodels.IToi(step.Spec, &stepSpec); err != nil {
 						continue
 					}
@@ -1237,7 +1237,7 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, 
 					if len(stepSpec.S3.Subfolder) > 0 {
 						url += strings.TrimLeft(stepSpec.S3.Subfolder, "/")
 					}
-					url += "/" + stepSpec.Artifact
+					url += "/" + stepSpec.FileName
 					serviceAndVMDeploy = append(serviceAndVMDeploy, &commonmodels.ServiceAndVMDeploy{
 						ServiceName:   serviceName,
 						ServiceModule: serviceModule,

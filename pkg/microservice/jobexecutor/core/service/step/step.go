@@ -66,8 +66,8 @@ func RunStep(ctx context.Context, step *meta.Step, workspace, paths string, envs
 		if err != nil {
 			return err
 		}
-	case "download_artifact":
-		stepInstance, err = NewDownloadArtifactStep(step.Spec, workspace, envs, secretEnvs)
+	case "download_archive":
+		stepInstance, err = NewDownloadArchiveStep(step.Spec, workspace, envs, secretEnvs)
 		if err != nil {
 			return err
 		}
@@ -77,7 +77,7 @@ func RunStep(ctx context.Context, step *meta.Step, workspace, paths string, envs
 			return err
 		}
 	case "tar_archive":
-		stepInstance, err = NewTararchiveStep(step.Spec, workspace, envs, secretEnvs)
+		stepInstance, err = NewTarArchiveStep(step.Spec, workspace, envs, secretEnvs)
 		if err != nil {
 			return err
 		}
