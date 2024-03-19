@@ -82,7 +82,7 @@ func Execute(ctx context.Context) error {
 			resultMsg = types.JobFail
 			fmt.Printf("Failed to run: %s.\n", err)
 		}
-		fmt.Printf("%s    Job Status: %s\n", time.Now().Format(setting.WorkflowTimeFormat), resultMsg)
+		fmt.Printf("%s   Job Status: %s\n", time.Now().Format(setting.WorkflowTimeFormat), resultMsg)
 
 		// set job status and outputs to job context configMap
 		cm, err := j.ConfigMapUpdater.Get()
