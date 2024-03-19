@@ -36,10 +36,11 @@ import (
 
 func Execute(ctx context.Context) error {
 	log.Init(&log.Config{
-		Level:       commonconfig.LogLevel(),
-		NoCaller:    true,
-		NoLogLevel:  true,
-		Development: commonconfig.Mode() != setting.ReleaseMode,
+		Level:         commonconfig.LogLevel(),
+		NoCaller:      true,
+		NoLogLevel:    true,
+		Development:   commonconfig.Mode() != setting.ReleaseMode,
+		WorkflowStyle: true,
 		// SendToFile:  true,
 		// Filename:    ZadigLogFile,
 	})

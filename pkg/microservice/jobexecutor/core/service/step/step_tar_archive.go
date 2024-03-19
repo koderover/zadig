@@ -17,12 +17,14 @@ limitations under the License.
 package step
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"gopkg.in/yaml.v2"
 
@@ -97,7 +99,31 @@ func (s *TarArchiveStep) Run(ctx context.Context) error {
 	}
 	_ = temp.Close()
 	cmd := exec.Command("tar", cmdAndArtifactFullPaths...)
-	cmd.Stderr = os.Stderr
+
+	cmdOutReader, err := cmd.StdoutPipe()
+	if err != nil {
+		return err
+	}
+
+	outScanner := bufio.NewScanner(cmdOutReader)
+	go func() {
+		for outScanner.Scan() {
+			fmt.Printf("[%s]    %s\n", time.Now().Format(setting.WorkflowTimeFormat), outScanner.Text())
+		}
+	}()
+
+	cmdErrReader, err := cmd.StderrPipe()
+	if err != nil {
+		return err
+	}
+
+	errScanner := bufio.NewScanner(cmdErrReader)
+	go func() {
+		for errScanner.Scan() {
+			fmt.Printf("[%s]    %s\n", time.Now().Format(setting.WorkflowTimeFormat), errScanner.Text())
+		}
+	}()
+
 	if err = cmd.Run(); err != nil {
 		log.Errorf("failed to compress %s err:%s", tarName, err)
 		return err

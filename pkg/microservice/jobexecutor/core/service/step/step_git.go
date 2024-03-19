@@ -29,6 +29,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/koderover/zadig/v2/pkg/setting"
 	"gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -156,7 +157,7 @@ func (s *GitStep) runGitCmds() error {
 		outScanner := bufio.NewScanner(cmdOutReader)
 		go func() {
 			for outScanner.Scan() {
-				fmt.Printf("%s\n", maskSecret(tokens, outScanner.Text()))
+				fmt.Printf("[%s]    %s\n", time.Now().Format(setting.WorkflowTimeFormat), maskSecret(tokens, outScanner.Text()))
 			}
 		}()
 
@@ -168,7 +169,7 @@ func (s *GitStep) runGitCmds() error {
 		errScanner := bufio.NewScanner(cmdErrReader)
 		go func() {
 			for errScanner.Scan() {
-				fmt.Printf("%s\n", maskSecret(tokens, errScanner.Text()))
+				fmt.Printf("[%s]    %s\n", time.Now().Format(setting.WorkflowTimeFormat), maskSecret(tokens, errScanner.Text()))
 			}
 		}()
 

@@ -17,11 +17,11 @@ limitations under the License.
 package step
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"fmt"
 	"io"
-	"os"
 	"os/exec"
 	"strings"
 	"time"
@@ -118,8 +118,31 @@ func (s *DockerBuildStep) runDockerBuild() error {
 	startTimeDockerBuild := time.Now()
 	envs := s.envs
 	for _, c := range s.dockerCommands() {
-		c.Stdout = os.Stdout
-		c.Stderr = os.Stderr
+
+		cmdOutReader, err := c.StdoutPipe()
+		if err != nil {
+			return err
+		}
+
+		outScanner := bufio.NewScanner(cmdOutReader)
+		go func() {
+			for outScanner.Scan() {
+				fmt.Printf("[%s]    %s\n", time.Now().Format(setting.WorkflowTimeFormat), outScanner.Text())
+			}
+		}()
+
+		cmdErrReader, err := c.StderrPipe()
+		if err != nil {
+			return err
+		}
+
+		errScanner := bufio.NewScanner(cmdErrReader)
+		go func() {
+			for errScanner.Scan() {
+				fmt.Printf("[%s]    %s\n", time.Now().Format(setting.WorkflowTimeFormat), errScanner.Text())
+			}
+		}()
+
 		c.Dir = s.workspace
 		c.Env = envs
 		if err := c.Run(); err != nil {

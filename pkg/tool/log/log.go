@@ -19,6 +19,7 @@ package log
 import (
 	"os"
 	"strings"
+	"time"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -29,15 +30,16 @@ var logger *zap.Logger
 var simpleLogger *zap.SugaredLogger
 
 type Config struct {
-	Level       string
-	SendToFile  bool
-	Filename    string
-	NoCaller    bool
-	NoLogLevel  bool
-	Development bool
-	MaxSize     int // megabytes
-	MaxAge      int // days
-	MaxBackups  int
+	Level         string
+	SendToFile    bool
+	Filename      string
+	NoCaller      bool
+	NoLogLevel    bool
+	Development   bool
+	MaxSize       int // megabytes
+	MaxAge        int // days
+	MaxBackups    int
+	WorkflowStyle bool
 }
 
 func Init(cfg *Config) {
@@ -103,6 +105,10 @@ func getEncoder(cfg *Config, jsonFormat bool) zapcore.Encoder {
 
 	if cfg.NoLogLevel {
 		encoderConfig.LevelKey = zapcore.OmitKey
+	}
+
+	if cfg.WorkflowStyle {
+		encoderConfig.EncodeTime = workflowTimeEncoder
 	}
 
 	if jsonFormat {
@@ -232,4 +238,17 @@ func Fatal(args ...interface{}) {
 
 func Fatalf(format string, args ...interface{}) {
 	getSimpleLogger().Fatalf(format, args...)
+}
+
+func workflowTimeEncoder(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
+	type appendTimeEncoder interface {
+		AppendTimeLayout(time.Time, string)
+	}
+
+	if enc, ok := enc.(appendTimeEncoder); ok {
+		enc.AppendTimeLayout(t, "[2006-01-02 15:04:05]")
+		return
+	}
+
+	enc.AppendString(t.Format("[2006-01-02 15:04:05]"))
 }
