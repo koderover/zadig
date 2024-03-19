@@ -36,10 +36,11 @@ import (
 
 func Execute(ctx context.Context) error {
 	log.Init(&log.Config{
-		Level:       commonconfig.LogLevel(),
-		NoCaller:    true,
-		NoLogLevel:  true,
-		Development: commonconfig.Mode() != setting.ReleaseMode,
+		Level:         commonconfig.LogLevel(),
+		NoCaller:      true,
+		NoLogLevel:    true,
+		Development:   commonconfig.Mode() != setting.ReleaseMode,
+		WorkflowStyle: true,
 		// SendToFile:  true,
 		// Filename:    ZadigLogFile,
 	})
@@ -81,7 +82,7 @@ func Execute(ctx context.Context) error {
 			resultMsg = types.JobFail
 			fmt.Printf("Failed to run: %s.\n", err)
 		}
-		fmt.Printf("Job Status: %s\n", resultMsg)
+		fmt.Printf("%s   Job Status: %s\n", time.Now().Format(setting.WorkflowTimeFormat), resultMsg)
 
 		// set job status and outputs to job context configMap
 		cm, err := j.ConfigMapUpdater.Get()
