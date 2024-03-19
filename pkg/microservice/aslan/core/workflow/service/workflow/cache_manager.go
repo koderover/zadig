@@ -40,10 +40,10 @@ func (gcm *GoCacheManager) Archive(source, dest string) error {
 		sources = append(sources, filepath.Join(source, f.Name()))
 	}
 
-	return getAchiver().Archive(sources, dest)
+	return getArchiver().Archive(sources, dest)
 }
 
-func getAchiver() *archiver.TarGz {
+func getArchiver() *archiver.TarGz {
 	return &archiver.TarGz{
 		Tar: &archiver.Tar{
 			OverwriteExisting:      true,

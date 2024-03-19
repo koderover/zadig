@@ -85,8 +85,8 @@ func instantiateStepCtl(step *commonmodels.StepTask, workflowCtx *commonmodels.W
 		stepCtl, err = NewToolInstallCtl(step, jobPath, logger)
 	case config.StepArchive:
 		stepCtl, err = NewArchiveCtl(step, workflowCtx, logger)
-	case config.StepDownloadArtifact:
-		stepCtl, err = NewDownloadArtifactCtl(step, logger)
+	case config.StepDownloadArchive:
+		stepCtl, err = NewDownloadArchiveCtl(step, logger)
 	case config.StepJunitReport:
 		stepCtl, err = NewJunitReportCtl(step, logger)
 	case config.StepTarArchive:
