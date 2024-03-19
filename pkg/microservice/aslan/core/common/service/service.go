@@ -97,24 +97,29 @@ type ServiceTmplObject struct {
 	ServiceVariableKVs []*commontypes.ServiceVariableKV `json:"service_variable_kvs"`
 }
 
+type ContainerWithBuilds struct {
+	*commonmodels.Container
+	BuildNames []string `json:"build_names"`
+}
+
 type ServiceProductMap struct {
-	Service          string                    `json:"service_name"`
-	Source           string                    `json:"source"`
-	Type             string                    `json:"type"`
-	Product          []string                  `json:"product"`
-	ProductName      string                    `json:"product_name"`
-	Containers       []*commonmodels.Container `json:"containers,omitempty"`
-	CodehostID       int                       `json:"codehost_id"`
-	RepoOwner        string                    `json:"repo_owner"`
-	RepoNamespace    string                    `json:"repo_namespace"`
-	RepoName         string                    `json:"repo_name"`
-	RepoUUID         string                    `json:"repo_uuid"`
-	BranchName       string                    `json:"branch_name"`
-	LoadPath         string                    `json:"load_path"`
-	LoadFromDir      bool                      `json:"is_dir"`
-	GerritRemoteName string                    `json:"gerrit_remote_name,omitempty"`
-	CreateFrom       interface{}               `json:"create_from"`
-	AutoSync         bool                      `json:"auto_sync"`
+	Service          string                 `json:"service_name"`
+	Source           string                 `json:"source"`
+	Type             string                 `json:"type"`
+	Product          []string               `json:"product"`
+	ProductName      string                 `json:"product_name"`
+	Containers       []*ContainerWithBuilds `json:"containers,omitempty"`
+	CodehostID       int                    `json:"codehost_id"`
+	RepoOwner        string                 `json:"repo_owner"`
+	RepoNamespace    string                 `json:"repo_namespace"`
+	RepoName         string                 `json:"repo_name"`
+	RepoUUID         string                 `json:"repo_uuid"`
+	BranchName       string                 `json:"branch_name"`
+	LoadPath         string                 `json:"load_path"`
+	LoadFromDir      bool                   `json:"is_dir"`
+	GerritRemoteName string                 `json:"gerrit_remote_name,omitempty"`
+	CreateFrom       interface{}            `json:"create_from"`
+	AutoSync         bool                   `json:"auto_sync"`
 	//estimated merged variable is set when the service is created from template
 	EstimatedMergedVariable    string                           `json:"estimated_merged_variable"`
 	EstimatedMergedVariableKVs []*commontypes.ServiceVariableKV `json:"estimated_merged_variable_kvs"`
@@ -150,6 +155,17 @@ type TemplateSvcResp struct {
 var (
 	imageParseRegex = regexp.MustCompile(`(?P<repo>.+/)?(?P<image>[^:]+){1}(:)?(?P<tag>.+)?`)
 )
+
+func FillContainerBuilds(source []*commonmodels.Container) []*ContainerWithBuilds {
+	ret := make([]*ContainerWithBuilds, 0, len(source))
+	for i, c := range source {
+		ret[i] = &ContainerWithBuilds{
+			Container:  c,
+			BuildNames: nil,
+		}
+	}
+	return ret
+}
 
 func GetCreateFromChartTemplate(createFrom interface{}) (*models.CreateFromChartTemplate, error) {
 	bs, err := json.Marshal(createFrom)
@@ -241,7 +257,7 @@ func ListServiceTemplate(productName string, log *zap.SugaredLogger) (*ServiceTm
 			Type:                       serviceObject.Type,
 			Source:                     serviceObject.Source,
 			ProductName:                serviceObject.ProductName,
-			Containers:                 serviceObject.Containers,
+			Containers:                 FillContainerBuilds(serviceObject.Containers),
 			Product:                    []string{productName},
 			CodehostID:                 serviceObject.CodehostID,
 			RepoOwner:                  serviceObject.RepoOwner,
@@ -336,7 +352,21 @@ func ListWorkloadTemplate(productName, envName string, production bool, log *zap
 			Type:        serviceObject.Type,
 			Source:      setting.SourceFromExternal,
 			ProductName: serviceObject.ProductName,
-			Containers:  serviceObject.Containers,
+			Containers:  FillContainerBuilds(serviceObject.Containers),
+		}
+
+		if !production {
+			for _, c := range spmap.Containers {
+				buildObjs, err := commonrepo.NewBuildColl().List(&commonrepo.BuildListOption{ProductName: productName, ServiceName: serviceObject.ServiceName, Targets: []string{c.Name}})
+				if err != nil {
+					continue
+				}
+				buildNames := sets.NewString()
+				for _, buildObj := range buildObjs {
+					buildNames.Insert(buildObj.Name)
+				}
+				c.BuildNames = buildNames.List()
+			}
 		}
 		resp.Data = append(resp.Data, spmap)
 	}
@@ -478,6 +508,7 @@ func GetServiceTemplate(serviceName, serviceType, productName, excludeStatus str
 			}
 		}
 	}
+
 	resp.RepoNamespace = resp.GetRepoNamespace()
 	return resp, nil
 }

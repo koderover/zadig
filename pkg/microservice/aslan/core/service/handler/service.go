@@ -167,7 +167,6 @@ func GetServiceTemplateOption(c *gin.Context) {
 	projectName := c.Query("projectName")
 
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
