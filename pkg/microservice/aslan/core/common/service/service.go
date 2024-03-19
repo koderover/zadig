@@ -157,12 +157,12 @@ var (
 )
 
 func FillContainerBuilds(source []*commonmodels.Container) []*ContainerWithBuilds {
-	ret := make([]*ContainerWithBuilds, 0, len(source))
-	for i, c := range source {
-		ret[i] = &ContainerWithBuilds{
+	ret := make([]*ContainerWithBuilds, 0)
+	for _, c := range source {
+		ret = append(ret, &ContainerWithBuilds{
 			Container:  c,
 			BuildNames: nil,
-		}
+		})
 	}
 	return ret
 }
