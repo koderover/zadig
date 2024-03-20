@@ -27,6 +27,7 @@ import (
 
 	commomtemplate "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/template"
 	"github.com/koderover/zadig/v2/pkg/setting"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
 var (
@@ -77,11 +78,13 @@ func renderK8sSvcYamlImpl(originYaml, productName, serviceName, templateOption s
 	variableYaml = strings.ReplaceAll(variableYaml, setting.TemplateVariableProduct, productName)
 	variableYaml = strings.ReplaceAll(variableYaml, setting.TemplateVariableService, serviceName)
 
+	log.Debugf("variableYaml: %s", variableYaml)
 	variableMap := make(map[string]interface{})
 	err = yaml.Unmarshal([]byte(variableYaml), &variableMap)
 	if err != nil {
 		return originYaml, fmt.Errorf("failed to unmarshal variable yaml, err: %s", err)
 	}
+	log.Debugf("variableMap: %v", variableMap)
 
 	buf := bytes.NewBufferString("")
 	err = tmpl.Execute(buf, variableMap)

@@ -377,6 +377,7 @@ func PreviewService(args *PreviewServiceArgs, _ *zap.SugaredLogger) (*SvcDiffRes
 	if err != nil {
 		return nil, e.ErrPreviewYaml.AddErr(err)
 	}
+	log.Debugf("newVariableYaml: %s", newVariableYaml)
 
 	ret := &SvcDiffResult{
 		ServiceName: args.ServiceName,

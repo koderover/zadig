@@ -121,6 +121,7 @@ func resourceToYaml(obj runtime.Object) (string, error) {
 
 // ReplaceWorkloadImages  replace images in yaml with new images
 func ReplaceWorkloadImages(rawYaml string, images []*commonmodels.Container) (string, []*WorkloadResource, error) {
+	// log.Debugf("ReplaceWorkloadImages rawYaml: %v", rawYaml)
 	imageMap := make(map[string]*commonmodels.Container)
 	for _, image := range images {
 		imageMap[image.Name] = image
@@ -528,6 +529,7 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, []*WorkloadRe
 	if err != nil {
 		return "", 0, nil, err
 	}
+	log.Debugf("fullRenderedYaml: %v", fullRenderedYaml)
 	fullRenderedYaml = ParseSysKeys(productInfo.Namespace, productInfo.EnvName, option.ProductName, option.ServiceName, fullRenderedYaml)
 
 	// service may not be deployed in environment, we need to extract containers again, since image related variables may be changed
