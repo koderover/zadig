@@ -86,8 +86,30 @@ func (s DockerBuildStep) dockerLogin() error {
 		startTimeDockerLogin := time.Now()
 		cmd := dockerLogin(s.spec.DockerRegistry.UserName, s.spec.DockerRegistry.Password, s.spec.DockerRegistry.Host)
 		var out bytes.Buffer
-		cmd.Stdout = &out
-		cmd.Stderr = &out
+		cmdOutReader, err := cmd.StdoutPipe()
+		if err != nil {
+			return err
+		}
+
+		outScanner := bufio.NewScanner(cmdOutReader)
+		go func() {
+			for outScanner.Scan() {
+				fmt.Printf("%s   %s\n", time.Now().Format(setting.WorkflowTimeFormat), outScanner.Text())
+			}
+		}()
+
+		cmdErrReader, err := cmd.StderrPipe()
+		if err != nil {
+			return err
+		}
+
+		errScanner := bufio.NewScanner(cmdErrReader)
+		go func() {
+			for errScanner.Scan() {
+				fmt.Printf("%s   %s\n", time.Now().Format(setting.WorkflowTimeFormat), errScanner.Text())
+			}
+		}()
+
 		if err := cmd.Run(); err != nil {
 			return fmt.Errorf("failed to login docker registry: %s %s", err, out.String())
 		}

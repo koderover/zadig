@@ -175,7 +175,7 @@ func (s *GitStep) runGitCmds() error {
 
 		c.Cmd.Env = envs
 		if !c.DisableTrace {
-			fmt.Printf("%s\n", strings.Join(c.Cmd.Args, " "))
+			fmt.Printf("%s   %s\n", time.Now().Format(setting.WorkflowTimeFormat), strings.Join(c.Cmd.Args, " "))
 		}
 		if err := c.Cmd.Run(); err != nil {
 			if c.IgnoreError {
