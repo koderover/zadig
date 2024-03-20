@@ -23,11 +23,7 @@ import (
 	"path"
 	"strings"
 
-	aslanUtil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
-	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"go.uber.org/zap"
-
-	"github.com/koderover/zadig/v2/pkg/setting"
 
 	configbase "github.com/koderover/zadig/v2/pkg/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
@@ -36,6 +32,9 @@ import (
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/repository"
 	templ "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/template"
+	aslanUtil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
+	"github.com/koderover/zadig/v2/pkg/setting"
+	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/types"
 	"github.com/koderover/zadig/v2/pkg/types/job"
@@ -321,12 +320,12 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		}
 		jobTaskSpec.Steps = append(jobTaskSpec.Steps, toolInstallStep)
 
+		// init download object cache step
 		if jobTaskSpec.Properties.CacheEnable && jobTaskSpec.Properties.Cache.MediumType == types.ObjectMedium {
 			cacheDir := "/workspace"
 			if jobTaskSpec.Properties.CacheDirType == types.UserDefinedCacheDir {
 				cacheDir = jobTaskSpec.Properties.CacheUserDir
 			}
-			// init download archive/cache step
 			downloadArchiveStep := &commonmodels.StepTask{
 				Name:     fmt.Sprintf("%s-%s", build.ServiceName, "download-archive"),
 				JobName:  jobTask.Name,
@@ -335,7 +334,7 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 					UnTar:      true,
 					IgnoreErr:  true,
 					FileName:   setting.BuildOSSCacheFileName,
-					ObjectPath: fmt.Sprintf("%s/cache/%s/%s", j.workflow.Name, build.ServiceName, build.ServiceModule),
+					ObjectPath: getBuildJobCacheObjectPath(j.workflow.Name, build.ServiceName, build.ServiceModule),
 					DestDir:    cacheDir,
 					S3:         modelS3toS3(cacheS3),
 				},
@@ -432,12 +431,12 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			jobTaskSpec.Steps = append(jobTaskSpec.Steps, dockerBuildStep)
 		}
 
+		// init object cache step
 		if jobTaskSpec.Properties.CacheEnable && jobTaskSpec.Properties.Cache.MediumType == types.ObjectMedium {
 			cacheDir := "/workspace"
 			if jobTaskSpec.Properties.CacheDirType == types.UserDefinedCacheDir {
 				cacheDir = jobTaskSpec.Properties.CacheUserDir
 			}
-			// init tar archive/cache step
 			tarArchiveStep := &commonmodels.StepTask{
 				Name:     fmt.Sprintf("%s-%s", build.ServiceName, "tar-archive"),
 				JobName:  jobTask.Name,
@@ -448,7 +447,7 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 					AbsResultDir: true,
 					TarDir:       cacheDir,
 					ChangeTarDir: true,
-					S3DestDir:    fmt.Sprintf("%s/cache/%s/%s", j.workflow.Name, build.ServiceName, build.ServiceModule),
+					S3DestDir:    getBuildJobCacheObjectPath(j.workflow.Name, build.ServiceName, build.ServiceModule),
 					IgnoreErr:    true,
 					S3Storage:    modelS3toS3(cacheS3),
 				},
@@ -758,4 +757,8 @@ func ensureBuildInOutputs(outputs []*commonmodels.Output) []*commonmodels.Output
 		})
 	}
 	return outputs
+}
+
+func getBuildJobCacheObjectPath(workflowName, serviceName, serviceModule string) string {
+	return fmt.Sprintf("%s/cache/%s/%s", workflowName, serviceName, serviceModule)
 }

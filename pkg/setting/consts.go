@@ -316,7 +316,9 @@ const (
 
 	AllProjects = "<all_projects>"
 
-	BuildOSSCacheFileName = "zadig-build-cache.tar.gz"
+	BuildOSSCacheFileName    = "zadig-build-cache.tar.gz"
+	ScanningOSSCacheFileName = "zadig-scanning-cache.tar.gz"
+	TestingOSSCacheFileName  = "zadig-testing-cache.tar.gz"
 )
 
 const (

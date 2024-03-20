@@ -197,6 +197,7 @@ func (j *ScanningJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			ShareStorageDetails: getShareStorageDetail(j.workflow.ShareStorages, scanning.ShareStorageInfo, j.workflow.Name, taskID),
 		}
 
+		cacheS3 := &commonmodels.S3Storage{}
 		clusterInfo, err := commonrepo.NewK8SClusterColl().Get(scanningInfo.AdvancedSetting.ClusterID)
 		if err != nil {
 			return resp, fmt.Errorf("failed to find cluster: %s, error: %v", scanningInfo.AdvancedSetting.ClusterID, err)
@@ -210,6 +211,13 @@ func (j *ScanningJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 				jobTaskSpec.Properties.CacheEnable = scanningInfo.AdvancedSetting.Cache.CacheEnable
 				jobTaskSpec.Properties.CacheDirType = scanningInfo.AdvancedSetting.Cache.CacheDirType
 				jobTaskSpec.Properties.CacheUserDir = scanningInfo.AdvancedSetting.Cache.CacheUserDir
+
+				if jobTaskSpec.Properties.Cache.MediumType == types.ObjectMedium {
+					cacheS3, err = commonrepo.NewS3StorageColl().Find(jobTaskSpec.Properties.Cache.ObjectProperties.ID)
+					if err != nil {
+						return resp, fmt.Errorf("find cache s3 storage: %s error: %v", jobTaskSpec.Properties.Cache.ObjectProperties.ID, err)
+					}
+				}
 			} else {
 				jobTaskSpec.Properties.CacheEnable = false
 			}
@@ -237,6 +245,29 @@ func (j *ScanningJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			Spec:     step.StepToolInstallSpec{Installs: tools},
 		}
 		jobTaskSpec.Steps = append(jobTaskSpec.Steps, toolInstallStep)
+
+		// init download object cache step
+		if jobTaskSpec.Properties.CacheEnable && jobTaskSpec.Properties.Cache.MediumType == types.ObjectMedium {
+			cacheDir := "/workspace"
+			if jobTaskSpec.Properties.CacheDirType == types.UserDefinedCacheDir {
+				cacheDir = jobTaskSpec.Properties.CacheUserDir
+			}
+			downloadArchiveStep := &commonmodels.StepTask{
+				Name:     fmt.Sprintf("%s-%s", scanning.Name, "download-archive"),
+				JobName:  jobTask.Name,
+				StepType: config.StepDownloadArchive,
+				Spec: step.StepDownloadArchiveSpec{
+					UnTar:      true,
+					IgnoreErr:  true,
+					FileName:   setting.ScanningOSSCacheFileName,
+					ObjectPath: getScanningJobCacheObjectPath(j.workflow.Name, scanning.Name),
+					DestDir:    cacheDir,
+					S3:         modelS3toS3(cacheS3),
+				},
+			}
+			jobTaskSpec.Steps = append(jobTaskSpec.Steps, downloadArchiveStep)
+		}
+
 		// init git clone step
 		gitStep := &commonmodels.StepTask{
 			Name:     scanning.Name + "-git",
@@ -351,6 +382,31 @@ func (j *ScanningJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			JobName:  jobTask.Name,
 			StepType: config.StepDebugAfter,
 		}
+
+		// init object cache step
+		if jobTaskSpec.Properties.CacheEnable && jobTaskSpec.Properties.Cache.MediumType == types.ObjectMedium {
+			cacheDir := "/workspace"
+			if jobTaskSpec.Properties.CacheDirType == types.UserDefinedCacheDir {
+				cacheDir = jobTaskSpec.Properties.CacheUserDir
+			}
+			tarArchiveStep := &commonmodels.StepTask{
+				Name:     fmt.Sprintf("%s-%s", scanning.Name, "tar-archive"),
+				JobName:  jobTask.Name,
+				StepType: config.StepTarArchive,
+				Spec: step.StepTarArchiveSpec{
+					FileName:     setting.ScanningOSSCacheFileName,
+					ResultDirs:   []string{"."},
+					AbsResultDir: true,
+					TarDir:       cacheDir,
+					ChangeTarDir: true,
+					S3DestDir:    getScanningJobCacheObjectPath(j.workflow.Name, scanning.Name),
+					IgnoreErr:    true,
+					S3Storage:    modelS3toS3(cacheS3),
+				},
+			}
+			jobTaskSpec.Steps = append(jobTaskSpec.Steps, tarArchiveStep)
+		}
+
 		jobTaskSpec.Steps = append(jobTaskSpec.Steps, debugAfterStep)
 		resp = append(resp, jobTask)
 	}
@@ -418,4 +474,8 @@ func fillScanningDetail(moduleScanning *commonmodels.Scanning) error {
 	moduleScanning.CheckQualityGate = templateInfo.CheckQualityGate
 
 	return nil
+}
+
+func getScanningJobCacheObjectPath(workflowName, scanningName string) string {
+	return fmt.Sprintf("%s/cache/%s", workflowName, scanningName)
 }
