@@ -925,4 +925,14 @@ var (
 	ErrSetIstioGrayscaleConfig          = NewHTTPError(7064, "设置Istio灰度失败")
 	ErrGetIstioGrayscalePortalService   = NewHTTPError(7065, "获取Istio灰度入口服务配置失败")
 	ErrSetupIstioGrayscalePortalService = NewHTTPError(7066, "设置Istio灰度入口服务失败")
+
+	//-----------------------------------------------------------------------------------------------
+	// release plan template releated errors: 7070 - 7079
+	//-----------------------------------------------------------------------------------------------
+	ErrCreateReleasePlanTemplate = NewHTTPError(7070, "创建发布计划模板失败")
+	ErrUpdateReleasePlanTemplate = NewHTTPError(7071, "更新发布计划模板失败")
+	ErrListReleasePlanTemplate   = NewHTTPError(7072, "列出发布计划模板失败")
+	ErrGetReleasePlanTemplate    = NewHTTPError(7073, "获取发布计划模板失败")
+	ErrDeleteReleasePlanTemplate = NewHTTPError(7074, "删除发布计划模板失败")
+	ErrLintReleasePlanTemplate   = NewHTTPError(7075, "检查发布计划模板失败")
 )
