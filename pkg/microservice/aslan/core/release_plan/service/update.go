@@ -57,6 +57,7 @@ const (
 	VerbUpdate  = "更新"
 	VerbDelete  = "删除"
 	VerbExecute = "执行"
+	VerbSkip    = "跳过"
 )
 
 type PlanUpdater interface {
