@@ -18,9 +18,12 @@ package kube
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
+	types "github.com/golang/protobuf/ptypes/struct"
+	"google.golang.org/protobuf/encoding/protojson"
 	networkingv1alpha3 "istio.io/api/networking/v1alpha3"
 	"istio.io/client-go/pkg/apis/networking/v1alpha3"
 	versionedclient "istio.io/client-go/pkg/clientset/versioned"
@@ -35,6 +38,7 @@ import (
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
+	"github.com/koderover/zadig/v2/pkg/setting"
 	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	zadigtypes "github.com/koderover/zadig/v2/pkg/types"
@@ -126,7 +130,7 @@ func SetIstioGrayscaleWeight(ctx context.Context, envMap map[string]*commonmodel
 			}
 
 			isExisted := false
-			vsName := genVirtualServiceName(&svc)
+			vsName := GenVirtualServiceName(&svc)
 
 			vsObj, err := istioClient.NetworkingV1alpha3().VirtualServices(ns).Get(ctx, vsName, metav1.GetOptions{})
 			if err == nil {
@@ -199,7 +203,7 @@ func SetIstioGrayscaleHeaderMatch(ctx context.Context, envMap map[string]*common
 
 			isExisted := false
 			svcName := svc.Name
-			vsName := genVirtualServiceName(&svc)
+			vsName := GenVirtualServiceName(&svc)
 
 			vsObj, err := istioClient.NetworkingV1alpha3().VirtualServices(ns).Get(ctx, vsName, metav1.GetOptions{})
 			if err == nil {
@@ -456,7 +460,7 @@ func generateGrayscaleHeaderMatchVirtualService(ctx context.Context, envMap map[
 }
 
 func ensureUpdateGrayscaleSerivce(ctx context.Context, curEnv *commonmodels.Product, svc *corev1.Service, kclient client.Client, istioClient versionedclient.Interface) error {
-	vsName := genVirtualServiceName(svc)
+	vsName := GenVirtualServiceName(svc)
 
 	if curEnv.IstioGrayscale.IsBase {
 		grayEnvs, err := commonutil.FetchGrayEnvs(ctx, curEnv.ProductName, curEnv.ClusterID, curEnv.EnvName)
@@ -517,7 +521,7 @@ func ensureUpdateGrayscaleSerivce(ctx context.Context, curEnv *commonmodels.Prod
 }
 
 func EnsureDeleteGrayscaleService(ctx context.Context, env *commonmodels.Product, svc *corev1.Service, kclient client.Client, istioClient versionedclient.Interface) error {
-	vsName := genVirtualServiceName(svc)
+	vsName := GenVirtualServiceName(svc)
 
 	// Delete VirtualService in the current environment.
 	err := ensureDeleteVirtualService(ctx, env, vsName, istioClient)
@@ -580,14 +584,14 @@ func ensureServicesInAllGrayEnvs(ctx context.Context, env *commonmodels.Product,
 	for _, env := range grayEnvs {
 		log.Infof("Begin to ensure Services in gray env %s of prouduct %s.", env.EnvName, env.ProductName)
 
-		vsName := genVirtualServiceName(svc)
+		vsName := GenVirtualServiceName(svc)
 		err := ensureGrayscaleDefaultVirtualService(ctx, kclient, istioClient, env, svc, vsName)
 		if err != nil {
 			return fmt.Errorf("failed to ensure grayscale default VirtualService %s in env %s for svc %s, err: %w",
 				vsName, env.EnvName, svc.Name, err)
 		}
 
-		err = ensureDefaultK8sServiceInGray(ctx, svc, env.Namespace, kclient)
+		err = EnsureDefaultK8sServiceInGray(ctx, svc, env.Namespace, kclient)
 		if err != nil {
 			return fmt.Errorf("failed to ensure grayscale default service %s in env %s, err: %w",
 				svc.Name, env.EnvName, err)
@@ -690,4 +694,407 @@ func ensureCleanGrayscaleRouteInBase(ctx context.Context, envName, ns, baseNS, s
 	baseVS.Spec.Http = newHttpRoutes
 	_, err = istioClient.NetworkingV1alpha3().VirtualServices(baseNS).Update(ctx, baseVS, metav1.UpdateOptions{})
 	return err
+}
+
+func DeleteEnvoyFilter(ctx context.Context, istioClient versionedclient.Interface, istioNamespace, name string) error {
+	_, err := istioClient.NetworkingV1alpha3().EnvoyFilters(istioNamespace).Get(ctx, name, metav1.GetOptions{})
+	if apierrors.IsNotFound(err) {
+		log.Infof("EnvoyFilter %s is not found in ns `%s`. Skip.", name, setting.IstioNamespace)
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("failed to query EnvoyFilter %s in ns `%s`: %s", name, setting.IstioNamespace, err)
+	}
+
+	deleteOption := metav1.DeletePropagationBackground
+	return istioClient.NetworkingV1alpha3().EnvoyFilters(setting.IstioNamespace).Delete(ctx, name, metav1.DeleteOptions{
+		PropagationPolicy: &deleteOption,
+	})
+}
+
+func EnsureEnvoyFilter(ctx context.Context, istioClient versionedclient.Interface, clusterID, ns, name string, headerKeys []string) error {
+	headerKeySet := sets.NewString(headerKeys...)
+	envoyFilterObj, err := istioClient.NetworkingV1alpha3().EnvoyFilters(ns).Get(ctx, name, metav1.GetOptions{})
+	if err == nil {
+		log.Infof("Has found EnvoyFilter `%s` in ns `%s` and don't recreate.", name, setting.IstioNamespace)
+		return nil
+	}
+
+	if !apierrors.IsNotFound(err) {
+		return fmt.Errorf("failed to query EnvoyFilter `%s` in ns `%s`: %s", name, setting.IstioNamespace, err)
+	}
+
+	storeCacheOperation, err := buildEnvoyStoreCacheOperation(headerKeySet.List())
+	if err != nil {
+		return fmt.Errorf("failed to build envoy operation of storing cache: %s", err)
+	}
+
+	getCacheOperation, err := buildEnvoyGetCacheOperation(headerKeySet.List())
+	if err != nil {
+		return fmt.Errorf("failed to build envoy operation of getting cache: %s", err)
+	}
+
+	var cacheServerAddr string
+	var cacheServerPort int
+
+	switch clusterID {
+	case setting.LocalClusterID:
+		cacheServerAddr = fmt.Sprintf("aslan.%s.svc.cluster.local", config.Namespace())
+		cacheServerPort = 25000
+	default:
+		cacheServerAddr = "hub-agent.koderover-agent.svc.cluster.local"
+		cacheServerPort = 80
+	}
+
+	clusterConfig, err := buildEnvoyClusterConfig(cacheServerAddr, cacheServerPort)
+	if err != nil {
+		return fmt.Errorf("failed to build envoy cluster config for `%s:%d`: %s", cacheServerAddr, cacheServerPort, err)
+	}
+
+	envoyFilterObj.Name = name
+
+	if envoyFilterObj.Labels == nil {
+		envoyFilterObj.Labels = map[string]string{}
+	}
+	envoyFilterObj.Labels[zadigtypes.ZadigLabelKeyGlobalOwner] = zadigtypes.Zadig
+
+	envoyFilterObj.Spec = networkingv1alpha3.EnvoyFilter{
+		ConfigPatches: []*networkingv1alpha3.EnvoyFilter_EnvoyConfigObjectPatch{
+			&networkingv1alpha3.EnvoyFilter_EnvoyConfigObjectPatch{
+				ApplyTo: networkingv1alpha3.EnvoyFilter_HTTP_FILTER,
+				Match: &networkingv1alpha3.EnvoyFilter_EnvoyConfigObjectMatch{
+					Context: networkingv1alpha3.EnvoyFilter_SIDECAR_INBOUND,
+					ObjectTypes: &networkingv1alpha3.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
+						Listener: &networkingv1alpha3.EnvoyFilter_ListenerMatch{
+							FilterChain: &networkingv1alpha3.EnvoyFilter_ListenerMatch_FilterChainMatch{
+								Filter: &networkingv1alpha3.EnvoyFilter_ListenerMatch_FilterMatch{
+									Name: setting.EnvoyFilterNetworkHttpConnectionManager,
+									SubFilter: &networkingv1alpha3.EnvoyFilter_ListenerMatch_SubFilterMatch{
+										Name: setting.EnvoyFilterHttpRouter,
+									},
+								},
+							},
+						},
+					},
+				},
+				Patch: &networkingv1alpha3.EnvoyFilter_Patch{
+					Operation: networkingv1alpha3.EnvoyFilter_Patch_INSERT_BEFORE,
+					Value:     storeCacheOperation,
+				},
+			},
+			&networkingv1alpha3.EnvoyFilter_EnvoyConfigObjectPatch{
+				ApplyTo: networkingv1alpha3.EnvoyFilter_HTTP_FILTER,
+				Match: &networkingv1alpha3.EnvoyFilter_EnvoyConfigObjectMatch{
+					Context: networkingv1alpha3.EnvoyFilter_SIDECAR_OUTBOUND,
+					ObjectTypes: &networkingv1alpha3.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
+						Listener: &networkingv1alpha3.EnvoyFilter_ListenerMatch{
+							FilterChain: &networkingv1alpha3.EnvoyFilter_ListenerMatch_FilterChainMatch{
+								Filter: &networkingv1alpha3.EnvoyFilter_ListenerMatch_FilterMatch{
+									Name: setting.EnvoyFilterNetworkHttpConnectionManager,
+									SubFilter: &networkingv1alpha3.EnvoyFilter_ListenerMatch_SubFilterMatch{
+										Name: setting.EnvoyFilterHttpRouter,
+									},
+								},
+							},
+						},
+					},
+				},
+				Patch: &networkingv1alpha3.EnvoyFilter_Patch{
+					Operation: networkingv1alpha3.EnvoyFilter_Patch_INSERT_BEFORE,
+					Value:     getCacheOperation,
+				},
+			},
+			&networkingv1alpha3.EnvoyFilter_EnvoyConfigObjectPatch{
+				ApplyTo: networkingv1alpha3.EnvoyFilter_CLUSTER,
+				Patch: &networkingv1alpha3.EnvoyFilter_Patch{
+					Operation: networkingv1alpha3.EnvoyFilter_Patch_ADD,
+					Value:     clusterConfig,
+				},
+			},
+		},
+	}
+
+	_, err = istioClient.NetworkingV1alpha3().EnvoyFilters(ns).Create(ctx, envoyFilterObj, metav1.CreateOptions{})
+	return err
+}
+
+func ReGenerateEnvoyFilter(ctx context.Context, clusterID string, headerKeys []string) error {
+	restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), clusterID)
+	if err != nil {
+		return fmt.Errorf("failed to get rest config: %s", err)
+	}
+
+	istioClient, err := versionedclient.NewForConfig(restConfig)
+	if err != nil {
+		return fmt.Errorf("failed to new istio client: %s", err)
+	}
+
+	err = DeleteEnvoyFilter(ctx, istioClient, setting.IstioNamespace, setting.ZadigEnvoyFilter)
+	if err != nil {
+		return fmt.Errorf("failed to delete EnvoyFilter: %s", err)
+	}
+
+	err = EnsureEnvoyFilter(ctx, istioClient, clusterID, setting.IstioNamespace, setting.ZadigEnvoyFilter, headerKeys)
+	if err != nil {
+		return fmt.Errorf("failed to ensure EnvoyFilter in namespace `%s`: %s", setting.IstioNamespace, err)
+	}
+
+	return nil
+}
+
+func buildEnvoyStoreCacheOperation(headerKeys []string) (*types.Struct, error) {
+	inlineCodeStart := `function envoy_on_request(request_handle)
+  function split_str(s, delimiter)
+    res = {}
+    for match in (s..delimiter):gmatch("(.-)"..delimiter) do
+      table.insert(res, match)
+    end
+
+    return res
+  end
+
+  local traceid = request_handle:headers():get("sw8")
+  if traceid then
+    arr = split_str(traceid, "-")
+    traceid = arr[2]
+  else
+    traceid = request_handle:headers():get("x-request-id")
+    if not traceid then
+      traceid = request_handle:headers():get("x-b3-traceid")
+    end
+  end
+
+  local env = request_handle:headers():get("x-env")
+  local headers, body = request_handle:httpCall(
+    "cache",
+    {
+      [":method"] = "POST",
+      [":path"] = string.format("/api/cache/%s/%s", traceid, env),
+      [":authority"] = "cache",
+    },
+    "",
+    5000
+  )
+`
+	inlineCodeMid := ``
+	for _, headerKey := range headerKeys {
+		tmpInlineCodeMid := `
+  local header_key = "%s"
+  local key = traceid .. "-" .. header_key
+  local value = request_handle:headers():get(header_key)
+  local headers, body = request_handle:httpCall(
+    "cache",
+    {
+      [":method"] = "POST",
+      [":path"] = string.format("/api/cache/%%s/%%s", key, value),
+      [":authority"] = "cache",
+    },
+    "",
+    5000
+  )
+	`
+		tmpInlineCodeMid = fmt.Sprintf(tmpInlineCodeMid, headerKey)
+		inlineCodeMid += tmpInlineCodeMid
+	}
+
+	inlineCodeEnd := `end
+`
+	inlineCode := fmt.Sprintf(`%s%s%s`, inlineCodeStart, inlineCodeMid, inlineCodeEnd)
+
+	data := map[string]interface{}{
+		"name": "envoy.lua",
+		"typed_config": map[string]string{
+			"@type":      setting.EnvoyFilterLua,
+			"inlineCode": inlineCode,
+		},
+	}
+
+	return buildEnvoyPatchValue(data)
+}
+
+func buildEnvoyGetCacheOperation(headerKeys []string) (*types.Struct, error) {
+	inlineCodeStart := `function envoy_on_request(request_handle)
+  function split_str(s, delimiter)
+    res = {}
+    for match in (s..delimiter):gmatch("(.-)"..delimiter) do
+      table.insert(res, match)
+    end
+
+    return res
+  end
+
+  local traceid = request_handle:headers():get("sw8")
+  if traceid then
+    arr = split_str(traceid, "-")
+    traceid = arr[2]
+  else
+    traceid = request_handle:headers():get("x-request-id")
+    if not traceid then
+      traceid = request_handle:headers():get("x-b3-traceid")
+    end
+  end
+
+  local headers, body = request_handle:httpCall(
+    "cache",
+    {
+      [":method"] = "GET",
+      [":path"] = string.format("/api/cache/%s", traceid),
+      [":authority"] = "cache",
+    },
+    "",
+    5000
+  )
+
+  request_handle:headers():add("x-env", headers["x-data"]);
+`
+
+	inlineCodeMid := ``
+	for _, headerKey := range headerKeys {
+		tmpInlineCodeMid := `
+  local header_key = "%s"
+  local key = traceid .. "-" .. header_key
+  local headers, body = request_handle:httpCall(
+    "cache",
+    {
+      [":method"] = "GET",
+      [":path"] = string.format("/api/cache/%%s", key),
+      [":authority"] = "cache",
+    },
+    "",
+    5000
+  )
+
+  request_handle:headers():add(header_key, headers["x-data"]);
+	`
+		tmpInlineCodeMid = fmt.Sprintf(tmpInlineCodeMid, headerKey)
+		inlineCodeMid += tmpInlineCodeMid
+	}
+
+	inlineCodeEnd := `end
+`
+	inlineCode := fmt.Sprintf(`%s%s%s`, inlineCodeStart, inlineCodeMid, inlineCodeEnd)
+
+	data := map[string]interface{}{
+		"name": "envoy.lua",
+		"typed_config": map[string]string{
+			"@type":      setting.EnvoyFilterLua,
+			"inlineCode": inlineCode,
+		},
+	}
+
+	return buildEnvoyPatchValue(data)
+}
+
+func buildEnvoyClusterConfig(cacheAddr string, port int) (*types.Struct, error) {
+	data := map[string]interface{}{
+		"name":            "cache",
+		"type":            "STRICT_DNS",
+		"connect_timeout": "3.0s",
+		"lb_policy":       "ROUND_ROBIN",
+		"load_assignment": EnvoyClusterConfigLoadAssignment{
+			ClusterName: "cache",
+			Endpoints: []EnvoyLBEndpoints{
+				EnvoyLBEndpoints{
+					LBEndpoints: []EnvoyEndpoints{
+						EnvoyEndpoints{
+							Endpoint: EnvoyEndpoint{
+								Address: EnvoyAddress{
+									SocketAddress: EnvoySocketAddress{
+										Protocol:  "TCP",
+										Address:   cacheAddr,
+										PortValue: port,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	return buildEnvoyPatchValue(data)
+}
+
+func buildEnvoyPatchValue(data map[string]interface{}) (*types.Struct, error) {
+	dataBytes, err := json.Marshal(data)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal data: %s", err)
+	}
+
+	val := &types.Struct{}
+	err = protojson.Unmarshal(dataBytes, val)
+	return val, err
+}
+
+type SetIstioGrayscaleConfigRequest struct {
+	GrayscaleStrategy  commonmodels.GrayscaleStrategyType    `bson:"grayscale_strategy" json:"grayscale_strategy"`
+	WeightConfigs      []commonmodels.IstioWeightConfig      `bson:"weight_configs" json:"weight_configs"`
+	HeaderMatchConfigs []commonmodels.IstioHeaderMatchConfig `bson:"header_match_configs" json:"header_match_configs"`
+}
+
+func SetIstioGrayscaleConfig(ctx context.Context, envName, productName string, req SetIstioGrayscaleConfigRequest) error {
+	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName, Production: boolptr.True()}
+	baseEnv, err := commonrepo.NewProductColl().Find(opt)
+	if err != nil {
+		return fmt.Errorf("failed to query env `%s` in project `%s`: %s", envName, productName, err)
+	}
+	if !baseEnv.IstioGrayscale.IsBase {
+		return fmt.Errorf("cannot set istio grayscale config for gray environment")
+	}
+	if baseEnv.IsSleeping() {
+		return fmt.Errorf("Environment %s is sleeping", baseEnv.EnvName)
+	}
+
+	grayEnvs, err := commonutil.FetchGrayEnvs(ctx, baseEnv.ProductName, baseEnv.ClusterID, baseEnv.EnvName)
+	if err != nil {
+		return fmt.Errorf("failed to list gray environments of %s/%s: %s", baseEnv.ProductName, baseEnv.EnvName, err)
+	}
+
+	envMap := map[string]*commonmodels.Product{
+		baseEnv.EnvName: baseEnv,
+	}
+	for _, env := range grayEnvs {
+		if env.IsSleeping() {
+			return fmt.Errorf("Environment %s is sleeping", baseEnv.EnvName)
+		}
+		envMap[env.EnvName] = env
+	}
+
+	if req.GrayscaleStrategy == commonmodels.GrayscaleStrategyWeight {
+		err = SetIstioGrayscaleWeight(context.TODO(), envMap, req.WeightConfigs)
+		if err != nil {
+			return fmt.Errorf("failed to set istio grayscale weight, err: %w", err)
+		}
+	} else if req.GrayscaleStrategy == commonmodels.GrayscaleStrategyHeaderMatch {
+		err = SetIstioGrayscaleHeaderMatch(context.TODO(), envMap, req.HeaderMatchConfigs)
+		if err != nil {
+			return fmt.Errorf("failed to set istio grayscale weight, err: %w", err)
+		}
+
+		headerKeys := []string{}
+		for _, headerMatchConfig := range req.HeaderMatchConfigs {
+			for _, headerMatch := range headerMatchConfig.HeaderMatchs {
+				headerKeys = append(headerKeys, headerMatch.Key)
+			}
+		}
+
+		err = ReGenerateEnvoyFilter(ctx, baseEnv.ClusterID, headerKeys)
+		if err != nil {
+			return fmt.Errorf("failed to re-generate envoy filter, err: %w", err)
+		}
+	} else {
+		return fmt.Errorf("unsupported grayscale strategy type: %s", req.GrayscaleStrategy)
+	}
+
+	baseEnv.IstioGrayscale.GrayscaleStrategy = req.GrayscaleStrategy
+	baseEnv.IstioGrayscale.WeightConfigs = req.WeightConfigs
+	baseEnv.IstioGrayscale.HeaderMatchConfigs = req.HeaderMatchConfigs
+
+	err = commonrepo.NewProductColl().UpdateIstioGrayscale(baseEnv.EnvName, baseEnv.ProductName, baseEnv.IstioGrayscale)
+	if err != nil {
+		return fmt.Errorf("failed to update istio grayscale config of %s/%s environment: %s", baseEnv.ProductName, baseEnv.EnvName, err)
+	}
+
+	return nil
 }

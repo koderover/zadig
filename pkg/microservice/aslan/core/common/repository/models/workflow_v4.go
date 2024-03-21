@@ -600,6 +600,15 @@ type IstioRollBackJobSpec struct {
 	Targets   []*IstioJobTarget `bson:"targets"     json:"targets"     yaml:"targets"`
 }
 
+type UpdateEnvIstioConfigJobSpec struct {
+	BaseEnv            string                   `bson:"base_env"              json:"base_env"               yaml:"base_env"`
+	GrayscaleStrategy  GrayscaleStrategyType    `bson:"grayscale_strategy"    json:"grayscale_strategy"     yaml:"grayscale_strategy"`
+	WeightConfigs      []IstioWeightConfig      `bson:"weight_configs"        json:"weight_configs"         yaml:"weight_configs"`
+	HeaderMatchConfigs []IstioHeaderMatchConfig `bson:"header_match_configs"  json:"header_match_configs"   yaml:"header_match_configs"`
+	IsFixed            bool                     `bson:"is_fixed"              json:"is_fixed"               yaml:"is_fixed"`
+	Timeout            int64                    `bson:"timeout"               json:"timeout"                yaml:"timeout"`
+}
+
 type SQLJobSpec struct {
 	// ID db instance id
 	ID     string                `bson:"id" json:"id" yaml:"id"`
