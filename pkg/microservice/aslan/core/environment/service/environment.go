@@ -1312,7 +1312,7 @@ func prepareEstimateDataForEnvUpdate(productName, envName, serviceOrReleaseName,
 		}, production)
 		if err != nil {
 			log.Errorf("failed to query service, name %s, err %s", serviceOrReleaseName, err)
-			return nil, nil, nil, fmt.Errorf("failed to query service: %s/%d", serviceOrReleaseName)
+			return nil, nil, nil, fmt.Errorf("failed to query service: %s/%d", serviceOrReleaseName, targetSvcTmplRevision)
 		}
 
 		if prodSvc == nil {
