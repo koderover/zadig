@@ -154,7 +154,6 @@ func GetProductRevision(product *commonmodels.Product, allServiceTmpls []*common
 	}
 	prodRev.ServiceRevisions, err = compareGroupServicesRev(servicesList.List(), product, allServiceTmpls, log)
 	if err != nil {
-		log.Error(err)
 		return nil, e.ErrGetProductRevision.AddDesc(err.Error())
 	}
 
@@ -338,7 +337,7 @@ func compareServicesRev(serviceTmplNames []string, productServices []*commonmode
 			}, productInfo.Production)
 			if err != nil {
 				log.Errorf("Failed to query template productService, %s:%s/%d, Error: %v", productInfo.ProductName, productService.ServiceName, productService.Revision, err)
-				return serviceRevs, err
+				continue
 			}
 
 			if productService.Type == setting.K8SDeployType {
