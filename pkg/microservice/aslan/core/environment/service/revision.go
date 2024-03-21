@@ -330,18 +330,17 @@ func compareServicesRev(serviceTmplNames []string, productServices []*commonmode
 				serviceRev.Updatable = true
 			}
 
-			curUsedSvc, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
-				ServiceName: productService.ServiceName,
-				ProductName: productService.ProductName,
-				Revision:    serviceRev.CurrentRevision,
-			}, productInfo.Production)
-			if err != nil {
-				log.Errorf("Failed to query template productService, %s:%s/%d, Error: %v", productInfo.ProductName, productService.ServiceName, productService.Revision, err)
-				continue
-			}
-
 			if productService.Type == setting.K8SDeployType {
 				serviceRev.Containers = make([]*commonmodels.Container, 0)
+
+				curUsedSvc, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
+					ServiceName: productService.ServiceName,
+					ProductName: productService.ProductName,
+					Revision:    serviceRev.CurrentRevision,
+				}, productInfo.Production)
+				if err != nil {
+					log.Errorf("Failed to query template productService, %s:%s/%d, Error: %v", productInfo.ProductName, productService.ServiceName, productService.Revision, err)
+				}
 
 				for _, container := range latestServiceTmpl.Containers {
 					c := &commonmodels.Container{
