@@ -103,9 +103,16 @@ func (j *DeployJob) getOriginReferedJobTargets(jobName string) ([]*commonmodels.
 				}
 				return serviceAndImages, nil
 			}
+			if job.JobType == config.JobZadigDeploy {
+				deploySpec := &commonmodels.ZadigDeployJobSpec{}
+				if err := commonmodels.IToi(job.Spec, deploySpec); err != nil {
+					return serviceAndImages, err
+				}
+				return deploySpec.ServiceAndImages, nil
+			}
 		}
 	}
-	return nil, fmt.Errorf("build job %s not found", jobName)
+	return nil, fmt.Errorf("qutoed build/deploy job %s not found", jobName)
 }
 
 func (j *DeployJob) SetPreset() error {
@@ -227,6 +234,7 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		if j.spec.OriginJobName != "" {
 			j.spec.JobName = j.spec.OriginJobName
 		}
+		j.spec.JobName = getOriginJobName(j.workflow, j.spec.JobName)
 		targets, err := j.getOriginReferedJobTargets(j.spec.JobName)
 		if err != nil {
 			return resp, fmt.Errorf("get origin refered job: %s targets failed, err: %v", j.spec.JobName, err)
