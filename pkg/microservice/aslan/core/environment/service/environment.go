@@ -1312,7 +1312,7 @@ func prepareEstimateDataForEnvUpdate(productName, envName, serviceOrReleaseName,
 		}, production)
 		if err != nil {
 			log.Errorf("failed to query service, name %s, err %s", serviceOrReleaseName, err)
-			return nil, nil, nil, fmt.Errorf("failed to query service, name %s", serviceOrReleaseName)
+			return nil, nil, nil, fmt.Errorf("failed to query service: %s/%d", serviceOrReleaseName)
 		}
 
 		if prodSvc == nil {
@@ -2702,8 +2702,8 @@ func buildInstallParam(defaultValues string, productInfo *commonmodels.Product, 
 		}
 		serviceObj, err := repository.QueryTemplateService(opt, productInfo.Production)
 		if err != nil {
-			log.Errorf("failed to find service %s, err %s", productSvc.ServiceName, err.Error())
-			return nil, nil
+			log.Errorf("failed to find service %s/%d, err %s", productSvc.ServiceName, productSvc.Revision, err.Error())
+			return nil, err
 		}
 		ret.ServiceObj = serviceObj
 		ret.ReleaseName = util.GeneReleaseName(serviceObj.GetReleaseNaming(), serviceObj.ProductName, namespace, envName, serviceObj.ServiceName)
