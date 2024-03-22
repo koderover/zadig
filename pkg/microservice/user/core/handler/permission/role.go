@@ -33,6 +33,30 @@ import (
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
+func checkLicense(actions []string) error {
+	licenseStatus, err := plutusvendor.New().CheckZadigXLicenseStatus()
+	if err != nil {
+		return fmt.Errorf("failed to validate zadig license status, error: %s", err)
+	}
+	if !((licenseStatus.Type == plutusvendor.ZadigSystemTypeProfessional ||
+		licenseStatus.Type == plutusvendor.ZadigSystemTypeEnterprise) &&
+		licenseStatus.Status == plutusvendor.ZadigXLicenseStatusNormal) {
+		actionSet := sets.NewString(actions...)
+		if actionSet.Has(permission.VerbCreateReleasePlan) || actionSet.Has(permission.VerbDeleteReleasePlan) ||
+			actionSet.Has(permission.VerbEditReleasePlan) || actionSet.Has(permission.VerbGetReleasePlan) ||
+			actionSet.Has(permission.VerbEditDataCenterInsightConfig) ||
+			actionSet.Has(permission.VerbGetProductionService) || actionSet.Has(permission.VerbGetProductionService) ||
+			actionSet.Has(permission.VerbGetProductionService) || actionSet.Has(permission.VerbGetProductionService) ||
+			actionSet.Has(permission.VerbGetProductionEnv) || actionSet.Has(permission.VerbCreateProductionEnv) ||
+			actionSet.Has(permission.VerbConfigProductionEnv) || actionSet.Has(permission.VerbEditProductionEnv) ||
+			actionSet.Has(permission.VerbDeleteProductionEnv) || actionSet.Has(permission.VerbDebugProductionEnvPod) ||
+			actionSet.Has(permission.VerbGetDelivery) || actionSet.Has(permission.VerbCreateDelivery) || actionSet.Has(permission.VerbDeleteDelivery) {
+			return e.ErrLicenseInvalid.AddDesc("")
+		}
+	}
+	return nil
+}
+
 func OpenAPICreateRole(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	ctx.UserName = ctx.UserName + "(openAPI)"
@@ -48,8 +72,49 @@ func CreateRole(c *gin.Context) {
 	CreateRoleImpl(c, ctx)
 }
 
-func CreateRoleImpl(c *gin.Context, ctx *internalhandler.Context) {
+func CreateRoleTemplate(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
+	data, err := c.GetRawData()
+	if err != nil {
+		log.Errorf("CreateRole c.GetRawData() err : %v", err)
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
+
+	args := &permission.CreateRoleReq{}
+	if err := c.ShouldBindJSON(args); err != nil {
+		ctx.Err = err
+		return
+	}
+
+	err = userhandler.GenerateUserAuthInfo(ctx)
+	if err != nil {
+		ctx.UnAuthorized = true
+		ctx.Err = fmt.Errorf("failed to generate user authorization info, error: %s", err)
+		return
+	}
+
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, "*", setting.OperationSceneProject, "创建", "全局角色", "角色名称："+args.Name, string(data), ctx.Logger, args.Name)
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		ctx.UnAuthorized = true
+		return
+	}
+
+	err = checkLicense(args.Actions)
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+
+	ctx.Err = permission.CreateRoleTemplate(args, ctx.Logger)
+}
+
+func CreateRoleImpl(c *gin.Context, ctx *internalhandler.Context) {
 	data, err := c.GetRawData()
 	if err != nil {
 		log.Errorf("CreateRole c.GetRawData() err : %v", err)
@@ -94,27 +159,10 @@ func CreateRoleImpl(c *gin.Context, ctx *internalhandler.Context) {
 		}
 	}
 
-	licenseStatus, err := plutusvendor.New().CheckZadigXLicenseStatus()
+	err = checkLicense(args.Actions)
 	if err != nil {
-		ctx.Err = fmt.Errorf("failed to validate zadig license status, error: %s", err)
+		ctx.Err = err
 		return
-	}
-	if !((licenseStatus.Type == plutusvendor.ZadigSystemTypeProfessional ||
-		licenseStatus.Type == plutusvendor.ZadigSystemTypeEnterprise) &&
-		licenseStatus.Status == plutusvendor.ZadigXLicenseStatusNormal) {
-		actionSet := sets.NewString(args.Actions...)
-		if actionSet.Has(permission.VerbCreateReleasePlan) || actionSet.Has(permission.VerbDeleteReleasePlan) ||
-			actionSet.Has(permission.VerbEditReleasePlan) || actionSet.Has(permission.VerbGetReleasePlan) ||
-			actionSet.Has(permission.VerbEditDataCenterInsightConfig) ||
-			actionSet.Has(permission.VerbGetProductionService) || actionSet.Has(permission.VerbGetProductionService) ||
-			actionSet.Has(permission.VerbGetProductionService) || actionSet.Has(permission.VerbGetProductionService) ||
-			actionSet.Has(permission.VerbGetProductionEnv) || actionSet.Has(permission.VerbCreateProductionEnv) ||
-			actionSet.Has(permission.VerbConfigProductionEnv) || actionSet.Has(permission.VerbEditProductionEnv) ||
-			actionSet.Has(permission.VerbDeleteProductionEnv) || actionSet.Has(permission.VerbDebugProductionEnvPod) ||
-			actionSet.Has(permission.VerbGetDelivery) || actionSet.Has(permission.VerbCreateDelivery) || actionSet.Has(permission.VerbDeleteDelivery) {
-			ctx.Err = e.ErrLicenseInvalid.AddDesc("")
-			return
-		}
 	}
 
 	ctx.Err = permission.CreateRole(projectName, args, ctx.Logger)
@@ -209,6 +257,51 @@ func UpdateRoleImpl(c *gin.Context, ctx *internalhandler.Context) {
 	ctx.Err = permission.UpdateRole(projectName, args, ctx.Logger)
 }
 
+func UpdateRoleTemplate(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	data, err := c.GetRawData()
+	if err != nil {
+		log.Errorf("UpdateRole c.GetRawData() err : %v", err)
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
+
+	args := &permission.CreateRoleReq{}
+	if err := c.ShouldBindJSON(args); err != nil {
+		ctx.Err = err
+		return
+	}
+
+	err = userhandler.GenerateUserAuthInfo(ctx)
+	if err != nil {
+		ctx.UnAuthorized = true
+		ctx.Err = fmt.Errorf("failed to generate user authorization info, error: %s", err)
+		return
+	}
+
+	name := c.Param("name")
+	args.Name = name
+
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, "*", setting.OperationSceneProject, "更新", "全局角色", "角色名称："+args.Name, string(data), ctx.Logger, args.Name)
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		ctx.UnAuthorized = true
+		return
+	}
+
+	err = checkLicense(args.Actions)
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+
+	ctx.Err = permission.UpdateRoleTemplate(args, ctx.Logger)
+}
+
 func OpenAPIListRoles(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -268,6 +361,13 @@ func ListRoles(c *gin.Context) {
 	}
 }
 
+func ListRoleTemplates(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	ctx.Resp, ctx.Err = permission.ListRoleTemplates(ctx.Logger)
+}
+
 func OpenAPIGetRole(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -318,12 +418,26 @@ func GetRole(c *gin.Context) {
 	ctx.Resp, ctx.Err = permission.GetRole(projectName, c.Param("name"), ctx.Logger)
 }
 
+func GetRoleTemplate(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	ctx.Resp, ctx.Err = permission.GetRoleTemplate(c.Param("name"), ctx.Logger)
+}
+
 func OpenAPIDeleteRole(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	ctx.UserName = ctx.UserName + "(openAPI)"
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	DeleteRoleImpl(c, ctx)
+}
+
+func DeleteRoleTemplate(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	ctx.Err = permission.DeleteRoleTemplate(c.Param("name"), ctx.Logger)
 }
 
 func DeleteRole(c *gin.Context) {

@@ -41,6 +41,7 @@ type NewRole struct {
 	Description string `gorm:"column:description" json:"description"`
 	Type        int64  `gorm:"column:type"        json:"type"`
 	Namespace   string `gorm:"column:namespace"   json:"namespace"`
+	TemplateRef uint   `gorm:"template_ref"       json:"template_ref"`
 
 	RoleActionBindings []RoleActionBinding `gorm:"foreignKey:RoleID;constraint:OnDelete:CASCADE;" json:"-"`
 	RoleUserBindings   []NewRoleBinding    `gorm:"foreignKey:RoleID;constraint:OnDelete:CASCADE;" json:"-"`

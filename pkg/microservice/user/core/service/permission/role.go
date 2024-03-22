@@ -36,7 +36,8 @@ import (
 )
 
 const (
-	RoleActionKeyFormat = "role_action_%d"
+	RoleActionKeyFormat         = "role_action_%d"
+	RoleTemplateActionKeyFormat = "role_template_action_%d"
 
 	UIDRoleKeyFormat  = "uid_role_%s"
 	UIDRoleDataFormat = "%d++%s++%s"
