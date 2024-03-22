@@ -249,7 +249,7 @@ func BatchCreatePrivateKey(c *gin.Context) {
 		return
 	}
 
-	err = commonutil.CheckZadigXLicenseStatus()
+	err = commonutil.CheckZadigProfessionalLicense()
 	if err != nil {
 		ctx.Err = err
 		return

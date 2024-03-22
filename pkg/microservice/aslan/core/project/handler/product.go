@@ -108,7 +108,7 @@ func CreateProductTemplate(c *gin.Context) {
 		return
 	}
 
-	err = util.CheckZadigXLicenseStatus()
+	err = util.CheckZadigProfessionalLicense()
 	if err != nil {
 		if args.AutoDeploy != nil && args.AutoDeploy.Enable {
 			ctx.Err = e.ErrLicenseInvalid.AddDesc("")
@@ -161,7 +161,7 @@ func UpdateProductTemplate(c *gin.Context) {
 		}
 	}
 
-	err = commonutil.CheckZadigXLicenseStatus()
+	err = commonutil.CheckZadigProfessionalLicense()
 	if err != nil {
 		if args.AutoDeploy.Enable == true {
 			ctx.Err = e.ErrLicenseInvalid.AddDesc("")
@@ -210,7 +210,7 @@ func TransferProject(c *gin.Context) {
 	}
 
 	// license checks
-	err = util.CheckZadigXLicenseStatus()
+	err = util.CheckZadigEnterpriseLicense()
 	if err != nil {
 		ctx.Err = err
 		return
@@ -264,7 +264,7 @@ func UpdateProject(c *gin.Context) {
 		}
 	}
 
-	err = commonutil.CheckZadigXLicenseStatus()
+	err = commonutil.CheckZadigProfessionalLicense()
 	if err != nil {
 		if args.AutoDeploy != nil && args.AutoDeploy.Enable == true {
 			ctx.Err = e.ErrLicenseInvalid.AddDesc("")
@@ -804,7 +804,7 @@ func CreateProjectGroup(c *gin.Context) {
 	}
 
 	// license checks
-	err = util.CheckZadigXLicenseStatus()
+	err = util.CheckZadigEnterpriseLicense()
 	if err != nil {
 		ctx.Err = err
 		return
@@ -851,7 +851,7 @@ func UpdateProjectGroup(c *gin.Context) {
 	}
 
 	// license checks
-	err = util.CheckZadigXLicenseStatus()
+	err = util.CheckZadigEnterpriseLicense()
 	if err != nil {
 		ctx.Err = err
 		return
@@ -898,7 +898,7 @@ func DeleteProjectGroup(c *gin.Context) {
 	}
 
 	// license checks
-	err = util.CheckZadigXLicenseStatus()
+	err = util.CheckZadigEnterpriseLicense()
 	if err != nil {
 		ctx.Err = err
 		return
@@ -938,7 +938,7 @@ func GetPresetProjectGroup(c *gin.Context) {
 	}
 
 	// license checks
-	err = util.CheckZadigXLicenseStatus()
+	err = util.CheckZadigEnterpriseLicense()
 	if err != nil {
 		ctx.Err = err
 		return

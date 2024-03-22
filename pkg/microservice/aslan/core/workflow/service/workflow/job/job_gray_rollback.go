@@ -175,7 +175,7 @@ func getGrayRollbackInfoFromAnnotations(annotations map[string]string) (*grayRol
 }
 
 func (j *GrayRollbackJob) LintJob() error {
-	if err := util.CheckZadigXLicenseStatus(); err != nil {
+	if err := util.CheckZadigProfessionalLicense(); err != nil {
 		return e.ErrLicenseInvalid.AddDesc("")
 	}
 

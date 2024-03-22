@@ -93,7 +93,7 @@ func GetDeliveryVersion(c *gin.Context) {
 		}
 	}
 
-	err = commonutil.CheckZadigXLicenseStatus()
+	err = commonutil.CheckZadigProfessionalLicense()
 	if err != nil {
 		ctx.Err = err
 		return
@@ -146,7 +146,7 @@ func ListDeliveryVersion(c *gin.Context) {
 		args.Verbosity = deliveryservice.VerbosityDetailed
 	}
 
-	err = commonutil.CheckZadigXLicenseStatus()
+	err = commonutil.CheckZadigProfessionalLicense()
 	if err != nil {
 		ctx.Err = err
 		return
@@ -343,7 +343,7 @@ func DeleteDeliveryVersion(c *gin.Context) {
 		}
 	}
 
-	err = commonutil.CheckZadigXLicenseStatus()
+	err = commonutil.CheckZadigProfessionalLicense()
 	if err != nil {
 		ctx.Err = err
 		return

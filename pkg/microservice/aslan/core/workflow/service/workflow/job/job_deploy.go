@@ -483,7 +483,7 @@ func (j *DeployJob) LintJob() error {
 	if err := commonmodels.IToiYaml(j.job.Spec, j.spec); err != nil {
 		return err
 	}
-	if err := aslanUtil.CheckZadigXLicenseStatus(); err != nil {
+	if err := aslanUtil.CheckZadigProfessionalLicense(); err != nil {
 		if j.spec.Production {
 			return e.ErrLicenseInvalid.AddDesc("生产环境功能需要专业版才能使用")
 		}

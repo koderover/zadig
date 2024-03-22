@@ -53,7 +53,7 @@ func CreateLLMIntegration(c *gin.Context) {
 		return
 	}
 
-	err := commonutil.CheckZadigXLicenseStatus()
+	err := commonutil.CheckZadigProfessionalLicense()
 	if err != nil {
 		ctx.Err = err
 		return
@@ -150,7 +150,7 @@ func UpdateLLMIntegration(c *gin.Context) {
 		return
 	}
 
-	err := commonutil.CheckZadigXLicenseStatus()
+	err := commonutil.CheckZadigProfessionalLicense()
 	if err != nil {
 		ctx.Err = err
 		return

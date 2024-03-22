@@ -373,7 +373,7 @@ func RollbackServiceVersion(c *gin.Context) {
 		return
 	}
 
-	if err := commonutil.CheckZadigXLicenseStatus(); err != nil {
+	if err := commonutil.CheckZadigProfessionalLicense(); err != nil {
 		ctx.Err = err
 		return
 	}
@@ -430,7 +430,7 @@ func RollbackProductionServiceVersion(c *gin.Context) {
 		return
 	}
 
-	if err := commonutil.CheckZadigXLicenseStatus(); err != nil {
+	if err := commonutil.CheckZadigProfessionalLicense(); err != nil {
 		ctx.Err = err
 		return
 	}

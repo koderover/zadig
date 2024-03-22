@@ -155,7 +155,7 @@ func (j *BlueGreenDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, erro
 
 func (j *BlueGreenDeployJob) LintJob() error {
 	j.spec = &commonmodels.BlueGreenDeployJobSpec{}
-	if err := util.CheckZadigXLicenseStatus(); err != nil {
+	if err := util.CheckZadigProfessionalLicense(); err != nil {
 		return e.ErrLicenseInvalid.AddDesc("")
 	}
 	if err := commonmodels.IToiYaml(j.job.Spec, j.spec); err != nil {

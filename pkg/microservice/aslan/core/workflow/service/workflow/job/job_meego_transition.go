@@ -23,7 +23,6 @@ import (
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
-	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 )
 
 type MeegoTransitionJob struct {
@@ -94,8 +93,8 @@ func (j *MeegoTransitionJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, erro
 }
 
 func (j *MeegoTransitionJob) LintJob() error {
-	if err := util.CheckZadigXLicenseStatus(); err != nil {
-		return e.ErrLicenseInvalid.AddDesc("")
+	if err := util.CheckZadigEnterpriseLicense(); err != nil {
+		return err
 	}
 
 	return nil

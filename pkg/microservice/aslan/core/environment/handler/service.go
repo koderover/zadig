@@ -256,7 +256,7 @@ func RestartProductionService(c *gin.Context) {
 		}
 	}
 
-	if err := commonutil.CheckZadigXLicenseStatus(); err != nil {
+	if err := commonutil.CheckZadigProfessionalLicense(); err != nil {
 		ctx.Err = err
 		return
 	}
@@ -343,7 +343,7 @@ func ProductionBatchPreviewServices(c *gin.Context) {
 		arg.EnvName = c.Param("name")
 	}
 
-	if err := commonutil.CheckZadigXLicenseStatus(); err != nil {
+	if err := commonutil.CheckZadigProfessionalLicense(); err != nil {
 		ctx.Err = err
 		return
 	}
@@ -471,7 +471,7 @@ func UpdateProductionService(c *gin.Context) {
 		}
 	}
 
-	if err := commonutil.CheckZadigXLicenseStatus(); err != nil {
+	if err := commonutil.CheckZadigProfessionalLicense(); err != nil {
 		ctx.Err = err
 		return
 	}
@@ -596,7 +596,7 @@ func RestartProductionWorkload(c *gin.Context) {
 		}
 	}
 
-	if err := commonutil.CheckZadigXLicenseStatus(); err != nil {
+	if err := commonutil.CheckZadigProfessionalLicense(); err != nil {
 		ctx.Err = err
 		return
 	}
@@ -711,7 +711,7 @@ func ScaleNewProductionService(c *gin.Context) {
 		}
 	}
 
-	if err := commonutil.CheckZadigXLicenseStatus(); err != nil {
+	if err := commonutil.CheckZadigProfessionalLicense(); err != nil {
 		ctx.Err = err
 		return
 	}

@@ -292,7 +292,7 @@ func OpenAPIDeleteProductionYamlServiceFromEnv(c *gin.Context) {
 		}
 	}
 
-	err = commonutil.CheckZadigXLicenseStatus()
+	err = commonutil.CheckZadigProfessionalLicense()
 	if err != nil {
 		ctx.Err = err
 		return
@@ -360,7 +360,7 @@ func OpenAPIApplyProductionYamlService(c *gin.Context) {
 		}
 	}
 
-	err = commonutil.CheckZadigXLicenseStatus()
+	err = commonutil.CheckZadigProfessionalLicense()
 	if err != nil {
 		ctx.Err = err
 		return
@@ -468,7 +468,7 @@ func OpenAPIUpdateProductionCommonEnvCfg(c *gin.Context) {
 		}
 	}
 
-	err = commonutil.CheckZadigXLicenseStatus()
+	err = commonutil.CheckZadigProfessionalLicense()
 	if err != nil {
 		ctx.Err = err
 		return
@@ -529,7 +529,7 @@ func OpenAPICreateCommonEnvCfg(c *gin.Context) {
 		}
 	}
 
-	err = commonutil.CheckZadigXLicenseStatus()
+	err = commonutil.CheckZadigProfessionalLicense()
 	if err != nil {
 		ctx.Err = err
 		return
@@ -548,7 +548,7 @@ func OpenAPIListProductionCommonEnvCfg(c *gin.Context) {
 		return
 	}
 
-	err = commonutil.CheckZadigXLicenseStatus()
+	err = commonutil.CheckZadigProfessionalLicense()
 	if err != nil {
 		ctx.Err = err
 		return
@@ -572,7 +572,7 @@ func OpenAPIGetProductionCommonEnvCfg(c *gin.Context) {
 		return
 	}
 
-	err = commonutil.CheckZadigXLicenseStatus()
+	err = commonutil.CheckZadigProfessionalLicense()
 	if err != nil {
 		ctx.Err = err
 		return
@@ -695,7 +695,7 @@ func OpenAPIDeleteProductionEnvCommonEnvCfg(c *gin.Context) {
 		}
 	}
 
-	err = commonutil.CheckZadigXLicenseStatus()
+	err = commonutil.CheckZadigProfessionalLicense()
 	if err != nil {
 		ctx.Err = err
 		return
@@ -779,7 +779,7 @@ func OpenAPIDeleteProductionEnv(c *gin.Context) {
 		}
 	}
 
-	err = commonutil.CheckZadigXLicenseStatus()
+	err = commonutil.CheckZadigProfessionalLicense()
 	if err != nil {
 		ctx.Err = err
 		return
@@ -831,7 +831,7 @@ func OpenAPICreateProductionEnv(c *gin.Context) {
 		}
 	}
 
-	err = commonutil.CheckZadigXLicenseStatus()
+	err = commonutil.CheckZadigProfessionalLicense()
 	if err != nil {
 		ctx.Err = err
 		return
@@ -901,7 +901,7 @@ func OpenAPIGetProductionEnvDetail(c *gin.Context) {
 		return
 	}
 
-	err = commonutil.CheckZadigXLicenseStatus()
+	err = commonutil.CheckZadigProfessionalLicense()
 	if err != nil {
 		ctx.Err = err
 		return
@@ -1027,7 +1027,7 @@ func OpenAPIUpdateGlobalVariables(c *gin.Context) {
 	}
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "(OpenAPI)"+"更新", "测试环境管理-更新全局变量", envName, string(data), ctx.Logger, envName)
 
-	err = commonutil.CheckZadigXLicenseStatus()
+	err = commonutil.CheckZadigProfessionalLicense()
 	if err != nil {
 		ctx.Err = err
 		return
@@ -1077,7 +1077,7 @@ func OpenAPIUpdateProductionYamlServices(c *gin.Context) {
 		}
 	}
 
-	err = commonutil.CheckZadigXLicenseStatus()
+	err = commonutil.CheckZadigProfessionalLicense()
 	if err != nil {
 		ctx.Err = err
 		return
@@ -1127,7 +1127,7 @@ func OpenAPIUpdateProductionGlobalVariables(c *gin.Context) {
 		}
 	}
 
-	err = commonutil.CheckZadigXLicenseStatus()
+	err = commonutil.CheckZadigProfessionalLicense()
 	if err != nil {
 		ctx.Err = err
 		return
@@ -1176,7 +1176,7 @@ func OpenAPIUpdateProductionEnvBasicInfo(c *gin.Context) {
 		}
 	}
 
-	err = commonutil.CheckZadigXLicenseStatus()
+	err = commonutil.CheckZadigProfessionalLicense()
 	if err != nil {
 		ctx.Err = err
 		return
@@ -1270,7 +1270,7 @@ func OpenAPIListProductionEnvs(c *gin.Context) {
 		return
 	}
 
-	err = commonutil.CheckZadigXLicenseStatus()
+	err = commonutil.CheckZadigProfessionalLicense()
 	if err != nil {
 		ctx.Err = err
 		return
@@ -1317,7 +1317,7 @@ func OpenAPIRestartService(c *gin.Context) {
 		}
 	}
 
-	err = commonutil.CheckZadigXLicenseStatus()
+	err = commonutil.CheckZadigProfessionalLicense()
 	if err != nil {
 		ctx.Err = err
 		return
@@ -1395,7 +1395,7 @@ func OpenAPIEnableBaseEnv(c *gin.Context) {
 		}
 	}
 
-	err = commonutil.CheckZadigXLicenseStatus()
+	err = commonutil.CheckZadigEnterpriseLicense()
 	if err != nil {
 		ctx.Err = err
 		return
@@ -1440,7 +1440,7 @@ func OpenAPIDsiableBaseEnv(c *gin.Context) {
 		}
 	}
 
-	err = commonutil.CheckZadigXLicenseStatus()
+	err = commonutil.CheckZadigEnterpriseLicense()
 	if err != nil {
 		ctx.Err = err
 		return
@@ -1639,7 +1639,7 @@ func OpenAPISetPortalService(c *gin.Context) {
 		})
 	}
 
-	err = commonutil.CheckZadigXLicenseStatus()
+	err = commonutil.CheckZadigEnterpriseLicense()
 	if err != nil {
 		ctx.Err = err
 		return

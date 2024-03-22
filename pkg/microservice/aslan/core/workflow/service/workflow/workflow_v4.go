@@ -909,7 +909,7 @@ func LintWorkflowV4(workflow *commonmodels.WorkflowV4, logger *zap.SugaredLogger
 		}
 	}
 
-	if err := util.CheckZadigXLicenseStatus(); err != nil {
+	if err := util.CheckZadigProfessionalLicense(); err != nil {
 		if workflow.ConcurrencyLimit != -1 && workflow.ConcurrencyLimit != 1 {
 			return e.ErrLicenseInvalid.AddDesc("基础版工作流并发只支持开关，不支持数量")
 		}
@@ -964,7 +964,7 @@ func lintApprovals(approval *commonmodels.Approval) error {
 	if approval == nil {
 		return nil
 	}
-	if err := util.CheckZadigXLicenseStatus(); err != nil {
+	if err := util.CheckZadigProfessionalLicense(); err != nil {
 		if approval.Type == config.LarkApproval || approval.Type == config.DingTalkApproval {
 			return e.ErrLicenseInvalid.AddDesc("飞书和钉钉审批是专业版功能")
 		}
