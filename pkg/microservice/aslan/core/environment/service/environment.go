@@ -2703,7 +2703,7 @@ func buildInstallParam(defaultValues string, productInfo *commonmodels.Product, 
 		serviceObj, err := repository.QueryTemplateService(opt, productInfo.Production)
 		if err != nil {
 			log.Errorf("failed to find service %s/%d, err %s", productSvc.ServiceName, productSvc.Revision, err.Error())
-			return nil, err
+			return nil, errors.Errorf("failed to find service %s/%d, err %s", productSvc.ServiceName, productSvc.Revision, err.Error())
 		}
 		ret.ServiceObj = serviceObj
 		ret.ReleaseName = util.GeneReleaseName(serviceObj.GetReleaseNaming(), serviceObj.ProductName, namespace, envName, serviceObj.ServiceName)
