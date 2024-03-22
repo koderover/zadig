@@ -1107,8 +1107,10 @@ definitions:
         items:
           $ref: '#/definitions/models.IstioHeaderMatchConfig'
         type: array
-      is_fixed:
+      production:
         type: boolean
+      source:
+        type: string
       weight_configs:
         items:
           $ref: '#/definitions/models.IstioWeightConfig'

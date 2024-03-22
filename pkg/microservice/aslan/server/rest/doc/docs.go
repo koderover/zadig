@@ -6825,8 +6825,11 @@ const docTemplate = `{
                         "$ref": "#/definitions/models.IstioHeaderMatchConfig"
                     }
                 },
-                "is_fixed": {
+                "production": {
                     "type": "boolean"
+                },
+                "source": {
+                    "type": "string"
                 },
                 "weight_configs": {
                     "type": "array",

@@ -601,11 +601,12 @@ type IstioRollBackJobSpec struct {
 }
 
 type UpdateEnvIstioConfigJobSpec struct {
+	Production         bool                     `bson:"production"            json:"production"             yaml:"production"`
 	BaseEnv            string                   `bson:"base_env"              json:"base_env"               yaml:"base_env"`
+	Source             string                   `bson:"source"                json:"source"                 yaml:"source"`
 	GrayscaleStrategy  GrayscaleStrategyType    `bson:"grayscale_strategy"    json:"grayscale_strategy"     yaml:"grayscale_strategy"`
 	WeightConfigs      []IstioWeightConfig      `bson:"weight_configs"        json:"weight_configs"         yaml:"weight_configs"`
 	HeaderMatchConfigs []IstioHeaderMatchConfig `bson:"header_match_configs"  json:"header_match_configs"   yaml:"header_match_configs"`
-	IsFixed            bool                     `bson:"is_fixed"              json:"is_fixed"               yaml:"is_fixed"`
 }
 
 type SQLJobSpec struct {
