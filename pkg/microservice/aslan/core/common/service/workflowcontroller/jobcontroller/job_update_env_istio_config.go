@@ -24,7 +24,6 @@ import (
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/kube"
-	"github.com/koderover/zadig/v2/pkg/setting"
 )
 
 type UpdateEnvIstioConfigJobCtl struct {
@@ -75,15 +74,6 @@ func (c *UpdateEnvIstioConfigJobCtl) Run(ctx context.Context) {
 func (c *UpdateEnvIstioConfigJobCtl) Errorf(format string, a ...any) {
 	errMsg := fmt.Sprintf(format, a...)
 	logError(c.job, errMsg, c.logger)
-}
-
-func (c *UpdateEnvIstioConfigJobCtl) timeout() int64 {
-	if c.jobTaskSpec.Timeout == 0 {
-		c.jobTaskSpec.Timeout = setting.DeployTimeout
-	} else {
-		c.jobTaskSpec.Timeout = c.jobTaskSpec.Timeout * 60
-	}
-	return c.jobTaskSpec.Timeout
 }
 
 func (c *UpdateEnvIstioConfigJobCtl) SaveInfo(ctx context.Context) error {

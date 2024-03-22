@@ -606,7 +606,6 @@ type UpdateEnvIstioConfigJobSpec struct {
 	WeightConfigs      []IstioWeightConfig      `bson:"weight_configs"        json:"weight_configs"         yaml:"weight_configs"`
 	HeaderMatchConfigs []IstioHeaderMatchConfig `bson:"header_match_configs"  json:"header_match_configs"   yaml:"header_match_configs"`
 	IsFixed            bool                     `bson:"is_fixed"              json:"is_fixed"               yaml:"is_fixed"`
-	Timeout            int64                    `bson:"timeout"               json:"timeout"                yaml:"timeout"`
 }
 
 type SQLJobSpec struct {

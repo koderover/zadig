@@ -818,7 +818,7 @@ func EnsureEnvoyFilter(ctx context.Context, istioClient versionedclient.Interfac
 	return err
 }
 
-func ReGenerateEnvoyFilter(ctx context.Context, clusterID string, headerKeys []string) error {
+func reGenerateEnvoyFilter(ctx context.Context, clusterID string, headerKeys []string) error {
 	restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), clusterID)
 	if err != nil {
 		return fmt.Errorf("failed to get rest config: %s", err)
@@ -1079,7 +1079,7 @@ func SetIstioGrayscaleConfig(ctx context.Context, envName, productName string, r
 			}
 		}
 
-		err = ReGenerateEnvoyFilter(ctx, baseEnv.ClusterID, headerKeys)
+		err = reGenerateEnvoyFilter(ctx, baseEnv.ClusterID, headerKeys)
 		if err != nil {
 			return fmt.Errorf("failed to re-generate envoy filter, err: %w", err)
 		}

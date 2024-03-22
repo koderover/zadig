@@ -157,6 +157,10 @@ definitions:
         items:
           $ref: '#/definitions/template.RenderKV'
         type: array
+      yaml_data:
+        allOf:
+        - $ref: '#/definitions/template.CustomYaml'
+        description: used for cron service
     type: object
   github_com_koderover_zadig_v2_pkg_microservice_aslan_core_service_service.ServiceModule:
     properties:
@@ -348,6 +352,19 @@ definitions:
     required:
     - service_variable_kvs
     - variable_yaml
+    type: object
+  kube.SetIstioGrayscaleConfigRequest:
+    properties:
+      grayscale_strategy:
+        type: string
+      header_match_configs:
+        items:
+          $ref: '#/definitions/models.IstioHeaderMatchConfig'
+        type: array
+      weight_configs:
+        items:
+          $ref: '#/definitions/models.IstioWeightConfig'
+        type: array
     type: object
   models.AnalysisConfig:
     properties:
@@ -1080,6 +1097,23 @@ definitions:
       version:
         type: string
     type: object
+  models.UpdateEnvIstioConfigJobSpec:
+    properties:
+      base_env:
+        type: string
+      grayscale_strategy:
+        type: string
+      header_match_configs:
+        items:
+          $ref: '#/definitions/models.IstioHeaderMatchConfig'
+        type: array
+      is_fixed:
+        type: boolean
+      weight_configs:
+        items:
+          $ref: '#/definitions/models.IstioWeightConfig'
+        type: array
+    type: object
   models.WebHookType:
     enum:
     - feishu
@@ -1590,6 +1624,8 @@ definitions:
       chart_version:
         type: string
       env_name:
+        type: string
+      error:
         type: string
       images:
         items:
@@ -2220,19 +2256,6 @@ definitions:
           ZadigXReleaseType represents the service contain created by zadigx release workflow
           frontend should limit some operations on these services
         type: string
-    type: object
-  service.SetIstioGrayscaleConfigRequest:
-    properties:
-      grayscale_strategy:
-        type: string
-      header_match_configs:
-        items:
-          $ref: '#/definitions/models.IstioHeaderMatchConfig'
-        type: array
-      weight_configs:
-        items:
-          $ref: '#/definitions/models.IstioWeightConfig'
-        type: array
     type: object
   service.SetupPortalServiceRequest:
     properties:
@@ -4165,7 +4188,7 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/service.SetIstioGrayscaleConfigRequest'
+          $ref: '#/definitions/kube.SetIstioGrayscaleConfigRequest'
       produces:
       - application/json
       responses:
@@ -4719,6 +4742,26 @@ paths:
         "200":
           description: OK
       summary: '[DONT USE]  ZadigDeployJobSpec'
+      tags:
+      - placeholder
+  /api/aslan/placeholder/update_env_istio_config_job_spec:
+    post:
+      consumes:
+      - application/json
+      description: '[DONT USE] UpdateEnvIstioConfigJobSpec'
+      parameters:
+      - description: body
+        in: body
+        name: update_env_istio_config_job_spec
+        required: true
+        schema:
+          $ref: '#/definitions/models.UpdateEnvIstioConfigJobSpec'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: '[DONT USE]  UpdateEnvIstioConfigJobSpec'
       tags:
       - placeholder
   /api/aslan/project/bizdir:
