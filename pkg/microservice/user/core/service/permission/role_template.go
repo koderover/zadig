@@ -242,12 +242,13 @@ func DeleteRoleTemplate(name string, log *zap.SugaredLogger) error {
 		return fmt.Errorf("failed to batch delete role: %v, error: %s", roles, err)
 	}
 
-	err = orm.DeleteRoleTemplateByName(name, repository.DB)
+	err = orm.DeleteRoleTemplateByName(name, tx)
 	if err != nil {
 		tx.Rollback()
 		log.Errorf("failed to delete role template: %s, error: %s", name, err)
 		return fmt.Errorf("failed to delete role: %s, error: %s", name, err)
 	}
+
 	tx.Commit()
 
 	actionCache := cache.NewRedisCache(config.RedisCommonCacheTokenDB())
