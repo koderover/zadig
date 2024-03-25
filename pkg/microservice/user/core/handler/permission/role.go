@@ -73,8 +73,14 @@ func CreateRole(c *gin.Context) {
 }
 
 func CreateRoleTemplate(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
 
 	data, err := c.GetRawData()
 	if err != nil {
@@ -87,13 +93,6 @@ func CreateRoleTemplate(c *gin.Context) {
 	args := &permission.CreateRoleReq{}
 	if err := c.ShouldBindJSON(args); err != nil {
 		ctx.Err = err
-		return
-	}
-
-	err = userhandler.GenerateUserAuthInfo(ctx)
-	if err != nil {
-		ctx.UnAuthorized = true
-		ctx.Err = fmt.Errorf("failed to generate user authorization info, error: %s", err)
 		return
 	}
 
@@ -258,7 +257,13 @@ func UpdateRoleImpl(c *gin.Context, ctx *internalhandler.Context) {
 }
 
 func UpdateRoleTemplate(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	data, err := c.GetRawData()
@@ -272,13 +277,6 @@ func UpdateRoleTemplate(c *gin.Context) {
 	args := &permission.CreateRoleReq{}
 	if err := c.ShouldBindJSON(args); err != nil {
 		ctx.Err = err
-		return
-	}
-
-	err = userhandler.GenerateUserAuthInfo(ctx)
-	if err != nil {
-		ctx.UnAuthorized = true
-		ctx.Err = fmt.Errorf("failed to generate user authorization info, error: %s", err)
 		return
 	}
 
@@ -434,8 +432,23 @@ func OpenAPIDeleteRole(c *gin.Context) {
 }
 
 func DeleteRoleTemplate(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		ctx.UnAuthorized = true
+		return
+	}
+
+	name := c.Param("name")
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, "*", setting.OperationSceneProject, "删除", "角色", "角色名称："+name, "", ctx.Logger, name)
 
 	ctx.Err = permission.DeleteRoleTemplate(c.Param("name"), ctx.Logger)
 }

@@ -1,5 +1,5 @@
 /*
-Copyright 2024 The KodeRover Authors.
+Copyright 2023 The KodeRover Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,15 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package models
+package orm
 
-type RoleTemplateBinding struct {
-	ID             uint `gorm:"primary"                      json:"id"`
-	RoleID         uint `gorm:"column:role_id"               json:"role_id"`
-	RoleTemplateID uint `gorm:"column:role_template_id"      json:"role_template_id"`
-}
+import (
+	"github.com/koderover/zadig/v2/pkg/microservice/user/core/repository/models"
+	"gorm.io/gorm"
+)
 
-// TableName sets the insert table name for this struct type
-func (RoleTemplateBinding) TableName() string {
-	return "role_template_binding"
+func BulkCreateRoleTemplateBindings(bindings []*models.RoleTemplateBinding, db *gorm.DB) error {
+	return db.Create(&bindings).Error
 }

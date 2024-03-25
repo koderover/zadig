@@ -115,10 +115,10 @@ var dmUserSchema []byte
 //go:embed init/dex_database.sql
 var dexSchema []byte
 
-//go:embed init/action_initialization.sql
+//go:embed init/data_initialization.sql
 var actionData []byte
 
-//go:embed init/dm_action_initialization.sql
+//go:embed init/dm_data_initialization.sql
 var dmActionData []byte
 
 var readOnlyAction = []string{

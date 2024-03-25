@@ -93,7 +93,6 @@ func CreateRoleTemplate(req *CreateRoleReq, log *zap.SugaredLogger) error {
 func UpdateRoleTemplate(req *CreateRoleReq, log *zap.SugaredLogger) error {
 	tx := repository.DB.Begin()
 
-	// Doing a tricky thing here: removing the whole role-action binding, then re-adding them.
 	roleTemplateInfo, err := orm.GetRoleTemplate(req.Name, repository.DB)
 	if err != nil {
 		log.Errorf("failed to find role: [%s], error: %s", req.Name, err)
@@ -132,7 +131,6 @@ func UpdateRoleTemplate(req *CreateRoleReq, log *zap.SugaredLogger) error {
 		return fmt.Errorf("failed to create action binding for role: %s , the error is: %s", roleTemplateInfo.Name, err)
 	}
 
-	// so the only field capable of changing is the description....
 	err = orm.UpdateRoleTemplateInfo(roleTemplateInfo.ID, &models.RoleTemplate{
 		Description: req.Desc,
 	}, tx)

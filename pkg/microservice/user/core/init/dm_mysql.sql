@@ -74,6 +74,7 @@ CREATE TABLE IF NOT EXISTS role_template (
     id          bigint NOT NULL AUTO_INCREMENT,
     name        varchar(32) NOT NULL COMMENT '角色名称',
     description varchar(64) NOT NULL COMMENT '描述',
+    type        tinyint NOT NULL COMMENT '类型',
     PRIMARY KEY (id)
 ) ;
 
@@ -117,7 +118,7 @@ CREATE TABLE IF NOT EXISTS group_role_binding (
 
 CREATE TABLE IF NOT EXISTS role_template_binding (
     id                 bigint NOT NULL AUTO_INCREMENT,
-    role_id            varchar(64) NOT NULL COMMENT '角色ID',
+    role_id            bigint NOT NULL COMMENT '角色ID',
     role_template_id   bigint NOT NULL COMMENT '全局角色ID',
     PRIMARY KEY (id),
     FOREIGN KEY (role_id) REFERENCES role(id) ON DELETE CASCADE,

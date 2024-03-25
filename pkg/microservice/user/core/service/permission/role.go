@@ -17,6 +17,7 @@ limitations under the License.
 package permission
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -269,6 +270,14 @@ func CreateRole(ns string, req *CreateRoleReq, log *zap.SugaredLogger) error {
 		role.Type = int64(setting.RoleTypeCustom)
 	}
 
+	if ns != "*" {
+		roleTemplate, err := orm.GetRoleTemplate(req.Name, tx)
+		if err == nil && roleTemplate.ID > 0 {
+			tx.Rollback()
+			return fmt.Errorf("can't create role with the same name as golbal role: %s", req.Name)
+		}
+	}
+
 	err := orm.CreateRole(role, tx)
 	if err != nil {
 		log.Errorf("failed to create role, error: %s", err)
@@ -386,11 +395,19 @@ func UpdateRole(ns string, req *CreateRoleReq, log *zap.SugaredLogger) error {
 	return nil
 }
 
+// ListRolesByNamespace list roles
+// For roles in projects, system roles will be returned as lazy initialization
 func ListRolesByNamespace(projectName string, log *zap.SugaredLogger) ([]*types.Role, error) {
 	roles, err := orm.ListRoleByNamespace(projectName, repository.DB)
-	if err != nil && err != gorm.ErrRecordNotFound {
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		log.Errorf("failed to list roles in project: %s, error: %s", projectName, err)
 		return nil, fmt.Errorf("failed to list roles in project: %s, error: %s", projectName, err)
+	}
+
+	roles, err = lazySyncRoleTemplates(projectName, roles)
+	if err != nil {
+		log.Errorf("failed to sync role templates, error: %s", err)
+		return nil, fmt.Errorf("failed to sync role templates, error: %s", err)
 	}
 
 	resp := make([]*types.Role, 0)
@@ -405,6 +422,75 @@ func ListRolesByNamespace(projectName string, log *zap.SugaredLogger) ([]*types.
 	}
 
 	return resp, nil
+}
+
+func lazySyncRoleTemplates(namespace string, roles []*models.NewRole) ([]*models.NewRole, error) {
+	if namespace == "*" {
+		return roles, nil
+	}
+
+	roleSet := sets.NewString()
+	for _, role := range roles {
+		roleSet.Insert(role.Name)
+	}
+
+	ret := make([]*models.NewRole, 0)
+	tx := repository.DB.Begin()
+
+	rolesNeedCreate := make([]*models.NewRole, 0)
+	roleTemplates, err := orm.ListRoleTemplates(repository.DB)
+	if err != nil {
+		log.Errorf("failed to list role templates, error: %s", err)
+		return nil, fmt.Errorf("failed to list role templates, error: %s", err)
+	}
+	roleTemplateMap := make(map[string]uint)
+
+	for _, roleTemplate := range roleTemplates {
+		if roleSet.Has(roleTemplate.Name) {
+			continue
+		}
+		roleTemplateMap[roleTemplate.Name] = roleTemplate.ID
+		rolesNeedCreate = append(rolesNeedCreate, &models.NewRole{
+			Name:        roleTemplate.Name,
+			Description: roleTemplate.Description,
+			Namespace:   namespace,
+			Type:        int64(setting.RoleTypeSystem),
+		})
+	}
+
+	if len(rolesNeedCreate) == 0 {
+		tx.Rollback()
+		return roles, nil
+	}
+
+	err = orm.BulkCreateRole(rolesNeedCreate, tx)
+	if err != nil {
+		tx.Rollback()
+		return nil, fmt.Errorf("failed to create roles from template, error: %s", err)
+	}
+
+	templateRoleBinds := make([]*models.RoleTemplateBinding, 0)
+	for _, role := range rolesNeedCreate {
+		templateRoleBinds = append(templateRoleBinds, &models.RoleTemplateBinding{
+			RoleID:         role.ID,
+			RoleTemplateID: roleTemplateMap[role.Name],
+		})
+		ret = append(ret, role)
+	}
+
+	err = orm.BulkCreateRoleTemplateBindings(templateRoleBinds, tx)
+	if err != nil {
+		tx.Rollback()
+		return nil, fmt.Errorf("failed to create role-template bindings, error: %s", err)
+	}
+
+	tx.Commit()
+
+	for _, role := range roles {
+		ret = append(ret, role)
+	}
+
+	return ret, nil
 }
 
 func ListRolesByNamespaceAndUserID(projectName, uid string, log *zap.SugaredLogger) ([]*types.Role, error) {

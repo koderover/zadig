@@ -71,6 +71,7 @@ CREATE TABLE IF NOT EXISTS `role_template` (
     `id`          bigint(20) NOT NULL AUTO_INCREMENT,
     `name`        varchar(32) NOT NULL COMMENT '角色名称',
     `description` varchar(64) NOT NULL COMMENT '描述',
+    `type`        tinyint NOT NULL COMMENT '类型',
     PRIMARY KEY (`id`),
     UNIQUE KEY `name_role_template` (`name`)
 ) ENGINE = InnoDB CHARACTER SET = utf8 COLLATE = utf8_general_ci COMMENT = '全局角色' ROW_FORMAT = Compact;
