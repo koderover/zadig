@@ -130,10 +130,14 @@ func GetResourceActionDefinitions(scope, envType string, log *zap.SugaredLogger)
 				continue
 			}
 		}
+
 		if envType != setting.PMDeployType {
 			if action.Action == VerbEnvironmentSSHPM {
 				continue
 			}
+		}
+		if action.Action == VerbEnvironmentSSHPM {
+			log.Infof("------- envType: %s, action: %s", envType, action.Action)
 		}
 		resourceMap[action.Resource].Rules = append(resourceMap[action.Resource].Rules, &Action{
 			Action: action.Action,
