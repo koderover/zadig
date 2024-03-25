@@ -115,11 +115,17 @@ var dmUserSchema []byte
 //go:embed init/dex_database.sql
 var dexSchema []byte
 
-//go:embed init/data_initialization.sql
+//go:embed init/action_initialization.sql
 var actionData []byte
 
-//go:embed init/dm_data_initialization.sql
+//go:embed init/role_template_initialization.sql
+var roleTemplateData []byte
+
+//go:embed init/dm_action_initialization.sql
 var dmActionData []byte
+
+//go:embed init/dm_role_template_initialization.sql
+var dmRoleTemplateData []byte
 
 var readOnlyAction = []string{
 	permissionservice.VerbGetDelivery,
@@ -190,12 +196,21 @@ func initializeSystemActions() {
 		if err != nil {
 			log.Panic(err)
 		}
+		err = repository.DB.Exec(string(roleTemplateData)).Error
+		if err != nil {
+			log.Panic(err)
+		}
 	} else {
 		// @todo need to optimize the dm action sql
 		// dm doesn't support ON DUPLICATE KEY UPDATE, but it can be replace by MERGE INTO
 		err := repository.DB.Exec(string(dmActionData)).Error
 		if err != nil {
 			log.Panic(err)
+		}
+		err = repository.DB.Exec(string(dmRoleTemplateData)).Error
+		if err != nil {
+			log.Panic(err)
+
 		}
 	}
 	fmt.Println("system actions initialized...")
