@@ -22,8 +22,8 @@ func GetRoleTemplate(name string, db *gorm.DB) (*models.RoleTemplate, error) {
 	return resp, nil
 }
 
-func ListRoleTemplates(db *gorm.DB) ([]*models.NewRole, error) {
-	resp := make([]*models.NewRole, 0)
+func ListRoleTemplates(db *gorm.DB) ([]*models.RoleTemplate, error) {
+	resp := make([]*models.RoleTemplate, 0)
 
 	err := db.Find(&resp).Error
 

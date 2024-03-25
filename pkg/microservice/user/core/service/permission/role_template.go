@@ -19,16 +19,13 @@ package permission
 import (
 	"errors"
 	"fmt"
-	"github.com/koderover/zadig/v2/pkg/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/user/core/repository"
 	"github.com/koderover/zadig/v2/pkg/microservice/user/core/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/user/core/repository/orm"
-	"github.com/koderover/zadig/v2/pkg/tool/cache"
 	"github.com/koderover/zadig/v2/pkg/types"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"time"
 )
 
 func ListRoleTemplates(log *zap.SugaredLogger) ([]*types.RoleTemplate, error) {
@@ -44,7 +41,6 @@ func ListRoleTemplates(log *zap.SugaredLogger) ([]*types.RoleTemplate, error) {
 			ID:          role.ID,
 			Name:        role.Name,
 			Description: role.Description,
-			Type:        convertDBRoleType(role.Type),
 		})
 	}
 
@@ -142,20 +138,6 @@ func UpdateRoleTemplate(req *CreateRoleReq, log *zap.SugaredLogger) error {
 	}, tx)
 
 	tx.Commit()
-
-	// after committing to db, save it to the cache if possible
-	roleActionKey := fmt.Sprintf(RoleTemplateActionKeyFormat, roleTemplateInfo.ID)
-	actionCache := cache.NewRedisCache(config.RedisCommonCacheTokenDB())
-
-	err = actionCache.Delete(roleActionKey)
-	if err != nil {
-		log.Warnf("failed to flush actions from role-action cache, error: %s", err)
-	}
-
-	go func(key string, redisCache *cache.RedisCache) {
-		time.Sleep(2 * time.Second)
-		redisCache.Delete(key)
-	}(roleActionKey, actionCache)
 
 	return nil
 }
