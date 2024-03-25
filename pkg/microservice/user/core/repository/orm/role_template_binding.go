@@ -25,7 +25,7 @@ func ListRoleTemplateBindingByID(id uint, db *gorm.DB) ([]*models.RoleTemplateBi
 	resp := make([]*models.RoleTemplateBinding, 0)
 
 	err := db.
-		Where("role_template.id = ?", id).
+		Where("role_template_id = ?", id).
 		Find(&resp).
 		Error
 
