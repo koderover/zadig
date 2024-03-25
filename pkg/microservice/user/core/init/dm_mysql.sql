@@ -94,7 +94,7 @@ CREATE TABLE IF NOT EXISTS role_template_action_binding (
     role_template_id   bigint NOT NULL COMMENT '全局角色ID',
     PRIMARY KEY (id),
     FOREIGN KEY (action_id) REFERENCES action(id) ON DELETE CASCADE,
-    FOREIGN KEY (role_template_id) REFERENCES role_template_id(id) ON DELETE CASCADE
+    FOREIGN KEY (role_template_id) REFERENCES role_template(id) ON DELETE CASCADE
 ) ;
 
 CREATE TABLE IF NOT EXISTS role_binding (
@@ -121,5 +121,5 @@ CREATE TABLE IF NOT EXISTS role_template_binding (
     role_template_id   bigint NOT NULL COMMENT '全局角色ID',
     PRIMARY KEY (id),
     FOREIGN KEY (role_id) REFERENCES role(id) ON DELETE CASCADE,
-    FOREIGN KEY (role_template_id) REFERENCES role_template_id(id) ON DELETE CASCADE
+    FOREIGN KEY (role_template_id) REFERENCES role_template(id) ON DELETE CASCADE
 ) ;
