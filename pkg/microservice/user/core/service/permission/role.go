@@ -438,7 +438,7 @@ func lazySyncRoleTemplates(namespace string, roles []*models.NewRole) ([]*models
 	tx := repository.DB.Begin()
 
 	rolesNeedCreate := make([]*models.NewRole, 0)
-	roleTemplates, err := orm.ListRoleTemplates(repository.DB)
+	roleTemplates, err := orm.ListRoleTemplates(tx)
 	if err != nil {
 		log.Errorf("failed to list role templates, error: %s", err)
 		return nil, fmt.Errorf("failed to list role templates, error: %s", err)
@@ -457,6 +457,7 @@ func lazySyncRoleTemplates(namespace string, roles []*models.NewRole) ([]*models
 			Type:        int64(setting.RoleTypeSystem),
 		})
 	}
+	log.Infof("------ roleTemplates count: %v ", len(roleTemplates))
 	log.Infof("------ roletemlate map: %v", roleTemplateMap)
 	log.Infof("------- roles need create: %v", rolesNeedCreate)
 
