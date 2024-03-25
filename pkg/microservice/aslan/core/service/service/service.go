@@ -249,6 +249,7 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, userName string, args *K
 				ServiceName: tempWorkload.Name,
 				ProductName: args.ProductName,
 				Type:        setting.K8SDeployType,
+				Revision:    1,
 			}
 			productServices = append(productServices, productSvc)
 
@@ -430,6 +431,7 @@ func UpdateWorkloads(ctx context.Context, requestID, username, productName, envN
 			ServiceName: v.Name,
 			ProductName: productName,
 			Type:        setting.K8SDeployType,
+			Revision:    1,
 		}
 
 		templateSvc, err := CreateWorkloadTemplate(&commonmodels.Service{

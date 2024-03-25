@@ -18,12 +18,10 @@ package workflow
 
 import (
 	"fmt"
-	"github.com/koderover/zadig/v2/pkg/util"
 	"sort"
 	"time"
 
 	"github.com/hashicorp/go-multierror"
-	"github.com/koderover/zadig/v2/pkg/tool/cache"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -36,9 +34,11 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/collaboration"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/webhook"
 	"github.com/koderover/zadig/v2/pkg/setting"
+	"github.com/koderover/zadig/v2/pkg/tool/cache"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/types"
+	"github.com/koderover/zadig/v2/pkg/util"
 )
 
 type EnvStatus struct {
