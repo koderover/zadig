@@ -232,7 +232,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		production.GET("/environments/:name/istioGrayscale/portal/:serviceName", GetIstioGrayscalePortalService)
 		production.POST("/environments/:name/istioGrayscale/portal/:serviceName", SetupIstioGrayscalePortalService)
 
-		production.GET("/operations", GetProductionOperationLogs)
+		production.GET("/environments/operations", GetProductionOperationLogs)
 	}
 
 	// ---------------------------------------------------------------------------------------
