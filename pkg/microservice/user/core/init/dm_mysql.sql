@@ -89,8 +89,8 @@ CREATE TABLE IF NOT EXISTS role_action_binding (
 ) ;
 
 CREATE TABLE IF NOT EXISTS role_template_action_binding (
-    id        bigint   NOT NULL AUTO_INCREMENT,
-    action_id bigint   NOT NULL COMMENT '用户组ID',
+    id                 bigint   NOT NULL AUTO_INCREMENT,
+    action_id          bigint   NOT NULL COMMENT '用户组ID',
     role_template_id   bigint NOT NULL COMMENT '全局角色ID',
     PRIMARY KEY (id),
     FOREIGN KEY (action_id) REFERENCES action(id) ON DELETE CASCADE,
@@ -120,6 +120,6 @@ CREATE TABLE IF NOT EXISTS role_template_binding (
     role_id            varchar(64) NOT NULL COMMENT '角色ID',
     role_template_id   bigint NOT NULL COMMENT '全局角色ID',
     PRIMARY KEY (id),
-    FOREIGN KEY (uid) REFERENCES role(id) ON DELETE CASCADE,
-    FOREIGN KEY (role_id) REFERENCES role_template_id(id) ON DELETE CASCADE
+    FOREIGN KEY (role_id) REFERENCES role(id) ON DELETE CASCADE,
+    FOREIGN KEY (role_template_id) REFERENCES role_template_id(id) ON DELETE CASCADE
 ) ;

@@ -67,6 +67,14 @@ CREATE TABLE IF NOT EXISTS `role` (
     UNIQUE KEY `namespaced_role` (`namespace`, `name`)
 ) ENGINE = InnoDB CHARACTER SET = utf8 COLLATE = utf8_general_ci COMMENT = '角色表' ROW_FORMAT = Compact;
 
+CREATE TABLE IF NOT EXISTS role_template (
+    id          bigint NOT NULL AUTO_INCREMENT,
+    name        varchar(32) NOT NULL COMMENT '角色名称',
+    description varchar(64) NOT NULL COMMENT '描述',
+    PRIMARY KEY (id),
+    UNIQUE KEY `name_role_template` (`name`)
+) ENGINE = InnoDB CHARACTER SET = utf8 COLLATE = utf8_general_ci COMMENT = '全局角色' ROW_FORMAT = Compact;
+
 CREATE TABLE IF NOT EXISTS `role_action_binding` (
     `id`        bigint(20) NOT NULL AUTO_INCREMENT,
     `action_id` bigint(20) NOT NULL COMMENT '用户组ID',
@@ -75,6 +83,15 @@ CREATE TABLE IF NOT EXISTS `role_action_binding` (
     FOREIGN KEY (`action_id`) REFERENCES action(`id`) ON DELETE CASCADE,
     FOREIGN KEY (`role_id`) REFERENCES role(`id`) ON DELETE CASCADE
 ) ENGINE = InnoDB CHARACTER SET = utf8 COLLATE = utf8_general_ci COMMENT = '角色/权限项绑定信息' ROW_FORMAT = Compact;
+
+CREATE TABLE IF NOT EXISTS role_template_action_binding (
+    id                 bigint   NOT NULL AUTO_INCREMENT,
+    action_id          bigint   NOT NULL COMMENT '用户组ID',
+    role_template_id   bigint NOT NULL COMMENT '全局角色ID',
+    PRIMARY KEY (id),
+    FOREIGN KEY (action_id) REFERENCES action(id) ON DELETE CASCADE,
+    FOREIGN KEY (role_template_id) REFERENCES role_template_id(id) ON DELETE CASCADE
+) ;
 
 CREATE TABLE IF NOT EXISTS `role_binding` (
     `id`        bigint(20) NOT NULL AUTO_INCREMENT,
@@ -94,3 +111,11 @@ CREATE TABLE IF NOT EXISTS `group_role_binding` (
     FOREIGN KEY (`role_id`) REFERENCES role(`id`) ON DELETE CASCADE
 ) ENGINE = InnoDB CHARACTER SET = utf8 COLLATE = utf8_general_ci COMMENT = '角色组/角色绑定信息' ROW_FORMAT = Compact;
 
+CREATE TABLE IF NOT EXISTS role_template_binding (
+    id                 bigint NOT NULL AUTO_INCREMENT,
+    role_id            varchar(64) NOT NULL COMMENT '角色ID',
+    role_template_id   bigint NOT NULL COMMENT '全局角色ID',
+    PRIMARY KEY (id),
+    FOREIGN KEY (role_id) REFERENCES role(id) ON DELETE CASCADE,
+    FOREIGN KEY (role_template_id) REFERENCES role_template_id(id) ON DELETE CASCADE
+) ;
