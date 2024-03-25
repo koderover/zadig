@@ -457,6 +457,8 @@ func lazySyncRoleTemplates(namespace string, roles []*models.NewRole) ([]*models
 			Type:        int64(setting.RoleTypeSystem),
 		})
 	}
+	log.Infof("------ roletemlate map: %v", roleTemplateMap)
+	log.Infof("------- roles need create: %v", rolesNeedCreate)
 
 	if len(rolesNeedCreate) == 0 {
 		tx.Rollback()
