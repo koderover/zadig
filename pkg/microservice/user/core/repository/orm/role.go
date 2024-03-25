@@ -214,8 +214,8 @@ func DeleteRoleByName(name, namespace string, db *gorm.DB) error {
 		Error
 }
 
-func DeleteRoleByIDList(ids []uint, db *gorm.DB) error {
-	return db.Where("id IN (?)", ids).Delete(&models.NewRole{}).Error
+func DeleteRoleByIDList(roles []*models.NewRole, db *gorm.DB) error {
+	return db.Delete(&roles).Error
 }
 
 func DeleteRoleByNameSpace(namespace string, db *gorm.DB) error {

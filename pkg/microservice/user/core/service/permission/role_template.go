@@ -231,9 +231,9 @@ func DeleteRoleTemplate(name string, log *zap.SugaredLogger) error {
 		return fmt.Errorf("failed to find role template binding for role template: %d, error: %s", roleTemplateID, err)
 	}
 
-	roles := make([]uint, 0)
+	roles := make([]*models.NewRole, 0)
 	for _, bind := range bindings {
-		roles = append(roles, bind.RoleID)
+		roles = append(roles, &models.NewRole{ID: bind.RoleID})
 	}
 
 	err = BatchDeleteRole(roles, tx, log)
@@ -248,6 +248,7 @@ func DeleteRoleTemplate(name string, log *zap.SugaredLogger) error {
 		log.Errorf("failed to delete role template: %s, error: %s", name, err)
 		return fmt.Errorf("failed to delete role: %s, error: %s", name, err)
 	}
+	tx.Commit()
 
 	actionCache := cache.NewRedisCache(config.RedisCommonCacheTokenDB())
 	for _, bind := range bindings {
@@ -257,8 +258,6 @@ func DeleteRoleTemplate(name string, log *zap.SugaredLogger) error {
 			log.Warnf("failed to flush role-action cache, key: %s, error: %s", roleActionKey, err)
 		}
 	}
-
-	tx.Commit()
 
 	return nil
 }

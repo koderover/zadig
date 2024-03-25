@@ -566,8 +566,8 @@ func DeleteRole(name string, projectName string, log *zap.SugaredLogger) error {
 	return nil
 }
 
-func BatchDeleteRole(ids []uint, db *gorm.DB, log *zap.SugaredLogger) error {
-	err := orm.DeleteRoleByIDList(ids, db)
+func BatchDeleteRole(roles []*models.NewRole, db *gorm.DB, log *zap.SugaredLogger) error {
+	err := orm.DeleteRoleByIDList(roles, db)
 	if err != nil {
 		log.Errorf("failed to batch delete roles, error: %s", err)
 		return fmt.Errorf("failed to batch delete roles, error: %s", err)
