@@ -457,9 +457,6 @@ func lazySyncRoleTemplates(namespace string, roles []*models.NewRole) ([]*models
 			Type:        int64(setting.RoleTypeSystem),
 		})
 	}
-	log.Infof("------ roleTemplates count: %v ", len(roleTemplates))
-	log.Infof("------ roletemlate map: %v", roleTemplateMap)
-	log.Infof("------- roles need create: %v", rolesNeedCreate)
 
 	if len(rolesNeedCreate) == 0 {
 		tx.Rollback()
@@ -565,6 +562,15 @@ func DeleteRole(name string, projectName string, log *zap.SugaredLogger) error {
 	if err != nil {
 		log.Errorf("failed to delete role: %s under namespace %s, error: %s", name, projectName, err)
 		return fmt.Errorf("failed to delete role: %s under namespace %s, error: %s", name, projectName, err)
+	}
+	return nil
+}
+
+func BatchDeleteRole(ids []uint, db *gorm.DB, log *zap.SugaredLogger) error {
+	err := orm.DeleteRoleByIDList(ids, db)
+	if err != nil {
+		log.Errorf("failed to batch delete roles, error: %s", err)
+		return fmt.Errorf("failed to batch delete roles, error: %s", err)
 	}
 	return nil
 }

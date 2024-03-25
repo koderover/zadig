@@ -50,24 +50,6 @@ func ListRoleTemplates(log *zap.SugaredLogger) ([]*types.RoleTemplate, error) {
 	return resp, nil
 }
 
-func flushRelatedRoleCache(roleTemplateID uint, tx *gorm.DB, log *zap.SugaredLogger) error {
-	bindings, err := orm.ListRoleTemplateBindingByID(roleTemplateID, tx)
-	if err != nil {
-		log.Errorf("failed to find role template binding for role template: %d, error: %s", roleTemplateID, err)
-		return fmt.Errorf("failed to find role template binding for role template: %d, error: %s", roleTemplateID, err)
-	}
-
-	actionCache := cache.NewRedisCache(config.RedisCommonCacheTokenDB())
-	for _, bind := range bindings {
-		roleActionKey := fmt.Sprintf(RoleActionKeyFormat, bind.RoleID)
-		err = actionCache.Delete(roleActionKey)
-		if err != nil {
-			log.Warnf("failed to flush role-action cache, key: %s, error: %s", roleActionKey, err)
-		}
-	}
-	return nil
-}
-
 func CreateRoleTemplate(req *CreateRoleReq, log *zap.SugaredLogger) error {
 	tx := repository.DB.Begin()
 
@@ -165,9 +147,20 @@ func UpdateRoleTemplate(req *CreateRoleReq, log *zap.SugaredLogger) error {
 		return fmt.Errorf("failed to update role template: %s, error: %s", roleTemplateInfo.Name, err)
 	}
 
-	err = flushRelatedRoleCache(roleTemplateInfo.ID, tx, log)
+	roleTemplateID := roleTemplateInfo.ID
+	bindings, err := orm.ListRoleTemplateBindingByID(roleTemplateID, tx)
 	if err != nil {
-		log.Warnf("failed to flush related role cache, error: %s", err)
+		log.Errorf("failed to find role template binding for role template: %d, error: %s", roleTemplateID, err)
+		return fmt.Errorf("failed to find role template binding for role template: %d, error: %s", roleTemplateID, err)
+	}
+
+	actionCache := cache.NewRedisCache(config.RedisCommonCacheTokenDB())
+	for _, bind := range bindings {
+		roleActionKey := fmt.Sprintf(RoleActionKeyFormat, bind.RoleID)
+		err = actionCache.Delete(roleActionKey)
+		if err != nil {
+			log.Warnf("failed to flush role-action cache, key: %s, error: %s", roleActionKey, err)
+		}
 	}
 
 	tx.Commit()
@@ -229,12 +222,43 @@ func DeleteRoleTemplate(name string, log *zap.SugaredLogger) error {
 		return fmt.Errorf("role template: %s is predefined, cannot be deleted", roleTemplateInfo.Name)
 	}
 
-	// TODO delete all caches for related roles
+	tx := repository.DB.Begin()
+
+	roleTemplateID := roleTemplateInfo.ID
+	bindings, err := orm.ListRoleTemplateBindingByID(roleTemplateID, tx)
+	if err != nil {
+		log.Errorf("failed to find role template binding for role template: %d, error: %s", roleTemplateID, err)
+		return fmt.Errorf("failed to find role template binding for role template: %d, error: %s", roleTemplateID, err)
+	}
+
+	roles := make([]uint, 0)
+	for _, bind := range bindings {
+		roles = append(roles, bind.RoleID)
+	}
+
+	err = BatchDeleteRole(roles, tx, log)
+	if err != nil {
+		tx.Rollback()
+		return fmt.Errorf("failed to batch delete role: %v, error: %s", roles, err)
+	}
 
 	err = orm.DeleteRoleTemplateByName(name, repository.DB)
 	if err != nil {
+		tx.Rollback()
 		log.Errorf("failed to delete role template: %s, error: %s", name, err)
 		return fmt.Errorf("failed to delete role: %s, error: %s", name, err)
 	}
+
+	actionCache := cache.NewRedisCache(config.RedisCommonCacheTokenDB())
+	for _, bind := range bindings {
+		roleActionKey := fmt.Sprintf(RoleActionKeyFormat, bind.RoleID)
+		err = actionCache.Delete(roleActionKey)
+		if err != nil {
+			log.Warnf("failed to flush role-action cache, key: %s, error: %s", roleActionKey, err)
+		}
+	}
+
+	tx.Commit()
+
 	return nil
 }
