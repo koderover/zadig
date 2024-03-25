@@ -723,9 +723,13 @@ const (
 type NewRoleType int64
 
 const (
-	RoleTypeSystem   NewRoleType = 1
-	RoleTypeCustom   NewRoleType = 2
-	RoleTypeTemplate NewRoleType = 3
+	RoleTypeSystem NewRoleType = 1
+	RoleTypeCustom NewRoleType = 2
+)
+
+const (
+	RoleTemplateTypeDefault    = 0
+	RoleTemplateTypePredefined = 1
 )
 
 const (

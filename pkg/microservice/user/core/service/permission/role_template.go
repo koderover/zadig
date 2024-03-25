@@ -19,9 +19,12 @@ package permission
 import (
 	"errors"
 	"fmt"
+	"github.com/koderover/zadig/v2/pkg/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/user/core/repository"
 	"github.com/koderover/zadig/v2/pkg/microservice/user/core/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/user/core/repository/orm"
+	"github.com/koderover/zadig/v2/pkg/setting"
+	"github.com/koderover/zadig/v2/pkg/tool/cache"
 	"github.com/koderover/zadig/v2/pkg/types"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
@@ -45,6 +48,24 @@ func ListRoleTemplates(log *zap.SugaredLogger) ([]*types.RoleTemplate, error) {
 	}
 
 	return resp, nil
+}
+
+func flushRelatedRoleCache(roleTemplateID uint, tx *gorm.DB, log *zap.SugaredLogger) error {
+	bindings, err := orm.ListRoleTemplateBindingByID(roleTemplateID, tx)
+	if err != nil {
+		log.Errorf("failed to find role template binding for role template: %d, error: %s", roleTemplateID, err)
+		return fmt.Errorf("failed to find role template binding for role template: %d, error: %s", roleTemplateID, err)
+	}
+
+	actionCache := cache.NewRedisCache(config.RedisCommonCacheTokenDB())
+	for _, bind := range bindings {
+		roleActionKey := fmt.Sprintf(RoleActionKeyFormat, bind.RoleID)
+		err = actionCache.Delete(roleActionKey)
+		if err != nil {
+			log.Warnf("failed to flush role-action cache, key: %s, error: %s", roleActionKey, err)
+		}
+	}
+	return nil
 }
 
 func CreateRoleTemplate(req *CreateRoleReq, log *zap.SugaredLogger) error {
@@ -95,9 +116,14 @@ func UpdateRoleTemplate(req *CreateRoleReq, log *zap.SugaredLogger) error {
 
 	roleTemplateInfo, err := orm.GetRoleTemplate(req.Name, repository.DB)
 	if err != nil {
-		log.Errorf("failed to find role: [%s], error: %s", req.Name, err)
+		log.Errorf("failed to find role template: [%s], error: %s", req.Name, err)
 		tx.Rollback()
-		return fmt.Errorf("failed to find role: [%s], error: %s", req.Name, err)
+		return fmt.Errorf("failed to find role template: [%s], error: %s", req.Name, err)
+	}
+
+	if roleTemplateInfo.Type == setting.RoleTemplateTypePredefined {
+		tx.Rollback()
+		return fmt.Errorf("role template: %s is predefined, cannot be updated", roleTemplateInfo.Name)
 	}
 
 	err = orm.DeleteRoleTemplateActionBindingByRole(roleTemplateInfo.ID, tx)
@@ -134,6 +160,15 @@ func UpdateRoleTemplate(req *CreateRoleReq, log *zap.SugaredLogger) error {
 	err = orm.UpdateRoleTemplateInfo(roleTemplateInfo.ID, &models.RoleTemplate{
 		Description: req.Desc,
 	}, tx)
+	if err != nil {
+		tx.Rollback()
+		return fmt.Errorf("failed to update role template: %s, error: %s", roleTemplateInfo.Name, err)
+	}
+
+	err = flushRelatedRoleCache(roleTemplateInfo.ID, tx, log)
+	if err != nil {
+		log.Warnf("failed to flush related role cache, error: %s", err)
+	}
 
 	tx.Commit()
 
@@ -183,7 +218,20 @@ func GetRoleTemplate(name string, log *zap.SugaredLogger) (*types.DetailedRoleTe
 }
 
 func DeleteRoleTemplate(name string, log *zap.SugaredLogger) error {
-	err := orm.DeleteRoleTemplateByName(name, repository.DB)
+
+	roleTemplateInfo, err := orm.GetRoleTemplate(name, repository.DB)
+	if err != nil {
+		log.Errorf("failed to find role: [%s], error: %s", name, err)
+		return fmt.Errorf("failed to find role template: [%s], error: %s", name, err)
+	}
+
+	if roleTemplateInfo.Type == setting.RoleTemplateTypePredefined {
+		return fmt.Errorf("role template: %s is predefined, cannot be deleted", roleTemplateInfo.Name)
+	}
+
+	// TODO delete all caches for related roles
+
+	err = orm.DeleteRoleTemplateByName(name, repository.DB)
 	if err != nil {
 		log.Errorf("failed to delete role template: %s, error: %s", name, err)
 		return fmt.Errorf("failed to delete role: %s, error: %s", name, err)

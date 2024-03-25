@@ -21,6 +21,21 @@ import (
 	"gorm.io/gorm"
 )
 
+func ListRoleTemplateBindingByID(id uint, db *gorm.DB) ([]*models.RoleTemplateBinding, error) {
+	resp := make([]*models.RoleTemplateBinding, 0)
+
+	err := db.
+		Where("role_template.id = ?", id).
+		Find(&resp).
+		Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
+}
+
 func BulkCreateRoleTemplateBindings(bindings []*models.RoleTemplateBinding, db *gorm.DB) error {
 	return db.Create(&bindings).Error
 }
