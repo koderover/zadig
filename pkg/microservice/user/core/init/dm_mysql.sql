@@ -70,6 +70,15 @@ CREATE TABLE IF NOT EXISTS role (
 
 CREATE UNIQUE INDEX IF NOT EXISTS namespaced_role ON role(namespace, name);
 
+CREATE TABLE IF NOT EXISTS role_template (
+    id          bigint NOT NULL AUTO_INCREMENT,
+    name        varchar(32) NOT NULL COMMENT '角色名称',
+    description varchar(64) NOT NULL COMMENT '描述',
+    PRIMARY KEY (id)
+) ;
+
+CREATE UNIQUE INDEX IF NOT EXISTS name_role_template ON role_template(name);
+
 CREATE TABLE IF NOT EXISTS role_action_binding (
     id        bigint NOT NULL AUTO_INCREMENT,
     action_id bigint NOT NULL COMMENT '用户组ID',
@@ -77,6 +86,15 @@ CREATE TABLE IF NOT EXISTS role_action_binding (
     PRIMARY KEY (id),
     FOREIGN KEY (action_id) REFERENCES action(id) ON DELETE CASCADE,
     FOREIGN KEY (role_id) REFERENCES role(id) ON DELETE CASCADE
+) ;
+
+CREATE TABLE IF NOT EXISTS role_template_action_binding (
+    id        bigint   NOT NULL AUTO_INCREMENT,
+    action_id bigint   NOT NULL COMMENT '用户组ID',
+    role_template_id   bigint NOT NULL COMMENT '全局角色ID',
+    PRIMARY KEY (id),
+    FOREIGN KEY (action_id) REFERENCES action(id) ON DELETE CASCADE,
+    FOREIGN KEY (role_template_id) REFERENCES role_template_id(id) ON DELETE CASCADE
 ) ;
 
 CREATE TABLE IF NOT EXISTS role_binding (
@@ -95,4 +113,13 @@ CREATE TABLE IF NOT EXISTS group_role_binding (
     PRIMARY KEY (id),
     FOREIGN KEY (group_id) REFERENCES user_group(group_id) ON DELETE CASCADE,
     FOREIGN KEY (role_id) REFERENCES role(id) ON DELETE CASCADE
+) ;
+
+CREATE TABLE IF NOT EXISTS role_template_binding (
+    id                 bigint NOT NULL AUTO_INCREMENT,
+    role_id            varchar(64) NOT NULL COMMENT '角色ID',
+    role_template_id   bigint NOT NULL COMMENT '全局角色ID',
+    PRIMARY KEY (id),
+    FOREIGN KEY (uid) REFERENCES role(id) ON DELETE CASCADE,
+    FOREIGN KEY (role_id) REFERENCES role_template_id(id) ON DELETE CASCADE
 ) ;
