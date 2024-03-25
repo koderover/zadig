@@ -4103,6 +4103,8 @@ func EnvSleep(productName, envName string, isEnable, isProduction bool, log *zap
 		return e.ErrEnvSleep.AddErr(err)
 	}
 
+	log.Infof("--------- start to list workloads ---------")
+
 	count, workLoads, err := commonservice.ListWorkloads(envName, productName, 999, 1, informer, version, log, filterArray...)
 	if err != nil {
 		wrapErr := fmt.Errorf("failed to list workloads, [%s][%s], error: %v", prod.Namespace, envName, err)
@@ -4112,6 +4114,9 @@ func EnvSleep(productName, envName string, isEnable, isProduction bool, log *zap
 	if count > 999 {
 		log.Errorf("project %s env %s: workloads count > 999", productName, envName)
 	}
+
+	log.Infof("-------- count of workload is %d ---------", count)
+
 	scaleMap := make(map[string]*commonservice.Workload)
 	cronjobMap := make(map[string]*commonservice.Workload)
 	for _, workLoad := range workLoads {
@@ -4121,6 +4126,7 @@ func EnvSleep(productName, envName string, isEnable, isProduction bool, log *zap
 			scaleMap[workLoad.Name] = workLoad
 		}
 	}
+	log.Infof("-------- scalemap is %v ---------", scaleMap)
 
 	if templateProduct.IsK8sYamlProduct() || templateProduct.IsHostProduct() {
 		prodSvcMap := prod.GetServiceMap()

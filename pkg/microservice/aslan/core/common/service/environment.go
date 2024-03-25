@@ -757,9 +757,13 @@ func ListWorkloads(envName, productName string, perPage, page int, informer info
 		log.Warnf("failed to set service name for workloads, error: %s", err)
 	}
 
+	log.Infof("------ workloads: %v", len(workLoads))
+
 	for _, f := range filter {
 		workLoads = f(workLoads)
 	}
+
+	log.Infof("------ workloads after filter: %v", len(workLoads))
 
 	sort.SliceStable(workLoads, func(i, j int) bool { return workLoads[i].Name < workLoads[j].Name })
 	count := len(workLoads)
