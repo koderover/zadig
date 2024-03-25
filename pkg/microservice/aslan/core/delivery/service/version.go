@@ -18,12 +18,14 @@ package service
 
 import (
 	"bytes"
+	"cmp"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -285,17 +287,13 @@ func DeleteDeliveryVersion(args *commonrepo.DeliveryVersionArgs, log *zap.Sugare
 	return nil
 }
 
-func filterReleases(filter *DeliveryVersionFilter, deliveryVersion *commonmodels.DeliveryVersion, logger *zap.SugaredLogger) bool {
+func filterReleases(filter *DeliveryVersionFilter, deliveryVersion *commonmodels.DeliveryVersion, deliveryDeploys []*commonmodels.DeliveryDeploy, logger *zap.SugaredLogger) bool {
 	if filter == nil {
 		return true
 	}
 	if filter.ServiceName != "" {
 		deliveryDeployArgs := new(commonrepo.DeliveryDeployArgs)
 		deliveryDeployArgs.ReleaseID = deliveryVersion.ID.Hex()
-		deliveryDeploys, err := FindDeliveryDeploy(deliveryDeployArgs, logger)
-		if err != nil {
-			return true
-		}
 		match := false
 		for _, deliveryDeploy := range deliveryDeploys {
 			if deliveryDeploy.ServiceName == filter.ServiceName {
@@ -329,16 +327,35 @@ func buildDetailedRelease(deliveryVersion *commonmodels.DeliveryVersion, filterO
 		return nil, err
 	}
 	if filterOpt != nil {
-		if !filterReleases(filterOpt, deliveryVersion, logger) {
+		if !filterReleases(filterOpt, deliveryVersion, deliveryDeploys, logger) {
 			return nil, nil
 		}
 	}
+
+	// order deploys by service name
+	productTemplate, err := templaterepo.NewProductColl().Find(deliveryVersion.ProductName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find product template %s, err: %v", deliveryVersion.ProductName, err)
+	}
+	serviceOrderMap := make(map[string]int)
+	i := 0
+	for _, serviceGroup := range productTemplate.Services {
+		for _, service := range serviceGroup {
+			serviceOrderMap[service] = i
+			i++
+		}
+	}
+	slices.SortStableFunc(deliveryDeploys, func(i, j *commonmodels.DeliveryDeploy) int {
+		return cmp.Compare(serviceOrderMap[i.ServiceName], serviceOrderMap[j.ServiceName])
+	})
+
 	// 将serviceName替换为服务名/服务组件的形式，用于前端展示
 	for _, deliveryDeploy := range deliveryDeploys {
 		if deliveryDeploy.ContainerName != "" {
 			deliveryDeploy.ServiceName = deliveryDeploy.ServiceName + "/" + deliveryDeploy.ContainerName
 		}
 	}
+
 	releaseInfo.DeployInfo = deliveryDeploys
 
 	//buildInfo
