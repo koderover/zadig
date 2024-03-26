@@ -429,6 +429,22 @@ func (c *ProductionServiceColl) ListServicesWithSRevision(opt *SvcRevisionListOp
 	return res, err
 }
 
+func (c *ProductionServiceColl) TransferServiceSource(productName, serviceName, source, newSource, username, yaml string) error {
+	query := bson.M{"product_name": productName, "source": source, "service_name": serviceName}
+
+	changeMap := bson.M{
+		"create_by":     username,
+		"visibility":    setting.PrivateVisibility,
+		"source":        newSource,
+		"yaml":          yaml,
+		"env_name":      "",
+		"workload_type": "",
+	}
+	change := bson.M{"$set": changeMap}
+	_, err := c.UpdateOne(context.TODO(), query, change)
+	return err
+}
+
 func (c *ProductionServiceColl) listMaxRevisions(preMatch, postMatch bson.M) ([]*models.Service, error) {
 	var pipeResp []*grouped
 	pipeline := []bson.M{

@@ -95,21 +95,6 @@ func GetProductTemplateServices(productName string, envType types.EnvType, isBas
 	return resp, nil
 }
 
-// Deprecated
-func ListOpenSourceProduct(log *zap.SugaredLogger) ([]*template.Product, error) {
-	opt := &templaterepo.ProductListOpt{
-		IsOpensource: "true",
-	}
-
-	tmpls, err := templaterepo.NewProductColl().ListWithOption(opt)
-	if err != nil {
-		log.Errorf("ProductTmpl.ListWithOpt error: %v", err)
-		return nil, e.ErrListProducts.AddDesc(err.Error())
-	}
-
-	return tmpls, nil
-}
-
 // CreateProductTemplate 创建产品模板
 func CreateProductTemplate(args *template.Product, log *zap.SugaredLogger) (err error) {
 	kvs := args.Vars
@@ -297,8 +282,13 @@ func TransferHostProject(user, projectName string, log *zap.SugaredLogger) (err 
 		return err
 	}
 
+	productionServices, err := transferProductionServices(user, projectInfo, log)
+	if err != nil {
+		return err
+	}
+
 	// transfer host project type to k8s yaml project
-	products, err := transferProducts(user, projectInfo, services, log)
+	products, err := transferProducts(user, projectInfo, services, productionServices, log)
 	if err != nil {
 		return e.ErrUpdateProduct.AddErr(err)
 	}
@@ -311,10 +301,13 @@ func TransferHostProject(user, projectName string, log *zap.SugaredLogger) (err 
 	if err = saveServices(projectName, user, services); err != nil {
 		return err
 	}
+	if err = saveProductionServices(projectName, user, productionServices); err != nil {
+		return err
+	}
 	if err = saveProducts(products); err != nil {
 		return err
 	}
-	if err = saveProject(projectInfo, services); err != nil {
+	if err = saveProject(projectInfo, services, productionServices); err != nil {
 		return err
 	}
 	return nil
@@ -334,6 +327,26 @@ func transferServices(user string, projectInfo *template.Product, logger *zap.Su
 
 	for _, svc := range templateServices {
 		log.Infof("transfer service %s/%s ", projectInfo.ProductName, svc.ServiceName)
+		svc.Source = setting.SourceFromZadig
+		svc.CreateBy = user
+		svc.EnvName = ""
+	}
+	return templateServices, nil
+}
+
+func transferProductionServices(user string, projectInfo *template.Product, logger *zap.SugaredLogger) ([]*commonmodels.Service, error) {
+	templateServices, err := commonrepo.NewProductionServiceColl().ListMaxRevisionsByProduct(projectInfo.ProductName)
+	if err != nil {
+		return nil, err
+	}
+
+	err = optimizeServiceYaml(projectInfo.ProductName, templateServices)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, svc := range templateServices {
+		log.Infof("transfer production service %s/%s ", projectInfo.ProductName, svc.ServiceName)
 		svc.Source = setting.SourceFromZadig
 		svc.CreateBy = user
 		svc.EnvName = ""
@@ -421,6 +434,21 @@ func saveServices(projectName, username string, services []*commonmodels.Service
 	return nil
 }
 
+func saveProductionServices(projectName, username string, services []*commonmodels.Service) error {
+	for _, svc := range services {
+		serviceTemplateCounter := fmt.Sprintf(setting.ProductionServiceTemplateCounterName, svc.ServiceName, svc.ProductName)
+		err := commonrepo.NewCounterColl().UpsertCounter(serviceTemplateCounter, svc.Revision)
+		if err != nil {
+			log.Errorf("failed to set production service counter: %s, err: %s", serviceTemplateCounter, err)
+		}
+		err = commonrepo.NewProductionServiceColl().TransferServiceSource(projectName, svc.ServiceName, setting.SourceFromExternal, setting.SourceFromZadig, username, svc.Yaml)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func saveProducts(products []*commonmodels.Product) error {
 	for _, product := range products {
 		err := commonrepo.NewProductColl().Update(product)
@@ -431,20 +459,30 @@ func saveProducts(products []*commonmodels.Product) error {
 	return nil
 }
 
-func saveProject(projectInfo *template.Product, services []*commonmodels.Service) error {
+func saveProject(projectInfo *template.Product, services, productionServices []*commonmodels.Service) error {
 	validServices := sets.NewString()
 	for _, svc := range services {
 		validServices.Insert(svc.ServiceName)
 	}
+	validProductionSvcs := sets.NewString()
+	for _, svc := range productionServices {
+		validProductionSvcs.Insert(svc.ServiceName)
+	}
 	projectInfo.Services = [][]string{validServices.List()}
-	return templaterepo.NewProductColl().UpdateProductFeatureAndServices(projectInfo.ProductName, projectInfo.ProductFeature, projectInfo.Services, projectInfo.UpdateBy)
+	projectInfo.ProductionServices = [][]string{validProductionSvcs.List()}
+	return templaterepo.NewProductColl().UpdateProductFeatureAndServices(projectInfo.ProductName, projectInfo.ProductFeature, projectInfo.Services, projectInfo.ProductionServices, projectInfo.UpdateBy)
 }
 
 // build service and env data
-func transferProducts(user string, projectInfo *template.Product, templateServices []*commonmodels.Service, logger *zap.SugaredLogger) ([]*commonmodels.Product, error) {
+func transferProducts(user string, projectInfo *template.Product, templateServices, productionTemplateSvcs []*commonmodels.Service, logger *zap.SugaredLogger) ([]*commonmodels.Product, error) {
 	templateSvcMap := make(map[string]*commonmodels.Service)
 	for _, svc := range templateServices {
 		templateSvcMap[svc.ServiceName] = svc
+	}
+
+	productionTemplateSvcMap := make(map[string]*commonmodels.Service)
+	for _, svc := range productionTemplateSvcs {
+		productionTemplateSvcMap[svc.ServiceName] = svc
 	}
 
 	products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
@@ -470,9 +508,16 @@ func transferProducts(user string, projectInfo *template.Product, templateServic
 		// for transferred services, only support one group
 		productServices := make([]*commonmodels.ProductService, 0)
 		for _, workload := range currentWorkloads.Data {
-			svcTemplate, ok := templateSvcMap[workload.Service]
+			var svcTemplate *commonmodels.Service
+			var ok bool
+			if !product.Production {
+				svcTemplate, ok = templateSvcMap[workload.Service]
+			} else {
+				svcTemplate, ok = productionTemplateSvcMap[workload.Service]
+			}
 			if !ok {
-				log.Errorf("failed to find service: %s in template", workload.Service)
+				log.Errorf("failed to find service: %s/%v in template", workload.Service, product.Production)
+				return nil, fmt.Errorf("failed to find service: %s in template", workload.Service)
 			}
 			resources, err := kube.ManifestToResource(svcTemplate.Yaml)
 			if err != nil {
