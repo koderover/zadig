@@ -728,7 +728,7 @@ const (
 )
 
 const (
-	RoleTemplateTypeDefault    = 0
+	RoleTemplateTypeCustom     = 0
 	RoleTemplateTypePredefined = 1
 )
 

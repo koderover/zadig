@@ -19,6 +19,7 @@ package permission
 import (
 	"errors"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -444,6 +445,10 @@ func lazySyncRoleTemplates(namespace string, roles []*models.NewRole) ([]*models
 	}
 
 	ret := make([]*models.NewRole, 0)
+	for _, role := range roles {
+		ret = append(ret, role)
+	}
+
 	tx := repository.DB.Begin()
 
 	rolesNeedCreate := make([]*models.NewRole, 0)
@@ -495,9 +500,15 @@ func lazySyncRoleTemplates(namespace string, roles []*models.NewRole) ([]*models
 
 	tx.Commit()
 
-	for _, role := range roles {
-		ret = append(ret, role)
-	}
+	sort.Slice(ret, func(i, j int) bool {
+		if ret[i].Type == setting.RoleTemplateTypeCustom && ret[j].Type == setting.RoleTemplateTypePredefined {
+			return true
+		}
+		if ret[i].Type == setting.RoleTemplateTypePredefined && ret[j].Type == setting.RoleTemplateTypeCustom {
+			return false
+		}
+		return ret[i].ID < ret[j].ID
+	})
 
 	return ret, nil
 }
