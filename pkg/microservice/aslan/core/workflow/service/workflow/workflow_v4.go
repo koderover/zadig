@@ -707,6 +707,8 @@ func clearWorkflowV4Triggers(workflow *commonmodels.WorkflowV4) {
 }
 
 func ensureWorkflowV4Resp(encryptedKey string, workflow *commonmodels.WorkflowV4, logger *zap.SugaredLogger) error {
+	var buildMap sync.Map
+	var buildTemplateMap sync.Map
 	for _, stage := range workflow.Stages {
 		for _, job := range stage.Jobs {
 			if job.JobType == config.JobZadigBuild {
@@ -716,22 +718,50 @@ func ensureWorkflowV4Resp(encryptedKey string, workflow *commonmodels.WorkflowV4
 					return e.ErrFindWorkflow.AddErr(err)
 				}
 				for _, build := range spec.ServiceAndBuilds {
-					buildInfo, err := commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: build.BuildName})
-					if err != nil {
-						logger.Errorf("find build: %s error: %s", build.BuildName, err)
-						continue
+					var buildInfo *commonmodels.Build
+					var err error
+					buildMapValue, ok := buildMap.Load(build.BuildName)
+					if !ok {
+						buildInfo, err = commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: build.BuildName})
+						if err != nil {
+							logger.Errorf("find build: %s error: %v", build.BuildName, err)
+							buildMap.Store(build.BuildName, nil)
+							continue
+						}
+						buildMap.Store(build.BuildName, buildInfo)
+					} else {
+						if buildMapValue == nil {
+							logger.Errorf("find build: %s error: %v", build.BuildName, err)
+							continue
+						}
+						buildInfo = buildMapValue.(*commonmodels.Build)
 					}
+
 					kvs := buildInfo.PreBuild.Envs
 					if buildInfo.TemplateID != "" {
 						templateEnvs := []*commonmodels.KeyVal{}
-						buildTemplate, err := commonrepo.NewBuildTemplateColl().Find(&commonrepo.BuildTemplateQueryOption{
-							ID: buildInfo.TemplateID,
-						})
+
 						// if template not found, envs are empty, but do not block user.
-						if err != nil {
-							logger.Error("build job: %s, template not found", buildInfo.Name)
+						var buildTemplate *commonmodels.BuildTemplate
+						buildTemplateMapValue, ok := buildTemplateMap.Load(buildInfo.TemplateID)
+						if !ok {
+							buildTemplate, err = commonrepo.NewBuildTemplateColl().Find(&commonrepo.BuildTemplateQueryOption{
+								ID: buildInfo.TemplateID,
+							})
+							if err != nil {
+								logger.Errorf("failed to find build template with id: %s, err: %s", buildInfo.TemplateID, err)
+								buildTemplateMap.Store(buildInfo.TemplateID, nil)
+							} else {
+								templateEnvs = buildTemplate.PreBuild.Envs
+								buildTemplateMap.Store(buildInfo.TemplateID, buildTemplate)
+							}
 						} else {
-							templateEnvs = buildTemplate.PreBuild.Envs
+							if buildTemplateMapValue == nil {
+								logger.Errorf("failed to find build template with id: %s, err: %s", buildInfo.TemplateID, err)
+							} else {
+								buildTemplate = buildTemplateMapValue.(*commonmodels.BuildTemplate)
+								templateEnvs = buildTemplate.PreBuild.Envs
+							}
 						}
 
 						for _, target := range buildInfo.Targets {
