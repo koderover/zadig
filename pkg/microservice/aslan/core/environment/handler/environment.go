@@ -230,7 +230,7 @@ func UpdateMultiProductionProducts(c *gin.Context) {
 		return
 	}
 
-	err = commonutil.CheckZadigXLicenseStatus()
+	err = commonutil.CheckZadigProfessionalLicense()
 	if err != nil {
 		ctx.Err = err
 		return
@@ -491,7 +491,7 @@ func CreateProductionProduct(c *gin.Context) {
 		}
 	}
 
-	err = commonutil.CheckZadigXLicenseStatus()
+	err = commonutil.CheckZadigProfessionalLicense()
 	if err != nil {
 		ctx.Err = err
 		return
@@ -705,7 +705,7 @@ func UpdateProductionProductRegistry(c *gin.Context) {
 		}
 	}
 
-	if err := commonutil.CheckZadigXLicenseStatus(); err != nil {
+	if err := commonutil.CheckZadigProfessionalLicense(); err != nil {
 		ctx.Err = err
 		return
 	}
@@ -899,7 +899,7 @@ func ProductionEstimatedValues(c *gin.Context) {
 	}
 	arg.Production = true
 
-	err := commonutil.CheckZadigXLicenseStatus()
+	err := commonutil.CheckZadigProfessionalLicense()
 	if err != nil {
 		ctx.Err = err
 		return
@@ -1077,7 +1077,7 @@ func UpdateHelmProductDefaultValues(c *gin.Context) {
 	}
 
 	if arg.ValuesData != nil && arg.ValuesData.AutoSync {
-		if !commonutil.ValidateZadigXLicenseStatus(licenseStatus) {
+		if !commonutil.ValidateZadigProfessionalLicense(licenseStatus) {
 			ctx.Err = e.ErrLicenseInvalid.AddDesc("")
 			return
 		}
@@ -1144,7 +1144,7 @@ func UpdateProductionHelmProductDefaultValues(c *gin.Context) {
 		return
 	}
 	if arg.ValuesData != nil && arg.ValuesData.AutoSync {
-		if !commonutil.ValidateZadigXLicenseStatus(licenseStatus) {
+		if !commonutil.ValidateZadigProfessionalLicense(licenseStatus) {
 			ctx.Err = e.ErrLicenseInvalid.AddDesc("")
 			return
 		}
@@ -1438,7 +1438,7 @@ func UpdateProductionEnvK8sProductGlobalVariables(c *gin.Context) {
 		return
 	}
 
-	if err := commonutil.CheckZadigXLicenseStatus(); err != nil {
+	if err := commonutil.CheckZadigProfessionalLicense(); err != nil {
 		ctx.Err = err
 		return
 	}
@@ -1567,7 +1567,7 @@ func UpdateProductionEnvHelmProductCharts(c *gin.Context) {
 		}
 	}
 
-	if err := commonutil.CheckZadigXLicenseStatus(); err != nil {
+	if err := commonutil.CheckZadigProfessionalLicense(); err != nil {
 		ctx.Err = err
 		return
 	}
@@ -1795,7 +1795,7 @@ func updateMultiHelmChartEnv(c *gin.Context, request *service.UpdateEnvRequest, 
 	}
 	for _, chartValue := range args.ChartValues {
 		if chartValue.DeployStrategy == setting.ServiceDeployStrategyImport {
-			if !commonutil.ValidateZadigXLicenseStatus(licenseStatus) {
+			if !commonutil.ValidateZadigProfessionalLicense(licenseStatus) {
 				ctx.Err = e.ErrLicenseInvalid.AddDesc("")
 				return
 			}
@@ -2132,7 +2132,7 @@ func DeleteProductionProduct(c *gin.Context) {
 		}
 	}
 
-	if err := commonutil.CheckZadigXLicenseStatus(); err != nil {
+	if err := commonutil.CheckZadigProfessionalLicense(); err != nil {
 		ctx.Err = err
 		return
 	}
@@ -2254,7 +2254,7 @@ func DeleteProductionProductServices(c *gin.Context) {
 		}
 	}
 
-	err = commonutil.CheckZadigXLicenseStatus()
+	err = commonutil.CheckZadigProfessionalLicense()
 	if err != nil {
 		ctx.Err = err
 		return
@@ -2305,7 +2305,7 @@ func DeleteHelmReleases(c *gin.Context) {
 		}
 	}
 
-	if err := commonutil.CheckZadigXLicenseStatus(); err != nil {
+	if err := commonutil.CheckZadigProfessionalLicense(); err != nil {
 		ctx.Err = err
 		return
 	}
@@ -2357,7 +2357,7 @@ func DeleteProductionHelmReleases(c *gin.Context) {
 		}
 	}
 
-	if err := commonutil.CheckZadigXLicenseStatus(); err != nil {
+	if err := commonutil.CheckZadigProfessionalLicense(); err != nil {
 		ctx.Err = err
 		return
 	}
@@ -2726,7 +2726,7 @@ func UpdateProductionEnvConfigs(c *gin.Context) {
 		return
 	}
 
-	if err := commonutil.CheckZadigXLicenseStatus(); err != nil {
+	if err := commonutil.CheckZadigProfessionalLicense(); err != nil {
 		ctx.Err = err
 		return
 	}
@@ -2787,7 +2787,7 @@ func RunProductionAnalysis(c *gin.Context) {
 		return
 	}
 
-	if err := commonutil.CheckZadigXLicenseStatus(); err != nil {
+	if err := commonutil.CheckZadigProfessionalLicense(); err != nil {
 		ctx.Err = err
 		return
 	}
@@ -2906,7 +2906,7 @@ func UpsertProductionEnvAnalysisCron(c *gin.Context) {
 		return
 	}
 
-	if err := commonutil.CheckZadigXLicenseStatus(); err != nil {
+	if err := commonutil.CheckZadigProfessionalLicense(); err != nil {
 		ctx.Err = err
 		return
 	}

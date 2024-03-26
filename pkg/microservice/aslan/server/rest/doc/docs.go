@@ -2309,7 +2309,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/service.SetIstioGrayscaleConfigRequest"
+                            "$ref": "#/definitions/kube.SetIstioGrayscaleConfigRequest"
                         }
                     }
                 ],
@@ -3120,6 +3120,37 @@ const docTemplate = `{
                         "required": true,
                         "schema": {
                             "$ref": "#/definitions/models.ZadigDeployJobSpec"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/api/aslan/placeholder/update_env_istio_config_job_spec": {
+            "post": {
+                "description": "[DONT USE] UpdateEnvIstioConfigJobSpec",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "placeholder"
+                ],
+                "summary": "[DONT USE]  UpdateEnvIstioConfigJobSpec",
+                "parameters": [
+                    {
+                        "description": "body",
+                        "name": "update_env_istio_config_job_spec",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.UpdateEnvIstioConfigJobSpec"
                         }
                     }
                 ],
@@ -5374,6 +5405,14 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/template.RenderKV"
                     }
+                },
+                "yaml_data": {
+                    "description": "used for cron service",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/template.CustomYaml"
+                        }
+                    ]
                 }
             }
         },
@@ -5665,6 +5704,26 @@ const docTemplate = `{
                 },
                 "variable_yaml": {
                     "type": "string"
+                }
+            }
+        },
+        "kube.SetIstioGrayscaleConfigRequest": {
+            "type": "object",
+            "properties": {
+                "grayscale_strategy": {
+                    "type": "string"
+                },
+                "header_match_configs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.IstioHeaderMatchConfig"
+                    }
+                },
+                "weight_configs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.IstioWeightConfig"
+                    }
                 }
             }
         },
@@ -6751,6 +6810,35 @@ const docTemplate = `{
                 }
             }
         },
+        "models.UpdateEnvIstioConfigJobSpec": {
+            "type": "object",
+            "properties": {
+                "base_env": {
+                    "type": "string"
+                },
+                "grayscale_strategy": {
+                    "type": "string"
+                },
+                "header_match_configs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.IstioHeaderMatchConfig"
+                    }
+                },
+                "production": {
+                    "type": "boolean"
+                },
+                "source": {
+                    "type": "string"
+                },
+                "weight_configs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.IstioWeightConfig"
+                    }
+                }
+            }
+        },
         "models.WebHookType": {
             "type": "string",
             "enum": [
@@ -7496,6 +7584,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "env_name": {
+                    "type": "string"
+                },
+                "error": {
                     "type": "string"
                 },
                 "images": {
@@ -8459,26 +8550,6 @@ const docTemplate = `{
                 "zadigx_release_type": {
                     "description": "ZadigXReleaseType represents the service contain created by zadigx release workflow\nfrontend should limit some operations on these services",
                     "type": "string"
-                }
-            }
-        },
-        "service.SetIstioGrayscaleConfigRequest": {
-            "type": "object",
-            "properties": {
-                "grayscale_strategy": {
-                    "type": "string"
-                },
-                "header_match_configs": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/models.IstioHeaderMatchConfig"
-                    }
-                },
-                "weight_configs": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/models.IstioWeightConfig"
-                    }
                 }
             }
         },

@@ -112,7 +112,7 @@ func DeleteProductionCommonEnvCfg(c *gin.Context) {
 		}
 	}
 
-	if err := commonutil.CheckZadigXLicenseStatus(); err != nil {
+	if err := commonutil.CheckZadigProfessionalLicense(); err != nil {
 		ctx.Err = err
 		return
 	}
@@ -232,7 +232,7 @@ func CreateProductionCommonEnvCfg(c *gin.Context) {
 	args.EnvName = envName
 	args.ProductName = projectKey
 
-	if err := commonutil.CheckZadigXLicenseStatus(); err != nil {
+	if err := commonutil.CheckZadigProfessionalLicense(); err != nil {
 		ctx.Err = err
 		return
 	}
@@ -363,7 +363,7 @@ func UpdateProductionCommonEnvCfg(c *gin.Context) {
 		}
 	}
 
-	if err := commonutil.CheckZadigXLicenseStatus(); err != nil {
+	if err := commonutil.CheckZadigProfessionalLicense(); err != nil {
 		ctx.Err = err
 		return
 	}

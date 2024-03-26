@@ -56,20 +56,39 @@ func CheckDefineResourceParam(req setting.Request, reqSpec setting.RequestSpec) 
 	return nil
 }
 
-func CheckZadigXLicenseStatus() error {
+func CheckZadigProfessionalLicense() error {
 	licenseStatus, err := plutusvendor.New().CheckZadigXLicenseStatus()
 	if err != nil {
 		return fmt.Errorf("failed to validate zadig license status, error: %s", err)
 	}
-	if !ValidateZadigXLicenseStatus(licenseStatus) {
+	if !ValidateZadigProfessionalLicense(licenseStatus) {
 		return e.ErrLicenseInvalid.AddDesc("")
 	}
 	return nil
 }
 
-func ValidateZadigXLicenseStatus(licenseStatus *plutusvendor.ZadigXLicenseStatus) bool {
+func CheckZadigEnterpriseLicense() error {
+	licenseStatus, err := plutusvendor.New().CheckZadigXLicenseStatus()
+	if err != nil {
+		return fmt.Errorf("failed to validate zadig license status, error: %s", err)
+	}
+	if !ValidateZadigEnterpriseLicense(licenseStatus) {
+		return e.ErrLicenseInvalid.AddDesc("")
+	}
+	return nil
+}
+
+func ValidateZadigProfessionalLicense(licenseStatus *plutusvendor.ZadigXLicenseStatus) bool {
 	if !((licenseStatus.Type == plutusvendor.ZadigSystemTypeProfessional ||
 		licenseStatus.Type == plutusvendor.ZadigSystemTypeEnterprise) &&
+		licenseStatus.Status == plutusvendor.ZadigXLicenseStatusNormal) {
+		return false
+	}
+	return true
+}
+
+func ValidateZadigEnterpriseLicense(licenseStatus *plutusvendor.ZadigXLicenseStatus) bool {
+	if !(licenseStatus.Type == plutusvendor.ZadigSystemTypeEnterprise &&
 		licenseStatus.Status == plutusvendor.ZadigXLicenseStatusNormal) {
 		return false
 	}

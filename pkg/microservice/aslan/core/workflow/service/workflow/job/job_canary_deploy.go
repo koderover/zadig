@@ -155,7 +155,7 @@ func (j *CanaryDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) 
 func (j *CanaryDeployJob) LintJob() error {
 	j.spec = &commonmodels.CanaryDeployJobSpec{}
 
-	if err := util.CheckZadigXLicenseStatus(); err != nil {
+	if err := util.CheckZadigProfessionalLicense(); err != nil {
 		return e.ErrLicenseInvalid.AddDesc("")
 	}
 

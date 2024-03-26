@@ -18,8 +18,9 @@ package handler
 
 import (
 	"fmt"
-	"github.com/koderover/zadig/v2/pkg/types"
 	"strconv"
+
+	"github.com/koderover/zadig/v2/pkg/types"
 
 	"github.com/gin-gonic/gin"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
@@ -491,7 +492,7 @@ func RollbackEnvServiceVersion(c *gin.Context) {
 		return
 	}
 
-	if err := commonutil.CheckZadigXLicenseStatus(); err != nil {
+	if err := commonutil.CheckZadigProfessionalLicense(); err != nil {
 		ctx.Err = err
 		return
 	}
@@ -564,7 +565,7 @@ func RollbackProductionEnvServiceVersion(c *gin.Context) {
 		return
 	}
 
-	if err := commonutil.CheckZadigXLicenseStatus(); err != nil {
+	if err := commonutil.CheckZadigProfessionalLicense(); err != nil {
 		ctx.Err = err
 		return
 	}

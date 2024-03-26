@@ -78,9 +78,9 @@ func EnableIstioGrayscale(ctx context.Context, envName, productName string) erro
 	}
 
 	// 3. Ensure `EnvoyFilter` in istio namespace.
-	err = ensureEnvoyFilter(ctx, istioClient, clusterID, istioNamespace, zadigEnvoyFilter, nil)
+	err = kube.EnsureEnvoyFilter(ctx, istioClient, clusterID, setting.IstioNamespace, setting.ZadigEnvoyFilter, nil)
 	if err != nil {
-		return e.ErrEnableIstioGrayscale.AddErr(fmt.Errorf("failed to ensure EnvoyFilter in namespace `%s`: %s", istioNamespace, err))
+		return e.ErrEnableIstioGrayscale.AddErr(fmt.Errorf("failed to ensure EnvoyFilter in namespace `%s`: %s", setting.IstioNamespace, err))
 	}
 
 	// 4. Update the environment configuration.
@@ -232,73 +232,10 @@ func GetIstioGrayscaleConfig(ctx context.Context, envName, productName string) (
 	return prod.IstioGrayscale, nil
 }
 
-type SetIstioGrayscaleConfigRequest struct {
-	GrayscaleStrategy  commonmodels.GrayscaleStrategyType    `bson:"grayscale_strategy" json:"grayscale_strategy"`
-	WeightConfigs      []commonmodels.IstioWeightConfig      `bson:"weight_configs" json:"weight_configs"`
-	HeaderMatchConfigs []commonmodels.IstioHeaderMatchConfig `bson:"header_match_configs" json:"header_match_configs"`
-}
-
-func SetIstioGrayscaleConfig(ctx context.Context, envName, productName string, req SetIstioGrayscaleConfigRequest) error {
-	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName, Production: boolptr.True()}
-	baseEnv, err := commonrepo.NewProductColl().Find(opt)
+func SetIstioGrayscaleConfig(ctx context.Context, envName, productName string, req kube.SetIstioGrayscaleConfigRequest) error {
+	err := kube.SetIstioGrayscaleConfig(ctx, envName, productName, req)
 	if err != nil {
-		return e.ErrSetIstioGrayscaleConfig.AddErr(fmt.Errorf("failed to query env `%s` in project `%s`: %s", envName, productName, err))
-	}
-	if !baseEnv.IstioGrayscale.IsBase {
-		return e.ErrSetIstioGrayscaleConfig.AddErr(fmt.Errorf("cannot set istio grayscale config for gray environment"))
-	}
-	if baseEnv.IsSleeping() {
-		return e.ErrSetIstioGrayscaleConfig.AddErr(fmt.Errorf("Environment %s is sleeping", baseEnv.EnvName))
-	}
-
-	grayEnvs, err := commonutil.FetchGrayEnvs(ctx, baseEnv.ProductName, baseEnv.ClusterID, baseEnv.EnvName)
-	if err != nil {
-		return e.ErrSetIstioGrayscaleConfig.AddErr(fmt.Errorf("failed to list gray environments of %s/%s: %s", baseEnv.ProductName, baseEnv.EnvName, err))
-	}
-
-	envMap := map[string]*commonmodels.Product{
-		baseEnv.EnvName: baseEnv,
-	}
-	for _, env := range grayEnvs {
-		if env.IsSleeping() {
-			return e.ErrSetIstioGrayscaleConfig.AddErr(fmt.Errorf("Environment %s is sleeping", baseEnv.EnvName))
-		}
-		envMap[env.EnvName] = env
-	}
-
-	if req.GrayscaleStrategy == commonmodels.GrayscaleStrategyWeight {
-		err = kube.SetIstioGrayscaleWeight(context.TODO(), envMap, req.WeightConfigs)
-		if err != nil {
-			return e.ErrSetIstioGrayscaleConfig.AddErr(fmt.Errorf("failed to set istio grayscale weight, err: %w", err))
-		}
-	} else if req.GrayscaleStrategy == commonmodels.GrayscaleStrategyHeaderMatch {
-		err = kube.SetIstioGrayscaleHeaderMatch(context.TODO(), envMap, req.HeaderMatchConfigs)
-		if err != nil {
-			return e.ErrSetIstioGrayscaleConfig.AddErr(fmt.Errorf("failed to set istio grayscale weight, err: %w", err))
-		}
-
-		headerKeys := []string{}
-		for _, headerMatchConfig := range req.HeaderMatchConfigs {
-			for _, headerMatch := range headerMatchConfig.HeaderMatchs {
-				headerKeys = append(headerKeys, headerMatch.Key)
-			}
-		}
-
-		err = reGenerateEnvoyFilter(ctx, baseEnv.ClusterID, headerKeys)
-		if err != nil {
-			return e.ErrSetIstioGrayscaleConfig.AddErr(fmt.Errorf("failed to re-generate envoy filter, err: %w", err))
-		}
-	} else {
-		return e.ErrSetIstioGrayscaleConfig.AddErr(fmt.Errorf("unsupported grayscale strategy type: %s", req.GrayscaleStrategy))
-	}
-
-	baseEnv.IstioGrayscale.GrayscaleStrategy = req.GrayscaleStrategy
-	baseEnv.IstioGrayscale.WeightConfigs = req.WeightConfigs
-	baseEnv.IstioGrayscale.HeaderMatchConfigs = req.HeaderMatchConfigs
-
-	err = commonrepo.NewProductColl().UpdateIstioGrayscale(baseEnv.EnvName, baseEnv.ProductName, baseEnv.IstioGrayscale)
-	if err != nil {
-		return e.ErrSetIstioGrayscaleConfig.AddErr(fmt.Errorf("failed to update istio grayscale config of %s/%s environment: %s", baseEnv.ProductName, baseEnv.EnvName, err))
+		return e.ErrSetIstioGrayscaleConfig.AddErr(err)
 	}
 
 	return nil
@@ -461,28 +398,4 @@ func ensureDisableGrayscaleEnvConfig(ctx context.Context, baseEnv *commonmodels.
 	}
 
 	return commonrepo.NewProductColl().Update(baseEnv)
-}
-
-func reGenerateEnvoyFilter(ctx context.Context, clusterID string, headerKeys []string) error {
-	restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), clusterID)
-	if err != nil {
-		return fmt.Errorf("failed to get rest config: %s", err)
-	}
-
-	istioClient, err := versionedclient.NewForConfig(restConfig)
-	if err != nil {
-		return fmt.Errorf("failed to new istio client: %s", err)
-	}
-
-	err = deleteEnvoyFilter(ctx, istioClient, istioNamespace, zadigEnvoyFilter)
-	if err != nil {
-		return fmt.Errorf("failed to delete EnvoyFilter: %s", err)
-	}
-
-	err = ensureEnvoyFilter(ctx, istioClient, clusterID, istioNamespace, zadigEnvoyFilter, headerKeys)
-	if err != nil {
-		return fmt.Errorf("failed to ensure EnvoyFilter in namespace `%s`: %s", istioNamespace, err)
-	}
-
-	return nil
 }

@@ -97,7 +97,7 @@ func (j *GrafanaJob) LintJob() error {
 		return err
 	}
 
-	if err := util.CheckZadigXLicenseStatus(); err != nil {
+	if err := util.CheckZadigProfessionalLicense(); err != nil {
 		return e.ErrLicenseInvalid.AddDesc("")
 	}
 

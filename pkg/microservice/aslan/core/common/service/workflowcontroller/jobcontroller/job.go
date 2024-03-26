@@ -73,6 +73,8 @@ func initJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTas
 		jobCtl = NewIstioReleaseJobCtl(job, workflowCtx, ack, logger)
 	case string(config.JobIstioRollback):
 		jobCtl = NewIstioRollbackJobCtl(job, workflowCtx, ack, logger)
+	case string(config.JobUpdateEnvIstioConfig):
+		jobCtl = NewUpdateEnvIstioConfigJobCtl(job, workflowCtx, ack, logger)
 	case string(config.JobJira):
 		jobCtl = NewJiraJobCtl(job, workflowCtx, ack, logger)
 	case string(config.JobNacos):

@@ -55,7 +55,7 @@ func ListReleasePlans(c *gin.Context) {
 		return
 	}
 
-	err = commonutil.CheckZadigXLicenseStatus()
+	err = commonutil.CheckZadigEnterpriseLicense()
 	if err != nil {
 		ctx.Err = err
 		return
@@ -80,7 +80,7 @@ func GetReleasePlan(c *gin.Context) {
 		return
 	}
 
-	err = commonutil.CheckZadigXLicenseStatus()
+	err = commonutil.CheckZadigEnterpriseLicense()
 	if err != nil {
 		ctx.Err = err
 		return
@@ -105,7 +105,7 @@ func GetReleasePlanLogs(c *gin.Context) {
 		return
 	}
 
-	err = commonutil.CheckZadigXLicenseStatus()
+	err = commonutil.CheckZadigEnterpriseLicense()
 	if err != nil {
 		ctx.Err = err
 		return
@@ -136,7 +136,7 @@ func CreateReleasePlan(c *gin.Context) {
 		return
 	}
 
-	err = commonutil.CheckZadigXLicenseStatus()
+	err = commonutil.CheckZadigEnterpriseLicense()
 	if err != nil {
 		ctx.Err = err
 		return
@@ -161,7 +161,7 @@ func UpdateReleasePlan(c *gin.Context) {
 		return
 	}
 
-	err = commonutil.CheckZadigXLicenseStatus()
+	err = commonutil.CheckZadigEnterpriseLicense()
 	if err != nil {
 		ctx.Err = err
 		return
@@ -190,7 +190,7 @@ func DeleteReleasePlan(c *gin.Context) {
 		return
 	}
 
-	err = commonutil.CheckZadigXLicenseStatus()
+	err = commonutil.CheckZadigEnterpriseLicense()
 	if err != nil {
 		ctx.Err = err
 		return
@@ -208,7 +208,7 @@ func ExecuteReleaseJob(c *gin.Context) {
 		return
 	}
 
-	err = commonutil.CheckZadigXLicenseStatus()
+	err = commonutil.CheckZadigEnterpriseLicense()
 	if err != nil {
 		ctx.Err = err
 		return
@@ -235,7 +235,7 @@ func UpdateReleaseJobStatus(c *gin.Context) {
 		return
 	}
 
-	err = commonutil.CheckZadigXLicenseStatus()
+	err = commonutil.CheckZadigEnterpriseLicense()
 	if err != nil {
 		ctx.Err = err
 		return
@@ -255,7 +255,7 @@ func ApproveReleasePlan(c *gin.Context) {
 		return
 	}
 
-	err = commonutil.CheckZadigXLicenseStatus()
+	err = commonutil.CheckZadigEnterpriseLicense()
 	if err != nil {
 		ctx.Err = err
 		return

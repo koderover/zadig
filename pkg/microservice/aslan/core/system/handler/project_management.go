@@ -23,9 +23,9 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/service"
 	"github.com/koderover/zadig/v2/pkg/setting"
-	"github.com/koderover/zadig/v2/pkg/shared/client/plutusvendor"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/jira"
@@ -105,18 +105,10 @@ func CreateProjectManagement(c *gin.Context) {
 		return
 	}
 
-	licenseStatus, err := plutusvendor.New().CheckZadigXLicenseStatus()
+	err = util.CheckZadigEnterpriseLicense()
 	if err != nil {
-		ctx.Err = fmt.Errorf("failed to validate zadig license status, error: %s", err)
+		ctx.Err = err
 		return
-	}
-	if req.MeegoHost != "" {
-		if !((licenseStatus.Type == plutusvendor.ZadigSystemTypeProfessional ||
-			licenseStatus.Type == plutusvendor.ZadigSystemTypeEnterprise) &&
-			licenseStatus.Status == plutusvendor.ZadigXLicenseStatusNormal) {
-			ctx.Err = e.ErrLicenseInvalid.AddDesc("")
-			return
-		}
 	}
 
 	ctx.Err = service.CreateProjectManagement(req, ctx.Logger)
@@ -144,18 +136,10 @@ func UpdateProjectManagement(c *gin.Context) {
 		return
 	}
 
-	licenseStatus, err := plutusvendor.New().CheckZadigXLicenseStatus()
+	err = util.CheckZadigEnterpriseLicense()
 	if err != nil {
-		ctx.Err = fmt.Errorf("failed to validate zadig license status, error: %s", err)
+		ctx.Err = err
 		return
-	}
-	if req.MeegoHost != "" {
-		if !((licenseStatus.Type == plutusvendor.ZadigSystemTypeProfessional ||
-			licenseStatus.Type == plutusvendor.ZadigSystemTypeEnterprise) &&
-			licenseStatus.Status == plutusvendor.ZadigXLicenseStatusNormal) {
-			ctx.Err = e.ErrLicenseInvalid.AddDesc("")
-			return
-		}
 	}
 
 	ctx.Err = service.UpdateProjectManagement(c.Param("id"), req, ctx.Logger)

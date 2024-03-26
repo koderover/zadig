@@ -111,7 +111,7 @@ func CreateScanningModule(c *gin.Context) {
 		}
 	}
 
-	if err = commonutil.CheckZadigXLicenseStatus(); err != nil {
+	if err = commonutil.CheckZadigProfessionalLicense(); err != nil {
 		if args.CheckQualityGate == true || len(args.AdvancedSetting.NotifyCtls) != 0 {
 			ctx.Err = err
 			return
@@ -163,7 +163,7 @@ func UpdateScanningModule(c *gin.Context) {
 		return
 	}
 
-	if err = commonutil.CheckZadigXLicenseStatus(); err != nil {
+	if err = commonutil.CheckZadigProfessionalLicense(); err != nil {
 		if args.CheckQualityGate == true || len(args.AdvancedSetting.NotifyCtls) != 0 {
 			ctx.Err = err
 			return

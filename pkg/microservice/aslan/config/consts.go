@@ -235,6 +235,7 @@ const (
 	JobK8sPatch             JobType = "k8s-resource-patch"
 	JobIstioRelease         JobType = "istio-release"
 	JobIstioRollback        JobType = "istio-rollback"
+	JobUpdateEnvIstioConfig JobType = "update-env-istio-config"
 	JobJira                 JobType = "jira"
 	JobNacos                JobType = "nacos"
 	JobApollo               JobType = "apollo"

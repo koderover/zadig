@@ -772,7 +772,7 @@ func EnsureDeleteZadigServiceBySvcName(ctx context.Context, env *commonmodels.Pr
 	}
 
 	if env.ShareEnv.Enable {
-		return ensureDeleteZadigService(ctx, env, svc, kclient, istioClient)
+		return EnsureDeleteZadigService(ctx, env, svc, kclient, istioClient)
 	} else if env.IstioGrayscale.Enable {
 		return EnsureDeleteGrayscaleService(ctx, env, svc, kclient, istioClient)
 	}

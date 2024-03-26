@@ -52,10 +52,10 @@ func CreateSystemCodeHost(c *gin.Context) {
 		return
 	}
 
-	err = commonutil.CheckZadigXLicenseStatus()
+	err = commonutil.CheckZadigEnterpriseLicense()
 	if err != nil {
 		if req.Type == setting.SourceFromGiteeEE {
-			ctx.Err = e.ErrLicenseInvalid.AddDesc("")
+			ctx.Err = err
 			return
 		}
 	}
@@ -188,7 +188,7 @@ func UpdateSystemCodeHost(c *gin.Context) {
 	}
 	req.ID = id
 
-	err = commonutil.CheckZadigXLicenseStatus()
+	err = commonutil.CheckZadigProfessionalLicense()
 	if err != nil {
 		if req.Type == setting.SourceFromGiteeEE {
 			ctx.Err = e.ErrLicenseInvalid.AddDesc("")

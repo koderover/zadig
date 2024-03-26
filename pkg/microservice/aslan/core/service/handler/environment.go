@@ -97,7 +97,7 @@ func LoadKubeWorkloadsYaml(c *gin.Context) {
 		}
 	}
 
-	err = commonutil.CheckZadigXLicenseStatus()
+	err = commonutil.CheckZadigEnterpriseLicense()
 	if err != nil {
 		ctx.Err = err
 		return

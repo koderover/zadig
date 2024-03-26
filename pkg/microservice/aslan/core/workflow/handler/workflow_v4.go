@@ -591,7 +591,7 @@ func CreateJiraHookForWorkflowV4(c *gin.Context) {
 	}
 
 	// license checks
-	err = util.CheckZadigXLicenseStatus()
+	err = util.CheckZadigProfessionalLicense()
 	if err != nil {
 		ctx.Err = err
 		return
@@ -654,7 +654,7 @@ func UpdateJiraHookForWorkflowV4(c *gin.Context) {
 	}
 
 	// license checks
-	err = util.CheckZadigXLicenseStatus()
+	err = util.CheckZadigProfessionalLicense()
 	if err != nil {
 		ctx.Err = err
 		return
@@ -744,7 +744,7 @@ func CreateMeegoHookForWorkflowV4(c *gin.Context) {
 	}
 
 	// license checks
-	err = util.CheckZadigXLicenseStatus()
+	err = util.CheckZadigProfessionalLicense()
 	if err != nil {
 		ctx.Err = err
 		return
@@ -807,7 +807,7 @@ func UpdateMeegoHookForWorkflowV4(c *gin.Context) {
 	}
 
 	// license checks
-	err = util.CheckZadigXLicenseStatus()
+	err = util.CheckZadigProfessionalLicense()
 	if err != nil {
 		ctx.Err = err
 		return

@@ -45,7 +45,7 @@ import (
 const zadigNamePrefix = "zadig"
 const zadigMatchXEnv = "x-env"
 
-func ensureVirtualService(ctx context.Context, kclient client.Client, istioClient versionedclient.Interface, env *commonmodels.Product, svc *corev1.Service, vsName string) error {
+func EnsureVirtualService(ctx context.Context, kclient client.Client, istioClient versionedclient.Interface, env *commonmodels.Product, svc *corev1.Service, vsName string) error {
 	vsObj, err := istioClient.NetworkingV1alpha3().VirtualServices(env.Namespace).Get(ctx, vsName, metav1.GetOptions{})
 	if err == nil {
 		log.Infof("Has found VirtualService `%s` in ns `%s` and don't recreate.", vsName, env.Namespace)
@@ -136,7 +136,7 @@ func ensureVirtualService(ctx context.Context, kclient client.Client, istioClien
 	return err
 }
 
-func genVirtualServiceName(svc *corev1.Service) string {
+func GenVirtualServiceName(svc *corev1.Service) string {
 	return fmt.Sprintf("%s-%s", zadigNamePrefix, svc.Name)
 }
 
@@ -173,12 +173,12 @@ func ensureDefaultK8sServiceAndVirtualServicesInGray(ctx context.Context, env *c
 
 	grayNS := env.Namespace
 	for _, svcInBase := range svcsInBase.Items {
-		err = ensureDefaultK8sServiceInGray(ctx, &svcInBase, grayNS, kclient)
+		err = EnsureDefaultK8sServiceInGray(ctx, &svcInBase, grayNS, kclient)
 		if err != nil {
 			return err
 		}
 
-		err = ensureDefaultVirtualServiceInGray(ctx, &svcInBase, grayNS, baseNS, istioClient)
+		err = EnsureDefaultVirtualServiceInGray(ctx, &svcInBase, grayNS, baseNS, istioClient)
 		if err != nil {
 			return err
 		}
@@ -187,7 +187,7 @@ func ensureDefaultK8sServiceAndVirtualServicesInGray(ctx context.Context, env *c
 	return nil
 }
 
-func ensureDefaultK8sServiceInGray(ctx context.Context, baseSvc *corev1.Service, grayNS string, kclient client.Client) error {
+func EnsureDefaultK8sServiceInGray(ctx context.Context, baseSvc *corev1.Service, grayNS string, kclient client.Client) error {
 	svcInGray := &corev1.Service{}
 	err := kclient.Get(ctx, client.ObjectKey{
 		Name:      baseSvc.Name,
@@ -224,8 +224,8 @@ func ensureDefaultK8sServiceInGray(ctx context.Context, baseSvc *corev1.Service,
 	return kclient.Create(ctx, svcInGray)
 }
 
-func ensureDefaultVirtualServiceInGray(ctx context.Context, baseSvc *corev1.Service, grayNS, baseNS string, istioClient versionedclient.Interface) error {
-	vsName := genVirtualServiceName(baseSvc)
+func EnsureDefaultVirtualServiceInGray(ctx context.Context, baseSvc *corev1.Service, grayNS, baseNS string, istioClient versionedclient.Interface) error {
+	vsName := GenVirtualServiceName(baseSvc)
 	svcName := baseSvc.Name
 	vsObj, err := istioClient.NetworkingV1alpha3().VirtualServices(grayNS).Get(ctx, vsName, metav1.GetOptions{})
 	if err == nil {
@@ -282,7 +282,7 @@ func ensureWorkloadsVirtualServiceInGrayAndBase(ctx context.Context, env *common
 			continue
 		}
 
-		vsName := genVirtualServiceName(&svc)
+		vsName := GenVirtualServiceName(&svc)
 
 		err = ensureVirtualServiceInGray(ctx, env.EnvName, vsName, svc.Name, grayNS, baseNS, istioClient)
 		if err != nil {
@@ -452,7 +452,7 @@ func EnsureUpdateZadigService(ctx context.Context, env *commonmodels.Product, sv
 	}
 
 	if env.ShareEnv.Enable {
-		return ensureUpdateZadigSerivce(ctx, env, svc, kclient, istioClient)
+		return EnsureUpdateZadigSerivce(ctx, env, svc, kclient, istioClient)
 	} else if env.IstioGrayscale.Enable {
 		return ensureUpdateGrayscaleSerivce(ctx, env, svc, kclient, istioClient)
 	}

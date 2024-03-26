@@ -40,7 +40,7 @@ func CreateStatDashboardConfig(c *gin.Context) {
 		return
 	}
 
-	err := commonutil.CheckZadigXLicenseStatus()
+	err := commonutil.CheckZadigProfessionalLicense()
 	if err != nil {
 		ctx.Err = err
 		return
@@ -74,7 +74,7 @@ func UpdateStatDashboardConfig(c *gin.Context) {
 		return
 	}
 
-	err := commonutil.CheckZadigXLicenseStatus()
+	err := commonutil.CheckZadigProfessionalLicense()
 	if err != nil {
 		ctx.Err = err
 		return
@@ -87,7 +87,7 @@ func DeleteStatDashboardConfig(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	err := commonutil.CheckZadigXLicenseStatus()
+	err := commonutil.CheckZadigProfessionalLicense()
 	if err != nil {
 		ctx.Err = err
 		return
@@ -115,7 +115,7 @@ func GetStatsDashboard(c *gin.Context) {
 		return
 	}
 
-	err := commonutil.CheckZadigXLicenseStatus()
+	err := commonutil.CheckZadigEnterpriseLicense()
 	if err != nil {
 		ctx.Err = err
 		return
@@ -137,7 +137,7 @@ func GetStatsDashboardGeneralData(c *gin.Context) {
 		return
 	}
 
-	err := commonutil.CheckZadigXLicenseStatus()
+	err := commonutil.CheckZadigEnterpriseLicense()
 	if err != nil {
 		ctx.Err = err
 		return

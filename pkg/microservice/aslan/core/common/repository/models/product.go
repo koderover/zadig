@@ -228,19 +228,19 @@ var (
 )
 
 type IstioWeightConfig struct {
-	Env    string `bson:"env"    json:"env"`
-	Weight int32  `bson:"weight" json:"weight"`
+	Env    string `bson:"env"    json:"env"    yaml:"env"`
+	Weight int32  `bson:"weight" json:"weight" yaml:"weight"`
 }
 
 type IstioHeaderMatchConfig struct {
-	Env          string             `bson:"env"          json:"env"`
-	HeaderMatchs []IstioHeaderMatch `bson:"header_match" json:"header_match"`
+	Env          string             `bson:"env"          json:"env"            yaml:"env"`
+	HeaderMatchs []IstioHeaderMatch `bson:"header_match" json:"header_match"   yaml:"header_match"`
 }
 
 type IstioHeaderMatch struct {
-	Key   string          `bson:"key"   json:"key"`
-	Match StringMatchType `bson:"match" json:"match"`
-	Value string          `bson:"value" json:"value"`
+	Key   string          `bson:"key"   json:"key"    yaml:"key"`
+	Match StringMatchType `bson:"match" json:"match"  yaml:"match"`
+	Value string          `bson:"value" json:"value"  yaml:"value"`
 }
 
 type StringMatchType string
