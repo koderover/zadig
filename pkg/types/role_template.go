@@ -4,7 +4,7 @@ type RoleTemplate struct {
 	ID          uint   `json:"id"`
 	Name        string `json:"name"`
 	Description string `json:"desc"`
-	Type        string `json:"type"`
+	Type        int    `json:"type"`
 }
 
 type DetailedRoleTemplate struct {

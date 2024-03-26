@@ -37,8 +37,7 @@ import (
 )
 
 const (
-	RoleActionKeyFormat         = "role_action_%d"
-	RoleTemplateActionKeyFormat = "role_template_action_%d"
+	RoleActionKeyFormat = "role_action_%d"
 
 	UIDRoleKeyFormat  = "uid_role_%s"
 	UIDRoleDataFormat = "%d++%s++%s"
@@ -235,7 +234,17 @@ func ListActionByRole(roleID uint) ([]string, error) {
 		}
 	}
 
-	actions, err := orm.ListActionByRole(roleID, repository.DB)
+	roleTemplateBind, err := orm.GetRoleTemplateBindingByRoleID(roleID, repository.DB)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find role template binding for role: %d, error: %s", roleID, err)
+	}
+	var actions []*models.Action
+	if roleTemplateBind != nil {
+		actions, err = orm.ListActionByRoleTemplate(roleTemplateBind.RoleTemplateID, repository.DB)
+	} else {
+		actions, err = orm.ListActionByRole(roleID, repository.DB)
+	}
+
 	if err != nil {
 		log.Errorf("failed to list actions by role id: %d from database, error: %s", roleID, err)
 		return nil, fmt.Errorf("failed to list actions by role id: %d from database, error: %s", roleID, err)

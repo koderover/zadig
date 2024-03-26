@@ -32,18 +32,19 @@ import (
 )
 
 func ListRoleTemplates(log *zap.SugaredLogger) ([]*types.RoleTemplate, error) {
-	roles, err := orm.ListRoleTemplates(repository.DB)
+	rolesTemplates, err := orm.ListRoleTemplates(repository.DB)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-		log.Errorf("failed to list role templates, error: %s", err)
-		return nil, fmt.Errorf("failed to list role templates, error: %s", err)
+		log.Errorf("failed to list roleTemplate templates, error: %s", err)
+		return nil, fmt.Errorf("failed to list roleTemplate templates, error: %s", err)
 	}
 
 	resp := make([]*types.RoleTemplate, 0)
-	for _, role := range roles {
+	for _, roleTemplate := range rolesTemplates {
 		resp = append(resp, &types.RoleTemplate{
-			ID:          role.ID,
-			Name:        role.Name,
-			Description: role.Description,
+			ID:          roleTemplate.ID,
+			Name:        roleTemplate.Name,
+			Description: roleTemplate.Description,
+			Type:        roleTemplate.Type,
 		})
 	}
 

@@ -55,9 +55,9 @@ func ListActionByRole(roleID uint, db *gorm.DB) ([]*models.Action, error) {
 	return resp, nil
 }
 
-func ListActionByRoleTemplate(roleID uint, db *gorm.DB) ([]*models.Action, error) {
+func ListActionByRoleTemplate(roleTemplateID uint, db *gorm.DB) ([]*models.Action, error) {
 	resp := make([]*models.Action, 0)
-	err := db.Where("role_template_action_binding.role_template_id = ?", roleID).
+	err := db.Where("role_template_action_binding.role_template_id = ?", roleTemplateID).
 		Joins("INNER JOIN role_template_action_binding ON role_template_action_binding.action_id = action.id").
 		Find(&resp).
 		Error

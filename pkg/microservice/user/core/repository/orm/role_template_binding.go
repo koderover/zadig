@@ -17,6 +17,7 @@ limitations under the License.
 package orm
 
 import (
+	"errors"
 	"github.com/koderover/zadig/v2/pkg/microservice/user/core/repository/models"
 	"gorm.io/gorm"
 )
@@ -31,6 +32,24 @@ func ListRoleTemplateBindingByID(id uint, db *gorm.DB) ([]*models.RoleTemplateBi
 
 	if err != nil {
 		return nil, err
+	}
+
+	return resp, nil
+}
+
+func GetRoleTemplateBindingByRoleID(id uint, db *gorm.DB) (*models.RoleTemplateBinding, error) {
+	resp := &models.RoleTemplateBinding{}
+
+	err := db.
+		Where("role_id = ?", id).
+		First(resp).
+		Error
+
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, err
+	}
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
 	}
 
 	return resp, nil
