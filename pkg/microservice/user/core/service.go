@@ -118,8 +118,14 @@ var dexSchema []byte
 //go:embed init/action_initialization.sql
 var actionData []byte
 
+//go:embed init/role_template_initialization.sql
+var roleTemplateData []byte
+
 //go:embed init/dm_action_initialization.sql
 var dmActionData []byte
+
+//go:embed init/dm_role_template_initialization.sql
+var dmRoleTemplateData []byte
 
 var readOnlyAction = []string{
 	permissionservice.VerbGetDelivery,
@@ -190,12 +196,21 @@ func initializeSystemActions() {
 		if err != nil {
 			log.Panic(err)
 		}
+		err = repository.DB.Exec(string(roleTemplateData)).Error
+		if err != nil {
+			log.Panic(err)
+		}
 	} else {
 		// @todo need to optimize the dm action sql
 		// dm doesn't support ON DUPLICATE KEY UPDATE, but it can be replace by MERGE INTO
 		err := repository.DB.Exec(string(dmActionData)).Error
 		if err != nil {
 			log.Panic(err)
+		}
+		err = repository.DB.Exec(string(dmRoleTemplateData)).Error
+		if err != nil {
+			log.Panic(err)
+
 		}
 	}
 	fmt.Println("system actions initialized...")
@@ -277,19 +292,19 @@ func syncUserRoleBinding() {
 	for _, project := range projectList {
 		projectAdminRole := &models.NewRole{
 			Name:        "project-admin",
-			Description: "",
+			Description: "拥有指定项目中任何操作的权限",
 			Type:        int64(setting.RoleTypeSystem),
 			Namespace:   project.ProductName,
 		}
 		readOnlyRole := &models.NewRole{
 			Name:        "read-only",
-			Description: "",
+			Description: "拥有指定项目中所有资源的读权限",
 			Type:        int64(setting.RoleTypeSystem),
 			Namespace:   project.ProductName,
 		}
 		readProjectOnlyRole := &models.NewRole{
 			Name:        "read-project-only",
-			Description: "",
+			Description: "拥有指定项目本身的读权限，无权限查看和操作项目内资源",
 			Type:        int64(setting.RoleTypeSystem),
 			Namespace:   project.ProductName,
 		}

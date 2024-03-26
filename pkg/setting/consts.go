@@ -732,6 +732,11 @@ const (
 )
 
 const (
+	RoleTemplateTypeCustom     = 0
+	RoleTemplateTypePredefined = 1
+)
+
+const (
 	ActionTypeAdmin = iota
 	ActionTypeProject
 	ActionTypeSystem
