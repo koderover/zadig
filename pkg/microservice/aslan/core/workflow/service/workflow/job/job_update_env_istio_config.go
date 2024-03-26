@@ -56,6 +56,7 @@ func (j *UpdateEnvIstioConfigJob) MergeArgs(args *commonmodels.Job) error {
 		if err := commonmodels.IToi(args.Spec, argsSpec); err != nil {
 			return err
 		}
+		j.spec = argsSpec
 		j.job.Spec = j.spec
 	}
 	return nil
