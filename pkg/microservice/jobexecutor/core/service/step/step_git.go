@@ -29,6 +29,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/koderover/zadig/v2/pkg/setting"
 	"gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -60,9 +61,9 @@ func NewGitStep(spec interface{}, workspace string, envs, secretEnvs []string) (
 
 func (s *GitStep) Run(ctx context.Context) error {
 	start := time.Now()
-	log.Infof("Start git clone.")
+	log.Infof("%s   Start git clone.", time.Now().Format(setting.WorkflowTimeFormat))
 	defer func() {
-		log.Infof("Git clone ended. Duration: %.2f seconds.", time.Since(start).Seconds())
+		log.Infof("$s   Git clone ended. Duration: %.2f seconds.", time.Now().Format(setting.WorkflowTimeFormat), time.Since(start).Seconds())
 	}()
 	return s.runGitCmds()
 }
@@ -156,7 +157,7 @@ func (s *GitStep) runGitCmds() error {
 		outScanner := bufio.NewScanner(cmdOutReader)
 		go func() {
 			for outScanner.Scan() {
-				fmt.Printf("%s\n", maskSecret(tokens, outScanner.Text()))
+				fmt.Printf("%s   %s\n", time.Now().Format(setting.WorkflowTimeFormat), maskSecret(tokens, outScanner.Text()))
 			}
 		}()
 
@@ -168,13 +169,13 @@ func (s *GitStep) runGitCmds() error {
 		errScanner := bufio.NewScanner(cmdErrReader)
 		go func() {
 			for errScanner.Scan() {
-				fmt.Printf("%s\n", maskSecret(tokens, errScanner.Text()))
+				fmt.Printf("%s   %s\n", time.Now().Format(setting.WorkflowTimeFormat), maskSecret(tokens, errScanner.Text()))
 			}
 		}()
 
 		c.Cmd.Env = envs
 		if !c.DisableTrace {
-			fmt.Printf("%s\n", strings.Join(c.Cmd.Args, " "))
+			fmt.Printf("%s   %s\n", time.Now().Format(setting.WorkflowTimeFormat), strings.Join(c.Cmd.Args, " "))
 		}
 		if err := c.Cmd.Run(); err != nil {
 			if c.IgnoreError {
@@ -206,11 +207,11 @@ func (s *GitStep) buildGitCommands(repo *types.Repository, hostNames sets.String
 	// 预防非正常退出导致git被锁住
 	indexLockPath := path.Join(workDir, "/.git/index.lock")
 	if err := os.RemoveAll(indexLockPath); err != nil {
-		log.Errorf("Failed to remove %s: %s", indexLockPath, err)
+		log.Errorf("%s   Failed to remove %s: %s", time.Now().Format(setting.WorkflowTimeFormat), indexLockPath, err)
 	}
 	shallowLockPath := path.Join(workDir, "/.git/shallow.lock")
 	if err := os.RemoveAll(shallowLockPath); err != nil {
-		log.Errorf("Failed to remove %s: %s", shallowLockPath, err)
+		log.Errorf("%s   Failed to remove %s: %s", time.Now().Format(setting.WorkflowTimeFormat), shallowLockPath, err)
 	}
 
 	if isDirEmpty(filepath.Join(workDir, ".git")) {
@@ -247,7 +248,7 @@ func (s *GitStep) buildGitCommands(repo *types.Repository, hostNames sets.String
 			host := getHost(repo.Address)
 			if !hostNames.Has(host) {
 				if err := writeSSHFile(repo.SSHKey, host); err != nil {
-					log.Errorf("failed to write ssh file %s: %s", repo.SSHKey, err)
+					log.Errorf("%s   failed to write ssh file %s: %s", time.Now().Format(setting.WorkflowTimeFormat), repo.SSHKey, err)
 				}
 				hostNames.Insert(host)
 			}
@@ -263,7 +264,7 @@ func (s *GitStep) buildGitCommands(repo *types.Repository, hostNames sets.String
 		} else if repo.AuthType == types.PrivateAccessTokenAuthType {
 			u, err := url.Parse(repo.Address)
 			if err != nil {
-				log.Errorf("failed to parse url,err:%s", err)
+				log.Errorf("%s   failed to parse url,err:%s", time.Now().Format(setting.WorkflowTimeFormat), err)
 			} else {
 				host := strings.TrimSuffix(strings.Join([]string{u.Host, u.Path}, "/"), "/")
 				cmds = append(cmds, &c.Command{

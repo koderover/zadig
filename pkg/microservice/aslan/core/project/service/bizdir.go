@@ -289,12 +289,12 @@ func GetBizDirServiceDetail(projectName, serviceName string) ([]GetBizDirService
 
 	for _, env := range envs {
 		prodSvc := env.GetServiceMap()[serviceName]
-		if prodSvc == nil && !project.IsHostProduct() {
+		if prodSvc == nil {
 			// not deployed in this env
 			continue
 		}
 
-		if project.IsK8sYamlProduct() {
+		if project.IsK8sYamlProduct() || project.IsHostProduct() {
 			detail := GetBizDirServiceDetailResponse{
 				ProjectName: env.ProductName,
 				EnvName:     env.EnvName,
@@ -332,51 +332,6 @@ func GetBizDirServiceDetail(projectName, serviceName string) ([]GetBizDirService
 			}
 
 			serviceStatus := commonservice.QueryPodsStatus(env, serviceTmpl, serviceName, cls, inf, log.SugaredLogger())
-			detail.Status = serviceStatus.PodStatus
-			detail.Images = serviceStatus.Images
-
-			resp = append(resp, detail)
-		} else if project.IsHostProduct() {
-			if env.Production {
-				continue
-			}
-
-			detail := GetBizDirServiceDetailResponse{
-				ProjectName: env.ProductName,
-				EnvName:     env.EnvName,
-				Production:  env.Production,
-				Name:        serviceName,
-				Type:        setting.K8SDeployType,
-			}
-			serviceTmpl, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
-				ServiceName: serviceName,
-				ProductName: projectName,
-			}, env.Production)
-			if err != nil {
-				detail.Error = err.Error()
-				log.Warnf("failed to get service template for productName: %s, serviceName: %s, error: %v",
-					env.ProductName, serviceName, err)
-				resp = append(resp, detail)
-				continue
-			}
-			detail.UpdateTime = serviceTmpl.DeployTime
-
-			cls, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), env.ClusterID)
-			if err != nil {
-				detail.Error = err.Error()
-				log.Warnf("[BIZDIR] failed to get service status & image info due to kube client creation, err: %s", err)
-				resp = append(resp, detail)
-				continue
-			}
-			informer, err := informer.NewInformer(env.ClusterID, env.Namespace, cls)
-			if err != nil {
-				detail.Error = err.Error()
-				log.Warnf("[BIZDIR] failed to get service status & image info due to kube informer creation, err: %s", err)
-				resp = append(resp, detail)
-				continue
-			}
-
-			serviceStatus := commonservice.QueryPodsStatus(env, serviceTmpl, serviceTmpl.ServiceName, cls, informer, log.SugaredLogger())
 			detail.Status = serviceStatus.PodStatus
 			detail.Images = serviceStatus.Images
 

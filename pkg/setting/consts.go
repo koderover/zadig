@@ -315,6 +315,10 @@ const (
 	FunctionTestType = "function"
 
 	AllProjects = "<all_projects>"
+
+	BuildOSSCacheFileName    = "zadig-build-cache.tar.gz"
+	ScanningOSSCacheFileName = "zadig-scanning-cache.tar.gz"
+	TestingOSSCacheFileName  = "zadig-testing-cache.tar.gz"
 )
 
 const (
@@ -881,4 +885,8 @@ const (
 	// zadig build infrastructure
 	JobK8sInfrastructure = "kubernetes"
 	JobVMInfrastructure  = "vm"
+)
+
+const (
+	WorkflowTimeFormat = "[2006-01-02 15:04:05]"
 )

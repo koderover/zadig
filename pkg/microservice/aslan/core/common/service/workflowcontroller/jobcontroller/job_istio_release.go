@@ -168,8 +168,19 @@ func (c *IstioReleaseJobCtl) Run(ctx context.Context) {
 		newDeployment.Annotations[WorkloadCreator] = "zadig-istio-release"
 
 		// edit the label of the new deployment so we could find it
+		if newDeployment.Labels == nil {
+			newDeployment.Labels = make(map[string]string)
+		}
 		newDeployment.Labels[ZadigIstioIdentifierLabel] = ZadigIstioLabelDuplicate
+
+		if newDeployment.Spec.Selector.MatchLabels == nil {
+			newDeployment.Spec.Selector.MatchLabels = make(map[string]string)
+		}
 		newDeployment.Spec.Selector.MatchLabels[ZadigIstioIdentifierLabel] = ZadigIstioLabelDuplicate
+
+		if newDeployment.Spec.Template.Labels == nil {
+			newDeployment.Spec.Template.Labels = make(map[string]string)
+		}
 		newDeployment.Spec.Template.Labels[ZadigIstioIdentifierLabel] = ZadigIstioLabelDuplicate
 		// edit the image of the new deployment
 		containerList := make([]corev1.Container, 0)

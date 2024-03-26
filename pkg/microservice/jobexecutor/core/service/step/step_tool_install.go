@@ -1,6 +1,7 @@
 package step
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"io/ioutil"
@@ -43,9 +44,9 @@ func NewToolInstallStep(spec interface{}, workspace string, envs, secretEnvs []s
 
 func (s *ToolInstallStep) Run(ctx context.Context) error {
 	start := time.Now()
-	log.Infof("Installing tools.")
+	log.Infof("%s   Installing tools.", time.Now().Format(setting.WorkflowTimeFormat))
 	defer func() {
-		log.Infof("Install tools ended. Duration: %.2f seconds.", time.Since(start).Seconds())
+		log.Infof("%s   Install tools ended. Duration: %.2f seconds.", time.Now().Format(setting.WorkflowTimeFormat), time.Since(start).Seconds())
 	}()
 
 	for _, tool := range s.spec.Installs {
@@ -109,7 +110,7 @@ func (s *ToolInstallStep) runIntallationScripts(tool *step.Tool) error {
 					tmpPath,
 					objectKey,
 				)
-				fmt.Printf("Package loaded from url: %s\n", tool.Download)
+				fmt.Printf("%s   Package loaded from url: %s\n", time.Now().Format(setting.WorkflowTimeFormat), tool.Download)
 			}
 		} else {
 			err := httpclient.Download(tool.Download, tmpPath)
@@ -136,9 +137,32 @@ func (s *ToolInstallStep) runIntallationScripts(tool *step.Tool) error {
 	}
 
 	cmd := exec.Command("/bin/bash", file)
+
+	cmdOutReader, err := cmd.StdoutPipe()
+	if err != nil {
+		return err
+	}
+
+	outScanner := bufio.NewScanner(cmdOutReader)
+	go func() {
+		for outScanner.Scan() {
+			fmt.Printf("%s   %s\n", time.Now().Format(setting.WorkflowTimeFormat), outScanner.Text())
+		}
+	}()
+
+	cmdErrReader, err := cmd.StderrPipe()
+	if err != nil {
+		return err
+	}
+
+	errScanner := bufio.NewScanner(cmdErrReader)
+	go func() {
+		for errScanner.Scan() {
+			fmt.Printf("%s   %s\n", time.Now().Format(setting.WorkflowTimeFormat), errScanner.Text())
+		}
+	}()
+
 	cmd.Dir = s.workspace
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
 	cmd.Env = s.envs
 
 	if err := cmd.Run(); err != nil {

@@ -507,11 +507,11 @@ func getNextServiceRevision(productName, serviceName string, isProductionService
 		return 0, err
 	}
 	if !isProductionService {
-		if err = commonrepo.NewServiceColl().Delete(serviceName, setting.HelmDeployType, serviceName, setting.ProductStatusDeleting, rev); err != nil {
+		if err = commonrepo.NewServiceColl().Delete(serviceName, setting.HelmDeployType, productName, setting.ProductStatusDeleting, rev); err != nil {
 			log.Warnf("Failed to delete stale service %s with revision %d, err: %s", serviceName, rev, err)
 		}
 	} else {
-		if err = commonrepo.NewProductionServiceColl().Delete(serviceName, serviceName, setting.ProductStatusDeleting, rev); err != nil {
+		if err = commonrepo.NewProductionServiceColl().Delete(serviceName, "", productName, setting.ProductStatusDeleting, rev); err != nil {
 			log.Warnf("Failed to delete stale service %s with revision %d, err: %s", serviceName, rev, err)
 		}
 	}

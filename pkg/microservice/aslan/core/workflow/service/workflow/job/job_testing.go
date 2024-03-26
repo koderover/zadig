@@ -346,6 +346,8 @@ func (j *TestingJob) toJobtask(testing *commonmodels.TestModule, defaultS3 *comm
 		Registries:          registries,
 		ShareStorageDetails: getShareStorageDetail(j.workflow.ShareStorages, testing.ShareStorageInfo, j.workflow.Name, taskID),
 	}
+
+	cacheS3 := &commonmodels.S3Storage{}
 	clusterInfo, err := commonrepo.NewK8SClusterColl().Get(testingInfo.PreTest.ClusterID)
 	if err != nil {
 		return jobTask, fmt.Errorf("failed to find cluster: %s, error: %v", testingInfo.PreTest.ClusterID, err)
@@ -358,13 +360,27 @@ func (j *TestingJob) toJobtask(testing *commonmodels.TestModule, defaultS3 *comm
 		jobTaskSpec.Properties.CacheEnable = testingInfo.CacheEnable
 		jobTaskSpec.Properties.CacheDirType = testingInfo.CacheDirType
 		jobTaskSpec.Properties.CacheUserDir = testingInfo.CacheUserDir
-	}
-	jobTaskSpec.Properties.Envs = append(jobTaskSpec.Properties.CustomEnvs, getTestingJobVariables(testing.Repos, taskID, j.workflow.Project, j.workflow.Name, j.workflow.DisplayName, testing.ProjectName, testing.Name, testType, serviceName, serviceModule, "", logger)...)
 
-	if jobTaskSpec.Properties.CacheEnable && jobTaskSpec.Properties.Cache.MediumType == types.NFSMedium {
-		jobTaskSpec.Properties.CacheUserDir = renderEnv(jobTaskSpec.Properties.CacheUserDir, jobTaskSpec.Properties.Envs)
-		jobTaskSpec.Properties.Cache.NFSProperties.Subpath = renderEnv(jobTaskSpec.Properties.Cache.NFSProperties.Subpath, jobTaskSpec.Properties.Envs)
+		if jobTaskSpec.Properties.Cache.MediumType == types.ObjectMedium {
+			cacheS3, err = commonrepo.NewS3StorageColl().Find(jobTaskSpec.Properties.Cache.ObjectProperties.ID)
+			if err != nil {
+				return jobTask, fmt.Errorf("find cache s3 storage: %s error: %v", jobTaskSpec.Properties.Cache.ObjectProperties.ID, err)
+			}
+		}
 	}
+	if jobTaskSpec.Properties.CacheEnable {
+		jobTaskSpec.Properties.CacheUserDir = renderEnv(jobTaskSpec.Properties.CacheUserDir, jobTaskSpec.Properties.Envs)
+		if jobTaskSpec.Properties.Cache.MediumType == types.NFSMedium {
+			jobTaskSpec.Properties.Cache.NFSProperties.Subpath = renderEnv(jobTaskSpec.Properties.Cache.NFSProperties.Subpath, jobTaskSpec.Properties.Envs)
+		} else if jobTaskSpec.Properties.Cache.MediumType == types.ObjectMedium {
+			cacheS3, err = commonrepo.NewS3StorageColl().Find(jobTaskSpec.Properties.Cache.ObjectProperties.ID)
+			if err != nil {
+				return jobTask, fmt.Errorf("find cache s3 storage: %s error: %v", jobTaskSpec.Properties.Cache.ObjectProperties.ID, err)
+			}
+		}
+	}
+
+	jobTaskSpec.Properties.Envs = append(jobTaskSpec.Properties.CustomEnvs, getTestingJobVariables(testing.Repos, taskID, j.workflow.Project, j.workflow.Name, j.workflow.DisplayName, testing.ProjectName, testing.Name, testType, serviceName, serviceModule, "", logger)...)
 
 	// init tools install step
 	tools := []*step.Tool{}
@@ -381,6 +397,27 @@ func (j *TestingJob) toJobtask(testing *commonmodels.TestModule, defaultS3 *comm
 		Spec:     step.StepToolInstallSpec{Installs: tools},
 	}
 	jobTaskSpec.Steps = append(jobTaskSpec.Steps, toolInstallStep)
+	// init download object cache step
+	if jobTaskSpec.Properties.CacheEnable && jobTaskSpec.Properties.Cache.MediumType == types.ObjectMedium {
+		cacheDir := "/workspace"
+		if jobTaskSpec.Properties.CacheDirType == types.UserDefinedCacheDir {
+			cacheDir = jobTaskSpec.Properties.CacheUserDir
+		}
+		downloadArchiveStep := &commonmodels.StepTask{
+			Name:     fmt.Sprintf("%s-%s", testing.Name, "download-archive"),
+			JobName:  jobTask.Name,
+			StepType: config.StepDownloadArchive,
+			Spec: step.StepDownloadArchiveSpec{
+				UnTar:      true,
+				IgnoreErr:  true,
+				FileName:   setting.TestingOSSCacheFileName,
+				ObjectPath: getTestingJobCacheObjectPath(j.workflow.Name, testing.Name),
+				DestDir:    cacheDir,
+				S3:         modelS3toS3(cacheS3),
+			},
+		}
+		jobTaskSpec.Steps = append(jobTaskSpec.Steps, downloadArchiveStep)
+	}
 	// init git clone step
 	gitStep := &commonmodels.StepTask{
 		Name:     testing.Name + "-git",
@@ -477,6 +514,30 @@ func (j *TestingJob) toJobtask(testing *commonmodels.TestModule, defaultS3 *comm
 		jobTaskSpec.Steps = append(jobTaskSpec.Steps, junitStep)
 	}
 
+	// init object cache step
+	if jobTaskSpec.Properties.CacheEnable && jobTaskSpec.Properties.Cache.MediumType == types.ObjectMedium {
+		cacheDir := "/workspace"
+		if jobTaskSpec.Properties.CacheDirType == types.UserDefinedCacheDir {
+			cacheDir = jobTaskSpec.Properties.CacheUserDir
+		}
+		tarArchiveStep := &commonmodels.StepTask{
+			Name:     fmt.Sprintf("%s-%s", testing.Name, "tar-archive"),
+			JobName:  jobTask.Name,
+			StepType: config.StepTarArchive,
+			Spec: step.StepTarArchiveSpec{
+				FileName:     setting.TestingOSSCacheFileName,
+				ResultDirs:   []string{"."},
+				AbsResultDir: true,
+				TarDir:       cacheDir,
+				ChangeTarDir: true,
+				S3DestDir:    getTestingJobCacheObjectPath(j.workflow.Name, testing.Name),
+				IgnoreErr:    true,
+				S3Storage:    modelS3toS3(cacheS3),
+			},
+		}
+		jobTaskSpec.Steps = append(jobTaskSpec.Steps, tarArchiveStep)
+	}
+
 	// init object storage step
 	if testingInfo.PostTest != nil && testingInfo.PostTest.ObjectStorageUpload != nil && testingInfo.PostTest.ObjectStorageUpload.Enabled {
 		modelS3, err := commonrepo.NewS3StorageColl().Find(testingInfo.PostTest.ObjectStorageUpload.ObjectStorageID)
@@ -561,4 +622,8 @@ func getTestingJobVariables(repos []*types.Repository, taskID int64, project, wo
 	buildURL := fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/custom/%s/%d?display_name=%s", configbase.SystemAddress(), project, workflowName, taskID, url.QueryEscape(workflowDisplayName))
 	ret = append(ret, &commonmodels.KeyVal{Key: "BUILD_URL", Value: buildURL, IsCredential: false})
 	return ret
+}
+
+func getTestingJobCacheObjectPath(workflowName, testingName string) string {
+	return fmt.Sprintf("%s/cache/%s", workflowName, testingName)
 }

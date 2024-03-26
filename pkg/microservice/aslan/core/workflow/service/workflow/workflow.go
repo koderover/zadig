@@ -22,7 +22,6 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-multierror"
-	"github.com/koderover/zadig/v2/pkg/tool/cache"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -35,6 +34,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/collaboration"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/webhook"
 	"github.com/koderover/zadig/v2/pkg/setting"
+	"github.com/koderover/zadig/v2/pkg/tool/cache"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/types"
@@ -162,23 +162,20 @@ func AutoCreateWorkflow(productName string, log *zap.SugaredLogger) *EnvStatus {
 		}
 	}
 
-	// helm/k8syaml project may have customized products, use the real created products
-	if productTmpl.IsHelmProduct() || productTmpl.IsK8sYamlProduct() || productTmpl.IsHostProduct() {
-		productList, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
-			Name:       productName,
-			Production: util.GetBoolPointer(false),
-		})
-		if err != nil {
-			log.Errorf("fialed to list products, projectName %s, err %s", productName, err)
-		}
+	productList, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
+		Name:       productName,
+		Production: util.GetBoolPointer(false),
+	})
+	if err != nil {
+		log.Errorf("fialed to list products, projectName %s, err %s", productName, err)
+	}
 
-		createArgs.clear()
-		for _, product := range productList {
-			createArgs.addWorkflowArg(product.EnvName, product.RegistryID, true)
-		}
-		if !productTmpl.IsHostProduct() {
-			createArgs.addWorkflowArg("", "", false)
-		}
+	createArgs.clear()
+	for _, product := range productList {
+		createArgs.addWorkflowArg(product.EnvName, product.RegistryID, true)
+	}
+	if !productTmpl.IsHostProduct() {
+		createArgs.addWorkflowArg("", "", false)
 	}
 
 	workflowSet := sets.NewString()

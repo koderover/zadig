@@ -36,6 +36,7 @@ import (
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/instantmessage"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/notify"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/scmnotify"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/workflowcontroller/jobcontroller"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/workflowstat"
@@ -88,6 +89,22 @@ func NewWorkflowController(workflowTask *commonmodels.WorkflowTask, logger *zap.
 	return ctl
 }
 
+func SendWorkflowNotifyMessage(task *commonmodels.WorkflowTask, receiver string, status config.Status, log *zap.SugaredLogger) {
+	if status != config.StatusFailed && status != config.StatusPassed && status != config.StatusCancelled &&
+		status != config.StatusWaitingApprove && status != config.StatusTimeout {
+		return
+	}
+	ctx := &commonmodels.WorkflowTaskStatusCtx{
+		TaskID:              task.TaskID,
+		ProductName:         task.ProjectName,
+		WorkflowName:        task.WorkflowName,
+		WorkflowDisplayName: task.WorkflowDisplayName,
+		Executor:            task.TaskCreator,
+		Status:              status,
+	}
+	notify.SendWorkflowTaskStatusMsg(receiver, ctx, log)
+}
+
 func CancelWorkflowTask(userName, workflowName string, taskID int64, logger *zap.SugaredLogger) error {
 	t, err := commonrepo.NewworkflowTaskv4Coll().Find(workflowName, taskID)
 	if err != nil {
@@ -132,6 +149,22 @@ func CancelWorkflowTask(userName, workflowName string, taskID int64, logger *zap
 }
 
 func (c *workflowCtl) setWorkflowStatus(status config.Status) {
+	if c.workflowTask.Status != status {
+		if status == config.StatusWaitingApprove {
+			for _, stage := range c.workflowTask.Stages {
+				if stage.Status == config.StatusWaitingApprove {
+					if stage.Approval != nil && stage.Approval.Type == config.NativeApproval {
+						for _, approveUser := range stage.Approval.NativeApproval.ApproveUsers {
+							SendWorkflowNotifyMessage(c.workflowTask, approveUser.UserName, status, log.SugaredLogger())
+						}
+					}
+					break
+				}
+			}
+		} else {
+			SendWorkflowNotifyMessage(c.workflowTask, c.workflowTask.TaskCreator, status, log.SugaredLogger())
+		}
+	}
 	c.workflowTask.Status = status
 	c.ack()
 }
@@ -522,6 +555,9 @@ func updateworkflowStatus(workflow *commonmodels.WorkflowTask) {
 			workflowStatus = taskstatus
 			break
 		}
+	}
+	if workflow.Status != workflowStatus {
+		SendWorkflowNotifyMessage(workflow, workflow.TaskCreator, workflowStatus, log.SugaredLogger())
 	}
 	workflow.Status = workflowStatus
 }

@@ -23,6 +23,7 @@ import (
 	"path"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/pkg/errors"
@@ -258,6 +259,10 @@ type RepoIndex struct {
 }
 
 func GetWorkflowRepoIndex(workflow *commonmodels.WorkflowV4, currentJobName string, log *zap.SugaredLogger) []*RepoIndex {
+	var (
+		buildMap         sync.Map
+		buildTemplateMap sync.Map
+	)
 	resp := []*RepoIndex{}
 	jobRankMap := getJobRankMap(workflow.Stages)
 	for _, stage := range workflow.Stages {
@@ -273,12 +278,26 @@ func GetWorkflowRepoIndex(workflow *commonmodels.WorkflowV4, currentJobName stri
 					continue
 				}
 				for _, build := range jobSpec.ServiceAndBuilds {
-					buildInfo, err := commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: build.BuildName})
-					if err != nil {
-						log.Errorf("find build: %s error: %v", build.BuildName, err)
-						continue
+					var err error
+					var buildInfo *commonmodels.Build
+					buildMapValue, ok := buildMap.Load(build.BuildName)
+					if !ok {
+						buildInfo, err = commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: build.BuildName})
+						if err != nil {
+							log.Errorf("find build: %s error: %v", build.BuildName, err)
+							buildMap.Store(build.BuildName, nil)
+							continue
+						}
+						buildMap.Store(build.BuildName, buildInfo)
+					} else {
+						if buildMapValue == nil {
+							log.Errorf("find build: %s error: %v", build.BuildName, err)
+							continue
+						}
+						buildInfo = buildMapValue.(*commonmodels.Build)
 					}
-					if err := fillBuildDetail(buildInfo, build.ServiceName, build.ServiceModule); err != nil {
+
+					if err := fillBuildDetail(buildInfo, build.ServiceName, build.ServiceModule, &buildTemplateMap); err != nil {
 						log.Errorf("fill build: %s detail error: %v", build.BuildName, err)
 						continue
 					}

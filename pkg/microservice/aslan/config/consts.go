@@ -198,7 +198,7 @@ const (
 	StepHelmDeploy        StepType = "helm_deploy"
 	StepCustomDeploy      StepType = "custom_deploy"
 	StepImageDistribute   StepType = "image_distribute"
-	StepDownloadArtifact  StepType = "download_artifact"
+	StepDownloadArchive   StepType = "download_archive"
 	StepArchive           StepType = "archive"
 	StepArchiveDistribute StepType = "archive_distribute"
 	StepJunitReport       StepType = "junit_report"
@@ -338,9 +338,10 @@ const (
 type NotifyType int
 
 var (
-	Announcement   NotifyType = 1 // 公告
-	PipelineStatus NotifyType = 2 // 提醒
-	Message        NotifyType = 3 // 消息
+	Announcement       NotifyType = 1 // 公告
+	PipelineStatus     NotifyType = 2 // 提醒
+	Message            NotifyType = 3 // 消息
+	WorkflowTaskStatus NotifyType = 4 // 工作流任务状态
 )
 
 // Validation constants

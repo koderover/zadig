@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/jobexecutor/core/service/configmap"
+	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/types"
 )
@@ -50,38 +51,38 @@ func (s *DebugStep) Run(ctx context.Context) (err error) {
 	_, err = os.Stat(path)
 	if err != nil {
 		if !os.IsNotExist(err) {
-			log.Warnf("debug step unexpected stat error: %v", err)
+			log.Warnf("%s   debug step unexpected stat error: %v", time.Now().Format(setting.WorkflowTimeFormat), err)
 		}
 		return nil
 	}
 	// This is to record that the debug step beginning and finished
 	cm, err := s.updater.Get()
 	if err != nil {
-		log.Errorf("debug step unexpected get configmap error: %v", err)
+		log.Errorf("%s   debug step unexpected get configmap error: %v", time.Now().Format(setting.WorkflowTimeFormat), err)
 		return err
 	}
 	cm.Data[types.JobDebugStatusKey] = s.Type
 	if s.updater.UpdateWithRetry(cm, 3, 3*time.Second) != nil {
-		log.Errorf("debug step unexpected update configmap error: %v", err)
+		log.Errorf("%s   debug step unexpected update configmap error: %v", time.Now().Format(setting.WorkflowTimeFormat), err)
 		return err
 	}
 	defer func() {
 		cm, err = s.updater.Get()
 		if err != nil {
-			log.Errorf("debug step unexpected get configmap error: %v", err)
+			log.Errorf("%s   debug step unexpected get configmap error: %v", time.Now().Format(setting.WorkflowTimeFormat), err)
 			return
 		}
 		cm.Data[types.JobDebugStatusKey] = types.JobDebugStatusNotIn
 		if s.updater.UpdateWithRetry(cm, 3, 3*time.Second) != nil {
-			log.Errorf("debug step unexpected update configmap error: %v", err)
+			log.Errorf("%s   debug step unexpected update configmap error: %v", time.Now().Format(setting.WorkflowTimeFormat), err)
 		}
 	}()
 
-	log.Infof("Running debugger %s job, Use debugger console.", s.Type)
+	log.Infof("%s   Running debugger %s job, Use debugger console.", time.Now().Format(setting.WorkflowTimeFormat), s.Type)
 	for _, err := os.Stat(path); err == nil; {
 		time.Sleep(time.Second)
 		_, err = os.Stat(path)
 	}
-	log.Infof("debug step %s done", s.Type)
+	log.Infof("%s   debug step %s done", time.Now().Format(setting.WorkflowTimeFormat), s.Type)
 	return nil
 }

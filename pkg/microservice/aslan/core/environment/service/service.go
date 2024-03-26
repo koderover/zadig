@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/hashicorp/go-multierror"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"helm.sh/helm/v3/pkg/releaseutil"
@@ -182,7 +181,7 @@ func GetService(envName, productName, serviceName string, production bool, workL
 		return nil, e.ErrGetService.AddErr(errors.Wrapf(err, "failed to find project %s", productName))
 	}
 	var serviceTmpl *commonmodels.Service
-	if projectInfo.IsK8sYamlProduct() {
+	if projectInfo.IsK8sYamlProduct() || projectInfo.IsHostProduct() {
 		productSvc := env.GetServiceMap()[serviceName]
 		if productSvc != nil {
 			serviceTmpl, err = repository.QueryTemplateService(&commonrepo.ServiceFindOption{
@@ -481,32 +480,6 @@ func RestartService(envName string, args *SvcOptArgs, log *zap.SugaredLogger) (e
 	}
 
 	switch productObj.Source {
-	case setting.SourceFromExternal:
-		errList := new(multierror.Error)
-		serviceObj, found, err := getter.GetService(productObj.Namespace, args.ServiceName, kubeClient)
-		if err != nil || !found {
-			return err
-		}
-
-		selector := labels.SelectorFromValidatedSet(serviceObj.Spec.Selector)
-		if deployments, err := getter.ListDeployments(productObj.Namespace, selector, kubeClient); err == nil {
-			log.Infof("namespace:%s , selector:%s , len(deployments):%d", productObj.Namespace, selector, len(deployments))
-			for _, deployment := range deployments {
-				if err = updater.RestartDeployment(productObj.Namespace, deployment.Name, kubeClient); err != nil {
-					errList = multierror.Append(errList, err)
-				}
-			}
-		}
-
-		//statefulSets
-		if statefulSets, err := getter.ListStatefulSets(productObj.Namespace, selector, kubeClient); err == nil {
-			log.Infof("namespace:%s , selector:%s , len(statefulSets):%d", productObj.Namespace, selector, len(statefulSets))
-			for _, statefulSet := range statefulSets {
-				if err = updater.RestartStatefulSet(productObj.Namespace, statefulSet.Name, kubeClient); err != nil {
-					errList = multierror.Append(errList, err)
-				}
-			}
-		}
 	case setting.SourceFromHelm:
 		deploy, found, err := getter.GetDeployment(productObj.Namespace, args.ServiceName, kubeClient)
 		if err != nil {

@@ -23,11 +23,13 @@ import (
 	"io"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/jobexecutor/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/jobexecutor/core/service/cmd"
 	"github.com/koderover/zadig/v2/pkg/microservice/jobexecutor/core/service/configmap"
 	"github.com/koderover/zadig/v2/pkg/microservice/jobexecutor/core/service/meta"
+	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/util"
 )
@@ -66,8 +68,8 @@ func RunStep(ctx context.Context, step *meta.Step, workspace, paths string, envs
 		if err != nil {
 			return err
 		}
-	case "download_artifact":
-		stepInstance, err = NewDownloadArtifactStep(step.Spec, workspace, envs, secretEnvs)
+	case "download_archive":
+		stepInstance, err = NewDownloadArchiveStep(step.Spec, workspace, envs, secretEnvs)
 		if err != nil {
 			return err
 		}
@@ -77,7 +79,7 @@ func RunStep(ctx context.Context, step *meta.Step, workspace, paths string, envs
 			return err
 		}
 	case "tar_archive":
-		stepInstance, err = NewTararchiveStep(step.Spec, workspace, envs, secretEnvs)
+		stepInstance, err = NewTarArchiveStep(step.Spec, workspace, envs, secretEnvs)
 		if err != nil {
 			return err
 		}
@@ -140,7 +142,7 @@ func handleCmdOutput(pipe io.ReadCloser, needPersistentLog bool, logFile string,
 			break
 		}
 
-		fmt.Printf("%s", maskSecretEnvs(string(lineBytes), secretEnvs))
+		fmt.Printf("%s   %s", time.Now().Format(setting.WorkflowTimeFormat), maskSecretEnvs(string(lineBytes), secretEnvs))
 
 		if needPersistentLog {
 			err := util.WriteFile(logFile, lineBytes, 0700)

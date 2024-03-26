@@ -55,7 +55,7 @@ func NewArchiveStep(spec interface{}, workspace string, envs, secretEnvs []strin
 func (s *ArchiveStep) Run(ctx context.Context) error {
 	start := time.Now()
 	defer func() {
-		log.Infof("Archive ended. Duration: %.2f seconds", time.Since(start).Seconds())
+		log.Infof("%s   Archive ended. Duration: %.2f seconds", time.Now().Format(setting.WorkflowTimeFormat), time.Since(start).Seconds())
 	}()
 
 	for _, upload := range s.spec.UploadDetail {

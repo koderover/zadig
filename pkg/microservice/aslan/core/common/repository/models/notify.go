@@ -49,6 +49,15 @@ type PipelineStatusCtx struct {
 	Stages       []*Stage            `bson:"-"                         json:"stages"`
 }
 
+type WorkflowTaskStatusCtx struct {
+	TaskID              int64         `bson:"task_id"                   json:"task_id"`
+	Executor            string        `bson:"executor"                  json:"executor"`
+	ProductName         string        `bson:"product_name"              json:"product_name"`
+	WorkflowName        string        `bson:"workflow_name"             json:"workflow_name"`
+	WorkflowDisplayName string        `bson:"workflow_display_name"     json:"workflow_display_name"`
+	Status              config.Status `bson:"status"                    json:"status,omitempty"`
+}
+
 type MessageCtx struct {
 	ReqID   string `bson:"req_id"                json:"req_id"`
 	Title   string `bson:"title"                 json:"title"`   // 消息标题

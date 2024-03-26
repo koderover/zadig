@@ -94,7 +94,36 @@ func ListWorkloadTemplate(c *gin.Context) {
 	}
 
 	// anyone with a token should be able to use this API
-	ctx.Resp, ctx.Err = commonservice.ListWorkloadTemplate(projectName, c.Query("env"), ctx.Logger)
+	ctx.Resp, ctx.Err = commonservice.ListWorkloadTemplate(projectName, c.Query("env"), false, ctx.Logger)
+}
+
+func ListProductionWorkloadTemplate(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectName := c.Query("projectName")
+
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectName]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectName].ProductionEnv.View {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	// anyone with a token should be able to use this API
+	ctx.Resp, ctx.Err = commonservice.ListWorkloadTemplate(projectName, c.Query("env"), true, ctx.Logger)
 }
 
 func GetServiceTemplate(c *gin.Context) {
@@ -138,7 +167,6 @@ func GetServiceTemplateOption(c *gin.Context) {
 	projectName := c.Query("projectName")
 
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -561,7 +589,66 @@ func UpdateWorkloads(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = svcservice.UpdateWorkloads(c, ctx.RequestID, ctx.UserName, projectName, env, *args, ctx.Logger)
+	ctx.Err = svcservice.UpdateWorkloads(c, ctx.RequestID, ctx.UserName, projectName, env, *args, false, ctx.Logger)
+}
+
+func UpdateProductionWorkloads(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	args := new(svcservice.UpdateWorkloadsArgs)
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	data, err := c.GetRawData()
+	if err != nil {
+		log.Errorf("UpdateWorkloads c.GetRawData() err : %v", err)
+	}
+	if err = json.Unmarshal(data, args); err != nil {
+		log.Errorf("UpdateWorkloads json.Unmarshal err : %v", err)
+	}
+
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, c.Query("projectName"), setting.OperationSceneEnv, "配置", "生产环境", c.Query("env"), string(data), ctx.Logger, c.Query("env"))
+
+	err = c.ShouldBindJSON(args)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid UpdateWorkloadsArgs")
+		return
+	}
+	projectName := c.Query("projectName")
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectName]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectName].ProductionEnv.EditConfig {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	env := c.Query("env")
+	if projectName == "" || env == "" {
+		ctx.Err = e.ErrInvalidParam
+		return
+	}
+	allowedEnvs, found := internalhandler.GetResourcesInHeader(c)
+	if found {
+		allowedSet := sets.NewString(allowedEnvs...)
+		if !allowedSet.Has(env) {
+			c.String(http.StatusForbidden, "not all input envs are allowed, allowed envs are %v", allowedEnvs)
+			return
+		}
+	}
+
+	ctx.Err = svcservice.UpdateWorkloads(c, ctx.RequestID, ctx.UserName, projectName, env, *args, true, ctx.Logger)
 }
 
 func CreateK8sWorkloads(c *gin.Context) {
@@ -569,7 +656,6 @@ func CreateK8sWorkloads(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -608,7 +694,53 @@ func CreateK8sWorkloads(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = svcservice.CreateK8sWorkLoads(c, ctx.RequestID, ctx.UserName, args, ctx.Logger)
+	ctx.Err = svcservice.CreateK8sWorkLoads(c, ctx.RequestID, ctx.UserName, args, false, ctx.Logger)
+}
+
+func CreateProductionK8sWorkloads(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	args := new(svcservice.K8sWorkloadsArgs)
+
+	data, err := c.GetRawData()
+	if err != nil {
+		log.Errorf("CreateK8sWorkloads c.GetRawData() err : %v", err)
+	}
+	if err = json.Unmarshal(data, args); err != nil {
+		log.Errorf("CreateK8sWorkloads json.Unmarshal err : %v", err)
+	}
+
+	projectName := c.Query("projectName")
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "新增", "生产环境", args.EnvName, string(data), ctx.Logger, args.EnvName)
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectName]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectName].ProductionEnv.Create {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	err = c.BindJSON(args)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid K8sWorkloadsArgs args")
+		return
+	}
+
+	ctx.Err = svcservice.CreateK8sWorkLoads(c, ctx.RequestID, ctx.UserName, args, true, ctx.Logger)
 }
 
 func GetServiceTemplateProductName(c *gin.Context) {
