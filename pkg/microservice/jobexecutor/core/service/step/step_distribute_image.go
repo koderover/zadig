@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-multierror"
+	"github.com/koderover/zadig/v2/pkg/setting"
 	"gopkg.in/yaml.v2"
 
 	"github.com/koderover/zadig/v2/pkg/tool/log"
@@ -52,7 +53,7 @@ func NewDistributeImageStep(spec interface{}, workspace string, envs, secretEnvs
 }
 
 func (s *DistributeImageStep) Run(ctx context.Context) error {
-	log.Info("Start distribute images.")
+	log.Info("%s   Start distribute images.", time.Now().Format(setting.WorkflowTimeFormat))
 	if s.spec.SourceRegistry == nil || s.spec.TargetRegistry == nil {
 		return errors.New("image registry infos are missing")
 	}
@@ -83,7 +84,7 @@ func (s *DistributeImageStep) Run(ctx context.Context) error {
 				appendError(errors.New(errMsg))
 				return
 			}
-			log.Infof("pull source image [%s] succeed", target.SourceImage)
+			log.Infof("%s   pull source image [%s] succeed", time.Now().Format(setting.WorkflowTimeFormat), target.SourceImage)
 
 			tagCmd := dockerTagCmd(target.SourceImage, target.TargetImage)
 			out = bytes.Buffer{}
@@ -94,14 +95,14 @@ func (s *DistributeImageStep) Run(ctx context.Context) error {
 				appendError(errors.New(errMsg))
 				return
 			}
-			log.Infof("tag image [%s] to [%s] succeed", target.SourceImage, target.TargetImage)
+			log.Infof("%s   tag image [%s] to [%s] succeed", time.Now().Format(setting.WorkflowTimeFormat), target.SourceImage, target.TargetImage)
 		}(target)
 	}
 	wg.Wait()
 	if err := errList.ErrorOrNil(); err != nil {
 		return fmt.Errorf("prepare source images error: %v", err)
 	}
-	log.Infof("Finish prepare source images.")
+	log.Infof("%s   Finish prepare source images.", time.Now().Format(setting.WorkflowTimeFormat))
 
 	if err := s.loginTargetRegistry(); err != nil {
 		return err
@@ -119,7 +120,7 @@ func (s *DistributeImageStep) Run(ctx context.Context) error {
 				appendError(errors.New(errMsg))
 				return
 			}
-			log.Infof("push image [%s] succeed", target.TargetImage)
+			log.Infof("%s   push image [%s] succeed", time.Now().Format(setting.WorkflowTimeFormat), target.TargetImage)
 		}(target)
 	}
 	wg.Wait()
@@ -127,7 +128,7 @@ func (s *DistributeImageStep) Run(ctx context.Context) error {
 		return fmt.Errorf("push target images error: %v", err)
 	}
 
-	log.Info("Finish distribute images.")
+	log.Info("%s   Finish distribute images.", time.Now().Format(setting.WorkflowTimeFormat))
 	return nil
 }
 
@@ -146,7 +147,7 @@ func (s *DistributeImageStep) loginSourceRegistry() error {
 }
 
 func (s *DistributeImageStep) loginTargetRegistry() error {
-	log.Info("Logining Docker Target Registry.")
+	log.Info("%s   Logging in Docker Target Registry.", time.Now().Format(setting.WorkflowTimeFormat))
 	startTimeDockerLogin := time.Now()
 	loginCmd := dockerLogin(s.spec.TargetRegistry.AccessKey, s.spec.TargetRegistry.SecretKey, s.spec.TargetRegistry.RegAddr)
 	var out bytes.Buffer
@@ -155,7 +156,7 @@ func (s *DistributeImageStep) loginTargetRegistry() error {
 	if err := loginCmd.Run(); err != nil {
 		return fmt.Errorf("failed to login docker registry: %s %s", err, out.String())
 	}
-	log.Infof("Login ended. Duration: %.2f seconds.", time.Since(startTimeDockerLogin).Seconds())
+	log.Infof("%s   Login ended. Duration: %.2f seconds.", time.Now().Format(setting.WorkflowTimeFormat), time.Since(startTimeDockerLogin).Seconds())
 	return nil
 }
 

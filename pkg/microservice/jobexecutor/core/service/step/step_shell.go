@@ -27,6 +27,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/koderover/zadig/v2/pkg/setting"
 	"gopkg.in/yaml.v2"
 
 	"github.com/koderover/zadig/v2/pkg/tool/log"
@@ -56,20 +57,20 @@ func NewShellStep(spec interface{}, workspace, paths string, envs, secretEnvs []
 
 func (s *ShellStep) Run(ctx context.Context) error {
 	start := time.Now()
-	log.Infof("Executing user script.")
+	log.Infof("%s   Executing user script.", time.Now().Format(setting.WorkflowTimeFormat))
 	defer func() {
-		log.Infof("Script Execution ended. Duration: %.2f seconds.", time.Since(start).Seconds())
+		log.Infof("%s   Script Execution ended. Duration: %.2f seconds.", time.Now().Format(setting.WorkflowTimeFormat), time.Since(start).Seconds())
 	}()
 
 	// This is to record that the shell step beginning and finished, for debug
 	err := os.WriteFile("/zadig/debug/shell_step", nil, 0700)
 	if err != nil {
-		log.Warnf("Failed to record shell_step file, error: %v", err)
+		log.Warnf("%s   Failed to record shell_step file, error: %v", time.Now().Format(setting.WorkflowTimeFormat), err)
 	}
 	defer func() {
 		err := os.WriteFile("/zadig/debug/shell_step_done", nil, 0700)
 		if err != nil {
-			log.Warnf("Failed to record shell_step_done file, error: %v", err)
+			log.Warnf("%s   Failed to record shell_step_done file, error: %v", time.Now().Format(setting.WorkflowTimeFormat), err)
 		}
 	}()
 

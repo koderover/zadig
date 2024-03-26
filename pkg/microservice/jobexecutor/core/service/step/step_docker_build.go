@@ -57,9 +57,9 @@ func NewDockerBuildStep(spec interface{}, workspace string, envs, secretEnvs []s
 
 func (s *DockerBuildStep) Run(ctx context.Context) error {
 	start := time.Now()
-	log.Infof("Start docker build.")
+	log.Infof("%s   Start docker build.", time.Now().Format(setting.WorkflowTimeFormat))
 	defer func() {
-		log.Infof("Docker build ended. Duration: %.2f seconds.", time.Since(start).Seconds())
+		log.Infof("%s   Docker build ended. Duration: %.2f seconds.", time.Now().Format(setting.WorkflowTimeFormat), time.Since(start).Seconds())
 	}()
 
 	envMap := makeEnvMap(s.envs, s.secretEnvs)
@@ -114,7 +114,7 @@ func (s DockerBuildStep) dockerLogin() error {
 			return fmt.Errorf("failed to login docker registry: %s %s", err, out.String())
 		}
 
-		fmt.Printf("Login ended. Duration: %.2f seconds.\n", time.Since(startTimeDockerLogin).Seconds())
+		fmt.Printf("%s   Login ended. Duration: %.2f seconds.\n", time.Now().Format(setting.WorkflowTimeFormat), time.Since(startTimeDockerLogin).Seconds())
 	}
 	return nil
 }
@@ -124,7 +124,7 @@ func (s *DockerBuildStep) runDockerBuild() error {
 		return nil
 	}
 
-	fmt.Printf("Preparing Dockerfile.\n")
+	fmt.Printf("%s   Preparing Dockerfile.\n", time.Now().Format(setting.WorkflowTimeFormat))
 	startTimePrepareDockerfile := time.Now()
 	err := prepareDockerfile(s.spec.Source, s.spec.DockerTemplateContent)
 	if err != nil {
@@ -136,7 +136,7 @@ func (s *DockerBuildStep) runDockerBuild() error {
 		setProxy(s.spec)
 	}
 
-	fmt.Printf("Running Docker Build.\n")
+	fmt.Printf("%s   Running Docker Build.\n", time.Now().Format(setting.WorkflowTimeFormat))
 	startTimeDockerBuild := time.Now()
 	envs := s.envs
 	for _, c := range s.dockerCommands() {
@@ -171,7 +171,7 @@ func (s *DockerBuildStep) runDockerBuild() error {
 			return fmt.Errorf("failed to run docker build: %s", err)
 		}
 	}
-	fmt.Printf("Docker build ended. Duration: %.2f seconds.\n", time.Since(startTimeDockerBuild).Seconds())
+	fmt.Printf("%s   Docker build ended. Duration: %.2f seconds.\n", time.Now().Format(setting.WorkflowTimeFormat), time.Since(startTimeDockerBuild).Seconds())
 
 	return nil
 }

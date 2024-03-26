@@ -24,6 +24,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/koderover/zadig/v2/pkg/setting"
 	"gopkg.in/yaml.v2"
 
 	"github.com/koderover/zadig/v2/pkg/tool/log"
@@ -51,7 +52,7 @@ func NewSonarCheckStep(spec interface{}, workspace string, envs, secretEnvs []st
 }
 
 func (s *SonarCheckStep) Run(ctx context.Context) error {
-	log.Info("Start check Sonar scanning quality gate status.")
+	log.Info("%s   Start check Sonar scanning quality gate status.", time.Now().Format(setting.WorkflowTimeFormat))
 	client := sonar.NewSonarClient(s.spec.SonarServer, s.spec.SonarToken)
 	sonarWorkDir := sonar.GetSonarWorkDir(s.spec.Parameter)
 	if sonarWorkDir == "" {
@@ -63,7 +64,7 @@ func (s *SonarCheckStep) Run(ctx context.Context) error {
 	taskReportDir := filepath.Join(sonarWorkDir, "report-task.txt")
 	bytes, err := ioutil.ReadFile(taskReportDir)
 	if err != nil {
-		log.Errorf("read sonar task report file: %s error :%v", taskReportDir, err)
+		log.Errorf("%s   read sonar task report file: %s error :%v", time.Now().Format(setting.WorkflowTimeFormat), taskReportDir, err)
 		return err
 	}
 	taskReportContent := string(bytes)
@@ -82,7 +83,7 @@ func (s *SonarCheckStep) Run(ctx context.Context) error {
 		log.Error(err)
 		return err
 	}
-	log.Infof("Sonar quality gate status: %s", gateInfo.ProjectStatus.Status)
+	log.Infof("%s   Sonar quality gate status: %s", time.Now().Format(setting.WorkflowTimeFormat), gateInfo.ProjectStatus.Status)
 	sonar.PrintSonarConditionTables(gateInfo.ProjectStatus.Conditions)
 	if gateInfo.ProjectStatus.Status != sonar.QualityGateOK && gateInfo.ProjectStatus.Status != sonar.QualityGateNone {
 		return fmt.Errorf("sonar quality gate status was: %s", gateInfo.ProjectStatus.Status)
