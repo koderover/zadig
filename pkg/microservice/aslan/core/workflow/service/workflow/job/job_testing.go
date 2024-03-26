@@ -281,11 +281,13 @@ func (j *TestingJob) getOriginReferedJobTargets(jobName string) ([]*commonmodels
 				if err := commonmodels.IToi(job.Spec, deploySpec); err != nil {
 					return servicetargets, err
 				}
-				for _, deploy := range deploySpec.ServiceAndImages {
-					servicetargets = append(servicetargets, &commonmodels.ServiceTestTarget{
-						ServiceName:   deploy.ServiceName,
-						ServiceModule: deploy.ServiceModule,
-					})
+				for _, svc := range deploySpec.Services {
+					for _, module := range svc.Modules {
+						servicetargets = append(servicetargets, &commonmodels.ServiceTestTarget{
+							ServiceName:   svc.ServiceName,
+							ServiceModule: module.ServiceModule,
+						})
+					}
 				}
 				return servicetargets, nil
 			}

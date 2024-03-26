@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/elliotchance/orderedmap/v2"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -148,37 +147,40 @@ func (j *DeployJob) SetPreset() error {
 		}
 
 		// update image name
-		for _, svc := range j.spec.ServiceAndImages {
-			productSvc := product.GetServiceMap()[svc.ServiceName]
-			if productSvc == nil {
-				// get from template
-				tmplSvc := tmplSvcMap[svc.ServiceName]
-				if tmplSvc == nil {
-					return fmt.Errorf("service %s not found in template service, productName %s, isProduction %v", svc.ServiceName, product.ProductName, product.Production)
-				}
-				for _, container := range tmplSvc.Containers {
-					if container.Name == svc.ServiceModule {
-						svc.ImageName = commonutil.ExtractImageName(container.Image)
-						break
+		for _, svc := range j.spec.Services {
+			for _, module := range svc.Modules {
+				productSvc := product.GetServiceMap()[svc.ServiceName]
+				if productSvc == nil {
+					// get from template
+					tmplSvc := tmplSvcMap[svc.ServiceName]
+					if tmplSvc == nil {
+						return fmt.Errorf("service %s not found in template service, productName %s, isProduction %v", svc.ServiceName, product.ProductName, product.Production)
+					}
+					for _, container := range tmplSvc.Containers {
+						if container.Name == module.ServiceModule {
+							module.ImageName = commonutil.ExtractImageName(container.Image)
+							break
+						}
+					}
+				} else {
+					// get from env
+					for _, container := range productSvc.Containers {
+						if container.Name == module.ServiceModule {
+							module.ImageName = commonutil.ExtractImageName(container.Image)
+							break
+						}
 					}
 				}
-			} else {
-				// get from env
-				for _, container := range productSvc.Containers {
-					if container.Name == svc.ServiceModule {
-						svc.ImageName = commonutil.ExtractImageName(container.Image)
-						break
-					}
-				}
-			}
 
-			if svc.ImageName == "" {
-				log.Errorf("service: %s module: %s not found in env and tmplSvc", svc.ServiceName, svc.ServiceModule)
-				svc.ImageName = svc.ServiceModule
+				if module.ImageName == "" {
+					log.Errorf("service: %s module: %s not found in env and tmplSvc", svc.ServiceName, module.ServiceModule)
+					module.ImageName = module.ServiceModule
+				}
 			}
 		}
-
 	}
+
+	j.spec.ServiceOptions = j.spec.Services
 
 	return nil
 }
@@ -197,7 +199,7 @@ func (j *DeployJob) MergeArgs(args *commonmodels.Job) error {
 		j.spec.Env = argsSpec.Env
 		j.spec.Services = argsSpec.Services
 		if j.spec.Source == config.SourceRuntime {
-			j.spec.ServiceAndImages = argsSpec.ServiceAndImages
+			j.spec.Services = argsSpec.Services
 		}
 
 		j.job.Spec = j.spec
@@ -240,10 +242,47 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			return resp, fmt.Errorf("get origin refered job: %s targets failed, err: %v", j.spec.JobName, err)
 		}
 		// clear service and image list to prevent old data from remaining
-		j.spec.ServiceAndImages = targets
+		targetsMap := make(map[string]struct {
+			Image     string
+			ImageName string
+		})
+		for _, target := range targets {
+			key := fmt.Sprintf("%s++%s", target.ServiceName, target.ServiceModule)
+			targetsMap[key] = struct {
+				Image     string
+				ImageName string
+			}{
+				Image:     target.Image,
+				ImageName: target.ImageName,
+			}
+		}
+
+		services := make([]*commonmodels.DeployServiceInfo, 0)
+		for _, svc := range j.spec.Services {
+			hasModule := false
+			modules := make([]*commonmodels.DeployModuleInfo, 0)
+			for _, module := range svc.Modules {
+				key := fmt.Sprintf("%s++%s", svc.ServiceName, module.ServiceModule)
+				if imageInfo, ok := targetsMap[key]; ok {
+					hasModule = true
+					modules = append(modules, &commonmodels.DeployModuleInfo{
+						ServiceModule: module.ServiceModule,
+						Image:         imageInfo.Image,
+						ImageName:     imageInfo.ImageName,
+					})
+				}
+			}
+
+			svc.Modules = modules
+			if hasModule {
+				services = append(services, svc)
+			}
+		}
+
+		j.spec.Services = services
 	}
 
-	serviceMap := map[string]*commonmodels.DeployService{}
+	serviceMap := map[string]*commonmodels.DeployServiceInfo{}
 	for _, service := range j.spec.Services {
 		serviceMap[service.ServiceName] = service
 	}
@@ -255,17 +294,8 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 	timeout := templateProduct.Timeout * 60
 
 	if j.spec.DeployType == setting.K8SDeployType {
-		deployServiceMap := orderedmap.NewOrderedMap[string, []*commonmodels.ServiceAndImage]()
-		for _, deploy := range j.spec.ServiceAndImages {
-			preDeploy, ok := deployServiceMap.Get(deploy.ServiceName)
-			if !ok {
-				preDeploy = []*commonmodels.ServiceAndImage{}
-			}
-			deployServiceMap.Set(deploy.ServiceName, append(preDeploy, deploy))
-		}
-		for el := deployServiceMap.Front(); el != nil; el = el.Next() {
-			serviceName := el.Key
-			deploys := el.Value
+		for _, svc := range j.spec.Services {
+			serviceName := svc.ServiceName
 			jobTaskSpec := &commonmodels.JobTaskDeploySpec{
 				Env:                envName,
 				SkipCheckRunStatus: j.spec.SkipCheckRunStatus,
@@ -278,7 +308,7 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 				Timeout:            timeout,
 			}
 
-			for _, deploy := range deploys {
+			for _, module := range svc.Modules {
 				// if external env, check service exists
 				if project.IsHostProduct() {
 					if err := checkServiceExsistsInEnv(productServiceMap, serviceName, envName); err != nil {
@@ -286,9 +316,9 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 					}
 				}
 				jobTaskSpec.ServiceAndImages = append(jobTaskSpec.ServiceAndImages, &commonmodels.DeployServiceModule{
-					Image:         deploy.Image,
-					ImageName:     deploy.ImageName,
-					ServiceModule: deploy.ServiceModule,
+					Image:         module.Image,
+					ImageName:     module.ImageName,
+					ServiceModule: module.ServiceModule,
 				})
 			}
 			if !project.IsHostProduct() {
@@ -402,30 +432,27 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			resp = append(resp, jobTask)
 		}
 	}
+
 	if j.spec.DeployType == setting.HelmDeployType {
-		deployServiceMap := map[string][]*commonmodels.ServiceAndImage{}
-		for _, deploy := range j.spec.ServiceAndImages {
-			deployServiceMap[deploy.ServiceName] = append(deployServiceMap[deploy.ServiceName], deploy)
-		}
-		for serviceName, deploys := range deployServiceMap {
+		for _, svc := range j.spec.Services {
 			var serviceRevision int64
-			if pSvc, ok := productServiceMap[serviceName]; ok {
+			if pSvc, ok := productServiceMap[svc.ServiceName]; ok {
 				serviceRevision = pSvc.Revision
 			}
 
 			revisionSvc, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
-				ServiceName: serviceName,
+				ServiceName: svc.ServiceName,
 				Revision:    serviceRevision,
 				ProductName: product.ProductName,
 			}, product.Production)
 			if err != nil {
-				return nil, fmt.Errorf("failed to find service: %s with revision: %d, err: %s", serviceName, serviceRevision, err)
+				return nil, fmt.Errorf("failed to find service: %s with revision: %d, err: %s", svc.ServiceName, serviceRevision, err)
 			}
-			releaseName := util.GeneReleaseName(revisionSvc.GetReleaseNaming(), product.ProductName, product.Namespace, product.EnvName, serviceName)
+			releaseName := util.GeneReleaseName(revisionSvc.GetReleaseNaming(), product.ProductName, product.Namespace, product.EnvName, svc.ServiceName)
 
 			jobTaskSpec := &commonmodels.JobTaskHelmDeploySpec{
 				Env:                envName,
-				ServiceName:        serviceName,
+				ServiceName:        svc.ServiceName,
 				DeployContents:     j.spec.DeployContents,
 				SkipCheckRunStatus: j.spec.SkipCheckRunStatus,
 				ServiceType:        setting.HelmDeployType,
@@ -435,8 +462,8 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 				IsProduction:       j.spec.Production,
 			}
 
-			for _, deploy := range deploys {
-				service := serviceMap[serviceName]
+			for _, module := range svc.Modules {
+				service := serviceMap[svc.ServiceName]
 				if service != nil {
 					jobTaskSpec.UpdateConfig = service.UpdateConfig
 					jobTaskSpec.KeyVals = service.KeyVals
@@ -445,16 +472,16 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 				}
 
 				jobTaskSpec.ImageAndModules = append(jobTaskSpec.ImageAndModules, &commonmodels.ImageAndServiceModule{
-					ServiceModule: deploy.ServiceModule,
-					Image:         deploy.Image,
+					ServiceModule: module.ServiceModule,
+					Image:         module.Image,
 				})
 			}
 			jobTask := &commonmodels.JobTask{
-				Name: jobNameFormat(serviceName + "-" + j.job.Name),
-				Key:  strings.Join([]string{j.job.Name, serviceName}, "."),
+				Name: jobNameFormat(svc.ServiceName + "-" + j.job.Name),
+				Key:  strings.Join([]string{j.job.Name, svc.ServiceName}, "."),
 				JobInfo: map[string]string{
 					JobNameKey:     j.job.Name,
-					"service_name": serviceName,
+					"service_name": svc.ServiceName,
 				},
 				JobType: string(config.JobZadigHelmDeploy),
 				Spec:    jobTaskSpec,

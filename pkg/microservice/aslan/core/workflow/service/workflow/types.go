@@ -279,10 +279,12 @@ func (p *ZadigDeployJobInput) UpdateJobSpec(job *commonmodels.Job) (*commonmodel
 
 	newSpec.Env = p.EnvName
 
-	for _, svcDeploy := range newSpec.ServiceAndImages {
-		for _, inputSvc := range p.ServiceList {
-			if inputSvc.ServiceName == svcDeploy.ServiceName && inputSvc.ServiceModule == svcDeploy.ServiceModule {
-				svcDeploy.Image = inputSvc.ImageName
+	for _, svc := range newSpec.Services {
+		for _, module := range svc.Modules {
+			for _, inputSvc := range p.ServiceList {
+				if inputSvc.ServiceName == svc.ServiceName && inputSvc.ServiceModule == module.ServiceModule {
+					module.Image = inputSvc.ImageName
+				}
 			}
 		}
 	}
