@@ -501,10 +501,10 @@ func lazySyncRoleTemplates(namespace string, roles []*models.NewRole) ([]*models
 	tx.Commit()
 
 	sort.Slice(ret, func(i, j int) bool {
-		if ret[i].Type == setting.RoleTemplateTypeCustom && ret[j].Type == setting.RoleTemplateTypePredefined {
+		if ret[i].Type == int64(setting.RoleTypeCustom) && ret[j].Type == int64(setting.RoleTypeSystem) {
 			return true
 		}
-		if ret[i].Type == setting.RoleTemplateTypePredefined && ret[j].Type == setting.RoleTemplateTypeCustom {
+		if ret[i].Type == int64(setting.RoleTypeSystem) && ret[j].Type == int64(setting.RoleTypeCustom) {
 			return false
 		}
 		return ret[i].ID < ret[j].ID
