@@ -420,6 +420,16 @@ func ListRolesByNamespace(projectName string, log *zap.SugaredLogger) ([]*types.
 		return nil, fmt.Errorf("failed to sync role templates, error: %s", err)
 	}
 
+	sort.Slice(roles, func(i, j int) bool {
+		if roles[i].Type == int64(setting.RoleTypeCustom) && roles[j].Type == int64(setting.RoleTypeSystem) {
+			return true
+		}
+		if roles[i].Type == int64(setting.RoleTypeSystem) && roles[j].Type == int64(setting.RoleTypeCustom) {
+			return false
+		}
+		return roles[i].ID < roles[j].ID
+	})
+
 	resp := make([]*types.Role, 0)
 	for _, role := range roles {
 		resp = append(resp, &types.Role{
@@ -499,16 +509,6 @@ func lazySyncRoleTemplates(namespace string, roles []*models.NewRole) ([]*models
 	}
 
 	tx.Commit()
-
-	sort.Slice(ret, func(i, j int) bool {
-		if ret[i].Type == int64(setting.RoleTypeCustom) && ret[j].Type == int64(setting.RoleTypeSystem) {
-			return true
-		}
-		if ret[i].Type == int64(setting.RoleTypeSystem) && ret[j].Type == int64(setting.RoleTypeCustom) {
-			return false
-		}
-		return ret[i].ID < ret[j].ID
-	})
 
 	return ret, nil
 }
