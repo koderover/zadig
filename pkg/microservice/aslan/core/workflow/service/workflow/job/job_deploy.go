@@ -129,6 +129,24 @@ func (j *DeployJob) SetPreset() error {
 	if project.ProductFeature != nil {
 		j.spec.DeployType = project.ProductFeature.DeployType
 	}
+	if strings.HasPrefix(j.spec.Env, setting.FixedValueMark) {
+		// if the env is fixed, we put the env in the option
+		j.spec.EnvOptions = []string{strings.ReplaceAll(j.spec.Env, setting.FixedValueMark, "")}
+	} else {
+		// otherwise list all the envs in this project
+		envs := make([]string, 0)
+		products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
+			Name:       j.workflow.Project,
+			Production: &j.spec.Production,
+		})
+		if err != nil {
+			log.Errorf("can't list envs in project %s, error: %w", j.workflow.Project, err)
+			return err
+		}
+		for _, env := range products {
+			envs = append(envs, env.EnvName)
+		}
+	}
 	// if quoted job quote another job, then use the service and image of the quoted job
 	if j.spec.Source == config.SourceFromJob {
 		j.spec.OriginJobName = j.spec.JobName

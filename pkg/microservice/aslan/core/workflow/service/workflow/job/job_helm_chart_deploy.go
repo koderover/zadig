@@ -18,6 +18,7 @@ package job
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
@@ -47,6 +48,24 @@ func (j *HelmChartDeployJob) SetPreset() error {
 	j.spec = &commonmodels.ZadigHelmChartDeployJobSpec{}
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return err
+	}
+
+	if strings.HasPrefix(j.spec.Env, setting.FixedValueMark) {
+		j.spec.EnvOptions = []string{strings.ReplaceAll(j.spec.Env, setting.FixedValueMark, "")}
+	} else {
+		productList, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
+			Name: j.workflow.Project,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to list env with project: %s, error: %s", j.workflow.Project, err)
+		}
+
+		envs := make([]string, 0)
+		for _, env := range productList {
+			envs = append(envs, env.EnvName)
+		}
+
+		j.spec.EnvOptions = envs
 	}
 
 	product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: j.workflow.Project, EnvName: j.spec.Env})

@@ -285,7 +285,7 @@ type ZadigDeployJobSpec struct {
 	OriginJobName string `bson:"origin_job_name"      yaml:"origin_job_name"      json:"origin_job_name"`
 	//ServiceAndImages []*ServiceAndImage `bson:"service_and_images"   yaml:"service_and_images"   json:"service_and_images"`
 	Services       []*DeployServiceInfo `bson:"services"             yaml:"services"             json:"services"`
-	ServiceOptions []*DeployServiceInfo `bson:"service_options"      yaml:"service_options"      json:"service_options"`
+	ServiceOptions []*DeployServiceInfo `bson:"-"                    yaml:"service_options"      json:"service_options"`
 }
 
 type ServiceAndVMDeploy struct {
@@ -314,6 +314,7 @@ type ZadigVMDeployJobSpec struct {
 
 type ZadigHelmChartDeployJobSpec struct {
 	Env                string             `bson:"env"                      yaml:"env"                         json:"env"`
+	EnvOptions         []string           `bson:"-"                        yaml:"env_options"                 json:"env_options"`
 	EnvSource          string             `bson:"env_source"               yaml:"env_source"                  json:"env_source"`
 	SkipCheckRunStatus bool               `bson:"skip_check_run_status"    yaml:"skip_check_run_status"       json:"skip_check_run_status"`
 	DeployHelmCharts   []*DeployHelmChart `bson:"deploy_helm_charts"       yaml:"deploy_helm_charts"          json:"deploy_helm_charts"`
@@ -557,9 +558,15 @@ type GrayReleaseTarget struct {
 }
 
 type K8sPatchJobSpec struct {
-	ClusterID  string       `bson:"cluster_id"             json:"cluster_id"            yaml:"cluster_id"`
-	Namespace  string       `bson:"namespace"              json:"namespace"             yaml:"namespace"`
-	PatchItems []*PatchItem `bson:"patch_items"            json:"patch_items"           yaml:"patch_items"`
+	ClusterID        string          `bson:"cluster_id"             json:"cluster_id"            yaml:"cluster_id"`
+	ClusterIDOptions []*ClusterBrief `bson:"-"                      json:"cluster_id_options"    yaml:"cluster_id_options"`
+	Namespace        string          `bson:"namespace"              json:"namespace"             yaml:"namespace"`
+	PatchItems       []*PatchItem    `bson:"patch_items"            json:"patch_items"           yaml:"patch_items"`
+}
+
+type ClusterBrief struct {
+	ClusterID   string `json:"cluster_id"   yaml:"cluster_id"`
+	ClusterName string `json:"cluster_name" yaml:"cluster_name"`
 }
 
 type PatchItem struct {
