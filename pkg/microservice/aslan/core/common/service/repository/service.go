@@ -22,11 +22,32 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
+type IServiceColl interface {
+	Find(option *mongodb.ServiceFindOption) (*models.Service, error)
+	Delete(serviceName, serviceType, productName, status string, revision int64) error
+	Create(args *models.Service) error
+}
+
+func ServiceCollWithSession(production bool, session mongo.Session) IServiceColl {
+	if !production {
+		return mongodb.NewServiceCollWithSession(session)
+	}
+	return mongodb.NewProductionServiceCollWithSession(session)
+}
+
 func QueryTemplateService(option *mongodb.ServiceFindOption, production bool) (*models.Service, error) {
 	if !production {
 		return mongodb.NewServiceColl().Find(option)
 	} else {
 		return mongodb.NewProductionServiceColl().Find(option)
+	}
+}
+
+func QueryTemplateServiceWithSession(option *mongodb.ServiceFindOption, production bool, session mongo.Session) (*models.Service, error) {
+	if !production {
+		return mongodb.NewServiceCollWithSession(session).Find(option)
+	} else {
+		return mongodb.NewProductionServiceCollWithSession(session).Find(option)
 	}
 }
 
@@ -51,6 +72,14 @@ func ListMaxRevisionsServices(productName string, production bool) ([]*models.Se
 		return mongodb.NewServiceColl().ListMaxRevisionsByProduct(productName)
 	} else {
 		return mongodb.NewProductionServiceColl().ListMaxRevisionsByProduct(productName)
+	}
+}
+
+func ListMaxRevisionsServicesWithSession(productName string, production bool, session mongo.Session) ([]*models.Service, error) {
+	if !production {
+		return mongodb.NewServiceCollWithSession(session).ListMaxRevisionsByProduct(productName)
+	} else {
+		return mongodb.NewProductionServiceCollWithSession(session).ListMaxRevisionsByProduct(productName)
 	}
 }
 

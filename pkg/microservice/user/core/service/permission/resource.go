@@ -130,7 +130,8 @@ func GetResourceActionDefinitions(scope, envType string, log *zap.SugaredLogger)
 				continue
 			}
 		}
-		if envType == setting.K8SDeployType {
+
+		if envType != setting.PMDeployType {
 			if action.Action == VerbEnvironmentSSHPM {
 				continue
 			}

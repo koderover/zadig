@@ -46,6 +46,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/notify"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/pm"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/repository"
 	commontypes "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/types"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/environment/service"
@@ -185,7 +186,7 @@ type K8sWorkloadsArgs struct {
 	RegistryID  string                  `json:"registry_id"`
 }
 
-func CreateK8sWorkLoads(ctx context.Context, requestID, userName string, args *K8sWorkloadsArgs, log *zap.SugaredLogger) error {
+func CreateK8sWorkLoads(ctx context.Context, requestID, userName string, args *K8sWorkloadsArgs, production bool, log *zap.SugaredLogger) error {
 	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), args.ClusterID)
 	if err != nil {
 		log.Errorf("[%s] error: %v", args.Namespace, err)
@@ -218,10 +219,10 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, userName string, args *K
 	serviceString := sets.NewString()
 	templateSvcs := make(map[string]*commonmodels.Service)
 
-	services, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(args.ProductName)
-	if err != nil {
-		return e.ErrCreateEnv.AddErr(fmt.Errorf("ListMaxRevisionsByProduct err : %s", err))
-	}
+	services, err := repository.ListMaxRevisions(&commonrepo.ServiceListOption{
+		ProductName: args.ProductName,
+	}, production)
+
 	for _, v := range services {
 		serviceString.Insert(v.ServiceName)
 		templateSvcs[v.ServiceName] = v
@@ -232,7 +233,10 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, userName string, args *K
 
 	productCol := commonrepo.NewProductCollWithSession(session)
 
-	mongotool.StartTransaction(session)
+	err = mongotool.StartTransaction(session)
+	if err != nil {
+		return e.ErrCreateEnv.AddDesc("failed to start transaction")
+	}
 
 	productServices := make([]*commonmodels.ProductService, 0)
 
@@ -245,6 +249,7 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, userName string, args *K
 				ServiceName: tempWorkload.Name,
 				ProductName: args.ProductName,
 				Type:        setting.K8SDeployType,
+				Revision:    1,
 			}
 			productServices = append(productServices, productSvc)
 
@@ -279,7 +284,7 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, userName string, args *K
 				ProductName: args.ProductName,
 			})
 
-			templateSvc, err := CreateWorkloadTemplate(userName, &commonmodels.Service{
+			templateSvc, err := CreateWorkloadTemplate(&commonmodels.Service{
 				ServiceName:  tempWorkload.Name,
 				Yaml:         string(bs),
 				ProductName:  args.ProductName,
@@ -289,7 +294,7 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, userName string, args *K
 				Source:       setting.SourceFromExternal,
 				EnvName:      args.EnvName,
 				Revision:     1,
-			}, session, log)
+			}, production, session, log)
 			if err != nil {
 				return err
 			}
@@ -311,7 +316,7 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, userName string, args *K
 		Name:    args.ProductName,
 		EnvName: args.EnvName,
 	}); err != nil {
-		if err := service.CreateProduct(userName, requestID, &service.ProductCreateArg{&commonmodels.Product{
+		if err := service.CreateProduct(userName, requestID, &service.ProductCreateArg{Product: &commonmodels.Product{
 			ProductName: args.ProductName,
 			Source:      setting.SourceFromExternal,
 			ClusterID:   args.ClusterID,
@@ -320,8 +325,9 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, userName string, args *K
 			Namespace:   args.Namespace,
 			UpdateBy:    userName,
 			IsExisted:   true,
+			Production:  production,
 			Services:    [][]*commonmodels.ProductService{productServices},
-		}, session}, log); err != nil {
+		}, Session: session}, log); err != nil {
 			mongotool.AbortTransaction(session)
 			return e.ErrCreateProduct.AddDesc("create product Error for unknown reason")
 		}
@@ -344,7 +350,7 @@ type UpdateWorkloadsArgs struct {
 	Namespace string                  `json:"namespace"`
 }
 
-func UpdateWorkloads(ctx context.Context, requestID, username, productName, envName string, args UpdateWorkloadsArgs, log *zap.SugaredLogger) error {
+func UpdateWorkloads(ctx context.Context, requestID, username, productName, envName string, args UpdateWorkloadsArgs, production bool, log *zap.SugaredLogger) error {
 	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), args.ClusterID)
 	if err != nil {
 		log.Errorf("[%s] error: %s", args.Namespace, err)
@@ -364,7 +370,10 @@ func UpdateWorkloads(ctx context.Context, requestID, username, productName, envN
 	session := mongotool.Session()
 	defer session.EndSession(context.TODO())
 
-	mongotool.StartTransaction(session)
+	err = mongotool.StartTransaction(session)
+	if err != nil {
+		return fmt.Errorf("failed to start transaction")
+	}
 
 	productInfo, err := commonrepo.NewProductCollWithSession(session).Find(&commonrepo.ProductFindOptions{
 		Name:    productName,
@@ -422,9 +431,10 @@ func UpdateWorkloads(ctx context.Context, requestID, username, productName, envN
 			ServiceName: v.Name,
 			ProductName: productName,
 			Type:        setting.K8SDeployType,
+			Revision:    1,
 		}
 
-		templateSvc, err := CreateWorkloadTemplate(username, &commonmodels.Service{
+		templateSvc, err := CreateWorkloadTemplate(&commonmodels.Service{
 			ServiceName:  v.Name,
 			Yaml:         string(bs),
 			ProductName:  productName,
@@ -434,7 +444,7 @@ func UpdateWorkloads(ctx context.Context, requestID, username, productName, envN
 			Source:       setting.SourceFromExternal,
 			EnvName:      envName,
 			Revision:     1,
-		}, session, log)
+		}, production, session, log)
 		if err != nil {
 			log.Errorf("create service template failed err:%v", err)
 			delete(diff, v.Name)
@@ -457,8 +467,8 @@ func UpdateWorkloads(ctx context.Context, requestID, username, productName, envN
 }
 
 // CreateWorkloadTemplate only use for host projects
-func CreateWorkloadTemplate(userName string, args *commonmodels.Service, session mongo.Session, log *zap.SugaredLogger) (*commonmodels.Service, error) {
-	_, err := templaterepo.NewProductColl().Find(args.ProductName)
+func CreateWorkloadTemplate(args *commonmodels.Service, production bool, session mongo.Session, log *zap.SugaredLogger) (*commonmodels.Service, error) {
+	productTemp, err := templaterepo.NewProductColl().Find(args.ProductName)
 	if err != nil {
 		log.Errorf("Failed to find project %s, err: %s", args.ProductName, err)
 		return nil, e.ErrInvalidParam.AddErr(err)
@@ -475,30 +485,35 @@ func CreateWorkloadTemplate(userName string, args *commonmodels.Service, session
 		ExcludeStatus: setting.ProductStatusDeleting,
 	}
 
-	serviceColl := commonrepo.NewServiceCollWithSession(session)
+	serviceColl := repository.ServiceCollWithSession(production, session)
 	_, notFoundErr := serviceColl.Find(opt)
 	if notFoundErr != nil {
-		if productTempl, err := commonservice.GetProductTemplate(args.ProductName, log); err == nil {
-			//获取项目里面的所有服务
-			if len(productTempl.Services) > 0 && !sets.NewString(productTempl.Services[0]...).Has(args.ServiceName) {
-				productTempl.Services[0] = append(productTempl.Services[0], args.ServiceName)
-			} else if len(productTempl.Services) == 0 {
-				productTempl.Services = [][]string{{args.ServiceName}}
+		if !production {
+			if len(productTemp.Services) > 0 && !sets.NewString(productTemp.Services[0]...).Has(args.ServiceName) {
+				productTemp.Services[0] = append(productTemp.Services[0], args.ServiceName)
+			} else if len(productTemp.Services) == 0 {
+				productTemp.Services = [][]string{{args.ServiceName}}
 			}
-			//更新项目模板
-			err = templaterepo.NewProductCollWithSess(session).Update(args.ProductName, productTempl)
-			if err != nil {
-				log.Errorf("CreateServiceTemplate Update %s error: %s", args.ServiceName, err)
-				return nil, e.ErrCreateTemplate.AddDesc(err.Error())
+		} else {
+			if len(productTemp.ProductionServices) > 0 && !sets.NewString(productTemp.ProductionServices[0]...).Has(args.ServiceName) {
+				productTemp.ProductionServices[0] = append(productTemp.ProductionServices[0], args.ServiceName)
+			} else if len(productTemp.ProductionServices) == 0 {
+				productTemp.ProductionServices = [][]string{{args.ServiceName}}
 			}
-			if err := serviceColl.Delete(args.ServiceName, args.Type, args.ProductName, setting.ProductStatusDeleting, 0); err != nil {
-				log.Errorf("ServiceTmpl.delete %s error: %v", args.ServiceName, err)
-			}
+		}
 
-			if err := serviceColl.Create(args); err != nil {
-				log.Errorf("ServiceTmpl.Create %s error: %v", args.ServiceName, err)
-				return nil, e.ErrCreateTemplate.AddDesc(err.Error())
-			}
+		err = templaterepo.NewProductCollWithSess(session).Update(args.ProductName, productTemp)
+		if err != nil {
+			log.Errorf("CreateServiceTemplate Update %s error: %s", args.ServiceName, err)
+			return nil, e.ErrCreateTemplate.AddDesc(err.Error())
+		}
+		if err := serviceColl.Delete(args.ServiceName, args.Type, args.ProductName, setting.ProductStatusDeleting, 0); err != nil {
+			log.Errorf("ServiceTmpl.delete %s error: %v", args.ServiceName, err)
+		}
+
+		if err := serviceColl.Create(args); err != nil {
+			log.Errorf("ServiceTmpl.Create %s error: %v", args.ServiceName, err)
+			return nil, e.ErrCreateTemplate.AddDesc(err.Error())
 		}
 	}
 	return args, nil

@@ -62,7 +62,7 @@ func ListProductionServices(productName string, log *zap.SugaredLogger) (*servic
 			Type:                       serviceObject.Type,
 			Source:                     serviceObject.Source,
 			ProductName:                serviceObject.ProductName,
-			Containers:                 serviceObject.Containers,
+			Containers:                 commonservice.FillContainerBuilds(serviceObject.Containers),
 			CreateFrom:                 serviceObject.CreateFrom,
 			AutoSync:                   serviceObject.AutoSync,
 			EstimatedMergedVariable:    estimatedVariableYamlMap[serviceObject.ServiceName],
@@ -152,7 +152,7 @@ func CreateK8sProductionService(productName string, serviceObject *models.Servic
 	}
 
 	// delete the service with same revision
-	if err := commonrepo.NewProductionServiceColl().Delete(serviceObject.ServiceName, serviceObject.ProductName, setting.ProductStatusDeleting, serviceObject.Revision); err != nil {
+	if err := commonrepo.NewProductionServiceColl().Delete(serviceObject.ServiceName, "", serviceObject.ProductName, setting.ProductStatusDeleting, serviceObject.Revision); err != nil {
 		log.Errorf("ServiceTmpl.delete %s error: %v", serviceObject.ServiceName, err)
 	}
 
