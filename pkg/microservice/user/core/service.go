@@ -292,19 +292,19 @@ func syncUserRoleBinding() {
 	for _, project := range projectList {
 		projectAdminRole := &models.NewRole{
 			Name:        "project-admin",
-			Description: "",
+			Description: "拥有指定项目中任何操作的权限",
 			Type:        int64(setting.RoleTypeSystem),
 			Namespace:   project.ProductName,
 		}
 		readOnlyRole := &models.NewRole{
 			Name:        "read-only",
-			Description: "",
+			Description: "拥有指定项目中所有资源的读权限",
 			Type:        int64(setting.RoleTypeSystem),
 			Namespace:   project.ProductName,
 		}
 		readProjectOnlyRole := &models.NewRole{
 			Name:        "read-project-only",
-			Description: "",
+			Description: "拥有指定项目本身的读权限，无权限查看和操作项目内资源",
 			Type:        int64(setting.RoleTypeSystem),
 			Namespace:   project.ProductName,
 		}
