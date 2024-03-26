@@ -58,7 +58,7 @@ func (s *TarArchiveStep) Run(ctx context.Context) error {
 	if len(s.spec.ResultDirs) == 0 {
 		return nil
 	}
-	log.Infof("Start tar archive %s.", s.spec.FileName)
+	log.Infof("%s   Start tar archive %s.", time.Now().Format(setting.WorkflowTimeFormat), s.spec.FileName)
 	forcedPathStyle := true
 	if s.spec.S3Storage.Provider == setting.ProviderSourceAli {
 		forcedPathStyle = false
@@ -66,7 +66,7 @@ func (s *TarArchiveStep) Run(ctx context.Context) error {
 	client, err := s3.NewClient(s.spec.S3Storage.Endpoint, s.spec.S3Storage.Ak, s.spec.S3Storage.Sk, s.spec.S3Storage.Region, s.spec.S3Storage.Insecure, forcedPathStyle)
 	if err != nil {
 		if s.spec.IgnoreErr {
-			log.Errorf("failed to create s3 client to upload file, err: %s", err)
+			log.Errorf("%s   failed to create s3 client to upload file, err: %s", time.Now().Format(setting.WorkflowTimeFormat), err)
 			return nil
 		} else {
 			return fmt.Errorf("failed to create s3 client to upload file, err: %s", err)
@@ -144,7 +144,7 @@ func (s *TarArchiveStep) Run(ctx context.Context) error {
 
 	if err = cmd.Run(); err != nil {
 		if s.spec.IgnoreErr {
-			log.Errorf("failed to compress %s, cmd: %s, err: %s", tarName, cmd.String(), err)
+			log.Errorf("%s   failed to compress %s, cmd: %s, err: %s", time.Now().Format(setting.WorkflowTimeFormat), tarName, cmd.String(), err)
 			return nil
 		} else {
 			return fmt.Errorf("failed to compress %s, cmd: %s, err: %s", tarName, cmd.String(), err)
@@ -154,12 +154,12 @@ func (s *TarArchiveStep) Run(ctx context.Context) error {
 	objectKey := filepath.Join(s.spec.S3DestDir, s.spec.FileName)
 	if err := client.Upload(s.spec.S3Storage.Bucket, tarName, objectKey); err != nil {
 		if s.spec.IgnoreErr {
-			log.Errorf("failed to upload archive to s3, bucketName: %s, src: %s, objectKey: %s, err: %s", s.spec.S3Storage.Bucket, tarName, objectKey, err)
+			log.Errorf("%s   failed to upload archive to s3, bucketName: %s, src: %s, objectKey: %s, err: %s", time.Now().Format(setting.WorkflowTimeFormat), s.spec.S3Storage.Bucket, tarName, objectKey, err)
 			return nil
 		} else {
 			return fmt.Errorf("failed to upload archive to s3, bucketName: %s, src: %s, objectKey: %s, err: %s", s.spec.S3Storage.Bucket, tarName, objectKey, err)
 		}
 	}
-	log.Infof("Finish archive %s.", s.spec.FileName)
+	log.Infof("%s   Finish archive %s.", time.Now().Format(setting.WorkflowTimeFormat), s.spec.FileName)
 	return nil
 }

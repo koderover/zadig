@@ -57,7 +57,7 @@ func NewDownloadArchiveStep(spec interface{}, workspace string, envs, secretEnvs
 func (s *DownloadArchiveStep) Run(ctx context.Context) error {
 	start := time.Now()
 	defer func() {
-		log.Infof("Download Archive ended. Duration: %.2f seconds", time.Since(start).Seconds())
+		log.Infof("%s   Download Archive ended. Duration: %.2f seconds", time.Now().Format(setting.WorkflowTimeFormat), time.Since(start).Seconds())
 	}()
 
 	envmaps := makeEnvMap(s.envs, s.secretEnvs)
@@ -72,7 +72,7 @@ func (s *DownloadArchiveStep) Run(ctx context.Context) error {
 	client, err := s3.NewClient(s.spec.S3.Endpoint, s.spec.S3.Ak, s.spec.S3.Sk, s.spec.S3.Region, s.spec.S3.Insecure, forcedPathStyle)
 	if err != nil {
 		if s.spec.IgnoreErr {
-			log.Errorf("failed to create s3 client to upload file, err: %s", err)
+			log.Errorf("%s   failed to create s3 client to upload file, err: %s", time.Now().Format(setting.WorkflowTimeFormat), err)
 			return nil
 		} else {
 			return fmt.Errorf("failed to create s3 client to upload file, err: %s", err)
@@ -85,7 +85,7 @@ func (s *DownloadArchiveStep) Run(ctx context.Context) error {
 		err = client.Download(s.spec.S3.Bucket, objectKey, destPath)
 		if err != nil {
 			if s.spec.IgnoreErr {
-				log.Errorf("download archive err, bucketName: %s, objectKey: %s, err: %v", s.spec.S3.Bucket, objectKey, err)
+				log.Errorf("%s   download archive err, bucketName: %s, objectKey: %s, err: %v", time.Now().Format(setting.WorkflowTimeFormat), s.spec.S3.Bucket, objectKey, err)
 				return nil
 			} else {
 				return fmt.Errorf("failed to download archive from s3, bucketName: %s, objectKey: %s, destPath: %s, err: %s", s.spec.S3.Bucket, objectKey, destPath, err)
@@ -99,7 +99,7 @@ func (s *DownloadArchiveStep) Run(ctx context.Context) error {
 			err = client.Download(s.spec.S3.Bucket, objectKey, sourceFilename)
 			if err != nil {
 				if s.spec.IgnoreErr {
-					log.Errorf("failed to download archive from s3, bucketName: %s, objectKey: %s, err: %v", s.spec.S3.Bucket, objectKey, err)
+					log.Errorf("%s   failed to download archive from s3, bucketName: %s, objectKey: %s, err: %v", time.Now().Format(setting.WorkflowTimeFormat), s.spec.S3.Bucket, objectKey, err)
 					return nil
 				} else {
 					return fmt.Errorf("failed to download archive from s3, bucketName: %s, objectKey: %s, source: %s, err: %s", s.spec.S3.Bucket, objectKey, sourceFilename, err)
@@ -109,7 +109,7 @@ func (s *DownloadArchiveStep) Run(ctx context.Context) error {
 			destPath = s.spec.DestDir
 			if err = os.MkdirAll(destPath, os.ModePerm); err != nil {
 				if s.spec.IgnoreErr {
-					log.Errorf("failed to MkdirAll destPath %s, err: %s", destPath, err)
+					log.Errorf("%s   failed to MkdirAll destPath %s, err: %s", time.Now().Format(setting.WorkflowTimeFormat), destPath, err)
 					return nil
 				} else {
 					return fmt.Errorf("failed to MkdirAll destPath %s, err: %s", destPath, err)
@@ -120,7 +120,7 @@ func (s *DownloadArchiveStep) Run(ctx context.Context) error {
 			cmd.Stderr = out
 			if err := cmd.Run(); err != nil {
 				if s.spec.IgnoreErr {
-					log.Errorf("cmd: %s, err: %s %v", cmd.String(), out.String(), err)
+					log.Errorf("%s   cmd: %s, err: %s %v", time.Now().Format(setting.WorkflowTimeFormat), cmd.String(), out.String(), err)
 					return nil
 				} else {
 					return fmt.Errorf("cmd: %s, err: %s %v", cmd.String(), out.String(), err)
@@ -128,7 +128,7 @@ func (s *DownloadArchiveStep) Run(ctx context.Context) error {
 			}
 		} else {
 			if s.spec.IgnoreErr {
-				log.Errorf("failed to GenerateTmpFile, err: %s", err)
+				log.Errorf("%s   failed to GenerateTmpFile, err: %s", time.Now().Format(setting.WorkflowTimeFormat), err)
 				return nil
 			} else {
 				return fmt.Errorf("failed to GenerateTmpFile, err: %s", err)
