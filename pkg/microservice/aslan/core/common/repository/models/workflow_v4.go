@@ -271,19 +271,21 @@ type ServiceAndBuild struct {
 }
 
 type ZadigDeployJobSpec struct {
-	Env                string `bson:"env"                      yaml:"env"                         json:"env"`
-	Production         bool   `bson:"production"               yaml:"production"                  json:"production"`
-	DeployType         string `bson:"deploy_type"              yaml:"deploy_type,omitempty"       json:"deploy_type"`
-	SkipCheckRunStatus bool   `bson:"skip_check_run_status"    yaml:"skip_check_run_status"       json:"skip_check_run_status"`
+	Env                string   `bson:"env"                      yaml:"env"                         json:"env"`
+	EnvOptions         []string `bson:"-"                        yaml:"env_options"                 json:"env_options"`
+	Production         bool     `bson:"production"               yaml:"production"                  json:"production"`
+	DeployType         string   `bson:"deploy_type"              yaml:"deploy_type,omitempty"       json:"deploy_type"`
+	SkipCheckRunStatus bool     `bson:"skip_check_run_status"    yaml:"skip_check_run_status"       json:"skip_check_run_status"`
 	// fromjob/runtime, runtime 表示运行时输入，fromjob 表示从上游构建任务中获取
 	Source         config.DeploySourceType `bson:"source"     yaml:"source"     json:"source"`
 	DeployContents []config.DeployContent  `bson:"deploy_contents"     yaml:"deploy_contents"     json:"deploy_contents"`
 	// 当 source 为 fromjob 时需要，指定部署镜像来源是上游哪一个构建任务
 	JobName string `bson:"job_name"             yaml:"job_name"             json:"job_name"`
 	// save the origin quoted job name
-	OriginJobName    string             `bson:"origin_job_name"      yaml:"origin_job_name"      json:"origin_job_name"`
-	ServiceAndImages []*ServiceAndImage `bson:"service_and_images"   yaml:"service_and_images"   json:"service_and_images"`
-	Services         []*DeployService   `bson:"services"             yaml:"services"             json:"services"`
+	OriginJobName string `bson:"origin_job_name"      yaml:"origin_job_name"      json:"origin_job_name"`
+	//ServiceAndImages []*ServiceAndImage `bson:"service_and_images"   yaml:"service_and_images"   json:"service_and_images"`
+	Services       []*DeployServiceInfo `bson:"services"             yaml:"services"             json:"services"`
+	ServiceOptions []*DeployServiceInfo `bson:"service_options"      yaml:"service_options"      json:"service_options"`
 }
 
 type ServiceAndVMDeploy struct {
@@ -341,6 +343,26 @@ type DeployService struct {
 	LatestKeyVals []*ServiceKeyVal `bson:"latest_key_vals"     yaml:"latest_key_vals"  json:"latest_key_vals"`
 	UpdateConfig  bool             `bson:"update_config"       yaml:"update_config"    json:"update_config"`
 	Updatable     bool             `bson:"updatable"           yaml:"updatable"        json:"updatable"`
+}
+
+type DeployServiceInfo struct {
+	ServiceName       string                          `bson:"service_name"                     yaml:"service_name"                        json:"service_name"`
+	VariableConfigs   []*DeplopyVariableConfig        `bson:"variable_configs"                 yaml:"variable_configs"                    json:"variable_configs"`
+	VariableKVs       []*commontypes.RenderVariableKV `bson:"variable_kvs"                     yaml:"variable_kvs"                        json:"variable_kvs"`
+	LatestVariableKVs []*commontypes.RenderVariableKV `bson:"latest_variable_kvs"              yaml:"latest_variable_kvs"                 json:"latest_variable_kvs"`
+	VariableYaml      string                          `bson:"variable_yaml"                    yaml:"variable_yaml"                       json:"variable_yaml"`
+	UpdateConfig      bool                            `bson:"update_config"                    yaml:"update_config"                       json:"update_config"`
+	Updatable         bool                            `bson:"updatable"                        yaml:"updatable"                           json:"updatable"`
+	Modules           []*DeployModuleInfo             `bson:"modules"                          yaml:"modules"                             json:"modules"`
+	// Deprecated since 1.18
+	KeyVals       []*ServiceKeyVal `bson:"key_vals"            yaml:"key_vals"         json:"key_vals"`
+	LatestKeyVals []*ServiceKeyVal `bson:"latest_key_vals"     yaml:"latest_key_vals"  json:"latest_key_vals"`
+}
+
+type DeployModuleInfo struct {
+	ServiceModule string `bson:"service_module"      yaml:"service_module"   json:"service_module"`
+	Image         string `bson:"image"               yaml:"image"            json:"image"`
+	ImageName     string `bson:"image_name"          yaml:"image_name"       json:"image_name"`
 }
 
 type DeplopyVariableConfig struct {

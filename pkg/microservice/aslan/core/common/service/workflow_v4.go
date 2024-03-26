@@ -213,12 +213,14 @@ func FillServiceModules2Jobs(args *commonmodels.WorkflowV4) (*commonmodels.Workf
 				if err := commonmodels.IToi(job.Spec, deploy); err != nil {
 					return nil, false, err
 				}
-				for _, serviceAndDeploy := range deploy.ServiceAndImages {
-					sm := &commonmodels.WorkflowServiceModule{
-						ServiceName:   serviceAndDeploy.ServiceName,
-						ServiceModule: serviceAndDeploy.ServiceModule,
+				for _, serviceInfo := range deploy.Services {
+					for _, moduleInfo := range serviceInfo.Modules {
+						sm := &commonmodels.WorkflowServiceModule{
+							ServiceName:   serviceInfo.ServiceName,
+							ServiceModule: moduleInfo.ServiceModule,
+						}
+						services = append(services, sm)
 					}
-					services = append(services, sm)
 				}
 				if len(services) > 0 {
 					change++

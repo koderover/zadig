@@ -225,18 +225,20 @@ func (j *WorkflowTriggerJob) getSourceJobTargets(jobName string, m map[commonmod
 				if err := commonmodels.IToi(job.Spec, deploySpec); err != nil {
 					return nil, err
 				}
-				for _, build := range deploySpec.ServiceAndImages {
-					if info, ok := m[commonmodels.ServiceNameAndModule{
-						ServiceName:   build.ServiceName,
-						ServiceModule: build.ServiceModule,
-					}]; ok {
-						resp = append(resp, &commonmodels.WorkflowTriggerEvent{
-							WorkflowName:  info.WorkflowName,
-							Params:        info.Params,
-							ServiceName:   build.ServiceName,
-							ServiceModule: build.ServiceModule,
-							ProjectName:   info.ProjectName,
-						})
+				for _, svc := range deploySpec.Services {
+					for _, module := range svc.Modules {
+						if info, ok := m[commonmodels.ServiceNameAndModule{
+							ServiceName:   svc.ServiceName,
+							ServiceModule: module.ServiceModule,
+						}]; ok {
+							resp = append(resp, &commonmodels.WorkflowTriggerEvent{
+								WorkflowName:  info.WorkflowName,
+								Params:        info.Params,
+								ServiceName:   svc.ServiceName,
+								ServiceModule: module.ServiceModule,
+								ProjectName:   info.ProjectName,
+							})
+						}
 					}
 				}
 			}

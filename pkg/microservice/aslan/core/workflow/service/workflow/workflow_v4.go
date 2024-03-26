@@ -2104,8 +2104,8 @@ func GetLatestTaskInfo(workflowInfo *Workflow) (startTime int64, creator, status
 	}
 }
 
-func GetFilteredEnvServices(workflowName, jobName, envName string, serviceNames []string, log *zap.SugaredLogger) ([]*commonmodels.DeployService, error) {
-	resp := []*commonmodels.DeployService{}
+func GetFilteredEnvServices(workflowName, jobName, envName string, serviceNames []string, log *zap.SugaredLogger) ([]*commonmodels.DeployServiceInfo, error) {
+	resp := []*commonmodels.DeployServiceInfo{}
 	workflow, err := commonrepo.NewWorkflowV4Coll().Find(workflowName)
 	if err != nil {
 		msg := fmt.Sprintf("Failed to find WorkflowV4: %s, the error is: %v", workflowName, err)
@@ -2153,7 +2153,7 @@ func GetFilteredEnvServices(workflowName, jobName, envName string, serviceNames 
 	for _, service := range services.Services {
 		serviceMap[service.ServiceName] = service
 	}
-	deployServiceMap := map[string]*commonmodels.DeployService{}
+	deployServiceMap := map[string]*commonmodels.DeployServiceInfo{}
 	for _, service := range jobSpec.Services {
 		deployServiceMap[service.ServiceName] = service
 	}
@@ -2686,7 +2686,7 @@ func checkMapKeyExist(m map[string]string, key string) bool {
 	return ok
 }
 
-func filterServiceVars(serviceName string, deployContents []config.DeployContent, service *commonmodels.DeployService, serviceEnv *commonservice.EnvService) (*commonmodels.DeployService, error) {
+func filterServiceVars(serviceName string, deployContents []config.DeployContent, service *commonmodels.DeployServiceInfo, serviceEnv *commonservice.EnvService) (*commonmodels.DeployServiceInfo, error) {
 	if serviceEnv == nil {
 		return service, fmt.Errorf("service: %v do not exist", serviceName)
 	}
@@ -2697,7 +2697,7 @@ func filterServiceVars(serviceName string, deployContents []config.DeployContent
 
 	keySet := sets.NewString()
 	if service == nil {
-		service = &commonmodels.DeployService{}
+		service = &commonmodels.DeployServiceInfo{}
 	} else {
 		for _, config := range service.VariableConfigs {
 			keySet = keySet.Insert(config.VariableKey)
