@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
@@ -52,7 +51,6 @@ func (j *NacosJob) Instantiate() error {
 }
 
 func (j *NacosJob) SetPreset() error {
-	now := time.Now()
 	j.spec = &commonmodels.NacosJobSpec{}
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return err
@@ -117,7 +115,6 @@ func (j *NacosJob) SetPreset() error {
 
 	j.spec.NacosDatas = newDatas
 	j.spec.NacosFilteredData = newFilterDatas
-	log.Debugf("Nacos SetPreset: elapsed time: %v", time.Since(now))
 	return nil
 }
 

@@ -20,11 +20,9 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/imroc/req/v3"
 	"github.com/koderover/zadig/v2/pkg/tool/httpclient"
-	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/types"
 	"github.com/pkg/errors"
 )
@@ -69,7 +67,6 @@ const (
 )
 
 func NewNacosClient(serverAddr, userName, password string) (*Client, error) {
-	now := time.Now()
 	host, err := url.Parse(serverAddr)
 	if err != nil {
 		return nil, errors.Wrap(err, "parse nacos server address failed")
@@ -96,8 +93,6 @@ func NewNacosClient(serverAddr, userName, password string) (*Client, error) {
 		httpclient.SetHostURL(serverAddr),
 	)
 
-	log.Debugf("NewNacosClient: elapsed time: %v", time.Since(now))
-
 	return &Client{
 		Client:     c,
 		serverAddr: serverAddr,
@@ -122,7 +117,6 @@ func getNamespaceID(namespaceID string) string {
 }
 
 func (c *Client) ListNamespaces() ([]*types.NacosNamespace, error) {
-	now := time.Now()
 	url := "/v1/console/namespaces"
 	res := &namespaceResp{}
 	if _, err := c.Client.Get(url, httpclient.SetResult(res)); err != nil {
@@ -135,12 +129,10 @@ func (c *Client) ListNamespaces() ([]*types.NacosNamespace, error) {
 			NamespacedName: namespace.NamespaceName,
 		})
 	}
-	log.Debugf("ListNamespaces: elapsed time: %v", time.Since(now))
 	return resp, nil
 }
 
 func (c *Client) ListConfigs(namespaceID string) ([]*types.NacosConfig, error) {
-	now := time.Now()
 	namespaceID = getNamespaceID(namespaceID)
 	url := "/v1/cs/configs"
 	resp := []*types.NacosConfig{}
@@ -160,11 +152,9 @@ func (c *Client) ListConfigs(namespaceID string) ([]*types.NacosConfig, error) {
 			"tenant":      namespaceID,
 			"accessToken": c.token,
 		})
-		now1 := time.Now()
 		if _, err := c.Client.Get(url, params, httpclient.SetResult(res)); err != nil {
 			return nil, errors.Wrap(err, "list nacos config failed")
 		}
-		log.Debugf("ListConfigs(Get): elapsed time: %v, count: %v", time.Since(now1), len(res.PageItems))
 		for _, conf := range res.PageItems {
 			resp = append(resp, &types.NacosConfig{
 				DataID:  conf.DataID,
@@ -178,12 +168,10 @@ func (c *Client) ListConfigs(namespaceID string) ([]*types.NacosConfig, error) {
 			end = true
 		}
 	}
-	log.Debugf("ListConfigs: elapsed time: %v", time.Since(now))
 	return resp, nil
 }
 
 func (c *Client) GetConfig(dataID, group, namespaceID string) (*types.NacosConfig, error) {
-	now := time.Now()
 	namespaceID = getNamespaceID(namespaceID)
 	url := "/v1/cs/configs"
 	res := &config{}
@@ -197,7 +185,6 @@ func (c *Client) GetConfig(dataID, group, namespaceID string) (*types.NacosConfi
 	if _, err := c.Client.Get(url, params, httpclient.SetResult(res)); err != nil {
 		return nil, errors.Wrap(err, "get nacos config failed")
 	}
-	log.Debugf("GetConfigs: elapsed time: %v", time.Since(now))
 	return &types.NacosConfig{
 		DataID:  res.DataID,
 		Group:   res.Group,
@@ -207,7 +194,6 @@ func (c *Client) GetConfig(dataID, group, namespaceID string) (*types.NacosConfi
 }
 
 func (c *Client) UpdateConfig(dataID, group, namespaceID, content, format string) error {
-	now := time.Now()
 	namespaceID = getNamespaceID(namespaceID)
 	path := "/v1/cs/configs"
 	formValues := map[string]string{
@@ -221,7 +207,6 @@ func (c *Client) UpdateConfig(dataID, group, namespaceID, content, format string
 	if _, err := c.Client.Post(path, httpclient.SetFormData(formValues)); err != nil {
 		return errors.Wrap(err, "update nacos config failed")
 	}
-	log.Debugf("UpdateConfigs: elapsed time: %v", time.Since(now))
 	return nil
 }
 
