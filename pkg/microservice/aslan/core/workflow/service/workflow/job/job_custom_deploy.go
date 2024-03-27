@@ -17,10 +17,12 @@ limitations under the License.
 package job
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
+	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
@@ -44,6 +46,37 @@ func (j *CustomDeployJob) SetPreset() error {
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return err
 	}
+
+	clusters, err := commonrepo.NewK8SClusterColl().List(&commonrepo.ClusterListOpts{})
+	if err != nil {
+		return fmt.Errorf("failed to list cluster info for custom job preset options")
+	}
+	clusterList := make([]*commonmodels.ClusterBrief, 0)
+	for _, cluster := range clusters {
+		clusterList = append(clusterList, &commonmodels.ClusterBrief{
+			ClusterID:   cluster.ID.Hex(),
+			ClusterName: cluster.Name,
+		})
+	}
+
+	registries, err := commonrepo.NewRegistryNamespaceColl().FindAll(&commonrepo.FindRegOps{})
+	if err != nil {
+		return fmt.Errorf("failed to list registry info for custom job preset options")
+	}
+	registryList := make([]*commonmodels.RegistryBrief, 0)
+	for _, registry := range registries {
+		addr := registry.RegAddr
+		if registry.Namespace != "" {
+			addr = fmt.Sprintf("%s/%s", addr, registry.Namespace)
+		}
+		registryList = append(registryList, &commonmodels.RegistryBrief{
+			RegistryID:   registry.ID.Hex(),
+			RegistryName: addr,
+		})
+	}
+
+	j.spec.ClusterOptions = clusterList
+	j.spec.RegistryOptions = registryList
 	j.job.Spec = j.spec
 	return nil
 }
