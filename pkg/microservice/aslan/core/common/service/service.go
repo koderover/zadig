@@ -806,6 +806,13 @@ func ExtractImageRegistry(imageURI string) (string, error) {
 	for i, matchedStr := range subMatchAll {
 		if i != 0 && matchedStr != "" && matchedStr != ":" {
 			if exNames[i] == "repo" {
+				// if matchedStr format is like '10.10.1.30:8473/xxx/yyy'
+				// the url.Parse will return error 'first path segment in URL cannot contain colon'
+				// so we have to know it has schema or not first
+				if !util.HasSchema(matchedStr) {
+					return matchedStr, nil
+				}
+
 				u, err := url.Parse(matchedStr)
 				if err != nil {
 					return "", err
