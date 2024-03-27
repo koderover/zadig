@@ -391,3 +391,51 @@ func PlaceholderDeplyJobSpec(c *gin.Context) {
 func PlaceholderUpdateEnvIstioConfigJobSpec(c *gin.Context) {
 
 }
+
+// @Summary [DONT USE]  CustomDeployJobSpec
+// @Description [DONT USE] CustomDeployJobSpec
+// @Tags 	placeholder
+// @Accept 	json
+// @Produce json
+// @Param 	deploy_job_spec 			body 		 commonmodels.CustomDeployJobSpec	true 	"body"
+// @Success 200
+// @Router /api/aslan/placeholder/custom_deploy_job_spec [post]
+func Placeholder2(c *gin.Context) {
+
+}
+
+// @Summary [DONT USE]  ZadigBuildJobSpec
+// @Description [DONT USE] ZadigBuildJobSpec
+// @Tags 	placeholder
+// @Accept 	json
+// @Produce json
+// @Param 	deploy_job_spec 			body 		 commonmodels.ZadigBuildJobSpec	true 	"body"
+// @Success 200
+// @Router /api/aslan/placeholder/zadig_build_job_spec [post]
+func Placeholder3(c *gin.Context) {
+
+}
+
+// @Summary [DONT USE]  ZadigHelmChartDeployJobSpec
+// @Description [DONT USE] ZadigHelmChartDeployJobSpec
+// @Tags 	placeholder
+// @Accept 	json
+// @Produce json
+// @Param 	deploy_job_spec 			body 		 commonmodels.ZadigHelmChartDeployJobSpec	true 	"body"
+// @Success 200
+// @Router /api/aslan/placeholder/zadig_helm_chart_deploy_job_spec [post]
+func Placeholder4(c *gin.Context) {
+
+}
+
+// @Summary [DONT USE]  K8sPatchJobSpec
+// @Description [DONT USE] K8sPatchJobSpec
+// @Tags 	placeholder
+// @Accept 	json
+// @Produce json
+// @Param 	deploy_job_spec 			body 		 commonmodels.K8sPatchJobSpec	true 	"body"
+// @Success 200
+// @Router /api/aslan/placeholder/k8s_patch_job_spec [post]
+func Placeholder5(c *gin.Context) {
+
+}

@@ -59,7 +59,7 @@ func (j *K8sPacthJob) SetPreset() error {
 		})
 	}
 
-	j.spec.ClusterIDOptions = options
+	j.spec.ClusterOptions = options
 	j.job.Spec = j.spec
 	return nil
 }
