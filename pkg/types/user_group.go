@@ -27,3 +27,16 @@ type DetailedUserGroupResp struct {
 	Type        string   `json:"type"`
 	UIDs        []string `json:"uids"`
 }
+
+type UserGroupResp struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Type        string `json:"type"`
+	UserTotal   int64  `json:"user_total"`
+}
+
+type ListUserGroupResp struct {
+	GroupList []*UserGroupResp `json:"group_list"`
+	Count     int64            `json:"total"`
+}

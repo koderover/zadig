@@ -18,6 +18,7 @@ package service
 
 import (
 	"fmt"
+	"github.com/koderover/zadig/v2/pkg/shared/client/user"
 	"reflect"
 	"time"
 
@@ -296,9 +297,20 @@ func updateVisitTime(uid string, cis []*models.CollaborationInstance, logger *za
 }
 
 func GetCollaborationUpdate(projectName, uid, identityType, userName string, logger *zap.SugaredLogger) (*GetCollaborationUpdateResp, error) {
+	relatedGroups, err := user.New().GetUserGroupsByUid(uid)
+	if err != nil {
+		logger.Errorf("GetCollaborationUpdate error, err msg:%s", err)
+		return nil, err
+	}
+	members := []string{uid}
+	for _, group := range relatedGroups.GroupList {
+		members = append(members, group.ID)
+	}
+
+	// user uid and related gids to get collaboration mode
 	collaborations, err := mongodb.NewCollaborationModeColl().List(&mongodb.CollaborationModeListOptions{
 		Projects: []string{projectName},
-		Members:  []string{uid},
+		Members:  members,
 	})
 	if err != nil {
 		logger.Errorf("GetCollaborationUpdate error, err msg:%s", err)
