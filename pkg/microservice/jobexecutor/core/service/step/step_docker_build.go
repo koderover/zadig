@@ -56,11 +56,7 @@ func NewDockerBuildStep(spec interface{}, workspace string, envs, secretEnvs []s
 }
 
 func (s *DockerBuildStep) Run(ctx context.Context) error {
-	start := time.Now()
 	log.Infof("%s   Start docker build.", time.Now().Format(setting.WorkflowTimeFormat))
-	defer func() {
-		log.Infof("%s   Docker build ended. Duration: %.2f seconds.", time.Now().Format(setting.WorkflowTimeFormat), time.Since(start).Seconds())
-	}()
 
 	envMap := makeEnvMap(s.envs, s.secretEnvs)
 	if image, ok := envMap["IMAGE"]; ok {
