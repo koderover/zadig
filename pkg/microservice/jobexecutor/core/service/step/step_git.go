@@ -61,9 +61,9 @@ func NewGitStep(spec interface{}, workspace string, envs, secretEnvs []string) (
 
 func (s *GitStep) Run(ctx context.Context) error {
 	start := time.Now()
-	log.Infof("Start git clone.", time.Now().Format(setting.WorkflowTimeFormat))
+	log.Infof("Start git clone.")
 	defer func() {
-		log.Infof("Git clone ended. Duration: %.2f seconds.", time.Now().Format(setting.WorkflowTimeFormat), time.Since(start).Seconds())
+		log.Infof("Git clone ended. Duration: %.2f seconds.", time.Since(start).Seconds())
 	}()
 	return s.runGitCmds()
 }
