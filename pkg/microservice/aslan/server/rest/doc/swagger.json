@@ -5918,6 +5918,20 @@
                 }
             }
         },
+        "models.DeployModuleInfo": {
+            "type": "object",
+            "properties": {
+                "image": {
+                    "type": "string"
+                },
+                "image_name": {
+                    "type": "string"
+                },
+                "service_module": {
+                    "type": "string"
+                }
+            }
+        },
         "models.DeployService": {
             "type": "object",
             "properties": {
@@ -5967,6 +5981,60 @@
                 },
                 "variable_yaml": {
                     "description": "VariableYaml added since 1.18, used for helm production environments",
+                    "type": "string"
+                }
+            }
+        },
+        "models.DeployServiceInfo": {
+            "type": "object",
+            "properties": {
+                "key_vals": {
+                    "description": "Deprecated since 1.18",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ServiceKeyVal"
+                    }
+                },
+                "latest_key_vals": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ServiceKeyVal"
+                    }
+                },
+                "latest_variable_kvs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/types.RenderVariableKV"
+                    }
+                },
+                "modules": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.DeployModuleInfo"
+                    }
+                },
+                "service_name": {
+                    "type": "string"
+                },
+                "updatable": {
+                    "type": "boolean"
+                },
+                "update_config": {
+                    "type": "boolean"
+                },
+                "variable_configs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.DeplopyVariableConfig"
+                    }
+                },
+                "variable_kvs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/types.RenderVariableKV"
+                    }
+                },
+                "variable_yaml": {
                     "type": "string"
                 }
             }
@@ -6746,23 +6814,6 @@
                 }
             }
         },
-        "models.ServiceAndImage": {
-            "type": "object",
-            "properties": {
-                "image": {
-                    "type": "string"
-                },
-                "image_name": {
-                    "type": "string"
-                },
-                "service_module": {
-                    "type": "string"
-                },
-                "service_name": {
-                    "type": "string"
-                }
-            }
-        },
         "models.ServiceKeyVal": {
             "type": "object",
             "properties": {
@@ -6858,6 +6909,12 @@
                 "env": {
                     "type": "string"
                 },
+                "env_options": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "job_name": {
                     "description": "当 source 为 fromjob 时需要，指定部署镜像来源是上游哪一个构建任务",
                     "type": "string"
@@ -6869,16 +6926,17 @@
                 "production": {
                     "type": "boolean"
                 },
-                "service_and_images": {
+                "service_options": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/models.ServiceAndImage"
+                        "$ref": "#/definitions/models.DeployServiceInfo"
                     }
                 },
                 "services": {
+                    "description": "ServiceAndImages []*ServiceAndImage `bson:\"service_and_images\"   yaml:\"service_and_images\"   json:\"service_and_images\"`",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/models.DeployService"
+                        "$ref": "#/definitions/models.DeployServiceInfo"
                     }
                 },
                 "skip_check_run_status": {

@@ -497,6 +497,15 @@ definitions:
       variable_key:
         type: string
     type: object
+  models.DeployModuleInfo:
+    properties:
+      image:
+        type: string
+      image_name:
+        type: string
+      service_module:
+        type: string
+    type: object
   models.DeployService:
     properties:
       key_vals:
@@ -532,6 +541,42 @@ definitions:
         type: array
       variable_yaml:
         description: VariableYaml added since 1.18, used for helm production environments
+        type: string
+    type: object
+  models.DeployServiceInfo:
+    properties:
+      key_vals:
+        description: Deprecated since 1.18
+        items:
+          $ref: '#/definitions/models.ServiceKeyVal'
+        type: array
+      latest_key_vals:
+        items:
+          $ref: '#/definitions/models.ServiceKeyVal'
+        type: array
+      latest_variable_kvs:
+        items:
+          $ref: '#/definitions/types.RenderVariableKV'
+        type: array
+      modules:
+        items:
+          $ref: '#/definitions/models.DeployModuleInfo'
+        type: array
+      service_name:
+        type: string
+      updatable:
+        type: boolean
+      update_config:
+        type: boolean
+      variable_configs:
+        items:
+          $ref: '#/definitions/models.DeplopyVariableConfig'
+        type: array
+      variable_kvs:
+        items:
+          $ref: '#/definitions/types.RenderVariableKV'
+        type: array
+      variable_yaml:
         type: string
     type: object
   models.EnvConfig:
@@ -1061,17 +1106,6 @@ definitions:
       yaml:
         type: string
     type: object
-  models.ServiceAndImage:
-    properties:
-      image:
-        type: string
-      image_name:
-        type: string
-      service_module:
-        type: string
-      service_name:
-        type: string
-    type: object
   models.ServiceKeyVal:
     properties:
       choice_option:
@@ -1136,6 +1170,10 @@ definitions:
         type: string
       env:
         type: string
+      env_options:
+        items:
+          type: string
+        type: array
       job_name:
         description: 当 source 为 fromjob 时需要，指定部署镜像来源是上游哪一个构建任务
         type: string
@@ -1144,13 +1182,14 @@ definitions:
         type: string
       production:
         type: boolean
-      service_and_images:
+      service_options:
         items:
-          $ref: '#/definitions/models.ServiceAndImage'
+          $ref: '#/definitions/models.DeployServiceInfo'
         type: array
       services:
+        description: ServiceAndImages []*ServiceAndImage `bson:"service_and_images"   yaml:"service_and_images"   json:"service_and_images"`
         items:
-          $ref: '#/definitions/models.DeployService'
+          $ref: '#/definitions/models.DeployServiceInfo'
         type: array
       skip_check_run_status:
         type: boolean
