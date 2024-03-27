@@ -2159,9 +2159,16 @@ func generateCustomWorkflowFromDeliveryVersion(productInfo *commonmodels.Product
 			sourceImageTag := ""
 			registryURL := strings.TrimSuffix(imageData.Image, fmt.Sprintf("/%s", imageData.ImageName))
 			tmpArr := strings.Split(imageData.Image, ":")
-			if len(tmpArr) > 1 {
+			if len(tmpArr) == 2 {
 				sourceImageTag = tmpArr[1]
 				registryURL = strings.TrimSuffix(imageData.Image, fmt.Sprintf("/%s:%s", imageData.ImageName, sourceImageTag))
+			} else if len(tmpArr) == 3 {
+				sourceImageTag = tmpArr[2]
+				registryURL = strings.TrimSuffix(imageData.Image, fmt.Sprintf("/%s:%s", imageData.ImageName, sourceImageTag))
+			} else if len(tmpArr) == 1 {
+				// no need to trim
+			} else {
+				return nil, fmt.Errorf("invalid image: %s", imageData.Image)
 			}
 			sourceRegistry, ok := registryMap[registryURL]
 			if !ok {
