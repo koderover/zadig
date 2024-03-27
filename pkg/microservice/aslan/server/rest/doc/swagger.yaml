@@ -360,6 +360,13 @@ definitions:
           $ref: '#/definitions/models.ResourceType'
         type: array
     type: object
+  models.ClusterBrief:
+    properties:
+      cluster_id:
+        type: string
+      cluster_name:
+        type: string
+    type: object
   models.CodeHost:
     properties:
       access_token:
@@ -450,6 +457,35 @@ definitions:
       yaml_data:
         type: string
     type: object
+  models.CustomDeployJobSpec:
+    properties:
+      cluster_id:
+        type: string
+      cluster_options:
+        items:
+          $ref: '#/definitions/models.ClusterBrief'
+        type: array
+      docker_registry_id:
+        type: string
+      namespace:
+        type: string
+      registry_options:
+        items:
+          $ref: '#/definitions/models.RegistryBrief'
+        type: array
+      skip_check_run_status:
+        type: boolean
+      source:
+        description: support two sources, runtime/fixed.
+        type: string
+      targets:
+        items:
+          $ref: '#/definitions/models.DeployTargets'
+        type: array
+      timeout:
+        description: unit is minute.
+        type: integer
+    type: object
   models.DBInstance:
     properties:
       created_at:
@@ -482,6 +518,19 @@ definitions:
       use_global_variable:
         type: boolean
       variable_key:
+        type: string
+    type: object
+  models.DeployHelmChart:
+    properties:
+      chart_name:
+        type: string
+      chart_repo:
+        type: string
+      chart_version:
+        type: string
+      release_name:
+        type: string
+      values_yaml:
         type: string
     type: object
   models.DeployModuleInfo:
@@ -564,6 +613,16 @@ definitions:
           $ref: '#/definitions/types.RenderVariableKV'
         type: array
       variable_yaml:
+        type: string
+    type: object
+  models.DeployTargets:
+    properties:
+      image:
+        type: string
+      image_name:
+        type: string
+      target:
+        description: workload_type/workload_name/container_name.
         type: string
     type: object
   models.EnvConfig:
@@ -687,6 +746,36 @@ definitions:
       weight:
         type: integer
     type: object
+  models.K8sPatchJobSpec:
+    properties:
+      cluster_id:
+        type: string
+      cluster_options:
+        items:
+          $ref: '#/definitions/models.ClusterBrief'
+        type: array
+      namespace:
+        type: string
+      patch_items:
+        items:
+          $ref: '#/definitions/models.PatchItem'
+        type: array
+    type: object
+  models.KeyVal:
+    properties:
+      choice_option:
+        items:
+          type: string
+        type: array
+      is_credential:
+        type: boolean
+      key:
+        type: string
+      type:
+        $ref: '#/definitions/models.ParameterSettingType'
+      value:
+        type: string
+    type: object
   models.LLMIntegration:
     properties:
       base_url:
@@ -723,6 +812,30 @@ definitions:
     x-enum-varnames:
     - NotificationEventAnalyzerNoraml
     - NotificationEventAnalyzerAbnormal
+  models.Param:
+    properties:
+      choice_option:
+        items:
+          type: string
+        type: array
+      default:
+        type: string
+      description:
+        type: string
+      is_credential:
+        type: boolean
+      name:
+        type: string
+      repo:
+        $ref: '#/definitions/types.Repository'
+      source:
+        type: string
+      type:
+        description: support string/text/choice/repo type
+        type: string
+      value:
+        type: string
+    type: object
   models.ParameterSettingType:
     enum:
     - string
@@ -733,6 +846,26 @@ definitions:
     - StringType
     - ChoiceType
     - ExternalType
+  models.PatchItem:
+    properties:
+      params:
+        items:
+          $ref: '#/definitions/models.Param'
+        type: array
+      patch_content:
+        type: string
+      patch_strategy:
+        description: support strategic-merge/merge/json
+        type: string
+      resource_group:
+        type: string
+      resource_kind:
+        type: string
+      resource_name:
+        type: string
+      resource_version:
+        type: string
+    type: object
   models.PmHealthCheck:
     properties:
       current_healthy_num:
@@ -877,6 +1010,13 @@ definitions:
           TODO: whether this field should exist needs a discussion
         type: boolean
       tls_cert:
+        type: string
+    type: object
+  models.RegistryBrief:
+    properties:
+      registry_id:
+        type: string
+      registry_name:
         type: string
     type: object
   models.RegistryNamespace:
@@ -1093,6 +1233,31 @@ definitions:
       yaml:
         type: string
     type: object
+  models.ServiceAndBuild:
+    properties:
+      build_name:
+        type: string
+      image:
+        type: string
+      image_name:
+        type: string
+      key_vals:
+        items:
+          $ref: '#/definitions/models.KeyVal'
+        type: array
+      package:
+        type: string
+      repos:
+        items:
+          $ref: '#/definitions/types.Repository'
+        type: array
+      service_module:
+        type: string
+      service_name:
+        type: string
+      share_storage_info:
+        $ref: '#/definitions/models.ShareStorageInfo'
+    type: object
   models.ServiceKeyVal:
     properties:
       choice_option:
@@ -1118,6 +1283,22 @@ definitions:
       version:
         type: string
     type: object
+  models.ShareStorage:
+    properties:
+      name:
+        type: string
+      path:
+        type: string
+    type: object
+  models.ShareStorageInfo:
+    properties:
+      enabled:
+        type: boolean
+      share_storages:
+        items:
+          $ref: '#/definitions/models.ShareStorage'
+        type: array
+    type: object
   models.WebHookType:
     enum:
     - feishu
@@ -1128,6 +1309,19 @@ definitions:
     - WebHookTypeFeishu
     - WebHookTypeDingding
     - WebHookTypeWeChat
+  models.ZadigBuildJobSpec:
+    properties:
+      docker_registry_id:
+        type: string
+      service_and_builds:
+        items:
+          $ref: '#/definitions/models.ServiceAndBuild'
+        type: array
+      service_and_builds_options:
+        items:
+          $ref: '#/definitions/models.ServiceAndBuild'
+        type: array
+    type: object
   models.ZadigDeployJobSpec:
     properties:
       deploy_contents:
@@ -1155,7 +1349,6 @@ definitions:
           $ref: '#/definitions/models.DeployServiceInfo'
         type: array
       services:
-        description: ServiceAndImages []*ServiceAndImage `bson:"service_and_images"   yaml:"service_and_images"   json:"service_and_images"`
         items:
           $ref: '#/definitions/models.DeployServiceInfo'
         type: array
@@ -1165,6 +1358,23 @@ definitions:
         allOf:
         - $ref: '#/definitions/config.DeploySourceType'
         description: fromjob/runtime, runtime 表示运行时输入，fromjob 表示从上游构建任务中获取
+    type: object
+  models.ZadigHelmChartDeployJobSpec:
+    properties:
+      deploy_helm_charts:
+        items:
+          $ref: '#/definitions/models.DeployHelmChart'
+        type: array
+      env:
+        type: string
+      env_options:
+        items:
+          type: string
+        type: array
+      env_source:
+        type: string
+      skip_check_run_status:
+        type: boolean
     type: object
   resource.Backend:
     properties:
@@ -2610,6 +2820,109 @@ definitions:
       use_global_variable:
         type: boolean
       value: {}
+    type: object
+  types.RepoSource:
+    enum:
+    - ""
+    - param
+    - job
+    type: string
+    x-enum-varnames:
+    - RepoSourceRuntime
+    - RepoSourceParam
+    - RepoSourceJob
+  types.Repository:
+    properties:
+      address:
+        type: string
+      auth_type:
+        allOf:
+        - $ref: '#/definitions/types.AuthType'
+        description: The address of the code base input of the other type
+      author_name:
+        type: string
+      branch:
+        type: string
+      checkout_path:
+        type: string
+      checkout_ref:
+        type: string
+      codehost_id:
+        type: integer
+      commit_id:
+        type: string
+      commit_message:
+        type: string
+      enable_commit:
+        description: EnableCommit marks if the pull uses a commit instead of branch/pr
+        type: boolean
+      enable_proxy:
+        description: Now EnableProxy is not something we store. We decide this on
+          runtime
+        type: boolean
+      filter_regexp:
+        description: FilterRegexp is the regular expression filter for the branches
+          and tags
+        type: string
+      hidden:
+        description: Hidden defines whether the frontend needs to hide this repo
+        type: boolean
+      is_primary:
+        description: IsPrimary used to generated image and package name, each build
+          has one primary repo
+        type: boolean
+      job_name:
+        type: string
+      oauth_token:
+        description: add
+        type: string
+      param_name:
+        type: string
+      password:
+        type: string
+      pr:
+        type: integer
+      private_access_token:
+        type: string
+      prs:
+        items:
+          type: integer
+        type: array
+      remote_name:
+        type: string
+      repo_index:
+        type: integer
+      repo_name:
+        type: string
+      repo_namespace:
+        type: string
+      repo_owner:
+        type: string
+      service_module:
+        type: string
+      service_name:
+        type: string
+      source:
+        type: string
+      source_from:
+        allOf:
+        - $ref: '#/definitions/types.RepoSource'
+        description: repo can come from params or other job, introduced in 1.3.1
+      ssh_key:
+        type: string
+      submission_id:
+        type: string
+      submodules:
+        type: boolean
+      tag:
+        type: string
+      use_default:
+        description: UseDefault defines if the repo can be configured in start pipeline
+          task page
+        type: boolean
+      username:
+        description: username/password authorization
+        type: string
     type: object
   types.ServiceVariableKV:
     properties:
@@ -4746,6 +5059,26 @@ paths:
       summary: Get production service variables
       tags:
       - environment
+  /api/aslan/placeholder/custom_deploy_job_spec:
+    post:
+      consumes:
+      - application/json
+      description: '[DONT USE] CustomDeployJobSpec'
+      parameters:
+      - description: body
+        in: body
+        name: deploy_job_spec
+        required: true
+        schema:
+          $ref: '#/definitions/models.CustomDeployJobSpec'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: '[DONT USE]  CustomDeployJobSpec'
+      tags:
+      - placeholder
   /api/aslan/placeholder/deploy_job_spec:
     post:
       consumes:
@@ -4764,6 +5097,66 @@ paths:
         "200":
           description: OK
       summary: '[DONT USE]  ZadigDeployJobSpec'
+      tags:
+      - placeholder
+  /api/aslan/placeholder/k8s_patch_job_spec:
+    post:
+      consumes:
+      - application/json
+      description: '[DONT USE] K8sPatchJobSpec'
+      parameters:
+      - description: body
+        in: body
+        name: deploy_job_spec
+        required: true
+        schema:
+          $ref: '#/definitions/models.K8sPatchJobSpec'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: '[DONT USE]  K8sPatchJobSpec'
+      tags:
+      - placeholder
+  /api/aslan/placeholder/zadig_build_job_spec:
+    post:
+      consumes:
+      - application/json
+      description: '[DONT USE] ZadigBuildJobSpec'
+      parameters:
+      - description: body
+        in: body
+        name: deploy_job_spec
+        required: true
+        schema:
+          $ref: '#/definitions/models.ZadigBuildJobSpec'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: '[DONT USE]  ZadigBuildJobSpec'
+      tags:
+      - placeholder
+  /api/aslan/placeholder/zadig_helm_chart_deploy_job_spec:
+    post:
+      consumes:
+      - application/json
+      description: '[DONT USE] ZadigHelmChartDeployJobSpec'
+      parameters:
+      - description: body
+        in: body
+        name: deploy_job_spec
+        required: true
+        schema:
+          $ref: '#/definitions/models.ZadigHelmChartDeployJobSpec'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: '[DONT USE]  ZadigHelmChartDeployJobSpec'
       tags:
       - placeholder
   /api/aslan/project/bizdir:

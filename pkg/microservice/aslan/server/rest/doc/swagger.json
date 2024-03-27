@@ -3090,6 +3090,37 @@
                 }
             }
         },
+        "/api/aslan/placeholder/custom_deploy_job_spec": {
+            "post": {
+                "description": "[DONT USE] CustomDeployJobSpec",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "placeholder"
+                ],
+                "summary": "[DONT USE]  CustomDeployJobSpec",
+                "parameters": [
+                    {
+                        "description": "body",
+                        "name": "deploy_job_spec",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.CustomDeployJobSpec"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
         "/api/aslan/placeholder/deploy_job_spec": {
             "post": {
                 "description": "[DONT USE] ZadigDeployJobSpec",
@@ -3111,6 +3142,99 @@
                         "required": true,
                         "schema": {
                             "$ref": "#/definitions/models.ZadigDeployJobSpec"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/api/aslan/placeholder/k8s_patch_job_spec": {
+            "post": {
+                "description": "[DONT USE] K8sPatchJobSpec",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "placeholder"
+                ],
+                "summary": "[DONT USE]  K8sPatchJobSpec",
+                "parameters": [
+                    {
+                        "description": "body",
+                        "name": "deploy_job_spec",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.K8sPatchJobSpec"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/api/aslan/placeholder/zadig_build_job_spec": {
+            "post": {
+                "description": "[DONT USE] ZadigBuildJobSpec",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "placeholder"
+                ],
+                "summary": "[DONT USE]  ZadigBuildJobSpec",
+                "parameters": [
+                    {
+                        "description": "body",
+                        "name": "deploy_job_spec",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.ZadigBuildJobSpec"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/api/aslan/placeholder/zadig_helm_chart_deploy_job_spec": {
+            "post": {
+                "description": "[DONT USE] ZadigHelmChartDeployJobSpec",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "placeholder"
+                ],
+                "summary": "[DONT USE]  ZadigHelmChartDeployJobSpec",
+                "parameters": [
+                    {
+                        "description": "body",
+                        "name": "deploy_job_spec",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.ZadigHelmChartDeployJobSpec"
                         }
                     }
                 ],
@@ -5678,6 +5802,17 @@
                 }
             }
         },
+        "models.ClusterBrief": {
+            "type": "object",
+            "properties": {
+                "cluster_id": {
+                    "type": "string"
+                },
+                "cluster_name": {
+                    "type": "string"
+                }
+            }
+        },
         "models.CodeHost": {
             "type": "object",
             "properties": {
@@ -5815,6 +5950,49 @@
                 }
             }
         },
+        "models.CustomDeployJobSpec": {
+            "type": "object",
+            "properties": {
+                "cluster_id": {
+                    "type": "string"
+                },
+                "cluster_options": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ClusterBrief"
+                    }
+                },
+                "docker_registry_id": {
+                    "type": "string"
+                },
+                "namespace": {
+                    "type": "string"
+                },
+                "registry_options": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.RegistryBrief"
+                    }
+                },
+                "skip_check_run_status": {
+                    "type": "boolean"
+                },
+                "source": {
+                    "description": "support two sources, runtime/fixed.",
+                    "type": "string"
+                },
+                "targets": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.DeployTargets"
+                    }
+                },
+                "timeout": {
+                    "description": "unit is minute.",
+                    "type": "integer"
+                }
+            }
+        },
         "models.DBInstance": {
             "type": "object",
             "properties": {
@@ -5863,6 +6041,26 @@
                     "type": "boolean"
                 },
                 "variable_key": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.DeployHelmChart": {
+            "type": "object",
+            "properties": {
+                "chart_name": {
+                    "type": "string"
+                },
+                "chart_repo": {
+                    "type": "string"
+                },
+                "chart_version": {
+                    "type": "string"
+                },
+                "release_name": {
+                    "type": "string"
+                },
+                "values_yaml": {
                     "type": "string"
                 }
             }
@@ -5984,6 +6182,21 @@
                     }
                 },
                 "variable_yaml": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.DeployTargets": {
+            "type": "object",
+            "properties": {
+                "image": {
+                    "type": "string"
+                },
+                "image_name": {
+                    "type": "string"
+                },
+                "target": {
+                    "description": "workload_type/workload_name/container_name.",
                     "type": "string"
                 }
             }
@@ -6173,6 +6386,52 @@
                 }
             }
         },
+        "models.K8sPatchJobSpec": {
+            "type": "object",
+            "properties": {
+                "cluster_id": {
+                    "type": "string"
+                },
+                "cluster_options": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ClusterBrief"
+                    }
+                },
+                "namespace": {
+                    "type": "string"
+                },
+                "patch_items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.PatchItem"
+                    }
+                }
+            }
+        },
+        "models.KeyVal": {
+            "type": "object",
+            "properties": {
+                "choice_option": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "is_credential": {
+                    "type": "boolean"
+                },
+                "key": {
+                    "type": "string"
+                },
+                "type": {
+                    "$ref": "#/definitions/models.ParameterSettingType"
+                },
+                "value": {
+                    "type": "string"
+                }
+            }
+        },
         "models.LLMIntegration": {
             "type": "object",
             "properties": {
@@ -6227,6 +6486,42 @@
                 "NotificationEventAnalyzerAbnormal"
             ]
         },
+        "models.Param": {
+            "type": "object",
+            "properties": {
+                "choice_option": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "default": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "is_credential": {
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "repo": {
+                    "$ref": "#/definitions/types.Repository"
+                },
+                "source": {
+                    "type": "string"
+                },
+                "type": {
+                    "description": "support string/text/choice/repo type",
+                    "type": "string"
+                },
+                "value": {
+                    "type": "string"
+                }
+            }
+        },
         "models.ParameterSettingType": {
             "type": "string",
             "enum": [
@@ -6239,6 +6534,36 @@
                 "ChoiceType",
                 "ExternalType"
             ]
+        },
+        "models.PatchItem": {
+            "type": "object",
+            "properties": {
+                "params": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.Param"
+                    }
+                },
+                "patch_content": {
+                    "type": "string"
+                },
+                "patch_strategy": {
+                    "description": "support strategic-merge/merge/json",
+                    "type": "string"
+                },
+                "resource_group": {
+                    "type": "string"
+                },
+                "resource_kind": {
+                    "type": "string"
+                },
+                "resource_name": {
+                    "type": "string"
+                },
+                "resource_version": {
+                    "type": "string"
+                }
+            }
         },
         "models.PmHealthCheck": {
             "type": "object",
@@ -6454,6 +6779,17 @@
                     "type": "boolean"
                 },
                 "tls_cert": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.RegistryBrief": {
+            "type": "object",
+            "properties": {
+                "registry_id": {
+                    "type": "string"
+                },
+                "registry_name": {
                     "type": "string"
                 }
             }
@@ -6763,6 +7099,44 @@
                 }
             }
         },
+        "models.ServiceAndBuild": {
+            "type": "object",
+            "properties": {
+                "build_name": {
+                    "type": "string"
+                },
+                "image": {
+                    "type": "string"
+                },
+                "image_name": {
+                    "type": "string"
+                },
+                "key_vals": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.KeyVal"
+                    }
+                },
+                "package": {
+                    "type": "string"
+                },
+                "repos": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/types.Repository"
+                    }
+                },
+                "service_module": {
+                    "type": "string"
+                },
+                "service_name": {
+                    "type": "string"
+                },
+                "share_storage_info": {
+                    "$ref": "#/definitions/models.ShareStorageInfo"
+                }
+            }
+        },
         "models.ServiceKeyVal": {
             "type": "object",
             "properties": {
@@ -6801,6 +7175,31 @@
                 }
             }
         },
+        "models.ShareStorage": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "path": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.ShareStorageInfo": {
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "type": "boolean"
+                },
+                "share_storages": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ShareStorage"
+                    }
+                }
+            }
+        },
         "models.WebHookType": {
             "type": "string",
             "enum": [
@@ -6813,6 +7212,26 @@
                 "WebHookTypeDingding",
                 "WebHookTypeWeChat"
             ]
+        },
+        "models.ZadigBuildJobSpec": {
+            "type": "object",
+            "properties": {
+                "docker_registry_id": {
+                    "type": "string"
+                },
+                "service_and_builds": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ServiceAndBuild"
+                    }
+                },
+                "service_and_builds_options": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ServiceAndBuild"
+                    }
+                }
+            }
         },
         "models.ZadigDeployJobSpec": {
             "type": "object",
@@ -6853,7 +7272,6 @@
                     }
                 },
                 "services": {
-                    "description": "ServiceAndImages []*ServiceAndImage `bson:\"service_and_images\"   yaml:\"service_and_images\"   json:\"service_and_images\"`",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/models.DeployServiceInfo"
@@ -6869,6 +7287,32 @@
                             "$ref": "#/definitions/config.DeploySourceType"
                         }
                     ]
+                }
+            }
+        },
+        "models.ZadigHelmChartDeployJobSpec": {
+            "type": "object",
+            "properties": {
+                "deploy_helm_charts": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.DeployHelmChart"
+                    }
+                },
+                "env": {
+                    "type": "string"
+                },
+                "env_options": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "env_source": {
+                    "type": "string"
+                },
+                "skip_check_run_status": {
+                    "type": "boolean"
                 }
             }
         },
@@ -9039,6 +9483,153 @@
                     "type": "boolean"
                 },
                 "value": {}
+            }
+        },
+        "types.RepoSource": {
+            "type": "string",
+            "enum": [
+                "",
+                "param",
+                "job"
+            ],
+            "x-enum-varnames": [
+                "RepoSourceRuntime",
+                "RepoSourceParam",
+                "RepoSourceJob"
+            ]
+        },
+        "types.Repository": {
+            "type": "object",
+            "properties": {
+                "address": {
+                    "type": "string"
+                },
+                "auth_type": {
+                    "description": "The address of the code base input of the other type",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/types.AuthType"
+                        }
+                    ]
+                },
+                "author_name": {
+                    "type": "string"
+                },
+                "branch": {
+                    "type": "string"
+                },
+                "checkout_path": {
+                    "type": "string"
+                },
+                "checkout_ref": {
+                    "type": "string"
+                },
+                "codehost_id": {
+                    "type": "integer"
+                },
+                "commit_id": {
+                    "type": "string"
+                },
+                "commit_message": {
+                    "type": "string"
+                },
+                "enable_commit": {
+                    "description": "EnableCommit marks if the pull uses a commit instead of branch/pr",
+                    "type": "boolean"
+                },
+                "enable_proxy": {
+                    "description": "Now EnableProxy is not something we store. We decide this on runtime",
+                    "type": "boolean"
+                },
+                "filter_regexp": {
+                    "description": "FilterRegexp is the regular expression filter for the branches and tags",
+                    "type": "string"
+                },
+                "hidden": {
+                    "description": "Hidden defines whether the frontend needs to hide this repo",
+                    "type": "boolean"
+                },
+                "is_primary": {
+                    "description": "IsPrimary used to generated image and package name, each build has one primary repo",
+                    "type": "boolean"
+                },
+                "job_name": {
+                    "type": "string"
+                },
+                "oauth_token": {
+                    "description": "add",
+                    "type": "string"
+                },
+                "param_name": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string"
+                },
+                "pr": {
+                    "type": "integer"
+                },
+                "private_access_token": {
+                    "type": "string"
+                },
+                "prs": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "remote_name": {
+                    "type": "string"
+                },
+                "repo_index": {
+                    "type": "integer"
+                },
+                "repo_name": {
+                    "type": "string"
+                },
+                "repo_namespace": {
+                    "type": "string"
+                },
+                "repo_owner": {
+                    "type": "string"
+                },
+                "service_module": {
+                    "type": "string"
+                },
+                "service_name": {
+                    "type": "string"
+                },
+                "source": {
+                    "type": "string"
+                },
+                "source_from": {
+                    "description": "repo can come from params or other job, introduced in 1.3.1",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/types.RepoSource"
+                        }
+                    ]
+                },
+                "ssh_key": {
+                    "type": "string"
+                },
+                "submission_id": {
+                    "type": "string"
+                },
+                "submodules": {
+                    "type": "boolean"
+                },
+                "tag": {
+                    "type": "string"
+                },
+                "use_default": {
+                    "description": "UseDefault defines if the repo can be configured in start pipeline task page",
+                    "type": "boolean"
+                },
+                "username": {
+                    "description": "username/password authorization",
+                    "type": "string"
+                }
             }
         },
         "types.ServiceVariableKV": {
