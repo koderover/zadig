@@ -78,7 +78,7 @@ func (s DockerBuildStep) dockerLogin() error {
 		return nil
 	}
 	if s.spec.DockerRegistry.UserName != "" {
-		fmt.Printf("%s   Logging in Docker Registry: %s.\n", time.Now().Format(setting.WorkflowTimeFormat), s.spec.DockerRegistry.Host)
+		log.Infof("Logging in Docker Registry: %s.", s.spec.DockerRegistry.Host)
 		startTimeDockerLogin := time.Now()
 		cmd := dockerLogin(s.spec.DockerRegistry.UserName, s.spec.DockerRegistry.Password, s.spec.DockerRegistry.Host)
 		var out bytes.Buffer
@@ -110,7 +110,7 @@ func (s DockerBuildStep) dockerLogin() error {
 			return fmt.Errorf("failed to login docker registry: %s %s", err, out.String())
 		}
 
-		fmt.Printf("%s   Login ended. Duration: %.2f seconds.\n", time.Now().Format(setting.WorkflowTimeFormat), time.Since(startTimeDockerLogin).Seconds())
+		log.Infof("Login ended. Duration: %.2f seconds.", time.Since(startTimeDockerLogin).Seconds())
 	}
 	return nil
 }
@@ -120,19 +120,19 @@ func (s *DockerBuildStep) runDockerBuild() error {
 		return nil
 	}
 
-	fmt.Printf("%s   Preparing Dockerfile.\n", time.Now().Format(setting.WorkflowTimeFormat))
+	log.Infof("Preparing Dockerfile.")
 	startTimePrepareDockerfile := time.Now()
 	err := prepareDockerfile(s.spec.Source, s.spec.DockerTemplateContent)
 	if err != nil {
 		return fmt.Errorf("failed to prepare dockerfile: %s", err)
 	}
-	fmt.Printf("%s   Preparation ended. Duration: %.2f seconds.\n", time.Now().Format(setting.WorkflowTimeFormat), time.Since(startTimePrepareDockerfile).Seconds())
+	log.Infof("Preparation ended. Duration: %.2f seconds.", time.Since(startTimePrepareDockerfile).Seconds())
 
 	if s.spec.Proxy != nil {
 		setProxy(s.spec)
 	}
 
-	fmt.Printf("%s   Running Docker Build.\n", time.Now().Format(setting.WorkflowTimeFormat))
+	log.Infof("Running Docker Build.")
 	startTimeDockerBuild := time.Now()
 	envs := s.envs
 	for _, c := range s.dockerCommands() {
@@ -167,7 +167,7 @@ func (s *DockerBuildStep) runDockerBuild() error {
 			return fmt.Errorf("failed to run docker build: %s", err)
 		}
 	}
-	fmt.Printf("%s   Docker build ended. Duration: %.2f seconds.\n", time.Now().Format(setting.WorkflowTimeFormat), time.Since(startTimeDockerBuild).Seconds())
+	log.Infof("Docker build ended. Duration: %.2f seconds.", time.Since(startTimeDockerBuild).Seconds())
 
 	return nil
 }

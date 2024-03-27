@@ -110,7 +110,7 @@ func (s *ToolInstallStep) runIntallationScripts(tool *step.Tool) error {
 					tmpPath,
 					objectKey,
 				)
-				fmt.Printf("%s   Package loaded from url: %s\n", time.Now().Format(setting.WorkflowTimeFormat), tool.Download)
+				log.Infof("Package loaded from url: %s", tool.Download)
 			}
 		} else {
 			err := httpclient.Download(tool.Download, tmpPath)
