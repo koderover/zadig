@@ -272,11 +272,11 @@ func createNativeApproval(plan *models.ReleasePlan, url string) error {
 				log.Warnf("CreateNativeApproval GetGroupDetailedInfo error, error msg:%s", err)
 				continue
 			}
-			userSet.Insert(groupInfo.UIDs...)
 			for _, uid := range groupInfo.UIDs {
 				if userSet.Has(uid) {
 					continue
 				}
+				userSet.Insert(uid)
 				userDetailedInfo, err := user.New().GetUserByID(uid)
 				if err != nil {
 					log.Errorf("failed to find user %s, error: %s", uid, err)
