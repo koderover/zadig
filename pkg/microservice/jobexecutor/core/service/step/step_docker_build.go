@@ -56,7 +56,7 @@ func NewDockerBuildStep(spec interface{}, workspace string, envs, secretEnvs []s
 }
 
 func (s *DockerBuildStep) Run(ctx context.Context) error {
-	log.Infof("%s   Start docker build.", time.Now().Format(setting.WorkflowTimeFormat))
+	log.Infof("Start docker build.")
 
 	envMap := makeEnvMap(s.envs, s.secretEnvs)
 	if image, ok := envMap["IMAGE"]; ok {
@@ -78,7 +78,7 @@ func (s DockerBuildStep) dockerLogin() error {
 		return nil
 	}
 	if s.spec.DockerRegistry.UserName != "" {
-		fmt.Printf("Logining Docker Registry: %s.\n", s.spec.DockerRegistry.Host)
+		fmt.Printf("%s   Logging in Docker Registry: %s.\n", time.Now().Format(setting.WorkflowTimeFormat), s.spec.DockerRegistry.Host)
 		startTimeDockerLogin := time.Now()
 		cmd := dockerLogin(s.spec.DockerRegistry.UserName, s.spec.DockerRegistry.Password, s.spec.DockerRegistry.Host)
 		var out bytes.Buffer
@@ -126,7 +126,7 @@ func (s *DockerBuildStep) runDockerBuild() error {
 	if err != nil {
 		return fmt.Errorf("failed to prepare dockerfile: %s", err)
 	}
-	fmt.Printf("Preparation ended. Duration: %.2f seconds.\n", time.Since(startTimePrepareDockerfile).Seconds())
+	fmt.Printf("%s   Preparation ended. Duration: %.2f seconds.\n", time.Now().Format(setting.WorkflowTimeFormat), time.Since(startTimePrepareDockerfile).Seconds())
 
 	if s.spec.Proxy != nil {
 		setProxy(s.spec)
