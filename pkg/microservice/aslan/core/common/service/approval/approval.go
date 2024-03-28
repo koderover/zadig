@@ -86,9 +86,6 @@ func (c *GlobalApproveManager) DoApproval(key, userName, userID, comment string,
 	meetUser := false
 	for _, user := range approvalData.ApproveUsers {
 		// for release plan approvals we need to
-		if user.Type == "group" {
-			continue
-		}
 		if user.UserID != userID {
 			continue
 		}

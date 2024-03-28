@@ -326,6 +326,7 @@ func createNativeApproval(plan *models.ReleasePlan, url string) error {
 
 	originApprovalUser := approval.ApproveUsers
 	approval.ApproveUsers = approvalUsers
+	approval.DetailedApproveUsers = approvalUsers
 
 	approveKey := uuid.New().String()
 	approval.InstanceCode = approveKey
