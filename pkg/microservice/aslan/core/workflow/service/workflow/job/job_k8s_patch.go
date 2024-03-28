@@ -57,6 +57,17 @@ func (j *K8sPacthJob) SetPreset() error {
 			ClusterID:   cluster.ID.Hex(),
 			ClusterName: cluster.Name,
 		})
+
+		strategies := make([]*commonmodels.ClusterStrategyBrief, 0)
+
+		if cluster.AdvancedConfig != nil {
+			for _, strategy := range cluster.AdvancedConfig.ScheduleStrategy {
+				strategies = append(strategies, &commonmodels.ClusterStrategyBrief{
+					StrategyID:   strategy.StrategyID,
+					StrategyName: strategy.StrategyName,
+				})
+			}
+		}
 	}
 
 	j.spec.ClusterOptions = options

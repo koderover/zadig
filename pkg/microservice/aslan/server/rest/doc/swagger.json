@@ -3090,6 +3090,68 @@
                 }
             }
         },
+        "/api/aslan/placeholder/blue_green_deploy_v2_jobSpec": {
+            "post": {
+                "description": "[DONT USE] BlueGreenDeployV2JobSpec",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "placeholder"
+                ],
+                "summary": "[DONT USE]  BlueGreenDeployV2JobSpec",
+                "parameters": [
+                    {
+                        "description": "body",
+                        "name": "blue_green_deploy_v2_jobSpec",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.BlueGreenDeployV2JobSpec"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/api/aslan/placeholder/canary_deploy_job_spec": {
+            "post": {
+                "description": "[DONT USE] CanaryDeployJobSpec",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "placeholder"
+                ],
+                "summary": "[DONT USE]  CanaryDeployJobSpec",
+                "parameters": [
+                    {
+                        "description": "body",
+                        "name": "canary_deploy_job_spec",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.CanaryDeployJobSpec"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
         "/api/aslan/placeholder/custom_deploy_job_spec": {
             "post": {
                 "description": "[DONT USE] CustomDeployJobSpec",
@@ -3204,6 +3266,37 @@
                         "required": true,
                         "schema": {
                             "$ref": "#/definitions/models.ZadigBuildJobSpec"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/api/aslan/placeholder/zadig_distribute_image_job_spec": {
+            "post": {
+                "description": "[DONT USE] ZadigDistributeImageJobSpec",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "placeholder"
+                ],
+                "summary": "[DONT USE]  ZadigDistributeImageJobSpec",
+                "parameters": [
+                    {
+                        "description": "body",
+                        "name": "zadig_distribute_image_job_spec",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.ZadigDistributeImageJobSpec"
                         }
                     }
                 ],
@@ -5802,6 +5895,151 @@
                 }
             }
         },
+        "models.BlueGreenDeployV2JobSpec": {
+            "type": "object",
+            "properties": {
+                "env": {
+                    "type": "string"
+                },
+                "env_options": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "production": {
+                    "type": "boolean"
+                },
+                "service_options": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.BlueGreenDeployV2Service"
+                    }
+                },
+                "services": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.BlueGreenDeployV2Service"
+                    }
+                },
+                "source": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.BlueGreenDeployV2Service": {
+            "type": "object",
+            "properties": {
+                "blue_deployment_name": {
+                    "type": "string"
+                },
+                "blue_deployment_yaml": {
+                    "type": "string"
+                },
+                "blue_service_name": {
+                    "type": "string"
+                },
+                "blue_service_yaml": {
+                    "type": "string"
+                },
+                "green_deployment_name": {
+                    "type": "string"
+                },
+                "green_service_name": {
+                    "type": "string"
+                },
+                "service_and_image": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.BlueGreenDeployV2ServiceModuleAndImage"
+                    }
+                },
+                "service_name": {
+                    "description": "ServiceName is zadig service name",
+                    "type": "string"
+                }
+            }
+        },
+        "models.BlueGreenDeployV2ServiceModuleAndImage": {
+            "type": "object",
+            "properties": {
+                "image": {
+                    "type": "string"
+                },
+                "image_name": {
+                    "description": "Following fields only save for frontend",
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "service_module": {
+                    "type": "string"
+                },
+                "service_name": {
+                    "type": "string"
+                },
+                "value": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.CanaryDeployJobSpec": {
+            "type": "object",
+            "properties": {
+                "cluster_id": {
+                    "type": "string"
+                },
+                "cluster_options": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ClusterBrief"
+                    }
+                },
+                "docker_registry_id": {
+                    "type": "string"
+                },
+                "namespace": {
+                    "type": "string"
+                },
+                "targets": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.CanaryTarget"
+                    }
+                }
+            }
+        },
+        "models.CanaryTarget": {
+            "type": "object",
+            "properties": {
+                "canary_percentage": {
+                    "type": "integer"
+                },
+                "container_name": {
+                    "type": "string"
+                },
+                "deploy_timeout": {
+                    "description": "unit is minute.",
+                    "type": "integer"
+                },
+                "image": {
+                    "type": "string"
+                },
+                "k8s_service_name": {
+                    "type": "string"
+                },
+                "workload_name": {
+                    "type": "string"
+                },
+                "workload_type": {
+                    "type": "string"
+                }
+            }
+        },
         "models.ClusterBrief": {
             "type": "object",
             "properties": {
@@ -5809,6 +6047,23 @@
                     "type": "string"
                 },
                 "cluster_name": {
+                    "type": "string"
+                },
+                "strategies": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ClusterStrategyBrief"
+                    }
+                }
+            }
+        },
+        "models.ClusterStrategyBrief": {
+            "type": "object",
+            "properties": {
+                "strategy_id": {
+                    "type": "string"
+                },
+                "strategy_name": {
                     "type": "string"
                 }
             }
@@ -5967,12 +6222,6 @@
                 },
                 "namespace": {
                     "type": "string"
-                },
-                "registry_options": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/models.RegistryBrief"
-                    }
                 },
                 "skip_check_run_status": {
                     "type": "boolean"
@@ -6198,6 +6447,36 @@
                 "target": {
                     "description": "workload_type/workload_name/container_name.",
                     "type": "string"
+                }
+            }
+        },
+        "models.DistributeTarget": {
+            "type": "object",
+            "properties": {
+                "image_name": {
+                    "type": "string"
+                },
+                "service_module": {
+                    "type": "string"
+                },
+                "service_name": {
+                    "type": "string"
+                },
+                "source_image": {
+                    "type": "string"
+                },
+                "source_tag": {
+                    "type": "string"
+                },
+                "target_image": {
+                    "type": "string"
+                },
+                "target_tag": {
+                    "type": "string"
+                },
+                "update_tag": {
+                    "description": "if UpdateTag was false, use SourceTag as TargetTag.",
+                    "type": "boolean"
                 }
             }
         },
@@ -6783,17 +7062,6 @@
                 }
             }
         },
-        "models.RegistryBrief": {
-            "type": "object",
-            "properties": {
-                "registry_id": {
-                    "type": "string"
-                },
-                "registry_name": {
-                    "type": "string"
-                }
-            }
-        },
         "models.RegistryNamespace": {
             "type": "object",
             "properties": {
@@ -7287,6 +7555,64 @@
                             "$ref": "#/definitions/config.DeploySourceType"
                         }
                     ]
+                }
+            }
+        },
+        "models.ZadigDistributeImageJobSpec": {
+            "type": "object",
+            "properties": {
+                "cluster_id": {
+                    "type": "string"
+                },
+                "cluster_options": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ClusterBrief"
+                    }
+                },
+                "enable_target_image_tag_rule": {
+                    "type": "boolean"
+                },
+                "job_name": {
+                    "description": "required when source is `fromjob`, specify which upstream build job the distribution image source is",
+                    "type": "string"
+                },
+                "source": {
+                    "description": "fromjob/runtime, `runtime` means runtime input, `fromjob` means that it is obtained from the upstream build job",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/config.DeploySourceType"
+                        }
+                    ]
+                },
+                "source_registry_id": {
+                    "description": "not required when source is fromjob, directly obtained from upstream build job information",
+                    "type": "string"
+                },
+                "strategy_id": {
+                    "type": "string"
+                },
+                "target_image_tag_rule": {
+                    "type": "string"
+                },
+                "target_options": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.DistributeTarget"
+                    }
+                },
+                "target_registry_id": {
+                    "type": "string"
+                },
+                "targets": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.DistributeTarget"
+                    }
+                },
+                "timeout": {
+                    "description": "unit is minute.",
+                    "type": "integer"
                 }
             }
         },

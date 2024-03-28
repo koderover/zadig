@@ -57,26 +57,20 @@ func (j *CustomDeployJob) SetPreset() error {
 			ClusterID:   cluster.ID.Hex(),
 			ClusterName: cluster.Name,
 		})
-	}
 
-	registries, err := commonrepo.NewRegistryNamespaceColl().FindAll(&commonrepo.FindRegOps{})
-	if err != nil {
-		return fmt.Errorf("failed to list registry info for custom job preset options")
-	}
-	registryList := make([]*commonmodels.RegistryBrief, 0)
-	for _, registry := range registries {
-		addr := registry.RegAddr
-		if registry.Namespace != "" {
-			addr = fmt.Sprintf("%s/%s", addr, registry.Namespace)
+		strategies := make([]*commonmodels.ClusterStrategyBrief, 0)
+
+		if cluster.AdvancedConfig != nil {
+			for _, strategy := range cluster.AdvancedConfig.ScheduleStrategy {
+				strategies = append(strategies, &commonmodels.ClusterStrategyBrief{
+					StrategyID:   strategy.StrategyID,
+					StrategyName: strategy.StrategyName,
+				})
+			}
 		}
-		registryList = append(registryList, &commonmodels.RegistryBrief{
-			RegistryID:   registry.ID.Hex(),
-			RegistryName: addr,
-		})
 	}
 
 	j.spec.ClusterOptions = clusterList
-	j.spec.RegistryOptions = registryList
 	j.job.Spec = j.spec
 	return nil
 }

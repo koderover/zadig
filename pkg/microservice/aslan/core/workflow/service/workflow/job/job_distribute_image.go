@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"strings"
 
+	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
@@ -63,6 +64,31 @@ func (j *ImageDistributeJob) SetPreset() error {
 		return err
 	}
 
+	clusters, err := commonrepo.NewK8SClusterColl().List(&commonrepo.ClusterListOpts{})
+	if err != nil {
+		return fmt.Errorf("failed to list clusters, error: %s", err)
+	}
+	options := make([]*commonmodels.ClusterBrief, 0)
+	for _, cluster := range clusters {
+		options = append(options, &commonmodels.ClusterBrief{
+			ClusterID:   cluster.ID.Hex(),
+			ClusterName: cluster.Name,
+		})
+
+		strategies := make([]*commonmodels.ClusterStrategyBrief, 0)
+
+		if cluster.AdvancedConfig != nil {
+			for _, strategy := range cluster.AdvancedConfig.ScheduleStrategy {
+				strategies = append(strategies, &commonmodels.ClusterStrategyBrief{
+					StrategyID:   strategy.StrategyID,
+					StrategyName: strategy.StrategyName,
+				})
+			}
+		}
+	}
+
+	j.spec.ClusterOptions = options
+
 	if j.spec.Source == config.SourceFromJob {
 		jobSpec, err := getQuoteBuildJobSpec(j.spec.JobName, j.workflow)
 		if err != nil {
@@ -76,6 +102,7 @@ func (j *ImageDistributeJob) SetPreset() error {
 			})
 		}
 		j.spec.Targets = targets
+		j.spec.TargetOptions = targets
 	} else if j.spec.Source == config.SourceRuntime {
 		servicesMap, err := repository.GetMaxRevisionsServicesMap(j.workflow.Project, false)
 		if err != nil {
@@ -98,6 +125,8 @@ func (j *ImageDistributeJob) SetPreset() error {
 				}
 			}
 		}
+
+		j.spec.TargetOptions = j.spec.Targets
 	}
 
 	j.job.Spec = j.spec
