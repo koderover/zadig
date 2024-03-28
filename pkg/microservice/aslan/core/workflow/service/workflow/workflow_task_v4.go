@@ -737,12 +737,14 @@ func ListWorkflowTaskV4ByFilter(filter *TaskHistoryFilter, filterList []string, 
 						return nil, 0, err
 					}
 					serviceModules := make([]*commonmodels.WorkflowServiceModule, 0)
-					for _, service := range deploy.ServiceAndImages {
-						sm := &commonmodels.WorkflowServiceModule{
-							ServiceName:   service.ServiceName,
-							ServiceModule: service.ServiceModule,
+					for _, svc := range deploy.Services {
+						for _, module := range svc.Modules {
+							sm := &commonmodels.WorkflowServiceModule{
+								ServiceName:   svc.ServiceName,
+								ServiceModule: module.ServiceModule,
+							}
+							serviceModules = append(serviceModules, sm)
 						}
-						serviceModules = append(serviceModules, sm)
 					}
 					jobPreview.ServiceModules = serviceModules
 					jobPreview.Envs = &commonmodels.WorkflowEnv{

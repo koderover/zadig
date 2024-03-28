@@ -223,10 +223,11 @@ type WorkflowServiceModule struct {
 }
 
 type CustomDeployJobSpec struct {
-	Namespace          string `bson:"namespace"              json:"namespace"             yaml:"namespace"`
-	ClusterID          string `bson:"cluster_id"             json:"cluster_id"            yaml:"cluster_id"`
-	DockerRegistryID   string `bson:"docker_registry_id"     json:"docker_registry_id"    yaml:"docker_registry_id"`
-	SkipCheckRunStatus bool   `bson:"skip_check_run_status"  json:"skip_check_run_status" yaml:"skip_check_run_status"`
+	Namespace          string          `bson:"namespace"              json:"namespace"             yaml:"namespace"`
+	ClusterID          string          `bson:"cluster_id"             json:"cluster_id"            yaml:"cluster_id"`
+	ClusterOptions     []*ClusterBrief `bson:"-"                      json:"cluster_options"       yaml:"cluster_options"`
+	DockerRegistryID   string          `bson:"docker_registry_id"     json:"docker_registry_id"    yaml:"docker_registry_id"`
+	SkipCheckRunStatus bool            `bson:"skip_check_run_status"  json:"skip_check_run_status" yaml:"skip_check_run_status"`
 	// support two sources, runtime/fixed.
 	Source string `bson:"source"                 json:"source"                yaml:"source"`
 	// unit is minute.
@@ -253,8 +254,9 @@ type FreestyleJobSpec struct {
 }
 
 type ZadigBuildJobSpec struct {
-	DockerRegistryID string             `bson:"docker_registry_id"     yaml:"docker_registry_id"     json:"docker_registry_id"`
-	ServiceAndBuilds []*ServiceAndBuild `bson:"service_and_builds"     yaml:"service_and_builds"     json:"service_and_builds"`
+	DockerRegistryID        string             `bson:"docker_registry_id"     yaml:"docker_registry_id"         json:"docker_registry_id"`
+	ServiceAndBuilds        []*ServiceAndBuild `bson:"service_and_builds"     yaml:"service_and_builds"         json:"service_and_builds"`
+	ServiceAndBuildsOptions []*ServiceAndBuild `bson:"-"                      yaml:"service_and_builds_options" json:"service_and_builds_options"`
 }
 
 type ServiceAndBuild struct {
@@ -270,19 +272,20 @@ type ServiceAndBuild struct {
 }
 
 type ZadigDeployJobSpec struct {
-	Env                string `bson:"env"                      yaml:"env"                         json:"env"`
-	Production         bool   `bson:"production"               yaml:"production"                  json:"production"`
-	DeployType         string `bson:"deploy_type"              yaml:"deploy_type,omitempty"       json:"deploy_type"`
-	SkipCheckRunStatus bool   `bson:"skip_check_run_status"    yaml:"skip_check_run_status"       json:"skip_check_run_status"`
+	Env                string   `bson:"env"                      yaml:"env"                         json:"env"`
+	EnvOptions         []string `bson:"-"                        yaml:"env_options"                 json:"env_options"`
+	Production         bool     `bson:"production"               yaml:"production"                  json:"production"`
+	DeployType         string   `bson:"deploy_type"              yaml:"deploy_type,omitempty"       json:"deploy_type"`
+	SkipCheckRunStatus bool     `bson:"skip_check_run_status"    yaml:"skip_check_run_status"       json:"skip_check_run_status"`
 	// fromjob/runtime, runtime 表示运行时输入，fromjob 表示从上游构建任务中获取
 	Source         config.DeploySourceType `bson:"source"     yaml:"source"     json:"source"`
 	DeployContents []config.DeployContent  `bson:"deploy_contents"     yaml:"deploy_contents"     json:"deploy_contents"`
 	// 当 source 为 fromjob 时需要，指定部署镜像来源是上游哪一个构建任务
 	JobName string `bson:"job_name"             yaml:"job_name"             json:"job_name"`
 	// save the origin quoted job name
-	OriginJobName    string             `bson:"origin_job_name"      yaml:"origin_job_name"      json:"origin_job_name"`
-	ServiceAndImages []*ServiceAndImage `bson:"service_and_images"   yaml:"service_and_images"   json:"service_and_images"`
-	Services         []*DeployService   `bson:"services"             yaml:"services"             json:"services"`
+	OriginJobName  string               `bson:"origin_job_name"      yaml:"origin_job_name"      json:"origin_job_name"`
+	Services       []*DeployServiceInfo `bson:"services"             yaml:"services"             json:"services"`
+	ServiceOptions []*DeployServiceInfo `bson:"-"                    yaml:"service_options"      json:"service_options"`
 }
 
 type ServiceAndVMDeploy struct {
@@ -311,6 +314,7 @@ type ZadigVMDeployJobSpec struct {
 
 type ZadigHelmChartDeployJobSpec struct {
 	Env                string             `bson:"env"                      yaml:"env"                         json:"env"`
+	EnvOptions         []string           `bson:"-"                        yaml:"env_options"                 json:"env_options"`
 	EnvSource          string             `bson:"env_source"               yaml:"env_source"                  json:"env_source"`
 	SkipCheckRunStatus bool               `bson:"skip_check_run_status"    yaml:"skip_check_run_status"       json:"skip_check_run_status"`
 	DeployHelmCharts   []*DeployHelmChart `bson:"deploy_helm_charts"       yaml:"deploy_helm_charts"          json:"deploy_helm_charts"`
@@ -342,6 +346,26 @@ type DeployService struct {
 	Updatable     bool             `bson:"updatable"           yaml:"updatable"        json:"updatable"`
 }
 
+type DeployServiceInfo struct {
+	ServiceName       string                          `bson:"service_name"                     yaml:"service_name"                        json:"service_name"`
+	VariableConfigs   []*DeplopyVariableConfig        `bson:"variable_configs"                 yaml:"variable_configs"                    json:"variable_configs"`
+	VariableKVs       []*commontypes.RenderVariableKV `bson:"variable_kvs"                     yaml:"variable_kvs"                        json:"variable_kvs"`
+	LatestVariableKVs []*commontypes.RenderVariableKV `bson:"latest_variable_kvs"              yaml:"latest_variable_kvs"                 json:"latest_variable_kvs"`
+	VariableYaml      string                          `bson:"variable_yaml"                    yaml:"variable_yaml"                       json:"variable_yaml"`
+	UpdateConfig      bool                            `bson:"update_config"                    yaml:"update_config"                       json:"update_config"`
+	Updatable         bool                            `bson:"updatable"                        yaml:"updatable"                           json:"updatable"`
+	Modules           []*DeployModuleInfo             `bson:"modules"                          yaml:"modules"                             json:"modules"`
+	// Deprecated since 1.18
+	KeyVals       []*ServiceKeyVal `bson:"key_vals"            yaml:"key_vals"         json:"key_vals"`
+	LatestKeyVals []*ServiceKeyVal `bson:"latest_key_vals"     yaml:"latest_key_vals"  json:"latest_key_vals"`
+}
+
+type DeployModuleInfo struct {
+	ServiceModule string `bson:"service_module"      yaml:"service_module"   json:"service_module"`
+	Image         string `bson:"image"               yaml:"image"            json:"image"`
+	ImageName     string `bson:"image_name"          yaml:"image_name"       json:"image_name"`
+}
+
 type DeplopyVariableConfig struct {
 	VariableKey       string `bson:"variable_key"                     json:"variable_key"                        yaml:"variable_key"`
 	UseGlobalVariable bool   `bson:"use_global_variable"              json:"use_global_variable"                 yaml:"use_global_variable"`
@@ -371,12 +395,14 @@ type ZadigDistributeImageJobSpec struct {
 	SourceRegistryID string              `bson:"source_registry_id"             json:"source_registry_id"            yaml:"source_registry_id"`
 	TargetRegistryID string              `bson:"target_registry_id"             json:"target_registry_id"            yaml:"target_registry_id"`
 	Targets          []*DistributeTarget `bson:"targets"                        json:"targets"                       yaml:"targets"`
+	TargetOptions    []*DistributeTarget `bson:"target_options"                 json:"target_options"                yaml:"target_options"`
 	// unit is minute.
-	Timeout                  int64  `bson:"timeout"                        json:"timeout"                       yaml:"timeout"`
-	ClusterID                string `bson:"cluster_id"                     json:"cluster_id"                    yaml:"cluster_id"`
-	StrategyID               string `bson:"strategy_id"                    json:"strategy_id"                   yaml:"strategy_id"`
-	EnableTargetImageTagRule bool   `bson:"enable_target_image_tag_rule" json:"enable_target_image_tag_rule" yaml:"enable_target_image_tag_rule"`
-	TargetImageTagRule       string `bson:"target_image_tag_rule"        json:"target_image_tag_rule"        yaml:"target_image_tag_rule"`
+	Timeout                  int64           `bson:"timeout"                        json:"timeout"                       yaml:"timeout"`
+	ClusterID                string          `bson:"cluster_id"                     json:"cluster_id"                    yaml:"cluster_id"`
+	ClusterOptions           []*ClusterBrief `bson:"-"                              json:"cluster_options"               yaml:"cluster_options"`
+	StrategyID               string          `bson:"strategy_id"                    json:"strategy_id"                   yaml:"strategy_id"`
+	EnableTargetImageTagRule bool            `bson:"enable_target_image_tag_rule" json:"enable_target_image_tag_rule" yaml:"enable_target_image_tag_rule"`
+	TargetImageTagRule       string          `bson:"target_image_tag_rule"        json:"target_image_tag_rule"        yaml:"target_image_tag_rule"`
 }
 
 type DistributeTarget struct {
@@ -440,11 +466,13 @@ type BlueGreenDeployJobSpec struct {
 }
 
 type BlueGreenDeployV2JobSpec struct {
-	Version    string                      `bson:"version"               json:"version"              yaml:"version"`
-	Production bool                        `bson:"production"               json:"production"              yaml:"production"`
-	Env        string                      `bson:"env"               json:"env"              yaml:"env"`
-	Source     string                      `bson:"source"               json:"source"              yaml:"source"`
-	Services   []*BlueGreenDeployV2Service `bson:"services" json:"services" yaml:"services"`
+	Version        string                      `bson:"version"               json:"version"              yaml:"version"`
+	Production     bool                        `bson:"production"            json:"production"           yaml:"production"`
+	Env            string                      `bson:"env"                   json:"env"                  yaml:"env"`
+	EnvOptions     []string                    `bson:"-"                     json:"env_options"          yaml:"env_options"`
+	Source         string                      `bson:"source"                json:"source"               yaml:"source"`
+	Services       []*BlueGreenDeployV2Service `bson:"services"              json:"services"             yaml:"services"`
+	ServiceOptions []*BlueGreenDeployV2Service `bson:"-"                     json:"service_options"      yaml:"service_options"`
 }
 
 type BlueGreenDeployV2ServiceModuleAndImage struct {
@@ -492,6 +520,7 @@ type BlueGreenTarget struct {
 
 type CanaryDeployJobSpec struct {
 	ClusterID        string          `bson:"cluster_id"             json:"cluster_id"            yaml:"cluster_id"`
+	ClusterOptions   []*ClusterBrief `bson:"-"                      json:"cluster_options"       yaml:"cluster_options"`
 	Namespace        string          `bson:"namespace"              json:"namespace"             yaml:"namespace"`
 	DockerRegistryID string          `bson:"docker_registry_id"     json:"docker_registry_id"    yaml:"docker_registry_id"`
 	Targets          []*CanaryTarget `bson:"targets"                json:"targets"               yaml:"targets"`
@@ -534,9 +563,26 @@ type GrayReleaseTarget struct {
 }
 
 type K8sPatchJobSpec struct {
-	ClusterID  string       `bson:"cluster_id"             json:"cluster_id"            yaml:"cluster_id"`
-	Namespace  string       `bson:"namespace"              json:"namespace"             yaml:"namespace"`
-	PatchItems []*PatchItem `bson:"patch_items"            json:"patch_items"           yaml:"patch_items"`
+	ClusterID      string          `bson:"cluster_id"             json:"cluster_id"            yaml:"cluster_id"`
+	ClusterOptions []*ClusterBrief `bson:"-"                      json:"cluster_options"       yaml:"cluster_options"`
+	Namespace      string          `bson:"namespace"              json:"namespace"             yaml:"namespace"`
+	PatchItems     []*PatchItem    `bson:"patch_items"            json:"patch_items"           yaml:"patch_items"`
+}
+
+type ClusterBrief struct {
+	ClusterID   string                  `json:"cluster_id"   yaml:"cluster_id"`
+	ClusterName string                  `json:"cluster_name" yaml:"cluster_name"`
+	Strategies  []*ClusterStrategyBrief `json:"strategies"   yaml:"strategies"`
+}
+
+type ClusterStrategyBrief struct {
+	StrategyID   string `json:"strategy_id"`
+	StrategyName string `json:"strategy_name"`
+}
+
+type RegistryBrief struct {
+	RegistryID   string `json:"registry_id"   yaml:"registry_id"`
+	RegistryName string `json:"registry_name" yaml:"registry_name"`
 }
 
 type PatchItem struct {
@@ -609,8 +655,8 @@ type SQLJobSpec struct {
 }
 
 type ApolloJobSpec struct {
-	ApolloID      string             `bson:"apolloID" json:"apolloID" yaml:"apolloID"`
-	NamespaceList []*ApolloNamespace `bson:"namespaceList" json:"namespaceList" yaml:"namespaceList"`
+	ApolloID      string             `bson:"apolloID"      json:"apolloID"       yaml:"apolloID"`
+	NamespaceList []*ApolloNamespace `bson:"namespaceList" json:"namespaceList"  yaml:"namespaceList"`
 }
 
 type ApolloNamespace struct {

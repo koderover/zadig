@@ -17,10 +17,12 @@ limitations under the License.
 package job
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
+	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
@@ -44,6 +46,31 @@ func (j *CustomDeployJob) SetPreset() error {
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return err
 	}
+
+	clusters, err := commonrepo.NewK8SClusterColl().List(&commonrepo.ClusterListOpts{})
+	if err != nil {
+		return fmt.Errorf("failed to list cluster info for custom job preset options")
+	}
+	clusterList := make([]*commonmodels.ClusterBrief, 0)
+	for _, cluster := range clusters {
+		clusterList = append(clusterList, &commonmodels.ClusterBrief{
+			ClusterID:   cluster.ID.Hex(),
+			ClusterName: cluster.Name,
+		})
+
+		strategies := make([]*commonmodels.ClusterStrategyBrief, 0)
+
+		if cluster.AdvancedConfig != nil {
+			for _, strategy := range cluster.AdvancedConfig.ScheduleStrategy {
+				strategies = append(strategies, &commonmodels.ClusterStrategyBrief{
+					StrategyID:   strategy.StrategyID,
+					StrategyName: strategy.StrategyName,
+				})
+			}
+		}
+	}
+
+	j.spec.ClusterOptions = clusterList
 	j.job.Spec = j.spec
 	return nil
 }
