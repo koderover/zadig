@@ -18,7 +18,6 @@ package service
 
 import (
 	"fmt"
-	"github.com/koderover/zadig/v2/pkg/shared/client/user"
 	"reflect"
 	"time"
 
@@ -37,6 +36,7 @@ import (
 	config2 "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/label/config"
 	workflowservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/v2/pkg/setting"
+	"github.com/koderover/zadig/v2/pkg/shared/client/user"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
