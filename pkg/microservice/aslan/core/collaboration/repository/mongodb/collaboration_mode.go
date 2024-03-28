@@ -99,6 +99,7 @@ func (c *CollaborationModeColl) Update(username string, args *models.Collaborati
 			"update_time": time.Now().Unix(),
 			"update_by":   username,
 			"members":     args.Members,
+			"member_info": args.MemberInfo,
 			"workflows":   args.Workflows,
 			"recycle_day": args.RecycleDay,
 			"revision":    res.Revision + 1,

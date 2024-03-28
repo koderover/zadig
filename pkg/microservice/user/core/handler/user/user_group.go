@@ -70,6 +70,7 @@ type listUserGroupsReq struct {
 	PageNum  int    `json:"page_num"  form:"page_num"`
 	PageSize int    `json:"page_size" form:"page_size"`
 	Name     string `json:"name"      form:"name"`
+	Uid      string `json:"uid"       form:"uid"`
 }
 
 type openAPIListUserGroupReq struct {
@@ -132,16 +133,30 @@ func ListUserGroups(c *gin.Context) {
 		return
 	}
 
-	groupList, count, err := permission.ListUserGroups(query.Name, query.PageNum, query.PageSize, ctx.Logger)
+	if len(query.Uid) > 0 {
+		groupList, count, err := permission.ListUserGroupsByUid(query.Uid, ctx.Logger)
 
-	if err != nil {
-		ctx.Err = err
-		return
-	}
+		if err != nil {
+			ctx.Err = err
+			return
+		}
 
-	ctx.Resp = &listUserGroupResp{
-		GroupList: groupList,
-		Count:     count,
+		ctx.Resp = &listUserGroupResp{
+			GroupList: groupList,
+			Count:     count,
+		}
+	} else {
+		groupList, count, err := permission.ListUserGroups(query.Name, query.PageNum, query.PageSize, ctx.Logger)
+
+		if err != nil {
+			ctx.Err = err
+			return
+		}
+
+		ctx.Resp = &listUserGroupResp{
+			GroupList: groupList,
+			Count:     count,
+		}
 	}
 }
 

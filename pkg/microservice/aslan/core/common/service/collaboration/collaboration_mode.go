@@ -154,16 +154,23 @@ func setCollaborationModesWorkflowDisplayName(mode *models.CollaborationMode) {
 }
 
 func setMemberInfo(mode *models.CollaborationMode) {
-	if mode.MemberInfo != nil && len(mode.MemberInfo) > 0 {
+	if mode.MemberInfo != nil && len(mode.MemberInfo) == len(mode.Members) {
 		return
 	}
 
-	memberList := make([]*types.Identity, 0)
+	memberInfoMap := make(map[string]*types.Identity)
+	for _, member := range mode.MemberInfo {
+		memberInfoMap[member.UID] = member
+	}
+
 	for _, uid := range mode.Members {
-		memberList = append(memberList, &types.Identity{
+		if _, ok := memberInfoMap[uid]; ok {
+			continue
+		}
+		mode.MemberInfo = append(mode.MemberInfo, &types.Identity{
 			IdentityType: "user",
 			UID:          uid,
 		})
 	}
-	mode.MemberInfo = memberList
+
 }
