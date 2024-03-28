@@ -176,7 +176,7 @@ func GetReleasePlan(id string) (*models.ReleasePlan, error) {
 		releasePlan.Approval.NativeApproval.DetailedApproveUsers = approvalUsers
 	}
 
-	return mongodb.NewReleasePlanColl().GetByID(context.Background(), id)
+	return releasePlan, nil
 }
 
 func GetReleasePlanLogs(id string) ([]*models.ReleasePlanLog, error) {
