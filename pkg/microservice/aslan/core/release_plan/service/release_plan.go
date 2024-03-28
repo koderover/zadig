@@ -18,6 +18,7 @@ package service
 
 import (
 	"context"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -131,6 +132,50 @@ func ListReleasePlans(pageNum, pageSize int64) (*ListReleasePlanResp, error) {
 }
 
 func GetReleasePlan(id string) (*models.ReleasePlan, error) {
+	releasePlan, err := mongodb.NewReleasePlanColl().GetByID(context.Background(), id)
+	if err != nil {
+		return nil, errors.Wrap(err, "GetReleasePlan")
+	}
+
+	// TODO write detailed approval data into DB
+	if releasePlan.Approval != nil && releasePlan.Approval.NativeApproval != nil {
+		approval := releasePlan.Approval.NativeApproval
+		approvalUsers := make([]*models.User, 0)
+		userSet := sets.NewString()
+		for _, u := range approval.ApproveUsers {
+			if u.Type == "user" || u.Type == "" {
+				userSet.Insert(u.UserID)
+				approvalUsers = append(approvalUsers, u)
+			}
+		}
+		for _, u := range approval.ApproveUsers {
+			if u.Type == "group" {
+				groupInfo, err := user.New().GetGroupDetailedInfo(u.GroupID)
+				if err != nil {
+					log.Warnf("CreateNativeApproval GetGroupDetailedInfo error, error msg:%s", err)
+					continue
+				}
+				for _, uid := range groupInfo.UIDs {
+					if userSet.Has(uid) {
+						continue
+					}
+					userSet.Insert(uid)
+					userDetailedInfo, err := user.New().GetUserByID(uid)
+					if err != nil {
+						log.Errorf("failed to find user %s, error: %s", uid, err)
+						continue
+					}
+					approvalUsers = append(approvalUsers, &models.User{
+						Type:     "user",
+						UserID:   uid,
+						UserName: userDetailedInfo.Name,
+					})
+				}
+			}
+		}
+		releasePlan.Approval.NativeApproval.DetailedApproveUsers = approvalUsers
+	}
+
 	return mongodb.NewReleasePlanColl().GetByID(context.Background(), id)
 }
 
