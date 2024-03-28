@@ -18,7 +18,6 @@ package service
 
 import (
 	"context"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -137,43 +136,11 @@ func GetReleasePlan(id string) (*models.ReleasePlan, error) {
 		return nil, errors.Wrap(err, "GetReleasePlan")
 	}
 
-	// TODO write detailed approval data into DB
+	// native approval users may be user or user groups
+	// convert to flat user when needed, this data is generated dynamically because group binding may be changed
 	if releasePlan.Approval != nil && releasePlan.Approval.NativeApproval != nil {
-		approval := releasePlan.Approval.NativeApproval
-		approvalUsers := make([]*models.User, 0)
-		userSet := sets.NewString()
-		for _, u := range approval.ApproveUsers {
-			if u.Type == "user" || u.Type == "" {
-				userSet.Insert(u.UserID)
-				approvalUsers = append(approvalUsers, u)
-			}
-		}
-		for _, u := range approval.ApproveUsers {
-			if u.Type == "group" {
-				groupInfo, err := user.New().GetGroupDetailedInfo(u.GroupID)
-				if err != nil {
-					log.Warnf("CreateNativeApproval GetGroupDetailedInfo error, error msg:%s", err)
-					continue
-				}
-				for _, uid := range groupInfo.UIDs {
-					if userSet.Has(uid) {
-						continue
-					}
-					userSet.Insert(uid)
-					userDetailedInfo, err := user.New().GetUserByID(uid)
-					if err != nil {
-						log.Errorf("failed to find user %s, error: %s", uid, err)
-						continue
-					}
-					approvalUsers = append(approvalUsers, &models.User{
-						Type:     "user",
-						UserID:   uid,
-						UserName: userDetailedInfo.Name,
-					})
-				}
-			}
-		}
-		releasePlan.Approval.NativeApproval.DetailedApproveUsers = approvalUsers
+		flatNativeApprovalUsers, _ := geneFlatNativeApprovalUsers(releasePlan.Approval.NativeApproval)
+		releasePlan.Approval.NativeApproval.FloatApproveUsers = flatNativeApprovalUsers
 	}
 
 	return releasePlan, nil
@@ -448,7 +415,11 @@ func ApproveReleasePlan(c *handler.Context, planID string, req *ApproveRequest) 
 	if !ok {
 		// restore data after restart aslan
 		log.Infof("updateNativeApproval: approval instance code %s not found, set it", plan.Approval.NativeApproval.InstanceCode)
+		approvalUsers, _ := geneFlatNativeApprovalUsers(plan.Approval.NativeApproval)
+		originApprovalUsers := plan.Approval.NativeApproval.ApproveUsers
+		plan.Approval.NativeApproval.ApproveUsers = approvalUsers
 		approvalservice.GlobalApproveMap.SetApproval(plan.Approval.NativeApproval.InstanceCode, plan.Approval.NativeApproval)
+		plan.Approval.NativeApproval.ApproveUsers = originApprovalUsers
 	}
 
 	approval, err = approvalservice.GlobalApproveMap.DoApproval(approvalKey, c.UserName, c.UserID, req.Comment, req.Approve)

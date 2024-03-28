@@ -212,53 +212,16 @@ func updateDingTalkApproval(ctx context.Context, approvalInfo *models.Approval) 
 	return nil
 }
 
-func createNativeApproval(plan *models.ReleasePlan, url string) error {
-	if plan == nil || plan.Approval == nil || plan.Approval.NativeApproval == nil {
-		return errors.New("createNativeApproval: native approval data not found")
-	}
-	approval := plan.Approval.NativeApproval
-
-	var err error
-	mailNotifyInfo := ""
-	var email *systemconfig.Email
-	for {
-		email, err = systemconfig.New().GetEmailHost()
-		if err != nil {
-			log.Errorf("CreateNativeApproval GetEmailHost error, error msg:%s", err)
-			break
-		}
-
-		t, err := template.New("approval").Parse(string(approvalHTML))
-		if err != nil {
-			log.Errorf("CreateNativeApproval template parse error, error msg:%s", err)
-			break
-		}
-		var buf bytes.Buffer
-		err = t.Execute(&buf, struct {
-			PlanName    string
-			Manager     string
-			Description string
-			TimeRange   string
-			Url         string
-		}{
-			PlanName:    plan.Name,
-			Manager:     plan.Manager,
-			Description: plan.Description,
-			TimeRange:   time.Unix(plan.StartTime, 0).Format("2006-01-02 15:04:05") + "-" + time.Unix(plan.EndTime, 0).Format("2006-01-02 15:04:05"),
-			Url:         url,
-		})
-		if err != nil {
-			log.Errorf("CreateNativeApproval template execute error, error msg:%s", err)
-			break
-		}
-		mailNotifyInfo = buf.String()
-		break
-	}
-
+func geneFlatNativeApprovalUsers(approval *models.NativeApproval) ([]*models.User, map[string]*types.UserInfo) {
 	// change [group + user] approvals to user approvals
 	approvalUsers := make([]*models.User, 0)
 	userSet := sets.NewString()
 	userMap := make(map[string]*types.UserInfo)
+
+	if approval == nil {
+		return approvalUsers, userMap
+	}
+
 	for _, u := range approval.ApproveUsers {
 		if u.Type == "user" || u.Type == "" {
 			userSet.Insert(u.UserID)
@@ -292,11 +255,65 @@ func createNativeApproval(plan *models.ReleasePlan, url string) error {
 		}
 	}
 
-	if email != nil {
-		for _, uid := range userSet.List() {
-			info, ok := userMap[uid]
+	return approvalUsers, userMap
+}
+
+func createNativeApproval(plan *models.ReleasePlan, url string) error {
+	if plan == nil || plan.Approval == nil || plan.Approval.NativeApproval == nil {
+		return errors.New("createNativeApproval: native approval data not found")
+	}
+	approval := plan.Approval.NativeApproval
+
+	approvalUsers, userMap := geneFlatNativeApprovalUsers(approval)
+
+	// send email to all approval users if necessary
+	go func() {
+		var err error
+		mailNotifyInfo := ""
+		var email *systemconfig.Email
+
+		for {
+			email, err = systemconfig.New().GetEmailHost()
+			if err != nil {
+				log.Errorf("CreateNativeApproval GetEmailHost error, error msg:%s", err)
+				break
+			}
+
+			t, err := template.New("approval").Parse(string(approvalHTML))
+			if err != nil {
+				log.Errorf("CreateNativeApproval template parse error, error msg:%s", err)
+				break
+			}
+			var buf bytes.Buffer
+			err = t.Execute(&buf, struct {
+				PlanName    string
+				Manager     string
+				Description string
+				TimeRange   string
+				Url         string
+			}{
+				PlanName:    plan.Name,
+				Manager:     plan.Manager,
+				Description: plan.Description,
+				TimeRange:   time.Unix(plan.StartTime, 0).Format("2006-01-02 15:04:05") + "-" + time.Unix(plan.EndTime, 0).Format("2006-01-02 15:04:05"),
+				Url:         url,
+			})
+			if err != nil {
+				log.Errorf("CreateNativeApproval template execute error, error msg:%s", err)
+				break
+			}
+			mailNotifyInfo = buf.String()
+			break
+		}
+
+		if email == nil {
+			return
+		}
+
+		for _, u := range approvalUsers {
+			info, ok := userMap[u.UserID]
 			if !ok {
-				info, err = user.New().GetUserByID(uid)
+				info, err = user.New().GetUserByID(u.UserID)
 				if err != nil {
 					log.Warnf("CreateNativeApproval GetUserByUid error, error msg:%s", err)
 					continue
@@ -322,11 +339,10 @@ func createNativeApproval(plan *models.ReleasePlan, url string) error {
 				continue
 			}
 		}
-	}
+	}()
 
 	originApprovalUser := approval.ApproveUsers
 	approval.ApproveUsers = approvalUsers
-	approval.DetailedApproveUsers = approvalUsers
 
 	approveKey := uuid.New().String()
 	approval.InstanceCode = approveKey
