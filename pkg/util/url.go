@@ -19,10 +19,15 @@ package util
 import (
 	"fmt"
 	"net/url"
+	"regexp"
 	"strings"
 
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/types"
+)
+
+var (
+	schemaRegexp = regexp.MustCompile("^(http|https)://")
 )
 
 func TrimURLScheme(urlAddr string) string {
@@ -105,4 +110,8 @@ func ParseOwnerAndRepo(repoLink string, authType types.AuthType) (string, string
 	}
 
 	return ownerAndRepo[0], ownerAndRepo[1]
+}
+
+func HasSchema(url string) bool {
+	return schemaRegexp.MatchString(url)
 }
