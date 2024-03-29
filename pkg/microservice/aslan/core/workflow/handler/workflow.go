@@ -376,6 +376,18 @@ func CopyWorkflow(c *gin.Context) {
 // @Param 	deploy_job_spec 			body 		 commonmodels.ZadigDeployJobSpec	true 	"body"
 // @Success 200
 // @Router /api/aslan/placeholder/deploy_job_spec [post]
-func Placeholder(c *gin.Context) {
+func PlaceholderDeplyJobSpec(c *gin.Context) {
+
+}
+
+// @Summary [DONT USE]  UpdateEnvIstioConfigJobSpec
+// @Description [DONT USE] UpdateEnvIstioConfigJobSpec
+// @Tags 	placeholder
+// @Accept 	json
+// @Produce json
+// @Param 	update_env_istio_config_job_spec 			body 		 commonmodels.UpdateEnvIstioConfigJobSpec	true 	"body"
+// @Success 200
+// @Router /api/aslan/placeholder/update_env_istio_config_job_spec [post]
+func PlaceholderUpdateEnvIstioConfigJobSpec(c *gin.Context) {
 
 }

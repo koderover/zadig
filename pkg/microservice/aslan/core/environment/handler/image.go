@@ -272,7 +272,7 @@ func UpdateProductionDeploymentContainerImage(c *gin.Context) {
 		return
 	}
 
-	if err := commonutil.CheckZadigXLicenseStatus(); err != nil {
+	if err := commonutil.CheckZadigProfessionalLicense(); err != nil {
 		ctx.Err = err
 		return
 	}

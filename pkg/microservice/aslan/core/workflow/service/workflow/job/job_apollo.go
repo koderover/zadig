@@ -126,7 +126,7 @@ func (j *ApolloJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 
 func (j *ApolloJob) LintJob() error {
 	j.spec = &commonmodels.ApolloJobSpec{}
-	if err := util.CheckZadigXLicenseStatus(); err != nil {
+	if err := util.CheckZadigProfessionalLicense(); err != nil {
 		return e.ErrLicenseInvalid.AddDesc("")
 	}
 	if err := commonmodels.IToiYaml(j.job.Spec, j.spec); err != nil {

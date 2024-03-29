@@ -247,7 +247,7 @@ func (j *WorkflowTriggerJob) getSourceJobTargets(jobName string, m map[commonmod
 }
 
 func (j *WorkflowTriggerJob) LintJob() error {
-	if err := util.CheckZadigXLicenseStatus(); err != nil {
+	if err := util.CheckZadigProfessionalLicense(); err != nil {
 		return e.ErrLicenseInvalid.AddDesc("")
 	}
 

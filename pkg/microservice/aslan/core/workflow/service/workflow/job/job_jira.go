@@ -24,6 +24,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/setting"
 )
 
@@ -97,6 +98,10 @@ func (j *JiraJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 }
 
 func (j *JiraJob) LintJob() error {
+	if err := util.CheckZadigEnterpriseLicense(); err != nil {
+		return err
+	}
+
 	j.spec = &commonmodels.JiraJobSpec{}
 	if err := commonmodels.IToiYaml(j.job.Spec, j.spec); err != nil {
 		return err

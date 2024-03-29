@@ -2323,7 +2323,7 @@ func deleteK8sProductServices(productInfo *commonmodels.Product, serviceNames []
 	}
 
 	if productInfo.ShareEnv.Enable && !productInfo.ShareEnv.IsBase {
-		err = EnsureGrayEnvConfig(ctx, productInfo, kclient, istioClient)
+		err = kube.EnsureGrayEnvConfig(ctx, productInfo, kclient, istioClient)
 		if err != nil {
 			log.Errorf("Failed to ensure gray env config: %s", err)
 			return fmt.Errorf("failed to ensure gray env config: %s", err)
@@ -2447,7 +2447,7 @@ func createGroups(user, requestID string, args *commonmodels.Product, eventStart
 
 	if !args.Production && args.ShareEnv.Enable && !args.ShareEnv.IsBase {
 		// Note: Currently, only sub-environments can be created, but baseline environments cannot be created.
-		err = EnsureGrayEnvConfig(context.TODO(), args, kubeClient, istioClient)
+		err = kube.EnsureGrayEnvConfig(context.TODO(), args, kubeClient, istioClient)
 		if err != nil {
 			args.Status = setting.ProductStatusFailed
 			log.Errorf("Failed to ensure environment sharing in env %s of product %s: %s", args.EnvName, args.ProductName, err)
@@ -2762,7 +2762,7 @@ func installProductHelmCharts(user, requestID string, args *commonmodels.Product
 
 	// Note: For the sub env, try to supplement information relevant to the base env.
 	if args.ShareEnv.Enable && !args.ShareEnv.IsBase {
-		shareEnvErr := EnsureGrayEnvConfig(context.TODO(), args, kclient, istioClient)
+		shareEnvErr := kube.EnsureGrayEnvConfig(context.TODO(), args, kclient, istioClient)
 		if shareEnvErr != nil {
 			errList = multierror.Append(errList, shareEnvErr)
 		}

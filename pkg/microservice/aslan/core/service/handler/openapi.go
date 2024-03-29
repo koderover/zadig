@@ -72,7 +72,7 @@ func LoadProductionServiceFromYamlTemplateOpenAPI(c *gin.Context) {
 	bs, _ := json.Marshal(req)
 	internalhandler.InsertOperationLog(c, ctx.UserName+"(OpenAPI)", req.ProjectKey, "新增", "项目管理-生产服务", fmt.Sprintf("服务名称:%s", req.ServiceName), string(bs), ctx.Logger)
 
-	err := commonutil.CheckZadigXLicenseStatus()
+	err := commonutil.CheckZadigProfessionalLicense()
 	if err != nil {
 		ctx.Err = err
 		return
@@ -169,7 +169,7 @@ func CreateRawProductionYamlServicesOpenAPI(c *gin.Context) {
 		}
 	}
 
-	err = commonutil.CheckZadigXLicenseStatus()
+	err = commonutil.CheckZadigProfessionalLicense()
 	if err != nil {
 		ctx.Err = err
 		return
@@ -257,7 +257,7 @@ func UpdateProductionServiceConfigOpenAPI(c *gin.Context) {
 		}
 	}
 
-	err = commonutil.CheckZadigXLicenseStatus()
+	err = commonutil.CheckZadigProfessionalLicense()
 	if err != nil {
 		ctx.Err = err
 		return
@@ -353,7 +353,7 @@ func UpdateProductionServiceVariableOpenAPI(c *gin.Context) {
 		}
 	}
 
-	err = commonutil.CheckZadigXLicenseStatus()
+	err = commonutil.CheckZadigProfessionalLicense()
 	if err != nil {
 		ctx.Err = err
 		return
@@ -436,7 +436,7 @@ func DeleteProductionServicesOpenAPI(c *gin.Context) {
 		}
 	}
 
-	err = commonutil.CheckZadigXLicenseStatus()
+	err = commonutil.CheckZadigProfessionalLicense()
 	if err != nil {
 		ctx.Err = err
 		return
@@ -480,7 +480,7 @@ func GetProductionYamlServiceOpenAPI(c *gin.Context) {
 		return
 	}
 
-	err := commonutil.CheckZadigXLicenseStatus()
+	err := commonutil.CheckZadigProfessionalLicense()
 	if err != nil {
 		ctx.Err = err
 		return
@@ -517,7 +517,7 @@ func ListProductionYamlServicesOpenAPI(c *gin.Context) {
 		return
 	}
 
-	err := commonutil.CheckZadigXLicenseStatus()
+	err := commonutil.CheckZadigProfessionalLicense()
 	if err != nil {
 		ctx.Err = err
 		return

@@ -747,7 +747,7 @@ func (j *BuildJob) LintJob() error {
 		return err
 	}
 
-	if err := aslanUtil.CheckZadigXLicenseStatus(); err != nil {
+	if err := aslanUtil.CheckZadigProfessionalLicense(); err != nil {
 		for _, item := range j.spec.ServiceAndBuilds {
 			buildInfo, err := commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: item.BuildName})
 			if err != nil {
