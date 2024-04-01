@@ -27,6 +27,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
 type HelmChartDeployJob struct {
@@ -48,24 +49,6 @@ func (j *HelmChartDeployJob) SetPreset() error {
 	j.spec = &commonmodels.ZadigHelmChartDeployJobSpec{}
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return err
-	}
-
-	if strings.HasPrefix(j.spec.Env, setting.FixedValueMark) {
-		j.spec.EnvOptions = []string{strings.ReplaceAll(j.spec.Env, setting.FixedValueMark, "")}
-	} else {
-		productList, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
-			Name: j.workflow.Project,
-		})
-		if err != nil {
-			return fmt.Errorf("failed to list env with project: %s, error: %s", j.workflow.Project, err)
-		}
-
-		envs := make([]string, 0)
-		for _, env := range productList {
-			envs = append(envs, env.EnvName)
-		}
-
-		j.spec.EnvOptions = envs
 	}
 
 	product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: j.workflow.Project, EnvName: j.spec.Env})
@@ -96,8 +79,81 @@ func (j *HelmChartDeployJob) SetPreset() error {
 	return nil
 }
 
+// SetOptions gets all helm chart info in all envs, and set it in EnvOptions field
 func (j *HelmChartDeployJob) SetOptions() error {
+	j.spec = &commonmodels.ZadigHelmChartDeployJobSpec{}
+	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
+		return err
+	}
+
+	envOptions := make([]*commonmodels.ZadigHelmDeployEnvInformation, 0)
+
+	if strings.HasPrefix(j.spec.Env, setting.FixedValueMark) {
+		envName := strings.ReplaceAll(j.spec.Env, setting.FixedValueMark, "")
+
+		chartInfo, err := generateEnvHelmChartInfo(envName, j.workflow.Project)
+		if err != nil {
+			log.Errorf("failed to generate helm chart deploy info for env: %s, error: %s", envName, err)
+			return err
+		}
+
+		envOptions = append(envOptions, &commonmodels.ZadigHelmDeployEnvInformation{
+			Env:      envName,
+			Services: chartInfo,
+		})
+	} else {
+		productList, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
+			Name: j.workflow.Project,
+		})
+		if err != nil {
+			log.Errorf("can't list envs in project %s, error: %w", j.workflow.Project, err)
+			return fmt.Errorf("failed to list env with project: %s, error: %s", j.workflow.Project, err)
+		}
+
+		for _, env := range productList {
+			serviceDeployOption, err := generateEnvHelmChartInfo(env.EnvName, j.workflow.Project)
+			if err != nil {
+				log.Errorf("failed to generate chart deployment info for env: %s, error: %s", env.EnvName, err)
+				return err
+			}
+
+			envOptions = append(envOptions, &commonmodels.ZadigHelmDeployEnvInformation{
+				Env:      env.EnvName,
+				Services: serviceDeployOption,
+			})
+		}
+	}
+
+	j.spec.EnvOptions = envOptions
+	j.job.Spec = j.spec
 	return nil
+}
+
+func generateEnvHelmChartInfo(env, project string) ([]*commonmodels.DeployHelmChart, error) {
+	product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: project, EnvName: env})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get env information from db, error: %s", err)
+	}
+	renderChartMap := product.GetChartDeployRenderMap()
+
+	deploys := make([]*commonmodels.DeployHelmChart, 0)
+	productChartServiceMap := product.GetChartServiceMap()
+	for _, chartSvc := range productChartServiceMap {
+		renderChart := renderChartMap[chartSvc.ReleaseName]
+		if renderChart == nil {
+			return nil, fmt.Errorf("failed to get service render info for service: %s in env: %s", chartSvc.ServiceName, env)
+		}
+		deploy := &commonmodels.DeployHelmChart{
+			ReleaseName:  chartSvc.ReleaseName,
+			ChartRepo:    renderChart.ChartRepo,
+			ChartName:    renderChart.ChartName,
+			ChartVersion: renderChart.ChartVersion,
+			ValuesYaml:   renderChart.GetOverrideYaml(),
+		}
+		deploys = append(deploys, deploy)
+	}
+
+	return deploys, nil
 }
 
 func (j *HelmChartDeployJob) MergeArgs(args *commonmodels.Job) error {

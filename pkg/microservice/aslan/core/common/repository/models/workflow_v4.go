@@ -312,11 +312,11 @@ type ZadigVMDeployJobSpec struct {
 }
 
 type ZadigHelmChartDeployJobSpec struct {
-	Env                string             `bson:"env"                      yaml:"env"                         json:"env"`
-	EnvOptions         []string           `bson:"-"                        yaml:"env_options"                 json:"env_options"`
-	EnvSource          string             `bson:"env_source"               yaml:"env_source"                  json:"env_source"`
-	SkipCheckRunStatus bool               `bson:"skip_check_run_status"    yaml:"skip_check_run_status"       json:"skip_check_run_status"`
-	DeployHelmCharts   []*DeployHelmChart `bson:"deploy_helm_charts"       yaml:"deploy_helm_charts"          json:"deploy_helm_charts"`
+	Env                string                           `bson:"env"                      yaml:"env"                         json:"env"`
+	EnvOptions         []*ZadigHelmDeployEnvInformation `bson:"-"                        yaml:"env_options"                 json:"env_options"`
+	EnvSource          string                           `bson:"env_source"               yaml:"env_source"                  json:"env_source"`
+	SkipCheckRunStatus bool                             `bson:"skip_check_run_status"    yaml:"skip_check_run_status"       json:"skip_check_run_status"`
+	DeployHelmCharts   []*DeployHelmChart               `bson:"deploy_helm_charts"       yaml:"deploy_helm_charts"          json:"deploy_helm_charts"`
 }
 
 type DeployHelmChart struct {
@@ -571,6 +571,11 @@ type K8sPatchJobSpec struct {
 type ZadigDeployEnvInformation struct {
 	Env      string               `json:"env"      yaml:"env"`
 	Services []*DeployServiceInfo `json:"services" yaml:"services"`
+}
+
+type ZadigHelmDeployEnvInformation struct {
+	Env      string             `json:"env"      yaml:"env"`
+	Services []*DeployHelmChart `json:"services" yaml:"services"`
 }
 
 type ClusterBrief struct {

@@ -65,7 +65,7 @@ func (j *DeployJob) setDefaultDeployContent() {
 	}
 }
 
-func (j *DeployJob) getOriginReferedJobTargets(jobName string) ([]*commonmodels.ServiceAndImage, error) {
+func (j *DeployJob) getOriginReferredJobTargets(jobName string) ([]*commonmodels.ServiceAndImage, error) {
 	serviceAndImages := []*commonmodels.ServiceAndImage{}
 	for _, stage := range j.workflow.Stages {
 		for _, job := range stage.Jobs {
@@ -83,7 +83,7 @@ func (j *DeployJob) getOriginReferedJobTargets(jobName string) ([]*commonmodels.
 						ServiceModule: build.ServiceModule,
 						Image:         build.Image,
 					})
-					log.Infof("DeployJob ToJobs getOriginReferedJobTargets: workflow %s service %s, module %s, image %s",
+					log.Infof("DeployJob ToJobs getOriginReferredJobTargets: workflow %s service %s, module %s, image %s",
 						j.workflow.Name, build.ServiceName, build.ServiceModule, build.Image)
 				}
 				return serviceAndImages, nil
@@ -388,7 +388,7 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			j.spec.JobName = j.spec.OriginJobName
 		}
 		j.spec.JobName = getOriginJobName(j.workflow, j.spec.JobName)
-		targets, err := j.getOriginReferedJobTargets(j.spec.JobName)
+		targets, err := j.getOriginReferredJobTargets(j.spec.JobName)
 		if err != nil {
 			return resp, fmt.Errorf("get origin refered job: %s targets failed, err: %v", j.spec.JobName, err)
 		}
