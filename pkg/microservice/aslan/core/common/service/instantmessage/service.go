@@ -104,6 +104,7 @@ func (w *Service) SendMessageRequest(uri string, message interface{}) ([]byte, e
 	if err != nil {
 		return nil, err
 	}
+	log.Debugf("send message response: %s", res.Body())
 
 	return res.Body(), nil
 }
