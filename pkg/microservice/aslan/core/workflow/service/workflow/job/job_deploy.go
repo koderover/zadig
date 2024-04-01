@@ -137,7 +137,7 @@ func (j *DeployJob) SetPreset() error {
 		envs := make([]string, 0)
 		products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
 			Name:       j.workflow.Project,
-			Production: &j.spec.Production,
+			Production: util.GetBoolPointer(j.spec.Production),
 		})
 		if err != nil {
 			log.Errorf("can't list envs in project %s, error: %w", j.workflow.Project, err)
@@ -146,6 +146,7 @@ func (j *DeployJob) SetPreset() error {
 		for _, env := range products {
 			envs = append(envs, env.EnvName)
 		}
+		j.spec.EnvOptions = envs
 	}
 	// if quoted job quote another job, then use the service and image of the quoted job
 	if j.spec.Source == config.SourceFromJob {

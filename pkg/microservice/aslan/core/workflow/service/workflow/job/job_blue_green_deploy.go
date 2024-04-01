@@ -35,6 +35,12 @@ import (
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
+/*
+
+  This job type is no longer supported, there should not be any changes to this job anymore
+
+*/
+
 type BlueGreenDeployJob struct {
 	job      *commonmodels.Job
 	workflow *commonmodels.WorkflowV4

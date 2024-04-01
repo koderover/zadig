@@ -439,3 +439,39 @@ func Placeholder4(c *gin.Context) {
 func Placeholder5(c *gin.Context) {
 
 }
+
+// @Summary [DONT USE]  BlueGreenDeployV2JobSpec
+// @Description [DONT USE] BlueGreenDeployV2JobSpec
+// @Tags 	placeholder
+// @Accept 	json
+// @Produce json
+// @Param 	blue_green_deploy_v2_jobSpec 			body 		 commonmodels.BlueGreenDeployV2JobSpec	true 	"body"
+// @Success 200
+// @Router /api/aslan/placeholder/blue_green_deploy_v2_jobSpec [post]
+func Placeholder6(c *gin.Context) {
+
+}
+
+// @Summary [DONT USE]  CanaryDeployJobSpec
+// @Description [DONT USE] CanaryDeployJobSpec
+// @Tags 	placeholder
+// @Accept 	json
+// @Produce json
+// @Param 	canary_deploy_job_spec 			body 		 commonmodels.CanaryDeployJobSpec	true 	"body"
+// @Success 200
+// @Router /api/aslan/placeholder/canary_deploy_job_spec [post]
+func Placeholder7(c *gin.Context) {
+
+}
+
+// @Summary [DONT USE]  ZadigDistributeImageJobSpec
+// @Description [DONT USE] ZadigDistributeImageJobSpec
+// @Tags 	placeholder
+// @Accept 	json
+// @Produce json
+// @Param 	zadig_distribute_image_job_spec 			body 		 commonmodels.ZadigDistributeImageJobSpec	true 	"body"
+// @Success 200
+// @Router /api/aslan/placeholder/zadig_distribute_image_job_spec [post]
+func Placeholder8(c *gin.Context) {
+
+}

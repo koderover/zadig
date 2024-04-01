@@ -66,6 +66,25 @@ func (j *BlueGreenDeployV2Job) SetPreset() error {
 		return err
 	}
 
+	if strings.HasPrefix(j.spec.Env, setting.FixedValueMark) {
+		// if the env is fixed, we put the env in the option
+		j.spec.EnvOptions = []string{strings.ReplaceAll(j.spec.Env, setting.FixedValueMark, "")}
+	} else {
+		// otherwise list all the envs in this project
+		envs := make([]string, 0)
+		products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
+			Name:       j.workflow.Project,
+			Production: util.GetBoolPointer(j.spec.Production),
+		})
+		if err != nil {
+			return fmt.Errorf("can't list envs in project %s, error: %w", j.workflow.Project, err)
+		}
+		for _, env := range products {
+			envs = append(envs, env.EnvName)
+		}
+		j.spec.EnvOptions = envs
+	}
+
 	product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{EnvName: j.spec.Env, Name: j.workflow.Project, Production: util.GetBoolPointer(j.spec.Production)})
 	if err != nil {
 		return errors.Errorf("failed to find product %s, env %s, err: %s", j.workflow.Project, j.spec.Env, err)
@@ -137,6 +156,7 @@ func (j *BlueGreenDeployV2Job) SetPreset() error {
 			}
 		}
 	}
+	j.spec.ServiceOptions = j.spec.Services
 	j.job.Spec = j.spec
 	return nil
 }
