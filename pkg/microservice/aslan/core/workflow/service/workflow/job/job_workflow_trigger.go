@@ -55,6 +55,10 @@ func (j *WorkflowTriggerJob) SetPreset() error {
 	return nil
 }
 
+func (j *WorkflowTriggerJob) SetOptions() error {
+	return nil
+}
+
 func (j *WorkflowTriggerJob) MergeArgs(args *commonmodels.Job) error {
 	j.spec = &commonmodels.WorkflowTriggerJobSpec{}
 	if err := commonmodels.IToi(args.Spec, j.spec); err != nil {

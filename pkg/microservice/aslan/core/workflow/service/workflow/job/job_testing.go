@@ -50,6 +50,7 @@ func (j *TestingJob) Instantiate() error {
 	j.job.Spec = j.spec
 	return nil
 }
+
 func (j *TestingJob) SetPreset() error {
 	j.spec = &commonmodels.ZadigTestingJobSpec{}
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
@@ -96,6 +97,10 @@ func (j *TestingJob) SetPreset() error {
 		j.spec.TargetServices = filteredTargets
 	}
 	j.job.Spec = j.spec
+	return nil
+}
+
+func (j *TestingJob) SetOptions() error {
 	return nil
 }
 

@@ -106,6 +106,10 @@ func (j *FreeStyleJob) SetPreset() error {
 	return nil
 }
 
+func (j *FreeStyleJob) SetOptions() error {
+	return nil
+}
+
 func (j *FreeStyleJob) GetRepos() ([]*types.Repository, error) {
 	resp := []*types.Repository{}
 	j.spec = &commonmodels.FreestyleJobSpec{}

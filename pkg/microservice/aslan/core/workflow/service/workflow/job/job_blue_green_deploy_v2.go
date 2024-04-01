@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package job
 
 import (
@@ -158,6 +159,10 @@ func (j *BlueGreenDeployV2Job) SetPreset() error {
 	}
 	j.spec.ServiceOptions = j.spec.Services
 	j.job.Spec = j.spec
+	return nil
+}
+
+func (j *BlueGreenDeployV2Job) SetOptions() error {
 	return nil
 }
 

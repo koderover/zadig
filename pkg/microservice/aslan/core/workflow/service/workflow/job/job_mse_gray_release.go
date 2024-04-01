@@ -61,6 +61,10 @@ func (j *MseGrayReleaseJob) SetPreset() error {
 	return nil
 }
 
+func (j *MseGrayReleaseJob) SetOptions() error {
+	return nil
+}
+
 func (j *MseGrayReleaseJob) MergeArgs(args *commonmodels.Job) error {
 	j.spec = &commonmodels.MseGrayReleaseJobSpec{}
 	if err := commonmodels.IToi(args.Spec, j.spec); err != nil {

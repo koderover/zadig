@@ -49,7 +49,10 @@ var (
 
 type JobCtl interface {
 	Instantiate() error
+	// SetPreset sets all the default values configured by user
 	SetPreset() error
+	// SetOptions sets all the possible options for the workflow
+	SetOptions() error
 	ToJobs(taskID int64) ([]*commonmodels.JobTask, error)
 	MergeArgs(args *commonmodels.Job) error
 	LintJob() error
@@ -154,6 +157,14 @@ func SetPreset(job *commonmodels.Job, workflow *commonmodels.WorkflowV4) error {
 	}
 	JobPresetSkiped(job)
 	return jobCtl.SetPreset()
+}
+
+func SetOptions(job *commonmodels.Job, workflow *commonmodels.WorkflowV4) error {
+	jobCtl, err := InitJobCtl(job, workflow)
+	if err != nil {
+		return warpJobError(job.Name, err)
+	}
+	return jobCtl.SetOptions()
 }
 
 func JobPresetSkiped(job *commonmodels.Job) {

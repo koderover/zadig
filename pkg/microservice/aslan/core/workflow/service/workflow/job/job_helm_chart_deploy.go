@@ -96,6 +96,10 @@ func (j *HelmChartDeployJob) SetPreset() error {
 	return nil
 }
 
+func (j *HelmChartDeployJob) SetOptions() error {
+	return nil
+}
+
 func (j *HelmChartDeployJob) MergeArgs(args *commonmodels.Job) error {
 	if j.job.Name == args.Name && j.job.JobType == args.JobType {
 		j.spec = &commonmodels.ZadigHelmChartDeployJobSpec{}

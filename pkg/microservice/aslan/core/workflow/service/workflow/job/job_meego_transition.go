@@ -49,6 +49,10 @@ func (j *MeegoTransitionJob) SetPreset() error {
 	return nil
 }
 
+func (j *MeegoTransitionJob) SetOptions() error {
+	return nil
+}
+
 func (j *MeegoTransitionJob) MergeArgs(args *commonmodels.Job) error {
 	if j.job.Name == args.Name && j.job.JobType == args.JobType {
 		j.spec = &commonmodels.MeegoTransitionJobSpec{}

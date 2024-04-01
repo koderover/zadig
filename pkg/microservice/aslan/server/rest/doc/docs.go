@@ -6052,17 +6052,17 @@ const docTemplate = `{
                 "cluster_id": {
                     "type": "string"
                 },
-                "cluster_options": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/models.ClusterBrief"
-                    }
-                },
                 "docker_registry_id": {
                     "type": "string"
                 },
                 "namespace": {
                     "type": "string"
+                },
+                "target_options": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.CanaryTarget"
+                    }
                 },
                 "targets": {
                     "type": "array",
@@ -6095,34 +6095,6 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "workload_type": {
-                    "type": "string"
-                }
-            }
-        },
-        "models.ClusterBrief": {
-            "type": "object",
-            "properties": {
-                "cluster_id": {
-                    "type": "string"
-                },
-                "cluster_name": {
-                    "type": "string"
-                },
-                "strategies": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/models.ClusterStrategyBrief"
-                    }
-                }
-            }
-        },
-        "models.ClusterStrategyBrief": {
-            "type": "object",
-            "properties": {
-                "strategy_id": {
-                    "type": "string"
-                },
-                "strategy_name": {
                     "type": "string"
                 }
             }
@@ -6270,12 +6242,6 @@ const docTemplate = `{
                 "cluster_id": {
                     "type": "string"
                 },
-                "cluster_options": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/models.ClusterBrief"
-                    }
-                },
                 "docker_registry_id": {
                     "type": "string"
                 },
@@ -6288,6 +6254,12 @@ const docTemplate = `{
                 "source": {
                     "description": "support two sources, runtime/fixed.",
                     "type": "string"
+                },
+                "target_options": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.DeployTargets"
+                    }
                 },
                 "targets": {
                     "type": "array",
@@ -6338,17 +6310,6 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "username": {
-                    "type": "string"
-                }
-            }
-        },
-        "models.DeplopyVariableConfig": {
-            "type": "object",
-            "properties": {
-                "use_global_variable": {
-                    "type": "boolean"
-                },
-                "variable_key": {
                     "type": "string"
                 }
             }
@@ -6424,7 +6385,7 @@ const docTemplate = `{
                     "description": "VariableConfigs added since 1.18",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/models.DeplopyVariableConfig"
+                        "$ref": "#/definitions/models.DeployVariableConfig"
                     }
                 },
                 "variable_kvs": {
@@ -6443,6 +6404,9 @@ const docTemplate = `{
         "models.DeployServiceInfo": {
             "type": "object",
             "properties": {
+                "deployed": {
+                    "type": "boolean"
+                },
                 "key_vals": {
                     "description": "Deprecated since 1.18",
                     "type": "array",
@@ -6478,9 +6442,10 @@ const docTemplate = `{
                     "type": "boolean"
                 },
                 "variable_configs": {
+                    "description": "VariableConfigs used to determine if a variable is visible to the workflow user.",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/models.DeplopyVariableConfig"
+                        "$ref": "#/definitions/models.DeployVariableConfig"
                     }
                 },
                 "variable_kvs": {
@@ -6505,6 +6470,17 @@ const docTemplate = `{
                 },
                 "target": {
                     "description": "workload_type/workload_name/container_name.",
+                    "type": "string"
+                }
+            }
+        },
+        "models.DeployVariableConfig": {
+            "type": "object",
+            "properties": {
+                "use_global_variable": {
+                    "type": "boolean"
+                },
+                "variable_key": {
                     "type": "string"
                 }
             }
@@ -6729,12 +6705,6 @@ const docTemplate = `{
             "properties": {
                 "cluster_id": {
                     "type": "string"
-                },
-                "cluster_options": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/models.ClusterBrief"
-                    }
                 },
                 "namespace": {
                     "type": "string"
@@ -7589,6 +7559,20 @@ const docTemplate = `{
                 }
             }
         },
+        "models.ZadigDeployEnvInformation": {
+            "type": "object",
+            "properties": {
+                "env": {
+                    "type": "string"
+                },
+                "services": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.DeployServiceInfo"
+                    }
+                }
+            }
+        },
         "models.ZadigDeployJobSpec": {
             "type": "object",
             "properties": {
@@ -7607,7 +7591,7 @@ const docTemplate = `{
                 "env_options": {
                     "type": "array",
                     "items": {
-                        "type": "string"
+                        "$ref": "#/definitions/models.ZadigDeployEnvInformation"
                     }
                 },
                 "job_name": {
@@ -7620,12 +7604,6 @@ const docTemplate = `{
                 },
                 "production": {
                     "type": "boolean"
-                },
-                "service_options": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/models.DeployServiceInfo"
-                    }
                 },
                 "services": {
                     "type": "array",
@@ -7651,12 +7629,6 @@ const docTemplate = `{
             "properties": {
                 "cluster_id": {
                     "type": "string"
-                },
-                "cluster_options": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/models.ClusterBrief"
-                    }
                 },
                 "enable_target_image_tag_rule": {
                     "type": "boolean"

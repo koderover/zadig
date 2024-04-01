@@ -73,6 +73,10 @@ func (j *GrayRollbackJob) SetPreset() error {
 	return nil
 }
 
+func (j *GrayRollbackJob) SetOptions() error {
+	return nil
+}
+
 func (j *GrayRollbackJob) MergeArgs(args *commonmodels.Job) error {
 	if j.job.Name == args.Name && j.job.JobType == args.JobType {
 		j.spec = &commonmodels.GrayRollbackJobSpec{}

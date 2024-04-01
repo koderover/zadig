@@ -50,6 +50,10 @@ func (j *GuanceyunCheckJob) SetPreset() error {
 	return nil
 }
 
+func (j *GuanceyunCheckJob) SetOptions() error {
+	return nil
+}
+
 func (j *GuanceyunCheckJob) MergeArgs(args *commonmodels.Job) error {
 	j.spec = &commonmodels.GuanceyunCheckJobSpec{}
 	if err := commonmodels.IToi(args.Spec, j.spec); err != nil {

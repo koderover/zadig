@@ -63,15 +63,25 @@ func (j *BuildJob) Instantiate() error {
 	return nil
 }
 
-// SetPreset will now update all the possible build service option into serviceOption instead of ServiceAndBuilds
-// Updated @2023-03-30 before v1.17.0
-// Updated @2023-04-07 after v1.17.0 revert to old version
+// SetPreset will clear the selected field (ServiceAndBuilds
 func (j *BuildJob) SetPreset() error {
 	j.spec = &commonmodels.ZadigBuildJobSpec{}
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return err
 	}
+
+	chosenObject := make([]*commonmodels.ServiceAndBuild, 0)
+
+	j.spec.ServiceAndBuilds = chosenObject
 	j.job.Spec = j.spec
+	return nil
+}
+
+func (j *BuildJob) SetOptions() error {
+	j.spec = &commonmodels.ZadigBuildJobSpec{}
+	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
+		return err
+	}
 
 	servicesMap, err := repository.GetMaxRevisionsServicesMap(j.workflow.Project, false)
 	if err != nil {
@@ -128,7 +138,7 @@ func (j *BuildJob) SetPreset() error {
 
 		newBuilds = append(newBuilds, build)
 	}
-	j.spec.ServiceAndBuilds = newBuilds
+
 	j.spec.ServiceAndBuildsOptions = newBuilds
 	j.job.Spec = j.spec
 	return nil

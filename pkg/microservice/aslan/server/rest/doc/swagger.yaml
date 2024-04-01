@@ -438,14 +438,14 @@ definitions:
     properties:
       cluster_id:
         type: string
-      cluster_options:
-        items:
-          $ref: '#/definitions/models.ClusterBrief'
-        type: array
       docker_registry_id:
         type: string
       namespace:
         type: string
+      target_options:
+        items:
+          $ref: '#/definitions/models.CanaryTarget'
+        type: array
       targets:
         items:
           $ref: '#/definitions/models.CanaryTarget'
@@ -467,24 +467,6 @@ definitions:
       workload_name:
         type: string
       workload_type:
-        type: string
-    type: object
-  models.ClusterBrief:
-    properties:
-      cluster_id:
-        type: string
-      cluster_name:
-        type: string
-      strategies:
-        items:
-          $ref: '#/definitions/models.ClusterStrategyBrief'
-        type: array
-    type: object
-  models.ClusterStrategyBrief:
-    properties:
-      strategy_id:
-        type: string
-      strategy_name:
         type: string
     type: object
   models.CodeHost:
@@ -581,10 +563,6 @@ definitions:
     properties:
       cluster_id:
         type: string
-      cluster_options:
-        items:
-          $ref: '#/definitions/models.ClusterBrief'
-        type: array
       docker_registry_id:
         type: string
       namespace:
@@ -594,6 +572,10 @@ definitions:
       source:
         description: support two sources, runtime/fixed.
         type: string
+      target_options:
+        items:
+          $ref: '#/definitions/models.DeployTargets'
+        type: array
       targets:
         items:
           $ref: '#/definitions/models.DeployTargets'
@@ -627,13 +609,6 @@ definitions:
       updated_at:
         type: integer
       username:
-        type: string
-    type: object
-  models.DeplopyVariableConfig:
-    properties:
-      use_global_variable:
-        type: boolean
-      variable_key:
         type: string
     type: object
   models.DeployHelmChart:
@@ -684,7 +659,7 @@ definitions:
       variable_configs:
         description: VariableConfigs added since 1.18
         items:
-          $ref: '#/definitions/models.DeplopyVariableConfig'
+          $ref: '#/definitions/models.DeployVariableConfig'
         type: array
       variable_kvs:
         description: VariableKVs added since 1.18
@@ -697,6 +672,8 @@ definitions:
     type: object
   models.DeployServiceInfo:
     properties:
+      deployed:
+        type: boolean
       key_vals:
         description: Deprecated since 1.18
         items:
@@ -721,8 +698,10 @@ definitions:
       update_config:
         type: boolean
       variable_configs:
+        description: VariableConfigs used to determine if a variable is visible to
+          the workflow user.
         items:
-          $ref: '#/definitions/models.DeplopyVariableConfig'
+          $ref: '#/definitions/models.DeployVariableConfig'
         type: array
       variable_kvs:
         items:
@@ -739,6 +718,13 @@ definitions:
         type: string
       target:
         description: workload_type/workload_name/container_name.
+        type: string
+    type: object
+  models.DeployVariableConfig:
+    properties:
+      use_global_variable:
+        type: boolean
+      variable_key:
         type: string
     type: object
   models.DistributeTarget:
@@ -886,10 +872,6 @@ definitions:
     properties:
       cluster_id:
         type: string
-      cluster_options:
-        items:
-          $ref: '#/definitions/models.ClusterBrief'
-        type: array
       namespace:
         type: string
       patch_items:
@@ -1470,6 +1452,15 @@ definitions:
           $ref: '#/definitions/models.ServiceAndBuild'
         type: array
     type: object
+  models.ZadigDeployEnvInformation:
+    properties:
+      env:
+        type: string
+      services:
+        items:
+          $ref: '#/definitions/models.DeployServiceInfo'
+        type: array
+    type: object
   models.ZadigDeployJobSpec:
     properties:
       deploy_contents:
@@ -1482,7 +1473,7 @@ definitions:
         type: string
       env_options:
         items:
-          type: string
+          $ref: '#/definitions/models.ZadigDeployEnvInformation'
         type: array
       job_name:
         description: 当 source 为 fromjob 时需要，指定部署镜像来源是上游哪一个构建任务
@@ -1492,10 +1483,6 @@ definitions:
         type: string
       production:
         type: boolean
-      service_options:
-        items:
-          $ref: '#/definitions/models.DeployServiceInfo'
-        type: array
       services:
         items:
           $ref: '#/definitions/models.DeployServiceInfo'
@@ -1511,10 +1498,6 @@ definitions:
     properties:
       cluster_id:
         type: string
-      cluster_options:
-        items:
-          $ref: '#/definitions/models.ClusterBrief'
-        type: array
       enable_target_image_tag_rule:
         type: boolean
       job_name:

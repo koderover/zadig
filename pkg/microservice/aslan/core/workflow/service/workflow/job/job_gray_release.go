@@ -51,6 +51,10 @@ func (j *GrayReleaseJob) SetPreset() error {
 	return nil
 }
 
+func (j *GrayReleaseJob) SetOptions() error {
+	return nil
+}
+
 func (j *GrayReleaseJob) MergeArgs(args *commonmodels.Job) error {
 	if j.job.Name == args.Name && j.job.JobType == args.JobType {
 		j.spec = &commonmodels.GrayReleaseJobSpec{}

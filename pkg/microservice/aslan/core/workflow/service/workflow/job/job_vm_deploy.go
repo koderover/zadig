@@ -105,6 +105,10 @@ func (j *VMDeployJob) SetPreset() error {
 	return nil
 }
 
+func (j *VMDeployJob) SetOptions() error {
+	return nil
+}
+
 func (j *VMDeployJob) GetRepos() ([]*types.Repository, error) {
 	resp := []*types.Repository{}
 	j.spec = &commonmodels.ZadigVMDeployJobSpec{}

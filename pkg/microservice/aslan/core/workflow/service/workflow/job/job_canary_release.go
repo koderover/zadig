@@ -50,6 +50,10 @@ func (j *CanaryReleaseJob) SetPreset() error {
 	return nil
 }
 
+func (j *CanaryReleaseJob) SetOptions() error {
+	return nil
+}
+
 func (j *CanaryReleaseJob) MergeArgs(args *commonmodels.Job) error {
 	return nil
 }

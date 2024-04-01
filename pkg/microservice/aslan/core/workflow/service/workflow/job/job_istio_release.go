@@ -50,6 +50,10 @@ func (j *IstioReleaseJob) SetPreset() error {
 	return nil
 }
 
+func (j *IstioReleaseJob) SetOptions() error {
+	return nil
+}
+
 func (j *IstioReleaseJob) MergeArgs(args *commonmodels.Job) error {
 	if j.job.Name == args.Name && j.job.JobType == args.JobType {
 		j.spec = &commonmodels.IstioJobSpec{}

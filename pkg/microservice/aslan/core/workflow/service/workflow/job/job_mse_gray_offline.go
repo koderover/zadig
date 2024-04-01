@@ -51,6 +51,10 @@ func (j *MseGrayOfflineJob) SetPreset() error {
 	return nil
 }
 
+func (j *MseGrayOfflineJob) SetOptions() error {
+	return nil
+}
+
 func (j *MseGrayOfflineJob) MergeArgs(args *commonmodels.Job) error {
 	j.spec = &commonmodels.MseGrayOfflineJobSpec{}
 	if err := commonmodels.IToi(args.Spec, j.spec); err != nil {
