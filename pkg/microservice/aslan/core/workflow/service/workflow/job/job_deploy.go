@@ -208,7 +208,7 @@ func (j *DeployJob) SetOptions() error {
 	}
 
 	j.spec.EnvOptions = envOptions
-
+	j.job.Spec = j.spec
 	return nil
 }
 
