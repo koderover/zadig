@@ -246,7 +246,7 @@ func initializeVMEnvironmentAndWorkflow(projectKey string, envArgs []*commonmode
 		// modify the service revision for the creation process to get the correct env config from the service template.
 		for _, serviceList := range arg.Services {
 			for _, service := range serviceList {
-				svc, err := commonservice.GetServiceTemplate(service.ServiceName, setting.PMDeployType, projectKey, setting.ProductStatusDeleting, 0, log)
+				svc, err := commonservice.GetServiceTemplate(service.ServiceName, setting.PMDeployType, projectKey, setting.ProductStatusDeleting, 0, false, log)
 				if err != nil {
 					log.Errorf("failed to find service info for service: %s, error: %s", service.ServiceName, err)
 					return fmt.Errorf("failed to find service info for service: %s, error: %s", service.ServiceName, err)

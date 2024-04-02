@@ -722,7 +722,7 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 				return nil, e.ErrCreateTask.AddErr(err)
 			}
 			if _, err := commonservice.GetServiceTemplate(
-				target.Name, setting.PMDeployType, args.ProductTmplName, setting.ProductStatusDeleting, 0, log,
+				target.Name, setting.PMDeployType, args.ProductTmplName, setting.ProductStatusDeleting, 0, false, log,
 			); err != nil {
 				subTasks = append(subTasks, securityTask)
 			}
@@ -1904,7 +1904,7 @@ func CreateArtifactWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator
 				return nil, err
 			}
 			if _, err := commonservice.GetServiceTemplate(
-				artifact.Name, setting.PMDeployType, args.ProductTmplName, setting.ProductStatusDeleting, 0, log,
+				artifact.Name, setting.PMDeployType, args.ProductTmplName, setting.ProductStatusDeleting, 0, false, log,
 			); err != nil {
 				subTasks = append(subTasks, securityTask)
 			}
@@ -2084,7 +2084,7 @@ func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredL
 
 	if args.Env != nil {
 		serviceTmpl, _ = commonservice.GetServiceTemplate(
-			args.Target, setting.PMDeployType, args.ProductName, setting.ProductStatusDeleting, 0, log,
+			args.Target, setting.PMDeployType, args.ProductName, setting.ProductStatusDeleting, 0, false, log,
 		)
 	}
 
@@ -2222,7 +2222,6 @@ func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredL
 		build.JobCtx.PMDeployScripts = module.PMDeployScripts
 	}
 
-	// @note ssh vars
 	if len(module.SSHs) > 0 && build.ServiceType == setting.PMDeployType {
 		privateKeys := make([]*taskmodels.SSH, 0)
 		for _, sshID := range module.SSHs {

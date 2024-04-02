@@ -60,6 +60,7 @@ type BulkHelmServiceCreationArgs struct {
 	RequestID  string                  `json:"-"`
 	ValuesData *service.ValuesDataArgs `json:"valuesData"`
 	AutoSync   bool                    `json:"auto_sync"`
+	Production bool                    `json:"production"`
 }
 
 type FailedService struct {
