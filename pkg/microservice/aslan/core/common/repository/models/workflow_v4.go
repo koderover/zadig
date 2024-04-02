@@ -447,7 +447,8 @@ type TestModule struct {
 }
 
 type ZadigScanningJobSpec struct {
-	Scannings []*ScanningModule `bson:"scannings"     yaml:"scannings"     json:"scannings"`
+	Scannings       []*ScanningModule `bson:"scannings"     yaml:"scannings"        json:"scannings"`
+	ScanningOptions []*ScanningModule `bson:"-"             yaml:"scanning_options" json:"scanning_options"`
 }
 
 type ScanningModule struct {
@@ -466,20 +467,20 @@ type BlueGreenDeployJobSpec struct {
 }
 
 type BlueGreenDeployV2JobSpec struct {
-	Version        string                      `bson:"version"               json:"version"              yaml:"version"`
-	Production     bool                        `bson:"production"            json:"production"           yaml:"production"`
-	Env            string                      `bson:"env"                   json:"env"                  yaml:"env"`
-	EnvOptions     []string                    `bson:"-"                     json:"env_options"          yaml:"env_options"`
-	Source         string                      `bson:"source"                json:"source"               yaml:"source"`
-	Services       []*BlueGreenDeployV2Service `bson:"services"              json:"services"             yaml:"services"`
-	ServiceOptions []*BlueGreenDeployV2Service `bson:"-"                     json:"service_options"      yaml:"service_options"`
+	Version    string                                `bson:"version"               json:"version"              yaml:"version"`
+	Production bool                                  `bson:"production"            json:"production"           yaml:"production"`
+	Env        string                                `bson:"env"                   json:"env"                  yaml:"env"`
+	EnvOptions []*ZadigBlueGreenDeployEnvInformation `bson:"-"                     json:"env_options"          yaml:"env_options"`
+	Source     string                                `bson:"source"                json:"source"               yaml:"source"`
+	Services   []*BlueGreenDeployV2Service           `bson:"services"              json:"services"             yaml:"services"`
 }
 
 type BlueGreenDeployV2ServiceModuleAndImage struct {
 	ServiceModule string `bson:"service_module" json:"service_module" yaml:"service_module"`
 	Image         string `bson:"image"          json:"image"          yaml:"image"`
 	// Following fields only save for frontend
-	ImageName   string `bson:"image_name"     json:"image_name"     yaml:"image_name"`
+	ImageName string `bson:"image_name"     json:"image_name"     yaml:"image_name"`
+	// Name is the service module name for the sake of old data.
 	Name        string `bson:"name"           json:"name"           yaml:"name"`
 	ServiceName string `bson:"service_name"   json:"service_name"   yaml:"service_name"`
 	Value       string `bson:"value"          json:"value"          yaml:"value"`
@@ -552,6 +553,7 @@ type GrayReleaseJobSpec struct {
 	DeployTimeout int64                `bson:"deploy_timeout"         json:"deploy_timeout"        yaml:"deploy_timeout"`
 	GrayScale     int                  `bson:"gray_scale"             json:"gray_scale"            yaml:"gray_scale"`
 	Targets       []*GrayReleaseTarget `bson:"targets"                json:"targets"               yaml:"targets"`
+	TargetOptions []*GrayReleaseTarget `bson:"-"                      json:"target_options"        yaml:"target_options"`
 }
 
 type GrayReleaseTarget struct {
@@ -563,9 +565,10 @@ type GrayReleaseTarget struct {
 }
 
 type K8sPatchJobSpec struct {
-	ClusterID  string       `bson:"cluster_id"             json:"cluster_id"            yaml:"cluster_id"`
-	Namespace  string       `bson:"namespace"              json:"namespace"             yaml:"namespace"`
-	PatchItems []*PatchItem `bson:"patch_items"            json:"patch_items"           yaml:"patch_items"`
+	ClusterID        string       `bson:"cluster_id"             json:"cluster_id"            yaml:"cluster_id"`
+	Namespace        string       `bson:"namespace"              json:"namespace"             yaml:"namespace"`
+	PatchItems       []*PatchItem `bson:"patch_items"            json:"patch_items"           yaml:"patch_items"`
+	PatchItemOptions []*PatchItem `bson:"-"                      json:"patch_item_options"    yaml:"patch_item_options"`
 }
 
 type ZadigDeployEnvInformation struct {
@@ -576,6 +579,11 @@ type ZadigDeployEnvInformation struct {
 type ZadigHelmDeployEnvInformation struct {
 	Env      string             `json:"env"      yaml:"env"`
 	Services []*DeployHelmChart `json:"services" yaml:"services"`
+}
+
+type ZadigBlueGreenDeployEnvInformation struct {
+	Env      string                      `json:"env"      yaml:"env"`
+	Services []*BlueGreenDeployV2Service `json:"services" yaml:"services"`
 }
 
 type ClusterBrief struct {
@@ -611,6 +619,7 @@ type GrayRollbackJobSpec struct {
 	// unit is minute.
 	RollbackTimeout int64                 `bson:"rollback_timeout"       json:"rollback_timeout"      yaml:"rollback_timeout"`
 	Targets         []*GrayRollbackTarget `bson:"targets"                json:"targets"               yaml:"targets"`
+	TargetOptions   []*GrayRollbackTarget `bson:"-"                      json:"target_options"        yaml:"target_options"`
 }
 
 type GrayRollbackTarget struct {

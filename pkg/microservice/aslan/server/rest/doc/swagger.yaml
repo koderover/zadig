@@ -379,14 +379,10 @@ definitions:
         type: string
       env_options:
         items:
-          type: string
+          $ref: '#/definitions/models.ZadigBlueGreenDeployEnvInformation'
         type: array
       production:
         type: boolean
-      service_options:
-        items:
-          $ref: '#/definitions/models.BlueGreenDeployV2Service'
-        type: array
       services:
         items:
           $ref: '#/definitions/models.BlueGreenDeployV2Service'
@@ -426,6 +422,7 @@ definitions:
         description: Following fields only save for frontend
         type: string
       name:
+        description: Name is the service module name for the sake of old data.
         type: string
       service_module:
         type: string
@@ -779,6 +776,72 @@ definitions:
       ingress: {}
       service: {}
     type: object
+  models.GrayReleaseJobSpec:
+    properties:
+      cluster_id:
+        type: string
+      deploy_timeout:
+        description: unit is minute.
+        type: integer
+      docker_registry_id:
+        type: string
+      from_job:
+        type: string
+      gray_scale:
+        type: integer
+      namespace:
+        type: string
+      target_options:
+        items:
+          $ref: '#/definitions/models.GrayReleaseTarget'
+        type: array
+      targets:
+        items:
+          $ref: '#/definitions/models.GrayReleaseTarget'
+        type: array
+    type: object
+  models.GrayReleaseTarget:
+    properties:
+      container_name:
+        type: string
+      image:
+        type: string
+      replica:
+        type: integer
+      workload_name:
+        type: string
+      workload_type:
+        type: string
+    type: object
+  models.GrayRollbackJobSpec:
+    properties:
+      cluster_id:
+        type: string
+      namespace:
+        type: string
+      rollback_timeout:
+        description: unit is minute.
+        type: integer
+      target_options:
+        items:
+          $ref: '#/definitions/models.GrayRollbackTarget'
+        type: array
+      targets:
+        items:
+          $ref: '#/definitions/models.GrayRollbackTarget'
+        type: array
+    type: object
+  models.GrayRollbackTarget:
+    properties:
+      origin_image:
+        type: string
+      origin_replica:
+        type: integer
+      workload_name:
+        type: string
+      workload_type:
+        type: string
+    type: object
   models.HelmChart:
     properties:
       name:
@@ -874,6 +937,10 @@ definitions:
         type: string
       namespace:
         type: string
+      patch_item_options:
+        items:
+          $ref: '#/definitions/models.PatchItem'
+        type: array
       patch_items:
         items:
           $ref: '#/definitions/models.PatchItem'
@@ -1232,6 +1299,23 @@ definitions:
       updated_by:
         type: string
     type: object
+  models.ScanningModule:
+    properties:
+      key_vals:
+        items:
+          $ref: '#/definitions/models.KeyVal'
+        type: array
+      name:
+        type: string
+      project_name:
+        type: string
+      repos:
+        items:
+          $ref: '#/definitions/types.Repository'
+        type: array
+      share_storage_info:
+        $ref: '#/definitions/models.ShareStorageInfo'
+    type: object
   models.Service:
     properties:
       auto_sync:
@@ -1439,6 +1523,15 @@ definitions:
     - WebHookTypeFeishu
     - WebHookTypeDingding
     - WebHookTypeWeChat
+  models.ZadigBlueGreenDeployEnvInformation:
+    properties:
+      env:
+        type: string
+      services:
+        items:
+          $ref: '#/definitions/models.BlueGreenDeployV2Service'
+        type: array
+    type: object
   models.ZadigBuildJobSpec:
     properties:
       docker_registry_id:
@@ -1541,12 +1634,32 @@ definitions:
         type: string
       env_options:
         items:
-          type: string
+          $ref: '#/definitions/models.ZadigHelmDeployEnvInformation'
         type: array
       env_source:
         type: string
       skip_check_run_status:
         type: boolean
+    type: object
+  models.ZadigHelmDeployEnvInformation:
+    properties:
+      env:
+        type: string
+      services:
+        items:
+          $ref: '#/definitions/models.DeployHelmChart'
+        type: array
+    type: object
+  models.ZadigScanningJobSpec:
+    properties:
+      scanning_options:
+        items:
+          $ref: '#/definitions/models.ScanningModule'
+        type: array
+      scannings:
+        items:
+          $ref: '#/definitions/models.ScanningModule'
+        type: array
     type: object
   resource.Backend:
     properties:
@@ -5298,6 +5411,46 @@ paths:
       summary: '[DONT USE]  ZadigDeployJobSpec'
       tags:
       - placeholder
+  /api/aslan/placeholder/gray_release_job_spec:
+    post:
+      consumes:
+      - application/json
+      description: '[DONT USE] GrayReleaseJobSpec'
+      parameters:
+      - description: body
+        in: body
+        name: gray_release_job_spec
+        required: true
+        schema:
+          $ref: '#/definitions/models.GrayReleaseJobSpec'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: '[DONT USE]  GrayReleaseJobSpec'
+      tags:
+      - placeholder
+  /api/aslan/placeholder/gray_rollback_job_spec:
+    post:
+      consumes:
+      - application/json
+      description: '[DONT USE] GrayRollbackJobSpec'
+      parameters:
+      - description: body
+        in: body
+        name: gray_rollback_job_spec
+        required: true
+        schema:
+          $ref: '#/definitions/models.GrayRollbackJobSpec'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: '[DONT USE]  GrayRollbackJobSpec'
+      tags:
+      - placeholder
   /api/aslan/placeholder/k8s_patch_job_spec:
     post:
       consumes:
@@ -5396,6 +5549,26 @@ paths:
         "200":
           description: OK
       summary: '[DONT USE]  ZadigHelmChartDeployJobSpec'
+      tags:
+      - placeholder
+  /api/aslan/placeholder/zadig_scanning_job_spec:
+    post:
+      consumes:
+      - application/json
+      description: '[DONT USE] ZadigScanningJobSpec'
+      parameters:
+      - description: body
+        in: body
+        name: zadig_scanning_job_spec
+        required: true
+        schema:
+          $ref: '#/definitions/models.ZadigScanningJobSpec'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: '[DONT USE]  ZadigScanningJobSpec'
       tags:
       - placeholder
   /api/aslan/project/bizdir:

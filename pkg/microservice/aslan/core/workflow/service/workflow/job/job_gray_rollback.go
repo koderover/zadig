@@ -74,6 +74,61 @@ func (j *GrayRollbackJob) SetPreset() error {
 }
 
 func (j *GrayRollbackJob) SetOptions() error {
+	j.spec = &commonmodels.GrayRollbackJobSpec{}
+	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
+		return err
+	}
+
+	originalWorkflow, err := commonrepo.NewWorkflowV4Coll().Find(j.workflow.Name)
+	if err != nil {
+		log.Errorf("Failed to find original workflow to set options, error: %s", err)
+	}
+
+	originalSpec := new(commonmodels.GrayRollbackJobSpec)
+	found := false
+	for _, stage := range originalWorkflow.Stages {
+		if !found {
+			for _, job := range stage.Jobs {
+				if job.Name == j.job.Name && job.Spec == j.job.Spec {
+					if err := commonmodels.IToi(job.Spec, originalSpec); err != nil {
+						return err
+					}
+					found = true
+					break
+				}
+			}
+		} else {
+			break
+		}
+	}
+
+	if !found {
+		return fmt.Errorf("failed to find the original workflow: %s", j.workflow.Name)
+	}
+
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), j.spec.ClusterID)
+	if err != nil {
+		return fmt.Errorf("failed to get kube client, err: %v", err)
+	}
+	newTargets := []*commonmodels.GrayRollbackTarget{}
+	for _, target := range originalSpec.Targets {
+		deployment, found, err := getter.GetDeployment(originalSpec.Namespace, target.WorkloadName, kubeClient)
+		if err != nil || !found {
+			log.Errorf("deployment %s not found in namespace: %s", target.WorkloadName, originalSpec.Namespace)
+			continue
+		}
+		rollbackInfo, err := getGrayRollbackInfoFromAnnotations(deployment.GetAnnotations())
+		if err != nil {
+			log.Errorf("deployment %s get gray rollback info failed: %v", target.WorkloadName, err)
+			continue
+		}
+		target.OriginImage = rollbackInfo.image
+		target.OriginReplica = rollbackInfo.replica
+		newTargets = append(newTargets, target)
+	}
+
+	j.spec.TargetOptions = newTargets
+	j.job.Spec = j.spec
 	return nil
 }
 

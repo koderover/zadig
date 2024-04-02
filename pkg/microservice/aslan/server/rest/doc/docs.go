@@ -3222,6 +3222,68 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/aslan/placeholder/gray_release_job_spec": {
+            "post": {
+                "description": "[DONT USE] GrayReleaseJobSpec",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "placeholder"
+                ],
+                "summary": "[DONT USE]  GrayReleaseJobSpec",
+                "parameters": [
+                    {
+                        "description": "body",
+                        "name": "gray_release_job_spec",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.GrayReleaseJobSpec"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/api/aslan/placeholder/gray_rollback_job_spec": {
+            "post": {
+                "description": "[DONT USE] GrayRollbackJobSpec",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "placeholder"
+                ],
+                "summary": "[DONT USE]  GrayRollbackJobSpec",
+                "parameters": [
+                    {
+                        "description": "body",
+                        "name": "gray_rollback_job_spec",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.GrayRollbackJobSpec"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
         "/api/aslan/placeholder/k8s_patch_job_spec": {
             "post": {
                 "description": "[DONT USE] K8sPatchJobSpec",
@@ -3367,6 +3429,37 @@ const docTemplate = `{
                         "required": true,
                         "schema": {
                             "$ref": "#/definitions/models.ZadigHelmChartDeployJobSpec"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/api/aslan/placeholder/zadig_scanning_job_spec": {
+            "post": {
+                "description": "[DONT USE] ZadigScanningJobSpec",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "placeholder"
+                ],
+                "summary": "[DONT USE]  ZadigScanningJobSpec",
+                "parameters": [
+                    {
+                        "description": "body",
+                        "name": "zadig_scanning_job_spec",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.ZadigScanningJobSpec"
                         }
                     }
                 ],
@@ -5963,17 +6056,11 @@ const docTemplate = `{
                 "env_options": {
                     "type": "array",
                     "items": {
-                        "type": "string"
+                        "$ref": "#/definitions/models.ZadigBlueGreenDeployEnvInformation"
                     }
                 },
                 "production": {
                     "type": "boolean"
-                },
-                "service_options": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/models.BlueGreenDeployV2Service"
-                    }
                 },
                 "services": {
                     "type": "array",
@@ -6033,6 +6120,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "name": {
+                    "description": "Name is the service module name for the sake of old data.",
                     "type": "string"
                 },
                 "service_module": {
@@ -6563,6 +6651,106 @@ const docTemplate = `{
                 "service": {}
             }
         },
+        "models.GrayReleaseJobSpec": {
+            "type": "object",
+            "properties": {
+                "cluster_id": {
+                    "type": "string"
+                },
+                "deploy_timeout": {
+                    "description": "unit is minute.",
+                    "type": "integer"
+                },
+                "docker_registry_id": {
+                    "type": "string"
+                },
+                "from_job": {
+                    "type": "string"
+                },
+                "gray_scale": {
+                    "type": "integer"
+                },
+                "namespace": {
+                    "type": "string"
+                },
+                "target_options": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.GrayReleaseTarget"
+                    }
+                },
+                "targets": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.GrayReleaseTarget"
+                    }
+                }
+            }
+        },
+        "models.GrayReleaseTarget": {
+            "type": "object",
+            "properties": {
+                "container_name": {
+                    "type": "string"
+                },
+                "image": {
+                    "type": "string"
+                },
+                "replica": {
+                    "type": "integer"
+                },
+                "workload_name": {
+                    "type": "string"
+                },
+                "workload_type": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.GrayRollbackJobSpec": {
+            "type": "object",
+            "properties": {
+                "cluster_id": {
+                    "type": "string"
+                },
+                "namespace": {
+                    "type": "string"
+                },
+                "rollback_timeout": {
+                    "description": "unit is minute.",
+                    "type": "integer"
+                },
+                "target_options": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.GrayRollbackTarget"
+                    }
+                },
+                "targets": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.GrayRollbackTarget"
+                    }
+                }
+            }
+        },
+        "models.GrayRollbackTarget": {
+            "type": "object",
+            "properties": {
+                "origin_image": {
+                    "type": "string"
+                },
+                "origin_replica": {
+                    "type": "integer"
+                },
+                "workload_name": {
+                    "type": "string"
+                },
+                "workload_type": {
+                    "type": "string"
+                }
+            }
+        },
         "models.HelmChart": {
             "type": "object",
             "properties": {
@@ -6708,6 +6896,12 @@ const docTemplate = `{
                 },
                 "namespace": {
                     "type": "string"
+                },
+                "patch_item_options": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.PatchItem"
+                    }
                 },
                 "patch_items": {
                     "type": "array",
@@ -7232,6 +7426,32 @@ const docTemplate = `{
                 }
             }
         },
+        "models.ScanningModule": {
+            "type": "object",
+            "properties": {
+                "key_vals": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.KeyVal"
+                    }
+                },
+                "name": {
+                    "type": "string"
+                },
+                "project_name": {
+                    "type": "string"
+                },
+                "repos": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/types.Repository"
+                    }
+                },
+                "share_storage_info": {
+                    "$ref": "#/definitions/models.ShareStorageInfo"
+                }
+            }
+        },
         "models.Service": {
             "type": "object",
             "properties": {
@@ -7539,6 +7759,20 @@ const docTemplate = `{
                 "WebHookTypeWeChat"
             ]
         },
+        "models.ZadigBlueGreenDeployEnvInformation": {
+            "type": "object",
+            "properties": {
+                "env": {
+                    "type": "string"
+                },
+                "services": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.BlueGreenDeployV2Service"
+                    }
+                }
+            }
+        },
         "models.ZadigBuildJobSpec": {
             "type": "object",
             "properties": {
@@ -7691,7 +7925,7 @@ const docTemplate = `{
                 "env_options": {
                     "type": "array",
                     "items": {
-                        "type": "string"
+                        "$ref": "#/definitions/models.ZadigHelmDeployEnvInformation"
                     }
                 },
                 "env_source": {
@@ -7699,6 +7933,37 @@ const docTemplate = `{
                 },
                 "skip_check_run_status": {
                     "type": "boolean"
+                }
+            }
+        },
+        "models.ZadigHelmDeployEnvInformation": {
+            "type": "object",
+            "properties": {
+                "env": {
+                    "type": "string"
+                },
+                "services": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.DeployHelmChart"
+                    }
+                }
+            }
+        },
+        "models.ZadigScanningJobSpec": {
+            "type": "object",
+            "properties": {
+                "scanning_options": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ScanningModule"
+                    }
+                },
+                "scannings": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ScanningModule"
+                    }
                 }
             }
         },

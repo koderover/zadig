@@ -1041,13 +1041,13 @@ func ListServicesInEnv(envName, productName string, newSvcKVsMap map[string][]*c
 		return nil, e.ErrGetService.AddErr(errors.Wrapf(err, "failed to find latest services for env %s:%s", productName, envName))
 	}
 
-	return buildServiceInfoInEnv(env, latestSvcs, newSvcKVsMap, log)
+	return BuildServiceInfoInEnv(env, latestSvcs, newSvcKVsMap, log)
 }
 
 // @fixme newSvcKVsMap is old struct kv map, which are the kv are from deploy job config
 // may need to be removed, or use new kv struct
 // helm values need to be refactored
-func buildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*commonmodels.Service, newSvcKVsMap map[string][]*commonmodels.ServiceKeyVal, log *zap.SugaredLogger) (*EnvServices, error) {
+func BuildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*commonmodels.Service, newSvcKVsMap map[string][]*commonmodels.ServiceKeyVal, log *zap.SugaredLogger) (*EnvServices, error) {
 	productName, envName := productInfo.ProductName, productInfo.EnvName
 	ret := &EnvServices{
 		ProductName: productName,

@@ -58,7 +58,6 @@ func GetLink(baseURI, projectKey, workflowName, workflowDisplayName string, task
 func getReposVariables(repos []*types.Repository) []*commonmodels.KeyVal {
 	ret := make([]*commonmodels.KeyVal, 0)
 	for index, repo := range repos {
-
 		repoNameIndex := fmt.Sprintf("REPONAME_%d", index)
 		ret = append(ret, &commonmodels.KeyVal{Key: fmt.Sprintf(repoNameIndex), Value: repo.RepoName, IsCredential: false})
 

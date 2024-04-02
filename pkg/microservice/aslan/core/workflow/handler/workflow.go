@@ -475,3 +475,39 @@ func Placeholder7(c *gin.Context) {
 func Placeholder8(c *gin.Context) {
 
 }
+
+// @Summary [DONT USE]  GrayReleaseJobSpec
+// @Description [DONT USE] GrayReleaseJobSpec
+// @Tags 	placeholder
+// @Accept 	json
+// @Produce json
+// @Param 	gray_release_job_spec 			body 		 commonmodels.GrayReleaseJobSpec	true 	"body"
+// @Success 200
+// @Router /api/aslan/placeholder/gray_release_job_spec [post]
+func Placeholder9(c *gin.Context) {
+
+}
+
+// @Summary [DONT USE]  GrayRollbackJobSpec
+// @Description [DONT USE] GrayRollbackJobSpec
+// @Tags 	placeholder
+// @Accept 	json
+// @Produce json
+// @Param 	gray_rollback_job_spec 			body 		 commonmodels.GrayRollbackJobSpec	true 	"body"
+// @Success 200
+// @Router /api/aslan/placeholder/gray_rollback_job_spec [post]
+func Placeholder10(c *gin.Context) {
+
+}
+
+// @Summary [DONT USE]  ZadigScanningJobSpec
+// @Description [DONT USE] ZadigScanningJobSpec
+// @Tags 	placeholder
+// @Accept 	json
+// @Produce json
+// @Param 	zadig_scanning_job_spec 			body 		 commonmodels.ZadigScanningJobSpec	true 	"body"
+// @Success 200
+// @Router /api/aslan/placeholder/zadig_scanning_job_spec [post]
+func Placeholder11(c *gin.Context) {
+
+}
