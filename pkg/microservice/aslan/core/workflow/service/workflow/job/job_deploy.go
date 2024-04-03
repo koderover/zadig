@@ -24,6 +24,7 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"golang.org/x/exp/slices"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
@@ -151,7 +152,46 @@ func (j *DeployJob) SetPreset() error {
 			return err
 		}
 
-		j.spec.Services = serviceDeployOption
+		configuredModulesMap := make(map[string]sets.String)
+		for _, module := range j.spec.ServiceAndImages {
+			if _, ok := configuredModulesMap[module.ServiceName]; !ok {
+				configuredModulesMap[module.ServiceName] = sets.NewString()
+			}
+
+			configuredModulesMap[module.ServiceName].Insert(module.ServiceModule)
+		}
+
+		svcResp := make([]*commonmodels.DeployServiceInfo, 0)
+
+		for _, svc := range serviceDeployOption {
+			if modulesList, ok := configuredModulesMap[svc.ServiceName]; !ok {
+				continue
+			} else {
+				// if configured, delete all the unnecessary modules
+				selectedModules := make([]*commonmodels.DeployModuleInfo, 0)
+				for _, module := range svc.Modules {
+					if modulesList.Has(module.ServiceModule) {
+						selectedModules = append(selectedModules, module)
+					}
+				}
+
+				svcResp = append(svcResp, &commonmodels.DeployServiceInfo{
+					ServiceName:       svc.ServiceName,
+					VariableConfigs:   svc.VariableConfigs,
+					VariableKVs:       svc.VariableKVs,
+					LatestVariableKVs: svc.LatestVariableKVs,
+					VariableYaml:      svc.VariableYaml,
+					UpdateConfig:      svc.UpdateConfig,
+					Updatable:         svc.Updatable,
+					Deployed:          svc.Deployed,
+					Modules:           selectedModules,
+					KeyVals:           svc.KeyVals,
+					LatestKeyVals:     svc.LatestKeyVals,
+				})
+			}
+		}
+
+		j.spec.Services = svcResp
 	}
 
 	j.job.Spec = j.spec

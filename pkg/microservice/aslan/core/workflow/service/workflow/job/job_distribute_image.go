@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/koderover/zadig/v2/pkg/util"
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
@@ -76,7 +77,6 @@ func (j *ImageDistributeJob) SetPreset() error {
 			})
 		}
 		j.spec.Targets = targets
-		j.spec.TargetOptions = targets
 	} else if j.spec.Source == config.SourceRuntime {
 		servicesMap, err := repository.GetMaxRevisionsServicesMap(j.workflow.Project, false)
 		if err != nil {
@@ -99,8 +99,6 @@ func (j *ImageDistributeJob) SetPreset() error {
 				}
 			}
 		}
-
-		j.spec.TargetOptions = j.spec.Targets
 	}
 
 	j.job.Spec = j.spec
@@ -108,6 +106,29 @@ func (j *ImageDistributeJob) SetPreset() error {
 }
 
 func (j *ImageDistributeJob) SetOptions() error {
+	j.spec = &commonmodels.ZadigDistributeImageJobSpec{}
+	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
+		return err
+	}
+
+	servicesMap, err := repository.GetMaxRevisionsServicesMap(j.workflow.Project, false)
+	if err != nil {
+		return fmt.Errorf("get services map error: %v", err)
+	}
+
+	options := make([]*commonmodels.DistributeTarget, 0)
+	for _, svc := range servicesMap {
+		for _, module := range svc.Containers {
+			options = append(options, &commonmodels.DistributeTarget{
+				ServiceName:   svc.ServiceName,
+				ServiceModule: module.Name,
+				ImageName:     util.ExtractImageName(module.Image),
+			})
+		}
+	}
+
+	j.spec.TargetOptions = options
+	j.job.Spec = j.spec
 	return nil
 }
 
