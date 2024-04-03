@@ -3470,6 +3470,37 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/aslan/placeholder/zadig_vm_deploy_job_spec": {
+            "post": {
+                "description": "[DONT USE] ZadigVMDeployJobSpec",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "placeholder"
+                ],
+                "summary": "[DONT USE]  ZadigVMDeployJobSpec",
+                "parameters": [
+                    {
+                        "description": "body",
+                        "name": "zadig_vm_deploy_job_spec",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.ZadigVMDeployJobSpec"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
         "/api/aslan/project/bizdir": {
             "get": {
                 "description": "Get Bussiness Directory",
@@ -5557,6 +5588,31 @@ const docTemplate = `{
             "x-enum-varnames": [
                 "JiraBasicAuth",
                 "JiraPersonalAccessToken"
+            ]
+        },
+        "github_com_koderover_zadig_v2_pkg_microservice_aslan_config.PipelineType": {
+            "type": "string",
+            "enum": [
+                "single",
+                "workflow",
+                "freestyle",
+                "test",
+                "service",
+                "workflow_v3",
+                "workflow_v4",
+                "artifact",
+                "scanning"
+            ],
+            "x-enum-varnames": [
+                "SingleType",
+                "WorkflowType",
+                "FreestyleType",
+                "TestType",
+                "ServiceType",
+                "WorkflowTypeV3",
+                "WorkflowTypeV4",
+                "ArtifactType",
+                "ScanningType"
             ]
         },
         "github_com_koderover_zadig_v2_pkg_microservice_aslan_core_common_service.EnvService": {
@@ -7654,6 +7710,41 @@ const docTemplate = `{
                 }
             }
         },
+        "models.ServiceAndVMDeploy": {
+            "type": "object",
+            "properties": {
+                "artifact_url": {
+                    "type": "string"
+                },
+                "file_name": {
+                    "type": "string"
+                },
+                "job_task_name": {
+                    "type": "string"
+                },
+                "repos": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/types.Repository"
+                    }
+                },
+                "service_module": {
+                    "type": "string"
+                },
+                "service_name": {
+                    "type": "string"
+                },
+                "task_id": {
+                    "type": "integer"
+                },
+                "workflow_name": {
+                    "type": "string"
+                },
+                "workflow_type": {
+                    "$ref": "#/definitions/github_com_koderover_zadig_v2_pkg_microservice_aslan_config.PipelineType"
+                }
+            }
+        },
         "models.ServiceKeyVal": {
             "type": "object",
             "properties": {
@@ -7964,6 +8055,59 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/models.ScanningModule"
                     }
+                }
+            }
+        },
+        "models.ZadigVMDeployEnvInformation": {
+            "type": "object",
+            "properties": {
+                "env": {
+                    "type": "string"
+                },
+                "services": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ServiceAndVMDeploy"
+                    }
+                }
+            }
+        },
+        "models.ZadigVMDeployJobSpec": {
+            "type": "object",
+            "properties": {
+                "env": {
+                    "type": "string"
+                },
+                "env_options": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ZadigVMDeployEnvInformation"
+                    }
+                },
+                "job_name": {
+                    "description": "当 source 为 fromjob 时需要，指定部署镜像来源是上游哪一个构建任务",
+                    "type": "string"
+                },
+                "origin_job_name": {
+                    "description": "save the origin quoted job name",
+                    "type": "string"
+                },
+                "s3_storage_id": {
+                    "type": "string"
+                },
+                "service_and_vm_deploys": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ServiceAndVMDeploy"
+                    }
+                },
+                "source": {
+                    "description": "fromjob/runtime, runtime 表示运行时输入，fromjob 表示从上游构建任务中获取",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/config.DeploySourceType"
+                        }
+                    ]
                 }
             }
         },

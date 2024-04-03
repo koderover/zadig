@@ -511,3 +511,15 @@ func Placeholder10(c *gin.Context) {
 func Placeholder11(c *gin.Context) {
 
 }
+
+// @Summary [DONT USE]  ZadigVMDeployJobSpec
+// @Description [DONT USE] ZadigVMDeployJobSpec
+// @Tags 	placeholder
+// @Accept 	json
+// @Produce json
+// @Param 	zadig_vm_deploy_job_spec 			body 		 commonmodels.ZadigVMDeployJobSpec	true 	"body"
+// @Success 200
+// @Router /api/aslan/placeholder/zadig_vm_deploy_job_spec [post]
+func Placeholder12(c *gin.Context) {
+
+}

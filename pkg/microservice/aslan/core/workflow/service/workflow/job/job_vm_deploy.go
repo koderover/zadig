@@ -23,6 +23,8 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/repository"
+	"github.com/koderover/zadig/v2/pkg/util"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -57,7 +59,7 @@ func (j *VMDeployJob) SetPreset() error {
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return err
 	}
-	j.job.Spec = j.spec
+
 	var err error
 	_, err = templaterepo.NewProductColl().Find(j.workflow.Project)
 	if err != nil {
@@ -102,11 +104,86 @@ func (j *VMDeployJob) SetPreset() error {
 		serviceAndVMDeploy.Repos = mergeRepos(serviceAndVMDeploy.Repos, build.DeployRepos)
 	}
 
+	j.job.Spec = j.spec
 	return nil
 }
 
 func (j *VMDeployJob) SetOptions() error {
+	j.spec = &commonmodels.ZadigVMDeployJobSpec{}
+	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
+		return err
+	}
+
+	// there are no production environment for vm projects now
+	envs, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
+		Name:                j.workflow.Project,
+		IsSortByProductName: true,
+		Production:          util.GetBoolPointer(false),
+	})
+
+	if err != nil {
+		log.Errorf("failed to list environments for project: %s, error: %s", j.workflow.Project, err)
+		return err
+	}
+
+	envOptions := make([]*commonmodels.ZadigVMDeployEnvInformation, 0)
+
+	info, err := generateVMDeployServiceInfo(j.workflow.Project)
+	if err != nil {
+		log.Errorf("failed to generate service deploy info for project: %s, error: %s", j.workflow.Project, err)
+		return err
+	}
+
+	for _, env := range envs {
+		envOptions = append(envOptions, &commonmodels.ZadigVMDeployEnvInformation{
+			Env:      env.EnvName,
+			Services: info,
+		})
+	}
+
+	j.job.Spec = j.spec
 	return nil
+}
+
+// generateVMDeployServiceInfo generated all deployable service and its corresponding data.
+// currently it ignores the env service info, just gives all the service defined in the template.
+func generateVMDeployServiceInfo(project string) ([]*commonmodels.ServiceAndVMDeploy, error) {
+	resp := make([]*commonmodels.ServiceAndVMDeploy, 0)
+
+	currentService, err := repository.ListMaxRevisionsServices(project, false)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find the latest service from database for project: %s, error: %s", project, err)
+	}
+
+	for _, svc := range currentService {
+		templateSvc, err := commonrepo.NewServiceColl().Find(
+			&commonrepo.ServiceFindOption{
+				ServiceName: svc.ServiceName,
+				ProductName: project,
+			},
+		)
+
+		if err != nil {
+			return nil, fmt.Errorf("failed to find service: %s in project: %s, error: %s", svc.ServiceName, project, err)
+		}
+
+		if templateSvc.BuildName == "" {
+			return nil, fmt.Errorf("service %s in project %s has no deploy info", svc.ServiceName, project)
+		}
+
+		build, err := commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: templateSvc.BuildName, ProductName: project})
+		if err != nil {
+			return nil, fmt.Errorf("can't find build %s in project %s, error: %v", templateSvc.BuildName, project, err)
+		}
+
+		resp = append(resp, &commonmodels.ServiceAndVMDeploy{
+			Repos:         build.DeployRepos,
+			ServiceName:   templateSvc.ServiceName,
+			ServiceModule: templateSvc.ServiceName,
+		})
+	}
+
+	return resp, nil
 }
 
 func (j *VMDeployJob) GetRepos() ([]*types.Repository, error) {

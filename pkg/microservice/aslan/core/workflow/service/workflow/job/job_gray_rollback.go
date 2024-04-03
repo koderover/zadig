@@ -89,7 +89,7 @@ func (j *GrayRollbackJob) SetOptions() error {
 	for _, stage := range originalWorkflow.Stages {
 		if !found {
 			for _, job := range stage.Jobs {
-				if job.Name == j.job.Name && job.Spec == j.job.Spec {
+				if job.Name == j.job.Name && job.JobType == j.job.JobType {
 					if err := commonmodels.IToi(job.Spec, originalSpec); err != nil {
 						return err
 					}

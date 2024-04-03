@@ -285,6 +285,8 @@ type ZadigDeployJobSpec struct {
 	// save the origin quoted job name
 	OriginJobName string               `bson:"origin_job_name"      yaml:"origin_job_name"      json:"origin_job_name"`
 	Services      []*DeployServiceInfo `bson:"services"             yaml:"services"             json:"services"`
+	// TODO: Deprecated in 2.3.0, this field is now used for saving the default service module info for deployment.
+	ServiceAndImages []*ServiceAndImage `bson:"service_and_images" yaml:"service_and_images" json:"service_and_images"`
 }
 
 type ServiceAndVMDeploy struct {
@@ -300,9 +302,10 @@ type ServiceAndVMDeploy struct {
 }
 
 type ZadigVMDeployJobSpec struct {
-	Env                 string                `bson:"env"                    yaml:"env"                    json:"env"`
-	S3StorageID         string                `bson:"s3_storage_id"          yaml:"s3_storage_id"          json:"s3_storage_id"`
-	ServiceAndVMDeploys []*ServiceAndVMDeploy `bson:"service_and_vm_deploys" yaml:"service_and_vm_deploys" json:"service_and_vm_deploys"`
+	Env                 string                         `bson:"env"                    yaml:"env"                    json:"env"`
+	EnvOptions          []*ZadigVMDeployEnvInformation `bson:"-"                      yaml:"env_options"            json:"env_options"`
+	S3StorageID         string                         `bson:"s3_storage_id"          yaml:"s3_storage_id"          json:"s3_storage_id"`
+	ServiceAndVMDeploys []*ServiceAndVMDeploy          `bson:"service_and_vm_deploys" yaml:"service_and_vm_deploys" json:"service_and_vm_deploys"`
 	// fromjob/runtime, runtime 表示运行时输入，fromjob 表示从上游构建任务中获取
 	Source config.DeploySourceType `bson:"source"     yaml:"source"     json:"source"`
 	// 当 source 为 fromjob 时需要，指定部署镜像来源是上游哪一个构建任务
@@ -418,12 +421,12 @@ type DistributeTarget struct {
 }
 
 type ZadigTestingJobSpec struct {
-	TestType        config.TestModuleType   `bson:"test_type"        yaml:"test_type"        json:"test_type"`
-	Source          config.DeploySourceType `bson:"source"           yaml:"source"           json:"source"`
-	JobName         string                  `bson:"job_name"         yaml:"job_name"         json:"job_name"`
-	OriginJobName   string                  `bson:"origin_job_name"  yaml:"origin_job_name"  json:"origin_job_name"`
-	TargetServices  []*ServiceTestTarget    `bson:"target_services"  yaml:"target_services"  json:"target_services"`
-	TestModules     []*TestModule           `bson:"test_modules"     yaml:"test_modules"     json:"test_modules"`
+	TestType        config.TestModuleType   `bson:"test_type"         yaml:"test_type"         json:"test_type"`
+	Source          config.DeploySourceType `bson:"source"            yaml:"source"            json:"source"`
+	JobName         string                  `bson:"job_name"          yaml:"job_name"          json:"job_name"`
+	OriginJobName   string                  `bson:"origin_job_name"   yaml:"origin_job_name"   json:"origin_job_name"`
+	TargetServices  []*ServiceTestTarget    `bson:"target_services"   yaml:"target_services"   json:"target_services"`
+	TestModules     []*TestModule           `bson:"test_modules"      yaml:"test_modules"      json:"test_modules"`
 	ServiceAndTests []*ServiceAndTest       `bson:"service_and_tests" yaml:"service_and_tests" json:"service_and_tests"`
 }
 
@@ -586,6 +589,11 @@ type ZadigBlueGreenDeployEnvInformation struct {
 	Services []*BlueGreenDeployV2Service `json:"services" yaml:"services"`
 }
 
+type ZadigVMDeployEnvInformation struct {
+	Env      string                `json:"env"      yaml:"env"`
+	Services []*ServiceAndVMDeploy `json:"services" yaml:"services"`
+}
+
 type ClusterBrief struct {
 	ClusterID   string                  `json:"cluster_id"   yaml:"cluster_id"`
 	ClusterName string                  `json:"cluster_name" yaml:"cluster_name"`
@@ -655,13 +663,15 @@ type IstioJobSpec struct {
 	ReplicaPercentage int64             `bson:"replica_percentage" json:"replica_percentage" yaml:"replica_percentage"`
 	Weight            int64             `bson:"weight"             json:"weight"             yaml:"weight"`
 	Targets           []*IstioJobTarget `bson:"targets"            json:"targets"            yaml:"targets"`
+	TargetOptions     []*IstioJobTarget `bson:"-"                  json:"target_options"     yaml:"target_options"`
 }
 
 type IstioRollBackJobSpec struct {
-	ClusterID string            `bson:"cluster_id"  json:"cluster_id"  yaml:"cluster_id"`
-	Namespace string            `bson:"namespace"   json:"namespace"   yaml:"namespace"`
-	Timeout   int64             `bson:"timeout"     json:"timeout"     yaml:"timeout"`
-	Targets   []*IstioJobTarget `bson:"targets"     json:"targets"     yaml:"targets"`
+	ClusterID     string            `bson:"cluster_id"  json:"cluster_id"     yaml:"cluster_id"`
+	Namespace     string            `bson:"namespace"   json:"namespace"      yaml:"namespace"`
+	Timeout       int64             `bson:"timeout"     json:"timeout"        yaml:"timeout"`
+	Targets       []*IstioJobTarget `bson:"targets"     json:"targets"        yaml:"targets"`
+	TargetOptions []*IstioJobTarget `bson:"-"           json:"target_options" yaml:"target_options"`
 }
 
 type UpdateEnvIstioConfigJobSpec struct {

@@ -68,7 +68,6 @@ func InitJobCtl(job *commonmodels.Job, workflow *commonmodels.WorkflowV4) (JobCt
 	case config.JobZadigHelmChartDeploy:
 		resp = &HelmChartDeployJob{job: job, workflow: workflow}
 	case config.JobZadigVMDeploy:
-		// TODO: Not done
 		resp = &VMDeployJob{job: job, workflow: workflow}
 	case config.JobPlugin:
 		resp = &PluginJob{job: job, workflow: workflow}
@@ -85,7 +84,6 @@ func InitJobCtl(job *commonmodels.Job, workflow *commonmodels.WorkflowV4) (JobCt
 	case config.JobK8sCanaryRelease:
 		resp = &CanaryReleaseJob{job: job, workflow: workflow}
 	case config.JobZadigTesting:
-		// TODO: Not done
 		resp = &TestingJob{job: job, workflow: workflow}
 	case config.JobK8sGrayRelease:
 		resp = &GrayReleaseJob{job: job, workflow: workflow}
@@ -96,6 +94,7 @@ func InitJobCtl(job *commonmodels.Job, workflow *commonmodels.WorkflowV4) (JobCt
 	case config.JobZadigScanning:
 		resp = &ScanningJob{job: job, workflow: workflow}
 	case config.JobZadigDistributeImage:
+		// TODO: Waiting for confirmation from product manager
 		resp = &ImageDistributeJob{job: job, workflow: workflow}
 	case config.JobIstioRelease:
 		resp = &IstioReleaseJob{job: job, workflow: workflow}
