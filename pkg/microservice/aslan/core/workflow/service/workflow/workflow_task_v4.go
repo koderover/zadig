@@ -514,6 +514,15 @@ func CloneWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredL
 		logger.Errorf("find workflowTaskV4 error: %s", err)
 		return nil, e.ErrGetTask.AddErr(err)
 	}
+
+	for _, stage := range task.OriginWorkflowArgs.Stages {
+		for _, job := range stage.Jobs {
+			if err := jobctl.SetOptions(job, task.OriginWorkflowArgs); err != nil {
+				log.Errorf("cannot get workflow %s options for job %s, the error is: %v", workflowName, job.Name, err)
+				return nil, e.ErrPresetWorkflow.AddDesc(err.Error())
+			}
+		}
+	}
 	return task.OriginWorkflowArgs, nil
 }
 
