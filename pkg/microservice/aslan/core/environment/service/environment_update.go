@@ -170,28 +170,10 @@ func reInstallHelmServiceInEnv(productInfo *commonmodels.Product, templateSvc *c
 }
 
 // ReInstallHelmSvcInAllEnvs reinstall svc in all envs in which the svc is already installed
-func ReInstallHelmSvcInAllEnvs(productName string, templateSvc *commonmodels.Service) error {
+func ReInstallHelmSvcInAllEnvs(productName string, templateSvc *commonmodels.Service, production bool) error {
 	products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
 		Name:       productName,
-		Production: util.GetBoolPointer(false),
-	})
-	if err != nil {
-		return fmt.Errorf("failed to list envs for product: %s, err: %s", productName, err)
-	}
-	retErr := &multierror.Error{}
-	for _, product := range products {
-		err := reInstallHelmServiceInEnv(product, templateSvc)
-		if err != nil {
-			retErr = multierror.Append(retErr, fmt.Errorf("failed to update service: %s/%s, err: %s", product.EnvName, templateSvc.ServiceName, err))
-		}
-	}
-	return retErr.ErrorOrNil()
-}
-
-func ReInstallHelmProductionSvcInAllEnvs(productName string, templateSvc *commonmodels.Service) error {
-	products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
-		Name:       productName,
-		Production: util.GetBoolPointer(true),
+		Production: util.GetBoolPointer(production),
 	})
 	if err != nil {
 		return fmt.Errorf("failed to list envs for product: %s, err: %s", productName, err)
@@ -258,17 +240,17 @@ func updateHelmSvcInAllEnvs(userName, productName string, templateSvcs []*common
 }
 
 // updateK8sSvcInAllEnvs updates k8s svc in all envs in which the svc is already installed
-func updateK8sSvcInAllEnvs(productName string, templateSvc *commonmodels.Service) error {
+func updateK8sSvcInAllEnvs(productName string, templateSvc *commonmodels.Service, production bool) error {
 	products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
 		Name:       productName,
-		Production: util.GetBoolPointer(false),
+		Production: util.GetBoolPointer(production),
 	})
 	if err != nil {
 		return fmt.Errorf("failed to list envs for product: %s, err: %s", productName, err)
 	}
+
 	retErr := &multierror.Error{}
 	for _, product := range products {
-
 		productSvcMap, serviceName := product.GetServiceMap(), templateSvc.ServiceName
 		// service not applied in this environment
 		if _, ok := productSvcMap[serviceName]; !ok {
@@ -596,7 +578,7 @@ func AutoDeployHelmServiceToEnvs(userName, requestID, projectName string, servic
 	return nil
 }
 
-func AutoDeployYamlServiceToEnvs(userName, requestID string, serviceTemplate *commonmodels.Service, log *zap.SugaredLogger) error {
+func AutoDeployYamlServiceToEnvs(userName, requestID string, serviceTemplate *commonmodels.Service, production bool, log *zap.SugaredLogger) error {
 	templateProduct, err := templaterepo.NewProductColl().Find(serviceTemplate.ProductName)
 	if err != nil {
 		return fmt.Errorf("failed to find template product when depolying services: %s, err: %s", serviceTemplate.ServiceName, err)
@@ -605,7 +587,7 @@ func AutoDeployYamlServiceToEnvs(userName, requestID string, serviceTemplate *co
 		return nil
 	}
 	go func() {
-		err = updateK8sSvcInAllEnvs(serviceTemplate.ProductName, serviceTemplate)
+		err = updateK8sSvcInAllEnvs(serviceTemplate.ProductName, serviceTemplate, production)
 		if err != nil {
 			notify.SendErrorMessage(userName, "服务自动部署失败", requestID, err, log)
 		}

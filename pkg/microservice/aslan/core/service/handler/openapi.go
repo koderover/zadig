@@ -398,7 +398,7 @@ func DeleteYamlServicesOpenAPI(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = svcservice.DeleteServiceTemplate(serviceName, "k8s", projectKey, c.DefaultQuery("isEnvTemplate", "true"), "private", ctx.Logger)
+	ctx.Err = svcservice.DeleteServiceTemplate(serviceName, "k8s", projectKey, false, ctx.Logger)
 }
 
 func DeleteProductionServicesOpenAPI(c *gin.Context) {
@@ -442,7 +442,7 @@ func DeleteProductionServicesOpenAPI(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = svcservice.DeleteProductionServiceTemplate(serviceName, projectKey, ctx.Logger)
+	ctx.Err = svcservice.DeleteServiceTemplate(serviceName, "k8s", projectKey, false, ctx.Logger)
 }
 
 func GetYamlServiceOpenAPI(c *gin.Context) {

@@ -308,53 +308,70 @@ type RepositoryInfo struct {
 func updateServiceTemplateByPushEvent(diffs []string, pathWithNamespace string, log *zap.SugaredLogger) error {
 	log.Infof("EVENT: GITLAB WEBHOOK UPDATING SERVICE TEMPLATE")
 
-	serviceTmpls, err := GetGitlabServiceTemplates()
+	svcTmplsMap := map[bool][]*commonmodels.Service{}
+	serviceTmpls, err := GetGitlabTestingServiceTemplates()
 	if err != nil {
-		log.Errorf("Failed to get gitlab service templates, error: %v", err)
+		log.Errorf("Failed to get gitlab testing service templates, error: %v", err)
 		return err
 	}
+	svcTmplsMap[false] = serviceTmpls
+	productionServiceTmpls, err := GetGitlabProductionServiceTemplates()
+	if err != nil {
+		log.Errorf("Failed to get gitlab production service templates, error: %v", err)
+		return err
+	}
+	svcTmplsMap[true] = productionServiceTmpls
 
 	errs := &multierror.Error{}
-
-	for _, service := range serviceTmpls {
-		if service.GetRepoNamespace()+"/"+service.RepoName != pathWithNamespace {
-			continue
-		}
-
-		path, err := getServiceSrcPath(service)
-		if err != nil {
-			errs = multierror.Append(errs, err)
-		}
-		// 判断PushEvent的Diffs中是否包含该服务模板的src_path
-		affected := false
-		for _, diff := range diffs {
-			if subElem(path, diff) {
-				affected = true
-				break
+	for production, serviceTmpls := range svcTmplsMap {
+		for _, service := range serviceTmpls {
+			if service.GetRepoNamespace()+"/"+service.RepoName != pathWithNamespace {
+				continue
 			}
-		}
-		if affected {
-			log.Infof("Started to sync service template %s from gitlab %s", service.ServiceName, service.SrcPath)
-			//TODO: 异步处理
-			service.CreateBy = "system"
-			err := SyncServiceTemplateFromGitlab(service, log)
+
+			path, err := getServiceSrcPath(service)
 			if err != nil {
-				log.Errorf("SyncServiceTemplateFromGitlab failed, error: %v", err)
 				errs = multierror.Append(errs, err)
 			}
-		} else {
-			log.Infof("Service template %s from gitlab %s is not affected, no sync", service.ServiceName, service.SrcPath)
+			// 判断PushEvent的Diffs中是否包含该服务模板的src_path
+			affected := false
+			for _, diff := range diffs {
+				if subElem(path, diff) {
+					affected = true
+					break
+				}
+			}
+			if affected {
+				log.Infof("Started to sync service template %s from gitlab %s", service.ServiceName, service.SrcPath)
+				//TODO: 异步处理
+				service.CreateBy = "system"
+				service.Production = production
+				err := SyncServiceTemplateFromGitlab(service, log)
+				if err != nil {
+					log.Errorf("SyncServiceTemplateFromGitlab failed, error: %v", err)
+					errs = multierror.Append(errs, err)
+				}
+			} else {
+				log.Infof("Service template %s from gitlab %s is not affected, no sync", service.ServiceName, service.SrcPath)
+			}
 		}
-
 	}
+
 	return errs.ErrorOrNil()
 }
 
-func GetGitlabServiceTemplates() ([]*commonmodels.Service, error) {
+func GetGitlabTestingServiceTemplates() ([]*commonmodels.Service, error) {
 	opt := &commonrepo.ServiceListOption{
 		Source: setting.SourceFromGitlab,
 	}
 	return commonrepo.NewServiceColl().ListMaxRevisions(opt)
+}
+
+func GetGitlabProductionServiceTemplates() ([]*commonmodels.Service, error) {
+	opt := &commonrepo.ServiceListOption{
+		Source: setting.SourceFromGitlab,
+	}
+	return commonrepo.NewProductionServiceColl().ListMaxRevisions(opt)
 }
 
 // SyncServiceTemplateFromGitlab Force to sync Service Template to latest commit and content,

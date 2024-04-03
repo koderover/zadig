@@ -116,8 +116,8 @@ type ReleaseNamingRule struct {
 	ServiceName string `json:"service_name"`
 }
 
-func GetServiceTemplateOption(serviceName, productName string, revision int64, log *zap.SugaredLogger) (*ServiceOption, error) {
-	service, err := commonservice.GetServiceTemplate(serviceName, setting.K8SDeployType, productName, setting.ProductStatusDeleting, revision, log)
+func GetServiceTemplateOption(serviceName, productName string, revision int64, production bool, log *zap.SugaredLogger) (*ServiceOption, error) {
+	service, err := commonservice.GetServiceTemplate(serviceName, setting.K8SDeployType, productName, setting.ProductStatusDeleting, revision, production, log)
 	if err != nil {
 		return nil, err
 	}
@@ -552,7 +552,7 @@ func fillServiceVariable(args *commonmodels.Service, curRevision *commonmodels.S
 	return nil
 }
 
-func CreateServiceTemplate(userName string, args *commonmodels.Service, force bool, log *zap.SugaredLogger) (*ServiceOption, error) {
+func CreateServiceTemplate(userName string, args *commonmodels.Service, force bool, production bool, log *zap.SugaredLogger) (*ServiceOption, error) {
 	opt := &commonrepo.ServiceFindOption{
 		ServiceName:   args.ServiceName,
 		Revision:      0,
@@ -561,7 +561,7 @@ func CreateServiceTemplate(userName string, args *commonmodels.Service, force bo
 		ExcludeStatus: setting.ProductStatusDeleting,
 	}
 
-	serviceTmpl, notFoundErr := commonrepo.NewServiceColl().Find(opt)
+	serviceTmpl, notFoundErr := repository.QueryTemplateService(opt, production)
 	if notFoundErr == nil && !force {
 		return nil, fmt.Errorf("service:%s already exists", serviceTmpl.ServiceName)
 	} else {
@@ -581,17 +581,18 @@ func CreateServiceTemplate(userName string, args *commonmodels.Service, force bo
 	}
 
 	// 校验args
+	args.Production = production
 	if err := ensureServiceTmpl(userName, args, log); err != nil {
 		log.Errorf("ensureServiceTmpl error: %+v", err)
 		return nil, e.ErrValidateTemplate.AddDesc(err.Error())
 	}
 
-	if err := commonrepo.NewServiceColl().Delete(args.ServiceName, args.Type, args.ProductName, setting.ProductStatusDeleting, args.Revision); err != nil {
+	if err := repository.Delete(args.ServiceName, args.Type, args.ProductName, setting.ProductStatusDeleting, args.Revision, production); err != nil {
 		log.Errorf("ServiceTmpl.delete %s error: %v", args.ServiceName, err)
 	}
 
 	// create a new revision of template service
-	if err := commonrepo.NewServiceColl().Create(args); err != nil {
+	if err := repository.Create(args, production); err != nil {
 		log.Errorf("ServiceTmpl.Create %s error: %v", args.ServiceName, err)
 		return nil, e.ErrCreateTemplate.AddDesc(err.Error())
 	}
@@ -599,10 +600,18 @@ func CreateServiceTemplate(userName string, args *commonmodels.Service, force bo
 	if notFoundErr != nil {
 		if productTempl, err := commonservice.GetProductTemplate(args.ProductName, log); err == nil {
 			//获取项目里面的所有服务
-			if len(productTempl.Services) > 0 && !sets.NewString(productTempl.Services[0]...).Has(args.ServiceName) {
-				productTempl.Services[0] = append(productTempl.Services[0], args.ServiceName)
+			if production {
+				if len(productTempl.ProductionServices) > 0 && !sets.NewString(productTempl.ProductionServices[0]...).Has(args.ServiceName) {
+					productTempl.ProductionServices[0] = append(productTempl.ProductionServices[0], args.ServiceName)
+				} else {
+					productTempl.ProductionServices = [][]string{{args.ServiceName}}
+				}
 			} else {
-				productTempl.Services = [][]string{{args.ServiceName}}
+				if len(productTempl.Services) > 0 && !sets.NewString(productTempl.Services[0]...).Has(args.ServiceName) {
+					productTempl.Services[0] = append(productTempl.Services[0], args.ServiceName)
+				} else {
+					productTempl.Services = [][]string{{args.ServiceName}}
+				}
 			}
 			//更新项目模板
 			err = templaterepo.NewProductColl().Update(args.ProductName, productTempl)
@@ -612,87 +621,9 @@ func CreateServiceTemplate(userName string, args *commonmodels.Service, force bo
 			}
 		}
 	}
-	commonservice.ProcessServiceWebhook(args, serviceTmpl, args.ServiceName, log)
+	commonservice.ProcessServiceWebhook(args, serviceTmpl, args.ServiceName, production, log)
 
-	err = service.AutoDeployYamlServiceToEnvs(userName, "", args, log)
-	if err != nil {
-		return nil, e.ErrCreateTemplate.AddErr(err)
-	}
-
-	return GetServiceOption(args, log)
-}
-
-func CreateProductionServiceTemplate(userName string, args *commonmodels.Service, force bool, log *zap.SugaredLogger) (*ServiceOption, error) {
-	opt := &commonrepo.ServiceFindOption{
-		ServiceName:   args.ServiceName,
-		Revision:      0,
-		Type:          args.Type,
-		ProductName:   args.ProductName,
-		ExcludeStatus: setting.ProductStatusDeleting,
-	}
-
-	// Check for completely duplicate items before updating the database, and if so, exit.
-	serviceTmpl, notFoundErr := commonrepo.NewProductionServiceColl().Find(opt)
-	if notFoundErr == nil && !force {
-		return nil, fmt.Errorf("production_service:%s already exists", serviceTmpl.ServiceName)
-	} else {
-		if args.Source == setting.SourceFromGerrit {
-			// create gerrit webhook
-			if err := createGerritWebhookByService(args.GerritCodeHostID, args.ServiceName, args.GerritRepoName, args.GerritBranchName); err != nil {
-				log.Errorf("createGerritWebhookByService error: %v", err)
-				return nil, err
-			}
-		}
-	}
-
-	// fill serviceVars and variableYaml and serviceVariableKVs
-	err := fillServiceVariable(args, serviceTmpl)
-	if err != nil {
-		return nil, err
-	}
-
-	// check args
-	args.Production = true
-	if err := ensureServiceTmpl(userName, args, log); err != nil {
-		log.Errorf("ensureProductionServiceTmpl error: %+v", err)
-		return nil, e.ErrValidateTemplate.AddDesc(err.Error())
-	}
-
-	if err := commonrepo.NewProductionServiceColl().DeleteByOptions(commonrepo.ProductionServiceDeleteOption{
-		ServiceName: args.ServiceName,
-		Type:        args.Type,
-		ProductName: args.ProductName,
-		Revision:    args.Revision,
-		Status:      setting.ProductStatusDeleting,
-	}); err != nil {
-		log.Errorf("ProductionServiceTmpl.delete %s error: %v", args.ServiceName, err)
-	}
-
-	// create a new revision of template service
-	if err := commonrepo.NewProductionServiceColl().Create(args); err != nil {
-		log.Errorf("ProductionServiceTmpl.Create %s error: %v", args.ServiceName, err)
-		return nil, e.ErrCreateTemplate.AddDesc(err.Error())
-	}
-
-	if notFoundErr != nil {
-		if productTempl, err := commonservice.GetProductTemplate(args.ProductName, log); err == nil {
-			// get all services in the project
-			if len(productTempl.ProductionServices) > 0 && !sets.NewString(productTempl.ProductionServices[0]...).Has(args.ServiceName) {
-				productTempl.ProductionServices[0] = append(productTempl.ProductionServices[0], args.ServiceName)
-			} else {
-				productTempl.ProductionServices = [][]string{{args.ServiceName}}
-			}
-			// update project template
-			err = templaterepo.NewProductColl().Update(args.ProductName, productTempl)
-			if err != nil {
-				log.Errorf("CreateProductionServiceTemplate Update %s error: %s", args.ServiceName, err)
-				return nil, e.ErrCreateTemplate.AddDesc(err.Error())
-			}
-		}
-	}
-	commonservice.ProcessServiceWebhook(args, serviceTmpl, args.ServiceName, log)
-
-	err = service.AutoDeployYamlServiceToEnvs(userName, "", args, log)
+	err = service.AutoDeployYamlServiceToEnvs(userName, "", args, production, log)
 	if err != nil {
 		return nil, e.ErrCreateTemplate.AddErr(err)
 	}
@@ -793,11 +724,11 @@ func containersChanged(oldContainers []*commonmodels.Container, newContainers []
 	return !oldSet.Equal(newSet)
 }
 
-func UpdateServiceVariables(args *commonservice.ServiceTmplObject) error {
-	currentService, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
+func UpdateServiceVariables(args *commonservice.ServiceTmplObject, production bool) error {
+	currentService, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
 		ProductName: args.ProductName,
 		ServiceName: args.ServiceName,
-	})
+	}, production)
 	if err != nil {
 		return e.ErrUpdateService.AddErr(fmt.Errorf("failed to get service info, err: %s", err))
 	}
@@ -813,7 +744,7 @@ func UpdateServiceVariables(args *commonservice.ServiceTmplObject) error {
 		return fmt.Errorf("failed to render yaml, err: %s", err)
 	}
 
-	err = commonrepo.NewServiceColl().UpdateServiceVariables(currentService)
+	err = repository.UpdateServiceVariables(currentService, production)
 	if err != nil {
 		return e.ErrUpdateService.AddErr(err)
 	}
@@ -826,7 +757,7 @@ func UpdateServiceVariables(args *commonservice.ServiceTmplObject) error {
 	if err := commonutil.SetCurrentContainerImages(currentService); err != nil {
 		log.Errorf("failed to ser set container images, err: %s", err)
 	} else if containersChanged(oldContainers, currentService.Containers) {
-		err = commonrepo.NewServiceColl().UpdateServiceContainers(currentService)
+		err = repository.UpdateServiceContainers(currentService, production)
 		if err != nil {
 			log.Errorf("failed to update service containers")
 		}
@@ -984,21 +915,21 @@ func YamlValidator(args *YamlValidatorReq) []string {
 	return errorDetails
 }
 
-func UpdateReleaseNamingRule(userName, requestID, projectName string, args *ReleaseNamingRule, log *zap.SugaredLogger) error {
-	serviceTemplate, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
+func UpdateReleaseNamingRule(userName, requestID, projectName string, args *ReleaseNamingRule, production bool, log *zap.SugaredLogger) error {
+	serviceTemplate, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
 		ServiceName:   args.ServiceName,
 		Revision:      0,
 		Type:          setting.HelmDeployType,
 		ProductName:   projectName,
 		ExcludeStatus: setting.ProductStatusDeleting,
-	})
+	}, production)
 	if err != nil {
 		return err
 	}
 
 	products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
 		Name:       projectName,
-		Production: util.GetBoolPointer(false),
+		Production: util.GetBoolPointer(production),
 	})
 	if err != nil {
 		return fmt.Errorf("failed to list envs for product: %s, err: %s", projectName, err)
@@ -1008,7 +939,7 @@ func UpdateReleaseNamingRule(userName, requestID, projectName string, args *Rele
 	if serviceTemplate.GetReleaseNaming() == args.NamingRule {
 		products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
 			Name:       projectName,
-			Production: util.GetBoolPointer(false),
+			Production: util.GetBoolPointer(production),
 		})
 		if err != nil {
 			return fmt.Errorf("failed to list envs for product: %s, err: %s", projectName, err)
@@ -1038,32 +969,46 @@ func UpdateReleaseNamingRule(userName, requestID, projectName string, args *Rele
 	}
 
 	serviceTemplate.ReleaseNaming = args.NamingRule
-	rev, err := getNextServiceRevision(projectName, args.ServiceName, false)
+	rev, err := getNextServiceRevision(projectName, args.ServiceName, production)
 	if err != nil {
 		return fmt.Errorf("failed to get service next revision, service %s, err: %s", args.ServiceName, err)
 	}
 
-	basePath := config.LocalTestServicePath(serviceTemplate.ProductName, serviceTemplate.ServiceName)
-	if err = commonutil.PreLoadServiceManifests(basePath, serviceTemplate, false); err != nil {
-		return fmt.Errorf("failed to load chart info for service %s, err: %s", serviceTemplate.ServiceName, err)
-	}
+	if production {
+		basePath := config.LocalProductionServicePath(serviceTemplate.ProductName, serviceTemplate.ServiceName)
+		if err = commonutil.PreLoadProductionServiceManifests(basePath, serviceTemplate); err != nil {
+			return fmt.Errorf("failed to load chart info for service %s, err: %s", serviceTemplate.ServiceName, err)
+		}
 
-	fsTree := os.DirFS(config.LocalTestServicePath(projectName, serviceTemplate.ServiceName))
-	s3Base := config.ObjectStorageTestServicePath(projectName, serviceTemplate.ServiceName)
-	err = fs.ArchiveAndUploadFilesToS3(fsTree, []string{fmt.Sprintf("%s-%d", serviceTemplate.ServiceName, rev)}, s3Base, log)
-	if err != nil {
-		return fmt.Errorf("failed to upload chart info for service %s, err: %s", serviceTemplate.ServiceName, err)
+		fsTree := os.DirFS(config.LocalProductionServicePath(projectName, serviceTemplate.ServiceName))
+		s3Base := config.ObjectStorageProductionServicePath(projectName, serviceTemplate.ServiceName)
+		err = fs.ArchiveAndUploadFilesToS3(fsTree, []string{fmt.Sprintf("%s-%d", serviceTemplate.ServiceName, rev)}, s3Base, log)
+		if err != nil {
+			return fmt.Errorf("failed to upload chart info for service %s, err: %s", serviceTemplate.ServiceName, err)
+		}
+	} else {
+		basePath := config.LocalTestServicePath(serviceTemplate.ProductName, serviceTemplate.ServiceName)
+		if err = commonutil.PreLoadServiceManifests(basePath, serviceTemplate, false); err != nil {
+			return fmt.Errorf("failed to load chart info for service %s, err: %s", serviceTemplate.ServiceName, err)
+		}
+
+		fsTree := os.DirFS(config.LocalTestServicePath(projectName, serviceTemplate.ServiceName))
+		s3Base := config.ObjectStorageTestServicePath(projectName, serviceTemplate.ServiceName)
+		err = fs.ArchiveAndUploadFilesToS3(fsTree, []string{fmt.Sprintf("%s-%d", serviceTemplate.ServiceName, rev)}, s3Base, log)
+		if err != nil {
+			return fmt.Errorf("failed to upload chart info for service %s, err: %s", serviceTemplate.ServiceName, err)
+		}
 	}
 
 	serviceTemplate.Revision = rev
-	err = commonrepo.NewServiceColl().Create(serviceTemplate)
+	err = repository.Create(serviceTemplate, production)
 	if err != nil {
 		return fmt.Errorf("failed to update relase naming for service: %s, err: %s", args.ServiceName, err)
 	}
 
 	go func() {
 		// reinstall services in envs
-		err = service.ReInstallHelmSvcInAllEnvs(projectName, serviceTemplate)
+		err = service.ReInstallHelmSvcInAllEnvs(projectName, serviceTemplate, production)
 		if err != nil {
 			title := fmt.Sprintf("服务 [%s] 重建失败", args.ServiceName)
 			notify.SendErrorMessage(userName, title, requestID, err, log)
@@ -1073,94 +1018,16 @@ func UpdateReleaseNamingRule(userName, requestID, projectName string, args *Rele
 	return nil
 }
 
-func UpdateProductionServiceReleaseNamingRule(userName, requestID, projectName string, args *ReleaseNamingRule, log *zap.SugaredLogger) error {
-	serviceTemplate, err := commonrepo.NewProductionServiceColl().Find(&commonrepo.ServiceFindOption{
-		ServiceName:   args.ServiceName,
-		Revision:      0,
-		Type:          setting.HelmDeployType,
-		ProductName:   projectName,
-		ExcludeStatus: setting.ProductStatusDeleting,
-	})
-	if err != nil {
-		return err
-	}
-
-	products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
-		Name:       projectName,
-		Production: util.GetBoolPointer(true),
-	})
-	if err != nil {
-		return fmt.Errorf("failed to list envs for product: %s, err: %s", projectName, err)
-	}
-
-	// check if namings rule changes for services deployed in envs
-	if serviceTemplate.GetReleaseNaming() == args.NamingRule {
-		modified := false
-		for _, product := range products {
-			if pSvc, ok := product.GetServiceMap()[args.ServiceName]; ok && pSvc.Revision != serviceTemplate.Revision {
-				modified = true
-				break
-			}
-		}
-		if !modified {
-			return nil
-		}
-	}
-
-	// check if the release name already exists
-	for _, product := range products {
-		releaseName := util.GeneReleaseName(args.NamingRule, product.ProductName, product.Namespace, product.EnvName, args.ServiceName)
-		releaseNameMap, err := commonutil.GetReleaseNameToChartNameMap(product)
-		if err != nil {
-			return fmt.Errorf("failed to get release name to chart name map, err: %s", err)
-		}
-		if chartOrSvcName, ok := releaseNameMap[releaseName]; ok && chartOrSvcName != args.ServiceName {
-			return fmt.Errorf("release name %s already exists for chart or service %s in environment: %s", releaseName, chartOrSvcName, product.EnvName)
-		}
-	}
-
-	serviceTemplate.ReleaseNaming = args.NamingRule
-	rev, err := getNextServiceRevision(projectName, args.ServiceName, true)
-	if err != nil {
-		return fmt.Errorf("failed to get service next revision, service %s, err: %s", args.ServiceName, err)
-	}
-
-	basePath := config.LocalProductionServicePath(serviceTemplate.ProductName, serviceTemplate.ServiceName)
-	if err = commonutil.PreLoadProductionServiceManifests(basePath, serviceTemplate); err != nil {
-		return fmt.Errorf("failed to load chart info for service %s, err: %s", serviceTemplate.ServiceName, err)
-	}
-
-	fsTree := os.DirFS(config.LocalProductionServicePath(projectName, serviceTemplate.ServiceName))
-	s3Base := config.ObjectStorageProductionServicePath(projectName, serviceTemplate.ServiceName)
-	err = fs.ArchiveAndUploadFilesToS3(fsTree, []string{fmt.Sprintf("%s-%d", serviceTemplate.ServiceName, rev)}, s3Base, log)
-	if err != nil {
-		return fmt.Errorf("failed to upload chart info for service %s, err: %s", serviceTemplate.ServiceName, err)
-	}
-
-	serviceTemplate.Revision = rev
-	err = commonrepo.NewProductionServiceColl().Create(serviceTemplate)
-	if err != nil {
-		return fmt.Errorf("failed to update relase naming for service: %s, err: %s", args.ServiceName, err)
-	}
-
-	go func() {
-		// reinstall services in envs
-		err = service.ReInstallHelmProductionSvcInAllEnvs(projectName, serviceTemplate)
-		if err != nil {
-			title := fmt.Sprintf("服务 [%s] 重建失败", args.ServiceName)
-			notify.SendErrorMessage(userName, title, requestID, err, log)
-		}
-	}()
-
-	return nil
-}
-
-func DeleteServiceTemplate(serviceName, serviceType, productName, isEnvTemplate, visibility string, log *zap.SugaredLogger) error {
-
+func DeleteServiceTemplate(serviceName, serviceType, productName string, production bool, log *zap.SugaredLogger) error {
 	// 如果服务是PM类型，删除服务更新build的target信息
 	if serviceType == setting.PMDeployType {
+		// PM service type only support testing service
+		if production {
+			return e.ErrDeleteTemplate.AddDesc("PM service type only support testing service")
+		}
+
 		if serviceTmpl, err := commonservice.GetServiceTemplate(
-			serviceName, setting.PMDeployType, productName, setting.ProductStatusDeleting, 0, log,
+			serviceName, setting.PMDeployType, productName, setting.ProductStatusDeleting, 0, false, log,
 		); err == nil {
 			if serviceTmpl.BuildName != "" {
 				updateTargets := make([]*commonmodels.ServiceModuleTarget, 0)
@@ -1176,7 +1043,7 @@ func DeleteServiceTemplate(serviceName, serviceType, productName, isEnvTemplate,
 		}
 	}
 
-	err := commonrepo.NewServiceColl().UpdateStatus(serviceName, productName, setting.ProductStatusDeleting)
+	err := repository.UpdateStatus(serviceName, productName, setting.ProductStatusDeleting, production)
 	if err != nil {
 		errMsg := fmt.Sprintf("[service.UpdateStatus] %s-%s error: %v", serviceName, serviceType, err)
 		log.Error(errMsg)
@@ -1185,29 +1052,47 @@ func DeleteServiceTemplate(serviceName, serviceType, productName, isEnvTemplate,
 
 	if serviceType == setting.HelmDeployType {
 		// 把该服务相关的s3的数据从仓库删除
-		if err = fs.DeleteArchivedFileFromS3([]string{serviceName}, configbase.ObjectStorageServicePath(productName, serviceName), log); err != nil {
-			log.Warnf("Failed to delete file %s, err: %s", serviceName, err)
+		if production {
+			if err = fs.DeleteArchivedFileFromS3([]string{serviceName}, configbase.ObjectStorageProductionServicePath(productName, serviceName), log); err != nil {
+				log.Warnf("Failed to delete file %s, err: %s", serviceName, err)
+			}
+		} else {
+			if err = fs.DeleteArchivedFileFromS3([]string{serviceName}, configbase.ObjectStorageServicePath(productName, serviceName), log); err != nil {
+				log.Warnf("Failed to delete file %s, err: %s", serviceName, err)
+			}
 		}
 	}
 
 	//删除环境模板
 	if productTempl, err := commonservice.GetProductTemplate(productName, log); err == nil {
-		newServices := make([][]string, len(productTempl.Services))
-		for i, services := range productTempl.Services {
-			for _, service := range services {
-				if service != serviceName {
-					newServices[i] = append(newServices[i], service)
+		if production {
+			newServices := make([][]string, len(productTempl.ProductionServices))
+			for i, services := range productTempl.ProductionServices {
+				for _, service := range services {
+					if service != serviceName {
+						newServices[i] = append(newServices[i], service)
+					}
 				}
 			}
+			productTempl.ProductionServices = newServices
+		} else {
+			newServices := make([][]string, len(productTempl.Services))
+			for i, services := range productTempl.Services {
+				for _, service := range services {
+					if service != serviceName {
+						newServices[i] = append(newServices[i], service)
+					}
+				}
+			}
+			productTempl.Services = newServices
 		}
-		productTempl.Services = newServices
 		err = templaterepo.NewProductColl().Update(productName, productTempl)
 		if err != nil {
 			log.Errorf("DeleteServiceTemplate Update %s error: %v", serviceName, err)
 			return e.ErrDeleteTemplate.AddDesc(err.Error())
 		}
 	}
-	commonservice.DeleteServiceWebhookByName(serviceName, productName, log)
+	commonservice.DeleteServiceWebhookByName(serviceName, productName, production, log)
 	return nil
 }
 
@@ -1332,7 +1217,7 @@ func createGerritWebhookByService(codehostID int, serviceName, repoName, branchN
 }
 
 func ListServiceTemplateOpenAPI(projectKey string, logger *zap.SugaredLogger) ([]*OpenAPIServiceBrief, error) {
-	services, err := commonservice.ListServiceTemplate(projectKey, logger)
+	services, err := commonservice.ListServiceTemplate(projectKey, false, logger)
 	if err != nil {
 		log.Errorf("failed to list service from db, projectKey: %s, err:%v", projectKey, err)
 		return nil, fmt.Errorf("failed to list service from db, projectKey: %s, error:%v", projectKey, err)
@@ -1361,7 +1246,7 @@ func ListServiceTemplateOpenAPI(projectKey string, logger *zap.SugaredLogger) ([
 }
 
 func ListProductionServiceTemplateOpenAPI(projectKey string, logger *zap.SugaredLogger) ([]*OpenAPIServiceBrief, error) {
-	productionServices, err := ListProductionServices(projectKey, logger)
+	productionServices, err := commonservice.ListServiceTemplate(projectKey, true, logger)
 	if err != nil {
 		log.Errorf("failed to list service from db, projectKey: %s, err:%v", projectKey, err)
 		return nil, fmt.Errorf("failed to list service from db, projectKey: %s, error:%v", projectKey, err)

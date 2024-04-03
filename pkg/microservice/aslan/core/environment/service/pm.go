@@ -104,7 +104,7 @@ func (p *PMService) listGroupServices(allServices []*commonmodels.ProductService
 				Revision:    service.Revision,
 			}
 			serviceTmpl, err := commonservice.GetServiceTemplate(
-				service.ServiceName, setting.PMDeployType, service.ProductName, "", service.Revision, p.log,
+				service.ServiceName, setting.PMDeployType, service.ProductName, "", service.Revision, false, p.log,
 			)
 
 			if err != nil {
@@ -177,7 +177,7 @@ func (p *PMService) createGroup(username string, product *commonmodels.Product, 
 	for _, productService := range group {
 		//更新非k8s服务
 		if len(productService.EnvConfigs) > 0 {
-			serviceTempl, err := commonservice.GetServiceTemplate(productService.ServiceName, setting.PMDeployType, productName, setting.ProductStatusDeleting, productService.Revision, p.log)
+			serviceTempl, err := commonservice.GetServiceTemplate(productService.ServiceName, setting.PMDeployType, productName, setting.ProductStatusDeleting, productService.Revision, false, p.log)
 			if err != nil {
 				errList = multierror.Append(errList, err)
 			}
@@ -233,7 +233,7 @@ func (p *PMService) createGroup(username string, product *commonmodels.Product, 
 		}
 		var latestRevision int64 = productService.Revision
 		// 获取最新版本的服务
-		if latestServiceTempl, _ := commonservice.GetServiceTemplate(productService.ServiceName, setting.PMDeployType, productName, setting.ProductStatusDeleting, 0, p.log); latestServiceTempl != nil {
+		if latestServiceTempl, _ := commonservice.GetServiceTemplate(productService.ServiceName, setting.PMDeployType, productName, setting.ProductStatusDeleting, 0, false, p.log); latestServiceTempl != nil {
 			latestRevision = latestServiceTempl.Revision
 		}
 		// 更新环境

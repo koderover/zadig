@@ -31,6 +31,7 @@ import (
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	commontypes "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/types"
+	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	svcservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/service/service"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
@@ -43,13 +44,13 @@ func ListServiceTemplate(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	projectName := c.Query("projectName")
+	production := c.Query("production") == "true"
 
 	// authorization check
 	// either they have the authorization, or they are system admins/project admins.
@@ -58,14 +59,30 @@ func ListServiceTemplate(c *gin.Context) {
 			ctx.UnAuthorized = true
 			return
 		}
-		if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectName].Service.View {
-			ctx.UnAuthorized = true
+		if production {
+			if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectName].ProductionService.View {
+				ctx.UnAuthorized = true
+				return
+			}
+		} else {
+			if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectName].Service.View {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
+	}
+
+	if production {
+		err = commonutil.CheckZadigProfessionalLicense()
+		if err != nil {
+			ctx.Err = err
 			return
 		}
 	}
 
-	ctx.Resp, ctx.Err = commonservice.ListServiceTemplate(projectName, ctx.Logger)
+	ctx.Resp, ctx.Err = commonservice.ListServiceTemplate(projectName, production, ctx.Logger)
 }
 
 func ListWorkloadTemplate(c *gin.Context) {
@@ -80,50 +97,39 @@ func ListWorkloadTemplate(c *gin.Context) {
 	}
 
 	projectName := c.Query("projectName")
+	production := c.Query("production") == "true"
 
 	if !ctx.Resources.IsSystemAdmin {
 		if _, ok := ctx.Resources.ProjectAuthInfo[projectName]; !ok {
 			ctx.UnAuthorized = true
 			return
 		}
-		if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectName].Env.View {
-			ctx.UnAuthorized = true
+
+		if production {
+			if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectName].ProductionEnv.View {
+				ctx.UnAuthorized = true
+				return
+			}
+		} else {
+			if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectName].Env.View {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
+	}
+
+	if production {
+		err = commonutil.CheckZadigProfessionalLicense()
+		if err != nil {
+			ctx.Err = err
 			return
 		}
 	}
 
 	// anyone with a token should be able to use this API
-	ctx.Resp, ctx.Err = commonservice.ListWorkloadTemplate(projectName, c.Query("env"), false, ctx.Logger)
-}
-
-func ListProductionWorkloadTemplate(c *gin.Context) {
-	ctx, err := internalhandler.NewContextWithAuthorization(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	if err != nil {
-
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
-		ctx.UnAuthorized = true
-		return
-	}
-
-	projectName := c.Query("projectName")
-
-	if !ctx.Resources.IsSystemAdmin {
-		if _, ok := ctx.Resources.ProjectAuthInfo[projectName]; !ok {
-			ctx.UnAuthorized = true
-			return
-		}
-		if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectName].ProductionEnv.View {
-			ctx.UnAuthorized = true
-			return
-		}
-	}
-
-	// anyone with a token should be able to use this API
-	ctx.Resp, ctx.Err = commonservice.ListWorkloadTemplate(projectName, c.Query("env"), true, ctx.Logger)
+	ctx.Resp, ctx.Err = commonservice.ListWorkloadTemplate(projectName, c.Query("env"), production, ctx.Logger)
 }
 
 func GetServiceTemplate(c *gin.Context) {
@@ -138,6 +144,7 @@ func GetServiceTemplate(c *gin.Context) {
 	}
 
 	projectName := c.Query("projectName")
+	production := c.Query("production") == "true"
 
 	// authorization check
 	if !ctx.Resources.IsSystemAdmin {
@@ -145,9 +152,25 @@ func GetServiceTemplate(c *gin.Context) {
 			ctx.UnAuthorized = true
 			return
 		}
-		if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectName].Service.View {
-			ctx.UnAuthorized = true
+		if production {
+			if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectName].ProductionService.View {
+				ctx.UnAuthorized = true
+				return
+			}
+		} else {
+			if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectName].Service.View {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
+	}
+
+	if production {
+		err = commonutil.CheckZadigProfessionalLicense()
+		if err != nil {
+			ctx.Err = err
 			return
 		}
 	}
@@ -157,14 +180,12 @@ func GetServiceTemplate(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid revision number")
 		return
 	}
-	ctx.Resp, ctx.Err = commonservice.GetServiceTemplateWithStructure(c.Param("name"), c.Param("type"), projectName, setting.ProductStatusDeleting, revision, ctx.Logger)
+	ctx.Resp, ctx.Err = commonservice.GetServiceTemplateWithStructure(c.Param("name"), c.Param("type"), projectName, setting.ProductStatusDeleting, revision, production, ctx.Logger)
 }
 
 func GetServiceTemplateOption(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	projectName := c.Query("projectName")
 
 	if err != nil {
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
@@ -176,22 +197,40 @@ func GetServiceTemplateOption(c *gin.Context) {
 	// this API is sometimes used in edit/create workflow scenario, thus giving the edit/create workflow permission
 	// authorization check
 	permitted := false
-
+	projectName := c.Query("projectName")
+	production := c.Query("production") == "true"
 	if ctx.Resources.IsSystemAdmin {
 		permitted = true
 	} else if projectAuthInfo, ok := ctx.Resources.ProjectAuthInfo[projectName]; ok {
-		// first check if the user is projectAdmin
-		if projectAuthInfo.IsProjectAdmin {
-			permitted = true
-		} else if projectAuthInfo.Env.EditConfig ||
-			projectAuthInfo.Service.View {
-			// then check if user has edit workflow permission
-			permitted = true
-		} else {
-			// finally check if the permission is given by collaboration mode
-			collaborationAuthorizedEdit, err := internalhandler.CheckPermissionGivenByCollaborationMode(ctx.UserID, projectName, types.ResourceTypeEnvironment, types.EnvActionEditConfig)
-			if err == nil && collaborationAuthorizedEdit {
+		if production {
+			// first check if the user is projectAdmin
+			if projectAuthInfo.IsProjectAdmin {
 				permitted = true
+			} else if projectAuthInfo.Env.EditConfig ||
+				projectAuthInfo.ProductionService.View {
+				// then check if user has edit workflow permission
+				permitted = true
+			} else {
+				// finally check if the permission is given by collaboration mode
+				collaborationAuthorizedEdit, err := internalhandler.CheckPermissionGivenByCollaborationMode(ctx.UserID, projectName, types.ResourceTypeEnvironment, types.ProductionEnvActionEditConfig)
+				if err == nil && collaborationAuthorizedEdit {
+					permitted = true
+				}
+			}
+		} else {
+			// first check if the user is projectAdmin
+			if projectAuthInfo.IsProjectAdmin {
+				permitted = true
+			} else if projectAuthInfo.Env.EditConfig ||
+				projectAuthInfo.Service.View {
+				// then check if user has edit workflow permission
+				permitted = true
+			} else {
+				// finally check if the permission is given by collaboration mode
+				collaborationAuthorizedEdit, err := internalhandler.CheckPermissionGivenByCollaborationMode(ctx.UserID, projectName, types.ResourceTypeEnvironment, types.EnvActionEditConfig)
+				if err == nil && collaborationAuthorizedEdit {
+					permitted = true
+				}
 			}
 		}
 	}
@@ -201,12 +240,20 @@ func GetServiceTemplateOption(c *gin.Context) {
 		return
 	}
 
+	if production {
+		err = commonutil.CheckZadigProfessionalLicense()
+		if err != nil {
+			ctx.Err = err
+			return
+		}
+	}
+
 	revision, err := strconv.ParseInt(c.DefaultQuery("revision", "0"), 10, 64)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid revision number")
 		return
 	}
-	ctx.Resp, ctx.Err = svcservice.GetServiceTemplateOption(c.Param("name"), projectName, revision, ctx.Logger)
+	ctx.Resp, ctx.Err = svcservice.GetServiceTemplateOption(c.Param("name"), projectName, revision, production, ctx.Logger)
 }
 
 type createServiceTemplateRequest struct {
@@ -247,8 +294,15 @@ func CreateServiceTemplate(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("CreateServiceTemplate json.Unmarshal err : %v", err)
 	}
+
+	production := c.Query("production") == "true"
+	detail := "项目管理-服务"
+	if production {
+		detail = "项目管理-生产服务"
+	}
+
 	// insert operation logs
-	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductName, "新增", "项目管理-服务", fmt.Sprintf("服务名称:%s", args.ServiceName), string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductName, "新增", detail, fmt.Sprintf("服务名称:%s", args.ServiceName), string(data), ctx.Logger)
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	// authorization checks
@@ -260,10 +314,27 @@ func CreateServiceTemplate(c *gin.Context) {
 			return
 		}
 		// TODO: Authorization leak
-		if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectName].Service.Create &&
-			!ctx.Resources.ProjectAuthInfo[projectName].Service.Edit {
-			ctx.UnAuthorized = true
+		if production {
+			if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectName].ProductionService.Create &&
+				!ctx.Resources.ProjectAuthInfo[projectName].ProductionService.Edit {
+				ctx.UnAuthorized = true
+				return
+			}
+		} else {
+			if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectName].Service.Create &&
+				!ctx.Resources.ProjectAuthInfo[projectName].Service.Edit {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
+	}
+
+	if production {
+		err = commonutil.CheckZadigProfessionalLicense()
+		if err != nil {
+			ctx.Err = err
 			return
 		}
 	}
@@ -289,7 +360,7 @@ func CreateServiceTemplate(c *gin.Context) {
 	svc.ServiceVariableKVs = args.ServiceVariableKVs
 	svc.Yaml = args.Yaml
 
-	ctx.Resp, ctx.Err = svcservice.CreateServiceTemplate(ctx.UserName, svc, force, ctx.Logger)
+	ctx.Resp, ctx.Err = svcservice.CreateServiceTemplate(ctx.UserName, svc, force, production, ctx.Logger)
 }
 
 // used in cron, update service env status
@@ -342,6 +413,7 @@ type updateServiceVariableRequest struct {
 // @Produce json
 // @Param 	name		path		string							true	"service name"
 // @Param 	projectName	query		string							true	"project name"
+// @Param 	production	query		bool							true	"is production"
 // @Param 	body  		body 		updateServiceVariableRequest 	true 	"body"
 // @Success 200
 // @Router /api/aslan/service/services/{name}/variable [put]
@@ -350,7 +422,6 @@ func UpdateServiceVariable(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -363,6 +434,12 @@ func UpdateServiceVariable(c *gin.Context) {
 		return
 	}
 
+	production := c.Query("production") == "true"
+	detail := "项目管理-服务变量"
+	if production {
+		detail = "项目管理-生产服务变量"
+	}
+
 	// authorization
 	projectName := c.Query("projectName")
 	if !ctx.Resources.IsSystemAdmin {
@@ -370,9 +447,25 @@ func UpdateServiceVariable(c *gin.Context) {
 			ctx.UnAuthorized = true
 			return
 		}
-		if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectName].Service.Edit {
-			ctx.UnAuthorized = true
+		if production {
+			if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectName].ProductionService.Edit {
+				ctx.UnAuthorized = true
+				return
+			}
+		} else {
+			if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectName].Service.Edit {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
+	}
+
+	if production {
+		err = commonutil.CheckZadigProfessionalLicense()
+		if err != nil {
+			ctx.Err = err
 			return
 		}
 	}
@@ -383,9 +476,9 @@ func UpdateServiceVariable(c *gin.Context) {
 	servceTmplObjectargs.VariableYaml = req.VariableYaml
 	servceTmplObjectargs.ServiceVariableKVs = req.ServiceVariableKVs
 
-	internalhandler.InsertOperationLog(c, ctx.UserName, servceTmplObjectargs.ProductName, "更新", "项目管理-服务变量", fmt.Sprintf("服务名称:%s", servceTmplObjectargs.ServiceName), "", ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, servceTmplObjectargs.ProductName, "更新", detail, fmt.Sprintf("服务名称:%s", servceTmplObjectargs.ServiceName), "", ctx.Logger)
 
-	ctx.Err = svcservice.UpdateServiceVariables(servceTmplObjectargs)
+	ctx.Err = svcservice.UpdateServiceVariables(servceTmplObjectargs, production)
 }
 
 func UpdateServiceHealthCheckStatus(c *gin.Context) {
@@ -452,7 +545,6 @@ func HelmReleaseNaming(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -484,10 +576,24 @@ func HelmReleaseNaming(c *gin.Context) {
 		return
 	}
 
-	bs, _ := json.Marshal(args)
-	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "修改", "项目管理-服务", args.ServiceName, string(bs), ctx.Logger)
+	production := c.Query("production") == "true"
+	detail := "项目管理-服务"
+	if production {
+		detail = "项目管理-生产服务"
+	}
 
-	ctx.Err = svcservice.UpdateReleaseNamingRule(ctx.UserName, ctx.RequestID, projectName, args, ctx.Logger)
+	bs, _ := json.Marshal(args)
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "修改", detail, args.ServiceName, string(bs), ctx.Logger)
+
+	if production {
+		err = commonutil.CheckZadigProfessionalLicense()
+		if err != nil {
+			ctx.Err = err
+			return
+		}
+	}
+
+	ctx.Err = svcservice.UpdateReleaseNamingRule(ctx.UserName, ctx.RequestID, projectName, args, production, ctx.Logger)
 }
 
 func DeleteServiceTemplate(c *gin.Context) {
@@ -495,13 +601,17 @@ func DeleteServiceTemplate(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	projectName := c.Query("projectName")
+	production := c.Query("production") == "true"
+	detail := "项目管理-服务"
+	if production {
+		detail = "项目管理-生产服务"
+	}
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -509,16 +619,32 @@ func DeleteServiceTemplate(c *gin.Context) {
 			ctx.UnAuthorized = true
 			return
 		}
-		if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectName].Service.Delete {
-			ctx.UnAuthorized = true
+		if production {
+			if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectName].ProductionService.Delete {
+				ctx.UnAuthorized = true
+				return
+			}
+		} else {
+			if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectName].Service.Delete {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
+	}
+
+	if production {
+		err = commonutil.CheckZadigProfessionalLicense()
+		if err != nil {
+			ctx.Err = err
 			return
 		}
 	}
 
-	internalhandler.InsertOperationLog(c, ctx.UserName, c.Query("projectName"), "删除", "项目管理-服务", c.Param("name"), "", ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, c.Query("projectName"), "删除", detail, c.Param("name"), "", ctx.Logger)
 
-	ctx.Err = svcservice.DeleteServiceTemplate(c.Param("name"), c.Param("type"), projectName, c.DefaultQuery("isEnvTemplate", "true"), c.DefaultQuery("visibility", "public"), ctx.Logger)
+	ctx.Err = svcservice.DeleteServiceTemplate(c.Param("name"), c.Param("type"), projectName, production, ctx.Logger)
 }
 
 func ListServicePort(c *gin.Context) {
@@ -560,7 +686,9 @@ func UpdateWorkloads(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid UpdateWorkloadsArgs")
 		return
 	}
+
 	projectName := c.Query("projectName")
+	production := c.Query("production") == "true"
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -568,9 +696,26 @@ func UpdateWorkloads(c *gin.Context) {
 			ctx.UnAuthorized = true
 			return
 		}
-		if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectName].Env.EditConfig {
-			ctx.UnAuthorized = true
+
+		if production {
+			if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectName].ProductionEnv.EditConfig {
+				ctx.UnAuthorized = true
+				return
+			}
+		} else {
+			if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectName].Env.EditConfig {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
+	}
+
+	if production {
+		err = commonutil.CheckZadigProfessionalLicense()
+		if err != nil {
+			ctx.Err = err
 			return
 		}
 	}
@@ -589,66 +734,7 @@ func UpdateWorkloads(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = svcservice.UpdateWorkloads(c, ctx.RequestID, ctx.UserName, projectName, env, *args, false, ctx.Logger)
-}
-
-func UpdateProductionWorkloads(c *gin.Context) {
-	ctx, err := internalhandler.NewContextWithAuthorization(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	args := new(svcservice.UpdateWorkloadsArgs)
-
-	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
-		ctx.UnAuthorized = true
-		return
-	}
-
-	data, err := c.GetRawData()
-	if err != nil {
-		log.Errorf("UpdateWorkloads c.GetRawData() err : %v", err)
-	}
-	if err = json.Unmarshal(data, args); err != nil {
-		log.Errorf("UpdateWorkloads json.Unmarshal err : %v", err)
-	}
-
-	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, c.Query("projectName"), setting.OperationSceneEnv, "配置", "生产环境", c.Query("env"), string(data), ctx.Logger, c.Query("env"))
-
-	err = c.ShouldBindJSON(args)
-	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid UpdateWorkloadsArgs")
-		return
-	}
-	projectName := c.Query("projectName")
-
-	// authorization checks
-	if !ctx.Resources.IsSystemAdmin {
-		if _, ok := ctx.Resources.ProjectAuthInfo[projectName]; !ok {
-			ctx.UnAuthorized = true
-			return
-		}
-		if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectName].ProductionEnv.EditConfig {
-			ctx.UnAuthorized = true
-			return
-		}
-	}
-
-	env := c.Query("env")
-	if projectName == "" || env == "" {
-		ctx.Err = e.ErrInvalidParam
-		return
-	}
-	allowedEnvs, found := internalhandler.GetResourcesInHeader(c)
-	if found {
-		allowedSet := sets.NewString(allowedEnvs...)
-		if !allowedSet.Has(env) {
-			c.String(http.StatusForbidden, "not all input envs are allowed, allowed envs are %v", allowedEnvs)
-			return
-		}
-	}
-
-	ctx.Err = svcservice.UpdateWorkloads(c, ctx.RequestID, ctx.UserName, projectName, env, *args, true, ctx.Logger)
+	ctx.Err = svcservice.UpdateWorkloads(c, ctx.RequestID, ctx.UserName, projectName, env, *args, production, ctx.Logger)
 }
 
 func CreateK8sWorkloads(c *gin.Context) {
@@ -675,15 +761,32 @@ func CreateK8sWorkloads(c *gin.Context) {
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "新增", "环境", args.EnvName, string(data), ctx.Logger, args.EnvName)
 
+	production := c.Query("production") == "true"
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
 		if _, ok := ctx.Resources.ProjectAuthInfo[projectName]; !ok {
 			ctx.UnAuthorized = true
 			return
 		}
-		if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectName].Env.Create {
-			ctx.UnAuthorized = true
+		if production {
+			if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectName].ProductionEnv.Create {
+				ctx.UnAuthorized = true
+				return
+			}
+		} else {
+			if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectName].Env.Create {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
+	}
+
+	if production {
+		err = commonutil.CheckZadigProfessionalLicense()
+		if err != nil {
+			ctx.Err = err
 			return
 		}
 	}
@@ -694,53 +797,7 @@ func CreateK8sWorkloads(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = svcservice.CreateK8sWorkLoads(c, ctx.RequestID, ctx.UserName, args, false, ctx.Logger)
-}
-
-func CreateProductionK8sWorkloads(c *gin.Context) {
-	ctx, err := internalhandler.NewContextWithAuthorization(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
-		ctx.UnAuthorized = true
-		return
-	}
-
-	args := new(svcservice.K8sWorkloadsArgs)
-
-	data, err := c.GetRawData()
-	if err != nil {
-		log.Errorf("CreateK8sWorkloads c.GetRawData() err : %v", err)
-	}
-	if err = json.Unmarshal(data, args); err != nil {
-		log.Errorf("CreateK8sWorkloads json.Unmarshal err : %v", err)
-	}
-
-	projectName := c.Query("projectName")
-	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "新增", "生产环境", args.EnvName, string(data), ctx.Logger, args.EnvName)
-
-	// authorization checks
-	if !ctx.Resources.IsSystemAdmin {
-		if _, ok := ctx.Resources.ProjectAuthInfo[projectName]; !ok {
-			ctx.UnAuthorized = true
-			return
-		}
-		if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectName].ProductionEnv.Create {
-			ctx.UnAuthorized = true
-			return
-		}
-	}
-
-	err = c.BindJSON(args)
-	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid K8sWorkloadsArgs args")
-		return
-	}
-
-	ctx.Err = svcservice.CreateK8sWorkLoads(c, ctx.RequestID, ctx.UserName, args, true, ctx.Logger)
+	ctx.Err = svcservice.CreateK8sWorkLoads(c, ctx.RequestID, ctx.UserName, args, production, ctx.Logger)
 }
 
 func GetServiceTemplateProductName(c *gin.Context) {

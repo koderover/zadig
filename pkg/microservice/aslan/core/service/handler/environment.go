@@ -42,7 +42,16 @@ func GetDeployableEnvs(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.GetDeployableEnvs(c.Param("name"), c.Query("projectName"))
+	production := c.Query("production") == "true"
+	if production {
+		err := commonutil.CheckZadigProfessionalLicense()
+		if err != nil {
+			ctx.Err = err
+			return
+		}
+	}
+
+	ctx.Resp, ctx.Err = service.GetDeployableEnvs(c.Param("name"), c.Query("projectName"), production)
 }
 
 // GetKubeWorkloads api used to force user to have get environments privilege to use, now it is removed.
@@ -59,7 +68,6 @@ func LoadKubeWorkloadsYaml(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -82,7 +90,13 @@ func LoadKubeWorkloadsYaml(c *gin.Context) {
 		serviceNames = append(serviceNames, svc.Name)
 	}
 
-	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductName, "新增", "项目管理-服务", fmt.Sprintf("服务名称:%s", strings.Join(serviceNames, ",")), string(data), ctx.Logger)
+	production := c.Query("production") == "true"
+	detail := "项目管理-服务"
+	if production {
+		detail = "项目管理-生产服务"
+	}
+
+	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductName, "新增", detail, fmt.Sprintf("服务名称:%s", strings.Join(serviceNames, ",")), string(data), ctx.Logger)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -103,5 +117,5 @@ func LoadKubeWorkloadsYaml(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = service.LoadKubeWorkloadsYaml(ctx.UserName, args, false, ctx.Logger)
+	ctx.Err = service.LoadKubeWorkloadsYaml(ctx.UserName, args, false, production, ctx.Logger)
 }
