@@ -347,7 +347,7 @@ func CreateOrUpdateHelmService(c *gin.Context) {
 	}
 
 	args.Production = production
-	ctx.Resp, ctx.Err = svcservice.CreateOrUpdateHelmService(projectKey, args, production, ctx.Logger)
+	ctx.Resp, ctx.Err = svcservice.CreateOrUpdateHelmService(projectKey, args, true, ctx.Logger)
 }
 
 func UpdateHelmService(c *gin.Context) {
@@ -405,7 +405,7 @@ func UpdateHelmService(c *gin.Context) {
 	}
 
 	args.Production = production
-	ctx.Resp, ctx.Err = svcservice.CreateOrUpdateHelmService(projectKey, args, production, ctx.Logger)
+	ctx.Resp, ctx.Err = svcservice.CreateOrUpdateHelmService(projectKey, args, true, ctx.Logger)
 }
 
 func CreateOrUpdateBulkHelmServices(c *gin.Context) {
@@ -470,5 +470,5 @@ func CreateOrUpdateBulkHelmServices(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.Err = svcservice.CreateOrUpdateBulkHelmService(projectKey, args, production, ctx.Logger)
+	ctx.Resp, ctx.Err = svcservice.CreateOrUpdateBulkHelmService(projectKey, args, false, ctx.Logger)
 }

@@ -89,7 +89,7 @@ func LoadServiceFromYamlTemplate(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = svcservice.LoadServiceFromYamlTemplate(ctx.UserName, req, production, production, ctx.Logger)
+	ctx.Err = svcservice.LoadServiceFromYamlTemplate(ctx.UserName, req, false, production, ctx.Logger)
 }
 
 // @Summary Reload service from yaml template
