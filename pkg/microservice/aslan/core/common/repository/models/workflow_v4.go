@@ -450,8 +450,7 @@ type TestModule struct {
 }
 
 type ZadigScanningJobSpec struct {
-	Scannings       []*ScanningModule `bson:"scannings"     yaml:"scannings"        json:"scannings"`
-	ScanningOptions []*ScanningModule `bson:"-"             yaml:"scanning_options" json:"scanning_options"`
+	Scannings []*ScanningModule `bson:"scannings"     yaml:"scannings"        json:"scannings"`
 }
 
 type ScanningModule struct {

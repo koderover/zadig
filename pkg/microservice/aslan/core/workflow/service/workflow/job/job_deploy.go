@@ -234,6 +234,11 @@ func (j *DeployJob) SetOptions() error {
 		}
 
 		for _, env := range products {
+			// skip the sleeping envs
+			if env.IsSleeping() {
+				continue
+			}
+
 			serviceDeployOption, err := generateEnvDeployServiceInfo(env.EnvName, j.workflow.Project, j.spec.Production, j.spec)
 			if err != nil {
 				log.Errorf("failed to generate service deployment info for env: %s, error: %s", env.EnvName, err)
