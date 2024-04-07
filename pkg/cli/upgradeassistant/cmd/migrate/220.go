@@ -132,21 +132,21 @@ func migrateProductWorkflowToCustomWorkflow() error {
 		logger.Infof("migrating product workflow: %s to custom workflow.......", wf.Name)
 		newWorkflow, err := generateCustomWorkflowFromProductWorkflow(wf)
 		if err != nil {
-			logger.Errorf("failed to generate custom workflow for product workflow: %s, error: %s", wf.Name, err)
+			logger.Errorf("failed to generate custom workflow for product workflow: %s in project: %s, error: %s", wf.Name, wf.ProductTmplName, err)
 			continue
 		}
 
 		err = workflow.CreateWorkflowV4("system", newWorkflow, log.SugaredLogger())
 		if err != nil {
-			logger.Errorf("failed to create custom workflow for product workflow: %s, error: %s", wf.DisplayName, err)
-			return err
+			logger.Errorf("failed to create custom workflow for product workflow: %s in project:%s, error: %s", wf.DisplayName, wf.ProductTmplName, err)
+			continue
 		}
 
 		if wf.HookCtl != nil && len(wf.HookCtl.Items) > 0 {
 			presetInfo, err := workflow.GetWebhookForWorkflowV4Preset(newWorkflow.Name, "", logger)
 			if err != nil {
-				logger.Errorf("failed to generate workflow preset for custom workflow: %s, error: %s", newWorkflow.Name, err)
-				return err
+				logger.Errorf("failed to generate workflow preset for custom workflow: %s in project: %s, error: %s", newWorkflow.Name, newWorkflow.Project, err)
+				continue
 			}
 
 			for i, hook := range wf.HookCtl.Items {
@@ -236,15 +236,15 @@ func migrateProductWorkflowToCustomWorkflow() error {
 				ParentType: config.WorkflowCronjob,
 			})
 			if err != nil {
-				logger.Errorf("failed to find job for workflow: %s, error: %s", wf.Name, err)
-				return err
+				logger.Errorf("failed to find job for workflow: %s in project: %s, error: %s", wf.Name, wf.ProductTmplName, err)
+				continue
 			}
 			for i, cron := range crons {
 				logger.Infof("creating cron for workflow: %s", wf.Name)
 				cronJobPreset, err := workflow.GetCronForWorkflowV4Preset(newWorkflow.Name, "", logger)
 				if err != nil {
-					logger.Errorf("failed to generate workflow preset for custom workflow %s, error: %s")
-					return err
+					logger.Errorf("failed to generate workflow preset for custom workflow %s in project: %s, error: %s", wf.Name, wf.ProductTmplName, err)
+					continue
 				}
 				for _, stage := range cronJobPreset.WorkflowV4Args.Stages {
 					if stage.Name == "构建" {
@@ -333,8 +333,8 @@ func migrateProductWorkflowToCustomWorkflow() error {
 
 				err = workflow.CreateCronForWorkflowV4(newWorkflow.Name, newCron, logger)
 				if err != nil {
-					logger.Errorf("failed to create cron for workflow: %s, error: %s", newWorkflow.Name, err)
-					return err
+					logger.Errorf("failed to create cron for workflow: %s in project: %s, error: %s", newWorkflow.Name, newWorkflow.Project, err)
+					continue
 				}
 			}
 		}
@@ -349,8 +349,8 @@ func migrateProductWorkflowToCustomWorkflow() error {
 
 		err = workflow.UpdateWorkflow(wf, logger)
 		if err != nil {
-			logger.Errorf("failed to disable product workflow [%s]'s cron scheduler and webhooks, error: %s", wf.Name, err)
-			return err
+			logger.Errorf("failed to disable product workflow [%s]'s cron scheduler and webhooks in project: %s, error: %s", wf.Name, wf.ProductTmplName, err)
+			continue
 		}
 
 		logger.Infof("product workflow: %s migration done.", wf.Name)
