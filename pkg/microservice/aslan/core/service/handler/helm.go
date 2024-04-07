@@ -347,7 +347,7 @@ func CreateOrUpdateHelmService(c *gin.Context) {
 	}
 
 	args.Production = production
-	ctx.Resp, ctx.Err = svcservice.CreateOrUpdateHelmService(projectKey, args, false, ctx.Logger)
+	ctx.Resp, ctx.Err = svcservice.CreateOrUpdateHelmService(projectKey, args, production, ctx.Logger)
 }
 
 func UpdateHelmService(c *gin.Context) {
