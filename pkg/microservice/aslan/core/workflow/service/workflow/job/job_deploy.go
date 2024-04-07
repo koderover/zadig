@@ -146,7 +146,7 @@ func (j *DeployJob) SetPreset() error {
 	} else if j.spec.Source == config.SourceRuntime {
 		envName := strings.ReplaceAll(j.spec.Env, setting.FixedValueMark, "")
 
-		serviceDeployOption, err := generateEnvDeployServiceInfo(envName, j.workflow.Project, j.spec.Production, j.spec)
+		serviceDeployOption, _, err := generateEnvDeployServiceInfo(envName, j.workflow.Project, j.spec.Production, j.spec)
 		if err != nil {
 			log.Errorf("failed to generate service deployment info for env: %s, error: %s", envName, err)
 			return err
@@ -211,15 +211,16 @@ func (j *DeployJob) SetOptions() error {
 		// if the env is fixed, we put the env in the option
 		envName := strings.ReplaceAll(j.spec.Env, setting.FixedValueMark, "")
 
-		serviceInfo, err := generateEnvDeployServiceInfo(envName, j.workflow.Project, j.spec.Production, j.spec)
+		serviceInfo, registryID, err := generateEnvDeployServiceInfo(envName, j.workflow.Project, j.spec.Production, j.spec)
 		if err != nil {
 			log.Errorf("failed to generate service deployment info for env: %s, error: %s", envName, err)
 			return err
 		}
 
 		envOptions = append(envOptions, &commonmodels.ZadigDeployEnvInformation{
-			Env:      envName,
-			Services: serviceInfo,
+			Env:        envName,
+			RegistryID: registryID,
+			Services:   serviceInfo,
 		})
 	} else {
 		// otherwise list all the envs in this project
@@ -239,15 +240,16 @@ func (j *DeployJob) SetOptions() error {
 				continue
 			}
 
-			serviceDeployOption, err := generateEnvDeployServiceInfo(env.EnvName, j.workflow.Project, j.spec.Production, j.spec)
+			serviceDeployOption, registryID, err := generateEnvDeployServiceInfo(env.EnvName, j.workflow.Project, j.spec.Production, j.spec)
 			if err != nil {
 				log.Errorf("failed to generate service deployment info for env: %s, error: %s", env.EnvName, err)
 				return err
 			}
 
 			envOptions = append(envOptions, &commonmodels.ZadigDeployEnvInformation{
-				Env:      env.EnvName,
-				Services: serviceDeployOption,
+				Env:        env.EnvName,
+				RegistryID: registryID,
+				Services:   serviceDeployOption,
 			})
 		}
 	}
@@ -257,7 +259,7 @@ func (j *DeployJob) SetOptions() error {
 	return nil
 }
 
-func generateEnvDeployServiceInfo(env, project string, production bool, spec *commonmodels.ZadigDeployJobSpec) ([]*commonmodels.DeployServiceInfo, error) {
+func generateEnvDeployServiceInfo(env, project string, production bool, spec *commonmodels.ZadigDeployJobSpec) ([]*commonmodels.DeployServiceInfo, string, error) {
 	resp := make([]*commonmodels.DeployServiceInfo, 0)
 	envInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
 		Name:       project,
@@ -266,7 +268,7 @@ func generateEnvDeployServiceInfo(env, project string, production bool, spec *co
 	})
 
 	if err != nil {
-		return nil, fmt.Errorf("failed to find fixed env: %s in environments, error: %s", env, err)
+		return nil, "", fmt.Errorf("failed to find fixed env: %s in environments, error: %s", env, err)
 	}
 
 	envServiceMap := envInfo.GetServiceMap()
@@ -297,7 +299,7 @@ func generateEnvDeployServiceInfo(env, project string, production bool, spec *co
 	}
 
 	if err != nil {
-		return nil, fmt.Errorf("failed to list services, error: %s", err)
+		return nil, "", fmt.Errorf("failed to list services, error: %s", err)
 	}
 
 	for _, service := range serviceDefinitions {
@@ -378,7 +380,19 @@ func generateEnvDeployServiceInfo(env, project string, production bool, spec *co
 		})
 	}
 
-	return resp, nil
+	registryID := envInfo.RegistryID
+	if registryID == "" {
+		registry, err := commonrepo.NewRegistryNamespaceColl().Find(&commonrepo.FindRegOps{
+			IsDefault: true,
+		})
+
+		if err != nil {
+			return nil, "", fmt.Errorf("failed to find default registry for env: %s, error: %s", env, err)
+		}
+		registryID = registry.ID.Hex()
+	}
+
+	return resp, envInfo.RegistryID, nil
 }
 
 func (j *DeployJob) MergeArgs(args *commonmodels.Job) error {

@@ -574,8 +574,9 @@ type K8sPatchJobSpec struct {
 }
 
 type ZadigDeployEnvInformation struct {
-	Env      string               `json:"env"      yaml:"env"`
-	Services []*DeployServiceInfo `json:"services" yaml:"services"`
+	Env        string               `json:"env"         yaml:"env"`
+	RegistryID string               `json:"registry_id" yaml:"registry_id"`
+	Services   []*DeployServiceInfo `json:"services"    yaml:"services"`
 }
 
 type ZadigHelmDeployEnvInformation struct {
