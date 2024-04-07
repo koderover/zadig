@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	internalmongodb "github.com/koderover/zadig/v2/pkg/cli/upgradeassistant/internal/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/environment/service"
@@ -355,6 +356,8 @@ func migrateProductWorkflowToCustomWorkflow() error {
 
 		logger.Infof("product workflow: %s migration done.", wf.Name)
 	}
+
+	time.Sleep(5 * time.Minute)
 
 	return nil
 }
