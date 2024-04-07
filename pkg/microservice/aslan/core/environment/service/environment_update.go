@@ -579,6 +579,10 @@ func AutoDeployHelmServiceToEnvs(userName, requestID, projectName string, servic
 }
 
 func AutoDeployYamlServiceToEnvs(userName, requestID string, serviceTemplate *commonmodels.Service, production bool, log *zap.SugaredLogger) error {
+	if production {
+		return nil
+	}
+
 	templateProduct, err := templaterepo.NewProductColl().Find(serviceTemplate.ProductName)
 	if err != nil {
 		return fmt.Errorf("failed to find template product when depolying services: %s, err: %s", serviceTemplate.ServiceName, err)
