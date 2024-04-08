@@ -86,7 +86,7 @@ func (j *K8sPacthJob) SetOptions() error {
 	}
 
 	j.spec.PatchItemOptions = originalSpec.PatchItems
-
+	j.job.Spec = j.spec
 	return nil
 }
 
