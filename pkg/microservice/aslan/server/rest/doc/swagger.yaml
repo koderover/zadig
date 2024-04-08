@@ -452,6 +452,8 @@ definitions:
         type: string
       product_name:
         type: string
+      production:
+        type: boolean
       restart_associated_svc:
         type: boolean
       service_name:
@@ -1195,15 +1197,6 @@ definitions:
       status:
         type: string
     type: object
-  resource.ContainerImage:
-    properties:
-      image:
-        type: string
-      image_name:
-        type: string
-      name:
-        type: string
-    type: object
   resource.ContainerPort:
     properties:
       containerPort:
@@ -1240,33 +1233,6 @@ definitions:
           +optional
           +default="TCP"
     type: object
-  resource.CronJob:
-    properties:
-      active:
-        type: integer
-      create_time:
-        type: integer
-      images:
-        items:
-          $ref: '#/definitions/resource.ContainerImage'
-        type: array
-      labels:
-        additionalProperties:
-          type: string
-        type: object
-      last_schedule:
-        type: string
-      name:
-        type: string
-      pods:
-        items:
-          $ref: '#/definitions/resource.Pod'
-        type: array
-      schedule:
-        type: string
-      suspend:
-        type: boolean
-    type: object
   resource.HostInfo:
     properties:
       backend:
@@ -1274,25 +1240,6 @@ definitions:
           $ref: '#/definitions/resource.Backend'
         type: array
       host:
-        type: string
-    type: object
-  resource.Ingress:
-    properties:
-      age:
-        type: string
-      host_info:
-        items:
-          $ref: '#/definitions/resource.HostInfo'
-        type: array
-      ips:
-        items:
-          type: string
-        type: array
-      labels:
-        additionalProperties:
-          type: string
-        type: object
-      name:
         type: string
     type: object
   resource.Pod:
@@ -1340,54 +1287,6 @@ definitions:
     - ProtocolTCP
     - ProtocolUDP
     - ProtocolSCTP
-  resource.Service:
-    properties:
-      age:
-        type: string
-      endpoints:
-        items:
-          $ref: '#/definitions/resource.ServicePort'
-        type: array
-      labels:
-        additionalProperties:
-          type: string
-        type: object
-      name:
-        type: string
-    type: object
-  resource.ServicePort:
-    properties:
-      node_port:
-        type: integer
-      service_name:
-        type: string
-      service_port:
-        type: integer
-    type: object
-  resource.Workload:
-    properties:
-      images:
-        items:
-          $ref: '#/definitions/resource.ContainerImage'
-        type: array
-      name:
-        type: string
-      pods:
-        items:
-          $ref: '#/definitions/resource.Pod'
-        type: array
-      replicas:
-        type: integer
-      type:
-        type: string
-      zadigx_release_tag:
-        type: string
-      zadigx_release_type:
-        description: |-
-          ZadigXReleaseType represent the release type of workload created by zadigx when it is not empty
-          frontend should limit or allow some operations on these workloads
-        type: string
-    type: object
   service.ConvertVaraibleKVAndYamlActionType:
     enum:
     - toKV
@@ -1603,23 +1502,6 @@ definitions:
         type: string
       sleep_cron_enable:
         type: boolean
-    type: object
-  service.EstimateValuesArg:
-    properties:
-      chartName:
-        type: string
-      chartRepo:
-        type: string
-      chartVersion:
-        type: string
-      defaultValues:
-        type: string
-      overrideValues:
-        items:
-          $ref: '#/definitions/service.KVPair'
-        type: array
-      overrideYaml:
-        type: string
     type: object
   service.GetBizDirServiceDetailResponse:
     properties:
@@ -2100,11 +1982,6 @@ definitions:
       variable_yaml:
         type: string
     type: object
-  service.RawYamlResp:
-    properties:
-      yamlContent:
-        type: string
-    type: object
   service.RepoConfig:
     properties:
       branch:
@@ -2294,35 +2171,6 @@ definitions:
       service_name:
         type: string
     type: object
-  service.SvcResp:
-    properties:
-      cron_jobs:
-        items:
-          $ref: '#/definitions/resource.CronJob'
-        type: array
-      env_name:
-        type: string
-      group_name:
-        type: string
-      ingress:
-        items:
-          $ref: '#/definitions/resource.Ingress'
-        type: array
-      namespace:
-        type: string
-      product_name:
-        type: string
-      scales:
-        items:
-          $ref: '#/definitions/resource.Workload'
-        type: array
-      service_endpoints:
-        items:
-          $ref: '#/definitions/resource.Service'
-        type: array
-      service_name:
-        type: string
-    type: object
   service.SvcRevision:
     properties:
       containers:
@@ -2421,11 +2269,6 @@ definitions:
       source_id:
         type: string
       yamlSource:
-        type: string
-    type: object
-  service.ValuesResp:
-    properties:
-      valuesYaml:
         type: string
     type: object
   setting.IntegrationLevel:
@@ -3125,46 +2968,6 @@ paths:
       tags:
       - environment
   /api/aslan/environment/environments/{name}/services/{serviceName}:
-    get:
-      consumes:
-      - application/json
-      description: Get Production Service
-      parameters:
-      - description: env name
-        in: path
-        name: name
-        required: true
-        type: string
-      - description: service name or release name
-        in: path
-        name: serviceName
-        required: true
-        type: string
-      - description: project name
-        in: query
-        name: projectName
-        required: true
-        type: string
-      - description: is helm chart deploy
-        in: query
-        name: isHelmChartDeploy
-        required: true
-        type: boolean
-      - description: workload type
-        in: query
-        name: workLoadType
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/service.SvcResp'
-      summary: Get Production Service
-      tags:
-      - environment
     put:
       consumes:
       - application/json
@@ -3747,172 +3550,6 @@ paths:
       summary: Get Pods Detail Info
       tags:
       - environment
-  /api/aslan/environment/production/environments:
-    put:
-      consumes:
-      - application/json
-      description: Update Multi production products
-      parameters:
-      - description: project name
-        in: query
-        name: projectName
-        required: true
-        type: string
-      - description: type
-        in: query
-        name: type
-        type: string
-      - description: is force
-        in: query
-        name: force
-        required: true
-        type: boolean
-      - description: updateMultiK8sEnv body
-        in: body
-        name: k8s_body
-        required: true
-        schema:
-          items:
-            $ref: '#/definitions/service.UpdateEnv'
-          type: array
-      - description: updateMultiHelmEnv body
-        in: body
-        name: helm_body
-        required: true
-        schema:
-          $ref: '#/definitions/service.UpdateMultiHelmProductArg'
-      - description: updateMultiHelmChartEnv body
-        in: body
-        name: helm_chart_body
-        required: true
-        schema:
-          $ref: '#/definitions/service.UpdateMultiHelmProductArg'
-      - description: updateMultiCvmEnv body
-        in: body
-        name: pm_body
-        required: true
-        schema:
-          items:
-            $ref: '#/definitions/service.UpdateEnv'
-          type: array
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-      summary: Update Multi production products
-      tags:
-      - environment
-  /api/aslan/environment/production/environments/:name/helm/releases:
-    delete:
-      consumes:
-      - application/json
-      description: Delete production helm release from envrionment
-      parameters:
-      - description: project name
-        in: query
-        name: projectName
-        required: true
-        type: string
-      - description: env name
-        in: path
-        name: name
-        required: true
-        type: string
-      - description: release names
-        in: query
-        name: releaseNames
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-      summary: Delete production helm release from envrionment
-      tags:
-      - environment
-  /api/aslan/environment/production/environments/{name}/analysis:
-    post:
-      consumes:
-      - application/json
-      description: Run Production environment Analysis
-      parameters:
-      - description: env name
-        in: path
-        name: name
-        required: true
-        type: string
-      - description: project name
-        in: query
-        name: projectName
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/service.EnvAnalysisRespone'
-      summary: Run Production environment Analysis
-      tags:
-      - environment
-  /api/aslan/environment/production/environments/{name}/analysis/cron:
-    get:
-      consumes:
-      - application/json
-      description: Get Production Env Analysis Cron
-      parameters:
-      - description: env name
-        in: path
-        name: name
-        required: true
-        type: string
-      - description: project name
-        in: query
-        name: projectName
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/service.EnvAnalysisCronArg'
-      summary: Get Production Env Analysis Cron
-      tags:
-      - environment
-    put:
-      consumes:
-      - application/json
-      description: Upsert Production Env Analysis Cron
-      parameters:
-      - description: env name
-        in: path
-        name: name
-        required: true
-        type: string
-      - description: project name
-        in: query
-        name: projectName
-        required: true
-        type: string
-      - description: body
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/service.EnvAnalysisCronArg'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-      summary: Upsert Production Env Analysis Cron
-      tags:
-      - environment
   /api/aslan/environment/production/environments/{name}/check/istioGrayscale/{op}/ready:
     get:
       consumes:
@@ -3944,131 +3581,6 @@ paths:
       summary: Check Istio Grayscale Ready
       tags:
       - environment
-  /api/aslan/environment/production/environments/{name}/check/workloads/k8services:
-    get:
-      consumes:
-      - application/json
-      description: Check Production Workloads K8sServices
-      parameters:
-      - description: project name
-        in: query
-        name: projectName
-        required: true
-        type: string
-      - description: env name
-        in: path
-        name: name
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            items:
-              type: string
-            type: array
-      summary: Check Production Workloads K8sServices
-      tags:
-      - environment
-  /api/aslan/environment/production/environments/{name}/configs:
-    get:
-      consumes:
-      - application/json
-      description: Get production environment configs
-      parameters:
-      - description: project name
-        in: query
-        name: projectName
-        required: true
-        type: string
-      - description: env name
-        in: path
-        name: name
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/service.EnvConfigsArgs'
-      summary: Get production environment configs
-      tags:
-      - environment
-    put:
-      consumes:
-      - application/json
-      description: Update production environment configs
-      parameters:
-      - description: env name
-        in: path
-        name: name
-        required: true
-        type: string
-      - description: project name
-        in: query
-        name: projectName
-        required: true
-        type: string
-      - description: body
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/service.EnvConfigsArgs'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-      summary: Update production environment configs
-      tags:
-      - environment
-  /api/aslan/environment/production/environments/{name}/estimated-values:
-    post:
-      consumes:
-      - application/json
-      description: Get Production Estimated Values
-      parameters:
-      - description: env name
-        in: path
-        name: name
-        required: true
-        type: string
-      - description: project name
-        in: query
-        name: projectName
-        required: true
-        type: string
-      - description: service name or release name
-        in: query
-        name: serviceName
-        required: true
-        type: string
-      - description: is helm chart deploy
-        in: query
-        name: isHelmChartDeploy
-        required: true
-        type: string
-      - description: body
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/service.EstimateValuesArg'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/service.RawYamlResp'
-      summary: Get Production Estimated Values
-      tags:
-      - environment
   /api/aslan/environment/production/environments/{name}/helm/charts:
     put:
       consumes:
@@ -4097,51 +3609,6 @@ paths:
         "200":
           description: OK
       summary: Update helm product charts
-      tags:
-      - environment
-  /api/aslan/environment/production/environments/{name}/helm/values:
-    get:
-      consumes:
-      - application/json
-      description: Get Production Chart Values
-      parameters:
-      - description: env name
-        in: path
-        name: name
-        required: true
-        type: string
-      - description: project name
-        in: query
-        name: projectName
-        required: true
-        type: string
-      - description: service name
-        in: query
-        name: serviceName
-        type: string
-      - description: release name
-        in: query
-        name: releaseName
-        type: string
-      - description: isHelmChartDeploy
-        in: query
-        name: isHelmChartDeploy
-        required: true
-        type: string
-      - description: body
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/service.SyncCollaborationInstanceArgs'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/service.ValuesResp'
-      summary: Get Production Chart Values
       tags:
       - environment
   /api/aslan/environment/production/environments/{name}/istioGrayscale/config:
@@ -4313,271 +3780,6 @@ paths:
       summary: Setup Portal Service for Istio Grayscale
       tags:
       - environment
-  /api/aslan/environment/production/environments/{name}/sleep:
-    post:
-      consumes:
-      - application/json
-      description: Production Environment Sleep
-      parameters:
-      - description: env name
-        in: path
-        name: name
-        required: true
-        type: string
-      - description: project name
-        in: query
-        name: projectName
-        required: true
-        type: string
-      - description: enable or disable
-        in: query
-        name: action
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-      summary: Production Environment Sleep
-      tags:
-      - environment
-  /api/aslan/environment/production/environments/{name}/sleep/cron:
-    get:
-      consumes:
-      - application/json
-      description: Get Production Env Sleep Cron
-      parameters:
-      - description: env name
-        in: path
-        name: name
-        required: true
-        type: string
-      - description: project name
-        in: query
-        name: projectName
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/service.EnvSleepCronArg'
-      summary: Get Production Env Sleep Cron
-      tags:
-      - environment
-    put:
-      consumes:
-      - application/json
-      description: Upsert Production Env Sleep Cron
-      parameters:
-      - description: env name
-        in: path
-        name: name
-        required: true
-        type: string
-      - description: project name
-        in: query
-        name: projectName
-        required: true
-        type: string
-      - description: body
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/service.EnvSleepCronArg'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-      summary: Upsert Production Env Sleep Cron
-      tags:
-      - environment
-  /api/aslan/environment/production/environments/{name}/version/{serviceName}:
-    get:
-      consumes:
-      - application/json
-      description: List Production Environment Service Versions
-      parameters:
-      - description: env name
-        in: path
-        name: name
-        required: true
-        type: string
-      - description: service name or release name when isHelmChart is true
-        in: path
-        name: serviceName
-        required: true
-        type: string
-      - description: project name
-        in: query
-        name: projectName
-        required: true
-        type: string
-      - description: is helm chart type
-        in: query
-        name: isHelmChart
-        required: true
-        type: boolean
-      - description: release name
-        in: query
-        name: releaseName
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            items:
-              $ref: '#/definitions/service.ListEnvServiceVersionsResponse'
-            type: array
-      summary: List Production Environment Service Versions
-      tags:
-      - environment
-  /api/aslan/environment/production/environments/{name}/version/{serviceName}/diff:
-    get:
-      consumes:
-      - application/json
-      description: Diff Production Environment Service Versions
-      parameters:
-      - description: env name
-        in: path
-        name: name
-        required: true
-        type: string
-      - description: service name or release name when isHelmChart is true
-        in: path
-        name: serviceName
-        required: true
-        type: string
-      - description: project name
-        in: query
-        name: projectName
-        required: true
-        type: string
-      - description: revision a
-        in: query
-        name: revisionA
-        required: true
-        type: integer
-      - description: revision b
-        in: query
-        name: revisionB
-        required: true
-        type: integer
-      - description: is helm chart type
-        in: query
-        name: isHelmChart
-        required: true
-        type: boolean
-      - description: release name
-        in: query
-        name: releaseName
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/service.ListEnvServiceVersionsResponse'
-      summary: Diff Production Environment Service Versions
-      tags:
-      - environment
-  /api/aslan/environment/production/environments/{name}/version/{serviceName}/revision/{revision}:
-    get:
-      consumes:
-      - application/json
-      description: Get Production Environment Service Version Yaml
-      parameters:
-      - description: env name
-        in: path
-        name: name
-        required: true
-        type: string
-      - description: service name or release name when isHelmChart is true
-        in: path
-        name: serviceName
-        required: true
-        type: string
-      - description: revision
-        in: path
-        name: revision
-        required: true
-        type: string
-      - description: project name
-        in: query
-        name: projectName
-        required: true
-        type: string
-      - description: is helm chart type
-        in: query
-        name: isHelmChart
-        required: true
-        type: boolean
-      - description: release name
-        in: query
-        name: releaseName
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            items:
-              $ref: '#/definitions/service.GetEnvServiceVersionYamlResponse'
-            type: array
-      summary: Get Production Environment Service Version Yaml
-      tags:
-      - environment
-  /api/aslan/environment/production/environments/{name}/version/{serviceName}/rollback:
-    post:
-      consumes:
-      - application/json
-      description: Rollback Production Environment Service Version
-      parameters:
-      - description: env name
-        in: path
-        name: name
-        required: true
-        type: string
-      - description: service name or release name when isHelmChart is true
-        in: path
-        name: serviceName
-        required: true
-        type: string
-      - description: project name
-        in: query
-        name: projectName
-        required: true
-        type: string
-      - description: revision
-        in: query
-        name: revision
-        required: true
-        type: integer
-      - description: is helm chart type
-        in: query
-        name: isHelmChart
-        required: true
-        type: boolean
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-      summary: Rollback Production Environment Service Version
-      tags:
-      - environment
   /api/aslan/environment/production/environments/{name}/workloads:
     get:
       consumes:
@@ -4691,39 +3893,6 @@ paths:
               $ref: '#/definitions/service.K8sSvcRenderArg'
             type: array
       summary: Get service variables
-      tags:
-      - environment
-  /api/aslan/environments/{name}/services/{serviceName}/variables:
-    get:
-      consumes:
-      - application/json
-      description: Get production service variables
-      parameters:
-      - description: project name
-        in: query
-        name: projectName
-        required: true
-        type: string
-      - description: env name
-        in: path
-        name: name
-        required: true
-        type: string
-      - description: service name
-        in: path
-        name: serviceName
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            items:
-              $ref: '#/definitions/service.K8sSvcRenderArg'
-            type: array
-      summary: Get production service variables
       tags:
       - environment
   /api/aslan/placeholder/deploy_job_spec:
@@ -5178,130 +4347,6 @@ paths:
       summary: Update production_global variables
       tags:
       - project
-  /api/aslan/service/production/version/{serviceName}:
-    get:
-      consumes:
-      - application/json
-      description: List Production Service Versions
-      parameters:
-      - description: service name
-        in: path
-        name: serviceName
-        required: true
-        type: string
-      - description: project name
-        in: query
-        name: projectName
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            items:
-              $ref: '#/definitions/service.ListServiceVersionsResponse'
-            type: array
-      summary: List Production Service Versions
-      tags:
-      - service
-  /api/aslan/service/production/version/{serviceName}/diff:
-    get:
-      consumes:
-      - application/json
-      description: Diff Production Service Versions
-      parameters:
-      - description: service name
-        in: path
-        name: serviceName
-        required: true
-        type: string
-      - description: project name
-        in: query
-        name: projectName
-        required: true
-        type: string
-      - description: revision a
-        in: query
-        name: revisionA
-        required: true
-        type: integer
-      - description: revision b
-        in: query
-        name: revisionB
-        required: true
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/service.ListServiceVersionsResponse'
-      summary: Diff Production Service Versions
-      tags:
-      - service
-  /api/aslan/service/production/version/{serviceName}/revision/{revision}:
-    get:
-      consumes:
-      - application/json
-      description: Get Production Service Versions Yaml
-      parameters:
-      - description: service name
-        in: path
-        name: serviceName
-        required: true
-        type: string
-      - description: project name
-        in: query
-        name: projectName
-        required: true
-        type: string
-      - description: revision
-        in: path
-        name: revision
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/service.GetServiceVersionYamlResponse'
-      summary: Get Production Service Version Yaml
-      tags:
-      - service
-  /api/aslan/service/production/version/{serviceName}/rollback:
-    post:
-      consumes:
-      - application/json
-      description: Rollback Production SService Version
-      parameters:
-      - description: service name
-        in: path
-        name: serviceName
-        required: true
-        type: string
-      - description: project name
-        in: query
-        name: projectName
-        required: true
-        type: string
-      - description: revision
-        in: query
-        name: revision
-        required: true
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-      summary: Rollback Production Service Version
-      tags:
-      - service
   /api/aslan/service/services:
     post:
       consumes:
@@ -5371,6 +4416,11 @@ paths:
         name: projectName
         required: true
         type: string
+      - description: is production
+        in: query
+        name: production
+        required: true
+        type: boolean
       - description: body
         in: body
         name: body
@@ -5413,6 +4463,11 @@ paths:
       - application/json
       description: Load service from yaml template
       parameters:
+      - description: is production
+        in: query
+        name: production
+        required: true
+        type: boolean
       - description: body
         in: body
         name: body
@@ -5433,6 +4488,11 @@ paths:
       - application/json
       description: Reload service from yaml template
       parameters:
+      - description: is production
+        in: query
+        name: production
+        required: true
+        type: boolean
       - description: body
         in: body
         name: body
@@ -5463,6 +4523,11 @@ paths:
         name: projectName
         required: true
         type: string
+      - description: is production
+        in: query
+        name: production
+        required: true
+        type: boolean
       produces:
       - application/json
       responses:
@@ -5501,6 +4566,11 @@ paths:
         name: revisionB
         required: true
         type: integer
+      - description: is production
+        in: query
+        name: production
+        required: true
+        type: boolean
       produces:
       - application/json
       responses:
@@ -5532,6 +4602,11 @@ paths:
         name: revision
         required: true
         type: string
+      - description: is production
+        in: query
+        name: production
+        required: true
+        type: boolean
       produces:
       - application/json
       responses:
@@ -5563,6 +4638,11 @@ paths:
         name: revision
         required: true
         type: integer
+      - description: is production
+        in: query
+        name: production
+        required: true
+        type: boolean
       produces:
       - application/json
       responses:

@@ -726,64 +726,6 @@ const docTemplate = `{
             }
         },
         "/api/aslan/environment/environments/{name}/services/{serviceName}": {
-            "get": {
-                "description": "Get Production Service",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "environment"
-                ],
-                "summary": "Get Production Service",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "env name",
-                        "name": "name",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "service name or release name",
-                        "name": "serviceName",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "project name",
-                        "name": "projectName",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "boolean",
-                        "description": "is helm chart deploy",
-                        "name": "isHelmChartDeploy",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "workload type",
-                        "name": "workLoadType",
-                        "in": "query",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/service.SvcResp"
-                        }
-                    }
-                }
-            },
             "put": {
                 "description": "Update service",
                 "consumes": [
@@ -1646,254 +1588,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/aslan/environment/production/environments": {
-            "put": {
-                "description": "Update Multi production products",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "environment"
-                ],
-                "summary": "Update Multi production products",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "project name",
-                        "name": "projectName",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "type",
-                        "name": "type",
-                        "in": "query"
-                    },
-                    {
-                        "type": "boolean",
-                        "description": "is force",
-                        "name": "force",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "description": "updateMultiK8sEnv body",
-                        "name": "k8s_body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/service.UpdateEnv"
-                            }
-                        }
-                    },
-                    {
-                        "description": "updateMultiHelmEnv body",
-                        "name": "helm_body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/service.UpdateMultiHelmProductArg"
-                        }
-                    },
-                    {
-                        "description": "updateMultiHelmChartEnv body",
-                        "name": "helm_chart_body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/service.UpdateMultiHelmProductArg"
-                        }
-                    },
-                    {
-                        "description": "updateMultiCvmEnv body",
-                        "name": "pm_body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/service.UpdateEnv"
-                            }
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK"
-                    }
-                }
-            }
-        },
-        "/api/aslan/environment/production/environments/:name/helm/releases": {
-            "delete": {
-                "description": "Delete production helm release from envrionment",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "environment"
-                ],
-                "summary": "Delete production helm release from envrionment",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "project name",
-                        "name": "projectName",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "env name",
-                        "name": "name",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "release names",
-                        "name": "releaseNames",
-                        "in": "query",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK"
-                    }
-                }
-            }
-        },
-        "/api/aslan/environment/production/environments/{name}/analysis": {
-            "post": {
-                "description": "Run Production environment Analysis",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "environment"
-                ],
-                "summary": "Run Production environment Analysis",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "env name",
-                        "name": "name",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "project name",
-                        "name": "projectName",
-                        "in": "query",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/service.EnvAnalysisRespone"
-                        }
-                    }
-                }
-            }
-        },
-        "/api/aslan/environment/production/environments/{name}/analysis/cron": {
-            "get": {
-                "description": "Get Production Env Analysis Cron",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "environment"
-                ],
-                "summary": "Get Production Env Analysis Cron",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "env name",
-                        "name": "name",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "project name",
-                        "name": "projectName",
-                        "in": "query",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/service.EnvAnalysisCronArg"
-                        }
-                    }
-                }
-            },
-            "put": {
-                "description": "Upsert Production Env Analysis Cron",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "environment"
-                ],
-                "summary": "Upsert Production Env Analysis Cron",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "env name",
-                        "name": "name",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "project name",
-                        "name": "projectName",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "description": "body",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/service.EnvAnalysisCronArg"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK"
-                    }
-                }
-            }
-        },
         "/api/aslan/environment/production/environments/{name}/check/istioGrayscale/{op}/ready": {
             "get": {
                 "description": "Check Istio Grayscale Ready",
@@ -1940,192 +1634,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/aslan/environment/production/environments/{name}/check/workloads/k8services": {
-            "get": {
-                "description": "Check Production Workloads K8sServices",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "environment"
-                ],
-                "summary": "Check Production Workloads K8sServices",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "project name",
-                        "name": "projectName",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "env name",
-                        "name": "name",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/api/aslan/environment/production/environments/{name}/configs": {
-            "get": {
-                "description": "Get production environment configs",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "environment"
-                ],
-                "summary": "Get production environment configs",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "project name",
-                        "name": "projectName",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "env name",
-                        "name": "name",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/service.EnvConfigsArgs"
-                        }
-                    }
-                }
-            },
-            "put": {
-                "description": "Update production environment configs",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "environment"
-                ],
-                "summary": "Update production environment configs",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "env name",
-                        "name": "name",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "project name",
-                        "name": "projectName",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "description": "body",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/service.EnvConfigsArgs"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK"
-                    }
-                }
-            }
-        },
-        "/api/aslan/environment/production/environments/{name}/estimated-values": {
-            "post": {
-                "description": "Get Production Estimated Values",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "environment"
-                ],
-                "summary": "Get Production Estimated Values",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "env name",
-                        "name": "name",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "project name",
-                        "name": "projectName",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "service name or release name",
-                        "name": "serviceName",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "is helm chart deploy",
-                        "name": "isHelmChartDeploy",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "description": "body",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/service.EstimateValuesArg"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/service.RawYamlResp"
-                        }
-                    }
-                }
-            }
-        },
         "/api/aslan/environment/production/environments/{name}/helm/charts": {
             "put": {
                 "description": "Update helm product charts",
@@ -2167,73 +1675,6 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "OK"
-                    }
-                }
-            }
-        },
-        "/api/aslan/environment/production/environments/{name}/helm/values": {
-            "get": {
-                "description": "Get Production Chart Values",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "environment"
-                ],
-                "summary": "Get Production Chart Values",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "env name",
-                        "name": "name",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "project name",
-                        "name": "projectName",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "service name",
-                        "name": "serviceName",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "release name",
-                        "name": "releaseName",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "isHelmChartDeploy",
-                        "name": "isHelmChartDeploy",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "description": "body",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/service.SyncCollaborationInstanceArgs"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/service.ValuesResp"
-                        }
                     }
                 }
             }
@@ -2489,395 +1930,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/aslan/environment/production/environments/{name}/sleep": {
-            "post": {
-                "description": "Production Environment Sleep",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "environment"
-                ],
-                "summary": "Production Environment Sleep",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "env name",
-                        "name": "name",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "project name",
-                        "name": "projectName",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "enable or disable",
-                        "name": "action",
-                        "in": "query",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK"
-                    }
-                }
-            }
-        },
-        "/api/aslan/environment/production/environments/{name}/sleep/cron": {
-            "get": {
-                "description": "Get Production Env Sleep Cron",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "environment"
-                ],
-                "summary": "Get Production Env Sleep Cron",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "env name",
-                        "name": "name",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "project name",
-                        "name": "projectName",
-                        "in": "query",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/service.EnvSleepCronArg"
-                        }
-                    }
-                }
-            },
-            "put": {
-                "description": "Upsert Production Env Sleep Cron",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "environment"
-                ],
-                "summary": "Upsert Production Env Sleep Cron",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "env name",
-                        "name": "name",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "project name",
-                        "name": "projectName",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "description": "body",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/service.EnvSleepCronArg"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK"
-                    }
-                }
-            }
-        },
-        "/api/aslan/environment/production/environments/{name}/version/{serviceName}": {
-            "get": {
-                "description": "List Production Environment Service Versions",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "environment"
-                ],
-                "summary": "List Production Environment Service Versions",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "env name",
-                        "name": "name",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "service name or release name when isHelmChart is true",
-                        "name": "serviceName",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "project name",
-                        "name": "projectName",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "boolean",
-                        "description": "is helm chart type",
-                        "name": "isHelmChart",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "release name",
-                        "name": "releaseName",
-                        "in": "query",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/service.ListEnvServiceVersionsResponse"
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/api/aslan/environment/production/environments/{name}/version/{serviceName}/diff": {
-            "get": {
-                "description": "Diff Production Environment Service Versions",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "environment"
-                ],
-                "summary": "Diff Production Environment Service Versions",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "env name",
-                        "name": "name",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "service name or release name when isHelmChart is true",
-                        "name": "serviceName",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "project name",
-                        "name": "projectName",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "integer",
-                        "description": "revision a",
-                        "name": "revisionA",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "integer",
-                        "description": "revision b",
-                        "name": "revisionB",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "boolean",
-                        "description": "is helm chart type",
-                        "name": "isHelmChart",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "release name",
-                        "name": "releaseName",
-                        "in": "query",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/service.ListEnvServiceVersionsResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/api/aslan/environment/production/environments/{name}/version/{serviceName}/revision/{revision}": {
-            "get": {
-                "description": "Get Production Environment Service Version Yaml",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "environment"
-                ],
-                "summary": "Get Production Environment Service Version Yaml",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "env name",
-                        "name": "name",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "service name or release name when isHelmChart is true",
-                        "name": "serviceName",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "revision",
-                        "name": "revision",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "project name",
-                        "name": "projectName",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "boolean",
-                        "description": "is helm chart type",
-                        "name": "isHelmChart",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "release name",
-                        "name": "releaseName",
-                        "in": "query",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/service.GetEnvServiceVersionYamlResponse"
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/api/aslan/environment/production/environments/{name}/version/{serviceName}/rollback": {
-            "post": {
-                "description": "Rollback Production Environment Service Version",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "environment"
-                ],
-                "summary": "Rollback Production Environment Service Version",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "env name",
-                        "name": "name",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "service name or release name when isHelmChart is true",
-                        "name": "serviceName",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "project name",
-                        "name": "projectName",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "integer",
-                        "description": "revision",
-                        "name": "revision",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "boolean",
-                        "description": "is helm chart type",
-                        "name": "isHelmChart",
-                        "in": "query",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK"
-                    }
-                }
-            }
-        },
         "/api/aslan/environment/production/environments/{name}/workloads": {
             "get": {
                 "description": "List Workloads In Env",
@@ -3034,55 +2086,6 @@ const docTemplate = `{
                         "description": "service name",
                         "name": "serviceName",
                         "in": "query",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/service.K8sSvcRenderArg"
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/api/aslan/environments/{name}/services/{serviceName}/variables": {
-            "get": {
-                "description": "Get production service variables",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "environment"
-                ],
-                "summary": "Get production service variables",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "project name",
-                        "name": "projectName",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "env name",
-                        "name": "name",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "service name",
-                        "name": "serviceName",
-                        "in": "path",
                         "required": true
                     }
                 ],
@@ -3782,190 +2785,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/aslan/service/production/version/{serviceName}": {
-            "get": {
-                "description": "List Production Service Versions",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "service"
-                ],
-                "summary": "List Production Service Versions",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "service name",
-                        "name": "serviceName",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "project name",
-                        "name": "projectName",
-                        "in": "query",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/service.ListServiceVersionsResponse"
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/api/aslan/service/production/version/{serviceName}/diff": {
-            "get": {
-                "description": "Diff Production Service Versions",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "service"
-                ],
-                "summary": "Diff Production Service Versions",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "service name",
-                        "name": "serviceName",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "project name",
-                        "name": "projectName",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "integer",
-                        "description": "revision a",
-                        "name": "revisionA",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "integer",
-                        "description": "revision b",
-                        "name": "revisionB",
-                        "in": "query",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/service.ListServiceVersionsResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/api/aslan/service/production/version/{serviceName}/revision/{revision}": {
-            "get": {
-                "description": "Get Production Service Versions Yaml",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "service"
-                ],
-                "summary": "Get Production Service Version Yaml",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "service name",
-                        "name": "serviceName",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "project name",
-                        "name": "projectName",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "revision",
-                        "name": "revision",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/service.GetServiceVersionYamlResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/api/aslan/service/production/version/{serviceName}/rollback": {
-            "post": {
-                "description": "Rollback Production SService Version",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "service"
-                ],
-                "summary": "Rollback Production Service Version",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "service name",
-                        "name": "serviceName",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "project name",
-                        "name": "projectName",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "integer",
-                        "description": "revision",
-                        "name": "revision",
-                        "in": "query",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK"
-                    }
-                }
-            }
-        },
         "/api/aslan/service/services": {
             "post": {
                 "description": "Create service template",
@@ -4109,6 +2928,13 @@ const docTemplate = `{
                         "required": true
                     },
                     {
+                        "type": "boolean",
+                        "description": "is production",
+                        "name": "production",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
                         "description": "body",
                         "name": "body",
                         "in": "body",
@@ -4140,6 +2966,13 @@ const docTemplate = `{
                 "summary": "Load service from yaml template",
                 "parameters": [
                     {
+                        "type": "boolean",
+                        "description": "is production",
+                        "name": "production",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
                         "description": "body",
                         "name": "body",
                         "in": "body",
@@ -4170,6 +3003,13 @@ const docTemplate = `{
                 ],
                 "summary": "Reload service from yaml template",
                 "parameters": [
+                    {
+                        "type": "boolean",
+                        "description": "is production",
+                        "name": "production",
+                        "in": "query",
+                        "required": true
+                    },
                     {
                         "description": "body",
                         "name": "body",
@@ -4212,6 +3052,13 @@ const docTemplate = `{
                         "type": "string",
                         "description": "project name",
                         "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "is production",
+                        "name": "production",
                         "in": "query",
                         "required": true
                     }
@@ -4270,6 +3117,13 @@ const docTemplate = `{
                         "name": "revisionB",
                         "in": "query",
                         "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "is production",
+                        "name": "production",
+                        "in": "query",
+                        "required": true
                     }
                 ],
                 "responses": {
@@ -4316,6 +3170,13 @@ const docTemplate = `{
                         "name": "revision",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "is production",
+                        "name": "production",
+                        "in": "query",
+                        "required": true
                     }
                 ],
                 "responses": {
@@ -4360,6 +3221,13 @@ const docTemplate = `{
                         "type": "integer",
                         "description": "revision",
                         "name": "revision",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "is production",
+                        "name": "production",
                         "in": "query",
                         "required": true
                     }
@@ -5858,6 +4726,9 @@ const docTemplate = `{
                 "product_name": {
                     "type": "string"
                 },
+                "production": {
+                    "type": "boolean"
+                },
                 "restart_associated_svc": {
                     "type": "boolean"
                 },
@@ -6956,20 +5827,6 @@ const docTemplate = `{
                 }
             }
         },
-        "resource.ContainerImage": {
-            "type": "object",
-            "properties": {
-                "image": {
-                    "type": "string"
-                },
-                "image_name": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                }
-            }
-        },
         "resource.ContainerPort": {
             "type": "object",
             "properties": {
@@ -6999,47 +5856,6 @@ const docTemplate = `{
                 }
             }
         },
-        "resource.CronJob": {
-            "type": "object",
-            "properties": {
-                "active": {
-                    "type": "integer"
-                },
-                "create_time": {
-                    "type": "integer"
-                },
-                "images": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/resource.ContainerImage"
-                    }
-                },
-                "labels": {
-                    "type": "object",
-                    "additionalProperties": {
-                        "type": "string"
-                    }
-                },
-                "last_schedule": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "pods": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/resource.Pod"
-                    }
-                },
-                "schedule": {
-                    "type": "string"
-                },
-                "suspend": {
-                    "type": "boolean"
-                }
-            }
-        },
         "resource.HostInfo": {
             "type": "object",
             "properties": {
@@ -7050,35 +5866,6 @@ const docTemplate = `{
                     }
                 },
                 "host": {
-                    "type": "string"
-                }
-            }
-        },
-        "resource.Ingress": {
-            "type": "object",
-            "properties": {
-                "age": {
-                    "type": "string"
-                },
-                "host_info": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/resource.HostInfo"
-                    }
-                },
-                "ips": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "labels": {
-                    "type": "object",
-                    "additionalProperties": {
-                        "type": "string"
-                    }
-                },
-                "name": {
                     "type": "string"
                 }
             }
@@ -7148,76 +5935,6 @@ const docTemplate = `{
                 "ProtocolUDP",
                 "ProtocolSCTP"
             ]
-        },
-        "resource.Service": {
-            "type": "object",
-            "properties": {
-                "age": {
-                    "type": "string"
-                },
-                "endpoints": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/resource.ServicePort"
-                    }
-                },
-                "labels": {
-                    "type": "object",
-                    "additionalProperties": {
-                        "type": "string"
-                    }
-                },
-                "name": {
-                    "type": "string"
-                }
-            }
-        },
-        "resource.ServicePort": {
-            "type": "object",
-            "properties": {
-                "node_port": {
-                    "type": "integer"
-                },
-                "service_name": {
-                    "type": "string"
-                },
-                "service_port": {
-                    "type": "integer"
-                }
-            }
-        },
-        "resource.Workload": {
-            "type": "object",
-            "properties": {
-                "images": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/resource.ContainerImage"
-                    }
-                },
-                "name": {
-                    "type": "string"
-                },
-                "pods": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/resource.Pod"
-                    }
-                },
-                "replicas": {
-                    "type": "integer"
-                },
-                "type": {
-                    "type": "string"
-                },
-                "zadigx_release_tag": {
-                    "type": "string"
-                },
-                "zadigx_release_type": {
-                    "description": "ZadigXReleaseType represent the release type of workload created by zadigx when it is not empty\nfrontend should limit or allow some operations on these workloads",
-                    "type": "string"
-                }
-            }
         },
         "service.ConvertVaraibleKVAndYamlActionType": {
             "type": "string",
@@ -7548,32 +6265,6 @@ const docTemplate = `{
                 },
                 "sleep_cron_enable": {
                     "type": "boolean"
-                }
-            }
-        },
-        "service.EstimateValuesArg": {
-            "type": "object",
-            "properties": {
-                "chartName": {
-                    "type": "string"
-                },
-                "chartRepo": {
-                    "type": "string"
-                },
-                "chartVersion": {
-                    "type": "string"
-                },
-                "defaultValues": {
-                    "type": "string"
-                },
-                "overrideValues": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/service.KVPair"
-                    }
-                },
-                "overrideYaml": {
-                    "type": "string"
                 }
             }
         },
@@ -8314,14 +7005,6 @@ const docTemplate = `{
                 }
             }
         },
-        "service.RawYamlResp": {
-            "type": "object",
-            "properties": {
-                "yamlContent": {
-                    "type": "string"
-                }
-            }
-        },
         "service.RepoConfig": {
             "type": "object",
             "properties": {
@@ -8607,50 +7290,6 @@ const docTemplate = `{
                 }
             }
         },
-        "service.SvcResp": {
-            "type": "object",
-            "properties": {
-                "cron_jobs": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/resource.CronJob"
-                    }
-                },
-                "env_name": {
-                    "type": "string"
-                },
-                "group_name": {
-                    "type": "string"
-                },
-                "ingress": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/resource.Ingress"
-                    }
-                },
-                "namespace": {
-                    "type": "string"
-                },
-                "product_name": {
-                    "type": "string"
-                },
-                "scales": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/resource.Workload"
-                    }
-                },
-                "service_endpoints": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/resource.Service"
-                    }
-                },
-                "service_name": {
-                    "type": "string"
-                }
-            }
-        },
         "service.SvcRevision": {
             "type": "object",
             "properties": {
@@ -8800,14 +7439,6 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "yamlSource": {
-                    "type": "string"
-                }
-            }
-        },
-        "service.ValuesResp": {
-            "type": "object",
-            "properties": {
-                "valuesYaml": {
                     "type": "string"
                 }
             }
