@@ -34,11 +34,15 @@ import (
 
 // ExportYaml 查询使用到服务模板的服务组模板
 // source determines where the request comes from, can be "wd" or "nil"
-func ExportYaml(envName, productName, serviceName, source string, log *zap.SugaredLogger) []string {
+func ExportYaml(envName, productName, serviceName, source string, production bool, log *zap.SugaredLogger) []string {
 	var yamls [][]byte
 	res := make([]string, 0)
 
-	env, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{EnvName: envName, Name: productName})
+	env, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		EnvName:    envName,
+		Name:       productName,
+		Production: &production,
+	})
 	if err != nil {
 		log.Errorf("failed to find env [%s][%s] %v", envName, productName, err)
 		return res

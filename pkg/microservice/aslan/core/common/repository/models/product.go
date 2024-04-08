@@ -143,6 +143,7 @@ type CreateUpdateCommonEnvCfgArgs struct {
 	SourceDetail         *CreateFromRepo               `json:"-"`
 	AutoSync             bool                          `json:"auto_sync"`
 	LatestEnvResource    *EnvResource                  `json:"-"`
+	Production           bool                          `json:"production"`
 }
 
 type RenderInfo struct {

@@ -29,47 +29,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/types"
 )
 
-// @Summary Check Production Workloads K8sServices
-// @Description Check Production Workloads K8sServices
-// @Tags 	environment
-// @Accept 	json
-// @Produce json
-// @Param 	projectName	query		string									true	"project name"
-// @Param 	name 		path		string									true	"env name"
-// @Success 200 		{array} 	string
-// @Router /api/aslan/environment/production/environments/{name}/check/workloads/k8services [get]
-func CheckProductionWorkloadsK8sServices(c *gin.Context) {
-	ctx, err := internalhandler.NewContextWithAuthorization(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
-		ctx.UnAuthorized = true
-		return
-	}
-
-	envName := c.Param("name")
-	projectKey := c.Query("projectName")
-
-	// authorization checks
-	if !ctx.Resources.IsSystemAdmin {
-		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
-			ctx.UnAuthorized = true
-			return
-		}
-		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.EditConfig {
-			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionEditConfig)
-			if err != nil || !permitted {
-				ctx.UnAuthorized = true
-				return
-			}
-		}
-	}
-
-	ctx.Resp, ctx.Err = service.CheckWorkloadsK8sServices(c, envName, projectKey)
-}
-
 // @Summary Enable Istio Grayscale
 // @Description Enable Istio Grayscale
 // @Tags 	environment
@@ -91,6 +50,10 @@ func EnableIstioGrayscale(c *gin.Context) {
 
 	envName := c.Param("name")
 	projectKey := c.Query("projectName")
+	production := c.Query("production") == "true"
+	if !production {
+		ctx.Err = fmt.Errorf("testing environment not support")
+	}
 
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "开启Istio灰度", "环境", envName, "", ctx.Logger, envName)
 
@@ -138,6 +101,10 @@ func DisableIstioGrayscale(c *gin.Context) {
 
 	envName := c.Param("name")
 	projectKey := c.Query("projectName")
+	production := c.Query("production") == "true"
+	if !production {
+		ctx.Err = fmt.Errorf("testing environment not support")
+	}
 
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv,
 		"关闭Istio灰度", "环境", envName,
@@ -184,6 +151,10 @@ func CheckIstioGrayscaleReady(c *gin.Context) {
 
 	envName := c.Param("name")
 	projectKey := c.Query("projectName")
+	production := c.Query("production") == "true"
+	if !production {
+		ctx.Err = fmt.Errorf("testing environment not support")
+	}
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -225,6 +196,10 @@ func GetIstioGrayscaleConfig(c *gin.Context) {
 
 	envName := c.Param("name")
 	projectKey := c.Query("projectName")
+	production := c.Query("production") == "true"
+	if !production {
+		ctx.Err = fmt.Errorf("testing environment not support")
+	}
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -267,6 +242,10 @@ func SetIstioGrayscaleConfig(c *gin.Context) {
 
 	envName := c.Param("name")
 	projectKey := c.Query("projectName")
+	production := c.Query("production") == "true"
+	if !production {
+		ctx.Err = fmt.Errorf("testing environment not support")
+	}
 
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv,
 		"设置Istio灰度配置", "环境", envName,
@@ -325,6 +304,10 @@ func GetIstioGrayscalePortalService(c *gin.Context) {
 	envName := c.Param("name")
 	serviceName := c.Param("serviceName")
 	projectKey := c.Query("projectName")
+	production := c.Query("production") == "true"
+	if !production {
+		ctx.Err = fmt.Errorf("testing environment not support")
+	}
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -370,6 +353,10 @@ func SetupIstioGrayscalePortalService(c *gin.Context) {
 	envName := c.Param("name")
 	serviceName := c.Param("serviceName")
 	projectKey := c.Query("projectName")
+	production := c.Query("production") == "true"
+	if !production {
+		ctx.Err = fmt.Errorf("testing environment not support")
+	}
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {

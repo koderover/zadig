@@ -63,7 +63,11 @@ func GetServiceContainer(envName, productName, serviceName, container string, lo
 }
 
 func Scale(args *ScaleArgs, logger *zap.SugaredLogger) error {
-	opt := &commonrepo.ProductFindOptions{Name: args.ProductName, EnvName: args.EnvName}
+	opt := &commonrepo.ProductFindOptions{
+		Name:       args.ProductName,
+		EnvName:    args.EnvName,
+		Production: &args.Production,
+	}
 	prod, err := commonrepo.NewProductColl().Find(opt)
 	if err != nil {
 		return e.ErrScaleService.AddErr(err)
@@ -102,13 +106,18 @@ func OpenAPIScale(req *OpenAPIScaleServiceReq, logger *zap.SugaredLogger) error 
 		EnvName:     req.EnvName,
 		Name:        req.WorkloadName,
 		Number:      req.TargetReplicas,
+		Production:  false,
 	}
 
 	return Scale(args, logger)
 }
 
-func RestartScale(args *RestartScaleArgs, _ *zap.SugaredLogger) error {
-	opt := &commonrepo.ProductFindOptions{Name: args.ProductName, EnvName: args.EnvName}
+func RestartScale(args *RestartScaleArgs, production bool, _ *zap.SugaredLogger) error {
+	opt := &commonrepo.ProductFindOptions{
+		Name:       args.ProductName,
+		EnvName:    args.EnvName,
+		Production: &production,
+	}
 	prod, err := commonrepo.NewProductColl().Find(opt)
 	if err != nil {
 		return err
@@ -427,10 +436,11 @@ func PreviewService(args *PreviewServiceArgs, _ *zap.SugaredLogger) (*SvcDiffRes
 }
 
 // RestartService 在kube中, 如果资源存在就更新不存在就创建
-func RestartService(envName string, args *SvcOptArgs, log *zap.SugaredLogger) (err error) {
+func RestartService(envName string, args *SvcOptArgs, production bool, log *zap.SugaredLogger) (err error) {
 	productObj, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
-		Name:    args.ProductName,
-		EnvName: envName,
+		Name:       args.ProductName,
+		EnvName:    envName,
+		Production: &production,
 	})
 	if err != nil {
 		return err

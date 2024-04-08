@@ -767,8 +767,12 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]st
 	return mongotool.CommitTransaction(session)
 }
 
-func UpdateProductRegistry(envName, productName, registryID string, log *zap.SugaredLogger) (err error) {
-	opt := &commonrepo.ProductFindOptions{EnvName: envName, Name: productName}
+func UpdateProductRegistry(envName, productName, registryID string, production bool, log *zap.SugaredLogger) (err error) {
+	opt := &commonrepo.ProductFindOptions{
+		EnvName:    envName,
+		Name:       productName,
+		Production: &production,
+	}
 	exitedProd, err := commonrepo.NewProductColl().Find(opt)
 	if err != nil {
 		log.Errorf("UpdateProductRegistry find product by envName:%s,error: %v", envName, err)
@@ -1483,7 +1487,7 @@ func validateArgs(args *commonservice.ValuesDataArgs) error {
 	return nil
 }
 
-func UpdateProductDefaultValues(productName, envName, userName, requestID string, args *EnvRendersetArg, log *zap.SugaredLogger) error {
+func UpdateProductDefaultValues(productName, envName, userName, requestID string, args *EnvRendersetArg, production bool, log *zap.SugaredLogger) error {
 	// validate if yaml content is legal
 	err := yaml.Unmarshal([]byte(args.DefaultValues), map[string]interface{}{})
 	if err != nil {
@@ -1491,8 +1495,9 @@ func UpdateProductDefaultValues(productName, envName, userName, requestID string
 	}
 
 	product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
-		Name:    productName,
-		EnvName: envName,
+		Name:       productName,
+		EnvName:    envName,
+		Production: &production,
 	})
 	if err != nil {
 		log.Errorf("UpdateHelmProductRenderset GetProductEnv envName:%s productName: %s error, error msg:%s", envName, productName, err)
@@ -1507,7 +1512,7 @@ func UpdateProductDefaultValues(productName, envName, userName, requestID string
 		return e.ErrUpdateEnv.AddDesc(fmt.Sprintf("failed to validate args: %s", err))
 	}
 
-	err = UpdateProductDefaultValuesWithRender(product, nil, userName, requestID, args, log)
+	err = UpdateProductDefaultValuesWithRender(product, nil, userName, requestID, args, production, log)
 	if err != nil {
 		return e.ErrUpdateEnv.AddErr(err)
 	}
@@ -1520,7 +1525,7 @@ func UpdateProductDefaultValues(productName, envName, userName, requestID string
 	return ensureKubeEnv(product.Namespace, product.RegistryID, map[string]string{setting.ProductLabel: product.ProductName}, false, kubeClient, log)
 }
 
-func UpdateProductDefaultValuesWithRender(product *commonmodels.Product, _ *models.RenderSet, userName, requestID string, args *EnvRendersetArg, log *zap.SugaredLogger) error {
+func UpdateProductDefaultValuesWithRender(product *commonmodels.Product, _ *models.RenderSet, userName, requestID string, args *EnvRendersetArg, production bool, log *zap.SugaredLogger) error {
 	equal, err := yamlutil.Equal(product.DefaultValues, args.DefaultValues)
 	if err != nil {
 		return fmt.Errorf("failed to unmarshal default values in renderset, err: %s", err)
@@ -1529,7 +1534,7 @@ func UpdateProductDefaultValuesWithRender(product *commonmodels.Product, _ *mode
 	product.YamlData = geneYamlData(args.ValuesData)
 	updatedSvcList := make([]*templatemodels.ServiceRender, 0)
 	if !equal {
-		diffSvcs, err := PreviewHelmProductGlobalVariables(product.ProductName, product.EnvName, args.DefaultValues, log)
+		diffSvcs, err := PreviewHelmProductGlobalVariables(product.ProductName, product.EnvName, args.DefaultValues, production, log)
 		if err != nil {
 			return fmt.Errorf("failed to fetch diff services, err: %s", err)
 		}
@@ -1554,14 +1559,15 @@ func UpdateProductDefaultValuesWithRender(product *commonmodels.Product, _ *mode
 	return UpdateProductVariable(product.ProductName, product.EnvName, userName, requestID, updatedSvcList, nil, product.DefaultValues, product.YamlData, log)
 }
 
-func UpdateHelmProductCharts(productName, envName, userName, requestID string, args *EnvRendersetArg, log *zap.SugaredLogger) error {
+func UpdateHelmProductCharts(productName, envName, userName, requestID string, production bool, args *EnvRendersetArg, log *zap.SugaredLogger) error {
 	if len(args.ChartValues) == 0 {
 		return nil
 	}
 
 	product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
-		Name:    productName,
-		EnvName: envName,
+		Name:       productName,
+		EnvName:    envName,
+		Production: &production,
 	})
 	if err != nil {
 		log.Errorf("UpdateHelmProductRenderset GetProductEnv envName:%s productName: %s error, error msg:%s", envName, productName, err)
@@ -3168,10 +3174,11 @@ func GetGlobalVariableCandidate(productName, envName string, log *zap.SugaredLog
 	return ret, nil
 }
 
-func PreviewProductGlobalVariables(productName, envName string, arg []*commontypes.GlobalVariableKV, log *zap.SugaredLogger) ([]*SvcDiffResult, error) {
+func PreviewProductGlobalVariables(productName, envName string, arg []*commontypes.GlobalVariableKV, production bool, log *zap.SugaredLogger) ([]*SvcDiffResult, error) {
 	product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
-		Name:    productName,
-		EnvName: envName,
+		Name:       productName,
+		EnvName:    envName,
+		Production: &production,
 	})
 	if err != nil {
 		log.Errorf("UpdateHelmProductRenderset GetProductEnv envName:%s productName: %s error, error msg:%s", envName, productName, err)
@@ -3185,7 +3192,7 @@ func extractRootKeyFromFlat(flatKey string) string {
 	return strings.Split(splitStrs[0], "[")[0]
 }
 
-func PreviewHelmProductGlobalVariables(productName, envName, globalVariable string, log *zap.SugaredLogger) ([]*SvcDiffResult, error) {
+func PreviewHelmProductGlobalVariables(productName, envName, globalVariable string, proudction bool, log *zap.SugaredLogger) ([]*SvcDiffResult, error) {
 	ret := make([]*SvcDiffResult, 0)
 	variableKvs, err := commontypes.YamlToServiceVariableKV(globalVariable, nil)
 	if err != nil {
@@ -3197,8 +3204,9 @@ func PreviewHelmProductGlobalVariables(productName, envName, globalVariable stri
 	}
 
 	product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
-		Name:    productName,
-		EnvName: envName,
+		Name:       productName,
+		EnvName:    envName,
+		Production: &proudction,
 	})
 	if err != nil {
 		log.Errorf("PreviewHelmProductGlobalVariables GetProductEnv envName:%s productName: %s error, error msg:%s", envName, productName, err)
@@ -3290,10 +3298,11 @@ func PreviewHelmProductGlobalVariables(productName, envName, globalVariable stri
 	return ret, nil
 }
 
-func UpdateProductGlobalVariables(productName, envName, userName, requestID string, currentRevision int64, arg []*commontypes.GlobalVariableKV, log *zap.SugaredLogger) error {
+func UpdateProductGlobalVariables(productName, envName, userName, requestID string, currentRevision int64, arg []*commontypes.GlobalVariableKV, production bool, log *zap.SugaredLogger) error {
 	product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
-		Name:    productName,
-		EnvName: envName,
+		Name:       productName,
+		EnvName:    envName,
+		Production: &production,
 	})
 	if err != nil {
 		log.Errorf("UpdateProductGlobalVariables GetProductEnv envName:%s productName: %s error, error msg:%s", envName, productName, err)

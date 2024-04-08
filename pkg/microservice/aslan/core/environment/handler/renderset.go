@@ -46,7 +46,6 @@ func GetServiceRenderCharts(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -54,6 +53,7 @@ func GetServiceRenderCharts(c *gin.Context) {
 
 	projectKey := c.Query("projectName")
 	envName := c.Query("envName")
+	production := c.Query("production") == "true"
 
 	if projectKey == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
@@ -71,12 +71,24 @@ func GetServiceRenderCharts(c *gin.Context) {
 			ctx.UnAuthorized = true
 			return
 		}
-		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectKey].Env.View {
-			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionView)
-			if err != nil || !permitted {
-				ctx.UnAuthorized = true
-				return
+
+		if production {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.View {
+				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionView)
+				if err != nil || !permitted {
+					ctx.UnAuthorized = true
+					return
+				}
+			}
+		} else {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].Env.View {
+				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionView)
+				if err != nil || !permitted {
+					ctx.UnAuthorized = true
+					return
+				}
 			}
 		}
 	}
@@ -105,7 +117,6 @@ func GetServiceVariables(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -113,6 +124,7 @@ func GetServiceVariables(c *gin.Context) {
 
 	projectKey := c.Query("projectName")
 	envName := c.Query("envName")
+	production := c.Query("production") == "true"
 
 	if projectKey == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
@@ -125,108 +137,29 @@ func GetServiceVariables(c *gin.Context) {
 			ctx.UnAuthorized = true
 			return
 		}
-		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectKey].Env.View {
-			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionView)
-			if err != nil || !permitted {
-				ctx.UnAuthorized = true
-				return
+
+		if production {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.View {
+				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionView)
+				if err != nil || !permitted {
+					ctx.UnAuthorized = true
+					return
+				}
+			}
+		} else {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].Env.View {
+				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionView)
+				if err != nil || !permitted {
+					ctx.UnAuthorized = true
+					return
+				}
 			}
 		}
 	}
 
-	ctx.Resp, _, ctx.Err = commonservice.GetK8sSvcRenderArgs(projectKey, envName, c.Query("serviceName"), false, ctx.Logger)
-}
-
-func GetProductionServiceVariables(c *gin.Context) {
-	ctx, err := internalhandler.NewContextWithAuthorization(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	if err != nil {
-
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
-		ctx.UnAuthorized = true
-		return
-	}
-
-	projectKey := c.Query("projectName")
-	envName := c.Query("envName")
-
-	if projectKey == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
-		return
-	}
-
-	// authorization checks
-	if !ctx.Resources.IsSystemAdmin {
-		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
-			ctx.UnAuthorized = true
-			return
-		}
-		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.View {
-			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionView)
-			if err != nil || !permitted {
-				ctx.UnAuthorized = true
-				return
-			}
-		}
-	}
-
-	ctx.Resp, _, ctx.Err = commonservice.GetK8sSvcRenderArgs(projectKey, envName, c.Query("serviceName"), true, ctx.Logger)
-}
-
-// @Summary Get production service variables
-// @Description Get production service variables
-// @Tags 	environment
-// @Accept 	json
-// @Produce json
-// @Param 	projectName	query		string										true	"project name"
-// @Param 	name		path		string										true	"env name"
-// @Param 	serviceName	path		string										true	"service name"
-// @Success 200 		{array} 	commonservice.K8sSvcRenderArg
-// @Router /api/aslan/environments/{name}/services/{serviceName}/variables [get]
-func GetProductionVariables(c *gin.Context) {
-	ctx, err := internalhandler.NewContextWithAuthorization(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	if err != nil {
-
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
-		ctx.UnAuthorized = true
-		return
-	}
-
-	projectKey := c.Query("projectName")
-	envName := c.Query("envName")
-
-	if projectKey == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
-		return
-	}
-
-	if envName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("envName can not be null!")
-		return
-	}
-
-	// authorization checks
-	if !ctx.Resources.IsSystemAdmin {
-		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
-			ctx.UnAuthorized = true
-			return
-		}
-		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.View {
-			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionView)
-			if err != nil || !permitted {
-				ctx.UnAuthorized = true
-				return
-			}
-		}
-	}
-
-	ctx.Resp, ctx.Err = commonservice.GetK8sProductionSvcRenderArgs(projectKey, envName, c.Param("serviceName"), ctx.Logger)
+	ctx.Resp, _, ctx.Err = commonservice.GetK8sSvcRenderArgs(projectKey, envName, c.Query("serviceName"), production, ctx.Logger)
 }
 
 func GetProductDefaultValues(c *gin.Context) {
@@ -234,7 +167,6 @@ func GetProductDefaultValues(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -242,6 +174,7 @@ func GetProductDefaultValues(c *gin.Context) {
 
 	projectKey := c.Query("projectName")
 	envName := c.Query("envName")
+	production := c.Query("production") == "true"
 
 	if projectKey == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
@@ -259,17 +192,29 @@ func GetProductDefaultValues(c *gin.Context) {
 			ctx.UnAuthorized = true
 			return
 		}
-		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectKey].Env.View {
-			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionView)
-			if err != nil || !permitted {
-				ctx.UnAuthorized = true
-				return
+
+		if production {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.View {
+				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionView)
+				if err != nil || !permitted {
+					ctx.UnAuthorized = true
+					return
+				}
+			}
+		} else {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].Env.View {
+				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionView)
+				if err != nil || !permitted {
+					ctx.UnAuthorized = true
+					return
+				}
 			}
 		}
 	}
 
-	ctx.Resp, ctx.Err = service.GetDefaultValues(projectKey, envName, ctx.Logger)
+	ctx.Resp, ctx.Err = service.GetDefaultValues(projectKey, envName, production, ctx.Logger)
 }
 
 func GetYamlContent(c *gin.Context) {
@@ -323,6 +268,7 @@ func GetGlobalVariables(c *gin.Context) {
 
 	projectKey := c.Query("projectName")
 	envName := c.Query("envName")
+	production := c.Query("production") == "true"
 
 	if projectKey == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
@@ -341,23 +287,32 @@ func GetGlobalVariables(c *gin.Context) {
 	if ctx.Resources.IsSystemAdmin {
 		permitted = true
 	} else if projectedAuthInfo, ok := ctx.Resources.ProjectAuthInfo[projectKey]; ok {
-		if projectedAuthInfo.IsProjectAdmin {
-			permitted = true
-		}
+		if production {
+			if projectedAuthInfo.IsProjectAdmin {
+				permitted = true
+			}
 
-		if projectedAuthInfo.Env.View ||
-			projectedAuthInfo.ProductionEnv.View {
-			permitted = true
-		}
+			if projectedAuthInfo.ProductionEnv.View {
+				permitted = true
+			}
 
-		collaborationViewEnvPermitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionView)
-		if err == nil && collaborationViewEnvPermitted {
-			permitted = true
-		}
+			collaborationViewProductionEnvPermitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionView)
+			if err == nil && collaborationViewProductionEnvPermitted {
+				permitted = true
+			}
+		} else {
+			if projectedAuthInfo.IsProjectAdmin {
+				permitted = true
+			}
 
-		collaborationViewProductionEnvPermitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionView)
-		if err == nil && collaborationViewProductionEnvPermitted {
-			permitted = true
+			if projectedAuthInfo.Env.View {
+				permitted = true
+			}
+
+			collaborationViewEnvPermitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionView)
+			if err == nil && collaborationViewEnvPermitted {
+				permitted = true
+			}
 		}
 	}
 
@@ -368,6 +323,6 @@ func GetGlobalVariables(c *gin.Context) {
 
 	resp := new(getGlobalVariablesRespone)
 
-	resp.GlobalVariables, resp.Revision, ctx.Err = service.GetGlobalVariables(projectKey, envName, ctx.Logger)
+	resp.GlobalVariables, resp.Revision, ctx.Err = service.GetGlobalVariables(projectKey, envName, production, ctx.Logger)
 	ctx.Resp = resp
 }
