@@ -77,7 +77,7 @@ func (j *BlueGreenDeployV2Job) SetPreset() error {
 		envName = strings.ReplaceAll(j.spec.Env, setting.FixedValueMark, "")
 	}
 
-	serviceInfo, err := generateBlueGreenEnvDeployServiceInfo(envName, j.workflow.Project, j.spec.Services)
+	serviceInfo, _, err := generateBlueGreenEnvDeployServiceInfo(envName, j.workflow.Project, j.spec.Services)
 	if err != nil {
 		log.Errorf("failed to generate blue-green deploy info for env: %s, error: %s", envName, err)
 		return err
@@ -128,15 +128,16 @@ func (j *BlueGreenDeployV2Job) SetOptions() error {
 		// if the env is fixed, we put the env in the option
 		envName := strings.ReplaceAll(originalSpec.Env, setting.FixedValueMark, "")
 
-		serviceInfo, err := generateBlueGreenEnvDeployServiceInfo(envName, j.workflow.Project, originalSpec.Services)
+		serviceInfo, registryID, err := generateBlueGreenEnvDeployServiceInfo(envName, j.workflow.Project, originalSpec.Services)
 		if err != nil {
 			log.Errorf("failed to generate blue-green deploy info for env: %s, error: %s", envName, err)
 			return err
 		}
 
 		envOptions = append(envOptions, &commonmodels.ZadigBlueGreenDeployEnvInformation{
-			Env:      envName,
-			Services: serviceInfo,
+			Env:        envName,
+			RegistryID: registryID,
+			Services:   serviceInfo,
 		})
 	} else {
 		// otherwise list all the envs in this project
@@ -148,15 +149,16 @@ func (j *BlueGreenDeployV2Job) SetOptions() error {
 			return fmt.Errorf("can't list envs in project %s, error: %w", j.workflow.Project, err)
 		}
 		for _, env := range products {
-			serviceInfo, err := generateBlueGreenEnvDeployServiceInfo(env.EnvName, j.workflow.Project, originalSpec.Services)
+			serviceInfo, registryID, err := generateBlueGreenEnvDeployServiceInfo(env.EnvName, j.workflow.Project, originalSpec.Services)
 			if err != nil {
 				log.Errorf("failed to generate blue-green deploy info for env: %s, error: %s", env.EnvName, err)
 				return err
 			}
 
 			envOptions = append(envOptions, &commonmodels.ZadigBlueGreenDeployEnvInformation{
-				Env:      env.EnvName,
-				Services: serviceInfo,
+				Env:        env.EnvName,
+				RegistryID: registryID,
+				Services:   serviceInfo,
 			})
 		}
 	}
@@ -167,7 +169,7 @@ func (j *BlueGreenDeployV2Job) SetOptions() error {
 }
 
 // TODO: This function now can only be used for production environments
-func generateBlueGreenEnvDeployServiceInfo(env, project string, services []*commonmodels.BlueGreenDeployV2Service) ([]*commonmodels.BlueGreenDeployV2Service, error) {
+func generateBlueGreenEnvDeployServiceInfo(env, project string, services []*commonmodels.BlueGreenDeployV2Service) ([]*commonmodels.BlueGreenDeployV2Service, string, error) {
 	targetEnv, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
 		EnvName:    env,
 		Name:       project,
@@ -180,17 +182,17 @@ func generateBlueGreenEnvDeployServiceInfo(env, project string, services []*comm
 	}
 
 	if err != nil {
-		return nil, fmt.Errorf("failed to find product %s, env %s, err: %s", project, env, err)
+		return nil, "", fmt.Errorf("failed to find product %s, env %s, err: %s", project, env, err)
 	}
 
 	latestSvcList, err := repository.ListMaxRevisionsServices(project, true)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list services with max revisions in project: %s, error: %s")
+		return nil, "", fmt.Errorf("failed to list services with max revisions in project: %s, error: %s")
 	}
 
 	serviceInfo, err := commonservice.BuildServiceInfoInEnv(targetEnv, latestSvcList, nil, log.GetSimpleLogger())
 	if err != nil {
-		return nil, fmt.Errorf("failed to build service info in env: %s, error: %s", env, err)
+		return nil, "", fmt.Errorf("failed to build service info in env: %s, error: %s", env, err)
 	}
 
 	resp := make([]*commonmodels.BlueGreenDeployV2Service, 0)
@@ -222,7 +224,7 @@ func generateBlueGreenEnvDeployServiceInfo(env, project string, services []*comm
 				ServiceName: envService.ServiceName,
 			})
 			if err != nil {
-				return nil, fmt.Errorf("failed to fetch %s current applied yaml, err: %s", envService.ServiceName, err)
+				return nil, "", fmt.Errorf("failed to fetch %s current applied yaml, err: %s", envService.ServiceName, err)
 			}
 
 			resources := make([]*unstructured.Unstructured, 0)
@@ -230,7 +232,7 @@ func generateBlueGreenEnvDeployServiceInfo(env, project string, services []*comm
 			for _, item := range manifests {
 				u, err := serializer2.NewDecoder().YamlToUnstructured([]byte(item))
 				if err != nil {
-					return nil, fmt.Errorf("failed to decode service %s yaml to unstructured: %v", envService.ServiceName, err)
+					return nil, "", fmt.Errorf("failed to decode service %s yaml to unstructured: %v", envService.ServiceName, err)
 				}
 				resources = append(resources, u)
 			}
@@ -240,13 +242,13 @@ func generateBlueGreenEnvDeployServiceInfo(env, project string, services []*comm
 				switch resource.GetKind() {
 				case setting.Service:
 					if serviceNum > 0 {
-						return nil, fmt.Errorf("service %s has more than one service", envService.ServiceName)
+						return nil, "", fmt.Errorf("service %s has more than one service", envService.ServiceName)
 					}
 					serviceNum++
 					service := &corev1.Service{}
 					err := runtime.DefaultUnstructuredConverter.FromUnstructured(resource.Object, service)
 					if err != nil {
-						return nil, fmt.Errorf("failed to convert service %s service to service object: %v", envService.ServiceName, err)
+						return nil, "", fmt.Errorf("failed to convert service %s service to service object: %v", envService.ServiceName, err)
 					}
 					service.Name = service.Name + "-blue"
 					if service.Spec.Selector == nil {
@@ -255,19 +257,31 @@ func generateBlueGreenEnvDeployServiceInfo(env, project string, services []*comm
 					service.Spec.Selector[config.BlueGreenVersionLabelName] = config.BlueVersion
 					appendService.BlueServiceYaml, err = toYaml(service)
 					if err != nil {
-						return nil, fmt.Errorf("failed to marshal service %s service object: %v", envService.ServiceName, err)
+						return nil, "", fmt.Errorf("failed to marshal service %s service object: %v", envService.ServiceName, err)
 					}
 				}
 			}
 			if serviceNum == 0 {
-				return nil, fmt.Errorf("service %s has no service", envService.ServiceName)
+				return nil, "", fmt.Errorf("service %s has no service", envService.ServiceName)
 			}
 		}
 
 		resp = append(resp, appendService)
 	}
 
-	return resp, nil
+	registryID := targetEnv.RegistryID
+	if registryID == "" {
+		registry, err := commonrepo.NewRegistryNamespaceColl().Find(&commonrepo.FindRegOps{
+			IsDefault: true,
+		})
+
+		if err != nil {
+			return nil, "", fmt.Errorf("failed to find default registry for env: %s, error: %s", env, err)
+		}
+		registryID = registry.ID.Hex()
+	}
+
+	return resp, registryID, nil
 }
 
 func (j *BlueGreenDeployV2Job) MergeArgs(args *commonmodels.Job) error {

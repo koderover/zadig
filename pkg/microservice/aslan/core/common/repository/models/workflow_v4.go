@@ -585,8 +585,9 @@ type ZadigHelmDeployEnvInformation struct {
 }
 
 type ZadigBlueGreenDeployEnvInformation struct {
-	Env      string                      `json:"env"      yaml:"env"`
-	Services []*BlueGreenDeployV2Service `json:"services" yaml:"services"`
+	Env        string                      `json:"env"         yaml:"env"`
+	RegistryID string                      `json:"registry_id" yaml:"registry_id"`
+	Services   []*BlueGreenDeployV2Service `json:"services"    yaml:"services"`
 }
 
 type ZadigVMDeployEnvInformation struct {
