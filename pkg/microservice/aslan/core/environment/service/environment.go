@@ -846,10 +846,11 @@ func UpdateProductRecycleDay(envName, productName string, recycleDay int) error 
 	return commonrepo.NewProductColl().UpdateProductRecycleDay(envName, productName, recycleDay)
 }
 
-func UpdateProductAlias(envName, productName, alias string) error {
+func UpdateProductAlias(envName, productName, alias string, production bool) error {
 	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
-		Name:    productName,
-		EnvName: envName,
+		Name:       productName,
+		EnvName:    envName,
+		Production: &production,
 	})
 	if err != nil {
 		return e.ErrUpdateEnv.AddErr(fmt.Errorf("failed to query product info, name %s", envName))
@@ -1721,58 +1722,6 @@ func SyncHelmProductEnvironment(productName, envName, requestID string, log *zap
 	return err
 }
 
-func UpdateHelmProductRenderset(productName, envName, userName, requestID string, args *EnvRendersetArg, log *zap.SugaredLogger) error {
-	product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
-		Name:    productName,
-		EnvName: envName,
-	})
-	if err != nil {
-		log.Errorf("UpdateHelmProductRenderset GetProductEnv envName:%s productName: %s error, error msg:%s", envName, productName, err)
-		return err
-	}
-
-	// render charts need to be updated
-	updatedRcList := make([]*templatemodels.ServiceRender, 0)
-	updatedRCMap := make(map[string]*templatemodels.ServiceRender)
-
-	// default values change
-	if args.DefaultValues != product.DefaultValues {
-		for _, curRenderChart := range product.GetChartRenderMap() {
-			updatedRCMap[curRenderChart.ServiceName] = curRenderChart
-		}
-	}
-
-	for _, requestRenderChart := range args.ChartValues {
-		// update renderset info
-		for _, curRenderChart := range product.GetChartRenderMap() {
-			if curRenderChart.ServiceName != requestRenderChart.ServiceName {
-				continue
-			}
-			if _, needSaveData := checkOverrideValuesChange(curRenderChart, requestRenderChart); !needSaveData {
-				continue
-			}
-			requestRenderChart.FillRenderChartModel(curRenderChart, curRenderChart.ChartVersion)
-			updatedRCMap[curRenderChart.ServiceName] = curRenderChart
-			break
-		}
-	}
-
-	for _, updatedRc := range updatedRCMap {
-		updatedRcList = append(updatedRcList, updatedRc)
-	}
-
-	err = UpdateProductVariable(productName, envName, userName, requestID, updatedRcList, nil, args.DefaultValues, geneYamlData(args.ValuesData), log)
-	if err != nil {
-		return err
-	}
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), product.ClusterID)
-	if err != nil {
-		log.Errorf("UpdateHelmProductRenderset GetKubeClient error, error msg:%s", err)
-		return err
-	}
-	return ensureKubeEnv(product.Namespace, product.RegistryID, map[string]string{setting.ProductLabel: product.ProductName}, false, kubeClient, log)
-}
-
 func UpdateProductVariable(productName, envName, username, requestID string, updatedSvcs []*templatemodels.ServiceRender,
 	_ []*commontypes.GlobalVariableKV, defaultValue string, yamlData *templatemodels.CustomYaml, log *zap.SugaredLogger) error {
 	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
@@ -2000,18 +1949,6 @@ func UpdateMultipleHelmChartEnv(requestID, userName string, args *UpdateMultiHel
 	}
 
 	return envStatuses, nil
-}
-
-func GetProductInfo(username, envName, productName string, log *zap.SugaredLogger) (*commonmodels.Product, error) {
-	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
-	prod, err := commonrepo.NewProductColl().Find(opt)
-	if err != nil {
-		log.Errorf("[User:%s][EnvName:%s][Product:%s] Product.FindByOwner error: %v", username, envName, productName, err)
-		return nil, e.ErrGetEnv
-	}
-
-	prod.ServiceRenders = prod.GetAllSvcRenders()
-	return prod, nil
 }
 
 func DeleteProduct(username, envName, productName, requestID string, isDelete bool, log *zap.SugaredLogger) (err error) {

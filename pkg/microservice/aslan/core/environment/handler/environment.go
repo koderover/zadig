@@ -98,6 +98,12 @@ func ListProducts(c *gin.Context) {
 				hasPermission = true
 			}
 		}
+
+		err = commonutil.CheckZadigProfessionalLicense()
+		if err != nil {
+			ctx.Err = err
+			return
+		}
 	} else {
 		if projectInfo, ok := ctx.Resources.ProjectAuthInfo[projectName]; ok {
 			if projectInfo.IsProjectAdmin ||
@@ -262,6 +268,12 @@ func CreateProduct(c *gin.Context) {
 				ctx.UnAuthorized = true
 				return
 			}
+
+			err = commonutil.CheckZadigProfessionalLicense()
+			if err != nil {
+				ctx.Err = err
+				return
+			}
 		} else {
 			if !ctx.Resources.ProjectAuthInfo[createParam.ProjectName].IsProjectAdmin &&
 				!ctx.Resources.ProjectAuthInfo[createParam.ProjectName].Env.Create {
@@ -274,14 +286,6 @@ func CreateProduct(c *gin.Context) {
 	if createParam.ProjectName == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("projectName can not be empty")
 		return
-	}
-
-	if production {
-		err = commonutil.CheckZadigProfessionalLicense()
-		if err != nil {
-			ctx.Err = err
-			return
-		}
 	}
 
 	data, err := c.GetRawData()
@@ -602,7 +606,6 @@ func UpdateProductAlias(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -616,6 +619,7 @@ func UpdateProductAlias(c *gin.Context) {
 
 	envName := c.Param("name")
 	projectKey := c.Query("projectName")
+	production := c.Query("production") == "true"
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -623,18 +627,34 @@ func UpdateProductAlias(c *gin.Context) {
 			ctx.UnAuthorized = true
 			return
 		}
-		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-			// currently alias is only for production env, we are only giving the edit production env authorization
-			!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.EditConfig {
-			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionEditConfig)
-			if err != nil || !permitted {
-				ctx.UnAuthorized = true
+		if production {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.EditConfig {
+				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionEditConfig)
+				if err != nil || !permitted {
+					ctx.UnAuthorized = true
+					return
+				}
+			}
+
+			err = commonutil.CheckZadigProfessionalLicense()
+			if err != nil {
+				ctx.Err = err
 				return
+			}
+		} else {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].Env.EditConfig {
+				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionEditConfig)
+				if err != nil || !permitted {
+					ctx.UnAuthorized = true
+					return
+				}
 			}
 		}
 	}
 
-	ctx.Err = service.UpdateProductAlias(envName, projectKey, arg.Alias)
+	ctx.Err = service.UpdateProductAlias(envName, projectKey, arg.Alias, production)
 }
 
 func AffectedServices(c *gin.Context) {
@@ -697,7 +717,6 @@ func EstimatedValues(c *gin.Context) {
 
 	ctx.Resp, ctx.Err = service.GeneEstimatedValues(projectName, envName, serviceName, c.Query("scene"), c.Query("format"), arg, isHelmChartDeploy == "true", ctx.Logger)
 }
-
 func SyncHelmProductRenderset(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -752,62 +771,6 @@ func generalRequestValidate(c *gin.Context) (string, string, error) {
 		return "", "", errors.New("envName can't be empty")
 	}
 	return projectName, envName, nil
-}
-
-func UpdateHelmProductRenderset(c *gin.Context) {
-	ctx, err := internalhandler.NewContextWithAuthorization(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	if err != nil {
-
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
-		ctx.UnAuthorized = true
-		return
-	}
-
-	projectKey, envName, err := generalRequestValidate(c)
-	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
-		return
-	}
-
-	arg := new(service.EnvRendersetArg)
-	data, err := c.GetRawData()
-	if err != nil {
-		log.Errorf("UpdateHelmProductRenderset c.GetRawData() err : %v", err)
-	}
-	if err = json.Unmarshal(data, arg); err != nil {
-		log.Errorf("UpdateHelmProductRenderset json.Unmarshal err : %v", err)
-	}
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "更新", "更新环境变量", "", string(data), ctx.Logger, envName)
-	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
-
-	// authorization checks
-	if !ctx.Resources.IsSystemAdmin {
-		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
-			ctx.UnAuthorized = true
-			return
-		}
-		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectKey].Env.EditConfig {
-			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionEditConfig)
-			if err != nil || !permitted {
-				ctx.UnAuthorized = true
-				return
-			}
-		}
-	}
-
-	err = c.BindJSON(arg)
-	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
-		return
-	}
-
-	ctx.Err = service.UpdateHelmProductRenderset(projectKey, envName, ctx.UserName, ctx.RequestID, arg, ctx.Logger)
-	if ctx.Err != nil {
-		ctx.Logger.Errorf("failed to update product Variable %s %s: %v", envName, projectKey, ctx.Err)
-	}
 }
 
 func UpdateHelmProductDefaultValues(c *gin.Context) {
@@ -929,6 +892,12 @@ func PreviewHelmProductDefaultValues(c *gin.Context) {
 					return
 				}
 			}
+
+			err := commonutil.CheckZadigProfessionalLicense()
+			if err != nil {
+				ctx.Err = err
+				return
+			}
 		} else {
 			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
 				!ctx.Resources.ProjectAuthInfo[projectKey].Env.EditConfig {
@@ -982,6 +951,12 @@ func PreviewGlobalVariables(c *gin.Context) {
 					ctx.UnAuthorized = true
 					return
 				}
+			}
+
+			err := commonutil.CheckZadigProfessionalLicense()
+			if err != nil {
+				ctx.Err = err
+				return
 			}
 		} else {
 			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
@@ -1478,6 +1453,12 @@ func GetEnvironment(c *gin.Context) {
 					return
 				}
 			}
+
+			err = commonutil.CheckZadigProfessionalLicense()
+			if err != nil {
+				ctx.Err = err
+				return
+			}
 		} else {
 			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
 				!ctx.Resources.ProjectAuthInfo[projectKey].Env.View {
@@ -1492,40 +1473,6 @@ func GetEnvironment(c *gin.Context) {
 	}
 
 	ctx.Resp, ctx.Err = service.GetProduct(ctx.UserName, envName, projectKey, ctx.Logger)
-}
-
-func GetProductInfo(c *gin.Context) {
-	ctx, err := internalhandler.NewContextWithAuthorization(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	if err != nil {
-
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
-		ctx.UnAuthorized = true
-		return
-	}
-
-	envName := c.Param("name")
-	projectKey := c.Query("projectName")
-
-	// authorization checks
-	if !ctx.Resources.IsSystemAdmin {
-		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
-			ctx.UnAuthorized = true
-			return
-		}
-		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectKey].Env.View {
-			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionView)
-			if err != nil || !permitted {
-				// check if the permission is given by collaboration mode
-				ctx.UnAuthorized = true
-				return
-			}
-		}
-	}
-
-	ctx.Resp, ctx.Err = service.GetProductInfo(ctx.UserName, envName, projectKey, ctx.Logger)
 }
 
 func GetEstimatedRenderCharts(c *gin.Context) {
@@ -1565,6 +1512,12 @@ func GetEstimatedRenderCharts(c *gin.Context) {
 					ctx.UnAuthorized = true
 					return
 				}
+			}
+
+			err = commonutil.CheckZadigProfessionalLicense()
+			if err != nil {
+				ctx.Err = err
+				return
 			}
 		} else {
 			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
@@ -1793,6 +1746,11 @@ func DeleteHelmReleases(c *gin.Context) {
 					return
 				}
 			}
+
+			if err := commonutil.CheckZadigProfessionalLicense(); err != nil {
+				ctx.Err = err
+				return
+			}
 		} else {
 			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
 				!ctx.Resources.ProjectAuthInfo[projectKey].Env.EditConfig {
@@ -1850,6 +1808,11 @@ func ListGroups(c *gin.Context) {
 					ctx.UnAuthorized = true
 					return
 				}
+			}
+
+			if err := commonutil.CheckZadigProfessionalLicense(); err != nil {
+				ctx.Err = err
+				return
 			}
 		} else {
 			if !ctx.Resources.ProjectAuthInfo[envGroupRequest.ProjectName].IsProjectAdmin &&
@@ -1987,6 +1950,11 @@ func ListWorkloadsInEnv(c *gin.Context) {
 					return
 				}
 			}
+
+			if err := commonutil.CheckZadigProfessionalLicense(); err != nil {
+				ctx.Err = err
+				return
+			}
 		} else {
 			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
 				!ctx.Resources.ProjectAuthInfo[projectKey].Env.View {
@@ -2080,6 +2048,12 @@ func GetEnvConfigs(c *gin.Context) {
 					ctx.UnAuthorized = true
 					return
 				}
+			}
+
+			err = commonutil.CheckZadigProfessionalLicense()
+			if err != nil {
+				ctx.Err = err
+				return
 			}
 		} else {
 			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
@@ -2220,6 +2194,12 @@ func RunAnalysis(c *gin.Context) {
 					ctx.UnAuthorized = true
 					return
 				}
+			}
+
+			err = commonutil.CheckZadigProfessionalLicense()
+			if err != nil {
+				ctx.Err = err
+				return
 			}
 		} else {
 			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
@@ -2517,6 +2497,12 @@ func EnvSleep(c *gin.Context) {
 					permitted = true
 				}
 			}
+
+			err = commonutil.CheckZadigProfessionalLicense()
+			if err != nil {
+				ctx.Err = err
+				return
+			}
 		} else {
 			// first check if the user is projectAdmin
 			if projectAuthInfo.IsProjectAdmin {
@@ -2591,6 +2577,12 @@ func GetEnvSleepCron(c *gin.Context) {
 				if err == nil && collaborationAuthorizedView {
 					permitted = true
 				}
+			}
+
+			err = commonutil.CheckZadigProfessionalLicense()
+			if err != nil {
+				ctx.Err = err
+				return
 			}
 		} else {
 			// first check if the user is projectAdmin
@@ -2682,6 +2674,12 @@ func UpsertEnvSleepCron(c *gin.Context) {
 				if err == nil && collaborationAuthorizedEdit {
 					permitted = true
 				}
+			}
+
+			err = commonutil.CheckZadigProfessionalLicense()
+			if err != nil {
+				ctx.Err = err
+				return
 			}
 		} else {
 			// first check if the user is projectAdmin

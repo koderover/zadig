@@ -75,6 +75,12 @@ func ListEnvServiceVersions(c *gin.Context) {
 					return
 				}
 			}
+
+			err = commonutil.CheckZadigProfessionalLicense()
+			if err != nil {
+				ctx.Err = err
+				return
+			}
 		} else {
 			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
 				!ctx.Resources.ProjectAuthInfo[projectKey].Env.View {
@@ -148,6 +154,12 @@ func GetEnvServiceVersionYaml(c *gin.Context) {
 					ctx.UnAuthorized = true
 					return
 				}
+			}
+
+			err = commonutil.CheckZadigProfessionalLicense()
+			if err != nil {
+				ctx.Err = err
+				return
 			}
 		} else {
 			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
@@ -229,6 +241,12 @@ func DiffEnvServiceVersions(c *gin.Context) {
 					ctx.UnAuthorized = true
 					return
 				}
+			}
+
+			err = commonutil.CheckZadigProfessionalLicense()
+			if err != nil {
+				ctx.Err = err
+				return
 			}
 		} else {
 			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&

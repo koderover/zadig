@@ -59,6 +59,12 @@ func CheckWorkloadsK8sServices(c *gin.Context) {
 					return
 				}
 			}
+
+			err = commonutil.CheckZadigProfessionalLicense()
+			if err != nil {
+				ctx.Err = err
+				return
+			}
 		} else {
 			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
 				!ctx.Resources.ProjectAuthInfo[projectKey].Env.EditConfig {

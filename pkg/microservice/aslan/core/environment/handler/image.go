@@ -80,6 +80,12 @@ func UpdateStatefulSetContainerImage(c *gin.Context) {
 					return
 				}
 			}
+
+			err = commonutil.CheckZadigProfessionalLicense()
+			if err != nil {
+				ctx.Err = err
+				return
+			}
 		} else {
 			if !ctx.Resources.ProjectAuthInfo[args.ProductName].IsProjectAdmin &&
 				!ctx.Resources.ProjectAuthInfo[args.ProductName].Env.EditConfig {
@@ -97,13 +103,6 @@ func UpdateStatefulSetContainerImage(c *gin.Context) {
 	if err := c.BindJSON(args); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
 		return
-	}
-
-	if production {
-		if err := commonutil.CheckZadigProfessionalLicense(); err != nil {
-			ctx.Err = err
-			return
-		}
 	}
 
 	ctx.Err = service.UpdateContainerImage(ctx.RequestID, ctx.UserName, args, ctx.Logger)
@@ -161,6 +160,12 @@ func UpdateDeploymentContainerImage(c *gin.Context) {
 					}
 				}
 			}
+
+			err = commonutil.CheckZadigProfessionalLicense()
+			if err != nil {
+				ctx.Err = err
+				return
+			}
 		} else {
 			if projectAuthInfo.IsProjectAdmin {
 				permitted = true
@@ -192,13 +197,6 @@ func UpdateDeploymentContainerImage(c *gin.Context) {
 	if err := c.BindJSON(args); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
 		return
-	}
-
-	if production {
-		if err := commonutil.CheckZadigProfessionalLicense(); err != nil {
-			ctx.Err = err
-			return
-		}
 	}
 
 	ctx.Err = service.UpdateContainerImage(ctx.RequestID, ctx.UserName, args, ctx.Logger)
@@ -249,6 +247,12 @@ func UpdateCronJobContainerImage(c *gin.Context) {
 					return
 				}
 			}
+
+			err = commonutil.CheckZadigProfessionalLicense()
+			if err != nil {
+				ctx.Err = err
+				return
+			}
 		} else {
 			if !ctx.Resources.ProjectAuthInfo[args.ProductName].IsProjectAdmin &&
 				!ctx.Resources.ProjectAuthInfo[args.ProductName].Env.EditConfig {
@@ -266,13 +270,6 @@ func UpdateCronJobContainerImage(c *gin.Context) {
 	if err := c.BindJSON(args); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
 		return
-	}
-
-	if production {
-		if err := commonutil.CheckZadigProfessionalLicense(); err != nil {
-			ctx.Err = err
-			return
-		}
 	}
 
 	ctx.Err = service.UpdateContainerImage(ctx.RequestID, ctx.UserName, args, ctx.Logger)

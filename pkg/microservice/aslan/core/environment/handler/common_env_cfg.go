@@ -75,6 +75,12 @@ func DeleteCommonEnvCfg(c *gin.Context) {
 					return
 				}
 			}
+
+			err = commonutil.CheckZadigProfessionalLicense()
+			if err != nil {
+				ctx.Err = err
+				return
+			}
 		} else {
 			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
 				!ctx.Resources.ProjectAuthInfo[projectKey].Env.EditConfig {
@@ -84,13 +90,6 @@ func DeleteCommonEnvCfg(c *gin.Context) {
 					return
 				}
 			}
-		}
-	}
-
-	if production {
-		if err := commonutil.CheckZadigProfessionalLicense(); err != nil {
-			ctx.Err = err
-			return
 		}
 	}
 
@@ -143,6 +142,12 @@ func CreateCommonEnvCfg(c *gin.Context) {
 					return
 				}
 			}
+
+			err = commonutil.CheckZadigProfessionalLicense()
+			if err != nil {
+				ctx.Err = err
+				return
+			}
 		} else {
 			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
 				!ctx.Resources.ProjectAuthInfo[projectKey].Env.EditConfig {
@@ -166,13 +171,6 @@ func CreateCommonEnvCfg(c *gin.Context) {
 	args.EnvName = envName
 	args.ProductName = projectKey
 	args.Production = production
-
-	if production {
-		if err := commonutil.CheckZadigProfessionalLicense(); err != nil {
-			ctx.Err = err
-			return
-		}
-	}
 
 	ctx.Err = service.CreateCommonEnvCfg(args, ctx.UserName, ctx.Logger)
 }
@@ -219,6 +217,12 @@ func UpdateCommonEnvCfg(c *gin.Context) {
 					return
 				}
 			}
+
+			err = commonutil.CheckZadigProfessionalLicense()
+			if err != nil {
+				ctx.Err = err
+				return
+			}
 		} else {
 			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
 				!ctx.Resources.ProjectAuthInfo[projectKey].Env.EditConfig {
@@ -247,13 +251,6 @@ func UpdateCommonEnvCfg(c *gin.Context) {
 		isRollBack, err = strconv.ParseBool(c.Query("rollback"))
 		if err != nil {
 			ctx.Err = e.ErrInvalidParam.AddErr(err)
-			return
-		}
-	}
-
-	if production {
-		if err := commonutil.CheckZadigProfessionalLicense(); err != nil {
-			ctx.Err = err
 			return
 		}
 	}
@@ -291,6 +288,12 @@ func ListCommonEnvCfgHistory(c *gin.Context) {
 					ctx.UnAuthorized = true
 					return
 				}
+			}
+
+			err = commonutil.CheckZadigProfessionalLicense()
+			if err != nil {
+				ctx.Err = err
+				return
 			}
 		} else {
 			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
@@ -349,6 +352,12 @@ func ListLatestEnvCfg(c *gin.Context) {
 					return
 				}
 			}
+
+			err = commonutil.CheckZadigProfessionalLicense()
+			if err != nil {
+				ctx.Err = err
+				return
+			}
 		} else {
 			if !ctx.Resources.ProjectAuthInfo[args.ProjectName].IsProjectAdmin &&
 				!ctx.Resources.ProjectAuthInfo[args.ProjectName].Env.View {
@@ -394,6 +403,12 @@ func SyncEnvResource(c *gin.Context) {
 					ctx.UnAuthorized = true
 					return
 				}
+			}
+
+			err = commonutil.CheckZadigProfessionalLicense()
+			if err != nil {
+				ctx.Err = err
+				return
 			}
 		} else {
 			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&

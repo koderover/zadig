@@ -129,7 +129,7 @@ func OpenAPIUpdateEnvBasicInfo(args *EnvBasicInfoArgs, userName, projectName, en
 		}
 	}
 	if production {
-		err := UpdateProductAlias(envName, projectName, args.Alias)
+		err := UpdateProductAlias(envName, projectName, args.Alias, production)
 		if err != nil {
 			logger.Errorf("failed to update alias for project:%s env:%s", projectName, envName)
 			return err
