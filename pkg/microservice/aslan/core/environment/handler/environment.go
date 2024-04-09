@@ -125,9 +125,9 @@ func ListProducts(c *gin.Context) {
 	}
 
 	if production {
-		ctx.Resp, ctx.Err = service.ListProducts(ctx.UserID, projectName, envFilter, false, ctx.Logger)
-	} else {
 		ctx.Resp, ctx.Err = service.ListProductionEnvs(ctx.UserID, projectName, envFilter, ctx.Logger)
+	} else {
+		ctx.Resp, ctx.Err = service.ListProducts(ctx.UserID, projectName, envFilter, false, ctx.Logger)
 	}
 }
 

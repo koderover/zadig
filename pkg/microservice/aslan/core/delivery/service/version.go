@@ -2189,7 +2189,7 @@ func generateCustomWorkflowFromDeliveryVersion(productInfo *commonmodels.Product
 			}
 			sourceRegistry, ok := registryMap[registryURL]
 			if !ok {
-				return nil, fmt.Errorf("can't find soruce registry for image: %s", imageData.Image)
+				return nil, fmt.Errorf("can't find source registry for image: %s", imageData.Image)
 			}
 			if registryDatasMap[sourceRegistry] == nil {
 				registryDatasMap[sourceRegistry] = map[string][]*ImageData{yamlData.ServiceName: {}}

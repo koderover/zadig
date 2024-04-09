@@ -964,13 +964,13 @@ func GetResourceDeployStatus(productName string, request *K8sDeployStatusCheckRe
 		return resourcesByType[deployStatus.Type][deployStatus.Name]
 	}
 
-	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+	productInfo, _ := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
 		Name:       productName,
 		EnvName:    request.EnvName,
 		Production: &production,
 	})
 
-	productServices, err := repository.ListMaxRevisionsServices(productName, productInfo.Production)
+	productServices, err := repository.ListMaxRevisionsServices(productName, production)
 	if err != nil {
 		return nil, e.ErrGetResourceDeployInfo.AddErr(fmt.Errorf("failed to find product services, err: %s", err))
 	}
