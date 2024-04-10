@@ -41,6 +41,7 @@ func CheckWorkloadsK8sServices(c *gin.Context) {
 
 	envName := c.Param("name")
 	projectKey := c.Query("projectName")
+	production := c.Query("production") == "true"
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -48,17 +49,35 @@ func CheckWorkloadsK8sServices(c *gin.Context) {
 			ctx.UnAuthorized = true
 			return
 		}
-		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectKey].Env.EditConfig {
-			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionEditConfig)
-			if err != nil || !permitted {
-				ctx.UnAuthorized = true
+
+		if production {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.EditConfig {
+				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionEditConfig)
+				if err != nil || !permitted {
+					ctx.UnAuthorized = true
+					return
+				}
+			}
+
+			err = commonutil.CheckZadigProfessionalLicense()
+			if err != nil {
+				ctx.Err = err
 				return
+			}
+		} else {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].Env.EditConfig {
+				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionEditConfig)
+				if err != nil || !permitted {
+					ctx.UnAuthorized = true
+					return
+				}
 			}
 		}
 	}
 
-	ctx.Resp, ctx.Err = service.CheckWorkloadsK8sServices(c, envName, projectKey)
+	ctx.Resp, ctx.Err = service.CheckWorkloadsK8sServices(c, envName, projectKey, production)
 }
 
 func EnableBaseEnv(c *gin.Context) {
@@ -73,6 +92,10 @@ func EnableBaseEnv(c *gin.Context) {
 
 	envName := c.Param("name")
 	projectKey := c.Query("projectName")
+	production := c.Query("production") == "true"
+	if production {
+		ctx.Err = fmt.Errorf("production environment not support")
+	}
 
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "开启自测模式", "环境", envName, "", ctx.Logger, envName)
 
@@ -113,6 +136,10 @@ func DisableBaseEnv(c *gin.Context) {
 
 	envName := c.Param("name")
 	projectKey := c.Query("projectName")
+	production := c.Query("production") == "true"
+	if production {
+		ctx.Err = fmt.Errorf("production environment not support")
+	}
 
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv,
 		"关闭自测模式", "环境", envName,
@@ -155,6 +182,10 @@ func CheckShareEnvReady(c *gin.Context) {
 
 	envName := c.Param("name")
 	projectKey := c.Query("projectName")
+	production := c.Query("production") == "true"
+	if production {
+		ctx.Err = fmt.Errorf("production environment not support")
+	}
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -198,6 +229,10 @@ func GetPortalService(c *gin.Context) {
 	envName := c.Param("name")
 	serviceName := c.Param("serviceName")
 	projectKey := c.Query("projectName")
+	production := c.Query("production") == "true"
+	if production {
+		ctx.Err = fmt.Errorf("production environment not support")
+	}
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -206,8 +241,8 @@ func GetPortalService(c *gin.Context) {
 			return
 		}
 		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectKey].Env.EditConfig {
-			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionEditConfig)
+			!ctx.Resources.ProjectAuthInfo[projectKey].Env.View {
+			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionView)
 			if err != nil || !permitted {
 				ctx.UnAuthorized = true
 				return
@@ -243,6 +278,10 @@ func SetupPortalService(c *gin.Context) {
 	envName := c.Param("name")
 	serviceName := c.Param("serviceName")
 	projectKey := c.Query("projectName")
+	production := c.Query("production") == "true"
+	if production {
+		ctx.Err = fmt.Errorf("production environment not support")
+	}
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {

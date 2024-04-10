@@ -18,7 +18,6 @@ package service
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -52,18 +51,12 @@ import (
 	"github.com/koderover/zadig/v2/pkg/util"
 )
 
-func GetServiceContainer(envName, productName, serviceName, container string, log *zap.SugaredLogger) error {
-	_, err := validateServiceContainer(envName, productName, serviceName, container)
-	if err != nil {
-		errMsg := fmt.Sprintf("[%s] container not found : %v", envName, container)
-		log.Error(errMsg)
-		return e.ErrGetServiceContainer.AddDesc(errMsg)
-	}
-	return nil
-}
-
 func Scale(args *ScaleArgs, logger *zap.SugaredLogger) error {
-	opt := &commonrepo.ProductFindOptions{Name: args.ProductName, EnvName: args.EnvName}
+	opt := &commonrepo.ProductFindOptions{
+		Name:       args.ProductName,
+		EnvName:    args.EnvName,
+		Production: &args.Production,
+	}
 	prod, err := commonrepo.NewProductColl().Find(opt)
 	if err != nil {
 		return e.ErrScaleService.AddErr(err)
@@ -102,13 +95,18 @@ func OpenAPIScale(req *OpenAPIScaleServiceReq, logger *zap.SugaredLogger) error 
 		EnvName:     req.EnvName,
 		Name:        req.WorkloadName,
 		Number:      req.TargetReplicas,
+		Production:  false,
 	}
 
 	return Scale(args, logger)
 }
 
-func RestartScale(args *RestartScaleArgs, _ *zap.SugaredLogger) error {
-	opt := &commonrepo.ProductFindOptions{Name: args.ProductName, EnvName: args.EnvName}
+func RestartScale(args *RestartScaleArgs, production bool, _ *zap.SugaredLogger) error {
+	opt := &commonrepo.ProductFindOptions{
+		Name:       args.ProductName,
+		EnvName:    args.EnvName,
+		Production: &production,
+	}
 	prod, err := commonrepo.NewProductColl().Find(opt)
 	if err != nil {
 		return err
@@ -427,10 +425,11 @@ func PreviewService(args *PreviewServiceArgs, _ *zap.SugaredLogger) (*SvcDiffRes
 }
 
 // RestartService 在kube中, 如果资源存在就更新不存在就创建
-func RestartService(envName string, args *SvcOptArgs, log *zap.SugaredLogger) (err error) {
+func RestartService(envName string, args *SvcOptArgs, production bool, log *zap.SugaredLogger) (err error) {
 	productObj, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
-		Name:    args.ProductName,
-		EnvName: envName,
+		Name:       args.ProductName,
+		EnvName:    envName,
+		Production: &production,
 	})
 	if err != nil {
 		return err
@@ -534,53 +533,4 @@ func RestartService(envName string, args *SvcOptArgs, log *zap.SugaredLogger) (e
 	}
 
 	return nil
-}
-
-// validateServiceContainer validate container with envName like dev
-func validateServiceContainer(envName, productName, serviceName, container string) (string, error) {
-	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
-	prod, err := commonrepo.NewProductColl().Find(opt)
-	if err != nil {
-		return "", err
-	}
-
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), prod.ClusterID)
-	if err != nil {
-		return "", err
-	}
-
-	return validateServiceContainer2(
-		prod.Namespace, envName, productName, serviceName, container, prod.Source, kubeClient,
-	)
-}
-
-// validateServiceContainer2 validate container with raw namespace like dev-product
-func validateServiceContainer2(namespace, envName, productName, serviceName, container, source string, kubeClient client.Client) (string, error) {
-	var selector labels.Selector
-
-	//helm类型的服务查询所有标签的pod
-	if source != setting.SourceFromHelm {
-		selector = labels.Set{setting.ProductLabel: productName, setting.ServiceLabel: serviceName}.AsSelector()
-	}
-
-	pods, err := getter.ListPods(namespace, selector, kubeClient)
-	if err != nil {
-		return "", fmt.Errorf("[%s] ListPods %s/%s error: %v", namespace, productName, serviceName, err)
-	}
-
-	for _, pod := range pods {
-		for _, c := range pod.Spec.Containers {
-			if c.Name == container || strings.Contains(c.Image, container) {
-				return c.Image, nil
-			}
-		}
-	}
-	log.Errorf("[%s]container %s not found", namespace, container)
-
-	return "", &ContainerNotFound{
-		ServiceName: serviceName,
-		Container:   container,
-		EnvName:     envName,
-		ProductName: productName,
-	}
 }

@@ -54,9 +54,13 @@ type ConfigTmplData struct {
 }
 
 // GetServiceDiff 获得服务模板当前版本和最新版本的对比
-func GetServiceDiff(envName, productName, serviceName string, log *zap.SugaredLogger) (*SvcDiffResult, error) {
+func GetServiceDiff(envName, productName, serviceName string, production bool, log *zap.SugaredLogger) (*SvcDiffResult, error) {
 	resp := new(SvcDiffResult)
-	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
+	opt := &commonrepo.ProductFindOptions{
+		Name: productName,
+		EnvName: envName,
+		Production: &production,
+	}
 	productInfo, err := commonrepo.NewProductColl().Find(opt)
 	if err != nil {
 		log.Errorf("[%s][%s]find current configmaps error: %v", envName, productName, err)

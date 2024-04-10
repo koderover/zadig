@@ -48,6 +48,7 @@ type ListConfigMapArgs struct {
 	EnvName     string `json:"env_name"`
 	ProductName string `json:"product_name"`
 	ServiceName string `json:"service_name"`
+	Production  bool   `json:"production"`
 }
 
 type RollBackConfigMapArgs struct {
@@ -56,6 +57,7 @@ type RollBackConfigMapArgs struct {
 	ServiceName      string `json:"service_name"`
 	SrcConfigName    string `json:"src_config_name"`
 	DestinConfigName string `json:"destin_config_name"`
+	Production       bool   `json:"production"`
 }
 
 type UpdateConfigMapArgs struct {
@@ -83,8 +85,9 @@ func ListConfigMaps(args *ListConfigMapArgs, log *zap.SugaredLogger) ([]*ListCon
 	}
 
 	product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
-		Name:    args.ProductName,
-		EnvName: args.EnvName,
+		Name:       args.ProductName,
+		EnvName:    args.EnvName,
+		Production: &args.Production,
 	})
 	if err != nil {
 		return nil, e.ErrListConfigMaps.AddErr(err)
@@ -192,8 +195,9 @@ func UpdateConfigMap(args *models.CreateUpdateCommonEnvCfgArgs, userName string,
 		return e.ErrUpdateConfigMap.AddDesc("configMap Yaml Name is incorrect")
 	}
 	product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
-		Name:    args.ProductName,
-		EnvName: args.EnvName,
+		Name:       args.ProductName,
+		EnvName:    args.EnvName,
+		Production: &args.Production,
 	})
 	if err != nil {
 		return e.ErrUpdateConfigMap.AddErr(err)
@@ -259,8 +263,9 @@ func UpdateConfigMap(args *models.CreateUpdateCommonEnvCfgArgs, userName string,
 
 func RollBackConfigMap(envName string, args *RollBackConfigMapArgs, userName, userID string, log *zap.SugaredLogger) error {
 	product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
-		Name:    args.ProductName,
-		EnvName: args.EnvName,
+		Name:       args.ProductName,
+		EnvName:    args.EnvName,
+		Production: &args.Production,
 	})
 	if err != nil {
 		return e.ErrUpdateConfigMap.AddErr(err)
@@ -388,7 +393,7 @@ func cleanArchiveConfigMap(namespace string, ls map[string]string, kubeClient cl
 type MigrateHistoryConfigMapsRes struct {
 }
 
-func MigrateHistoryConfigMaps(envName, productName string, log *zap.SugaredLogger) ([]*models.EnvResource, error) {
+func MigrateHistoryConfigMaps(envName, productName string, production bool, log *zap.SugaredLogger) ([]*models.EnvResource, error) {
 
 	res := make([]*models.EnvResource, 0)
 	products := make([]*models.Product, 0)
@@ -398,12 +403,12 @@ func MigrateHistoryConfigMaps(envName, productName string, log *zap.SugaredLogge
 			Name:          productName,
 			EnvName:       envName,
 			ExcludeStatus: []string{setting.ProductStatusDeleting, setting.ProductStatusCreating},
-			Production:    util.GetBoolPointer(false),
+			Production:    util.GetBoolPointer(production),
 		})
 	} else {
 		products, err = commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
 			ExcludeStatus: []string{setting.ProductStatusDeleting, setting.ProductStatusCreating},
-			Production:    util.GetBoolPointer(false),
+			Production:    util.GetBoolPointer(production),
 		})
 	}
 	if err != nil && err != mongo.ErrNoDocuments {

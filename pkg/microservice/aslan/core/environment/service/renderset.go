@@ -127,12 +127,13 @@ func SyncYamlFromSource(yamlData *templatemodels.CustomYaml, curValue string) (b
 	return syncYamlFromGit(yamlData, curValue)
 }
 
-func GetDefaultValues(productName, envName string, log *zap.SugaredLogger) (*DefaultValuesResp, error) {
+func GetDefaultValues(productName, envName string, production bool, log *zap.SugaredLogger) (*DefaultValuesResp, error) {
 	ret := &DefaultValuesResp{}
 
 	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
-		Name:    productName,
-		EnvName: envName,
+		Name:       productName,
+		EnvName:    envName,
+		Production: &production,
 	})
 	if err == mongo.ErrNoDocuments {
 		return ret, nil
@@ -232,10 +233,11 @@ func GetMergedYamlContent(arg *YamlContentRequestArg, paths []string) (string, e
 	return string(ret), nil
 }
 
-func GetGlobalVariables(productName, envName string, log *zap.SugaredLogger) ([]*commontypes.GlobalVariableKV, int64, error) {
+func GetGlobalVariables(productName, envName string, production bool, log *zap.SugaredLogger) ([]*commontypes.GlobalVariableKV, int64, error) {
 	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
-		Name:    productName,
-		EnvName: envName,
+		Name:       productName,
+		EnvName:    envName,
+		Production: &production,
 	})
 	if err == mongo.ErrNoDocuments {
 		return nil, 0, nil

@@ -98,6 +98,7 @@ func ListWorkloadTemplate(c *gin.Context) {
 
 	projectName := c.Query("projectName")
 	production := c.Query("production") == "true"
+	envName := c.Query("env")
 
 	if !ctx.Resources.IsSystemAdmin {
 		if _, ok := ctx.Resources.ProjectAuthInfo[projectName]; !ok {
@@ -108,14 +109,20 @@ func ListWorkloadTemplate(c *gin.Context) {
 		if production {
 			if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
 				!ctx.Resources.ProjectAuthInfo[projectName].ProductionEnv.View {
-				ctx.UnAuthorized = true
-				return
+				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectName, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionView)
+				if err != nil || !permitted {
+					ctx.UnAuthorized = true
+					return
+				}
 			}
 		} else {
 			if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
 				!ctx.Resources.ProjectAuthInfo[projectName].Env.View {
-				ctx.UnAuthorized = true
-				return
+				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectName, types.ResourceTypeEnvironment, envName, types.EnvActionView)
+				if err != nil || !permitted {
+					ctx.UnAuthorized = true
+					return
+				}
 			}
 		}
 	}
@@ -129,7 +136,7 @@ func ListWorkloadTemplate(c *gin.Context) {
 	}
 
 	// anyone with a token should be able to use this API
-	ctx.Resp, ctx.Err = commonservice.ListWorkloadTemplate(projectName, c.Query("env"), production, ctx.Logger)
+	ctx.Resp, ctx.Err = commonservice.ListWorkloadTemplate(projectName, envName, production, ctx.Logger)
 }
 
 func GetServiceTemplate(c *gin.Context) {
@@ -689,6 +696,11 @@ func UpdateWorkloads(c *gin.Context) {
 
 	projectName := c.Query("projectName")
 	production := c.Query("production") == "true"
+	envName := c.Query("env")
+	if projectName == "" || envName == "" {
+		ctx.Err = e.ErrInvalidParam
+		return
+	}
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -700,41 +712,40 @@ func UpdateWorkloads(c *gin.Context) {
 		if production {
 			if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
 				!ctx.Resources.ProjectAuthInfo[projectName].ProductionEnv.EditConfig {
-				ctx.UnAuthorized = true
+				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectName, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionEditConfig)
+				if err != nil || !permitted {
+					ctx.UnAuthorized = true
+					return
+				}
+			}
+
+			err = commonutil.CheckZadigProfessionalLicense()
+			if err != nil {
+				ctx.Err = err
 				return
 			}
 		} else {
 			if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
 				!ctx.Resources.ProjectAuthInfo[projectName].Env.EditConfig {
-				ctx.UnAuthorized = true
-				return
+				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectName, types.ResourceTypeEnvironment, envName, types.EnvActionEditConfig)
+				if err != nil || !permitted {
+					ctx.UnAuthorized = true
+					return
+				}
 			}
 		}
 	}
 
-	if production {
-		err = commonutil.CheckZadigProfessionalLicense()
-		if err != nil {
-			ctx.Err = err
-			return
-		}
-	}
-
-	env := c.Query("env")
-	if projectName == "" || env == "" {
-		ctx.Err = e.ErrInvalidParam
-		return
-	}
 	allowedEnvs, found := internalhandler.GetResourcesInHeader(c)
 	if found {
 		allowedSet := sets.NewString(allowedEnvs...)
-		if !allowedSet.Has(env) {
+		if !allowedSet.Has(envName) {
 			c.String(http.StatusForbidden, "not all input envs are allowed, allowed envs are %v", allowedEnvs)
 			return
 		}
 	}
 
-	ctx.Err = svcservice.UpdateWorkloads(c, ctx.RequestID, ctx.UserName, projectName, env, *args, production, ctx.Logger)
+	ctx.Err = svcservice.UpdateWorkloads(c, ctx.RequestID, ctx.UserName, projectName, envName, *args, production, ctx.Logger)
 }
 
 func CreateK8sWorkloads(c *gin.Context) {

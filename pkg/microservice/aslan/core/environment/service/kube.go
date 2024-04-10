@@ -92,6 +92,7 @@ type FetchResourceArgs struct {
 	ResourceTypes string `form:"-"`
 	Type          string `form:"type"`
 	Name          string `form:"name"`
+	Production    bool   `form:"-"`
 }
 
 type WorkloadCommonData struct {
@@ -148,11 +149,12 @@ func ListKubeEvents(env string, productName string, name string, rtype string, l
 	return res, err
 }
 
-func ListPodEvents(envName, productName, podName string, log *zap.SugaredLogger) ([]*resource.Event, error) {
+func ListPodEvents(envName, productName, podName string, production bool, log *zap.SugaredLogger) ([]*resource.Event, error) {
 	res := make([]*resource.Event, 0)
 	product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
-		Name:    productName,
-		EnvName: envName,
+		Name:       productName,
+		EnvName:    envName,
+		Production: &production,
 	})
 	if err != nil {
 		return res, err
@@ -247,39 +249,11 @@ func ListAvailableNamespaces(clusterID, listType string, log *zap.SugaredLogger)
 	return resp, nil
 }
 
-func ListServicePods(productName, envName string, serviceName string, log *zap.SugaredLogger) ([]*resource.Pod, error) {
-	res := make([]*resource.Pod, 0)
-
+func DeletePod(envName, productName, podName string, production bool, log *zap.SugaredLogger) error {
 	product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
-		Name:    productName,
-		EnvName: envName,
-	})
-	if err != nil {
-		return res, e.ErrListServicePod.AddErr(err)
-	}
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), product.ClusterID)
-	if err != nil {
-		return res, e.ErrListServicePod.AddErr(err)
-	}
-
-	selector := labels.Set{setting.ProductLabel: productName, setting.ServiceLabel: serviceName}.AsSelector()
-	pods, err := getter.ListPods(product.Namespace, selector, kubeClient)
-	if err != nil {
-		errMsg := fmt.Sprintf("[%s] ListServicePods %s error: %v", product.Namespace, selector, err)
-		log.Error(errMsg)
-		return res, e.ErrListServicePod.AddDesc(errMsg)
-	}
-
-	for _, pod := range pods {
-		res = append(res, wrapper.Pod(pod).Resource())
-	}
-	return res, nil
-}
-
-func DeletePod(envName, productName, podName string, log *zap.SugaredLogger) error {
-	product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
-		Name:    productName,
-		EnvName: envName,
+		Name:       productName,
+		EnvName:    envName,
+		Production: &production,
 	})
 	if err != nil {
 		return e.ErrDeletePod.AddErr(err)
@@ -434,10 +408,11 @@ func podFileTmpPath(envName, productName, podName, container string) string {
 	return filepath.Join(commonconfig.DataPath(), "podfile", productName, envName, podName, container)
 }
 
-func DownloadFile(envName, productName, podName, container, path string, log *zap.SugaredLogger) ([]byte, string, error) {
+func DownloadFile(envName, productName, podName, container, path string, production bool, log *zap.SugaredLogger) ([]byte, string, error) {
 	product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
-		Name:    productName,
-		EnvName: envName,
+		Name:       productName,
+		EnvName:    envName,
+		Production: &production,
 	})
 	if err != nil {
 		return nil, "", err
@@ -806,8 +781,9 @@ func ListAllK8sResourcesInNamespace(clusterID, namespace string, log *zap.Sugare
 func ListK8sResOverview(args *FetchResourceArgs, log *zap.SugaredLogger) (*K8sResourceResp, error) {
 
 	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
-		Name:    args.ProjectName,
-		EnvName: args.EnvName,
+		Name:       args.ProjectName,
+		EnvName:    args.EnvName,
+		Production: &args.Production,
 	})
 
 	if err != nil {
@@ -859,8 +835,9 @@ func ListK8sResOverview(args *FetchResourceArgs, log *zap.SugaredLogger) (*K8sRe
 
 func GetK8sResourceYaml(args *FetchResourceArgs, log *zap.SugaredLogger) (string, error) {
 	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
-		Name:    args.ProjectName,
-		EnvName: args.EnvName,
+		Name:       args.ProjectName,
+		EnvName:    args.EnvName,
+		Production: &args.Production,
 	})
 
 	if err != nil {
@@ -908,8 +885,9 @@ func GetK8sResourceYaml(args *FetchResourceArgs, log *zap.SugaredLogger) (string
 
 func GetWorkloadDetail(args *FetchResourceArgs, workloadType, workloadName string, log *zap.SugaredLogger) (*WorkloadDetailResp, error) {
 	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
-		Name:    args.ProjectName,
-		EnvName: args.EnvName,
+		Name:       args.ProjectName,
+		EnvName:    args.EnvName,
+		Production: &args.Production,
 	})
 
 	if err != nil {
@@ -966,7 +944,7 @@ func getWorkloadDetail(ns, resType, name string, kc client.Client, cs *kubernete
 	return resp, err
 }
 
-func GetResourceDeployStatus(productName string, request *K8sDeployStatusCheckRequest, log *zap.SugaredLogger) ([]*ServiceDeployStatus, error) {
+func GetResourceDeployStatus(productName string, request *K8sDeployStatusCheckRequest, production bool, log *zap.SugaredLogger) ([]*ServiceDeployStatus, error) {
 	clusterID, namespace := request.ClusterID, request.Namespace
 
 	svcSet := sets.NewString()
@@ -986,12 +964,13 @@ func GetResourceDeployStatus(productName string, request *K8sDeployStatusCheckRe
 		return resourcesByType[deployStatus.Type][deployStatus.Name]
 	}
 
-	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
-		Name:    productName,
-		EnvName: request.EnvName,
+	productInfo, _ := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		Name:       productName,
+		EnvName:    request.EnvName,
+		Production: &production,
 	})
 
-	productServices, err := repository.ListMaxRevisionsServices(productName, productInfo.Production)
+	productServices, err := repository.ListMaxRevisionsServices(productName, production)
 	if err != nil {
 		return nil, e.ErrGetResourceDeployInfo.AddErr(fmt.Errorf("failed to find product services, err: %s", err))
 	}
@@ -1104,15 +1083,16 @@ func setResourceDeployStatus(namespace string, resourceMap map[string]map[string
 	return nil
 }
 
-func GetReleaseDeployStatus(productName string, request *HelmDeployStatusCheckRequest) ([]*ServiceDeployStatus, error) {
+func GetReleaseDeployStatus(productName string, production bool, request *HelmDeployStatusCheckRequest) ([]*ServiceDeployStatus, error) {
 	clusterID, namespace, envName := request.ClusterID, request.Namespace, request.EnvName
-	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: productName, EnvName: envName, IgnoreNotFoundErr: true})
+	_, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		Name:              productName,
+		EnvName:           envName,
+		Production:        &production,
+		IgnoreNotFoundErr: true,
+	})
 	if err != nil {
 		return nil, e.ErrGetResourceDeployInfo.AddErr(fmt.Errorf("failed to find product: %s/%s, err: %s", productName, envName, err))
-	}
-	production := false
-	if productInfo != nil {
-		production = productInfo.Production
 	}
 	productServices, err := repository.ListMaxRevisionsServices(productName, production)
 	if err != nil {
@@ -1194,15 +1174,16 @@ type GetReleaseInstanceDeployStatusResponse struct {
 	Values       string `json:"values"`
 }
 
-func GetReleaseInstanceDeployStatus(productName string, request *HelmDeployStatusCheckRequest) ([]*GetReleaseInstanceDeployStatusResponse, error) {
+func GetReleaseInstanceDeployStatus(productName string, production bool, request *HelmDeployStatusCheckRequest) ([]*GetReleaseInstanceDeployStatusResponse, error) {
 	clusterID, namespace, envName := request.ClusterID, request.Namespace, request.EnvName
-	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: productName, EnvName: envName, IgnoreNotFoundErr: true})
+	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		Name:              productName,
+		EnvName:           envName,
+		Production:        &production,
+		IgnoreNotFoundErr: true,
+	})
 	if err != nil {
 		return nil, e.ErrGetResourceDeployInfo.AddErr(fmt.Errorf("failed to find product: %s/%s, err: %s", productName, envName, err))
-	}
-	production := false
-	if productInfo != nil {
-		production = productInfo.Production
 	}
 	productServiceMap, err := repository.GetMaxRevisionsServicesMap(productName, production)
 	if err != nil {
@@ -1281,11 +1262,12 @@ type ListPodsInfoRespone struct {
 	CreateTime int64    `json:"create_time"`
 }
 
-func ListPodsInfo(projectName, envName string, log *zap.SugaredLogger) ([]*ListPodsInfoRespone, error) {
+func ListPodsInfo(projectName, envName string, production bool, log *zap.SugaredLogger) ([]*ListPodsInfoRespone, error) {
 	res := make([]*ListPodsInfoRespone, 0)
 	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
-		Name:    projectName,
-		EnvName: envName,
+		Name:       projectName,
+		EnvName:    envName,
+		Production: &production,
 	})
 	if err != nil {
 		return nil, e.ErrListPod.AddErr(fmt.Errorf("failed to get product info, err: %s", err))
@@ -1327,10 +1309,11 @@ func ListPodsInfo(projectName, envName string, log *zap.SugaredLogger) ([]*ListP
 	return res, nil
 }
 
-func GetPodDetailInfo(projectName, envName, podName string, log *zap.SugaredLogger) (*resource.Pod, error) {
+func GetPodDetailInfo(projectName, envName, podName string, production bool, log *zap.SugaredLogger) (*resource.Pod, error) {
 	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
-		Name:    projectName,
-		EnvName: envName,
+		Name:       projectName,
+		EnvName:    envName,
+		Production: &production,
 	})
 	if err != nil {
 		return nil, e.ErrGetPodDetail.AddErr(fmt.Errorf("failed to get product info, err: %s", err))

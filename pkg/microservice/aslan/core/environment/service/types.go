@@ -100,6 +100,7 @@ type ScaleArgs struct {
 	ServiceName string `json:"service_name"`
 	Name        string `json:"name"`
 	Number      int    `json:"number"`
+	Production  bool   `json:"production"`
 }
 
 func (pr *ProductRevision) GroupsUpdated() bool {
