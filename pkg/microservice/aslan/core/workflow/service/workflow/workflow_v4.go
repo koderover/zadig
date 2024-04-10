@@ -1863,7 +1863,7 @@ func GetCronForWorkflowV4Preset(workflowName, cronID string, logger *zap.Sugared
 		return nil, e.ErrGetWebhook.AddDesc(errMsg)
 	}
 
-	for _, stage := range cronJob.WorkflowV4Args.Stages {
+	for _, stage := range workflow.Stages {
 		for _, item := range stage.Jobs {
 			err := job.SetOptions(item, workflow)
 			if err != nil {
