@@ -361,18 +361,21 @@ func (j *VMDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		} else {
 			return resp, fmt.Errorf("unknown workflow type %s", vmDeployInfo.WorkflowType)
 		}
-		// init download artifact step
-		downloadArtifactStep := &commonmodels.StepTask{
-			Name:     vmDeployInfo.ServiceName + "-download-artifact",
-			JobName:  jobTask.Name,
-			StepType: config.StepDownloadArchive,
-			Spec: step.StepDownloadArchiveSpec{
-				FileName: vmDeployInfo.FileName,
-				DestDir:  "artifact",
-				S3:       modelS3toS3(s3Storage),
-			},
+
+		if buildInfo.PostBuild.FileArchive != nil {
+			// init download artifact step
+			downloadArtifactStep := &commonmodels.StepTask{
+				Name:     vmDeployInfo.ServiceName + "-download-artifact",
+				JobName:  jobTask.Name,
+				StepType: config.StepDownloadArchive,
+				Spec: step.StepDownloadArchiveSpec{
+					FileName: vmDeployInfo.FileName,
+					DestDir:  "artifact",
+					S3:       modelS3toS3(s3Storage),
+				},
+			}
+			jobTaskSpec.Steps = append(jobTaskSpec.Steps, downloadArtifactStep)
 		}
-		jobTaskSpec.Steps = append(jobTaskSpec.Steps, downloadArtifactStep)
 		// init debug before step
 		debugBeforeStep := &commonmodels.StepTask{
 			Name:     vmDeployInfo.ServiceName + "-debug_before",
@@ -458,6 +461,7 @@ func (j *VMDeployJob) getOriginReferedJobTargets(jobName string, taskID int) ([]
 						ServiceName:   build.ServiceName,
 						ServiceModule: build.ServiceModule,
 						FileName:      build.Package,
+						Image:         build.Image,
 						TaskID:        taskID,
 						WorkflowName:  j.workflow.Name,
 						WorkflowType:  config.WorkflowTypeV4,
@@ -608,6 +612,7 @@ func getVMDeployJobVariables(vmDeploy *commonmodels.ServiceAndVMDeploy, buildInf
 		}
 	}
 	ret = append(ret, &commonmodels.KeyVal{Key: "PKG_FILE", Value: vmDeploy.FileName, IsCredential: false})
+	ret = append(ret, &commonmodels.KeyVal{Key: "IMAGE", Value: vmDeploy.Image, IsCredential: false})
 	return ret
 }
 
