@@ -98,12 +98,6 @@ func ListProducts(c *gin.Context) {
 				hasPermission = true
 			}
 		}
-
-		err = commonutil.CheckZadigProfessionalLicense()
-		if err != nil {
-			ctx.Err = err
-			return
-		}
 	} else {
 		if projectInfo, ok := ctx.Resources.ProjectAuthInfo[projectName]; ok {
 			if projectInfo.IsProjectAdmin ||
