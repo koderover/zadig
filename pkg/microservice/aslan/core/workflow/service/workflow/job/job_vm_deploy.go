@@ -161,7 +161,10 @@ func (j *VMDeployJob) ClearSelectionField() error {
 func generateVMDeployServiceInfo(project, env string) ([]*commonmodels.ServiceAndVMDeploy, error) {
 	resp := make([]*commonmodels.ServiceAndVMDeploy, 0)
 
-	environmentInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{EnvName: env})
+	environmentInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		EnvName: env,
+		Name:    project,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to find env: %s in project: %s, error: %s", env, project, err)
 	}
@@ -173,6 +176,7 @@ func generateVMDeployServiceInfo(project, env string) ([]*commonmodels.ServiceAn
 			&commonrepo.ServiceFindOption{
 				ServiceName: svc.ServiceName,
 				ProductName: project,
+				Revision:    svc.Revision,
 			},
 		)
 
