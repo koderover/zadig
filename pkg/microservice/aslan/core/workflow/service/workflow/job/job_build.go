@@ -69,6 +69,63 @@ func (j *BuildJob) SetPreset() error {
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return err
 	}
+
+	servicesMap, err := repository.GetMaxRevisionsServicesMap(j.workflow.Project, false)
+	if err != nil {
+		return fmt.Errorf("get services map error: %v", err)
+	}
+	var buildMap sync.Map
+	var buildTemplateMap sync.Map
+	newBuilds := make([]*commonmodels.ServiceAndBuild, 0)
+	for _, build := range j.spec.ServiceAndBuilds {
+		var buildInfo *commonmodels.Build
+		buildMapValue, ok := buildMap.Load(build.BuildName)
+		if !ok {
+			buildInfo, err = commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: build.BuildName, ProductName: j.workflow.Project})
+			if err != nil {
+				log.Errorf("find build: %s error: %v", build.BuildName, err)
+				buildMap.Store(build.BuildName, nil)
+				continue
+			}
+			buildMap.Store(build.BuildName, buildInfo)
+		} else {
+			if buildMapValue == nil {
+				log.Errorf("find build: %s error: %v", build.BuildName, err)
+				continue
+			}
+			buildInfo = buildMapValue.(*commonmodels.Build)
+		}
+
+		if err := fillBuildDetail(buildInfo, build.ServiceName, build.ServiceModule, &buildTemplateMap); err != nil {
+			log.Errorf("fill build: %s detail error: %v", build.BuildName, err)
+			continue
+		}
+		for _, target := range buildInfo.Targets {
+			if target.ServiceName == build.ServiceName && target.ServiceModule == build.ServiceModule {
+				build.Repos = mergeRepos(buildInfo.Repos, build.Repos)
+				build.KeyVals = renderKeyVals(build.KeyVals, buildInfo.PreBuild.Envs)
+				break
+			}
+		}
+
+		build.ImageName = build.ServiceModule
+		service, ok := servicesMap[build.ServiceName]
+		if !ok {
+			log.Errorf("service %s not found", build.ServiceName)
+			continue
+		}
+
+		for _, container := range service.Containers {
+			if container.Name == build.ServiceModule {
+				build.ImageName = container.ImageName
+				break
+			}
+		}
+
+		newBuilds = append(newBuilds, build)
+	}
+	j.spec.ServiceAndBuilds = newBuilds
+
 	j.job.Spec = j.spec
 	return nil
 }
