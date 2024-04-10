@@ -2487,7 +2487,7 @@ func EnvSleep(c *gin.Context) {
 			// first check if the user is projectAdmin
 			if projectAuthInfo.IsProjectAdmin {
 				permitted = true
-			} else if projectAuthInfo.Env.EditConfig {
+			} else if projectAuthInfo.ProductionEnv.EditConfig {
 				// then check if user has edit workflow permission
 				permitted = true
 			} else {
@@ -2568,7 +2568,7 @@ func GetEnvSleepCron(c *gin.Context) {
 			// first check if the user is projectAdmin
 			if projectAuthInfo.IsProjectAdmin {
 				permitted = true
-			} else if projectAuthInfo.Env.View {
+			} else if projectAuthInfo.ProductionEnv.View {
 				// then check if user has edit workflow permission
 				permitted = true
 			} else {
@@ -2665,7 +2665,7 @@ func UpsertEnvSleepCron(c *gin.Context) {
 			// first check if the user is projectAdmin
 			if projectAuthInfo.IsProjectAdmin {
 				permitted = true
-			} else if projectAuthInfo.Env.EditConfig {
+			} else if projectAuthInfo.ProductionEnv.EditConfig {
 				// then check if user has edit workflow permission
 				permitted = true
 			} else {

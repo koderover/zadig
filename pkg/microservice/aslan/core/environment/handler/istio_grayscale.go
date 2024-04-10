@@ -64,8 +64,8 @@ func EnableIstioGrayscale(c *gin.Context) {
 			return
 		}
 		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectKey].Env.EditConfig {
-			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionEditConfig)
+			!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.EditConfig {
+			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionEditConfig)
 			if err != nil || !permitted {
 				ctx.UnAuthorized = true
 				return
@@ -117,8 +117,8 @@ func DisableIstioGrayscale(c *gin.Context) {
 			return
 		}
 		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectKey].Env.EditConfig {
-			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionEditConfig)
+			!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.EditConfig {
+			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionEditConfig)
 			if err != nil || !permitted {
 				ctx.UnAuthorized = true
 				return
@@ -164,7 +164,7 @@ func CheckIstioGrayscaleReady(c *gin.Context) {
 		}
 		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
 			!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.EditConfig {
-			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionEditConfig)
+			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionEditConfig)
 			if err != nil || !permitted {
 				ctx.UnAuthorized = true
 				return
@@ -208,8 +208,8 @@ func GetIstioGrayscaleConfig(c *gin.Context) {
 			return
 		}
 		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectKey].Env.EditConfig {
-			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionEditConfig)
+			!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.View {
+			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionView)
 			if err != nil || !permitted {
 				ctx.UnAuthorized = true
 				return
@@ -258,8 +258,8 @@ func SetIstioGrayscaleConfig(c *gin.Context) {
 			return
 		}
 		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectKey].Env.EditConfig {
-			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionEditConfig)
+			!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.EditConfig {
+			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionEditConfig)
 			if err != nil || !permitted {
 				ctx.UnAuthorized = true
 				return
@@ -316,8 +316,8 @@ func GetIstioGrayscalePortalService(c *gin.Context) {
 			return
 		}
 		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.EditConfig {
-			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionEditConfig)
+			!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.View {
+			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionView)
 			if err != nil || !permitted {
 				ctx.UnAuthorized = true
 				return
@@ -366,7 +366,7 @@ func SetupIstioGrayscalePortalService(c *gin.Context) {
 		}
 		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
 			!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.EditConfig {
-			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionEditConfig)
+			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionEditConfig)
 			if err != nil || !permitted {
 				ctx.UnAuthorized = true
 				return

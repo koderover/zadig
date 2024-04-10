@@ -53,7 +53,7 @@ func CheckWorkloadsK8sServices(c *gin.Context) {
 		if production {
 			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
 				!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.EditConfig {
-				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionEditConfig)
+				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionEditConfig)
 				if err != nil || !permitted {
 					ctx.UnAuthorized = true
 					return
@@ -241,8 +241,8 @@ func GetPortalService(c *gin.Context) {
 			return
 		}
 		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectKey].Env.EditConfig {
-			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionEditConfig)
+			!ctx.Resources.ProjectAuthInfo[projectKey].Env.View {
+			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionView)
 			if err != nil || !permitted {
 				ctx.UnAuthorized = true
 				return
