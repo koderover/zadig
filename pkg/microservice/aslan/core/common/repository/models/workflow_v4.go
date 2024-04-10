@@ -291,6 +291,7 @@ type ServiceAndVMDeploy struct {
 	ServiceModule string              `bson:"service_module"      yaml:"service_module"   json:"service_module"`
 	ArtifactURL   string              `bson:"artifact_url"        yaml:"artifact_url"     json:"artifact_url"`
 	FileName      string              `bson:"file_name"           yaml:"file_name"        json:"file_name"`
+	Image         string              `bson:"image"               yaml:"image"            json:"image"`
 	TaskID        int                 `bson:"task_id"             yaml:"task_id"          json:"task_id"`
 	WorkflowType  config.PipelineType `bson:"workflow_type"       yaml:"workflow_type"    json:"workflow_type"`
 	WorkflowName  string              `bson:"workflow_name"       yaml:"workflow_name"    json:"workflow_name"`

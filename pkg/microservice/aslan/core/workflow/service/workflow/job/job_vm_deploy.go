@@ -473,6 +473,7 @@ func (j *VMDeployJob) getOriginReferedJobTargets(jobName string, taskID int) ([]
 						ServiceName:   build.ServiceName,
 						ServiceModule: build.ServiceModule,
 						FileName:      build.Package,
+						Image:         build.Image,
 						TaskID:        taskID,
 						WorkflowName:  j.workflow.Name,
 						WorkflowType:  config.WorkflowTypeV4,
@@ -623,6 +624,7 @@ func getVMDeployJobVariables(vmDeploy *commonmodels.ServiceAndVMDeploy, buildInf
 		}
 	}
 	ret = append(ret, &commonmodels.KeyVal{Key: "PKG_FILE", Value: vmDeploy.FileName, IsCredential: false})
+	ret = append(ret, &commonmodels.KeyVal{Key: "IMAGE", Value: vmDeploy.Image, IsCredential: false})
 	return ret
 }
 
