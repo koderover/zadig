@@ -54,15 +54,16 @@ const zadigNamePrefix = "zadig"
 const zadigMatchXEnv = "x-env"
 
 // Slice of `<workload name>.<workload type>` and error are returned.
-func CheckWorkloadsK8sServices(ctx context.Context, envName, productName string) ([]string, error) {
+func CheckWorkloadsK8sServices(ctx context.Context, envName, productName string, production bool) ([]string, error) {
 	timeStart := time.Now()
 	defer func() {
 		log.Infof("[CheckWorkloadsK8sServices]Time consumed: %s", time.Since(timeStart))
 	}()
 
 	prod, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
-		Name:    productName,
-		EnvName: envName,
+		Name:       productName,
+		EnvName:    envName,
+		Production: &production,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to query env `%s` in project `%s`: %s", envName, productName, err)

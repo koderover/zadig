@@ -46,6 +46,7 @@ type UpdateContainerImageArgs struct {
 	Name          string `json:"name"`
 	ContainerName string `json:"container_name"`
 	Image         string `json:"image"`
+	Production    bool   `json:"production"`
 }
 
 func updateContainerForHelmChart(serviceName, image, containerName string, product *models.Product) error {
@@ -75,7 +76,11 @@ func updateContainerForHelmChart(serviceName, image, containerName string, produ
 }
 
 func UpdateContainerImage(requestID, username string, args *UpdateContainerImageArgs, log *zap.SugaredLogger) error {
-	product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{EnvName: args.EnvName, Name: args.ProductName})
+	product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		EnvName:    args.EnvName,
+		Name:       args.ProductName,
+		Production: &args.Production,
+	})
 	if err != nil {
 		return e.ErrUpdateConainterImage.AddErr(err)
 	}

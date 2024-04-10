@@ -415,8 +415,8 @@ func prepareChartVersionData(prod *models.Product, serviceObj *models.Service) e
 	return nil
 }
 
-func GetChartInfos(productName, envName, serviceName string, log *zap.SugaredLogger) (*HelmChartsResp, error) {
-	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
+func GetChartInfos(productName, envName, serviceName string, production bool, log *zap.SugaredLogger) (*HelmChartsResp, error) {
+	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName, Production: &production}
 	prod, err := commonrepo.NewProductColl().Find(opt)
 	if err != nil {
 		return nil, e.ErrGetHelmCharts.AddErr(err)
@@ -496,8 +496,8 @@ func GetChartInfos(productName, envName, serviceName string, log *zap.SugaredLog
 	return ret, nil
 }
 
-func GetImageInfos(productName, envName, serviceNames string, log *zap.SugaredLogger) (*ChartImagesResp, error) {
-	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
+func GetImageInfos(productName, envName, serviceNames string, production bool, log *zap.SugaredLogger) (*ChartImagesResp, error) {
+	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName, Production: &production}
 	prod, err := commonrepo.NewProductColl().Find(opt)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find product: %s:%s to get image infos, err: %s", productName, envName, err)

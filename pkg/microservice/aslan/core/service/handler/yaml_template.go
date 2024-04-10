@@ -121,7 +121,6 @@ func ReloadServiceFromYamlTemplate(c *gin.Context) {
 	detail := "项目管理-服务"
 	if production {
 		detail = "项目管理-生产服务"
-
 	}
 
 	bs, _ := json.Marshal(req)

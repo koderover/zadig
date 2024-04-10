@@ -21,6 +21,7 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/service"
 	"github.com/koderover/zadig/v2/pkg/setting"
@@ -39,7 +40,6 @@ func GetOperationLogs(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -47,6 +47,7 @@ func GetOperationLogs(c *gin.Context) {
 
 	envName := c.Query("envName")
 	projectKey := c.Query("projectName")
+	production := c.Query("production") == "true"
 	if len(projectKey) == 0 {
 		ctx.Err = e.ErrFindOperationLog.AddDesc("projectName can't be nil")
 		return
@@ -58,87 +59,30 @@ func GetOperationLogs(c *gin.Context) {
 			ctx.UnAuthorized = true
 			return
 		}
-		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectKey].Env.EditConfig {
-			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionEditConfig)
-			if err != nil || !permitted {
-				ctx.UnAuthorized = true
+
+		if production {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.EditConfig {
+				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionEditConfig)
+				if err != nil || !permitted {
+					ctx.UnAuthorized = true
+					return
+				}
+			}
+
+			err = commonutil.CheckZadigProfessionalLicense()
+			if err != nil {
+				ctx.Err = err
 				return
 			}
-		}
-	}
-
-	page, err := strconv.Atoi(c.DefaultQuery("page", "1"))
-	if err != nil {
-		ctx.Err = e.ErrFindOperationLog.AddErr(err)
-		return
-	}
-
-	pageSize, _ := strconv.Atoi(c.DefaultQuery("pageSize", "50"))
-	if err != nil {
-		ctx.Err = e.ErrFindOperationLog.AddErr(err)
-		return
-	}
-
-	status, _ := strconv.Atoi(c.DefaultQuery("status", "0"))
-	if err != nil {
-		ctx.Err = e.ErrFindOperationLog.AddErr(err)
-		return
-	}
-
-	args := &service.OperationLogArgs{
-		ExactProduct: projectKey,
-		Username:     c.Query("username"),
-		Function:     c.Query("function"),
-		Scene:        setting.OperationSceneEnv,
-		TargetID:     envName,
-		Status:       status,
-		PerPage:      pageSize,
-		Page:         page,
-		Detail:       c.Query("detail"),
-	}
-
-	logs, count, err := service.FindOperation(args, ctx.Logger)
-	if err != nil {
-		ctx.Err = err
-		return
-	}
-	ctx.Resp = &OperationLog{
-		Count: count,
-		Logs:  logs,
-	}
-}
-
-func GetProductionOperationLogs(c *gin.Context) {
-	ctx, err := internalhandler.NewContextWithAuthorization(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	if err != nil {
-
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
-		ctx.UnAuthorized = true
-		return
-	}
-
-	envName := c.Query("envName")
-	projectKey := c.Query("projectName")
-	if len(projectKey) == 0 {
-		ctx.Err = e.ErrFindOperationLog.AddDesc("projectName can't be nil")
-		return
-	}
-
-	// authorization checks
-	if !ctx.Resources.IsSystemAdmin {
-		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
-			ctx.UnAuthorized = true
-			return
-		}
-		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.EditConfig {
-			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionEditConfig)
-			if err != nil || !permitted {
-				ctx.UnAuthorized = true
-				return
+		} else {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].Env.EditConfig {
+				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionEditConfig)
+				if err != nil || !permitted {
+					ctx.UnAuthorized = true
+					return
+				}
 			}
 		}
 	}
