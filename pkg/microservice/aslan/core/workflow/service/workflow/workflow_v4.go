@@ -1862,6 +1862,18 @@ func GetCronForWorkflowV4Preset(workflowName, cronID string, logger *zap.Sugared
 		log.Error(errMsg)
 		return nil, e.ErrGetWebhook.AddDesc(errMsg)
 	}
+
+	for _, stage := range cronJob.WorkflowV4Args.Stages {
+		for _, item := range stage.Jobs {
+			err := job.SetOptions(item, workflow)
+			if err != nil {
+				errMsg := fmt.Sprintf("merge workflow args set options error: %v", err)
+				log.Error(errMsg)
+				return nil, e.ErrGetWebhook.AddDesc(errMsg)
+			}
+		}
+	}
+
 	cronJob.WorkflowV4Args = workflow
 	return cronJob, nil
 }
