@@ -23,7 +23,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/repository"
 	"github.com/koderover/zadig/v2/pkg/util"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -128,13 +127,13 @@ func (j *VMDeployJob) SetOptions() error {
 
 	envOptions := make([]*commonmodels.ZadigVMDeployEnvInformation, 0)
 
-	info, err := generateVMDeployServiceInfo(j.workflow.Project)
-	if err != nil {
-		log.Errorf("failed to generate service deploy info for project: %s, error: %s", j.workflow.Project, err)
-		return err
-	}
-
 	for _, env := range envs {
+		info, err := generateVMDeployServiceInfo(j.workflow.Project, env.EnvName)
+		if err != nil {
+			log.Errorf("failed to generate service deploy info for project: %s, error: %s", j.workflow.Project, err)
+			return err
+		}
+
 		envOptions = append(envOptions, &commonmodels.ZadigVMDeployEnvInformation{
 			Env:      env.EnvName,
 			Services: info,
@@ -146,17 +145,30 @@ func (j *VMDeployJob) SetOptions() error {
 	return nil
 }
 
-// generateVMDeployServiceInfo generated all deployable service and its corresponding data.
-// currently it ignores the env service info, just gives all the service defined in the template.
-func generateVMDeployServiceInfo(project string) ([]*commonmodels.ServiceAndVMDeploy, error) {
-	resp := make([]*commonmodels.ServiceAndVMDeploy, 0)
-
-	currentService, err := repository.ListMaxRevisionsServices(project, false)
-	if err != nil {
-		return nil, fmt.Errorf("failed to find the latest service from database for project: %s, error: %s", project, err)
+func (j *VMDeployJob) ClearSelectionField() error {
+	j.spec = &commonmodels.ZadigVMDeployJobSpec{}
+	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
+		return err
 	}
 
-	for _, svc := range currentService {
+	j.spec.ServiceAndVMDeploys = make([]*commonmodels.ServiceAndVMDeploy, 0)
+	j.job.Spec = j.spec
+	return nil
+}
+
+// generateVMDeployServiceInfo generated all deployable service and its corresponding data.
+// currently it ignores the env service info, just gives all the service defined in the template.
+func generateVMDeployServiceInfo(project, env string) ([]*commonmodels.ServiceAndVMDeploy, error) {
+	resp := make([]*commonmodels.ServiceAndVMDeploy, 0)
+
+	environmentInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: env})
+	if err != nil {
+		return nil, fmt.Errorf("failed to find env: %s in project: %s, error: %s", env, project, err)
+	}
+
+	svcs := environmentInfo.GetServiceMap()
+
+	for _, svc := range svcs {
 		templateSvc, err := commonrepo.NewServiceColl().Find(
 			&commonrepo.ServiceFindOption{
 				ServiceName: svc.ServiceName,

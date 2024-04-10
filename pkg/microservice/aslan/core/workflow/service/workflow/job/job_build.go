@@ -69,6 +69,15 @@ func (j *BuildJob) SetPreset() error {
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return err
 	}
+	j.job.Spec = j.spec
+	return nil
+}
+
+func (j *BuildJob) ClearSelectionField() error {
+	j.spec = &commonmodels.ZadigBuildJobSpec{}
+	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
+		return err
+	}
 
 	chosenObject := make([]*commonmodels.ServiceAndBuild, 0)
 
@@ -83,6 +92,33 @@ func (j *BuildJob) SetOptions() error {
 		return err
 	}
 
+	originalWorkflow, err := commonrepo.NewWorkflowV4Coll().Find(j.workflow.Name)
+	if err != nil {
+		log.Errorf("Failed to find original workflow to set options, error: %s", err)
+	}
+
+	originalSpec := new(commonmodels.ZadigBuildJobSpec)
+	found := false
+	for _, stage := range originalWorkflow.Stages {
+		if !found {
+			for _, job := range stage.Jobs {
+				if job.Name == j.job.Name && job.JobType == j.job.JobType {
+					if err := commonmodels.IToi(job.Spec, originalSpec); err != nil {
+						return err
+					}
+					found = true
+					break
+				}
+			}
+		} else {
+			break
+		}
+	}
+
+	if !found {
+		return fmt.Errorf("failed to find the original workflow: %s", j.workflow.Name)
+	}
+
 	servicesMap, err := repository.GetMaxRevisionsServicesMap(j.workflow.Project, false)
 	if err != nil {
 		return fmt.Errorf("get services map error: %v", err)
@@ -91,7 +127,7 @@ func (j *BuildJob) SetOptions() error {
 	var buildMap sync.Map
 	var buildTemplateMap sync.Map
 	newBuilds := make([]*commonmodels.ServiceAndBuild, 0)
-	for _, build := range j.spec.ServiceAndBuilds {
+	for _, build := range originalSpec.ServiceAndBuilds {
 		var buildInfo *commonmodels.Build
 		buildMapValue, ok := buildMap.Load(build.BuildName)
 		if !ok {

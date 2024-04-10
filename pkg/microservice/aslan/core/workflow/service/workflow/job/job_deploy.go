@@ -198,6 +198,18 @@ func (j *DeployJob) SetPreset() error {
 	return nil
 }
 
+func (j *DeployJob) ClearSelectionField() error {
+	j.spec = &commonmodels.ZadigDeployJobSpec{}
+	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
+		return err
+	}
+
+	svcResp := make([]*commonmodels.DeployServiceInfo, 0)
+	j.spec.Services = svcResp
+	j.job.Spec = j.spec
+	return nil
+}
+
 // SetOptions get the service deployment info from ALL envs and set these information into the EnvOptions Field
 func (j *DeployJob) SetOptions() error {
 	j.spec = &commonmodels.ZadigDeployJobSpec{}

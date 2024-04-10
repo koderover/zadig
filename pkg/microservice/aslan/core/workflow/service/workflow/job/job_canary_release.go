@@ -54,6 +54,10 @@ func (j *CanaryReleaseJob) SetOptions() error {
 	return nil
 }
 
+func (j *CanaryReleaseJob) ClearSelectionField() error {
+	return nil
+}
+
 func (j *CanaryReleaseJob) MergeArgs(args *commonmodels.Job) error {
 	return nil
 }

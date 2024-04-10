@@ -215,7 +215,6 @@ func GetWorkflowv4Preset(encryptedKey, workflowName, uid, username string, log *
 	}
 	for _, stage := range workflow.Stages {
 		for _, job := range stage.Jobs {
-			// Set Options must be executed before preset since sometimes preset will clear the saved data.
 			if err := jobctl.SetOptions(job, workflow); err != nil {
 				log.Errorf("cannot get workflow %s options for job %s, the error is: %v", workflowName, job.Name, err)
 				return nil, e.ErrPresetWorkflow.AddDesc(err.Error())
@@ -224,6 +223,14 @@ func GetWorkflowv4Preset(encryptedKey, workflowName, uid, username string, log *
 			if err := jobctl.SetPreset(job, workflow); err != nil {
 				log.Errorf("cannot get workflow %s preset for job %s, the error is: %v", workflowName, job.Name, err)
 				return nil, e.ErrPresetWorkflow.AddDesc(err.Error())
+			}
+
+			// for some job we need to clear its selection field
+			if job.JobType == config.JobZadigBuild || job.JobType == config.JobIstioRelease || job.JobType == config.JobIstioRollback {
+				if err := jobctl.ClearSelectionField(job, workflow); err != nil {
+					log.Errorf("cannot clear workflow %s selection for job %s, the error is: %v", workflowName, job.Name, err)
+					return nil, e.ErrPresetWorkflow.AddDesc(err.Error())
+				}
 			}
 		}
 	}

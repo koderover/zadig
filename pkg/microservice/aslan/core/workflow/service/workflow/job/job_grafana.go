@@ -53,6 +53,10 @@ func (j *GrafanaJob) SetOptions() error {
 	return nil
 }
 
+func (j *GrafanaJob) ClearSelectionField() error {
+	return nil
+}
+
 func (j *GrafanaJob) MergeArgs(args *commonmodels.Job) error {
 	j.spec = &commonmodels.GrafanaJobSpec{}
 	if err := commonmodels.IToi(args.Spec, j.spec); err != nil {

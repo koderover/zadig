@@ -47,8 +47,6 @@ func (j *IstioRollBackJob) SetPreset() error {
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return err
 	}
-
-	j.spec.Targets = make([]*commonmodels.IstioJobTarget, 0)
 	j.job.Spec = j.spec
 	return nil
 }
@@ -133,6 +131,17 @@ func (j *IstioRollBackJob) SetOptions() error {
 	}
 
 	j.spec.TargetOptions = newTargets
+	j.job.Spec = j.spec
+	return nil
+}
+
+func (j *IstioRollBackJob) ClearSelectionField() error {
+	j.spec = &commonmodels.IstioRollBackJobSpec{}
+	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
+		return err
+	}
+
+	j.spec.Targets = make([]*commonmodels.IstioJobTarget, 0)
 	j.job.Spec = j.spec
 	return nil
 }

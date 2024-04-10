@@ -48,8 +48,6 @@ func (j *IstioReleaseJob) SetPreset() error {
 		return err
 	}
 
-	j.spec.Targets = make([]*commonmodels.IstioJobTarget, 0)
-
 	j.job.Spec = j.spec
 	return nil
 }
@@ -88,6 +86,18 @@ func (j *IstioReleaseJob) SetOptions() error {
 	}
 
 	j.spec.TargetOptions = originalSpec.Targets
+	j.job.Spec = j.spec
+	return nil
+}
+
+func (j *IstioReleaseJob) ClearSelectionField() error {
+	j.spec = &commonmodels.IstioJobSpec{}
+	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
+		return err
+	}
+
+	j.spec.Targets = make([]*commonmodels.IstioJobTarget, 0)
+
 	j.job.Spec = j.spec
 	return nil
 }

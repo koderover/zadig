@@ -86,6 +86,10 @@ func (j *ApolloJob) SetOptions() error {
 	return nil
 }
 
+func (j *ApolloJob) ClearSelectionField() error {
+	return nil
+}
+
 func (j *ApolloJob) MergeArgs(args *commonmodels.Job) error {
 	j.spec = &commonmodels.ApolloJobSpec{}
 	if err := commonmodels.IToi(args.Spec, j.spec); err != nil {

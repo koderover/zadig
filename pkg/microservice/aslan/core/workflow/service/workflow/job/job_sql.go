@@ -52,6 +52,10 @@ func (j *SQLJob) SetOptions() error {
 	return nil
 }
 
+func (j *SQLJob) ClearSelectionField() error {
+	return nil
+}
+
 func (j *SQLJob) MergeArgs(args *commonmodels.Job) error {
 	j.spec = &commonmodels.SQLJobSpec{}
 	if err := commonmodels.IToi(args.Spec, j.spec); err != nil {

@@ -168,6 +168,17 @@ func (j *BlueGreenDeployV2Job) SetOptions() error {
 	return nil
 }
 
+func (j *BlueGreenDeployV2Job) ClearSelectionField() error {
+	j.spec = &commonmodels.BlueGreenDeployV2JobSpec{}
+	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
+		return err
+	}
+
+	j.spec.Services = make([]*commonmodels.BlueGreenDeployV2Service, 0)
+	j.job.Spec = j.spec
+	return nil
+}
+
 // TODO: This function now can only be used for production environments
 func generateBlueGreenEnvDeployServiceInfo(env, project string, services []*commonmodels.BlueGreenDeployV2Service) ([]*commonmodels.BlueGreenDeployV2Service, string, error) {
 	targetEnv, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{

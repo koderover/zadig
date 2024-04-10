@@ -129,6 +129,18 @@ func (j *HelmChartDeployJob) SetOptions() error {
 	return nil
 }
 
+func (j *HelmChartDeployJob) ClearSelectionField() error {
+	j.spec = &commonmodels.ZadigHelmChartDeployJobSpec{}
+	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
+		return err
+	}
+
+	deploys := make([]*commonmodels.DeployHelmChart, 0)
+	j.spec.DeployHelmCharts = deploys
+	j.job.Spec = j.spec
+	return nil
+}
+
 func generateEnvHelmChartInfo(env, project string) ([]*commonmodels.DeployHelmChart, error) {
 	product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: project, EnvName: env})
 	if err != nil {

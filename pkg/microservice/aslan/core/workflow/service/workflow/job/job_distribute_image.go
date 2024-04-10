@@ -132,6 +132,17 @@ func (j *ImageDistributeJob) SetOptions() error {
 	return nil
 }
 
+func (j *ImageDistributeJob) ClearSelectionField() error {
+	j.spec = &commonmodels.ZadigDistributeImageJobSpec{}
+	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
+		return err
+	}
+
+	j.spec.Targets = make([]*commonmodels.DistributeTarget, 0)
+	j.job.Spec = j.spec
+	return nil
+}
+
 func (j *ImageDistributeJob) MergeArgs(args *commonmodels.Job) error {
 	if j.job.Name == args.Name && j.job.JobType == args.JobType {
 		j.spec = &commonmodels.ZadigDistributeImageJobSpec{}

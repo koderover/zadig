@@ -49,6 +49,10 @@ func (j *UpdateEnvIstioConfigJob) SetOptions() error {
 	return nil
 }
 
+func (j *UpdateEnvIstioConfigJob) ClearSelectionField() error {
+	return nil
+}
+
 func (j *UpdateEnvIstioConfigJob) MergeArgs(args *commonmodels.Job) error {
 	if j.job.Name == args.Name && j.job.JobType == args.JobType {
 		j.spec = &commonmodels.UpdateEnvIstioConfigJobSpec{}

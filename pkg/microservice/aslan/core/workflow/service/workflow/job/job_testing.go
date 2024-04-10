@@ -104,6 +104,16 @@ func (j *TestingJob) SetOptions() error {
 	return nil
 }
 
+func (j *TestingJob) ClearSelectionField() error {
+	j.spec = &commonmodels.ZadigTestingJobSpec{}
+	if err := commonmodels.IToiYaml(j.job.Spec, j.spec); err != nil {
+		return err
+	}
+	j.spec.ServiceAndTests = make([]*commonmodels.ServiceAndTest, 0)
+	j.job.Spec = j.spec
+	return nil
+}
+
 func (j *TestingJob) GetRepos() ([]*types.Repository, error) {
 	resp := []*types.Repository{}
 	j.spec = &commonmodels.ZadigTestingJobSpec{}

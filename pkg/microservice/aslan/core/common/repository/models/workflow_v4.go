@@ -421,13 +421,16 @@ type DistributeTarget struct {
 }
 
 type ZadigTestingJobSpec struct {
-	TestType        config.TestModuleType   `bson:"test_type"         yaml:"test_type"         json:"test_type"`
-	Source          config.DeploySourceType `bson:"source"            yaml:"source"            json:"source"`
-	JobName         string                  `bson:"job_name"          yaml:"job_name"          json:"job_name"`
-	OriginJobName   string                  `bson:"origin_job_name"   yaml:"origin_job_name"   json:"origin_job_name"`
-	TargetServices  []*ServiceTestTarget    `bson:"target_services"   yaml:"target_services"   json:"target_services"`
-	TestModules     []*TestModule           `bson:"test_modules"      yaml:"test_modules"      json:"test_modules"`
-	ServiceAndTests []*ServiceAndTest       `bson:"service_and_tests" yaml:"service_and_tests" json:"service_and_tests"`
+	TestType      config.TestModuleType   `bson:"test_type"         yaml:"test_type"         json:"test_type"`
+	Source        config.DeploySourceType `bson:"source"            yaml:"source"            json:"source"`
+	JobName       string                  `bson:"job_name"          yaml:"job_name"          json:"job_name"`
+	OriginJobName string                  `bson:"origin_job_name"   yaml:"origin_job_name"   json:"origin_job_name"`
+	// maximum options for service tests
+	TargetServices []*ServiceTestTarget `bson:"target_services"   yaml:"target_services"   json:"target_services"`
+	// field for non-service tests.
+	TestModules []*TestModule `bson:"test_modules"      yaml:"test_modules"      json:"test_modules"`
+	// in config: this is the test infos for all the services. in running: this is the tests that needs to be run.
+	ServiceAndTests []*ServiceAndTest `bson:"service_and_tests" yaml:"service_and_tests" json:"service_and_tests"`
 }
 
 type ServiceAndTest struct {
