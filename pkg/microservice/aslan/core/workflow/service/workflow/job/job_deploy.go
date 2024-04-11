@@ -617,6 +617,7 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 
 	serviceMap := map[string]*commonmodels.DeployServiceInfo{}
 	for _, service := range j.spec.Services {
+		fmt.Println(".>>>>>>>>>>>>>>>>>>> writing service:", service.ServiceName)
 		serviceMap[service.ServiceName] = service
 	}
 
