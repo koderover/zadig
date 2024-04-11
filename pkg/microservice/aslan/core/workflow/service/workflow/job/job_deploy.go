@@ -377,7 +377,6 @@ func generateEnvDeployServiceInfo(env, project string, production bool, spec *co
 
 	if projectInfo.IsHostProduct() {
 		for _, service := range envServiceMap {
-			fmt.Println("<<<<<<<<<<<<< service:", service.ServiceName)
 			modules := make([]*commonmodels.DeployModuleInfo, 0)
 			for _, module := range service.Containers {
 				modules = append(modules, &commonmodels.DeployModuleInfo{
@@ -399,9 +398,8 @@ func generateEnvDeployServiceInfo(env, project string, production bool, spec *co
 				Deployed:          true,
 				Modules:           modules,
 			})
-
-			return resp, envInfo.RegistryID, nil
 		}
+		return resp, envInfo.RegistryID, nil
 	}
 
 	serviceDefinitionMap := make(map[string]*commonmodels.Service)
