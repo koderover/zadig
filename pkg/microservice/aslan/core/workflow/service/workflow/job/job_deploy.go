@@ -339,7 +339,7 @@ func generateEnvDeployServiceInfo(env, project string, production bool, spec *co
 
 		kvs := make([]*commontypes.RenderVariableKV, 0)
 
-		for _, kv := range service.VariableKVs {
+		for _, kv := range commontypes.ServiceToRenderVariableKVs(serviceDefinitionMap[service.ServiceName].ServiceVariableKVs) {
 			for _, configKV := range serviceKVSettingMap[service.ServiceName] {
 				if kv.Key == configKV.VariableKey {
 					kvs = append(kvs, kv)
