@@ -374,7 +374,7 @@ func generateEnvDeployServiceInfo(env, project string, production bool, spec *co
 			LatestVariableKVs: svcInfo.LatestVariableKVs,
 			VariableYaml:      service.VariableYaml,
 			UpdateConfig:      updateConfig,
-			Updatable:         service.Updatable,
+			Updatable:         svcInfo.Updatable,
 			Deployed:          true,
 			Modules:           modules,
 		})
