@@ -339,13 +339,9 @@ func generateEnvDeployServiceInfo(env, project string, production bool, spec *co
 
 		kvs := make([]*commontypes.RenderVariableKV, 0)
 
-		fmt.Println("=================")
 		for _, kv := range service.GetServiceRender().OverrideYaml.RenderVariableKVs {
-			fmt.Println(">>>>>>>>>> searching for key: ", kv.Key)
 			for _, configKV := range serviceKVSettingMap[service.ServiceName] {
-				fmt.Println(">>>>>>>>>>>>>>>> scanned key: ", configKV.VariableKey)
 				if kv.Key == configKV.VariableKey {
-					fmt.Println(">>>>>>>>>>> found!")
 					kvs = append(kvs, kv)
 				}
 			}
@@ -354,7 +350,7 @@ func generateEnvDeployServiceInfo(env, project string, production bool, spec *co
 		resp = append(resp, &commonmodels.DeployServiceInfo{
 			ServiceName:       service.ServiceName,
 			VariableKVs:       kvs,
-			LatestVariableKVs: service.VariableKVs,
+			LatestVariableKVs: service.GetServiceRender().OverrideYaml.RenderVariableKVs,
 			VariableYaml:      service.VariableYaml,
 			UpdateConfig:      updateConfig,
 			Updatable:         service.Updatable,
