@@ -1252,6 +1252,18 @@ func GetWebhookForWorkflowV4Preset(workflowName, triggerName string, logger *zap
 		log.Error(errMsg)
 		return nil, e.ErrGetWebhook.AddDesc(errMsg)
 	}
+
+	for _, stage := range workflow.Stages {
+		for _, item := range stage.Jobs {
+			err := job.SetOptions(item, workflow)
+			if err != nil {
+				errMsg := fmt.Sprintf("merge workflow args set options error: %v", err)
+				log.Error(errMsg)
+				return nil, e.ErrGetWebhook.AddDesc(errMsg)
+			}
+		}
+	}
+
 	workflowHook.Repos = repos
 	workflowHook.WorkflowArg = workflow
 	workflowHook.WorkflowArg.JiraHookCtls = nil
@@ -1347,6 +1359,18 @@ func GetGeneralHookForWorkflowV4Preset(workflowName, hookName string, logger *za
 		log.Error(errMsg)
 		return nil, e.ErrGetGeneralHook.AddDesc(errMsg)
 	}
+
+	for _, stage := range workflow.Stages {
+		for _, item := range stage.Jobs {
+			err := job.SetOptions(item, workflow)
+			if err != nil {
+				errMsg := fmt.Sprintf("merge workflow args set options error: %v", err)
+				log.Error(errMsg)
+				return nil, e.ErrGetWebhook.AddDesc(errMsg)
+			}
+		}
+	}
+
 	gHook.WorkflowArg = workflow
 	gHook.WorkflowArg.JiraHookCtls = nil
 	gHook.WorkflowArg.MeegoHookCtls = nil
@@ -1504,6 +1528,18 @@ func GetJiraHookForWorkflowV4Preset(workflowName, hookName string, logger *zap.S
 		log.Error(errMsg)
 		return nil, e.ErrGetJiraHook.AddDesc(errMsg)
 	}
+
+	for _, stage := range workflow.Stages {
+		for _, item := range stage.Jobs {
+			err := job.SetOptions(item, workflow)
+			if err != nil {
+				errMsg := fmt.Sprintf("merge workflow args set options error: %v", err)
+				log.Error(errMsg)
+				return nil, e.ErrGetWebhook.AddDesc(errMsg)
+			}
+		}
+	}
+
 	jiraHook.WorkflowArg = workflow
 	jiraHook.WorkflowArg.JiraHookCtls = nil
 	jiraHook.WorkflowArg.MeegoHookCtls = nil
@@ -1627,6 +1663,18 @@ func GetMeegoHookForWorkflowV4Preset(workflowName, hookName string, logger *zap.
 		log.Error(errMsg)
 		return nil, e.ErrGetMeegoHook.AddDesc(errMsg)
 	}
+
+	for _, stage := range workflow.Stages {
+		for _, item := range stage.Jobs {
+			err := job.SetOptions(item, workflow)
+			if err != nil {
+				errMsg := fmt.Sprintf("merge workflow args set options error: %v", err)
+				log.Error(errMsg)
+				return nil, e.ErrGetWebhook.AddDesc(errMsg)
+			}
+		}
+	}
+
 	meegoHook.WorkflowArg = workflow
 	meegoHook.WorkflowArg.JiraHookCtls = nil
 	meegoHook.WorkflowArg.MeegoHookCtls = nil
