@@ -125,6 +125,90 @@ func (j *DeployJob) getOriginReferredJobTargets(jobName string) ([]*commonmodels
 	return nil, fmt.Errorf("qutoed build/deploy job %s not found", jobName)
 }
 
+func (j *DeployJob) getReferredJobOrder(jobName string) ([]*commonmodels.ServiceWithModuleAndImage, error) {
+	resp := []*commonmodels.ServiceWithModuleAndImage{}
+	for _, stage := range j.workflow.Stages {
+		for _, job := range stage.Jobs {
+			if job.Name != j.spec.JobName {
+				continue
+			}
+			if job.JobType == config.JobZadigBuild {
+				buildSpec := &commonmodels.ZadigBuildJobSpec{}
+				if err := commonmodels.IToi(job.Spec, buildSpec); err != nil {
+					return nil, err
+				}
+
+				order := make([]string, 0)
+				buildModuleMap := make(map[string][]*commonmodels.DeployModuleInfo)
+				for _, build := range buildSpec.ServiceAndBuilds {
+					if _, ok := buildModuleMap[build.ServiceName]; !ok {
+						buildModuleMap[build.ServiceName] = make([]*commonmodels.DeployModuleInfo, 0)
+						order = append(order, build.ServiceName)
+					}
+
+					buildModuleMap[build.ServiceName] = append(buildModuleMap[build.ServiceName], &commonmodels.DeployModuleInfo{
+						ServiceModule: build.ServiceModule,
+						Image:         build.Image,
+						ImageName:     util.ExtractImageName(build.ImageName),
+					})
+				}
+
+				for _, serviceName := range order {
+					resp = append(resp, &commonmodels.ServiceWithModuleAndImage{
+						ServiceName:    serviceName,
+						ServiceModules: buildModuleMap[serviceName],
+					})
+				}
+				return resp, nil
+			}
+
+			if job.JobType == config.JobZadigDistributeImage {
+				distributeSpec := &commonmodels.ZadigDistributeImageJobSpec{}
+				if err := commonmodels.IToi(job.Spec, distributeSpec); err != nil {
+					return nil, err
+				}
+				order := make([]string, 0)
+				distributeModuleMap := make(map[string][]*commonmodels.DeployModuleInfo)
+				for _, distribute := range distributeSpec.Targets {
+					if _, ok := distributeModuleMap[distribute.ServiceName]; !ok {
+						distributeModuleMap[distribute.ServiceName] = make([]*commonmodels.DeployModuleInfo, 0)
+						order = append(order, distribute.ServiceName)
+					}
+
+					distributeModuleMap[distribute.ServiceName] = append(distributeModuleMap[distribute.ServiceName], &commonmodels.DeployModuleInfo{
+						ServiceModule: distribute.ServiceModule,
+						Image:         distribute.TargetImage,
+						ImageName:     util.ExtractImageName(distribute.ImageName),
+					})
+				}
+
+				for _, serviceName := range order {
+					resp = append(resp, &commonmodels.ServiceWithModuleAndImage{
+						ServiceName:    serviceName,
+						ServiceModules: distributeModuleMap[serviceName],
+					})
+				}
+				return resp, nil
+			}
+
+			if job.JobType == config.JobZadigDeploy {
+				deploySpec := &commonmodels.ZadigDeployJobSpec{}
+				if err := commonmodels.IToi(job.Spec, deploySpec); err != nil {
+					return nil, err
+				}
+				for _, service := range deploySpec.Services {
+					resp = append(resp, &commonmodels.ServiceWithModuleAndImage{
+						ServiceName:    service.ServiceName,
+						ServiceModules: service.Modules,
+					})
+				}
+				return resp, nil
+			}
+		}
+	}
+	return nil, fmt.Errorf("qutoed build/deploy job %s not found", jobName)
+}
+
 // SetPreset sets all info for the user-config env service.
 func (j *DeployJob) SetPreset() error {
 	j.spec = &commonmodels.ZadigDeployJobSpec{}
@@ -480,45 +564,51 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			j.spec.JobName = j.spec.OriginJobName
 		}
 		j.spec.JobName = getOriginJobName(j.workflow, j.spec.JobName)
-		targets, err := j.getOriginReferredJobTargets(j.spec.JobName)
+
+		deployOrder, err := j.getReferredJobOrder(j.spec.JobName)
 		if err != nil {
 			return resp, fmt.Errorf("get origin refered job: %s targets failed, err: %v", j.spec.JobName, err)
 		}
-		// clear service and image list to prevent old data from remaining
-		targetsMap := make(map[string]struct {
-			Image     string
-			ImageName string
-		})
-		for _, target := range targets {
-			key := fmt.Sprintf("%s++%s", target.ServiceName, target.ServiceModule)
-			targetsMap[key] = struct {
-				Image     string
-				ImageName string
-			}{
-				Image:     target.Image,
-				ImageName: target.ImageName,
+
+		configurationServiceMap := make(map[string]*commonmodels.DeployServiceInfo)
+		for _, svc := range j.spec.Services {
+			configurationServiceMap[svc.ServiceName] = svc
+		}
+
+		deployServiceMap := make(map[string]*commonmodels.ServiceWithModuleAndImage)
+		deployModuleMap := make(map[string]int)
+		for _, svc := range deployOrder {
+			deployServiceMap[svc.ServiceName] = svc
+			for _, module := range svc.ServiceModules {
+				key := fmt.Sprintf("%s++%s", svc.ServiceName, module.ServiceModule)
+				deployModuleMap[key] = 1
 			}
 		}
 
 		services := make([]*commonmodels.DeployServiceInfo, 0)
-		for _, svc := range j.spec.Services {
-			hasModule := false
-			modules := make([]*commonmodels.DeployModuleInfo, 0)
-			for _, module := range svc.Modules {
-				key := fmt.Sprintf("%s++%s", svc.ServiceName, module.ServiceModule)
-				if imageInfo, ok := targetsMap[key]; ok {
-					hasModule = true
-					modules = append(modules, &commonmodels.DeployModuleInfo{
-						ServiceModule: module.ServiceModule,
-						Image:         imageInfo.Image,
-						ImageName:     imageInfo.ImageName,
-					})
-				}
-			}
+		for _, deploysvc := range deployOrder {
+			if configuredService, ok := configurationServiceMap[deploysvc.ServiceName]; ok {
+				moduleList := make([]*commonmodels.DeployModuleInfo, 0)
 
-			svc.Modules = modules
-			if hasModule {
-				services = append(services, svc)
+				for _, module := range deploysvc.ServiceModules {
+					key := fmt.Sprintf("%s++%s", deploysvc.ServiceName, module.ServiceModule)
+					if _, ok := deployModuleMap[key]; ok {
+						moduleList = append(moduleList, module)
+					}
+				}
+				services = append(services, &commonmodels.DeployServiceInfo{
+					ServiceName:       configuredService.ServiceName,
+					VariableConfigs:   configuredService.VariableConfigs,
+					VariableKVs:       configuredService.VariableKVs,
+					LatestVariableKVs: configuredService.LatestVariableKVs,
+					VariableYaml:      configuredService.VariableYaml,
+					UpdateConfig:      configuredService.UpdateConfig,
+					Updatable:         configuredService.Updatable,
+					Deployed:          configuredService.Deployed,
+					KeyVals:           configuredService.KeyVals,
+					LatestKeyVals:     configuredService.LatestKeyVals,
+					Modules:           moduleList,
+				})
 			}
 		}
 

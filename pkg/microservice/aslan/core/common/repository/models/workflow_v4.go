@@ -391,6 +391,11 @@ type ServiceAndImage struct {
 	ImageName     string `bson:"image_name"          yaml:"image_name"       json:"image_name"`
 }
 
+type ServiceWithModuleAndImage struct {
+	ServiceName    string              `bson:"service_name"        yaml:"service_name"     json:"service_name"`
+	ServiceModules []*DeployModuleInfo `bson:"service_modules"     yaml:"service_modules"  json:"service_modules"`
+}
+
 type ZadigDistributeImageJobSpec struct {
 	// fromjob/runtime, `runtime` means runtime input, `fromjob` means that it is obtained from the upstream build job
 	Source config.DeploySourceType `bson:"source"     yaml:"source"     json:"source"`

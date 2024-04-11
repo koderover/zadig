@@ -55,6 +55,20 @@ func (j *ScanningJob) SetPreset() error {
 		return err
 	}
 
+	for _, scanning := range j.spec.Scannings {
+		scanningInfo, err := commonrepo.NewScanningColl().Find(j.workflow.Project, scanning.Name)
+		if err != nil {
+			log.Errorf("find scanning: %s error: %v", scanning.Name, err)
+			continue
+		}
+		if err := fillScanningDetail(scanningInfo); err != nil {
+			log.Errorf("fill scanning: %s detail error: %v", scanningInfo.Name, err)
+			continue
+		}
+		scanning.Repos = mergeRepos(scanningInfo.Repos, scanning.Repos)
+		scanning.KeyVals = renderKeyVals(scanning.KeyVals, scanningInfo.Envs)
+	}
+	
 	j.job.Spec = j.spec
 	return nil
 }
