@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"strings"
 
+	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -294,8 +295,13 @@ func generateEnvDeployServiceInfo(env, project string, production bool, spec *co
 		}
 	}
 
+	svcKVsMap := map[string][]*commonmodels.ServiceKeyVal{}
+	deployServiceMap := map[string]*commonmodels.DeployServiceInfo{}
+
 	for _, svc := range spec.Services {
 		serviceKVSettingMap[svc.ServiceName] = svc.VariableConfigs
+		svcKVsMap[svc.ServiceName] = svc.KeyVals
+		deployServiceMap[svc.ServiceName] = svc
 	}
 
 	var serviceDefinitions []*commonmodels.Service
@@ -316,6 +322,16 @@ func generateEnvDeployServiceInfo(env, project string, production bool, spec *co
 
 	for _, service := range serviceDefinitions {
 		serviceDefinitionMap[service.ServiceName] = service
+	}
+
+	envServices, err := commonservice.ListServicesInEnv(env, project, svcKVsMap, log.SugaredLogger())
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to list envService, error: %s", err)
+	}
+
+	envServiceMap2 := map[string]*commonservice.EnvService{}
+	for _, service := range envServices.Services {
+		envServiceMap2[service.ServiceName] = service
 	}
 
 	/*
@@ -347,10 +363,15 @@ func generateEnvDeployServiceInfo(env, project string, production bool, spec *co
 			}
 		}
 
+		svcInfo, err := FilterServiceVars(service.ServiceName, spec.DeployContents, deployServiceMap[service.ServiceName], envServiceMap2[service.ServiceName])
+		if err != nil {
+			return nil, "", e.ErrFilterWorkflowVars.AddErr(err)
+		}
+
 		resp = append(resp, &commonmodels.DeployServiceInfo{
 			ServiceName:       service.ServiceName,
 			VariableKVs:       kvs,
-			LatestVariableKVs: service.GetServiceRender().OverrideYaml.RenderVariableKVs,
+			LatestVariableKVs: svcInfo.LatestVariableKVs,
 			VariableYaml:      service.VariableYaml,
 			UpdateConfig:      updateConfig,
 			Updatable:         service.Updatable,

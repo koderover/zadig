@@ -36,7 +36,6 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
-	"golang.org/x/exp/slices"
 	"gopkg.in/yaml.v3"
 	"gorm.io/gorm/utils"
 	"helm.sh/helm/v3/pkg/releaseutil"
@@ -64,7 +63,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/repository"
 	commomtemplate "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/template"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/webhook"
-	commontypes "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/types"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/job"
 	jobctl "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/job"
 	"github.com/koderover/zadig/v2/pkg/microservice/picket/client/opa"
@@ -2171,7 +2169,7 @@ func GetFilteredEnvServices(workflowName, jobName, envName string, serviceNames 
 	}
 
 	for _, serviceName := range serviceNames {
-		service, err := filterServiceVars(serviceName, jobSpec.DeployContents, deployServiceMap[serviceName], serviceMap[serviceName])
+		service, err := job.FilterServiceVars(serviceName, jobSpec.DeployContents, deployServiceMap[serviceName], serviceMap[serviceName])
 		if err != nil {
 			log.Error(err)
 			return resp, e.ErrFilterWorkflowVars.AddErr(err)
@@ -2696,50 +2694,6 @@ func checkMapKeyExist(m map[string]string, key string) bool {
 	}
 	_, ok := m[key]
 	return ok
-}
-
-func filterServiceVars(serviceName string, deployContents []config.DeployContent, service *commonmodels.DeployServiceInfo, serviceEnv *commonservice.EnvService) (*commonmodels.DeployServiceInfo, error) {
-	if serviceEnv == nil {
-		return service, fmt.Errorf("service: %v do not exist", serviceName)
-	}
-	defaultUpdateConfig := false
-	if slices.Contains(deployContents, config.DeployConfig) && serviceEnv.Updatable {
-		defaultUpdateConfig = true
-	}
-
-	keySet := sets.NewString()
-	if service == nil {
-		service = &commonmodels.DeployServiceInfo{}
-	} else {
-		for _, config := range service.VariableConfigs {
-			keySet = keySet.Insert(config.VariableKey)
-		}
-	}
-
-	service.VariableYaml = serviceEnv.VariableYaml
-	service.ServiceName = serviceName
-	service.Updatable = serviceEnv.Updatable
-	service.UpdateConfig = defaultUpdateConfig
-
-	service.VariableKVs = []*commontypes.RenderVariableKV{}
-	service.LatestVariableKVs = []*commontypes.RenderVariableKV{}
-
-	for _, svcVar := range serviceEnv.VariableKVs {
-		if keySet.Has(svcVar.Key) && !svcVar.UseGlobalVariable {
-			service.VariableKVs = append(service.VariableKVs, svcVar)
-		}
-	}
-	for _, svcVar := range serviceEnv.LatestVariableKVs {
-		if keySet.Has(svcVar.Key) && !svcVar.UseGlobalVariable {
-			service.LatestVariableKVs = append(service.LatestVariableKVs, svcVar)
-		}
-	}
-	if !slices.Contains(deployContents, config.DeployVars) {
-		service.VariableKVs = []*commontypes.RenderVariableKV{}
-		service.LatestVariableKVs = []*commontypes.RenderVariableKV{}
-	}
-
-	return service, nil
 }
 
 func getAllowedProjects(headers http.Header) ([]string, error) {
