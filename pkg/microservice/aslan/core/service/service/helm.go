@@ -1105,6 +1105,7 @@ func CreateOrUpdateHelmServiceFromGitRepo(projectName string, args *HelmServiceC
 					Branch:          repoArgs.Branch,
 					RepoLink:        repoLink,
 					Source:          source,
+					Production:      args.Production,
 				}, force,
 				log,
 			)

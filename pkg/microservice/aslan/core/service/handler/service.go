@@ -558,6 +558,7 @@ func HelmReleaseNaming(c *gin.Context) {
 	}
 
 	projectName := c.Query("projectName")
+	production := c.Query("production") == "true"
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -565,10 +566,25 @@ func HelmReleaseNaming(c *gin.Context) {
 			ctx.UnAuthorized = true
 			return
 		}
-		if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectName].Service.Edit {
-			ctx.UnAuthorized = true
-			return
+
+		if production {
+			if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectName].ProductionService.Edit {
+				ctx.UnAuthorized = true
+				return
+			}
+
+			err = commonutil.CheckZadigProfessionalLicense()
+			if err != nil {
+				ctx.Err = err
+				return
+			}
+		} else {
+			if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectName].Service.Edit {
+				ctx.UnAuthorized = true
+				return
+			}
 		}
 	}
 
@@ -583,7 +599,6 @@ func HelmReleaseNaming(c *gin.Context) {
 		return
 	}
 
-	production := c.Query("production") == "true"
 	detail := "项目管理-服务"
 	if production {
 		detail = "项目管理-生产服务"
@@ -591,14 +606,6 @@ func HelmReleaseNaming(c *gin.Context) {
 
 	bs, _ := json.Marshal(args)
 	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "修改", detail, args.ServiceName, string(bs), ctx.Logger)
-
-	if production {
-		err = commonutil.CheckZadigProfessionalLicense()
-		if err != nil {
-			ctx.Err = err
-			return
-		}
-	}
 
 	ctx.Err = svcservice.UpdateReleaseNamingRule(ctx.UserName, ctx.RequestID, projectName, args, production, ctx.Logger)
 }

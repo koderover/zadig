@@ -331,18 +331,25 @@ func CreateOrUpdateHelmService(c *gin.Context) {
 			ctx.UnAuthorized = true
 			return
 		}
-		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectKey].Service.Create {
-			ctx.UnAuthorized = true
-			return
-		}
-	}
 
-	if production {
-		err = commonutil.CheckZadigProfessionalLicense()
-		if err != nil {
-			ctx.Err = err
-			return
+		if production {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].ProductionService.Create {
+				ctx.UnAuthorized = true
+				return
+			}
+
+			err = commonutil.CheckZadigProfessionalLicense()
+			if err != nil {
+				ctx.Err = err
+				return
+			}
+		} else {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].Service.Create {
+				ctx.UnAuthorized = true
+				return
+			}
 		}
 	}
 
@@ -389,18 +396,25 @@ func UpdateHelmService(c *gin.Context) {
 			ctx.UnAuthorized = true
 			return
 		}
-		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectKey].Service.Edit {
-			ctx.UnAuthorized = true
-			return
-		}
-	}
 
-	if production {
-		err = commonutil.CheckZadigProfessionalLicense()
-		if err != nil {
-			ctx.Err = err
-			return
+		if production {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].ProductionService.Edit {
+				ctx.UnAuthorized = true
+				return
+			}
+
+			err = commonutil.CheckZadigProfessionalLicense()
+			if err != nil {
+				ctx.Err = err
+				return
+			}
+		} else {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].Service.Edit {
+				ctx.UnAuthorized = true
+				return
+			}
 		}
 	}
 
