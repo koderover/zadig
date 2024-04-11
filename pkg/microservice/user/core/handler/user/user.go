@@ -162,6 +162,9 @@ func ListUsers(c *gin.Context) {
 		return
 	}
 
+	fmt.Println(">>>>>>>>>>>>>", args.Page)
+	fmt.Println(">>>>>>>>>>>>>", args.PerPage)
+
 	if args.Page == 0 {
 		fmt.Println("FUCKYOU")
 		args.Page = 1
