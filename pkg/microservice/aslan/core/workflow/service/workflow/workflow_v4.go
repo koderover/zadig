@@ -1262,17 +1262,20 @@ func GetWebhookForWorkflowV4Preset(workflowName, triggerName string, logger *zap
 				return nil, e.ErrGetWebhook.AddDesc(errMsg)
 			}
 
-			// for some job we need to clear its selection field
-			if item.JobType == config.JobZadigBuild ||
-				item.JobType == config.JobIstioRelease ||
-				item.JobType == config.JobIstioRollback ||
-				item.JobType == config.JobZadigHelmChartDeploy ||
-				item.JobType == config.JobK8sBlueGreenDeploy ||
-				item.JobType == config.JobApollo ||
-				item.JobType == config.JobK8sCanaryDeploy {
-				if err := jobctl.ClearSelectionField(item, workflow); err != nil {
-					log.Errorf("cannot clear workflow %s selection for job %s, the error is: %v", workflowName, item.Name, err)
-					return nil, e.ErrPresetWorkflow.AddDesc(err.Error())
+			if triggerName == "" {
+				// for some job we need to clear its selection field
+				if item.JobType == config.JobZadigBuild ||
+					item.JobType == config.JobIstioRelease ||
+					item.JobType == config.JobIstioRollback ||
+					item.JobType == config.JobZadigHelmChartDeploy ||
+					item.JobType == config.JobK8sBlueGreenDeploy ||
+					item.JobType == config.JobApollo ||
+					item.JobType == config.JobK8sCanaryDeploy ||
+					item.JobType == config.JobK8sGrayRelease {
+					if err := jobctl.ClearSelectionField(item, workflow); err != nil {
+						log.Errorf("cannot clear workflow %s selection for job %s, the error is: %v", workflowName, item.Name, err)
+						return nil, e.ErrPresetWorkflow.AddDesc(err.Error())
+					}
 				}
 			}
 		}
@@ -1383,17 +1386,20 @@ func GetGeneralHookForWorkflowV4Preset(workflowName, hookName string, logger *za
 				return nil, e.ErrGetWebhook.AddDesc(errMsg)
 			}
 
-			// for some job we need to clear its selection field
-			if item.JobType == config.JobZadigBuild ||
-				item.JobType == config.JobIstioRelease ||
-				item.JobType == config.JobIstioRollback ||
-				item.JobType == config.JobZadigHelmChartDeploy ||
-				item.JobType == config.JobK8sBlueGreenDeploy ||
-				item.JobType == config.JobApollo ||
-				item.JobType == config.JobK8sCanaryDeploy {
-				if err := jobctl.ClearSelectionField(item, workflow); err != nil {
-					log.Errorf("cannot clear workflow %s selection for job %s, the error is: %v", workflowName, item.Name, err)
-					return nil, e.ErrPresetWorkflow.AddDesc(err.Error())
+			if hookName == "" {
+				// for some job we need to clear its selection field
+				if item.JobType == config.JobZadigBuild ||
+					item.JobType == config.JobIstioRelease ||
+					item.JobType == config.JobIstioRollback ||
+					item.JobType == config.JobZadigHelmChartDeploy ||
+					item.JobType == config.JobK8sBlueGreenDeploy ||
+					item.JobType == config.JobApollo ||
+					item.JobType == config.JobK8sCanaryDeploy ||
+					item.JobType == config.JobK8sGrayRelease {
+					if err := jobctl.ClearSelectionField(item, workflow); err != nil {
+						log.Errorf("cannot clear workflow %s selection for job %s, the error is: %v", workflowName, item.Name, err)
+						return nil, e.ErrPresetWorkflow.AddDesc(err.Error())
+					}
 				}
 			}
 		}
@@ -1566,17 +1572,20 @@ func GetJiraHookForWorkflowV4Preset(workflowName, hookName string, logger *zap.S
 				return nil, e.ErrGetWebhook.AddDesc(errMsg)
 			}
 
-			// for some job we need to clear its selection field
-			if item.JobType == config.JobZadigBuild ||
-				item.JobType == config.JobIstioRelease ||
-				item.JobType == config.JobIstioRollback ||
-				item.JobType == config.JobZadigHelmChartDeploy ||
-				item.JobType == config.JobK8sBlueGreenDeploy ||
-				item.JobType == config.JobApollo ||
-				item.JobType == config.JobK8sCanaryDeploy {
-				if err := jobctl.ClearSelectionField(item, workflow); err != nil {
-					log.Errorf("cannot clear workflow %s selection for job %s, the error is: %v", workflowName, item.Name, err)
-					return nil, e.ErrPresetWorkflow.AddDesc(err.Error())
+			if hookName == "" {
+				// for some job we need to clear its selection field
+				if item.JobType == config.JobZadigBuild ||
+					item.JobType == config.JobIstioRelease ||
+					item.JobType == config.JobIstioRollback ||
+					item.JobType == config.JobZadigHelmChartDeploy ||
+					item.JobType == config.JobK8sBlueGreenDeploy ||
+					item.JobType == config.JobApollo ||
+					item.JobType == config.JobK8sCanaryDeploy ||
+					item.JobType == config.JobK8sGrayRelease {
+					if err := jobctl.ClearSelectionField(item, workflow); err != nil {
+						log.Errorf("cannot clear workflow %s selection for job %s, the error is: %v", workflowName, item.Name, err)
+						return nil, e.ErrPresetWorkflow.AddDesc(err.Error())
+					}
 				}
 			}
 		}
@@ -1715,17 +1724,20 @@ func GetMeegoHookForWorkflowV4Preset(workflowName, hookName string, logger *zap.
 				return nil, e.ErrGetWebhook.AddDesc(errMsg)
 			}
 
-			// for some job we need to clear its selection field
-			if item.JobType == config.JobZadigBuild ||
-				item.JobType == config.JobIstioRelease ||
-				item.JobType == config.JobIstioRollback ||
-				item.JobType == config.JobZadigHelmChartDeploy ||
-				item.JobType == config.JobK8sBlueGreenDeploy ||
-				item.JobType == config.JobApollo ||
-				item.JobType == config.JobK8sCanaryDeploy {
-				if err := jobctl.ClearSelectionField(item, workflow); err != nil {
-					log.Errorf("cannot clear workflow %s selection for job %s, the error is: %v", workflowName, item.Name, err)
-					return nil, e.ErrPresetWorkflow.AddDesc(err.Error())
+			if hookName == "" {
+				// for some job we need to clear its selection field
+				if item.JobType == config.JobZadigBuild ||
+					item.JobType == config.JobIstioRelease ||
+					item.JobType == config.JobIstioRollback ||
+					item.JobType == config.JobZadigHelmChartDeploy ||
+					item.JobType == config.JobK8sBlueGreenDeploy ||
+					item.JobType == config.JobApollo ||
+					item.JobType == config.JobK8sCanaryDeploy ||
+					item.JobType == config.JobK8sGrayRelease {
+					if err := jobctl.ClearSelectionField(item, workflow); err != nil {
+						log.Errorf("cannot clear workflow %s selection for job %s, the error is: %v", workflowName, item.Name, err)
+						return nil, e.ErrPresetWorkflow.AddDesc(err.Error())
+					}
 				}
 			}
 		}
@@ -1974,17 +1986,20 @@ func GetCronForWorkflowV4Preset(workflowName, cronID string, logger *zap.Sugared
 				return nil, e.ErrGetWebhook.AddDesc(errMsg)
 			}
 
-			// for some job we need to clear its selection field
-			if item.JobType == config.JobZadigBuild ||
-				item.JobType == config.JobIstioRelease ||
-				item.JobType == config.JobIstioRollback ||
-				item.JobType == config.JobZadigHelmChartDeploy ||
-				item.JobType == config.JobK8sBlueGreenDeploy ||
-				item.JobType == config.JobApollo ||
-				item.JobType == config.JobK8sCanaryDeploy {
-				if err := jobctl.ClearSelectionField(item, workflow); err != nil {
-					log.Errorf("cannot clear workflow %s selection for job %s, the error is: %v", workflowName, item.Name, err)
-					return nil, e.ErrPresetWorkflow.AddDesc(err.Error())
+			if cronID == "" {
+				// for some job we need to clear its selection field
+				if item.JobType == config.JobZadigBuild ||
+					item.JobType == config.JobIstioRelease ||
+					item.JobType == config.JobIstioRollback ||
+					item.JobType == config.JobZadigHelmChartDeploy ||
+					item.JobType == config.JobK8sBlueGreenDeploy ||
+					item.JobType == config.JobApollo ||
+					item.JobType == config.JobK8sCanaryDeploy ||
+					item.JobType == config.JobK8sGrayRelease {
+					if err := jobctl.ClearSelectionField(item, workflow); err != nil {
+						log.Errorf("cannot clear workflow %s selection for job %s, the error is: %v", workflowName, item.Name, err)
+						return nil, e.ErrPresetWorkflow.AddDesc(err.Error())
+					}
 				}
 			}
 		}
