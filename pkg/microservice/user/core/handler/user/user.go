@@ -162,16 +162,11 @@ func ListUsers(c *gin.Context) {
 		return
 	}
 
-	fmt.Println(">>>>>>>>>>>>>", args.Page)
-	fmt.Println(">>>>>>>>>>>>>", args.PerPage)
-
 	if args.Page == 0 {
-		fmt.Println("FUCKYOU")
 		args.Page = 1
 	}
 
 	if args.PerPage == 0 {
-		fmt.Println("FUCKOFF")
 		args.PerPage = 200
 	}
 
@@ -268,6 +263,14 @@ func ListUsersBrief(c *gin.Context) {
 	if err := c.ShouldBindJSON(args); err != nil {
 		ctx.Err = err
 		return
+	}
+
+	if args.Page == 0 {
+		args.Page = 1
+	}
+
+	if args.PerPage == 0 {
+		args.PerPage = 200
 	}
 
 	var resp *types.UsersResp

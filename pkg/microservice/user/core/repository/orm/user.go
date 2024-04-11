@@ -17,8 +17,6 @@ limitations under the License.
 package orm
 
 import (
-	"fmt"
-
 	"github.com/koderover/zadig/v2/pkg/microservice/user/core/repository"
 	"gorm.io/gorm"
 
@@ -82,9 +80,6 @@ func ListAllUsers(db *gorm.DB) ([]*models.User, error) {
 
 // ListUsers gets a list of users based on paging constraints
 func ListUsers(page int, perPage int, name string, db *gorm.DB) ([]models.User, error) {
-	fmt.Println(">>>>>>>>>>>> page:", page)
-	fmt.Println(">>>>>>>>>>>> perPage:", perPage)
-	fmt.Println(">>>>>>>>>>>> name:", name)
 	var (
 		users []models.User
 		err   error
