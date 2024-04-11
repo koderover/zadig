@@ -339,9 +339,13 @@ func generateEnvDeployServiceInfo(env, project string, production bool, spec *co
 
 		kvs := make([]*commontypes.RenderVariableKV, 0)
 
+		fmt.Println("=================")
 		for _, kv := range service.GetServiceRender().OverrideYaml.RenderVariableKVs {
+			fmt.Println(">>>>>>>>>> searching for key: ", kv.Key)
 			for _, configKV := range serviceKVSettingMap[service.ServiceName] {
+				fmt.Println(">>>>>>>>>>>>>>>> scanned key: ", configKV.VariableKey)
 				if kv.Key == configKV.VariableKey {
+					fmt.Println(">>>>>>>>>>> found!")
 					kvs = append(kvs, kv)
 				}
 			}
