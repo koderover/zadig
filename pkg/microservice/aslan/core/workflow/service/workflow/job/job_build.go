@@ -679,21 +679,23 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 }
 
 func renderKeyVals(input, origin []*commonmodels.KeyVal) []*commonmodels.KeyVal {
-	for i, originKV := range origin {
+	resp := make([]*commonmodels.KeyVal, 0)
+
+	for _, originKV := range origin {
 		for _, inputKV := range input {
 			if originKV.Key == inputKV.Key {
-				fmt.Println("==================================")
-				fmt.Println(">>>>>>>>>> replaced key:", inputKV.Key)
-				fmt.Println(">>>>>>>>>> replaced value:", inputKV.Value)
-				fmt.Println(">>>>>>>>>> original value:", originKV.Value)
 				// always use origin credential config.
-				isCredential := originKV.IsCredential
-				origin[i] = inputKV
-				origin[i].IsCredential = isCredential
+				resp = append(resp, &commonmodels.KeyVal{
+					Key:          inputKV.Key,
+					Value:        inputKV.Value,
+					Type:         inputKV.Type,
+					IsCredential: originKV.IsCredential,
+				})
 			}
 		}
 	}
-	return origin
+
+	return resp
 }
 
 func renderRepos(input, origin []*types.Repository, kvs []*commonmodels.KeyVal) []*types.Repository {
