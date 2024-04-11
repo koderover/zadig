@@ -563,21 +563,21 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 					}
 
 					// filter variables that used global variable
-					filterdKV := []*commontypes.RenderVariableKV{}
+					filteredKV := []*commontypes.RenderVariableKV{}
 					for _, jobKV := range jobTaskSpec.VariableKVs {
 						svcKV, ok := svcRenderVarMap[jobKV.Key]
 						if !ok {
 							// deploy new variable
-							filterdKV = append(filterdKV, jobKV)
+							filteredKV = append(filteredKV, jobKV)
 							continue
 						}
 						// deploy existed variable
 						if svcKV.UseGlobalVariable {
 							continue
 						}
-						filterdKV = append(filterdKV, jobKV)
+						filteredKV = append(filteredKV, jobKV)
 					}
-					jobTaskSpec.VariableKVs = filterdKV
+					jobTaskSpec.VariableKVs = filteredKV
 				}
 				// if only deploy images, clear keyvals
 				if onlyDeployImage(j.spec.DeployContents) {
