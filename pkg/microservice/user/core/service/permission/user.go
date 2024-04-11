@@ -316,7 +316,7 @@ func SearchUsers(args *QueryArgs, logger *zap.SugaredLogger) (*types.UsersResp, 
 		logger.Errorf("SeachUsers ListUserLogins By uids:%s error, error msg:%s", uids, err.Error())
 		return nil, err
 	}
-	fmt.Println(">>>>>>>>>>>>>>> user login count:", len(users))
+	fmt.Println(">>>>>>>>>>>>>>> user login count:", len(*userLogins))
 	usersInfo := mergeUserLogin(users, *userLogins, logger)
 
 	for _, uInfo := range usersInfo {
