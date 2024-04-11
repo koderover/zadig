@@ -225,7 +225,7 @@ func GetWorkflowv4Preset(encryptedKey, workflowName, uid, username string, log *
 			}
 
 			// for some job we need to clear its selection field
-			if job.JobType == config.JobZadigBuild || job.JobType == config.JobIstioRelease || job.JobType == config.JobIstioRollback || job.JobType == config.JobZadigHelmChartDeploy || job.JobType == config.JobK8sBlueGreenDeploy {
+			if job.JobType == config.JobZadigBuild || job.JobType == config.JobIstioRelease || job.JobType == config.JobIstioRollback || job.JobType == config.JobZadigHelmChartDeploy || job.JobType == config.JobK8sBlueGreenDeploy || job.JobType == config.JobApollo {
 				if err := jobctl.ClearSelectionField(job, workflow); err != nil {
 					log.Errorf("cannot clear workflow %s selection for job %s, the error is: %v", workflowName, job.Name, err)
 					return nil, e.ErrPresetWorkflow.AddDesc(err.Error())

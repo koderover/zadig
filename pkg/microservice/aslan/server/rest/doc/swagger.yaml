@@ -395,6 +395,47 @@ definitions:
           $ref: '#/definitions/models.ResourceType'
         type: array
     type: object
+  models.ApolloJobSpec:
+    properties:
+      apolloID:
+        type: string
+      namespaceList:
+        items:
+          $ref: '#/definitions/models.ApolloNamespace'
+        type: array
+      namespaceListOption:
+        items:
+          $ref: '#/definitions/models.ApolloNamespace'
+        type: array
+    type: object
+  models.ApolloKV:
+    properties:
+      key:
+        type: string
+      val:
+        type: string
+    type: object
+  models.ApolloNamespace:
+    properties:
+      appID:
+        type: string
+      clusterID:
+        type: string
+      env:
+        type: string
+      kv:
+        items:
+          $ref: '#/definitions/models.ApolloKV'
+        type: array
+      namespace:
+        type: string
+      original_config:
+        items:
+          $ref: '#/definitions/models.ApolloKV'
+        type: array
+      type:
+        type: string
+    type: object
   models.BlueGreenDeployV2JobSpec:
     properties:
       env:
@@ -4598,6 +4639,26 @@ paths:
       summary: Get service variables
       tags:
       - environment
+  /api/aslan/placeholder/apollo_job_spec:
+    post:
+      consumes:
+      - application/json
+      description: '[DONT USE] ApolloJobSpec'
+      parameters:
+      - description: body
+        in: body
+        name: apollo_job_spec
+        required: true
+        schema:
+          $ref: '#/definitions/models.ApolloJobSpec'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: '[DONT USE]  ApolloJobSpec'
+      tags:
+      - placeholder
   /api/aslan/placeholder/blue_green_deploy_v2_jobSpec:
     post:
       consumes:

@@ -2093,6 +2093,37 @@
                 }
             }
         },
+        "/api/aslan/placeholder/apollo_job_spec": {
+            "post": {
+                "description": "[DONT USE] ApolloJobSpec",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "placeholder"
+                ],
+                "summary": "[DONT USE]  ApolloJobSpec",
+                "parameters": [
+                    {
+                        "description": "body",
+                        "name": "apollo_job_spec",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.ApolloJobSpec"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
         "/api/aslan/placeholder/blue_green_deploy_v2_jobSpec": {
             "post": {
                 "description": "[DONT USE] BlueGreenDeployV2JobSpec",
@@ -4960,6 +4991,69 @@
                     "items": {
                         "$ref": "#/definitions/models.ResourceType"
                     }
+                }
+            }
+        },
+        "models.ApolloJobSpec": {
+            "type": "object",
+            "properties": {
+                "apolloID": {
+                    "type": "string"
+                },
+                "namespaceList": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ApolloNamespace"
+                    }
+                },
+                "namespaceListOption": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ApolloNamespace"
+                    }
+                }
+            }
+        },
+        "models.ApolloKV": {
+            "type": "object",
+            "properties": {
+                "key": {
+                    "type": "string"
+                },
+                "val": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.ApolloNamespace": {
+            "type": "object",
+            "properties": {
+                "appID": {
+                    "type": "string"
+                },
+                "clusterID": {
+                    "type": "string"
+                },
+                "env": {
+                    "type": "string"
+                },
+                "kv": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ApolloKV"
+                    }
+                },
+                "namespace": {
+                    "type": "string"
+                },
+                "original_config": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ApolloKV"
+                    }
+                },
+                "type": {
+                    "type": "string"
                 }
             }
         },

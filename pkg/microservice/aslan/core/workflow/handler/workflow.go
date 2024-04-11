@@ -523,3 +523,15 @@ func Placeholder11(c *gin.Context) {
 func Placeholder12(c *gin.Context) {
 
 }
+
+// @Summary [DONT USE]  ApolloJobSpec
+// @Description [DONT USE] ApolloJobSpec
+// @Tags 	placeholder
+// @Accept 	json
+// @Produce json
+// @Param 	apollo_job_spec 			body 		 commonmodels.ApolloJobSpec	true 	"body"
+// @Success 200
+// @Router /api/aslan/placeholder/apollo_job_spec [post]
+func Placeholder13(c *gin.Context) {
+
+}
