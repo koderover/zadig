@@ -306,6 +306,7 @@ func SearchUsers(args *QueryArgs, logger *zap.SugaredLogger) (*types.UsersResp, 
 		logger.Errorf("SeachUsers SeachUsers By name:%s error, error msg:%s", args.Name, err.Error())
 		return nil, err
 	}
+	fmt.Println(">>>>>>>>>>>>>>> user count:", len(users))
 	var uids []string
 	for _, user := range users {
 		uids = append(uids, user.UID)
@@ -315,6 +316,7 @@ func SearchUsers(args *QueryArgs, logger *zap.SugaredLogger) (*types.UsersResp, 
 		logger.Errorf("SeachUsers ListUserLogins By uids:%s error, error msg:%s", uids, err.Error())
 		return nil, err
 	}
+	fmt.Println(">>>>>>>>>>>>>>> user login count:", len(users))
 	usersInfo := mergeUserLogin(users, *userLogins, logger)
 
 	for _, uInfo := range usersInfo {

@@ -617,7 +617,6 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 
 	serviceMap := map[string]*commonmodels.DeployServiceInfo{}
 	for _, service := range j.spec.Services {
-		fmt.Println(".>>>>>>>>>>>>>>>>>>> writing service:", service.ServiceName)
 		serviceMap[service.ServiceName] = service
 	}
 
@@ -799,9 +798,6 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			for _, module := range svc.Modules {
 				service := serviceMap[svc.ServiceName]
 				if service != nil {
-					fmt.Println(">>>>>>>>>>>>>>>>> service:", service.ServiceName)
-					fmt.Println(">>>>>>>>>>>>>>>>> variable:", service.VariableYaml)
-					fmt.Println(">>>>>>>>>>>>>>>>>:")
 					jobTaskSpec.UpdateConfig = service.UpdateConfig
 					jobTaskSpec.KeyVals = service.KeyVals
 					jobTaskSpec.VariableYaml = service.VariableYaml
