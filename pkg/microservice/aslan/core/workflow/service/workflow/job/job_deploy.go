@@ -368,7 +368,41 @@ func generateEnvDeployServiceInfo(env, project string, production bool, spec *co
 		return nil, "", fmt.Errorf("failed to find fixed env: %s in environments, error: %s", env, err)
 	}
 
+	projectInfo, err := templaterepo.NewProductColl().Find(project)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to find project %s, err: %v", project, err)
+	}
+
 	envServiceMap := envInfo.GetServiceMap()
+
+	if projectInfo.IsHostProduct() {
+		for _, service := range envServiceMap {
+			modules := make([]*commonmodels.DeployModuleInfo, 0)
+			for _, module := range service.Containers {
+				modules = append(modules, &commonmodels.DeployModuleInfo{
+					ServiceModule: module.Name,
+					Image:         module.Image,
+					ImageName:     commonutil.ExtractImageName(module.Image),
+				})
+			}
+
+			kvs := make([]*commontypes.RenderVariableKV, 0)
+
+			resp = append(resp, &commonmodels.DeployServiceInfo{
+				ServiceName:       service.ServiceName,
+				VariableKVs:       kvs,
+				LatestVariableKVs: make([]*commontypes.RenderVariableKV, 0),
+				VariableYaml:      service.VariableYaml,
+				UpdateConfig:      false,
+				Updatable:         false,
+				Deployed:          true,
+				Modules:           modules,
+			})
+
+			return resp, envInfo.RegistryID, nil
+		}
+	}
+
 	serviceDefinitionMap := make(map[string]*commonmodels.Service)
 	serviceKVSettingMap := make(map[string][]*commonmodels.DeployVariableConfig)
 
