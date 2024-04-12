@@ -253,7 +253,9 @@ func compareServicesRev(serviceTmplNames []string, productServices []*commonmode
 	serviceRevs := make([]*SvcRevision, 0)
 
 	productServiceMap := make(map[string]*commonmodels.ProductService)
+	log.Debugf("len(productServices): %d", len(productServices))
 	for _, service := range productServices {
+		log.Debugf("productService: %+v", service)
 		productServiceMap[service.ServiceName] = service
 	}
 
@@ -337,7 +339,7 @@ func compareServicesRev(serviceTmplNames []string, productServices []*commonmode
 				Revision:    serviceRev.CurrentRevision,
 			}, productInfo.Production)
 			if err != nil {
-				log.Errorf("Failed to query template productService, %s:%s/%d, Error: %v", productInfo.ProductName, productService.ServiceName, productService.Revision, err)
+				log.Errorf("Failed to query template service, %s:%s/%d, Error: %v", productInfo.ProductName, productService.ServiceName, serviceRev.CurrentRevision, err)
 				return serviceRevs, err
 			}
 
