@@ -93,7 +93,7 @@ func (s *TarArchiveStep) Run(ctx context.Context) error {
 		artifactPath := filepath.Join(s.workspace, artifactPath)
 		isDir, err := fs.IsDir(artifactPath)
 		if err != nil || !isDir {
-			s.logger.Errorf("artifactPath is not exist  %s err: %s", artifactPath, err)
+			s.logger.Errorf("artifactPath is not exist %s or is not dir, err: %s", artifactPath, err)
 			continue
 		}
 		cmdAndArtifactFullPaths = append(cmdAndArtifactFullPaths, artifactPath)

@@ -1749,7 +1749,7 @@ func parseHelmProjectServices(ctx context.Context, restConfig *rest.Config, env 
 		serviceMap := env.GetServiceMap()
 		prodSvc, ok := serviceMap[serviceName]
 		if !ok {
-			return nil, fmt.Errorf("failed to find sercice %s in env %s", serviceName, envName)
+			return nil, fmt.Errorf("failed to find service %s in env %s", serviceName, envName)
 		}
 
 		revisionSvc, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{

@@ -1462,6 +1462,7 @@ func GetWorkflowV4ArtifactFileContent(workflowName, jobName string, taskID int64
 			if job.JobType != string(config.JobZadigTesting) {
 				return []byte{}, fmt.Errorf("job: %s was not a testing job", jobName)
 			}
+
 			jobTask = job
 		}
 	}
