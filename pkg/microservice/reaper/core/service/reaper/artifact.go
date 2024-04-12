@@ -62,7 +62,7 @@ func artifactsUpload(ctx *meta.Context, activeWorkspace string, artifactPaths []
 			artifactPath := filepath.Join(activeWorkspace, artifactPath)
 			isDir, err := fs.IsDir(artifactPath)
 			if err != nil || !isDir {
-				log.Errorf("artifactPath is not exist  %s err: %s", artifactPath, err)
+				log.Errorf("artifactPath is not exist %s or is not dir, err: %s", artifactPath, err)
 				continue
 			}
 			cmdAndArtifactFullPaths = append(cmdAndArtifactFullPaths, artifactPath)
