@@ -309,15 +309,35 @@ func GetTestTaskDetail(projectKey, testName string, taskID int64, log *zap.Sugar
 		return nil, err
 	}
 
+	jobSpec := &commonmodels.JobTaskFreestyleSpec{}
+	if err := commonmodels.IToi(workflowTask.Stages[0].Jobs[0].Spec, jobSpec); err != nil {
+		return nil, fmt.Errorf("unmashal job spec error: %v", err)
+	}
+	isHasArtifact := false
+	jobName := ""
+	for _, step := range jobSpec.Steps {
+		if step.Name != config.TestJobArchiveResultStepName {
+			continue
+		}
+		if step.StepType != config.StepTarArchive {
+			return nil, fmt.Errorf("step: %s was not a junit report step", step.Name)
+		}
+		isHasArtifact = true
+		jobName = step.JobName
+		break
+	}
+
 	subTaskInfo[testName] = map[string]interface{}{
 		"start_time": workflowTask.Stages[0].Jobs[0].StartTime,
 		"end_time":   workflowTask.Stages[0].Jobs[0].EndTime,
 		"status":     workflowTask.Stages[0].Jobs[0].Status,
 		"job_ctx": struct {
+			JobName       string              `json:"job_name"`
 			IsHasArtifact bool                `json:"is_has_artifact"`
 			Builds        []*types.Repository `json:"builds"`
 		}{
-			spec.Archive,
+			jobName,
+			isHasArtifact,
 			args.TestModules[0].Repos,
 		},
 		"report_ready": reportReady,

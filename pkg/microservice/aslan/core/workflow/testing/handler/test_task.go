@@ -313,6 +313,7 @@ func GetTestingTaskArtifact(c *gin.Context) {
 
 	projectKey := c.Query("projectName")
 	testName := c.Query("testName")
+	jobName := c.Query("jobName")
 	taskIDStr := c.Query("taskID")
 
 	// authorization check
@@ -337,7 +338,7 @@ func GetTestingTaskArtifact(c *gin.Context) {
 
 	workflowName := fmt.Sprintf(setting.TestWorkflowNamingConvention, testName)
 
-	resp, err := workflowservice.GetWorkflowV4ArtifactFileContent(workflowName, testName, taskID, ctx.Logger)
+	resp, err := workflowservice.GetWorkflowV4ArtifactFileContent(workflowName, jobName, taskID, ctx.Logger)
 	if err != nil {
 		ctx.Err = err
 		return
