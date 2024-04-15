@@ -60,8 +60,9 @@ func (c *EnvVersionColl) EnsureIndex(ctx context.Context) error {
 				bson.E{Key: "production", Value: 1},
 				bson.E{Key: "service.service_name", Value: 1},
 				bson.E{Key: "service.release_name", Value: 1},
+				bson.E{Key: "service.type", Value: 1},
 			},
-			Options: options.Index().SetUnique(false).SetName("idx_service"),
+			Options: options.Index().SetUnique(false).SetName("idx_service_1"),
 		},
 		{
 			Keys: bson.D{
@@ -70,11 +71,15 @@ func (c *EnvVersionColl) EnsureIndex(ctx context.Context) error {
 				bson.E{Key: "production", Value: 1},
 				bson.E{Key: "service.service_name", Value: 1},
 				bson.E{Key: "service.release_name", Value: 1},
+				bson.E{Key: "service.type", Value: 1},
 				bson.E{Key: "revision", Value: 1},
 			},
-			Options: options.Index().SetUnique(true).SetName("idx_service_revision"),
+			Options: options.Index().SetUnique(true).SetName("idx_service_revision_1"),
 		},
 	}
+
+	_, _ = c.Indexes().DropOne(ctx, "idx_service")
+	_, _ = c.Indexes().DropOne(ctx, "idx_service_revision")
 
 	_, err := c.Indexes().CreateMany(ctx, mod)
 
