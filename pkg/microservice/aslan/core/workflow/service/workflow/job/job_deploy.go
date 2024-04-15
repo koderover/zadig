@@ -231,7 +231,7 @@ func (j *DeployJob) SetPreset() error {
 	} else if j.spec.Source == config.SourceRuntime {
 		envName := strings.ReplaceAll(j.spec.Env, setting.FixedValueMark, "")
 
-		serviceDeployOption, _, err := generateEnvDeployServiceInfo(envName, j.workflow.Project, j.spec.Production, j.spec)
+		serviceDeployOption, _, err := generateEnvDeployServiceInfo(j.workflow.Name, envName, j.workflow.Project, j.job.Name, j.spec.Production)
 		if err != nil {
 			log.Errorf("failed to generate service deployment info for env: %s, error: %s", envName, err)
 			return err
@@ -308,7 +308,7 @@ func (j *DeployJob) SetOptions() error {
 		// if the env is fixed, we put the env in the option
 		envName := strings.ReplaceAll(j.spec.Env, setting.FixedValueMark, "")
 
-		serviceInfo, registryID, err := generateEnvDeployServiceInfo(envName, j.workflow.Project, j.spec.Production, j.spec)
+		serviceInfo, registryID, err := generateEnvDeployServiceInfo(j.workflow.Name, envName, j.workflow.Project, j.job.Name, j.spec.Production)
 		if err != nil {
 			log.Errorf("failed to generate service deployment info for env: %s, error: %s", envName, err)
 			return err
@@ -337,7 +337,7 @@ func (j *DeployJob) SetOptions() error {
 				continue
 			}
 
-			serviceDeployOption, registryID, err := generateEnvDeployServiceInfo(env.EnvName, j.workflow.Project, j.spec.Production, j.spec)
+			serviceDeployOption, registryID, err := generateEnvDeployServiceInfo(j.workflow.Name, env.EnvName, j.workflow.Project, j.job.Name, j.spec.Production)
 			if err != nil {
 				log.Errorf("failed to generate service deployment info for env: %s, error: %s", env.EnvName, err)
 				return err
@@ -356,7 +356,30 @@ func (j *DeployJob) SetOptions() error {
 	return nil
 }
 
-func generateEnvDeployServiceInfo(env, project string, production bool, spec *commonmodels.ZadigDeployJobSpec) ([]*commonmodels.DeployServiceInfo, string, error) {
+func generateEnvDeployServiceInfo(workflowName, env, project, jobName string, production bool) ([]*commonmodels.DeployServiceInfo, string, error) {
+	originalWorkflow, err := commonrepo.NewWorkflowV4Coll().Find(workflowName)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to find original workflow to generate env deploy service info, err: %s", err)
+	}
+
+	originalSpec := new(commonmodels.ZadigDeployJobSpec)
+	found := false
+	for _, stage := range originalWorkflow.Stages {
+		if !found {
+			for _, job := range stage.Jobs {
+				if job.Name == jobName && job.JobType == config.JobZadigDeploy {
+					if err := commonmodels.IToi(job.Spec, originalSpec); err != nil {
+						return nil, "", fmt.Errorf("failed to decode original job config, error: %s", err)
+					}
+					found = true
+					break
+				}
+			}
+		} else {
+			break
+		}
+	}
+
 	resp := make([]*commonmodels.DeployServiceInfo, 0)
 	envInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
 		Name:       project,
@@ -406,7 +429,7 @@ func generateEnvDeployServiceInfo(env, project string, production bool, spec *co
 	serviceKVSettingMap := make(map[string][]*commonmodels.DeployVariableConfig)
 
 	updateConfig := false
-	for _, contents := range spec.DeployContents {
+	for _, contents := range originalSpec.DeployContents {
 		if contents == config.DeployVars {
 			updateConfig = true
 		}
@@ -415,7 +438,7 @@ func generateEnvDeployServiceInfo(env, project string, production bool, spec *co
 	svcKVsMap := map[string][]*commonmodels.ServiceKeyVal{}
 	deployServiceMap := map[string]*commonmodels.DeployServiceInfo{}
 
-	for _, svc := range spec.Services {
+	for _, svc := range originalSpec.Services {
 		serviceKVSettingMap[svc.ServiceName] = svc.VariableConfigs
 		svcKVsMap[svc.ServiceName] = svc.KeyVals
 		deployServiceMap[svc.ServiceName] = svc
@@ -480,7 +503,7 @@ func generateEnvDeployServiceInfo(env, project string, production bool, spec *co
 			}
 		}
 
-		svcInfo, err := FilterServiceVars(service.ServiceName, spec.DeployContents, deployServiceMap[service.ServiceName], envServiceMap2[service.ServiceName])
+		svcInfo, err := FilterServiceVars(service.ServiceName, originalSpec.DeployContents, deployServiceMap[service.ServiceName], envServiceMap2[service.ServiceName])
 		if err != nil {
 			return nil, "", e.ErrFilterWorkflowVars.AddErr(err)
 		}
