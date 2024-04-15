@@ -113,6 +113,7 @@ func (j *IstioReleaseJob) MergeArgs(args *commonmodels.Job) error {
 		if err := commonmodels.IToi(args.Spec, argsSpec); err != nil {
 			return err
 		}
+		j.spec.Targets = argsSpec.Targets
 		j.job.Spec = j.spec
 	}
 	return nil
