@@ -27,6 +27,7 @@ import (
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/v2/pkg/setting"
 	mongotool "github.com/koderover/zadig/v2/pkg/tool/mongo"
 )
 
@@ -90,6 +91,7 @@ func (c *EnvVersionColl) Find(productName, envName, serviceName string, isHelmCh
 
 	if isHelmChart {
 		query["service.release_name"] = serviceName
+		query["service.type"] = setting.HelmChartDeployType
 	} else {
 		query["service.service_name"] = serviceName
 	}
@@ -108,6 +110,7 @@ func (c *EnvVersionColl) GetCountAndMaxRevision(productName, envName, serviceNam
 	if isHelmChart {
 		delete(match, "service.service_name")
 		match["service.release_name"] = serviceName
+		match["service.type"] = setting.HelmChartDeployType
 	}
 
 	pipeline := []bson.M{
@@ -153,6 +156,7 @@ func (c *EnvVersionColl) ListServiceVersions(productName, envName, serviceName s
 
 	if isHelmChart {
 		query["service.release_name"] = serviceName
+		query["service.type"] = setting.HelmChartDeployType
 	} else {
 		query["service.service_name"] = serviceName
 	}
@@ -181,6 +185,7 @@ func (c *EnvVersionColl) DeleteRevisions(productName, envName, serviceName strin
 
 	if isHelmChart {
 		query["service.release_name"] = serviceName
+		query["service.type"] = setting.HelmChartDeployType
 	} else {
 		query["service.service_name"] = serviceName
 	}
