@@ -210,6 +210,7 @@ func (j *BuildJob) SetOptions() error {
 		}
 		for _, target := range buildInfo.Targets {
 			if target.ServiceName == build.ServiceName && target.ServiceModule == build.ServiceModule {
+				fmt.Printf(">>>>>>>>>>>>>>>>>>>>>>>> fuck rendering service:%s, module: %s <<<<<<<<<<<<<<<\n", target.ServiceName, target.ServiceModule)
 				build.Repos = mergeRepos(buildInfo.Repos, build.Repos)
 				build.KeyVals = renderKeyVals(build.KeyVals, buildInfo.PreBuild.Envs)
 				break
@@ -687,6 +688,7 @@ func renderKeyVals(input, origin []*commonmodels.KeyVal) []*commonmodels.KeyVal 
 		for _, inputKV := range input {
 			fmt.Println("input key:", inputKV.Key)
 			if originKV.Key == inputKV.Key {
+				fmt.Printf("adding key: %s into the rendered KV\n", inputKV.Key)
 				// always use origin credential config.
 				resp = append(resp, &commonmodels.KeyVal{
 					Key:          inputKV.Key,
