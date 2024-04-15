@@ -102,6 +102,7 @@ func (j *BuildJob) SetPreset() error {
 		}
 		for _, target := range buildInfo.Targets {
 			if target.ServiceName == build.ServiceName && target.ServiceModule == build.ServiceModule {
+				fmt.Println("building stuff for service:", target.ServiceName, ", module:", target.ServiceModule)
 				build.Repos = mergeRepos(buildInfo.Repos, build.Repos)
 				build.KeyVals = renderKeyVals(build.KeyVals, buildInfo.PreBuild.Envs)
 				break
