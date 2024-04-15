@@ -68,7 +68,7 @@ func (j *ScanningJob) SetPreset() error {
 		scanning.Repos = mergeRepos(scanningInfo.Repos, scanning.Repos)
 		scanning.KeyVals = renderKeyVals(scanning.KeyVals, scanningInfo.Envs)
 	}
-	
+
 	j.job.Spec = j.spec
 	return nil
 }
@@ -115,6 +115,7 @@ func (j *ScanningJob) MergeArgs(args *commonmodels.Job) error {
 			for _, argsScanning := range argsSpec.Scannings {
 				if scanning.Name == argsScanning.Name {
 					scanning.Repos = mergeRepos(scanning.Repos, argsScanning.Repos)
+					scanning.KeyVals = renderKeyVals(argsScanning.KeyVals, scanning.KeyVals)
 					break
 				}
 			}
