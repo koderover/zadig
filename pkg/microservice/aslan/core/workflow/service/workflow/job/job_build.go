@@ -690,6 +690,7 @@ func renderKeyVals(input, origin []*commonmodels.KeyVal) []*commonmodels.KeyVal 
 					Value:        inputKV.Value,
 					Type:         inputKV.Type,
 					IsCredential: originKV.IsCredential,
+					ChoiceOption: originKV.ChoiceOption,
 				})
 			}
 		}

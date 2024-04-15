@@ -438,6 +438,7 @@ func buildDetailedRelease(deliveryVersion *commonmodels.DeliveryVersion, filterO
 	// k8s yaml version uses deploy info to store version info.
 	for _, deploy := range releaseInfo.DeployInfo {
 		deploy.ImageName = util.ExtractImageName(deploy.Image)
+		deploy.ServiceModule = deploy.ContainerName
 	}
 
 	return releaseInfo, nil

@@ -144,7 +144,7 @@ func (j *FreeStyleJob) MergeArgs(args *commonmodels.Job) error {
 		if err := commonmodels.IToi(args.Spec, argsSpec); err != nil {
 			return err
 		}
-		j.spec.Properties.Envs = renderKeyVals(j.spec.Properties.Envs, argsSpec.Properties.Envs)
+		j.spec.Properties.Envs = renderKeyVals(argsSpec.Properties.Envs, j.spec.Properties.Envs)
 
 		for _, step := range j.spec.Steps {
 			if step.StepType != config.StepGit {
