@@ -18,6 +18,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -29,6 +30,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	approvalservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/approval"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/job"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/shared/client/user"
 	"github.com/koderover/zadig/v2/pkg/shared/handler"
@@ -131,7 +133,45 @@ func ListReleasePlans(pageNum, pageSize int64) (*ListReleasePlanResp, error) {
 }
 
 func GetReleasePlan(id string) (*models.ReleasePlan, error) {
-	return mongodb.NewReleasePlanColl().GetByID(context.Background(), id)
+	releasePlan, err := mongodb.NewReleasePlanColl().GetByID(context.Background(), id)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, releasePlanJob := range releasePlan.Jobs {
+		spec := new(models.WorkflowReleaseJobSpec)
+		if err := models.IToi(releasePlanJob.Spec, spec); err != nil {
+			return nil, fmt.Errorf("invalid spec for job: %s. decode error: %s", releasePlanJob.Name, err)
+		}
+		if spec.Workflow == nil {
+			return nil, fmt.Errorf("workflow is nil")
+		}
+
+		originalWorkflow, err := mongodb.NewWorkflowV4Coll().Find(spec.Workflow.Name)
+		if err != nil {
+			log.Errorf("Failed to find WorkflowV4: %s, the error is: %v", spec.Workflow.Name, err)
+			return nil, fmt.Errorf("failed to find WorkflowV4: %s, the error is: %v", spec.Workflow.Name, err)
+		}
+
+		if err := job.MergeArgs(originalWorkflow, spec.Workflow); err != nil {
+			errMsg := fmt.Sprintf("merge workflow args error: %v", err)
+			log.Error(errMsg)
+			return nil, fmt.Errorf(errMsg)
+		}
+
+		for _, stage := range originalWorkflow.Stages {
+			for _, item := range stage.Jobs {
+				err := job.SetOptions(item, originalWorkflow)
+				if err != nil {
+					errMsg := fmt.Sprintf("merge workflow args set options error: %v", err)
+					log.Error(errMsg)
+					return nil, fmt.Errorf(errMsg)
+				}
+			}
+		}
+	}
+
+	return releasePlan, nil
 }
 
 func GetReleasePlanLogs(id string) ([]*models.ReleasePlanLog, error) {
