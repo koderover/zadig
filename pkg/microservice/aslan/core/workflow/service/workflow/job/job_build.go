@@ -682,7 +682,9 @@ func renderKeyVals(input, origin []*commonmodels.KeyVal) []*commonmodels.KeyVal 
 	resp := make([]*commonmodels.KeyVal, 0)
 
 	for _, originKV := range origin {
+		fmt.Println("original key:", originKV.Key)
 		for _, inputKV := range input {
+			fmt.Println("input key:", inputKV.Key)
 			if originKV.Key == inputKV.Key {
 				// always use origin credential config.
 				resp = append(resp, &commonmodels.KeyVal{
@@ -695,7 +697,7 @@ func renderKeyVals(input, origin []*commonmodels.KeyVal) []*commonmodels.KeyVal 
 			}
 		}
 	}
-
+	fmt.Println(">>>>>>>>>> done.... <<<<<<<<<<<<")
 	return resp
 }
 
