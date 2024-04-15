@@ -88,6 +88,7 @@ func (c *CronClient) UpsertEnvServiceScheduler(log *zap.SugaredLogger) {
 					}
 				}
 				c.lastSchedulersRWMutex.Unlock()
+				log.Infof("[%s] deleted service scheduler..", key)
 				continue
 			}
 
@@ -120,15 +121,19 @@ func (c *CronClient) UpsertEnvServiceScheduler(log *zap.SugaredLogger) {
 					c.SchedulersRWMutex.Unlock()
 
 					newScheduler := gocron.NewScheduler()
-					BuildScheduledEnvJob(newScheduler, healthCheck).Do(c.RunScheduledService, svc, healthCheck, envStatus.Address, env.EnvName, envStatus.HostID, log)
+					err = BuildScheduledEnvJob(newScheduler, healthCheck).Do(c.RunScheduledService, svc, healthCheck, envStatus.Address, env.EnvName, envStatus.HostID, log)
+					if err != nil {
+						log.Errorf("BuildScheduledEnvJob Do key: %s, error: %v", key, err)
+					}
 					c.SchedulersRWMutex.Lock()
 					c.Schedulers[key] = newScheduler
 					c.SchedulersRWMutex.Unlock()
 
-					log.Infof("[%s] service schedulers..", key)
 					c.SchedulerControllerRWMutex.Lock()
 					c.SchedulerController[key] = c.Schedulers[key].Start()
 					c.SchedulerControllerRWMutex.Unlock()
+
+					log.Infof("[%s] added service scheduler..", key)
 				}
 			}
 			break
@@ -137,7 +142,10 @@ func (c *CronClient) UpsertEnvServiceScheduler(log *zap.SugaredLogger) {
 }
 
 func (c *CronClient) RunScheduledService(svc *service.Service, healthCheck *service.PmHealthCheck, address, envName, hostID string, log *zap.SugaredLogger) {
-	log.Infof("[%s]start to Run ScheduledService...", svc.ServiceName)
+	key := "service-" + svc.ServiceName + "-" + svc.ProductName + "-" + setting.PMDeployType + "-" +
+		envName + "-" + hostID + "-" + healthCheck.Protocol + "-" + strconv.Itoa(healthCheck.Port) + "-" + healthCheck.Path
+	log.Infof("[%s] start to Run ScheduledService...", key)
+
 	var (
 		message   string
 		err       error
@@ -146,7 +154,7 @@ func (c *CronClient) RunScheduledService(svc *service.Service, healthCheck *serv
 
 	for i := 0; i < MaxProbeRetries; i++ {
 		if message, err = runProbe(healthCheck, address, log); err == nil {
-			log.Infof("address %s runProbe message:[%s]", address, message)
+			log.Infof("[%s] address %s runProbe message:[%s]", key, address, message)
 			break
 		}
 	}
@@ -211,9 +219,9 @@ func (c *CronClient) RunScheduledService(svc *service.Service, healthCheck *serv
 		EnvStatuses: svc.EnvStatuses,
 		Username:    "system",
 	}, log); err != nil {
-		log.Errorf("UpdateService err:%v", err)
+		log.Errorf("UpdateService key %s, err: %v", key, err)
 	} else {
-		log.Infof("ready to UpdateService serviceName:%s，revision:%d，envName:%s，address:%s，status:%s, envStatus count: %v", svc.ServiceName, svc.Revision, envStatus.EnvName, envStatus.Address, envStatus.Status, len(svc.EnvStatuses))
+		log.Infof("ready to UpdateService projectName:%s, serviceName:%s, revision:%d, envName:%s, address:%s, status:%s, envStatus count: %v", svc.ProductName, svc.ServiceName, svc.Revision, envStatus.EnvName, envStatus.Address, envStatus.Status, len(svc.EnvStatuses))
 	}
 }
 
