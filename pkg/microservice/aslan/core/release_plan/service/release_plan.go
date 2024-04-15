@@ -412,7 +412,7 @@ func ApproveReleasePlan(c *handler.Context, planID string, req *ApproveRequest) 
 	}
 
 	plan.Approval.NativeApproval = approval
-	approved, _, err := approvalservice.GlobalApproveMap.IsApproval(approvalKey)
+	approved, _, _, err := approvalservice.GlobalApproveMap.IsApproval(approvalKey)
 	if err != nil {
 		plan.Approval.Status = config.StatusReject
 	}
