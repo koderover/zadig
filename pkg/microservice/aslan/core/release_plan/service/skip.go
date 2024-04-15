@@ -40,7 +40,7 @@ type SkipReleaseJobContext struct {
 func NewReleaseJobSkipper(c *SkipReleaseJobContext, args *SkipReleaseJobArgs) (ReleaseJobSkipper, error) {
 	switch config.ReleasePlanJobType(args.Type) {
 	case config.JobText:
-		return nil, errors.Errorf("Text job doesn't support skip")
+		return NewTextReleaseJobSkipper(c, args)
 	case config.JobWorkflow:
 		return NewWorkflowReleaseJobSkipper(c, args)
 	default:
@@ -82,6 +82,44 @@ func (e *WorkflowReleaseJobSkipper) Skip(plan *models.ReleasePlan) error {
 
 		job.Status = config.ReleasePlanJobStatusSkipped
 		job.ExecutedBy = e.Ctx.Account
+		job.ExecutedTime = time.Now().Unix()
+		return nil
+	}
+	return errors.Errorf("job %s not found", e.ID)
+}
+
+type TextReleaseJobSkipper struct {
+	ID        string
+	SkippedBy string
+	Spec      TextReleaseJobSpec
+}
+
+func NewTextReleaseJobSkipper(c *SkipReleaseJobContext, args *SkipReleaseJobArgs) (ReleaseJobSkipper, error) {
+	var executor TextReleaseJobSkipper
+	if err := models.IToi(args.Spec, &executor.Spec); err != nil {
+		return nil, errors.Wrap(err, "invalid spec")
+	}
+	executor.ID = args.ID
+	executor.SkippedBy = c.UserName
+	return &executor, nil
+}
+
+func (e *TextReleaseJobSkipper) Skip(plan *models.ReleasePlan) error {
+	spec := new(models.TextReleaseJobSpec)
+	for _, job := range plan.Jobs {
+		if job.ID != e.ID {
+			continue
+		}
+		if err := models.IToi(job.Spec, spec); err != nil {
+			return errors.Wrap(err, "invalid spec")
+		}
+		if job.Status != config.ReleasePlanJobStatusTodo {
+			return errors.Errorf("job %s status is not todo", job.Name)
+		}
+		spec.Remark = e.Spec.Remark
+		job.Spec = spec
+		job.Status = config.ReleasePlanJobStatusSkipped
+		job.ExecutedBy = e.SkippedBy
 		job.ExecutedTime = time.Now().Unix()
 		return nil
 	}

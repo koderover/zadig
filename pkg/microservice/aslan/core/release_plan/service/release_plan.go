@@ -336,9 +336,11 @@ func SkipReleaseJob(c *handler.Context, planID string, args *SkipReleaseJobArgs)
 	plan.UpdatedBy = c.UserName
 	plan.UpdateTime = time.Now().Unix()
 
-	plan.ExecutingTime = time.Now().Unix()
-	plan.SuccessTime = time.Now().Unix()
-	plan.Status = config.StatusSuccess
+	if checkReleasePlanJobsAllDone(plan) {
+		plan.ExecutingTime = time.Now().Unix()
+		plan.SuccessTime = time.Now().Unix()
+		plan.Status = config.StatusSuccess
+	}
 
 	if err = mongodb.NewReleasePlanColl().UpdateByID(ctx, planID, plan); err != nil {
 		return errors.Wrap(err, "update plan")
@@ -578,7 +580,7 @@ func clearApprovalData(approval *models.Approval) error {
 
 func checkReleasePlanJobsAllDone(plan *models.ReleasePlan) bool {
 	for _, job := range plan.Jobs {
-		if job.Status != config.ReleasePlanJobStatusDone {
+		if job.Status != config.ReleasePlanJobStatusDone && job.Status != config.ReleasePlanJobStatusSkipped {
 			return false
 		}
 	}
