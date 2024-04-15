@@ -260,7 +260,7 @@ func (j *DeployJob) SetPreset() error {
 					}
 				}
 
-				svcResp = append(svcResp, &commonmodels.DeployServiceInfo{
+				item := &commonmodels.DeployServiceInfo{
 					ServiceName:       svc.ServiceName,
 					VariableConfigs:   svc.VariableConfigs,
 					VariableKVs:       svc.VariableKVs,
@@ -272,7 +272,13 @@ func (j *DeployJob) SetPreset() error {
 					Modules:           selectedModules,
 					KeyVals:           svc.KeyVals,
 					LatestKeyVals:     svc.LatestKeyVals,
-				})
+				}
+
+				if !item.Updatable {
+					item.UpdateConfig = false
+				}
+
+				svcResp = append(svcResp, item)
 			}
 		}
 
@@ -508,7 +514,7 @@ func generateEnvDeployServiceInfo(workflowName, env, project, jobName string, pr
 			return nil, "", e.ErrFilterWorkflowVars.AddErr(err)
 		}
 
-		resp = append(resp, &commonmodels.DeployServiceInfo{
+		item := &commonmodels.DeployServiceInfo{
 			ServiceName:       service.ServiceName,
 			VariableKVs:       kvs,
 			LatestVariableKVs: svcInfo.LatestVariableKVs,
@@ -517,7 +523,14 @@ func generateEnvDeployServiceInfo(workflowName, env, project, jobName string, pr
 			Updatable:         svcInfo.Updatable,
 			Deployed:          true,
 			Modules:           modules,
-		})
+		}
+
+		if !item.Updatable {
+			// frontend logic: update_config field need to be false for frontend to use the correct field.
+			item.UpdateConfig = false
+		}
+
+		resp = append(resp, item)
 	}
 
 	for serviceName, service := range serviceDefinitionMap {
