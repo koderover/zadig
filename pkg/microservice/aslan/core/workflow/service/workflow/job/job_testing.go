@@ -174,7 +174,7 @@ func (j *TestingJob) MergeArgs(args *commonmodels.Job) error {
 			j.spec.TargetServices = argsSpec.TargetServices
 			for _, testing := range j.spec.ServiceAndTests {
 				for _, argsTesting := range argsSpec.ServiceAndTests {
-					if testing.Name == argsTesting.Name {
+					if testing.Name == argsTesting.Name && testing.ServiceName == argsTesting.ServiceName {
 						testing.Repos = mergeRepos(testing.Repos, argsTesting.Repos)
 						testing.KeyVals = renderKeyVals(argsTesting.KeyVals, testing.KeyVals)
 						break
