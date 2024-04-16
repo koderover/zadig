@@ -352,6 +352,7 @@ func buildDetailedRelease(deliveryVersion *commonmodels.DeliveryVersion, filterO
 	// 将serviceName替换为服务名/服务组件的形式，用于前端展示
 	for _, deliveryDeploy := range deliveryDeploys {
 		if deliveryDeploy.ContainerName != "" {
+			deliveryDeploy.RealServiceName = deliveryDeploy.ServiceName
 			deliveryDeploy.ServiceName = deliveryDeploy.ServiceName + "/" + deliveryDeploy.ContainerName
 		}
 	}
@@ -416,10 +417,29 @@ func buildDetailedRelease(deliveryVersion *commonmodels.DeliveryVersion, filterO
 	deliveryDistributeArgs := new(commonrepo.DeliveryDistributeArgs)
 	deliveryDistributeArgs.ReleaseID = deliveryVersion.ID.Hex()
 	deliveryDistributes, _ := FindDeliveryDistribute(deliveryDistributeArgs, logger)
+
 	releaseInfo.DistributeInfo = deliveryDistributes
 
 	// fill some data for helm delivery releases
 	processReleaseRespData(releaseInfo)
+
+	// helm chart version uses distribute info to store version info.
+	for _, distribute := range releaseInfo.DistributeInfo {
+		// modify each service module info for frontend
+		for _, module := range distribute.SubDistributes {
+			if module.DistributeType == config.Image {
+				module.Image = module.RegistryName
+				module.ImageName = util.ExtractImageName(module.RegistryName)
+				module.ServiceModule = util.ExtractImageName(module.RegistryName)
+			}
+		}
+	}
+
+	// k8s yaml version uses deploy info to store version info.
+	for _, deploy := range releaseInfo.DeployInfo {
+		deploy.ImageName = util.ExtractImageName(deploy.Image)
+		deploy.ServiceModule = deploy.ContainerName
+	}
 
 	return releaseInfo, nil
 }

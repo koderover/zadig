@@ -145,7 +145,7 @@ type ZadigDeployJobPreviewSpec struct {
 	// UserSuppliedValue added since 1.18, the values that users gives.
 	UserSuppliedValue string `bson:"user_supplied_value" json:"user_supplied_value" yaml:"user_supplied_value"`
 	// VariableConfigs new since 1.18, only used for k8s
-	VariableConfigs []*commonmodels.DeplopyVariableConfig `bson:"variable_configs"                 json:"variable_configs"                    yaml:"variable_configs"`
+	VariableConfigs []*commonmodels.DeployVariableConfig `bson:"variable_configs"                 json:"variable_configs"                    yaml:"variable_configs"`
 	// VariableKVs new since 1.18, only used for k8s
 	VariableKVs []*commontypes.RenderVariableKV `bson:"variable_kvs"                 json:"variable_kvs"                    yaml:"variable_kvs"`
 }
@@ -215,9 +215,28 @@ func GetWorkflowv4Preset(encryptedKey, workflowName, uid, username string, log *
 	}
 	for _, stage := range workflow.Stages {
 		for _, job := range stage.Jobs {
-			if err := jobctl.SetPreset(job, workflow); err != nil {
-				log.Errorf("cannot get workflow %s preset, the error is: %v", workflowName, err)
+			if err := jobctl.SetOptions(job, workflow); err != nil {
+				log.Errorf("cannot get workflow %s options for job %s, the error is: %v", workflowName, job.Name, err)
 				return nil, e.ErrPresetWorkflow.AddDesc(err.Error())
+			}
+			if err := jobctl.SetPreset(job, workflow); err != nil {
+				log.Errorf("cannot get workflow %s preset for job %s, the error is: %v", workflowName, job.Name, err)
+				return nil, e.ErrPresetWorkflow.AddDesc(err.Error())
+			}
+
+			// for some job we need to clear its selection field
+			if job.JobType == config.JobZadigBuild ||
+				job.JobType == config.JobIstioRelease ||
+				job.JobType == config.JobIstioRollback ||
+				job.JobType == config.JobZadigHelmChartDeploy ||
+				job.JobType == config.JobK8sBlueGreenDeploy ||
+				job.JobType == config.JobApollo ||
+				job.JobType == config.JobK8sCanaryDeploy ||
+				job.JobType == config.JobK8sGrayRelease {
+				if err := jobctl.ClearSelectionField(job, workflow); err != nil {
+					log.Errorf("cannot clear workflow %s selection for job %s, the error is: %v", workflowName, job.Name, err)
+					return nil, e.ErrPresetWorkflow.AddDesc(err.Error())
+				}
 			}
 		}
 	}
@@ -508,6 +527,15 @@ func CloneWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredL
 		logger.Errorf("find workflowTaskV4 error: %s", err)
 		return nil, e.ErrGetTask.AddErr(err)
 	}
+
+	for _, stage := range task.OriginWorkflowArgs.Stages {
+		for _, job := range stage.Jobs {
+			if err := jobctl.SetOptions(job, task.OriginWorkflowArgs); err != nil {
+				log.Errorf("cannot get workflow %s options for job %s, the error is: %v", workflowName, job.Name, err)
+				return nil, e.ErrPresetWorkflow.AddDesc(err.Error())
+			}
+		}
+	}
 	return task.OriginWorkflowArgs, nil
 }
 
@@ -737,12 +765,14 @@ func ListWorkflowTaskV4ByFilter(filter *TaskHistoryFilter, filterList []string, 
 						return nil, 0, err
 					}
 					serviceModules := make([]*commonmodels.WorkflowServiceModule, 0)
-					for _, service := range deploy.ServiceAndImages {
-						sm := &commonmodels.WorkflowServiceModule{
-							ServiceName:   service.ServiceName,
-							ServiceModule: service.ServiceModule,
+					for _, svc := range deploy.Services {
+						for _, module := range svc.Modules {
+							sm := &commonmodels.WorkflowServiceModule{
+								ServiceName:   svc.ServiceName,
+								ServiceModule: module.ServiceModule,
+							}
+							serviceModules = append(serviceModules, sm)
 						}
-						serviceModules = append(serviceModules, sm)
 					}
 					jobPreview.ServiceModules = serviceModules
 					jobPreview.Envs = &commonmodels.WorkflowEnv{

@@ -2093,6 +2093,130 @@
                 }
             }
         },
+        "/api/aslan/placeholder/apollo_job_spec": {
+            "post": {
+                "description": "[DONT USE] ApolloJobSpec",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "placeholder"
+                ],
+                "summary": "[DONT USE]  ApolloJobSpec",
+                "parameters": [
+                    {
+                        "description": "body",
+                        "name": "apollo_job_spec",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.ApolloJobSpec"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/api/aslan/placeholder/blue_green_deploy_v2_jobSpec": {
+            "post": {
+                "description": "[DONT USE] BlueGreenDeployV2JobSpec",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "placeholder"
+                ],
+                "summary": "[DONT USE]  BlueGreenDeployV2JobSpec",
+                "parameters": [
+                    {
+                        "description": "body",
+                        "name": "blue_green_deploy_v2_jobSpec",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.BlueGreenDeployV2JobSpec"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/api/aslan/placeholder/canary_deploy_job_spec": {
+            "post": {
+                "description": "[DONT USE] CanaryDeployJobSpec",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "placeholder"
+                ],
+                "summary": "[DONT USE]  CanaryDeployJobSpec",
+                "parameters": [
+                    {
+                        "description": "body",
+                        "name": "canary_deploy_job_spec",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.CanaryDeployJobSpec"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/api/aslan/placeholder/custom_deploy_job_spec": {
+            "post": {
+                "description": "[DONT USE] CustomDeployJobSpec",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "placeholder"
+                ],
+                "summary": "[DONT USE]  CustomDeployJobSpec",
+                "parameters": [
+                    {
+                        "description": "body",
+                        "name": "deploy_job_spec",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.CustomDeployJobSpec"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
         "/api/aslan/placeholder/deploy_job_spec": {
             "post": {
                 "description": "[DONT USE] ZadigDeployJobSpec",
@@ -2124,6 +2248,99 @@
                 }
             }
         },
+        "/api/aslan/placeholder/gray_release_job_spec": {
+            "post": {
+                "description": "[DONT USE] GrayReleaseJobSpec",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "placeholder"
+                ],
+                "summary": "[DONT USE]  GrayReleaseJobSpec",
+                "parameters": [
+                    {
+                        "description": "body",
+                        "name": "gray_release_job_spec",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.GrayReleaseJobSpec"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/api/aslan/placeholder/gray_rollback_job_spec": {
+            "post": {
+                "description": "[DONT USE] GrayRollbackJobSpec",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "placeholder"
+                ],
+                "summary": "[DONT USE]  GrayRollbackJobSpec",
+                "parameters": [
+                    {
+                        "description": "body",
+                        "name": "gray_rollback_job_spec",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.GrayRollbackJobSpec"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/api/aslan/placeholder/k8s_patch_job_spec": {
+            "post": {
+                "description": "[DONT USE] K8sPatchJobSpec",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "placeholder"
+                ],
+                "summary": "[DONT USE]  K8sPatchJobSpec",
+                "parameters": [
+                    {
+                        "description": "body",
+                        "name": "deploy_job_spec",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.K8sPatchJobSpec"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
         "/api/aslan/placeholder/update_env_istio_config_job_spec": {
             "post": {
                 "description": "[DONT USE] UpdateEnvIstioConfigJobSpec",
@@ -2145,6 +2362,161 @@
                         "required": true,
                         "schema": {
                             "$ref": "#/definitions/models.UpdateEnvIstioConfigJobSpec"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/api/aslan/placeholder/zadig_build_job_spec": {
+            "post": {
+                "description": "[DONT USE] ZadigBuildJobSpec",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "placeholder"
+                ],
+                "summary": "[DONT USE]  ZadigBuildJobSpec",
+                "parameters": [
+                    {
+                        "description": "body",
+                        "name": "deploy_job_spec",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.ZadigBuildJobSpec"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/api/aslan/placeholder/zadig_distribute_image_job_spec": {
+            "post": {
+                "description": "[DONT USE] ZadigDistributeImageJobSpec",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "placeholder"
+                ],
+                "summary": "[DONT USE]  ZadigDistributeImageJobSpec",
+                "parameters": [
+                    {
+                        "description": "body",
+                        "name": "zadig_distribute_image_job_spec",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.ZadigDistributeImageJobSpec"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/api/aslan/placeholder/zadig_helm_chart_deploy_job_spec": {
+            "post": {
+                "description": "[DONT USE] ZadigHelmChartDeployJobSpec",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "placeholder"
+                ],
+                "summary": "[DONT USE]  ZadigHelmChartDeployJobSpec",
+                "parameters": [
+                    {
+                        "description": "body",
+                        "name": "deploy_job_spec",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.ZadigHelmChartDeployJobSpec"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/api/aslan/placeholder/zadig_scanning_job_spec": {
+            "post": {
+                "description": "[DONT USE] ZadigScanningJobSpec",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "placeholder"
+                ],
+                "summary": "[DONT USE]  ZadigScanningJobSpec",
+                "parameters": [
+                    {
+                        "description": "body",
+                        "name": "zadig_scanning_job_spec",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.ZadigScanningJobSpec"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/api/aslan/placeholder/zadig_vm_deploy_job_spec": {
+            "post": {
+                "description": "[DONT USE] ZadigVMDeployJobSpec",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "placeholder"
+                ],
+                "summary": "[DONT USE]  ZadigVMDeployJobSpec",
+                "parameters": [
+                    {
+                        "description": "body",
+                        "name": "zadig_vm_deploy_job_spec",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.ZadigVMDeployJobSpec"
                         }
                     }
                 ],
@@ -4109,6 +4481,31 @@
                 "JiraPersonalAccessToken"
             ]
         },
+        "github_com_koderover_zadig_v2_pkg_microservice_aslan_config.PipelineType": {
+            "type": "string",
+            "enum": [
+                "single",
+                "workflow",
+                "freestyle",
+                "test",
+                "service",
+                "workflow_v3",
+                "workflow_v4",
+                "artifact",
+                "scanning"
+            ],
+            "x-enum-varnames": [
+                "SingleType",
+                "WorkflowType",
+                "FreestyleType",
+                "TestType",
+                "ServiceType",
+                "WorkflowTypeV3",
+                "WorkflowTypeV4",
+                "ArtifactType",
+                "ScanningType"
+            ]
+        },
         "github_com_koderover_zadig_v2_pkg_microservice_aslan_core_common_service.EnvService": {
             "type": "object",
             "properties": {
@@ -4597,6 +4994,209 @@
                 }
             }
         },
+        "models.ApolloJobSpec": {
+            "type": "object",
+            "properties": {
+                "apolloID": {
+                    "type": "string"
+                },
+                "namespaceList": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ApolloNamespace"
+                    }
+                },
+                "namespaceListOption": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ApolloNamespace"
+                    }
+                }
+            }
+        },
+        "models.ApolloKV": {
+            "type": "object",
+            "properties": {
+                "key": {
+                    "type": "string"
+                },
+                "val": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.ApolloNamespace": {
+            "type": "object",
+            "properties": {
+                "appID": {
+                    "type": "string"
+                },
+                "clusterID": {
+                    "type": "string"
+                },
+                "env": {
+                    "type": "string"
+                },
+                "kv": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ApolloKV"
+                    }
+                },
+                "namespace": {
+                    "type": "string"
+                },
+                "original_config": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ApolloKV"
+                    }
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.BlueGreenDeployV2JobSpec": {
+            "type": "object",
+            "properties": {
+                "env": {
+                    "type": "string"
+                },
+                "env_options": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ZadigBlueGreenDeployEnvInformation"
+                    }
+                },
+                "production": {
+                    "type": "boolean"
+                },
+                "services": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.BlueGreenDeployV2Service"
+                    }
+                },
+                "source": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.BlueGreenDeployV2Service": {
+            "type": "object",
+            "properties": {
+                "blue_deployment_name": {
+                    "type": "string"
+                },
+                "blue_deployment_yaml": {
+                    "type": "string"
+                },
+                "blue_service_name": {
+                    "type": "string"
+                },
+                "blue_service_yaml": {
+                    "type": "string"
+                },
+                "green_deployment_name": {
+                    "type": "string"
+                },
+                "green_service_name": {
+                    "type": "string"
+                },
+                "service_and_image": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.BlueGreenDeployV2ServiceModuleAndImage"
+                    }
+                },
+                "service_name": {
+                    "description": "ServiceName is zadig service name",
+                    "type": "string"
+                }
+            }
+        },
+        "models.BlueGreenDeployV2ServiceModuleAndImage": {
+            "type": "object",
+            "properties": {
+                "image": {
+                    "type": "string"
+                },
+                "image_name": {
+                    "description": "Following fields only save for frontend",
+                    "type": "string"
+                },
+                "name": {
+                    "description": "Name is the service module name for the sake of old data.",
+                    "type": "string"
+                },
+                "service_module": {
+                    "type": "string"
+                },
+                "service_name": {
+                    "type": "string"
+                },
+                "value": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.CanaryDeployJobSpec": {
+            "type": "object",
+            "properties": {
+                "cluster_id": {
+                    "type": "string"
+                },
+                "docker_registry_id": {
+                    "type": "string"
+                },
+                "namespace": {
+                    "type": "string"
+                },
+                "target_options": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.CanaryTarget"
+                    }
+                },
+                "targets": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.CanaryTarget"
+                    }
+                }
+            }
+        },
+        "models.CanaryTarget": {
+            "type": "object",
+            "properties": {
+                "canary_percentage": {
+                    "type": "integer"
+                },
+                "container_name": {
+                    "type": "string"
+                },
+                "deploy_timeout": {
+                    "description": "unit is minute.",
+                    "type": "integer"
+                },
+                "image": {
+                    "type": "string"
+                },
+                "k8s_service_name": {
+                    "type": "string"
+                },
+                "workload_name": {
+                    "type": "string"
+                },
+                "workload_type": {
+                    "type": "string"
+                }
+            }
+        },
         "models.CodeHost": {
             "type": "object",
             "properties": {
@@ -4737,6 +5337,43 @@
                 }
             }
         },
+        "models.CustomDeployJobSpec": {
+            "type": "object",
+            "properties": {
+                "cluster_id": {
+                    "type": "string"
+                },
+                "docker_registry_id": {
+                    "type": "string"
+                },
+                "namespace": {
+                    "type": "string"
+                },
+                "skip_check_run_status": {
+                    "type": "boolean"
+                },
+                "source": {
+                    "description": "support two sources, runtime/fixed.",
+                    "type": "string"
+                },
+                "target_options": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.DeployTargets"
+                    }
+                },
+                "targets": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.DeployTargets"
+                    }
+                },
+                "timeout": {
+                    "description": "unit is minute.",
+                    "type": "integer"
+                }
+            }
+        },
         "models.DBInstance": {
             "type": "object",
             "properties": {
@@ -4778,13 +5415,36 @@
                 }
             }
         },
-        "models.DeplopyVariableConfig": {
+        "models.DeployHelmChart": {
             "type": "object",
             "properties": {
-                "use_global_variable": {
-                    "type": "boolean"
+                "chart_name": {
+                    "type": "string"
                 },
-                "variable_key": {
+                "chart_repo": {
+                    "type": "string"
+                },
+                "chart_version": {
+                    "type": "string"
+                },
+                "release_name": {
+                    "type": "string"
+                },
+                "values_yaml": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.DeployModuleInfo": {
+            "type": "object",
+            "properties": {
+                "image": {
+                    "type": "string"
+                },
+                "image_name": {
+                    "type": "string"
+                },
+                "service_module": {
                     "type": "string"
                 }
             }
@@ -4826,7 +5486,7 @@
                     "description": "VariableConfigs added since 1.18",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/models.DeplopyVariableConfig"
+                        "$ref": "#/definitions/models.DeployVariableConfig"
                     }
                 },
                 "variable_kvs": {
@@ -4839,6 +5499,120 @@
                 "variable_yaml": {
                     "description": "VariableYaml added since 1.18, used for helm production environments",
                     "type": "string"
+                }
+            }
+        },
+        "models.DeployServiceInfo": {
+            "type": "object",
+            "properties": {
+                "deployed": {
+                    "type": "boolean"
+                },
+                "key_vals": {
+                    "description": "Deprecated since 1.18",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ServiceKeyVal"
+                    }
+                },
+                "latest_key_vals": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ServiceKeyVal"
+                    }
+                },
+                "latest_variable_kvs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/types.RenderVariableKV"
+                    }
+                },
+                "modules": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.DeployModuleInfo"
+                    }
+                },
+                "service_name": {
+                    "type": "string"
+                },
+                "updatable": {
+                    "type": "boolean"
+                },
+                "update_config": {
+                    "type": "boolean"
+                },
+                "variable_configs": {
+                    "description": "VariableConfigs used to determine if a variable is visible to the workflow user.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.DeployVariableConfig"
+                    }
+                },
+                "variable_kvs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/types.RenderVariableKV"
+                    }
+                },
+                "variable_yaml": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.DeployTargets": {
+            "type": "object",
+            "properties": {
+                "image": {
+                    "type": "string"
+                },
+                "image_name": {
+                    "type": "string"
+                },
+                "target": {
+                    "description": "workload_type/workload_name/container_name.",
+                    "type": "string"
+                }
+            }
+        },
+        "models.DeployVariableConfig": {
+            "type": "object",
+            "properties": {
+                "use_global_variable": {
+                    "type": "boolean"
+                },
+                "variable_key": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.DistributeTarget": {
+            "type": "object",
+            "properties": {
+                "image_name": {
+                    "type": "string"
+                },
+                "service_module": {
+                    "type": "string"
+                },
+                "service_name": {
+                    "type": "string"
+                },
+                "source_image": {
+                    "type": "string"
+                },
+                "source_tag": {
+                    "type": "string"
+                },
+                "target_image": {
+                    "type": "string"
+                },
+                "target_tag": {
+                    "type": "string"
+                },
+                "update_tag": {
+                    "description": "if UpdateTag was false, use SourceTag as TargetTag.",
+                    "type": "boolean"
                 }
             }
         },
@@ -4888,6 +5662,106 @@
                 "deployment": {},
                 "ingress": {},
                 "service": {}
+            }
+        },
+        "models.GrayReleaseJobSpec": {
+            "type": "object",
+            "properties": {
+                "cluster_id": {
+                    "type": "string"
+                },
+                "deploy_timeout": {
+                    "description": "unit is minute.",
+                    "type": "integer"
+                },
+                "docker_registry_id": {
+                    "type": "string"
+                },
+                "from_job": {
+                    "type": "string"
+                },
+                "gray_scale": {
+                    "type": "integer"
+                },
+                "namespace": {
+                    "type": "string"
+                },
+                "target_options": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.GrayReleaseTarget"
+                    }
+                },
+                "targets": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.GrayReleaseTarget"
+                    }
+                }
+            }
+        },
+        "models.GrayReleaseTarget": {
+            "type": "object",
+            "properties": {
+                "container_name": {
+                    "type": "string"
+                },
+                "image": {
+                    "type": "string"
+                },
+                "replica": {
+                    "type": "integer"
+                },
+                "workload_name": {
+                    "type": "string"
+                },
+                "workload_type": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.GrayRollbackJobSpec": {
+            "type": "object",
+            "properties": {
+                "cluster_id": {
+                    "type": "string"
+                },
+                "namespace": {
+                    "type": "string"
+                },
+                "rollback_timeout": {
+                    "description": "unit is minute.",
+                    "type": "integer"
+                },
+                "target_options": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.GrayRollbackTarget"
+                    }
+                },
+                "targets": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.GrayRollbackTarget"
+                    }
+                }
+            }
+        },
+        "models.GrayRollbackTarget": {
+            "type": "object",
+            "properties": {
+                "origin_image": {
+                    "type": "string"
+                },
+                "origin_replica": {
+                    "type": "integer"
+                },
+                "workload_name": {
+                    "type": "string"
+                },
+                "workload_type": {
+                    "type": "string"
+                }
             }
         },
         "models.HelmChart": {
@@ -5027,6 +5901,52 @@
                 }
             }
         },
+        "models.K8sPatchJobSpec": {
+            "type": "object",
+            "properties": {
+                "cluster_id": {
+                    "type": "string"
+                },
+                "namespace": {
+                    "type": "string"
+                },
+                "patch_item_options": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.PatchItem"
+                    }
+                },
+                "patch_items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.PatchItem"
+                    }
+                }
+            }
+        },
+        "models.KeyVal": {
+            "type": "object",
+            "properties": {
+                "choice_option": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "is_credential": {
+                    "type": "boolean"
+                },
+                "key": {
+                    "type": "string"
+                },
+                "type": {
+                    "$ref": "#/definitions/models.ParameterSettingType"
+                },
+                "value": {
+                    "type": "string"
+                }
+            }
+        },
         "models.LLMIntegration": {
             "type": "object",
             "properties": {
@@ -5081,6 +6001,42 @@
                 "NotificationEventAnalyzerAbnormal"
             ]
         },
+        "models.Param": {
+            "type": "object",
+            "properties": {
+                "choice_option": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "default": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "is_credential": {
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "repo": {
+                    "$ref": "#/definitions/types.Repository"
+                },
+                "source": {
+                    "type": "string"
+                },
+                "type": {
+                    "description": "support string/text/choice/repo type",
+                    "type": "string"
+                },
+                "value": {
+                    "type": "string"
+                }
+            }
+        },
         "models.ParameterSettingType": {
             "type": "string",
             "enum": [
@@ -5093,6 +6049,36 @@
                 "ChoiceType",
                 "ExternalType"
             ]
+        },
+        "models.PatchItem": {
+            "type": "object",
+            "properties": {
+                "params": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.Param"
+                    }
+                },
+                "patch_content": {
+                    "type": "string"
+                },
+                "patch_strategy": {
+                    "description": "support strategic-merge/merge/json",
+                    "type": "string"
+                },
+                "resource_group": {
+                    "type": "string"
+                },
+                "resource_kind": {
+                    "type": "string"
+                },
+                "resource_name": {
+                    "type": "string"
+                },
+                "resource_version": {
+                    "type": "string"
+                }
+            }
         },
         "models.PmHealthCheck": {
             "type": "object",
@@ -5453,6 +6439,32 @@
                 }
             }
         },
+        "models.ScanningModule": {
+            "type": "object",
+            "properties": {
+                "key_vals": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.KeyVal"
+                    }
+                },
+                "name": {
+                    "type": "string"
+                },
+                "project_name": {
+                    "type": "string"
+                },
+                "repos": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/types.Repository"
+                    }
+                },
+                "share_storage_info": {
+                    "$ref": "#/definitions/models.ShareStorageInfo"
+                }
+            }
+        },
         "models.Service": {
             "type": "object",
             "properties": {
@@ -5617,6 +6629,44 @@
                 }
             }
         },
+        "models.ServiceAndBuild": {
+            "type": "object",
+            "properties": {
+                "build_name": {
+                    "type": "string"
+                },
+                "image": {
+                    "type": "string"
+                },
+                "image_name": {
+                    "type": "string"
+                },
+                "key_vals": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.KeyVal"
+                    }
+                },
+                "package": {
+                    "type": "string"
+                },
+                "repos": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/types.Repository"
+                    }
+                },
+                "service_module": {
+                    "type": "string"
+                },
+                "service_name": {
+                    "type": "string"
+                },
+                "share_storage_info": {
+                    "$ref": "#/definitions/models.ShareStorageInfo"
+                }
+            }
+        },
         "models.ServiceAndImage": {
             "type": "object",
             "properties": {
@@ -5631,6 +6681,44 @@
                 },
                 "service_name": {
                     "type": "string"
+                }
+            }
+        },
+        "models.ServiceAndVMDeploy": {
+            "type": "object",
+            "properties": {
+                "artifact_url": {
+                    "type": "string"
+                },
+                "file_name": {
+                    "type": "string"
+                },
+                "image": {
+                    "type": "string"
+                },
+                "job_task_name": {
+                    "type": "string"
+                },
+                "repos": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/types.Repository"
+                    }
+                },
+                "service_module": {
+                    "type": "string"
+                },
+                "service_name": {
+                    "type": "string"
+                },
+                "task_id": {
+                    "type": "integer"
+                },
+                "workflow_name": {
+                    "type": "string"
+                },
+                "workflow_type": {
+                    "$ref": "#/definitions/github_com_koderover_zadig_v2_pkg_microservice_aslan_config.PipelineType"
                 }
             }
         },
@@ -5669,6 +6757,31 @@
                 },
                 "version": {
                     "type": "string"
+                }
+            }
+        },
+        "models.ShareStorage": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "path": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.ShareStorageInfo": {
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "type": "boolean"
+                },
+                "share_storages": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ShareStorage"
+                    }
                 }
             }
         },
@@ -5714,6 +6827,60 @@
                 "WebHookTypeWeChat"
             ]
         },
+        "models.ZadigBlueGreenDeployEnvInformation": {
+            "type": "object",
+            "properties": {
+                "env": {
+                    "type": "string"
+                },
+                "registry_id": {
+                    "type": "string"
+                },
+                "services": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.BlueGreenDeployV2Service"
+                    }
+                }
+            }
+        },
+        "models.ZadigBuildJobSpec": {
+            "type": "object",
+            "properties": {
+                "docker_registry_id": {
+                    "type": "string"
+                },
+                "service_and_builds": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ServiceAndBuild"
+                    }
+                },
+                "service_and_builds_options": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ServiceAndBuild"
+                    }
+                }
+            }
+        },
+        "models.ZadigDeployEnvInformation": {
+            "type": "object",
+            "properties": {
+                "env": {
+                    "type": "string"
+                },
+                "registry_id": {
+                    "type": "string"
+                },
+                "services": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.DeployServiceInfo"
+                    }
+                }
+            }
+        },
         "models.ZadigDeployJobSpec": {
             "type": "object",
             "properties": {
@@ -5729,6 +6896,12 @@
                 "env": {
                     "type": "string"
                 },
+                "env_options": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ZadigDeployEnvInformation"
+                    }
+                },
                 "job_name": {
                     "description": "当 source 为 fromjob 时需要，指定部署镜像来源是上游哪一个构建任务",
                     "type": "string"
@@ -5741,6 +6914,7 @@
                     "type": "boolean"
                 },
                 "service_and_images": {
+                    "description": "TODO: Deprecated in 2.3.0, this field is now used for saving the default service module info for deployment.",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/models.ServiceAndImage"
@@ -5749,11 +6923,167 @@
                 "services": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/models.DeployService"
+                        "$ref": "#/definitions/models.DeployServiceInfo"
                     }
                 },
                 "skip_check_run_status": {
                     "type": "boolean"
+                },
+                "source": {
+                    "description": "fromjob/runtime, runtime 表示运行时输入，fromjob 表示从上游构建任务中获取",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/config.DeploySourceType"
+                        }
+                    ]
+                }
+            }
+        },
+        "models.ZadigDistributeImageJobSpec": {
+            "type": "object",
+            "properties": {
+                "cluster_id": {
+                    "type": "string"
+                },
+                "enable_target_image_tag_rule": {
+                    "type": "boolean"
+                },
+                "job_name": {
+                    "description": "required when source is `fromjob`, specify which upstream build job the distribution image source is",
+                    "type": "string"
+                },
+                "source": {
+                    "description": "fromjob/runtime, `runtime` means runtime input, `fromjob` means that it is obtained from the upstream build job",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/config.DeploySourceType"
+                        }
+                    ]
+                },
+                "source_registry_id": {
+                    "description": "not required when source is fromjob, directly obtained from upstream build job information",
+                    "type": "string"
+                },
+                "strategy_id": {
+                    "type": "string"
+                },
+                "target_image_tag_rule": {
+                    "type": "string"
+                },
+                "target_options": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.DistributeTarget"
+                    }
+                },
+                "target_registry_id": {
+                    "type": "string"
+                },
+                "targets": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.DistributeTarget"
+                    }
+                },
+                "timeout": {
+                    "description": "unit is minute.",
+                    "type": "integer"
+                }
+            }
+        },
+        "models.ZadigHelmChartDeployJobSpec": {
+            "type": "object",
+            "properties": {
+                "deploy_helm_charts": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.DeployHelmChart"
+                    }
+                },
+                "env": {
+                    "type": "string"
+                },
+                "env_options": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ZadigHelmDeployEnvInformation"
+                    }
+                },
+                "env_source": {
+                    "type": "string"
+                },
+                "skip_check_run_status": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "models.ZadigHelmDeployEnvInformation": {
+            "type": "object",
+            "properties": {
+                "env": {
+                    "type": "string"
+                },
+                "services": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.DeployHelmChart"
+                    }
+                }
+            }
+        },
+        "models.ZadigScanningJobSpec": {
+            "type": "object",
+            "properties": {
+                "scannings": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ScanningModule"
+                    }
+                }
+            }
+        },
+        "models.ZadigVMDeployEnvInformation": {
+            "type": "object",
+            "properties": {
+                "env": {
+                    "type": "string"
+                },
+                "services": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ServiceAndVMDeploy"
+                    }
+                }
+            }
+        },
+        "models.ZadigVMDeployJobSpec": {
+            "type": "object",
+            "properties": {
+                "env": {
+                    "type": "string"
+                },
+                "env_options": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ZadigVMDeployEnvInformation"
+                    }
+                },
+                "job_name": {
+                    "description": "当 source 为 fromjob 时需要，指定部署镜像来源是上游哪一个构建任务",
+                    "type": "string"
+                },
+                "origin_job_name": {
+                    "description": "save the origin quoted job name",
+                    "type": "string"
+                },
+                "s3_storage_id": {
+                    "type": "string"
+                },
+                "service_and_vm_deploys": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ServiceAndVMDeploy"
+                    }
                 },
                 "source": {
                     "description": "fromjob/runtime, runtime 表示运行时输入，fromjob 表示从上游构建任务中获取",
@@ -7672,6 +9002,153 @@
                     "type": "boolean"
                 },
                 "value": {}
+            }
+        },
+        "types.RepoSource": {
+            "type": "string",
+            "enum": [
+                "",
+                "param",
+                "job"
+            ],
+            "x-enum-varnames": [
+                "RepoSourceRuntime",
+                "RepoSourceParam",
+                "RepoSourceJob"
+            ]
+        },
+        "types.Repository": {
+            "type": "object",
+            "properties": {
+                "address": {
+                    "type": "string"
+                },
+                "auth_type": {
+                    "description": "The address of the code base input of the other type",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/types.AuthType"
+                        }
+                    ]
+                },
+                "author_name": {
+                    "type": "string"
+                },
+                "branch": {
+                    "type": "string"
+                },
+                "checkout_path": {
+                    "type": "string"
+                },
+                "checkout_ref": {
+                    "type": "string"
+                },
+                "codehost_id": {
+                    "type": "integer"
+                },
+                "commit_id": {
+                    "type": "string"
+                },
+                "commit_message": {
+                    "type": "string"
+                },
+                "enable_commit": {
+                    "description": "EnableCommit marks if the pull uses a commit instead of branch/pr",
+                    "type": "boolean"
+                },
+                "enable_proxy": {
+                    "description": "Now EnableProxy is not something we store. We decide this on runtime",
+                    "type": "boolean"
+                },
+                "filter_regexp": {
+                    "description": "FilterRegexp is the regular expression filter for the branches and tags",
+                    "type": "string"
+                },
+                "hidden": {
+                    "description": "Hidden defines whether the frontend needs to hide this repo",
+                    "type": "boolean"
+                },
+                "is_primary": {
+                    "description": "IsPrimary used to generated image and package name, each build has one primary repo",
+                    "type": "boolean"
+                },
+                "job_name": {
+                    "type": "string"
+                },
+                "oauth_token": {
+                    "description": "add",
+                    "type": "string"
+                },
+                "param_name": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string"
+                },
+                "pr": {
+                    "type": "integer"
+                },
+                "private_access_token": {
+                    "type": "string"
+                },
+                "prs": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "remote_name": {
+                    "type": "string"
+                },
+                "repo_index": {
+                    "type": "integer"
+                },
+                "repo_name": {
+                    "type": "string"
+                },
+                "repo_namespace": {
+                    "type": "string"
+                },
+                "repo_owner": {
+                    "type": "string"
+                },
+                "service_module": {
+                    "type": "string"
+                },
+                "service_name": {
+                    "type": "string"
+                },
+                "source": {
+                    "type": "string"
+                },
+                "source_from": {
+                    "description": "repo can come from params or other job, introduced in 1.3.1",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/types.RepoSource"
+                        }
+                    ]
+                },
+                "ssh_key": {
+                    "type": "string"
+                },
+                "submission_id": {
+                    "type": "string"
+                },
+                "submodules": {
+                    "type": "boolean"
+                },
+                "tag": {
+                    "type": "string"
+                },
+                "use_default": {
+                    "description": "UseDefault defines if the repo can be configured in start pipeline task page",
+                    "type": "boolean"
+                },
+                "username": {
+                    "description": "username/password authorization",
+                    "type": "string"
+                }
             }
         },
         "types.ServiceVariableKV": {

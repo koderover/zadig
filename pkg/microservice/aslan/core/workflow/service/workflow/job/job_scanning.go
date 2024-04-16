@@ -54,7 +54,6 @@ func (j *ScanningJob) SetPreset() error {
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return err
 	}
-	j.job.Spec = j.spec
 
 	for _, scanning := range j.spec.Scannings {
 		scanningInfo, err := commonrepo.NewScanningColl().Find(j.workflow.Project, scanning.Name)
@@ -69,7 +68,16 @@ func (j *ScanningJob) SetPreset() error {
 		scanning.Repos = mergeRepos(scanningInfo.Repos, scanning.Repos)
 		scanning.KeyVals = renderKeyVals(scanning.KeyVals, scanningInfo.Envs)
 	}
+
 	j.job.Spec = j.spec
+	return nil
+}
+
+func (j *ScanningJob) SetOptions() error {
+	return nil
+}
+
+func (j *ScanningJob) ClearSelectionField() error {
 	return nil
 }
 
@@ -107,6 +115,7 @@ func (j *ScanningJob) MergeArgs(args *commonmodels.Job) error {
 			for _, argsScanning := range argsSpec.Scannings {
 				if scanning.Name == argsScanning.Name {
 					scanning.Repos = mergeRepos(scanning.Repos, argsScanning.Repos)
+					scanning.KeyVals = renderKeyVals(argsScanning.KeyVals, scanning.KeyVals)
 					break
 				}
 			}

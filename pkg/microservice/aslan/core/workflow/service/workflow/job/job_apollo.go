@@ -19,15 +19,15 @@ package job
 import (
 	"context"
 
+	"github.com/koderover/zadig/v2/pkg/tool/apollo"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/pkg/errors"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
-	"github.com/koderover/zadig/v2/pkg/tool/apollo"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
-	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
 type ApolloJob struct {
@@ -46,6 +46,15 @@ func (j *ApolloJob) Instantiate() error {
 }
 
 func (j *ApolloJob) SetPreset() error {
+	j.spec = &commonmodels.ApolloJobSpec{}
+	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
+		return err
+	}
+	j.job.Spec = j.spec
+	return nil
+}
+
+func (j *ApolloJob) SetOptions() error {
 	j.spec = &commonmodels.ApolloJobSpec{}
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return err
@@ -78,6 +87,19 @@ func (j *ApolloJob) SetPreset() error {
 			})
 		}
 	}
+
+	j.spec.NamespaceListOption = j.spec.NamespaceList
+	j.job.Spec = j.spec
+	return nil
+}
+
+func (j *ApolloJob) ClearSelectionField() error {
+	j.spec = &commonmodels.ApolloJobSpec{}
+	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
+		return err
+	}
+
+	j.spec.NamespaceList = make([]*commonmodels.ApolloNamespace, 0)
 	j.job.Spec = j.spec
 	return nil
 }

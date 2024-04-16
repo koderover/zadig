@@ -48,6 +48,14 @@ func (j *OfflineServiceJob) SetPreset() error {
 	return nil
 }
 
+func (j *OfflineServiceJob) SetOptions() error {
+	return nil
+}
+
+func (j *OfflineServiceJob) ClearSelectionField() error {
+	return nil
+}
+
 func (j *OfflineServiceJob) MergeArgs(args *commonmodels.Job) error {
 	j.spec = &commonmodels.OfflineServiceJobSpec{}
 	if err := commonmodels.IToi(args.Spec, j.spec); err != nil {

@@ -391,3 +391,147 @@ func PlaceholderDeplyJobSpec(c *gin.Context) {
 func PlaceholderUpdateEnvIstioConfigJobSpec(c *gin.Context) {
 
 }
+
+// @Summary [DONT USE]  CustomDeployJobSpec
+// @Description [DONT USE] CustomDeployJobSpec
+// @Tags 	placeholder
+// @Accept 	json
+// @Produce json
+// @Param 	deploy_job_spec 			body 		 commonmodels.CustomDeployJobSpec	true 	"body"
+// @Success 200
+// @Router /api/aslan/placeholder/custom_deploy_job_spec [post]
+func Placeholder2(c *gin.Context) {
+
+}
+
+// @Summary [DONT USE]  ZadigBuildJobSpec
+// @Description [DONT USE] ZadigBuildJobSpec
+// @Tags 	placeholder
+// @Accept 	json
+// @Produce json
+// @Param 	deploy_job_spec 			body 		 commonmodels.ZadigBuildJobSpec	true 	"body"
+// @Success 200
+// @Router /api/aslan/placeholder/zadig_build_job_spec [post]
+func Placeholder3(c *gin.Context) {
+
+}
+
+// @Summary [DONT USE]  ZadigHelmChartDeployJobSpec
+// @Description [DONT USE] ZadigHelmChartDeployJobSpec
+// @Tags 	placeholder
+// @Accept 	json
+// @Produce json
+// @Param 	deploy_job_spec 			body 		 commonmodels.ZadigHelmChartDeployJobSpec	true 	"body"
+// @Success 200
+// @Router /api/aslan/placeholder/zadig_helm_chart_deploy_job_spec [post]
+func Placeholder4(c *gin.Context) {
+
+}
+
+// @Summary [DONT USE]  K8sPatchJobSpec
+// @Description [DONT USE] K8sPatchJobSpec
+// @Tags 	placeholder
+// @Accept 	json
+// @Produce json
+// @Param 	deploy_job_spec 			body 		 commonmodels.K8sPatchJobSpec	true 	"body"
+// @Success 200
+// @Router /api/aslan/placeholder/k8s_patch_job_spec [post]
+func Placeholder5(c *gin.Context) {
+
+}
+
+// @Summary [DONT USE]  BlueGreenDeployV2JobSpec
+// @Description [DONT USE] BlueGreenDeployV2JobSpec
+// @Tags 	placeholder
+// @Accept 	json
+// @Produce json
+// @Param 	blue_green_deploy_v2_jobSpec 			body 		 commonmodels.BlueGreenDeployV2JobSpec	true 	"body"
+// @Success 200
+// @Router /api/aslan/placeholder/blue_green_deploy_v2_jobSpec [post]
+func Placeholder6(c *gin.Context) {
+
+}
+
+// @Summary [DONT USE]  CanaryDeployJobSpec
+// @Description [DONT USE] CanaryDeployJobSpec
+// @Tags 	placeholder
+// @Accept 	json
+// @Produce json
+// @Param 	canary_deploy_job_spec 			body 		 commonmodels.CanaryDeployJobSpec	true 	"body"
+// @Success 200
+// @Router /api/aslan/placeholder/canary_deploy_job_spec [post]
+func Placeholder7(c *gin.Context) {
+
+}
+
+// @Summary [DONT USE]  ZadigDistributeImageJobSpec
+// @Description [DONT USE] ZadigDistributeImageJobSpec
+// @Tags 	placeholder
+// @Accept 	json
+// @Produce json
+// @Param 	zadig_distribute_image_job_spec 			body 		 commonmodels.ZadigDistributeImageJobSpec	true 	"body"
+// @Success 200
+// @Router /api/aslan/placeholder/zadig_distribute_image_job_spec [post]
+func Placeholder8(c *gin.Context) {
+
+}
+
+// @Summary [DONT USE]  GrayReleaseJobSpec
+// @Description [DONT USE] GrayReleaseJobSpec
+// @Tags 	placeholder
+// @Accept 	json
+// @Produce json
+// @Param 	gray_release_job_spec 			body 		 commonmodels.GrayReleaseJobSpec	true 	"body"
+// @Success 200
+// @Router /api/aslan/placeholder/gray_release_job_spec [post]
+func Placeholder9(c *gin.Context) {
+
+}
+
+// @Summary [DONT USE]  GrayRollbackJobSpec
+// @Description [DONT USE] GrayRollbackJobSpec
+// @Tags 	placeholder
+// @Accept 	json
+// @Produce json
+// @Param 	gray_rollback_job_spec 			body 		 commonmodels.GrayRollbackJobSpec	true 	"body"
+// @Success 200
+// @Router /api/aslan/placeholder/gray_rollback_job_spec [post]
+func Placeholder10(c *gin.Context) {
+
+}
+
+// @Summary [DONT USE]  ZadigScanningJobSpec
+// @Description [DONT USE] ZadigScanningJobSpec
+// @Tags 	placeholder
+// @Accept 	json
+// @Produce json
+// @Param 	zadig_scanning_job_spec 			body 		 commonmodels.ZadigScanningJobSpec	true 	"body"
+// @Success 200
+// @Router /api/aslan/placeholder/zadig_scanning_job_spec [post]
+func Placeholder11(c *gin.Context) {
+
+}
+
+// @Summary [DONT USE]  ZadigVMDeployJobSpec
+// @Description [DONT USE] ZadigVMDeployJobSpec
+// @Tags 	placeholder
+// @Accept 	json
+// @Produce json
+// @Param 	zadig_vm_deploy_job_spec 			body 		 commonmodels.ZadigVMDeployJobSpec	true 	"body"
+// @Success 200
+// @Router /api/aslan/placeholder/zadig_vm_deploy_job_spec [post]
+func Placeholder12(c *gin.Context) {
+
+}
+
+// @Summary [DONT USE]  ApolloJobSpec
+// @Description [DONT USE] ApolloJobSpec
+// @Tags 	placeholder
+// @Accept 	json
+// @Produce json
+// @Param 	apollo_job_spec 			body 		 commonmodels.ApolloJobSpec	true 	"body"
+// @Success 200
+// @Router /api/aslan/placeholder/apollo_job_spec [post]
+func Placeholder13(c *gin.Context) {
+
+}

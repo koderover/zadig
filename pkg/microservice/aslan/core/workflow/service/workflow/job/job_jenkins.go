@@ -98,6 +98,14 @@ func (j *JenkinsJob) SetPreset() error {
 	return nil
 }
 
+func (j *JenkinsJob) SetOptions() error {
+	return nil
+}
+
+func (j *JenkinsJob) ClearSelectionField() error {
+	return nil
+}
+
 func (j *JenkinsJob) MergeArgs(args *commonmodels.Job) error {
 	j.spec = &commonmodels.JenkinsJobSpec{}
 	if err := commonmodels.IToi(args.Spec, j.spec); err != nil {

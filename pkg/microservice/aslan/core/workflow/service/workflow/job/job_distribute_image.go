@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/koderover/zadig/v2/pkg/util"
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
@@ -100,6 +101,44 @@ func (j *ImageDistributeJob) SetPreset() error {
 		}
 	}
 
+	j.job.Spec = j.spec
+	return nil
+}
+
+func (j *ImageDistributeJob) SetOptions() error {
+	j.spec = &commonmodels.ZadigDistributeImageJobSpec{}
+	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
+		return err
+	}
+
+	servicesMap, err := repository.GetMaxRevisionsServicesMap(j.workflow.Project, false)
+	if err != nil {
+		return fmt.Errorf("get services map error: %v", err)
+	}
+
+	options := make([]*commonmodels.DistributeTarget, 0)
+	for _, svc := range servicesMap {
+		for _, module := range svc.Containers {
+			options = append(options, &commonmodels.DistributeTarget{
+				ServiceName:   svc.ServiceName,
+				ServiceModule: module.Name,
+				ImageName:     util.ExtractImageName(module.Image),
+			})
+		}
+	}
+
+	j.spec.TargetOptions = options
+	j.job.Spec = j.spec
+	return nil
+}
+
+func (j *ImageDistributeJob) ClearSelectionField() error {
+	j.spec = &commonmodels.ZadigDistributeImageJobSpec{}
+	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
+		return err
+	}
+
+	j.spec.Targets = make([]*commonmodels.DistributeTarget, 0)
 	j.job.Spec = j.spec
 	return nil
 }

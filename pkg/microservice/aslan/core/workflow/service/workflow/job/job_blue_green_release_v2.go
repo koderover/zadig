@@ -51,6 +51,14 @@ func (j *BlueGreenReleaseV2Job) SetPreset() error {
 	return nil
 }
 
+func (j *BlueGreenReleaseV2Job) SetOptions() error {
+	return nil
+}
+
+func (j *BlueGreenReleaseV2Job) ClearSelectionField() error {
+	return nil
+}
+
 func (j *BlueGreenReleaseV2Job) MergeArgs(args *commonmodels.Job) error {
 	return nil
 }

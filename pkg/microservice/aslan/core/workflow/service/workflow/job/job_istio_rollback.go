@@ -47,12 +47,51 @@ func (j *IstioRollBackJob) SetPreset() error {
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return err
 	}
+	j.job.Spec = j.spec
+	return nil
+}
+
+func (j *IstioRollBackJob) SetOptions() error {
+	j.spec = &commonmodels.IstioRollBackJobSpec{}
+	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
+		return err
+	}
+
+	newTargets := make([]*commonmodels.IstioJobTarget, 0)
+
+	originalWorkflow, err := commonrepo.NewWorkflowV4Coll().Find(j.workflow.Name)
+	if err != nil {
+		log.Errorf("Failed to find original workflow to set options, error: %s", err)
+	}
+
+	originalSpec := new(commonmodels.IstioRollBackJobSpec)
+	found := false
+	for _, stage := range originalWorkflow.Stages {
+		if !found {
+			for _, job := range stage.Jobs {
+				if job.Name == j.job.Name && job.JobType == j.job.JobType {
+					if err := commonmodels.IToi(job.Spec, originalSpec); err != nil {
+						return err
+					}
+					found = true
+					break
+				}
+			}
+		} else {
+			break
+		}
+	}
+
+	if !found {
+		return fmt.Errorf("failed to find the original workflow: %s", j.workflow.Name)
+	}
+
 	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), j.spec.ClusterID)
 	if err != nil {
 		return fmt.Errorf("failed to get kube client, err: %v", err)
 	}
-	newTargets := make([]*commonmodels.IstioJobTarget, 0)
-	for _, target := range j.spec.Targets {
+
+	for _, target := range originalSpec.Targets {
 		deployment, found, err := getter.GetDeployment(j.spec.Namespace, target.WorkloadName, kubeClient)
 		if err != nil || !found {
 			log.Errorf("deployment %s not found in namespace: %s", target.WorkloadName, j.spec.Namespace)
@@ -90,7 +129,19 @@ func (j *IstioRollBackJob) SetPreset() error {
 		}
 
 	}
-	j.spec.Targets = newTargets
+
+	j.spec.TargetOptions = newTargets
+	j.job.Spec = j.spec
+	return nil
+}
+
+func (j *IstioRollBackJob) ClearSelectionField() error {
+	j.spec = &commonmodels.IstioRollBackJobSpec{}
+	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
+		return err
+	}
+
+	j.spec.Targets = make([]*commonmodels.IstioJobTarget, 0)
 	j.job.Spec = j.spec
 	return nil
 }

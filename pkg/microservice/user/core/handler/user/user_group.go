@@ -137,6 +137,14 @@ func ListUserGroups(c *gin.Context) {
 		return
 	}
 
+	if query.PageNum == 0 {
+		query.PageNum = 1
+	}
+
+	if query.PageSize == 0 {
+		query.PageSize = 200
+	}
+
 	groupList, count, err := permission.ListUserGroups(query.Name, query.PageNum, query.PageSize, ctx.Logger)
 
 	if err != nil {
