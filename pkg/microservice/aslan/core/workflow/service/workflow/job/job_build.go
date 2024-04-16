@@ -317,6 +317,8 @@ func (j *BuildJob) UpdateWithLatestSetting() error {
 		return err
 	}
 
+	fmt.Println("1111111111111111111")
+
 	latestWorkflow, err := commonrepo.NewWorkflowV4Coll().Find(j.workflow.Name)
 	if err != nil {
 		log.Errorf("Failed to find original workflow to set options, error: %s", err)
