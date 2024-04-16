@@ -17,8 +17,11 @@
 package service
 
 import (
+	"fmt"
 	"time"
 
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	jobctl "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/job"
 	"github.com/pkg/errors"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
@@ -31,7 +34,7 @@ import (
 )
 
 type ReleaseJobExecutor interface {
-	Execute(plan *models.ReleasePlan) error
+	executeExecute(plan *models.ReleasePlan) error
 }
 
 type ExecuteReleaseJobContext struct {
@@ -142,6 +145,37 @@ func (e *WorkflowReleaseJobExecutor) Execute(plan *models.ReleasePlan) error {
 				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, spec.Workflow.Project, types.ResourceTypeWorkflow, spec.Workflow.Name, types.WorkflowActionRun)
 				if err != nil || !permitted {
 					return ErrPermissionDenied
+				}
+			}
+		}
+
+		originalWorkflow, err := mongodb.NewWorkflowV4Coll().Find(spec.Workflow.Name)
+		if err != nil {
+			log.Errorf("Failed to find WorkflowV4: %s, the error is: %v", spec.Workflow.Name, err)
+			return fmt.Errorf("failed to find WorkflowV4: %s, the error is: %v", spec.Workflow.Name, err)
+		}
+
+		if err := jobctl.MergeArgs(originalWorkflow, spec.Workflow); err != nil {
+			errMsg := fmt.Sprintf("merge workflow args error: %v", err)
+			log.Error(errMsg)
+			return fmt.Errorf(errMsg)
+		}
+
+		for _, stage := range originalWorkflow.Stages {
+			for _, item := range stage.Jobs {
+				err := jobctl.SetOptions(item, spec.Workflow)
+				if err != nil {
+					errMsg := fmt.Sprintf("merge workflow args set options error: %v", err)
+					log.Error(errMsg)
+					return fmt.Errorf(errMsg)
+				}
+
+				// additionally we need to update the user-defined args with the latest workflow configuration
+				err = jobctl.UpdateWithLatestSetting(item, spec.Workflow)
+				if err != nil {
+					errMsg := fmt.Sprintf("failed to merge user-defined workflow args with latest workflow configuration, error: %s", err)
+					log.Error(errMsg)
+					return fmt.Errorf(errMsg)
 				}
 			}
 		}
