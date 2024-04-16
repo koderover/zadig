@@ -181,6 +181,7 @@ func GetReleasePlan(id string) (*models.ReleasePlan, error) {
 				}
 			}
 
+			releasePlanJob.Spec = spec
 		}
 	}
 
