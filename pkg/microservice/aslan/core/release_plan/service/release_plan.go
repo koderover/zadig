@@ -182,6 +182,7 @@ func GetReleasePlan(id string) (*models.ReleasePlan, error) {
 			}
 
 			releasePlanJob.Spec = spec
+			fmt.Printf("release plan job spec: %+v", releasePlanJob.Spec)
 		}
 	}
 
