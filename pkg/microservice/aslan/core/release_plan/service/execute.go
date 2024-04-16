@@ -163,7 +163,7 @@ func (e *WorkflowReleaseJobExecutor) Execute(plan *models.ReleasePlan) error {
 			return fmt.Errorf(errMsg)
 		}
 
-		for _, stage := range originalWorkflow.Stages {
+		for _, stage := range spec.Workflow.Stages {
 			for _, item := range stage.Jobs {
 				err := jobctl.SetOptions(item, spec.Workflow)
 				if err != nil {

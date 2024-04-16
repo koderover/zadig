@@ -162,7 +162,7 @@ func GetReleasePlan(id string) (*models.ReleasePlan, error) {
 				return nil, fmt.Errorf(errMsg)
 			}
 
-			for _, stage := range originalWorkflow.Stages {
+			for _, stage := range spec.Workflow.Stages {
 				for _, item := range stage.Jobs {
 					err := job.SetOptions(item, spec.Workflow)
 					if err != nil {
