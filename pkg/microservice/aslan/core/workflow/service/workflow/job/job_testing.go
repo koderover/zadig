@@ -114,6 +114,10 @@ func (j *TestingJob) ClearSelectionField() error {
 	return nil
 }
 
+func (j *TestingJob) UpdateWithLatestSetting() error {
+	return nil
+}
+
 func (j *TestingJob) GetRepos() ([]*types.Repository, error) {
 	resp := []*types.Repository{}
 	j.spec = &commonmodels.ZadigTestingJobSpec{}

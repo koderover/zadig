@@ -311,6 +311,77 @@ func (j *BuildJob) MergeArgs(args *commonmodels.Job) error {
 	return nil
 }
 
+func (j *BuildJob) UpdateWithLatestSetting() error {
+	j.spec = &commonmodels.ZadigBuildJobSpec{}
+	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
+		return err
+	}
+
+	latestWorkflow, err := commonrepo.NewWorkflowV4Coll().Find(j.workflow.Name)
+	if err != nil {
+		log.Errorf("Failed to find original workflow to set options, error: %s", err)
+	}
+
+	latestSpec := new(commonmodels.ZadigBuildJobSpec)
+	found := false
+	for _, stage := range latestWorkflow.Stages {
+		if !found {
+			for _, job := range stage.Jobs {
+				if job.Name == j.job.Name && job.JobType == j.job.JobType {
+					if err := commonmodels.IToi(job.Spec, latestSpec); err != nil {
+						return err
+					}
+					found = true
+					break
+				}
+			}
+		} else {
+			break
+		}
+	}
+
+	if !found {
+		return fmt.Errorf("failed to find the original workflow: %s", j.workflow.Name)
+	}
+
+	// save all the user-defined args into a map
+	userConfiguredService := make(map[string]*commonmodels.ServiceAndBuild)
+
+	for _, service := range j.spec.ServiceAndBuilds {
+		key := fmt.Sprintf("%s++%s", service.ServiceName, service.ServiceModule)
+		userConfiguredService[key] = service
+	}
+
+	mergedServiceAndBuilds := make([]*commonmodels.ServiceAndBuild, 0)
+
+	for _, buildInfo := range latestSpec.ServiceAndBuilds {
+		key := fmt.Sprintf("%s++%s", buildInfo.ServiceName, buildInfo.ServiceModule)
+		// if a service is selected (in the map above) and is in the latest build job config, add it to the list.
+		// user defined kv and repo should be merged into the newly created list.
+		if userDefinedArgs, ok := userConfiguredService[key]; ok {
+			newBuildInfo := &commonmodels.ServiceAndBuild{
+				ServiceName:      buildInfo.ServiceName,
+				ServiceModule:    buildInfo.ServiceModule,
+				BuildName:        buildInfo.BuildName,
+				Image:            buildInfo.Image,
+				Package:          buildInfo.Package,
+				ImageName:        buildInfo.ImageName,
+				KeyVals:          renderKeyVals(userDefinedArgs.KeyVals, buildInfo.KeyVals),
+				Repos:            mergeRepos(buildInfo.Repos, userDefinedArgs.Repos),
+				ShareStorageInfo: buildInfo.ShareStorageInfo,
+			}
+
+			mergedServiceAndBuilds = append(mergedServiceAndBuilds, newBuildInfo)
+		} else {
+			continue
+		}
+	}
+
+	j.spec.ServiceAndBuilds = mergedServiceAndBuilds
+	j.job.Spec = j.spec
+	return nil
+}
+
 func (j *BuildJob) MergeWebhookRepo(webhookRepo *types.Repository) error {
 	j.spec = &commonmodels.ZadigBuildJobSpec{}
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {

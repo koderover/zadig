@@ -60,6 +60,10 @@ func (j *PluginJob) ClearSelectionField() error {
 	return nil
 }
 
+func (j *PluginJob) UpdateWithLatestSetting() error {
+	return nil
+}
+
 func (j *PluginJob) MergeArgs(args *commonmodels.Job) error {
 	if j.job.Name == args.Name && j.job.JobType == args.JobType {
 		j.spec = &commonmodels.PluginJobSpec{}

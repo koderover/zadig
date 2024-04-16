@@ -162,14 +162,23 @@ func GetReleasePlan(id string) (*models.ReleasePlan, error) {
 
 			for _, stage := range originalWorkflow.Stages {
 				for _, item := range stage.Jobs {
-					err := job.SetOptions(item, originalWorkflow)
+					err := job.SetOptions(item, spec.Workflow)
 					if err != nil {
 						errMsg := fmt.Sprintf("merge workflow args set options error: %v", err)
 						log.Error(errMsg)
 						return nil, fmt.Errorf(errMsg)
 					}
+
+					// additionally we need to update the user-defined args with the latest workflow configuration
+					err = job.UpdateWithLatestSetting(item, spec.Workflow)
+					if err != nil {
+						errMsg := fmt.Sprintf("failed to merge user-defined workflow args with latest workflow configuration, error: %s", err)
+						log.Error(errMsg)
+						return nil, fmt.Errorf(errMsg)
+					}
 				}
 			}
+
 		}
 	}
 

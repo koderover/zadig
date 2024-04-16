@@ -68,6 +68,10 @@ func (j *MseGrayOfflineJob) MergeArgs(args *commonmodels.Job) error {
 	return nil
 }
 
+func (j *MseGrayOfflineJob) UpdateWithLatestSetting() error {
+	return nil
+}
+
 func (j *MseGrayOfflineJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 	resp := []*commonmodels.JobTask{}
 	j.spec = &commonmodels.MseGrayOfflineJobSpec{}

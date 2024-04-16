@@ -18,6 +18,7 @@ package job
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/koderover/zadig/v2/pkg/tool/apollo"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
@@ -100,6 +101,63 @@ func (j *ApolloJob) ClearSelectionField() error {
 	}
 
 	j.spec.NamespaceList = make([]*commonmodels.ApolloNamespace, 0)
+	j.job.Spec = j.spec
+	return nil
+}
+
+func (j *ApolloJob) UpdateWithLatestSetting() error {
+	j.spec = &commonmodels.ApolloJobSpec{}
+	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
+		return err
+	}
+
+	latestWorkflow, err := mongodb.NewWorkflowV4Coll().Find(j.workflow.Name)
+	if err != nil {
+		log.Errorf("Failed to find original workflow to set options, error: %s", err)
+	}
+
+	latestSpec := new(commonmodels.ApolloJobSpec)
+	found := false
+	for _, stage := range latestWorkflow.Stages {
+		if !found {
+			for _, job := range stage.Jobs {
+				if job.Name == j.job.Name && job.JobType == j.job.JobType {
+					if err := commonmodels.IToi(job.Spec, latestSpec); err != nil {
+						return err
+					}
+					found = true
+					break
+				}
+			}
+		} else {
+			break
+		}
+	}
+
+	if !found {
+		return fmt.Errorf("failed to find the original workflow: %s", j.workflow.Name)
+	}
+
+	if j.spec.ApolloID != latestSpec.ApolloID {
+		j.spec.ApolloID = latestSpec.ApolloID
+		j.spec.NamespaceList = make([]*commonmodels.ApolloNamespace, 0)
+	}
+
+	userConfiguredService := make(map[string]*commonmodels.ApolloNamespace)
+	for _, ns := range j.spec.NamespaceList {
+		key := fmt.Sprintf("%s++%s++%s", ns.ClusterID, ns.AppID, ns.Env)
+		userConfiguredService[key] = ns
+	}
+
+	mergedServices := make([]*commonmodels.ApolloNamespace, 0)
+	for _, ns := range latestSpec.NamespaceList {
+		key := fmt.Sprintf("%s++%s++%s", ns.ClusterID, ns.AppID, ns.Env)
+		if userSvc, ok := userConfiguredService[key]; ok {
+			mergedServices = append(mergedServices, userSvc)
+		}
+	}
+
+	j.spec.NamespaceList = mergedServices
 	j.job.Spec = j.spec
 	return nil
 }

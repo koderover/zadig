@@ -118,6 +118,10 @@ func (j *K8sPacthJob) MergeArgs(args *commonmodels.Job) error {
 	return nil
 }
 
+func (j *K8sPacthJob) UpdateWithLatestSetting() error {
+	return nil
+}
+
 func (j *K8sPacthJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 	// logger := log.SugaredLogger()
 	resp := []*commonmodels.JobTask{}

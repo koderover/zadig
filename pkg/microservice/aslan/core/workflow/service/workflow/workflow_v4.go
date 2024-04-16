@@ -1278,6 +1278,14 @@ func GetWebhookForWorkflowV4Preset(workflowName, triggerName string, logger *zap
 					}
 				}
 			}
+
+			// additionally we need to update the user-defined args with the latest workflow configuration
+			err = job.UpdateWithLatestSetting(item, workflow)
+			if err != nil {
+				errMsg := fmt.Sprintf("failed to merge user-defined workflow args with latest workflow configuration, error: %s", err)
+				log.Error(errMsg)
+				return nil, fmt.Errorf(errMsg)
+			}
 		}
 	}
 
@@ -1401,6 +1409,14 @@ func GetGeneralHookForWorkflowV4Preset(workflowName, hookName string, logger *za
 						return nil, e.ErrPresetWorkflow.AddDesc(err.Error())
 					}
 				}
+			}
+
+			// additionally we need to update the user-defined args with the latest workflow configuration
+			err = job.UpdateWithLatestSetting(item, workflow)
+			if err != nil {
+				errMsg := fmt.Sprintf("failed to merge user-defined workflow args with latest workflow configuration, error: %s", err)
+				log.Error(errMsg)
+				return nil, fmt.Errorf(errMsg)
 			}
 		}
 	}
@@ -1588,6 +1604,14 @@ func GetJiraHookForWorkflowV4Preset(workflowName, hookName string, logger *zap.S
 					}
 				}
 			}
+
+			// additionally we need to update the user-defined args with the latest workflow configuration
+			err = job.UpdateWithLatestSetting(item, workflow)
+			if err != nil {
+				errMsg := fmt.Sprintf("failed to merge user-defined workflow args with latest workflow configuration, error: %s", err)
+				log.Error(errMsg)
+				return nil, fmt.Errorf(errMsg)
+			}
 		}
 	}
 
@@ -1739,6 +1763,14 @@ func GetMeegoHookForWorkflowV4Preset(workflowName, hookName string, logger *zap.
 						return nil, e.ErrPresetWorkflow.AddDesc(err.Error())
 					}
 				}
+			}
+
+			// additionally we need to update the user-defined args with the latest workflow configuration
+			err = job.UpdateWithLatestSetting(item, workflow)
+			if err != nil {
+				errMsg := fmt.Sprintf("failed to merge user-defined workflow args with latest workflow configuration, error: %s", err)
+				log.Error(errMsg)
+				return nil, fmt.Errorf(errMsg)
 			}
 		}
 	}
@@ -2001,6 +2033,14 @@ func GetCronForWorkflowV4Preset(workflowName, cronID string, logger *zap.Sugared
 						return nil, e.ErrPresetWorkflow.AddDesc(err.Error())
 					}
 				}
+			}
+
+			// additionally we need to update the user-defined args with the latest workflow configuration
+			err = job.UpdateWithLatestSetting(item, workflow)
+			if err != nil {
+				errMsg := fmt.Sprintf("failed to merge user-defined workflow args with latest workflow configuration, error: %s", err)
+				log.Error(errMsg)
+				return nil, fmt.Errorf(errMsg)
 			}
 		}
 	}

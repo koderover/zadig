@@ -69,6 +69,10 @@ func (j *MseGrayReleaseJob) ClearSelectionField() error {
 	return nil
 }
 
+func (j *MseGrayReleaseJob) UpdateWithLatestSetting() error {
+	return nil
+}
+
 func (j *MseGrayReleaseJob) MergeArgs(args *commonmodels.Job) error {
 	j.spec = &commonmodels.MseGrayReleaseJobSpec{}
 	if err := commonmodels.IToi(args.Spec, j.spec); err != nil {

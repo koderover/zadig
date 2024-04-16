@@ -126,6 +126,56 @@ func (j *NacosJob) ClearSelectionField() error {
 	return nil
 }
 
+// UpdateWithLatestSetting Special thing about this is that everytime it is called, it re-calculate the latest default values.
+func (j *NacosJob) UpdateWithLatestSetting() error {
+	j.spec = &commonmodels.NacosJobSpec{}
+	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
+		return err
+	}
+
+	latestWorkflow, err := mongodb.NewWorkflowV4Coll().Find(j.workflow.Name)
+	if err != nil {
+		log.Errorf("Failed to find original workflow to set options, error: %s", err)
+	}
+
+	latestSpec := new(commonmodels.NacosJobSpec)
+	found := false
+	for _, stage := range latestWorkflow.Stages {
+		if !found {
+			for _, job := range stage.Jobs {
+				if job.Name == j.job.Name && job.JobType == j.job.JobType {
+					if err := commonmodels.IToi(job.Spec, latestSpec); err != nil {
+						return err
+					}
+					found = true
+					break
+				}
+			}
+		} else {
+			break
+		}
+	}
+
+	if j.spec.NacosID != latestSpec.NacosID {
+		j.spec.NacosID = latestSpec.NacosID
+		j.spec.NamespaceID = ""
+		j.spec.NacosDatas = make([]*types.NacosConfig, 0)
+		j.spec.NacosFilteredData = make([]*types.NacosConfig, 0)
+		j.spec.NacosDataRange = make([]string, 0)
+	} else if j.spec.NamespaceID != latestSpec.NamespaceID {
+		j.spec.NamespaceID = latestSpec.NamespaceID
+		j.spec.NacosDatas = make([]*types.NacosConfig, 0)
+		j.spec.NacosFilteredData = make([]*types.NacosConfig, 0)
+		j.spec.NacosDataRange = make([]string, 0)
+	} else {
+		j.spec.NacosDataRange = latestSpec.NacosDataRange
+	}
+
+	j.spec.DataFixed = latestSpec.DataFixed
+	j.job.Spec = j.spec
+	return nil
+}
+
 func (j *NacosJob) MergeArgs(args *commonmodels.Job) error {
 	if j.job.Name == args.Name && j.job.JobType == args.JobType {
 		j.spec = &commonmodels.NacosJobSpec{}

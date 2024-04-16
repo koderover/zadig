@@ -175,6 +175,10 @@ func (j *FreeStyleJob) MergeArgs(args *commonmodels.Job) error {
 	return nil
 }
 
+func (j *FreeStyleJob) UpdateWithLatestSetting() error {
+	return nil
+}
+
 func (j *FreeStyleJob) MergeWebhookRepo(webhookRepo *types.Repository) error {
 	j.spec = &commonmodels.FreestyleJobSpec{}
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {

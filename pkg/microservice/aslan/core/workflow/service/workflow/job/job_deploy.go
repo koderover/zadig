@@ -231,7 +231,7 @@ func (j *DeployJob) SetPreset() error {
 	} else if j.spec.Source == config.SourceRuntime {
 		envName := strings.ReplaceAll(j.spec.Env, setting.FixedValueMark, "")
 
-		serviceDeployOption, _, err := generateEnvDeployServiceInfo(j.workflow.Name, envName, j.workflow.Project, j.job.Name, j.spec.Production)
+		serviceDeployOption, _, err := generateEnvDeployServiceInfo(envName, j.workflow.Project, j.spec)
 		if err != nil {
 			log.Errorf("failed to generate service deployment info for env: %s, error: %s", envName, err)
 			return err
@@ -289,18 +289,6 @@ func (j *DeployJob) SetPreset() error {
 	return nil
 }
 
-func (j *DeployJob) ClearSelectionField() error {
-	j.spec = &commonmodels.ZadigDeployJobSpec{}
-	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
-		return err
-	}
-
-	svcResp := make([]*commonmodels.DeployServiceInfo, 0)
-	j.spec.Services = svcResp
-	j.job.Spec = j.spec
-	return nil
-}
-
 // SetOptions get the service deployment info from ALL envs and set these information into the EnvOptions Field
 func (j *DeployJob) SetOptions() error {
 	j.spec = &commonmodels.ZadigDeployJobSpec{}
@@ -308,13 +296,40 @@ func (j *DeployJob) SetOptions() error {
 		return err
 	}
 
+	latestWorkflow, err := commonrepo.NewWorkflowV4Coll().Find(j.workflow.Name)
+	if err != nil {
+		log.Errorf("Failed to find original workflow to set options, error: %s", err)
+	}
+
+	latestSpec := new(commonmodels.ZadigDeployJobSpec)
+	found := false
+	for _, stage := range latestWorkflow.Stages {
+		if !found {
+			for _, job := range stage.Jobs {
+				if job.Name == j.job.Name && job.JobType == j.job.JobType {
+					if err := commonmodels.IToi(job.Spec, latestSpec); err != nil {
+						return err
+					}
+					found = true
+					break
+				}
+			}
+		} else {
+			break
+		}
+	}
+
+	if !found {
+		return fmt.Errorf("failed to find the original workflow: %s", j.workflow.Name)
+	}
+
 	envOptions := make([]*commonmodels.ZadigDeployEnvInformation, 0)
 
-	if strings.HasPrefix(j.spec.Env, setting.FixedValueMark) {
+	if strings.HasPrefix(latestSpec.Env, setting.FixedValueMark) {
 		// if the env is fixed, we put the env in the option
-		envName := strings.ReplaceAll(j.spec.Env, setting.FixedValueMark, "")
+		envName := strings.ReplaceAll(latestSpec.Env, setting.FixedValueMark, "")
 
-		serviceInfo, registryID, err := generateEnvDeployServiceInfo(j.workflow.Name, envName, j.workflow.Project, j.job.Name, j.spec.Production)
+		serviceInfo, registryID, err := generateEnvDeployServiceInfo(envName, j.workflow.Project, latestSpec)
 		if err != nil {
 			log.Errorf("failed to generate service deployment info for env: %s, error: %s", envName, err)
 			return err
@@ -343,7 +358,7 @@ func (j *DeployJob) SetOptions() error {
 				continue
 			}
 
-			serviceDeployOption, registryID, err := generateEnvDeployServiceInfo(j.workflow.Name, env.EnvName, j.workflow.Project, j.job.Name, j.spec.Production)
+			serviceDeployOption, registryID, err := generateEnvDeployServiceInfo(env.EnvName, j.workflow.Project, latestSpec)
 			if err != nil {
 				log.Errorf("failed to generate service deployment info for env: %s, error: %s", env.EnvName, err)
 				return err
@@ -362,20 +377,37 @@ func (j *DeployJob) SetOptions() error {
 	return nil
 }
 
-func generateEnvDeployServiceInfo(workflowName, env, project, jobName string, production bool) ([]*commonmodels.DeployServiceInfo, string, error) {
-	originalWorkflow, err := commonrepo.NewWorkflowV4Coll().Find(workflowName)
-	if err != nil {
-		return nil, "", fmt.Errorf("failed to find original workflow to generate env deploy service info, err: %s", err)
+func (j *DeployJob) ClearSelectionField() error {
+	j.spec = &commonmodels.ZadigDeployJobSpec{}
+	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
+		return err
 	}
 
-	originalSpec := new(commonmodels.ZadigDeployJobSpec)
+	svcResp := make([]*commonmodels.DeployServiceInfo, 0)
+	j.spec.Services = svcResp
+	j.job.Spec = j.spec
+	return nil
+}
+
+func (j *DeployJob) UpdateWithLatestSetting() error {
+	j.spec = &commonmodels.ZadigDeployJobSpec{}
+	if err := commonmodels.IToiYaml(j.job.Spec, j.spec); err != nil {
+		return err
+	}
+
+	latestWorkflow, err := commonrepo.NewWorkflowV4Coll().Find(j.workflow.Name)
+	if err != nil {
+		log.Errorf("Failed to find original workflow to set options, error: %s", err)
+	}
+
+	latestSpec := new(commonmodels.ZadigDeployJobSpec)
 	found := false
-	for _, stage := range originalWorkflow.Stages {
+	for _, stage := range latestWorkflow.Stages {
 		if !found {
 			for _, job := range stage.Jobs {
-				if job.Name == jobName && job.JobType == config.JobZadigDeploy {
-					if err := commonmodels.IToi(job.Spec, originalSpec); err != nil {
-						return nil, "", fmt.Errorf("failed to decode original job config, error: %s", err)
+				if job.Name == j.job.Name && job.JobType == j.job.JobType {
+					if err := commonmodels.IToi(job.Spec, latestSpec); err != nil {
+						return err
 					}
 					found = true
 					break
@@ -386,15 +418,92 @@ func generateEnvDeployServiceInfo(workflowName, env, project, jobName string, pr
 		}
 	}
 
+	if !found {
+		return fmt.Errorf("failed to find the original workflow: %s", j.workflow.Name)
+	}
+
+	j.spec.Production = latestSpec.Production
+	j.spec.DeployType = latestSpec.DeployType
+	j.spec.SkipCheckRunStatus = latestSpec.SkipCheckRunStatus
+	j.spec.DeployContents = latestSpec.DeployContents
+
+	// source is a bit tricky: if the saved args has a source of fromjob, but it has been change to runtime in the config
+	// we need to not only update its source but also set services to empty slice.
+	if j.spec.Source == config.SourceFromJob && latestSpec.Source == config.SourceRuntime {
+		j.spec.Services = make([]*commonmodels.DeployServiceInfo, 0)
+	}
+	j.spec.Source = latestSpec.Source
+
+	if j.spec.Source == config.SourceFromJob {
+		j.spec.JobName = latestSpec.JobName
+		j.spec.OriginJobName = latestSpec.OriginJobName
+	}
+
+	// Determine service list and its corresponding kvs
+	deployableService, _, err := generateEnvDeployServiceInfo(latestSpec.Env, j.workflow.Project, latestSpec)
+	if err != nil {
+		log.Errorf("failed to generate deployable service from latest workflow spec, err: %s", err)
+		return err
+	}
+
+	mergedService := make([]*commonmodels.DeployServiceInfo, 0)
+	userConfiguredService := make(map[string]*commonmodels.DeployServiceInfo)
+
+	for _, service := range j.spec.Services {
+		userConfiguredService[service.ServiceName] = service
+	}
+
+	for _, service := range deployableService {
+		if userSvc, ok := userConfiguredService[service.ServiceName]; ok {
+			for _, kv := range service.VariableKVs {
+				for _, customKV := range userSvc.VariableKVs {
+					if kv.Key == customKV.Key {
+						kv.Value = customKV.Value
+					}
+				}
+			}
+			for _, kv := range service.LatestKeyVals {
+				for _, customKV := range userSvc.LatestKeyVals {
+					if kv.Key == customKV.Key {
+						kv.Value = customKV.Value
+					}
+				}
+			}
+
+			mergedService = append(mergedService, &commonmodels.DeployServiceInfo{
+				ServiceName:       service.ServiceName,
+				VariableConfigs:   service.VariableConfigs,
+				VariableKVs:       service.VariableKVs,
+				LatestVariableKVs: service.LatestVariableKVs,
+				VariableYaml:      service.VariableYaml,
+				UpdateConfig:      service.UpdateConfig,
+				Updatable:         service.Updatable,
+				Deployed:          service.Deployed,
+				Modules:           service.Modules,
+				KeyVals:           nil,
+				LatestKeyVals:     nil,
+			})
+		} else {
+			continue
+		}
+	}
+
+	j.spec.Services = mergedService
+	j.job.Spec = j.spec
+	return nil
+}
+
+// generateEnvDeployServiceInfo generates the valid deployable service and calculate the visible kvs defined in the spec
+func generateEnvDeployServiceInfo(env, project string, spec *commonmodels.ZadigDeployJobSpec) ([]*commonmodels.DeployServiceInfo, string, error) {
 	resp := make([]*commonmodels.DeployServiceInfo, 0)
 	envInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
 		Name:       project,
 		EnvName:    env,
-		Production: util.GetBoolPointer(production),
+		Production: util.GetBoolPointer(spec.Production),
 	})
 
 	if err != nil {
-		return nil, "", fmt.Errorf("failed to find fixed env: %s in environments, error: %s", env, err)
+		return nil, "", fmt.Errorf("failed to find env: %s in environments, error: %s", env, err)
 	}
 
 	projectInfo, err := templaterepo.NewProductColl().Find(project)
@@ -435,7 +544,7 @@ func generateEnvDeployServiceInfo(workflowName, env, project, jobName string, pr
 	serviceKVSettingMap := make(map[string][]*commonmodels.DeployVariableConfig)
 
 	updateConfig := false
-	for _, contents := range originalSpec.DeployContents {
+	for _, contents := range spec.DeployContents {
 		if contents == config.DeployVars {
 			updateConfig = true
 		}
@@ -444,7 +553,7 @@ func generateEnvDeployServiceInfo(workflowName, env, project, jobName string, pr
 	svcKVsMap := map[string][]*commonmodels.ServiceKeyVal{}
 	deployServiceMap := map[string]*commonmodels.DeployServiceInfo{}
 
-	for _, svc := range originalSpec.Services {
+	for _, svc := range spec.Services {
 		serviceKVSettingMap[svc.ServiceName] = svc.VariableConfigs
 		svcKVsMap[svc.ServiceName] = svc.KeyVals
 		deployServiceMap[svc.ServiceName] = svc
@@ -452,7 +561,7 @@ func generateEnvDeployServiceInfo(workflowName, env, project, jobName string, pr
 
 	var serviceDefinitions []*commonmodels.Service
 
-	if production {
+	if spec.Production {
 		serviceDefinitions, err = commonrepo.NewProductionServiceColl().ListMaxRevisions(&commonrepo.ServiceListOption{
 			ProductName: project,
 		})
@@ -509,7 +618,7 @@ func generateEnvDeployServiceInfo(workflowName, env, project, jobName string, pr
 			}
 		}
 
-		svcInfo, err := FilterServiceVars(service.ServiceName, originalSpec.DeployContents, deployServiceMap[service.ServiceName], envServiceMap2[service.ServiceName])
+		svcInfo, err := FilterServiceVars(service.ServiceName, spec.DeployContents, deployServiceMap[service.ServiceName], envServiceMap2[service.ServiceName])
 		if err != nil {
 			return nil, "", e.ErrFilterWorkflowVars.AddErr(err)
 		}

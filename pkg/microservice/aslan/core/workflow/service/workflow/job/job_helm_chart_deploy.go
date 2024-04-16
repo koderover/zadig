@@ -18,7 +18,6 @@ package job
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
@@ -86,19 +85,40 @@ func (j *HelmChartDeployJob) SetOptions() error {
 		return err
 	}
 
+	latestWorkflow, err := commonrepo.NewWorkflowV4Coll().Find(j.workflow.Name)
+	if err != nil {
+		log.Errorf("Failed to find original workflow to set options, error: %s", err)
+	}
+
+	latestSpec := new(commonmodels.ZadigHelmChartDeployJobSpec)
+	found := false
+	for _, stage := range latestWorkflow.Stages {
+		if !found {
+			for _, job := range stage.Jobs {
+				if job.Name == j.job.Name && job.JobType == j.job.JobType {
+					if err := commonmodels.IToi(job.Spec, latestSpec); err != nil {
+						return err
+					}
+					found = true
+					break
+				}
+			}
+		} else {
+			break
+		}
+	}
+
 	envOptions := make([]*commonmodels.ZadigHelmDeployEnvInformation, 0)
 
-	if strings.HasPrefix(j.spec.Env, setting.FixedValueMark) {
-		envName := strings.ReplaceAll(j.spec.Env, setting.FixedValueMark, "")
-
-		chartInfo, err := generateEnvHelmChartInfo(envName, j.workflow.Project)
+	if latestSpec.EnvSource == "fixed" {
+		chartInfo, err := generateEnvHelmChartInfo(latestSpec.Env, j.workflow.Project)
 		if err != nil {
-			log.Errorf("failed to generate helm chart deploy info for env: %s, error: %s", envName, err)
+			log.Errorf("failed to generate helm chart deploy info for env: %s, error: %s", latestSpec.Env, err)
 			return err
 		}
 
 		envOptions = append(envOptions, &commonmodels.ZadigHelmDeployEnvInformation{
-			Env:      envName,
+			Env:      latestSpec.Env,
 			Services: chartInfo,
 		})
 	} else {
@@ -137,6 +157,42 @@ func (j *HelmChartDeployJob) ClearSelectionField() error {
 
 	deploys := make([]*commonmodels.DeployHelmChart, 0)
 	j.spec.DeployHelmCharts = deploys
+	j.job.Spec = j.spec
+	return nil
+}
+
+func (j *HelmChartDeployJob) UpdateWithLatestSetting() error {
+	j.spec = &commonmodels.ZadigHelmChartDeployJobSpec{}
+	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
+		return err
+	}
+
+	latestWorkflow, err := commonrepo.NewWorkflowV4Coll().Find(j.workflow.Name)
+	if err != nil {
+		log.Errorf("Failed to find original workflow to set options, error: %s", err)
+	}
+
+	latestSpec := new(commonmodels.ZadigHelmChartDeployJobSpec)
+	found := false
+	for _, stage := range latestWorkflow.Stages {
+		if !found {
+			for _, job := range stage.Jobs {
+				if job.Name == j.job.Name && job.JobType == j.job.JobType {
+					if err := commonmodels.IToi(job.Spec, latestSpec); err != nil {
+						return err
+					}
+					found = true
+					break
+				}
+			}
+		} else {
+			break
+		}
+	}
+
+	j.spec.EnvSource = latestSpec.EnvSource
+	j.spec.SkipCheckRunStatus = latestSpec.SkipCheckRunStatus
+	j.spec.Env = latestSpec.Env
 	j.job.Spec = j.spec
 	return nil
 }

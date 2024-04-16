@@ -55,7 +55,11 @@ type JobCtl interface {
 	SetOptions() error
 	ClearSelectionField() error
 	ToJobs(taskID int64) ([]*commonmodels.JobTask, error)
+	// MergeArgs merge the current workflow with the user input: args
 	MergeArgs(args *commonmodels.Job) error
+	// UpdateWithLatestSetting update the current workflow arguments with the latest workflow settings.
+	// it will also calculate if the user's args is still valid, returning error if it is invalid.
+	UpdateWithLatestSetting() error
 	LintJob() error
 }
 
@@ -174,6 +178,14 @@ func SetOptions(job *commonmodels.Job, workflow *commonmodels.WorkflowV4) error 
 		return warpJobError(job.Name, err)
 	}
 	return jobCtl.SetOptions()
+}
+
+func UpdateWithLatestSetting(job *commonmodels.Job, workflow *commonmodels.WorkflowV4) error {
+	jobCtl, err := InitJobCtl(job, workflow)
+	if err != nil {
+		return warpJobError(job.Name, err)
+	}
+	return jobCtl.UpdateWithLatestSetting()
 }
 
 func JobPresetSkiped(job *commonmodels.Job) {

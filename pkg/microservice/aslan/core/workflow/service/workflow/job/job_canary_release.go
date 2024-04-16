@@ -62,6 +62,10 @@ func (j *CanaryReleaseJob) MergeArgs(args *commonmodels.Job) error {
 	return nil
 }
 
+func (j *CanaryReleaseJob) UpdateWithLatestSetting() error {
+	return nil
+}
+
 func (j *CanaryReleaseJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 	resp := []*commonmodels.JobTask{}
 

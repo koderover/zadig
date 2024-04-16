@@ -118,6 +118,10 @@ func (j *CustomDeployJob) MergeArgs(args *commonmodels.Job) error {
 	return nil
 }
 
+func (j *CustomDeployJob) UpdateWithLatestSetting() error {
+	return nil
+}
+
 func (j *CustomDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 	resp := []*commonmodels.JobTask{}
 
