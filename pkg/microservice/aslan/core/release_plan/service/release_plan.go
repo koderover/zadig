@@ -18,6 +18,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -182,7 +183,8 @@ func GetReleasePlan(id string) (*models.ReleasePlan, error) {
 			}
 
 			releasePlanJob.Spec = spec
-			fmt.Printf("release plan job spec: %s\n", string(releasePlanJob.Spec.([]byte)))
+			body, err := json.Marshal(releasePlanJob.Spec)
+			fmt.Printf("release plan job spec: %s\n", string(body))
 		}
 	}
 
