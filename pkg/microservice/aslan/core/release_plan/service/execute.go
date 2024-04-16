@@ -34,7 +34,7 @@ import (
 )
 
 type ReleaseJobExecutor interface {
-	executeExecute(plan *models.ReleasePlan) error
+	Execute(plan *models.ReleasePlan) error
 }
 
 type ExecuteReleaseJobContext struct {
@@ -154,6 +154,8 @@ func (e *WorkflowReleaseJobExecutor) Execute(plan *models.ReleasePlan) error {
 			log.Errorf("Failed to find WorkflowV4: %s, the error is: %v", spec.Workflow.Name, err)
 			return fmt.Errorf("failed to find WorkflowV4: %s, the error is: %v", spec.Workflow.Name, err)
 		}
+
+		spec.Workflow.KeyVals = jobctl.RenderKeyVals(spec.Workflow.KeyVals, originalWorkflow.KeyVals)
 
 		if err := jobctl.MergeArgs(originalWorkflow, spec.Workflow); err != nil {
 			errMsg := fmt.Sprintf("merge workflow args error: %v", err)
