@@ -379,6 +379,7 @@ func (j *BuildJob) UpdateWithLatestSetting() error {
 		}
 	}
 
+	j.spec.DockerRegistryID = latestSpec.DockerRegistryID
 	j.spec.ServiceAndBuilds = mergedServiceAndBuilds
 	j.job.Spec = j.spec
 	return nil
