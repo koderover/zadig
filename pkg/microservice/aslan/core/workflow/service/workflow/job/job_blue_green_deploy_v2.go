@@ -253,7 +253,6 @@ func (j *BlueGreenDeployV2Job) UpdateWithLatestSetting() error {
 
 // TODO: This function now can only be used for production environments
 func generateBlueGreenEnvDeployServiceInfo(env, project string, services []*commonmodels.BlueGreenDeployV2Service) ([]*commonmodels.BlueGreenDeployV2Service, string, error) {
-	fmt.Println(">>>>> generating info for env:", env, ", project:", project)
 	targetEnv, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
 		EnvName:    env,
 		Name:       project,
@@ -282,7 +281,10 @@ func generateBlueGreenEnvDeployServiceInfo(env, project string, services []*comm
 	resp := make([]*commonmodels.BlueGreenDeployV2Service, 0)
 
 	for _, envService := range serviceInfo.Services {
-		fmt.Println(">>>>>>>>>>>>>> service:", envService.ServiceName)
+		if !envService.Deployed {
+			continue
+		}
+
 		appendService := &commonmodels.BlueGreenDeployV2Service{
 			ServiceName: envService.ServiceName,
 		}
@@ -302,7 +304,6 @@ func generateBlueGreenEnvDeployServiceInfo(env, project string, services []*comm
 		// if a yaml is pre-configured, use it. Otherwise, just get it from the environment and do some render.
 		if configuredService, ok := configuredServiceMap[envService.ServiceName]; ok && len(configuredService.BlueServiceYaml) != 0 {
 			appendService.BlueServiceYaml = configuredService.BlueServiceYaml
-			fmt.Println(">>>>>>>>>>>> yaml2:", appendService.BlueServiceYaml)
 		} else {
 			yamlContent, _, err := kube.FetchCurrentAppliedYaml(&kube.GeneSvcYamlOption{
 				ProductName: project,
@@ -312,8 +313,6 @@ func generateBlueGreenEnvDeployServiceInfo(env, project string, services []*comm
 			if err != nil {
 				return nil, "", fmt.Errorf("failed to fetch %s current applied yaml, err: %s", envService.ServiceName, err)
 			}
-
-			fmt.Println(">>>>>>>>>>>> yaml:", yamlContent)
 
 			resources := make([]*unstructured.Unstructured, 0)
 			manifests := releaseutil.SplitManifests(yamlContent)
