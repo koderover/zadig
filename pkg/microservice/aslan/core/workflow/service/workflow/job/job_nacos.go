@@ -156,6 +156,75 @@ func (j *NacosJob) UpdateWithLatestSetting() error {
 		}
 	}
 
+	// find the latest config and save it to the original config field
+	originNamespaceID := strings.ReplaceAll(latestSpec.NamespaceID, setting.FixedValueMark, "")
+
+	nacosConfigs, err := commonservice.ListNacosConfig(latestSpec.NacosID, originNamespaceID, log.SugaredLogger())
+	if err != nil {
+		return fmt.Errorf("fail to list nacos config: %w", err)
+	}
+
+	namespaces, err := commonservice.ListNacosNamespace(latestSpec.NacosID, log.SugaredLogger())
+	if err != nil {
+		return fmt.Errorf("failed to list nacos namespace")
+	}
+
+	namespaceName := ""
+	for _, namespace := range namespaces {
+		if namespace.NamespaceID == originNamespaceID {
+			namespaceName = namespace.NamespacedName
+			break
+		}
+	}
+
+	nacosConfigsMap := map[string]*types.NacosConfig{}
+	for _, config := range nacosConfigs {
+		config.NamespaceID = originNamespaceID
+		config.NamespaceName = namespaceName
+
+		nacosConfigsMap[getNacosConfigKey(config.Group, config.DataID)] = config
+	}
+
+	var configSet sets.String
+	if strings.HasPrefix(latestSpec.NamespaceID, setting.FixedValueMark) {
+		configSet = sets.NewString(latestSpec.NacosDataRange...)
+	}
+
+	userConfiguredDatas := make(map[string]*types.NacosConfig)
+	for _, selectedData := range j.spec.NacosDatas {
+		userConfiguredDatas[selectedData.DataID] = selectedData
+	}
+
+	newFilterDatas := make([]*types.NacosConfig, 0)
+	for _, data := range nacosConfigsMap {
+		if !isNacosDataFiltered(data, configSet) {
+			continue
+		}
+
+		newFilterDatas = append(newFilterDatas, data)
+	}
+
+	j.spec.NacosFilteredData = newFilterDatas
+
+	newDatas := make([]*types.NacosConfig, 0)
+
+	for _, data := range newFilterDatas {
+		if userConfiguredData, ok := userConfiguredDatas[data.DataID]; ok {
+			newDatas = append(newDatas, &types.NacosConfig{
+				DataID:          data.DataID,
+				Group:           data.Group,
+				Desc:            data.Desc,
+				Format:          data.Format,
+				Content:         userConfiguredData.Content,
+				OriginalContent: data.Content,
+				NamespaceID:     data.NamespaceID,
+				NamespaceName:   data.NamespaceName,
+			})
+		}
+	}
+
+	j.spec.NacosDatas = newDatas
+
 	if j.spec.NacosID != latestSpec.NacosID {
 		j.spec.NacosID = latestSpec.NacosID
 		j.spec.NamespaceID = ""
