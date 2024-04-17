@@ -440,7 +440,12 @@ func (j *DeployJob) UpdateWithLatestSetting() error {
 	}
 
 	// Determine service list and its corresponding kvs
-	deployableService, _, err := generateEnvDeployServiceInfo(latestSpec.Env, j.workflow.Project, latestSpec)
+	env := latestSpec.Env
+	if strings.HasPrefix(latestSpec.Env, setting.FixedValueMark) {
+		env = strings.TrimPrefix(latestSpec.Env, setting.FixedValueMark)
+	}
+
+	deployableService, _, err := generateEnvDeployServiceInfo(env, j.workflow.Project, latestSpec)
 	if err != nil {
 		log.Errorf("failed to generate deployable service from latest workflow spec, err: %s", err)
 		return err
