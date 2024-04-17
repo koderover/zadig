@@ -158,18 +158,6 @@ func (j *CustomDeployJob) UpdateWithLatestSetting() error {
 	} else if j.spec.Namespace != latestSpec.Namespace {
 		j.spec.Namespace = latestSpec.Namespace
 		j.spec.Targets = make([]*commonmodels.DeployTargets, 0)
-	} else {
-		userConfiguredTargets := make(map[string]*commonmodels.DeployTargets)
-		for _, target := range j.spec.Targets {
-			userConfiguredTargets[target.Target] = target
-		}
-		mergedTargets := make([]*commonmodels.DeployTargets, 0)
-		for _, latestTarget := range latestSpec.Targets {
-			if userConfiguredTarget, ok := userConfiguredTargets[latestTarget.Target]; ok {
-				mergedTargets = append(mergedTargets, userConfiguredTarget)
-			}
-		}
-		j.spec.Targets = mergedTargets
 	}
 
 	j.spec.SkipCheckRunStatus = latestSpec.SkipCheckRunStatus

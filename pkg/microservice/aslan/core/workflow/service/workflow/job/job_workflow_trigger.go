@@ -106,9 +106,39 @@ func (j *WorkflowTriggerJob) UpdateWithLatestSetting() error {
 		return fmt.Errorf("failed to find the original workflow: %s", j.workflow.Name)
 	}
 
+	mergedFixedWorkflows := make([]*commonmodels.ServiceTriggerWorkflowInfo, 0)
+	mergedServiceWorkflows := make([]*commonmodels.ServiceTriggerWorkflowInfo, 0)
+
+	userDefinedFixedWorkflowTriggers := make(map[string]*commonmodels.ServiceTriggerWorkflowInfo)
+	userDefinedServiceWorkflowTriggers := make(map[string]*commonmodels.ServiceTriggerWorkflowInfo)
+
+	for _, userFixedTrigger := range j.spec.FixedWorkflowList {
+		key := fmt.Sprintf("%s++%s", userFixedTrigger.WorkflowName, userFixedTrigger.ProjectName)
+		userDefinedFixedWorkflowTriggers[key] = userFixedTrigger
+	}
+
+	for _, userServiceTrigger := range j.spec.ServiceTriggerWorkflow {
+		key := fmt.Sprintf("%s++%s++%s++%s", userServiceTrigger.WorkflowName, userServiceTrigger.ProjectName, userServiceTrigger.ServiceName, userServiceTrigger.ServiceModule)
+		userDefinedServiceWorkflowTriggers[key] = userServiceTrigger
+	}
+
+	for _, latestFixedTrigger := range latestSpec.FixedWorkflowList {
+		key := fmt.Sprintf("%s++%s", latestFixedTrigger.WorkflowName, latestFixedTrigger.ProjectName)
+		if userFixedTrigger, ok := userDefinedFixedWorkflowTriggers[key]; ok {
+			mergedFixedWorkflows = append(mergedFixedWorkflows, userFixedTrigger)
+		}
+	}
+
+	for _, latestServiceTrigger := range latestSpec.ServiceTriggerWorkflow {
+		key := fmt.Sprintf("%s++%s++%s++%s", latestServiceTrigger.WorkflowName, latestServiceTrigger.ProjectName, latestServiceTrigger.ServiceName, latestServiceTrigger.ServiceModule)
+		if userServiceTrigger, ok := userDefinedFixedWorkflowTriggers[key]; ok {
+			mergedServiceWorkflows = append(mergedServiceWorkflows, userServiceTrigger)
+		}
+	}
+
 	j.spec.TriggerType = latestSpec.TriggerType
-	j.spec.FixedWorkflowList = latestSpec.FixedWorkflowList
-	j.spec.ServiceTriggerWorkflow = latestSpec.ServiceTriggerWorkflow
+	j.spec.FixedWorkflowList = mergedFixedWorkflows
+	j.spec.ServiceTriggerWorkflow = mergedServiceWorkflows
 	j.spec.Source = latestSpec.Source
 	j.spec.SourceJobName = latestSpec.SourceJobName
 	j.spec.SourceService = latestSpec.SourceService
