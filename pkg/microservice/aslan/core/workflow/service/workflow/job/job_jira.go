@@ -58,6 +58,19 @@ func (j *JiraJob) SetOptions() error {
 }
 
 func (j *JiraJob) ClearSelectionField() error {
+	return nil
+}
+
+func (j *JiraJob) MergeArgs(args *commonmodels.Job) error {
+	j.spec = &commonmodels.JiraJobSpec{}
+	if err := commonmodels.IToi(args.Spec, j.spec); err != nil {
+		return err
+	}
+	j.job.Spec = j.spec
+	return nil
+}
+
+func (j *JiraJob) UpdateWithLatestSetting() error {
 	j.spec = &commonmodels.JiraJobSpec{}
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return err
@@ -106,7 +119,6 @@ func (j *JiraJob) ClearSelectionField() error {
 		j.spec.Issues = make([]*commonmodels.IssueID, 0)
 		j.spec.TargetStatus = ""
 	} else {
-		fmt.Println("!?!?!?!?!?!?!?!?!?!")
 		j.spec.QueryType = latestSpec.QueryType
 		j.spec.JQL = latestSpec.JQL
 		j.spec.IssueType = latestSpec.IssueType
@@ -115,19 +127,6 @@ func (j *JiraJob) ClearSelectionField() error {
 	}
 
 	j.job.Spec = j.spec
-	return nil
-}
-
-func (j *JiraJob) MergeArgs(args *commonmodels.Job) error {
-	j.spec = &commonmodels.JiraJobSpec{}
-	if err := commonmodels.IToi(args.Spec, j.spec); err != nil {
-		return err
-	}
-	j.job.Spec = j.spec
-	return nil
-}
-
-func (j *JiraJob) UpdateWithLatestSetting() error {
 	return nil
 }
 
