@@ -512,6 +512,7 @@ func (j *DeployJob) UpdateWithLatestSetting() error {
 
 // generateEnvDeployServiceInfo generates the valid deployable service and calculate the visible kvs defined in the spec
 func generateEnvDeployServiceInfo(env, project string, spec *commonmodels.ZadigDeployJobSpec) ([]*commonmodels.DeployServiceInfo, string, error) {
+	fmt.Println(">>>>>>>>>>>>generating deploy info for env:", env, ", project: ", project)
 	resp := make([]*commonmodels.DeployServiceInfo, 0)
 	envInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
 		Name:       project,
@@ -616,6 +617,7 @@ func generateEnvDeployServiceInfo(env, project string, spec *commonmodels.ZadigD
 	*/
 
 	for _, service := range envServiceMap {
+		fmt.Println(">>>>>>>>>>>>>>>> service:", service.ServiceName)
 		modules := make([]*commonmodels.DeployModuleInfo, 0)
 		for _, module := range service.Containers {
 			modules = append(modules, &commonmodels.DeployModuleInfo{
