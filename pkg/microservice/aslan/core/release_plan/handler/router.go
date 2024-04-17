@@ -31,6 +31,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		v1.DELETE("/:id", DeleteReleasePlan)
 
 		v1.POST("/:id/execute", ExecuteReleaseJob)
+		v1.POST("/:id/skip", SkipReleaseJob)
 		v1.POST("/:id/status/:status", UpdateReleaseJobStatus)
 		v1.POST("/:id/approve", ApproveReleasePlan)
 	}

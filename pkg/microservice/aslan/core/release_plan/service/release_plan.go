@@ -328,6 +328,83 @@ func ExecuteReleaseJob(c *handler.Context, planID string, args *ExecuteReleaseJo
 	return nil
 }
 
+type SkipReleaseJobArgs struct {
+	ID   string      `json:"id"`
+	Name string      `json:"name"`
+	Type string      `json:"type"`
+	Spec interface{} `json:"spec"`
+}
+
+func SkipReleaseJob(c *handler.Context, planID string, args *SkipReleaseJobArgs) error {
+	approveLock := getLock(planID)
+	approveLock.Lock()
+	defer approveLock.Unlock()
+
+	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
+	defer cancel()
+	plan, err := mongodb.NewReleasePlanColl().GetByID(ctx, planID)
+	if err != nil {
+		return errors.Wrap(err, "get plan")
+	}
+
+	if plan.Status != config.StatusExecuting {
+		return errors.Errorf("plan status is %s, can not skip", plan.Status)
+	}
+
+	if !(plan.StartTime == 0 && plan.EndTime == 0) {
+		now := time.Now().Unix()
+		if now < plan.StartTime || now > plan.EndTime {
+			return errors.Errorf("plan is not in the release time range")
+		}
+	}
+
+	if plan.ManagerID != c.UserID {
+		return errors.Errorf("only manager can skip")
+	}
+
+	skipper, err := NewReleaseJobSkipper(&SkipReleaseJobContext{
+		AuthResources: c.Resources,
+		UserID:        c.UserID,
+		Account:       c.Account,
+		UserName:      c.UserName,
+	}, args)
+	if err != nil {
+		return errors.Wrap(err, "new release job skipper")
+	}
+	if err = skipper.Skip(plan); err != nil {
+		return errors.Wrap(err, "skip")
+	}
+
+	plan.UpdatedBy = c.UserName
+	plan.UpdateTime = time.Now().Unix()
+
+	if checkReleasePlanJobsAllDone(plan) {
+		plan.ExecutingTime = time.Now().Unix()
+		plan.SuccessTime = time.Now().Unix()
+		plan.Status = config.StatusSuccess
+	}
+
+	if err = mongodb.NewReleasePlanColl().UpdateByID(ctx, planID, plan); err != nil {
+		return errors.Wrap(err, "update plan")
+	}
+
+	go func() {
+		if err := mongodb.NewReleasePlanLogColl().Create(&models.ReleasePlanLog{
+			PlanID:     planID,
+			Username:   c.UserName,
+			Account:    c.Account,
+			Verb:       VerbSkip,
+			TargetName: args.Name,
+			TargetType: TargetTypeReleaseJob,
+			CreatedAt:  time.Now().Unix(),
+		}); err != nil {
+			log.Errorf("create release plan log error: %v", err)
+		}
+	}()
+
+	return nil
+}
+
 func UpdateReleasePlanStatus(c *handler.Context, planID, status string) error {
 	approveLock := getLock(planID)
 	approveLock.Lock()
@@ -545,7 +622,7 @@ func clearApprovalData(approval *models.Approval) error {
 
 func checkReleasePlanJobsAllDone(plan *models.ReleasePlan) bool {
 	for _, job := range plan.Jobs {
-		if job.Status != config.ReleasePlanJobStatusDone {
+		if job.Status != config.ReleasePlanJobStatusDone && job.Status != config.ReleasePlanJobStatusSkipped {
 			return false
 		}
 	}
