@@ -138,55 +138,70 @@ func (j *ApolloJob) UpdateWithLatestSetting() error {
 		return fmt.Errorf("failed to find the original workflow: %s", j.workflow.Name)
 	}
 
+	mergedNSList := make([]*commonmodels.ApolloNamespace, 0)
 	if j.spec.ApolloID != latestSpec.ApolloID {
 		j.spec.ApolloID = latestSpec.ApolloID
-		j.spec.NamespaceList = make([]*commonmodels.ApolloNamespace, 0)
-	}
-
-	userConfiguredService := make(map[string]*commonmodels.ApolloNamespace)
-	for _, ns := range j.spec.NamespaceList {
-		key := fmt.Sprintf("%s++%s++%s", ns.ClusterID, ns.AppID, ns.Env)
-		userConfiguredService[key] = ns
-	}
-
-	mergedServices := make([]*commonmodels.ApolloNamespace, 0)
-	for _, ns := range latestSpec.NamespaceList {
-		key := fmt.Sprintf("%s++%s++%s", ns.ClusterID, ns.AppID, ns.Env)
-		if userSvc, ok := userConfiguredService[key]; ok {
-			mergedServices = append(mergedServices, userSvc)
-		}
-	}
-
-	info, err := mongodb.NewConfigurationManagementColl().GetApolloByID(context.Background(), latestSpec.ApolloID)
-	if err != nil {
-		return errors.Errorf("failed to get apollo info from mongo: %v", err)
-	}
-
-	client := apollo.NewClient(info.ServerAddress, info.Token)
-	for _, namespace := range latestSpec.NamespaceList {
-		result, err := client.GetNamespace(namespace.AppID, namespace.Env, namespace.ClusterID, namespace.Namespace)
+	} else {
+		info, err := mongodb.NewConfigurationManagementColl().GetApolloByID(context.Background(), latestSpec.ApolloID)
 		if err != nil {
-			log.Warnf("Preset ApolloJob: get namespace %s-%s-%s-%s error: %v", namespace.AppID, namespace.Env, namespace.ClusterID, namespace.Namespace, err)
-			continue
+			return errors.Errorf("failed to get apollo info from mongo: %v", err)
 		}
-		for _, item := range result.Items {
-			if item.Key == "" {
+
+		newNamespaceMap := make(map[string]*commonmodels.ApolloNamespace)
+		client := apollo.NewClient(info.ServerAddress, info.Token)
+		for _, namespace := range latestSpec.NamespaceList {
+			result, err := client.GetNamespace(namespace.AppID, namespace.Env, namespace.ClusterID, namespace.Namespace)
+			if err != nil {
+				log.Warnf("Preset ApolloJob: get namespace %s-%s-%s-%s error: %v", namespace.AppID, namespace.Env, namespace.ClusterID, namespace.Namespace, err)
 				continue
 			}
-			namespace.KeyValList = append(namespace.KeyValList, &commonmodels.ApolloKV{
-				Key: item.Key,
-				Val: item.Value,
-			})
+			kvList := make([]*commonmodels.ApolloKV, 0)
+			for _, item := range result.Items {
+				if item.Key == "" {
+					continue
+				}
+				kvList = append(kvList, &commonmodels.ApolloKV{
+					Key: item.Key,
+					Val: item.Value,
+				})
+			}
+			if result.Format != "properties" && len(result.Items) == 0 {
+				kvList = append(kvList, &commonmodels.ApolloKV{
+					Key: "content",
+					Val: "",
+				})
+			}
+
+			key := fmt.Sprintf("%s++%s++%s++%s", namespace.ClusterID, namespace.AppID, namespace.Env, namespace.Namespace)
+
+			newNamespaceMap[key] = &commonmodels.ApolloNamespace{
+				AppID:          namespace.AppID,
+				ClusterID:      namespace.ClusterID,
+				Env:            namespace.Env,
+				Namespace:      namespace.Namespace,
+				Type:           namespace.Type,
+				OriginalConfig: nil,
+				KeyValList:     kvList,
+			}
 		}
-		if result.Format != "properties" && len(result.Items) == 0 {
-			namespace.KeyValList = append(namespace.KeyValList, &commonmodels.ApolloKV{
-				Key: "content",
-				Val: "",
-			})
+
+		for _, ns := range j.spec.NamespaceList {
+			key := fmt.Sprintf("%s++%s++%s++%s", ns.ClusterID, ns.AppID, ns.Env, ns.Namespace)
+			if newNs, ok := newNamespaceMap[key]; ok {
+				mergedNSList = append(mergedNSList, &commonmodels.ApolloNamespace{
+					AppID:          newNs.AppID,
+					ClusterID:      newNs.ClusterID,
+					Env:            newNs.Env,
+					Namespace:      newNs.Namespace,
+					Type:           newNs.Type,
+					OriginalConfig: newNs.KeyValList,
+					KeyValList:     ns.KeyValList,
+				})
+			}
 		}
 	}
 
-	j.spec.NamespaceList = mergedServices
+	j.spec.NamespaceList = mergedNSList
 	j.job.Spec = j.spec
 	return nil
 }

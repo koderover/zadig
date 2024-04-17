@@ -204,8 +204,6 @@ func (j *NacosJob) UpdateWithLatestSetting() error {
 
 		newFilterDatas := make([]*types.NacosConfig, 0)
 		for _, data := range nacosConfigsMap {
-			fmt.Println(">>>>>>>>>>>>>>>> dataid:", data.DataID)
-			fmt.Println(">>>>>>>>>>>>>>>> datacontent:", data.Content)
 			if !isNacosDataFiltered(data, configSet) {
 				continue
 			}
