@@ -481,7 +481,7 @@ func (j *DeployJob) UpdateWithLatestSetting() error {
 				VariableKVs:       service.VariableKVs,
 				LatestVariableKVs: service.LatestVariableKVs,
 				VariableYaml:      service.VariableYaml,
-				UpdateConfig:      service.UpdateConfig,
+				UpdateConfig:      userSvc.UpdateConfig,
 				Updatable:         service.Updatable,
 				Deployed:          service.Deployed,
 				Modules:           service.Modules,
