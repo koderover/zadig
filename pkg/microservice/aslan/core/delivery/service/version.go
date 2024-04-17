@@ -54,6 +54,7 @@ import (
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/base"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/kube"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/repository"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	workflowservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/v2/pkg/setting"
@@ -105,6 +106,7 @@ type CreateHelmDeliveryVersionArgs struct {
 	Version       string   `json:"version"`
 	Desc          string   `json:"desc"`
 	EnvName       string   `json:"envName"`
+	Production    bool     `json:"production"`
 	Labels        []string `json:"labels"`
 	ImageRepoName string   `json:"imageRepoName"`
 	*DeliveryVersionChartData
@@ -123,6 +125,7 @@ type CreateK8SDeliveryVersionArgs struct {
 	Version     string   `json:"version"`
 	Desc        string   `json:"desc"`
 	EnvName     string   `json:"envName"`
+	Production  bool     `json:"production"`
 	Labels      []string `json:"labels"`
 	*DeliveryVersionYamlData
 }
@@ -640,10 +643,11 @@ func getChartExpandDir(productName, versionName string) string {
 	return filepath.Join(tmpDir, "chart", productName, versionName)
 }
 
-func getProductEnvInfo(productName, envName string) (*commonmodels.Product, error) {
+func getProductEnvInfo(productName, envName string, production bool) (*commonmodels.Product, error) {
 	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
-		Name:    productName,
-		EnvName: envName,
+		Name:       productName,
+		EnvName:    envName,
+		Production: &production,
 	})
 	if err != nil {
 		log.Errorf("failed to query product info, productName: %s envName: %s err: %s", productName, envName, err)
@@ -962,12 +966,12 @@ func prepareChartData(chartDatas []*CreateHelmDeliveryVersionChartData, productI
 
 	for _, chartData := range chartDatas {
 		if productService, ok := serviceMap[chartData.ServiceName]; ok {
-			serviceObj, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
+			serviceObj, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
 				ServiceName: chartData.ServiceName,
 				Revision:    productService.Revision,
 				Type:        setting.HelmDeployType,
 				ProductName: productInfo.ProductName,
-			})
+			}, productInfo.Production)
 			if err != nil {
 				return nil, fmt.Errorf("failed to query service: %s", chartData.ServiceName)
 			}
@@ -1613,7 +1617,7 @@ func CreateNewK8SDeliveryVersion(args *CreateK8SDeliveryVersionArgs, logger *zap
 		return e.ErrCreateDeliveryVersion.AddDesc("image registry not appointed")
 	}
 	// prepare data
-	productInfo, err := getProductEnvInfo(args.ProductName, args.EnvName)
+	productInfo, err := getProductEnvInfo(args.ProductName, args.EnvName, args.Production)
 	if err != nil {
 		log.Infof("failed to query product info, productName: %s envName %s, err: %s", args.ProductName, args.EnvName, err)
 		return e.ErrCreateDeliveryVersion.AddDesc(fmt.Sprintf("failed to query product info, procutName: %s envName %s", args.ProductName, args.EnvName))
@@ -1684,7 +1688,7 @@ func CreateNewHelmDeliveryVersion(args *CreateHelmDeliveryVersionArgs, logger *z
 		return e.ErrCreateDeliveryVersion.AddDesc("image registry not appointed")
 	}
 	// prepare data
-	productInfo, err := getProductEnvInfo(args.ProductName, args.EnvName)
+	productInfo, err := getProductEnvInfo(args.ProductName, args.EnvName, args.Production)
 	if err != nil {
 		log.Infof("failed to query product info, productName: %s envName %s, err: %s", args.ProductName, args.EnvName, err)
 		return e.ErrCreateDeliveryVersion.AddDesc(fmt.Sprintf("failed to query product info, procutName: %s envName %s", args.ProductName, args.EnvName))
