@@ -65,8 +65,31 @@ func (j *ApolloJob) SetOptions() error {
 		return errors.Errorf("failed to get apollo info from mongo: %v", err)
 	}
 
+	latestWorkflow, err := mongodb.NewWorkflowV4Coll().Find(j.workflow.Name)
+	if err != nil {
+		log.Errorf("Failed to find original workflow to set options, error: %s", err)
+	}
+
+	latestSpec := new(commonmodels.ApolloJobSpec)
+	found := false
+	for _, stage := range latestWorkflow.Stages {
+		if !found {
+			for _, job := range stage.Jobs {
+				if job.Name == j.job.Name && job.JobType == j.job.JobType {
+					if err := commonmodels.IToi(job.Spec, latestSpec); err != nil {
+						return err
+					}
+					found = true
+					break
+				}
+			}
+		} else {
+			break
+		}
+	}
+
 	client := apollo.NewClient(info.ServerAddress, info.Token)
-	for _, namespace := range j.spec.NamespaceList {
+	for _, namespace := range latestSpec.NamespaceList {
 		result, err := client.GetNamespace(namespace.AppID, namespace.Env, namespace.ClusterID, namespace.Namespace)
 		if err != nil {
 			log.Warnf("Preset ApolloJob: get namespace %s-%s-%s-%s error: %v", namespace.AppID, namespace.Env, namespace.ClusterID, namespace.Namespace, err)
@@ -89,7 +112,7 @@ func (j *ApolloJob) SetOptions() error {
 		}
 	}
 
-	j.spec.NamespaceListOption = j.spec.NamespaceList
+	j.spec.NamespaceListOption = latestSpec.NamespaceList
 	j.job.Spec = j.spec
 	return nil
 }
