@@ -706,6 +706,7 @@ func generateEnvDeployServiceInfo(env, project string, spec *commonmodels.ZadigD
 		registryID = registry.ID.Hex()
 	}
 
+	fmt.Println(">>>>>>>>>>>>>> done.")
 	return resp, envInfo.RegistryID, nil
 }
 
