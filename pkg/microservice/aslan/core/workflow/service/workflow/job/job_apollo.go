@@ -157,6 +157,35 @@ func (j *ApolloJob) UpdateWithLatestSetting() error {
 		}
 	}
 
+	info, err := mongodb.NewConfigurationManagementColl().GetApolloByID(context.Background(), latestSpec.ApolloID)
+	if err != nil {
+		return errors.Errorf("failed to get apollo info from mongo: %v", err)
+	}
+
+	client := apollo.NewClient(info.ServerAddress, info.Token)
+	for _, namespace := range latestSpec.NamespaceList {
+		result, err := client.GetNamespace(namespace.AppID, namespace.Env, namespace.ClusterID, namespace.Namespace)
+		if err != nil {
+			log.Warnf("Preset ApolloJob: get namespace %s-%s-%s-%s error: %v", namespace.AppID, namespace.Env, namespace.ClusterID, namespace.Namespace, err)
+			continue
+		}
+		for _, item := range result.Items {
+			if item.Key == "" {
+				continue
+			}
+			namespace.KeyValList = append(namespace.KeyValList, &commonmodels.ApolloKV{
+				Key: item.Key,
+				Val: item.Value,
+			})
+		}
+		if result.Format != "properties" && len(result.Items) == 0 {
+			namespace.KeyValList = append(namespace.KeyValList, &commonmodels.ApolloKV{
+				Key: "content",
+				Val: "",
+			})
+		}
+	}
+
 	j.spec.NamespaceList = mergedServices
 	j.job.Spec = j.spec
 	return nil
