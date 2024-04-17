@@ -467,8 +467,8 @@ func (j *DeployJob) UpdateWithLatestSetting() error {
 					}
 				}
 			}
-			for _, kv := range service.LatestKeyVals {
-				for _, customKV := range userSvc.LatestKeyVals {
+			for _, kv := range service.LatestVariableKVs {
+				for _, customKV := range userSvc.LatestVariableKVs {
 					if kv.Key == customKV.Key {
 						kv.Value = customKV.Value
 					}
