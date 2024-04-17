@@ -253,6 +253,7 @@ func (j *BlueGreenDeployV2Job) UpdateWithLatestSetting() error {
 
 // TODO: This function now can only be used for production environments
 func generateBlueGreenEnvDeployServiceInfo(env, project string, services []*commonmodels.BlueGreenDeployV2Service) ([]*commonmodels.BlueGreenDeployV2Service, string, error) {
+	fmt.Println(">>>>> generating info for env:", env, ", project:", project)
 	targetEnv, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
 		EnvName:    env,
 		Name:       project,
@@ -367,6 +368,7 @@ func generateBlueGreenEnvDeployServiceInfo(env, project string, services []*comm
 		}
 		registryID = registry.ID.Hex()
 	}
+	fmt.Println(">>>>>>>>>>>>>>>>>> done")
 	return resp, registryID, nil
 }
 
