@@ -18,11 +18,13 @@ package job
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
 type MeegoTransitionJob struct {
@@ -58,6 +60,51 @@ func (j *MeegoTransitionJob) ClearSelectionField() error {
 }
 
 func (j *MeegoTransitionJob) UpdateWithLatestSetting() error {
+	j.spec = &commonmodels.MeegoTransitionJobSpec{}
+	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
+		return err
+	}
+
+	latestWorkflow, err := commonrepo.NewWorkflowV4Coll().Find(j.workflow.Name)
+	if err != nil {
+		log.Errorf("Failed to find original workflow to set options, error: %s", err)
+	}
+
+	latestSpec := new(commonmodels.MeegoTransitionJobSpec)
+	found := false
+	for _, stage := range latestWorkflow.Stages {
+		if !found {
+			for _, job := range stage.Jobs {
+				if job.Name == j.job.Name && job.JobType == j.job.JobType {
+					if err := commonmodels.IToi(job.Spec, latestSpec); err != nil {
+						return err
+					}
+					found = true
+					break
+				}
+			}
+		} else {
+			break
+		}
+	}
+
+	if !found {
+		return fmt.Errorf("failed to find the original workflow: %s", j.workflow.Name)
+	}
+
+	if j.spec.MeegoID != latestSpec.MeegoID {
+		j.spec.MeegoID = latestSpec.MeegoID
+		j.spec.ProjectKey = ""
+		j.spec.ProjectName = ""
+		j.spec.WorkItemTypeKey = ""
+		j.spec.WorkItemType = ""
+	} else if j.spec.ProjectKey != latestSpec.ProjectKey {
+		j.spec.ProjectKey = latestSpec.ProjectKey
+		j.spec.ProjectName = latestSpec.ProjectName
+		j.spec.WorkItemTypeKey = ""
+		j.spec.WorkItemType = ""
+	}
+	j.job.Spec = j.spec
 	return nil
 }
 

@@ -190,6 +190,10 @@ func (j *HelmChartDeployJob) UpdateWithLatestSetting() error {
 		}
 	}
 
+	if !found {
+		return fmt.Errorf("failed to find the original workflow: %s", j.workflow.Name)
+	}
+
 	j.spec.EnvSource = latestSpec.EnvSource
 	j.spec.SkipCheckRunStatus = latestSpec.SkipCheckRunStatus
 	j.job.Spec = j.spec

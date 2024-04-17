@@ -97,7 +97,6 @@ func (j *OfflineServiceJob) UpdateWithLatestSetting() error {
 		j.spec.Services = make([]string, 0)
 	}
 	j.spec.Source = latestSpec.Source
-	j.spec.EnvName = latestSpec.EnvName
 	j.spec.EnvType = latestSpec.EnvType
 	j.job.Spec = j.spec
 	return nil
