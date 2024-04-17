@@ -81,6 +81,7 @@ func (j *NacosJob) SetPreset() error {
 	for _, config := range nacosConfigs {
 		config.NamespaceID = originNamespaceID
 		config.NamespaceName = namespaceName
+		config.OriginalContent = config.Content
 
 		nacosConfigsMap[getNacosConfigKey(config.Group, config.DataID)] = config
 	}
