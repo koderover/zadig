@@ -590,17 +590,26 @@ func getWorkflowStageParams(workflow *commonmodels.WorkflowV4, taskID int64, cre
 }
 
 func renderParams(input, origin []*commonmodels.Param) []*commonmodels.Param {
-	for i, originParam := range origin {
+	resp := make([]*commonmodels.Param, 0)
+	for _, originParam := range origin {
 		for _, inputParam := range input {
 			if originParam.Name == inputParam.Name {
 				// always use origin credential config.
-				isCredential := originParam.IsCredential
-				origin[i] = inputParam
-				origin[i].IsCredential = isCredential
+				resp = append(resp, &commonmodels.Param{
+					Name:         originParam.Name,
+					Description:  originParam.Description,
+					ParamsType:   originParam.ParamsType,
+					Value:        inputParam.Value,
+					Repo:         inputParam.Repo,
+					ChoiceOption: originParam.ChoiceOption,
+					Default:      originParam.Default,
+					IsCredential: originParam.IsCredential,
+					Source:       originParam.Source,
+				})
 			}
 		}
 	}
-	return origin
+	return resp
 }
 
 func getJobRankMap(stages []*commonmodels.WorkflowStage) map[string]int {
