@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"strings"
 
+	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/pkg/errors"
 	"helm.sh/helm/v3/pkg/releaseutil"
@@ -75,6 +76,47 @@ func (j *MseGrayReleaseJob) UpdateWithLatestSetting() error {
 		return err
 	}
 
+	latestWorkflow, err := commonrepo.NewWorkflowV4Coll().Find(j.workflow.Name)
+	if err != nil {
+		log.Errorf("Failed to find original workflow to set options, error: %s", err)
+	}
+
+	latestSpec := new(commonmodels.MseGrayReleaseJobSpec)
+	found := false
+	for _, stage := range latestWorkflow.Stages {
+		if !found {
+			for _, job := range stage.Jobs {
+				if job.Name == j.job.Name && job.JobType == j.job.JobType {
+					if err := commonmodels.IToi(job.Spec, latestSpec); err != nil {
+						return err
+					}
+					found = true
+					break
+				}
+			}
+		} else {
+			break
+		}
+	}
+
+	if !found {
+		return fmt.Errorf("failed to find the original workflow: %s", j.workflow.Name)
+	}
+
+	if j.spec.BaseEnv != latestSpec.BaseEnv {
+		j.spec.BaseEnv = latestSpec.BaseEnv
+		j.spec.GrayEnv = ""
+		j.spec.GrayEnvSource = ""
+		j.spec.GrayServices = make([]*commonmodels.MseGrayReleaseService, 0)
+	} else if j.spec.GrayEnv != latestSpec.GrayEnv {
+		j.spec.GrayEnv = latestSpec.GrayEnv
+		j.spec.GrayEnvSource = latestSpec.GrayEnvSource
+		j.spec.GrayServices = make([]*commonmodels.MseGrayReleaseService, 0)
+	}
+
+	j.spec.SkipCheckRunStatus = latestSpec.SkipCheckRunStatus
+	j.spec.DockerRegistryID = latestSpec.DockerRegistryID
+	j.spec.GrayTag = latestSpec.GrayTag
 	j.job.Spec = j.spec
 	return nil
 }
