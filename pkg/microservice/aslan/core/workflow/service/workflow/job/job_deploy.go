@@ -701,7 +701,7 @@ func (j *DeployJob) MergeArgs(args *commonmodels.Job) error {
 		if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 			return err
 		}
-		j.job.Spec = j.spec
+
 		argsSpec := &commonmodels.ZadigDeployJobSpec{}
 		if err := commonmodels.IToi(args.Spec, argsSpec); err != nil {
 			return err
