@@ -122,7 +122,6 @@ func (j *JiraJob) UpdateWithLatestSetting() error {
 		j.spec.QueryType = latestSpec.QueryType
 		j.spec.JQL = latestSpec.JQL
 		j.spec.IssueType = latestSpec.IssueType
-		j.spec.Issues = latestSpec.Issues
 		j.spec.TargetStatus = latestSpec.TargetStatus
 	}
 
