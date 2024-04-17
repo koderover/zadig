@@ -317,8 +317,6 @@ func (j *BuildJob) UpdateWithLatestSetting() error {
 		return err
 	}
 
-	fmt.Println("1111111111111111111")
-
 	latestWorkflow, err := commonrepo.NewWorkflowV4Coll().Find(j.workflow.Name)
 	if err != nil {
 		log.Errorf("Failed to find original workflow to set options, error: %s", err)
@@ -355,12 +353,32 @@ func (j *BuildJob) UpdateWithLatestSetting() error {
 	}
 
 	mergedServiceAndBuilds := make([]*commonmodels.ServiceAndBuild, 0)
+	var buildTemplateMap sync.Map
 
 	for _, buildInfo := range latestSpec.ServiceAndBuilds {
 		key := fmt.Sprintf("%s++%s", buildInfo.ServiceName, buildInfo.ServiceModule)
 		// if a service is selected (in the map above) and is in the latest build job config, add it to the list.
 		// user defined kv and repo should be merged into the newly created list.
 		if userDefinedArgs, ok := userConfiguredService[key]; ok {
+			latestBuild, err := commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: buildInfo.BuildName, ProductName: j.workflow.Project})
+			if err != nil {
+				log.Errorf("find build: %s error: %v", buildInfo.BuildName, err)
+				continue
+			}
+
+			if err := fillBuildDetail(latestBuild, buildInfo.ServiceName, buildInfo.ServiceModule, &buildTemplateMap); err != nil {
+				log.Errorf("fill build: %s detail error: %v", buildInfo.BuildName, err)
+				continue
+			}
+
+			for _, target := range latestBuild.Targets {
+				if target.ServiceName == buildInfo.ServiceName && target.ServiceModule == buildInfo.ServiceModule {
+					buildInfo.Repos = mergeRepos(latestBuild.Repos, buildInfo.Repos)
+					buildInfo.KeyVals = renderKeyVals(buildInfo.KeyVals, latestBuild.PreBuild.Envs)
+					break
+				}
+			}
+
 			newBuildInfo := &commonmodels.ServiceAndBuild{
 				ServiceName:      buildInfo.ServiceName,
 				ServiceModule:    buildInfo.ServiceModule,

@@ -192,7 +192,6 @@ func (j *HelmChartDeployJob) UpdateWithLatestSetting() error {
 
 	j.spec.EnvSource = latestSpec.EnvSource
 	j.spec.SkipCheckRunStatus = latestSpec.SkipCheckRunStatus
-	j.spec.Env = latestSpec.Env
 	j.job.Spec = j.spec
 	return nil
 }

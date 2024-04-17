@@ -115,6 +115,12 @@ func (j *TestingJob) ClearSelectionField() error {
 }
 
 func (j *TestingJob) UpdateWithLatestSetting() error {
+	j.spec = &commonmodels.ZadigTestingJobSpec{}
+	if err := commonmodels.IToiYaml(j.job.Spec, j.spec); err != nil {
+		return err
+	}
+
+	j.job.Spec = j.spec
 	return nil
 }
 

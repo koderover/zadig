@@ -223,13 +223,13 @@ func (j *VMDeployJob) UpdateWithLatestSetting() error {
 				Repos:         mergeRepos(service.Repos, userSvc.Repos),
 				ServiceName:   service.ServiceName,
 				ServiceModule: service.ServiceModule,
-				ArtifactURL:   service.ArtifactURL,
-				FileName:      service.FileName,
-				Image:         service.Image,
-				TaskID:        service.TaskID,
-				WorkflowType:  service.WorkflowType,
-				WorkflowName:  service.WorkflowName,
-				JobTaskName:   service.JobTaskName,
+				ArtifactURL:   userSvc.ArtifactURL,
+				FileName:      userSvc.FileName,
+				Image:         userSvc.Image,
+				TaskID:        userSvc.TaskID,
+				WorkflowType:  userSvc.WorkflowType,
+				WorkflowName:  userSvc.WorkflowName,
+				JobTaskName:   userSvc.JobTaskName,
 			})
 		} else {
 			continue
