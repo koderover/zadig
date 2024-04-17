@@ -367,7 +367,6 @@ func generateBlueGreenEnvDeployServiceInfo(env, project string, services []*comm
 		}
 		registryID = registry.ID.Hex()
 	}
-	fmt.Println(">>>>>>>>>>>>>>>>>> done")
 	return resp, registryID, nil
 }
 
