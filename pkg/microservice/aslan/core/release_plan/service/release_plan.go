@@ -154,7 +154,16 @@ func GetReleasePlan(id string) (*models.ReleasePlan, error) {
 				return nil, fmt.Errorf("failed to find WorkflowV4: %s, the error is: %v", spec.Workflow.Name, err)
 			}
 
-			originalWorkflow.KeyVals = job.RenderKeyVals(spec.Workflow.KeyVals, originalWorkflow.KeyVals)
+			userMapKV := make(map[string]*models.Param)
+			for _, userKV := range spec.Workflow.Params {
+				userMapKV[userKV.Name] = userKV
+			}
+
+			for _, kv := range originalWorkflow.Params {
+				if userKV, ok := userMapKV[kv.Name]; ok {
+					kv.Value = userKV.Value
+				}
+			}
 
 			if err := job.MergeArgs(originalWorkflow, spec.Workflow); err != nil {
 				errMsg := fmt.Sprintf("merge workflow args error: %v", err)
