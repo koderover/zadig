@@ -22,6 +22,7 @@ import (
 
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
+	helmtool "github.com/koderover/zadig/v2/pkg/tool/helmclient"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"golang.org/x/exp/slices"
@@ -481,12 +482,17 @@ func (j *DeployJob) UpdateWithLatestSetting() error {
 				}
 			}
 
+			mergedValues, err := helmtool.MergeOverrideValues("", service.VariableYaml, userSvc.VariableYaml, "", make([]*helmtool.KV, 0))
+			if err != nil {
+				return fmt.Errorf("failed to merge helm values, error: %s", err)
+			}
+
 			mergedService = append(mergedService, &commonmodels.DeployServiceInfo{
 				ServiceName:       service.ServiceName,
 				VariableConfigs:   service.VariableConfigs,
 				VariableKVs:       service.VariableKVs,
 				LatestVariableKVs: service.LatestVariableKVs,
-				VariableYaml:      service.VariableYaml,
+				VariableYaml:      mergedValues,
 				UpdateConfig:      userSvc.UpdateConfig,
 				Updatable:         service.Updatable,
 				Deployed:          service.Deployed,

@@ -17,6 +17,9 @@ limitations under the License.
 package job
 
 import (
+	"fmt"
+
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/pkg/errors"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
@@ -57,6 +60,44 @@ func (j *SQLJob) ClearSelectionField() error {
 }
 
 func (j *SQLJob) UpdateWithLatestSetting() error {
+	j.spec = &commonmodels.SQLJobSpec{}
+	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
+		return err
+	}
+
+	latestWorkflow, err := mongodb.NewWorkflowV4Coll().Find(j.workflow.Name)
+	if err != nil {
+		log.Errorf("Failed to find original workflow to set options, error: %s", err)
+	}
+
+	latestSpec := new(commonmodels.SQLJobSpec)
+	found := false
+	for _, stage := range latestWorkflow.Stages {
+		if !found {
+			for _, job := range stage.Jobs {
+				if job.Name == j.job.Name && job.JobType == j.job.JobType {
+					if err := commonmodels.IToi(job.Spec, latestSpec); err != nil {
+						return err
+					}
+					found = true
+					break
+				}
+			}
+		} else {
+			break
+		}
+	}
+
+	if !found {
+		return fmt.Errorf("failed to find the original workflow: %s", j.workflow.Name)
+	}
+
+	if j.spec.ID != latestSpec.ID {
+		j.spec.SQL = ""
+	}
+	j.spec.ID = latestSpec.ID
+	j.spec.Type = latestSpec.Type
+	j.job.Spec = j.spec
 	return nil
 }
 
