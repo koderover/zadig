@@ -99,12 +99,20 @@ func (j *ApolloJob) SetOptions() error {
 			if item.Key == "" {
 				continue
 			}
+			namespace.OriginalConfig = append(namespace.OriginalConfig, &commonmodels.ApolloKV{
+				Key: item.Key,
+				Val: item.Value,
+			})
 			namespace.KeyValList = append(namespace.KeyValList, &commonmodels.ApolloKV{
 				Key: item.Key,
 				Val: item.Value,
 			})
 		}
 		if result.Format != "properties" && len(result.Items) == 0 {
+			namespace.OriginalConfig = append(namespace.OriginalConfig, &commonmodels.ApolloKV{
+				Key: "content",
+				Val: "",
+			})
 			namespace.KeyValList = append(namespace.KeyValList, &commonmodels.ApolloKV{
 				Key: "content",
 				Val: "",
