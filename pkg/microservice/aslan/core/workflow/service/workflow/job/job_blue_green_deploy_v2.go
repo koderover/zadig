@@ -179,6 +179,78 @@ func (j *BlueGreenDeployV2Job) ClearSelectionField() error {
 	return nil
 }
 
+func (j *BlueGreenDeployV2Job) UpdateWithLatestSetting() error {
+	j.spec = &commonmodels.BlueGreenDeployV2JobSpec{}
+	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
+		return err
+	}
+
+	// find the original workflow to get the configured data
+	latestWorkflow, err := commonrepo.NewWorkflowV4Coll().Find(j.workflow.Name)
+	if err != nil {
+		log.Errorf("Failed to find original workflow to set options, error: %s", err)
+	}
+
+	latestSpec := new(commonmodels.BlueGreenDeployV2JobSpec)
+	found := false
+	for _, stage := range latestWorkflow.Stages {
+		if !found {
+			for _, job := range stage.Jobs {
+				if job.Name == j.job.Name && job.JobType == j.job.JobType {
+					if err := commonmodels.IToi(job.Spec, latestSpec); err != nil {
+						return err
+					}
+					found = true
+					break
+				}
+			}
+		} else {
+			break
+		}
+	}
+
+	if !found {
+		return fmt.Errorf("failed to find the original workflow: %s", j.workflow.Name)
+	}
+
+	j.spec.Env = latestSpec.Env
+
+	// Determine service list and its corresponding kvs
+	deployableService, _, err := generateBlueGreenEnvDeployServiceInfo(latestSpec.Env, j.workflow.Project, latestSpec.Services)
+	if err != nil {
+		log.Errorf("failed to generate deployable service from latest workflow spec, err: %s", err)
+		return err
+	}
+
+	mergedService := make([]*commonmodels.BlueGreenDeployV2Service, 0)
+	userConfiguredService := make(map[string]*commonmodels.BlueGreenDeployV2Service)
+
+	for _, service := range j.spec.Services {
+		userConfiguredService[service.ServiceName] = service
+	}
+
+	for _, service := range deployableService {
+		if userSvc, ok := userConfiguredService[service.ServiceName]; ok {
+			mergedService = append(mergedService, &commonmodels.BlueGreenDeployV2Service{
+				ServiceName:         service.ServiceName,
+				BlueServiceYaml:     userSvc.BlueServiceYaml,
+				BlueServiceName:     service.BlueServiceYaml,
+				BlueDeploymentYaml:  service.BlueDeploymentYaml,
+				BlueDeploymentName:  service.BlueDeploymentName,
+				GreenDeploymentName: service.GreenDeploymentName,
+				GreenServiceName:    service.GreenServiceName,
+				ServiceAndImage:     userSvc.ServiceAndImage,
+			})
+		} else {
+			continue
+		}
+	}
+
+	j.spec.Services = mergedService
+	j.job.Spec = j.spec
+	return nil
+}
+
 // TODO: This function now can only be used for production environments
 func generateBlueGreenEnvDeployServiceInfo(env, project string, services []*commonmodels.BlueGreenDeployV2Service) ([]*commonmodels.BlueGreenDeployV2Service, string, error) {
 	targetEnv, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
@@ -209,6 +281,10 @@ func generateBlueGreenEnvDeployServiceInfo(env, project string, services []*comm
 	resp := make([]*commonmodels.BlueGreenDeployV2Service, 0)
 
 	for _, envService := range serviceInfo.Services {
+		if !envService.Deployed {
+			continue
+		}
+
 		appendService := &commonmodels.BlueGreenDeployV2Service{
 			ServiceName: envService.ServiceName,
 		}
@@ -291,7 +367,6 @@ func generateBlueGreenEnvDeployServiceInfo(env, project string, services []*comm
 		}
 		registryID = registry.ID.Hex()
 	}
-
 	return resp, registryID, nil
 }
 

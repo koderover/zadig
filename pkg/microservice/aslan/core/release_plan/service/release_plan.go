@@ -168,8 +168,19 @@ func GetReleasePlan(id string) (*models.ReleasePlan, error) {
 						log.Error(errMsg)
 						return nil, fmt.Errorf(errMsg)
 					}
+
+					// additionally we need to update the user-defined args with the latest workflow configuration
+					err = job.UpdateWithLatestSetting(item, originalWorkflow)
+					if err != nil {
+						errMsg := fmt.Sprintf("failed to merge user-defined workflow args with latest workflow configuration, error: %s", err)
+						log.Error(errMsg)
+						return nil, fmt.Errorf(errMsg)
+					}
 				}
 			}
+
+			spec.Workflow = originalWorkflow
+			releasePlanJob.Spec = spec
 		}
 	}
 

@@ -63,6 +63,10 @@ func (j *BlueGreenReleaseV2Job) MergeArgs(args *commonmodels.Job) error {
 	return nil
 }
 
+func (j *BlueGreenReleaseV2Job) UpdateWithLatestSetting() error {
+	return nil
+}
+
 func (j *BlueGreenReleaseV2Job) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 	resp := []*commonmodels.JobTask{}
 

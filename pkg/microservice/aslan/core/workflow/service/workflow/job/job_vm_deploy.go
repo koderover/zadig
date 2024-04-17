@@ -156,6 +156,91 @@ func (j *VMDeployJob) ClearSelectionField() error {
 	return nil
 }
 
+func (j *VMDeployJob) UpdateWithLatestSetting() error {
+	j.spec = &commonmodels.ZadigVMDeployJobSpec{}
+	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
+		return err
+	}
+
+	latestWorkflow, err := commonrepo.NewWorkflowV4Coll().Find(j.workflow.Name)
+	if err != nil {
+		log.Errorf("Failed to find original workflow to set options, error: %s", err)
+	}
+
+	latestSpec := new(commonmodels.ZadigVMDeployJobSpec)
+	found := false
+	for _, stage := range latestWorkflow.Stages {
+		if !found {
+			for _, job := range stage.Jobs {
+				if job.Name == j.job.Name && job.JobType == j.job.JobType {
+					if err := commonmodels.IToi(job.Spec, latestSpec); err != nil {
+						return err
+					}
+					found = true
+					break
+				}
+			}
+		} else {
+			break
+		}
+	}
+
+	if !found {
+		return fmt.Errorf("failed to find the original workflow: %s", j.workflow.Name)
+	}
+
+	j.spec.Env = latestSpec.Env
+	j.spec.S3StorageID = latestSpec.S3StorageID
+
+	// source is a bit tricky: if the saved args has a source of fromjob, but it has been change to runtime in the config
+	// we need to not only update its source but also set services to empty slice.
+	if j.spec.Source == config.SourceFromJob && latestSpec.Source == config.SourceRuntime {
+		j.spec.ServiceAndVMDeploys = make([]*commonmodels.ServiceAndVMDeploy, 0)
+	}
+	j.spec.Source = latestSpec.Source
+
+	if j.spec.Source == config.SourceFromJob {
+		j.spec.JobName = latestSpec.JobName
+		j.spec.OriginJobName = latestSpec.OriginJobName
+	}
+
+	deployableService, err := generateVMDeployServiceInfo(j.workflow.Project, latestSpec.Env)
+	if err != nil {
+		log.Errorf("failed to generate deployable vm service for env: %s, project: %s, error: %s", latestSpec.Env, j.workflow.Project, err)
+		return err
+	}
+
+	mergedService := make([]*commonmodels.ServiceAndVMDeploy, 0)
+	userConfiguredService := make(map[string]*commonmodels.ServiceAndVMDeploy)
+
+	for _, service := range j.spec.ServiceAndVMDeploys {
+		userConfiguredService[service.ServiceName] = service
+	}
+
+	for _, service := range deployableService {
+		if userSvc, ok := userConfiguredService[service.ServiceName]; ok {
+			mergedService = append(mergedService, &commonmodels.ServiceAndVMDeploy{
+				Repos:         mergeRepos(service.Repos, userSvc.Repos),
+				ServiceName:   service.ServiceName,
+				ServiceModule: service.ServiceModule,
+				ArtifactURL:   userSvc.ArtifactURL,
+				FileName:      userSvc.FileName,
+				Image:         userSvc.Image,
+				TaskID:        userSvc.TaskID,
+				WorkflowType:  userSvc.WorkflowType,
+				WorkflowName:  userSvc.WorkflowName,
+				JobTaskName:   userSvc.JobTaskName,
+			})
+		} else {
+			continue
+		}
+	}
+
+	j.spec.ServiceAndVMDeploys = mergedService
+	j.job.Spec = j.spec
+	return nil
+}
+
 // generateVMDeployServiceInfo generated all deployable service and its corresponding data.
 // currently it ignores the env service info, just gives all the service defined in the template.
 func generateVMDeployServiceInfo(project, env string) ([]*commonmodels.ServiceAndVMDeploy, error) {

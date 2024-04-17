@@ -146,6 +146,10 @@ func (j *IstioRollBackJob) ClearSelectionField() error {
 	return nil
 }
 
+func (j *IstioRollBackJob) UpdateWithLatestSetting() error {
+	return nil
+}
+
 func (j *IstioRollBackJob) MergeArgs(args *commonmodels.Job) error {
 	if j.job.Name == args.Name && j.job.JobType == args.JobType {
 		j.spec = &commonmodels.IstioRollBackJobSpec{}

@@ -21,6 +21,7 @@ import (
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -68,6 +69,80 @@ func (j *WorkflowTriggerJob) MergeArgs(args *commonmodels.Job) error {
 	if err := commonmodels.IToi(args.Spec, j.spec); err != nil {
 		return err
 	}
+	j.job.Spec = j.spec
+	return nil
+}
+
+func (j *WorkflowTriggerJob) UpdateWithLatestSetting() error {
+	j.spec = &commonmodels.WorkflowTriggerJobSpec{}
+	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
+		return err
+	}
+
+	latestWorkflow, err := mongodb.NewWorkflowV4Coll().Find(j.workflow.Name)
+	if err != nil {
+		log.Errorf("Failed to find original workflow to set options, error: %s", err)
+	}
+
+	latestSpec := new(commonmodels.WorkflowTriggerJobSpec)
+	found := false
+	for _, stage := range latestWorkflow.Stages {
+		if !found {
+			for _, job := range stage.Jobs {
+				if job.Name == j.job.Name && job.JobType == j.job.JobType {
+					if err := commonmodels.IToi(job.Spec, latestSpec); err != nil {
+						return err
+					}
+					found = true
+					break
+				}
+			}
+		} else {
+			break
+		}
+	}
+
+	if !found {
+		return fmt.Errorf("failed to find the original workflow: %s", j.workflow.Name)
+	}
+
+	mergedFixedWorkflows := make([]*commonmodels.ServiceTriggerWorkflowInfo, 0)
+	mergedServiceWorkflows := make([]*commonmodels.ServiceTriggerWorkflowInfo, 0)
+
+	userDefinedFixedWorkflowTriggers := make(map[string]*commonmodels.ServiceTriggerWorkflowInfo)
+	userDefinedServiceWorkflowTriggers := make(map[string]*commonmodels.ServiceTriggerWorkflowInfo)
+
+	for _, userFixedTrigger := range j.spec.FixedWorkflowList {
+		key := fmt.Sprintf("%s++%s", userFixedTrigger.WorkflowName, userFixedTrigger.ProjectName)
+		userDefinedFixedWorkflowTriggers[key] = userFixedTrigger
+	}
+
+	for _, userServiceTrigger := range j.spec.ServiceTriggerWorkflow {
+		key := fmt.Sprintf("%s++%s++%s++%s", userServiceTrigger.WorkflowName, userServiceTrigger.ProjectName, userServiceTrigger.ServiceName, userServiceTrigger.ServiceModule)
+		userDefinedServiceWorkflowTriggers[key] = userServiceTrigger
+	}
+
+	for _, latestFixedTrigger := range latestSpec.FixedWorkflowList {
+		key := fmt.Sprintf("%s++%s", latestFixedTrigger.WorkflowName, latestFixedTrigger.ProjectName)
+		if userFixedTrigger, ok := userDefinedFixedWorkflowTriggers[key]; ok {
+			mergedFixedWorkflows = append(mergedFixedWorkflows, userFixedTrigger)
+		}
+	}
+
+	for _, latestServiceTrigger := range latestSpec.ServiceTriggerWorkflow {
+		key := fmt.Sprintf("%s++%s++%s++%s", latestServiceTrigger.WorkflowName, latestServiceTrigger.ProjectName, latestServiceTrigger.ServiceName, latestServiceTrigger.ServiceModule)
+		if userServiceTrigger, ok := userDefinedFixedWorkflowTriggers[key]; ok {
+			mergedServiceWorkflows = append(mergedServiceWorkflows, userServiceTrigger)
+		}
+	}
+
+	j.spec.TriggerType = latestSpec.TriggerType
+	j.spec.FixedWorkflowList = mergedFixedWorkflows
+	j.spec.ServiceTriggerWorkflow = mergedServiceWorkflows
+	j.spec.Source = latestSpec.Source
+	j.spec.SourceJobName = latestSpec.SourceJobName
+	j.spec.SourceService = latestSpec.SourceService
+	j.spec.IsEnableCheck = latestSpec.IsEnableCheck
 	j.job.Spec = j.spec
 	return nil
 }

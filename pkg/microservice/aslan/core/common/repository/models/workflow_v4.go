@@ -431,11 +431,11 @@ type ZadigTestingJobSpec struct {
 	Source        config.DeploySourceType `bson:"source"            yaml:"source"            json:"source"`
 	JobName       string                  `bson:"job_name"          yaml:"job_name"          json:"job_name"`
 	OriginJobName string                  `bson:"origin_job_name"   yaml:"origin_job_name"   json:"origin_job_name"`
-	// maximum options for service tests
+	// selected service in service testing
 	TargetServices []*ServiceTestTarget `bson:"target_services"   yaml:"target_services"   json:"target_services"`
 	// field for non-service tests.
 	TestModules []*TestModule `bson:"test_modules"      yaml:"test_modules"      json:"test_modules"`
-	// in config: this is the test infos for all the services. in running: this is the tests that needs to be run.
+	// in config: this is the test infos for all the services
 	ServiceAndTests []*ServiceAndTest `bson:"service_and_tests" yaml:"service_and_tests" json:"service_and_tests"`
 }
 

@@ -118,6 +118,55 @@ func (j *CustomDeployJob) MergeArgs(args *commonmodels.Job) error {
 	return nil
 }
 
+func (j *CustomDeployJob) UpdateWithLatestSetting() error {
+	j.spec = &commonmodels.CustomDeployJobSpec{}
+	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
+		return err
+	}
+
+	latestWorkflow, err := commonrepo.NewWorkflowV4Coll().Find(j.workflow.Name)
+	if err != nil {
+		log.Errorf("Failed to find original workflow to set options, error: %s", err)
+	}
+
+	latestSpec := new(commonmodels.CustomDeployJobSpec)
+	found := false
+	for _, stage := range latestWorkflow.Stages {
+		if !found {
+			for _, job := range stage.Jobs {
+				if job.Name == j.job.Name && job.JobType == j.job.JobType {
+					if err := commonmodels.IToi(job.Spec, latestSpec); err != nil {
+						return err
+					}
+					found = true
+					break
+				}
+			}
+		} else {
+			break
+		}
+	}
+
+	if !found {
+		return fmt.Errorf("failed to find the original workflow: %s", j.workflow.Name)
+	}
+
+	if j.spec.ClusterID != latestSpec.ClusterID {
+		j.spec.ClusterID = latestSpec.ClusterID
+		j.spec.Namespace = ""
+		j.spec.Targets = make([]*commonmodels.DeployTargets, 0)
+	} else if j.spec.Namespace != latestSpec.Namespace {
+		j.spec.Namespace = latestSpec.Namespace
+		j.spec.Targets = make([]*commonmodels.DeployTargets, 0)
+	}
+
+	j.spec.SkipCheckRunStatus = latestSpec.SkipCheckRunStatus
+	j.spec.Timeout = latestSpec.Timeout
+	j.spec.DockerRegistryID = latestSpec.DockerRegistryID
+	j.job.Spec = j.spec
+	return nil
+}
+
 func (j *CustomDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 	resp := []*commonmodels.JobTask{}
 

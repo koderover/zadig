@@ -111,6 +111,60 @@ func (j *FreeStyleJob) SetOptions() error {
 }
 
 func (j *FreeStyleJob) ClearSelectionField() error {
+	j.spec = &commonmodels.FreestyleJobSpec{}
+	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
+		return err
+	}
+
+	latestWorkflow, err := commonrepo.NewWorkflowV4Coll().Find(j.workflow.Name)
+	if err != nil {
+		log.Errorf("Failed to find original workflow to set options, error: %s", err)
+	}
+
+	latestSpec := new(commonmodels.FreestyleJobSpec)
+	found := false
+	for _, stage := range latestWorkflow.Stages {
+		if !found {
+			for _, job := range stage.Jobs {
+				if job.Name == j.job.Name && job.JobType == j.job.JobType {
+					if err := commonmodels.IToi(job.Spec, latestSpec); err != nil {
+						return err
+					}
+					found = true
+					break
+				}
+			}
+		} else {
+			break
+		}
+	}
+
+	if !found {
+		return fmt.Errorf("failed to find the original workflow: %s", j.workflow.Name)
+	}
+
+	j.spec.Properties.Envs = renderKeyVals(j.spec.Properties.Envs, latestSpec.Properties.Envs)
+
+	for _, step := range j.spec.Steps {
+		for _, latestStep := range latestSpec.Steps {
+			if step.StepType == latestStep.StepType && step.Name == latestStep.Name {
+				if step.StepType == config.StepGit {
+					stepSpec := &steptypes.StepGitSpec{}
+					if err := commonmodels.IToiYaml(step.Spec, stepSpec); err != nil {
+						return fmt.Errorf("parse git step spec error: %v", err)
+					}
+					latestStepSpec := &steptypes.StepGitSpec{}
+					if err := commonmodels.IToiYaml(step.Spec, latestStepSpec); err != nil {
+						return fmt.Errorf("parse git step spec error: %v", err)
+					}
+					latestStepSpec.Repos = mergeRepos(latestStepSpec.Repos, stepSpec.Repos)
+					step.Spec = latestStepSpec
+				}
+			}
+		}
+	}
+
+	j.job.Spec = j.spec
 	return nil
 }
 
@@ -172,6 +226,10 @@ func (j *FreeStyleJob) MergeArgs(args *commonmodels.Job) error {
 		}
 		j.job.Spec = j.spec
 	}
+	return nil
+}
+
+func (j *FreeStyleJob) UpdateWithLatestSetting() error {
 	return nil
 }
 

@@ -82,6 +82,10 @@ func (j *BlueGreenDeployJob) MergeArgs(args *commonmodels.Job) error {
 	return nil
 }
 
+func (j *BlueGreenDeployJob) UpdateWithLatestSetting() error {
+	return nil
+}
+
 func (j *BlueGreenDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 	logger := log.SugaredLogger()
 	resp := []*commonmodels.JobTask{}

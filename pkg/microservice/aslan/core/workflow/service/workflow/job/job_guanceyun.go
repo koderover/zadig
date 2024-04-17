@@ -58,6 +58,10 @@ func (j *GuanceyunCheckJob) ClearSelectionField() error {
 	return nil
 }
 
+func (j *GuanceyunCheckJob) UpdateWithLatestSetting() error {
+	return nil
+}
+
 func (j *GuanceyunCheckJob) MergeArgs(args *commonmodels.Job) error {
 	j.spec = &commonmodels.GuanceyunCheckJobSpec{}
 	if err := commonmodels.IToi(args.Spec, j.spec); err != nil {

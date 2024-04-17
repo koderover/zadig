@@ -118,6 +118,99 @@ func (j *K8sPacthJob) MergeArgs(args *commonmodels.Job) error {
 	return nil
 }
 
+func (j *K8sPacthJob) UpdateWithLatestSetting() error {
+	j.spec = &commonmodels.K8sPatchJobSpec{}
+	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
+		return err
+	}
+
+	latestWorkflow, err := commonrepo.NewWorkflowV4Coll().Find(j.workflow.Name)
+	if err != nil {
+		log.Errorf("Failed to find original workflow to set options, error: %s", err)
+	}
+
+	latestSpec := new(commonmodels.K8sPatchJobSpec)
+	found := false
+	for _, stage := range latestWorkflow.Stages {
+		if !found {
+			for _, job := range stage.Jobs {
+				if job.Name == j.job.Name && job.JobType == j.job.JobType {
+					if err := commonmodels.IToi(job.Spec, latestSpec); err != nil {
+						return err
+					}
+					found = true
+					break
+				}
+			}
+		} else {
+			break
+		}
+	}
+
+	if !found {
+		return fmt.Errorf("failed to find the original workflow: %s", j.workflow.Name)
+	}
+
+	if j.spec.ClusterID != latestSpec.ClusterID {
+		j.spec.ClusterID = latestSpec.ClusterID
+		j.spec.Namespace = ""
+		j.spec.PatchItems = make([]*commonmodels.PatchItem, 0)
+	} else if j.spec.Namespace != latestSpec.Namespace {
+		j.spec.Namespace = latestSpec.Namespace
+		j.spec.PatchItems = make([]*commonmodels.PatchItem, 0)
+	} else {
+		mergedItems := make([]*commonmodels.PatchItem, 0)
+		userConfiguredPatchItems := make(map[string]*commonmodels.PatchItem)
+		for _, userItem := range j.spec.PatchItems {
+			key := fmt.Sprintf("%s++%s++%s++%s", userItem.ResourceName, userItem.ResourceKind, userItem.ResourceGroup, userItem.ResourceVersion)
+			userConfiguredPatchItems[key] = userItem
+		}
+
+		for _, item := range latestSpec.PatchItems {
+			key := fmt.Sprintf("%s++%s++%s++%s", item.ResourceName, item.ResourceKind, item.ResourceGroup, item.ResourceVersion)
+			if userConfiguredPatchItem, ok := userConfiguredPatchItems[key]; ok {
+				mergedParam := make([]*commonmodels.Param, 0)
+
+				for _, originalParam := range item.Params {
+					newParam := &commonmodels.Param{
+						Name:         originalParam.Name,
+						Description:  originalParam.Description,
+						ParamsType:   originalParam.ParamsType,
+						Value:        originalParam.Value,
+						Repo:         originalParam.Repo,
+						ChoiceOption: originalParam.ChoiceOption,
+						Default:      originalParam.Default,
+						IsCredential: originalParam.IsCredential,
+						Source:       originalParam.Source,
+					}
+					for _, inputKV := range userConfiguredPatchItem.Params {
+						if originalParam.Name == inputKV.Name {
+							newParam.Value = inputKV.Value
+						}
+					}
+					mergedParam = append(mergedParam, newParam)
+				}
+
+				mergedItems = append(mergedItems, &commonmodels.PatchItem{
+					ResourceName:    item.ResourceName,
+					ResourceKind:    item.ResourceKind,
+					ResourceGroup:   item.ResourceGroup,
+					ResourceVersion: item.ResourceVersion,
+					PatchContent:    userConfiguredPatchItem.PatchContent,
+					Params:          mergedParam,
+					PatchStrategy:   item.PatchStrategy,
+				})
+			} else {
+				continue
+			}
+		}
+		j.spec.PatchItems = mergedItems
+	}
+
+	j.job.Spec = j.spec
+	return nil
+}
+
 func (j *K8sPacthJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 	// logger := log.SugaredLogger()
 	resp := []*commonmodels.JobTask{}
