@@ -17,6 +17,10 @@ limitations under the License.
 package job
 
 import (
+	"fmt"
+
+	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/pkg/errors"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
@@ -58,6 +62,54 @@ func (j *GrafanaJob) ClearSelectionField() error {
 }
 
 func (j *GrafanaJob) UpdateWithLatestSetting() error {
+	j.spec = &commonmodels.GrafanaJobSpec{}
+	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
+		return err
+	}
+
+	latestWorkflow, err := commonrepo.NewWorkflowV4Coll().Find(j.workflow.Name)
+	if err != nil {
+		log.Errorf("Failed to find original workflow to set options, error: %s", err)
+	}
+
+	latestSpec := new(commonmodels.GrafanaJobSpec)
+	found := false
+	for _, stage := range latestWorkflow.Stages {
+		if !found {
+			for _, job := range stage.Jobs {
+				if job.Name == j.job.Name && job.JobType == j.job.JobType {
+					if err := commonmodels.IToi(job.Spec, latestSpec); err != nil {
+						return err
+					}
+					found = true
+					break
+				}
+			}
+		} else {
+			break
+		}
+	}
+
+	if !found {
+		return fmt.Errorf("failed to find the original workflow: %s", j.workflow.Name)
+	}
+
+	j.spec.ID = latestSpec.ID
+	j.spec.Name = latestSpec.Name
+	j.spec.CheckTime = latestSpec.CheckTime
+	j.spec.CheckMode = latestSpec.CheckMode
+	userConfiguredAlerts := make(map[string]*commonmodels.GrafanaAlert)
+	for _, userAlert := range j.spec.Alerts {
+		userConfiguredAlerts[userAlert.ID] = userAlert
+	}
+	mergedAlerts := make([]*commonmodels.GrafanaAlert, 0)
+	for _, alert := range latestSpec.Alerts {
+		if userConfiguredAlert, ok := userConfiguredAlerts[alert.ID]; ok {
+			mergedAlerts = append(mergedAlerts, userConfiguredAlert)
+		}
+	}
+	j.spec.Alerts = mergedAlerts
+	j.job.Spec = j.spec
 	return nil
 }
 

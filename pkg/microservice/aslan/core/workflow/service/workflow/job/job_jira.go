@@ -106,6 +106,7 @@ func (j *JiraJob) ClearSelectionField() error {
 		j.spec.Issues = make([]*commonmodels.IssueID, 0)
 		j.spec.TargetStatus = ""
 	} else {
+		fmt.Println("!?!?!?!?!?!?!?!?!?!")
 		j.spec.QueryType = latestSpec.QueryType
 		j.spec.JQL = latestSpec.JQL
 		j.spec.IssueType = latestSpec.IssueType
