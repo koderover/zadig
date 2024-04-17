@@ -17,7 +17,6 @@
 package service
 
 import (
-	"encoding/json"
 	"fmt"
 	"time"
 
@@ -182,11 +181,6 @@ func (e *WorkflowReleaseJobExecutor) Execute(plan *models.ReleasePlan) error {
 				}
 			}
 		}
-
-		executeArgs, err := json.Marshal(originalWorkflow)
-
-		fmt.Printf(">>>>>>>>>>>>> executing workflow in release plan:\n")
-		fmt.Printf(">>>>>>>>>>>>> %s\n", executeArgs)
 
 		result, err := workflow.CreateWorkflowTaskV4(&workflow.CreateWorkflowTaskV4Args{
 			Name:    ctx.UserName,

@@ -423,7 +423,13 @@ func (j *DeployJob) UpdateWithLatestSetting() error {
 	}
 
 	j.spec.Production = latestSpec.Production
-	j.spec.DeployType = latestSpec.DeployType
+	project, err := templaterepo.NewProductColl().Find(j.workflow.Project)
+	if err != nil {
+		return fmt.Errorf("failed to find project %s, err: %v", j.workflow.Project, err)
+	}
+	if project.ProductFeature != nil {
+		j.spec.DeployType = project.ProductFeature.DeployType
+	}
 	j.spec.SkipCheckRunStatus = latestSpec.SkipCheckRunStatus
 	j.spec.DeployContents = latestSpec.DeployContents
 

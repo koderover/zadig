@@ -412,7 +412,6 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 	// set workflow params repo info, like commitid, branch etc.
 	setZadigParamRepos(workflow, log)
 	for _, stage := range workflow.Stages {
-		fmt.Println(">>>>>>>>>>>>>>>. doing stage", stage.Name)
 		stageTask := &commonmodels.StageTask{
 			Name:     stage.Name,
 			Parallel: stage.Parallel,
@@ -477,7 +476,6 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 			stageTask.Jobs = append(stageTask.Jobs, jobs...)
 		}
 		if len(stageTask.Jobs) > 0 {
-			fmt.Println(">>>>>>>>>>>>>>>>>>> adding stage", stageTask.Name, " to task")
 			workflowTask.Stages = append(workflowTask.Stages, stageTask)
 		}
 	}
