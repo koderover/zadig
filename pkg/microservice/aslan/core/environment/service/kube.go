@@ -964,12 +964,6 @@ func GetResourceDeployStatus(productName string, request *K8sDeployStatusCheckRe
 		return resourcesByType[deployStatus.Type][deployStatus.Name]
 	}
 
-	productInfo, _ := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
-		Name:       productName,
-		EnvName:    request.EnvName,
-		Production: &production,
-	})
-
 	productServices, err := repository.ListMaxRevisionsServices(productName, production)
 	if err != nil {
 		return nil, e.ErrGetResourceDeployInfo.AddErr(fmt.Errorf("failed to find product services, err: %s", err))
@@ -997,15 +991,12 @@ func GetResourceDeployStatus(productName string, request *K8sDeployStatusCheckRe
 			continue
 		}
 
-		rederedYaml, err := kube.RenderServiceYaml(svc.Yaml, productInfo.ProductName, svc.ServiceName, fakeRenderMap[svc.ServiceName])
+		rederedYaml, err := kube.RenderServiceYaml(svc.Yaml, productName, svc.ServiceName, fakeRenderMap[svc.ServiceName])
 		if err != nil {
 			return nil, e.ErrGetResourceDeployInfo.AddErr(fmt.Errorf("failed to render service yaml, serviceName：%s, err: %w", svc.ServiceName, err))
 		}
 
-		rederedYaml = kube.ParseSysKeys(namespace, request.EnvName, productName, svc.ServiceName, rederedYaml)
-
 		manifests := releaseutil.SplitManifests(rederedYaml)
-
 		resources := make([]*ResourceDeployStatus, 0)
 		for _, item := range manifests {
 			u, err := serializer.NewDecoder().YamlToUnstructured([]byte(item))
