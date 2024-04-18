@@ -89,8 +89,8 @@ func (j *WorkflowTriggerJob) SetOptions() error {
 		return fmt.Errorf("failed to find the original workflow: %s", j.workflow.Name)
 	}
 
-	j.spec.ServiceTriggerWorkflow = latestSpec.ServiceTriggerWorkflow
-	j.spec.FixedWorkflowList = latestSpec.FixedWorkflowList
+	//j.spec.ServiceTriggerWorkflow = latestSpec.ServiceTriggerWorkflow
+	//j.spec.FixedWorkflowList = latestSpec.FixedWorkflowList
 	j.job.Spec = j.spec
 	return nil
 }
