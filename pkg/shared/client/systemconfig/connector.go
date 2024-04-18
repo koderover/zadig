@@ -17,8 +17,6 @@ limitations under the License.
 package systemconfig
 
 import (
-	"fmt"
-
 	connectorservice "github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/connector/service"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
@@ -49,7 +47,6 @@ func (c *Client) ListConnectorsInternal() ([]*Connector, error) {
 	res := make([]*Connector, 0)
 
 	resp, err := connectorservice.ListConnectorsInternal(log.SugaredLogger())
-	fmt.Println("<>>>>>>>>>>>>>>>>> connector length:", len(resp))
 	for _, connector := range resp {
 		res = append(res, &Connector{
 			Type:   string(connector.Type),

@@ -41,6 +41,7 @@ func ListConnectorsInternal(logger *zap.SugaredLogger) ([]*Connector, error) {
 	for _, c := range cs {
 		cf := make(map[string]interface{})
 		err = models2.IToi(c.Config, &cf)
+		fmt.Println("???????????????/", c.Config)
 		if err != nil {
 			logger.Errorf("Failed to unmarshal config, err: %s", err)
 			continue
