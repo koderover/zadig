@@ -325,6 +325,21 @@ func (j *VMDeployJob) GetRepos() ([]*types.Repository, error) {
 }
 
 func (j *VMDeployJob) MergeArgs(args *commonmodels.Job) error {
+	if j.job.Name == args.Name && j.job.JobType == args.JobType {
+		j.spec = &commonmodels.ZadigVMDeployJobSpec{}
+		if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
+			return err
+		}
+		j.job.Spec = j.spec
+		argsSpec := &commonmodels.ZadigVMDeployJobSpec{}
+		if err := commonmodels.IToi(args.Spec, argsSpec); err != nil {
+			return err
+		}
+
+		j.spec.ServiceAndVMDeploys = argsSpec.ServiceAndVMDeploys
+
+		j.job.Spec = j.spec
+	}
 	return nil
 }
 
