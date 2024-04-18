@@ -18,7 +18,6 @@ package service
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"time"
 
@@ -160,9 +159,6 @@ func GetReleasePlan(id string) (*models.ReleasePlan, error) {
 				log.Error(errMsg)
 				return nil, fmt.Errorf(errMsg)
 			}
-
-			stuff, _ := json.Marshal(originalWorkflow)
-			fmt.Println(">>>>>>>>>>>>>>", string(stuff))
 
 			for _, stage := range originalWorkflow.Stages {
 				for _, item := range stage.Jobs {
