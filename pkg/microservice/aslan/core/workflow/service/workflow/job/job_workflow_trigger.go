@@ -130,6 +130,8 @@ func (j *WorkflowTriggerJob) UpdateWithLatestSetting() error {
 	for _, userServiceTrigger := range j.spec.ServiceTriggerWorkflow {
 		key := fmt.Sprintf("%s++%s++%s++%s", userServiceTrigger.WorkflowName, userServiceTrigger.ProjectName, userServiceTrigger.ServiceName, userServiceTrigger.ServiceModule)
 		userDefinedServiceWorkflowTriggers[key] = userServiceTrigger
+		stuff, _ := json.Marshal(userServiceTrigger)
+		fmt.Println(">>>>>>>>>>>>>>>> old stuff:", string(stuff))
 	}
 
 	for _, latestFixedTrigger := range latestSpec.FixedWorkflowList {
@@ -142,8 +144,8 @@ func (j *WorkflowTriggerJob) UpdateWithLatestSetting() error {
 	for _, latestServiceTrigger := range latestSpec.ServiceTriggerWorkflow {
 		key := fmt.Sprintf("%s++%s++%s++%s", latestServiceTrigger.WorkflowName, latestServiceTrigger.ProjectName, latestServiceTrigger.ServiceName, latestServiceTrigger.ServiceModule)
 		if userServiceTrigger, ok := userDefinedServiceWorkflowTriggers[key]; ok {
-			stuff, _ := json.Marshal(userServiceTrigger.Params)
-			fmt.Println(">>>>>>>>>>>>>>>> stuff:", string(stuff))
+			stuff, _ := json.Marshal(userServiceTrigger)
+			fmt.Println(">>>>>>>>>>>>>>>> new stuff:", string(stuff))
 			mergedServiceWorkflows = append(mergedServiceWorkflows, userServiceTrigger)
 		}
 	}
