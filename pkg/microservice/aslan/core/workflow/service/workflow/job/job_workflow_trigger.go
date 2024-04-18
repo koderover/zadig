@@ -57,23 +57,6 @@ func (j *WorkflowTriggerJob) SetPreset() error {
 }
 
 func (j *WorkflowTriggerJob) SetOptions() error {
-	return nil
-}
-
-func (j *WorkflowTriggerJob) ClearSelectionField() error {
-	return nil
-}
-
-func (j *WorkflowTriggerJob) MergeArgs(args *commonmodels.Job) error {
-	j.spec = &commonmodels.WorkflowTriggerJobSpec{}
-	if err := commonmodels.IToi(args.Spec, j.spec); err != nil {
-		return err
-	}
-	j.job.Spec = j.spec
-	return nil
-}
-
-func (j *WorkflowTriggerJob) UpdateWithLatestSetting() error {
 	j.spec = &commonmodels.WorkflowTriggerJobSpec{}
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return err
@@ -106,44 +89,40 @@ func (j *WorkflowTriggerJob) UpdateWithLatestSetting() error {
 		return fmt.Errorf("failed to find the original workflow: %s", j.workflow.Name)
 	}
 
-	mergedFixedWorkflows := make([]*commonmodels.ServiceTriggerWorkflowInfo, 0)
-	mergedServiceWorkflows := make([]*commonmodels.ServiceTriggerWorkflowInfo, 0)
-
-	userDefinedFixedWorkflowTriggers := make(map[string]*commonmodels.ServiceTriggerWorkflowInfo)
-	userDefinedServiceWorkflowTriggers := make(map[string]*commonmodels.ServiceTriggerWorkflowInfo)
-
-	for _, userFixedTrigger := range j.spec.FixedWorkflowList {
-		key := fmt.Sprintf("%s++%s", userFixedTrigger.WorkflowName, userFixedTrigger.ProjectName)
-		userDefinedFixedWorkflowTriggers[key] = userFixedTrigger
-	}
-
-	for _, userServiceTrigger := range j.spec.ServiceTriggerWorkflow {
-		key := fmt.Sprintf("%s++%s++%s++%s", userServiceTrigger.WorkflowName, userServiceTrigger.ProjectName, userServiceTrigger.ServiceName, userServiceTrigger.ServiceModule)
-		userDefinedServiceWorkflowTriggers[key] = userServiceTrigger
-	}
-
-	for _, latestFixedTrigger := range latestSpec.FixedWorkflowList {
-		key := fmt.Sprintf("%s++%s", latestFixedTrigger.WorkflowName, latestFixedTrigger.ProjectName)
-		if userFixedTrigger, ok := userDefinedFixedWorkflowTriggers[key]; ok {
-			mergedFixedWorkflows = append(mergedFixedWorkflows, userFixedTrigger)
-		}
-	}
-
-	for _, latestServiceTrigger := range latestSpec.ServiceTriggerWorkflow {
-		key := fmt.Sprintf("%s++%s++%s++%s", latestServiceTrigger.WorkflowName, latestServiceTrigger.ProjectName, latestServiceTrigger.ServiceName, latestServiceTrigger.ServiceModule)
-		if userServiceTrigger, ok := userDefinedFixedWorkflowTriggers[key]; ok {
-			mergedServiceWorkflows = append(mergedServiceWorkflows, userServiceTrigger)
-		}
-	}
-
-	j.spec.TriggerType = latestSpec.TriggerType
-	j.spec.FixedWorkflowList = mergedFixedWorkflows
-	j.spec.ServiceTriggerWorkflow = mergedServiceWorkflows
-	j.spec.Source = latestSpec.Source
-	j.spec.SourceJobName = latestSpec.SourceJobName
-	j.spec.SourceService = latestSpec.SourceService
-	j.spec.IsEnableCheck = latestSpec.IsEnableCheck
+	//j.spec.ServiceTriggerWorkflow = latestSpec.ServiceTriggerWorkflow
+	//j.spec.FixedWorkflowList = latestSpec.FixedWorkflowList
 	j.job.Spec = j.spec
+	return nil
+}
+
+func (j *WorkflowTriggerJob) ClearSelectionField() error {
+	j.spec = &commonmodels.WorkflowTriggerJobSpec{}
+	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
+		return err
+	}
+	j.spec.SourceService = make([]*commonmodels.ServiceNameAndModule, 0)
+	j.job.Spec = j.spec
+	return nil
+}
+
+func (j *WorkflowTriggerJob) MergeArgs(args *commonmodels.Job) error {
+	if j.job.Name == args.Name && j.job.JobType == args.JobType {
+		j.spec = &commonmodels.WorkflowTriggerJobSpec{}
+		if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
+			return err
+		}
+
+		argsSpec := &commonmodels.WorkflowTriggerJobSpec{}
+		if err := commonmodels.IToi(args.Spec, argsSpec); err != nil {
+			return err
+		}
+
+		j.job.Spec = argsSpec
+	}
+	return nil
+}
+
+func (j *WorkflowTriggerJob) UpdateWithLatestSetting() error {
 	return nil
 }
 

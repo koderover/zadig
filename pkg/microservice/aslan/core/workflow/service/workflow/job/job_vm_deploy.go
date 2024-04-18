@@ -336,17 +336,7 @@ func (j *VMDeployJob) MergeArgs(args *commonmodels.Job) error {
 			return err
 		}
 
-		newDeploys := []*commonmodels.ServiceAndVMDeploy{}
-		for _, deploy := range j.spec.ServiceAndVMDeploys {
-			for _, argsDeploy := range argsSpec.ServiceAndVMDeploys {
-				if deploy.ServiceName == argsDeploy.ServiceName && deploy.ServiceModule == argsDeploy.ServiceModule {
-					deploy.Repos = mergeRepos(deploy.Repos, argsDeploy.Repos)
-					newDeploys = append(newDeploys, deploy)
-					break
-				}
-			}
-		}
-		j.spec.ServiceAndVMDeploys = newDeploys
+		j.spec.ServiceAndVMDeploys = argsSpec.ServiceAndVMDeploys
 
 		j.job.Spec = j.spec
 	}
