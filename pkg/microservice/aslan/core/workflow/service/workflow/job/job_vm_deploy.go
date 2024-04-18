@@ -214,10 +214,12 @@ func (j *VMDeployJob) UpdateWithLatestSetting() error {
 	userConfiguredService := make(map[string]*commonmodels.ServiceAndVMDeploy)
 
 	for _, service := range j.spec.ServiceAndVMDeploys {
+		fmt.Println(">>>>>>>>>>>>> user configured service:", service.ServiceName)
 		userConfiguredService[service.ServiceName] = service
 	}
 
 	for _, service := range deployableService {
+		fmt.Println(">>>>>>>>>>>>>> deployable service:", service.ServiceName)
 		if userSvc, ok := userConfiguredService[service.ServiceName]; ok {
 			mergedService = append(mergedService, &commonmodels.ServiceAndVMDeploy{
 				Repos:         mergeRepos(service.Repos, userSvc.Repos),
