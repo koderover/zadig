@@ -45,6 +45,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/notify"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/repository"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
+	"github.com/koderover/zadig/v2/pkg/setting"
 	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
 	"github.com/koderover/zadig/v2/pkg/tool/cache"
 	helmtool "github.com/koderover/zadig/v2/pkg/tool/helmclient"
@@ -371,6 +372,20 @@ func UpgradeHelmRelease(product *commonmodels.Product, productSvc *commonmodels.
 	}
 	for _, service := range productChartSvcMap {
 		newProductInfo.Services[0] = append(newProductInfo.Services[0], service)
+	}
+
+	if productSvc.DeployStrategy == setting.ServiceDeployStrategyDeploy {
+		if productSvc.FromZadig() {
+			newProductInfo.ServiceDeployStrategy = commonutil.SetServiceDeployStrategyDepoly(newProductInfo.ServiceDeployStrategy, productSvc.ServiceName)
+		} else {
+			newProductInfo.ServiceDeployStrategy = commonutil.SetChartServiceDeployStrategyDepoly(newProductInfo.ServiceDeployStrategy, productSvc.ReleaseName)
+		}
+	} else if productSvc.DeployStrategy == setting.ServiceDeployStrategyImport {
+		if productSvc.FromZadig() {
+			newProductInfo.ServiceDeployStrategy = commonutil.SetServiceDeployStrategyImport(newProductInfo.ServiceDeployStrategy, productSvc.ServiceName)
+		} else {
+			newProductInfo.ServiceDeployStrategy = commonutil.SetChartServiceDeployStrategyImport(newProductInfo.ServiceDeployStrategy, productSvc.ReleaseName)
+		}
 	}
 
 	if err = productColl.Update(newProductInfo); err != nil {
