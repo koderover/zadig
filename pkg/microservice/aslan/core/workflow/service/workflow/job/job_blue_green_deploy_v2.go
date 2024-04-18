@@ -152,7 +152,7 @@ func (j *BlueGreenDeployV2Job) SetOptions() error {
 			serviceInfo, registryID, err := generateBlueGreenEnvDeployServiceInfo(env.EnvName, j.workflow.Project, originalSpec.Services)
 			if err != nil {
 				log.Errorf("failed to generate blue-green deploy info for env: %s, error: %s", env.EnvName, err)
-				return err
+				continue
 			}
 
 			envOptions = append(envOptions, &commonmodels.ZadigBlueGreenDeployEnvInformation{
