@@ -214,12 +214,10 @@ func (j *VMDeployJob) UpdateWithLatestSetting() error {
 	userConfiguredService := make(map[string]*commonmodels.ServiceAndVMDeploy)
 
 	for _, service := range j.spec.ServiceAndVMDeploys {
-		fmt.Println(">>>>>>>>>>>>> user configured service:", service.ServiceName)
 		userConfiguredService[service.ServiceName] = service
 	}
 
 	for _, service := range deployableService {
-		fmt.Println(">>>>>>>>>>>>>> deployable service:", service.ServiceName)
 		if userSvc, ok := userConfiguredService[service.ServiceName]; ok {
 			mergedService = append(mergedService, &commonmodels.ServiceAndVMDeploy{
 				Repos:         mergeRepos(service.Repos, userSvc.Repos),
@@ -327,31 +325,6 @@ func (j *VMDeployJob) GetRepos() ([]*types.Repository, error) {
 }
 
 func (j *VMDeployJob) MergeArgs(args *commonmodels.Job) error {
-	if j.job.Name == args.Name && j.job.JobType == args.JobType {
-		j.spec = &commonmodels.ZadigVMDeployJobSpec{}
-		if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
-			return err
-		}
-		j.job.Spec = j.spec
-		argsSpec := &commonmodels.ZadigVMDeployJobSpec{}
-		if err := commonmodels.IToi(args.Spec, argsSpec); err != nil {
-			return err
-		}
-
-		newDeploys := []*commonmodels.ServiceAndVMDeploy{}
-		for _, deploy := range j.spec.ServiceAndVMDeploys {
-			for _, argsDeploy := range argsSpec.ServiceAndVMDeploys {
-				if deploy.ServiceName == argsDeploy.ServiceName && deploy.ServiceModule == argsDeploy.ServiceModule {
-					deploy.Repos = mergeRepos(deploy.Repos, argsDeploy.Repos)
-					newDeploys = append(newDeploys, deploy)
-					break
-				}
-			}
-		}
-		j.spec.ServiceAndVMDeploys = newDeploys
-
-		j.job.Spec = j.spec
-	}
 	return nil
 }
 
