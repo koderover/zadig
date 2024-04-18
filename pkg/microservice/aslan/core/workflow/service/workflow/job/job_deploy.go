@@ -487,6 +487,18 @@ func (j *DeployJob) UpdateWithLatestSetting() error {
 				return fmt.Errorf("failed to merge helm values, error: %s", err)
 			}
 
+			calculatedModuleMap := make(map[string]*commonmodels.DeployModuleInfo)
+			mergedModules := make([]*commonmodels.DeployModuleInfo, 0)
+			for _, module := range service.Modules {
+				calculatedModuleMap[module.ServiceModule] = module
+			}
+
+			for _, userModule := range userSvc.Modules {
+				if _, ok := calculatedModuleMap[userModule.ServiceModule]; ok {
+					mergedModules = append(mergedModules, userModule)
+				}
+			}
+
 			mergedService = append(mergedService, &commonmodels.DeployServiceInfo{
 				ServiceName:       service.ServiceName,
 				VariableConfigs:   service.VariableConfigs,
@@ -496,7 +508,7 @@ func (j *DeployJob) UpdateWithLatestSetting() error {
 				UpdateConfig:      userSvc.UpdateConfig,
 				Updatable:         service.Updatable,
 				Deployed:          service.Deployed,
-				Modules:           service.Modules,
+				Modules:           mergedModules,
 				KeyVals:           nil,
 				LatestKeyVals:     nil,
 			})
@@ -720,9 +732,6 @@ func (j *DeployJob) MergeArgs(args *commonmodels.Job) error {
 		}
 		j.spec.Env = argsSpec.Env
 		j.spec.Services = argsSpec.Services
-		if j.spec.Source == config.SourceRuntime {
-			j.spec.Services = argsSpec.Services
-		}
 
 		j.job.Spec = j.spec
 	}

@@ -65,6 +65,20 @@ func (j *WorkflowTriggerJob) ClearSelectionField() error {
 }
 
 func (j *WorkflowTriggerJob) MergeArgs(args *commonmodels.Job) error {
+	if j.job.Name == args.Name && j.job.JobType == args.JobType {
+		j.spec = &commonmodels.WorkflowTriggerJobSpec{}
+		if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
+			return err
+		}
+
+		argsSpec := &commonmodels.WorkflowTriggerJobSpec{}
+		if err := commonmodels.IToi(args.Spec, argsSpec); err != nil {
+			return err
+		}
+		j.spec.SourceService = argsSpec.SourceService
+
+		j.job.Spec = j.spec
+	}
 	return nil
 }
 
@@ -136,7 +150,6 @@ func (j *WorkflowTriggerJob) UpdateWithLatestSetting() error {
 	j.spec.ServiceTriggerWorkflow = mergedServiceWorkflows
 	j.spec.Source = latestSpec.Source
 	j.spec.SourceJobName = latestSpec.SourceJobName
-	j.spec.SourceService = latestSpec.SourceService
 	j.spec.IsEnableCheck = latestSpec.IsEnableCheck
 	j.job.Spec = j.spec
 	return nil
