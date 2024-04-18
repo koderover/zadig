@@ -17,6 +17,8 @@ limitations under the License.
 package migrate
 
 import (
+	"time"
+
 	"github.com/koderover/zadig/v2/pkg/cli/upgradeassistant/internal/upgradepath"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
@@ -26,7 +28,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"time"
 )
 
 func init() {
@@ -91,7 +92,7 @@ func migrateHostProjectData() error {
 		for _, product := range products {
 			// product data has been handled
 			if len(product.Services) > 0 {
-				continue
+				// continue
 			}
 
 			log.Infof("------- handling single data for product %s, env %s -------", product.ProductName, product.EnvName)
@@ -102,10 +103,12 @@ func migrateHostProjectData() error {
 				return errors.Wrapf(err, "failed to list external services for product %s", project.ProductName)
 			}
 
+			log.Debugf("1")
 			servicesInExternalEnv, _ := commonrepo.NewServicesInExternalEnvColl().List(&commonrepo.ServicesInExternalEnvArgs{
 				ProductName: project.ProductName,
 				EnvName:     product.EnvName,
 			})
+			log.Debugf("2")
 
 			svcNameList := sets.NewString()
 			for _, singleProductSvc := range productServices {
@@ -115,6 +118,7 @@ func migrateHostProjectData() error {
 				svcNameList.Insert(singleSvc.ServiceName)
 			}
 
+			log.Debugf("3")
 			// fetch workload from namespace and extract resource / container info
 			// note the image data in container may not be correct
 			productSvcs := make([]*models.ProductService, 0)
@@ -124,11 +128,13 @@ func migrateHostProjectData() error {
 					continue
 				}
 
+				log.Debugf("4")
 				resources, err := kube.ManifestToResource(templateSvc.Yaml)
 				if err != nil {
 					log.Errorf("ManifestToResource err:%s", err)
 					continue
 				}
+				log.Debugf("5")
 
 				containers := make([]*models.Container, 0)
 				for _, c := range templateSvc.Containers {
@@ -151,8 +157,10 @@ func migrateHostProjectData() error {
 
 				productSvc.GetServiceRender()
 				productSvcs = append(productSvcs, productSvc)
+				log.Debugf("6")
 			}
 
+			log.Debugf("7")
 			product.Services = make([][]*models.ProductService, 0)
 			product.Services = append(product.Services, productSvcs)
 
@@ -161,6 +169,7 @@ func migrateHostProjectData() error {
 				log.Errorf("Failed to update product %s, the error is: %s", product.ProductName, err)
 				continue
 			}
+			log.Debugf("8")
 		}
 	}
 	return nil
