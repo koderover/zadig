@@ -23,7 +23,6 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/v2/pkg/config"
-	models2 "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/repository/orm"
 	"github.com/koderover/zadig/v2/pkg/shared/client/aslan"
@@ -40,8 +39,7 @@ func ListConnectorsInternal(logger *zap.SugaredLogger) ([]*Connector, error) {
 	var res []*Connector
 	for _, c := range cs {
 		cf := make(map[string]interface{})
-		err = models2.IToi(c.Config, &cf)
-		fmt.Println("???????????????/", c.Config)
+		err = json.Unmarshal([]byte(c.Config), &cf)
 		if err != nil {
 			logger.Errorf("Failed to unmarshal config, err: %s", err)
 			continue
