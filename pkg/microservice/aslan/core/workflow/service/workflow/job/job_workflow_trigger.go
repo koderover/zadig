@@ -17,6 +17,7 @@
 package job
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
@@ -141,6 +142,8 @@ func (j *WorkflowTriggerJob) UpdateWithLatestSetting() error {
 	for _, latestServiceTrigger := range latestSpec.ServiceTriggerWorkflow {
 		key := fmt.Sprintf("%s++%s++%s++%s", latestServiceTrigger.WorkflowName, latestServiceTrigger.ProjectName, latestServiceTrigger.ServiceName, latestServiceTrigger.ServiceModule)
 		if userServiceTrigger, ok := userDefinedServiceWorkflowTriggers[key]; ok {
+			stuff, _ := json.Marshal(userServiceTrigger.Params)
+			fmt.Println(">>>>>>>>>>>>>>>> stuff:", stuff)
 			mergedServiceWorkflows = append(mergedServiceWorkflows, userServiceTrigger)
 		}
 	}
