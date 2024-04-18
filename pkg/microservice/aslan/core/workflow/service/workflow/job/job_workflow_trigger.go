@@ -81,7 +81,6 @@ func (j *WorkflowTriggerJob) MergeArgs(args *commonmodels.Job) error {
 		j.job.Spec = j.spec
 	}
 	return nil
-	return nil
 }
 
 func (j *WorkflowTriggerJob) UpdateWithLatestSetting() error {
@@ -129,9 +128,6 @@ func (j *WorkflowTriggerJob) UpdateWithLatestSetting() error {
 	}
 
 	for _, userServiceTrigger := range j.spec.ServiceTriggerWorkflow {
-		fmt.Println(">>>>>>>>>>>>> user service trigger:", userServiceTrigger.WorkflowName)
-		fmt.Println(">>>>>>>>>>>>> user service serviceName:", userServiceTrigger.ServiceName)
-		fmt.Println(">>>>>>>>>>>>> user service serviceModule:", userServiceTrigger.ServiceModule)
 		key := fmt.Sprintf("%s++%s++%s++%s", userServiceTrigger.WorkflowName, userServiceTrigger.ProjectName, userServiceTrigger.ServiceName, userServiceTrigger.ServiceModule)
 		userDefinedServiceWorkflowTriggers[key] = userServiceTrigger
 	}
@@ -144,12 +140,8 @@ func (j *WorkflowTriggerJob) UpdateWithLatestSetting() error {
 	}
 
 	for _, latestServiceTrigger := range latestSpec.ServiceTriggerWorkflow {
-		fmt.Println(">>>>>>>>>>>>> configured service trigger:", latestServiceTrigger.WorkflowName)
-		fmt.Println(">>>>>>>>>>>>> configured service serviceName:", latestServiceTrigger.ServiceName)
-		fmt.Println(">>>>>>>>>>>>> configured service serviceModule:", latestServiceTrigger.ServiceModule)
 		key := fmt.Sprintf("%s++%s++%s++%s", latestServiceTrigger.WorkflowName, latestServiceTrigger.ProjectName, latestServiceTrigger.ServiceName, latestServiceTrigger.ServiceModule)
-		if userServiceTrigger, ok := userDefinedFixedWorkflowTriggers[key]; ok {
-			fmt.Println(">>>>>>>>>>>>> DING!")
+		if userServiceTrigger, ok := userDefinedServiceWorkflowTriggers[key]; ok {
 			mergedServiceWorkflows = append(mergedServiceWorkflows, userServiceTrigger)
 		}
 	}
