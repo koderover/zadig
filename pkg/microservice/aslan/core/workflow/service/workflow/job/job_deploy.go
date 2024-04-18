@@ -616,7 +616,6 @@ func generateEnvDeployServiceInfo(env, project string, spec *commonmodels.ZadigD
 	*/
 
 	for _, service := range envServiceMap {
-		fmt.Println(">>>>>>>>>>>>>>>> service:", service.ServiceName)
 		modules := make([]*commonmodels.DeployModuleInfo, 0)
 		for _, module := range service.Containers {
 			modules = append(modules, &commonmodels.DeployModuleInfo{
