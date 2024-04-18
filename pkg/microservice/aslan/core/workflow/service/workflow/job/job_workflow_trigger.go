@@ -143,7 +143,7 @@ func (j *WorkflowTriggerJob) UpdateWithLatestSetting() error {
 		key := fmt.Sprintf("%s++%s++%s++%s", latestServiceTrigger.WorkflowName, latestServiceTrigger.ProjectName, latestServiceTrigger.ServiceName, latestServiceTrigger.ServiceModule)
 		if userServiceTrigger, ok := userDefinedServiceWorkflowTriggers[key]; ok {
 			stuff, _ := json.Marshal(userServiceTrigger.Params)
-			fmt.Println(">>>>>>>>>>>>>>>> stuff:", stuff)
+			fmt.Println(">>>>>>>>>>>>>>>> stuff:", string(stuff))
 			mergedServiceWorkflows = append(mergedServiceWorkflows, userServiceTrigger)
 		}
 	}
