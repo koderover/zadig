@@ -65,11 +65,22 @@ func (j *WorkflowTriggerJob) ClearSelectionField() error {
 }
 
 func (j *WorkflowTriggerJob) MergeArgs(args *commonmodels.Job) error {
-	j.spec = &commonmodels.WorkflowTriggerJobSpec{}
-	if err := commonmodels.IToi(args.Spec, j.spec); err != nil {
-		return err
+	if j.job.Name == args.Name && j.job.JobType == args.JobType {
+		j.spec = &commonmodels.WorkflowTriggerJobSpec{}
+		if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
+			return err
+		}
+
+		j.job.Spec = j.spec
+		argsSpec := &commonmodels.WorkflowTriggerJobSpec{}
+		if err := commonmodels.IToi(args.Spec, argsSpec); err != nil {
+			return err
+		}
+
+		j.spec = argsSpec
+		j.job.Spec = j.spec
 	}
-	j.job.Spec = j.spec
+	return nil
 	return nil
 }
 
@@ -138,6 +149,7 @@ func (j *WorkflowTriggerJob) UpdateWithLatestSetting() error {
 		fmt.Println(">>>>>>>>>>>>> configured service serviceModule:", latestServiceTrigger.ServiceModule)
 		key := fmt.Sprintf("%s++%s++%s++%s", latestServiceTrigger.WorkflowName, latestServiceTrigger.ProjectName, latestServiceTrigger.ServiceName, latestServiceTrigger.ServiceModule)
 		if userServiceTrigger, ok := userDefinedFixedWorkflowTriggers[key]; ok {
+			fmt.Println(">>>>>>>>>>>>> DING!")
 			mergedServiceWorkflows = append(mergedServiceWorkflows, userServiceTrigger)
 		}
 	}
