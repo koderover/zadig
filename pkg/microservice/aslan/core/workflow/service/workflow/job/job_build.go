@@ -135,10 +135,11 @@ func (j *BuildJob) ClearSelectionField() error {
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return err
 	}
-
 	chosenObject := make([]*commonmodels.ServiceAndBuild, 0)
 
-	j.spec.ServiceAndBuilds = chosenObject
+	if len(j.spec.ServiceAndBuilds) != 1 {
+		j.spec.ServiceAndBuilds = chosenObject
+	}
 	j.job.Spec = j.spec
 	return nil
 }
