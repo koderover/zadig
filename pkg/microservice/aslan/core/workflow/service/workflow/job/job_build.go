@@ -137,6 +137,7 @@ func (j *BuildJob) ClearSelectionField() error {
 	}
 	chosenObject := make([]*commonmodels.ServiceAndBuild, 0)
 
+	// some weird logic says we shouldn't clear user's selection if there are only one service in the selection pool.
 	if len(j.spec.ServiceAndBuilds) != 1 {
 		j.spec.ServiceAndBuilds = chosenObject
 	}
