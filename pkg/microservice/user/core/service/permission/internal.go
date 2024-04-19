@@ -18,7 +18,10 @@ package permission
 
 import (
 	"fmt"
+	"time"
 
+	"github.com/koderover/zadig/v2/pkg/config"
+	"github.com/koderover/zadig/v2/pkg/tool/cache"
 	"github.com/koderover/zadig/v2/pkg/types"
 	"go.uber.org/zap"
 
@@ -117,7 +120,27 @@ func InitializeProjectAuthorization(namespace string, isPublic bool, admins []st
 		return fmt.Errorf("failed to bind project-admin role to given user list, error: %s", err)
 	}
 
+	roleCache := cache.NewRedisCache(config.RedisCommonCacheTokenDB())
+	// flush cache for every identity that is affected
+	for _, uid := range admins {
+		uidRoleKey := fmt.Sprintf(UIDRoleKeyFormat, uid)
+		err = roleCache.Delete(uidRoleKey)
+		if err != nil {
+			log.Warnf("failed to flush user-role cache for key: %s, error: %s", uidRoleKey, err)
+		}
+	}
+
 	tx.Commit()
+
+	go func(uids []string, redisCache *cache.RedisCache) {
+		time.Sleep(2 * time.Second)
+
+		for _, uid := range uids {
+			uidRoleKey := fmt.Sprintf(UIDRoleKeyFormat, uid)
+			err = roleCache.Delete(uidRoleKey)
+		}
+	}(admins, roleCache)
+
 	return nil
 }
 
