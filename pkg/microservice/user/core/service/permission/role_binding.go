@@ -243,7 +243,7 @@ func CreateRoleBindings(role, ns string, identityList []*types.Identity, log *za
 	}
 
 	for _, gid := range groupIDList {
-		gidRoleKey := fmt.Sprintf(UIDRoleKeyFormat, gid)
+		gidRoleKey := fmt.Sprintf(GIDRoleKeyFormat, gid)
 		err = roleCache.Delete(gidRoleKey)
 		if err != nil {
 			log.Warnf("failed to flush user-role cache for key: %s, error: %s", gidRoleKey, err)
@@ -259,7 +259,7 @@ func CreateRoleBindings(role, ns string, identityList []*types.Identity, log *za
 		}
 
 		for _, gid := range gids {
-			gidRoleKey := fmt.Sprintf(UIDRoleKeyFormat, gid)
+			gidRoleKey := fmt.Sprintf(GIDRoleKeyFormat, gid)
 			err = roleCache.Delete(gidRoleKey)
 		}
 	}(userIDList, groupIDList, roleCache)
