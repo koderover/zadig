@@ -1964,6 +1964,8 @@ definitions:
         type: array
       productName:
         type: string
+      production:
+        type: boolean
       retry:
         type: boolean
       version:
@@ -2479,6 +2481,87 @@ definitions:
         items:
           $ref: '#/definitions/service.MeegoWorkItemType'
         type: array
+    type: object
+  service.OpenAPICreateHelmDeliveryVersionChartData:
+    properties:
+      image_datas:
+        items:
+          $ref: '#/definitions/service.OpenAPIDeliveryVersionImageData'
+        type: array
+      service_name:
+        type: string
+      version:
+        type: string
+    type: object
+  service.OpenAPICreateHelmDeliveryVersionRequest:
+    properties:
+      chart_datas:
+        items:
+          $ref: '#/definitions/service.OpenAPICreateHelmDeliveryVersionChartData'
+        type: array
+      chart_repo_name:
+        type: string
+      desc:
+        type: string
+      env_name:
+        type: string
+      image_registry_id:
+        type: string
+      labels:
+        items:
+          type: string
+        type: array
+      production:
+        type: boolean
+      project_name:
+        type: string
+      retry:
+        type: boolean
+      version_name:
+        type: string
+    type: object
+  service.OpenAPICreateK8SDeliveryVersionRequest:
+    properties:
+      desc:
+        type: string
+      env_name:
+        type: string
+      image_registry_id:
+        type: string
+      labels:
+        items:
+          type: string
+        type: array
+      production:
+        type: boolean
+      project_name:
+        type: string
+      retry:
+        type: boolean
+      version_name:
+        type: string
+      yaml_datas:
+        items:
+          $ref: '#/definitions/service.OpenAPICreateK8SDeliveryVersionYamlData'
+        type: array
+    type: object
+  service.OpenAPICreateK8SDeliveryVersionYamlData:
+    properties:
+      image_datas:
+        items:
+          $ref: '#/definitions/service.OpenAPIDeliveryVersionImageData'
+        type: array
+      service_name:
+        type: string
+    type: object
+  service.OpenAPIDeliveryVersionImageData:
+    properties:
+      container_name:
+        type: string
+      image_name:
+        type: string
+      image_tag:
+        type: string
     type: object
   service.OpenAPIInitializeProjectReq:
     properties:
@@ -6145,6 +6228,112 @@ paths:
       summary: Compare Helm Service Yaml In Env
       tags:
       - workflow
+  /openapi/delivery/releases:
+    get:
+      consumes:
+      - application/json
+      description: OpenAPI List Delivery Version
+      parameters:
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: page num
+        in: query
+        name: pageNum
+        required: true
+        type: string
+      - description: page size
+        in: query
+        name: pageSize
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: OpenAPI List Delivery Version
+      tags:
+      - OpenAPI
+  /openapi/delivery/releases/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: OpenAPI Delete Delivery Version
+      parameters:
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: OpenAPI Delete Delivery Version
+      tags:
+      - OpenAPI
+    get:
+      consumes:
+      - application/json
+      description: OpenAPI Get Delivery Version
+      parameters:
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: OpenAPI Get Delivery Version
+      tags:
+      - OpenAPI
+  /openapi/delivery/releases/helm:
+    post:
+      consumes:
+      - application/json
+      description: OpenAPI Create Helm Delivery Version
+      parameters:
+      - description: body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/service.OpenAPICreateHelmDeliveryVersionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: OpenAPI Create Helm Delivery Version
+      tags:
+      - OpenAPI
+  /openapi/delivery/releases/k8s:
+    post:
+      consumes:
+      - application/json
+      description: OpenAPI Create K8S Delivery Version
+      parameters:
+      - description: body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/service.OpenAPICreateK8SDeliveryVersionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: OpenAPI Create K8S Delivery Version
+      tags:
+      - OpenAPI
   /openapi/projects/project/init/yaml:
     post:
       consumes:

@@ -54,3 +54,16 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	}
 
 }
+
+type OpenAPIRouter struct{}
+
+func (*OpenAPIRouter) Inject(router *gin.RouterGroup) {
+	deliveryRelease := router.Group("releases")
+	{
+		deliveryRelease.GET("", OpenAPIListDeliveryVersion)
+		deliveryRelease.GET("/:id", OpenAPIGetDeliveryVersion)
+		deliveryRelease.DELETE("/:id", OpenAPIDeleteDeliveryVersion)
+		deliveryRelease.POST("/k8s", OpenAPICreateK8SDeliveryVersion)
+		deliveryRelease.POST("/helm", OpenAPICreateHelmDeliveryVersion)
+	}
+}

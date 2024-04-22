@@ -123,7 +123,6 @@ func ListDeliveryVersion(c *gin.Context) {
 	}
 
 	projectKey := args.ProjectName
-
 	if !ctx.Resources.IsSystemAdmin {
 		if projectKey == "" {
 			if !ctx.Resources.SystemActions.DeliveryCenter.ViewVersion {
@@ -366,6 +365,9 @@ func DeleteDeliveryVersion(c *gin.Context) {
 	version := new(commonrepo.DeliveryVersionArgs)
 	version.ID = ID
 	ctx.Err = deliveryservice.DeleteDeliveryVersion(version, ctx.Logger)
+	if ctx.Err != nil {
+		ctx.Err = fmt.Errorf("failed to delete delivery version, ID: %s, error: %v", ID, ctx.Err)
+	}
 
 	errs := make([]string, 0)
 	err = deliveryservice.DeleteDeliveryBuild(&commonrepo.DeliveryBuildArgs{ReleaseID: ID}, ctx.Logger)

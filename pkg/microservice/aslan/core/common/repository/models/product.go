@@ -201,6 +201,19 @@ func (svc *ProductService) GetServiceRender() *templatemodels.ServiceRender {
 	return svc.Render
 }
 
+func (svc *ProductService) GetContainerImageMap() map[string]string {
+	resp := make(map[string]string)
+	if svc != nil {
+		if svc.Containers != nil {
+			for _, container := range svc.Containers {
+				resp[container.Name] = container.Image
+			}
+		}
+	}
+
+	return resp
+}
+
 type ServiceConfig struct {
 	ConfigName string `bson:"config_name"           json:"config_name"`
 	Revision   int64  `bson:"revision"              json:"revision"`
