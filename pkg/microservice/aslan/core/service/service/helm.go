@@ -470,6 +470,9 @@ func prepareChartTemplateData(templateName string, logger *zap.SugaredLogger) (*
 }
 
 func getNextServiceRevision(productName, serviceName string, isProductionService bool) (int64, error) {
+	if serviceName == "" {
+		return 0, fmt.Errorf("service name cannot be empty")
+	}
 	rev, err := commonutil.GenerateServiceNextRevision(isProductionService, serviceName, productName)
 	if err != nil {
 		log.Errorf("Failed to get next revision for service %s, err: %s", serviceName, err)
