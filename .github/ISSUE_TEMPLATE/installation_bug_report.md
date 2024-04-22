@@ -13,7 +13,7 @@ assignees: PetrusZ
 1. 你确定了解 Kubernetes 的基础知识以及相关工具使用。/ Are you sure you understand the basics of Kubernetes and how to use related tools?
 2. 你确定 Google 不能解决你的问题。/ Are you sure Google cannot solve your problem?
 3. 你确定文档站以及已有的 issue 不能解决你的问题。/ Are you sure documentation sites and existing issues cannot solve your problem?
-4. 你确定不按照模板填写，issue 将会直接被关闭。/ Are you sure that failure to fill out the template will result in the issue being closed directly?
+4. 你确定不按照模板填写，issue 可能会直接被关闭。/ Are you sure that failure to fill out the template may result in the issue being closed directly?
 
 -->
 

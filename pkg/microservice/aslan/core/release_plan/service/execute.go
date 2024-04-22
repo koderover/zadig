@@ -28,9 +28,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow"
 	jobctl "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/job"
 	"github.com/koderover/zadig/v2/pkg/shared/client/user"
-	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
-	"github.com/koderover/zadig/v2/pkg/types"
 )
 
 type ReleaseJobExecutor interface {
@@ -132,22 +130,6 @@ func (e *WorkflowReleaseJobExecutor) Execute(plan *models.ReleasePlan) error {
 		if job.Status != config.ReleasePlanJobStatusTodo && job.Status != config.ReleasePlanJobStatusFailed {
 			return errors.Errorf("job %s status %s can't execute", job.Name, job.Status)
 		}
-		// check workflow execute permission
-		ctx := e.Ctx
-		if !ctx.AuthResources.IsSystemAdmin {
-			if _, ok := ctx.AuthResources.ProjectAuthInfo[spec.Workflow.Project]; !ok {
-				return ErrPermissionDenied
-			}
-
-			if !ctx.AuthResources.ProjectAuthInfo[spec.Workflow.Project].IsProjectAdmin &&
-				!ctx.AuthResources.ProjectAuthInfo[spec.Workflow.Project].Workflow.Execute {
-				// check if the permission is given by collaboration mode
-				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, spec.Workflow.Project, types.ResourceTypeWorkflow, spec.Workflow.Name, types.WorkflowActionRun)
-				if err != nil || !permitted {
-					return ErrPermissionDenied
-				}
-			}
-		}
 
 		originalWorkflow, err := mongodb.NewWorkflowV4Coll().Find(spec.Workflow.Name)
 		if err != nil {
@@ -180,6 +162,7 @@ func (e *WorkflowReleaseJobExecutor) Execute(plan *models.ReleasePlan) error {
 			}
 		}
 
+		ctx := e.Ctx
 		result, err := workflow.CreateWorkflowTaskV4(&workflow.CreateWorkflowTaskV4Args{
 			Name:    ctx.UserName,
 			Account: ctx.Account,
