@@ -443,7 +443,7 @@ func (j *DeployJob) UpdateWithLatestSetting() error {
 
 	if j.spec.Source == config.SourceFromJob {
 		j.spec.OriginJobName = latestSpec.JobName
-		j.spec.OriginJobName = getOriginJobName(latestWorkflow, latestSpec.JobName)
+		j.spec.JobName = getOriginJobName(latestWorkflow, latestSpec.JobName)
 	}
 
 	// Determine service list and its corresponding kvs
