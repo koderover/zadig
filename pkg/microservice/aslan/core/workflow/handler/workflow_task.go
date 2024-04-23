@@ -323,7 +323,7 @@ func GetWorkflowTask(c *gin.Context) {
 		ctx.Err = err
 		return
 	}
-	releases, err := service.ListDeliveryVersion(&service.ListDeliveryVersionArgs{
+	releases, _, err := service.ListDeliveryVersion(&service.ListDeliveryVersionArgs{
 		TaskId:       int(task.TaskID),
 		ServiceName:  task.ServiceName,
 		ProjectName:  task.ProductName,

@@ -33,7 +33,7 @@ import (
 
 type OpenAPIListDeliveryVersionResp struct {
 	List  []*OpenAPIDeliveryVersionInfo `json:"list"`
-	Total int64                         `json:"total"`
+	Total int                           `json:"total"`
 }
 
 type OpenAPIDeliveryVersionInfo struct {
@@ -62,7 +62,7 @@ func OpenAPIListDeliveryVersion(projectName string, pageNum, pageSize int) (*Ope
 	args.PerPage = pageSize
 	args.Verbosity = VerbosityBrief
 
-	versions, err := ListDeliveryVersion(args, log.SugaredLogger())
+	versions, total, err := ListDeliveryVersion(args, log.SugaredLogger())
 	if err != nil {
 		return nil, fmt.Errorf("failed to list delivery version, error: %v", err)
 	}
@@ -81,7 +81,7 @@ func OpenAPIListDeliveryVersion(projectName string, pageNum, pageSize int) (*Ope
 	}
 	return &OpenAPIListDeliveryVersionResp{
 		List:  resp,
-		Total: 0,
+		Total: total,
 	}, nil
 }
 
