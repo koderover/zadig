@@ -115,7 +115,7 @@ func CreateWorkflowTemplate(c *gin.Context) {
 		}
 	}
 
-	if err = commonutil.CheckZadigXLicenseStatus(); err != nil {
+	if err = commonutil.CheckZadigProfessionalLicense(); err != nil {
 		ctx.Err = err
 		return
 	}
@@ -149,7 +149,7 @@ func UpdateWorkflowTemplate(c *gin.Context) {
 		}
 	}
 
-	if err = commonutil.CheckZadigXLicenseStatus(); err != nil {
+	if err = commonutil.CheckZadigProfessionalLicense(); err != nil {
 		ctx.Err = err
 		return
 	}

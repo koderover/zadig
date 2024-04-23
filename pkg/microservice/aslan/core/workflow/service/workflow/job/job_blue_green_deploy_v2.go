@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package job
 
 import (
@@ -20,6 +21,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/helper/log"
 	"github.com/pkg/errors"
 	"helm.sh/helm/v3/pkg/releaseutil"
 	v1 "k8s.io/api/apps/v1"
@@ -36,7 +38,9 @@ import (
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
+	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/kube"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/repository"
 	aslanUtil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
@@ -66,44 +70,256 @@ func (j *BlueGreenDeployV2Job) SetPreset() error {
 		return err
 	}
 
-	product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{EnvName: j.spec.Env, Name: j.workflow.Project, Production: util.GetBoolPointer(j.spec.Production)})
-	if err != nil {
-		return errors.Errorf("failed to find product %s, env %s, err: %s", j.workflow.Project, j.spec.Env, err)
+	envName := j.spec.Env
+
+	if strings.HasPrefix(envName, setting.FixedValueMark) {
+		// if the env is fixed, we put the env in the option
+		envName = strings.ReplaceAll(j.spec.Env, setting.FixedValueMark, "")
 	}
-	for _, target := range j.spec.Services {
-	L:
-		for _, services := range product.Services {
-			for _, productService := range services {
-				if productService.ServiceName == target.ServiceName {
-					for _, container := range productService.Containers {
-						target.ServiceAndImage = append(target.ServiceAndImage, &commonmodels.BlueGreenDeployV2ServiceModuleAndImage{
-							ServiceModule: container.Name,
-							Image:         container.Image,
-							ImageName:     container.ImageName,
-							Name:          container.Name,
-							ServiceName:   target.ServiceName,
-						})
+
+	serviceInfo, _, err := generateBlueGreenEnvDeployServiceInfo(envName, j.workflow.Project, j.spec.Services)
+	if err != nil {
+		log.Errorf("failed to generate blue-green deploy info for env: %s, error: %s", envName, err)
+		return err
+	}
+
+	j.spec.Services = serviceInfo
+	j.job.Spec = j.spec
+	return nil
+}
+
+func (j *BlueGreenDeployV2Job) SetOptions() error {
+	j.spec = &commonmodels.BlueGreenDeployV2JobSpec{}
+	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
+		return err
+	}
+
+	// find the original workflow to get the configured data
+	originalWorkflow, err := commonrepo.NewWorkflowV4Coll().Find(j.workflow.Name)
+	if err != nil {
+		log.Errorf("Failed to find original workflow to set options, error: %s", err)
+	}
+
+	originalSpec := new(commonmodels.BlueGreenDeployV2JobSpec)
+	found := false
+	for _, stage := range originalWorkflow.Stages {
+		if !found {
+			for _, job := range stage.Jobs {
+				if job.Name == j.job.Name && job.JobType == j.job.JobType {
+					if err := commonmodels.IToi(job.Spec, originalSpec); err != nil {
+						return err
 					}
-					break L
+					found = true
+					break
 				}
 			}
+		} else {
+			break
+		}
+	}
+
+	if !found {
+		return fmt.Errorf("failed to find the original workflow: %s", j.workflow.Name)
+	}
+
+	envOptions := make([]*commonmodels.ZadigBlueGreenDeployEnvInformation, 0)
+
+	if strings.HasPrefix(originalSpec.Env, setting.FixedValueMark) {
+		// if the env is fixed, we put the env in the option
+		envName := strings.ReplaceAll(originalSpec.Env, setting.FixedValueMark, "")
+
+		serviceInfo, registryID, err := generateBlueGreenEnvDeployServiceInfo(envName, j.workflow.Project, originalSpec.Services)
+		if err != nil {
+			log.Errorf("failed to generate blue-green deploy info for env: %s, error: %s", envName, err)
+			return err
 		}
 
-		if target.BlueServiceYaml == "" {
+		envOptions = append(envOptions, &commonmodels.ZadigBlueGreenDeployEnvInformation{
+			Env:        envName,
+			RegistryID: registryID,
+			Services:   serviceInfo,
+		})
+	} else {
+		// otherwise list all the envs in this project
+		products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
+			Name:       j.workflow.Project,
+			Production: util.GetBoolPointer(originalSpec.Production),
+		})
+		if err != nil {
+			return fmt.Errorf("can't list envs in project %s, error: %w", j.workflow.Project, err)
+		}
+		for _, env := range products {
+			serviceInfo, registryID, err := generateBlueGreenEnvDeployServiceInfo(env.EnvName, j.workflow.Project, originalSpec.Services)
+			if err != nil {
+				log.Errorf("failed to generate blue-green deploy info for env: %s, error: %s", env.EnvName, err)
+				continue
+			}
+
+			envOptions = append(envOptions, &commonmodels.ZadigBlueGreenDeployEnvInformation{
+				Env:        env.EnvName,
+				RegistryID: registryID,
+				Services:   serviceInfo,
+			})
+		}
+	}
+
+	j.spec.EnvOptions = envOptions
+	j.job.Spec = j.spec
+	return nil
+}
+
+func (j *BlueGreenDeployV2Job) ClearSelectionField() error {
+	j.spec = &commonmodels.BlueGreenDeployV2JobSpec{}
+	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
+		return err
+	}
+
+	j.spec.Services = make([]*commonmodels.BlueGreenDeployV2Service, 0)
+	j.job.Spec = j.spec
+	return nil
+}
+
+func (j *BlueGreenDeployV2Job) UpdateWithLatestSetting() error {
+	j.spec = &commonmodels.BlueGreenDeployV2JobSpec{}
+	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
+		return err
+	}
+
+	// find the original workflow to get the configured data
+	latestWorkflow, err := commonrepo.NewWorkflowV4Coll().Find(j.workflow.Name)
+	if err != nil {
+		log.Errorf("Failed to find original workflow to set options, error: %s", err)
+	}
+
+	latestSpec := new(commonmodels.BlueGreenDeployV2JobSpec)
+	found := false
+	for _, stage := range latestWorkflow.Stages {
+		if !found {
+			for _, job := range stage.Jobs {
+				if job.Name == j.job.Name && job.JobType == j.job.JobType {
+					if err := commonmodels.IToi(job.Spec, latestSpec); err != nil {
+						return err
+					}
+					found = true
+					break
+				}
+			}
+		} else {
+			break
+		}
+	}
+
+	if !found {
+		return fmt.Errorf("failed to find the original workflow: %s", j.workflow.Name)
+	}
+
+	j.spec.Env = latestSpec.Env
+
+	// Determine service list and its corresponding kvs
+	deployableService, _, err := generateBlueGreenEnvDeployServiceInfo(latestSpec.Env, j.workflow.Project, latestSpec.Services)
+	if err != nil {
+		log.Errorf("failed to generate deployable service from latest workflow spec, err: %s", err)
+		return err
+	}
+
+	mergedService := make([]*commonmodels.BlueGreenDeployV2Service, 0)
+	userConfiguredService := make(map[string]*commonmodels.BlueGreenDeployV2Service)
+
+	for _, service := range j.spec.Services {
+		userConfiguredService[service.ServiceName] = service
+	}
+
+	for _, service := range deployableService {
+		if userSvc, ok := userConfiguredService[service.ServiceName]; ok {
+			mergedService = append(mergedService, &commonmodels.BlueGreenDeployV2Service{
+				ServiceName:         service.ServiceName,
+				BlueServiceYaml:     userSvc.BlueServiceYaml,
+				BlueServiceName:     service.BlueServiceYaml,
+				BlueDeploymentYaml:  service.BlueDeploymentYaml,
+				BlueDeploymentName:  service.BlueDeploymentName,
+				GreenDeploymentName: service.GreenDeploymentName,
+				GreenServiceName:    service.GreenServiceName,
+				ServiceAndImage:     userSvc.ServiceAndImage,
+			})
+		} else {
+			continue
+		}
+	}
+
+	j.spec.Services = mergedService
+	j.job.Spec = j.spec
+	return nil
+}
+
+// TODO: This function now can only be used for production environments
+func generateBlueGreenEnvDeployServiceInfo(env, project string, services []*commonmodels.BlueGreenDeployV2Service) ([]*commonmodels.BlueGreenDeployV2Service, string, error) {
+	targetEnv, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		EnvName:    env,
+		Name:       project,
+		Production: util.GetBoolPointer(true),
+	})
+
+	configuredServiceMap := make(map[string]*commonmodels.BlueGreenDeployV2Service)
+	for _, svc := range services {
+		configuredServiceMap[svc.ServiceName] = svc
+	}
+
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to find product %s, env %s, err: %s", project, env, err)
+	}
+
+	latestSvcList, err := repository.ListMaxRevisionsServices(project, true)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to list services with max revisions in project: %s, error: %s")
+	}
+
+	serviceInfo, err := commonservice.BuildServiceInfoInEnv(targetEnv, latestSvcList, nil, log.GetSimpleLogger())
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to build service info in env: %s, error: %s", env, err)
+	}
+
+	resp := make([]*commonmodels.BlueGreenDeployV2Service, 0)
+
+	for _, envService := range serviceInfo.Services {
+		if !envService.Deployed {
+			continue
+		}
+
+		appendService := &commonmodels.BlueGreenDeployV2Service{
+			ServiceName: envService.ServiceName,
+		}
+		modules := make([]*commonmodels.BlueGreenDeployV2ServiceModuleAndImage, 0)
+
+		for _, module := range envService.ServiceModules {
+			modules = append(modules, &commonmodels.BlueGreenDeployV2ServiceModuleAndImage{
+				ServiceModule: module.Name,
+				Image:         module.Image,
+				ImageName:     util.ExtractImageName(module.Image),
+				Name:          module.Name,
+				ServiceName:   envService.ServiceName,
+			})
+		}
+		appendService.ServiceAndImage = modules
+
+		// if a yaml is pre-configured, use it. Otherwise, just get it from the environment and do some render.
+		if configuredService, ok := configuredServiceMap[envService.ServiceName]; ok && len(configuredService.BlueServiceYaml) != 0 {
+			appendService.BlueServiceYaml = configuredService.BlueServiceYaml
+		} else {
 			yamlContent, _, err := kube.FetchCurrentAppliedYaml(&kube.GeneSvcYamlOption{
-				ProductName: j.workflow.Project,
-				EnvName:     j.spec.Env,
-				ServiceName: target.ServiceName,
+				ProductName: project,
+				EnvName:     env,
+				ServiceName: envService.ServiceName,
 			})
 			if err != nil {
-				return errors.Errorf("failed to fetch %s current applied yaml, err: %s", target.ServiceName, err)
+				return nil, "", fmt.Errorf("failed to fetch %s current applied yaml, err: %s", envService.ServiceName, err)
 			}
+
 			resources := make([]*unstructured.Unstructured, 0)
 			manifests := releaseutil.SplitManifests(yamlContent)
 			for _, item := range manifests {
 				u, err := serializer2.NewDecoder().YamlToUnstructured([]byte(item))
 				if err != nil {
-					return errors.Errorf("failed to decode service %s yaml to unstructured: %v", target.ServiceName, err)
+					return nil, "", fmt.Errorf("failed to decode service %s yaml to unstructured: %v", envService.ServiceName, err)
 				}
 				resources = append(resources, u)
 			}
@@ -113,32 +329,45 @@ func (j *BlueGreenDeployV2Job) SetPreset() error {
 				switch resource.GetKind() {
 				case setting.Service:
 					if serviceNum > 0 {
-						return errors.Errorf("service %s has more than one service", target.ServiceName)
+						return nil, "", fmt.Errorf("service %s has more than one service", envService.ServiceName)
 					}
 					serviceNum++
 					service := &corev1.Service{}
 					err := runtime.DefaultUnstructuredConverter.FromUnstructured(resource.Object, service)
 					if err != nil {
-						return errors.Errorf("failed to convert service %s service to service object: %v", target.ServiceName, err)
+						return nil, "", fmt.Errorf("failed to convert service %s service to service object: %v", envService.ServiceName, err)
 					}
 					service.Name = service.Name + "-blue"
 					if service.Spec.Selector == nil {
 						service.Spec.Selector = make(map[string]string)
 					}
 					service.Spec.Selector[config.BlueGreenVersionLabelName] = config.BlueVersion
-					target.BlueServiceYaml, err = toYaml(service)
+					appendService.BlueServiceYaml, err = toYaml(service)
 					if err != nil {
-						return errors.Errorf("failed to marshal service %s service object: %v", target.ServiceName, err)
+						return nil, "", fmt.Errorf("failed to marshal service %s service object: %v", envService.ServiceName, err)
 					}
 				}
 			}
 			if serviceNum == 0 {
-				return errors.Errorf("service %s has no service", target.ServiceName)
+				return nil, "", fmt.Errorf("service %s has no service", envService.ServiceName)
 			}
 		}
+
+		resp = append(resp, appendService)
 	}
-	j.job.Spec = j.spec
-	return nil
+
+	registryID := targetEnv.RegistryID
+	if registryID == "" {
+		registry, err := commonrepo.NewRegistryNamespaceColl().Find(&commonrepo.FindRegOps{
+			IsDefault: true,
+		})
+
+		if err != nil {
+			return nil, "", fmt.Errorf("failed to find default registry for env: %s, error: %s", env, err)
+		}
+		registryID = registry.ID.Hex()
+	}
+	return resp, registryID, nil
 }
 
 func (j *BlueGreenDeployV2Job) MergeArgs(args *commonmodels.Job) error {
@@ -328,7 +557,7 @@ func (j *BlueGreenDeployV2Job) ToJobs(taskID int64) ([]*commonmodels.JobTask, er
 
 func (j *BlueGreenDeployV2Job) LintJob() error {
 	j.spec = &commonmodels.BlueGreenDeployV2JobSpec{}
-	if err := aslanUtil.CheckZadigXLicenseStatus(); err != nil {
+	if err := aslanUtil.CheckZadigProfessionalLicense(); err != nil {
 		return e.ErrLicenseInvalid.AddDesc("")
 	}
 	if err := commonmodels.IToiYaml(j.job.Spec, j.spec); err != nil {

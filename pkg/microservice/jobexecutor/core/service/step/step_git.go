@@ -61,9 +61,9 @@ func NewGitStep(spec interface{}, workspace string, envs, secretEnvs []string) (
 
 func (s *GitStep) Run(ctx context.Context) error {
 	start := time.Now()
-	log.Infof("%s   Start git clone.", time.Now().Format(setting.WorkflowTimeFormat))
+	log.Infof("Start git clone.")
 	defer func() {
-		log.Infof("$s   Git clone ended. Duration: %.2f seconds.", time.Now().Format(setting.WorkflowTimeFormat), time.Since(start).Seconds())
+		log.Infof("Git clone ended. Duration: %.2f seconds.", time.Since(start).Seconds())
 	}()
 	return s.runGitCmds()
 }
@@ -207,11 +207,11 @@ func (s *GitStep) buildGitCommands(repo *types.Repository, hostNames sets.String
 	// 预防非正常退出导致git被锁住
 	indexLockPath := path.Join(workDir, "/.git/index.lock")
 	if err := os.RemoveAll(indexLockPath); err != nil {
-		log.Errorf("%s   Failed to remove %s: %s", time.Now().Format(setting.WorkflowTimeFormat), indexLockPath, err)
+		log.Errorf("Failed to remove %s: %s", indexLockPath, err)
 	}
 	shallowLockPath := path.Join(workDir, "/.git/shallow.lock")
 	if err := os.RemoveAll(shallowLockPath); err != nil {
-		log.Errorf("%s   Failed to remove %s: %s", time.Now().Format(setting.WorkflowTimeFormat), shallowLockPath, err)
+		log.Errorf("Failed to remove %s: %s", shallowLockPath, err)
 	}
 
 	if isDirEmpty(filepath.Join(workDir, ".git")) {
@@ -248,7 +248,7 @@ func (s *GitStep) buildGitCommands(repo *types.Repository, hostNames sets.String
 			host := getHost(repo.Address)
 			if !hostNames.Has(host) {
 				if err := writeSSHFile(repo.SSHKey, host); err != nil {
-					log.Errorf("%s   failed to write ssh file %s: %s", time.Now().Format(setting.WorkflowTimeFormat), repo.SSHKey, err)
+					log.Errorf("failed to write ssh file %s: %s", repo.SSHKey, err)
 				}
 				hostNames.Insert(host)
 			}
@@ -264,7 +264,7 @@ func (s *GitStep) buildGitCommands(repo *types.Repository, hostNames sets.String
 		} else if repo.AuthType == types.PrivateAccessTokenAuthType {
 			u, err := url.Parse(repo.Address)
 			if err != nil {
-				log.Errorf("%s   failed to parse url,err:%s", time.Now().Format(setting.WorkflowTimeFormat), err)
+				log.Errorf("failed to parse url,err:%s", err)
 			} else {
 				host := strings.TrimSuffix(strings.Join([]string{u.Host, u.Path}, "/"), "/")
 				cmds = append(cmds, &c.Command{

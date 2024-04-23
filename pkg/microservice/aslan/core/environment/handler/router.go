@@ -32,7 +32,6 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		configmaps.POST("", RollBackConfigMap)
 		configmaps.GET("/migrate", MigrateHistoryConfigMaps)
 	}
-
 	secrets := router.Group("secrets")
 	{
 		secrets.GET("/:name", ListSecrets)
@@ -45,7 +44,6 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	{
 		pvcs.GET("/:name", ListPvcs)
 	}
-
 	commonEnvCfgs := router.Group("envcfgs")
 	{
 		commonEnvCfgs.GET("/:name/cfg/:objectName", ListCommonEnvCfgHistory)
@@ -70,7 +68,6 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	productDiff := router.Group("diff")
 	{
 		productDiff.GET("/products/:productName/service/:serviceName", ServiceDiff)
-		productDiff.GET("/production/products/:productName/service/:serviceName", ProductionServiceDiff)
 	}
 
 	// ---------------------------------------------------------------------------------------
@@ -103,13 +100,12 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		kube.GET("/available_namespaces", ListAvailableNamespaces)
 		kube.GET("/events", ListKubeEvents)
 
-		kube.POST("/pods", ListServicePods)
-		kube.DELETE("/:env/pods/:podName", DeletePod)
-		kube.GET("/pods/:podName/events", ListPodEvents)
 		kube.GET("/workloads", ListWorkloads)
 		kube.GET("/nodes", ListNodes)
 		kube.GET("/pods", ListPodsInfo)
 		kube.GET("/pods/:podName", GetPodsDetailInfo)
+		kube.DELETE("/:env/pods/:podName", DeletePod)
+		kube.GET("/pods/:podName/events", ListPodEvents)
 
 		kube.POST("/k8s/resources", GetResourceDeployStatus)
 		kube.POST("/helm/releases", GetReleaseDeployStatus)
@@ -136,105 +132,6 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		operations.GET("", GetOperationLogs)
 	}
 
-	// production environments
-	production := router.Group("production")
-	{
-		production.POST("/environments", CreateProductionProduct)
-
-		production.PUT("/environments", UpdateMultiProductionProducts)
-		production.PUT("/environments/:name/services", DeleteProductionProductServices)
-		production.POST("/environments/:name/estimated-values", ProductionEstimatedValues)
-
-		production.GET("/environments", ListProductionEnvs)
-		production.GET("/environments/:name", GetProductionEnv)
-		production.PUT("/environments/:name/registry", UpdateProductionProductRegistry)
-		production.GET("/environments/:name/groups", ListProductionGroups)
-
-		// used for production deploy workflows
-		production.GET("/environmentsForUpdate", ListProductionEnvs)
-		production.GET("/environments/:name/servicesForUpdate", ListSvcsInEnv)
-
-		production.PUT("/environments/:name/services/:serviceName", UpdateProductionService)
-		production.PUT("/environments/:name/helm/charts", UpdateProductionEnvHelmProductCharts)
-
-		// services related
-		production.GET("/environments/:name/services/:serviceName", GetProductionService)
-		production.GET("/environments/:name/services/:serviceName/variables", GetProductionVariables)
-		production.GET("/environments/:name/services/:serviceName/yaml", ExportProductionServiceYaml)
-		production.POST("/environments/:name/services/preview/batch", ProductionBatchPreviewServices)
-
-		production.DELETE("/environments/:name", DeleteProductionProduct)
-
-		production.GET("/kube/pods/:podName/file", DownloadFileFromPod)
-		production.DELETE("/kube/:name/pods/:podName", DeletePod)
-		production.GET("/kube/workloads/:workloadType", ListProductionK8sResOverview)
-		production.GET("/kube/workloads/:workloadType/:workloadName", GetProductionK8sWorkflowDetail)
-		production.GET("/kube/resources/:resourceType", ListProductionK8sResOverview)
-		production.GET("/kube/yaml", GetProductionK8sResourceYaml)
-		production.GET("/kube/events", ListProductionKubeEvents)
-		production.GET("/kube/pods", ListProductionPodsInfo)
-		production.GET("/kube/pods/:podName", GetProductionPodsDetailInfo)
-
-		production.GET("/environments/:name/helm/releases", ListProductionReleases)
-		production.DELETE("/environments/:name/helm/releases", DeleteProductionHelmReleases)
-		production.GET("/environments/:name/helm/values", GetProductionChartValues)
-		production.GET("/environments/:name/workloads", ListWorkloadsInEnv)
-
-		production.GET("/environments/:name/configs", GetProductionEnvConfigs)
-		production.PUT("/environments/:name/configs", UpdateProductionEnvConfigs)
-		production.POST("/environments/:name/analysis", RunProductionAnalysis)
-		production.GET("/environments/:name/analysis/cron", GetProductionEnvAnalysisCron)
-		production.PUT("/environments/:name/analysis/cron", UpsertProductionEnvAnalysisCron)
-		production.PUT("/environments/:name/k8s/globalVariables", UpdateProductionEnvK8sProductGlobalVariables)
-		production.POST("/environments/:name/k8s/globalVariables/preview", PreviewProductionEnvGlobalVariables)
-
-		production.PUT("/environments/:name/helm/default-values", UpdateProductionHelmProductDefaultValues)
-		production.POST("/environments/:name/helm/default-values/preview", PreviewProductionHelmProductDefaultValues)
-		production.POST("/environments/:name/estimated-renderchart", GetProductionEstimatedRenderCharts)
-
-		production.POST("/environments/:name/services/:serviceName/restart", RestartProductionService)
-		production.POST("/environments/:name/services/:serviceName/restartNew", RestartProductionWorkload)
-
-		// k8s resources operations
-		production.POST("/environments/:name/services/:serviceName/scaleNew", ScaleNewProductionService)
-		production.POST("/image/deployment/:envName", UpdateProductionDeploymentContainerImage)
-		production.POST("/image/statefulset/:envName", UpdateProductionStatefulSetContainerImage)
-		production.POST("/image/cronjob/:envName", UpdateProductionCronJobContainerImage)
-
-		production.GET("/rendersets/variables", GetProductionServiceVariables)
-		production.POST("/rendersets/renderchart", GetServiceRenderCharts)
-
-		// normal resources
-		production.GET("/configmaps/:name", ListProductionConfigMaps)
-		production.GET("/secrets/:name", ListProductionSecrets)
-		production.GET("/ingresses/:name", ListProductionIngresses)
-		production.GET("/pvcs/:name", ListProductionPvcs)
-		production.GET("/envcfgs/:name/cfg/:objectName", ListProductionCommonEnvCfgHistory)
-		production.PUT("/envcfgs/:name", UpdateProductionCommonEnvCfg)
-		production.POST("/envcfgs/:name", CreateProductionCommonEnvCfg)
-		production.DELETE("/envcfgs/:name/cfg/:objectName", DeleteProductionCommonEnvCfg)
-
-		production.POST("/environments/:name/sleep", ProductionEnvSleep)
-		production.GET("/environments/:name/sleep/cron", GetProductionEnvSleepCron)
-		production.PUT("/environments/:name/sleep/cron", UpsertProductionEnvSleepCron)
-
-		production.GET("/environments/:name/version/:serviceName", ListProductionEnvServiceVersions)
-		production.GET("/environments/:name/version/:serviceName/revision/:revision", GetProductionEnvServiceVersionYaml)
-		production.GET("/environments/:name/version/:serviceName/diff", DiffProductionEnvServiceVersions)
-		production.POST("/environments/:name/version/:serviceName/rollback", RollbackProductionEnvServiceVersion)
-
-		production.GET("/environments/:name/check/workloads/k8services", CheckProductionWorkloadsK8sServices)
-		production.POST("/environments/:name/istioGrayscale/enable", EnableIstioGrayscale)
-		production.DELETE("/environments/:name/istioGrayscale/enable", DisableIstioGrayscale)
-		production.GET("/environments/:name/check/istioGrayscale/:op/ready", CheckIstioGrayscaleReady)
-		production.GET("/environments/:name/istioGrayscale/config", GetIstioGrayscaleConfig)
-		production.POST("/environments/:name/istioGrayscale/config", SetIstioGrayscaleConfig)
-		production.GET("/environments/:name/istioGrayscale/portal/:serviceName", GetIstioGrayscalePortalService)
-		production.POST("/environments/:name/istioGrayscale/portal/:serviceName", SetupIstioGrayscalePortalService)
-
-		production.GET("/operations", GetProductionOperationLogs)
-	}
-
 	// ---------------------------------------------------------------------------------------
 	// 产品管理接口(环境)
 	// ---------------------------------------------------------------------------------------
@@ -251,7 +148,6 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		environments.PUT("/:name/alias", UpdateProductAlias)
 		environments.POST("/:name/affectedservices", AffectedServices)
 		environments.POST("/:name/estimated-values", EstimatedValues)
-		environments.PUT("/:name/renderset", UpdateHelmProductRenderset)
 
 		environments.PUT("/:name/helm/default-values", UpdateHelmProductDefaultValues)
 		environments.POST("/:name/helm/default-values/preview", PreviewHelmProductDefaultValues)
@@ -262,7 +158,6 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		environments.GET("/:name/globalVariableCandidates", GetGlobalVariableCandidates)
 		environments.PUT("/:name/helm/charts", UpdateHelmProductCharts)
 		environments.PUT("/:name/syncVariables", SyncHelmProductRenderset)
-		environments.GET("/:name/productInfo", GetProductInfo)
 		environments.DELETE("/:name", DeleteProduct)
 		environments.GET("/:name/groups", ListGroups)
 		environments.GET("/:name/workloads", ListWorkloadsInEnv)
@@ -283,7 +178,6 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		environments.POST("/:name/services/:serviceName/restart", RestartService)
 		environments.POST("/:name/services/:serviceName/restartNew", RestartWorkload)
 		environments.POST("/:name/services/:serviceName/scaleNew", ScaleNewService)
-		environments.GET("/:name/services/:serviceName/containers/:container", GetServiceContainer)
 
 		environments.POST("/:name/estimated-renderchart", GetEstimatedRenderCharts)
 
@@ -294,10 +188,18 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		environments.GET("/:name/share/portal/:serviceName", GetPortalService)
 		environments.POST("/:name/share/portal/:serviceName", SetupPortalService)
 
+		environments.POST("/:name/istioGrayscale/enable", EnableIstioGrayscale)
+		environments.DELETE("/:name/istioGrayscale/enable", DisableIstioGrayscale)
+		environments.GET("/:name/check/istioGrayscale/:op/ready", CheckIstioGrayscaleReady)
+		environments.GET("/:name/istioGrayscale/config", GetIstioGrayscaleConfig)
+		environments.POST("/:name/istioGrayscale/config", SetIstioGrayscaleConfig)
+		environments.GET("/:name/istioGrayscale/portal/:serviceName", GetIstioGrayscalePortalService)
+		environments.POST("/:name/istioGrayscale/portal/:serviceName", SetupIstioGrayscalePortalService)
+
 		environments.GET("/:name/services/:serviceName/pmexec", ConnectSshPmExec)
 
-		environments.POST("/:name/services/:serviceName/devmode/patch", PatchWorkload)
-		environments.POST("/:name/services/:serviceName/devmode/recover", RecoverWorkload)
+		// environments.POST("/:name/services/:serviceName/devmode/patch", PatchWorkload)
+		// environments.POST("/:name/services/:serviceName/devmode/recover", RecoverWorkload)
 
 		environments.GET("/:name/configs", GetEnvConfigs)
 		environments.PUT("/:name/configs", UpdateEnvConfigs)
@@ -415,7 +317,7 @@ func (*OpenAPIRouter) Inject(router *gin.RouterGroup) {
 		production.PUT("/:name/variable", OpenAPIUpdateProductionGlobalVariables)
 
 		production.GET("/:name/services/:serviceName", OpenAPIGetProductionService)
-		production.POST("/:name/service/:serviceName/restart", OpenAPIRestartService)
+		production.POST("/:name/service/:serviceName/restart", OpenAPIProductionRestartService)
 	}
 
 	kube := router.Group("kube")

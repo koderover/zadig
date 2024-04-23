@@ -34,10 +34,7 @@ func OpenAPILoadServiceFromYamlTemplate(username string, req *OpenAPILoadService
 		ServiceVariableKVs: mergedKVs,
 	}
 
-	if req.Production {
-		return LoadProductionServiceFromYamlTemplate(username, loadArgs, force, logger)
-	}
-	return LoadServiceFromYamlTemplate(username, loadArgs, force, logger)
+	return LoadServiceFromYamlTemplate(username, loadArgs, force, req.Production, logger)
 }
 
 func CreateRawYamlServicesOpenAPI(userName, projectKey string, req *OpenAPICreateYamlServiceReq, logger *zap.SugaredLogger) error {
@@ -52,12 +49,7 @@ func CreateRawYamlServicesOpenAPI(userName, projectKey string, req *OpenAPICreat
 		ServiceVariableKVs: req.VariableYaml,
 	}
 
-	var err error
-	if req.Production {
-		_, err = CreateProductionServiceTemplate(userName, createArgs, false, logger)
-	} else {
-		_, err = CreateServiceTemplate(userName, createArgs, false, logger)
-	}
+	_, err := CreateServiceTemplate(userName, createArgs, false, req.Production, logger)
 	return err
 }
 
@@ -84,7 +76,7 @@ func OpenAPIUpdateServiceConfig(userName string, args *OpenAPIUpdateServiceConfi
 	svc.ServiceVariableKVs = currentService.ServiceVariableKVs
 	svc.VariableYaml = currentService.VariableYaml
 
-	_, err = CreateServiceTemplate(userName, svc, true, log)
+	_, err = CreateServiceTemplate(userName, svc, true, false, log)
 	return err
 }
 
@@ -119,7 +111,7 @@ func OpenAPIProductionUpdateServiceConfig(userName string, args *OpenAPIUpdateSe
 	svc.ServiceVariableKVs = currentService.ServiceVariableKVs
 	svc.VariableYaml = currentService.VariableYaml
 
-	_, err = CreateProductionServiceTemplate(userName, svc, true, log)
+	_, err = CreateServiceTemplate(userName, svc, true, true, log)
 	return err
 }
 
@@ -160,7 +152,7 @@ func OpenAPIUpdateServiceVariable(userName, projectName, serviceName string, arg
 		VariableYaml:       yaml,
 	}
 
-	return UpdateServiceVariables(servceTmplObjectargs)
+	return UpdateServiceVariables(servceTmplObjectargs, false)
 }
 
 func OpenAPIUpdateProductionServiceVariable(userName, projectName, serviceName string, args *OpenAPIUpdateServiceVariableRequest, logger *zap.SugaredLogger) error {
@@ -201,7 +193,7 @@ func OpenAPIUpdateProductionServiceVariable(userName, projectName, serviceName s
 		VariableYaml:       yaml,
 	}
 
-	return UpdateProductionServiceVariables(servceTmplObjectargs)
+	return UpdateServiceVariables(servceTmplObjectargs, true)
 }
 
 func OpenAPIGetYamlService(projectKey, serviceName string, logger *zap.SugaredLogger) (*OpenAPIGetYamlServiceResp, error) {
@@ -242,7 +234,7 @@ func OpenAPIGetYamlService(projectKey, serviceName string, logger *zap.SugaredLo
 
 func GetProductionYamlServiceOpenAPI(projectKey, serviceName string, logger *zap.SugaredLogger) (*OpenAPIGetYamlServiceResp, error) {
 	var resp *OpenAPIGetYamlServiceResp
-	service, err := GetProductionK8sService(serviceName, projectKey, logger)
+	service, err := commonservice.GetServiceTemplate(serviceName, setting.K8SDeployType, projectKey, setting.ProductStatusDeleting, 0, true, logger)
 	if err != nil {
 		msg := fmt.Errorf("failed to get production service from db, projectKey: %s, serviceName: %s, error: %v", projectKey, serviceName, err)
 		logger.Errorf(msg.Error())

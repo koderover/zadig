@@ -22,11 +22,61 @@ import (
 	"strconv"
 	"strings"
 
+	"golang.org/x/exp/slices"
+	"k8s.io/apimachinery/pkg/util/sets"
+
 	configbase "github.com/koderover/zadig/v2/pkg/config"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
+	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
+	commontypes "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/types"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/types"
 )
+
+func FilterServiceVars(serviceName string, deployContents []config.DeployContent, service *commonmodels.DeployServiceInfo, serviceEnv *commonservice.EnvService) (*commonmodels.DeployServiceInfo, error) {
+	if serviceEnv == nil {
+		return service, fmt.Errorf("service: %v do not exist", serviceName)
+	}
+	defaultUpdateConfig := false
+	if slices.Contains(deployContents, config.DeployConfig) && serviceEnv.Updatable {
+		defaultUpdateConfig = true
+	}
+
+	keySet := sets.NewString()
+	if service == nil {
+		service = &commonmodels.DeployServiceInfo{}
+	} else {
+		for _, config := range service.VariableConfigs {
+			keySet = keySet.Insert(config.VariableKey)
+		}
+	}
+
+	service.VariableYaml = serviceEnv.VariableYaml
+	service.ServiceName = serviceName
+	service.Updatable = serviceEnv.Updatable
+	service.UpdateConfig = defaultUpdateConfig
+
+	service.VariableKVs = []*commontypes.RenderVariableKV{}
+	service.LatestVariableKVs = []*commontypes.RenderVariableKV{}
+
+	for _, svcVar := range serviceEnv.VariableKVs {
+		if keySet.Has(svcVar.Key) && !svcVar.UseGlobalVariable {
+			service.VariableKVs = append(service.VariableKVs, svcVar)
+		}
+	}
+	for _, svcVar := range serviceEnv.LatestVariableKVs {
+		if keySet.Has(svcVar.Key) && !svcVar.UseGlobalVariable {
+			service.LatestVariableKVs = append(service.LatestVariableKVs, svcVar)
+		}
+	}
+	if !slices.Contains(deployContents, config.DeployVars) {
+		service.VariableKVs = []*commontypes.RenderVariableKV{}
+		service.LatestVariableKVs = []*commontypes.RenderVariableKV{}
+	}
+
+	return service, nil
+}
 
 // PrepareDefaultWorkflowTaskEnvs System level default environment variables (every workflow type will have it)
 func PrepareDefaultWorkflowTaskEnvs(projectKey, workflowName, workflowDisplayName, infrastructure string, taskID int64) []*commonmodels.KeyVal {
@@ -58,7 +108,6 @@ func GetLink(baseURI, projectKey, workflowName, workflowDisplayName string, task
 func getReposVariables(repos []*types.Repository) []*commonmodels.KeyVal {
 	ret := make([]*commonmodels.KeyVal, 0)
 	for index, repo := range repos {
-
 		repoNameIndex := fmt.Sprintf("REPONAME_%d", index)
 		ret = append(ret, &commonmodels.KeyVal{Key: fmt.Sprintf(repoNameIndex), Value: repo.RepoName, IsCredential: false})
 

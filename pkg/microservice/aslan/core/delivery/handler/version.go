@@ -61,14 +61,6 @@ func GetDeliveryVersion(c *gin.Context) {
 		return
 	}
 
-	// authorization checks
-	if !ctx.Resources.IsSystemAdmin {
-		if !ctx.Resources.SystemActions.DeliveryCenter.ViewVersion {
-			ctx.UnAuthorized = true
-			return
-		}
-	}
-
 	//params validate
 	ID := c.Param("id")
 	if ID == "" {
@@ -80,20 +72,29 @@ func GetDeliveryVersion(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("projectName can't be empty!")
 		return
 	}
-	if !ctx.Resources.IsSystemAdmin {
-		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
-			ctx.UnAuthorized = true
-			return
+
+	permit := false
+	if ctx.Resources.IsSystemAdmin {
+		permit = true
+	} else {
+		if ctx.Resources.SystemActions.DeliveryCenter.ViewVersion {
+			permit = true
 		}
 
-		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectKey].Version.View {
-			ctx.UnAuthorized = true
-			return
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; ok {
+			if ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin ||
+				ctx.Resources.ProjectAuthInfo[projectKey].Version.View {
+				permit = true
+			}
 		}
 	}
 
-	err = commonutil.CheckZadigXLicenseStatus()
+	if !permit {
+		ctx.UnAuthorized = true
+		return
+	}
+
+	err = commonutil.CheckZadigProfessionalLicense()
 	if err != nil {
 		ctx.Err = err
 		return
@@ -124,15 +125,22 @@ func ListDeliveryVersion(c *gin.Context) {
 	projectKey := args.ProjectName
 
 	if !ctx.Resources.IsSystemAdmin {
-		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
-			ctx.UnAuthorized = true
-			return
-		}
+		if projectKey == "" {
+			if !ctx.Resources.SystemActions.DeliveryCenter.ViewVersion {
+				ctx.UnAuthorized = true
+				return
+			}
+		} else {
+			if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+				ctx.UnAuthorized = true
+				return
+			}
 
-		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectKey].Version.View {
-			ctx.UnAuthorized = true
-			return
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].Version.View {
+				ctx.UnAuthorized = true
+				return
+			}
 		}
 	}
 
@@ -146,7 +154,7 @@ func ListDeliveryVersion(c *gin.Context) {
 		args.Verbosity = deliveryservice.VerbosityDetailed
 	}
 
-	err = commonutil.CheckZadigXLicenseStatus()
+	err = commonutil.CheckZadigProfessionalLicense()
 	if err != nil {
 		ctx.Err = err
 		return
@@ -343,7 +351,7 @@ func DeleteDeliveryVersion(c *gin.Context) {
 		}
 	}
 
-	err = commonutil.CheckZadigXLicenseStatus()
+	err = commonutil.CheckZadigProfessionalLicense()
 	if err != nil {
 		ctx.Err = err
 		return

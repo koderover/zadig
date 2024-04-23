@@ -19,11 +19,13 @@ package job
 import (
 	"fmt"
 
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/pkg/errors"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/setting"
 )
 
@@ -51,11 +53,78 @@ func (j *JiraJob) SetPreset() error {
 	return nil
 }
 
+func (j *JiraJob) SetOptions() error {
+	return nil
+}
+
+func (j *JiraJob) ClearSelectionField() error {
+	return nil
+}
+
 func (j *JiraJob) MergeArgs(args *commonmodels.Job) error {
 	j.spec = &commonmodels.JiraJobSpec{}
 	if err := commonmodels.IToi(args.Spec, j.spec); err != nil {
 		return err
 	}
+	j.job.Spec = j.spec
+	return nil
+}
+
+func (j *JiraJob) UpdateWithLatestSetting() error {
+	j.spec = &commonmodels.JiraJobSpec{}
+	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
+		return err
+	}
+
+	latestWorkflow, err := mongodb.NewWorkflowV4Coll().Find(j.workflow.Name)
+	if err != nil {
+		log.Errorf("Failed to find original workflow to set options, error: %s", err)
+	}
+
+	latestSpec := new(commonmodels.JiraJobSpec)
+	found := false
+	for _, stage := range latestWorkflow.Stages {
+		if !found {
+			for _, job := range stage.Jobs {
+				if job.Name == j.job.Name && job.JobType == j.job.JobType {
+					if err := commonmodels.IToi(job.Spec, latestSpec); err != nil {
+						return err
+					}
+					found = true
+					break
+				}
+			}
+		} else {
+			break
+		}
+	}
+
+	if !found {
+		return fmt.Errorf("failed to find the original workflow: %s", j.workflow.Name)
+	}
+
+	if j.spec.JiraID != latestSpec.JiraID {
+		j.spec.JiraID = latestSpec.JiraID
+		j.spec.ProjectID = ""
+		j.spec.QueryType = ""
+		j.spec.JQL = ""
+		j.spec.IssueType = ""
+		j.spec.Issues = make([]*commonmodels.IssueID, 0)
+		j.spec.TargetStatus = ""
+	} else if j.spec.ProjectID != latestSpec.ProjectID {
+		j.spec.ProjectID = latestSpec.ProjectID
+		j.spec.QueryType = ""
+		j.spec.JQL = ""
+		j.spec.IssueType = ""
+		j.spec.Issues = make([]*commonmodels.IssueID, 0)
+		j.spec.TargetStatus = ""
+	} else {
+		j.spec.QueryType = latestSpec.QueryType
+		j.spec.JQL = latestSpec.JQL
+		j.spec.IssueType = latestSpec.IssueType
+		j.spec.TargetStatus = latestSpec.TargetStatus
+	}
+
 	j.job.Spec = j.spec
 	return nil
 }
@@ -97,6 +166,10 @@ func (j *JiraJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 }
 
 func (j *JiraJob) LintJob() error {
+	if err := util.CheckZadigEnterpriseLicense(); err != nil {
+		return err
+	}
+
 	j.spec = &commonmodels.JiraJobSpec{}
 	if err := commonmodels.IToiYaml(j.job.Spec, j.spec); err != nil {
 		return err

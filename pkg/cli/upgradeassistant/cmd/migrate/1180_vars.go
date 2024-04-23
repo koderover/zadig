@@ -665,15 +665,15 @@ func turnFlatKVToRenderKV(originKVs []*commonmodels.ServiceKeyVal) ([]*types.Ren
 	return types.ServiceToRenderVariableKVs(renderKVs), nil
 }
 
-func workflowOriginKValsToVariableConfig(kvs []*commonmodels.ServiceKeyVal) []*commonmodels.DeplopyVariableConfig {
-	ret := make([]*commonmodels.DeplopyVariableConfig, 0)
+func workflowOriginKValsToVariableConfig(kvs []*commonmodels.ServiceKeyVal) []*commonmodels.DeployVariableConfig {
+	ret := make([]*commonmodels.DeployVariableConfig, 0)
 	kvSet := sets.NewString()
 	for _, kv := range kvs {
 		if kvSet.Has(ExtractRootKeyFromFlat(kv.Key)) {
 			continue
 		}
 		kvSet.Insert(ExtractRootKeyFromFlat(kv.Key))
-		ret = append(ret, &commonmodels.DeplopyVariableConfig{
+		ret = append(ret, &commonmodels.DeployVariableConfig{
 			VariableKey:       ExtractRootKeyFromFlat(kv.Key),
 			UseGlobalVariable: false,
 		})
@@ -777,9 +777,9 @@ func migrateWorkflows() error {
 							}
 							updateKVConfig = true
 
-							jobSpec.VariableConfigs = make([]*commonmodels.DeplopyVariableConfig, 0)
+							jobSpec.VariableConfigs = make([]*commonmodels.DeployVariableConfig, 0)
 							for _, kv := range jobSpec.VariableKVs {
-								jobSpec.VariableConfigs = append(jobSpec.VariableConfigs, &commonmodels.DeplopyVariableConfig{
+								jobSpec.VariableConfigs = append(jobSpec.VariableConfigs, &commonmodels.DeployVariableConfig{
 									VariableKey:       kv.Key,
 									UseGlobalVariable: false,
 								})

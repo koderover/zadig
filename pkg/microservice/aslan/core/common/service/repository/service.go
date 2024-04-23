@@ -105,6 +105,14 @@ func UpdateServiceVariables(args *models.Service, production bool) error {
 	}
 }
 
+func UpdateServiceContainers(args *models.Service, production bool) error {
+	if !production {
+		return mongodb.NewServiceColl().UpdateServiceContainers(args)
+	} else {
+		return mongodb.NewProductionServiceColl().UpdateServiceContainers(args)
+	}
+}
+
 func UpdateStatus(serviceName, productName, status string, production bool) error {
 	if !production {
 		return mongodb.NewServiceColl().UpdateStatus(serviceName, productName, status)
@@ -134,5 +142,13 @@ func Create(service *models.Service, production bool) error {
 		return mongodb.NewServiceColl().Create(service)
 	} else {
 		return mongodb.NewProductionServiceColl().Create(service)
+	}
+}
+
+func Delete(serviceName, serviceType, productName, status string, revision int64, production bool) error {
+	if !production {
+		return mongodb.NewServiceColl().Delete(serviceName, serviceType, productName, status, revision)
+	} else {
+		return mongodb.NewProductionServiceColl().Delete(serviceName, serviceType, productName, status, revision)
 	}
 }

@@ -45,6 +45,8 @@ func UpdateStatefulSetContainerImage(c *gin.Context) {
 
 	args := new(service.UpdateContainerImageArgs)
 	args.Type = setting.StatefulSet
+	production := c.Query("production") == "true"
+	args.Production = production
 
 	data, err := c.GetRawData()
 	if err != nil {
@@ -68,68 +70,30 @@ func UpdateStatefulSetContainerImage(c *gin.Context) {
 			ctx.UnAuthorized = true
 			return
 		}
-		if !ctx.Resources.ProjectAuthInfo[args.ProductName].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[args.ProductName].Env.EditConfig {
-			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, args.ProductName, types.ResourceTypeEnvironment, args.EnvName, types.EnvActionEditConfig)
-			if err != nil || !permitted {
-				ctx.UnAuthorized = true
+
+		if production {
+			if !ctx.Resources.ProjectAuthInfo[args.ProductName].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[args.ProductName].ProductionEnv.EditConfig {
+				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, args.ProductName, types.ResourceTypeEnvironment, args.EnvName, types.ProductionEnvActionEditConfig)
+				if err != nil || !permitted {
+					ctx.UnAuthorized = true
+					return
+				}
+			}
+
+			err = commonutil.CheckZadigProfessionalLicense()
+			if err != nil {
+				ctx.Err = err
 				return
 			}
-		}
-	}
-
-	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
-
-	if err := c.BindJSON(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
-		return
-	}
-
-	ctx.Err = service.UpdateContainerImage(ctx.RequestID, ctx.UserName, args, ctx.Logger)
-}
-
-func UpdateProductionStatefulSetContainerImage(c *gin.Context) {
-	ctx, err := internalhandler.NewContextWithAuthorization(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	if err != nil {
-
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
-		ctx.UnAuthorized = true
-		return
-	}
-
-	args := new(service.UpdateContainerImageArgs)
-	args.Type = setting.StatefulSet
-
-	data, err := c.GetRawData()
-	if err != nil {
-		log.Errorf("UpdateProductionStatefulSetContainerImage c.GetRawData() err : %v", err)
-		return
-	}
-	if err = json.Unmarshal(data, args); err != nil {
-		log.Errorf("UpdateProductionStatefulSetContainerImage json.Unmarshal err : %v", err)
-		return
-	}
-
-	internalhandler.InsertDetailedOperationLog(
-		c, ctx.UserName, args.ProductName, setting.OperationSceneEnv,
-		"更新", "生产环境-服务镜像",
-		fmt.Sprintf("环境名称:%s,服务名称:%s,StatefulSet:%s", args.EnvName, args.ServiceName, args.Name),
-		string(data), ctx.Logger, args.EnvName)
-
-	// authorization checks
-	if !ctx.Resources.IsSystemAdmin {
-		if _, ok := ctx.Resources.ProjectAuthInfo[args.ProductName]; !ok {
-			ctx.UnAuthorized = true
-			return
-		}
-		if !ctx.Resources.ProjectAuthInfo[args.ProductName].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[args.ProductName].ProductionEnv.EditConfig {
-			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, args.ProductName, types.ResourceTypeEnvironment, args.EnvName, types.ProductionEnvActionEditConfig)
-			if err != nil || !permitted {
-				ctx.UnAuthorized = true
-				return
+		} else {
+			if !ctx.Resources.ProjectAuthInfo[args.ProductName].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[args.ProductName].Env.EditConfig {
+				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, args.ProductName, types.ResourceTypeEnvironment, args.EnvName, types.EnvActionEditConfig)
+				if err != nil || !permitted {
+					ctx.UnAuthorized = true
+					return
+				}
 			}
 		}
 	}
@@ -171,25 +135,53 @@ func UpdateDeploymentContainerImage(c *gin.Context) {
 		fmt.Sprintf("环境名称:%s,服务名称:%s,Deployment:%s", args.EnvName, args.ServiceName, args.Name),
 		string(data), ctx.Logger, args.EnvName)
 
+	production := c.Query("production") == "true"
+	args.Production = production
+
 	// authorization checks
 	permitted := false
 	if ctx.Resources.IsSystemAdmin {
 		permitted = true
 	} else if projectAuthInfo, ok := ctx.Resources.ProjectAuthInfo[args.ProductName]; ok {
-		if projectAuthInfo.IsProjectAdmin {
-			permitted = true
-		} else if projectAuthInfo.Env.EditConfig || projectAuthInfo.Env.ManagePods {
-			permitted = true
-		} else {
-			collabPermittedConfig, err := internalhandler.GetCollaborationModePermission(ctx.UserID, args.ProductName, types.ResourceTypeEnvironment, args.EnvName, types.EnvActionEditConfig)
-			if err == nil {
-				permitted = collabPermittedConfig
+		if production {
+			if projectAuthInfo.IsProjectAdmin {
+				permitted = true
+			} else if projectAuthInfo.ProductionEnv.EditConfig || projectAuthInfo.ProductionEnv.ManagePods {
+				permitted = true
+			} else {
+				collabPermittedConfig, err := internalhandler.GetCollaborationModePermission(ctx.UserID, args.ProductName, types.ResourceTypeEnvironment, args.EnvName, types.ProductionEnvActionEditConfig)
+				if err == nil {
+					permitted = collabPermittedConfig
+				}
+				if !permitted {
+					collabPermittedManagePod, err := internalhandler.GetCollaborationModePermission(ctx.UserID, args.ProductName, types.ResourceTypeEnvironment, args.EnvName, types.ProductionEnvActionManagePod)
+					if err == nil {
+						permitted = collabPermittedManagePod
+					}
+				}
 			}
 
-			if !permitted {
-				collabPermittedManagePod, err := internalhandler.GetCollaborationModePermission(ctx.UserID, args.ProductName, types.ResourceTypeEnvironment, args.EnvName, types.EnvActionManagePod)
+			err = commonutil.CheckZadigProfessionalLicense()
+			if err != nil {
+				ctx.Err = err
+				return
+			}
+		} else {
+			if projectAuthInfo.IsProjectAdmin {
+				permitted = true
+			} else if projectAuthInfo.Env.EditConfig || projectAuthInfo.Env.ManagePods {
+				permitted = true
+			} else {
+				collabPermittedConfig, err := internalhandler.GetCollaborationModePermission(ctx.UserID, args.ProductName, types.ResourceTypeEnvironment, args.EnvName, types.EnvActionEditConfig)
 				if err == nil {
-					permitted = collabPermittedManagePod
+					permitted = collabPermittedConfig
+				}
+
+				if !permitted {
+					collabPermittedManagePod, err := internalhandler.GetCollaborationModePermission(ctx.UserID, args.ProductName, types.ResourceTypeEnvironment, args.EnvName, types.EnvActionManagePod)
+					if err == nil {
+						permitted = collabPermittedManagePod
+					}
 				}
 			}
 		}
@@ -204,76 +196,6 @@ func UpdateDeploymentContainerImage(c *gin.Context) {
 
 	if err := c.BindJSON(args); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
-		return
-	}
-
-	ctx.Err = service.UpdateContainerImage(ctx.RequestID, ctx.UserName, args, ctx.Logger)
-}
-
-func UpdateProductionDeploymentContainerImage(c *gin.Context) {
-	ctx, err := internalhandler.NewContextWithAuthorization(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
-		ctx.UnAuthorized = true
-		return
-	}
-
-	args := new(service.UpdateContainerImageArgs)
-	args.Type = setting.Deployment
-
-	data, err := c.GetRawData()
-	if err != nil {
-		log.Errorf("UpdateDeploymentContainerImage c.GetRawData() err : %v", err)
-	}
-	if err = json.Unmarshal(data, args); err != nil {
-		log.Errorf("UpdateDeploymentContainerImage json.Unmarshal err : %v", err)
-	}
-
-	internalhandler.InsertDetailedOperationLog(
-		c, ctx.UserName, args.ProductName, setting.OperationSceneEnv,
-		"更新", "生产环境-服务镜像",
-		fmt.Sprintf("环境名称:%s,服务名称:%s,Deployment:%s", args.EnvName, args.ServiceName, args.Name),
-		string(data), ctx.Logger, args.EnvName)
-
-	// authorization checks
-	permitted := false
-	if ctx.Resources.IsSystemAdmin {
-		permitted = true
-	} else if projectAuthInfo, ok := ctx.Resources.ProjectAuthInfo[args.ProductName]; ok {
-		if projectAuthInfo.IsProjectAdmin {
-			permitted = true
-		} else if projectAuthInfo.ProductionEnv.EditConfig || projectAuthInfo.ProductionEnv.ManagePods {
-			permitted = true
-		} else {
-			collabPermittedConfig, err := internalhandler.GetCollaborationModePermission(ctx.UserID, args.ProductName, types.ResourceTypeEnvironment, args.EnvName, types.ProductionEnvActionEditConfig)
-			if err == nil {
-				permitted = collabPermittedConfig
-			}
-			if !permitted {
-				collabPermittedManagePod, err := internalhandler.GetCollaborationModePermission(ctx.UserID, args.ProductName, types.ResourceTypeEnvironment, args.EnvName, types.ProductionEnvActionManagePod)
-				if err == nil {
-					permitted = collabPermittedManagePod
-				}
-			}
-		}
-	}
-
-	if !permitted {
-		ctx.UnAuthorized = true
-		return
-	}
-
-	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
-
-	if err := c.BindJSON(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
-		return
-	}
-
-	if err := commonutil.CheckZadigXLicenseStatus(); err != nil {
-		ctx.Err = err
 		return
 	}
 
@@ -292,6 +214,8 @@ func UpdateCronJobContainerImage(c *gin.Context) {
 
 	args := new(service.UpdateContainerImageArgs)
 	args.Type = setting.CronJob
+	production := c.Query("production") == "true"
+	args.Production = production
 
 	data, err := c.GetRawData()
 	if err != nil {
@@ -313,66 +237,30 @@ func UpdateCronJobContainerImage(c *gin.Context) {
 			ctx.UnAuthorized = true
 			return
 		}
-		if !ctx.Resources.ProjectAuthInfo[args.ProductName].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[args.ProductName].Env.EditConfig {
-			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, args.ProductName, types.ResourceTypeEnvironment, args.EnvName, types.EnvActionEditConfig)
-			if err != nil || !permitted {
-				ctx.UnAuthorized = true
+
+		if production {
+			if !ctx.Resources.ProjectAuthInfo[args.ProductName].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[args.ProductName].ProductionEnv.EditConfig {
+				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, args.ProductName, types.ResourceTypeEnvironment, args.EnvName, types.ProductionEnvActionEditConfig)
+				if err != nil || !permitted {
+					ctx.UnAuthorized = true
+					return
+				}
+			}
+
+			err = commonutil.CheckZadigProfessionalLicense()
+			if err != nil {
+				ctx.Err = err
 				return
 			}
-		}
-	}
-
-	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
-
-	if err := c.BindJSON(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
-		return
-	}
-
-	ctx.Err = service.UpdateContainerImage(ctx.RequestID, ctx.UserName, args, ctx.Logger)
-}
-
-func UpdateProductionCronJobContainerImage(c *gin.Context) {
-	ctx, err := internalhandler.NewContextWithAuthorization(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	if err != nil {
-
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
-		ctx.UnAuthorized = true
-		return
-	}
-
-	args := new(service.UpdateContainerImageArgs)
-	args.Type = setting.CronJob
-
-	data, err := c.GetRawData()
-	if err != nil {
-		log.Errorf("UpdateProductionCronJobContainerImage c.GetRawData() err : %v", err)
-	}
-	if err = json.Unmarshal(data, args); err != nil {
-		log.Errorf("UpdateProductionCronJobContainerImage json.Unmarshal err : %v", err)
-	}
-
-	internalhandler.InsertDetailedOperationLog(
-		c, ctx.UserName, args.ProductName, setting.OperationSceneEnv,
-		"更新", "生产环境-服务镜像",
-		fmt.Sprintf("环境名称:%s,服务名称:%s,CronJob:%s", args.EnvName, args.ServiceName, args.Name),
-		string(data), ctx.Logger, args.EnvName)
-
-	// authorization checks
-	if !ctx.Resources.IsSystemAdmin {
-		if _, ok := ctx.Resources.ProjectAuthInfo[args.ProductName]; !ok {
-			ctx.UnAuthorized = true
-			return
-		}
-		if !ctx.Resources.ProjectAuthInfo[args.ProductName].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[args.ProductName].ProductionEnv.EditConfig {
-			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, args.ProductName, types.ResourceTypeEnvironment, args.EnvName, types.ProductionEnvActionEditConfig)
-			if err != nil || !permitted {
-				ctx.UnAuthorized = true
-				return
+		} else {
+			if !ctx.Resources.ProjectAuthInfo[args.ProductName].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[args.ProductName].Env.EditConfig {
+				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, args.ProductName, types.ResourceTypeEnvironment, args.EnvName, types.EnvActionEditConfig)
+				if err != nil || !permitted {
+					ctx.UnAuthorized = true
+					return
+				}
 			}
 		}
 	}

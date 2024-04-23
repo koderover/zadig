@@ -23,6 +23,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/koderover/zadig/v2/pkg/util"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -57,7 +58,7 @@ func (j *VMDeployJob) SetPreset() error {
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return err
 	}
-	j.job.Spec = j.spec
+
 	var err error
 	_, err = templaterepo.NewProductColl().Find(j.workflow.Project)
 	if err != nil {
@@ -102,7 +103,189 @@ func (j *VMDeployJob) SetPreset() error {
 		serviceAndVMDeploy.Repos = mergeRepos(serviceAndVMDeploy.Repos, build.DeployRepos)
 	}
 
+	j.job.Spec = j.spec
 	return nil
+}
+
+func (j *VMDeployJob) SetOptions() error {
+	j.spec = &commonmodels.ZadigVMDeployJobSpec{}
+	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
+		return err
+	}
+
+	// there are no production environment for vm projects now
+	envs, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
+		Name:                j.workflow.Project,
+		IsSortByProductName: true,
+		Production:          util.GetBoolPointer(false),
+	})
+
+	if err != nil {
+		log.Errorf("failed to list environments for project: %s, error: %s", j.workflow.Project, err)
+		return err
+	}
+
+	envOptions := make([]*commonmodels.ZadigVMDeployEnvInformation, 0)
+
+	for _, env := range envs {
+		info, err := generateVMDeployServiceInfo(j.workflow.Project, env.EnvName)
+		if err != nil {
+			log.Errorf("failed to generate service deploy info for project: %s, error: %s", j.workflow.Project, err)
+			return err
+		}
+
+		envOptions = append(envOptions, &commonmodels.ZadigVMDeployEnvInformation{
+			Env:      env.EnvName,
+			Services: info,
+		})
+	}
+
+	j.spec.EnvOptions = envOptions
+	j.job.Spec = j.spec
+	return nil
+}
+
+func (j *VMDeployJob) ClearSelectionField() error {
+	j.spec = &commonmodels.ZadigVMDeployJobSpec{}
+	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
+		return err
+	}
+
+	j.spec.ServiceAndVMDeploys = make([]*commonmodels.ServiceAndVMDeploy, 0)
+	j.job.Spec = j.spec
+	return nil
+}
+
+func (j *VMDeployJob) UpdateWithLatestSetting() error {
+	j.spec = &commonmodels.ZadigVMDeployJobSpec{}
+	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
+		return err
+	}
+
+	latestWorkflow, err := commonrepo.NewWorkflowV4Coll().Find(j.workflow.Name)
+	if err != nil {
+		log.Errorf("Failed to find original workflow to set options, error: %s", err)
+	}
+
+	latestSpec := new(commonmodels.ZadigVMDeployJobSpec)
+	found := false
+	for _, stage := range latestWorkflow.Stages {
+		if !found {
+			for _, job := range stage.Jobs {
+				if job.Name == j.job.Name && job.JobType == j.job.JobType {
+					if err := commonmodels.IToi(job.Spec, latestSpec); err != nil {
+						return err
+					}
+					found = true
+					break
+				}
+			}
+		} else {
+			break
+		}
+	}
+
+	if !found {
+		return fmt.Errorf("failed to find the original workflow: %s", j.workflow.Name)
+	}
+
+	j.spec.Env = latestSpec.Env
+	j.spec.S3StorageID = latestSpec.S3StorageID
+
+	// source is a bit tricky: if the saved args has a source of fromjob, but it has been change to runtime in the config
+	// we need to not only update its source but also set services to empty slice.
+	if j.spec.Source == config.SourceFromJob && latestSpec.Source == config.SourceRuntime {
+		j.spec.ServiceAndVMDeploys = make([]*commonmodels.ServiceAndVMDeploy, 0)
+	}
+	j.spec.Source = latestSpec.Source
+
+	if j.spec.Source == config.SourceFromJob {
+		j.spec.JobName = latestSpec.JobName
+		j.spec.OriginJobName = latestSpec.OriginJobName
+	}
+
+	deployableService, err := generateVMDeployServiceInfo(j.workflow.Project, latestSpec.Env)
+	if err != nil {
+		log.Errorf("failed to generate deployable vm service for env: %s, project: %s, error: %s", latestSpec.Env, j.workflow.Project, err)
+		return err
+	}
+
+	mergedService := make([]*commonmodels.ServiceAndVMDeploy, 0)
+	userConfiguredService := make(map[string]*commonmodels.ServiceAndVMDeploy)
+
+	for _, service := range j.spec.ServiceAndVMDeploys {
+		userConfiguredService[service.ServiceName] = service
+	}
+
+	for _, service := range deployableService {
+		if userSvc, ok := userConfiguredService[service.ServiceName]; ok {
+			mergedService = append(mergedService, &commonmodels.ServiceAndVMDeploy{
+				Repos:         mergeRepos(service.Repos, userSvc.Repos),
+				ServiceName:   service.ServiceName,
+				ServiceModule: service.ServiceModule,
+				ArtifactURL:   userSvc.ArtifactURL,
+				FileName:      userSvc.FileName,
+				Image:         userSvc.Image,
+				TaskID:        userSvc.TaskID,
+				WorkflowType:  userSvc.WorkflowType,
+				WorkflowName:  userSvc.WorkflowName,
+				JobTaskName:   userSvc.JobTaskName,
+			})
+		} else {
+			continue
+		}
+	}
+
+	j.spec.ServiceAndVMDeploys = mergedService
+	j.job.Spec = j.spec
+	return nil
+}
+
+// generateVMDeployServiceInfo generated all deployable service and its corresponding data.
+// currently it ignores the env service info, just gives all the service defined in the template.
+func generateVMDeployServiceInfo(project, env string) ([]*commonmodels.ServiceAndVMDeploy, error) {
+	resp := make([]*commonmodels.ServiceAndVMDeploy, 0)
+
+	environmentInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		EnvName: env,
+		Name:    project,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to find env: %s in project: %s, error: %s", env, project, err)
+	}
+
+	svcs := environmentInfo.GetServiceMap()
+
+	for _, svc := range svcs {
+		templateSvc, err := commonrepo.NewServiceColl().Find(
+			&commonrepo.ServiceFindOption{
+				ServiceName: svc.ServiceName,
+				ProductName: project,
+				Revision:    svc.Revision,
+			},
+		)
+
+		if err != nil {
+			return nil, fmt.Errorf("failed to find service: %s in project: %s, error: %s", svc.ServiceName, project, err)
+		}
+
+		if templateSvc.BuildName == "" {
+			return nil, fmt.Errorf("service %s in project %s has no deploy info", svc.ServiceName, project)
+		}
+
+		build, err := commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: templateSvc.BuildName, ProductName: project})
+		if err != nil {
+			return nil, fmt.Errorf("can't find build %s in project %s, error: %v", templateSvc.BuildName, project, err)
+		}
+
+		resp = append(resp, &commonmodels.ServiceAndVMDeploy{
+			Repos:         build.DeployRepos,
+			ServiceName:   templateSvc.ServiceName,
+			ServiceModule: templateSvc.ServiceName,
+		})
+	}
+
+	return resp, nil
 }
 
 func (j *VMDeployJob) GetRepos() ([]*types.Repository, error) {
@@ -153,17 +336,7 @@ func (j *VMDeployJob) MergeArgs(args *commonmodels.Job) error {
 			return err
 		}
 
-		newDeploys := []*commonmodels.ServiceAndVMDeploy{}
-		for _, deploy := range j.spec.ServiceAndVMDeploys {
-			for _, argsDeploy := range argsSpec.ServiceAndVMDeploys {
-				if deploy.ServiceName == argsDeploy.ServiceName && deploy.ServiceModule == argsDeploy.ServiceModule {
-					deploy.Repos = mergeRepos(deploy.Repos, argsDeploy.Repos)
-					newDeploys = append(newDeploys, deploy)
-					break
-				}
-			}
-		}
-		j.spec.ServiceAndVMDeploys = newDeploys
+		j.spec.ServiceAndVMDeploys = argsSpec.ServiceAndVMDeploys
 
 		j.job.Spec = j.spec
 	}
@@ -373,18 +546,21 @@ func (j *VMDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		} else {
 			return resp, fmt.Errorf("unknown workflow type %s", vmDeployInfo.WorkflowType)
 		}
-		// init download artifact step
-		downloadArtifactStep := &commonmodels.StepTask{
-			Name:     vmDeployInfo.ServiceName + "-download-artifact",
-			JobName:  jobTask.Name,
-			StepType: config.StepDownloadArchive,
-			Spec: step.StepDownloadArchiveSpec{
-				FileName: vmDeployInfo.FileName,
-				DestDir:  "artifact",
-				S3:       modelS3toS3(s3Storage),
-			},
+
+		if buildInfo.PostBuild.FileArchive != nil {
+			// init download artifact step
+			downloadArtifactStep := &commonmodels.StepTask{
+				Name:     vmDeployInfo.ServiceName + "-download-artifact",
+				JobName:  jobTask.Name,
+				StepType: config.StepDownloadArchive,
+				Spec: step.StepDownloadArchiveSpec{
+					FileName: vmDeployInfo.FileName,
+					DestDir:  "artifact",
+					S3:       modelS3toS3(s3Storage),
+				},
+			}
+			jobTaskSpec.Steps = append(jobTaskSpec.Steps, downloadArtifactStep)
 		}
-		jobTaskSpec.Steps = append(jobTaskSpec.Steps, downloadArtifactStep)
 		// init debug before step
 		debugBeforeStep := &commonmodels.StepTask{
 			Name:     vmDeployInfo.ServiceName + "-debug_before",
@@ -470,6 +646,7 @@ func (j *VMDeployJob) getOriginReferedJobTargets(jobName string, taskID int) ([]
 						ServiceName:   build.ServiceName,
 						ServiceModule: build.ServiceModule,
 						FileName:      build.Package,
+						Image:         build.Image,
 						TaskID:        taskID,
 						WorkflowName:  j.workflow.Name,
 						WorkflowType:  config.WorkflowTypeV4,
@@ -620,6 +797,7 @@ func getVMDeployJobVariables(vmDeploy *commonmodels.ServiceAndVMDeploy, buildInf
 		}
 	}
 	ret = append(ret, &commonmodels.KeyVal{Key: "PKG_FILE", Value: vmDeploy.FileName, IsCredential: false})
+	ret = append(ret, &commonmodels.KeyVal{Key: "IMAGE", Value: vmDeploy.Image, IsCredential: false})
 	return ret
 }
 

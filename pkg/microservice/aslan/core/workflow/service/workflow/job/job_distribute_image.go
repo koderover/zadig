@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"strings"
 
+	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/v2/pkg/util"
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
@@ -104,6 +106,44 @@ func (j *ImageDistributeJob) SetPreset() error {
 	return nil
 }
 
+func (j *ImageDistributeJob) SetOptions() error {
+	j.spec = &commonmodels.ZadigDistributeImageJobSpec{}
+	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
+		return err
+	}
+
+	servicesMap, err := repository.GetMaxRevisionsServicesMap(j.workflow.Project, false)
+	if err != nil {
+		return fmt.Errorf("get services map error: %v", err)
+	}
+
+	options := make([]*commonmodels.DistributeTarget, 0)
+	for _, svc := range servicesMap {
+		for _, module := range svc.Containers {
+			options = append(options, &commonmodels.DistributeTarget{
+				ServiceName:   svc.ServiceName,
+				ServiceModule: module.Name,
+				ImageName:     util.ExtractImageName(module.Image),
+			})
+		}
+	}
+
+	j.spec.TargetOptions = options
+	j.job.Spec = j.spec
+	return nil
+}
+
+func (j *ImageDistributeJob) ClearSelectionField() error {
+	j.spec = &commonmodels.ZadigDistributeImageJobSpec{}
+	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
+		return err
+	}
+
+	j.spec.Targets = make([]*commonmodels.DistributeTarget, 0)
+	j.job.Spec = j.spec
+	return nil
+}
+
 func (j *ImageDistributeJob) MergeArgs(args *commonmodels.Job) error {
 	if j.job.Name == args.Name && j.job.JobType == args.JobType {
 		j.spec = &commonmodels.ZadigDistributeImageJobSpec{}
@@ -117,6 +157,62 @@ func (j *ImageDistributeJob) MergeArgs(args *commonmodels.Job) error {
 		j.spec.Targets = argsSpec.Targets
 		j.job.Spec = j.spec
 	}
+	return nil
+}
+
+func (j *ImageDistributeJob) UpdateWithLatestSetting() error {
+	j.spec = &commonmodels.ZadigDistributeImageJobSpec{}
+	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
+		return err
+	}
+
+	latestWorkflow, err := commonrepo.NewWorkflowV4Coll().Find(j.workflow.Name)
+	if err != nil {
+		log.Errorf("Failed to find original workflow to set options, error: %s", err)
+	}
+
+	latestSpec := new(commonmodels.ZadigDistributeImageJobSpec)
+	found := false
+	for _, stage := range latestWorkflow.Stages {
+		if !found {
+			for _, job := range stage.Jobs {
+				if job.Name == j.job.Name && job.JobType == j.job.JobType {
+					if err := commonmodels.IToi(job.Spec, latestSpec); err != nil {
+						return err
+					}
+					found = true
+					break
+				}
+			}
+		} else {
+			break
+		}
+	}
+
+	if !found {
+		return fmt.Errorf("failed to find the original workflow: %s", j.workflow.Name)
+	}
+
+	// source is a bit tricky: if the saved args has a source of fromjob, but it has been change to runtime in the config
+	// we need to not only update its source but also set services to empty slice.
+	if j.spec.Source == config.SourceFromJob && latestSpec.Source == config.SourceRuntime {
+		j.spec.Targets = make([]*commonmodels.DistributeTarget, 0)
+	}
+	j.spec.Source = latestSpec.Source
+
+	if j.spec.Source == config.SourceFromJob {
+		j.spec.JobName = latestSpec.JobName
+	} else {
+		j.spec.SourceRegistryID = latestSpec.SourceRegistryID
+	}
+
+	j.spec.TargetRegistryID = latestSpec.TargetRegistryID
+	j.spec.Timeout = latestSpec.Timeout
+	j.spec.ClusterID = latestSpec.ClusterID
+	j.spec.StrategyID = latestSpec.StrategyID
+	j.spec.EnableTargetImageTagRule = latestSpec.EnableTargetImageTagRule
+	j.spec.TargetImageTagRule = latestSpec.TargetImageTagRule
+	j.job.Spec = j.spec
 	return nil
 }
 

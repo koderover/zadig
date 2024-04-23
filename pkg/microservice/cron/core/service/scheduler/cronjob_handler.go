@@ -465,10 +465,12 @@ func (h *CronjobHandler) registerEnvAnalysisJob(name, schedule string, job *serv
 	}
 	scheduleJob, err := cronlib.NewJobModel(schedule, func() {
 		base := "environment/environments/"
+		production := "false"
 		if job.EnvAnalysisArgs.Production {
-			base = "environment/production/environments/"
+			production = "true"
 		}
-		url := base + fmt.Sprintf("%s/analysis?projectName=%s&triggerName=%s&userName=%s", job.EnvAnalysisArgs.EnvName, job.EnvAnalysisArgs.ProductName, setting.CronTaskCreator, setting.CronTaskCreator)
+
+		url := base + fmt.Sprintf("%s/analysis?projectName=%s&triggerName=%s&userName=%s&production=%s", job.EnvAnalysisArgs.EnvName, job.EnvAnalysisArgs.ProductName, setting.CronTaskCreator, setting.CronTaskCreator, production)
 
 		if err := h.aslanCli.ScheduleCall(url, nil, log.SugaredLogger()); err != nil {
 			log.Errorf("[%s]RunScheduledTask err: %v", name, err)
@@ -494,15 +496,16 @@ func (h *CronjobHandler) registerEnvSleepJob(name, schedule string, job *service
 	}
 	scheduleJob, err := cronlib.NewJobModel(schedule, func() {
 		base := "environment/environments/"
+		production := "false"
 		if job.EnvArgs.Production {
-			base = "environment/production/environments/"
+			production = "true"
 		}
 
 		url := ""
 		if job.EnvArgs.Name == util.GetEnvSleepCronName(job.EnvArgs.ProductName, job.EnvArgs.EnvName, true) {
-			url = base + fmt.Sprintf("%s/sleep?projectName=%s&action=enable", job.EnvArgs.EnvName, job.EnvArgs.ProductName)
+			url = base + fmt.Sprintf("%s/sleep?projectName=%s&action=enable&production=%s", job.EnvArgs.EnvName, job.EnvArgs.ProductName, production)
 		} else if job.EnvArgs.Name == util.GetEnvSleepCronName(job.EnvArgs.ProductName, job.EnvArgs.EnvName, false) {
-			url = base + fmt.Sprintf("%s/sleep?projectName=%s&action=disable", job.EnvArgs.EnvName, job.EnvArgs.ProductName)
+			url = base + fmt.Sprintf("%s/sleep?projectName=%s&action=disable&production=%s", job.EnvArgs.EnvName, job.EnvArgs.ProductName, production)
 		}
 
 		if err := h.aslanCli.ScheduleCall(url, nil, log.SugaredLogger()); err != nil {

@@ -49,9 +49,17 @@ var (
 
 type JobCtl interface {
 	Instantiate() error
+	// SetPreset sets all the default values configured by user
 	SetPreset() error
+	// SetOptions sets all the possible options for the workflow
+	SetOptions() error
+	ClearSelectionField() error
 	ToJobs(taskID int64) ([]*commonmodels.JobTask, error)
+	// MergeArgs merge the current workflow with the user input: args
 	MergeArgs(args *commonmodels.Job) error
+	// UpdateWithLatestSetting update the current workflow arguments with the latest workflow settings.
+	// it will also calculate if the user's args is still valid, returning error if it is invalid.
+	UpdateWithLatestSetting() error
 	LintJob() error
 }
 
@@ -120,6 +128,8 @@ func InitJobCtl(job *commonmodels.Job, workflow *commonmodels.WorkflowV4) (JobCt
 		resp = &JenkinsJob{job: job, workflow: workflow}
 	case config.JobSQL:
 		resp = &SQLJob{job: job, workflow: workflow}
+	case config.JobUpdateEnvIstioConfig:
+		resp = &UpdateEnvIstioConfigJob{job: job, workflow: workflow}
 	default:
 		return resp, fmt.Errorf("job type not found %s", job.JobType)
 	}
@@ -152,6 +162,30 @@ func SetPreset(job *commonmodels.Job, workflow *commonmodels.WorkflowV4) error {
 	}
 	JobPresetSkiped(job)
 	return jobCtl.SetPreset()
+}
+
+func ClearSelectionField(job *commonmodels.Job, workflow *commonmodels.WorkflowV4) error {
+	jobCtl, err := InitJobCtl(job, workflow)
+	if err != nil {
+		return warpJobError(job.Name, err)
+	}
+	return jobCtl.ClearSelectionField()
+}
+
+func SetOptions(job *commonmodels.Job, workflow *commonmodels.WorkflowV4) error {
+	jobCtl, err := InitJobCtl(job, workflow)
+	if err != nil {
+		return warpJobError(job.Name, err)
+	}
+	return jobCtl.SetOptions()
+}
+
+func UpdateWithLatestSetting(job *commonmodels.Job, workflow *commonmodels.WorkflowV4) error {
+	jobCtl, err := InitJobCtl(job, workflow)
+	if err != nil {
+		return warpJobError(job.Name, err)
+	}
+	return jobCtl.UpdateWithLatestSetting()
 }
 
 func JobPresetSkiped(job *commonmodels.Job) {
@@ -410,6 +444,28 @@ func JobSkiped(job *commonmodels.Job) bool {
 	return job.Skipped
 }
 
+func RenderKeyVals(input, origin []*commonmodels.KeyVal) []*commonmodels.KeyVal {
+	resp := make([]*commonmodels.KeyVal, 0)
+
+	for _, originKV := range origin {
+		item := &commonmodels.KeyVal{
+			Key:          originKV.Key,
+			Value:        originKV.Value,
+			Type:         originKV.Type,
+			IsCredential: originKV.IsCredential,
+			ChoiceOption: originKV.ChoiceOption,
+		}
+		for _, inputKV := range input {
+			if originKV.Key == inputKV.Key {
+				// always use origin credential config.
+				item.Value = inputKV.Value
+			}
+		}
+		resp = append(resp, item)
+	}
+	return resp
+}
+
 // use service name and service module hash to generate job name
 func jobNameFormat(jobName string) string {
 	if len(jobName) > 63 {
@@ -534,17 +590,26 @@ func getWorkflowStageParams(workflow *commonmodels.WorkflowV4, taskID int64, cre
 }
 
 func renderParams(input, origin []*commonmodels.Param) []*commonmodels.Param {
-	for i, originParam := range origin {
+	resp := make([]*commonmodels.Param, 0)
+	for _, originParam := range origin {
 		for _, inputParam := range input {
 			if originParam.Name == inputParam.Name {
 				// always use origin credential config.
-				isCredential := originParam.IsCredential
-				origin[i] = inputParam
-				origin[i].IsCredential = isCredential
+				resp = append(resp, &commonmodels.Param{
+					Name:         originParam.Name,
+					Description:  originParam.Description,
+					ParamsType:   originParam.ParamsType,
+					Value:        inputParam.Value,
+					Repo:         inputParam.Repo,
+					ChoiceOption: originParam.ChoiceOption,
+					Default:      originParam.Default,
+					IsCredential: originParam.IsCredential,
+					Source:       originParam.Source,
+				})
 			}
 		}
 	}
-	return origin
+	return resp
 }
 
 func getJobRankMap(stages []*commonmodels.WorkflowStage) map[string]int {

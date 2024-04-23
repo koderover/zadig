@@ -73,6 +73,76 @@ func (j *GrayRollbackJob) SetPreset() error {
 	return nil
 }
 
+func (j *GrayRollbackJob) SetOptions() error {
+	j.spec = &commonmodels.GrayRollbackJobSpec{}
+	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
+		return err
+	}
+
+	originalWorkflow, err := commonrepo.NewWorkflowV4Coll().Find(j.workflow.Name)
+	if err != nil {
+		log.Errorf("Failed to find original workflow to set options, error: %s", err)
+	}
+
+	originalSpec := new(commonmodels.GrayRollbackJobSpec)
+	found := false
+	for _, stage := range originalWorkflow.Stages {
+		if !found {
+			for _, job := range stage.Jobs {
+				if job.Name == j.job.Name && job.JobType == j.job.JobType {
+					if err := commonmodels.IToi(job.Spec, originalSpec); err != nil {
+						return err
+					}
+					found = true
+					break
+				}
+			}
+		} else {
+			break
+		}
+	}
+
+	if !found {
+		return fmt.Errorf("failed to find the original workflow: %s", j.workflow.Name)
+	}
+
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), j.spec.ClusterID)
+	if err != nil {
+		return fmt.Errorf("failed to get kube client, err: %v", err)
+	}
+	newTargets := []*commonmodels.GrayRollbackTarget{}
+	for _, target := range originalSpec.Targets {
+		deployment, found, err := getter.GetDeployment(originalSpec.Namespace, target.WorkloadName, kubeClient)
+		if err != nil || !found {
+			log.Errorf("deployment %s not found in namespace: %s", target.WorkloadName, originalSpec.Namespace)
+			continue
+		}
+		rollbackInfo, err := getGrayRollbackInfoFromAnnotations(deployment.GetAnnotations())
+		if err != nil {
+			log.Errorf("deployment %s get gray rollback info failed: %v", target.WorkloadName, err)
+			continue
+		}
+		target.OriginImage = rollbackInfo.image
+		target.OriginReplica = rollbackInfo.replica
+		newTargets = append(newTargets, target)
+	}
+
+	j.spec.TargetOptions = newTargets
+	j.job.Spec = j.spec
+	return nil
+}
+
+func (j *GrayRollbackJob) ClearSelectionField() error {
+	j.spec = &commonmodels.GrayRollbackJobSpec{}
+	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
+		return err
+	}
+
+	j.spec.Targets = make([]*commonmodels.GrayRollbackTarget, 0)
+	j.job.Spec = j.spec
+	return nil
+}
+
 func (j *GrayRollbackJob) MergeArgs(args *commonmodels.Job) error {
 	if j.job.Name == args.Name && j.job.JobType == args.JobType {
 		j.spec = &commonmodels.GrayRollbackJobSpec{}
@@ -87,6 +157,72 @@ func (j *GrayRollbackJob) MergeArgs(args *commonmodels.Job) error {
 		j.spec.Targets = argsSpec.Targets
 		j.job.Spec = j.spec
 	}
+	return nil
+}
+
+func (j *GrayRollbackJob) UpdateWithLatestSetting() error {
+	j.spec = &commonmodels.GrayRollbackJobSpec{}
+	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
+		return err
+	}
+
+	latestWorkflow, err := commonrepo.NewWorkflowV4Coll().Find(j.workflow.Name)
+	if err != nil {
+		log.Errorf("Failed to find original workflow to set options, error: %s", err)
+	}
+
+	latestSpec := new(commonmodels.GrayRollbackJobSpec)
+	found := false
+	for _, stage := range latestWorkflow.Stages {
+		if !found {
+			for _, job := range stage.Jobs {
+				if job.Name == j.job.Name && job.JobType == j.job.JobType {
+					if err := commonmodels.IToi(job.Spec, latestSpec); err != nil {
+						return err
+					}
+					found = true
+					break
+				}
+			}
+		} else {
+			break
+		}
+	}
+
+	if !found {
+		return fmt.Errorf("failed to find the original workflow: %s", j.workflow.Name)
+	}
+
+	// if cluster is changed, remove all settings
+	if j.spec.ClusterID != latestSpec.ClusterID {
+		j.spec.ClusterID = latestSpec.ClusterID
+		j.spec.Namespace = ""
+		j.spec.RollbackTimeout = 0
+		j.spec.Targets = make([]*commonmodels.GrayRollbackTarget, 0)
+	} else if j.spec.Namespace != latestSpec.Namespace {
+		j.spec.Namespace = latestSpec.Namespace
+		j.spec.RollbackTimeout = 0
+		j.spec.Targets = make([]*commonmodels.GrayRollbackTarget, 0)
+	} else {
+		j.spec.RollbackTimeout = latestSpec.RollbackTimeout
+	}
+
+	userConfiguredService := make(map[string]*commonmodels.GrayRollbackTarget)
+	for _, svc := range j.spec.Targets {
+		key := fmt.Sprintf("%s++%s", svc.WorkloadType, svc.WorkloadName)
+		userConfiguredService[key] = svc
+	}
+
+	mergedServices := make([]*commonmodels.GrayRollbackTarget, 0)
+	for _, svc := range latestSpec.Targets {
+		key := fmt.Sprintf("%s++%s", svc.WorkloadType, svc.WorkloadName)
+		if userSvc, ok := userConfiguredService[key]; ok {
+			mergedServices = append(mergedServices, userSvc)
+		}
+	}
+
+	j.spec.Targets = mergedServices
+	j.job.Spec = j.spec
 	return nil
 }
 
@@ -175,7 +311,7 @@ func getGrayRollbackInfoFromAnnotations(annotations map[string]string) (*grayRol
 }
 
 func (j *GrayRollbackJob) LintJob() error {
-	if err := util.CheckZadigXLicenseStatus(); err != nil {
+	if err := util.CheckZadigProfessionalLicense(); err != nil {
 		return e.ErrLicenseInvalid.AddDesc("")
 	}
 

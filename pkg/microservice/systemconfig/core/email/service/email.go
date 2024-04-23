@@ -56,8 +56,10 @@ func GetEncryptedEmailHost(encryptedKey string, log *zap.SugaredLogger) (*models
 	}
 	result, err := mongodb.NewEmailHostColl().Find()
 	if err != nil {
-		log.Errorf("GetEncryptedEmailHost find email host error:%s", err)
-		return nil, err
+		if err != mongo.ErrNoDocuments {
+			log.Errorf("GetEncryptedEmailHost find email host error:%s", err)
+			return nil, err
+		}
 	}
 	if result == nil {
 		return nil, nil

@@ -209,7 +209,7 @@ func FillServiceCreationInfo(serviceTemplate *models.Service) error {
 }
 
 // ListServiceTemplate 列出服务模板
-func ListServiceTemplate(productName string, log *zap.SugaredLogger) (*ServiceTmplResp, error) {
+func ListServiceTemplate(productName string, production bool, log *zap.SugaredLogger) (*ServiceTmplResp, error) {
 	var err error
 	resp := new(ServiceTmplResp)
 	resp.Data = make([]*ServiceProductMap, 0)
@@ -219,9 +219,9 @@ func ListServiceTemplate(productName string, log *zap.SugaredLogger) (*ServiceTm
 		return resp, e.ErrListTemplate.AddDesc(err.Error())
 	}
 
-	services, err := commonrepo.NewServiceColl().ListMaxRevisionsForServices(productTmpl.AllTestServiceInfos(), "")
+	services, err := repository.ListMaxRevisionsServices(productName, production)
 	if err != nil {
-		log.Errorf("Failed to list services by %+v, err: %s", productTmpl.AllTestServiceInfos(), err)
+		log.Errorf("Failed to list services by %+v, err: %s", productName, err)
 		return resp, e.ErrListTemplate.AddDesc(err.Error())
 	}
 
@@ -374,8 +374,8 @@ func ListWorkloadTemplate(productName, envName string, production bool, log *zap
 	return resp, nil
 }
 
-func GetServiceTemplateWithStructure(serviceName, serviceType, productName, excludeStatus string, revision int64, log *zap.SugaredLogger) (*TemplateSvcResp, error) {
-	svcTemplate, err := GetServiceTemplate(serviceName, serviceType, productName, excludeStatus, revision, log)
+func GetServiceTemplateWithStructure(serviceName, serviceType, productName, excludeStatus string, revision int64, production bool, log *zap.SugaredLogger) (*TemplateSvcResp, error) {
+	svcTemplate, err := GetServiceTemplate(serviceName, serviceType, productName, excludeStatus, revision, production, log)
 	resp := &TemplateSvcResp{
 		Resources: []*SvcResources{},
 		Service:   svcTemplate,
@@ -415,7 +415,7 @@ func GeneSvcStructure(svcTemplate *models.Service) []*SvcResources {
 	return resources
 }
 
-func GetServiceTemplate(serviceName, serviceType, productName, excludeStatus string, revision int64, log *zap.SugaredLogger) (*commonmodels.Service, error) {
+func GetServiceTemplate(serviceName, serviceType, productName, excludeStatus string, revision int64, production bool, log *zap.SugaredLogger) (*commonmodels.Service, error) {
 	opt := &commonrepo.ServiceFindOption{
 		ServiceName: serviceName,
 		Type:        serviceType,
@@ -425,7 +425,7 @@ func GetServiceTemplate(serviceName, serviceType, productName, excludeStatus str
 	if excludeStatus != "" {
 		opt.ExcludeStatus = excludeStatus
 	}
-	resp, err := commonrepo.NewServiceColl().Find(opt)
+	resp, err := repository.QueryTemplateService(opt, production)
 	if err != nil {
 		err = func() error {
 			if !commonrepo.IsErrNoDocuments(err) {
@@ -641,7 +641,7 @@ func UpdatePmServiceTemplate(username string, args *ServiceTmplBuildObject, log 
 	}
 
 	//先比较healthcheck是否有变动
-	preService, err := GetServiceTemplate(args.ServiceTmplObject.ServiceName, setting.PMDeployType, args.ServiceTmplObject.ProductName, setting.ProductStatusDeleting, args.ServiceTmplObject.Revision, log)
+	preService, err := GetServiceTemplate(args.ServiceTmplObject.ServiceName, setting.PMDeployType, args.ServiceTmplObject.ProductName, setting.ProductStatusDeleting, args.ServiceTmplObject.Revision, false, log)
 	if err != nil {
 		return err
 	}
@@ -712,13 +712,13 @@ func UpdatePmServiceTemplate(username string, args *ServiceTmplBuildObject, log 
 	return nil
 }
 
-func DeleteServiceWebhookByName(serviceName, productName string, logger *zap.SugaredLogger) {
-	svc, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{ServiceName: serviceName, ProductName: productName})
+func DeleteServiceWebhookByName(serviceName, productName string, production bool, logger *zap.SugaredLogger) {
+	svc, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{ServiceName: serviceName, ProductName: productName}, production)
 	if err != nil {
 		logger.Errorf("Failed to get service %s, error: %s", serviceName, err)
 		return
 	}
-	ProcessServiceWebhook(nil, svc, serviceName, logger)
+	ProcessServiceWebhook(nil, svc, serviceName, production, logger)
 }
 
 func needProcessWebhook(source string) bool {
@@ -730,7 +730,8 @@ func needProcessWebhook(source string) bool {
 	return true
 }
 
-func ProcessServiceWebhook(updated, current *commonmodels.Service, serviceName string, logger *zap.SugaredLogger) {
+// @todo add production service support
+func ProcessServiceWebhook(updated, current *commonmodels.Service, serviceName string, production bool, logger *zap.SugaredLogger) {
 	var action string
 	var updatedHooks, currentHooks []*webhook.WebHook
 	if updated != nil {
@@ -782,8 +783,12 @@ func ProcessServiceWebhook(updated, current *commonmodels.Service, serviceName s
 		action = "update"
 	}
 
-	logger.Debugf("Start to %s webhook for service %s", action, serviceName)
-	err := ProcessWebhook(updatedHooks, currentHooks, webhook.ServicePrefix+serviceName, logger)
+	logger.Debugf("Start to %s webhook for service %s, production %v", action, serviceName, production)
+	name := webhook.ServicePrefix + serviceName
+	if production {
+		name = webhook.ServicePrefix + "production-" + serviceName
+	}
+	err := ProcessWebhook(updatedHooks, currentHooks, name, logger)
 	if err != nil {
 		logger.Errorf("Failed to process WebHook, error: %s", err)
 	}
@@ -806,6 +811,13 @@ func ExtractImageRegistry(imageURI string) (string, error) {
 	for i, matchedStr := range subMatchAll {
 		if i != 0 && matchedStr != "" && matchedStr != ":" {
 			if exNames[i] == "repo" {
+				// if matchedStr format is like '10.10.1.30:8473/xxx/yyy'
+				// the url.Parse will return error 'first path segment in URL cannot contain colon'
+				// so we have to know it has schema or not first
+				if !util.HasSchema(matchedStr) {
+					return matchedStr, nil
+				}
+
 				u, err := url.Parse(matchedStr)
 				if err != nil {
 					return "", err
@@ -1029,13 +1041,13 @@ func ListServicesInEnv(envName, productName string, newSvcKVsMap map[string][]*c
 		return nil, e.ErrGetService.AddErr(errors.Wrapf(err, "failed to find latest services for env %s:%s", productName, envName))
 	}
 
-	return buildServiceInfoInEnv(env, latestSvcs, newSvcKVsMap, log)
+	return BuildServiceInfoInEnv(env, latestSvcs, newSvcKVsMap, log)
 }
 
 // @fixme newSvcKVsMap is old struct kv map, which are the kv are from deploy job config
 // may need to be removed, or use new kv struct
 // helm values need to be refactored
-func buildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*commonmodels.Service, newSvcKVsMap map[string][]*commonmodels.ServiceKeyVal, log *zap.SugaredLogger) (*EnvServices, error) {
+func BuildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*commonmodels.Service, newSvcKVsMap map[string][]*commonmodels.ServiceKeyVal, log *zap.SugaredLogger) (*EnvServices, error) {
 	productName, envName := productInfo.ProductName, productInfo.EnvName
 	ret := &EnvServices{
 		ProductName: productName,

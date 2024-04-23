@@ -74,6 +74,7 @@ func ListNacosConfig(nacosID, namespaceID string, log *zap.SugaredLogger) ([]*ty
 	for _, item := range resp {
 		item.NamespaceID = namespaceID
 		item.NamespaceName = namespaceName
+		item.OriginalContent = item.Content
 	}
 	return resp, nil
 }

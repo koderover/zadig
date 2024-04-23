@@ -17,17 +17,18 @@
 package service
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/pkg/errors"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow"
+	jobctl "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/job"
 	"github.com/koderover/zadig/v2/pkg/shared/client/user"
-	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
-	"github.com/koderover/zadig/v2/pkg/types"
 )
 
 type ReleaseJobExecutor interface {
@@ -129,28 +130,44 @@ func (e *WorkflowReleaseJobExecutor) Execute(plan *models.ReleasePlan) error {
 		if job.Status != config.ReleasePlanJobStatusTodo && job.Status != config.ReleasePlanJobStatusFailed {
 			return errors.Errorf("job %s status %s can't execute", job.Name, job.Status)
 		}
-		// check workflow execute permission
-		ctx := e.Ctx
-		if !ctx.AuthResources.IsSystemAdmin {
-			if _, ok := ctx.AuthResources.ProjectAuthInfo[spec.Workflow.Project]; !ok {
-				return ErrPermissionDenied
-			}
 
-			if !ctx.AuthResources.ProjectAuthInfo[spec.Workflow.Project].IsProjectAdmin &&
-				!ctx.AuthResources.ProjectAuthInfo[spec.Workflow.Project].Workflow.Execute {
-				// check if the permission is given by collaboration mode
-				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, spec.Workflow.Project, types.ResourceTypeWorkflow, spec.Workflow.Name, types.WorkflowActionRun)
-				if err != nil || !permitted {
-					return ErrPermissionDenied
+		originalWorkflow, err := mongodb.NewWorkflowV4Coll().Find(spec.Workflow.Name)
+		if err != nil {
+			log.Errorf("Failed to find WorkflowV4: %s, the error is: %v", spec.Workflow.Name, err)
+			return fmt.Errorf("failed to find WorkflowV4: %s, the error is: %v", spec.Workflow.Name, err)
+		}
+
+		if err := jobctl.MergeArgs(originalWorkflow, spec.Workflow); err != nil {
+			errMsg := fmt.Sprintf("merge workflow args error: %v", err)
+			log.Error(errMsg)
+			return fmt.Errorf(errMsg)
+		}
+
+		for _, stage := range originalWorkflow.Stages {
+			for _, item := range stage.Jobs {
+				err := jobctl.SetOptions(item, originalWorkflow)
+				if err != nil {
+					errMsg := fmt.Sprintf("merge workflow args set options error: %v", err)
+					log.Error(errMsg)
+					return fmt.Errorf(errMsg)
+				}
+
+				// additionally we need to update the user-defined args with the latest workflow configuration
+				err = jobctl.UpdateWithLatestSetting(item, originalWorkflow)
+				if err != nil {
+					errMsg := fmt.Sprintf("failed to merge user-defined workflow args with latest workflow configuration, error: %s", err)
+					log.Error(errMsg)
+					return fmt.Errorf(errMsg)
 				}
 			}
 		}
 
+		ctx := e.Ctx
 		result, err := workflow.CreateWorkflowTaskV4(&workflow.CreateWorkflowTaskV4Args{
 			Name:    ctx.UserName,
 			Account: ctx.Account,
 			UserID:  ctx.UserID,
-		}, spec.Workflow, log.SugaredLogger().With("source", "release plan"))
+		}, originalWorkflow, log.SugaredLogger().With("source", "release plan"))
 		if err != nil {
 			return errors.Wrapf(err, "failed to create workflow task %s", spec.Workflow.Name)
 		}

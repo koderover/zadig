@@ -58,7 +58,7 @@ func CreateUserGroup(c *gin.Context) {
 		return
 	}
 
-	if err = commonutil.CheckZadigXLicenseStatus(); err != nil {
+	if err = commonutil.CheckZadigEnterpriseLicense(); err != nil {
 		ctx.Err = err
 		return
 	}
@@ -108,8 +108,13 @@ func OpenApiListUserGroups(c *gin.Context) {
 		return
 	}
 
-	groupList, count, err := permission.ListUserGroups(query.Name, query.PageNum, query.PageSize, ctx.Logger)
+	err = commonutil.CheckZadigEnterpriseLicense()
+	if err != nil {
+		ctx.Err = err
+		return
+	}
 
+	groupList, count, err := permission.ListUserGroups(query.Name, query.PageNum, query.PageSize, ctx.Logger)
 	if err != nil {
 		ctx.Err = err
 		return
@@ -131,6 +136,14 @@ func ListUserGroups(c *gin.Context) {
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam
 		return
+	}
+  
+  if query.PageNum == 0 {
+		query.PageNum = 1
+	}
+
+	if query.PageSize == 0 {
+		query.PageSize = 200
 	}
 
 	if len(query.Uid) > 0 {
@@ -157,7 +170,7 @@ func ListUserGroups(c *gin.Context) {
 			GroupList: groupList,
 			Count:     count,
 		}
-	}
+  }
 }
 
 func GetUserGroup(c *gin.Context) {
@@ -211,7 +224,7 @@ func UpdateUserGroupInfo(c *gin.Context) {
 		return
 	}
 
-	if err = commonutil.CheckZadigXLicenseStatus(); err != nil {
+	if err = commonutil.CheckZadigEnterpriseLicense(); err != nil {
 		ctx.Err = err
 		return
 	}
@@ -274,7 +287,7 @@ func BulkAddUserToUserGroup(c *gin.Context) {
 		return
 	}
 
-	if err = commonutil.CheckZadigXLicenseStatus(); err != nil {
+	if err = commonutil.CheckZadigEnterpriseLicense(); err != nil {
 		ctx.Err = err
 		return
 	}
@@ -309,7 +322,7 @@ func BulkRemoveUserFromUserGroup(c *gin.Context) {
 		return
 	}
 
-	if err = commonutil.CheckZadigXLicenseStatus(); err != nil {
+	if err = commonutil.CheckZadigEnterpriseLicense(); err != nil {
 		ctx.Err = err
 		return
 	}

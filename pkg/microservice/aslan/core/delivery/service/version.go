@@ -18,12 +18,14 @@ package service
 
 import (
 	"bytes"
+	"cmp"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -52,6 +54,7 @@ import (
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/base"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/kube"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/repository"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	workflowservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/v2/pkg/setting"
@@ -103,6 +106,7 @@ type CreateHelmDeliveryVersionArgs struct {
 	Version       string   `json:"version"`
 	Desc          string   `json:"desc"`
 	EnvName       string   `json:"envName"`
+	Production    bool     `json:"production"`
 	Labels        []string `json:"labels"`
 	ImageRepoName string   `json:"imageRepoName"`
 	*DeliveryVersionChartData
@@ -121,6 +125,7 @@ type CreateK8SDeliveryVersionArgs struct {
 	Version     string   `json:"version"`
 	Desc        string   `json:"desc"`
 	EnvName     string   `json:"envName"`
+	Production  bool     `json:"production"`
 	Labels      []string `json:"labels"`
 	*DeliveryVersionYamlData
 }
@@ -285,17 +290,13 @@ func DeleteDeliveryVersion(args *commonrepo.DeliveryVersionArgs, log *zap.Sugare
 	return nil
 }
 
-func filterReleases(filter *DeliveryVersionFilter, deliveryVersion *commonmodels.DeliveryVersion, logger *zap.SugaredLogger) bool {
+func filterReleases(filter *DeliveryVersionFilter, deliveryVersion *commonmodels.DeliveryVersion, deliveryDeploys []*commonmodels.DeliveryDeploy, logger *zap.SugaredLogger) bool {
 	if filter == nil {
 		return true
 	}
 	if filter.ServiceName != "" {
 		deliveryDeployArgs := new(commonrepo.DeliveryDeployArgs)
 		deliveryDeployArgs.ReleaseID = deliveryVersion.ID.Hex()
-		deliveryDeploys, err := FindDeliveryDeploy(deliveryDeployArgs, logger)
-		if err != nil {
-			return true
-		}
 		match := false
 		for _, deliveryDeploy := range deliveryDeploys {
 			if deliveryDeploy.ServiceName == filter.ServiceName {
@@ -329,16 +330,36 @@ func buildDetailedRelease(deliveryVersion *commonmodels.DeliveryVersion, filterO
 		return nil, err
 	}
 	if filterOpt != nil {
-		if !filterReleases(filterOpt, deliveryVersion, logger) {
+		if !filterReleases(filterOpt, deliveryVersion, deliveryDeploys, logger) {
 			return nil, nil
 		}
 	}
+
+	// order deploys by service name
+	productTemplate, err := templaterepo.NewProductColl().Find(deliveryVersion.ProductName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find product template %s, err: %v", deliveryVersion.ProductName, err)
+	}
+	serviceOrderMap := make(map[string]int)
+	i := 0
+	for _, serviceGroup := range productTemplate.Services {
+		for _, service := range serviceGroup {
+			serviceOrderMap[service] = i
+			i++
+		}
+	}
+	slices.SortStableFunc(deliveryDeploys, func(i, j *commonmodels.DeliveryDeploy) int {
+		return cmp.Compare(serviceOrderMap[i.ServiceName], serviceOrderMap[j.ServiceName])
+	})
+
 	// 将serviceName替换为服务名/服务组件的形式，用于前端展示
 	for _, deliveryDeploy := range deliveryDeploys {
 		if deliveryDeploy.ContainerName != "" {
+			deliveryDeploy.RealServiceName = deliveryDeploy.ServiceName
 			deliveryDeploy.ServiceName = deliveryDeploy.ServiceName + "/" + deliveryDeploy.ContainerName
 		}
 	}
+
 	releaseInfo.DeployInfo = deliveryDeploys
 
 	//buildInfo
@@ -399,10 +420,29 @@ func buildDetailedRelease(deliveryVersion *commonmodels.DeliveryVersion, filterO
 	deliveryDistributeArgs := new(commonrepo.DeliveryDistributeArgs)
 	deliveryDistributeArgs.ReleaseID = deliveryVersion.ID.Hex()
 	deliveryDistributes, _ := FindDeliveryDistribute(deliveryDistributeArgs, logger)
+
 	releaseInfo.DistributeInfo = deliveryDistributes
 
 	// fill some data for helm delivery releases
 	processReleaseRespData(releaseInfo)
+
+	// helm chart version uses distribute info to store version info.
+	for _, distribute := range releaseInfo.DistributeInfo {
+		// modify each service module info for frontend
+		for _, module := range distribute.SubDistributes {
+			if module.DistributeType == config.Image {
+				module.Image = module.RegistryName
+				module.ImageName = util.ExtractImageName(module.RegistryName)
+				module.ServiceModule = util.ExtractImageName(module.RegistryName)
+			}
+		}
+	}
+
+	// k8s yaml version uses deploy info to store version info.
+	for _, deploy := range releaseInfo.DeployInfo {
+		deploy.ImageName = util.ExtractImageName(deploy.Image)
+		deploy.ServiceModule = deploy.ContainerName
+	}
 
 	return releaseInfo, nil
 }
@@ -603,10 +643,11 @@ func getChartExpandDir(productName, versionName string) string {
 	return filepath.Join(tmpDir, "chart", productName, versionName)
 }
 
-func getProductEnvInfo(productName, envName string) (*commonmodels.Product, error) {
+func getProductEnvInfo(productName, envName string, production bool) (*commonmodels.Product, error) {
 	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
-		Name:    productName,
-		EnvName: envName,
+		Name:       productName,
+		EnvName:    envName,
+		Production: &production,
 	})
 	if err != nil {
 		log.Errorf("failed to query product info, productName: %s envName: %s err: %s", productName, envName, err)
@@ -925,12 +966,12 @@ func prepareChartData(chartDatas []*CreateHelmDeliveryVersionChartData, productI
 
 	for _, chartData := range chartDatas {
 		if productService, ok := serviceMap[chartData.ServiceName]; ok {
-			serviceObj, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
+			serviceObj, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
 				ServiceName: chartData.ServiceName,
 				Revision:    productService.Revision,
 				Type:        setting.HelmDeployType,
 				ProductName: productInfo.ProductName,
-			})
+			}, productInfo.Production)
 			if err != nil {
 				return nil, fmt.Errorf("failed to query service: %s", chartData.ServiceName)
 			}
@@ -1576,7 +1617,7 @@ func CreateNewK8SDeliveryVersion(args *CreateK8SDeliveryVersionArgs, logger *zap
 		return e.ErrCreateDeliveryVersion.AddDesc("image registry not appointed")
 	}
 	// prepare data
-	productInfo, err := getProductEnvInfo(args.ProductName, args.EnvName)
+	productInfo, err := getProductEnvInfo(args.ProductName, args.EnvName, args.Production)
 	if err != nil {
 		log.Infof("failed to query product info, productName: %s envName %s, err: %s", args.ProductName, args.EnvName, err)
 		return e.ErrCreateDeliveryVersion.AddDesc(fmt.Sprintf("failed to query product info, procutName: %s envName %s", args.ProductName, args.EnvName))
@@ -1647,7 +1688,7 @@ func CreateNewHelmDeliveryVersion(args *CreateHelmDeliveryVersionArgs, logger *z
 		return e.ErrCreateDeliveryVersion.AddDesc("image registry not appointed")
 	}
 	// prepare data
-	productInfo, err := getProductEnvInfo(args.ProductName, args.EnvName)
+	productInfo, err := getProductEnvInfo(args.ProductName, args.EnvName, args.Production)
 	if err != nil {
 		log.Infof("failed to query product info, productName: %s envName %s, err: %s", args.ProductName, args.EnvName, err)
 		return e.ErrCreateDeliveryVersion.AddDesc(fmt.Sprintf("failed to query product info, procutName: %s envName %s", args.ProductName, args.EnvName))
@@ -2159,13 +2200,20 @@ func generateCustomWorkflowFromDeliveryVersion(productInfo *commonmodels.Product
 			sourceImageTag := ""
 			registryURL := strings.TrimSuffix(imageData.Image, fmt.Sprintf("/%s", imageData.ImageName))
 			tmpArr := strings.Split(imageData.Image, ":")
-			if len(tmpArr) > 1 {
+			if len(tmpArr) == 2 {
 				sourceImageTag = tmpArr[1]
 				registryURL = strings.TrimSuffix(imageData.Image, fmt.Sprintf("/%s:%s", imageData.ImageName, sourceImageTag))
+			} else if len(tmpArr) == 3 {
+				sourceImageTag = tmpArr[2]
+				registryURL = strings.TrimSuffix(imageData.Image, fmt.Sprintf("/%s:%s", imageData.ImageName, sourceImageTag))
+			} else if len(tmpArr) == 1 {
+				// no need to trim
+			} else {
+				return nil, fmt.Errorf("invalid image: %s", imageData.Image)
 			}
 			sourceRegistry, ok := registryMap[registryURL]
 			if !ok {
-				return nil, fmt.Errorf("can't find soruce registry for image: %s", imageData.Image)
+				return nil, fmt.Errorf("can't find source registry for image: %s", imageData.Image)
 			}
 			if registryDatasMap[sourceRegistry] == nil {
 				registryDatasMap[sourceRegistry] = map[string][]*ImageData{yamlData.ServiceName: {}}

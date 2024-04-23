@@ -34,10 +34,11 @@ import (
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 )
 
-func GetEnvDetail(projectName, envName string, logger *zap.SugaredLogger) (*OpenAPIEnvDetail, error) {
+func GetEnvDetail(projectName, envName string, production bool, logger *zap.SugaredLogger) (*OpenAPIEnvDetail, error) {
 	env, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
-		Name:    projectName,
-		EnvName: envName,
+		Name:       projectName,
+		EnvName:    envName,
+		Production: &production,
 	})
 	if err != nil {
 		logger.Errorf("failed to find project:%s env:%s", projectName, envName)
@@ -110,7 +111,7 @@ func GetEnvDetail(projectName, envName string, logger *zap.SugaredLogger) (*Open
 	resp.Services = services
 
 	// get global variables
-	variables, _, err := GetGlobalVariables(projectName, envName, logger)
+	variables, _, err := GetGlobalVariables(projectName, envName, production, logger)
 	if err != nil {
 		logger.Errorf("failed to get global variables for project:%s env:%s", projectName, envName)
 		return nil, err
@@ -121,14 +122,14 @@ func GetEnvDetail(projectName, envName string, logger *zap.SugaredLogger) (*Open
 
 func OpenAPIUpdateEnvBasicInfo(args *EnvBasicInfoArgs, userName, projectName, envName string, production bool, logger *zap.SugaredLogger) error {
 	if args.RegistryID != "" {
-		err := UpdateProductRegistry(envName, projectName, args.RegistryID, logger)
+		err := UpdateProductRegistry(envName, projectName, args.RegistryID, production, logger)
 		if err != nil {
 			logger.Errorf("failed to update registry for project:%s env:%s", projectName, envName)
 			return err
 		}
 	}
 	if production {
-		err := UpdateProductAlias(envName, projectName, args.Alias)
+		err := UpdateProductAlias(envName, projectName, args.Alias, production)
 		if err != nil {
 			logger.Errorf("failed to update alias for project:%s env:%s", projectName, envName)
 			return err
@@ -137,19 +138,20 @@ func OpenAPIUpdateEnvBasicInfo(args *EnvBasicInfoArgs, userName, projectName, en
 	return nil
 }
 
-func OpenAPIRestartService(projectName, envName, serviceName string, logger *zap.SugaredLogger) error {
+func OpenAPIRestartService(projectName, envName, serviceName string, production bool, logger *zap.SugaredLogger) error {
 	args := &SvcOptArgs{
 		EnvName:     envName,
 		ProductName: projectName,
 		ServiceName: serviceName,
 	}
-	return RestartService(envName, args, logger)
+	return RestartService(envName, args, production, logger)
 }
 
 func OpenAPIGetGlobalVariables(projectName, envName string, production bool, logger *zap.SugaredLogger) ([]*commontypes.GlobalVariableKV, error) {
 	env, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
-		Name:    projectName,
-		EnvName: envName,
+		Name:       projectName,
+		EnvName:    envName,
+		Production: &production,
 	})
 	if err != nil {
 		logger.Errorf("failed to find env from db, project:%s env:%s", projectName, envName)
@@ -159,7 +161,7 @@ func OpenAPIGetGlobalVariables(projectName, envName string, production bool, log
 		logger.Errorf("env:%s is invalid, the env production field is: %v, but the request env production field is: %v", envName, env.Production, production)
 		return nil, fmt.Errorf("invalid environment:%s", envName)
 	}
-	resp, _, err := GetGlobalVariables(projectName, envName, logger)
+	resp, _, err := GetGlobalVariables(projectName, envName, production, logger)
 	if err != nil {
 		logger.Errorf("failed to get global variables for project:%s", projectName)
 		return nil, err
@@ -186,7 +188,7 @@ func OpenAPIUpdateYamlService(req *OpenAPIServiceVariablesReq, userName, request
 
 	for _, serv := range req.ServiceList {
 		// check and set global variable to service variable
-		err = setGlobalVariableToServiceVariable(serv.Variables, serv.ServiceName, projectName, envName, logger)
+		err = setGlobalVariableToServiceVariable(serv.Variables, serv.ServiceName, projectName, envName, production, logger)
 		if err != nil {
 			return e.ErrUpdateEnv.AddDesc(err.Error())
 		}
@@ -233,7 +235,7 @@ func OpenAPIApplyYamlService(projectKey string, req *OpenAPIApplyYamlServiceReq,
 	args := make([]*UpdateEnv, 0)
 	svcList := make([]*UpdateServiceArg, 0)
 	for _, service := range req.ServiceList {
-		err := setGlobalVariableToServiceVariable(service.VariableKvs, service.ServiceName, projectKey, req.EnvName, logger)
+		err := setGlobalVariableToServiceVariable(service.VariableKvs, service.ServiceName, projectKey, req.EnvName, production, logger)
 		if err != nil {
 			return nil, e.ErrUpdateService.AddErr(err)
 		}
@@ -270,9 +272,9 @@ func checkServiceInEnv(envServices [][]*commonmodels.ProductService, services []
 	return nil
 }
 
-func setGlobalVariableToServiceVariable(variables []*commontypes.RenderVariableKV, serviceName, projectName, envName string, logger *zap.SugaredLogger) error {
+func setGlobalVariableToServiceVariable(variables []*commontypes.RenderVariableKV, serviceName, projectName, envName string, production bool, logger *zap.SugaredLogger) error {
 	// check the variable can set to be global
-	envGlobalKvs, _, err := GetGlobalVariables(projectName, envName, logger)
+	envGlobalKvs, _, err := GetGlobalVariables(projectName, envName, production, logger)
 	if err != nil {
 		logger.Errorf("failed to get env global variables, projectName:%s envName:%s", projectName, envName)
 		return err
@@ -365,14 +367,14 @@ func fillServiceVariableAttribute(variablesFromUser []*commontypes.RenderVariabl
 	return variablesFromUser, nil
 }
 
-func OpenAPIUpdateGlobalVariables(args *OpenAPIEnvGlobalVariables, userName, requestID, projectName, envName string, logger *zap.SugaredLogger) error {
+func OpenAPIUpdateGlobalVariables(args *OpenAPIEnvGlobalVariables, userName, requestID, projectName, envName string, production bool, logger *zap.SugaredLogger) error {
 	product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: projectName, EnvName: envName})
 	if err != nil {
 		logger.Errorf("failed to find product %s", projectName)
 		return e.ErrUpdateEnv.AddDesc(err.Error())
 	}
 
-	envVariables, _, err := GetGlobalVariables(projectName, envName, logger)
+	envVariables, _, err := GetGlobalVariables(projectName, envName, production, logger)
 	if err != nil {
 		logger.Errorf("failed to get env global variables, projectName:%s, envName:%s, error: %v", projectName, envName, err)
 		return e.ErrCreateEnv.AddErr(fmt.Errorf("failed to get env global variables, projectName:%s, envName:%s, error: %v", projectName, envName, err))
@@ -477,11 +479,11 @@ func OpenAPICreateCommonEnvCfg(projectName string, args *OpenAPIEnvCfgArgs, user
 	return CreateCommonEnvCfg(arg, userName, logger)
 }
 
-func OpenAPIListCommonEnvCfg(projectName, envName string, cfgType string, logger *zap.SugaredLogger) ([]*OpenAPIEnvCfgBrief, error) {
+func OpenAPIListCommonEnvCfg(projectName, envName string, cfgType string, production bool, logger *zap.SugaredLogger) ([]*OpenAPIEnvCfgBrief, error) {
 	resp := make([]*OpenAPIEnvCfgBrief, 0)
 	switch cfgType {
 	case string(config.CommonEnvCfgTypeIngress):
-		ingress, err := ListIngresses(envName, projectName, logger)
+		ingress, err := ListIngresses(envName, projectName, production, logger)
 		if err != nil {
 			logger.Errorf("OpenAPI: failed to list ingress: %s", err)
 			return nil, err
@@ -517,6 +519,7 @@ func OpenAPIListCommonEnvCfg(projectName, envName string, cfgType string, logger
 		args := &ListConfigMapArgs{
 			EnvName:     envName,
 			ProductName: projectName,
+			Production:  production,
 		}
 
 		configMapList, err := ListConfigMaps(args, logger)
@@ -554,7 +557,7 @@ func OpenAPIListCommonEnvCfg(projectName, envName string, cfgType string, logger
 		}
 		return resp, nil
 	case string(config.CommonEnvCfgTypeSecret):
-		secretList, err := ListSecrets(envName, projectName, logger)
+		secretList, err := ListSecrets(envName, projectName, production, logger)
 		if err != nil {
 			logger.Errorf("OpenAPI: failed to list secrets: %s", err)
 			return nil, err
@@ -589,7 +592,7 @@ func OpenAPIListCommonEnvCfg(projectName, envName string, cfgType string, logger
 		}
 		return resp, nil
 	case string(config.CommonEnvCfgTypePvc):
-		pvcList, err := ListPvcs(envName, projectName, logger)
+		pvcList, err := ListPvcs(envName, projectName, production, logger)
 		if err != nil {
 			logger.Errorf("OpenAPI: failed to list pvcs: %s", err)
 			return nil, err
@@ -628,10 +631,10 @@ func OpenAPIListCommonEnvCfg(projectName, envName string, cfgType string, logger
 	return resp, nil
 }
 
-func OpenAPIGetCommonEnvCfg(projectName, envName, cfgType, name string, logger *zap.SugaredLogger) (*OpenAPIEnvCfgDetail, error) {
+func OpenAPIGetCommonEnvCfg(projectName, envName, cfgType, name string, production bool, logger *zap.SugaredLogger) (*OpenAPIEnvCfgDetail, error) {
 	switch cfgType {
 	case string(config.CommonEnvCfgTypeIngress):
-		ingress, err := ListIngresses(envName, projectName, logger)
+		ingress, err := ListIngresses(envName, projectName, production, logger)
 		if err != nil {
 			logger.Errorf("OpenAPI: failed to list ingress: %s", err)
 			return nil, err
@@ -675,7 +678,7 @@ func OpenAPIGetCommonEnvCfg(projectName, envName, cfgType, name string, logger *
 			}
 		}
 	case string(config.CommonEnvCfgTypePvc):
-		pvc, err := ListPvcs(envName, projectName, logger)
+		pvc, err := ListPvcs(envName, projectName, production, logger)
 		if err != nil {
 			logger.Errorf("OpenAPI: failed to list pvc: %s", err)
 			return nil, err
@@ -720,7 +723,7 @@ func OpenAPIGetCommonEnvCfg(projectName, envName, cfgType, name string, logger *
 			}
 		}
 	case string(config.CommonEnvCfgTypeSecret):
-		secret, err := ListSecrets(envName, projectName, logger)
+		secret, err := ListSecrets(envName, projectName, production, logger)
 		if err != nil {
 			logger.Errorf("OpenAPI: failed to list secret: %s", err)
 			return nil, err
@@ -763,6 +766,7 @@ func OpenAPIGetCommonEnvCfg(projectName, envName, cfgType, name string, logger *
 		args := &ListConfigMapArgs{
 			EnvName:     envName,
 			ProductName: projectName,
+			Production:  production,
 		}
 
 		configMap, err := ListConfigMaps(args, logger)
@@ -819,7 +823,7 @@ func OpenAPIDeleteCommonEnvCfg(projectName, envName, cfgType, name string, logge
 		logger.Errorf("environment %s is production environment", envName)
 		return e.ErrDeleteEnv.AddDesc(fmt.Errorf("environment %s is production environment, cannot delete it", envName).Error())
 	}
-	return DeleteCommonEnvCfg(envName, projectName, name, config.CommonEnvCfgType(cfgType), logger)
+	return DeleteCommonEnvCfg(envName, projectName, name, config.CommonEnvCfgType(cfgType), false, logger)
 }
 
 func OpenAPIDeleteProductionEnvCommonEnvCfg(projectName, envName, cfgType, name string, logger *zap.SugaredLogger) error {
@@ -832,7 +836,7 @@ func OpenAPIDeleteProductionEnvCommonEnvCfg(projectName, envName, cfgType, name 
 		logger.Errorf("environment %s is not production environment", envName)
 		return e.ErrDeleteEnv.AddDesc(fmt.Errorf("environment %s is not production environment, cannot delete it", envName).Error())
 	}
-	return DeleteCommonEnvCfg(envName, projectName, name, config.CommonEnvCfgType(cfgType), logger)
+	return DeleteCommonEnvCfg(envName, projectName, name, config.CommonEnvCfgType(cfgType), true, logger)
 }
 
 func OpenAPICreateK8sEnv(args *OpenAPICreateEnvArgs, userName, requestID string, logger *zap.SugaredLogger) error {

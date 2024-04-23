@@ -44,7 +44,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/shared/kube/resource"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
-	"github.com/koderover/zadig/v2/pkg/util/boolptr"
 )
 
 type DeleteProductServicesRequest struct {
@@ -91,10 +90,20 @@ func ListProducts(c *gin.Context) {
 		hasPermission = true
 	}
 
-	if projectInfo, ok := ctx.Resources.ProjectAuthInfo[projectName]; ok {
-		if projectInfo.IsProjectAdmin ||
-			projectInfo.Env.View {
-			hasPermission = true
+	production := c.Query("production") == "true"
+	if production {
+		if projectInfo, ok := ctx.Resources.ProjectAuthInfo[projectName]; ok {
+			if projectInfo.IsProjectAdmin ||
+				projectInfo.ProductionEnv.View {
+				hasPermission = true
+			}
+		}
+	} else {
+		if projectInfo, ok := ctx.Resources.ProjectAuthInfo[projectName]; ok {
+			if projectInfo.IsProjectAdmin ||
+				projectInfo.Env.View {
+				hasPermission = true
+			}
 		}
 	}
 
@@ -109,51 +118,11 @@ func ListProducts(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.ListProducts(ctx.UserID, projectName, envFilter, false, ctx.Logger)
-}
-
-func ListProductionEnvs(c *gin.Context) {
-	ctx, err := internalhandler.NewContextWithAuthorization(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
-		ctx.UnAuthorized = true
-		return
+	if production {
+		ctx.Resp, ctx.Err = service.ListProductionEnvs(ctx.UserID, projectName, envFilter, ctx.Logger)
+	} else {
+		ctx.Resp, ctx.Err = service.ListProducts(ctx.UserID, projectName, envFilter, false, ctx.Logger)
 	}
-
-	projectName := c.Query("projectName")
-	if projectName == "" {
-		ctx.Err = e.ErrInvalidParam
-		return
-	}
-
-	hasPermission := false
-	envFilter := make([]string, 0)
-
-	if ctx.Resources.IsSystemAdmin {
-		hasPermission = true
-	}
-
-	if projectInfo, ok := ctx.Resources.ProjectAuthInfo[projectName]; ok {
-		if projectInfo.IsProjectAdmin ||
-			projectInfo.ProductionEnv.View {
-			hasPermission = true
-		}
-	}
-
-	permittedEnv, _ := internalhandler.ListCollaborationEnvironmentsPermission(ctx.UserID, projectName)
-	if permittedEnv != nil && len(permittedEnv.ReadEnvList) > 0 {
-		hasPermission = true
-		envFilter = permittedEnv.ReadEnvList
-	}
-
-	if !hasPermission {
-		ctx.Resp = []*service.ProductResp{}
-		return
-	}
-
-	ctx.Resp, ctx.Err = service.ListProductionEnvs(ctx.UserID, projectName, envFilter, ctx.Logger)
 }
 
 // @Summary Update Multi products
@@ -190,53 +159,17 @@ func UpdateMultiProducts(c *gin.Context) {
 		return
 	}
 
+	production := c.Query("production") == "true"
+	if production {
+		err = commonutil.CheckZadigProfessionalLicense()
+		if err != nil {
+			ctx.Err = err
+			return
+		}
+	}
+
 	// this function has several implementations, we do the authorization checks in the individual function.
-	updateMultiEnvWrapper(c, request, false, ctx)
-}
-
-// @Summary Update Multi production products
-// @Description Update Multi production products
-// @Tags 	environment
-// @Accept 	json
-// @Produce json
-// @Param 	projectName		query		string								true	"project name"
-// @Param 	type 			query		string								false	"type"
-// @Param 	force 			query		bool								true	"is force"
-// @Param 	k8s_body 		body 		[]service.UpdateEnv 				true 	"updateMultiK8sEnv body"
-// @Param 	helm_body 		body 		service.UpdateMultiHelmProductArg 	true 	"updateMultiHelmEnv body"
-// @Param 	helm_chart_body body 		service.UpdateMultiHelmProductArg 	true 	"updateMultiHelmChartEnv body"
-// @Param 	pm_body 		body 		[]service.UpdateEnv				 	true 	"updateMultiCvmEnv body"
-// @Success 200
-// @Router /api/aslan/environment/production/environments [put]
-func UpdateMultiProductionProducts(c *gin.Context) {
-	ctx, err := internalhandler.NewContextWithAuthorization(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	if err != nil {
-
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
-		ctx.UnAuthorized = true
-		return
-	}
-
-	request := &service.UpdateEnvRequest{}
-	err = c.ShouldBindQuery(request)
-	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
-		return
-	}
-	if request.ProjectName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("projectName can not be empty")
-		return
-	}
-
-	err = commonutil.CheckZadigXLicenseStatus()
-	if err != nil {
-		ctx.Err = err
-		return
-	}
-
-	updateMultiEnvWrapper(c, request, true, ctx)
+	updateMultiEnvWrapper(c, request, production, ctx)
 }
 
 func createProduct(c *gin.Context, param *service.CreateEnvRequest, createArgs []*service.CreateSingleProductArg, requestBody string, ctx *internalhandler.Context) {
@@ -314,16 +247,33 @@ func CreateProduct(c *gin.Context) {
 		return
 	}
 
+	production := c.Query("production") == "true"
+
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
 		if _, ok := ctx.Resources.ProjectAuthInfo[createParam.ProjectName]; !ok {
 			ctx.UnAuthorized = true
 			return
 		}
-		if !ctx.Resources.ProjectAuthInfo[createParam.ProjectName].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[createParam.ProjectName].Env.Create {
-			ctx.UnAuthorized = true
-			return
+
+		if production {
+			if !ctx.Resources.ProjectAuthInfo[createParam.ProjectName].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[createParam.ProjectName].ProductionEnv.Create {
+				ctx.UnAuthorized = true
+				return
+			}
+
+			err = commonutil.CheckZadigProfessionalLicense()
+			if err != nil {
+				ctx.Err = err
+				return
+			}
+		} else {
+			if !ctx.Resources.ProjectAuthInfo[createParam.ProjectName].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[createParam.ProjectName].Env.Create {
+				ctx.UnAuthorized = true
+				return
+			}
 		}
 	}
 
@@ -347,10 +297,17 @@ func CreateProduct(c *gin.Context) {
 			return
 		}
 
-		for _, arg := range createArgs {
-			if arg.Production {
-				ctx.Err = e.ErrInvalidParam.AddDesc("can not create production env")
+		if production {
+			err = service.EnsureProductionNamespace(createArgs)
+			if err != nil {
+				ctx.Err = e.ErrInvalidParam.AddErr(err)
 				return
+			}
+
+			for _, arg := range createArgs {
+				arg.Services = nil
+				arg.EnvConfigs = nil
+				arg.ChartValues = nil
 			}
 		}
 
@@ -456,91 +413,6 @@ func InitializeEnv(c *gin.Context) {
 	ctx.Err = service.InitializeEnvironment(projectKey, args, envType, ctx.Logger)
 }
 
-func CreateProductionProduct(c *gin.Context) {
-	ctx, err := internalhandler.NewContextWithAuthorization(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
-		ctx.UnAuthorized = true
-		return
-	}
-
-	createParam := &service.CreateEnvRequest{}
-	err = c.ShouldBindQuery(createParam)
-	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
-		return
-	}
-
-	if createParam.ProjectName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("projectName can not be empty")
-		return
-	}
-
-	// authorization checks
-	if !ctx.Resources.IsSystemAdmin {
-		if _, ok := ctx.Resources.ProjectAuthInfo[createParam.ProjectName]; !ok {
-			ctx.UnAuthorized = true
-			return
-		}
-		if !ctx.Resources.ProjectAuthInfo[createParam.ProjectName].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[createParam.ProjectName].ProductionEnv.Create {
-			ctx.UnAuthorized = true
-			return
-		}
-	}
-
-	err = commonutil.CheckZadigXLicenseStatus()
-	if err != nil {
-		ctx.Err = err
-		return
-	}
-
-	data, err := c.GetRawData()
-	if err != nil {
-		log.Infof("CreateProduct failed to get request data, err: %s", err)
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
-		return
-	}
-
-	createArgs := make([]*service.CreateSingleProductArg, 0)
-	if err = json.Unmarshal(data, &createArgs); err != nil {
-		log.Errorf("copyHelmProduct json.Unmarshal err : %s", err)
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
-		return
-	}
-
-	for _, arg := range createArgs {
-		if !arg.Production {
-			ctx.Err = e.ErrInvalidParam.AddDesc("can not create test env")
-			return
-		}
-		arg.Services = nil
-		arg.EnvConfigs = nil
-		arg.ChartValues = nil
-	}
-
-	// TODO: fix this, there won't be get resources in headers
-	allowedClusters, found := internalhandler.GetResourcesInHeader(c)
-	if found {
-		allowedSet := sets.NewString(allowedClusters...)
-		for _, args := range createArgs {
-			if !allowedSet.Has(args.ClusterID) {
-				c.String(http.StatusForbidden, "permission denied for cluster %s", args.ClusterID)
-				return
-			}
-		}
-	}
-
-	err = service.EnsureProductionNamespace(createArgs)
-	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
-		return
-	}
-	createProduct(c, createParam, createArgs, string(data), ctx)
-}
-
 type UpdateProductParams struct {
 	ServiceNames []string `json:"service_names"`
 	VariableYaml string   `json:"variable_yaml"`
@@ -634,83 +506,41 @@ func UpdateProductRegistry(c *gin.Context) {
 		return
 	}
 
+	production := c.Query("production") == "true"
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
 		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
 			ctx.UnAuthorized = true
 			return
 		}
-		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectKey].Env.EditConfig {
-			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionEditConfig)
-			if err != nil || !permitted {
-				ctx.UnAuthorized = true
+
+		if production {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.EditConfig {
+				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionEditConfig)
+				if err != nil || !permitted {
+					ctx.UnAuthorized = true
+					return
+				}
+			}
+
+			if err := commonutil.CheckZadigProfessionalLicense(); err != nil {
+				ctx.Err = err
 				return
+			}
+		} else {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].Env.EditConfig {
+				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionEditConfig)
+				if err != nil || !permitted {
+					ctx.UnAuthorized = true
+					return
+				}
 			}
 		}
 	}
 
-	ctx.Err = service.UpdateProductRegistry(envName, projectKey, args.RegistryID, ctx.Logger)
-	if ctx.Err != nil {
-		ctx.Logger.Errorf("failed to update product %s %s: %v", envName, args.RegistryID, ctx.Err)
-	}
-}
-
-func UpdateProductionProductRegistry(c *gin.Context) {
-	ctx, err := internalhandler.NewContextWithAuthorization(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	if err != nil {
-
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
-		ctx.UnAuthorized = true
-		return
-	}
-
-	envName := c.Param("name")
-	projectKey := c.Query("projectName")
-	args := new(UpdateProductRegistryRequest)
-	data, err := c.GetRawData()
-	if err != nil {
-		log.Errorf("updateProductImpl c.GetRawData() err : %v", err)
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
-		return
-	}
-	if err = json.Unmarshal(data, args); err != nil {
-		log.Errorf("updateProductImpl json.Unmarshal err : %v", err)
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
-		return
-	}
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "更新", "环境", envName, string(data), ctx.Logger, envName)
-	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
-
-	if err := c.BindJSON(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
-		return
-	}
-
-	// authorization checks
-	if !ctx.Resources.IsSystemAdmin {
-		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
-			ctx.UnAuthorized = true
-			return
-		}
-		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.EditConfig {
-			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionEditConfig)
-			if err != nil || !permitted {
-				ctx.UnAuthorized = true
-				return
-			}
-		}
-	}
-
-	if err := commonutil.CheckZadigXLicenseStatus(); err != nil {
-		ctx.Err = err
-		return
-	}
-
-	ctx.Err = service.UpdateProductRegistry(envName, projectKey, args.RegistryID, ctx.Logger)
+	ctx.Err = service.UpdateProductRegistry(envName, projectKey, args.RegistryID, production, ctx.Logger)
 	if ctx.Err != nil {
 		ctx.Logger.Errorf("failed to update product %s %s: %v", envName, args.RegistryID, ctx.Err)
 	}
@@ -770,7 +600,6 @@ func UpdateProductAlias(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -784,6 +613,7 @@ func UpdateProductAlias(c *gin.Context) {
 
 	envName := c.Param("name")
 	projectKey := c.Query("projectName")
+	production := c.Query("production") == "true"
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -791,18 +621,34 @@ func UpdateProductAlias(c *gin.Context) {
 			ctx.UnAuthorized = true
 			return
 		}
-		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-			// currently alias is only for production env, we are only giving the edit production env authorization
-			!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.EditConfig {
-			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionEditConfig)
-			if err != nil || !permitted {
-				ctx.UnAuthorized = true
+		if production {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.EditConfig {
+				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionEditConfig)
+				if err != nil || !permitted {
+					ctx.UnAuthorized = true
+					return
+				}
+			}
+
+			err = commonutil.CheckZadigProfessionalLicense()
+			if err != nil {
+				ctx.Err = err
 				return
+			}
+		} else {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].Env.EditConfig {
+				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionEditConfig)
+				if err != nil || !permitted {
+					ctx.UnAuthorized = true
+					return
+				}
 			}
 		}
 	}
 
-	ctx.Err = service.UpdateProductAlias(envName, projectKey, arg.Alias)
+	ctx.Err = service.UpdateProductAlias(envName, projectKey, arg.Alias, production)
 }
 
 func AffectedServices(c *gin.Context) {
@@ -852,63 +698,19 @@ func EstimatedValues(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
-	arg.Production = false
+
+	production := c.Query("production") == "true"
+	arg.Production = production
+	if production {
+		err := commonutil.CheckZadigProfessionalLicense()
+		if err != nil {
+			ctx.Err = err
+			return
+		}
+	}
 
 	ctx.Resp, ctx.Err = service.GeneEstimatedValues(projectName, envName, serviceName, c.Query("scene"), c.Query("format"), arg, isHelmChartDeploy == "true", ctx.Logger)
 }
-
-// @Summary Get Production Estimated Values
-// @Description Get Production Estimated Values
-// @Tags 	environment
-// @Accept 	json
-// @Produce json
-// @Param 	name 				path		string								true	"env name"
-// @Param 	projectName			query		string								true	"project name"
-// @Param 	serviceName			query		string								true	"service name or release name"
-// @Param 	isHelmChartDeploy	query		string								true	"is helm chart deploy"
-// @Param 	body 				body 		service.EstimateValuesArg			true 	"body"
-// @Success 200 				{object} 	service.RawYamlResp
-// @Router /api/aslan/environment/production/environments/{name}/estimated-values [post]
-func ProductionEstimatedValues(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	envName := c.Param("name")
-	projectName := c.Query("projectName")
-	if projectName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("projectName can't be empty!")
-		return
-	}
-
-	serviceName := c.Query("serviceName")
-	if serviceName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("serviceName can't be empty!")
-		return
-	}
-
-	isHelmChartDeploy := c.Query("isHelmChartDeploy")
-	if isHelmChartDeploy == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("isHelmChartDeploy can't be empty!")
-		return
-	}
-
-	arg := new(service.EstimateValuesArg)
-	if err := c.ShouldBind(arg); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
-		return
-	}
-	arg.Production = true
-
-	err := commonutil.CheckZadigXLicenseStatus()
-	if err != nil {
-		ctx.Err = err
-		return
-	}
-
-	ctx.Resp, ctx.Err = service.GeneEstimatedValues(projectName, envName, serviceName, c.Query("scene"), c.Query("format"),
-		arg, isHelmChartDeploy == "true", ctx.Logger)
-}
-
 func SyncHelmProductRenderset(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -965,62 +767,6 @@ func generalRequestValidate(c *gin.Context) (string, string, error) {
 	return projectName, envName, nil
 }
 
-func UpdateHelmProductRenderset(c *gin.Context) {
-	ctx, err := internalhandler.NewContextWithAuthorization(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	if err != nil {
-
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
-		ctx.UnAuthorized = true
-		return
-	}
-
-	projectKey, envName, err := generalRequestValidate(c)
-	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
-		return
-	}
-
-	arg := new(service.EnvRendersetArg)
-	data, err := c.GetRawData()
-	if err != nil {
-		log.Errorf("UpdateHelmProductRenderset c.GetRawData() err : %v", err)
-	}
-	if err = json.Unmarshal(data, arg); err != nil {
-		log.Errorf("UpdateHelmProductRenderset json.Unmarshal err : %v", err)
-	}
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "更新", "更新环境变量", "", string(data), ctx.Logger, envName)
-	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
-
-	// authorization checks
-	if !ctx.Resources.IsSystemAdmin {
-		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
-			ctx.UnAuthorized = true
-			return
-		}
-		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectKey].Env.EditConfig {
-			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionEditConfig)
-			if err != nil || !permitted {
-				ctx.UnAuthorized = true
-				return
-			}
-		}
-	}
-
-	err = c.BindJSON(arg)
-	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
-		return
-	}
-
-	ctx.Err = service.UpdateHelmProductRenderset(projectKey, envName, ctx.UserName, ctx.RequestID, arg, ctx.Logger)
-	if ctx.Err != nil {
-		ctx.Logger.Errorf("failed to update product Variable %s %s: %v", envName, projectKey, ctx.Err)
-	}
-}
-
 func UpdateHelmProductDefaultValues(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -1048,18 +794,31 @@ func UpdateHelmProductDefaultValues(c *gin.Context) {
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "更新", "更新全局变量", envName, string(data), ctx.Logger, envName)
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
+	production := c.Query("production") == "true"
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
 		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
 			ctx.UnAuthorized = true
 			return
 		}
-		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectKey].Env.EditConfig {
-			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionEditConfig)
-			if err != nil || !permitted {
-				ctx.UnAuthorized = true
-				return
+
+		if production {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.EditConfig {
+				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionEditConfig)
+				if err != nil || !permitted {
+					ctx.UnAuthorized = true
+					return
+				}
+			}
+		} else {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].Env.EditConfig {
+				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionEditConfig)
+				if err != nil || !permitted {
+					ctx.UnAuthorized = true
+					return
+				}
 			}
 		}
 	}
@@ -1077,80 +836,14 @@ func UpdateHelmProductDefaultValues(c *gin.Context) {
 	}
 
 	if arg.ValuesData != nil && arg.ValuesData.AutoSync {
-		if !commonutil.ValidateZadigXLicenseStatus(licenseStatus) {
+		if !commonutil.ValidateZadigProfessionalLicense(licenseStatus) {
 			ctx.Err = e.ErrLicenseInvalid.AddDesc("")
 			return
 		}
 	}
 
 	arg.DeployType = setting.HelmDeployType
-	ctx.Err = service.UpdateProductDefaultValues(projectKey, envName, ctx.UserName, ctx.RequestID, arg, ctx.Logger)
-}
-
-func UpdateProductionHelmProductDefaultValues(c *gin.Context) {
-	ctx, err := internalhandler.NewContextWithAuthorization(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	if err != nil {
-
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
-		ctx.UnAuthorized = true
-		return
-	}
-
-	projectKey, envName, err := generalRequestValidate(c)
-	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
-		return
-	}
-
-	arg := new(service.EnvRendersetArg)
-	data, err := c.GetRawData()
-	if err != nil {
-		log.Errorf("UpdateProductDefaultValues c.GetRawData() err : %v", err)
-	}
-	if err = json.Unmarshal(data, arg); err != nil {
-		log.Errorf("UpdateProductDefaultValues json.Unmarshal err : %v", err)
-	}
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "更新", "更新全局变量", envName, string(data), ctx.Logger, envName)
-	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
-
-	// authorization checks
-	if !ctx.Resources.IsSystemAdmin {
-		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
-			ctx.UnAuthorized = true
-			return
-		}
-		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.EditConfig {
-			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionEditConfig)
-			if err != nil || !permitted {
-				ctx.UnAuthorized = true
-				return
-			}
-		}
-	}
-
-	err = c.BindJSON(arg)
-	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
-		return
-	}
-	arg.DeployType = setting.HelmDeployType
-
-	licenseStatus, err := plutusvendor.New().CheckZadigXLicenseStatus()
-	if err != nil {
-		ctx.Err = fmt.Errorf("failed to validate zadig license status, error: %s", err)
-		return
-	}
-	if arg.ValuesData != nil && arg.ValuesData.AutoSync {
-		if !commonutil.ValidateZadigXLicenseStatus(licenseStatus) {
-			ctx.Err = e.ErrLicenseInvalid.AddDesc("")
-			return
-		}
-	}
-
-	ctx.Err = service.UpdateProductDefaultValues(projectKey, envName, ctx.UserName, ctx.RequestID, arg, ctx.Logger)
+	ctx.Err = service.UpdateProductDefaultValues(projectKey, envName, ctx.UserName, ctx.RequestID, arg, production, ctx.Logger)
 }
 
 func PreviewHelmProductDefaultValues(c *gin.Context) {
@@ -1158,7 +851,6 @@ func PreviewHelmProductDefaultValues(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -1177,73 +869,48 @@ func PreviewHelmProductDefaultValues(c *gin.Context) {
 		return
 	}
 
+	production := c.Query("production") == "true"
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
 		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
 			ctx.UnAuthorized = true
 			return
 		}
-		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectKey].Env.EditConfig {
-			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionEditConfig)
-			if err != nil || !permitted {
-				ctx.UnAuthorized = true
+
+		if production {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.EditConfig {
+				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionEditConfig)
+				if err != nil || !permitted {
+					ctx.UnAuthorized = true
+					return
+				}
+			}
+
+			err := commonutil.CheckZadigProfessionalLicense()
+			if err != nil {
+				ctx.Err = err
 				return
+			}
+		} else {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].Env.EditConfig {
+				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionEditConfig)
+				if err != nil || !permitted {
+					ctx.UnAuthorized = true
+					return
+				}
 			}
 		}
 	}
 
 	arg.DeployType = setting.HelmDeployType
-	ctx.Resp, ctx.Err = service.PreviewHelmProductGlobalVariables(projectKey, envName, arg.DefaultValues, ctx.Logger)
+	ctx.Resp, ctx.Err = service.PreviewHelmProductGlobalVariables(projectKey, envName, arg.DefaultValues, production, ctx.Logger)
 }
 
 type updateK8sProductGlobalVariablesRequest struct {
 	CurrentRevision int64                           `json:"current_revision"`
 	GlobalVariables []*commontypes.GlobalVariableKV `json:"global_variables"`
-}
-
-func PreviewProductionHelmProductDefaultValues(c *gin.Context) {
-	ctx, err := internalhandler.NewContextWithAuthorization(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	if err != nil {
-
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
-		ctx.UnAuthorized = true
-		return
-	}
-
-	projectKey, envName, err := generalRequestValidate(c)
-	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
-		return
-	}
-
-	arg := new(service.EnvRendersetArg)
-	err = c.BindJSON(arg)
-	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
-		return
-	}
-
-	// authorization checks
-	if !ctx.Resources.IsSystemAdmin {
-		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
-			ctx.UnAuthorized = true
-			return
-		}
-		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.EditConfig {
-			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionEditConfig)
-			if err != nil || !permitted {
-				ctx.UnAuthorized = true
-				return
-			}
-		}
-	}
-
-	arg.DeployType = setting.HelmDeployType
-	ctx.Resp, ctx.Err = service.PreviewHelmProductGlobalVariables(projectKey, envName, arg.DefaultValues, ctx.Logger)
 }
 
 func PreviewGlobalVariables(c *gin.Context) {
@@ -1263,18 +930,36 @@ func PreviewGlobalVariables(c *gin.Context) {
 		return
 	}
 
+	production := c.Query("production") == "true"
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
 		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
 			ctx.UnAuthorized = true
 			return
 		}
-		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectKey].Env.EditConfig {
-			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionEditConfig)
-			if err != nil || !permitted {
-				ctx.UnAuthorized = true
+		if production {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.EditConfig {
+				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionEditConfig)
+				if err != nil || !permitted {
+					ctx.UnAuthorized = true
+					return
+				}
+			}
+
+			err := commonutil.CheckZadigProfessionalLicense()
+			if err != nil {
+				ctx.Err = err
 				return
+			}
+		} else {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].Env.EditConfig {
+				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionEditConfig)
+				if err != nil || !permitted {
+					ctx.UnAuthorized = true
+					return
+				}
 			}
 		}
 	}
@@ -1286,50 +971,7 @@ func PreviewGlobalVariables(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
 	}
-	ctx.Resp, ctx.Err = service.PreviewProductGlobalVariables(projectKey, envName, arg.GlobalVariables, ctx.Logger)
-}
-
-func PreviewProductionEnvGlobalVariables(c *gin.Context) {
-	ctx, err := internalhandler.NewContextWithAuthorization(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	if err != nil {
-
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
-		ctx.UnAuthorized = true
-		return
-	}
-
-	projectKey, envName, err := generalRequestValidate(c)
-	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
-		return
-	}
-
-	// authorization checks
-	if !ctx.Resources.IsSystemAdmin {
-		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
-			ctx.UnAuthorized = true
-			return
-		}
-		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.EditConfig {
-			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionEditConfig)
-			if err != nil || !permitted {
-				ctx.UnAuthorized = true
-				return
-			}
-		}
-	}
-
-	arg := new(updateK8sProductGlobalVariablesRequest)
-
-	err = c.BindJSON(arg)
-	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
-		return
-	}
-	ctx.Resp, ctx.Err = service.PreviewProductGlobalVariables(projectKey, envName, arg.GlobalVariables, ctx.Logger)
+	ctx.Resp, ctx.Err = service.PreviewProductGlobalVariables(projectKey, envName, arg.GlobalVariables, production, ctx.Logger)
 }
 
 // @Summary Update global variables
@@ -1367,18 +1009,35 @@ func UpdateK8sProductGlobalVariables(c *gin.Context) {
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "更新", "更新全局变量", envName, string(data), ctx.Logger, envName)
 
+	production := c.Query("production") == "true"
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
 		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
 			ctx.UnAuthorized = true
 			return
 		}
-		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectKey].Env.EditConfig {
-			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionEditConfig)
-			if err != nil || !permitted {
-				ctx.UnAuthorized = true
+		if production {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.EditConfig {
+				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionEditConfig)
+				if err != nil || !permitted {
+					ctx.UnAuthorized = true
+					return
+				}
+			}
+
+			if err := commonutil.CheckZadigProfessionalLicense(); err != nil {
+				ctx.Err = err
 				return
+			}
+		} else {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].Env.EditConfig {
+				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionEditConfig)
+				if err != nil || !permitted {
+					ctx.UnAuthorized = true
+					return
+				}
 			}
 		}
 	}
@@ -1389,61 +1048,7 @@ func UpdateK8sProductGlobalVariables(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = service.UpdateProductGlobalVariables(projectKey, envName, ctx.UserName, ctx.RequestID, arg.CurrentRevision, arg.GlobalVariables, ctx.Logger)
-}
-
-func UpdateProductionEnvK8sProductGlobalVariables(c *gin.Context) {
-	ctx, err := internalhandler.NewContextWithAuthorization(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
-		ctx.UnAuthorized = true
-		return
-	}
-
-	projectKey, envName, err := generalRequestValidate(c)
-	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
-		return
-	}
-
-	arg := new(updateK8sProductGlobalVariablesRequest)
-	data, err := c.GetRawData()
-	if err != nil {
-		log.Errorf("UpdateK8sProductDefaultValues c.GetRawData() err : %v", err)
-	}
-	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "更新", "更新全局变量", envName, string(data), ctx.Logger, envName)
-
-	// authorization checks
-	if !ctx.Resources.IsSystemAdmin {
-		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
-			ctx.UnAuthorized = true
-			return
-		}
-		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.EditConfig {
-			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionEditConfig)
-			if err != nil || !permitted {
-				ctx.UnAuthorized = true
-				return
-			}
-		}
-	}
-
-	err = c.BindJSON(arg)
-	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
-		return
-	}
-
-	if err := commonutil.CheckZadigXLicenseStatus(); err != nil {
-		ctx.Err = err
-		return
-	}
-
-	ctx.Err = service.UpdateProductGlobalVariables(projectKey, envName, ctx.UserName, ctx.RequestID, arg.CurrentRevision, arg.GlobalVariables, ctx.Logger)
+	ctx.Err = service.UpdateProductGlobalVariables(projectKey, envName, ctx.UserName, ctx.RequestID, arg.CurrentRevision, arg.GlobalVariables, production, ctx.Logger)
 }
 
 // @Summary Update helm product charts
@@ -1491,18 +1096,36 @@ func UpdateHelmProductCharts(c *gin.Context) {
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "更新", "更新服务", fmt.Sprintf("%s:[%s]", envName, strings.Join(serviceName, ",")), string(data), ctx.Logger, envName)
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
+	production := c.Query("production") == "true"
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
 		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
 			ctx.UnAuthorized = true
 			return
 		}
-		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectKey].Env.EditConfig {
-			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionEditConfig)
-			if err != nil || !permitted {
-				ctx.UnAuthorized = true
+
+		if production {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.EditConfig {
+				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionManagePod)
+				if err != nil || !permitted {
+					ctx.UnAuthorized = true
+					return
+				}
+			}
+
+			if err := commonutil.CheckZadigProfessionalLicense(); err != nil {
+				ctx.Err = err
 				return
+			}
+		} else {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].Env.EditConfig {
+				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionEditConfig)
+				if err != nil || !permitted {
+					ctx.UnAuthorized = true
+					return
+				}
 			}
 		}
 	}
@@ -1513,72 +1136,7 @@ func UpdateHelmProductCharts(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = service.UpdateHelmProductCharts(projectKey, envName, ctx.UserName, ctx.RequestID, arg, ctx.Logger)
-}
-
-func UpdateProductionEnvHelmProductCharts(c *gin.Context) {
-	ctx, err := internalhandler.NewContextWithAuthorization(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	if err != nil {
-
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
-		ctx.UnAuthorized = true
-		return
-	}
-
-	projectKey, envName, err := generalRequestValidate(c)
-	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
-		return
-	}
-
-	arg := new(service.EnvRendersetArg)
-
-	data, err := c.GetRawData()
-	if err != nil {
-		log.Errorf("UpdateHelmProductCharts c.GetRawData() err : %v", err)
-	}
-	if err = json.Unmarshal(data, arg); err != nil {
-		log.Errorf("UpdateHelmProductCharts json.Unmarshal err : %v", err)
-	}
-
-	serviceName := make([]string, 0)
-	for _, cd := range arg.ChartValues {
-		serviceName = append(serviceName, cd.ServiceName)
-	}
-
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "更新", "更新服务", fmt.Sprintf("%s:[%s]", envName, strings.Join(serviceName, ",")), string(data), ctx.Logger, envName)
-	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
-
-	// authorization checks
-	if !ctx.Resources.IsSystemAdmin {
-		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
-			ctx.UnAuthorized = true
-			return
-		}
-		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.EditConfig {
-			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionManagePod)
-			if err != nil || !permitted {
-				ctx.UnAuthorized = true
-				return
-			}
-		}
-	}
-
-	if err := commonutil.CheckZadigXLicenseStatus(); err != nil {
-		ctx.Err = err
-		return
-	}
-
-	err = c.BindJSON(arg)
-	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
-		return
-	}
-
-	ctx.Err = service.UpdateHelmProductCharts(projectKey, envName, ctx.UserName, ctx.RequestID, arg, ctx.Logger)
+	ctx.Err = service.UpdateHelmProductCharts(projectKey, envName, ctx.UserName, ctx.RequestID, production, arg, ctx.Logger)
 }
 
 func updateMultiEnvWrapper(c *gin.Context, request *service.UpdateEnvRequest, production bool, ctx *internalhandler.Context) {
@@ -1795,7 +1353,7 @@ func updateMultiHelmChartEnv(c *gin.Context, request *service.UpdateEnvRequest, 
 	}
 	for _, chartValue := range args.ChartValues {
 		if chartValue.DeployStrategy == setting.ServiceDeployStrategyImport {
-			if !commonutil.ValidateZadigXLicenseStatus(licenseStatus) {
+			if !commonutil.ValidateZadigProfessionalLicense(licenseStatus) {
 				ctx.Err = e.ErrLicenseInvalid.AddDesc("")
 				return
 			}
@@ -1871,6 +1429,7 @@ func GetEnvironment(c *gin.Context) {
 
 	projectKey := c.Query("projectName")
 	envName := c.Param("name")
+	production := c.Query("production") == "true"
 
 	// authorization check
 	if !ctx.Resources.IsSystemAdmin {
@@ -1879,85 +1438,35 @@ func GetEnvironment(c *gin.Context) {
 			return
 		}
 
-		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectKey].Env.View {
-			// check if the permission is given by collaboration mode
-			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionView)
-			if err != nil || !permitted {
-				ctx.UnAuthorized = true
+		if production {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.View {
+				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionView)
+				if err != nil || !permitted {
+					ctx.UnAuthorized = true
+					return
+				}
+			}
+
+			err = commonutil.CheckZadigProfessionalLicense()
+			if err != nil {
+				ctx.Err = err
 				return
 			}
-		}
-	}
-
-	ctx.Resp, ctx.Err = service.GetProduct(ctx.UserName, envName, projectKey, ctx.Logger)
-}
-
-func GetProductionEnv(c *gin.Context) {
-	ctx, err := internalhandler.NewContextWithAuthorization(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	if err != nil {
-
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
-		ctx.UnAuthorized = true
-		return
-	}
-
-	projectKey := c.Query("projectName")
-	envName := c.Param("name")
-
-	// authorization checks
-	if !ctx.Resources.IsSystemAdmin {
-		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
-			ctx.UnAuthorized = true
-			return
-		}
-		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.View {
-			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionView)
-			if err != nil || !permitted {
-				ctx.UnAuthorized = true
-				return
-			}
-		}
-	}
-
-	ctx.Resp, ctx.Err = service.GetProduct(ctx.UserName, envName, projectKey, ctx.Logger)
-}
-
-func GetProductInfo(c *gin.Context) {
-	ctx, err := internalhandler.NewContextWithAuthorization(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	if err != nil {
-
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
-		ctx.UnAuthorized = true
-		return
-	}
-
-	envName := c.Param("name")
-	projectKey := c.Query("projectName")
-
-	// authorization checks
-	if !ctx.Resources.IsSystemAdmin {
-		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
-			ctx.UnAuthorized = true
-			return
-		}
-		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectKey].Env.View {
-			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionView)
-			if err != nil || !permitted {
+		} else {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].Env.View {
 				// check if the permission is given by collaboration mode
-				ctx.UnAuthorized = true
-				return
+				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionView)
+				if err != nil || !permitted {
+					ctx.UnAuthorized = true
+					return
+				}
 			}
 		}
 	}
 
-	ctx.Resp, ctx.Err = service.GetProductInfo(ctx.UserName, envName, projectKey, ctx.Logger)
+	ctx.Resp, ctx.Err = service.GetProduct(ctx.UserName, envName, projectKey, ctx.Logger)
 }
 
 func GetEstimatedRenderCharts(c *gin.Context) {
@@ -1965,7 +1474,6 @@ func GetEstimatedRenderCharts(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -1976,12 +1484,12 @@ func GetEstimatedRenderCharts(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("projectName can't be empty!")
 		return
 	}
-
 	envName := c.Param("name")
 	if envName == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("envName can't be empty!")
 		return
 	}
+	production := c.Query("production") == "true"
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -1989,12 +1497,30 @@ func GetEstimatedRenderCharts(c *gin.Context) {
 			ctx.UnAuthorized = true
 			return
 		}
-		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectKey].Env.View {
-			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionView)
-			if err != nil || !permitted {
-				ctx.UnAuthorized = true
+
+		if production {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.View {
+				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionView)
+				if err != nil || !permitted {
+					ctx.UnAuthorized = true
+					return
+				}
+			}
+
+			err = commonutil.CheckZadigProfessionalLicense()
+			if err != nil {
+				ctx.Err = err
 				return
+			}
+		} else {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].Env.View {
+				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionView)
+				if err != nil || !permitted {
+					ctx.UnAuthorized = true
+					return
+				}
 			}
 		}
 	}
@@ -2004,57 +1530,7 @@ func GetEstimatedRenderCharts(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
 	}
-	ctx.Resp, ctx.Err = service.GetEstimatedRenderCharts(projectKey, envName, arg.GetSvcRendersArgs, false, ctx.Logger)
-	if ctx.Err != nil {
-		ctx.Logger.Errorf("failed to get estimatedRenderCharts %s %s: %v", envName, projectKey, ctx.Err)
-	}
-}
-
-func GetProductionEstimatedRenderCharts(c *gin.Context) {
-	ctx, err := internalhandler.NewContextWithAuthorization(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	if err != nil {
-
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
-		ctx.UnAuthorized = true
-		return
-	}
-
-	projectKey := c.Query("projectName")
-	if projectKey == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("projectName can't be empty!")
-		return
-	}
-
-	envName := c.Param("name")
-	if envName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("envName can't be empty!")
-		return
-	}
-
-	// authorization checks
-	if !ctx.Resources.IsSystemAdmin {
-		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
-			ctx.UnAuthorized = true
-			return
-		}
-		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.View {
-			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionView)
-			if err != nil || !permitted {
-				ctx.UnAuthorized = true
-				return
-			}
-		}
-	}
-
-	arg := &commonservice.GetSvcRenderRequest{}
-	if err := c.ShouldBindJSON(arg); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
-		return
-	}
-	ctx.Resp, ctx.Err = service.GetEstimatedRenderCharts(projectKey, envName, arg.GetSvcRendersArgs, true, ctx.Logger)
+	ctx.Resp, ctx.Err = service.GetEstimatedRenderCharts(projectKey, envName, arg.GetSvcRendersArgs, production, ctx.Logger)
 	if ctx.Err != nil {
 		ctx.Logger.Errorf("failed to get estimatedRenderCharts %s %s: %v", envName, projectKey, ctx.Err)
 	}
@@ -2083,6 +1559,7 @@ func DeleteProduct(c *gin.Context) {
 	envName := c.Param("name")
 	projectKey := c.Query("projectName")
 	isDelete, err := strconv.ParseBool(c.Query("is_delete"))
+	production := c.Query("production") == "true"
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalidParam is_delete")
 		return
@@ -2095,49 +1572,32 @@ func DeleteProduct(c *gin.Context) {
 			ctx.UnAuthorized = true
 			return
 		}
-		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectKey].Env.Delete {
-			ctx.UnAuthorized = true
-			return
+		if production {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.Delete {
+				ctx.UnAuthorized = true
+				return
+			}
+
+			if err := commonutil.CheckZadigProfessionalLicense(); err != nil {
+				ctx.Err = err
+				return
+			}
+		} else {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].Env.Delete {
+				ctx.UnAuthorized = true
+				return
+			}
 		}
 	}
 
-	ctx.Err = service.DeleteProduct(ctx.UserName, envName, projectKey, ctx.RequestID, isDelete, ctx.Logger)
-}
-
-func DeleteProductionProduct(c *gin.Context) {
-	ctx, err := internalhandler.NewContextWithAuthorization(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
-		ctx.UnAuthorized = true
-		return
+	if production {
+		ctx.Err = service.DeleteProductionProduct(ctx.UserName, envName, projectKey, ctx.RequestID, ctx.Logger)
+	} else {
+		ctx.Err = service.DeleteProduct(ctx.UserName, envName, projectKey, ctx.RequestID, isDelete, ctx.Logger)
 	}
 
-	envName := c.Param("name")
-	projectKey := c.Query("projectName")
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "删除", "生产环境", envName, "", ctx.Logger, envName)
-
-	// authorization checks
-	if !ctx.Resources.IsSystemAdmin {
-		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
-			ctx.UnAuthorized = true
-			return
-		}
-		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.Delete {
-			ctx.UnAuthorized = true
-			return
-		}
-	}
-
-	if err := commonutil.CheckZadigXLicenseStatus(); err != nil {
-		ctx.Err = err
-		return
-	}
-
-	ctx.Err = service.DeleteProductionProduct(ctx.UserName, envName, projectKey, ctx.RequestID, ctx.Logger)
 }
 
 // @Summary Delete services
@@ -2173,8 +1633,10 @@ func DeleteProductServices(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
 	}
+
 	projectKey := c.Query("projectName")
 	envName := c.Param("name")
+	production := c.Query("production") == "true"
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -2182,86 +1644,55 @@ func DeleteProductServices(c *gin.Context) {
 			ctx.UnAuthorized = true
 			return
 		}
-		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectKey].Env.EditConfig {
-			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionEditConfig)
-			if err != nil || !permitted {
-				ctx.UnAuthorized = true
-				return
+
+		if production {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.EditConfig {
+				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionEditConfig)
+				if err != nil || !permitted {
+					ctx.UnAuthorized = true
+					return
+				}
+			}
+		} else {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].Env.EditConfig {
+				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionEditConfig)
+				if err != nil || !permitted {
+					ctx.UnAuthorized = true
+					return
+				}
 			}
 		}
 	}
 
-	// For environment sharing, if the environment is the base environment and the service to be deleted has been deployed in the subenvironment,
-	// we should prompt the user that `Delete the service in the subenvironment before deleting the service in the base environment`.
-	svcsInSubEnvs, err := service.CheckServicesDeployedInSubEnvs(c, projectKey, envName, args.ServiceNames)
-	if err != nil {
-		ctx.Err = err
-		return
-	}
-	if len(svcsInSubEnvs) > 0 {
-		data := make(map[string]interface{}, len(svcsInSubEnvs))
-		for k, v := range svcsInSubEnvs {
-			data[k] = v
-		}
-
-		ctx.Err = e.NewWithExtras(e.ErrDeleteSvcHasSvcsInSubEnv, "", data)
-		return
-	}
-
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "删除", "环境的服务", fmt.Sprintf("%s:[%s]", envName, strings.Join(args.ServiceNames, ",")), "", ctx.Logger, envName)
-	ctx.Err = service.DeleteProductServices(ctx.UserName, ctx.RequestID, envName, projectKey, args.ServiceNames, false, ctx.Logger)
-}
-
-func DeleteProductionProductServices(c *gin.Context) {
-	ctx, err := internalhandler.NewContextWithAuthorization(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
-		ctx.UnAuthorized = true
-		return
-	}
-
-	args := new(DeleteProductServicesRequest)
-	data, err := c.GetRawData()
-	if err != nil {
-		log.Errorf("DeleteProductServices c.GetRawData() err : %v", err)
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
-		return
-	}
-	if err = json.Unmarshal(data, args); err != nil {
-		log.Errorf("DeleteProductServices json.Unmarshal err : %v", err)
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
-		return
-	}
-	projectKey := c.Query("projectName")
-	envName := c.Param("name")
-
-	// authorization checks
-	if !ctx.Resources.IsSystemAdmin {
-		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
-			ctx.UnAuthorized = true
+	if production {
+		err = commonutil.CheckZadigProfessionalLicense()
+		if err != nil {
+			ctx.Err = err
 			return
 		}
-		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.EditConfig {
-			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionManagePod)
-			if err != nil || !permitted {
-				ctx.UnAuthorized = true
-				return
+	} else {
+		// For environment sharing, if the environment is the base environment and the service to be deleted has been deployed in the subenvironment,
+		// we should prompt the user that `Delete the service in the subenvironment before deleting the service in the base environment`.
+		svcsInSubEnvs, err := service.CheckServicesDeployedInSubEnvs(c, projectKey, envName, args.ServiceNames)
+		if err != nil {
+			ctx.Err = err
+			return
+		}
+		if len(svcsInSubEnvs) > 0 {
+			data := make(map[string]interface{}, len(svcsInSubEnvs))
+			for k, v := range svcsInSubEnvs {
+				data[k] = v
 			}
+
+			ctx.Err = e.NewWithExtras(e.ErrDeleteSvcHasSvcsInSubEnv, "", data)
+			return
 		}
 	}
 
-	err = commonutil.CheckZadigXLicenseStatus()
-	if err != nil {
-		ctx.Err = err
-		return
-	}
-
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "删除", "环境的服务", fmt.Sprintf("%s:[%s]", envName, strings.Join(args.ServiceNames, ",")), "", ctx.Logger, envName)
-	ctx.Err = service.DeleteProductServices(ctx.UserName, ctx.RequestID, envName, projectKey, args.ServiceNames, true, ctx.Logger)
+	ctx.Err = service.DeleteProductServices(ctx.UserName, ctx.RequestID, envName, projectKey, args.ServiceNames, production, ctx.Logger)
 }
 
 // @Summary Delete helm release from envrionment
@@ -2289,6 +1720,7 @@ func DeleteHelmReleases(c *gin.Context) {
 	releaseNames := c.Query("releaseNames")
 	envName := c.Param("name")
 	releaseNameArr := strings.Split(releaseNames, ",")
+	production := c.Query("production") == "true"
 
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "删除", "环境的helm release", fmt.Sprintf("%s:[%s]", envName, releaseNames), "", ctx.Logger, envName)
 
@@ -2298,71 +1730,39 @@ func DeleteHelmReleases(c *gin.Context) {
 			ctx.UnAuthorized = true
 			return
 		}
-		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectKey].Env.EditConfig {
-			ctx.UnAuthorized = true
-			return
-		}
-	}
 
-	if err := commonutil.CheckZadigXLicenseStatus(); err != nil {
-		ctx.Err = err
-		return
-	}
+		if production {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.EditConfig {
+				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionEditConfig)
+				if err != nil || !permitted {
+					ctx.UnAuthorized = true
+					return
+				}
+			}
 
-	ctx.Err = service.DeleteProductHelmReleases(ctx.UserName, ctx.RequestID, envName, projectKey, releaseNameArr, false, ctx.Logger)
-}
-
-// @Summary Delete production helm release from envrionment
-// @Description Delete production helm release from envrionment
-// @Tags 	environment
-// @Accept 	json
-// @Produce json
-// @Param 	projectName		query		string							true	"project name"
-// @Param 	name			path		string							true	"env name"
-// @Param 	releaseNames	query		string							true	"release names"
-// @Success 200
-// @Router /api/aslan/environment/production/environments/:name/helm/releases [delete]
-func DeleteProductionHelmReleases(c *gin.Context) {
-	ctx, err := internalhandler.NewContextWithAuthorization(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	if err != nil {
-
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
-		ctx.UnAuthorized = true
-		return
-	}
-
-	projectKey := c.Query("projectName")
-	releaseNames := c.Query("releaseNames")
-	envName := c.Param("name")
-	releaseNameArr := strings.Split(releaseNames, ",")
-
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "删除", "环境的helm release", fmt.Sprintf("%s:[%s]", envName, releaseNames), "", ctx.Logger, envName)
-
-	// authorization checks
-	if !ctx.Resources.IsSystemAdmin {
-		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
-			ctx.UnAuthorized = true
-			return
-		}
-		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.EditConfig {
-			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionManagePod)
-			if err != nil || !permitted {
-				ctx.UnAuthorized = true
+			if err := commonutil.CheckZadigProfessionalLicense(); err != nil {
+				ctx.Err = err
 				return
+			}
+		} else {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].Env.EditConfig {
+				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionEditConfig)
+				if err != nil || !permitted {
+					ctx.UnAuthorized = true
+					return
+				}
 			}
 		}
 	}
 
-	if err := commonutil.CheckZadigXLicenseStatus(); err != nil {
+	if err := commonutil.CheckZadigProfessionalLicense(); err != nil {
 		ctx.Err = err
 		return
 	}
 
-	ctx.Err = service.DeleteProductHelmReleases(ctx.UserName, ctx.RequestID, envName, projectKey, releaseNameArr, true, ctx.Logger)
+	ctx.Err = service.DeleteProductHelmReleases(ctx.UserName, ctx.RequestID, envName, projectKey, releaseNameArr, production, ctx.Logger)
 }
 
 func ListGroups(c *gin.Context) {
@@ -2386,18 +1786,36 @@ func ListGroups(c *gin.Context) {
 		return
 	}
 
+	production := c.Query("production") == "true"
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
 		if _, ok := ctx.Resources.ProjectAuthInfo[envGroupRequest.ProjectName]; !ok {
 			ctx.UnAuthorized = true
 			return
 		}
-		if !ctx.Resources.ProjectAuthInfo[envGroupRequest.ProjectName].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[envGroupRequest.ProjectName].Env.View {
-			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, envGroupRequest.ProjectName, types.ResourceTypeEnvironment, envName, types.EnvActionView)
-			if err != nil || !permitted {
-				ctx.UnAuthorized = true
+
+		if production {
+			if !ctx.Resources.ProjectAuthInfo[envGroupRequest.ProjectName].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[envGroupRequest.ProjectName].ProductionEnv.View {
+				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, envGroupRequest.ProjectName, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionView)
+				if err != nil || !permitted {
+					ctx.UnAuthorized = true
+					return
+				}
+			}
+
+			if err := commonutil.CheckZadigProfessionalLicense(); err != nil {
+				ctx.Err = err
 				return
+			}
+		} else {
+			if !ctx.Resources.ProjectAuthInfo[envGroupRequest.ProjectName].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[envGroupRequest.ProjectName].Env.View {
+				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, envGroupRequest.ProjectName, types.ResourceTypeEnvironment, envName, types.EnvActionView)
+				if err != nil || !permitted {
+					ctx.UnAuthorized = true
+					return
+				}
 			}
 		}
 	}
@@ -2409,54 +1827,7 @@ func ListGroups(c *gin.Context) {
 		envGroupRequest.Page = 1
 	}
 
-	ctx.Resp, count, ctx.Err = service.ListGroups(envGroupRequest.ServiceName, envName, envGroupRequest.ProjectName, envGroupRequest.PerPage, envGroupRequest.Page, false, ctx.Logger)
-	c.Writer.Header().Set("X-Total", strconv.Itoa(count))
-}
-
-func ListProductionGroups(c *gin.Context) {
-	ctx, err := internalhandler.NewContextWithAuthorization(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	if err != nil {
-
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
-		ctx.UnAuthorized = true
-		return
-	}
-
-	envName := c.Param("name")
-	var count int
-
-	envGroupRequest := new(service.EnvGroupRequest)
-	err = c.BindQuery(envGroupRequest)
-	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(fmt.Sprintf("bind query err :%s", err))
-		return
-	}
-	if envGroupRequest.PerPage == 0 {
-		envGroupRequest.PerPage = setting.PerPage
-	}
-	if envGroupRequest.Page == 0 {
-		envGroupRequest.Page = 1
-	}
-
-	// authorization checks
-	if !ctx.Resources.IsSystemAdmin {
-		if _, ok := ctx.Resources.ProjectAuthInfo[envGroupRequest.ProjectName]; !ok {
-			ctx.UnAuthorized = true
-			return
-		}
-		if !ctx.Resources.ProjectAuthInfo[envGroupRequest.ProjectName].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[envGroupRequest.ProjectName].ProductionEnv.View {
-			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, envGroupRequest.ProjectName, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionView)
-			if err != nil || !permitted {
-				ctx.UnAuthorized = true
-				return
-			}
-		}
-	}
-
-	ctx.Resp, count, ctx.Err = service.ListProductionGroups(envGroupRequest.ServiceName, envName, envGroupRequest.ProjectName, envGroupRequest.PerPage, envGroupRequest.Page, ctx.Logger)
+	ctx.Resp, count, ctx.Err = service.ListGroups(envGroupRequest.ServiceName, envName, envGroupRequest.ProjectName, envGroupRequest.PerPage, envGroupRequest.Page, production, ctx.Logger)
 	c.Writer.Header().Set("X-Total", strconv.Itoa(count))
 }
 
@@ -2539,15 +1910,55 @@ type workloadQueryArgs struct {
 // @Success 200 		{array} 	commonservice.ServiceResp
 // @Router /api/aslan/environment/production/environments/{name}/workloads [get]
 func ListWorkloadsInEnv(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	envName := c.Param("name")
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
 
 	args := &workloadQueryArgs{}
 	if err := c.ShouldBindQuery(args); err != nil {
 		ctx.Err = err
 		return
+	}
+
+	projectKey := args.ProjectName
+	envName := c.Param("name")
+	production := c.Query("production") == "true"
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		if production {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.View {
+				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionView)
+				if err != nil || !permitted {
+					ctx.UnAuthorized = true
+					return
+				}
+			}
+
+			if err := commonutil.CheckZadigProfessionalLicense(); err != nil {
+				ctx.Err = err
+				return
+			}
+		} else {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].Env.View {
+				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionView)
+				if err != nil || !permitted {
+					ctx.UnAuthorized = true
+					return
+				}
+			}
+		}
 	}
 
 	count, services, err := commonservice.ListWorkloadDetailsInEnv(envName, args.ProjectName, args.Filter, args.PerPage, args.Page, ctx.Logger)
@@ -2597,22 +2008,60 @@ func GetGlobalVariableCandidates(c *gin.Context) {
 // @Success 200 		{object} 	service.EnvConfigsArgs
 // @Router /api/aslan/environment/environments/{name}/configs [get]
 func GetEnvConfigs(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	projectName := c.Query("projectName")
-	if projectName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
 		return
 	}
 
+	projectKey := c.Query("projectName")
+	if projectKey == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
+		return
+	}
 	envName := c.Param("name")
 	if envName == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("name can not be null!")
 		return
 	}
+	production := c.Query("production") == "true"
 
-	ctx.Resp, ctx.Err = service.GetEnvConfigs(projectName, envName, boolptr.False(), ctx.Logger)
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if production {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.View {
+				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionView)
+				if err != nil || !permitted {
+					ctx.UnAuthorized = true
+					return
+				}
+			}
+
+			err = commonutil.CheckZadigProfessionalLicense()
+			if err != nil {
+				ctx.Err = err
+				return
+			}
+		} else {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].Env.View {
+				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionView)
+				if err != nil || !permitted {
+					ctx.UnAuthorized = true
+					return
+				}
+			}
+		}
+	}
+
+	ctx.Resp, ctx.Err = service.GetEnvConfigs(projectKey, envName, &production, ctx.Logger)
 }
 
 // @Summary Update environment configs
@@ -2626,27 +2075,64 @@ func GetEnvConfigs(c *gin.Context) {
 // @Success 200
 // @Router /api/aslan/environment/environments/{name}/configs [put]
 func UpdateEnvConfigs(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	projectName := c.Query("projectName")
-	if projectName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
 		return
 	}
 
+	projectKey := c.Query("projectName")
+	if projectKey == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
+		return
+	}
 	envName := c.Param("name")
 	if envName == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("name can not be null!")
 		return
 	}
+	production := c.Query("production") == "true"
 
 	data, err := c.GetRawData()
 	if err != nil {
 		log.Errorf("UpateEnvConfigs c.GetRawData() err : %v", err)
 	}
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "更新", "更新环境配置", envName, string(data), ctx.Logger, envName)
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "更新", "更新环境配置", envName, string(data), ctx.Logger, envName)
+
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		if production {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.EditConfig {
+				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionEditConfig)
+				if err != nil || !permitted {
+					ctx.UnAuthorized = true
+					return
+				}
+			}
+
+			if err := commonutil.CheckZadigProfessionalLicense(); err != nil {
+				ctx.Err = err
+				return
+			}
+		} else {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].Env.EditConfig {
+				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionEditConfig)
+				if err != nil || !permitted {
+					ctx.UnAuthorized = true
+					return
+				}
+			}
+		}
+	}
 
 	arg := new(service.EnvConfigsArgs)
 	err = c.BindJSON(arg)
@@ -2655,83 +2141,7 @@ func UpdateEnvConfigs(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = service.UpdateEnvConfigs(projectName, envName, arg, boolptr.False(), ctx.Logger)
-}
-
-// @Summary Get production environment configs
-// @Description Get production environment configs
-// @Tags 	environment
-// @Accept 	json
-// @Produce json
-// @Param 	projectName	query		string										true	"project name"
-// @Param 	name 		path		string										true	"env name"
-// @Success 200 		{object} 	service.EnvConfigsArgs
-// @Router /api/aslan/environment/production/environments/{name}/configs [get]
-func GetProductionEnvConfigs(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	projectName := c.Query("projectName")
-	if projectName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
-		return
-	}
-
-	envName := c.Param("name")
-	if envName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("name can not be null!")
-		return
-	}
-
-	ctx.Resp, ctx.Err = service.GetProductionEnvConfigs(projectName, envName, ctx.Logger)
-}
-
-// @Summary Update production environment configs
-// @Description Update production environment configs
-// @Tags 	environment
-// @Accept 	json
-// @Produce json
-// @Param 	name 		path		string							true	"env name"
-// @Param 	projectName	query		string							true	"project name"
-// @Param 	body 		body 		service.EnvConfigsArgs 			true 	"body"
-// @Success 200
-// @Router /api/aslan/environment/production/environments/{name}/configs [put]
-func UpdateProductionEnvConfigs(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	projectName := c.Query("projectName")
-	if projectName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
-		return
-	}
-
-	envName := c.Param("name")
-	if envName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("name can not be null!")
-		return
-	}
-
-	data, err := c.GetRawData()
-	if err != nil {
-		log.Errorf("UpateEnvConfigs c.GetRawData() err : %v", err)
-	}
-	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "更新", "更新环境配置", envName, string(data), ctx.Logger, envName)
-
-	arg := new(service.EnvConfigsArgs)
-	err = c.BindJSON(arg)
-	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
-		return
-	}
-
-	if err := commonutil.CheckZadigXLicenseStatus(); err != nil {
-		ctx.Err = err
-		return
-	}
-
-	ctx.Err = service.UpdateProductionEnvConfigs(projectName, envName, arg, ctx.Logger)
+	ctx.Err = service.UpdateEnvConfigs(projectKey, envName, arg, &production, ctx.Logger)
 }
 
 // @Summary Run environment Analysis
@@ -2744,55 +2154,60 @@ func UpdateProductionEnvConfigs(c *gin.Context) {
 // @Success 200 		{object}    service.EnvAnalysisRespone
 // @Router /api/aslan/environment/environments/{name}/analysis [post]
 func RunAnalysis(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	projectName := c.Query("projectName")
-	if projectName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
 		return
 	}
 
+	projectKey := c.Query("projectName")
+	if projectKey == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
+		return
+	}
 	envName := c.Param("name")
 	if envName == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("name can not be null!")
 		return
 	}
+	production := c.Query("production") == "true"
 
-	ctx.Resp, ctx.Err = service.EnvAnalysis(projectName, envName, boolptr.False(), c.Query("triggerName"), ctx.UserName, ctx.Logger)
-}
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if production {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.View {
+				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionView)
+				if err != nil || !permitted {
+					ctx.UnAuthorized = true
+					return
+				}
+			}
 
-// @Summary Run Production environment Analysis
-// @Description Run Production environment Analysis
-// @Tags 	environment
-// @Accept 	json
-// @Produce json
-// @Param 	name 		path		string							true	"env name"
-// @Param 	projectName	query		string							true	"project name"
-// @Success 200 		{object}    service.EnvAnalysisRespone
-// @Router /api/aslan/environment/production/environments/{name}/analysis [post]
-func RunProductionAnalysis(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	projectName := c.Query("projectName")
-	if projectName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
-		return
+			err = commonutil.CheckZadigProfessionalLicense()
+			if err != nil {
+				ctx.Err = err
+				return
+			}
+		} else {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].Env.View {
+				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionView)
+				if err != nil || !permitted {
+					ctx.UnAuthorized = true
+					return
+				}
+			}
+		}
 	}
 
-	envName := c.Param("name")
-	if envName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("name can not be null!")
-		return
-	}
-
-	if err := commonutil.CheckZadigXLicenseStatus(); err != nil {
-		ctx.Err = err
-		return
-	}
-
-	ctx.Resp, ctx.Err = service.EnvAnalysis(projectName, envName, boolptr.True(), c.Query("triggerName"), ctx.UserName, ctx.Logger)
+	ctx.Resp, ctx.Err = service.EnvAnalysis(projectKey, envName, &production, c.Query("triggerName"), ctx.UserName, ctx.Logger)
 }
 
 // @Summary Upsert Env Analysis Cron
@@ -2806,19 +2221,56 @@ func RunProductionAnalysis(c *gin.Context) {
 // @Success 200
 // @Router /api/aslan/environment/environments/{name}/analysis/cron [put]
 func UpsertEnvAnalysisCron(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	projectName := c.Query("projectName")
-	if projectName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
 		return
 	}
 
+	projectKey := c.Query("projectName")
+	if projectKey == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
+		return
+	}
 	envName := c.Param("name")
 	if envName == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("name can not be null!")
 		return
+	}
+	production := c.Query("production") == "true"
+
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		if production {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.EditConfig {
+				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionEditConfig)
+				if err != nil || !permitted {
+					ctx.UnAuthorized = true
+					return
+				}
+			}
+
+			if err := commonutil.CheckZadigProfessionalLicense(); err != nil {
+				ctx.Err = err
+				return
+			}
+		} else {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].Env.EditConfig {
+				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionEditConfig)
+				if err != nil || !permitted {
+					ctx.UnAuthorized = true
+					return
+				}
+			}
+		}
 	}
 
 	data, err := c.GetRawData()
@@ -2826,7 +2278,7 @@ func UpsertEnvAnalysisCron(c *gin.Context) {
 		log.Errorf("UpsertEnvAnalysisCron c.GetRawData() err : %v", err)
 	}
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
-	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "更新", "环境巡检-cron", envName, string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "更新", "环境巡检-cron", envName, string(data), ctx.Logger)
 
 	arg := new(service.EnvAnalysisCronArg)
 	err = c.BindJSON(arg)
@@ -2835,7 +2287,7 @@ func UpsertEnvAnalysisCron(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = service.UpsertEnvAnalysisCron(projectName, envName, boolptr.False(), arg, ctx.Logger)
+	ctx.Err = service.UpsertEnvAnalysisCron(projectKey, envName, &production, arg, ctx.Logger)
 }
 
 // @Summary Get Env Analysis Cron
@@ -2848,98 +2300,59 @@ func UpsertEnvAnalysisCron(c *gin.Context) {
 // @Success 200 		{object}    service.EnvAnalysisCronArg
 // @Router /api/aslan/environment/environments/{name}/analysis/cron [get]
 func GetEnvAnalysisCron(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	projectName := c.Query("projectName")
-	if projectName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
-		return
-	}
-
-	envName := c.Param("name")
-	if envName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("name can not be null!")
-		return
-	}
-
-	ctx.Resp, ctx.Err = service.GetEnvAnalysisCron(projectName, envName, boolptr.False(), ctx.Logger)
-}
-
-// @Summary Upsert Production Env Analysis Cron
-// @Description Upsert Production Env Analysis Cron
-// @Tags 	environment
-// @Accept 	json
-// @Produce json
-// @Param 	name 		path		string							true	"env name"
-// @Param 	projectName	query		string							true	"project name"
-// @Param 	body 		body 		service.EnvAnalysisCronArg 		true 	"body"
-// @Success 200
-// @Router /api/aslan/environment/production/environments/{name}/analysis/cron [put]
-func UpsertProductionEnvAnalysisCron(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	projectName := c.Query("projectName")
-	if projectName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
-		return
-	}
-
-	envName := c.Param("name")
-	if envName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("name can not be null!")
-		return
-	}
-
-	data, err := c.GetRawData()
 	if err != nil {
-		log.Errorf("UpsertProductionEnvAnalysisCron c.GetRawData() err : %v", err)
-	}
-	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
-	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "更新", "环境巡检-cron", envName, string(data), ctx.Logger)
-
-	arg := new(service.EnvAnalysisCronArg)
-	err = c.BindJSON(arg)
-	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
 		return
 	}
 
-	if err := commonutil.CheckZadigXLicenseStatus(); err != nil {
-		ctx.Err = err
-		return
-	}
-
-	ctx.Err = service.UpsertEnvAnalysisCron(projectName, envName, boolptr.True(), arg, ctx.Logger)
-}
-
-// @Summary Get Production Env Analysis Cron
-// @Description Get Production Env Analysis Cron
-// @Tags 	environment
-// @Accept 	json
-// @Produce json
-// @Param 	name 		path		string							true	"env name"
-// @Param 	projectName	query		string							true	"project name"
-// @Success 200 		{object}    service.EnvAnalysisCronArg
-// @Router /api/aslan/environment/production/environments/{name}/analysis/cron [get]
-func GetProductionEnvAnalysisCron(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	projectName := c.Query("projectName")
-	if projectName == "" {
+	projectKey := c.Query("projectName")
+	if projectKey == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
 		return
 	}
-
 	envName := c.Param("name")
 	if envName == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("name can not be null!")
 		return
 	}
+	production := c.Query("production") == "true"
 
-	ctx.Resp, ctx.Err = service.GetEnvAnalysisCron(projectName, envName, boolptr.True(), ctx.Logger)
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if production {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.View {
+				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionView)
+				if err != nil || !permitted {
+					ctx.UnAuthorized = true
+					return
+				}
+			}
+
+			if err := commonutil.CheckZadigProfessionalLicense(); err != nil {
+				ctx.Err = err
+				return
+			}
+		} else {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].Env.View {
+				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionView)
+				if err != nil || !permitted {
+					ctx.UnAuthorized = true
+					return
+				}
+			}
+		}
+	}
+
+	ctx.Resp, ctx.Err = service.GetEnvAnalysisCron(projectKey, envName, &production, ctx.Logger)
 }
 
 type EnvAnalysisHistoryReq struct {
@@ -2956,14 +2369,55 @@ type EnvAnalysisHistoryResp struct {
 }
 
 func GetEnvAnalysisHistory(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
 
 	req := &EnvAnalysisHistoryReq{}
-	err := c.ShouldBindQuery(req)
+	err = c.ShouldBindQuery(req)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
+	}
+
+	projectKey := req.ProjectName
+	envName := req.EnvName
+	production := c.Query("production") == "true"
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if production {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.View {
+				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionView)
+				if err != nil || !permitted {
+					ctx.UnAuthorized = true
+					return
+				}
+			}
+
+			if err := commonutil.CheckZadigProfessionalLicense(); err != nil {
+				ctx.Err = err
+				return
+			}
+		} else {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].Env.View {
+				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionView)
+				if err != nil || !permitted {
+					ctx.UnAuthorized = true
+					return
+				}
+			}
+		}
 	}
 
 	result, count, err := service.GetEnvAnalysisHistory(req.ProjectName, req.Production, req.EnvName, req.PageNum, req.PageSize, ctx.Logger)
@@ -3010,6 +2464,7 @@ func EnvSleep(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("action can't be empty!")
 		return
 	}
+	production := c.Query("production") == "true"
 
 	method := "睡眠"
 	if action != "enable" {
@@ -3022,17 +2477,39 @@ func EnvSleep(c *gin.Context) {
 	if ctx.Resources.IsSystemAdmin {
 		permitted = true
 	} else if projectAuthInfo, ok := ctx.Resources.ProjectAuthInfo[projectName]; ok {
-		// first check if the user is projectAdmin
-		if projectAuthInfo.IsProjectAdmin {
-			permitted = true
-		} else if projectAuthInfo.Env.EditConfig {
-			// then check if user has edit workflow permission
-			permitted = true
-		} else {
-			// finally check if the permission is given by collaboration mode
-			collaborationAuthorizedEdit, err := internalhandler.CheckPermissionGivenByCollaborationMode(ctx.UserID, projectName, types.ResourceTypeEnvironment, types.EnvActionEditConfig)
-			if err == nil && collaborationAuthorizedEdit {
+		if production {
+			// first check if the user is projectAdmin
+			if projectAuthInfo.IsProjectAdmin {
 				permitted = true
+			} else if projectAuthInfo.ProductionEnv.EditConfig {
+				// then check if user has edit workflow permission
+				permitted = true
+			} else {
+				// finally check if the permission is given by collaboration mode
+				collaborationAuthorizedEdit, err := internalhandler.CheckPermissionGivenByCollaborationMode(ctx.UserID, projectName, types.ResourceTypeEnvironment, types.ProductionEnvActionEditConfig)
+				if err == nil && collaborationAuthorizedEdit {
+					permitted = true
+				}
+			}
+
+			err = commonutil.CheckZadigProfessionalLicense()
+			if err != nil {
+				ctx.Err = err
+				return
+			}
+		} else {
+			// first check if the user is projectAdmin
+			if projectAuthInfo.IsProjectAdmin {
+				permitted = true
+			} else if projectAuthInfo.Env.EditConfig {
+				// then check if user has edit workflow permission
+				permitted = true
+			} else {
+				// finally check if the permission is given by collaboration mode
+				collaborationAuthorizedEdit, err := internalhandler.CheckPermissionGivenByCollaborationMode(ctx.UserID, projectName, types.ResourceTypeEnvironment, types.EnvActionEditConfig)
+				if err == nil && collaborationAuthorizedEdit {
+					permitted = true
+				}
 			}
 		}
 	}
@@ -3042,78 +2519,7 @@ func EnvSleep(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = service.EnvSleep(projectName, envName, action == "enable", false, ctx.Logger)
-}
-
-// @Summary Production Environment Sleep
-// @Description Production Environment Sleep
-// @Tags 	environment
-// @Accept 	json
-// @Produce json
-// @Param 	name 				path		string						true	"env name"
-// @Param 	projectName			query		string						true	"project name"
-// @Param 	action				query		string						true	"enable or disable"
-// @Success 200
-// @Router /api/aslan/environment/production/environments/{name}/sleep [post]
-func ProductionEnvSleep(c *gin.Context) {
-	ctx, err := internalhandler.NewContextWithAuthorization(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	if err != nil {
-
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
-		ctx.UnAuthorized = true
-		return
-	}
-
-	envName := c.Param("name")
-	if envName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("name can't be empty!")
-		return
-	}
-	projectName := c.Query("projectName")
-	if projectName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("projectName can't be empty!")
-		return
-	}
-	action := c.Query("action")
-	if action == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("action can't be empty!")
-		return
-	}
-
-	method := "睡眠"
-	if action != "enable" {
-		method = "唤醒"
-	}
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, method, "生产环境", envName, "", ctx.Logger, envName)
-
-	permitted := false
-
-	if ctx.Resources.IsSystemAdmin {
-		permitted = true
-	} else if projectAuthInfo, ok := ctx.Resources.ProjectAuthInfo[projectName]; ok {
-		// first check if the user is projectAdmin
-		if projectAuthInfo.IsProjectAdmin {
-			permitted = true
-		} else if projectAuthInfo.Env.EditConfig {
-			// then check if user has edit workflow permission
-			permitted = true
-		} else {
-			// finally check if the permission is given by collaboration mode
-			collaborationAuthorizedEdit, err := internalhandler.CheckPermissionGivenByCollaborationMode(ctx.UserID, projectName, types.ResourceTypeEnvironment, types.ProductionEnvActionEditConfig)
-			if err == nil && collaborationAuthorizedEdit {
-				permitted = true
-			}
-		}
-	}
-
-	if !permitted {
-		ctx.UnAuthorized = true
-		return
-	}
-
-	ctx.Err = service.EnvSleep(projectName, envName, action == "enable", true, ctx.Logger)
+	ctx.Err = service.EnvSleep(projectName, envName, action == "enable", production, ctx.Logger)
 }
 
 // @Summary Get Env Sleep Cron
@@ -3130,7 +2536,6 @@ func GetEnvSleepCron(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -3141,29 +2546,51 @@ func GetEnvSleepCron(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
 		return
 	}
-
 	envName := c.Param("name")
 	if envName == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("name can not be null!")
 		return
 	}
+	production := c.Query("production") == "true"
 
 	permitted := false
 
 	if ctx.Resources.IsSystemAdmin {
 		permitted = true
 	} else if projectAuthInfo, ok := ctx.Resources.ProjectAuthInfo[projectName]; ok {
-		// first check if the user is projectAdmin
-		if projectAuthInfo.IsProjectAdmin {
-			permitted = true
-		} else if projectAuthInfo.Env.View {
-			// then check if user has edit workflow permission
-			permitted = true
-		} else {
-			// finally check if the permission is given by collaboration mode
-			collaborationAuthorizedView, err := internalhandler.CheckPermissionGivenByCollaborationMode(ctx.UserID, projectName, types.ResourceTypeEnvironment, types.EnvActionView)
-			if err == nil && collaborationAuthorizedView {
+		if production {
+			// first check if the user is projectAdmin
+			if projectAuthInfo.IsProjectAdmin {
 				permitted = true
+			} else if projectAuthInfo.ProductionEnv.View {
+				// then check if user has edit workflow permission
+				permitted = true
+			} else {
+				// finally check if the permission is given by collaboration mode
+				collaborationAuthorizedView, err := internalhandler.CheckPermissionGivenByCollaborationMode(ctx.UserID, projectName, types.ResourceTypeEnvironment, types.ProductionEnvActionView)
+				if err == nil && collaborationAuthorizedView {
+					permitted = true
+				}
+			}
+
+			err = commonutil.CheckZadigProfessionalLicense()
+			if err != nil {
+				ctx.Err = err
+				return
+			}
+		} else {
+			// first check if the user is projectAdmin
+			if projectAuthInfo.IsProjectAdmin {
+				permitted = true
+			} else if projectAuthInfo.Env.View {
+				// then check if user has edit workflow permission
+				permitted = true
+			} else {
+				// finally check if the permission is given by collaboration mode
+				collaborationAuthorizedView, err := internalhandler.CheckPermissionGivenByCollaborationMode(ctx.UserID, projectName, types.ResourceTypeEnvironment, types.EnvActionView)
+				if err == nil && collaborationAuthorizedView {
+					permitted = true
+				}
 			}
 		}
 	}
@@ -3173,67 +2600,7 @@ func GetEnvSleepCron(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.GetEnvSleepCron(projectName, envName, boolptr.False(), ctx.Logger)
-}
-
-// @Summary Get Production Env Sleep Cron
-// @Description Get Production Env Sleep Cron
-// @Tags 	environment
-// @Accept 	json
-// @Produce json
-// @Param 	name 		path		string							true	"env name"
-// @Param 	projectName	query		string							true	"project name"
-// @Success 200 		{object}    service.EnvSleepCronArg
-// @Router /api/aslan/environment/production/environments/{name}/sleep/cron [get]
-func GetProductionEnvSleepCron(c *gin.Context) {
-	ctx, err := internalhandler.NewContextWithAuthorization(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	if err != nil {
-
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
-		ctx.UnAuthorized = true
-		return
-	}
-
-	projectName := c.Query("projectName")
-	if projectName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
-		return
-	}
-
-	envName := c.Param("name")
-	if envName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("name can not be null!")
-		return
-	}
-
-	permitted := false
-
-	if ctx.Resources.IsSystemAdmin {
-		permitted = true
-	} else if projectAuthInfo, ok := ctx.Resources.ProjectAuthInfo[projectName]; ok {
-		// first check if the user is projectAdmin
-		if projectAuthInfo.IsProjectAdmin {
-			permitted = true
-		} else if projectAuthInfo.Env.View {
-			// then check if user has edit workflow permission
-			permitted = true
-		} else {
-			// finally check if the permission is given by collaboration mode
-			collaborationAuthorizedView, err := internalhandler.CheckPermissionGivenByCollaborationMode(ctx.UserID, projectName, types.ResourceTypeEnvironment, types.ProductionEnvActionView)
-			if err == nil && collaborationAuthorizedView {
-				permitted = true
-			}
-		}
-	}
-
-	if !permitted {
-		ctx.UnAuthorized = true
-		return
-	}
-
-	ctx.Resp, ctx.Err = service.GetEnvSleepCron(projectName, envName, boolptr.True(), ctx.Logger)
+	ctx.Resp, ctx.Err = service.GetEnvSleepCron(projectName, envName, &production, ctx.Logger)
 }
 
 // @Summary Upsert Env Sleep Cron
@@ -3262,12 +2629,12 @@ func UpsertEnvSleepCron(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
 		return
 	}
-
 	envName := c.Param("name")
 	if envName == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("name can not be null!")
 		return
 	}
+	production := c.Query("production") == "true"
 
 	data, err := c.GetRawData()
 	if err != nil {
@@ -3288,17 +2655,39 @@ func UpsertEnvSleepCron(c *gin.Context) {
 	if ctx.Resources.IsSystemAdmin {
 		permitted = true
 	} else if projectAuthInfo, ok := ctx.Resources.ProjectAuthInfo[projectName]; ok {
-		// first check if the user is projectAdmin
-		if projectAuthInfo.IsProjectAdmin {
-			permitted = true
-		} else if projectAuthInfo.Env.EditConfig {
-			// then check if user has edit workflow permission
-			permitted = true
-		} else {
-			// finally check if the permission is given by collaboration mode
-			collaborationAuthorizedEdit, err := internalhandler.CheckPermissionGivenByCollaborationMode(ctx.UserID, projectName, types.ResourceTypeEnvironment, types.EnvActionEditConfig)
-			if err == nil && collaborationAuthorizedEdit {
+		if production {
+			// first check if the user is projectAdmin
+			if projectAuthInfo.IsProjectAdmin {
 				permitted = true
+			} else if projectAuthInfo.ProductionEnv.EditConfig {
+				// then check if user has edit workflow permission
+				permitted = true
+			} else {
+				// finally check if the permission is given by collaboration mode
+				collaborationAuthorizedEdit, err := internalhandler.CheckPermissionGivenByCollaborationMode(ctx.UserID, projectName, types.ResourceTypeEnvironment, types.ProductionEnvActionEditConfig)
+				if err == nil && collaborationAuthorizedEdit {
+					permitted = true
+				}
+			}
+
+			err = commonutil.CheckZadigProfessionalLicense()
+			if err != nil {
+				ctx.Err = err
+				return
+			}
+		} else {
+			// first check if the user is projectAdmin
+			if projectAuthInfo.IsProjectAdmin {
+				permitted = true
+			} else if projectAuthInfo.Env.EditConfig {
+				// then check if user has edit workflow permission
+				permitted = true
+			} else {
+				// finally check if the permission is given by collaboration mode
+				collaborationAuthorizedEdit, err := internalhandler.CheckPermissionGivenByCollaborationMode(ctx.UserID, projectName, types.ResourceTypeEnvironment, types.EnvActionEditConfig)
+				if err == nil && collaborationAuthorizedEdit {
+					permitted = true
+				}
 			}
 		}
 	}
@@ -3308,80 +2697,5 @@ func UpsertEnvSleepCron(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = service.UpsertEnvSleepCron(projectName, envName, boolptr.False(), arg, ctx.Logger)
-}
-
-// @Summary Upsert Production Env Sleep Cron
-// @Description Upsert Production Env Sleep Cron
-// @Tags 	environment
-// @Accept 	json
-// @Produce json
-// @Param 	name 		path		string							true	"env name"
-// @Param 	projectName	query		string							true	"project name"
-// @Param 	body 		body 		service.EnvSleepCronArg 		true 	"body"
-// @Success 200
-// @Router /api/aslan/environment/production/environments/{name}/sleep/cron [put]
-func UpsertProductionEnvSleepCron(c *gin.Context) {
-	ctx, err := internalhandler.NewContextWithAuthorization(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	if err != nil {
-
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
-		ctx.UnAuthorized = true
-		return
-	}
-
-	projectName := c.Query("projectName")
-	if projectName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
-		return
-	}
-
-	envName := c.Param("name")
-	if envName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("name can not be null!")
-		return
-	}
-
-	data, err := c.GetRawData()
-	if err != nil {
-		log.Errorf("UpsertEnvSleepCron c.GetRawData() err : %v", err)
-	}
-	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "更新", "生产环境定时睡眠与唤醒", envName, string(data), ctx.Logger, envName)
-
-	arg := new(service.EnvSleepCronArg)
-	err = c.BindJSON(arg)
-	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
-		return
-	}
-
-	permitted := false
-
-	if ctx.Resources.IsSystemAdmin {
-		permitted = true
-	} else if projectAuthInfo, ok := ctx.Resources.ProjectAuthInfo[projectName]; ok {
-		// first check if the user is projectAdmin
-		if projectAuthInfo.IsProjectAdmin {
-			permitted = true
-		} else if projectAuthInfo.Env.EditConfig {
-			// then check if user has edit workflow permission
-			permitted = true
-		} else {
-			// finally check if the permission is given by collaboration mode
-			collaborationAuthorizedEdit, err := internalhandler.CheckPermissionGivenByCollaborationMode(ctx.UserID, projectName, types.ResourceTypeEnvironment, types.ProductionEnvActionEditConfig)
-			if err == nil && collaborationAuthorizedEdit {
-				permitted = true
-			}
-		}
-	}
-
-	if !permitted {
-		ctx.UnAuthorized = true
-		return
-	}
-
-	ctx.Err = service.UpsertEnvSleepCron(projectName, envName, boolptr.True(), arg, ctx.Logger)
+	ctx.Err = service.UpsertEnvSleepCron(projectName, envName, &production, arg, ctx.Logger)
 }

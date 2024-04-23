@@ -25,6 +25,7 @@ import (
 	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/getter"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
 type GrayReleaseJob struct {
@@ -51,6 +52,54 @@ func (j *GrayReleaseJob) SetPreset() error {
 	return nil
 }
 
+func (j *GrayReleaseJob) SetOptions() error {
+	j.spec = &commonmodels.GrayReleaseJobSpec{}
+	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
+		return err
+	}
+
+	originalWorkflow, err := commonrepo.NewWorkflowV4Coll().Find(j.workflow.Name)
+	if err != nil {
+		log.Errorf("Failed to find original workflow to set options, error: %s", err)
+	}
+
+	originalSpec := new(commonmodels.GrayReleaseJobSpec)
+	found := false
+	for _, stage := range originalWorkflow.Stages {
+		if !found {
+			for _, job := range stage.Jobs {
+				if job.Name == j.job.Name && job.JobType == j.job.JobType {
+					if err := commonmodels.IToi(job.Spec, originalSpec); err != nil {
+						return err
+					}
+					found = true
+					break
+				}
+			}
+		} else {
+			break
+		}
+	}
+
+	if !found {
+		return fmt.Errorf("failed to find the original workflow: %s", j.workflow.Name)
+	}
+
+	j.spec.TargetOptions = originalSpec.Targets
+	j.job.Spec = j.spec
+	return nil
+}
+
+func (j *GrayReleaseJob) ClearSelectionField() error {
+	j.spec = &commonmodels.GrayReleaseJobSpec{}
+	if err := commonmodels.IToiYaml(j.job.Spec, j.spec); err != nil {
+		return err
+	}
+	j.spec.Targets = make([]*commonmodels.GrayReleaseTarget, 0)
+	j.job.Spec = j.spec
+	return nil
+}
+
 func (j *GrayReleaseJob) MergeArgs(args *commonmodels.Job) error {
 	if j.job.Name == args.Name && j.job.JobType == args.JobType {
 		j.spec = &commonmodels.GrayReleaseJobSpec{}
@@ -65,6 +114,77 @@ func (j *GrayReleaseJob) MergeArgs(args *commonmodels.Job) error {
 		j.spec.Targets = argsSpec.Targets
 		j.job.Spec = j.spec
 	}
+	return nil
+}
+
+func (j *GrayReleaseJob) UpdateWithLatestSetting() error {
+	j.spec = &commonmodels.GrayReleaseJobSpec{}
+	if err := commonmodels.IToiYaml(j.job.Spec, j.spec); err != nil {
+		return err
+	}
+
+	latestWorkflow, err := commonrepo.NewWorkflowV4Coll().Find(j.workflow.Name)
+	if err != nil {
+		log.Errorf("Failed to find original workflow to set options, error: %s", err)
+	}
+
+	latestSpec := new(commonmodels.GrayReleaseJobSpec)
+	found := false
+	for _, stage := range latestWorkflow.Stages {
+		if !found {
+			for _, job := range stage.Jobs {
+				if job.Name == j.job.Name && job.JobType == j.job.JobType {
+					if err := commonmodels.IToi(job.Spec, latestSpec); err != nil {
+						return err
+					}
+					found = true
+					break
+				}
+			}
+		} else {
+			break
+		}
+	}
+
+	if !found {
+		return fmt.Errorf("failed to find the original workflow: %s", j.workflow.Name)
+	}
+
+	j.spec.DockerRegistryID = latestSpec.DockerRegistryID
+	// if cluster is changed, remove all user settings
+	if latestSpec.ClusterID != j.spec.ClusterID {
+		j.spec.ClusterID = latestSpec.ClusterID
+		j.spec.GrayScale = 0
+		j.spec.Namespace = ""
+		j.spec.FromJob = ""
+		j.spec.DeployTimeout = 0
+		j.spec.Targets = make([]*commonmodels.GrayReleaseTarget, 0)
+	} else if latestSpec.Namespace != j.spec.Namespace {
+		j.spec.Namespace = latestSpec.Namespace
+		j.spec.Targets = make([]*commonmodels.GrayReleaseTarget, 0)
+		j.spec.DeployTimeout = 0
+		j.spec.GrayScale = 0
+	} else {
+		j.spec.DeployTimeout = latestSpec.DeployTimeout
+		j.spec.GrayScale = latestSpec.GrayScale
+	}
+
+	userConfiguredService := make(map[string]*commonmodels.GrayReleaseTarget)
+	for _, svc := range j.spec.Targets {
+		key := fmt.Sprintf("%s++%s++%s", svc.WorkloadType, svc.WorkloadName, svc.ContainerName)
+		userConfiguredService[key] = svc
+	}
+
+	mergedServices := make([]*commonmodels.GrayReleaseTarget, 0)
+	for _, svc := range latestSpec.Targets {
+		key := fmt.Sprintf("%s++%s++%s", svc.WorkloadType, svc.WorkloadName, svc.ContainerName)
+		if userSvc, ok := userConfiguredService[key]; ok {
+			mergedServices = append(mergedServices, userSvc)
+		}
+	}
+
+	j.spec.Targets = mergedServices
+	j.job.Spec = j.spec
 	return nil
 }
 
@@ -158,7 +278,7 @@ func (j *GrayReleaseJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 func (j *GrayReleaseJob) LintJob() error {
 	j.spec = &commonmodels.GrayReleaseJobSpec{}
 
-	if err := util.CheckZadigXLicenseStatus(); err != nil {
+	if err := util.CheckZadigProfessionalLicense(); err != nil {
 		return e.ErrLicenseInvalid.AddDesc("")
 	}
 

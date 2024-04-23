@@ -35,6 +35,12 @@ import (
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
+/*
+
+  This job type is no longer supported, there should not be any changes to this job anymore
+
+*/
+
 type BlueGreenDeployJob struct {
 	job      *commonmodels.Job
 	workflow *commonmodels.WorkflowV4
@@ -73,6 +79,10 @@ func (j *BlueGreenDeployJob) MergeArgs(args *commonmodels.Job) error {
 		j.spec.Targets = argsSpec.Targets
 		j.job.Spec = j.spec
 	}
+	return nil
+}
+
+func (j *BlueGreenDeployJob) UpdateWithLatestSetting() error {
 	return nil
 }
 
@@ -155,7 +165,7 @@ func (j *BlueGreenDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, erro
 
 func (j *BlueGreenDeployJob) LintJob() error {
 	j.spec = &commonmodels.BlueGreenDeployJobSpec{}
-	if err := util.CheckZadigXLicenseStatus(); err != nil {
+	if err := util.CheckZadigProfessionalLicense(); err != nil {
 		return e.ErrLicenseInvalid.AddDesc("")
 	}
 	if err := commonmodels.IToiYaml(j.job.Spec, j.spec); err != nil {

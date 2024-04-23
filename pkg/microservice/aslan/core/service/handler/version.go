@@ -35,6 +35,7 @@ import (
 // @Produce json
 // @Param 	serviceName		path		string							true	"service name"
 // @Param 	projectName		query		string							true	"project name"
+// @Param 	production		query		bool							true	"is production"
 // @Success 200 			{array}  	service.ListServiceVersionsResponse
 // @Router /api/aslan/service/version/{serviceName} [get]
 func ListServiceVersions(c *gin.Context) {
@@ -48,6 +49,7 @@ func ListServiceVersions(c *gin.Context) {
 	}
 
 	projectKey := c.Query("projectName")
+	production := c.Query("production") == "true"
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -55,10 +57,18 @@ func ListServiceVersions(c *gin.Context) {
 			ctx.UnAuthorized = true
 			return
 		}
-		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectKey].Service.View {
-			ctx.UnAuthorized = true
-			return
+		if production {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].ProductionService.View {
+				ctx.UnAuthorized = true
+				return
+			}
+		} else {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].Service.View {
+				ctx.UnAuthorized = true
+				return
+			}
 		}
 	}
 
@@ -68,50 +78,7 @@ func ListServiceVersions(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.ListServiceVersions(ctx, projectKey, serviceName, false, ctx.Logger)
-}
-
-// @Summary List Production Service Versions
-// @Description List Production Service Versions
-// @Tags 	service
-// @Accept 	json
-// @Produce json
-// @Param 	serviceName		path		string							true	"service name"
-// @Param 	projectName		query		string							true	"project name"
-// @Success 200 			{array}  	service.ListServiceVersionsResponse
-// @Router /api/aslan/service/production/version/{serviceName} [get]
-func ListProductionServiceVersions(c *gin.Context) {
-	ctx, err := internalhandler.NewContextWithAuthorization(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
-		ctx.UnAuthorized = true
-		return
-	}
-
-	projectKey := c.Query("projectName")
-
-	// authorization checks
-	if !ctx.Resources.IsSystemAdmin {
-		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
-			ctx.UnAuthorized = true
-			return
-		}
-		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectKey].ProductionService.View {
-			ctx.UnAuthorized = true
-			return
-		}
-	}
-
-	serviceName := c.Param("serviceName")
-	if serviceName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("empty serviceName")
-		return
-	}
-
-	ctx.Resp, ctx.Err = service.ListServiceVersions(ctx, projectKey, serviceName, true, ctx.Logger)
+	ctx.Resp, ctx.Err = service.ListServiceVersions(ctx, projectKey, serviceName, production, ctx.Logger)
 }
 
 // @Summary Get Service Version Yaml
@@ -122,6 +89,7 @@ func ListProductionServiceVersions(c *gin.Context) {
 // @Param 	serviceName		path		string							true	"service name"
 // @Param 	projectName		query		string							true	"project name"
 // @Param 	revision		path		string							true	"revision"
+// @Param 	production		query		bool							true	"is production"
 // @Success 200 			{object}  	service.GetServiceVersionYamlResponse
 // @Router /api/aslan/service/version/{serviceName}/revision/{revision} [get]
 func GetServiceVersionYaml(c *gin.Context) {
@@ -135,6 +103,7 @@ func GetServiceVersionYaml(c *gin.Context) {
 	}
 
 	projectKey := c.Query("projectName")
+	production := c.Query("production") == "true"
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -142,10 +111,18 @@ func GetServiceVersionYaml(c *gin.Context) {
 			ctx.UnAuthorized = true
 			return
 		}
-		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectKey].Service.View {
-			ctx.UnAuthorized = true
-			return
+		if production {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].ProductionService.View {
+				ctx.UnAuthorized = true
+				return
+			}
+		} else {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].Service.View {
+				ctx.UnAuthorized = true
+				return
+			}
 		}
 	}
 
@@ -161,57 +138,7 @@ func GetServiceVersionYaml(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.GetServiceVersionYaml(ctx, projectKey, serviceName, revision, false, ctx.Logger)
-}
-
-// @Summary Get Production Service Version Yaml
-// @Description Get Production Service Versions Yaml
-// @Tags 	service
-// @Accept 	json
-// @Produce json
-// @Param 	serviceName		path		string							true	"service name"
-// @Param 	projectName		query		string							true	"project name"
-// @Param 	revision		path		string							true	"revision"
-// @Success 200 			{object}  	service.GetServiceVersionYamlResponse
-// @Router /api/aslan/service/production/version/{serviceName}/revision/{revision} [get]
-func GetProductionServiceVersionYaml(c *gin.Context) {
-	ctx, err := internalhandler.NewContextWithAuthorization(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
-		ctx.UnAuthorized = true
-		return
-	}
-
-	projectKey := c.Query("projectName")
-
-	// authorization checks
-	if !ctx.Resources.IsSystemAdmin {
-		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
-			ctx.UnAuthorized = true
-			return
-		}
-		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectKey].ProductionService.View {
-			ctx.UnAuthorized = true
-			return
-		}
-	}
-
-	serviceName := c.Param("serviceName")
-	if serviceName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("empty serviceName")
-		return
-	}
-
-	revision, err := strconv.ParseInt(c.Param("revision"), 10, 64)
-	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(fmt.Errorf("invalid revision: %s", err))
-		return
-	}
-
-	ctx.Resp, ctx.Err = service.GetServiceVersionYaml(ctx, projectKey, serviceName, revision, true, ctx.Logger)
+	ctx.Resp, ctx.Err = service.GetServiceVersionYaml(ctx, projectKey, serviceName, revision, production, ctx.Logger)
 }
 
 // @Summary Diff Service Versions
@@ -223,6 +150,7 @@ func GetProductionServiceVersionYaml(c *gin.Context) {
 // @Param 	projectName		query		string							true	"project name"
 // @Param 	revisionA		query		int								true	"revision a"
 // @Param 	revisionB		query		int								true	"revision b"
+// @Param 	production		query		bool							true	"is production"
 // @Success 200 			{object}  	service.ListServiceVersionsResponse
 // @Router /api/aslan/service/version/{serviceName}/diff [get]
 func DiffServiceVersions(c *gin.Context) {
@@ -236,6 +164,7 @@ func DiffServiceVersions(c *gin.Context) {
 	}
 
 	projectKey := c.Query("projectName")
+	production := c.Query("production") == "true"
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -243,10 +172,18 @@ func DiffServiceVersions(c *gin.Context) {
 			ctx.UnAuthorized = true
 			return
 		}
-		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectKey].Service.View {
-			ctx.UnAuthorized = true
-			return
+		if production {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].ProductionService.View {
+				ctx.UnAuthorized = true
+				return
+			}
+		} else {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].Service.View {
+				ctx.UnAuthorized = true
+				return
+			}
 		}
 	}
 
@@ -267,63 +204,7 @@ func DiffServiceVersions(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.DiffServiceVersions(ctx, projectKey, serviceName, revisionA, revisionB, false, ctx.Logger)
-}
-
-// @Summary Diff Production Service Versions
-// @Description Diff Production Service Versions
-// @Tags 	service
-// @Accept 	json
-// @Produce json
-// @Param 	serviceName		path		string							true	"service name"
-// @Param 	projectName		query		string							true	"project name"
-// @Param 	revisionA		query		int								true	"revision a"
-// @Param 	revisionB		query		int								true	"revision b"
-// @Success 200 			{object}  	service.ListServiceVersionsResponse
-// @Router /api/aslan/service/production/version/{serviceName}/diff [get]
-func DiffProductionServiceVersions(c *gin.Context) {
-	ctx, err := internalhandler.NewContextWithAuthorization(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
-		ctx.UnAuthorized = true
-		return
-	}
-
-	projectKey := c.Query("projectName")
-
-	// authorization checks
-	if !ctx.Resources.IsSystemAdmin {
-		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
-			ctx.UnAuthorized = true
-			return
-		}
-		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectKey].ProductionService.View {
-			ctx.UnAuthorized = true
-			return
-		}
-	}
-
-	serviceName := c.Param("serviceName")
-	if serviceName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("empty serviceName")
-		return
-	}
-
-	revisionA, err := strconv.ParseInt(c.Query("revisionA"), 10, 64)
-	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(fmt.Errorf("invalid revisionA: %s", err))
-		return
-	}
-	revisionB, err := strconv.ParseInt(c.Query("revisionB"), 10, 64)
-	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(fmt.Errorf("invalid revisionB: %s", err))
-		return
-	}
-
-	ctx.Resp, ctx.Err = service.DiffServiceVersions(ctx, projectKey, serviceName, revisionA, revisionB, true, ctx.Logger)
+	ctx.Resp, ctx.Err = service.DiffServiceVersions(ctx, projectKey, serviceName, revisionA, revisionB, production, ctx.Logger)
 }
 
 // @Summary Rollback Service Version
@@ -334,6 +215,7 @@ func DiffProductionServiceVersions(c *gin.Context) {
 // @Param 	serviceName		path		string							true	"service name"
 // @Param 	projectName		query		string							true	"project name"
 // @Param 	revision	 	query		int								true	"revision"
+// @Param 	production		query		bool							true	"is production"
 // @Success 200
 // @Router /api/aslan/service/version/{serviceName}/rollback [post]
 func RollbackServiceVersion(c *gin.Context) {
@@ -347,6 +229,7 @@ func RollbackServiceVersion(c *gin.Context) {
 	}
 
 	projectKey := c.Query("projectName")
+	production := c.Query("production") == "true"
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -354,11 +237,24 @@ func RollbackServiceVersion(c *gin.Context) {
 			ctx.UnAuthorized = true
 			return
 		}
-		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectKey].Service.Edit {
-			ctx.UnAuthorized = true
-			return
+		if production {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].ProductionService.Edit {
+				ctx.UnAuthorized = true
+				return
+			}
+		} else {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].Service.Edit {
+				ctx.UnAuthorized = true
+				return
+			}
 		}
+	}
+
+	if err := commonutil.CheckZadigProfessionalLicense(); err != nil {
+		ctx.Err = err
+		return
 	}
 
 	serviceName := c.Param("serviceName")
@@ -373,69 +269,16 @@ func RollbackServiceVersion(c *gin.Context) {
 		return
 	}
 
-	if err := commonutil.CheckZadigXLicenseStatus(); err != nil {
+	if err := commonutil.CheckZadigProfessionalLicense(); err != nil {
 		ctx.Err = err
 		return
 	}
 
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneService, "回滚", "服务", fmt.Sprintf("服务: %s, 版本: %d", serviceName, revision), "", ctx.Logger)
-
-	ctx.Err = service.RollbackServiceVersion(ctx, projectKey, serviceName, revision, false, ctx.Logger)
-}
-
-// @Summary Rollback Production Service Version
-// @Description Rollback Production SService Version
-// @Tags 	service
-// @Accept 	json
-// @Produce json
-// @Param 	serviceName		path		string							true	"service name"
-// @Param 	projectName		query		string							true	"project name"
-// @Param 	revision	 	query		int								true	"revision"
-// @Success 200
-// @Router /api/aslan/service/production/version/{serviceName}/rollback [post]
-func RollbackProductionServiceVersion(c *gin.Context) {
-	ctx, err := internalhandler.NewContextWithAuthorization(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
-		ctx.UnAuthorized = true
-		return
+	detail := "服务"
+	if production {
+		detail = "生产服务"
 	}
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneService, "回滚", detail, fmt.Sprintf("服务: %s, 版本: %d", serviceName, revision), "", ctx.Logger)
 
-	projectKey := c.Query("projectName")
-
-	// authorization checks
-	if !ctx.Resources.IsSystemAdmin {
-		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
-			ctx.UnAuthorized = true
-			return
-		}
-		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectKey].ProductionService.Edit {
-			ctx.UnAuthorized = true
-			return
-		}
-	}
-
-	serviceName := c.Param("serviceName")
-	if serviceName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("empty serviceName")
-		return
-	}
-
-	revision, err := strconv.ParseInt(c.Query("revision"), 10, 64)
-	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(fmt.Errorf("invalid revision: %s", err))
-		return
-	}
-
-	if err := commonutil.CheckZadigXLicenseStatus(); err != nil {
-		ctx.Err = err
-		return
-	}
-
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneService, "回滚", "生产服务", fmt.Sprintf("服务: %s, 版本: %d", serviceName, revision), "", ctx.Logger)
-
-	ctx.Err = service.RollbackServiceVersion(ctx, projectKey, serviceName, revision, true, ctx.Logger)
+	ctx.Err = service.RollbackServiceVersion(ctx, projectKey, serviceName, revision, production, ctx.Logger)
 }

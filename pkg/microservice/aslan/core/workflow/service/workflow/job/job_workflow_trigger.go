@@ -21,6 +21,7 @@ import (
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -55,12 +56,73 @@ func (j *WorkflowTriggerJob) SetPreset() error {
 	return nil
 }
 
-func (j *WorkflowTriggerJob) MergeArgs(args *commonmodels.Job) error {
+func (j *WorkflowTriggerJob) SetOptions() error {
 	j.spec = &commonmodels.WorkflowTriggerJobSpec{}
-	if err := commonmodels.IToi(args.Spec, j.spec); err != nil {
+	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return err
 	}
+
+	latestWorkflow, err := mongodb.NewWorkflowV4Coll().Find(j.workflow.Name)
+	if err != nil {
+		log.Errorf("Failed to find original workflow to set options, error: %s", err)
+	}
+
+	latestSpec := new(commonmodels.WorkflowTriggerJobSpec)
+	found := false
+	for _, stage := range latestWorkflow.Stages {
+		if !found {
+			for _, job := range stage.Jobs {
+				if job.Name == j.job.Name && job.JobType == j.job.JobType {
+					if err := commonmodels.IToi(job.Spec, latestSpec); err != nil {
+						return err
+					}
+					found = true
+					break
+				}
+			}
+		} else {
+			break
+		}
+	}
+
+	if !found {
+		return fmt.Errorf("failed to find the original workflow: %s", j.workflow.Name)
+	}
+
+	//j.spec.ServiceTriggerWorkflow = latestSpec.ServiceTriggerWorkflow
+	//j.spec.FixedWorkflowList = latestSpec.FixedWorkflowList
 	j.job.Spec = j.spec
+	return nil
+}
+
+func (j *WorkflowTriggerJob) ClearSelectionField() error {
+	j.spec = &commonmodels.WorkflowTriggerJobSpec{}
+	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
+		return err
+	}
+	j.spec.SourceService = make([]*commonmodels.ServiceNameAndModule, 0)
+	j.job.Spec = j.spec
+	return nil
+}
+
+func (j *WorkflowTriggerJob) MergeArgs(args *commonmodels.Job) error {
+	if j.job.Name == args.Name && j.job.JobType == args.JobType {
+		j.spec = &commonmodels.WorkflowTriggerJobSpec{}
+		if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
+			return err
+		}
+
+		argsSpec := &commonmodels.WorkflowTriggerJobSpec{}
+		if err := commonmodels.IToi(args.Spec, argsSpec); err != nil {
+			return err
+		}
+
+		j.job.Spec = argsSpec
+	}
+	return nil
+}
+
+func (j *WorkflowTriggerJob) UpdateWithLatestSetting() error {
 	return nil
 }
 
@@ -225,18 +287,20 @@ func (j *WorkflowTriggerJob) getSourceJobTargets(jobName string, m map[commonmod
 				if err := commonmodels.IToi(job.Spec, deploySpec); err != nil {
 					return nil, err
 				}
-				for _, build := range deploySpec.ServiceAndImages {
-					if info, ok := m[commonmodels.ServiceNameAndModule{
-						ServiceName:   build.ServiceName,
-						ServiceModule: build.ServiceModule,
-					}]; ok {
-						resp = append(resp, &commonmodels.WorkflowTriggerEvent{
-							WorkflowName:  info.WorkflowName,
-							Params:        info.Params,
-							ServiceName:   build.ServiceName,
-							ServiceModule: build.ServiceModule,
-							ProjectName:   info.ProjectName,
-						})
+				for _, svc := range deploySpec.Services {
+					for _, module := range svc.Modules {
+						if info, ok := m[commonmodels.ServiceNameAndModule{
+							ServiceName:   svc.ServiceName,
+							ServiceModule: module.ServiceModule,
+						}]; ok {
+							resp = append(resp, &commonmodels.WorkflowTriggerEvent{
+								WorkflowName:  info.WorkflowName,
+								Params:        info.Params,
+								ServiceName:   svc.ServiceName,
+								ServiceModule: module.ServiceModule,
+								ProjectName:   info.ProjectName,
+							})
+						}
 					}
 				}
 			}
@@ -247,7 +311,7 @@ func (j *WorkflowTriggerJob) getSourceJobTargets(jobName string, m map[commonmod
 }
 
 func (j *WorkflowTriggerJob) LintJob() error {
-	if err := util.CheckZadigXLicenseStatus(); err != nil {
+	if err := util.CheckZadigProfessionalLicense(); err != nil {
 		return e.ErrLicenseInvalid.AddDesc("")
 	}
 

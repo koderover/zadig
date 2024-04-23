@@ -63,21 +63,17 @@ func (j *BuildJob) Instantiate() error {
 	return nil
 }
 
-// SetPreset will now update all the possible build service option into serviceOption instead of ServiceAndBuilds
-// Updated @2023-03-30 before v1.17.0
-// Updated @2023-04-07 after v1.17.0 revert to old version
+// SetPreset will clear the selected field (ServiceAndBuilds
 func (j *BuildJob) SetPreset() error {
 	j.spec = &commonmodels.ZadigBuildJobSpec{}
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return err
 	}
-	j.job.Spec = j.spec
 
 	servicesMap, err := repository.GetMaxRevisionsServicesMap(j.workflow.Project, false)
 	if err != nil {
 		return fmt.Errorf("get services map error: %v", err)
 	}
-
 	var buildMap sync.Map
 	var buildTemplateMap sync.Map
 	newBuilds := make([]*commonmodels.ServiceAndBuild, 0)
@@ -129,6 +125,116 @@ func (j *BuildJob) SetPreset() error {
 		newBuilds = append(newBuilds, build)
 	}
 	j.spec.ServiceAndBuilds = newBuilds
+
+	j.job.Spec = j.spec
+	return nil
+}
+
+func (j *BuildJob) ClearSelectionField() error {
+	j.spec = &commonmodels.ZadigBuildJobSpec{}
+	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
+		return err
+	}
+	chosenObject := make([]*commonmodels.ServiceAndBuild, 0)
+
+	// some weird logic says we shouldn't clear user's selection if there are only one service in the selection pool.
+	if len(j.spec.ServiceAndBuilds) != 1 {
+		j.spec.ServiceAndBuilds = chosenObject
+	}
+	j.job.Spec = j.spec
+	return nil
+}
+
+func (j *BuildJob) SetOptions() error {
+	j.spec = &commonmodels.ZadigBuildJobSpec{}
+	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
+		return err
+	}
+
+	originalWorkflow, err := commonrepo.NewWorkflowV4Coll().Find(j.workflow.Name)
+	if err != nil {
+		log.Errorf("Failed to find original workflow to set options, error: %s", err)
+	}
+
+	originalSpec := new(commonmodels.ZadigBuildJobSpec)
+	found := false
+	for _, stage := range originalWorkflow.Stages {
+		if !found {
+			for _, job := range stage.Jobs {
+				if job.Name == j.job.Name && job.JobType == j.job.JobType {
+					if err := commonmodels.IToi(job.Spec, originalSpec); err != nil {
+						return err
+					}
+					found = true
+					break
+				}
+			}
+		} else {
+			break
+		}
+	}
+
+	if !found {
+		return fmt.Errorf("failed to find the original workflow: %s", j.workflow.Name)
+	}
+
+	servicesMap, err := repository.GetMaxRevisionsServicesMap(j.workflow.Project, false)
+	if err != nil {
+		return fmt.Errorf("get services map error: %v", err)
+	}
+
+	var buildMap sync.Map
+	var buildTemplateMap sync.Map
+	newBuilds := make([]*commonmodels.ServiceAndBuild, 0)
+	for _, build := range originalSpec.ServiceAndBuilds {
+		var buildInfo *commonmodels.Build
+		buildMapValue, ok := buildMap.Load(build.BuildName)
+		if !ok {
+			buildInfo, err = commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: build.BuildName, ProductName: j.workflow.Project})
+			if err != nil {
+				log.Errorf("find build: %s error: %v", build.BuildName, err)
+				buildMap.Store(build.BuildName, nil)
+				continue
+			}
+			buildMap.Store(build.BuildName, buildInfo)
+		} else {
+			if buildMapValue == nil {
+				log.Errorf("find build: %s error: %v", build.BuildName, err)
+				continue
+			}
+			buildInfo = buildMapValue.(*commonmodels.Build)
+		}
+
+		if err := fillBuildDetail(buildInfo, build.ServiceName, build.ServiceModule, &buildTemplateMap); err != nil {
+			log.Errorf("fill build: %s detail error: %v", build.BuildName, err)
+			continue
+		}
+		for _, target := range buildInfo.Targets {
+			if target.ServiceName == build.ServiceName && target.ServiceModule == build.ServiceModule {
+				build.Repos = mergeRepos(buildInfo.Repos, build.Repos)
+				build.KeyVals = renderKeyVals(build.KeyVals, buildInfo.PreBuild.Envs)
+				break
+			}
+		}
+
+		build.ImageName = build.ServiceModule
+		service, ok := servicesMap[build.ServiceName]
+		if !ok {
+			log.Errorf("service %s not found", build.ServiceName)
+			continue
+		}
+
+		for _, container := range service.Containers {
+			if container.Name == build.ServiceModule {
+				build.ImageName = container.ImageName
+				break
+			}
+		}
+
+		newBuilds = append(newBuilds, build)
+	}
+
+	j.spec.ServiceAndBuildsOptions = newBuilds
 	j.job.Spec = j.spec
 	return nil
 }
@@ -203,6 +309,98 @@ func (j *BuildJob) MergeArgs(args *commonmodels.Job) error {
 		j.spec.ServiceAndBuilds = newBuilds
 		j.job.Spec = j.spec
 	}
+	return nil
+}
+
+func (j *BuildJob) UpdateWithLatestSetting() error {
+	j.spec = &commonmodels.ZadigBuildJobSpec{}
+	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
+		return err
+	}
+
+	latestWorkflow, err := commonrepo.NewWorkflowV4Coll().Find(j.workflow.Name)
+	if err != nil {
+		log.Errorf("Failed to find original workflow to set options, error: %s", err)
+	}
+
+	latestSpec := new(commonmodels.ZadigBuildJobSpec)
+	found := false
+	for _, stage := range latestWorkflow.Stages {
+		if !found {
+			for _, job := range stage.Jobs {
+				if job.Name == j.job.Name && job.JobType == j.job.JobType {
+					if err := commonmodels.IToi(job.Spec, latestSpec); err != nil {
+						return err
+					}
+					found = true
+					break
+				}
+			}
+		} else {
+			break
+		}
+	}
+
+	if !found {
+		return fmt.Errorf("failed to find the original workflow: %s", j.workflow.Name)
+	}
+
+	// save all the user-defined args into a map
+	userConfiguredService := make(map[string]*commonmodels.ServiceAndBuild)
+
+	for _, service := range j.spec.ServiceAndBuilds {
+		key := fmt.Sprintf("%s++%s", service.ServiceName, service.ServiceModule)
+		userConfiguredService[key] = service
+	}
+
+	mergedServiceAndBuilds := make([]*commonmodels.ServiceAndBuild, 0)
+	var buildTemplateMap sync.Map
+
+	for _, buildInfo := range latestSpec.ServiceAndBuilds {
+		key := fmt.Sprintf("%s++%s", buildInfo.ServiceName, buildInfo.ServiceModule)
+		// if a service is selected (in the map above) and is in the latest build job config, add it to the list.
+		// user defined kv and repo should be merged into the newly created list.
+		if userDefinedArgs, ok := userConfiguredService[key]; ok {
+			latestBuild, err := commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: buildInfo.BuildName, ProductName: j.workflow.Project})
+			if err != nil {
+				log.Errorf("find build: %s error: %v", buildInfo.BuildName, err)
+				continue
+			}
+
+			if err := fillBuildDetail(latestBuild, buildInfo.ServiceName, buildInfo.ServiceModule, &buildTemplateMap); err != nil {
+				log.Errorf("fill build: %s detail error: %v", buildInfo.BuildName, err)
+				continue
+			}
+
+			for _, target := range latestBuild.Targets {
+				if target.ServiceName == buildInfo.ServiceName && target.ServiceModule == buildInfo.ServiceModule {
+					buildInfo.Repos = mergeRepos(latestBuild.Repos, buildInfo.Repos)
+					buildInfo.KeyVals = renderKeyVals(buildInfo.KeyVals, latestBuild.PreBuild.Envs)
+					break
+				}
+			}
+
+			newBuildInfo := &commonmodels.ServiceAndBuild{
+				ServiceName:      buildInfo.ServiceName,
+				ServiceModule:    buildInfo.ServiceModule,
+				BuildName:        buildInfo.BuildName,
+				Image:            buildInfo.Image,
+				Package:          buildInfo.Package,
+				ImageName:        buildInfo.ImageName,
+				KeyVals:          renderKeyVals(userDefinedArgs.KeyVals, buildInfo.KeyVals),
+				Repos:            mergeRepos(buildInfo.Repos, userDefinedArgs.Repos),
+				ShareStorageInfo: buildInfo.ShareStorageInfo,
+			}
+
+			mergedServiceAndBuilds = append(mergedServiceAndBuilds, newBuildInfo)
+		} else {
+			continue
+		}
+	}
+
+	j.spec.DockerRegistryID = latestSpec.DockerRegistryID
+	j.spec.ServiceAndBuilds = mergedServiceAndBuilds
+	j.job.Spec = j.spec
 	return nil
 }
 
@@ -575,17 +773,25 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 }
 
 func renderKeyVals(input, origin []*commonmodels.KeyVal) []*commonmodels.KeyVal {
-	for i, originKV := range origin {
+	resp := make([]*commonmodels.KeyVal, 0)
+
+	for _, originKV := range origin {
+		item := &commonmodels.KeyVal{
+			Key:          originKV.Key,
+			Value:        originKV.Value,
+			Type:         originKV.Type,
+			IsCredential: originKV.IsCredential,
+			ChoiceOption: originKV.ChoiceOption,
+		}
 		for _, inputKV := range input {
 			if originKV.Key == inputKV.Key {
 				// always use origin credential config.
-				isCredential := originKV.IsCredential
-				origin[i] = inputKV
-				origin[i].IsCredential = isCredential
+				item.Value = inputKV.Value
 			}
 		}
+		resp = append(resp, item)
 	}
-	return origin
+	return resp
 }
 
 func renderRepos(input, origin []*types.Repository, kvs []*commonmodels.KeyVal) []*types.Repository {
@@ -747,7 +953,7 @@ func (j *BuildJob) LintJob() error {
 		return err
 	}
 
-	if err := aslanUtil.CheckZadigXLicenseStatus(); err != nil {
+	if err := aslanUtil.CheckZadigProfessionalLicense(); err != nil {
 		for _, item := range j.spec.ServiceAndBuilds {
 			buildInfo, err := commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: item.BuildName})
 			if err != nil {

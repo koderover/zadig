@@ -23,6 +23,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	svcservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/service/service"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
@@ -98,9 +99,15 @@ func LoadServiceTemplate(c *gin.Context) {
 		namespace = repoOwner
 	}
 
+	production := c.Query("production") == "true"
+	detail := "项目管理-服务"
+	if production {
+		detail = "项目管理-生产服务"
+	}
+
 	// Note we can't get the service name from handler layer since it parsed from files on git repo
 	bs, _ := json.Marshal(args)
-	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductName, "新增", "项目管理-服务", "", string(bs), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductName, "新增", detail, "", string(bs), ctx.Logger)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -108,14 +115,29 @@ func LoadServiceTemplate(c *gin.Context) {
 			ctx.UnAuthorized = true
 			return
 		}
-		if !ctx.Resources.ProjectAuthInfo[args.ProductName].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[args.ProductName].Service.Create {
-			ctx.UnAuthorized = true
+		if production {
+			if !ctx.Resources.ProjectAuthInfo[args.ProductName].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[args.ProductName].ProductionService.Create {
+				ctx.UnAuthorized = true
+				return
+			}
+		} else {
+			if !ctx.Resources.ProjectAuthInfo[args.ProductName].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[args.ProductName].Service.Create {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
+	}
+
+	if production {
+		if err := commonutil.CheckZadigProfessionalLicense(); err != nil {
+			ctx.Err = err
 			return
 		}
 	}
 
-	ctx.Err = svcservice.LoadServiceFromCodeHost(ctx.UserName, codehostID, repoOwner, namespace, repoName, repoUUID, branchName, remoteName, args, false, ctx.Logger)
+	ctx.Err = svcservice.LoadServiceFromCodeHost(ctx.UserName, codehostID, repoOwner, namespace, repoName, repoUUID, branchName, remoteName, args, false, production, ctx.Logger)
 }
 
 func SyncServiceTemplate(c *gin.Context) {
@@ -123,7 +145,6 @@ func SyncServiceTemplate(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -159,9 +180,15 @@ func SyncServiceTemplate(c *gin.Context) {
 		namespace = repoOwner
 	}
 
+	production := c.Query("production") == "true"
+	detail := "项目管理-服务"
+	if production {
+		detail = "项目管理-生产服务"
+	}
+
 	// Note we can't get the service name from handler layer since it parsed from files on git repo
 	bs, _ := json.Marshal(args)
-	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductName, "更新", "项目管理-服务", "", string(bs), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductName, "更新", detail, "", string(bs), ctx.Logger)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -169,14 +196,29 @@ func SyncServiceTemplate(c *gin.Context) {
 			ctx.UnAuthorized = true
 			return
 		}
-		if !ctx.Resources.ProjectAuthInfo[args.ProductName].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[args.ProductName].Service.Edit {
-			ctx.UnAuthorized = true
+		if production {
+			if !ctx.Resources.ProjectAuthInfo[args.ProductName].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[args.ProductName].ProductionService.Edit {
+				ctx.UnAuthorized = true
+				return
+			}
+		} else {
+			if !ctx.Resources.ProjectAuthInfo[args.ProductName].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[args.ProductName].Service.Edit {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
+	}
+
+	if production {
+		if err := commonutil.CheckZadigProfessionalLicense(); err != nil {
+			ctx.Err = err
 			return
 		}
 	}
 
-	ctx.Err = svcservice.LoadServiceFromCodeHost(ctx.UserName, codehostID, repoOwner, namespace, repoName, repoUUID, branchName, remoteName, args, true, ctx.Logger)
+	ctx.Err = svcservice.LoadServiceFromCodeHost(ctx.UserName, codehostID, repoOwner, namespace, repoName, repoUUID, branchName, remoteName, args, true, production, ctx.Logger)
 }
 
 // ValidateServiceUpdate seems to require no privilege

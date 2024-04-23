@@ -50,6 +50,18 @@ func (j *GuanceyunCheckJob) SetPreset() error {
 	return nil
 }
 
+func (j *GuanceyunCheckJob) SetOptions() error {
+	return nil
+}
+
+func (j *GuanceyunCheckJob) ClearSelectionField() error {
+	return nil
+}
+
+func (j *GuanceyunCheckJob) UpdateWithLatestSetting() error {
+	return nil
+}
+
 func (j *GuanceyunCheckJob) MergeArgs(args *commonmodels.Job) error {
 	j.spec = &commonmodels.GuanceyunCheckJobSpec{}
 	if err := commonmodels.IToi(args.Spec, j.spec); err != nil {
@@ -96,7 +108,7 @@ func (j *GuanceyunCheckJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error
 func (j *GuanceyunCheckJob) LintJob() error {
 	j.spec = &commonmodels.GuanceyunCheckJobSpec{}
 
-	if err := util.CheckZadigXLicenseStatus(); err != nil {
+	if err := util.CheckZadigProfessionalLicense(); err != nil {
 		return e.ErrLicenseInvalid.AddDesc("")
 	}
 

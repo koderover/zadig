@@ -17,10 +17,14 @@
 package job
 
 import (
+	"fmt"
+
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
+	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
 type OfflineServiceJob struct {
@@ -44,6 +48,56 @@ func (j *OfflineServiceJob) SetPreset() error {
 		return err
 	}
 
+	j.job.Spec = j.spec
+	return nil
+}
+
+func (j *OfflineServiceJob) SetOptions() error {
+	return nil
+}
+
+func (j *OfflineServiceJob) ClearSelectionField() error {
+	return nil
+}
+
+func (j *OfflineServiceJob) UpdateWithLatestSetting() error {
+	j.spec = &commonmodels.OfflineServiceJobSpec{}
+	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
+		return err
+	}
+
+	latestWorkflow, err := commonrepo.NewWorkflowV4Coll().Find(j.workflow.Name)
+	if err != nil {
+		log.Errorf("Failed to find original workflow to set options, error: %s", err)
+	}
+
+	latestSpec := new(commonmodels.OfflineServiceJobSpec)
+	found := false
+	for _, stage := range latestWorkflow.Stages {
+		if !found {
+			for _, job := range stage.Jobs {
+				if job.Name == j.job.Name && job.JobType == j.job.JobType {
+					if err := commonmodels.IToi(job.Spec, latestSpec); err != nil {
+						return err
+					}
+					found = true
+					break
+				}
+			}
+		} else {
+			break
+		}
+	}
+
+	if !found {
+		return fmt.Errorf("failed to find the original workflow: %s", j.workflow.Name)
+	}
+
+	if j.spec.EnvName != latestSpec.EnvName && j.spec.EnvType != latestSpec.EnvType {
+		j.spec.Services = make([]string, 0)
+	}
+	j.spec.Source = latestSpec.Source
+	j.spec.EnvType = latestSpec.EnvType
 	j.job.Spec = j.spec
 	return nil
 }
@@ -87,7 +141,7 @@ func (j *OfflineServiceJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error
 }
 
 func (j *OfflineServiceJob) LintJob() error {
-	if err := util.CheckZadigXLicenseStatus(); err != nil {
+	if err := util.CheckZadigProfessionalLicense(); err != nil {
 		return e.ErrLicenseInvalid.AddDesc("")
 	}
 
