@@ -46,13 +46,6 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		deliveryRelease.GET("/helm/charts/filePath", GetDeliveryChartFilePath)
 		deliveryRelease.GET("/helm/charts/fileContent", GetDeliveryChartFileContent)
 	}
-
-	// deprecated, this functionality is removed
-	deliveryService := router.Group("servicenames")
-	{
-		deliveryService.GET("", ListDeliveryServiceNames)
-	}
-
 }
 
 type OpenAPIRouter struct{}
