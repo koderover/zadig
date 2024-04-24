@@ -39,10 +39,11 @@ import (
 const ZadigDebugContainerName = "zadig-debug"
 const K8sBetaVersionForEphemeralContainer = "v1.23"
 
-func PatchDebugContainer(ctx context.Context, projectName, envName, podName, debugImage string) error {
+func PatchDebugContainer(ctx context.Context, projectName, envName, podName, debugImage string, production bool) error {
 	prod, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
 		Name:    projectName,
 		EnvName: envName,
+		Production: &production,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to query env %q in project %q: %s", envName, projectName, err)

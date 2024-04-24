@@ -34,6 +34,10 @@ type DeliveryDeploy struct {
 	EndTime         int64              `bson:"end_time,omitempty"          json:"end_time,omitempty"`
 	CreatedAt       int64              `bson:"created_at"                  json:"created_at"`
 	DeletedAt       int64              `bson:"deleted_at"                  json:"deleted_at"`
+	// for frontend display
+	RealServiceName string `bson:"-" json:"real_service_name"`
+	ServiceModule   string `bson:"-" json:"service_module"`
+	ImageName       string `bson:"-" json:"image_name"`
 }
 
 type EnvObjects struct {

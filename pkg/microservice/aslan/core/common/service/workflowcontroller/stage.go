@@ -159,11 +159,23 @@ func waitForNativeApprove(ctx context.Context, stage *commonmodels.StageTask, wo
 			stage.Status = config.StatusTimeout
 			return fmt.Errorf("workflow timeout")
 		default:
-			approved, approveCount, err := approvalservice.GlobalApproveMap.IsApproval(approveKey)
+			approved, approveCount, navtiveApproval, err := approvalservice.GlobalApproveMap.IsApproval(approveKey)
+			if navtiveApproval != nil {
+				for _, nativeUser := range navtiveApproval.ApproveUsers {
+					for _, user := range approval.ApproveUsers {
+						if nativeUser.UserID == user.UserID {
+							user.RejectOrApprove = nativeUser.RejectOrApprove
+							user.Comment = nativeUser.Comment
+							user.OperationTime = nativeUser.OperationTime
+						}
+					}
+				}
+			}
 			if err != nil {
 				stage.Status = config.StatusReject
 				return err
 			}
+
 			if approved {
 				return nil
 			}

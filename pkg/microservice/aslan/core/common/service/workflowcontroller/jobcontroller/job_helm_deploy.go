@@ -186,6 +186,11 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 
 	c.jobTaskSpec.YamlContent = mergedValues
 	c.jobTaskSpec.UserSuppliedValue = c.jobTaskSpec.VariableYaml
+
+	if slices.Contains(c.jobTaskSpec.DeployContents, config.DeployConfig) {
+		productService.DeployStrategy = setting.ServiceDeployStrategyDeploy
+	}
+
 	c.ack()
 
 	c.logger.Infof("start helm deploy, productName %s serviceName %s namespace %s, images %v variableYaml %s overrideValues: %s updateServiceRevision %v",

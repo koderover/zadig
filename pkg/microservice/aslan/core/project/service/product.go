@@ -724,6 +724,9 @@ func DeleteProductTemplate(userName, productName, requestID string, isDelete boo
 	services, _ := commonrepo.NewServiceColl().ListMaxRevisions(
 		&commonrepo.ServiceListOption{ProductName: productName, Type: setting.K8SDeployType},
 	)
+	productServices, _ := commonrepo.NewProductionServiceColl().ListMaxRevisions(
+		&commonrepo.ServiceListOption{ProductName: productName, Type: setting.K8SDeployType},
+	)
 
 	err = user.New().DeleteAllProjectRoles(productName)
 	if err != nil {
@@ -743,7 +746,10 @@ func DeleteProductTemplate(userName, productName, requestID string, isDelete boo
 
 		// delete service webhooks after services are deleted
 		for _, s := range services {
-			commonservice.ProcessServiceWebhook(nil, s, s.ServiceName, log)
+			commonservice.ProcessServiceWebhook(nil, s, s.ServiceName, false, log)
+		}
+		for _, s := range productServices {
+			commonservice.ProcessServiceWebhook(nil, s, s.ServiceName, true, log)
 		}
 	}()
 

@@ -50,6 +50,7 @@ func (j *TestingJob) Instantiate() error {
 	j.job.Spec = j.spec
 	return nil
 }
+
 func (j *TestingJob) SetPreset() error {
 	j.spec = &commonmodels.ZadigTestingJobSpec{}
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
@@ -95,6 +96,30 @@ func (j *TestingJob) SetPreset() error {
 		}
 		j.spec.TargetServices = filteredTargets
 	}
+	j.job.Spec = j.spec
+	return nil
+}
+
+func (j *TestingJob) SetOptions() error {
+	return nil
+}
+
+func (j *TestingJob) ClearSelectionField() error {
+	j.spec = &commonmodels.ZadigTestingJobSpec{}
+	if err := commonmodels.IToiYaml(j.job.Spec, j.spec); err != nil {
+		return err
+	}
+	j.spec.ServiceAndTests = make([]*commonmodels.ServiceAndTest, 0)
+	j.job.Spec = j.spec
+	return nil
+}
+
+func (j *TestingJob) UpdateWithLatestSetting() error {
+	j.spec = &commonmodels.ZadigTestingJobSpec{}
+	if err := commonmodels.IToiYaml(j.job.Spec, j.spec); err != nil {
+		return err
+	}
+
 	j.job.Spec = j.spec
 	return nil
 }
@@ -159,7 +184,7 @@ func (j *TestingJob) MergeArgs(args *commonmodels.Job) error {
 			j.spec.TargetServices = argsSpec.TargetServices
 			for _, testing := range j.spec.ServiceAndTests {
 				for _, argsTesting := range argsSpec.ServiceAndTests {
-					if testing.Name == argsTesting.Name {
+					if testing.Name == argsTesting.Name && testing.ServiceName == argsTesting.ServiceName {
 						testing.Repos = mergeRepos(testing.Repos, argsTesting.Repos)
 						testing.KeyVals = renderKeyVals(argsTesting.KeyVals, testing.KeyVals)
 						break
@@ -281,11 +306,13 @@ func (j *TestingJob) getOriginReferedJobTargets(jobName string) ([]*commonmodels
 				if err := commonmodels.IToi(job.Spec, deploySpec); err != nil {
 					return servicetargets, err
 				}
-				for _, deploy := range deploySpec.ServiceAndImages {
-					servicetargets = append(servicetargets, &commonmodels.ServiceTestTarget{
-						ServiceName:   deploy.ServiceName,
-						ServiceModule: deploy.ServiceModule,
-					})
+				for _, svc := range deploySpec.Services {
+					for _, module := range svc.Modules {
+						servicetargets = append(servicetargets, &commonmodels.ServiceTestTarget{
+							ServiceName:   svc.ServiceName,
+							ServiceModule: module.ServiceModule,
+						})
+					}
 				}
 				return servicetargets, nil
 			}

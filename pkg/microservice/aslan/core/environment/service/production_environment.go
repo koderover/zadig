@@ -23,7 +23,6 @@ import (
 
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
-	"helm.sh/helm/v3/pkg/releaseutil"
 	versionedclient "istio.io/client-go/pkg/clientset/versioned"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
@@ -31,14 +30,11 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/collaboration"
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/notify"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
-	"github.com/koderover/zadig/v2/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/informer"
-	"github.com/koderover/zadig/v2/pkg/tool/kube/serializer"
 	"github.com/koderover/zadig/v2/pkg/util"
 )
 
@@ -61,63 +57,6 @@ func ListProductionEnvs(userId string, projectName string, envNames []string, lo
 
 func ListProductionGroups(serviceName, envName, productName string, perPage, page int, log *zap.SugaredLogger) ([]*commonservice.ServiceResp, int, error) {
 	return ListGroups(serviceName, envName, productName, perPage, page, true, log)
-}
-
-func ExportProductionYaml(envName, productName, serviceName string, log *zap.SugaredLogger) ([]string, error) {
-	var yamls [][]byte
-	res := make([]string, 0)
-
-	env, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{EnvName: envName, Name: productName, Production: util.GetBoolPointer(true)})
-	if err != nil {
-		log.Errorf("failed to find env [%s][%s] %v", envName, productName, err)
-		return res, fmt.Errorf("failed to find env %s/%s %v", envName, productName, err)
-	}
-
-	// for services just import not deployed, workloads can't be queried by labels
-	productService, ok := env.GetServiceMap()[serviceName]
-	if !ok {
-		log.Errorf("failed to find product service: %s", serviceName)
-		return res, fmt.Errorf("failed to find product service: %s", serviceName)
-	}
-
-	namespace := env.Namespace
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), env.ClusterID)
-	if err != nil {
-		log.Errorf("cluster is not connected [%s][%s][%s]", env.EnvName, env.ProductName, env.ClusterID)
-		return res, errors.Wrapf(err, "failed to init kube client for cluster %s", env.ClusterID)
-	}
-
-	rederedYaml, err := kube.RenderEnvService(env, productService.GetServiceRender(), productService)
-	if err != nil {
-		log.Errorf("failed to render service yaml, err: %s", err)
-		return res, errors.Wrapf(err, "failed to render service yaml")
-	}
-
-	manifests := releaseutil.SplitManifests(rederedYaml)
-	for _, item := range manifests {
-		u, err := serializer.NewDecoder().YamlToUnstructured([]byte(item))
-		if err != nil {
-			log.Errorf("failed to convert yaml to Unstructured when check resources, manifest is\n%s\n, error: %v", item, err)
-			continue
-		}
-		switch u.GetKind() {
-		case setting.Deployment, setting.StatefulSet, setting.ConfigMap, setting.Service, setting.Ingress, setting.CronJob:
-			resource, exists, err := getter.GetResourceYamlInCache(namespace, u.GetName(), u.GroupVersionKind(), kubeClient)
-			if err != nil {
-				log.Errorf("failed to get resource yaml, err: %s", err)
-				continue
-			}
-			if !exists {
-				continue
-			}
-			yamls = append(yamls, resource)
-		}
-	}
-
-	for _, y := range yamls {
-		res = append(res, string(y))
-	}
-	return res, nil
 }
 
 func DeleteProductionProduct(username, envName, productName, requestID string, log *zap.SugaredLogger) (err error) {

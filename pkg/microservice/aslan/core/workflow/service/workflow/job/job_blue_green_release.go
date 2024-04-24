@@ -54,6 +54,10 @@ func (j *BlueGreenReleaseJob) MergeArgs(args *commonmodels.Job) error {
 	return nil
 }
 
+func (j *BlueGreenReleaseJob) UpdateWithLatestSetting() error {
+	return nil
+}
+
 func (j *BlueGreenReleaseJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 	resp := []*commonmodels.JobTask{}
 
@@ -113,7 +117,7 @@ func (j *BlueGreenReleaseJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, err
 
 func (j *BlueGreenReleaseJob) LintJob() error {
 	j.spec = &commonmodels.BlueGreenReleaseJobSpec{}
-	if err := util.CheckZadigXLicenseStatus(); err != nil {
+	if err := util.CheckZadigProfessionalLicense(); err != nil {
 		return e.ErrLicenseInvalid.AddDesc("")
 	}
 	if err := commonmodels.IToiYaml(j.job.Spec, j.spec); err != nil {

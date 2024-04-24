@@ -18,13 +18,10 @@ package service
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
 
-	types "github.com/golang/protobuf/ptypes/struct"
-	"google.golang.org/protobuf/encoding/protojson"
 	networkingv1alpha3 "istio.io/api/networking/v1alpha3"
 	versionedclient "istio.io/client-go/pkg/clientset/versioned"
 	appsv1 "k8s.io/api/apps/v1"
@@ -53,26 +50,20 @@ import (
 	zadigutil "github.com/koderover/zadig/v2/pkg/util"
 )
 
-const istioNamespace = "istio-system"
-const istioProxyName = "istio-proxy"
-const zadigEnvoyFilter = "zadig-share-env"
-const envoyFilterNetworkHttpConnectionManager = "envoy.filters.network.http_connection_manager"
-const envoyFilterHttpRouter = "envoy.filters.http.router"
-const envoyFilterLua = "type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua"
-
 const zadigNamePrefix = "zadig"
 const zadigMatchXEnv = "x-env"
 
 // Slice of `<workload name>.<workload type>` and error are returned.
-func CheckWorkloadsK8sServices(ctx context.Context, envName, productName string) ([]string, error) {
+func CheckWorkloadsK8sServices(ctx context.Context, envName, productName string, production bool) ([]string, error) {
 	timeStart := time.Now()
 	defer func() {
 		log.Infof("[CheckWorkloadsK8sServices]Time consumed: %s", time.Since(timeStart))
 	}()
 
 	prod, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
-		Name:    productName,
-		EnvName: envName,
+		Name:       productName,
+		EnvName:    envName,
+		Production: &production,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to query env `%s` in project `%s`: %s", envName, productName, err)
@@ -136,9 +127,9 @@ func EnableBaseEnv(ctx context.Context, envName, productName string) error {
 	}
 
 	// 4. Ensure `EnvoyFilter` in istio namespace.
-	err = ensureEnvoyFilter(ctx, istioClient, clusterID, istioNamespace, zadigEnvoyFilter, nil)
+	err = kube.EnsureEnvoyFilter(ctx, istioClient, clusterID, setting.IstioNamespace, setting.ZadigEnvoyFilter, nil)
 	if err != nil {
-		return fmt.Errorf("failed to ensure EnvoyFilter in namespace `%s`: %s", istioNamespace, err)
+		return fmt.Errorf("failed to ensure EnvoyFilter in namespace `%s`: %s", setting.IstioNamespace, err)
 	}
 
 	// 5. Update the environment configuration.
@@ -429,7 +420,7 @@ func checkPodsWithIstioProxyAndReady(ctx context.Context, kclient client.Client,
 
 		hasIstioProxy := false
 		for _, container := range pod.Spec.Containers {
-			if container.Name == istioProxyName {
+			if container.Name == setting.IstioProxyName {
 				hasIstioProxy = true
 				break
 			}
@@ -454,105 +445,14 @@ func ensureVirtualServices(ctx context.Context, env *commonmodels.Product, kclie
 	}
 
 	for _, svc := range svcs.Items {
-		vsName := genVirtualServiceName(&svc)
-		err := ensureVirtualService(ctx, kclient, istioClient, env, &svc, vsName)
+		vsName := kube.GenVirtualServiceName(&svc)
+		err := kube.EnsureVirtualService(ctx, kclient, istioClient, env, &svc, vsName)
 		if err != nil {
 			return fmt.Errorf("failed to ensure VirtualService `%s` in ns `%s`: %s", vsName, env.Namespace, err)
 		}
 	}
 
 	return nil
-}
-
-func ensureVirtualService(ctx context.Context, kclient client.Client, istioClient versionedclient.Interface, env *commonmodels.Product, svc *corev1.Service, vsName string) error {
-	vsObj, err := istioClient.NetworkingV1alpha3().VirtualServices(env.Namespace).Get(ctx, vsName, metav1.GetOptions{})
-	if err == nil {
-		log.Infof("Has found VirtualService `%s` in ns `%s` and don't recreate.", vsName, env.Namespace)
-		return nil
-	}
-
-	if !apierrors.IsNotFound(err) {
-		return fmt.Errorf("failed to query VirtualService `%s` in ns `%s`: %s", vsName, env.Namespace, err)
-	}
-
-	matchedEnvs := []MatchedEnv{}
-	if env.ShareEnv.Enable && env.ShareEnv.IsBase {
-		subEnvs, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
-			Name:            env.ProductName,
-			ShareEnvEnable:  zadigutil.GetBoolPointer(true),
-			ShareEnvIsBase:  zadigutil.GetBoolPointer(false),
-			ShareEnvBaseEnv: zadigutil.GetStrPointer(env.EnvName),
-			Production:      zadigutil.GetBoolPointer(false),
-		})
-		if err != nil {
-			return err
-		}
-
-		svcSelector := labels.SelectorFromSet(labels.Set(svc.Spec.Selector))
-		for _, subEnv := range subEnvs {
-			hasWorkload, err := doesSvcHasWorkload(ctx, subEnv.Namespace, svcSelector, kclient)
-			if err != nil {
-				return err
-			}
-
-			if !hasWorkload {
-				continue
-			}
-
-			matchedEnvs = append(matchedEnvs, MatchedEnv{
-				EnvName:   subEnv.EnvName,
-				Namespace: subEnv.Namespace,
-			})
-		}
-	}
-
-	vsObj.Name = vsName
-
-	if vsObj.Labels == nil {
-		vsObj.Labels = map[string]string{}
-	}
-	vsObj.Labels[zadigtypes.ZadigLabelKeyGlobalOwner] = zadigtypes.Zadig
-
-	routes := []*networkingv1alpha3.HTTPRoute{}
-	for _, matchedEnv := range matchedEnvs {
-		grayRoute := &networkingv1alpha3.HTTPRoute{
-			Match: []*networkingv1alpha3.HTTPMatchRequest{
-				&networkingv1alpha3.HTTPMatchRequest{
-					Headers: map[string]*networkingv1alpha3.StringMatch{
-						zadigMatchXEnv: &networkingv1alpha3.StringMatch{
-							MatchType: &networkingv1alpha3.StringMatch_Exact{
-								Exact: matchedEnv.EnvName,
-							},
-						},
-					},
-				},
-			},
-			Route: []*networkingv1alpha3.HTTPRouteDestination{
-				&networkingv1alpha3.HTTPRouteDestination{
-					Destination: &networkingv1alpha3.Destination{
-						Host: fmt.Sprintf("%s.%s.svc.cluster.local", svc.Name, matchedEnv.Namespace),
-					},
-				},
-			},
-		}
-		routes = append(routes, grayRoute)
-	}
-	routes = append(routes, &networkingv1alpha3.HTTPRoute{
-		Route: []*networkingv1alpha3.HTTPRouteDestination{
-			&networkingv1alpha3.HTTPRouteDestination{
-				Destination: &networkingv1alpha3.Destination{
-					Host: fmt.Sprintf("%s.%s.svc.cluster.local", svc.Name, env.Namespace),
-				},
-			},
-		},
-	})
-
-	vsObj.Spec = networkingv1alpha3.VirtualService{
-		Hosts: []string{svc.Name},
-		Http:  routes,
-	}
-	_, err = istioClient.NetworkingV1alpha3().VirtualServices(env.Namespace).Create(ctx, vsObj, metav1.CreateOptions{})
-	return err
 }
 
 func checkVirtualServicesDeployed(ctx context.Context, kclient client.Client, istioClient versionedclient.Interface, ns string) (bool, error) {
@@ -563,7 +463,7 @@ func checkVirtualServicesDeployed(ctx context.Context, kclient client.Client, is
 	}
 
 	for _, svc := range svcs.Items {
-		vsName := genVirtualServiceName(&svc)
+		vsName := kube.GenVirtualServiceName(&svc)
 		_, err := istioClient.NetworkingV1alpha3().VirtualServices(ns).Get(ctx, vsName, metav1.GetOptions{})
 		if apierrors.IsNotFound(err) {
 			return false, nil
@@ -574,389 +474,6 @@ func checkVirtualServicesDeployed(ctx context.Context, kclient client.Client, is
 	}
 
 	return true, nil
-}
-
-func ensureEnvoyFilter(ctx context.Context, istioClient versionedclient.Interface, clusterID, ns, name string, headerKeys []string) error {
-	headerKeySet := sets.NewString(headerKeys...)
-	envoyFilterObj, err := istioClient.NetworkingV1alpha3().EnvoyFilters(ns).Get(ctx, name, metav1.GetOptions{})
-	if err == nil {
-		log.Infof("Has found EnvoyFilter `%s` in ns `%s` and don't recreate.", name, istioNamespace)
-		return nil
-	}
-
-	if !apierrors.IsNotFound(err) {
-		return fmt.Errorf("failed to query EnvoyFilter `%s` in ns `%s`: %s", name, istioNamespace, err)
-	}
-
-	storeCacheOperation, err := buildEnvoyStoreCacheOperation(headerKeySet.List())
-	if err != nil {
-		return fmt.Errorf("failed to build envoy operation of storing cache: %s", err)
-	}
-
-	getCacheOperation, err := buildEnvoyGetCacheOperation(headerKeySet.List())
-	if err != nil {
-		return fmt.Errorf("failed to build envoy operation of getting cache: %s", err)
-	}
-
-	var cacheServerAddr string
-	var cacheServerPort int
-
-	switch clusterID {
-	case setting.LocalClusterID:
-		cacheServerAddr = fmt.Sprintf("aslan.%s.svc.cluster.local", config.Namespace())
-		cacheServerPort = 25000
-	default:
-		cacheServerAddr = "hub-agent.koderover-agent.svc.cluster.local"
-		cacheServerPort = 80
-	}
-
-	clusterConfig, err := buildEnvoyClusterConfig(cacheServerAddr, cacheServerPort)
-	if err != nil {
-		return fmt.Errorf("failed to build envoy cluster config for `%s:%d`: %s", cacheServerAddr, cacheServerPort, err)
-	}
-
-	envoyFilterObj.Name = name
-
-	if envoyFilterObj.Labels == nil {
-		envoyFilterObj.Labels = map[string]string{}
-	}
-	envoyFilterObj.Labels[zadigtypes.ZadigLabelKeyGlobalOwner] = zadigtypes.Zadig
-
-	envoyFilterObj.Spec = networkingv1alpha3.EnvoyFilter{
-		ConfigPatches: []*networkingv1alpha3.EnvoyFilter_EnvoyConfigObjectPatch{
-			&networkingv1alpha3.EnvoyFilter_EnvoyConfigObjectPatch{
-				ApplyTo: networkingv1alpha3.EnvoyFilter_HTTP_FILTER,
-				Match: &networkingv1alpha3.EnvoyFilter_EnvoyConfigObjectMatch{
-					Context: networkingv1alpha3.EnvoyFilter_SIDECAR_INBOUND,
-					ObjectTypes: &networkingv1alpha3.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
-						Listener: &networkingv1alpha3.EnvoyFilter_ListenerMatch{
-							FilterChain: &networkingv1alpha3.EnvoyFilter_ListenerMatch_FilterChainMatch{
-								Filter: &networkingv1alpha3.EnvoyFilter_ListenerMatch_FilterMatch{
-									Name: envoyFilterNetworkHttpConnectionManager,
-									SubFilter: &networkingv1alpha3.EnvoyFilter_ListenerMatch_SubFilterMatch{
-										Name: envoyFilterHttpRouter,
-									},
-								},
-							},
-						},
-					},
-				},
-				Patch: &networkingv1alpha3.EnvoyFilter_Patch{
-					Operation: networkingv1alpha3.EnvoyFilter_Patch_INSERT_BEFORE,
-					Value:     storeCacheOperation,
-				},
-			},
-			&networkingv1alpha3.EnvoyFilter_EnvoyConfigObjectPatch{
-				ApplyTo: networkingv1alpha3.EnvoyFilter_HTTP_FILTER,
-				Match: &networkingv1alpha3.EnvoyFilter_EnvoyConfigObjectMatch{
-					Context: networkingv1alpha3.EnvoyFilter_SIDECAR_OUTBOUND,
-					ObjectTypes: &networkingv1alpha3.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
-						Listener: &networkingv1alpha3.EnvoyFilter_ListenerMatch{
-							FilterChain: &networkingv1alpha3.EnvoyFilter_ListenerMatch_FilterChainMatch{
-								Filter: &networkingv1alpha3.EnvoyFilter_ListenerMatch_FilterMatch{
-									Name: envoyFilterNetworkHttpConnectionManager,
-									SubFilter: &networkingv1alpha3.EnvoyFilter_ListenerMatch_SubFilterMatch{
-										Name: envoyFilterHttpRouter,
-									},
-								},
-							},
-						},
-					},
-				},
-				Patch: &networkingv1alpha3.EnvoyFilter_Patch{
-					Operation: networkingv1alpha3.EnvoyFilter_Patch_INSERT_BEFORE,
-					Value:     getCacheOperation,
-				},
-			},
-			&networkingv1alpha3.EnvoyFilter_EnvoyConfigObjectPatch{
-				ApplyTo: networkingv1alpha3.EnvoyFilter_CLUSTER,
-				Patch: &networkingv1alpha3.EnvoyFilter_Patch{
-					Operation: networkingv1alpha3.EnvoyFilter_Patch_ADD,
-					Value:     clusterConfig,
-				},
-			},
-		},
-	}
-
-	_, err = istioClient.NetworkingV1alpha3().EnvoyFilters(ns).Create(ctx, envoyFilterObj, metav1.CreateOptions{})
-	return err
-}
-func buildEnvoyStoreCacheOperation1(keys []string) (*types.Struct, error) {
-	inlineCode := `function envoy_on_request(request_handle)
-  function split_str(s, delimiter)
-    res = {}
-    for match in (s..delimiter):gmatch("(.-)"..delimiter) do
-      table.insert(res, match)
-    end
-
-    return res
-  end
-
-  local traceid = request_handle:headers():get("sw8")
-  if traceid then
-    arr = split_str(traceid, "-")
-    traceid = arr[2]
-  else
-    traceid = request_handle:headers():get("x-request-id")
-    if not traceid then
-      traceid = request_handle:headers():get("x-b3-traceid")
-    end
-  end
-
-  local env = request_handle:headers():get("x-env")
-  local headers, body = request_handle:httpCall(
-    "cache",
-    {
-      [":method"] = "POST",
-      [":path"] = string.format("/api/cache/%s/%s", traceid, env),
-      [":authority"] = "cache",
-    },
-    "",
-    5000
-  )
-end
-`
-	data := map[string]interface{}{
-		"name": "envoy.lua",
-		"typed_config": map[string]string{
-			"@type":      envoyFilterLua,
-			"inlineCode": inlineCode,
-		},
-	}
-
-	return buildEnvoyPatchValue(data)
-}
-
-func buildEnvoyGetCacheOperation1(keys []string) (*types.Struct, error) {
-	inlineCode := `function envoy_on_request(request_handle)
-  function split_str(s, delimiter)
-    res = {}
-    for match in (s..delimiter):gmatch("(.-)"..delimiter) do
-      table.insert(res, match)
-    end
-
-    return res
-  end
-
-  local traceid = request_handle:headers():get("sw8")
-  if traceid then
-    arr = split_str(traceid, "-")
-    traceid = arr[2]
-  else
-    traceid = request_handle:headers():get("x-request-id")
-    if not traceid then
-      traceid = request_handle:headers():get("x-b3-traceid")
-    end
-  end
-
-  local headers, body = request_handle:httpCall(
-    "cache",
-    {
-      [":method"] = "GET",
-      [":path"] = string.format("/api/cache/%s", traceid),
-      [":authority"] = "cache",
-    },
-    "",
-    5000
-  )
-
-  request_handle:headers():add("x-env", headers["x-data"]);
-end
-`
-	data := map[string]interface{}{
-		"name": "envoy.lua",
-		"typed_config": map[string]string{
-			"@type":      envoyFilterLua,
-			"inlineCode": inlineCode,
-		},
-	}
-
-	return buildEnvoyPatchValue(data)
-}
-
-func buildEnvoyStoreCacheOperation(headerKeys []string) (*types.Struct, error) {
-	inlineCodeStart := `function envoy_on_request(request_handle)
-  function split_str(s, delimiter)
-    res = {}
-    for match in (s..delimiter):gmatch("(.-)"..delimiter) do
-      table.insert(res, match)
-    end
-
-    return res
-  end
-
-  local traceid = request_handle:headers():get("sw8")
-  if traceid then
-    arr = split_str(traceid, "-")
-    traceid = arr[2]
-  else
-    traceid = request_handle:headers():get("x-request-id")
-    if not traceid then
-      traceid = request_handle:headers():get("x-b3-traceid")
-    end
-  end
-
-  local env = request_handle:headers():get("x-env")
-  local headers, body = request_handle:httpCall(
-    "cache",
-    {
-      [":method"] = "POST",
-      [":path"] = string.format("/api/cache/%s/%s", traceid, env),
-      [":authority"] = "cache",
-    },
-    "",
-    5000
-  )
-`
-	inlineCodeMid := ``
-	for _, headerKey := range headerKeys {
-		tmpInlineCodeMid := `
-  local header_key = "%s"
-  local key = traceid .. "-" .. header_key
-  local value = request_handle:headers():get(header_key)
-  local headers, body = request_handle:httpCall(
-    "cache",
-    {
-      [":method"] = "POST",
-      [":path"] = string.format("/api/cache/%%s/%%s", key, value),
-      [":authority"] = "cache",
-    },
-    "",
-    5000
-  )
-	`
-		tmpInlineCodeMid = fmt.Sprintf(tmpInlineCodeMid, headerKey)
-		inlineCodeMid += tmpInlineCodeMid
-	}
-
-	inlineCodeEnd := `end
-`
-	inlineCode := fmt.Sprintf(`%s%s%s`, inlineCodeStart, inlineCodeMid, inlineCodeEnd)
-
-	data := map[string]interface{}{
-		"name": "envoy.lua",
-		"typed_config": map[string]string{
-			"@type":      envoyFilterLua,
-			"inlineCode": inlineCode,
-		},
-	}
-
-	return buildEnvoyPatchValue(data)
-}
-
-func buildEnvoyGetCacheOperation(headerKeys []string) (*types.Struct, error) {
-	inlineCodeStart := `function envoy_on_request(request_handle)
-  function split_str(s, delimiter)
-    res = {}
-    for match in (s..delimiter):gmatch("(.-)"..delimiter) do
-      table.insert(res, match)
-    end
-
-    return res
-  end
-
-  local traceid = request_handle:headers():get("sw8")
-  if traceid then
-    arr = split_str(traceid, "-")
-    traceid = arr[2]
-  else
-    traceid = request_handle:headers():get("x-request-id")
-    if not traceid then
-      traceid = request_handle:headers():get("x-b3-traceid")
-    end
-  end
-
-  local headers, body = request_handle:httpCall(
-    "cache",
-    {
-      [":method"] = "GET",
-      [":path"] = string.format("/api/cache/%s", traceid),
-      [":authority"] = "cache",
-    },
-    "",
-    5000
-  )
-
-  request_handle:headers():add("x-env", headers["x-data"]);
-`
-
-	inlineCodeMid := ``
-	for _, headerKey := range headerKeys {
-		tmpInlineCodeMid := `
-  local header_key = "%s"
-  local key = traceid .. "-" .. header_key
-  local headers, body = request_handle:httpCall(
-    "cache",
-    {
-      [":method"] = "GET",
-      [":path"] = string.format("/api/cache/%%s", key),
-      [":authority"] = "cache",
-    },
-    "",
-    5000
-  )
-
-  request_handle:headers():add(header_key, headers["x-data"]);
-	`
-		tmpInlineCodeMid = fmt.Sprintf(tmpInlineCodeMid, headerKey)
-		inlineCodeMid += tmpInlineCodeMid
-	}
-
-	inlineCodeEnd := `end
-`
-	inlineCode := fmt.Sprintf(`%s%s%s`, inlineCodeStart, inlineCodeMid, inlineCodeEnd)
-
-	data := map[string]interface{}{
-		"name": "envoy.lua",
-		"typed_config": map[string]string{
-			"@type":      envoyFilterLua,
-			"inlineCode": inlineCode,
-		},
-	}
-
-	return buildEnvoyPatchValue(data)
-}
-
-func buildEnvoyClusterConfig(cacheAddr string, port int) (*types.Struct, error) {
-	data := map[string]interface{}{
-		"name":            "cache",
-		"type":            "STRICT_DNS",
-		"connect_timeout": "3.0s",
-		"lb_policy":       "ROUND_ROBIN",
-		"load_assignment": EnvoyClusterConfigLoadAssignment{
-			ClusterName: "cache",
-			Endpoints: []EnvoyLBEndpoints{
-				EnvoyLBEndpoints{
-					LBEndpoints: []EnvoyEndpoints{
-						EnvoyEndpoints{
-							Endpoint: EnvoyEndpoint{
-								Address: EnvoyAddress{
-									SocketAddress: EnvoySocketAddress{
-										Protocol:  "TCP",
-										Address:   cacheAddr,
-										PortValue: port,
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-
-	return buildEnvoyPatchValue(data)
-}
-
-func buildEnvoyPatchValue(data map[string]interface{}) (*types.Struct, error) {
-	dataBytes, err := json.Marshal(data)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal data: %s", err)
-	}
-
-	val := &types.Struct{}
-	err = protojson.Unmarshal(dataBytes, val)
-	return val, err
 }
 
 func deleteGateways(ctx context.Context, kclient client.Client, istioClient versionedclient.Interface, ns string) error {
@@ -1046,10 +563,6 @@ func removePodsIstioProxy(ctx context.Context, kclient client.Client, ns string)
 	return restartPodsWithIstioProxy(ctx, kclient, ns, true)
 }
 
-func genVirtualServiceName(svc *corev1.Service) string {
-	return fmt.Sprintf("%s-%s", zadigNamePrefix, svc.Name)
-}
-
 func restartPodsWithIstioProxy(ctx context.Context, kclient client.Client, ns string, restartConditionHasIstioProxy bool) error {
 	pods := &corev1.PodList{}
 	err := kclient.List(ctx, pods, client.InNamespace(ns))
@@ -1061,7 +574,7 @@ func restartPodsWithIstioProxy(ctx context.Context, kclient client.Client, ns st
 	for _, pod := range pods.Items {
 		hasIstioProxy := false
 		for _, container := range pod.Spec.Containers {
-			if container.Name == istioProxyName {
+			if container.Name == setting.IstioProxyName {
 				hasIstioProxy = true
 				break
 			}
@@ -1079,293 +592,6 @@ func restartPodsWithIstioProxy(ctx context.Context, kclient client.Client, ns st
 	}
 
 	return nil
-}
-
-func EnsureGrayEnvConfig(ctx context.Context, env *commonmodels.Product, kclient client.Client, istioClient versionedclient.Interface) error {
-	opt := &commonrepo.ProductFindOptions{Name: env.ProductName, EnvName: env.ShareEnv.BaseEnv}
-	baseEnv, err := commonrepo.NewProductColl().Find(opt)
-	if err != nil {
-		return fmt.Errorf("failed to find base env %s of product %s: %s", env.EnvName, env.ProductName, err)
-	}
-
-	baseNS := baseEnv.Namespace
-
-	// 1. Deploy VirtualServices of the workloads in gray environment and update them in the base environment.
-	err = ensureWorkloadsVirtualServiceInGrayAndBase(ctx, env, baseNS, kclient, istioClient)
-	if err != nil {
-		return fmt.Errorf("failed to ensure workloads VirtualService: %s", err)
-	}
-
-	// 2. Deploy K8s Services and VirtualServices of all workloads in the base environment to the gray environment.
-	err = ensureDefaultK8sServiceAndVirtualServicesInGray(ctx, env, baseNS, kclient, istioClient)
-	if err != nil {
-		return fmt.Errorf("failed to ensure K8s Services and VirtualServices: %s", err)
-	}
-
-	return nil
-}
-
-func ensureDefaultK8sServiceAndVirtualServicesInGray(ctx context.Context, env *commonmodels.Product, baseNS string, kclient client.Client, istioClient versionedclient.Interface) error {
-	svcsInBase := &corev1.ServiceList{}
-	err := kclient.List(ctx, svcsInBase, client.InNamespace(baseNS))
-	if err != nil {
-		return fmt.Errorf("failed to list svcs in %s: %s", baseNS, err)
-	}
-
-	grayNS := env.Namespace
-	for _, svcInBase := range svcsInBase.Items {
-		err = ensureDefaultK8sServiceInGray(ctx, &svcInBase, grayNS, kclient)
-		if err != nil {
-			return err
-		}
-
-		err = ensureDefaultVirtualServiceInGray(ctx, &svcInBase, grayNS, baseNS, istioClient)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func ensureDefaultK8sServiceInGray(ctx context.Context, baseSvc *corev1.Service, grayNS string, kclient client.Client) error {
-	svcInGray := &corev1.Service{}
-	err := kclient.Get(ctx, client.ObjectKey{
-		Name:      baseSvc.Name,
-		Namespace: grayNS,
-	}, svcInGray)
-	if err == nil {
-		return nil
-	}
-	if !apierrors.IsNotFound(err) {
-		return err
-	}
-
-	svcInGray.Name = baseSvc.Name
-	svcInGray.Namespace = grayNS
-	svcInGray.Labels = baseSvc.Labels
-	svcInGray.Annotations = baseSvc.Annotations
-	svcInGray.Spec.Selector = baseSvc.Spec.Selector
-
-	ports := make([]corev1.ServicePort, len(baseSvc.Spec.Ports))
-	for i, port := range baseSvc.Spec.Ports {
-		ports[i] = corev1.ServicePort{
-			Name:       port.Name,
-			Protocol:   port.Protocol,
-			Port:       port.Port,
-			TargetPort: port.TargetPort,
-		}
-	}
-	svcInGray.Spec.Ports = ports
-
-	if svcInGray.Labels != nil {
-		svcInGray.Labels[zadigtypes.ZadigLabelKeyGlobalOwner] = zadigtypes.Zadig
-	}
-
-	return kclient.Create(ctx, svcInGray)
-}
-
-func ensureDefaultVirtualServiceInGray(ctx context.Context, baseSvc *corev1.Service, grayNS, baseNS string, istioClient versionedclient.Interface) error {
-	vsName := genVirtualServiceName(baseSvc)
-	svcName := baseSvc.Name
-	vsObj, err := istioClient.NetworkingV1alpha3().VirtualServices(grayNS).Get(ctx, vsName, metav1.GetOptions{})
-	if err == nil {
-		log.Infof("Has found VirtualService `%s` in ns `%s` and don't recreate.", vsName, grayNS)
-		return nil
-	}
-
-	if !apierrors.IsNotFound(err) {
-		return err
-	}
-
-	vsObj.Name = vsName
-
-	if vsObj.Labels == nil {
-		vsObj.Labels = map[string]string{}
-	}
-	vsObj.Labels[zadigtypes.ZadigLabelKeyGlobalOwner] = zadigtypes.Zadig
-
-	vsObj.Spec = networkingv1alpha3.VirtualService{
-		Hosts: []string{svcName},
-		Http: []*networkingv1alpha3.HTTPRoute{
-			{
-				Route: []*networkingv1alpha3.HTTPRouteDestination{
-					{
-						Destination: &networkingv1alpha3.Destination{
-							Host: fmt.Sprintf("%s.%s.svc.cluster.local", svcName, baseNS),
-						},
-					},
-				},
-			},
-		},
-	}
-	_, err = istioClient.NetworkingV1alpha3().VirtualServices(grayNS).Create(ctx, vsObj, metav1.CreateOptions{})
-	return err
-}
-
-// Note: Currently we have made an assumption that all the necessary K8s services exist in the current environment.
-func ensureWorkloadsVirtualServiceInGrayAndBase(ctx context.Context, env *commonmodels.Product, baseNS string, kclient client.Client, istioClient versionedclient.Interface) error {
-	svcs := &corev1.ServiceList{}
-	grayNS := env.Namespace
-	err := kclient.List(ctx, svcs, client.InNamespace(grayNS))
-	if err != nil {
-		return err
-	}
-
-	for _, svc := range svcs.Items {
-		// If there is no workloads in the sub-environment, the service is not updated.
-		hasWorkload, err := doesSvcHasWorkload(ctx, grayNS, labels.SelectorFromSet(labels.Set(svc.Spec.Selector)), kclient)
-		if err != nil {
-			return err
-		}
-
-		if !hasWorkload {
-			continue
-		}
-
-		vsName := genVirtualServiceName(&svc)
-
-		err = ensureVirtualServiceInGray(ctx, env.EnvName, vsName, svc.Name, grayNS, baseNS, istioClient)
-		if err != nil {
-			return err
-		}
-
-		err = ensureUpdateVirtualServiceInBase(ctx, env.EnvName, vsName, svc.Name, grayNS, baseNS, istioClient)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func ensureVirtualServiceInGray(ctx context.Context, envName, vsName, svcName, grayNS, baseNS string, istioClient versionedclient.Interface) error {
-	var isExisted bool
-
-	vsObjInGray, err := istioClient.NetworkingV1alpha3().VirtualServices(grayNS).Get(ctx, vsName, metav1.GetOptions{})
-	if err == nil {
-		isExisted = true
-	}
-	if err != nil && !apierrors.IsNotFound(err) {
-		return err
-	}
-
-	vsObjInGray.Name = vsName
-	vsObjInGray.Namespace = grayNS
-
-	if vsObjInGray.Labels == nil {
-		vsObjInGray.Labels = map[string]string{}
-	}
-	vsObjInGray.Labels[zadigtypes.ZadigLabelKeyGlobalOwner] = zadigtypes.Zadig
-
-	vsObjInGray.Spec = networkingv1alpha3.VirtualService{
-		Hosts: []string{svcName},
-		Http: []*networkingv1alpha3.HTTPRoute{
-			&networkingv1alpha3.HTTPRoute{
-				Match: []*networkingv1alpha3.HTTPMatchRequest{
-					&networkingv1alpha3.HTTPMatchRequest{
-						Headers: map[string]*networkingv1alpha3.StringMatch{
-							zadigMatchXEnv: &networkingv1alpha3.StringMatch{
-								MatchType: &networkingv1alpha3.StringMatch_Exact{
-									Exact: envName,
-								},
-							},
-						},
-					},
-				},
-				Route: []*networkingv1alpha3.HTTPRouteDestination{
-					&networkingv1alpha3.HTTPRouteDestination{
-						Destination: &networkingv1alpha3.Destination{
-							Host: fmt.Sprintf("%s.%s.svc.cluster.local", svcName, grayNS),
-						},
-					},
-				},
-			},
-			&networkingv1alpha3.HTTPRoute{
-				Route: []*networkingv1alpha3.HTTPRouteDestination{
-					&networkingv1alpha3.HTTPRouteDestination{
-						Destination: &networkingv1alpha3.Destination{
-							Host: fmt.Sprintf("%s.%s.svc.cluster.local", svcName, baseNS),
-						},
-					},
-				},
-			},
-		},
-	}
-
-	if isExisted {
-		_, err = istioClient.NetworkingV1alpha3().VirtualServices(grayNS).Update(ctx, vsObjInGray, metav1.UpdateOptions{})
-	} else {
-		_, err = istioClient.NetworkingV1alpha3().VirtualServices(grayNS).Create(ctx, vsObjInGray, metav1.CreateOptions{})
-	}
-
-	return err
-}
-
-func ensureUpdateVirtualServiceInBase(ctx context.Context, envName, vsName, svcName, grayNS, baseNS string, istioClient versionedclient.Interface) error {
-	vsObjInBase, err := istioClient.NetworkingV1alpha3().VirtualServices(baseNS).Get(ctx, vsName, metav1.GetOptions{})
-	if err != nil {
-		return err
-	}
-
-	if vsObjInBase.Spec.Http == nil {
-		vsObjInBase.Spec.Http = []*networkingv1alpha3.HTTPRoute{}
-	}
-
-	for _, vsHttp := range vsObjInBase.Spec.Http {
-		if len(vsHttp.Match) == 0 {
-			continue
-		}
-
-		for _, vsMatch := range vsHttp.Match {
-			if len(vsMatch.Headers) == 0 {
-				continue
-			}
-
-			matchValue, found := vsMatch.Headers[zadigMatchXEnv]
-			if !found {
-				continue
-			}
-
-			if matchValue.GetExact() == envName {
-				return nil
-			}
-		}
-	}
-
-	grayRoute := &networkingv1alpha3.HTTPRoute{
-		Match: []*networkingv1alpha3.HTTPMatchRequest{
-			&networkingv1alpha3.HTTPMatchRequest{
-				Headers: map[string]*networkingv1alpha3.StringMatch{
-					zadigMatchXEnv: &networkingv1alpha3.StringMatch{
-						MatchType: &networkingv1alpha3.StringMatch_Exact{
-							Exact: envName,
-						},
-					},
-				},
-			},
-		},
-		Route: []*networkingv1alpha3.HTTPRouteDestination{
-			&networkingv1alpha3.HTTPRouteDestination{
-				Destination: &networkingv1alpha3.Destination{
-					Host: fmt.Sprintf("%s.%s.svc.cluster.local", svcName, grayNS),
-				},
-			},
-		},
-	}
-
-	numRoutes := len(vsObjInBase.Spec.Http)
-	if numRoutes == 0 {
-		vsObjInBase.Spec.Http = append(vsObjInBase.Spec.Http, grayRoute)
-	} else {
-		routes := make([]*networkingv1alpha3.HTTPRoute, 1, numRoutes+1)
-		routes[0] = grayRoute
-		routes = append(routes, vsObjInBase.Spec.Http...)
-		vsObjInBase.Spec.Http = routes
-	}
-
-	_, err = istioClient.NetworkingV1alpha3().VirtualServices(baseNS).Update(ctx, vsObjInBase, metav1.UpdateOptions{})
-	return err
 }
 
 func EnsureDeleteShareEnvConfig(ctx context.Context, env *commonmodels.Product, istioClient versionedclient.Interface) error {
@@ -1412,7 +638,7 @@ func EnsureUpdateZadigService(ctx context.Context, env *commonmodels.Product, sv
 		return fmt.Errorf("failed to query Service %s in ns %s: %s", svcName, env.Namespace, err)
 	}
 
-	return ensureUpdateZadigSerivce(ctx, env, svc, kclient, istioClient)
+	return kube.EnsureUpdateZadigSerivce(ctx, env, svc, kclient, istioClient)
 }
 
 func EnsureDeleteZadigService(ctx context.Context, env *commonmodels.Product, svcName string, kclient client.Client, istioClient versionedclient.Interface) error {
@@ -1430,7 +656,7 @@ func EnsureDeleteZadigService(ctx context.Context, env *commonmodels.Product, sv
 	}
 
 	if env.ShareEnv.Enable {
-		return ensureDeleteZadigService(ctx, env, svc, kclient, istioClient)
+		return kube.EnsureDeleteZadigService(ctx, env, svc, kclient, istioClient)
 	} else if env.IstioGrayscale.Enable {
 		return kube.EnsureDeleteGrayscaleService(ctx, env, svc, kclient, istioClient)
 	}
@@ -1470,7 +696,7 @@ func CheckServicesDeployedInSubEnvs(ctx context.Context, productName, envName st
 		return nil, nil
 	}
 
-	envs, err := fetchSubEnvs(ctx, productName, env.ClusterID, envName)
+	envs, err := kube.FetchSubEnvs(ctx, productName, env.ClusterID, envName)
 	if err != nil {
 		return nil, err
 	}
@@ -1686,7 +912,7 @@ func SetupPortalService(ctx context.Context, productName, envName, serviceName s
 
 func updateVirtualServiceForPortalService(ctx context.Context, svc *corev1.Service, istioClient *versionedclient.Clientset, ns string, servers []SetupPortalServiceRequest, gatewayName string) error {
 	isExisted := false
-	vsName := genVirtualServiceName(svc)
+	vsName := kube.GenVirtualServiceName(svc)
 	vsObj, err := istioClient.NetworkingV1alpha3().VirtualServices(ns).Get(ctx, vsName, metav1.GetOptions{})
 	if err == nil {
 		isExisted = true
@@ -1749,7 +975,7 @@ func parseHelmProjectServices(ctx context.Context, restConfig *rest.Config, env 
 		serviceMap := env.GetServiceMap()
 		prodSvc, ok := serviceMap[serviceName]
 		if !ok {
-			return nil, fmt.Errorf("failed to find sercice %s in env %s", serviceName, envName)
+			return nil, fmt.Errorf("failed to find service %s in env %s", serviceName, envName)
 		}
 
 		revisionSvc, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{

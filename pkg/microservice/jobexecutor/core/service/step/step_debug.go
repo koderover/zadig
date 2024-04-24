@@ -63,26 +63,26 @@ func (s *DebugStep) Run(ctx context.Context) (err error) {
 	}
 	cm.Data[types.JobDebugStatusKey] = s.Type
 	if s.updater.UpdateWithRetry(cm, 3, 3*time.Second) != nil {
-		log.Errorf("%s   debug step unexpected update configmap error: %v", time.Now().Format(setting.WorkflowTimeFormat), err)
+		log.Errorf("debug step unexpected update configmap error: %v", err)
 		return err
 	}
 	defer func() {
 		cm, err = s.updater.Get()
 		if err != nil {
-			log.Errorf("%s   debug step unexpected get configmap error: %v", time.Now().Format(setting.WorkflowTimeFormat), err)
+			log.Errorf("debug step unexpected get configmap error: %v", err)
 			return
 		}
 		cm.Data[types.JobDebugStatusKey] = types.JobDebugStatusNotIn
 		if s.updater.UpdateWithRetry(cm, 3, 3*time.Second) != nil {
-			log.Errorf("%s   debug step unexpected update configmap error: %v", time.Now().Format(setting.WorkflowTimeFormat), err)
+			log.Errorf("debug step unexpected update configmap error: %v", err)
 		}
 	}()
 
-	log.Infof("%s   Running debugger %s job, Use debugger console.", time.Now().Format(setting.WorkflowTimeFormat), s.Type)
+	log.Infof("Running debugger %s job, Use debugger console.", s.Type)
 	for _, err := os.Stat(path); err == nil; {
 		time.Sleep(time.Second)
 		_, err = os.Stat(path)
 	}
-	log.Infof("%s   debug step %s done", time.Now().Format(setting.WorkflowTimeFormat), s.Type)
+	log.Infof("debug step %s done", s.Type)
 	return nil
 }

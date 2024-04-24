@@ -51,7 +51,19 @@ func (j *BlueGreenReleaseV2Job) SetPreset() error {
 	return nil
 }
 
+func (j *BlueGreenReleaseV2Job) SetOptions() error {
+	return nil
+}
+
+func (j *BlueGreenReleaseV2Job) ClearSelectionField() error {
+	return nil
+}
+
 func (j *BlueGreenReleaseV2Job) MergeArgs(args *commonmodels.Job) error {
+	return nil
+}
+
+func (j *BlueGreenReleaseV2Job) UpdateWithLatestSetting() error {
 	return nil
 }
 
@@ -113,7 +125,7 @@ func (j *BlueGreenReleaseV2Job) ToJobs(taskID int64) ([]*commonmodels.JobTask, e
 func (j *BlueGreenReleaseV2Job) LintJob() error {
 	j.spec = &commonmodels.BlueGreenReleaseV2JobSpec{}
 
-	if err := util.CheckZadigXLicenseStatus(); err != nil {
+	if err := util.CheckZadigProfessionalLicense(); err != nil {
 		return e.ErrLicenseInvalid.AddDesc("")
 	}
 

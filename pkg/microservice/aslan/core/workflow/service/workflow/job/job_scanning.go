@@ -54,7 +54,6 @@ func (j *ScanningJob) SetPreset() error {
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return err
 	}
-	j.job.Spec = j.spec
 
 	for _, scanning := range j.spec.Scannings {
 		scanningInfo, err := commonrepo.NewScanningColl().Find(j.workflow.Project, scanning.Name)
@@ -69,6 +68,78 @@ func (j *ScanningJob) SetPreset() error {
 		scanning.Repos = mergeRepos(scanningInfo.Repos, scanning.Repos)
 		scanning.KeyVals = renderKeyVals(scanning.KeyVals, scanningInfo.Envs)
 	}
+
+	j.job.Spec = j.spec
+	return nil
+}
+
+func (j *ScanningJob) SetOptions() error {
+	return nil
+}
+
+func (j *ScanningJob) ClearSelectionField() error {
+	return nil
+}
+
+func (j *ScanningJob) UpdateWithLatestSetting() error {
+	j.spec = &commonmodels.ZadigScanningJobSpec{}
+	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
+		return err
+	}
+
+	latestWorkflow, err := commonrepo.NewWorkflowV4Coll().Find(j.workflow.Name)
+	if err != nil {
+		log.Errorf("Failed to find original workflow to set options, error: %s", err)
+	}
+
+	latestSpec := new(commonmodels.ZadigScanningJobSpec)
+	found := false
+	for _, stage := range latestWorkflow.Stages {
+		if !found {
+			for _, job := range stage.Jobs {
+				if job.Name == j.job.Name && job.JobType == j.job.JobType {
+					if err := commonmodels.IToi(job.Spec, latestSpec); err != nil {
+						return err
+					}
+					found = true
+					break
+				}
+			}
+		} else {
+			break
+		}
+	}
+
+	if !found {
+		return fmt.Errorf("failed to find the original workflow: %s", j.workflow.Name)
+	}
+
+	mergedScanning := make([]*commonmodels.ScanningModule, 0)
+
+	for _, latestScanning := range latestSpec.Scannings {
+		for _, scanning := range j.spec.Scannings {
+			if scanning.Name == latestScanning.Name && scanning.ProjectName == latestScanning.ProjectName {
+				scanningInfo, err := commonrepo.NewScanningColl().Find(j.workflow.Project, latestScanning.Name)
+				if err != nil {
+					log.Errorf("find scanning: %s error: %v", scanning.Name, err)
+					continue
+				}
+				if err := fillScanningDetail(scanningInfo); err != nil {
+					log.Errorf("fill scanning: %s detail error: %v", scanningInfo.Name, err)
+					continue
+				}
+
+				latestScanning.Repos = mergeRepos(scanningInfo.Repos, latestScanning.Repos)
+				latestScanning.KeyVals = renderKeyVals(latestScanning.KeyVals, scanningInfo.Envs)
+				scanning.Repos = mergeRepos(latestScanning.Repos, scanning.Repos)
+				scanning.KeyVals = renderKeyVals(scanning.KeyVals, latestScanning.KeyVals)
+
+				mergedScanning = append(mergedScanning, scanning)
+			}
+		}
+	}
+
+	j.spec.Scannings = mergedScanning
 	j.job.Spec = j.spec
 	return nil
 }
@@ -107,6 +178,7 @@ func (j *ScanningJob) MergeArgs(args *commonmodels.Job) error {
 			for _, argsScanning := range argsSpec.Scannings {
 				if scanning.Name == argsScanning.Name {
 					scanning.Repos = mergeRepos(scanning.Repos, argsScanning.Repos)
+					scanning.KeyVals = renderKeyVals(argsScanning.KeyVals, scanning.KeyVals)
 					break
 				}
 			}

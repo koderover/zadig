@@ -166,7 +166,7 @@ func DeleteCodeHost(c *gin.Context) {
 	}
 
 	// license checks
-	err = util.CheckZadigXLicenseStatus()
+	err = util.CheckZadigEnterpriseLicense()
 	if err != nil {
 		ctx.Err = err
 		return
@@ -208,7 +208,7 @@ func UpdateProjectCodeHost(c *gin.Context) {
 	}
 
 	// license checks
-	err = util.CheckZadigXLicenseStatus()
+	err = util.CheckZadigEnterpriseLicense()
 	if err != nil {
 		ctx.Err = err
 		return
@@ -239,7 +239,7 @@ func UpdateProjectCodeHost(c *gin.Context) {
 	}
 	req.ID = id
 
-	err = commonutil.CheckZadigXLicenseStatus()
+	err = commonutil.CheckZadigEnterpriseLicense()
 	if err != nil {
 		ctx.Err = e.ErrLicenseInvalid.AddDesc("")
 		return

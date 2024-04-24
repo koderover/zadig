@@ -599,48 +599,66 @@ func updateServiceTemplateByGithubPush(pushEvent *github.PushEvent, log *zap.Sug
 		}
 	}
 
-	serviceTmpls, err := GetGithubServiceTemplates()
+	svcTmplsMap := map[bool][]*commonmodels.Service{}
+	serviceTmpls, err := GetGithubTestingServiceTemplates()
 	if err != nil {
-		log.Errorf("Failed to get github service templates, error: %v", err)
+		log.Errorf("Failed to get github testing service templates, error: %v", err)
 		return err
 	}
+	svcTmplsMap[false] = serviceTmpls
+	productionServiceTmpls, err := GetGithubProductionServiceTemplates()
+	if err != nil {
+		log.Errorf("Failed to get github proudction service templates, error: %v", err)
+		return err
+	}
+	svcTmplsMap[true] = productionServiceTmpls
 
 	errs := &multierror.Error{}
-
-	for _, service := range serviceTmpls {
-		path, err := getServiceSrcPath(service)
-		if err != nil {
-			errs = multierror.Append(errs, err)
-		}
-		// 判断PushEvent的Diffs中是否包含该服务模板的src_path
-		affected := false
-		for _, changeFile := range changeFiles {
-			if subElem(path, changeFile) {
-				affected = true
-				break
-			}
-		}
-		if affected {
-			log.Infof("Started to sync service template %s from github %s", service.ServiceName, service.SrcPath)
-			//TODO: 异步处理
-			service.CreateBy = "system"
-			err := SyncServiceTemplateFromGithub(service, latestCommitID, latestCommitMessage, log)
+	for production, serviceTmpls := range svcTmplsMap {
+		for _, service := range serviceTmpls {
+			path, err := getServiceSrcPath(service)
 			if err != nil {
-				log.Errorf("SyncServiceTemplateFromGithub failed, error: %v", err)
 				errs = multierror.Append(errs, err)
 			}
-		} else {
-			log.Infof("Service template %s from github %s is not affected, no sync", service.ServiceName, service.SrcPath)
+			// 判断PushEvent的Diffs中是否包含该服务模板的src_path
+			affected := false
+			for _, changeFile := range changeFiles {
+				if subElem(path, changeFile) {
+					affected = true
+					break
+				}
+			}
+			if affected {
+				log.Infof("Started to sync service template %s from github %s", service.ServiceName, service.SrcPath)
+				//TODO: 异步处理
+				service.CreateBy = "system"
+				service.Production = production
+				err := SyncServiceTemplateFromGithub(service, latestCommitID, latestCommitMessage, log)
+				if err != nil {
+					log.Errorf("SyncServiceTemplateFromGithub failed, error: %v", err)
+					errs = multierror.Append(errs, err)
+				}
+			} else {
+				log.Infof("Service template %s from github %s is not affected, no sync", service.ServiceName, service.SrcPath)
+			}
 		}
 	}
+
 	return errs.ErrorOrNil()
 }
 
-func GetGithubServiceTemplates() ([]*commonmodels.Service, error) {
+func GetGithubTestingServiceTemplates() ([]*commonmodels.Service, error) {
 	opt := &commonrepo.ServiceListOption{
 		Source: setting.SourceFromGithub,
 	}
 	return commonrepo.NewServiceColl().ListMaxRevisions(opt)
+}
+
+func GetGithubProductionServiceTemplates() ([]*commonmodels.Service, error) {
+	opt := &commonrepo.ServiceListOption{
+		Source: setting.SourceFromGithub,
+	}
+	return commonrepo.NewProductionServiceColl().ListMaxRevisions(opt)
 }
 
 // GetOwnerRepoBranchPath 获取gitlab路径中的owner、repo、branch和path

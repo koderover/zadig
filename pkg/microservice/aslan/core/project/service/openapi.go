@@ -143,7 +143,7 @@ func InitializeYAMLProject(userID, username, requestID string, args *OpenAPIInit
 				CreateBy:    username,
 			}
 
-			_, err := svcService.CreateServiceTemplate(username, creationArgs, false, logger)
+			_, err := svcService.CreateServiceTemplate(username, creationArgs, false, false, logger)
 			if err != nil {
 				logger.Errorf("failed to create service: %s for project initialization, error: %s", service.ServiceName, err)
 				return err
@@ -168,7 +168,7 @@ func InitializeYAMLProject(userID, username, requestID string, args *OpenAPIInit
 				ServiceVariableKVs: mergedKVs,
 			}
 
-			err = svcService.LoadServiceFromYamlTemplate(username, loadArgs, false, logger)
+			err = svcService.LoadServiceFromYamlTemplate(username, loadArgs, false, false, logger)
 			if err != nil {
 				logger.Errorf("failed to create service: %s for project initialization, error: %s", service.ServiceName, err)
 				return err

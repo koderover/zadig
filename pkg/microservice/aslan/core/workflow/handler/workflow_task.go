@@ -167,7 +167,7 @@ func CreateArtifactWorkflowTask(c *gin.Context) {
 	}
 
 	// license checks
-	err = util.CheckZadigXLicenseStatus()
+	err = util.CheckZadigProfessionalLicense()
 	if err != nil {
 		if args.VersionArgs != nil && args.VersionArgs.Enabled {
 			ctx.Err = e.ErrLicenseInvalid.AddDesc("只有专业版才能创建版本，请检查")
@@ -323,7 +323,7 @@ func GetWorkflowTask(c *gin.Context) {
 		ctx.Err = err
 		return
 	}
-	releases, err := service.ListDeliveryVersion(&service.ListDeliveryVersionArgs{
+	releases, _, err := service.ListDeliveryVersion(&service.ListDeliveryVersionArgs{
 		TaskId:       int(task.TaskID),
 		ServiceName:  task.ServiceName,
 		ProjectName:  task.ProductName,

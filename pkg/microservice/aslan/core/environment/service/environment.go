@@ -246,7 +246,7 @@ func initializeVMEnvironmentAndWorkflow(projectKey string, envArgs []*commonmode
 		// modify the service revision for the creation process to get the correct env config from the service template.
 		for _, serviceList := range arg.Services {
 			for _, service := range serviceList {
-				svc, err := commonservice.GetServiceTemplate(service.ServiceName, setting.PMDeployType, projectKey, setting.ProductStatusDeleting, 0, log)
+				svc, err := commonservice.GetServiceTemplate(service.ServiceName, setting.PMDeployType, projectKey, setting.ProductStatusDeleting, 0, false, log)
 				if err != nil {
 					log.Errorf("failed to find service info for service: %s, error: %s", service.ServiceName, err)
 					return fmt.Errorf("failed to find service info for service: %s, error: %s", service.ServiceName, err)
@@ -767,8 +767,12 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]st
 	return mongotool.CommitTransaction(session)
 }
 
-func UpdateProductRegistry(envName, productName, registryID string, log *zap.SugaredLogger) (err error) {
-	opt := &commonrepo.ProductFindOptions{EnvName: envName, Name: productName}
+func UpdateProductRegistry(envName, productName, registryID string, production bool, log *zap.SugaredLogger) (err error) {
+	opt := &commonrepo.ProductFindOptions{
+		EnvName:    envName,
+		Name:       productName,
+		Production: &production,
+	}
 	exitedProd, err := commonrepo.NewProductColl().Find(opt)
 	if err != nil {
 		log.Errorf("UpdateProductRegistry find product by envName:%s,error: %v", envName, err)
@@ -842,10 +846,11 @@ func UpdateProductRecycleDay(envName, productName string, recycleDay int) error 
 	return commonrepo.NewProductColl().UpdateProductRecycleDay(envName, productName, recycleDay)
 }
 
-func UpdateProductAlias(envName, productName, alias string) error {
+func UpdateProductAlias(envName, productName, alias string, production bool) error {
 	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
-		Name:    productName,
-		EnvName: envName,
+		Name:       productName,
+		EnvName:    envName,
+		Production: &production,
 	})
 	if err != nil {
 		return e.ErrUpdateEnv.AddErr(fmt.Errorf("failed to query product info, name %s", envName))
@@ -1483,7 +1488,7 @@ func validateArgs(args *commonservice.ValuesDataArgs) error {
 	return nil
 }
 
-func UpdateProductDefaultValues(productName, envName, userName, requestID string, args *EnvRendersetArg, log *zap.SugaredLogger) error {
+func UpdateProductDefaultValues(productName, envName, userName, requestID string, args *EnvRendersetArg, production bool, log *zap.SugaredLogger) error {
 	// validate if yaml content is legal
 	err := yaml.Unmarshal([]byte(args.DefaultValues), map[string]interface{}{})
 	if err != nil {
@@ -1491,8 +1496,9 @@ func UpdateProductDefaultValues(productName, envName, userName, requestID string
 	}
 
 	product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
-		Name:    productName,
-		EnvName: envName,
+		Name:       productName,
+		EnvName:    envName,
+		Production: &production,
 	})
 	if err != nil {
 		log.Errorf("UpdateHelmProductRenderset GetProductEnv envName:%s productName: %s error, error msg:%s", envName, productName, err)
@@ -1507,7 +1513,7 @@ func UpdateProductDefaultValues(productName, envName, userName, requestID string
 		return e.ErrUpdateEnv.AddDesc(fmt.Sprintf("failed to validate args: %s", err))
 	}
 
-	err = UpdateProductDefaultValuesWithRender(product, nil, userName, requestID, args, log)
+	err = UpdateProductDefaultValuesWithRender(product, nil, userName, requestID, args, production, log)
 	if err != nil {
 		return e.ErrUpdateEnv.AddErr(err)
 	}
@@ -1520,7 +1526,7 @@ func UpdateProductDefaultValues(productName, envName, userName, requestID string
 	return ensureKubeEnv(product.Namespace, product.RegistryID, map[string]string{setting.ProductLabel: product.ProductName}, false, kubeClient, log)
 }
 
-func UpdateProductDefaultValuesWithRender(product *commonmodels.Product, _ *models.RenderSet, userName, requestID string, args *EnvRendersetArg, log *zap.SugaredLogger) error {
+func UpdateProductDefaultValuesWithRender(product *commonmodels.Product, _ *models.RenderSet, userName, requestID string, args *EnvRendersetArg, production bool, log *zap.SugaredLogger) error {
 	equal, err := yamlutil.Equal(product.DefaultValues, args.DefaultValues)
 	if err != nil {
 		return fmt.Errorf("failed to unmarshal default values in renderset, err: %s", err)
@@ -1529,7 +1535,7 @@ func UpdateProductDefaultValuesWithRender(product *commonmodels.Product, _ *mode
 	product.YamlData = geneYamlData(args.ValuesData)
 	updatedSvcList := make([]*templatemodels.ServiceRender, 0)
 	if !equal {
-		diffSvcs, err := PreviewHelmProductGlobalVariables(product.ProductName, product.EnvName, args.DefaultValues, log)
+		diffSvcs, err := PreviewHelmProductGlobalVariables(product.ProductName, product.EnvName, args.DefaultValues, production, log)
 		if err != nil {
 			return fmt.Errorf("failed to fetch diff services, err: %s", err)
 		}
@@ -1554,14 +1560,15 @@ func UpdateProductDefaultValuesWithRender(product *commonmodels.Product, _ *mode
 	return UpdateProductVariable(product.ProductName, product.EnvName, userName, requestID, updatedSvcList, nil, product.DefaultValues, product.YamlData, log)
 }
 
-func UpdateHelmProductCharts(productName, envName, userName, requestID string, args *EnvRendersetArg, log *zap.SugaredLogger) error {
+func UpdateHelmProductCharts(productName, envName, userName, requestID string, production bool, args *EnvRendersetArg, log *zap.SugaredLogger) error {
 	if len(args.ChartValues) == 0 {
 		return nil
 	}
 
 	product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
-		Name:    productName,
-		EnvName: envName,
+		Name:       productName,
+		EnvName:    envName,
+		Production: &production,
 	})
 	if err != nil {
 		log.Errorf("UpdateHelmProductRenderset GetProductEnv envName:%s productName: %s error, error msg:%s", envName, productName, err)
@@ -1713,58 +1720,6 @@ func SyncHelmProductEnvironment(productName, envName, requestID string, log *zap
 		return err
 	}
 	return err
-}
-
-func UpdateHelmProductRenderset(productName, envName, userName, requestID string, args *EnvRendersetArg, log *zap.SugaredLogger) error {
-	product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
-		Name:    productName,
-		EnvName: envName,
-	})
-	if err != nil {
-		log.Errorf("UpdateHelmProductRenderset GetProductEnv envName:%s productName: %s error, error msg:%s", envName, productName, err)
-		return err
-	}
-
-	// render charts need to be updated
-	updatedRcList := make([]*templatemodels.ServiceRender, 0)
-	updatedRCMap := make(map[string]*templatemodels.ServiceRender)
-
-	// default values change
-	if args.DefaultValues != product.DefaultValues {
-		for _, curRenderChart := range product.GetChartRenderMap() {
-			updatedRCMap[curRenderChart.ServiceName] = curRenderChart
-		}
-	}
-
-	for _, requestRenderChart := range args.ChartValues {
-		// update renderset info
-		for _, curRenderChart := range product.GetChartRenderMap() {
-			if curRenderChart.ServiceName != requestRenderChart.ServiceName {
-				continue
-			}
-			if _, needSaveData := checkOverrideValuesChange(curRenderChart, requestRenderChart); !needSaveData {
-				continue
-			}
-			requestRenderChart.FillRenderChartModel(curRenderChart, curRenderChart.ChartVersion)
-			updatedRCMap[curRenderChart.ServiceName] = curRenderChart
-			break
-		}
-	}
-
-	for _, updatedRc := range updatedRCMap {
-		updatedRcList = append(updatedRcList, updatedRc)
-	}
-
-	err = UpdateProductVariable(productName, envName, userName, requestID, updatedRcList, nil, args.DefaultValues, geneYamlData(args.ValuesData), log)
-	if err != nil {
-		return err
-	}
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), product.ClusterID)
-	if err != nil {
-		log.Errorf("UpdateHelmProductRenderset GetKubeClient error, error msg:%s", err)
-		return err
-	}
-	return ensureKubeEnv(product.Namespace, product.RegistryID, map[string]string{setting.ProductLabel: product.ProductName}, false, kubeClient, log)
 }
 
 func UpdateProductVariable(productName, envName, username, requestID string, updatedSvcs []*templatemodels.ServiceRender,
@@ -1994,18 +1949,6 @@ func UpdateMultipleHelmChartEnv(requestID, userName string, args *UpdateMultiHel
 	}
 
 	return envStatuses, nil
-}
-
-func GetProductInfo(username, envName, productName string, log *zap.SugaredLogger) (*commonmodels.Product, error) {
-	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
-	prod, err := commonrepo.NewProductColl().Find(opt)
-	if err != nil {
-		log.Errorf("[User:%s][EnvName:%s][Product:%s] Product.FindByOwner error: %v", username, envName, productName, err)
-		return nil, e.ErrGetEnv
-	}
-
-	prod.ServiceRenders = prod.GetAllSvcRenders()
-	return prod, nil
 }
 
 func DeleteProduct(username, envName, productName, requestID string, isDelete bool, log *zap.SugaredLogger) (err error) {
@@ -2323,7 +2266,7 @@ func deleteK8sProductServices(productInfo *commonmodels.Product, serviceNames []
 	}
 
 	if productInfo.ShareEnv.Enable && !productInfo.ShareEnv.IsBase {
-		err = EnsureGrayEnvConfig(ctx, productInfo, kclient, istioClient)
+		err = kube.EnsureGrayEnvConfig(ctx, productInfo, kclient, istioClient)
 		if err != nil {
 			log.Errorf("Failed to ensure gray env config: %s", err)
 			return fmt.Errorf("failed to ensure gray env config: %s", err)
@@ -2447,7 +2390,7 @@ func createGroups(user, requestID string, args *commonmodels.Product, eventStart
 
 	if !args.Production && args.ShareEnv.Enable && !args.ShareEnv.IsBase {
 		// Note: Currently, only sub-environments can be created, but baseline environments cannot be created.
-		err = EnsureGrayEnvConfig(context.TODO(), args, kubeClient, istioClient)
+		err = kube.EnsureGrayEnvConfig(context.TODO(), args, kubeClient, istioClient)
 		if err != nil {
 			args.Status = setting.ProductStatusFailed
 			log.Errorf("Failed to ensure environment sharing in env %s of product %s: %s", args.EnvName, args.ProductName, err)
@@ -2762,7 +2705,7 @@ func installProductHelmCharts(user, requestID string, args *commonmodels.Product
 
 	// Note: For the sub env, try to supplement information relevant to the base env.
 	if args.ShareEnv.Enable && !args.ShareEnv.IsBase {
-		shareEnvErr := EnsureGrayEnvConfig(context.TODO(), args, kclient, istioClient)
+		shareEnvErr := kube.EnsureGrayEnvConfig(context.TODO(), args, kclient, istioClient)
 		if shareEnvErr != nil {
 			errList = multierror.Append(errList, shareEnvErr)
 		}
@@ -3168,10 +3111,11 @@ func GetGlobalVariableCandidate(productName, envName string, log *zap.SugaredLog
 	return ret, nil
 }
 
-func PreviewProductGlobalVariables(productName, envName string, arg []*commontypes.GlobalVariableKV, log *zap.SugaredLogger) ([]*SvcDiffResult, error) {
+func PreviewProductGlobalVariables(productName, envName string, arg []*commontypes.GlobalVariableKV, production bool, log *zap.SugaredLogger) ([]*SvcDiffResult, error) {
 	product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
-		Name:    productName,
-		EnvName: envName,
+		Name:       productName,
+		EnvName:    envName,
+		Production: &production,
 	})
 	if err != nil {
 		log.Errorf("UpdateHelmProductRenderset GetProductEnv envName:%s productName: %s error, error msg:%s", envName, productName, err)
@@ -3185,7 +3129,7 @@ func extractRootKeyFromFlat(flatKey string) string {
 	return strings.Split(splitStrs[0], "[")[0]
 }
 
-func PreviewHelmProductGlobalVariables(productName, envName, globalVariable string, log *zap.SugaredLogger) ([]*SvcDiffResult, error) {
+func PreviewHelmProductGlobalVariables(productName, envName, globalVariable string, proudction bool, log *zap.SugaredLogger) ([]*SvcDiffResult, error) {
 	ret := make([]*SvcDiffResult, 0)
 	variableKvs, err := commontypes.YamlToServiceVariableKV(globalVariable, nil)
 	if err != nil {
@@ -3197,8 +3141,9 @@ func PreviewHelmProductGlobalVariables(productName, envName, globalVariable stri
 	}
 
 	product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
-		Name:    productName,
-		EnvName: envName,
+		Name:       productName,
+		EnvName:    envName,
+		Production: &proudction,
 	})
 	if err != nil {
 		log.Errorf("PreviewHelmProductGlobalVariables GetProductEnv envName:%s productName: %s error, error msg:%s", envName, productName, err)
@@ -3290,10 +3235,11 @@ func PreviewHelmProductGlobalVariables(productName, envName, globalVariable stri
 	return ret, nil
 }
 
-func UpdateProductGlobalVariables(productName, envName, userName, requestID string, currentRevision int64, arg []*commontypes.GlobalVariableKV, log *zap.SugaredLogger) error {
+func UpdateProductGlobalVariables(productName, envName, userName, requestID string, currentRevision int64, arg []*commontypes.GlobalVariableKV, production bool, log *zap.SugaredLogger) error {
 	product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
-		Name:    productName,
-		EnvName: envName,
+		Name:       productName,
+		EnvName:    envName,
+		Production: &production,
 	})
 	if err != nil {
 		log.Errorf("UpdateProductGlobalVariables GetProductEnv envName:%s productName: %s error, error msg:%s", envName, productName, err)

@@ -81,6 +81,7 @@ func (j *NacosJob) SetPreset() error {
 	for _, config := range nacosConfigs {
 		config.NamespaceID = originNamespaceID
 		config.NamespaceName = namespaceName
+		config.OriginalContent = config.Content
 
 		nacosConfigsMap[getNacosConfigKey(config.Group, config.DataID)] = config
 	}
@@ -115,6 +116,130 @@ func (j *NacosJob) SetPreset() error {
 
 	j.spec.NacosDatas = newDatas
 	j.spec.NacosFilteredData = newFilterDatas
+	return nil
+}
+
+func (j *NacosJob) SetOptions() error {
+	return nil
+}
+
+func (j *NacosJob) ClearSelectionField() error {
+	return nil
+}
+
+// UpdateWithLatestSetting Special thing about this is that everytime it is called, it re-calculate the latest default values.
+func (j *NacosJob) UpdateWithLatestSetting() error {
+	j.spec = &commonmodels.NacosJobSpec{}
+	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
+		return err
+	}
+
+	latestWorkflow, err := mongodb.NewWorkflowV4Coll().Find(j.workflow.Name)
+	if err != nil {
+		log.Errorf("Failed to find original workflow to set options, error: %s", err)
+	}
+
+	latestSpec := new(commonmodels.NacosJobSpec)
+	found := false
+	for _, stage := range latestWorkflow.Stages {
+		if !found {
+			for _, job := range stage.Jobs {
+				if job.Name == j.job.Name && job.JobType == j.job.JobType {
+					if err := commonmodels.IToi(job.Spec, latestSpec); err != nil {
+						return err
+					}
+					found = true
+					break
+				}
+			}
+		} else {
+			break
+		}
+	}
+
+	if j.spec.NacosID != latestSpec.NacosID {
+		j.spec.NacosID = latestSpec.NacosID
+		j.spec.NamespaceID = ""
+		j.spec.NacosDatas = make([]*types.NacosConfig, 0)
+		j.spec.NacosFilteredData = make([]*types.NacosConfig, 0)
+		j.spec.NacosDataRange = make([]string, 0)
+	} else {
+		// find the latest config and save it to the original config field
+		originNamespaceID := strings.ReplaceAll(latestSpec.NamespaceID, setting.FixedValueMark, "")
+
+		nacosConfigs, err := commonservice.ListNacosConfig(latestSpec.NacosID, originNamespaceID, log.SugaredLogger())
+		if err != nil {
+			return fmt.Errorf("fail to list nacos config: %w", err)
+		}
+
+		namespaces, err := commonservice.ListNacosNamespace(latestSpec.NacosID, log.SugaredLogger())
+		if err != nil {
+			return fmt.Errorf("failed to list nacos namespace")
+		}
+
+		namespaceName := ""
+		for _, namespace := range namespaces {
+			if namespace.NamespaceID == originNamespaceID {
+				namespaceName = namespace.NamespacedName
+				break
+			}
+		}
+
+		nacosConfigsMap := map[string]*types.NacosConfig{}
+		for _, config := range nacosConfigs {
+			config.NamespaceID = originNamespaceID
+			config.NamespaceName = namespaceName
+
+			nacosConfigsMap[getNacosConfigKey(config.Group, config.DataID)] = config
+		}
+
+		var configSet sets.String
+		if strings.HasPrefix(latestSpec.NamespaceID, setting.FixedValueMark) {
+			configSet = sets.NewString(latestSpec.NacosDataRange...)
+		}
+
+		userConfiguredDatas := make(map[string]*types.NacosConfig)
+		for _, selectedData := range j.spec.NacosDatas {
+			userConfiguredDatas[selectedData.DataID] = selectedData
+		}
+
+		newFilterDatas := make([]*types.NacosConfig, 0)
+		for _, data := range nacosConfigsMap {
+			if !isNacosDataFiltered(data, configSet) {
+				continue
+			}
+
+			newFilterDatas = append(newFilterDatas, data)
+		}
+
+		j.spec.NacosFilteredData = newFilterDatas
+
+		newDatas := make([]*types.NacosConfig, 0)
+
+		for _, data := range newFilterDatas {
+			if userConfiguredData, ok := userConfiguredDatas[data.DataID]; ok {
+				newDatas = append(newDatas, &types.NacosConfig{
+					DataID:          data.DataID,
+					Group:           data.Group,
+					Desc:            data.Desc,
+					Format:          data.Format,
+					Content:         userConfiguredData.Content,
+					OriginalContent: data.Content,
+					NamespaceID:     data.NamespaceID,
+					NamespaceName:   data.NamespaceName,
+				})
+			}
+		}
+
+		j.spec.NacosDatas = newDatas
+		if j.spec.NamespaceID != latestSpec.NamespaceID {
+			j.spec.NamespaceID = latestSpec.NamespaceID
+		}
+	}
+
+	j.spec.NacosDataRange = latestSpec.NacosDataRange
+	j.spec.DataFixed = latestSpec.DataFixed
+	j.job.Spec = j.spec
 	return nil
 }
 
@@ -188,7 +313,7 @@ func (j *NacosJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 }
 
 func (j *NacosJob) LintJob() error {
-	if err := util.CheckZadigXLicenseStatus(); err != nil {
+	if err := util.CheckZadigProfessionalLicense(); err != nil {
 		return e.ErrLicenseInvalid.AddDesc("")
 	}
 

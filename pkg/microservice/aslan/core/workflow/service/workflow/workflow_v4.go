@@ -36,7 +36,6 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
-	"golang.org/x/exp/slices"
 	"gopkg.in/yaml.v3"
 	"gorm.io/gorm/utils"
 	"helm.sh/helm/v3/pkg/releaseutil"
@@ -64,7 +63,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/repository"
 	commomtemplate "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/template"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/webhook"
-	commontypes "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/types"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/job"
 	jobctl "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/job"
 	"github.com/koderover/zadig/v2/pkg/microservice/picket/client/opa"
@@ -939,7 +937,7 @@ func LintWorkflowV4(workflow *commonmodels.WorkflowV4, logger *zap.SugaredLogger
 		}
 	}
 
-	if err := util.CheckZadigXLicenseStatus(); err != nil {
+	if err := util.CheckZadigProfessionalLicense(); err != nil {
 		if workflow.ConcurrencyLimit != -1 && workflow.ConcurrencyLimit != 1 {
 			return e.ErrLicenseInvalid.AddDesc("基础版工作流并发只支持开关，不支持数量")
 		}
@@ -994,7 +992,7 @@ func lintApprovals(approval *commonmodels.Approval) error {
 	if approval == nil {
 		return nil
 	}
-	if err := util.CheckZadigXLicenseStatus(); err != nil {
+	if err := util.CheckZadigProfessionalLicense(); err != nil {
 		if approval.Type == config.LarkApproval || approval.Type == config.DingTalkApproval {
 			return e.ErrLicenseInvalid.AddDesc("飞书和钉钉审批是专业版功能")
 		}
@@ -1254,6 +1252,43 @@ func GetWebhookForWorkflowV4Preset(workflowName, triggerName string, logger *zap
 		log.Error(errMsg)
 		return nil, e.ErrGetWebhook.AddDesc(errMsg)
 	}
+
+	for _, stage := range workflow.Stages {
+		for _, item := range stage.Jobs {
+			err := job.SetOptions(item, workflow)
+			if err != nil {
+				errMsg := fmt.Sprintf("merge workflow args set options error: %v", err)
+				log.Error(errMsg)
+				return nil, e.ErrGetWebhook.AddDesc(errMsg)
+			}
+
+			if triggerName == "" {
+				// for some job we need to clear its selection field
+				if item.JobType == config.JobZadigBuild ||
+					item.JobType == config.JobIstioRelease ||
+					item.JobType == config.JobIstioRollback ||
+					item.JobType == config.JobZadigHelmChartDeploy ||
+					item.JobType == config.JobK8sBlueGreenDeploy ||
+					item.JobType == config.JobApollo ||
+					item.JobType == config.JobK8sCanaryDeploy ||
+					item.JobType == config.JobK8sGrayRelease {
+					if err := jobctl.ClearSelectionField(item, workflow); err != nil {
+						log.Errorf("cannot clear workflow %s selection for job %s, the error is: %v", workflowName, item.Name, err)
+						return nil, e.ErrPresetWorkflow.AddDesc(err.Error())
+					}
+				}
+			}
+
+			// additionally we need to update the user-defined args with the latest workflow configuration
+			err = job.UpdateWithLatestSetting(item, workflow)
+			if err != nil {
+				errMsg := fmt.Sprintf("failed to merge user-defined workflow args with latest workflow configuration, error: %s", err)
+				log.Error(errMsg)
+				return nil, fmt.Errorf(errMsg)
+			}
+		}
+	}
+
 	workflowHook.Repos = repos
 	workflowHook.WorkflowArg = workflow
 	workflowHook.WorkflowArg.JiraHookCtls = nil
@@ -1349,6 +1384,43 @@ func GetGeneralHookForWorkflowV4Preset(workflowName, hookName string, logger *za
 		log.Error(errMsg)
 		return nil, e.ErrGetGeneralHook.AddDesc(errMsg)
 	}
+
+	for _, stage := range workflow.Stages {
+		for _, item := range stage.Jobs {
+			err := job.SetOptions(item, workflow)
+			if err != nil {
+				errMsg := fmt.Sprintf("merge workflow args set options error: %v", err)
+				log.Error(errMsg)
+				return nil, e.ErrGetWebhook.AddDesc(errMsg)
+			}
+
+			if hookName == "" {
+				// for some job we need to clear its selection field
+				if item.JobType == config.JobZadigBuild ||
+					item.JobType == config.JobIstioRelease ||
+					item.JobType == config.JobIstioRollback ||
+					item.JobType == config.JobZadigHelmChartDeploy ||
+					item.JobType == config.JobK8sBlueGreenDeploy ||
+					item.JobType == config.JobApollo ||
+					item.JobType == config.JobK8sCanaryDeploy ||
+					item.JobType == config.JobK8sGrayRelease {
+					if err := jobctl.ClearSelectionField(item, workflow); err != nil {
+						log.Errorf("cannot clear workflow %s selection for job %s, the error is: %v", workflowName, item.Name, err)
+						return nil, e.ErrPresetWorkflow.AddDesc(err.Error())
+					}
+				}
+			}
+
+			// additionally we need to update the user-defined args with the latest workflow configuration
+			err = job.UpdateWithLatestSetting(item, workflow)
+			if err != nil {
+				errMsg := fmt.Sprintf("failed to merge user-defined workflow args with latest workflow configuration, error: %s", err)
+				log.Error(errMsg)
+				return nil, fmt.Errorf(errMsg)
+			}
+		}
+	}
+
 	gHook.WorkflowArg = workflow
 	gHook.WorkflowArg.JiraHookCtls = nil
 	gHook.WorkflowArg.MeegoHookCtls = nil
@@ -1506,6 +1578,43 @@ func GetJiraHookForWorkflowV4Preset(workflowName, hookName string, logger *zap.S
 		log.Error(errMsg)
 		return nil, e.ErrGetJiraHook.AddDesc(errMsg)
 	}
+
+	for _, stage := range workflow.Stages {
+		for _, item := range stage.Jobs {
+			err := job.SetOptions(item, workflow)
+			if err != nil {
+				errMsg := fmt.Sprintf("merge workflow args set options error: %v", err)
+				log.Error(errMsg)
+				return nil, e.ErrGetWebhook.AddDesc(errMsg)
+			}
+
+			if hookName == "" {
+				// for some job we need to clear its selection field
+				if item.JobType == config.JobZadigBuild ||
+					item.JobType == config.JobIstioRelease ||
+					item.JobType == config.JobIstioRollback ||
+					item.JobType == config.JobZadigHelmChartDeploy ||
+					item.JobType == config.JobK8sBlueGreenDeploy ||
+					item.JobType == config.JobApollo ||
+					item.JobType == config.JobK8sCanaryDeploy ||
+					item.JobType == config.JobK8sGrayRelease {
+					if err := jobctl.ClearSelectionField(item, workflow); err != nil {
+						log.Errorf("cannot clear workflow %s selection for job %s, the error is: %v", workflowName, item.Name, err)
+						return nil, e.ErrPresetWorkflow.AddDesc(err.Error())
+					}
+				}
+			}
+
+			// additionally we need to update the user-defined args with the latest workflow configuration
+			err = job.UpdateWithLatestSetting(item, workflow)
+			if err != nil {
+				errMsg := fmt.Sprintf("failed to merge user-defined workflow args with latest workflow configuration, error: %s", err)
+				log.Error(errMsg)
+				return nil, fmt.Errorf(errMsg)
+			}
+		}
+	}
+
 	jiraHook.WorkflowArg = workflow
 	jiraHook.WorkflowArg.JiraHookCtls = nil
 	jiraHook.WorkflowArg.MeegoHookCtls = nil
@@ -1629,6 +1738,43 @@ func GetMeegoHookForWorkflowV4Preset(workflowName, hookName string, logger *zap.
 		log.Error(errMsg)
 		return nil, e.ErrGetMeegoHook.AddDesc(errMsg)
 	}
+
+	for _, stage := range workflow.Stages {
+		for _, item := range stage.Jobs {
+			err := job.SetOptions(item, workflow)
+			if err != nil {
+				errMsg := fmt.Sprintf("merge workflow args set options error: %v", err)
+				log.Error(errMsg)
+				return nil, e.ErrGetWebhook.AddDesc(errMsg)
+			}
+
+			if hookName == "" {
+				// for some job we need to clear its selection field
+				if item.JobType == config.JobZadigBuild ||
+					item.JobType == config.JobIstioRelease ||
+					item.JobType == config.JobIstioRollback ||
+					item.JobType == config.JobZadigHelmChartDeploy ||
+					item.JobType == config.JobK8sBlueGreenDeploy ||
+					item.JobType == config.JobApollo ||
+					item.JobType == config.JobK8sCanaryDeploy ||
+					item.JobType == config.JobK8sGrayRelease {
+					if err := jobctl.ClearSelectionField(item, workflow); err != nil {
+						log.Errorf("cannot clear workflow %s selection for job %s, the error is: %v", workflowName, item.Name, err)
+						return nil, e.ErrPresetWorkflow.AddDesc(err.Error())
+					}
+				}
+			}
+
+			// additionally we need to update the user-defined args with the latest workflow configuration
+			err = job.UpdateWithLatestSetting(item, workflow)
+			if err != nil {
+				errMsg := fmt.Sprintf("failed to merge user-defined workflow args with latest workflow configuration, error: %s", err)
+				log.Error(errMsg)
+				return nil, fmt.Errorf(errMsg)
+			}
+		}
+	}
+
 	meegoHook.WorkflowArg = workflow
 	meegoHook.WorkflowArg.JiraHookCtls = nil
 	meegoHook.WorkflowArg.MeegoHookCtls = nil
@@ -1862,6 +2008,43 @@ func GetCronForWorkflowV4Preset(workflowName, cronID string, logger *zap.Sugared
 		log.Error(errMsg)
 		return nil, e.ErrGetWebhook.AddDesc(errMsg)
 	}
+
+	for _, stage := range workflow.Stages {
+		for _, item := range stage.Jobs {
+			err := job.SetOptions(item, workflow)
+			if err != nil {
+				errMsg := fmt.Sprintf("merge workflow args set options error: %v", err)
+				log.Error(errMsg)
+				return nil, e.ErrGetWebhook.AddDesc(errMsg)
+			}
+
+			if cronID == "" {
+				// for some job we need to clear its selection field
+				if item.JobType == config.JobZadigBuild ||
+					item.JobType == config.JobIstioRelease ||
+					item.JobType == config.JobIstioRollback ||
+					item.JobType == config.JobZadigHelmChartDeploy ||
+					item.JobType == config.JobK8sBlueGreenDeploy ||
+					item.JobType == config.JobApollo ||
+					item.JobType == config.JobK8sCanaryDeploy ||
+					item.JobType == config.JobK8sGrayRelease {
+					if err := jobctl.ClearSelectionField(item, workflow); err != nil {
+						log.Errorf("cannot clear workflow %s selection for job %s, the error is: %v", workflowName, item.Name, err)
+						return nil, e.ErrPresetWorkflow.AddDesc(err.Error())
+					}
+				}
+			}
+
+			// additionally we need to update the user-defined args with the latest workflow configuration
+			err = job.UpdateWithLatestSetting(item, workflow)
+			if err != nil {
+				errMsg := fmt.Sprintf("failed to merge user-defined workflow args with latest workflow configuration, error: %s", err)
+				log.Error(errMsg)
+				return nil, fmt.Errorf(errMsg)
+			}
+		}
+	}
+
 	cronJob.WorkflowV4Args = workflow
 	return cronJob, nil
 }
@@ -2104,8 +2287,8 @@ func GetLatestTaskInfo(workflowInfo *Workflow) (startTime int64, creator, status
 	}
 }
 
-func GetFilteredEnvServices(workflowName, jobName, envName string, serviceNames []string, log *zap.SugaredLogger) ([]*commonmodels.DeployService, error) {
-	resp := []*commonmodels.DeployService{}
+func GetFilteredEnvServices(workflowName, jobName, envName string, serviceNames []string, log *zap.SugaredLogger) ([]*commonmodels.DeployServiceInfo, error) {
+	resp := []*commonmodels.DeployServiceInfo{}
 	workflow, err := commonrepo.NewWorkflowV4Coll().Find(workflowName)
 	if err != nil {
 		msg := fmt.Sprintf("Failed to find WorkflowV4: %s, the error is: %v", workflowName, err)
@@ -2153,13 +2336,13 @@ func GetFilteredEnvServices(workflowName, jobName, envName string, serviceNames 
 	for _, service := range services.Services {
 		serviceMap[service.ServiceName] = service
 	}
-	deployServiceMap := map[string]*commonmodels.DeployService{}
+	deployServiceMap := map[string]*commonmodels.DeployServiceInfo{}
 	for _, service := range jobSpec.Services {
 		deployServiceMap[service.ServiceName] = service
 	}
 
 	for _, serviceName := range serviceNames {
-		service, err := filterServiceVars(serviceName, jobSpec.DeployContents, deployServiceMap[serviceName], serviceMap[serviceName])
+		service, err := job.FilterServiceVars(serviceName, jobSpec.DeployContents, deployServiceMap[serviceName], serviceMap[serviceName])
 		if err != nil {
 			log.Error(err)
 			return resp, e.ErrFilterWorkflowVars.AddErr(err)
@@ -2684,50 +2867,6 @@ func checkMapKeyExist(m map[string]string, key string) bool {
 	}
 	_, ok := m[key]
 	return ok
-}
-
-func filterServiceVars(serviceName string, deployContents []config.DeployContent, service *commonmodels.DeployService, serviceEnv *commonservice.EnvService) (*commonmodels.DeployService, error) {
-	if serviceEnv == nil {
-		return service, fmt.Errorf("service: %v do not exist", serviceName)
-	}
-	defaultUpdateConfig := false
-	if slices.Contains(deployContents, config.DeployConfig) && serviceEnv.Updatable {
-		defaultUpdateConfig = true
-	}
-
-	keySet := sets.NewString()
-	if service == nil {
-		service = &commonmodels.DeployService{}
-	} else {
-		for _, config := range service.VariableConfigs {
-			keySet = keySet.Insert(config.VariableKey)
-		}
-	}
-
-	service.VariableYaml = serviceEnv.VariableYaml
-	service.ServiceName = serviceName
-	service.Updatable = serviceEnv.Updatable
-	service.UpdateConfig = defaultUpdateConfig
-
-	service.VariableKVs = []*commontypes.RenderVariableKV{}
-	service.LatestVariableKVs = []*commontypes.RenderVariableKV{}
-
-	for _, svcVar := range serviceEnv.VariableKVs {
-		if keySet.Has(svcVar.Key) && !svcVar.UseGlobalVariable {
-			service.VariableKVs = append(service.VariableKVs, svcVar)
-		}
-	}
-	for _, svcVar := range serviceEnv.LatestVariableKVs {
-		if keySet.Has(svcVar.Key) && !svcVar.UseGlobalVariable {
-			service.LatestVariableKVs = append(service.LatestVariableKVs, svcVar)
-		}
-	}
-	if !slices.Contains(deployContents, config.DeployVars) {
-		service.VariableKVs = []*commontypes.RenderVariableKV{}
-		service.LatestVariableKVs = []*commontypes.RenderVariableKV{}
-	}
-
-	return service, nil
 }
 
 func getAllowedProjects(headers http.Header) ([]string, error) {

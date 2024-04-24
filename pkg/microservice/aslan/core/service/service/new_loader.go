@@ -94,7 +94,7 @@ type serviceInfo struct {
 	yamls []string
 }
 
-func loadService(username string, ch *systemconfig.CodeHost, owner, namespace, repo, branch string, args *LoadServiceReq, force bool, logger *zap.SugaredLogger) error {
+func loadService(username string, ch *systemconfig.CodeHost, owner, namespace, repo, branch string, args *LoadServiceReq, force, production bool, logger *zap.SugaredLogger) error {
 	logger.Infof("Loading service from %s with owner %s, namespace %s, repo %s, branch %s and path %s", ch.Type, owner, namespace, repo, branch, args.LoadPath)
 
 	loader, err := getLoader(ch)
@@ -183,7 +183,7 @@ func loadService(username string, ch *systemconfig.CodeHost, owner, namespace, r
 			Commit:        &models.Commit{SHA: commit.SHA, Message: commit.Message},
 			Visibility:    args.Visibility,
 		}
-		_, err = CreateServiceTemplate(username, createSvcArgs, force, logger)
+		_, err = CreateServiceTemplate(username, createSvcArgs, force, production, logger)
 		if err != nil {
 			logger.Errorf("Failed to create service template, err: %s", err)
 			_, messageMap := e.ErrorMessage(err)

@@ -18,10 +18,12 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/job"
 	"github.com/pkg/errors"
 	"github.com/samber/lo"
 
@@ -131,7 +133,58 @@ func ListReleasePlans(pageNum, pageSize int64) (*ListReleasePlanResp, error) {
 }
 
 func GetReleasePlan(id string) (*models.ReleasePlan, error) {
-	return mongodb.NewReleasePlanColl().GetByID(context.Background(), id)
+	releasePlan, err := mongodb.NewReleasePlanColl().GetByID(context.Background(), id)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, releasePlanJob := range releasePlan.Jobs {
+		if releasePlanJob.Type == config.JobWorkflow {
+			spec := new(models.WorkflowReleaseJobSpec)
+			if err := models.IToi(releasePlanJob.Spec, spec); err != nil {
+				return nil, fmt.Errorf("invalid spec for job: %s. decode error: %s", releasePlanJob.Name, err)
+			}
+			if spec.Workflow == nil {
+				return nil, fmt.Errorf("workflow is nil")
+			}
+
+			originalWorkflow, err := mongodb.NewWorkflowV4Coll().Find(spec.Workflow.Name)
+			if err != nil {
+				log.Errorf("Failed to find WorkflowV4: %s, the error is: %v", spec.Workflow.Name, err)
+				return nil, fmt.Errorf("failed to find WorkflowV4: %s, the error is: %v", spec.Workflow.Name, err)
+			}
+
+			if err := job.MergeArgs(originalWorkflow, spec.Workflow); err != nil {
+				errMsg := fmt.Sprintf("merge workflow args error: %v", err)
+				log.Error(errMsg)
+				return nil, fmt.Errorf(errMsg)
+			}
+
+			for _, stage := range originalWorkflow.Stages {
+				for _, item := range stage.Jobs {
+					err := job.SetOptions(item, originalWorkflow)
+					if err != nil {
+						errMsg := fmt.Sprintf("merge workflow args set options error: %v", err)
+						log.Error(errMsg)
+						return nil, fmt.Errorf(errMsg)
+					}
+
+					// additionally we need to update the user-defined args with the latest workflow configuration
+					err = job.UpdateWithLatestSetting(item, originalWorkflow)
+					if err != nil {
+						errMsg := fmt.Sprintf("failed to merge user-defined workflow args with latest workflow configuration, error: %s", err)
+						log.Error(errMsg)
+						return nil, fmt.Errorf(errMsg)
+					}
+				}
+			}
+
+			spec.Workflow = originalWorkflow
+			releasePlanJob.Spec = spec
+		}
+	}
+
+	return releasePlan, nil
 }
 
 func GetReleasePlanLogs(id string) ([]*models.ReleasePlanLog, error) {
@@ -286,6 +339,83 @@ func ExecuteReleaseJob(c *handler.Context, planID string, args *ExecuteReleaseJo
 	return nil
 }
 
+type SkipReleaseJobArgs struct {
+	ID   string      `json:"id"`
+	Name string      `json:"name"`
+	Type string      `json:"type"`
+	Spec interface{} `json:"spec"`
+}
+
+func SkipReleaseJob(c *handler.Context, planID string, args *SkipReleaseJobArgs) error {
+	approveLock := getLock(planID)
+	approveLock.Lock()
+	defer approveLock.Unlock()
+
+	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
+	defer cancel()
+	plan, err := mongodb.NewReleasePlanColl().GetByID(ctx, planID)
+	if err != nil {
+		return errors.Wrap(err, "get plan")
+	}
+
+	if plan.Status != config.StatusExecuting {
+		return errors.Errorf("plan status is %s, can not skip", plan.Status)
+	}
+
+	if !(plan.StartTime == 0 && plan.EndTime == 0) {
+		now := time.Now().Unix()
+		if now < plan.StartTime || now > plan.EndTime {
+			return errors.Errorf("plan is not in the release time range")
+		}
+	}
+
+	if plan.ManagerID != c.UserID {
+		return errors.Errorf("only manager can skip")
+	}
+
+	skipper, err := NewReleaseJobSkipper(&SkipReleaseJobContext{
+		AuthResources: c.Resources,
+		UserID:        c.UserID,
+		Account:       c.Account,
+		UserName:      c.UserName,
+	}, args)
+	if err != nil {
+		return errors.Wrap(err, "new release job skipper")
+	}
+	if err = skipper.Skip(plan); err != nil {
+		return errors.Wrap(err, "skip")
+	}
+
+	plan.UpdatedBy = c.UserName
+	plan.UpdateTime = time.Now().Unix()
+
+	if checkReleasePlanJobsAllDone(plan) {
+		plan.ExecutingTime = time.Now().Unix()
+		plan.SuccessTime = time.Now().Unix()
+		plan.Status = config.StatusSuccess
+	}
+
+	if err = mongodb.NewReleasePlanColl().UpdateByID(ctx, planID, plan); err != nil {
+		return errors.Wrap(err, "update plan")
+	}
+
+	go func() {
+		if err := mongodb.NewReleasePlanLogColl().Create(&models.ReleasePlanLog{
+			PlanID:     planID,
+			Username:   c.UserName,
+			Account:    c.Account,
+			Verb:       VerbSkip,
+			TargetName: args.Name,
+			TargetType: TargetTypeReleaseJob,
+			CreatedAt:  time.Now().Unix(),
+		}); err != nil {
+			log.Errorf("create release plan log error: %v", err)
+		}
+	}()
+
+	return nil
+}
+
 func UpdateReleasePlanStatus(c *handler.Context, planID, status string) error {
 	approveLock := getLock(planID)
 	approveLock.Lock()
@@ -412,7 +542,7 @@ func ApproveReleasePlan(c *handler.Context, planID string, req *ApproveRequest) 
 	}
 
 	plan.Approval.NativeApproval = approval
-	approved, _, err := approvalservice.GlobalApproveMap.IsApproval(approvalKey)
+	approved, _, _, err := approvalservice.GlobalApproveMap.IsApproval(approvalKey)
 	if err != nil {
 		plan.Approval.Status = config.StatusReject
 	}
@@ -503,7 +633,7 @@ func clearApprovalData(approval *models.Approval) error {
 
 func checkReleasePlanJobsAllDone(plan *models.ReleasePlan) bool {
 	for _, job := range plan.Jobs {
-		if job.Status != config.ReleasePlanJobStatusDone {
+		if job.Status != config.ReleasePlanJobStatusDone && job.Status != config.ReleasePlanJobStatusSkipped {
 			return false
 		}
 	}

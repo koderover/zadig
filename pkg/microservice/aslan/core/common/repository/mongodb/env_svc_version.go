@@ -27,6 +27,7 @@ import (
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/v2/pkg/setting"
 	mongotool "github.com/koderover/zadig/v2/pkg/tool/mongo"
 )
 
@@ -59,8 +60,9 @@ func (c *EnvVersionColl) EnsureIndex(ctx context.Context) error {
 				bson.E{Key: "production", Value: 1},
 				bson.E{Key: "service.service_name", Value: 1},
 				bson.E{Key: "service.release_name", Value: 1},
+				bson.E{Key: "service.type", Value: 1},
 			},
-			Options: options.Index().SetUnique(false).SetName("idx_service"),
+			Options: options.Index().SetUnique(false).SetName("idx_service_1"),
 		},
 		{
 			Keys: bson.D{
@@ -69,11 +71,15 @@ func (c *EnvVersionColl) EnsureIndex(ctx context.Context) error {
 				bson.E{Key: "production", Value: 1},
 				bson.E{Key: "service.service_name", Value: 1},
 				bson.E{Key: "service.release_name", Value: 1},
+				bson.E{Key: "service.type", Value: 1},
 				bson.E{Key: "revision", Value: 1},
 			},
-			Options: options.Index().SetUnique(true).SetName("idx_service_revision"),
+			Options: options.Index().SetUnique(true).SetName("idx_service_revision_1"),
 		},
 	}
+
+	_, _ = c.Indexes().DropOne(ctx, "idx_service")
+	_, _ = c.Indexes().DropOne(ctx, "idx_service_revision")
 
 	_, err := c.Indexes().CreateMany(ctx, mod)
 
@@ -90,6 +96,7 @@ func (c *EnvVersionColl) Find(productName, envName, serviceName string, isHelmCh
 
 	if isHelmChart {
 		query["service.release_name"] = serviceName
+		query["service.type"] = setting.HelmChartDeployType
 	} else {
 		query["service.service_name"] = serviceName
 	}
@@ -108,6 +115,7 @@ func (c *EnvVersionColl) GetCountAndMaxRevision(productName, envName, serviceNam
 	if isHelmChart {
 		delete(match, "service.service_name")
 		match["service.release_name"] = serviceName
+		match["service.type"] = setting.HelmChartDeployType
 	}
 
 	pipeline := []bson.M{
@@ -153,6 +161,7 @@ func (c *EnvVersionColl) ListServiceVersions(productName, envName, serviceName s
 
 	if isHelmChart {
 		query["service.release_name"] = serviceName
+		query["service.type"] = setting.HelmChartDeployType
 	} else {
 		query["service.service_name"] = serviceName
 	}
@@ -181,6 +190,7 @@ func (c *EnvVersionColl) DeleteRevisions(productName, envName, serviceName strin
 
 	if isHelmChart {
 		query["service.release_name"] = serviceName
+		query["service.type"] = setting.HelmChartDeployType
 	} else {
 		query["service.service_name"] = serviceName
 	}

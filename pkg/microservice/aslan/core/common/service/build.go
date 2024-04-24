@@ -195,6 +195,7 @@ func MergeBuildEnvs(templateEnvs []*commonmodels.KeyVal, customEnvs []*commonmod
 	retEnvs := make([]*commonmodels.KeyVal, 0)
 	for _, v := range templateEnvs {
 		if cv, ok := customEnvMap[v.Key]; ok {
+			cv.ChoiceOption = v.ChoiceOption
 			retEnvs = append(retEnvs, cv)
 		} else {
 			retEnvs = append(retEnvs, v)

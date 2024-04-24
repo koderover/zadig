@@ -216,8 +216,9 @@ func GetK8sSvcRenderArgs(productName, envName, serviceName string, production bo
 	var err error
 	if len(envName) > 0 {
 		productInfo, err = commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
-			Name:    productName,
-			EnvName: envName,
+			Name:       productName,
+			EnvName:    envName,
+			Production: &production,
 		})
 	}
 

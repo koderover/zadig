@@ -185,7 +185,7 @@ func CreateServiceTask(args *commonmodels.ServiceTaskArgs, log *zap.SugaredLogge
 		return nil, fmt.Errorf("服务[%s]的构建名称和服务版本必须有一个存在", args.ServiceName)
 	} else if args.BuildName == "" && args.Revision > 0 {
 		serviceTmpl, err := commonservice.GetServiceTemplate(
-			args.ServiceName, setting.PMDeployType, args.ProductName, setting.ProductStatusDeleting, args.Revision, log,
+			args.ServiceName, setting.PMDeployType, args.ProductName, setting.ProductStatusDeleting, args.Revision, false, log,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("GetServiceTemplate servicename:%s revision:%d err:%v ", args.ServiceName, args.Revision, err)

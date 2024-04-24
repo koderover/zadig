@@ -278,12 +278,23 @@ func (p *ZadigDeployJobInput) UpdateJobSpec(job *commonmodels.Job) (*commonmodel
 	}
 
 	newSpec.Env = p.EnvName
-
-	for _, svcDeploy := range newSpec.ServiceAndImages {
-		for _, inputSvc := range p.ServiceList {
-			if inputSvc.ServiceName == svcDeploy.ServiceName && inputSvc.ServiceModule == svcDeploy.ServiceModule {
-				svcDeploy.Image = inputSvc.ImageName
+	newSpec.Services = make([]*commonmodels.DeployServiceInfo, 0)
+	serviceMap := map[string]*commonmodels.DeployServiceInfo{}
+	for _, inputSvc := range p.ServiceList {
+		if serivce, ok := serviceMap[inputSvc.ServiceName]; ok {
+			serivce.Modules = append(serivce.Modules, &commonmodels.DeployModuleInfo{
+				Image:         inputSvc.ImageName,
+				ServiceModule: inputSvc.ServiceModule,
+			})
+		} else {
+			serviceMap[inputSvc.ServiceName] = &commonmodels.DeployServiceInfo{
+				ServiceName: inputSvc.ServiceName,
+				Modules: append([]*commonmodels.DeployModuleInfo{}, &commonmodels.DeployModuleInfo{
+					Image:         inputSvc.ImageName,
+					ServiceModule: inputSvc.ServiceModule,
+				}),
 			}
+			newSpec.Services = append(newSpec.Services, serviceMap[inputSvc.ServiceName])
 		}
 	}
 

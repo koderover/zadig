@@ -76,7 +76,7 @@ func CreateVariableSet(c *gin.Context) {
 	}
 
 	// license checks
-	err = util.CheckZadigXLicenseStatus()
+	err = util.CheckZadigProfessionalLicense()
 	if err != nil {
 		ctx.Err = err
 		return
@@ -121,7 +121,7 @@ func UpdateVariableSet(c *gin.Context) {
 	}
 
 	// license checks
-	err = util.CheckZadigXLicenseStatus()
+	err = util.CheckZadigProfessionalLicense()
 	if err != nil {
 		ctx.Err = err
 		return
@@ -167,7 +167,7 @@ func DeleteVariableSet(c *gin.Context) {
 	}
 
 	// license checks
-	err = util.CheckZadigXLicenseStatus()
+	err = util.CheckZadigProfessionalLicense()
 	if err != nil {
 		ctx.Err = err
 		return

@@ -26,7 +26,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"time"
 )
 
 func init() {
@@ -37,7 +36,6 @@ func init() {
 func V220ToV230() error {
 	log.Infof("-------- start migrate host project data --------")
 	err := migrateHostProjectData()
-	time.Sleep(time.Second * 100)
 	if err != nil {
 		log.Errorf("migrateHostProjectData error: %s", err)
 		return err
@@ -73,13 +71,6 @@ func migrateHostProjectData() error {
 		for _, svc := range templateServices {
 			tempSvcMap[svc.ServiceName] = svc
 		}
-
-		//getSvcRevision := func(svcName string) int64 {
-		//	if svc, ok := tempSvcMap[svcName]; ok {
-		//		return svc.Revision
-		//	}
-		//	return 1
-		//}
 
 		products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
 			Name: project.ProductName,

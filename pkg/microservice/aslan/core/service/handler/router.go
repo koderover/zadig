@@ -44,29 +44,6 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		helm.PUT("/services/releaseNaming", HelmReleaseNaming)
 	}
 
-	productionservices := router.Group("production/services")
-	{
-		productionservices.GET("", ListProductionServices)
-		productionservices.GET("/:name/k8s", GetProductionK8sService)
-		productionservices.GET("/:name", GetProductionK8sServiceOption)
-		productionservices.POST("k8s", CreateK8sProductionService)
-		productionservices.PUT("/:name/k8s/variable", UpdateK8sProductionServiceVariables)
-		productionservices.DELETE("/:name", DeleteProductionService)
-	}
-
-	helmProductionServices := router.Group("helm/production/services")
-	{
-		helmProductionServices.GET("", ListHelmProductionServices)
-		helmProductionServices.POST("", CreateHelmProductionService)
-		helmProductionServices.PUT("", UpdateHelmProductionService)
-
-		helmProductionServices.GET("/:name/serviceModule", GetProductionHelmServiceModule)
-		helmProductionServices.PUT("/:name/file", UpdateProductionSvcFileContent)
-		helmProductionServices.GET("/:name/filePath", GetProductionHelmFilePath)
-		helmProductionServices.GET("/:name/fileContent", GetProductionHelmFileContent)
-		helmProductionServices.PUT("/:name/releaseNaming", UpdateProductionHelmReleaseNaming)
-	}
-
 	k8s := router.Group("services")
 	{
 		k8s.GET("", ListServiceTemplate)
@@ -77,22 +54,19 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		k8s.PUT("", UpdateServiceTemplate)
 		k8s.PUT("/yaml/validator", YamlValidator)
 		k8s.DELETE("/:name/:type", DeleteServiceTemplate)
-		k8s.GET("/:name/:type/ports", ListServicePort)
 		k8s.GET("/:name/environments/deployable", GetDeployableEnvs)
+		k8s.POST("/variable/convert", ConvertVaraibleKVAndYaml)
+
 		k8s.GET("/kube/workloads", GetKubeWorkloads)
 		k8s.POST("/yaml", LoadKubeWorkloadsYaml)
-		k8s.POST("/variable/convert", ConvertVaraibleKVAndYaml)
 	}
 
+	// host env and service api
 	workload := router.Group("workloads")
 	{
 		workload.POST("", CreateK8sWorkloads)
 		workload.GET("", ListWorkloadTemplate)
 		workload.PUT("", UpdateWorkloads)
-
-		workload.POST("/production", CreateProductionK8sWorkloads)
-		workload.GET("/production", ListProductionWorkloadTemplate)
-		workload.PUT("/production", UpdateProductionWorkloads)
 	}
 
 	loader := router.Group("loader")
@@ -112,8 +86,6 @@ func (*Router) Inject(router *gin.RouterGroup) {
 
 	template := router.Group("template")
 	{
-		template.POST("/production/load", LoadProductionServiceFromYamlTemplate)
-		template.POST("/production/reload", ReloadProductionServiceFromYamlTemplate)
 		template.POST("/load", LoadServiceFromYamlTemplate)
 		template.POST("/reload", ReloadServiceFromYamlTemplate)
 		template.POST("/preview", PreviewServiceYamlFromYamlTemplate)
@@ -125,14 +97,6 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		version.GET("/:serviceName/diff", DiffServiceVersions)
 		version.GET("/:serviceName/revision/:revision", GetServiceVersionYaml)
 		version.POST("/:serviceName/rollback", RollbackServiceVersion)
-	}
-
-	productionVersion := router.Group("production/version")
-	{
-		productionVersion.GET("/:serviceName", ListProductionServiceVersions)
-		productionVersion.GET("/:serviceName/diff", DiffProductionServiceVersions)
-		productionVersion.GET("/:serviceName/revision/:revision", GetProductionServiceVersionYaml)
-		productionVersion.POST("/:serviceName/rollback", RollbackProductionServiceVersion)
 	}
 }
 

@@ -152,7 +152,7 @@ func GetWorkflowTaskSSE(c *gin.Context) {
 				ctx.Logger.Errorf("[%s] GetPipelineTaskSSE error: %v", ctx.UserName, err)
 				return false, err
 			}
-			releases, err := service.ListDeliveryVersion(&service.ListDeliveryVersionArgs{
+			releases, _, err := service.ListDeliveryVersion(&service.ListDeliveryVersionArgs{
 				TaskId:       int(res.TaskID),
 				ServiceName:  res.ServiceName,
 				ProjectName:  res.ProductName,

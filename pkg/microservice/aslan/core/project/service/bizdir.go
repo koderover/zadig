@@ -398,7 +398,7 @@ func GetBizDirServiceDetail(projectName, serviceName string) ([]GetBizDirService
 			}
 
 			serviceTmpl, err := commonservice.GetServiceTemplate(
-				prodSvc.ServiceName, setting.PMDeployType, prodSvc.ProductName, "", prodSvc.Revision, log.SugaredLogger(),
+				prodSvc.ServiceName, setting.PMDeployType, prodSvc.ProductName, "", prodSvc.Revision, false, log.SugaredLogger(),
 			)
 			if err != nil {
 				detail.Error = fmt.Sprintf("failed to get service template for productName: %s, serviceName: %s, revision %d, error: %v",

@@ -51,12 +51,24 @@ func (j *MseGrayOfflineJob) SetPreset() error {
 	return nil
 }
 
+func (j *MseGrayOfflineJob) SetOptions() error {
+	return nil
+}
+
+func (j *MseGrayOfflineJob) ClearSelectionField() error {
+	return nil
+}
+
 func (j *MseGrayOfflineJob) MergeArgs(args *commonmodels.Job) error {
 	j.spec = &commonmodels.MseGrayOfflineJobSpec{}
 	if err := commonmodels.IToi(args.Spec, j.spec); err != nil {
 		return err
 	}
 	j.job.Spec = j.spec
+	return nil
+}
+
+func (j *MseGrayOfflineJob) UpdateWithLatestSetting() error {
 	return nil
 }
 
@@ -89,7 +101,7 @@ func (j *MseGrayOfflineJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error
 }
 
 func (j *MseGrayOfflineJob) LintJob() error {
-	if err := util.CheckZadigXLicenseStatus(); err != nil {
+	if err := util.CheckZadigProfessionalLicense(); err != nil {
 		return e.ErrLicenseInvalid.AddDesc("")
 	}
 

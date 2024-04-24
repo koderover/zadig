@@ -62,7 +62,7 @@ func NewJunitReportStep(spec interface{}, workspace string, envs, secretEnvs []s
 }
 
 func (s *JunitReportStep) Run(ctx context.Context) error {
-	log.Info("%s   Start merge ginkgo test results.", time.Now().Format(setting.WorkflowTimeFormat))
+	log.Info("Start merge ginkgo test results.")
 	if err := os.MkdirAll(s.spec.DestDir, os.ModePerm); err != nil {
 		return fmt.Errorf("create dest dir: %s error: %s", s.spec.DestDir, err)
 	}
@@ -75,9 +75,9 @@ func (s *JunitReportStep) Run(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to merge test result: %s", err)
 	}
-	log.Info("%s   Finish merge ginkgo test results.", time.Now().Format(setting.WorkflowTimeFormat))
+	log.Info("Finish merge ginkgo test results.")
 
-	log.Infof("%s   Start archive %s.", time.Now().Format(setting.WorkflowTimeFormat), s.spec.FileName)
+	log.Infof("Start archive %s.", s.spec.FileName)
 	if s.spec.S3DestDir == "" || s.spec.FileName == "" {
 		return nil
 	}
@@ -113,7 +113,7 @@ func (s *JunitReportStep) Run(ctx context.Context) error {
 			return err
 		}
 	}
-	log.Infof("%s   Finish archive %s.", time.Now().Format(setting.WorkflowTimeFormat), s.spec.FileName)
+	log.Infof("Finish archive %s.", s.spec.FileName)
 	if failedCaseCount > 0 {
 		return fmt.Errorf("%d case(s) failed", failedCaseCount)
 	}
@@ -146,12 +146,12 @@ func mergeGinkgoTestResults(testResultFile, testResultPath, testUploadPath strin
 	for _, file := range files {
 		if filepath.Ext(file.Name()) == ".xml" {
 			filePath := path.Join(testResultPath, file.Name())
-			log.Infof("%s   name %s mod time: %v", time.Now().Format(setting.WorkflowTimeFormat), file.Name(), file.ModTime())
+			log.Infof("name %s mod time: %v", file.Name(), file.ModTime())
 
 			// 1. read file
 			xmlBytes, err2 := ioutil.ReadFile(filePath)
 			if err2 != nil {
-				log.Warningf("%s   Read file [%s], error: %v", time.Now().Format(setting.WorkflowTimeFormat), filePath, err2)
+				log.Warningf("Read file [%s], error: %v", filePath, err2)
 				continue
 			}
 
@@ -161,7 +161,7 @@ func mergeGinkgoTestResults(testResultFile, testResultPath, testUploadPath strin
 				var results *meta.TestSuites
 				err2 = xml.Unmarshal(xmlBytes, &results)
 				if err2 != nil {
-					log.Warningf("%s   Unmarshal xml file [%s], error: %v\n", time.Now().Format(setting.WorkflowTimeFormat), filePath, err2)
+					log.Warningf("Unmarshal xml file [%s], error: %v\n", filePath, err2)
 					continue
 				}
 				for _, testSuite := range results.TestSuites {
@@ -181,7 +181,7 @@ func mergeGinkgoTestResults(testResultFile, testResultPath, testUploadPath strin
 				var result *meta.TestSuite
 				err2 = xml.Unmarshal(xmlBytes, &result)
 				if err2 != nil {
-					log.Warningf("%s   Unmarshal xml file [%s], error: %v\n", time.Now().Format(setting.WorkflowTimeFormat), filePath, err2)
+					log.Warningf("Unmarshal xml file [%s], error: %v\n", filePath, err2)
 					continue
 				}
 				// 4. process summary result attribute
@@ -223,7 +223,7 @@ func mergeGinkgoTestResults(testResultFile, testResultPath, testUploadPath strin
 		return failedCaseCount, err
 	}
 
-	log.Infof("%s   merge test results files %s succeeded", time.Now().Format(setting.WorkflowTimeFormat), testResultFile)
+	log.Infof("merge test results files %s succeeded", testResultFile)
 	return summaryResult.Failures, nil
 }
 

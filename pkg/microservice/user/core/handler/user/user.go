@@ -161,6 +161,15 @@ func ListUsers(c *gin.Context) {
 		ctx.Err = err
 		return
 	}
+
+	if args.Page == 0 {
+		args.Page = 1
+	}
+
+	if args.PerPage == 0 {
+		args.PerPage = 200
+	}
+
 	if len(args.UIDs) > 0 {
 		ctx.Resp, ctx.Err = permission.SearchUsersByUIDs(args.UIDs, ctx.Logger)
 	} else if len(args.Account) > 0 {
@@ -254,6 +263,14 @@ func ListUsersBrief(c *gin.Context) {
 	if err := c.ShouldBindJSON(args); err != nil {
 		ctx.Err = err
 		return
+	}
+
+	if args.Page == 0 {
+		args.Page = 1
+	}
+
+	if args.PerPage == 0 {
+		args.PerPage = 200
 	}
 
 	var resp *types.UsersResp
