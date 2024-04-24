@@ -27,6 +27,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
 type SQLJobCtl struct {
@@ -91,10 +92,16 @@ func (c *SQLJobCtl) ExecMySQLStatement() error {
 	defer db.Close()
 
 	// 插入示例
-	_, err = db.Exec(c.jobTaskSpec.SQL)
+	result, err := db.Exec(c.jobTaskSpec.SQL)
 	if err != nil {
 		return errors.Errorf("exec SQL error: %v", err)
 	}
+	c.jobTaskSpec.RowsAffected, err = result.RowsAffected()
+	if err != nil {
+		return errors.Errorf("get affect rows error: %v", err)
+	}
+	log.Debugf("SQL: %s, affect rows: %d", c.jobTaskSpec.SQL, c.jobTaskSpec.RowsAffected)
+
 	return nil
 }
 

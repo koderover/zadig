@@ -444,9 +444,10 @@ type NacosData struct {
 }
 
 type JobTaskSQLSpec struct {
-	ID   string                `bson:"id" json:"id" yaml:"id"`
-	Type config.DBInstanceType `bson:"type" json:"type" yaml:"type"`
-	SQL  string                `bson:"sql" json:"sql" yaml:"sql"`
+	ID           string                `bson:"id" json:"id" yaml:"id"`
+	Type         config.DBInstanceType `bson:"type" json:"type" yaml:"type"`
+	SQL          string                `bson:"sql" json:"sql" yaml:"sql"`
+	RowsAffected int64                 `bson:"rows_affected" json:"rows_affected" yaml:"rows_affected"`
 }
 
 type JobTaskApolloSpec struct {
