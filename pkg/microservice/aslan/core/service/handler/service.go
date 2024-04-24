@@ -43,7 +43,6 @@ func ListServiceTemplate(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -146,7 +145,8 @@ func GetServiceTemplate(c *gin.Context) {
 			return
 		}
 		if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectName].Service.View {
+			!ctx.Resources.ProjectAuthInfo[projectName].Service.View &&
+			!ctx.Resources.ProjectAuthInfo[projectName].Env.View {
 			ctx.UnAuthorized = true
 			return
 		}
