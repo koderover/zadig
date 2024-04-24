@@ -79,3 +79,11 @@ type Identity struct {
 	UID          string `json:"uid,omitempty"`
 	GID          string `json:"gid,omitempty"`
 }
+
+func (id *Identity) GetID() string {
+	if id.IdentityType == "user" {
+		return id.UID
+	} else {
+		return id.GID
+	}
+}

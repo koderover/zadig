@@ -26,7 +26,12 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/koderover/zadig/v2/pkg/shared/client/systemconfig"
+	"github.com/koderover/zadig/v2/pkg/shared/client/user"
+	"github.com/koderover/zadig/v2/pkg/tool/mail"
+	"github.com/koderover/zadig/v2/pkg/types"
 	"github.com/pkg/errors"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	configbase "github.com/koderover/zadig/v2/pkg/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
@@ -35,12 +40,9 @@ import (
 	approvalservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/approval"
 	dingservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/dingtalk"
 	larkservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/lark"
-	"github.com/koderover/zadig/v2/pkg/shared/client/systemconfig"
-	"github.com/koderover/zadig/v2/pkg/shared/client/user"
 	"github.com/koderover/zadig/v2/pkg/tool/dingtalk"
 	"github.com/koderover/zadig/v2/pkg/tool/lark"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
-	"github.com/koderover/zadig/v2/pkg/tool/mail"
 )
 
 //go:embed approval.html
@@ -210,48 +212,114 @@ func updateDingTalkApproval(ctx context.Context, approvalInfo *models.Approval) 
 	return nil
 }
 
+func geneFlatNativeApprovalUsers(approval *models.NativeApproval) ([]*models.User, map[string]*types.UserInfo) {
+	// change [group + user] approvals to user approvals
+	approvalUsers := make([]*models.User, 0)
+	userSet := sets.NewString()
+	userMap := make(map[string]*types.UserInfo)
+
+	if approval == nil {
+		return approvalUsers, userMap
+	}
+
+	for _, u := range approval.ApproveUsers {
+		if u.Type == "user" || u.Type == "" {
+			userSet.Insert(u.UserID)
+			approvalUsers = append(approvalUsers, u)
+		}
+	}
+	for _, u := range approval.ApproveUsers {
+		if u.Type == "group" {
+			groupInfo, err := user.New().GetGroupDetailedInfo(u.GroupID)
+			if err != nil {
+				log.Warnf("CreateNativeApproval GetGroupDetailedInfo error, error msg:%s", err)
+				continue
+			}
+			for _, uid := range groupInfo.UIDs {
+				if userSet.Has(uid) {
+					continue
+				}
+				userSet.Insert(uid)
+				userDetailedInfo, err := user.New().GetUserByID(uid)
+				if err != nil {
+					log.Errorf("failed to find user %s, error: %s", uid, err)
+					continue
+				}
+				userMap[uid] = userDetailedInfo
+				approvalUsers = append(approvalUsers, &models.User{
+					Type:     "user",
+					UserID:   uid,
+					UserName: userDetailedInfo.Name,
+				})
+			}
+		}
+	}
+
+	return approvalUsers, userMap
+}
+
 func createNativeApproval(plan *models.ReleasePlan, url string) error {
 	if plan == nil || plan.Approval == nil || plan.Approval.NativeApproval == nil {
 		return errors.New("createNativeApproval: native approval data not found")
 	}
 	approval := plan.Approval.NativeApproval
 
+	approvalUsers, userMap := geneFlatNativeApprovalUsers(approval)
+
+	// send email to all approval users if necessary
 	go func() {
-		email, err := systemconfig.New().GetEmailHost()
-		if err != nil {
-			log.Errorf("CreateNativeApproval GetEmailHost error, error msg:%s", err)
+		var err error
+		mailNotifyInfo := ""
+		var email *systemconfig.Email
+
+		for {
+			email, err = systemconfig.New().GetEmailHost()
+			if err != nil {
+				log.Errorf("CreateNativeApproval GetEmailHost error, error msg:%s", err)
+				break
+			}
+
+			t, err := template.New("approval").Parse(string(approvalHTML))
+			if err != nil {
+				log.Errorf("CreateNativeApproval template parse error, error msg:%s", err)
+				break
+			}
+			var buf bytes.Buffer
+			err = t.Execute(&buf, struct {
+				PlanName    string
+				Manager     string
+				Description string
+				TimeRange   string
+				Url         string
+			}{
+				PlanName:    plan.Name,
+				Manager:     plan.Manager,
+				Description: plan.Description,
+				TimeRange:   time.Unix(plan.StartTime, 0).Format("2006-01-02 15:04:05") + "-" + time.Unix(plan.EndTime, 0).Format("2006-01-02 15:04:05"),
+				Url:         url,
+			})
+			if err != nil {
+				log.Errorf("CreateNativeApproval template execute error, error msg:%s", err)
+				break
+			}
+			mailNotifyInfo = buf.String()
+			break
+		}
+
+		if email == nil {
 			return
 		}
 
-		t, err := template.New("approval").Parse(string(approvalHTML))
-		if err != nil {
-			log.Errorf("CreateNativeApproval template parse error, error msg:%s", err)
-			return
-		}
-		var buf bytes.Buffer
-		err = t.Execute(&buf, struct {
-			PlanName    string
-			Manager     string
-			Description string
-			TimeRange   string
-			Url         string
-		}{
-			PlanName:    plan.Name,
-			Manager:     plan.Manager,
-			Description: plan.Description,
-			TimeRange:   time.Unix(plan.StartTime, 0).Format("2006-01-02 15:04:05") + "-" + time.Unix(plan.EndTime, 0).Format("2006-01-02 15:04:05"),
-			Url:         url,
-		})
-		if err != nil {
-			log.Errorf("CreateNativeApproval template execute error, error msg:%s", err)
-			return
-		}
-		for _, u := range approval.ApproveUsers {
-			info, err := user.New().GetUserByID(u.UserID)
-			if err != nil {
-				log.Warnf("CreateNativeApproval GetUserByUid error, error msg:%s", err)
-				continue
+		for _, u := range approvalUsers {
+			info, ok := userMap[u.UserID]
+			if !ok {
+				info, err = user.New().GetUserByID(u.UserID)
+				if err != nil {
+					log.Warnf("CreateNativeApproval GetUserByUid error, error msg:%s", err)
+					continue
+				}
 			}
+
 			if info.Email == "" {
 				log.Warnf("CreateNativeApproval user %s email is empty", info.Name)
 				continue
@@ -264,7 +332,7 @@ func createNativeApproval(plan *models.ReleasePlan, url string) error {
 				UserName: email.UserName,
 				Password: email.Password,
 				Port:     email.Port,
-				Body:     buf.String(),
+				Body:     mailNotifyInfo,
 			})
 			if err != nil {
 				log.Errorf("CreateNativeApproval SendEmail error, error msg:%s", err)
@@ -273,10 +341,14 @@ func createNativeApproval(plan *models.ReleasePlan, url string) error {
 		}
 	}()
 
+	originApprovalUser := approval.ApproveUsers
+	approval.ApproveUsers = approvalUsers
+
 	approveKey := uuid.New().String()
 	approval.InstanceCode = approveKey
-	approveWithL := approval
-	approvalservice.GlobalApproveMap.SetApproval(approveKey, approveWithL)
+
+	approvalservice.GlobalApproveMap.SetApproval(approveKey, approval)
+	approval.ApproveUsers = originApprovalUser
 	return nil
 }
 

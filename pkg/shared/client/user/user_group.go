@@ -35,3 +35,13 @@ func (c *Client) GetGroupDetailedInfo(groupID string) (*types.DetailedUserGroupR
 
 	return resp, nil
 }
+
+func (c *Client) GetUserGroupsByUid(uid string) (*types.ListUserGroupResp, error) {
+	url := "/user-group"
+	resp := &types.ListUserGroupResp{}
+	queries := make(map[string]string)
+	queries["uid"] = uid
+
+	_, err := c.Get(url, httpclient.SetQueryParams(queries), httpclient.SetResult(resp))
+	return resp, err
+}

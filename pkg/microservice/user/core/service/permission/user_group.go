@@ -132,6 +132,31 @@ type UserGroupResp struct {
 	UserTotal   int64  `json:"user_total"`
 }
 
+func ListUserGroupsByUid(uid string, logger *zap.SugaredLogger) ([]*UserGroupResp, int64, error) {
+	groups, err := orm.ListUserGroupByUID(uid, repository.DB)
+	if err != nil {
+		logger.Errorf("failed to list user groups by uid: %s, error: %s", uid, err)
+		return nil, 0, err
+	}
+
+	resp := make([]*UserGroupResp, 0)
+	for _, group := range groups {
+		respItem := &UserGroupResp{
+			ID:          group.GroupID,
+			Name:        group.GroupName,
+			Description: group.Description,
+		}
+		if group.Type == int64(setting.RoleTypeSystem) {
+			respItem.Type = string(setting.ResourceTypeSystem)
+		} else {
+			respItem.Type = string(setting.ResourceTypeCustom)
+		}
+		resp = append(resp, respItem)
+	}
+
+	return resp, int64(len(resp)), nil
+}
+
 func ListUserGroups(queryName string, pageNum, pageSize int, logger *zap.SugaredLogger) ([]*UserGroupResp, int64, error) {
 	resp := make([]*UserGroupResp, 0)
 	tx := repository.DB.Begin()

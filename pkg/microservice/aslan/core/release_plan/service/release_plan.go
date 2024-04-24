@@ -135,7 +135,14 @@ func ListReleasePlans(pageNum, pageSize int64) (*ListReleasePlanResp, error) {
 func GetReleasePlan(id string) (*models.ReleasePlan, error) {
 	releasePlan, err := mongodb.NewReleasePlanColl().GetByID(context.Background(), id)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "GetReleasePlan")
+	}
+
+	// native approval users may be user or user groups
+	// convert to flat user when needed, this data is generated dynamically because group binding may be changed
+	if releasePlan.Approval != nil && releasePlan.Approval.NativeApproval != nil {
+		flatNativeApprovalUsers, _ := geneFlatNativeApprovalUsers(releasePlan.Approval.NativeApproval)
+		releasePlan.Approval.NativeApproval.FloatApproveUsers = flatNativeApprovalUsers
 	}
 
 	for _, releasePlanJob := range releasePlan.Jobs {
@@ -533,7 +540,11 @@ func ApproveReleasePlan(c *handler.Context, planID string, req *ApproveRequest) 
 	if !ok {
 		// restore data after restart aslan
 		log.Infof("updateNativeApproval: approval instance code %s not found, set it", plan.Approval.NativeApproval.InstanceCode)
+		approvalUsers, _ := geneFlatNativeApprovalUsers(plan.Approval.NativeApproval)
+		originApprovalUsers := plan.Approval.NativeApproval.ApproveUsers
+		plan.Approval.NativeApproval.ApproveUsers = approvalUsers
 		approvalservice.GlobalApproveMap.SetApproval(plan.Approval.NativeApproval.InstanceCode, plan.Approval.NativeApproval)
+		plan.Approval.NativeApproval.ApproveUsers = originApprovalUsers
 	}
 
 	approval, err = approvalservice.GlobalApproveMap.DoApproval(approvalKey, c.UserName, c.UserID, req.Comment, req.Approve)
