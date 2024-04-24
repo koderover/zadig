@@ -97,6 +97,15 @@ func (*Router) Inject(router *gin.RouterGroup) {
 			roles.DELETE("/:name", permission.DeleteRole)
 		}
 
+		roleTemplates := policy.Group("/role-templates")
+		{
+			roleTemplates.POST("", permission.CreateRoleTemplate)
+			roleTemplates.PUT("/:name", permission.UpdateRoleTemplate)
+			roleTemplates.GET("", permission.ListRoleTemplates)
+			roleTemplates.GET("/:name", permission.GetRoleTemplate)
+			roleTemplates.DELETE("/:name", permission.DeleteRoleTemplate)
+		}
+
 		roleBindings := policy.Group("/role-bindings")
 		{
 			roleBindings.GET("", permission.ListRoleBindings)

@@ -17,7 +17,9 @@ limitations under the License.
 package permission
 
 import (
+	"errors"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -233,7 +235,17 @@ func ListActionByRole(roleID uint) ([]string, error) {
 		}
 	}
 
-	actions, err := orm.ListActionByRole(roleID, repository.DB)
+	roleTemplateBind, err := orm.GetRoleTemplateBindingByRoleID(roleID, repository.DB)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find role template binding for role: %d, error: %s", roleID, err)
+	}
+	var actions []*models.Action
+	if roleTemplateBind != nil {
+		actions, err = orm.ListActionByRoleTemplate(roleTemplateBind.RoleTemplateID, repository.DB)
+	} else {
+		actions, err = orm.ListActionByRole(roleID, repository.DB)
+	}
+
 	if err != nil {
 		log.Errorf("failed to list actions by role id: %d from database, error: %s", roleID, err)
 		return nil, fmt.Errorf("failed to list actions by role id: %d from database, error: %s", roleID, err)
@@ -266,6 +278,14 @@ func CreateRole(ns string, req *CreateRoleReq, log *zap.SugaredLogger) error {
 		role.Type = int64(setting.RoleTypeSystem)
 	} else {
 		role.Type = int64(setting.RoleTypeCustom)
+	}
+
+	if ns != "*" {
+		roleTemplate, err := orm.GetRoleTemplate(req.Name, tx)
+		if err == nil && roleTemplate.ID > 0 {
+			tx.Rollback()
+			return fmt.Errorf("can't create role with the same name as golbal role: %s", req.Name)
+		}
 	}
 
 	err := orm.CreateRole(role, tx)
@@ -330,6 +350,11 @@ func UpdateRole(ns string, req *CreateRoleReq, log *zap.SugaredLogger) error {
 		return fmt.Errorf("failed to find role: [%s] in namespace [%s], error: %s", req.Namespace, ns, err)
 	}
 
+	if roleInfo.Type == int64(setting.RoleTypeSystem) {
+		tx.Rollback()
+		return fmt.Errorf("can't update system role: %s", req.Name)
+	}
+
 	err = orm.DeleteRoleActionBindingByRole(roleInfo.ID, tx)
 	if err != nil {
 		log.Errorf("failed to delete role-action binding for role: %s, error: %s", roleInfo.Name, err)
@@ -385,12 +410,30 @@ func UpdateRole(ns string, req *CreateRoleReq, log *zap.SugaredLogger) error {
 	return nil
 }
 
+// ListRolesByNamespace list roles
+// For roles in projects, system roles will be returned as lazy initialization
 func ListRolesByNamespace(projectName string, log *zap.SugaredLogger) ([]*types.Role, error) {
 	roles, err := orm.ListRoleByNamespace(projectName, repository.DB)
-	if err != nil && err != gorm.ErrRecordNotFound {
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		log.Errorf("failed to list roles in project: %s, error: %s", projectName, err)
 		return nil, fmt.Errorf("failed to list roles in project: %s, error: %s", projectName, err)
 	}
+
+	roles, err = lazySyncRoleTemplates(projectName, roles)
+	if err != nil {
+		log.Errorf("failed to sync role templates, error: %s", err)
+		return nil, fmt.Errorf("failed to sync role templates, error: %s", err)
+	}
+
+	sort.Slice(roles, func(i, j int) bool {
+		if roles[i].Type == int64(setting.RoleTypeCustom) && roles[j].Type == int64(setting.RoleTypeSystem) {
+			return true
+		}
+		if roles[i].Type == int64(setting.RoleTypeSystem) && roles[j].Type == int64(setting.RoleTypeCustom) {
+			return false
+		}
+		return roles[i].ID < roles[j].ID
+	})
 
 	resp := make([]*types.Role, 0)
 	for _, role := range roles {
@@ -404,6 +447,75 @@ func ListRolesByNamespace(projectName string, log *zap.SugaredLogger) ([]*types.
 	}
 
 	return resp, nil
+}
+
+func lazySyncRoleTemplates(namespace string, roles []*models.NewRole) ([]*models.NewRole, error) {
+	if namespace == "*" {
+		return roles, nil
+	}
+
+	roleSet := sets.NewString()
+	for _, role := range roles {
+		roleSet.Insert(role.Name)
+	}
+
+	ret := make([]*models.NewRole, 0)
+	for _, role := range roles {
+		ret = append(ret, role)
+	}
+
+	tx := repository.DB.Begin()
+
+	rolesNeedCreate := make([]*models.NewRole, 0)
+	roleTemplates, err := orm.ListRoleTemplates(tx)
+	if err != nil {
+		log.Errorf("failed to list role templates, error: %s", err)
+		return nil, fmt.Errorf("failed to list role templates, error: %s", err)
+	}
+	roleTemplateMap := make(map[string]uint)
+
+	for _, roleTemplate := range roleTemplates {
+		if roleSet.Has(roleTemplate.Name) {
+			continue
+		}
+		roleTemplateMap[roleTemplate.Name] = roleTemplate.ID
+		rolesNeedCreate = append(rolesNeedCreate, &models.NewRole{
+			Name:        roleTemplate.Name,
+			Description: roleTemplate.Description,
+			Namespace:   namespace,
+			Type:        int64(setting.RoleTypeSystem),
+		})
+	}
+
+	if len(rolesNeedCreate) == 0 {
+		tx.Rollback()
+		return roles, nil
+	}
+
+	err = orm.BulkCreateRole(rolesNeedCreate, tx)
+	if err != nil {
+		tx.Rollback()
+		return nil, fmt.Errorf("failed to create roles from template, error: %s", err)
+	}
+
+	templateRoleBinds := make([]*models.RoleTemplateBinding, 0)
+	for _, role := range rolesNeedCreate {
+		templateRoleBinds = append(templateRoleBinds, &models.RoleTemplateBinding{
+			RoleID:         role.ID,
+			RoleTemplateID: roleTemplateMap[role.Name],
+		})
+		ret = append(ret, role)
+	}
+
+	err = orm.BulkCreateRoleTemplateBindings(templateRoleBinds, tx)
+	if err != nil {
+		tx.Rollback()
+		return nil, fmt.Errorf("failed to create role-template bindings, error: %s", err)
+	}
+
+	tx.Commit()
+
+	return ret, nil
 }
 
 func ListRolesByNamespaceAndUserID(projectName, uid string, log *zap.SugaredLogger) ([]*types.Role, error) {
@@ -479,22 +591,35 @@ func DeleteRole(name string, projectName string, log *zap.SugaredLogger) error {
 	return nil
 }
 
+func BatchDeleteRole(roles []*models.NewRole, db *gorm.DB, log *zap.SugaredLogger) error {
+	// if nothing to delete, just return
+	if len(roles) == 0 {
+		return nil
+	}
+	err := orm.DeleteRoleByIDList(roles, db)
+	if err != nil {
+		log.Errorf("failed to batch delete roles, error: %s", err)
+		return fmt.Errorf("failed to batch delete roles, error: %s", err)
+	}
+	return nil
+}
+
 func CreateDefaultRolesForNamespace(namespace string, log *zap.SugaredLogger) error {
 	projectAdminRole := &models.NewRole{
 		Name:        "project-admin",
-		Description: "",
+		Description: "拥有指定项目中任何操作的权限",
 		Type:        int64(setting.RoleTypeSystem),
 		Namespace:   namespace,
 	}
 	readOnlyRole := &models.NewRole{
 		Name:        "read-only",
-		Description: "",
+		Description: "拥有指定项目中所有资源的读权限",
 		Type:        int64(setting.RoleTypeSystem),
 		Namespace:   namespace,
 	}
 	readProjectOnlyRole := &models.NewRole{
 		Name:        "read-project-only",
-		Description: "",
+		Description: "拥有指定项目本身的读权限，无权限查看和操作项目内资源",
 		Type:        int64(setting.RoleTypeSystem),
 		Namespace:   namespace,
 	}

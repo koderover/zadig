@@ -137,7 +137,7 @@ func GetUserPermissionByProject(uid, projectName string, log *zap.SugaredLogger)
 			continue
 		}
 
-		actions, err := orm.ListActionByRole(role.ID, repository.DB)
+		actions, err := ListActionByRole(role.ID)
 		if err != nil {
 			log.Errorf("failed to find action bindings for role: %s, error: %s", role.Name, err)
 			return nil, fmt.Errorf("failed to find action bindings for role: %s, error: %s", role.Name, err)
@@ -145,8 +145,8 @@ func GetUserPermissionByProject(uid, projectName string, log *zap.SugaredLogger)
 
 		roleActionMap[role.ID] = sets.NewString()
 		for _, action := range actions {
-			projectVerbSet.Insert(action.Action)
-			roleActionMap[role.ID].Insert(action.Action)
+			projectVerbSet.Insert(action)
+			roleActionMap[role.ID].Insert(action)
 		}
 	}
 

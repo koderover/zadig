@@ -125,6 +125,7 @@ func GetUserAuthInfo(uid string, logger *zap.SugaredLogger) (*AuthorizedResource
 
 		if role.Name == ProjectAdminRole {
 			projectActionMap[role.Namespace].IsProjectAdmin = true
+			continue
 		}
 
 		// first get actions from the roles

@@ -159,6 +159,7 @@ func GetServiceTemplate(c *gin.Context) {
 			ctx.UnAuthorized = true
 			return
 		}
+
 		if production {
 			if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
 				!ctx.Resources.ProjectAuthInfo[projectName].ProductionService.View {
@@ -167,7 +168,9 @@ func GetServiceTemplate(c *gin.Context) {
 			}
 		} else {
 			if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
-				!ctx.Resources.ProjectAuthInfo[projectName].Service.View {
+				!ctx.Resources.ProjectAuthInfo[projectName].Service.View &&
+				// special case for vm project
+				!ctx.Resources.ProjectAuthInfo[projectName].Env.View {
 				ctx.UnAuthorized = true
 				return
 			}
