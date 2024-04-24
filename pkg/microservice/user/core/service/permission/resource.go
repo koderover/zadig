@@ -125,17 +125,17 @@ func GetResourceActionDefinitions(scope, envType string, log *zap.SugaredLogger)
 		// there are special case where we will just skip
 		// 1. when envType is k8s, we don't need ssh_pm for environment (production env doesn't have this action)
 		// 2. when envType is pm, we don't need debug_pod for both environment and production env
+		// 3. when no envType is provided, filter nothing
 		if envType == setting.PMDeployType {
 			if action.Action == VerbDebugEnvironmentPod || action.Action == VerbDebugProductionEnvPod {
 				continue
 			}
-		}
-
-		if envType != setting.PMDeployType {
+		} else if envType != "" {
 			if action.Action == VerbEnvironmentSSHPM {
 				continue
 			}
 		}
+
 		resourceMap[action.Resource].Rules = append(resourceMap[action.Resource].Rules, &Action{
 			Action: action.Action,
 			Alias:  action.Name,
