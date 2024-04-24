@@ -20,11 +20,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	deliveryservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/delivery/service"
@@ -123,7 +123,6 @@ func ListDeliveryVersion(c *gin.Context) {
 	}
 
 	projectKey := args.ProjectName
-
 	if !ctx.Resources.IsSystemAdmin {
 		if projectKey == "" {
 			if !ctx.Resources.SystemActions.DeliveryCenter.ViewVersion {
@@ -160,7 +159,9 @@ func ListDeliveryVersion(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = deliveryservice.ListDeliveryVersion(args, ctx.Logger)
+	var total int
+	ctx.Resp, total, ctx.Err = deliveryservice.ListDeliveryVersion(args, ctx.Logger)
+	c.Writer.Header().Add("X-Total", strconv.Itoa(total))
 }
 
 func getFileName(fileName string) string {
@@ -187,56 +188,6 @@ type DeliveryFileDetail struct {
 type DeliveryFileInfo struct {
 	FileName           string               `json:"fileName"`
 	DeliveryFileDetail []DeliveryFileDetail `json:"versionInfo"`
-}
-
-func ListPackagesVersion(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	version := &commonrepo.DeliveryVersionArgs{
-		ProductName: c.Query("projectName"),
-	}
-	deliveryVersions, err := deliveryservice.FindDeliveryVersion(version, ctx.Logger)
-	if err != nil {
-		ctx.Err = e.NewHTTPError(500, err.Error())
-	}
-
-	fileMap := map[string][]DeliveryFileDetail{}
-
-	for _, deliveryVersion := range deliveryVersions {
-		//delivery := deliveryVersion
-		args := &commonrepo.DeliveryDistributeArgs{
-			ReleaseID:      deliveryVersion.ID.Hex(),
-			DistributeType: config.File,
-		}
-		distributeVersion, err := deliveryservice.FindDeliveryDistribute(args, ctx.Logger)
-		if err != nil {
-			ctx.Err = e.NewHTTPError(500, err.Error())
-		}
-
-		for _, distribute := range distributeVersion {
-			packageFile := distribute.PackageFile
-
-			fileMap[getFileName(packageFile)] = append(
-				fileMap[getFileName(packageFile)], DeliveryFileDetail{
-					FileVersion:     getFileVersion(packageFile),
-					DeliveryVersion: deliveryVersion.Version,
-					DeliveryID:      deliveryVersion.ID.Hex(),
-				})
-		}
-	}
-
-	fileInfoList := make([]*DeliveryFileInfo, 0)
-	for fileName, versionList := range fileMap {
-		info := DeliveryFileInfo{
-			FileName:           fileName,
-			DeliveryFileDetail: versionList,
-		}
-		fileInfoList = append(fileInfoList, &info)
-	}
-
-	ctx.Err = err
-	ctx.Resp = fileInfoList
 }
 
 // @Summary Create K8S Delivery Version
@@ -366,6 +317,9 @@ func DeleteDeliveryVersion(c *gin.Context) {
 	version := new(commonrepo.DeliveryVersionArgs)
 	version.ID = ID
 	ctx.Err = deliveryservice.DeleteDeliveryVersion(version, ctx.Logger)
+	if ctx.Err != nil {
+		ctx.Err = fmt.Errorf("failed to delete delivery version, ID: %s, error: %v", ID, ctx.Err)
+	}
 
 	errs := make([]string, 0)
 	err = deliveryservice.DeleteDeliveryBuild(&commonrepo.DeliveryBuildArgs{ReleaseID: ID}, ctx.Logger)
@@ -388,34 +342,6 @@ func DeleteDeliveryVersion(c *gin.Context) {
 	if len(errs) != 0 {
 		ctx.Err = e.NewHTTPError(500, strings.Join(errs, ","))
 	}
-}
-
-func ListDeliveryServiceNames(c *gin.Context) {
-	ctx, err := internalhandler.NewContextWithAuthorization(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
-		ctx.UnAuthorized = true
-		return
-	}
-
-	projectKey := c.Query("projectName")
-
-	if !ctx.Resources.IsSystemAdmin {
-		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
-			ctx.UnAuthorized = true
-			return
-		}
-
-		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectKey].Version.View {
-			ctx.UnAuthorized = true
-			return
-		}
-	}
-
-	ctx.Resp, ctx.Err = deliveryservice.ListDeliveryServiceNames(projectKey, ctx.Logger)
 }
 
 func DownloadDeliveryChart(c *gin.Context) {

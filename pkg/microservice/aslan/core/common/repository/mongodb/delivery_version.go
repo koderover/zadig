@@ -86,9 +86,9 @@ func (c *DeliveryVersionColl) EnsureIndex(ctx context.Context) error {
 	return err
 }
 
-func (c *DeliveryVersionColl) Find(args *DeliveryVersionArgs) ([]*models.DeliveryVersion, error) {
+func (c *DeliveryVersionColl) Find(args *DeliveryVersionArgs) ([]*models.DeliveryVersion, int, error) {
 	if args == nil {
-		return nil, errors.New("nil delivery_version args")
+		return nil, 0, errors.New("nil delivery_version args")
 	}
 
 	query := bson.M{"deleted_at": 0}
@@ -109,18 +109,22 @@ func (c *DeliveryVersionColl) Find(args *DeliveryVersionArgs) ([]*models.Deliver
 		opts.SetSkip(int64(args.PerPage * (args.Page - 1)))
 		opts.SetLimit(int64(args.PerPage))
 	}
+	count, err := c.Collection.CountDocuments(ctx, query)
+	if err != nil {
+		return nil, 0, err
+	}
 	cursor, err := c.Collection.Find(ctx, query, opts)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
 	resp := make([]*models.DeliveryVersion, 0)
 	err = cursor.All(ctx, &resp)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
-	return resp, nil
+	return resp, int(count), nil
 }
 
 func (c *DeliveryVersionColl) Delete(id string) error {

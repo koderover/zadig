@@ -4376,6 +4376,167 @@
                 }
             }
         },
+        "/openapi/delivery/releases": {
+            "get": {
+                "description": "OpenAPI List Delivery Version",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "OpenAPI"
+                ],
+                "summary": "OpenAPI List Delivery Version",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "project key",
+                        "name": "projectKey",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "page num",
+                        "name": "pageNum",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "page size",
+                        "name": "pageSize",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/openapi/delivery/releases/helm": {
+            "post": {
+                "description": "OpenAPI Create Helm Delivery Version",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "OpenAPI"
+                ],
+                "summary": "OpenAPI Create Helm Delivery Version",
+                "parameters": [
+                    {
+                        "description": "body",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/service.OpenAPICreateHelmDeliveryVersionRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/openapi/delivery/releases/k8s": {
+            "post": {
+                "description": "OpenAPI Create K8S Delivery Version",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "OpenAPI"
+                ],
+                "summary": "OpenAPI Create K8S Delivery Version",
+                "parameters": [
+                    {
+                        "description": "body",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/service.OpenAPICreateK8SDeliveryVersionRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/openapi/delivery/releases/{id}": {
+            "get": {
+                "description": "OpenAPI Get Delivery Version",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "OpenAPI"
+                ],
+                "summary": "OpenAPI Get Delivery Version",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "project key",
+                        "name": "projectKey",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            },
+            "delete": {
+                "description": "OpenAPI Delete Delivery Version",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "OpenAPI"
+                ],
+                "summary": "OpenAPI Delete Delivery Version",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "project key",
+                        "name": "projectKey",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
         "/openapi/projects/project/init/yaml": {
             "post": {
                 "description": "OpenAPI Initialize Yaml Project",
@@ -7310,6 +7471,9 @@
                 "productName": {
                     "type": "string"
                 },
+                "production": {
+                    "type": "boolean"
+                },
                 "retry": {
                     "type": "boolean"
                 },
@@ -8104,6 +8268,130 @@
                     "items": {
                         "$ref": "#/definitions/service.MeegoWorkItemType"
                     }
+                }
+            }
+        },
+        "service.OpenAPICreateHelmDeliveryVersionChartData": {
+            "type": "object",
+            "properties": {
+                "image_datas": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/service.OpenAPIDeliveryVersionImageData"
+                    }
+                },
+                "service_name": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "string"
+                }
+            }
+        },
+        "service.OpenAPICreateHelmDeliveryVersionRequest": {
+            "type": "object",
+            "properties": {
+                "chart_datas": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/service.OpenAPICreateHelmDeliveryVersionChartData"
+                    }
+                },
+                "chart_repo_name": {
+                    "type": "string"
+                },
+                "desc": {
+                    "type": "string"
+                },
+                "env_name": {
+                    "type": "string"
+                },
+                "image_registry_id": {
+                    "type": "string"
+                },
+                "labels": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "production": {
+                    "type": "boolean"
+                },
+                "project_key": {
+                    "type": "string"
+                },
+                "retry": {
+                    "type": "boolean"
+                },
+                "version_name": {
+                    "type": "string"
+                }
+            }
+        },
+        "service.OpenAPICreateK8SDeliveryVersionRequest": {
+            "type": "object",
+            "properties": {
+                "desc": {
+                    "type": "string"
+                },
+                "env_name": {
+                    "type": "string"
+                },
+                "image_registry_id": {
+                    "type": "string"
+                },
+                "labels": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "production": {
+                    "type": "boolean"
+                },
+                "project_key": {
+                    "type": "string"
+                },
+                "retry": {
+                    "type": "boolean"
+                },
+                "version_name": {
+                    "type": "string"
+                },
+                "yaml_datas": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/service.OpenAPICreateK8SDeliveryVersionYamlData"
+                    }
+                }
+            }
+        },
+        "service.OpenAPICreateK8SDeliveryVersionYamlData": {
+            "type": "object",
+            "properties": {
+                "image_datas": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/service.OpenAPIDeliveryVersionImageData"
+                    }
+                },
+                "service_name": {
+                    "type": "string"
+                }
+            }
+        },
+        "service.OpenAPIDeliveryVersionImageData": {
+            "type": "object",
+            "properties": {
+                "container_name": {
+                    "type": "string"
+                },
+                "image_name": {
+                    "type": "string"
+                },
+                "image_tag": {
+                    "type": "string"
                 }
             }
         },

@@ -272,13 +272,13 @@ func GetDetailReleaseData(args *commonrepo.DeliveryVersionArgs, log *zap.Sugared
 	return buildListReleaseResp(VerbosityDetailed, versionData, nil, log)
 }
 
-func FindDeliveryVersion(args *commonrepo.DeliveryVersionArgs, log *zap.SugaredLogger) ([]*commonmodels.DeliveryVersion, error) {
-	resp, err := commonrepo.NewDeliveryVersionColl().Find(args)
+func FindDeliveryVersion(args *commonrepo.DeliveryVersionArgs, log *zap.SugaredLogger) ([]*commonmodels.DeliveryVersion, int, error) {
+	resp, total, err := commonrepo.NewDeliveryVersionColl().Find(args)
 	if err != nil {
 		log.Errorf("find deliveryVersion error: %v", err)
-		return resp, e.ErrFindDeliveryVersion
+		return resp, 0, e.ErrFindDeliveryVersion.AddErr(err)
 	}
-	return resp, err
+	return resp, total, err
 }
 
 func DeleteDeliveryVersion(args *commonrepo.DeliveryVersionArgs, log *zap.SugaredLogger) error {
@@ -458,16 +458,16 @@ func buildListReleaseResp(verbosity string, deliveryVersion *commonmodels.Delive
 	}
 }
 
-func ListDeliveryVersion(args *ListDeliveryVersionArgs, logger *zap.SugaredLogger) ([]*ReleaseInfo, error) {
+func ListDeliveryVersion(args *ListDeliveryVersionArgs, logger *zap.SugaredLogger) ([]*ReleaseInfo, int, error) {
 	versionListArgs := new(commonrepo.DeliveryVersionArgs)
 	versionListArgs.ProductName = args.ProjectName
 	versionListArgs.WorkflowName = args.WorkflowName
 	versionListArgs.TaskID = args.TaskId
 	versionListArgs.PerPage = args.PerPage
 	versionListArgs.Page = args.Page
-	deliveryVersions, err := FindDeliveryVersion(versionListArgs, logger)
+	deliveryVersions, total, err := FindDeliveryVersion(versionListArgs, logger)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	names := []string{}
 	for _, version := range deliveryVersions {
@@ -478,7 +478,7 @@ func ListDeliveryVersion(args *ListDeliveryVersionArgs, logger *zap.SugaredLogge
 	}
 	workflows, err := commonrepo.NewWorkflowColl().List(&commonrepo.ListWorkflowOption{Projects: []string{args.ProjectName}, Names: names})
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	displayNameMap := map[string]string{}
 	for _, workflow := range workflows {
@@ -493,14 +493,14 @@ func ListDeliveryVersion(args *ListDeliveryVersionArgs, logger *zap.SugaredLogge
 	for _, deliveryVersion := range deliveryVersions {
 		releaseInfo, err := buildListReleaseResp(args.Verbosity, deliveryVersion, &DeliveryVersionFilter{ServiceName: args.ServiceName}, logger)
 		if err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 		if releaseInfo == nil {
 			continue
 		}
 		releaseInfos = append(releaseInfos, releaseInfo)
 	}
-	return releaseInfos, nil
+	return releaseInfos, total, nil
 }
 
 // fill release
@@ -1831,33 +1831,6 @@ func RetryCreateHelmDeliveryVersion(projectName, versionName string, logger *zap
 	updateVersionStatus(deliveryVersion.Version, deliveryVersion.ProductName, deliveryVersion.Status, deliveryVersion.Error)
 
 	return nil
-}
-
-func ListDeliveryServiceNames(productName string, log *zap.SugaredLogger) ([]string, error) {
-	serviceNames := sets.String{}
-
-	version := new(commonrepo.DeliveryVersionArgs)
-	version.ProductName = productName
-	deliveryVersions, err := FindDeliveryVersion(version, log)
-	if err != nil {
-		log.Errorf("FindDeliveryVersion failed, err:%v", err)
-		return serviceNames.List(), err
-	}
-
-	for _, deliveryVersion := range deliveryVersions {
-		deliveryDeployArgs := new(commonrepo.DeliveryDeployArgs)
-		deliveryDeployArgs.ReleaseID = deliveryVersion.ID.Hex()
-		deliveryDeploys, err := FindDeliveryDeploy(deliveryDeployArgs, log)
-		if err != nil {
-			log.Errorf("FindDeliveryDeploy failed, ReleaseID:%s, err:%v", deliveryVersion.ID, err)
-			continue
-		}
-		for _, deliveryDeploy := range deliveryDeploys {
-			serviceNames.Insert(deliveryDeploy.ServiceName)
-		}
-	}
-
-	return serviceNames.UnsortedList(), nil
 }
 
 func downloadChart(deliveryVersion *commonmodels.DeliveryVersion, chartInfo *commonmodels.DeliveryDistribute) (string, error) {

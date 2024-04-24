@@ -46,11 +46,17 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		deliveryRelease.GET("/helm/charts/filePath", GetDeliveryChartFilePath)
 		deliveryRelease.GET("/helm/charts/fileContent", GetDeliveryChartFileContent)
 	}
+}
 
-	// deprecated, this functionality is removed
-	deliveryService := router.Group("servicenames")
+type OpenAPIRouter struct{}
+
+func (*OpenAPIRouter) Inject(router *gin.RouterGroup) {
+	deliveryRelease := router.Group("releases")
 	{
-		deliveryService.GET("", ListDeliveryServiceNames)
+		deliveryRelease.GET("", OpenAPIListDeliveryVersion)
+		deliveryRelease.GET("/:id", OpenAPIGetDeliveryVersion)
+		deliveryRelease.DELETE("/:id", OpenAPIDeleteDeliveryVersion)
+		deliveryRelease.POST("/k8s", OpenAPICreateK8SDeliveryVersion)
+		deliveryRelease.POST("/helm", OpenAPICreateHelmDeliveryVersion)
 	}
-
 }
