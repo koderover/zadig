@@ -4401,20 +4401,20 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "project name",
-                        "name": "projectName",
+                        "description": "project key",
+                        "name": "projectKey",
                         "in": "query",
                         "required": true
                     },
                     {
-                        "type": "string",
+                        "type": "integer",
                         "description": "page num",
                         "name": "pageNum",
                         "in": "query",
                         "required": true
                     },
                     {
-                        "type": "string",
+                        "type": "integer",
                         "description": "page size",
                         "name": "pageSize",
                         "in": "query",
@@ -4506,8 +4506,8 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "project name",
-                        "name": "projectName",
+                        "description": "project key",
+                        "name": "projectKey",
                         "in": "query",
                         "required": true
                     }
@@ -4533,8 +4533,8 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "project name",
-                        "name": "projectName",
+                        "description": "project key",
+                        "name": "projectKey",
                         "in": "query",
                         "required": true
                     }
@@ -8327,7 +8327,7 @@ const docTemplate = `{
                 "production": {
                     "type": "boolean"
                 },
-                "project_name": {
+                "project_key": {
                     "type": "string"
                 },
                 "retry": {
@@ -8359,7 +8359,7 @@ const docTemplate = `{
                 "production": {
                     "type": "boolean"
                 },
-                "project_name": {
+                "project_key": {
                     "type": "string"
                 },
                 "retry": {

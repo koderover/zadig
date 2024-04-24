@@ -238,7 +238,7 @@ func OpenAPIDeleteDeliveryVersion(ID string) error {
 }
 
 type OpenAPICreateK8SDeliveryVersionRequest struct {
-	ProjectName     string                                     `json:"project_name"`
+	ProjectKey      string                                     `json:"project_key"`
 	VersionName     string                                     `json:"version_name"`
 	Retry           bool                                       `json:"retry"`
 	EnvName         string                                     `json:"env_name"`
@@ -264,12 +264,12 @@ type OpenAPIDeliveryVersionImageData struct {
 
 func OpenAPICreateK8SDeliveryVersion(openAPIReq *OpenAPICreateK8SDeliveryVersionRequest) error {
 	env, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
-		Name:       openAPIReq.ProjectName,
+		Name:       openAPIReq.ProjectKey,
 		EnvName:    openAPIReq.EnvName,
 		Production: &openAPIReq.Production,
 	})
 	if err != nil {
-		return fmt.Errorf("failed to find product, product name: %s, env name: %s, error: %v", openAPIReq.ProjectName, openAPIReq.EnvName, err)
+		return fmt.Errorf("failed to find product, product name: %s, env name: %s, error: %v", openAPIReq.ProjectKey, openAPIReq.EnvName, err)
 	}
 	prodSvcMap := env.GetServiceMap()
 
@@ -285,7 +285,7 @@ func OpenAPICreateK8SDeliveryVersion(openAPIReq *OpenAPICreateK8SDeliveryVersion
 		for _, openAPIImageData := range openAPIYamlData.ImageDatas {
 			image := containerImageMap[openAPIImageData.ContainerName]
 			if image == "" {
-				return fmt.Errorf("container image not found, product name: %s, env name: %s, service name: %s, container name: %s", openAPIReq.ProjectName, openAPIReq.EnvName, openAPIYamlData.ServiceName, openAPIImageData.ContainerName)
+				return fmt.Errorf("container image not found, product name: %s, env name: %s, service name: %s, container name: %s", openAPIReq.ProjectKey, openAPIReq.EnvName, openAPIYamlData.ServiceName, openAPIImageData.ContainerName)
 			}
 
 			imageDatas = append(imageDatas, &ImageData{
@@ -298,12 +298,12 @@ func OpenAPICreateK8SDeliveryVersion(openAPIReq *OpenAPICreateK8SDeliveryVersion
 		}
 
 		yamlContent, _, err := kube.FetchCurrentAppliedYaml(&kube.GeneSvcYamlOption{
-			ProductName: openAPIReq.ProjectName,
+			ProductName: openAPIReq.ProjectKey,
 			EnvName:     openAPIReq.EnvName,
 			ServiceName: openAPIYamlData.ServiceName,
 		})
 		if err != nil {
-			return fmt.Errorf("failed to fetch current applied yaml, env: %s/%s, service: %s, error: %v", openAPIReq.ProjectName, openAPIReq.EnvName, openAPIYamlData.ServiceName, err)
+			return fmt.Errorf("failed to fetch current applied yaml, env: %s/%s, service: %s, error: %v", openAPIReq.ProjectKey, openAPIReq.EnvName, openAPIYamlData.ServiceName, err)
 		}
 
 		yamlDatas = append(yamlDatas, &CreateK8SDeliveryVersionYamlData{
@@ -314,7 +314,7 @@ func OpenAPICreateK8SDeliveryVersion(openAPIReq *OpenAPICreateK8SDeliveryVersion
 	}
 
 	args := &CreateK8SDeliveryVersionArgs{
-		ProductName: openAPIReq.ProjectName,
+		ProductName: openAPIReq.ProjectKey,
 		Retry:       openAPIReq.Retry,
 		CreateBy:    openAPIReq.CreateBy,
 		Version:     openAPIReq.VersionName,
@@ -337,7 +337,7 @@ func OpenAPICreateK8SDeliveryVersion(openAPIReq *OpenAPICreateK8SDeliveryVersion
 }
 
 type OpenAPICreateHelmDeliveryVersionRequest struct {
-	ProjectName     string                                       `json:"project_name"`
+	ProjectKey      string                                       `json:"project_key"`
 	VersionName     string                                       `json:"version_name"`
 	Retry           bool                                         `json:"retry"`
 	EnvName         string                                       `json:"env_name"`
@@ -377,7 +377,7 @@ func OpenAPICreateHelmDeliveryVersion(openAPIReq *OpenAPICreateHelmDeliveryVersi
 	}
 
 	args := &CreateHelmDeliveryVersionArgs{
-		ProductName: openAPIReq.ProjectName,
+		ProductName: openAPIReq.ProjectKey,
 		Retry:       openAPIReq.Retry,
 		CreateBy:    openAPIReq.CreateBy,
 		Version:     openAPIReq.VersionName,

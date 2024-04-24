@@ -2513,7 +2513,7 @@ definitions:
         type: array
       production:
         type: boolean
-      project_name:
+      project_key:
         type: string
       retry:
         type: boolean
@@ -2534,7 +2534,7 @@ definitions:
         type: array
       production:
         type: boolean
-      project_name:
+      project_key:
         type: string
       retry:
         type: boolean
@@ -6234,21 +6234,21 @@ paths:
       - application/json
       description: OpenAPI List Delivery Version
       parameters:
-      - description: project name
+      - description: project key
         in: query
-        name: projectName
+        name: projectKey
         required: true
         type: string
       - description: page num
         in: query
         name: pageNum
         required: true
-        type: string
+        type: integer
       - description: page size
         in: query
         name: pageSize
         required: true
-        type: string
+        type: integer
       produces:
       - application/json
       responses:
@@ -6263,9 +6263,9 @@ paths:
       - application/json
       description: OpenAPI Delete Delivery Version
       parameters:
-      - description: project name
+      - description: project key
         in: query
-        name: projectName
+        name: projectKey
         required: true
         type: string
       produces:
@@ -6281,9 +6281,9 @@ paths:
       - application/json
       description: OpenAPI Get Delivery Version
       parameters:
-      - description: project name
+      - description: project key
         in: query
-        name: projectName
+        name: projectKey
         required: true
         type: string
       produces:
