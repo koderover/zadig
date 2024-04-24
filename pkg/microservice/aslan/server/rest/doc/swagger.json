@@ -4392,20 +4392,20 @@
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "project name",
-                        "name": "projectName",
+                        "description": "project key",
+                        "name": "projectKey",
                         "in": "query",
                         "required": true
                     },
                     {
-                        "type": "string",
+                        "type": "integer",
                         "description": "page num",
                         "name": "pageNum",
                         "in": "query",
                         "required": true
                     },
                     {
-                        "type": "string",
+                        "type": "integer",
                         "description": "page size",
                         "name": "pageSize",
                         "in": "query",
@@ -4497,8 +4497,8 @@
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "project name",
-                        "name": "projectName",
+                        "description": "project key",
+                        "name": "projectKey",
                         "in": "query",
                         "required": true
                     }
@@ -4524,8 +4524,8 @@
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "project name",
-                        "name": "projectName",
+                        "description": "project key",
+                        "name": "projectKey",
                         "in": "query",
                         "required": true
                     }
@@ -8318,7 +8318,7 @@
                 "production": {
                     "type": "boolean"
                 },
-                "project_name": {
+                "project_key": {
                     "type": "string"
                 },
                 "retry": {
@@ -8350,7 +8350,7 @@
                 "production": {
                     "type": "boolean"
                 },
-                "project_name": {
+                "project_key": {
                     "type": "string"
                 },
                 "retry": {

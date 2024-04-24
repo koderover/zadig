@@ -27,9 +27,9 @@ import (
 )
 
 type OpenAPIListDeliveryVersionRequest struct {
-	ProjectName string `form:"projectName" binding:"required"`
-	PageNum     int    `form:"pageNum" binding:"required"`
-	PageSize    int    `form:"pageSize" binding:"required"`
+	ProjectKey string `form:"projectKey" binding:"required"`
+	PageNum    int    `form:"pageNum" binding:"required"`
+	PageSize   int    `form:"pageSize" binding:"required"`
 }
 
 // @Summary OpenAPI List Delivery Version
@@ -37,9 +37,9 @@ type OpenAPIListDeliveryVersionRequest struct {
 // @Tags 	OpenAPI
 // @Accept 	json
 // @Produce json
-// @Param 	projectName		query		string								true	"project name"
-// @Param 	pageNum 		query		string								true	"page num"
-// @Param 	pageSize 		query		string								true	"page size"
+// @Param 	projectKey		query		string							true	"project key"
+// @Param 	pageNum 		query		int								true	"page num"
+// @Param 	pageSize 		query		int								true	"page size"
 // @Success 200
 // @Router /openapi/delivery/releases [get]
 func OpenAPIListDeliveryVersion(c *gin.Context) {
@@ -59,7 +59,7 @@ func OpenAPIListDeliveryVersion(c *gin.Context) {
 		return
 	}
 
-	projectKey := req.ProjectName
+	projectKey := req.ProjectKey
 	if !ctx.Resources.IsSystemAdmin {
 		if projectKey == "" {
 			if !ctx.Resources.SystemActions.DeliveryCenter.ViewVersion {
@@ -93,7 +93,7 @@ func OpenAPIListDeliveryVersion(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.OpenAPIListDeliveryVersion(req.ProjectName, req.PageNum, req.PageSize)
+	ctx.Resp, ctx.Err = service.OpenAPIListDeliveryVersion(req.ProjectKey, req.PageNum, req.PageSize)
 }
 
 // @Summary OpenAPI Get Delivery Version
@@ -101,7 +101,7 @@ func OpenAPIListDeliveryVersion(c *gin.Context) {
 // @Tags 	OpenAPI
 // @Accept 	json
 // @Produce json
-// @Param 	projectName		query		string								true	"project name"
+// @Param 	projectKey		query		string								true	"project key"
 // @Success 200
 // @Router /openapi/delivery/releases/{id} [get]
 func OpenAPIGetDeliveryVersion(c *gin.Context) {
@@ -121,9 +121,9 @@ func OpenAPIGetDeliveryVersion(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("id can't be empty!")
 		return
 	}
-	projectKey := c.Query("projectName")
+	projectKey := c.Query("projectKey")
 	if projectKey == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("projectName can't be empty!")
+		ctx.Err = e.ErrInvalidParam.AddDesc("projectKey can't be empty!")
 		return
 	}
 
@@ -162,7 +162,7 @@ func OpenAPIGetDeliveryVersion(c *gin.Context) {
 // @Tags 	OpenAPI
 // @Accept 	json
 // @Produce json
-// @Param 	projectName		query		string								true	"project name"
+// @Param 	projectKey		query		string								true	"project key"
 // @Success 200
 // @Router /openapi/delivery/releases/{id} [delete]
 func OpenAPIDeleteDeliveryVersion(c *gin.Context) {
@@ -182,9 +182,9 @@ func OpenAPIDeleteDeliveryVersion(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("id can't be empty!")
 		return
 	}
-	projectKey := c.Query("projectName")
+	projectKey := c.Query("projectKey")
 	if projectKey == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("projectName can't be empty!")
+		ctx.Err = e.ErrInvalidParam.AddDesc("projectKey can't be empty!")
 		return
 	}
 
@@ -240,7 +240,7 @@ func OpenAPICreateK8SDeliveryVersion(c *gin.Context) {
 	}
 	req.CreateBy = ctx.UserName
 
-	projectKey := req.ProjectName
+	projectKey := req.ProjectKey
 	if !ctx.Resources.IsSystemAdmin {
 		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
 			ctx.UnAuthorized = true
@@ -289,7 +289,7 @@ func OpenAPICreateHelmDeliveryVersion(c *gin.Context) {
 	}
 	req.CreateBy = ctx.UserName
 
-	projectKey := req.ProjectName
+	projectKey := req.ProjectKey
 	if !ctx.Resources.IsSystemAdmin {
 		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
 			ctx.UnAuthorized = true
