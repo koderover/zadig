@@ -1070,7 +1070,20 @@ func (j *DeployJob) LintJob() error {
 }
 
 func (j *DeployJob) GetOutPuts(log *zap.SugaredLogger) []string {
-	return getOutputKey(j.job.Name, ensureDeployInOutputs())
+	resp := []string{}
+
+	j.spec = &commonmodels.ZadigDeployJobSpec{}
+	if err := commonmodels.IToiYaml(j.job.Spec, j.spec); err != nil {
+		return []string{}
+	}
+	j.job.Spec = j.spec
+
+	for _, target := range j.spec.ServiceAndImages {
+		targetKey := strings.Join([]string{j.job.Name, target.ServiceName, target.ServiceModule}, ".")
+		resp = append(resp, getOutputKey(targetKey, []*commonmodels.Output{{Name: "IMAGE"}})...)
+	}
+	resp = append(resp, getOutputKey(j.job.Name, ensureDeployInOutputs())...)
+	return resp
 }
 
 func ensureDeployInOutputs() []*commonmodels.Output {

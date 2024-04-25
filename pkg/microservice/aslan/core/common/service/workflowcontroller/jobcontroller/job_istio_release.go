@@ -325,6 +325,10 @@ func (c *IstioReleaseJobCtl) Run(ctx context.Context) {
 				c.Errorf("failed to parse route information in virtual service, error: %s", err)
 				return
 			}
+
+			if vs.Annotations == nil {
+				vs.Annotations = make(map[string]string)
+			}
 			vs.Annotations[ZadigIstioVirtualServiceLastAppliedRoutes] = string(routeByte)
 
 			vs.Spec.Http[0].Route = newHTTPRoutingRules
