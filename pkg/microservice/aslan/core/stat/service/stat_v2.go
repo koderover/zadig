@@ -274,16 +274,24 @@ func GetStatsDashboardGeneralData(startTime, endTime int64, logger *zap.SugaredL
 		logger.Errorf("failed to get total and success build count, error: %s", err)
 		return nil, err
 	}
-	testStat, err := GetTestDashboard(startTime, endTime, "", logger)
+	testJobs, err := commonrepo.NewJobInfoColl().GetTestJobs(startTime, endTime, "")
 	if err != nil {
-		logger.Errorf("failed to get total and success test count, error: %s", err)
+		logger.Errorf("failed to get test jobs, error: %s", err)
 		return nil, err
+	}
+	totalTestExecution := 0
+	totalTestSuccess := 0
+	for _, job := range testJobs {
+		totalTestExecution++
+		if job.Status == "passed" {
+			totalTestSuccess++
+		}
 	}
 	return &StatDashboardBasicData{
 		BuildTotal:    totalBuildSuccess + totalBuildFailure,
 		BuildSuccess:  totalBuildSuccess,
-		TestTotal:     int64(testStat.TotalExecCount),
-		TestSuccess:   int64(testStat.Success),
+		TestTotal:     int64(totalTestExecution),
+		TestSuccess:   int64(totalTestSuccess),
 		DeployTotal:   totalDeploySuccess + totalDeployFailure,
 		DeploySuccess: totalDeploySuccess,
 	}, nil

@@ -153,6 +153,13 @@ func CreateConnector(ct *Connector, logger *zap.SugaredLogger) error {
 		return err
 	}
 
+	cfg := make(map[string]interface{})
+	err = json.Unmarshal(cf, &cfg)
+	if err != nil {
+		logger.Errorf("Failed to unmarshal config, err: %s", err)
+		return fmt.Errorf("invalid config")
+	}
+
 	if string(ct.Type) != "oauth" && ct.EnableLogOut {
 		return fmt.Errorf("logout is only available in oauth2 connector")
 	}
@@ -174,6 +181,13 @@ func UpdateConnector(ct *Connector, logger *zap.SugaredLogger) error {
 	if err != nil {
 		logger.Errorf("Failed to marshal config, err: %s", err)
 		return err
+	}
+	
+	cfg := make(map[string]interface{})
+	err = json.Unmarshal(cf, &cfg)
+	if err != nil {
+		logger.Errorf("Failed to unmarshal config, err: %s", err)
+		return fmt.Errorf("invalid config")
 	}
 
 	if string(ct.Type) != "oauth" && ct.EnableLogOut {
