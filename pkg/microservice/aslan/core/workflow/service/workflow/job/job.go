@@ -586,7 +586,9 @@ func getWorkflowStageParams(workflow *commonmodels.WorkflowV4, taskID int64, cre
 
 				services := []string{}
 				for _, service := range deploy.Services {
-					services = append(services, service.ServiceName)
+					for _, module := range service.Modules {
+						services = append(services, module.ServiceModule+"/"+service.ServiceName)
+					}
 				}
 				resp = append(resp, &commonmodels.Param{Name: fmt.Sprintf("job.%s.SERVICES", job.Name), Value: strings.Join(services, ","), ParamsType: "string", IsCredential: false})
 
