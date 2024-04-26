@@ -17,7 +17,6 @@ limitations under the License.
 package service
 
 import (
-	"fmt"
 	"time"
 
 	"go.uber.org/zap"
@@ -55,7 +54,6 @@ func GetTestDashboard(startTime, endTime int64, productName string, log *zap.Sug
 
 	testNames := sets.String{}
 	for _, test := range tests {
-		fmt.Println(">>>>>>>>>>>>>> found test:", test.Name, "<<<<<<<<<<<<<<<<<<<<<<<<<")
 		testNames.Insert(test.Name)
 	}
 	testTasks, err := commonrepo.NewTestTaskStatColl().GetTestTasks(startTime, endTime)
@@ -65,7 +63,6 @@ func GetTestDashboard(startTime, endTime int64, productName string, log *zap.Sug
 	}
 	for _, testTask := range testTasks {
 		if testNames.Has(testTask.Name) {
-			fmt.Println(">>>>>>>>>>>>>>>> found test task stat for test:", testTask.Name, "<<<<<<<<<<<<<<<<<<<")
 			existTestTasks = append(existTestTasks, testTask)
 		}
 	}
