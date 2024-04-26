@@ -43,7 +43,8 @@ import (
 )
 
 const (
-	ENVNAMEKEY = "envName"
+	ENVNAMEKEY  = "envName"
+	SERVICESKEY = "services"
 )
 
 type DeployJob struct {
@@ -1087,5 +1088,7 @@ func (j *DeployJob) GetOutPuts(log *zap.SugaredLogger) []string {
 }
 
 func ensureDeployInOutputs() []*commonmodels.Output {
-	return []*commonmodels.Output{{Name: ENVNAMEKEY}}
+	return []*commonmodels.Output{
+		{Name: ENVNAMEKEY},
+	}
 }

@@ -583,6 +583,20 @@ func getWorkflowStageParams(workflow *commonmodels.WorkflowV4, taskID int64, cre
 					return nil, errors.Wrap(err, "Itoi")
 				}
 				resp = append(resp, &commonmodels.Param{Name: fmt.Sprintf("job.%s.envName", job.Name), Value: deploy.Env, ParamsType: "string", IsCredential: false})
+
+				services := []string{}
+				for _, service := range deploy.Services {
+					services = append(services, service.ServiceName)
+				}
+				resp = append(resp, &commonmodels.Param{Name: fmt.Sprintf("job.%s.SERVICES", job.Name), Value: strings.Join(services, ","), ParamsType: "string", IsCredential: false})
+
+				images := []string{}
+				for _, service := range deploy.Services {
+					for _, module := range service.Modules {
+						images = append(images, module.Image)
+					}
+				}
+				resp = append(resp, &commonmodels.Param{Name: fmt.Sprintf("job.%s.IMAGES", job.Name), Value: strings.Join(images, ","), ParamsType: "string", IsCredential: false})
 			}
 		}
 	}
