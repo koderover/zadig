@@ -29,7 +29,6 @@ import (
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	commontypes "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/types"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
-	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	projectservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/project/service"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
@@ -108,14 +107,6 @@ func CreateProductTemplate(c *gin.Context) {
 		return
 	}
 
-	err = util.CheckZadigProfessionalLicense()
-	if err != nil {
-		if args.AutoDeploy != nil && args.AutoDeploy.Enable {
-			ctx.Err = e.ErrLicenseInvalid.AddDesc("")
-			return
-		}
-	}
-
 	args.UpdateBy = ctx.UserName
 	ctx.Err = projectservice.CreateProductTemplate(args, ctx.Logger)
 }
@@ -157,14 +148,6 @@ func UpdateProductTemplate(c *gin.Context) {
 		if !ctx.Resources.ProjectAuthInfo[args.ProductName].IsProjectAdmin &&
 			!ctx.Resources.ProjectAuthInfo[args.ProductName].Service.Edit {
 			ctx.UnAuthorized = true
-			return
-		}
-	}
-
-	err = commonutil.CheckZadigProfessionalLicense()
-	if err != nil {
-		if args.AutoDeploy.Enable == true {
-			ctx.Err = e.ErrLicenseInvalid.AddDesc("")
 			return
 		}
 	}
@@ -260,14 +243,6 @@ func UpdateProject(c *gin.Context) {
 		}
 		if !ctx.Resources.ProjectAuthInfo[productName].IsProjectAdmin {
 			ctx.UnAuthorized = true
-			return
-		}
-	}
-
-	err = commonutil.CheckZadigProfessionalLicense()
-	if err != nil {
-		if args.AutoDeploy != nil && args.AutoDeploy.Enable == true {
-			ctx.Err = e.ErrLicenseInvalid.AddDesc("")
 			return
 		}
 	}
