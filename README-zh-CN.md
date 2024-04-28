@@ -93,7 +93,7 @@ Zadig 是由 KodeRover 公司基于 Kubernetes 研发的自助式云原生 DevOp
 
 ### 快速使用
 
-请参阅 [快速入门](https://docs.koderover.com/zadig/quick-start/try-out-install/)
+请参阅 [快速入门](https://docs.koderover.com/zadig/quick-start/introduction/)
 
 ### 训练营
 
