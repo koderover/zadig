@@ -24,7 +24,6 @@ import (
 
 	types "github.com/golang/protobuf/ptypes/struct"
 	"google.golang.org/protobuf/encoding/protojson"
-	"gopkg.in/yaml.v3"
 	networkingv1alpha3 "istio.io/api/networking/v1alpha3"
 	"istio.io/client-go/pkg/apis/networking/v1alpha3"
 	versionedclient "istio.io/client-go/pkg/clientset/versioned"
@@ -94,11 +93,9 @@ func EnsureUpdateGrayscaleService(ctx context.Context, env *commonmodels.Product
 }
 
 func SetIstioGrayscaleWeight(ctx context.Context, envMap map[string]*commonmodels.Product, weightConfigs []commonmodels.IstioWeightConfig) error {
-	log.Debugf("Begin to set Istio Grayscale Weight.")
 	for _, env := range envMap {
 		ns := env.Namespace
 		clusterID := env.ClusterID
-		log.Debugf("envName: %s", env.EnvName)
 
 		kclient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
 		if err != nil {
@@ -128,7 +125,6 @@ func SetIstioGrayscaleWeight(ctx context.Context, envMap map[string]*commonmodel
 				return err
 			}
 
-			log.Debugf("svcName: %s, svcSelector: %v, hasWorkload: %v", svc.Name, svc.Spec.Selector, hasWorkload)
 			if !hasWorkload {
 				continue
 			}
@@ -149,8 +145,6 @@ func SetIstioGrayscaleWeight(ctx context.Context, envMap map[string]*commonmodel
 				return fmt.Errorf("failed to generate VirtualService `%s` in ns `%s` for service %s: %s", vsName, env.Namespace, svc.Name, err)
 			}
 
-			vsSpecYaml, _ := yaml.Marshal(vsObj.Spec)
-			log.Debugf("vsName: %s, isExisted: %v, vsObjYaml: %v", vsName, isExisted, string(vsSpecYaml))
 			if isExisted {
 				_, err = istioClient.NetworkingV1alpha3().VirtualServices(ns).Update(ctx, vsObj, metav1.UpdateOptions{})
 			} else {
@@ -166,10 +160,7 @@ func SetIstioGrayscaleWeight(ctx context.Context, envMap map[string]*commonmodel
 }
 
 func SetIstioGrayscaleHeaderMatch(ctx context.Context, envMap map[string]*commonmodels.Product, headerMatchConfigs []commonmodels.IstioHeaderMatchConfig) error {
-	log.Debugf("Begin to set Istio Grayscale Header Match.")
 	for _, env := range envMap {
-		log.Debugf("envName: %s", env.EnvName)
-
 		ns := env.Namespace
 		clusterID := env.ClusterID
 		baseEnvName := env.IstioGrayscale.BaseEnv
@@ -210,8 +201,6 @@ func SetIstioGrayscaleHeaderMatch(ctx context.Context, envMap map[string]*common
 				continue
 			}
 
-			log.Debugf("svcName: %s, svcSelector: %v, hasWorkload: %v", svc.Name, svc.Spec.Selector, hasWorkload)
-
 			isExisted := false
 			svcName := svc.Name
 			vsName := GenVirtualServiceName(&svc)
@@ -229,8 +218,6 @@ func SetIstioGrayscaleHeaderMatch(ctx context.Context, envMap map[string]*common
 				return fmt.Errorf("failed to generate VirtualService `%s` in ns `%s` for service %s: %s", vsName, env.Namespace, svcName, err)
 			}
 
-			vsSpecYaml, _ := yaml.Marshal(vsObj.Spec)
-			log.Debugf("vsName: %s, isExisted: %v, vsObjYaml: %v", vsName, isExisted, string(vsSpecYaml))
 			if isExisted {
 				_, err = istioClient.NetworkingV1alpha3().VirtualServices(ns).Update(ctx, vsObj, metav1.UpdateOptions{})
 			} else {
@@ -246,8 +233,6 @@ func SetIstioGrayscaleHeaderMatch(ctx context.Context, envMap map[string]*common
 }
 
 func generateGrayscaleWeightVirtualService(ctx context.Context, envMap map[string]*commonmodels.Product, vsName, ns string, weightConfigs []commonmodels.IstioWeightConfig, skipWorkloadCheck bool, svc *corev1.Service, kclient client.Client, vsObj *v1alpha3.VirtualService) (*v1alpha3.VirtualService, error) {
-	log.Debugf("Begin to generateGrayscaleWeightVirtualService: vsName: %s, ns: %s, weightConfigs: %+v, skipWorkloadCheck: %v", vsName, ns, weightConfigs, skipWorkloadCheck)
-
 	matchKey := "x-env"
 	svcName := svc.Name
 	vsObj.Name = vsName
@@ -261,7 +246,6 @@ func generateGrayscaleWeightVirtualService(ctx context.Context, envMap map[strin
 	vsObj.Labels[zadigtypes.ZadigLabelKeyGlobalOwner] = zadigtypes.Zadig
 
 	// basic http routes
-	log.Debugf("Begin to generate basic http routes.")
 	httpRoutes := []*networkingv1alpha3.HTTPRoute{}
 	for _, weightConfig := range weightConfigs {
 		if envMap[weightConfig.Env] == nil {
@@ -276,18 +260,15 @@ func generateGrayscaleWeightVirtualService(ctx context.Context, envMap map[strin
 			}
 		}
 
-		log.Debugf("envName: %s, baseEnv: %s", weightConfig.Env, baseEnv)
-
 		if !skipWorkloadCheck {
 			// If there is no workloads in this environment, then service is not updated.
 			hasWorkload, err := doesSvcHasWorkload(ctx, envMap[weightConfig.Env].Namespace, labels.SelectorFromSet(labels.Set(svc.Spec.Selector)), kclient)
 			if err != nil {
 				return nil, fmt.Errorf("failed to check if service %s has workload in env %s, err: %s", svcName, envMap[weightConfig.Env].EnvName, err)
 			}
-			log.Debugf("selector: %v, hasWorkload: %v", &svc.Spec.Selector, hasWorkload)
 
 			if !hasWorkload {
-				log.Warnf("service %s has no workload in env %s, skip", svcName, envMap[weightConfig.Env].EnvName)
+				log.Warnf("service %s has no workload in env %s, selector: %v, skip", svcName, weightConfig.Env, svc.Spec.Selector)
 				continue
 			}
 		}
@@ -312,12 +293,9 @@ func generateGrayscaleWeightVirtualService(ctx context.Context, envMap map[strin
 				},
 			},
 		}
-		httpRouteYaml, _ := yaml.Marshal(httpRoute)
-		log.Debugf("add basic httpRoute: %+v", string(httpRouteYaml))
 		httpRoutes = append(httpRoutes, httpRoute)
 	}
 
-	log.Debugf("Begin to generate weight http routes.")
 	// weight http routes
 	weightSum := 0
 	configuredEnvSet := sets.NewString()
@@ -327,7 +305,6 @@ func generateGrayscaleWeightVirtualService(ctx context.Context, envMap map[strin
 			return nil, fmt.Errorf("env %s is not found", weightConfig.Env)
 		}
 
-		log.Debugf("envName: %s", weightConfig.Env)
 		if !skipWorkloadCheck {
 			// If there is no workloads in this environment, then service is not updated.
 			hasWorkload, err := doesSvcHasWorkload(ctx, envMap[weightConfig.Env].Namespace, labels.SelectorFromSet(labels.Set(svc.Spec.Selector)), kclient)
@@ -335,10 +312,8 @@ func generateGrayscaleWeightVirtualService(ctx context.Context, envMap map[strin
 				return nil, fmt.Errorf("failed to check if service %s has workload in env %s, err: %s", svcName, envMap[weightConfig.Env].EnvName, err)
 			}
 
-			log.Debugf("selector: %v, hasWorkload: %v", &svc.Spec.Selector, hasWorkload)
-
 			if !hasWorkload {
-				log.Warnf("service %s has no workload in env %s, skip", svcName, envMap[weightConfig.Env].EnvName)
+				log.Warnf("service %s has no workload in env %s, selector: %v, skip", svcName, weightConfig.Env, svc.Spec.Selector)
 				continue
 			}
 		}
@@ -357,13 +332,10 @@ func generateGrayscaleWeightVirtualService(ctx context.Context, envMap map[strin
 				},
 			},
 		}
-		httpRouteYaml, _ := yaml.Marshal(route)
-		log.Debugf("add weight httpRoute: %+v", string(httpRouteYaml))
 		routes = append(routes, route)
 
 		configuredEnvSet.Insert(weightConfig.Env)
 	}
-	log.Debugf("configuredEnvSet.Len: %v", configuredEnvSet.Len())
 	if configuredEnvSet.Len() >= 2 {
 		if weightSum != 100 {
 			return nil, fmt.Errorf("the sum of weight is not 100 for the service %s, the full-path grayscale can't work correctly", svcName)
@@ -419,6 +391,7 @@ func generateGrayscaleHeaderMatchVirtualService(ctx context.Context, envMap map[
 			}
 
 			if !hasWorkload {
+				log.Warnf("service %s has no workload in env %s, selector: %v, skip", svcName, headerMatchConfig.Env, svc.Spec.Selector)
 				continue
 			}
 		}
