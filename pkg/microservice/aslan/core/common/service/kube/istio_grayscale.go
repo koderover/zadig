@@ -24,6 +24,7 @@ import (
 
 	types "github.com/golang/protobuf/ptypes/struct"
 	"google.golang.org/protobuf/encoding/protojson"
+	"gopkg.in/yaml.v3"
 	networkingv1alpha3 "istio.io/api/networking/v1alpha3"
 	"istio.io/client-go/pkg/apis/networking/v1alpha3"
 	versionedclient "istio.io/client-go/pkg/clientset/versioned"
@@ -93,9 +94,11 @@ func EnsureUpdateGrayscaleService(ctx context.Context, env *commonmodels.Product
 }
 
 func SetIstioGrayscaleWeight(ctx context.Context, envMap map[string]*commonmodels.Product, weightConfigs []commonmodels.IstioWeightConfig) error {
+	log.Debugf("Begin to set Istio Grayscale Weight.")
 	for _, env := range envMap {
 		ns := env.Namespace
 		clusterID := env.ClusterID
+		log.Debugf("envName: %s", env.EnvName)
 
 		kclient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
 		if err != nil {
@@ -125,6 +128,7 @@ func SetIstioGrayscaleWeight(ctx context.Context, envMap map[string]*commonmodel
 				return err
 			}
 
+			log.Debugf("svcName: %s, svcSelector: %v, hasWorkload: %v", svc.Name, svc.Spec.Selector, hasWorkload)
 			if !hasWorkload {
 				continue
 			}
@@ -145,6 +149,8 @@ func SetIstioGrayscaleWeight(ctx context.Context, envMap map[string]*commonmodel
 				return fmt.Errorf("failed to generate VirtualService `%s` in ns `%s` for service %s: %s", vsName, env.Namespace, svc.Name, err)
 			}
 
+			vsSpecYaml, _ := yaml.Marshal(vsObj.Spec)
+			log.Debugf("vsName: %s, isExisted: %v, vsObjYaml: %v", vsName, isExisted, string(vsSpecYaml))
 			if isExisted {
 				_, err = istioClient.NetworkingV1alpha3().VirtualServices(ns).Update(ctx, vsObj, metav1.UpdateOptions{})
 			} else {
@@ -160,7 +166,10 @@ func SetIstioGrayscaleWeight(ctx context.Context, envMap map[string]*commonmodel
 }
 
 func SetIstioGrayscaleHeaderMatch(ctx context.Context, envMap map[string]*commonmodels.Product, headerMatchConfigs []commonmodels.IstioHeaderMatchConfig) error {
+	log.Debugf("Begin to set Istio Grayscale Header Match.")
 	for _, env := range envMap {
+		log.Debugf("envName: %s", env.EnvName)
+
 		ns := env.Namespace
 		clusterID := env.ClusterID
 		baseEnvName := env.IstioGrayscale.BaseEnv
@@ -201,6 +210,8 @@ func SetIstioGrayscaleHeaderMatch(ctx context.Context, envMap map[string]*common
 				continue
 			}
 
+			log.Debugf("svcName: %s, svcSelector: %v, hasWorkload: %v", svc.Name, svc.Spec.Selector, hasWorkload)
+
 			isExisted := false
 			svcName := svc.Name
 			vsName := GenVirtualServiceName(&svc)
@@ -218,6 +229,8 @@ func SetIstioGrayscaleHeaderMatch(ctx context.Context, envMap map[string]*common
 				return fmt.Errorf("failed to generate VirtualService `%s` in ns `%s` for service %s: %s", vsName, env.Namespace, svcName, err)
 			}
 
+			vsSpecYaml, _ := yaml.Marshal(vsObj.Spec)
+			log.Debugf("vsName: %s, isExisted: %v, vsObjYaml: %v", vsName, isExisted, string(vsSpecYaml))
 			if isExisted {
 				_, err = istioClient.NetworkingV1alpha3().VirtualServices(ns).Update(ctx, vsObj, metav1.UpdateOptions{})
 			} else {
@@ -233,6 +246,8 @@ func SetIstioGrayscaleHeaderMatch(ctx context.Context, envMap map[string]*common
 }
 
 func generateGrayscaleWeightVirtualService(ctx context.Context, envMap map[string]*commonmodels.Product, vsName, ns string, weightConfigs []commonmodels.IstioWeightConfig, skipWorkloadCheck bool, svc *corev1.Service, kclient client.Client, vsObj *v1alpha3.VirtualService) (*v1alpha3.VirtualService, error) {
+	log.Debugf("Begin to generateGrayscaleWeightVirtualService: vsName: %s, ns: %s, weightConfigs: %+v, skipWorkloadCheck: %v", vsName, ns, weightConfigs, skipWorkloadCheck)
+
 	matchKey := "x-env"
 	svcName := svc.Name
 	vsObj.Name = vsName
