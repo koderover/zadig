@@ -260,6 +260,8 @@ func generateGrayscaleWeightVirtualService(ctx context.Context, envMap map[strin
 	}
 	vsObj.Labels[zadigtypes.ZadigLabelKeyGlobalOwner] = zadigtypes.Zadig
 
+	// basic http routes
+	log.Debugf("Begin to generate basic http routes.")
 	httpRoutes := []*networkingv1alpha3.HTTPRoute{}
 	for _, weightConfig := range weightConfigs {
 		if envMap[weightConfig.Env] == nil {
@@ -274,14 +276,18 @@ func generateGrayscaleWeightVirtualService(ctx context.Context, envMap map[strin
 			}
 		}
 
+		log.Debugf("envName: %s, baseEnv: %s", weightConfig.Env, baseEnv)
+
 		if !skipWorkloadCheck {
 			// If there is no workloads in this environment, then service is not updated.
 			hasWorkload, err := doesSvcHasWorkload(ctx, envMap[weightConfig.Env].Namespace, labels.SelectorFromSet(labels.Set(svc.Spec.Selector)), kclient)
 			if err != nil {
 				return nil, fmt.Errorf("failed to check if service %s has workload in env %s, err: %s", svcName, envMap[weightConfig.Env].EnvName, err)
 			}
+			log.Debugf("selector: %v, hasWorkload: %v", &svc.Spec.Selector, hasWorkload)
 
 			if !hasWorkload {
+				log.Warnf("service %s has no workload in env %s, skip", svcName, envMap[weightConfig.Env].EnvName)
 				continue
 			}
 		}
@@ -306,9 +312,13 @@ func generateGrayscaleWeightVirtualService(ctx context.Context, envMap map[strin
 				},
 			},
 		}
+		httpRouteYaml, _ := yaml.Marshal(httpRoute)
+		log.Debugf("add basic httpRoute: %+v", string(httpRouteYaml))
 		httpRoutes = append(httpRoutes, httpRoute)
 	}
 
+	log.Debugf("Begin to generate weight http routes.")
+	// weight http routes
 	weightSum := 0
 	configuredEnvSet := sets.NewString()
 	routes := []*networkingv1alpha3.HTTPRouteDestination{}
@@ -317,6 +327,7 @@ func generateGrayscaleWeightVirtualService(ctx context.Context, envMap map[strin
 			return nil, fmt.Errorf("env %s is not found", weightConfig.Env)
 		}
 
+		log.Debugf("envName: %s", weightConfig.Env)
 		if !skipWorkloadCheck {
 			// If there is no workloads in this environment, then service is not updated.
 			hasWorkload, err := doesSvcHasWorkload(ctx, envMap[weightConfig.Env].Namespace, labels.SelectorFromSet(labels.Set(svc.Spec.Selector)), kclient)
@@ -324,7 +335,10 @@ func generateGrayscaleWeightVirtualService(ctx context.Context, envMap map[strin
 				return nil, fmt.Errorf("failed to check if service %s has workload in env %s, err: %s", svcName, envMap[weightConfig.Env].EnvName, err)
 			}
 
+			log.Debugf("selector: %v, hasWorkload: %v", &svc.Spec.Selector, hasWorkload)
+
 			if !hasWorkload {
+				log.Warnf("service %s has no workload in env %s, skip", svcName, envMap[weightConfig.Env].EnvName)
 				continue
 			}
 		}
@@ -343,10 +357,13 @@ func generateGrayscaleWeightVirtualService(ctx context.Context, envMap map[strin
 				},
 			},
 		}
+		httpRouteYaml, _ := yaml.Marshal(route)
+		log.Debugf("add weight httpRoute: %+v", string(httpRouteYaml))
 		routes = append(routes, route)
 
 		configuredEnvSet.Insert(weightConfig.Env)
 	}
+	log.Debugf("configuredEnvSet.Len: %v", configuredEnvSet.Len())
 	if configuredEnvSet.Len() >= 2 {
 		if weightSum != 100 {
 			return nil, fmt.Errorf("the sum of weight is not 100 for the service %s, the full-path grayscale can't work correctly", svcName)
