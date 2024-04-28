@@ -245,6 +245,7 @@ func generateGrayscaleWeightVirtualService(ctx context.Context, envMap map[strin
 	}
 	vsObj.Labels[zadigtypes.ZadigLabelKeyGlobalOwner] = zadigtypes.Zadig
 
+	// basic http routes
 	httpRoutes := []*networkingv1alpha3.HTTPRoute{}
 	for _, weightConfig := range weightConfigs {
 		if envMap[weightConfig.Env] == nil {
@@ -267,6 +268,7 @@ func generateGrayscaleWeightVirtualService(ctx context.Context, envMap map[strin
 			}
 
 			if !hasWorkload {
+				log.Warnf("service %s has no workload in env %s, selector: %v, skip", svcName, weightConfig.Env, svc.Spec.Selector)
 				continue
 			}
 		}
@@ -294,6 +296,7 @@ func generateGrayscaleWeightVirtualService(ctx context.Context, envMap map[strin
 		httpRoutes = append(httpRoutes, httpRoute)
 	}
 
+	// weight http routes
 	weightSum := 0
 	configuredEnvSet := sets.NewString()
 	routes := []*networkingv1alpha3.HTTPRouteDestination{}
@@ -310,6 +313,7 @@ func generateGrayscaleWeightVirtualService(ctx context.Context, envMap map[strin
 			}
 
 			if !hasWorkload {
+				log.Warnf("service %s has no workload in env %s, selector: %v, skip", svcName, weightConfig.Env, svc.Spec.Selector)
 				continue
 			}
 		}
@@ -387,6 +391,7 @@ func generateGrayscaleHeaderMatchVirtualService(ctx context.Context, envMap map[
 			}
 
 			if !hasWorkload {
+				log.Warnf("service %s has no workload in env %s, selector: %v, skip", svcName, headerMatchConfig.Env, svc.Spec.Selector)
 				continue
 			}
 		}
