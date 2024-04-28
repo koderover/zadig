@@ -102,7 +102,7 @@ The Highlighted Features:
 
 ### How to use?
 
-Please follow [Quick Start](https://docs.koderover.com/zadig/quick-start/try-out-install/)
+Please follow [Quick Start](https://docs.koderover.com/zadig/quick-start/introduction/)
 
 ### Bootcamps
 
