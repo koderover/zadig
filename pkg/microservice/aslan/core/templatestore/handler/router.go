@@ -98,9 +98,9 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	releasePlan := router.Group("release_plan")
 	{
 		releasePlan.POST("", CreateReleasePlanTemplate)
-		releasePlan.PUT("", UpdateReleasePlanTemplate)
 		releasePlan.GET("", ListReleasePlanTemplate)
 		releasePlan.GET("/:id", GetReleasePlanTemplateByID)
+		releasePlan.PUT("/:id", UpdateReleasePlanTemplate)
 		releasePlan.DELETE("/:id", DeleteReleasePlanTemplateByID)
 	}
 }

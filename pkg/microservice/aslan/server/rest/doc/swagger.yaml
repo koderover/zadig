@@ -6407,25 +6407,6 @@ paths:
       summary: Create Release Plan Template
       tags:
       - template
-    put:
-      consumes:
-      - application/json
-      description: Update Release Plan Template
-      parameters:
-      - description: body
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/models.ReleasePlanTemplate'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-      summary: Update Release Plan Template
-      tags:
-      - template
   /api/aslan/template/release_plan/{id}:
     delete:
       consumes:
@@ -6463,6 +6444,25 @@ paths:
           schema:
             $ref: '#/definitions/models.ReleasePlanTemplate'
       summary: Get Release Plan Template by ID
+      tags:
+      - template
+    put:
+      consumes:
+      - application/json
+      description: Update Release Plan Template
+      parameters:
+      - description: body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.ReleasePlanTemplate'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Update Release Plan Template
       tags:
       - template
   /api/aslan/template/yaml:

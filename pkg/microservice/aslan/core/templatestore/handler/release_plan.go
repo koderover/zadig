@@ -38,6 +38,7 @@ import (
 // @router /api/aslan/template/release_plan/{id} [get]
 func GetReleasePlanTemplateByID(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
@@ -55,7 +56,6 @@ func GetReleasePlanTemplateByID(c *gin.Context) {
 	}
 
 	ctx.Resp, ctx.Err = templateservice.GetReleasePlanTemplateByID(c.Param("id"), ctx.Logger)
-	return
 }
 
 // @Summary List Release Plan Template
@@ -134,13 +134,12 @@ func CreateReleasePlanTemplate(c *gin.Context) {
 // @produce json
 // @Param 	body 			body 		commonmodels.ReleasePlanTemplate 				true 	"body"
 // @success 200
-// @router /api/aslan/template/release_plan [put]
+// @router /api/aslan/template/release_plan/{id} [put]
 func UpdateReleasePlanTemplate(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -166,7 +165,7 @@ func UpdateReleasePlanTemplate(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = templateservice.UpdateReleasePlanTemplate(ctx.UserName, args, ctx.Logger)
+	ctx.Err = templateservice.UpdateReleasePlanTemplate(ctx.UserName, c.Param("id"), args, ctx.Logger)
 }
 
 // @summary Delete Release Plan Template by ID

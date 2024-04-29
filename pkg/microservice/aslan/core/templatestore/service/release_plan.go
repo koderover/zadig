@@ -19,6 +19,7 @@ package service
 import (
 	"fmt"
 
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
 
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
@@ -43,9 +44,17 @@ func CreateReleasePlanTemplate(userName string, template *commonmodels.ReleasePl
 	return nil
 }
 
-func UpdateReleasePlanTemplate(userName string, template *commonmodels.ReleasePlanTemplate, logger *zap.SugaredLogger) error {
-	if _, err := commonrepo.NewReleasePlanTemplateColl().Find(&commonrepo.ReleasePlanTemplateQueryOption{ID: template.ID.Hex()}); err != nil {
+func UpdateReleasePlanTemplate(userName, idStr string, template *commonmodels.ReleasePlanTemplate, logger *zap.SugaredLogger) error {
+	var err error
+	if _, err := commonrepo.NewReleasePlanTemplateColl().Find(&commonrepo.ReleasePlanTemplateQueryOption{ID: idStr}); err != nil {
 		errMsg := fmt.Sprintf("release plan template %s not found: %v", template.TemplateName, err)
+		logger.Error(errMsg)
+		return e.ErrUpdateReleasePlanTemplate.AddDesc(errMsg)
+	}
+
+	template.ID, err = primitive.ObjectIDFromHex(idStr)
+	if err != nil {
+		errMsg := fmt.Sprintf("Failed to convert id %s to object id, err: %v", idStr, err)
 		logger.Error(errMsg)
 		return e.ErrUpdateReleasePlanTemplate.AddDesc(errMsg)
 	}

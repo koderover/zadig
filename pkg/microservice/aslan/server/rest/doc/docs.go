@@ -4171,35 +4171,6 @@ const docTemplate = `{
                     }
                 }
             },
-            "put": {
-                "description": "Update Release Plan Template",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "template"
-                ],
-                "summary": "Update Release Plan Template",
-                "parameters": [
-                    {
-                        "description": "body",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/models.ReleasePlanTemplate"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK"
-                    }
-                }
-            },
             "post": {
                 "description": "Create Release Plan Template",
                 "consumes": [
@@ -4258,6 +4229,35 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/models.ReleasePlanTemplate"
                         }
+                    }
+                }
+            },
+            "put": {
+                "description": "Update Release Plan Template",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "template"
+                ],
+                "summary": "Update Release Plan Template",
+                "parameters": [
+                    {
+                        "description": "body",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.ReleasePlanTemplate"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
                     }
                 }
             },
