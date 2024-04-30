@@ -736,6 +736,10 @@ func getOriginJobNameByRecursion(workflow *commonmodels.WorkflowV4, jobName stri
 	depth++
 	for _, stage := range workflow.Stages {
 		for _, job := range stage.Jobs {
+			if job.Name != jobName {
+				continue
+			}
+
 			switch v := job.Spec.(type) {
 			case commonmodels.ZadigDistributeImageJobSpec:
 				if v.Source == config.SourceFromJob {
