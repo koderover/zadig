@@ -20,6 +20,8 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
+	"time"
 
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -27,7 +29,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
-	"github.com/koderover/zadig/v2/pkg/tool/log"
+	"github.com/koderover/zadig/v2/pkg/setting"
 )
 
 type SQLJobCtl struct {
@@ -91,16 +93,41 @@ func (c *SQLJobCtl) ExecMySQLStatement() error {
 	}
 	defer db.Close()
 
-	// 插入示例
-	result, err := db.Exec(c.jobTaskSpec.SQL)
-	if err != nil {
-		return errors.Errorf("exec SQL error: %v", err)
+	sqls := strings.SplitAfter(c.jobTaskSpec.SQL, ";")
+	for _, sql := range sqls {
+		if sql == "" {
+			continue
+		}
+
+		execResult := &commonmodels.SQLExecResult{}
+
+		sql = strings.TrimPrefix(sql, "\n")
+		sql = strings.TrimSuffix(sql, "\n")
+		sql = strings.TrimSpace(sql)
+		execResult.SQL = sql
+		execResult.Status = setting.SQLExecStatusNotExec
+
+		c.jobTaskSpec.Results = append(c.jobTaskSpec.Results, execResult)
 	}
-	c.jobTaskSpec.RowsAffected, err = result.RowsAffected()
-	if err != nil {
-		return errors.Errorf("get affect rows error: %v", err)
+
+	for _, execResult := range c.jobTaskSpec.Results {
+		now := time.Now()
+		result, err := db.Exec(execResult.SQL)
+		if err != nil {
+			execResult.Status = setting.SQLExecStatusFailed
+			return errors.Errorf("exec SQL \"%s\" error: %v", execResult.SQL, err)
+		}
+		execResult.Status = setting.SQLExecStatusSuccess
+
+		elapsed := time.Now().Sub(now).Milliseconds()
+		execResult.ElapsedTime = elapsed
+
+		rowsAffected, err := result.RowsAffected()
+		if err != nil {
+			return errors.Errorf("get affect rows error: %v", err)
+		}
+		execResult.RowsAffected = rowsAffected
 	}
-	log.Debugf("SQL: %s, affect rows: %d", c.jobTaskSpec.SQL, c.jobTaskSpec.RowsAffected)
 
 	return nil
 }

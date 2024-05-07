@@ -23,6 +23,7 @@ import (
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commontypes "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/types"
+	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/types"
 )
 
@@ -444,10 +445,18 @@ type NacosData struct {
 }
 
 type JobTaskSQLSpec struct {
-	ID           string                `bson:"id" json:"id" yaml:"id"`
-	Type         config.DBInstanceType `bson:"type" json:"type" yaml:"type"`
+	ID      string                `bson:"id" json:"id" yaml:"id"`
+	Type    config.DBInstanceType `bson:"type" json:"type" yaml:"type"`
+	SQL     string                `bson:"sql" json:"sql" yaml:"sql"`
+	Log     string                `bson:"log" json:"log" yaml:"log"`
+	Results []*SQLExecResult      `bson:"results" json:"results" yaml:"results"`
+}
+
+type SQLExecResult struct {
 	SQL          string                `bson:"sql" json:"sql" yaml:"sql"`
+	ElapsedTime  int64                 `bson:"elapsed_time" json:"elapsed_time" yaml:"elapsed_time"`
 	RowsAffected int64                 `bson:"rows_affected" json:"rows_affected" yaml:"rows_affected"`
+	Status       setting.SQLExecStatus `bson:"status" json:"status" yaml:"status"`
 }
 
 type JobTaskApolloSpec struct {
