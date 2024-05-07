@@ -448,7 +448,6 @@ type JobTaskSQLSpec struct {
 	ID      string                `bson:"id" json:"id" yaml:"id"`
 	Type    config.DBInstanceType `bson:"type" json:"type" yaml:"type"`
 	SQL     string                `bson:"sql" json:"sql" yaml:"sql"`
-	Log     string                `bson:"log" json:"log" yaml:"log"`
 	Results []*SQLExecResult      `bson:"results" json:"results" yaml:"results"`
 }
 

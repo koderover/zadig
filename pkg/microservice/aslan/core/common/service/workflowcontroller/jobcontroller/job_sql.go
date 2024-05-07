@@ -101,10 +101,7 @@ func (c *SQLJobCtl) ExecMySQLStatement() error {
 
 		execResult := &commonmodels.SQLExecResult{}
 
-		sql = strings.TrimPrefix(sql, "\n")
-		sql = strings.TrimSuffix(sql, "\n")
-		sql = strings.TrimSpace(sql)
-		execResult.SQL = sql
+		execResult.SQL = strings.TrimSpace(sql)
 		execResult.Status = setting.SQLExecStatusNotExec
 
 		c.jobTaskSpec.Results = append(c.jobTaskSpec.Results, execResult)
@@ -118,9 +115,7 @@ func (c *SQLJobCtl) ExecMySQLStatement() error {
 			return errors.Errorf("exec SQL \"%s\" error: %v", execResult.SQL, err)
 		}
 		execResult.Status = setting.SQLExecStatusSuccess
-
-		elapsed := time.Now().Sub(now).Milliseconds()
-		execResult.ElapsedTime = elapsed
+		execResult.ElapsedTime = time.Now().Sub(now).Milliseconds()
 
 		rowsAffected, err := result.RowsAffected()
 		if err != nil {
