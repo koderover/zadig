@@ -535,3 +535,15 @@ func Placeholder12(c *gin.Context) {
 func Placeholder13(c *gin.Context) {
 
 }
+
+// @Summary [DONT USE] JobTaskSQLSpec
+// @Description [DONT USE] JobTaskSQLSpec
+// @Tags 	placeholder
+// @Accept 	json
+// @Produce json
+// @Param 	sql_task_spec 			body 		 commonmodels.JobTaskSQLSpec true 	"body"
+// @Success 200
+// @Router /api/aslan/placeholder/sql_job_task_spec [post]
+func Placeholder14(c *gin.Context) {
+
+}

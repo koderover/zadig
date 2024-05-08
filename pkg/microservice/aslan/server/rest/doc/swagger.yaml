@@ -1157,6 +1157,19 @@ definitions:
       weight:
         type: integer
     type: object
+  models.JobTaskSQLSpec:
+    properties:
+      id:
+        type: string
+      results:
+        items:
+          $ref: '#/definitions/models.SQLExecResult'
+        type: array
+      sql:
+        type: string
+      type:
+        $ref: '#/definitions/config.DBInstanceType'
+    type: object
   models.K8sPatchJobSpec:
     properties:
       cluster_id:
@@ -1643,6 +1656,17 @@ definitions:
         type: integer
       updated_by:
         type: string
+    type: object
+  models.SQLExecResult:
+    properties:
+      elapsed_time:
+        type: integer
+      rows_affected:
+        type: integer
+      sql:
+        type: string
+      status:
+        $ref: '#/definitions/setting.SQLExecStatus'
     type: object
   models.ScanningModule:
     properties:
@@ -3310,6 +3334,16 @@ definitions:
     x-enum-varnames:
     - PMHostStatusNormal
     - PMHostStatusAbnormal
+  setting.SQLExecStatus:
+    enum:
+    - success
+    - failed
+    - not_exec
+    type: string
+    x-enum-varnames:
+    - SQLExecStatusSuccess
+    - SQLExecStatusFailed
+    - SQLExecStatusNotExec
   template.CustomYaml:
     properties:
       auto_sync:
@@ -5179,6 +5213,26 @@ paths:
         "200":
           description: OK
       summary: '[DONT USE]  K8sPatchJobSpec'
+      tags:
+      - placeholder
+  /api/aslan/placeholder/sql_job_task_spec:
+    post:
+      consumes:
+      - application/json
+      description: '[DONT USE] JobTaskSQLSpec'
+      parameters:
+      - description: body
+        in: body
+        name: sql_task_spec
+        required: true
+        schema:
+          $ref: '#/definitions/models.JobTaskSQLSpec'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: '[DONT USE] JobTaskSQLSpec'
       tags:
       - placeholder
   /api/aslan/placeholder/update_env_istio_config_job_spec:

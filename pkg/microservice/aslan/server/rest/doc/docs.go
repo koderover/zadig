@@ -2350,6 +2350,37 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/aslan/placeholder/sql_job_task_spec": {
+            "post": {
+                "description": "[DONT USE] JobTaskSQLSpec",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "placeholder"
+                ],
+                "summary": "[DONT USE] JobTaskSQLSpec",
+                "parameters": [
+                    {
+                        "description": "body",
+                        "name": "sql_task_spec",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.JobTaskSQLSpec"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
         "/api/aslan/placeholder/update_env_istio_config_job_spec": {
             "post": {
                 "description": "[DONT USE] UpdateEnvIstioConfigJobSpec",
@@ -6428,6 +6459,26 @@ const docTemplate = `{
                 }
             }
         },
+        "models.JobTaskSQLSpec": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "results": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.SQLExecResult"
+                    }
+                },
+                "sql": {
+                    "type": "string"
+                },
+                "type": {
+                    "$ref": "#/definitions/config.DBInstanceType"
+                }
+            }
+        },
         "models.K8sPatchJobSpec": {
             "type": "object",
             "properties": {
@@ -7138,6 +7189,23 @@ const docTemplate = `{
                 },
                 "updated_by": {
                     "type": "string"
+                }
+            }
+        },
+        "models.SQLExecResult": {
+            "type": "object",
+            "properties": {
+                "elapsed_time": {
+                    "type": "integer"
+                },
+                "rows_affected": {
+                    "type": "integer"
+                },
+                "sql": {
+                    "type": "string"
+                },
+                "status": {
+                    "$ref": "#/definitions/setting.SQLExecStatus"
                 }
             }
         },
@@ -9642,6 +9710,19 @@ const docTemplate = `{
             "x-enum-varnames": [
                 "PMHostStatusNormal",
                 "PMHostStatusAbnormal"
+            ]
+        },
+        "setting.SQLExecStatus": {
+            "type": "string",
+            "enum": [
+                "success",
+                "failed",
+                "not_exec"
+            ],
+            "x-enum-varnames": [
+                "SQLExecStatusSuccess",
+                "SQLExecStatusFailed",
+                "SQLExecStatusNotExec"
             ]
         },
         "template.CustomYaml": {

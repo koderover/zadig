@@ -899,3 +899,11 @@ const (
 	EnvoyFilterHttpRouter                   = "envoy.filters.http.router"
 	EnvoyFilterLua                          = "type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua"
 )
+
+type SQLExecStatus string
+
+const (
+	SQLExecStatusSuccess SQLExecStatus = "success"
+	SQLExecStatusFailed  SQLExecStatus = "failed"
+	SQLExecStatusNotExec SQLExecStatus = "not_exec"
+)
