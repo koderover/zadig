@@ -590,6 +590,49 @@ func UpdateCluster(id string, args *K8SCluster, logger *zap.SugaredLogger) (*com
 	return cluster, UpgradeAgent(id, logger)
 }
 
+type ClusterDeletionInfo struct {
+	Deletable bool       `json:"deletable"`
+	EnvInUse  []*EnvInfo `json:"env_in_use,omitempty"`
+}
+
+type EnvInfo struct {
+	Name        string `json:"name"`
+	ProjectName string `json:"project_name"`
+	Production  bool   `json:"production"`
+}
+
+func GetClusterDeletionInfo(clusterID string, logger *zap.SugaredLogger) (*ClusterDeletionInfo, error) {
+	envs, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
+		ClusterID: clusterID,
+	})
+
+	if err != nil && !commonrepo.IsErrNoDocuments(err) {
+		log.Errorf("failed to find cluster using cluster: %s, error: %s", clusterID, err)
+		return nil, fmt.Errorf("failed to find cluster using cluster: %s, error: %s", clusterID, err)
+	}
+
+	if len(envs) == 0 {
+		return &ClusterDeletionInfo{
+			Deletable: true,
+			EnvInUse:  nil,
+		}, nil
+	}
+
+	envList := make([]*EnvInfo, 0)
+	for _, env := range envs {
+		envList = append(envList, &EnvInfo{
+			Name:        env.EnvName,
+			ProjectName: env.ProductName,
+			Production:  env.Production,
+		})
+	}
+
+	return &ClusterDeletionInfo{
+		Deletable: false,
+		EnvInUse:  envList,
+	}, nil
+}
+
 func DeleteCluster(username, clusterID string, logger *zap.SugaredLogger) error {
 	products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
 		ClusterID: clusterID,
