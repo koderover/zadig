@@ -26,6 +26,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/hashicorp/go-multierror"
+	templaterepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/v2/pkg/shared/client/plutusvendor"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
@@ -621,11 +622,16 @@ func GetClusterDeletionInfo(clusterID string, logger *zap.SugaredLogger) (*Clust
 
 	envList := make([]*EnvInfo, 0)
 	for _, env := range envs {
+		projectInfo, err := templaterepo.NewProductColl().Find(env.ProductName)
+		if err != nil {
+			log.Errorf("failed to find project info for env: %s, error: %s", env.EnvName, err)
+			return nil, fmt.Errorf("failed to find project info for env: %s, error: %s", env.EnvName, err)
+		}
 		envList = append(envList, &EnvInfo{
 			Name:        env.EnvName,
 			ProjectName: env.ProductName,
 			Production:  env.Production,
-			DisplayName: env.Alias,
+			DisplayName: projectInfo.ProjectName,
 		})
 	}
 
