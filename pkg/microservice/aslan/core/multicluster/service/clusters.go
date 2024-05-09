@@ -597,6 +597,7 @@ type ClusterDeletionInfo struct {
 
 type EnvInfo struct {
 	Name        string `json:"name"`
+	DisplayName string `json:"display_name"`
 	ProjectName string `json:"project_name"`
 	Production  bool   `json:"production"`
 }
@@ -624,6 +625,7 @@ func GetClusterDeletionInfo(clusterID string, logger *zap.SugaredLogger) (*Clust
 			Name:        env.EnvName,
 			ProjectName: env.ProductName,
 			Production:  env.Production,
+			DisplayName: env.Alias,
 		})
 	}
 
