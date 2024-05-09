@@ -459,8 +459,8 @@ func UpdateReleasePlanStatus(c *handler.Context, planID, status string) error {
 			job.Updated = false
 		}
 	case config.StatusExecuting:
-		if plan.Approval != nil && plan.Approval.Status != config.StatusPassed {
-			detail = "跳过审批"
+		if plan.Approval != nil && plan.Approval.Enabled == true && plan.Approval.Status != config.StatusPassed {
+			return errors.Errorf("approval status is %s, can not execute", plan.Approval.Status)
 		}
 		setReleaseJobsForExecuting(plan)
 	case config.StatusWaitForApprove:
