@@ -253,9 +253,7 @@ func compareServicesRev(serviceTmplNames []string, productServices []*commonmode
 	serviceRevs := make([]*SvcRevision, 0)
 
 	productServiceMap := make(map[string]*commonmodels.ProductService)
-	log.Debugf("len(productServices): %d", len(productServices))
 	for _, service := range productServices {
-		log.Debugf("productService: %+v", service)
 		productServiceMap[service.ServiceName] = service
 	}
 
