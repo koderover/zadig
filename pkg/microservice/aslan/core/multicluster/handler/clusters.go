@@ -166,6 +166,27 @@ func UpdateCluster(c *gin.Context) {
 	ctx.Resp, ctx.Err = service.UpdateCluster(c.Param("id"), args, ctx.Logger)
 }
 
+func GetDeletionInfo(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	// authorization check
+	if !ctx.Resources.IsSystemAdmin {
+		if !ctx.Resources.SystemActions.ClusterManagement.Delete {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	ctx.Resp, ctx.Err = service.GetClusterDeletionInfo(c.Param("id"), ctx.Logger)
+}
+
 func DeleteCluster(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

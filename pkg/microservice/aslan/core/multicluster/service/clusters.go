@@ -26,6 +26,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/hashicorp/go-multierror"
+	templaterepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/v2/pkg/shared/client/plutusvendor"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
@@ -588,6 +589,56 @@ func UpdateCluster(id string, args *K8SCluster, logger *zap.SugaredLogger) (*com
 	}
 
 	return cluster, UpgradeAgent(id, logger)
+}
+
+type ClusterDeletionInfo struct {
+	Deletable bool       `json:"deletable"`
+	EnvInUse  []*EnvInfo `json:"env_in_use,omitempty"`
+}
+
+type EnvInfo struct {
+	Name        string `json:"name"`
+	DisplayName string `json:"display_name"`
+	ProjectName string `json:"project_name"`
+	Production  bool   `json:"production"`
+}
+
+func GetClusterDeletionInfo(clusterID string, logger *zap.SugaredLogger) (*ClusterDeletionInfo, error) {
+	envs, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
+		ClusterID: clusterID,
+	})
+
+	if err != nil && !commonrepo.IsErrNoDocuments(err) {
+		log.Errorf("failed to find cluster using cluster: %s, error: %s", clusterID, err)
+		return nil, fmt.Errorf("failed to find cluster using cluster: %s, error: %s", clusterID, err)
+	}
+
+	if len(envs) == 0 {
+		return &ClusterDeletionInfo{
+			Deletable: true,
+			EnvInUse:  nil,
+		}, nil
+	}
+
+	envList := make([]*EnvInfo, 0)
+	for _, env := range envs {
+		projectInfo, err := templaterepo.NewProductColl().Find(env.ProductName)
+		if err != nil {
+			log.Errorf("failed to find project info for env: %s, error: %s", env.EnvName, err)
+			return nil, fmt.Errorf("failed to find project info for env: %s, error: %s", env.EnvName, err)
+		}
+		envList = append(envList, &EnvInfo{
+			Name:        env.EnvName,
+			ProjectName: env.ProductName,
+			Production:  env.Production,
+			DisplayName: projectInfo.ProjectName,
+		})
+	}
+
+	return &ClusterDeletionInfo{
+		Deletable: false,
+		EnvInUse:  envList,
+	}, nil
 }
 
 func DeleteCluster(username, clusterID string, logger *zap.SugaredLogger) error {
