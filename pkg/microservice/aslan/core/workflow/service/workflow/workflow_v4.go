@@ -1900,7 +1900,7 @@ func CreateCronForWorkflowV4(workflowName string, input *commonmodels.Cronjob, l
 		return e.ErrUpsertCronjob.AddDesc("cronjob id is not empty")
 	}
 	input.Name = workflowName
-	input.Type = config.WorkflowV4Cronjob
+	input.Type = setting.WorkflowV4Cronjob
 	err := commonrepo.NewCronjobColl().Create(input)
 	if err != nil {
 		msg := fmt.Sprintf("Failed to create cron job, error: %v", err)
@@ -1913,7 +1913,7 @@ func CreateCronForWorkflowV4(workflowName string, input *commonmodels.Cronjob, l
 
 	payload := &commonservice.CronjobPayload{
 		Name:    workflowName,
-		JobType: config.WorkflowV4Cronjob,
+		JobType: setting.WorkflowV4Cronjob,
 		Action:  setting.TypeEnableCronjob,
 		JobList: []*commonmodels.Schedule{cronJobToSchedule(input)},
 	}
@@ -1949,7 +1949,7 @@ func UpdateCronForWorkflowV4(input *commonmodels.Cronjob, logger *zap.SugaredLog
 	}
 	payload := &commonservice.CronjobPayload{
 		Name:    input.Name,
-		JobType: config.WorkflowV4Cronjob,
+		JobType: setting.WorkflowV4Cronjob,
 		Action:  setting.TypeEnableCronjob,
 	}
 	if !input.Enabled {
@@ -1973,7 +1973,7 @@ func UpdateCronForWorkflowV4(input *commonmodels.Cronjob, logger *zap.SugaredLog
 func ListCronForWorkflowV4(workflowName string, logger *zap.SugaredLogger) ([]*commonmodels.Cronjob, error) {
 	crons, err := commonrepo.NewCronjobColl().List(&commonrepo.ListCronjobParam{
 		ParentName: workflowName,
-		ParentType: config.WorkflowV4Cronjob,
+		ParentType: setting.WorkflowV4Cronjob,
 	})
 	if err != nil {
 		logger.Errorf("Failed to list WorkflowV4 : %s cron jobs, the error is: %v", workflowName, err)
@@ -2063,7 +2063,7 @@ func DeleteCronForWorkflowV4(workflowName, cronID string, logger *zap.SugaredLog
 	}
 	payload := &commonservice.CronjobPayload{
 		Name:       workflowName,
-		JobType:    config.WorkflowV4Cronjob,
+		JobType:    setting.WorkflowV4Cronjob,
 		Action:     setting.TypeEnableCronjob,
 		DeleteList: []string{job.ID.Hex()},
 	}

@@ -560,11 +560,13 @@ const (
 	FixedGapCronjob     = "gap"
 	CrontabCronjob      = "crontab"
 
+	// 定时器的所属job类型
 	WorkflowCronjob    = "workflow"
 	WorkflowV4Cronjob  = "workflow_v4"
 	TestingCronjob     = "test"
 	EnvAnalysisCronjob = "env_analysis"
 	EnvSleepCronjob    = "env_sleep"
+	ReleasePlanCronjob = "release_plan"
 
 	TopicProcess      = "task.process"
 	TopicCancel       = "task.cancel"

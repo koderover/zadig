@@ -56,6 +56,20 @@ func lintReleaseTimeRange(start, end int64) error {
 	return nil
 }
 
+func lintScheduleExecuteTime(ScheduleExecuteTime, startTime, endTime int64) error {
+	if ScheduleExecuteTime == 0 {
+		return nil
+	}
+	if startTime == 0 && endTime == 0 {
+		return nil
+	}
+
+	if startTime <= ScheduleExecuteTime && ScheduleExecuteTime <= endTime {
+		return nil
+	}
+	return errors.New("schedule execute time should be in the range of start time and end time")
+}
+
 func lintWorkflow(workflow *models.WorkflowV4) error {
 	if workflow == nil {
 		return fmt.Errorf("workflow cannot be empty")

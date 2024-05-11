@@ -34,10 +34,11 @@ import (
 )
 
 const (
-	VerbUpdateName      = "update_name"
-	VerbUpdateDesc      = "update_description"
-	VerbUpdateTimeRange = "update_time_range"
-	VerbUpdateManager   = "update_manager"
+	VerbUpdateName                = "update_name"
+	VerbUpdateDesc                = "update_description"
+	VerbUpdateTimeRange           = "update_time_range"
+	VerbUpdateScheduleExecuteTime = "update_schedule_execute_time"
+	VerbUpdateManager             = "update_manager"
 
 	VerbCreateReleaseJob = "create_release_job"
 	VerbUpdateReleaseJob = "update_release_job"
@@ -77,6 +78,8 @@ func NewPlanUpdater(args *UpdateReleasePlanArgs) (PlanUpdater, error) {
 		return NewDescUpdater(args)
 	case VerbUpdateTimeRange:
 		return NewTimeRangeUpdater(args)
+	case VerbUpdateScheduleExecuteTime:
+		return NewScheduleExecuteTimeUpdater(args)
 	case VerbUpdateManager:
 		return NewManagerUpdater(args)
 	case VerbCreateReleaseJob:
@@ -529,4 +532,42 @@ func createLarkApprovalDefinition(approval *models.LarkApproval) error {
 	log.Infof("create lark approval common definition %s, key: %s", approvalCode, approval.GetNodeTypeKey())
 
 	return nil
+}
+
+type ScheduleExecuteTimeUpdater struct {
+	StartTime           int64 `json:"start_time"`
+	EndTime             int64 `json:"end_time"`
+	ScheduleExecuteTime int64 `json:"schedule_execute_time"`
+}
+
+func NewScheduleExecuteTimeUpdater(args *UpdateReleasePlanArgs) (*ScheduleExecuteTimeUpdater, error) {
+	var updater ScheduleExecuteTimeUpdater
+	if err := models.IToi(args.Spec, &updater); err != nil {
+		return nil, errors.Wrap(err, "invalid spec")
+	}
+	return &updater, nil
+}
+
+func (u *ScheduleExecuteTimeUpdater) Update(plan *models.ReleasePlan) (before interface{}, after interface{}, err error) {
+	format := "2006-01-02 15:04:05"
+	before = time.Unix(plan.ScheduleExecuteTime, 0).Format(format)
+	after = time.Unix(u.ScheduleExecuteTime, 0).Format(format)
+	plan.ScheduleExecuteTime = u.ScheduleExecuteTime
+	return
+}
+
+func (u *ScheduleExecuteTimeUpdater) Lint() error {
+	return lintScheduleExecuteTime(u.ScheduleExecuteTime, u.StartTime, u.EndTime)
+}
+
+func (u *ScheduleExecuteTimeUpdater) TargetName() string {
+	return "定时执行"
+}
+
+func (u *ScheduleExecuteTimeUpdater) TargetType() string {
+	return TargetTypeMetadata
+}
+
+func (u *ScheduleExecuteTimeUpdater) Verb() string {
+	return VerbUpdate
 }

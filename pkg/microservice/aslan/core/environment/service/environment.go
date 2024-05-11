@@ -3567,7 +3567,7 @@ func UpsertEnvAnalysisCron(projectName, envName string, production *bool, req *E
 
 	found := false
 	name := getEnvAnalysisCronName(projectName, envName)
-	cron, err := commonrepo.NewCronjobColl().GetByName(name, config.EnvAnalysisCronjob)
+	cron, err := commonrepo.NewCronjobColl().GetByName(name, setting.EnvAnalysisCronjob)
 	if err != nil {
 		if err != mongo.ErrNoDocuments && err != mongo.ErrNilDocument {
 			return e.ErrAnalysisEnvResource.AddErr(fmt.Errorf("failed to get cron job %s, err: %w", name, err))
@@ -3592,14 +3592,14 @@ func UpsertEnvAnalysisCron(projectName, envName string, production *bool, req *E
 			// need to disable cronjob
 			payload = &commonservice.CronjobPayload{
 				Name:       name,
-				JobType:    config.EnvAnalysisCronjob,
+				JobType:    setting.EnvAnalysisCronjob,
 				Action:     setting.TypeEnableCronjob,
 				DeleteList: []string{cron.ID.Hex()},
 			}
 		} else if !origEnabled && req.Enable || origEnabled && req.Enable {
 			payload = &commonservice.CronjobPayload{
 				Name:    name,
-				JobType: config.EnvAnalysisCronjob,
+				JobType: setting.EnvAnalysisCronjob,
 				Action:  setting.TypeEnableCronjob,
 				JobList: []*commonmodels.Schedule{cronJobToSchedule(cron)},
 			}
@@ -3611,7 +3611,7 @@ func UpsertEnvAnalysisCron(projectName, envName string, production *bool, req *E
 		input := &commonmodels.Cronjob{
 			Name:    name,
 			Enabled: req.Enable,
-			Type:    config.EnvAnalysisCronjob,
+			Type:    setting.EnvAnalysisCronjob,
 			Cron:    req.Cron,
 			EnvAnalysisArgs: &commonmodels.EnvArgs{
 				ProductName: env.ProductName,
@@ -3632,7 +3632,7 @@ func UpsertEnvAnalysisCron(projectName, envName string, production *bool, req *E
 
 		payload = &commonservice.CronjobPayload{
 			Name:    name,
-			JobType: config.EnvAnalysisCronjob,
+			JobType: setting.EnvAnalysisCronjob,
 			Action:  setting.TypeEnableCronjob,
 			JobList: []*commonmodels.Schedule{cronJobToSchedule(input)},
 		}
@@ -3652,7 +3652,7 @@ func UpsertEnvAnalysisCron(projectName, envName string, production *bool, req *E
 }
 
 func getEnvAnalysisCronName(projectName, envName string) string {
-	return fmt.Sprintf("%s-%s-%s", envName, projectName, config.EnvAnalysisCronjob)
+	return fmt.Sprintf("%s-%s-%s", envName, projectName, setting.EnvAnalysisCronjob)
 }
 
 func cronJobToSchedule(input *commonmodels.Cronjob) *commonmodels.Schedule {
@@ -3674,7 +3674,7 @@ func GetEnvAnalysisCron(projectName, envName string, production *bool, logger *z
 	name := getEnvAnalysisCronName(projectName, envName)
 	crons, err := commonrepo.NewCronjobColl().List(&commonrepo.ListCronjobParam{
 		ParentName: name,
-		ParentType: config.EnvAnalysisCronjob,
+		ParentType: setting.EnvAnalysisCronjob,
 	})
 	if err != nil {
 		fmtErr := fmt.Errorf("Failed to list env analysis cron jobs, project name %s, env name: %s, error: %w", projectName, envName, err)
@@ -4228,13 +4228,13 @@ func GetEnvSleepCron(projectName, envName string, production *bool, logger *zap.
 
 	sleepName := util.GetEnvSleepCronName(projectName, envName, true)
 	awakeName := util.GetEnvSleepCronName(projectName, envName, false)
-	sleepCron, err := commonrepo.NewCronjobColl().GetByName(sleepName, config.EnvSleepCronjob)
+	sleepCron, err := commonrepo.NewCronjobColl().GetByName(sleepName, setting.EnvSleepCronjob)
 	if err != nil {
 		if err != mongo.ErrNoDocuments && err != mongo.ErrNilDocument {
 			return nil, e.ErrGetCronjob.AddErr(fmt.Errorf("failed to get env sleep cron job for sleep, err: %w", err))
 		}
 	}
-	awakeCron, err := commonrepo.NewCronjobColl().GetByName(awakeName, config.EnvSleepCronjob)
+	awakeCron, err := commonrepo.NewCronjobColl().GetByName(awakeName, setting.EnvSleepCronjob)
 	if err != nil {
 		if err != mongo.ErrNoDocuments && err != mongo.ErrNilDocument {
 			return nil, e.ErrGetCronjob.AddErr(fmt.Errorf("failed to get env sleep cron job for awake, err: %w", err))
@@ -4273,13 +4273,13 @@ func UpsertEnvSleepCron(projectName, envName string, production *bool, req *EnvS
 
 	sleepName := util.GetEnvSleepCronName(projectName, envName, true)
 	awakeName := util.GetEnvSleepCronName(projectName, envName, false)
-	sleepCron, err := commonrepo.NewCronjobColl().GetByName(sleepName, config.EnvSleepCronjob)
+	sleepCron, err := commonrepo.NewCronjobColl().GetByName(sleepName, setting.EnvSleepCronjob)
 	if err != nil {
 		if err != mongo.ErrNoDocuments && err != mongo.ErrNilDocument {
 			return e.ErrUpsertCronjob.AddErr(fmt.Errorf("failed to get env sleep cron job for sleep, err: %w", err))
 		}
 	}
-	awakeCron, err := commonrepo.NewCronjobColl().GetByName(awakeName, config.EnvSleepCronjob)
+	awakeCron, err := commonrepo.NewCronjobColl().GetByName(awakeName, setting.EnvSleepCronjob)
 	if err != nil {
 		if err != mongo.ErrNoDocuments && err != mongo.ErrNilDocument {
 			return e.ErrUpsertCronjob.AddErr(fmt.Errorf("failed to get env sleep cron job for awake, err: %w", err))
@@ -4316,14 +4316,14 @@ func UpsertEnvSleepCron(projectName, envName string, production *bool, req *EnvS
 				// need to disable cronjob
 				payload = &commonservice.CronjobPayload{
 					Name:       name,
-					JobType:    config.EnvSleepCronjob,
+					JobType:    setting.EnvSleepCronjob,
 					Action:     setting.TypeEnableCronjob,
 					DeleteList: []string{cron.ID.Hex()},
 				}
 			} else if !origSleepEnabled && req.SleepCronEnable || origSleepEnabled && req.SleepCronEnable {
 				payload = &commonservice.CronjobPayload{
 					Name:    name,
-					JobType: config.EnvSleepCronjob,
+					JobType: setting.EnvSleepCronjob,
 					Action:  setting.TypeEnableCronjob,
 					JobList: []*commonmodels.Schedule{cronJobToSchedule(cron)},
 				}
@@ -4334,7 +4334,7 @@ func UpsertEnvSleepCron(projectName, envName string, production *bool, req *EnvS
 		} else {
 			input := &commonmodels.Cronjob{
 				Name: name,
-				Type: config.EnvSleepCronjob,
+				Type: setting.EnvSleepCronjob,
 				EnvArgs: &commonmodels.EnvArgs{
 					Name:        name,
 					ProductName: env.ProductName,
@@ -4361,7 +4361,7 @@ func UpsertEnvSleepCron(projectName, envName string, production *bool, req *EnvS
 			}
 			payload = &commonservice.CronjobPayload{
 				Name:    name,
-				JobType: config.EnvSleepCronjob,
+				JobType: setting.EnvSleepCronjob,
 				Action:  setting.TypeEnableCronjob,
 				JobList: []*commonmodels.Schedule{cronJobToSchedule(input)},
 			}

@@ -84,10 +84,10 @@ func HandleCronjob(testing *commonmodels.Testing, log *zap.SugaredLogger) error 
 		payload := commonservice.CronjobPayload{
 			Name:        testing.Name,
 			ProductName: testing.ProductName,
-			JobType:     config.TestingCronjob,
+			JobType:     setting.TestingCronjob,
 		}
 		if testSchedule.Enabled {
-			deleteList, err := workflowservice.UpdateCronjob(testing.Name, config.TestingCronjob, testing.ProductName, testSchedule, log)
+			deleteList, err := workflowservice.UpdateCronjob(testing.Name, setting.TestingCronjob, testing.ProductName, testSchedule, log)
 			if err != nil {
 				log.Errorf("Failed to update cronjob, the error is: %v", err)
 				return e.ErrUpsertCronjob.AddDesc(err.Error())
@@ -299,7 +299,7 @@ func GetTesting(name, productName string, log *zap.SugaredLogger) (*commonmodels
 
 	// 数据兼容： 4.1.2版本之前的定时器数据已经包含在workflow的schedule字段中，而4.1.3及以后的定时器数据需要在cronjob表中获取
 	if resp.Schedules == nil {
-		schedules, err := ListCronjob(resp.Name, config.TestingCronjob)
+		schedules, err := ListCronjob(resp.Name, setting.TestingCronjob)
 		if err != nil {
 			return nil, err
 		}

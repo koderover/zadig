@@ -110,7 +110,7 @@ func DeleteWorkflow(workflowName, requestID string, isDeletingProductTmpl bool, 
 	//删除所属的所有定时任务
 	err = mongodb.NewCronjobColl().Delete(&mongodb.CronjobDeleteOption{
 		ParentName: workflowName,
-		ParentType: config.WorkflowCronjob,
+		ParentType: setting.WorkflowCronjob,
 	})
 	if err != nil {
 		log.Errorf("Failed to delete cronjob for workflow %s, error: %s", workflow.Name, err)
@@ -165,13 +165,13 @@ func DisableCronjobForWorkflow(workflow *models.Workflow) error {
 	disableIDList := make([]string, 0)
 	payload := &CronjobPayload{
 		Name:    workflow.Name,
-		JobType: config.WorkflowCronjob,
+		JobType: setting.WorkflowCronjob,
 		Action:  setting.TypeEnableCronjob,
 	}
 	if workflow.ScheduleEnabled {
 		jobList, err := mongodb.NewCronjobColl().List(&mongodb.ListCronjobParam{
 			ParentName: workflow.Name,
-			ParentType: config.WorkflowCronjob,
+			ParentType: setting.WorkflowCronjob,
 		})
 		if err != nil {
 			return err

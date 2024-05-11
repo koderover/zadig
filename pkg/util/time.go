@@ -105,3 +105,19 @@ func IsSameDay(timestamp1 int64, timestamp2 int64) bool {
 
 	return t1.Year() == t2.Year() && t1.Month() == t2.Month() && t1.Day() == t2.Day()
 }
+func UnixStampToCronExpr(unixStamp int64) string {
+	// 将 Unix 时间戳转换为时间
+	t := time.Unix(unixStamp, 0)
+
+	// 提取分钟、小时、日期等信息
+	// second := t.Second()
+	minute := t.Minute()
+	hour := t.Hour()
+	day := t.Day()
+	month := int(t.Month())
+	// year := t.Year()
+
+	// 构建 Cron 表达式
+	cronExpr := fmt.Sprintf("%d %d %d %d", minute, hour, day, month)
+	return cronExpr
+}

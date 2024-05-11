@@ -910,7 +910,7 @@ func GetTesting(name, productName string, log *zap.SugaredLogger) (*commonmodels
 	if resp.Schedules == nil {
 		schedules, err := commonrepo.NewCronjobColl().List(&commonrepo.ListCronjobParam{
 			ParentName: resp.Name,
-			ParentType: config.TestingCronjob,
+			ParentType: setting.TestingCronjob,
 		})
 		if err != nil {
 			return nil, err

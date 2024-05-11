@@ -21,7 +21,6 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models/msg_queue"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
@@ -38,11 +37,11 @@ func HandleCronjob(workflow *commonmodels.Workflow, log *zap.SugaredLogger) erro
 		workflowSchedule.Enabled = workflow.ScheduleEnabled
 		payload := &commonservice.CronjobPayload{
 			Name:    workflow.Name,
-			JobType: config.WorkflowCronjob,
+			JobType: setting.WorkflowCronjob,
 		}
 
 		if workflowSchedule.Enabled {
-			deleteList, err := UpdateCronjob(workflow.Name, config.WorkflowCronjob, "", workflowSchedule, log)
+			deleteList, err := UpdateCronjob(workflow.Name, setting.WorkflowCronjob, "", workflowSchedule, log)
 			if err != nil {
 				log.Errorf("Failed to update cronjob, the error is: %v", err)
 				return e.ErrUpsertCronjob.AddDesc(err.Error())
@@ -101,7 +100,7 @@ func UpdateCronjob(parentName, parentType, productName string, schedule *commonm
 		}
 		if !tasks.ID.IsZero() {
 			job.ID = tasks.ID
-			if parentType == config.TestingCronjob {
+			if parentType == setting.TestingCronjob {
 				job.ProductName = productName
 			}
 			err := commonrepo.NewCronjobColl().Update(job)
@@ -111,7 +110,7 @@ func UpdateCronjob(parentName, parentType, productName string, schedule *commonm
 			}
 			delete(idMap, tasks.ID.Hex())
 		} else {
-			if parentType == config.TestingCronjob {
+			if parentType == setting.TestingCronjob {
 				job.ProductName = productName
 			}
 			err := commonrepo.NewCronjobColl().Create(job)

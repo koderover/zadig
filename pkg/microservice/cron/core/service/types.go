@@ -89,6 +89,7 @@ type Schedule struct {
 	WorkflowV4Args  *WorkflowV4        `bson:"workflow_v4_args"              json:"workflow_v4_args"`
 	EnvAnalysisArgs *EnvArgs           `bson:"env_analysis_args,omitempty"   json:"env_analysis_args,omitempty"`
 	EnvArgs         *EnvArgs           `bson:"env_args,omitempty"            json:"env_args,omitempty"`
+	ReleasePlanArgs *ReleasePlanArgs   `bson:"release_plan_args,omitempty"   json:"release_plan_args,omitempty"`
 	Type            ScheduleType       `bson:"type"                          json:"type"`
 	Cron            string             `bson:"cron"                          json:"cron"`
 	IsModified      bool               `bson:"-"                             json:"-"`
@@ -375,6 +376,12 @@ type EnvArgs struct {
 	ProductName string `bson:"product_name"           json:"product_name"`
 	EnvName     string `bson:"env_name"               json:"env_name"`
 	Production  bool   `bson:"production"             json:"production"`
+}
+
+type ReleasePlanArgs struct {
+	ID    string `bson:"id"             json:"id"`
+	Name  string `bson:"name"           json:"name"`
+	Index int64  `bson:"index"          json:"index"`
 }
 
 type CreateBuildRequest struct {
