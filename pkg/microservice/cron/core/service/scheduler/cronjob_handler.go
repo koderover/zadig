@@ -192,6 +192,11 @@ func (h *CronjobHandler) updateCronjob(name, productName, jobType string, jobLis
 			if err != nil {
 				return err
 			}
+		case setting.ReleasePlanCronjob:
+			err := h.registerReleasePlanJob(name, cron, job)
+			if err != nil {
+				return err
+			}
 		default:
 			log.Errorf("unrecognized cron job type for job id: %s", job.ID)
 		}
@@ -511,6 +516,32 @@ func (h *CronjobHandler) registerEnvSleepJob(name, schedule string, job *service
 		if err := h.aslanCli.ScheduleCall(url, nil, log.SugaredLogger()); err != nil {
 			log.Errorf("[%s]RunScheduledTask err: %v", name, err)
 		}
+	})
+	if err != nil {
+		log.Errorf("Failed to create job of ID: %s, the error is: %v", job.ID.Hex(), err)
+		return err
+	}
+
+	log.Infof("registering jobID: %s with cron: %s", job.ID.Hex(), schedule)
+	err = h.Scheduler.UpdateJobModel(job.ID.Hex(), scheduleJob)
+	if err != nil {
+		log.Errorf("Failed to register job of ID: %s to scheduler, the error is: %v", job.ID, err)
+		return err
+	}
+	return nil
+}
+
+func (h *CronjobHandler) registerReleasePlanJob(name, schedule string, job *service.Schedule) error {
+	if job.ReleasePlanArgs == nil {
+		return nil
+	}
+	scheduleJob, err := cronlib.NewJobModel(schedule, func() {
+		base := "release_plan/v1"
+		url := base + fmt.Sprintf("/%s/schedule_execute", job.ReleasePlanArgs.ID)
+		if err := h.aslanCli.ScheduleCall(url, nil, log.SugaredLogger()); err != nil {
+			log.Errorf("[%s]RunScheduledTask err: %v", name, err)
+		}
+		h.Scheduler.StopService(job.ID.Hex())
 	})
 	if err != nil {
 		log.Errorf("Failed to create job of ID: %s, the error is: %v", job.ID.Hex(), err)

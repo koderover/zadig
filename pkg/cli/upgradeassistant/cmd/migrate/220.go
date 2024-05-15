@@ -23,6 +23,7 @@ import (
 
 	internalmongodb "github.com/koderover/zadig/v2/pkg/cli/upgradeassistant/internal/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/environment/service"
+	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/util/boolptr"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -233,7 +234,7 @@ func migrateProductWorkflowToCustomWorkflow() error {
 		if wf.ScheduleEnabled {
 			crons, err := mongodb.NewCronjobColl().List(&mongodb.ListCronjobParam{
 				ParentName: wf.Name,
-				ParentType: config.WorkflowCronjob,
+				ParentType: setting.WorkflowCronjob,
 			})
 			if err != nil {
 				logger.Errorf("failed to find job for workflow: %s, error: %s", wf.Name, err)

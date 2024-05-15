@@ -342,7 +342,7 @@ func FindWorkflow(workflowName string, log *zap.SugaredLogger) (*commonmodels.Wo
 	if resp.Schedules == nil {
 		schedules, err := commonrepo.NewCronjobColl().List(&commonrepo.ListCronjobParam{
 			ParentName: resp.Name,
-			ParentType: config.WorkflowCronjob,
+			ParentType: setting.WorkflowCronjob,
 		})
 		if err != nil {
 			log.Errorf("cannot list cron job list, the error is: %v", err)

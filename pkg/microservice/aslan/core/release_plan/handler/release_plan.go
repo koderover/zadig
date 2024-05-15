@@ -225,6 +225,24 @@ func ExecuteReleaseJob(c *gin.Context) {
 	ctx.Err = service.ExecuteReleaseJob(ctx, c.Param("id"), req)
 }
 
+func ScheduleExecuteReleasePlan(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	err = commonutil.CheckZadigEnterpriseLicense()
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+
+	ctx.Err = service.ScheduleExecuteReleasePlan(ctx, c.Param("id"))
+}
+
 func SkipReleaseJob(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

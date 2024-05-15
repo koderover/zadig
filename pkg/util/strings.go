@@ -23,7 +23,7 @@ import (
 	"unicode"
 
 	ref "github.com/containers/image/docker/reference"
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
+	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/mozillazg/go-pinyin"
 )
 
@@ -105,5 +105,9 @@ func GetEnvSleepCronName(projectName, envName string, isEnable bool) string {
 	if !isEnable {
 		suffix = "awake"
 	}
-	return fmt.Sprintf("%s-%s-%s-%s", envName, projectName, config.EnvSleepCronjob, suffix)
+	return fmt.Sprintf("%s-%s-%s-%s", envName, projectName, setting.EnvSleepCronjob, suffix)
+}
+
+func GetReleasePlanCronName(id, releasePlanName string, index int64) string {
+	return fmt.Sprintf("%s-%s-%d-%s", id, releasePlanName, index, setting.ReleasePlanCronjob)
 }

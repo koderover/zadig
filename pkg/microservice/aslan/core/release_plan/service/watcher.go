@@ -197,6 +197,12 @@ func updatePlanApproval(plan *models.ReleasePlan) error {
 		}
 		plan.Status = config.StatusExecuting
 		plan.ApprovalTime = time.Now().Unix()
+
+		if err := upsertReleasePlanCron(plan.ID.Hex(), plan.Name, plan.Index, plan.ScheduleExecuteTime); err != nil {
+			err = errors.Wrap(err, "upsert release plan cron")
+			log.Error(err)
+		}
+
 		setReleaseJobsForExecuting(plan)
 	case config.StatusReject:
 		planLog = &models.ReleasePlanLog{

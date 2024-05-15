@@ -19,9 +19,9 @@ package service
 import (
 	"go.uber.org/zap"
 
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/v2/pkg/setting"
 )
 
 func DisableCronjob(name, ptype string, log *zap.SugaredLogger) error {
@@ -67,7 +67,7 @@ func ListActiveCronjobFailsafe() ([]*commonmodels.Cronjob, error) {
 	for _, workflow := range workflowList {
 		jobList, err := commonrepo.NewCronjobColl().List(&commonrepo.ListCronjobParam{
 			ParentName: workflow.Name,
-			ParentType: config.WorkflowCronjob,
+			ParentType: setting.WorkflowCronjob,
 		})
 		if err != nil {
 			return ret, err
@@ -82,7 +82,7 @@ func ListActiveCronjobFailsafe() ([]*commonmodels.Cronjob, error) {
 	for _, test := range testList {
 		jobList, err := commonrepo.NewCronjobColl().List(&commonrepo.ListCronjobParam{
 			ParentName: test.Name,
-			ParentType: config.TestingCronjob,
+			ParentType: setting.TestingCronjob,
 		})
 		if err != nil {
 			return []*commonmodels.Cronjob{}, err

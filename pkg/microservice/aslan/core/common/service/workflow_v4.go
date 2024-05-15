@@ -88,7 +88,7 @@ func DeleteWorkflowV4(name string, logger *zap.SugaredLogger) error {
 
 	err = mongodb.NewCronjobColl().Delete(&mongodb.CronjobDeleteOption{
 		ParentName: name,
-		ParentType: config.WorkflowV4Cronjob,
+		ParentType: setting.WorkflowV4Cronjob,
 	})
 	if err != nil {
 		log.Errorf("Failed to delete cronjob for workflowV4 %s, error: %s", workflow.Name, err)
@@ -154,13 +154,13 @@ func DisableCronjobForWorkflowV4(workflow *commonmodels.WorkflowV4) error {
 	disableIDList := make([]string, 0)
 	payload := &CronjobPayload{
 		Name:    workflow.Name,
-		JobType: config.WorkflowCronjob,
+		JobType: setting.WorkflowCronjob,
 		Action:  setting.TypeEnableCronjob,
 	}
 
 	jobList, err := mongodb.NewCronjobColl().List(&mongodb.ListCronjobParam{
 		ParentName: workflow.Name,
-		ParentType: config.WorkflowV4Cronjob,
+		ParentType: setting.WorkflowV4Cronjob,
 	})
 	if err != nil {
 		return err
