@@ -58,10 +58,15 @@ func createApprovalInstance(plan *models.ReleasePlan, phone string) error {
 		url.QueryEscape(plan.ID.Hex()),
 	)
 
-	formContent := fmt.Sprintf("发布计划名称: %s\n发布负责人: %s\n发布窗口期: %s\n\n更多详见: %s",
-		plan.Name, plan.Manager,
-		time.Unix(plan.StartTime, 0).Format("2006-01-02 15:04:05")+"-"+time.Unix(plan.EndTime, 0).Format("2006-01-02 15:04:05"),
-		detailURL)
+	formContent := fmt.Sprintf("发布计划名称: %s\n发布负责人: %s\n", plan.Name, plan.Manager)
+
+	if plan.StartTime != 0 && plan.EndTime != 0 {
+		formContent += fmt.Sprintf("发布窗口期: %s\n", time.Unix(plan.StartTime, 0).Format("2006-01-02 15:04:05")+"-"+time.Unix(plan.EndTime, 0).Format("2006-01-02 15:04:05"))
+	}
+	if plan.ScheduleExecuteTime != 0 {
+		formContent += fmt.Sprintf("定时执行: %s\n", time.Unix(plan.ScheduleExecuteTime, 0).Format("2006-01-02 15:04"))
+	}
+	formContent += fmt.Sprintf("\n更多详见: %s", detailURL)
 
 	switch plan.Approval.Type {
 	case config.NativeApproval:
@@ -284,19 +289,31 @@ func createNativeApproval(plan *models.ReleasePlan, url string) error {
 				log.Errorf("CreateNativeApproval template parse error, error msg:%s", err)
 				break
 			}
+
+			timeRange := ""
+			if plan.StartTime != 0 && plan.EndTime != 0 {
+				timeRange = time.Unix(plan.StartTime, 0).Format("2006-01-02 15:04:05") + "-" + time.Unix(plan.EndTime, 0).Format("2006-01-02 15:04:05")
+			}
+			scheduleExecuteTime := ""
+			if plan.ScheduleExecuteTime != 0 {
+				scheduleExecuteTime = time.Unix(plan.ScheduleExecuteTime, 0).Format("2006-01-02 15:04:05")
+			}
+
 			var buf bytes.Buffer
 			err = t.Execute(&buf, struct {
-				PlanName    string
-				Manager     string
-				Description string
-				TimeRange   string
-				Url         string
+				PlanName            string
+				Manager             string
+				Description         string
+				TimeRange           string
+				ScheduleExecuteTime string
+				Url                 string
 			}{
-				PlanName:    plan.Name,
-				Manager:     plan.Manager,
-				Description: plan.Description,
-				TimeRange:   time.Unix(plan.StartTime, 0).Format("2006-01-02 15:04:05") + "-" + time.Unix(plan.EndTime, 0).Format("2006-01-02 15:04:05"),
-				Url:         url,
+				PlanName:            plan.Name,
+				Manager:             plan.Manager,
+				Description:         plan.Description,
+				TimeRange:           timeRange,
+				ScheduleExecuteTime: scheduleExecuteTime,
+				Url:                 url,
 			})
 			if err != nil {
 				log.Errorf("CreateNativeApproval template execute error, error msg:%s", err)
