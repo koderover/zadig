@@ -335,14 +335,25 @@ func buildDetailedRelease(deliveryVersion *commonmodels.DeliveryVersion, filterO
 		}
 	}
 
+	production := false
+	if deliveryVersion.ProductEnvInfo != nil {
+		production = deliveryVersion.ProductEnvInfo.Production
+	}
+
 	// order deploys by service name
 	productTemplate, err := templaterepo.NewProductColl().Find(deliveryVersion.ProductName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find product template %s, err: %v", deliveryVersion.ProductName, err)
 	}
-	serviceOrderMap := make(map[string]int)
+
+	servicesOrder := productTemplate.Services
+	if production {
+		servicesOrder = productTemplate.ProductionServices
+	}
+
 	i := 0
-	for _, serviceGroup := range productTemplate.Services {
+	serviceOrderMap := make(map[string]int)
+	for _, serviceGroup := range servicesOrder {
 		for _, service := range serviceGroup {
 			serviceOrderMap[service] = i
 			i++
