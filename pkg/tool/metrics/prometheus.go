@@ -7,12 +7,17 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/metrics/pkg/apis/metrics/v1beta1"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/shared/kube/client"
+	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
+	"github.com/koderover/zadig/v2/pkg/shared/kube/wrapper"
+	"github.com/koderover/zadig/v2/pkg/tool/kube/getter"
 )
 
 var (
@@ -38,6 +43,7 @@ var (
 		"vendor-portal",
 		"warpdrive",
 		"zadig-portal",
+		"time-nlp",
 	}
 
 	RunningWorkflows = prometheus.NewGauge(
@@ -78,6 +84,30 @@ var (
 		[]string{"service", "pod"},
 	)
 
+	CPUPercentage = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "cpu_percentage",
+			Help: "CPU usage percentage",
+		},
+		[]string{"service", "pod"},
+	)
+
+	MemoryPercentage = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "memory_percentage",
+			Help: "Memory usage percentage",
+		},
+		[]string{"service", "pod"},
+	)
+
+	Healthy = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "healthy",
+			Help: "service healthy status",
+		},
+		[]string{"service", "pod"},
+	)
+
 	ResponseTime = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Name:    "api_response_time",
@@ -111,9 +141,28 @@ func SetMemoryUsage(serviceName, podName string, value int64) {
 	Memory.WithLabelValues(serviceName, podName).Set(float64(value) / 1024 / 1024)
 }
 
+func SetCPUUsagePercentage(serviceName, podName string, usageValue, limitValue int64) {
+	CPUPercentage.WithLabelValues(serviceName, podName).Set(float64(usageValue) / float64(limitValue))
+}
+
+func SetMemoryUsagePercentage(serviceName, podName string, usageValue, limitValue int64) {
+	MemoryPercentage.WithLabelValues(serviceName, podName).Set(float64(usageValue) / float64(limitValue))
+}
+
+func SetHealthyStatus(serviceName, podName string, ready bool) {
+	if ready {
+		Healthy.WithLabelValues(serviceName, podName).Set(1.0)
+	} else {
+		Healthy.WithLabelValues(serviceName, podName).Set(0.0)
+	}
+}
+
 func UpdatePodMetrics() error {
 	CPU.Reset()
 	Memory.Reset()
+	CPUPercentage.Reset()
+	MemoryPercentage.Reset()
+	Healthy.Reset()
 
 	metricsClient, err := client.GetKubeMetricsClient(config.HubServerAddress(), setting.LocalClusterID)
 	if err != nil {
@@ -121,17 +170,36 @@ func UpdatePodMetrics() error {
 		return err
 	}
 
-	podMetrices, err := metricsClient.PodMetricses(config.Namespace()).List(context.TODO(), v1.ListOptions{})
-
+	podMetriceList, err := metricsClient.PodMetricses(config.Namespace()).List(context.TODO(), v1.ListOptions{})
 	if err != nil {
 		fmt.Printf("failed to get pod metrics, err: %v\n", err)
 		return err
 	}
 
-	for _, podMetric := range podMetrices.Items {
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), setting.LocalClusterID)
+	if err != nil {
+		return err
+	}
+
+	pods, err := getter.ListPods(config.Namespace(), labels.Everything(), kubeClient)
+	if err != nil {
+		return err
+	}
+	podMap := make(map[string]*corev1.Pod)
+	for _, pod := range pods {
+		podMap[pod.Name] = pod
+	}
+	podMetricsMap := make(map[string]*v1beta1.PodMetrics)
+	for _, podMetrics := range podMetriceList.Items {
+		tmpPodMetrics := podMetrics
+		podMetricsMap[podMetrics.Name] = &tmpPodMetrics
+	}
+
+	for _, pod := range pods {
 		for _, service := range serviceList {
-			if strings.Contains(podMetric.Name, service) {
-				updateResourceMetrics(service, podMetric)
+			if strings.Contains(pod.Name, service) {
+				podMetric := podMetricsMap[pod.Name]
+				updateResourceMetrics(service, podMetric, pod)
 				break
 			}
 		}
@@ -140,11 +208,30 @@ func UpdatePodMetrics() error {
 	return nil
 }
 
-func updateResourceMetrics(serviceName string, metrics v1beta1.PodMetrics) {
-	for _, container := range metrics.Containers {
-		if container.Name == serviceName {
-			SetCPUUsage(serviceName, metrics.Name, container.Usage.Cpu().MilliValue())
-			SetMemoryUsage(serviceName, metrics.Name, container.Usage.Memory().Value())
+func updateResourceMetrics(serviceName string, podMetrics *v1beta1.PodMetrics, pod *corev1.Pod) {
+	containterMetricsMap := make(map[string]*v1beta1.ContainerMetrics)
+	if podMetrics != nil {
+		for _, c := range podMetrics.Containers {
+			containterMetricsMap[c.Name] = &c
+		}
+	}
+
+	for _, containter := range pod.Spec.Containers {
+		if containter.Name == serviceName {
+			containterMetrics := containterMetricsMap[serviceName]
+			if containterMetrics == nil {
+				SetHealthyStatus(serviceName, pod.Name, false)
+				break
+			}
+
+			SetHealthyStatus(serviceName, pod.Name, wrapper.Pod(pod).Resource().Ready)
+
+			SetCPUUsage(serviceName, pod.Name, containterMetrics.Usage.Cpu().MilliValue())
+			SetMemoryUsage(serviceName, pod.Name, containterMetrics.Usage.Memory().Value())
+
+			SetCPUUsagePercentage(serviceName, podMetrics.Name, containterMetrics.Usage.Cpu().MilliValue(), containter.Resources.Limits.Cpu().MilliValue())
+			SetMemoryUsagePercentage(serviceName, podMetrics.Name, containterMetrics.Usage.Memory().Value(), containter.Resources.Limits.Memory().Value())
+
 			break
 		}
 	}
