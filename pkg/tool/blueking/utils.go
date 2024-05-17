@@ -60,6 +60,8 @@ func (c *Client) Post(url string, requestBody interface{}, response interface{})
 		return fmt.Errorf("failed to do blueking request, error: %s", err)
 	}
 
+	fmt.Println(resp.Data)
+
 	err = resp.DecodeResponseData(response)
 	if err != nil {
 		return err
