@@ -36,14 +36,14 @@ func CreateCICDTools(args *commonmodels.JenkinsIntegration, log *zap.SugaredLogg
 }
 
 func ListCICDTools(encryptedKey, toolType string, log *zap.SugaredLogger) ([]*commonmodels.JenkinsIntegration, error) {
-	jenkinsIntegrations, err := commonrepo.NewCICDToolColl().List(toolType)
+	tools, err := commonrepo.NewCICDToolColl().List(toolType)
 	if err != nil {
 		log.Errorf("List CI/CD Tools err:%v", err)
 		return []*commonmodels.JenkinsIntegration{}, e.ErrListCICDTools.AddErr(err)
 	}
 
 	if len(encryptedKey) == 0 {
-		return jenkinsIntegrations, nil
+		return tools, nil
 	}
 
 	aesKey, err := service.GetAesKeyFromEncryptedKey(encryptedKey, log)
@@ -51,15 +51,20 @@ func ListCICDTools(encryptedKey, toolType string, log *zap.SugaredLogger) ([]*co
 		log.Errorf("List CI/CD Tools GetAesKeyFromEncryptedKey err:%v", err)
 		return nil, err
 	}
-	for _, integration := range jenkinsIntegrations {
-		if integration.Type == setting.CICDToolTypeJenkins || integration.Type == "" {
-			integration.Password, err = crypto.AesEncryptByKey(integration.Password, aesKey.PlainText)
+	for _, tool := range tools {
+		if tool.Type == "" {
+			// compatibility code, if a type is empty, it must be legacy data, which only have jenkins as ci/cd tools.
+			tool.Type = setting.CICDToolTypeJenkins
+		}
+
+		if tool.Type == setting.CICDToolTypeJenkins || tool.Type == "" {
+			tool.Password, err = crypto.AesEncryptByKey(tool.Password, aesKey.PlainText)
 			if err != nil {
 				log.Errorf("List CI/CD Tools AesEncryptByKey err:%v", err)
 				return nil, err
 			}
-		} else if integration.Type == setting.CICDToolTypeBlueKing {
-			integration.AppSecret, err = crypto.AesEncryptByKey(integration.AppSecret, aesKey.PlainText)
+		} else if tool.Type == setting.CICDToolTypeBlueKing {
+			tool.AppSecret, err = crypto.AesEncryptByKey(tool.AppSecret, aesKey.PlainText)
 			if err != nil {
 				log.Errorf("List CI/CD Tools AesEncryptByKey err:%v", err)
 				return nil, err
@@ -67,7 +72,7 @@ func ListCICDTools(encryptedKey, toolType string, log *zap.SugaredLogger) ([]*co
 		}
 
 	}
-	return jenkinsIntegrations, nil
+	return tools, nil
 }
 
 func UpdateCICDTools(ID string, args *commonmodels.JenkinsIntegration, log *zap.SugaredLogger) error {
