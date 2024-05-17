@@ -56,6 +56,8 @@ func (c *Client) Post(url string, requestBody interface{}, response interface{})
 		httpclient.SetBody(requestBody),
 	)
 
+	fmt.Println("!!!!!!!!!", resp)
+
 	if err != nil {
 		return fmt.Errorf("failed to do blueking request, error: %s", err)
 	}
