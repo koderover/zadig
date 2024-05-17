@@ -18,13 +18,24 @@ package models
 
 import "go.mongodb.org/mongo-driver/bson/primitive"
 
+// JenkinsIntegration table is used to store only jenkins integration info
+// Since 3.0.0 it will also store BlueKing CI/CD tools info.
 type JenkinsIntegration struct {
-	ID        primitive.ObjectID `bson:"_id,omitempty"         json:"id,omitempty"`
-	URL       string             `bson:"url"                   json:"url"`
-	Username  string             `bson:"username"              json:"username"`
-	Password  string             `bson:"password"              json:"password"`
-	UpdateBy  string             `bson:"update_by"             json:"update_by"`
-	UpdatedAt int64              `bson:"updated_at"            json:"updated_at"`
+	// general fields
+	ID primitive.ObjectID `bson:"_id,omitempty"         json:"id,omitempty"`
+
+	Type      string `bson:"type"                  json:"type"`
+	UpdateBy  string `bson:"update_by"             json:"update_by"`
+	UpdatedAt int64  `bson:"updated_at"            json:"updated_at"`
+	// jenkins specific fields
+	URL      string `bson:"url"                   json:"url,omitempty"`
+	Username string `bson:"username"              json:"username,omitempty"`
+	Password string `bson:"password"              json:"password,omitempty"`
+	// BlueKing specific fields
+	Host       string `bson:"host"        json:"host,omitempty"`
+	AppCode    string `json:"app_code"    json:"app_code,omitempty"`
+	AppSecret  string `json:"app_secret"  json:"app_code,omitempty"`
+	BKUserName string `json:"bk_username" json:"bk_username,omitempty"`
 }
 
 func (j JenkinsIntegration) TableName() string {

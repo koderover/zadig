@@ -103,13 +103,17 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	jenkins := router.Group("jenkins")
 	{
 		jenkins.GET("/exist", CheckJenkinsIntegration)
-		jenkins.POST("/integration", CreateJenkinsIntegration)
-		jenkins.GET("/integration", ListJenkinsIntegration)
-		jenkins.PUT("/integration/:id", UpdateJenkinsIntegration)
-		jenkins.DELETE("/integration/:id", DeleteJenkinsIntegration)
 		jenkins.POST("/user/connection", TestJenkinsConnection)
 		jenkins.GET("/jobNames/:id", ListJobNames)
 		jenkins.GET("/buildArgs/:id/:jobName", ListJobBuildArgs)
+	}
+
+	cicd := router.Group("cicdTools")
+	{
+		cicd.POST("", CreateCICDTools)
+		cicd.GET("", ListCICDTools)
+		cicd.PUT("/:id", UpdateCICDTools)
+		cicd.DELETE("/:id", DeleteCICDTools)
 	}
 
 	//系统配额

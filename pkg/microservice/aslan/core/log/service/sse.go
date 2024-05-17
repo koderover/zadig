@@ -524,7 +524,7 @@ func getWorkflowSelector(options *GetContainerOptions) labels.Selector {
 
 func JenkinsJobLogStream(ctx context.Context, jenkinsID, jobName string, jobID int64, streamChan chan interface{}) {
 	log := log.SugaredLogger().With("func", "JenkinsJobLogStream")
-	info, err := commonrepo.NewJenkinsIntegrationColl().Get(jenkinsID)
+	info, err := commonrepo.NewCICDToolColl().Get(jenkinsID)
 	if err != nil {
 		log.Errorf("Failed to get jenkins integration info, err: %s", err)
 		return

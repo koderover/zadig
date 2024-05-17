@@ -95,7 +95,7 @@ func DeleteLLMIntegration(ctx context.Context, ID string) error {
 	if err := commonrepo.NewLLMIntegrationColl().Delete(ctx, ID); err != nil {
 		fmtErr := fmt.Errorf("DeleteLLMIntegration err: %w", err)
 		log.Error(fmtErr)
-		return e.ErrDeleteJenkinsIntegration.AddErr(fmtErr)
+		return e.ErrDeleteCICDTools.AddErr(fmtErr)
 	}
 	return nil
 }
