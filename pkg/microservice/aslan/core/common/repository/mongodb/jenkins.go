@@ -94,6 +94,7 @@ func (c *CICDToolIntegrationColl) Update(ID string, args *models.JenkinsIntegrat
 	changeQuery := bson.M{
 		"update_by":  args.UpdateBy,
 		"updated_at": time.Now().Unix(),
+		"name":       args.Name,
 	}
 
 	if args.Type == setting.CICDToolTypeJenkins {
