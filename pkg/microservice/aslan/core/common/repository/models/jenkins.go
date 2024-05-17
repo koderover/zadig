@@ -22,11 +22,11 @@ import "go.mongodb.org/mongo-driver/bson/primitive"
 // Since 3.0.0 it will also store BlueKing CI/CD tools info.
 type JenkinsIntegration struct {
 	// general fields
-	ID primitive.ObjectID `bson:"_id,omitempty"         json:"id,omitempty"`
-
-	Type      string `bson:"type"                  json:"type"`
-	UpdateBy  string `bson:"update_by"             json:"update_by"`
-	UpdatedAt int64  `bson:"updated_at"            json:"updated_at"`
+	ID        primitive.ObjectID `bson:"_id,omitempty"         json:"id,omitempty"`
+	Name      string             `bson:"name"                  json:"name"`
+	Type      string             `bson:"type"                  json:"type"`
+	UpdateBy  string             `bson:"update_by"             json:"update_by"`
+	UpdatedAt int64              `bson:"updated_at"            json:"updated_at"`
 	// jenkins specific fields
 	URL      string `bson:"url"                   json:"url,omitempty"`
 	Username string `bson:"username"              json:"username,omitempty"`

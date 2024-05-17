@@ -50,7 +50,15 @@ func (c *CICDToolIntegrationColl) GetCollectionName() string {
 }
 
 func (c *CICDToolIntegrationColl) EnsureIndex(ctx context.Context) error {
-	return nil
+	mod := mongo.IndexModel{
+		Keys: bson.D{
+			bson.E{Key: "name", Value: 1},
+		},
+		Options: options.Index().SetUnique(true).SetSparse(true),
+	}
+
+	_, err := c.Indexes().CreateOne(ctx, mod)
+	return err
 }
 
 func (c *CICDToolIntegrationColl) Get(id string) (*models.JenkinsIntegration, error) {
