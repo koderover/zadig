@@ -33,9 +33,9 @@ type JenkinsIntegration struct {
 	Password string `bson:"password"              json:"password,omitempty"`
 	// BlueKing specific fields
 	Host       string `bson:"host"        json:"host,omitempty"`
-	AppCode    string `json:"app_code"    json:"app_code,omitempty"`
-	AppSecret  string `json:"app_secret"  json:"app_code,omitempty"`
-	BKUserName string `json:"bk_username" json:"bk_username,omitempty"`
+	AppCode    string `bson:"app_code"    json:"app_code,omitempty"`
+	AppSecret  string `bson:"app_secret"  json:"app_secret,omitempty"`
+	BKUserName string `bson:"bk_username" json:"bk_username,omitempty"`
 }
 
 func (j JenkinsIntegration) TableName() string {
