@@ -312,6 +312,7 @@ func filterReleases(filter *DeliveryVersionFilter, deliveryVersion *commonmodels
 }
 
 func buildBriefRelease(deliveryVersion *commonmodels.DeliveryVersion, _ *zap.SugaredLogger) (*ReleaseInfo, error) {
+	deliveryVersion.ProductEnvInfo = nil
 	return &ReleaseInfo{
 		VersionInfo: deliveryVersion,
 	}, nil
@@ -487,19 +488,21 @@ func ListDeliveryVersion(args *ListDeliveryVersionArgs, logger *zap.SugaredLogge
 		}
 		names = append(names, version.WorkflowName)
 	}
-	workflows, err := commonrepo.NewWorkflowColl().List(&commonrepo.ListWorkflowOption{Projects: []string{args.ProjectName}, Names: names})
-	if err != nil {
-		return nil, 0, err
-	}
-	displayNameMap := map[string]string{}
-	for _, workflow := range workflows {
-		displayNameMap[workflow.Name] = workflow.DisplayName
-	}
-	for _, version := range deliveryVersions {
-		if name, ok := displayNameMap[version.WorkflowName]; ok {
-			version.WorkflowDisplayName = name
-		}
-	}
+
+	// workflows, err := commonrepo.NewWorkflowColl().List(&commonrepo.ListWorkflowOption{Projects: []string{args.ProjectName}, Names: names})
+	// if err != nil {
+	// 	return nil, 0, err
+	// }
+	// displayNameMap := map[string]string{}
+	// for _, workflow := range workflows {
+	// 	displayNameMap[workflow.Name] = workflow.DisplayName
+	// }
+	// for _, version := range deliveryVersions {
+	// 	if name, ok := displayNameMap[version.WorkflowName]; ok {
+	// 		version.WorkflowDisplayName = name
+	// 	}
+	// }
+
 	releaseInfos := make([]*ReleaseInfo, 0)
 	for _, deliveryVersion := range deliveryVersions {
 		releaseInfo, err := buildListReleaseResp(args.Verbosity, deliveryVersion, &DeliveryVersionFilter{ServiceName: args.ServiceName}, logger)
