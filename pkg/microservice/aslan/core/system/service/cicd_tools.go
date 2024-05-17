@@ -56,6 +56,10 @@ func ListCICDTools(encryptedKey, toolType string, log *zap.SugaredLogger) ([]*co
 			// compatibility code, if a type is empty, it must be legacy data, which only have jenkins as ci/cd tools.
 			tool.Type = setting.CICDToolTypeJenkins
 		}
+		if tool.Name == "" {
+			// compatibility code, if a name is empty, it must be legacy data, which only have jenkins as ci/cd tools.
+			tool.Name = setting.CICDToolTypeJenkins
+		}
 
 		if tool.Type == setting.CICDToolTypeJenkins || tool.Type == "" {
 			tool.Password, err = crypto.AesEncryptByKey(tool.Password, aesKey.PlainText)
