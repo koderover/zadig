@@ -241,6 +241,7 @@ const (
 	JobMseGrayOffline       JobType = "mse-gray-offline"
 	JobGuanceyunCheck       JobType = "guanceyun-check"
 	JobGrafana              JobType = "grafana"
+	JobBlueKing             JobType = "blueking"
 )
 
 const (

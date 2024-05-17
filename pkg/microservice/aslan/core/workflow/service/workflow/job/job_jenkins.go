@@ -19,7 +19,6 @@ package job
 import (
 	"fmt"
 
-	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 
@@ -27,6 +26,7 @@ import (
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/tool/jenkins"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
 type JenkinsJob struct {

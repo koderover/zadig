@@ -19,6 +19,7 @@ package models
 import (
 	"time"
 
+	"github.com/koderover/zadig/v2/pkg/tool/blueking"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
@@ -484,6 +485,23 @@ type JobTaskJenkinsJobInfo struct {
 	JobID      int                    `bson:"job_id" json:"job_id" yaml:"job_id"`
 	JobOutput  string                 `bson:"job_output" json:"job_output" yaml:"job_output"`
 	Parameters []*JenkinsJobParameter `bson:"parameters" json:"parameters" yaml:"parameters"`
+}
+
+type JobTaskBlueKingSpec struct {
+	// Input Parameters
+	ToolID            string                     `bson:"tool_id"             json:"tool_id"             yaml:"tool_id"`
+	BusinessID        int64                      `bson:"business_id"         json:"business_id"         yaml:"business_id"`
+	BusinessName      string                     `bson:"business_name"       json:"business_name"       yaml:"business_name"`
+	ExecutionPlanID   int64                      `bson:"execution_plan_id"   json:"execution_plan_id"   yaml:"execution_plan_id"`
+	ExecutionPlanName string                     `bson:"execution_plan_name" json:"execution_plan_name" yaml:"execution_plan_name"`
+	Parameters        []*blueking.GlobalVariable `bson:"parameters"          json:"parameters"          yaml:"parameters"`
+
+	// task data
+	ToolName     string `bson:"tool_name"           json:"tool_name"           yaml:"tool_name"`
+	BKJobStatus  int64  `bson:"bk_job_status"       json:"bk_job_status"       yaml:"bk_job_status"`
+	Host         string `bson:"host"                json:"host"                yaml:"host"`
+	InstanceID   int64  `bson:"instance_id"         json:"instance_id"         yaml:"instance_id"`
+	InstanceName string `bson:"instance_name"       json:"instance_name"       yaml:"instance_name"`
 }
 
 type JobTaskWorkflowTriggerSpec struct {

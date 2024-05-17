@@ -116,6 +116,12 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		cicd.DELETE("/:id", DeleteCICDTools)
 	}
 
+	bk := router.Group("blueking")
+	{
+		bk.GET("/business", ListBluekingBusiness)
+		bk.GET("/executionPlan", ListBlueKingExecutionPlan)
+	}
+
 	//系统配额
 	capacity := router.Group("capacity")
 	{
