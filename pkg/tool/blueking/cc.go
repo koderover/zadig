@@ -57,7 +57,7 @@ func (c *Client) GetTopology(businessID int64) ([]*TopologyNode, error) {
 
 	topology := make([]*TopologyNode, 0)
 
-	err := c.Get(url, query, topology)
+	err := c.Get(url, query, &topology)
 	if err != nil {
 		log.Errorf("failed to list topology from blueking, error: %s", err)
 		return nil, err
