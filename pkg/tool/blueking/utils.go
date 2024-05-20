@@ -20,7 +20,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/koderover/zadig/v2/pkg/tool/httpclient"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
@@ -37,39 +36,6 @@ func (c *Client) generateAuthHeader() (string, error) {
 	}
 
 	return string(serializedData), nil
-}
-
-// Post do a post request with the given request to the url and set the response into the response param
-func (c *Client) Post(url string, requestBody interface{}, response interface{}) error {
-	resp := new(GeneralResponse)
-
-	authHeader, err := c.generateAuthHeader()
-	if err != nil {
-		return fmt.Errorf("failed to generate auth header for blueking request, err: %s", err)
-	}
-
-	_, err = httpclient.Post(
-		url,
-		httpclient.SetHeader("X-Bkapi-Authorization", authHeader),
-		httpclient.SetHeader("Content-Type", "application/json"),
-		httpclient.SetResult(resp),
-		httpclient.SetBody(requestBody),
-	)
-
-	if err != nil {
-		return fmt.Errorf("failed to do blueking request, error: %s", err)
-	}
-
-	if hasErr, errMsg := resp.HasError(); hasErr {
-		return fmt.Errorf(errMsg)
-	}
-
-	err = resp.DecodeResponseData(response)
-	if err != nil {
-		return err
-	}
-
-	return nil
 }
 
 // HasError returns if the request is success, if not, return the error message in the second response

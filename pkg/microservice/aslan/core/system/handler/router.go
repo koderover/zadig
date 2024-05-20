@@ -120,6 +120,9 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	{
 		bk.GET("/business", ListBluekingBusiness)
 		bk.GET("/executionPlan", ListBlueKingExecutionPlan)
+		bk.GET("/executionPlan/:id", GetBlueKingExecutionPlanDetail)
+		bk.GET("/topology", GetBlueKingBusinessTopology)
+		bk.GET("/hosts/topologyNode", ListServerByBlueKingTopologyNode)
 	}
 
 	//系统配额

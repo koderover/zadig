@@ -16,6 +16,7 @@
 
 package blueking
 
+// 以下 comment 皆为蓝鲸官方 API 称呼，留存以作为对应关系留档，不要删除！！！！！
 const (
 	// 查询业务
 	ListBusinessAPI string = "api/c/compapi/v2/cc/search_business/"
@@ -27,6 +28,10 @@ const (
 	RunExecutionPlanAPI string = "api/c/compapi/v2/jobv3/execute_job_plan/"
 	// 根据作业实例 ID 查询作业执行状态
 	GetJobInstanceAPI string = "api/c/compapi/v2/jobv3/get_job_instance_status/"
+	// 查询业务实例拓扑
+	GetTopologyAPI string = "api/c/compapi/v2/cc/search_biz_inst_topo/"
+	// 查询拓扑节点下的主机
+	GetTopologyNodeHostAPI = "api/c/compapi/v2/cc/find_host_by_topo/"
 )
 
 type AuthorizationHeader struct {
@@ -132,4 +137,17 @@ type JobInstanceInfo struct {
 	StartTime     int64  `json:"start_time"`
 	EndTime       int64  `json:"end_time"`
 	TotalTime     int    `json:"total_time"`
+}
+
+type TopologyNode struct {
+	InstanceID   int             `json:"bk_inst_id"`
+	InstanceName string          `json:"bk_inst_name"`
+	ObjectID     string          `json:"bk_obj_id"`
+	ObjectName   string          `json:"bk_obj_name"`
+	Child        []*TopologyNode `json:"child"`
+}
+
+type HostList struct {
+	Count      int64         `json:"count"`
+	ServerList []*ServerInfo `json:"info"`
 }

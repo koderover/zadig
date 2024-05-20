@@ -791,13 +791,13 @@ type JenkinsJobSpec struct {
 }
 
 type BlueKingJobSpec struct {
-	ToolID            string `bson:"tool_id"             json:"tool_id"             yaml:"tool_id"`
-	BusinessID        int64  `bson:"business_id"         json:"business_id"         yaml:"business_id"`
-	BusinessName      string `bson:"business_name"       json:"business_name"       yaml:"business_name"`
-	ExecutionPlanID   int64  `bson:"execution_plan_id"   json:"execution_plan_id"   yaml:"execution_plan_id"`
-	ExecutionPlanName string `bson:"execution_plan_name" json:"execution_plan_name" yaml:"execution_plan_name"`
+	// configured parameters
+	ToolID          string `bson:"tool_id"             json:"tool_id"             yaml:"tool_id"`
+	BusinessID      int64  `bson:"business_id"         json:"business_id"         yaml:"business_id"`
+	ExecutionPlanID int64  `bson:"execution_plan_id"   json:"execution_plan_id"   yaml:"execution_plan_id"`
+	Source          string `bson:"source"     json:"source"     yaml:"source"`
 
-	Source     string                     `bson:"source"     json:"source"     yaml:"source"`
+	// execution parameters
 	Parameters []*blueking.GlobalVariable `bson:"parameters" json:"parameters" yaml:"parameters"`
 }
 

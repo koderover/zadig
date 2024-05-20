@@ -18,10 +18,12 @@ package handler
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/service"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
+	"github.com/koderover/zadig/v2/pkg/tool/blueking"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 )
 
@@ -81,4 +83,108 @@ func ListBlueKingExecutionPlan(c *gin.Context) {
 	}
 
 	ctx.Resp, ctx.Err = service.ListBlueKingExecutionPlan(args.ToolID, args.BusinessID, ctx.Logger)
+}
+
+func GetBlueKingExecutionPlanDetail(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	// authorization checks
+	// TODO: PUT IT BACK
+	//if !ctx.Resources.IsSystemAdmin {
+	//	ctx.UnAuthorized = true
+	//	return
+	//}
+
+	args := new(ListBlueKingExecutionPlanReq)
+	err = c.ShouldBindQuery(args)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		return
+	}
+
+	planIDStr := c.Param("id")
+	planID, err := strconv.ParseInt(planIDStr, 10, 64)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+	}
+
+	ctx.Resp, ctx.Err = service.GetBlueKingExecutionPlanDetail(args.ToolID, args.BusinessID, planID, ctx.Logger)
+}
+
+type BKTopologyResp struct {
+	Topology []*blueking.TopologyNode `json:"topology"`
+}
+
+func GetBlueKingBusinessTopology(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	// authorization checks
+	// TODO: PUT IT BACK
+	//if !ctx.Resources.IsSystemAdmin {
+	//	ctx.UnAuthorized = true
+	//	return
+	//}
+
+	args := new(ListBlueKingExecutionPlanReq)
+	err = c.ShouldBindQuery(args)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		return
+	}
+
+	resp, err := service.GetBlueKingBusinessTopology(args.ToolID, args.BusinessID, ctx.Logger)
+	if err != nil {
+		ctx.Err = e.ErrInternalError.AddDesc(err.Error())
+		return
+	}
+
+	ctx.Resp = &BKTopologyResp{Topology: resp}
+}
+
+type ListServerByBlueKingTopologyNodeReq struct {
+	ToolID     string `json:"id"          form:"id"`
+	BusinessID int64  `json:"business_id" form:"business_id"`
+	InstanceID int64  `json:"instance_id" form:"instance_id"`
+	ObjectID   string `json:"object_id"   form:"object_id"`
+}
+
+func ListServerByBlueKingTopologyNode(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	// authorization checks
+	// TODO: PUT IT BACK
+	//if !ctx.Resources.IsSystemAdmin {
+	//	ctx.UnAuthorized = true
+	//	return
+	//}
+
+	args := new(ListServerByBlueKingTopologyNodeReq)
+	err = c.ShouldBindQuery(args)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		return
+	}
+
+	ctx.Resp, ctx.Err = service.ListServerByBlueKingTopologyNode(args.ToolID, args.BusinessID, args.InstanceID, args.ObjectID, ctx.Logger)
 }

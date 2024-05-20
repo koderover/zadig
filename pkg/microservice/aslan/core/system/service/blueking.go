@@ -50,8 +50,48 @@ func ListBlueKingExecutionPlan(toolID string, businessID int64, log *zap.Sugared
 	bkClient := blueking.NewClient(info.Host, info.AppCode, info.AppSecret, info.BKUserName)
 
 	executionPlanList, err := bkClient.ListExecutionPlan(businessID)
+	if err != nil {
+		return nil, err
+	}
+
 	return &ListBlueKingExecutionPlanReq{
 		Total:          len(executionPlanList),
 		ExecutionPlans: executionPlanList,
 	}, nil
+}
+
+func GetBlueKingExecutionPlanDetail(toolID string, businessID, planID int64, log *zap.SugaredLogger) (*blueking.ExecutionPlanDetail, error) {
+	info, err := mongodb.NewCICDToolColl().Get(toolID)
+	if err != nil {
+		log.Infof("failed to get tool information of id: %s from mongodb, error: %s", toolID, err)
+		return nil, err
+	}
+
+	bkClient := blueking.NewClient(info.Host, info.AppCode, info.AppSecret, info.BKUserName)
+
+	return bkClient.GetExecutionPlanDetail(businessID, planID)
+}
+
+func GetBlueKingBusinessTopology(toolID string, businessID int64, log *zap.SugaredLogger) ([]*blueking.TopologyNode, error) {
+	info, err := mongodb.NewCICDToolColl().Get(toolID)
+	if err != nil {
+		log.Infof("failed to get tool information of id: %s from mongodb, error: %s", toolID, err)
+		return nil, err
+	}
+
+	bkClient := blueking.NewClient(info.Host, info.AppCode, info.AppSecret, info.BKUserName)
+
+	return bkClient.GetTopology(businessID)
+}
+
+func ListServerByBlueKingTopologyNode(toolID string, businessID, instanceID int64, objectID string, log *zap.SugaredLogger) (*blueking.HostList, error) {
+	info, err := mongodb.NewCICDToolColl().Get(toolID)
+	if err != nil {
+		log.Infof("failed to get tool information of id: %s from mongodb, error: %s", toolID, err)
+		return nil, err
+	}
+
+	bkClient := blueking.NewClient(info.Host, info.AppCode, info.AppSecret, info.BKUserName)
+
+	return bkClient.GetHostByTopologyNode(businessID, instanceID, objectID)
 }

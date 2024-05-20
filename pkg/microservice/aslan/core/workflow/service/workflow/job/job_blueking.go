@@ -18,6 +18,7 @@ package job
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
@@ -101,9 +102,7 @@ func (j *BlueKingJob) UpdateWithLatestSetting() error {
 
 	if latestSpec.BusinessID != j.spec.BusinessID {
 		j.spec.BusinessID = latestSpec.BusinessID
-		j.spec.BusinessName = latestSpec.BusinessName
 		j.spec.ExecutionPlanID = 0
-		j.spec.ExecutionPlanName = ""
 	}
 
 	j.job.Spec = j.spec
@@ -129,18 +128,16 @@ func (j *BlueKingJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 	resp = append(resp, &commonmodels.JobTask{
 		Name: j.job.Name,
 		JobInfo: map[string]string{
-			JobNameKey:          j.job.Name,
-			"blueking_job_name": j.spec.ExecutionPlanName,
+			JobNameKey:        j.job.Name,
+			"blueking_job_id": strconv.FormatInt(j.spec.ExecutionPlanID, 10),
 		},
-		Key:     j.job.Name + "." + j.spec.ExecutionPlanName,
+		Key:     j.job.Name + "." + strconv.FormatInt(j.spec.ExecutionPlanID, 10),
 		JobType: string(config.JobBlueKing),
 		Spec: &commonmodels.JobTaskBlueKingSpec{
-			ToolID:            j.spec.ToolID,
-			BusinessID:        j.spec.BusinessID,
-			BusinessName:      j.spec.BusinessName,
-			ExecutionPlanID:   j.spec.ExecutionPlanID,
-			ExecutionPlanName: j.spec.ExecutionPlanName,
-			Parameters:        j.spec.Parameters,
+			ToolID:          j.spec.ToolID,
+			BusinessID:      j.spec.BusinessID,
+			ExecutionPlanID: j.spec.ExecutionPlanID,
+			Parameters:      j.spec.Parameters,
 		},
 		Timeout: 0,
 	})
