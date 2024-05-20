@@ -188,3 +188,30 @@ func ListServerByBlueKingTopologyNode(c *gin.Context) {
 
 	ctx.Resp, ctx.Err = service.ListServerByBlueKingTopologyNode(args.ToolID, args.BusinessID, args.InstanceID, args.ObjectID, ctx.Logger)
 }
+
+func ListServerByBlueKingBusiness(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	// authorization checks
+	// TODO: PUT IT BACK
+	//if !ctx.Resources.IsSystemAdmin {
+	//	ctx.UnAuthorized = true
+	//	return
+	//}
+
+	args := new(ListBlueKingExecutionPlanReq)
+	err = c.ShouldBindQuery(args)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		return
+	}
+
+	ctx.Resp, ctx.Err = service.ListServerByBlueKingBusiness(args.ToolID, args.BusinessID, ctx.Logger)
+}

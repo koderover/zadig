@@ -32,6 +32,8 @@ const (
 	GetTopologyAPI string = "api/c/compapi/v2/cc/search_biz_inst_topo/"
 	// 查询拓扑节点下的主机
 	GetTopologyNodeHostAPI = "api/c/compapi/v2/cc/find_host_by_topo/"
+	// 查询业务下的主机
+	GetBusinessHostAPI = "api/c/compapi/v2/cc/list_biz_hosts/"
 )
 
 type AuthorizationHeader struct {

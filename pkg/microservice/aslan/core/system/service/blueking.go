@@ -95,3 +95,15 @@ func ListServerByBlueKingTopologyNode(toolID string, businessID, instanceID int6
 
 	return bkClient.GetHostByTopologyNode(businessID, instanceID, objectID)
 }
+
+func ListServerByBlueKingBusiness(toolID string, businessID int64, log *zap.SugaredLogger) (*blueking.HostList, error) {
+	info, err := mongodb.NewCICDToolColl().Get(toolID)
+	if err != nil {
+		log.Infof("failed to get tool information of id: %s from mongodb, error: %s", toolID, err)
+		return nil, err
+	}
+
+	bkClient := blueking.NewClient(info.Host, info.AppCode, info.AppSecret, info.BKUserName)
+
+	return bkClient.GetHostByBusiness(businessID)
+}

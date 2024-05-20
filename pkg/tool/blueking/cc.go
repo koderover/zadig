@@ -99,3 +99,27 @@ func (c *Client) GetHostByTopologyNode(businessID, instanceID int64, objectID st
 
 	return serverList, nil
 }
+
+func (c *Client) GetHostByBusiness(businessID int64) (*HostList, error) {
+	url := fmt.Sprintf(c.Host, GetBusinessHostAPI)
+	request := &GetHostByTopologyNodeReq{
+		BusinessID: businessID,
+		// TODO: hard code the responding fields, if we need more, add it here
+		Fields: []string{"bk_host_id", "bk_cloud_id", "bk_host_innerip"},
+		// TODO: hard code to get the maximum number of data in one req
+		Page: &PagingReq{
+			Start: 0,
+			Limit: 500,
+		},
+	}
+
+	serverList := new(HostList)
+
+	err := c.Post(url, request, serverList)
+	if err != nil {
+		log.Errorf("failed to find hosts by business: %d, error: %s", businessID, err)
+		return nil, err
+	}
+
+	return serverList, nil
+}
