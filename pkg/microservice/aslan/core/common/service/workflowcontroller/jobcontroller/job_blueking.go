@@ -18,6 +18,7 @@ package jobcontroller
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -72,6 +73,13 @@ func (c *BlueKingJobCtl) Run(ctx context.Context) {
 		info.AppSecret,
 		info.BKUserName,
 	)
+
+	for _, param := range c.jobTaskSpec.Parameters {
+		if param.Server != nil {
+			xdddd, _ := json.Marshal(param.Server)
+			fmt.Println(">>>>>>>>>>>>>>>>>>>", string(xdddd), "<<<<<<<<<<<<<<<<<<<<<<")
+		}
+	}
 
 	instanceBriefInfo, err := bkClient.RunExecutionPlan(
 		c.jobTaskSpec.BusinessID,
