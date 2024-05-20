@@ -90,7 +90,7 @@ type ExecutionPlanDetail struct {
 }
 
 type GlobalVariable struct {
-	ID          string          `json:"id"`
+	ID          int64           `json:"id"`
 	Name        string          `json:"name"`
 	Description string          `json:"description"`
 	Type        int64           `json:"type"`
