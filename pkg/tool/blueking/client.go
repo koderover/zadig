@@ -80,7 +80,7 @@ func (c *Client) Get(url string, queries map[string]string, response interface{}
 		return fmt.Errorf("failed to generate auth header for blueking request, err: %s", err)
 	}
 
-	_, err = httpclient.Post(
+	_, err = httpclient.Get(
 		url,
 		httpclient.SetHeader("X-Bkapi-Authorization", authHeader),
 		httpclient.SetHeader("Content-Type", "application/json"),

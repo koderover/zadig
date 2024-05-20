@@ -76,7 +76,7 @@ func (c *BlueKingJobCtl) Run(ctx context.Context) {
 	fmt.Println(">>>>>>>>>>>>>>>>>>", c.jobTaskSpec.Parameters, "<<<<<<<<<<<<<")
 	for i, param := range c.jobTaskSpec.Parameters {
 		fmt.Println("+++++++++++++++++", i)
-		fmt.Printf("+++++++++++++++++++ %+v", param)
+		fmt.Printf("+++++++++++++++++++ %+v\n", param)
 	}
 
 	instanceBriefInfo, err := bkClient.RunExecutionPlan(
