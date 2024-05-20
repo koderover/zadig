@@ -18,6 +18,7 @@ package jobcontroller
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -55,7 +56,7 @@ func NewBlueKingJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.Work
 func (c *BlueKingJobCtl) Clean(ctx context.Context) {}
 
 func (c *BlueKingJobCtl) Run(ctx context.Context) {
-	c.job.Status = config.StatusPrepare
+	c.job.Status = config.StatusRunning
 	c.ack()
 
 	info, err := mongodb.NewCICDToolColl().Get(c.jobTaskSpec.ToolID)
@@ -77,6 +78,10 @@ func (c *BlueKingJobCtl) Run(ctx context.Context) {
 	for i, param := range c.jobTaskSpec.Parameters {
 		fmt.Println("+++++++++++++++++", i)
 		fmt.Printf("+++++++++++++++++++ %+v\n", param)
+		if param.Server != nil {
+			xddd, _ := json.Marshal(param.Server)
+			fmt.Println(">>>>>>>>>>>>>>>>>>", xddd, "<<<<<<<<<<<<<")
+		}
 	}
 
 	instanceBriefInfo, err := bkClient.RunExecutionPlan(
