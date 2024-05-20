@@ -95,7 +95,7 @@ type GlobalVariable struct {
 	Description string          `json:"description"`
 	Type        int64           `json:"type"`
 	Required    int64           `json:"required"`
-	Value       string          `json:"values"`
+	Value       string          `json:"value"`
 	Server      *ServerOverview `json:"server"`
 }
 
