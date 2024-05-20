@@ -17,6 +17,7 @@ limitations under the License.
 package job
 
 import (
+	"encoding/json"
 	"fmt"
 	"strconv"
 
@@ -24,7 +25,6 @@ import (
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
-	"gopkg.in/yaml.v2"
 )
 
 type BlueKingJob struct {
@@ -126,8 +126,8 @@ func (j *BlueKingJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 
 	for _, param := range j.spec.Parameters {
 		if param.Server != nil {
-			xdddd, _ := yaml.Marshal(param.Server)
-			fmt.Println(">>>>>>>>>>>>>>>>>>>.", xdddd, "<<<<<<<<<<<<<<<<<<<<<<")
+			xdddd, _ := json.Marshal(param.Server)
+			fmt.Println(">>>>>>>>>>>>>>>>>>>.", string(xdddd), "<<<<<<<<<<<<<<<<<<<<<<")
 		}
 	}
 
