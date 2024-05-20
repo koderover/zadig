@@ -92,32 +92,32 @@ type ExecutionPlanDetail struct {
 }
 
 type GlobalVariable struct {
-	ID          int64           `json:"id"          yaml:"id"`
-	Name        string          `json:"name"        yaml:"name"`
-	Description string          `json:"description" yaml:"description"`
-	Type        int64           `json:"type"        yaml:"type"`
-	Required    int64           `json:"required"    yaml:"required"`
-	Value       string          `json:"value"       yaml:"value"`
-	Server      *ServerOverview `json:"server"      yaml:"server"`
+	ID          int64           `json:"id"          yaml:"id"          bson:"id"`
+	Name        string          `json:"name"        yaml:"name"        bson:"name"`
+	Description string          `json:"description" yaml:"description" bson:"description"`
+	Type        int64           `json:"type"        yaml:"type"        bson:"type"`
+	Required    int64           `json:"required"    yaml:"required"    bson:"required"`
+	Value       string          `json:"value"       yaml:"value"       bson:"value"`
+	Server      *ServerOverview `json:"server"      yaml:"server"      bson:"server"`
 }
 
 type ServerOverview struct {
-	IPList   []*ServerInfo       `json:"ip_list"        yaml:"ip_list"`
-	NodeList []*TopologyNodeInfo `json:"topo_node_list" yaml:"topo_node_list"`
+	IPList   []*ServerInfo       `json:"ip_list"        yaml:"ip_list"        bson:"ip_list"`
+	NodeList []*TopologyNodeInfo `json:"topo_node_list" yaml:"topo_node_list" bson:"topo_node_list"`
 	// Variable 引用的变量名
-	Variable string `json:"variable,omitempty" yaml:"variable,omitempty"`
+	Variable string `json:"variable,omitempty" yaml:"variable,omitempty" bson:"variable,omitempty"`
 }
 
 type ServerInfo struct {
-	CloudID int64  `json:"bk_cloud_id"               yaml:"bk_cloud_id"`
-	IP      string `json:"ip,omitempty"              yaml:"ip,omitempty"`
-	HostID  int64  `json:"bk_host_id,omitempty"      yaml:"bk_host_id,omitempty"`
-	InnerIP string `json:"bk_host_innerip,omitempty" yaml:"bk_host_innerip,omitempty"`
+	CloudID int64  `json:"bk_cloud_id"               yaml:"bk_cloud_id"               bson:"bk_cloud_id"`
+	IP      string `json:"ip,omitempty"              yaml:"ip,omitempty"              bson:"ip,omitempty"`
+	HostID  int64  `json:"bk_host_id,omitempty"      yaml:"bk_host_id,omitempty"      bson:"bk_host_id,omitempty"`
+	InnerIP string `json:"bk_host_innerip,omitempty" yaml:"bk_host_innerip,omitempty" bson:"bk_host_innerip,omitempty"`
 }
 
 type TopologyNodeInfo struct {
-	ID       int64  `json:"id" yaml:"id"`
-	NodeType string `json:"node_type" yaml:"node_type"`
+	ID       int64  `json:"id"        yaml:"id"        bson:"id"`
+	NodeType string `json:"node_type" yaml:"node_type" bson:"node_type"`
 }
 
 type JobInstanceBrief struct {
