@@ -24,6 +24,7 @@ import (
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
+	"gopkg.in/yaml.v2"
 )
 
 type BlueKingJob struct {
@@ -121,6 +122,13 @@ func (j *BlueKingJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 	j.spec = &commonmodels.BlueKingJobSpec{}
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return nil, err
+	}
+
+	for _, param := range j.spec.Parameters {
+		if param.Server != nil {
+			xdddd, _ := yaml.Marshal(param.Server)
+			fmt.Println(">>>>>>>>>>>>>>>>>>>.", xdddd, "<<<<<<<<<<<<<<<<<<<<<<")
+		}
 	}
 
 	resp := make([]*commonmodels.JobTask, 0)
