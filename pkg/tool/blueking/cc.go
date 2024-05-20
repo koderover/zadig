@@ -51,7 +51,7 @@ func (c *Client) SearchBusiness() (*BusinessList, error) {
 }
 
 func (c *Client) GetTopology(businessID int64) ([]*TopologyNode, error) {
-	url := fmt.Sprintf(c.Host, GetTopologyAPI)
+	url := fmt.Sprintf("%s/%s", c.Host, GetTopologyAPI)
 	query := make(map[string]string)
 	query["bk_biz_id"] = strconv.FormatInt(businessID, 10)
 
@@ -75,7 +75,7 @@ type GetHostByTopologyNodeReq struct {
 }
 
 func (c *Client) GetHostByTopologyNode(businessID, instanceID int64, objectID string) (*HostList, error) {
-	url := fmt.Sprintf(c.Host, GetTopologyNodeHostAPI)
+	url := fmt.Sprintf("%s/%s", c.Host, GetTopologyNodeHostAPI)
 	request := &GetHostByTopologyNodeReq{
 		BusinessID: businessID,
 		ObjectID:   objectID,
@@ -101,7 +101,7 @@ func (c *Client) GetHostByTopologyNode(businessID, instanceID int64, objectID st
 }
 
 func (c *Client) GetHostByBusiness(businessID int64) (*HostList, error) {
-	url := fmt.Sprintf(c.Host, GetBusinessHostAPI)
+	url := fmt.Sprintf("%s/%s", c.Host, GetBusinessHostAPI)
 	request := &GetHostByTopologyNodeReq{
 		BusinessID: businessID,
 		// TODO: hard code the responding fields, if we need more, add it here
