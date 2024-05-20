@@ -61,7 +61,6 @@ func (j *BlueKingJob) ClearSelectionField() error {
 	}
 
 	j.spec.ExecutionPlanID = 0
-	j.spec.ExecutionPlanName = ""
 
 	j.job.Spec = j.spec
 	return nil
