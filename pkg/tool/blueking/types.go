@@ -113,6 +113,7 @@ type ServerInfo struct {
 	IP      string `json:"ip,omitempty"              yaml:"ip,omitempty"              bson:"ip,omitempty"`
 	HostID  int64  `json:"bk_host_id,omitempty"      yaml:"bk_host_id,omitempty"      bson:"bk_host_id,omitempty"`
 	InnerIP string `json:"bk_host_innerip,omitempty" yaml:"bk_host_innerip,omitempty" bson:"bk_host_innerip,omitempty"`
+	OSType  int64  `json:"bk_os_type,omitempty"       yaml:"bk_os_type,omitempty"      bson:"bk_os_type,omitempty"`
 }
 
 type TopologyNodeInfo struct {

@@ -105,7 +105,7 @@ func (c *Client) GetHostByBusiness(businessID int64) (*HostList, error) {
 	request := &GetHostByTopologyNodeReq{
 		BusinessID: businessID,
 		// TODO: hard code the responding fields, if we need more, add it here
-		Fields: []string{"bk_host_id", "bk_cloud_id", "bk_host_innerip"},
+		Fields: []string{"bk_host_id", "bk_cloud_id", "bk_host_innerip", "bk_os_type"},
 		// TODO: hard code to get the maximum number of data in one req
 		Page: &PagingReq{
 			Start: 0,
