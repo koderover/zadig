@@ -121,8 +121,8 @@ type TopologyNodeInfo struct {
 	NodeType string `json:"node_type" yaml:"node_type" bson:"node_type"`
 
 	// zadig only stuff, do not use it
-	InstanceID   int    `json:"bk_inst_id"`
-	InstanceName string `json:"bk_inst_name"`
+	InstanceID   int    `json:"bk_inst_id,omitempty"   yaml:"bk_inst_id,omitempty"   bson:"bk_inst_id,omitempty"`
+	InstanceName string `json:"bk_inst_name,omitempty" yaml:"bk_inst_name,omitempty" bson:"bk_inst_name,omitempty"`
 }
 
 type JobInstanceBrief struct {
