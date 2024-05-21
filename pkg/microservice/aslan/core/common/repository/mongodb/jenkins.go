@@ -19,6 +19,7 @@ package mongodb
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/koderover/zadig/v2/pkg/setting"
@@ -149,6 +150,8 @@ func (c *CICDToolIntegrationColl) List(toolType string) ([]*models.JenkinsIntegr
 			},
 		}
 	}
+
+	fmt.Printf(">>>>>>>>>>>>>>>>> %+v <<<<<<<<<<<<<<<<<", query)
 
 	ctx := context.Background()
 	opts := options.Find().SetSort(bson.D{{"updated_at", -1}})
