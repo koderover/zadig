@@ -27,6 +27,12 @@ import (
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 )
 
+type ListBluekingBusinessReq struct {
+	ID      string `json:"id"   form:"id"`
+	Page    int64  `json:"page" form:"page"`
+	PerPage int64  `json:"per_page" form:"per_page"`
+}
+
 func ListBluekingBusiness(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -43,19 +49,23 @@ func ListBluekingBusiness(c *gin.Context) {
 	//	ctx.UnAuthorized = true
 	//	return
 	//}
+	args := new(ListBluekingBusinessReq)
+	err = c.ShouldBindQuery(&args)
 
-	toolID := c.Query("id")
-	if toolID == "" {
+	if args.ID == "" {
 		ctx.Err = e.ErrInvalidParam
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.ListBlueKingBusiness(toolID, ctx.Logger)
+	ctx.Resp, ctx.Err = service.ListBlueKingBusiness(args.ID, args.Page, args.PerPage, ctx.Logger)
 }
 
 type ListBlueKingExecutionPlanReq struct {
 	ToolID     string `json:"id"          form:"id"`
 	BusinessID int64  `json:"business_id" form:"business_id"`
+	Name       string `json:"name"        form:"name"`
+	Page       int64  `json:"page"        form:"page"`
+	PerPage    int64  `json:"per_page"    form:"per_page"`
 }
 
 func ListBlueKingExecutionPlan(c *gin.Context) {
@@ -82,7 +92,7 @@ func ListBlueKingExecutionPlan(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.ListBlueKingExecutionPlan(args.ToolID, args.BusinessID, ctx.Logger)
+	ctx.Resp, ctx.Err = service.ListBlueKingExecutionPlan(args.ToolID, args.BusinessID, args.Name, args.Page, args.PerPage, ctx.Logger)
 }
 
 func GetBlueKingExecutionPlanDetail(c *gin.Context) {

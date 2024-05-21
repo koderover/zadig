@@ -33,13 +33,18 @@ type ListExecutionPlanReq struct {
 	// General query field
 	JobPlanId int64  `json:"job_plan_id,omitempty"`
 	Name      string `json:"name,omitempty"`
-	Length    int64  `json:"length"`
+	// Paging request
+	Start  int64 `json:"start"`
+	Length int64 `json:"length"`
 }
 
-func (c *Client) ListExecutionPlan(businessID int64) ([]*ExecutionPlanBrief, error) {
+func (c *Client) ListExecutionPlan(businessID int64, name string, start, perPage int64) ([]*ExecutionPlanBrief, error) {
 	url := fmt.Sprintf("%s/%s", strings.TrimSuffix(c.Host, "/"), ListExecutionPlanAPI)
 	request := &ListExecutionPlanReq{
 		BusinessID: businessID,
+		Start:      start,
+		Length:     perPage,
+		Name:       name,
 	}
 
 	resp := make([]*ExecutionPlanBrief, 0)

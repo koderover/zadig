@@ -23,7 +23,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/tool/blueking"
 )
 
-func ListBlueKingBusiness(toolID string, log *zap.SugaredLogger) (*blueking.BusinessList, error) {
+func ListBlueKingBusiness(toolID string, page, perPage int64, log *zap.SugaredLogger) (*blueking.BusinessList, error) {
 	info, err := mongodb.NewCICDToolColl().Get(toolID)
 	if err != nil {
 		log.Infof("failed to get tool information of id: %s from mongodb, error: %s", toolID, err)
@@ -32,7 +32,8 @@ func ListBlueKingBusiness(toolID string, log *zap.SugaredLogger) (*blueking.Busi
 
 	bkClient := blueking.NewClient(info.Host, info.AppCode, info.AppSecret, info.BKUserName)
 
-	return bkClient.SearchBusiness()
+	start := (page - 1) * perPage
+	return bkClient.SearchBusiness(start, perPage)
 }
 
 type ListBlueKingExecutionPlanReq struct {
@@ -40,7 +41,7 @@ type ListBlueKingExecutionPlanReq struct {
 	ExecutionPlans []*blueking.ExecutionPlanBrief `json:"execution_plans"`
 }
 
-func ListBlueKingExecutionPlan(toolID string, businessID int64, log *zap.SugaredLogger) (*ListBlueKingExecutionPlanReq, error) {
+func ListBlueKingExecutionPlan(toolID string, businessID int64, name string, page, perPage int64, log *zap.SugaredLogger) (*ListBlueKingExecutionPlanReq, error) {
 	info, err := mongodb.NewCICDToolColl().Get(toolID)
 	if err != nil {
 		log.Infof("failed to get tool information of id: %s from mongodb, error: %s", toolID, err)
@@ -49,7 +50,8 @@ func ListBlueKingExecutionPlan(toolID string, businessID int64, log *zap.Sugared
 
 	bkClient := blueking.NewClient(info.Host, info.AppCode, info.AppSecret, info.BKUserName)
 
-	executionPlanList, err := bkClient.ListExecutionPlan(businessID)
+	start := (page - 1) * perPage
+	executionPlanList, err := bkClient.ListExecutionPlan(businessID, name, start, perPage)
 	if err != nil {
 		return nil, err
 	}

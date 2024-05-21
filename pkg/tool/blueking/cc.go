@@ -32,12 +32,12 @@ type SearchBusinessReq struct {
 }
 
 // SearchBusiness 获取业务列表（有搜索分页）
-func (c *Client) SearchBusiness() (*BusinessList, error) {
+func (c *Client) SearchBusiness(start, limit int64) (*BusinessList, error) {
 	url := fmt.Sprintf("%s/%s", c.Host, ListBusinessAPI)
 	// TODO: hard code to get the maximum number of business
 	request := &SearchBusinessReq{Page: &PagingReq{
-		Start: 0,
-		Limit: 2000,
+		Start: start,
+		Limit: limit,
 	}}
 	businessList := new(BusinessList)
 
