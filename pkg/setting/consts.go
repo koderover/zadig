@@ -841,6 +841,12 @@ const (
 	JenkinsBuild = "jenkins"
 )
 
+// CI/CD Tool Type
+const (
+	CICDToolTypeJenkins  = "jenkins"
+	CICDToolTypeBlueKing = "blueKing"
+)
+
 type IntegrationLevel string
 
 const (

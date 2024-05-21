@@ -2911,7 +2911,7 @@ type JenkinsJobParams struct {
 }
 
 func GetJenkinsJobParams(id, jobName string) ([]*JenkinsJobParams, error) {
-	info, err := commonrepo.NewJenkinsIntegrationColl().Get(id)
+	info, err := commonrepo.NewCICDToolColl().Get(id)
 	if err != nil {
 		return nil, errors.Errorf("get jenkins integration error: %v", err)
 	}

@@ -23,10 +23,7 @@ import (
 	"github.com/koderover/gojenkins"
 	"go.uber.org/zap"
 
-	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
-	"github.com/koderover/zadig/v2/pkg/tool/crypto"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/types"
 )
@@ -43,56 +40,6 @@ type JenkinsBuildArgs struct {
 	Type  string      `json:"type"`
 }
 
-func CreateJenkinsIntegration(args *commonmodels.JenkinsIntegration, log *zap.SugaredLogger) error {
-	if err := commonrepo.NewJenkinsIntegrationColl().Create(args); err != nil {
-		log.Errorf("CreateJenkinsIntegration err:%v", err)
-		return e.ErrCreateJenkinsIntegration.AddErr(err)
-	}
-	return nil
-}
-
-func ListJenkinsIntegration(encryptedKey string, log *zap.SugaredLogger) ([]*commonmodels.JenkinsIntegration, error) {
-	jenkinsIntegrations, err := commonrepo.NewJenkinsIntegrationColl().List()
-	if err != nil {
-		log.Errorf("ListJenkinsIntegration err:%v", err)
-		return []*commonmodels.JenkinsIntegration{}, e.ErrListJenkinsIntegration.AddErr(err)
-	}
-
-	if len(encryptedKey) == 0 {
-		return jenkinsIntegrations, nil
-	}
-
-	aesKey, err := service.GetAesKeyFromEncryptedKey(encryptedKey, log)
-	if err != nil {
-		log.Errorf("ListJenkinsIntegration GetAesKeyFromEncryptedKey err:%v", err)
-		return nil, err
-	}
-	for _, integration := range jenkinsIntegrations {
-		integration.Password, err = crypto.AesEncryptByKey(integration.Password, aesKey.PlainText)
-		if err != nil {
-			log.Errorf("ListJenkinsIntegration AesEncryptByKey err:%v", err)
-			return nil, err
-		}
-	}
-	return jenkinsIntegrations, nil
-}
-
-func UpdateJenkinsIntegration(ID string, args *commonmodels.JenkinsIntegration, log *zap.SugaredLogger) error {
-	if err := commonrepo.NewJenkinsIntegrationColl().Update(ID, args); err != nil {
-		log.Errorf("UpdateJenkinsIntegration err:%v", err)
-		return e.ErrUpdateJenkinsIntegration.AddErr(err)
-	}
-	return nil
-}
-
-func DeleteJenkinsIntegration(ID string, log *zap.SugaredLogger) error {
-	if err := commonrepo.NewJenkinsIntegrationColl().Delete(ID); err != nil {
-		log.Errorf("DeleteJenkinsIntegration err:%v", err)
-		return e.ErrDeleteJenkinsIntegration.AddErr(err)
-	}
-	return nil
-}
-
 func TestJenkinsConnection(args *JenkinsArgs, log *zap.SugaredLogger) error {
 	ctx := context.Background()
 	_, err := gojenkins.CreateJenkins(nil, args.URL, args.Username, args.Password).Init(ctx)
@@ -105,7 +52,7 @@ func TestJenkinsConnection(args *JenkinsArgs, log *zap.SugaredLogger) error {
 
 func getJenkinsClient(id string, log *zap.SugaredLogger) (*gojenkins.Jenkins, context.Context, error) {
 	ctx := context.Background()
-	jenkinsIntegration, err := commonrepo.NewJenkinsIntegrationColl().Get(id)
+	jenkinsIntegration, err := commonrepo.NewCICDToolColl().Get(id)
 	if err != nil {
 		return nil, ctx, fmt.Errorf("未找到jenkins集成数据")
 	}

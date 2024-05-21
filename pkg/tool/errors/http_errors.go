@@ -729,13 +729,13 @@ var (
 	//-----------------------------------------------------------------------------------------------
 	// jenkins integraton Error Range: 6830 - 6839
 	//-----------------------------------------------------------------------------------------------
-	ErrCreateJenkinsIntegration = NewHTTPError(6831, "创建jenkins集成失败")
-	ErrListJenkinsIntegration   = NewHTTPError(6832, "获取jenkins集成列表失败")
-	ErrUpdateJenkinsIntegration = NewHTTPError(6833, "更新jenkins集成失败")
-	ErrDeleteJenkinsIntegration = NewHTTPError(6834, "删除jenkins集成失败")
-	ErrTestJenkinsConnection    = NewHTTPError(6835, "用户名或者密码不正确")
-	ErrListJobNames             = NewHTTPError(6836, "获取job名称列表失败")
-	ErrListJobBuildArgs         = NewHTTPError(6837, "获取job构建参数列表失败")
+	ErrCreateCICDTools       = NewHTTPError(6831, "创建CI/CD工具失败")
+	ErrListCICDTools         = NewHTTPError(6832, "获取CI/CD工具列表失败")
+	ErrUpdateCICDTools       = NewHTTPError(6833, "更新CI/CD工具失败")
+	ErrDeleteCICDTools       = NewHTTPError(6834, "删除CI/CD工具失败")
+	ErrTestJenkinsConnection = NewHTTPError(6835, "用户名或者密码不正确")
+	ErrListJobNames          = NewHTTPError(6836, "获取job名称列表失败")
+	ErrListJobBuildArgs      = NewHTTPError(6837, "获取job构建参数列表失败")
 
 	//-----------------------------------------------------------------------------------------------
 	// external link Error Range: 6840 - 6849

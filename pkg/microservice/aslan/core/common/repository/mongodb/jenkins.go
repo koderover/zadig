@@ -21,6 +21,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/koderover/zadig/v2/pkg/setting"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -31,28 +32,36 @@ import (
 	mongotool "github.com/koderover/zadig/v2/pkg/tool/mongo"
 )
 
-type JenkinsIntegrationColl struct {
+type CICDToolIntegrationColl struct {
 	*mongo.Collection
 
 	coll string
 }
 
-func NewJenkinsIntegrationColl() *JenkinsIntegrationColl {
+func NewCICDToolColl() *CICDToolIntegrationColl {
 	name := models.JenkinsIntegration{}.TableName()
-	coll := &JenkinsIntegrationColl{Collection: mongotool.Database(config.MongoDatabase()).Collection(name), coll: name}
+	coll := &CICDToolIntegrationColl{Collection: mongotool.Database(config.MongoDatabase()).Collection(name), coll: name}
 
 	return coll
 }
 
-func (c *JenkinsIntegrationColl) GetCollectionName() string {
+func (c *CICDToolIntegrationColl) GetCollectionName() string {
 	return c.coll
 }
 
-func (c *JenkinsIntegrationColl) EnsureIndex(ctx context.Context) error {
-	return nil
+func (c *CICDToolIntegrationColl) EnsureIndex(ctx context.Context) error {
+	mod := mongo.IndexModel{
+		Keys: bson.D{
+			bson.E{Key: "name", Value: 1},
+		},
+		Options: options.Index().SetUnique(true).SetSparse(true),
+	}
+
+	_, err := c.Indexes().CreateOne(ctx, mod)
+	return err
 }
 
-func (c *JenkinsIntegrationColl) Get(id string) (*models.JenkinsIntegration, error) {
+func (c *CICDToolIntegrationColl) Get(id string) (*models.JenkinsIntegration, error) {
 	oid, err := primitive.ObjectIDFromHex(id)
 	if err != nil {
 		return nil, err
@@ -65,7 +74,7 @@ func (c *JenkinsIntegrationColl) Get(id string) (*models.JenkinsIntegration, err
 	return res, err
 }
 
-func (c *JenkinsIntegrationColl) Create(args *models.JenkinsIntegration) error {
+func (c *CICDToolIntegrationColl) Create(args *models.JenkinsIntegration) error {
 	if args == nil {
 		return errors.New("nil jenkins integration args")
 	}
@@ -76,26 +85,39 @@ func (c *JenkinsIntegrationColl) Create(args *models.JenkinsIntegration) error {
 	return err
 }
 
-func (c *JenkinsIntegrationColl) Update(ID string, args *models.JenkinsIntegration) error {
+func (c *CICDToolIntegrationColl) Update(ID string, args *models.JenkinsIntegration) error {
 	oldID, err := primitive.ObjectIDFromHex(ID)
 	if err != nil {
 		return err
 	}
 
-	query := bson.M{"_id": oldID}
-	change := bson.M{"$set": bson.M{
-		"url":        args.URL,
-		"username":   args.Username,
-		"password":   args.Password,
+	changeQuery := bson.M{
 		"update_by":  args.UpdateBy,
 		"updated_at": time.Now().Unix(),
-	}}
+		"name":       args.Name,
+	}
+
+	if args.Type == setting.CICDToolTypeJenkins {
+		changeQuery["url"] = args.URL
+		changeQuery["username"] = args.Username
+		changeQuery["password"] = args.Password
+	}
+
+	if args.Type == setting.CICDToolTypeBlueKing {
+		changeQuery["host"] = args.Host
+		changeQuery["app_code"] = args.AppCode
+		changeQuery["app_secret"] = args.AppSecret
+		changeQuery["bk_username"] = args.BKUserName
+	}
+
+	query := bson.M{"_id": oldID}
+	change := bson.M{"$set": changeQuery}
 
 	_, err = c.UpdateOne(context.TODO(), query, change, options.Update().SetUpsert(true))
 	return err
 }
 
-func (c *JenkinsIntegrationColl) Delete(ID string) error {
+func (c *CICDToolIntegrationColl) Delete(ID string) error {
 	oldID, err := primitive.ObjectIDFromHex(ID)
 	if err != nil {
 		return err
@@ -107,9 +129,26 @@ func (c *JenkinsIntegrationColl) Delete(ID string) error {
 	return err
 }
 
-func (c *JenkinsIntegrationColl) List() ([]*models.JenkinsIntegration, error) {
+func (c *CICDToolIntegrationColl) List(toolType string) ([]*models.JenkinsIntegration, error) {
 	resp := make([]*models.JenkinsIntegration, 0)
 	query := bson.M{}
+	if toolType != "" && toolType != setting.CICDToolTypeJenkins {
+		query["type"] = toolType
+	}
+
+	// compatibility code
+	if toolType == setting.CICDToolTypeJenkins {
+		query["$or"] = []bson.M{
+			{
+				"type": setting.CICDToolTypeJenkins,
+			},
+			{
+				"type": bson.M{
+					"$exists": false,
+				},
+			},
+		}
+	}
 
 	ctx := context.Background()
 	opts := options.Find().SetSort(bson.D{{"updated_at", -1}})

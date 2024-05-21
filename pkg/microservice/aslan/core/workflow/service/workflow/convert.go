@@ -209,7 +209,7 @@ func getJenkinsIntegration(jenkinsBuild *commonmodels.JenkinsBuild) *commonmodel
 	if jenkinsBuild == nil {
 		return nil
 	}
-	jenkinsIntegration, err := commonrepo.NewJenkinsIntegrationColl().Get(jenkinsBuild.JenkinsID)
+	jenkinsIntegration, err := commonrepo.NewCICDToolColl().Get(jenkinsBuild.JenkinsID)
 	if err != nil {
 		return nil
 	}

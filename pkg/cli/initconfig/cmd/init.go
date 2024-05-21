@@ -114,6 +114,7 @@ func createOrUpdateMongodbIndex(ctx context.Context) {
 		commonrepo.NewBasicImageColl(),
 		commonrepo.NewBuildColl(),
 		commonrepo.NewCallbackRequestColl(),
+		commonrepo.NewCICDToolColl(),
 		commonrepo.NewConfigurationManagementColl(),
 		commonrepo.NewCounterColl(),
 		commonrepo.NewCronjobColl(),

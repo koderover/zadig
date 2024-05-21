@@ -61,7 +61,7 @@ func (c *JenkinsJobCtl) Run(ctx context.Context) {
 	c.job.Status = config.StatusPrepare
 	c.ack()
 
-	info, err := mongodb.NewJenkinsIntegrationColl().Get(c.jobTaskSpec.ID)
+	info, err := mongodb.NewCICDToolColl().Get(c.jobTaskSpec.ID)
 	if err != nil {
 		logError(c.job, err.Error(), c.logger)
 		return

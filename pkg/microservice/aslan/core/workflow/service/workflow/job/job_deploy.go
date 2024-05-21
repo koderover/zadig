@@ -573,12 +573,12 @@ func generateEnvDeployServiceInfo(env, project string, spec *commonmodels.ZadigD
 	serviceDefinitionMap := make(map[string]*commonmodels.Service)
 	serviceKVSettingMap := make(map[string][]*commonmodels.DeployVariableConfig)
 
-	updateConfig := false
-	for _, contents := range spec.DeployContents {
-		if contents == config.DeployVars {
-			updateConfig = true
-		}
-	}
+	//updateConfig := false
+	//for _, contents := range spec.DeployContents {
+	//	if contents == config.DeployVars {
+	//		updateConfig = true
+	//	}
+	//}
 
 	svcKVsMap := map[string][]*commonmodels.ServiceKeyVal{}
 	deployServiceMap := map[string]*commonmodels.DeployServiceInfo{}
@@ -658,7 +658,7 @@ func generateEnvDeployServiceInfo(env, project string, spec *commonmodels.ZadigD
 			VariableKVs:       kvs,
 			LatestVariableKVs: svcInfo.LatestVariableKVs,
 			VariableYaml:      service.GetServiceRender().OverrideYaml.YamlContent,
-			UpdateConfig:      updateConfig,
+			UpdateConfig:      true,
 			Updatable:         svcInfo.Updatable,
 			Deployed:          true,
 			Modules:           modules,
@@ -698,7 +698,7 @@ func generateEnvDeployServiceInfo(env, project string, spec *commonmodels.ZadigD
 			ServiceName:  service.ServiceName,
 			VariableKVs:  kvs,
 			VariableYaml: service.VariableYaml,
-			UpdateConfig: updateConfig,
+			UpdateConfig: true,
 			Updatable:    true,
 			Deployed:     false,
 			Modules:      modules,

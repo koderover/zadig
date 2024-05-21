@@ -19,7 +19,6 @@ package job
 import (
 	"fmt"
 
-	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 
@@ -27,6 +26,7 @@ import (
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/tool/jenkins"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
 type JenkinsJob struct {
@@ -49,7 +49,7 @@ func (j *JenkinsJob) SetPreset() error {
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return err
 	}
-	info, err := mongodb.NewJenkinsIntegrationColl().Get(j.spec.ID)
+	info, err := mongodb.NewCICDToolColl().Get(j.spec.ID)
 	if err != nil {
 		return errors.Errorf("failed to get Jenkins info from mongo: %v", err)
 	}
@@ -191,7 +191,7 @@ func (j *JenkinsJob) LintJob() error {
 	if err := commonmodels.IToiYaml(j.job.Spec, j.spec); err != nil {
 		return err
 	}
-	if _, err := mongodb.NewJenkinsIntegrationColl().Get(j.spec.ID); err != nil {
+	if _, err := mongodb.NewCICDToolColl().Get(j.spec.ID); err != nil {
 		return errors.Errorf("not found Jenkins in mongo, err: %v", err)
 	}
 	return nil
