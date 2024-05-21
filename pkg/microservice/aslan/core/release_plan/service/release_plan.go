@@ -459,8 +459,7 @@ func ScheduleExecuteReleasePlan(c *handler.Context, planID string) error {
 	approveLock.Lock()
 	defer approveLock.Unlock()
 
-	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
-	defer cancel()
+	ctx := context.Background()
 	plan, err := mongodb.NewReleasePlanColl().GetByID(ctx, planID)
 	if err != nil {
 		err = errors.Wrap(err, "get plan")
@@ -488,6 +487,8 @@ func ScheduleExecuteReleasePlan(c *handler.Context, planID string) error {
 		log.Error(err)
 		return err
 	}
+
+	log.Infof("schedule execute release plan, plan ID: %s, name: %s, index: %d", plan.ID, plan.Name, plan.Index)
 
 	for _, job := range plan.Jobs {
 		if job.Type == config.JobWorkflow {
@@ -525,6 +526,8 @@ func ScheduleExecuteReleasePlan(c *handler.Context, planID string) error {
 				plan.SuccessTime = time.Now().Unix()
 				plan.Status = config.StatusSuccess
 			}
+
+			log.Infof("schedule execute release job, plan ID: %s, name: %s, index: %d, job ID: %s, job name: %s", plan.ID, plan.Name, plan.Index, job.ID, job.Name)
 
 			if err = mongodb.NewReleasePlanColl().UpdateByID(ctx, planID, plan); err != nil {
 				err = errors.Wrap(err, "update plan")
