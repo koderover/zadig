@@ -136,6 +136,15 @@ func (c *CICDToolIntegrationColl) List(toolType string) ([]*models.JenkinsIntegr
 		query["type"] = toolType
 	}
 
+	if toolType == setting.CICDToolTypeJenkins {
+		query["type"] = bson.M{
+			"$in": []string{
+				"",
+				setting.CICDToolTypeJenkins,
+			},
+		}
+	}
+
 	ctx := context.Background()
 	opts := options.Find().SetSort(bson.D{{"updated_at", -1}})
 

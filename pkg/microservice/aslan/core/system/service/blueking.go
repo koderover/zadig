@@ -17,9 +17,9 @@ limitations under the License.
 package service
 
 import (
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"go.uber.org/zap"
 
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/tool/blueking"
 )
 
