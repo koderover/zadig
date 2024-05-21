@@ -136,11 +136,16 @@ func (c *CICDToolIntegrationColl) List(toolType string) ([]*models.JenkinsIntegr
 		query["type"] = toolType
 	}
 
+	// compatibility code
 	if toolType == setting.CICDToolTypeJenkins {
-		query["type"] = bson.M{
-			"$in": []string{
-				"",
-				setting.CICDToolTypeJenkins,
+		query["$or"] = []bson.M{
+			{
+				"type": setting.CICDToolTypeJenkins,
+			},
+			{
+				"type": bson.M{
+					"$exists": false,
+				},
 			},
 		}
 	}
