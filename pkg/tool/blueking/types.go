@@ -119,6 +119,10 @@ type ServerInfo struct {
 type TopologyNodeInfo struct {
 	ID       int64  `json:"id"        yaml:"id"        bson:"id"`
 	NodeType string `json:"node_type" yaml:"node_type" bson:"node_type"`
+
+	// zadig only stuff, do not use it
+	InstanceID   int    `json:"bk_inst_id"`
+	InstanceName string `json:"bk_inst_name"`
 }
 
 type JobInstanceBrief struct {
