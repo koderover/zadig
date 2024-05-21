@@ -44,6 +44,7 @@ require (
 	github.com/gregjones/httpcache v0.0.0-20190611155906-901d90724c79
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/huaweicloud/huaweicloud-sdk-go-v3 v0.1.2
+	github.com/hupe1980/go-tiktoken v0.0.9
 	github.com/imroc/req/v3 v3.42.0
 	github.com/jasonlvhit/gocron v0.0.1
 	github.com/jinzhu/copier v0.3.5
@@ -64,13 +65,12 @@ require (
 	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/pingcap/tidb/parser v0.0.0-20230922051344-241e8464cde0
 	github.com/pkg/errors v0.9.1
-	github.com/pkoukk/tiktoken-go v0.1.1-0.20230418101013-cae809389480
 	github.com/prometheus/client_golang v1.15.1
 	github.com/redis/go-redis/v9 v9.2.1
 	github.com/rfyiamcool/cronlib v1.2.1
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/samber/lo v1.37.0
-	github.com/sashabaranov/go-openai v1.12.0
+	github.com/sashabaranov/go-openai v1.24.0
 	github.com/shirou/gopsutil v3.21.11+incompatible
 	github.com/shirou/gopsutil/v3 v3.22.8
 	github.com/spf13/cobra v1.7.0
@@ -88,7 +88,7 @@ require (
 	golang.org/x/net v0.22.0
 	golang.org/x/oauth2 v0.5.0
 	golang.org/x/sync v0.6.0
-	golang.org/x/text v0.14.0
+	golang.org/x/text v0.15.0
 	google.golang.org/genproto v0.0.0-20220628213854-d9e0b6570c03
 	google.golang.org/grpc v1.47.0
 	google.golang.org/protobuf v1.30.0
@@ -145,7 +145,7 @@ require (
 	github.com/dgraph-io/ristretto v0.1.0 // indirect
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
-	github.com/dlclark/regexp2 v1.8.1 // indirect
+	github.com/dlclark/regexp2 v1.11.0 // indirect
 	github.com/docker/cli v20.10.17+incompatible // indirect
 	github.com/docker/docker-credential-helpers v0.6.4 // indirect
 	github.com/docker/go-metrics v0.0.1 // indirect

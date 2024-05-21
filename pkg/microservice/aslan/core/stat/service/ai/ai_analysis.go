@@ -91,7 +91,7 @@ func AnalyzeProjectStats(args *AiAnalysisReq, logger *zap.SugaredLogger) (*AiAna
 		m:      &sync.Mutex{},
 	}
 	var overAllInput string
-	if tokenNum > 14000 {
+	if tokenNum > 64000 {
 		wg := &sync.WaitGroup{}
 		// There is a problem: if each project is analyzed separately, the prompt can only be designed by oneself. The last time a user defined prompt is used, it will result in inaccurate results
 		for _, project := range data.ProjectList {
@@ -108,12 +108,12 @@ func AnalyzeProjectStats(args *AiAnalysisReq, logger *zap.SugaredLogger) (*AiAna
 	}
 
 	// the design of the prompt directly determines the quality of the answer
-	if tokenNum > 14000 {
+	if tokenNum > 63000 {
 		prompt = fmt.Sprintf("假设你是Devops专家，需要你根据分析要求分析三重引号分割的项目数据，该数据是多个项目各自的初步分析结果，"+
 			"分析要求:%s;你的回答需要使用text格式输出,输出内容不要包含\"三重引号分割的项目数据\"这个名称,也不要复述分析要求中的内容,在你的回答中禁止包含 "+
 			"\\\"data_description\\\"、\\\"jenkins\\\" 等字段; 项目数据：\"\"\"%s\"\"\"", args.Prompt, overAllInput)
 	}
-	answer, err := client.GetCompletion(context.TODO(), util.RemoveExtraSpaces(prompt), llm.WithTemperature(float32(0.2)), llm.WithModel(openapi.GPT3Dot5Turbo16K))
+	answer, err := client.GetCompletion(context.TODO(), util.RemoveExtraSpaces(prompt), llm.WithTemperature(float32(0.2)), llm.WithModel(openapi.GPT4o))
 	if err != nil {
 		logger.Errorf("failed to get answer from ai: %v, the error is: %+v", client.GetName(), err)
 		return nil, err
@@ -138,7 +138,7 @@ func AnalyzeProject(userPrompt string, project *ProjectData, client llm.ILLM, an
 	}
 
 	prompt := fmt.Sprintf("假设你是资深Devops专家，我需要你根据以下分析要求来分析用三重引号分割的项目数据，最后根据你的分析来生成分析报告，分析要求：%s； 项目数据：\"\"\"%s\"\"\";你的回答不能超过400个汉字，同时回答内容要符合text格式，不要存在换行和空行;", util.RemoveExtraSpaces(EveryProjectAnalysisPrompt), string(pData))
-	answer, err := client.GetCompletion(context.TODO(), util.RemoveExtraSpaces(prompt), llm.WithTemperature(float32(0.1)), llm.WithModel(openapi.GPT3Dot5Turbo16K))
+	answer, err := client.GetCompletion(context.TODO(), util.RemoveExtraSpaces(prompt), llm.WithTemperature(float32(0.1)), llm.WithModel(openapi.GPT4o))
 	if err != nil {
 		logger.Errorf("failed to get answer from ai: %v, the error is: %+v", client.GetName(), err)
 		return
@@ -455,7 +455,7 @@ func AnalyzeMonthAttention(start, end int64, data []*service2.MonthAttention, lo
 	retryTime := 0
 	answer := ""
 	for retryTime < 3 {
-		answer, err = client.GetCompletion(context.TODO(), util.RemoveExtraSpaces(prompt), llm.WithTemperature(float32(0.2)), llm.WithModel(openapi.GPT3Dot5Turbo16K))
+		answer, err = client.GetCompletion(context.TODO(), util.RemoveExtraSpaces(prompt), llm.WithTemperature(float32(0.2)), llm.WithModel(openapi.GPT4o))
 		if err != nil {
 			retryTime++
 			if strings.Contains(err.Error(), "create chat completion failed") && retryTime < 3 {

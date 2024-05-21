@@ -23,7 +23,7 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/pkoukk/tiktoken-go"
+	"github.com/hupe1980/go-tiktoken"
 	"github.com/sashabaranov/go-openai"
 
 	"github.com/koderover/zadig/v2/pkg/tool/cache"
@@ -31,8 +31,8 @@ import (
 )
 
 const (
-	DefaultOpenAIModel           = openai.GPT3Dot5Turbo
-	DefaultOpenAIModelTokenLimit = "4096"
+	DefaultOpenAIModel           = openai.GPT4o
+	DefaultOpenAIModelTokenLimit = "128000"
 )
 
 type OpenAIClient struct {
@@ -182,7 +182,7 @@ func (a *OpenAIClient) GetName() string {
 }
 
 func NumTokensFromMessages(messages []openai.ChatCompletionMessage, model string) (num_tokens int, err error) {
-	tkm, err := tiktoken.EncodingForModel(model)
+	tkm, err := tiktoken.NewEncodingForModel(model)
 	if err != nil {
 		err = fmt.Errorf("EncodingForModel error: %w", err)
 		return
@@ -193,7 +193,7 @@ func NumTokensFromMessages(messages []openai.ChatCompletionMessage, model string
 	if model == "gpt-3.5-turbo-0301" || model == "gpt-3.5-turbo" {
 		tokens_per_message = 4
 		tokens_per_name = -1
-	} else if model == "gpt-4-0314" || model == "gpt-4" {
+	} else if model == "gpt-4-0314" || model == "gpt-4" || model == "gpt-4o" {
 		tokens_per_message = 3
 		tokens_per_name = 1
 	} else {
@@ -202,11 +202,33 @@ func NumTokensFromMessages(messages []openai.ChatCompletionMessage, model string
 		log.Warnf("Warning: model not found. Using cl100k_base encoding.")
 	}
 
+	calcTokens := func(message string) (int, error) {
+		_, tokens, err := tkm.Encode(message, nil, nil)
+		if err != nil {
+			return 0, fmt.Errorf("Encode error: %w", err)
+		}
+		return len(tokens), nil
+	}
+
 	for _, message := range messages {
 		num_tokens += tokens_per_message
-		num_tokens += len(tkm.Encode(message.Content, nil, nil))
-		num_tokens += len(tkm.Encode(message.Role, nil, nil))
-		num_tokens += len(tkm.Encode(message.Name, nil, nil))
+		tokens, err := calcTokens(message.Content)
+		if err != nil {
+			return 0, err
+		}
+		num_tokens += tokens
+
+		tokens, err = calcTokens(message.Role)
+		if err != nil {
+			return 0, err
+		}
+		num_tokens += tokens
+
+		tokens, err = calcTokens(message.Name)
+		if err != nil {
+			return 0, err
+		}
+		num_tokens += tokens
 		if message.Name != "" {
 			num_tokens += tokens_per_name
 		}
