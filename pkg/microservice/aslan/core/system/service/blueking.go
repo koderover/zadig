@@ -86,7 +86,7 @@ func GetBlueKingBusinessTopology(toolID string, businessID int64, log *zap.Sugar
 	return bkClient.GetTopology(businessID)
 }
 
-func ListServerByBlueKingTopologyNode(toolID string, businessID, instanceID int64, objectID string, log *zap.SugaredLogger) (*blueking.HostList, error) {
+func ListServerByBlueKingTopologyNode(toolID string, businessID, instanceID int64, objectID string, page, perPage int64, log *zap.SugaredLogger) (*blueking.HostList, error) {
 	info, err := mongodb.NewCICDToolColl().Get(toolID)
 	if err != nil {
 		log.Infof("failed to get tool information of id: %s from mongodb, error: %s", toolID, err)
@@ -95,10 +95,11 @@ func ListServerByBlueKingTopologyNode(toolID string, businessID, instanceID int6
 
 	bkClient := blueking.NewClient(info.Host, info.AppCode, info.AppSecret, info.BKUserName)
 
-	return bkClient.GetHostByTopologyNode(businessID, instanceID, objectID)
+	start := (page - 1) * perPage
+	return bkClient.GetHostByTopologyNode(businessID, instanceID, start, perPage, objectID)
 }
 
-func ListServerByBlueKingBusiness(toolID string, businessID int64, log *zap.SugaredLogger) (*blueking.HostList, error) {
+func ListServerByBlueKingBusiness(toolID string, businessID, page, perPage int64, log *zap.SugaredLogger) (*blueking.HostList, error) {
 	info, err := mongodb.NewCICDToolColl().Get(toolID)
 	if err != nil {
 		log.Infof("failed to get tool information of id: %s from mongodb, error: %s", toolID, err)
@@ -107,5 +108,6 @@ func ListServerByBlueKingBusiness(toolID string, businessID int64, log *zap.Suga
 
 	bkClient := blueking.NewClient(info.Host, info.AppCode, info.AppSecret, info.BKUserName)
 
-	return bkClient.GetHostByBusiness(businessID)
+	start := (page - 1) * perPage
+	return bkClient.GetHostByBusiness(businessID, start, perPage)
 }

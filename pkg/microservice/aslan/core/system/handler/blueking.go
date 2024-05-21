@@ -57,6 +57,14 @@ func ListBluekingBusiness(c *gin.Context) {
 		return
 	}
 
+	if args.Page == 0 {
+		args.Page = 1
+	}
+
+	if args.PerPage == 0 {
+		args.PerPage = 2000
+	}
+
 	ctx.Resp, ctx.Err = service.ListBlueKingBusiness(args.ID, args.Page, args.PerPage, ctx.Logger)
 }
 
@@ -90,6 +98,13 @@ func ListBlueKingExecutionPlan(c *gin.Context) {
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
 		return
+	}
+
+	if args.Page == 0 {
+		args.Page = 1
+	}
+	if args.PerPage == 0 {
+		args.PerPage = 1000
 	}
 
 	ctx.Resp, ctx.Err = service.ListBlueKingExecutionPlan(args.ToolID, args.BusinessID, args.Name, args.Page, args.PerPage, ctx.Logger)
@@ -170,6 +185,9 @@ type ListServerByBlueKingTopologyNodeReq struct {
 	BusinessID int64  `json:"business_id" form:"business_id"`
 	InstanceID int64  `json:"instance_id" form:"instance_id"`
 	ObjectID   string `json:"object_id"   form:"object_id"`
+
+	Page    int64 `json:"page"        form:"page"`
+	PerPage int64 `json:"per_page"    form:"per_page"`
 }
 
 func ListServerByBlueKingTopologyNode(c *gin.Context) {
@@ -196,7 +214,14 @@ func ListServerByBlueKingTopologyNode(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.ListServerByBlueKingTopologyNode(args.ToolID, args.BusinessID, args.InstanceID, args.ObjectID, ctx.Logger)
+	if args.Page == 0 {
+		args.Page = 1
+	}
+	if args.PerPage == 0 {
+		args.PerPage = 500
+	}
+
+	ctx.Resp, ctx.Err = service.ListServerByBlueKingTopologyNode(args.ToolID, args.BusinessID, args.InstanceID, args.ObjectID, args.Page, args.PerPage, ctx.Logger)
 }
 
 func ListServerByBlueKingBusiness(c *gin.Context) {
@@ -223,5 +248,12 @@ func ListServerByBlueKingBusiness(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.ListServerByBlueKingBusiness(args.ToolID, args.BusinessID, ctx.Logger)
+	if args.Page == 0 {
+		args.Page = 1
+	}
+	if args.PerPage == 0 {
+		args.PerPage = 500
+	}
+
+	ctx.Resp, ctx.Err = service.ListServerByBlueKingBusiness(args.ToolID, args.BusinessID, args.Page, args.PerPage, ctx.Logger)
 }

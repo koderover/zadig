@@ -74,7 +74,7 @@ type GetHostByTopologyNodeReq struct {
 	Page       *PagingReq `json:"page"`
 }
 
-func (c *Client) GetHostByTopologyNode(businessID, instanceID int64, objectID string) (*HostList, error) {
+func (c *Client) GetHostByTopologyNode(businessID, instanceID, start, perPage int64, objectID string) (*HostList, error) {
 	url := fmt.Sprintf("%s/%s", c.Host, GetTopologyNodeHostAPI)
 	request := &GetHostByTopologyNodeReq{
 		BusinessID: businessID,
@@ -84,8 +84,8 @@ func (c *Client) GetHostByTopologyNode(businessID, instanceID int64, objectID st
 		Fields: []string{"bk_host_id", "bk_cloud_id", "bk_host_innerip"},
 		// TODO: hard code to get the maximum number of data in one req
 		Page: &PagingReq{
-			Start: 0,
-			Limit: 500,
+			Start: start,
+			Limit: perPage,
 		},
 	}
 
@@ -100,7 +100,7 @@ func (c *Client) GetHostByTopologyNode(businessID, instanceID int64, objectID st
 	return serverList, nil
 }
 
-func (c *Client) GetHostByBusiness(businessID int64) (*HostList, error) {
+func (c *Client) GetHostByBusiness(businessID, start, perPage int64) (*HostList, error) {
 	url := fmt.Sprintf("%s/%s", c.Host, GetBusinessHostAPI)
 	request := &GetHostByTopologyNodeReq{
 		BusinessID: businessID,
@@ -108,8 +108,8 @@ func (c *Client) GetHostByBusiness(businessID int64) (*HostList, error) {
 		Fields: []string{"bk_host_id", "bk_cloud_id", "bk_host_innerip", "bk_os_type"},
 		// TODO: hard code to get the maximum number of data in one req
 		Page: &PagingReq{
-			Start: 0,
-			Limit: 500,
+			Start: start,
+			Limit: perPage,
 		},
 	}
 
