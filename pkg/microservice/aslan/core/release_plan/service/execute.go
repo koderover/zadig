@@ -145,12 +145,12 @@ func (e *WorkflowReleaseJobExecutor) Execute(plan *models.ReleasePlan) error {
 
 		for _, stage := range originalWorkflow.Stages {
 			for _, item := range stage.Jobs {
-				err := jobctl.SetOptions(item, originalWorkflow)
-				if err != nil {
-					errMsg := fmt.Sprintf("merge workflow args set options error: %v", err)
-					log.Error(errMsg)
-					return fmt.Errorf(errMsg)
-				}
+				//err := jobctl.SetOptions(item, originalWorkflow)
+				//if err != nil {
+				//	errMsg := fmt.Sprintf("merge workflow args set options error: %v", err)
+				//	log.Error(errMsg)
+				//	return fmt.Errorf(errMsg)
+				//}
 
 				// additionally we need to update the user-defined args with the latest workflow configuration
 				err = jobctl.UpdateWithLatestSetting(item, originalWorkflow)
