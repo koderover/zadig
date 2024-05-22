@@ -6,7 +6,7 @@ require (
 	gitee.com/openeuler/go-gitee v0.0.0-20220530104019-3af895bc380c
 	github.com/27149chen/afero v1.6.2
 	github.com/Knetic/govaluate v3.0.0+incompatible
-	github.com/RyanCarrier/dijkstra v1.1.0
+	github.com/RyanCarrier/dijkstra v1.3.0
 	github.com/andygrunwald/go-gerrit v0.0.0-20220906192238-4fc99996c860
 	github.com/andygrunwald/go-jira v1.16.0
 	github.com/antihax/optional v1.0.0
