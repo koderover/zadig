@@ -463,7 +463,7 @@ func registerCronjob(job *service.Cronjob, client *client.Client, scheduler *cro
 		}
 
 		var cron string
-		if job.JobType == setting.CrontabCronjob {
+		if job.JobType == "" || job.JobType == setting.CrontabCronjob {
 			cron = fmt.Sprintf("%s%s", "0 ", job.Cron)
 		} else {
 			cron, _ = convertCronString(job.JobType, job.Time, job.Frequency, job.Number)
@@ -498,7 +498,7 @@ func registerCronjob(job *service.Cronjob, client *client.Client, scheduler *cro
 			return nil
 		}
 		var cron string
-		if job.JobType == setting.CrontabCronjob {
+		if job.JobType == "" || job.JobType == setting.CrontabCronjob {
 			cron = fmt.Sprintf("%s%s", "0 ", job.Cron)
 		} else {
 			cron, _ = convertCronString(job.JobType, job.Time, job.Frequency, job.Number)
@@ -534,7 +534,7 @@ func registerCronjob(job *service.Cronjob, client *client.Client, scheduler *cro
 		}
 	case setting.ReleasePlanCronjob:
 		var cron string
-		if job.JobType == setting.CrontabCronjob {
+		if job.JobType == "" || job.JobType == setting.CrontabCronjob {
 			cron = fmt.Sprintf("%s%s", "0 ", job.Cron)
 		} else {
 			cron, _ = convertCronString(job.JobType, job.Time, job.Frequency, job.Number)
