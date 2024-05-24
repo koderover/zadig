@@ -47,7 +47,7 @@ import (
 )
 
 var (
-	defaultTimeout = time.Second * 3
+	defaultTimeout = time.Second * 30
 )
 
 func CreateReleasePlan(c *handler.Context, args *models.ReleasePlan) error {
