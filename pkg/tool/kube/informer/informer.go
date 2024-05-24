@@ -24,13 +24,78 @@ import (
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 
-	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
-
 	"github.com/koderover/zadig/v2/pkg/setting"
+	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
 )
 
-var InformersMap sync.Map
-var StopChanMap sync.Map
+var (
+	informerMapInstance = NewNewInformerMap()
+)
+
+type InformerMap struct {
+	stopchanMap        map[string]chan struct{}
+	informerFactoryMap map[string]informers.SharedInformerFactory
+	mutex              sync.Mutex
+}
+
+func NewNewInformerMap() *InformerMap {
+	return &InformerMap{
+		stopchanMap:        make(map[string]chan struct{}),
+		informerFactoryMap: make(map[string]informers.SharedInformerFactory),
+	}
+}
+
+func (im *InformerMap) Get(clusterID, namespace string) (informers.SharedInformerFactory, bool) {
+	key := generateInformerKey(clusterID, namespace)
+	im.mutex.Lock()
+	defer im.mutex.Unlock()
+
+	informer, ok := im.informerFactoryMap[key]
+	if !ok {
+		return nil, false
+	}
+	return informer, true
+}
+
+func (im *InformerMap) Set(clusterID, namespace string, informer informers.SharedInformerFactory) {
+	key := generateInformerKey(clusterID, namespace)
+	im.mutex.Lock()
+	defer im.mutex.Unlock()
+
+	// stop channel will be stored for future stop
+	stopchan := make(chan struct{})
+	informer.Start(stopchan)
+	// wait for the cache to be synced for the first time
+	informer.WaitForCacheSync(make(chan struct{}))
+
+	// in case there is a concurrent situation, we find if there is one informer in the map
+	if _, ok := im.informerFactoryMap[key]; ok {
+		// if we found that stop channel
+		if stopchan, ok := im.stopchanMap[key]; ok {
+			close(stopchan)
+			delete(im.stopchanMap, key)
+		}
+	}
+
+	im.informerFactoryMap[key] = informer
+	im.stopchanMap[key] = stopchan
+}
+
+func (im *InformerMap) Delete(clusterID, namespace string) {
+	key := generateInformerKey(clusterID, namespace)
+	im.mutex.Lock()
+	defer im.mutex.Unlock()
+
+	// if informer exists
+	if _, ok := im.informerFactoryMap[key]; ok {
+		// if we found that stop channel
+		if stopchan, ok := im.stopchanMap[key]; ok {
+			close(stopchan)
+			delete(im.stopchanMap, key)
+		}
+		delete(im.informerFactoryMap, key)
+	}
+}
 
 // NewInformer initialize and start an informer for specific namespace in given cluster.
 // Currently the informer will NOT stop unless the service is down
@@ -49,10 +114,11 @@ func NewInformer(clusterID, namespace string, cls *kubernetes.Clientset) (inform
 	if clusterID == "" {
 		clusterID = setting.LocalClusterID
 	}
-	key := generateInformerKey(clusterID, namespace)
-	if informer, ok := InformersMap.Load(key); ok {
-		return informer.(informers.SharedInformerFactory), nil
+
+	if informer, ok := informerMapInstance.Get(clusterID, namespace); ok {
+		return informer, nil
 	}
+
 	opts := informers.WithNamespace(namespace)
 	informerFactory := informers.NewSharedInformerFactoryWithOptions(cls, time.Minute, opts)
 	// register the resources to be watched
@@ -80,35 +146,13 @@ func NewInformer(clusterID, namespace string, cls *kubernetes.Clientset) (inform
 		informerFactory.Batch().V1().CronJobs().Lister()
 	}
 
-	// stop channel will be stored for future stop
-	stopchan := make(chan struct{})
-	informerFactory.Start(stopchan)
-	// wait for the cache to be synced for the first time
-	informerFactory.WaitForCacheSync(make(chan struct{}))
-	// in case there is a concurrent situation, we find if there is one informer in the map
-	if _, ok := InformersMap.Load(key); ok {
-		// if we found that stop channel
-		if stopchan, ok := StopChanMap.Load(key); ok {
-			close(stopchan.(chan struct{}))
-			StopChanMap.Delete(key)
-		}
-	}
-	InformersMap.Store(key, informerFactory)
-	StopChanMap.Store(key, stopchan)
+	informerMapInstance.Set(clusterID, namespace, informerFactory)
+
 	return informerFactory, nil
 }
 
 func DeleteInformer(clusterID, namespace string) {
-	key := generateInformerKey(clusterID, namespace)
-	// if informer exists
-	if _, ok := InformersMap.Load(key); ok {
-		// if we found that stop channel
-		if stopchan, ok := StopChanMap.Load(key); ok {
-			close(stopchan.(chan struct{}))
-			StopChanMap.Delete(key)
-		}
-	}
-	InformersMap.Delete(key)
+	informerMapInstance.Delete(clusterID, namespace)
 }
 
 func generateInformerKey(clusterID, namespace string) string {
