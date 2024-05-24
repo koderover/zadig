@@ -533,6 +533,7 @@ func (h *CronjobHandler) registerEnvSleepJob(name, schedule string, job *service
 
 func (h *CronjobHandler) registerReleasePlanJob(name, schedule string, job *service.Schedule) error {
 	if job.ReleasePlanArgs == nil {
+		log.Errorf("ReleasePlanArgs is nil, name: %v, schedule: %v, jobID: %v", name, schedule, job.ID.Hex())
 		return nil
 	}
 	scheduleJob, err := cronlib.NewJobModel(schedule, func() {
@@ -541,14 +542,17 @@ func (h *CronjobHandler) registerReleasePlanJob(name, schedule string, job *serv
 		if err := h.aslanCli.ScheduleCall(url, nil, log.SugaredLogger()); err != nil {
 			log.Errorf("[%s]RunScheduledTask err: %v", name, err)
 		}
+
 		h.Scheduler.StopService(job.ID.Hex())
+
+		log.Infof("schedule executed release plan, jobID: %v, cron: %v; release plan ID: %v, index: %v, name: %v", job.ID.Hex(), job.Cron, job.ReleasePlanArgs.ID, job.ReleasePlanArgs.Index, job.ReleasePlanArgs.Name)
 	})
 	if err != nil {
-		log.Errorf("Failed to create job of ID: %s, the error is: %v", job.ID.Hex(), err)
+		log.Errorf("Failed to create jobID: %s, jobName: %v, cron: %v; release plan ID: %v, index: %v, name: %v, error: %v", job.ID.Hex(), name, schedule, job.ReleasePlanArgs.ID, job.ReleasePlanArgs.Index, job.ReleasePlanArgs.Name, err)
 		return err
 	}
 
-	log.Infof("registering jobID: %s with cron: %s", job.ID.Hex(), schedule)
+	log.Infof("registering jobID: %s with name: %v, cron: %v; release plan ID: %v, index: %v, name: %v", job.ID.Hex(), name, schedule, job.ReleasePlanArgs.ID, job.ReleasePlanArgs.Index, job.ReleasePlanArgs.Name)
 	err = h.Scheduler.UpdateJobModel(job.ID.Hex(), scheduleJob)
 	if err != nil {
 		log.Errorf("Failed to register job of ID: %s to scheduler, the error is: %v", job.ID, err)
