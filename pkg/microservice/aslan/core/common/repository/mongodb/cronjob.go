@@ -178,7 +178,10 @@ func (c *CronjobColl) ListActiveJob() ([]*models.Cronjob, error) {
 func (c *CronjobColl) Upsert(args *models.Cronjob) error {
 	query := bson.M{"name": args.Name, "type": args.Type}
 	update := bson.M{"$set": args}
-	_, err := c.UpdateOne(context.TODO(), query, update, options.Update().SetUpsert(true))
+	result, err := c.UpdateOne(context.TODO(), query, update, options.Update().SetUpsert(true))
+	if oid, ok := result.UpsertedID.(primitive.ObjectID); ok {
+		args.ID = oid
+	}
 	return err
 }
 
