@@ -52,7 +52,31 @@ func NewBlueKingJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.Work
 	}
 }
 
-func (c *BlueKingJobCtl) Clean(ctx context.Context) {}
+func (c *BlueKingJobCtl) Clean(ctx context.Context) {
+	info, err := mongodb.NewCICDToolColl().Get(c.jobTaskSpec.ToolID)
+	if err != nil {
+		c.job.Error = fmt.Sprintf("failed to cancel bluking job, error: %s", err.Error())
+		return
+	}
+
+	bkClient := blueking.NewClient(
+		info.Host,
+		info.AppCode,
+		info.AppSecret,
+		info.BKUserName,
+	)
+
+	err = bkClient.OperateExecutionPlanInstance(
+		c.jobTaskSpec.BusinessID,
+		c.jobTaskSpec.InstanceID,
+		blueking.OperationCodeCancel,
+	)
+
+	if err != nil {
+		c.job.Error = fmt.Sprintf("failed to cancel bluking job, error: %s", err.Error())
+		return
+	}
+}
 
 func (c *BlueKingJobCtl) Run(ctx context.Context) {
 	c.job.Status = config.StatusRunning

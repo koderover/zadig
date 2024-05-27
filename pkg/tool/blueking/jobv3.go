@@ -22,7 +22,6 @@ package blueking
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
@@ -39,7 +38,7 @@ type ListExecutionPlanReq struct {
 }
 
 func (c *Client) ListExecutionPlan(businessID int64, name string, start, perPage int64) ([]*ExecutionPlanBrief, error) {
-	url := fmt.Sprintf("%s/%s", strings.TrimSuffix(c.Host, "/"), ListExecutionPlanAPI)
+	url := fmt.Sprintf("%s/%s", c.Host, ListExecutionPlanAPI)
 	request := &ListExecutionPlanReq{
 		BusinessID: businessID,
 		Start:      start,
@@ -64,7 +63,7 @@ type GetExecutionPlanDetailReq struct {
 }
 
 func (c *Client) GetExecutionPlanDetail(businessID, executionPlanID int64) (*ExecutionPlanDetail, error) {
-	url := fmt.Sprintf("%s/%s", strings.TrimSuffix(c.Host, "/"), GetExecutionPlanDetailAPI)
+	url := fmt.Sprintf("%s/%s", c.Host, GetExecutionPlanDetailAPI)
 	request := &GetExecutionPlanDetailReq{
 		BusinessID:      businessID,
 		ExecutionPlanID: executionPlanID,
@@ -82,7 +81,7 @@ func (c *Client) GetExecutionPlanDetail(businessID, executionPlanID int64) (*Exe
 }
 
 func (c *Client) RunExecutionPlan(businessID, executionPlanID int64, params []*GlobalVariable) (*JobInstanceBrief, error) {
-	url := fmt.Sprintf("%s/%s", strings.TrimPrefix(c.Host, "/"), RunExecutionPlanAPI)
+	url := fmt.Sprintf("%s/%s", c.Host, RunExecutionPlanAPI)
 	requestBody := &ExecutionPlanDetail{
 		BusinessID:         businessID,
 		ExecutionPlanID:    executionPlanID,
@@ -106,7 +105,7 @@ type GetExecutionPlanInstanceReq struct {
 }
 
 func (c *Client) GetExecutionPlanInstance(businessID, jobInstanceID int64) (*JobInstanceDetail, error) {
-	url := fmt.Sprintf("%s/%s", strings.TrimPrefix(c.Host, "/"), GetJobInstanceAPI)
+	url := fmt.Sprintf("%s/%s", c.Host, GetJobInstanceAPI)
 	requestBody := &GetExecutionPlanInstanceReq{
 		BusinessID:    businessID,
 		JobInstanceId: jobInstanceID,
@@ -121,4 +120,27 @@ func (c *Client) GetExecutionPlanInstance(businessID, jobInstanceID int64) (*Job
 	}
 
 	return jobInstance, nil
+}
+
+type OperateExecutionPlanInstanceReq struct {
+	BusinessID    int64 `json:"bk_biz_id"`
+	JobInstanceId int64 `json:"job_instance_id"`
+	OperationCode int64 `json:"operation_code"`
+}
+
+func (c *Client) OperateExecutionPlanInstance(businessID, jobInstanceID, operationCode int64) error {
+	url := fmt.Sprintf("%s/%s", c.Host, OperateExecutionPlanAPI)
+	requestBody := &OperateExecutionPlanInstanceReq{
+		BusinessID:    businessID,
+		JobInstanceId: jobInstanceID,
+		OperationCode: operationCode,
+	}
+
+	err := c.Post(url, requestBody, nil)
+	if err != nil {
+		log.Errorf("failed to operate execution plan , error: %s", err)
+		return err
+	}
+
+	return nil
 }
