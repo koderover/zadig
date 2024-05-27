@@ -108,6 +108,14 @@ var (
 		[]string{"service", "pod"},
 	)
 
+	Cluster = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "cluster",
+			Help: "cluster status",
+		},
+		[]string{"cluster"},
+	)
+
 	ResponseTime = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Name:    "api_response_time",
@@ -155,6 +163,10 @@ func SetHealthyStatus(serviceName, podName string, ready bool) {
 	} else {
 		Healthy.WithLabelValues(serviceName, podName).Set(0.0)
 	}
+}
+
+func SetClusterStatus(clusterName string, status float64) {
+	Cluster.WithLabelValues(clusterName).Set(status)
 }
 
 func UpdatePodMetrics() error {

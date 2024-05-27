@@ -591,6 +591,29 @@ func UpdateCluster(id string, args *K8SCluster, logger *zap.SugaredLogger) (*com
 	return cluster, UpgradeAgent(id, logger)
 }
 
+func GetClusterStatus() map[string]float64 {
+	res := make(map[string]float64)
+	cs, err := commonrepo.NewK8SClusterColl().List(&commonrepo.ClusterListOpts{})
+	if err != nil {
+		log.Errorf("Failed to list clusters, err: %s", err)
+		return res
+	}
+
+	for _, c := range cs {
+		if c.Status == setting.Normal {
+			res[c.Name] = 3.0
+		} else if c.Status == setting.Disconnected {
+			res[c.Name] = 2.0
+		} else if c.Status == setting.Pending {
+			res[c.Name] = 1.0
+		} else if c.Status == setting.Abnormal {
+			res[c.Name] = 0.0
+		}
+	}
+
+	return res
+}
+
 type ClusterDeletionInfo struct {
 	Deletable bool       `json:"deletable"`
 	EnvInUse  []*EnvInfo `json:"env_in_use,omitempty"`

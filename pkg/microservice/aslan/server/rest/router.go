@@ -35,6 +35,7 @@ import (
 	labelhandler "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/label/handler"
 	loghandler "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/log/handler"
 	multiclusterhandler "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/multicluster/handler"
+	clusterservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/multicluster/service"
 	projecthandler "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/project/handler"
 	releaseplanhandler "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/release_plan/handler"
 	servicehandler "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/service/handler"
@@ -71,6 +72,7 @@ func init() {
 	metrics.Metrics.MustRegister(metrics.CPUPercentage)
 	metrics.Metrics.MustRegister(metrics.MemoryPercentage)
 	metrics.Metrics.MustRegister(metrics.Healthy)
+	metrics.Metrics.MustRegister(metrics.Cluster)
 	metrics.Metrics.MustRegister(metrics.ResponseTime)
 
 	metrics.UpdatePodMetrics()
@@ -191,6 +193,12 @@ func (s *engine) injectRouterGroup(router *gin.RouterGroup) {
 
 		metrics.SetRunningWorkflows(int64(len(runningQueue) + len(runningCustomQueue)))
 		metrics.SetPendingWorkflows(int64(len(pendingQueue) + len(pendingCustomQueue)))
+
+		metrics.Cluster.Reset()
+		clusterStatusMap := clusterservice.GetClusterStatus()
+		for clusterName, status := range clusterStatusMap {
+			metrics.SetClusterStatus(clusterName, status)
+		}
 
 		promhttp.HandlerFor(metrics.Metrics, promhttp.HandlerOpts{}).ServeHTTP(c.Writer, c.Request)
 	}
