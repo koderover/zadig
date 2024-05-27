@@ -131,7 +131,24 @@ func ListRoleByUIDAndVerb(uid string, verb string, db *gorm.DB) ([]*models.NewRo
 		Joins("INNER JOIN user ON user.uid = role_binding.uid").
 		Joins("INNER JOIN role_action_binding ON role_action_binding.role_id = role.id").
 		Joins("INNER JOIN action ON action.id = role_action_binding.action_id").
-		Where("user.uid = ? AND (action.action = ? OR role.name = ?)", uid, verb, "project-admin").
+		Where("user.uid = ? AND action.action = ?", uid, verb).
+		Find(&resp).
+		Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
+}
+
+// ListProjectAdminRoleByUID list all project admins roles a user have
+func ListProjectAdminRoleByUID(uid string, db *gorm.DB) ([]*models.NewRole, error) {
+	resp := make([]*models.NewRole, 0)
+
+	err := db.Joins("INNER JOIN role_binding ON role_binding.role_id = role.id").
+		Joins("INNER JOIN user ON user.uid = role_binding.uid").
+		Where("user.uid = ? AND role.name = ?", uid, "project-admin").
 		Find(&resp).
 		Error
 
@@ -150,6 +167,23 @@ func ListRoleByGroupIDsAndVerb(gidList []string, verb string, db *gorm.DB) ([]*m
 		Joins("INNER JOIN role_action_binding ON role_action_binding.role_id = role.id").
 		Joins("INNER JOIN action ON action.id = role_action_binding.action_id").
 		Where("user_group.group_id IN (?) AND (action.action = ? OR role.name = ?)", gidList, verb, "project-admin").
+		Find(&resp).
+		Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
+}
+
+// ListProjectAdminRoleByGroupIDs list all project admins roles multiple groups have
+func ListProjectAdminRoleByGroupIDs(gidList []string, db *gorm.DB) ([]*models.NewRole, error) {
+	resp := make([]*models.NewRole, 0)
+
+	err := db.Joins("INNER JOIN group_role_binding ON group_role_binding.role_id = role.id").
+		Joins("INNER JOIN user_group ON user_group.group_id = group_role_binding.group_id").
+		Where("user_group.group_id IN (?) AND role.name = ?", gidList, "project-admin").
 		Find(&resp).
 		Error
 
