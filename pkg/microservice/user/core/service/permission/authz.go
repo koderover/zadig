@@ -396,6 +396,7 @@ func ListAuthorizedProjectByVerb(uid, resource, verb string, logger *zap.Sugared
 
 	for _, role := range roles {
 		if role.Namespace != GeneralNamespace {
+			fmt.Printf("++++++++++++++++++++++++ role name: %s, namespace: %s  ++++++++++++++++++++", role.Name, role.Namespace)
 			respSet.Insert(role.Namespace)
 		}
 	}
