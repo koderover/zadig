@@ -383,8 +383,9 @@ func UpdateWorkloads(ctx context.Context, requestID, username, productName, envN
 		return fmt.Errorf("failed to find product: %s/%s, err: %s", productName, envName, err)
 	}
 
-	diff := map[string]*ServiceWorkloadsUpdateAction{}
+	add := map[string]*ServiceWorkloadsUpdateAction{}
 	uploadSet := sets.NewString()
+	removeSet := sets.NewString()
 
 	for _, v := range args.WorkLoads {
 		uploadSet.Insert(v.Name)
@@ -394,13 +395,15 @@ func UpdateWorkloads(ctx context.Context, requestID, username, productName, envN
 	for _, svc := range productInfo.GetSvcList() {
 		if uploadSet.Has(svc.ServiceName) {
 			filteredSvcs = append(filteredSvcs, svc)
+		} else {
+			removeSet.Insert(svc.ServiceName)
 		}
 		uploadSet.Delete(svc.ServiceName)
 	}
 
 	for _, v := range args.WorkLoads {
 		if uploadSet.Has(v.Name) {
-			diff[v.Name] = &ServiceWorkloadsUpdateAction{
+			add[v.Name] = &ServiceWorkloadsUpdateAction{
 				EnvName:     envName,
 				Name:        v.Name,
 				Type:        v.Type,
@@ -410,7 +413,17 @@ func UpdateWorkloads(ctx context.Context, requestID, username, productName, envN
 		}
 	}
 
-	for _, v := range diff {
+	for _, v := range removeSet.List() {
+		serviceColl := repository.ServiceCollWithSession(production, session)
+		err = serviceColl.Delete(v, setting.K8SDeployType, productName, "", 1)
+		if err != nil {
+			log.Errorf("failed to delete service %s, err: %s", v, err)
+			mongotool.AbortTransaction(session)
+			return fmt.Errorf("failed to delete service %s, err: %s", v, err)
+		}
+	}
+
+	for _, v := range add {
 		var bs []byte
 		switch v.Type {
 		case setting.Deployment:
@@ -423,7 +436,7 @@ func UpdateWorkloads(ctx context.Context, requestID, username, productName, envN
 		//svcNeedAdd.Insert(v.Name)
 		if len(bs) == 0 || err != nil {
 			log.Errorf("UpdateK8sWorkLoads not found yaml %s", err)
-			delete(diff, v.Name)
+			delete(add, v.Name)
 			continue
 		}
 
@@ -447,7 +460,7 @@ func UpdateWorkloads(ctx context.Context, requestID, username, productName, envN
 		}, production, session, log)
 		if err != nil {
 			log.Errorf("create service template failed err:%v", err)
-			delete(diff, v.Name)
+			delete(add, v.Name)
 			continue
 		}
 
@@ -507,7 +520,7 @@ func CreateWorkloadTemplate(args *commonmodels.Service, production bool, session
 			log.Errorf("CreateServiceTemplate Update %s error: %s", args.ServiceName, err)
 			return nil, e.ErrCreateTemplate.AddDesc(err.Error())
 		}
-		if err := serviceColl.Delete(args.ServiceName, args.Type, args.ProductName, setting.ProductStatusDeleting, 0); err != nil {
+		if err := serviceColl.Delete(args.ServiceName, args.Type, args.ProductName, setting.ProductStatusDeleting, 1); err != nil {
 			log.Errorf("ServiceTmpl.delete %s error: %v", args.ServiceName, err)
 		}
 
