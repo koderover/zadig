@@ -18,16 +18,21 @@ package models
 
 import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
+
+	"github.com/koderover/zadig/v2/pkg/tool/llm"
+	"github.com/sashabaranov/go-openai"
 )
 
 type LLMIntegration struct {
-	ID          primitive.ObjectID `bson:"_id,omitempty"  json:"id"`
-	Name        string             `bson:"name"           json:"name"`
-	Token       string             `bson:"token"          json:"token"`
-	BaseURL     string             `bson:"base_url"       json:"base_url"`
-	EnableProxy bool               `bson:"enable_proxy"   json:"enable_proxy"`
-	UpdatedBy   string             `bson:"updated_by"     json:"updated_by"`
-	UpdateTime  int64              `bson:"update_time"    json:"update_time"`
+	ID           primitive.ObjectID `bson:"_id,omitempty"  json:"id"`
+	ProviderName llm.Provider       `bson:"provider_name"  json:"provider_name"`
+	APIType      openai.APIType     `bson:"api_type"       json:"api_type"`
+	Token        string             `bson:"token"          json:"token"`
+	BaseURL      string             `bson:"base_url"       json:"base_url"`
+	EnableProxy  bool               `bson:"enable_proxy"   json:"enable_proxy"`
+	IsDefault    bool               `bson:"is_default"     json:"is_default"`
+	UpdatedBy    string             `bson:"updated_by"     json:"updated_by"`
+	UpdateTime   int64              `bson:"update_time"    json:"update_time"`
 }
 
 func (llm LLMIntegration) TableName() string {

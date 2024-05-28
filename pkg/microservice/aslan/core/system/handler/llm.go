@@ -20,19 +20,21 @@ import (
 	"context"
 
 	"github.com/gin-gonic/gin"
+	"github.com/sashabaranov/go-openai"
 
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/service"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
+	"github.com/koderover/zadig/v2/pkg/tool/llm"
 )
 
 type CreateLLMIntegrationRequest struct {
-	Name        string `json:"name"`
-	Token       string `json:"token"`
-	BaseURL     string `json:"base_url"`
-	EnableProxy bool   `json:"enable_proxy"`
+	APIType     openai.APIType `json:"api_type"`
+	Token       string         `json:"token"`
+	BaseURL     string         `json:"base_url"`
+	EnableProxy bool           `json:"enable_proxy"`
 }
 
 // @Summary Create a llm integration
@@ -184,9 +186,10 @@ func DeleteLLMIntegration(c *gin.Context) {
 
 func convertLLMArgToModel(args *CreateLLMIntegrationRequest) *commonmodels.LLMIntegration {
 	return &commonmodels.LLMIntegration{
-		Name:        args.Name,
-		Token:       args.Token,
-		BaseURL:     args.BaseURL,
-		EnableProxy: args.EnableProxy,
+		ProviderName: llm.ProviderOpenAI,
+		APIType:      args.APIType,
+		Token:        args.Token,
+		BaseURL:      args.BaseURL,
+		EnableProxy:  args.EnableProxy,
 	}
 }

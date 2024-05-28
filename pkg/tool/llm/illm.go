@@ -22,12 +22,19 @@ import (
 	"fmt"
 
 	"github.com/koderover/zadig/v2/pkg/tool/cache"
+	"github.com/sashabaranov/go-openai"
+)
+
+type Provider string
+
+const (
+	ProviderOpenAI Provider = "openai"
+	ProviderAzure  Provider = "azureopenai"
 )
 
 var (
-	clients = map[string]ILLM{
-		"openai":      &OpenAIClient{},
-		"azureopenai": &OpenAIClient{},
+	clients = map[Provider]ILLM{
+		ProviderOpenAI: &OpenAIClient{},
 	}
 )
 
@@ -38,7 +45,7 @@ type ILLM interface {
 	GetName() string
 }
 
-func NewClient(provider string) (ILLM, error) {
+func NewClient(provider Provider) (ILLM, error) {
 	if c, ok := clients[provider]; !ok {
 		return nil, fmt.Errorf("provider %s not supported", provider)
 	} else {
@@ -47,16 +54,16 @@ func NewClient(provider string) (ILLM, error) {
 }
 
 type LLMConfig struct {
-	Name    string
-	Model   string
-	Token   string
-	BaseURL string
-	Proxy   string
-	APIType string
+	ProviderName Provider
+	Model        string
+	Token        string
+	BaseURL      string
+	Proxy        string
+	APIType      openai.APIType
 }
 
-func (p *LLMConfig) GetName() string {
-	return p.Name
+func (p *LLMConfig) GetProviderName() Provider {
+	return p.ProviderName
 }
 
 func (p *LLMConfig) GetBaseURL() string {
@@ -75,7 +82,7 @@ func (p *LLMConfig) GetProxy() string {
 	return p.Proxy
 }
 
-func (p *LLMConfig) GetAPIType() string {
+func (p *LLMConfig) GetAPIType() openai.APIType {
 	return p.APIType
 }
 

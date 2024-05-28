@@ -59,6 +59,13 @@ func (c *LLMIntegrationColl) FindByName(ctx context.Context, name string) (*mode
 	return llmProvider, err
 }
 
+func (c *LLMIntegrationColl) FindDefault(ctx context.Context) (*models.LLMIntegration, error) {
+	llmProvider := new(models.LLMIntegration)
+	query := bson.M{"is_default": true}
+	err := c.FindOne(ctx, query).Decode(llmProvider)
+	return llmProvider, err
+}
+
 func (c *LLMIntegrationColl) FindByID(ctx context.Context, id string) (*models.LLMIntegration, error) {
 	oid, err := primitive.ObjectIDFromHex(id)
 	if err != nil {
@@ -104,6 +111,7 @@ func (c *LLMIntegrationColl) Create(ctx context.Context, args *models.LLMIntegra
 		return errors.New("nil llm provider args")
 	}
 
+	args.IsDefault = true
 	args.UpdateTime = time.Now().Unix()
 
 	_, err := c.InsertOne(ctx, args)

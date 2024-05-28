@@ -45,18 +45,17 @@ type OpenAIClient struct {
 func (c *OpenAIClient) Configure(config LLMConfig) error {
 	token := config.GetToken()
 	var defaultConfig openai.ClientConfig
-	if config.GetAPIType() == "AZURE" || config.GetAPIType() == "AZURE_AD" {
-		c.apiType = "AZURE"
+	if config.GetAPIType() == openai.APITypeAzure || config.GetAPIType() == openai.APITypeAzureAD {
+		c.apiType = string(openai.APITypeAzure)
 		baseURL := config.GetBaseURL()
 		defaultConfig = openai.DefaultAzureConfig(token, baseURL)
 
-		if config.GetAPIType() == "AZURE_AD" {
-			c.apiType = "AZURE_AD"
+		if config.GetAPIType() == openai.APITypeAzureAD {
+			c.apiType = string(openai.APITypeAzureAD)
 			defaultConfig.APIType = openai.APITypeAzureAD
 		}
 	} else {
-		// config.GetAPIType() == "OPEN_AI"
-		c.apiType = "OPEN_AI"
+		c.apiType = string(openai.APITypeOpenAI)
 		defaultConfig = openai.DefaultConfig(token)
 	}
 
@@ -79,7 +78,7 @@ func (c *OpenAIClient) Configure(config LLMConfig) error {
 	}
 
 	c.client = client
-	c.name = config.GetName()
+	c.name = string(config.GetProviderName())
 	c.model = config.GetModel()
 	return nil
 }
@@ -173,10 +172,10 @@ func (a *OpenAIClient) Parse(ctx context.Context, prompt string, cache cache.ICa
 
 func (a *OpenAIClient) GetName() string {
 	if a.name == "" {
-		if a.apiType == "AZURE" || a.apiType == "AZURE_AD" {
-			return "azureopenai"
+		if a.apiType == string(openai.APITypeAzure) || a.apiType == string(openai.APITypeAzureAD) {
+			return string(ProviderAzure)
 		}
-		return "openai"
+		return string(ProviderOpenAI)
 	}
 	return a.name
 }

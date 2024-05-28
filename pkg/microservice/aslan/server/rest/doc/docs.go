@@ -5155,14 +5155,14 @@ const docTemplate = `{
         "handler.CreateLLMIntegrationRequest": {
             "type": "object",
             "properties": {
+                "api_type": {
+                    "$ref": "#/definitions/openai.APIType"
+                },
                 "base_url": {
                     "type": "string"
                 },
                 "enable_proxy": {
                     "type": "boolean"
-                },
-                "name": {
-                    "type": "string"
                 },
                 "token": {
                     "type": "string"
@@ -5437,6 +5437,17 @@ const docTemplate = `{
                 "ApproveTypeAnd",
                 "ApproveTypeOr",
                 "ApproveTypeSequential"
+            ]
+        },
+        "llm.Provider": {
+            "type": "string",
+            "enum": [
+                "openai",
+                "azureopenai"
+            ],
+            "x-enum-varnames": [
+                "ProviderOpenAI",
+                "ProviderAzure"
             ]
         },
         "models.AnalysisConfig": {
@@ -6528,6 +6539,9 @@ const docTemplate = `{
         "models.LLMIntegration": {
             "type": "object",
             "properties": {
+                "api_type": {
+                    "$ref": "#/definitions/openai.APIType"
+                },
                 "base_url": {
                     "type": "string"
                 },
@@ -6537,8 +6551,11 @@ const docTemplate = `{
                 "id": {
                     "type": "string"
                 },
-                "name": {
-                    "type": "string"
+                "is_default": {
+                    "type": "boolean"
+                },
+                "provider_name": {
+                    "$ref": "#/definitions/llm.Provider"
                 },
                 "token": {
                     "type": "string"
@@ -7893,6 +7910,21 @@ const docTemplate = `{
                     ]
                 }
             }
+        },
+        "openai.APIType": {
+            "type": "string",
+            "enum": [
+                "OPEN_AI",
+                "AZURE",
+                "AZURE_AD",
+                "CLOUDFLARE_AZURE"
+            ],
+            "x-enum-varnames": [
+                "APITypeOpenAI",
+                "APITypeAzure",
+                "APITypeAzureAD",
+                "APITypeCloudflareAzure"
+            ]
         },
         "resource.Backend": {
             "type": "object",
