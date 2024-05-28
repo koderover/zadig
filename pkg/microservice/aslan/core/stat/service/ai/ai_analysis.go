@@ -28,7 +28,6 @@ import (
 	"sync"
 	"time"
 
-	openapi "github.com/sashabaranov/go-openai"
 	"go.uber.org/zap"
 	"gorm.io/gorm/utils"
 
@@ -52,11 +51,6 @@ type analysisAnswer struct {
 	answer map[string]string
 	m      *sync.Mutex
 }
-
-const (
-	AnalysisModel           = openapi.GPT3Dot5Turbo16K
-	AnalysisModelTokenLimit = 14000
-)
 
 func AnalyzeProjectStats(args *AiAnalysisReq, logger *zap.SugaredLogger) (*AiAnalysisResp, error) {
 	client, err := service.GetDefaultLLMClient(context.TODO())

@@ -16,10 +16,17 @@ limitations under the License.
 
 package ai
 
-import "errors"
+import (
+	"errors"
+
+	openapi "github.com/sashabaranov/go-openai"
+)
 
 var (
 	ReturnAnswerWrongFormat = errors.New("AI return wrong answer format")
+
+	AnalysisModel           = openapi.GPT4o
+	AnalysisModelTokenLimit = 14000
 )
 
 // UserPromptParseInput use to parse user prompt
