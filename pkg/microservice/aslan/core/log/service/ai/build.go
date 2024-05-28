@@ -28,7 +28,7 @@ func AnalyzeBuildLog(args *BuildLogAnalysisArgs, project, pipeline, job string, 
 	log := args.Log
 	prompt := fmt.Sprintf("%s; 构建日志数据: \"\"\"%s\"\"\"", BuildLogAnalysisPrompt, util.RemoveExtraSpaces(splitBuildLogByRowNum(log, 500)))
 
-	answer, err := client.GetCompletion(ctx, prompt, llm.WithModel(openapi.GPT3Dot5Turbo16K))
+	answer, err := client.GetCompletion(ctx, prompt, llm.WithModel(openapi.GPT4o))
 	if err != nil {
 		logger.Errorf("failed to get answer from ai: %v, the error is: %+v", client.GetName(), err)
 		return "", err

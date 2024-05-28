@@ -18,7 +18,6 @@ package service
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"math"
 	"sort"
@@ -475,8 +474,8 @@ func GetCurrently30DayBuildTrend(startTime, endTime int64, projects []string, lo
 		logger.Errorf("failed to get coarse grained data from job_info collection, error: %s", err)
 		return nil, err
 	}
-	bstr, _ := json.Marshal(result)
-	logger.Infof("start:%d, end:%d, get coarse grained data: %s", startTime, endTime, string(bstr))
+	// bstr, _ := json.Marshal(result)
+	// logger.Infof("start:%d, end:%d, get coarse grained data: %s", startTime, endTime, string(bstr))
 
 	projects, err = commonrepo.NewJobInfoColl().GetAllProjectNameByTypeName(startTime, endTime, string(config.JobZadigBuild))
 	if err != nil {
@@ -523,8 +522,8 @@ func GetCurrently30DayBuildTrend(startTime, endTime int64, projects []string, lo
 		}
 		resp = append(resp, trend)
 	}
-	jstr, _ := json.Marshal(resp)
-	logger.Infof("start:%d, end:%d, get resp: %s", startTime, endTime, string(jstr))
+	// jstr, _ := json.Marshal(resp)
+	// logger.Infof("start:%d, end:%d, get resp: %s", startTime, endTime, string(jstr))
 	return clearData(RebuildCurrently30DayBuildData(startTime, endTime, resp)), nil
 }
 
