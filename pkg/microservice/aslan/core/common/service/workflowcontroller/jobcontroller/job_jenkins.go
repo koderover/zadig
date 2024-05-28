@@ -24,12 +24,11 @@ import (
 	"time"
 
 	jenkins "github.com/koderover/gojenkins"
-	"go.uber.org/zap"
-
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
+	"go.uber.org/zap"
 )
 
 type JenkinsJobCtl struct {
@@ -55,7 +54,47 @@ func NewJenkinsJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.Workf
 	}
 }
 
-func (c *JenkinsJobCtl) Clean(ctx context.Context) {}
+func (c *JenkinsJobCtl) Clean(ctx context.Context) {
+	info, err := mongodb.NewCICDToolColl().Get(c.jobTaskSpec.ID)
+	if err != nil {
+		logError(c.job, err.Error(), c.logger)
+		return
+	}
+
+	transport := &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
+	client := &http.Client{Transport: transport}
+	jenkinsClient, err := jenkins.CreateJenkins(client, info.URL, info.Username, info.Password).Init(context.Background())
+	if err != nil {
+		errMsg := fmt.Sprintf("failed to create jenkins client, error: %s", err)
+		c.logger.Error(errMsg)
+		c.job.Error = errMsg
+		return
+	}
+
+	job, err := jenkinsClient.GetJob(context.TODO(), c.jobTaskSpec.Job.JobName)
+	if err != nil {
+		errMsg := fmt.Sprintf("failed to get jenkins job, error is: %s", err)
+		c.logger.Error(errMsg)
+		c.job.Error = errMsg
+		return
+	}
+
+	build, err := job.GetBuild(context.TODO(), int64(c.jobTaskSpec.Job.JobID))
+	if err != nil {
+		errMsg := fmt.Sprintf("failed to get jenkins build, error is: %s", err)
+		c.logger.Error(errMsg)
+		c.job.Error = errMsg
+		return
+	}
+
+	// Stop the build
+	result, err := build.Stop(context.Background())
+	if err != nil || !result {
+		errMsg := fmt.Sprintf("failed to stop jenkins build, error is: %s", err)
+		c.logger.Error(errMsg)
+		c.job.Error = errMsg
+	}
+}
 
 func (c *JenkinsJobCtl) Run(ctx context.Context) {
 	c.job.Status = config.StatusPrepare
