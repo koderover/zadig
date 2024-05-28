@@ -39,6 +39,8 @@ type ListOptions struct {
 
 	// NoPaginated indicates if we need to fetch all result or just one page. True means fetching just one page
 	NoPaginated bool
+
+	MatchBranches bool
 }
 
 type Client struct {

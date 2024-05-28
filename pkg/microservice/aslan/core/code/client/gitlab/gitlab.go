@@ -49,9 +49,10 @@ func (c *Config) Open(id int, logger *zap.SugaredLogger) (client.CodeHostClient,
 
 func (c *Client) ListBranches(opt client.ListOpt) ([]*client.Branch, error) {
 	bList, err := c.Client.ListBranches(opt.Namespace, opt.ProjectName, opt.Key, &gitlab.ListOptions{
-		Page:        opt.Page,
-		PerPage:     opt.PerPage,
-		NoPaginated: true,
+		Page:          opt.Page,
+		PerPage:       opt.PerPage,
+		NoPaginated:   true,
+		MatchBranches: opt.MatchBranches,
 	})
 	if err != nil {
 		return nil, err

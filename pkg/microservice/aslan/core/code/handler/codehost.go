@@ -272,20 +272,40 @@ func ListRepoInfos(c *gin.Context) {
 	ctx.Resp, ctx.Err = service.ListRepoInfos(args.Infos, ctx.Logger)
 }
 
-type BranchesRequest struct {
-	Regular  string   `json:"regular"`
-	Branches []string `json:"branches"`
-}
-
 func MatchBranchesList(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	args := new(BranchesRequest)
-	err := c.ShouldBindJSON(args)
-	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid branches args")
+	codehostID := c.Param("codehostId")
+	repoOwner := c.Query("repoOwner")
+	repoName := c.Query("repoName") // pro Name, id/name -> gitlab = id
+	regular := c.Query("regular")
+
+	if codehostID == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("empty codehostId")
 		return
 	}
-	ctx.Resp = service.MatchBranchesList(args.Regular, args.Branches)
+	if repoOwner == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("empty repoOwner")
+		return
+	}
+	if repoName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("empty repoName")
+		return
+	}
+	if regular == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("empty regular")
+		return
+	}
+
+	chID, _ := strconv.Atoi(codehostID)
+	ctx.Resp, ctx.Err = service.MatchBranchesList(
+		chID,
+		repoName,
+		strings.Replace(repoOwner, "%2F", "/", -1),
+		"",
+		1,
+		500,
+		regular,
+		ctx.Logger)
 }

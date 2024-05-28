@@ -40,6 +40,7 @@ type ListOpt struct {
 	Page          int
 	PerPage       int
 	TargetBranch  string
+	MatchBranches bool
 }
 
 type Branch struct {

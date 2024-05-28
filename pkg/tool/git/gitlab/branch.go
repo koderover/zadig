@@ -16,31 +16,51 @@ limitations under the License.
 
 package gitlab
 
-import "github.com/xanzy/go-gitlab"
+import (
+	"github.com/xanzy/go-gitlab"
+)
 
 // ListBranches lists branches by projectID <- urlEncode(namespace/projectName)
 func (c *Client) ListBranches(owner, repo, key string, opts *ListOptions) ([]*gitlab.Branch, error) {
-	branches, err := wrap(paginated(func(o *gitlab.ListOptions) ([]interface{}, *gitlab.Response, error) {
-		bs, r, err := c.Branches.ListBranches(generateProjectName(owner, repo), &gitlab.ListBranchesOptions{ListOptions: *o, Search: &key})
-		var res []interface{}
-		for _, b := range bs {
-			res = append(res, b)
+	got := 0
+	limit := 100
+	req := opts.PerPage
+	opts.Page = 1
+	opts.PerPage = limit
+	res := []*gitlab.Branch{}
+
+	for got < req {
+		branches, err := wrap(paginated(func(o *gitlab.ListOptions) ([]interface{}, *gitlab.Response, error) {
+			bs, r, err := c.Branches.ListBranches(generateProjectName(owner, repo), &gitlab.ListBranchesOptions{ListOptions: *o, Search: &key})
+			var res []interface{}
+			for _, b := range bs {
+				res = append(res, b)
+			}
+			return res, r, err
+		}, opts))
+
+		if err != nil {
+			return nil, err
 		}
-		return res, r, err
-	}, opts))
 
-	if err != nil {
-		return nil, err
+		bs, ok := branches.([]interface{})
+		if !ok {
+			return nil, nil
+		}
+		for _, b := range bs {
+			res = append(res, b.(*gitlab.Branch))
+		}
+
+		got += len(bs)
+		if len(bs) < limit {
+			break
+		}
+		if !opts.MatchBranches {
+			break
+		}
+
+		opts.Page++
 	}
 
-	var res []*gitlab.Branch
-	bs, ok := branches.([]interface{})
-	if !ok {
-		return nil, nil
-	}
-	for _, b := range bs {
-		res = append(res, b.(*gitlab.Branch))
-	}
-
-	return res, err
+	return res, nil
 }
