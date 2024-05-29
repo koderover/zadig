@@ -43,6 +43,7 @@ func (i *item) Expired(time int64) bool {
 	return time > i.expires
 }
 
+// @todo support redis mem cache
 func NewMemCache(noCache bool) ICache {
 	c := &MemCache{
 		noCache: noCache,

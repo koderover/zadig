@@ -112,7 +112,6 @@ func ListRepoInfos(infos []*GitRepoInfo, log *zap.SugaredLogger) ([]*GitRepoInfo
 				info.Branches = []*client.Branch{}
 				return
 			}
-
 		}(info)
 
 		wg.Add(1)

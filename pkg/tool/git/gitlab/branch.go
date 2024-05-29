@@ -17,11 +17,20 @@ limitations under the License.
 package gitlab
 
 import (
+	"fmt"
+
 	"github.com/xanzy/go-gitlab"
 )
 
 // ListBranches lists branches by projectID <- urlEncode(namespace/projectName)
 func (c *Client) ListBranches(owner, repo, key string, opts *ListOptions) ([]*gitlab.Branch, error) {
+	if opts.Page == 0 {
+		opts.Page = 1
+	}
+	if opts.PerPage == 0 {
+		opts.PerPage = 100
+	}
+
 	got := 0
 	limit := 100
 	req := opts.PerPage
@@ -45,13 +54,14 @@ func (c *Client) ListBranches(owner, repo, key string, opts *ListOptions) ([]*gi
 
 		bs, ok := branches.([]interface{})
 		if !ok {
-			return nil, nil
+			return nil, fmt.Errorf("failed to convert branches to []interface{}")
 		}
 		for _, b := range bs {
 			res = append(res, b.(*gitlab.Branch))
 		}
 
 		got += len(bs)
+
 		if len(bs) < limit {
 			break
 		}
