@@ -34,6 +34,12 @@ const (
 	GetTopologyNodeHostAPI = "api/c/compapi/v2/cc/find_host_by_topo/"
 	// 查询业务下的主机
 	GetBusinessHostAPI = "api/c/compapi/v2/cc/list_biz_hosts/"
+	// 作业实例操作
+	OperateExecutionPlanAPI string = "api/c/compapi/v2/jobv3/operate_job_instance/"
+)
+
+const (
+	OperationCodeCancel int64 = 1
 )
 
 type AuthorizationHeader struct {

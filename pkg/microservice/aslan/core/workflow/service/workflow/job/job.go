@@ -610,6 +610,7 @@ func getWorkflowStageParams(workflow *commonmodels.WorkflowV4, taskID int64, cre
 func renderParams(input, origin []*commonmodels.Param) []*commonmodels.Param {
 	resp := make([]*commonmodels.Param, 0)
 	for _, originParam := range origin {
+		found := false
 		for _, inputParam := range input {
 			if originParam.Name == inputParam.Name {
 				// always use origin credential config.
@@ -624,7 +625,12 @@ func renderParams(input, origin []*commonmodels.Param) []*commonmodels.Param {
 					IsCredential: originParam.IsCredential,
 					Source:       originParam.Source,
 				})
+				found = true
+				break
 			}
+		}
+		if !found {
+			resp = append(resp, originParam)
 		}
 	}
 	return resp

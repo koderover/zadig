@@ -24,12 +24,11 @@ import (
 	"time"
 
 	jenkins "github.com/koderover/gojenkins"
-	"go.uber.org/zap"
-
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
+	"go.uber.org/zap"
 )
 
 type JenkinsJobCtl struct {

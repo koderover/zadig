@@ -49,6 +49,11 @@ func (resp *GeneralResponse) HasError() (bool, string) {
 // DecodeResponseData decode the data in the response's Data field and try to unmarshal it into the target
 // USE POINTER TYPE OR IT WILL FAIL
 func (resp *GeneralResponse) DecodeResponseData(target interface{}) error {
+	// if nothing is required, then just do nothing
+	if target == nil {
+		return nil
+	}
+
 	dt, err := json.Marshal(resp.Data)
 	if err != nil {
 		log.Errorf("failed to decode blueking system's response, error: %s", err)

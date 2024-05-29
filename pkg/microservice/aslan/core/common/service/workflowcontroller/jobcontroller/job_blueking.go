@@ -100,18 +100,33 @@ func (c *BlueKingJobCtl) Run(ctx context.Context) {
 	}
 
 	for !instanceInfo.Finished {
-		instanceInfo, err = bkClient.GetExecutionPlanInstance(
-			c.jobTaskSpec.BusinessID,
-			c.jobTaskSpec.InstanceID,
-		)
-		if err != nil {
-			errMsg := fmt.Sprintf("failed to get execution plan instance of id: %d in business: %d, err: %s", c.jobTaskSpec.InstanceID, c.jobTaskSpec.BusinessID, err)
-			logError(c.job, errMsg, c.logger)
+		select {
+		case <-ctx.Done():
+			c.job.Status = config.StatusCancelled
+			c.jobTaskSpec.BKJobStatus = 11
+			err = bkClient.OperateExecutionPlanInstance(
+				c.jobTaskSpec.BusinessID,
+				c.jobTaskSpec.InstanceID,
+				blueking.OperationCodeCancel,
+			)
+			if err != nil {
+				c.job.Error = err.Error()
+			}
 			return
+		default:
+			instanceInfo, err = bkClient.GetExecutionPlanInstance(
+				c.jobTaskSpec.BusinessID,
+				c.jobTaskSpec.InstanceID,
+			)
+			if err != nil {
+				errMsg := fmt.Sprintf("failed to get execution plan instance of id: %d in business: %d, err: %s", c.jobTaskSpec.InstanceID, c.jobTaskSpec.BusinessID, err)
+				logError(c.job, errMsg, c.logger)
+				return
+			}
+			c.jobTaskSpec.BKJobStatus = instanceInfo.JobInstance.Status
+			c.ack()
+			time.Sleep(2 * time.Second)
 		}
-		c.jobTaskSpec.BKJobStatus = instanceInfo.JobInstance.Status
-		c.ack()
-		time.Sleep(2 * time.Second)
 	}
 
 	c.jobTaskSpec.BKJobStatus = instanceInfo.JobInstance.Status
