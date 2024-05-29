@@ -5146,14 +5146,14 @@
         "handler.CreateLLMIntegrationRequest": {
             "type": "object",
             "properties": {
-                "api_type": {
-                    "$ref": "#/definitions/openai.APIType"
-                },
                 "base_url": {
                     "type": "string"
                 },
                 "enable_proxy": {
                     "type": "boolean"
+                },
+                "provider_name": {
+                    "$ref": "#/definitions/llm.Provider"
                 },
                 "token": {
                     "type": "string"
@@ -5434,11 +5434,13 @@
             "type": "string",
             "enum": [
                 "openai",
-                "azureopenai"
+                "azure_openai",
+                "azure_ad_openai"
             ],
             "x-enum-varnames": [
                 "ProviderOpenAI",
-                "ProviderAzure"
+                "ProviderAzure",
+                "ProviderAzureAD"
             ]
         },
         "models.AnalysisConfig": {
@@ -6530,9 +6532,6 @@
         "models.LLMIntegration": {
             "type": "object",
             "properties": {
-                "api_type": {
-                    "$ref": "#/definitions/openai.APIType"
-                },
                 "base_url": {
                     "type": "string"
                 },
@@ -7901,21 +7900,6 @@
                     ]
                 }
             }
-        },
-        "openai.APIType": {
-            "type": "string",
-            "enum": [
-                "OPEN_AI",
-                "AZURE",
-                "AZURE_AD",
-                "CLOUDFLARE_AZURE"
-            ],
-            "x-enum-varnames": [
-                "APITypeOpenAI",
-                "APITypeAzure",
-                "APITypeAzureAD",
-                "APITypeCloudflareAzure"
-            ]
         },
         "resource.Backend": {
             "type": "object",

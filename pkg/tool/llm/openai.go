@@ -45,12 +45,12 @@ type OpenAIClient struct {
 func (c *OpenAIClient) Configure(config LLMConfig) error {
 	token := config.GetToken()
 	var defaultConfig openai.ClientConfig
-	if config.GetAPIType() == openai.APITypeAzure || config.GetAPIType() == openai.APITypeAzureAD {
+	if config.GetProviderName() == ProviderAzure || config.GetProviderName() == ProviderAzureAD {
 		c.apiType = string(openai.APITypeAzure)
 		baseURL := config.GetBaseURL()
 		defaultConfig = openai.DefaultAzureConfig(token, baseURL)
 
-		if config.GetAPIType() == openai.APITypeAzureAD {
+		if config.GetProviderName() == ProviderAzureAD {
 			c.apiType = string(openai.APITypeAzureAD)
 			defaultConfig.APIType = openai.APITypeAzureAD
 		}

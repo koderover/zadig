@@ -294,12 +294,12 @@ definitions:
     type: object
   handler.CreateLLMIntegrationRequest:
     properties:
-      api_type:
-        $ref: '#/definitions/openai.APIType'
       base_url:
         type: string
       enable_proxy:
         type: boolean
+      provider_name:
+        $ref: '#/definitions/llm.Provider'
       token:
         type: string
     type: object
@@ -485,11 +485,13 @@ definitions:
   llm.Provider:
     enum:
     - openai
-    - azureopenai
+    - azure_openai
+    - azure_ad_openai
     type: string
     x-enum-varnames:
     - ProviderOpenAI
     - ProviderAzure
+    - ProviderAzureAD
   models.AnalysisConfig:
     properties:
       resource_types:
@@ -1210,8 +1212,6 @@ definitions:
     type: object
   models.LLMIntegration:
     properties:
-      api_type:
-        $ref: '#/definitions/openai.APIType'
       base_url:
         type: string
       enable_proxy:
@@ -2137,18 +2137,6 @@ definitions:
         - $ref: '#/definitions/config.DeploySourceType'
         description: fromjob/runtime, runtime 表示运行时输入，fromjob 表示从上游构建任务中获取
     type: object
-  openai.APIType:
-    enum:
-    - OPEN_AI
-    - AZURE
-    - AZURE_AD
-    - CLOUDFLARE_AZURE
-    type: string
-    x-enum-varnames:
-    - APITypeOpenAI
-    - APITypeAzure
-    - APITypeAzureAD
-    - APITypeCloudflareAzure
   resource.Backend:
     properties:
       service_name:

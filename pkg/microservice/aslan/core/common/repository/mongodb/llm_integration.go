@@ -111,9 +111,7 @@ func (c *LLMIntegrationColl) Create(ctx context.Context, args *models.LLMIntegra
 		return errors.New("nil llm provider args")
 	}
 
-	args.IsDefault = true
 	args.UpdateTime = time.Now().Unix()
-
 	_, err := c.InsertOne(ctx, args)
 	return err
 }

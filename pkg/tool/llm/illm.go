@@ -22,19 +22,21 @@ import (
 	"fmt"
 
 	"github.com/koderover/zadig/v2/pkg/tool/cache"
-	"github.com/sashabaranov/go-openai"
 )
 
 type Provider string
 
 const (
-	ProviderOpenAI Provider = "openai"
-	ProviderAzure  Provider = "azureopenai"
+	ProviderOpenAI  Provider = "openai"
+	ProviderAzure   Provider = "azure_openai"
+	ProviderAzureAD Provider = "azure_ad_openai"
 )
 
 var (
 	clients = map[Provider]ILLM{
-		ProviderOpenAI: &OpenAIClient{},
+		ProviderOpenAI:  &OpenAIClient{},
+		ProviderAzure:   &OpenAIClient{},
+		ProviderAzureAD: &OpenAIClient{},
 	}
 )
 
@@ -59,7 +61,6 @@ type LLMConfig struct {
 	Token        string
 	BaseURL      string
 	Proxy        string
-	APIType      openai.APIType
 }
 
 func (p *LLMConfig) GetProviderName() Provider {
@@ -80,10 +81,6 @@ func (p *LLMConfig) GetModel() string {
 
 func (p *LLMConfig) GetProxy() string {
 	return p.Proxy
-}
-
-func (p *LLMConfig) GetAPIType() openai.APIType {
-	return p.APIType
 }
 
 func GetCacheKey(provider string, sEnc string) string {

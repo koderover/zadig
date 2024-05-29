@@ -5155,14 +5155,14 @@ const docTemplate = `{
         "handler.CreateLLMIntegrationRequest": {
             "type": "object",
             "properties": {
-                "api_type": {
-                    "$ref": "#/definitions/openai.APIType"
-                },
                 "base_url": {
                     "type": "string"
                 },
                 "enable_proxy": {
                     "type": "boolean"
+                },
+                "provider_name": {
+                    "$ref": "#/definitions/llm.Provider"
                 },
                 "token": {
                     "type": "string"
@@ -5443,11 +5443,13 @@ const docTemplate = `{
             "type": "string",
             "enum": [
                 "openai",
-                "azureopenai"
+                "azure_openai",
+                "azure_ad_openai"
             ],
             "x-enum-varnames": [
                 "ProviderOpenAI",
-                "ProviderAzure"
+                "ProviderAzure",
+                "ProviderAzureAD"
             ]
         },
         "models.AnalysisConfig": {
@@ -6539,9 +6541,6 @@ const docTemplate = `{
         "models.LLMIntegration": {
             "type": "object",
             "properties": {
-                "api_type": {
-                    "$ref": "#/definitions/openai.APIType"
-                },
                 "base_url": {
                     "type": "string"
                 },
@@ -7910,21 +7909,6 @@ const docTemplate = `{
                     ]
                 }
             }
-        },
-        "openai.APIType": {
-            "type": "string",
-            "enum": [
-                "OPEN_AI",
-                "AZURE",
-                "AZURE_AD",
-                "CLOUDFLARE_AZURE"
-            ],
-            "x-enum-varnames": [
-                "APITypeOpenAI",
-                "APITypeAzure",
-                "APITypeAzureAD",
-                "APITypeCloudflareAzure"
-            ]
         },
         "resource.Backend": {
             "type": "object",
