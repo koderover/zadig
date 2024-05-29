@@ -52,31 +52,7 @@ func NewBlueKingJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.Work
 	}
 }
 
-func (c *BlueKingJobCtl) Clean(ctx context.Context) {
-	info, err := mongodb.NewCICDToolColl().Get(c.jobTaskSpec.ToolID)
-	if err != nil {
-		c.job.Error = fmt.Sprintf("failed to cancel bluking job, error: %s", err.Error())
-		return
-	}
-
-	bkClient := blueking.NewClient(
-		info.Host,
-		info.AppCode,
-		info.AppSecret,
-		info.BKUserName,
-	)
-
-	err = bkClient.OperateExecutionPlanInstance(
-		c.jobTaskSpec.BusinessID,
-		c.jobTaskSpec.InstanceID,
-		blueking.OperationCodeCancel,
-	)
-
-	if err != nil {
-		c.job.Error = fmt.Sprintf("failed to cancel bluking job, error: %s", err.Error())
-		return
-	}
-}
+func (c *BlueKingJobCtl) Clean(ctx context.Context) {}
 
 func (c *BlueKingJobCtl) Run(ctx context.Context) {
 	c.job.Status = config.StatusRunning
@@ -124,18 +100,32 @@ func (c *BlueKingJobCtl) Run(ctx context.Context) {
 	}
 
 	for !instanceInfo.Finished {
-		instanceInfo, err = bkClient.GetExecutionPlanInstance(
-			c.jobTaskSpec.BusinessID,
-			c.jobTaskSpec.InstanceID,
-		)
-		if err != nil {
-			errMsg := fmt.Sprintf("failed to get execution plan instance of id: %d in business: %d, err: %s", c.jobTaskSpec.InstanceID, c.jobTaskSpec.BusinessID, err)
-			logError(c.job, errMsg, c.logger)
+		select {
+		case <-ctx.Done():
+			c.job.Status = config.StatusCancelled
+			err = bkClient.OperateExecutionPlanInstance(
+				c.jobTaskSpec.BusinessID,
+				c.jobTaskSpec.InstanceID,
+				blueking.OperationCodeCancel,
+			)
+			if err != nil {
+				c.job.Error = err.Error()
+			}
 			return
+		default:
+			instanceInfo, err = bkClient.GetExecutionPlanInstance(
+				c.jobTaskSpec.BusinessID,
+				c.jobTaskSpec.InstanceID,
+			)
+			if err != nil {
+				errMsg := fmt.Sprintf("failed to get execution plan instance of id: %d in business: %d, err: %s", c.jobTaskSpec.InstanceID, c.jobTaskSpec.BusinessID, err)
+				logError(c.job, errMsg, c.logger)
+				return
+			}
+			c.jobTaskSpec.BKJobStatus = instanceInfo.JobInstance.Status
+			c.ack()
+			time.Sleep(2 * time.Second)
 		}
-		c.jobTaskSpec.BKJobStatus = instanceInfo.JobInstance.Status
-		c.ack()
-		time.Sleep(2 * time.Second)
 	}
 
 	c.jobTaskSpec.BKJobStatus = instanceInfo.JobInstance.Status
