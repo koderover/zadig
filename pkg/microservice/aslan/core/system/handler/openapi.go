@@ -20,15 +20,22 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/gin-gonic/gin"
 	"io"
+	"time"
 
+	"github.com/gin-gonic/gin"
+
+	configbase "github.com/koderover/zadig/v2/pkg/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
+	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
+	clusterservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/multicluster/service"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/service"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
+	"github.com/koderover/zadig/v2/pkg/types"
 )
 
 func OpenAPICreateRegistry(c *gin.Context) {
@@ -182,6 +189,154 @@ func OpenAPIListCluster(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	ctx.Resp, ctx.Err = service.OpenAPIListCluster(c.Query("projectName"), ctx.Logger)
+}
+
+// @Summary OpenAPI Create Cluster
+// @Description OpenAPI Create Cluster
+// @Tags 	OpenAPI
+// @Accept 	json
+// @Produce json
+// @Param 	body 		body 		service.OpenAPICreateClusterRequest 	true 	"body"
+// @Success 200 		{object} 	service.OpenAPICreateClusterResponse
+// @Router /openapi/system/cluster [post]
+func OpenAPICreateCluster(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		ctx.UnAuthorized = true
+		return
+	}
+
+	req := new(service.OpenAPICreateClusterRequest)
+	if err := c.BindJSON(req); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		log.Errorf("Failed to bind data: %s", err)
+		return
+	}
+	internalhandler.InsertOperationLog(c, ctx.UserName+"(openAPI)", "", "创建", "资源配置-集群", req.Name, "", ctx.Logger)
+
+	clusterAccessYaml := `apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: koderover-agent-admin
+rules:
+- apiGroups:
+  - '*'
+  resources:
+  - '*'
+  verbs:
+  - '*'
+- nonResourceURLs:
+  - '*'
+  verbs:
+  - '*'
+`
+
+	AdvancedConfig := &clusterservice.AdvancedConfig{
+		ClusterAccessYaml: clusterAccessYaml,
+		ProjectNames:      req.ProjectNames,
+		ScheduleWorkflow:  true,
+		ScheduleStrategy: []*clusterservice.ScheduleStrategy{
+			{
+				NodeLabels:   []string{},
+				StrategyName: "normal",
+				Strategy:     "normal",
+				Default:      true,
+			},
+		},
+	}
+	dindCfg := &models.DindCfg{
+		Replicas: 1,
+		Resources: &models.Resources{
+			Limits: &models.Limits{
+				CPU:    4000,
+				Memory: 8192,
+			},
+		},
+		Storage: &models.DindStorage{
+			StorageSizeInGiB: 10,
+			Type:             models.DindStorageRootfs,
+		},
+	}
+	shareStorage := types.ShareStorage{
+		MediumType: types.NFSMedium,
+		NFSProperties: types.NFSProperties{
+			PVC:              "cache-cfs-10",
+			StorageClass:     "cfs",
+			StorageSizeInGiB: 10,
+		},
+	}
+
+	cluster := &clusterservice.K8SCluster{
+		Name:           req.Name,
+		Type:           req.Type,
+		Provider:       req.Provider,
+		KubeConfig:     req.KubeConfig,
+		Description:    req.Description,
+		Production:     req.Production,
+		AdvancedConfig: AdvancedConfig,
+		DindCfg:        dindCfg,
+		ShareStorage:   shareStorage,
+		CreatedAt:      time.Now().Unix(),
+		CreatedBy:      ctx.UserName + "(openAPI)",
+	}
+
+	if err := cluster.Clean(); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	err = cluster.Validate()
+	if err != nil {
+		ctx.Err = fmt.Errorf("failed to validate cluster: %v", err)
+		return
+	}
+
+	clusterResp, err := clusterservice.CreateCluster(cluster, ctx.Logger)
+	if err != nil {
+		ctx.Err = fmt.Errorf("Failed to create cluster: %v", err)
+		return
+	}
+
+	for _, projectName := range req.ProjectNames {
+		err = commonrepo.NewProjectClusterRelationColl().Create(&models.ProjectClusterRelation{
+			ProjectName: projectName,
+			ClusterID:   clusterResp.ID.Hex(),
+			CreatedBy:   ctx.UserName + "(openAPI)",
+		})
+		if err != nil {
+			log.Errorf("Failed to create projectClusterRelation err:%s", err)
+		}
+	}
+
+	agentCmd := fmt.Sprintf(`kubectl apply -f "%s/api/aslan/cluster/agent/%s/agent.yaml?type=deploy"`, configbase.SystemAddress(), clusterResp.ID.Hex())
+
+	resp := service.OpenAPICreateClusterResponse{
+		Cluster: &service.OpenAPICluster{
+			ID:           clusterResp.ID.Hex(),
+			Name:         clusterResp.Name,
+			Type:         clusterResp.Type,
+			ProviderName: service.ClusterProviderValueNames[clusterResp.Provider],
+			Production:   clusterResp.Production,
+			Description:  clusterResp.Description,
+			ProjectNames: clusterservice.GetProjectNames(clusterResp.ID.Hex(), log.SugaredLogger()),
+			Local:        clusterResp.Local,
+			Status:       string(clusterResp.Status),
+			CreatedBy:    clusterResp.CreatedBy,
+			CreatedTime:  clusterResp.CreatedAt,
+		},
+		AgentCmd: agentCmd,
+	}
+
+	ctx.Resp = resp
 }
 
 func OpenAPIUpdateCluster(c *gin.Context) {

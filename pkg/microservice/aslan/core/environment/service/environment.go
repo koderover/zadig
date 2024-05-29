@@ -2003,6 +2003,8 @@ func DeleteProduct(username, envName, productName, requestID string, isDelete bo
 	log.Infof("[%s] delete product %s", username, productInfo.Namespace)
 	commonservice.LogProductStats(username, setting.DeleteProductEvent, productName, requestID, eventStart, log)
 
+	// @todo stop env sleep cron
+
 	ctx := context.TODO()
 	switch productInfo.Source {
 	case setting.SourceFromHelm:

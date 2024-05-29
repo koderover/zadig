@@ -59,7 +59,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/util/ginzap"
 )
 
-var namePattern = regexp.MustCompile(`^[0-9a-zA-Z_.-]{1,100}$`)
+var namePattern = regexp.MustCompile(`^[0-9a-zA-Z-]{1,100}$`)
 
 type K8SCluster struct {
 	ID                     string                   `json:"id,omitempty"`
@@ -219,7 +219,7 @@ func ListClusters(ids []string, projectName string, logger *zap.SugaredLogger) (
 			advancedConfig = &AdvancedConfig{
 				Strategy:          c.AdvancedConfig.Strategy,
 				NodeLabels:        convertToNodeLabels(c.AdvancedConfig.NodeLabels),
-				ProjectNames:      getProjectNames(c.ID.Hex(), logger),
+				ProjectNames:      GetProjectNames(c.ID.Hex(), logger),
 				Tolerations:       c.AdvancedConfig.Tolerations,
 				ClusterAccessYaml: c.AdvancedConfig.ClusterAccessYaml,
 			}
@@ -298,7 +298,7 @@ func GetCluster(id string, logger *zap.SugaredLogger) (*commonmodels.K8SCluster,
 	return s.GetCluster(id, logger)
 }
 
-func getProjectNames(clusterID string, logger *zap.SugaredLogger) (projectNames []string) {
+func GetProjectNames(clusterID string, logger *zap.SugaredLogger) (projectNames []string) {
 	projectClusterRelations, err := commonrepo.NewProjectClusterRelationColl().List(&commonrepo.ProjectClusterRelationOption{ClusterID: clusterID})
 	if err != nil {
 		logger.Errorf("Failed to list projectClusterRelation, err:%s", err)
