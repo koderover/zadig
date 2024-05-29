@@ -415,7 +415,11 @@ func MergeArgs(workflow, workflowArgs *commonmodels.WorkflowV4) error {
 				argsMap[jobKey] = job
 			}
 		}
+		fmt.Println("aaaaaaaaaaaaaaaaaaaaa")
+		fmt.Println("args length:", len(workflowArgs.Params))
+		fmt.Println("original length:", len(workflow.Params))
 		workflow.Params = renderParams(workflowArgs.Params, workflow.Params)
+		fmt.Println("merged length", len(workflow.Params))
 	}
 	for _, stage := range workflow.Stages {
 		for _, job := range stage.Jobs {
