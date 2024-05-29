@@ -964,22 +964,22 @@ func replaceVariable(customRule *template.CustomRule, candidate *candidate) stri
 	var currentRule string
 	if candidate.Tag != "" {
 		if customRule == nil {
-			return fmt.Sprintf("%s:%s-%s", candidate.ServiceName, candidate.Timestamp, candidate.Tag)
+			return fmt.Sprintf("%s:%s-%s", candidate.ImageName, candidate.Timestamp, candidate.Tag)
 		}
 		currentRule = customRule.TagRule
 	} else if candidate.Branch != "" && (candidate.PR != 0 || len(candidate.PRs) > 0) {
 		if customRule == nil {
-			return fmt.Sprintf("%s:%s-%d-%s-pr-%s", candidate.ServiceName, candidate.Timestamp, candidate.TaskID, candidate.Branch, getCandidatePRsStr(candidate))
+			return fmt.Sprintf("%s:%s-%d-%s-pr-%s", candidate.ImageName, candidate.Timestamp, candidate.TaskID, candidate.Branch, getCandidatePRsStr(candidate))
 		}
 		currentRule = customRule.PRAndBranchRule
 	} else if candidate.Branch == "" && (candidate.PR != 0 || len(candidate.PRs) > 0) {
 		if customRule == nil {
-			return fmt.Sprintf("%s:%s-%d-pr-%s", candidate.ServiceName, candidate.Timestamp, candidate.TaskID, getCandidatePRsStr(candidate))
+			return fmt.Sprintf("%s:%s-%d-pr-%s", candidate.ImageName, candidate.Timestamp, candidate.TaskID, getCandidatePRsStr(candidate))
 		}
 		currentRule = customRule.PRRule
 	} else if candidate.Branch != "" && candidate.PR == 0 && len(candidate.PRs) == 0 {
 		if customRule == nil {
-			return fmt.Sprintf("%s:%s-%d-%s", candidate.ServiceName, candidate.Timestamp, candidate.TaskID, candidate.Branch)
+			return fmt.Sprintf("%s:%s-%d-%s", candidate.ImageName, candidate.Timestamp, candidate.TaskID, candidate.Branch)
 		}
 		currentRule = customRule.BranchRule
 	}
