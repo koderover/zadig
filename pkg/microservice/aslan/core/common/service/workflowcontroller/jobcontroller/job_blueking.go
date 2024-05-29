@@ -103,6 +103,7 @@ func (c *BlueKingJobCtl) Run(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			c.job.Status = config.StatusCancelled
+			c.jobTaskSpec.BKJobStatus = 11
 			err = bkClient.OperateExecutionPlanInstance(
 				c.jobTaskSpec.BusinessID,
 				c.jobTaskSpec.InstanceID,
