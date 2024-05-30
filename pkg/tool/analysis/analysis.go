@@ -84,7 +84,7 @@ func NewAnalysis(ctx context.Context, hubserverAddr, clusterID string, llmClient
 		Client:             client,
 		AIClient:           llmClient,
 		Namespace:          namespace,
-		Cache:              cache.New(noCache),
+		Cache:              cache.New(noCache, cache.CacheTypeRedis),
 		Explain:            explain,
 		MaxConcurrency:     maxConcurrency,
 		AnalysisAIProvider: llmClient.GetName(),

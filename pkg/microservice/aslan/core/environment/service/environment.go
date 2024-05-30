@@ -3523,7 +3523,7 @@ func EnvAnalysis(projectName, envName string, production *bool, triggerName stri
 	}
 
 	analysiser.RunAnalysis(filters)
-	err = analysiser.GetAIResults(true)
+	err = analysiser.GetAIResults(false)
 	if err != nil {
 		return resp, e.ErrAnalysisEnvResource.AddErr(fmt.Errorf("failed to get analysis result, err: %w", err))
 	}
