@@ -24,10 +24,19 @@ import (
 	"github.com/koderover/zadig/v2/pkg/tool/cache"
 )
 
+type Provider string
+
+const (
+	ProviderOpenAI  Provider = "openai"
+	ProviderAzure   Provider = "azure_openai"
+	ProviderAzureAD Provider = "azure_ad_openai"
+)
+
 var (
-	clients = map[string]ILLM{
-		"openai":      &OpenAIClient{},
-		"azureopenai": &OpenAIClient{},
+	clients = map[Provider]ILLM{
+		ProviderOpenAI:  &OpenAIClient{},
+		ProviderAzure:   &OpenAIClient{},
+		ProviderAzureAD: &OpenAIClient{},
 	}
 )
 
@@ -38,7 +47,7 @@ type ILLM interface {
 	GetName() string
 }
 
-func NewClient(provider string) (ILLM, error) {
+func NewClient(provider Provider) (ILLM, error) {
 	if c, ok := clients[provider]; !ok {
 		return nil, fmt.Errorf("provider %s not supported", provider)
 	} else {
@@ -47,16 +56,15 @@ func NewClient(provider string) (ILLM, error) {
 }
 
 type LLMConfig struct {
-	Name    string
-	Model   string
-	Token   string
-	BaseURL string
-	Proxy   string
-	APIType string
+	ProviderName Provider
+	Model        string
+	Token        string
+	BaseURL      string
+	Proxy        string
 }
 
-func (p *LLMConfig) GetName() string {
-	return p.Name
+func (p *LLMConfig) GetProviderName() Provider {
+	return p.ProviderName
 }
 
 func (p *LLMConfig) GetBaseURL() string {
@@ -73,10 +81,6 @@ func (p *LLMConfig) GetModel() string {
 
 func (p *LLMConfig) GetProxy() string {
 	return p.Proxy
-}
-
-func (p *LLMConfig) GetAPIType() string {
-	return p.APIType
 }
 
 func GetCacheKey(provider string, sEnc string) string {

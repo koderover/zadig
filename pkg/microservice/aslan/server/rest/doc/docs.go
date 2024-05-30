@@ -5161,8 +5161,8 @@ const docTemplate = `{
                 "enable_proxy": {
                     "type": "boolean"
                 },
-                "name": {
-                    "type": "string"
+                "provider_name": {
+                    "$ref": "#/definitions/llm.Provider"
                 },
                 "token": {
                     "type": "string"
@@ -5437,6 +5437,19 @@ const docTemplate = `{
                 "ApproveTypeAnd",
                 "ApproveTypeOr",
                 "ApproveTypeSequential"
+            ]
+        },
+        "llm.Provider": {
+            "type": "string",
+            "enum": [
+                "openai",
+                "azure_openai",
+                "azure_ad_openai"
+            ],
+            "x-enum-varnames": [
+                "ProviderOpenAI",
+                "ProviderAzure",
+                "ProviderAzureAD"
             ]
         },
         "models.AnalysisConfig": {
@@ -6537,8 +6550,11 @@ const docTemplate = `{
                 "id": {
                     "type": "string"
                 },
-                "name": {
-                    "type": "string"
+                "is_default": {
+                    "type": "boolean"
+                },
+                "provider_name": {
+                    "$ref": "#/definitions/llm.Provider"
                 },
                 "token": {
                     "type": "string"
