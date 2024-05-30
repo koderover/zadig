@@ -31,7 +31,9 @@ var ClusterProviderValueNames map[int8]string = map[int8]string{
 	3: "华为云 CCE",
 	4: "Amazon EKS",
 	5: "腾讯云 TKE Serverless",
-	0: "其它",
+	6: "谷歌云 GCP",
+	7: "微软云 AKS",
+	0: "标准 Kubernetes 集群",
 }
 
 type ExternalSystemDetail struct {
@@ -209,11 +211,27 @@ type OpenAPIRegistry struct {
 	IsDefault bool                    `json:"is_default"`
 }
 
+type OpenAPICreateClusterRequest struct {
+	Name         string   `json:"name"`
+	Production   bool     `json:"production"`
+	Description  string   `json:"description"`
+	Provider     int8     `json:"provider"`
+	Type         string   `json:"type"`
+	KubeConfig   string   `json:"kube_config"`
+	ProjectNames []string `json:"project_names"`
+}
+
+type OpenAPICreateClusterResponse struct {
+	Cluster  *OpenAPICluster `json:"cluster"`
+	AgentCmd string          `json:"agent_cmd"`
+}
+
 type OpenAPICluster struct {
 	ID           string   `json:"cluster_id"`
 	Name         string   `json:"name"`
 	Production   bool     `json:"production"`
 	Description  string   `json:"description"`
+	Provider     int8     `json:"provider"`
 	ProviderName string   `json:"provider_name"`
 	CreatedBy    string   `json:"created_by"`
 	CreatedTime  int64    `json:"created_time"`

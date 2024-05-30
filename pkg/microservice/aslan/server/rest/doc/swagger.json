@@ -4741,6 +4741,40 @@
                     }
                 }
             }
+        },
+        "/openapi/system/cluster": {
+            "post": {
+                "description": "OpenAPI Create Cluster",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "OpenAPI"
+                ],
+                "summary": "OpenAPI Create Cluster",
+                "parameters": [
+                    {
+                        "description": "body",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/service.OpenAPICreateClusterRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/service.OpenAPICreateClusterResponse"
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
@@ -8913,6 +8947,90 @@
                     "items": {
                         "$ref": "#/definitions/service.MeegoWorkItemType"
                     }
+                }
+            }
+        },
+        "service.OpenAPICluster": {
+            "type": "object",
+            "properties": {
+                "cluster_id": {
+                    "type": "string"
+                },
+                "created_by": {
+                    "type": "string"
+                },
+                "created_time": {
+                    "type": "integer"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "local": {
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "production": {
+                    "type": "boolean"
+                },
+                "project_names": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "provider": {
+                    "type": "integer"
+                },
+                "provider_name": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "service.OpenAPICreateClusterRequest": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "kube_config": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "production": {
+                    "type": "boolean"
+                },
+                "project_names": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "provider": {
+                    "type": "integer"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "service.OpenAPICreateClusterResponse": {
+            "type": "object",
+            "properties": {
+                "agent_cmd": {
+                    "type": "string"
+                },
+                "cluster": {
+                    "$ref": "#/definitions/service.OpenAPICluster"
                 }
             }
         },

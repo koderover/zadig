@@ -445,6 +445,7 @@ func (*OpenAPIRouter) Inject(router *gin.RouterGroup) {
 
 	cluster := router.Group("cluster")
 	{
+		cluster.POST("", OpenAPICreateCluster)
 		cluster.GET("", OpenAPIListCluster)
 		cluster.PUT("/:id", OpenAPIUpdateCluster)
 		cluster.DELETE("/:id", OpenAPIDeleteCluster)

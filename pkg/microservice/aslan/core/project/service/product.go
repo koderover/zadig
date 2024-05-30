@@ -666,6 +666,8 @@ func DeleteProductTemplate(userName, productName, requestID string, isDelete boo
 			log.Errorf("DeleteProductTemplate Update product Status error: %s", err)
 			return e.ErrDeleteProduct
 		}
+
+		// @todo stop env sleep cron
 	}
 
 	if err = DeleteTestModules(productName, requestID, log); err != nil {

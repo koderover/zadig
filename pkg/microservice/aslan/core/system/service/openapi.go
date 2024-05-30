@@ -25,6 +25,7 @@ import (
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/kube"
 	cluster "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/multicluster/service"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
 func OpenAPICreateRegistry(username string, req *OpenAPICreateRegistryReq, logger *zap.SugaredLogger) error {
@@ -60,6 +61,33 @@ func getProjectNames(clusterID string, logger *zap.SugaredLogger) (projectNames 
 	return projectNames
 }
 
+func OpenAPICreateCluster(projectName string, logger *zap.SugaredLogger) ([]*OpenAPICluster, error) {
+	clusters, err := cluster.ListClusters([]string{}, projectName, logger)
+	if err != nil {
+		logger.Errorf("OpenAPI:ListClusters err : %v", err)
+		return nil, err
+	}
+
+	resp := make([]*OpenAPICluster, 0)
+	for _, cl := range clusters {
+		resp = append(resp, &OpenAPICluster{
+			ID:           cl.ID,
+			Name:         cl.Name,
+			Production:   cl.Production,
+			Description:  cl.Description,
+			ProviderName: ClusterProviderValueNames[cl.Provider],
+			CreatedBy:    cl.CreatedBy,
+			CreatedTime:  cl.CreatedAt,
+			Local:        cl.Local,
+			Status:       string(cl.Status),
+			Type:         cl.Type,
+			ProjectNames: getProjectNames(cl.ID, logger),
+		})
+	}
+
+	return resp, nil
+}
+
 func OpenAPIListCluster(projectName string, logger *zap.SugaredLogger) ([]*OpenAPICluster, error) {
 	clusters, err := cluster.ListClusters([]string{}, projectName, logger)
 	if err != nil {
@@ -74,6 +102,7 @@ func OpenAPIListCluster(projectName string, logger *zap.SugaredLogger) ([]*OpenA
 			Name:         cl.Name,
 			Production:   cl.Production,
 			Description:  cl.Description,
+			Provider:     cl.Provider,
 			ProviderName: ClusterProviderValueNames[cl.Provider],
 			CreatedBy:    cl.CreatedBy,
 			CreatedTime:  cl.CreatedAt,
@@ -128,4 +157,20 @@ func OpenAPIUpdateCluster(userName, clusterID string, clusterInfo *OpenAPICluste
 	// only update basic info of cluster, like name, description etc
 	_, err = clusterSvc.UpdateCluster(clusterID, curClusterInfo, logger)
 	return err
+}
+
+func K8SClusterModelToOpenAPICluster(clusterResp *commonmodels.K8SCluster) *OpenAPICluster {
+	return &OpenAPICluster{
+		ID:           clusterResp.ID.Hex(),
+		Name:         clusterResp.Name,
+		Type:         clusterResp.Type,
+		ProviderName: ClusterProviderValueNames[clusterResp.Provider],
+		Production:   clusterResp.Production,
+		Description:  clusterResp.Description,
+		ProjectNames: getProjectNames(clusterResp.ID.Hex(), log.SugaredLogger()),
+		Local:        clusterResp.Local,
+		Status:       string(clusterResp.Status),
+		CreatedBy:    clusterResp.CreatedBy,
+		CreatedTime:  clusterResp.CreatedAt,
+	}
 }

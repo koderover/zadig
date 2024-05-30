@@ -2817,6 +2817,61 @@ definitions:
           $ref: '#/definitions/service.MeegoWorkItemType'
         type: array
     type: object
+  service.OpenAPICluster:
+    properties:
+      cluster_id:
+        type: string
+      created_by:
+        type: string
+      created_time:
+        type: integer
+      description:
+        type: string
+      local:
+        type: boolean
+      name:
+        type: string
+      production:
+        type: boolean
+      project_names:
+        items:
+          type: string
+        type: array
+      provider:
+        type: integer
+      provider_name:
+        type: string
+      status:
+        type: string
+      type:
+        type: string
+    type: object
+  service.OpenAPICreateClusterRequest:
+    properties:
+      description:
+        type: string
+      kube_config:
+        type: string
+      name:
+        type: string
+      production:
+        type: boolean
+      project_names:
+        items:
+          type: string
+        type: array
+      provider:
+        type: integer
+      type:
+        type: string
+    type: object
+  service.OpenAPICreateClusterResponse:
+    properties:
+      agent_cmd:
+        type: string
+      cluster:
+        $ref: '#/definitions/service.OpenAPICluster'
+    type: object
   service.OpenAPICreateHelmDeliveryVersionChartData:
     properties:
       image_datas:
@@ -6811,6 +6866,28 @@ paths:
         "200":
           description: OK
       summary: OpenAPI Initialize Yaml Project
+      tags:
+      - OpenAPI
+  /openapi/system/cluster:
+    post:
+      consumes:
+      - application/json
+      description: OpenAPI Create Cluster
+      parameters:
+      - description: body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/service.OpenAPICreateClusterRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/service.OpenAPICreateClusterResponse'
+      summary: OpenAPI Create Cluster
       tags:
       - OpenAPI
 swagger: "2.0"

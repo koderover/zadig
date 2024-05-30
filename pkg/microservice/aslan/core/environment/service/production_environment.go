@@ -104,6 +104,8 @@ func DeleteProductionProduct(username, envName, productName, requestID string, l
 		log.Errorf("failed to delete zadig label from namespace %s, error: %v", productInfo.Namespace, err)
 	}
 
+	// @todo stop env sleep cron
+
 	if productInfo.IstioGrayscale.Enable && !productInfo.IstioGrayscale.IsBase {
 		ctx := context.TODO()
 		clusterID := productInfo.ClusterID
