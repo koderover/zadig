@@ -143,3 +143,76 @@ func (c *RedisCache) RemoveElementsFromSet(key string, elements []string) error 
 	}
 	return c.redisClient.SRem(context.Background(), key, elements).Err()
 }
+
+type RedisCacheAI struct {
+	redisClient *redis.Client
+	ttl         time.Duration
+	noCache     bool
+	hashKey     string
+}
+
+func NewRedisCacheAI(db int, noCache bool) ICache {
+	if redisClient == nil {
+		redisConfig := &redis.Options{
+			Addr: fmt.Sprintf("%s:%d", config.RedisHost(), config.RedisPort()),
+			DB:   db,
+		}
+
+		if config.RedisUserName() != "" {
+			redisConfig.Username = config.RedisUserName()
+		}
+		if config.RedisPassword() != "" {
+			redisConfig.Password = config.RedisPassword()
+		}
+		redisClient = redis.NewClient(redisConfig)
+	}
+	return &RedisCacheAI{
+		redisClient: redisClient,
+		hashKey:     "zadig-ai",
+		noCache:     noCache,
+		ttl:         time.Minute * 60 * 24,
+	}
+}
+
+func (c *RedisCacheAI) Store(key, data string) error {
+	_, err := c.redisClient.HSet(context.TODO(), c.hashKey, key, data).Result()
+	if err != nil {
+		return err
+	}
+
+	// not thread safe
+	if c.ttl > 0 {
+		_, err = c.redisClient.Expire(context.Background(), c.hashKey, c.ttl).Result()
+	}
+	return err
+}
+
+func (c *RedisCacheAI) Load(key string) (string, error) {
+	return c.redisClient.HGet(context.TODO(), c.hashKey, key).Result()
+}
+
+func (c *RedisCacheAI) List() ([]string, error) {
+	result, err := c.redisClient.HGetAll(context.TODO(), c.hashKey).Result()
+	if err != nil {
+		return nil, err
+	}
+
+	resp := []string{}
+	for _, r := range result {
+		resp = append(resp, r)
+	}
+	return resp, nil
+}
+
+func (c *RedisCacheAI) Exists(key string) bool {
+	existed, err := c.redisClient.HExists(context.TODO(), c.hashKey, key).Result()
+	if err != nil {
+		return false
+
+	}
+	return existed
+}
+
+func (c *RedisCacheAI) IsCacheDisabled() bool {
+	return c.noCache
+}
