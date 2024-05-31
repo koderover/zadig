@@ -469,6 +469,8 @@ func AnalyzeMonthAttention(start, end int64, data []*service2.MonthAttention, lo
 		}
 	}
 
+	answer = strings.TrimPrefix(answer, "```json\n")
+	answer = strings.TrimSuffix(answer, "```")
 	resp := &AIAttentionResp{}
 	err = json.Unmarshal([]byte(answer), resp)
 	if err != nil {
