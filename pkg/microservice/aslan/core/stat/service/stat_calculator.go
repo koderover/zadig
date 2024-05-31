@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	"github.com/Knetic/govaluate"
+	"go.mongodb.org/mongo-driver/mongo"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
@@ -458,7 +459,11 @@ func GetRequirementDevelopmentLeadTime(startTime, endTime int64, project string)
 		ItemKey: "requirement_development_lead_time",
 	})
 	if err != nil {
-		return 0.0, err
+		if err != mongo.ErrNoDocuments {
+			return 0.0, err
+		} else {
+			return 0.0, nil
+		}
 	}
 	externalSystem, err := commonrepo.NewExternalSystemColl().GetByID(boardConfig.APIConfig.ExternalSystemId)
 	if err != nil {
@@ -488,7 +493,11 @@ func GetRequirementDeliveryLeadTime(startTime, endTime int64, project string) (f
 		ItemKey: "requirement_delivery_lead_time",
 	})
 	if err != nil {
-		return 0.0, err
+		if err != mongo.ErrNoDocuments {
+			return 0.0, err
+		} else {
+			return 0.0, nil
+		}
 	}
 	externalSystem, err := commonrepo.NewExternalSystemColl().GetByID(boardConfig.APIConfig.ExternalSystemId)
 	if err != nil {

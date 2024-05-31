@@ -2003,7 +2003,10 @@ func DeleteProduct(username, envName, productName, requestID string, isDelete bo
 	log.Infof("[%s] delete product %s", username, productInfo.Namespace)
 	commonservice.LogProductStats(username, setting.DeleteProductEvent, productName, requestID, eventStart, log)
 
-	// @todo stop env sleep cron
+	err = deleteEnvSleepCron(productInfo.ProductName, productInfo.EnvName)
+	if err != nil {
+		log.Errorf("deleteEnvSleepCron error: %v", err)
+	}
 
 	ctx := context.TODO()
 	switch productInfo.Source {
@@ -4382,6 +4385,27 @@ func UpsertEnvSleepCron(projectName, envName string, production *bool, req *EnvS
 			log.Errorf("Failed to publish to msg queue common: %s, the error is: %v", setting.TopicCronjob, err)
 			return e.ErrUpsertCronjob.AddDesc(err.Error())
 		}
+	}
+
+	return nil
+}
+
+func deleteEnvSleepCron(projectName, envName string) error {
+	sleepName := util.GetEnvSleepCronName(projectName, envName, true)
+	opt := &commonrepo.CronjobDeleteOption{
+		ParentName: sleepName,
+		ParentType: setting.EnvSleepCronjob,
+	}
+	err := commonrepo.NewCronjobColl().Delete(opt)
+	if err != nil {
+		return fmt.Errorf("failed to delete env sleep cron job %s for sleep, err: %w", sleepName, err)
+	}
+
+	awakeName := util.GetEnvSleepCronName(projectName, envName, false)
+	opt.ParentName = awakeName
+	err = commonrepo.NewCronjobColl().Delete(opt)
+	if err != nil {
+		return fmt.Errorf("failed to delete env sleep cron job %s for awake, err: %w", sleepName, err)
 	}
 
 	return nil
