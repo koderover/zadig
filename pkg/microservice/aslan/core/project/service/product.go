@@ -667,7 +667,10 @@ func DeleteProductTemplate(userName, productName, requestID string, isDelete boo
 			return e.ErrDeleteProduct
 		}
 
-		// @todo stop env sleep cron
+		err = deleteEnvSleepCron(env.ProductName, env.EnvName)
+		if err != nil {
+			log.Errorf("deleteEnvSleepCron error: %v", err)
+		}
 	}
 
 	if err = DeleteTestModules(productName, requestID, log); err != nil {
@@ -1486,4 +1489,25 @@ func GetUnGroupedProjectKeys() ([]string, error) {
 		}
 	}
 	return unGroupedKeys, nil
+}
+
+func deleteEnvSleepCron(projectName, envName string) error {
+	sleepName := util.GetEnvSleepCronName(projectName, envName, true)
+	opt := &commonrepo.CronjobDeleteOption{
+		ParentName: sleepName,
+		ParentType: setting.EnvSleepCronjob,
+	}
+	err := commonrepo.NewCronjobColl().Delete(opt)
+	if err != nil {
+		return fmt.Errorf("failed to delete env sleep cron job %s for sleep, err: %w", sleepName, err)
+	}
+
+	awakeName := util.GetEnvSleepCronName(projectName, envName, false)
+	opt.ParentName = awakeName
+	err = commonrepo.NewCronjobColl().Delete(opt)
+	if err != nil {
+		return fmt.Errorf("failed to delete env sleep cron job %s for awake, err: %w", sleepName, err)
+	}
+
+	return nil
 }

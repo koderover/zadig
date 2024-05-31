@@ -104,7 +104,10 @@ func DeleteProductionProduct(username, envName, productName, requestID string, l
 		log.Errorf("failed to delete zadig label from namespace %s, error: %v", productInfo.Namespace, err)
 	}
 
-	// @todo stop env sleep cron
+	err = deleteEnvSleepCron(productInfo.ProductName, productInfo.EnvName)
+	if err != nil {
+		log.Errorf("deleteEnvSleepCron error: %v", err)
+	}
 
 	if productInfo.IstioGrayscale.Enable && !productInfo.IstioGrayscale.IsBase {
 		ctx := context.TODO()

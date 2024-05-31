@@ -365,10 +365,8 @@ func DeleteProductTemplate(c *gin.Context) {
 
 	isDelete, err := strconv.ParseBool(c.Query("is_delete"))
 	if err != nil {
-		if err != nil {
-			ctx.Err = e.ErrInvalidParam.AddDesc("invalidParam is_delete")
-			return
-		}
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalidParam is_delete")
+		return
 	}
 	ctx.Err = projectservice.DeleteProductTemplate(ctx.UserName, projectKey, ctx.RequestID, isDelete, ctx.Logger)
 }
