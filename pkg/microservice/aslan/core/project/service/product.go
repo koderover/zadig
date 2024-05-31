@@ -28,6 +28,7 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/pkg/errors"
+	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -37,6 +38,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/collaboration/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/collaboration/service"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models/msg_queue"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
@@ -1493,20 +1495,51 @@ func GetUnGroupedProjectKeys() ([]string, error) {
 
 func deleteEnvSleepCron(projectName, envName string) error {
 	sleepName := util.GetEnvSleepCronName(projectName, envName, true)
-	opt := &commonrepo.CronjobDeleteOption{
-		ParentName: sleepName,
-		ParentType: setting.EnvSleepCronjob,
-	}
-	err := commonrepo.NewCronjobColl().Delete(opt)
+	awakeName := util.GetEnvSleepCronName(projectName, envName, false)
+	sleepCron, err := commonrepo.NewCronjobColl().GetByName(sleepName, setting.EnvSleepCronjob)
 	if err != nil {
-		return fmt.Errorf("failed to delete env sleep cron job %s for sleep, err: %w", sleepName, err)
+		if err != mongo.ErrNoDocuments && err != mongo.ErrNilDocument {
+			return fmt.Errorf("failed to get env sleep cron job for sleep, err: %w", err)
+		}
+	}
+	awakeCron, err := commonrepo.NewCronjobColl().GetByName(awakeName, setting.EnvSleepCronjob)
+	if err != nil {
+		if err != mongo.ErrNoDocuments && err != mongo.ErrNilDocument {
+			return fmt.Errorf("failed to get env sleep cron job for awake, err: %w", err)
+		}
 	}
 
-	awakeName := util.GetEnvSleepCronName(projectName, envName, false)
-	opt.ParentName = awakeName
+	idList := []string{}
+	if sleepCron != nil {
+		idList = append(idList, sleepCron.ID.Hex())
+	}
+	if awakeCron != nil {
+		idList = append(idList, awakeCron.ID.Hex())
+	}
+
+	payload := &commonservice.CronjobPayload{
+		Name:       "delete-env-sleep-cronjob",
+		JobType:    setting.EnvSleepCronjob,
+		Action:     setting.TypeEnableCronjob,
+		DeleteList: idList,
+	}
+
+	pl, _ := json.Marshal(payload)
+	err = commonrepo.NewMsgQueueCommonColl().Create(&msg_queue.MsgQueueCommon{
+		Payload:   string(pl),
+		QueueType: setting.TopicCronjob,
+	})
+	if err != nil {
+		log.Errorf("Failed to publish to nsq topic: %s, the error is: %v", setting.TopicCronjob, err)
+		return err
+	}
+
+	opt := &commonrepo.CronjobDeleteOption{
+		IDList: idList,
+	}
 	err = commonrepo.NewCronjobColl().Delete(opt)
 	if err != nil {
-		return fmt.Errorf("failed to delete env sleep cron job %s for awake, err: %w", sleepName, err)
+		return fmt.Errorf("failed to delete env sleep cron job %s for sleep, err: %w", sleepName, err)
 	}
 
 	return nil
