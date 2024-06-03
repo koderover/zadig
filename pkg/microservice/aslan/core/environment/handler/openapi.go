@@ -29,12 +29,14 @@ import (
 	"github.com/gin-gonic/gin"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/environment/service"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/types"
+	"github.com/koderover/zadig/v2/pkg/util"
 )
 
 // TODO: deal with openapi later
@@ -1005,6 +1007,16 @@ func OpenAPIGetProductionEnvGlobalVariables(c *gin.Context) {
 	ctx.Resp, ctx.Err = service.OpenAPIGetGlobalVariables(projectName, envName, true, ctx.Logger)
 }
 
+// @Summary OpenAPI Update K8S Environment Global Variables
+// @Description OpenAPI Update K8S Environment Global Variables
+// @Tags 	OpenAPI
+// @Accept 	json
+// @Produce json
+// @Param 	projectKey	query		string									true	"project key"
+// @Param 	name 		path		string									true	"env name"
+// @Param 	body 		body 		service.OpenAPIEnvGlobalVariables 		true 	"body"
+// @Success 200
+// @Router /openapi/environments/{name}/variable [put]
 func OpenAPIUpdateGlobalVariables(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -1033,7 +1045,17 @@ func OpenAPIUpdateGlobalVariables(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = service.OpenAPIUpdateGlobalVariables(args, ctx.UserName, ctx.RequestID, projectName, envName, false, ctx.Logger)
+	env, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		Name:       projectName,
+		EnvName:    envName,
+		Production: util.GetBoolPointer(false),
+	})
+	if err != nil {
+		ctx.Err = fmt.Errorf("GetProductEnv envName:%s productName: %s error, error msg:%s", envName, projectName, err)
+		return
+	}
+
+	ctx.Err = service.UpdateProductGlobalVariables(projectName, envName, ctx.UserName, ctx.RequestID, env.UpdateTime, args.GlobalVariables, false, ctx.Logger)
 }
 
 func OpenAPIUpdateProductionYamlServices(c *gin.Context) {
@@ -1086,6 +1108,16 @@ func OpenAPIUpdateProductionYamlServices(c *gin.Context) {
 	ctx.Err = service.OpenAPIUpdateYamlService(args, ctx.UserName, ctx.RequestID, projectName, envName, true, ctx.Logger)
 }
 
+// @Summary OpenAPI Update Production K8S Environment Global Variables
+// @Description OpenAPI Update Production K8S Environment Global Variables
+// @Tags 	OpenAPI
+// @Accept 	json
+// @Produce json
+// @Param 	projectKey	query		string									true	"project key"
+// @Param 	name 		path		string									true	"env name"
+// @Param 	body 		body 		service.OpenAPIEnvGlobalVariables 		true 	"body"
+// @Success 200
+// @Router /openapi/environments/production/{name}/variable [put]
 func OpenAPIUpdateProductionGlobalVariables(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -1133,7 +1165,17 @@ func OpenAPIUpdateProductionGlobalVariables(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = service.OpenAPIUpdateGlobalVariables(args, ctx.UserName, ctx.RequestID, projectName, envName, true, ctx.Logger)
+	env, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		Name:       projectName,
+		EnvName:    envName,
+		Production: util.GetBoolPointer(true),
+	})
+	if err != nil {
+		ctx.Err = fmt.Errorf("GetProductEnv envName:%s productName: %s error, error msg:%s", envName, projectName, err)
+		return
+	}
+
+	ctx.Err = service.UpdateProductGlobalVariables(projectName, envName, ctx.UserName, ctx.RequestID, env.UpdateTime, args.GlobalVariables, true, ctx.Logger)
 }
 
 func OpenAPIUpdateProductionEnvBasicInfo(c *gin.Context) {

@@ -4720,6 +4720,96 @@ const docTemplate = `{
                 }
             }
         },
+        "/openapi/environments/production/{name}/variable": {
+            "put": {
+                "description": "OpenAPI Update Production K8S Environment Global Variables",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "OpenAPI"
+                ],
+                "summary": "OpenAPI Update Production K8S Environment Global Variables",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "project key",
+                        "name": "projectKey",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "env name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "body",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/service.OpenAPIEnvGlobalVariables"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/openapi/environments/{name}/variable": {
+            "put": {
+                "description": "OpenAPI Update K8S Environment Global Variables",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "OpenAPI"
+                ],
+                "summary": "OpenAPI Update K8S Environment Global Variables",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "project key",
+                        "name": "projectKey",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "env name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "body",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/service.OpenAPIEnvGlobalVariables"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
         "/openapi/projects/project/init/yaml": {
             "post": {
                 "description": "OpenAPI Initialize Yaml Project",
@@ -9164,6 +9254,17 @@ const docTemplate = `{
                 },
                 "image_tag": {
                     "type": "string"
+                }
+            }
+        },
+        "service.OpenAPIEnvGlobalVariables": {
+            "type": "object",
+            "properties": {
+                "global_variables": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/types.GlobalVariableKV"
+                    }
                 }
             }
         },
