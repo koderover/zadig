@@ -30,7 +30,6 @@ import (
 	commontypes "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/types"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/shared/client/systemconfig"
-	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 )
 
@@ -365,60 +364,6 @@ func fillServiceVariableAttribute(variablesFromUser []*commontypes.RenderVariabl
 		}
 	}
 	return variablesFromUser, nil
-}
-
-func OpenAPIUpdateGlobalVariables(args *OpenAPIEnvGlobalVariables, userName, requestID, projectName, envName string, production bool, logger *zap.SugaredLogger) error {
-	product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: projectName, EnvName: envName})
-	if err != nil {
-		logger.Errorf("failed to find product %s", projectName)
-		return e.ErrUpdateEnv.AddDesc(err.Error())
-	}
-
-	envVariables, _, err := GetGlobalVariables(projectName, envName, production, logger)
-	if err != nil {
-		logger.Errorf("failed to get env global variables, projectName:%s, envName:%s, error: %v", projectName, envName, err)
-		return e.ErrCreateEnv.AddErr(fmt.Errorf("failed to get env global variables, projectName:%s, envName:%s, error: %v", projectName, envName, err))
-	}
-	envKeys := make([]string, 0)
-	for _, vb := range envVariables {
-		envKeys = append(envKeys, vb.Key)
-	}
-	for _, vb := range args.GlobalVariables {
-		if !utils.Contains(envKeys, vb.Key) {
-			logger.Errorf("variable %s not exist in env global variables, env:%s, project:%s", vb.Key, envName, projectName)
-			return e.ErrUpdateEnv.AddErr(fmt.Errorf("variable %s not exist in env global variables, env:%s, project:%s", vb.Key, envName, projectName))
-		}
-		for _, vbFromEnv := range envVariables {
-			if vb.Key == vbFromEnv.Key {
-				vb.Type = vbFromEnv.Type
-				vb.Desc = vbFromEnv.Desc
-				vb.Options = vbFromEnv.Options
-				vb.RelatedServices = vbFromEnv.RelatedServices
-			}
-		}
-	}
-
-	userKeys := make([]string, 0)
-	for _, vb := range args.GlobalVariables {
-		userKeys = append(userKeys, vb.Key)
-	}
-	for _, vb := range envVariables {
-		if !utils.Contains(userKeys, vb.Key) {
-			args.GlobalVariables = append(args.GlobalVariables, vb)
-		}
-	}
-
-	err = UpdateProductGlobalVariablesWithRender(product, nil, userName, requestID, args.GlobalVariables, logger)
-	if err != nil {
-		return e.ErrUpdateEnv.AddErr(err)
-	}
-
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), product.ClusterID)
-	if err != nil {
-		logger.Errorf("UpdateHelmProductRenderset GetKubeClient error, error msg:%s", err)
-		return err
-	}
-	return ensureKubeEnv(product.Namespace, product.RegistryID, map[string]string{setting.ProductLabel: product.ProductName}, false, kubeClient, logger)
 }
 
 func OpenAPIListEnvs(userID, projectName string, envNames []string, production bool, log *zap.SugaredLogger) ([]*OpenAPIListEnvBrief, error) {
