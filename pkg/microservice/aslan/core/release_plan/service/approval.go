@@ -22,14 +22,12 @@ import (
 	_ "embed"
 	"fmt"
 	"net/url"
+	"strings"
 	"text/template"
 	"time"
 
+	html2md "github.com/JohannesKaufmann/html-to-markdown"
 	"github.com/google/uuid"
-	"github.com/koderover/zadig/v2/pkg/shared/client/systemconfig"
-	"github.com/koderover/zadig/v2/pkg/shared/client/user"
-	"github.com/koderover/zadig/v2/pkg/tool/mail"
-	"github.com/koderover/zadig/v2/pkg/types"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -40,9 +38,13 @@ import (
 	approvalservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/approval"
 	dingservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/dingtalk"
 	larkservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/lark"
+	"github.com/koderover/zadig/v2/pkg/shared/client/systemconfig"
+	"github.com/koderover/zadig/v2/pkg/shared/client/user"
 	"github.com/koderover/zadig/v2/pkg/tool/dingtalk"
 	"github.com/koderover/zadig/v2/pkg/tool/lark"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
+	"github.com/koderover/zadig/v2/pkg/tool/mail"
+	"github.com/koderover/zadig/v2/pkg/types"
 )
 
 //go:embed approval.html
@@ -66,6 +68,24 @@ func createApprovalInstance(plan *models.ReleasePlan, phone string) error {
 	if plan.ScheduleExecuteTime != 0 {
 		formContent += fmt.Sprintf("定时执行: %s\n", time.Unix(plan.ScheduleExecuteTime, 0).Format("2006-01-02 15:04"))
 	}
+	if plan.Description != "" {
+		if plan.Approval.Type != config.NativeApproval {
+			converter := html2md.NewConverter("", true, nil)
+			markdownDescription, err := converter.ConvertString(plan.Description)
+			if err != nil {
+				log.Error("Error convert %s HTML to Markdown: %v", plan.Description, err)
+			} else {
+				formContent += fmt.Sprintf("需求关联: \n")
+				descArr := strings.Split(markdownDescription, "\n")
+				for _, desc := range descArr {
+					formContent += fmt.Sprintf("	%s\n", desc)
+				}
+			}
+		} else {
+			formContent += fmt.Sprintf("需求关联: %s\n", plan.Description)
+		}
+	}
+
 	formContent += fmt.Sprintf("\n更多详见: %s", detailURL)
 
 	switch plan.Approval.Type {
