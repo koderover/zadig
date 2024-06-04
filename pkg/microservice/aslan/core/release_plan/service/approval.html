@@ -34,7 +34,9 @@
                         {{if .ScheduleExecuteTime}}
                         <li>定时执行: {{.ScheduleExecuteTime}}</li>
                         {{end}}
+                        {{if .Description}}
                         <li>需求关联:<br> {{.Description}}</li>
+                        {{end}}
                     </ul>
                 </tr>
             </tbody>
