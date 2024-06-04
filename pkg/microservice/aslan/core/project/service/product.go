@@ -1539,7 +1539,7 @@ func deleteEnvSleepCron(projectName, envName string) error {
 	}
 	err = commonrepo.NewCronjobColl().Delete(opt)
 	if err != nil {
-		return fmt.Errorf("failed to delete env sleep cron job %s for sleep, err: %w", sleepName, err)
+		return fmt.Errorf("failed to delete env sleep cron job %s, err: %w", sleepName, err)
 	}
 
 	return nil

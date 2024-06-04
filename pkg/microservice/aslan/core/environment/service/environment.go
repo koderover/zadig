@@ -2114,6 +2114,8 @@ func DeleteProduct(username, envName, productName, requestID string, isDelete bo
 				for svcName := range productInfo.GetServiceMap() {
 					svcNames = append(svcNames, svcName)
 				}
+
+				// @todo fix env already deleted issue
 				DeleteProductServices("", requestID, envName, productName, svcNames, false, log)
 
 				// Handles environment sharing related operations.
@@ -3258,7 +3260,12 @@ func UpdateProductGlobalVariables(productName, envName, userName, requestID stri
 		return e.ErrUpdateEnv.AddDesc("renderset revision is not the latest, please refresh and try again")
 	}
 
-	err = UpdateProductGlobalVariablesWithRender(product, nil, userName, requestID, arg, log)
+	project, err := templaterepo.NewProductColl().Find(productName)
+	if err != nil {
+		return e.ErrUpdateEnv.AddErr(fmt.Errorf("failed to find project: %s, error: %s", productName, err))
+	}
+
+	err = UpdateProductGlobalVariablesWithRender(project, product, nil, userName, requestID, arg, log)
 	if err != nil {
 		return e.ErrUpdateEnv.AddErr(err)
 	}
@@ -3271,7 +3278,7 @@ func UpdateProductGlobalVariables(productName, envName, userName, requestID stri
 	return ensureKubeEnv(product.Namespace, product.RegistryID, map[string]string{setting.ProductLabel: product.ProductName}, false, kubeClient, log)
 }
 
-func UpdateProductGlobalVariablesWithRender(product *commonmodels.Product, productRenderset *models.RenderSet, userName, requestID string, args []*commontypes.GlobalVariableKV, log *zap.SugaredLogger) error {
+func UpdateProductGlobalVariablesWithRender(templateProduct *templatemodels.Product, product *commonmodels.Product, productRenderset *models.RenderSet, userName, requestID string, args []*commontypes.GlobalVariableKV, log *zap.SugaredLogger) error {
 	productYaml, err := commontypes.GlobalVariableKVToYaml(product.GlobalVariables)
 	if err != nil {
 		return fmt.Errorf("failed to convert proudct's global variables to yaml, err: %s", err)
@@ -3302,7 +3309,22 @@ func UpdateProductGlobalVariablesWithRender(product *commonmodels.Product, produ
 		productSet.Insert(kv.Key)
 	}
 
-	// TODO: validate added new variable
+	projectGlobalVariables := templateProduct.GlobalVariables
+	if product.Production {
+		projectGlobalVariables = templateProduct.ProductionGlobalVariables
+	}
+	projectGlobalVariableSet := sets.NewString()
+	for _, v := range projectGlobalVariables {
+		projectGlobalVariableSet.Insert(v.Key)
+	}
+
+	addedGlobalVariableSet := argSet.Difference(productSet)
+	for _, v := range addedGlobalVariableSet.List() {
+		if !projectGlobalVariableSet.Has(v) {
+			return fmt.Errorf("added global variable %s is not in project's global variable list", v)
+		}
+	}
+
 	deletedVariableSet := productSet.Difference(argSet)
 	for _, key := range deletedVariableSet.List() {
 		if _, ok := productVariableMap[key]; !ok {
@@ -3313,7 +3335,6 @@ func UpdateProductGlobalVariablesWithRender(product *commonmodels.Product, produ
 		}
 	}
 
-	//productRenderset.GlobalVariables = args
 	product.GlobalVariables = args
 	updatedSvcList := make([]*templatemodels.ServiceRender, 0)
 	for _, argKV := range argMap {
@@ -4436,7 +4457,7 @@ func deleteEnvSleepCron(projectName, envName string) error {
 	}
 	err = commonrepo.NewCronjobColl().Delete(opt)
 	if err != nil {
-		return fmt.Errorf("failed to delete env sleep cron job %s for sleep, err: %w", sleepName, err)
+		return fmt.Errorf("failed to delete env sleep cron job %s, err: %w", sleepName, err)
 	}
 
 	return nil

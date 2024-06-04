@@ -2953,6 +2953,13 @@ definitions:
       image_tag:
         type: string
     type: object
+  service.OpenAPIEnvGlobalVariables:
+    properties:
+      global_variables:
+        items:
+          $ref: '#/definitions/types.GlobalVariableKV'
+        type: array
+    type: object
   service.OpenAPIInitializeProjectReq:
     properties:
       description:
@@ -6846,6 +6853,66 @@ paths:
         "200":
           description: OK
       summary: OpenAPI Create K8S Delivery Version
+      tags:
+      - OpenAPI
+  /openapi/environments/{name}/variable:
+    put:
+      consumes:
+      - application/json
+      description: OpenAPI Update K8S Environment Global Variables
+      parameters:
+      - description: project key
+        in: query
+        name: projectKey
+        required: true
+        type: string
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/service.OpenAPIEnvGlobalVariables'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: OpenAPI Update K8S Environment Global Variables
+      tags:
+      - OpenAPI
+  /openapi/environments/production/{name}/variable:
+    put:
+      consumes:
+      - application/json
+      description: OpenAPI Update Production K8S Environment Global Variables
+      parameters:
+      - description: project key
+        in: query
+        name: projectKey
+        required: true
+        type: string
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/service.OpenAPIEnvGlobalVariables'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: OpenAPI Update Production K8S Environment Global Variables
       tags:
       - OpenAPI
   /openapi/projects/project/init/yaml:
