@@ -82,9 +82,8 @@ func NewContext(c *gin.Context) *Context {
 			logger.Warnf("Failed to get user from token, err: %s", err)
 		}
 	} else {
-		ok := false
-		token, ok = c.GetQuery("token")
-		if !ok || len(token) <= 0 {
+		token = c.Query("token")
+		if len(token) == 0 {
 			claims.Name = "system"
 		} else {
 			parts := strings.Split(token, ".")
@@ -93,6 +92,8 @@ func NewContext(c *gin.Context) *Context {
 				if err != nil {
 					logger.Warnf("Failed to get user from token, err: %s", err)
 				}
+			} else {
+				claims.Name = "system"
 			}
 		}
 	}
