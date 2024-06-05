@@ -371,6 +371,8 @@ func getWorkflowTaskTplExec(tplcontent string, args *workflowTaskNotification) (
 		"getIcon": func(status config.Status) string {
 			if status == config.StatusPassed || status == config.StatusCreated {
 				return "👍"
+			} else if status == config.StatusFailed {
+				return "❌"
 			}
 			return "⚠️"
 		},
