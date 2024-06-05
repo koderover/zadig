@@ -72,17 +72,30 @@ type FederatedClaims struct {
 // If authorization info is required, use `NewContextWithAuthorization` instead.
 func NewContext(c *gin.Context) *Context {
 	logger := ginzap.WithContext(c).Sugar()
+	var err error
 	var claims jwtClaims
 
 	token := c.GetHeader(setting.AuthorizationHeader)
 	if len(token) > 0 {
-		var err error
 		claims, err = getUserFromJWT(token)
 		if err != nil {
 			logger.Warnf("Failed to get user from token, err: %s", err)
 		}
 	} else {
-		claims.Name = "system"
+		token = c.Query("token")
+		if len(token) == 0 {
+			claims.Name = "system"
+		} else {
+			parts := strings.Split(token, ".")
+			if len(parts) == 3 {
+				claims, err = getUserFromJWT(token)
+				if err != nil {
+					logger.Warnf("Failed to get user from token, err: %s", err)
+				}
+			} else {
+				claims.Name = "system"
+			}
+		}
 	}
 
 	return &Context{
