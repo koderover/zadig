@@ -253,6 +253,9 @@ func (j *ScanningJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		envs = append(envs, scanningInfo.Envs...)
 
 		scanningImage := basicImage.Value
+		if scanningImage == "sonarsource/sonar-scanner-cli" {
+			scanningImage += ":5.0.1"
+		}
 		if basicImage.ImageFrom == commonmodels.ImageFromKoderover {
 			scanningImage = strings.ReplaceAll(config.ReaperImage(), "${BuildOS}", basicImage.Value)
 		}
