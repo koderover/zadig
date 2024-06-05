@@ -366,6 +366,7 @@ func (w *Service) createNotifyBody(weChatNotification *wechatNotification) (cont
 	return tplcontent, err
 }
 
+// @todo workflow webhook im noitfy
 func (w *Service) createNotifyBodyOfWorkflowIM(weChatNotification *wechatNotification, notify *models.NotifyCtl) (string, string, *LarkCard, error) {
 	weChatNotification.EncodedDisplayName = url.PathEscape(weChatNotification.Task.PipelineDisplayName)
 	tplTitle := "{{if ne .WebHookType \"feishu\"}}#### {{end}}{{getIcon .Task.Status }}{{if eq .WebHookType \"wechat\"}}<font color=\"{{ getColor .Task.Status }}\">工作流{{.Task.PipelineDisplayName}} #{{.Task.TaskID}} {{ taskStatus .Task.Status }}</font>{{else}}工作流 {{.Task.PipelineDisplayName}} #{{.Task.TaskID}} {{ taskStatus .Task.Status }}{{end}} \n"
@@ -676,6 +677,8 @@ func getTplExec(tplcontent string, weChatNotification *wechatNotification) (stri
 		"getIcon": func(status config.Status) string {
 			if status == config.StatusPassed || status == config.StatusCreated {
 				return "👍"
+			} else if status == config.StatusFailed {
+				return "❌"
 			}
 			return "⚠️"
 		},
