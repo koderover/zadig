@@ -356,8 +356,13 @@ func initializeStatDashboardConfig() error {
 }
 
 type DailyJobInfo struct {
-	Name string `json:"name"`
-	Data []int  `json:"data"`
+	Name  string             `json:"name"`
+	Datas []DailyJobInfoData `json:"datas"`
+}
+
+type DailyJobInfoData struct {
+	Timestamp int64 `json:"timestamp"`
+	Count     int   `json:"count"`
 }
 
 type project30DayOverview struct {
@@ -373,7 +378,8 @@ type currently30DayOverview struct {
 func GetProjectsOverview(start, end int64, logger *zap.SugaredLogger) ([]*DailyJobInfo, error) {
 	result, err := commonrepo.NewJobInfoColl().GetJobInfos(start, end, nil)
 	if err != nil {
-		logger.Debugf("failed to get coarse grained data from job_info collection, error: %s", err)
+		err = fmt.Errorf("failed to get coarse grained data from job_info collection, error: %s", err)
+		logger.Error(err)
 		return nil, err
 	}
 
@@ -391,21 +397,41 @@ func GetProjectsOverview(start, end int64, logger *zap.SugaredLogger) ([]*DailyJ
 		data: make([]*currently30DayOverview, 0),
 	}
 
+	currently30DayOverviewMap := map[int64]*struct {
+		buildDayData  *currently30DayOverview
+		testDayData   *currently30DayOverview
+		deployDayData *currently30DayOverview
+	}{}
 	for i := 0; i < len(result); i++ {
-		start := util.GetMidnightTimestamp(result[i].StartTime)
-		end := time.Unix(start, 0).Add(time.Hour*24 - time.Second).Unix()
-		buildDayData := &currently30DayOverview{
-			day:   start,
-			count: 0,
+		weekdayTimeStamp := util.GetEndOfWeekDayTimeStamp(time.Unix(result[i].StartTime, 0))
+		start := weekdayTimeStamp - 24*60*60*6
+		end := weekdayTimeStamp + 24*60*60
+
+		var (
+			buildDayData  *currently30DayOverview
+			testDayData   *currently30DayOverview
+			deployDayData *currently30DayOverview
+		)
+
+		if _, ok := currently30DayOverviewMap[weekdayTimeStamp]; !ok {
+			buildDayData = &currently30DayOverview{
+				day:   weekdayTimeStamp,
+				count: 0,
+			}
+			testDayData = &currently30DayOverview{
+				day:   weekdayTimeStamp,
+				count: 0,
+			}
+			deployDayData = &currently30DayOverview{
+				day:   weekdayTimeStamp,
+				count: 0,
+			}
+		} else {
+			buildDayData = currently30DayOverviewMap[weekdayTimeStamp].buildDayData
+			testDayData = currently30DayOverviewMap[weekdayTimeStamp].testDayData
+			deployDayData = currently30DayOverviewMap[weekdayTimeStamp].deployDayData
 		}
-		testDayData := &currently30DayOverview{
-			day:   start,
-			count: 0,
-		}
-		deployDayData := &currently30DayOverview{
-			day:   start,
-			count: 0,
-		}
+
 		for j := i; j < len(result); j++ {
 			if result[j].StartTime >= start && result[j].StartTime <= end {
 				switch result[j].Type {
@@ -431,24 +457,21 @@ func GetProjectsOverview(start, end int64, logger *zap.SugaredLogger) ([]*DailyJ
 }
 
 func reBuildData(start, end int64, data *project30DayOverview) *DailyJobInfo {
-	start = util.GetMidnightTimestamp(start)
 	resp := &DailyJobInfo{
-		Name: data.name,
-		Data: make([]int, 0),
+		Name:  data.name,
+		Datas: make([]DailyJobInfoData, 0),
 	}
 
 	sort.Slice(data.data, func(i, j int) bool {
 		return data.data[i].day < data.data[j].day
 	})
 
-	index := 0
-	for day := start; day <= end; day = time.Unix(day, 0).Add(time.Hour * 24).Unix() {
-		if index < len(data.data) && util.IsSameDay(data.data[index].day, day) {
-			resp.Data = append(resp.Data, data.data[index].count)
-			index++
-		} else {
-			resp.Data = append(resp.Data, 0)
+	for _, d := range data.data {
+		jobInfodata := DailyJobInfoData{
+			Timestamp: d.day,
+			Count:     d.count,
 		}
+		resp.Datas = append(resp.Datas, jobInfodata)
 	}
 	return resp
 }
