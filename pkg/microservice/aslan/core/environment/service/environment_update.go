@@ -509,7 +509,7 @@ func updateCVMProduct(exitedProd *commonmodels.Product, user, requestID string, 
 		return fmt.Errorf("ListMaxRevisionsAllSvcByProduct: %s", err)
 	}
 	if services != nil {
-		svcNames := make([]string, len(services))
+		svcNames := make([]string, 0, len(services))
 		for _, svc := range services {
 			svcNames = append(svcNames, svc.ServiceName)
 		}
