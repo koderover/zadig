@@ -21,7 +21,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-redis/redis"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 
 	"github.com/koderover/zadig/v2/pkg/config"
@@ -65,9 +64,6 @@ func (c *Client) getAccessToken() (string, error) {
 	ak, err := redisCache.GetString(accessTokenKey)
 	if err == nil {
 		return ak, nil
-	} else if err != redis.Nil {
-		// if the problem is not key not found but other error, we return with the error
-		return "", fmt.Errorf("failed to get workwx token, err: %s", err)
 	}
 
 	// if no token is in the redis, then it is expired, we lock this instance and try to refresh the token
@@ -84,9 +80,6 @@ func (c *Client) getAccessToken() (string, error) {
 	ak, err = redisCache.GetString(accessTokenKey)
 	if err == nil {
 		return ak, nil
-	} else if err != redis.Nil {
-		// if the problem is not key not found but other error, we return with the error
-		return "", fmt.Errorf("failed to get workwx token 2, err: %s", err)
 	}
 
 	// finally we made sure the access token does not exist, refresh the token
