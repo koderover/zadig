@@ -69,14 +69,14 @@ func (r *generalResponse) ToError() error {
 }
 
 type getAccessTokenResp struct {
-	generalResponse `json:"inline"`
+	generalResponse `json:",inline"`
 
 	AccessToken string `json:"access_token"`
 	ExpiresIn   int64  `json:"expires_in"`
 }
 
 type ListDepartmentResp struct {
-	generalResponse `json:"inline"`
+	generalResponse `json:",inline"`
 
 	Department []*Department `json:"department"`
 }
@@ -91,7 +91,7 @@ type Department struct {
 }
 
 type ListDepartmentUserResp struct {
-	generalResponse `json:"inline"`
+	generalResponse `json:",inline"`
 
 	UserList []*UserBriefInfo `json:"user_list"`
 }
@@ -104,7 +104,7 @@ type UserBriefInfo struct {
 }
 
 type FindUserByPhoneResp struct {
-	generalResponse `json:"inline"`
+	generalResponse `json:",inline"`
 
 	UserID string `json:"userid"`
 }
@@ -144,7 +144,7 @@ type ApprovalSummary struct {
 }
 
 type createApprovalInstanceResp struct {
-	generalResponse `json:"inline"`
+	generalResponse `json:",inline"`
 
 	ApprovalInstanceID string `json:"sp_no"`
 }
