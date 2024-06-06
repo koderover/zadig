@@ -17,47 +17,33 @@
 package workwx
 
 import (
-	"encoding/json"
+	"crypto/aes"
+	"crypto/cipher"
+	"encoding/base64"
 	"fmt"
-	"strconv"
-
-	"github.com/koderover/zadig/v2/pkg/tool/httpclient"
 )
 
-func (c *Client) ListDepartment(departmentID int) (*ListDepartmentResp, error) {
-	url := fmt.Sprintf("%s/%s", c.Host, listDepartmentAPI)
-
-	accessToken, err := c.getAccessToken()
+func DecodeEncryptedMessage(key, message string) ([]byte, error) {
+	// Step 1: base 64 decoding
+	decodedBytes, err := base64.StdEncoding.DecodeString(message)
 	if err != nil {
 		return nil, err
 	}
 
-	requestQuery := map[string]string{
-		"access_token": accessToken,
-	}
-
-	if departmentID != 0 {
-		requestQuery["id"] = strconv.Itoa(departmentID)
-	}
-
-	resp := new(ListDepartmentResp)
-
-	_, err = httpclient.Get(
-		url,
-		httpclient.SetQueryParams(requestQuery),
-		httpclient.SetResult(&resp),
-	)
-
-	body, _ := json.Marshal(resp)
-	fmt.Println(">>>>>>>>>>>>>> body:", string(body))
-
+	iv := key[:16]
+	block, err := aes.NewCipher([]byte(key))
 	if err != nil {
 		return nil, err
 	}
 
-	if wxErr := resp.ToError(); wxErr != nil {
-		return nil, wxErr
+	// Ensure the ciphertext is a multiple of the block size
+	if len(decodedBytes)%aes.BlockSize != 0 {
+		return nil, fmt.Errorf("ciphertext is not a multiple of the block size")
 	}
 
-	return resp, nil
+	mode := cipher.NewCBCDecrypter(block, []byte(iv))
+	plaintext := make([]byte, len(decodedBytes))
+	mode.CryptBlocks(plaintext, decodedBytes)
+
+	return plaintext, nil
 }

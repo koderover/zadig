@@ -86,9 +86,19 @@ func ValidateWorkWXCallback(c *gin.Context) {
 	}
 
 	signatureOK := workwx.CallbackValidate(query.MsgSignature, "g2azdvjwblQKTneS0R7", query.Timestamp, query.Nonce, query.EchoString)
-	if signatureOK {
-		fmt.Println("yay")
-	} else {
-		fmt.Println("noooooo")
+	if !signatureOK {
+		c.Set(setting.ResponseError, fmt.Errorf("invalid signarture vs content"))
+		c.AbortWithStatus(http.StatusBadRequest)
+		return
 	}
+
+	plaintext, err := workwx.DecodeEncryptedMessage("W9shnP9pST6FEOT6u7q8jEAKprKV5glEWF4qPgND5Aa", query.EchoString)
+	if err != nil {
+		fmt.Println("nooooo, err:", err)
+		c.Set(setting.ResponseError, err)
+		c.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
+
+	fmt.Println("plain text:", string(plaintext))
 }
