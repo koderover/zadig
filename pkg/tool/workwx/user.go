@@ -38,7 +38,39 @@ func (c *Client) ListDepartmentUsers(departmentID int) (*ListDepartmentUserResp,
 
 	resp := new(ListDepartmentUserResp)
 
-	_, err = httpclient.Post(
+	_, err = httpclient.Get(
+		url,
+		httpclient.SetQueryParams(requestQuery),
+		httpclient.SetResult(&resp),
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if wxErr := resp.ToError(); wxErr != nil {
+		return nil, wxErr
+	}
+
+	return resp, nil
+}
+
+func (c *Client) FindUserByPhone(phone int) (interface{}, error) {
+	url := fmt.Sprintf("%s/%s", c.Host, getUserIDByPhoneAPI)
+
+	accessToken, err := c.getAccessToken()
+	if err != nil {
+		return nil, err
+	}
+
+	requestQuery := map[string]string{
+		"access_token": accessToken,
+		"mobile":       strconv.Itoa(phone),
+	}
+
+	resp := new(FindUserByPhoneResp)
+
+	_, err = httpclient.Get(
 		url,
 		httpclient.SetQueryParams(requestQuery),
 		httpclient.SetResult(&resp),

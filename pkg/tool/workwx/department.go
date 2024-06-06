@@ -41,7 +41,7 @@ func (c *Client) ListDepartment(departmentID int) (*ListDepartmentResp, error) {
 
 	resp := new(ListDepartmentResp)
 
-	_, err = httpclient.Post(
+	_, err = httpclient.Get(
 		url,
 		httpclient.SetQueryParams(requestQuery),
 		httpclient.SetResult(&resp),

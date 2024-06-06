@@ -22,6 +22,7 @@ const (
 	getAccessTokenAPI     = "cgi-bin/gettoken"
 	listDepartmentAPI     = "cgi-bin/department/list"
 	listDepartmentUserAPI = "cgi-bin/user/simplelist"
+	getUserIDByPhoneAPI   = "cgi-bin/user/getuserid"
 )
 
 type ApprovalRel int
@@ -48,7 +49,7 @@ func (r *generalResponse) ToError() error {
 }
 
 type getAccessTokenResp struct {
-	generalResponse
+	generalResponse `json:"inline"`
 
 	AccessToken string `json:"access_token"`
 	ExpiresIn   int64  `json:"expires_in"`
@@ -70,7 +71,7 @@ type Department struct {
 }
 
 type ListDepartmentUserResp struct {
-	generalResponse
+	generalResponse `json:"inline"`
 
 	UserList []*UserBriefInfo `json:"user_list"`
 }
@@ -80,4 +81,10 @@ type UserBriefInfo struct {
 	Name       string `json:"name"`
 	Department []int  `json:"department"`
 	OpenUserID string `json:"open_userid"`
+}
+
+type FindUserByPhoneResp struct {
+	generalResponse `json:"inline"`
+
+	UserID string `json:"userid"`
 }
