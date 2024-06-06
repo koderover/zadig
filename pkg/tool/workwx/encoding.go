@@ -32,6 +32,7 @@ func DecodeEncryptedMessage(key, message string) ([]byte, error) {
 
 	decodedKeyBytes, err := base64.StdEncoding.DecodeString(key)
 	if err != nil {
+		fmt.Println("aaaaaaaaaaaaaa")
 		return nil, err
 	}
 
