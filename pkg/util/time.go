@@ -105,6 +105,7 @@ func IsSameDay(timestamp1 int64, timestamp2 int64) bool {
 
 	return t1.Year() == t2.Year() && t1.Month() == t2.Month() && t1.Day() == t2.Day()
 }
+
 func UnixStampToCronExpr(unixStamp int64) string {
 	// 将 Unix 时间戳转换为时间
 	t := time.Unix(unixStamp, 0)
@@ -120,4 +121,18 @@ func UnixStampToCronExpr(unixStamp int64) string {
 	// 构建 Cron 表达式
 	cronExpr := fmt.Sprintf("%d %d %d %d", minute, hour, day, month)
 	return cronExpr
+}
+
+func GetEndOfWeekDayTimeStamp(t time.Time) int64 {
+	// 找到该时间的星期几
+	weekday := t.Weekday()
+
+	// 计算距离周日的天数
+	daysUntilSunday := (7 - int(weekday)) % 7
+
+	// 计算该周结束时那天的 0 点
+	endOfWeek := t.AddDate(0, 0, daysUntilSunday).Truncate(24 * time.Hour)
+
+	// 将计算结果转换为 Unix 时间戳
+	return endOfWeek.Unix()
 }
