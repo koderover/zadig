@@ -30,8 +30,13 @@ func DecodeEncryptedMessage(key, message string) ([]byte, error) {
 		return nil, err
 	}
 
-	iv := key[:16]
-	block, err := aes.NewCipher([]byte(key))
+	decodedKeyBytes, err := base64.StdEncoding.DecodeString(key)
+	if err != nil {
+		return nil, err
+	}
+
+	iv := decodedKeyBytes[:16]
+	block, err := aes.NewCipher(decodedKeyBytes)
 	if err != nil {
 		return nil, err
 	}
@@ -41,7 +46,7 @@ func DecodeEncryptedMessage(key, message string) ([]byte, error) {
 		return nil, fmt.Errorf("ciphertext is not a multiple of the block size")
 	}
 
-	mode := cipher.NewCBCDecrypter(block, []byte(iv))
+	mode := cipher.NewCBCDecrypter(block, iv)
 	plaintext := make([]byte, len(decodedBytes))
 	mode.CryptBlocks(plaintext, decodedBytes)
 
