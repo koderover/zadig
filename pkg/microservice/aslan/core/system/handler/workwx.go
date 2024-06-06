@@ -20,11 +20,12 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/dingtalk"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/workwx"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/service"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
 type getWorkWXDepartmentReq struct {
@@ -82,7 +83,7 @@ func ValidateWorkWXCallback(c *gin.Context) {
 	err := c.ShouldBindQuery(query)
 	if err != nil {
 		c.Set(setting.ResponseError, err)
-		c.AbortWithStatus(http.StatusInternalServerError)
+		c.AbortWithStatus(http.StatusBadRequest)
 		return
 	}
 
@@ -96,15 +97,33 @@ func ValidateWorkWXCallback(c *gin.Context) {
 	c.String(http.StatusOK, plainText)
 }
 
-func WorkWXEventHandler(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+type workWXCallbackReq struct {
+	MsgSignature string `json:"msg_signature" form:"msg_signature"`
+	Nonce        string `json:"nonce"         form:"nonce"`
+	Timestamp    string `json:"timestamp"     form:"timestamp"`
+}
 
-	ctx.Logger.Infof("DingTalkEventHandler: New request url %s", c.Request.RequestURI)
-	body, err := c.GetRawData()
+func WorkWXEventHandler(c *gin.Context) {
+	query := new(workWXCallbackReq)
+
+	err := c.ShouldBindQuery(query)
 	if err != nil {
-		ctx.Err = err
+		c.Set(setting.ResponseError, err)
+		c.AbortWithStatus(http.StatusBadRequest)
 		return
 	}
-	ctx.Resp, ctx.Err = dingtalk.EventHandler(c.Param("ak"), body,
-		c.Query("signature"), c.Query("timestamp"), c.Query("nonce"))
+
+	log.Infof("WorkWXEventHandler: New request url %s", c.Request.RequestURI)
+	body, err := c.GetRawData()
+	if err != nil {
+		c.Set(setting.ResponseError, err)
+		c.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
+	_, err = workwx.EventHandler(c.Param("id"), body, query.MsgSignature, query.Timestamp, query.Nonce)
+	if err != nil {
+		c.Set(setting.ResponseError, err)
+		c.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
 }
