@@ -57,17 +57,9 @@ func DecodeEncryptedMessage(key, message string) ([]byte, []byte, error) {
 		return nil, nil, err
 	}
 
-	fmt.Println("content length is:", contentLength)
-
 	receiveID := content[contentLength+4:]
-	fmt.Println("receive id is: ", string(receiveID))
 
-	plainMessageEncoded := content[4 : contentLength+4]
-	fmt.Println("plainMessageEncoded is: ", plainMessageEncoded)
-	plainMessage, err := base64.StdEncoding.DecodeString(string(plainMessageEncoded))
-	if err != nil {
-		return nil, nil, err
-	}
+	plainMessage := content[4 : contentLength+4]
 
 	return plainMessage, receiveID, nil
 }
