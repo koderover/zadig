@@ -213,6 +213,21 @@ type WorkWXApprovalNode struct {
 	RejectOrApprove config.ApproveOrReject `bson:"reject_or_approve"           yaml:"-"                          json:"reject_or_approve"`
 }
 
+// TODO: For now the only supported type is approval, there should be no CC type in the node list or it will go wrong.
+func (w *WorkWXApproval) GenerateApprovalNodes() []*workwx.ApprovalNode {
+	resp := make([]*workwx.ApprovalNode, 0)
+
+	for _, node := range w.ApprovalNodes {
+		resp = append(resp, &workwx.ApprovalNode{
+			Type:   workwx.ApprovalTypeApprove,
+			ApvRel: node.Type,
+			UserID: node.ApproveUsers,
+		})
+	}
+
+	return resp
+}
+
 type User struct {
 	Type            string                 `bson:"type"                        yaml:"type"                       json:"type"`
 	UserID          string                 `bson:"user_id,omitempty"           yaml:"user_id,omitempty"          json:"user_id,omitempty"`

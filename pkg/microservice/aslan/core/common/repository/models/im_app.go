@@ -44,10 +44,11 @@ type IMApp struct {
 	DingTalkDefaultApprovalFormCode string `json:"-" bson:"dingtalk_default_approval_form_code"`
 
 	// workwx fields
-	Host        string `json:"host"         bson:"host"`
-	CorpID      string `json:"corp_id"      bson:"corp_id"`
-	AgentID     int    `json:"agent_id"     bson:"agent_id"`
-	AgentSecret string `json:"agent_secret" bson:"agent_secret"`
+	Host                     string `json:"host"                        bson:"host"`
+	CorpID                   string `json:"corp_id"                     bson:"corp_id"`
+	AgentID                  int    `json:"agent_id"                    bson:"agent_id"`
+	AgentSecret              string `json:"agent_secret"                bson:"agent_secret"`
+	WorkWXApprovalTemplateID string `json:"workwx_approval_template_id" bson:"workwx_approval_template_id"`
 }
 
 func (IMApp) TableName() string {

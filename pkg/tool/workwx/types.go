@@ -19,10 +19,11 @@ package workwx
 import "fmt"
 
 const (
-	getAccessTokenAPI     = "cgi-bin/gettoken"
-	listDepartmentAPI     = "cgi-bin/department/list"
-	listDepartmentUserAPI = "cgi-bin/user/simplelist"
-	getUserIDByPhoneAPI   = "cgi-bin/user/getuserid"
+	getAccessTokenAPI         = "cgi-bin/gettoken"
+	listDepartmentAPI         = "cgi-bin/department/list"
+	listDepartmentUserAPI     = "cgi-bin/user/simplelist"
+	getUserIDByPhoneAPI       = "cgi-bin/user/getuserid"
+	createApprovalInstanceAPI = "cgi-bin/oa/applyevent"
 )
 
 type ApprovalRel int
@@ -32,9 +33,28 @@ const (
 	ApprovalRelOr  ApprovalRel = 2
 )
 
+type ApprovalType int
+
+const (
+	// 审批人
+	ApprovalTypeApprove ApprovalType = 1
+	// 抄送人
+	ApprovalTypeCC ApprovalType = 2
+)
+
+const (
+	LanguageCN = "zh_CN"
+	LanguageEN = "en"
+)
+
 type generalResponse struct {
 	ErrCode int    `json:"errcode"`
 	ErrMsg  string `json:"errmsg"`
+}
+
+type GeneralText struct {
+	Text string `json:"text"`
+	Lang string `json:"lang"`
 }
 
 const (
@@ -56,7 +76,7 @@ type getAccessTokenResp struct {
 }
 
 type ListDepartmentResp struct {
-	generalResponse
+	generalResponse `json:"inline"`
 
 	Department []*Department `json:"department"`
 }
@@ -87,4 +107,44 @@ type FindUserByPhoneResp struct {
 	generalResponse `json:"inline"`
 
 	UserID string `json:"userid"`
+}
+
+type createApprovalInstanceReq struct {
+	CreatorUserID       string              `json:"creator_userid"`
+	TemplateID          string              `json:"template_id"`
+	UseTemplateApprover int                 `json:"use_template_approver"`
+	ChooseDepartment    int                 `json:"choose_department"`
+	ApplyData           []*ApplyDataContent `json:"apply_data"`
+	Process             *ApprovalNodes      `json:"process"`
+	SummaryList         []*ApprovalSummary  `json:"summary_list"`
+}
+
+type ApplyDataContent struct {
+	Control string      `json:"control"`
+	Id      string      `json:"id"`
+	Value   interface{} `json:"value"`
+}
+
+type TextApplyData struct {
+	Text string `json:"text"`
+}
+
+type ApprovalNodes struct {
+	NodeList []*ApprovalNode `json:"node_list"`
+}
+
+type ApprovalNode struct {
+	Type   ApprovalType `json:"type"`
+	ApvRel ApprovalRel  `json:"apv_rel"`
+	UserID []string     `json:"userid"`
+}
+
+type ApprovalSummary struct {
+	SummaryInfo []*GeneralText `json:"summary_info"`
+}
+
+type createApprovalInstanceResp struct {
+	generalResponse `json:"inline"`
+
+	ApprovalInstanceID string `json:"sp_no"`
 }

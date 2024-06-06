@@ -595,75 +595,48 @@ func waitForWorkWXApprove(ctx context.Context, stage *commonmodels.StageTask, wo
 	//
 	//applicant := approval.CreatorUserID
 	//if applicant == "" {
-	//	// TODO: GET applicant by user's phone
+	//	phoneInt, err := strconv.Atoi(workflowCtx.WorkflowTaskCreatorMobile)
+	//	if err != nil {
+	//		stage.Status = config.StatusFailed
+	//		return errors.Wrap(err, "get task creator phone")
+	//	}
+	//	resp, err := client.FindUserByPhone(phoneInt)
+	//	if err != nil {
+	//		stage.Status = config.StatusFailed
+	//		return errors.Wrap(err, "find approval applicant by task creator phone")
+	//	}
+	//
+	//	applicant = resp.UserID
 	//}
 	//
 	//log.Infof("waitforWorkWXApprove: ApproveNode num %d", len(approval.ApprovalNodes))
 	//
 	//// TODO: Create approval instance
-	//instanceResp, err := client.CreateApprovalInstance(&dingtalk.CreateApprovalInstanceArgs{
-	//	ProcessCode:      data.DingTalkDefaultApprovalFormCode,
-	//	OriginatorUserID: userID,
-	//	ApproverNodeList: func() (nodeList []*dingtalk.ApprovalNode) {
-	//		for _, node := range approval.ApprovalNodes {
-	//			var userIDList []string
-	//			for _, user := range node.ApproveUsers {
-	//				userIDList = append(userIDList, user.ID)
-	//			}
-	//			nodeList = append(nodeList, &dingtalk.ApprovalNode{
-	//				UserIDs:    userIDList,
-	//				ActionType: node.Type,
-	//			})
-	//		}
-	//		return
-	//	}(),
-	//	FormContent: formContent,
+	//applydata := make([]*workwx.ApplyDataContent, 0)
+	//applydata = append(applydata, &workwx.ApplyDataContent{
+	//	Control: config.DefaultWorkWXApprovalControlType,
+	//	Id:      config.DefaultWorkWXApprovalControlID,
+	//	Value:   &workwx.TextApplyData{Text: formContent},
 	//})
+	//
+	//instanceID, err := client.CreateApprovalInstance(
+	//	data.WorkWXApprovalTemplateID,
+	//	applicant,
+	//	false,
+	//	applydata,
+	//	approval.GenerateApprovalNodes(),
+	//	make([]*workwx.ApprovalSummary, 0),
+	//)
 	//if err != nil {
-	//	log.Errorf("waitForDingTalkApprove: create instance failed: %v", err)
+	//	log.Errorf("waitForWorkWXApprove: create instance failed: %v", err)
 	//	stage.Status = config.StatusFailed
 	//	return errors.Wrap(err, "create approval instance")
 	//}
-	//instanceID := instanceResp.InstanceID
-	//log.Infof("waitForDingTalkApprove: create instance success, id %s", instanceID)
+	//log.Infof("waitForWorkWXApprove: create instance success, id %s", instanceID)
 	//
-	//if err := instantmessage.NewWeChatClient().SendWorkflowTaskApproveNotifications(workflowCtx.WorkflowName, workflowCtx.TaskID); err != nil {
-	//	logger.Errorf("send approve notification failed, error: %v", err)
-	//}
 	//defer func() {
-	//	dingservice.RemoveDingTalkApprovalManager(instanceID)
+	//	workwxservice.RemoveWorkWXApprovalManager(instanceID)
 	//}()
-	//
-	//resultMap := map[string]config.ApproveOrReject{
-	//	"agree":  config.Approve,
-	//	"refuse": config.Reject,
-	//}
-	//
-	//checkNodeStatus := func(node *commonmodels.DingTalkApprovalNode) (config.ApproveOrReject, error) {
-	//	users := node.ApproveUsers
-	//	switch node.Type {
-	//	case "AND":
-	//		result := config.Approve
-	//		for _, user := range users {
-	//			if user.RejectOrApprove == "" {
-	//				result = ""
-	//			}
-	//			if user.RejectOrApprove == config.Reject {
-	//				return config.Reject, nil
-	//			}
-	//		}
-	//		return result, nil
-	//	case "OR":
-	//		for _, user := range users {
-	//			if user.RejectOrApprove != "" {
-	//				return user.RejectOrApprove, nil
-	//			}
-	//		}
-	//		return "", nil
-	//	default:
-	//		return "", errors.Errorf("unknown node type %s", node.Type)
-	//	}
-	//}
 	//
 	//timeout := time.After(time.Duration(approval.Timeout) * time.Minute)
 	//for {

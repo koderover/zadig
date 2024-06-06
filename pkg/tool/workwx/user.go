@@ -55,7 +55,7 @@ func (c *Client) ListDepartmentUsers(departmentID int) (*ListDepartmentUserResp,
 	return resp, nil
 }
 
-func (c *Client) FindUserByPhone(phone int) (interface{}, error) {
+func (c *Client) FindUserByPhone(phone int) (*FindUserByPhoneResp, error) {
 	url := fmt.Sprintf("%s/%s", c.Host, getUserIDByPhoneAPI)
 
 	accessToken, err := c.getAccessToken()

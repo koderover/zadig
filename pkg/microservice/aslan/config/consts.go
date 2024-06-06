@@ -565,3 +565,9 @@ const (
 	ReleasePlanJobStatusFailed  ReleasePlanJobStatus = "failed"
 	ReleasePlanJobStatusRunning ReleasePlanJobStatus = "running"
 )
+
+// WorkWX Related constants
+const (
+	DefaultWorkWXApprovalControlType = "Textarea"
+	DefaultWorkWXApprovalControlID   = "Textarea-1"
+)
