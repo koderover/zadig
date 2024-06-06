@@ -20,8 +20,8 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"encoding/base64"
+	"encoding/binary"
 	"fmt"
-	"strconv"
 )
 
 func DecodeEncryptedMessage(key, message string) ([]byte, []byte, error) {
@@ -52,7 +52,7 @@ func DecodeEncryptedMessage(key, message string) ([]byte, []byte, error) {
 	mode.CryptBlocks(plaintext, decodedBytes)
 
 	content := plaintext[16:]
-	contentLength, err := strconv.Atoi(string(content[0:4]))
+	contentLength := binary.BigEndian.Uint32(content[0:4])
 	if err != nil {
 		return nil, nil, err
 	}
