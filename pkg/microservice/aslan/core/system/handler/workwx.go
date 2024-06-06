@@ -17,14 +17,15 @@
 package handler
 
 import (
-	"encoding/json"
-	"encoding/xml"
 	"fmt"
+	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/service"
+	"github.com/koderover/zadig/v2/pkg/setting"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
+	"github.com/koderover/zadig/v2/pkg/tool/workwx"
 )
 
 type getWorkWXDepartmentReq struct {
@@ -67,18 +68,27 @@ func GetWorkWxUsers(c *gin.Context) {
 	ctx.Resp, ctx.Err = service.GetWorkWxUsers(appID, req.DepartmentID, ctx.Logger)
 }
 
+type validateWorkWXCallbackReq struct {
+	EchoString   string `json:"echostr"       form:"echostr"`
+	MsgSignature string `json:"msg_signature" form:"msg_signature"`
+	Nonce        string `json:"nonce"         form:"nonce"`
+	Timestamp    string `json:"timestamp"     form:"timestamp"`
+}
+
 func ValidateWorkWXCallback(c *gin.Context) {
-	var header interface{}
-	var body interface{}
+	query := new(validateWorkWXCallbackReq)
 
-	c.ShouldBindHeader(&header)
-	c.ShouldBindXML(&body)
+	err := c.ShouldBindQuery(query)
+	if err != nil {
+		c.Set(setting.ResponseError, err)
+		c.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
 
-	headerStr, _ := json.Marshal(header)
-	fmt.Println("header is:", string(headerStr))
-
-	fmt.Printf("query is: %v", c.Request.URL.Query())
-
-	bodyStr, _ := xml.Marshal(body)
-	fmt.Println("body is:", string(bodyStr))
+	signatureOK := workwx.CallbackValidate(query.MsgSignature, "g2azdvjwblQKTneS0R7", query.Timestamp, query.Nonce, query.EchoString)
+	if signatureOK {
+		fmt.Println("yay")
+	} else {
+		fmt.Println("noooooo")
+	}
 }
