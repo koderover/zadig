@@ -102,4 +102,5 @@ func ValidateWorkWXCallback(c *gin.Context) {
 
 	fmt.Println("plain text:", string(plaintext))
 	fmt.Println("receive id:", string(receiveID))
+	c.XML(http.StatusOK, plaintext)
 }
