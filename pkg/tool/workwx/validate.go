@@ -3,7 +3,6 @@ package workwx
 import (
 	"crypto/sha1"
 	"encoding/hex"
-	"fmt"
 	"sort"
 	"strings"
 )
@@ -26,7 +25,5 @@ func CallbackValidate(targetStr, token, timestamp, nonce, msgEncrypt string) boo
 	// Convert the byte slice to a hexadecimal string
 	hashString := hex.EncodeToString(hashBytes)
 
-	fmt.Printf("calculated hash string is: %s\n", hashString)
-	fmt.Printf("targeted hash string is: %s\n", targetStr)
 	return targetStr == hashString
 }

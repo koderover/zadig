@@ -49,6 +49,8 @@ type IMApp struct {
 	AgentID                  int    `json:"agent_id"                    bson:"agent_id"`
 	AgentSecret              string `json:"agent_secret"                bson:"agent_secret"`
 	WorkWXApprovalTemplateID string `json:"workwx_approval_template_id" bson:"workwx_approval_template_id"`
+	WorkWXToken              string `json:"workwx_token"                bson:"workwx_token"`
+	WorkWXAESKey             string `json:"workwx_aes_key"              bson:"workwx_aes_key"`
 }
 
 func (IMApp) TableName() string {

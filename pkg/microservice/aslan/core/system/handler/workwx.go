@@ -17,15 +17,14 @@
 package handler
 
 import (
-	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/dingtalk"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/service"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
-	"github.com/koderover/zadig/v2/pkg/tool/workwx"
 )
 
 type getWorkWXDepartmentReq struct {
@@ -76,6 +75,8 @@ type validateWorkWXCallbackReq struct {
 }
 
 func ValidateWorkWXCallback(c *gin.Context) {
+	// no defer response required
+	ctx := internalhandler.NewContext(c)
 	query := new(validateWorkWXCallbackReq)
 
 	err := c.ShouldBindQuery(query)
@@ -85,22 +86,25 @@ func ValidateWorkWXCallback(c *gin.Context) {
 		return
 	}
 
-	signatureOK := workwx.CallbackValidate(query.MsgSignature, "g2azdvjwblQKTneS0R7", query.Timestamp, query.Nonce, query.EchoString)
-	if !signatureOK {
-		c.Set(setting.ResponseError, fmt.Errorf("invalid signarture vs content"))
-		c.AbortWithStatus(http.StatusBadRequest)
-		return
-	}
-
-	plaintext, receiveID, err := workwx.DecodeEncryptedMessage("W9shnP9pST6FEOT6u7q8jEAKprKV5glEWF4qPgND5Aa", query.EchoString)
+	plainText, err := service.ValidateWorkWXWebhook(c.Param("id"), query.Timestamp, query.Nonce, query.EchoString, query.MsgSignature, ctx.Logger)
 	if err != nil {
-		fmt.Println("nooooo, err:", err)
 		c.Set(setting.ResponseError, err)
 		c.AbortWithStatus(http.StatusInternalServerError)
 		return
 	}
 
-	fmt.Println("plain text:", string(plaintext))
-	fmt.Println("receive id:", string(receiveID))
-	c.String(http.StatusOK, string(plaintext))
+	c.String(http.StatusOK, plainText)
+}
+
+func WorkWXEventHandler(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+
+	ctx.Logger.Infof("DingTalkEventHandler: New request url %s", c.Request.RequestURI)
+	body, err := c.GetRawData()
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+	ctx.Resp, ctx.Err = dingtalk.EventHandler(c.Param("ak"), body,
+		c.Query("signature"), c.Query("timestamp"), c.Query("nonce"))
 }
