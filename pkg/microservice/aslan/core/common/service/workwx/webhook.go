@@ -68,6 +68,6 @@ func EventHandler(id string, body []byte, signature, ts, nonce string) (interfac
 	}
 
 	plaintext, _, err := workwx.DecodeEncryptedMessage(info.WorkWXAESKey, msg.Encrypt)
-	fmt.Println(">>>>>>>>>>>>>>>> Decoded Plain text:", plaintext)
+	fmt.Println(">>>>>>>>>>>>>>>> Decoded Plain text:", string(plaintext))
 	return string(plaintext), err
 }
