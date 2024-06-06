@@ -70,17 +70,14 @@ func GetWorkWxUsers(c *gin.Context) {
 func ValidateWorkWXCallback(c *gin.Context) {
 	var header interface{}
 	var body interface{}
-	var query interface{}
 
 	c.ShouldBindHeader(&header)
-	c.ShouldBindQuery(&query)
 	c.ShouldBindXML(&body)
 
 	headerStr, _ := json.Marshal(header)
 	fmt.Println("header is:", string(headerStr))
 
-	queryStr, _ := json.Marshal(query)
-	fmt.Println("query is:", string(queryStr))
+	fmt.Printf("query is: %v", c.Request.URL.Query())
 
 	bodyStr, _ := xml.Marshal(body)
 	fmt.Println("body is:", string(bodyStr))
