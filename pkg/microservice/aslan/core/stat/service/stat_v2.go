@@ -477,13 +477,15 @@ func reBuildData(start, end int64, data *project30DayOverview) *DailyJobInfo {
 }
 
 type Currently30DayBuildTrend struct {
-	Name string `json:"name"`
-	Data []int  `json:"data"`
+	Name  string `json:"name"`
+	Alias string `json:"alias"`
+	Data  []int  `json:"data"`
 }
 
 type project30DayBuildData struct {
-	Name string                     `json:"name"`
-	Data []*currently30DayBuildData `json:"data"`
+	Name  string                     `json:"name"`
+	Alias string                     `json:"alias"`
+	Data  []*currently30DayBuildData `json:"data"`
 }
 
 type currently30DayBuildData struct {
@@ -506,12 +508,24 @@ func GetCurrently30DayBuildTrend(startTime, endTime int64, projects []string, lo
 		return nil, err
 	}
 
+	projectInfos, err := templaterepo.NewProductColl().ListProjectBriefs(projects)
+	if err != nil {
+		err = fmt.Errorf("failed to get project infos for %v, error: %s", projects, err)
+		logger.Error(err)
+		return nil, err
+	}
+	projectAliasMap := map[string]string{}
+	for _, projectInfo := range projectInfos {
+		projectAliasMap[projectInfo.Name] = projectInfo.Alias
+	}
+
 	logger.Infof("start:%d, end:%d, get all project name: %v", startTime, endTime, projects)
 	resp := make([]*project30DayBuildData, 0)
 	for _, project := range projects {
 		trend := &project30DayBuildData{
-			Name: project,
-			Data: make([]*currently30DayBuildData, 0),
+			Name:  project,
+			Alias: projectAliasMap[project],
+			Data:  make([]*currently30DayBuildData, 0),
 		}
 
 		for i := 0; i < len(result); i++ {
@@ -566,8 +580,9 @@ func RebuildCurrently30DayBuildData(start, end int64, data []*project30DayBuildD
 	for _, project := range data {
 		index := 0
 		buildTrend := &Currently30DayBuildTrend{
-			Name: project.Name,
-			Data: make([]int, 0),
+			Name:  project.Name,
+			Alias: project.Alias,
+			Data:  make([]int, 0),
 		}
 		for day := start; day <= end; day = time.Unix(day, 0).Add(time.Hour * 24).Unix() {
 			sort.Slice(project.Data, func(i, j int) bool {
@@ -588,6 +603,7 @@ func RebuildCurrently30DayBuildData(start, end int64, data []*project30DayBuildD
 
 type EfficiencyRadarData struct {
 	Name                           string  `json:"name"`
+	Alias                          string  `json:"alias"`
 	TestSuccessRate                float64 `json:"test_success_rate"`
 	ReleaseFrequency               float64 `json:"release_frequency"`
 	BuildFrequency                 float64 `json:"build_frequency"`
@@ -602,11 +618,22 @@ func GetEfficiencyRadar(startTime, endTime int64, projects []string, logger *zap
 		logger.Errorf("failed to get all project name from job_info collection, error: %s", err)
 		return nil, err
 	}
+	projectInfos, err := templaterepo.NewProductColl().ListProjectBriefs(projects)
+	if err != nil {
+		err = fmt.Errorf("failed to get project infos for %v, error: %s", projects, err)
+		logger.Error(err)
+		return nil, err
+	}
+	projectAliasMap := map[string]string{}
+	for _, projectInfo := range projectInfos {
+		projectAliasMap[projectInfo.Name] = projectInfo.Alias
+	}
 
 	resp := make([]*EfficiencyRadarData, 0)
 	for _, project := range projects {
 		radarData := &EfficiencyRadarData{
-			Name: project,
+			Name:  project,
+			Alias: projectAliasMap[project],
 		}
 		// test pass rate
 		testStat, err := GetProjectTestStat(startTime, endTime, project)
@@ -662,8 +689,9 @@ func GetEfficiencyRadar(startTime, endTime int64, projects []string, logger *zap
 }
 
 type MonthAttention struct {
-	ProjectName string                `json:"project_name"`
-	Facts       []*MonthAttentionData `json:"facts"`
+	ProjectName  string                `json:"project_name"`
+	ProjectAlias string                `json:"project_alias"`
+	Facts        []*MonthAttentionData `json:"facts"`
 }
 
 type MonthAttentionData struct {
@@ -683,12 +711,23 @@ func GetMonthAttention(startTime, endTime int64, projects []string, logger *zap.
 		logger.Errorf("failed to get all project name from job_info collection, error: %s", err)
 		return nil, err
 	}
+	projectInfos, err := templaterepo.NewProductColl().ListProjectBriefs(projects)
+	if err != nil {
+		err = fmt.Errorf("failed to get project infos for %v, error: %s", projects, err)
+		logger.Error(err)
+		return nil, err
+	}
+	projectAliasMap := map[string]string{}
+	for _, projectInfo := range projectInfos {
+		projectAliasMap[projectInfo.Name] = projectInfo.Alias
+	}
 
 	resp := make([]*MonthAttention, 0)
 	for _, project := range projects {
 		monthAttention := &MonthAttention{
-			ProjectName: project,
-			Facts:       []*MonthAttentionData{},
+			ProjectName:  project,
+			ProjectAlias: projectAliasMap[project],
+			Facts:        []*MonthAttentionData{},
 		}
 		// get build_success_rate
 		currentBuild, err := GetProjectBuildStat(CurrentMonthStart, CurrentMonthEnd, project)
