@@ -17,7 +17,6 @@
 package workwx
 
 import (
-	"encoding/json"
 	"fmt"
 	"strconv"
 
@@ -42,14 +41,11 @@ func (c *Client) ListDepartment(departmentID int) (*ListDepartmentResp, error) {
 
 	resp := new(ListDepartmentResp)
 
-	_, err = httpclient.Get(
+	_, err = httpclient.Post(
 		url,
 		httpclient.SetQueryParams(requestQuery),
 		httpclient.SetResult(&resp),
 	)
-
-	body, _ := json.Marshal(resp)
-	fmt.Println(">>>>>>>>>>>>>> body:", string(body))
 
 	if err != nil {
 		return nil, err
