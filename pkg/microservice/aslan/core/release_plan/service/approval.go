@@ -95,6 +95,10 @@ func createApprovalInstance(plan *models.ReleasePlan, phone string) error {
 		return createLarkApproval(plan.Approval.LarkApproval, plan.Manager, phone, formContent)
 	case config.DingTalkApproval:
 		return createDingTalkApproval(plan.Approval.DingTalkApproval, plan.Manager, phone, formContent)
+	case config.WorkWXApproval:
+		// TODO: add workwx approval
+		log.Infof("pretend that i did a work wx approval")
+		return nil
 	default:
 		return errors.New("invalid approval type")
 	}

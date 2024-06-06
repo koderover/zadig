@@ -19,6 +19,7 @@ package service
 import (
 	"context"
 
+	"github.com/koderover/zadig/v2/pkg/tool/workwx"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
@@ -46,6 +47,8 @@ func CreateIMApp(args *commonmodels.IMApp, log *zap.SugaredLogger) error {
 		return createDingTalkIMApp(args, log)
 	case setting.IMLark:
 		return createLarkIMApp(args, log)
+	case setting.IMWorkWx:
+		return createWorkWxIMApp(args, log)
 	default:
 		return errors.Errorf("unknown im type %s", args.Type)
 	}
@@ -99,12 +102,28 @@ func createLarkIMApp(args *commonmodels.IMApp, log *zap.SugaredLogger) error {
 	return nil
 }
 
+func createWorkWxIMApp(args *commonmodels.IMApp, log *zap.SugaredLogger) error {
+	err := workwx.Validate(args.Host, args.CorpID, args.AgentID, args.AgentSecret)
+	if err != nil {
+		return e.ErrCreateIMApp.AddErr(errors.Wrap(err, "validate"))
+	}
+
+	_, err = mongodb.NewIMAppColl().Create(context.Background(), args)
+	if err != nil {
+		log.Errorf("create workwx IM error: %v", err)
+		return e.ErrCreateIMApp.AddErr(err)
+	}
+	return nil
+}
+
 func UpdateIMApp(id string, args *commonmodels.IMApp, log *zap.SugaredLogger) error {
 	switch args.Type {
 	case setting.IMDingTalk:
 		return updateDingTalkIMApp(id, args, log)
 	case setting.IMLark:
 		return updateLarkIMApp(id, args, log)
+	case setting.IMWorkWx:
+		return updateWorkWxIMApp(id, args, log)
 	default:
 		return errors.Errorf("unknown im type %s", args.Type)
 	}
@@ -145,6 +164,20 @@ func updateDingTalkIMApp(id string, args *commonmodels.IMApp, log *zap.SugaredLo
 
 func updateLarkIMApp(id string, args *commonmodels.IMApp, log *zap.SugaredLogger) error {
 	err := lark.Validate(args.AppID, args.AppSecret)
+	if err != nil {
+		return e.ErrCreateIMApp.AddErr(errors.Wrap(err, "validate"))
+	}
+
+	err = mongodb.NewIMAppColl().Update(context.Background(), id, args)
+	if err != nil {
+		log.Errorf("update lark IM error: %v", err)
+		return e.ErrCreateIMApp.AddErr(err)
+	}
+	return nil
+}
+
+func updateWorkWxIMApp(id string, args *commonmodels.IMApp, log *zap.SugaredLogger) error {
+	err := workwx.Validate(args.Host, args.CorpID, args.AgentID, args.AgentSecret)
 	if err != nil {
 		return e.ErrCreateIMApp.AddErr(errors.Wrap(err, "validate"))
 	}

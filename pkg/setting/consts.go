@@ -803,6 +803,7 @@ const (
 const (
 	IMLark     = "lark"
 	IMDingTalk = "dingtalk"
+	IMWorkWx   = "workwx"
 )
 
 // lark app

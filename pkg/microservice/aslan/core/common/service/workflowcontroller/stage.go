@@ -120,6 +120,8 @@ func waitForApprove(ctx context.Context, stage *commonmodels.StageTask, workflow
 		err = waitForLarkApprove(ctx, stage, workflowCtx, logger, ack)
 	case config.DingTalkApproval:
 		err = waitForDingTalkApprove(ctx, stage, workflowCtx, logger, ack)
+	case config.WorkWXApproval:
+		err = waitForWorkWXApprove(ctx, stage, workflowCtx, logger, ack)
 	default:
 		err = errors.New("invalid approval type")
 	}
@@ -143,7 +145,7 @@ func waitForNativeApprove(ctx context.Context, stage *commonmodels.StageTask, wo
 		approvalservice.GlobalApproveMap.DeleteApproval(approveKey)
 		ack()
 	}()
-	if err := instantmessage.NewWeChatClient().SendWorkflowTaskAproveNotifications(workflowCtx.WorkflowName, workflowCtx.TaskID); err != nil {
+	if err := instantmessage.NewWeChatClient().SendWorkflowTaskApproveNotifications(workflowCtx.WorkflowName, workflowCtx.TaskID); err != nil {
 		logger.Errorf("send approve notification failed, error: %v", err)
 	}
 
@@ -251,7 +253,7 @@ func waitForLarkApprove(ctx context.Context, stage *commonmodels.StageTask, work
 	}
 	log.Infof("waitForLarkApprove: create instance success, id %s", instance)
 
-	if err := instantmessage.NewWeChatClient().SendWorkflowTaskAproveNotifications(workflowCtx.WorkflowName, workflowCtx.TaskID); err != nil {
+	if err := instantmessage.NewWeChatClient().SendWorkflowTaskApproveNotifications(workflowCtx.WorkflowName, workflowCtx.TaskID); err != nil {
 		logger.Errorf("send approve notification failed, error: %v", err)
 	}
 
@@ -457,7 +459,7 @@ func waitForDingTalkApprove(ctx context.Context, stage *commonmodels.StageTask, 
 	instanceID := instanceResp.InstanceID
 	log.Infof("waitForDingTalkApprove: create instance success, id %s", instanceID)
 
-	if err := instantmessage.NewWeChatClient().SendWorkflowTaskAproveNotifications(workflowCtx.WorkflowName, workflowCtx.TaskID); err != nil {
+	if err := instantmessage.NewWeChatClient().SendWorkflowTaskApproveNotifications(workflowCtx.WorkflowName, workflowCtx.TaskID); err != nil {
 		logger.Errorf("send approve notification failed, error: %v", err)
 	}
 	defer func() {
@@ -556,6 +558,176 @@ func waitForDingTalkApprove(ctx context.Context, stage *commonmodels.StageTask, 
 			}
 		}
 	}
+}
+
+func waitForWorkWXApprove(ctx context.Context, stage *commonmodels.StageTask, workflowCtx *commonmodels.WorkflowTaskCtx, logger *zap.SugaredLogger, ack func()) error {
+	//log.Infof("waitForWorkWXApprove start...")
+	//approval := stage.Approval.WorkWXApproval
+	//if approval == nil {
+	//	stage.Status = config.StatusFailed
+	//	return errors.New("waitForApprove: workwx approval data not found")
+	//}
+	//if approval.Timeout == 0 {
+	//	approval.Timeout = 60
+	//}
+	//
+	//data, err := mongodb.NewIMAppColl().GetByID(context.Background(), approval.ID)
+	//if err != nil {
+	//	stage.Status = config.StatusFailed
+	//	return errors.Wrap(err, "get workwx im data")
+	//}
+	//
+	//client := workwx.NewClient(data.Host, data.CorpID, data.AgentID, data.AgentSecret)
+	//
+	//detailURL := fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/custom/%s/%d?display_name=%s",
+	//	configbase.SystemAddress(),
+	//	workflowCtx.ProjectName,
+	//	workflowCtx.WorkflowName,
+	//	workflowCtx.TaskID,
+	//	url.QueryEscape(workflowCtx.WorkflowDisplayName),
+	//)
+	//descForm := ""
+	//if stage.Approval.Description != "" {
+	//	descForm = fmt.Sprintf("\n描述: %s", stage.Approval.Description)
+	//}
+	//formContent := fmt.Sprintf("项目名称: %s\n\n工作流名称: %s\n\n阶段名称: %s%s\n\n更多详见: %s",
+	//	workflowCtx.ProjectName, workflowCtx.WorkflowDisplayName, stage.Name, descForm, detailURL)
+	//
+	//applicant := approval.CreatorUserID
+	//if applicant == "" {
+	//	// TODO: GET applicant by user's phone
+	//}
+	//
+	//log.Infof("waitforWorkWXApprove: ApproveNode num %d", len(approval.ApprovalNodes))
+	//
+	//// TODO: Create approval instance
+	//instanceResp, err := client.CreateApprovalInstance(&dingtalk.CreateApprovalInstanceArgs{
+	//	ProcessCode:      data.DingTalkDefaultApprovalFormCode,
+	//	OriginatorUserID: userID,
+	//	ApproverNodeList: func() (nodeList []*dingtalk.ApprovalNode) {
+	//		for _, node := range approval.ApprovalNodes {
+	//			var userIDList []string
+	//			for _, user := range node.ApproveUsers {
+	//				userIDList = append(userIDList, user.ID)
+	//			}
+	//			nodeList = append(nodeList, &dingtalk.ApprovalNode{
+	//				UserIDs:    userIDList,
+	//				ActionType: node.Type,
+	//			})
+	//		}
+	//		return
+	//	}(),
+	//	FormContent: formContent,
+	//})
+	//if err != nil {
+	//	log.Errorf("waitForDingTalkApprove: create instance failed: %v", err)
+	//	stage.Status = config.StatusFailed
+	//	return errors.Wrap(err, "create approval instance")
+	//}
+	//instanceID := instanceResp.InstanceID
+	//log.Infof("waitForDingTalkApprove: create instance success, id %s", instanceID)
+	//
+	//if err := instantmessage.NewWeChatClient().SendWorkflowTaskApproveNotifications(workflowCtx.WorkflowName, workflowCtx.TaskID); err != nil {
+	//	logger.Errorf("send approve notification failed, error: %v", err)
+	//}
+	//defer func() {
+	//	dingservice.RemoveDingTalkApprovalManager(instanceID)
+	//}()
+	//
+	//resultMap := map[string]config.ApproveOrReject{
+	//	"agree":  config.Approve,
+	//	"refuse": config.Reject,
+	//}
+	//
+	//checkNodeStatus := func(node *commonmodels.DingTalkApprovalNode) (config.ApproveOrReject, error) {
+	//	users := node.ApproveUsers
+	//	switch node.Type {
+	//	case "AND":
+	//		result := config.Approve
+	//		for _, user := range users {
+	//			if user.RejectOrApprove == "" {
+	//				result = ""
+	//			}
+	//			if user.RejectOrApprove == config.Reject {
+	//				return config.Reject, nil
+	//			}
+	//		}
+	//		return result, nil
+	//	case "OR":
+	//		for _, user := range users {
+	//			if user.RejectOrApprove != "" {
+	//				return user.RejectOrApprove, nil
+	//			}
+	//		}
+	//		return "", nil
+	//	default:
+	//		return "", errors.Errorf("unknown node type %s", node.Type)
+	//	}
+	//}
+	//
+	//timeout := time.After(time.Duration(approval.Timeout) * time.Minute)
+	//for {
+	//	time.Sleep(1 * time.Second)
+	//	select {
+	//	case <-ctx.Done():
+	//		stage.Status = config.StatusCancelled
+	//		return fmt.Errorf("workflow was canceled")
+	//	case <-timeout:
+	//		stage.Status = config.StatusCancelled
+	//		return fmt.Errorf("workflow timeout")
+	//	default:
+	//		userApprovalResult := dingservice.GetAllUserApprovalResults(instanceID)
+	//		userUpdated := false
+	//		for _, node := range approval.ApprovalNodes {
+	//			if node.RejectOrApprove != "" {
+	//				continue
+	//			}
+	//			for _, user := range node.ApproveUsers {
+	//				if result := userApprovalResult[user.ID]; result != nil && user.RejectOrApprove == "" {
+	//					user.RejectOrApprove = resultMap[result.Result]
+	//					user.Comment = result.Remark
+	//					user.OperationTime = result.OperationTime
+	//					userUpdated = true
+	//				}
+	//			}
+	//			node.RejectOrApprove, err = checkNodeStatus(node)
+	//			if err != nil {
+	//				stage.Status = config.StatusFailed
+	//				log.Errorf("check node failed: %v", err)
+	//				return errors.Wrap(err, "check node")
+	//			}
+	//			switch node.RejectOrApprove {
+	//			case config.Approve:
+	//				ack()
+	//			case config.Reject:
+	//				stage.Status = config.StatusReject
+	//				return errors.New("Approval has been rejected")
+	//			default:
+	//				if userUpdated {
+	//					ack()
+	//				}
+	//			}
+	//			break
+	//		}
+	//		if approval.ApprovalNodes[len(approval.ApprovalNodes)-1].RejectOrApprove == config.Approve {
+	//			instanceInfo, err := client.GetApprovalInstance(instanceID)
+	//			if err != nil {
+	//				stage.Status = config.StatusFailed
+	//				log.Errorf("get instance final info failed: %v", err)
+	//				return errors.Wrap(err, "get instance final info")
+	//			}
+	//			if instanceInfo.Status == "COMPLETED" && instanceInfo.Result == "agree" {
+	//				return nil
+	//			} else {
+	//				log.Errorf("Unexpect instance final status is %s, result is %s", instanceInfo.Status, instanceInfo.Result)
+	//				stage.Status = config.StatusFailed
+	//				return errors.Wrap(err, "get unexpected instance final info")
+	//			}
+	//		}
+	//	}
+	//}
+	log.Infof("pretent that i did a approval, XDDD")
+	return nil
 }
 
 func statusFailed(status config.Status) bool {

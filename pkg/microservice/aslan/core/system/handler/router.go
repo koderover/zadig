@@ -324,6 +324,12 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		dingtalk.POST("/:ak/webhook", DingTalkEventHandler)
 	}
 
+	workwx := router.Group("workwx")
+	{
+		workwx.GET("/:id/department", GetWorkWxDepartment)
+		workwx.GET("/:id/user", GetWorkWxUsers)
+	}
+
 	pm := router.Group("project_management")
 	{
 		pm.GET("", ListProjectManagement)

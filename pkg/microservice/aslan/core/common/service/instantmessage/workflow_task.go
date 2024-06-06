@@ -37,7 +37,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/types/step"
 )
 
-func (w *Service) SendWorkflowTaskAproveNotifications(workflowName string, taskID int64) error {
+func (w *Service) SendWorkflowTaskApproveNotifications(workflowName string, taskID int64) error {
 	resp, err := w.workflowV4Coll.Find(workflowName)
 	if err != nil {
 		errMsg := fmt.Sprintf("failed to find workflowv4, err: %s", err)

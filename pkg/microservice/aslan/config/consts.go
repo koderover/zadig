@@ -270,6 +270,7 @@ const (
 	NativeApproval   ApprovalType = "native"
 	LarkApproval     ApprovalType = "lark"
 	DingTalkApproval ApprovalType = "dingtalk"
+	WorkWXApproval   ApprovalType = "workwx"
 )
 
 type ApproveOrReject string

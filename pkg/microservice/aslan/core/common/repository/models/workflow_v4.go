@@ -24,6 +24,7 @@ import (
 	"strings"
 
 	"github.com/koderover/zadig/v2/pkg/tool/blueking"
+	"github.com/koderover/zadig/v2/pkg/tool/workwx"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"gopkg.in/yaml.v3"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -108,6 +109,7 @@ type Approval struct {
 	NativeApproval   *NativeApproval     `bson:"native_approval"             yaml:"native_approval,omitempty"     json:"native_approval,omitempty"`
 	LarkApproval     *LarkApproval       `bson:"lark_approval"               yaml:"lark_approval,omitempty"       json:"lark_approval,omitempty"`
 	DingTalkApproval *DingTalkApproval   `bson:"dingtalk_approval"           yaml:"dingtalk_approval,omitempty"   json:"dingtalk_approval,omitempty"`
+	WorkWXApproval   *WorkWXApproval     `bson:"workwx_approval"             yaml:"workwx_approval,omitempty"     json:"workwx_approval,omitempty"`
 }
 
 type NativeApproval struct {
@@ -195,6 +197,20 @@ type LarkApprovalUser struct {
 	RejectOrApprove config.ApproveOrReject `bson:"reject_or_approve,omitempty"           yaml:"-"                          json:"reject_or_approve,omitempty"`
 	Comment         string                 `bson:"comment,omitempty"                     yaml:"-"                          json:"comment,omitempty"`
 	OperationTime   int64                  `bson:"operation_time,omitempty"              yaml:"-"                          json:"operation_time,omitempty"`
+}
+
+type WorkWXApproval struct {
+	Timeout int `bson:"timeout"                     yaml:"timeout"                    json:"timeout"`
+	// ID: workwx im app mongodb id
+	ID            string                `bson:"approval_id"                  yaml:"approval_id"                 json:"approval_id"`
+	CreatorUserID string                `bson:"creator_userid"               yaml:"creator_userid"              json:"creator_userid"`
+	ApprovalNodes []*WorkWXApprovalNode `bson:"approval_nodes"               yaml:"approval_nodes"              json:"approval_nodes"`
+}
+
+type WorkWXApprovalNode struct {
+	ApproveUsers    []string               `bson:"approve_users"               yaml:"approve_users"              json:"approve_users"`
+	Type            workwx.ApprovalRel     `bson:"type"                        yaml:"type"                       json:"type"`
+	RejectOrApprove config.ApproveOrReject `bson:"reject_or_approve"           yaml:"-"                          json:"reject_or_approve"`
 }
 
 type User struct {
