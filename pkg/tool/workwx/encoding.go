@@ -21,35 +21,47 @@ import (
 	"crypto/cipher"
 	"encoding/base64"
 	"fmt"
+	"strconv"
 )
 
-func DecodeEncryptedMessage(key, message string) ([]byte, error) {
+func DecodeEncryptedMessage(key, message string) ([]byte, []byte, error) {
 	// Step 1: base 64 decoding
 	decodedBytes, err := base64.StdEncoding.DecodeString(message)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	decodedKeyBytes, err := base64.StdEncoding.DecodeString(key)
+	decodedKeyBytes, err := base64.StdEncoding.DecodeString(key + "=")
 	if err != nil {
-		fmt.Println("aaaaaaaaaaaaaa")
-		return nil, err
+		return nil, nil, err
 	}
 
 	iv := decodedKeyBytes[:16]
 	block, err := aes.NewCipher(decodedKeyBytes)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// Ensure the ciphertext is a multiple of the block size
 	if len(decodedBytes)%aes.BlockSize != 0 {
-		return nil, fmt.Errorf("ciphertext is not a multiple of the block size")
+		return nil, nil, fmt.Errorf("ciphertext is not a multiple of the block size")
 	}
 
 	mode := cipher.NewCBCDecrypter(block, iv)
 	plaintext := make([]byte, len(decodedBytes))
 	mode.CryptBlocks(plaintext, decodedBytes)
 
-	return plaintext, nil
+	content := plaintext[16:]
+	contentLength, err := strconv.Atoi(string(content[0:4]))
+	if err != nil {
+		return nil, nil, err
+	}
+	plainMessageEncoded := content[4 : contentLength+4]
+	plainMessage, err := base64.StdEncoding.DecodeString(string(plainMessageEncoded))
+	if err != nil {
+		return nil, nil, err
+	}
+
+	receiveID := content[contentLength+4:]
+	return plainMessage, receiveID, nil
 }
