@@ -329,7 +329,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		workwx.GET("/:id/department", GetWorkWxDepartment)
 		workwx.GET("/:id/user", GetWorkWxUsers)
 		workwx.GET("/:id/webhook", ValidateWorkWXCallback)
-		//workwx.POST("/:id/webhook", WorkWXCallbackHandler)
+		workwx.POST("/:id/webhook", ValidateWorkWXCallback)
 	}
 
 	pm := router.Group("project_management")
