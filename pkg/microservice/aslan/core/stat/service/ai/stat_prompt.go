@@ -65,6 +65,7 @@ const AttentionPrompt = `你需要从两个月数据中做对比，分析出两�
   \"answer\": [
     {
       \"project\": \"项目A\",
+      \"project_alias\": \"项目A别名\",
       \"result\": \"项目A测试成功率提升了47.2%\",
       \"name\": \"test_success_rate\",
       \"current_month\": \"77.20\",
@@ -72,6 +73,7 @@ const AttentionPrompt = `你需要从两个月数据中做对比，分析出两�
     },
     {
       \"project\": \"项目B\",
+      \"project_alias\": \"项目B别名\",
       \"result\": \"项目B需求交付周期延长5天\",
       \"name\": \"requirement_development_lead_time\",
       \"current_month\": \"20\",
@@ -79,6 +81,7 @@ const AttentionPrompt = `你需要从两个月数据中做对比，分析出两�
     },
     {
       \"project\": \"项目R\",
+      \"project_alias\": \"项目R别名\",
       \"result\": \"项目R发布频次提升20%\",
       \"name\": \"release_frequency\",
       \"current_month\": \"60.20\",

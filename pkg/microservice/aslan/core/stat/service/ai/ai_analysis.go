@@ -431,6 +431,7 @@ type AIAttentionResp struct {
 
 type AttentionAnswer struct {
 	Project      string `json:"project"`
+	ProjectAlias string `json:"project_alias"`
 	Result       string `json:"result"`
 	Name         string `json:"name"`
 	CurrentMonth string `json:"current_month"`
