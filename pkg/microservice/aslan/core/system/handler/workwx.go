@@ -92,7 +92,7 @@ func ValidateWorkWXCallback(c *gin.Context) {
 		return
 	}
 
-	plaintext, err := workwx.DecodeEncryptedMessage("W9shnP9pST6FEOT6u7q8jEAKprKV5glEWF4qPgND5Aa", query.EchoString)
+	plaintext, err := workwx.DecodeEncryptedMessage("W9shnP9pST6FEOT6u7q8jEAKprKV5glEWF4qPgND5Aa=", query.EchoString)
 	if err != nil {
 		fmt.Println("nooooo, err:", err)
 		c.Set(setting.ResponseError, err)
