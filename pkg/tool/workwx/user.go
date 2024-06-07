@@ -56,6 +56,9 @@ func (c *Client) ListDepartmentUsers(departmentID int) (*ListDepartmentUserResp,
 }
 
 func (c *Client) FindUserByPhone(phone int) (*FindUserByPhoneResp, error) {
+	if phone == 0 {
+		return nil, fmt.Errorf("phone cannot be 0")
+	}
 	url := fmt.Sprintf("%s/%s", c.Host, getUserIDByPhoneAPI)
 
 	accessToken, err := c.getAccessToken()
