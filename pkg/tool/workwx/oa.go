@@ -17,6 +17,7 @@ limitations under the License.
 package workwx
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/koderover/zadig/v2/pkg/tool/httpclient"
@@ -96,6 +97,8 @@ func (c *Client) CreateApprovalInstance(templateID, applicant string, useTemplat
 		SummaryList:         summary,
 	}
 
+	bytes, _ := json.Marshal(req)
+
 	requestQuery := map[string]string{
 		"access_token": accessToken,
 	}
@@ -105,7 +108,7 @@ func (c *Client) CreateApprovalInstance(templateID, applicant string, useTemplat
 	_, err = httpclient.Post(
 		url,
 		httpclient.SetQueryParams(requestQuery),
-		httpclient.SetBody(req),
+		httpclient.SetBody(bytes),
 		httpclient.SetResult(&resp),
 	)
 
