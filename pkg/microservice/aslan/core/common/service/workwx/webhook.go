@@ -75,6 +75,11 @@ func EventHandler(id string, body []byte, signature, ts, nonce string) (interfac
 		return nil, fmt.Errorf("failed to decode workwx webhook message, error: %s", err)
 	}
 
+	bytes, _ := xml.Marshal(decodedMessage)
+	fmt.Println("MESSAGE IN: ==========================")
+	fmt.Println(string(bytes))
+	fmt.Println("==========================================")
+
 	switch decodedMessage.Event {
 	case workwx.EventTypeApprovalChange:
 		// do something

@@ -68,7 +68,12 @@ func (c *Client) FindUserByPhone(phone int) (*FindUserByPhoneResp, error) {
 
 	requestQuery := map[string]string{
 		"access_token": accessToken,
-		"mobile":       strconv.Itoa(phone),
+	}
+
+	body := &struct {
+		Mobile string `json:"mobile"`
+	}{
+		Mobile: strconv.Itoa(phone),
 	}
 
 	resp := new(FindUserByPhoneResp)
@@ -76,6 +81,7 @@ func (c *Client) FindUserByPhone(phone int) (*FindUserByPhoneResp, error) {
 	_, err = httpclient.Post(
 		url,
 		httpclient.SetQueryParams(requestQuery),
+		httpclient.SetBody(body),
 		httpclient.SetResult(&resp),
 	)
 
