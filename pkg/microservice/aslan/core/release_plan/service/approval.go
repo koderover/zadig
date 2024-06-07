@@ -22,12 +22,14 @@ import (
 	_ "embed"
 	"fmt"
 	"net/url"
+	"strconv"
 	"strings"
 	"text/template"
 	"time"
 
 	html2md "github.com/JohannesKaufmann/html-to-markdown"
 	"github.com/google/uuid"
+	workwxservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/workwx"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -44,6 +46,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/tool/lark"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/tool/mail"
+	"github.com/koderover/zadig/v2/pkg/tool/workwx"
 	"github.com/koderover/zadig/v2/pkg/types"
 )
 
@@ -95,6 +98,8 @@ func createApprovalInstance(plan *models.ReleasePlan, phone string) error {
 		return createLarkApproval(plan.Approval.LarkApproval, plan.Manager, phone, formContent)
 	case config.DingTalkApproval:
 		return createDingTalkApproval(plan.Approval.DingTalkApproval, plan.Manager, phone, formContent)
+	case config.WorkWXApproval:
+		return createWorkWXApproval(plan.Approval.WorkWXApproval, plan.Manager, phone, formContent)
 	default:
 		return errors.New("invalid approval type")
 	}
@@ -148,6 +153,38 @@ func createDingTalkApproval(approval *models.DingTalkApproval, manager, phone, c
 
 	approval.InstanceCode = instanceResp.InstanceID
 	return nil
+}
+
+func updateWorkWXApproval(ctx context.Context, approvalInfo *models.Approval) error {
+	if approvalInfo == nil || approvalInfo.WorkWXApproval == nil {
+		return errors.New("updateWorkWXApproval: approval data not found")
+	}
+
+	approval := approvalInfo.WorkWXApproval
+	instanceID := approval.InstanceID
+	if instanceID == "" {
+		return errors.New("updateWorkWXApproval: instance id not found")
+	}
+
+	userApprovalResult, err := workwxservice.GetWorkWXApprovalEvent(instanceID)
+	if err != nil {
+		return fmt.Errorf("updateWorkWXApproval: failed to handle workwx approval event, error: %s", err)
+	}
+
+	approvalInfo.WorkWXApproval.ApprovalNodeDetails = userApprovalResult.ProcessList.NodeList
+	switch userApprovalResult.Status {
+	case workwx.ApprovalStatusApproved:
+		approvalInfo.Status = config.StatusPassed
+		return nil
+	case workwx.ApprovalStatusRejected:
+		approvalInfo.Status = config.StatusReject
+		return nil
+	case workwx.ApprovalStatusDeleted:
+		approvalInfo.Status = config.StatusCancelled
+		return nil
+	default:
+		return nil
+	}
 }
 
 func updateDingTalkApproval(ctx context.Context, approvalInfo *models.Approval) error {
@@ -386,6 +423,66 @@ func createNativeApproval(plan *models.ReleasePlan, url string) error {
 
 	approvalservice.GlobalApproveMap.SetApproval(approveKey, approval)
 	approval.ApproveUsers = originApprovalUser
+	return nil
+}
+
+func createWorkWXApproval(approval *models.WorkWXApproval, manager, phone, content string) error {
+	if approval == nil {
+		return errors.New("waitForApprove: workwx approval data not found")
+	}
+
+	data, err := mongodb.NewIMAppColl().GetByID(context.Background(), approval.ID)
+	if err != nil {
+		return errors.Wrap(err, "get workwx im app data")
+	}
+
+	client := workwx.NewClient(data.Host, data.CorpID, data.AgentID, data.AgentSecret)
+	var applicant string
+	if approval.CreatorUser != nil {
+		applicant = approval.CreatorUser.ID
+	} else {
+		content = fmt.Sprintf("审批发起人: %s\n%s", manager, content)
+		phoneInt, err := strconv.Atoi(phone)
+		if err != nil {
+			return errors.Wrap(err, "get applicant phone")
+		}
+		resp, err := client.FindUserByPhone(phoneInt)
+		if err != nil {
+			return errors.Wrap(err, "find approval applicant by applicant phone")
+		}
+
+		applicant = resp.UserID
+	}
+
+	applydata := make([]*workwx.ApplyDataContent, 0)
+	applydata = append(applydata, &workwx.ApplyDataContent{
+		Control: config.DefaultWorkWXApprovalControlType,
+		Id:      config.DefaultWorkWXApprovalControlID,
+		Value:   &workwx.TextApplyData{Text: content},
+	})
+
+	for _, node := range approval.ApprovalNodes {
+		userIDList := make([]string, 0)
+		for _, user := range node.Users {
+			userIDList = append(userIDList, user.ID)
+		}
+		node.UserID = userIDList
+	}
+
+	instanceID, err := client.CreateApprovalInstance(
+		data.WorkWXApprovalTemplateID,
+		applicant,
+		false,
+		applydata,
+		approval.ApprovalNodes,
+		make([]*workwx.ApprovalSummary, 0),
+	)
+	if err != nil {
+		log.Errorf("create workwx approval instance failed: %v", err)
+		return errors.Wrap(err, "create approval instance")
+	}
+
+	approval.InstanceID = instanceID
 	return nil
 }
 

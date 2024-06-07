@@ -5,6 +5,7 @@ go 1.21
 require (
 	gitee.com/openeuler/go-gitee v0.0.0-20220530104019-3af895bc380c
 	github.com/27149chen/afero v1.6.2
+	github.com/JohannesKaufmann/html-to-markdown v1.6.0
 	github.com/Knetic/govaluate v3.0.0+incompatible
 	github.com/RyanCarrier/dijkstra v1.1.0
 	github.com/andygrunwald/go-gerrit v0.0.0-20220906192238-4fc99996c860
@@ -30,6 +31,7 @@ require (
 	github.com/gin-gonic/gin v1.9.1
 	github.com/go-co-op/gocron v1.17.0
 	github.com/go-ldap/ldap/v3 v3.3.0
+	github.com/go-redis/redis v6.15.9+incompatible
 	github.com/go-redsync/redsync/v4 v4.11.0
 	github.com/go-resty/resty/v2 v2.7.0
 	github.com/go-sql-driver/mysql v1.7.1
@@ -119,7 +121,6 @@ require (
 	github.com/Azure/go-ansiterm v0.0.0-20210617225240-d185dfc1b5a1 // indirect
 	github.com/Azure/go-ntlmssp v0.0.0-20200615164410-66371956d46c // indirect
 	github.com/BurntSushi/toml v1.3.2 // indirect
-	github.com/JohannesKaufmann/html-to-markdown v1.6.0 // indirect
 	github.com/KyleBanks/depth v1.2.1 // indirect
 	github.com/MakeNowJust/heredoc v1.0.0 // indirect
 	github.com/Masterminds/goutils v1.1.1 // indirect

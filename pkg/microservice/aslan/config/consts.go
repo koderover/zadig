@@ -270,6 +270,7 @@ const (
 	NativeApproval   ApprovalType = "native"
 	LarkApproval     ApprovalType = "lark"
 	DingTalkApproval ApprovalType = "dingtalk"
+	WorkWXApproval   ApprovalType = "workwx"
 )
 
 type ApproveOrReject string
@@ -563,4 +564,10 @@ const (
 	ReleasePlanJobStatusSkipped ReleasePlanJobStatus = "skipped"
 	ReleasePlanJobStatusFailed  ReleasePlanJobStatus = "failed"
 	ReleasePlanJobStatusRunning ReleasePlanJobStatus = "running"
+)
+
+// WorkWX Related constants
+const (
+	DefaultWorkWXApprovalControlType = "Textarea"
+	DefaultWorkWXApprovalControlID   = "Textarea-1"
 )

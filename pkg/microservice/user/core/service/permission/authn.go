@@ -31,6 +31,7 @@ import (
 const (
 	larkWebhookURLRegExp         = `^\/api\/aslan\/system\/lark\/\w+\/webhook$`
 	dingTalkWebhookURLRegExp     = `^\/api\/aslan\/system\/dingtalk\/\w+\/webhook$`
+	workwxWebhookURLRegExp       = `^\/api\/aslan\/system\/workwx\/\w+\/webhook$`
 	getClusterAgentYamlURLRegExp = `^\/api\/aslan\/cluster\/agent\/\w+\/agent.yaml$`
 	envWorkloadUrlRegExp         = `^\/api\/aslan\/environment\/environments\/[\w-]+\/check\/workloads\/k8services$`
 	envShareEnableURLRegExp      = `^\/api\/aslan\/environment\/environments\/[\w-]+\/check\/sharenv\/enable\/ready$`
@@ -213,6 +214,11 @@ func IsPublicURL(reqPath, method string) bool {
 
 	match, _ = regexp.MatchString(dingTalkWebhookURLRegExp, realPath)
 	if match && method == http.MethodPost {
+		return true
+	}
+
+	match, _ = regexp.MatchString(workwxWebhookURLRegExp, realPath)
+	if match && (method == http.MethodPost || method == http.MethodGet) {
 		return true
 	}
 

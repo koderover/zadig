@@ -42,6 +42,15 @@ type IMApp struct {
 	DingTalkAesKey                  string `json:"dingtalk_aes_key" bson:"dingtalk_aes_key"`
 	DingTalkToken                   string `json:"dingtalk_token" bson:"dingtalk_token"`
 	DingTalkDefaultApprovalFormCode string `json:"-" bson:"dingtalk_default_approval_form_code"`
+
+	// workwx fields
+	Host                     string `json:"host"                        bson:"host"`
+	CorpID                   string `json:"corp_id"                     bson:"corp_id"`
+	AgentID                  int    `json:"agent_id"                    bson:"agent_id"`
+	AgentSecret              string `json:"agent_secret"                bson:"agent_secret"`
+	WorkWXApprovalTemplateID string `json:"workwx_approval_template_id" bson:"workwx_approval_template_id"`
+	WorkWXToken              string `json:"workwx_token"                bson:"workwx_token"`
+	WorkWXAESKey             string `json:"workwx_aes_key"              bson:"workwx_aes_key"`
 }
 
 func (IMApp) TableName() string {

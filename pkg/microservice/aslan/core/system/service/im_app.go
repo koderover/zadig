@@ -18,7 +18,10 @@ package service
 
 import (
 	"context"
+	"fmt"
 
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
+	"github.com/koderover/zadig/v2/pkg/tool/workwx"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
@@ -46,6 +49,8 @@ func CreateIMApp(args *commonmodels.IMApp, log *zap.SugaredLogger) error {
 		return createDingTalkIMApp(args, log)
 	case setting.IMLark:
 		return createLarkIMApp(args, log)
+	case setting.IMWorkWx:
+		return createWorkWxIMApp(args, log)
 	default:
 		return errors.Errorf("unknown im type %s", args.Type)
 	}
@@ -99,12 +104,34 @@ func createLarkIMApp(args *commonmodels.IMApp, log *zap.SugaredLogger) error {
 	return nil
 }
 
+func createWorkWxIMApp(args *commonmodels.IMApp, log *zap.SugaredLogger) error {
+	client := workwx.NewClient(args.Host, args.CorpID, args.AgentID, args.AgentSecret)
+
+	templateName, controls := generateWorkWXDefaultApprovalTemplate(args.Name)
+	templateID, err := client.CreateApprovalTemplate(templateName, controls)
+	if err != nil {
+		log.Errorf("failed to create approval template for workwx, error: %s", err)
+		return fmt.Errorf("failed to create approval template for workwx, error: %s", err)
+	}
+
+	args.WorkWXApprovalTemplateID = templateID
+
+	_, err = mongodb.NewIMAppColl().Create(context.Background(), args)
+	if err != nil {
+		log.Errorf("create workwx IM error: %v", err)
+		return e.ErrCreateIMApp.AddErr(err)
+	}
+	return nil
+}
+
 func UpdateIMApp(id string, args *commonmodels.IMApp, log *zap.SugaredLogger) error {
 	switch args.Type {
 	case setting.IMDingTalk:
 		return updateDingTalkIMApp(id, args, log)
 	case setting.IMLark:
 		return updateLarkIMApp(id, args, log)
+	case setting.IMWorkWx:
+		return updateWorkWxIMApp(id, args, log)
 	default:
 		return errors.Errorf("unknown im type %s", args.Type)
 	}
@@ -157,6 +184,20 @@ func updateLarkIMApp(id string, args *commonmodels.IMApp, log *zap.SugaredLogger
 	return nil
 }
 
+func updateWorkWxIMApp(id string, args *commonmodels.IMApp, log *zap.SugaredLogger) error {
+	err := workwx.Validate(args.Host, args.CorpID, args.AgentID, args.AgentSecret)
+	if err != nil {
+		return e.ErrCreateIMApp.AddErr(errors.Wrap(err, "validate"))
+	}
+
+	err = mongodb.NewIMAppColl().Update(context.Background(), id, args)
+	if err != nil {
+		log.Errorf("update lark IM error: %v", err)
+		return e.ErrCreateIMApp.AddErr(err)
+	}
+	return nil
+}
+
 func DeleteIMApp(id string, log *zap.SugaredLogger) error {
 	err := mongodb.NewIMAppColl().DeleteByID(context.Background(), id)
 	if err != nil {
@@ -172,7 +213,34 @@ func ValidateIMApp(im *commonmodels.IMApp, log *zap.SugaredLogger) error {
 		return lark.Validate(im.AppID, im.AppSecret)
 	case setting.IMDingTalk:
 		return dingtalk.Validate(im.DingTalkAppKey, im.DingTalkAppSecret)
+	case setting.IMWorkWx:
+		return workwx.Validate(im.Host, im.CorpID, im.AgentID, im.AgentSecret)
 	default:
 		return e.ErrValidateIMApp.AddDesc("invalid type")
 	}
+}
+
+func generateWorkWXDefaultApprovalTemplate(name string) ([]*workwx.GeneralText, []*workwx.ApprovalControl) {
+	templateName := make([]*workwx.GeneralText, 0)
+	templateName = append(templateName, &workwx.GeneralText{
+		Text: fmt.Sprintf("%s - %s", "Zadig 审批", name),
+		Lang: "zh_CN",
+	})
+
+	controls := make([]*workwx.ApprovalControl, 0)
+
+	controls = append(controls, &workwx.ApprovalControl{Property: &workwx.ApprovalControlProperty{
+		Type: config.DefaultWorkWXApprovalControlType,
+		ID:   config.DefaultWorkWXApprovalControlID,
+		Title: []*workwx.GeneralText{
+			{
+				Text: "审批内容",
+				Lang: "zh_CN",
+			},
+		},
+		Require: 1,
+		UnPrint: 0,
+	}})
+
+	return templateName, controls
 }

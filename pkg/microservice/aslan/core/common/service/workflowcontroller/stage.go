@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"strconv"
 	"time"
 
 	"github.com/pkg/errors"
@@ -33,9 +34,11 @@ import (
 	dingservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/dingtalk"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/instantmessage"
 	larkservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/lark"
+	workwxservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/workwx"
 	"github.com/koderover/zadig/v2/pkg/tool/dingtalk"
 	"github.com/koderover/zadig/v2/pkg/tool/lark"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
+	"github.com/koderover/zadig/v2/pkg/tool/workwx"
 )
 
 type StageCtl interface {
@@ -120,6 +123,8 @@ func waitForApprove(ctx context.Context, stage *commonmodels.StageTask, workflow
 		err = waitForLarkApprove(ctx, stage, workflowCtx, logger, ack)
 	case config.DingTalkApproval:
 		err = waitForDingTalkApprove(ctx, stage, workflowCtx, logger, ack)
+	case config.WorkWXApproval:
+		err = waitForWorkWXApprove(ctx, stage, workflowCtx, logger, ack)
 	default:
 		err = errors.New("invalid approval type")
 	}
@@ -143,7 +148,7 @@ func waitForNativeApprove(ctx context.Context, stage *commonmodels.StageTask, wo
 		approvalservice.GlobalApproveMap.DeleteApproval(approveKey)
 		ack()
 	}()
-	if err := instantmessage.NewWeChatClient().SendWorkflowTaskAproveNotifications(workflowCtx.WorkflowName, workflowCtx.TaskID); err != nil {
+	if err := instantmessage.NewWeChatClient().SendWorkflowTaskApproveNotifications(workflowCtx.WorkflowName, workflowCtx.TaskID); err != nil {
 		logger.Errorf("send approve notification failed, error: %v", err)
 	}
 
@@ -251,7 +256,7 @@ func waitForLarkApprove(ctx context.Context, stage *commonmodels.StageTask, work
 	}
 	log.Infof("waitForLarkApprove: create instance success, id %s", instance)
 
-	if err := instantmessage.NewWeChatClient().SendWorkflowTaskAproveNotifications(workflowCtx.WorkflowName, workflowCtx.TaskID); err != nil {
+	if err := instantmessage.NewWeChatClient().SendWorkflowTaskApproveNotifications(workflowCtx.WorkflowName, workflowCtx.TaskID); err != nil {
 		logger.Errorf("send approve notification failed, error: %v", err)
 	}
 
@@ -457,7 +462,7 @@ func waitForDingTalkApprove(ctx context.Context, stage *commonmodels.StageTask, 
 	instanceID := instanceResp.InstanceID
 	log.Infof("waitForDingTalkApprove: create instance success, id %s", instanceID)
 
-	if err := instantmessage.NewWeChatClient().SendWorkflowTaskAproveNotifications(workflowCtx.WorkflowName, workflowCtx.TaskID); err != nil {
+	if err := instantmessage.NewWeChatClient().SendWorkflowTaskApproveNotifications(workflowCtx.WorkflowName, workflowCtx.TaskID); err != nil {
 		logger.Errorf("send approve notification failed, error: %v", err)
 	}
 	defer func() {
@@ -553,6 +558,131 @@ func waitForDingTalkApprove(ctx context.Context, stage *commonmodels.StageTask, 
 					stage.Status = config.StatusFailed
 					return errors.Wrap(err, "get unexpected instance final info")
 				}
+			}
+		}
+	}
+}
+
+func waitForWorkWXApprove(ctx context.Context, stage *commonmodels.StageTask, workflowCtx *commonmodels.WorkflowTaskCtx, logger *zap.SugaredLogger, ack func()) error {
+	log.Infof("waitForWorkWXApprove start...")
+	approval := stage.Approval.WorkWXApproval
+	if approval == nil {
+		stage.Status = config.StatusFailed
+		return errors.New("waitForApprove: workwx approval data not found")
+	}
+	if approval.Timeout == 0 {
+		approval.Timeout = 60
+	}
+
+	data, err := mongodb.NewIMAppColl().GetByID(context.Background(), approval.ID)
+	if err != nil {
+		stage.Status = config.StatusFailed
+		return errors.Wrap(err, "get workwx im data")
+	}
+
+	client := workwx.NewClient(data.Host, data.CorpID, data.AgentID, data.AgentSecret)
+
+	detailURL := fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/custom/%s/%d?display_name=%s",
+		configbase.SystemAddress(),
+		workflowCtx.ProjectName,
+		workflowCtx.WorkflowName,
+		workflowCtx.TaskID,
+		url.QueryEscape(workflowCtx.WorkflowDisplayName),
+	)
+	descForm := ""
+	if stage.Approval.Description != "" {
+		descForm = fmt.Sprintf("\n描述: %s", stage.Approval.Description)
+	}
+	formContent := fmt.Sprintf("项目名称: %s\n\n工作流名称: %s\n\n阶段名称: %s%s\n\n更多详见: %s",
+		workflowCtx.ProjectName, workflowCtx.WorkflowDisplayName, stage.Name, descForm, detailURL)
+
+	var applicant string
+	if approval.CreatorUser != nil {
+		applicant = approval.CreatorUser.ID
+	} else {
+		phoneInt, err := strconv.Atoi(workflowCtx.WorkflowTaskCreatorMobile)
+		if err != nil {
+			stage.Status = config.StatusFailed
+			return errors.Wrap(err, "get task creator phone")
+		}
+		resp, err := client.FindUserByPhone(phoneInt)
+		if err != nil {
+			stage.Status = config.StatusFailed
+			return errors.Wrap(err, "find approval applicant by task creator phone")
+		}
+
+		applicant = resp.UserID
+	}
+
+	log.Infof("waitforWorkWXApprove: ApproveNode num %d", len(approval.ApprovalNodes))
+
+	applydata := make([]*workwx.ApplyDataContent, 0)
+	applydata = append(applydata, &workwx.ApplyDataContent{
+		Control: config.DefaultWorkWXApprovalControlType,
+		Id:      config.DefaultWorkWXApprovalControlID,
+		Value:   &workwx.TextApplyData{Text: formContent},
+	})
+
+	for _, node := range approval.ApprovalNodes {
+		userIDList := make([]string, 0)
+		for _, user := range node.Users {
+			userIDList = append(userIDList, user.ID)
+		}
+		node.UserID = userIDList
+	}
+
+	instanceID, err := client.CreateApprovalInstance(
+		data.WorkWXApprovalTemplateID,
+		applicant,
+		false,
+		applydata,
+		approval.ApprovalNodes,
+		make([]*workwx.ApprovalSummary, 0),
+	)
+	if err != nil {
+		log.Errorf("waitForWorkWXApprove: create instance failed: %v", err)
+		stage.Status = config.StatusFailed
+		return errors.Wrap(err, "create approval instance")
+	}
+	stage.Approval.WorkWXApproval.InstanceID = instanceID
+	ack()
+	log.Infof("waitForWorkWXApprove: create instance success, id %s", instanceID)
+
+	defer func() {
+		workwxservice.RemoveWorkWXApprovalManager(instanceID)
+	}()
+
+	timeout := time.After(time.Duration(approval.Timeout) * time.Minute)
+	for {
+		time.Sleep(1 * time.Second)
+		select {
+		case <-ctx.Done():
+			stage.Status = config.StatusCancelled
+			return fmt.Errorf("workflow was canceled")
+		case <-timeout:
+			stage.Status = config.StatusCancelled
+			return fmt.Errorf("workflow timeout")
+		default:
+			userApprovalResult, err := workwxservice.GetWorkWXApprovalEvent(instanceID)
+			if err != nil {
+				log.Warnf("failed to handle workwx approval event, error: %s", err)
+				continue
+			}
+
+			stage.Approval.WorkWXApproval.ApprovalNodeDetails = userApprovalResult.ProcessList.NodeList
+			ack()
+
+			switch userApprovalResult.Status {
+			case workwx.ApprovalStatusApproved:
+				return nil
+			case workwx.ApprovalStatusRejected:
+				stage.Status = config.StatusReject
+				return errors.New("Approval has been rejected")
+			case workwx.ApprovalStatusDeleted:
+				stage.Status = config.StatusCancelled
+				return errors.New("Approval has been deleted")
+			default:
+				continue
 			}
 		}
 	}

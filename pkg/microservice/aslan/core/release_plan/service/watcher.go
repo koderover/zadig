@@ -173,6 +173,8 @@ func updatePlanApproval(plan *models.ReleasePlan) error {
 		err = updateLarkApproval(ctx, plan.Approval)
 	case config.DingTalkApproval:
 		err = updateDingTalkApproval(ctx, plan.Approval)
+	case config.WorkWXApproval:
+		err = updateWorkWXApproval(ctx, plan.Approval)
 	// NativeApproval is update when approve
 	case config.NativeApproval:
 		return nil

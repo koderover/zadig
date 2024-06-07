@@ -17,7 +17,6 @@ limitations under the License.
 package job
 
 import (
-	"encoding/json"
 	"fmt"
 	"strconv"
 
@@ -122,13 +121,6 @@ func (j *BlueKingJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 	j.spec = &commonmodels.BlueKingJobSpec{}
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return nil, err
-	}
-
-	for _, param := range j.spec.Parameters {
-		if param.Server != nil {
-			xdddd, _ := json.Marshal(param.Server)
-			fmt.Println(">>>>>>>>>>>>>>>>>>>.", string(xdddd), "<<<<<<<<<<<<<<<<<<<<<<")
-		}
 	}
 
 	resp := make([]*commonmodels.JobTask, 0)

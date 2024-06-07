@@ -132,6 +132,9 @@ func lintApproval(approval *models.Approval) error {
 				return errors.Errorf("approval-node %d type should be AND or OR", i)
 			}
 		}
+	case config.WorkWXApproval:
+		// TODO: add some linting here
+		return nil
 	default:
 		return errors.Errorf("invalid approval type %s", approval.Type)
 	}
