@@ -142,7 +142,7 @@ type Department struct {
 type ListDepartmentUserResp struct {
 	generalResponse `json:",inline"`
 
-	UserList []*UserBriefInfo `json:"user_list"`
+	UserList []*UserBriefInfo `json:"userlist"`
 }
 
 type UserBriefInfo struct {
