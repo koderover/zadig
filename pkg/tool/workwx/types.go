@@ -173,13 +173,17 @@ type FindUserByPhoneResp struct {
 }
 
 type createApprovalInstanceReq struct {
-	CreatorUserID       string              `json:"creator_userid"`
-	TemplateID          string              `json:"template_id"`
-	UseTemplateApprover int                 `json:"use_template_approver"`
-	ChooseDepartment    int                 `json:"choose_department"`
-	ApplyData           []*ApplyDataContent `json:"apply_data"`
-	Process             *ApprovalNodes      `json:"process"`
-	SummaryList         []*ApprovalSummary  `json:"summary_list"`
+	CreatorUserID       string             `json:"creator_userid"`
+	TemplateID          string             `json:"template_id"`
+	UseTemplateApprover int                `json:"use_template_approver"`
+	ChooseDepartment    int                `json:"choose_department"`
+	ApplyData           *ApprovalApplyData `json:"apply_data"`
+	Process             *ApprovalNodes     `json:"process"`
+	SummaryList         []*ApprovalSummary `json:"summary_list"`
+}
+
+type ApprovalApplyData struct {
+	Contents []*ApplyDataContent `json:"contents"`
 }
 
 type ApplyDataContent struct {
