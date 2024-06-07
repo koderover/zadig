@@ -223,7 +223,7 @@ func ValidateIMApp(im *commonmodels.IMApp, log *zap.SugaredLogger) error {
 func generateWorkWXDefaultApprovalTemplate(name string) ([]*workwx.GeneralText, []*workwx.ApprovalControl) {
 	templateName := make([]*workwx.GeneralText, 0)
 	templateName = append(templateName, &workwx.GeneralText{
-		Text: fmt.Sprintf("%s-%s", "Zadig 审批 - ", name),
+		Text: fmt.Sprintf("%s - %s", "Zadig 审批", name),
 		Lang: "zh_CN",
 	})
 
