@@ -146,7 +146,7 @@ func ValidateSonarIntegration(arg *SonarIntegration, log *zap.SugaredLogger) err
 		res := &sonarValidationResponse{}
 		err = json.Unmarshal(bodyBytes, res)
 		if err != nil {
-			log.Errorf("failed to ready response body, the error is: %s", err)
+			log.Errorf("failed to unmarshal response body, error: %s, body: %v", err, string(bodyBytes))
 			return err
 		}
 		if res.Valid {
