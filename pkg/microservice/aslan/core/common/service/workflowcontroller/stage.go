@@ -18,6 +18,7 @@ package workflowcontroller
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"strconv"
@@ -656,6 +657,11 @@ func waitForWorkWXApprove(ctx context.Context, stage *commonmodels.StageTask, wo
 				log.Warnf("failed to handle workwx approval event, error: %s", err)
 				continue
 			}
+
+			bytes, _ := json.Marshal(userApprovalResult)
+
+			fmt.Println("saving data into the approval nodes.......")
+			fmt.Println("data:", string(bytes))
 
 			stage.Approval.WorkWXApproval.ApprovalNodes = userApprovalResult.ProcessList
 			ack()
