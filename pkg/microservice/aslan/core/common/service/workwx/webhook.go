@@ -96,6 +96,9 @@ func EventHandler(id string, body []byte, signature, ts, nonce string) (interfac
 func setApprovalChange(instanceID string, change *workwx.ApprovalWebhookMessage) error {
 	bytes, _ := json.Marshal(change)
 
+	fmt.Println("saving data into redis...........")
+	fmt.Println("data:", string(bytes))
+
 	return cache.NewRedisCache(config.RedisCommonCacheTokenDB()).Write(workWXApprovalCacheKey(instanceID), string(bytes), 0)
 }
 

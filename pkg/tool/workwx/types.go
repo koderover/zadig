@@ -253,7 +253,7 @@ type ApprovalWebhookMessage struct {
 		UserID       string `xml:"UserId"            json:"user_id"`
 		DepartmentID string `xml:"Party"             json:"department_id"`
 	} `xml:"Applyer" json:"applyer"`
-	ProcessList []*ApprovalNode `xml:"ProcessList" json:"process_list"`
+	ProcessList *ApprovalNodes `xml:"ProcessList" json:"process_list"`
 }
 
 type ApprovalTemplateContent struct {
