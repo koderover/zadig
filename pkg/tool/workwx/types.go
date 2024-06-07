@@ -19,11 +19,12 @@ package workwx
 import "fmt"
 
 const (
-	getAccessTokenAPI         = "cgi-bin/gettoken"
-	listDepartmentAPI         = "cgi-bin/department/list"
-	listDepartmentUserAPI     = "cgi-bin/user/simplelist"
-	getUserIDByPhoneAPI       = "cgi-bin/user/getuserid"
-	createApprovalInstanceAPI = "cgi-bin/oa/applyevent"
+	getAccessTokenAPI               = "cgi-bin/gettoken"
+	listDepartmentAPI               = "cgi-bin/department/list"
+	listDepartmentUserAPI           = "cgi-bin/user/simplelist"
+	getUserIDByPhoneAPI             = "cgi-bin/user/getuserid"
+	createApprovalInstanceAPI       = "cgi-bin/oa/applyevent"
+	createApprovalTemplateDetailAPI = "cgi-bin/oa/approval/create_template"
 )
 
 type EventType string
@@ -89,6 +90,19 @@ const (
 	ApprovalSubNodeStatusApprovedAndAddApprover ApprovalSubNodeStatus = 13
 	ApprovalSubNodeStatusProcessing             ApprovalSubNodeStatus = 14
 	ApprovalSubNodeStatusMoved                  ApprovalSubNodeStatus = 15
+)
+
+type ControlType string
+
+const (
+	// 文本
+	ControlTypeText ControlType = "Text"
+	// 多行文本
+	ControlTypeTextArea ControlType = "Textarea"
+	// 数字
+	ControlTypeNumber ControlType = "Number"
+	// 说明文字
+	ControlTypeTips ControlType = "Tips"
 )
 
 const (
@@ -236,4 +250,27 @@ type ApprovalWebhookMessage struct {
 		DepartmentID string `xml:"Party"`
 	} `xml:"Applyer"`
 	ProcessList []*ApprovalNode `xml:"ProcessList"`
+}
+
+type ApprovalTemplateContent struct {
+	Controls []*ApprovalControl `json:"controls"`
+}
+
+type ApprovalControl struct {
+	Property *ApprovalControlProperty `json:"property"`
+}
+
+type ApprovalControlProperty struct {
+	Type        ControlType    `json:"control"`
+	ID          string         `json:"id"`
+	Title       []*GeneralText `json:"title"`
+	Placeholder []*GeneralText `json:"placeholder,omitempty"`
+	Require     int            `json:"require"`
+	UnPrint     int            `json:"un_print"`
+}
+
+type createApprovalTemplateResponse struct {
+	generalResponse `json:",inline"`
+
+	TemplateID string `json:"template_id"`
 }

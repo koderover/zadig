@@ -22,6 +22,48 @@ import (
 	"github.com/koderover/zadig/v2/pkg/tool/httpclient"
 )
 
+type createApprovalTemplateReq struct {
+	TemplateName    []*GeneralText           `json:"template_name"`
+	TemplateContent *ApprovalTemplateContent `json:"template_content"`
+}
+
+func (c *Client) CreateApprovalTemplate(templateName []*GeneralText, controls []*ApprovalControl) (string, error) {
+	url := fmt.Sprintf("%s/%s", c.Host, createApprovalTemplateDetailAPI)
+
+	accessToken, err := c.getAccessToken()
+	if err != nil {
+		return "", err
+	}
+
+	requestQuery := map[string]string{
+		"access_token": accessToken,
+	}
+
+	requestBody := &createApprovalTemplateReq{
+		TemplateName:    templateName,
+		TemplateContent: &ApprovalTemplateContent{Controls: controls},
+	}
+
+	resp := new(createApprovalTemplateResponse)
+
+	_, err = httpclient.Post(
+		url,
+		httpclient.SetQueryParams(requestQuery),
+		httpclient.SetBody(requestBody),
+		httpclient.SetResult(&resp),
+	)
+
+	if err != nil {
+		return "", err
+	}
+
+	if resp.ToError() != nil {
+		return "", resp.ToError()
+	}
+
+	return resp.TemplateID, nil
+}
+
 // TODO: Add chooseDepartment param support, for now it is useless for us.
 func (c *Client) CreateApprovalInstance(templateID, applicant string, useTemplateApprover bool, input []*ApplyDataContent, approveNodes []*ApprovalNode, summary []*ApprovalSummary) (string, error) {
 	if !useTemplateApprover && len(approveNodes) > 0 {
