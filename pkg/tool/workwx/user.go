@@ -32,8 +32,8 @@ func (c *Client) ListDepartmentUsers(departmentID int) (*ListDepartmentUserResp,
 	}
 
 	requestQuery := map[string]string{
-		"access_token": accessToken,
-		"id":           strconv.Itoa(departmentID),
+		"access_token":  accessToken,
+		"department_id": strconv.Itoa(departmentID),
 	}
 
 	resp := new(ListDepartmentUserResp)
