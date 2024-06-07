@@ -596,8 +596,10 @@ func waitForWorkWXApprove(ctx context.Context, stage *commonmodels.StageTask, wo
 	formContent := fmt.Sprintf("项目名称: %s\n\n工作流名称: %s\n\n阶段名称: %s%s\n\n更多详见: %s",
 		workflowCtx.ProjectName, workflowCtx.WorkflowDisplayName, stage.Name, descForm, detailURL)
 
-	applicant := approval.CreatorUser.ID
-	if applicant == "" {
+	var applicant string
+	if approval.CreatorUser != nil {
+		applicant = approval.CreatorUser.ID
+	} else {
 		phoneInt, err := strconv.Atoi(workflowCtx.WorkflowTaskCreatorMobile)
 		if err != nil {
 			stage.Status = config.StatusFailed

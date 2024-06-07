@@ -437,8 +437,10 @@ func createWorkWXApproval(approval *models.WorkWXApproval, manager, phone, conte
 	}
 
 	client := workwx.NewClient(data.Host, data.CorpID, data.AgentID, data.AgentSecret)
-	applicant := approval.CreatorUser.ID
-	if applicant == "" {
+	var applicant string
+	if approval.CreatorUser != nil {
+		applicant = approval.CreatorUser.ID
+	} else {
 		content = fmt.Sprintf("审批发起人: %s\n%s", manager, content)
 		phoneInt, err := strconv.Atoi(phone)
 		if err != nil {
