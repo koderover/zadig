@@ -244,16 +244,16 @@ type DecodedWebhookMessage struct {
 }
 
 type ApprovalWebhookMessage struct {
-	ID           string         `xml:"SpNo"`
-	TemplateName string         `xml:"SpName"`
-	TemplateID   string         `xml:"TemplateId"`
-	Status       ApprovalStatus `xml:"SpStatus"`
-	ApplyTime    int64          `xml:"ApplyTime"`
+	ID           string         `xml:"SpNo"           json:"id"`
+	TemplateName string         `xml:"SpName"         json:"template_name"`
+	TemplateID   string         `xml:"TemplateId"     json:"template_id"`
+	Status       ApprovalStatus `xml:"SpStatus"       json:"status"`
+	ApplyTime    int64          `xml:"ApplyTime"      json:"apply_time"`
 	Applyer      struct {
-		UserID       string `xml:"UserId"`
-		DepartmentID string `xml:"Party"`
-	} `xml:"Applyer"`
-	ProcessList []*ApprovalNode `xml:"ProcessList"`
+		UserID       string `xml:"UserId"            json:"user_id"`
+		DepartmentID string `xml:"Party"             json:"department_id"`
+	} `xml:"Applyer" json:"applyer"`
+	ProcessList []*ApprovalNode `xml:"ProcessList" json:"process_list"`
 }
 
 type ApprovalTemplateContent struct {
