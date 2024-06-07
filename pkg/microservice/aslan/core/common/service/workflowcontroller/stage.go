@@ -670,9 +670,6 @@ func waitForWorkWXApprove(ctx context.Context, stage *commonmodels.StageTask, wo
 
 			bytes, _ := json.Marshal(userApprovalResult)
 
-			fmt.Println("saving data into the approval nodes.......")
-			fmt.Println("data:", string(bytes))
-
 			stage.Approval.WorkWXApproval.ApprovalNodes = userApprovalResult.ProcessList.NodeList
 			ack()
 
