@@ -109,7 +109,7 @@ func GetWorkWXApprovalEvent(instanceID string) (*workwx.ApprovalWebhookMessage, 
 		return nil, err
 	}
 
-	fmt.Println("setting data..........")
+	fmt.Println("getting data..........")
 	fmt.Println(resp)
 	fmt.Println("done....................")
 
