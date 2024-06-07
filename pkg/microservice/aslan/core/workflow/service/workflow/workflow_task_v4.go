@@ -22,9 +22,11 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
+	workwxservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/workwx"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"gorm.io/gorm/utils"
@@ -307,7 +309,34 @@ func CheckWorkflowV4ApprovalInitiator(workflowName, uid string, log *zap.Sugared
 					}
 					isMobileChecked[stage.Approval.DingTalkApproval.ID] = true
 				}
+			case config.WorkWXApproval:
+				if stage.Approval.WorkWXApproval == nil {
+					continue
+				}
+
+				cli, err := workwxservice.GetLarkClientByIMAppID(stage.Approval.WorkWXApproval.ID)
+				if err != nil {
+					return errors.Errorf("failed to get dingtalk app info by id-%s", stage.Approval.DingTalkApproval.ID)
+				}
+
+				if initiator := stage.Approval.WorkWXApproval.CreatorUser; initiator == nil {
+					if isMobileChecked[stage.Approval.DingTalkApproval.ID] {
+						continue
+					}
+					phone, err := strconv.Atoi(userInfo.Phone)
+					if err != nil {
+						return e.ErrCheckApprovalInitiator.AddDesc("invalid phone number")
+					}
+
+					_, err = cli.FindUserByPhone(phone)
+					if err != nil {
+						return e.ErrCheckApprovalInitiator.AddDesc(fmt.Sprintf("workwx app id: %s, phone: %s, error: %v",
+							stage.Approval.WorkWXApproval.ID, userInfo.Phone, err))
+					}
+					isMobileChecked[stage.Approval.DingTalkApproval.ID] = true
+				}
 			}
+
 		}
 	}
 	return nil
