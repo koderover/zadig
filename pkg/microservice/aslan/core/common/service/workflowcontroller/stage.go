@@ -24,7 +24,6 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 
 	configbase "github.com/koderover/zadig/v2/pkg/config"
@@ -653,7 +652,7 @@ func waitForWorkWXApprove(ctx context.Context, stage *commonmodels.StageTask, wo
 			return fmt.Errorf("workflow timeout")
 		default:
 			userApprovalResult, err := workwxservice.GetWorkWXApprovalEvent(instanceID)
-			if err != nil && !errors.Is(err, redis.Nil) {
+			if err != nil {
 				log.Warnf("failed to handle workwx approval event, error: %s", err)
 				continue
 			}
