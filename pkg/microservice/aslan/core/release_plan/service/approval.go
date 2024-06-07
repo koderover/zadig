@@ -438,7 +438,7 @@ func createWorkWXApproval(approval *models.WorkWXApproval, manager, phone, conte
 	}
 
 	client := workwx.NewClient(data.Host, data.CorpID, data.AgentID, data.AgentSecret)
-	applicant := approval.CreatorUserID
+	applicant := approval.CreatorUser.ID
 	if applicant == "" {
 		content = fmt.Sprintf("审批发起人: %s\n%s", manager, content)
 		phoneInt, err := strconv.Atoi(phone)
@@ -459,6 +459,14 @@ func createWorkWXApproval(approval *models.WorkWXApproval, manager, phone, conte
 		Id:      config.DefaultWorkWXApprovalControlID,
 		Value:   &workwx.TextApplyData{Text: content},
 	})
+
+	for _, node := range approval.ApprovalNodes {
+		userIDList := make([]string, 0)
+		for _, user := range node.Users {
+			userIDList = append(userIDList, user.ID)
+		}
+		node.UserID = userIDList
+	}
 
 	instanceID, err := client.CreateApprovalInstance(
 		data.WorkWXApprovalTemplateID,

@@ -203,7 +203,7 @@ type WorkWXApproval struct {
 	Timeout int `bson:"timeout"                     yaml:"timeout"                    json:"timeout"`
 	// ID: workwx im app mongodb id
 	ID            string                 `bson:"approval_id"                  yaml:"approval_id"                 json:"approval_id"`
-	CreatorUserID string                 `bson:"creator_userid"               yaml:"creator_userid"              json:"creator_userid"`
+	CreatorUser   *workwx.ApprovalUser   `bson:"creator_user"                 yaml:"creator_user"                json:"creator_user"`
 	ApprovalNodes []*workwx.ApprovalNode `bson:"approval_nodes"               yaml:"approval_nodes"              json:"approval_nodes"`
 
 	InstanceID string `bson:"instance_id" yaml:"instance_id" json:"instance_id"`

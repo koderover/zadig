@@ -597,7 +597,7 @@ func waitForWorkWXApprove(ctx context.Context, stage *commonmodels.StageTask, wo
 	formContent := fmt.Sprintf("项目名称: %s\n\n工作流名称: %s\n\n阶段名称: %s%s\n\n更多详见: %s",
 		workflowCtx.ProjectName, workflowCtx.WorkflowDisplayName, stage.Name, descForm, detailURL)
 
-	applicant := approval.CreatorUserID
+	applicant := approval.CreatorUser.ID
 	if applicant == "" {
 		phoneInt, err := strconv.Atoi(workflowCtx.WorkflowTaskCreatorMobile)
 		if err != nil {
@@ -621,6 +621,14 @@ func waitForWorkWXApprove(ctx context.Context, stage *commonmodels.StageTask, wo
 		Id:      config.DefaultWorkWXApprovalControlID,
 		Value:   &workwx.TextApplyData{Text: formContent},
 	})
+
+	for _, node := range approval.ApprovalNodes {
+		userIDList := make([]string, 0)
+		for _, user := range node.Users {
+			userIDList = append(userIDList, user.ID)
+		}
+		node.UserID = userIDList
+	}
 
 	instanceID, err := client.CreateApprovalInstance(
 		data.WorkWXApprovalTemplateID,

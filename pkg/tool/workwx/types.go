@@ -203,9 +203,15 @@ type ApprovalNodes struct {
 type ApprovalNode struct {
 	Type     ApprovalType       `json:"type"                xml:"NodeType"    bson:"type"      yaml:"type"`
 	ApvRel   ApprovalRel        `json:"apv_rel"             xml:"ApvRel"      bson:"apv_rel"   yaml:"apv_rel"`
+	Users    []*ApprovalUser    `json:"users"               xml:"-"           bson:"users"     yaml:"users"`
 	UserID   []string           `json:"userid"              xml:"-"           bson:"user_id"   yaml:"user_id"`
 	Status   ApprovalNodeStatus `json:"status,omitempty"    xml:"SpStatus"    bson:"status"    yaml:"status"`
 	SubNodes []*ApprovalSubNode `json:"sub_nodes,omitempty" xml:"SubNodeList" bson:"sub_nodes" yaml:"sub_nodes"`
+}
+
+type ApprovalUser struct {
+	Name string `json:"name" yaml:"name" bson:"name"`
+	ID   string `json:"id"   yaml:"id"   bson:"id"`
 }
 
 type ApprovalSubNode struct {
