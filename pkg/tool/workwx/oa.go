@@ -98,6 +98,7 @@ func (c *Client) CreateApprovalInstance(templateID, applicant string, useTemplat
 	}
 
 	bytes, _ := json.Marshal(req)
+	fmt.Println(">>>>>>>>>>>>>>>>>>>>>>>>", string(bytes))
 
 	requestQuery := map[string]string{
 		"access_token": accessToken,
