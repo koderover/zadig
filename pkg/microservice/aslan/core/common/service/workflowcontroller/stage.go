@@ -635,6 +635,8 @@ func waitForWorkWXApprove(ctx context.Context, stage *commonmodels.StageTask, wo
 		stage.Status = config.StatusFailed
 		return errors.Wrap(err, "create approval instance")
 	}
+	stage.Approval.WorkWXApproval.InstanceID = instanceID
+	ack()
 	log.Infof("waitForWorkWXApprove: create instance success, id %s", instanceID)
 
 	defer func() {
