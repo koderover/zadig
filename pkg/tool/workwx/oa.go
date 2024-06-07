@@ -17,7 +17,6 @@ limitations under the License.
 package workwx
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"github.com/koderover/zadig/v2/pkg/tool/httpclient"
@@ -67,7 +66,7 @@ func (c *Client) CreateApprovalTemplate(templateName []*GeneralText, controls []
 
 // TODO: Add chooseDepartment param support, for now it is useless for us.
 func (c *Client) CreateApprovalInstance(templateID, applicant string, useTemplateApprover bool, input []*ApplyDataContent, approveNodes []*ApprovalNode, summary []*ApprovalSummary) (string, error) {
-	if !useTemplateApprover && len(approveNodes) > 0 {
+	if useTemplateApprover && len(approveNodes) > 0 {
 		return "", fmt.Errorf("cannot pass approval node while not using it")
 	}
 
@@ -97,9 +96,6 @@ func (c *Client) CreateApprovalInstance(templateID, applicant string, useTemplat
 		SummaryList:         summary,
 	}
 
-	bytes, _ := json.Marshal(req)
-	fmt.Println(">>>>>>>>>>>>>>>>>>>>>>>>", string(bytes))
-
 	requestQuery := map[string]string{
 		"access_token": accessToken,
 	}
@@ -109,7 +105,7 @@ func (c *Client) CreateApprovalInstance(templateID, applicant string, useTemplat
 	_, err = httpclient.Post(
 		url,
 		httpclient.SetQueryParams(requestQuery),
-		httpclient.SetBody(bytes),
+		httpclient.SetBody(req),
 		httpclient.SetResult(&resp),
 	)
 
