@@ -171,7 +171,7 @@ func updateWorkWXApproval(ctx context.Context, approvalInfo *models.Approval) er
 		return fmt.Errorf("updateWorkWXApproval: failed to handle workwx approval event, error: %s", err)
 	}
 
-	approvalInfo.WorkWXApproval.ApprovalNodes = userApprovalResult.ProcessList.NodeList
+	approvalInfo.WorkWXApproval.ApprovalNodeDetails = userApprovalResult.ProcessList.NodeList
 	switch userApprovalResult.Status {
 	case workwx.ApprovalStatusApproved:
 		approvalInfo.Status = config.StatusPassed

@@ -202,9 +202,10 @@ type LarkApprovalUser struct {
 type WorkWXApproval struct {
 	Timeout int `bson:"timeout"                     yaml:"timeout"                    json:"timeout"`
 	// ID: workwx im app mongodb id
-	ID            string                 `bson:"approval_id"                  yaml:"approval_id"                 json:"approval_id"`
-	CreatorUser   *workwx.ApprovalUser   `bson:"creator_user"                 yaml:"creator_user"                json:"creator_user"`
-	ApprovalNodes []*workwx.ApprovalNode `bson:"approval_nodes"               yaml:"approval_nodes"              json:"approval_nodes"`
+	ID                  string                 `bson:"approval_id"                  yaml:"approval_id"                 json:"approval_id"`
+	CreatorUser         *workwx.ApprovalUser   `bson:"creator_user"                 yaml:"creator_user"                json:"creator_user"`
+	ApprovalNodes       []*workwx.ApprovalNode `bson:"approval_nodes"               yaml:"approval_nodes"              json:"approval_nodes"`
+	ApprovalNodeDetails []*workwx.ApprovalNode `bson:"approval_node_details"        yaml:"approval_node_details"       json:"approval_node_details"`
 
 	InstanceID string `bson:"instance_id" yaml:"instance_id" json:"instance_id"`
 }

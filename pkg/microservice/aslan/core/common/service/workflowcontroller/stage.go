@@ -18,7 +18,6 @@ package workflowcontroller
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/url"
 	"strconv"
@@ -668,9 +667,7 @@ func waitForWorkWXApprove(ctx context.Context, stage *commonmodels.StageTask, wo
 				continue
 			}
 
-			bytes, _ := json.Marshal(userApprovalResult)
-
-			stage.Approval.WorkWXApproval.ApprovalNodes = userApprovalResult.ProcessList.NodeList
+			stage.Approval.WorkWXApproval.ApprovalNodeDetails = userApprovalResult.ProcessList.NodeList
 			ack()
 
 			switch userApprovalResult.Status {
