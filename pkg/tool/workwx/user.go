@@ -73,7 +73,7 @@ func (c *Client) FindUserByPhone(phone int) (*FindUserByPhoneResp, error) {
 
 	resp := new(FindUserByPhoneResp)
 
-	_, err = httpclient.Get(
+	_, err = httpclient.Post(
 		url,
 		httpclient.SetQueryParams(requestQuery),
 		httpclient.SetResult(&resp),
