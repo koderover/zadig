@@ -31,7 +31,6 @@ import (
 	"github.com/google/uuid"
 	workwxservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/workwx"
 	"github.com/pkg/errors"
-	"github.com/redis/go-redis/v9"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	configbase "github.com/koderover/zadig/v2/pkg/config"
@@ -168,7 +167,7 @@ func updateWorkWXApproval(ctx context.Context, approvalInfo *models.Approval) er
 	}
 
 	userApprovalResult, err := workwxservice.GetWorkWXApprovalEvent(instanceID)
-	if err != nil && !errors.Is(err, redis.Nil) {
+	if err != nil {
 		return fmt.Errorf("updateWorkWXApproval: failed to handle workwx approval event, error: %s", err)
 	}
 
