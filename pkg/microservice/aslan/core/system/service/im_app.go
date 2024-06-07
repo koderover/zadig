@@ -19,7 +19,6 @@ package service
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/v2/pkg/tool/workwx"
@@ -108,7 +107,7 @@ func createLarkIMApp(args *commonmodels.IMApp, log *zap.SugaredLogger) error {
 func createWorkWxIMApp(args *commonmodels.IMApp, log *zap.SugaredLogger) error {
 	client := workwx.NewClient(args.Host, args.CorpID, args.AgentID, args.AgentSecret)
 
-	templateName, controls := generateWorkWXDefaultApprovalTemplate()
+	templateName, controls := generateWorkWXDefaultApprovalTemplate(args.Name)
 	templateID, err := client.CreateApprovalTemplate(templateName, controls)
 	if err != nil {
 		log.Errorf("failed to create approval template for workwx, error: %s", err)
@@ -221,10 +220,10 @@ func ValidateIMApp(im *commonmodels.IMApp, log *zap.SugaredLogger) error {
 	}
 }
 
-func generateWorkWXDefaultApprovalTemplate() ([]*workwx.GeneralText, []*workwx.ApprovalControl) {
+func generateWorkWXDefaultApprovalTemplate(name string) ([]*workwx.GeneralText, []*workwx.ApprovalControl) {
 	templateName := make([]*workwx.GeneralText, 0)
 	templateName = append(templateName, &workwx.GeneralText{
-		Text: fmt.Sprintf("%s-%d", "Zadig 审批模板", time.Now().Unix()),
+		Text: fmt.Sprintf("%s-%s", "Zadig 审批 - ", name),
 		Lang: "zh_CN",
 	})
 
