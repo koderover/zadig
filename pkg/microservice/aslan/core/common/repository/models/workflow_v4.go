@@ -202,30 +202,11 @@ type LarkApprovalUser struct {
 type WorkWXApproval struct {
 	Timeout int `bson:"timeout"                     yaml:"timeout"                    json:"timeout"`
 	// ID: workwx im app mongodb id
-	ID            string                `bson:"approval_id"                  yaml:"approval_id"                 json:"approval_id"`
-	CreatorUserID string                `bson:"creator_userid"               yaml:"creator_userid"              json:"creator_userid"`
-	ApprovalNodes []*WorkWXApprovalNode `bson:"approval_nodes"               yaml:"approval_nodes"              json:"approval_nodes"`
-}
+	ID            string                 `bson:"approval_id"                  yaml:"approval_id"                 json:"approval_id"`
+	CreatorUserID string                 `bson:"creator_userid"               yaml:"creator_userid"              json:"creator_userid"`
+	ApprovalNodes []*workwx.ApprovalNode `bson:"approval_nodes"               yaml:"approval_nodes"              json:"approval_nodes"`
 
-type WorkWXApprovalNode struct {
-	ApproveUsers    []string               `bson:"approve_users"               yaml:"approve_users"              json:"approve_users"`
-	Type            workwx.ApprovalRel     `bson:"type"                        yaml:"type"                       json:"type"`
-	RejectOrApprove config.ApproveOrReject `bson:"reject_or_approve"           yaml:"-"                          json:"reject_or_approve"`
-}
-
-// TODO: For now the only supported type is approval, there should be no CC type in the node list or it will go wrong.
-func (w *WorkWXApproval) GenerateApprovalNodes() []*workwx.ApprovalNode {
-	resp := make([]*workwx.ApprovalNode, 0)
-
-	for _, node := range w.ApprovalNodes {
-		resp = append(resp, &workwx.ApprovalNode{
-			Type:   workwx.ApprovalTypeApprove,
-			ApvRel: node.Type,
-			UserID: node.ApproveUsers,
-		})
-	}
-
-	return resp
+	InstanceID string `bson:"instance_id" yaml:"instance_id" json:"instance_id"`
 }
 
 type User struct {

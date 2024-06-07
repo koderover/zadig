@@ -993,8 +993,8 @@ func lintApprovals(approval *commonmodels.Approval) error {
 		return nil
 	}
 	if err := util.CheckZadigProfessionalLicense(); err != nil {
-		if approval.Type == config.LarkApproval || approval.Type == config.DingTalkApproval {
-			return e.ErrLicenseInvalid.AddDesc("飞书和钉钉审批是专业版功能")
+		if approval.Type == config.LarkApproval || approval.Type == config.DingTalkApproval || approval.Type == config.WorkWXApproval {
+			return e.ErrLicenseInvalid.AddDesc("飞书、钉钉、企业微信审批是专业版功能")
 		}
 	}
 	if !approval.Enabled {
@@ -1048,6 +1048,8 @@ func lintApprovals(approval *commonmodels.Approval) error {
 				return errors.Errorf("approval-node %d type should be AND or OR", i)
 			}
 		}
+	case config.WorkWXApproval:
+		// TODO: do some linting if required
 	default:
 		return errors.Errorf("invalid approval type %s", approval.Type)
 	}

@@ -870,6 +870,7 @@ func cleanWorkflowV4TasksPreviews(workflows []*commonmodels.WorkflowTaskPreview)
 					config.NativeApproval:   "Zadig 审批",
 					config.LarkApproval:     "飞书审批",
 					config.DingTalkApproval: "钉钉审批",
+					config.WorkWXApproval:   "企业微信审批",
 				}
 				approvalStage := &commonmodels.StagePreview{
 					StartTime: stage.Approval.StartTime,
@@ -915,6 +916,7 @@ func cleanWorkflowV4Tasks(workflows []*commonmodels.WorkflowTask) {
 						config.NativeApproval:   "Zadig 审批",
 						config.LarkApproval:     "飞书审批",
 						config.DingTalkApproval: "钉钉审批",
+						config.WorkWXApproval:   "企业微信审批",
 					}[stage.Approval.Type],
 					StartTime: stage.Approval.StartTime,
 					EndTime:   stage.Approval.EndTime,

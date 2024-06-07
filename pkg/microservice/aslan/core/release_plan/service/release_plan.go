@@ -848,6 +848,10 @@ func clearApprovalData(approval *models.Approval) error {
 				user.Comment = ""
 			}
 		}
+	case config.WorkWXApproval:
+		if approval.WorkWXApproval == nil {
+			return errors.New("nil workwx approval")
+		}
 	case config.NativeApproval:
 		if approval.NativeApproval == nil {
 			return errors.New("nil native approval")

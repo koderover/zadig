@@ -18,6 +18,7 @@ package workwx
 
 import (
 	"context"
+	"encoding/json"
 	"encoding/xml"
 	"fmt"
 
@@ -37,12 +38,6 @@ func RemoveWorkWXApprovalManager(instanceID string) {
 	cache.NewRedisCache(config.RedisCommonCacheTokenDB()).Delete(workWXApprovalCacheKey(instanceID))
 }
 
-type WebhookMessage struct {
-	ToUserName string `xml:"ToUserName"`
-	AgentID    string `xml:"AgentID"`
-	Encrypt    string `xml:"Encrypt"`
-}
-
 func EventHandler(id string, body []byte, signature, ts, nonce string) (interface{}, error) {
 	log := log.SugaredLogger().With("func", "WorkWXEventHandler").With("ID", id)
 
@@ -53,7 +48,7 @@ func EventHandler(id string, body []byte, signature, ts, nonce string) (interfac
 		return nil, errors.Wrap(err, "get workwx info error")
 	}
 
-	msg := new(WebhookMessage)
+	msg := new(workwx.EncryptedWebhookMessage)
 
 	err = xml.Unmarshal(body, msg)
 	if err != nil {
@@ -68,6 +63,51 @@ func EventHandler(id string, body []byte, signature, ts, nonce string) (interfac
 	}
 
 	plaintext, _, err := workwx.DecodeEncryptedMessage(info.WorkWXAESKey, msg.Encrypt)
-	fmt.Println(">>>>>>>>>>>>>>>> Decoded Plain text:", string(plaintext))
+	if err != nil {
+		log.Errorf("failed to decode workwx webhook message, error: %s", err)
+		return nil, fmt.Errorf("failed to decode workwx webhook message, error: %s", err)
+	}
+
+	decodedMessage := new(workwx.DecodedWebhookMessage)
+	err = xml.Unmarshal(plaintext, decodedMessage)
+	if err != nil {
+		log.Errorf("failed to decode workwx webhook message, error: %s", err)
+		return nil, fmt.Errorf("failed to decode workwx webhook message, error: %s", err)
+	}
+
+	switch decodedMessage.Event {
+	case workwx.EventTypeApprovalChange:
+		// do something
+		if decodedMessage.ApprovalInfo == nil {
+			return "", fmt.Errorf("empty ApprovalInfo field")
+		}
+
+		err = setApprovalChange(decodedMessage.ApprovalInfo.ID, decodedMessage.ApprovalInfo)
+		if err != nil {
+			// do not return error since it is a webhook handler
+			log.Errorf("failed to save the approval status change event into the redis, error: %s")
+		}
+	default:
+		return "", fmt.Errorf("unsupported event type for now")
+	}
 	return string(plaintext), err
+}
+
+func setApprovalChange(instanceID string, change *workwx.ApprovalWebhookMessage) error {
+	bytes, _ := json.Marshal(change)
+	return cache.NewRedisCache(config.RedisCommonCacheTokenDB()).Write(workWXApprovalCacheKey(instanceID), string(bytes), 0)
+}
+
+func GetWorkWXApprovalEvent(instanceID string) (*workwx.ApprovalWebhookMessage, error) {
+	resp, err := cache.NewRedisCache(config.RedisCommonCacheTokenDB()).GetString(workWXApprovalCacheKey(instanceID))
+	if err != nil {
+		return nil, err
+	}
+
+	changeMessage := new(workwx.ApprovalWebhookMessage)
+	err = json.Unmarshal([]byte(resp), changeMessage)
+	if err != nil {
+		return nil, err
+	}
+	return changeMessage, nil
 }
