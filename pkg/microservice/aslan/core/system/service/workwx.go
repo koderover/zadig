@@ -83,7 +83,7 @@ func GetWorkWxUsers(appID string, departmentID int, log *zap.SugaredLogger) (*Ge
 }
 
 func ValidateWorkWXWebhook(id, timestamp, nonce, echoString, validationString string, log *zap.SugaredLogger) (string, error) {
-	app, err := mongodb.NewIMAppColl().GetByID(context.Background(), id)
+	app, err := mongodb.NewIMAppColl().GetWorkWXByAppID(context.Background(), id)
 	if err != nil {
 		errStr := fmt.Sprintf("failed to find im app by id: %s, error: %s", id, err)
 		log.Errorf(errStr)
