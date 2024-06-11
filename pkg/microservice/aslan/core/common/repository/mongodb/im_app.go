@@ -19,6 +19,7 @@ package mongodb
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/pkg/errors"
@@ -121,7 +122,11 @@ func (c *IMAppColl) GetDingTalkByAppKey(ctx context.Context, appKey string) (*mo
 }
 
 func (c *IMAppColl) GetWorkWXByAppID(ctx context.Context, appID string) (*models.IMApp, error) {
-	query := bson.M{"agent_id": appID}
+	realAgentID, err := strconv.Atoi(appID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid appID")
+	}
+	query := bson.M{"agent_id": realAgentID}
 
 	resp := new(models.IMApp)
 	return resp, c.FindOne(ctx, query).Decode(resp)
