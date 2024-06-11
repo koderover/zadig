@@ -42,7 +42,7 @@ func EventHandler(id string, body []byte, signature, ts, nonce string) (interfac
 	log := log.SugaredLogger().With("func", "WorkWXEventHandler").With("ID", id)
 
 	log.Info("New workwx event received")
-	info, err := mongodb.NewIMAppColl().GetByID(context.Background(), id)
+	info, err := mongodb.NewIMAppColl().GetWorkWXByAppID(context.Background(), id)
 	if err != nil {
 		log.Errorf("get workwx info error: %v", err)
 		return nil, errors.Wrap(err, "get workwx info error")
