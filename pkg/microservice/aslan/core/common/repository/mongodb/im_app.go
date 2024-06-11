@@ -120,6 +120,13 @@ func (c *IMAppColl) GetDingTalkByAppKey(ctx context.Context, appKey string) (*mo
 	return resp, c.FindOne(ctx, query).Decode(resp)
 }
 
+func (c *IMAppColl) GetWorkWXByAppID(ctx context.Context, appID string) (*models.IMApp, error) {
+	query := bson.M{"agent_id": appID}
+
+	resp := new(models.IMApp)
+	return resp, c.FindOne(ctx, query).Decode(resp)
+}
+
 func (c *IMAppColl) Update(ctx context.Context, idString string, arg *models.IMApp) error {
 	if arg == nil {
 		return fmt.Errorf("nil app")
