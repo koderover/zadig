@@ -526,8 +526,10 @@ func (c *DeployJobCtl) getResourcesPodOwnerUIDImpl(strict bool) ([]commonmodels.
 
 func (c *DeployJobCtl) getResourcesPodOwnerUID() ([]commonmodels.Resource, error) {
 	timeout := time.After(time.Second * 20)
+
 	var newResources []commonmodels.Resource
 	var err error
+
 	for {
 		if len(newResources) > 0 || err != nil {
 			break
