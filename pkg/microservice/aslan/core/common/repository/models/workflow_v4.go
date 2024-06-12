@@ -474,7 +474,22 @@ type TestModule struct {
 }
 
 type ZadigScanningJobSpec struct {
-	Scannings []*ScanningModule `bson:"scannings"     yaml:"scannings"        json:"scannings"`
+	ScanningType  config.ScanningModuleType `bson:"scanning_type"    yaml:"scanning_type"    json:"scanning_type"`
+	Source        config.DeploySourceType   `bson:"source"           yaml:"source"           json:"source"`
+	JobName       string                    `bson:"job_name"         yaml:"job_name"         json:"job_name"`
+	OriginJobName string                    `bson:"origin_job_name"  yaml:"origin_job_name"  json:"origin_job_name"`
+	// Scannings used only for normal scanning. for service scanning we use
+	Scannings []*ScanningModule `bson:"scannings"        yaml:"scannings"        json:"scannings"`
+	// ServiceAndScannings is the configured field for this job. It includes all the services along with its configured scanning.
+	ServiceAndScannings []*ServiceAndScannings `bson:"service_and_scannings" yaml:"service_and_scannings" json:"service_and_scannings"`
+	// selected service in service scanning
+	TargetServices []*ServiceTestTarget `bson:"target_services"   yaml:"target_services"   json:"target_services"`
+}
+
+type ServiceAndScannings struct {
+	ServiceName    string `bson:"service_name"        yaml:"service_name"     json:"service_name"`
+	ServiceModule  string `bson:"service_module"      yaml:"service_module"   json:"service_module"`
+	ScanningModule `bson:",inline"  yaml:",inline"  json:",inline"`
 }
 
 type ScanningModule struct {

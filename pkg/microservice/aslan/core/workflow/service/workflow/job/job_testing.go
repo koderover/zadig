@@ -109,7 +109,7 @@ func (j *TestingJob) ClearSelectionField() error {
 	if err := commonmodels.IToiYaml(j.job.Spec, j.spec); err != nil {
 		return err
 	}
-	j.spec.ServiceAndTests = make([]*commonmodels.ServiceAndTest, 0)
+	j.spec.TargetServices = make([]*commonmodels.ServiceTestTarget, 0)
 	j.job.Spec = j.spec
 	return nil
 }
