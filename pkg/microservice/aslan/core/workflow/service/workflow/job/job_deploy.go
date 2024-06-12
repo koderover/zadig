@@ -575,8 +575,9 @@ func generateEnvDeployServiceInfo(env, project string, spec *commonmodels.ZadigD
 
 	updateConfig := false
 	for _, contents := range spec.DeployContents {
-		if contents == config.DeployVars {
+		if contents == config.DeployVars || contents == config.DeployConfig {
 			updateConfig = true
+			break
 		}
 	}
 
