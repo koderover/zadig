@@ -277,7 +277,7 @@ func removeResources(currentItems, newItems []*unstructured.Unstructured, namesp
 }
 
 func ManifestToResource(manifest string) ([]*commonmodels.ServiceResource, error) {
-	unstructuredList, err := ManifestToUnstructured(manifest)
+	unstructuredList, _, err := ManifestToUnstructured(manifest)
 	if err != nil {
 		return nil, err
 	}
@@ -295,22 +295,33 @@ func UnstructuredToResources(unstructured []*unstructured.Unstructured) []*commo
 	return ret
 }
 
-func ManifestToUnstructured(manifest string) ([]*unstructured.Unstructured, error) {
+type Resource struct {
+	mainfest     string
+	unstructured *unstructured.Unstructured
+}
+
+func ManifestToUnstructured(manifest string) ([]*unstructured.Unstructured, map[string]*Resource, error) {
 	if len(manifest) == 0 {
-		return nil, nil
+		return nil, nil, nil
 	}
 	manifests := releaseutil.SplitManifests(manifest)
 	errList := &multierror.Error{}
-	resources := make([]*unstructured.Unstructured, 0, len(manifests))
+	resources := []*unstructured.Unstructured{}
+	resourceMap := make(map[string]*Resource)
 	for _, item := range manifests {
 		u, err := serializer.NewDecoder().YamlToUnstructured([]byte(item))
 		if err != nil {
 			errList = multierror.Append(errList, err)
 			continue
 		}
+		GVKN := fmt.Sprintf("%s-%s", u.GetObjectKind().GroupVersionKind(), u.GetName())
+		resourceMap[GVKN] = &Resource{
+			mainfest:     item,
+			unstructured: u,
+		}
 		resources = append(resources, u)
 	}
-	return resources, errList.ErrorOrNil()
+	return resources, resourceMap, errList.ErrorOrNil()
 }
 
 func CheckReleaseInstalledByOtherEnv(releaseNames sets.String, productInfo *commonmodels.Product) error {
@@ -347,7 +358,7 @@ func CheckReleaseInstalledByOtherEnv(releaseNames sets.String, productInfo *comm
 }
 
 func CheckResourceAppliedByOtherEnv(serviceYaml string, productInfo *commonmodels.Product, serviceName string) error {
-	unstructuredRes, err := ManifestToUnstructured(serviceYaml)
+	unstructuredRes, _, err := ManifestToUnstructured(serviceYaml)
 	if err != nil {
 		return fmt.Errorf("failed to convert manifest to resource, error: %v", err)
 	}
@@ -399,24 +410,12 @@ func CheckResourceAppliedByOtherEnv(serviceYaml string, productInfo *commonmodel
 // CreateOrPatchResource create or patch resources defined in UpdateResourceYaml
 // `CurrentResourceYaml` will be used to determine if some resources will be deleted
 func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogger) ([]*unstructured.Unstructured, error) {
+	var err error
 	productInfo := applyParam.ProductInfo
-
 	namespace, productName, envName := productInfo.Namespace, productInfo.ProductName, productInfo.EnvName
 	informer := applyParam.Informer
 	kubeClient := applyParam.KubeClient
 	istioClient := applyParam.IstioClient
-
-	curResources, err := ManifestToUnstructured(applyParam.CurrentResourceYaml)
-	if err != nil {
-		log.Errorf("Failed to convert currently deplyed resource yaml to Unstructured, manifest is\n%s\n, error: %v", applyParam.CurrentResourceYaml, err)
-		return nil, err
-	}
-
-	resources, err := ManifestToUnstructured(applyParam.UpdateResourceYaml)
-	if err != nil {
-		log.Errorf("Failed to convert yaml to Unstructured, manifest is\n%s\n, error: %v", applyParam.UpdateResourceYaml, err)
-		return nil, err
-	}
 
 	clientSet, errGetClientSet := kubeclient.GetKubeClientSet(config.HubServerAddress(), productInfo.ClusterID)
 	if errGetClientSet != nil {
@@ -429,19 +428,49 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 		return nil, err
 	}
 
+	curResources, curResourceMap, err := ManifestToUnstructured(applyParam.CurrentResourceYaml)
+	if err != nil {
+		log.Errorf("Failed to convert currently deplyed resource yaml to Unstructured, manifest is\n%s\n, error: %v", applyParam.CurrentResourceYaml, err)
+		return nil, err
+	}
+
+	updateResources, updateResourceMap, err := ManifestToUnstructured(applyParam.UpdateResourceYaml)
+	if err != nil {
+		log.Errorf("Failed to convert yaml to Unstructured, manifest is\n%s\n, error: %v", applyParam.UpdateResourceYaml, err)
+		return nil, err
+	}
+
 	if applyParam.Uninstall {
 		if !commonutil.ServiceDeployed(applyParam.ServiceName, productInfo.ServiceDeployStrategy) {
 			return nil, nil
 		}
 
-		err = removeResources(curResources, resources, namespace, applyParam.WaitForUninstall, applyParam.KubeClient, clientSet, versionInfo, log)
+		err = removeResources(curResources, updateResources, namespace, applyParam.WaitForUninstall, applyParam.KubeClient, clientSet, versionInfo, log)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to remove old resources")
 		}
 		return nil, nil
 	}
 
-	err = removeResources(curResources, resources, namespace, applyParam.WaitForUninstall, applyParam.KubeClient, clientSet, versionInfo, log)
+	// calc resources to be removed and resources to be created or updated
+	removeRes := []*unstructured.Unstructured{}
+	unchangedResources := []*unstructured.Unstructured{}
+	for GVKN, cr := range curResourceMap {
+		r, ok := updateResourceMap[GVKN]
+		if !ok {
+			removeRes = append(removeRes, cr.unstructured)
+		}
+		if r.mainfest == cr.mainfest {
+			unchangedResources = append(unchangedResources, cr.unstructured)
+			delete(updateResourceMap, GVKN)
+		}
+	}
+	updateResources = []*unstructured.Unstructured{}
+	for _, r := range updateResourceMap {
+		updateResources = append(updateResources, r.unstructured)
+	}
+
+	err = removeResources(removeRes, nil, namespace, applyParam.WaitForUninstall, applyParam.KubeClient, clientSet, versionInfo, log)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to remove old resources")
 	}
@@ -456,7 +485,10 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 	var res []*unstructured.Unstructured
 	errList := &multierror.Error{}
 
-	for _, u := range resources {
+	for _, u := range unchangedResources {
+		res = append(res, u)
+	}
+	for _, u := range updateResources {
 		switch u.GetKind() {
 		case setting.Ingress:
 			ls := MergeLabels(labels, u.GetLabels())
