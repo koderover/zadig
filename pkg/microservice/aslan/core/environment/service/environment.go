@@ -2241,7 +2241,7 @@ func deleteK8sProductServices(productInfo *commonmodels.Product, serviceNames []
 			continue
 		}
 
-		unstructuredList, err := kube.ManifestToUnstructured(serviceRelatedYaml[name])
+		unstructuredList, _, err := kube.ManifestToUnstructured(serviceRelatedYaml[name])
 		if err != nil {
 			// Only record and do not block subsequent traversals.
 			log.Errorf("failed to convert k8s manifest to unstructured list when deleting service: %s, err: %s", name, err)
