@@ -32,16 +32,19 @@ type Scanning struct {
 	Description string             `bson:"description"   json:"description"`
 	ScannerType string             `bson:"scanner_type"  json:"scanner_type"`
 	// EnableScanner indicates whether user uses sonar scanner instead of the script
-	EnableScanner bool                `bson:"enable_scanner" json:"enable_scanner"`
-	ImageID       string              `bson:"image_id"      json:"image_id"`
-	SonarID       string              `bson:"sonar_id"      json:"sonar_id"`
-	Repos         []*types.Repository `bson:"repos"         json:"repos"`
-	Installs      []*Item             `bson:"installs"      json:"installs"`
+	EnableScanner  bool                `bson:"enable_scanner" json:"enable_scanner"`
+	ImageID        string              `bson:"image_id"      json:"image_id"`
+	SonarID        string              `bson:"sonar_id"      json:"sonar_id"`
+	Repos          []*types.Repository `bson:"repos"         json:"repos"`
+	Installs       []*Item             `bson:"installs"      json:"installs"`
+	Infrastructure string              `bson:"infrastructure"           json:"infrastructure"`
+	VMLabels       []string            `bson:"vm_labels"                json:"vm_labels"`
 	// Parameter is for sonarQube type only
 	Parameter string `bson:"parameter" json:"parameter"`
 	// Envs is the user defined key/values
 	Envs []*KeyVal `bson:"envs" json:"envs"`
 	// Script is for other type only
+	ScriptType       types.ScriptType         `bson:"script_type"           json:"script_type"`
 	Script           string                   `bson:"script"                json:"script"`
 	AdvancedSetting  *ScanningAdvancedSetting `bson:"advanced_setting"      json:"advanced_setting"`
 	CheckQualityGate bool                     `bson:"check_quality_gate"    json:"check_quality_gate"`

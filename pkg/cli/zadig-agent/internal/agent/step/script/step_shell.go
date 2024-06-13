@@ -27,12 +27,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/config"
-	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/common/types"
 	"gopkg.in/yaml.v2"
 
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/config"
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/helper/log"
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/agent/step/helper"
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/common/types"
 )
 
 type ShellStep struct {
@@ -126,7 +126,7 @@ func generateScript(spec *StepShellSpec, dirs *types.AgentWorkDirs, jobOutput []
 	}
 	scripts := []string{}
 	scripts = append(scripts, spec.Scripts...)
-	scripts = replaceEnvWithValue(scripts, envmaps)
+	scripts = helper.ReplaceEnvArrWithValue(scripts, envmaps)
 
 	// add job output to script
 	if len(jobOutput) > 0 {
@@ -153,25 +153,4 @@ func outputScript(outputsDir string, outputs []string) []string {
 		}
 	}
 	return resp
-}
-
-func replaceEnvWithValue(str []string, envs map[string]string) []string {
-	ret := []string{}
-	for _, s := range str {
-		// Exec twice to render nested variables
-		for i := 0; i < 2; i++ {
-			for key, value := range envs {
-				strKey := fmt.Sprintf("$%s", key)
-				s = strings.ReplaceAll(s, strKey, value)
-				strKey = fmt.Sprintf("${%s}", key)
-				s = strings.ReplaceAll(s, strKey, value)
-				strKey = fmt.Sprintf("%%%s%%", key)
-				s = strings.ReplaceAll(s, strKey, value)
-				strKey = fmt.Sprintf("$env:%s", key)
-				s = strings.ReplaceAll(s, strKey, value)
-			}
-		}
-		ret = append(ret, s)
-	}
-	return ret
 }

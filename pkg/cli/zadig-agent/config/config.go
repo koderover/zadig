@@ -18,9 +18,9 @@ package config
 
 import (
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
+	"sync"
 
 	"github.com/spf13/viper"
 	"gopkg.in/yaml.v2"
@@ -29,7 +29,10 @@ import (
 	utilfile "github.com/koderover/zadig/v2/pkg/cli/zadig-agent/util/file"
 )
 
-var agentConfig *AgentConfig
+var (
+	agentConfigRWMutex sync.RWMutex
+	agentConfig        *AgentConfig
+)
 
 func NewAgentConfig() *AgentConfig {
 	if agentConfig != nil && agentConfig.Token != "" && agentConfig.ServerURL != "" {
@@ -90,17 +93,7 @@ func InitConfig() bool {
 
 	// load config file for agent
 	if exists {
-		config := &AgentConfig{}
-		yamlFile, err := ioutil.ReadFile(path)
-		if err != nil {
-			log.Panicf("failed to read agent config file: %v", err)
-		}
-
-		err = yaml.Unmarshal(yamlFile, config)
-		if err != nil {
-			log.Panicf("failed to unmarshal agent config file: %v", err)
-		}
-
+		config := GetAgentConfigFile(path)
 		if config.Token != "" && config.ServerURL != "" {
 			agentConfig = config
 			agentConfig.AgentVersion = BuildAgentVersion
@@ -132,16 +125,7 @@ func SetZadigVersion(version string) {
 	}
 
 	// update config file
-	config := &AgentConfig{}
-	yamlFile, err := ioutil.ReadFile(path)
-	if err != nil {
-		log.Panicf("failed to read agent config file: %v", err)
-	}
-
-	err = yaml.Unmarshal(yamlFile, config)
-	if err != nil {
-		log.Panicf("failed to unmarshal agent config file: %v", err)
-	}
+	config := GetAgentConfigFile(path)
 	config.ZadigVersion = version
 	err = UpdateAgentConfigFile(config, path)
 	if err != nil {
@@ -161,16 +145,7 @@ func SetAgentStatus(status string) {
 	}
 
 	// update config file
-	config := &AgentConfig{}
-	yamlFile, err := ioutil.ReadFile(path)
-	if err != nil {
-		log.Panicf("failed to read agent config file: %v", err)
-	}
-
-	err = yaml.Unmarshal(yamlFile, config)
-	if err != nil {
-		log.Panicf("failed to unmarshal agent config file: %v", err)
-	}
+	config := GetAgentConfigFile(path)
 	config.Status = status
 	err = UpdateAgentConfigFile(config, path)
 	if err != nil {
@@ -194,16 +169,7 @@ func SetScheduleWorkflow(scheduleWorkflow bool) {
 	}
 
 	// update config file
-	config := &AgentConfig{}
-	yamlFile, err := ioutil.ReadFile(path)
-	if err != nil {
-		log.Panicf("failed to read agent config file: %v", err)
-	}
-
-	err = yaml.Unmarshal(yamlFile, config)
-	if err != nil {
-		log.Panicf("failed to unmarshal agent config file: %v", err)
-	}
+	config := GetAgentConfigFile(path)
 	config.ScheduleWorkflow = scheduleWorkflow
 	err = UpdateAgentConfigFile(config, path)
 	if err != nil {
@@ -224,16 +190,7 @@ func SetAgentToken(token string) {
 	}
 
 	// update config file
-	config := &AgentConfig{}
-	yamlFile, err := ioutil.ReadFile(path)
-	if err != nil {
-		log.Panicf("failed to read agent config file: %v", err)
-	}
-
-	err = yaml.Unmarshal(yamlFile, config)
-	if err != nil {
-		log.Panicf("failed to unmarshal agent config file: %v", err)
-	}
+	config := GetAgentConfigFile(path)
 	config.Token = token
 	err = UpdateAgentConfigFile(config, path)
 	if err != nil {
@@ -254,16 +211,7 @@ func SetServerURL(serverURL string) {
 	}
 
 	// update config file
-	config := &AgentConfig{}
-	yamlFile, err := ioutil.ReadFile(path)
-	if err != nil {
-		log.Panicf("failed to read agent config file: %v", err)
-	}
-
-	err = yaml.Unmarshal(yamlFile, config)
-	if err != nil {
-		log.Panicf("failed to unmarshal agent config file: %v", err)
-	}
+	config := GetAgentConfigFile(path)
 	config.ServerURL = serverURL
 	err = UpdateAgentConfigFile(config, path)
 	if err != nil {
@@ -284,16 +232,7 @@ func SetAgentErrMsg(errMsg string) {
 	}
 
 	// update config file
-	config := &AgentConfig{}
-	yamlFile, err := ioutil.ReadFile(path)
-	if err != nil {
-		log.Panicf("failed to read agent config file: %v", err)
-	}
-
-	err = yaml.Unmarshal(yamlFile, config)
-	if err != nil {
-		log.Panicf("failed to unmarshal agent config file: %v", err)
-	}
+	config := GetAgentConfigFile(path)
 	config.ErrMsg = errMsg
 	err = UpdateAgentConfigFile(config, path)
 	if err != nil {
@@ -314,16 +253,7 @@ func SetAgentWorkDirectory(workDirectory string) {
 	}
 
 	// update config file
-	config := &AgentConfig{}
-	yamlFile, err := ioutil.ReadFile(path)
-	if err != nil {
-		log.Panicf("failed to read agent config file: %v", err)
-	}
-
-	err = yaml.Unmarshal(yamlFile, config)
-	if err != nil {
-		log.Panicf("failed to unmarshal agent config file: %v", err)
-	}
+	config := GetAgentConfigFile(path)
 	config.WorkDirectory = workDirectory
 	err = UpdateAgentConfigFile(config, path)
 	if err != nil {
@@ -366,16 +296,7 @@ func SetConcurrency(concurrency int) {
 	}
 
 	// update config file
-	config := &AgentConfig{}
-	yamlFile, err := ioutil.ReadFile(path)
-	if err != nil {
-		log.Panicf("failed to read agent config file: %v", err)
-	}
-
-	err = yaml.Unmarshal(yamlFile, config)
-	if err != nil {
-		log.Panicf("failed to unmarshal agent config file: %v", err)
-	}
+	config := GetAgentConfigFile(path)
 	config.Concurrency = concurrency
 	err = UpdateAgentConfigFile(config, path)
 	if err != nil {
@@ -422,17 +343,7 @@ func GetAgentConfig() (*AgentConfig, error) {
 
 		// load config file for agent
 		if exists {
-			config := &AgentConfig{}
-			yamlFile, err := ioutil.ReadFile(path)
-			if err != nil {
-				log.Panicf("failed to read agent config file: %v", err)
-			}
-
-			err = yaml.Unmarshal(yamlFile, config)
-			if err != nil {
-				log.Panicf("failed to unmarshal agent config file: %v", err)
-			}
-
+			config := GetAgentConfigFile(path)
 			agentConfig = config
 			agentConfig.AgentVersion = BuildAgentVersion
 			agentConfig.BuildCommit = BuildCommit
@@ -446,13 +357,34 @@ func GetAgentConfig() (*AgentConfig, error) {
 	return agentConfig, nil
 }
 
+func GetAgentConfigFile(path string) *AgentConfig {
+	agentConfigRWMutex.RLock()
+	defer agentConfigRWMutex.RUnlock()
+
+	config := &AgentConfig{}
+	yamlFile, err := os.ReadFile(path)
+	if err != nil {
+		log.Panicf("failed to read agent config file: %v", err)
+	}
+
+	err = yaml.Unmarshal(yamlFile, config)
+	if err != nil {
+		log.Panicf("failed to unmarshal agent config file: %v", err)
+	}
+
+	return config
+}
+
 func UpdateAgentConfigFile(config *AgentConfig, path string) error {
 	yamlConfig, err := yaml.Marshal(config)
 	if err != nil {
 		return fmt.Errorf("failed to marshal agent config file: %v", err)
 	}
 
-	err = ioutil.WriteFile(path, yamlConfig, 0644)
+	agentConfigRWMutex.Lock()
+	defer agentConfigRWMutex.Unlock()
+
+	err = os.WriteFile(path, yamlConfig, 0644)
 	if err != nil {
 		return fmt.Errorf("failed to write agent config file: %v", err)
 	}
@@ -474,16 +406,7 @@ func BatchUpdateAgentConfig(config *AgentConfig) error {
 	}
 
 	// update config file
-	oldConfig := new(AgentConfig)
-	yamlFile, err := ioutil.ReadFile(path)
-	if err != nil {
-		log.Panicf("failed to read agent config file: %v", err)
-	}
-
-	err = yaml.Unmarshal(yamlFile, oldConfig)
-	if err != nil {
-		log.Panicf("failed to unmarshal agent config file: %v", err)
-	}
+	oldConfig := GetAgentConfigFile(path)
 
 	// if token is empty, indicate that the agent is not registered
 	if oldConfig.Token == "" {

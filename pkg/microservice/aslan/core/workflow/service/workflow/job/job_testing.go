@@ -361,13 +361,15 @@ func (j *TestingJob) toJobtask(testing *commonmodels.TestModule, defaultS3 *comm
 	}
 	jobTaskSpec := &commonmodels.JobTaskFreestyleSpec{}
 	jobTask := &commonmodels.JobTask{
-		Name:    jobName,
-		Key:     strings.Join([]string{j.job.Name, testing.Name}, "."),
-		JobInfo: jobInfo,
-		JobType: string(config.JobZadigTesting),
-		Spec:    jobTaskSpec,
-		Timeout: int64(testingInfo.Timeout),
-		Outputs: testingInfo.Outputs,
+		Name:           jobName,
+		Key:            strings.Join([]string{j.job.Name, testing.Name}, "."),
+		JobInfo:        jobInfo,
+		JobType:        string(config.JobZadigTesting),
+		Spec:           jobTaskSpec,
+		Timeout:        int64(testingInfo.Timeout),
+		Outputs:        testingInfo.Outputs,
+		Infrastructure: testingInfo.Infrastructure,
+		VMLabels:       testingInfo.VMLabels,
 	}
 	jobTaskSpec.Properties = commonmodels.JobProperties{
 		Timeout:             int64(testingInfo.Timeout),
@@ -388,34 +390,40 @@ func (j *TestingJob) toJobtask(testing *commonmodels.TestModule, defaultS3 *comm
 		return jobTask, fmt.Errorf("failed to find cluster: %s, error: %v", testingInfo.PreTest.ClusterID, err)
 	}
 
-	if clusterInfo.Cache.MediumType == "" {
-		jobTaskSpec.Properties.CacheEnable = false
-	} else {
-		jobTaskSpec.Properties.Cache = clusterInfo.Cache
+	if jobTask.Infrastructure == setting.JobVMInfrastructure {
 		jobTaskSpec.Properties.CacheEnable = testingInfo.CacheEnable
 		jobTaskSpec.Properties.CacheDirType = testingInfo.CacheDirType
 		jobTaskSpec.Properties.CacheUserDir = testingInfo.CacheUserDir
+	} else {
+		if clusterInfo.Cache.MediumType == "" {
+			jobTaskSpec.Properties.CacheEnable = false
+		} else {
+			jobTaskSpec.Properties.Cache = clusterInfo.Cache
+			jobTaskSpec.Properties.CacheEnable = testingInfo.CacheEnable
+			jobTaskSpec.Properties.CacheDirType = testingInfo.CacheDirType
+			jobTaskSpec.Properties.CacheUserDir = testingInfo.CacheUserDir
 
-		if jobTaskSpec.Properties.Cache.MediumType == types.ObjectMedium {
-			cacheS3, err = commonrepo.NewS3StorageColl().Find(jobTaskSpec.Properties.Cache.ObjectProperties.ID)
-			if err != nil {
-				return jobTask, fmt.Errorf("find cache s3 storage: %s error: %v", jobTaskSpec.Properties.Cache.ObjectProperties.ID, err)
+			if jobTaskSpec.Properties.Cache.MediumType == types.ObjectMedium {
+				cacheS3, err = commonrepo.NewS3StorageColl().Find(jobTaskSpec.Properties.Cache.ObjectProperties.ID)
+				if err != nil {
+					return jobTask, fmt.Errorf("find cache s3 storage: %s error: %v", jobTaskSpec.Properties.Cache.ObjectProperties.ID, err)
+				}
+			}
+		}
+		if jobTaskSpec.Properties.CacheEnable {
+			jobTaskSpec.Properties.CacheUserDir = renderEnv(jobTaskSpec.Properties.CacheUserDir, jobTaskSpec.Properties.Envs)
+			if jobTaskSpec.Properties.Cache.MediumType == types.NFSMedium {
+				jobTaskSpec.Properties.Cache.NFSProperties.Subpath = renderEnv(jobTaskSpec.Properties.Cache.NFSProperties.Subpath, jobTaskSpec.Properties.Envs)
+			} else if jobTaskSpec.Properties.Cache.MediumType == types.ObjectMedium {
+				cacheS3, err = commonrepo.NewS3StorageColl().Find(jobTaskSpec.Properties.Cache.ObjectProperties.ID)
+				if err != nil {
+					return jobTask, fmt.Errorf("find cache s3 storage: %s error: %v", jobTaskSpec.Properties.Cache.ObjectProperties.ID, err)
+				}
 			}
 		}
 	}
-	if jobTaskSpec.Properties.CacheEnable {
-		jobTaskSpec.Properties.CacheUserDir = renderEnv(jobTaskSpec.Properties.CacheUserDir, jobTaskSpec.Properties.Envs)
-		if jobTaskSpec.Properties.Cache.MediumType == types.NFSMedium {
-			jobTaskSpec.Properties.Cache.NFSProperties.Subpath = renderEnv(jobTaskSpec.Properties.Cache.NFSProperties.Subpath, jobTaskSpec.Properties.Envs)
-		} else if jobTaskSpec.Properties.Cache.MediumType == types.ObjectMedium {
-			cacheS3, err = commonrepo.NewS3StorageColl().Find(jobTaskSpec.Properties.Cache.ObjectProperties.ID)
-			if err != nil {
-				return jobTask, fmt.Errorf("find cache s3 storage: %s error: %v", jobTaskSpec.Properties.Cache.ObjectProperties.ID, err)
-			}
-		}
-	}
 
-	jobTaskSpec.Properties.Envs = append(jobTaskSpec.Properties.CustomEnvs, getTestingJobVariables(testing.Repos, taskID, j.workflow.Project, j.workflow.Name, j.workflow.DisplayName, testing.ProjectName, testing.Name, testType, serviceName, serviceModule, "", logger)...)
+	jobTaskSpec.Properties.Envs = append(jobTaskSpec.Properties.CustomEnvs, getTestingJobVariables(testing.Repos, taskID, j.workflow.Project, j.workflow.Name, j.workflow.DisplayName, testing.ProjectName, testing.Name, testType, serviceName, serviceModule, jobTask.Infrastructure, logger)...)
 
 	// init tools install step
 	tools := []*step.Tool{}
@@ -468,16 +476,30 @@ func (j *TestingJob) toJobtask(testing *commonmodels.TestModule, defaultS3 *comm
 		StepType: config.StepDebugBefore,
 	}
 	jobTaskSpec.Steps = append(jobTaskSpec.Steps, debugBeforeStep)
-	// init shell step
-	shellStep := &commonmodels.StepTask{
-		Name:     testing.Name + "-shell",
-		JobName:  jobTask.Name,
-		StepType: config.StepShell,
-		Spec: &step.StepShellSpec{
-			Scripts: append(strings.Split(replaceWrapLine(testingInfo.Scripts), "\n"), outputScript(testingInfo.Outputs)...),
-		},
+
+	scriptStep := &commonmodels.StepTask{
+		JobName: jobTask.Name,
 	}
-	jobTaskSpec.Steps = append(jobTaskSpec.Steps, shellStep)
+	if testingInfo.ScriptType == types.ScriptTypeShell || testingInfo.ScriptType == "" {
+		scriptStep.Name = testing.Name + "-shell"
+		scriptStep.StepType = config.StepShell
+		scriptStep.Spec = &step.StepShellSpec{
+			Scripts: append(strings.Split(replaceWrapLine(testingInfo.Scripts), "\n"), outputScript(testingInfo.Outputs)...),
+		}
+	} else if testingInfo.ScriptType == types.ScriptTypeBatchFile {
+		scriptStep.Name = testing.Name + "-batchfile"
+		scriptStep.StepType = config.StepBatchFile
+		scriptStep.Spec = &step.StepBatchFileSpec{
+			Scripts: append(strings.Split(replaceWrapLine(testingInfo.Scripts), "\n"), outputScript(testingInfo.Outputs)...),
+		}
+	} else if testingInfo.ScriptType == types.ScriptTypePowerShell {
+		scriptStep.Name = testing.Name + "-powershell"
+		scriptStep.StepType = config.StepPowerShell
+		scriptStep.Spec = &step.StepPowerShellSpec{
+			Scripts: append(strings.Split(replaceWrapLine(testingInfo.Scripts), "\n"), outputScript(testingInfo.Outputs)...),
+		}
+	}
+	jobTaskSpec.Steps = append(jobTaskSpec.Steps, scriptStep)
 	// init debug after step
 	debugAfterStep := &commonmodels.StepTask{
 		Name:     testing.Name + "-debug_after",

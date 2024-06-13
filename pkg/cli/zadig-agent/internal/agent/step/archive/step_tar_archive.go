@@ -77,8 +77,8 @@ func (s *TarArchiveStep) Run(ctx context.Context) error {
 
 	envMap := helper.MakeEnvMap(s.envs, s.secretEnvs)
 	tarName := filepath.Join(s.spec.DestDir, s.spec.FileName)
-	tarName = replaceEnvWithValue(tarName, envMap)
-	s.spec.TarDir = replaceEnvWithValue(s.spec.TarDir, envMap)
+	tarName = helper.ReplaceEnvWithValue(tarName, envMap)
+	s.spec.TarDir = helper.ReplaceEnvWithValue(s.spec.TarDir, envMap)
 
 	cmdAndArtifactFullPaths := make([]string, 0)
 	cmdAndArtifactFullPaths = append(cmdAndArtifactFullPaths, "-czf")
@@ -87,7 +87,7 @@ func (s *TarArchiveStep) Run(ctx context.Context) error {
 		if len(artifactPath) == 0 {
 			continue
 		}
-		artifactPath = replaceEnvWithValue(artifactPath, envMap)
+		artifactPath = helper.ReplaceEnvWithValue(artifactPath, envMap)
 		artifactPath = strings.TrimPrefix(artifactPath, "/")
 
 		artifactPath := filepath.Join(s.workspace, artifactPath)

@@ -24,18 +24,21 @@ import (
 )
 
 type Testing struct {
-	ID          primitive.ObjectID  `bson:"_id,omitempty"            json:"id,omitempty"`
-	Name        string              `bson:"name"                     json:"name"`
-	ProductName string              `bson:"product_name"             json:"product_name"`
-	Desc        string              `bson:"desc"                     json:"desc"`
-	Timeout     int                 `bson:"timeout"                  json:"timeout"`
-	Team        string              `bson:"team"                     json:"team"`
-	Repos       []*types.Repository `bson:"repos"                    json:"repos"`
-	PreTest     *PreTest            `bson:"pre_test"                 json:"pre_test"`
-	PostTest    *PostTest           `bson:"post_test"                json:"post_test"`
-	Scripts     string              `bson:"scripts"                  json:"scripts"`
-	UpdateTime  int64               `bson:"update_time"              json:"update_time"`
-	UpdateBy    string              `bson:"update_by"                json:"update_by"`
+	ID             primitive.ObjectID  `bson:"_id,omitempty"            json:"id,omitempty"`
+	Name           string              `bson:"name"                     json:"name"`
+	ProductName    string              `bson:"product_name"             json:"product_name"`
+	Desc           string              `bson:"desc"                     json:"desc"`
+	Timeout        int                 `bson:"timeout"                  json:"timeout"`
+	Team           string              `bson:"team"                     json:"team"`
+	Infrastructure string              `bson:"infrastructure"           json:"infrastructure"`
+	VMLabels       []string            `bson:"vm_labels"                json:"vm_labels"`
+	Repos          []*types.Repository `bson:"repos"                    json:"repos"`
+	PreTest        *PreTest            `bson:"pre_test"                 json:"pre_test"`
+	PostTest       *PostTest           `bson:"post_test"                json:"post_test"`
+	ScriptType     types.ScriptType    `bson:"script_type"              json:"script_type"`
+	Scripts        string              `bson:"scripts"                  json:"scripts"`
+	UpdateTime     int64               `bson:"update_time"              json:"update_time"`
+	UpdateBy       string              `bson:"update_by"                json:"update_by"`
 	// Junit 测试报告
 	TestResultPath string `bson:"test_result_path"         json:"test_result_path"`
 	// html 测试报告
