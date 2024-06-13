@@ -373,11 +373,7 @@ func (j *ScanningJob) toJobTask(scanning *commonmodels.ScanningModule, taskID in
 		Timeout: timeout,
 		Outputs: scanningInfo.Outputs,
 	}
-	envs := getScanningJobVariables(scanning.Repos, taskID, j.workflow.Project, j.workflow.Name, j.workflow.DisplayName, "", scanningType, serviceName, serviceModule)
-	envs = append(envs, &commonmodels.KeyVal{
-		Key:   "SCANNING_NAME",
-		Value: scanning.Name,
-	})
+	envs := getScanningJobVariables(scanning.Repos, taskID, j.workflow.Project, j.workflow.Name, j.workflow.DisplayName, "", scanningType, serviceName, serviceModule, scanning.Name)
 	envs = append(envs, scanningInfo.Envs...)
 
 	scanningImage := basicImage.Value
@@ -668,7 +664,7 @@ func (j *ScanningJob) getOriginReferedJobTargets(jobName string) ([]*commonmodel
 	return nil, fmt.Errorf("build job %s not found", jobName)
 }
 
-func getScanningJobVariables(repos []*types.Repository, taskID int64, project, workflowName, workflowDisplayName, infrastructure, scanningType, serviceName, serviceModule string) []*commonmodels.KeyVal {
+func getScanningJobVariables(repos []*types.Repository, taskID int64, project, workflowName, workflowDisplayName, infrastructure, scanningType, serviceName, serviceModule, scanningName string) []*commonmodels.KeyVal {
 	ret := []*commonmodels.KeyVal{}
 
 	// basic envs
@@ -679,6 +675,7 @@ func getScanningJobVariables(repos []*types.Repository, taskID int64, project, w
 	ret = append(ret, &commonmodels.KeyVal{Key: "SCANNING_TYPE", Value: scanningType, IsCredential: false})
 	ret = append(ret, &commonmodels.KeyVal{Key: "SERVICE_NAME", Value: serviceName, IsCredential: false})
 	ret = append(ret, &commonmodels.KeyVal{Key: "SERVICE_MODULE", Value: serviceModule, IsCredential: false})
+	ret = append(ret, &commonmodels.KeyVal{Key: "SCANNING_NAME", Value: scanningName, IsCredential: false})
 
 	return ret
 }
