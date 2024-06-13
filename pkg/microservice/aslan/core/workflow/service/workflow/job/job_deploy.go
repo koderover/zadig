@@ -575,7 +575,7 @@ func generateEnvDeployServiceInfo(env, project string, spec *commonmodels.ZadigD
 
 	updateConfig := false
 	for _, contents := range spec.DeployContents {
-		if contents == config.DeployVars || contents == config.DeployConfig {
+		if contents == config.DeployConfig {
 			updateConfig = true
 			break
 		}
@@ -867,7 +867,7 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 				if service != nil {
 					jobTaskSpec.UpdateConfig = service.UpdateConfig
 					jobTaskSpec.VariableConfigs = service.VariableConfigs
-					if service.UpdateConfig {
+					if slices.Contains(j.spec.DeployContents, config.DeployVars) {
 						jobTaskSpec.VariableKVs = service.LatestVariableKVs
 					} else {
 						jobTaskSpec.VariableKVs = service.VariableKVs
