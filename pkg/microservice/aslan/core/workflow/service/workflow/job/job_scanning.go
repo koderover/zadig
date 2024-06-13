@@ -259,15 +259,46 @@ func (j *ScanningJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return resp, err
 	}
-	j.job.Spec = j.spec
 
-	for _, scanning := range j.spec.Scannings {
-		jobTask, err := j.toJobTask(scanning, taskID, logger)
-		if err != nil {
-			return nil, err
+	if j.spec.ScanningType == config.NormalScanningType {
+		for _, scanning := range j.spec.Scannings {
+			jobTask, err := j.toJobTask(scanning, taskID, string(j.spec.ScanningType), "", "", logger)
+			if err != nil {
+				return nil, err
+			}
+			resp = append(resp, jobTask)
 		}
-		resp = append(resp, jobTask)
 	}
+
+	// get deploy info from previous build job
+	if j.spec.Source == config.SourceFromJob {
+		// adapt to the front end, use the direct quoted job name
+		if j.spec.OriginJobName != "" {
+			j.spec.JobName = j.spec.OriginJobName
+		}
+		targets, err := j.getOriginReferedJobTargets(j.spec.JobName)
+		if err != nil {
+			return resp, fmt.Errorf("get origin refered job: %s targets failed, err: %v", j.spec.JobName, err)
+		}
+		// clear service and image list to prevent old data from remaining
+		j.spec.TargetServices = targets
+	}
+
+	if j.spec.ScanningType == config.ServiceScanningType {
+		for _, target := range j.spec.TargetServices {
+			for _, scanning := range j.spec.ServiceAndScannings {
+				if scanning.ServiceName != target.ServiceName || scanning.ServiceModule != target.ServiceModule {
+					continue
+				}
+				jobTask, err := j.toJobTask(&scanning.ScanningModule, taskID, string(j.spec.ScanningType), scanning.ServiceName, scanning.ServiceModule, logger)
+				if err != nil {
+					return resp, err
+				}
+				resp = append(resp, jobTask)
+			}
+		}
+	}
+
 	j.job.Spec = j.spec
 	return resp, nil
 }
@@ -298,7 +329,7 @@ func (j *ScanningJob) GetOutPuts(log *zap.SugaredLogger) []string {
 	return resp
 }
 
-func (j *ScanningJob) toJobTask(scanning *commonmodels.ScanningModule, taskID int64, logger *zap.SugaredLogger) (*commonmodels.JobTask, error) {
+func (j *ScanningJob) toJobTask(scanning *commonmodels.ScanningModule, taskID int64, scanningType, serviceName, serviceModule string, logger *zap.SugaredLogger) (*commonmodels.JobTask, error) {
 	scanningInfo, err := commonrepo.NewScanningColl().Find(j.workflow.Project, scanning.Name)
 	if err != nil {
 		return nil, fmt.Errorf("find scanning: %s error: %v", scanning.Name, err)
@@ -320,14 +351,23 @@ func (j *ScanningJob) toJobTask(scanning *commonmodels.ScanningModule, taskID in
 	if scanningInfo.AdvancedSetting != nil {
 		timeout = scanningInfo.AdvancedSetting.Timeout
 	}
-	jobTaskSpec := &commonmodels.JobTaskFreestyleSpec{}
+	jobTaskSpec := new(commonmodels.JobTaskFreestyleSpec)
+
+	jobInfo := map[string]string{
+		JobNameKey:      j.job.Name,
+		"scanning_name": scanning.Name,
+		"scanning_type": scanningType,
+	}
+
+	if scanningType == string(config.ServiceScanningType) {
+		jobInfo["service_name"] = serviceName
+		jobInfo["service_module"] = serviceModule
+	}
+
 	jobTask := &commonmodels.JobTask{
-		Name: jobNameFormat(scanning.Name + "-" + j.job.Name),
-		Key:  strings.Join([]string{j.job.Name, scanning.Name}, "."),
-		JobInfo: map[string]string{
-			JobNameKey:      j.job.Name,
-			"scanning_name": scanning.Name,
-		},
+		Name:    jobNameFormat(strings.Join([]string{scanning.Name, j.job.Name, serviceName, serviceModule}, "-")),
+		Key:     strings.Join([]string{j.job.Name, scanning.Name, serviceName, serviceModule}, "."),
+		JobInfo: jobInfo,
 		JobType: string(config.JobZadigScanning),
 		Spec:    jobTaskSpec,
 		Timeout: timeout,
@@ -573,6 +613,59 @@ func (j *ScanningJob) toJobTask(scanning *commonmodels.ScanningModule, taskID in
 	jobTaskSpec.Steps = append(jobTaskSpec.Steps, debugAfterStep)
 
 	return jobTask, nil
+}
+
+func (j *ScanningJob) getOriginReferedJobTargets(jobName string) ([]*commonmodels.ServiceTestTarget, error) {
+	servicetargets := []*commonmodels.ServiceTestTarget{}
+	for _, stage := range j.workflow.Stages {
+		for _, job := range stage.Jobs {
+			if job.Name != j.spec.JobName {
+				continue
+			}
+			if job.JobType == config.JobZadigBuild {
+				buildSpec := &commonmodels.ZadigBuildJobSpec{}
+				if err := commonmodels.IToi(job.Spec, buildSpec); err != nil {
+					return servicetargets, err
+				}
+				for _, build := range buildSpec.ServiceAndBuilds {
+					servicetargets = append(servicetargets, &commonmodels.ServiceTestTarget{
+						ServiceName:   build.ServiceName,
+						ServiceModule: build.ServiceModule,
+					})
+				}
+				return servicetargets, nil
+			}
+			if job.JobType == config.JobZadigDistributeImage {
+				distributeSpec := &commonmodels.ZadigDistributeImageJobSpec{}
+				if err := commonmodels.IToi(job.Spec, distributeSpec); err != nil {
+					return servicetargets, err
+				}
+				for _, distribute := range distributeSpec.Targets {
+					servicetargets = append(servicetargets, &commonmodels.ServiceTestTarget{
+						ServiceName:   distribute.ServiceName,
+						ServiceModule: distribute.ServiceModule,
+					})
+				}
+				return servicetargets, nil
+			}
+			if job.JobType == config.JobZadigDeploy {
+				deploySpec := &commonmodels.ZadigDeployJobSpec{}
+				if err := commonmodels.IToi(job.Spec, deploySpec); err != nil {
+					return servicetargets, err
+				}
+				for _, svc := range deploySpec.Services {
+					for _, module := range svc.Modules {
+						servicetargets = append(servicetargets, &commonmodels.ServiceTestTarget{
+							ServiceName:   svc.ServiceName,
+							ServiceModule: module.ServiceModule,
+						})
+					}
+				}
+				return servicetargets, nil
+			}
+		}
+	}
+	return nil, fmt.Errorf("build job %s not found", jobName)
 }
 
 func getScanningJobVariables(repos []*types.Repository, taskID int64, project, workflowName, workflowDisplayName, infrastructure string) []*commonmodels.KeyVal {
