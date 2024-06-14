@@ -308,6 +308,13 @@ const (
 	ServiceTestType TestModuleType = "service_test"
 )
 
+type ScanningModuleType string
+
+const (
+	NormalScanningType  ScanningModuleType = ""
+	ServiceScanningType ScanningModuleType = "service_scanning"
+)
+
 type DeployContent string
 
 const (

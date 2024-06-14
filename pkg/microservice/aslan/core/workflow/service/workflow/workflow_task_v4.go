@@ -133,9 +133,12 @@ type ZadigTestingJobSpec struct {
 }
 
 type ZadigScanningJobSpec struct {
-	Repos        []*types.Repository `bson:"repos"           json:"repos"`
-	LinkURL      string              `bson:"link_url"        json:"link_url"`
-	ScanningName string              `bson:"scanning_name"   json:"scanning_name"`
+	TestType      string              `bson:"scanning_type"   json:"scanning_type"`
+	ServiceName   string              `bson:"service_name"    json:"service_name"`
+	ServiceModule string              `bson:"service_module"  json:"service_module"`
+	Repos         []*types.Repository `bson:"repos"           json:"repos"`
+	LinkURL       string              `bson:"link_url"        json:"link_url"`
+	ScanningName  string              `bson:"scanning_name"   json:"scanning_name"`
 }
 
 type ZadigDeployJobPreviewSpec struct {
@@ -1198,6 +1201,19 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, 
 				}
 				if arg.Key == "SCANNING_NAME" {
 					spec.ScanningName = arg.Value
+					continue
+				}
+
+				if arg.Key == "SCANNING_TYPE" {
+					spec.TestType = arg.Value
+					continue
+				}
+				if arg.Key == "SERVICE_NAME" {
+					spec.ServiceName = arg.Value
+					continue
+				}
+				if arg.Key == "SERVICE_MODULE" {
+					spec.ServiceModule = arg.Value
 					continue
 				}
 			}

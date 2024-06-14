@@ -109,7 +109,7 @@ func (j *TestingJob) ClearSelectionField() error {
 	if err := commonmodels.IToiYaml(j.job.Spec, j.spec); err != nil {
 		return err
 	}
-	j.spec.ServiceAndTests = make([]*commonmodels.ServiceAndTest, 0)
+	j.spec.TargetServices = make([]*commonmodels.ServiceTestTarget, 0)
 	j.job.Spec = j.spec
 	return nil
 }
@@ -314,6 +314,14 @@ func (j *TestingJob) getOriginReferedJobTargets(jobName string) ([]*commonmodels
 						})
 					}
 				}
+				return servicetargets, nil
+			}
+			if job.JobType == config.JobZadigScanning {
+				scanningSpec := &commonmodels.ZadigScanningJobSpec{}
+				if err := commonmodels.IToi(job.Spec, scanningSpec); err != nil {
+					return servicetargets, err
+				}
+				servicetargets = scanningSpec.TargetServices
 				return servicetargets, nil
 			}
 		}
