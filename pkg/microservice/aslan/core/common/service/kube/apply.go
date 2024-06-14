@@ -459,10 +459,11 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 		r, ok := updateResourceMap[GVKN]
 		if !ok {
 			removeRes = append(removeRes, cr.unstructured)
-		}
-		if r.mainfest == cr.mainfest {
-			unchangedResources = append(unchangedResources, cr.unstructured)
-			delete(updateResourceMap, GVKN)
+		} else {
+			if r.mainfest == cr.mainfest {
+				unchangedResources = append(unchangedResources, cr.unstructured)
+				delete(updateResourceMap, GVKN)
+			}
 		}
 	}
 	updateResources = []*unstructured.Unstructured{}
