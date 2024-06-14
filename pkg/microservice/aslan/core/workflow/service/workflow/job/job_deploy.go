@@ -573,12 +573,13 @@ func generateEnvDeployServiceInfo(env, project string, spec *commonmodels.ZadigD
 	serviceDefinitionMap := make(map[string]*commonmodels.Service)
 	serviceKVSettingMap := make(map[string][]*commonmodels.DeployVariableConfig)
 
-	//updateConfig := false
-	//for _, contents := range spec.DeployContents {
-	//	if contents == config.DeployVars {
-	//		updateConfig = true
-	//	}
-	//}
+	updateConfig := false
+	for _, contents := range spec.DeployContents {
+		if contents == config.DeployConfig {
+			updateConfig = true
+			break
+		}
+	}
 
 	svcKVsMap := map[string][]*commonmodels.ServiceKeyVal{}
 	deployServiceMap := map[string]*commonmodels.DeployServiceInfo{}
@@ -658,7 +659,7 @@ func generateEnvDeployServiceInfo(env, project string, spec *commonmodels.ZadigD
 			VariableKVs:       kvs,
 			LatestVariableKVs: svcInfo.LatestVariableKVs,
 			VariableYaml:      service.GetServiceRender().OverrideYaml.YamlContent,
-			UpdateConfig:      true,
+			UpdateConfig:      updateConfig,
 			Updatable:         svcInfo.Updatable,
 			Deployed:          true,
 			Modules:           modules,
@@ -866,7 +867,7 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 				if service != nil {
 					jobTaskSpec.UpdateConfig = service.UpdateConfig
 					jobTaskSpec.VariableConfigs = service.VariableConfigs
-					if service.UpdateConfig {
+					if slices.Contains(j.spec.DeployContents, config.DeployVars) {
 						jobTaskSpec.VariableKVs = service.LatestVariableKVs
 					} else {
 						jobTaskSpec.VariableKVs = service.VariableKVs
