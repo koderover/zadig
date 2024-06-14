@@ -316,6 +316,14 @@ func (j *TestingJob) getOriginReferedJobTargets(jobName string) ([]*commonmodels
 				}
 				return servicetargets, nil
 			}
+			if job.JobType == config.JobZadigScanning {
+				scanningSpec := &commonmodels.ZadigScanningJobSpec{}
+				if err := commonmodels.IToi(job.Spec, scanningSpec); err != nil {
+					return servicetargets, err
+				}
+				servicetargets = scanningSpec.TargetServices
+				return servicetargets, nil
+			}
 		}
 	}
 	return nil, fmt.Errorf("build job %s not found", jobName)

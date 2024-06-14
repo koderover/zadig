@@ -765,6 +765,10 @@ func getOriginJobNameByRecursion(workflow *commonmodels.WorkflowV4, jobName stri
 				if v.Source == config.SourceFromJob {
 					return getOriginJobNameByRecursion(workflow, v.JobName, depth)
 				}
+			case *commonmodels.ZadigScanningJobSpec:
+				if v.Source == config.SourceFromJob {
+					return getOriginJobNameByRecursion(workflow, v.JobName, depth)
+				}
 			}
 
 		}

@@ -81,7 +81,7 @@ func (j *ScanningJob) SetPreset() error {
 		serviceMap := map[string]bool{}
 		for _, scanning := range j.spec.ServiceAndScannings {
 			serviceMap[fmt.Sprintf("%s/%s", scanning.ServiceName, scanning.ServiceModule)] = true
-			scanningInfo, err := commonrepo.NewScanningColl().Find(scanning.ProjectName, scanning.Name)
+			scanningInfo, err := commonrepo.NewScanningColl().Find(j.workflow.Project, scanning.Name)
 			if err != nil {
 				log.Errorf("find testing: %s error: %v", scanning.Name, err)
 				continue
@@ -657,6 +657,14 @@ func (j *ScanningJob) getOriginReferedJobTargets(jobName string) ([]*commonmodel
 						})
 					}
 				}
+				return servicetargets, nil
+			}
+			if job.JobType == config.JobZadigScanning {
+				scanningSpec := &commonmodels.ZadigScanningJobSpec{}
+				if err := commonmodels.IToi(job.Spec, scanningSpec); err != nil {
+					return servicetargets, err
+				}
+				servicetargets = scanningSpec.TargetServices
 				return servicetargets, nil
 			}
 		}
