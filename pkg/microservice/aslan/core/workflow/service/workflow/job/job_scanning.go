@@ -86,6 +86,10 @@ func (j *ScanningJob) SetPreset() error {
 				log.Errorf("find testing: %s error: %v", scanning.Name, err)
 				continue
 			}
+			if err := fillScanningDetail(scanningInfo); err != nil {
+				log.Errorf("fill scanning: %s detail error: %v", scanningInfo.Name, err)
+				continue
+			}
 			scanning.Repos = mergeRepos(scanningInfo.Repos, scanning.Repos)
 			scanning.KeyVals = renderKeyVals(scanning.KeyVals, scanningInfo.Envs)
 		}
