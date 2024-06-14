@@ -470,7 +470,7 @@ func GetRequirementDevelopmentLeadTime(startTime, endTime int64, project string)
 		return 0.0, err
 	}
 	caculator := &GeneralCalculator{
-		Host:     boardConfig.APIConfig.ExternalSystemId,
+		Host:     externalSystem.Server,
 		Path:     boardConfig.APIConfig.ApiPath,
 		Queries:  boardConfig.APIConfig.Queries,
 		Headers:  externalSystem.Headers,
@@ -504,7 +504,7 @@ func GetRequirementDeliveryLeadTime(startTime, endTime int64, project string) (f
 		return 0.0, err
 	}
 	caculator := &GeneralCalculator{
-		Host:     boardConfig.APIConfig.ExternalSystemId,
+		Host:     externalSystem.Server,
 		Path:     boardConfig.APIConfig.ApiPath,
 		Queries:  boardConfig.APIConfig.Queries,
 		Headers:  externalSystem.Headers,
