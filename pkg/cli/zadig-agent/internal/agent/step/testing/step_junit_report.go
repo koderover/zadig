@@ -93,7 +93,7 @@ func (s *JunitReportStep) Run(ctx context.Context) error {
 		return fmt.Errorf("failed to create s3 client to upload file, err: %s", err)
 	}
 
-	absFilePath := path.Join(s.spec.DestDir, s.spec.FileName)
+	absFilePath := filepath.Join(s.spec.DestDir, s.spec.FileName)
 
 	if len(s.spec.S3Storage.Subfolder) > 0 {
 		s.spec.S3DestDir = strings.TrimLeft(path.Join(s.spec.S3Storage.Subfolder, s.spec.S3DestDir), "/")
@@ -110,7 +110,7 @@ func (s *JunitReportStep) Run(ctx context.Context) error {
 			return err
 		}
 	} else {
-		key := filepath.Join(s.spec.S3DestDir, info.Name())
+		key := path.Join(s.spec.S3DestDir, info.Name())
 		err := client.Upload(s.spec.S3Storage.Bucket, absFilePath, key)
 		if err != nil {
 			return err
@@ -148,11 +148,11 @@ func mergeGinkgoTestResults(testResultFile, testResultPath, testUploadPath strin
 	})
 	for _, file := range files {
 		if filepath.Ext(file.Name()) == ".xml" {
-			filePath := path.Join(testResultPath, file.Name())
+			filePath := filepath.Join(testResultPath, file.Name())
 			log.Infof("name %s mod time: %v", file.Name(), file.ModTime())
 
 			// 1. read file
-			xmlBytes, err2 := ioutil.ReadFile(filePath)
+			xmlBytes, err2 := os.ReadFile(filePath)
 			if err2 != nil {
 				log.Warningf("Read file [%s], error: %v", filePath, err2)
 				continue
@@ -221,12 +221,12 @@ func mergeGinkgoTestResults(testResultFile, testResultPath, testUploadPath strin
 	newXMLStr := replaceTestSuiteTag(string(newXMLBytes), ReploaceTestSuite, strings.ToLower(ReploaceTestSuite))
 
 	//4. write xml bytes into file
-	err = ioutil.WriteFile(path.Join(testUploadPath, testResultFile), []byte(newXMLStr), 0644)
+	err = os.WriteFile(filepath.Join(testUploadPath, testResultFile), []byte(newXMLStr), 0644)
 	if err != nil {
 		return failedCaseCount, err
 	}
 
-	log.Infof("merge test results files %s succeeded", testResultFile)
+	log.Infof("merge test results files %s succeeded", filepath.Join(testUploadPath, testResultFile))
 	return summaryResult.Failures, nil
 }
 

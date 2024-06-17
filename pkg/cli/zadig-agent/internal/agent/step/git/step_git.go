@@ -22,7 +22,6 @@ import (
 	"io/ioutil"
 	"net/url"
 	"os"
-	"path"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -155,11 +154,11 @@ func (s *GitStep) buildGitCommands(repo *types.Repository, hostNames sets.String
 	}
 
 	// 预防非正常退出导致git被锁住
-	indexLockPath := path.Join(workDir, "/.git/index.lock")
+	indexLockPath := filepath.Join(workDir, "/.git/index.lock")
 	if err := os.RemoveAll(indexLockPath); err != nil {
 		s.Logger.Errorf("Failed to remove %s: %s", indexLockPath, err)
 	}
-	shallowLockPath := path.Join(workDir, "/.git/shallow.lock")
+	shallowLockPath := filepath.Join(workDir, "/.git/shallow.lock")
 	if err := os.RemoveAll(shallowLockPath); err != nil {
 		s.Logger.Errorf("Failed to remove %s: %s", shallowLockPath, err)
 	}
@@ -288,7 +287,7 @@ func writeSSHFile(sshKey, hostName string) error {
 	hostName = strings.Replace(hostName, ".", "", -1)
 	hostName = strings.Replace(hostName, ":", "", -1)
 	pathName := fmt.Sprintf("/.ssh/id_rsa.%s", hostName)
-	file := path.Join(config.Home(), pathName)
+	file := filepath.Join(config.Home(), pathName)
 	return ioutil.WriteFile(file, []byte(sshKey), 0400)
 }
 
@@ -302,7 +301,7 @@ func writeSSHConfigFile(hostNames sets.String, proxy *step.Proxy) error {
 			out = out + fmt.Sprintf("ProxyCommand nc -x %s %%h %%p\n", proxy.GetProxyURL())
 		}
 	}
-	file := path.Join(config.Home(), "/.ssh/config")
+	file := filepath.Join(config.Home(), "/.ssh/config")
 	return ioutil.WriteFile(file, []byte(out), 0600)
 }
 
