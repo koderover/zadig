@@ -660,10 +660,21 @@ func getOutputKey(jobKey string, outputs []*commonmodels.Output) []string {
 }
 
 // generate script to save outputs variable to file
-func outputScript(outputs []*commonmodels.Output) []string {
-	resp := []string{"set +ex"}
-	for _, output := range outputs {
-		resp = append(resp, fmt.Sprintf("echo $%s > %s", output.Name, path.Join(job.JobOutputDir, output.Name)))
+func outputScript(outputs []*commonmodels.Output, scriptType types.ScriptType) []string {
+	resp := []string{}
+	if scriptType == "" || scriptType == types.ScriptTypeShell {
+		resp = []string{"set +ex"}
+		for _, output := range outputs {
+			resp = append(resp, fmt.Sprintf("echo $%s > %s", output.Name, path.Join(job.JobOutputDir, output.Name)))
+		}
+	} else if scriptType == types.ScriptTypeBatchFile {
+		for _, output := range outputs {
+			resp = append(resp, fmt.Sprintf("echo %%%s%% > %s", output.Name, path.Join(job.JobOutputDir, output.Name)))
+		}
+	} else if scriptType == types.ScriptTypePowerShell {
+		for _, output := range outputs {
+			resp = append(resp, fmt.Sprintf("$env:%s > \"%s\"", output.Name, path.Join(job.JobOutputDir, output.Name)))
+		}
 	}
 	return resp
 }

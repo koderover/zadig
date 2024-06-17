@@ -514,21 +514,21 @@ func (j *ScanningJob) toJobTask(scanning *commonmodels.ScanningModule, taskID in
 			scriptStep.Name = scanning.Name + "-shell"
 			scriptStep.StepType = config.StepShell
 			scriptStep.Spec = &step.StepShellSpec{
-				Scripts:     append(strings.Split(replaceWrapLine(scanningInfo.Script), "\n"), outputScript(scanningInfo.Outputs)...),
+				Scripts:     append(strings.Split(replaceWrapLine(scanningInfo.Script), "\n"), outputScript(scanningInfo.Outputs, scanningInfo.ScriptType)...),
 				SkipPrepare: true,
 			}
 		} else if scanningInfo.ScriptType == types.ScriptTypeBatchFile {
 			scriptStep.Name = scanning.Name + "-batchfile"
 			scriptStep.StepType = config.StepBatchFile
 			scriptStep.Spec = &step.StepBatchFileSpec{
-				Scripts:     append(strings.Split(replaceWrapLine(scanningInfo.Script), "\n"), outputScript(scanningInfo.Outputs)...),
+				Scripts:     append(strings.Split(replaceWrapLine(scanningInfo.Script), "\n"), outputScript(scanningInfo.Outputs, scanningInfo.ScriptType)...),
 				SkipPrepare: true,
 			}
 		} else if scanningInfo.ScriptType == types.ScriptTypePowerShell {
 			scriptStep.Name = scanning.Name + "-powershell"
 			scriptStep.StepType = config.StepPowerShell
 			scriptStep.Spec = &step.StepPowerShellSpec{
-				Scripts:     append(strings.Split(replaceWrapLine(scanningInfo.Script), "\n"), outputScript(scanningInfo.Outputs)...),
+				Scripts:     append(strings.Split(replaceWrapLine(scanningInfo.Script), "\n"), outputScript(scanningInfo.Outputs, scanningInfo.ScriptType)...),
 				SkipPrepare: true,
 			}
 		}
@@ -563,14 +563,14 @@ func (j *ScanningJob) toJobTask(scanning *commonmodels.ScanningModule, taskID in
 		})
 
 		if scanningInfo.EnableScanner {
-			sonarConfig := fmt.Sprintf("sonar.login=%s\nsonar.host.url=%s\n%s", sonarInfo.Token, sonarInfo.ServerAddress, scanningInfo.Parameter)
-			sonarConfig = strings.ReplaceAll(sonarConfig, "$branch", branch)
-			sonarScript := fmt.Sprintf("set -e\ncd %s\ncat > sonar-project.properties << EOF\n%s\nEOF\nsonar-scanner", repoName, renderEnv(sonarConfig, jobTaskSpec.Properties.Envs))
-
 			sonarScriptStep := &commonmodels.StepTask{
 				JobName: jobTask.Name,
 			}
 			if scanningInfo.ScriptType == types.ScriptTypeShell || scanningInfo.ScriptType == "" {
+				sonarConfig := fmt.Sprintf("sonar.login=%s\nsonar.host.url=%s\n%s", sonarInfo.Token, sonarInfo.ServerAddress, scanningInfo.Parameter)
+				sonarConfig = strings.ReplaceAll(sonarConfig, "$branch", branch)
+				sonarScript := fmt.Sprintf("set -e\ncd %s\ncat > sonar-project.properties << EOF\n%s\nEOF\nsonar-scanner", repoName, renderEnv(sonarConfig, jobTaskSpec.Properties.Envs))
+
 				sonarScriptStep.Name = scanning.Name + "-sonar-shell"
 				sonarScriptStep.StepType = config.StepShell
 				sonarScriptStep.Spec = &step.StepShellSpec{
@@ -578,6 +578,18 @@ func (j *ScanningJob) toJobTask(scanning *commonmodels.ScanningModule, taskID in
 					SkipPrepare: true,
 				}
 			} else if scanningInfo.ScriptType == types.ScriptTypeBatchFile {
+				sonarScript := fmt.Sprintf("@echo off\nsetlocal enabledelayedexpansion\ncd %s\n\n", repoName)
+				sonarScript += "(\n"
+
+				sonarConfig := fmt.Sprintf("sonar.login=%s\nsonar.host.url=%s\n%s", sonarInfo.Token, sonarInfo.ServerAddress, scanningInfo.Parameter)
+				sonarConfig = strings.ReplaceAll(sonarConfig, "$branch", branch)
+				sonarConfig = renderEnv(sonarConfig, jobTaskSpec.Properties.Envs)
+				sonarConfigArr := strings.Split(sonarConfig, "\n")
+				for _, config := range sonarConfigArr {
+					sonarScript += fmt.Sprintf("echo %s\n", config)
+				}
+
+				sonarScript += "\n) > sonar-project.properties\n\nsonar-scanner\n\nendlocal"
 				sonarScriptStep.Name = scanning.Name + "-sonar-batchfile"
 				sonarScriptStep.StepType = config.StepBatchFile
 				sonarScriptStep.Spec = &step.StepBatchFileSpec{
@@ -585,6 +597,18 @@ func (j *ScanningJob) toJobTask(scanning *commonmodels.ScanningModule, taskID in
 					SkipPrepare: true,
 				}
 			} else if scanningInfo.ScriptType == types.ScriptTypePowerShell {
+				sonarScript := fmt.Sprintf("Set-StrictMode -Version Latest\nSet-Location -Path \"%s\"\n", repoName)
+				sonarScript += "@\"\n"
+
+				sonarConfig := fmt.Sprintf("sonar.login=%s\nsonar.host.url=%s\n%s", sonarInfo.Token, sonarInfo.ServerAddress, scanningInfo.Parameter)
+				sonarConfig = strings.ReplaceAll(sonarConfig, "$branch", branch)
+				sonarConfig = renderEnv(sonarConfig, jobTaskSpec.Properties.Envs)
+				sonarConfigArr := strings.Split(sonarConfig, "\n")
+				for _, config := range sonarConfigArr {
+					sonarScript += fmt.Sprintf("%s\n", config)
+				}
+
+				sonarScript += "\"@ | Out-File -FilePath \"sonar-project.properties\" -Encoding UTF8\n\nsonar-scanner"
 				sonarScriptStep.Name = scanning.Name + "-sonar-powershell"
 				sonarScriptStep.StepType = config.StepPowerShell
 				sonarScriptStep.Spec = &step.StepPowerShellSpec{
@@ -618,19 +642,19 @@ func (j *ScanningJob) toJobTask(scanning *commonmodels.ScanningModule, taskID in
 			scriptStep.Name = scanning.Name + "-shell"
 			scriptStep.StepType = config.StepShell
 			scriptStep.Spec = &step.StepShellSpec{
-				Scripts: append(strings.Split(replaceWrapLine(scanningInfo.Script), "\n"), outputScript(scanningInfo.Outputs)...),
+				Scripts: append(strings.Split(replaceWrapLine(scanningInfo.Script), "\n"), outputScript(scanningInfo.Outputs, scanningInfo.ScriptType)...),
 			}
 		} else if scanningInfo.ScriptType == types.ScriptTypeBatchFile {
 			scriptStep.Name = scanning.Name + "-batchfile"
 			scriptStep.StepType = config.StepBatchFile
 			scriptStep.Spec = &step.StepBatchFileSpec{
-				Scripts: append(strings.Split(replaceWrapLine(scanningInfo.Script), "\n"), outputScript(scanningInfo.Outputs)...),
+				Scripts: append(strings.Split(replaceWrapLine(scanningInfo.Script), "\n"), outputScript(scanningInfo.Outputs, scanningInfo.ScriptType)...),
 			}
 		} else if scanningInfo.ScriptType == types.ScriptTypePowerShell {
 			scriptStep.Name = scanning.Name + "-powershell"
 			scriptStep.StepType = config.StepPowerShell
 			scriptStep.Spec = &step.StepPowerShellSpec{
-				Scripts: append(strings.Split(replaceWrapLine(scanningInfo.Script), "\n"), outputScript(scanningInfo.Outputs)...),
+				Scripts: append(strings.Split(replaceWrapLine(scanningInfo.Script), "\n"), outputScript(scanningInfo.Outputs, scanningInfo.ScriptType)...),
 			}
 		}
 		jobTaskSpec.Steps = append(jobTaskSpec.Steps, scriptStep)

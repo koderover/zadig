@@ -484,19 +484,19 @@ func (j *TestingJob) toJobtask(testing *commonmodels.TestModule, defaultS3 *comm
 		scriptStep.Name = testing.Name + "-shell"
 		scriptStep.StepType = config.StepShell
 		scriptStep.Spec = &step.StepShellSpec{
-			Scripts: append(strings.Split(replaceWrapLine(testingInfo.Scripts), "\n"), outputScript(testingInfo.Outputs)...),
+			Scripts: append(strings.Split(replaceWrapLine(testingInfo.Scripts), "\n"), outputScript(testingInfo.Outputs, testingInfo.ScriptType)...),
 		}
 	} else if testingInfo.ScriptType == types.ScriptTypeBatchFile {
 		scriptStep.Name = testing.Name + "-batchfile"
 		scriptStep.StepType = config.StepBatchFile
 		scriptStep.Spec = &step.StepBatchFileSpec{
-			Scripts: append(strings.Split(replaceWrapLine(testingInfo.Scripts), "\n"), outputScript(testingInfo.Outputs)...),
+			Scripts: append(strings.Split(replaceWrapLine(testingInfo.Scripts), "\n"), outputScript(testingInfo.Outputs, testingInfo.ScriptType)...),
 		}
 	} else if testingInfo.ScriptType == types.ScriptTypePowerShell {
 		scriptStep.Name = testing.Name + "-powershell"
 		scriptStep.StepType = config.StepPowerShell
 		scriptStep.Spec = &step.StepPowerShellSpec{
-			Scripts: append(strings.Split(replaceWrapLine(testingInfo.Scripts), "\n"), outputScript(testingInfo.Outputs)...),
+			Scripts: append(strings.Split(replaceWrapLine(testingInfo.Scripts), "\n"), outputScript(testingInfo.Outputs, testingInfo.ScriptType)...),
 		}
 	}
 	jobTaskSpec.Steps = append(jobTaskSpec.Steps, scriptStep)
@@ -528,6 +528,12 @@ func (j *TestingJob) toJobtask(testing *commonmodels.TestModule, defaultS3 *comm
 		jobTaskSpec.Steps = append(jobTaskSpec.Steps, archiveStep)
 	}
 
+	destDir := "/tmp"
+	if testingInfo.ScriptType == types.ScriptTypeBatchFile {
+		destDir = "%TMP%"
+	} else if testingInfo.ScriptType == types.ScriptTypePowerShell {
+		destDir = "$env:TEMP"
+	}
 	// init test result storage step
 	if len(testingInfo.ArtifactPaths) > 0 {
 		tarArchiveStep := &commonmodels.StepTask{
@@ -539,7 +545,7 @@ func (j *TestingJob) toJobtask(testing *commonmodels.TestModule, defaultS3 *comm
 				ResultDirs: testingInfo.ArtifactPaths,
 				S3DestDir:  path.Join(j.workflow.Name, fmt.Sprint(taskID), jobTask.Name, "test-result"),
 				FileName:   setting.ArtifactResultOut,
-				DestDir:    "/tmp",
+				DestDir:    destDir,
 			},
 		}
 		if len(testingInfo.ArtifactPaths) > 1 || testingInfo.ArtifactPaths[0] != "" {
@@ -562,7 +568,7 @@ func (j *TestingJob) toJobtask(testing *commonmodels.TestModule, defaultS3 *comm
 				S3DestDir:      path.Join(j.workflow.Name, fmt.Sprint(taskID), jobTask.Name, "junit"),
 				TestName:       testing.Name,
 				TestProject:    testing.ProjectName,
-				DestDir:        "/tmp",
+				DestDir:        destDir,
 				FileName:       "merged.xml",
 				ServiceName:    serviceName,
 				ServiceModule:  serviceModule,
