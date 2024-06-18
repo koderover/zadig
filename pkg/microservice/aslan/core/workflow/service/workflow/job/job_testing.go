@@ -359,10 +359,15 @@ func (j *TestingJob) toJobtask(testing *commonmodels.TestModule, defaultS3 *comm
 			"service_module": serviceModule,
 		}
 	}
+
+	jobKey := strings.Join([]string{j.job.Name, testing.Name}, ".")
+	if testType == string(config.ServiceTestType) {
+		jobKey = strings.Join([]string{j.job.Name, testing.Name, serviceName, serviceModule}, ".")
+	}
 	jobTaskSpec := &commonmodels.JobTaskFreestyleSpec{}
 	jobTask := &commonmodels.JobTask{
 		Name:           jobName,
-		Key:            strings.Join([]string{j.job.Name, testing.Name}, "."),
+		Key:            jobKey,
 		JobInfo:        jobInfo,
 		JobType:        string(config.JobZadigTesting),
 		Spec:           jobTaskSpec,
@@ -484,19 +489,19 @@ func (j *TestingJob) toJobtask(testing *commonmodels.TestModule, defaultS3 *comm
 		scriptStep.Name = testing.Name + "-shell"
 		scriptStep.StepType = config.StepShell
 		scriptStep.Spec = &step.StepShellSpec{
-			Scripts: append(strings.Split(replaceWrapLine(testingInfo.Scripts), "\n"), outputScript(testingInfo.Outputs, testingInfo.ScriptType)...),
+			Scripts: append(strings.Split(replaceWrapLine(testingInfo.Scripts), "\n"), outputScript(testingInfo.Outputs, jobTask.Infrastructure)...),
 		}
 	} else if testingInfo.ScriptType == types.ScriptTypeBatchFile {
 		scriptStep.Name = testing.Name + "-batchfile"
 		scriptStep.StepType = config.StepBatchFile
 		scriptStep.Spec = &step.StepBatchFileSpec{
-			Scripts: append(strings.Split(replaceWrapLine(testingInfo.Scripts), "\n"), outputScript(testingInfo.Outputs, testingInfo.ScriptType)...),
+			Scripts: append(strings.Split(replaceWrapLine(testingInfo.Scripts), "\n"), outputScript(testingInfo.Outputs, jobTask.Infrastructure)...),
 		}
 	} else if testingInfo.ScriptType == types.ScriptTypePowerShell {
 		scriptStep.Name = testing.Name + "-powershell"
 		scriptStep.StepType = config.StepPowerShell
 		scriptStep.Spec = &step.StepPowerShellSpec{
-			Scripts: append(strings.Split(replaceWrapLine(testingInfo.Scripts), "\n"), outputScript(testingInfo.Outputs, testingInfo.ScriptType)...),
+			Scripts: append(strings.Split(replaceWrapLine(testingInfo.Scripts), "\n"), outputScript(testingInfo.Outputs, jobTask.Infrastructure)...),
 		}
 	}
 	jobTaskSpec.Steps = append(jobTaskSpec.Steps, scriptStep)
@@ -532,7 +537,7 @@ func (j *TestingJob) toJobtask(testing *commonmodels.TestModule, defaultS3 *comm
 	if testingInfo.ScriptType == types.ScriptTypeBatchFile {
 		destDir = "%TMP%"
 	} else if testingInfo.ScriptType == types.ScriptTypePowerShell {
-		destDir = "$env:TEMP"
+		destDir = "%TMP%"
 	}
 	// init test result storage step
 	if len(testingInfo.ArtifactPaths) > 0 {
@@ -662,9 +667,19 @@ func (j *TestingJob) GetOutPuts(log *zap.SugaredLogger) []string {
 		log.Errorf("list testinfos error: %v", err)
 		return resp
 	}
-	for _, testInfo := range testingInfos {
-		jobKey := strings.Join([]string{j.job.Name, testInfo.Name}, ".")
-		resp = append(resp, getOutputKey(jobKey, testInfo.Outputs)...)
+	for _, testingInfo := range testingInfos {
+		jobKey := strings.Join([]string{j.job.Name, testingInfo.Name}, ".")
+		if j.spec.TestType == config.ServiceTestType {
+			for _, target := range j.spec.TargetServices {
+				for _, scanning := range j.spec.ServiceAndTests {
+					if scanning.ServiceName != target.ServiceName || scanning.ServiceModule != target.ServiceModule {
+						continue
+					}
+					jobKey = strings.Join([]string{j.job.Name, scanning.Name, target.ServiceName, target.ServiceModule}, ".")
+				}
+			}
+		}
+		resp = append(resp, getOutputKey(jobKey, testingInfo.Outputs)...)
 	}
 	return resp
 }

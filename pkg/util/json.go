@@ -17,6 +17,7 @@ limitations under the License.
 package util
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -93,4 +94,17 @@ func RecursionGetKeyAndValue(jsonValues map[string]interface{}, mapKey string) {
 			jsonMap[key] = fmt.Sprintf("%v", jsonValue)
 		}
 	}
+}
+
+// jsonEscapeString 接受一个字符串并返回JSON转义后的字符串
+func JsonEscapeString(str string) (string, error) {
+	// 将字符串编码为JSON格式
+	escapedBytes, err := json.Marshal(str)
+	if err != nil {
+		return "", err
+	}
+
+	// JSON编码后的结果是一个包含双引号的字符串，去掉两边的双引号
+	escapedStr := string(escapedBytes)
+	return escapedStr[1 : len(escapedStr)-1], nil
 }

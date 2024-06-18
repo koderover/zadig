@@ -376,6 +376,7 @@ func (e *JobExecutor) AfterExecute() error {
 
 func (e *JobExecutor) getJobOutputVars() ([]*job.JobOutput, error) {
 	outputs := []*job.JobOutput{}
+	log.Debugf("job %s, outputs: %v", e.Job.JobName, e.JobCtx.Outputs)
 	for _, outputName := range e.JobCtx.Outputs {
 		fileContents, err := ioutil.ReadFile(filepath.Join(e.Dirs.JobOutputsDir, outputName))
 		if os.IsNotExist(err) {
@@ -386,6 +387,7 @@ func (e *JobExecutor) getJobOutputVars() ([]*job.JobOutput, error) {
 
 		value := strings.TrimSpace(string(fileContents))
 		outputs = append(outputs, &job.JobOutput{Name: outputName, Value: value})
+		log.Debugf("job %s, output %s: %s", e.Job.JobName, outputName, value)
 	}
 	return outputs, nil
 }

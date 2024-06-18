@@ -608,7 +608,7 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			scripts = append(scripts, strings.Split(replaceWrapLine(buildInfo.Scripts), "\n")...)
 		} else {
 			scripts = append([]string{dockerLoginCmd}, strings.Split(replaceWrapLine(buildInfo.Scripts), "\n")...)
-			scripts = append(scripts, outputScript(outputs, buildInfo.ScriptType)...)
+			scripts = append(scripts, outputScript(outputs, jobTask.Infrastructure)...)
 		}
 		scriptStep := &commonmodels.StepTask{
 			JobName: jobTask.Name,

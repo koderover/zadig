@@ -328,6 +328,16 @@ func (j *ScanningJob) GetOutPuts(log *zap.SugaredLogger) []string {
 	}
 	for _, scanningInfo := range scanningInfos {
 		jobKey := strings.Join([]string{j.job.Name, scanningInfo.Name}, ".")
+		if j.spec.ScanningType == config.ServiceScanningType {
+			for _, target := range j.spec.TargetServices {
+				for _, scanning := range j.spec.ServiceAndScannings {
+					if scanning.ServiceName != target.ServiceName || scanning.ServiceModule != target.ServiceModule {
+						continue
+					}
+					jobKey = strings.Join([]string{j.job.Name, scanning.Name, target.ServiceName, target.ServiceModule}, ".")
+				}
+			}
+		}
 		resp = append(resp, getOutputKey(jobKey, scanningInfo.Outputs)...)
 	}
 	return resp
@@ -368,9 +378,14 @@ func (j *ScanningJob) toJobTask(scanning *commonmodels.ScanningModule, taskID in
 		jobInfo["service_module"] = serviceModule
 	}
 
+	jobKey := strings.Join([]string{j.job.Name, scanning.Name}, ".")
+	if scanningType == string(config.ServiceScanningType) {
+		jobKey = strings.Join([]string{j.job.Name, scanning.Name, serviceName, serviceModule}, ".")
+	}
+
 	jobTask := &commonmodels.JobTask{
 		Name:           jobNameFormat(strings.Join([]string{scanning.Name, j.job.Name, serviceName, serviceModule}, "-")),
-		Key:            strings.Join([]string{j.job.Name, scanning.Name, serviceName, serviceModule}, "."),
+		Key:            jobKey,
 		JobInfo:        jobInfo,
 		JobType:        string(config.JobZadigScanning),
 		Spec:           jobTaskSpec,
@@ -514,21 +529,21 @@ func (j *ScanningJob) toJobTask(scanning *commonmodels.ScanningModule, taskID in
 			scriptStep.Name = scanning.Name + "-shell"
 			scriptStep.StepType = config.StepShell
 			scriptStep.Spec = &step.StepShellSpec{
-				Scripts:     append(strings.Split(replaceWrapLine(scanningInfo.Script), "\n"), outputScript(scanningInfo.Outputs, scanningInfo.ScriptType)...),
+				Scripts:     append(strings.Split(replaceWrapLine(scanningInfo.Script), "\n"), outputScript(scanningInfo.Outputs, jobTask.Infrastructure)...),
 				SkipPrepare: true,
 			}
 		} else if scanningInfo.ScriptType == types.ScriptTypeBatchFile {
 			scriptStep.Name = scanning.Name + "-batchfile"
 			scriptStep.StepType = config.StepBatchFile
 			scriptStep.Spec = &step.StepBatchFileSpec{
-				Scripts:     append(strings.Split(replaceWrapLine(scanningInfo.Script), "\n"), outputScript(scanningInfo.Outputs, scanningInfo.ScriptType)...),
+				Scripts:     append(strings.Split(replaceWrapLine(scanningInfo.Script), "\n"), outputScript(scanningInfo.Outputs, jobTask.Infrastructure)...),
 				SkipPrepare: true,
 			}
 		} else if scanningInfo.ScriptType == types.ScriptTypePowerShell {
 			scriptStep.Name = scanning.Name + "-powershell"
 			scriptStep.StepType = config.StepPowerShell
 			scriptStep.Spec = &step.StepPowerShellSpec{
-				Scripts:     append(strings.Split(replaceWrapLine(scanningInfo.Script), "\n"), outputScript(scanningInfo.Outputs, scanningInfo.ScriptType)...),
+				Scripts:     append(strings.Split(replaceWrapLine(scanningInfo.Script), "\n"), outputScript(scanningInfo.Outputs, jobTask.Infrastructure)...),
 				SkipPrepare: true,
 			}
 		}
@@ -642,19 +657,19 @@ func (j *ScanningJob) toJobTask(scanning *commonmodels.ScanningModule, taskID in
 			scriptStep.Name = scanning.Name + "-shell"
 			scriptStep.StepType = config.StepShell
 			scriptStep.Spec = &step.StepShellSpec{
-				Scripts: append(strings.Split(replaceWrapLine(scanningInfo.Script), "\n"), outputScript(scanningInfo.Outputs, scanningInfo.ScriptType)...),
+				Scripts: append(strings.Split(replaceWrapLine(scanningInfo.Script), "\n"), outputScript(scanningInfo.Outputs, jobTask.Infrastructure)...),
 			}
 		} else if scanningInfo.ScriptType == types.ScriptTypeBatchFile {
 			scriptStep.Name = scanning.Name + "-batchfile"
 			scriptStep.StepType = config.StepBatchFile
 			scriptStep.Spec = &step.StepBatchFileSpec{
-				Scripts: append(strings.Split(replaceWrapLine(scanningInfo.Script), "\n"), outputScript(scanningInfo.Outputs, scanningInfo.ScriptType)...),
+				Scripts: append(strings.Split(replaceWrapLine(scanningInfo.Script), "\n"), outputScript(scanningInfo.Outputs, jobTask.Infrastructure)...),
 			}
 		} else if scanningInfo.ScriptType == types.ScriptTypePowerShell {
 			scriptStep.Name = scanning.Name + "-powershell"
 			scriptStep.StepType = config.StepPowerShell
 			scriptStep.Spec = &step.StepPowerShellSpec{
-				Scripts: append(strings.Split(replaceWrapLine(scanningInfo.Script), "\n"), outputScript(scanningInfo.Outputs, scanningInfo.ScriptType)...),
+				Scripts: append(strings.Split(replaceWrapLine(scanningInfo.Script), "\n"), outputScript(scanningInfo.Outputs, jobTask.Infrastructure)...),
 			}
 		}
 		jobTaskSpec.Steps = append(jobTaskSpec.Steps, scriptStep)

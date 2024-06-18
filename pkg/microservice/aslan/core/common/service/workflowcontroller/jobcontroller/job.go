@@ -31,6 +31,8 @@ import (
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
+	"github.com/koderover/zadig/v2/pkg/util"
 	"github.com/koderover/zadig/v2/pkg/util/rand"
 )
 
@@ -112,11 +114,20 @@ func runJob(ctx context.Context, job *commonmodels.JobTask, workflowCtx *commonm
 	if job.Status == config.StatusPassed {
 		return
 	}
-	// render global variables for every job.
+	// @todo render global variables for every job.
 	workflowCtx.GlobalContextEach(func(k, v string) bool {
 		b, _ := json.Marshal(job)
 		v = strings.Trim(v, "\n")
-		replacedString := strings.ReplaceAll(string(b), k, v)
+		log.Debugf("GlobalContext key: %s, value: %s", k, v)
+
+		jsonEscapeValue, err := util.JsonEscapeString(string(v))
+		if err != nil {
+			logger.Errorf("failed to escape value %s, error: %v", string(v), err)
+			jsonEscapeValue = string(v)
+		}
+
+		replacedString := strings.ReplaceAll(string(b), k, jsonEscapeValue)
+		log.Debugf("replacedString job: %v", replacedString)
 		if err := json.Unmarshal([]byte(replacedString), &job); err != nil {
 			logger.Errorf("unmarshal job error: %v", err)
 		}

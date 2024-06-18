@@ -221,7 +221,6 @@ func UpgradeAgent(idString, user string, logger *zap.SugaredLogger) (*UpgradeAge
 	return generateAgentUpgradeCmd(vm, logger)
 }
 
-// generateAgentUpgradeCmd TODO: 怎么实现在线更新？将agent 二进制写入到aslan里面，后期分析可行性
 func generateAgentUpgradeCmd(vm *commonmodels.PrivateKey, logger *zap.SugaredLogger) (*UpgradeAgentCmd, error) {
 	cmd := new(UpgradeAgentCmd)
 
@@ -248,7 +247,7 @@ func generateAgentUpgradeCmd(vm *commonmodels.PrivateKey, logger *zap.SugaredLog
 		case setting.LinuxAmd64:
 			downloadLinuxAMD64URL := fmt.Sprintf("%s/%s.tar.gz", baseURL, linuxAMD64Name)
 			cmd.UpgradeCmd = map[string]string{"shell": fmt.Sprintf(
-				"zadig-agent stop \n "+
+				"sudo zadig-agent stop \n "+
 					"sudo rm -rf /usr/local/bin/zadig-agent \n "+
 					"sudo curl -L %s | sudo tar xz -C /usr/local/bin/ \n "+
 					"sudo mv /usr/local/bin/%s /usr/local/bin/zadig-agent \n "+
@@ -258,7 +257,7 @@ func generateAgentUpgradeCmd(vm *commonmodels.PrivateKey, logger *zap.SugaredLog
 		case setting.LinuxArm64:
 			downloadLinuxARM64URL := fmt.Sprintf("%s/%s.tar.gz", baseURL, linuxARM64Name)
 			cmd.UpgradeCmd = map[string]string{"shell": fmt.Sprintf(
-				"zadig-agent stop \n "+
+				"sudo zadig-agent stop \n "+
 					"sudo rm -rf /usr/local/bin/zadig-agent \n "+
 					"sudo curl -L %s | sudo tar xz -C /usr/local/bin/ \n "+
 					"sudo mv /usr/local/bin/%s /usr/local/bin/zadig-agent \n "+
@@ -268,7 +267,7 @@ func generateAgentUpgradeCmd(vm *commonmodels.PrivateKey, logger *zap.SugaredLog
 		case setting.MacOSAmd64:
 			downloadMacOSAMD64URL := fmt.Sprintf("%s/%s.tar.gz", baseURL, macOSAMD64Name)
 			cmd.UpgradeCmd = map[string]string{"shell": fmt.Sprintf(
-				"zadig-agent stop \n "+
+				"sudo zadig-agent stop \n "+
 					"sudo rm -rf /usr/local/bin/zadig-agent \n "+
 					"sudo curl -L %s | sudo tar xz -C /usr/local/bin/ \n "+
 					"sudo mv /usr/local/bin/%s /usr/local/bin/zadig-agent \n "+
@@ -278,7 +277,7 @@ func generateAgentUpgradeCmd(vm *commonmodels.PrivateKey, logger *zap.SugaredLog
 		case setting.MacOSArm64:
 			downloadMacOSARM64URL := fmt.Sprintf("%s/%s.tar.gz", baseURL, macOSARM64Name)
 			cmd.UpgradeCmd = map[string]string{"shell": fmt.Sprintf(
-				"zadig-agent stop \n "+
+				"sudo zadig-agent stop \n "+
 					"sudo rm -rf /usr/local/bin/zadig-agent \n "+
 					"sudo curl -L %s | sudo tar xz -C /usr/local/bin/ \n "+
 					"sudo mv /usr/local/bin/%s /usr/local/bin/zadig-agent \n "+

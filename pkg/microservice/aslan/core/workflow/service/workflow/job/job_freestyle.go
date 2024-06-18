@@ -358,7 +358,7 @@ func (j *FreeStyleJob) stepsToStepTasks(step []*commonmodels.Step) []*commonmode
 			if err := commonmodels.IToi(stepTask.Spec, stepTaskSpec); err != nil {
 				continue
 			}
-			stepTaskSpec.Scripts = append(strings.Split(replaceWrapLine(stepTaskSpec.Script), "\n"), outputScript(j.spec.Outputs, "")...)
+			stepTaskSpec.Scripts = append(strings.Split(replaceWrapLine(stepTaskSpec.Script), "\n"), outputScript(j.spec.Outputs, j.spec.Properties.Infrastructure)...)
 			stepTask.Spec = stepTaskSpec
 			// add debug step before shell step
 			debugBeforeStep := &commonmodels.StepTask{

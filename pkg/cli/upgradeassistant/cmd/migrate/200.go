@@ -749,6 +749,7 @@ func migrateRendersets() error {
 	return nil
 }
 
+// @todo migrateInfrastructureField
 func migrateInfrastructureField() error {
 	// change build module infrastructure field
 	cursor, err := mongodb.NewBuildColl().ListByCursor(&mongodb.BuildListOption{})
