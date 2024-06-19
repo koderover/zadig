@@ -2115,8 +2115,11 @@ func DeleteProduct(username, envName, productName, requestID string, isDelete bo
 					svcNames = append(svcNames, svcName)
 				}
 
-				// @todo fix env already deleted issue
-				DeleteProductServices("", requestID, envName, productName, svcNames, false, log)
+				// @todo fix env already deleted issue, may cause service not really deleted in k8s
+				err = DeleteProductServices("", requestID, envName, productName, svcNames, false, log)
+				if err != nil {
+					log.Warnf("DeleteProductServices error: %v", err)
+				}
 
 				// Handles environment sharing related operations.
 				err = EnsureDeleteShareEnvConfig(ctx, productInfo, istioClient)
@@ -2152,7 +2155,8 @@ func DeleteProduct(username, envName, productName, requestID string, isDelete bo
 func DeleteProductServices(userName, requestID, envName, productName string, serviceNames []string, production bool, log *zap.SugaredLogger) (err error) {
 	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: productName, EnvName: envName, Production: util.GetBoolPointer(production)})
 	if err != nil {
-		log.Errorf("find product error: %v", err)
+		err = fmt.Errorf("failed to find product, productName: %s, envName: %s, production: %v, error: %v", productName, envName, production, err)
+		log.Error(err)
 		return err
 	}
 	if getProjectType(productName) == setting.HelmDeployType {
