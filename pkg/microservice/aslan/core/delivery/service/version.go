@@ -49,6 +49,7 @@ import (
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models/task"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models/template"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
@@ -951,6 +952,25 @@ func CreateHelmDeliveryVersion(args *CreateHelmDeliveryVersionArgs, logger *zap.
 	}
 }
 
+func CheckDeliveryVersion(projectName, deliveryVersionName string) error {
+	if len(deliveryVersionName) == 0 {
+		return e.ErrCheckDeliveryVersion.AddDesc("版本不能为空")
+	}
+	if len(projectName) == 0 {
+		return e.ErrCheckDeliveryVersion.AddDesc("项目名称不能为空")
+	}
+
+	_, err := commonrepo.NewDeliveryVersionColl().Get(&commonrepo.DeliveryVersionArgs{
+		ProductName: projectName,
+		Version:     deliveryVersionName,
+	})
+	if !mongodb.IsErrNoDocuments(err) {
+		return e.ErrCheckDeliveryVersion.AddErr(fmt.Errorf("版本 %s 已存在", deliveryVersionName))
+	}
+
+	return nil
+}
+
 // validate yamlInfo, make sure service is in environment
 // prepare data set for yaml delivery
 func prepareYamlData(yamlDatas []*CreateK8SDeliveryVersionYamlData, productInfo *commonmodels.Product) (map[string]string, error) {
@@ -1136,12 +1156,17 @@ func buildDeliveryImages(productInfo *commonmodels.Product, targetRegistry *comm
 			deliveryDeploy.ContainerName = imageData.ImageName
 			deliveryDeploy.RegistryID = args.ImageRegistryID
 
-			regAddr, err := targetRegistry.GetRegistryAddress()
-			if err != nil {
-				return fmt.Errorf("failed to get registry address, err: %s", err)
+			if targetRegistry == nil {
+				deliveryDeploy.Image = imageData.Image
+			} else {
+				regAddr, err := targetRegistry.GetRegistryAddress()
+				if err != nil {
+					return fmt.Errorf("failed to get registry address, err: %s", err)
+				}
+				image := fmt.Sprintf("%s/%s/%s:%s", regAddr, targetRegistry.Namespace, imageData.ImageName, imageData.ImageTag)
+				deliveryDeploy.Image = image
 			}
-			image := fmt.Sprintf("%s/%s/%s:%s", regAddr, targetRegistry.Namespace, imageData.ImageName, imageData.ImageTag)
-			deliveryDeploy.Image = image
+
 			deliveryDeploy.YamlContents = []string{yamlData.YamlContent}
 			//orderedServices
 			deliveryDeploy.OrderedServices = productInfo.GetGroupServiceNames()
@@ -1159,20 +1184,25 @@ func buildDeliveryImages(productInfo *commonmodels.Product, targetRegistry *comm
 	if err != nil {
 		return fmt.Errorf("failed to generate workflow from delivery version, versionName: %s, err: %s", deliveryVersion.Version, err)
 	}
-	createResp, err := workflowservice.CreateWorkflowTaskV4(&workflowservice.CreateWorkflowTaskV4Args{
-		Name: "system",
-		Type: config.WorkflowTaskTypeDelivery,
-	}, deliveryVersionWorkflowV4, logger)
-	if err != nil {
-		return fmt.Errorf("failed to create delivery version custom workflow task, versionName: %s, err: %s", deliveryVersion.Version, err)
+
+	if len(deliveryVersionWorkflowV4.Stages) != 0 {
+		createResp, err := workflowservice.CreateWorkflowTaskV4(&workflowservice.CreateWorkflowTaskV4Args{
+			Name: "system",
+			Type: config.WorkflowTaskTypeDelivery,
+		}, deliveryVersionWorkflowV4, logger)
+		if err != nil {
+			return fmt.Errorf("failed to create delivery version custom workflow task, versionName: %s, err: %s", deliveryVersion.Version, err)
+		}
+
+		deliveryVersion.WorkflowName = createResp.WorkflowName
+		deliveryVersion.TaskID = int(createResp.TaskID)
+
+		err = commonrepo.NewDeliveryVersionColl().UpdateWorkflowTask(deliveryVersion.Version, deliveryVersion.ProductName, deliveryVersion.WorkflowName, int32(deliveryVersion.TaskID))
+		if err != nil {
+			logger.Errorf("failed to update delivery version task_id, version: %s, task_id: %s, err: %s", deliveryVersion, deliveryVersion.ProductName, deliveryVersion.TaskID)
+		}
 	}
 
-	deliveryVersion.WorkflowName = createResp.WorkflowName
-	deliveryVersion.TaskID = int(createResp.TaskID)
-	err = commonrepo.NewDeliveryVersionColl().UpdateWorkflowTask(deliveryVersion.Version, deliveryVersion.ProductName, deliveryVersion.WorkflowName, int32(deliveryVersion.TaskID))
-	if err != nil {
-		logger.Errorf("failed to update delivery version task_id, version: %s, task_id: %s, err: %s", deliveryVersion, deliveryVersion.ProductName, deliveryVersion.TaskID)
-	}
 	// start a new routine to check task results
 	go waitK8SImageVersionDone(deliveryVersion)
 
@@ -1446,26 +1476,38 @@ func checkK8SImageVersionStatus(deliveryVersion *commonmodels.DeliveryVersion) (
 	if deliveryVersion.Status == setting.DeliveryVersionStatusSuccess || deliveryVersion.Status == setting.DeliveryVersionStatusFailed {
 		return true, nil
 	}
+
+	workflowTaskExist := true
 	workflowTask, err := commonrepo.NewworkflowTaskv4Coll().Find(deliveryVersion.WorkflowName, int64(deliveryVersion.TaskID))
 	if err != nil {
-		return false, fmt.Errorf("failed to find workflow task, workflowName: %s, taskID: %d", deliveryVersion.WorkflowName, deliveryVersion.TaskID)
-	}
 
-	if len(workflowTask.Stages) != 1 {
-		return false, fmt.Errorf("invalid task data, stage length not leagal")
+		if err == mongo.ErrNoDocuments {
+			workflowTaskExist = false
+		} else {
+			return false, fmt.Errorf("failed to find workflow task, workflowName: %s, taskID: %d", deliveryVersion.WorkflowName, deliveryVersion.TaskID)
+		}
 	}
 
 	done := false
-	if workflowTask.Status == config.StatusPassed {
+	if workflowTaskExist {
+		if len(workflowTask.Stages) != 1 {
+			return false, fmt.Errorf("invalid task data, stage length not leagal")
+		}
+		if workflowTask.Status == config.StatusPassed {
+			deliveryVersion.Status = setting.DeliveryVersionStatusSuccess
+			done = true
+		} else if workflowTask.Status == config.StatusFailed || workflowTask.Status == config.StatusTimeout || workflowTask.Status == config.StatusCancelled {
+			deliveryVersion.Status = setting.DeliveryVersionStatusFailed
+			done = true
+		}
+	} else {
+		done = true
 		deliveryVersion.Status = setting.DeliveryVersionStatusSuccess
-		done = true
-	} else if workflowTask.Status == config.StatusFailed || workflowTask.Status == config.StatusTimeout || workflowTask.Status == config.StatusCancelled {
-		deliveryVersion.Status = setting.DeliveryVersionStatusFailed
-		done = true
 	}
 	if done {
 		updateVersionStatus(deliveryVersion.Version, deliveryVersion.ProductName, deliveryVersion.Status, deliveryVersion.Error)
 	}
+
 	return done, nil
 }
 
@@ -1627,9 +1669,6 @@ func checkHelmChartVersionStatus(deliveryVersion *commonmodels.DeliveryVersion) 
 }
 
 func CreateNewK8SDeliveryVersion(args *CreateK8SDeliveryVersionArgs, logger *zap.SugaredLogger) error {
-	if len(args.ImageRegistryID) == 0 {
-		return e.ErrCreateDeliveryVersion.AddDesc("image registry not appointed")
-	}
 	// prepare data
 	productInfo, err := getProductEnvInfo(args.ProductName, args.EnvName, args.Production)
 	if err != nil {
@@ -1643,18 +1682,20 @@ func CreateNewK8SDeliveryVersion(args *CreateK8SDeliveryVersionArgs, logger *zap
 	}
 
 	var targetRegistry *commonmodels.RegistryNamespace
-	for _, registry := range registryMap {
-		if registry.ID.Hex() == args.ImageRegistryID {
-			targetRegistry = registry
-			break
+	if len(args.ImageRegistryID) != 0 {
+		for _, registry := range registryMap {
+			if registry.ID.Hex() == args.ImageRegistryID {
+				targetRegistry = registry
+				break
+			}
 		}
-	}
-	targetRegistryProjectSet := sets.NewString()
-	for _, project := range targetRegistry.Projects {
-		targetRegistryProjectSet.Insert(project)
-	}
-	if !targetRegistryProjectSet.Has(productInfo.ProductName) && !targetRegistryProjectSet.Has(setting.AllProjects) {
-		return fmt.Errorf("registry %s/%s not support project %s", targetRegistry.RegAddr, targetRegistry.Namespace, productInfo.ProductName)
+		targetRegistryProjectSet := sets.NewString()
+		for _, project := range targetRegistry.Projects {
+			targetRegistryProjectSet.Insert(project)
+		}
+		if !targetRegistryProjectSet.Has(productInfo.ProductName) && !targetRegistryProjectSet.Has(setting.AllProjects) {
+			return fmt.Errorf("registry %s/%s not support project %s", targetRegistry.RegAddr, targetRegistry.Namespace, productInfo.ProductName)
+		}
 	}
 
 	productInfo.ID, _ = primitive.ObjectIDFromHex("")
@@ -2184,6 +2225,9 @@ func generateCustomWorkflowFromDeliveryVersion(productInfo *commonmodels.Product
 	registryDatasMap := map[*commonmodels.RegistryNamespace]map[string][]*ImageData{}
 	for _, yamlData := range args.YamlDatas {
 		for _, imageData := range yamlData.ImageDatas {
+			if !imageData.Selected {
+				continue
+			}
 			sourceImageTag := ""
 			registryURL := strings.TrimSuffix(imageData.Image, fmt.Sprintf("/%s", imageData.ImageName))
 			tmpArr := strings.Split(imageData.Image, ":")
@@ -2229,6 +2273,13 @@ func generateCustomWorkflowFromDeliveryVersion(productInfo *commonmodels.Product
 	for sourceRegistry, serviceNameImageDatasMap := range registryDatasMap {
 		for serviceName, imageDatas := range serviceNameImageDatasMap {
 			for _, imageData := range imageDatas {
+				if !imageData.Selected {
+					continue
+				}
+
+				if targetRegistry == nil {
+					return nil, fmt.Errorf("target registry not appointed")
+				}
 				sourceContainter := serviceNameContainerMap[serviceName][imageData.ContainerName]
 				if sourceContainter == nil {
 					return nil, fmt.Errorf("can't find source container: %s", imageData.ContainerName)
@@ -2269,14 +2320,15 @@ func generateCustomWorkflowFromDeliveryVersion(productInfo *commonmodels.Product
 		}
 	}
 
-	stage = append(stage, &commonmodels.WorkflowStage{
-		Name:     "distribute-image",
-		Parallel: false,
-		Approval: nil,
-		Jobs:     jobs,
-	})
-
-	resp.Stages = stage
+	if len(jobs) > 0 {
+		stage = append(stage, &commonmodels.WorkflowStage{
+			Name:     "distribute-image",
+			Parallel: false,
+			Approval: nil,
+			Jobs:     jobs,
+		})
+		resp.Stages = stage
+	}
 
 	return resp, nil
 }
