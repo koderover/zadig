@@ -31,7 +31,6 @@ require (
 	github.com/gin-gonic/gin v1.9.1
 	github.com/go-co-op/gocron v1.17.0
 	github.com/go-ldap/ldap/v3 v3.3.0
-	github.com/go-redis/redis v6.15.9+incompatible
 	github.com/go-redsync/redsync/v4 v4.11.0
 	github.com/go-resty/resty/v2 v2.7.0
 	github.com/go-sql-driver/mysql v1.7.1

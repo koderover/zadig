@@ -51,6 +51,42 @@
                 }
             }
         },
+        "/api/aslan/delivery/releases/check": {
+            "get": {
+                "description": "Check Delivery Version",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "delivery"
+                ],
+                "summary": "Check Delivery Version",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "version",
+                        "name": "version",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
         "/api/aslan/delivery/releases/k8s": {
             "post": {
                 "description": "Create K8S Delivery Version",
@@ -4873,12 +4909,14 @@
             "enum": [
                 "native",
                 "lark",
-                "dingtalk"
+                "dingtalk",
+                "workwx"
             ],
             "x-enum-varnames": [
                 "NativeApproval",
                 "LarkApproval",
-                "DingTalkApproval"
+                "DingTalkApproval",
+                "WorkWXApproval"
             ]
         },
         "config.ApproveOrReject": {
@@ -4990,6 +5028,17 @@
             "x-enum-varnames": [
                 "JobText",
                 "JobWorkflow"
+            ]
+        },
+        "config.ScanningModuleType": {
+            "type": "string",
+            "enum": [
+                "",
+                "service_scanning"
+            ],
+            "x-enum-varnames": [
+                "NormalScanningType",
+                "ServiceScanningType"
             ]
         },
         "github_com_koderover_zadig_v2_pkg_microservice_aslan_config.PipelineType": {
@@ -5670,6 +5719,9 @@
                 },
                 "type": {
                     "$ref": "#/definitions/config.ApprovalType"
+                },
+                "workwx_approval": {
+                    "$ref": "#/definitions/models.WorkWXApproval"
                 }
             }
         },
@@ -7585,6 +7637,38 @@
                 }
             }
         },
+        "models.ServiceAndScannings": {
+            "type": "object",
+            "properties": {
+                "key_vals": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.KeyVal"
+                    }
+                },
+                "name": {
+                    "type": "string"
+                },
+                "project_name": {
+                    "type": "string"
+                },
+                "repos": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/types.Repository"
+                    }
+                },
+                "service_module": {
+                    "type": "string"
+                },
+                "service_name": {
+                    "type": "string"
+                },
+                "share_storage_info": {
+                    "$ref": "#/definitions/models.ShareStorageInfo"
+                }
+            }
+        },
         "models.ServiceAndVMDeploy": {
             "type": "object",
             "properties": {
@@ -7657,6 +7741,17 @@
                     "type": "string"
                 },
                 "version": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.ServiceTestTarget": {
+            "type": "object",
+            "properties": {
+                "service_module": {
+                    "type": "string"
+                },
+                "service_name": {
                     "type": "string"
                 }
             }
@@ -7756,6 +7851,36 @@
                 "WebHookTypeDingding",
                 "WebHookTypeWeChat"
             ]
+        },
+        "models.WorkWXApproval": {
+            "type": "object",
+            "properties": {
+                "approval_id": {
+                    "description": "ID: workwx im app mongodb id",
+                    "type": "string"
+                },
+                "approval_node_details": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/workwx.ApprovalNode"
+                    }
+                },
+                "approval_nodes": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/workwx.ApprovalNode"
+                    }
+                },
+                "creator_user": {
+                    "$ref": "#/definitions/workwx.ApprovalUser"
+                },
+                "instance_id": {
+                    "type": "string"
+                },
+                "timeout": {
+                    "type": "integer"
+                }
+            }
         },
         "models.ZadigBlueGreenDeployEnvInformation": {
             "type": "object",
@@ -7964,10 +8089,37 @@
         "models.ZadigScanningJobSpec": {
             "type": "object",
             "properties": {
+                "job_name": {
+                    "type": "string"
+                },
+                "origin_job_name": {
+                    "type": "string"
+                },
+                "scanning_type": {
+                    "$ref": "#/definitions/config.ScanningModuleType"
+                },
                 "scannings": {
+                    "description": "Scannings used only for normal scanning. for service scanning we use",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/models.ScanningModule"
+                    }
+                },
+                "service_and_scannings": {
+                    "description": "ServiceAndScannings is the configured field for this job. It includes all the services along with its configured scanning.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ServiceAndScannings"
+                    }
+                },
+                "source": {
+                    "$ref": "#/definitions/config.DeploySourceType"
+                },
+                "target_services": {
+                    "description": "selected service in service scanning",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ServiceTestTarget"
                     }
                 }
             }
@@ -10385,6 +10537,143 @@
                     "type": "string"
                 },
                 "latest": {
+                    "type": "string"
+                }
+            }
+        },
+        "workwx.ApprovalNode": {
+            "type": "object",
+            "properties": {
+                "apv_rel": {
+                    "$ref": "#/definitions/workwx.ApprovalRel"
+                },
+                "status": {
+                    "$ref": "#/definitions/workwx.ApprovalNodeStatus"
+                },
+                "sub_nodes": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/workwx.ApprovalSubNode"
+                    }
+                },
+                "type": {
+                    "$ref": "#/definitions/workwx.ApprovalType"
+                },
+                "userid": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "users": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/workwx.ApprovalUser"
+                    }
+                }
+            }
+        },
+        "workwx.ApprovalNodeStatus": {
+            "type": "integer",
+            "enum": [
+                1,
+                2,
+                3,
+                4,
+                11,
+                12,
+                13,
+                14,
+                15
+            ],
+            "x-enum-varnames": [
+                "ApprovalNodeStatusWaiting",
+                "ApprovalNodeStatusApproved",
+                "ApprovalNodeStatusRejected",
+                "ApprovalNodeStatusForwarded",
+                "ApprovalNodeStatusThrowBackForwarded",
+                "ApprovalNodeStatusAddApprover",
+                "ApprovalNodeStatusApprovedAndAddApprover",
+                "ApprovalNodeStatusProcessing",
+                "ApprovalNodeStatusMoved"
+            ]
+        },
+        "workwx.ApprovalRel": {
+            "type": "integer",
+            "enum": [
+                1,
+                2
+            ],
+            "x-enum-varnames": [
+                "ApprovalRelAnd",
+                "ApprovalRelOr"
+            ]
+        },
+        "workwx.ApprovalSubNode": {
+            "type": "object",
+            "properties": {
+                "speech": {
+                    "type": "string"
+                },
+                "status": {
+                    "$ref": "#/definitions/workwx.ApprovalSubNodeStatus"
+                },
+                "timestamp": {
+                    "type": "integer"
+                },
+                "user_info": {
+                    "type": "object",
+                    "properties": {
+                        "user_id": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "workwx.ApprovalSubNodeStatus": {
+            "type": "integer",
+            "enum": [
+                1,
+                2,
+                3,
+                4,
+                11,
+                12,
+                13,
+                14,
+                15
+            ],
+            "x-enum-varnames": [
+                "ApprovalSubNodeStatusWaiting",
+                "ApprovalSubNodeStatusApproved",
+                "ApprovalSubNodeStatusRejected",
+                "ApprovalSubNodeStatusForwarded",
+                "ApprovalSubNodeStatusThrowBackForwarded",
+                "ApprovalSubNodeStatusAddApprover",
+                "ApprovalSubNodeStatusApprovedAndAddApprover",
+                "ApprovalSubNodeStatusProcessing",
+                "ApprovalSubNodeStatusMoved"
+            ]
+        },
+        "workwx.ApprovalType": {
+            "type": "integer",
+            "enum": [
+                1,
+                2
+            ],
+            "x-enum-varnames": [
+                "ApprovalTypeApprove",
+                "ApprovalTypeCC"
+            ]
+        },
+        "workwx.ApprovalUser": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "name": {
                     "type": "string"
                 }
             }
