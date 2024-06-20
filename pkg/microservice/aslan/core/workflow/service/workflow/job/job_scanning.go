@@ -798,6 +798,8 @@ func fillScanningDetail(moduleScanning *commonmodels.Scanning) error {
 		return fmt.Errorf("failed to find scanning template with id: %s, err: %s", moduleScanning.TemplateID, err)
 	}
 
+	moduleScanning.Infrastructure = templateInfo.Infrastructure
+	moduleScanning.VMLabels = templateInfo.VMLabels
 	moduleScanning.ScannerType = templateInfo.ScannerType
 	moduleScanning.EnableScanner = templateInfo.EnableScanner
 	moduleScanning.ImageID = templateInfo.ImageID
@@ -805,6 +807,7 @@ func fillScanningDetail(moduleScanning *commonmodels.Scanning) error {
 	moduleScanning.Installs = templateInfo.Installs
 	moduleScanning.Parameter = templateInfo.Parameter
 	moduleScanning.Envs = commonservice.MergeBuildEnvs(templateInfo.Envs, moduleScanning.Envs)
+	moduleScanning.ScriptType = templateInfo.ScriptType
 	moduleScanning.Script = templateInfo.Script
 	moduleScanning.AdvancedSetting = templateInfo.AdvancedSetting
 	moduleScanning.CheckQualityGate = templateInfo.CheckQualityGate

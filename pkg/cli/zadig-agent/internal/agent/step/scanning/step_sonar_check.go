@@ -39,6 +39,7 @@ type SonarCheckStep struct {
 	secretEnvs []string
 	workspace  string
 	dirs       *types.AgentWorkDirs
+	Logger     *log.JobLogger
 }
 
 func NewSonarCheckStep(spec interface{}, dirs *types.AgentWorkDirs, envs, secretEnvs []string, logger *log.JobLogger) (*SonarCheckStep, error) {
@@ -50,11 +51,12 @@ func NewSonarCheckStep(spec interface{}, dirs *types.AgentWorkDirs, envs, secret
 	if err := yaml.Unmarshal(yamlBytes, &sonarCheckStep.spec); err != nil {
 		return sonarCheckStep, fmt.Errorf("unmarshal spec %s to shell spec failed", yamlBytes)
 	}
+	sonarCheckStep.Logger = logger
 	return sonarCheckStep, nil
 }
 
 func (s *SonarCheckStep) Run(ctx context.Context) error {
-	log.Info("Start check Sonar scanning quality gate status.")
+	s.Logger.Infof("Start check Sonar scanning quality gate status.")
 	client := sonar.NewSonarClient(s.spec.SonarServer, s.spec.SonarToken)
 	sonarWorkDir := sonar.GetSonarWorkDir(s.spec.Parameter)
 	if sonarWorkDir == "" {
@@ -66,27 +68,27 @@ func (s *SonarCheckStep) Run(ctx context.Context) error {
 	taskReportDir := filepath.Join(sonarWorkDir, "report-task.txt")
 	bytes, err := ioutil.ReadFile(taskReportDir)
 	if err != nil {
-		log.Errorf("read sonar task report file: %s error :%v", time.Now().Format(setting.WorkflowTimeFormat), taskReportDir, err)
+		s.Logger.Errorf("read sonar task report file: %s error :%v", time.Now().Format(setting.WorkflowTimeFormat), taskReportDir, err)
 		return err
 	}
 	taskReportContent := string(bytes)
 	ceTaskID := sonar.GetSonarCETaskID(taskReportContent)
 	if ceTaskID == "" {
-		log.Error("can not get sonar ce task ID")
+		s.Logger.Errorf("can not get sonar ce task ID")
 		return errors.New("can not get sonar ce task ID")
 	}
 	analysisID, err := client.WaitForCETaskTobeDone(ceTaskID, time.Minute*10)
 	if err != nil {
-		log.Error(err)
+		s.Logger.Errorf(err)
 		return err
 	}
 	gateInfo, err := client.GetQualityGateInfo(analysisID)
 	if err != nil {
-		log.Error(err)
+		s.Logger.Errorf(err)
 		return err
 	}
-	log.Infof("Sonar quality gate status: %s", gateInfo.ProjectStatus.Status)
-	sonar.PrintSonarConditionTables(gateInfo.ProjectStatus.Conditions)
+	s.Logger.Infof("Sonar quality gate status: %s", gateInfo.ProjectStatus.Status)
+	sonar.VMPrintSonarConditionTables(gateInfo.ProjectStatus.Conditions, s.Logger)
 	if gateInfo.ProjectStatus.Status != sonar.QualityGateOK && gateInfo.ProjectStatus.Status != sonar.QualityGateNone {
 		return fmt.Errorf("sonar quality gate status was: %s", gateInfo.ProjectStatus.Status)
 	}

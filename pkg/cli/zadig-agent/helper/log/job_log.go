@@ -100,14 +100,12 @@ func (l *JobLogger) Debugf(args ...interface{}) {
 	l.logger.Debug(raw)
 }
 
-func (l *JobLogger) Infof(args ...interface{}) {
+func (l *JobLogger) Infof(template string, args ...interface{}) {
 	if l.logger == nil {
 		return
 	}
 
-	raw := fmt.Sprint(args...)
-
-	l.logger.Infof(raw)
+	l.logger.Infof(template, args...)
 }
 
 func (l *JobLogger) Warnf(args ...interface{}) {
