@@ -549,6 +549,7 @@ var (
 	ErrGetDeliveryVersion    = NewHTTPError(6563, "查询交付中心版本失败")
 	ErrFindDeliveryProducts  = NewHTTPError(6564, "查询交付中心产品列表失败")
 	ErrUpdateDeliveryVersion = NewHTTPError(6565, "更新交付中心版本失败")
+	ErrCheckDeliveryVersion  = NewHTTPError(6566, "检查交付中心版本失败")
 
 	//-----------------------------------------------------------------------------------------------
 	// delivery_build APIs Range: 6570 - 6579

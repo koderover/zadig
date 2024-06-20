@@ -4,11 +4,13 @@ definitions:
     - native
     - lark
     - dingtalk
+    - workwx
     type: string
     x-enum-varnames:
     - NativeApproval
     - LarkApproval
     - DingTalkApproval
+    - WorkWXApproval
   config.ApproveOrReject:
     enum:
     - approve
@@ -93,6 +95,14 @@ definitions:
     x-enum-varnames:
     - JobText
     - JobWorkflow
+  config.ScanningModuleType:
+    enum:
+    - ""
+    - service_scanning
+    type: string
+    x-enum-varnames:
+    - NormalScanningType
+    - ServiceScanningType
   github_com_koderover_zadig_v2_pkg_microservice_aslan_config.PipelineType:
     enum:
     - single
@@ -560,6 +570,8 @@ definitions:
         $ref: '#/definitions/github_com_koderover_zadig_v2_pkg_microservice_aslan_config.Status'
       type:
         $ref: '#/definitions/config.ApprovalType'
+      workwx_approval:
+        $ref: '#/definitions/models.WorkWXApproval'
     type: object
   models.BlueGreenDeployV2JobSpec:
     properties:
@@ -1845,6 +1857,27 @@ definitions:
       service_name:
         type: string
     type: object
+  models.ServiceAndScannings:
+    properties:
+      key_vals:
+        items:
+          $ref: '#/definitions/models.KeyVal'
+        type: array
+      name:
+        type: string
+      project_name:
+        type: string
+      repos:
+        items:
+          $ref: '#/definitions/types.Repository'
+        type: array
+      service_module:
+        type: string
+      service_name:
+        type: string
+      share_storage_info:
+        $ref: '#/definitions/models.ShareStorageInfo'
+    type: object
   models.ServiceAndVMDeploy:
     properties:
       artifact_url:
@@ -1893,6 +1926,13 @@ definitions:
       name:
         type: string
       version:
+        type: string
+    type: object
+  models.ServiceTestTarget:
+    properties:
+      service_module:
+        type: string
+      service_name:
         type: string
     type: object
   models.ShareStorage:
@@ -1959,6 +1999,26 @@ definitions:
     - WebHookTypeFeishu
     - WebHookTypeDingding
     - WebHookTypeWeChat
+  models.WorkWXApproval:
+    properties:
+      approval_id:
+        description: 'ID: workwx im app mongodb id'
+        type: string
+      approval_node_details:
+        items:
+          $ref: '#/definitions/workwx.ApprovalNode'
+        type: array
+      approval_nodes:
+        items:
+          $ref: '#/definitions/workwx.ApprovalNode'
+        type: array
+      creator_user:
+        $ref: '#/definitions/workwx.ApprovalUser'
+      instance_id:
+        type: string
+      timeout:
+        type: integer
+    type: object
   models.ZadigBlueGreenDeployEnvInformation:
     properties:
       env:
@@ -2098,9 +2158,30 @@ definitions:
     type: object
   models.ZadigScanningJobSpec:
     properties:
+      job_name:
+        type: string
+      origin_job_name:
+        type: string
+      scanning_type:
+        $ref: '#/definitions/config.ScanningModuleType'
       scannings:
+        description: Scannings used only for normal scanning. for service scanning
+          we use
         items:
           $ref: '#/definitions/models.ScanningModule'
+        type: array
+      service_and_scannings:
+        description: ServiceAndScannings is the configured field for this job. It
+          includes all the services along with its configured scanning.
+        items:
+          $ref: '#/definitions/models.ServiceAndScannings'
+        type: array
+      source:
+        $ref: '#/definitions/config.DeploySourceType'
+      target_services:
+        description: selected service in service scanning
+        items:
+          $ref: '#/definitions/models.ServiceTestTarget'
         type: array
     type: object
   models.ZadigVMDeployEnvInformation:
@@ -3718,6 +3799,108 @@ definitions:
       latest:
         type: string
     type: object
+  workwx.ApprovalNode:
+    properties:
+      apv_rel:
+        $ref: '#/definitions/workwx.ApprovalRel'
+      status:
+        $ref: '#/definitions/workwx.ApprovalNodeStatus'
+      sub_nodes:
+        items:
+          $ref: '#/definitions/workwx.ApprovalSubNode'
+        type: array
+      type:
+        $ref: '#/definitions/workwx.ApprovalType'
+      userid:
+        items:
+          type: string
+        type: array
+      users:
+        items:
+          $ref: '#/definitions/workwx.ApprovalUser'
+        type: array
+    type: object
+  workwx.ApprovalNodeStatus:
+    enum:
+    - 1
+    - 2
+    - 3
+    - 4
+    - 11
+    - 12
+    - 13
+    - 14
+    - 15
+    type: integer
+    x-enum-varnames:
+    - ApprovalNodeStatusWaiting
+    - ApprovalNodeStatusApproved
+    - ApprovalNodeStatusRejected
+    - ApprovalNodeStatusForwarded
+    - ApprovalNodeStatusThrowBackForwarded
+    - ApprovalNodeStatusAddApprover
+    - ApprovalNodeStatusApprovedAndAddApprover
+    - ApprovalNodeStatusProcessing
+    - ApprovalNodeStatusMoved
+  workwx.ApprovalRel:
+    enum:
+    - 1
+    - 2
+    type: integer
+    x-enum-varnames:
+    - ApprovalRelAnd
+    - ApprovalRelOr
+  workwx.ApprovalSubNode:
+    properties:
+      speech:
+        type: string
+      status:
+        $ref: '#/definitions/workwx.ApprovalSubNodeStatus'
+      timestamp:
+        type: integer
+      user_info:
+        properties:
+          user_id:
+            type: string
+        type: object
+    type: object
+  workwx.ApprovalSubNodeStatus:
+    enum:
+    - 1
+    - 2
+    - 3
+    - 4
+    - 11
+    - 12
+    - 13
+    - 14
+    - 15
+    type: integer
+    x-enum-varnames:
+    - ApprovalSubNodeStatusWaiting
+    - ApprovalSubNodeStatusApproved
+    - ApprovalSubNodeStatusRejected
+    - ApprovalSubNodeStatusForwarded
+    - ApprovalSubNodeStatusThrowBackForwarded
+    - ApprovalSubNodeStatusAddApprover
+    - ApprovalSubNodeStatusApprovedAndAddApprover
+    - ApprovalSubNodeStatusProcessing
+    - ApprovalSubNodeStatusMoved
+  workwx.ApprovalType:
+    enum:
+    - 1
+    - 2
+    type: integer
+    x-enum-varnames:
+    - ApprovalTypeApprove
+    - ApprovalTypeCC
+  workwx.ApprovalUser:
+    properties:
+      id:
+        type: string
+      name:
+        type: string
+    type: object
 info:
   contact:
     email: contact@koderover.com
@@ -3756,6 +3939,30 @@ paths:
       summary: Sync Collaboration Instance
       tags:
       - collaboration
+  /api/aslan/delivery/releases/check:
+    get:
+      consumes:
+      - application/json
+      description: Check Delivery Version
+      parameters:
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: version
+        in: query
+        name: version
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Check Delivery Version
+      tags:
+      - delivery
   /api/aslan/delivery/releases/k8s:
     post:
       consumes:
