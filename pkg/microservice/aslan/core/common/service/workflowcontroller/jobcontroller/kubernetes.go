@@ -762,42 +762,20 @@ func getResourceRequirements(resReq setting.Request, resReqSpec setting.RequestS
 // cpu Request:Limit=1:4
 // memory default Request:Limit=1:4 ; if memoryLimit>= 8Gi,Request:Limit=1:8
 func generateResourceRequirements(req setting.Request, reqSpec setting.RequestSpec) corev1.ResourceRequirements {
-
-	if req != setting.DefineRequest {
-		return corev1.ResourceRequirements{
-			Limits: corev1.ResourceList{
-				corev1.ResourceCPU:    resource.MustParse(strconv.Itoa(reqSpec.CpuLimit) + setting.CpuUintM),
-				corev1.ResourceMemory: resource.MustParse(strconv.Itoa(reqSpec.MemoryLimit) + setting.MemoryUintMi),
-			},
-			Requests: corev1.ResourceList{
-				corev1.ResourceCPU:    resource.MustParse(strconv.Itoa(reqSpec.CpuReq) + setting.CpuUintM),
-				corev1.ResourceMemory: resource.MustParse(strconv.Itoa(reqSpec.MemoryReq) + setting.MemoryUintMi),
-			},
-		}
-	}
-
 	limits := corev1.ResourceList{}
 	requests := corev1.ResourceList{}
 
-	if reqSpec.CpuLimit > 0 {
-		cpuReqInt := reqSpec.CpuLimit / 4
-		if cpuReqInt < 1 {
-			cpuReqInt = 1
-		}
+	if reqSpec.CpuLimit != 0 {
 		limits[corev1.ResourceCPU] = resource.MustParse(strconv.Itoa(reqSpec.CpuLimit) + setting.CpuUintM)
-		requests[corev1.ResourceCPU] = resource.MustParse(strconv.Itoa(cpuReqInt) + setting.CpuUintM)
 	}
-
-	if reqSpec.MemoryLimit > 0 {
-		memoryReqInt := reqSpec.MemoryLimit / 4
-		if memoryReqInt >= 2*1024 {
-			memoryReqInt = memoryReqInt / 2
-		}
-		if memoryReqInt < 1 {
-			memoryReqInt = 1
-		}
+	if reqSpec.CpuReq != 0 {
+		requests[corev1.ResourceCPU] = resource.MustParse(strconv.Itoa(reqSpec.CpuReq) + setting.CpuUintM)
+	}
+	if reqSpec.MemoryReq != 0 {
+		requests[corev1.ResourceMemory] = resource.MustParse(strconv.Itoa(reqSpec.MemoryReq) + setting.MemoryUintMi)
+	}
+	if reqSpec.MemoryLimit != 0 {
 		limits[corev1.ResourceMemory] = resource.MustParse(strconv.Itoa(reqSpec.MemoryLimit) + setting.MemoryUintMi)
-		requests[corev1.ResourceMemory] = resource.MustParse(strconv.Itoa(memoryReqInt) + setting.MemoryUintMi)
 	}
 
 	// add gpu limit
