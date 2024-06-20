@@ -1234,7 +1234,7 @@ func updateMultiK8sEnv(c *gin.Context, request *service.UpdateEnvRequest, produc
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.UpdateMultipleK8sEnv(args, envNames, request.ProjectName, ctx.RequestID, request.Force, production, ctx.Logger)
+	ctx.Resp, ctx.Err = service.UpdateMultipleK8sEnv(args, envNames, request.ProjectName, ctx.RequestID, request.Force, production, ctx.UserName, ctx.Logger)
 }
 
 func updateMultiHelmEnv(c *gin.Context, request *service.UpdateEnvRequest, production bool, ctx *internalhandler.Context) {

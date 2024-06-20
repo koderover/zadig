@@ -423,7 +423,7 @@ type UpdateEnv struct {
 	Services []*UpdateServiceArg `json:"services"`
 }
 
-func UpdateMultipleK8sEnv(args []*UpdateEnv, envNames []string, productName, requestID string, force, production bool, log *zap.SugaredLogger) ([]*EnvStatus, error) {
+func UpdateMultipleK8sEnv(args []*UpdateEnv, envNames []string, productName, requestID string, force, production bool, username string, log *zap.SugaredLogger) ([]*EnvStatus, error) {
 	mutexAutoUpdate := cache.NewRedisLock(fmt.Sprintf("update_multiple_product:%s", productName))
 	err := mutexAutoUpdate.Lock()
 	if err != nil {
@@ -497,7 +497,7 @@ func UpdateMultipleK8sEnv(args []*UpdateEnv, envNames []string, productName, req
 
 		// update env default variable, particular svcs from client are involved
 		// svc revision will not be updated
-		err = updateK8sProduct(exitedProd, setting.SystemUser, requestID, updateRevisionSvcs, filter, updateSvcs, strategyMap, force, exitedProd.GlobalVariables, log)
+		err = updateK8sProduct(exitedProd, username, requestID, updateRevisionSvcs, filter, updateSvcs, strategyMap, force, exitedProd.GlobalVariables, log)
 		if err != nil {
 			log.Errorf("UpdateMultipleK8sEnv UpdateProductV2 err:%v", err)
 			errList = multierror.Append(errList, err)
@@ -506,7 +506,7 @@ func UpdateMultipleK8sEnv(args []*UpdateEnv, envNames []string, productName, req
 
 	productResps := make([]*ProductResp, 0)
 	for _, envName := range envNames {
-		productResp, err := GetProduct(setting.SystemUser, envName, productName, log)
+		productResp, err := GetProduct(username, envName, productName, log)
 		if err == nil && productResp != nil {
 			productResps = append(productResps, productResp)
 		}
@@ -807,7 +807,7 @@ func UpdateMultiCVMProducts(envNames []string, productName, user, requestID stri
 
 	productResps := make([]*ProductResp, 0)
 	for _, envName := range envNames {
-		productResp, err := GetProduct(setting.SystemUser, envName, productName, log)
+		productResp, err := GetProduct(user, envName, productName, log)
 		if err == nil && productResp != nil {
 			productResps = append(productResps, productResp)
 		}

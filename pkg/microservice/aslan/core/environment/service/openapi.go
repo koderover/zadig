@@ -210,11 +210,11 @@ func OpenAPIUpdateYamlService(req *OpenAPIServiceVariablesReq, userName, request
 	if len(args) == 0 {
 		return nil
 	}
-	_, err = UpdateMultipleK8sEnv(args, []string{envName}, projectName, requestID, true, production, logger)
+	_, err = UpdateMultipleK8sEnv(args, []string{envName}, projectName, requestID, true, production, userName, logger)
 	return err
 }
 
-func OpenAPIApplyYamlService(projectKey string, req *OpenAPIApplyYamlServiceReq, production bool, requestID string, logger *zap.SugaredLogger) ([]*EnvStatus, error) {
+func OpenAPIApplyYamlService(projectKey string, req *OpenAPIApplyYamlServiceReq, production bool, requestID, userName string, logger *zap.SugaredLogger) ([]*EnvStatus, error) {
 	env, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: projectKey, EnvName: req.EnvName})
 	if err != nil {
 		logger.Errorf("failed to find env:%s from db, project:%s", req.EnvName, projectKey)
@@ -255,7 +255,7 @@ func OpenAPIApplyYamlService(projectKey string, req *OpenAPIApplyYamlServiceReq,
 		Services: svcList,
 	})
 
-	return UpdateMultipleK8sEnv(args, []string{req.EnvName}, projectKey, requestID, false, false, logger)
+	return UpdateMultipleK8sEnv(args, []string{req.EnvName}, projectKey, requestID, false, false, userName, logger)
 }
 
 func checkServiceInEnv(envServices [][]*commonmodels.ProductService, services []*YamlServiceWithKV) error {
