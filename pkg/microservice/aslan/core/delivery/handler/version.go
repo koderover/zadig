@@ -513,3 +513,28 @@ func ApplyDeliveryGlobalVariables(c *gin.Context) {
 	}
 	ctx.Resp, ctx.Err = deliveryservice.ApplyDeliveryGlobalVariables(args, ctx.Logger)
 }
+
+// @Summary Check Delivery Version
+// @Description Check Delivery Version
+// @Tags 	delivery
+// @Accept 	json
+// @Produce json
+// @Param 	projectName		query		string							true	"project name"
+// @Param 	version			query		string							true	"version"
+// @Success 200
+// @Router /api/aslan/delivery/releases/check [get]
+func CheckDeliveryVersion(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	versionName := c.Query("version")
+	projectName := c.Query("projectName")
+
+	ctx.Err = deliveryservice.CheckDeliveryVersion(projectName, versionName)
+}
