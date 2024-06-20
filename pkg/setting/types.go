@@ -38,8 +38,8 @@ const (
 type RequestSpec struct {
 	CpuLimit    int `bson:"cpu_limit"                     json:"cpu_limit"               yaml:"cpu_limit"`
 	MemoryLimit int `bson:"memory_limit"                  json:"memory_limit"            yaml:"memory_limit"`
-	CpuReq      int `bson:"cpu_req,omitempty"             json:"cpu_req,omitempty"       yaml:"cpu_req,omitempty"`
-	MemoryReq   int `bson:"memory_req,omitempty"          json:"memory_req,omitempty"    yaml:"memory_req,omitempty"`
+	CpuReq      int `bson:"cpu_req"                       json:"cpu_req"                 yaml:"cpu_req"`
+	MemoryReq   int `bson:"memory_req"                    json:"memory_req"              yaml:"memory_req"`
 	// gpu request, eg: "nvidia.com/gpu: 1"
 	GpuLimit string `bson:"gpu_limit"                     json:"gpu_limit"               yaml:"gpu_limit"`
 }
