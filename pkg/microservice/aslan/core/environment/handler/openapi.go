@@ -175,7 +175,7 @@ func OpenAPIApplyYamlService(c *gin.Context) {
 		}
 	}
 
-	_, err = service.OpenAPIApplyYamlService(projectKey, req, false, ctx.RequestID, ctx.Logger)
+	_, err = service.OpenAPIApplyYamlService(projectKey, req, false, ctx.RequestID, ctx.UserName, ctx.Logger)
 
 	ctx.Err = err
 }
@@ -368,7 +368,7 @@ func OpenAPIApplyProductionYamlService(c *gin.Context) {
 		return
 	}
 
-	_, err = service.OpenAPIApplyYamlService(projectKey, req, true, ctx.RequestID, ctx.Logger)
+	_, err = service.OpenAPIApplyYamlService(projectKey, req, true, ctx.RequestID, ctx.UserName, ctx.Logger)
 	ctx.Err = err
 }
 
