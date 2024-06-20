@@ -1698,6 +1698,18 @@ func CreateNewK8SDeliveryVersion(args *CreateK8SDeliveryVersionArgs, logger *zap
 		}
 	}
 
+	for _, yamlData := range args.YamlDatas {
+		for _, imageData := range yamlData.ImageDatas {
+			if !imageData.Selected {
+				continue
+			}
+			_, err := getImageSourceRegistry(imageData, registryMap)
+			if err != nil {
+				return fmt.Errorf("failed to check registry, err: %v", err)
+			}
+		}
+	}
+
 	productInfo.ID, _ = primitive.ObjectIDFromHex("")
 
 	workflowName := generateDeliveryWorkflowName(args.ProductName)
@@ -2228,24 +2240,11 @@ func generateCustomWorkflowFromDeliveryVersion(productInfo *commonmodels.Product
 			if !imageData.Selected {
 				continue
 			}
-			sourceImageTag := ""
-			registryURL := strings.TrimSuffix(imageData.Image, fmt.Sprintf("/%s", imageData.ImageName))
-			tmpArr := strings.Split(imageData.Image, ":")
-			if len(tmpArr) == 2 {
-				sourceImageTag = tmpArr[1]
-				registryURL = strings.TrimSuffix(imageData.Image, fmt.Sprintf("/%s:%s", imageData.ImageName, sourceImageTag))
-			} else if len(tmpArr) == 3 {
-				sourceImageTag = tmpArr[2]
-				registryURL = strings.TrimSuffix(imageData.Image, fmt.Sprintf("/%s:%s", imageData.ImageName, sourceImageTag))
-			} else if len(tmpArr) == 1 {
-				// no need to trim
-			} else {
-				return nil, fmt.Errorf("invalid image: %s", imageData.Image)
+			sourceRegistry, err := getImageSourceRegistry(imageData, registryMap)
+			if err != nil {
+				return nil, fmt.Errorf("failed to check registry, err: %v", err)
 			}
-			sourceRegistry, ok := registryMap[registryURL]
-			if !ok {
-				return nil, fmt.Errorf("can't find source registry for image: %s", imageData.Image)
-			}
+
 			if registryDatasMap[sourceRegistry] == nil {
 				registryDatasMap[sourceRegistry] = map[string][]*ImageData{yamlData.ServiceName: {}}
 			}
@@ -2331,6 +2330,28 @@ func generateCustomWorkflowFromDeliveryVersion(productInfo *commonmodels.Product
 	}
 
 	return resp, nil
+}
+
+func getImageSourceRegistry(imageData *ImageData, registryMap map[string]*commonmodels.RegistryNamespace) (*commonmodels.RegistryNamespace, error) {
+	sourceImageTag := ""
+	registryURL := strings.TrimSuffix(imageData.Image, fmt.Sprintf("/%s", imageData.ImageName))
+	tmpArr := strings.Split(imageData.Image, ":")
+	if len(tmpArr) == 2 {
+		sourceImageTag = tmpArr[1]
+		registryURL = strings.TrimSuffix(imageData.Image, fmt.Sprintf("/%s:%s", imageData.ImageName, sourceImageTag))
+	} else if len(tmpArr) == 3 {
+		sourceImageTag = tmpArr[2]
+		registryURL = strings.TrimSuffix(imageData.Image, fmt.Sprintf("/%s:%s", imageData.ImageName, sourceImageTag))
+	} else if len(tmpArr) == 1 {
+		// no need to trim
+	} else {
+		return nil, fmt.Errorf("invalid image: %s", imageData.Image)
+	}
+	sourceRegistry, ok := registryMap[registryURL]
+	if !ok {
+		return nil, fmt.Errorf("can't find source registry for image: %s", imageData.Image)
+	}
+	return sourceRegistry, nil
 }
 
 func generateDeliveryWorkflowName(productName string) string {
