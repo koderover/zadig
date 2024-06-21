@@ -28,42 +28,6 @@ import (
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 )
 
-type ListReleasePlanOption struct {
-	PageNum  int64 `form:"pageNum" binding:"required"`
-	PageSize int64 `form:"pageSize" binding:"required"`
-}
-
-func ListReleasePlans(c *gin.Context) {
-	ctx, err := internalhandler.NewContextWithAuthorization(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	if err != nil {
-
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
-		ctx.UnAuthorized = true
-		return
-	}
-
-	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.ReleasePlan.View {
-		ctx.UnAuthorized = true
-		return
-	}
-
-	opt := new(ListReleasePlanOption)
-	if err := c.ShouldBindQuery(&opt); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
-		return
-	}
-
-	err = commonutil.CheckZadigEnterpriseLicense()
-	if err != nil {
-		ctx.Err = err
-		return
-	}
-
-	ctx.Resp, ctx.Err = service.ListReleasePlans(opt.PageNum, opt.PageSize)
-}
-
 func GetReleasePlan(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -312,4 +276,45 @@ func ApproveReleasePlan(c *gin.Context) {
 	}
 
 	ctx.Err = service.ApproveReleasePlan(ctx, c.Param("id"), req)
+}
+
+// @Summary List Release Plans
+// @Description List Release Plans
+// @Tags 	releasePlan
+// @Accept 	json
+// @Produce json
+// @Param 	pageNum 		query		int								true	"page num"
+// @Param 	pageSize 		query		int								true	"page size"
+// @Param 	type 			query		service.ListReleasePlanType 	true	"search type"
+// @Param 	keyword 		query		string 							true	"search keyword, 当类型为success_time时，值应为'开始时间戳-结束时间戳'的形式"
+// @Success 200 			{object} 	service.ListReleasePlanResp
+// @Router /api/aslan/release_plan/v1 [get]
+func ListReleasePlans(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.ReleasePlan.View {
+		ctx.UnAuthorized = true
+		return
+	}
+
+	err = commonutil.CheckZadigEnterpriseLicense()
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+
+	opt := new(service.ListReleasePlanOption)
+	if err := c.ShouldBindQuery(&opt); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		return
+	}
+
+	ctx.Resp, ctx.Err = service.ListReleasePlans(opt)
 }

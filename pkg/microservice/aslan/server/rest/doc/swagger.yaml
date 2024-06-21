@@ -95,6 +95,20 @@ definitions:
     x-enum-varnames:
     - JobText
     - JobWorkflow
+  config.ReleasePlanStatus:
+    enum:
+    - planning
+    - waitforapprove
+    - executing
+    - success
+    - cancel
+    type: string
+    x-enum-varnames:
+    - StatusPlanning
+    - StatusWaitForApprove
+    - StatusExecuting
+    - StatusSuccess
+    - StatusCancel
   config.ScanningModuleType:
     enum:
     - ""
@@ -1592,6 +1606,52 @@ definitions:
           updated
         type: boolean
     type: object
+  models.ReleasePlan:
+    properties:
+      approval:
+        $ref: '#/definitions/models.Approval'
+      approval_time:
+        type: integer
+      create_time:
+        type: integer
+      created_by:
+        type: string
+      description:
+        type: string
+      end_time:
+        type: integer
+      executing_time:
+        type: integer
+      id:
+        type: string
+      index:
+        type: integer
+      jobs:
+        items:
+          $ref: '#/definitions/models.ReleaseJob'
+        type: array
+      manager:
+        type: string
+      manager_id:
+        description: ManagerID is the user id of the manager
+        type: string
+      name:
+        type: string
+      planning_time:
+        type: integer
+      schedule_execute_time:
+        type: integer
+      start_time:
+        type: integer
+      status:
+        $ref: '#/definitions/config.ReleasePlanStatus'
+      success_time:
+        type: integer
+      update_time:
+        type: integer
+      updated_by:
+        type: string
+    type: object
   models.ReleasePlanTemplate:
     properties:
       approval:
@@ -2825,6 +2885,15 @@ definitions:
         type: string
       status:
         type: string
+    type: object
+  service.ListReleasePlanResp:
+    properties:
+      list:
+        items:
+          $ref: '#/definitions/models.ReleasePlan'
+        type: array
+      total:
+        type: integer
     type: object
   service.ListServiceVersionsResponse:
     properties:
@@ -6048,6 +6117,47 @@ paths:
       summary: Update production_global variables
       tags:
       - project
+  /api/aslan/release_plan/v1:
+    get:
+      consumes:
+      - application/json
+      description: List Release Plans
+      parameters:
+      - description: page num
+        in: query
+        name: pageNum
+        required: true
+        type: integer
+      - description: page size
+        in: query
+        name: pageSize
+        required: true
+        type: integer
+      - description: search type
+        enum:
+        - name
+        - manager
+        - success_time
+        - status
+        in: query
+        name: type
+        required: true
+        type: string
+      - description: search keyword, 当类型为success_time时，值应为'开始时间戳-结束时间戳'的形式
+        in: query
+        name: keyword
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/service.ListReleasePlanResp'
+      summary: List Release Plans
+      tags:
+      - releasePlan
   /api/aslan/service/services:
     post:
       consumes:
