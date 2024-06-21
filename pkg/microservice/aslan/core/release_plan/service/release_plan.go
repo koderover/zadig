@@ -20,6 +20,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -217,27 +219,6 @@ func upsertReleasePlanCron(id, name string, index int64, ScheduleExecuteTime int
 		return e.ErrUpsertCronjob.AddDesc(err.Error())
 	}
 	return nil
-}
-
-type ListReleasePlanResp struct {
-	List  []*models.ReleasePlan `json:"list"`
-	Total int64                 `json:"total"`
-}
-
-func ListReleasePlans(pageNum, pageSize int64) (*ListReleasePlanResp, error) {
-	list, total, err := mongodb.NewReleasePlanColl().ListByOptions(&mongodb.ListReleasePlanOption{
-		PageNum:        pageNum,
-		PageSize:       pageSize,
-		IsSort:         true,
-		ExcludedFields: []string{"jobs", "logs"},
-	})
-	if err != nil {
-		return nil, errors.Wrap(err, "ListReleasePlans")
-	}
-	return &ListReleasePlanResp{
-		List:  list,
-		Total: total,
-	}, nil
 }
 
 func GetReleasePlan(id string) (*models.ReleasePlan, error) {
@@ -899,4 +880,92 @@ func cronJobToSchedule(input *commonmodels.Cronjob) *commonmodels.Schedule {
 		Cron:            input.Cron,
 		Enabled:         input.Enabled,
 	}
+}
+
+type ListReleasePlanType string
+
+const (
+	ListReleasePlanTypeName        ListReleasePlanType = "name"
+	ListReleasePlanTypeManager     ListReleasePlanType = "manager"
+	ListReleasePlanTypeSuccessTime ListReleasePlanType = "success_time"
+	ListReleasePlanTypeStatus      ListReleasePlanType = "status"
+)
+
+type ListReleasePlanOption struct {
+	PageNum  int64               `form:"pageNum" binding:"required"`
+	PageSize int64               `form:"pageSize" binding:"required"`
+	Type     ListReleasePlanType `form:"type" binding:"required"`
+	Keyword  string              `form:"keyword"`
+}
+
+type ListReleasePlanResp struct {
+	List  []*models.ReleasePlan `json:"list"`
+	Total int64                 `json:"total"`
+}
+
+func ListReleasePlans(opt *ListReleasePlanOption) (*ListReleasePlanResp, error) {
+	var (
+		list  []*commonmodels.ReleasePlan
+		total int64
+		err   error
+	)
+	switch opt.Type {
+	case ListReleasePlanTypeName:
+		list, total, err = mongodb.NewReleasePlanColl().ListByOptions(&mongodb.ListReleasePlanOption{
+			Name:           opt.Keyword,
+			IsSort:         true,
+			PageNum:        opt.PageNum,
+			PageSize:       opt.PageSize,
+			ExcludedFields: []string{"jobs", "logs"},
+		})
+	case ListReleasePlanTypeManager:
+		list, total, err = mongodb.NewReleasePlanColl().ListByOptions(&mongodb.ListReleasePlanOption{
+			Manager:        opt.Keyword,
+			IsSort:         true,
+			PageNum:        opt.PageNum,
+			PageSize:       opt.PageSize,
+			ExcludedFields: []string{"jobs", "logs"},
+		})
+	case ListReleasePlanTypeSuccessTime:
+		timeArr := strings.Split(opt.Keyword, "-")
+		if len(timeArr) != 2 {
+			return nil, errors.New("invalid success time range")
+		}
+
+		timeStart := int64(0)
+		timeEnd := int64(0)
+		timeStart, err = strconv.ParseInt(timeArr[0], 10, 64)
+		if err != nil {
+			return nil, errors.Wrap(err, "invalid success time start")
+		}
+		timeEnd, err = strconv.ParseInt(timeArr[1], 10, 64)
+		if err != nil {
+			return nil, errors.Wrap(err, "invalid success time end")
+		}
+
+		list, total, err = mongodb.NewReleasePlanColl().ListByOptions(&mongodb.ListReleasePlanOption{
+			SuccessTimeStart: timeStart,
+			SuccessTimeEnd:   timeEnd,
+			IsSort:           true,
+			PageNum:          opt.PageNum,
+			PageSize:         opt.PageSize,
+			ExcludedFields:   []string{"jobs", "logs"},
+		})
+	case ListReleasePlanTypeStatus:
+		list, total, err = mongodb.NewReleasePlanColl().ListByOptions(&mongodb.ListReleasePlanOption{
+			Status:         config.ReleasePlanStatus(opt.Keyword),
+			IsSort:         true,
+			PageNum:        opt.PageNum,
+			PageSize:       opt.PageSize,
+			ExcludedFields: []string{"jobs", "logs"},
+		})
+	}
+	if err != nil {
+		return nil, errors.Wrap(err, "SearchReleasePlans")
+	}
+
+	return &ListReleasePlanResp{
+		List:  list,
+		Total: total,
+	}, nil
 }

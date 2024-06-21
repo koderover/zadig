@@ -50,7 +50,23 @@ func (c *ReleasePlanColl) GetCollectionName() string {
 }
 
 func (c *ReleasePlanColl) EnsureIndex(ctx context.Context) error {
-	return nil
+	mod := []mongo.IndexModel{
+		{
+			Keys:    bson.M{"name": 1},
+			Options: options.Index().SetUnique(false),
+		},
+		{
+			Keys:    bson.M{"manager": 1},
+			Options: options.Index().SetUnique(false),
+		},
+		{
+			Keys:    bson.M{"success_time": 1},
+			Options: options.Index().SetUnique(false),
+		},
+	}
+
+	_, err := c.Indexes().CreateMany(ctx, mod)
+	return err
 }
 
 func (c *ReleasePlanColl) Create(args *models.ReleasePlan) (string, error) {
@@ -101,11 +117,15 @@ func (c *ReleasePlanColl) DeleteByID(ctx context.Context, idString string) error
 }
 
 type ListReleasePlanOption struct {
-	PageNum        int64
-	PageSize       int64
-	IsSort         bool
-	ExcludedFields []string
-	Status         config.ReleasePlanStatus
+	PageNum          int64
+	PageSize         int64
+	Name             string
+	Manager          string
+	SuccessTimeStart int64
+	SuccessTimeEnd   int64
+	IsSort           bool
+	ExcludedFields   []string
+	Status           config.ReleasePlanStatus
 }
 
 func (c *ReleasePlanColl) ListByOptions(opt *ListReleasePlanOption) ([]*models.ReleasePlan, int64, error) {
@@ -124,6 +144,15 @@ func (c *ReleasePlanColl) ListByOptions(opt *ListReleasePlanOption) ([]*models.R
 	if opt.PageNum > 0 && opt.PageSize > 0 {
 		opts.SetSkip((opt.PageNum - 1) * opt.PageSize)
 		opts.SetLimit(opt.PageSize)
+	}
+	if opt.Name != "" {
+		query["name"] = bson.M{"$regex": fmt.Sprintf(".*%s.*", opt.Name), "$options": "i"}
+	}
+	if opt.Manager != "" {
+		query["manager"] = bson.M{"$regex": fmt.Sprintf(".*%s.*", opt.Manager), "$options": "i"}
+	}
+	if opt.SuccessTimeStart > 0 && opt.SuccessTimeEnd > 0 {
+		query["success_time"] = bson.M{"$gte": opt.SuccessTimeStart, "$lte": opt.SuccessTimeEnd}
 	}
 	if opt.Status != "" {
 		query["status"] = opt.Status

@@ -3224,6 +3224,65 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/aslan/release_plan/v1": {
+            "get": {
+                "description": "List Release Plans",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "releasePlan"
+                ],
+                "summary": "List Release Plans",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "page num",
+                        "name": "pageNum",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "page size",
+                        "name": "pageSize",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "enum": [
+                            "name",
+                            "manager",
+                            "success_time",
+                            "status"
+                        ],
+                        "type": "string",
+                        "description": "search type",
+                        "name": "type",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "search keyword, 当类型为success_time时，值应为'开始时间戳-结束时间戳'的形式",
+                        "name": "keyword",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/service.ListReleasePlanResp"
+                        }
+                    }
+                }
+            }
+        },
         "/api/aslan/service/services": {
             "post": {
                 "description": "Create service template",
@@ -5037,6 +5096,23 @@ const docTemplate = `{
             "x-enum-varnames": [
                 "JobText",
                 "JobWorkflow"
+            ]
+        },
+        "config.ReleasePlanStatus": {
+            "type": "string",
+            "enum": [
+                "planning",
+                "waitforapprove",
+                "executing",
+                "success",
+                "cancel"
+            ],
+            "x-enum-varnames": [
+                "StatusPlanning",
+                "StatusWaitForApprove",
+                "StatusExecuting",
+                "StatusSuccess",
+                "StatusCancel"
             ]
         },
         "config.ScanningModuleType": {
@@ -7259,6 +7335,75 @@ const docTemplate = `{
                 }
             }
         },
+        "models.ReleasePlan": {
+            "type": "object",
+            "properties": {
+                "approval": {
+                    "$ref": "#/definitions/models.Approval"
+                },
+                "approval_time": {
+                    "type": "integer"
+                },
+                "create_time": {
+                    "type": "integer"
+                },
+                "created_by": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "end_time": {
+                    "type": "integer"
+                },
+                "executing_time": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "index": {
+                    "type": "integer"
+                },
+                "jobs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ReleaseJob"
+                    }
+                },
+                "manager": {
+                    "type": "string"
+                },
+                "manager_id": {
+                    "description": "ManagerID is the user id of the manager",
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "planning_time": {
+                    "type": "integer"
+                },
+                "schedule_execute_time": {
+                    "type": "integer"
+                },
+                "start_time": {
+                    "type": "integer"
+                },
+                "status": {
+                    "$ref": "#/definitions/config.ReleasePlanStatus"
+                },
+                "success_time": {
+                    "type": "integer"
+                },
+                "update_time": {
+                    "type": "integer"
+                },
+                "updated_by": {
+                    "type": "string"
+                }
+            }
+        },
         "models.ReleasePlanTemplate": {
             "type": "object",
             "properties": {
@@ -9086,6 +9231,20 @@ const docTemplate = `{
                 },
                 "status": {
                     "type": "string"
+                }
+            }
+        },
+        "service.ListReleasePlanResp": {
+            "type": "object",
+            "properties": {
+                "list": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ReleasePlan"
+                    }
+                },
+                "total": {
+                    "type": "integer"
                 }
             }
         },
