@@ -21,7 +21,7 @@ import (
 )
 
 type DeliveryDeploy struct {
-	ID              primitive.ObjectID `bson:"_id,omitempty"                json:"id,omitempty"`
+	ID              primitive.ObjectID `bson:"_id,omitempty"               json:"id,omitempty"`
 	ReleaseID       primitive.ObjectID `bson:"release_id"                  json:"releaseId"`
 	ServiceName     string             `bson:"service_name"                json:"serviceName"`
 	ContainerName   string             `bson:"container_name"              json:"containerName"`
