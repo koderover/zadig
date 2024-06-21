@@ -50,7 +50,23 @@ func (c *ReleasePlanColl) GetCollectionName() string {
 }
 
 func (c *ReleasePlanColl) EnsureIndex(ctx context.Context) error {
-	return nil
+	mod := []mongo.IndexModel{
+		{
+			Keys:    bson.M{"name": 1},
+			Options: options.Index().SetUnique(false),
+		},
+		{
+			Keys:    bson.M{"manager": 1},
+			Options: options.Index().SetUnique(false),
+		},
+		{
+			Keys:    bson.M{"success_time": 1},
+			Options: options.Index().SetUnique(false),
+		},
+	}
+
+	_, err := c.Indexes().CreateMany(ctx, mod)
+	return err
 }
 
 func (c *ReleasePlanColl) Create(args *models.ReleasePlan) (string, error) {
