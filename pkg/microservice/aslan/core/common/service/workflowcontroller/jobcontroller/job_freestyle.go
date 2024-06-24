@@ -45,7 +45,6 @@ import (
 	krkubeclient "github.com/koderover/zadig/v2/pkg/tool/kube/client"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/informer"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/updater"
-	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/types/step"
 )
 
@@ -112,7 +111,6 @@ func (c *FreestyleJobCtl) Run(ctx context.Context) {
 
 func (c *FreestyleJobCtl) prepare(ctx context.Context) error {
 	for _, env := range c.jobTaskSpec.Properties.Envs {
-		log.Debugf("prepare env: %+v", env)
 		if strings.HasPrefix(env.Value, "{{.job") && strings.HasSuffix(env.Value, "}}") {
 			env.Value = ""
 		}
@@ -421,7 +419,6 @@ func getVMJobOutputFromJobDB(jobID, jobName string, job *commonmodels.JobTask, w
 func BuildJobExcutorContext(jobTaskSpec *commonmodels.JobTaskFreestyleSpec, job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, logger *zap.SugaredLogger) *JobContext {
 	var envVars, secretEnvVars []string
 	for _, env := range jobTaskSpec.Properties.Envs {
-		log.Debugf("env: %+v", env)
 		if env.IsCredential {
 			secretEnvVars = append(secretEnvVars, strings.Join([]string{env.Key, env.Value}, "="))
 			continue

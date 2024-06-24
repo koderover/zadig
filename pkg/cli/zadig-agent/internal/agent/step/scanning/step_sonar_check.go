@@ -79,12 +79,12 @@ func (s *SonarCheckStep) Run(ctx context.Context) error {
 	}
 	analysisID, err := client.WaitForCETaskTobeDone(ceTaskID, time.Minute*10)
 	if err != nil {
-		s.Logger.Errorf(err)
+		s.Logger.Errorf(err.Error())
 		return err
 	}
 	gateInfo, err := client.GetQualityGateInfo(analysisID)
 	if err != nil {
-		s.Logger.Errorf(err)
+		s.Logger.Errorf(err.Error())
 		return err
 	}
 	s.Logger.Infof("Sonar quality gate status: %s", gateInfo.ProjectStatus.Status)

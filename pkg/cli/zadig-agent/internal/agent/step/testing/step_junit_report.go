@@ -50,6 +50,7 @@ type JunitReportStep struct {
 	secretEnvs []string
 	workspace  string
 	dirs       *types.AgentWorkDirs
+	Logger     *log.JobLogger
 }
 
 func NewJunitReportStep(spec interface{}, dirs *types.AgentWorkDirs, envs, secretEnvs []string, logger *log.JobLogger) (*JunitReportStep, error) {
@@ -61,11 +62,12 @@ func NewJunitReportStep(spec interface{}, dirs *types.AgentWorkDirs, envs, secre
 	if err := yaml.Unmarshal(yamlBytes, &junitReportStep.spec); err != nil {
 		return junitReportStep, fmt.Errorf("unmarshal spec %s to shell spec failed", yamlBytes)
 	}
+	junitReportStep.Logger = logger
 	return junitReportStep, nil
 }
 
 func (s *JunitReportStep) Run(ctx context.Context) error {
-	log.Info("Start merge ginkgo test results.")
+	s.Logger.Infof("Start merge ginkgo test results.")
 	if err := os.MkdirAll(s.spec.DestDir, os.ModePerm); err != nil {
 		return fmt.Errorf("create dest dir: %s error: %s", s.spec.DestDir, err)
 	}
@@ -74,13 +76,13 @@ func (s *JunitReportStep) Run(ctx context.Context) error {
 	s.spec.ReportDir = helper.ReplaceEnvWithValue(s.spec.ReportDir, envMap)
 
 	reportDir := filepath.Join(s.workspace, s.spec.ReportDir)
-	failedCaseCount, err := mergeGinkgoTestResults(s.spec.FileName, reportDir, s.spec.DestDir, time.Now())
+	failedCaseCount, err := mergeGinkgoTestResults(s.spec.FileName, reportDir, s.spec.DestDir, time.Now(), s.Logger)
 	if err != nil {
 		return fmt.Errorf("failed to merge test result: %s", err)
 	}
-	log.Info("Finish merge ginkgo test results.")
+	s.Logger.Infof("Finish merge ginkgo test results.")
 
-	log.Infof("Start archive %s.", s.spec.FileName)
+	s.Logger.Infof("Start archive %s.", s.spec.FileName)
 	if s.spec.S3DestDir == "" || s.spec.FileName == "" {
 		return nil
 	}
@@ -116,14 +118,14 @@ func (s *JunitReportStep) Run(ctx context.Context) error {
 			return err
 		}
 	}
-	log.Infof("Finish archive %s.", s.spec.FileName)
+	s.Logger.Infof("Finish archive %s.", s.spec.FileName)
 	if failedCaseCount > 0 {
 		return fmt.Errorf("%d case(s) failed", failedCaseCount)
 	}
 	return nil
 }
 
-func mergeGinkgoTestResults(testResultFile, testResultPath, testUploadPath string, startTime time.Time) (int, error) {
+func mergeGinkgoTestResults(testResultFile, testResultPath, testUploadPath string, startTime time.Time, logger *log.JobLogger) (int, error) {
 	var (
 		err           error
 		newXMLBytes   []byte
@@ -149,12 +151,12 @@ func mergeGinkgoTestResults(testResultFile, testResultPath, testUploadPath strin
 	for _, file := range files {
 		if filepath.Ext(file.Name()) == ".xml" {
 			filePath := filepath.Join(testResultPath, file.Name())
-			log.Infof("name %s mod time: %v", file.Name(), file.ModTime())
+			logger.Infof("name %s mod time: %v", file.Name(), file.ModTime())
 
 			// 1. read file
 			xmlBytes, err2 := os.ReadFile(filePath)
 			if err2 != nil {
-				log.Warningf("Read file [%s], error: %v", filePath, err2)
+				logger.Warnf("Read file [%s], error: %v", filePath, err2)
 				continue
 			}
 
@@ -164,7 +166,7 @@ func mergeGinkgoTestResults(testResultFile, testResultPath, testUploadPath strin
 				var results *meta.TestSuites
 				err2 = xml.Unmarshal(xmlBytes, &results)
 				if err2 != nil {
-					log.Warningf("Unmarshal xml file [%s], error: %v\n", filePath, err2)
+					logger.Warnf("Unmarshal xml file [%s], error: %v\n", filePath, err2)
 					continue
 				}
 				for _, testSuite := range results.TestSuites {
@@ -184,7 +186,7 @@ func mergeGinkgoTestResults(testResultFile, testResultPath, testUploadPath strin
 				var result *meta.TestSuite
 				err2 = xml.Unmarshal(xmlBytes, &result)
 				if err2 != nil {
-					log.Warningf("Unmarshal xml file [%s], error: %v\n", filePath, err2)
+					logger.Warnf("Unmarshal xml file [%s], error: %v\n", filePath, err2)
 					continue
 				}
 				// 4. process summary result attribute
@@ -226,7 +228,7 @@ func mergeGinkgoTestResults(testResultFile, testResultPath, testUploadPath strin
 		return failedCaseCount, err
 	}
 
-	log.Infof("merge test results files %s succeeded", filepath.Join(testUploadPath, testResultFile))
+	logger.Infof("merge test results files %s succeeded", filepath.Join(testUploadPath, testResultFile))
 	return summaryResult.Failures, nil
 }
 
