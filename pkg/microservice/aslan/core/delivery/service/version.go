@@ -592,6 +592,10 @@ func buildDeliveryProgressInfo(deliveryVersion *commonmodels.DeliveryVersion, su
 	}
 
 	if workflowTaskExist {
+		if progress.DeliveryVersionWorkflowStatus == nil {
+			progress.DeliveryVersionWorkflowStatus = []commonmodels.DeliveryVersionWorkflowStatus{}
+		}
+
 		for _, stage := range workflowTask.Stages {
 			for _, job := range stage.Jobs {
 				if job.JobType != string(config.JobZadigDistributeImage) {
@@ -613,6 +617,16 @@ func buildDeliveryProgressInfo(deliveryVersion *commonmodels.DeliveryVersion, su
 							log.Error(err)
 							progress.Error = err.Error()
 							return progress
+						}
+
+						for _, target := range stepSpec.DistributeTarget {
+							progress.DeliveryVersionWorkflowStatus = append(progress.DeliveryVersionWorkflowStatus, commonmodels.DeliveryVersionWorkflowStatus{
+								JobName:       job.Name,
+								ServiceName:   target.ServiceName,
+								ServiceModule: target.ServiceModule,
+								TargetImage:   target.TargetImage,
+								Status:        job.Status,
+							})
 						}
 
 						if job.Status == config.StatusPassed {

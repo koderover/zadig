@@ -18,13 +18,24 @@ package models
 
 import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
+
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 )
 
+type DeliveryVersionWorkflowStatus struct {
+	JobName       string        `json:"job_name"`
+	ServiceName   string        `json:"service_name"`
+	ServiceModule string        `json:"service_module"`
+	TargetImage   string        `json:"target_image"`
+	Status        config.Status `json:"status"`
+}
+
 type DeliveryVersionProgress struct {
-	SuccessCount int    `json:"successCount"`
-	TotalCount   int    `json:"totalCount"`
-	UploadStatus string `json:"uploadStatus"`
-	Error        string `json:"error"`
+	SuccessCount                  int                             `json:"successCount"`
+	TotalCount                    int                             `json:"totalCount"`
+	UploadStatus                  string                          `json:"uploadStatus"`
+	DeliveryVersionWorkflowStatus []DeliveryVersionWorkflowStatus `json:"workflowStatus"`
+	Error                         string                          `json:"error"`
 }
 
 type DeliveryVersion struct {
