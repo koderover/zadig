@@ -22,7 +22,6 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"helm.sh/helm/v3/pkg/releaseutil"
-	versionedclient "istio.io/client-go/pkg/clientset/versioned"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
@@ -36,7 +35,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/repository"
 	commontypes "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/types"
-	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
 	internalresource "github.com/koderover/zadig/v2/pkg/shared/kube/resource"
@@ -443,25 +441,6 @@ func RestartService(envName string, args *SvcOptArgs, production bool, log *zap.
 		return err
 	}
 
-	restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), productObj.ClusterID)
-	if err != nil {
-		return err
-	}
-
-	istioClient, err := versionedclient.NewForConfig(restConfig)
-	if err != nil {
-		return err
-	}
-
-	cls, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), productObj.ClusterID)
-	if err != nil {
-		return e.ErrCreateEnv.AddErr(err)
-	}
-	inf, err := informer.NewInformer(productObj.ClusterID, productObj.Namespace, cls)
-	if err != nil {
-		return e.ErrCreateEnv.AddErr(err)
-	}
-
 	// aws secrets needs to be refreshed
 	regs, err := commonservice.ListRegistryNamespaces("", true, log)
 	if err != nil {
@@ -496,33 +475,14 @@ func RestartService(envName string, args *SvcOptArgs, production bool, log *zap.
 			return updater.RestartStatefulSet(productObj.Namespace, sts.Name, kubeClient)
 		}
 	default:
-		var serviceTmpl *commonmodels.Service
 		var productService *commonmodels.ProductService
-
 		serviceObj, ok := productObj.GetServiceMap()[args.ServiceName]
 		if !ok {
 			return nil
 		}
-
 		productService = serviceObj
 
-		serviceTmpl, err = repository.QueryTemplateService(&commonrepo.ServiceFindOption{
-			ProductName: serviceObj.ProductName,
-			ServiceName: serviceObj.ServiceName,
-			Revision:    serviceObj.Revision,
-			Type:        setting.K8SDeployType,
-		}, productObj.Production)
-
-		// for services deployed by zadig, service will be applied when restarting
-		if commonutil.ServiceDeployed(serviceTmpl.ServiceName, productObj.ServiceDeployStrategy) {
-			_, err = upsertService(
-				productObj,
-				productService,
-				productService,
-				!productObj.Production, inf, kubeClient, istioClient, log)
-		} else {
-			err = restartRelatedWorkloads(productObj, productService, kubeClient, log)
-		}
+		err = restartRelatedWorkloads(productObj, productService, kubeClient, log)
 		log.Infof("restart resource from namespace:%s/serviceName:%s ", productObj.Namespace, args.ServiceName)
 
 		if err != nil {
