@@ -183,6 +183,10 @@ func ReplaceWorkloadImages(rawYaml string, images []*commonmodels.Container) (st
 			if err := decoder.Decode(job); err != nil {
 				return "", nil, fmt.Errorf("unmarshal Job error: %v", err)
 			}
+			workloadRes = append(workloadRes, &WorkloadResource{
+				Name: resKind.Metadata.Name,
+				Type: resKind.Kind,
+			})
 			for i, container := range job.Spec.Template.Spec.Containers {
 				containerName := container.Name
 				if image, ok := imageMap[containerName]; ok {

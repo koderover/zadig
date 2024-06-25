@@ -30,15 +30,16 @@ import (
 )
 
 func FetchSelectedWorkloads(namespace string, Resource []*WorkloadResource, kubeclient crClient.Client, clientSet *kubernetes.Clientset) ([]*appsv1.Deployment, []*appsv1.StatefulSet,
-	[]*batchv1.CronJob, []*batchv1beta1.CronJob, error) {
+	[]*batchv1.CronJob, []*batchv1beta1.CronJob, []*batchv1.Job, error) {
 	var deployments []*appsv1.Deployment
 	var statefulSets []*appsv1.StatefulSet
 	var cronJobs []*batchv1.CronJob
 	var betaCronJobs []*batchv1beta1.CronJob
+	var jobs []*batchv1.Job
 
 	k8sServerVersion, err := clientSet.Discovery().ServerVersion()
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, err
 	}
 
 	for _, item := range Resource {
@@ -70,7 +71,15 @@ func FetchSelectedWorkloads(namespace string, Resource []*WorkloadResource, kube
 			if cronjobBeta != nil && cronjobExists {
 				betaCronJobs = append(betaCronJobs, cronjobBeta)
 			}
+		case setting.Job:
+			job, jobExists, err := getter.GetJob(namespace, item.Name, kubeclient)
+			if jobExists && err == nil {
+				jobs = append(jobs, job)
+			}
+			if err != nil {
+				log.Errorf("failed to fetch job %s, error: %v", item.Name, err)
+			}
 		}
 	}
-	return deployments, statefulSets, cronJobs, betaCronJobs, nil
+	return deployments, statefulSets, cronJobs, betaCronJobs, jobs, nil
 }
