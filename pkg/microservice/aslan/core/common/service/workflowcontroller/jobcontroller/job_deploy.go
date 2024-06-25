@@ -303,7 +303,7 @@ func (c *DeployJobCtl) updateSystemService(env *commonmodels.Product, currentYam
 				c.jobTaskSpec.RelatedPodLabels = append(c.jobTaskSpec.RelatedPodLabels, podLabels)
 			}
 			c.jobTaskSpec.ReplaceResources = append(c.jobTaskSpec.ReplaceResources, commonmodels.Resource{Name: us.GetName(), Kind: us.GetKind()})
-		case setting.CronJob:
+		case setting.CronJob, setting.Job:
 			c.jobTaskSpec.ReplaceResources = append(c.jobTaskSpec.ReplaceResources, commonmodels.Resource{Name: us.GetName(), Kind: us.GetKind()})
 		}
 	}
@@ -314,7 +314,7 @@ func (c *DeployJobCtl) updateExternalServiceModule(ctx context.Context, resource
 	var err error
 	var replaced bool
 
-	deployments, statefulSets, cronJobs, betaCronJobs, err := kube.FetchSelectedWorkloads(env.Namespace, resources, c.kubeClient, c.clientSet)
+	deployments, statefulSets, cronJobs, betaCronJobs, jobs, err := kube.FetchSelectedWorkloads(env.Namespace, resources, c.kubeClient, c.clientSet)
 	if err != nil {
 		return err
 	}
@@ -396,6 +396,27 @@ BetaCronLoop:
 				replaced = true
 				c.jobTaskSpec.RelatedPodLabels = append(c.jobTaskSpec.RelatedPodLabels, cron.Spec.JobTemplate.Spec.Template.Labels)
 				break BetaCronLoop
+			}
+		}
+	}
+Job:
+	for _, job := range jobs {
+		for _, container := range job.Spec.Template.Spec.Containers {
+			if container.Name == serviceModule.ServiceModule {
+				return fmt.Errorf("job %s/%s/%s is not supported to update image", env.Namespace, job.Name, container.Name)
+				// err = updater.UpdateJobImage(job.Namespace, job.Name, serviceModule.ServiceModule, serviceModule.Image, c.kubeClient)
+				// if err != nil {
+				// 	return fmt.Errorf("failed to update container image in %s/job/%s/%s: %v", env.Namespace, job.Name, container.Name, err)
+				// }
+				// c.jobTaskSpec.ReplaceResources = append(c.jobTaskSpec.ReplaceResources, commonmodels.Resource{
+				// 	Kind:      setting.Job,
+				// 	Container: container.Name,
+				// 	Origin:    container.Image,
+				// 	Name:      job.Name,
+				// })
+				// replaced = true
+				// c.jobTaskSpec.RelatedPodLabels = append(c.jobTaskSpec.RelatedPodLabels, job.Spec.Template.Labels)
+				break Job
 			}
 		}
 	}
