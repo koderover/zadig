@@ -674,10 +674,17 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]st
 						return
 					}
 
+					curEnv, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: productName, EnvName: envName})
+					if err != nil {
+						log.Errorf("Failed to find current env %s/%s, error: %v", productName, envName, err)
+						service.Error = err.Error()
+						return
+					}
+
 					items, errUpsertService := upsertService(
 						updateProd,
 						service,
-						existedProd.GetServiceMap()[service.ServiceName],
+						curEnv.GetServiceMap()[service.ServiceName],
 						!updateProd.Production, inf, kubeClient, istioClient, log)
 					if errUpsertService != nil {
 						service.Error = errUpsertService.Error()
@@ -2497,11 +2504,6 @@ func upsertService(env *commonmodels.Product, newService *commonmodels.ProductSe
 
 	if newService.Type != setting.K8SDeployType {
 		return nil, nil
-	}
-
-	// for newService not deployed in envs, we should not replace containers in case variables exist in containers
-	if prevSvc == nil {
-		newService.Containers = nil
 	}
 
 	parsedYaml, err := kube.RenderEnvService(env, newService.GetServiceRender(), newService)

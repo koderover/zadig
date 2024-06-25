@@ -587,6 +587,7 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 				errList = multierror.Append(errList, err)
 				continue
 			}
+			log.Infof("update json data: %s", string(jsonData))
 			obj, err := serializer.NewDecoder().JSONToRuntimeObject(jsonData)
 			if err != nil {
 				log.Errorf("Failed to convert JSON to Object, manifest is\n%v\n, error: %v", u, err)

@@ -28,6 +28,7 @@ import (
 
 	krkubeclient "github.com/koderover/zadig/v2/pkg/tool/kube/client"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/util"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
 // GeneratePatchBytes generate the patchBytes inspired by the patcher in kubectl/pkg/cmd/apply/patcher.go
@@ -85,10 +86,14 @@ func GeneratePatchBytes(obj, modifiedObj runtime.Object) ([]byte, types.PatchTyp
 			return nil, "", fmt.Errorf(createPatchErrFormat, original, modified, current, err)
 		}
 
+		log.Debugf("original: %s", string(original))
+		log.Debugf("modified: %s", string(modified))
+		log.Debugf("current: %s", string(current))
 		patch, err = strategicpatch.CreateThreeWayMergePatch(original, modified, current, lookupPatchMeta, true)
 		if err != nil {
 			return nil, "", fmt.Errorf(createPatchErrFormat, original, modified, current, err)
 		}
+		log.Debugf("patch: %s", string(patch))
 	}
 
 	if string(patch) == "{}" {
