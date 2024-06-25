@@ -65,7 +65,7 @@ func (s *ArchiveStep) Run(ctx context.Context) error {
 
 	for _, upload := range s.spec.UploadDetail {
 		envmaps := helper.MakeEnvMap(s.envs, s.secretEnvs)
-		s.logger.Infof(fmt.Sprintf("Start archive %s.", replaceEnvWithValue(upload.FilePath, envmaps)))
+		s.logger.Infof(fmt.Sprintf("Start archive %s.", helper.ReplaceEnvWithValue(upload.FilePath, envmaps)))
 
 		if upload.DestinationPath == "" || upload.FilePath == "" {
 			return nil
@@ -80,8 +80,8 @@ func (s *ArchiveStep) Run(ctx context.Context) error {
 		}
 
 		upload.AbsFilePath = fmt.Sprintf("$env:WORKSPACE/%s", upload.FilePath)
-		upload.AbsFilePath = replaceEnvWithValue(upload.AbsFilePath, envmaps)
-		upload.DestinationPath = replaceEnvWithValue(upload.DestinationPath, envmaps)
+		upload.AbsFilePath = helper.ReplaceEnvWithValue(upload.AbsFilePath, envmaps)
+		upload.DestinationPath = helper.ReplaceEnvWithValue(upload.DestinationPath, envmaps)
 
 		if runtime.GOOS == "windows" {
 			upload.AbsFilePath = filepath.FromSlash(filepath.ToSlash(upload.AbsFilePath))
@@ -111,22 +111,4 @@ func (s *ArchiveStep) Run(ctx context.Context) error {
 		}
 	}
 	return nil
-}
-
-func replaceEnvWithValue(str string, envs map[string]string) string {
-	ret := str
-	// Exec twice to render nested variables
-	for i := 0; i < 2; i++ {
-		for key, value := range envs {
-			strKey := fmt.Sprintf("$%s", key)
-			ret = strings.ReplaceAll(ret, strKey, value)
-			strKey = fmt.Sprintf("${%s}", key)
-			ret = strings.ReplaceAll(ret, strKey, value)
-			strKey = fmt.Sprintf("%%%s%%", key)
-			ret = strings.ReplaceAll(ret, strKey, value)
-			strKey = fmt.Sprintf("$env:%s", key)
-			ret = strings.ReplaceAll(ret, strKey, value)
-		}
-	}
-	return ret
 }

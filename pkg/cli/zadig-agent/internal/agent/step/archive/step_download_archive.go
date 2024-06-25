@@ -65,8 +65,8 @@ func (s *DownloadArchiveStep) Run(ctx context.Context) error {
 	}()
 
 	envmaps := helper.MakeEnvMap(s.envs, s.secretEnvs)
-	fileName := replaceEnvWithValue(s.spec.FileName, envmaps)
-	s.spec.DestDir = replaceEnvWithValue(s.spec.DestDir, envmaps)
+	fileName := helper.ReplaceEnvWithValue(s.spec.FileName, envmaps)
+	s.spec.DestDir = helper.ReplaceEnvWithValue(s.spec.DestDir, envmaps)
 	s.logger.Infof(fmt.Sprintf("Start download artifact %s.", fileName))
 
 	forcedPathStyle := true

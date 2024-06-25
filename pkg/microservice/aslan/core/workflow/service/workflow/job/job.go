@@ -660,10 +660,13 @@ func getOutputKey(jobKey string, outputs []*commonmodels.Output) []string {
 }
 
 // generate script to save outputs variable to file
-func outputScript(outputs []*commonmodels.Output) []string {
-	resp := []string{"set +ex"}
-	for _, output := range outputs {
-		resp = append(resp, fmt.Sprintf("echo $%s > %s", output.Name, path.Join(job.JobOutputDir, output.Name)))
+func outputScript(outputs []*commonmodels.Output, infrastructure string) []string {
+	resp := []string{}
+	if infrastructure == "" || infrastructure == setting.JobK8sInfrastructure {
+		resp = []string{"set +ex"}
+		for _, output := range outputs {
+			resp = append(resp, fmt.Sprintf("echo $%s > %s", output.Name, path.Join(job.JobOutputDir, output.Name)))
+		}
 	}
 	return resp
 }

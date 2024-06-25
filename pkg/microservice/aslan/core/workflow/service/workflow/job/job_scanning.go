@@ -328,6 +328,16 @@ func (j *ScanningJob) GetOutPuts(log *zap.SugaredLogger) []string {
 	}
 	for _, scanningInfo := range scanningInfos {
 		jobKey := strings.Join([]string{j.job.Name, scanningInfo.Name}, ".")
+		if j.spec.ScanningType == config.ServiceScanningType {
+			for _, target := range j.spec.TargetServices {
+				for _, scanning := range j.spec.ServiceAndScannings {
+					if scanning.ServiceName != target.ServiceName || scanning.ServiceModule != target.ServiceModule {
+						continue
+					}
+					jobKey = strings.Join([]string{j.job.Name, scanning.Name, target.ServiceName, target.ServiceModule}, ".")
+				}
+			}
+		}
 		resp = append(resp, getOutputKey(jobKey, scanningInfo.Outputs)...)
 	}
 	return resp
@@ -368,16 +378,23 @@ func (j *ScanningJob) toJobTask(scanning *commonmodels.ScanningModule, taskID in
 		jobInfo["service_module"] = serviceModule
 	}
 
-	jobTask := &commonmodels.JobTask{
-		Name:    jobNameFormat(strings.Join([]string{scanning.Name, j.job.Name, serviceName, serviceModule}, "-")),
-		Key:     strings.Join([]string{j.job.Name, scanning.Name, serviceName, serviceModule}, "."),
-		JobInfo: jobInfo,
-		JobType: string(config.JobZadigScanning),
-		Spec:    jobTaskSpec,
-		Timeout: timeout,
-		Outputs: scanningInfo.Outputs,
+	jobKey := strings.Join([]string{j.job.Name, scanning.Name}, ".")
+	if scanningType == string(config.ServiceScanningType) {
+		jobKey = strings.Join([]string{j.job.Name, scanning.Name, serviceName, serviceModule}, ".")
 	}
-	envs := getScanningJobVariables(scanning.Repos, taskID, j.workflow.Project, j.workflow.Name, j.workflow.DisplayName, "", scanningType, serviceName, serviceModule, scanning.Name)
+
+	jobTask := &commonmodels.JobTask{
+		Name:           jobNameFormat(strings.Join([]string{scanning.Name, j.job.Name, serviceName, serviceModule}, "-")),
+		Key:            jobKey,
+		JobInfo:        jobInfo,
+		JobType:        string(config.JobZadigScanning),
+		Spec:           jobTaskSpec,
+		Timeout:        timeout,
+		Outputs:        scanningInfo.Outputs,
+		Infrastructure: scanningInfo.Infrastructure,
+		VMLabels:       scanningInfo.VMLabels,
+	}
+	envs := getScanningJobVariables(scanning.Repos, taskID, j.workflow.Project, j.workflow.Name, j.workflow.DisplayName, jobTask.Infrastructure, scanningType, serviceName, serviceModule, scanning.Name)
 	envs = append(envs, scanningInfo.Envs...)
 
 	scanningImage := basicImage.Value
@@ -406,23 +423,29 @@ func (j *ScanningJob) toJobTask(scanning *commonmodels.ScanningModule, taskID in
 		return nil, fmt.Errorf("failed to find cluster: %s, error: %v", scanningInfo.AdvancedSetting.ClusterID, err)
 	}
 
-	if clusterInfo.Cache.MediumType == "" {
-		jobTaskSpec.Properties.CacheEnable = false
+	if jobTask.Infrastructure == setting.JobVMInfrastructure {
+		jobTaskSpec.Properties.CacheEnable = scanningInfo.AdvancedSetting.Cache.CacheEnable
+		jobTaskSpec.Properties.CacheDirType = scanningInfo.AdvancedSetting.Cache.CacheDirType
+		jobTaskSpec.Properties.CacheUserDir = scanningInfo.AdvancedSetting.Cache.CacheUserDir
 	} else {
-		jobTaskSpec.Properties.Cache = clusterInfo.Cache
-		if scanningInfo.AdvancedSetting.Cache != nil {
-			jobTaskSpec.Properties.CacheEnable = scanningInfo.AdvancedSetting.Cache.CacheEnable
-			jobTaskSpec.Properties.CacheDirType = scanningInfo.AdvancedSetting.Cache.CacheDirType
-			jobTaskSpec.Properties.CacheUserDir = scanningInfo.AdvancedSetting.Cache.CacheUserDir
-
-			if jobTaskSpec.Properties.Cache.MediumType == types.ObjectMedium {
-				cacheS3, err = commonrepo.NewS3StorageColl().Find(jobTaskSpec.Properties.Cache.ObjectProperties.ID)
-				if err != nil {
-					return nil, fmt.Errorf("find cache s3 storage: %s error: %v", jobTaskSpec.Properties.Cache.ObjectProperties.ID, err)
-				}
-			}
-		} else {
+		if clusterInfo.Cache.MediumType == "" {
 			jobTaskSpec.Properties.CacheEnable = false
+		} else {
+			jobTaskSpec.Properties.Cache = clusterInfo.Cache
+			if scanningInfo.AdvancedSetting.Cache != nil {
+				jobTaskSpec.Properties.CacheEnable = scanningInfo.AdvancedSetting.Cache.CacheEnable
+				jobTaskSpec.Properties.CacheDirType = scanningInfo.AdvancedSetting.Cache.CacheDirType
+				jobTaskSpec.Properties.CacheUserDir = scanningInfo.AdvancedSetting.Cache.CacheUserDir
+
+				if jobTaskSpec.Properties.Cache.MediumType == types.ObjectMedium {
+					cacheS3, err = commonrepo.NewS3StorageColl().Find(jobTaskSpec.Properties.Cache.ObjectProperties.ID)
+					if err != nil {
+						return nil, fmt.Errorf("find cache s3 storage: %s error: %v", jobTaskSpec.Properties.Cache.ObjectProperties.ID, err)
+					}
+				}
+			} else {
+				jobTaskSpec.Properties.CacheEnable = false
+			}
 		}
 	}
 
@@ -499,16 +522,32 @@ func (j *ScanningJob) toJobTask(scanning *commonmodels.ScanningModule, taskID in
 	jobTaskSpec.Steps = append(jobTaskSpec.Steps, debugBeforeStep)
 	// init shell step
 	if scanningInfo.ScannerType == types.ScanningTypeSonar {
-		shellStep := &commonmodels.StepTask{
-			Name:     scanning.Name + "-shell",
-			JobName:  jobTask.Name,
-			StepType: config.StepShell,
-			Spec: &step.StepShellSpec{
-				Scripts:     append(strings.Split(replaceWrapLine(scanningInfo.Script), "\n"), outputScript(scanningInfo.Outputs)...),
-				SkipPrepare: true,
-			},
+		scriptStep := &commonmodels.StepTask{
+			JobName: jobTask.Name,
 		}
-		jobTaskSpec.Steps = append(jobTaskSpec.Steps, shellStep)
+		if scanningInfo.ScriptType == types.ScriptTypeShell || scanningInfo.ScriptType == "" {
+			scriptStep.Name = scanning.Name + "-shell"
+			scriptStep.StepType = config.StepShell
+			scriptStep.Spec = &step.StepShellSpec{
+				Scripts:     append(strings.Split(replaceWrapLine(scanningInfo.Script), "\n"), outputScript(scanningInfo.Outputs, jobTask.Infrastructure)...),
+				SkipPrepare: true,
+			}
+		} else if scanningInfo.ScriptType == types.ScriptTypeBatchFile {
+			scriptStep.Name = scanning.Name + "-batchfile"
+			scriptStep.StepType = config.StepBatchFile
+			scriptStep.Spec = &step.StepBatchFileSpec{
+				Scripts:     append(strings.Split(replaceWrapLine(scanningInfo.Script), "\n"), outputScript(scanningInfo.Outputs, jobTask.Infrastructure)...),
+				SkipPrepare: true,
+			}
+		} else if scanningInfo.ScriptType == types.ScriptTypePowerShell {
+			scriptStep.Name = scanning.Name + "-powershell"
+			scriptStep.StepType = config.StepPowerShell
+			scriptStep.Spec = &step.StepPowerShellSpec{
+				Scripts:     append(strings.Split(replaceWrapLine(scanningInfo.Script), "\n"), outputScript(scanningInfo.Outputs, jobTask.Infrastructure)...),
+				SkipPrepare: true,
+			}
+		}
+		jobTaskSpec.Steps = append(jobTaskSpec.Steps, scriptStep)
 
 		sonarInfo, err := commonrepo.NewSonarIntegrationColl().GetByID(context.TODO(), scanningInfo.SonarID)
 		if err != nil {
@@ -539,19 +578,61 @@ func (j *ScanningJob) toJobTask(scanning *commonmodels.ScanningModule, taskID in
 		})
 
 		if scanningInfo.EnableScanner {
-			sonarConfig := fmt.Sprintf("sonar.login=%s\nsonar.host.url=%s\n%s", sonarInfo.Token, sonarInfo.ServerAddress, scanningInfo.Parameter)
-			sonarConfig = strings.ReplaceAll(sonarConfig, "$branch", branch)
-			sonarScript := fmt.Sprintf("set -e\ncd %s\ncat > sonar-project.properties << EOF\n%s\nEOF\nsonar-scanner", repoName, renderEnv(sonarConfig, jobTaskSpec.Properties.Envs))
-			sonarShellStep := &commonmodels.StepTask{
-				Name:     scanning.Name + "-sonar-shell",
-				JobName:  jobTask.Name,
-				StepType: config.StepShell,
-				Spec: &step.StepShellSpec{
+			sonarScriptStep := &commonmodels.StepTask{
+				JobName: jobTask.Name,
+			}
+			if scanningInfo.ScriptType == types.ScriptTypeShell || scanningInfo.ScriptType == "" {
+				sonarConfig := fmt.Sprintf("sonar.login=%s\nsonar.host.url=%s\n%s", sonarInfo.Token, sonarInfo.ServerAddress, scanningInfo.Parameter)
+				sonarConfig = strings.ReplaceAll(sonarConfig, "$branch", branch)
+				sonarScript := fmt.Sprintf("set -e\ncd %s\ncat > sonar-project.properties << EOF\n%s\nEOF\nsonar-scanner", repoName, renderEnv(sonarConfig, jobTaskSpec.Properties.Envs))
+
+				sonarScriptStep.Name = scanning.Name + "-sonar-shell"
+				sonarScriptStep.StepType = config.StepShell
+				sonarScriptStep.Spec = &step.StepShellSpec{
 					Scripts:     strings.Split(replaceWrapLine(sonarScript), "\n"),
 					SkipPrepare: true,
-				},
+				}
+			} else if scanningInfo.ScriptType == types.ScriptTypeBatchFile {
+				sonarScript := fmt.Sprintf("@echo off\nsetlocal enabledelayedexpansion\ncd %s\n\n", repoName)
+				sonarScript += "(\n"
+
+				sonarConfig := fmt.Sprintf("sonar.login=%s\nsonar.host.url=%s\n%s", sonarInfo.Token, sonarInfo.ServerAddress, scanningInfo.Parameter)
+				sonarConfig = strings.ReplaceAll(sonarConfig, "$branch", branch)
+				sonarConfig = renderEnv(sonarConfig, jobTaskSpec.Properties.Envs)
+				sonarConfigArr := strings.Split(sonarConfig, "\n")
+				for _, config := range sonarConfigArr {
+					sonarScript += fmt.Sprintf("echo %s\n", config)
+				}
+
+				sonarScript += "\n) > sonar-project.properties\n\nsonar-scanner\n\nendlocal"
+				sonarScriptStep.Name = scanning.Name + "-sonar-batchfile"
+				sonarScriptStep.StepType = config.StepBatchFile
+				sonarScriptStep.Spec = &step.StepBatchFileSpec{
+					Scripts:     strings.Split(replaceWrapLine(sonarScript), "\n"),
+					SkipPrepare: true,
+				}
+			} else if scanningInfo.ScriptType == types.ScriptTypePowerShell {
+				sonarScript := fmt.Sprintf("Set-StrictMode -Version Latest\nSet-Location -Path \"%s\"\n", repoName)
+				sonarScript += "@\"\n"
+
+				sonarConfig := fmt.Sprintf("sonar.login=%s\nsonar.host.url=%s\n%s", sonarInfo.Token, sonarInfo.ServerAddress, scanningInfo.Parameter)
+				sonarConfig = strings.ReplaceAll(sonarConfig, "$branch", branch)
+				sonarConfig = renderEnv(sonarConfig, jobTaskSpec.Properties.Envs)
+				sonarConfigArr := strings.Split(sonarConfig, "\n")
+				for _, config := range sonarConfigArr {
+					sonarScript += fmt.Sprintf("%s\n", config)
+				}
+
+				sonarScript += "\"@ | Out-File -FilePath \"sonar-project.properties\" -Encoding UTF8\n\nsonar-scanner"
+				sonarScriptStep.Name = scanning.Name + "-sonar-powershell"
+				sonarScriptStep.StepType = config.StepPowerShell
+				sonarScriptStep.Spec = &step.StepPowerShellSpec{
+					Scripts:     strings.Split(replaceWrapLine(sonarScript), "\n"),
+					SkipPrepare: true,
+				}
 			}
-			jobTaskSpec.Steps = append(jobTaskSpec.Steps, sonarShellStep)
+
+			jobTaskSpec.Steps = append(jobTaskSpec.Steps, sonarScriptStep)
 		}
 
 		if scanningInfo.CheckQualityGate {
@@ -569,15 +650,29 @@ func (j *ScanningJob) toJobTask(scanning *commonmodels.ScanningModule, taskID in
 			jobTaskSpec.Steps = append(jobTaskSpec.Steps, sonarChekStep)
 		}
 	} else {
-		shellStep := &commonmodels.StepTask{
-			Name:     scanning.Name + "-shell",
-			JobName:  jobTask.Name,
-			StepType: config.StepShell,
-			Spec: &step.StepShellSpec{
-				Scripts: append(strings.Split(replaceWrapLine(scanningInfo.Script), "\n"), outputScript(scanningInfo.Outputs)...),
-			},
+		scriptStep := &commonmodels.StepTask{
+			JobName: jobTask.Name,
 		}
-		jobTaskSpec.Steps = append(jobTaskSpec.Steps, shellStep)
+		if scanningInfo.ScriptType == types.ScriptTypeShell || scanningInfo.ScriptType == "" {
+			scriptStep.Name = scanning.Name + "-shell"
+			scriptStep.StepType = config.StepShell
+			scriptStep.Spec = &step.StepShellSpec{
+				Scripts: append(strings.Split(replaceWrapLine(scanningInfo.Script), "\n"), outputScript(scanningInfo.Outputs, jobTask.Infrastructure)...),
+			}
+		} else if scanningInfo.ScriptType == types.ScriptTypeBatchFile {
+			scriptStep.Name = scanning.Name + "-batchfile"
+			scriptStep.StepType = config.StepBatchFile
+			scriptStep.Spec = &step.StepBatchFileSpec{
+				Scripts: append(strings.Split(replaceWrapLine(scanningInfo.Script), "\n"), outputScript(scanningInfo.Outputs, jobTask.Infrastructure)...),
+			}
+		} else if scanningInfo.ScriptType == types.ScriptTypePowerShell {
+			scriptStep.Name = scanning.Name + "-powershell"
+			scriptStep.StepType = config.StepPowerShell
+			scriptStep.Spec = &step.StepPowerShellSpec{
+				Scripts: append(strings.Split(replaceWrapLine(scanningInfo.Script), "\n"), outputScript(scanningInfo.Outputs, jobTask.Infrastructure)...),
+			}
+		}
+		jobTaskSpec.Steps = append(jobTaskSpec.Steps, scriptStep)
 	}
 	// init debug after step
 	debugAfterStep := &commonmodels.StepTask{
@@ -703,6 +798,8 @@ func fillScanningDetail(moduleScanning *commonmodels.Scanning) error {
 		return fmt.Errorf("failed to find scanning template with id: %s, err: %s", moduleScanning.TemplateID, err)
 	}
 
+	moduleScanning.Infrastructure = templateInfo.Infrastructure
+	moduleScanning.VMLabels = templateInfo.VMLabels
 	moduleScanning.ScannerType = templateInfo.ScannerType
 	moduleScanning.EnableScanner = templateInfo.EnableScanner
 	moduleScanning.ImageID = templateInfo.ImageID
@@ -710,6 +807,7 @@ func fillScanningDetail(moduleScanning *commonmodels.Scanning) error {
 	moduleScanning.Installs = templateInfo.Installs
 	moduleScanning.Parameter = templateInfo.Parameter
 	moduleScanning.Envs = commonservice.MergeBuildEnvs(templateInfo.Envs, moduleScanning.Envs)
+	moduleScanning.ScriptType = templateInfo.ScriptType
 	moduleScanning.Script = templateInfo.Script
 	moduleScanning.AdvancedSetting = templateInfo.AdvancedSetting
 	moduleScanning.CheckQualityGate = templateInfo.CheckQualityGate

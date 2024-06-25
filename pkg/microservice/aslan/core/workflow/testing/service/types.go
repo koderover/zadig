@@ -26,20 +26,23 @@ import (
 const DefaultScanningTimeout = 60 * 60
 
 type Scanning struct {
-	ID            string               `json:"id"`
-	Name          string               `json:"name"`
-	ProjectName   string               `json:"project_name"`
-	Description   string               `json:"description"`
-	ScannerType   string               `json:"scanner_type"`
-	EnableScanner bool                 `json:"enable_scanner"`
-	ImageID       string               `json:"image_id"`
-	SonarID       string               `json:"sonar_id"`
-	Installs      []*commonmodels.Item `json:"installs"`
-	Repos         []*types.Repository  `json:"repos"`
+	ID             string               `json:"id"`
+	Name           string               `json:"name"`
+	ProjectName    string               `json:"project_name"`
+	Description    string               `json:"description"`
+	ScannerType    string               `json:"scanner_type"`
+	EnableScanner  bool                 `json:"enable_scanner"`
+	ImageID        string               `json:"image_id"`
+	SonarID        string               `json:"sonar_id"`
+	Infrastructure string               `json:"infrastructure"`
+	VMLabels       []string             `json:"vm_labels"`
+	Installs       []*commonmodels.Item `json:"installs"`
+	Repos          []*types.Repository  `json:"repos"`
 	// Parameter is for sonarQube type only
 	Parameter string `json:"parameter"`
 	// Envs is the user defined key/values
 	Envs             []*commonmodels.KeyVal                `json:"envs"`
+	ScriptType       types.ScriptType                      `json:"script_type"`
 	Script           string                                `json:"script"`
 	AdvancedSetting  *commonmodels.ScanningAdvancedSetting `json:"advanced_settings"`
 	CheckQualityGate bool                                  `json:"check_quality_gate"`
@@ -181,9 +184,12 @@ func ConvertToDBScanningModule(args *Scanning) *commonmodels.Scanning {
 		ScannerType:      args.ScannerType,
 		EnableScanner:    args.EnableScanner,
 		ImageID:          args.ImageID,
+		Infrastructure:   args.Infrastructure,
+		VMLabels:         args.VMLabels,
 		SonarID:          args.SonarID,
 		Repos:            args.Repos,
 		Parameter:        args.Parameter,
+		ScriptType:       args.ScriptType,
 		Script:           args.Script,
 		AdvancedSetting:  args.AdvancedSetting,
 		Installs:         args.Installs,
@@ -207,8 +213,11 @@ func ConvertDBScanningModule(scanning *commonmodels.Scanning) *Scanning {
 		EnableScanner:    scanning.EnableScanner,
 		ImageID:          scanning.ImageID,
 		SonarID:          scanning.SonarID,
+		Infrastructure:   scanning.Infrastructure,
+		VMLabels:         scanning.VMLabels,
 		Repos:            scanning.Repos,
 		Parameter:        scanning.Parameter,
+		ScriptType:       scanning.ScriptType,
 		Script:           scanning.Script,
 		AdvancedSetting:  scanning.AdvancedSetting,
 		Installs:         scanning.Installs,

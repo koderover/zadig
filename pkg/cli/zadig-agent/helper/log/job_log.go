@@ -90,64 +90,52 @@ func (l *JobLogger) Println(args ...interface{}) {
 	}
 }
 
-func (l *JobLogger) Debugf(args ...interface{}) {
+func (l *JobLogger) Debugf(template string, args ...interface{}) {
 	if l.logger == nil {
 		return
 	}
 
-	raw := fmt.Sprint(args...)
-
-	l.logger.Debug(raw)
+	l.logger.Debugf(template, args...)
 }
 
-func (l *JobLogger) Infof(args ...interface{}) {
+func (l *JobLogger) Infof(template string, args ...interface{}) {
 	if l.logger == nil {
 		return
 	}
 
-	raw := fmt.Sprint(args...)
-
-	l.logger.Infof(raw)
+	l.logger.Infof(template, args...)
 }
 
-func (l *JobLogger) Warnf(args ...interface{}) {
+func (l *JobLogger) Warnf(template string, args ...interface{}) {
 	if l.logger == nil {
 		return
 	}
 
-	raw := fmt.Sprint(args...)
-
-	l.logger.Warnf(raw)
+	l.logger.Warnf(template, args...)
 }
 
-func (l *JobLogger) Errorf(args ...interface{}) {
+func (l *JobLogger) Errorf(template string, args ...interface{}) {
 	if l.logger == nil {
 		return
 	}
 
-	raw := fmt.Sprint(args...)
-
-	l.logger.Errorf(raw)
+	l.logger.Errorf(template, args...)
 }
 
-func (l *JobLogger) Fatalf(args ...interface{}) {
+func (l *JobLogger) Fatalf(template string, args ...interface{}) {
 	if l.logger == nil {
 		return
 	}
 
-	raw := fmt.Sprint(args...)
-
-	l.logger.Fatalf(raw)
+	l.logger.Fatalf(template, args...)
 }
 
-func (l *JobLogger) Panicf(args ...interface{}) {
+func (l *JobLogger) Panicf(template string, args ...interface{}) {
 	if l.logger == nil {
 		return
 	}
 
-	raw := fmt.Sprint(args...)
-
-	l.logger.Panicf(raw)
+	l.logger.Panicf(template, args...)
 }
 
 func (l *JobLogger) Write(p []byte) {

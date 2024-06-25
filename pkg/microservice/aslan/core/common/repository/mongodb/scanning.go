@@ -195,3 +195,9 @@ func (c *ScanningColl) GetScanningTemplateReference(templateID string) ([]*model
 	}
 	return ret, nil
 }
+
+func (c *ScanningColl) ListByCursor() (*mongo.Cursor, error) {
+	query := bson.M{}
+
+	return c.Collection.Find(context.TODO(), query)
+}

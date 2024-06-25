@@ -24,7 +24,9 @@ import (
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/agent/step/archive"
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/agent/step/docker"
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/agent/step/git"
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/agent/step/scanning"
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/agent/step/script"
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/agent/step/testing"
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/common/types"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	jobctl "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/workflowcontroller/jobcontroller"
@@ -83,6 +85,16 @@ func RunStep(ctx context.Context, jobCtx *jobctl.JobContext, step *commonmodels.
 		}
 	case "download_archive":
 		stepInstance, err = archive.NewDownloadArchiveStep(step.Spec, dirs, envs, secretEnvs, logger)
+		if err != nil {
+			return err
+		}
+	case "junit_report":
+		stepInstance, err = testing.NewJunitReportStep(step.Spec, dirs, envs, secretEnvs, logger)
+		if err != nil {
+			return err
+		}
+	case "sonar_check":
+		stepInstance, err = scanning.NewSonarCheckStep(step.Spec, dirs, envs, secretEnvs, logger)
 		if err != nil {
 			return err
 		}

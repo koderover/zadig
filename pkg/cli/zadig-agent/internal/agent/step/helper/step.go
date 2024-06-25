@@ -167,7 +167,20 @@ func ReplaceEnvWithValue(str string, envs map[string]string) string {
 			ret = strings.ReplaceAll(ret, strKey, value)
 			strKey = fmt.Sprintf("${%s}", key)
 			ret = strings.ReplaceAll(ret, strKey, value)
+			strKey = fmt.Sprintf("%%%s%%", key)
+			ret = strings.ReplaceAll(ret, strKey, value)
+			strKey = fmt.Sprintf("$env:%s", key)
+			ret = strings.ReplaceAll(ret, strKey, value)
 		}
+	}
+	return ret
+}
+
+
+func ReplaceEnvArrWithValue(str []string, envs map[string]string) []string {
+	ret := []string{}
+	for _, s := range str {
+		ret = append(ret, ReplaceEnvWithValue(s, envs))
 	}
 	return ret
 }

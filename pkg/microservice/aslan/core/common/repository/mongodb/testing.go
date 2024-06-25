@@ -185,3 +185,9 @@ func (c *TestingColl) Update(testing *models.Testing) error {
 	_, err := c.UpdateOne(context.TODO(), query, change)
 	return err
 }
+
+func (c *TestingColl) ListByCursor() (*mongo.Cursor, error) {
+	query := bson.M{}
+
+	return c.Collection.Find(context.TODO(), query)
+}

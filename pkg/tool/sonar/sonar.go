@@ -26,7 +26,9 @@ import (
 
 	"github.com/spf13/viper"
 
+	vmlog "github.com/koderover/zadig/v2/pkg/cli/zadig-agent/helper/log"
 	"github.com/koderover/zadig/v2/pkg/tool/httpclient"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
 type Client struct {
@@ -178,11 +180,21 @@ func getKeyValue(content, inputKey string) string {
 }
 
 func PrintSonarConditionTables(conditions []Condition) {
-	fmt.Printf("%-40s|%-10s|%-10s|%-10s|%-20s|\n", "Metric", "Status", "Operator", "Threshold", "Actualvalue")
+	log.Infof("")
+	log.Infof("%-40s|%-10s|%-10s|%-10s|%-20s|", "Metric", "Status", "Operator", "Threshold", "Actualvalue")
 	for _, condition := range conditions {
-		fmt.Printf("%-40s|%-10s|%-10s|%-10s|%-20s|\n", condition.MetricKey, condition.Status, condition.Comparator, condition.ErrorThreshold, condition.ActualValue)
+		log.Infof("%-40s|%-10s|%-10s|%-10s|%-20s|", condition.MetricKey, condition.Status, condition.Comparator, condition.ErrorThreshold, condition.ActualValue)
 	}
-	fmt.Printf("\n")
+	log.Infof("")
+}
+
+func VMPrintSonarConditionTables(conditions []Condition, logger *vmlog.JobLogger) {
+	logger.Infof("")
+	logger.Infof("%-40s|%-10s|%-10s|%-10s|%-20s|", "Metric", "Status", "Operator", "Threshold", "Actualvalue")
+	for _, condition := range conditions {
+		logger.Infof("%-40s|%-10s|%-10s|%-10s|%-20s|", condition.MetricKey, condition.Status, condition.Comparator, condition.ErrorThreshold, condition.ActualValue)
+	}
+	logger.Infof("")
 }
 
 func GetSonarProjectKeyFromConfig(config string) string {

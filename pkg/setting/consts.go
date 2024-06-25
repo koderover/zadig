@@ -891,9 +891,8 @@ const (
 )
 
 const (
-	// zadig build infrastructure
-	JobK8sInfrastructure = "kubernetes"
-	JobVMInfrastructure  = "vm"
+	JobK8sInfrastructure string = "kubernetes"
+	JobVMInfrastructure  string = "vm"
 )
 
 const (

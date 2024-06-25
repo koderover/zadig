@@ -143,3 +143,9 @@ func (c *ScanningTemplateColl) DeleteByID(idStr string) error {
 	_, err = c.DeleteOne(context.TODO(), query)
 	return err
 }
+
+func (c *ScanningTemplateColl) ListByCursor() (*mongo.Cursor, error) {
+	query := bson.M{}
+
+	return c.Collection.Find(context.TODO(), query)
+}

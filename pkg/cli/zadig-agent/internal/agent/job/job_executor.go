@@ -248,7 +248,7 @@ func (e *JobExecutor) Execute() {
 	e.Logger.Printf("====================== Job Executor Start ======================\n")
 	if e.CheckZadigCancel() {
 		err = fmt.Errorf("user cancel job %s", e.Job.JobName)
-		e.Logger.Errorf(err)
+		e.Logger.Errorf(err.Error())
 		e.JobResult.SetError(err)
 		return
 	}

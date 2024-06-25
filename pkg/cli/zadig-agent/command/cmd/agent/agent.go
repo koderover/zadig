@@ -49,6 +49,8 @@ func newAgent() *Agent {
 func (a *Agent) start(stop chan struct{}) {
 	log.Infof("================================ Zadig Agent  ================================")
 
+	log.Infof("OS PATH: %v", os.Getenv("PATH"))
+
 	// Initialize the agent
 	InitAgent()
 
