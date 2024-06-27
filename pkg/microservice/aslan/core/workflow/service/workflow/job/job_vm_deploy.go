@@ -652,8 +652,8 @@ func (j *VMDeployJob) getOriginReferedJobTargets(jobName string, taskID int) ([]
 						WorkflowType:  config.WorkflowTypeV4,
 						JobTaskName:   jobNameFormat(build.ServiceName + "-" + build.ServiceModule + "-" + jobName),
 					})
-					log.Infof("DeployJob ToJobs getOriginReferedJobTargets: workflow %s service %s, module %s, image %s",
-						j.workflow.Name, build.ServiceName, build.ServiceModule, build.Image)
+					log.Infof("DeployJob ToJobs getOriginReferedJobTargets: workflow %s service %s, module %s, fileName %s",
+						j.workflow.Name, build.ServiceName, build.ServiceModule, build.Package)
 				}
 				return serviceAndVMDeploys, nil
 			}

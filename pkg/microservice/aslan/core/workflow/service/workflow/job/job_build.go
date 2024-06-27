@@ -450,7 +450,7 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		image = strings.TrimPrefix(image, "http://")
 		image = strings.TrimPrefix(image, "https://")
 
-		build.Package = fmt.Sprintf("%s.tar.gz", commonservice.ReleaseCandidate(build.Repos, taskID, j.workflow.Project, build.ServiceModule, "", build.ImageName, "tar"))
+		pkgFile := fmt.Sprintf("%s.tar.gz", commonservice.ReleaseCandidate(build.Repos, taskID, j.workflow.Project, build.ServiceModule, "", build.ImageName, "tar"))
 
 		var buildInfo *commonmodels.Build
 		buildMapValue, ok := buildMap.Load(build.BuildName)
@@ -505,7 +505,7 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			ShareStorageDetails: getShareStorageDetail(j.workflow.ShareStorages, build.ShareStorageInfo, j.workflow.Name, taskID),
 		}
 
-		jobTaskSpec.Properties.Envs = append(jobTaskSpec.Properties.CustomEnvs, getBuildJobVariables(build, taskID, j.workflow.Project, j.workflow.Name, j.workflow.DisplayName, image, jobTask.Infrastructure, registry, logger)...)
+		jobTaskSpec.Properties.Envs = append(jobTaskSpec.Properties.CustomEnvs, getBuildJobVariables(build, taskID, j.workflow.Project, j.workflow.Name, j.workflow.DisplayName, image, pkgFile, jobTask.Infrastructure, registry, logger)...)
 		jobTaskSpec.Properties.UseHostDockerDaemon = buildInfo.PreBuild.UseHostDockerDaemon
 
 		cacheS3 := &commonmodels.S3Storage{}
@@ -544,8 +544,9 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 
 		// for other job refer current latest image.
 		build.Image = job.GetJobOutputKey(jobTask.Key, "IMAGE")
-		log.Infof("BuildJob ToJobs %d: workflow %s service %s, module %s, image %s",
-			taskID, j.workflow.Name, build.ServiceName, build.ServiceModule, build.Image)
+		build.Package = job.GetJobOutputKey(jobTask.Key, "PKG_FILE")
+		log.Infof("BuildJob ToJobs %d: workflow %s service %s, module %s, image %s, package %s",
+			taskID, j.workflow.Name, build.ServiceName, build.ServiceModule, build.Image, build.Package)
 
 		// init tools install step
 		tools := []*step.Tool{}
@@ -818,7 +819,7 @@ func replaceWrapLine(script string) string {
 	), "\r", "\n", -1)
 }
 
-func getBuildJobVariables(build *commonmodels.ServiceAndBuild, taskID int64, project, workflowName, workflowDisplayName, image, infrastructure string, registry *commonmodels.RegistryNamespace, log *zap.SugaredLogger) []*commonmodels.KeyVal {
+func getBuildJobVariables(build *commonmodels.ServiceAndBuild, taskID int64, project, workflowName, workflowDisplayName, image, pkgFile, infrastructure string, registry *commonmodels.RegistryNamespace, log *zap.SugaredLogger) []*commonmodels.KeyVal {
 	ret := make([]*commonmodels.KeyVal, 0)
 	// basic envs
 	ret = append(ret, PrepareDefaultWorkflowTaskEnvs(project, workflowName, workflowDisplayName, infrastructure, taskID)...)
