@@ -1023,7 +1023,7 @@ func parseK8SProjectServices(ctx context.Context, env *commonmodels.Product, ser
 	if err != nil {
 		return nil, fmt.Errorf("failed to render env service, err: %w", err)
 	}
-	resources, err := kube.ManifestToUnstructured(yaml)
+	resources, _, err := kube.ManifestToUnstructured(yaml)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert yaml to Unstructured, manifest is\n%s\n, error: %v", yaml, err)
 	}

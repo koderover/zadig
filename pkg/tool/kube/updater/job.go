@@ -18,6 +18,7 @@ package updater
 
 import (
 	"context"
+	"fmt"
 
 	batchv1 "k8s.io/api/batch/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -73,4 +74,18 @@ func DeleteJobsAndWait(ns string, selector labels.Selector, cl client.Client) er
 		Version: "v1",
 	}
 	return deleteObjectsAndWait(ns, selector, &batchv1.Job{}, gvk, cl)
+}
+
+func PatchJob(ns, name string, patchBytes []byte, cl client.Client) error {
+	return patchObject(&batchv1.Job{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: ns,
+			Name:      name,
+		},
+	}, patchBytes, cl)
+}
+
+func UpdateJobImage(ns, name, container, image string, cl client.Client) error {
+	patchBytes := []byte(fmt.Sprintf(`{"spec":{"template":{"spec":{"containers":[{"name":"%s","image":"%s"}]}}}}`, container, image))
+	return PatchJob(ns, name, patchBytes, cl)
 }
