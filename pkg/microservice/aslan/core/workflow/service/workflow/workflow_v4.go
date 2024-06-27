@@ -450,6 +450,7 @@ func ListWorkflowV4(projectName, viewName, userID string, names, v4Names []strin
 			Name:          workflowModel.Name,
 			DisplayName:   workflowModel.DisplayName,
 			ProjectName:   workflowModel.Project,
+			Disabled:      workflowModel.Disabled,
 			EnabledStages: stages,
 			CreateTime:    workflowModel.CreateTime,
 			UpdateTime:    workflowModel.UpdateTime,

@@ -51,6 +51,7 @@ type Workflow struct {
 	Name                 string                     `json:"name"`
 	DisplayName          string                     `json:"display_name"`
 	ProjectName          string                     `json:"projectName"`
+	Disabled             bool                       `json:"disabled"`
 	UpdateTime           int64                      `json:"updateTime"`
 	CreateTime           int64                      `json:"createTime"`
 	UpdateBy             string                     `json:"updateBy,omitempty"`
