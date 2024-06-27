@@ -65,13 +65,13 @@ func (v *VMJobStatusMap) Delete(key string) {
 	cache.NewRedisCache(utilconfig.RedisCommonCacheTokenDB()).Delete(vmJobKey(key))
 }
 
-func savaVMJobLog(job *vmmodel.VMJob, log string, logger *zap.SugaredLogger) (err error) {
+func savaVMJobLog(job *vmmodel.VMJob, logContent string, logger *zap.SugaredLogger) (err error) {
 	if job.Status == string(config.StatusRunning) {
 		VMJobStatus.Set(job.ID.Hex())
 	}
 
 	var file string
-	if job != nil && job.LogFile == "" && log != "" {
+	if job != nil && job.LogFile == "" && logContent != "" {
 		file, err = util.CreateVMJobLogFile(job.ID.Hex())
 		if err != nil {
 			return fmt.Errorf("failed to generate tmp file, error: %s", err)
@@ -81,8 +81,8 @@ func savaVMJobLog(job *vmmodel.VMJob, log string, logger *zap.SugaredLogger) (er
 		file = job.LogFile
 	}
 
-	if log != "" {
-		err = util.WriteFile(file, []byte(log), 0644)
+	if logContent != "" {
+		err = util.WriteFile(file, []byte(logContent), 0644)
 		if err != nil {
 			return fmt.Errorf("failed to write log to file, error: %s", err)
 		}
