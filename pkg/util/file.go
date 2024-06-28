@@ -95,3 +95,18 @@ func PathExists(path string) (bool, error) {
 	}
 	return false, err
 }
+
+func AppendToFile(filename string, data string) error {
+	file, err := os.OpenFile(filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	_, err = file.WriteString(data)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}

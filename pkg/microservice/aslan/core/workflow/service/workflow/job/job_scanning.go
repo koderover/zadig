@@ -338,7 +338,7 @@ func (j *ScanningJob) GetOutPuts(log *zap.SugaredLogger) []string {
 				}
 			}
 		}
-		resp = append(resp, getOutputKey(jobKey, scanningInfo.Outputs)...)
+		resp = append(resp, getOutputKey(jobKey, ensureScanningOutputs(scanningInfo.Outputs))...)
 	}
 	return resp
 }
@@ -390,7 +390,7 @@ func (j *ScanningJob) toJobTask(scanning *commonmodels.ScanningModule, taskID in
 		JobType:        string(config.JobZadigScanning),
 		Spec:           jobTaskSpec,
 		Timeout:        timeout,
-		Outputs:        scanningInfo.Outputs,
+		Outputs:        ensureScanningOutputs(scanningInfo.Outputs),
 		Infrastructure: scanningInfo.Infrastructure,
 		VMLabels:       scanningInfo.VMLabels,
 	}
@@ -635,20 +635,20 @@ func (j *ScanningJob) toJobTask(scanning *commonmodels.ScanningModule, taskID in
 			jobTaskSpec.Steps = append(jobTaskSpec.Steps, sonarScriptStep)
 		}
 
-		if scanningInfo.CheckQualityGate {
-			sonarChekStep := &commonmodels.StepTask{
-				Name:     scanning.Name + "-sonar-check",
-				JobName:  jobTask.Name,
-				StepType: config.StepSonarCheck,
-				Spec: &step.StepSonarCheckSpec{
-					Parameter:   scanningInfo.Parameter,
-					CheckDir:    repoName,
-					SonarToken:  sonarInfo.Token,
-					SonarServer: sonarInfo.ServerAddress,
-				},
-			}
-			jobTaskSpec.Steps = append(jobTaskSpec.Steps, sonarChekStep)
+		sonarChekStep := &commonmodels.StepTask{
+			Name:     scanning.Name + "-sonar-check",
+			JobName:  jobTask.Name,
+			JobKey:   jobTask.Key,
+			StepType: config.StepSonarCheck,
+			Spec: &step.StepSonarCheckSpec{
+				Parameter:        scanningInfo.Parameter,
+				CheckDir:         repoName,
+				SonarToken:       sonarInfo.Token,
+				SonarServer:      sonarInfo.ServerAddress,
+				CheckQualityGate: scanningInfo.CheckQualityGate,
+			},
 		}
+		jobTaskSpec.Steps = append(jobTaskSpec.Steps, sonarChekStep)
 	} else {
 		scriptStep := &commonmodels.StepTask{
 			JobName: jobTask.Name,
@@ -817,4 +817,17 @@ func fillScanningDetail(moduleScanning *commonmodels.Scanning) error {
 
 func getScanningJobCacheObjectPath(workflowName, scanningName string) string {
 	return fmt.Sprintf("%s/cache/%s", workflowName, scanningName)
+}
+
+func ensureScanningOutputs(outputs []*commonmodels.Output) []*commonmodels.Output {
+	keyMap := map[string]struct{}{}
+	for _, output := range outputs {
+		keyMap[output.Name] = struct{}{}
+	}
+	if _, ok := keyMap[setting.WorkflowScanningJobOutputKey]; !ok {
+		outputs = append(outputs, &commonmodels.Output{
+			Name: setting.WorkflowScanningJobOutputKey,
+		})
+	}
+	return outputs
 }

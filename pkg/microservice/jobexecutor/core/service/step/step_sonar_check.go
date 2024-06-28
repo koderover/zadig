@@ -20,16 +20,18 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"time"
 
-	"github.com/koderover/zadig/v2/pkg/setting"
 	"gopkg.in/yaml.v2"
 
+	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/tool/sonar"
+	"github.com/koderover/zadig/v2/pkg/types/job"
 	"github.com/koderover/zadig/v2/pkg/types/step"
+	"github.com/koderover/zadig/v2/pkg/util"
 )
 
 type SonarCheckStep struct {
@@ -62,7 +64,7 @@ func (s *SonarCheckStep) Run(ctx context.Context) error {
 		sonarWorkDir = filepath.Join(s.workspace, s.spec.CheckDir, sonarWorkDir)
 	}
 	taskReportDir := filepath.Join(sonarWorkDir, "report-task.txt")
-	bytes, err := ioutil.ReadFile(taskReportDir)
+	bytes, err := os.ReadFile(taskReportDir)
 	if err != nil {
 		log.Errorf("read sonar task report file: %s error :%v", time.Now().Format(setting.WorkflowTimeFormat), taskReportDir, err)
 		return err
@@ -73,20 +75,31 @@ func (s *SonarCheckStep) Run(ctx context.Context) error {
 		log.Error("can not get sonar ce task ID")
 		return errors.New("can not get sonar ce task ID")
 	}
-	analysisID, err := client.WaitForCETaskTobeDone(ceTaskID, time.Minute*10)
+
+	outputFileName := filepath.Join(job.JobOutputDir, setting.WorkflowScanningJobOutputKey)
+	err = util.AppendToFile(outputFileName, ceTaskID)
 	if err != nil {
+		err = fmt.Errorf("append sonar ce task ID %s to output file %s error: %v", ceTaskID, outputFileName, err)
 		log.Error(err)
 		return err
 	}
-	gateInfo, err := client.GetQualityGateInfo(analysisID)
-	if err != nil {
-		log.Error(err)
-		return err
-	}
-	log.Infof("Sonar quality gate status: %s", gateInfo.ProjectStatus.Status)
-	sonar.PrintSonarConditionTables(gateInfo.ProjectStatus.Conditions)
-	if gateInfo.ProjectStatus.Status != sonar.QualityGateOK && gateInfo.ProjectStatus.Status != sonar.QualityGateNone {
-		return fmt.Errorf("sonar quality gate status was: %s", gateInfo.ProjectStatus.Status)
+
+	if s.spec.CheckQualityGate {
+		analysisID, err := client.WaitForCETaskTobeDone(ceTaskID, time.Minute*10)
+		if err != nil {
+			log.Error(err)
+			return err
+		}
+		gateInfo, err := client.GetQualityGateInfo(analysisID)
+		if err != nil {
+			log.Error(err)
+			return err
+		}
+		log.Infof("Sonar quality gate status: %s", gateInfo.ProjectStatus.Status)
+		sonar.PrintSonarConditionTables(gateInfo.ProjectStatus.Conditions)
+		if gateInfo.ProjectStatus.Status != sonar.QualityGateOK && gateInfo.ProjectStatus.Status != sonar.QualityGateNone {
+			return fmt.Errorf("sonar quality gate status was: %s", gateInfo.ProjectStatus.Status)
+		}
 	}
 	return nil
 }
