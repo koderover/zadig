@@ -98,6 +98,11 @@ func RunStep(ctx context.Context, jobCtx *jobctl.JobContext, step *commonmodels.
 		if err != nil {
 			return err
 		}
+	case "sonar_get_metrics":
+		stepInstance, err = scanning.NewSonarGetMetricsStep(step.Spec, dirs, envs, secretEnvs, logger)
+		if err != nil {
+			return err
+		}
 	case "tools":
 		return nil
 	case "debug_before":

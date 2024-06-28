@@ -1031,9 +1031,6 @@ func getJobOutputFromTerminalMsg(namespace, containerName string, jobTask *commo
 }
 
 func getJobOutputFromConfigMap(namespace, containerName string, jobTask *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, informer informers.SharedInformerFactory) error {
-	if jobTask.Status != config.StatusPassed {
-		return nil
-	}
 	cmLister := informer.Core().V1().ConfigMaps().Lister().ConfigMaps(namespace)
 	// configMap name is the same as the k8sJobName
 	cm, err := cmLister.Get(jobTask.K8sJobName)
@@ -1041,16 +1038,18 @@ func getJobOutputFromConfigMap(namespace, containerName string, jobTask *commonm
 		return errors.Wrap(err, "get config map")
 	}
 	outputs := []*job.JobOutput{}
-	if err := json.Unmarshal([]byte(cm.Data[commontypes.JobOutputsKey]), &outputs); err != nil {
-		return errors.Wrap(err, "unmarshal outputs")
-	}
+	if len(cm.Data[commontypes.JobOutputsKey]) != 0 {
+		if err := json.Unmarshal([]byte(cm.Data[commontypes.JobOutputsKey]), &outputs); err != nil {
+			return errors.Wrap(err, "unmarshal outputs")
+		}
 
-	writeOutputs(outputs, jobTask.Key, workflowCtx)
+		writeOutputs(outputs, jobTask.Key, workflowCtx)
+	}
 	return nil
 }
 
+// @var write jobs output info to globalcontext so other job can use like this {{.job.jobKey.output.outputName}}
 func writeOutputs(outputs []*job.JobOutput, outputKey string, workflowCtx *commonmodels.WorkflowTaskCtx) {
-	// write jobs output info to globalcontext so other job can use like this {{.job.jobKey.output.outputName}}
 	outputsMap := make(map[string]*job.JobOutput)
 	for _, output := range outputs {
 		outputsMap[output.Name] = output

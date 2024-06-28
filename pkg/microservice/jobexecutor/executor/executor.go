@@ -101,11 +101,25 @@ func Execute(ctx context.Context) error {
 	}()
 
 	fmt.Printf("====================== %s Start ======================\n", excutor)
-	if err = j.Run(ctx); err != nil {
+	var (
+		runErr      error
+		afterRunErr error
+	)
+
+	// in order to collect output vars, we don't immediately return err even if runErr is not nil
+	runErr = j.Run(ctx)
+	afterRunErr = j.AfterRun(ctx)
+	if runErr != nil {
+		if afterRunErr != nil {
+			log.Errorf("AfterRun error: %v", afterRunErr)
+		}
+		err = runErr
 		return err
 	}
-	if err = j.AfterRun(ctx); err != nil {
+	if afterRunErr != nil {
+		err = afterRunErr
 		return err
 	}
+
 	return nil
 }

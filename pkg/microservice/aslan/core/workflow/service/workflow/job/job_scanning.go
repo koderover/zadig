@@ -338,7 +338,7 @@ func (j *ScanningJob) GetOutPuts(log *zap.SugaredLogger) []string {
 				}
 			}
 		}
-		resp = append(resp, getOutputKey(jobKey, scanningInfo.Outputs)...)
+		resp = append(resp, getOutputKey(jobKey, ensureScanningOutputs(scanningInfo.Outputs))...)
 	}
 	return resp
 }
@@ -390,7 +390,7 @@ func (j *ScanningJob) toJobTask(scanning *commonmodels.ScanningModule, taskID in
 		JobType:        string(config.JobZadigScanning),
 		Spec:           jobTaskSpec,
 		Timeout:        timeout,
-		Outputs:        scanningInfo.Outputs,
+		Outputs:        ensureScanningOutputs(scanningInfo.Outputs),
 		Infrastructure: scanningInfo.Infrastructure,
 		VMLabels:       scanningInfo.VMLabels,
 	}
@@ -520,7 +520,7 @@ func (j *ScanningJob) toJobTask(scanning *commonmodels.ScanningModule, taskID in
 		StepType: config.StepDebugBefore,
 	}
 	jobTaskSpec.Steps = append(jobTaskSpec.Steps, debugBeforeStep)
-	// init shell step
+	// init script step
 	if scanningInfo.ScannerType == types.ScanningTypeSonar {
 		scriptStep := &commonmodels.StepTask{
 			JobName: jobTask.Name,
@@ -555,8 +555,8 @@ func (j *ScanningJob) toJobTask(scanning *commonmodels.ScanningModule, taskID in
 
 		}
 
-		projectKey := sonar.GetSonarProjectKeyFromConfig(scanningInfo.Parameter)
-		resultAddr, err := sonar.GetSonarAddressWithProjectKey(sonarInfo.ServerAddress, renderEnv(projectKey, jobTaskSpec.Properties.Envs))
+		projectKey := renderEnv(sonar.GetSonarProjectKeyFromConfig(scanningInfo.Parameter), jobTaskSpec.Properties.Envs)
+		resultAddr, err := sonar.GetSonarAddressWithProjectKey(sonarInfo.ServerAddress, projectKey)
 		if err != nil {
 			log.Errorf("failed to get sonar address with project key, error: %s", err)
 		}
@@ -633,14 +633,33 @@ func (j *ScanningJob) toJobTask(scanning *commonmodels.ScanningModule, taskID in
 			}
 
 			jobTaskSpec.Steps = append(jobTaskSpec.Steps, sonarScriptStep)
+
 		}
+
+		sonarGetMetricsStep := &commonmodels.StepTask{
+			Name:     scanning.Name + "-sonar-get-metrics",
+			JobName:  jobTask.Name,
+			JobKey:   jobTask.Key,
+			StepType: config.StepSonarGetMetrics,
+			Spec: &step.StepSonarGetMetricsSpec{
+				ProjectKey:       projectKey,
+				Parameter:        scanningInfo.Parameter,
+				CheckDir:         repoName,
+				SonarToken:       sonarInfo.Token,
+				SonarServer:      sonarInfo.ServerAddress,
+				CheckQualityGate: scanningInfo.CheckQualityGate,
+			},
+		}
+		jobTaskSpec.Steps = append(jobTaskSpec.Steps, sonarGetMetricsStep)
 
 		if scanningInfo.CheckQualityGate {
 			sonarChekStep := &commonmodels.StepTask{
 				Name:     scanning.Name + "-sonar-check",
 				JobName:  jobTask.Name,
+				JobKey:   jobTask.Key,
 				StepType: config.StepSonarCheck,
 				Spec: &step.StepSonarCheckSpec{
+					ProjectKey:  projectKey,
 					Parameter:   scanningInfo.Parameter,
 					CheckDir:    repoName,
 					SonarToken:  sonarInfo.Token,
@@ -817,4 +836,17 @@ func fillScanningDetail(moduleScanning *commonmodels.Scanning) error {
 
 func getScanningJobCacheObjectPath(workflowName, scanningName string) string {
 	return fmt.Sprintf("%s/cache/%s", workflowName, scanningName)
+}
+
+func ensureScanningOutputs(outputs []*commonmodels.Output) []*commonmodels.Output {
+	keyMap := map[string]struct{}{}
+	for _, output := range outputs {
+		keyMap[output.Name] = struct{}{}
+	}
+	if _, ok := keyMap[setting.WorkflowScanningJobOutputKey]; !ok {
+		outputs = append(outputs, &commonmodels.Output{
+			Name: setting.WorkflowScanningJobOutputKey,
+		})
+	}
+	return outputs
 }

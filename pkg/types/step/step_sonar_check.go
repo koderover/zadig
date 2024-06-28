@@ -17,8 +17,9 @@ limitations under the License.
 package step
 
 type StepSonarCheckSpec struct {
-	Parameter   string `bson:"parameter"       json:"parameter"         yaml:"parameter"`
-	SonarToken  string `bson:"sonar_token"     json:"sonar_token"       yaml:"sonar_token"`
-	SonarServer string `bson:"sonar_server"    json:"sonar_server"      yaml:"sonar_server"`
-	CheckDir    string `bson:"check_dir"       json:"check_dir"         yaml:"check_dir"`
+	ProjectKey  string `bson:"project_key"        json:"project_key"        yaml:"project_key"`
+	Parameter   string `bson:"parameter"          json:"parameter"          yaml:"parameter"`
+	SonarToken  string `bson:"sonar_token"        json:"sonar_token"        yaml:"sonar_token"`
+	SonarServer string `bson:"sonar_server"       json:"sonar_server"       yaml:"sonar_server"`
+	CheckDir    string `bson:"check_dir"          json:"check_dir"          yaml:"check_dir"`
 }

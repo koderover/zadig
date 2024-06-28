@@ -92,7 +92,9 @@ func instantiateStepCtl(step *commonmodels.StepTask, workflowCtx *commonmodels.W
 	case config.StepTarArchive:
 		stepCtl, err = NewTarArchiveCtl(step, logger)
 	case config.StepSonarCheck:
-		stepCtl, err = NewSonarCheckCtl(step, logger)
+		stepCtl, err = NewSonarCheckCtl(step, workflowCtx, logger)
+	case config.StepSonarGetMetrics:
+		stepCtl, err = NewSonarGetMetricsCtl(step, workflowCtx, logger)
 	case config.StepDistributeImage:
 		stepCtl, err = NewDistributeCtl(step, workflowCtx, jobName, logger)
 	case config.StepDebugBefore, config.StepDebugAfter:

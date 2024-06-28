@@ -88,6 +88,11 @@ func RunStep(ctx context.Context, step *meta.Step, workspace, paths string, envs
 		if err != nil {
 			return err
 		}
+	case "sonar_get_metrics":
+		stepInstance, err = NewSonarGetMetricsStep(step.Spec, workspace, envs, secretEnvs)
+		if err != nil {
+			return err
+		}
 	case "distribute_image":
 		stepInstance, err = NewDistributeImageStep(step.Spec, workspace, envs, secretEnvs)
 		if err != nil {
