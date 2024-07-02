@@ -942,6 +942,8 @@ func updateHelmProduct(productName, envName, username, requestID string, overrid
 	for _, svrs := range templateProd.Services {
 		svcGroup := make([]*commonmodels.ProductService, 0)
 		for _, svr := range svrs {
+			log.Debugf("1 service: %s", svr.ServiceName)
+
 			if deletedSvcSet.Has(svr.ServiceName) {
 				continue
 			}
@@ -992,6 +994,11 @@ func updateHelmProduct(productName, envName, username, requestID string, overrid
 		allServices[0] = append(allServices[0], svc)
 	}
 	productResp.Services = allServices
+	for _, svcGroup := range productResp.Services {
+		for _, svc := range svcGroup {
+			log.Debugf("2 service: %s", svc.ServiceName)
+		}
+	}
 
 	svcNameSet := sets.NewString()
 	for _, singleChart := range overrideCharts {
