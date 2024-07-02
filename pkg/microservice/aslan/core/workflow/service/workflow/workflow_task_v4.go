@@ -380,6 +380,20 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 		return resp, err
 	}
 
+	if args.Type == config.WorkflowTaskTypeWorkflow || args.Type == "" {
+		orignalWorkflow, err := commonrepo.NewWorkflowV4Coll().Find(workflow.Name)
+		if err != nil {
+			return resp, e.ErrCreateTask.AddErr(fmt.Errorf("cannot find workflow %s, error: %v", workflow.Name, err))
+		}
+		if orignalWorkflow.Disabled {
+			return resp, e.ErrCreateTask.AddDesc("workflow is disabled")
+		}
+	} else {
+		if workflow.Disabled {
+			return resp, e.ErrCreateTask.AddDesc("workflow is disabled")
+		}
+	}
+
 	// if account is not set, use name as account
 	if args.Account == "" {
 		args.Account = args.Name
