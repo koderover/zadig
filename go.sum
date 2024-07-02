@@ -649,8 +649,8 @@ github.com/klauspost/cpuid v1.2.0/go.mod h1:Pj4uuM528wm8OyEC2QMXAi2YiTZ96dNQPGgo
 github.com/klauspost/cpuid/v2 v2.0.9/go.mod h1:FInQzS24/EEf25PyTYn52gqo7WaD8xa0213Md/qVLRg=
 github.com/klauspost/cpuid/v2 v2.2.4 h1:acbojRNwl3o09bUq+yDCtZFc1aiwaAAxtcn8YkZXnvk=
 github.com/klauspost/cpuid/v2 v2.2.4/go.mod h1:RVVoqg1df56z8g3pUjL/3lE5UfnlrJX8tyFgg4nqhuY=
-github.com/koderover/gojenkins v1.5.2 h1:P8xVAd/g+FR2bLAZSr+tTyDqGNUltA8yCWYA77PV9U0=
-github.com/koderover/gojenkins v1.5.2/go.mod h1:XTLwVFTEB6tNV2cK+TQBKkY2Z6TVbueQIMaVii8T3CE=
+github.com/koderover/gojenkins v1.5.3 h1:n99ZnepNNRA+m1S8Nbi2KGAWjrl56DGpxdd12IT7arI=
+github.com/koderover/gojenkins v1.5.3/go.mod h1:XTLwVFTEB6tNV2cK+TQBKkY2Z6TVbueQIMaVii8T3CE=
 github.com/konsorten/go-windows-terminal-sequences v1.0.1/go.mod h1:T0+1ngSBFLxvqU3pZ+m/2kptfBszLMUkC4ZK/EgS/cQ=
 github.com/konsorten/go-windows-terminal-sequences v1.0.3/go.mod h1:T0+1ngSBFLxvqU3pZ+m/2kptfBszLMUkC4ZK/EgS/cQ=
 github.com/kortschak/utter v1.0.1/go.mod h1:vSmSjbyrlKjjsL71193LmzBOKgwePk9DH6uFaWHIInc=

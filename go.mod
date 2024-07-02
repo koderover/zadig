@@ -51,7 +51,7 @@ require (
 	github.com/jinzhu/copier v0.3.5
 	github.com/jinzhu/now v1.1.5
 	github.com/juju/ratelimit v1.0.2
-	github.com/koderover/gojenkins v1.5.2
+	github.com/koderover/gojenkins v1.5.3
 	github.com/larksuite/oapi-sdk-go/v3 v3.0.10
 	github.com/magiconair/properties v1.8.5
 	github.com/mholt/archiver v3.1.1+incompatible
