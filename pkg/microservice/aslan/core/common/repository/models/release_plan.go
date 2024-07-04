@@ -28,15 +28,16 @@ type ReleasePlan struct {
 	Name    string             `bson:"name"       yaml:"name"                   json:"name"`
 	Manager string             `bson:"manager"       yaml:"manager"                   json:"manager"`
 	// ManagerID is the user id of the manager
-	ManagerID           string `bson:"manager_id"       yaml:"manager_id"                   json:"manager_id"`
-	StartTime           int64  `bson:"start_time"       yaml:"start_time"                   json:"start_time"`
-	EndTime             int64  `bson:"end_time"       yaml:"end_time"                   json:"end_time"`
-	ScheduleExecuteTime int64  `bson:"schedule_execute_time"       yaml:"schedule_execute_time"                   json:"schedule_execute_time"`
-	Description         string `bson:"description"       yaml:"description"                   json:"description"`
-	CreatedBy           string `bson:"created_by"       yaml:"created_by"                   json:"created_by"`
-	CreateTime          int64  `bson:"create_time"       yaml:"create_time"                   json:"create_time"`
-	UpdatedBy           string `bson:"updated_by"       yaml:"updated_by"                   json:"updated_by"`
-	UpdateTime          int64  `bson:"update_time"       yaml:"update_time"                   json:"update_time"`
+	ManagerID             string                            `bson:"manager_id"       yaml:"manager_id"                   json:"manager_id"`
+	StartTime             int64                             `bson:"start_time"       yaml:"start_time"                   json:"start_time"`
+	EndTime               int64                             `bson:"end_time"       yaml:"end_time"                   json:"end_time"`
+	ScheduleExecuteTime   int64                             `bson:"schedule_execute_time"       yaml:"schedule_execute_time"                   json:"schedule_execute_time"`
+	Description           string                            `bson:"description"       yaml:"description"                   json:"description"`
+	CreatedBy             string                            `bson:"created_by"       yaml:"created_by"                   json:"created_by"`
+	CreateTime            int64                             `bson:"create_time"       yaml:"create_time"                   json:"create_time"`
+	UpdatedBy             string                            `bson:"updated_by"       yaml:"updated_by"                   json:"updated_by"`
+	UpdateTime            int64                             `bson:"update_time"       yaml:"update_time"                   json:"update_time"`
+	JiraSprintAssociation *ReleasePlanJiraSprintAssociation `bson:"jira_sprint_association"       yaml:"jira_sprint_association"                   json:"jira_sprint_association"`
 
 	Approval *Approval `bson:"approval"       yaml:"approval"                   json:"approval,omitempty"`
 
@@ -48,6 +49,18 @@ type ReleasePlan struct {
 	ApprovalTime  int64 `bson:"approval_time"       yaml:"approval_time"                   json:"approval_time"`
 	ExecutingTime int64 `bson:"executing_time"       yaml:"executing_time"                   json:"executing_time"`
 	SuccessTime   int64 `bson:"success_time"       yaml:"success_time"                   json:"success_time"`
+}
+
+type ReleasePlanJiraSprintAssociation struct {
+	JiraID  string                  `bson:"jira_id"       yaml:"jira_id"                   json:"jira_id"`
+	Sprints []ReleasePlanJiraSprint `bson:"sprints"       yaml:"sprints"                   json:"sprints"`
+}
+
+type ReleasePlanJiraSprint struct {
+	ProjectName string `bson:"project_name"     yaml:"project_name"                 json:"project_name"`
+	ProjectKey  string `bson:"project_key"     yaml:"project_key"                 json:"project_key"`
+	BoardID     int    `bson:"board_id"        yaml:"board_id"                    json:"board_id"`
+	SprintID    int    `bson:"sprint_id"       yaml:"sprint_id"                   json:"sprint_id"`
 }
 
 func (ReleasePlan) TableName() string {

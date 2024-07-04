@@ -522,6 +522,7 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			if clusterInfo.Cache.MediumType == "" {
 				jobTaskSpec.Properties.CacheEnable = false
 			} else {
+				// set job task cache equal to cluster cache
 				jobTaskSpec.Properties.Cache = clusterInfo.Cache
 				jobTaskSpec.Properties.CacheEnable = buildInfo.CacheEnable
 				jobTaskSpec.Properties.CacheDirType = buildInfo.CacheDirType

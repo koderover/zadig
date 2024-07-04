@@ -123,12 +123,12 @@ func ValidateMeego(info *models.ProjectManagement) error {
 	return nil
 }
 
-type JiraProjectsResp struct {
+type JiraProjectResp struct {
 	Name string `json:"name"`
 	Key  string `json:"key"`
 }
 
-func ListJiraProjects(id string) ([]JiraProjectsResp, error) {
+func ListJiraProjects(id string) ([]JiraProjectResp, error) {
 	info, err := mongodb.NewProjectManagementColl().GetJiraByID(id)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
@@ -142,13 +142,169 @@ func ListJiraProjects(id string) ([]JiraProjectsResp, error) {
 		return nil, err
 	}
 
-	var resp []JiraProjectsResp
+	var resp []JiraProjectResp
 	for _, project := range list {
-		resp = append(resp, JiraProjectsResp{
+		resp = append(resp, JiraProjectResp{
 			Name: project.Name,
 			Key:  project.Key,
 		})
 	}
+	return resp, nil
+}
+
+type JiraBoardResp struct {
+	ID   int    `json:"id"`
+	Name string `json:"name"`
+	Type string `json:"type"`
+}
+
+func ListJiraBoards(id, projectKey string) ([]JiraBoardResp, error) {
+	info, err := mongodb.NewProjectManagementColl().GetJiraByID(id)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	boards, err := jira.NewJiraClientWithAuthType(info.JiraHost, info.JiraUser, info.JiraToken, info.JiraPersonalAccessToken, info.JiraAuthType).Board.ListBoards(projectKey, "scrum")
+	if err != nil {
+		return nil, err
+	}
+
+	var resp []JiraBoardResp
+	for _, board := range boards {
+		resp = append(resp, JiraBoardResp{
+			ID:   board.ID,
+			Name: board.Name,
+			Type: board.Type,
+		})
+	}
+	return resp, nil
+}
+
+type JiraSprintResp struct {
+	ID            int       `json:"id,omitempty"`
+	State         string    `json:"state,omitempty"`
+	Name          string    `json:"name,omitempty"`
+	StartDate     time.Time `json:"startDate,omitempty"`
+	EndDate       time.Time `json:"endDate,omitempty"`
+	CompleteDate  time.Time `json:"completeDate,omitempty"`
+	OriginBoardID int       `json:"originBoardId,omitempty"`
+}
+
+func ListJiraSprints(id string, boardID int) ([]JiraSprintResp, error) {
+	info, err := mongodb.NewProjectManagementColl().GetJiraByID(id)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	sprints, err := jira.NewJiraClientWithAuthType(info.JiraHost, info.JiraUser, info.JiraToken, info.JiraPersonalAccessToken, info.JiraAuthType).Sprint.ListSprints(boardID, "")
+	if err != nil {
+		return nil, err
+	}
+
+	var resp []JiraSprintResp
+	for _, sprint := range sprints {
+		resp = append(resp, JiraSprintResp{
+			ID:            sprint.ID,
+			State:         sprint.State,
+			Name:          sprint.Name,
+			StartDate:     sprint.StartDate,
+			EndDate:       sprint.EndDate,
+			CompleteDate:  sprint.CompleteDate,
+			OriginBoardID: sprint.OriginBoardID,
+		})
+	}
+	return resp, nil
+}
+
+func GetJiraSprint(id string, sprintID int) (*JiraSprintResp, error) {
+	info, err := mongodb.NewProjectManagementColl().GetJiraByID(id)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	sprint, err := jira.NewJiraClientWithAuthType(info.JiraHost, info.JiraUser, info.JiraToken, info.JiraPersonalAccessToken, info.JiraAuthType).Sprint.GetSrpint(sprintID)
+	if err != nil {
+		return nil, err
+	}
+
+	resp := &JiraSprintResp{
+		ID:            sprint.ID,
+		State:         sprint.State,
+		Name:          sprint.Name,
+		StartDate:     sprint.StartDate,
+		EndDate:       sprint.EndDate,
+		CompleteDate:  sprint.CompleteDate,
+		OriginBoardID: sprint.OriginBoardID,
+	}
+	return resp, nil
+}
+
+type JiraSprintIssuesResp struct {
+	SprintID      int    `json:"sprintID"`
+	Name          string `json:"name"`
+	StartDate     int64  `json:"startDate"`
+	EndDate       int64  `json:"endDate"`
+	New           int    `json:"new"`
+	Indeterminate int    `json:"indeterminate"`
+	Done          int    `json:"done"`
+}
+
+func ListJiraSprintIssues(id string, sprintID int) (*JiraSprintIssuesResp, error) {
+	info, err := mongodb.NewProjectManagementColl().GetJiraByID(id)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	sprintSerivce := jira.NewJiraClientWithAuthType(info.JiraHost, info.JiraUser, info.JiraToken, info.JiraPersonalAccessToken, info.JiraAuthType).Sprint
+
+	resp := &JiraSprintIssuesResp{}
+	sprint, err := sprintSerivce.GetSrpint(sprintID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get sprint, sprintID: %v, err: %v", sprintID, err)
+	}
+	resp.SprintID = sprint.ID
+	resp.Name = sprint.Name
+	resp.StartDate = sprint.StartDate.Unix()
+	resp.EndDate = sprint.EndDate.Unix()
+
+	issues, err := sprintSerivce.ListSprintIssues(sprintID, "status")
+	if err != nil {
+		return nil, fmt.Errorf("failed to get sprint issues, srpintID: %v, err: %v", sprintID, err)
+	}
+
+	for _, issue := range issues {
+		if issue.Fields == nil {
+			continue
+		}
+		if issue.Fields.Status == nil {
+			continue
+		}
+		if issue.Fields.Status.StatusCategory == nil {
+			continue
+		}
+
+		switch issue.Fields.Status.StatusCategory.Key {
+		case "new":
+			resp.New++
+		case "indeterminate":
+			resp.Indeterminate++
+		case "done":
+			resp.Done++
+		}
+	}
+
 	return resp, nil
 }
 

@@ -18,6 +18,7 @@ package handler
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -203,12 +204,96 @@ func Validate(c *gin.Context) {
 // @Accept 	json
 // @Produce json
 // @Param 	id 		path		string										true	"jira id"
-// @Success 200 	{array} 	service.JiraProjectsResp
+// @Success 200 	{array} 	service.JiraProjectResp
 // @Router /api/aslan/system/project_management/{id}/jira/project [get]
 func ListJiraProjects(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	ctx.Resp, ctx.Err = service.ListJiraProjects(c.Param("id"))
+}
+
+// @Summary List Jira Boards
+// @Description List Jira Boards
+// @Tags 	system
+// @Accept 	json
+// @Produce json
+// @Param 	id 			path		string										true	"jira id"
+// @Param 	projectKey 	query		string										true	"jira project key"
+// @Success 200 		{array} 	service.JiraBoardResp
+// @Router /api/aslan/system/project_management/{id}/jira/board [get]
+func ListJiraBoards(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	ctx.Resp, ctx.Err = service.ListJiraBoards(c.Param("id"), c.Query("projectKey"))
+}
+
+// @Summary List Jira Sprints
+// @Description List Jira Sprints
+// @Tags 	system
+// @Accept 	json
+// @Produce json
+// @Param 	id 			path		string										true	"jira id"
+// @Param 	boardID 	path		string										true	"jira board id"
+// @Success 200 		{array} 	service.JiraSprintResp
+// @Router /api/aslan/system/project_management/{id}/jira/board/:boardID/sprint [get]
+func ListJiraSprints(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	boardID, err := strconv.Atoi(c.Param("boardID"))
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid board id")
+		return
+
+	}
+
+	ctx.Resp, ctx.Err = service.ListJiraSprints(c.Param("id"), boardID)
+}
+
+// @Summary Get Jira Sprint
+// @Description Get Jira Sprint
+// @Tags 	system
+// @Accept 	json
+// @Produce json
+// @Param 	id 			path		string										true	"jira id"
+// @Param 	sprintID 	path		string										true	"jira sprint id"
+// @Success 200 		{object} 	service.JiraSprintResp
+// @Router /api/aslan/system/project_management/{id}/jira/sprint/:sprintID [get]
+func GetJiraSprint(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	sprintID, err := strconv.Atoi(c.Param("sprintID"))
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid sprint id")
+		return
+
+	}
+
+	ctx.Resp, ctx.Err = service.GetJiraSprint(c.Param("id"), sprintID)
+}
+
+// @Summary List Jira Sprint Issues
+// @Description List Jira Sprint Issues
+// @Tags 	system
+// @Accept 	json
+// @Produce json
+// @Param 	id 			path		string										true	"jira id"
+// @Param 	sprintID 	path		string										true	"jira sprint id"
+// @Success 200 		{object} 	service.JiraSprintResp
+// @Router /api/aslan/system/project_management/{id}/jira/sprint/:sprintID/issue [get]
+func ListJiraSprintIssues(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	sprintID, err := strconv.Atoi(c.Param("sprintID"))
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid sprint id")
+		return
+
+	}
+
+	ctx.Resp, ctx.Err = service.ListJiraSprintIssues(c.Param("id"), sprintID)
 }
 
 func SearchJiraIssues(c *gin.Context) {
