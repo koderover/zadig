@@ -33,9 +33,7 @@ import (
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/repository"
 	templ "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/template"
-	aslanUtil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/setting"
-	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/types"
 	"github.com/koderover/zadig/v2/pkg/types/job"
@@ -952,19 +950,6 @@ func (j *BuildJob) LintJob() error {
 	j.spec = &commonmodels.ZadigBuildJobSpec{}
 	if err := commonmodels.IToiYaml(j.job.Spec, j.spec); err != nil {
 		return err
-	}
-
-	if err := aslanUtil.CheckZadigProfessionalLicense(); err != nil {
-		for _, item := range j.spec.ServiceAndBuilds {
-			buildInfo, err := commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: item.BuildName})
-			if err != nil {
-				log.Errorf("found build %s failed, err: %s", item.BuildName, err)
-				return e.ErrLicenseInvalid.AddDesc("校验工作流失败")
-			}
-			if buildInfo.Infrastructure == "vm" {
-				return e.ErrLicenseInvalid.AddDesc("使用主机构建是专业版功能")
-			}
-		}
 	}
 
 	return nil
