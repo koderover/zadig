@@ -166,6 +166,7 @@ type ProductFeature struct {
 	DeployType string `bson:"deploy_type"                  json:"deploy_type"`
 	// 创建环境方式,system/external(系统创建/外部环境)
 	CreateEnvType string `bson:"create_env_type"           json:"create_env_type"`
+	AppType       string `bson:"app_type"                  json:"app_type"`
 }
 
 func (p *ProductFeature) GetDeployType() string {
