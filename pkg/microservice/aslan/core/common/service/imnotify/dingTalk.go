@@ -16,10 +16,6 @@ limitations under the License.
 
 package imnotify
 
-const (
-	dingDingType = "dingding"
-)
-
 type DingDingMessage struct {
 	MsgType  string            `json:"msgtype"`
 	MarkDown *DingDingMarkDown `json:"markdown"`

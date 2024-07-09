@@ -16,10 +16,6 @@ limitations under the License.
 
 package instantmessage
 
-const (
-	dingDingType = "dingding"
-)
-
 type DingDingMessage struct {
 	MsgType  string            `json:"msgtype"`
 	MarkDown *DingDingMarkDown `json:"markdown"`

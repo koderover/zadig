@@ -21,7 +21,6 @@ import (
 )
 
 const (
-	WeChatWorkType                  = "wechat"
 	MarkdownColorInfo               = "info"
 	MarkdownColorComment            = "comment"
 	MarkdownColorWarning            = "warning"

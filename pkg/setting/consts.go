@@ -919,3 +919,12 @@ const (
 const (
 	WorkflowScanningJobOutputKey = "SonarCETaskID"
 )
+
+type NotifyWebHookType string
+
+const (
+	NotifyWebHookTypeDingDing   NotifyWebHookType = "dingding"
+	NotifyWebHookTypeFeishu     NotifyWebHookType = "feishu"
+	NotifyWebHookTypeWechatWork NotifyWebHookType = "wechat"
+	NotifyWebHookTypeMail       NotifyWebHookType = "mail"
+)

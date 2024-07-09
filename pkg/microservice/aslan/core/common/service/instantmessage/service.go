@@ -80,14 +80,14 @@ func NewWeChatClient() *Service {
 }
 
 type wechatNotification struct {
-	Task               *task.Task `json:"task"`
-	EncodedDisplayName string     `json:"encoded_display_name"`
-	BaseURI            string     `json:"base_uri"`
-	IsSingle           bool       `json:"is_single"`
-	WebHookType        string     `json:"web_hook_type"`
-	TotalTime          int64      `json:"total_time"`
-	AtMobiles          []string   `json:"atMobiles"`
-	IsAtAll            bool       `json:"is_at_all"`
+	Task               *task.Task                `json:"task"`
+	EncodedDisplayName string                    `json:"encoded_display_name"`
+	BaseURI            string                    `json:"base_uri"`
+	IsSingle           bool                      `json:"is_single"`
+	WebHookType        setting.NotifyWebHookType `json:"web_hook_type"`
+	TotalTime          int64                     `json:"total_time"`
+	AtMobiles          []string                  `json:"atMobiles"`
+	IsAtAll            bool                      `json:"is_at_all"`
 }
 
 func (w *Service) SendMessageRequest(uri string, message interface{}) ([]byte, error) {
@@ -177,7 +177,7 @@ func (w *Service) sendMessage(task *task.Task, notifyCtl *models.NotifyCtl, test
 	var (
 		uri         = ""
 		content     = ""
-		webHookType = ""
+		webHookType setting.NotifyWebHookType
 		atMobiles   []string
 		isAtAll     bool
 		title       = ""
@@ -188,11 +188,11 @@ func (w *Service) sendMessage(task *task.Task, notifyCtl *models.NotifyCtl, test
 	case config.SingleType:
 		if notifyCtl.Enabled && sets.NewString(notifyCtl.NotifyTypes...).Has(string(task.Status)) {
 			webHookType = notifyCtl.WebHookType
-			if webHookType == dingDingType {
+			if webHookType == setting.NotifyWebHookTypeDingDing {
 				uri = notifyCtl.DingDingWebHook
 				atMobiles = notifyCtl.AtMobiles
 				isAtAll = notifyCtl.IsAtAll
-			} else if webHookType == feiShuType {
+			} else if webHookType == setting.NotifyWebHookTypeFeishu {
 				uri = notifyCtl.FeiShuWebHook
 			} else {
 				uri = notifyCtl.WeChatWebHook
@@ -214,11 +214,11 @@ func (w *Service) sendMessage(task *task.Task, notifyCtl *models.NotifyCtl, test
 	case config.WorkflowType:
 		if notifyCtl.Enabled && sets.NewString(notifyCtl.NotifyTypes...).Has(string(task.Status)) {
 			webHookType = notifyCtl.WebHookType
-			if webHookType == dingDingType {
+			if webHookType == setting.NotifyWebHookTypeDingDing {
 				uri = notifyCtl.DingDingWebHook
 				atMobiles = notifyCtl.AtMobiles
 				isAtAll = notifyCtl.IsAtAll
-			} else if webHookType == feiShuType {
+			} else if webHookType == setting.NotifyWebHookTypeFeishu {
 				uri = notifyCtl.FeiShuWebHook
 			} else {
 				uri = notifyCtl.WeChatWebHook
@@ -241,11 +241,11 @@ func (w *Service) sendMessage(task *task.Task, notifyCtl *models.NotifyCtl, test
 		statusSets := sets.NewString(notifyCtl.NotifyTypes...)
 		if notifyCtl.Enabled && (statusSets.Has(string(task.Status)) || (testTaskStatusChanged && statusSets.Has(string(config.StatusChanged)))) {
 			webHookType = notifyCtl.WebHookType
-			if webHookType == dingDingType {
+			if webHookType == setting.NotifyWebHookTypeDingDing {
 				uri = notifyCtl.DingDingWebHook
 				atMobiles = notifyCtl.AtMobiles
 				isAtAll = notifyCtl.IsAtAll
-			} else if webHookType == feiShuType {
+			} else if webHookType == setting.NotifyWebHookTypeFeishu {
 				uri = notifyCtl.FeiShuWebHook
 			} else {
 				uri = notifyCtl.WeChatWebHook
@@ -268,11 +268,11 @@ func (w *Service) sendMessage(task *task.Task, notifyCtl *models.NotifyCtl, test
 		statusSets := sets.NewString(notifyCtl.NotifyTypes...)
 		if notifyCtl.Enabled && (statusSets.Has(string(task.Status)) || (scanningTaskStatusChanged && statusSets.Has(string(config.StatusChanged)))) {
 			webHookType = notifyCtl.WebHookType
-			if webHookType == dingDingType {
+			if webHookType == setting.NotifyWebHookTypeDingDing {
 				uri = notifyCtl.DingDingWebHook
 				atMobiles = notifyCtl.AtMobiles
 				isAtAll = notifyCtl.IsAtAll
-			} else if webHookType == feiShuType {
+			} else if webHookType == setting.NotifyWebHookTypeFeishu {
 				uri = notifyCtl.FeiShuWebHook
 			} else {
 				uri = notifyCtl.WeChatWebHook
@@ -294,7 +294,7 @@ func (w *Service) sendMessage(task *task.Task, notifyCtl *models.NotifyCtl, test
 	}
 
 	if uri != "" && (content != "" || larkCard != nil) {
-		if webHookType == dingDingType {
+		if webHookType == setting.NotifyWebHookTypeDingDing {
 			if task.Type == config.SingleType {
 				title = "工作流状态"
 			}
@@ -303,7 +303,7 @@ func (w *Service) sendMessage(task *task.Task, notifyCtl *models.NotifyCtl, test
 				log.Errorf("sendDingDingMessage err : %s", err)
 				return err
 			}
-		} else if webHookType == feiShuType {
+		} else if webHookType == setting.NotifyWebHookTypeFeishu {
 			if task.Type == config.SingleType {
 				err := w.sendFeishuMessageOfSingleType("工作流状态", uri, content)
 				if err != nil {
@@ -350,14 +350,14 @@ func (w *Service) createNotifyBody(weChatNotification *wechatNotification) (cont
 
 	for _, testName := range testNames {
 		url := fmt.Sprintf("{{.BaseURI}}/api/aslan/testing/report?pipelineName={{.Task.PipelineName}}&pipelineType={{.Task.Type}}&taskID={{.Task.TaskID}}&testName=%s\n", testName)
-		if weChatNotification.WebHookType == feiShuType {
+		if weChatNotification.WebHookType == setting.NotifyWebHookTypeFeishu {
 			tmplSource += url
 			continue
 		}
 		tmplSource += fmt.Sprintf("[%s](%s)\n", url, url)
 	}
 
-	if weChatNotification.WebHookType == dingDingType {
+	if setting.NotifyWebHookType(weChatNotification.WebHookType) == setting.NotifyWebHookTypeDingDing {
 		if len(weChatNotification.AtMobiles) > 0 && !weChatNotification.IsAtAll {
 			tmplSource = fmt.Sprintf("%s - 相关人员：@%s \n", tmplSource, strings.Join(weChatNotification.AtMobiles, "@"))
 		}
@@ -485,7 +485,7 @@ func (w *Service) createNotifyBodyOfWorkflowIM(weChatNotification *wechatNotific
 	moreInformation := fmt.Sprintf("[%s](%s)", buttonContent, workflowDetailURL)
 	tplTitle, _ = getTplExec(tplTitle, weChatNotification)
 
-	if weChatNotification.WebHookType != feiShuType {
+	if weChatNotification.WebHookType != setting.NotifyWebHookTypeFeishu {
 		tplcontent := strings.Join(tplBaseInfo, "")
 		tplcontent += strings.Join(build, "")
 		tplcontent = fmt.Sprintf("%s%s", tplcontent, test)
@@ -541,7 +541,7 @@ func (w *Service) createNotifyBodyOfTestIM(desc string, weChatNotification *wech
 
 	tplTitle, _ = getTplExec(tplTitle, weChatNotification)
 
-	if weChatNotification.WebHookType != feiShuType {
+	if weChatNotification.WebHookType != setting.NotifyWebHookTypeFeishu {
 		tplcontent := strings.Join(tplBaseInfo, "")
 		tplcontent = fmt.Sprintf("%s%s", tplcontent, tplTestCaseInfo)
 		tplcontent = tplcontent + getNotifyAtContent(notify)
@@ -593,7 +593,7 @@ func (w *Service) createNotifyBodyOfScanningIM(desc, scanningName, scanningID st
 
 	tplTitle, _ = getTplExec(tplTitle, weChatNotification)
 
-	if weChatNotification.WebHookType != feiShuType {
+	if weChatNotification.WebHookType != setting.NotifyWebHookTypeFeishu {
 		tplcontent := strings.Join(tplBaseInfo, "")
 		tplcontent = fmt.Sprintf("%s%s", tplcontent, tplTestCaseInfo)
 		tplcontent = tplcontent + getNotifyAtContent(notify)
@@ -757,13 +757,13 @@ func genTestCaseText(test string, subTask, testReports map[string]interface{}) s
 
 func getNotifyAtContent(notify *models.NotifyCtl) string {
 	resp := ""
-	if notify.WebHookType == dingDingType {
+	if notify.WebHookType == setting.NotifyWebHookTypeDingDing {
 		notify.AtMobiles = lo.Filter(notify.AtMobiles, func(s string, _ int) bool { return s != "All" })
 		if len(notify.AtMobiles) > 0 {
 			resp = fmt.Sprintf("##### **相关人员**: @%s \n", strings.Join(notify.AtMobiles, "@"))
 		}
 	}
-	if notify.WebHookType == weChatWorkType && len(notify.WechatUserIDs) > 0 {
+	if notify.WebHookType == setting.NotifyWebHookTypeWechatWork && len(notify.WechatUserIDs) > 0 {
 		atUserList := []string{}
 		notify.WechatUserIDs = lo.Filter(notify.WechatUserIDs, func(s string, _ int) bool { return s != "All" })
 		for _, userID := range notify.WechatUserIDs {
@@ -771,7 +771,7 @@ func getNotifyAtContent(notify *models.NotifyCtl) string {
 		}
 		resp = fmt.Sprintf("##### **相关人员**: %s \n", strings.Join(atUserList, " "))
 	}
-	if notify.WebHookType == feiShuType {
+	if notify.WebHookType == setting.NotifyWebHookTypeFeishu {
 		atUserList := []string{}
 		notify.LarkUserIDs = lo.Filter(notify.LarkUserIDs, func(s string, _ int) bool { return s != "All" })
 		for _, userID := range notify.LarkUserIDs {

@@ -27,7 +27,11 @@ import (
 	"github.com/koderover/zadig/v2/pkg/tool/mail"
 )
 
-func (w *Service) sendMailMessage(title, content string, users []*models.User) error {
+const (
+	webhookType = "webhook"
+)
+
+func (w *Service) sendWebhook(title, content string, users []*models.User) error {
 	if len(users) == 0 {
 		return nil
 	}
