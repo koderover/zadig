@@ -31,6 +31,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/tool/cache"
 	"github.com/koderover/zadig/v2/pkg/tool/lark"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
+	"github.com/koderover/zadig/v2/pkg/util"
 )
 
 const (
@@ -85,14 +86,14 @@ func GetLarkAppContactRange(approvalID string) (*DepartmentInfo, error) {
 		wg             sync.WaitGroup
 	)
 	wg.Add(2)
-	go func() {
+	util.Go(func() {
 		userList, err1 = getLarkUserInfoConcurrently(cli, reply.UserIDs, 10)
 		wg.Done()
-	}()
-	go func() {
+	})
+	util.Go(func() {
 		departmentList, err2 = getLarkDepartmentInfoConcurrently(cli, reply.DepartmentIDs, 10)
 		wg.Done()
-	}()
+	})
 	wg.Wait()
 	if err1 != nil {
 		return nil, errors.Wrap(err, "get user info")
