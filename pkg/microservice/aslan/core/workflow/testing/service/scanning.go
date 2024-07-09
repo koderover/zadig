@@ -141,8 +141,9 @@ func ListScanningModule(projectName string, log *zap.SugaredLogger) ([]*ListScan
 		}
 
 		item := &ListScanningRespItem{
-			ID:   scanning.ID.Hex(),
-			Name: scanning.Name,
+			ID:          scanning.ID.Hex(),
+			Name:        scanning.Name,
+			Description: scanning.Description,
 			Statistics: &ScanningStatistic{
 				TimesRun:       res.TotalTasks,
 				AverageRuntime: avgRuntime,
