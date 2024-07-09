@@ -144,7 +144,6 @@ func GetServiceTemplate(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -154,25 +153,28 @@ func GetServiceTemplate(c *gin.Context) {
 	production := c.Query("production") == "true"
 
 	// authorization check
-	if !ctx.Resources.IsSystemAdmin {
-		if _, ok := ctx.Resources.ProjectAuthInfo[projectName]; !ok {
-			ctx.UnAuthorized = true
-			return
-		}
-
-		if production {
-			if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
-				!ctx.Resources.ProjectAuthInfo[projectName].ProductionService.View {
+	// TODO: Authorization leak for pm type in order to use collaboration mode in pm project
+	if c.Param("type") != "pm" {
+		if !ctx.Resources.IsSystemAdmin {
+			if _, ok := ctx.Resources.ProjectAuthInfo[projectName]; !ok {
 				ctx.UnAuthorized = true
 				return
 			}
-		} else {
-			if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
-				!ctx.Resources.ProjectAuthInfo[projectName].Service.View &&
-				// special case for vm project
-				!ctx.Resources.ProjectAuthInfo[projectName].Env.View {
-				ctx.UnAuthorized = true
-				return
+
+			if production {
+				if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
+					!ctx.Resources.ProjectAuthInfo[projectName].ProductionService.View {
+					ctx.UnAuthorized = true
+					return
+				}
+			} else {
+				if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
+					!ctx.Resources.ProjectAuthInfo[projectName].Service.View &&
+					// special case for vm project
+					!ctx.Resources.ProjectAuthInfo[projectName].Env.View {
+					ctx.UnAuthorized = true
+					return
+				}
 			}
 		}
 	}
@@ -496,7 +498,6 @@ func UpdateServiceHealthCheckStatus(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -509,18 +510,19 @@ func UpdateServiceHealthCheckStatus(c *gin.Context) {
 	}
 
 	// authorization
-	projectName := args.ProductName
-	if !ctx.Resources.IsSystemAdmin {
-		if _, ok := ctx.Resources.ProjectAuthInfo[projectName]; !ok {
-			ctx.UnAuthorized = true
-			return
-		}
-		if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectName].Env.EditConfig {
-			ctx.UnAuthorized = true
-			return
-		}
-	}
+	// TODO: authorization leak, currently disabled to use collaboration mode for PM environment
+	//projectName := args.ProductName
+	//if !ctx.Resources.IsSystemAdmin {
+	//	if _, ok := ctx.Resources.ProjectAuthInfo[projectName]; !ok {
+	//		ctx.UnAuthorized = true
+	//		return
+	//	}
+	//	if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
+	//		!ctx.Resources.ProjectAuthInfo[projectName].Env.EditConfig {
+	//		ctx.UnAuthorized = true
+	//		return
+	//	}
+	//}
 
 	if args.Username != "system" {
 		internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductName, "更新", "项目管理-服务", fmt.Sprintf("服务名称:%s,版本号:%d", args.ServiceName, args.Revision), "", ctx.Logger)
