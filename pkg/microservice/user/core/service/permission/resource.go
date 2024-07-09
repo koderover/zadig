@@ -145,6 +145,9 @@ func GetResourceActionDefinitions(scope, envType string, log *zap.SugaredLogger)
 	resp := make([]*ResourceDefinition, 0)
 	if scope == string(types.ProjectScope) {
 		for _, resource := range projectResourceSequence {
+			if envType == setting.PMDeployType && (resource == "ProductionEnvironment" || resource == "ProductionService") {
+				continue
+			}
 			resp = append(resp, resourceMap[resource])
 		}
 	} else {
