@@ -615,6 +615,7 @@ func (e *Events) Error(message string) {
 type StepTask struct {
 	Name      string          `bson:"name"           json:"name"         yaml:"name"`
 	JobName   string          `bson:"job_name"       json:"job_name"     yaml:"job_name"`
+	JobKey    string          `bson:"job_key"        json:"job_key"      yaml:"job_key"`
 	Error     string          `bson:"error"          json:"error"        yaml:"error"`
 	StepType  config.StepType `bson:"type"           json:"type"         yaml:"type"`
 	Onfailure bool            `bson:"on_failure"     json:"on_failure"   yaml:"on_failure"`

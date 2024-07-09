@@ -137,6 +137,7 @@ type ZadigScanningJobSpec struct {
 	ServiceName   string              `bson:"service_name"    json:"service_name"`
 	ServiceModule string              `bson:"service_module"  json:"service_module"`
 	Repos         []*types.Repository `bson:"repos"           json:"repos"`
+	SonarMetrics  *step.SonarMetrics  `bson:"sonar_metrics"   json:"sonar_metrics"`
 	LinkURL       string              `bson:"link_url"        json:"link_url"`
 	ScanningName  string              `bson:"scanning_name"   json:"scanning_name"`
 }
@@ -1205,6 +1206,12 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, 
 					stepSpec := &stepspec.StepGitSpec{}
 					commonmodels.IToi(step.Spec, &stepSpec)
 					spec.Repos = stepSpec.Repos
+					continue
+				}
+				if step.StepType == config.StepSonarGetMetrics {
+					stepSpec := &stepspec.StepSonarGetMetricsSpec{}
+					commonmodels.IToi(step.Spec, &stepSpec)
+					spec.SonarMetrics = stepSpec.SonarMetrics
 					continue
 				}
 			}

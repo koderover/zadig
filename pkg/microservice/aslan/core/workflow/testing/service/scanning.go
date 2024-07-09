@@ -42,6 +42,7 @@ import (
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/sonar"
 	"github.com/koderover/zadig/v2/pkg/types"
+	stepspec "github.com/koderover/zadig/v2/pkg/types/step"
 )
 
 func CreateScanningModule(username string, args *Scanning, log *zap.SugaredLogger) error {
@@ -586,6 +587,7 @@ func GetScanningTaskInfo(scanningID string, taskID int64, log *zap.SugaredLogger
 		return nil, err
 	}
 
+	sonarMetrics := &stepspec.SonarMetrics{}
 	if scanningInfo.ScannerType == "sonarQube" {
 		sonarInfo, err := commonrepo.NewSonarIntegrationColl().GetByID(context.TODO(), scanningInfo.SonarID)
 		if err != nil {
@@ -598,6 +600,17 @@ func GetScanningTaskInfo(scanningID string, taskID int64, log *zap.SugaredLogger
 		if err != nil {
 			log.Errorf("failed to get sonar address with project key, error: %s", err)
 		}
+
+		for _, step := range jobTaskSpec.Steps {
+			if step.StepType == config.StepSonarGetMetrics {
+				stepSpec := &stepspec.StepSonarGetMetricsSpec{}
+				commonmodels.IToi(step.Spec, &stepSpec)
+				sonarMetrics = stepSpec.SonarMetrics
+				break
+			}
+		}
+	} else {
+		sonarMetrics = nil
 	}
 
 	repoInfo := spec.Scannings[0].Repos
@@ -609,12 +622,13 @@ func GetScanningTaskInfo(scanningID string, taskID int64, log *zap.SugaredLogger
 	}
 
 	return &ScanningTaskDetail{
-		Creator:    workflowTask.TaskCreator,
-		Status:     string(workflowTask.Status),
-		CreateTime: workflowTask.CreateTime,
-		EndTime:    workflowTask.EndTime,
-		RepoInfo:   repoInfo,
-		ResultLink: resultAddr,
+		Creator:      workflowTask.TaskCreator,
+		Status:       string(workflowTask.Status),
+		CreateTime:   workflowTask.CreateTime,
+		EndTime:      workflowTask.EndTime,
+		RepoInfo:     repoInfo,
+		SonarMetrics: sonarMetrics,
+		ResultLink:   resultAddr,
 	}, nil
 }
 

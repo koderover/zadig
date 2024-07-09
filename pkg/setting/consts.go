@@ -915,3 +915,7 @@ const (
 	SQLExecStatusFailed  SQLExecStatus = "failed"
 	SQLExecStatusNotExec SQLExecStatus = "not_exec"
 )
+
+const (
+	WorkflowScanningJobOutputKey = "SonarCETaskID"
+)

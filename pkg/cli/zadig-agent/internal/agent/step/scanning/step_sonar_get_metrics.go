@@ -14,11 +14,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package step
+package scanning
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -26,21 +25,25 @@ import (
 
 	"gopkg.in/yaml.v2"
 
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/helper/log"
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/common/types"
 	"github.com/koderover/zadig/v2/pkg/setting"
-	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/tool/sonar"
 	"github.com/koderover/zadig/v2/pkg/types/step"
+	"github.com/koderover/zadig/v2/pkg/util"
 )
 
-type SonarCheckStep struct {
-	spec       *step.StepSonarCheckSpec
+type SonarGetMetrics struct {
+	spec       *step.StepSonarGetMetricsSpec
 	envs       []string
 	secretEnvs []string
 	workspace  string
+	dirs       *types.AgentWorkDirs
+	Logger     *log.JobLogger
 }
 
-func NewSonarCheckStep(spec interface{}, workspace string, envs, secretEnvs []string) (*SonarCheckStep, error) {
-	sonarCheckStep := &SonarCheckStep{workspace: workspace, envs: envs, secretEnvs: secretEnvs}
+func NewSonarGetMetricsStep(spec interface{}, dirs *types.AgentWorkDirs, envs, secretEnvs []string, logger *log.JobLogger) (*SonarGetMetrics, error) {
+	sonarCheckStep := &SonarGetMetrics{dirs: dirs, workspace: dirs.Workspace, envs: envs, secretEnvs: secretEnvs}
 	yamlBytes, err := yaml.Marshal(spec)
 	if err != nil {
 		return sonarCheckStep, fmt.Errorf("marshal spec %+v failed", spec)
@@ -51,9 +54,8 @@ func NewSonarCheckStep(spec interface{}, workspace string, envs, secretEnvs []st
 	return sonarCheckStep, nil
 }
 
-func (s *SonarCheckStep) Run(ctx context.Context) error {
-	log.Info("Start check Sonar scanning quality gate status.")
-	client := sonar.NewSonarClient(s.spec.SonarServer, s.spec.SonarToken)
+func (s *SonarGetMetrics) Run(ctx context.Context) error {
+	s.Logger.Infof("Start get Sonar scanning metrics.")
 	sonarWorkDir := sonar.GetSonarWorkDir(s.spec.Parameter)
 	if sonarWorkDir == "" {
 		sonarWorkDir = ".scannerwork"
@@ -64,30 +66,22 @@ func (s *SonarCheckStep) Run(ctx context.Context) error {
 	taskReportDir := filepath.Join(sonarWorkDir, "report-task.txt")
 	bytes, err := os.ReadFile(taskReportDir)
 	if err != nil {
-		log.Errorf("read sonar task report file: %s error :%v", time.Now().Format(setting.WorkflowTimeFormat), taskReportDir, err)
-		return err
+		s.Logger.Errorf("read sonar task report file: %s error :%v", time.Now().Format(setting.WorkflowTimeFormat), taskReportDir, err)
+		return nil
 	}
 	taskReportContent := string(bytes)
 	ceTaskID := sonar.GetSonarCETaskID(taskReportContent)
 	if ceTaskID == "" {
-		log.Error("can not get sonar ce task ID")
-		return errors.New("can not get sonar ce task ID")
+		s.Logger.Errorf("can not get sonar ce task ID")
+		return nil
 	}
 
-	analysisID, err := client.WaitForCETaskTobeDone(ceTaskID, time.Minute*10)
+	outputFileName := filepath.Join(s.dirs.JobOutputsDir, setting.WorkflowScanningJobOutputKey)
+	err = util.AppendToFile(outputFileName, ceTaskID)
 	if err != nil {
-		log.Error(err)
-		return err
-	}
-	gateInfo, err := client.GetQualityGateInfo(analysisID)
-	if err != nil {
-		log.Error(err)
-		return err
-	}
-	log.Infof("Sonar quality gate status: %s", gateInfo.ProjectStatus.Status)
-	sonar.PrintSonarConditionTables(gateInfo.ProjectStatus.Conditions)
-	if gateInfo.ProjectStatus.Status != sonar.QualityGateOK && gateInfo.ProjectStatus.Status != sonar.QualityGateNone {
-		return fmt.Errorf("sonar quality gate status was: %s", gateInfo.ProjectStatus.Status)
+		err = fmt.Errorf("append sonar ce task ID %s to output file %s error: %v", ceTaskID, outputFileName, err)
+		s.Logger.Errorf(err.Error())
+		return nil
 	}
 
 	return nil

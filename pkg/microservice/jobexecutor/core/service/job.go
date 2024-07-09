@@ -124,7 +124,7 @@ func (j *Job) getUserEnvs() []string {
 	envs = append(envs, fmt.Sprintf("DOCKER_HOST=%s", config.DockerHost()))
 	envs = append(envs, j.Ctx.Envs...)
 	envs = append(envs, j.Ctx.SecretEnvs...)
-	// share output var between steps.
+	// @var share output var between steps.
 	outputs, err := j.getJobOutputVars(context.Background())
 	if err != nil {
 		log.Errorf("get job output vars error: %v", err)
@@ -158,6 +158,7 @@ func (j *Job) AfterRun(ctx context.Context) error {
 	return j.collectJobResult(ctx)
 }
 
+// @var collect job output vars, if step return error, job will not collect output vars.
 func (j *Job) collectJobResult(ctx context.Context) error {
 	outputs, err := j.getJobOutputVars(ctx)
 	if err != nil {
@@ -176,10 +177,11 @@ func (j *Job) collectJobResult(ctx context.Context) error {
 	return nil
 }
 
+// @var read job output vars from file.
 func (j *Job) getJobOutputVars(ctx context.Context) ([]*job.JobOutput, error) {
 	outputs := []*job.JobOutput{}
 	for _, outputName := range j.Ctx.Outputs {
-		fileContents, err := ioutil.ReadFile(filepath.Join(job.JobOutputDir, outputName))
+		fileContents, err := os.ReadFile(filepath.Join(job.JobOutputDir, outputName))
 		if os.IsNotExist(err) {
 			continue
 		} else if err != nil {
