@@ -579,6 +579,11 @@ func UpdateProject(name string, args *template.Product, log *zap.SugaredLogger) 
 		return e.ErrInvalidParam.AddDesc(err.Error())
 	}
 
+	err = user.New().SetProjectVisibility(args.ProductName, args.Public)
+	if err != nil {
+		log.Errorf("failed to update project visibility binding, error: %s", err)
+	}
+
 	args.ProjectNamePinyin, args.ProjectNamePinyinFirstLetter = util.GetPinyinFromChinese(args.ProjectName)
 	err = templaterepo.NewProductColl().Update(name, args)
 	if err != nil {
