@@ -152,15 +152,10 @@ func GetStatsDashboard(startTime, endTime int64, projectList []string, logger *z
 		configs = createDefaultStatDashboardConfig()
 	}
 
-	var projects []*templaterepo.ProjectInfo
-	if len(projectList) != 0 {
-		projects, err = templaterepo.NewProductColl().ListProjectBriefs(projectList)
-	} else {
-		projects, err = templaterepo.NewProductColl().ListNonPMProject()
-		if err != nil {
-			logger.Errorf("failed to list projects to create dashborad, error: %s", err)
-			return nil, e.ErrGetStatisticsDashboard.AddDesc(err.Error())
-		}
+	projects, err := templaterepo.NewProductColl().ListProjectBriefs(projectList)
+	if err != nil {
+		logger.Errorf("failed to list projects to create dashborad, error: %s", err)
+		return nil, e.ErrGetStatisticsDashboard.AddDesc(err.Error())
 	}
 
 	for _, project := range projects {
