@@ -95,15 +95,6 @@ func UserServiceAddress() string {
 	return GetServiceAddress(s.Name, s.Port)
 }
 
-func AslanxServiceInfo() *setting.ServiceInfo {
-	return GetServiceByCode(setting.Aslanx)
-}
-
-func AslanxServiceAddress() string {
-	s := AslanxServiceInfo()
-	return GetServiceAddress(s.Name, s.Port)
-}
-
 func HubServerServiceInfo() *setting.ServiceInfo {
 	return GetServiceByCode(setting.HubServer)
 }

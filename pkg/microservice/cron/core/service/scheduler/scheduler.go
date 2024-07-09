@@ -213,10 +213,6 @@ func (c *CronClient) Init() {
 	c.InitCleanCIResourcesScheduler()
 	// 定时初始化构建数据
 	c.InitBuildStatScheduler()
-	// 定时器初始化话运营统计数据
-	c.InitOperationStatScheduler()
-	// 定时更新质效看板的统计数据
-	c.InitPullSonarStatScheduler()
 	// 定时初始化健康检查
 	c.InitHealthCheckScheduler()
 	// Timing probe host status
@@ -269,24 +265,6 @@ func (c *CronClient) InitBuildStatScheduler() {
 	c.Schedulers[InitStatScheduler].Every(1).Day().At("01:00").Do(c.AslanCli.InitStatData, c.log)
 
 	c.Schedulers[InitStatScheduler].Start()
-}
-
-func (c *CronClient) InitOperationStatScheduler() {
-
-	c.Schedulers[InitOperationStatScheduler] = gocron.NewScheduler()
-
-	c.Schedulers[InitOperationStatScheduler].Every(1).Hour().Do(c.AslanCli.InitOperationStatData, c.log)
-
-	c.Schedulers[InitOperationStatScheduler].Start()
-}
-
-func (c *CronClient) InitPullSonarStatScheduler() {
-
-	c.Schedulers[InitPullSonarStatScheduler] = gocron.NewScheduler()
-
-	c.Schedulers[InitPullSonarStatScheduler].Every(10).Minutes().Do(c.AslanCli.InitPullSonarStatScheduler, c.log)
-
-	c.Schedulers[InitPullSonarStatScheduler].Start()
 }
 
 func (c *CronClient) InitSystemCapacityGCScheduler() {

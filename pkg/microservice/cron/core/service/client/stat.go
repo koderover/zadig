@@ -49,23 +49,3 @@ func (c *Client) InitStatData(log *zap.SugaredLogger) error {
 
 	return nil
 }
-
-func (c *Client) InitOperationStatData(log *zap.SugaredLogger) error {
-	//operation
-	url := fmt.Sprintf("%s/api/operation/stat/initOperationStat", configbase.AslanxServiceAddress())
-	log.Info("start init operationStat..")
-	err := c.sendRequest(url)
-	if err != nil {
-		log.Errorf("trigger init operationStat error :%v", err)
-	}
-
-	if webHookUser, err := c.GetWebHookUser(log); err == nil {
-		if err = c.CreateWebHookUser(webHookUser, log); err != nil {
-			log.Errorf("CreateWebHookUser err:%v", err)
-		}
-	} else {
-		log.Errorf("GetWebHookUser err:%v", err)
-	}
-
-	return err
-}
