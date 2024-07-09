@@ -37,6 +37,7 @@ const (
 	EnvActionEditConfig = "config_environment"
 	EnvActionManagePod  = "manage_environment"
 	EnvActionDebug      = "debug_pod"
+	EnvActionSSH        = "ssh_pm"
 	// production env actions
 	ProductionEnvActionView       = "get_production_environment"
 	ProductionEnvActionEditConfig = "config_production_environment"

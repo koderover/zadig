@@ -24,6 +24,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/environment/service"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
+	"github.com/koderover/zadig/v2/pkg/types"
 )
 
 func ConnectSshPmExec(c *gin.Context) {
@@ -62,8 +63,11 @@ func ConnectSshPmExec(c *gin.Context) {
 		}
 		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
 			!ctx.Resources.ProjectAuthInfo[projectKey].Env.SSH {
-			ctx.UnAuthorized = true
-			return
+			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, name, types.EnvActionSSH)
+			if err != nil || !permitted {
+				ctx.UnAuthorized = true
+				return
+			}
 		}
 	}
 
