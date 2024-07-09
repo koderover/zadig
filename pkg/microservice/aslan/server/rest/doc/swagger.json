@@ -4135,6 +4135,90 @@
                 }
             }
         },
+        "/api/aslan/system/project_management/{id}/jira/board": {
+            "get": {
+                "description": "List Jira Boards",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "system"
+                ],
+                "summary": "List Jira Boards",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "jira id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "jira project key",
+                        "name": "projectKey",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/service.JiraBoardResp"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/aslan/system/project_management/{id}/jira/board/:boardID/sprint": {
+            "get": {
+                "description": "List Jira Sprints",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "system"
+                ],
+                "summary": "List Jira Sprints",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "jira id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "jira board id",
+                        "name": "boardID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/service.JiraSprintResp"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/aslan/system/project_management/{id}/jira/project": {
             "get": {
                 "description": "List Jira Projects",
@@ -4163,8 +4247,86 @@
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/service.JiraProjectsResp"
+                                "$ref": "#/definitions/service.JiraProjectResp"
                             }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/aslan/system/project_management/{id}/jira/sprint/:sprintID": {
+            "get": {
+                "description": "Get Jira Sprint",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "system"
+                ],
+                "summary": "Get Jira Sprint",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "jira id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "jira sprint id",
+                        "name": "sprintID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/service.JiraSprintResp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/aslan/system/project_management/{id}/jira/sprint/:sprintID/issue": {
+            "get": {
+                "description": "List Jira Sprint Issues",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "system"
+                ],
+                "summary": "List Jira Sprint Issues",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "jira id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "jira sprint id",
+                        "name": "sprintID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/service.JiraSprintResp"
                         }
                     }
                 }
@@ -7356,6 +7518,9 @@
                 "index": {
                     "type": "integer"
                 },
+                "jira_sprint_association": {
+                    "$ref": "#/definitions/models.ReleasePlanJiraSprintAssociation"
+                },
                 "jobs": {
                     "type": "array",
                     "items": {
@@ -7392,6 +7557,37 @@
                 },
                 "updated_by": {
                     "type": "string"
+                }
+            }
+        },
+        "models.ReleasePlanJiraSprint": {
+            "type": "object",
+            "properties": {
+                "board_id": {
+                    "type": "integer"
+                },
+                "project_key": {
+                    "type": "string"
+                },
+                "project_name": {
+                    "type": "string"
+                },
+                "sprint_id": {
+                    "type": "integer"
+                }
+            }
+        },
+        "models.ReleasePlanJiraSprintAssociation": {
+            "type": "object",
+            "properties": {
+                "jira_id": {
+                    "type": "string"
+                },
+                "sprints": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ReleasePlanJiraSprint"
+                    }
                 }
             }
         },
@@ -9112,13 +9308,59 @@
                 }
             }
         },
-        "service.JiraProjectsResp": {
+        "service.JiraBoardResp": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "self": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "service.JiraProjectResp": {
             "type": "object",
             "properties": {
                 "key": {
                     "type": "string"
                 },
                 "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "service.JiraSprintResp": {
+            "type": "object",
+            "properties": {
+                "completeDate": {
+                    "type": "string"
+                },
+                "endDate": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "originBoardId": {
+                    "type": "integer"
+                },
+                "self": {
+                    "type": "string"
+                },
+                "startDate": {
+                    "type": "string"
+                },
+                "state": {
                     "type": "string"
                 }
             }

@@ -39,6 +39,7 @@ const (
 	VerbUpdateTimeRange           = "update_time_range"
 	VerbUpdateScheduleExecuteTime = "update_schedule_execute_time"
 	VerbUpdateManager             = "update_manager"
+	VerbUpdateJiraSprint          = "update_jira_sprint"
 
 	VerbCreateReleaseJob = "create_release_job"
 	VerbUpdateReleaseJob = "update_release_job"
@@ -92,6 +93,8 @@ func NewPlanUpdater(args *UpdateReleasePlanArgs) (PlanUpdater, error) {
 		return NewUpdateApprovalUpdater(args)
 	case VerbDeleteApproval:
 		return NewDeleteApprovalUpdater(args)
+	case VerbUpdateJiraSprint:
+		return NewJiraSprintUpdater(args)
 	default:
 		return nil, fmt.Errorf("invalid verb: %s", args.Verb)
 	}
@@ -569,5 +572,39 @@ func (u *ScheduleExecuteTimeUpdater) TargetType() string {
 }
 
 func (u *ScheduleExecuteTimeUpdater) Verb() string {
+	return VerbUpdate
+}
+
+type JiraSprintUpdater struct {
+	JiraSprintAssociation *models.ReleasePlanJiraSprintAssociation `json:"jira_sprint_association"`
+}
+
+func NewJiraSprintUpdater(args *UpdateReleasePlanArgs) (*JiraSprintUpdater, error) {
+	var updater JiraSprintUpdater
+	if err := models.IToi(args.Spec, &updater); err != nil {
+		return nil, errors.Wrap(err, "invalid spec")
+	}
+	return &updater, nil
+}
+
+func (u *JiraSprintUpdater) Update(plan *models.ReleasePlan) (before interface{}, after interface{}, err error) {
+	before, after = plan.JiraSprintAssociation, u.JiraSprintAssociation
+	plan.JiraSprintAssociation = u.JiraSprintAssociation
+	return
+}
+
+func (u *JiraSprintUpdater) Lint() error {
+	return nil
+}
+
+func (u *JiraSprintUpdater) TargetName() string {
+	return "需求关联"
+}
+
+func (u *JiraSprintUpdater) TargetType() string {
+	return TargetTypeDescription
+}
+
+func (u *JiraSprintUpdater) Verb() string {
 	return VerbUpdate
 }

@@ -89,6 +89,7 @@ type Fields struct {
 	Reporter         *User        `bson:"reporter,omitempty"              json:"reporter,omitempty"`
 	Priority         *Priority    `bson:"priority,omitempty"              json:"priority,omitempty"`
 	Status           *Status      `bson:"status,omitempty"                json:"status,omitempty"`
+	Sprint           *Sprint      `bson:"sprint,omitempty"                json:"sprint,omitempty"`
 	Components       []*Component `bson:"components,omitempty"            json:"components,omitempty"`
 }
 

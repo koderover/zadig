@@ -1626,6 +1626,8 @@ definitions:
         type: string
       index:
         type: integer
+      jira_sprint_association:
+        $ref: '#/definitions/models.ReleasePlanJiraSprintAssociation'
       jobs:
         items:
           $ref: '#/definitions/models.ReleaseJob'
@@ -1651,6 +1653,26 @@ definitions:
         type: integer
       updated_by:
         type: string
+    type: object
+  models.ReleasePlanJiraSprint:
+    properties:
+      board_id:
+        type: integer
+      project_key:
+        type: string
+      project_name:
+        type: string
+      sprint_id:
+        type: integer
+    type: object
+  models.ReleasePlanJiraSprintAssociation:
+    properties:
+      jira_id:
+        type: string
+      sprints:
+        items:
+          $ref: '#/definitions/models.ReleasePlanJiraSprint'
+        type: array
     type: object
   models.ReleasePlanTemplate:
     properties:
@@ -2812,11 +2834,41 @@ definitions:
       is_ready:
         type: boolean
     type: object
-  service.JiraProjectsResp:
+  service.JiraBoardResp:
+    properties:
+      id:
+        type: integer
+      name:
+        type: string
+      self:
+        type: string
+      type:
+        type: string
+    type: object
+  service.JiraProjectResp:
     properties:
       key:
         type: string
       name:
+        type: string
+    type: object
+  service.JiraSprintResp:
+    properties:
+      completeDate:
+        type: string
+      endDate:
+        type: string
+      id:
+        type: integer
+      name:
+        type: string
+      originBoardId:
+        type: integer
+      self:
+        type: string
+      startDate:
+        type: string
+      state:
         type: string
     type: object
   service.K8sDeployStatusCheckRequest:
@@ -6715,6 +6767,62 @@ paths:
       summary: Get Meego Work Item Type List
       tags:
       - system
+  /api/aslan/system/project_management/{id}/jira/board:
+    get:
+      consumes:
+      - application/json
+      description: List Jira Boards
+      parameters:
+      - description: jira id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: jira project key
+        in: query
+        name: projectKey
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/service.JiraBoardResp'
+            type: array
+      summary: List Jira Boards
+      tags:
+      - system
+  /api/aslan/system/project_management/{id}/jira/board/:boardID/sprint:
+    get:
+      consumes:
+      - application/json
+      description: List Jira Sprints
+      parameters:
+      - description: jira id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: jira board id
+        in: path
+        name: boardID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/service.JiraSprintResp'
+            type: array
+      summary: List Jira Sprints
+      tags:
+      - system
   /api/aslan/system/project_management/{id}/jira/project:
     get:
       consumes:
@@ -6733,9 +6841,61 @@ paths:
           description: OK
           schema:
             items:
-              $ref: '#/definitions/service.JiraProjectsResp'
+              $ref: '#/definitions/service.JiraProjectResp'
             type: array
       summary: List Jira Projects
+      tags:
+      - system
+  /api/aslan/system/project_management/{id}/jira/sprint/:sprintID:
+    get:
+      consumes:
+      - application/json
+      description: Get Jira Sprint
+      parameters:
+      - description: jira id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: jira sprint id
+        in: path
+        name: sprintID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/service.JiraSprintResp'
+      summary: Get Jira Sprint
+      tags:
+      - system
+  /api/aslan/system/project_management/{id}/jira/sprint/:sprintID/issue:
+    get:
+      consumes:
+      - application/json
+      description: List Jira Sprint Issues
+      parameters:
+      - description: jira id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: jira sprint id
+        in: path
+        name: sprintID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/service.JiraSprintResp'
+      summary: List Jira Sprint Issues
       tags:
       - system
   /api/aslan/system/project_management/project:

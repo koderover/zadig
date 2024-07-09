@@ -43,7 +43,7 @@ func (s *ProjectService) ListProjects() ([]*Project, error) {
 		return nil, err
 	}
 	if resp.GetStatusCode()/100 != 2 {
-		return nil, errors.Errorf("unexpected status code %d", resp.GetStatusCode())
+		return nil, errors.Errorf("get unexpected status code %d, body: %s", resp.GetStatusCode(), resp.String())
 	}
 	if err = resp.UnmarshalJson(&list); err != nil {
 		return nil, errors.Wrap(err, "unmarshal")
