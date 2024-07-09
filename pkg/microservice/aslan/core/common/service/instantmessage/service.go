@@ -108,6 +108,7 @@ func (w *Service) SendMessageRequest(uri string, message interface{}) ([]byte, e
 	return res.Body(), nil
 }
 
+// @note pipeline notification, deprecated
 func (w *Service) SendInstantMessage(task *task.Task, testTaskStatusChanged, scanningTaskStatusChanged bool) error {
 	var notifyCtls []*models.NotifyCtl
 	var desc, scanningName, scanningID string
@@ -366,7 +367,7 @@ func (w *Service) createNotifyBody(weChatNotification *wechatNotification) (cont
 	return tplcontent, err
 }
 
-// @todo workflow webhook im noitfy
+// @note pipeline notification, deprecated
 func (w *Service) createNotifyBodyOfWorkflowIM(weChatNotification *wechatNotification, notify *models.NotifyCtl) (string, string, *LarkCard, error) {
 	weChatNotification.EncodedDisplayName = url.PathEscape(weChatNotification.Task.PipelineDisplayName)
 	tplTitle := "{{if ne .WebHookType \"feishu\"}}#### {{end}}{{getIcon .Task.Status }}{{if eq .WebHookType \"wechat\"}}<font color=\"{{ getColor .Task.Status }}\">工作流{{.Task.PipelineDisplayName}} #{{.Task.TaskID}} {{ taskStatus .Task.Status }}</font>{{else}}工作流 {{.Task.PipelineDisplayName}} #{{.Task.TaskID}} {{ taskStatus .Task.Status }}{{end}} \n"

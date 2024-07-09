@@ -37,6 +37,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
+// @note pipeline is deprecated
 func InitMongodbMsgQueueHandler() error {
 	logger := log.SugaredLogger()
 

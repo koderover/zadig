@@ -331,6 +331,7 @@ type NotifyCtl struct {
 	WeChatWebHook   string   `bson:"weChat_webHook,omitempty"      yaml:"weChat_webHook,omitempty"      json:"weChat_webHook,omitempty"`
 	DingDingWebHook string   `bson:"dingding_webhook,omitempty"    yaml:"dingding_webhook,omitempty"    json:"dingding_webhook,omitempty"`
 	FeiShuWebHook   string   `bson:"feishu_webhook,omitempty"      yaml:"feishu_webhook,omitempty"      json:"feishu_webhook,omitempty"`
+	MailUsers       []*User  `bson:"mail_users"                    yaml:"mail_users"                    json:"mail_users"`
 	AtMobiles       []string `bson:"at_mobiles,omitempty"          yaml:"at_mobiles,omitempty"          json:"at_mobiles,omitempty"`
 	WechatUserIDs   []string `bson:"wechat_user_ids,omitempty"     yaml:"wechat_user_ids,omitempty"     json:"wechat_user_ids,omitempty"`
 	LarkUserIDs     []string `bson:"lark_user_ids,omitempty"       yaml:"lark_user_ids,omitempty"       json:"lark_user_ids,omitempty"`

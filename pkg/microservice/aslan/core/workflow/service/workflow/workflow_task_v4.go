@@ -447,7 +447,9 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 
 	workflowTask.TaskID = nextTaskID
 	workflowTask.TaskCreator = args.Name
+	workflowTask.TaskCreatorID = args.UserID
 	workflowTask.TaskRevoker = args.Name
+	workflowTask.TaskRevokerID = args.UserID
 	workflowTask.CreateTime = time.Now().Unix()
 	workflowTask.WorkflowName = workflow.Name
 	workflowTask.WorkflowDisplayName = workflow.DisplayName
