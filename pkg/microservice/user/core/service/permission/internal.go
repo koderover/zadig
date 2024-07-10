@@ -181,6 +181,7 @@ func SetProjectVisibility(namespace string, visible bool, log *zap.SugaredLogger
 		if groupRoleBinding.ID != 0 {
 			return nil
 		}
+		log.Infof("creating group role binding on group: %s, role: %d", group.GroupID, role.ID)
 		err = orm.CreateGroupRoleBinding(&models.GroupRoleBinding{
 			GroupID: group.GroupID,
 			RoleID:  role.ID,
