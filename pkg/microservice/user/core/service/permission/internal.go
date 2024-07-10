@@ -177,6 +177,7 @@ func SetProjectVisibility(namespace string, visible bool, log *zap.SugaredLogger
 	}
 
 	if visible {
+		log.Infof("grb id: %d", groupRoleBinding.ID)
 		if groupRoleBinding.ID != 0 {
 			return nil
 		}
@@ -190,6 +191,7 @@ func SetProjectVisibility(namespace string, visible bool, log *zap.SugaredLogger
 			return fmt.Errorf("failed to make project public by setting read-only role to all-users for project %s, error: %s", namespace, err)
 		}
 	} else {
+		log.Infof("grb id 2: %d", groupRoleBinding.ID)
 		if groupRoleBinding.ID == 0 {
 			return nil
 		}
