@@ -147,6 +147,8 @@ func InitializeProjectAuthorization(namespace string, isPublic bool, admins []st
 func SetProjectVisibility(namespace string, visible bool, log *zap.SugaredLogger) error {
 	tx := repository.DB.Begin()
 
+	log.Infof("change namespace: %s to visibility: %+v", namespace, visible)
+
 	group, err := orm.GetUserGroupByName(types.AllUserGroupName, tx)
 	if err != nil {
 		tx.Rollback()
