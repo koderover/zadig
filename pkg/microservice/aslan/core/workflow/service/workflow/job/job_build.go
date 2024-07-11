@@ -703,12 +703,12 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			uploads := []*step.Upload{
 				{
 					IsFileArchive:       true,
-					Name:                build.Package,
+					Name:                pkgFile,
 					ServiceName:         build.ServiceName,
 					ServiceModule:       build.ServiceModule,
 					JobTaskName:         jobTask.Name,
 					PackageFileLocation: buildInfo.PostBuild.FileArchive.FileLocation,
-					FilePath:            path.Join(buildInfo.PostBuild.FileArchive.FileLocation, build.Package),
+					FilePath:            path.Join(buildInfo.PostBuild.FileArchive.FileLocation, pkgFile),
 					DestinationPath:     path.Join(j.workflow.Name, fmt.Sprint(taskID), jobTask.Name, "archive"),
 				},
 			}
@@ -836,7 +836,7 @@ func getBuildJobVariables(build *commonmodels.ServiceAndBuild, taskID int64, pro
 	ret = append(ret, &commonmodels.KeyVal{Key: "IMAGE", Value: image, IsCredential: false})
 	buildURL := fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/custom/%s/%d?display_name=%s", configbase.SystemAddress(), project, workflowName, taskID, url.QueryEscape(workflowDisplayName))
 	ret = append(ret, &commonmodels.KeyVal{Key: "BUILD_URL", Value: buildURL, IsCredential: false})
-	ret = append(ret, &commonmodels.KeyVal{Key: "PKG_FILE", Value: build.Package, IsCredential: false})
+	ret = append(ret, &commonmodels.KeyVal{Key: "PKG_FILE", Value: pkgFile, IsCredential: false})
 	return ret
 }
 
