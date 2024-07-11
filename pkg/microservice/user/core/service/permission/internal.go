@@ -147,6 +147,8 @@ func InitializeProjectAuthorization(namespace string, isPublic bool, admins []st
 func SetProjectVisibility(namespace string, visible bool, log *zap.SugaredLogger) error {
 	tx := repository.DB.Begin()
 
+	log.Infof("change namespace: %s to visibility: %+v", namespace, visible)
+
 	group, err := orm.GetUserGroupByName(types.AllUserGroupName, tx)
 	if err != nil {
 		tx.Rollback()
@@ -178,6 +180,7 @@ func SetProjectVisibility(namespace string, visible bool, log *zap.SugaredLogger
 		if groupRoleBinding.ID != 0 {
 			return nil
 		}
+		log.Infof("creating group role binding on group: %s, role: %d", group.GroupID, role.ID)
 		err = orm.CreateGroupRoleBinding(&models.GroupRoleBinding{
 			GroupID: group.GroupID,
 			RoleID:  role.ID,
@@ -192,6 +195,7 @@ func SetProjectVisibility(namespace string, visible bool, log *zap.SugaredLogger
 			return nil
 		}
 		err = orm.DeleteGroupRoleBinding(&models.GroupRoleBinding{
+			ID:      groupRoleBinding.ID,
 			GroupID: group.GroupID,
 			RoleID:  role.ID,
 		}, tx)
@@ -202,5 +206,19 @@ func SetProjectVisibility(namespace string, visible bool, log *zap.SugaredLogger
 		}
 	}
 
+	roleCache := cache.NewRedisCache(config.RedisCommonCacheTokenDB())
+
+	gidRoleKey := fmt.Sprintf(GIDRoleKeyFormat, group.GroupID)
+	err = roleCache.Delete(gidRoleKey)
+	if err != nil {
+		log.Warnf("failed to flush user-role cache for key: %s, error: %s", gidRoleKey, err)
+	}
+
+	go func(gid string, redisCache *cache.RedisCache) {
+		time.Sleep(2 * time.Second)
+		err = roleCache.Delete(gidRoleKey)
+	}(gidRoleKey, roleCache)
+
+	tx.Commit()
 	return nil
 }

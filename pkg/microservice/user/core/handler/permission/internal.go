@@ -130,7 +130,7 @@ func SetProjectVisibility(c *gin.Context) {
 		}
 	}
 
-	visible, err := strconv.ParseBool(c.Query("visible"))
+	visible, err := strconv.ParseBool(c.Query("is_public"))
 
 	ctx.Err = permission.SetProjectVisibility(namespace, visible, ctx.Logger)
 }
