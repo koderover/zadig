@@ -344,6 +344,9 @@ func GetLatestTenBuildMeasure(productNames []string, log *zap.SugaredLogger) ([]
 		return nil, fmt.Errorf("list workflow v4 err: %v", err)
 	}
 	latestPipelines := make([]*buildStatLatestTen, 0)
+	stuff := make([]*commonmodels.WorkflowTask, 0)
+	err = cursor.All(context.Background(), &stuff)
+	log.Infof("workflow task total number: %d", len(stuff))
 	for cursor.Next(context.Background()) {
 		var workflowTask commonmodels.WorkflowTask
 		if err := cursor.Decode(&workflowTask); err != nil {
@@ -353,12 +356,14 @@ func GetLatestTenBuildMeasure(productNames []string, log *zap.SugaredLogger) ([]
 		for _, stage := range workflowTask.Stages {
 			for _, job := range stage.Jobs {
 				if job.JobType != string(config.JobZadigBuild) {
+					log.Infof("workflow task: %s-%d does not contain zadig build job", workflowTask.WorkflowName, workflowTask.TaskID)
 					continue
 				}
 				containBuild = true
 			}
 		}
 		if !containBuild {
+			log.Infof("workflow task: %s-%d does not contain zadig build job 2", workflowTask.WorkflowName, workflowTask.TaskID)
 			continue
 		}
 		latestPipelines = append(latestPipelines, &buildStatLatestTen{
