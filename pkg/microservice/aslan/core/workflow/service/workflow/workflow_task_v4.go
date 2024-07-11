@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -1616,6 +1617,83 @@ func GetWorkflowV4ArtifactFileContent(workflowName, jobName string, taskID int64
 		return []byte{}, fmt.Errorf("ioutil.ReadAll err: %v", err)
 	}
 	return fileByts, nil
+}
+
+func GetWorkflowV4BuildJobArtifactFile(workflowName, jobName string, taskID int64, log *zap.SugaredLogger) ([]byte, string, error) {
+	workflowTask, err := commonrepo.NewworkflowTaskv4Coll().Find(workflowName, taskID)
+	if err != nil {
+		return []byte{}, "", fmt.Errorf("cannot find workflow task, workflow name: %s, task id: %d", workflowName, taskID)
+	}
+	var jobTask *commonmodels.JobTask
+	for _, stage := range workflowTask.Stages {
+		for _, job := range stage.Jobs {
+			if job.Name != jobName {
+				continue
+			}
+			if job.JobType != string(config.JobZadigBuild) {
+				return []byte{}, "", fmt.Errorf("job: %s was not a build job", jobName)
+			}
+
+			jobTask = job
+		}
+	}
+	if jobTask == nil {
+		return []byte{}, "", fmt.Errorf("cannot find job task, workflow name: %s, task id: %d, job name: %s", workflowName, taskID, jobName)
+	}
+	jobSpec := &commonmodels.JobTaskFreestyleSpec{}
+	if err := commonmodels.IToi(jobTask.Spec, jobSpec); err != nil {
+		return []byte{}, "", fmt.Errorf("unmashal job spec error: %v", err)
+	}
+
+	var stepTask *commonmodels.StepTask
+	for _, step := range jobSpec.Steps {
+		if !strings.HasSuffix(step.Name, "-pkgfile-archive") {
+			continue
+		}
+		if step.StepType != config.StepArchive {
+			return []byte{}, "", fmt.Errorf("step: %s was not a archive step", step.Name)
+		}
+		stepTask = step
+	}
+	if stepTask == nil {
+		return []byte{}, "", fmt.Errorf("cannot find step task, workflow name: %s, task id: %d, job name: %s", workflowName, taskID, jobName)
+	}
+	stepSpec := &step.StepArchiveSpec{}
+	if err := commonmodels.IToi(stepTask.Spec, stepSpec); err != nil {
+		return []byte{}, "", fmt.Errorf("unmashal step spec error: %v", err)
+	}
+	if len(stepSpec.UploadDetail) == 0 {
+		return []byte{}, "", fmt.Errorf("step: %s has no upload detail", stepTask.Name)
+	}
+
+	storage, err := s3.FindDefaultS3()
+	if err != nil {
+		log.Errorf("GetWorkflowV4BuildJobArtifactFile FindDefaultS3 err:%v", err)
+		return []byte{}, "", fmt.Errorf("findDefaultS3 err: %v", err)
+	}
+	forcedPathStyle := true
+	if storage.Provider == setting.ProviderSourceAli {
+		forcedPathStyle = false
+	}
+	client, err := s3tool.NewClient(storage.Endpoint, storage.Ak, storage.Sk, storage.Region, storage.Insecure, forcedPathStyle)
+	if err != nil {
+		log.Errorf("GetWorkflowV4BuildJobArtifactFile Create S3 client err:%+v", err)
+		return []byte{}, "", fmt.Errorf("create S3 client err: %v", err)
+	}
+
+	stepSpec.UploadDetail[0].DestinationPath = strings.TrimLeft(path.Join(stepSpec.S3.Subfolder, stepSpec.UploadDetail[0].DestinationPath), "/")
+	objectKey := filepath.Join(stepSpec.UploadDetail[0].DestinationPath, stepSpec.UploadDetail[0].Name)
+	object, err := client.GetFile(storage.Bucket, objectKey, &s3tool.DownloadOption{RetryNum: 2})
+	if err != nil {
+		log.Errorf("GetWorkflowV4BuildJobArtifactFile GetFile err:%s", err)
+		return []byte{}, "", fmt.Errorf("GetFile err: %v", err)
+	}
+	fileByts, err := ioutil.ReadAll(object.Body)
+	if err != nil {
+		log.Errorf("GetWorkflowV4BuildJobArtifactFile ioutil.ReadAll err:%s", err)
+		return []byte{}, "", fmt.Errorf("ioutil.ReadAll err: %v", err)
+	}
+	return fileByts, stepSpec.UploadDetail[0].Name, nil
 }
 
 func ListWorkflowFilterInfo(project, workflow, typeName string, jobName string, logger *zap.SugaredLogger) ([]string, error) {

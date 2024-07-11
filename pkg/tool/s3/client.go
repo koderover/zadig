@@ -106,8 +106,9 @@ func (c *Client) download(bucketName, objectKey, dest string, option *DownloadOp
 			if e, ok := err1.(awserr.Error); ok && e.Code() == s3.ErrCodeNoSuchKey {
 				if option.IgnoreNotExistError {
 					return nil
+				} else {
+					return fmt.Errorf("object %s not found in bucket %s, err: %v", objectKey, bucketName, err1)
 				}
-				return err1
 			}
 
 			log.Warnf("Failed to get object %s from s3, try again, err: %s", objectKey, err1)
