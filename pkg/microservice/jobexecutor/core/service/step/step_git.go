@@ -177,6 +177,7 @@ func (s *GitStep) runGitCmds() error {
 		if !c.DisableTrace {
 			fmt.Printf("%s   %s\n", time.Now().Format(setting.WorkflowTimeFormat), strings.Join(c.Cmd.Args, " "))
 		}
+		fmt.Printf("cmd: %s\n", c.Cmd.String())
 		if err := c.Cmd.Run(); err != nil {
 			if c.IgnoreError {
 				continue
@@ -228,6 +229,9 @@ func (s *GitStep) buildGitCommands(repo *types.Repository, hostNames sets.String
 	if repo.Source == types.ProviderGitlab {
 		u, _ := url.Parse(repo.Address)
 		host := strings.TrimSuffix(strings.Join([]string{u.Host, u.Path}, "/"), "/")
+		// if u.Port() == "30000" {
+		// host := strings.TrimSuffix(strings.Join([]string{strings.Join([]string{u.Host, u.Port()}, ":"), u.Path}, "/"), "/")
+		// }
 		cmds = append(cmds, &c.Command{
 			Cmd:          c.RemoteAdd(repo.RemoteName, OAuthCloneURL(repo.Source, repo.OauthToken, host, owner, repo.RepoName, u.Scheme)),
 			DisableTrace: true,
