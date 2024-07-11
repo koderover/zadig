@@ -155,6 +155,7 @@ func (c *JobInfoColl) GetDeployJobs(startTime, endTime int64, projectName string
 		string(config.JobZadigHelmDeploy),
 		string(config.JobZadigHelmChartDeploy),
 		string(config.JobDeploy),
+		string(config.JobZadigVMDeploy),
 	}}
 
 	if len(projectName) != 0 {

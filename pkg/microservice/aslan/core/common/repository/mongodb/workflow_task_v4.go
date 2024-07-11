@@ -304,7 +304,7 @@ func (c *WorkflowTaskv4Coll) ListByCursor(opt *ListWorkflowTaskV4Option) (*mongo
 		query["project_name"] = opt.ProjectName
 	}
 	if len(opt.ProjectNames) > 0 {
-		query["product_name"] = bson.M{"$in": opt.ProjectNames}
+		query["project_name"] = bson.M{"$in": opt.ProjectNames}
 	}
 	query["is_archived"] = false
 	query["is_deleted"] = false
