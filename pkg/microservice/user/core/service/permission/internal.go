@@ -195,6 +195,7 @@ func SetProjectVisibility(namespace string, visible bool, log *zap.SugaredLogger
 			return nil
 		}
 		err = orm.DeleteGroupRoleBinding(&models.GroupRoleBinding{
+			ID:      groupRoleBinding.ID,
 			GroupID: group.GroupID,
 			RoleID:  role.ID,
 		}, tx)

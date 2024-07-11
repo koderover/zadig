@@ -123,7 +123,11 @@ func CountUserByGroup(gid string, db *gorm.DB) (int64, error) {
 }
 
 func DeleteGroupRoleBinding(grb *models.GroupRoleBinding, db *gorm.DB) error {
-	return db.Delete(grb).Error
+	return db.
+		Where("group_id = ?", grb.GroupID).
+		Where("role_id = ?", grb.RoleID).
+		Delete(grb).
+		Error
 }
 
 func DeleteGroupRoleBindingByGID(gid, namespace string, db *gorm.DB) error {
