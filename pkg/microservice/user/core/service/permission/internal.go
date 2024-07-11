@@ -206,6 +206,19 @@ func SetProjectVisibility(namespace string, visible bool, log *zap.SugaredLogger
 		}
 	}
 
+	roleCache := cache.NewRedisCache(config.RedisCommonCacheTokenDB())
+
+	gidRoleKey := fmt.Sprintf(GIDRoleKeyFormat, group.GroupID)
+	err = roleCache.Delete(gidRoleKey)
+	if err != nil {
+		log.Warnf("failed to flush user-role cache for key: %s, error: %s", gidRoleKey, err)
+	}
+
+	go func(gid string, redisCache *cache.RedisCache) {
+		time.Sleep(2 * time.Second)
+		err = roleCache.Delete(gidRoleKey)
+	}(gidRoleKey, roleCache)
+
 	tx.Commit()
 	return nil
 }
