@@ -82,5 +82,20 @@ func (s *SonarGetMetrics) Run(ctx context.Context) error {
 		return nil
 	}
 
+	if s.spec.ProjectKey == "" {
+		projectKey := sonar.GetProjectKey(taskReportContent)
+		if projectKey == "" {
+			log.Error("can not get sonar project key")
+			return nil
+		}
+		outputFileName = filepath.Join(job.JobOutputDir, setting.WorkflowScanningJobOutputKeyProject)
+		err = util.AppendToFile(outputFileName, projectKey)
+		if err != nil {
+			err = fmt.Errorf("append sonar project key %s to output file %s error: %v", ceTaskID, outputFileName, err)
+			log.Error(err)
+			return nil
+		}
+	}
+
 	return nil
 }
