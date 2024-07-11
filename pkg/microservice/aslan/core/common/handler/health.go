@@ -16,7 +16,9 @@ limitations under the License.
 
 package handler
 
-import "github.com/gin-gonic/gin"
+import (
+	"github.com/gin-gonic/gin"
+)
 
 func Health(c *gin.Context) {
 	resp := gin.H{"message": "success"}

@@ -4745,6 +4745,99 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/aslan/webhook/notify/buildJobSpec": {
+            "post": {
+                "description": "Workflow Webhook Build Job Spec",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "webhook"
+                ],
+                "summary": "Workflow Webhook Notify Build Job Spec",
+                "parameters": [
+                    {
+                        "description": "body",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/webhooknotify.WorkflowNotifyJobTaskBuildSpec"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/api/aslan/webhook/notify/deployJobSpec": {
+            "post": {
+                "description": "Workflow Webhook Deploy Job Spec",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "webhook"
+                ],
+                "summary": "Workflow Webhook Notify Deploy Job Spec",
+                "parameters": [
+                    {
+                        "description": "body",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/webhooknotify.WorkflowNotifyJobTaskDeploySpec"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/api/aslan/webhook/test": {
+            "post": {
+                "description": "Webhook Notify",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "webhook"
+                ],
+                "summary": "Webhook Notify",
+                "parameters": [
+                    {
+                        "description": "body",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/webhooknotify.WebHookNotify"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
         "/api/aslan/workflow/v4/filterEnv": {
             "post": {
                 "description": "Get filtered env services",
@@ -9326,9 +9419,6 @@ const docTemplate = `{
                 "name": {
                     "type": "string"
                 },
-                "self": {
-                    "type": "string"
-                },
                 "type": {
                     "type": "string"
                 }
@@ -9362,9 +9452,6 @@ const docTemplate = `{
                 },
                 "originBoardId": {
                     "type": "integer"
-                },
-                "self": {
-                    "type": "string"
                 },
                 "startDate": {
                     "type": "string"
@@ -10938,6 +11025,221 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "value": {}
+            }
+        },
+        "webhooknotify.WebHookNotify": {
+            "type": "object",
+            "properties": {
+                "event": {
+                    "$ref": "#/definitions/webhooknotify.WebHookNotifyEvent"
+                },
+                "object_kind": {
+                    "$ref": "#/definitions/webhooknotify.WebHookNotifyObjectKind"
+                },
+                "workflow": {
+                    "$ref": "#/definitions/webhooknotify.WorkflowNotify"
+                }
+            }
+        },
+        "webhooknotify.WebHookNotifyEvent": {
+            "type": "string",
+            "enum": [
+                "workflow"
+            ],
+            "x-enum-varnames": [
+                "WebHookNotifyEventWorkflow"
+            ]
+        },
+        "webhooknotify.WebHookNotifyObjectKind": {
+            "type": "string",
+            "enum": [
+                "workflow"
+            ],
+            "x-enum-varnames": [
+                "WebHookNotifyObjectKindWorkflow"
+            ]
+        },
+        "webhooknotify.WorkflowNotify": {
+            "type": "object",
+            "properties": {
+                "create_time": {
+                    "type": "integer"
+                },
+                "detail_url": {
+                    "type": "string"
+                },
+                "end_time": {
+                    "type": "integer"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "project_name": {
+                    "type": "string"
+                },
+                "stages": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/webhooknotify.WorkflowNotifyStage"
+                    }
+                },
+                "start_time": {
+                    "type": "integer"
+                },
+                "status": {
+                    "$ref": "#/definitions/github_com_koderover_zadig_v2_pkg_microservice_aslan_config.Status"
+                },
+                "task_creator": {
+                    "type": "string"
+                },
+                "task_creator_email": {
+                    "type": "string"
+                },
+                "task_creator_id": {
+                    "type": "string"
+                },
+                "task_creator_phone": {
+                    "type": "string"
+                },
+                "task_id": {
+                    "type": "integer"
+                },
+                "workflow_display_name": {
+                    "type": "string"
+                },
+                "workflow_name": {
+                    "type": "string"
+                }
+            }
+        },
+        "webhooknotify.WorkflowNotifyDeployServiceModule": {
+            "type": "object",
+            "properties": {
+                "image": {
+                    "type": "string"
+                },
+                "service_module": {
+                    "type": "string"
+                }
+            }
+        },
+        "webhooknotify.WorkflowNotifyJobTask": {
+            "type": "object",
+            "properties": {
+                "end_time": {
+                    "type": "integer"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "spec": {},
+                "start_time": {
+                    "type": "integer"
+                },
+                "status": {
+                    "$ref": "#/definitions/github_com_koderover_zadig_v2_pkg_microservice_aslan_config.Status"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "webhooknotify.WorkflowNotifyJobTaskBuildSpec": {
+            "type": "object",
+            "properties": {
+                "image": {
+                    "type": "string"
+                },
+                "repositories": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/webhooknotify.WorkflowNotifyRepository"
+                    }
+                }
+            }
+        },
+        "webhooknotify.WorkflowNotifyJobTaskDeploySpec": {
+            "type": "object",
+            "properties": {
+                "env": {
+                    "type": "string"
+                },
+                "service_modules": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/webhooknotify.WorkflowNotifyDeployServiceModule"
+                    }
+                },
+                "service_name": {
+                    "type": "string"
+                }
+            }
+        },
+        "webhooknotify.WorkflowNotifyRepository": {
+            "type": "object",
+            "properties": {
+                "branch": {
+                    "type": "string"
+                },
+                "commit_id": {
+                    "type": "string"
+                },
+                "commit_message": {
+                    "type": "string"
+                },
+                "commit_url": {
+                    "type": "string"
+                },
+                "prs": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "repo_name": {
+                    "type": "string"
+                },
+                "repo_namespace": {
+                    "type": "string"
+                },
+                "repo_owner": {
+                    "type": "string"
+                },
+                "source": {
+                    "type": "string"
+                },
+                "tag": {
+                    "type": "string"
+                }
+            }
+        },
+        "webhooknotify.WorkflowNotifyStage": {
+            "type": "object",
+            "properties": {
+                "end_time": {
+                    "type": "integer"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "jobs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/webhooknotify.WorkflowNotifyJobTask"
+                    }
+                },
+                "name": {
+                    "type": "string"
+                },
+                "start_time": {
+                    "type": "integer"
+                },
+                "status": {
+                    "$ref": "#/definitions/github_com_koderover_zadig_v2_pkg_microservice_aslan_config.Status"
+                }
             }
         },
         "workflow.GetHelmValuesDifferenceResp": {

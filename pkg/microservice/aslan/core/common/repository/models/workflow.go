@@ -331,12 +331,18 @@ type NotifyCtl struct {
 	WeChatWebHook   string                    `bson:"weChat_webHook,omitempty"      yaml:"weChat_webHook,omitempty"      json:"weChat_webHook,omitempty"`
 	DingDingWebHook string                    `bson:"dingding_webhook,omitempty"    yaml:"dingding_webhook,omitempty"    json:"dingding_webhook,omitempty"`
 	FeiShuWebHook   string                    `bson:"feishu_webhook,omitempty"      yaml:"feishu_webhook,omitempty"      json:"feishu_webhook,omitempty"`
-	MailUsers       []*User                   `bson:"mail_users"                    yaml:"mail_users"                    json:"mail_users"`
+	MailUsers       []*User                   `bson:"mail_users,omitempty"          yaml:"mail_users,omitempty"          json:"mail_users,omitempty"`
+	WebHookNotify   WebhookNotify             `bson:"webhook_notify,omitempty"      yaml:"webhook_notify,omitempty"      json:"webhook_notify,omitempty"`
 	AtMobiles       []string                  `bson:"at_mobiles,omitempty"          yaml:"at_mobiles,omitempty"          json:"at_mobiles,omitempty"`
 	WechatUserIDs   []string                  `bson:"wechat_user_ids,omitempty"     yaml:"wechat_user_ids,omitempty"     json:"wechat_user_ids,omitempty"`
 	LarkUserIDs     []string                  `bson:"lark_user_ids,omitempty"       yaml:"lark_user_ids,omitempty"       json:"lark_user_ids,omitempty"`
 	IsAtAll         bool                      `bson:"is_at_all,omitempty"           yaml:"is_at_all,omitempty"           json:"is_at_all,omitempty"`
 	NotifyTypes     []string                  `bson:"notify_type"                   yaml:"notify_type"                   json:"notify_type"`
+}
+
+type WebhookNotify struct {
+	Address string `bson:"address"       yaml:"address"        json:"address"`
+	Token   string `bson:"token"         yaml:"token"          json:"token"`
 }
 
 type TaskInfo struct {
