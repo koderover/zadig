@@ -713,7 +713,7 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 				},
 			}
 			archiveStep := &commonmodels.StepTask{
-				Name:     build.ServiceName + "-archive",
+				Name:     build.ServiceName + "-pkgfile-archive",
 				JobName:  jobTask.Name,
 				StepType: config.StepArchive,
 				Spec: step.StepArchiveSpec{

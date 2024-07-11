@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -137,7 +138,6 @@ type ZadigScanningJobSpec struct {
 	ServiceName   string              `bson:"service_name"    json:"service_name"`
 	ServiceModule string              `bson:"service_module"  json:"service_module"`
 	Repos         []*types.Repository `bson:"repos"           json:"repos"`
-	SonarMetrics  *step.SonarMetrics  `bson:"sonar_metrics"   json:"sonar_metrics"`
 	LinkURL       string              `bson:"link_url"        json:"link_url"`
 	ScanningName  string              `bson:"scanning_name"   json:"scanning_name"`
 }
@@ -447,7 +447,9 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 
 	workflowTask.TaskID = nextTaskID
 	workflowTask.TaskCreator = args.Name
+	workflowTask.TaskCreatorID = args.UserID
 	workflowTask.TaskRevoker = args.Name
+	workflowTask.TaskRevokerID = args.UserID
 	workflowTask.CreateTime = time.Now().Unix()
 	workflowTask.WorkflowName = workflow.Name
 	workflowTask.WorkflowDisplayName = workflow.DisplayName
@@ -1208,12 +1210,6 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, 
 					spec.Repos = stepSpec.Repos
 					continue
 				}
-				if step.StepType == config.StepSonarGetMetrics {
-					stepSpec := &stepspec.StepSonarGetMetricsSpec{}
-					commonmodels.IToi(step.Spec, &stepSpec)
-					spec.SonarMetrics = stepSpec.SonarMetrics
-					continue
-				}
 			}
 			for _, arg := range taskJobSpec.Properties.Envs {
 				if arg.Key == "SONAR_LINK" {
@@ -1613,6 +1609,83 @@ func GetWorkflowV4ArtifactFileContent(workflowName, jobName string, taskID int64
 	fileByts, err := ioutil.ReadAll(object.Body)
 	if err != nil {
 		log.Errorf("GetTestArtifactInfo ioutil.ReadAll err:%s", err)
+		return []byte{}, fmt.Errorf("ioutil.ReadAll err: %v", err)
+	}
+	return fileByts, nil
+}
+
+func GetWorkflowV4BuildJobArtifactFile(workflowName, jobName string, taskID int64, log *zap.SugaredLogger) ([]byte, error) {
+	workflowTask, err := commonrepo.NewworkflowTaskv4Coll().Find(workflowName, taskID)
+	if err != nil {
+		return []byte{}, fmt.Errorf("cannot find workflow task, workflow name: %s, task id: %d", workflowName, taskID)
+	}
+	var jobTask *commonmodels.JobTask
+	for _, stage := range workflowTask.Stages {
+		for _, job := range stage.Jobs {
+			if job.Name != jobName {
+				continue
+			}
+			if job.JobType != string(config.JobZadigBuild) {
+				return []byte{}, fmt.Errorf("job: %s was not a build job", jobName)
+			}
+
+			jobTask = job
+		}
+	}
+	if jobTask == nil {
+		return []byte{}, fmt.Errorf("cannot find job task, workflow name: %s, task id: %d, job name: %s", workflowName, taskID, jobName)
+	}
+	jobSpec := &commonmodels.JobTaskFreestyleSpec{}
+	if err := commonmodels.IToi(jobTask.Spec, jobSpec); err != nil {
+		return []byte{}, fmt.Errorf("unmashal job spec error: %v", err)
+	}
+
+	var stepTask *commonmodels.StepTask
+	for _, step := range jobSpec.Steps {
+		if !strings.HasSuffix(step.Name, "-pkgfile-archive") {
+			continue
+		}
+		if step.StepType != config.StepArchive {
+			return []byte{}, fmt.Errorf("step: %s was not a archive step", step.Name)
+		}
+		stepTask = step
+	}
+	if stepTask == nil {
+		return []byte{}, fmt.Errorf("cannot find step task, workflow name: %s, task id: %d, job name: %s", workflowName, taskID, jobName)
+	}
+	stepSpec := &step.StepArchiveSpec{}
+	if err := commonmodels.IToi(stepTask.Spec, stepSpec); err != nil {
+		return []byte{}, fmt.Errorf("unmashal step spec error: %v", err)
+	}
+	if len(stepSpec.UploadDetail) == 0 {
+		return []byte{}, fmt.Errorf("step: %s has no upload detail", stepTask.Name)
+	}
+
+	storage, err := s3.FindDefaultS3()
+	if err != nil {
+		log.Errorf("GetWorkflowV4BuildJobArtifactFile FindDefaultS3 err:%v", err)
+		return []byte{}, fmt.Errorf("findDefaultS3 err: %v", err)
+	}
+	forcedPathStyle := true
+	if storage.Provider == setting.ProviderSourceAli {
+		forcedPathStyle = false
+	}
+	client, err := s3tool.NewClient(storage.Endpoint, storage.Ak, storage.Sk, storage.Region, storage.Insecure, forcedPathStyle)
+	if err != nil {
+		log.Errorf("GetWorkflowV4BuildJobArtifactFile Create S3 client err:%+v", err)
+		return []byte{}, fmt.Errorf("create S3 client err: %v", err)
+	}
+
+	stepSpec.UploadDetail[0].DestinationPath = strings.TrimLeft(path.Join(stepSpec.S3.Subfolder, stepSpec.UploadDetail[0].DestinationPath), "/")
+	objectKey := filepath.Join(stepSpec.UploadDetail[0].DestinationPath, stepSpec.UploadDetail[0].Name)
+	object, err := client.GetFile(storage.Bucket, objectKey, &s3tool.DownloadOption{RetryNum: 2})
+	if err != nil {
+		log.Errorf("GetWorkflowV4BuildJobArtifactFile GetFile err:%s", err)
+		return []byte{}, fmt.Errorf("GetFile err: %v", err)
+	}
+	fileByts, err := ioutil.ReadAll(object.Body)
+	if err != nil {
+		log.Errorf("GetWorkflowV4BuildJobArtifactFile ioutil.ReadAll err:%s", err)
 		return []byte{}, fmt.Errorf("ioutil.ReadAll err: %v", err)
 	}
 	return fileByts, nil
