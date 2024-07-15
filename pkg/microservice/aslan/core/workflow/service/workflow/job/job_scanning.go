@@ -848,5 +848,10 @@ func ensureScanningOutputs(outputs []*commonmodels.Output) []*commonmodels.Outpu
 			Name: setting.WorkflowScanningJobOutputKey,
 		})
 	}
+	if _, ok := keyMap[setting.WorkflowScanningJobOutputKeyProject]; !ok {
+		outputs = append(outputs, &commonmodels.Output{
+			Name: setting.WorkflowScanningJobOutputKeyProject,
+		})
+	}
 	return outputs
 }

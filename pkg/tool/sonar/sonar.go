@@ -41,6 +41,7 @@ type Client struct {
 const (
 	SonarWorkDirKey = "sonar.working.directory"
 	CETaskIDKey     = "ceTaskId"
+	ProjectKey      = "projectKey"
 )
 
 func NewSonarClient(host, token string) *Client {
@@ -182,6 +183,10 @@ func GetSonarWorkDir(content string) string {
 
 func GetSonarCETaskID(content string) string {
 	return getKeyValue(content, CETaskIDKey)
+}
+
+func GetProjectKey(content string) string {
+	return getKeyValue(content, ProjectKey)
 }
 
 func getKeyValue(content, inputKey string) string {

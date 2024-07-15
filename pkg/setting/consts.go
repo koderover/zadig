@@ -917,5 +917,6 @@ const (
 )
 
 const (
-	WorkflowScanningJobOutputKey = "SonarCETaskID"
+	WorkflowScanningJobOutputKey        = "SonarCETaskID"
+	WorkflowScanningJobOutputKeyProject = "SonarProjectKey"
 )

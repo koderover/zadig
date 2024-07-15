@@ -64,6 +64,16 @@ func (s *sonarGetMetricsCtl) AfterRun(ctx context.Context) error {
 		log.Error(err)
 		return err
 	}
+	if s.sonarGetMetricsSpec.ProjectKey == "" {
+		key := job.GetJobOutputKey(s.step.JobKey, setting.WorkflowScanningJobOutputKeyProject)
+		projectKey, ok := s.workflowCtx.GlobalContextGet(key)
+		if !ok {
+			err := fmt.Errorf("sonar check job output %s not found", key)
+			log.Error(err)
+			return err
+		}
+		s.sonarGetMetricsSpec.ProjectKey = projectKey
+	}
 
 	client := sonar.NewSonarClient(s.sonarGetMetricsSpec.SonarServer, s.sonarGetMetricsSpec.SonarToken)
 	resp, err := client.GetComponentMeasures(s.sonarGetMetricsSpec.ProjectKey)
