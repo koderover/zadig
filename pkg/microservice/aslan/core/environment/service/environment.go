@@ -30,7 +30,6 @@ import (
 
 	"github.com/cenkalti/backoff/v4"
 	"github.com/hashicorp/go-multierror"
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
@@ -63,6 +62,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/repository"
 	commontypes "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/types"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
 	"github.com/koderover/zadig/v2/pkg/tool/analysis"
@@ -76,6 +76,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	mongotool "github.com/koderover/zadig/v2/pkg/tool/mongo"
 	"github.com/koderover/zadig/v2/pkg/types"
+	"github.com/koderover/zadig/v2/pkg/types/step"
 	"github.com/koderover/zadig/v2/pkg/util"
 	"github.com/koderover/zadig/v2/pkg/util/boolptr"
 	"github.com/koderover/zadig/v2/pkg/util/converter"
@@ -217,19 +218,16 @@ func AutoCreateProduct(productName, envType, requestID string, log *zap.SugaredL
 	return envStatus
 }
 
-func InitializeEnvironment(projectKey string, envArgs []*commonmodels.Product, envType string, log *zap.SugaredLogger) error {
+func InitializeEnvironment(projectKey string, envArgs []*commonmodels.Product, envType string, appType setting.ProjectApplicationType, log *zap.SugaredLogger) error {
 	switch envType {
 	case config.ProjectTypeVM:
-		return initializeVMEnvironmentAndWorkflow(projectKey, envArgs, log)
+		return initializeVMEnvironmentAndWorkflow(projectKey, appType, envArgs, log)
 	default:
 		return fmt.Errorf("unsupported env type: %s", envType)
 	}
 }
 
-func initializeVMEnvironmentAndWorkflow(projectKey string, envArgs []*commonmodels.Product, log *zap.SugaredLogger) error {
-	if len(envArgs) == 0 || envArgs == nil {
-		return fmt.Errorf("env cannot be empty")
-	}
+func initializeVMEnvironmentAndWorkflow(projectKey string, appType setting.ProjectApplicationType, envArgs []*commonmodels.Product, log *zap.SugaredLogger) error {
 	mutexAutoCreate := cache.NewRedisLock(fmt.Sprintf("initialize_vm_project:%s", projectKey))
 	err := mutexAutoCreate.TryLock()
 	defer func() {
@@ -242,59 +240,94 @@ func initializeVMEnvironmentAndWorkflow(projectKey string, envArgs []*commonmode
 	}
 
 	retErr := new(multierror.Error)
-	for _, arg := range envArgs {
-		// modify the service revision for the creation process to get the correct env config from the service template.
-		for _, serviceList := range arg.Services {
-			for _, service := range serviceList {
-				svc, err := commonservice.GetServiceTemplate(service.ServiceName, setting.PMDeployType, projectKey, setting.ProductStatusDeleting, 0, false, log)
-				if err != nil {
-					log.Errorf("failed to find service info for service: %s, error: %s", service.ServiceName, err)
-					return fmt.Errorf("failed to find service info for service: %s, error: %s", service.ServiceName, err)
+
+	if appType != setting.ProjectApplicationTypeMobile {
+		if len(envArgs) == 0 || envArgs == nil {
+			return fmt.Errorf("env cannot be empty")
+		}
+
+		for _, arg := range envArgs {
+			// modify the service revision for the creation process to get the correct env config from the service template.
+			for _, serviceList := range arg.Services {
+				for _, service := range serviceList {
+					svc, err := commonservice.GetServiceTemplate(service.ServiceName, setting.PMDeployType, projectKey, setting.ProductStatusDeleting, 0, false, log)
+					if err != nil {
+						log.Errorf("failed to find service info for service: %s, error: %s", service.ServiceName, err)
+						return fmt.Errorf("failed to find service info for service: %s, error: %s", service.ServiceName, err)
+					}
+					service.Revision = svc.Revision
 				}
-				service.Revision = svc.Revision
+			}
+
+			err := CreateProduct("system", "", &ProductCreateArg{Product: arg}, log)
+			if err != nil {
+				log.Errorf("failed to initialize project env: create env [%s] error: %s", arg.EnvName, err)
+				retErr = multierror.Append(retErr, err)
+			}
+
+			time.Sleep(2 * time.Second)
+		}
+	}
+
+	if appType == "" || appType == setting.ProjectApplicationTypeHost {
+		for _, arg := range envArgs {
+			wf, err := generateHostCustomWorkflow(arg, true)
+			if err != nil {
+				log.Errorf("failed to generate workflow: %s, error: %s", fmt.Sprintf("%s-workflow-%s", arg.ProductName, arg.EnvName), err)
+				retErr = multierror.Append(retErr, fmt.Errorf("failed to generate workflow: %s, error: %s", fmt.Sprintf("%s-workflow-%s", arg.ProductName, arg.EnvName), err))
+				continue
+			}
+			err = workflow.CreateWorkflowV4(setting.SystemUser, wf, log)
+			if err != nil {
+				log.Errorf("failed to create workflow: %s, error: %s", wf.Name, err)
+				retErr = multierror.Append(retErr, fmt.Errorf("failed to create workflow: %s, error: %s", wf.Name, err))
+				continue
 			}
 		}
 
-		err := CreateProduct("system", "", &ProductCreateArg{Product: arg}, log)
+		opsWorkflow, err := generateHostCustomWorkflow(envArgs[0], false)
 		if err != nil {
-			log.Errorf("failed to initialize project env: create env [%s] error: %s", arg.EnvName, err)
+			log.Errorf("failed to generate workflow: %s, error: %s", fmt.Sprintf("%s-workflow-ops", envArgs[0].ProductName), err)
+			retErr = multierror.Append(retErr, fmt.Errorf("failed to generate workflow: %s, error: %s", fmt.Sprintf("%s-workflow-ops", envArgs[0].ProductName), err))
+		} else {
+			err = workflow.CreateWorkflowV4(setting.SystemUser, opsWorkflow, log)
+			if err != nil {
+				log.Errorf("failed to create workflow: %s, error: %s", opsWorkflow.Name, err)
+				retErr = multierror.Append(retErr, fmt.Errorf("failed to create workflow: %s, error: %s", opsWorkflow.Name, err))
+			}
+		}
+	} else {
+		focalBasicImage, err := mongodb.NewBasicImageColl().FindByImageName("ubuntu 20.04")
+		if err != nil {
+			err = fmt.Errorf("failed to find basic image ubuntu 20.04, error: %v", err)
+			log.Error(err)
 			retErr = multierror.Append(retErr, err)
 		}
 
-		time.Sleep(2 * time.Second)
-	}
+		workflowNames := []string{
+			fmt.Sprintf("%s-workflow-dev", projectKey),
+			fmt.Sprintf("%s-workflow-release", projectKey),
+		}
 
-	for _, arg := range envArgs {
-		wf, err := generateCustomWorkflow(arg, true)
-		if err != nil {
-			log.Errorf("failed to generate workflow: %s, error: %s", fmt.Sprintf("%s-workflow-%s", arg.ProductName, arg.EnvName), err)
-			retErr = multierror.Append(retErr, fmt.Errorf("failed to generate workflow: %s, error: %s", fmt.Sprintf("%s-workflow-%s", arg.ProductName, arg.EnvName), err))
-			continue
+		for _, workflowName := range workflowNames {
+			wf, err := generateMobileCustomWorkflow(projectKey, workflowName, focalBasicImage)
+			if err != nil {
+				log.Errorf("failed to generate mobile workflow, error: %s", err)
+				retErr = multierror.Append(retErr, fmt.Errorf("failed to generate workflow, error: %s", err))
+			}
+			err = workflow.CreateWorkflowV4(setting.SystemUser, wf, log)
+			if err != nil {
+				log.Errorf("failed to create workflow: %s, error: %s", wf.Name, err)
+				retErr = multierror.Append(retErr, fmt.Errorf("failed to create workflow: %s, error: %s", wf.Name, err))
+			}
 		}
-		err = workflow.CreateWorkflowV4(setting.SystemUser, wf, log)
-		if err != nil {
-			log.Errorf("failed to create workflow: %s, error: %s", wf.Name, err)
-			retErr = multierror.Append(retErr, fmt.Errorf("failed to create workflow: %s, error: %s", wf.Name, err))
-			continue
-		}
-	}
 
-	opsWorkflow, err := generateCustomWorkflow(envArgs[0], false)
-	if err != nil {
-		log.Errorf("failed to generate workflow: %s, error: %s", fmt.Sprintf("%s-workflow-ops", envArgs[0].ProductName), err)
-		retErr = multierror.Append(retErr, fmt.Errorf("failed to generate workflow: %s, error: %s", fmt.Sprintf("%s-workflow-ops", envArgs[0].ProductName), err))
-	} else {
-		err = workflow.CreateWorkflowV4(setting.SystemUser, opsWorkflow, log)
-		if err != nil {
-			log.Errorf("failed to create workflow: %s, error: %s", opsWorkflow.Name, err)
-			retErr = multierror.Append(retErr, fmt.Errorf("failed to create workflow: %s, error: %s", opsWorkflow.Name, err))
-		}
 	}
 
 	return retErr.ErrorOrNil()
 }
 
-func generateCustomWorkflow(arg *models.Product, enableBuildStage bool) (*models.WorkflowV4, error) {
+func generateHostCustomWorkflow(arg *models.Product, enableBuildStage bool) (*models.WorkflowV4, error) {
 	workflowName := fmt.Sprintf("%s-workflow-%s", arg.ProductName, arg.EnvName)
 	if !enableBuildStage {
 		workflowName = fmt.Sprintf("%s-workflow-ops", arg.ProductName)
@@ -405,6 +438,83 @@ func generateCustomWorkflow(arg *models.Product, enableBuildStage bool) (*models
 		Name: "主机部署",
 		Jobs: []*commonmodels.Job{deployJob},
 	}
+	stages = append(stages, stage)
+
+	ret.Stages = stages
+
+	return ret, nil
+}
+
+func generateMobileCustomWorkflow(projectName, workflowName string, focalBasicImage *commonmodels.BasicImage) (*models.WorkflowV4, error) {
+
+	ret := &models.WorkflowV4{
+		Name:             workflowName,
+		DisplayName:      workflowName,
+		Stages:           nil,
+		Project:          projectName,
+		CreatedBy:        setting.SystemUser,
+		CreateTime:       time.Now().Unix(),
+		ConcurrencyLimit: -1,
+	}
+
+	stages := make([]*commonmodels.WorkflowStage, 0)
+
+	stageName := "编译并分发"
+	freestyleJobName := "编译并分发"
+	if strings.HasSuffix(workflowName, "-workflow-release") {
+		stageName = "打包并上架"
+		freestyleJobName = "打包并上架"
+	}
+	freestyleJob := &commonmodels.Job{
+		Name:    freestyleJobName,
+		JobType: config.JobFreestyle,
+		Spec: &commonmodels.FreestyleJobSpec{
+			Properties: &commonmodels.JobProperties{
+				Timeout:         60,
+				ResourceRequest: setting.LowRequest,
+				ResReqSpec:      setting.LowRequestSpec,
+				BuildOS:         focalBasicImage.Value,
+				ImageID:         focalBasicImage.ID.Hex(),
+				ImageFrom:       focalBasicImage.ImageFrom,
+				CacheEnable:     true,
+				CacheDirType:    "workspace",
+				Infrastructure:  "kubernetes",
+				VMLabels:        []string{"VM_LABEL_ANY_ONE"},
+			},
+			Steps: []*commonmodels.Step{
+				{
+					Name:     "tools",
+					StepType: config.StepTools,
+					Spec: &step.StepToolInstallSpec{
+						Installs:  []*step.Tool{},
+						S3Storage: nil,
+					},
+				},
+				{
+					Name:     "git",
+					StepType: config.StepGit,
+					Spec: &step.StepGitSpec{
+						Proxy: nil,
+						Repos: []*types.Repository{},
+					},
+				},
+				{
+					Name:     "shell",
+					StepType: config.StepShell,
+					Spec: &step.StepShellSpec{
+						Scripts: []string{},
+						Script:  "#!/bin/bash\nset -e",
+					},
+				},
+			},
+		},
+	}
+	stage := &commonmodels.WorkflowStage{
+		Name:     stageName,
+		Jobs:     []*commonmodels.Job{freestyleJob},
+		Parallel: true,
+	}
+
 	stages = append(stages, stage)
 
 	ret.Stages = stages

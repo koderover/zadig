@@ -916,6 +916,13 @@ const (
 	SQLExecStatusNotExec SQLExecStatus = "not_exec"
 )
 
+type ProjectApplicationType string
+
+const (
+	ProjectApplicationTypeHost   ProjectApplicationType = "host"
+	ProjectApplicationTypeMobile ProjectApplicationType = "mobile"
+)
+
 const (
 	WorkflowScanningJobOutputKey        = "SonarCETaskID"
 	WorkflowScanningJobOutputKeyProject = "SonarProjectKey"

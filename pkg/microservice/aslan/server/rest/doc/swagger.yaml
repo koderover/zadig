@@ -2840,8 +2840,6 @@ definitions:
         type: integer
       name:
         type: string
-      self:
-        type: string
       type:
         type: string
     type: object
@@ -2864,8 +2862,6 @@ definitions:
         type: string
       originBoardId:
         type: integer
-      self:
-        type: string
       startDate:
         type: string
       state:
@@ -4957,6 +4953,38 @@ paths:
         "200":
           description: OK
       summary: Rollback Environment Service Version
+      tags:
+      - environment
+  /api/aslan/environment/init/type/{envType}:
+    post:
+      consumes:
+      - application/json
+      description: Initialize Environment
+      parameters:
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: env type
+        in: path
+        name: envType
+        required: true
+        type: string
+      - description: application name, used only in vm env type
+        enum:
+        - host
+        - mobile
+        in: query
+        name: appType
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Initialize Environment
       tags:
       - environment
   /api/aslan/environment/init_info/{name}:

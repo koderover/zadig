@@ -365,7 +365,16 @@ func CreateProduct(c *gin.Context) {
 	}
 }
 
-// InitializeEnv
+// @Summary Initialize Environment
+// @Description Initialize Environment
+// @Tags 	environment
+// @Accept 	json
+// @Produce json
+// @Param 	projectName		query		string							true	"project name"
+// @Param 	envType			path		string							true	"env type"
+// @Param 	appType		 	query		setting.ProjectApplicationType  true	"application name, used only in vm env type"
+// @Success 200
+// @Router /api/aslan/environment/init/type/{envType} [post]
 func InitializeEnv(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -404,13 +413,14 @@ func InitializeEnv(c *gin.Context) {
 	}
 
 	envType := c.Param("envType")
+	appType := c.Query("appType")
 
 	args := make([]*commonmodels.Product, 0)
 	if err = json.Unmarshal(data, &args); err != nil {
 		log.Errorf("initialize a json.Unmarshal err : %v", err)
 	}
 
-	ctx.Err = service.InitializeEnvironment(projectKey, args, envType, ctx.Logger)
+	ctx.Err = service.InitializeEnvironment(projectKey, args, envType, setting.ProjectApplicationType(appType), ctx.Logger)
 }
 
 type UpdateProductParams struct {

@@ -1395,6 +1395,53 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/aslan/environment/init/type/{envType}": {
+            "post": {
+                "description": "Initialize Environment",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environment"
+                ],
+                "summary": "Initialize Environment",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "env type",
+                        "name": "envType",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "enum": [
+                            "host",
+                            "mobile"
+                        ],
+                        "type": "string",
+                        "description": "application name, used only in vm env type",
+                        "name": "appType",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
         "/api/aslan/environment/init_info/{name}": {
             "get": {
                 "description": "Get init product",
@@ -9326,9 +9373,6 @@ const docTemplate = `{
                 "name": {
                     "type": "string"
                 },
-                "self": {
-                    "type": "string"
-                },
                 "type": {
                     "type": "string"
                 }
@@ -9362,9 +9406,6 @@ const docTemplate = `{
                 },
                 "originBoardId": {
                     "type": "integer"
-                },
-                "self": {
-                    "type": "string"
                 },
                 "startDate": {
                     "type": "string"
