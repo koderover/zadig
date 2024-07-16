@@ -258,11 +258,6 @@ func GetTestTaskDetail(projectKey, testName string, taskID int64, log *zap.Sugar
 		return nil, fmt.Errorf("failed to list junit test report for workflow: %s, error: %s", workflowName, err)
 	}
 
-	reportReady := false
-	if len(testResultList) > 0 {
-		reportReady = true
-	}
-
 	for _, testResult := range testResultList {
 		mapKey := testName
 		if testResult.TestName != "" {
@@ -314,17 +309,29 @@ func GetTestTaskDetail(projectKey, testName string, taskID int64, log *zap.Sugar
 		return nil, fmt.Errorf("unmashal job spec error: %v", err)
 	}
 	isHasArtifact := false
+	htmlReport := false
+	junitReport := false
 	jobName := ""
+
 	for _, step := range jobSpec.Steps {
-		if step.Name != config.TestJobArchiveResultStepName {
-			continue
+		if workflowTask.Stages[0].Jobs[0].Status == config.StatusPassed || workflowTask.Stages[0].Jobs[0].Status == config.StatusFailed {
+			if step.Name == config.TestJobHTMLReportStepName {
+				htmlReport = true
+			}
+			if step.Name == config.TestJobJunitReportStepName {
+				junitReport = true
+			}
 		}
-		if step.StepType != config.StepTarArchive {
-			return nil, fmt.Errorf("step: %s was not a junit report step", step.Name)
+
+		if step.Name == config.TestJobArchiveResultStepName {
+			if step.StepType != config.StepTarArchive {
+				return nil, fmt.Errorf("step: %s was not a junit report step", step.Name)
+			}
+			if workflowTask.Stages[0].Jobs[0].Status == config.StatusPassed || workflowTask.Stages[0].Jobs[0].Status == config.StatusFailed {
+				isHasArtifact = true
+			}
+			jobName = step.JobName
 		}
-		isHasArtifact = true
-		jobName = step.JobName
-		break
 	}
 
 	subTaskInfo[testName] = map[string]interface{}{
@@ -340,7 +347,8 @@ func GetTestTaskDetail(projectKey, testName string, taskID int64, log *zap.Sugar
 			isHasArtifact,
 			args.TestModules[0].Repos,
 		},
-		"report_ready": reportReady,
+		"html_report":  htmlReport,
+		"junit_report": junitReport,
 		"type":         "testingv2",
 	}
 
