@@ -18,6 +18,7 @@ package handler
 
 import (
 	"fmt"
+	"net/http"
 
 	"github.com/gin-gonic/gin"
 
@@ -41,14 +42,14 @@ func GetWorkflowTemplateByID(c *gin.Context) {
 	// authorization check
 	if !ctx.Resources.IsSystemAdmin {
 		if !ctx.Resources.SystemActions.Template.View {
-			projectKey := c.Param("projectName")
+			projectKey := c.Query("projectName")
 			if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
-				ctx.UnAuthorized = true
+				c.AbortWithStatus(http.StatusForbidden)
 				return
 			}
 			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
 				!ctx.Resources.ProjectAuthInfo[projectKey].Workflow.Create {
-				ctx.UnAuthorized = true
+				c.AbortWithStatus(http.StatusForbidden)
 				return
 			}
 		}
@@ -57,7 +58,7 @@ func GetWorkflowTemplateByID(c *gin.Context) {
 	resp, err := templateservice.GetWorkflowTemplateByID(c.Param("id"), ctx.Logger)
 	if err != nil {
 		c.JSON(e.ErrorMessage(err))
-		c.Abort()
+		c.AbortWithStatus(http.StatusInternalServerError)
 		return
 	}
 	c.YAML(200, resp)
