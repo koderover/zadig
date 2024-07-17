@@ -62,6 +62,7 @@ type WorkflowV4 struct {
 	NotificationID  string                   `bson:"notification_id"     yaml:"-"                   json:"notification_id"`
 	HookPayload     *HookPayload             `bson:"hook_payload"        yaml:"-"                   json:"hook_payload,omitempty"`
 	BaseName        string                   `bson:"base_name"           yaml:"-"                   json:"base_name"`
+	Remark          string                   `bson:"remark"              yaml:"-"                   json:"remark"`
 	ShareStorages   []*ShareStorage          `bson:"share_storages"      yaml:"share_storages"      json:"share_storages"`
 	Hash            string                   `bson:"hash"                yaml:"hash"                json:"hash"`
 	// ConcurrencyLimit is the max number of concurrent runs of this workflow
@@ -1059,6 +1060,7 @@ type CustomField struct {
 	Status                 int            `bson:"status"                              json:"status"`
 	Duration               int            `bson:"duration"                            json:"duration"`
 	Executor               int            `bson:"executor"                            json:"executor"`
+	Remark                 int            `bson:"remark"                              json:"remark"`
 	BuildServiceComponent  map[string]int `bson:"build_service_component,omitempty"   json:"build_service_component,omitempty"`
 	BuildCodeMsg           map[string]int `bson:"build_code_msg,omitempty"            json:"build_code_msg,omitempty"`
 	DeployServiceComponent map[string]int `bson:"deploy_service_component,omitempty"  json:"deploy_service_component,omitempty"`

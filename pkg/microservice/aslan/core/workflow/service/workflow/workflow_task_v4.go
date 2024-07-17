@@ -73,6 +73,7 @@ type WorkflowTaskPreview struct {
 	WorkflowDisplayName string                `bson:"workflow_display_name"     json:"workflow_name"`
 	Params              []*commonmodels.Param `bson:"params"                    json:"params"`
 	Status              config.Status         `bson:"status"                    json:"status,omitempty"`
+	Remark              string                `bson:"remark"                    json:"remark"`
 	TaskCreator         string                `bson:"task_creator"              json:"task_creator,omitempty"`
 	TaskRevoker         string                `bson:"task_revoker,omitempty"    json:"task_revoker,omitempty"`
 	CreateTime          int64                 `bson:"create_time"               json:"create_time,omitempty"`
@@ -459,6 +460,7 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 	workflowTask.KeyVals = workflow.KeyVals
 	workflowTask.ShareStorages = workflow.ShareStorages
 	workflowTask.IsDebug = workflow.Debug
+	workflowTask.Remark = workflow.Remark
 	// set workflow params repo info, like commitid, branch etc.
 	setZadigParamRepos(workflow, log)
 	for _, stage := range workflow.Stages {
@@ -772,6 +774,7 @@ func ListWorkflowTaskV4ByFilter(filter *TaskHistoryFilter, filterList []string, 
 			ProjectName:         task.ProjectName,
 			WorkflowName:        task.WorkflowName,
 			WorkflowDisplayName: task.WorkflowDisplayName,
+			Remark:              task.Remark,
 			Status:              task.Status,
 			CreateTime:          task.CreateTime,
 			StartTime:           task.StartTime,
@@ -1007,6 +1010,7 @@ func GetWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredLog
 		WorkflowName:        task.WorkflowName,
 		WorkflowDisplayName: task.WorkflowDisplayName,
 		ProjectName:         task.ProjectName,
+		Remark:              task.Remark,
 		Status:              task.Status,
 		Params:              task.Params,
 		TaskCreator:         task.TaskCreator,

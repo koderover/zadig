@@ -173,6 +173,7 @@ func (w *Service) getApproveNotificationContent(notify *models.NotifyCtl, task *
 		WorkflowDisplayName: task.WorkflowDisplayName,
 		ProjectName:         task.ProjectName,
 		Status:              task.Status,
+		Remark:              task.Remark,
 		Error:               task.Error,
 		CreateTime:          task.CreateTime,
 		StartTime:           task.StartTime,
@@ -184,17 +185,19 @@ func (w *Service) getApproveNotificationContent(notify *models.NotifyCtl, task *
 	}
 
 	tplTitle := "{{if ne .WebHookType \"feishu\"}}#### {{end}}{{getIcon .Task.Status }}{{if eq .WebHookType \"wechat\"}}<font color=\"markdownColorInfo\">工作流{{.Task.WorkflowDisplayName}} #{{.Task.TaskID}} 等待审批</font>{{else}}工作流 {{.Task.WorkflowDisplayName}} #{{.Task.TaskID}} 等待审批{{end}} \n"
-	mailTplTitle := "{{getIcon .Task.Status }}工作流 {{.Task.WorkflowDisplayName}} #{{.Task.TaskID}} 等待审批{{end}} \n"
+	mailTplTitle := "{{getIcon .Task.Status }}工作流 {{.Task.WorkflowDisplayName}} #{{.Task.TaskID}} 等待审批\n"
 
 	tplBaseInfo := []string{"{{if eq .WebHookType \"dingding\"}}##### {{end}}**执行用户**：{{.Task.TaskCreator}} \n",
 		"{{if eq .WebHookType \"dingding\"}}##### {{end}}**项目名称**：{{.Task.ProjectName}} \n",
 		"{{if eq .WebHookType \"dingding\"}}##### {{end}}**开始时间**：{{ getStartTime .Task.StartTime}} \n",
 		"{{if eq .WebHookType \"dingding\"}}##### {{end}}**持续时间**：{{ getDuration .TotalTime}} \n",
+		"{{if eq .WebHookType \"dingding\"}}##### {{end}}**备注**：{{.Task.Remark}} \n",
 	}
 	mailTplBaseInfo := []string{"执行用户：{{.Task.TaskCreator}} \n",
 		"项目名称：{{.Task.ProjectName}} \n",
 		"开始时间：{{ getStartTime .Task.StartTime}} \n",
 		"持续时间：{{ getDuration .TotalTime}} \n",
+		"备注：{{ .Task.Remark}} \n\n",
 	}
 
 	title, err := getWorkflowTaskTplExec(tplTitle, workflowNotification)
@@ -290,6 +293,7 @@ func (w *Service) getNotificationContent(notify *models.NotifyCtl, task *models.
 		WorkflowDisplayName: task.WorkflowDisplayName,
 		ProjectName:         task.ProjectName,
 		Status:              task.Status,
+		Remark:              task.Remark,
 		Error:               task.Error,
 		CreateTime:          task.CreateTime,
 		StartTime:           task.StartTime,
@@ -307,11 +311,13 @@ func (w *Service) getNotificationContent(notify *models.NotifyCtl, task *models.
 		"{{if eq .WebHookType \"dingding\"}}##### {{end}}**项目名称**：{{.Task.ProjectName}} \n",
 		"{{if eq .WebHookType \"dingding\"}}##### {{end}}**开始时间**：{{ getStartTime .Task.StartTime}} \n",
 		"{{if eq .WebHookType \"dingding\"}}##### {{end}}**持续时间**：{{ getDuration .TotalTime}} \n",
+		"{{if eq .WebHookType \"dingding\"}}##### {{end}}**备注**：{{.Task.Remark}} \n",
 	}
 	mailTplBaseInfo := []string{"执行用户：{{.Task.TaskCreator}} \n",
 		"项目名称：{{.Task.ProjectName}} \n",
 		"开始时间：{{ getStartTime .Task.StartTime}} \n",
 		"持续时间：{{ getDuration .TotalTime}} \n",
+		"备注：{{ .Task.Remark}} \n",
 	}
 
 	jobContents := []string{}

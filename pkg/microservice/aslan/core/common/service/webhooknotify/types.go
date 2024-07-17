@@ -54,6 +54,7 @@ type WorkflowNotify struct {
 	WorkflowName        string                 `json:"workflow_name"`
 	WorkflowDisplayName string                 `json:"workflow_display_name"`
 	Status              config.Status          `json:"status"`
+	Remark              string                 `json:"remark"`
 	DetailURL           string                 `json:"detail_url"`
 	Error               string                 `json:"error"`
 	CreateTime          int64                  `json:"create_time"`
