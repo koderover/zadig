@@ -784,6 +784,7 @@ type TaskNotificationHandler struct {
 	log *zap.SugaredLogger
 }
 
+// @note this function may be deprecated
 // HandleMessage ...
 func (h *TaskNotificationHandler) HandleMessage(n *commonmodels.Notify) error {
 	h.log.Infof("receive notification: %+v", n)

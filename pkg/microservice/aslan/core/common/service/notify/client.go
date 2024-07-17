@@ -200,6 +200,7 @@ func (c *client) ListSubscriptions(user string) ([]*models.Subscription, error) 
 	return subs, nil
 }
 
+// @note pipeline notification, deprecated
 func (c *client) ProccessNotify(notify *models.Notify) error {
 	switch notify.Type {
 	case config.PipelineStatus:

@@ -32,6 +32,10 @@ func SystemAddress() string {
 	return viper.GetString(setting.ENVSystemAddress)
 }
 
+func ChartVersion() string {
+	return viper.GetString(setting.ENVChartVersion)
+}
+
 func Mode() string {
 	mode := viper.GetString(setting.ENVMode)
 	if mode == "" {

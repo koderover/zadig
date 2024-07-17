@@ -18,6 +18,7 @@ package httpclient
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"os"
 	"time"
@@ -25,11 +26,12 @@ import (
 	"github.com/go-resty/resty/v2"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	"github.com/koderover/zadig/v2/pkg/config"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
 const (
-	UserAgent      = "Zadig REST Client"
+	UserAgent      = "Zadig"
 	TimeoutSeconds = 10
 )
 
@@ -92,10 +94,15 @@ func Download(url, path string, rfs ...RequestFunc) error {
 }
 
 func New(cfs ...ClientFunc) *Client {
+	userAgent := UserAgent
+	if config.ChartVersion() != "" {
+		userAgent = fmt.Sprintf(fmt.Sprintf("%s/%s", UserAgent, config.ChartVersion()))
+	}
+
 	r := resty.New()
 	r.SetHeader("Content-Type", "application/json").
 		SetHeader("Accept", "application/json").
-		SetHeader("User-Agent", UserAgent).
+		SetHeader("User-Agent", userAgent).
 		SetTimeout(TimeoutSeconds * time.Second).
 		SetLogger(log.SugaredLogger())
 

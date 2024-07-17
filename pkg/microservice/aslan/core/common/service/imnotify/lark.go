@@ -23,7 +23,6 @@ import (
 )
 
 const (
-	feiShuType                    = "feishu"
 	feishuCardType                = "interactive"
 	feishuHeaderTemplateTurquoise = "turquoise"
 	feishuHeaderTemplateGreen     = "green"

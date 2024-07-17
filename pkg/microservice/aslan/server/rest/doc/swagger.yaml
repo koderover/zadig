@@ -3909,6 +3909,147 @@ definitions:
         type: string
       value: {}
     type: object
+  webhooknotify.WebHookNotify:
+    properties:
+      event:
+        $ref: '#/definitions/webhooknotify.WebHookNotifyEvent'
+      object_kind:
+        $ref: '#/definitions/webhooknotify.WebHookNotifyObjectKind'
+      workflow:
+        $ref: '#/definitions/webhooknotify.WorkflowNotify'
+    type: object
+  webhooknotify.WebHookNotifyEvent:
+    enum:
+    - workflow
+    type: string
+    x-enum-varnames:
+    - WebHookNotifyEventWorkflow
+  webhooknotify.WebHookNotifyObjectKind:
+    enum:
+    - workflow
+    type: string
+    x-enum-varnames:
+    - WebHookNotifyObjectKindWorkflow
+  webhooknotify.WorkflowNotify:
+    properties:
+      create_time:
+        type: integer
+      detail_url:
+        type: string
+      end_time:
+        type: integer
+      error:
+        type: string
+      project_name:
+        type: string
+      stages:
+        items:
+          $ref: '#/definitions/webhooknotify.WorkflowNotifyStage'
+        type: array
+      start_time:
+        type: integer
+      status:
+        $ref: '#/definitions/github_com_koderover_zadig_v2_pkg_microservice_aslan_config.Status'
+      task_creator:
+        type: string
+      task_creator_email:
+        type: string
+      task_creator_id:
+        type: string
+      task_creator_phone:
+        type: string
+      task_id:
+        type: integer
+      workflow_display_name:
+        type: string
+      workflow_name:
+        type: string
+    type: object
+  webhooknotify.WorkflowNotifyDeployServiceModule:
+    properties:
+      image:
+        type: string
+      service_module:
+        type: string
+    type: object
+  webhooknotify.WorkflowNotifyJobTask:
+    properties:
+      end_time:
+        type: integer
+      error:
+        type: string
+      name:
+        type: string
+      spec: {}
+      start_time:
+        type: integer
+      status:
+        $ref: '#/definitions/github_com_koderover_zadig_v2_pkg_microservice_aslan_config.Status'
+      type:
+        type: string
+    type: object
+  webhooknotify.WorkflowNotifyJobTaskBuildSpec:
+    properties:
+      image:
+        type: string
+      repositories:
+        items:
+          $ref: '#/definitions/webhooknotify.WorkflowNotifyRepository'
+        type: array
+    type: object
+  webhooknotify.WorkflowNotifyJobTaskDeploySpec:
+    properties:
+      env:
+        type: string
+      service_modules:
+        items:
+          $ref: '#/definitions/webhooknotify.WorkflowNotifyDeployServiceModule'
+        type: array
+      service_name:
+        type: string
+    type: object
+  webhooknotify.WorkflowNotifyRepository:
+    properties:
+      branch:
+        type: string
+      commit_id:
+        type: string
+      commit_message:
+        type: string
+      commit_url:
+        type: string
+      prs:
+        items:
+          type: integer
+        type: array
+      repo_name:
+        type: string
+      repo_namespace:
+        type: string
+      repo_owner:
+        type: string
+      source:
+        type: string
+      tag:
+        type: string
+    type: object
+  webhooknotify.WorkflowNotifyStage:
+    properties:
+      end_time:
+        type: integer
+      error:
+        type: string
+      jobs:
+        items:
+          $ref: '#/definitions/webhooknotify.WorkflowNotifyJobTask'
+        type: array
+      name:
+        type: string
+      start_time:
+        type: integer
+      status:
+        $ref: '#/definitions/github_com_koderover_zadig_v2_pkg_microservice_aslan_config.Status'
+    type: object
   workflow.GetHelmValuesDifferenceResp:
     properties:
       current:
@@ -7208,6 +7349,66 @@ paths:
       summary: Validate template varaibles
       tags:
       - service
+  /api/aslan/webhook/notify/buildJobSpec:
+    post:
+      consumes:
+      - application/json
+      description: Workflow Webhook Build Job Spec
+      parameters:
+      - description: body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/webhooknotify.WorkflowNotifyJobTaskBuildSpec'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Workflow Webhook Notify Build Job Spec
+      tags:
+      - webhook
+  /api/aslan/webhook/notify/deployJobSpec:
+    post:
+      consumes:
+      - application/json
+      description: Workflow Webhook Deploy Job Spec
+      parameters:
+      - description: body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/webhooknotify.WorkflowNotifyJobTaskDeploySpec'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Workflow Webhook Notify Deploy Job Spec
+      tags:
+      - webhook
+  /api/aslan/webhook/test:
+    post:
+      consumes:
+      - application/json
+      description: Webhook Notify
+      parameters:
+      - description: body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/webhooknotify.WebHookNotify'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Webhook Notify
+      tags:
+      - webhook
   /api/aslan/workflow/v4/filterEnv:
     post:
       consumes:

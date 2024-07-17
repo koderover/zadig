@@ -40,6 +40,7 @@ const (
 	ENVRedisPassword           = "REDIS_PASSWORD"
 	ENVRedisUserTokenDB        = "REDIS_USER_TOKEN_DB"
 	ENVRedisCommonCacheDB      = "REDIS_COMMON_CACHE_DB"
+	ENVChartVersion            = "CHART_VERSION"
 
 	// Aslan
 	ENVPodName              = "BE_POD_NAME"
@@ -926,4 +927,14 @@ const (
 const (
 	WorkflowScanningJobOutputKey        = "SonarCETaskID"
 	WorkflowScanningJobOutputKeyProject = "SonarProjectKey"
+)
+
+type NotifyWebHookType string
+
+const (
+	NotifyWebHookTypeDingDing   NotifyWebHookType = "dingding"
+	NotifyWebHookTypeFeishu     NotifyWebHookType = "feishu"
+	NotifyWebHookTypeWechatWork NotifyWebHookType = "wechat"
+	NotifyWebHookTypeMail       NotifyWebHookType = "mail"
+	NotifyWebHookTypeWebook     NotifyWebHookType = "webhook"
 )

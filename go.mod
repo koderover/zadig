@@ -39,7 +39,7 @@ require (
 	github.com/golang/protobuf v1.5.3
 	github.com/google/gnostic v0.6.9
 	github.com/google/go-github/v35 v35.3.0
-	github.com/google/uuid v1.3.1
+	github.com/google/uuid v1.6.0
 	github.com/gorilla/mux v1.8.0
 	github.com/gorilla/websocket v1.4.2
 	github.com/gregjones/httpcache v0.0.0-20190611155906-901d90724c79
