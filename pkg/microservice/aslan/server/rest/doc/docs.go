@@ -813,6 +813,71 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/aslan/environment/environments/{name}/services/{serviceName}/execmd": {
+            "post": {
+                "description": "Exec VM Service Command",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environment"
+                ],
+                "summary": "Exec VM Service Command",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "host id",
+                        "name": "hostId",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "enum": [
+                            "start",
+                            "stop",
+                            "restart"
+                        ],
+                        "type": "string",
+                        "description": "vm service command type",
+                        "name": "commandType",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "env name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "serivce name",
+                        "name": "serviceName",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/service.ExecVmServiceCommandResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/aslan/environment/environments/{name}/services/{serviceName}/preview": {
             "post": {
                 "description": "Preview service",
@@ -8017,6 +8082,9 @@ const docTemplate = `{
                 "repo_uuid": {
                     "type": "string"
                 },
+                "restart_cmd": {
+                    "type": "string"
+                },
                 "revision": {
                     "type": "integer"
                 },
@@ -8043,7 +8111,13 @@ const docTemplate = `{
                 "src_path": {
                     "type": "string"
                 },
+                "start_cmd": {
+                    "type": "string"
+                },
                 "status": {
+                    "type": "string"
+                },
+                "stop_cmd": {
                     "type": "string"
                 },
                 "team": {
@@ -9161,6 +9235,26 @@ const docTemplate = `{
                 },
                 "sleep_cron_enable": {
                     "type": "boolean"
+                }
+            }
+        },
+        "service.ExecVmServiceCommandResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string"
+                },
+                "is_success": {
+                    "type": "boolean"
+                },
+                "is_timeout": {
+                    "type": "boolean"
+                },
+                "stderr": {
+                    "type": "string"
+                },
+                "stdout": {
+                    "type": "string"
                 }
             }
         },

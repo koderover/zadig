@@ -1864,6 +1864,8 @@ definitions:
         type: string
       repo_uuid:
         type: string
+      restart_cmd:
+        type: string
       revision:
         type: integer
       service_name:
@@ -1883,7 +1885,11 @@ definitions:
         type: string
       src_path:
         type: string
+      start_cmd:
+        type: string
       status:
+        type: string
+      stop_cmd:
         type: string
       team:
         type: string
@@ -2643,6 +2649,19 @@ definitions:
         type: string
       sleep_cron_enable:
         type: boolean
+    type: object
+  service.ExecVmServiceCommandResponse:
+    properties:
+      error:
+        type: string
+      is_success:
+        type: boolean
+      is_timeout:
+        type: boolean
+      stderr:
+        type: string
+      stdout:
+        type: string
     type: object
   service.GetBizDirServiceDetailResponse:
     properties:
@@ -4699,6 +4718,51 @@ paths:
         "200":
           description: OK
       summary: Update service
+      tags:
+      - environment
+  /api/aslan/environment/environments/{name}/services/{serviceName}/execmd:
+    post:
+      consumes:
+      - application/json
+      description: Exec VM Service Command
+      parameters:
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: host id
+        in: query
+        name: hostId
+        required: true
+        type: string
+      - description: vm service command type
+        enum:
+        - start
+        - stop
+        - restart
+        in: query
+        name: commandType
+        required: true
+        type: string
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: serivce name
+        in: path
+        name: serviceName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/service.ExecVmServiceCommandResponse'
+      summary: Exec VM Service Command
       tags:
       - environment
   /api/aslan/environment/environments/{name}/services/{serviceName}/preview:
