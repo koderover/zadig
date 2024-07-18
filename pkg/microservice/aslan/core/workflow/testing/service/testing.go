@@ -464,6 +464,33 @@ func GetWorkflowV4HTMLTestReport(workflowName, jobName string, taskID int64, log
 	if jobTask == nil {
 		return "", fmt.Errorf("cannot find job task, workflow name: %s, task id: %d, job name: %s", workflowName, taskID, jobName)
 	}
+
+	return downloadHtmlReportFromJobTask(jobTask, workflowName, taskID, log)
+}
+
+func GetTestTaskHTMLTestReport(testName string, taskID int64, log *zap.SugaredLogger) (string, error) {
+	workflowName := fmt.Sprintf(setting.TestWorkflowNamingConvention, testName)
+	workflowTask, err := mongodb.NewworkflowTaskv4Coll().Find(workflowName, taskID)
+	if err != nil {
+		return "", fmt.Errorf("cannot find workflow task, workflow name: %s, task id: %d", workflowName, taskID)
+	}
+	var jobTask *commonmodels.JobTask
+	for _, stage := range workflowTask.Stages {
+		for _, job := range stage.Jobs {
+			if job.JobType == string(config.JobZadigTesting) {
+				jobTask = job
+				break
+			}
+		}
+	}
+	if jobTask == nil {
+		return "", fmt.Errorf("cannot find job task for test task, workflow name: %s, task id: %d", workflowName, taskID)
+	}
+
+	return downloadHtmlReportFromJobTask(jobTask, workflowName, taskID, log)
+}
+
+func downloadHtmlReportFromJobTask(jobTask *commonmodels.JobTask, workflowName string, taskID int64, log *zap.SugaredLogger) (string, error) {
 	jobSpec := &commonmodels.JobTaskFreestyleSpec{}
 	if err := commonmodels.IToi(jobTask.Spec, jobSpec); err != nil {
 		return "", fmt.Errorf("unmashal job spec error: %v", err)
@@ -475,12 +502,12 @@ func GetWorkflowV4HTMLTestReport(workflowName, jobName string, taskID int64, log
 			continue
 		}
 		if step.StepType != config.StepArchive {
-			return "", fmt.Errorf("step: %s was not a junit report step", step.Name)
+			return "", fmt.Errorf("step: %s was not a html report step", step.Name)
 		}
 		stepTask = step
 	}
 	if stepTask == nil {
-		return "", fmt.Errorf("cannot find step task, workflow name: %s, task id: %d, job name: %s", workflowName, taskID, jobName)
+		return "", fmt.Errorf("cannot find step task for test task, workflow name: %s, task id: %d", workflowName, taskID)
 	}
 	stepSpec := &step.StepArchiveSpec{}
 	if err := commonmodels.IToi(stepTask.Spec, stepSpec); err != nil {

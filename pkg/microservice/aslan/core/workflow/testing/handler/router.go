@@ -99,7 +99,8 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		testTask.GET("", ListTestTask)
 		testTask.DELETE("", CancelTestTaskV3)
 		testTask.GET("/detail", GetTestTaskInfo)
-		testTask.GET("/report", GetTestTaskReportInfo)
+		testTask.GET("/report", GetTestTaskJUnitReportInfo)
+		testTask.GET("/html_report", GetTestTaskHtmlReportInfo)
 		testTask.POST("/restart", RestartTestTaskV2)
 		testTask.GET("/artifact", GetTestingTaskArtifact)
 		// TODO:  below is the deprecated apis, remove after 2.2.0
