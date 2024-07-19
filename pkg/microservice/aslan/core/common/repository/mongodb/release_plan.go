@@ -191,7 +191,7 @@ func (c *ReleasePlanColl) ListFinishedReleasePlan(startTime, endTime int64) ([]*
 		timeQuery["$gte"] = startTime
 	}
 	if endTime > 0 {
-		timeQuery["lt"] = endTime
+		timeQuery["$lt"] = endTime
 	}
 
 	if startTime > 0 || endTime > 0 {
