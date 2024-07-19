@@ -197,6 +197,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		environments.POST("/:name/istioGrayscale/portal/:serviceName", SetupIstioGrayscalePortalService)
 
 		environments.GET("/:name/services/:serviceName/pmexec", ConnectSshPmExec)
+		environments.POST("/:name/services/:serviceName/execmd", ExecVmServiceCommand)
 
 		// environments.POST("/:name/services/:serviceName/devmode/patch", PatchWorkload)
 		// environments.POST("/:name/services/:serviceName/devmode/recover", RecoverWorkload)

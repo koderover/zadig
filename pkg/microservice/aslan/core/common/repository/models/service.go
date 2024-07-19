@@ -74,6 +74,9 @@ type Service struct {
 	LoadFromDir        bool                             `bson:"is_dir,omitempty"               json:"is_dir,omitempty"`
 	CreateFrom         interface{}                      `bson:"create_from,omitempty"          json:"create_from,omitempty"`
 	HealthChecks       []*PmHealthCheck                 `bson:"health_checks,omitempty"        json:"health_checks,omitempty"`
+	StartCmd           string                           `bson:"start_cmd,omitempty"            json:"start_cmd,omitempty"`
+	StopCmd            string                           `bson:"stop_cmd,omitempty"             json:"stop_cmd,omitempty"`
+	RestartCmd         string                           `bson:"restart_cmd,omitempty"          json:"restart_cmd,omitempty"`
 	WorkloadType       string                           `bson:"workload_type,omitempty"        json:"workload_type,omitempty"` // WorkloadType is set in host projects
 	EnvName            string                           `bson:"env_name,omitempty"             json:"env_name,omitempty"`
 	DeployTime         int64                            `bson:"deploy_time,omitempty"          json:"deploy_time,omitempty"`

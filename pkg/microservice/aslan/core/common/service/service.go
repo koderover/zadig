@@ -94,6 +94,9 @@ type ServiceTmplObject struct {
 	HealthChecks       []*commonmodels.PmHealthCheck    `json:"health_checks"`
 	EnvName            string                           `json:"env_name"`
 	VariableYaml       string                           `json:"variable_yaml"`
+	StartCmd           string                           `json:"start_cmd"`
+	StopCmd            string                           `json:"stop_cmd"`
+	RestartCmd         string                           `json:"restart_cmd"`
 	ServiceVariableKVs []*commontypes.ServiceVariableKV `json:"service_variable_kvs"`
 }
 
@@ -659,6 +662,9 @@ func UpdatePmServiceTemplate(username string, args *ServiceTmplBuildObject, log 
 	preService.BuildName = args.Build.Name
 	preService.EnvConfigs = args.ServiceTmplObject.EnvConfigs
 	preService.EnvStatuses = args.ServiceTmplObject.EnvStatuses
+	preService.StartCmd = args.ServiceTmplObject.StartCmd
+	preService.StopCmd = args.ServiceTmplObject.StopCmd
+	preService.RestartCmd = args.ServiceTmplObject.RestartCmd
 
 	if err := commonrepo.NewServiceColl().Delete(preService.ServiceName, setting.PMDeployType, args.ServiceTmplObject.ProductName, setting.ProductStatusDeleting, preService.Revision); err != nil {
 		return err
