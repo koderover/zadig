@@ -561,7 +561,7 @@ func GetBuildTrendMeasure(startDate int64, endDate int64, productNames []string,
 	for buildStatDateMapKey := range buildStatMap {
 		buildStatDateKeys = append(buildStatDateKeys, buildStatDateMapKey)
 	}
-	sort.Sort(sort.Reverse(sort.StringSlice(buildStatDateKeys)))
+	sort.Sort(sort.StringSlice(buildStatDateKeys))
 
 	totalSuccess = 0
 	totalFailure = 0
