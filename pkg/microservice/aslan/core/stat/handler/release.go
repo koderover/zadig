@@ -1,5 +1,5 @@
 /*
-Copyright 2022 The KodeRover Authors.
+Copyright 2024 The KodeRover Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -24,44 +24,27 @@ import (
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 )
 
-type GetDeployStatArgs struct {
+func CreateMonthlyReleaseStat(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	ctx.Err = service.CreateMonthlyReleaseStat(ctx.Logger)
+}
+
+type GetReleaseDashboardArgs struct {
 	StartDate int64 `json:"startDate"      form:"startDate,default=0"`
 	EndDate   int64 `json:"endDate"        form:"endDate,default=0"`
 }
 
-func GetDeployStat(c *gin.Context) {
+func GetReleaseDashboard(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	args := new(GetDeployStatArgs)
+	args := new(GetReleaseDashboardArgs)
 	if err := c.ShouldBindQuery(args); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.GetDeployDashboard(args.StartDate, args.EndDate, []string{}, ctx.Logger)
-}
-
-type OpenAPIGetDeployStatArgs struct {
-	StartDate int64  `json:"startDate"      form:"startDate,default=0"`
-	EndDate   int64  `json:"endDate"        form:"endDate,default=0"`
-	Project   string `json:"project"        form:"projectKey"`
-}
-
-func GetDeployStatsOpenAPI(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	args := new(OpenAPIGetDeployStatArgs)
-	if err := c.ShouldBindQuery(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
-		return
-	}
-
-	projects := make([]string, 0)
-	if args.Project != "" {
-		projects = append(projects, args.Project)
-	}
-
-	ctx.Resp, ctx.Err = service.GetDeployDashboard(args.StartDate, args.EndDate, projects, ctx.Logger)
+	ctx.Resp, ctx.Err = service.GetReleaseDashboard(args.StartDate, args.EndDate, ctx.Logger)
 }

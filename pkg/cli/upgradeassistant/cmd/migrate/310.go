@@ -19,16 +19,21 @@ package migrate
 import (
 	"context"
 	"fmt"
-
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
+	"time"
 
 	"github.com/koderover/zadig/v2/pkg/cli/upgradeassistant/internal/upgradepath"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	templaterepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
+	statmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/stat/repository/models"
+	statrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/stat/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/types"
+	"github.com/koderover/zadig/v2/pkg/util"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 func init() {
@@ -43,11 +48,150 @@ func V300ToV310() error {
 		return err
 	}
 
+	log.Infof("-------- start creating deployment weekly and monthly deployment stats --------")
+	if err := migrateDeploymentWeeklyAndMonthlyStats(); err != nil {
+		log.Infof("migrate deployment weekly and monthly deployment stats err: %v", err)
+		return err
+	}
+
 	return nil
 }
 
 func V310ToV300() error {
 	return nil
+}
+
+// migrateDeploymentWeeklyAndMonthlyStats only migrate the data generated less than a year ago
+func migrateDeploymentWeeklyAndMonthlyStats() error {
+	// find all projects to do the migration
+	projects, err := templaterepo.NewProductColl().List()
+	if err != nil {
+		log.Errorf("failed to list project list to create deploy stats, error: %s", err)
+		return fmt.Errorf("failed to list project list to create deploy stats")
+	}
+
+	now := time.Now()
+	// rollback to a year ago
+	yearAgo := now.AddDate(-1, 0, 0)
+	// find the start of the first day of that month and that week
+	startOfMonth := time.Date(yearAgo.Year(), yearAgo.Month(), 1, 0, 0, 0, 0, time.Local)
+	endOfMonth := startOfMonth.AddDate(0, 1, 0).Add(-time.Second)
+	startOfWeek := util.GetMonday(yearAgo)
+	endOfWeek := startOfWeek.AddDate(0, 0, 7).Add(-time.Second)
+
+	// first do the monthly migration. if the endOfMonth is greater than now, then there is nothing to be migrated
+	for endOfMonth.Before(now) {
+		for _, project := range projects {
+			monthlyTestingDeployStat, monthlyProductionDeployStat, err := generateDeployStatByProduct(startOfMonth, endOfMonth, project.ProductName)
+			if err != nil {
+				return err
+			}
+			err = statrepo.NewMonthlyDeployStatColl().Upsert(monthlyTestingDeployStat)
+			if err != nil {
+				log.Errorf("failed to create monthly deployment stat for testing env for date: %s, project: %s, err: %s", startOfMonth.Format(config.Date), project.ProductName, err)
+				return err
+			}
+			err = statrepo.NewMonthlyDeployStatColl().Upsert(monthlyProductionDeployStat)
+			if err != nil {
+				log.Errorf("failed to create monthly deployment stat for production env for date: %s, project: %s, err: %s", startOfMonth.Format(config.Date), project.ProductName, err)
+				return err
+			}
+		}
+
+		startOfMonth = startOfMonth.AddDate(0, 1, 0)
+		endOfMonth = startOfMonth.AddDate(0, 1, 0).Add(-time.Second)
+	}
+
+	for endOfWeek.Before(now) {
+		for _, project := range projects {
+			weeklyTestingDeployStat, weeklyProductionDeployStat, err := generateDeployStatByProduct(startOfMonth, endOfMonth, project.ProductName)
+			if err != nil {
+				return err
+			}
+			err = statrepo.NewWeeklyDeployStatColl().Upsert(weeklyTestingDeployStat)
+			if err != nil {
+				log.Errorf("failed to create weekly deployment stat for testing env for date: %s, project: %s, err: %s", startOfMonth.Format(config.Date), project.ProductName, err)
+				return err
+			}
+			err = statrepo.NewWeeklyDeployStatColl().Upsert(weeklyProductionDeployStat)
+			if err != nil {
+				log.Errorf("failed to create weekly deployment stat for production env for date: %s, project: %s, err: %s", startOfMonth.Format(config.Date), project.ProductName, err)
+				return err
+			}
+		}
+
+		startOfWeek = startOfMonth.AddDate(0, 0, 7)
+		endOfWeek = startOfMonth.AddDate(0, 0, 7).Add(-time.Second)
+	}
+
+	return nil
+}
+
+// generateDeployStatByProduct generates the deployment stats counting from startTime to endTime, and marks the date of teh startTime
+func generateDeployStatByProduct(startTime, endTime time.Time, projectKey string) (testDeployStat, productionDeployStat *statmodels.WeeklyDeployStat, retErr error) {
+	testDeployStat = nil
+	productionDeployStat = nil
+
+	allDeployJobs, err := mongodb.NewJobInfoColl().GetDeployJobs(startTime.Unix(), endTime.Unix(), []string{projectKey}, config.Both)
+	if err != nil {
+		log.Errorf("failed to list deploy jobs for product: %s, error: %s", projectKey, err)
+		retErr = fmt.Errorf("failed to list deploy jobs for product: %s, error: %s", projectKey, err)
+		return
+	}
+
+	var (
+		testSuccess       = 0
+		testFailed        = 0
+		testTimeout       = 0
+		productionSuccess = 0
+		productionFailed  = 0
+		productionTimeout = 0
+	)
+
+	// count the data for both production job
+	for _, deployJob := range allDeployJobs {
+		if deployJob.Production {
+			switch deployJob.Status {
+			case string(config.StatusPassed):
+				productionSuccess++
+			case string(config.StatusFailed):
+				productionFailed++
+			case string(config.StatusTimeout):
+				productionTimeout++
+			}
+		} else {
+			switch deployJob.Status {
+			case string(config.StatusPassed):
+				testSuccess++
+			case string(config.StatusFailed):
+				testFailed++
+			case string(config.StatusTimeout):
+				testTimeout++
+			}
+		}
+	}
+
+	date := startTime.Format(config.Date)
+
+	testDeployStat = &statmodels.WeeklyDeployStat{
+		ProjectKey: projectKey,
+		Production: false,
+		Success:    testSuccess,
+		Failed:     testFailed,
+		Timeout:    testTimeout,
+		Date:       date,
+	}
+
+	productionDeployStat = &statmodels.WeeklyDeployStat{
+		ProjectKey: projectKey,
+		Production: true,
+		Success:    productionSuccess,
+		Failed:     productionFailed,
+		Timeout:    productionTimeout,
+		Date:       date,
+	}
+
+	return
 }
 
 func migrateTestingAndScaningInfraField() error {

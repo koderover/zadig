@@ -30,3 +30,12 @@ type JobInfo struct {
 func (JobInfo) TableName() string {
 	return "job_info"
 }
+
+type ServiceDeployCountWithStatus struct {
+	Production  bool   `bson:"production"   json:"production"`
+	ServiceName string `bson:"service_name" json:"service_name"`
+	ProductName string `bson:"product_name" json:"project_name"`
+	Count       int    `bson:"count"        json:"count"`
+	Success     int    `bson:"success"      json:"success,omitempty"`
+	Failed      int    `bson:"failed"       json:"failed,omitempty"`
+}

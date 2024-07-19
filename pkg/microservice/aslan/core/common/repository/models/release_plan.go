@@ -99,8 +99,8 @@ type WorkflowReleaseJobSpec struct {
 }
 
 type ReleasePlanLog struct {
-	ID         primitive.ObjectID `bson:"_id,omitempty"                  json:"id"`
-	PlanID     string             `bson:"plan_id"                    json:"plan_id"`
+	ID         primitive.ObjectID `bson:"_id,omitempty"               json:"id"`
+	PlanID     string             `bson:"plan_id"                     json:"plan_id"`
 	Username   string             `bson:"username"                    json:"username"`
 	Account    string             `bson:"account"                     json:"account"`
 	Verb       string             `bson:"verb"                        json:"verb"`

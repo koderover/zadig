@@ -16,7 +16,10 @@ limitations under the License.
 
 package service
 
-import "github.com/koderover/zadig/v2/pkg/util"
+import (
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/stat/repository/models"
+	"github.com/koderover/zadig/v2/pkg/util"
+)
 
 type OpenAPIStatV2 struct {
 	Total        int64        `json:"total"`
@@ -70,4 +73,21 @@ type StatDashboardBasicData struct {
 	TestSuccess   int64 `json:"test_success"`
 	DeployTotal   int64 `json:"deploy_total"`
 	DeploySuccess int64 `json:"deploy_success"`
+}
+
+type DeployHealthStat struct {
+	Success int `json:"success"`
+	Failure int `json:"failure"`
+}
+
+type DeployDashboard struct {
+	Total         int                        `json:"total"`
+	Success       int                        `json:"success"`
+	WeeklyDeploys []*models.WeeklyDeployStat `json:"data"`
+}
+
+type ReleaseDashboard struct {
+	Total           int                          `json:"total"`
+	AverageDuration float64                      `json:"average_duration"`
+	MonthlyRelease  []*models.MonthlyReleaseStat `json:"data"`
 }

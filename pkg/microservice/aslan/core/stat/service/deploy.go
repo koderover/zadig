@@ -24,7 +24,7 @@ import (
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
-	models "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/stat/repository/models"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/stat/repository/models"
 	repo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/stat/repository/mongodb"
 )
 
@@ -259,7 +259,7 @@ type DeployStat struct {
 }
 
 func GetProjectDeployStat(start, end int64, project string) (DeployStat, error) {
-	result, err := commonrepo.NewJobInfoColl().GetDeployJobs(start, end, project)
+	result, err := commonrepo.NewJobInfoColl().GetDeployJobs(start, end, []string{project}, config.Both)
 	if err != nil {
 		return DeployStat{}, err
 	}

@@ -33,6 +33,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	vmcommonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/vm"
 	labelMongodb "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/label/repository/mongodb"
+	statrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/stat/repository/mongodb"
 	systemrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/repository/mongodb"
 	systemservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/service"
 	templateservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/templatestore/service"
@@ -211,6 +212,9 @@ func createOrUpdateMongodbIndex(ctx context.Context) {
 
 		// vm job related db index
 		vmcommonrepo.NewVMJobColl(),
+
+		statrepo.NewWeeklyDeployStatColl(),
+		statrepo.NewMonthlyDeployStatColl(),
 	} {
 		wg.Add(1)
 		go func(r indexer) {

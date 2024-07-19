@@ -529,7 +529,7 @@ func (c *FreestyleJobCtl) SaveInfo(ctx context.Context) error {
 		}
 	}
 
-	return mongodb.NewJobInfoColl().Create(context.TODO(), &commonmodels.JobInfo{
+	jobInfo := &commonmodels.JobInfo{
 		Type:                c.job.JobType,
 		WorkflowName:        c.workflowCtx.WorkflowName,
 		WorkflowDisplayName: c.workflowCtx.WorkflowDisplayName,
@@ -539,5 +539,12 @@ func (c *FreestyleJobCtl) SaveInfo(ctx context.Context) error {
 		EndTime:             c.job.EndTime,
 		Duration:            c.job.EndTime - c.job.StartTime,
 		Status:              string(c.job.Status),
-	})
+	}
+
+	if c.job.JobType == string(config.JobZadigVMDeploy) {
+		jobInfo.ServiceName = c.jobTaskSpec.Properties.ServiceName
+		jobInfo.ServiceModule = c.jobTaskSpec.Properties.ServiceName
+	}
+
+	return mongodb.NewJobInfoColl().Create(context.TODO(), jobInfo)
 }

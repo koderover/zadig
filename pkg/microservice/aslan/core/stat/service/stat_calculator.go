@@ -287,7 +287,7 @@ type DeploySuccessRateCalculator struct {
 }
 
 func (c *DeploySuccessRateCalculator) GetFact(startTime, endTime int64, project string) (float64, bool, error) {
-	deployJobList, err := commonrepo.NewJobInfoColl().GetDeployJobs(startTime, endTime, project)
+	deployJobList, err := commonrepo.NewJobInfoColl().GetDeployJobs(startTime, endTime, []string{project}, config.Both)
 	if err != nil {
 		return 0, false, err
 	}
@@ -314,7 +314,7 @@ type DeployAverageDurationCalculator struct {
 }
 
 func (c *DeployAverageDurationCalculator) GetFact(startTime, endTime int64, project string) (float64, bool, error) {
-	deployJobList, err := commonrepo.NewJobInfoColl().GetDeployJobs(startTime, endTime, project)
+	deployJobList, err := commonrepo.NewJobInfoColl().GetDeployJobs(startTime, endTime, []string{project}, config.Both)
 	if err != nil {
 		return 0, false, err
 	}
@@ -339,7 +339,7 @@ type DeployFrequencyCalculator struct {
 }
 
 func (c *DeployFrequencyCalculator) GetFact(startTime, endTime int64, project string) (float64, bool, error) {
-	deployJobList, err := commonrepo.NewJobInfoColl().GetDeployJobs(startTime, endTime, project)
+	deployJobList, err := commonrepo.NewJobInfoColl().GetDeployJobs(startTime, endTime, []string{project}, config.Both)
 	if err != nil {
 		return 0, false, err
 	}

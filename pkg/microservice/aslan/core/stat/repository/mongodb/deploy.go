@@ -25,7 +25,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
-	models "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/stat/repository/models"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/stat/repository/models"
 	mongotool "github.com/koderover/zadig/v2/pkg/tool/mongo"
 )
 
@@ -83,6 +83,8 @@ type DeployStatColl struct {
 	coll string
 }
 
+// Deprecated: this table is removed in 3.1.0, replaced by deploy_stat_weekly. deploy_stat_weekly removed unnecessary field
+// and change the time segment to weekly.
 func NewDeployStatColl() *DeployStatColl {
 	name := models.DeployStat{}.TableName()
 	return &DeployStatColl{Collection: mongotool.Database(config.MongoDatabase()).Collection(name), coll: name}

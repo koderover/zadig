@@ -948,6 +948,8 @@ type JobProperties struct {
 	ShareStorageInfo    *ShareStorageInfo    `bson:"share_storage_info"     json:"share_storage_info"    yaml:"share_storage_info"`
 	ShareStorageDetails []*StorageDetail     `bson:"share_storage_details"  json:"share_storage_details" yaml:"-"`
 	UseHostDockerDaemon bool                 `bson:"use_host_docker_daemon,omitempty" json:"use_host_docker_daemon,omitempty" yaml:"use_host_docker_daemon"`
+	// for VM deploy to get service name to save
+	ServiceName string `bson:"service_name" json:"service_name" yaml:"service_name"`
 }
 
 type Step struct {

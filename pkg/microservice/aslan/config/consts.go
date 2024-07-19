@@ -579,3 +579,11 @@ const (
 	DefaultWorkWXApprovalControlType = "Textarea"
 	DefaultWorkWXApprovalControlID   = "Textarea-1"
 )
+
+type ProductionType string
+
+const (
+	Production = "production"
+	Testing    = "testing"
+	Both       = "both"
+)

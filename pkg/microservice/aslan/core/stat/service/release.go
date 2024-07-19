@@ -18,8 +18,12 @@ package service
 
 import (
 	"errors"
+	"fmt"
 	"time"
 
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/stat/repository/models"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/stat/repository/mongodb"
+	"github.com/koderover/zadig/v2/pkg/util"
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
@@ -115,4 +119,160 @@ func GetProjectReleaseStat(start, end int64, project string) (ReleaseStat, error
 	}
 	resp.Total = len(result)
 	return resp, nil
+}
+
+// CreateMonthlyReleaseStat creates stats for release plans.
+func CreateMonthlyReleaseStat(log *zap.SugaredLogger) error {
+	startTime := time.Date(time.Now().Year(), time.Now().Month(), 1, 0, 0, 0, 0, time.Local).AddDate(0, -1, 0)
+	endTime := startTime.AddDate(0, 1, 0).Add(-time.Second)
+
+	releasePlans, err := commonrepo.NewReleasePlanColl().ListFinishedReleasePlan(startTime.Unix(), endTime.Unix())
+	if err != nil {
+		log.Errorf("failed to list release plan to calculate the statistics, error: %s", err)
+		return fmt.Errorf("failed to list release plan to calculate the statistics, error: %s", err)
+	}
+
+	var stat *models.MonthlyReleaseStat
+
+	if len(releasePlans) == 0 {
+		stat = &models.MonthlyReleaseStat{
+			Total:                    0,
+			AverageExecutionDuration: 0,
+			AverageApprovalDuration:  0,
+			Date:                     startTime.Format(config.Date),
+			CreateTime:               time.Now().Unix(),
+			UpdateTime:               0,
+		}
+	} else {
+		var executionDuration int64
+		var approvalDuration int64
+
+		for _, releasePlan := range releasePlans {
+			executionDuration += releasePlan.SuccessTime - releasePlan.ExecutingTime
+			if releasePlan.ApprovalTime != 0 {
+				approvalDuration += releasePlan.ExecutingTime - releasePlan.ApprovalTime
+			}
+		}
+
+		var averageExecutionDuration, averageApprovalDuration float64
+
+		averageApprovalDuration = float64(approvalDuration) / float64(len(releasePlans))
+		averageExecutionDuration = float64(executionDuration) / float64(len(releasePlans))
+
+		stat = &models.MonthlyReleaseStat{
+			Total:                    len(releasePlans),
+			AverageExecutionDuration: averageExecutionDuration,
+			AverageApprovalDuration:  averageApprovalDuration,
+			Date:                     startTime.Format(config.Date),
+			CreateTime:               time.Now().Unix(),
+			UpdateTime:               0,
+		}
+	}
+
+	err = mongodb.NewMonthlyReleaseStatColl().Upsert(stat)
+	if err != nil {
+		log.Errorf("failed to save monthly release data into mongodb for date: %s, error: %s", startTime.Format(config.Date), err)
+		return fmt.Errorf("failed to save monthly release data into mongodb for date: %s, error: %s", startTime.Format(config.Date), err)
+	}
+
+	return nil
+}
+
+func GetReleaseDashboard(startTime, endTime int64, log *zap.SugaredLogger) (*ReleaseDashboard, error) {
+	monthlyTrend, err := GetReleaseMonthlyTrend(startTime, endTime, log)
+	if err != nil {
+		log.Errorf("failed to get weekly trend, error: %s", err)
+		return nil, err
+	}
+
+	resp := &ReleaseDashboard{
+		MonthlyRelease: monthlyTrend,
+	}
+
+	releasePlans, err := commonrepo.NewReleasePlanColl().ListFinishedReleasePlan(0, 0)
+	if err != nil {
+		log.Errorf("failed to list release plan to calculate the statistics, error: %s", err)
+		return nil, fmt.Errorf("failed to list release plan to calculate the statistics, error: %s", err)
+	}
+
+	if len(releasePlans) == 0 {
+		resp.AverageDuration = 0
+		resp.Total = 0
+	} else {
+		var executionDuration int64
+
+		for _, releasePlan := range releasePlans {
+			executionDuration += releasePlan.SuccessTime - releasePlan.ExecutingTime
+		}
+
+		var averageExecutionDuration float64
+
+		averageExecutionDuration = float64(executionDuration) / float64(len(releasePlans))
+
+		resp.AverageDuration = averageExecutionDuration
+		resp.Total = len(releasePlans)
+	}
+
+	return resp, nil
+}
+
+func GetReleaseMonthlyTrend(startTime, endTime int64, log *zap.SugaredLogger) ([]*models.MonthlyReleaseStat, error) {
+	// first get weekly stats
+	monthlyStats, err := mongodb.NewMonthlyReleaseStatColl().List(startTime, endTime)
+	if err != nil {
+		log.Errorf("failed to get weekly deploy trend, error: %s", err)
+		return nil, fmt.Errorf("failed to get weekly deploy trend, error: %s", err)
+	}
+
+	// then calculate the start time of this week, append it to the end of the array
+	firstDayOfMonth := util.GetFirstOfMonthDay(time.Now())
+
+	releasePlans, err := commonrepo.NewReleasePlanColl().ListFinishedReleasePlan(firstDayOfMonth, time.Now().Unix())
+	if err != nil {
+		log.Errorf("failed to list release plans to calculate current month stats, error: %s", err)
+		return nil, fmt.Errorf("failed to list release plans to calculate current month stats, error: %s", err)
+	}
+
+	var stat *models.MonthlyReleaseStat
+
+	date := time.Unix(firstDayOfMonth, 0).Format(config.Date)
+
+	if len(releasePlans) == 0 {
+		stat = &models.MonthlyReleaseStat{
+			Total:                    0,
+			AverageExecutionDuration: 0,
+			AverageApprovalDuration:  0,
+			Date:                     date,
+			CreateTime:               time.Now().Unix(),
+			UpdateTime:               0,
+		}
+	} else {
+		var executionDuration int64
+		var approvalDuration int64
+
+		for _, releasePlan := range releasePlans {
+			executionDuration += releasePlan.SuccessTime - releasePlan.ExecutingTime
+			if releasePlan.ApprovalTime != 0 {
+				approvalDuration += releasePlan.ExecutingTime - releasePlan.ApprovalTime
+			}
+		}
+
+		var averageExecutionDuration, averageApprovalDuration float64
+
+		averageApprovalDuration = float64(approvalDuration) / float64(len(releasePlans))
+		averageExecutionDuration = float64(executionDuration) / float64(len(releasePlans))
+
+		stat = &models.MonthlyReleaseStat{
+			Total:                    len(releasePlans),
+			AverageExecutionDuration: averageExecutionDuration,
+			AverageApprovalDuration:  averageApprovalDuration,
+			Date:                     date,
+			CreateTime:               time.Now().Unix(),
+			UpdateTime:               0,
+		}
+	}
+
+	monthlyStats = append(monthlyStats, stat)
+
+	return monthlyStats, nil
 }
