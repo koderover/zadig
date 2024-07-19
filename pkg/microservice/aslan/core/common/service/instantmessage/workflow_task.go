@@ -141,11 +141,9 @@ func (w *Service) SendWorkflowTaskNotifications(task *models.WorkflowTask) error
 								log.Errorf("failed to find user %s, error: %s", task.TaskCreatorID, err)
 								break
 							}
-							notify.MailUsers = append(notify.MailUsers, &models.User{
-								Type:     "user",
-								UserID:   userInfo.Uid,
-								UserName: userInfo.Name,
-							})
+							user.Type = "user"
+							user.UserID = userInfo.Uid
+							user.UserName = userInfo.Name
 							break
 						}
 					}
