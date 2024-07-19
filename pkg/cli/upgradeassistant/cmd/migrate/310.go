@@ -48,8 +48,14 @@ func V300ToV310() error {
 		return err
 	}
 
-	log.Infof("-------- start creating deployment weekly and monthly deployment stats --------")
+	log.Infof("-------- start creating weekly and monthly deployment stats --------")
 	if err := migrateDeploymentWeeklyAndMonthlyStats(); err != nil {
+		log.Infof("migrate deployment weekly and monthly deployment stats err: %v", err)
+		return err
+	}
+
+	log.Infof("-------- start creating monthly release stats --------")
+	if err := migrateReleaseMonthlyStats(); err != nil {
 		log.Infof("migrate deployment weekly and monthly deployment stats err: %v", err)
 		return err
 	}
@@ -127,7 +133,36 @@ func migrateDeploymentWeeklyAndMonthlyStats() error {
 	return nil
 }
 
-// generateDeployStatByProduct generates the deployment stats counting from startTime to endTime, and marks the date of teh startTime
+// migrateReleaseMonthlyStats only migrate the data generated less than a year ago
+func migrateReleaseMonthlyStats() error {
+	now := time.Now()
+	// rollback to a year ago
+	yearAgo := now.AddDate(-1, 0, 0)
+	// find the start of the first day of that month and that week
+	startOfMonth := time.Date(yearAgo.Year(), yearAgo.Month(), 1, 0, 0, 0, 0, time.Local)
+	endOfMonth := startOfMonth.AddDate(0, 1, 0).Add(-time.Second)
+
+	// first do the monthly migration. if the endOfMonth is greater than now, then there is nothing to be migrated
+	for endOfMonth.Before(now) {
+		monthlyReleaseStat, err := generateReleaseStat(startOfMonth, endOfMonth)
+		if err != nil {
+			return err
+		}
+
+		err = statrepo.NewMonthlyReleaseStatColl().Upsert(monthlyReleaseStat)
+		if err != nil {
+			log.Errorf("failed to create monthly release stat date: %s, err: %s", startOfMonth.Format(config.Date), err)
+			return err
+		}
+
+		startOfMonth = startOfMonth.AddDate(0, 1, 0)
+		endOfMonth = startOfMonth.AddDate(0, 1, 0).Add(-time.Second)
+	}
+
+	return nil
+}
+
+// generateDeployStatByProduct generates the deployment stats counting from startTime to endTime, and marks the date of the startTime
 func generateDeployStatByProduct(startTime, endTime time.Time, projectKey string) (testDeployStat, productionDeployStat *statmodels.WeeklyDeployStat, retErr error) {
 	testDeployStat = nil
 	productionDeployStat = nil
@@ -192,6 +227,54 @@ func generateDeployStatByProduct(startTime, endTime time.Time, projectKey string
 	}
 
 	return
+}
+
+// generateReleaseStat generates the release stats counting from startTime to endTime
+func generateReleaseStat(startTime, endTime time.Time) (*statmodels.MonthlyReleaseStat, error) {
+	releasePlans, err := mongodb.NewReleasePlanColl().ListFinishedReleasePlan(startTime.Unix(), endTime.Unix())
+	if err != nil {
+		log.Errorf("failed to list release plan to calculate the statistics, error: %s", err)
+		return nil, fmt.Errorf("failed to list release plan to calculate the statistics, error: %s", err)
+	}
+
+	var stat *statmodels.MonthlyReleaseStat
+
+	if len(releasePlans) == 0 {
+		stat = &statmodels.MonthlyReleaseStat{
+			Total:                    0,
+			AverageExecutionDuration: 0,
+			AverageApprovalDuration:  0,
+			Date:                     startTime.Format(config.Date),
+			CreateTime:               time.Now().Unix(),
+			UpdateTime:               0,
+		}
+	} else {
+		var executionDuration int64
+		var approvalDuration int64
+
+		for _, releasePlan := range releasePlans {
+			executionDuration += releasePlan.SuccessTime - releasePlan.ExecutingTime
+			if releasePlan.ApprovalTime != 0 {
+				approvalDuration += releasePlan.ExecutingTime - releasePlan.ApprovalTime
+			}
+		}
+
+		var averageExecutionDuration, averageApprovalDuration float64
+
+		averageApprovalDuration = float64(approvalDuration) / float64(len(releasePlans))
+		averageExecutionDuration = float64(executionDuration) / float64(len(releasePlans))
+
+		stat = &statmodels.MonthlyReleaseStat{
+			Total:                    len(releasePlans),
+			AverageExecutionDuration: averageExecutionDuration,
+			AverageApprovalDuration:  averageApprovalDuration,
+			Date:                     startTime.Format(config.Date),
+			CreateTime:               time.Now().Unix(),
+			UpdateTime:               0,
+		}
+	}
+
+	return stat, nil
 }
 
 func migrateTestingAndScaningInfraField() error {
