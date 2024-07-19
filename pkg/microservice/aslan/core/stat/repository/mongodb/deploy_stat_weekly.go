@@ -111,8 +111,7 @@ func (c *WeeklyDeployStatColl) CalculateStat(startTime, endTime int64, projects 
 	pipeline = append(pipeline, bson.M{
 		"$group": bson.M{
 			"_id": bson.M{
-				"production": "$production",
-				"date":       "$date",
+				"date": "$date",
 			},
 			"total_success": bson.M{
 				"$sum": "$success",
@@ -128,12 +127,11 @@ func (c *WeeklyDeployStatColl) CalculateStat(startTime, endTime int64, projects 
 
 	pipeline = append(pipeline, bson.M{
 		"$project": bson.M{
-			"_id":        0,
-			"production": "$_id.production",
-			"date":       "$_id.date",
-			"success":    "$total_success",
-			"failed":     "$total_failed",
-			"timeout":    "$total_timeout",
+			"_id":     0,
+			"date":    "$_id.date",
+			"success": "$total_success",
+			"failed":  "$total_failed",
+			"timeout": "$total_timeout",
 		},
 	})
 

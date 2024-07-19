@@ -72,8 +72,8 @@ func (*Router) Inject(router *gin.RouterGroup) {
 
 	dashboardV2 := v2.Group("dashboard")
 	{
-		dashboardV2.GET("/dashboard", GetStatsDashboard)
-		dashboardV2.GET("/dashboard/general", GetStatsDashboardGeneralData)
+		dashboardV2.GET("", GetStatsDashboard)
+		dashboardV2.GET("/general", GetStatsDashboardGeneralData)
 	}
 
 	aiV2 := v2.Group("ai")

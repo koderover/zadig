@@ -67,12 +67,14 @@ type StatDashboardItem struct {
 }
 
 type StatDashboardBasicData struct {
-	BuildTotal    int64 `json:"build_total"`
-	BuildSuccess  int64 `json:"build_success"`
-	TestTotal     int64 `json:"test_total"`
-	TestSuccess   int64 `json:"test_success"`
-	DeployTotal   int64 `json:"deploy_total"`
-	DeploySuccess int64 `json:"deploy_success"`
+	BuildTotal              int64 `json:"build_total"`
+	BuildSuccess            int64 `json:"build_success"`
+	TestTotal               int64 `json:"test_total"`
+	TestSuccess             int64 `json:"test_success"`
+	DeployTotal             int64 `json:"deploy_total"`
+	DeploySuccess           int64 `json:"deploy_success"`
+	ProductionDeployTotal   int64 `json:"production_deploy_total"`
+	ProductionDeploySuccess int64 `json:"production_deploy_success"`
 }
 
 type DeployHealthStat struct {

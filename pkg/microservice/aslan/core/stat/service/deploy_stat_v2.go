@@ -225,34 +225,24 @@ func GetDeployWeeklyTrend(startTime, endTime int64, projects []string, productio
 	switch production {
 	case config.Production:
 		weeklystats = append(weeklystats, &models.WeeklyDeployStat{
-			Production: true,
-			Success:    productionSuccess,
-			Failed:     productionFailed,
-			Timeout:    productionTimeout,
-			Date:       date,
+			Success: productionSuccess,
+			Failed:  productionFailed,
+			Timeout: productionTimeout,
+			Date:    date,
 		})
 	case config.Testing:
 		weeklystats = append(weeklystats, &models.WeeklyDeployStat{
-			Production: false,
-			Success:    testSuccess,
-			Failed:     testFailed,
-			Timeout:    testTimeout,
-			Date:       date,
+			Success: testSuccess,
+			Failed:  testFailed,
+			Timeout: testTimeout,
+			Date:    date,
 		})
 	case config.Both:
 		weeklystats = append(weeklystats, &models.WeeklyDeployStat{
-			Production: true,
-			Success:    productionSuccess,
-			Failed:     productionFailed,
-			Timeout:    productionTimeout,
-			Date:       date,
-		})
-		weeklystats = append(weeklystats, &models.WeeklyDeployStat{
-			Production: false,
-			Success:    testSuccess,
-			Failed:     testFailed,
-			Timeout:    testTimeout,
-			Date:       date,
+			Success: productionSuccess + testSuccess,
+			Failed:  productionFailed + testFailed,
+			Timeout: productionTimeout + testTimeout,
+			Date:    date,
 		})
 	default:
 		return nil, fmt.Errorf("invlid production type: %s", production)

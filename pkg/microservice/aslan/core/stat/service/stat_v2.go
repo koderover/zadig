@@ -246,11 +246,23 @@ func GetStatsDashboard(startTime, endTime int64, projectList []string, logger *z
 }
 
 func GetStatsDashboardGeneralData(startTime, endTime int64, logger *zap.SugaredLogger) (*StatDashboardBasicData, error) {
-	totalDeploySuccess, totalDeployFailure, err := repo.NewDeployStatColl().GetDeployTotalAndSuccessByTime(startTime, endTime)
+	totalDeployStats, err := commonrepo.NewJobInfoColl().GetDeployJobsStats(0, 0, []string{}, config.Both)
 	if err != nil {
-		logger.Errorf("failed to get total and success deploy count, error: %s", err)
+		logger.Errorf("failed to get total deployment count, error: %s", err)
 		return nil, err
 	}
+
+	var deployTotal, deploySuccess, productionDeployTotal, productionDeploySuccess int64
+	for _, deployStat := range totalDeployStats {
+		if deployStat.Production {
+			productionDeployTotal += int64(deployStat.Count)
+			productionDeploySuccess += int64(deployStat.Success)
+		} else {
+			deployTotal += int64(deployStat.Count)
+			deploySuccess += int64(deployStat.Success)
+		}
+	}
+
 	totalBuildSuccess, totalBuildFailure, err := repo.NewBuildStatColl().GetBuildTotalAndSuccessByTime(startTime, endTime)
 	if err != nil {
 		logger.Errorf("failed to get total and success build count, error: %s", err)
@@ -270,12 +282,14 @@ func GetStatsDashboardGeneralData(startTime, endTime int64, logger *zap.SugaredL
 		}
 	}
 	return &StatDashboardBasicData{
-		BuildTotal:    totalBuildSuccess + totalBuildFailure,
-		BuildSuccess:  totalBuildSuccess,
-		TestTotal:     int64(totalTestExecution),
-		TestSuccess:   int64(totalTestSuccess),
-		DeployTotal:   totalDeploySuccess + totalDeployFailure,
-		DeploySuccess: totalDeploySuccess,
+		BuildTotal:              totalBuildSuccess + totalBuildFailure,
+		BuildSuccess:            totalBuildSuccess,
+		TestTotal:               int64(totalTestExecution),
+		TestSuccess:             int64(totalTestSuccess),
+		DeployTotal:             deployTotal,
+		DeploySuccess:           deploySuccess,
+		ProductionDeployTotal:   productionDeployTotal,
+		ProductionDeploySuccess: productionDeploySuccess,
 	}, nil
 }
 
