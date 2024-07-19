@@ -83,7 +83,7 @@ func (c *MonthlyReleaseStatColl) List(startTime, endTime int64) ([]*models.Month
 		timeQuery["$gte"] = startTime
 	}
 	if endTime > 0 {
-		timeQuery["lt"] = endTime
+		timeQuery["$lt"] = endTime
 	}
 
 	if startTime > 0 || endTime > 0 {
