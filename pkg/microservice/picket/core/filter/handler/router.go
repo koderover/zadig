@@ -52,13 +52,6 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	{
 		downloads.GET("", GetKubeConfig)
 	}
-	stat := router.Group("stat")
-	{
-		stat.GET("dashboard/overview", Overview)
-		stat.GET("dashboard/deploy", Deploy)
-		stat.GET("dashboard/test", Test)
-		stat.GET("dashboard/build", Build)
-	}
 	testing := router.Group("testing")
 	{
 		testing.GET("", ListTestings)
