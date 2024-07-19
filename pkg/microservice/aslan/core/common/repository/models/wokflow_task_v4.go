@@ -40,6 +40,7 @@ type WorkflowTask struct {
 	GlobalContext       map[string]string             `bson:"global_context"            json:"global_context"`
 	ClusterIDMap        map[string]bool               `bson:"cluster_id_map"            json:"cluster_id_map"`
 	Status              config.Status                 `bson:"status"                    json:"status,omitempty"`
+	Remark              string                        `bson:"remark"                    json:"remark"`
 	TaskCreator         string                        `bson:"task_creator"              json:"task_creator,omitempty"`
 	TaskCreatorID       string                        `bson:"task_creator_id"           json:"task_creator_id,omitempty"`
 	TaskCreatorPhone    string                        `bson:"task_creator_phone"        json:"task_creator_phone"`
@@ -120,6 +121,7 @@ type WorkflowTaskPreview struct {
 	ProjectName         string          `bson:"project_name"          json:"project_name"`
 	WorkflowName        string          `bson:"workflow_name"         json:"workflow_name"`
 	WorkflowDisplayName string          `bson:"workflow_display_name" json:"workflow_display_name"`
+	Remark              string          `bson:"remark"                json:"remark"`
 	Status              config.Status   `bson:"status"                json:"status"`
 	CreateTime          int64           `bson:"create_time"           json:"create_time,omitempty"`
 	StartTime           int64           `bson:"start_time"            json:"start_time,omitempty"`
@@ -632,6 +634,7 @@ type WorkflowTaskCtx struct {
 	WorkflowDisplayName         string
 	ProjectName                 string
 	TaskID                      int64
+	Remark                      string
 	DockerHost                  string
 	Workspace                   string
 	DistDir                     string

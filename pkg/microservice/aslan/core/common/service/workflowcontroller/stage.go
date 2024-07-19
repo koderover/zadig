@@ -228,8 +228,8 @@ func waitForLarkApprove(ctx context.Context, stage *commonmodels.StageTask, work
 	if stage.Approval.Description != "" {
 		descForm = fmt.Sprintf("\n描述: %s", stage.Approval.Description)
 	}
-	formContent := fmt.Sprintf("项目名称: %s\n工作流名称: %s\n阶段名称: %s%s\n\n更多详见: %s",
-		workflowCtx.ProjectName, workflowCtx.WorkflowDisplayName, stage.Name, descForm, detailURL)
+	formContent := fmt.Sprintf("项目名称: %s\n工作流名称: %s\n阶段名称: %s%s\n备注: %s\n\n更多详见: %s",
+		workflowCtx.ProjectName, workflowCtx.WorkflowDisplayName, stage.Name, descForm, workflowCtx.Remark, detailURL)
 
 	var userID string
 	if approval.DefaultApprovalInitiator == nil {
@@ -419,8 +419,8 @@ func waitForDingTalkApprove(ctx context.Context, stage *commonmodels.StageTask, 
 	if stage.Approval.Description != "" {
 		descForm = fmt.Sprintf("\n描述: %s", stage.Approval.Description)
 	}
-	formContent := fmt.Sprintf("项目名称: %s\n工作流名称: %s\n阶段名称: %s%s\n\n更多详见: %s",
-		workflowCtx.ProjectName, workflowCtx.WorkflowDisplayName, stage.Name, descForm, detailURL)
+	formContent := fmt.Sprintf("项目名称: %s\n工作流名称: %s\n阶段名称: %s%s\n\n备注: %s\n\n更多详见: %s",
+		workflowCtx.ProjectName, workflowCtx.WorkflowDisplayName, stage.Name, descForm, workflowCtx.Remark, detailURL)
 
 	var userID string
 	if approval.DefaultApprovalInitiator == nil {
@@ -593,8 +593,8 @@ func waitForWorkWXApprove(ctx context.Context, stage *commonmodels.StageTask, wo
 	if stage.Approval.Description != "" {
 		descForm = fmt.Sprintf("\n描述: %s", stage.Approval.Description)
 	}
-	formContent := fmt.Sprintf("项目名称: %s\n\n工作流名称: %s\n\n阶段名称: %s%s\n\n更多详见: %s",
-		workflowCtx.ProjectName, workflowCtx.WorkflowDisplayName, stage.Name, descForm, detailURL)
+	formContent := fmt.Sprintf("项目名称: %s\n\n工作流名称: %s\n\n阶段名称: %s%s\n备注: %s\n\n更多详见: %s",
+		workflowCtx.ProjectName, workflowCtx.WorkflowDisplayName, stage.Name, descForm, workflowCtx.Remark, detailURL)
 
 	var applicant string
 	if approval.CreatorUser != nil {
