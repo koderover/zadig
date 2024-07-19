@@ -628,7 +628,7 @@ func (c *TaskColl) ListAllTasks(option *ListAllTaskOption) ([]*task.Task, error)
 			{"end_time", 1},
 			{"type", 1},
 		}
-		opt.SetProjection(projection).SetSort(bson.D{{"create_time", -1}}).SetSkip(int64(option.Skip)).SetLimit(int64(option.Limit))
+		opt.SetProjection(projection).SetSort(bson.D{{"create_time", 1}}).SetSkip(int64(option.Skip)).SetLimit(int64(option.Limit))
 	}
 
 	cursor, err := c.Collection.Find(context.TODO(), query, opt)
