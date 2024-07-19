@@ -215,6 +215,7 @@ func createOrUpdateMongodbIndex(ctx context.Context) {
 
 		statrepo.NewWeeklyDeployStatColl(),
 		statrepo.NewMonthlyDeployStatColl(),
+		statrepo.NewMonthlyReleaseStatColl(),
 	} {
 		wg.Add(1)
 		go func(r indexer) {
