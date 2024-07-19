@@ -17,6 +17,7 @@ limitations under the License.
 package service
 
 import (
+	"fmt"
 	"sort"
 	"time"
 
@@ -42,41 +43,36 @@ type dashboardBuildDaily struct {
 }
 
 func GetBuildTotalAndSuccess(args *models.BuildStatOption, log *zap.SugaredLogger) (*dashboardBuild, error) {
-	var (
-		dashboardBuild       = new(dashboardBuild)
-		dashboardBuildDailys = make([]*dashboardBuildDaily, 0)
-		total                = 0
-		success              = 0
-	)
-	if buildItems, err := repo.NewBuildStatColl().GetBuildTotalAndSuccess(); err == nil {
-		for _, buildItem := range buildItems {
-			success += buildItem.TotalSuccess
-			total += buildItem.TotalBuildCount
-		}
-		dashboardBuild.Success = success
-		dashboardBuild.Total = total
-	} else {
-		log.Errorf("Failed to getBuildTotalAndSuccess err:%s", err)
+	buildWeeklyTrend, err := GetBuildTrendMeasure(args.StartDate, args.EndDate, []string{}, log)
+	if err != nil {
+		log.Errorf("failed to get weekly build trend, error: %s", err)
 		return nil, err
 	}
 
-	if buildDailyItems, err := repo.NewBuildStatColl().GetBuildDailyTotal(args); err == nil {
-		sort.SliceStable(buildDailyItems, func(i, j int) bool { return buildDailyItems[i].Date < buildDailyItems[j].Date })
-		for _, buildDailyItem := range buildDailyItems {
-			dashboardBuildDaily := new(dashboardBuildDaily)
-			dashboardBuildDaily.Date = buildDailyItem.Date
-			dashboardBuildDaily.Success = buildDailyItem.TotalSuccess
-			dashboardBuildDaily.Failure = buildDailyItem.TotalFailure
-			dashboardBuildDaily.Total = buildDailyItem.TotalBuildCount
+	weeklyBuildData := make([]*dashboardBuildDaily, 0)
 
-			dashboardBuildDailys = append(dashboardBuildDailys, dashboardBuildDaily)
-		}
-		dashboardBuild.DashboardBuildDailys = dashboardBuildDailys
-	} else {
-		log.Errorf("Failed to getDeployDailyTotal err:%s", err)
-		return nil, err
+	for _, weeklyData := range buildWeeklyTrend.Sum {
+		weeklyBuildData = append(weeklyBuildData, &dashboardBuildDaily{
+			Date:    time.Unix(weeklyData.Day, 0).Format(config.Date),
+			Success: weeklyData.Success,
+			Failure: weeklyData.Failure + weeklyData.Timeout,
+			Total:   weeklyData.Success + weeklyData.Failure + weeklyData.Timeout,
+		})
 	}
-	return dashboardBuild, nil
+
+	buildJobStat, err := commonrepo.NewJobInfoColl().GetBuildJobsStats(0, 0, []string{})
+	if err != nil {
+		log.Errorf("failed to get total build job stats, error: %s", err)
+		return nil, fmt.Errorf("failed to get total build job stats, error: %s", err)
+	}
+
+	resp := &dashboardBuild{
+		Total:                buildJobStat.Count,
+		Success:              buildJobStat.Success,
+		DashboardBuildDailys: weeklyBuildData,
+	}
+
+	return resp, nil
 }
 
 func GetBuildStats(args *models.BuildStatOption, log *zap.SugaredLogger) (*dashboardBuild, error) {

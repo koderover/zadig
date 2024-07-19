@@ -148,6 +148,67 @@ func (c *JobInfoColl) GetBuildJobs(startTime, endTime int64, projectName string)
 	return resp, err
 }
 
+func (c *JobInfoColl) GetBuildJobsStats(startTime, endTime int64, projectNames []string) (*models.ServiceDeployCountWithStatus, error) {
+	query := bson.M{}
+	if startTime > 0 && endTime > 0 {
+		query["start_time"] = bson.M{"$gte": startTime, "$lt": endTime}
+	}
+	query["type"] = config.JobZadigBuild
+
+	if len(projectNames) != 0 {
+		query["product_name"] = bson.M{"$in": projectNames}
+	}
+
+	pipeline := make([]bson.M, 0)
+	// find all the deployment jobs
+	pipeline = append(pipeline, bson.M{
+		"$match": query,
+	})
+
+	// group them by project, production and service and get the count of all/failed/success jobs
+	pipeline = append(pipeline, bson.M{
+		"$group": bson.M{
+			"_id":   1,
+			"count": bson.M{"$sum": 1},
+			"success": bson.M{"$sum": bson.M{
+				"cond": bson.A{
+					bson.M{"if": bson.D{{"$eq", bson.A{"$status", "passed"}}}},
+					bson.M{"then": 1},
+					bson.M{"else": 0},
+				},
+			}},
+			"failed": bson.M{"$sum": bson.M{
+				"cond": bson.A{
+					bson.M{"if": bson.D{{"$eq", bson.A{"$status", bson.A{"timeout", "failed"}}}}},
+					bson.M{"then": 1},
+					bson.M{"else": 0},
+				},
+			}},
+		},
+	})
+
+	// then do a projection returning all the field back to its position
+	pipeline = append(pipeline, bson.M{
+		"$project": bson.M{
+			"_id":     0,
+			"count":   1,
+			"success": 1,
+			"failed":  1,
+		},
+	})
+
+	cursor, err := c.Aggregate(context.TODO(), pipeline)
+	if err != nil {
+		return nil, err
+	}
+
+	result := new(models.ServiceDeployCountWithStatus)
+	if err := cursor.Decode(&result); err != nil {
+		return nil, err
+	}
+	return result, err
+}
+
 func (c *JobInfoColl) GetDeployJobs(startTime, endTime int64, projectNames []string, productionType config.ProductionType) ([]*models.JobInfo, error) {
 	query := bson.M{}
 	query["start_time"] = bson.M{"$gte": startTime, "$lt": endTime}
