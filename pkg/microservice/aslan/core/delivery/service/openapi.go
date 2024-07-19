@@ -260,6 +260,7 @@ type OpenAPIDeliveryVersionImageData struct {
 	ContainerName string `json:"container_name"`
 	ImageName     string `json:"image_name"`
 	ImageTag      string `json:"image_tag"`
+	Selected      bool   `json:"selected"`
 }
 
 func OpenAPICreateK8SDeliveryVersion(openAPIReq *OpenAPICreateK8SDeliveryVersionRequest) error {
@@ -293,7 +294,7 @@ func OpenAPICreateK8SDeliveryVersion(openAPIReq *OpenAPICreateK8SDeliveryVersion
 				Image:         image,
 				ImageName:     openAPIImageData.ImageName,
 				ImageTag:      openAPIImageData.ImageTag,
-				Selected:      true,
+				Selected:      openAPIImageData.Selected,
 			})
 		}
 
@@ -365,7 +366,7 @@ func OpenAPICreateHelmDeliveryVersion(openAPIReq *OpenAPICreateHelmDeliveryVersi
 				ContainerName: openAPIImageData.ContainerName,
 				ImageName:     openAPIImageData.ImageName,
 				ImageTag:      openAPIImageData.ImageTag,
-				Selected:      true,
+				Selected:      openAPIImageData.Selected,
 			})
 		}
 
