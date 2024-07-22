@@ -341,6 +341,7 @@ func (c *JobInfoColl) GetTopDeployedService(startTime, endTime int64, projectNam
 			string(config.JobZadigHelmDeploy),
 			string(config.JobZadigVMDeploy),
 		}},
+		"service_name": bson.M{"$ne": ""},
 	}
 
 	switch productionType {
@@ -431,6 +432,7 @@ func (c *JobInfoColl) GetTopDeployFailedService(startTime, endTime int64, projec
 			string(config.JobZadigHelmDeploy),
 			string(config.JobZadigVMDeploy),
 		}},
+		"service_name": bson.M{"$ne": ""},
 	}
 
 	switch productionType {
