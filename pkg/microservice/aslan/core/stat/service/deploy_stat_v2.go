@@ -152,7 +152,6 @@ func GetDeployHeathStats(startTime, endTime int64, projects []string, production
 }
 
 func GetTopDeployedService(startTime, endTime int64, projects []string, top int, production config.ProductionType, log *zap.SugaredLogger) ([]*commonmodels.ServiceDeployCountWithStatus, error) {
-	fmt.Printf(">>>>>>>>>>>>>>> projects length is: %d\n <<<<<<<<<<<<<<<<<<<<", len(projects))
 	deployJobs, err := commonrepo.NewJobInfoColl().GetTopDeployedService(startTime, endTime, projects, production, top)
 	if err != nil {
 		log.Errorf("failed to get top deploy jobs, error: %s", err)
