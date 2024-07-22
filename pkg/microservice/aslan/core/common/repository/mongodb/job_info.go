@@ -354,7 +354,7 @@ func (c *JobInfoColl) GetTopDeployedService(startTime, endTime int64, projectNam
 		return nil, fmt.Errorf("invlid production type: %s", productionType)
 	}
 
-	if len(projectNames) != 0 {
+	if len(projectNames) > 0 {
 		query["product_name"] = bson.M{"$in": projectNames}
 	}
 
