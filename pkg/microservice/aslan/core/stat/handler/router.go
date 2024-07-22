@@ -89,7 +89,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 
 	releaseV2 := v2.Group("release")
 	{
-		releaseV2.POST("/stat/monthly", CreateMonthlyReleaseStat)
+		releaseV2.POST("/monthly", CreateMonthlyReleaseStat)
 	}
 
 	qualityV2 := v2.Group("quality")
