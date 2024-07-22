@@ -179,7 +179,7 @@ func (c *JobInfoColl) GetBuildJobsStats(startTime, endTime int64, projectNames [
 			}},
 			"failed": bson.M{"$sum": bson.M{
 				"$cond": bson.D{
-					{"if", bson.D{{"$eq", bson.A{"$status", bson.A{"timeout", "failed"}}}}},
+					{"if", bson.D{{"$in", bson.A{"$status", bson.A{"timeout", "failed"}}}}},
 					{"then", 1},
 					{"else", 0},
 				},
@@ -300,7 +300,7 @@ func (c *JobInfoColl) GetDeployJobsStats(startTime, endTime int64, projectNames 
 			}},
 			"failed": bson.M{"$sum": bson.M{
 				"$cond": bson.D{
-					{"if", bson.D{{"$eq", bson.A{"$status", bson.A{"timeout", "failed"}}}}},
+					{"if", bson.D{{"$in", bson.A{"$status", bson.A{"timeout", "failed"}}}}},
 					{"then", 1},
 					{"else", 0},
 				},
@@ -378,7 +378,7 @@ func (c *JobInfoColl) GetTopDeployedService(startTime, endTime int64, projectNam
 			}},
 			"failed": bson.M{"$sum": bson.M{
 				"$cond": bson.D{
-					{"if", bson.D{{"$eq", bson.A{"$status", bson.A{"timeout", "failed"}}}}},
+					{"if", bson.D{{"$in", bson.A{"$status", bson.A{"timeout", "failed"}}}}},
 					{"then", 1},
 					{"else", 0},
 				},
@@ -457,7 +457,7 @@ func (c *JobInfoColl) GetTopDeployFailedService(startTime, endTime int64, projec
 			},
 			"count": bson.M{"$sum": bson.M{
 				"$cond": bson.D{
-					{"if", bson.D{{"$eq", bson.A{"$status", bson.A{"timeout", "failed"}}}}},
+					{"if", bson.D{{"$in", bson.A{"$status", bson.A{"timeout", "failed"}}}}},
 					{"then", 1},
 					{"else", 0},
 				},
