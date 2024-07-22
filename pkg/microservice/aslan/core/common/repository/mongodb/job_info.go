@@ -490,7 +490,24 @@ func (c *JobInfoColl) GetTopDeployFailedService(startTime, endTime int64, projec
 	pipeline = append(pipeline, bson.M{
 		"$limit": top,
 	})
+	pipeline = append(pipeline, bson.M{
+		"$lookup": bson.D{
+			{"from", "template_product"},
+			{"localField", "product_name"},
+			{"foreignField", "product_name"},
+			{"as", "template_product_info"},
+		},
+	})
 
+	pipeline = append(pipeline, bson.M{
+		"$unwind": "$template_product_info",
+	})
+
+	pipeline = append(pipeline, bson.M{
+		"$addFields": bson.M{
+			"project_name": bson.M{"$first": "$template_product_info.project_name"},
+		},
+	})
 	cursor, err := c.Aggregate(context.TODO(), pipeline)
 	if err != nil {
 		return nil, err

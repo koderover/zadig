@@ -32,10 +32,11 @@ func (JobInfo) TableName() string {
 }
 
 type ServiceDeployCountWithStatus struct {
-	Production  bool   `bson:"production"   json:"production"`
-	ServiceName string `bson:"service_name" json:"service_name"`
-	ProductName string `bson:"product_name" json:"project_name"`
-	Count       int    `bson:"count"        json:"count"`
-	Success     int    `bson:"success"      json:"success"`
-	Failed      int    `bson:"failed"       json:"failed"`
+	Production  bool   `bson:"production"             json:"production"`
+	ServiceName string `bson:"service_name"           json:"service_name"`
+	ProductName string `bson:"product_name"           json:"project_key"`
+	ProjectName string `bson:"project_name,omitempty" json:"project_name,omitempty"`
+	Count       int    `bson:"count"                  json:"count"`
+	Success     int    `bson:"success"                json:"success"`
+	Failed      int    `bson:"failed"                 json:"failed"`
 }
