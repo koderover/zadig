@@ -476,7 +476,7 @@ func GetTestTrendMeasure(startDate, endDate int64, productNames []string, log *z
 	for testStatDateMapKey := range testStatMap {
 		testStatDateKeys = append(testStatDateKeys, testStatDateMapKey)
 	}
-	sort.Sort(sort.Reverse(sort.StringSlice(testStatDateKeys)))
+	sort.Sort(sort.StringSlice(testStatDateKeys))
 
 	totalSuccess = 0
 	totalFailure = 0
