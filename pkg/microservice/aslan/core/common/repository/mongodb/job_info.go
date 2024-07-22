@@ -425,8 +425,7 @@ func (c *JobInfoColl) GetTopDeployFailedService(startTime, endTime int64, projec
 	pipeline := make([]bson.M, 0)
 
 	query := bson.M{
-		"start_time":   bson.M{"$gte": startTime, "$lte": endTime},
-		"product_name": bson.M{"$in": projectNames},
+		"start_time": bson.M{"$gte": startTime, "$lte": endTime},
 		"type": bson.M{"$in": []string{
 			string(config.JobZadigDeploy),
 			string(config.JobZadigHelmDeploy),
@@ -443,6 +442,10 @@ func (c *JobInfoColl) GetTopDeployFailedService(startTime, endTime int64, projec
 		break
 	default:
 		return nil, fmt.Errorf("invlid production type: %s", productionType)
+	}
+
+	if len(projectNames) > 0 {
+		query["product_name"] = bson.M{"$in": projectNames}
 	}
 
 	// find all the deployment jobs
