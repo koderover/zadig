@@ -107,6 +107,7 @@ const (
 	StatusFailed         Status = "failed"
 	StatusTimeout        Status = "timeout"
 	StatusCancelled      Status = "cancelled"
+	StatusPause          Status = "pause"
 	StatusWaiting        Status = "waiting"
 	StatusQueued         Status = "queued"
 	StatusBlocked        Status = "blocked"

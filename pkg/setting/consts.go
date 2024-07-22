@@ -938,3 +938,9 @@ const (
 	NotifyWebHookTypeMail       NotifyWebHookType = "mail"
 	NotifyWebHookTypeWebook     NotifyWebHookType = "webhook"
 )
+
+const (
+	UserTypeUser        string = "user"
+	UserTypeGroup       string = "group"
+	UserTypeTaskCreator string = "task_creator"
+)

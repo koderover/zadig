@@ -95,10 +95,19 @@ func (w *WorkflowV4) CalculateHash() [md5.Size]byte {
 }
 
 type WorkflowStage struct {
-	Name     string    `bson:"name"          yaml:"name"         json:"name"`
-	Parallel bool      `bson:"parallel"      yaml:"parallel"     json:"parallel"`
-	Approval *Approval `bson:"approval"      yaml:"approval"     json:"approval"`
-	Jobs     []*Job    `bson:"jobs"          yaml:"jobs"         json:"jobs"`
+	Name       string      `bson:"name"               yaml:"name"              json:"name"`
+	Parallel   bool        `bson:"parallel"           yaml:"parallel"          json:"parallel"`
+	Approval   *Approval   `bson:"approval"           yaml:"approval"          json:"approval"`
+	ManualExec *ManualExec `bson:"manual_exec"        yaml:"manual_exec"       json:"manual_exec"`
+	Jobs       []*Job      `bson:"jobs"               yaml:"jobs"              json:"jobs"`
+}
+
+type ManualExec struct {
+	Enabled           bool    `bson:"enabled"                        yaml:"enabled"                       json:"enabled"`
+	Excuted           bool    `bson:"excuted,omitempty"              yaml:"excuted,omitempty"             json:"excuted,omitempty"`
+	ManualExecUsers   []*User `bson:"manual_exec_users"              yaml:"manual_exec_users"             json:"manual_exec_users"`
+	ManualExectorID   string  `bson:"manual_exector_id,omitempty"    yaml:"manual_exector_id,omitempty"   json:"manual_exector_id,omitempty"`
+	ManualExectorName string  `bson:"manual_exector_name,omitempty"  yaml:"manual_exector_name,omitempty" json:"manual_exector_name,omitempty"`
 }
 
 type Approval struct {
@@ -218,9 +227,9 @@ type User struct {
 	UserName        string                 `bson:"user_name,omitempty"         yaml:"user_name,omitempty"        json:"user_name,omitempty"`
 	GroupID         string                 `bson:"group_id,omitempty"          yaml:"group_id,omitempty"         json:"group_id,omitempty"`
 	GroupName       string                 `bson:"group_name,omitempty"        yaml:"group_name,omitempty"       json:"group_name,omitempty"`
-	RejectOrApprove config.ApproveOrReject `bson:"reject_or_approve"           yaml:"-"                          json:"reject_or_approve"`
-	Comment         string                 `bson:"comment"                     yaml:"-"                          json:"comment"`
-	OperationTime   int64                  `bson:"operation_time"              yaml:"-"                          json:"operation_time"`
+	RejectOrApprove config.ApproveOrReject `bson:"reject_or_approve,omitempty" yaml:"-"                          json:"reject_or_approve,omitempty"`
+	Comment         string                 `bson:"comment,omitempty"           yaml:"-"                          json:"comment,omitempty"`
+	OperationTime   int64                  `bson:"operation_time,omitempty"    yaml:"-"                          json:"operation_time,omitempty"`
 }
 
 type Job struct {

@@ -20,6 +20,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/shared/client/user"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/types"
@@ -35,13 +36,13 @@ func GeneFlatUsers(users []*models.User) ([]*models.User, map[string]*types.User
 	}
 
 	for _, u := range users {
-		if u.Type == "user" || u.Type == "" {
+		if u.Type == setting.UserTypeUser || u.Type == "" {
 			userSet.Insert(u.UserID)
 			flatUsers = append(flatUsers, u)
 		}
 	}
 	for _, u := range users {
-		if u.Type == "group" {
+		if u.Type == setting.UserTypeGroup {
 			groupInfo, err := user.New().GetGroupDetailedInfo(u.GroupID)
 			if err != nil {
 				log.Warnf("CreateNativeApproval GetGroupDetailedInfo error, error msg:%s", err)
@@ -59,7 +60,7 @@ func GeneFlatUsers(users []*models.User) ([]*models.User, map[string]*types.User
 				}
 				userMap[uid] = userDetailedInfo
 				flatUsers = append(flatUsers, &models.User{
-					Type:     "user",
+					Type:     setting.UserTypeUser,
 					UserID:   uid,
 					UserName: userDetailedInfo.Name,
 				})

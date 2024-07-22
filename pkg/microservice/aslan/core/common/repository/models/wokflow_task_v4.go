@@ -71,14 +71,15 @@ func (task *WorkflowTask) Finished() bool {
 }
 
 type StageTask struct {
-	Name      string        `bson:"name"          json:"name"`
-	Status    config.Status `bson:"status"        json:"status"`
-	StartTime int64         `bson:"start_time"    json:"start_time,omitempty"`
-	EndTime   int64         `bson:"end_time"      json:"end_time,omitempty"`
-	Parallel  bool          `bson:"parallel"      json:"parallel,omitempty"`
-	Approval  *Approval     `bson:"approval"      json:"approval,omitempty"`
-	Jobs      []*JobTask    `bson:"jobs"          json:"jobs,omitempty"`
-	Error     string        `bson:"error"         json:"error"`
+	Name       string        `bson:"name"            json:"name"`
+	Status     config.Status `bson:"status"          json:"status"`
+	StartTime  int64         `bson:"start_time"      json:"start_time,omitempty"`
+	EndTime    int64         `bson:"end_time"        json:"end_time,omitempty"`
+	Parallel   bool          `bson:"parallel"        json:"parallel,omitempty"`
+	ManualExec *ManualExec   `bson:"manual_exec"     json:"manual_exec"`
+	Approval   *Approval     `bson:"approval"        json:"approval,omitempty"`
+	Jobs       []*JobTask    `bson:"jobs"            json:"jobs,omitempty"`
+	Error      string        `bson:"error"           json:"error"`
 }
 
 type JobTask struct {
@@ -131,14 +132,15 @@ type WorkflowTaskPreview struct {
 }
 
 type StagePreview struct {
-	Name      string        `bson:"name"          json:"name"`
-	Status    config.Status `bson:"status"        json:"status"`
-	StartTime int64         `bson:"start_time"    json:"start_time,omitempty"`
-	EndTime   int64         `bson:"end_time"      json:"end_time,omitempty"`
-	Parallel  bool          `bson:"parallel"      json:"parallel,omitempty"`
-	Approval  *Approval     `bson:"approval"      json:"approval,omitempty"`
-	Jobs      []*JobPreview `bson:"jobs"          json:"jobs,omitempty"`
-	Error     string        `bson:"error"         json:"error"`
+	Name       string        `bson:"name"          json:"name"`
+	Status     config.Status `bson:"status"        json:"status"`
+	StartTime  int64         `bson:"start_time"    json:"start_time,omitempty"`
+	EndTime    int64         `bson:"end_time"      json:"end_time,omitempty"`
+	Parallel   bool          `bson:"parallel"      json:"parallel,omitempty"`
+	Approval   *Approval     `bson:"approval"      json:"approval,omitempty"`
+	ManualExec *ManualExec   `bson:"manual_exec"   json:"manual_exec,omitempty"`
+	Jobs       []*JobPreview `bson:"jobs"          json:"jobs,omitempty"`
+	Error      string        `bson:"error"         json:"error"`
 }
 
 type JobPreview struct {

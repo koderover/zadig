@@ -75,14 +75,14 @@ func (w *Service) SendWorkflowTaskApproveNotifications(workflowName string, task
 		if notify.WebHookType == setting.NotifyWebHookTypeMail {
 			if task.TaskCreatorID != "" {
 				for _, user := range notify.MailUsers {
-					if user.Type == "task_creator" {
+					if user.Type == setting.UserTypeTaskCreator {
 						userInfo, err := userclient.New().GetUserByID(task.TaskCreatorID)
 						if err != nil {
 							log.Errorf("failed to find user %s, error: %s", task.TaskCreatorID, err)
 							break
 						}
 						notify.MailUsers = append(notify.MailUsers, &models.User{
-							Type:     "user",
+							Type:     setting.UserTypeUser,
 							UserID:   userInfo.Uid,
 							UserName: userInfo.Name,
 						})
@@ -135,13 +135,13 @@ func (w *Service) SendWorkflowTaskNotifications(task *models.WorkflowTask) error
 			if notify.WebHookType == setting.NotifyWebHookTypeMail {
 				if task.TaskCreatorID != "" {
 					for _, user := range notify.MailUsers {
-						if user.Type == "task_creator" {
+						if user.Type == setting.UserTypeTaskCreator {
 							userInfo, err := userclient.New().GetUserByID(task.TaskCreatorID)
 							if err != nil {
 								log.Errorf("failed to find user %s, error: %s", task.TaskCreatorID, err)
 								break
 							}
-							user.Type = "user"
+							user.Type = setting.UserTypeUser
 							user.UserID = userInfo.Uid
 							user.UserName = userInfo.Name
 							break

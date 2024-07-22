@@ -34,6 +34,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/shared/client/aslan"
 	"github.com/koderover/zadig/v2/pkg/shared/client/plutusvendor"
 	zadigCache "github.com/koderover/zadig/v2/pkg/tool/cache"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
 type LoginArgs struct {
@@ -106,6 +107,9 @@ func LocalLogin(args *LoginArgs, logger *zap.SugaredLogger) (*User, int, error) 
 	}
 	if user == nil {
 		return nil, 0, fmt.Errorf("user not exist")
+	}
+	for _, g := range user.GroupBindings {
+		log.Debugf("user group: %v", g)
 	}
 	userLogin, err := orm.GetUserLogin(user.UID, args.Account, config.AccountLoginType, repository.DB)
 	if err != nil {
