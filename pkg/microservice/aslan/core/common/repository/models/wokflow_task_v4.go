@@ -76,7 +76,7 @@ type StageTask struct {
 	StartTime  int64         `bson:"start_time"      json:"start_time,omitempty"`
 	EndTime    int64         `bson:"end_time"        json:"end_time,omitempty"`
 	Parallel   bool          `bson:"parallel"        json:"parallel,omitempty"`
-	ManualExec *ManualExec   `bson:"manual_exec"     json:"manual_exec"`
+	ManualExec *ManualExec   `bson:"manual_exec"     json:"manual_exec,omitempty"`
 	Approval   *Approval     `bson:"approval"        json:"approval,omitempty"`
 	Jobs       []*JobTask    `bson:"jobs"            json:"jobs,omitempty"`
 	Error      string        `bson:"error"           json:"error"`

@@ -25,6 +25,8 @@ const (
 	SystemIdentityType = "system"
 	OauthIdentityType  = "oauth"
 	FeiShuEmailHost    = "smtp.feishu.cn"
+
+	UserGroupCacheKeyFormat = "user_group_%s"
 )
 
 type LoginType int

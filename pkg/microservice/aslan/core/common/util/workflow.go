@@ -17,8 +17,6 @@ limitations under the License.
 package util
 
 import (
-	"time"
-
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
@@ -32,7 +30,7 @@ func CalcWorkflowTaskRunningTime(task *commonmodels.WorkflowTask) int64 {
 			runningTime += 0
 			log.Error("workflow task %s/%d stage %s end time is 0", task.WorkflowName, task.TaskID, stage.Name)
 		} else {
-			runningTime += time.Now().Unix() - stage.StartTime
+			runningTime += stage.EndTime - stage.StartTime
 		}
 	}
 	return runningTime
