@@ -117,8 +117,6 @@ func (c *GlobalApproveManager) IsApproval(key string) (bool, int, *commonmodels.
 		return false, 0, nil, fmt.Errorf("not found approval")
 	}
 
-	fmt.Printf("approval is  %+v\n", approval)
-
 	ApproveCount := 0
 	for _, user := range approval.ApproveUsers {
 		if user.RejectOrApprove == config.Reject {

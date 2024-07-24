@@ -87,7 +87,9 @@ func (c *ApprovalJobCtl) Run(ctx context.Context) {
 	}
 
 	c.job.Status = status
-	c.job.Error = err.Error()
+	if err != nil {
+		c.job.Error = err.Error()
+	}
 
 	return
 }
