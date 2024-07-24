@@ -45,6 +45,7 @@ func runStage(ctx context.Context, stage *commonmodels.StageTask, workflowCtx *c
 	}
 	if wait {
 		logger.Infof("wait stage to manual execute: %s,status: %s", stage.Name, stage.Status)
+		ack()
 		return
 	}
 
@@ -92,9 +93,7 @@ func waitForManualExec(ctx context.Context, stage *commonmodels.StageTask, workf
 		return false, nil
 	}
 
-	// workflowCtx.SetStatus contain ack() function, so we don't need to call ack() here
 	stage.Status = config.StatusPause
-	workflowCtx.SetStatus(config.StatusPause)
 
 	return true, err
 }
