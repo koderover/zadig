@@ -148,27 +148,6 @@ func CancelWorkflowTask(userName, workflowName string, taskID int64, logger *zap
 	return nil
 }
 
-func (c *workflowCtl) setWorkflowStatus(status config.Status) {
-	if c.workflowTask.Status != status {
-		if status == config.StatusWaitingApprove {
-			for _, stage := range c.workflowTask.Stages {
-				if stage.Status == config.StatusWaitingApprove {
-					if stage.Approval != nil && stage.Approval.Type == config.NativeApproval {
-						for _, approveUser := range stage.Approval.NativeApproval.ApproveUsers {
-							SendWorkflowNotifyMessage(c.workflowTask, approveUser.UserName, status, log.SugaredLogger())
-						}
-					}
-					break
-				}
-			}
-		} else {
-			SendWorkflowNotifyMessage(c.workflowTask, c.workflowTask.TaskCreator, status, log.SugaredLogger())
-		}
-	}
-	c.workflowTask.Status = status
-	c.ack()
-}
-
 func WorkflowDebugLockKey(workflowName string, taskID int64) string {
 	return fmt.Sprintf("workflowctl-debug-lock-%s-%d", workflowName, taskID)
 }
@@ -266,7 +245,6 @@ func (c *workflowCtl) Run(ctx context.Context, concurrency int) {
 		GlobalContextSet:            c.setGlobalContext,
 		GlobalContextEach:           c.globalContextEach,
 		ClusterIDAdd:                c.addClusterID,
-		SetStatus:                   c.setWorkflowStatus,
 		StartTime:                   time.Now(),
 	}
 	defer jobcontroller.CleanWorkflowJobs(ctx, c.workflowTask, workflowCtx, c.logger, c.ack)

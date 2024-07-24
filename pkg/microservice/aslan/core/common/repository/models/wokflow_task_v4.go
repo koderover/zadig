@@ -77,7 +77,6 @@ type StageTask struct {
 	EndTime    int64         `bson:"end_time"        json:"end_time,omitempty"`
 	Parallel   bool          `bson:"parallel"        json:"parallel,omitempty"`
 	ManualExec *ManualExec   `bson:"manual_exec"     json:"manual_exec,omitempty"`
-	Approval   *Approval     `bson:"approval"        json:"approval,omitempty"`
 	Jobs       []*JobTask    `bson:"jobs"            json:"jobs,omitempty"`
 	Error      string        `bson:"error"           json:"error"`
 }
@@ -137,7 +136,6 @@ type StagePreview struct {
 	StartTime  int64         `bson:"start_time"    json:"start_time,omitempty"`
 	EndTime    int64         `bson:"end_time"      json:"end_time,omitempty"`
 	Parallel   bool          `bson:"parallel"      json:"parallel,omitempty"`
-	Approval   *Approval     `bson:"approval"      json:"approval,omitempty"`
 	ManualExec *ManualExec   `bson:"manual_exec"   json:"manual_exec,omitempty"`
 	Jobs       []*JobPreview `bson:"jobs"          json:"jobs,omitempty"`
 	Error      string        `bson:"error"         json:"error"`
@@ -660,6 +658,5 @@ type WorkflowTaskCtx struct {
 	GlobalContextSet            func(key, value string)
 	GlobalContextEach           func(f func(k, v string) bool)
 	ClusterIDAdd                func(clusterID string)
-	SetStatus                   func(status config.Status)
 	StartTime                   time.Time
 }

@@ -546,7 +546,7 @@ type ReleasePlanStatus string
 
 const (
 	StatusPlanning       ReleasePlanStatus = "planning"
-	StatusWaitForApprove ReleasePlanStatus = "waitforapprove"
+	StatusWaitForApprove ReleasePlanStatus = "wait_for_approval"
 	StatusExecuting      ReleasePlanStatus = "executing"
 	StatusSuccess        ReleasePlanStatus = "success"
 	StatusCancel         ReleasePlanStatus = "cancel"
