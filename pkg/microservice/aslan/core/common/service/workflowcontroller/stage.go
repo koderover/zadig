@@ -49,6 +49,18 @@ func runStage(ctx context.Context, stage *commonmodels.StageTask, workflowCtx *c
 	stage.Status = config.StatusRunning
 	ack()
 	logger.Infof("start stage: %s,status: %s", stage.Name, stage.Status)
+	wait, err := waitForManualExec(ctx, stage, workflowCtx, logger, ack)
+	if err != nil {
+		stage.Error = err.Error()
+		logger.Errorf("finish stage: %s,status: %s error: %s", stage.Name, stage.Status, stage.Error)
+		ack()
+		return
+	}
+	if wait {
+		logger.Infof("wait stage to manual execute: %s,status: %s", stage.Name, stage.Status)
+		return
+	}
+
 	if err := waitForApprove(ctx, stage, workflowCtx, logger, ack); err != nil {
 		stage.Error = err.Error()
 		logger.Errorf("finish stage: %s,status: %s error: %s", stage.Name, stage.Status, stage.Error)
@@ -76,7 +88,7 @@ func RunStages(ctx context.Context, stages []*commonmodels.StageTask, workflowCt
 			continue
 		}
 		runStage(ctx, stage, workflowCtx, concurrency, logger, ack)
-		if statusFailed(stage.Status) {
+		if statusStopped(stage.Status) {
 			return
 		}
 	}
@@ -129,6 +141,24 @@ func waitForApprove(ctx context.Context, stage *commonmodels.StageTask, workflow
 		err = errors.New("invalid approval type")
 	}
 	return err
+}
+
+func waitForManualExec(ctx context.Context, stage *commonmodels.StageTask, workflowCtx *commonmodels.WorkflowTaskCtx, logger *zap.SugaredLogger, ack func()) (wait bool, err error) {
+	if stage.ManualExec == nil {
+		return false, nil
+	}
+	if !stage.ManualExec.Enabled {
+		return false, nil
+	}
+	if stage.ManualExec.Excuted {
+		return false, nil
+	}
+
+	// workflowCtx.SetStatus contain ack() function, so we don't need to call ack() here
+	stage.Status = config.StatusPause
+	workflowCtx.SetStatus(config.StatusPause)
+
+	return true, err
 }
 
 func waitForNativeApprove(ctx context.Context, stage *commonmodels.StageTask, workflowCtx *commonmodels.WorkflowTaskCtx, logger *zap.SugaredLogger, ack func()) error {
@@ -688,8 +718,10 @@ func waitForWorkWXApprove(ctx context.Context, stage *commonmodels.StageTask, wo
 	}
 }
 
-func statusFailed(status config.Status) bool {
-	if status == config.StatusCancelled || status == config.StatusFailed || status == config.StatusTimeout || status == config.StatusReject {
+func statusStopped(status config.Status) bool {
+	if status == config.StatusCancelled || status == config.StatusFailed ||
+		status == config.StatusTimeout || status == config.StatusReject ||
+		status == config.StatusPause {
 		return true
 	}
 	return false

@@ -4987,6 +4987,56 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/aslan/workflow/v4/workflowtask/manualexec/workflow/{workflowName}/task/{taskID}/stage/{stageName}": {
+            "post": {
+                "description": "Manually Execute Workflow Task V4",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "workflow"
+                ],
+                "summary": "Manually Execute Workflow Task V4",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "workflow name",
+                        "name": "workflowName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "workflow task ID",
+                        "name": "taskID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "workflow stage name",
+                        "name": "stageName",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
         "/api/aslan/workflow/v4/yamlComparison": {
             "post": {
                 "description": "Compare Helm Service Yaml In Env",
@@ -5529,6 +5579,7 @@ const docTemplate = `{
                 "failed",
                 "timeout",
                 "cancelled",
+                "pause",
                 "waiting",
                 "queued",
                 "blocked",
@@ -5551,6 +5602,7 @@ const docTemplate = `{
                 "StatusFailed",
                 "StatusTimeout",
                 "StatusCancelled",
+                "StatusPause",
                 "StatusWaiting",
                 "StatusQueued",
                 "StatusBlocked",
@@ -10035,6 +10087,9 @@ const docTemplate = `{
                 },
                 "image_tag": {
                     "type": "string"
+                },
+                "selected": {
+                    "type": "boolean"
                 }
             }
         },
@@ -11216,6 +11271,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "project_name": {
+                    "type": "string"
+                },
+                "remark": {
                     "type": "string"
                 },
                 "stages": {

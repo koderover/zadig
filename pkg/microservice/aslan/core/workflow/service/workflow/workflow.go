@@ -78,6 +78,7 @@ type TaskInfo struct {
 	Status       string `json:"status"`
 	TaskCreator  string `json:"task_creator"`
 	CreateTime   int64  `json:"create_time"`
+	RunningTime  int64  `json:"running_time,omitempty"`
 	StartTime    int64  `json:"start_time,omitempty"`
 	EndTime      int64  `json:"end_time,omitempty"`
 }

@@ -46,6 +46,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/workflowcontroller"
 	workwxservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/workwx"
 	commontypes "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/types"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/job"
 	jobctl "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/job"
 	"github.com/koderover/zadig/v2/pkg/setting"
@@ -87,14 +88,15 @@ type WorkflowTaskPreview struct {
 }
 
 type StageTaskPreview struct {
-	Name      string                 `bson:"name"          json:"name"`
-	Status    config.Status          `bson:"status"        json:"status"`
-	StartTime int64                  `bson:"start_time"    json:"start_time,omitempty"`
-	EndTime   int64                  `bson:"end_time"      json:"end_time,omitempty"`
-	Parallel  bool                   `bson:"parallel"      json:"parallel"`
-	Approval  *commonmodels.Approval `bson:"approval"      json:"approval"`
-	Jobs      []*JobTaskPreview      `bson:"jobs"          json:"jobs"`
-	Error     string                 `bson:"error" json:"error""`
+	Name       string                   `bson:"name"          json:"name"`
+	Status     config.Status            `bson:"status"        json:"status"`
+	StartTime  int64                    `bson:"start_time"    json:"start_time,omitempty"`
+	EndTime    int64                    `bson:"end_time"      json:"end_time,omitempty"`
+	Parallel   bool                     `bson:"parallel"      json:"parallel"`
+	Approval   *commonmodels.Approval   `bson:"approval"      json:"approval"`
+	ManualExec *commonmodels.ManualExec `bson:"manual_exec"      json:"manual_exec"`
+	Jobs       []*JobTaskPreview        `bson:"jobs"          json:"jobs"`
+	Error      string                   `bson:"error" json:"error""`
 }
 
 type JobTaskPreview struct {
@@ -465,9 +467,10 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 	setZadigParamRepos(workflow, log)
 	for _, stage := range workflow.Stages {
 		stageTask := &commonmodels.StageTask{
-			Name:     stage.Name,
-			Parallel: stage.Parallel,
-			Approval: stage.Approval,
+			Name:       stage.Name,
+			Parallel:   stage.Parallel,
+			Approval:   stage.Approval,
+			ManualExec: stage.ManualExec,
 		}
 		for _, job := range stage.Jobs {
 			if jobctl.JobSkiped(job) {
@@ -666,6 +669,130 @@ func RetryWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredL
 	if err := workflowcontroller.UpdateTask(task); err != nil {
 		log.Errorf("retry workflow task error: %v", err)
 		return e.ErrCreateTask.AddDesc(fmt.Sprintf("重试工作流任务失败: %s", err.Error()))
+	}
+
+	return nil
+}
+
+func ManualExecWorkflowTaskV4(workflowName string, taskID int64, stageName string, executorID, executorName string, logger *zap.SugaredLogger) error {
+	task, err := commonrepo.NewworkflowTaskv4Coll().Find(workflowName, taskID)
+	if err != nil {
+		logger.Errorf("find workflowTaskV4 error: %s", err)
+		return e.ErrGetTask.AddErr(err)
+	}
+	switch task.Status {
+	case config.StatusPause:
+	default:
+		return errors.New("工作流任务状态无法手动执行")
+	}
+
+	if task.OriginWorkflowArgs == nil || task.OriginWorkflowArgs.Stages == nil {
+		return errors.New("工作流任务数据异常, 无法手动执行")
+	}
+
+	jobTaskMap := make(map[string]*commonmodels.JobTask)
+	for _, stage := range task.WorkflowArgs.Stages {
+		for _, job := range stage.Jobs {
+			if job.Skipped {
+				continue
+			}
+			jobCtl, err := jobctl.InitJobCtl(job, task.WorkflowArgs)
+			if err != nil {
+				return errors.Errorf("init jobCtl %s error: %s", job.Name, err)
+			}
+			jobTasks, err := jobCtl.ToJobs(taskID)
+			if err != nil {
+				return errors.Errorf("job %s toJobs error: %s", job.Name, err)
+			}
+			for _, jobTask := range jobTasks {
+				jobTaskMap[jobTask.Key] = jobTask
+			}
+		}
+	}
+
+	first := true
+	found := false
+	for i, stage := range task.Stages {
+		if stage.Status == config.StatusPassed {
+			continue
+		}
+
+		if stage.Name == stageName {
+			if first {
+				if stage.ManualExec == nil || !stage.ManualExec.Enabled {
+					return errors.Errorf("stage %s is not enabled for manual execution", stage.Name)
+				}
+				stage.ManualExec.Excuted = true
+
+				approval := false
+				for _, user := range stage.ManualExec.ManualExecUsers {
+					if user.Type == setting.UserTypeTaskCreator {
+						if executorID == task.TaskCreatorID {
+							approval = true
+							break
+						}
+					}
+				}
+				if !approval {
+					users, _ := util.GeneFlatUsers(stage.ManualExec.ManualExecUsers)
+					for _, user := range users {
+						if user.UserID == executorID {
+							approval = true
+							break
+						}
+					}
+				}
+
+				if !approval {
+					return errors.Errorf("user %s is not allowed to manually execute stage %s", executorID, stage.Name)
+				}
+
+				found = true
+				stage.ManualExec.ManualExectorID = executorID
+				stage.ManualExec.ManualExectorName = executorName
+			} else {
+				return errors.Errorf("stage %s is not enabled for manual execution", stage.Name)
+			}
+		}
+		first = false
+		stage.Status = ""
+		stage.StartTime = 0
+		stage.EndTime = 0
+		stage.Error = ""
+
+		if stage.Approval != nil && stage.Approval.Enabled &&
+			stage.Approval.Status != config.StatusPassed && stage.Approval.Status != "" {
+			stage.Approval = task.OriginWorkflowArgs.Stages[i].Approval
+		}
+
+		for _, jobTask := range stage.Jobs {
+			if jobTask.Status == config.StatusPassed {
+				continue
+			}
+			jobTask.Status = ""
+			jobTask.StartTime = 0
+			jobTask.EndTime = 0
+			jobTask.Error = ""
+			if t, ok := jobTaskMap[jobTask.Key]; ok {
+				jobTask.Spec = t.Spec
+			} else {
+				return errors.Errorf("failed to get jobTask %s origin spec", jobTask.Name)
+			}
+		}
+	}
+
+	if !found {
+		return errors.Errorf("stage %s not found in workflow %s or status is passed", stageName, workflowName)
+	}
+
+	task.Status = config.StatusCreated
+	if err := instantmessage.NewWeChatClient().SendWorkflowTaskNotifications(task); err != nil {
+		log.Errorf("send workflow task notification failed, error: %v", err)
+	}
+
+	if err := workflowcontroller.UpdateTask(task); err != nil {
+		log.Errorf("manual execute workflow task error: %v", err)
+		return e.ErrCreateTask.AddDesc(fmt.Sprintf("手动执行工作流任务失败: %s", err.Error()))
 	}
 
 	return nil
@@ -898,6 +1025,7 @@ func ListWorkflowTaskV4ByFilter(filter *TaskHistoryFilter, filterList []string, 
 					stagePreview.StartTime = stage.StartTime
 					stagePreview.EndTime = stage.EndTime
 					stagePreview.Approval = stage.Approval
+					stagePreview.ManualExec = stage.ManualExec
 					stagePreview.Parallel = stage.Parallel
 					stagePreview.Error = stage.Error
 					break
@@ -1025,14 +1153,15 @@ func GetWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredLog
 	timeNow := time.Now().Unix()
 	for _, stage := range task.Stages {
 		resp.Stages = append(resp.Stages, &StageTaskPreview{
-			Name:      stage.Name,
-			Status:    stage.Status,
-			StartTime: stage.StartTime,
-			EndTime:   stage.EndTime,
-			Parallel:  stage.Parallel,
-			Approval:  stage.Approval,
-			Jobs:      jobsToJobPreviews(stage.Jobs, task.GlobalContext, timeNow, task.ProjectName),
-			Error:     stage.Error,
+			Name:       stage.Name,
+			Status:     stage.Status,
+			StartTime:  stage.StartTime,
+			EndTime:    stage.EndTime,
+			Parallel:   stage.Parallel,
+			Approval:   stage.Approval,
+			ManualExec: stage.ManualExec,
+			Jobs:       jobsToJobPreviews(stage.Jobs, task.GlobalContext, timeNow, task.ProjectName),
+			Error:      stage.Error,
 		})
 	}
 	return resp, nil
@@ -1514,13 +1643,13 @@ func workflowTaskLint(workflowTask *commonmodels.WorkflowTask, logger *zap.Sugar
 			newApproveUserList := make([]*commonmodels.User, 0)
 			userSet := sets.NewString()
 			for _, approveUser := range stage.Approval.NativeApproval.ApproveUsers {
-				if approveUser.Type == "" || approveUser.Type == "user" {
+				if approveUser.Type == "" || approveUser.Type == setting.UserTypeUser {
 					newApproveUserList = append(newApproveUserList, approveUser)
 					userSet.Insert(approveUser.UserID)
 				}
 			}
 			for _, approveUser := range stage.Approval.NativeApproval.ApproveUsers {
-				if approveUser.Type == "group" {
+				if approveUser.Type == setting.UserTypeGroup {
 					users, err := user.New().GetGroupDetailedInfo(approveUser.GroupID)
 					if err != nil {
 						errMsg := fmt.Sprintf("failed to find users for group %s in stage: %s, error: %s", approveUser.GroupName, stage.Name, err)
@@ -1540,7 +1669,7 @@ func workflowTaskLint(workflowTask *commonmodels.WorkflowTask, logger *zap.Sugar
 
 						userSet.Insert(userID)
 						newApproveUserList = append(newApproveUserList, &commonmodels.User{
-							Type:     "user",
+							Type:     setting.UserTypeUser,
 							UserID:   userID,
 							UserName: userDetailedInfo.Name,
 						})

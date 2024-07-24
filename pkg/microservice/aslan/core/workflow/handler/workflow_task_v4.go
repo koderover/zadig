@@ -344,6 +344,60 @@ func RetryWorkflowTaskV4(c *gin.Context) {
 	ctx.Err = workflow.RetryWorkflowTaskV4(workflowName, taskID, ctx.Logger)
 }
 
+// @Summary Manually Execute Workflow Task V4
+// @Description Manually Execute Workflow Task V4
+// @Tags 	workflow
+// @Accept 	json
+// @Produce json
+// @Param 	projectName		query		string							true	"project name"
+// @Param 	workflowName	path		string							true	"workflow name"
+// @Param 	taskID			path		string							true	"workflow task ID"
+// @Param 	stageName		query		string							true	"workflow stage name"
+// @Success 200
+// @Router /api/aslan/workflow/v4/workflowtask/manualexec/workflow/{workflowName}/task/{taskID} [post]
+func ManualExecWorkflowTaskV4(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectKey := c.Query("projectName")
+	workflowName := c.Param("workflowName")
+	stageName := c.Query("stageName")
+
+	taskID, err := strconv.ParseInt(c.Param("taskID"), 10, 64)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid task id")
+		return
+	}
+
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "手动执行", "自定义工作流任务", c.Param("workflowName"), "", ctx.Logger)
+
+	// authorization check
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].Workflow.Execute {
+			// check if the permission is given by collaboration mode
+			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeWorkflow, workflowName, types.WorkflowActionRun)
+			if err != nil || !permitted {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
+	}
+
+	ctx.Err = workflow.ManualExecWorkflowTaskV4(workflowName, taskID, stageName, ctx.UserID, ctx.UserName, ctx.Logger)
+}
+
 func SetWorkflowTaskV4Breakpoint(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

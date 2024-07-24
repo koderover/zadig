@@ -149,6 +149,7 @@ definitions:
     - failed
     - timeout
     - cancelled
+    - pause
     - waiting
     - queued
     - blocked
@@ -171,6 +172,7 @@ definitions:
     - StatusFailed
     - StatusTimeout
     - StatusCancelled
+    - StatusPause
     - StatusWaiting
     - StatusQueued
     - StatusBlocked
@@ -3169,6 +3171,8 @@ definitions:
         type: string
       image_tag:
         type: string
+      selected:
+        type: boolean
     type: object
   service.OpenAPIEnvGlobalVariables:
     properties:
@@ -3960,6 +3964,8 @@ definitions:
       error:
         type: string
       project_name:
+        type: string
+      remark:
         type: string
       stages:
         items:
@@ -7495,6 +7501,40 @@ paths:
               $ref: '#/definitions/models.DeployService'
             type: array
       summary: Get filtered env services
+      tags:
+      - workflow
+  /api/aslan/workflow/v4/workflowtask/manualexec/workflow/{workflowName}/task/{taskID}/stage/{stageName}:
+    post:
+      consumes:
+      - application/json
+      description: Manually Execute Workflow Task V4
+      parameters:
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: workflow name
+        in: path
+        name: workflowName
+        required: true
+        type: string
+      - description: workflow task ID
+        in: path
+        name: taskID
+        required: true
+        type: string
+      - description: workflow stage name
+        in: path
+        name: stageName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Manually Execute Workflow Task V4
       tags:
       - workflow
   /api/aslan/workflow/v4/yamlComparison:

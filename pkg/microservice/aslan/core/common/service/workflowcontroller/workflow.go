@@ -524,6 +524,7 @@ FOR:
 
 func updateworkflowStatus(workflow *commonmodels.WorkflowTask) {
 	statusMap := map[config.Status]int{
+		config.StatusPause:     6,
 		config.StatusReject:    5,
 		config.StatusCancelled: 4,
 		config.StatusTimeout:   3,
@@ -591,7 +592,7 @@ func (c *workflowCtl) updateWorkflowTask() {
 		c.logger.Errorf("update workflow task v4 failed,error: %v", err)
 	}
 
-	if c.workflowTask.Status == config.StatusPassed || c.workflowTask.Status == config.StatusFailed || c.workflowTask.Status == config.StatusTimeout || c.workflowTask.Status == config.StatusCancelled || c.workflowTask.Status == config.StatusReject {
+	if c.workflowTask.Status == config.StatusPassed || c.workflowTask.Status == config.StatusFailed || c.workflowTask.Status == config.StatusTimeout || c.workflowTask.Status == config.StatusCancelled || c.workflowTask.Status == config.StatusReject || c.workflowTask.Status == config.StatusPause {
 		c.logger.Infof("%s:%d:%v task done", c.workflowTask.WorkflowName, c.workflowTask.TaskID, c.workflowTask.Status)
 		if err := instantmessage.NewWeChatClient().SendWorkflowTaskNotifications(c.workflowTask); err != nil {
 			c.logger.Errorf("send workflow task notification failed, error: %v", err)

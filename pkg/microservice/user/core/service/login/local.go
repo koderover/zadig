@@ -30,6 +30,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/user/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/user/core/repository"
 	"github.com/koderover/zadig/v2/pkg/microservice/user/core/repository/orm"
+	"github.com/koderover/zadig/v2/pkg/microservice/user/core/service/common"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/shared/client/aslan"
 	"github.com/koderover/zadig/v2/pkg/shared/client/plutusvendor"
@@ -44,13 +45,14 @@ type LoginArgs struct {
 }
 
 type User struct {
-	Uid          string `json:"uid"`
-	Token        string `json:"token"`
-	Email        string `json:"email"`
-	Phone        string `json:"phone"`
-	Name         string `json:"name"`
-	Account      string `json:"account"`
-	IdentityType string `json:"identityType"`
+	Uid          string   `json:"uid"`
+	Token        string   `json:"token"`
+	Email        string   `json:"email"`
+	Phone        string   `json:"phone"`
+	Name         string   `json:"name"`
+	Account      string   `json:"account"`
+	GroupIDs     []string `json:"group_ids"`
+	IdentityType string   `json:"identityType"`
 }
 
 type CheckSignatureRes struct {
@@ -193,6 +195,18 @@ func LocalLogin(args *LoginArgs, logger *zap.SugaredLogger) (*User, int, error) 
 		return nil, 0, err
 	}
 
+	groupIDList, err := common.GetUserGroupByUID(user.UID)
+	if err != nil {
+		logger.Errorf("LocalLogin get user:%s group error, error msg:%s", args.Account, err.Error())
+		return nil, 0, err
+	}
+	allUserGroupID, err := common.GetAllUserGroup()
+	if err != nil {
+		logger.Errorf("LocalLogin get all user group error, error msg:%s", err.Error())
+		return nil, 0, err
+	}
+	groupIDList = append(groupIDList, allUserGroupID)
+
 	err = zadigCache.NewRedisCache(config.RedisUserTokenDB()).Write(user.UID, token, time.Duration(systemSettings.TokenExpirationTime)*time.Hour)
 	if err != nil {
 		logger.Errorf("failed to write token into cache, error: %s\n warn: this will cause login failure", err)
@@ -205,6 +219,7 @@ func LocalLogin(args *LoginArgs, logger *zap.SugaredLogger) (*User, int, error) 
 		Phone:        user.Phone,
 		Name:         user.Name,
 		Account:      user.Account,
+		GroupIDs:     groupIDList,
 		IdentityType: user.IdentityType,
 	}, 0, nil
 }
