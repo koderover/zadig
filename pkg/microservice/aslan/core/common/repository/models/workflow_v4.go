@@ -840,6 +840,16 @@ type BlueKingJobSpec struct {
 	Parameters []*blueking.GlobalVariable `bson:"parameters" json:"parameters" yaml:"parameters"`
 }
 
+type ApprovalJobSpec struct {
+	Timeout          int64               `bson:"timeout"                     json:"timeout"                       yaml:"timeout"`
+	Type             config.ApprovalType `bson:"type"                        yaml:"type"                          json:"type"`
+	Description      string              `bson:"description"                 yaml:"description"                   json:"description"`
+	NativeApproval   *NativeApproval     `bson:"native_approval"             yaml:"native_approval,omitempty"     json:"native_approval,omitempty"`
+	LarkApproval     *LarkApproval       `bson:"lark_approval"               yaml:"lark_approval,omitempty"       json:"lark_approval,omitempty"`
+	DingTalkApproval *DingTalkApproval   `bson:"dingtalk_approval"           yaml:"dingtalk_approval,omitempty"   json:"dingtalk_approval,omitempty"`
+	WorkWXApproval   *WorkWXApproval     `bson:"workwx_approval"             yaml:"workwx_approval,omitempty"     json:"workwx_approval,omitempty"`
+}
+
 type JenkinsJobInfo struct {
 	JobName    string                 `bson:"job_name" json:"job_name" yaml:"job_name"`
 	Parameters []*JenkinsJobParameter `bson:"parameters" json:"parameters" yaml:"parameters"`

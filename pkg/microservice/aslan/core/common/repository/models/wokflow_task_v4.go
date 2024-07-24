@@ -508,6 +508,15 @@ type JobTaskBlueKingSpec struct {
 	InstanceName string `bson:"instance_name"       json:"instance_name"       yaml:"instance_name"`
 }
 
+type JobTaskApprovalSpec struct {
+	Type             config.ApprovalType `bson:"type"                        yaml:"type"                          json:"type"`
+	Description      string              `bson:"description"                 yaml:"description"                   json:"description"`
+	NativeApproval   *NativeApproval     `bson:"native_approval"             yaml:"native_approval,omitempty"     json:"native_approval,omitempty"`
+	LarkApproval     *LarkApproval       `bson:"lark_approval"               yaml:"lark_approval,omitempty"       json:"lark_approval,omitempty"`
+	DingTalkApproval *DingTalkApproval   `bson:"dingtalk_approval"           yaml:"dingtalk_approval,omitempty"   json:"dingtalk_approval,omitempty"`
+	WorkWXApproval   *WorkWXApproval     `bson:"workwx_approval"             yaml:"workwx_approval,omitempty"     json:"workwx_approval,omitempty"`
+}
+
 type JobTaskWorkflowTriggerSpec struct {
 	TriggerType           config.WorkflowTriggerType `bson:"trigger_type" json:"trigger_type" yaml:"trigger_type"`
 	IsEnableCheck         bool                       `bson:"is_enable_check" json:"is_enable_check" yaml:"is_enable_check"`

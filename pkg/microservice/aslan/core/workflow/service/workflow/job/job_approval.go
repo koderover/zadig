@@ -18,7 +18,6 @@ package job
 
 import (
 	"fmt"
-	"strconv"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
@@ -26,14 +25,14 @@ import (
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
-type BlueKingJob struct {
+type ApprovalJob struct {
 	job      *commonmodels.Job
 	workflow *commonmodels.WorkflowV4
-	spec     *commonmodels.BlueKingJobSpec
+	spec     *commonmodels.ApprovalJobSpec
 }
 
-func (j *BlueKingJob) Instantiate() error {
-	j.spec = &commonmodels.BlueKingJobSpec{}
+func (j *ApprovalJob) Instantiate() error {
+	j.spec = &commonmodels.ApprovalJobSpec{}
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return err
 	}
@@ -41,8 +40,8 @@ func (j *BlueKingJob) Instantiate() error {
 	return nil
 }
 
-func (j *BlueKingJob) SetPreset() error {
-	j.spec = &commonmodels.BlueKingJobSpec{}
+func (j *ApprovalJob) SetPreset() error {
+	j.spec = &commonmodels.ApprovalJobSpec{}
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return err
 	}
@@ -50,24 +49,16 @@ func (j *BlueKingJob) SetPreset() error {
 	return nil
 }
 
-func (j *BlueKingJob) SetOptions() error {
+func (j *ApprovalJob) SetOptions() error {
 	return nil
 }
 
-func (j *BlueKingJob) ClearSelectionField() error {
-	j.spec = &commonmodels.BlueKingJobSpec{}
-	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
-		return err
-	}
-
-	j.spec.ExecutionPlanID = 0
-
-	j.job.Spec = j.spec
+func (j *ApprovalJob) ClearSelectionField() error {
 	return nil
 }
 
-func (j *BlueKingJob) UpdateWithLatestSetting() error {
-	j.spec = &commonmodels.BlueKingJobSpec{}
+func (j *ApprovalJob) UpdateWithLatestSetting() error {
+	j.spec = &commonmodels.ApprovalJobSpec{}
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return err
 	}
@@ -78,7 +69,7 @@ func (j *BlueKingJob) UpdateWithLatestSetting() error {
 		return err
 	}
 
-	latestSpec := new(commonmodels.BlueKingJobSpec)
+	latestSpec := new(commonmodels.ApprovalJobSpec)
 	found := false
 	for _, stage := range latestWorkflow.Stages {
 		if !found {
@@ -99,18 +90,15 @@ func (j *BlueKingJob) UpdateWithLatestSetting() error {
 	if !found {
 		return fmt.Errorf("failed to find the original workflow: %s", j.workflow.Name)
 	}
-
-	if latestSpec.BusinessID != j.spec.BusinessID {
-		j.spec.BusinessID = latestSpec.BusinessID
-		j.spec.ExecutionPlanID = 0
-	}
+	// just use the latest config
+	j.spec = latestSpec
 
 	j.job.Spec = j.spec
 	return nil
 }
 
-func (j *BlueKingJob) MergeArgs(args *commonmodels.Job) error {
-	j.spec = &commonmodels.BlueKingJobSpec{}
+func (j *ApprovalJob) MergeArgs(args *commonmodels.Job) error {
+	j.spec = &commonmodels.ApprovalJobSpec{}
 	if err := commonmodels.IToi(args.Spec, j.spec); err != nil {
 		return err
 	}
@@ -118,8 +106,8 @@ func (j *BlueKingJob) MergeArgs(args *commonmodels.Job) error {
 	return nil
 }
 
-func (j *BlueKingJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
-	j.spec = &commonmodels.BlueKingJobSpec{}
+func (j *ApprovalJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
+	j.spec = &commonmodels.ApprovalJobSpec{}
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return nil, err
 	}
@@ -128,30 +116,24 @@ func (j *BlueKingJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 	resp = append(resp, &commonmodels.JobTask{
 		Name: j.job.Name,
 		JobInfo: map[string]string{
-			JobNameKey:        j.job.Name,
-			"blueking_job_id": strconv.FormatInt(j.spec.ExecutionPlanID, 10),
+			JobNameKey: j.job.Name,
 		},
-		Key:     j.job.Name + "." + strconv.FormatInt(j.spec.ExecutionPlanID, 10),
+		Key:     j.job.Name,
 		JobType: string(config.JobBlueKing),
-		Spec: &commonmodels.JobTaskBlueKingSpec{
-			ToolID:          j.spec.ToolID,
-			BusinessID:      j.spec.BusinessID,
-			ExecutionPlanID: j.spec.ExecutionPlanID,
-			Parameters:      j.spec.Parameters,
+		Spec: &commonmodels.JobTaskApprovalSpec{
+			Type:             j.spec.Type,
+			Description:      j.spec.Description,
+			NativeApproval:   j.spec.NativeApproval,
+			LarkApproval:     j.spec.LarkApproval,
+			DingTalkApproval: j.spec.DingTalkApproval,
+			WorkWXApproval:   j.spec.WorkWXApproval,
 		},
-		Timeout: 0,
+		Timeout: j.spec.Timeout,
 	})
 
 	return resp, nil
 }
 
-func (j *BlueKingJob) LintJob() error {
-	j.spec = &commonmodels.BlueKingJobSpec{}
-	if err := commonmodels.IToiYaml(j.job.Spec, j.spec); err != nil {
-		return err
-	}
-	if _, err := mongodb.NewCICDToolColl().Get(j.spec.ToolID); err != nil {
-		return fmt.Errorf("not found Jenkins in mongo, err: %v", err)
-	}
+func (j *ApprovalJob) LintJob() error {
 	return nil
 }
