@@ -119,7 +119,7 @@ func (j *ApprovalJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			JobNameKey: j.job.Name,
 		},
 		Key:     j.job.Name,
-		JobType: string(config.JobBlueKing),
+		JobType: string(config.JobApproval),
 		Spec: &commonmodels.JobTaskApprovalSpec{
 			Type:             j.spec.Type,
 			Description:      j.spec.Description,
