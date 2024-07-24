@@ -93,7 +93,7 @@ func (c *ApprovalJobCtl) Run(ctx context.Context) {
 }
 
 func waitForNativeApprove(ctx context.Context, spec *commonmodels.ApprovalJobSpec, workflowName, jobName string, taskID int64, ack func()) (config.Status, error) {
-	log.Infof("waitForLarkApprove start")
+	log.Infof("waitForNativeApprove start")
 
 	approval := spec.NativeApproval
 
