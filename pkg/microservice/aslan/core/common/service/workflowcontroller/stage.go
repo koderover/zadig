@@ -75,8 +75,8 @@ func RunStages(ctx context.Context, stages []*commonmodels.StageTask, workflowCt
 	}
 }
 
-func ApproveStage(workflowName, stageName, userName, userID, comment string, taskID int64, approve bool) error {
-	approveKey := fmt.Sprintf("%s-%d-%s", workflowName, taskID, stageName)
+func ApproveStage(workflowName, jobName, userName, userID, comment string, taskID int64, approve bool) error {
+	approveKey := fmt.Sprintf("%s-%s-%d", workflowName, jobName, taskID)
 	_, err := approvalservice.GlobalApproveMap.DoApproval(approveKey, userName, userID, comment, approve)
 	return err
 }
