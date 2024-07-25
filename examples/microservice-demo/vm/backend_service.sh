@@ -1,4 +1,5 @@
 #!/bin/bash
+set -e
 
 SERVICE_NAME="backend"
 BACKEND_PORT=20219
@@ -45,7 +46,7 @@ deploy_service() {
     DEPLOY_SRC="$DEPLOY_DST/$PACKAGE_NAME"
     echo "Deploying $SERVICE_NAME service with package $PACKAGE_NAME..."
     if [ -f "$DEPLOY_SRC" ]; then
-        tar -xzf "$DEPLOY_SRC" -C "$DEPLOY_DST"
+        tar xvf "$DEPLOY_SRC" -C "$DEPLOY_DST"
         chmod +x "$DEPLOY_DST/$(basename $BACKEND_EXEC)"
         restart_service
         echo "Deployment of $PACKAGE_NAME completed."
