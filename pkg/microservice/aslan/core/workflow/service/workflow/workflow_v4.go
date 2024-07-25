@@ -436,9 +436,6 @@ func ListWorkflowV4(projectName, viewName, userID string, names, v4Names []strin
 	for _, workflowModel := range workflowV4List {
 		stages := []string{}
 		for _, stage := range workflowModel.Stages {
-			if stage.Approval != nil && stage.Approval.Enabled {
-				stages = append(stages, "人工审批")
-			}
 			stages = append(stages, stage.Name)
 		}
 		var baseRefs []string
