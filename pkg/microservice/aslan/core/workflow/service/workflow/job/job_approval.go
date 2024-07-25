@@ -140,6 +140,11 @@ func (j *ApprovalJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 }
 
 func (j *ApprovalJob) LintJob() error {
+	j.spec = &commonmodels.ApprovalJobSpec{}
+	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
+		return err
+	}
+
 	if err := util.CheckZadigProfessionalLicense(); err != nil {
 		if j.spec.Type == config.LarkApproval || j.spec.Type == config.DingTalkApproval || j.spec.Type == config.WorkWXApproval {
 			return e.ErrLicenseInvalid.AddDesc("飞书、钉钉、企业微信审批是专业版功能")
