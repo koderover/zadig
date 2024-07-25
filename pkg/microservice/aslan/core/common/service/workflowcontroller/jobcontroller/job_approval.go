@@ -315,7 +315,7 @@ func waitForLarkApprove(ctx context.Context, spec *commonmodels.ApprovalJobSpec,
 		larkservice.RemoveLarkApprovalInstanceManager(instance)
 	}()
 
-	timeoutChan := time.After(time.Duration(approval.Timeout) * time.Minute)
+	timeoutChan := time.After(time.Duration(timeout) * time.Minute)
 	for {
 		time.Sleep(1 * time.Second)
 		select {
@@ -354,8 +354,10 @@ func waitForDingTalkApprove(ctx context.Context, spec *commonmodels.ApprovalJobS
 	if approval == nil {
 		return config.StatusFailed, fmt.Errorf("waitForApprove: dingtalk approval data not found")
 	}
-	if approval.Timeout == 0 {
-		approval.Timeout = 60
+
+	timeout := spec.Timeout
+	if timeout == 0 {
+		timeout = 60
 	}
 
 	data, err := mongodb.NewIMAppColl().GetByID(context.Background(), approval.ID)
@@ -455,13 +457,13 @@ func waitForDingTalkApprove(ctx context.Context, spec *commonmodels.ApprovalJobS
 		}
 	}
 
-	timeout := time.After(time.Duration(approval.Timeout) * time.Minute)
+	timeoutChan := time.After(time.Duration(timeout) * time.Minute)
 	for {
 		time.Sleep(1 * time.Second)
 		select {
 		case <-ctx.Done():
 			return config.StatusCancelled, fmt.Errorf("workflow was canceled")
-		case <-timeout:
+		case <-timeoutChan:
 			return config.StatusTimeout, fmt.Errorf("workflow timeout")
 		default:
 			userApprovalResult := dingservice.GetAllUserApprovalResults(instanceID)
@@ -518,8 +520,10 @@ func waitForWorkWXApprove(ctx context.Context, spec *commonmodels.ApprovalJobSpe
 	if approval == nil {
 		return config.StatusFailed, fmt.Errorf("waitForApprove: workwx approval data not found")
 	}
-	if approval.Timeout == 0 {
-		approval.Timeout = 60
+
+	timeout := spec.Timeout
+	if timeout == 0 {
+		timeout = 60
 	}
 
 	data, err := mongodb.NewIMAppColl().GetByID(context.Background(), approval.ID)
@@ -598,13 +602,13 @@ func waitForWorkWXApprove(ctx context.Context, spec *commonmodels.ApprovalJobSpe
 		workwxservice.RemoveWorkWXApprovalManager(instanceID)
 	}()
 
-	timeout := time.After(time.Duration(approval.Timeout) * time.Minute)
+	timeoutChan := time.After(time.Duration(timeout) * time.Minute)
 	for {
 		time.Sleep(1 * time.Second)
 		select {
 		case <-ctx.Done():
 			return config.StatusCancelled, fmt.Errorf("workflow was canceled")
-		case <-timeout:
+		case <-timeoutChan:
 			return config.StatusTimeout, fmt.Errorf("workflow timeout")
 		default:
 			userApprovalResult, err := workwxservice.GetWorkWXApprovalEvent(instanceID)
