@@ -27,11 +27,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pkg/errors"
-	"go.uber.org/zap"
-	"gorm.io/gorm/utils"
-	"k8s.io/apimachinery/pkg/util/sets"
-
 	config2 "github.com/koderover/zadig/v2/pkg/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
@@ -60,6 +55,10 @@ import (
 	jobspec "github.com/koderover/zadig/v2/pkg/types/job"
 	"github.com/koderover/zadig/v2/pkg/types/step"
 	stepspec "github.com/koderover/zadig/v2/pkg/types/step"
+	"github.com/pkg/errors"
+	"go.uber.org/zap"
+	"gorm.io/gorm/utils"
+	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 type CreateTaskV4Resp struct {
@@ -93,7 +92,6 @@ type StageTaskPreview struct {
 	StartTime  int64                    `bson:"start_time"    json:"start_time,omitempty"`
 	EndTime    int64                    `bson:"end_time"      json:"end_time,omitempty"`
 	Parallel   bool                     `bson:"parallel"      json:"parallel"`
-	Approval   *commonmodels.Approval   `bson:"approval"      json:"approval"`
 	ManualExec *commonmodels.ManualExec `bson:"manual_exec"      json:"manual_exec"`
 	Jobs       []*JobTaskPreview        `bson:"jobs"          json:"jobs"`
 	Error      string                   `bson:"error" json:"error""`
@@ -275,76 +273,83 @@ func CheckWorkflowV4ApprovalInitiator(workflowName, uid string, log *zap.Sugared
 	// and only need to check once for each im app type
 	isMobileChecked := map[string]bool{}
 	for _, stage := range workflow.Stages {
-		if stage.Approval != nil && stage.Approval.Enabled {
-			switch stage.Approval.Type {
-			case config.LarkApproval:
-				if stage.Approval.LarkApproval == nil {
-					continue
-				}
-				cli, err := lark.GetLarkClientByIMAppID(stage.Approval.LarkApproval.ID)
+		for _, job := range stage.Jobs {
+			if job.JobType == config.JobApproval {
+				spec := new(commonmodels.ApprovalJobSpec)
+				err := commonmodels.IToi(job.Spec, spec)
 				if err != nil {
-					return errors.Errorf("failed to get lark app info by id-%s", stage.Approval.LarkApproval.ID)
+					return fmt.Errorf("failed to decode job: %s, error: %s", job.Name, err)
 				}
 
-				if initiator := stage.Approval.LarkApproval.DefaultApprovalInitiator; initiator == nil {
-					if isMobileChecked[stage.Approval.LarkApproval.ID] {
+				switch spec.Type {
+				case config.LarkApproval:
+					if spec.LarkApproval == nil {
 						continue
 					}
-					_, err = cli.GetUserOpenIDByEmailOrMobile(larktool.QueryTypeMobile, userInfo.Phone)
+					cli, err := lark.GetLarkClientByIMAppID(spec.LarkApproval.ID)
 					if err != nil {
-						return e.ErrCheckApprovalInitiator.AddDesc(fmt.Sprintf("lark app id: %s, phone: %s, error: %v",
-							stage.Approval.LarkApproval.ID, userInfo.Phone, err))
+						return errors.Errorf("failed to get lark app info by id-%s", spec.LarkApproval.ID)
 					}
-					isMobileChecked[stage.Approval.LarkApproval.ID] = true
-				}
-			case config.DingTalkApproval:
-				if stage.Approval.DingTalkApproval == nil {
-					continue
-				}
-				cli, err := dingtalk.GetDingTalkClientByIMAppID(stage.Approval.DingTalkApproval.ID)
-				if err != nil {
-					return errors.Errorf("failed to get dingtalk app info by id-%s", stage.Approval.DingTalkApproval.ID)
-				}
 
-				if initiator := stage.Approval.DingTalkApproval.DefaultApprovalInitiator; initiator == nil {
-					if isMobileChecked[stage.Approval.DingTalkApproval.ID] {
+					if initiator := spec.LarkApproval.DefaultApprovalInitiator; initiator == nil {
+						if isMobileChecked[spec.LarkApproval.ID] {
+							continue
+						}
+						_, err = cli.GetUserOpenIDByEmailOrMobile(larktool.QueryTypeMobile, userInfo.Phone)
+						if err != nil {
+							return e.ErrCheckApprovalInitiator.AddDesc(fmt.Sprintf("lark app id: %s, phone: %s, error: %v",
+								spec.LarkApproval.ID, userInfo.Phone, err))
+						}
+						isMobileChecked[spec.LarkApproval.ID] = true
+					}
+				case config.DingTalkApproval:
+					if spec.DingTalkApproval == nil {
 						continue
 					}
-					_, err = cli.GetUserIDByMobile(userInfo.Phone)
+					cli, err := dingtalk.GetDingTalkClientByIMAppID(spec.DingTalkApproval.ID)
 					if err != nil {
-						return e.ErrCheckApprovalInitiator.AddDesc(fmt.Sprintf("dingtalk app id: %s, phone: %s, error: %v",
-							stage.Approval.DingTalkApproval.ID, userInfo.Phone, err))
+						return errors.Errorf("failed to get dingtalk app info by id-%s", spec.DingTalkApproval.ID)
 					}
-					isMobileChecked[stage.Approval.DingTalkApproval.ID] = true
-				}
-			case config.WorkWXApproval:
-				if stage.Approval.WorkWXApproval == nil {
-					continue
-				}
 
-				cli, err := workwxservice.GetLarkClientByIMAppID(stage.Approval.WorkWXApproval.ID)
-				if err != nil {
-					return errors.Errorf("failed to get dingtalk app info by id-%s", stage.Approval.DingTalkApproval.ID)
-				}
-
-				if initiator := stage.Approval.WorkWXApproval.CreatorUser; initiator == nil {
-					if isMobileChecked[stage.Approval.DingTalkApproval.ID] {
+					if initiator := spec.DingTalkApproval.DefaultApprovalInitiator; initiator == nil {
+						if isMobileChecked[spec.DingTalkApproval.ID] {
+							continue
+						}
+						_, err = cli.GetUserIDByMobile(userInfo.Phone)
+						if err != nil {
+							return e.ErrCheckApprovalInitiator.AddDesc(fmt.Sprintf("dingtalk app id: %s, phone: %s, error: %v",
+								spec.DingTalkApproval.ID, userInfo.Phone, err))
+						}
+						isMobileChecked[spec.DingTalkApproval.ID] = true
+					}
+				case config.WorkWXApproval:
+					if spec.WorkWXApproval == nil {
 						continue
 					}
-					phone, err := strconv.Atoi(userInfo.Phone)
+
+					cli, err := workwxservice.GetLarkClientByIMAppID(spec.WorkWXApproval.ID)
 					if err != nil {
-						return e.ErrCheckApprovalInitiator.AddDesc("invalid phone number")
+						return errors.Errorf("failed to get dingtalk app info by id-%s", spec.DingTalkApproval.ID)
 					}
 
-					_, err = cli.FindUserByPhone(phone)
-					if err != nil {
-						return e.ErrCheckApprovalInitiator.AddDesc(fmt.Sprintf("workwx app id: %s, phone: %s, error: %v",
-							stage.Approval.WorkWXApproval.ID, userInfo.Phone, err))
+					if initiator := spec.WorkWXApproval.CreatorUser; initiator == nil {
+						if isMobileChecked[spec.DingTalkApproval.ID] {
+							continue
+						}
+						phone, err := strconv.Atoi(userInfo.Phone)
+						if err != nil {
+							return e.ErrCheckApprovalInitiator.AddDesc("invalid phone number")
+						}
+
+						_, err = cli.FindUserByPhone(phone)
+						if err != nil {
+							return e.ErrCheckApprovalInitiator.AddDesc(fmt.Sprintf("workwx app id: %s, phone: %s, error: %v",
+								spec.WorkWXApproval.ID, userInfo.Phone, err))
+						}
+						isMobileChecked[spec.DingTalkApproval.ID] = true
 					}
-					isMobileChecked[stage.Approval.DingTalkApproval.ID] = true
 				}
 			}
-
 		}
 	}
 	return nil
@@ -469,7 +474,6 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 		stageTask := &commonmodels.StageTask{
 			Name:       stage.Name,
 			Parallel:   stage.Parallel,
-			Approval:   stage.Approval,
 			ManualExec: stage.ManualExec,
 		}
 		for _, job := range stage.Jobs {
@@ -630,7 +634,7 @@ func RetryWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredL
 		}
 	}
 
-	for i, stage := range task.Stages {
+	for _, stage := range task.Stages {
 		if stage.Status == config.StatusPassed {
 			continue
 		}
@@ -638,11 +642,6 @@ func RetryWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredL
 		stage.StartTime = 0
 		stage.EndTime = 0
 		stage.Error = ""
-
-		if stage.Approval != nil && stage.Approval.Enabled &&
-			stage.Approval.Status != config.StatusPassed && stage.Approval.Status != "" {
-			stage.Approval = task.OriginWorkflowArgs.Stages[i].Approval
-		}
 
 		for _, jobTask := range stage.Jobs {
 			if jobTask.Status == config.StatusPassed {
@@ -712,7 +711,7 @@ func ManualExecWorkflowTaskV4(workflowName string, taskID int64, stageName strin
 
 	first := true
 	found := false
-	for i, stage := range task.Stages {
+	for _, stage := range task.Stages {
 		if stage.Status == config.StatusPassed {
 			continue
 		}
@@ -759,11 +758,6 @@ func ManualExecWorkflowTaskV4(workflowName string, taskID int64, stageName strin
 		stage.StartTime = 0
 		stage.EndTime = 0
 		stage.Error = ""
-
-		if stage.Approval != nil && stage.Approval.Enabled &&
-			stage.Approval.Status != config.StatusPassed && stage.Approval.Status != "" {
-			stage.Approval = task.OriginWorkflowArgs.Stages[i].Approval
-		}
 
 		for _, jobTask := range stage.Jobs {
 			if jobTask.Status == config.StatusPassed {
@@ -1024,7 +1018,6 @@ func ListWorkflowTaskV4ByFilter(filter *TaskHistoryFilter, filterList []string, 
 					stagePreview.Status = stage.Status
 					stagePreview.StartTime = stage.StartTime
 					stagePreview.EndTime = stage.EndTime
-					stagePreview.Approval = stage.Approval
 					stagePreview.ManualExec = stage.ManualExec
 					stagePreview.Parallel = stage.Parallel
 					stagePreview.Error = stage.Error
@@ -1046,26 +1039,6 @@ func cleanWorkflowV4TasksPreviews(workflows []*commonmodels.WorkflowTaskPreview)
 		var stageList []*commonmodels.StagePreview
 		workflow.WorkflowArgs = nil
 		for _, stage := range workflow.Stages {
-			if stage.Approval != nil && stage.Approval.Enabled {
-				approvalMap := map[config.ApprovalType]string{
-					config.NativeApproval:   "Zadig 审批",
-					config.LarkApproval:     "飞书审批",
-					config.DingTalkApproval: "钉钉审批",
-					config.WorkWXApproval:   "企业微信审批",
-				}
-				approvalStage := &commonmodels.StagePreview{
-					StartTime: stage.Approval.StartTime,
-					EndTime:   stage.Approval.EndTime,
-					Status:    stage.Approval.Status,
-				}
-				if name, ok := approvalMap[stage.Approval.Type]; ok {
-					approvalStage.Name = name
-				}
-				if stage.Approval.Status != config.StatusPassed {
-					stage.Status = StatusNotRun
-				}
-				stageList = append(stageList, approvalStage)
-			}
 			stageList = append(stageList, stage)
 		}
 		workflow.Stages = stageList
@@ -1081,42 +1054,6 @@ func getLatestWorkflowTaskV4(workflowName string) (*commonmodels.WorkflowTask, e
 	resp.OriginWorkflowArgs = nil
 	resp.Stages = nil
 	return resp, nil
-}
-
-// clean extra message for list workflow
-func cleanWorkflowV4Tasks(workflows []*commonmodels.WorkflowTask) {
-	const StatusNotRun = ""
-	for _, workflow := range workflows {
-		var stageList []*commonmodels.StageTask
-		workflow.WorkflowArgs = nil
-		workflow.OriginWorkflowArgs = nil
-		for _, stage := range workflow.Stages {
-			if stage.Approval != nil && stage.Approval.Enabled {
-				approvalStage := &commonmodels.StageTask{
-					Name: map[config.ApprovalType]string{
-						config.NativeApproval:   "Zadig 审批",
-						config.LarkApproval:     "飞书审批",
-						config.DingTalkApproval: "钉钉审批",
-						config.WorkWXApproval:   "企业微信审批",
-					}[stage.Approval.Type],
-					StartTime: stage.Approval.StartTime,
-					EndTime:   stage.Approval.EndTime,
-					Status:    stage.Approval.Status,
-				}
-				if stage.Approval.Status != config.StatusPassed {
-					stage.Status = StatusNotRun
-				}
-				stageList = append(stageList, approvalStage)
-			}
-			stageList = append(stageList, stage)
-			for _, job := range stage.Jobs {
-				job.Spec = nil
-				job.Outputs = nil
-				job.JobInfo = nil
-			}
-		}
-		workflow.Stages = stageList
-	}
 }
 
 func CancelWorkflowTaskV4(userName, workflowName string, taskID int64, logger *zap.SugaredLogger) error {
@@ -1158,7 +1095,6 @@ func GetWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredLog
 			StartTime:  stage.StartTime,
 			EndTime:    stage.EndTime,
 			Parallel:   stage.Parallel,
-			Approval:   stage.Approval,
 			ManualExec: stage.ManualExec,
 			Jobs:       jobsToJobPreviews(stage.Jobs, task.GlobalContext, timeNow, task.ProjectName),
 			Error:      stage.Error,
@@ -1167,13 +1103,13 @@ func GetWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredLog
 	return resp, nil
 }
 
-func ApproveStage(workflowName, stageName, userName, userID, comment string, taskID int64, approve bool, logger *zap.SugaredLogger) error {
-	if workflowName == "" || stageName == "" || taskID == 0 {
-		errMsg := fmt.Sprintf("can not find approved workflow: %s, taskID: %d,stage: %s", workflowName, taskID, stageName)
+func ApproveStage(workflowName, jobName, userName, userID, comment string, taskID int64, approve bool, logger *zap.SugaredLogger) error {
+	if workflowName == "" || jobName == "" || taskID == 0 {
+		errMsg := fmt.Sprintf("can not find approved workflow: %s, taskID: %d,jobName: %s", workflowName, taskID, jobName)
 		logger.Error(errMsg)
 		return e.ErrApproveTask.AddDesc(errMsg)
 	}
-	if err := workflowcontroller.ApproveStage(workflowName, stageName, userName, userID, comment, taskID, approve); err != nil {
+	if err := workflowcontroller.ApproveStage(workflowName, jobName, userName, userID, comment, taskID, approve); err != nil {
 		logger.Error(err)
 		return e.ErrApproveTask.AddErr(err)
 	}
@@ -1638,45 +1574,57 @@ func workflowTaskLint(workflowTask *commonmodels.WorkflowTask, logger *zap.Sugar
 			return e.ErrCreateTask.AddDesc(errMsg)
 		}
 
-		// deal with users in user groups
-		if stage.Approval != nil && stage.Approval.Type == config.NativeApproval && stage.Approval.NativeApproval != nil && len(stage.Approval.NativeApproval.ApproveUsers) != 0 {
-			newApproveUserList := make([]*commonmodels.User, 0)
-			userSet := sets.NewString()
-			for _, approveUser := range stage.Approval.NativeApproval.ApproveUsers {
-				if approveUser.Type == "" || approveUser.Type == setting.UserTypeUser {
-					newApproveUserList = append(newApproveUserList, approveUser)
-					userSet.Insert(approveUser.UserID)
+		for _, job := range stage.Jobs {
+			if job.JobType == string(config.JobApproval) {
+				spec := &commonmodels.JobTaskApprovalSpec{}
+				err := commonmodels.IToi(job.Spec, spec)
+				if err != nil {
+					logger.Errorf("failed to update approval job user info, error: %s", err)
+					return e.ErrCreateTask.AddDesc(fmt.Sprintf("failed to update approval job user info, error: %s", err))
 				}
-			}
-			for _, approveUser := range stage.Approval.NativeApproval.ApproveUsers {
-				if approveUser.Type == setting.UserTypeGroup {
-					users, err := user.New().GetGroupDetailedInfo(approveUser.GroupID)
-					if err != nil {
-						errMsg := fmt.Sprintf("failed to find users for group %s in stage: %s, error: %s", approveUser.GroupName, stage.Name, err)
-						logger.Errorf(errMsg)
-						return e.ErrCreateTask.AddDesc(errMsg)
-					}
-					for _, userID := range users.UIDs {
-						if userSet.Has(userID) {
-							continue
-						}
-						userDetailedInfo, err := user.New().GetUserByID(userID)
-						if err != nil {
-							errMsg := fmt.Sprintf("failed to find user %s, error: %s", userID, err)
-							logger.Errorf(errMsg)
-							return e.ErrCreateTask.AddDesc(errMsg)
-						}
 
-						userSet.Insert(userID)
-						newApproveUserList = append(newApproveUserList, &commonmodels.User{
-							Type:     setting.UserTypeUser,
-							UserID:   userID,
-							UserName: userDetailedInfo.Name,
-						})
+				if spec.Type == config.NativeApproval && spec.NativeApproval != nil && len(spec.NativeApproval.ApproveUsers) != 0 {
+					newApproveUserList := make([]*commonmodels.User, 0)
+					userSet := sets.NewString()
+					for _, approveUser := range spec.NativeApproval.ApproveUsers {
+						if approveUser.Type == "" || approveUser.Type == "user" {
+							newApproveUserList = append(newApproveUserList, approveUser)
+							userSet.Insert(approveUser.UserID)
+						}
 					}
+					for _, approveUser := range spec.NativeApproval.ApproveUsers {
+						if approveUser.Type == "group" {
+							users, err := user.New().GetGroupDetailedInfo(approveUser.GroupID)
+							if err != nil {
+								errMsg := fmt.Sprintf("failed to find users for group %s in stage: %s, error: %s", approveUser.GroupName, stage.Name, err)
+								logger.Errorf(errMsg)
+								return e.ErrCreateTask.AddDesc(errMsg)
+							}
+							for _, userID := range users.UIDs {
+								if userSet.Has(userID) {
+									continue
+								}
+								userDetailedInfo, err := user.New().GetUserByID(userID)
+								if err != nil {
+									errMsg := fmt.Sprintf("failed to find user %s, error: %s", userID, err)
+									logger.Errorf(errMsg)
+									return e.ErrCreateTask.AddDesc(errMsg)
+								}
+
+								userSet.Insert(userID)
+								newApproveUserList = append(newApproveUserList, &commonmodels.User{
+									Type:     "user",
+									UserID:   userID,
+									UserName: userDetailedInfo.Name,
+								})
+							}
+						}
+					}
+					spec.NativeApproval.ApproveUsers = newApproveUserList
 				}
+
+				job.Spec = spec
 			}
-			stage.Approval.NativeApproval.ApproveUsers = newApproveUserList
 		}
 	}
 	return nil

@@ -469,7 +469,6 @@ func generateCustomWorkflowFromTestingModule(testInfo *commonmodels.Testing, arg
 	stage = append(stage, &commonmodels.WorkflowStage{
 		Name:     "test",
 		Parallel: false,
-		Approval: nil,
 		Jobs:     job,
 	})
 

@@ -32,7 +32,6 @@ import (
 	"github.com/pingcap/tidb/parser"
 	_ "github.com/pingcap/tidb/parser/test_driver"
 	"github.com/pkg/errors"
-	"github.com/samber/lo"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
@@ -436,9 +435,6 @@ func ListWorkflowV4(projectName, viewName, userID string, names, v4Names []strin
 	for _, workflowModel := range workflowV4List {
 		stages := []string{}
 		for _, stage := range workflowModel.Stages {
-			if stage.Approval != nil && stage.Approval.Enabled {
-				stages = append(stages, "人工审批")
-			}
 			stages = append(stages, stage.Name)
 		}
 		var baseRefs []string
@@ -964,10 +960,6 @@ func LintWorkflowV4(workflow *commonmodels.WorkflowV4, logger *zap.SugaredLogger
 		return e.ErrUpsertWorkflow.AddErr(err)
 	}
 	for _, stage := range workflow.Stages {
-		if err := lintApprovals(stage.Approval); err != nil {
-			logger.Errorf("stage: %s approval info error: %v", stage.Name, err)
-			return e.ErrUpsertWorkflow.AddDesc(fmt.Sprintf("stage: %s approval info error: %v", stage.Name, err))
-		}
 		if _, ok := stageNameMap[stage.Name]; !ok {
 			stageNameMap[stage.Name] = true
 		} else {
@@ -994,135 +986,73 @@ func LintWorkflowV4(workflow *commonmodels.WorkflowV4, logger *zap.SugaredLogger
 	return nil
 }
 
-func lintApprovals(approval *commonmodels.Approval) error {
-	if approval == nil {
-		return nil
-	}
-	if err := util.CheckZadigProfessionalLicense(); err != nil {
-		if approval.Type == config.LarkApproval || approval.Type == config.DingTalkApproval || approval.Type == config.WorkWXApproval {
-			return e.ErrLicenseInvalid.AddDesc("飞书、钉钉、企业微信审批是专业版功能")
-		}
-	}
-	if !approval.Enabled {
-		return nil
-	}
-	switch approval.Type {
-	case config.NativeApproval:
-		if approval.NativeApproval == nil {
-			return errors.New("approval not found")
-		}
-		if len(approval.NativeApproval.ApproveUsers) < approval.NativeApproval.NeededApprovers {
-			return errors.New("all approve users should not less than needed approvers")
-		}
-	case config.LarkApproval:
-		if approval.LarkApproval == nil {
-			return errors.New("approval not found")
-		}
-		if len(approval.LarkApproval.ApprovalNodes) == 0 {
-			return errors.New("num of approval-node is 0")
-		}
-		for i, node := range approval.LarkApproval.ApprovalNodes {
-			if len(node.ApproveUsers) == 0 {
-				return errors.Errorf("num of approval-node %d approver is 0", i)
-			}
-			if !lo.Contains([]string{"AND", "OR"}, string(node.Type)) {
-				return errors.Errorf("approval-node %d type should be AND or OR", i)
-			}
-		}
-	case config.DingTalkApproval:
-		if approval.DingTalkApproval == nil {
-			return errors.New("approval not found")
-		}
-		userIDSets := sets.NewString()
-		if len(approval.DingTalkApproval.ApprovalNodes) > 20 {
-			return errors.New("num of approval-node should not exceed 20")
-		}
-		if len(approval.DingTalkApproval.ApprovalNodes) == 0 {
-			return errors.New("num of approval-node is 0")
-		}
-		for i, node := range approval.DingTalkApproval.ApprovalNodes {
-			if len(node.ApproveUsers) == 0 {
-				return errors.Errorf("num of approval-node %d approver is 0", i)
-			}
-			for _, user := range node.ApproveUsers {
-				if userIDSets.Has(user.ID) {
-					return errors.Errorf("Duplicate approvers %s should not appear in a complete approval process", user.Name)
-				}
-				userIDSets.Insert(user.ID)
-			}
-			if !lo.Contains([]string{"AND", "OR"}, string(node.Type)) {
-				return errors.Errorf("approval-node %d type should be AND or OR", i)
-			}
-		}
-	case config.WorkWXApproval:
-		// TODO: do some linting if required
-	default:
-		return errors.Errorf("invalid approval type %s", approval.Type)
-	}
-
-	return nil
-}
-
 func createLarkApprovalDefinition(workflow *commonmodels.WorkflowV4) error {
 	for _, stage := range workflow.Stages {
-		if stage.Approval == nil {
-			continue
-		}
-		if data := stage.Approval.LarkApproval; data != nil && data.ID != "" {
-			larkInfo, err := commonrepo.NewIMAppColl().GetByID(context.Background(), stage.Approval.LarkApproval.ID)
-			if err != nil {
-				return errors.Wrapf(err, "get lark app %s", stage.Approval.LarkApproval.ID)
-			}
-			if larkInfo.Type != string(config.LarkApproval) {
-				return errors.Errorf("lark app %s is not lark approval", stage.Approval.LarkApproval.ID)
-			}
+		for _, job := range stage.Jobs {
+			if job.JobType == config.JobApproval {
+				spec := new(commonmodels.ApprovalJobSpec)
+				err := commonmodels.IToi(job.Spec, spec)
+				if err != nil {
+					return fmt.Errorf("failed to decode job: %s, error: %s", job.Name, err)
+				}
 
-			if larkInfo.LarkApprovalCodeList == nil {
-				larkInfo.LarkApprovalCodeList = make(map[string]string)
-			}
-			// skip if this node type approval definition already created
-			if approvalNodeTypeID := larkInfo.LarkApprovalCodeList[data.GetNodeTypeKey()]; approvalNodeTypeID != "" {
-				log.Infof("lark approval definition %s already created", approvalNodeTypeID)
-				continue
-			}
+				if data := spec.LarkApproval; data != nil && data.ID != "" {
+					larkInfo, err := commonrepo.NewIMAppColl().GetByID(context.Background(), data.ID)
+					if err != nil {
+						return errors.Wrapf(err, "get lark app %s", data.ID)
+					}
+					if larkInfo.Type != string(config.LarkApproval) {
+						return errors.Errorf("lark app %s is not lark approval", data.ID)
+					}
 
-			// create this node type approval definition and save to db
-			client, err := larkservice.GetLarkClientByIMAppID(data.ID)
-			if err != nil {
-				return errors.Wrapf(err, "get lark client by im app id %s", data.ID)
-			}
-			nodesArgs := make([]*lark.ApprovalNode, 0)
-			for _, node := range data.ApprovalNodes {
-				nodesArgs = append(nodesArgs, &lark.ApprovalNode{
-					Type: node.Type,
-					ApproverIDList: func() (re []string) {
-						for _, user := range node.ApproveUsers {
-							re = append(re, user.ID)
-						}
-						return
-					}(),
-				})
-			}
+					if larkInfo.LarkApprovalCodeList == nil {
+						larkInfo.LarkApprovalCodeList = make(map[string]string)
+					}
+					// skip if this node type approval definition already created
+					if approvalNodeTypeID := larkInfo.LarkApprovalCodeList[data.GetNodeTypeKey()]; approvalNodeTypeID != "" {
+						log.Infof("lark approval definition %s already created", approvalNodeTypeID)
+						continue
+					}
 
-			approvalCode, err := client.CreateApprovalDefinition(&lark.CreateApprovalDefinitionArgs{
-				Name:        "Zadig 工作流",
-				Description: "Zadig 工作流-" + data.GetNodeTypeKey(),
-				Nodes:       nodesArgs,
-			})
-			if err != nil {
-				return errors.Wrap(err, "create lark approval definition")
+					// create this node type approval definition and save to db
+					client, err := larkservice.GetLarkClientByIMAppID(data.ID)
+					if err != nil {
+						return errors.Wrapf(err, "get lark client by im app id %s", data.ID)
+					}
+					nodesArgs := make([]*lark.ApprovalNode, 0)
+					for _, node := range data.ApprovalNodes {
+						nodesArgs = append(nodesArgs, &lark.ApprovalNode{
+							Type: node.Type,
+							ApproverIDList: func() (re []string) {
+								for _, user := range node.ApproveUsers {
+									re = append(re, user.ID)
+								}
+								return
+							}(),
+						})
+					}
+
+					approvalCode, err := client.CreateApprovalDefinition(&lark.CreateApprovalDefinitionArgs{
+						Name:        "Zadig 工作流",
+						Description: "Zadig 工作流-" + data.GetNodeTypeKey(),
+						Nodes:       nodesArgs,
+					})
+					if err != nil {
+						return errors.Wrap(err, "create lark approval definition")
+					}
+					err = client.SubscribeApprovalDefinition(&lark.SubscribeApprovalDefinitionArgs{
+						ApprovalID: approvalCode,
+					})
+					if err != nil {
+						return errors.Wrap(err, "subscribe lark approval definition")
+					}
+					larkInfo.LarkApprovalCodeList[data.GetNodeTypeKey()] = approvalCode
+					if err := commonrepo.NewIMAppColl().Update(context.Background(), data.ID, larkInfo); err != nil {
+						return errors.Wrap(err, "update lark approval data")
+					}
+					log.Infof("create lark approval definition %s, key: %s", approvalCode, data.GetNodeTypeKey())
+				}
 			}
-			err = client.SubscribeApprovalDefinition(&lark.SubscribeApprovalDefinitionArgs{
-				ApprovalID: approvalCode,
-			})
-			if err != nil {
-				return errors.Wrap(err, "subscribe lark approval definition")
-			}
-			larkInfo.LarkApprovalCodeList[data.GetNodeTypeKey()] = approvalCode
-			if err := commonrepo.NewIMAppColl().Update(context.Background(), stage.Approval.LarkApproval.ID, larkInfo); err != nil {
-				return errors.Wrap(err, "update lark approval data")
-			}
-			log.Infof("create lark approval definition %s, key: %s", approvalCode, data.GetNodeTypeKey())
 		}
 	}
 	return nil

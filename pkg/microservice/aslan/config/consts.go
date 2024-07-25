@@ -117,7 +117,7 @@ const (
 	StatusPrepare        Status = "prepare"
 	StatusReject         Status = "reject"
 	StatusDistributed    Status = "distributed"
-	StatusWaitingApprove Status = "waitforapprove"
+	StatusWaitingApprove Status = "wait_for_approval"
 	StatusDebugBefore    Status = "debug_before"
 	StatusDebugAfter     Status = "debug_after"
 )
@@ -244,6 +244,7 @@ const (
 	JobGuanceyunCheck       JobType = "guanceyun-check"
 	JobGrafana              JobType = "grafana"
 	JobBlueKing             JobType = "blueking"
+	JobApproval             JobType = "approval"
 )
 
 const (
@@ -545,7 +546,7 @@ type ReleasePlanStatus string
 
 const (
 	StatusPlanning       ReleasePlanStatus = "planning"
-	StatusWaitForApprove ReleasePlanStatus = "waitforapprove"
+	StatusWaitForApprove ReleasePlanStatus = "wait_for_approval"
 	StatusExecuting      ReleasePlanStatus = "executing"
 	StatusSuccess        ReleasePlanStatus = "success"
 	StatusCancel         ReleasePlanStatus = "cancel"

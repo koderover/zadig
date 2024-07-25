@@ -108,9 +108,6 @@ func ListWorkflowTemplate(category string, excludeBuildIn bool, logger *zap.Suga
 	for _, template := range templates {
 		stages := []string{}
 		for _, stage := range template.Stages {
-			if stage.Approval != nil && stage.Approval.Enabled {
-				stages = append(stages, "人工审批")
-			}
 			stages = append(stages, stage.Name)
 		}
 
@@ -673,17 +670,27 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 					},
 				},
 				{
-					Name:     "灰度50%",
-					Parallel: true,
-					Approval: &commonmodels.Approval{
-						Enabled:     true,
-						Description: "Confirm release to 50%",
-						Type:        config.NativeApproval,
-						NativeApproval: &commonmodels.NativeApproval{
-							Timeout:         60,
-							NeededApprovers: 1,
+					Name:     "审批",
+					Parallel: false,
+					Jobs: []*commonmodels.Job{
+						{
+							Name:    "审批",
+							JobType: config.JobApproval,
+							Spec: commonmodels.ApprovalJobSpec{
+								Timeout:     60,
+								Type:        config.NativeApproval,
+								Description: "Confirm release to 50%",
+								NativeApproval: &commonmodels.NativeApproval{
+									Timeout:         60,
+									NeededApprovers: 1,
+								},
+							},
 						},
 					},
+				},
+				{
+					Name:     "灰度50%",
+					Parallel: true,
 					Jobs: []*commonmodels.Job{
 						{
 							Name:    "gray-50",
@@ -697,17 +704,27 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 					},
 				},
 				{
-					Name:     "灰度100%",
-					Parallel: true,
-					Approval: &commonmodels.Approval{
-						Enabled:     true,
-						Description: "Confirm release to 100%",
-						Type:        config.NativeApproval,
-						NativeApproval: &commonmodels.NativeApproval{
-							Timeout:         60,
-							NeededApprovers: 1,
+					Name:     "审批2",
+					Parallel: false,
+					Jobs: []*commonmodels.Job{
+						{
+							Name:    "审批2",
+							JobType: config.JobApproval,
+							Spec: commonmodels.ApprovalJobSpec{
+								Timeout:     60,
+								Type:        config.NativeApproval,
+								Description: "Confirm release to 100%",
+								NativeApproval: &commonmodels.NativeApproval{
+									Timeout:         60,
+									NeededApprovers: 1,
+								},
+							},
 						},
 					},
+				},
+				{
+					Name:     "灰度100%",
+					Parallel: true,
 					Jobs: []*commonmodels.Job{
 						{
 							Name:    "gray-100",
@@ -784,17 +801,27 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 					},
 				},
 				{
-					Name:     "蓝绿发布",
-					Parallel: true,
-					Approval: &commonmodels.Approval{
-						Enabled:     true,
-						Description: "Confirm to release",
-						Type:        config.NativeApproval,
-						NativeApproval: &commonmodels.NativeApproval{
-							Timeout:         60,
-							NeededApprovers: 1,
+					Name:     "审批",
+					Parallel: false,
+					Jobs: []*commonmodels.Job{
+						{
+							Name:    "审批",
+							JobType: config.JobApproval,
+							Spec: commonmodels.ApprovalJobSpec{
+								Timeout:     60,
+								Type:        config.NativeApproval,
+								Description: "Confirm to release",
+								NativeApproval: &commonmodels.NativeApproval{
+									Timeout:         60,
+									NeededApprovers: 1,
+								},
+							},
 						},
 					},
+				},
+				{
+					Name:     "蓝绿发布",
+					Parallel: true,
 					Jobs: []*commonmodels.Job{
 						{
 							Name:    "blue-green-release",
@@ -866,17 +893,27 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 					},
 				},
 				{
-					Name:     "金丝雀发布",
-					Parallel: true,
-					Approval: &commonmodels.Approval{
-						Enabled:     true,
-						Description: "Confirm to release",
-						Type:        config.NativeApproval,
-						NativeApproval: &commonmodels.NativeApproval{
-							Timeout:         60,
-							NeededApprovers: 1,
+					Name:     "审批",
+					Parallel: false,
+					Jobs: []*commonmodels.Job{
+						{
+							Name:    "审批",
+							JobType: config.JobApproval,
+							Spec: commonmodels.ApprovalJobSpec{
+								Timeout:     60,
+								Type:        config.NativeApproval,
+								Description: "Confirm to release",
+								NativeApproval: &commonmodels.NativeApproval{
+									Timeout:         60,
+									NeededApprovers: 1,
+								},
+							},
 						},
 					},
+				},
+				{
+					Name:     "金丝雀发布",
+					Parallel: true,
 					Jobs: []*commonmodels.Job{
 						{
 							Name:    "canary-release",
@@ -913,17 +950,27 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 					},
 				},
 				{
-					Name:     "istio 流量 60%",
-					Parallel: true,
-					Approval: &commonmodels.Approval{
-						Enabled:     true,
-						Description: "Confirm to release 60%",
-						Type:        config.NativeApproval,
-						NativeApproval: &commonmodels.NativeApproval{
-							Timeout:         60,
-							NeededApprovers: 1,
+					Name:     "审批",
+					Parallel: false,
+					Jobs: []*commonmodels.Job{
+						{
+							Name:    "审批",
+							JobType: config.JobApproval,
+							Spec: commonmodels.ApprovalJobSpec{
+								Timeout:     60,
+								Type:        config.NativeApproval,
+								Description: "Confirm to release 60%",
+								NativeApproval: &commonmodels.NativeApproval{
+									Timeout:         60,
+									NeededApprovers: 1,
+								},
+							},
 						},
 					},
+				},
+				{
+					Name:     "istio 流量 60%",
+					Parallel: true,
 					Jobs: []*commonmodels.Job{
 						{
 							Name:    "istio-60",
@@ -939,17 +986,27 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 					},
 				},
 				{
-					Name:     "istio 流量 100%",
-					Parallel: true,
-					Approval: &commonmodels.Approval{
-						Enabled:     true,
-						Description: "Confirm to release 100%",
-						Type:        config.NativeApproval,
-						NativeApproval: &commonmodels.NativeApproval{
-							Timeout:         60,
-							NeededApprovers: 1,
+					Name:     "审批2",
+					Parallel: false,
+					Jobs: []*commonmodels.Job{
+						{
+							Name:    "审批2",
+							JobType: config.JobApproval,
+							Spec: commonmodels.ApprovalJobSpec{
+								Timeout:     60,
+								Type:        config.NativeApproval,
+								Description: "Confirm to release 100%",
+								NativeApproval: &commonmodels.NativeApproval{
+									Timeout:         60,
+									NeededApprovers: 1,
+								},
+							},
 						},
 					},
+				},
+				{
+					Name:     "istio 流量 100%",
+					Parallel: true,
 					Jobs: []*commonmodels.Job{
 						{
 							Name:    "istio-100",
@@ -972,17 +1029,27 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 			BuildIn:      true,
 			Stages: []*commonmodels.WorkflowStage{
 				{
-					Name:     "MSE 发布任务",
-					Parallel: true,
-					Approval: &commonmodels.Approval{
-						Enabled:     true,
-						Description: "Confirm to mse release",
-						Type:        config.NativeApproval,
-						NativeApproval: &commonmodels.NativeApproval{
-							Timeout:         60,
-							NeededApprovers: 1,
+					Name:     "审批",
+					Parallel: false,
+					Jobs: []*commonmodels.Job{
+						{
+							Name:    "审批",
+							JobType: config.JobApproval,
+							Spec: commonmodels.ApprovalJobSpec{
+								Timeout:     60,
+								Type:        config.NativeApproval,
+								Description: "Confirm to mse release",
+								NativeApproval: &commonmodels.NativeApproval{
+									Timeout:         60,
+									NeededApprovers: 1,
+								},
+							},
 						},
 					},
+				},
+				{
+					Name:     "MSE 发布任务",
+					Parallel: true,
 					Jobs: []*commonmodels.Job{
 						{
 							Name:    "mse-release",

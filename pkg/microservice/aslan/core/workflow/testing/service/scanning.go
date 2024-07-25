@@ -718,7 +718,6 @@ func generateCustomWorkflowFromScanningModule(scanInfo *commonmodels.Scanning, a
 	stage = append(stage, &commonmodels.WorkflowStage{
 		Name:     "scan",
 		Parallel: false,
-		Approval: nil,
 		Jobs:     job,
 	})
 

@@ -77,7 +77,6 @@ type StageTask struct {
 	EndTime    int64         `bson:"end_time"        json:"end_time,omitempty"`
 	Parallel   bool          `bson:"parallel"        json:"parallel,omitempty"`
 	ManualExec *ManualExec   `bson:"manual_exec"     json:"manual_exec,omitempty"`
-	Approval   *Approval     `bson:"approval"        json:"approval,omitempty"`
 	Jobs       []*JobTask    `bson:"jobs"            json:"jobs,omitempty"`
 	Error      string        `bson:"error"           json:"error"`
 }
@@ -137,7 +136,6 @@ type StagePreview struct {
 	StartTime  int64         `bson:"start_time"    json:"start_time,omitempty"`
 	EndTime    int64         `bson:"end_time"      json:"end_time,omitempty"`
 	Parallel   bool          `bson:"parallel"      json:"parallel,omitempty"`
-	Approval   *Approval     `bson:"approval"      json:"approval,omitempty"`
 	ManualExec *ManualExec   `bson:"manual_exec"   json:"manual_exec,omitempty"`
 	Jobs       []*JobPreview `bson:"jobs"          json:"jobs,omitempty"`
 	Error      string        `bson:"error"         json:"error"`
@@ -508,6 +506,16 @@ type JobTaskBlueKingSpec struct {
 	InstanceName string `bson:"instance_name"       json:"instance_name"       yaml:"instance_name"`
 }
 
+type JobTaskApprovalSpec struct {
+	Timeout          int64               `bson:"timeout"                     yaml:"timeout"                       json:"timeout"`
+	Type             config.ApprovalType `bson:"type"                        yaml:"type"                          json:"type"`
+	Description      string              `bson:"description"                 yaml:"description"                   json:"description"`
+	NativeApproval   *NativeApproval     `bson:"native_approval"             yaml:"native_approval,omitempty"     json:"native_approval,omitempty"`
+	LarkApproval     *LarkApproval       `bson:"lark_approval"               yaml:"lark_approval,omitempty"       json:"lark_approval,omitempty"`
+	DingTalkApproval *DingTalkApproval   `bson:"dingtalk_approval"           yaml:"dingtalk_approval,omitempty"   json:"dingtalk_approval,omitempty"`
+	WorkWXApproval   *WorkWXApproval     `bson:"workwx_approval"             yaml:"workwx_approval,omitempty"     json:"workwx_approval,omitempty"`
+}
+
 type JobTaskWorkflowTriggerSpec struct {
 	TriggerType           config.WorkflowTriggerType `bson:"trigger_type" json:"trigger_type" yaml:"trigger_type"`
 	IsEnableCheck         bool                       `bson:"is_enable_check" json:"is_enable_check" yaml:"is_enable_check"`
@@ -651,6 +659,5 @@ type WorkflowTaskCtx struct {
 	GlobalContextSet            func(key, value string)
 	GlobalContextEach           func(f func(k, v string) bool)
 	ClusterIDAdd                func(clusterID string)
-	SetStatus                   func(status config.Status)
 	StartTime                   time.Time
 }

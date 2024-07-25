@@ -48,7 +48,7 @@ type listWorkflowTaskV4Resp struct {
 }
 
 type ApproveRequest struct {
-	StageName    string `json:"stage_name"`
+	JobName      string `json:"job_name"`
 	WorkflowName string `json:"workflow_name"`
 	TaskID       int64  `json:"task_id"`
 	Approve      bool   `json:"approve"`
@@ -570,7 +570,7 @@ func ApproveStage(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = workflow.ApproveStage(args.WorkflowName, args.StageName, ctx.UserName, ctx.UserID, args.Comment, args.TaskID, args.Approve, ctx.Logger)
+	ctx.Err = workflow.ApproveStage(args.WorkflowName, args.JobName, ctx.UserName, ctx.UserID, args.Comment, args.TaskID, args.Approve, ctx.Logger)
 }
 
 func GetWorkflowV4ArtifactFileContent(c *gin.Context) {

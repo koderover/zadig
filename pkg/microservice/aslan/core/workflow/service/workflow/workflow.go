@@ -259,10 +259,7 @@ func AutoCreateWorkflow(productName string, log *zap.SugaredLogger) *EnvStatus {
 				stage := &commonmodels.WorkflowStage{
 					Name:     "构建",
 					Parallel: true,
-					Approval: &commonmodels.Approval{
-						Type: config.NativeApproval,
-					},
-					Jobs: []*commonmodels.Job{buildJob},
+					Jobs:     []*commonmodels.Job{buildJob},
 				}
 				workflow.Stages = append(workflow.Stages, stage)
 			}
@@ -285,10 +282,7 @@ func AutoCreateWorkflow(productName string, log *zap.SugaredLogger) *EnvStatus {
 				stage := &commonmodels.WorkflowStage{
 					Name:     "主机部署",
 					Parallel: true,
-					Approval: &commonmodels.Approval{
-						Type: config.NativeApproval,
-					},
-					Jobs: []*commonmodels.Job{deployJob},
+					Jobs:     []*commonmodels.Job{deployJob},
 				}
 				workflow.Stages = append(workflow.Stages, stage)
 			} else {
@@ -313,10 +307,7 @@ func AutoCreateWorkflow(productName string, log *zap.SugaredLogger) *EnvStatus {
 				stage := &commonmodels.WorkflowStage{
 					Name:     "部署",
 					Parallel: true,
-					Approval: &commonmodels.Approval{
-						Type: config.NativeApproval,
-					},
-					Jobs: []*commonmodels.Job{deployJob},
+					Jobs:     []*commonmodels.Job{deployJob},
 				}
 				workflow.Stages = append(workflow.Stages, stage)
 			}
