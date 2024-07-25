@@ -1,5 +1,5 @@
 /*
-Copyright 2022 The KodeRover Authors.
+Copyright 2024 The KodeRover Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,31 +19,32 @@ package handler
 import (
 	"github.com/gin-gonic/gin"
 
-	"github.com/koderover/zadig/v2/pkg/microservice/picket/core/filter/service"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/stat/service"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
+	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 )
 
-func Overview(c *gin.Context) {
+func CreateMonthlyReleaseStat(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.Overview(c.Request.Header, c.Request.URL.Query(), ctx.Logger)
+	ctx.Err = service.CreateMonthlyReleaseStat(ctx.Logger)
 }
-func Test(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.Test(c.Request.Header, c.Request.URL.Query(), ctx.Logger)
+type GetReleaseDashboardArgs struct {
+	StartDate int64 `json:"startDate"      form:"startDate,default=0"`
+	EndDate   int64 `json:"endDate"        form:"endDate,default=0"`
 }
-func Deploy(c *gin.Context) {
+
+func GetReleaseDashboard(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.Deploy(c.Request.Header, c.Request.URL.Query(), ctx.Logger)
-}
-func Build(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	args := new(GetReleaseDashboardArgs)
+	if err := c.ShouldBindQuery(args); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		return
+	}
 
-	ctx.Resp, ctx.Err = service.Build(c.Request.Header, c.Request.URL.Query(), ctx.Logger)
+	ctx.Resp, ctx.Err = service.GetReleaseDashboard(args.StartDate, args.EndDate, ctx.Logger)
 }

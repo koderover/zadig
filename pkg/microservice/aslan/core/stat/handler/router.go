@@ -29,8 +29,10 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		dashboard.GET("/build", GetBuildStat)
 		dashboard.GET("/deploy", GetDeployStat)
 		dashboard.GET("/test", GetTestDashboard)
+		dashboard.GET("/release", GetReleaseDashboard)
 	}
 
+	// Deprecated: this whole Group is deprecated and will be replaced by v2 api
 	quality := router.Group("quality")
 	{
 		//buildStat
@@ -57,24 +59,52 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		quality.POST("/deployTopFiveFailureMeasure", GetDeployTopFiveFailureMeasure)
 	}
 
-	// v2 api, mainly for enterprise statistics
+	// v2 api below
 	v2 := router.Group("v2")
+
+	dashboardConfigV2 := v2.Group("config")
 	{
-		v2.GET("/config", ListStatDashboardConfigs)
-		v2.POST("/config", CreateStatDashboardConfig)
-		v2.PUT("/config/:id", UpdateStatDashboardConfig)
-		v2.DELETE("/config/:id", DeleteStatDashboardConfig)
-		v2.GET("/dashboard", GetStatsDashboard)
-		v2.GET("/dashboard/general", GetStatsDashboardGeneralData)
-		// ai api TODO: consider api call auth
-		v2.POST("/ai/analysis", GetAIStatsAnalysis)
-		v2.GET("/ai/analysis/prompt", GetAIStatsAnalysisPrompts)
-		v2.GET("/ai/overview", GetProjectsOverview)
-		v2.GET("/ai/build/trend", GetCurrently30DayBuildTrend)
-		v2.GET("/ai/radar", GetEfficiencyRadar)
-		v2.GET("/ai/attention", GetMonthAttention)
-		v2.GET("/ai/requirement/period", GetRequirementDevDepPeriod)
+		dashboardConfigV2.GET("", ListStatDashboardConfigs)
+		dashboardConfigV2.POST("", CreateStatDashboardConfig)
+		dashboardConfigV2.PUT("/:id", UpdateStatDashboardConfig)
+		dashboardConfigV2.DELETE("/:id", DeleteStatDashboardConfig)
 	}
+
+	dashboardV2 := v2.Group("dashboard")
+	{
+		dashboardV2.GET("", GetStatsDashboard)
+		dashboardV2.GET("/general", GetStatsDashboardGeneralData)
+	}
+
+	aiV2 := v2.Group("ai")
+	{
+		aiV2.POST("/analysis", GetAIStatsAnalysis)
+		aiV2.GET("/analysis/prompt", GetAIStatsAnalysisPrompts)
+		aiV2.GET("/overview", GetProjectsOverview)
+		aiV2.GET("/build/trend", GetCurrently30DayBuildTrend)
+		aiV2.GET("/radar", GetEfficiencyRadar)
+		aiV2.GET("/attention", GetMonthAttention)
+		aiV2.GET("/requirement/period", GetRequirementDevDepPeriod)
+	}
+
+	releaseV2 := v2.Group("release")
+	{
+		releaseV2.POST("/monthly", CreateMonthlyReleaseStat)
+	}
+
+	qualityV2 := v2.Group("quality")
+
+	deployV2 := qualityV2.Group("deploy")
+	{
+		deployV2.POST("/weekly", CreateWeeklyDeployStat)
+		deployV2.POST("/monthly", CreateMonthlyDeployStat)
+		deployV2.GET("/health", GetDeployHeathStats)
+		deployV2.GET("/trend/weekly", GetDeployWeeklyTrend)
+		deployV2.GET("/trend/monthly", GetDeployMonthlyTrend)
+		deployV2.GET("/service/top", GetTopDeployedService)
+		deployV2.GET("/service/failure", GetTopDeployFailuresByService)
+	}
+
 }
 
 type OpenAPIRouter struct{}

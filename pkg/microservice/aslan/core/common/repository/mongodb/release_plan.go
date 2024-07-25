@@ -181,3 +181,35 @@ func (c *ReleasePlanColl) ListByOptions(opt *ListReleasePlanOption) ([]*models.R
 
 	return resp, count, nil
 }
+
+// ListFinishedReleasePlan list all finished release plans in the given time period
+func (c *ReleasePlanColl) ListFinishedReleasePlan(startTime, endTime int64) ([]*models.ReleasePlan, error) {
+	query := bson.M{}
+
+	timeQuery := bson.M{}
+	if startTime > 0 {
+		timeQuery["$gte"] = startTime
+	}
+	if endTime > 0 {
+		timeQuery["$lt"] = endTime
+	}
+
+	if startTime > 0 || endTime > 0 {
+		query["executing_time"] = timeQuery
+	}
+
+	query["success_time"] = bson.M{"$ne": 0}
+
+	cursor, err := c.Collection.Find(context.TODO(), query, options.Find())
+	if err != nil {
+		return nil, err
+	}
+
+	resp := make([]*models.ReleasePlan, 0)
+	err = cursor.All(context.TODO(), &resp)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
+}

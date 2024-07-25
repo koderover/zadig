@@ -74,6 +74,23 @@ func GetMidnightTimestamp(timestamp int64) int64 {
 	return midnight.Unix()
 }
 
+// GetMonday returns the unix timestamp of the monday of this week
+func GetMonday(t time.Time) time.Time {
+	// Find the difference in days to the previous Monday
+	daysToMonday := int(time.Monday - t.Weekday())
+	if daysToMonday > 0 {
+		daysToMonday = -6 // If today is after Monday, adjust to go back to the previous Monday
+	}
+
+	// Calculate the date of this week's Monday
+	thisWeeksMonday := t.AddDate(0, 0, daysToMonday)
+
+	// Set the time to the start of the day
+	thisWeeksMonday = time.Date(thisWeeksMonday.Year(), thisWeeksMonday.Month(), thisWeeksMonday.Day(), 0, 0, 0, 0, time.Local)
+
+	return thisWeeksMonday
+}
+
 func GetFirstOfMonthDay(now time.Time) int64 {
 	now = now.Local()
 	// get current year and month

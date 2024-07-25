@@ -26,6 +26,8 @@ type DeployStatOption struct {
 	ProductNames []string
 }
 
+// Deprecated: this table is removed in 3.1.0, replaced by deploy_stat_weekly. deploy_stat_weekly removed unnecessary field
+// and change the time segment to weekly.
 type DeployStat struct {
 	ProductName                 string `bson:"product_name"                      json:"productName"`
 	TotalTaskSuccess            int    `bson:"total_task_success"                json:"totalTaskSuccess"`

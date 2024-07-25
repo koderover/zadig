@@ -2,6 +2,7 @@ package mongodb
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson"
@@ -147,7 +148,70 @@ func (c *JobInfoColl) GetBuildJobs(startTime, endTime int64, projectName string)
 	return resp, err
 }
 
-func (c *JobInfoColl) GetDeployJobs(startTime, endTime int64, projectName string) ([]*models.JobInfo, error) {
+func (c *JobInfoColl) GetBuildJobsStats(startTime, endTime int64, projectNames []string) (*models.ServiceDeployCountWithStatus, error) {
+	query := bson.M{}
+	if startTime > 0 && endTime > 0 {
+		query["start_time"] = bson.M{"$gte": startTime, "$lt": endTime}
+	}
+	query["type"] = config.JobZadigBuild
+
+	if len(projectNames) != 0 {
+		query["product_name"] = bson.M{"$in": projectNames}
+	}
+
+	pipeline := make([]bson.M, 0)
+	// find all the deployment jobs
+	pipeline = append(pipeline, bson.M{
+		"$match": query,
+	})
+
+	// group them by project, production and service and get the count of all/failed/success jobs
+	pipeline = append(pipeline, bson.M{
+		"$group": bson.M{
+			"_id":   1,
+			"count": bson.M{"$sum": 1},
+			"success": bson.M{"$sum": bson.M{
+				"$cond": bson.D{
+					{"if", bson.D{{"$eq", bson.A{"$status", "passed"}}}},
+					{"then", 1},
+					{"else", 0},
+				},
+			}},
+			"failed": bson.M{"$sum": bson.M{
+				"$cond": bson.D{
+					{"if", bson.D{{"$in", bson.A{"$status", bson.A{"timeout", "failed"}}}}},
+					{"then", 1},
+					{"else", 0},
+				},
+			}},
+		},
+	})
+
+	// then do a projection returning all the field back to its position
+	pipeline = append(pipeline, bson.M{
+		"$project": bson.M{
+			"_id":     0,
+			"count":   1,
+			"success": 1,
+			"failed":  1,
+		},
+	})
+
+	cursor, err := c.Aggregate(context.TODO(), pipeline)
+	if err != nil {
+		return nil, err
+	}
+
+	_ = cursor.Next(context.TODO())
+
+	result := new(models.ServiceDeployCountWithStatus)
+	if err := cursor.Decode(&result); err != nil {
+		return nil, err
+	}
+	return result, err
+}
+
+func (c *JobInfoColl) GetDeployJobs(startTime, endTime int64, projectNames []string, productionType config.ProductionType) ([]*models.JobInfo, error) {
 	query := bson.M{}
 	query["start_time"] = bson.M{"$gte": startTime, "$lt": endTime}
 	query["type"] = bson.M{"$in": []string{
@@ -156,10 +220,22 @@ func (c *JobInfoColl) GetDeployJobs(startTime, endTime int64, projectName string
 		string(config.JobZadigHelmChartDeploy),
 		string(config.JobDeploy),
 		string(config.JobZadigVMDeploy),
+		string(config.JobCustomDeploy),
 	}}
 
-	if len(projectName) != 0 {
-		query["product_name"] = projectName
+	switch productionType {
+	case config.Production:
+		query["production"] = true
+	case config.Testing:
+		query["production"] = false
+	case config.Both:
+		break
+	default:
+		return nil, fmt.Errorf("invlid production type: %s", productionType)
+	}
+
+	if len(projectNames) != 0 {
+		query["product_name"] = bson.M{"$in": projectNames}
 	}
 
 	resp := make([]*models.JobInfo, 0)
@@ -171,6 +247,298 @@ func (c *JobInfoColl) GetDeployJobs(startTime, endTime int64, projectName string
 	err = cursor.All(context.TODO(), &resp)
 
 	return resp, err
+}
+
+func (c *JobInfoColl) GetDeployJobsStats(startTime, endTime int64, projectNames []string, productionType config.ProductionType) ([]*models.ServiceDeployCountWithStatus, error) {
+	query := bson.M{}
+	if startTime > 0 && endTime > 0 {
+		query["start_time"] = bson.M{"$gte": startTime, "$lt": endTime}
+	}
+	query["type"] = bson.M{"$in": []string{
+		string(config.JobZadigDeploy),
+		string(config.JobZadigHelmDeploy),
+		string(config.JobZadigHelmChartDeploy),
+		string(config.JobDeploy),
+		string(config.JobZadigVMDeploy),
+		string(config.JobCustomDeploy),
+	}}
+
+	switch productionType {
+	case config.Production:
+		query["production"] = true
+	case config.Testing:
+		query["production"] = false
+	case config.Both:
+		break
+	default:
+		return nil, fmt.Errorf("invlid production type: %s", productionType)
+	}
+
+	if len(projectNames) != 0 {
+		query["product_name"] = bson.M{"$in": projectNames}
+	}
+
+	pipeline := make([]bson.M, 0)
+	// find all the deployment jobs
+	pipeline = append(pipeline, bson.M{
+		"$match": query,
+	})
+
+	// group them by project, production and service and get the count of all/failed/success jobs
+	pipeline = append(pipeline, bson.M{
+		"$group": bson.M{
+			"_id": bson.M{
+				"production": "$production",
+			},
+			"count": bson.M{"$sum": 1},
+			"success": bson.M{"$sum": bson.M{
+				"$cond": bson.D{
+					{"if", bson.D{{"$eq", bson.A{"$status", "passed"}}}},
+					{"then", 1},
+					{"else", 0},
+				},
+			}},
+			"failed": bson.M{"$sum": bson.M{
+				"$cond": bson.D{
+					{"if", bson.D{{"$in", bson.A{"$status", bson.A{"timeout", "failed"}}}}},
+					{"then", 1},
+					{"else", 0},
+				},
+			}},
+		},
+	})
+
+	// then do a projection returning all the field back to its position
+	pipeline = append(pipeline, bson.M{
+		"$project": bson.M{
+			"_id":        0,
+			"production": "$_id.production",
+			"count":      1,
+			"success":    1,
+			"failed":     1,
+		},
+	})
+
+	cursor, err := c.Aggregate(context.TODO(), pipeline)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]*models.ServiceDeployCountWithStatus, 0)
+	if err := cursor.All(context.TODO(), &result); err != nil {
+		return nil, err
+	}
+	return result, err
+}
+
+func (c *JobInfoColl) GetTopDeployedService(startTime, endTime int64, projectNames []string, productionType config.ProductionType, top int) ([]*models.ServiceDeployCountWithStatus, error) {
+	pipeline := make([]bson.M, 0)
+
+	query := bson.M{
+		"start_time": bson.M{"$gte": startTime, "$lte": endTime},
+		"type": bson.M{"$in": []string{
+			string(config.JobZadigDeploy),
+			string(config.JobZadigHelmDeploy),
+			string(config.JobZadigVMDeploy),
+		}},
+		"service_name": bson.M{"$ne": ""},
+	}
+
+	switch productionType {
+	case config.Production:
+		query["production"] = true
+	case config.Testing:
+		query["production"] = false
+	case config.Both:
+		break
+	default:
+		return nil, fmt.Errorf("invlid production type: %s", productionType)
+	}
+
+	if len(projectNames) > 0 {
+		query["product_name"] = bson.M{"$in": projectNames}
+	}
+
+	// find all the deployment jobs
+	pipeline = append(pipeline, bson.M{
+		"$match": query,
+	})
+
+	// group them by project, production and service and get the count of all/failed/success jobs
+	pipeline = append(pipeline, bson.M{
+		"$group": bson.M{
+			"_id": bson.M{
+				"production":   "$production",
+				"service_name": "$service_name",
+				"product_name": "$product_name",
+			},
+			"count": bson.M{"$sum": 1},
+			"success": bson.M{"$sum": bson.M{
+				"$cond": bson.D{
+					{"if", bson.D{{"$eq", bson.A{"$status", "passed"}}}},
+					{"then", 1},
+					{"else", 0},
+				},
+			}},
+			"failed": bson.M{"$sum": bson.M{
+				"$cond": bson.D{
+					{"if", bson.D{{"$in", bson.A{"$status", bson.A{"timeout", "failed"}}}}},
+					{"then", 1},
+					{"else", 0},
+				},
+			}},
+		},
+	})
+
+	// then do a projection returning all the field back to its position
+	pipeline = append(pipeline, bson.M{
+		"$project": bson.M{
+			"_id":          0,
+			"production":   "$_id.production",
+			"service_name": "$_id.service_name",
+			"product_name": "$_id.product_name",
+			"count":        1,
+			"success":      1,
+			"failed":       1,
+		},
+	})
+
+	pipeline = append(pipeline, bson.M{
+		"$sort": bson.M{"count": -1},
+	})
+	pipeline = append(pipeline, bson.M{
+		"$limit": top,
+	})
+
+	pipeline = append(pipeline, bson.M{
+		"$lookup": bson.D{
+			{"from", "template_product"},
+			{"localField", "product_name"},
+			{"foreignField", "product_name"},
+			{"as", "template_product_info"},
+		},
+	})
+	pipeline = append(pipeline, bson.M{
+		"$project": bson.M{
+			"_id":          0,
+			"production":   1,
+			"service_name": 1,
+			"product_name": 1,
+			"count":        1,
+			"success":      1,
+			"failed":       1,
+			"project_name": bson.M{"$first": "$template_product_info.project_name"},
+		},
+	})
+
+	cursor, err := c.Aggregate(context.TODO(), pipeline)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]*models.ServiceDeployCountWithStatus, 0)
+	if err := cursor.All(context.TODO(), &result); err != nil {
+		return nil, err
+	}
+	return result, err
+}
+
+func (c *JobInfoColl) GetTopDeployFailedService(startTime, endTime int64, projectNames []string, productionType config.ProductionType, top int) ([]*models.ServiceDeployCountWithStatus, error) {
+	pipeline := make([]bson.M, 0)
+
+	query := bson.M{
+		"start_time": bson.M{"$gte": startTime, "$lte": endTime},
+		"type": bson.M{"$in": []string{
+			string(config.JobZadigDeploy),
+			string(config.JobZadigHelmDeploy),
+			string(config.JobZadigVMDeploy),
+		}},
+		"service_name": bson.M{"$ne": ""},
+	}
+
+	switch productionType {
+	case config.Production:
+		query["production"] = true
+	case config.Testing:
+		query["production"] = false
+	case config.Both:
+		break
+	default:
+		return nil, fmt.Errorf("invlid production type: %s", productionType)
+	}
+
+	if len(projectNames) > 0 {
+		query["product_name"] = bson.M{"$in": projectNames}
+	}
+
+	// find all the deployment jobs
+	pipeline = append(pipeline, bson.M{
+		"$match": query,
+	})
+
+	// group them by project, production and service and get the count of all/failed/success jobs
+	pipeline = append(pipeline, bson.M{
+		"$group": bson.M{
+			"_id": bson.M{
+				"production":   "$production",
+				"service_name": "$service_name",
+				"product_name": "$product_name",
+			},
+			"count": bson.M{"$sum": bson.M{
+				"$cond": bson.D{
+					{"if", bson.D{{"$in", bson.A{"$status", bson.A{"timeout", "failed"}}}}},
+					{"then", 1},
+					{"else", 0},
+				},
+			}},
+		},
+	})
+
+	// then do a projection returning all the field back to its position
+	pipeline = append(pipeline, bson.M{
+		"$project": bson.M{
+			"_id":          0,
+			"production":   "$_id.production",
+			"service_name": "$_id.service_name",
+			"product_name": "$_id.product_name",
+			"count":        1,
+		},
+	})
+
+	pipeline = append(pipeline, bson.M{
+		"$sort": bson.M{"count": -1},
+	})
+	pipeline = append(pipeline, bson.M{
+		"$limit": top,
+	})
+	pipeline = append(pipeline, bson.M{
+		"$lookup": bson.D{
+			{"from", "template_product"},
+			{"localField", "product_name"},
+			{"foreignField", "product_name"},
+			{"as", "template_product_info"},
+		},
+	})
+	pipeline = append(pipeline, bson.M{
+		"$project": bson.M{
+			"_id":          0,
+			"production":   1,
+			"service_name": 1,
+			"product_name": 1,
+			"count":        1,
+			"project_name": bson.M{"$first": "$template_product_info.project_name"},
+		},
+	})
+	cursor, err := c.Aggregate(context.TODO(), pipeline)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]*models.ServiceDeployCountWithStatus, 0)
+	if err := cursor.All(context.TODO(), &result); err != nil {
+		return nil, err
+	}
+	return result, err
 }
 
 type JobInfoCoarseGrainedData struct {

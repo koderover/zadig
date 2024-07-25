@@ -19,7 +19,6 @@ package handler
 import (
 	"github.com/gin-gonic/gin"
 
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/stat/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/stat/service"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
@@ -40,10 +39,7 @@ func GetDeployStat(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.GetDeployDailyTotalAndSuccess(&models.DeployStatOption{
-		StartDate: args.StartDate,
-		EndDate:   args.EndDate,
-	}, ctx.Logger)
+	ctx.Resp, ctx.Err = service.GetDeployDashboard(args.StartDate, args.EndDate, []string{}, ctx.Logger)
 }
 
 type OpenAPIGetDeployStatArgs struct {
@@ -62,14 +58,10 @@ func GetDeployStatsOpenAPI(c *gin.Context) {
 		return
 	}
 
-	queryArgs := &models.DeployStatOption{
-		StartDate: args.StartDate,
-		EndDate:   args.EndDate,
-	}
-
+	projects := make([]string, 0)
 	if args.Project != "" {
-		queryArgs.ProductNames = []string{args.Project}
+		projects = append(projects, args.Project)
 	}
 
-	ctx.Resp, ctx.Err = service.GetDeployStats(queryArgs, ctx.Logger)
+	ctx.Resp, ctx.Err = service.GetDeployDashboard(args.StartDate, args.EndDate, projects, ctx.Logger)
 }
