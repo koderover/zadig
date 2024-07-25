@@ -507,6 +507,7 @@ type JobTaskBlueKingSpec struct {
 }
 
 type JobTaskApprovalSpec struct {
+	Timeout          int64               `bson:"timeout"                     yaml:"timeout"                       json:"timeout"`
 	Type             config.ApprovalType `bson:"type"                        yaml:"type"                          json:"type"`
 	Description      string              `bson:"description"                 yaml:"description"                   json:"description"`
 	NativeApproval   *NativeApproval     `bson:"native_approval"             yaml:"native_approval,omitempty"     json:"native_approval,omitempty"`

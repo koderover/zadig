@@ -45,12 +45,12 @@ type ApprovalJobCtl struct {
 	job         *commonmodels.JobTask
 	workflowCtx *commonmodels.WorkflowTaskCtx
 	logger      *zap.SugaredLogger
-	jobTaskSpec *commonmodels.ApprovalJobSpec
+	jobTaskSpec *commonmodels.JobTaskApprovalSpec
 	ack         func()
 }
 
 func NewApprovalJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, ack func(), logger *zap.SugaredLogger) *ApprovalJobCtl {
-	jobTaskSpec := &commonmodels.ApprovalJobSpec{}
+	jobTaskSpec := &commonmodels.JobTaskApprovalSpec{}
 	if err := commonmodels.IToi(job.Spec, jobTaskSpec); err != nil {
 		logger.Error(err)
 	}
@@ -94,7 +94,7 @@ func (c *ApprovalJobCtl) Run(ctx context.Context) {
 	return
 }
 
-func waitForNativeApprove(ctx context.Context, spec *commonmodels.ApprovalJobSpec, workflowName, jobName string, taskID int64, ack func()) (config.Status, error) {
+func waitForNativeApprove(ctx context.Context, spec *commonmodels.JobTaskApprovalSpec, workflowName, jobName string, taskID int64, ack func()) (config.Status, error) {
 	log.Infof("waitForNativeApprove start")
 
 	approval := spec.NativeApproval
@@ -154,7 +154,7 @@ func waitForNativeApprove(ctx context.Context, spec *commonmodels.ApprovalJobSpe
 	}
 }
 
-func waitForLarkApprove(ctx context.Context, spec *commonmodels.ApprovalJobSpec, workflowCtx *commonmodels.WorkflowTaskCtx, jobName string, ack func()) (config.Status, error) {
+func waitForLarkApprove(ctx context.Context, spec *commonmodels.JobTaskApprovalSpec, workflowCtx *commonmodels.WorkflowTaskCtx, jobName string, ack func()) (config.Status, error) {
 	log.Infof("waitForLarkApprove start")
 	approval := spec.LarkApproval
 	if approval == nil {
@@ -348,7 +348,7 @@ func waitForLarkApprove(ctx context.Context, spec *commonmodels.ApprovalJobSpec,
 	}
 }
 
-func waitForDingTalkApprove(ctx context.Context, spec *commonmodels.ApprovalJobSpec, workflowCtx *commonmodels.WorkflowTaskCtx, jobName string, ack func()) (config.Status, error) {
+func waitForDingTalkApprove(ctx context.Context, spec *commonmodels.JobTaskApprovalSpec, workflowCtx *commonmodels.WorkflowTaskCtx, jobName string, ack func()) (config.Status, error) {
 	log.Infof("waitForDingTalkApprove start")
 	approval := spec.DingTalkApproval
 	if approval == nil {
@@ -514,7 +514,7 @@ func waitForDingTalkApprove(ctx context.Context, spec *commonmodels.ApprovalJobS
 	}
 }
 
-func waitForWorkWXApprove(ctx context.Context, spec *commonmodels.ApprovalJobSpec, workflowCtx *commonmodels.WorkflowTaskCtx, jobName string, ack func()) (config.Status, error) {
+func waitForWorkWXApprove(ctx context.Context, spec *commonmodels.JobTaskApprovalSpec, workflowCtx *commonmodels.WorkflowTaskCtx, jobName string, ack func()) (config.Status, error) {
 	log.Infof("waitForWorkWXApprove start...")
 	approval := spec.WorkWXApproval
 	if approval == nil {

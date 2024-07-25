@@ -121,6 +121,7 @@ func (j *ApprovalJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		Key:     j.job.Name,
 		JobType: string(config.JobApproval),
 		Spec: &commonmodels.JobTaskApprovalSpec{
+			Timeout:          j.spec.Timeout,
 			Type:             j.spec.Type,
 			Description:      j.spec.Description,
 			NativeApproval:   j.spec.NativeApproval,
