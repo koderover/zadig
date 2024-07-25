@@ -117,7 +117,7 @@ func waitForNativeApprove(ctx context.Context, spec *commonmodels.ApprovalJobSpe
 		log.Errorf("send approve notification failed, error: %v", err)
 	}
 
-	timeoutChan := time.After(time.Duration(approval.Timeout) * time.Minute)
+	timeoutChan := time.After(time.Duration(timeout) * time.Minute)
 
 	for {
 		time.Sleep(1 * time.Second)
