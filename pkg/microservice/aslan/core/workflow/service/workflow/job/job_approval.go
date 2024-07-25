@@ -22,7 +22,11 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
+	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
+	"github.com/samber/lo"
+	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 type ApprovalJob struct {
@@ -136,5 +140,65 @@ func (j *ApprovalJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 }
 
 func (j *ApprovalJob) LintJob() error {
+	if err := util.CheckZadigProfessionalLicense(); err != nil {
+		if j.spec.Type == config.LarkApproval || j.spec.Type == config.DingTalkApproval || j.spec.Type == config.WorkWXApproval {
+			return e.ErrLicenseInvalid.AddDesc("飞书、钉钉、企业微信审批是专业版功能")
+		}
+	}
+
+	switch j.spec.Type {
+	case config.NativeApproval:
+		if j.spec.NativeApproval == nil {
+			return fmt.Errorf("approval not found")
+		}
+		if len(j.spec.NativeApproval.ApproveUsers) < j.spec.NativeApproval.NeededApprovers {
+			return fmt.Errorf("all approve users should not less than needed approvers")
+		}
+	case config.LarkApproval:
+		if j.spec.LarkApproval == nil {
+			return fmt.Errorf("approval not found")
+		}
+		if len(j.spec.LarkApproval.ApprovalNodes) == 0 {
+			return fmt.Errorf("num of approval-node is 0")
+		}
+		for i, node := range j.spec.LarkApproval.ApprovalNodes {
+			if len(node.ApproveUsers) == 0 {
+				return fmt.Errorf("num of approval-node %d approver is 0", i)
+			}
+			if !lo.Contains([]string{"AND", "OR"}, string(node.Type)) {
+				return fmt.Errorf("approval-node %d type should be AND or OR", i)
+			}
+		}
+	case config.DingTalkApproval:
+		if j.spec.DingTalkApproval == nil {
+			return fmt.Errorf("approval not found")
+		}
+		userIDSets := sets.NewString()
+		if len(j.spec.DingTalkApproval.ApprovalNodes) > 20 {
+			return fmt.Errorf("num of approval-node should not exceed 20")
+		}
+		if len(j.spec.DingTalkApproval.ApprovalNodes) == 0 {
+			return fmt.Errorf("num of approval-node is 0")
+		}
+		for i, node := range j.spec.DingTalkApproval.ApprovalNodes {
+			if len(node.ApproveUsers) == 0 {
+				return fmt.Errorf("num of approval-node %d approver is 0", i)
+			}
+			for _, user := range node.ApproveUsers {
+				if userIDSets.Has(user.ID) {
+					return fmt.Errorf("duplicate approvers %s should not appear in a complete approval process", user.Name)
+				}
+				userIDSets.Insert(user.ID)
+			}
+			if !lo.Contains([]string{"AND", "OR"}, string(node.Type)) {
+				return fmt.Errorf("approval-node %d type should be AND or OR", i)
+			}
+		}
+	case config.WorkWXApproval:
+		// TODO: do some linting if required
+	default:
+		return fmt.Errorf("invalid approval type %s", j.spec.Type)
+	}
+
 	return nil
 }

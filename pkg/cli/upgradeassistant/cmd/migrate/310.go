@@ -43,12 +43,6 @@ func init() {
 }
 
 func V300ToV310() error {
-	log.Infof("-------- start to migrate approval config for all workflows --------")
-	if err := migrateApprovalForAllWorkflows(); err != nil {
-		log.Infof("migrate: %v", err)
-		return err
-	}
-
 	log.Infof("-------- start migrate infrastructure filed in testing, scanning and sacnning template module --------")
 	if err := migrateTestingAndScaningInfraField(); err != nil {
 		log.Infof("migrate infrastructure filed in testing, scanning and sacnning template module job err: %v", err)
@@ -64,6 +58,18 @@ func V300ToV310() error {
 	log.Infof("-------- start creating monthly release stats --------")
 	if err := migrateReleaseMonthlyStats(); err != nil {
 		log.Infof("migrate deployment weekly and monthly deployment stats err: %v", err)
+		return err
+	}
+
+	log.Infof("-------- start to migrate approval config for all workflows --------")
+	if err := migrateApprovalForAllWorkflows(); err != nil {
+		log.Infof("migrate: %v", err)
+		return err
+	}
+
+	log.Infof("-------- start to migrate approval config for all user supplied workflow templates--------")
+	if err := migrateApprovalForAllWorkflowTemplates(); err != nil {
+		log.Infof("migrate: %v", err)
 		return err
 	}
 
@@ -352,6 +358,82 @@ func migrateApprovalForAllWorkflows() error {
 			if err != nil {
 				log.Errorf("failed to update workflow: %s, error: %s", workflow.Name, err)
 				return fmt.Errorf("failed to update workflow: %s, error: %s", workflow.Name, err)
+			}
+		}
+	}
+	return nil
+}
+
+func migrateApprovalForAllWorkflowTemplates() error {
+	// list all workflow templates
+	workflowTemplates, err := mongodb.NewWorkflowV4TemplateColl().List(&mongodb.WorkflowTemplateListOption{
+		ExcludeBuildIn: true,
+	})
+
+	if err != nil {
+		log.Errorf("failed to list all custom workflow templates to do the migration, error: %s", err)
+		return fmt.Errorf("failed to list all custom workflow templates to do the migration, error: %s", err)
+	}
+
+	for _, workflow := range workflowTemplates {
+		newStages := make([]*models.WorkflowStage, 0)
+		changed := false
+		count := 0
+
+		for _, stage := range workflow.Stages {
+			if stage.Approval != nil && stage.Approval.Enabled {
+				changed = true
+
+				// default timeout is 60
+				timeout := 60
+				switch stage.Approval.Type {
+				case config.NativeApproval:
+					timeout = stage.Approval.NativeApproval.Timeout
+				case config.DingTalkApproval:
+					timeout = stage.Approval.DingTalkApproval.Timeout
+				case config.LarkApproval:
+					timeout = stage.Approval.LarkApproval.Timeout
+				case config.WorkWXApproval:
+					timeout = stage.Approval.WorkWXApproval.Timeout
+				}
+
+				approvalJob := []*models.Job{
+					{
+						Name:    fmt.Sprintf("approval-%d", count),
+						JobType: config.JobApproval,
+						Skipped: false,
+						Spec: &models.ApprovalJobSpec{
+							Timeout:          int64(timeout),
+							Type:             stage.Approval.Type,
+							Description:      stage.Approval.Description,
+							NativeApproval:   stage.Approval.NativeApproval,
+							LarkApproval:     stage.Approval.LarkApproval,
+							DingTalkApproval: stage.Approval.DingTalkApproval,
+							WorkWXApproval:   stage.Approval.WorkWXApproval,
+						},
+					},
+				}
+
+				newStages = append(newStages, &models.WorkflowStage{
+					Name:     fmt.Sprintf("approval-%d", count),
+					Parallel: false,
+					Jobs:     approvalJob,
+				})
+
+				count++
+			}
+
+			newStages = append(newStages, stage)
+		}
+
+		// if there are approval stage in the workflow, we use the generated stages and update it
+		if changed {
+			workflow.Stages = newStages
+
+			err := mongodb.NewWorkflowV4TemplateColl().Update(workflow)
+			if err != nil {
+				log.Errorf("failed to update workflow template: %s, error: %s", workflow.TemplateName, err)
+				return fmt.Errorf("failed to update workflow: %s, error: %s", workflow.TemplateName, err)
 			}
 		}
 	}

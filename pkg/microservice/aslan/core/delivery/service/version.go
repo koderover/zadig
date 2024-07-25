@@ -1108,7 +1108,6 @@ func buildArtifactTaskArgs(projectName, envName string, imagesMap *sync.Map) (*c
 	stage = append(stage, &commonmodels.WorkflowStage{
 		Name:     "distribute-image",
 		Parallel: false,
-		Approval: nil,
 		Jobs:     jobs,
 	})
 
@@ -2337,7 +2336,6 @@ func generateCustomWorkflowFromDeliveryVersion(productInfo *commonmodels.Product
 		stage = append(stage, &commonmodels.WorkflowStage{
 			Name:     "distribute-image",
 			Parallel: false,
-			Approval: nil,
 			Jobs:     jobs,
 		})
 		resp.Stages = stage

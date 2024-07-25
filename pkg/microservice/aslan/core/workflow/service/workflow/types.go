@@ -668,10 +668,9 @@ type Param struct {
 }
 
 type OpenAPIStage struct {
-	Name     string                   `json:"name"`
-	Parallel bool                     `json:"parallel,omitempty"`
-	Approval *OpenAPIWorkflowApproval `json:"approval,omitempty"`
-	Jobs     []*commonmodels.Job      `json:"jobs,omitempty"`
+	Name     string              `json:"name"`
+	Parallel bool                `json:"parallel,omitempty"`
+	Jobs     []*commonmodels.Job `json:"jobs,omitempty"`
 }
 
 type OpenAPIServiceModule struct {

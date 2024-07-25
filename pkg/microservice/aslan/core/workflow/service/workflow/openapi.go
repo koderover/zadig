@@ -441,48 +441,9 @@ func OpenAPIGetCustomWorkflowV4(workflowName, projectName string, logger *zap.Su
 		stage := &OpenAPIStage{
 			Name:     st.Name,
 			Parallel: st.Parallel,
+			Jobs:     st.Jobs,
 		}
 
-		stage.Approval = &OpenAPIWorkflowApproval{
-			Enabled:     st.Approval.Enabled,
-			Type:        st.Approval.Type,
-			Description: st.Approval.Description,
-		}
-		if st.Approval.NativeApproval != nil {
-			stage.Approval.NativeApproval = &NativeApproval{
-				Timeout: int64(st.Approval.NativeApproval.Timeout),
-			}
-			if st.Approval.NativeApproval.ApproveUsers != nil {
-				stage.Approval.NativeApproval.ApproveUsers = make([]*ApproveUser, 0)
-				for _, user := range st.Approval.NativeApproval.ApproveUsers {
-					stage.Approval.NativeApproval.ApproveUsers = append(stage.Approval.NativeApproval.ApproveUsers, &ApproveUser{
-						UserID:   user.UserID,
-						UserName: user.UserName,
-					})
-				}
-			}
-		}
-		if st.Approval.LarkApproval != nil {
-			stage.Approval.LarkApproval = &LarkApproval{
-				Timeout: int64(st.Approval.LarkApproval.Timeout),
-			}
-			if st.Approval.LarkApproval.ApproveUsers != nil {
-				stage.Approval.LarkApproval.ApproveUsers = make([]*ApproveUser, 0)
-				for _, user := range st.Approval.LarkApproval.ApproveUsers {
-					stage.Approval.LarkApproval.ApproveUsers = append(stage.Approval.LarkApproval.ApproveUsers, &ApproveUser{
-						UserID:   user.ID,
-						UserName: user.Name,
-					})
-				}
-			}
-		}
-		if st.Approval.DingTalkApproval != nil {
-			stage.Approval.DingTalkApproval = &DingTalkApproval{
-				Timeout: int64(st.Approval.DingTalkApproval.Timeout),
-			}
-		}
-
-		stage.Jobs = st.Jobs
 		stages = append(stages, stage)
 	}
 	resp.Stages = stages

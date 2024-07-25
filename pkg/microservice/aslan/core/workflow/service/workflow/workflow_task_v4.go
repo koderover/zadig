@@ -273,76 +273,83 @@ func CheckWorkflowV4ApprovalInitiator(workflowName, uid string, log *zap.Sugared
 	// and only need to check once for each im app type
 	isMobileChecked := map[string]bool{}
 	for _, stage := range workflow.Stages {
-		if stage.Approval != nil && stage.Approval.Enabled {
-			switch stage.Approval.Type {
-			case config.LarkApproval:
-				if stage.Approval.LarkApproval == nil {
-					continue
-				}
-				cli, err := lark.GetLarkClientByIMAppID(stage.Approval.LarkApproval.ID)
+		for _, job := range stage.Jobs {
+			if job.JobType == config.JobApproval {
+				spec := new(commonmodels.ApprovalJobSpec)
+				err := commonmodels.IToi(job.Spec, spec)
 				if err != nil {
-					return errors.Errorf("failed to get lark app info by id-%s", stage.Approval.LarkApproval.ID)
+					return fmt.Errorf("failed to decode job: %s, error: %s", job.Name, err)
 				}
 
-				if initiator := stage.Approval.LarkApproval.DefaultApprovalInitiator; initiator == nil {
-					if isMobileChecked[stage.Approval.LarkApproval.ID] {
+				switch spec.Type {
+				case config.LarkApproval:
+					if spec.LarkApproval == nil {
 						continue
 					}
-					_, err = cli.GetUserOpenIDByEmailOrMobile(larktool.QueryTypeMobile, userInfo.Phone)
+					cli, err := lark.GetLarkClientByIMAppID(spec.LarkApproval.ID)
 					if err != nil {
-						return e.ErrCheckApprovalInitiator.AddDesc(fmt.Sprintf("lark app id: %s, phone: %s, error: %v",
-							stage.Approval.LarkApproval.ID, userInfo.Phone, err))
+						return errors.Errorf("failed to get lark app info by id-%s", spec.LarkApproval.ID)
 					}
-					isMobileChecked[stage.Approval.LarkApproval.ID] = true
-				}
-			case config.DingTalkApproval:
-				if stage.Approval.DingTalkApproval == nil {
-					continue
-				}
-				cli, err := dingtalk.GetDingTalkClientByIMAppID(stage.Approval.DingTalkApproval.ID)
-				if err != nil {
-					return errors.Errorf("failed to get dingtalk app info by id-%s", stage.Approval.DingTalkApproval.ID)
-				}
 
-				if initiator := stage.Approval.DingTalkApproval.DefaultApprovalInitiator; initiator == nil {
-					if isMobileChecked[stage.Approval.DingTalkApproval.ID] {
+					if initiator := spec.LarkApproval.DefaultApprovalInitiator; initiator == nil {
+						if isMobileChecked[spec.LarkApproval.ID] {
+							continue
+						}
+						_, err = cli.GetUserOpenIDByEmailOrMobile(larktool.QueryTypeMobile, userInfo.Phone)
+						if err != nil {
+							return e.ErrCheckApprovalInitiator.AddDesc(fmt.Sprintf("lark app id: %s, phone: %s, error: %v",
+								spec.LarkApproval.ID, userInfo.Phone, err))
+						}
+						isMobileChecked[spec.LarkApproval.ID] = true
+					}
+				case config.DingTalkApproval:
+					if spec.DingTalkApproval == nil {
 						continue
 					}
-					_, err = cli.GetUserIDByMobile(userInfo.Phone)
+					cli, err := dingtalk.GetDingTalkClientByIMAppID(spec.DingTalkApproval.ID)
 					if err != nil {
-						return e.ErrCheckApprovalInitiator.AddDesc(fmt.Sprintf("dingtalk app id: %s, phone: %s, error: %v",
-							stage.Approval.DingTalkApproval.ID, userInfo.Phone, err))
+						return errors.Errorf("failed to get dingtalk app info by id-%s", spec.DingTalkApproval.ID)
 					}
-					isMobileChecked[stage.Approval.DingTalkApproval.ID] = true
-				}
-			case config.WorkWXApproval:
-				if stage.Approval.WorkWXApproval == nil {
-					continue
-				}
 
-				cli, err := workwxservice.GetLarkClientByIMAppID(stage.Approval.WorkWXApproval.ID)
-				if err != nil {
-					return errors.Errorf("failed to get dingtalk app info by id-%s", stage.Approval.DingTalkApproval.ID)
-				}
-
-				if initiator := stage.Approval.WorkWXApproval.CreatorUser; initiator == nil {
-					if isMobileChecked[stage.Approval.DingTalkApproval.ID] {
+					if initiator := spec.DingTalkApproval.DefaultApprovalInitiator; initiator == nil {
+						if isMobileChecked[spec.DingTalkApproval.ID] {
+							continue
+						}
+						_, err = cli.GetUserIDByMobile(userInfo.Phone)
+						if err != nil {
+							return e.ErrCheckApprovalInitiator.AddDesc(fmt.Sprintf("dingtalk app id: %s, phone: %s, error: %v",
+								spec.DingTalkApproval.ID, userInfo.Phone, err))
+						}
+						isMobileChecked[spec.DingTalkApproval.ID] = true
+					}
+				case config.WorkWXApproval:
+					if spec.WorkWXApproval == nil {
 						continue
 					}
-					phone, err := strconv.Atoi(userInfo.Phone)
+
+					cli, err := workwxservice.GetLarkClientByIMAppID(spec.WorkWXApproval.ID)
 					if err != nil {
-						return e.ErrCheckApprovalInitiator.AddDesc("invalid phone number")
+						return errors.Errorf("failed to get dingtalk app info by id-%s", spec.DingTalkApproval.ID)
 					}
 
-					_, err = cli.FindUserByPhone(phone)
-					if err != nil {
-						return e.ErrCheckApprovalInitiator.AddDesc(fmt.Sprintf("workwx app id: %s, phone: %s, error: %v",
-							stage.Approval.WorkWXApproval.ID, userInfo.Phone, err))
+					if initiator := spec.WorkWXApproval.CreatorUser; initiator == nil {
+						if isMobileChecked[spec.DingTalkApproval.ID] {
+							continue
+						}
+						phone, err := strconv.Atoi(userInfo.Phone)
+						if err != nil {
+							return e.ErrCheckApprovalInitiator.AddDesc("invalid phone number")
+						}
+
+						_, err = cli.FindUserByPhone(phone)
+						if err != nil {
+							return e.ErrCheckApprovalInitiator.AddDesc(fmt.Sprintf("workwx app id: %s, phone: %s, error: %v",
+								spec.WorkWXApproval.ID, userInfo.Phone, err))
+						}
+						isMobileChecked[spec.DingTalkApproval.ID] = true
 					}
-					isMobileChecked[stage.Approval.DingTalkApproval.ID] = true
 				}
 			}
-
 		}
 	}
 	return nil
