@@ -1552,9 +1552,9 @@ func checkHelmChartVersionStatus(deliveryVersion *commonmodels.DeliveryVersion) 
 	if err != nil {
 		return false, errors.Wrapf(err, "failed to query chart distrubutes, versionName: %s", deliveryVersion.Version)
 	}
-	successCharts := sets.NewString()
+	insertCharts := sets.NewString()
 	for _, distribute := range chartDistributes {
-		successCharts.Insert(distribute.ChartName)
+		insertCharts.Insert(distribute.ChartName)
 	}
 
 	// successfully handled images
@@ -1565,9 +1565,9 @@ func checkHelmChartVersionStatus(deliveryVersion *commonmodels.DeliveryVersion) 
 	if err != nil {
 		return false, errors.Wrapf(err, "failed to query image distrubutes, versionName: %s", deliveryVersion.Version)
 	}
-	successImages := sets.NewString()
+	insertedImages := sets.NewString()
 	for _, distribute := range imageDistributes {
-		successImages.Insert(distribute.ServiceName) // image name
+		insertedImages.Insert(distribute.ServiceName) // image name
 	}
 
 	errorList := &multierror.Error{}
@@ -1583,35 +1583,36 @@ func checkHelmChartVersionStatus(deliveryVersion *commonmodels.DeliveryVersion) 
 	}
 
 	// Images
-	allTaskDone := true
-	chartImageAllsuccessMap := map[string]bool{}
+	taskDone := true
+	taskSuccess := true
 	if workflowTaskExist {
+		if !lo.Contains(config.CompletedStatus(), workflowTask.Status) {
+			taskDone = false
+		}
+		if workflowTask.Status != config.StatusPassed {
+			taskSuccess = false
+		}
 		for _, stage := range workflowTask.Stages {
 			for _, job := range stage.Jobs {
-				// job not finished
-				if !lo.Contains(config.CompletedStatus(), job.Status) {
-					allTaskDone = false
-				}
-
 				taskJobSpec := &commonmodels.JobTaskFreestyleSpec{}
 				if err := commonmodels.IToi(job.Spec, taskJobSpec); err != nil {
 					continue
 				}
+
 				for _, step := range taskJobSpec.Steps {
 					if step.StepType == config.StepDistributeImage {
 						stepSpec := &stepspec.StepImageDistributeSpec{}
-						commonmodels.IToi(step.Spec, &stepSpec)
+						commonmodels.IToi(step.Spec, stepSpec)
 
 						for _, target := range stepSpec.DistributeTarget {
-							imageName := commonutil.ExtractImageName(target.TargetImage)
-							if successImages.Has(imageName) {
-								chartImageAllsuccessMap[target.ServiceName] = true
-								continue
+							if job.Status == "" {
+								target.SetTargetImage(stepSpec.TargetRegistry)
 							}
+							imageName := commonutil.ExtractImageName(target.TargetImage)
 
 							if job.Status == config.StatusPassed {
-								if _, ok := chartImageAllsuccessMap[target.ServiceName]; !ok {
-									chartImageAllsuccessMap[target.ServiceName] = true
+								if insertedImages.Has(imageName) {
+									continue
 								}
 
 								err := commonrepo.NewDeliveryDistributeColl().Insert(&commonmodels.DeliveryDistribute{
@@ -1629,12 +1630,30 @@ func checkHelmChartVersionStatus(deliveryVersion *commonmodels.DeliveryVersion) 
 									errorList = multierror.Append(errorList, err)
 									continue
 								}
-								successImages.Insert(imageName)
+								insertedImages.Insert(imageName)
 							} else {
 								if lo.Contains(config.FailedStatus(), job.Status) {
 									errorList = multierror.Append(errorList, fmt.Errorf("failed to build image distribute for service: %s, status: %s, err: %s ", target.ServiceName, job.Status, job.Error))
 								}
-								chartImageAllsuccessMap[target.ServiceName] = false
+
+								if !insertedImages.Has(imageName) {
+									err := commonrepo.NewDeliveryDistributeColl().Insert(&commonmodels.DeliveryDistribute{
+										DistributeType: config.Image,
+										ReleaseID:      deliveryVersion.ID,
+										ServiceName:    imageName, // image name
+										ChartName:      target.ServiceName,
+										RegistryName:   target.TargetImage,
+										Namespace:      commonservice.ExtractRegistryNamespace(target.TargetImage),
+										CreatedAt:      time.Now().Unix(),
+									})
+									if err != nil {
+										err = fmt.Errorf("failed to insert image distribute data, chartName: %s, err: %s", target.ServiceName, err)
+										log.Error(err)
+										errorList = multierror.Append(errorList, err)
+										continue
+									}
+									insertedImages.Insert(imageName)
+								}
 							}
 						}
 					}
@@ -1645,41 +1664,37 @@ func checkHelmChartVersionStatus(deliveryVersion *commonmodels.DeliveryVersion) 
 
 	// Charts
 	for _, chartData := range createArgs.ChartDatas {
-		if successCharts.Has(chartData.ServiceName) {
-			continue
+		if !insertCharts.Has(chartData.ServiceName) {
+			err := commonrepo.NewDeliveryDistributeColl().Insert(&commonmodels.DeliveryDistribute{
+				ReleaseID:      deliveryVersion.ID,
+				DistributeType: config.Chart,
+				ChartName:      chartData.ServiceName,
+				ChartVersion:   chartData.Version,
+				ChartRepoName:  createArgs.ChartRepoName,
+				SubDistributes: nil,
+				CreatedAt:      time.Now().Unix(),
+			})
+			if err != nil {
+				errorList = multierror.Append(errorList, fmt.Errorf("failed to insert distribute data for service:%s ", chartData.ServiceName))
+				continue
+			}
+			insertCharts.Insert(chartData.ServiceName)
 		}
-		if allSuccess, exist := chartImageAllsuccessMap[chartData.ServiceName]; exist && !allSuccess {
-			continue
-		}
-
-		err := commonrepo.NewDeliveryDistributeColl().Insert(&commonmodels.DeliveryDistribute{
-			ReleaseID:      deliveryVersion.ID,
-			DistributeType: config.Chart,
-			ChartName:      chartData.ServiceName,
-			ChartVersion:   chartData.Version,
-			ChartRepoName:  createArgs.ChartRepoName,
-			SubDistributes: nil,
-			CreatedAt:      time.Now().Unix(),
-		})
-		if err != nil {
-			errorList = multierror.Append(errorList, fmt.Errorf("failed to insert distribute data for service:%s ", chartData.ServiceName))
-			continue
-		}
-		successCharts.Insert(chartData.ServiceName)
 	}
 
-	if allTaskDone {
-		if successCharts.Len() == len(createArgs.ChartDatas) {
+	if taskDone {
+		if insertCharts.Len() == len(createArgs.ChartDatas) && taskSuccess {
 			deliveryVersion.Status = setting.DeliveryVersionStatusSuccess
 		} else {
 			deliveryVersion.Status = setting.DeliveryVersionStatusFailed
 		}
 	}
+
 	if errorList.ErrorOrNil() != nil {
 		deliveryVersion.Error = errorList.Error()
 	}
 	updateVersionStatus(deliveryVersion.Version, deliveryVersion.ProductName, deliveryVersion.Status, deliveryVersion.Error)
-	return allTaskDone, nil
+	return taskDone, nil
 }
 
 func CreateNewK8SDeliveryVersion(args *CreateK8SDeliveryVersionArgs, logger *zap.SugaredLogger) error {
@@ -1745,7 +1760,10 @@ func CreateNewK8SDeliveryVersion(args *CreateK8SDeliveryVersionArgs, logger *zap
 	err = commonrepo.NewDeliveryVersionColl().Insert(versionObj)
 	if err != nil {
 		logger.Errorf("failed to insert version data, err: %s", err)
-		return e.ErrCreateDeliveryVersion.AddErr(fmt.Errorf("failed to insert delivery version: %s", versionObj.Version))
+		if mongo.IsDuplicateKeyError(err) {
+			return e.ErrCreateDeliveryVersion.AddErr(fmt.Errorf("failed to insert delivery version %s, version already exist", versionObj.Version))
+		}
+		return e.ErrCreateDeliveryVersion.AddErr(fmt.Errorf("failed to insert delivery version: %s, %v", versionObj.Version, err))
 	}
 
 	err = buildDeliveryImages(productInfo, targetRegistry, registryMap, versionObj, args.DeliveryVersionYamlData, logger)
@@ -1800,7 +1818,10 @@ func CreateNewHelmDeliveryVersion(args *CreateHelmDeliveryVersionArgs, logger *z
 	err = commonrepo.NewDeliveryVersionColl().Insert(versionObj)
 	if err != nil {
 		logger.Errorf("failed to insert version data, err: %s", err)
-		return e.ErrCreateDeliveryVersion.AddErr(fmt.Errorf("failed to insert delivery version: %s", versionObj.Version))
+		if mongo.IsDuplicateKeyError(err) {
+			return e.ErrCreateDeliveryVersion.AddErr(fmt.Errorf("failed to insert delivery version %s, version already exist", versionObj.Version))
+		}
+		return e.ErrCreateDeliveryVersion.AddErr(fmt.Errorf("failed to insert delivery version: %s, err: %v", versionObj.Version, err))
 	}
 
 	err = buildDeliveryCharts(chartDataMap, versionObj, args.DeliveryVersionChartData, logger)

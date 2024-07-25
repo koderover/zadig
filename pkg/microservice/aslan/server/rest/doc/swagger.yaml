@@ -3167,12 +3167,12 @@ definitions:
     properties:
       container_name:
         type: string
+      disable_image_dist:
+        type: boolean
       image_name:
         type: string
       image_tag:
         type: string
-      selected:
-        type: boolean
     type: object
   service.OpenAPIEnvGlobalVariables:
     properties:
@@ -7503,7 +7503,7 @@ paths:
       summary: Get filtered env services
       tags:
       - workflow
-  /api/aslan/workflow/v4/workflowtask/manualexec/workflow/{workflowName}/task/{taskID}/stage/{stageName}:
+  /api/aslan/workflow/v4/workflowtask/manualexec/workflow/{workflowName}/task/{taskID}:
     post:
       consumes:
       - application/json
@@ -7525,7 +7525,7 @@ paths:
         required: true
         type: string
       - description: workflow stage name
-        in: path
+        in: query
         name: stageName
         required: true
         type: string

@@ -16,6 +16,11 @@ limitations under the License.
 
 package step
 
+import (
+	"fmt"
+	"strings"
+)
+
 type StepImageDistributeSpec struct {
 	SourceRegistry   *RegistryNamespace      `bson:"source_registry"                json:"source_registry"               yaml:"source_registry"`
 	TargetRegistry   *RegistryNamespace      `bson:"target_registry"                json:"target_registry"               yaml:"target_registry"`
@@ -40,4 +45,37 @@ type RegistryNamespace struct {
 	Namespace  string `bson:"namespace,omitempty"      json:"namespace,omitempty"     yaml:"namespace,omitempty"`
 	AccessKey  string `bson:"access_key"               json:"access_key"              yaml:"access_key"`
 	SecretKey  string `bson:"secret_key"               json:"secret_key"              yaml:"secret_key"`
+}
+
+func (target *DistributeTaskTarget) SetTargetImage(targetRegistry *RegistryNamespace) {
+	// for exmaple, target.SourceImage = koderover.tencentcloudcr.com/test/service1:20231026142000-6-main
+	sourceImageName := strings.Split(target.SourceImage, ":")[0]
+	count := strings.Count(target.SourceImage, ":")
+	if count == 2 {
+		// for exmaple, target.SourceImage = 2.192.49.92:9392/test/service1:20231026142000-6-main
+		sourceImageName = strings.Split(target.SourceImage, ":")[1]
+	}
+	if idx := strings.LastIndex(sourceImageName, "/"); idx != -1 {
+		sourceImageName = sourceImageName[idx+1:]
+	}
+
+	target.TargetImage = getImage(sourceImageName, target.TargetTag, targetRegistry)
+	if !target.UpdateTag {
+		target.TargetImage = getImage(sourceImageName, getImageTag(target.SourceImage), targetRegistry)
+	}
+}
+
+func getImageTag(image string) string {
+	strs := strings.Split(image, ":")
+	return strs[len(strs)-1]
+}
+
+func getImage(name, tag string, reg *RegistryNamespace) string {
+	image := fmt.Sprintf("%s/%s:%s", reg.RegAddr, name, tag)
+	if len(reg.Namespace) > 0 {
+		image = fmt.Sprintf("%s/%s/%s:%s", reg.RegAddr, reg.Namespace, name, tag)
+	}
+	image = strings.TrimPrefix(image, "http://")
+	image = strings.TrimPrefix(image, "https://")
+	return image
 }

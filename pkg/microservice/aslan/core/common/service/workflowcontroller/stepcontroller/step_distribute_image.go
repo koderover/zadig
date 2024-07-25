@@ -56,20 +56,7 @@ func (s *distributeImageCtl) PreRun(ctx context.Context) error {
 			return fmt.Errorf("source image is empty")
 		}
 
-		// for exmaple, target.SourceImage = koderover.tencentcloudcr.com/test/service1:20231026142000-6-main
-		sourceImageName := strings.Split(target.SourceImage, ":")[0]
-		count := strings.Count(target.SourceImage, ":")
-		if count == 2 {
-			// for exmaple, target.SourceImage = 2.192.49.92:9392/test/service1:20231026142000-6-main
-			sourceImageName = strings.Split(target.SourceImage, ":")[1]
-		}
-		if idx := strings.LastIndex(sourceImageName, "/"); idx != -1 {
-			sourceImageName = sourceImageName[idx+1:]
-		}
-		target.TargetImage = getImage(sourceImageName, target.TargetTag, s.distributeImageSpec.TargetRegistry)
-		if !target.UpdateTag {
-			target.TargetImage = getImage(sourceImageName, getImageTag(target.SourceImage), s.distributeImageSpec.TargetRegistry)
-		}
+		target.SetTargetImage(s.distributeImageSpec.TargetRegistry)
 	}
 	s.step.Spec = s.distributeImageSpec
 	return nil
@@ -81,19 +68,4 @@ func (s *distributeImageCtl) AfterRun(ctx context.Context) error {
 		s.workflowCtx.GlobalContextSet(job.GetJobOutputKey(targetKey, "IMAGE"), target.TargetImage)
 	}
 	return nil
-}
-
-func getImageTag(image string) string {
-	strs := strings.Split(image, ":")
-	return strs[len(strs)-1]
-}
-
-func getImage(name, tag string, reg *step.RegistryNamespace) string {
-	image := fmt.Sprintf("%s/%s:%s", reg.RegAddr, name, tag)
-	if len(reg.Namespace) > 0 {
-		image = fmt.Sprintf("%s/%s/%s:%s", reg.RegAddr, reg.Namespace, name, tag)
-	}
-	image = strings.TrimPrefix(image, "http://")
-	image = strings.TrimPrefix(image, "https://")
-	return image
 }
