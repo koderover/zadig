@@ -145,7 +145,7 @@ func GetWorkflowTasksCustomFields(projectName, workflowName string, logger *zap.
 			Status:                 1,
 			Duration:               1,
 			Executor:               1,
-			Remark:                 1,
+			Remark:                 0,
 			BuildServiceComponent:  make(map[string]int),
 			BuildCodeMsg:           make(map[string]int),
 			DeployServiceComponent: make(map[string]int),
@@ -711,202 +711,224 @@ func ensureWorkflowV4Resp(encryptedKey string, workflow *commonmodels.WorkflowV4
 	var buildTemplateMap sync.Map
 	for _, stage := range workflow.Stages {
 		for _, job := range stage.Jobs {
-			if job.JobType == config.JobZadigBuild {
-				spec := &commonmodels.ZadigBuildJobSpec{}
-				if err := commonmodels.IToi(job.Spec, spec); err != nil {
-					logger.Errorf(err.Error())
-					return e.ErrFindWorkflow.AddErr(err)
+			err := ensureWorkflowV4JobResp(job, logger, &buildMap, &buildTemplateMap, encryptedKey, workflow.Project)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func ensureWorkflowV4StageResp(encryptedKey, projectName string, workflowStage *commonmodels.WorkflowStage, logger *zap.SugaredLogger) error {
+	var buildMap sync.Map
+	var buildTemplateMap sync.Map
+	for _, job := range workflowStage.Jobs {
+		err := ensureWorkflowV4JobResp(job, logger, &buildMap, &buildTemplateMap, encryptedKey, projectName)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func ensureWorkflowV4JobResp(job *commonmodels.Job, logger *zap.SugaredLogger, buildMap *sync.Map, buildTemplateMap *sync.Map, encryptedKey, workflowProjectName string) error {
+	if job.JobType == config.JobZadigBuild {
+		spec := &commonmodels.ZadigBuildJobSpec{}
+		if err := commonmodels.IToi(job.Spec, spec); err != nil {
+			logger.Errorf(err.Error())
+			return e.ErrFindWorkflow.AddErr(err)
+		}
+		for _, build := range spec.ServiceAndBuilds {
+			var buildInfo *commonmodels.Build
+			var err error
+			buildMapValue, ok := buildMap.Load(build.BuildName)
+			if !ok {
+				buildInfo, err = commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: build.BuildName})
+				if err != nil {
+					logger.Errorf("find build: %s error: %v", build.BuildName, err)
+					buildMap.Store(build.BuildName, nil)
+					continue
 				}
-				for _, build := range spec.ServiceAndBuilds {
-					var buildInfo *commonmodels.Build
-					var err error
-					buildMapValue, ok := buildMap.Load(build.BuildName)
-					if !ok {
-						buildInfo, err = commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: build.BuildName})
-						if err != nil {
-							logger.Errorf("find build: %s error: %v", build.BuildName, err)
-							buildMap.Store(build.BuildName, nil)
-							continue
-						}
-						buildMap.Store(build.BuildName, buildInfo)
+				buildMap.Store(build.BuildName, buildInfo)
+			} else {
+				if buildMapValue == nil {
+					logger.Errorf("find build: %s error: %v", build.BuildName, err)
+					continue
+				}
+				buildInfo = buildMapValue.(*commonmodels.Build)
+			}
+
+			kvs := buildInfo.PreBuild.Envs
+			if buildInfo.TemplateID != "" {
+				templateEnvs := []*commonmodels.KeyVal{}
+
+				// if template not found, envs are empty, but do not block user.
+				var buildTemplate *commonmodels.BuildTemplate
+				buildTemplateMapValue, ok := buildTemplateMap.Load(buildInfo.TemplateID)
+				if !ok {
+					buildTemplate, err = commonrepo.NewBuildTemplateColl().Find(&commonrepo.BuildTemplateQueryOption{
+						ID: buildInfo.TemplateID,
+					})
+					if err != nil {
+						logger.Errorf("failed to find build template with id: %s, err: %s", buildInfo.TemplateID, err)
+						buildTemplateMap.Store(buildInfo.TemplateID, nil)
 					} else {
-						if buildMapValue == nil {
-							logger.Errorf("find build: %s error: %v", build.BuildName, err)
-							continue
-						}
-						buildInfo = buildMapValue.(*commonmodels.Build)
+						templateEnvs = buildTemplate.PreBuild.Envs
+						buildTemplateMap.Store(buildInfo.TemplateID, buildTemplate)
 					}
-
-					kvs := buildInfo.PreBuild.Envs
-					if buildInfo.TemplateID != "" {
-						templateEnvs := []*commonmodels.KeyVal{}
-
-						// if template not found, envs are empty, but do not block user.
-						var buildTemplate *commonmodels.BuildTemplate
-						buildTemplateMapValue, ok := buildTemplateMap.Load(buildInfo.TemplateID)
-						if !ok {
-							buildTemplate, err = commonrepo.NewBuildTemplateColl().Find(&commonrepo.BuildTemplateQueryOption{
-								ID: buildInfo.TemplateID,
-							})
-							if err != nil {
-								logger.Errorf("failed to find build template with id: %s, err: %s", buildInfo.TemplateID, err)
-								buildTemplateMap.Store(buildInfo.TemplateID, nil)
-							} else {
-								templateEnvs = buildTemplate.PreBuild.Envs
-								buildTemplateMap.Store(buildInfo.TemplateID, buildTemplate)
-							}
-						} else {
-							if buildTemplateMapValue == nil {
-								logger.Errorf("failed to find build template with id: %s, err: %s", buildInfo.TemplateID, err)
-							} else {
-								buildTemplate = buildTemplateMapValue.(*commonmodels.BuildTemplate)
-								templateEnvs = buildTemplate.PreBuild.Envs
-							}
-						}
-
-						for _, target := range buildInfo.Targets {
-							if target.ServiceName == build.ServiceName && target.ServiceModule == build.ServiceModule {
-								kvs = target.Envs
-							}
-						}
-						// if build template update any keyvals, merge it.
-						kvs = commonservice.MergeBuildEnvs(templateEnvs, kvs)
-					}
-					build.KeyVals = commonservice.MergeBuildEnvs(kvs, build.KeyVals)
-					if err := commonservice.EncryptKeyVals(encryptedKey, build.KeyVals, logger); err != nil {
-						logger.Errorf(err.Error())
-						return e.ErrFindWorkflow.AddErr(err)
-					}
-				}
-				job.Spec = spec
-			}
-			if job.JobType == config.JobZadigScanning {
-				spec := &commonmodels.ZadigScanningJobSpec{}
-				if err := commonmodels.IToi(job.Spec, spec); err != nil {
-					logger.Errorf(err.Error())
-					return e.ErrFindWorkflow.AddErr(err)
-				}
-
-				for _, scanning := range spec.Scannings {
-					projectName := scanning.ProjectName
-					if projectName == "" {
-						projectName = workflow.Project
-					}
-					scanningInfo, err := commonrepo.NewScanningColl().Find(projectName, scanning.Name)
-					if err != nil {
-						logger.Errorf(err.Error())
-						return e.ErrFindWorkflow.AddErr(err)
-					}
-
-					if scanningInfo.TemplateID != "" {
-						templateEnvs := []*commonmodels.KeyVal{}
-						scanningTemplate, err := commonrepo.NewScanningTemplateColl().Find(&commonrepo.ScanningTemplateQueryOption{
-							ID: scanningInfo.TemplateID,
-						})
-						// if template not found, envs are empty, but do not block user.
-						if err != nil {
-							logger.Error("scanning job: %s, template not found", scanningInfo.Name)
-						} else {
-							templateEnvs = scanningTemplate.Envs
-						}
-
-						kvs := commonservice.MergeBuildEnvs(templateEnvs, scanningInfo.Envs)
-
-						// if build template update any keyvals, merge it.
-						scanning.KeyVals = commonservice.MergeBuildEnvs(kvs, scanning.KeyVals)
+				} else {
+					if buildTemplateMapValue == nil {
+						logger.Errorf("failed to find build template with id: %s, err: %s", buildInfo.TemplateID, err)
 					} else {
-						// otherwise just merge the envs in the
-						scanning.KeyVals = commonservice.MergeBuildEnvs(scanningInfo.Envs, scanning.KeyVals)
+						buildTemplate = buildTemplateMapValue.(*commonmodels.BuildTemplate)
+						templateEnvs = buildTemplate.PreBuild.Envs
 					}
 				}
-				job.Spec = spec
+
+				for _, target := range buildInfo.Targets {
+					if target.ServiceName == build.ServiceName && target.ServiceModule == build.ServiceModule {
+						kvs = target.Envs
+					}
+				}
+
+				// if build template update any keyvals, merge it.
+				kvs = commonservice.MergeBuildEnvs(templateEnvs, kvs)
 			}
-			if job.JobType == config.JobWorkflowTrigger {
-				spec := &commonmodels.WorkflowTriggerJobSpec{}
-				if err := commonmodels.IToi(job.Spec, spec); err != nil {
-					logger.Errorf(err.Error())
-					return e.ErrFindWorkflow.AddErr(err)
-				}
-				for _, info := range spec.ServiceTriggerWorkflow {
-					workflow, err := commonrepo.NewWorkflowV4Coll().Find(info.WorkflowName)
-					if err != nil {
-						logger.Errorf(err.Error())
-						continue
-					}
-					var paramList []*commonmodels.Param
-					for _, param := range workflow.Params {
-						if !strings.Contains(param.Value, setting.FixedValueMark) {
-							param.Source = config.ParamSourceRuntime
-							paramList = append(paramList, param)
-						}
-					}
-					info.Params = commonservice.MergeParams(paramList, info.Params)
-				}
-				for _, info := range spec.FixedWorkflowList {
-					workflow, err := commonrepo.NewWorkflowV4Coll().Find(info.WorkflowName)
-					if err != nil {
-						logger.Errorf(err.Error())
-						continue
-					}
-					var paramList []*commonmodels.Param
-					for _, param := range workflow.Params {
-						if !strings.Contains(param.Value, setting.FixedValueMark) {
-							param.Source = config.ParamSourceRuntime
-							paramList = append(paramList, param)
-						}
-					}
-					info.Params = commonservice.MergeParams(paramList, info.Params)
-				}
-				job.Spec = spec
+			build.KeyVals = commonservice.MergeBuildEnvs(kvs, build.KeyVals)
+			if err := commonservice.EncryptKeyVals(encryptedKey, build.KeyVals, logger); err != nil {
+				logger.Errorf(err.Error())
+				return e.ErrFindWorkflow.AddErr(err)
 			}
-			if job.JobType == config.JobFreestyle {
-				spec := &commonmodels.FreestyleJobSpec{}
-				if err := commonmodels.IToi(job.Spec, spec); err != nil {
-					logger.Errorf(err.Error())
-					return e.ErrFindWorkflow.AddErr(err)
-				}
-				if err := commonservice.EncryptKeyVals(encryptedKey, spec.Properties.Envs, logger); err != nil {
-					logger.Errorf(err.Error())
-					return e.ErrFindWorkflow.AddErr(err)
-				}
-				job.Spec = spec
+		}
+		job.Spec = spec
+	}
+	if job.JobType == config.JobZadigScanning {
+		spec := &commonmodels.ZadigScanningJobSpec{}
+		if err := commonmodels.IToi(job.Spec, spec); err != nil {
+			logger.Errorf(err.Error())
+			return e.ErrFindWorkflow.AddErr(err)
+		}
+
+		for _, scanning := range spec.Scannings {
+			projectName := scanning.ProjectName
+			if projectName == "" {
+				projectName = workflowProjectName
 			}
-			if job.JobType == config.JobPlugin {
-				spec := &commonmodels.PluginJobSpec{}
-				if err := commonmodels.IToi(job.Spec, spec); err != nil {
-					logger.Errorf(err.Error())
-					return e.ErrFindWorkflow.AddErr(err)
-				}
-				if err := commonservice.EncryptParams(encryptedKey, spec.Plugin.Inputs, logger); err != nil {
-					logger.Errorf(err.Error())
-					return e.ErrFindWorkflow.AddErr(err)
-				}
-				job.Spec = spec
+			scanningInfo, err := commonrepo.NewScanningColl().Find(projectName, scanning.Name)
+			if err != nil {
+				logger.Errorf(err.Error())
+				return e.ErrFindWorkflow.AddErr(err)
 			}
-			if job.JobType == config.JobZadigTesting {
-				spec := &commonmodels.ZadigTestingJobSpec{}
-				if err := commonmodels.IToi(job.Spec, spec); err != nil {
-					logger.Errorf(err.Error())
-					return e.ErrFindWorkflow.AddErr(err)
+
+			if scanningInfo.TemplateID != "" {
+				templateEnvs := []*commonmodels.KeyVal{}
+				scanningTemplate, err := commonrepo.NewScanningTemplateColl().Find(&commonrepo.ScanningTemplateQueryOption{
+					ID: scanningInfo.TemplateID,
+				})
+
+				// if template not found, envs are empty, but do not block user.
+				if err != nil {
+					logger.Error("scanning job: %s, template not found", scanningInfo.Name)
+				} else {
+					templateEnvs = scanningTemplate.Envs
 				}
-				job.Spec = spec
-				for _, testing := range spec.ServiceAndTests {
-					testingInfo, err := commonrepo.NewTestingColl().Find(testing.Name, "")
-					if err != nil {
-						logger.Errorf("find testing: %s error: %s", testing.Name, err)
-						continue
-					}
-					testing.KeyVals = commonservice.MergeBuildEnvs(testingInfo.PreTest.Envs, testing.KeyVals)
-				}
-				for _, testing := range spec.TestModules {
-					testingInfo, err := commonrepo.NewTestingColl().Find(testing.Name, "")
-					if err != nil {
-						logger.Errorf("find testing: %s error: %s", testing.Name, err)
-						continue
-					}
-					testing.KeyVals = commonservice.MergeBuildEnvs(testingInfo.PreTest.Envs, testing.KeyVals)
+
+				kvs := commonservice.MergeBuildEnvs(templateEnvs, scanningInfo.Envs)
+
+				// if build template update any keyvals, merge it.
+				scanning.KeyVals = commonservice.MergeBuildEnvs(kvs, scanning.KeyVals)
+			} else {
+				// otherwise just merge the envs in the
+				scanning.KeyVals = commonservice.MergeBuildEnvs(scanningInfo.Envs, scanning.KeyVals)
+			}
+		}
+		job.Spec = spec
+	}
+	if job.JobType == config.JobWorkflowTrigger {
+		spec := &commonmodels.WorkflowTriggerJobSpec{}
+		if err := commonmodels.IToi(job.Spec, spec); err != nil {
+			logger.Errorf(err.Error())
+			return e.ErrFindWorkflow.AddErr(err)
+		}
+		for _, info := range spec.ServiceTriggerWorkflow {
+			workflow, err := commonrepo.NewWorkflowV4Coll().Find(info.WorkflowName)
+			if err != nil {
+				logger.Errorf(err.Error())
+				continue
+			}
+			var paramList []*commonmodels.Param
+			for _, param := range workflow.Params {
+				if !strings.Contains(param.Value, setting.FixedValueMark) {
+					param.Source = config.ParamSourceRuntime
+					paramList = append(paramList, param)
 				}
 			}
+			info.Params = commonservice.MergeParams(paramList, info.Params)
+		}
+		for _, info := range spec.FixedWorkflowList {
+			workflow, err := commonrepo.NewWorkflowV4Coll().Find(info.WorkflowName)
+			if err != nil {
+				logger.Errorf(err.Error())
+				continue
+			}
+			var paramList []*commonmodels.Param
+			for _, param := range workflow.Params {
+				if !strings.Contains(param.Value, setting.FixedValueMark) {
+					param.Source = config.ParamSourceRuntime
+					paramList = append(paramList, param)
+				}
+			}
+			info.Params = commonservice.MergeParams(paramList, info.Params)
+		}
+		job.Spec = spec
+	}
+	if job.JobType == config.JobFreestyle {
+		spec := &commonmodels.FreestyleJobSpec{}
+		if err := commonmodels.IToi(job.Spec, spec); err != nil {
+			logger.Errorf(err.Error())
+			return e.ErrFindWorkflow.AddErr(err)
+		}
+		if err := commonservice.EncryptKeyVals(encryptedKey, spec.Properties.Envs, logger); err != nil {
+			logger.Errorf(err.Error())
+			return e.ErrFindWorkflow.AddErr(err)
+		}
+		job.Spec = spec
+	}
+	if job.JobType == config.JobPlugin {
+		spec := &commonmodels.PluginJobSpec{}
+		if err := commonmodels.IToi(job.Spec, spec); err != nil {
+			logger.Errorf(err.Error())
+			return e.ErrFindWorkflow.AddErr(err)
+		}
+		if err := commonservice.EncryptParams(encryptedKey, spec.Plugin.Inputs, logger); err != nil {
+			logger.Errorf(err.Error())
+			return e.ErrFindWorkflow.AddErr(err)
+		}
+		job.Spec = spec
+	}
+	if job.JobType == config.JobZadigTesting {
+		spec := &commonmodels.ZadigTestingJobSpec{}
+		if err := commonmodels.IToi(job.Spec, spec); err != nil {
+			logger.Errorf(err.Error())
+			return e.ErrFindWorkflow.AddErr(err)
+		}
+		job.Spec = spec
+		for _, testing := range spec.ServiceAndTests {
+			testingInfo, err := commonrepo.NewTestingColl().Find(testing.Name, "")
+			if err != nil {
+				logger.Errorf("find testing: %s error: %s", testing.Name, err)
+				continue
+			}
+			testing.KeyVals = commonservice.MergeBuildEnvs(testingInfo.PreTest.Envs, testing.KeyVals)
+		}
+		for _, testing := range spec.TestModules {
+			testingInfo, err := commonrepo.NewTestingColl().Find(testing.Name, "")
+			if err != nil {
+				logger.Errorf("find testing: %s error: %s", testing.Name, err)
+				continue
+			}
+			testing.KeyVals = commonservice.MergeBuildEnvs(testingInfo.PreTest.Envs, testing.KeyVals)
 		}
 	}
 	return nil

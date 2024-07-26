@@ -580,6 +580,24 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 	return resp, nil
 }
 
+func GetManualExecWorkflowTaskV4Info(workflowName string, taskID int64, logger *zap.SugaredLogger) (*commonmodels.WorkflowV4, error) {
+	task, err := commonrepo.NewworkflowTaskv4Coll().Find(workflowName, taskID)
+	if err != nil {
+		logger.Errorf("find workflowTaskV4 error: %s", err)
+		return nil, e.ErrGetTask.AddErr(err)
+	}
+
+	for _, stage := range task.WorkflowArgs.Stages {
+		for _, job := range stage.Jobs {
+			if err := jobctl.SetOptions(job, task.WorkflowArgs); err != nil {
+				log.Errorf("cannot get workflow %s options for job %s, the error is: %v", workflowName, job.Name, err)
+				return nil, e.ErrPresetWorkflow.AddDesc(err.Error())
+			}
+		}
+	}
+	return task.WorkflowArgs, nil
+}
+
 func CloneWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredLogger) (*commonmodels.WorkflowV4, error) {
 	task, err := commonrepo.NewworkflowTaskv4Coll().Find(workflowName, taskID)
 	if err != nil {
@@ -635,7 +653,7 @@ func RetryWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredL
 	}
 
 	for _, stage := range task.Stages {
-		if stage.Status == config.StatusPassed {
+		if stage.Status == config.StatusPassed || stage.Status == config.StatusSkipped {
 			continue
 		}
 		stage.Status = ""
@@ -673,7 +691,11 @@ func RetryWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredL
 	return nil
 }
 
-func ManualExecWorkflowTaskV4(workflowName string, taskID int64, stageName string, executorID, executorName string, logger *zap.SugaredLogger) error {
+type ManualExecWorkflowTaskV4Request struct {
+	Jobs []*commonmodels.Job `json:"jobs"`
+}
+
+func ManualExecWorkflowTaskV4(workflowName string, taskID int64, stageName string, jobs []*commonmodels.Job, executorID, executorName string, logger *zap.SugaredLogger) error {
 	task, err := commonrepo.NewworkflowTaskv4Coll().Find(workflowName, taskID)
 	if err != nil {
 		logger.Errorf("find workflowTaskV4 error: %s", err)
@@ -689,12 +711,20 @@ func ManualExecWorkflowTaskV4(workflowName string, taskID int64, stageName strin
 		return errors.New("工作流任务数据异常, 无法手动执行")
 	}
 
+	for _, stage := range task.WorkflowArgs.Stages {
+		if stage.Name == stageName {
+			stage.Jobs = jobs
+		}
+	}
+
 	jobTaskMap := make(map[string]*commonmodels.JobTask)
+	skippedJobTasks := sets.NewString()
 	for _, stage := range task.WorkflowArgs.Stages {
 		for _, job := range stage.Jobs {
 			if job.Skipped {
 				continue
 			}
+
 			jobCtl, err := jobctl.InitJobCtl(job, task.WorkflowArgs)
 			if err != nil {
 				return errors.Errorf("init jobCtl %s error: %s", job.Name, err)
@@ -705,74 +735,81 @@ func ManualExecWorkflowTaskV4(workflowName string, taskID int64, stageName strin
 			}
 			for _, jobTask := range jobTasks {
 				jobTaskMap[jobTask.Key] = jobTask
+
+				if job.RunPolicy == config.SkipRun {
+					skippedJobTasks.Insert(jobTask.Key)
+				}
 			}
 		}
 	}
 
-	first := true
 	found := false
+	var preStage *commonmodels.StageTask
 	for _, stage := range task.Stages {
-		if stage.Status == config.StatusPassed {
+		if stage.Status == config.StatusPassed || stage.Status == config.StatusSkipped {
+			preStage = stage
 			continue
 		}
 
 		if stage.Name == stageName {
-			if first {
-				if stage.ManualExec == nil || !stage.ManualExec.Enabled {
-					return errors.Errorf("stage %s is not enabled for manual execution", stage.Name)
-				}
-				stage.ManualExec.Excuted = true
+			if preStage != nil && !(preStage.Status == config.StatusPassed || preStage.Status == config.StatusSkipped) {
+				return errors.Errorf("previous stage %s status is not passed or skipped", preStage.Name)
+			}
 
-				approval := false
-				for _, user := range stage.ManualExec.ManualExecUsers {
-					if user.Type == setting.UserTypeTaskCreator {
-						if executorID == task.TaskCreatorID {
-							approval = true
-							break
-						}
-					}
-				}
-				if !approval {
-					users, _ := util.GeneFlatUsers(stage.ManualExec.ManualExecUsers)
-					for _, user := range users {
-						if user.UserID == executorID {
-							approval = true
-							break
-						}
-					}
-				}
-
-				if !approval {
-					return errors.Errorf("user %s is not allowed to manually execute stage %s", executorID, stage.Name)
-				}
-
-				found = true
-				stage.ManualExec.ManualExectorID = executorID
-				stage.ManualExec.ManualExectorName = executorName
-			} else {
+			if stage.ManualExec == nil || !stage.ManualExec.Enabled {
 				return errors.Errorf("stage %s is not enabled for manual execution", stage.Name)
 			}
+			stage.ManualExec.Excuted = true
+
+			approval := false
+			for _, user := range stage.ManualExec.ManualExecUsers {
+				if user.Type == setting.UserTypeTaskCreator {
+					if executorID == task.TaskCreatorID {
+						approval = true
+						break
+					}
+				}
+			}
+			if !approval {
+				users, _ := util.GeneFlatUsers(stage.ManualExec.ManualExecUsers)
+				for _, user := range users {
+					if user.UserID == executorID {
+						approval = true
+						break
+					}
+				}
+			}
+
+			if !approval {
+				return errors.Errorf("user %s is not allowed to manually execute stage %s", executorID, stage.Name)
+			}
+
+			found = true
+			stage.ManualExec.ManualExectorID = executorID
+			stage.ManualExec.ManualExectorName = executorName
 		}
-		first = false
 		stage.Status = ""
 		stage.StartTime = 0
 		stage.EndTime = 0
 		stage.Error = ""
 
 		for _, jobTask := range stage.Jobs {
-			if jobTask.Status == config.StatusPassed {
-				continue
-			}
 			jobTask.Status = ""
 			jobTask.StartTime = 0
 			jobTask.EndTime = 0
 			jobTask.Error = ""
+
+			if skippedJobTasks.Has(jobTask.Key) {
+				jobTask.Status = config.StatusSkipped
+			}
 			if t, ok := jobTaskMap[jobTask.Key]; ok {
 				jobTask.Spec = t.Spec
 			} else {
 				return errors.Errorf("failed to get jobTask %s origin spec", jobTask.Name)
 			}
 		}
+
+		preStage = stage
 	}
 
 	if !found {

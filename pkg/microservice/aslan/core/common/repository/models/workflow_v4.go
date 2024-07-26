@@ -104,6 +104,7 @@ type WorkflowStage struct {
 
 type ManualExec struct {
 	Enabled           bool    `bson:"enabled"                        yaml:"enabled"                       json:"enabled"`
+	ModifyParams      bool    `bson:"modify_params"                  yaml:"modify_params"                 json:"modify_params"`
 	Excuted           bool    `bson:"excuted,omitempty"              yaml:"excuted,omitempty"             json:"excuted,omitempty"`
 	ManualExecUsers   []*User `bson:"manual_exec_users"              yaml:"manual_exec_users"             json:"manual_exec_users"`
 	ManualExectorID   string  `bson:"manual_exector_id,omitempty"    yaml:"manual_exector_id,omitempty"   json:"manual_exector_id,omitempty"`
