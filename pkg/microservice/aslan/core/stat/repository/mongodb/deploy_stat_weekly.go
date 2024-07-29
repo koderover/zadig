@@ -19,6 +19,7 @@ package mongodb
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -63,6 +64,8 @@ func (c *WeeklyDeployStatColl) Upsert(args *models.WeeklyDeployStat) error {
 	if args == nil {
 		return fmt.Errorf("upsert data cannot be empty for %s", "deploy_stat_weekly")
 	}
+
+	args.UpdateTime = time.Now().Unix()
 
 	filter := bson.M{
 		"project_key": args.ProjectKey,
