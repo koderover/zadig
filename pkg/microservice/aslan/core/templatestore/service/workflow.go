@@ -674,7 +674,7 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 					Parallel: false,
 					Jobs: []*commonmodels.Job{
 						{
-							Name:    "审批",
+							Name:    "approval",
 							JobType: config.JobApproval,
 							Spec: commonmodels.ApprovalJobSpec{
 								Timeout:     60,
@@ -708,7 +708,7 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 					Parallel: false,
 					Jobs: []*commonmodels.Job{
 						{
-							Name:    "审批2",
+							Name:    "approval 2",
 							JobType: config.JobApproval,
 							Spec: commonmodels.ApprovalJobSpec{
 								Timeout:     60,
@@ -805,7 +805,7 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 					Parallel: false,
 					Jobs: []*commonmodels.Job{
 						{
-							Name:    "审批",
+							Name:    "approval",
 							JobType: config.JobApproval,
 							Spec: commonmodels.ApprovalJobSpec{
 								Timeout:     60,
@@ -897,7 +897,7 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 					Parallel: false,
 					Jobs: []*commonmodels.Job{
 						{
-							Name:    "审批",
+							Name:    "approval",
 							JobType: config.JobApproval,
 							Spec: commonmodels.ApprovalJobSpec{
 								Timeout:     60,
@@ -954,7 +954,7 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 					Parallel: false,
 					Jobs: []*commonmodels.Job{
 						{
-							Name:    "审批",
+							Name:    "approval",
 							JobType: config.JobApproval,
 							Spec: commonmodels.ApprovalJobSpec{
 								Timeout:     60,
@@ -990,7 +990,7 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 					Parallel: false,
 					Jobs: []*commonmodels.Job{
 						{
-							Name:    "审批2",
+							Name:    "approval 2",
 							JobType: config.JobApproval,
 							Spec: commonmodels.ApprovalJobSpec{
 								Timeout:     60,
@@ -1033,7 +1033,7 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 					Parallel: false,
 					Jobs: []*commonmodels.Job{
 						{
-							Name:    "审批",
+							Name:    "approval",
 							JobType: config.JobApproval,
 							Spec: commonmodels.ApprovalJobSpec{
 								Timeout:     60,
