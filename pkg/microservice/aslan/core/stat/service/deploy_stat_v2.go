@@ -180,9 +180,9 @@ func GetDeployWeeklyTrend(startTime, endTime int64, projects []string, productio
 	}
 
 	// then calculate the start time of this week, append it to the end of the array
-	firstDayOfMonth := util.GetFirstOfMonthDay(time.Now())
+	firstDayOfWeek := util.GetMonday(time.Now())
 
-	allDeployJobs, err := commonrepo.NewJobInfoColl().GetDeployJobs(firstDayOfMonth, time.Now().Unix(), projects, production)
+	allDeployJobs, err := commonrepo.NewJobInfoColl().GetDeployJobs(firstDayOfWeek.Unix(), time.Now().Unix(), projects, production)
 	if err != nil {
 		log.Errorf("failed to list deploy jobs for weeklytrend, error: %s", err)
 		return nil, fmt.Errorf("failed to list deploy jobs for weeklytrend, error: %s", err)
@@ -220,7 +220,7 @@ func GetDeployWeeklyTrend(startTime, endTime int64, projects []string, productio
 		}
 	}
 
-	date := time.Unix(firstDayOfMonth, 0).Format(config.Date)
+	date := firstDayOfWeek.Format(config.Date)
 
 	switch production {
 	case config.Production:
