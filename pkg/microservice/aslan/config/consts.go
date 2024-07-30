@@ -127,7 +127,7 @@ func FailedStatus() []Status {
 }
 
 func InCompletedStatus() []Status {
-	return []Status{StatusCreated, StatusRunning, StatusWaiting, StatusQueued, StatusBlocked, QueueItemPending, StatusPrepare, StatusWaitingApprove}
+	return []Status{StatusCreated, StatusRunning, StatusWaiting, StatusQueued, StatusBlocked, QueueItemPending, StatusPrepare, StatusWaitingApprove, ""}
 }
 
 func CompletedStatus() []Status {

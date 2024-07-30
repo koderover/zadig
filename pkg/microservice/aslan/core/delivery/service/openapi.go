@@ -257,10 +257,10 @@ type OpenAPICreateK8SDeliveryVersionYamlData struct {
 }
 
 type OpenAPIDeliveryVersionImageData struct {
-	ContainerName string `json:"container_name"`
-	ImageName     string `json:"image_name"`
-	ImageTag      string `json:"image_tag"`
-	Selected      bool   `json:"selected"`
+	ContainerName    string `json:"container_name"`
+	ImageName        string `json:"image_name"`
+	ImageTag         string `json:"image_tag"`
+	DisableImageDist bool   `json:"disable_image_dist"`
 }
 
 func OpenAPICreateK8SDeliveryVersion(openAPIReq *OpenAPICreateK8SDeliveryVersionRequest) error {
@@ -294,7 +294,7 @@ func OpenAPICreateK8SDeliveryVersion(openAPIReq *OpenAPICreateK8SDeliveryVersion
 				Image:         image,
 				ImageName:     openAPIImageData.ImageName,
 				ImageTag:      openAPIImageData.ImageTag,
-				Selected:      openAPIImageData.Selected,
+				Selected:      !openAPIImageData.DisableImageDist,
 			})
 		}
 
@@ -366,7 +366,7 @@ func OpenAPICreateHelmDeliveryVersion(openAPIReq *OpenAPICreateHelmDeliveryVersi
 				ContainerName: openAPIImageData.ContainerName,
 				ImageName:     openAPIImageData.ImageName,
 				ImageTag:      openAPIImageData.ImageTag,
-				Selected:      openAPIImageData.Selected,
+				Selected:      !openAPIImageData.DisableImageDist,
 			})
 		}
 

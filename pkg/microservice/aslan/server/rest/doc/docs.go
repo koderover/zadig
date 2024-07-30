@@ -4987,7 +4987,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/aslan/workflow/v4/workflowtask/manualexec/workflow/{workflowName}/task/{taskID}/stage/{stageName}": {
+        "/api/aslan/workflow/v4/workflowtask/manualexec/workflow/{workflowName}/task/{taskID}": {
             "post": {
                 "description": "Manually Execute Workflow Task V4",
                 "consumes": [
@@ -5026,7 +5026,7 @@ const docTemplate = `{
                         "type": "string",
                         "description": "workflow stage name",
                         "name": "stageName",
-                        "in": "path",
+                        "in": "query",
                         "required": true
                     }
                 ],
@@ -10082,14 +10082,14 @@ const docTemplate = `{
                 "container_name": {
                     "type": "string"
                 },
+                "disable_image_dist": {
+                    "type": "boolean"
+                },
                 "image_name": {
                     "type": "string"
                 },
                 "image_tag": {
                     "type": "string"
-                },
-                "selected": {
-                    "type": "boolean"
                 }
             }
         },
