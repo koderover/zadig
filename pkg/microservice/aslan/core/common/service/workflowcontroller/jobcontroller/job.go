@@ -194,6 +194,7 @@ func retryJob(ctx context.Context, job *commonmodels.JobTask, jobCtl JobCtl, ack
 }
 
 func waitForManualErrorHandling(ctx context.Context, workflowName string, taskID int64, job *commonmodels.JobTask, ack func(), logger *zap.SugaredLogger) {
+	originalStatus := job.Status
 	job.Status = config.StatusManualApproval
 	ack()
 
@@ -219,6 +220,7 @@ func waitForManualErrorHandling(ctx context.Context, workflowName string, taskID
 				ack()
 				return
 			case workflowtool.JobErrorDecisionReject:
+				job.Status = originalStatus
 				job.ErrorHandlerUserID = userID
 				job.ErrorHandlerUserName = username
 				ack()
