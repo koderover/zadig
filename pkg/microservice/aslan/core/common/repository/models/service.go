@@ -246,11 +246,12 @@ type HelmServiceRespArgs struct {
 }
 
 type EnvStatus struct {
-	HostID  string  `bson:"host_id,omitempty"           json:"host_id"`
-	EnvName string  `bson:"env_name,omitempty"          json:"env_name"`
-	Address string  `bson:"address,omitempty"           json:"address"`
-	Status  string  `bson:"status,omitempty"            json:"status"`
-	PmInfo  *PmInfo `bson:"-"                           json:"pm_info"`
+	HostID       string         `bson:"host_id,omitempty"           json:"host_id"`
+	EnvName      string         `bson:"env_name,omitempty"          json:"env_name"`
+	Address      string         `bson:"address,omitempty"           json:"address"`
+	Status       string         `bson:"status,omitempty"            json:"status"`
+	HealthChecks *PmHealthCheck `bson:"health_checks,omitempty"     json:"health_checks"`
+	PmInfo       *PmInfo        `bson:"-"                           json:"pm_info"`
 }
 
 type PmInfo struct {

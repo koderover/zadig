@@ -34,6 +34,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/cron/core/service"
 	"github.com/koderover/zadig/v2/pkg/microservice/cron/core/service/client"
 	"github.com/koderover/zadig/v2/pkg/setting"
+	"github.com/koderover/zadig/v2/pkg/tool/cache"
 	"github.com/koderover/zadig/v2/pkg/types"
 )
 
@@ -47,12 +48,11 @@ func (c *CronClient) UpsertEnvServiceScheduler(log *zap.SugaredLogger) {
 	//当前的环境数据和上次做比较，如果环境有删除或者环境中的服务有删除，要清理掉定时器
 	c.comparePMProductRevision(envs, log)
 
-	log.Info("start init env scheduler..")
+	log.Info("[vm] start init env scheduler..")
 	for _, env := range envs {
-
 		envObj, err := c.AslanCli.GetEnvService(env.ProductName, env.EnvName, log)
 		if err != nil {
-			log.Errorf("GetEnvService productName: %s envName: %s err: %v", env.ProductName, env.EnvName, err)
+			log.Errorf("[vm] GetEnvService productName: %s envName: %s err: %v", env.ProductName, env.EnvName, err)
 			continue
 		}
 		envServiceNames := sets.String{}
@@ -67,8 +67,11 @@ func (c *CronClient) UpsertEnvServiceScheduler(log *zap.SugaredLogger) {
 				continue
 			}
 
-			svc, _ := c.AslanCli.GetService(serviceRevision.ServiceName, env.ProductName, setting.PMDeployType, serviceRevision.CurrentRevision, log)
 			// delete scheduler if service is not exist or healthChecks or envConfigs is empty
+			svc, err := c.AslanCli.GetService(serviceRevision.ServiceName, env.ProductName, setting.PMDeployType, serviceRevision.CurrentRevision, log)
+			if err != nil {
+				log.Errorf("[vm] GetService %s/%s/%d err: %v", env.ProductName, serviceRevision.ServiceName, serviceRevision.CurrentRevision, err)
+			}
 			if svc == nil || len(svc.HealthChecks) == 0 || len(svc.EnvConfigs) == 0 || !envServiceNames.Has(serviceRevision.ServiceName) {
 				key := "service-" + serviceRevision.ServiceName + "-" + env.ProductName + "-" + setting.PMDeployType + "-" + env.EnvName
 
@@ -88,7 +91,7 @@ func (c *CronClient) UpsertEnvServiceScheduler(log *zap.SugaredLogger) {
 					}
 				}
 				c.lastSchedulersRWMutex.Unlock()
-				log.Infof("[%s] deleted service scheduler..", key)
+				log.Infof("[vm] [%s] deleted service scheduler..", key)
 				continue
 			}
 
@@ -121,9 +124,9 @@ func (c *CronClient) UpsertEnvServiceScheduler(log *zap.SugaredLogger) {
 					c.SchedulersRWMutex.Unlock()
 
 					newScheduler := gocron.NewScheduler()
-					err = BuildScheduledEnvJob(newScheduler, healthCheck).Do(c.RunScheduledService, svc, healthCheck, envStatus.Address, env.EnvName, envStatus.HostID, log)
+					err = BuildScheduledEnvJob(newScheduler, healthCheck).Do(c.RunScheduledVMServiceProbe, env.ProductName, serviceRevision.ServiceName, serviceRevision.CurrentRevision, healthCheck, envStatus.Address, env.EnvName, envStatus.HostID, log)
 					if err != nil {
-						log.Errorf("BuildScheduledEnvJob Do key: %s, error: %v", key, err)
+						log.Errorf("[vm] BuildScheduledEnvJob Do key: %s, error: %v", key, err)
 					}
 					c.SchedulersRWMutex.Lock()
 					c.Schedulers[key] = newScheduler
@@ -133,7 +136,7 @@ func (c *CronClient) UpsertEnvServiceScheduler(log *zap.SugaredLogger) {
 					c.SchedulerController[key] = c.Schedulers[key].Start()
 					c.SchedulerControllerRWMutex.Unlock()
 
-					log.Infof("[%s] added service scheduler..", key)
+					log.Infof("[vm] [%s] added service scheduler..", key)
 				}
 			}
 			break
@@ -141,10 +144,13 @@ func (c *CronClient) UpsertEnvServiceScheduler(log *zap.SugaredLogger) {
 	}
 }
 
-func (c *CronClient) RunScheduledService(svc *service.Service, healthCheck *service.PmHealthCheck, address, envName, hostID string, log *zap.SugaredLogger) {
-	key := "service-" + svc.ServiceName + "-" + svc.ProductName + "-" + setting.PMDeployType + "-" +
+func (c *CronClient) RunScheduledVMServiceProbe(projectName, serviceName string, currentRevision int64, healthCheck *service.PmHealthCheck, address, envName, hostID string, log *zap.SugaredLogger) {
+	key := "service-" + serviceName + "-" + fmt.Sprintf("%d", currentRevision) + "-" + projectName + "-" + setting.PMDeployType + "-" +
 		envName + "-" + hostID + "-" + healthCheck.Protocol + "-" + strconv.Itoa(healthCheck.Port) + "-" + healthCheck.Path
-	log.Infof("[%s] start to Run ScheduledService...", key)
+	mutexKey := "service-" + serviceName + "-" + fmt.Sprintf("%d", currentRevision) + "-" + projectName + "-" + setting.PMDeployType
+	redisMutex := cache.NewRedisLock(mutexKey)
+	redisMutex.Lock()
+	defer redisMutex.Unlock()
 
 	var (
 		message   string
@@ -152,9 +158,41 @@ func (c *CronClient) RunScheduledService(svc *service.Service, healthCheck *serv
 		envStatus = new(service.EnvStatus)
 	)
 
+	svc, err := c.AslanCli.GetService(serviceName, projectName, setting.PMDeployType, currentRevision, log)
+	if err != nil {
+		log.Errorf("[vm] [%s] GetService err: %v", key, err)
+		return
+	}
+
+	// set env status
+	for _, svcEnvStatus := range svc.EnvStatuses {
+		tmp := svcEnvStatus.PmHealthCheck
+		svcEnvStatus.PmHealthCheck = nil
+		svcEnvStatus.PmHealthCheck = tmp
+
+		if svcEnvStatus.EnvName == envName && svcEnvStatus.HostID == hostID {
+			envStatus = svcEnvStatus
+			break
+		}
+	}
+
+	// set health check
+	if envStatus.PmHealthCheck != nil {
+		healthCheck = envStatus.PmHealthCheck
+	} else {
+		for _, tmpHealthCheck := range svc.HealthChecks {
+			if tmpHealthCheck.Protocol == healthCheck.Protocol && tmpHealthCheck.Port == healthCheck.Port && tmpHealthCheck.Path == healthCheck.Path {
+				healthCheck = tmpHealthCheck
+				break
+			}
+		}
+	}
+
 	for i := 0; i < MaxProbeRetries; i++ {
-		if message, err = runProbe(healthCheck, address, log); err == nil {
-			log.Infof("[%s] address %s runProbe message:[%s]", key, address, message)
+		message, err = runProbe(healthCheck, address, log)
+		if err != nil {
+			log.Errorf("[vm] [%s] address %s runProbe failed, message:[%s]", key, address, message)
+		} else {
 			break
 		}
 	}
@@ -183,17 +221,13 @@ func (c *CronClient) RunScheduledService(svc *service.Service, healthCheck *serv
 		healthCheck.CurrentUnhealthyNum = 0
 		envStatus.Status = setting.PodError
 	}
+	envStatus.PmHealthCheck = healthCheck
 
 	if len(svc.EnvStatuses) == 0 {
 		svc.EnvStatuses = []*service.EnvStatus{envStatus}
 	} else {
 		envStatusKeys := sets.String{}
 		for _, tmpEnvStatus := range svc.EnvStatuses {
-			//envStatusKeys = append(envStatusKeys, key)
-			//if tmpEnvStatus.PmHealthCheck.Protocol == healthCheck.Protocol && tmpEnvStatus.Address == envStatus.Address && tmpEnvStatus.PmHealthCheck.Port == healthCheck.Port &&
-			//	tmpEnvStatus.PmHealthCheck.Path == healthCheck.Path && tmpEnvStatus.EnvName == envStatus.EnvName {
-			//	tmpEnvStatus.Status = envStatus.Status
-			//}
 			if tmpEnvStatus.HostID != hostID {
 				continue
 			}
@@ -219,9 +253,10 @@ func (c *CronClient) RunScheduledService(svc *service.Service, healthCheck *serv
 		EnvStatuses: svc.EnvStatuses,
 		Username:    "system",
 	}, log); err != nil {
-		log.Errorf("UpdateService key %s, err: %v", key, err)
+		log.Errorf("[vm] UpdateService key %s, err: %v", key, err)
 	} else {
-		log.Infof("ready to UpdateService projectName:%s, serviceName:%s, revision:%d, envName:%s, address:%s, status:%s, envStatus count: %v", svc.ProductName, svc.ServiceName, svc.Revision, envStatus.EnvName, envStatus.Address, envStatus.Status, len(svc.EnvStatuses))
+		// log.Infof("[vm] ready to UpdateService projectName:%s, serviceName:%s, revision:%d, envName:%s, address:%s, status:%s", svc.ProductName, svc.ServiceName, svc.Revision, envStatus.EnvName, envStatus.Address, envStatus.Status)
+		time.Sleep(100 * time.Millisecond)
 	}
 }
 
