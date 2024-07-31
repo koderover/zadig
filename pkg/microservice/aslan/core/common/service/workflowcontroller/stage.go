@@ -150,5 +150,11 @@ func updateStageStatus(ctx context.Context, stage *commonmodels.StageTask) {
 			break
 		}
 	}
+
+	// there is a special case: if there is only one job with unstable status, set it to success
+	if stageStatus == config.StatusUnstable {
+		stageStatus = config.StatusPassed
+	}
+
 	stage.Status = stageStatus
 }
