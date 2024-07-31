@@ -99,17 +99,19 @@ type StageTaskPreview struct {
 }
 
 type JobTaskPreview struct {
-	Name             string                       `bson:"name"           json:"name"`
-	JobType          string                       `bson:"type"           json:"type"`
-	Status           config.Status                `bson:"status"         json:"status"`
-	StartTime        int64                        `bson:"start_time"     json:"start_time,omitempty"`
-	EndTime          int64                        `bson:"end_time"       json:"end_time,omitempty"`
-	CostSeconds      int64                        `bson:"cost_seconds"   json:"cost_seconds"`
-	Error            string                       `bson:"error"          json:"error"`
-	BreakpointBefore bool                         `bson:"breakpoint_before" json:"breakpoint_before"`
-	BreakpointAfter  bool                         `bson:"breakpoint_after"  json:"breakpoint_after"`
-	Spec             interface{}                  `bson:"spec"           json:"spec"`
-	ErrorPolicy      *commonmodels.JobErrorPolicy `bson:"error_policy"         yaml:"error_policy"         json:"error_policy"`
+	Name                 string                       `bson:"name"           json:"name"`
+	JobType              string                       `bson:"type"           json:"type"`
+	Status               config.Status                `bson:"status"         json:"status"`
+	StartTime            int64                        `bson:"start_time"     json:"start_time,omitempty"`
+	EndTime              int64                        `bson:"end_time"       json:"end_time,omitempty"`
+	CostSeconds          int64                        `bson:"cost_seconds"   json:"cost_seconds"`
+	Error                string                       `bson:"error"          json:"error"`
+	BreakpointBefore     bool                         `bson:"breakpoint_before" json:"breakpoint_before"`
+	BreakpointAfter      bool                         `bson:"breakpoint_after"  json:"breakpoint_after"`
+	Spec                 interface{}                  `bson:"spec"           json:"spec"`
+	ErrorPolicy          *commonmodels.JobErrorPolicy `bson:"error_policy"         yaml:"error_policy"         json:"error_policy"`
+	ErrorHandlerUserID   string                       `bson:"error_handler_user_id"  yaml:"error_handler_user_id" json:"error_handler_user_id"`
+	ErrorHandlerUserName string                       `bson:"error_handler_username"  yaml:"error_handler_username" json:"error_handler_username"`
 	// JobInfo contains the fields that make up the job task name, for frontend display
 	JobInfo interface{} `bson:"job_info" json:"job_info"`
 }
@@ -1199,17 +1201,19 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, 
 			}
 		}
 		jobPreview := &JobTaskPreview{
-			Name:             job.Name,
-			Status:           job.Status,
-			StartTime:        job.StartTime,
-			EndTime:          job.EndTime,
-			Error:            job.Error,
-			JobType:          job.JobType,
-			BreakpointBefore: job.BreakpointBefore,
-			BreakpointAfter:  job.BreakpointAfter,
-			CostSeconds:      costSeconds,
-			JobInfo:          job.JobInfo,
-			ErrorPolicy:      job.ErrorPolicy,
+			Name:                 job.Name,
+			Status:               job.Status,
+			StartTime:            job.StartTime,
+			EndTime:              job.EndTime,
+			Error:                job.Error,
+			JobType:              job.JobType,
+			BreakpointBefore:     job.BreakpointBefore,
+			BreakpointAfter:      job.BreakpointAfter,
+			CostSeconds:          costSeconds,
+			JobInfo:              job.JobInfo,
+			ErrorPolicy:          job.ErrorPolicy,
+			ErrorHandlerUserID:   job.ErrorHandlerUserID,
+			ErrorHandlerUserName: job.ErrorHandlerUserName,
 		}
 		switch job.JobType {
 		case string(config.JobFreestyle):
