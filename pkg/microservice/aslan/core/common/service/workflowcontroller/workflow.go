@@ -584,7 +584,7 @@ func (c *workflowCtl) updateWorkflowTask() {
 			c.logger.Errorf("get workflow task retention strategy error: %s", err)
 			result = commonmodels.DefaultWorkflowTaskRetention
 		}
-		if err = commonrepo.NewworkflowTaskv4Coll().ArchiveHistoryWorkflowTask(c.workflowTask.WorkflowName, result.Retention.MaxItems, result.Retention.MaxDays); err != nil {
+		if err = commonrepo.NewworkflowTaskv4Coll().ArchiveHistoryWorkflowTask(c.workflowTask.WorkflowName, c.workflowTask.TaskID, result.Retention.MaxItems, result.Retention.MaxDays); err != nil {
 			c.logger.Errorf("ArchiveHistoryWorkflowTask error: %v", err)
 		}
 		// Updating the comment in the git repository, this will not cause the function to return error if this function call fails

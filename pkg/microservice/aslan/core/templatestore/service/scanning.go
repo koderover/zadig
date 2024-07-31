@@ -132,7 +132,7 @@ func GetScanningTemplateReference(id string, logger *zap.SugaredLogger) ([]*temp
 	ret := make([]*template.ScanningTemplateReference, 0)
 	referenceList, err := commonrepo.NewScanningColl().GetScanningTemplateReference(id)
 	if err != nil {
-		logger.Errorf("Failed to get build template reference for template id: %s, the error is: %s", id, err)
+		logger.Errorf("Failed to get sacnning template reference for template id: %s, the error is: %s", id, err)
 		return ret, err
 	}
 

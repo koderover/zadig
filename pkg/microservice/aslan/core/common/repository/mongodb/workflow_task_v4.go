@@ -269,17 +269,13 @@ func (c *WorkflowTaskv4Coll) DeleteByWorkflowName(workflowName string) error {
 	return err
 }
 
-func (c *WorkflowTaskv4Coll) ArchiveHistoryWorkflowTask(workflowName string, remain, remainDays int) error {
+func (c *WorkflowTaskv4Coll) ArchiveHistoryWorkflowTask(workflowName string, taskID int64, remain, remainDays int) error {
 	if remain == 0 && remainDays == 0 {
 		return nil
 	}
 	query := bson.M{"workflow_name": workflowName, "is_deleted": false, "is_archived": false}
-	count, err := c.CountDocuments(context.TODO(), query)
-	if err != nil {
-		return err
-	}
 	if remain > 0 {
-		query["task_id"] = bson.M{"$lt": int(count) - remain + 1}
+		query["task_id"] = bson.M{"$lt": taskID - int64(remain) + 1}
 	}
 	if remainDays > 0 {
 		query["create_time"] = bson.M{"$lt": time.Now().AddDate(0, 0, -remainDays).Unix()}
@@ -287,7 +283,7 @@ func (c *WorkflowTaskv4Coll) ArchiveHistoryWorkflowTask(workflowName string, rem
 	change := bson.M{"$set": bson.M{
 		"is_archived": true,
 	}}
-	_, err = c.UpdateMany(context.TODO(), query, change)
+	_, err := c.UpdateMany(context.TODO(), query, change)
 
 	return err
 }
