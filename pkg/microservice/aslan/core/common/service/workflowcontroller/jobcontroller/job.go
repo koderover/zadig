@@ -168,19 +168,21 @@ func runJob(ctx context.Context, job *commonmodels.JobTask, workflowCtx *commonm
 		case config.JobErrorPolicyIgnoreError:
 			job.Status = config.StatusUnstable
 		case config.JobErrorPolicyRetry:
-			retryJob(ctx, job, jobCtl, ack, job.ErrorPolicy.MaximumRetry)
+			retryJob(ctx, workflowCtx.WorkflowName, workflowCtx.TaskID, job, jobCtl, ack, job.ErrorPolicy.MaximumRetry)
 		case config.JobErrorPolicyManualCheck:
 			waitForManualErrorHandling(ctx, workflowCtx.WorkflowName, workflowCtx.TaskID, job, ack, logger)
 		}
 	}
 }
 
-func retryJob(ctx context.Context, job *commonmodels.JobTask, jobCtl JobCtl, ack func(), maxRetry int) {
+func retryJob(ctx context.Context, workflowName string, taskID int64, job *commonmodels.JobTask, jobCtl JobCtl, ack func(), maxRetry int) {
 	retryCount := 1
 
 	for retryCount <= maxRetry {
+		time.Sleep(10 * time.Second)
 		job.Status = config.StatusPrepare
 		job.StartTime = time.Now().Unix()
+		job.K8sJobName = getJobName(workflowName, taskID)
 		ack()
 
 		jobCtl.Run(ctx)
