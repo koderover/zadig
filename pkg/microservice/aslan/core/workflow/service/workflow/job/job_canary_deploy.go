@@ -257,6 +257,7 @@ func (j *CanaryDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) 
 				CanaryReplica:    int(canaryReplica),
 				Image:            target.Image,
 			},
+			ErrorPolicy: j.job.ErrorPolicy,
 		}
 		resp = append(resp, task)
 	}

@@ -236,10 +236,17 @@ type Job struct {
 	Name    string         `bson:"name"           yaml:"name"     json:"name"`
 	JobType config.JobType `bson:"type"           yaml:"type"     json:"type"`
 	// only for webhook workflow args to skip some tasks.
-	Skipped        bool                     `bson:"skipped"        yaml:"skipped"    json:"skipped"`
-	Spec           interface{}              `bson:"spec"           yaml:"spec"       json:"spec"`
-	RunPolicy      config.JobRunPolicy      `bson:"run_policy"     yaml:"run_policy" json:"run_policy"`
-	ServiceModules []*WorkflowServiceModule `bson:"service_modules"                  json:"service_modules"`
+	Skipped        bool                     `bson:"skipped"              yaml:"skipped"              json:"skipped"`
+	Spec           interface{}              `bson:"spec"                 yaml:"spec"                 json:"spec"`
+	RunPolicy      config.JobRunPolicy      `bson:"run_policy"           yaml:"run_policy"           json:"run_policy"`
+	ErrorPolicy    *JobErrorPolicy          `bson:"error_policy"         yaml:"error_policy"         json:"error_policy"`
+	ServiceModules []*WorkflowServiceModule `bson:"service_modules"                                  json:"service_modules"`
+}
+
+type JobErrorPolicy struct {
+	Policy        config.JobErrorPolicy `bson:"policy"         yaml:"policy"         json:"policy"`
+	MaximumRetry  int                   `bson:"maximum_retry"  yaml:"maximum_retry"  json:"maximum_retry"`
+	ApprovalUsers []*User               `bson:"approval_users" yaml:"approval_users" json:"approval_users"`
 }
 
 type WorkflowServiceModule struct {

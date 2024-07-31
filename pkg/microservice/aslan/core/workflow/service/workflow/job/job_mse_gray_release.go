@@ -213,6 +213,7 @@ func (j *MseGrayReleaseJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error
 				Timeout:            timeout,
 				Production:         j.spec.Production,
 			},
+			ErrorPolicy: j.job.ErrorPolicy,
 		})
 	}
 

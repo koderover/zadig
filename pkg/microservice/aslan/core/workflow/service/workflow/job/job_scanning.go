@@ -393,6 +393,7 @@ func (j *ScanningJob) toJobTask(scanning *commonmodels.ScanningModule, taskID in
 		Outputs:        ensureScanningOutputs(scanningInfo.Outputs),
 		Infrastructure: scanningInfo.Infrastructure,
 		VMLabels:       scanningInfo.VMLabels,
+		ErrorPolicy:    j.job.ErrorPolicy,
 	}
 	envs := getScanningJobVariables(scanning.Repos, taskID, j.workflow.Project, j.workflow.Name, j.workflow.DisplayName, jobTask.Infrastructure, scanningType, serviceName, serviceModule, scanning.Name)
 	envs = append(envs, scanningInfo.Envs...)

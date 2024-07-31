@@ -489,6 +489,7 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			Outputs:        outputs,
 			Infrastructure: buildInfo.Infrastructure,
 			VMLabels:       buildInfo.VMLabels,
+			ErrorPolicy:    j.job.ErrorPolicy,
 		}
 		jobTaskSpec.Properties = commonmodels.JobProperties{
 			Timeout:             int64(buildInfo.Timeout),

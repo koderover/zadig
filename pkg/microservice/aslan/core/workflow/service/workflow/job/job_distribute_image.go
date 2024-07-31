@@ -325,9 +325,10 @@ func (j *ImageDistributeJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, erro
 		JobInfo: map[string]string{
 			JobNameKey: j.job.Name,
 		},
-		JobType: string(config.JobZadigDistributeImage),
-		Spec:    jobTaskSpec,
-		Timeout: getTimeout(j.spec.Timeout),
+		JobType:     string(config.JobZadigDistributeImage),
+		Spec:        jobTaskSpec,
+		Timeout:     getTimeout(j.spec.Timeout),
+		ErrorPolicy: j.job.ErrorPolicy,
 	}
 	resp = append(resp, jobTask)
 	j.job.Spec = j.spec

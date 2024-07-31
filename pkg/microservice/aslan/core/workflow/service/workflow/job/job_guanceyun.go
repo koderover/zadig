@@ -101,6 +101,7 @@ func (j *GuanceyunCheckJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error
 			CheckMode: j.spec.CheckMode,
 			Monitors:  j.spec.Monitors,
 		},
+		ErrorPolicy: j.job.ErrorPolicy,
 	}
 	return []*commonmodels.JobTask{jobTask}, nil
 }

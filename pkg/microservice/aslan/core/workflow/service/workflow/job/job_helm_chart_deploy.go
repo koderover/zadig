@@ -287,8 +287,9 @@ func (j *HelmChartDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, erro
 				JobNameKey:     j.job.Name,
 				"release_name": deploy.ReleaseName,
 			},
-			JobType: string(config.JobZadigHelmChartDeploy),
-			Spec:    jobTaskSpec,
+			JobType:     string(config.JobZadigHelmChartDeploy),
+			Spec:        jobTaskSpec,
+			ErrorPolicy: j.job.ErrorPolicy,
 		}
 		resp = append(resp, jobTask)
 	}

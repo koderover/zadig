@@ -139,7 +139,8 @@ func (j *BlueKingJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			ExecutionPlanID: j.spec.ExecutionPlanID,
 			Parameters:      j.spec.Parameters,
 		},
-		Timeout: 0,
+		Timeout:     0,
+		ErrorPolicy: j.job.ErrorPolicy,
 	})
 
 	return resp, nil

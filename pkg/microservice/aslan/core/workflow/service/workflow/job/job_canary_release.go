@@ -113,6 +113,7 @@ func (j *CanaryReleaseJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error)
 				ContainerName:  target.ContainerName,
 				Image:          target.Image,
 			},
+			ErrorPolicy: j.job.ErrorPolicy,
 		}
 		resp = append(resp, task)
 	}

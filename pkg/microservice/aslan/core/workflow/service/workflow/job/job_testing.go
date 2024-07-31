@@ -375,6 +375,7 @@ func (j *TestingJob) toJobtask(testing *commonmodels.TestModule, defaultS3 *comm
 		Outputs:        testingInfo.Outputs,
 		Infrastructure: testingInfo.Infrastructure,
 		VMLabels:       testingInfo.VMLabels,
+		ErrorPolicy:    j.job.ErrorPolicy,
 	}
 	jobTaskSpec.Properties = commonmodels.JobProperties{
 		Timeout:             int64(testingInfo.Timeout),

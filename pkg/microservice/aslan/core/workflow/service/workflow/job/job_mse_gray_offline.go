@@ -95,6 +95,7 @@ func (j *MseGrayOfflineJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error
 			GrayTag:    j.spec.GrayTag,
 			Production: j.spec.Production,
 		},
+		ErrorPolicy: j.job.ErrorPolicy,
 	})
 
 	return resp, nil

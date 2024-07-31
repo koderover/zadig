@@ -274,7 +274,8 @@ func (j *ApolloJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 				return list
 			}(),
 		},
-		Timeout: 0,
+		Timeout:     0,
+		ErrorPolicy: j.job.ErrorPolicy,
 	}
 	return []*commonmodels.JobTask{jobTask}, nil
 }

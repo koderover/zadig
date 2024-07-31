@@ -271,6 +271,7 @@ func (j *IstioReleaseJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) 
 				Replicas:          int64(newReplicaCount),
 				Targets:           target,
 			},
+			ErrorPolicy: j.job.ErrorPolicy,
 		}
 		resp = append(resp, jobTask)
 	}

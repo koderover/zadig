@@ -909,8 +909,9 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 					JobNameKey:     j.job.Name,
 					"service_name": serviceName,
 				},
-				JobType: string(config.JobZadigDeploy),
-				Spec:    jobTaskSpec,
+				JobType:     string(config.JobZadigDeploy),
+				Spec:        jobTaskSpec,
+				ErrorPolicy: j.job.ErrorPolicy,
 			}
 			if jobTaskSpec.CreateEnvType == "system" {
 				var updateRevision bool

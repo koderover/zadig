@@ -195,6 +195,7 @@ func (j *IstioRollBackJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error)
 				Targets:     target,
 				Timeout:     j.spec.Timeout,
 			},
+			ErrorPolicy: j.job.ErrorPolicy,
 		}
 		resp = append(resp, jobTask)
 	}

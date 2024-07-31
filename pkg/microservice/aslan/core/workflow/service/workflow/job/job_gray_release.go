@@ -268,6 +268,7 @@ func (j *GrayReleaseJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 				TotalReplica:     target.Replica,
 				GrayReplica:      int(grayReplica),
 			},
+			ErrorPolicy: j.job.ErrorPolicy,
 		}
 		resp = append(resp, jobTask)
 	}
