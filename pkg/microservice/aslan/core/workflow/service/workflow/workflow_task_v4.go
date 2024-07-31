@@ -1124,33 +1124,47 @@ func HandleJobError(workflowName, jobName, userID, username string, taskID int64
 		logger.Error(errMsg)
 		return e.ErrApproveTask.AddDesc(errMsg)
 	}
-	//workflowTask, err := commonrepo.NewworkflowTaskv4Coll().Find(workflowName, taskID)
-	//if err != nil {
-	//	errMsg := fmt.Sprintf("can not find workflow task: %s, taskID: %d to handle its error, err: %s", workflowName, taskID, err)
-	//	logger.Error(errMsg)
-	//	return e.ErrApproveTask.AddDesc(errMsg)
-	//}
-	//
-	//found := false
-	//var errorJob *commonmodels.JobTask
-	//for _, stage := range workflowTask.Stages {
-	//	if found {
-	//		break
-	//	}
-	//	for _, job := range stage.Jobs {
-	//		if job.Name == jobName {
-	//			found = true
-	//			errorJob = job
-	//			break
-	//		}
-	//	}
-	//}
-	//
-	//if !found {
-	//	errMsg := fmt.Sprintf("can not find job %s in workflow task: %s, taskID: %d to handle its error, err: %s", jobName, workflowName, taskID)
-	//	logger.Error(errMsg)
-	//	return e.ErrApproveTask.AddDesc(errMsg)
-	//}
+	workflowTask, err := commonrepo.NewworkflowTaskv4Coll().Find(workflowName, taskID)
+	if err != nil {
+		errMsg := fmt.Sprintf("can not find workflow task: %s, taskID: %d to handle its error, err: %s", workflowName, taskID, err)
+		logger.Error(errMsg)
+		return e.ErrApproveTask.AddDesc(errMsg)
+	}
+
+	found := false
+	var errorJob *commonmodels.JobTask
+	for _, stage := range workflowTask.Stages {
+		if found {
+			break
+		}
+		for _, job := range stage.Jobs {
+			if job.Name == jobName {
+				found = true
+				errorJob = job
+				break
+			}
+		}
+	}
+
+	if !found {
+		errMsg := fmt.Sprintf("can not find job %s in workflow task: %s, taskID: %d to handle its error, err: %s", jobName, workflowName, taskID, err)
+		logger.Error(errMsg)
+		return e.ErrApproveTask.AddDesc(errMsg)
+	}
+
+	if errorJob.ErrorPolicy == nil || errorJob.ErrorPolicy.Policy != config.JobErrorPolicyManualCheck {
+		errMsg := fmt.Sprintf("error policy for job: %s is %s", jobName, errorJob.ErrorPolicy.Policy)
+		logger.Error(errMsg)
+		return e.ErrApproveTask.AddDesc(errMsg)
+	}
+
+	_, userMap := util.GeneFlatUsers(errorJob.ErrorPolicy.ApprovalUsers)
+
+	if _, ok := userMap[userID]; !ok {
+		errMsg := fmt.Sprintf("error policy for job: %s is %s", jobName, errorJob.ErrorPolicy.Policy)
+		logger.Error(errMsg)
+		return e.ErrApproveTask.AddDesc(errMsg)
+	}
 
 	if err := workflowtool.SetJobErrorHandlingDecision(workflowName, jobName, taskID, decision, userID, username); err != nil {
 		logger.Error(err)
