@@ -502,12 +502,13 @@ FOR:
 
 func updateworkflowStatus(workflow *commonmodels.WorkflowTask) {
 	statusMap := map[config.Status]int{
-		config.StatusPause:     6,
-		config.StatusReject:    5,
-		config.StatusCancelled: 4,
-		config.StatusTimeout:   3,
-		config.StatusFailed:    2,
-		config.StatusPassed:    1,
+		config.StatusPause:     7,
+		config.StatusReject:    6,
+		config.StatusCancelled: 5,
+		config.StatusTimeout:   4,
+		config.StatusFailed:    3,
+		config.StatusPassed:    2,
+		config.StatusUnstable:  1,
 		config.StatusSkipped:   0,
 	}
 
@@ -539,6 +540,12 @@ func updateworkflowStatus(workflow *commonmodels.WorkflowTask) {
 	if workflow.Status != workflowStatus {
 		SendWorkflowNotifyMessage(workflow, workflow.TaskCreator, workflowStatus, log.SugaredLogger())
 	}
+
+	// special case: if there is only 1 stage with unstable status, we still count it as passed
+	if workflowStatus == config.StatusUnstable {
+		workflowStatus = config.StatusPassed
+	}
+
 	workflow.Status = workflowStatus
 }
 
