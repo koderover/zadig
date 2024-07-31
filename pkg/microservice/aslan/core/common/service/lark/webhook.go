@@ -81,15 +81,20 @@ func EventHandler(appID, sign, ts, nonce, body string) (*EventHandlerResponse, e
 		log.Errorf("get lark app info failed: %v", err)
 		return nil, errors.Wrap(err, "get approval by appID")
 	}
-	key := larkAppInfo.EncryptKey
+
 	larkAppInfoID := larkAppInfo.ID.Hex()
 	log.Infof("LarkEventHandler: new request approval ID %s", larkAppInfoID)
 
-	raw, err := larkDecrypt(gjson.Get(body, "encrypt").String(), key)
-	if err != nil {
-		log.Errorf("decrypt body failed: %v", err)
-		return nil, errors.Wrap(err, "decrypt body")
+	key := larkAppInfo.EncryptKey
+	raw := body
+	if key != "" {
+		raw, err = larkDecrypt(gjson.Get(body, "encrypt").String(), key)
+		if err != nil {
+			log.Errorf("decrypt body failed: %v", err)
+			return nil, errors.Wrap(err, "decrypt body")
+		}
 	}
+
 	// handle lark open platform webhook URL check request, which only need reply the challenge field.
 	if sign == "" {
 		log.Infof("LarkEventHandler: challenge request received, challenge: %s", gjson.Get(raw, "challenge").String())

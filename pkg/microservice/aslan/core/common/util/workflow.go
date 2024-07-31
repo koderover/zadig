@@ -28,7 +28,7 @@ func CalcWorkflowTaskRunningTime(task *commonmodels.WorkflowTask) int64 {
 			runningTime += 0
 		} else if task.EndTime == 0 {
 			runningTime += 0
-			log.Error("workflow task %s/%d stage %s end time is 0", task.WorkflowName, task.TaskID, stage.Name)
+			log.Errorf("workflow task %s/%d stage %s end time is 0", task.WorkflowName, task.TaskID, stage.Name)
 		} else {
 			runningTime += stage.EndTime - stage.StartTime
 		}
