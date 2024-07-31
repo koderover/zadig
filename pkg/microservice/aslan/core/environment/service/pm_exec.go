@@ -205,24 +205,7 @@ func ExecVmServiceCommand(projectName, envName, serviceName, hostId string, comm
 
 	err = session.Start(cmd)
 	if err != nil {
-		if exitErr, ok := err.(*ssh.ExitError); ok {
-			if stderr.Len() > 0 {
-				log.Errorf("[STDERR] exec %s command `%s` on %s: %s", commandType, cmd, host.IP, stderr.String())
-			}
-			err = fmt.Errorf("%s command `%s` exited with non-zero status %v on %s for vm service %s/%s, error: %v", commandType, cmd, exitErr.ExitStatus(), host.IP, envName, serviceName, exitErr)
-			log.Error(err)
-
-			resp := &ExecVmServiceCommandResponse{
-				Stdout: stdout.String(),
-				Stderr: stderr.String(),
-				Error:  err.Error(),
-			}
-			return resp, nil
-		} else {
-			err = fmt.Errorf("failed to run %s cmd on %s for vm service %s/%s, error: %v", commandType, host.IP, envName, serviceName, err)
-			log.Error(err)
-			return nil, e.ErrVmExecCmd.AddErr(err)
-		}
+		return sshErrorHandle(err, stdout, stderr, log, commandType, cmd, host.IP, envName, serviceName)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
@@ -247,24 +230,7 @@ func ExecVmServiceCommand(projectName, envName, serviceName, hostId string, comm
 	case err = <-waitChan:
 		// 命令完成
 		if err != nil {
-			if exitErr, ok := err.(*ssh.ExitError); ok {
-				if stderr.Len() > 0 {
-					log.Errorf("[STDERR] exec %s command `%s` on %s: %s", commandType, cmd, host.IP, stderr.String())
-				}
-				err = fmt.Errorf("%s command `%s` exited with non-zero status %v on %s for vm service %s/%s, error: %v", commandType, cmd, exitErr.ExitStatus(), host.IP, envName, serviceName, exitErr)
-				log.Error(err)
-
-				resp := &ExecVmServiceCommandResponse{
-					Stdout: stdout.String(),
-					Stderr: stderr.String(),
-					Error:  err.Error(),
-				}
-				return resp, nil
-			} else {
-				err = fmt.Errorf("failed to run %s cmd on %s for vm service %s/%s, error: %v", commandType, host.IP, envName, serviceName, err)
-				log.Error(err)
-				return nil, e.ErrVmExecCmd.AddErr(err)
-			}
+			return sshErrorHandle(err, stdout, stderr, log, commandType, cmd, host.IP, envName, serviceName)
 		}
 	}
 
@@ -281,4 +247,28 @@ func ExecVmServiceCommand(projectName, envName, serviceName, hostId string, comm
 		IsSuccess: true,
 	}
 	return resp, nil
+}
+
+func sshErrorHandle(err error, stdout, stderr bytes.Buffer, log *zap.SugaredLogger, commandType VmServiceCommandType, cmd, ip, envName, serviceName string) (*ExecVmServiceCommandResponse, error) {
+	if err != nil {
+		if exitErr, ok := err.(*ssh.ExitError); ok {
+			if stderr.Len() > 0 {
+				log.Errorf("[STDERR] exec %s command `%s` on %s: %s", commandType, cmd, ip, stderr.String())
+			}
+			err = fmt.Errorf("%s command `%s` exited with non-zero status %v on %s for vm service %s/%s, error: %v", commandType, cmd, exitErr.ExitStatus(), ip, envName, serviceName, exitErr)
+			log.Error(err)
+
+			resp := &ExecVmServiceCommandResponse{
+				Stdout: stdout.String(),
+				Stderr: stderr.String(),
+				Error:  err.Error(),
+			}
+			return resp, nil
+		} else {
+			err = fmt.Errorf("failed to run %s cmd on %s for vm service %s/%s, error: %v", commandType, ip, envName, serviceName, err)
+			log.Error(err)
+			return nil, e.ErrVmExecCmd.AddErr(err)
+		}
+	}
+	return nil, nil
 }
