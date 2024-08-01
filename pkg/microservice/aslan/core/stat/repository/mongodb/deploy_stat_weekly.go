@@ -48,7 +48,7 @@ func (c *WeeklyDeployStatColl) GetCollectionName() string {
 func (c *WeeklyDeployStatColl) EnsureIndex(ctx context.Context) error {
 	mod := mongo.IndexModel{
 		Keys: bson.D{
-			bson.E{Key: "product_name", Value: 1},
+			bson.E{Key: "project_key", Value: 1},
 			bson.E{Key: "date", Value: 1},
 			bson.E{Key: "production", Value: 1},
 		},

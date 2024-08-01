@@ -105,6 +105,8 @@ func migrateDeploymentWeeklyAndMonthlyStats() error {
 			if err != nil {
 				return err
 			}
+			monthlyTestingDeployStat.CreateTime = startOfMonth.Unix()
+			monthlyProductionDeployStat.CreateTime = startOfMonth.Unix()
 			err = statrepo.NewMonthlyDeployStatColl().Upsert(monthlyTestingDeployStat)
 			if err != nil {
 				log.Errorf("failed to create monthly deployment stat for testing env for date: %s, project: %s, err: %s", startOfMonth.Format(config.Date), project.ProductName, err)
@@ -127,6 +129,8 @@ func migrateDeploymentWeeklyAndMonthlyStats() error {
 			if err != nil {
 				return err
 			}
+			weeklyTestingDeployStat.CreateTime = startOfWeek.Unix()
+			weeklyProductionDeployStat.CreateTime = startOfWeek.Unix()
 			err = statrepo.NewWeeklyDeployStatColl().Upsert(weeklyTestingDeployStat)
 			if err != nil {
 				log.Errorf("failed to create weekly deployment stat for testing env for date: %s, project: %s, err: %s", startOfMonth.Format(config.Date), project.ProductName, err)
