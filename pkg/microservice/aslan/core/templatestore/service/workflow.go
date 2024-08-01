@@ -708,7 +708,7 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 					Parallel: false,
 					Jobs: []*commonmodels.Job{
 						{
-							Name:      "approval 2",
+							Name:      "approval-2",
 							JobType:   config.JobApproval,
 							RunPolicy: config.ForceRun,
 							Spec: commonmodels.ApprovalJobSpec{
@@ -994,7 +994,7 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 					Parallel: false,
 					Jobs: []*commonmodels.Job{
 						{
-							Name:      "approval 2",
+							Name:      "approval-2",
 							JobType:   config.JobApproval,
 							RunPolicy: config.ForceRun,
 							Spec: commonmodels.ApprovalJobSpec{
