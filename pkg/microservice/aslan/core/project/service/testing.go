@@ -48,7 +48,7 @@ func DeleteTestModules(productName, requestID string, log *zap.SugaredLogger) er
 
 func DeleteScanningModules(productName string, log *zap.SugaredLogger) error {
 	scannings, _, err := commonrepo.NewScanningColl().List(&commonrepo.ScanningListOption{
-		ProjectName: "productName",
+		ProjectName: productName,
 	}, 0, 0)
 
 	if err != nil {
