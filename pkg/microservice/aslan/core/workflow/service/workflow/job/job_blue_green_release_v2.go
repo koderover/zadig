@@ -114,6 +114,7 @@ func (j *BlueGreenReleaseV2Job) ToJobs(taskID int64) ([]*commonmodels.JobTask, e
 				Service:       target,
 				DeployTimeout: timeout,
 			},
+			ErrorPolicy: j.job.ErrorPolicy,
 		}
 		resp = append(resp, task)
 	}

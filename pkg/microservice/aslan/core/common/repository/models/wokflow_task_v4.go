@@ -96,7 +96,6 @@ type JobTask struct {
 	EndTime          int64                    `bson:"end_time"            json:"end_time,omitempty"`
 	Error            string                   `bson:"error"               json:"error"`
 	Timeout          int64                    `bson:"timeout"             json:"timeout"`
-	Retry            int64                    `bson:"retry"               json:"retry"`
 	Spec             interface{}              `bson:"spec"                json:"spec"`
 	Outputs          []*Output                `bson:"outputs"             json:"outputs"`
 	BreakpointBefore bool                     `bson:"breakpoint_before"   json:"breakpoint_before"`
@@ -104,6 +103,13 @@ type JobTask struct {
 	ServiceModules   []*WorkflowServiceModule `bson:"service_modules"     json:"service_modules"`
 	Infrastructure   string                   `bson:"infrastructure"      json:"infrastructure"`
 	VMLabels         []string                 `bson:"vm_labels"           json:"vm_labels"`
+
+	ErrorPolicy *JobErrorPolicy `bson:"error_policy"         yaml:"error_policy"         json:"error_policy"`
+	// ErrorHandler is the user ID who did the error handling
+	ErrorHandlerUserID   string `bson:"error_handler_user_id"  yaml:"error_handler_user_id" json:"error_handler_user_id"`
+	ErrorHandlerUserName string `bson:"error_handler_username"  yaml:"error_handler_username" json:"error_handler_username"`
+
+	RetryCount int `bson:"retry_count" json:"retry_count" yaml:"retry_count"`
 }
 
 type TaskJobInfo struct {
@@ -149,7 +155,6 @@ type JobPreview struct {
 	EndTime        int64                    `bson:"end_time"            json:"end_time,omitempty"`
 	Error          string                   `bson:"error"               json:"error"`
 	Timeout        int64                    `bson:"timeout"             json:"timeout"`
-	Retry          int64                    `bson:"retry"               json:"retry"`
 	ServiceModules []*WorkflowServiceModule `bson:"-"                   json:"service_modules"`
 	TestModules    []*WorkflowTestModule    `bson:"-"                   json:"test_modules"`
 	Envs           *WorkflowEnv             `bson:"-"                   json:"envs"`

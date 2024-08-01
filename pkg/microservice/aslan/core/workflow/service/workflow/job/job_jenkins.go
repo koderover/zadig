@@ -179,7 +179,8 @@ func (j *JenkinsJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 					Parameters: job.Parameters,
 				},
 			},
-			Timeout: 0,
+			Timeout:     0,
+			ErrorPolicy: j.job.ErrorPolicy,
 		})
 	}
 

@@ -307,6 +307,7 @@ func (j *NacosJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			Password:      client.Password,
 			NacosDatas:    transNacosDatas(j.spec.NacosDatas),
 		},
+		ErrorPolicy: j.job.ErrorPolicy,
 	}
 
 	return []*commonmodels.JobTask{jobTask}, nil

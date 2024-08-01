@@ -271,10 +271,11 @@ func (j *FreeStyleJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		JobInfo: map[string]string{
 			JobNameKey: j.job.Name,
 		},
-		JobType: string(config.JobFreestyle),
-		Spec:    jobTaskSpec,
-		Timeout: j.spec.Properties.Timeout,
-		Outputs: j.spec.Outputs,
+		JobType:     string(config.JobFreestyle),
+		Spec:        jobTaskSpec,
+		Timeout:     j.spec.Properties.Timeout,
+		Outputs:     j.spec.Outputs,
+		ErrorPolicy: j.job.ErrorPolicy,
 	}
 
 	if j.spec != nil && j.spec.Properties != nil && j.spec.Properties.Infrastructure != "" && len(j.spec.Properties.VMLabels) > 0 {

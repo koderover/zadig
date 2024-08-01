@@ -146,6 +146,7 @@ func (j *MeegoTransitionJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, erro
 			WorkItemTypeKey: j.spec.WorkItemTypeKey,
 			WorkItems:       j.spec.WorkItems,
 		},
+		ErrorPolicy: j.job.ErrorPolicy,
 	}
 	resp = append(resp, jobTask)
 	return resp, nil

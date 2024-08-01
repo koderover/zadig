@@ -120,6 +120,8 @@ const (
 	StatusWaitingApprove Status = "wait_for_approval"
 	StatusDebugBefore    Status = "debug_before"
 	StatusDebugAfter     Status = "debug_after"
+	StatusUnstable       Status = "unstable"
+	StatusManualApproval Status = "wait_for_manual_error_handling"
 )
 
 func FailedStatus() []Status {
@@ -492,6 +494,15 @@ const (
 	DefaultNotRun JobRunPolicy = "default_not_run" // default not run this job
 	ForceRun      JobRunPolicy = "force_run"       // force run this job
 	SkipRun       JobRunPolicy = "skip"
+)
+
+type JobErrorPolicy string
+
+const (
+	JobErrorPolicyStop        JobErrorPolicy = "stop"
+	JobErrorPolicyIgnoreError JobErrorPolicy = "ignore_error"
+	JobErrorPolicyManualCheck JobErrorPolicy = "manual_check"
+	JobErrorPolicyRetry       JobErrorPolicy = "retry"
 )
 
 const DefaultDeleteDeploymentTimeout = 10 * time.Minute

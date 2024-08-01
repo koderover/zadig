@@ -99,9 +99,10 @@ func (j *PluginJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		JobInfo: map[string]string{
 			JobNameKey: j.job.Name,
 		},
-		JobType: string(config.JobPlugin),
-		Spec:    jobTaskSpec,
-		Outputs: j.spec.Plugin.Outputs,
+		JobType:     string(config.JobPlugin),
+		Spec:        jobTaskSpec,
+		Outputs:     j.spec.Plugin.Outputs,
+		ErrorPolicy: j.job.ErrorPolicy,
 	}
 	registries, err := commonservice.ListRegistryNamespaces("", true, logger)
 	if err != nil {

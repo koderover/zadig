@@ -200,7 +200,8 @@ func (j *WorkflowTriggerJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, erro
 			IsEnableCheck:         j.spec.IsEnableCheck,
 			WorkflowTriggerEvents: workflowTriggerEvents,
 		},
-		Timeout: 0,
+		Timeout:     0,
+		ErrorPolicy: j.job.ErrorPolicy,
 	}
 	return []*commonmodels.JobTask{jobTask}, nil
 }

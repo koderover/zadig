@@ -272,6 +272,7 @@ func (j *GrayRollbackJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) 
 				RollbackTimeout:  j.spec.RollbackTimeout,
 				TotalReplica:     rollbackInfo.replica,
 			},
+			ErrorPolicy: j.job.ErrorPolicy,
 		}
 		resp = append(resp, jobTask)
 	}

@@ -87,8 +87,9 @@ func (j *UpdateEnvIstioConfigJob) ToJobs(taskID int64) ([]*commonmodels.JobTask,
 		JobInfo: map[string]string{
 			JobNameKey: j.job.Name,
 		},
-		JobType: string(config.JobUpdateEnvIstioConfig),
-		Spec:    j.spec,
+		JobType:     string(config.JobUpdateEnvIstioConfig),
+		Spec:        j.spec,
+		ErrorPolicy: j.job.ErrorPolicy,
 	}
 	resp = append(resp, jobTask)
 	return resp, nil

@@ -129,7 +129,8 @@ func (j *SQLJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			Type: j.spec.Type,
 			SQL:  j.spec.SQL,
 		},
-		Timeout: 0,
+		Timeout:     0,
+		ErrorPolicy: j.job.ErrorPolicy,
 	}
 	return []*commonmodels.JobTask{jobTask}, nil
 }

@@ -133,7 +133,8 @@ func (j *ApprovalJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			DingTalkApproval: j.spec.DingTalkApproval,
 			WorkWXApproval:   j.spec.WorkWXApproval,
 		},
-		Timeout: j.spec.Timeout,
+		Timeout:     j.spec.Timeout,
+		ErrorPolicy: j.job.ErrorPolicy,
 	})
 
 	return resp, nil

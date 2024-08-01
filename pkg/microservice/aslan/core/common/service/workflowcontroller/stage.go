@@ -115,12 +115,13 @@ func updateStageStatus(ctx context.Context, stage *commonmodels.StageTask) {
 	default:
 	}
 	statusMap := map[config.Status]int{
-		config.StatusCancelled: 6,
-		config.StatusTimeout:   5,
-		config.StatusFailed:    4,
-		config.StatusPause:     3,
-		config.StatusReject:    2,
-		config.StatusPassed:    1,
+		config.StatusCancelled: 7,
+		config.StatusTimeout:   6,
+		config.StatusFailed:    5,
+		config.StatusPause:     4,
+		config.StatusReject:    3,
+		config.StatusPassed:    2,
+		config.StatusUnstable:  1,
 		config.StatusSkipped:   0,
 	}
 
@@ -149,5 +150,6 @@ func updateStageStatus(ctx context.Context, stage *commonmodels.StageTask) {
 			break
 		}
 	}
+
 	stage.Status = stageStatus
 }

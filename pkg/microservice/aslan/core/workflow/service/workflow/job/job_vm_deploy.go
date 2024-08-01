@@ -452,6 +452,7 @@ func (j *VMDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			Timeout:        int64(buildInfo.Timeout),
 			Infrastructure: buildInfo.DeployInfrastructure,
 			VMLabels:       buildInfo.DeployVMLabels,
+			ErrorPolicy:    j.job.ErrorPolicy,
 		}
 		jobTaskSpec.Properties = commonmodels.JobProperties{
 			Timeout:         int64(timeout),

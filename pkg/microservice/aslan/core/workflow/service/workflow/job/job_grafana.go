@@ -150,7 +150,8 @@ func (j *GrafanaJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			CheckMode: j.spec.CheckMode,
 			Alerts:    j.spec.Alerts,
 		},
-		Timeout: 0,
+		ErrorPolicy: j.job.ErrorPolicy,
+		Timeout:     0,
 	}
 	return []*commonmodels.JobTask{jobTask}, nil
 }

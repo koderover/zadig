@@ -224,8 +224,9 @@ func (j *K8sPacthJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		JobInfo: map[string]string{
 			JobNameKey: j.job.Name,
 		},
-		JobType: string(config.JobK8sPatch),
-		Spec:    patchJobToTaskJob(j.spec),
+		JobType:     string(config.JobK8sPatch),
+		Spec:        patchJobToTaskJob(j.spec),
+		ErrorPolicy: j.job.ErrorPolicy,
 	}
 	resp = append(resp, jobTask)
 	j.job.Spec = j.spec

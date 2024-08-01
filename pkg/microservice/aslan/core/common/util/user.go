@@ -70,3 +70,29 @@ func GeneFlatUsers(users []*models.User) ([]*models.User, map[string]*types.User
 
 	return flatUsers, userMap
 }
+
+// GeneFlatUsersWithCaller generates user list and map with the support to the additional user type: task_creator.
+// it takes configures users with an additional parameter: userID as the callers ID.
+func GeneFlatUsersWithCaller(users []*models.User, userID string) ([]*models.User, map[string]*types.UserInfo) {
+	flatUsers, userMap := GeneFlatUsers(users)
+
+	for _, usr := range users {
+		if usr.Type == setting.UserTypeTaskCreator {
+			if _, ok := userMap[userID]; !ok {
+				userDetailedInfo, err := user.New().GetUserByID(userID)
+				if err != nil {
+					log.Errorf("failed to find user %s, error: %s", userID, err)
+					continue
+				}
+				userMap[userID] = userDetailedInfo
+				flatUsers = append(flatUsers, &models.User{
+					Type:     setting.UserTypeUser,
+					UserID:   userID,
+					UserName: userDetailedInfo.Name,
+				})
+			}
+		}
+	}
+
+	return flatUsers, userMap
+}

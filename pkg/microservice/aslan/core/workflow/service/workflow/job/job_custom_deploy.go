@@ -202,8 +202,9 @@ func (j *CustomDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) 
 				"workload_name":  workloadName,
 				"container_name": containerName,
 			},
-			JobType: string(config.JobCustomDeploy),
-			Spec:    jobTaskSpec,
+			JobType:     string(config.JobCustomDeploy),
+			Spec:        jobTaskSpec,
+			ErrorPolicy: j.job.ErrorPolicy,
 		}
 		resp = append(resp, jobTask)
 	}

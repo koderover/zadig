@@ -51,6 +51,7 @@ import (
 	larktool "github.com/koderover/zadig/v2/pkg/tool/lark"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	s3tool "github.com/koderover/zadig/v2/pkg/tool/s3"
+	workflowtool "github.com/koderover/zadig/v2/pkg/tool/workflow"
 	"github.com/koderover/zadig/v2/pkg/types"
 	jobspec "github.com/koderover/zadig/v2/pkg/types/job"
 	"github.com/koderover/zadig/v2/pkg/types/step"
@@ -98,16 +99,20 @@ type StageTaskPreview struct {
 }
 
 type JobTaskPreview struct {
-	Name             string        `bson:"name"           json:"name"`
-	JobType          string        `bson:"type"           json:"type"`
-	Status           config.Status `bson:"status"         json:"status"`
-	StartTime        int64         `bson:"start_time"     json:"start_time,omitempty"`
-	EndTime          int64         `bson:"end_time"       json:"end_time,omitempty"`
-	CostSeconds      int64         `bson:"cost_seconds"   json:"cost_seconds"`
-	Error            string        `bson:"error"          json:"error"`
-	BreakpointBefore bool          `bson:"breakpoint_before" json:"breakpoint_before"`
-	BreakpointAfter  bool          `bson:"breakpoint_after"  json:"breakpoint_after"`
-	Spec             interface{}   `bson:"spec"           json:"spec"`
+	Name                 string                       `bson:"name"           json:"name"`
+	JobType              string                       `bson:"type"           json:"type"`
+	Status               config.Status                `bson:"status"         json:"status"`
+	StartTime            int64                        `bson:"start_time"     json:"start_time,omitempty"`
+	EndTime              int64                        `bson:"end_time"       json:"end_time,omitempty"`
+	CostSeconds          int64                        `bson:"cost_seconds"   json:"cost_seconds"`
+	Error                string                       `bson:"error"          json:"error"`
+	BreakpointBefore     bool                         `bson:"breakpoint_before" json:"breakpoint_before"`
+	BreakpointAfter      bool                         `bson:"breakpoint_after"  json:"breakpoint_after"`
+	Spec                 interface{}                  `bson:"spec"           json:"spec"`
+	ErrorPolicy          *commonmodels.JobErrorPolicy `bson:"error_policy"         yaml:"error_policy"         json:"error_policy"`
+	ErrorHandlerUserID   string                       `bson:"error_handler_user_id"  yaml:"error_handler_user_id" json:"error_handler_user_id"`
+	ErrorHandlerUserName string                       `bson:"error_handler_username"  yaml:"error_handler_username" json:"error_handler_username"`
+	RetryCount           int                          `bson:"retry_count"           yaml:"retry_count"               json:"retry_count"`
 	// JobInfo contains the fields that make up the job task name, for frontend display
 	JobInfo interface{} `bson:"job_info" json:"job_info"`
 }
@@ -1153,6 +1158,61 @@ func ApproveStage(workflowName, jobName, userName, userID, comment string, taskI
 	return nil
 }
 
+func HandleJobError(workflowName, jobName, userID, username string, taskID int64, decision workflowtool.JobErrorDecision, logger *zap.SugaredLogger) error {
+	if workflowName == "" || jobName == "" || taskID == 0 {
+		errMsg := fmt.Sprintf("can not find approved workflow: %s, taskID: %d,jobName: %s", workflowName, taskID, jobName)
+		logger.Error(errMsg)
+		return e.ErrApproveTask.AddDesc(errMsg)
+	}
+	workflowTask, err := commonrepo.NewworkflowTaskv4Coll().Find(workflowName, taskID)
+	if err != nil {
+		errMsg := fmt.Sprintf("can not find workflow task: %s, taskID: %d to handle its error, err: %s", workflowName, taskID, err)
+		logger.Error(errMsg)
+		return e.ErrApproveTask.AddDesc(errMsg)
+	}
+
+	found := false
+	var errorJob *commonmodels.JobTask
+	for _, stage := range workflowTask.Stages {
+		if found {
+			break
+		}
+		for _, job := range stage.Jobs {
+			if job.Name == jobName {
+				found = true
+				errorJob = job
+				break
+			}
+		}
+	}
+
+	if !found {
+		errMsg := fmt.Sprintf("can not find job %s in workflow task: %s, taskID: %d to handle its error, err: %s", jobName, workflowName, taskID, err)
+		logger.Error(errMsg)
+		return e.ErrApproveTask.AddDesc(errMsg)
+	}
+
+	if errorJob.ErrorPolicy == nil || errorJob.ErrorPolicy.Policy != config.JobErrorPolicyManualCheck {
+		errMsg := fmt.Sprintf("error policy for job: %s is %s", jobName, errorJob.ErrorPolicy.Policy)
+		logger.Error(errMsg)
+		return e.ErrApproveTask.AddDesc(errMsg)
+	}
+
+	_, userMap := util.GeneFlatUsersWithCaller(errorJob.ErrorPolicy.ApprovalUsers, userID)
+
+	if _, ok := userMap[userID]; !ok {
+		errMsg := fmt.Sprintf("user %s is not authorized to perform error handling", username)
+		logger.Error(errMsg)
+		return e.ErrApproveTask.AddDesc(errMsg)
+	}
+
+	if err := workflowtool.SetJobErrorHandlingDecision(workflowName, jobName, taskID, decision, userID, username); err != nil {
+		logger.Error(err)
+		return e.ErrApproveTask.AddErr(err)
+	}
+	return nil
+}
+
 func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, now int64, projectName string) []*JobTaskPreview {
 	resp := []*JobTaskPreview{}
 
@@ -1179,16 +1239,20 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, 
 			}
 		}
 		jobPreview := &JobTaskPreview{
-			Name:             job.Name,
-			Status:           job.Status,
-			StartTime:        job.StartTime,
-			EndTime:          job.EndTime,
-			Error:            job.Error,
-			JobType:          job.JobType,
-			BreakpointBefore: job.BreakpointBefore,
-			BreakpointAfter:  job.BreakpointAfter,
-			CostSeconds:      costSeconds,
-			JobInfo:          job.JobInfo,
+			Name:                 job.Name,
+			Status:               job.Status,
+			StartTime:            job.StartTime,
+			EndTime:              job.EndTime,
+			Error:                job.Error,
+			JobType:              job.JobType,
+			BreakpointBefore:     job.BreakpointBefore,
+			BreakpointAfter:      job.BreakpointAfter,
+			CostSeconds:          costSeconds,
+			JobInfo:              job.JobInfo,
+			ErrorPolicy:          job.ErrorPolicy,
+			ErrorHandlerUserID:   job.ErrorHandlerUserID,
+			ErrorHandlerUserName: job.ErrorHandlerUserName,
+			RetryCount:           job.RetryCount,
 		}
 		switch job.JobType {
 		case string(config.JobFreestyle):

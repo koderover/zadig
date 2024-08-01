@@ -31,6 +31,7 @@ import (
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
+	workflowtool "github.com/koderover/zadig/v2/pkg/tool/workflow"
 	"github.com/koderover/zadig/v2/pkg/util"
 	"github.com/koderover/zadig/v2/pkg/util/rand"
 )
@@ -158,6 +159,80 @@ func runJob(ctx context.Context, job *commonmodels.JobTask, workflowCtx *commonm
 	}(&jobCtl)
 
 	jobCtl.Run(ctx)
+
+	// if the job is in a failed state, do the error handling policy
+	if (job.Status == config.StatusFailed || job.Status == config.StatusTimeout) && job.ErrorPolicy != nil {
+		switch job.ErrorPolicy.Policy {
+		case config.JobErrorPolicyStop:
+			return
+		case config.JobErrorPolicyIgnoreError:
+			job.Status = config.StatusUnstable
+		case config.JobErrorPolicyRetry:
+			retryJob(ctx, workflowCtx.WorkflowName, workflowCtx.TaskID, job, jobCtl, ack, job.ErrorPolicy.MaximumRetry)
+		case config.JobErrorPolicyManualCheck:
+			waitForManualErrorHandling(ctx, workflowCtx.WorkflowName, workflowCtx.TaskID, job, ack, logger)
+		}
+	}
+}
+
+func retryJob(ctx context.Context, workflowName string, taskID int64, job *commonmodels.JobTask, jobCtl JobCtl, ack func(), maxRetry int) {
+	retryCount := 1
+
+	for retryCount <= maxRetry {
+		time.Sleep(10 * time.Second)
+		job.RetryCount = retryCount
+		job.Status = config.StatusPrepare
+		job.StartTime = time.Now().Unix()
+		job.K8sJobName = getJobName(workflowName, taskID)
+		ack()
+
+		jobCtl.Run(ctx)
+
+		if job.Status == config.StatusPassed {
+			break
+		}
+
+		retryCount++
+	}
+}
+
+func waitForManualErrorHandling(ctx context.Context, workflowName string, taskID int64, job *commonmodels.JobTask, ack func(), logger *zap.SugaredLogger) {
+	originalStatus := job.Status
+	job.Status = config.StatusManualApproval
+	ack()
+
+	for {
+		time.Sleep(1 * time.Second)
+		select {
+		case <-ctx.Done():
+			job.Status = config.StatusCancelled
+			job.Error = fmt.Sprintf("controller shutdown, marking job as cancelled.")
+			return
+		default:
+			decision, userID, username, err := workflowtool.GetJobErrorHandlingDecision(workflowName, job.Name, taskID)
+			if err != nil {
+				logger.Warnf("failed to handle workwx approval event, error: %s", err)
+				continue
+			}
+
+			switch decision {
+			case workflowtool.JobErrorDecisionIgnore:
+				job.Status = config.StatusUnstable
+				job.ErrorHandlerUserID = userID
+				job.ErrorHandlerUserName = username
+				ack()
+				return
+			case workflowtool.JobErrorDecisionReject:
+				job.Status = originalStatus
+				job.ErrorHandlerUserID = userID
+				job.ErrorHandlerUserName = username
+				ack()
+				return
+			default:
+				continue
+			}
+		}
+	}
 }
 
 func RunJobs(ctx context.Context, jobs []*commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, concurrency int, logger *zap.SugaredLogger, ack func()) {
