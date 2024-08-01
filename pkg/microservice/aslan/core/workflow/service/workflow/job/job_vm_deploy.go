@@ -462,6 +462,7 @@ func (j *VMDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			StrategyID:      buildInfo.PreBuild.StrategyID,
 			BuildOS:         basicImage.Value,
 			ImageFrom:       buildInfo.PreDeploy.ImageFrom,
+			ServiceName:     vmDeployInfo.ServiceName,
 		}
 
 		initShellScripts := []string{}

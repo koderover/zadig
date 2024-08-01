@@ -708,8 +708,9 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 					Parallel: false,
 					Jobs: []*commonmodels.Job{
 						{
-							Name:    "approval 2",
-							JobType: config.JobApproval,
+							Name:      "approval 2",
+							JobType:   config.JobApproval,
+							RunPolicy: config.ForceRun,
 							Spec: commonmodels.ApprovalJobSpec{
 								Timeout:     60,
 								Type:        config.NativeApproval,
@@ -805,8 +806,9 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 					Parallel: false,
 					Jobs: []*commonmodels.Job{
 						{
-							Name:    "approval",
-							JobType: config.JobApproval,
+							Name:      "approval",
+							JobType:   config.JobApproval,
+							RunPolicy: config.ForceRun,
 							Spec: commonmodels.ApprovalJobSpec{
 								Timeout:     60,
 								Type:        config.NativeApproval,
@@ -897,8 +899,9 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 					Parallel: false,
 					Jobs: []*commonmodels.Job{
 						{
-							Name:    "approval",
-							JobType: config.JobApproval,
+							Name:      "approval",
+							JobType:   config.JobApproval,
+							RunPolicy: config.ForceRun,
 							Spec: commonmodels.ApprovalJobSpec{
 								Timeout:     60,
 								Type:        config.NativeApproval,
@@ -954,8 +957,9 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 					Parallel: false,
 					Jobs: []*commonmodels.Job{
 						{
-							Name:    "approval",
-							JobType: config.JobApproval,
+							Name:      "approval",
+							JobType:   config.JobApproval,
+							RunPolicy: config.ForceRun,
 							Spec: commonmodels.ApprovalJobSpec{
 								Timeout:     60,
 								Type:        config.NativeApproval,
@@ -990,8 +994,9 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 					Parallel: false,
 					Jobs: []*commonmodels.Job{
 						{
-							Name:    "approval 2",
-							JobType: config.JobApproval,
+							Name:      "approval 2",
+							JobType:   config.JobApproval,
+							RunPolicy: config.ForceRun,
 							Spec: commonmodels.ApprovalJobSpec{
 								Timeout:     60,
 								Type:        config.NativeApproval,
@@ -1033,8 +1038,9 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 					Parallel: false,
 					Jobs: []*commonmodels.Job{
 						{
-							Name:    "approval",
-							JobType: config.JobApproval,
+							Name:      "approval",
+							JobType:   config.JobApproval,
+							RunPolicy: config.ForceRun,
 							Spec: commonmodels.ApprovalJobSpec{
 								Timeout:     60,
 								Type:        config.NativeApproval,
