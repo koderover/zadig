@@ -180,6 +180,86 @@ func GetDeployWeeklyTrend(startTime, endTime int64, projects []string, productio
 	}
 
 	// then calculate the start time of this week, append it to the end of the array
+	firstDayOfWeek := util.GetMonday(time.Now())
+
+	allDeployJobs, err := commonrepo.NewJobInfoColl().GetDeployJobs(firstDayOfWeek.Unix(), time.Now().Unix(), projects, production)
+	if err != nil {
+		log.Errorf("failed to list deploy jobs for weeklytrend, error: %s", err)
+		return nil, fmt.Errorf("failed to list deploy jobs for weeklytrend, error: %s", err)
+	}
+
+	var (
+		testSuccess       = 0
+		testFailed        = 0
+		testTimeout       = 0
+		productionSuccess = 0
+		productionFailed  = 0
+		productionTimeout = 0
+	)
+
+	// count the data for both production job
+	for _, deployJob := range allDeployJobs {
+		if deployJob.Production {
+			switch deployJob.Status {
+			case string(config.StatusPassed):
+				productionSuccess++
+			case string(config.StatusFailed):
+				productionFailed++
+			case string(config.StatusTimeout):
+				productionTimeout++
+			}
+		} else {
+			switch deployJob.Status {
+			case string(config.StatusPassed):
+				testSuccess++
+			case string(config.StatusFailed):
+				testFailed++
+			case string(config.StatusTimeout):
+				testTimeout++
+			}
+		}
+	}
+
+	date := firstDayOfWeek.Format(config.Date)
+
+	switch production {
+	case config.Production:
+		weeklystats = append(weeklystats, &models.WeeklyDeployStat{
+			Success: productionSuccess,
+			Failed:  productionFailed,
+			Timeout: productionTimeout,
+			Date:    date,
+		})
+	case config.Testing:
+		weeklystats = append(weeklystats, &models.WeeklyDeployStat{
+			Success: testSuccess,
+			Failed:  testFailed,
+			Timeout: testTimeout,
+			Date:    date,
+		})
+	case config.Both:
+		weeklystats = append(weeklystats, &models.WeeklyDeployStat{
+			Success: productionSuccess + testSuccess,
+			Failed:  productionFailed + testFailed,
+			Timeout: productionTimeout + testTimeout,
+			Date:    date,
+		})
+	default:
+		return nil, fmt.Errorf("invlid production type: %s", production)
+	}
+
+	return weeklystats, nil
+}
+
+func GetDeployMonthlyTrend(startTime, endTime int64, projects []string, production config.ProductionType, log *zap.SugaredLogger) ([]*models.WeeklyDeployStat, error) {
+	// first get weekly stats
+	monthlystats, err := mongodb.NewMonthlyDeployStatColl().CalculateStat(startTime, endTime, projects, production)
+	if err != nil {
+		log.Errorf("failed to get weekly deploy trend, error: %s", err)
+		return nil, fmt.Errorf("failed to get weekly deploy trend, error: %s", err)
+	}
+
+	// then calculate the start time of this week, append it to the end of the array
 	firstDayOfMonth := util.GetFirstOfMonthDay(time.Now())
 
 	allDeployJobs, err := commonrepo.NewJobInfoColl().GetDeployJobs(firstDayOfMonth, time.Now().Unix(), projects, production)
@@ -221,86 +301,6 @@ func GetDeployWeeklyTrend(startTime, endTime int64, projects []string, productio
 	}
 
 	date := time.Unix(firstDayOfMonth, 0).Format(config.Date)
-
-	switch production {
-	case config.Production:
-		weeklystats = append(weeklystats, &models.WeeklyDeployStat{
-			Success: productionSuccess,
-			Failed:  productionFailed,
-			Timeout: productionTimeout,
-			Date:    date,
-		})
-	case config.Testing:
-		weeklystats = append(weeklystats, &models.WeeklyDeployStat{
-			Success: testSuccess,
-			Failed:  testFailed,
-			Timeout: testTimeout,
-			Date:    date,
-		})
-	case config.Both:
-		weeklystats = append(weeklystats, &models.WeeklyDeployStat{
-			Success: productionSuccess + testSuccess,
-			Failed:  productionFailed + testFailed,
-			Timeout: productionTimeout + testTimeout,
-			Date:    date,
-		})
-	default:
-		return nil, fmt.Errorf("invlid production type: %s", production)
-	}
-
-	return weeklystats, nil
-}
-
-func GetDeployMonthlyTrend(startTime, endTime int64, projects []string, production config.ProductionType, log *zap.SugaredLogger) ([]*models.WeeklyDeployStat, error) {
-	// first get weekly stats
-	monthlystats, err := mongodb.NewMonthlyDeployStatColl().CalculateStat(startTime, endTime, projects, production)
-	if err != nil {
-		log.Errorf("failed to get weekly deploy trend, error: %s", err)
-		return nil, fmt.Errorf("failed to get weekly deploy trend, error: %s", err)
-	}
-
-	// then calculate the start time of this week, append it to the end of the array
-	thisWeeksMonday := util.GetMonday(time.Now())
-
-	allDeployJobs, err := commonrepo.NewJobInfoColl().GetDeployJobs(thisWeeksMonday.Unix(), time.Now().Unix(), projects, production)
-	if err != nil {
-		log.Errorf("failed to list deploy jobs for weeklytrend, error: %s", err)
-		return nil, fmt.Errorf("failed to list deploy jobs for weeklytrend, error: %s", err)
-	}
-
-	var (
-		testSuccess       = 0
-		testFailed        = 0
-		testTimeout       = 0
-		productionSuccess = 0
-		productionFailed  = 0
-		productionTimeout = 0
-	)
-
-	// count the data for both production job
-	for _, deployJob := range allDeployJobs {
-		if deployJob.Production {
-			switch deployJob.Status {
-			case string(config.StatusPassed):
-				productionSuccess++
-			case string(config.StatusFailed):
-				productionFailed++
-			case string(config.StatusTimeout):
-				productionTimeout++
-			}
-		} else {
-			switch deployJob.Status {
-			case string(config.StatusPassed):
-				testSuccess++
-			case string(config.StatusFailed):
-				testFailed++
-			case string(config.StatusTimeout):
-				testTimeout++
-			}
-		}
-	}
-
-	date := thisWeeksMonday.Format(config.Date)
 
 	switch production {
 	case config.Production:
@@ -427,6 +427,7 @@ func generateWeeklyDeployStatByProduct(projectKey string, log *zap.SugaredLogger
 		Failed:     testFailed,
 		Timeout:    testTimeout,
 		Date:       date,
+		CreateTime: time.Now().Unix(),
 	}
 
 	productionDeployStat = &models.WeeklyDeployStat{
@@ -436,6 +437,7 @@ func generateWeeklyDeployStatByProduct(projectKey string, log *zap.SugaredLogger
 		Failed:     productionFailed,
 		Timeout:    productionTimeout,
 		Date:       date,
+		CreateTime: time.Now().Unix(),
 	}
 
 	return
@@ -497,6 +499,7 @@ func generateMonthlyDeployStatByProduct(projectKey string, log *zap.SugaredLogge
 		Failed:     testFailed,
 		Timeout:    testTimeout,
 		Date:       date,
+		CreateTime: time.Now().Unix(),
 	}
 
 	productionDeployStat = &models.WeeklyDeployStat{
@@ -506,6 +509,7 @@ func generateMonthlyDeployStatByProduct(projectKey string, log *zap.SugaredLogge
 		Failed:     productionFailed,
 		Timeout:    productionTimeout,
 		Date:       date,
+		CreateTime: time.Now().Unix(),
 	}
 
 	return
