@@ -73,6 +73,100 @@ definitions:
     x-enum-varnames:
     - JiraBasicAuth
     - JiraPersonalAccessToken
+  config.JobRunPolicy:
+    enum:
+    - ""
+    - default_not_run
+    - force_run
+    - skip
+    type: string
+    x-enum-comments:
+      DefaultNotRun: default not run this job
+      DefaultRun: default run this job
+      ForceRun: force run this job
+    x-enum-varnames:
+    - DefaultRun
+    - DefaultNotRun
+    - ForceRun
+    - SkipRun
+  config.JobType:
+    enum:
+    - build
+    - deploy
+    - zadig-build
+    - zadig-distribute-image
+    - zadig-test
+    - zadig-scanning
+    - custom-deploy
+    - zadig-deploy
+    - zadig-vm-deploy
+    - zadig-helm-deploy
+    - zadig-helm-chart-deploy
+    - freestyle
+    - plugin
+    - k8s-blue-green-deploy
+    - k8s-blue-green-release
+    - k8s-canary-deploy
+    - k8s-canary-release
+    - k8s-gray-release
+    - k8s-gray-rollback
+    - k8s-resource-patch
+    - istio-release
+    - istio-rollback
+    - update-env-istio-config
+    - jira
+    - nacos
+    - apollo
+    - sql
+    - jenkins
+    - meego-transition
+    - workflow-trigger
+    - offline-service
+    - mse-gray-release
+    - mse-gray-offline
+    - guanceyun-check
+    - grafana
+    - blueking
+    - approval
+    type: string
+    x-enum-varnames:
+    - JobBuild
+    - JobDeploy
+    - JobZadigBuild
+    - JobZadigDistributeImage
+    - JobZadigTesting
+    - JobZadigScanning
+    - JobCustomDeploy
+    - JobZadigDeploy
+    - JobZadigVMDeploy
+    - JobZadigHelmDeploy
+    - JobZadigHelmChartDeploy
+    - JobFreestyle
+    - JobPlugin
+    - JobK8sBlueGreenDeploy
+    - JobK8sBlueGreenRelease
+    - JobK8sCanaryDeploy
+    - JobK8sCanaryRelease
+    - JobK8sGrayRelease
+    - JobK8sGrayRollback
+    - JobK8sPatch
+    - JobIstioRelease
+    - JobIstioRollback
+    - JobUpdateEnvIstioConfig
+    - JobJira
+    - JobNacos
+    - JobApollo
+    - JobSQL
+    - JobJenkins
+    - JobMeegoTransition
+    - JobWorkflowTrigger
+    - JobOfflineService
+    - JobMseGrayRelease
+    - JobMseGrayOffline
+    - JobGuanceyunCheck
+    - JobGrafana
+    - JobBlueKing
+    - JobApproval
   config.ReleasePlanJobStatus:
     enum:
     - todo
@@ -98,7 +192,7 @@ definitions:
   config.ReleasePlanStatus:
     enum:
     - planning
-    - waitforapprove
+    - wait_for_approval
     - executing
     - success
     - cancel
@@ -159,7 +253,7 @@ definitions:
     - prepare
     - reject
     - distributed
-    - waitforapprove
+    - wait_for_approval
     - debug_before
     - debug_after
     type: string
@@ -1195,6 +1289,23 @@ definitions:
       weight:
         type: integer
     type: object
+  models.Job:
+    properties:
+      name:
+        type: string
+      run_policy:
+        $ref: '#/definitions/config.JobRunPolicy'
+      service_modules:
+        items:
+          $ref: '#/definitions/models.WorkflowServiceModule'
+        type: array
+      skipped:
+        description: only for webhook workflow args to skip some tasks.
+        type: boolean
+      spec: {}
+      type:
+        $ref: '#/definitions/config.JobType'
+    type: object
   models.JobTaskSQLSpec:
     properties:
       id:
@@ -2108,6 +2219,17 @@ definitions:
         type: string
       timeout:
         type: integer
+    type: object
+  models.WorkflowServiceModule:
+    properties:
+      code_info:
+        items:
+          $ref: '#/definitions/types.Repository'
+        type: array
+      service_module:
+        type: string
+      service_name:
+        type: string
     type: object
   models.ZadigBlueGreenDeployEnvInformation:
     properties:
@@ -4081,6 +4203,13 @@ definitions:
         type: string
       latest:
         type: string
+    type: object
+  workflow.ManualExecWorkflowTaskV4Request:
+    properties:
+      jobs:
+        items:
+          $ref: '#/definitions/models.Job'
+        type: array
     type: object
   workwx.ApprovalNode:
     properties:
@@ -7529,6 +7658,12 @@ paths:
         name: stageName
         required: true
         type: string
+      - description: workflow stage jobs
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/workflow.ManualExecWorkflowTaskV4Request'
       produces:
       - application/json
       responses:

@@ -5019,6 +5019,15 @@
                         "name": "stageName",
                         "in": "query",
                         "required": true
+                    },
+                    {
+                        "description": "workflow stage jobs",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/workflow.ManualExecWorkflowTaskV4Request"
+                        }
                     }
                 ],
                 "responses": {
@@ -5478,6 +5487,107 @@
                 "JiraPersonalAccessToken"
             ]
         },
+        "config.JobRunPolicy": {
+            "type": "string",
+            "enum": [
+                "",
+                "default_not_run",
+                "force_run",
+                "skip"
+            ],
+            "x-enum-comments": {
+                "DefaultNotRun": "default not run this job",
+                "DefaultRun": "default run this job",
+                "ForceRun": "force run this job"
+            },
+            "x-enum-varnames": [
+                "DefaultRun",
+                "DefaultNotRun",
+                "ForceRun",
+                "SkipRun"
+            ]
+        },
+        "config.JobType": {
+            "type": "string",
+            "enum": [
+                "build",
+                "deploy",
+                "zadig-build",
+                "zadig-distribute-image",
+                "zadig-test",
+                "zadig-scanning",
+                "custom-deploy",
+                "zadig-deploy",
+                "zadig-vm-deploy",
+                "zadig-helm-deploy",
+                "zadig-helm-chart-deploy",
+                "freestyle",
+                "plugin",
+                "k8s-blue-green-deploy",
+                "k8s-blue-green-release",
+                "k8s-canary-deploy",
+                "k8s-canary-release",
+                "k8s-gray-release",
+                "k8s-gray-rollback",
+                "k8s-resource-patch",
+                "istio-release",
+                "istio-rollback",
+                "update-env-istio-config",
+                "jira",
+                "nacos",
+                "apollo",
+                "sql",
+                "jenkins",
+                "meego-transition",
+                "workflow-trigger",
+                "offline-service",
+                "mse-gray-release",
+                "mse-gray-offline",
+                "guanceyun-check",
+                "grafana",
+                "blueking",
+                "approval"
+            ],
+            "x-enum-varnames": [
+                "JobBuild",
+                "JobDeploy",
+                "JobZadigBuild",
+                "JobZadigDistributeImage",
+                "JobZadigTesting",
+                "JobZadigScanning",
+                "JobCustomDeploy",
+                "JobZadigDeploy",
+                "JobZadigVMDeploy",
+                "JobZadigHelmDeploy",
+                "JobZadigHelmChartDeploy",
+                "JobFreestyle",
+                "JobPlugin",
+                "JobK8sBlueGreenDeploy",
+                "JobK8sBlueGreenRelease",
+                "JobK8sCanaryDeploy",
+                "JobK8sCanaryRelease",
+                "JobK8sGrayRelease",
+                "JobK8sGrayRollback",
+                "JobK8sPatch",
+                "JobIstioRelease",
+                "JobIstioRollback",
+                "JobUpdateEnvIstioConfig",
+                "JobJira",
+                "JobNacos",
+                "JobApollo",
+                "JobSQL",
+                "JobJenkins",
+                "JobMeegoTransition",
+                "JobWorkflowTrigger",
+                "JobOfflineService",
+                "JobMseGrayRelease",
+                "JobMseGrayOffline",
+                "JobGuanceyunCheck",
+                "JobGrafana",
+                "JobBlueKing",
+                "JobApproval"
+            ]
+        },
         "config.ReleasePlanJobStatus": {
             "type": "string",
             "enum": [
@@ -5510,7 +5620,7 @@
             "type": "string",
             "enum": [
                 "planning",
-                "waitforapprove",
+                "wait_for_approval",
                 "executing",
                 "success",
                 "cancel"
@@ -5580,7 +5690,7 @@
                 "prepare",
                 "reject",
                 "distributed",
-                "waitforapprove",
+                "wait_for_approval",
                 "debug_before",
                 "debug_after"
             ],
@@ -7134,6 +7244,31 @@
                 }
             }
         },
+        "models.Job": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "run_policy": {
+                    "$ref": "#/definitions/config.JobRunPolicy"
+                },
+                "service_modules": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.WorkflowServiceModule"
+                    }
+                },
+                "skipped": {
+                    "description": "only for webhook workflow args to skip some tasks.",
+                    "type": "boolean"
+                },
+                "spec": {},
+                "type": {
+                    "$ref": "#/definitions/config.JobType"
+                }
+            }
+        },
         "models.JobTaskSQLSpec": {
             "type": "object",
             "properties": {
@@ -8486,6 +8621,23 @@
                 },
                 "timeout": {
                     "type": "integer"
+                }
+            }
+        },
+        "models.WorkflowServiceModule": {
+            "type": "object",
+            "properties": {
+                "code_info": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/types.Repository"
+                    }
+                },
+                "service_module": {
+                    "type": "string"
+                },
+                "service_name": {
+                    "type": "string"
                 }
             }
         },
@@ -11440,6 +11592,17 @@
                 },
                 "latest": {
                     "type": "string"
+                }
+            }
+        },
+        "workflow.ManualExecWorkflowTaskV4Request": {
+            "type": "object",
+            "properties": {
+                "jobs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.Job"
+                    }
                 }
             }
         },
