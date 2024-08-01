@@ -133,10 +133,6 @@ func Start(ctx context.Context) {
 	//workflowservice.InitPipelineController()
 
 	workflowcontroller.InitWorkflowController()
-	// 如果集群环境所属的项目不存在，则删除此集群环境
-	environmentservice.CleanProducts()
-
-	environmentservice.ResetProductsStatus()
 
 	//Parse the workload dependencies configMap, PVC, ingress, secret
 	go environmentservice.StartClusterInformer()
