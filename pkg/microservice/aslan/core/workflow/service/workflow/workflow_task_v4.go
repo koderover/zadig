@@ -112,6 +112,7 @@ type JobTaskPreview struct {
 	ErrorPolicy          *commonmodels.JobErrorPolicy `bson:"error_policy"         yaml:"error_policy"         json:"error_policy"`
 	ErrorHandlerUserID   string                       `bson:"error_handler_user_id"  yaml:"error_handler_user_id" json:"error_handler_user_id"`
 	ErrorHandlerUserName string                       `bson:"error_handler_username"  yaml:"error_handler_username" json:"error_handler_username"`
+	RetryCount           int                          `bson:"retry_count"           yaml:"retry_count"               json:"retry_count"`
 	// JobInfo contains the fields that make up the job task name, for frontend display
 	JobInfo interface{} `bson:"job_info" json:"job_info"`
 }
@@ -1214,6 +1215,7 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, 
 			ErrorPolicy:          job.ErrorPolicy,
 			ErrorHandlerUserID:   job.ErrorHandlerUserID,
 			ErrorHandlerUserName: job.ErrorHandlerUserName,
+			RetryCount:           job.RetryCount,
 		}
 		switch job.JobType {
 		case string(config.JobFreestyle):

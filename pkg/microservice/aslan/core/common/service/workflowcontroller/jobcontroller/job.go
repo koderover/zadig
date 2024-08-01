@@ -180,6 +180,7 @@ func retryJob(ctx context.Context, workflowName string, taskID int64, job *commo
 
 	for retryCount <= maxRetry {
 		time.Sleep(10 * time.Second)
+		job.RetryCount = retryCount
 		job.Status = config.StatusPrepare
 		job.StartTime = time.Now().Unix()
 		job.K8sJobName = getJobName(workflowName, taskID)
