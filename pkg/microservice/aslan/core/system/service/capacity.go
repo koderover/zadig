@@ -24,6 +24,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models/task"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/s3"
 	"github.com/koderover/zadig/v2/pkg/setting"
@@ -187,6 +188,48 @@ func handleWorkflowTaskRetentionCenter(strategy *commonmodels.CapacityStrategy, 
 			Limit:           batch,
 		}
 		totalCleanTasks, handleErr = handleWorkflowTaskV4Retention(dryRun, batch, v4Option)
+
+		workflowV4s, _, err := commonrepo.NewWorkflowV4Coll().List(&commonrepo.ListWorkflowV4Option{}, 0, 0)
+		if err != nil {
+			log.Errorf("list workflowV4s failed, err:%v", err)
+			handleErr = err
+			return err
+		}
+		for _, workflow := range workflowV4s {
+			err = archiveWorkflowTaskV4(workflow.Name, retention.MaxItems, retention.MaxDays)
+			if err != nil {
+				log.Errorf("archiveWorkflowTaskV4 %s failed, err: %v", workflow.Name, err)
+			}
+		}
+		// 清理测试任务数据
+		testings, err := commonrepo.NewTestingColl().List(&commonrepo.ListTestOption{})
+		if err != nil {
+			log.Errorf("list testings failed, err:%v", err)
+			handleErr = err
+			return err
+		}
+		for _, testing := range testings {
+			workflowName := fmt.Sprintf(setting.TestWorkflowNamingConvention, testing.Name)
+			err = archiveWorkflowTaskV4(workflowName, retention.MaxItems, retention.MaxDays)
+			if err != nil {
+				log.Errorf("archiveWorkflowTaskV4 %s failed, err: %v", workflowName, err)
+			}
+		}
+
+		// 清理代码扫描任务数据
+		scannings, _, err := commonrepo.NewScanningColl().List(&commonrepo.ScanningListOption{}, 0, 0)
+		if err != nil {
+			log.Errorf("list scanning failed, err:%v", err)
+			handleErr = err
+			return err
+		}
+		for _, scanning := range scannings {
+			workflowName := fmt.Sprintf(setting.ScanWorkflowNamingConvention, scanning.ID.Hex())
+			err = archiveWorkflowTaskV4(workflowName, retention.MaxItems, retention.MaxDays)
+			if err != nil {
+				log.Errorf("archiveWorkflowTaskV4 %s failed, err: %v", workflowName, err)
+			}
+		}
 		return handleErr
 	}
 
@@ -228,53 +271,69 @@ func handleWorkflowTaskRetentionCenter(strategy *commonmodels.CapacityStrategy, 
 			}
 			count, err := handleWorkflowTaskV4Retention(dryRun, batch, option)
 			if err != nil {
+				log.Errorf("handleWorkflowTaskV4Retention failed, err:%v", err)
 				continue
 			}
 			totalCleanTasks += count
-		}
 
-		// 清理服务工作流任务数据
-		pipelines, err := commonrepo.NewPipelineColl().List(&commonrepo.PipelineListOption{})
-		if err != nil {
-			log.Errorf("list pipelines failed, err:%v", err)
-			handleErr = err
-			return err
-		}
-		for _, pipeline := range pipelines {
-			option := &commonrepo.ListAllTaskOption{
-				ProductName:  pipeline.ProductName,
-				PipelineName: pipeline.Name,
-				Type:         config.SingleType,
-				Skip:         retention.MaxItems,
-				Limit:        batch,
-			}
-			count, err := handleWorkflowTaskRetention(dryRun, batch, option)
+			err = archiveWorkflowTaskV4(workflow.Name, retention.MaxItems, retention.MaxDays)
 			if err != nil {
-				continue
+				log.Errorf("archiveWorkflowTaskV4 %s failed, err: %v", workflow.Name, err)
 			}
-			totalCleanTasks += count
 		}
 
 		// 清理测试任务数据
-		testings, err := commonrepo.NewTestingColl().List(&commonrepo.ListTestOption{TestType: setting.FunctionTest})
+		testings, err := commonrepo.NewTestingColl().List(&commonrepo.ListTestOption{})
 		if err != nil {
 			log.Errorf("list testings failed, err:%v", err)
 			handleErr = err
 			return err
 		}
 		for _, testing := range testings {
-			option := &commonrepo.ListAllTaskOption{
-				ProductName:  testing.ProductName,
-				PipelineName: fmt.Sprintf("%s-%s", testing.Name, "job"),
-				Type:         config.TestType,
+			workflowName := fmt.Sprintf(setting.TestWorkflowNamingConvention, testing.Name)
+			v4Option := &commonrepo.ListWorkflowTaskV4Option{
+				WorkflowName: workflowName,
 				Skip:         retention.MaxItems,
 				Limit:        batch,
 			}
-			count, err := handleWorkflowTaskRetention(dryRun, batch, option)
+			count, err := handleWorkflowTaskV4Retention(dryRun, batch, v4Option)
 			if err != nil {
+				log.Errorf("handleWorkflowTaskV4Retention failed, err:%v", err)
 				continue
 			}
 			totalCleanTasks += count
+
+			err = archiveWorkflowTaskV4(workflowName, retention.MaxItems, retention.MaxDays)
+			if err != nil {
+				log.Errorf("archiveWorkflowTaskV4 %s failed, err: %v", workflowName, err)
+			}
+		}
+
+		// 清理代码扫描任务数据
+		scannings, _, err := commonrepo.NewScanningColl().List(&commonrepo.ScanningListOption{}, 0, 0)
+		if err != nil {
+			log.Errorf("list scanning failed, err:%v", err)
+			handleErr = err
+			return err
+		}
+		for _, scanning := range scannings {
+			workflowName := fmt.Sprintf(setting.ScanWorkflowNamingConvention, scanning.ID.Hex())
+			v4Option := &commonrepo.ListWorkflowTaskV4Option{
+				WorkflowName: workflowName,
+				Skip:         retention.MaxItems,
+				Limit:        batch,
+			}
+			count, err := handleWorkflowTaskV4Retention(dryRun, batch, v4Option)
+			if err != nil {
+				log.Errorf("handleWorkflowTaskV4Retention failed, err:%v", err)
+				continue
+			}
+			totalCleanTasks += count
+
+			err = archiveWorkflowTaskV4(workflowName, retention.MaxItems, retention.MaxDays)
+			if err != nil {
+				log.Errorf("archiveWorkflowTaskV4 %s failed, err: %v", workflowName, err)
+			}
 		}
 		return nil
 	}
@@ -312,6 +371,21 @@ func handleWorkflowTaskRetention(dryRun bool, batch int, option *commonrepo.List
 
 	log.Infof("%d stale workflow tasks will be cleaned up, productName:%s, workflowName:%s, type:%s", len(removeIds), option.ProductName, option.PipelineName, option.Type)
 	return len(removeIds), nil
+}
+
+func archiveWorkflowTaskV4(workflowName string, remain, remainDays int) error {
+	latestTask, err := commonrepo.NewworkflowTaskv4Coll().GetLatest(workflowName)
+	if err != nil {
+		if mongodb.IsErrNoDocuments(err) {
+			return nil
+		}
+		return fmt.Errorf("failed to get latest task for workflow %s, error: %v", workflowName, err)
+	}
+	err = commonrepo.NewworkflowTaskv4Coll().ArchiveHistoryWorkflowTask(workflowName, latestTask.TaskID, remain, remainDays)
+	if err != nil {
+		return fmt.Errorf("failed to archive workflow task for %s, error: %v", workflowName, err)
+	}
+	return nil
 }
 
 func handleWorkflowTaskV4Retention(dryRun bool, batch int, option *commonrepo.ListWorkflowTaskV4Option) (int, error) {

@@ -579,14 +579,6 @@ func (c *workflowCtl) updateWorkflowTask() {
 		if err := Remove(q); err != nil {
 			c.logger.Errorf("remove queue task: %s:%d error: %v", c.workflowTask.WorkflowName, c.workflowTask.TaskID, err)
 		}
-		result, err := commonrepo.NewStrategyColl().GetByTarget(commonmodels.WorkflowTaskRetention)
-		if err != nil {
-			c.logger.Errorf("get workflow task retention strategy error: %s", err)
-			result = commonmodels.DefaultWorkflowTaskRetention
-		}
-		if err = commonrepo.NewworkflowTaskv4Coll().ArchiveHistoryWorkflowTask(c.workflowTask.WorkflowName, c.workflowTask.TaskID, result.Retention.MaxItems, result.Retention.MaxDays); err != nil {
-			c.logger.Errorf("ArchiveHistoryWorkflowTask error: %v", err)
-		}
 		// Updating the comment in the git repository, this will not cause the function to return error if this function call fails
 		if err := scmnotify.NewService().UpdateWebhookCommentForWorkflowV4(c.workflowTask, c.logger); err != nil {
 			log.Warnf("Failed to update comment for custom workflow %s, taskID: %d the error is: %s", c.workflowTask.WorkflowName, c.workflowTask.TaskID, err)
