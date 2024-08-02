@@ -143,8 +143,8 @@ func migrateDeploymentWeeklyAndMonthlyStats() error {
 			}
 		}
 
-		startOfWeek = startOfMonth.AddDate(0, 0, 7)
-		endOfWeek = startOfMonth.AddDate(0, 0, 7).Add(-time.Second)
+		startOfWeek = startOfWeek.AddDate(0, 0, 7)
+		endOfWeek = startOfWeek.AddDate(0, 0, 7).Add(-time.Second)
 	}
 
 	return nil
@@ -262,7 +262,7 @@ func generateReleaseStat(startTime, endTime time.Time) (*statmodels.MonthlyRelea
 			AverageExecutionDuration: 0,
 			AverageApprovalDuration:  0,
 			Date:                     startTime.Format(config.Date),
-			CreateTime:               time.Now().Unix(),
+			CreateTime:               startTime.Unix(),
 			UpdateTime:               0,
 		}
 	} else {
