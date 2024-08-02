@@ -703,14 +703,16 @@ func getVMDeployJobVariables(vmDeploy *commonmodels.ServiceAndVMDeploy, buildInf
 		}
 		for _, envConfig := range svc.EnvConfigs {
 			for _, hostID := range envConfig.HostIDs {
-				if agentVMIDs.Has(hostID) || addedHostIDs.Has(hostID) {
-					continue
-				}
 				if vm, ok := IDvmMap[hostID]; ok {
-					addedHostIDs.Insert(hostID)
-					envHostNamesMap[envConfig.EnvName] = append(envHostNamesMap[envConfig.EnvName], vm.Name)
-					envHostIPsMap[envConfig.EnvName] = append(envHostIPsMap[envConfig.EnvName], vm.IP)
+					if envName == envConfig.EnvName {
+						envHostNamesMap[envConfig.EnvName] = append(envHostNamesMap[envConfig.EnvName], vm.Name)
+						envHostIPsMap[envConfig.EnvName] = append(envHostIPsMap[envConfig.EnvName], vm.IP)
+					}
 
+					if agentVMIDs.Has(hostID) || addedHostIDs.Has(hostID) {
+						continue
+					}
+					addedHostIDs.Insert(hostID)
 					hostName := vm.Name
 					userName := vm.UserName
 					ip := vm.IP
@@ -731,12 +733,15 @@ func getVMDeployJobVariables(vmDeploy *commonmodels.ServiceAndVMDeploy, buildInf
 			}
 			for _, label := range envConfig.Labels {
 				for _, vm := range labelVMsMap[label] {
+					if envName == envConfig.EnvName {
+						envHostNamesMap[envConfig.EnvName] = append(envHostNamesMap[envConfig.EnvName], vm.Name)
+						envHostIPsMap[envConfig.EnvName] = append(envHostIPsMap[envConfig.EnvName], vm.IP)
+					}
+
 					if agentVMIDs.Has(vm.ID.Hex()) || addedHostIDs.Has(vm.ID.Hex()) {
 						continue
 					}
 					addedHostIDs.Insert(vm.ID.Hex())
-					envHostNamesMap[envConfig.EnvName] = append(envHostNamesMap[envConfig.EnvName], vm.Name)
-					envHostIPsMap[envConfig.EnvName] = append(envHostIPsMap[envConfig.EnvName], vm.IP)
 
 					hostName := vm.Name
 					userName := vm.UserName
