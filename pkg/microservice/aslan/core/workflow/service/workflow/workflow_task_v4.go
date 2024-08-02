@@ -592,7 +592,7 @@ func GetManualExecWorkflowTaskV4Info(workflowName string, taskID int64, logger *
 		return nil, e.ErrGetTask.AddErr(err)
 	}
 
-	for _, stage := range task.WorkflowArgs.Stages {
+	for _, stage := range task.OriginWorkflowArgs.Stages {
 		for _, job := range stage.Jobs {
 			if err := jobctl.SetOptions(job, task.WorkflowArgs); err != nil {
 				log.Errorf("cannot get workflow %s options for job %s, the error is: %v", workflowName, job.Name, err)
@@ -600,7 +600,7 @@ func GetManualExecWorkflowTaskV4Info(workflowName string, taskID int64, logger *
 			}
 		}
 	}
-	return task.WorkflowArgs, nil
+	return task.OriginWorkflowArgs, nil
 }
 
 func CloneWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredLogger) (*commonmodels.WorkflowV4, error) {
@@ -717,6 +717,11 @@ func ManualExecWorkflowTaskV4(workflowName string, taskID int64, stageName strin
 	}
 
 	for _, stage := range task.WorkflowArgs.Stages {
+		if stage.Name == stageName {
+			stage.Jobs = jobs
+		}
+	}
+	for _, stage := range task.OriginWorkflowArgs.Stages {
 		if stage.Name == stageName {
 			stage.Jobs = jobs
 		}
