@@ -184,6 +184,9 @@ func (c *ProductColl) PageListProjectByFilter(opt ProductListByFilterOpt) ([]*Pr
 			"$match": filter,
 		},
 		{
+			"$sort": bson.M{"update_time": -1}, // 按更新时间降序排序
+		},
+		{
 			"$facet": bson.M{
 				"data": []bson.M{
 					{
@@ -314,6 +317,7 @@ type ProductListOpt struct {
 	ContainSharedServices []*template.ServiceInfo
 	BasicFacility         string
 	DeployType            string
+	SortByUpdatedAt       bool // 新增字段
 }
 
 // ListWithOption ...
