@@ -21,6 +21,7 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/environment/service"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
@@ -119,6 +120,12 @@ func ExecVmServiceCommand(c *gin.Context) {
 				return
 			}
 		}
+	}
+
+	err = commonutil.CheckZadigProfessionalLicense()
+	if err != nil {
+		ctx.Err = err
+		return
 	}
 
 	ctx.Resp, ctx.Err = service.ExecVmServiceCommand(projectKey, name, serviceName, hostId, service.VmServiceCommandType(commandType), ctx.Logger)
