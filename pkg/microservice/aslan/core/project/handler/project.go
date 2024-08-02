@@ -37,6 +37,7 @@ type projectListArgs struct {
 	PageNum          int64    `json:"page_num"         form:"page_num,default=1"`
 	Filter           string   `json:"filter"           form:"filter"`
 	GroupName        string   `json:"group_name"       form:"group_name"`
+	SortByUpdatedAt  string   `json:"sort_by_updated_at" form:"sort_by_updated_at"`
 }
 
 type projectResp struct {
@@ -98,6 +99,7 @@ func ListProjects(c *gin.Context) {
 			Filter:           args.Filter,
 			GroupName:        args.GroupName,
 			Ungrouped:        ungrouped,
+			SortByUpdatedAt:  args.SortByUpdatedAt,
 		},
 		ctx.Logger,
 	)
