@@ -83,7 +83,10 @@ func (c *MonthlyDeployStatColl) Upsert(args *models.WeeklyDeployStat) error {
 func (c *MonthlyDeployStatColl) CalculateStat(startTime, endTime int64, projects []string, productionType config.ProductionType) ([]*models.WeeklyDeployStat, error) {
 	query := bson.M{
 		"create_time": bson.M{"$gte": startTime, "$lte": endTime},
-		"project_key": bson.M{"$in": projects},
+	}
+
+	if len(projects) > 0 {
+		query["project_key"] = bson.M{"$in": projects}
 	}
 
 	switch productionType {
