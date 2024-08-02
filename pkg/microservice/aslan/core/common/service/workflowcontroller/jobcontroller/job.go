@@ -179,20 +179,27 @@ func retryJob(ctx context.Context, workflowName string, taskID int64, job *commo
 	retryCount := 1
 
 	for retryCount <= maxRetry {
-		time.Sleep(10 * time.Second)
-		job.RetryCount = retryCount
-		job.Status = config.StatusPrepare
-		job.StartTime = time.Now().Unix()
-		job.K8sJobName = getJobName(workflowName, taskID)
-		ack()
+		select {
+		case <-ctx.Done():
+			job.Status = config.StatusCancelled
+			job.Error = fmt.Sprintf("controller shutdown, marking job as cancelled.")
+			return
+		default:
+			time.Sleep(10 * time.Second)
+			job.RetryCount = retryCount
+			job.Status = config.StatusPrepare
+			job.StartTime = time.Now().Unix()
+			job.K8sJobName = getJobName(workflowName, taskID)
+			ack()
 
-		jobCtl.Run(ctx)
+			jobCtl.Run(ctx)
 
-		if job.Status == config.StatusPassed {
-			break
+			if job.Status == config.StatusPassed {
+				break
+			}
+
+			retryCount++
 		}
-
-		retryCount++
 	}
 }
 
