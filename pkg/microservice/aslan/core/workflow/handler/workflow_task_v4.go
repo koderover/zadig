@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/url"
 	"strconv"
 	"strings"
 
@@ -409,7 +410,13 @@ func ManualExecWorkflowTaskV4(c *gin.Context) {
 
 	projectKey := c.Query("projectName")
 	workflowName := c.Param("workflowName")
-	stageName := c.Query("stageName")
+	log.Debugf("ManualExecWorkflowTaskV4 query stageName: %s", c.Query("stageName"))
+	stageName, err := url.QueryUnescape(c.Query("stageName"))
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid stage name")
+		return
+	}
+	log.Debugf("ManualExecWorkflowTaskV4 stageName: %s", stageName)
 	taskID, err := strconv.ParseInt(c.Param("taskID"), 10, 64)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid task id")
