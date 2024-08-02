@@ -125,16 +125,26 @@ func (c *WeeklyDeployStatColl) CalculateStat(startTime, endTime int64, projects 
 			"total_timeout": bson.M{
 				"$sum": "$timeout",
 			},
+			"create_time": bson.M{
+				"$first": "$create_time",
+			},
 		},
 	})
 
 	pipeline = append(pipeline, bson.M{
 		"$project": bson.M{
-			"_id":     0,
-			"date":    "$_id.date",
-			"success": "$total_success",
-			"failed":  "$total_failed",
-			"timeout": "$total_timeout",
+			"_id":         0,
+			"date":        "$_id.date",
+			"success":     "$total_success",
+			"failed":      "$total_failed",
+			"timeout":     "$total_timeout",
+			"create_time": "$create_time",
+		},
+	})
+
+	pipeline = append(pipeline, bson.M{
+		"$sort": bson.M{
+			"create_time": 1,
 		},
 	})
 

@@ -157,7 +157,8 @@ func (j *ApprovalJob) LintJob() error {
 		if j.spec.NativeApproval == nil {
 			return fmt.Errorf("approval not found")
 		}
-		if len(j.spec.NativeApproval.ApproveUsers) < j.spec.NativeApproval.NeededApprovers {
+		allApproveUsers, _ := util.GeneFlatUsers(j.spec.NativeApproval.ApproveUsers)
+		if len(allApproveUsers) < j.spec.NativeApproval.NeededApprovers {
 			return fmt.Errorf("all approve users should not less than needed approvers")
 		}
 	case config.LarkApproval:

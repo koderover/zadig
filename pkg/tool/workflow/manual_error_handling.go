@@ -53,6 +53,9 @@ func GetJobErrorHandlingDecision(workflowName, jobName string, taskID int64) (Jo
 		return "", "", "", err
 	}
 
+	// once the key is retrieved, we delete it in case someone just tried to re-run it. ignoring the error if there is one.
+	_ = cache.NewRedisCache(config.RedisCommonCacheTokenDB()).Delete(workflowManualErrorHandlingCacheKey(workflowName, jobName, taskID))
+
 	handlingInfos := strings.Split(resp, "++")
 	if len(handlingInfos) != 3 {
 		return "", "", "", fmt.Errorf("the error handling info should only have 2 segments")

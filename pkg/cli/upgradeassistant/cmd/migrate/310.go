@@ -125,7 +125,7 @@ func migrateDeploymentWeeklyAndMonthlyStats() error {
 
 	for endOfWeek.Before(now) {
 		for _, project := range projects {
-			weeklyTestingDeployStat, weeklyProductionDeployStat, err := generateDeployStatByProduct(startOfMonth, endOfMonth, project.ProductName)
+			weeklyTestingDeployStat, weeklyProductionDeployStat, err := generateDeployStatByProduct(startOfWeek, endOfWeek, project.ProductName)
 			if err != nil {
 				return err
 			}
@@ -133,18 +133,18 @@ func migrateDeploymentWeeklyAndMonthlyStats() error {
 			weeklyProductionDeployStat.CreateTime = startOfWeek.Unix()
 			err = statrepo.NewWeeklyDeployStatColl().Upsert(weeklyTestingDeployStat)
 			if err != nil {
-				log.Errorf("failed to create weekly deployment stat for testing env for date: %s, project: %s, err: %s", startOfMonth.Format(config.Date), project.ProductName, err)
+				log.Errorf("failed to create weekly deployment stat for testing env for date: %s, project: %s, err: %s", startOfWeek.Format(config.Date), project.ProductName, err)
 				return err
 			}
 			err = statrepo.NewWeeklyDeployStatColl().Upsert(weeklyProductionDeployStat)
 			if err != nil {
-				log.Errorf("failed to create weekly deployment stat for production env for date: %s, project: %s, err: %s", startOfMonth.Format(config.Date), project.ProductName, err)
+				log.Errorf("failed to create weekly deployment stat for production env for date: %s, project: %s, err: %s", startOfWeek.Format(config.Date), project.ProductName, err)
 				return err
 			}
 		}
 
-		startOfWeek = startOfMonth.AddDate(0, 0, 7)
-		endOfWeek = startOfMonth.AddDate(0, 0, 7).Add(-time.Second)
+		startOfWeek = startOfWeek.AddDate(0, 0, 7)
+		endOfWeek = startOfWeek.AddDate(0, 0, 7).Add(-time.Second)
 	}
 
 	return nil
@@ -262,7 +262,7 @@ func generateReleaseStat(startTime, endTime time.Time) (*statmodels.MonthlyRelea
 			AverageExecutionDuration: 0,
 			AverageApprovalDuration:  0,
 			Date:                     startTime.Format(config.Date),
-			CreateTime:               time.Now().Unix(),
+			CreateTime:               startTime.Unix(),
 			UpdateTime:               0,
 		}
 	} else {

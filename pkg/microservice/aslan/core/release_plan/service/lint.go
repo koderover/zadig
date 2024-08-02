@@ -19,6 +19,7 @@ package service
 import (
 	"fmt"
 
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/pkg/errors"
 	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -89,7 +90,8 @@ func lintApproval(approval *models.Approval) error {
 		if approval.NativeApproval == nil {
 			return errors.New("approval not found")
 		}
-		if len(approval.NativeApproval.ApproveUsers) < approval.NativeApproval.NeededApprovers {
+		allApproveUsers, _ := util.GeneFlatUsers(approval.NativeApproval.ApproveUsers)
+		if len(allApproveUsers) < approval.NativeApproval.NeededApprovers {
 			return errors.New("all approve users should not less than needed approvers")
 		}
 	case config.LarkApproval:
