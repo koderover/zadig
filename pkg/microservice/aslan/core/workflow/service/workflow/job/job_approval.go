@@ -116,6 +116,12 @@ func (j *ApprovalJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		return nil, err
 	}
 
+	nativeApproval := j.spec.NativeApproval
+	if nativeApproval != nil {
+		approvalUser, _ := util.GeneFlatUsers(nativeApproval.ApproveUsers)
+		nativeApproval.ApproveUsers = approvalUser
+	}
+
 	resp := make([]*commonmodels.JobTask, 0)
 	resp = append(resp, &commonmodels.JobTask{
 		Name: j.job.Name,
@@ -128,7 +134,7 @@ func (j *ApprovalJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			Timeout:          j.spec.Timeout,
 			Type:             j.spec.Type,
 			Description:      j.spec.Description,
-			NativeApproval:   j.spec.NativeApproval,
+			NativeApproval:   nativeApproval,
 			LarkApproval:     j.spec.LarkApproval,
 			DingTalkApproval: j.spec.DingTalkApproval,
 			WorkWXApproval:   j.spec.WorkWXApproval,
