@@ -18,6 +18,7 @@ package service
 
 import (
 	"fmt"
+	"sort"
 
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
@@ -45,6 +46,7 @@ type ProjectListOptions struct {
 	Filter           string
 	GroupName        string
 	Ungrouped        bool
+	SortByUpdatedAt  string // 新增字段，支持 "asc" 或 "desc"
 }
 type ProjectDetailedResponse struct {
 	ProjectDetailedRepresentation []*ProjectDetailedRepresentation `json:"projects"`
@@ -330,6 +332,17 @@ func getProjects(opts *ProjectListOptions) ([]string, sets.String, map[string]*t
 		nameSet.Insert(r.Name)
 		nameMap[r.Name] = r
 		nameOrder = append(nameOrder, r.Name)
+	}
+
+	// 根据 SortByUpdatedAt 字段进行排序
+	if opts.SortByUpdatedAt == "asc" {
+		sort.Slice(nameOrder, func(i, j int) bool {
+			return nameMap[nameOrder[i]].UpdatedAt < nameMap[nameOrder[j]].UpdatedAt
+		})
+	} else if opts.SortByUpdatedAt == "desc" {
+		sort.Slice(nameOrder, func(i, j int) bool {
+			return nameMap[nameOrder[i]].UpdatedAt > nameMap[nameOrder[j]].UpdatedAt
+		})
 	}
 
 	return nameOrder, nameSet, nameMap, total, nil
