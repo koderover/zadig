@@ -49,7 +49,7 @@ type Testing struct {
 	// TODO: Deprecated.
 	Caches []string `bson:"caches"                   json:"caches"`
 
-	ArtifactPaths []string         `bson:"artifact_paths,omitempty" json:"artifact_paths,omitempty"`
+	ArtifactPaths []string         `bson:"artifact_paths"           json:"artifact_paths,omitempty"`
 	TestCaseNum   int              `bson:"-"                        json:"test_case_num,omitempty"`
 	ExecuteNum    int              `bson:"-"                        json:"execute_num,omitempty"`
 	PassRate      float64          `bson:"-"                        json:"pass_rate,omitempty"`
