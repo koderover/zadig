@@ -317,7 +317,6 @@ type ProductListOpt struct {
 	ContainSharedServices []*template.ServiceInfo
 	BasicFacility         string
 	DeployType            string
-	SortByUpdatedAt       bool // 新增字段
 }
 
 // ListWithOption ...
