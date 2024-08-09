@@ -745,6 +745,7 @@ func ManualExecWorkflowTaskV4(workflowName string, taskID int64, stageName strin
 			}
 			for _, jobTask := range jobTasks {
 				jobTaskMap[jobTask.Key] = jobTask
+				fmt.Printf(">>>>>>>>>>>>>>>>>>>>>>> inserting task: %s into map <<<<<<<<<<<<<<<<<<<\n", jobTask.Key)
 
 				if job.RunPolicy == config.SkipRun {
 					skippedJobTasks.Insert(jobTask.Key)
