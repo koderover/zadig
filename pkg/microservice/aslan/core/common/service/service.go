@@ -662,9 +662,13 @@ func UpdatePmServiceTemplate(username string, args *ServiceTmplBuildObject, log 
 	preService.BuildName = args.Build.Name
 	preService.EnvConfigs = args.ServiceTmplObject.EnvConfigs
 	preService.EnvStatuses = args.ServiceTmplObject.EnvStatuses
-	preService.StartCmd = args.ServiceTmplObject.StartCmd
-	preService.StopCmd = args.ServiceTmplObject.StopCmd
-	preService.RestartCmd = args.ServiceTmplObject.RestartCmd
+
+	// if the service template is generated from creating the env, we don't update the commands
+	if args.ServiceTmplObject.From != "createEnv" {
+		preService.StartCmd = args.ServiceTmplObject.StartCmd
+		preService.StopCmd = args.ServiceTmplObject.StopCmd
+		preService.RestartCmd = args.ServiceTmplObject.RestartCmd
+	}
 
 	if err := commonrepo.NewServiceColl().Delete(preService.ServiceName, setting.PMDeployType, args.ServiceTmplObject.ProductName, setting.ProductStatusDeleting, preService.Revision); err != nil {
 		return err
