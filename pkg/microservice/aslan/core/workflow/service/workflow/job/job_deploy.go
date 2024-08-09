@@ -263,17 +263,17 @@ func (j *DeployJob) SetPreset() error {
 				}
 
 				item := &commonmodels.DeployServiceInfo{
-					ServiceName:       svc.ServiceName,
-					VariableConfigs:   svc.VariableConfigs,
-					VariableKVs:       svc.VariableKVs,
-					LatestVariableKVs: svc.LatestVariableKVs,
-					VariableYaml:      svc.VariableYaml,
-					UpdateConfig:      svc.UpdateConfig,
-					Updatable:         svc.Updatable,
-					Deployed:          svc.Deployed,
-					Modules:           selectedModules,
-					KeyVals:           svc.KeyVals,
-					LatestKeyVals:     svc.LatestKeyVals,
+					ServiceName:     svc.ServiceName,
+					VariableConfigs: svc.VariableConfigs,
+					VariableKVs:     svc.VariableKVs,
+					// LatestVariableKVs: svc.LatestVariableKVs,
+					VariableYaml:  svc.VariableYaml,
+					UpdateConfig:  svc.UpdateConfig,
+					Updatable:     svc.Updatable,
+					Deployed:      svc.Deployed,
+					Modules:       selectedModules,
+					KeyVals:       svc.KeyVals,
+					LatestKeyVals: svc.LatestKeyVals,
 				}
 
 				if !item.Updatable {
@@ -475,13 +475,13 @@ func (j *DeployJob) UpdateWithLatestSetting() error {
 					}
 				}
 			}
-			for _, kv := range service.LatestVariableKVs {
-				for _, customKV := range userSvc.LatestVariableKVs {
-					if kv.Key == customKV.Key {
-						kv.Value = customKV.Value
-					}
-				}
-			}
+			//for _, kv := range service.LatestVariableKVs {
+			//	for _, customKV := range userSvc.LatestVariableKVs {
+			//		if kv.Key == customKV.Key {
+			//			kv.Value = customKV.Value
+			//		}
+			//	}
+			//}
 
 			mergedValues, err := helmtool.MergeOverrideValues("", service.VariableYaml, userSvc.VariableYaml, "", make([]*helmtool.KV, 0))
 			if err != nil {
@@ -501,17 +501,17 @@ func (j *DeployJob) UpdateWithLatestSetting() error {
 			}
 
 			mergedService = append(mergedService, &commonmodels.DeployServiceInfo{
-				ServiceName:       service.ServiceName,
-				VariableConfigs:   service.VariableConfigs,
-				VariableKVs:       service.VariableKVs,
-				LatestVariableKVs: service.LatestVariableKVs,
-				VariableYaml:      mergedValues,
-				UpdateConfig:      userSvc.UpdateConfig,
-				Updatable:         service.Updatable,
-				Deployed:          service.Deployed,
-				Modules:           mergedModules,
-				KeyVals:           nil,
-				LatestKeyVals:     nil,
+				ServiceName:     service.ServiceName,
+				VariableConfigs: service.VariableConfigs,
+				VariableKVs:     service.VariableKVs,
+				//LatestVariableKVs: service.LatestVariableKVs,
+				VariableYaml:  mergedValues,
+				UpdateConfig:  userSvc.UpdateConfig,
+				Updatable:     service.Updatable,
+				Deployed:      service.Deployed,
+				Modules:       mergedModules,
+				KeyVals:       nil,
+				LatestKeyVals: nil,
 			})
 		} else {
 			continue
@@ -557,14 +557,14 @@ func generateEnvDeployServiceInfo(env, project string, spec *commonmodels.ZadigD
 			kvs := make([]*commontypes.RenderVariableKV, 0)
 
 			resp = append(resp, &commonmodels.DeployServiceInfo{
-				ServiceName:       service.ServiceName,
-				VariableKVs:       kvs,
-				LatestVariableKVs: make([]*commontypes.RenderVariableKV, 0),
-				VariableYaml:      service.VariableYaml,
-				UpdateConfig:      false,
-				Updatable:         false,
-				Deployed:          true,
-				Modules:           modules,
+				ServiceName: service.ServiceName,
+				VariableKVs: kvs,
+				//LatestVariableKVs: make([]*commontypes.RenderVariableKV, 0),
+				VariableYaml: service.VariableYaml,
+				UpdateConfig: false,
+				Updatable:    false,
+				Deployed:     true,
+				Modules:      modules,
 			})
 		}
 		return resp, envInfo.RegistryID, nil
@@ -655,14 +655,14 @@ func generateEnvDeployServiceInfo(env, project string, spec *commonmodels.ZadigD
 		}
 
 		item := &commonmodels.DeployServiceInfo{
-			ServiceName:       service.ServiceName,
-			VariableKVs:       kvs,
-			LatestVariableKVs: svcInfo.LatestVariableKVs,
-			VariableYaml:      service.GetServiceRender().OverrideYaml.YamlContent,
-			UpdateConfig:      updateConfig,
-			Updatable:         svcInfo.Updatable,
-			Deployed:          true,
-			Modules:           modules,
+			ServiceName: service.ServiceName,
+			// VariableKVs: kvs,
+			// LatestVariableKVs: svcInfo.LatestVariableKVs,
+			VariableYaml: service.GetServiceRender().OverrideYaml.YamlContent,
+			UpdateConfig: updateConfig,
+			Updatable:    svcInfo.Updatable,
+			Deployed:     true,
+			Modules:      modules,
 		}
 
 		if !item.Updatable {
@@ -803,17 +803,17 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 					}
 				}
 				services = append(services, &commonmodels.DeployServiceInfo{
-					ServiceName:       configuredService.ServiceName,
-					VariableConfigs:   configuredService.VariableConfigs,
-					VariableKVs:       configuredService.VariableKVs,
-					LatestVariableKVs: configuredService.LatestVariableKVs,
-					VariableYaml:      configuredService.VariableYaml,
-					UpdateConfig:      configuredService.UpdateConfig,
-					Updatable:         configuredService.Updatable,
-					Deployed:          configuredService.Deployed,
-					KeyVals:           configuredService.KeyVals,
-					LatestKeyVals:     configuredService.LatestKeyVals,
-					Modules:           moduleList,
+					ServiceName:     configuredService.ServiceName,
+					VariableConfigs: configuredService.VariableConfigs,
+					VariableKVs:     configuredService.VariableKVs,
+					//LatestVariableKVs: configuredService.LatestVariableKVs,
+					VariableYaml:  configuredService.VariableYaml,
+					UpdateConfig:  configuredService.UpdateConfig,
+					Updatable:     configuredService.Updatable,
+					Deployed:      configuredService.Deployed,
+					KeyVals:       configuredService.KeyVals,
+					LatestKeyVals: configuredService.LatestKeyVals,
+					Modules:       moduleList,
 				})
 			}
 		}
@@ -867,11 +867,7 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 				if service != nil {
 					jobTaskSpec.UpdateConfig = service.UpdateConfig
 					jobTaskSpec.VariableConfigs = service.VariableConfigs
-					if slices.Contains(j.spec.DeployContents, config.DeployVars) {
-						jobTaskSpec.VariableKVs = service.LatestVariableKVs
-					} else {
-						jobTaskSpec.VariableKVs = service.VariableKVs
-					}
+					jobTaskSpec.VariableKVs = service.VariableKVs
 
 					serviceRender := product.GetSvcRender(serviceName)
 					svcRenderVarMap := map[string]*commontypes.RenderVariableKV{}

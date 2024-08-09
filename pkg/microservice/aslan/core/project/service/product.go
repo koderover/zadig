@@ -772,6 +772,13 @@ func DeleteProductTemplate(userName, productName, requestID string, isDelete boo
 		}
 	}()
 
+	// delete workflow view data
+	go func() {
+		if err = commonrepo.NewWorkflowViewColl().DeleteByProject(productName, ""); err != nil {
+			log.Errorf("failed to bulk delete workflow views, error:%s", err)
+		}
+	}()
+
 	// delete project key in related project group
 	groups, err := commonrepo.NewProjectGroupColl().List()
 	for _, group := range groups {
