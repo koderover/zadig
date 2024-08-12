@@ -727,9 +727,10 @@ func ManualExecWorkflowTaskV4(workflowName string, taskID int64, stageName strin
 		}
 	}
 
-	jobTaskMap := make(map[string]*commonmodels.JobTask)
+	stageJobTaskMap := make(map[string][]*commonmodels.JobTask)
 	skippedJobTasks := sets.NewString()
 	for _, stage := range task.WorkflowArgs.Stages {
+		jobTaskList := make([]*commonmodels.JobTask, 0)
 		for _, job := range stage.Jobs {
 			if job.Skipped {
 				continue
@@ -744,15 +745,17 @@ func ManualExecWorkflowTaskV4(workflowName string, taskID int64, stageName strin
 				return errors.Errorf("job %s toJobs error: %s", job.Name, err)
 			}
 			for _, jobTask := range jobTasks {
-				jobTaskMap[jobTask.Key] = jobTask
-				fmt.Printf(">>>>>>>>>>>>>>>>>>>>>>> inserting task: %s into map <<<<<<<<<<<<<<<<<<<\n", jobTask.Key)
+				jobTaskList = append(jobTaskList, jobTask)
 
 				if job.RunPolicy == config.SkipRun {
 					skippedJobTasks.Insert(jobTask.Key)
 				}
 			}
 		}
+		stageJobTaskMap[stage.Name] = jobTaskList
 	}
+
+	newStages := make([]*commonmodels.StageTask, 0)
 
 	found := false
 	var preStage *commonmodels.StageTask
@@ -762,6 +765,7 @@ func ManualExecWorkflowTaskV4(workflowName string, taskID int64, stageName strin
 			continue
 		}
 
+		// for the manual executed stage itself, we need to re-render the tasks, not getting them from the previous task since it might not be right
 		if stage.Name == stageName {
 			if preStage != nil && !(preStage.Status == config.StatusPassed || preStage.Status == config.StatusSkipped) {
 				return errors.Errorf("previous stage %s status is not passed or skipped", preStage.Name)
@@ -804,23 +808,21 @@ func ManualExecWorkflowTaskV4(workflowName string, taskID int64, stageName strin
 		stage.EndTime = 0
 		stage.Error = ""
 
-		for _, jobTask := range stage.Jobs {
-			jobTask.Status = ""
-			jobTask.StartTime = 0
-			jobTask.EndTime = 0
-			jobTask.Error = ""
+		newJobList := make([]*commonmodels.JobTask, 0)
 
-			if skippedJobTasks.Has(jobTask.Key) {
-				jobTask.Status = config.StatusSkipped
-			}
-			if t, ok := jobTaskMap[jobTask.Key]; ok {
-				jobTask.Spec = t.Spec
-			} else {
-				return errors.Errorf("failed to get jobTask %s origin spec", jobTask.Name)
-			}
+		// if the stage is completely removed of all jobs, just skip the stage
+		stageJobs, ok := stageJobTaskMap[stage.Name]
+		if !ok {
+			stage.Jobs = newJobList
+			continue
 		}
 
-		preStage = stage
+		stage.Jobs = stageJobs
+
+		if len(stage.Jobs) > 0 {
+			newStages = append(newStages, stage)
+			preStage = stage
+		}
 	}
 
 	if !found {
