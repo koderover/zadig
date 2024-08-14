@@ -73,7 +73,7 @@ func (j *TestingJob) SetPreset() error {
 	// if quoted job quote another job, then use the service and image of the quoted job
 	if j.spec.Source == config.SourceFromJob {
 		j.spec.OriginJobName = j.spec.JobName
-		j.spec.JobName = getOriginJobName(j.workflow, j.spec.JobName)
+		j.spec.JobName, _ = getOriginJobName(j.workflow, j.spec.JobName)
 	}
 
 	if j.spec.TestType == config.ServiceTestType {
@@ -272,7 +272,7 @@ func (j *TestingJob) getOriginReferedJobTargets(jobName string) ([]*commonmodels
 	servicetargets := []*commonmodels.ServiceTestTarget{}
 	for _, stage := range j.workflow.Stages {
 		for _, job := range stage.Jobs {
-			if job.Name != j.spec.JobName {
+			if job.Name != jobName {
 				continue
 			}
 			if job.JobType == config.JobZadigBuild {

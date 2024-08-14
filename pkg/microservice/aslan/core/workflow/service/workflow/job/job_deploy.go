@@ -127,11 +127,104 @@ func (j *DeployJob) getOriginReferredJobTargets(jobName string) ([]*commonmodels
 	return nil, fmt.Errorf("qutoed build/deploy job %s not found", jobName)
 }
 
-func (j *DeployJob) getReferredJobOrder(jobName string) ([]*commonmodels.ServiceWithModuleAndImage, error) {
+func (j *DeployJob) getReferredJobOrder(serviceReferredJob, imageReferredJob string) ([]*commonmodels.ServiceWithModuleAndImage, error) {
 	resp := []*commonmodels.ServiceWithModuleAndImage{}
+	found := false
+	// first determine the services with order
+ServiceOrderLoop:
 	for _, stage := range j.workflow.Stages {
 		for _, job := range stage.Jobs {
-			if job.Name != j.spec.JobName {
+			if job.Name != serviceReferredJob {
+				continue
+			}
+			if job.JobType == config.JobZadigBuild {
+				buildSpec := &commonmodels.ZadigBuildJobSpec{}
+				if err := commonmodels.IToi(job.Spec, buildSpec); err != nil {
+					return nil, err
+				}
+
+				order := make([]string, 0)
+				buildModuleMap := make(map[string][]*commonmodels.DeployModuleInfo)
+				for _, build := range buildSpec.ServiceAndBuilds {
+					if _, ok := buildModuleMap[build.ServiceName]; !ok {
+						buildModuleMap[build.ServiceName] = make([]*commonmodels.DeployModuleInfo, 0)
+						order = append(order, build.ServiceName)
+					}
+
+					buildModuleMap[build.ServiceName] = append(buildModuleMap[build.ServiceName], &commonmodels.DeployModuleInfo{
+						ServiceModule: build.ServiceModule,
+						//Image:         build.Image,
+						//ImageName:     util.ExtractImageName(build.ImageName),
+					})
+				}
+
+				for _, serviceName := range order {
+					resp = append(resp, &commonmodels.ServiceWithModuleAndImage{
+						ServiceName:    serviceName,
+						ServiceModules: buildModuleMap[serviceName],
+					})
+				}
+				found = true
+				break ServiceOrderLoop
+			}
+
+			if job.JobType == config.JobZadigDistributeImage {
+				distributeSpec := &commonmodels.ZadigDistributeImageJobSpec{}
+				if err := commonmodels.IToi(job.Spec, distributeSpec); err != nil {
+					return nil, err
+				}
+				order := make([]string, 0)
+				distributeModuleMap := make(map[string][]*commonmodels.DeployModuleInfo)
+				for _, distribute := range distributeSpec.Targets {
+					if _, ok := distributeModuleMap[distribute.ServiceName]; !ok {
+						distributeModuleMap[distribute.ServiceName] = make([]*commonmodels.DeployModuleInfo, 0)
+						order = append(order, distribute.ServiceName)
+					}
+
+					distributeModuleMap[distribute.ServiceName] = append(distributeModuleMap[distribute.ServiceName], &commonmodels.DeployModuleInfo{
+						ServiceModule: distribute.ServiceModule,
+						//Image:         distribute.TargetImage,
+						//ImageName:     util.ExtractImageName(distribute.ImageName),
+					})
+				}
+
+				for _, serviceName := range order {
+					resp = append(resp, &commonmodels.ServiceWithModuleAndImage{
+						ServiceName:    serviceName,
+						ServiceModules: distributeModuleMap[serviceName],
+					})
+				}
+				found = true
+				break ServiceOrderLoop
+			}
+
+			if job.JobType == config.JobZadigDeploy {
+				deploySpec := &commonmodels.ZadigDeployJobSpec{}
+				if err := commonmodels.IToi(job.Spec, deploySpec); err != nil {
+					return nil, err
+				}
+				for _, service := range deploySpec.Services {
+					resp = append(resp, &commonmodels.ServiceWithModuleAndImage{
+						ServiceName:    service.ServiceName,
+						ServiceModules: service.Modules,
+					})
+				}
+				found = true
+				break ServiceOrderLoop
+			}
+		}
+	}
+
+	if !found {
+		return nil, fmt.Errorf("qutoed service referrece of job %s not found", serviceReferredJob)
+	}
+
+	found = false
+	// then we determine the image for the selected job
+ImageLoop:
+	for _, stage := range j.workflow.Stages {
+		for _, job := range stage.Jobs {
+			if job.Name != imageReferredJob {
 				continue
 			}
 			if job.JobType == config.JobZadigBuild {
@@ -155,13 +248,25 @@ func (j *DeployJob) getReferredJobOrder(jobName string) ([]*commonmodels.Service
 					})
 				}
 
-				for _, serviceName := range order {
-					resp = append(resp, &commonmodels.ServiceWithModuleAndImage{
-						ServiceName:    serviceName,
-						ServiceModules: buildModuleMap[serviceName],
-					})
+				for _, service := range resp {
+					for _, module := range service.ServiceModules {
+						// find the correct image
+						if _, ok := buildModuleMap[service.ServiceName]; !ok {
+							return nil, fmt.Errorf("failed to find service: %s in image referrece job: %s", service.ServiceName, imageReferredJob)
+						}
+
+						for _, imageModule := range buildModuleMap[service.ServiceName] {
+							if module.ServiceModule == imageModule.ServiceModule {
+								module.Image = imageModule.Image
+								module.ImageName = imageModule.ImageName
+								break
+							}
+						}
+					}
 				}
-				return resp, nil
+
+				found = true
+				break ImageLoop
 			}
 
 			if job.JobType == config.JobZadigDistributeImage {
@@ -184,13 +289,24 @@ func (j *DeployJob) getReferredJobOrder(jobName string) ([]*commonmodels.Service
 					})
 				}
 
-				for _, serviceName := range order {
-					resp = append(resp, &commonmodels.ServiceWithModuleAndImage{
-						ServiceName:    serviceName,
-						ServiceModules: distributeModuleMap[serviceName],
-					})
+				for _, service := range resp {
+					for _, module := range service.ServiceModules {
+						// find the correct image
+						if _, ok := distributeModuleMap[service.ServiceName]; !ok {
+							return nil, fmt.Errorf("failed to find service: %s in image referrece job: %s", service.ServiceName, imageReferredJob)
+						}
+
+						for _, imageModule := range distributeModuleMap[service.ServiceName] {
+							if module.ServiceModule == imageModule.ServiceModule {
+								module.Image = imageModule.Image
+								module.ImageName = imageModule.ImageName
+								break
+							}
+						}
+					}
 				}
-				return resp, nil
+				found = true
+				break ImageLoop
 			}
 
 			if job.JobType == config.JobZadigDeploy {
@@ -198,17 +314,24 @@ func (j *DeployJob) getReferredJobOrder(jobName string) ([]*commonmodels.Service
 				if err := commonmodels.IToi(job.Spec, deploySpec); err != nil {
 					return nil, err
 				}
-				for _, service := range deploySpec.Services {
-					resp = append(resp, &commonmodels.ServiceWithModuleAndImage{
-						ServiceName:    service.ServiceName,
-						ServiceModules: service.Modules,
-					})
+				for _, service := range resp {
+					for _, imageService := range deploySpec.Services {
+						if service.ServiceName == imageService.ServiceName {
+							service.ServiceModules = imageService.Modules
+							break
+						}
+					}
 				}
-				return resp, nil
+				found = true
+				break ImageLoop
 			}
 		}
 	}
-	return nil, fmt.Errorf("qutoed build/deploy job %s not found", jobName)
+	if !found {
+		return nil, fmt.Errorf("qutoed service referrece of job %s not found", imageReferredJob)
+	}
+
+	return resp, nil
 }
 
 // SetPreset sets all info for the user-config env service.
@@ -229,7 +352,6 @@ func (j *DeployJob) SetPreset() error {
 	// if quoted job quote another job, then use the service and image of the quoted job
 	if j.spec.Source == config.SourceFromJob {
 		j.spec.OriginJobName = j.spec.JobName
-		j.spec.JobName = getOriginJobName(j.workflow, j.spec.JobName)
 	} else if j.spec.Source == config.SourceRuntime {
 		envName := strings.ReplaceAll(j.spec.Env, setting.FixedValueMark, "")
 
@@ -444,7 +566,6 @@ func (j *DeployJob) UpdateWithLatestSetting() error {
 
 	if j.spec.Source == config.SourceFromJob {
 		j.spec.OriginJobName = latestSpec.JobName
-		j.spec.JobName = getOriginJobName(latestWorkflow, latestSpec.JobName)
 	}
 
 	// Determine service list and its corresponding kvs
@@ -769,9 +890,9 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		if j.spec.OriginJobName != "" {
 			j.spec.JobName = j.spec.OriginJobName
 		}
-		j.spec.JobName = getOriginJobName(j.workflow, j.spec.JobName)
+		serviceReferredJob, imageReferredJob := getOriginJobName(j.workflow, j.spec.OriginJobName)
 
-		deployOrder, err := j.getReferredJobOrder(j.spec.JobName)
+		deployOrder, err := j.getReferredJobOrder(serviceReferredJob, imageReferredJob)
 		if err != nil {
 			return resp, fmt.Errorf("get origin refered job: %s targets failed, err: %v", j.spec.JobName, err)
 		}
