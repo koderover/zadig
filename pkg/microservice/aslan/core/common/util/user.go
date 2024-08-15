@@ -38,6 +38,12 @@ func GeneFlatUsers(users []*models.User) ([]*models.User, map[string]*types.User
 	for _, u := range users {
 		if u.Type == setting.UserTypeUser || u.Type == "" {
 			userSet.Insert(u.UserID)
+			userDetailedInfo, err := user.New().GetUserByID(u.UserID)
+			if err != nil {
+				log.Errorf("failed to find user %s, error: %s", u.UserID, err)
+				continue
+			}
+			userMap[u.UserID] = userDetailedInfo
 			flatUsers = append(flatUsers, u)
 		}
 	}
