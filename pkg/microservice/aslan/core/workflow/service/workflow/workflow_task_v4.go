@@ -1214,6 +1214,12 @@ func HandleJobError(workflowName, jobName, userID, username string, taskID int64
 		return e.ErrApproveTask.AddDesc(errMsg)
 	}
 
+	fmt.Printf(">>>>>>>>>>>>>>>>>>>>> length of the allowed usermap is: %d <<<<<<<<<<<<<<<<<<<\n", len(userMap))
+	for userID, _ := range userMap {
+		fmt.Printf(">>>>>>>>>>>>>>>>>>>>> user id is: %s <<<<<<<<<<<<<<<<<<<\n", userID)
+	}
+	fmt.Printf("=======================================\n")
+
 	if err := workflowtool.SetJobErrorHandlingDecision(workflowName, jobName, taskID, decision, userID, username); err != nil {
 		logger.Error(err)
 		return e.ErrApproveTask.AddErr(err)
