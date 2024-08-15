@@ -73,7 +73,7 @@ func (j *TestingJob) SetPreset() error {
 	// if quoted job quote another job, then use the service and image of the quoted job
 	if j.spec.Source == config.SourceFromJob {
 		j.spec.OriginJobName = j.spec.JobName
-		j.spec.JobName, _ = getOriginJobName(j.workflow, j.spec.JobName)
+		j.spec.JobName = getOriginJobName(j.workflow, j.spec.JobName)
 	}
 
 	if j.spec.TestType == config.ServiceTestType {

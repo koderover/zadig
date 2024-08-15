@@ -67,7 +67,7 @@ func (j *VMDeployJob) SetPreset() error {
 	// if quoted job quote another job, then use the service and artifact of the quoted job
 	if j.spec.Source == config.SourceFromJob {
 		j.spec.OriginJobName = j.spec.JobName
-		j.spec.JobName, _ = getOriginJobName(j.workflow, j.spec.JobName)
+		j.spec.JobName = getOriginJobName(j.workflow, j.spec.JobName)
 	} else if j.spec.Source == config.SourceRuntime {
 		envName := strings.ReplaceAll(j.spec.Env, setting.FixedValueMark, "")
 		_, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: j.workflow.Project, EnvName: envName})
