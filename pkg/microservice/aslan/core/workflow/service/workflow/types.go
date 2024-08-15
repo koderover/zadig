@@ -54,7 +54,23 @@ type WorkflowV3TaskArgs struct {
 type OpenAPICreateCustomWorkflowTaskArgs struct {
 	WorkflowName string                      `json:"workflow_key"`
 	ProjectName  string                      `json:"project_key"`
+	Params       []*CreateCustomTaskParam    `json:"parameters"`
 	Inputs       []*CreateCustomTaskJobInput `json:"inputs"`
+}
+
+type CreateCustomTaskParam struct {
+	Name       string                   `bson:"name"               json:"name"                  yaml:"name"`
+	ParamsType config.WorkflowParamType `bson:"type"               json:"type"                  yaml:"type"`
+	Value      string                   `bson:"value"              json:"value"                 yaml:"value,omitempty"`
+	Repo       *CreateCustomTaskRepoArg `bson:"repo"               json:"repo"                  yaml:"repo,omitempty"`
+}
+
+type CreateCustomTaskRepoArg struct {
+	CodeHostName  string `bson:"codehost_name"      json:"codehost_name"        yaml:"codehost_name"`
+	RepoNamespace string `bson:"repo_namespace"     json:"repo_namespace"       yaml:"repo_namespace"`
+	RepoName      string `bson:"repo_name"          json:"repo_name"            yaml:"repo_name"`
+	Branch        string `bson:"branch"             json:"branch"               yaml:"branch"`
+	PRs           []int  `bson:"prs"                json:"prs"                  yaml:"prs"`
 }
 
 type CreateCustomTaskJobInput struct {

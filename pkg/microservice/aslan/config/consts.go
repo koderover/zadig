@@ -438,6 +438,15 @@ const (
 	ParamTypeChoice = "choice"
 )
 
+type WorkflowParamType string
+
+const (
+	WorkflowParamTypeString WorkflowParamType = "string"
+	WorkflowParamTypeText   WorkflowParamType = "text"
+	WorkflowParamTypeChoice WorkflowParamType = "choice"
+	WorkflowParamTypeRepo   WorkflowParamType = "repo"
+)
+
 type ParamSourceType string
 
 const (
