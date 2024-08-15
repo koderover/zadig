@@ -227,7 +227,7 @@ ServiceOrderLoop:
 			// generate real job keys
 			key := job.GetJobOutputKey(fmt.Sprintf("%s.%s.%s", imageReferredJob, svc.ServiceName, module.ServiceModule), IMAGEKEY)
 
-			module.Image = fmt.Sprintf("{{%s}}", key)
+			module.Image = key
 		}
 	}
 
@@ -820,7 +820,6 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 				for _, module := range deploysvc.ServiceModules {
 					key := fmt.Sprintf("%s++%s", deploysvc.ServiceName, module.ServiceModule)
 					if _, ok := deployModuleMap[key]; ok {
-						fmt.Printf(">>>>>>>>>>>>>>>>> module: %s, image: %s, imageName: %s <<<<<<<<<<<<<<<<<<\n", module.ServiceModule, module.Image, module.ImageName)
 						moduleList = append(moduleList, module)
 					}
 				}

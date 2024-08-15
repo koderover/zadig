@@ -440,7 +440,7 @@ serviceLoop:
 		// generate real job keys
 		key := job.GetJobOutputKey(fmt.Sprintf("%s.%s.%s", imageReferredJob, svc.ServiceName, svc.ServiceModule), IMAGEKEY)
 
-		svc.SourceImage = fmt.Sprintf("{{%s}}", key)
+		svc.SourceImage = key
 	}
 
 	return servicetargets, sourceRegistryID, nil
