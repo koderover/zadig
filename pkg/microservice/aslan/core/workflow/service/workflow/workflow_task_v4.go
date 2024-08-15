@@ -1206,11 +1206,18 @@ func HandleJobError(workflowName, jobName, userID, username string, taskID int64
 		return e.ErrApproveTask.AddDesc(errMsg)
 	}
 
+	fmt.Printf(">>>>>>>>>>>>>>>>>>>>> length of the approval user is: %d <<<<<<<<<<<<<<<<<<<\n", len(errorJob.ErrorPolicy.ApprovalUsers))
+	for _, usr := range errorJob.ErrorPolicy.ApprovalUsers {
+		fmt.Printf(">>>>>>>>>>>>>>>>>>>>> user id is: %s <<<<<<<<<<<<<<<<<<<\n", usr.UserID)
+		fmt.Printf(">>>>>>>>>>>>>>>>>>>>> user type is: %s <<<<<<<<<<<<<<<<<<<\n", usr.Type)
+	}
+	fmt.Printf("=======================================\n")
+
 	_, userMap := util.GeneFlatUsersWithCaller(errorJob.ErrorPolicy.ApprovalUsers, userID)
 
 	fmt.Printf(">>>>>>>>>>>>>>>>>>>>> length of the allowed usermap is: %d <<<<<<<<<<<<<<<<<<<\n", len(userMap))
-	for userID, _ := range userMap {
-		fmt.Printf(">>>>>>>>>>>>>>>>>>>>> user id is: %s <<<<<<<<<<<<<<<<<<<\n", userID)
+	for uid, _ := range userMap {
+		fmt.Printf(">>>>>>>>>>>>>>>>>>>>> user id is: %s <<<<<<<<<<<<<<<<<<<\n", uid)
 	}
 	fmt.Printf("=======================================\n")
 
