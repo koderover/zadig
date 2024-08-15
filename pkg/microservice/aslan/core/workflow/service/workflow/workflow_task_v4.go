@@ -1206,6 +1206,8 @@ func HandleJobError(workflowName, jobName, userID, username string, taskID int64
 		return e.ErrApproveTask.AddDesc(errMsg)
 	}
 
+	fmt.Println("userid is:", userID)
+
 	fmt.Printf(">>>>>>>>>>>>>>>>>>>>> length of the approval user is: %d <<<<<<<<<<<<<<<<<<<\n", len(errorJob.ErrorPolicy.ApprovalUsers))
 	for _, usr := range errorJob.ErrorPolicy.ApprovalUsers {
 		fmt.Printf(">>>>>>>>>>>>>>>>>>>>> user id is: %s <<<<<<<<<<<<<<<<<<<\n", usr.UserID)
