@@ -66,9 +66,9 @@ func (j *ImageDistributeJob) SetPreset() error {
 	}
 
 	if j.spec.Source == config.SourceFromJob {
-		serviceReferredJob, imageReferredJob := getOriginJobName(j.workflow, j.spec.JobName)
+		serviceReferredJob := getOriginJobName(j.workflow, j.spec.JobName)
 
-		targets, _, err := j.getOriginReferredJobTargets(serviceReferredJob, imageReferredJob, false)
+		targets, _, err := j.getOriginReferredJobTargets(serviceReferredJob, j.spec.JobName)
 		if err != nil {
 			return fmt.Errorf("failed to get referred job info for distribute job: %s, error: %s", j.job.Name, err)
 		}
@@ -232,9 +232,9 @@ func (j *ImageDistributeJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, erro
 
 	switch j.spec.Source {
 	case config.SourceFromJob:
-		serviceReferredJob, imageReferredJob := getOriginJobName(j.workflow, j.spec.JobName)
+		serviceReferredJob := getOriginJobName(j.workflow, j.spec.JobName)
 
-		targets, registryID, err := j.getOriginReferredJobTargets(serviceReferredJob, imageReferredJob, true)
+		targets, registryID, err := j.getOriginReferredJobTargets(serviceReferredJob, j.spec.JobName)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get referred job info for distribute job: %s, error: %s", j.job.Name, err)
 		}
@@ -359,7 +359,7 @@ func getQuoteBuildJobSpec(jobName string, workflow *commonmodels.WorkflowV4) (*c
 	return resp, fmt.Errorf("reference job: %s not found", jobName)
 }
 
-func (j *ImageDistributeJob) getOriginReferredJobTargets(serviceReferredJob, imageReferredJob string, requireImage bool) ([]*commonmodels.DistributeTarget, string, error) {
+func (j *ImageDistributeJob) getOriginReferredJobTargets(serviceReferredJob, imageReferredJob string) ([]*commonmodels.DistributeTarget, string, error) {
 	servicetargets := []*commonmodels.DistributeTarget{}
 	var sourceRegistryID string
 	found := false
@@ -435,97 +435,12 @@ serviceLoop:
 		return nil, "", fmt.Errorf("referred service job %s not found", serviceReferredJob)
 	}
 
-	if !requireImage {
-		return servicetargets, sourceRegistryID, nil
-	}
+	// then we determine the image for the selected job, use the output for each module is enough
+	for _, svc := range servicetargets {
+		// generate real job keys
+		key := job.GetJobOutputKey(fmt.Sprintf("%s.%s.%s", imageReferredJob, svc.ServiceName, svc.ServiceModule), IMAGEKEY)
 
-imageLoop:
-	for _, stage := range j.workflow.Stages {
-		for _, job := range stage.Jobs {
-			if job.Name != imageReferredJob {
-				continue
-			}
-			if job.JobType == config.JobZadigBuild {
-				buildSpec := &commonmodels.ZadigBuildJobSpec{}
-				if err := commonmodels.IToi(job.Spec, buildSpec); err != nil {
-					return nil, "", fmt.Errorf("failed to decode build job spec, error: %s", err)
-				}
-
-				imageMap := make(map[string]string)
-				for _, build := range buildSpec.ServiceAndBuilds {
-					key := fmt.Sprintf("%s++%s", build.ServiceName, build.ServiceModule)
-					imageMap[key] = build.Image
-				}
-
-				for _, target := range servicetargets {
-					key := fmt.Sprintf("%s++%s", target.ServiceName, target.ServiceModule)
-					if buildImage, ok := imageMap[key]; ok {
-						target.SourceImage = buildImage
-					} else {
-						return nil, "", fmt.Errorf("failed to find image info for service: %s, module: %s in build job: %s", target.ServiceName, target.ServiceModule, imageReferredJob)
-					}
-				}
-				found = true
-				break imageLoop
-			}
-
-			if job.JobType == config.JobZadigDistributeImage {
-				distributeSpec := &commonmodels.ZadigDistributeImageJobSpec{}
-				if err := commonmodels.IToi(job.Spec, distributeSpec); err != nil {
-					return nil, "", fmt.Errorf("failed to decode distribute job spec, error: %s", err)
-				}
-
-				imageMap := make(map[string]string)
-				for _, distribute := range distributeSpec.Targets {
-					key := fmt.Sprintf("%s++%s", distribute.ServiceName, distribute.ServiceModule)
-					imageMap[key] = distribute.TargetImage
-				}
-
-				for _, target := range servicetargets {
-					key := fmt.Sprintf("%s++%s", target.ServiceName, target.ServiceModule)
-					if buildImage, ok := imageMap[key]; ok {
-						target.SourceImage = buildImage
-					} else {
-						return nil, "", fmt.Errorf("failed to find image info for service: %s, module: %s in distribute job: %s", target.ServiceName, target.ServiceModule, imageReferredJob)
-					}
-				}
-
-				found = true
-				break imageLoop
-			}
-
-			if job.JobType == config.JobZadigDeploy {
-				deploySpec := &commonmodels.ZadigDeployJobSpec{}
-				if err := commonmodels.IToi(job.Spec, deploySpec); err != nil {
-					return nil, "", fmt.Errorf("failed to decode deploy job spec, error: %s", err)
-				}
-
-				imageMap := make(map[string]string)
-
-				for _, svc := range deploySpec.Services {
-					for _, module := range svc.Modules {
-						key := fmt.Sprintf("%s++%s", svc.ServiceName, module.ServiceModule)
-						imageMap[key] = module.Image
-					}
-				}
-
-				for _, target := range servicetargets {
-					key := fmt.Sprintf("%s++%s", target.ServiceName, target.ServiceModule)
-					if buildImage, ok := imageMap[key]; ok {
-						target.SourceImage = buildImage
-					} else {
-						return nil, "", fmt.Errorf("failed to find image info for service: %s, module: %s in deploy job: %s", target.ServiceName, target.ServiceModule, imageReferredJob)
-					}
-				}
-
-				found = true
-				break imageLoop
-			}
-		}
-	}
-
-	if !found {
-		return nil, "", fmt.Errorf("referred image job %s not found", serviceReferredJob)
+		svc.SourceImage = fmt.Sprintf("{{%s}}", key)
 	}
 
 	return servicetargets, sourceRegistryID, nil

@@ -737,17 +737,13 @@ func warpJobError(jobName string, err error) error {
 	return fmt.Errorf("[job: %s] %v", jobName, err)
 }
 
-func getOriginJobName(workflow *commonmodels.WorkflowV4, jobName string) (serviceReferredJob, imageReferredJob string) {
-	serviceReferredJob, imageReferredJob = getOriginJobNameByRecursion(workflow, jobName, "", 0)
-	if imageReferredJob == "" {
-		imageReferredJob = serviceReferredJob
-	}
+func getOriginJobName(workflow *commonmodels.WorkflowV4, jobName string) (serviceReferredJob string) {
+	serviceReferredJob = getOriginJobNameByRecursion(workflow, jobName, 0)
 	return
 }
 
-func getOriginJobNameByRecursion(workflow *commonmodels.WorkflowV4, jobName, imageJobName string, depth int) (serviceReferredJob, imageReferredJob string) {
+func getOriginJobNameByRecursion(workflow *commonmodels.WorkflowV4, jobName string, depth int) (serviceReferredJob string) {
 	serviceReferredJob = jobName
-	imageReferredJob = imageJobName
 	// Recursion depth limit to 10
 	if depth > 10 {
 		return
@@ -762,23 +758,23 @@ func getOriginJobNameByRecursion(workflow *commonmodels.WorkflowV4, jobName, ima
 			switch v := job.Spec.(type) {
 			case commonmodels.ZadigDistributeImageJobSpec:
 				if v.Source == config.SourceFromJob {
-					return getOriginJobNameByRecursion(workflow, v.JobName, "", depth)
+					return getOriginJobNameByRecursion(workflow, v.JobName, depth)
 				}
 			case *commonmodels.ZadigDistributeImageJobSpec:
 				if v.Source == config.SourceFromJob {
-					return getOriginJobNameByRecursion(workflow, v.JobName, v.JobName, depth)
+					return getOriginJobNameByRecursion(workflow, v.JobName, depth)
 				}
 			case commonmodels.ZadigDeployJobSpec:
 				if v.Source == config.SourceFromJob {
-					return getOriginJobNameByRecursion(workflow, v.JobName, "", depth)
+					return getOriginJobNameByRecursion(workflow, v.JobName, depth)
 				}
 			case *commonmodels.ZadigDeployJobSpec:
 				if v.Source == config.SourceFromJob {
-					return getOriginJobNameByRecursion(workflow, v.JobName, "", depth)
+					return getOriginJobNameByRecursion(workflow, v.JobName, depth)
 				}
 			case *commonmodels.ZadigScanningJobSpec:
 				if v.Source == config.SourceFromJob {
-					return getOriginJobNameByRecursion(workflow, v.JobName, "", depth)
+					return getOriginJobNameByRecursion(workflow, v.JobName, depth)
 				}
 			}
 
