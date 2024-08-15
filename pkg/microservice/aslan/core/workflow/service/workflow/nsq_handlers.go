@@ -805,7 +805,7 @@ func getImageInfo(productName, evnName, repoName, tag string, log *zap.SugaredLo
 	if err != nil {
 		return nil, err
 	}
-	registryInfo, _, err := commonservice.FindRegistryById(productInfo.RegistryID, false, log)
+	registryInfo, err := commonservice.FindRegistryById(productInfo.RegistryID, false, log)
 	if err != nil {
 		log.Errorf("RegistryNamespace.get error: %v", err)
 		return nil, fmt.Errorf("RegistryNamespace.get error: %v", err)

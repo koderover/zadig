@@ -341,7 +341,7 @@ func (j *FreeStyleJob) stepsToStepTasks(step []*commonmodels.Step) []*commonmode
 			if stepTaskSpec.DockerRegistry != nil {
 				registryID = stepTaskSpec.DockerRegistry.DockerRegistryID
 			}
-			registry, _, err := commonservice.FindRegistryById(registryID, true, logger)
+			registry, err := commonservice.FindRegistryById(registryID, true, logger)
 			if err != nil {
 				logger.Errorf("FindRegistryById error: %v", err)
 			}

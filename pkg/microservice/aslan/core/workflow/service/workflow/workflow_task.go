@@ -587,7 +587,7 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 	// get global configPayload
 	configPayload := commonservice.GetConfigPayload(args.CodehostID)
 	if len(env.RegistryID) == 0 {
-		reg, _, err := commonservice.FindDefaultRegistry(false, log)
+		reg, err := commonservice.FindDefaultRegistry(false, log)
 		if err != nil {
 			log.Errorf("get default registry error: %v", err)
 			return nil, e.ErrGetCounter.AddDesc(err.Error())
@@ -1068,7 +1068,7 @@ func createReleaseImageTask(workflow *commonmodels.Workflow, args *commonmodels.
 	if err != nil {
 		log.Errorf("failed to build registry map, err: %s", err)
 		// use default registry
-		reg, _, err := commonservice.FindDefaultRegistry(true, log)
+		reg, err := commonservice.FindDefaultRegistry(true, log)
 		if err != nil {
 			log.Errorf("can't find default candidate registry, err: %s", err)
 			return nil, e.ErrFindRegistry.AddDesc(err.Error())
@@ -2469,14 +2469,14 @@ func ensurePipelineTask(taskOpt *taskmodels.TaskOpt, log *zap.SugaredLogger) err
 				// 注意: 其他任务从 pt.TaskArgs.Deploy.Image 获取, 必须要有编译任务
 				var reg *commonmodels.RegistryNamespace
 				if len(exitedProd.RegistryID) > 0 {
-					reg, _, err = commonservice.FindRegistryById(exitedProd.RegistryID, true, log)
+					reg, err = commonservice.FindRegistryById(exitedProd.RegistryID, true, log)
 					if err != nil {
 						log.Errorf("service.EnsureRegistrySecret: failed to find registry: %s error msg:%s",
 							exitedProd.RegistryID, err)
 						return e.ErrFindRegistry.AddDesc(err.Error())
 					}
 				} else {
-					reg, _, err = commonservice.FindDefaultRegistry(true, log)
+					reg, err = commonservice.FindDefaultRegistry(true, log)
 					if err != nil {
 						log.Errorf("can't find default candidate registry: %s", err)
 						return e.ErrFindRegistry.AddDesc(err.Error())
@@ -2578,14 +2578,14 @@ func ensurePipelineTask(taskOpt *taskmodels.TaskOpt, log *zap.SugaredLogger) err
 
 						var reg *commonmodels.RegistryNamespace
 						if len(exitedProd.RegistryID) > 0 {
-							reg, _, err = commonservice.FindRegistryById(exitedProd.RegistryID, true, log)
+							reg, err = commonservice.FindRegistryById(exitedProd.RegistryID, true, log)
 							if err != nil {
 								log.Errorf("service.EnsureRegistrySecret: failed to find registry: %s error msg:%s",
 									exitedProd.RegistryID, err)
 								return e.ErrFindRegistry.AddDesc(err.Error())
 							}
 						} else {
-							reg, _, err = commonservice.FindDefaultRegistry(true, log)
+							reg, err = commonservice.FindDefaultRegistry(true, log)
 							if err != nil {
 								log.Errorf("can't find default candidate registry: %s", err)
 								return e.ErrFindRegistry.AddDesc(err.Error())

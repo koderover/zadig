@@ -41,12 +41,7 @@ func GetConfigPayload(codeHostID int) *models.ConfigPayload {
 		Test: models.TestConfig{
 			KubeNamespace: config.Namespace(),
 		},
-		Registry: models.RegistryConfig{
-			AccessKey:   config.RegistryAccessKey(),
-			SecretKey:   config.RegistrySecretKey(),
-			Namespace:   config.RegistryNamespace(),
-			RepoAddress: config.RegistryAddress(),
-		},
+		Registry: models.RegistryConfig{},
 		Github: models.GithubConfig{
 			SSHKey:    config.GithubSSHKey(),
 			KnownHost: config.GithubKnownHost(),

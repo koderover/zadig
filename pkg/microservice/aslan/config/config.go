@@ -162,22 +162,6 @@ func KubeServerAddr() string {
 	return viper.GetString(setting.ENVKubeServerAddr)
 }
 
-func RegistryAddress() string {
-	return viper.GetString(setting.ENVAslanRegAddress)
-}
-
-func RegistryAccessKey() string {
-	return viper.GetString(setting.ENVAslanRegAccessKey)
-}
-
-func RegistrySecretKey() string {
-	return viper.GetString(setting.ENVAslanRegSecretKey)
-}
-
-func RegistryNamespace() string {
-	return viper.GetString(setting.ENVAslanRegNamespace)
-}
-
 func GithubSSHKey() string {
 	return viper.GetString(setting.ENVGithubSSHKey)
 }

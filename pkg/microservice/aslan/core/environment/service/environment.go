@@ -110,7 +110,7 @@ func ListProducts(userID, projectName string, envNames []string, production bool
 	}
 
 	var res []*EnvResp
-	reg, _, err := commonservice.FindDefaultRegistry(false, log)
+	reg, err := commonservice.FindDefaultRegistry(false, log)
 	if err != nil {
 		log.Errorf("FindDefaultRegistry error: %v", err)
 		return nil, e.ErrListEnvs.AddErr(err)

@@ -221,11 +221,11 @@ func (j *ImageDistributeJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, erro
 		return resp, err
 	}
 
-	sourceReg, _, err := commonservice.FindRegistryById(j.spec.SourceRegistryID, true, logger)
+	sourceReg, err := commonservice.FindRegistryById(j.spec.SourceRegistryID, true, logger)
 	if err != nil {
 		return resp, fmt.Errorf("source image registry: %s not found: %v", j.spec.SourceRegistryID, err)
 	}
-	targetReg, _, err := commonservice.FindRegistryById(j.spec.TargetRegistryID, true, logger)
+	targetReg, err := commonservice.FindRegistryById(j.spec.TargetRegistryID, true, logger)
 	if err != nil {
 		return resp, fmt.Errorf("target image registry: %s not found: %v", j.spec.TargetRegistryID, err)
 	}
