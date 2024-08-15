@@ -218,7 +218,6 @@ func waitForManualErrorHandling(ctx context.Context, workflowName string, taskID
 		default:
 			decision, userID, username, err := workflowtool.GetJobErrorHandlingDecision(workflowName, job.Name, taskID)
 			if err != nil {
-				logger.Warnf("failed to handle workwx approval event, error: %s", err)
 				continue
 			}
 

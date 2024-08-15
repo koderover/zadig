@@ -1208,17 +1208,17 @@ func HandleJobError(workflowName, jobName, userID, username string, taskID int64
 
 	_, userMap := util.GeneFlatUsersWithCaller(errorJob.ErrorPolicy.ApprovalUsers, userID)
 
-	if _, ok := userMap[userID]; !ok {
-		errMsg := fmt.Sprintf("user %s is not authorized to perform error handling", username)
-		logger.Error(errMsg)
-		return e.ErrApproveTask.AddDesc(errMsg)
-	}
-
 	fmt.Printf(">>>>>>>>>>>>>>>>>>>>> length of the allowed usermap is: %d <<<<<<<<<<<<<<<<<<<\n", len(userMap))
 	for userID, _ := range userMap {
 		fmt.Printf(">>>>>>>>>>>>>>>>>>>>> user id is: %s <<<<<<<<<<<<<<<<<<<\n", userID)
 	}
 	fmt.Printf("=======================================\n")
+
+	if _, ok := userMap[userID]; !ok {
+		errMsg := fmt.Sprintf("user %s is not authorized to perform error handling", username)
+		logger.Error(errMsg)
+		return e.ErrApproveTask.AddDesc(errMsg)
+	}
 
 	if err := workflowtool.SetJobErrorHandlingDecision(workflowName, jobName, taskID, decision, userID, username); err != nil {
 		logger.Error(err)
