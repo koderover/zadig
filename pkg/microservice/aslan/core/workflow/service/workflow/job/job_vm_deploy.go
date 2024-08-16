@@ -607,6 +607,7 @@ func (j *VMDeployJob) GetOutPuts(log *zap.SugaredLogger) []string {
 	return getOutputKey(j.job.Name, ensureDeployInOutputs())
 }
 
+// TODO: since vm deploy is for VM type, now we only search for the build job, the reference for deploy/distribute is not supported.
 func (j *VMDeployJob) getOriginReferedJobTargets(jobName string, taskID int) ([]*commonmodels.ServiceAndVMDeploy, error) {
 	serviceAndVMDeploys := []*commonmodels.ServiceAndVMDeploy{}
 	for _, stage := range j.workflow.Stages {

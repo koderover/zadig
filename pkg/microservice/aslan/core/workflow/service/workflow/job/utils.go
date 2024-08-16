@@ -29,7 +29,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
-	commontypes "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/types"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/types"
 )
@@ -57,23 +56,23 @@ func FilterServiceVars(serviceName string, deployContents []config.DeployContent
 	service.Updatable = serviceEnv.Updatable
 	service.UpdateConfig = defaultUpdateConfig
 
-	service.VariableKVs = []*commontypes.RenderVariableKV{}
-	service.LatestVariableKVs = []*commontypes.RenderVariableKV{}
+	//service.VariableKVs = []*commontypes.RenderVariableKV{}
+	//service.LatestVariableKVs = []*commontypes.RenderVariableKV{}
 
-	for _, svcVar := range serviceEnv.VariableKVs {
-		if keySet.Has(svcVar.Key) && !svcVar.UseGlobalVariable {
-			service.VariableKVs = append(service.VariableKVs, svcVar)
-		}
-	}
-	for _, svcVar := range serviceEnv.LatestVariableKVs {
-		if keySet.Has(svcVar.Key) && !svcVar.UseGlobalVariable {
-			service.LatestVariableKVs = append(service.LatestVariableKVs, svcVar)
-		}
-	}
-	if !slices.Contains(deployContents, config.DeployVars) {
-		service.VariableKVs = []*commontypes.RenderVariableKV{}
-		service.LatestVariableKVs = []*commontypes.RenderVariableKV{}
-	}
+	//for _, svcVar := range serviceEnv.VariableKVs {
+	//	if keySet.Has(svcVar.Key) && !svcVar.UseGlobalVariable {
+	//		service.VariableKVs = append(service.VariableKVs, svcVar)
+	//	}
+	//}
+	//for _, svcVar := range serviceEnv.LatestVariableKVs {
+	//	if keySet.Has(svcVar.Key) && !svcVar.UseGlobalVariable {
+	//		service.LatestVariableKVs = append(service.LatestVariableKVs, svcVar)
+	//	}
+	//}
+	//if !slices.Contains(deployContents, config.DeployVars) {
+	//	service.VariableKVs = []*commontypes.RenderVariableKV{}
+	//	service.LatestVariableKVs = []*commontypes.RenderVariableKV{}
+	//}
 
 	return service, nil
 }

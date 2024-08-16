@@ -272,7 +272,7 @@ func (j *TestingJob) getOriginReferedJobTargets(jobName string) ([]*commonmodels
 	servicetargets := []*commonmodels.ServiceTestTarget{}
 	for _, stage := range j.workflow.Stages {
 		for _, job := range stage.Jobs {
-			if job.Name != j.spec.JobName {
+			if job.Name != jobName {
 				continue
 			}
 			if job.JobType == config.JobZadigBuild {

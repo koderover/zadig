@@ -77,7 +77,7 @@ func GetDefaultRegistryNamespace(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	reg, _, err := commonservice.FindDefaultRegistry(true, ctx.Logger)
+	reg, err := commonservice.FindDefaultRegistry(true, ctx.Logger)
 	if err != nil {
 		ctx.Err = err
 		return
@@ -129,7 +129,7 @@ func GetRegistryNamespace(c *gin.Context) {
 		}
 	}
 
-	reg, _, err := commonservice.FindRegistryById(c.Param("id"), false, ctx.Logger)
+	reg, err := commonservice.FindRegistryById(c.Param("id"), false, ctx.Logger)
 	if err != nil {
 		ctx.Err = err
 		return
@@ -332,9 +332,9 @@ func ListImages(c *gin.Context) {
 	registryID := c.Query("registryId")
 	var registryInfo *commonmodels.RegistryNamespace
 	if registryID != "" {
-		registryInfo, _, err = commonservice.FindRegistryById(registryID, false, ctx.Logger)
+		registryInfo, err = commonservice.FindRegistryById(registryID, false, ctx.Logger)
 	} else {
-		registryInfo, _, err = commonservice.FindDefaultRegistry(false, ctx.Logger)
+		registryInfo, err = commonservice.FindDefaultRegistry(false, ctx.Logger)
 	}
 	if err != nil {
 		ctx.Logger.Errorf("can't find candidate registry err :%v", err)
@@ -363,7 +363,7 @@ func ListRepoImages(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	registryInfo, _, err := commonservice.FindDefaultRegistry(false, ctx.Logger)
+	registryInfo, err := commonservice.FindDefaultRegistry(false, ctx.Logger)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return

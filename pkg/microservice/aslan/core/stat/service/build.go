@@ -21,6 +21,7 @@ import (
 	"sort"
 	"time"
 
+	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
@@ -45,6 +46,13 @@ type dashboardBuildDaily struct {
 func GetBuildTotalAndSuccess(args *models.BuildStatOption, log *zap.SugaredLogger) (*dashboardBuild, error) {
 	buildWeeklyTrend, err := GetBuildTrendMeasure(args.StartDate, args.EndDate, []string{}, log)
 	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return &dashboardBuild{
+				Total:                0,
+				Success:              0,
+				DashboardBuildDailys: nil,
+			}, nil
+		}
 		log.Errorf("failed to get weekly build trend, error: %s", err)
 		return nil, err
 	}

@@ -737,14 +737,16 @@ func warpJobError(jobName string, err error) error {
 	return fmt.Errorf("[job: %s] %v", jobName, err)
 }
 
-func getOriginJobName(workflow *commonmodels.WorkflowV4, jobName string) string {
-	return getOriginJobNameByRecursion(workflow, jobName, 0)
+func getOriginJobName(workflow *commonmodels.WorkflowV4, jobName string) (serviceReferredJob string) {
+	serviceReferredJob = getOriginJobNameByRecursion(workflow, jobName, 0)
+	return
 }
 
-func getOriginJobNameByRecursion(workflow *commonmodels.WorkflowV4, jobName string, depth int) string {
+func getOriginJobNameByRecursion(workflow *commonmodels.WorkflowV4, jobName string, depth int) (serviceReferredJob string) {
+	serviceReferredJob = jobName
 	// Recursion depth limit to 10
 	if depth > 10 {
-		return jobName
+		return
 	}
 	depth++
 	for _, stage := range workflow.Stages {
@@ -778,7 +780,7 @@ func getOriginJobNameByRecursion(workflow *commonmodels.WorkflowV4, jobName stri
 
 		}
 	}
-	return jobName
+	return
 }
 
 func findMatchedRepoFromParams(params []*commonmodels.Param, paramName string) (*types.Repository, error) {

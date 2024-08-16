@@ -23,6 +23,7 @@ import (
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	helmtool "github.com/koderover/zadig/v2/pkg/tool/helmclient"
+	"github.com/koderover/zadig/v2/pkg/types/job"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"golang.org/x/exp/slices"
@@ -127,11 +128,15 @@ func (j *DeployJob) getOriginReferredJobTargets(jobName string) ([]*commonmodels
 	return nil, fmt.Errorf("qutoed build/deploy job %s not found", jobName)
 }
 
-func (j *DeployJob) getReferredJobOrder(jobName string) ([]*commonmodels.ServiceWithModuleAndImage, error) {
+func (j *DeployJob) getReferredJobOrder(serviceReferredJob, imageReferredJob string) ([]*commonmodels.ServiceWithModuleAndImage, error) {
 	resp := []*commonmodels.ServiceWithModuleAndImage{}
+	found := false
+
+	// first determine the services with order
+ServiceOrderLoop:
 	for _, stage := range j.workflow.Stages {
 		for _, job := range stage.Jobs {
-			if job.Name != j.spec.JobName {
+			if job.Name != serviceReferredJob {
 				continue
 			}
 			if job.JobType == config.JobZadigBuild {
@@ -150,8 +155,8 @@ func (j *DeployJob) getReferredJobOrder(jobName string) ([]*commonmodels.Service
 
 					buildModuleMap[build.ServiceName] = append(buildModuleMap[build.ServiceName], &commonmodels.DeployModuleInfo{
 						ServiceModule: build.ServiceModule,
-						Image:         build.Image,
-						ImageName:     util.ExtractImageName(build.ImageName),
+						//Image:         build.Image,
+						//ImageName:     util.ExtractImageName(build.ImageName),
 					})
 				}
 
@@ -161,7 +166,8 @@ func (j *DeployJob) getReferredJobOrder(jobName string) ([]*commonmodels.Service
 						ServiceModules: buildModuleMap[serviceName],
 					})
 				}
-				return resp, nil
+				found = true
+				break ServiceOrderLoop
 			}
 
 			if job.JobType == config.JobZadigDistributeImage {
@@ -179,8 +185,8 @@ func (j *DeployJob) getReferredJobOrder(jobName string) ([]*commonmodels.Service
 
 					distributeModuleMap[distribute.ServiceName] = append(distributeModuleMap[distribute.ServiceName], &commonmodels.DeployModuleInfo{
 						ServiceModule: distribute.ServiceModule,
-						Image:         distribute.TargetImage,
-						ImageName:     util.ExtractImageName(distribute.ImageName),
+						//Image:         distribute.TargetImage,
+						//ImageName:     util.ExtractImageName(distribute.ImageName),
 					})
 				}
 
@@ -190,7 +196,8 @@ func (j *DeployJob) getReferredJobOrder(jobName string) ([]*commonmodels.Service
 						ServiceModules: distributeModuleMap[serviceName],
 					})
 				}
-				return resp, nil
+				found = true
+				break ServiceOrderLoop
 			}
 
 			if job.JobType == config.JobZadigDeploy {
@@ -204,11 +211,27 @@ func (j *DeployJob) getReferredJobOrder(jobName string) ([]*commonmodels.Service
 						ServiceModules: service.Modules,
 					})
 				}
-				return resp, nil
+				found = true
+				break ServiceOrderLoop
 			}
 		}
 	}
-	return nil, fmt.Errorf("qutoed build/deploy job %s not found", jobName)
+
+	if !found {
+		return nil, fmt.Errorf("qutoed service referrece of job %s not found", serviceReferredJob)
+	}
+
+	// then we determine the image for the selected job, use the output for each module is enough
+	for _, svc := range resp {
+		for _, module := range svc.ServiceModules {
+			// generate real job keys
+			key := job.GetJobOutputKey(fmt.Sprintf("%s.%s.%s", imageReferredJob, svc.ServiceName, module.ServiceModule), IMAGEKEY)
+
+			module.Image = key
+		}
+	}
+
+	return resp, nil
 }
 
 // SetPreset sets all info for the user-config env service.
@@ -229,7 +252,6 @@ func (j *DeployJob) SetPreset() error {
 	// if quoted job quote another job, then use the service and image of the quoted job
 	if j.spec.Source == config.SourceFromJob {
 		j.spec.OriginJobName = j.spec.JobName
-		j.spec.JobName = getOriginJobName(j.workflow, j.spec.JobName)
 	} else if j.spec.Source == config.SourceRuntime {
 		envName := strings.ReplaceAll(j.spec.Env, setting.FixedValueMark, "")
 
@@ -263,17 +285,17 @@ func (j *DeployJob) SetPreset() error {
 				}
 
 				item := &commonmodels.DeployServiceInfo{
-					ServiceName:       svc.ServiceName,
-					VariableConfigs:   svc.VariableConfigs,
-					VariableKVs:       svc.VariableKVs,
-					LatestVariableKVs: svc.LatestVariableKVs,
-					VariableYaml:      svc.VariableYaml,
-					UpdateConfig:      svc.UpdateConfig,
-					Updatable:         svc.Updatable,
-					Deployed:          svc.Deployed,
-					Modules:           selectedModules,
-					KeyVals:           svc.KeyVals,
-					LatestKeyVals:     svc.LatestKeyVals,
+					ServiceName:     svc.ServiceName,
+					VariableConfigs: svc.VariableConfigs,
+					VariableKVs:     svc.VariableKVs,
+					// LatestVariableKVs: svc.LatestVariableKVs,
+					VariableYaml:  svc.VariableYaml,
+					UpdateConfig:  svc.UpdateConfig,
+					Updatable:     svc.Updatable,
+					Deployed:      svc.Deployed,
+					Modules:       selectedModules,
+					KeyVals:       svc.KeyVals,
+					LatestKeyVals: svc.LatestKeyVals,
 				}
 
 				if !item.Updatable {
@@ -444,7 +466,6 @@ func (j *DeployJob) UpdateWithLatestSetting() error {
 
 	if j.spec.Source == config.SourceFromJob {
 		j.spec.OriginJobName = latestSpec.JobName
-		j.spec.JobName = getOriginJobName(latestWorkflow, latestSpec.JobName)
 	}
 
 	// Determine service list and its corresponding kvs
@@ -475,13 +496,13 @@ func (j *DeployJob) UpdateWithLatestSetting() error {
 					}
 				}
 			}
-			for _, kv := range service.LatestVariableKVs {
-				for _, customKV := range userSvc.LatestVariableKVs {
-					if kv.Key == customKV.Key {
-						kv.Value = customKV.Value
-					}
-				}
-			}
+			//for _, kv := range service.LatestVariableKVs {
+			//	for _, customKV := range userSvc.LatestVariableKVs {
+			//		if kv.Key == customKV.Key {
+			//			kv.Value = customKV.Value
+			//		}
+			//	}
+			//}
 
 			mergedValues, err := helmtool.MergeOverrideValues("", service.VariableYaml, userSvc.VariableYaml, "", make([]*helmtool.KV, 0))
 			if err != nil {
@@ -501,17 +522,17 @@ func (j *DeployJob) UpdateWithLatestSetting() error {
 			}
 
 			mergedService = append(mergedService, &commonmodels.DeployServiceInfo{
-				ServiceName:       service.ServiceName,
-				VariableConfigs:   service.VariableConfigs,
-				VariableKVs:       service.VariableKVs,
-				LatestVariableKVs: service.LatestVariableKVs,
-				VariableYaml:      mergedValues,
-				UpdateConfig:      userSvc.UpdateConfig,
-				Updatable:         service.Updatable,
-				Deployed:          service.Deployed,
-				Modules:           mergedModules,
-				KeyVals:           nil,
-				LatestKeyVals:     nil,
+				ServiceName:     service.ServiceName,
+				VariableConfigs: service.VariableConfigs,
+				VariableKVs:     service.VariableKVs,
+				//LatestVariableKVs: service.LatestVariableKVs,
+				VariableYaml:  mergedValues,
+				UpdateConfig:  userSvc.UpdateConfig,
+				Updatable:     service.Updatable,
+				Deployed:      service.Deployed,
+				Modules:       mergedModules,
+				KeyVals:       nil,
+				LatestKeyVals: nil,
 			})
 		} else {
 			continue
@@ -557,14 +578,14 @@ func generateEnvDeployServiceInfo(env, project string, spec *commonmodels.ZadigD
 			kvs := make([]*commontypes.RenderVariableKV, 0)
 
 			resp = append(resp, &commonmodels.DeployServiceInfo{
-				ServiceName:       service.ServiceName,
-				VariableKVs:       kvs,
-				LatestVariableKVs: make([]*commontypes.RenderVariableKV, 0),
-				VariableYaml:      service.VariableYaml,
-				UpdateConfig:      false,
-				Updatable:         false,
-				Deployed:          true,
-				Modules:           modules,
+				ServiceName: service.ServiceName,
+				VariableKVs: kvs,
+				//LatestVariableKVs: make([]*commontypes.RenderVariableKV, 0),
+				VariableYaml: service.VariableYaml,
+				UpdateConfig: false,
+				Updatable:    false,
+				Deployed:     true,
+				Modules:      modules,
 			})
 		}
 		return resp, envInfo.RegistryID, nil
@@ -655,14 +676,14 @@ func generateEnvDeployServiceInfo(env, project string, spec *commonmodels.ZadigD
 		}
 
 		item := &commonmodels.DeployServiceInfo{
-			ServiceName:       service.ServiceName,
-			VariableKVs:       kvs,
-			LatestVariableKVs: svcInfo.LatestVariableKVs,
-			VariableYaml:      service.GetServiceRender().OverrideYaml.YamlContent,
-			UpdateConfig:      updateConfig,
-			Updatable:         svcInfo.Updatable,
-			Deployed:          true,
-			Modules:           modules,
+			ServiceName: service.ServiceName,
+			// VariableKVs: kvs,
+			// LatestVariableKVs: svcInfo.LatestVariableKVs,
+			VariableYaml: service.GetServiceRender().OverrideYaml.YamlContent,
+			UpdateConfig: updateConfig,
+			Updatable:    svcInfo.Updatable,
+			Deployed:     true,
+			Modules:      modules,
 		}
 
 		if !item.Updatable {
@@ -769,9 +790,9 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		if j.spec.OriginJobName != "" {
 			j.spec.JobName = j.spec.OriginJobName
 		}
-		j.spec.JobName = getOriginJobName(j.workflow, j.spec.JobName)
+		serviceReferredJob := getOriginJobName(j.workflow, j.spec.OriginJobName)
 
-		deployOrder, err := j.getReferredJobOrder(j.spec.JobName)
+		deployOrder, err := j.getReferredJobOrder(serviceReferredJob, j.spec.OriginJobName)
 		if err != nil {
 			return resp, fmt.Errorf("get origin refered job: %s targets failed, err: %v", j.spec.JobName, err)
 		}
@@ -803,17 +824,17 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 					}
 				}
 				services = append(services, &commonmodels.DeployServiceInfo{
-					ServiceName:       configuredService.ServiceName,
-					VariableConfigs:   configuredService.VariableConfigs,
-					VariableKVs:       configuredService.VariableKVs,
-					LatestVariableKVs: configuredService.LatestVariableKVs,
-					VariableYaml:      configuredService.VariableYaml,
-					UpdateConfig:      configuredService.UpdateConfig,
-					Updatable:         configuredService.Updatable,
-					Deployed:          configuredService.Deployed,
-					KeyVals:           configuredService.KeyVals,
-					LatestKeyVals:     configuredService.LatestKeyVals,
-					Modules:           moduleList,
+					ServiceName:     configuredService.ServiceName,
+					VariableConfigs: configuredService.VariableConfigs,
+					VariableKVs:     configuredService.VariableKVs,
+					//LatestVariableKVs: configuredService.LatestVariableKVs,
+					VariableYaml:  configuredService.VariableYaml,
+					UpdateConfig:  configuredService.UpdateConfig,
+					Updatable:     configuredService.Updatable,
+					Deployed:      configuredService.Deployed,
+					KeyVals:       configuredService.KeyVals,
+					LatestKeyVals: configuredService.LatestKeyVals,
+					Modules:       moduleList,
 				})
 			}
 		}
@@ -867,11 +888,7 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 				if service != nil {
 					jobTaskSpec.UpdateConfig = service.UpdateConfig
 					jobTaskSpec.VariableConfigs = service.VariableConfigs
-					if slices.Contains(j.spec.DeployContents, config.DeployVars) {
-						jobTaskSpec.VariableKVs = service.LatestVariableKVs
-					} else {
-						jobTaskSpec.VariableKVs = service.VariableKVs
-					}
+					jobTaskSpec.VariableKVs = service.VariableKVs
 
 					serviceRender := product.GetSvcRender(serviceName)
 					svcRenderVarMap := map[string]*commontypes.RenderVariableKV{}

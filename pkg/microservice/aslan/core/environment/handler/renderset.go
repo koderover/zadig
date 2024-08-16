@@ -145,28 +145,32 @@ func GetServiceVariables(c *gin.Context) {
 			return
 		}
 
-		if production {
-			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-				!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.View {
-				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionView)
-				if err != nil || !permitted {
-					ctx.UnAuthorized = true
+		// this api is also used for creating workflow task, so we add additional bypass for it
+		// TODO: authorization leak
+		if !ctx.Resources.ProjectAuthInfo[projectKey].Workflow.Execute {
+			if production {
+				if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+					!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.View {
+					permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionView)
+					if err != nil || !permitted {
+						ctx.UnAuthorized = true
+						return
+					}
+				}
+
+				err = commonutil.CheckZadigProfessionalLicense()
+				if err != nil {
+					ctx.Err = err
 					return
 				}
-			}
-
-			err = commonutil.CheckZadigProfessionalLicense()
-			if err != nil {
-				ctx.Err = err
-				return
-			}
-		} else {
-			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-				!ctx.Resources.ProjectAuthInfo[projectKey].Env.View {
-				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionView)
-				if err != nil || !permitted {
-					ctx.UnAuthorized = true
-					return
+			} else {
+				if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+					!ctx.Resources.ProjectAuthInfo[projectKey].Env.View {
+					permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionView)
+					if err != nil || !permitted {
+						ctx.UnAuthorized = true
+						return
+					}
 				}
 			}
 		}

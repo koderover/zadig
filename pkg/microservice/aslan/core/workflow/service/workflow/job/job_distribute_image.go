@@ -66,17 +66,13 @@ func (j *ImageDistributeJob) SetPreset() error {
 	}
 
 	if j.spec.Source == config.SourceFromJob {
-		jobSpec, err := getQuoteBuildJobSpec(j.spec.JobName, j.workflow)
+		serviceReferredJob := getOriginJobName(j.workflow, j.spec.JobName)
+
+		targets, _, err := j.getOriginReferredJobTargets(serviceReferredJob, j.spec.JobName)
 		if err != nil {
-			log.Error(err)
+			return fmt.Errorf("failed to get referred job info for distribute job: %s, error: %s", j.job.Name, err)
 		}
-		targets := []*commonmodels.DistributeTarget{}
-		for _, svc := range jobSpec.ServiceAndBuilds {
-			targets = append(targets, &commonmodels.DistributeTarget{
-				ServiceName:   svc.ServiceName,
-				ServiceModule: svc.ServiceModule,
-			})
-		}
+
 		j.spec.Targets = targets
 	} else if j.spec.Source == config.SourceRuntime {
 		servicesMap, err := repository.GetMaxRevisionsServicesMap(j.workflow.Project, false)
@@ -225,50 +221,43 @@ func (j *ImageDistributeJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, erro
 		return resp, err
 	}
 
-	sourceReg, _, err := commonservice.FindRegistryById(j.spec.SourceRegistryID, true, logger)
+	sourceReg, err := commonservice.FindRegistryById(j.spec.SourceRegistryID, true, logger)
 	if err != nil {
 		return resp, fmt.Errorf("source image registry: %s not found: %v", j.spec.SourceRegistryID, err)
 	}
-	targetReg, _, err := commonservice.FindRegistryById(j.spec.TargetRegistryID, true, logger)
+	targetReg, err := commonservice.FindRegistryById(j.spec.TargetRegistryID, true, logger)
 	if err != nil {
 		return resp, fmt.Errorf("target image registry: %s not found: %v", j.spec.TargetRegistryID, err)
 	}
 
 	switch j.spec.Source {
 	case config.SourceFromJob:
-		// get distribute targets from previous build job.
-		refJobSpec, err := getQuoteBuildJobSpec(j.spec.JobName, j.workflow)
+		serviceReferredJob := getOriginJobName(j.workflow, j.spec.JobName)
+
+		targets, registryID, err := j.getOriginReferredJobTargets(serviceReferredJob, j.spec.JobName)
 		if err != nil {
-			log.Error(err)
+			return nil, fmt.Errorf("failed to get referred job info for distribute job: %s, error: %s", j.job.Name, err)
 		}
-		j.spec.SourceRegistryID = refJobSpec.DockerRegistryID
+
+		j.spec.SourceRegistryID = registryID
+
 		targetTagMap := map[string]commonmodels.DistributeTarget{}
 		for _, target := range j.spec.Targets {
 			targetTagMap[getServiceKey(target.ServiceName, target.ServiceModule)] = *target
 		}
-		newTargets := []*commonmodels.DistributeTarget{}
-		for _, svc := range refJobSpec.ServiceAndBuilds {
-			var (
-				targetTag string
-				updateTag bool
-			)
+
+		for _, target := range targets {
 			if j.spec.EnableTargetImageTagRule {
-				targetTag = strings.ReplaceAll(j.spec.TargetImageTagRule, PreBuildImageTagVariable,
-					fmt.Sprintf("{{.job.%s.%s.%s.output.%s}}", j.spec.JobName, svc.ServiceName, svc.ServiceModule, IMAGETAGKEY))
-				updateTag = true
+				target.TargetTag = strings.ReplaceAll(j.spec.TargetImageTagRule, PreBuildImageTagVariable,
+					fmt.Sprintf("{{.job.%s.%s.%s.output.%s}}", j.spec.JobName, target.ServiceName, target.ServiceModule, IMAGETAGKEY))
+				target.UpdateTag = true
 			} else {
-				targetTag = targetTagMap[getServiceKey(svc.ServiceName, svc.ServiceModule)].TargetTag
-				updateTag = targetTagMap[getServiceKey(svc.ServiceName, svc.ServiceModule)].UpdateTag
+				target.TargetTag = targetTagMap[getServiceKey(target.ServiceName, target.ServiceModule)].TargetTag
+				target.UpdateTag = targetTagMap[getServiceKey(target.ServiceName, target.ServiceModule)].UpdateTag
 			}
-			newTargets = append(newTargets, &commonmodels.DistributeTarget{
-				ServiceName:   svc.ServiceName,
-				ServiceModule: svc.ServiceModule,
-				SourceImage:   svc.Image,
-				TargetTag:     targetTag,
-				UpdateTag:     updateTag,
-			})
 		}
-		j.spec.Targets = newTargets
+
+		j.spec.Targets = targets
 	case config.SourceRuntime:
 		for _, target := range j.spec.Targets {
 			if target.ImageName == "" {
@@ -368,6 +357,93 @@ func getQuoteBuildJobSpec(jobName string, workflow *commonmodels.WorkflowV4) (*c
 		}
 	}
 	return resp, fmt.Errorf("reference job: %s not found", jobName)
+}
+
+func (j *ImageDistributeJob) getOriginReferredJobTargets(serviceReferredJob, imageReferredJob string) ([]*commonmodels.DistributeTarget, string, error) {
+	servicetargets := []*commonmodels.DistributeTarget{}
+	var sourceRegistryID string
+	found := false
+serviceLoop:
+	for _, stage := range j.workflow.Stages {
+		for _, job := range stage.Jobs {
+			if job.Name != serviceReferredJob {
+				continue
+			}
+			if job.JobType == config.JobZadigBuild {
+				buildSpec := &commonmodels.ZadigBuildJobSpec{}
+				if err := commonmodels.IToi(job.Spec, buildSpec); err != nil {
+					return nil, "", fmt.Errorf("failed to decode build job spec, error: %s", err)
+				}
+				for _, build := range buildSpec.ServiceAndBuilds {
+					servicetargets = append(servicetargets, &commonmodels.DistributeTarget{
+						ServiceName:   build.ServiceName,
+						ServiceModule: build.ServiceModule,
+					})
+				}
+				sourceRegistryID = buildSpec.DockerRegistryID
+				found = true
+				break serviceLoop
+			}
+
+			if job.JobType == config.JobZadigDistributeImage {
+				distributeSpec := &commonmodels.ZadigDistributeImageJobSpec{}
+				if err := commonmodels.IToi(job.Spec, distributeSpec); err != nil {
+					return nil, "", fmt.Errorf("failed to decode distribute job spec, error: %s", err)
+				}
+				for _, distribute := range distributeSpec.Targets {
+					servicetargets = append(servicetargets, &commonmodels.DistributeTarget{
+						ServiceName:   distribute.ServiceName,
+						ServiceModule: distribute.ServiceModule,
+					})
+				}
+				sourceRegistryID = distributeSpec.TargetRegistryID
+				found = true
+				break serviceLoop
+			}
+
+			if job.JobType == config.JobZadigDeploy {
+				deploySpec := &commonmodels.ZadigDeployJobSpec{}
+				if err := commonmodels.IToi(job.Spec, deploySpec); err != nil {
+					return nil, "", fmt.Errorf("failed to decode deploy job spec, error: %s", err)
+				}
+				for _, svc := range deploySpec.Services {
+					for _, module := range svc.Modules {
+						servicetargets = append(servicetargets, &commonmodels.DistributeTarget{
+							ServiceName:   svc.ServiceName,
+							ServiceModule: module.ServiceModule,
+						})
+					}
+				}
+
+				envInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+					EnvName: deploySpec.Env,
+					Name:    j.workflow.Project,
+				})
+
+				if err != nil {
+					return nil, "", fmt.Errorf("failed to get deploy job %s env's registry info, error: %s", deploySpec.Env, err)
+				}
+
+				sourceRegistryID = envInfo.RegistryID
+				found = true
+				break serviceLoop
+			}
+		}
+	}
+
+	if !found {
+		return nil, "", fmt.Errorf("referred service job %s not found", serviceReferredJob)
+	}
+
+	// then we determine the image for the selected job, use the output for each module is enough
+	for _, svc := range servicetargets {
+		// generate real job keys
+		key := job.GetJobOutputKey(fmt.Sprintf("%s.%s.%s", imageReferredJob, svc.ServiceName, svc.ServiceModule), IMAGEKEY)
+
+		svc.SourceImage = key
+	}
+
+	return servicetargets, sourceRegistryID, nil
 }
 
 func getServiceKey(serviceName, serviceModule string) string {

@@ -424,7 +424,7 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 	}
 	j.job.Spec = j.spec
 
-	registry, _, err := commonservice.FindRegistryById(j.spec.DockerRegistryID, true, logger)
+	registry, err := commonservice.FindRegistryById(j.spec.DockerRegistryID, true, logger)
 	if err != nil {
 		return resp, fmt.Errorf("find docker registry: %s error: %v", j.spec.DockerRegistryID, err)
 	}

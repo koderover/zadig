@@ -49,10 +49,6 @@ const (
 	ENVServiceStartTimeout  = "SERVICE_START_TIMEOUT"
 	ENVDefaultEnvRecycleDay = "DEFAULT_ENV_RECYCLE_DAY"
 	ENVDefaultIngressClass  = "DEFAULT_INGRESS_CLASS"
-	ENVAslanRegAddress      = "DEFAULT_REGISTRY"
-	ENVAslanRegAccessKey    = "DEFAULT_REGISTRY_AK"
-	ENVAslanRegSecretKey    = "DEFAULT_REGISTRY_SK"
-	ENVAslanRegNamespace    = "DEFAULT_REGISTRY_NAMESPACE"
 
 	ENVGithubSSHKey    = "GITHUB_SSH_KEY"
 	ENVGithubKnownHost = "GITHUB_KNOWN_HOST"

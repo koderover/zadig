@@ -386,14 +386,14 @@ type DeployService struct {
 type DeployServiceInfo struct {
 	ServiceName string `bson:"service_name"                     yaml:"service_name"                        json:"service_name"`
 	// VariableConfigs used to determine if a variable is visible to the workflow user.
-	VariableConfigs   []*DeployVariableConfig         `bson:"variable_configs"                 yaml:"variable_configs,omitempty"          json:"variable_configs,omitempty"`
-	VariableKVs       []*commontypes.RenderVariableKV `bson:"variable_kvs"                     yaml:"variable_kvs"                        json:"variable_kvs"`
-	LatestVariableKVs []*commontypes.RenderVariableKV `bson:"latest_variable_kvs"              yaml:"latest_variable_kvs"                 json:"latest_variable_kvs"`
-	VariableYaml      string                          `bson:"variable_yaml"                    yaml:"variable_yaml"                       json:"variable_yaml"`
-	UpdateConfig      bool                            `bson:"update_config"                    yaml:"update_config"                       json:"update_config"`
-	Updatable         bool                            `bson:"-"                        yaml:"updatable"                           json:"updatable"`
-	Deployed          bool                            `bson:"-"                                yaml:"deployed"                            json:"deployed"`
-	Modules           []*DeployModuleInfo             `bson:"modules"                          yaml:"modules"                             json:"modules"`
+	VariableConfigs []*DeployVariableConfig         `bson:"variable_configs"                 yaml:"variable_configs,omitempty"          json:"variable_configs,omitempty"`
+	VariableKVs     []*commontypes.RenderVariableKV `bson:"variable_kvs"                     yaml:"variable_kvs"                        json:"variable_kvs"`
+	//LatestVariableKVs []*commontypes.RenderVariableKV `bson:"latest_variable_kvs"              yaml:"latest_variable_kvs"                 json:"latest_variable_kvs"`
+	VariableYaml string              `bson:"variable_yaml"                    yaml:"variable_yaml"                       json:"variable_yaml"`
+	UpdateConfig bool                `bson:"update_config"                    yaml:"update_config"                       json:"update_config"`
+	Updatable    bool                `bson:"-"                        yaml:"updatable"                           json:"updatable"`
+	Deployed     bool                `bson:"-"                                yaml:"deployed"                            json:"deployed"`
+	Modules      []*DeployModuleInfo `bson:"modules"                          yaml:"modules"                             json:"modules"`
 	// Deprecated since 1.18
 	KeyVals       []*ServiceKeyVal `bson:"key_vals"            yaml:"key_vals"         json:"key_vals"`
 	LatestKeyVals []*ServiceKeyVal `bson:"latest_key_vals"     yaml:"latest_key_vals"  json:"latest_key_vals"`

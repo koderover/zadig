@@ -119,7 +119,7 @@ func OpenAPIGetRegistry(c *gin.Context) {
 		return
 	}
 
-	registry, _, err := commonservice.FindRegistryById(c.Param("id"), true, ctx.Logger)
+	registry, err := commonservice.FindRegistryById(c.Param("id"), true, ctx.Logger)
 	if err != nil {
 		ctx.Err = err
 		return
@@ -152,7 +152,7 @@ func OpenAPIUpdateRegistry(c *gin.Context) {
 		return
 	}
 
-	registryInfo, _, err := commonservice.FindRegistryById(c.Param("id"), true, ctx.Logger)
+	registryInfo, err := commonservice.FindRegistryById(c.Param("id"), true, ctx.Logger)
 	if err != nil {
 		ctx.Err = err
 		return
