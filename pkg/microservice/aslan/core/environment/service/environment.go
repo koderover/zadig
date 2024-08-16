@@ -1046,6 +1046,7 @@ func updateHelmProduct(productName, envName, username, requestID string, overrid
 		return fmt.Errorf("GetMaxRevisionsServicesMap product: %s, error: %v", productName, err)
 	}
 
+	// @todo fix this!!! reorder services!!!
 	// use service definition from service template, but keep the image info
 	addedReleaseNameSet := sets.NewString()
 	allServices := make([][]*commonmodels.ProductService, 0)
@@ -3158,7 +3159,9 @@ func proceedHelmRelease(productResp *commonmodels.Product, helmClient *helmtool.
 	errList := new(multierror.Error)
 	for groupIndex, groupServices := range productResp.Services {
 		installParamList := make([]*kube.ReleaseInstallParam, 0)
+		log.Debugf("index %d, len of groupServices: %d", groupIndex, len(groupServices))
 		for _, prodSvc := range groupServices {
+			log.Debugf("service: %s", prodSvc.ServiceName)
 			chartInfo := findRenderChartFromList(prodSvc, productResp.ServiceRenders)
 			if chartInfo == nil {
 				continue

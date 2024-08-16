@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"runtime/debug"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -32,6 +33,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/types"
 	"github.com/koderover/zadig/v2/pkg/setting"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 	mongotool "github.com/koderover/zadig/v2/pkg/tool/mongo"
 )
 
@@ -424,6 +426,7 @@ func (c *ProductColl) Update(args *models.Product) error {
 		changePayload["pre_sleep_status"] = args.PreSleepStatus
 	}
 	change := bson.M{"$set": changePayload}
+	log.Debugf("Update query: %+v, change: %+v", query, change)
 	_, err := c.UpdateOne(mongotool.SessionContext(context.TODO(), c.Session), query, change)
 	return err
 }
@@ -455,6 +458,8 @@ func (c *ProductColl) UpdateGroup(envName, productName string, groupIndex int, g
 		serviceGroup:  group,
 	}
 
+	debug.PrintStack()
+	log.Debugf("UpdateGroup query: %+v, change: %+v", query, change)
 	_, err := c.UpdateOne(mongotool.SessionContext(context.TODO(), c.Session), query, bson.M{"$set": change})
 
 	return err
