@@ -82,6 +82,19 @@ func ExtractImageName(imageURI string) string {
 	return ""
 }
 
+func ExtractImageTag(imageURI string) string {
+	subMatchAll := imageParseRegex.FindStringSubmatch(imageURI)
+	exNames := imageParseRegex.SubexpNames()
+	for i, matchedStr := range subMatchAll {
+		if i != 0 && matchedStr != "" && matchedStr != ":" {
+			if exNames[i] == "tag" {
+				return matchedStr
+			}
+		}
+	}
+	return ""
+}
+
 func PreloadServiceManifestsByRevision(base string, svc *commonmodels.Service, production bool) error {
 	ok, err := fsutil.DirExists(base)
 	if err != nil {

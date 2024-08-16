@@ -17,7 +17,6 @@ limitations under the License.
 package job
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/url"
 	"os"
@@ -595,8 +594,6 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			StepType: config.StepGit,
 			Spec:     step.StepGitSpec{Repos: repos},
 		}
-		specBytes, _ := json.MarshalIndent(gitStep, "", "  ")
-		log.Debugf("gitStep: %+v", string(specBytes))
 
 		jobTaskSpec.Steps = append(jobTaskSpec.Steps, gitStep)
 		// init debug before step

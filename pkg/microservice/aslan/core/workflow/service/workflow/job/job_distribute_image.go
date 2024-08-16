@@ -42,6 +42,7 @@ const (
 	// Not return from GetWorkflowGlobalVars function, instead of frontend
 	WorkflowInputImageTagVariable = "{{.workflow.input.imageTag}}"
 	PreBuildImageTagVariable      = "{{.job.preBuild.imageTag}}"
+	PreJobImageTagVariable        = "{{.job.preJob.imageTag}}"
 )
 
 type ImageDistributeJob struct {
@@ -249,6 +250,8 @@ func (j *ImageDistributeJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, erro
 		for _, target := range targets {
 			if j.spec.EnableTargetImageTagRule {
 				target.TargetTag = strings.ReplaceAll(j.spec.TargetImageTagRule, PreBuildImageTagVariable,
+					fmt.Sprintf("{{.job.%s.%s.%s.output.%s}}", j.spec.JobName, target.ServiceName, target.ServiceModule, IMAGETAGKEY))
+				target.TargetTag = strings.ReplaceAll(j.spec.TargetImageTagRule, PreJobImageTagVariable,
 					fmt.Sprintf("{{.job.%s.%s.%s.output.%s}}", j.spec.JobName, target.ServiceName, target.ServiceModule, IMAGETAGKEY))
 				target.UpdateTag = true
 			} else {
