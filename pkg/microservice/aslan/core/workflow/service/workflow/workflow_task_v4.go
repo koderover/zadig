@@ -537,6 +537,9 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 				}
 			}
 
+			jobsBytes, _ := json.Marshal(jobs)
+			log.Debugf("jobsBytes: %s", string(jobsBytes))
+
 			stageTask.Jobs = append(stageTask.Jobs, jobs...)
 		}
 		if len(stageTask.Jobs) > 0 {
