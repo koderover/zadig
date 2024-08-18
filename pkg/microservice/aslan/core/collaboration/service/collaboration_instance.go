@@ -21,6 +21,7 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/koderover/zadig/v2/pkg/types"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -297,11 +298,24 @@ func updateVisitTime(uid string, cis []*models.CollaborationInstance, logger *za
 }
 
 func GetCollaborationUpdate(projectName, uid, identityType, userName string, logger *zap.SugaredLogger) (*GetCollaborationUpdateResp, error) {
-	relatedGroups, err := user.New().GetUserGroupsByUid(uid)
-	if err != nil {
-		logger.Errorf("GetCollaborationUpdate error, err msg:%s", err)
-		return nil, err
+	var relatedGroups *types.ListUserGroupResp
+	var err error
+
+	// if uid is empty, meaning it is an internal request or no identity request.
+	// then no further request is required to lower the mysql request count
+	if uid != "" {
+		relatedGroups, err = user.New().GetUserGroupsByUid(uid)
+		if err != nil {
+			logger.Errorf("GetCollaborationUpdate error, err msg:%s", err)
+			return nil, err
+		}
+	} else {
+		relatedGroups = &types.ListUserGroupResp{
+			GroupList: []*types.UserGroupResp{},
+			Count:     0,
+		}
 	}
+
 	members := []string{uid}
 	for _, group := range relatedGroups.GroupList {
 		members = append(members, group.ID)
