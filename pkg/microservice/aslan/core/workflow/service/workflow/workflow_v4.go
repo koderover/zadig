@@ -2349,7 +2349,7 @@ func CompareHelmServiceYamlInEnv(serviceName, variableYaml, envName, projectName
 
 	// first we get the current yaml in the current environment
 	currentYaml := ""
-	resp, err := commonservice.GetChartValues(projectName, envName, serviceName, false, isProduction)
+	resp, err := commonservice.GetChartValues(projectName, envName, serviceName, false, isProduction, false)
 	if err != nil {
 		log.Infof("failed to get the current service[%s] values from project: %s, env: %s", serviceName, projectName, envName)
 		currentYaml = ""
