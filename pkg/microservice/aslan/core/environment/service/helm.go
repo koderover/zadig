@@ -135,6 +135,7 @@ func getReleaseStatus(re *release.Release) ReleaseStatus {
 }
 
 type ImageData struct {
+	Image     string `json:"image"`
 	ImageName string `json:"imageName"`
 	ImageTag  string `json:"imageTag"`
 	Selected  bool   `json:"selected"`
@@ -585,6 +586,7 @@ func GetImageInfos(productName, envName, serviceNames string, production bool, l
 			}
 
 			svcImage.Images = append(svcImage.Images, &ImageData{
+				imageUrl,
 				util.GetImageNameFromContainerInfo(container.ImageName, container.Name),
 				commonservice.ExtractImageTag(imageUrl),
 				containerNameSet.Has(container.ImageName),

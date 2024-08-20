@@ -42,6 +42,7 @@ import (
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	templatemodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/notify"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/repository"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
@@ -366,12 +367,31 @@ func UpgradeHelmRelease(product *commonmodels.Product, productSvc *commonmodels.
 		}
 	}
 
-	newProductInfo.Services = [][]*commonmodels.ProductService{{}}
-	for _, service := range productSvcMap {
-		newProductInfo.Services[0] = append(newProductInfo.Services[0], service)
+	templateProduct, err := template.NewProductCollWithSess(session).Find(product.ProductName)
+	if err != nil {
+		mongo.AbortTransaction(session)
+		return errors.Wrapf(err, "failed to find template product %s", product.ProductName)
+	}
+
+	newProductInfo.Services = [][]*commonmodels.ProductService{}
+	serviceOrchestration := templateProduct.Services
+	if product.Production {
+		serviceOrchestration = templateProduct.ProductionServices
+	}
+
+	for i, svcGroup := range serviceOrchestration {
+		if len(newProductInfo.Services) >= i {
+			newProductInfo.Services = append(newProductInfo.Services, []*commonmodels.ProductService{})
+		}
+
+		for _, svc := range svcGroup {
+			if productSvcMap[svc] != nil {
+				newProductInfo.Services[i] = append(newProductInfo.Services[i], productSvcMap[svc])
+			}
+		}
 	}
 	for _, service := range productChartSvcMap {
-		newProductInfo.Services[0] = append(newProductInfo.Services[0], service)
+		newProductInfo.Services[len(newProductInfo.Services)-1] = append(newProductInfo.Services[len(newProductInfo.Services)-1], service)
 	}
 
 	if productSvc.DeployStrategy == setting.ServiceDeployStrategyDeploy {

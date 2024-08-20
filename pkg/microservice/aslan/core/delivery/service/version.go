@@ -1796,6 +1796,40 @@ func CreateNewHelmDeliveryVersion(args *CreateHelmDeliveryVersionArgs, logger *z
 		return e.ErrCreateDeliveryVersion.AddErr(err)
 	}
 
+	registryMap, err := buildRegistryMap()
+	if err != nil {
+		return fmt.Errorf("failed to build registry map")
+	}
+
+	var targetRegistry *commonmodels.RegistryNamespace
+	if len(args.ImageRegistryID) != 0 {
+		for _, registry := range registryMap {
+			if registry.ID.Hex() == args.ImageRegistryID {
+				targetRegistry = registry
+				break
+			}
+		}
+		targetRegistryProjectSet := sets.NewString()
+		for _, project := range targetRegistry.Projects {
+			targetRegistryProjectSet.Insert(project)
+		}
+		if !targetRegistryProjectSet.Has(productInfo.ProductName) && !targetRegistryProjectSet.Has(setting.AllProjects) {
+			return fmt.Errorf("registry %s/%s not support project %s", targetRegistry.RegAddr, targetRegistry.Namespace, productInfo.ProductName)
+		}
+	}
+
+	for _, chartData := range args.ChartDatas {
+		for _, imageData := range chartData.ImageData {
+			if !imageData.Selected {
+				continue
+			}
+			_, err := getImageSourceRegistry(imageData, registryMap)
+			if err != nil {
+				return fmt.Errorf("failed to check registry, err: %v", err)
+			}
+		}
+	}
+
 	productInfo.ID, _ = primitive.ObjectIDFromHex("")
 
 	workflowName := generateDeliveryWorkflowName(args.ProductName)
