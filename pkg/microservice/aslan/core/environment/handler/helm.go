@@ -134,9 +134,9 @@ func GetChartValues(c *gin.Context) {
 	}
 
 	if isHelmChartDeploy == "false" {
-		ctx.Resp, ctx.Err = commonservice.GetChartValues(projectKey, envName, serviceName, false, production)
+		ctx.Resp, ctx.Err = commonservice.GetChartValues(projectKey, envName, serviceName, false, production, true)
 	} else {
-		ctx.Resp, ctx.Err = commonservice.GetChartValues(projectKey, envName, releaseName, true, production)
+		ctx.Resp, ctx.Err = commonservice.GetChartValues(projectKey, envName, releaseName, true, production, true)
 	}
 }
 
