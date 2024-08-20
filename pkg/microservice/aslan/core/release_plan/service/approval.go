@@ -315,6 +315,16 @@ func createNativeApproval(plan *models.ReleasePlan, url string) error {
 				scheduleExecuteTime = time.Unix(plan.ScheduleExecuteTime, 0).Format("2006-01-02 15:04:05")
 			}
 
+			planDescription := ""
+			if plan.JiraSprintAssociation != nil {
+				for _, sprint := range plan.JiraSprintAssociation.Sprints {
+					planDescription += fmt.Sprintf("%s #%s, ", sprint.ProjectName, sprint.SprintName)
+				}
+				planDescription = planDescription[:len(planDescription)-2]
+				planDescription += "\n" + plan.Description
+			} else {
+				planDescription = "\n" + plan.Description
+			}
 			var buf bytes.Buffer
 			err = t.Execute(&buf, struct {
 				PlanName            string
@@ -326,7 +336,7 @@ func createNativeApproval(plan *models.ReleasePlan, url string) error {
 			}{
 				PlanName:            plan.Name,
 				Manager:             plan.Manager,
-				Description:         plan.Description,
+				Description:         planDescription,
 				TimeRange:           timeRange,
 				ScheduleExecuteTime: scheduleExecuteTime,
 				Url:                 url,

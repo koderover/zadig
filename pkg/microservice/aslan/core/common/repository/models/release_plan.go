@@ -57,10 +57,11 @@ type ReleasePlanJiraSprintAssociation struct {
 }
 
 type ReleasePlanJiraSprint struct {
-	ProjectName string `bson:"project_name"     yaml:"project_name"                 json:"project_name"`
+	ProjectName string `bson:"project_name"    yaml:"project_name"                json:"project_name"`
 	ProjectKey  string `bson:"project_key"     yaml:"project_key"                 json:"project_key"`
 	BoardID     int    `bson:"board_id"        yaml:"board_id"                    json:"board_id"`
 	SprintID    int    `bson:"sprint_id"       yaml:"sprint_id"                   json:"sprint_id"`
+	SprintName  string `bson:"sprint_name"     yaml:"sprint_name"                 json:"sprint_name"`
 }
 
 func (ReleasePlan) TableName() string {
