@@ -19,6 +19,7 @@ package mongodb
 import (
 	"context"
 	"errors"
+	"strings"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -75,6 +76,7 @@ func (c *CustomWorkflowTestReportColl) Create(args *models.CustomWorkflowTestRep
 
 func (c *CustomWorkflowTestReportColl) ListByWorkflow(workflowName, jobName string, taskID int64) ([]*models.CustomWorkflowTestReport, error) {
 	resp := make([]*models.CustomWorkflowTestReport, 0)
+	jobName = strings.ToLower(jobName)
 
 	query := bson.M{
 		"workflow_name": workflowName,

@@ -107,6 +107,7 @@ func (c *DeployJobCtl) preRun() {
 	for _, svc := range c.jobTaskSpec.ServiceAndImages {
 		// deploy job key is jobName.serviceName
 		c.workflowCtx.GlobalContextSet(job.GetJobOutputKey(c.job.Key+"."+svc.ServiceModule, IMAGEKEY), svc.Image)
+		c.workflowCtx.GlobalContextSet(job.GetJobOutputKey(c.job.Key+"."+svc.ServiceModule, IMAGETAGKEY), util.ExtractImageTag(svc.Image))
 	}
 }
 

@@ -594,6 +594,7 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			StepType: config.StepGit,
 			Spec:     step.StepGitSpec{Repos: repos},
 		}
+
 		jobTaskSpec.Steps = append(jobTaskSpec.Steps, gitStep)
 		// init debug before step
 		debugBeforeStep := &commonmodels.StepTask{
@@ -796,18 +797,20 @@ func renderKeyVals(input, origin []*commonmodels.KeyVal) []*commonmodels.KeyVal 
 }
 
 func renderRepos(input, origin []*types.Repository, kvs []*commonmodels.KeyVal) []*types.Repository {
+	resp := make([]*types.Repository, 0)
 	for i, originRepo := range origin {
+		resp = append(resp, originRepo)
 		for _, inputRepo := range input {
 			if originRepo.RepoName == inputRepo.RepoName && originRepo.RepoOwner == inputRepo.RepoOwner {
 				inputRepo.CheckoutPath = renderEnv(inputRepo.CheckoutPath, kvs)
 				if inputRepo.RemoteName == "" {
 					inputRepo.RemoteName = "origin"
 				}
-				origin[i] = inputRepo
+				resp[i] = inputRepo
 			}
 		}
 	}
-	return origin
+	return resp
 }
 
 func replaceWrapLine(script string) string {
