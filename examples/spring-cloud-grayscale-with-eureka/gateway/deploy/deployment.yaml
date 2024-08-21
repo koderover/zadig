@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: springcloud-gateway
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: springcloud-gateway
+  template:
+    metadata:
+      labels:
+        app: springcloud-gateway
+    spec:
+      containers:
+        - name: gateway
+          image: koderover.tencentcloudcr.com/test/springcloud-gateway:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8000

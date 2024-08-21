@@ -1,0 +1,40 @@
+server:
+  port: 8000
+eureka:
+  instance:
+    preferIPAddress: true
+  client:
+    registerWithEureka: true
+    fetchRegistry: true
+    serviceUrl:
+      defaultZone: http://eureka-server:8761/eureka
+spring:
+  cloud:
+    gateway:
+      routes:
+        - id: service-1-gray
+          uri: lb://service-1-gray
+          predicates:
+            - Path=/service1/**
+            - Header=version, gray
+          filters:
+            - StripPrefix=1
+        - id: service-1
+          uri: lb://service-1
+          predicates:
+            - Path=/service1/**
+            - Header=version, production
+          filters:
+            - StripPrefix=1
+        - id: service-2
+          uri: lb://service-2
+          predicates:
+            - Path=/service2/**
+          filters:
+            - StripPrefix=1
+        - id: service-3
+          uri: lb://service-3
+          predicates:
+            - Path=/service3/**
+          filters:
+            - StripPrefix=1
