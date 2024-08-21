@@ -103,7 +103,7 @@ func (s *junitReportCtl) AfterRun(ctx context.Context) error {
 		log.Errorf("NewClient err:%v", err)
 		return err
 	}
-	objectKey := filepath.Join(s.junitReportSpec.S3DestDir, s.junitReportSpec.FileName)
+	objectKey := filepath.Join(s.junitReportSpec.S3Storage.Subfolder, s.junitReportSpec.S3DestDir, s.junitReportSpec.FileName)
 	err = client.Download(storage.Bucket, objectKey, filename)
 	if err != nil {
 		log.Errorf("Download junit report err:%v", err)
