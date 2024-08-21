@@ -80,7 +80,7 @@ func (s *DownloadArchiveStep) Run(ctx context.Context) error {
 	}
 
 	destPath := path.Join(s.workspace, s.spec.DestDir, fileName)
-	objectKey := strings.TrimLeft(path.Join(s.spec.S3.Subfolder, s.spec.ObjectPath, fileName), "/")
+	objectKey := strings.TrimLeft(path.Join(s.spec.ObjectPath, fileName), "/")
 	if !s.spec.UnTar {
 		err = client.Download(s.spec.S3.Bucket, objectKey, destPath)
 		if err != nil {
