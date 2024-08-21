@@ -1,0 +1,22 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "120"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+  name: eureka-ingress
+spec:
+  ingressClassName: koderover
+  rules:
+    - host: eureka-test.8slan.com
+      http:
+        paths:
+          - backend:
+              service:
+                name: eureka-server
+                port:
+                  number: 8761
+            path: /
+            pathType: ImplementationSpecific

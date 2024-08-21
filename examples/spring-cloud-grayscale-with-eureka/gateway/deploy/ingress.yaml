@@ -1,0 +1,22 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "120"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+  name: gateway-ingress
+spec:
+  ingressClassName: koderover
+  rules:
+    - host: springcloud-gateway.8slan.com
+      http:
+        paths:
+          - backend:
+              service:
+                name: springcloud-gateway
+                port:
+                  number: 8000
+            path: /
+            pathType: ImplementationSpecific

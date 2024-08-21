@@ -18,16 +18,3 @@ spec:
           imagePullPolicy: Always
           ports:
             - containerPort: 8000
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: springcloud-gateway
-spec:
-  selector:
-    app: springcloud-gateway
-  ports:
-    - protocol: TCP
-      port: 8000
-      targetPort: 8000
-  type: ClusterIP
