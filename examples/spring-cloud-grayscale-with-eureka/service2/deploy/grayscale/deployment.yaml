@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: service2-gray
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: service2-gray
+  template:
+    metadata:
+      labels:
+        app: service2-gray
+    spec:
+      containers:
+        - name: springcloud-service2
+          image: koderover.tencentcloudcr.com/test/springcloud-service2:gray
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8000

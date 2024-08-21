@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: service1
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: service1
+  template:
+    metadata:
+      labels:
+        app: service1
+    spec:
+      containers:
+        - name: springcloud-service1
+          image: koderover.tencentcloudcr.com/test/springcloud-service1:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8000
