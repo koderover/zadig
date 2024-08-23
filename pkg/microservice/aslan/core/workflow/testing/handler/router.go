@@ -77,6 +77,9 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		scanner.GET("/:id/task/:scan_id", FindScanningProjectNameFromID, GetScanningTask)
 		scanner.DELETE("/:id/task/:scan_id", FindScanningProjectNameFromID, CancelScanningTask)
 		scanner.GET("/:id/task/:scan_id/sse", FindScanningProjectNameFromID, GetScanningTaskSSE)
+
+		scanner.GET("/:id/task/:scan_id/artifact_info", GetScanningArtifactInfo)
+		scanner.GET("/artifact", GetScanningTaskArtifact)
 	}
 
 	//testStat := router.Group("teststat")
@@ -115,7 +118,8 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	{
 		workspace.GET("/workflow/:pipelineName/taskId/:taskId", GetTestArtifactInfo)
 		workspace.GET("/testing/:testName/taskId/:taskId", GetTestArtifactInfoV2)
-		workspace.GET("/workflowv4/:workflowName/taskId/:taskId/job/:jobName", GetWorkflowV4TestArtifactInfo)
+
+		workspace.GET("/workflowv4/:workflowName/taskId/:taskId/job/:jobName", GetWorkflowV4ArtifactInfo)
 	}
 }
 

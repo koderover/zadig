@@ -588,6 +588,20 @@ func GetScanningTaskInfo(scanningID string, taskID int64, log *zap.SugaredLogger
 		return nil, err
 	}
 
+	jobName := ""
+	isHasArtifact := false
+	for _, step := range jobTaskSpec.Steps {
+		if step.Name == config.TestJobArchiveResultStepName {
+			if step.StepType != config.StepTarArchive {
+				return nil, fmt.Errorf("step: %s was not a junit report step", step.Name)
+			}
+			if workflowTask.Stages[0].Jobs[0].Status == config.StatusPassed || workflowTask.Stages[0].Jobs[0].Status == config.StatusFailed {
+				isHasArtifact = true
+			}
+			jobName = step.JobName
+		}
+	}
+
 	sonarMetrics := &stepspec.SonarMetrics{}
 	if scanningInfo.ScannerType == "sonarQube" {
 		sonarInfo, err := commonrepo.NewSonarIntegrationColl().GetByID(context.TODO(), scanningInfo.SonarID)
@@ -623,13 +637,15 @@ func GetScanningTaskInfo(scanningID string, taskID int64, log *zap.SugaredLogger
 	}
 
 	return &ScanningTaskDetail{
-		Creator:      workflowTask.TaskCreator,
-		Status:       string(workflowTask.Status),
-		CreateTime:   workflowTask.CreateTime,
-		EndTime:      workflowTask.EndTime,
-		RepoInfo:     repoInfo,
-		SonarMetrics: sonarMetrics,
-		ResultLink:   resultAddr,
+		Creator:       workflowTask.TaskCreator,
+		Status:        string(workflowTask.Status),
+		CreateTime:    workflowTask.CreateTime,
+		EndTime:       workflowTask.EndTime,
+		RepoInfo:      repoInfo,
+		SonarMetrics:  sonarMetrics,
+		ResultLink:    resultAddr,
+		JobName:       jobName,
+		IsHasArtifact: isHasArtifact,
 	}, nil
 }
 

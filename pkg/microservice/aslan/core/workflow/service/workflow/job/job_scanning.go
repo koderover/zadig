@@ -19,6 +19,7 @@ package job
 import (
 	"context"
 	"fmt"
+	"path"
 	"strings"
 
 	"github.com/koderover/zadig/v2/pkg/setting"
@@ -693,6 +694,32 @@ func (j *ScanningJob) toJobTask(scanning *commonmodels.ScanningModule, taskID in
 		}
 		jobTaskSpec.Steps = append(jobTaskSpec.Steps, scriptStep)
 	}
+
+	destDir := "/tmp"
+	if scanningInfo.ScriptType == types.ScriptTypeBatchFile {
+		destDir = "%TMP%"
+	} else if scanningInfo.ScriptType == types.ScriptTypePowerShell {
+		destDir = "%TMP%"
+	}
+	// init scanning result storage step
+	if len(scanningInfo.AdvancedSetting.ArtifactPaths) > 0 {
+		tarArchiveStep := &commonmodels.StepTask{
+			Name:      config.ScanningJobArchiveResultStepName,
+			JobName:   jobTask.Name,
+			StepType:  config.StepTarArchive,
+			Onfailure: true,
+			Spec: &step.StepTarArchiveSpec{
+				ResultDirs: scanningInfo.AdvancedSetting.ArtifactPaths,
+				S3DestDir:  path.Join(j.workflow.Name, fmt.Sprint(taskID), jobTask.Name, "scanning-result"),
+				FileName:   setting.ArtifactResultOut,
+				DestDir:    destDir,
+			},
+		}
+		if len(scanningInfo.AdvancedSetting.ArtifactPaths) > 1 || scanningInfo.AdvancedSetting.ArtifactPaths[0] != "" {
+			jobTaskSpec.Steps = append(jobTaskSpec.Steps, tarArchiveStep)
+		}
+	}
+
 	// init debug after step
 	debugAfterStep := &commonmodels.StepTask{
 		Name:     scanning.Name + "-debug-after",

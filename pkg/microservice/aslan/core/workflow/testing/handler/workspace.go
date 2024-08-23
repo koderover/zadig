@@ -55,10 +55,10 @@ func GetTestArtifactInfoV2(c *gin.Context) {
 
 	workflowName := fmt.Sprintf(setting.TestWorkflowNamingConvention, c.Param("testName"))
 
-	ctx.Resp, ctx.Err = service.GetWorkflowV4TestArtifactInfo(workflowName, c.Query("jobName"), taskID, ctx.Logger)
+	ctx.Resp, ctx.Err = service.GetWorkflowV4ArtifactInfo(workflowName, c.Query("jobName"), taskID, ctx.Logger)
 }
 
-func GetWorkflowV4TestArtifactInfo(c *gin.Context) {
+func GetWorkflowV4ArtifactInfo(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
@@ -68,5 +68,5 @@ func GetWorkflowV4TestArtifactInfo(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.GetWorkflowV4TestArtifactInfo(c.Param("workflowName"), c.Param("jobName"), taskID, ctx.Logger)
+	ctx.Resp, ctx.Err = service.GetWorkflowV4ArtifactInfo(c.Param("workflowName"), c.Param("jobName"), taskID, ctx.Logger)
 }

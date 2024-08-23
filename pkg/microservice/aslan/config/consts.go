@@ -496,6 +496,10 @@ const (
 	TestJobObjectStorageStepName = "object-storage-step"
 )
 
+const (
+	ScanningJobArchiveResultStepName = "archive-result-step"
+)
+
 type JobRunPolicy string
 
 const (

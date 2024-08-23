@@ -25,19 +25,19 @@ import (
 	"strconv"
 	"time"
 
-	workflowservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow"
-	"github.com/koderover/zadig/v2/pkg/setting"
-	e "github.com/koderover/zadig/v2/pkg/tool/errors"
-	"github.com/koderover/zadig/v2/pkg/types"
+	"github.com/gin-gonic/gin"
 	"k8s.io/apimachinery/pkg/util/wait"
 
-	"github.com/gin-gonic/gin"
-
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
+	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
+	workflowservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/testing/service"
+	"github.com/koderover/zadig/v2/pkg/setting"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
+	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
+	"github.com/koderover/zadig/v2/pkg/types"
 )
 
 var MissingIDError = e.ErrInvalidParam.AddDesc("ID must be provided")
@@ -488,6 +488,78 @@ func CancelScanningTask(c *gin.Context) {
 	workflowName := fmt.Sprintf(setting.ScanWorkflowNamingConvention, scanningID)
 
 	ctx.Err = workflowservice.CancelWorkflowTaskV4(ctx.UserName, workflowName, taskID, ctx.Logger)
+}
+
+func GetScanningArtifactInfo(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	taskIDStr := c.Param("scan_id")
+	if taskIDStr == "" {
+		ctx.Err = fmt.Errorf("scan_id must be provided")
+		return
+	}
+
+	taskID, err := strconv.ParseInt(taskIDStr, 10, 64)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc(fmt.Sprintf("invalid task id: %s", err))
+		return
+	}
+
+	scanningID := c.Param("id")
+	ctx.Resp, ctx.Err = service.GetWorkflowV4ScanningArtifactInfo(scanningID, c.Query("jobName"), taskID, ctx.Logger)
+}
+
+func GetScanningTaskArtifact(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectKey := c.Query("projectName")
+	scanningID := c.Query("id")
+	jobName := c.Query("jobName")
+	taskIDStr := c.Query("taskID")
+
+	// authorization check
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].Scanning.View {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	taskID, err := strconv.ParseInt(taskIDStr, 10, 64)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid task id")
+		return
+	}
+
+	scanningInfo, err := commonrepo.NewScanningColl().GetByID(scanningID)
+	if err != nil {
+		ctx.Err = fmt.Errorf("failed to get scanning from mongodb, the error is: %s", err)
+		return
+	}
+	workflowName := fmt.Sprintf(setting.ScanWorkflowNamingConvention, scanningInfo.ID.Hex())
+
+	resp, err := workflowservice.GetWorkflowV4ArtifactFileContent(workflowName, jobName, taskID, ctx.Logger)
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+	c.Writer.Header().Set("Content-Disposition", `attachment; filename="artifact.tar.gz"`)
+
+	c.Data(200, "application/octet-stream", resp)
 }
 
 func GetScanningTaskSSE(c *gin.Context) {
