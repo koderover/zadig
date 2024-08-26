@@ -509,17 +509,18 @@ func (j *VMDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		}
 		jobTaskSpec.Steps = append(jobTaskSpec.Steps, gitStep)
 
+		objectPath := ""
 		if vmDeployInfo.WorkflowType == config.WorkflowType {
 			if s3Storage.Subfolder != "" {
-				s3Storage.Subfolder = fmt.Sprintf("%s/%s/%d/%s", s3Storage.Subfolder, vmDeployInfo.WorkflowName, vmDeployInfo.TaskID, "file")
+				objectPath = fmt.Sprintf("%s/%s/%d/%s", s3Storage.Subfolder, vmDeployInfo.WorkflowName, vmDeployInfo.TaskID, "file")
 			} else {
-				s3Storage.Subfolder = fmt.Sprintf("%s/%d/%s", vmDeployInfo.WorkflowName, vmDeployInfo.TaskID, "file")
+				objectPath = fmt.Sprintf("%s/%d/%s", vmDeployInfo.WorkflowName, vmDeployInfo.TaskID, "file")
 			}
 		} else if vmDeployInfo.WorkflowType == config.WorkflowTypeV4 {
 			if s3Storage.Subfolder != "" {
-				s3Storage.Subfolder = fmt.Sprintf("%s/%s/%d/%s/%s", s3Storage.Subfolder, vmDeployInfo.WorkflowName, vmDeployInfo.TaskID, vmDeployInfo.JobTaskName, "archive")
+				objectPath = fmt.Sprintf("%s/%s/%d/%s/%s", s3Storage.Subfolder, vmDeployInfo.WorkflowName, vmDeployInfo.TaskID, vmDeployInfo.JobTaskName, "archive")
 			} else {
-				s3Storage.Subfolder = fmt.Sprintf("%s/%d/%s/%s", vmDeployInfo.WorkflowName, vmDeployInfo.TaskID, vmDeployInfo.JobTaskName, "archive")
+				objectPath = fmt.Sprintf("%s/%d/%s/%s", vmDeployInfo.WorkflowName, vmDeployInfo.TaskID, vmDeployInfo.JobTaskName, "archive")
 			}
 		} else {
 			return resp, fmt.Errorf("unknown workflow type %s", vmDeployInfo.WorkflowType)
@@ -532,9 +533,10 @@ func (j *VMDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 				JobName:  jobTask.Name,
 				StepType: config.StepDownloadArchive,
 				Spec: step.StepDownloadArchiveSpec{
-					FileName: vmDeployInfo.FileName,
-					DestDir:  "artifact",
-					S3:       modelS3toS3(s3Storage),
+					FileName:   vmDeployInfo.FileName,
+					DestDir:    "artifact",
+					ObjectPath: objectPath,
+					S3:         modelS3toS3(s3Storage),
 				},
 			}
 			jobTaskSpec.Steps = append(jobTaskSpec.Steps, downloadArtifactStep)
