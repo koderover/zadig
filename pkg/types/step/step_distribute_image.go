@@ -19,12 +19,15 @@ package step
 import (
 	"fmt"
 	"strings"
+
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 )
 
 type StepImageDistributeSpec struct {
-	SourceRegistry   *RegistryNamespace      `bson:"source_registry"                json:"source_registry"               yaml:"source_registry"`
-	TargetRegistry   *RegistryNamespace      `bson:"target_registry"                json:"target_registry"               yaml:"target_registry"`
-	DistributeTarget []*DistributeTaskTarget `bson:"distribute_target"              json:"distribute_target"             yaml:"distribute_target"`
+	Type             config.DistributeImageMethod `bson:"type"                           json:"type"                          yaml:"type"`
+	SourceRegistry   *RegistryNamespace           `bson:"source_registry"                json:"source_registry"               yaml:"source_registry"`
+	TargetRegistry   *RegistryNamespace           `bson:"target_registry"                json:"target_registry"               yaml:"target_registry"`
+	DistributeTarget []*DistributeTaskTarget      `bson:"distribute_target"              json:"distribute_target"             yaml:"distribute_target"`
 }
 
 type DistributeTaskTarget struct {

@@ -277,6 +277,7 @@ func (j *ImageDistributeJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, erro
 	}
 
 	stepSpec := &step.StepImageDistributeSpec{
+		Type:           j.spec.DistributeMethod,
 		SourceRegistry: getRegistry(sourceReg),
 		TargetRegistry: getRegistry(targetReg),
 	}
