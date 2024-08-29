@@ -60,6 +60,7 @@ func (Scanning) TableName() string {
 }
 
 type ScanningAdvancedSetting struct {
+	ArtifactPaths    []string              `bson:"artifact_paths"    json:"artifact_paths"`
 	ClusterID        string                `bson:"cluster_id"        json:"cluster_id"`
 	StrategyID       string                `bson:"strategy_id"       json:"strategy_id"`
 	Timeout          int64                 `bson:"timeout"           json:"timeout"`

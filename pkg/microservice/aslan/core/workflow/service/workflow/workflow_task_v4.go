@@ -145,6 +145,7 @@ type ZadigScanningJobSpec struct {
 	ServiceModule string              `bson:"service_module"  json:"service_module"`
 	Repos         []*types.Repository `bson:"repos"           json:"repos"`
 	SonarMetrics  *step.SonarMetrics  `bson:"sonar_metrics"   json:"sonar_metrics"`
+	IsHasArtifact bool                `bson:"is_has_artifact" json:"is_has_artifact"`
 	LinkURL       string              `bson:"link_url"        json:"link_url"`
 	ScanningName  string              `bson:"scanning_name"   json:"scanning_name"`
 }
@@ -1383,6 +1384,9 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, 
 				continue
 			}
 			for _, step := range taskJobSpec.Steps {
+				if step.Name == config.ScanningJobArchiveResultStepName {
+					spec.IsHasArtifact = true
+				}
 				if step.StepType == config.StepGit {
 					stepSpec := &stepspec.StepGitSpec{}
 					commonmodels.IToi(step.Spec, &stepSpec)
@@ -1750,8 +1754,8 @@ func GetWorkflowV4ArtifactFileContent(workflowName, jobName string, taskID int64
 			if job.Name != jobName {
 				continue
 			}
-			if job.JobType != string(config.JobZadigTesting) {
-				return []byte{}, fmt.Errorf("job: %s was not a testing job", jobName)
+			if job.JobType != string(config.JobZadigTesting) && job.JobType != string(config.JobZadigScanning) {
+				return []byte{}, fmt.Errorf("job: %s was not a testing or scanning job", jobName)
 			}
 
 			jobTask = job
