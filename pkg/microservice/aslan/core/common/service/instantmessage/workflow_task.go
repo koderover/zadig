@@ -302,8 +302,8 @@ func (w *Service) getNotificationContent(notify *models.NotifyCtl, task *models.
 		TaskCreatorEmail:    task.TaskCreatorEmail,
 	}
 
-	tplTitle := "{{if ne .WebHookType \"feishu\"}}#### {{end}}{{getIcon .Task.Status }}{{if eq .WebHookType \"wechat\"}}<font color=\"{{ getColor .Task.Status }}\">工作流{{.Task.WorkflowDisplayName}} #{{.Task.TaskID}} {{ taskStatus .Task.Status }}</font>{{else}}工作流 {{.Task.WorkflowDisplayName}} #{{.Task.TaskID}} {{ taskStatus .Task.Status }}{{end}} \n"
-	mailTplTitle := "{{getIcon .Task.Status }} 工作流 {{.Task.WorkflowDisplayName}}#{{.Task.TaskID}} {{ taskStatus .Task.Status }}"
+	tplTitle := "{{if ne .WebHookType \"feishu\"}}#### {{end}}{{getIcon .Task.Status }}{{if eq .WebHookType \"wechat\"}}<font color=\"{{ getColor .Task.Status }}\">{{getTaskType .Task.Type}} {{.Task.WorkflowDisplayName}} #{{.Task.TaskID}} {{ taskStatus .Task.Status }}</font>{{else}}{{getTaskType .Task.Type}} {{.Task.WorkflowDisplayName}} #{{.Task.TaskID}} {{ taskStatus .Task.Status }}{{end}} \n"
+	mailTplTitle := "{{getIcon .Task.Status }} {{getTaskType .Task.Type}} {{.Task.WorkflowDisplayName}}#{{.Task.TaskID}} {{ taskStatus .Task.Status }}"
 
 	tplBaseInfo := []string{"{{if eq .WebHookType \"dingding\"}}##### {{end}}**执行用户**：{{.Task.TaskCreator}} \n",
 		"{{if eq .WebHookType \"dingding\"}}##### {{end}}**项目名称**：{{.Task.ProjectName}} \n",
@@ -523,18 +523,23 @@ func (w *Service) getNotificationContent(notify *models.NotifyCtl, task *models.
 		return "", "", nil, nil, err
 	}
 	buttonContent := "点击查看更多信息"
+	workflowDetailURLTpl := ""
 	workflowDetailURL := ""
 	switch task.Type {
 	case config.WorkflowTaskTypeWorkflow:
-		workflowDetailURL = "{{.BaseURI}}/v1/projects/detail/{{.Task.ProjectName}}/pipelines/custom/{{.Task.WorkflowName}}/{{.Task.TaskID}}?display_name={{.EncodedDisplayName}}"
+		workflowDetailURLTpl = "{{.BaseURI}}/v1/projects/detail/{{.Task.ProjectName}}/pipelines/custom/{{.Task.WorkflowName}}/{{.Task.TaskID}}?display_name={{.EncodedDisplayName}}"
+		workflowDetailURL = fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/custom/%s?display_name=%s", configbase.SystemAddress(), task.ProjectName, task.WorkflowName, url.PathEscape(task.WorkflowDisplayName))
 	case config.WorkflowTaskTypeScanning:
-		workflowDetailURL = "{{.BaseURI}}/v1/projects/detail/{{.Task.ProjectName}}/scanner/detail/{{.Task.WorkflowDisplayName}}/task/{{.Task.TaskID}}?status={{.Task.Status}}&id={{.ScanningID}}"
+		workflowDetailURLTpl = "{{.BaseURI}}/v1/projects/detail/{{.Task.ProjectName}}/scanner/detail/{{.Task.WorkflowDisplayName}}/task/{{.Task.TaskID}}?status={{.Task.Status}}&id={{.ScanningID}}"
+		workflowDetailURL = fmt.Sprintf("%s/v1/projects/detail/%s/scanner/detail/%s/task/%d?id=%s", configbase.SystemAddress(), task.ProjectName, url.PathEscape(task.WorkflowDisplayName), task.TaskID, workflowNotification.ScanningID)
 	case config.WorkflowTaskTypeTesting:
-		workflowDetailURL = "{{.BaseURI}}/v1/projects/detail/{{.Task.ProjectName}}/test/detail/function/{{.Task.WorkflowDisplayName}}/{{.Task.TaskID}}?status={{.Task.Status}}&id=&display_name={{.Task.WorkflowDisplayName}}"
+		workflowDetailURLTpl = "{{.BaseURI}}/v1/projects/detail/{{.Task.ProjectName}}/test/detail/function/{{.Task.WorkflowDisplayName}}/{{.Task.TaskID}}?status={{.Task.Status}}&id=&display_name={{.Task.WorkflowDisplayName}}"
+		workflowDetailURL = fmt.Sprintf("%s/v1/projects/detail/%s/test/detail/function/%s/%d", configbase.SystemAddress(), task.ProjectName, url.PathEscape(task.WorkflowDisplayName), task.TaskID)
 	default:
-		workflowDetailURL = "{{.BaseURI}}/v1/projects/detail/{{.Task.ProjectName}}/pipelines/custom/{{.Task.WorkflowName}}/{{.Task.TaskID}}?display_name={{.EncodedDisplayName}}"
+		workflowDetailURLTpl = "{{.BaseURI}}/v1/projects/detail/{{.Task.ProjectName}}/pipelines/custom/{{.Task.WorkflowName}}/{{.Task.TaskID}}?display_name={{.EncodedDisplayName}}"
+		workflowDetailURL = fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/custom/%s?display_name=%s", configbase.SystemAddress(), task.ProjectName, task.WorkflowName, url.PathEscape(task.WorkflowDisplayName))
 	}
-	moreInformation := fmt.Sprintf("\n\n{{if eq .WebHookType \"dingding\"}}---\n\n{{end}}[%s](%s)", buttonContent, workflowDetailURL)
+	moreInformation := fmt.Sprintf("\n\n{{if eq .WebHookType \"dingding\"}}---\n\n{{end}}[%s](%s)", buttonContent, workflowDetailURLTpl)
 
 	if notify.WebHookType == setting.NotifyWebHookTypeMail {
 		title, err := getWorkflowTaskTplExec(mailTplTitle, workflowNotification)
@@ -550,7 +555,18 @@ func (w *Service) getNotificationContent(notify *models.NotifyCtl, task *models.
 		}
 		content = strings.TrimSpace(content)
 
-		t, err := template.New("workflow_notification").Parse(string(notificationHTML))
+		t, err := template.New("workflow_notification").Funcs(template.FuncMap{
+			"getTaskType": func(taskType config.CustomWorkflowTaskType) string {
+				if taskType == config.WorkflowTaskTypeWorkflow {
+					return "工作流"
+				} else if taskType == config.WorkflowTaskTypeScanning {
+					return "代码扫描"
+				} else if taskType == config.WorkflowTaskTypeTesting {
+					return "测试"
+				}
+				return "工作流"
+			},
+		}).Parse(string(notificationHTML))
 		if err != nil {
 			err = fmt.Errorf("workflow notification template parse error, error msg:%s", err)
 			return "", "", nil, nil, err
@@ -560,13 +576,15 @@ func (w *Service) getNotificationContent(notify *models.NotifyCtl, task *models.
 		err = t.Execute(&buf, struct {
 			WorkflowName   string
 			WorkflowTaskID int64
+			TaskType       config.CustomWorkflowTaskType
 			Content        string
 			Url            string
 		}{
 			WorkflowName:   task.WorkflowDisplayName,
 			WorkflowTaskID: task.TaskID,
+			TaskType:       task.Type,
 			Content:        content,
-			Url:            fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/custom/%s?display_name=%s", configbase.SystemAddress(), task.ProjectName, task.WorkflowName, url.PathEscape(task.WorkflowDisplayName)),
+			Url:            workflowDetailURL,
 		})
 		if err != nil {
 			err = fmt.Errorf("workflow notification template execute error, error msg:%s", err)
@@ -576,7 +594,7 @@ func (w *Service) getNotificationContent(notify *models.NotifyCtl, task *models.
 		content = buf.String()
 		return title, content, nil, nil, nil
 	} else if notify.WebHookType == setting.NotifyWebHookTypeWebook {
-		webhookNotify.DetailURL = fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/custom/%s?display_name=%s", configbase.SystemAddress(), task.ProjectName, task.WorkflowName, url.PathEscape(task.WorkflowDisplayName))
+		webhookNotify.DetailURL = workflowDetailURL
 		return "", "", nil, webhookNotify, nil
 	} else if notify.WebHookType != setting.NotifyWebHookTypeFeishu {
 		tplcontent := strings.Join(tplBaseInfo, "")
@@ -602,8 +620,8 @@ func (w *Service) getNotificationContent(notify *models.NotifyCtl, task *models.
 		feildExecContent, _ := getWorkflowTaskTplExec(feildContent, workflowNotification)
 		lc.AddI18NElementsZhcnFeild(feildExecContent, true)
 	}
-	workflowDetailURL, _ = getWorkflowTaskTplExec(workflowDetailURL, workflowNotification)
-	lc.AddI18NElementsZhcnAction(buttonContent, workflowDetailURL)
+	workflowDetailURLTpl, _ = getWorkflowTaskTplExec(workflowDetailURLTpl, workflowNotification)
+	lc.AddI18NElementsZhcnAction(buttonContent, workflowDetailURLTpl)
 	return "", "", lc, nil, nil
 }
 
@@ -618,6 +636,16 @@ type workflowTaskNotification struct {
 
 func getWorkflowTaskTplExec(tplcontent string, args *workflowTaskNotification) (string, error) {
 	tmpl := template.Must(template.New("notify").Funcs(template.FuncMap{
+		"getTaskType": func(taskType config.CustomWorkflowTaskType) string {
+			if taskType == config.WorkflowTaskTypeWorkflow {
+				return "工作流"
+			} else if taskType == config.WorkflowTaskTypeScanning {
+				return "代码扫描"
+			} else if taskType == config.WorkflowTaskTypeTesting {
+				return "测试"
+			}
+			return "工作流"
+		},
 		"getColor": func(status config.Status) string {
 			if status == config.StatusPassed || status == config.StatusCreated {
 				return markdownColorInfo
