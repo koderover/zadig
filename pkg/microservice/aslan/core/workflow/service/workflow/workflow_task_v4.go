@@ -728,35 +728,44 @@ func ManualExecWorkflowTaskV4(workflowName string, taskID int64, stageName strin
 		}
 	}
 
-	stageJobTaskMap := make(map[string][]*commonmodels.JobTask)
-	skippedJobTasks := sets.NewString()
+	foundStage := false
+	newStageNameJobTasksMap := make(map[string][]*commonmodels.JobTask, 0)
 	for _, stage := range task.WorkflowArgs.Stages {
-		jobTaskList := make([]*commonmodels.JobTask, 0)
-		for _, job := range stage.Jobs {
-			if job.Skipped {
-				continue
-			}
+		if stage.Name == stageName {
+			foundStage = true
+		}
 
-			jobCtl, err := jobctl.InitJobCtl(job, task.WorkflowArgs)
-			if err != nil {
-				return errors.Errorf("init jobCtl %s error: %s", job.Name, err)
-			}
-			jobTasks, err := jobCtl.ToJobs(taskID)
-			if err != nil {
-				return errors.Errorf("job %s toJobs error: %s", job.Name, err)
-			}
-			for _, jobTask := range jobTasks {
-				jobTaskList = append(jobTaskList, jobTask)
+		// is target stage and follow-up stages
+		if foundStage {
+			newStageNameJobTasksMap[stage.Name] = make([]*commonmodels.JobTask, 0)
 
-				if job.RunPolicy == config.SkipRun {
-					skippedJobTasks.Insert(jobTask.Key)
+			for _, job := range stage.Jobs {
+				if job.Skipped {
+					continue
+				}
+
+				jobCtl, err := jobctl.InitJobCtl(job, task.WorkflowArgs)
+				if err != nil {
+					return errors.Errorf("init jobCtl %s error: %s", job.Name, err)
+				}
+				jobTasks, err := jobCtl.ToJobs(taskID)
+				if err != nil {
+					return errors.Errorf("job %s toJobs error: %s", job.Name, err)
+				}
+				for _, jobTask := range jobTasks {
+					jobTask.Status = ""
+					jobTask.StartTime = 0
+					jobTask.EndTime = 0
+					jobTask.Error = ""
+
+					if job.RunPolicy == config.SkipRun {
+						jobTask.Status = config.StatusSkipped
+					}
+					newStageNameJobTasksMap[stage.Name] = append(newStageNameJobTasksMap[stage.Name], jobTask)
 				}
 			}
 		}
-		stageJobTaskMap[stage.Name] = jobTaskList
 	}
-
-	newStages := make([]*commonmodels.StageTask, 0)
 
 	found := false
 	var preStage *commonmodels.StageTask
@@ -804,26 +813,16 @@ func ManualExecWorkflowTaskV4(workflowName string, taskID int64, stageName strin
 			stage.ManualExec.ManualExectorID = executorID
 			stage.ManualExec.ManualExectorName = executorName
 		}
-		stage.Status = ""
-		stage.StartTime = 0
-		stage.EndTime = 0
-		stage.Error = ""
 
-		newJobList := make([]*commonmodels.JobTask, 0)
-
-		// if the stage is completely removed of all jobs, just skip the stage
-		stageJobs, ok := stageJobTaskMap[stage.Name]
-		if !ok {
-			stage.Jobs = newJobList
-			continue
+		if newStageNameJobTasksMap[stage.Name] != nil {
+			stage.Status = ""
+			stage.StartTime = 0
+			stage.EndTime = 0
+			stage.Error = ""
+			stage.Jobs = newStageNameJobTasksMap[stage.Name]
 		}
 
-		stage.Jobs = stageJobs
-
-		if len(stage.Jobs) > 0 {
-			newStages = append(newStages, stage)
-			preStage = stage
-		}
+		preStage = stage
 	}
 
 	if !found {
