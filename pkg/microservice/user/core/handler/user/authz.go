@@ -111,7 +111,6 @@ func ListAuthorizedProjectByVerb(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	uid := c.Query("uid")
-	fmt.Println("+++++++++++++++++++= uid:", uid)
 	if uid == "" {
 		ctx.Resp = &types.ListAuthorizedProjectResp{ProjectList: []string{}}
 		return
