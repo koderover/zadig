@@ -403,9 +403,10 @@ func migrateApprovalForAllWorkflowTemplates() error {
 
 				approvalJob := []*models.Job{
 					{
-						Name:    fmt.Sprintf("approval-%d", count),
-						JobType: config.JobApproval,
-						Skipped: false,
+						Name:      fmt.Sprintf("approval-%d", count),
+						JobType:   config.JobApproval,
+						Skipped:   false,
+						RunPolicy: config.ForceRun,
 						Spec: &models.ApprovalJobSpec{
 							Timeout:          int64(timeout),
 							Type:             stage.Approval.Type,
