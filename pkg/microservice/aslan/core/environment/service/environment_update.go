@@ -388,10 +388,18 @@ func updateK8sProduct(exitedProd *commonmodels.Product, user, requestID string, 
 				// services to be updated
 				validSvcGroup = append(validSvcGroup, curSvc)
 				delete(svcGroupMap, curSvc.ServiceName)
+				log.Infof(">>>>>>>>>>>>>>>>>. adding service to the group, kv: ")
+				for _, kv := range curSvc.VariableKVs {
+					log.Infof("key: [%s], val: [%v]", kv.Key, kv.Value)
+				}
 			} else if util.InStringArray(svc.ServiceName, updateRevisionSvc) {
 				// services to be added
 				validSvcGroup = append(validSvcGroup, svc)
 				svcsToBeAdd.Insert(svc.ServiceName)
+				log.Infof(">>>>>>>>>>>>>>>>>>>>  adding service to the group 2222222, kv: ")
+				for _, kv := range svc.VariableKVs {
+					log.Infof("key: [%s], val: [%v]", kv.Key, kv.Value)
+				}
 			}
 		}
 		svcGroups = append(svcGroups, validSvcGroup)
