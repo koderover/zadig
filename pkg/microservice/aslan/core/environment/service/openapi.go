@@ -239,9 +239,19 @@ func OpenAPIApplyYamlService(projectKey string, req *OpenAPIApplyYamlServiceReq,
 			return nil, e.ErrUpdateService.AddErr(err)
 		}
 
+		logger.Infof(">>>>> update 1: new variable kvs <<<<<<")
+		for _, kv := range service.VariableKvs {
+			logger.Infof("key: [%s], val: [%v]", kv.Key, kv.Value)
+		}
+
 		service.VariableKvs, err = fillServiceVariableAttribute(service.VariableKvs, service.ServiceName, projectKey, env, production, logger)
 		if err != nil {
 			return nil, e.ErrUpdateService.AddErr(err)
+		}
+
+		logger.Infof(">>>>> update 2: new variable kvs <<<<<<")
+		for _, kv := range service.VariableKvs {
+			logger.Infof("key: [%s], val: [%v]", kv.Key, kv.Value)
 		}
 
 		svcList = append(svcList, &UpdateServiceArg{
