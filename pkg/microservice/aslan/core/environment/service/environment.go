@@ -591,6 +591,11 @@ func UpdateMultipleK8sEnv(args []*UpdateEnv, envNames []string, productName, req
 				continue
 			}
 
+			log.Infof(">>>>>>>>>>>>>>> service to be updated kvs: <<<<<<<<<<<<<<<<<<")
+			for _, kv := range svc.VariableKVs {
+				log.Infof("key: [%s], val: [%v]", kv.Key, kv.Value)
+			}
+
 			updateSvcs = append(updateSvcs, &templatemodels.ServiceRender{
 				ServiceName: svc.ServiceName,
 				OverrideYaml: &templatemodels.CustomYaml{
