@@ -406,6 +406,15 @@ func updateK8sProduct(exitedProd *commonmodels.Product, user, requestID string, 
 
 	updateProd.Services = svcGroups
 
+	for _, svcs := range updateProd.Services {
+		for _, svc := range svcs {
+			log.Infof(">>>>>>>>>>>>> service: %s <<<<<<<<<<<<<<<<", svc.ServiceName)
+			for _, kv := range svc.VariableKVs {
+				log.Infof("key: [%s], val: [%v]", kv.Key, kv.Value)
+			}
+		}
+	}
+
 	for _, updateProdSvc := range updateProd.GetServiceMap() {
 		if svcRender, ok := updatedSvcMap[updateProdSvc.ServiceName]; ok {
 			updateProdSvc.Render = svcRender
