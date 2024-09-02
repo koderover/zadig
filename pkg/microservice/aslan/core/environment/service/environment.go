@@ -534,6 +534,14 @@ type UpdateEnv struct {
 }
 
 func UpdateMultipleK8sEnv(args []*UpdateEnv, envNames []string, productName, requestID string, force, production bool, username string, log *zap.SugaredLogger) ([]*EnvStatus, error) {
+	log.Infof("input: %v", envNames)
+	log.Infof("input force: %v", force)
+	log.Infof("input: %v", production)
+	for _, stuff := range args {
+		for _, svc := range stuff.Services {
+			log.Infof("svc: %+v", svc)
+		}
+	}
 	mutexAutoUpdate := cache.NewRedisLock(fmt.Sprintf("update_multiple_product:%s", productName))
 	err := mutexAutoUpdate.Lock()
 	if err != nil {
