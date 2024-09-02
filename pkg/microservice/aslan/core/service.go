@@ -253,6 +253,13 @@ func initResourcesForExternalClusters() {
 				Namespace: namespace,
 			},
 		}
+
+		if cluster.AdvancedConfig.EnableIRSA {
+			serviceAccount.Annotations = map[string]string{
+				"eks.amazonaws.com/role-arn": cluster.AdvancedConfig.IRSARoleARM,
+			}
+		}
+
 		if err := client.Create(context.Background(), serviceAccount); err != nil {
 			if apierrors.IsAlreadyExists(err) {
 				logger.Infof("cluster %s serviceAccount is already exist", cluster.Name)

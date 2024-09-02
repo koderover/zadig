@@ -91,6 +91,8 @@ type AdvancedConfig struct {
 	ClusterAccessYaml string              `json:"cluster_access_yaml"       bson:"cluster_access_yaml"`
 	ScheduleWorkflow  bool                `json:"schedule_workflow"         bson:"schedule_workflow"`
 	ScheduleStrategy  []*ScheduleStrategy `json:"schedule_strategy"         bson:"schedule_strategy"`
+	EnableIRSA        bool                `json:"enable_irsa"               bson:"enable_irsa"`
+	IRSARoleARM       string              `json:"irsa_role_arn"             bson:"irsa_role_arn"`
 }
 
 type ScheduleStrategy struct {
@@ -244,6 +246,9 @@ func ListClusters(ids []string, projectName string, logger *zap.SugaredLogger) (
 					})
 				}
 			}
+
+			advancedConfig.EnableIRSA = c.AdvancedConfig.EnableIRSA
+			advancedConfig.IRSARoleARM = c.AdvancedConfig.IRSARoleARM
 		}
 
 		if c.DindCfg == nil {
@@ -355,6 +360,8 @@ func CreateCluster(args *K8SCluster, logger *zap.SugaredLogger) (*commonmodels.K
 			NodeLabels:   convertToNodeSelectorRequirements(args.AdvancedConfig.NodeLabels),
 			ProjectNames: args.AdvancedConfig.ProjectNames,
 			Tolerations:  args.AdvancedConfig.Tolerations,
+			EnableIRSA:   args.AdvancedConfig.EnableIRSA,
+			IRSARoleARM:  args.AdvancedConfig.IRSARoleARM,
 		}
 		advancedConfig.ScheduleStrategy = make([]*commonmodels.ScheduleStrategy, 0)
 		if args.AdvancedConfig.ScheduleStrategy != nil {
@@ -525,6 +532,9 @@ func UpdateCluster(id string, args *K8SCluster, logger *zap.SugaredLogger) (*com
 			advancedConfig.ClusterAccessYaml = args.AdvancedConfig.ClusterAccessYaml
 			advancedConfig.ScheduleWorkflow = args.AdvancedConfig.ScheduleWorkflow
 		}
+
+		advancedConfig.EnableIRSA = args.AdvancedConfig.EnableIRSA
+		advancedConfig.IRSARoleARM = args.AdvancedConfig.IRSARoleARM
 
 		// Delete all projects associated with clusterID
 		err = commonrepo.NewProjectClusterRelationColl().Delete(&commonrepo.ProjectClusterRelationOption{ClusterID: id})

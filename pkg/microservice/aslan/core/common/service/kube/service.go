@@ -39,12 +39,14 @@ import (
 	"sigs.k8s.io/yaml"
 
 	config2 "github.com/koderover/zadig/v2/pkg/config"
+	pkgconfig "github.com/koderover/zadig/v2/pkg/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/setting"
+	aslanClient "github.com/koderover/zadig/v2/pkg/shared/client/aslan"
 	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
 	"github.com/koderover/zadig/v2/pkg/tool/crypto"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
@@ -358,6 +360,8 @@ func (s *Service) GetYaml(id, agentImage, aslanURL, hubURI string, useDeployment
 			DindStorageClassName: dindSCName,
 			DindStorageSizeInGiB: dindStorageSizeInGiB,
 			ScheduleWorkflow:     scheduleWorkflow,
+			EnableIRSA:           cluster.AdvancedConfig.EnableIRSA,
+			IRSARoleARN:          cluster.AdvancedConfig.IRSARoleARM,
 		})
 	} else {
 		err = YamlTemplateForNamespace.Execute(buffer, TemplateSchema{
@@ -374,6 +378,8 @@ func (s *Service) GetYaml(id, agentImage, aslanURL, hubURI string, useDeployment
 			DindEnablePV:         dindEnablePV,
 			DindStorageClassName: dindSCName,
 			DindStorageSizeInGiB: dindStorageSizeInGiB,
+			EnableIRSA:           cluster.AdvancedConfig.EnableIRSA,
+			IRSARoleARN:          cluster.AdvancedConfig.IRSARoleARM,
 		})
 	}
 
@@ -474,6 +480,17 @@ func InitializeExternalCluster(hubserverAddr, clusterID string) error {
 			Namespace: namespace,
 		},
 	}
+
+	cluster, err := aslanClient.New(pkgconfig.AslanServiceAddress()).GetClusterInfo(clusterID)
+	if err != nil {
+		return err
+	}
+	if cluster.AdvancedConfig.EnableIRSA {
+		serviceAccount.Annotations = map[string]string{
+			"eks.amazonaws.com/role-arn": cluster.AdvancedConfig.IRSARoleARM,
+		}
+	}
+
 	if _, err := clientset.CoreV1().ServiceAccounts(namespace).Create(context.Background(), serviceAccount, metav1.CreateOptions{}); err != nil {
 		return errors.Errorf("cluster %s create serviceAccount err: %s", clusterID, err)
 	}
@@ -671,6 +688,8 @@ type TemplateSchema struct {
 	DindStorageClassName string
 	DindStorageSizeInGiB int
 	ScheduleWorkflow     bool
+	EnableIRSA           bool
+	IRSARoleARN          string
 }
 
 const (
@@ -857,11 +876,14 @@ rules:
 
 ---
 
-apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: workflow-cm-sa
   namespace: {{.Namespace}}
+  {{- if .EnableIRSA }}
+  annotations:
+    eks.amazonaws.com/role-arn: {{.IRSARoleARN}}
+  {{- end }}
 
 ---
 
@@ -1084,6 +1106,10 @@ kind: ServiceAccount
 metadata:
   name: workflow-cm-sa
   namespace: koderover-agent
+  {{- if .EnableIRSA }}
+  annotations:
+    eks.amazonaws.com/role-arn: {{.IRSARoleARN}}
+  {{- end }}
 
 ---
 

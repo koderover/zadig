@@ -113,6 +113,8 @@ type AdvancedConfig struct {
 	Tolerations       string   `json:"tolerations"              bson:"tolerations"`
 	ClusterAccessYaml string   `json:"cluster_access_yaml"      bson:"cluster_access_yaml"`
 	ScheduleWorkflow  bool     `json:"schedule_workflow"        bson:"schedule_workflow"`
+	EnableIRSA        bool     `json:"enable_irsa"              bson:"enable_irsa"`
+	IRSARoleARM       string   `json:"irsa_role_arn"            bson:"irsa_role_arn"`
 }
 
 func (c *Client) GetClusterInfo(clusterID string) (*ClusterDetail, error) {
