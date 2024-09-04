@@ -282,9 +282,24 @@ type PluginJobSpec struct {
 }
 
 type FreestyleJobSpec struct {
-	Properties *JobProperties `bson:"properties"     yaml:"properties"    json:"properties"`
-	Steps      []*Step        `bson:"steps"          yaml:"steps"         json:"steps"`
-	Outputs    []*Output      `bson:"outputs"        yaml:"outputs"       json:"outputs"`
+	FreestyleJobType config.FreeStyleJobType `bson:"freestyle_type"       yaml:"freestyle_type"      json:"freestyle_type"`
+	// fromjob/runtime, runtime 表示运行时输入，fromjob 表示从上游构建任务中获取
+	Source config.DeploySourceType `bson:"source"     yaml:"source"     json:"source"`
+	// 当 source 为 fromjob 时需要，指定部署镜像来源是上游哪一个构建任务
+	JobName string `bson:"job_name"             yaml:"job_name"             json:"job_name"`
+	// save the origin quoted job name
+	OriginJobName string                  `bson:"origin_job_name"      yaml:"origin_job_name"     json:"origin_job_name"`
+	Properties    *JobProperties          `bson:"properties"           yaml:"properties"          json:"properties"`
+	Services      []*FreeStyleServiceInfo `bson:"services"             yaml:"services"            json:"services"`
+	Steps         []*Step                 `bson:"steps"                yaml:"steps"               json:"steps"`
+	Outputs       []*Output               `bson:"outputs"              yaml:"outputs"             json:"outputs"`
+}
+
+type FreeStyleServiceInfo struct {
+	ServiceName   string              `bson:"service_name"              yaml:"service_name"          json:"service_name"`
+	ServiceModule string              `bson:"service_module"      yaml:"service_module"       json:"service_module"`
+	Repos         []*types.Repository `bson:"repos"                     yaml:"repos"                 json:"repos"`
+	KeyVals       []*KeyVal           `bson:"key_vals"                  yaml:"key_vals"              json:"key_vals"`
 }
 
 type ZadigBuildJobSpec struct {

@@ -116,7 +116,7 @@ func runJob(ctx context.Context, job *commonmodels.JobTask, workflowCtx *commonm
 	if job.Status == config.StatusPassed || job.Status == config.StatusSkipped {
 		return
 	}
-	// render global variables for every job.
+	// @note render global variables for every job.
 	workflowCtx.GlobalContextEach(func(k, v string) bool {
 		b, _ := json.Marshal(job)
 		v = strings.Trim(v, "\n")

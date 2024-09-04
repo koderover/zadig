@@ -39,6 +39,7 @@ type ParameterSettingType string
 const (
 	StringType   ParameterSettingType = "string"
 	ChoiceType   ParameterSettingType = "choice"
+	ImageType    ParameterSettingType = "image"
 	ExternalType ParameterSettingType = "external"
 )
 
