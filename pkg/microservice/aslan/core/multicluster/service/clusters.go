@@ -28,6 +28,7 @@ import (
 	"github.com/hashicorp/go-multierror"
 	templaterepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/v2/pkg/shared/client/plutusvendor"
+	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
@@ -752,6 +753,25 @@ func UpgradeAgent(id string, logger *zap.SugaredLogger) error {
 
 	// Upgrade local cluster.
 	if id == setting.LocalClusterID {
+		clientset, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), id)
+		if err != nil {
+			return err
+		}
+		serviceAccount, err := clientset.CoreV1().ServiceAccounts(config.Namespace()).Get(context.Background(), "workflow-cm-sa", metav1.GetOptions{})
+		if err != nil {
+			return errors.Errorf("cluster %s get serviceAccount err: %s", id, err)
+		}
+
+		if clusterInfo.AdvancedConfig != nil && clusterInfo.AdvancedConfig.EnableIRSA {
+			serviceAccount.Annotations["eks.amazonaws.com/role-arn"] = clusterInfo.AdvancedConfig.IRSARoleARM
+		} else {
+			delete(serviceAccount.Annotations, "eks.amazonaws.com/role-arn")
+		}
+		_, err = clientset.CoreV1().ServiceAccounts(config.Namespace()).Update(context.Background(), serviceAccount, metav1.UpdateOptions{})
+		if err != nil {
+			return errors.Errorf("cluster %s update serviceAccount err: %s", id, err)
+		}
+
 		return UpgradeDind(kubeClient, clusterInfo, config.Namespace())
 	}
 
@@ -1399,4 +1419,31 @@ func checkWorkflowClusterStrategyReferences(clusterID, strategyID string, workfl
 		}
 	}
 	return false, nil
+}
+
+type GetClusterIRSAInfoResponse struct {
+	Namespace      string `json:"namespace"`
+	SerivceAccount string `json:"service_account"`
+}
+
+func GetClusterIRSAInfo(clusterID string, logger *zap.SugaredLogger) (*GetClusterIRSAInfoResponse, error) {
+	resp := &GetClusterIRSAInfoResponse{}
+	resp.SerivceAccount = "workflow-cm-sa"
+
+	if clusterID == "" {
+		resp.Namespace = "koderover-agent"
+	} else {
+		cluster, err := commonrepo.NewK8SClusterColl().FindByID(clusterID)
+		if err != nil {
+			return nil, err
+		}
+
+		if cluster.Local {
+			resp.Namespace = config.Namespace()
+		} else {
+			resp.Namespace = "koderover-agent"
+		}
+	}
+
+	return resp, nil
 }

@@ -42,6 +42,8 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		Cluster.GET("/:id/strategy/references", GetClusterStrategyReferences)
 		Cluster.PUT("/:id/disconnect", DisconnectCluster)
 		Cluster.PUT("/:id/reconnect", ReconnectCluster)
+
+		Cluster.GET("/irsa", GetIRSAInfo)
 	}
 
 	bundles := router.Group("bundle-resources")

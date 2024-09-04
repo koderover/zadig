@@ -324,3 +324,24 @@ func CheckEphemeralContainers(c *gin.Context) {
 
 	ctx.Resp, ctx.Err = service.CheckEphemeralContainers(c, c.Query("projectName"), c.Query("envName"))
 }
+
+func GetIRSAInfo(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	// authorization check
+	if !ctx.Resources.IsSystemAdmin {
+		if !ctx.Resources.SystemActions.ClusterManagement.View {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	ctx.Resp, ctx.Err = service.GetClusterIRSAInfo(c.Query("id"), ctx.Logger)
+}
