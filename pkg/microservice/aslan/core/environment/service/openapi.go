@@ -193,7 +193,7 @@ func OpenAPIUpdateYamlService(req *OpenAPIServiceVariablesReq, userName, request
 		}
 
 		// fill in the details of service variables
-		serv.Variables, err = fillServiceVariableAttribute(serv.Variables, serv.ServiceName, projectName, env, production, logger)
+		serv.Variables, err = fillServiceVariableAttribute(serv.Variables, serv.ServiceName, projectName, env, production, false, logger)
 		if err != nil {
 			return e.ErrUpdateEnv.AddDesc(err.Error())
 		}
@@ -239,7 +239,7 @@ func OpenAPIApplyYamlService(projectKey string, req *OpenAPIApplyYamlServiceReq,
 			return nil, e.ErrUpdateService.AddErr(err)
 		}
 
-		service.VariableKvs, err = fillServiceVariableAttribute(service.VariableKvs, service.ServiceName, projectKey, env, production, logger)
+		service.VariableKvs, err = fillServiceVariableAttribute(service.VariableKvs, service.ServiceName, projectKey, env, production, true, logger)
 		if err != nil {
 			return nil, e.ErrUpdateService.AddErr(err)
 		}
@@ -295,9 +295,9 @@ func setGlobalVariableToServiceVariable(variables []*commontypes.RenderVariableK
 	return nil
 }
 
-func fillServiceVariableAttribute(variablesFromUser []*commontypes.RenderVariableKV, serviceName, projectName string, env *commonmodels.Product, production bool, logger *zap.SugaredLogger) ([]*commontypes.RenderVariableKV, error) {
+func fillServiceVariableAttribute(variablesFromUser []*commontypes.RenderVariableKV, serviceName, projectName string, env *commonmodels.Product, production, isApply bool, logger *zap.SugaredLogger) ([]*commontypes.RenderVariableKV, error) {
 	var currentVariables []*commontypes.RenderVariableKV
-	if env == nil {
+	if env == nil || isApply {
 		if variablesFromUser == nil {
 			variablesFromUser = make([]*commontypes.RenderVariableKV, 0)
 		}
@@ -827,7 +827,7 @@ func OpenAPICreateK8sEnv(args *OpenAPICreateEnvArgs, userName, requestID string,
 			return e.ErrCreateEnv.AddDesc(fmt.Errorf("failed to find service from db, serviceName:%s, projectName:%s error: %v", s.ServiceName, args.ProjectName, err).Error())
 		}
 
-		s.VariableKVs, err = fillServiceVariableAttribute(s.VariableKVs, s.ServiceName, args.ProjectName, nil, false, logger)
+		s.VariableKVs, err = fillServiceVariableAttribute(s.VariableKVs, s.ServiceName, args.ProjectName, nil, false, true, logger)
 		if err != nil {
 			return e.ErrCreateEnv.AddDesc(err.Error())
 		}
