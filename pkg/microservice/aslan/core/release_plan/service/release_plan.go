@@ -656,6 +656,7 @@ func UpdateReleasePlanStatus(c *handler.Context, planID, status string) error {
 			return errors.Wrap(err, "upsert release plan cron")
 		}
 
+		plan.ExecutingTime = time.Now().Unix()
 		setReleaseJobsForExecuting(plan)
 	case config.StatusWaitForApprove:
 		if err := clearApprovalData(plan.Approval); err != nil {
