@@ -44,6 +44,7 @@ type K8SCluster struct {
 	Token              string                  `json:"token"                     bson:"-"`
 	Local              bool                    `json:"local"                     bson:"local"`
 	LastConnectionTime int64                   `json:"last_connection_time"      bson:"last_connection_time"`
+	AdvancedConfig     *AdvancedConfig         `json:"advanced_config"           bson:"advanced_config"`
 
 	// new field in 1.14, intended to enable kubeconfig for cluster management
 	Type       string `json:"type"           bson:"type"` // either agent or kubeconfig supported
@@ -51,6 +52,16 @@ type K8SCluster struct {
 
 	// Deprecated field, it should be deleted in version 1.15 since no more namespace settings is used
 	Namespace string `json:"namespace"                 bson:"namespace"`
+}
+
+type AdvancedConfig struct {
+	Strategy          string   `json:"strategy,omitempty"       bson:"strategy,omitempty"`
+	ProjectNames      []string `json:"-"                        bson:"-"`
+	Tolerations       string   `json:"tolerations"              bson:"tolerations"`
+	ClusterAccessYaml string   `json:"cluster_access_yaml"      bson:"cluster_access_yaml"`
+	ScheduleWorkflow  bool     `json:"schedule_workflow"        bson:"schedule_workflow"`
+	EnableIRSA        bool     `json:"enable_irsa"              bson:"enable_irsa"`
+	IRSARoleARM       string   `json:"irsa_role_arn"            bson:"irsa_role_arn"`
 }
 
 func (K8SCluster) TableName() string {

@@ -28,6 +28,7 @@ import (
 	"github.com/hashicorp/go-multierror"
 	templaterepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/v2/pkg/shared/client/plutusvendor"
+	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
@@ -91,6 +92,8 @@ type AdvancedConfig struct {
 	ClusterAccessYaml string              `json:"cluster_access_yaml"       bson:"cluster_access_yaml"`
 	ScheduleWorkflow  bool                `json:"schedule_workflow"         bson:"schedule_workflow"`
 	ScheduleStrategy  []*ScheduleStrategy `json:"schedule_strategy"         bson:"schedule_strategy"`
+	EnableIRSA        bool                `json:"enable_irsa"               bson:"enable_irsa"`
+	IRSARoleARM       string              `json:"irsa_role_arn"             bson:"irsa_role_arn"`
 }
 
 type ScheduleStrategy struct {
@@ -244,6 +247,9 @@ func ListClusters(ids []string, projectName string, logger *zap.SugaredLogger) (
 					})
 				}
 			}
+
+			advancedConfig.EnableIRSA = c.AdvancedConfig.EnableIRSA
+			advancedConfig.IRSARoleARM = c.AdvancedConfig.IRSARoleARM
 		}
 
 		if c.DindCfg == nil {
@@ -355,6 +361,8 @@ func CreateCluster(args *K8SCluster, logger *zap.SugaredLogger) (*commonmodels.K
 			NodeLabels:   convertToNodeSelectorRequirements(args.AdvancedConfig.NodeLabels),
 			ProjectNames: args.AdvancedConfig.ProjectNames,
 			Tolerations:  args.AdvancedConfig.Tolerations,
+			EnableIRSA:   args.AdvancedConfig.EnableIRSA,
+			IRSARoleARM:  args.AdvancedConfig.IRSARoleARM,
 		}
 		advancedConfig.ScheduleStrategy = make([]*commonmodels.ScheduleStrategy, 0)
 		if args.AdvancedConfig.ScheduleStrategy != nil {
@@ -525,6 +533,9 @@ func UpdateCluster(id string, args *K8SCluster, logger *zap.SugaredLogger) (*com
 			advancedConfig.ClusterAccessYaml = args.AdvancedConfig.ClusterAccessYaml
 			advancedConfig.ScheduleWorkflow = args.AdvancedConfig.ScheduleWorkflow
 		}
+
+		advancedConfig.EnableIRSA = args.AdvancedConfig.EnableIRSA
+		advancedConfig.IRSARoleARM = args.AdvancedConfig.IRSARoleARM
 
 		// Delete all projects associated with clusterID
 		err = commonrepo.NewProjectClusterRelationColl().Delete(&commonrepo.ProjectClusterRelationOption{ClusterID: id})
@@ -742,6 +753,25 @@ func UpgradeAgent(id string, logger *zap.SugaredLogger) error {
 
 	// Upgrade local cluster.
 	if id == setting.LocalClusterID {
+		clientset, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), id)
+		if err != nil {
+			return err
+		}
+		serviceAccount, err := clientset.CoreV1().ServiceAccounts(config.Namespace()).Get(context.Background(), "workflow-cm-sa", metav1.GetOptions{})
+		if err != nil {
+			return errors.Errorf("cluster %s get serviceAccount err: %s", id, err)
+		}
+
+		if clusterInfo.AdvancedConfig != nil && clusterInfo.AdvancedConfig.EnableIRSA {
+			serviceAccount.Annotations["eks.amazonaws.com/role-arn"] = clusterInfo.AdvancedConfig.IRSARoleARM
+		} else {
+			delete(serviceAccount.Annotations, "eks.amazonaws.com/role-arn")
+		}
+		_, err = clientset.CoreV1().ServiceAccounts(config.Namespace()).Update(context.Background(), serviceAccount, metav1.UpdateOptions{})
+		if err != nil {
+			return errors.Errorf("cluster %s update serviceAccount err: %s", id, err)
+		}
+
 		return UpgradeDind(kubeClient, clusterInfo, config.Namespace())
 	}
 
@@ -1389,4 +1419,31 @@ func checkWorkflowClusterStrategyReferences(clusterID, strategyID string, workfl
 		}
 	}
 	return false, nil
+}
+
+type GetClusterIRSAInfoResponse struct {
+	Namespace      string `json:"namespace"`
+	SerivceAccount string `json:"service_account"`
+}
+
+func GetClusterIRSAInfo(clusterID string, logger *zap.SugaredLogger) (*GetClusterIRSAInfoResponse, error) {
+	resp := &GetClusterIRSAInfoResponse{}
+	resp.SerivceAccount = "workflow-cm-sa"
+
+	if clusterID == "" {
+		resp.Namespace = "koderover-agent"
+	} else {
+		cluster, err := commonrepo.NewK8SClusterColl().FindByID(clusterID)
+		if err != nil {
+			return nil, err
+		}
+
+		if cluster.Local {
+			resp.Namespace = config.Namespace()
+		} else {
+			resp.Namespace = "koderover-agent"
+		}
+	}
+
+	return resp, nil
 }
