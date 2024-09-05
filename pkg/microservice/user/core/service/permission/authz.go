@@ -400,6 +400,19 @@ func ListAuthorizedProjectByVerb(uid, resource, verb string, logger *zap.Sugared
 		}
 	}
 
+	adminRoles, err := orm.ListProjectAdminRoleByUID(uid, tx)
+	if err != nil {
+		tx.Rollback()
+		logger.Errorf("failed to list roles for uid: %s, error: %s", uid, err)
+		return nil, fmt.Errorf("failed to list roles for uid: %s, error: %s", uid, err)
+	}
+
+	for _, role := range adminRoles {
+		if role.Namespace != GeneralNamespace {
+			respSet.Insert(role.Namespace)
+		}
+	}
+
 	groupRoles, err := orm.ListRoleByGroupIDsAndVerb(groupIDList, verb, tx)
 	if err != nil {
 		tx.Rollback()
@@ -408,6 +421,19 @@ func ListAuthorizedProjectByVerb(uid, resource, verb string, logger *zap.Sugared
 	}
 
 	for _, role := range groupRoles {
+		if role.Namespace != GeneralNamespace {
+			respSet.Insert(role.Namespace)
+		}
+	}
+
+	groupAdminRoles, err := orm.ListProjectAdminRoleByGroupIDs(groupIDList, tx)
+	if err != nil {
+		tx.Rollback()
+		logger.Errorf("failed to list roles for uid: %s, error: %s", uid, err)
+		return nil, fmt.Errorf("failed to list roles for uid: %s, error: %s", uid, err)
+	}
+
+	for _, role := range groupAdminRoles {
 		if role.Namespace != GeneralNamespace {
 			respSet.Insert(role.Namespace)
 		}

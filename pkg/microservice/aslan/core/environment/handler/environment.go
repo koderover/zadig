@@ -2937,17 +2937,15 @@ func EnvSleep(c *gin.Context) {
 		// first check if the user is projectAdmin
 		if projectAuthInfo.IsProjectAdmin {
 			permitted = true
-		}
-
-		// then check if user has edit workflow permission
-		if projectAuthInfo.Env.EditConfig {
+		} else if projectAuthInfo.Env.EditConfig {
+			// then check if user has edit workflow permission
 			permitted = true
-		}
-
-		// finally check if the permission is given by collaboration mode
-		collaborationAuthorizedEdit, err := internalhandler.CheckPermissionGivenByCollaborationMode(ctx.UserID, projectName, types.ResourceTypeEnvironment, types.EnvActionEditConfig)
-		if err == nil && collaborationAuthorizedEdit {
-			permitted = true
+		} else {
+			// finally check if the permission is given by collaboration mode
+			collaborationAuthorizedEdit, err := internalhandler.CheckPermissionGivenByCollaborationMode(ctx.UserID, projectName, types.ResourceTypeEnvironment, types.EnvActionEditConfig)
+			if err == nil && collaborationAuthorizedEdit {
+				permitted = true
+			}
 		}
 	}
 
@@ -3010,17 +3008,15 @@ func ProductionEnvSleep(c *gin.Context) {
 		// first check if the user is projectAdmin
 		if projectAuthInfo.IsProjectAdmin {
 			permitted = true
-		}
-
-		// then check if user has edit workflow permission
-		if projectAuthInfo.Env.EditConfig {
+		} else if projectAuthInfo.Env.EditConfig {
+			// then check if user has edit workflow permission
 			permitted = true
-		}
-
-		// finally check if the permission is given by collaboration mode
-		collaborationAuthorizedEdit, err := internalhandler.CheckPermissionGivenByCollaborationMode(ctx.UserID, projectName, types.ResourceTypeEnvironment, types.ProductionEnvActionEditConfig)
-		if err == nil && collaborationAuthorizedEdit {
-			permitted = true
+		} else {
+			// finally check if the permission is given by collaboration mode
+			collaborationAuthorizedEdit, err := internalhandler.CheckPermissionGivenByCollaborationMode(ctx.UserID, projectName, types.ResourceTypeEnvironment, types.ProductionEnvActionEditConfig)
+			if err == nil && collaborationAuthorizedEdit {
+				permitted = true
+			}
 		}
 	}
 
@@ -3072,17 +3068,15 @@ func GetEnvSleepCron(c *gin.Context) {
 		// first check if the user is projectAdmin
 		if projectAuthInfo.IsProjectAdmin {
 			permitted = true
-		}
-
-		// then check if user has edit workflow permission
-		if projectAuthInfo.Env.View {
+		} else if projectAuthInfo.Env.View {
+			// then check if user has edit workflow permission
 			permitted = true
-		}
-
-		// finally check if the permission is given by collaboration mode
-		collaborationAuthorizedView, err := internalhandler.CheckPermissionGivenByCollaborationMode(ctx.UserID, projectName, types.ResourceTypeEnvironment, types.EnvActionView)
-		if err == nil && collaborationAuthorizedView {
-			permitted = true
+		} else {
+			// finally check if the permission is given by collaboration mode
+			collaborationAuthorizedView, err := internalhandler.CheckPermissionGivenByCollaborationMode(ctx.UserID, projectName, types.ResourceTypeEnvironment, types.EnvActionView)
+			if err == nil && collaborationAuthorizedView {
+				permitted = true
+			}
 		}
 	}
 
@@ -3134,17 +3128,15 @@ func GetProductionEnvSleepCron(c *gin.Context) {
 		// first check if the user is projectAdmin
 		if projectAuthInfo.IsProjectAdmin {
 			permitted = true
-		}
-
-		// then check if user has edit workflow permission
-		if projectAuthInfo.Env.View {
+		} else if projectAuthInfo.Env.View {
+			// then check if user has edit workflow permission
 			permitted = true
-		}
-
-		// finally check if the permission is given by collaboration mode
-		collaborationAuthorizedView, err := internalhandler.CheckPermissionGivenByCollaborationMode(ctx.UserID, projectName, types.ResourceTypeEnvironment, types.ProductionEnvActionView)
-		if err == nil && collaborationAuthorizedView {
-			permitted = true
+		} else {
+			// finally check if the permission is given by collaboration mode
+			collaborationAuthorizedView, err := internalhandler.CheckPermissionGivenByCollaborationMode(ctx.UserID, projectName, types.ResourceTypeEnvironment, types.ProductionEnvActionView)
+			if err == nil && collaborationAuthorizedView {
+				permitted = true
+			}
 		}
 	}
 
@@ -3211,17 +3203,15 @@ func UpsertEnvSleepCron(c *gin.Context) {
 		// first check if the user is projectAdmin
 		if projectAuthInfo.IsProjectAdmin {
 			permitted = true
-		}
-
-		// then check if user has edit workflow permission
-		if projectAuthInfo.Env.EditConfig {
+		} else if projectAuthInfo.Env.EditConfig {
+			// then check if user has edit workflow permission
 			permitted = true
-		}
-
-		// finally check if the permission is given by collaboration mode
-		collaborationAuthorizedEdit, err := internalhandler.CheckPermissionGivenByCollaborationMode(ctx.UserID, projectName, types.ResourceTypeEnvironment, types.EnvActionEditConfig)
-		if err == nil && collaborationAuthorizedEdit {
-			permitted = true
+		} else {
+			// finally check if the permission is given by collaboration mode
+			collaborationAuthorizedEdit, err := internalhandler.CheckPermissionGivenByCollaborationMode(ctx.UserID, projectName, types.ResourceTypeEnvironment, types.EnvActionEditConfig)
+			if err == nil && collaborationAuthorizedEdit {
+				permitted = true
+			}
 		}
 	}
 
@@ -3288,17 +3278,15 @@ func UpsertProductionEnvSleepCron(c *gin.Context) {
 		// first check if the user is projectAdmin
 		if projectAuthInfo.IsProjectAdmin {
 			permitted = true
-		}
-
-		// then check if user has edit workflow permission
-		if projectAuthInfo.Env.EditConfig {
+		} else if projectAuthInfo.Env.EditConfig {
+			// then check if user has edit workflow permission
 			permitted = true
-		}
-
-		// finally check if the permission is given by collaboration mode
-		collaborationAuthorizedEdit, err := internalhandler.CheckPermissionGivenByCollaborationMode(ctx.UserID, projectName, types.ResourceTypeEnvironment, types.ProductionEnvActionEditConfig)
-		if err == nil && collaborationAuthorizedEdit {
-			permitted = true
+		} else {
+			// finally check if the permission is given by collaboration mode
+			collaborationAuthorizedEdit, err := internalhandler.CheckPermissionGivenByCollaborationMode(ctx.UserID, projectName, types.ResourceTypeEnvironment, types.ProductionEnvActionEditConfig)
+			if err == nil && collaborationAuthorizedEdit {
+				permitted = true
+			}
 		}
 	}
 
