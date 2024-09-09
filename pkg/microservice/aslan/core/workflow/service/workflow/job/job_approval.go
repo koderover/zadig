@@ -61,6 +61,10 @@ func (j *ApprovalJob) ClearSelectionField() error {
 	return nil
 }
 
+func (j *ApprovalJob) ClearOptions() error {
+	return nil
+}
+
 func (j *ApprovalJob) UpdateWithLatestSetting() error {
 	j.spec = &commonmodels.ApprovalJobSpec{}
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
