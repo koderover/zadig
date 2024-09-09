@@ -409,7 +409,7 @@ func ExecuteReleaseJob(c *handler.Context, planID string, args *ExecuteReleaseJo
 	plan.UpdateTime = time.Now().Unix()
 
 	if checkReleasePlanJobsAllDone(plan) {
-		plan.ExecutingTime = time.Now().Unix()
+		//plan.ExecutingTime = time.Now().Unix()
 		plan.SuccessTime = time.Now().Unix()
 		plan.Status = config.StatusSuccess
 	}
@@ -503,7 +503,7 @@ func ScheduleExecuteReleasePlan(c *handler.Context, planID string) error {
 			plan.UpdateTime = time.Now().Unix()
 
 			if checkReleasePlanJobsAllDone(plan) {
-				plan.ExecutingTime = time.Now().Unix()
+				//plan.ExecutingTime = time.Now().Unix()
 				plan.SuccessTime = time.Now().Unix()
 				plan.Status = config.StatusSuccess
 			}
@@ -586,7 +586,7 @@ func SkipReleaseJob(c *handler.Context, planID string, args *SkipReleaseJobArgs)
 	plan.UpdateTime = time.Now().Unix()
 
 	if checkReleasePlanJobsAllDone(plan) {
-		plan.ExecutingTime = time.Now().Unix()
+		//plan.ExecutingTime = time.Now().Unix()
 		plan.SuccessTime = time.Now().Unix()
 		plan.Status = config.StatusSuccess
 	}
@@ -656,6 +656,7 @@ func UpdateReleasePlanStatus(c *handler.Context, planID, status string) error {
 			return errors.Wrap(err, "upsert release plan cron")
 		}
 
+		plan.ExecutingTime = time.Now().Unix()
 		setReleaseJobsForExecuting(plan)
 	case config.StatusWaitForApprove:
 		if err := clearApprovalData(plan.Approval); err != nil {
@@ -666,7 +667,7 @@ func UpdateReleasePlanStatus(c *handler.Context, planID, status string) error {
 		}
 	case config.StatusCancel:
 		// set executing status final time
-		plan.ExecutingTime = time.Now().Unix()
+		// plan.ExecutingTime = time.Now().Unix()
 	}
 
 	// original status check and update

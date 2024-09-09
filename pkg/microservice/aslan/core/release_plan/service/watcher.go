@@ -101,7 +101,7 @@ func updatePlanWorkflowReleaseJob(plan *models.ReleasePlan, log *zap.SugaredLogg
 				job.Status = config.ReleasePlanJobStatusDone
 			}
 			if checkReleasePlanJobsAllDone(plan) {
-				plan.ExecutingTime = time.Now().Unix()
+				//plan.ExecutingTime = time.Now().Unix()
 				plan.SuccessTime = time.Now().Unix()
 				plan.Status = config.StatusSuccess
 			}
