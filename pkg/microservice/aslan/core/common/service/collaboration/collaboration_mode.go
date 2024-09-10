@@ -17,7 +17,6 @@ limitations under the License.
 package collaboration
 
 import (
-	"github.com/koderover/zadig/v2/pkg/types"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -25,8 +24,9 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/collaboration/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/collaboration/repository/mongodb"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/label/config"
+	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
+	"github.com/koderover/zadig/v2/pkg/types"
 )
 
 type GetCollaborationModeResp struct {
@@ -118,7 +118,7 @@ func setCollaborationModesWorkflowDisplayName(mode *models.CollaborationMode) {
 	names := []string{}
 	v4Names := []string{}
 	for _, workflow := range mode.Workflows {
-		if config.IsCustomWorkflow(workflow.WorkflowType) {
+		if IsCustomWorkflow(workflow.WorkflowType) {
 			v4Names = append(v4Names, workflow.Name)
 			continue
 		}
@@ -145,7 +145,7 @@ func setCollaborationModesWorkflowDisplayName(mode *models.CollaborationMode) {
 		}
 	}
 	for i, workflow := range mode.Workflows {
-		if config.IsCustomWorkflow(workflow.WorkflowType) {
+		if IsCustomWorkflow(workflow.WorkflowType) {
 			mode.Workflows[i].DisplayName = v4NamesMap[workflow.Name]
 			continue
 		}
@@ -173,4 +173,11 @@ func setMemberInfo(mode *models.CollaborationMode) {
 		})
 	}
 
+}
+
+func IsCustomWorkflow(workflowType string) bool {
+	if workflowType == setting.CustomWorkflowType || workflowType == string(setting.ReleaseWorkflow) {
+		return true
+	}
+	return false
 }
