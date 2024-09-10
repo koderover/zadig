@@ -23,6 +23,7 @@ import (
 
 	"github.com/imroc/req/v3"
 	"github.com/koderover/zadig/v2/pkg/tool/httpclient"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/types"
 	"github.com/pkg/errors"
 )
@@ -204,6 +205,8 @@ func (c *Client) UpdateConfig(dataID, group, namespaceID, content, format string
 		"type":        setFormat(format),
 		"accessToken": c.token,
 	}
+	log.Debugf("UpdateConfig: client: %+v", c)
+	log.Debugf("UpdateConfig: path %s, formValues %v", path, formValues)
 	if _, err := c.Client.Post(path, httpclient.SetFormData(formValues)); err != nil {
 		return errors.Wrap(err, "update nacos config failed")
 	}
