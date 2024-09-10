@@ -32,7 +32,6 @@ import (
 	cronhandler "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/cron/handler"
 	deliveryhandler "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/delivery/handler"
 	environmenthandler "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/environment/handler"
-	labelhandler "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/label/handler"
 	loghandler "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/log/handler"
 	multiclusterhandler "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/multicluster/handler"
 	clusterservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/multicluster/service"
@@ -140,7 +139,6 @@ func (s *engine) injectRouterGroup(router *gin.RouterGroup) {
 		"/api/cluster":       new(multiclusterhandler.Router),
 		"/api/template":      new(templatehandler.Router),
 		"/api/collaboration": new(collaborationhandler.Router),
-		"/api/label":         new(labelhandler.Router),
 		"/api/stat":          new(stathandler.Router),
 		"/api/cache":         cachehandler.NewRouter(),
 		"/api/vm":            new(vmhandler.Router),

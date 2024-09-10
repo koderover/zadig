@@ -442,6 +442,17 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		dbs.DELETE("/:id", DeleteDBInstance)
 		dbs.POST("/validate", ValidateDBInstance)
 	}
+
+	// ---------------------------------------------------------------------------------------
+	// service label management
+	// ---------------------------------------------------------------------------------------
+	labels := router.Group("labels")
+	{
+		labels.GET("", ListServiceLabels)
+		labels.POST("", CreateServiceLabel)
+		//labels.PUT("/:id", UpdateServiceLabel)
+		//labels.DELETE("/:id", DeleteServiceLabel)
+	}
 }
 
 type OpenAPIRouter struct{}
