@@ -154,8 +154,10 @@ func GetJobContainerName(name string) string {
 
 	resp := strings.Join(pinyins, "")
 	if len(resp) > 63 {
-		return resp[:63]
+		resp = strings.TrimSuffix(resp[:63], "-")
+		return resp
 	}
+	resp = strings.TrimSuffix(resp, "-")
 	return resp
 }
 
