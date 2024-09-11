@@ -853,6 +853,8 @@ func GetLabelSourceServiceInfo(c *gin.Context) {
 	c.Set("serviceName", bindingInfo.ServiceName)
 	c.Set("projectKey", bindingInfo.ProjectKey)
 	c.Set("production", bindingInfo.Production)
+
+	c.Next()
 }
 
 func CreatePMService(c *gin.Context) {
