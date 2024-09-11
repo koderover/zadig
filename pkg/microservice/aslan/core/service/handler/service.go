@@ -842,7 +842,7 @@ func GetServiceTemplateProductName(c *gin.Context) {
 
 func GetLabelSourceServiceInfo(c *gin.Context) {
 	// get label binding id to be worked with
-	labelBindingID := c.Query("id")
+	labelBindingID := c.Param("id")
 
 	bindingInfo, err := svcservice.GetLabelBindingInfo(labelBindingID)
 	if err != nil {
