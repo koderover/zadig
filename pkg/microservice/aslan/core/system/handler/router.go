@@ -450,8 +450,8 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	{
 		labels.GET("", ListServiceLabels)
 		labels.POST("", CreateServiceLabel)
-		//labels.PUT("/:id", UpdateServiceLabel)
-		//labels.DELETE("/:id", DeleteServiceLabel)
+		labels.PUT("/:id", UpdateServiceLabel)
+		labels.DELETE("/:id", DeleteServiceLabel)
 	}
 }
 
