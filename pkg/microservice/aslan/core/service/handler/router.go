@@ -61,6 +61,15 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		k8s.POST("/yaml", LoadKubeWorkloadsYaml)
 	}
 
+	labels := router.Group("labels")
+	{
+		// service labeling
+		labels.POST("", AddServiceLabel)
+		labels.PUT("/:id", GetLabelSourceServiceInfo, UpdateServiceLabel)
+		labels.DELETE("/:id", GetLabelSourceServiceInfo, DeleteServiceLabel)
+		labels.GET("", ListServiceLabels)
+	}
+
 	// host env and service api
 	workload := router.Group("workloads")
 	{
@@ -118,6 +127,7 @@ func (*OpenAPIRouter) Inject(router *gin.RouterGroup) {
 		yaml.GET("/services", ListYamlServicesOpenAPI)
 		yaml.GET("/production/services", ListProductionYamlServicesOpenAPI)
 		yaml.GET("/:name", GetYamlServiceOpenAPI)
+		yaml.GET("/:name/labels", GetYamlServiceLabelOpenAPI)
 		yaml.GET("/production/:name", GetProductionYamlServiceOpenAPI)
 		yaml.PUT("/:name", UpdateServiceConfigOpenAPI)
 		yaml.PUT("/production/:name", UpdateProductionServiceConfigOpenAPI)

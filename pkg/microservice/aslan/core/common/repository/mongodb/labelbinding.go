@@ -1,0 +1,166 @@
+/*
+Copyright 2024 The KodeRover Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package mongodb
+
+import (
+	"context"
+	"fmt"
+	"time"
+
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
+
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
+	mongotool "github.com/koderover/zadig/v2/pkg/tool/mongo"
+)
+
+type LabelBindingColl struct {
+	*mongo.Collection
+	coll string
+}
+
+func NewLabelBindingColl() *LabelBindingColl {
+	name := models.Label{}.TableName()
+	return &LabelBindingColl{
+		Collection: mongotool.Database(config.MongoDatabase()).Collection(name),
+		coll:       name,
+	}
+}
+
+func (c *LabelBindingColl) GetCollectionName() string {
+	return c.coll
+}
+
+func (c *LabelBindingColl) EnsureIndex(ctx context.Context) error {
+	// TODO: ADD MEEEEEEE !!!!
+	return nil
+}
+
+func (c *LabelBindingColl) Create(args *models.LabelBinding) error {
+	if args == nil {
+		return fmt.Errorf("given labelbinding is nil")
+	}
+
+	args.CreatedAt = time.Now().Unix()
+	_, err := c.InsertOne(context.TODO(), args)
+	return err
+}
+
+type LabelBindingListOption struct {
+	LabelID     string
+	ServiceName string
+	ProjectKey  string
+	Production  *bool
+	Value       string
+}
+
+func (c *LabelBindingColl) List(opt *LabelBindingListOption) ([]*models.LabelBinding, error) {
+	var bindings []*models.LabelBinding
+
+	query := bson.M{}
+
+	if len(opt.LabelID) > 0 {
+		query["label_id"] = opt.LabelID
+	}
+
+	if len(opt.ServiceName) > 0 {
+		query["service_name"] = opt.ServiceName
+	}
+
+	if len(opt.ProjectKey) > 0 {
+		query["project_key"] = opt.ProjectKey
+	}
+
+	if len(opt.Value) > 0 {
+		query["value"] = opt.Value
+	}
+
+	if opt.Production != nil {
+		query["production"] = *opt.Production
+	}
+
+	cursor, err := c.Collection.Find(context.TODO(), query)
+	if err != nil {
+		return nil, err
+	}
+	err = cursor.All(context.TODO(), &bindings)
+	if err != nil {
+		return nil, err
+	}
+
+	return bindings, err
+}
+
+func (c *LabelBindingColl) GetByID(id string) (*models.LabelBinding, error) {
+	oid, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return nil, err
+	}
+
+	query := bson.M{"_id": oid}
+	res := &models.LabelBinding{}
+	err = c.FindOne(context.TODO(), query).Decode(res)
+
+	return res, err
+}
+
+func (c *LabelBindingColl) Update(id string, args *models.LabelBinding) error {
+	bindingID, err := primitive.ObjectIDFromHex(id)
+
+	if err != nil {
+		return err
+	}
+	_, err = c.UpdateOne(context.TODO(),
+		bson.M{"_id": bindingID}, bson.M{"$set": bson.M{
+			"value":      args.Value,
+			"updated_at": time.Now().Unix(),
+		}},
+	)
+
+	return err
+}
+
+func (c *LabelBindingColl) DeleteByID(id string) error {
+	oid, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return err
+	}
+
+	query := bson.M{"_id": oid}
+	_, err = c.DeleteOne(context.TODO(), query)
+	return err
+}
+
+func (c *LabelBindingColl) DeleteByService(serviceName, projectKey string, production bool) error {
+	query := bson.M{
+		"service_name": serviceName,
+		"project_key":  projectKey,
+		"production":   production,
+	}
+	_, err := c.DeleteMany(context.TODO(), query)
+	return err
+}
+
+func (c *LabelBindingColl) DeleteByLabelID(id string) error {
+	query := bson.M{
+		"label_id": id,
+	}
+	_, err := c.DeleteMany(context.TODO(), query)
+	return err
+}

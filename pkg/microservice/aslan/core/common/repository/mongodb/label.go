@@ -62,7 +62,7 @@ func (c *LabelColl) Create(args *models.Label) error {
 }
 
 func (c *LabelColl) List() ([]*models.Label, error) {
-	var clusters []*models.Label
+	var labels []*models.Label
 
 	query := bson.M{}
 
@@ -70,12 +70,12 @@ func (c *LabelColl) List() ([]*models.Label, error) {
 	if err != nil {
 		return nil, err
 	}
-	err = cursor.All(context.TODO(), &clusters)
+	err = cursor.All(context.TODO(), &labels)
 	if err != nil {
 		return nil, err
 	}
 
-	return clusters, err
+	return labels, err
 }
 
 func (c *LabelColl) Update(id string, args *models.Label) error {
@@ -104,4 +104,17 @@ func (c *LabelColl) Delete(id string) error {
 	query := bson.M{"_id": oid}
 	_, err = c.DeleteOne(context.TODO(), query)
 	return err
+}
+
+func (c *LabelColl) GetByID(id string) (*models.Label, error) {
+	oid, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return nil, err
+	}
+
+	query := bson.M{"_id": oid}
+	res := &models.Label{}
+	err = c.FindOne(context.TODO(), query).Decode(res)
+
+	return res, err
 }

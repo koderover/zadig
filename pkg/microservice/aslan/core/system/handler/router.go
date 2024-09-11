@@ -448,10 +448,10 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	// ---------------------------------------------------------------------------------------
 	labels := router.Group("labels")
 	{
-		labels.GET("", ListServiceLabels)
-		labels.POST("", CreateServiceLabel)
-		labels.PUT("/:id", UpdateServiceLabel)
-		labels.DELETE("/:id", DeleteServiceLabel)
+		labels.GET("", ListServiceLabelSettings)
+		labels.POST("", CreateServiceLabelSetting)
+		labels.PUT("/:id", UpdateServiceLabelSetting)
+		labels.DELETE("/:id", DeleteServiceLabelSetting)
 	}
 }
 

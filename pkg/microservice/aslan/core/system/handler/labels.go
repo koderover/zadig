@@ -27,7 +27,7 @@ import (
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 )
 
-func CreateServiceLabel(c *gin.Context) {
+func CreateServiceLabelSetting(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
@@ -51,19 +51,19 @@ func CreateServiceLabel(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = service.CreateServiceLabel(args, ctx.Logger)
+	ctx.Err = service.CreateServiceLabelSetting(args, ctx.Logger)
 }
 
-func ListServiceLabels(c *gin.Context) {
+func ListServiceLabelSettings(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	// TODO: List service label have no authorization right now because it does not need one.
 
-	ctx.Resp, ctx.Err = service.ListServiceLabels(ctx.Logger)
+	ctx.Resp, ctx.Err = service.ListServiceLabelSettings(ctx.Logger)
 }
 
-func UpdateServiceLabel(c *gin.Context) {
+func UpdateServiceLabelSetting(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
@@ -93,10 +93,10 @@ func UpdateServiceLabel(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = service.UpdateServiceLabel(id, args, ctx.Logger)
+	ctx.Err = service.UpdateServiceLabelSetting(id, args, ctx.Logger)
 }
 
-func DeleteServiceLabel(c *gin.Context) {
+func DeleteServiceLabelSetting(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
@@ -120,5 +120,5 @@ func DeleteServiceLabel(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = service.DeleteServiceLabel(id, ctx.Logger)
+	ctx.Err = service.DeleteServiceLabelSetting(id, ctx.Logger)
 }

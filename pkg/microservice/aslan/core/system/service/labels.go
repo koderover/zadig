@@ -24,7 +24,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func CreateServiceLabel(args *commonmodels.Label, log *zap.SugaredLogger) error {
+func CreateServiceLabelSetting(args *commonmodels.Label, log *zap.SugaredLogger) error {
 	if args == nil {
 		return fmt.Errorf("nil label")
 	}
@@ -37,7 +37,7 @@ func CreateServiceLabel(args *commonmodels.Label, log *zap.SugaredLogger) error 
 	return nil
 }
 
-func ListServiceLabels(log *zap.SugaredLogger) ([]*commonmodels.Label, error) {
+func ListServiceLabelSettings(log *zap.SugaredLogger) ([]*commonmodels.Label, error) {
 	labels, err := commonrepo.NewLabelColl().List()
 	if err != nil {
 		log.Errorf("List service label err:%v", err)
@@ -47,7 +47,7 @@ func ListServiceLabels(log *zap.SugaredLogger) ([]*commonmodels.Label, error) {
 	return labels, nil
 }
 
-func UpdateServiceLabel(id string, args *commonmodels.Label, log *zap.SugaredLogger) error {
+func UpdateServiceLabelSetting(id string, args *commonmodels.Label, log *zap.SugaredLogger) error {
 	err := commonrepo.NewLabelColl().Update(id, args)
 	if err != nil {
 		log.Errorf("update service label err:%v", err)
@@ -57,7 +57,7 @@ func UpdateServiceLabel(id string, args *commonmodels.Label, log *zap.SugaredLog
 	return nil
 }
 
-func DeleteServiceLabel(id string, log *zap.SugaredLogger) error {
+func DeleteServiceLabelSetting(id string, log *zap.SugaredLogger) error {
 	err := commonrepo.NewLabelColl().Delete(id)
 	if err != nil {
 		log.Errorf("delete service label err:%v", err)

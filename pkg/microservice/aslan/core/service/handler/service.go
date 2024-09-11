@@ -26,6 +26,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/koderover/zadig/v2/pkg/types"
+	"github.com/koderover/zadig/v2/pkg/util/boolptr"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
@@ -839,6 +840,21 @@ func GetServiceTemplateProductName(c *gin.Context) {
 	c.Next()
 }
 
+func GetLabelSourceServiceInfo(c *gin.Context) {
+	// get label binding id to be worked with
+	labelBindingID := c.Query("id")
+
+	bindingInfo, err := svcservice.GetLabelBindingInfo(labelBindingID)
+	if err != nil {
+		log.Errorf("failed to get label binding info, error: %s", err)
+		return
+	}
+
+	c.Set("serviceName", bindingInfo.ServiceName)
+	c.Set("projectKey", bindingInfo.ProjectKey)
+	c.Set("production", bindingInfo.Production)
+}
+
 func CreatePMService(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -999,4 +1015,311 @@ func ConvertVaraibleKVAndYaml(c *gin.Context) {
 	}
 
 	ctx.Resp = resp
+}
+
+type addServiceLabelReq struct {
+	LabelID     string `json:"label_id,omitempty"`
+	ProjectKey  string `json:"project_key,omitempty"`
+	ServiceName string `json:"service_name,omitempty"`
+	Production  string `json:"production,omitempty"`
+	Value       string `json:"value,omitempty"`
+}
+
+func AddServiceLabel(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	req := new(addServiceLabelReq)
+	if err := c.ShouldBindJSON(req); err != nil {
+		ctx.Err = err
+		return
+	}
+
+	var production *bool
+	switch req.Production {
+	case "true":
+		production = boolptr.True()
+	case "false":
+		production = boolptr.False()
+	default:
+		production = nil
+	}
+	detail := "项目管理-服务标签"
+	if boolptr.IsTrue(production) {
+		detail = "项目管理-生产服务标签"
+	}
+
+	// authorization
+	projectName := req.ProjectKey
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectName]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if boolptr.IsTrue(production) {
+			if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectName].ProductionService.Edit &&
+				!ctx.Resources.ProjectAuthInfo[projectName].ProductionService.Create {
+				ctx.UnAuthorized = true
+				return
+			}
+		} else {
+			if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectName].Service.Edit &&
+				!ctx.Resources.ProjectAuthInfo[projectName].Service.Create {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
+	}
+
+	requestByte, err := json.Marshal(req)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc("failed to decode request body, error: " + err.Error())
+		return
+	}
+
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "新建", detail, fmt.Sprintf("服务名称:%s", req.ServiceName), string(requestByte), ctx.Logger)
+
+	ctx.Err = svcservice.AddServiceLabel(req.LabelID, projectName, req.ServiceName, production, req.Value, ctx.Logger)
+}
+
+type updateServiceLabelReq struct {
+	Value string `json:"value,omitempty"`
+}
+
+func UpdateServiceLabel(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	req := new(updateServiceLabelReq)
+	if err := c.ShouldBindJSON(req); err != nil {
+		ctx.Err = err
+		return
+	}
+
+	productionInterface, ok := c.Get("production")
+	if !ok {
+		ctx.Err = fmt.Errorf("production not set by previous function")
+		return
+	}
+
+	production, ok := productionInterface.(bool)
+	if !ok {
+		ctx.Err = fmt.Errorf("production is not boolean")
+		return
+	}
+
+	detail := "项目管理-服务标签"
+	if production {
+		detail = "项目管理-生产服务标签"
+	}
+
+	// authorization
+	projectNameInterface, ok := c.Get("projectKey")
+	if !ok {
+		ctx.Err = fmt.Errorf("project key not set by previous function")
+		return
+	}
+
+	projectName, ok := projectNameInterface.(string)
+	if !ok {
+		ctx.Err = fmt.Errorf("project key is not string")
+		return
+	}
+
+	serviceNameInterface, ok := c.Get("serviceName")
+	if !ok {
+		ctx.Err = fmt.Errorf("service name not set by previous function")
+		return
+	}
+
+	serviceName, ok := serviceNameInterface.(string)
+	if !ok {
+		ctx.Err = fmt.Errorf("service name is not string")
+		return
+	}
+
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectName]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if production {
+			if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectName].ProductionService.Edit &&
+				!ctx.Resources.ProjectAuthInfo[projectName].ProductionService.Create {
+				ctx.UnAuthorized = true
+				return
+			}
+		} else {
+			if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectName].Service.Edit &&
+				!ctx.Resources.ProjectAuthInfo[projectName].Service.Create {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
+	}
+
+	labelBindingID := c.Param("id")
+
+	// TODO: add operation log back and redesign
+	requestByte, err := json.Marshal(req)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc("failed to decode request body, error: " + err.Error())
+		return
+	}
+
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "更新", detail, fmt.Sprintf("服务名称:%s", serviceName), string(requestByte), ctx.Logger)
+
+	ctx.Err = svcservice.UpdateServiceLabel(labelBindingID, req.Value, ctx.Logger)
+}
+
+func DeleteServiceLabel(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	productionInterface, ok := c.Get("production")
+	if !ok {
+		ctx.Err = fmt.Errorf("production not set by previous function")
+		return
+	}
+
+	production, ok := productionInterface.(bool)
+	if !ok {
+		ctx.Err = fmt.Errorf("production is not boolean")
+		return
+	}
+
+	detail := "项目管理-服务标签"
+	if production {
+		detail = "项目管理-生产服务标签"
+	}
+
+	// authorization
+	projectNameInterface, ok := c.Get("projectKey")
+	if !ok {
+		ctx.Err = fmt.Errorf("project key not set by previous function")
+		return
+	}
+
+	projectName, ok := projectNameInterface.(string)
+	if !ok {
+		ctx.Err = fmt.Errorf("project key is not string")
+		return
+	}
+
+	serviceNameInterface, ok := c.Get("serviceName")
+	if !ok {
+		ctx.Err = fmt.Errorf("service name not set by previous function")
+		return
+	}
+
+	serviceName, ok := serviceNameInterface.(string)
+	if !ok {
+		ctx.Err = fmt.Errorf("service name is not string")
+		return
+	}
+
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectName]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if production {
+			if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectName].ProductionService.Edit &&
+				!ctx.Resources.ProjectAuthInfo[projectName].ProductionService.Create {
+				ctx.UnAuthorized = true
+				return
+			}
+		} else {
+			if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectName].Service.Edit &&
+				!ctx.Resources.ProjectAuthInfo[projectName].Service.Create {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
+	}
+
+	labelBindingID := c.Param("id")
+
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "删除", detail, fmt.Sprintf("服务名称:%s", serviceName), "", ctx.Logger)
+
+	ctx.Err = svcservice.DeleteServiceLabel(labelBindingID, ctx.Logger)
+}
+
+type listServiceLabelReq struct {
+	ProjectKey  string `json:"project_key,omitempty" form:"project_key,omitempty"`
+	ServiceName string `json:"service_name,omitempty" form:"service_name,omitempty"`
+	Production  string `json:"production,omitempty" form:"production,omitempty"`
+}
+
+func ListServiceLabels(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	req := new(listServiceLabelReq)
+	if err := c.ShouldBindQuery(req); err != nil {
+		ctx.Err = err
+		return
+	}
+
+	var production *bool
+	switch req.Production {
+	case "true":
+		production = boolptr.True()
+	case "false":
+		production = boolptr.False()
+	default:
+		production = nil
+	}
+
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[req.ProjectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if boolptr.IsTrue(production) {
+			if !ctx.Resources.ProjectAuthInfo[req.ProjectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[req.ProjectKey].ProductionService.View {
+				ctx.UnAuthorized = true
+				return
+			}
+		} else {
+			if !ctx.Resources.ProjectAuthInfo[req.ProjectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[req.ProjectKey].Service.View {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
+	}
+
+	ctx.Resp, ctx.Err = svcservice.ListServiceLabels(req.ProjectKey, req.ServiceName, production, ctx.Logger)
 }

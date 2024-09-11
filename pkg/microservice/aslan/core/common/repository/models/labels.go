@@ -28,7 +28,6 @@ type Label struct {
 	UpdatedAt   int64              `bson:"updated_at"            json:"updated_at"`
 }
 
-func (h Label) TableName() string {
-
+func (l Label) TableName() string {
 	return "label"
 }
