@@ -100,9 +100,10 @@ func DeleteServiceLabel(bindingID string, log *zap.SugaredLogger) error {
 }
 
 type ServiceLabelResp struct {
-	ID    string `json:"id,omitempty"`
-	Key   string `json:"key"`
-	Value string `json:"value"`
+	ID      string `json:"id,omitempty"`
+	LabelID string `json:"label_id,omitempty"`
+	Key     string `json:"key"`
+	Value   string `json:"value"`
 }
 
 func ListServiceLabels(projectKey, serviceName string, production *bool, log *zap.SugaredLogger) ([]*ServiceLabelResp, error) {
@@ -128,9 +129,10 @@ func ListServiceLabels(projectKey, serviceName string, production *bool, log *za
 		}
 
 		resp = append(resp, &ServiceLabelResp{
-			ID:    binding.ID.Hex(),
-			Key:   labelSetting.Key,
-			Value: binding.Value,
+			ID:      binding.ID.Hex(),
+			LabelID: labelSetting.ID.Hex(),
+			Key:     labelSetting.Key,
+			Value:   binding.Value,
 		})
 	}
 
