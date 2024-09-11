@@ -311,7 +311,7 @@ const docTemplate = `{
         },
         "/api/aslan/environment/environments/{name}": {
             "get": {
-                "description": "Get Product",
+                "description": "Get SAE Env",
                 "consumes": [
                     "application/json"
                 ],
@@ -321,7 +321,7 @@ const docTemplate = `{
                 "tags": [
                     "environment"
                 ],
-                "summary": "Get Product",
+                "summary": "Get SAE Env",
                 "parameters": [
                     {
                         "type": "string",
@@ -4642,6 +4642,213 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/aslan/system/sae": {
+            "get": {
+                "description": "List SAE",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "system"
+                ],
+                "summary": "List SAE",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "encrypted key",
+                        "name": "encryptedKey",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.SAE"
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Create SAE",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "system"
+                ],
+                "summary": "Create SAE",
+                "parameters": [
+                    {
+                        "description": "body",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.SAE"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/api/aslan/system/sae/detail": {
+            "get": {
+                "description": "List SAE Detail",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "system"
+                ],
+                "summary": "List SAE Detail",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.SAE"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/aslan/system/sae/validate": {
+            "post": {
+                "description": "Validate SAE",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "system"
+                ],
+                "summary": "Validate SAE",
+                "parameters": [
+                    {
+                        "description": "body",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.SAE"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/api/aslan/system/sae/{id}": {
+            "get": {
+                "description": "Get SAE",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "system"
+                ],
+                "summary": "Get SAE",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.SAE"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Update SAE",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "system"
+                ],
+                "summary": "Update SAE",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "sae id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "body",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.SAE"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            },
+            "delete": {
+                "description": "Delete SAE",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "system"
+                ],
+                "summary": "Delete SAE",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "sae id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
         "/api/aslan/system/webhook/config": {
             "get": {
                 "description": "Get webhook config",
@@ -8328,6 +8535,32 @@ const docTemplate = `{
                 },
                 "updated_by": {
                     "type": "string"
+                }
+            }
+        },
+        "models.SAE": {
+            "type": "object",
+            "properties": {
+                "acces_key_id": {
+                    "type": "string"
+                },
+                "access_key_secret": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "update_by": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "integer"
                 }
             }
         },

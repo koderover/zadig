@@ -1943,6 +1943,23 @@ definitions:
       updated_by:
         type: string
     type: object
+  models.SAE:
+    properties:
+      acces_key_id:
+        type: string
+      access_key_secret:
+        type: string
+      created_at:
+        type: integer
+      id:
+        type: string
+      name:
+        type: string
+      update_by:
+        type: string
+      updated_at:
+        type: integer
+    type: object
   models.SQLExecResult:
     properties:
       elapsed_time:
@@ -4618,7 +4635,7 @@ paths:
     get:
       consumes:
       - application/json
-      description: Get Product
+      description: Get SAE Env
       parameters:
       - description: project name
         in: query
@@ -4637,7 +4654,7 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/github_com_koderover_zadig_v2_pkg_microservice_aslan_core_environment_service.ProductResp'
-      summary: Get Product
+      summary: Get SAE Env
       tags:
       - environment
   /api/aslan/environment/environments/{name}/analysis:
@@ -7475,6 +7492,142 @@ paths:
               $ref: '#/definitions/models.S3Storage'
             type: array
       summary: List S3 Storage By Project
+      tags:
+      - system
+  /api/aslan/system/sae:
+    get:
+      consumes:
+      - application/json
+      description: List SAE
+      parameters:
+      - description: encrypted key
+        in: query
+        name: encryptedKey
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.SAE'
+            type: array
+      summary: List SAE
+      tags:
+      - system
+    post:
+      consumes:
+      - application/json
+      description: Create SAE
+      parameters:
+      - description: body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.SAE'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Create SAE
+      tags:
+      - system
+  /api/aslan/system/sae/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete SAE
+      parameters:
+      - description: sae id
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Delete SAE
+      tags:
+      - system
+    get:
+      consumes:
+      - application/json
+      description: Get SAE
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.SAE'
+      summary: Get SAE
+      tags:
+      - system
+    put:
+      consumes:
+      - application/json
+      description: Update SAE
+      parameters:
+      - description: sae id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.SAE'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Update SAE
+      tags:
+      - system
+  /api/aslan/system/sae/detail:
+    get:
+      consumes:
+      - application/json
+      description: List SAE Detail
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.SAE'
+            type: array
+      summary: List SAE Detail
+      tags:
+      - system
+  /api/aslan/system/sae/validate:
+    post:
+      consumes:
+      - application/json
+      description: Validate SAE
+      parameters:
+      - description: body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.SAE'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Validate SAE
       tags:
       - system
   /api/aslan/system/webhook/config:
