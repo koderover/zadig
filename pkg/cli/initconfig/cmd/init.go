@@ -32,7 +32,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/ai"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	vmcommonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/vm"
-	labelMongodb "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/label/repository/mongodb"
 	statrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/stat/repository/mongodb"
 	systemrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/repository/mongodb"
 	systemservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/service"
@@ -183,6 +182,7 @@ func createOrUpdateMongodbIndex(ctx context.Context) {
 		commonrepo.NewReleasePlanColl(),
 		commonrepo.NewReleasePlanLogColl(),
 		commonrepo.NewEnvServiceVersionColl(),
+		commonrepo.NewLabelColl(),
 
 		// msg queue
 		commonrepo.NewMsgQueueCommonColl(),
@@ -190,8 +190,6 @@ func createOrUpdateMongodbIndex(ctx context.Context) {
 
 		systemrepo.NewAnnouncementColl(),
 		systemrepo.NewOperationLogColl(),
-		labelMongodb.NewLabelColl(),
-		labelMongodb.NewLabelBindingColl(),
 		modeMongodb.NewCollaborationModeColl(),
 		modeMongodb.NewCollaborationInstanceColl(),
 
