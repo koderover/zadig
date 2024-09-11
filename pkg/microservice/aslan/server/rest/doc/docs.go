@@ -311,7 +311,7 @@ const docTemplate = `{
         },
         "/api/aslan/environment/environments/{name}": {
             "get": {
-                "description": "Get Product",
+                "description": "Get SAE Env",
                 "consumes": [
                     "application/json"
                 ],
@@ -321,7 +321,7 @@ const docTemplate = `{
                 "tags": [
                     "environment"
                 ],
-                "summary": "Get Product",
+                "summary": "Get SAE Env",
                 "parameters": [
                     {
                         "type": "string",
@@ -4523,6 +4523,213 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/aslan/system/sae": {
+            "get": {
+                "description": "List SAE",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "system"
+                ],
+                "summary": "List SAE",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "encrypted key",
+                        "name": "encryptedKey",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.SAE"
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Create SAE",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "system"
+                ],
+                "summary": "Create SAE",
+                "parameters": [
+                    {
+                        "description": "body",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.SAE"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/api/aslan/system/sae/detail": {
+            "get": {
+                "description": "List SAE Detail",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "system"
+                ],
+                "summary": "List SAE Detail",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.SAE"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/aslan/system/sae/validate": {
+            "post": {
+                "description": "Validate SAE",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "system"
+                ],
+                "summary": "Validate SAE",
+                "parameters": [
+                    {
+                        "description": "body",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.SAE"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/api/aslan/system/sae/{id}": {
+            "get": {
+                "description": "Get SAE",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "system"
+                ],
+                "summary": "Get SAE",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.SAE"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Update SAE",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "system"
+                ],
+                "summary": "Update SAE",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "sae id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "body",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.SAE"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            },
+            "delete": {
+                "description": "Delete SAE",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "system"
+                ],
+                "summary": "Delete SAE",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "sae id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
         "/api/aslan/system/webhook/config": {
             "get": {
                 "description": "Get webhook config",
@@ -5496,6 +5703,21 @@ const docTemplate = `{
                 "JiraPersonalAccessToken"
             ]
         },
+        "config.JobErrorPolicy": {
+            "type": "string",
+            "enum": [
+                "stop",
+                "ignore_error",
+                "manual_check",
+                "retry"
+            ],
+            "x-enum-varnames": [
+                "JobErrorPolicyStop",
+                "JobErrorPolicyIgnoreError",
+                "JobErrorPolicyManualCheck",
+                "JobErrorPolicyRetry"
+            ]
+        },
         "config.JobRunPolicy": {
             "type": "string",
             "enum": [
@@ -5701,7 +5923,9 @@ const docTemplate = `{
                 "distributed",
                 "wait_for_approval",
                 "debug_before",
-                "debug_after"
+                "debug_after",
+                "unstable",
+                "wait_for_manual_error_handling"
             ],
             "x-enum-varnames": [
                 "StatusDisabled",
@@ -5724,7 +5948,9 @@ const docTemplate = `{
                 "StatusDistributed",
                 "StatusWaitingApprove",
                 "StatusDebugBefore",
-                "StatusDebugAfter"
+                "StatusDebugAfter",
+                "StatusUnstable",
+                "StatusManualApproval"
             ]
         },
         "github_com_koderover_zadig_v2_pkg_microservice_aslan_core_common_service.EnvService": {
@@ -6803,12 +7029,6 @@ const docTemplate = `{
                         "$ref": "#/definitions/models.ServiceKeyVal"
                     }
                 },
-                "latest_variable_kvs": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/types.RenderVariableKV"
-                    }
-                },
                 "modules": {
                     "type": "array",
                     "items": {
@@ -6838,6 +7058,7 @@ const docTemplate = `{
                     }
                 },
                 "variable_yaml": {
+                    "description": "LatestVariableKVs []*commontypes.RenderVariableKV ` + "`" + `bson:\"latest_variable_kvs\"              yaml:\"latest_variable_kvs\"                 json:\"latest_variable_kvs\"` + "`" + `",
                     "type": "string"
                 }
             }
@@ -6996,6 +7217,9 @@ const docTemplate = `{
                 },
                 "env_name": {
                     "type": "string"
+                },
+                "health_checks": {
+                    "$ref": "#/definitions/models.PmHealthCheck"
                 },
                 "host_id": {
                     "type": "string"
@@ -7256,6 +7480,9 @@ const docTemplate = `{
         "models.Job": {
             "type": "object",
             "properties": {
+                "error_policy": {
+                    "$ref": "#/definitions/models.JobErrorPolicy"
+                },
                 "name": {
                     "type": "string"
                 },
@@ -7275,6 +7502,23 @@ const docTemplate = `{
                 "spec": {},
                 "type": {
                     "$ref": "#/definitions/config.JobType"
+                }
+            }
+        },
+        "models.JobErrorPolicy": {
+            "type": "object",
+            "properties": {
+                "approval_users": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.User"
+                    }
+                },
+                "maximum_retry": {
+                    "type": "integer"
+                },
+                "policy": {
+                    "$ref": "#/definitions/config.JobErrorPolicy"
                 }
             }
         },
@@ -7975,6 +8219,9 @@ const docTemplate = `{
                 },
                 "sprint_id": {
                     "type": "integer"
+                },
+                "sprint_name": {
+                    "type": "string"
                 }
             }
         },
@@ -8114,6 +8361,32 @@ const docTemplate = `{
                 },
                 "updated_by": {
                     "type": "string"
+                }
+            }
+        },
+        "models.SAE": {
+            "type": "object",
+            "properties": {
+                "acces_key_id": {
+                    "type": "string"
+                },
+                "access_key_secret": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "update_by": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "integer"
                 }
             }
         },

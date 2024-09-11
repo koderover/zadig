@@ -452,6 +452,18 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		labels.POST("", CreateServiceLabelSetting)
 		labels.PUT("/:id", UpdateServiceLabelSetting)
 		labels.DELETE("/:id", DeleteServiceLabelSetting)
+
+	}
+
+	sae := router.Group("sae")
+	{
+		sae.POST("", CreateSAE)
+		sae.GET("", ListSAE)
+		sae.GET("/detail", ListSAEInfo)
+		sae.GET("/:id", GetSAE)
+		sae.PUT("/:id", UpdateSAE)
+		sae.DELETE("/:id", DeleteSAE)
+		sae.POST("/validate", ValidateSAE)
 	}
 }
 
