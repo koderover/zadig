@@ -308,6 +308,16 @@ func getProjectsWithEnvs(opts *ProjectListOptions) (sets.String, map[string][]st
 		nameMap[nameWithEnv.ProjectName] = nameWithEnv.Envs
 	}
 
+	saeNameWithEnvs, err := mongodb.NewSAEEnvColl().ListProjectsInNames(opts.Names)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	for _, nameWithEnv := range saeNameWithEnvs {
+		nameSet.Insert(nameWithEnv.ProjectName)
+		nameMap[nameWithEnv.ProjectName] = nameWithEnv.Envs
+	}
+
 	return nameSet, nameMap, nil
 }
 
