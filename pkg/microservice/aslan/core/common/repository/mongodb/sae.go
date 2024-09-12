@@ -97,7 +97,7 @@ func (c *SAEColl) Find(opt *SAECollFindOption) (*models.SAE, error) {
 
 func (c *SAEColl) Create(args *models.SAE) error {
 	if args == nil {
-		return errors.New("nil db instance args")
+		return errors.New("nil sae args")
 	}
 
 	args.CreatedAt = time.Now().Unix()
@@ -137,4 +137,11 @@ func (c *SAEColl) Delete(id string) error {
 	_, err = c.DeleteOne(context.TODO(), query)
 
 	return err
+}
+
+func (c *SAEColl) FindDefault() (*models.SAE, error) {
+	query := bson.M{}
+	resp := &models.SAE{}
+	err := c.FindOne(context.Background(), query).Decode(resp)
+	return resp, err
 }

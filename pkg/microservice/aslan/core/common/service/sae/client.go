@@ -10,7 +10,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 )
 
-func newClient(sae *models.SAE, regionID string) (result *sae20190506.Client, err error) {
+func NewClient(sae *models.SAE, regionID string) (result *sae20190506.Client, err error) {
 	config := &openapi.Config{
 		AccessKeyId:     tea.String(sae.AccessKeyId),
 		AccessKeySecret: tea.String(sae.AccessKeySecret),
