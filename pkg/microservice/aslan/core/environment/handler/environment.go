@@ -30,6 +30,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models/ai"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models/template"
@@ -2707,4 +2708,850 @@ func UpsertEnvSleepCron(c *gin.Context) {
 	}
 
 	ctx.RespErr = service.UpsertEnvSleepCron(projectName, envName, &production, arg, ctx.Logger)
+}
+
+// @Summary List SAE Envs
+// @Description List SAE Envs
+// @Tags 	environment
+// @Accept 	json
+// @Produce json
+// @Param 	projectName	query		string										true	"project name"
+// @Param 	production 	query		bool										true	"is production"
+// @Success 200 		{array} 	service.EnvResp
+// @Router /api/aslan/environment/environments/sae [get]
+func ListSAEEnvs(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectKey := c.Query("projectName")
+	if projectKey == "" {
+		ctx.Err = e.ErrInvalidParam
+		return
+	}
+
+	hasPermission := false
+	if ctx.Resources.IsSystemAdmin {
+		hasPermission = true
+	}
+
+	production := c.Query("production") == "true"
+	if production {
+		if projectInfo, ok := ctx.Resources.ProjectAuthInfo[projectKey]; ok {
+			if projectInfo.IsProjectAdmin ||
+				projectInfo.ProductionEnv.View {
+				hasPermission = true
+			}
+		}
+	} else {
+		if projectInfo, ok := ctx.Resources.ProjectAuthInfo[projectKey]; ok {
+			if projectInfo.IsProjectAdmin ||
+				projectInfo.Env.View {
+				hasPermission = true
+			}
+		}
+	}
+
+	if !hasPermission {
+		ctx.Resp = []*service.ProductResp{}
+		return
+	}
+
+	ctx.Resp, ctx.Err = service.ListSAEEnvs(ctx.UserID, projectKey, ctx.Logger)
+}
+
+// @Summary Get SAE Env
+// @Description Get SAE Env
+// @Tags 	environment
+// @Accept 	json
+// @Produce json
+// @Param 	projectName	query		string										true	"project name"
+// @Param 	name 		path		string										true	"env name"
+// @Param 	production 	query		bool										true	"is production"
+// @Success 200 		{object} 	models.SAEEnv
+// @Router /api/aslan/environment/environments/sae/{name} [get]
+func GetSAEEnv(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectKey := c.Query("projectName")
+	envName := c.Param("name")
+	production := c.Query("production") == "true"
+
+	// authorization check
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		if production {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.View {
+				ctx.UnAuthorized = true
+				return
+			}
+
+			err = commonutil.CheckZadigProfessionalLicense()
+			if err != nil {
+				ctx.Err = err
+				return
+			}
+		} else {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].Env.View {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
+	}
+
+	ctx.Resp, ctx.Err = service.GetSAEEnv(ctx.UserName, envName, projectKey, ctx.Logger)
+}
+
+// @Summary Create SAE Env
+// @Description Create SAE Env
+// @Tags 	environment
+// @Accept 	json
+// @Produce json
+// @Param 	projectName	query		string										true	"project name"
+// @Param 	name 		path		string										true	"env name"
+// @Param 	production 	query		bool										true	"is production"
+// @Param 	body 		body 		models.SAEEnv					            true 	"body"
+// @Success 200
+// @Router /api/aslan/environment/environments/sae [post]
+func CreateSAEEnv(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectKey := c.Query("projectName")
+	envName := c.Param("name")
+	production := c.Query("production") == "true"
+
+	data, err := c.GetRawData()
+	if err != nil {
+		log.Errorf("CreateSAEEnv GetRawData() err : %v", err)
+	}
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "新增", "SAE环境", envName, string(data), ctx.Logger, envName)
+
+	arg := new(models.SAEEnv)
+	err = c.BindJSON(arg)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	// authorization check
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		if production {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.Create {
+				ctx.UnAuthorized = true
+				return
+			}
+
+			err = commonutil.CheckZadigProfessionalLicense()
+			if err != nil {
+				ctx.Err = err
+				return
+			}
+		} else {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].Env.Create {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
+	}
+
+	ctx.Err = service.CreateSAEEnv(ctx.UserName, arg, true, ctx.Logger)
+}
+
+// @Summary Update SAE Env
+// @Description Update SAE Env
+// @Tags 	environment
+// @Accept 	json
+// @Produce json
+// @Param 	projectName	query		string										true	"project name"
+// @Param 	name 		path		string										true	"env name"
+// @Param 	production 	query		bool										true	"is production"
+// @Param 	body 		body 		models.SAEEnv					            true 	"body"
+// @Success 200
+// @Router /api/aslan/environment/environments/sae/{name} [put]
+func UpdateSAEEnv(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectKey := c.Query("projectName")
+	envName := c.Param("name")
+	production := c.Query("production") == "true"
+
+	data, err := c.GetRawData()
+	if err != nil {
+		log.Errorf("UpdateSAEEnv GetRawData() err : %v", err)
+	}
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "更新", "SAE环境", envName, string(data), ctx.Logger, envName)
+
+	arg := new(models.SAEEnv)
+	err = c.BindJSON(arg)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	// authorization check
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		if production {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.EditConfig {
+				ctx.UnAuthorized = true
+				return
+			}
+
+			err = commonutil.CheckZadigProfessionalLicense()
+			if err != nil {
+				ctx.Err = err
+				return
+			}
+		} else {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].Env.EditConfig {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
+	}
+
+	ctx.Err = service.CreateSAEEnv(ctx.UserName, arg, false, ctx.Logger)
+}
+
+// @Summary Delete SAE Env
+// @Description Delete SAE Env
+// @Tags 	environment
+// @Accept 	json
+// @Produce json
+// @Param 	projectName	query		string										true	"project name"
+// @Param 	name 		path		string										true	"env name"
+// @Param 	production 	query		bool										true	"is production"
+// @Success 200
+// @Router /api/aslan/environment/environments/sae/{name} [delete]
+func DeleteSAEEnv(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectKey := c.Query("projectName")
+	envName := c.Param("name")
+	production := c.Query("production") == "true"
+
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "删除", "SAE环境", envName, "", ctx.Logger, envName)
+
+	// authorization check
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		if production {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.EditConfig {
+				ctx.UnAuthorized = true
+				return
+			}
+
+			err = commonutil.CheckZadigProfessionalLicense()
+			if err != nil {
+				ctx.Err = err
+				return
+			}
+		} else {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].Env.EditConfig {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
+	}
+
+	ctx.Err = service.DeleteSAEEnv(ctx.UserName, projectKey, envName, ctx.Logger)
+}
+
+// @Summary List SAE Apps
+// @Description List SAE Apps
+// @Tags 	environment
+// @Accept 	json
+// @Produce json
+// @Param 	projectName		query		string										true	"project name"
+// @Param 	envName			query		string										false	"env name"
+// @Param 	namespace		query		string										true	"namespace"
+// @Param 	regionID 		query		string										true	"region id"
+// @Param 	production 		query		bool										true	"is production"
+// @Param 	isCreateEnv 	query		bool										true	"is create env"
+// @Param 	appName 		query		string										false	"app name"
+// @Param 	currentPage		query		string										true	"current page"
+// @Param 	pageSize 		query		string										true	"page size"
+// @Success 200 			{object} 	service.ListSAEAppsResponse
+// @Router /api/aslan/environment/environments/sae/app [get]
+func ListSAEApps(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectKey := c.Query("projectName")
+	envName := c.Query("envName")
+	production := c.Query("production") == "true"
+	isCreateEnv := c.Query("isCreateEnv") == "true"
+	regionID := c.Query("regionID")
+	namespace := c.Query("namespace")
+	appName := c.Query("appName")
+	currentPage, err := strconv.Atoi(c.Query("currentPage"))
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc("currentPage must be a number")
+	}
+	pageSize, err := strconv.Atoi(c.Query("pageSize"))
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc("pageSize must be a number")
+	}
+
+	// authorization check
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		if production {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.View {
+				ctx.UnAuthorized = true
+				return
+			}
+
+			err = commonutil.CheckZadigProfessionalLicense()
+			if err != nil {
+				ctx.Err = err
+				return
+			}
+		} else {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].Env.View {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
+	}
+
+	ctx.Resp, ctx.Err = service.ListSAEApps(regionID, namespace, projectKey, envName, appName, isCreateEnv, int32(currentPage), int32(pageSize), ctx.Logger)
+}
+
+// @Summary List SAE Namespaces
+// @Description List SAE Namespaces
+// @Tags 	environment
+// @Accept 	json
+// @Produce json
+// @Param 	projectName		query		string										true	"project name"
+// @Param 	regionID 		query		string										true	"region id"
+// @Param 	production 		query		bool										true	"is production"
+// @Success 200 			{array} 	service.SAENamespace
+// @Router /api/aslan/environment/environments/sae/namespace [get]
+func ListSAENamespaces(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectKey := c.Query("projectName")
+	production := c.Query("production") == "true"
+	regionID := c.Query("regionID")
+
+	// authorization check
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		if production {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.View {
+				ctx.UnAuthorized = true
+				return
+			}
+
+			err = commonutil.CheckZadigProfessionalLicense()
+			if err != nil {
+				ctx.Err = err
+				return
+			}
+		} else {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].Env.View {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
+	}
+
+	ctx.Resp, ctx.Err = service.ListSAENamespaces(regionID, ctx.Logger)
+}
+
+// @Summary Restart SAE Application
+// @Description Restart SAE Application
+// @Tags 	environment
+// @Accept 	json
+// @Produce json
+// @Param 	projectName		query		string										true	"project name"
+// @Param 	appID			path		string										true	"app ID"
+// @Param 	name			path		string										true	"env name"
+// @Param 	production 		query		bool										true	"is production"
+// @Success 200
+// @Router /api/aslan/environment/environments/sae/{name}/app/{appID}/restart [post]
+func RestartSAEApp(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectKey := c.Query("projectName")
+	production := c.Query("production") == "true"
+	appID := c.Param("appID")
+	envName := c.Param("name")
+
+	// authorization check
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		if production {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.ManagePods {
+				ctx.UnAuthorized = true
+				return
+			}
+
+			err = commonutil.CheckZadigProfessionalLicense()
+			if err != nil {
+				ctx.Err = err
+				return
+			}
+		} else {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].Env.ManagePods {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
+	}
+
+	ctx.Err = service.RestartSAEApp(projectKey, envName, appID, ctx.Logger)
+}
+
+// @Summary Rescale SAE Application
+// @Description Rescale SAE Application
+// @Tags 	environment
+// @Accept 	json
+// @Produce json
+// @Param 	projectName		query		string										true	"project name"
+// @Param 	name			path		string										true	"env name"
+// @Param 	appID			path		string										true	"app ID"
+// @Param 	replicas 		query		int											true	"replicas"
+// @Param 	production 		query		bool										true	"is production"
+// @Success 200
+// @Router /api/aslan/environment/environments/sae/{name}/app/{appID}/rescale [post]
+func RescaleSAEApp(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectKey := c.Query("projectName")
+	production := c.Query("production") == "true"
+	appID := c.Param("appID")
+	envName := c.Param("name")
+	replicas, err := strconv.Atoi(c.Query("replicas"))
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc("replicas must be a number")
+		return
+	}
+
+	// authorization check
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		if production {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.ManagePods {
+				ctx.UnAuthorized = true
+				return
+			}
+
+			err = commonutil.CheckZadigProfessionalLicense()
+			if err != nil {
+				ctx.Err = err
+				return
+			}
+		} else {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].Env.ManagePods {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
+	}
+
+	ctx.Err = service.RescaleSAEApp(projectKey, envName, appID, int32(replicas), ctx.Logger)
+}
+
+// @Summary Rollback SAE Application
+// @Description Rollback SAE Application
+// @Tags 	environment
+// @Accept 	json
+// @Produce json
+// @Param 	projectName		query		string										true	"project name"
+// @Param 	name			path		string										true	"env name"
+// @Param 	appID			path		string										true	"app ID"
+// @Param 	versionID 		query		string										true	"version ID"
+// @Param 	production 		query		bool										true	"is production"
+// @Success 200
+// @Router /api/aslan/environment/environments/sae/{name}/app/{appID}/rollback [post]
+func RollbackSAEApp(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectKey := c.Query("projectName")
+	production := c.Query("production") == "true"
+	appID := c.Param("appID")
+	envName := c.Param("name")
+	versionID := c.Query("versionID")
+
+	// authorization check
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		if production {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.ManagePods {
+				ctx.UnAuthorized = true
+				return
+			}
+
+			err = commonutil.CheckZadigProfessionalLicense()
+			if err != nil {
+				ctx.Err = err
+				return
+			}
+		} else {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].Env.ManagePods {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
+	}
+
+	ctx.Err = service.RollbackSAEApp(projectKey, envName, appID, versionID, ctx.Logger)
+}
+
+// @Summary List SAE Application Verions
+// @Description List SAE Application Version
+// @Tags 	environment
+// @Accept 	json
+// @Produce json
+// @Param 	projectName		query		string										true	"project name"
+// @Param 	name			path		string										true	"env name"
+// @Param 	appID			path		string										true	"app ID"
+// @Param 	production 		query		bool										true	"is production"
+// @Success 200 			{array} 	service.SAEAppVersion
+// @Router /api/aslan/environment/environments/sae/{name}/app/{appID}/versions [get]
+func ListSAEAppVersion(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectKey := c.Query("projectName")
+	production := c.Query("production") == "true"
+	appID := c.Param("appID")
+	envName := c.Param("name")
+
+	// authorization check
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		if production {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.View {
+				ctx.UnAuthorized = true
+				return
+			}
+
+			err = commonutil.CheckZadigProfessionalLicense()
+			if err != nil {
+				ctx.Err = err
+				return
+			}
+		} else {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].Env.View {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
+	}
+
+	ctx.Resp, ctx.Err = service.ListSAEAppVersions(projectKey, envName, appID, ctx.Logger)
+}
+
+// @Summary List SAE Application Instances
+// @Description List SAE Application Instances
+// @Tags 	environment
+// @Accept 	json
+// @Produce json
+// @Param 	projectName		query		string										true	"project name"
+// @Param 	name			path		string										true	"env name"
+// @Param 	appID			path		string										true	"app ID"
+// @Param 	production 		query		bool										true	"is production"
+// @Success 200 			{array} 	service.SAEAppGroup
+// @Router /api/aslan/environment/environments/sae/{name}/app/{appID}/instances [get]
+func ListSAEAppInstances(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectKey := c.Query("projectName")
+	production := c.Query("production") == "true"
+	appID := c.Param("appID")
+	envName := c.Param("name")
+
+	// authorization check
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		if production {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.View {
+				ctx.UnAuthorized = true
+				return
+			}
+
+			err = commonutil.CheckZadigProfessionalLicense()
+			if err != nil {
+				ctx.Err = err
+				return
+			}
+		} else {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].Env.View {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
+	}
+
+	ctx.Resp, ctx.Err = service.ListSAEAppInstances(projectKey, envName, appID, ctx.Logger)
+}
+
+// @Summary Restart SAE Application Instance
+// @Description Restart SAE Application Instance
+// @Tags 	environment
+// @Accept 	json
+// @Produce json
+// @Param 	projectName		query		string										true	"project name"
+// @Param 	name			path		string										true	"env name"
+// @Param 	appID			path		string										true	"app ID"
+// @Param 	instanceID		path		string										true	"instance ID"
+// @Param 	production 		query		bool										true	"is production"
+// @Success 200
+// @Router /api/aslan/environment/environments/sae/{name}/app/{appID}/instance/{instanceID}/restart [post]
+func RestartSAEAppInstance(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectKey := c.Query("projectName")
+	production := c.Query("production") == "true"
+	appID := c.Param("appID")
+	instanceID := c.Param("instanceID")
+	envName := c.Param("name")
+
+	// authorization check
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		if production {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.ManagePods {
+				ctx.UnAuthorized = true
+				return
+			}
+
+			err = commonutil.CheckZadigProfessionalLicense()
+			if err != nil {
+				ctx.Err = err
+				return
+			}
+		} else {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].Env.ManagePods {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
+	}
+
+	ctx.Err = service.RestartSAEAppInstance(projectKey, envName, appID, instanceID, ctx.Logger)
+}
+
+// @Summary Get SAE Application Instance Log
+// @Description Get SAE Application Instance Log
+// @Tags 	environment
+// @Accept 	json
+// @Produce json
+// @Param 	projectName		query		string										true	"project name"
+// @Param 	name			path		string										true	"env name"
+// @Param 	appID			path		string										true	"app ID"
+// @Param 	instanceID		path		string										true	"instance ID"
+// @Param 	production 		query		bool										true	"is production"
+// @Success 200             {string}    string
+// @Router /api/aslan/environment/environments/sae/{name}/app/{appID}/instance/{instanceID}/log [get]
+func GetSAEAppInstanceLog(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectKey := c.Query("projectName")
+	production := c.Query("production") == "true"
+	appID := c.Param("appID")
+	instanceID := c.Param("instanceID")
+	envName := c.Param("name")
+
+	// authorization check
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		if production {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.ManagePods {
+				ctx.UnAuthorized = true
+				return
+			}
+
+			err = commonutil.CheckZadigProfessionalLicense()
+			if err != nil {
+				ctx.Err = err
+				return
+			}
+		} else {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].Env.ManagePods {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
+	}
+
+	ctx.Resp, ctx.Err = service.GetSAEAppInstanceLog(projectKey, envName, appID, instanceID, ctx.Logger)
 }
