@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	sae20190506 "github.com/alibabacloud-go/sae-20190506/client"
+	"github.com/alibabacloud-go/tea/tea"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
@@ -92,15 +93,18 @@ func ValidateSAE(args *commonmodels.SAE) error {
 }
 
 func validateSAE(args *commonmodels.SAE) error {
-	client, err := newClient(args, "cn-hangzhou")
+	client, err := NewClient(args, "cn-hangzhou")
 	if err != nil {
 		return fmt.Errorf("new SAE client err:%v", err)
 	}
 
-	describeNamespacesListRequest := &sae20190506.DescribeNamespaceListRequest{}
-	_, err = client.DescribeNamespaceList(describeNamespacesListRequest)
+	describeNamespacesRequest := &sae20190506.DescribeNamespacesRequest{}
+	saeResp, err := client.DescribeNamespaces(describeNamespacesRequest)
 	if err != nil {
-		return fmt.Errorf("DescribeNamespaceList err: %v", err)
+		return fmt.Errorf("Failed to describe namespace list err: %v", err)
+	}
+	if !tea.BoolValue(saeResp.Body.Success) {
+		return fmt.Errorf("Failed to describe namespace list, statusCode: %d, code: %s, errCode: %s, message: %s", tea.Int32Value(saeResp.StatusCode), tea.StringValue(saeResp.Body.Code), tea.StringValue(saeResp.Body.ErrorCode), tea.StringValue(saeResp.Body.Message))
 	}
 
 	return nil

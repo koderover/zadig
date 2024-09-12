@@ -23,7 +23,7 @@ import (
 type SAE struct {
 	ID              primitive.ObjectID `bson:"_id,omitempty"         json:"id,omitempty"`
 	Name            string             `bson:"name"                  json:"name"`
-	AccessKeyId     string             `bson:"access_key_id"         json:"acces_key_id"`
+	AccessKeyId     string             `bson:"access_key_id"         json:"access_key_id"`
 	AccessKeySecret string             `bson:"access_key_secret"     json:"access_key_secret"`
 	UpdateBy        string             `bson:"update_by"             json:"update_by"`
 	CreatedAt       int64              `bson:"created_at"            json:"created_at"`

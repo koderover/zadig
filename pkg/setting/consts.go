@@ -948,3 +948,8 @@ const (
 	ContainerTypeInit   ContainerType = "init"
 	ContainerTypeNormal ContainerType = ""
 )
+
+const (
+	SAEZadigProjectTagKey = "ZADIG_PROJECT"
+	SAEZadigEnvTagKey     = "ZADIG_ENV"
+)
