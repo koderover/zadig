@@ -260,6 +260,47 @@ func SearchBizDirByService(c *gin.Context) {
 	ctx.Resp, ctx.Err = projectservice.SearchBizDirByService(serviceName)
 }
 
+type searchBizDirReq struct {
+	ServiceName string `json:"serviceName" form:"serviceName"`
+	ProjectName string `json:"projectName" form:"projectName"`
+	Label       string `json:"label"       form:"label"`
+}
+
+func SearchBizDir(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	if !ctx.Resources.IsSystemAdmin {
+		if !ctx.Resources.SystemActions.BusinessDirectory.View {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	req := new(searchBizDirReq)
+
+	err = c.ShouldBindQuery(req)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid param, err: " + err.Error())
+		return
+	}
+
+	err = util.CheckZadigEnterpriseLicense()
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+
+	ctx.Resp, ctx.Err = projectservice.SearchBizDir(req.ServiceName, req.ProjectName, req.Label)
+}
+
 // @Summary Get Bussiness Directory Searvice Detail
 // @Description Get Bussiness Directory Searvice Detail
 // @Tags  	project

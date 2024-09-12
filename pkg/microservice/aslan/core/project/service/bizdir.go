@@ -259,6 +259,126 @@ func SearchBizDirByService(serviceName string) ([]*SearchBizDirByServiceGroup, e
 	return resp, nil
 }
 
+func SearchBizDir(serviceName, projectName, labels string) ([]*SearchBizDirByServiceGroup, error) {
+	resp := []*SearchBizDirByServiceGroup{}
+	groups, err := commonrepo.NewProjectGroupColl().List()
+	if err != nil {
+		return nil, e.ErrSearchBizDirByService.AddErr(fmt.Errorf("failed to list project groups, error: %v", err))
+	}
+
+	projects, err := templaterepo.NewProductColl().List()
+	if err != nil {
+		return nil, e.ErrSearchBizDirByService.AddErr(fmt.Errorf("failed to list template projects, error: %v", err))
+	}
+
+	templateProjectMap := make(map[string]*template.Product)
+	for _, project := range projects {
+		templateProjectMap[project.ProductName] = project
+	}
+
+	projectGroupMap := make(map[string]string)
+	for _, group := range groups {
+		for _, project := range group.Projects {
+			projectGroupMap[project.ProjectKey] = group.Name
+		}
+	}
+
+	labeledServiceMap := make(map[string][]string)
+	labelbindings, err := commonrepo.NewLabelBindingColl().List(nil)
+	for _, label := range labelbindings {
+		if _, ok := labeledServiceMap[label.ProjectKey]; !ok {
+			labeledServiceMap[label.ProjectKey] = make([]string, 0)
+		}
+		labeledServiceMap[label.ProjectKey] = append(labeledServiceMap[label.ProjectKey], label.ServiceName)
+	}
+
+	groupMap := make(map[string]*SearchBizDirByServiceGroup)
+	projectMap := make(map[string]*SearchBizDirByServiceProject)
+	addToRespMap := func(service *commonmodels.Service) {
+		if _, ok := templateProjectMap[service.ProductName]; !ok {
+			log.Warnf("project %s not found for service %s", service.ProductName, service.ServiceName)
+			return
+		}
+
+		if len(labels) > 0 {
+			// TODO: change this logic: in patch 3.2.0 there are no production service with labels, so it is safe to ignore all production service
+			if service.Production {
+				return
+			}
+
+			if _, ok := labeledServiceMap[service.ProductName]; !ok {
+				// if service is not shown in label filter, ignore it
+				log.Debugf("project not found, ignoring service: %s", service.ServiceName)
+				return
+			}
+
+			found := false
+			for _, svc := range labeledServiceMap[service.ProductName] {
+				if svc == service.ServiceName {
+					found = true
+					break
+				}
+			}
+
+			if !found {
+				log.Debugf("service not having required label, ignoring service: %s", service.ServiceName)
+				return
+			}
+		}
+
+		groupName, ok := projectGroupMap[service.ProductName]
+		if !ok {
+			groupName = setting.UNGROUPED
+		}
+		elemGroup, ok := groupMap[groupName]
+		if !ok {
+			elemGroup = &SearchBizDirByServiceGroup{
+				GroupName: groupName,
+			}
+			groupMap[groupName] = elemGroup
+		}
+
+		if elem, ok := projectMap[service.ProductName]; !ok {
+			project := &SearchBizDirByServiceProject{
+				Project: &commonmodels.ProjectDetail{
+					ProjectKey:        templateProjectMap[service.ProductName].ProductName,
+					ProjectName:       templateProjectMap[service.ProductName].ProjectName,
+					ProjectDeployType: templateProjectMap[service.ProductName].ProductFeature.DeployType,
+				},
+				Services: []string{service.ServiceName},
+			}
+			elemGroup.Projects = append(elemGroup.Projects, project)
+			projectMap[service.ProductName] = project
+		} else {
+			svcSet := sets.NewString(elem.Services...)
+			svcSet.Insert(service.ServiceName)
+			elem.Services = svcSet.List()
+		}
+	}
+
+	testServices, err := commonrepo.NewServiceColl().SearchMaxRevisionsByService(serviceName)
+	if err != nil {
+		return nil, e.ErrSearchBizDirByService.AddErr(fmt.Errorf("Failed to search testing services by service name %v, err: %s", serviceName, err))
+	}
+	for _, svc := range testServices {
+		addToRespMap(svc)
+	}
+
+	prodServices, err := commonrepo.NewProductionServiceColl().SearchMaxRevisionsByService(serviceName)
+	if err != nil {
+		return nil, e.ErrSearchBizDirByService.AddErr(fmt.Errorf("Failed to search production services by service name %v, err: %s", serviceName, err))
+	}
+	for _, svc := range prodServices {
+		addToRespMap(svc)
+	}
+
+	for _, elem := range groupMap {
+		resp = append(resp, elem)
+	}
+
+	return resp, nil
+}
+
 type GetBizDirServiceDetailResponse struct {
 	ProjectName  string   `json:"project_name"`
 	EnvName      string   `json:"env_name"`

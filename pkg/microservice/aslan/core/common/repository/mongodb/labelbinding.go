@@ -36,7 +36,7 @@ type LabelBindingColl struct {
 }
 
 func NewLabelBindingColl() *LabelBindingColl {
-	name := models.Label{}.TableName()
+	name := models.LabelBinding{}.TableName()
 	return &LabelBindingColl{
 		Collection: mongotool.Database(config.MongoDatabase()).Collection(name),
 		coll:       name,
@@ -63,11 +63,10 @@ func (c *LabelBindingColl) Create(args *models.LabelBinding) error {
 }
 
 type LabelBindingListOption struct {
-	LabelID     string
 	ServiceName string
 	ProjectKey  string
 	Production  *bool
-	Value       string
+	LabelFilter map[string]string
 }
 
 func (c *LabelBindingColl) List(opt *LabelBindingListOption) ([]*models.LabelBinding, error) {
@@ -75,8 +74,16 @@ func (c *LabelBindingColl) List(opt *LabelBindingListOption) ([]*models.LabelBin
 
 	query := bson.M{}
 
-	if len(opt.LabelID) > 0 {
-		query["label_id"] = opt.LabelID
+	labelMatch := make([]bson.M, 0)
+
+	if len(opt.LabelFilter) > 0 {
+		for filterKey, val := range opt.LabelFilter {
+			labelMatch = append(labelMatch,
+				bson.M{
+					"label_id": filterKey,
+					"value":    val,
+				})
+		}
 	}
 
 	if len(opt.ServiceName) > 0 {
@@ -87,12 +94,25 @@ func (c *LabelBindingColl) List(opt *LabelBindingListOption) ([]*models.LabelBin
 		query["project_key"] = opt.ProjectKey
 	}
 
-	if len(opt.Value) > 0 {
-		query["value"] = opt.Value
-	}
-
 	if opt.Production != nil {
 		query["production"] = *opt.Production
+	}
+
+	pipeline := []bson.M{
+		{
+			"$match": bson.M{
+				"$and": []bson.M{
+					{},
+				},
+			},
+		},
+		{
+			"$group": bson.M{
+				"_id":          nil,
+				"count":        bson.M{"$sum": 1},
+				"max_revision": bson.M{"$max": "$revision"},
+			},
+		},
 	}
 
 	cursor, err := c.Collection.Find(context.TODO(), query)
