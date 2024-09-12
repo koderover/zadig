@@ -707,7 +707,7 @@ func generateCustomWorkflowFromScanningModule(scanInfo *commonmodels.Scanning, a
 
 	job := make([]*commonmodels.Job, 0)
 	name := scanInfo.Name
-	if len(name) >= 31 {
+	if len(name) >= 32 {
 		name = strings.TrimSuffix(scanInfo.Name[:31], "-")
 	}
 	job = append(job, &commonmodels.Job{
