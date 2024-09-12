@@ -317,11 +317,13 @@ func createNativeApproval(plan *models.ReleasePlan, url string) error {
 
 			planDescription := ""
 			if plan.JiraSprintAssociation != nil {
-				for _, sprint := range plan.JiraSprintAssociation.Sprints {
-					planDescription += fmt.Sprintf("%s #%s, ", sprint.ProjectName, sprint.SprintName)
+				if len(plan.JiraSprintAssociation.Sprints) > 0 {
+					for _, sprint := range plan.JiraSprintAssociation.Sprints {
+						planDescription += fmt.Sprintf("%s #%s, ", sprint.ProjectName, sprint.SprintName)
+					}
+					planDescription = planDescription[:len(planDescription)-2]
+					planDescription += "\n" + plan.Description
 				}
-				planDescription = planDescription[:len(planDescription)-2]
-				planDescription += "\n" + plan.Description
 			} else {
 				planDescription = "\n" + plan.Description
 			}
