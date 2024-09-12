@@ -1908,7 +1908,7 @@ definitions:
     type: object
   models.SAE:
     properties:
-      acces_key_id:
+      access_key_id:
         type: string
       access_key_secret:
         type: string
@@ -1922,6 +1922,59 @@ definitions:
         type: string
       updated_at:
         type: integer
+    type: object
+  models.SAEApplication:
+    properties:
+      app_id:
+        type: string
+      app_name:
+        type: string
+      cpu:
+        type: integer
+      instances:
+        type: integer
+      mem:
+        type: integer
+      running_instances:
+        type: integer
+      tags:
+        items:
+          $ref: '#/definitions/models.SAETag'
+        type: array
+    type: object
+  models.SAEEnv:
+    properties:
+      applications:
+        items:
+          $ref: '#/definitions/models.SAEApplication'
+        type: array
+      create_time:
+        type: integer
+      env_name:
+        type: string
+      id:
+        type: string
+      namespace_id:
+        type: string
+      namespace_name:
+        type: string
+      production:
+        type: boolean
+      project_name:
+        type: string
+      region_id:
+        type: string
+      update_by:
+        type: string
+      update_time:
+        type: integer
+    type: object
+  models.SAETag:
+    properties:
+      key:
+        type: string
+      value:
+        type: string
     type: object
   models.SQLExecResult:
     properties:
@@ -2799,6 +2852,63 @@ definitions:
       valuesData:
         $ref: '#/definitions/service.ValuesDataArgs'
     type: object
+  service.EnvResp:
+    properties:
+      alias:
+        type: string
+      base_name:
+        type: string
+      base_refs:
+        items:
+          type: string
+        type: array
+      cluster_id:
+        type: string
+      clusterName:
+        type: string
+      error:
+        type: string
+      is_existed:
+        type: boolean
+      is_favorite:
+        type: boolean
+      isPublic:
+        type: boolean
+      istio_grayscale_base_env:
+        type: string
+      istio_grayscale_enable:
+        description: New Since v2.1.0
+        type: boolean
+      istio_grayscale_is_base:
+        type: boolean
+      name:
+        type: string
+      namespace:
+        type: string
+      production:
+        type: boolean
+      projectName:
+        type: string
+      registry_id:
+        type: string
+      share_env_base_env:
+        type: string
+      share_env_enable:
+        description: New Since v1.11.0
+        type: boolean
+      share_env_is_base:
+        type: boolean
+      shared_ns:
+        type: boolean
+      source:
+        type: string
+      status:
+        type: string
+      updateBy:
+        type: string
+      updateTime:
+        type: integer
+    type: object
   service.EnvServices:
     properties:
       env_name:
@@ -3131,6 +3241,17 @@ definitions:
           $ref: '#/definitions/models.ReleasePlan'
         type: array
       total:
+        type: integer
+    type: object
+  service.ListSAEAppsResponse:
+    properties:
+      applications:
+        items:
+          $ref: '#/definitions/models.SAEApplication'
+        type: array
+      current_page:
+        type: integer
+      total_size:
         type: integer
     type: object
   service.ListServiceVersionsResponse:
@@ -3523,6 +3644,80 @@ definitions:
       status:
         $ref: '#/definitions/service.DeployStatus'
       type:
+        type: string
+    type: object
+  service.SAEAppGroup:
+    properties:
+      group_id:
+        type: string
+      group_name:
+        type: string
+      group_type:
+        type: integer
+      image_url:
+        type: string
+      instances:
+        items:
+          $ref: '#/definitions/service.SAEAppInstance'
+        type: array
+      package_type:
+        type: string
+      package_url:
+        type: string
+      package_version:
+        type: string
+      replicas:
+        type: integer
+      running_instances:
+        type: integer
+    type: object
+  service.SAEAppInstance:
+    properties:
+      create_timestamp:
+        type: integer
+      eip:
+        type: string
+      finish_timestamp:
+        type: integer
+      group_id:
+        type: string
+      image_url:
+        type: string
+      instance_container_ip:
+        type: string
+      instance_container_restarts:
+        type: integer
+      instance_container_status:
+        type: string
+      instance_health_status:
+        type: string
+      instance_id:
+        type: string
+      package_version:
+        type: string
+    type: object
+  service.SAEAppVersion:
+    properties:
+      build_package_url:
+        type: string
+      create_time:
+        type: string
+      id:
+        type: string
+      type:
+        type: string
+      war_url:
+        type: string
+    type: object
+  service.SAENamespace:
+    properties:
+      namespace_description:
+        type: string
+      namespace_id:
+        type: string
+      namespace_name:
+        type: string
+      namespace_short_id:
         type: string
     type: object
   service.SearchBizDirByServiceGroup:
@@ -4596,7 +4791,7 @@ paths:
     get:
       consumes:
       - application/json
-      description: Get SAE Env
+      description: Get Product
       parameters:
       - description: project name
         in: query
@@ -4615,7 +4810,7 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/github_com_koderover_zadig_v2_pkg_microservice_aslan_core_environment_service.ProductResp'
-      summary: Get SAE Env
+      summary: Get Product
       tags:
       - environment
   /api/aslan/environment/environments/{name}/analysis:
@@ -5340,6 +5535,521 @@ paths:
         "200":
           description: OK
       summary: Rollback Environment Service Version
+      tags:
+      - environment
+  /api/aslan/environment/environments/sae:
+    get:
+      consumes:
+      - application/json
+      description: List SAE Envs
+      parameters:
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: is production
+        in: query
+        name: production
+        required: true
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/service.EnvResp'
+            type: array
+      summary: List SAE Envs
+      tags:
+      - environment
+    post:
+      consumes:
+      - application/json
+      description: Create SAE Env
+      parameters:
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: is production
+        in: query
+        name: production
+        required: true
+        type: boolean
+      - description: body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.SAEEnv'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Create SAE Env
+      tags:
+      - environment
+  /api/aslan/environment/environments/sae/{name}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete SAE Env
+      parameters:
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: is production
+        in: query
+        name: production
+        required: true
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Delete SAE Env
+      tags:
+      - environment
+    get:
+      consumes:
+      - application/json
+      description: Get SAE Env
+      parameters:
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: is production
+        in: query
+        name: production
+        required: true
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.SAEEnv'
+      summary: Get SAE Env
+      tags:
+      - environment
+    put:
+      consumes:
+      - application/json
+      description: Update SAE Env
+      parameters:
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: is production
+        in: query
+        name: production
+        required: true
+        type: boolean
+      - description: body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.SAEEnv'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Update SAE Env
+      tags:
+      - environment
+  /api/aslan/environment/environments/sae/{name}/app/{appID}/instance/{instanceID}/log:
+    get:
+      consumes:
+      - application/json
+      description: Get SAE Application Instance Log
+      parameters:
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: app ID
+        in: path
+        name: appID
+        required: true
+        type: string
+      - description: instance ID
+        in: path
+        name: instanceID
+        required: true
+        type: string
+      - description: is production
+        in: query
+        name: production
+        required: true
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+      summary: Get SAE Application Instance Log
+      tags:
+      - environment
+  /api/aslan/environment/environments/sae/{name}/app/{appID}/instance/{instanceID}/restart:
+    post:
+      consumes:
+      - application/json
+      description: Restart SAE Application Instance
+      parameters:
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: app ID
+        in: path
+        name: appID
+        required: true
+        type: string
+      - description: instance ID
+        in: path
+        name: instanceID
+        required: true
+        type: string
+      - description: is production
+        in: query
+        name: production
+        required: true
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Restart SAE Application Instance
+      tags:
+      - environment
+  /api/aslan/environment/environments/sae/{name}/app/{appID}/instances:
+    get:
+      consumes:
+      - application/json
+      description: List SAE Application Instances
+      parameters:
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: app ID
+        in: path
+        name: appID
+        required: true
+        type: string
+      - description: is production
+        in: query
+        name: production
+        required: true
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/service.SAEAppGroup'
+            type: array
+      summary: List SAE Application Instances
+      tags:
+      - environment
+  /api/aslan/environment/environments/sae/{name}/app/{appID}/rescale:
+    post:
+      consumes:
+      - application/json
+      description: Rescale SAE Application
+      parameters:
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: app ID
+        in: path
+        name: appID
+        required: true
+        type: string
+      - description: replicas
+        in: query
+        name: replicas
+        required: true
+        type: integer
+      - description: is production
+        in: query
+        name: production
+        required: true
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Rescale SAE Application
+      tags:
+      - environment
+  /api/aslan/environment/environments/sae/{name}/app/{appID}/restart:
+    post:
+      consumes:
+      - application/json
+      description: Restart SAE Application
+      parameters:
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: app ID
+        in: path
+        name: appID
+        required: true
+        type: string
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: is production
+        in: query
+        name: production
+        required: true
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Restart SAE Application
+      tags:
+      - environment
+  /api/aslan/environment/environments/sae/{name}/app/{appID}/rollback:
+    post:
+      consumes:
+      - application/json
+      description: Rollback SAE Application
+      parameters:
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: app ID
+        in: path
+        name: appID
+        required: true
+        type: string
+      - description: version ID
+        in: query
+        name: versionID
+        required: true
+        type: string
+      - description: is production
+        in: query
+        name: production
+        required: true
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Rollback SAE Application
+      tags:
+      - environment
+  /api/aslan/environment/environments/sae/{name}/app/{appID}/versions:
+    get:
+      consumes:
+      - application/json
+      description: List SAE Application Version
+      parameters:
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: app ID
+        in: path
+        name: appID
+        required: true
+        type: string
+      - description: is production
+        in: query
+        name: production
+        required: true
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/service.SAEAppVersion'
+            type: array
+      summary: List SAE Application Verions
+      tags:
+      - environment
+  /api/aslan/environment/environments/sae/app:
+    get:
+      consumes:
+      - application/json
+      description: List SAE Apps
+      parameters:
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: env name
+        in: query
+        name: envName
+        type: string
+      - description: namespace
+        in: query
+        name: namespace
+        required: true
+        type: string
+      - description: region id
+        in: query
+        name: regionID
+        required: true
+        type: string
+      - description: is production
+        in: query
+        name: production
+        required: true
+        type: boolean
+      - description: is create env
+        in: query
+        name: isCreateEnv
+        required: true
+        type: boolean
+      - description: app name
+        in: query
+        name: appName
+        type: string
+      - description: current page
+        in: query
+        name: currentPage
+        required: true
+        type: string
+      - description: page size
+        in: query
+        name: pageSize
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/service.ListSAEAppsResponse'
+      summary: List SAE Apps
+      tags:
+      - environment
+  /api/aslan/environment/environments/sae/namespace:
+    get:
+      consumes:
+      - application/json
+      description: List SAE Namespaces
+      parameters:
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: region id
+        in: query
+        name: regionID
+        required: true
+        type: string
+      - description: is production
+        in: query
+        name: production
+        required: true
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/service.SAENamespace'
+            type: array
+      summary: List SAE Namespaces
       tags:
       - environment
   /api/aslan/environment/init/type/{envType}:
