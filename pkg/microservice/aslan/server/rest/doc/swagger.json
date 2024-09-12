@@ -300,7 +300,234 @@
                 }
             }
         },
-        "/api/aslan/environment/environments/{name}": {
+        "/api/aslan/environment/environments/sae": {
+            "get": {
+                "description": "List SAE Envs",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environment"
+                ],
+                "summary": "List SAE Envs",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "is production",
+                        "name": "production",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/service.EnvResp"
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Create SAE Env",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environment"
+                ],
+                "summary": "Create SAE Env",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "env name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "is production",
+                        "name": "production",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "description": "body",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.SAEEnv"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/api/aslan/environment/environments/sae/app": {
+            "get": {
+                "description": "List SAE Apps",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environment"
+                ],
+                "summary": "List SAE Apps",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "env name",
+                        "name": "envName",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "namespace",
+                        "name": "namespace",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "region id",
+                        "name": "regionID",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "is production",
+                        "name": "production",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "is create env",
+                        "name": "isCreateEnv",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "app name",
+                        "name": "appName",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "current page",
+                        "name": "currentPage",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "page size",
+                        "name": "pageSize",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/service.ListSAEAppsResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/aslan/environment/environments/sae/namespace": {
+            "get": {
+                "description": "List SAE Namespaces",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environment"
+                ],
+                "summary": "List SAE Namespaces",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "region id",
+                        "name": "regionID",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "is production",
+                        "name": "production",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/service.SAENamespace"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/aslan/environment/environments/sae/{name}": {
             "get": {
                 "description": "Get SAE Env",
                 "consumes": [
@@ -313,6 +540,536 @@
                     "environment"
                 ],
                 "summary": "Get SAE Env",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "env name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "is production",
+                        "name": "production",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.SAEEnv"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Update SAE Env",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environment"
+                ],
+                "summary": "Update SAE Env",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "env name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "is production",
+                        "name": "production",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "description": "body",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.SAEEnv"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            },
+            "delete": {
+                "description": "Delete SAE Env",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environment"
+                ],
+                "summary": "Delete SAE Env",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "env name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "is production",
+                        "name": "production",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/api/aslan/environment/environments/sae/{name}/app/{appID}/instance/{instanceID}/log": {
+            "get": {
+                "description": "Get SAE Application Instance Log",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environment"
+                ],
+                "summary": "Get SAE Application Instance Log",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "env name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "app ID",
+                        "name": "appID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "instance ID",
+                        "name": "instanceID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "is production",
+                        "name": "production",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/aslan/environment/environments/sae/{name}/app/{appID}/instance/{instanceID}/restart": {
+            "post": {
+                "description": "Restart SAE Application Instance",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environment"
+                ],
+                "summary": "Restart SAE Application Instance",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "env name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "app ID",
+                        "name": "appID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "instance ID",
+                        "name": "instanceID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "is production",
+                        "name": "production",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/api/aslan/environment/environments/sae/{name}/app/{appID}/instances": {
+            "get": {
+                "description": "List SAE Application Instances",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environment"
+                ],
+                "summary": "List SAE Application Instances",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "env name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "app ID",
+                        "name": "appID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "is production",
+                        "name": "production",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/service.SAEAppGroup"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/aslan/environment/environments/sae/{name}/app/{appID}/rescale": {
+            "post": {
+                "description": "Rescale SAE Application",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environment"
+                ],
+                "summary": "Rescale SAE Application",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "env name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "app ID",
+                        "name": "appID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "replicas",
+                        "name": "replicas",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "is production",
+                        "name": "production",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/api/aslan/environment/environments/sae/{name}/app/{appID}/restart": {
+            "post": {
+                "description": "Restart SAE Application",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environment"
+                ],
+                "summary": "Restart SAE Application",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "app ID",
+                        "name": "appID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "env name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "is production",
+                        "name": "production",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/api/aslan/environment/environments/sae/{name}/app/{appID}/rollback": {
+            "post": {
+                "description": "Rollback SAE Application",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environment"
+                ],
+                "summary": "Rollback SAE Application",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "env name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "app ID",
+                        "name": "appID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "version ID",
+                        "name": "versionID",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "is production",
+                        "name": "production",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/api/aslan/environment/environments/sae/{name}/app/{appID}/versions": {
+            "get": {
+                "description": "List SAE Application Version",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environment"
+                ],
+                "summary": "List SAE Application Verions",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "env name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "app ID",
+                        "name": "appID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "is production",
+                        "name": "production",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/service.SAEAppVersion"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/aslan/environment/environments/{name}": {
+            "get": {
+                "description": "Get Product",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environment"
+                ],
+                "summary": "Get Product",
                 "parameters": [
                     {
                         "type": "string",
@@ -8358,7 +9115,7 @@
         "models.SAE": {
             "type": "object",
             "properties": {
-                "acces_key_id": {
+                "access_key_id": {
                     "type": "string"
                 },
                 "access_key_secret": {
@@ -8378,6 +9135,87 @@
                 },
                 "updated_at": {
                     "type": "integer"
+                }
+            }
+        },
+        "models.SAEApplication": {
+            "type": "object",
+            "properties": {
+                "app_id": {
+                    "type": "string"
+                },
+                "app_name": {
+                    "type": "string"
+                },
+                "cpu": {
+                    "type": "integer"
+                },
+                "instances": {
+                    "type": "integer"
+                },
+                "mem": {
+                    "type": "integer"
+                },
+                "running_instances": {
+                    "type": "integer"
+                },
+                "tags": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.SAETag"
+                    }
+                }
+            }
+        },
+        "models.SAEEnv": {
+            "type": "object",
+            "properties": {
+                "applications": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.SAEApplication"
+                    }
+                },
+                "create_time": {
+                    "type": "integer"
+                },
+                "env_name": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "namespace_id": {
+                    "type": "string"
+                },
+                "namespace_name": {
+                    "type": "string"
+                },
+                "production": {
+                    "type": "boolean"
+                },
+                "project_name": {
+                    "type": "string"
+                },
+                "region_id": {
+                    "type": "string"
+                },
+                "update_by": {
+                    "type": "string"
+                },
+                "update_time": {
+                    "type": "integer"
+                }
+            }
+        },
+        "models.SAETag": {
+            "type": "object",
+            "properties": {
+                "key": {
+                    "type": "string"
+                },
+                "value": {
+                    "type": "string"
                 }
             }
         },
@@ -9672,6 +10510,91 @@
                 }
             }
         },
+        "service.EnvResp": {
+            "type": "object",
+            "properties": {
+                "alias": {
+                    "type": "string"
+                },
+                "base_name": {
+                    "type": "string"
+                },
+                "base_refs": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "clusterName": {
+                    "type": "string"
+                },
+                "cluster_id": {
+                    "type": "string"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "isPublic": {
+                    "type": "boolean"
+                },
+                "is_existed": {
+                    "type": "boolean"
+                },
+                "is_favorite": {
+                    "type": "boolean"
+                },
+                "istio_grayscale_base_env": {
+                    "type": "string"
+                },
+                "istio_grayscale_enable": {
+                    "description": "New Since v2.1.0",
+                    "type": "boolean"
+                },
+                "istio_grayscale_is_base": {
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "namespace": {
+                    "type": "string"
+                },
+                "production": {
+                    "type": "boolean"
+                },
+                "projectName": {
+                    "type": "string"
+                },
+                "registry_id": {
+                    "type": "string"
+                },
+                "share_env_base_env": {
+                    "type": "string"
+                },
+                "share_env_enable": {
+                    "description": "New Since v1.11.0",
+                    "type": "boolean"
+                },
+                "share_env_is_base": {
+                    "type": "boolean"
+                },
+                "shared_ns": {
+                    "type": "boolean"
+                },
+                "source": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "updateBy": {
+                    "type": "string"
+                },
+                "updateTime": {
+                    "type": "integer"
+                }
+            }
+        },
         "service.EnvServices": {
             "type": "object",
             "properties": {
@@ -10182,6 +11105,23 @@
                     }
                 },
                 "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "service.ListSAEAppsResponse": {
+            "type": "object",
+            "properties": {
+                "applications": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.SAEApplication"
+                    }
+                },
+                "current_page": {
+                    "type": "integer"
+                },
+                "total_size": {
                     "type": "integer"
                 }
             }
@@ -10784,6 +11724,119 @@
                     "$ref": "#/definitions/service.DeployStatus"
                 },
                 "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "service.SAEAppGroup": {
+            "type": "object",
+            "properties": {
+                "group_id": {
+                    "type": "string"
+                },
+                "group_name": {
+                    "type": "string"
+                },
+                "group_type": {
+                    "type": "integer"
+                },
+                "image_url": {
+                    "type": "string"
+                },
+                "instances": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/service.SAEAppInstance"
+                    }
+                },
+                "package_type": {
+                    "type": "string"
+                },
+                "package_url": {
+                    "type": "string"
+                },
+                "package_version": {
+                    "type": "string"
+                },
+                "replicas": {
+                    "type": "integer"
+                },
+                "running_instances": {
+                    "type": "integer"
+                }
+            }
+        },
+        "service.SAEAppInstance": {
+            "type": "object",
+            "properties": {
+                "create_timestamp": {
+                    "type": "integer"
+                },
+                "eip": {
+                    "type": "string"
+                },
+                "finish_timestamp": {
+                    "type": "integer"
+                },
+                "group_id": {
+                    "type": "string"
+                },
+                "image_url": {
+                    "type": "string"
+                },
+                "instance_container_ip": {
+                    "type": "string"
+                },
+                "instance_container_restarts": {
+                    "type": "integer"
+                },
+                "instance_container_status": {
+                    "type": "string"
+                },
+                "instance_health_status": {
+                    "type": "string"
+                },
+                "instance_id": {
+                    "type": "string"
+                },
+                "package_version": {
+                    "type": "string"
+                }
+            }
+        },
+        "service.SAEAppVersion": {
+            "type": "object",
+            "properties": {
+                "build_package_url": {
+                    "type": "string"
+                },
+                "create_time": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                },
+                "war_url": {
+                    "type": "string"
+                }
+            }
+        },
+        "service.SAENamespace": {
+            "type": "object",
+            "properties": {
+                "namespace_description": {
+                    "type": "string"
+                },
+                "namespace_id": {
+                    "type": "string"
+                },
+                "namespace_name": {
+                    "type": "string"
+                },
+                "namespace_short_id": {
                     "type": "string"
                 }
             }
