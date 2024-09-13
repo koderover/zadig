@@ -43,6 +43,8 @@ type SAEApplication struct {
 	AppName          string    `json:"app_name"`
 	AppID            string    `json:"app_id"`
 	Tags             []*SAETag `json:"tags"`
+	ImageUrl         string    `json:"image_url"`
+	PackageUrl       string    `json:"package_url"`
 	Instances        int32     `json:"instances"`
 	RunningInstances int32     `json:"running_instances"`
 	Cpu              int32     `json:"cpu"`

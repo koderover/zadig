@@ -80,14 +80,14 @@ func (c *SAEEnvColl) EnsureIndex(ctx context.Context) error {
 		{
 			Keys: bson.D{
 				bson.E{Key: "env_name", Value: 1},
-				bson.E{Key: "product_name", Value: 1},
+				bson.E{Key: "project_name", Value: 1},
 			},
 			Options: options.Index().SetUnique(true),
 		},
 		{
 			Keys: bson.D{
 				bson.E{Key: "env_name", Value: 1},
-				bson.E{Key: "product_name", Value: 1},
+				bson.E{Key: "project_name", Value: 1},
 				bson.E{Key: "update_time", Value: 1},
 			},
 			Options: options.Index().SetUnique(false),
@@ -152,7 +152,7 @@ func (c *SAEEnvColl) List(opt *SAEEnvListOptions) ([]*models.SAEEnv, error) {
 		opts.SetSort(bson.D{{"update_time", -1}})
 	}
 	if opt.IsSortByProductName {
-		opts.SetSort(bson.D{{"product_name", 1}})
+		opts.SetSort(bson.D{{"project_name", 1}})
 	}
 	cursor, err := c.Collection.Find(ctx, query, opts)
 	if err != nil {
@@ -171,16 +171,16 @@ func (c *SAEEnvColl) ListProjectsInNames(names []string) ([]*projectEnvs, error)
 	var res []*projectEnvs
 	var pipeline []bson.M
 	if len(names) > 0 {
-		pipeline = append(pipeline, bson.M{"$match": bson.M{"product_name": bson.M{"$in": names}}})
+		pipeline = append(pipeline, bson.M{"$match": bson.M{"project_name": bson.M{"$in": names}}})
 	}
 
 	pipeline = append(pipeline,
 		bson.M{
 			"$group": bson.M{
 				"_id": bson.M{
-					"product_name": "$product_name",
+					"project_name": "$project_name",
 				},
-				"project_name": bson.M{"$last": "$product_name"},
+				"project_name": bson.M{"$last": "$project_name"},
 				"envs":         bson.M{"$push": "$env_name"},
 			},
 		},
@@ -199,7 +199,7 @@ func (c *SAEEnvColl) ListProjectsInNames(names []string) ([]*projectEnvs, error)
 }
 
 func (c *SAEEnvColl) Delete(productName, envName string) error {
-	query := bson.M{"env_name": envName, "product_name": productName}
+	query := bson.M{"env_name": envName, "project_name": productName}
 	_, err := c.DeleteOne(context.TODO(), query)
 
 	return err
@@ -207,7 +207,7 @@ func (c *SAEEnvColl) Delete(productName, envName string) error {
 
 // Update  Cannot update owner & product name
 func (c *SAEEnvColl) Update(args *models.SAEEnv) error {
-	query := bson.M{"env_name": args.EnvName, "product_name": args.ProjectName}
+	query := bson.M{"env_name": args.EnvName, "project_name": args.ProjectName}
 	changePayload := bson.M{
 		"update_time": time.Now().Unix(),
 	}
@@ -231,7 +231,7 @@ func (c *SAEEnvColl) Create(args *models.SAEEnv) error {
 }
 
 func (c *SAEEnvColl) Count(projectName string) (int, error) {
-	num, err := c.CountDocuments(context.TODO(), bson.M{"product_name": projectName, "status": bson.M{"$ne": setting.ProductStatusDeleting}})
+	num, err := c.CountDocuments(context.TODO(), bson.M{"project_name": projectName, "status": bson.M{"$ne": setting.ProductStatusDeleting}})
 
 	return int(num), err
 }
