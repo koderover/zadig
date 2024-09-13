@@ -66,7 +66,6 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		bizdir.GET("/service/detail", GetBizDirServiceDetail)
 		bizdir.GET("/search/project", SearchBizDirByProject)
 		bizdir.GET("/search/service", SearchBizDirByService)
-		bizdir.GET("/search", SearchBizDir)
 	}
 
 	production := router.Group("production/products")

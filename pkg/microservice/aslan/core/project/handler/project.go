@@ -178,6 +178,11 @@ func GetBizDirProjectServices(c *gin.Context) {
 	ctx.Resp, ctx.Err = projectservice.GetBizDirProjectServices(projectName)
 }
 
+type searchBizDirByProjectReq struct {
+	ProjectName string   `json:"projectName" form:"projectName"`
+	Labels      []string `json:"labels"       form:"labels"`
+}
+
 // @Summary Bussiness Directory Search By Project
 // @Description Bussiness Directory Search By Project
 // @Tags  	project
@@ -204,8 +209,15 @@ func SearchBizDirByProject(c *gin.Context) {
 		}
 	}
 
-	projectName := c.Query("projectName")
-	if projectName == "" {
+	req := new(searchBizDirByProjectReq)
+
+	err = c.ShouldBindQuery(req)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid param, err: " + err.Error())
+		return
+	}
+
+	if req.ProjectName == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid project name")
 		return
 	}
@@ -216,7 +228,12 @@ func SearchBizDirByProject(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = projectservice.SearchBizDirByProject(projectName)
+	ctx.Resp, ctx.Err = projectservice.SearchBizDirByProject(req.ProjectName, req.Labels)
+}
+
+type searchBizDirByServiceReq struct {
+	ServiceName string   `json:"serviceName" form:"serviceName"`
+	Labels      []string `json:"labels"       form:"labels"`
 }
 
 // @Summary Bussiness Directory Search By Service
@@ -245,8 +262,15 @@ func SearchBizDirByService(c *gin.Context) {
 		}
 	}
 
-	serviceName := c.Query("serviceName")
-	if serviceName == "" {
+	req := new(searchBizDirByServiceReq)
+
+	err = c.ShouldBindQuery(req)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid param, err: " + err.Error())
+		return
+	}
+
+	if req.ServiceName == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid serivce name")
 		return
 	}
@@ -257,48 +281,13 @@ func SearchBizDirByService(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = projectservice.SearchBizDirByService(serviceName)
+	ctx.Resp, ctx.Err = projectservice.SearchBizDirByService(req.ServiceName, req.Labels)
 }
 
 type searchBizDirReq struct {
 	ServiceName string   `json:"serviceName" form:"serviceName"`
 	ProjectName string   `json:"projectName" form:"projectName"`
 	Label       []string `json:"labels"       form:"labels"`
-}
-
-func SearchBizDir(c *gin.Context) {
-	ctx, err := internalhandler.NewContextWithAuthorization(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	if err != nil {
-		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
-		ctx.UnAuthorized = true
-		return
-	}
-
-	if !ctx.Resources.IsSystemAdmin {
-		if !ctx.Resources.SystemActions.BusinessDirectory.View {
-			ctx.UnAuthorized = true
-			return
-		}
-	}
-
-	req := new(searchBizDirReq)
-
-	err = c.ShouldBindQuery(req)
-	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid param, err: " + err.Error())
-		return
-	}
-
-	err = util.CheckZadigEnterpriseLicense()
-	if err != nil {
-		ctx.Err = err
-		return
-	}
-
-	ctx.Resp, ctx.Err = projectservice.SearchBizDir(req.ServiceName, req.ProjectName, req.Label)
 }
 
 // @Summary Get Bussiness Directory Searvice Detail
