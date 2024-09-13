@@ -140,9 +140,17 @@ func SearchBizDirByProject(projectKeyword string, labels []string) ([]GroupDetai
 		log.Errorf("too many projects(>=999) found by filter %s", projectKeyword)
 	}
 
+	projectedTestingServiceMap, err := getProjectServiceByLabel(labels)
+	if err != nil {
+		return nil, err
+	}
+
 	groupProjectMap := make(map[string][]*commonmodels.ProjectDetail)
 	resp := []GroupDetail{}
 	for _, project := range projects {
+		if _, ok := projectedTestingServiceMap[project.Name]; !ok {
+			continue
+		}
 		projectDetail := &commonmodels.ProjectDetail{
 			ProjectKey:        project.Name,
 			ProjectName:       project.Alias,
@@ -199,7 +207,7 @@ func SearchBizDirByService(serviceName string, labels []string) ([]*SearchBizDir
 		}
 	}
 
-	projectedTestingServiceList, err := getProjectServiceByLabel(labels)
+	projectedTestingServiceMap, err := getProjectServiceByLabel(labels)
 	if err != nil {
 		return nil, err
 	}
@@ -218,14 +226,14 @@ func SearchBizDirByService(serviceName string, labels []string) ([]*SearchBizDir
 				return
 			}
 
-			if _, ok := projectedTestingServiceList[service.ProductName]; !ok {
+			if _, ok := projectedTestingServiceMap[service.ProductName]; !ok {
 				// if service is not shown in label filter, ignore it
 				log.Debugf("project not found, ignoring service: %s", service.ServiceName)
 				return
 			}
 
 			found := false
-			for _, svc := range projectedTestingServiceList[service.ProductName] {
+			for _, svc := range projectedTestingServiceMap[service.ProductName] {
 				if svc == service.ServiceName {
 					found = true
 					break
@@ -531,7 +539,7 @@ func getProjectServiceByLabel(labels []string) (map[string][]string, error) {
 		return nil, fmt.Errorf("failed to list label bindings for labels, error: %s", err)
 	}
 	for _, label := range boundService {
-		log.Infof("bound service: %s, project: %s", label.ServiceName, label.ProjectKey)
+		// TODO: currently labels can only be bound by testing service, ignoring production service.
 		if _, ok := resp[label.ProjectKey]; !ok {
 			resp[label.ProjectKey] = make([]string, 0)
 		}
