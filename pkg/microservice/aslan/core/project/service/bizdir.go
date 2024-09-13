@@ -259,7 +259,7 @@ func SearchBizDirByService(serviceName string) ([]*SearchBizDirByServiceGroup, e
 	return resp, nil
 }
 
-func SearchBizDir(serviceName, projectName, labels string) ([]*SearchBizDirByServiceGroup, error) {
+func SearchBizDir(serviceName, projectName string, labels []string) ([]*SearchBizDirByServiceGroup, error) {
 	resp := []*SearchBizDirByServiceGroup{}
 	groups, err := commonrepo.NewProjectGroupColl().List()
 	if err != nil {
@@ -283,7 +283,9 @@ func SearchBizDir(serviceName, projectName, labels string) ([]*SearchBizDirBySer
 		}
 	}
 
-	log.Infof("label is: %s", labels)
+	for _, lb := range labels {
+		log.Infof("label:", lb)
+	}
 
 	labeledServiceMap := make(map[string][]string)
 	labelbindings, err := commonrepo.NewLabelBindingColl().ListService(nil)
