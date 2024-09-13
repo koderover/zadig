@@ -263,7 +263,7 @@ func SearchBizDirByService(c *gin.Context) {
 type searchBizDirReq struct {
 	ServiceName string `json:"serviceName" form:"serviceName"`
 	ProjectName string `json:"projectName" form:"projectName"`
-	Label       string `json:"label"       form:"label"`
+	Label       string `json:"labels"       form:"labels"`
 }
 
 func SearchBizDir(c *gin.Context) {

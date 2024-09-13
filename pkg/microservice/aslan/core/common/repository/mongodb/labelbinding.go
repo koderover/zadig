@@ -105,7 +105,7 @@ func (c *LabelBindingColl) ListService(opt *LabelBindingListOption) ([]*models.L
 
 	labelMatch := make([]bson.M, 0)
 
-	if len(opt.LabelFilter) > 0 {
+	if opt.LabelFilter != nil && len(opt.LabelFilter) > 0 {
 		for filterKey, val := range opt.LabelFilter {
 			labelMatch = append(labelMatch,
 				bson.M{
@@ -138,7 +138,7 @@ func (c *LabelBindingColl) ListService(opt *LabelBindingListOption) ([]*models.L
 		andQuery = append(andQuery, query)
 	}
 
-	if len(opt.LabelFilter) > 0 {
+	if opt.LabelFilter != nil && len(opt.LabelFilter) > 0 {
 		andQuery = append(andQuery, bson.M{
 			"$or": labelMatch,
 		})
@@ -168,7 +168,7 @@ func (c *LabelBindingColl) ListService(opt *LabelBindingListOption) ([]*models.L
 		},
 	}
 
-	if len(opt.LabelFilter) > 0 {
+	if opt.LabelFilter != nil && len(opt.LabelFilter) > 0 {
 		pipeline = append(pipeline, bson.M{
 			"$match": bson.M{
 				"$count": len(opt.LabelFilter),
