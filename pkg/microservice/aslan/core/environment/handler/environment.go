@@ -2887,77 +2887,7 @@ func CreateSAEEnv(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = service.CreateSAEEnv(ctx.UserName, arg, true, ctx.Logger)
-}
-
-// @Summary Update SAE Env
-// @Description Update SAE Env
-// @Tags 	environment
-// @Accept 	json
-// @Produce json
-// @Param 	projectName	query		string										true	"project name"
-// @Param 	name 		path		string										true	"env name"
-// @Param 	production 	query		bool										true	"is production"
-// @Param 	body 		body 		models.SAEEnv					            true 	"body"
-// @Success 200
-// @Router /api/aslan/environment/environments/sae/{name} [put]
-func UpdateSAEEnv(c *gin.Context) {
-	ctx, err := internalhandler.NewContextWithAuthorization(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
-		ctx.UnAuthorized = true
-		return
-	}
-
-	projectKey := c.Query("projectName")
-	envName := c.Param("name")
-	production := c.Query("production") == "true"
-
-	data, err := c.GetRawData()
-	if err != nil {
-		log.Errorf("UpdateSAEEnv GetRawData() err : %v", err)
-	}
-	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "更新", "SAE环境", envName, string(data), ctx.Logger, envName)
-
-	arg := new(models.SAEEnv)
-	err = c.BindJSON(arg)
-	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
-		return
-	}
-
-	// authorization check
-	if !ctx.Resources.IsSystemAdmin {
-		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
-			ctx.UnAuthorized = true
-			return
-		}
-
-		if production {
-			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-				!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.EditConfig {
-				ctx.UnAuthorized = true
-				return
-			}
-
-			err = commonutil.CheckZadigProfessionalLicense()
-			if err != nil {
-				ctx.Err = err
-				return
-			}
-		} else {
-			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-				!ctx.Resources.ProjectAuthInfo[projectKey].Env.EditConfig {
-				ctx.UnAuthorized = true
-				return
-			}
-		}
-	}
-
-	ctx.Err = service.CreateSAEEnv(ctx.UserName, arg, false, ctx.Logger)
+	ctx.Err = service.CreateSAEEnv(ctx.UserName, arg, ctx.Logger)
 }
 
 // @Summary Delete SAE Env
@@ -3027,7 +2957,7 @@ func DeleteSAEEnv(c *gin.Context) {
 // @Param 	namespace		query		string										true	"namespace"
 // @Param 	regionID 		query		string										true	"region id"
 // @Param 	production 		query		bool										true	"is production"
-// @Param 	isCreateEnv 	query		bool										true	"is create env"
+// @Param 	isAddApp     	query		bool										true	"is add app"
 // @Param 	appName 		query		string										false	"app name"
 // @Param 	currentPage		query		string										true	"current page"
 // @Param 	pageSize 		query		string										true	"page size"
@@ -3046,7 +2976,7 @@ func ListSAEApps(c *gin.Context) {
 	projectKey := c.Query("projectName")
 	envName := c.Query("envName")
 	production := c.Query("production") == "true"
-	isCreateEnv := c.Query("isCreateEnv") == "true"
+	isAddApp := c.Query("isAddApp") == "true"
 	regionID := c.Query("regionID")
 	namespace := c.Query("namespace")
 	appName := c.Query("appName")
@@ -3087,7 +3017,7 @@ func ListSAEApps(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.Err = service.ListSAEApps(regionID, namespace, projectKey, envName, appName, isCreateEnv, int32(currentPage), int32(pageSize), ctx.Logger)
+	ctx.Resp, ctx.Err = service.ListSAEApps(regionID, namespace, projectKey, envName, appName, isAddApp, int32(currentPage), int32(pageSize), ctx.Logger)
 }
 
 // @Summary List SAE Namespaces
@@ -3570,4 +3500,144 @@ func GetSAEAppInstanceLog(c *gin.Context) {
 	}
 
 	ctx.Resp, ctx.Err = service.GetSAEAppInstanceLog(projectKey, envName, appID, instanceID, ctx.Logger)
+}
+
+// @Summary Add SAE App to Env
+// @Description Add SAE App to Env
+// @Tags 	environment
+// @Accept 	json
+// @Produce json
+// @Param 	projectName	query		string										true	"project name"
+// @Param 	name 		path		string										true	"env name"
+// @Param 	production 	query		bool										true	"is production"
+// @Param 	body 		body 		service.AddSAEAppToEnvRequest		 		true 	"body"
+// @Success 200
+// @Router /api/aslan/environment/environments/sae/{name}/app [post]
+func AddSAEServiceToEnv(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectKey := c.Query("projectName")
+	envName := c.Param("name")
+	production := c.Query("production") == "true"
+
+	data, err := c.GetRawData()
+	if err != nil {
+		log.Errorf("UpdateSAEEnv GetRawData() err : %v", err)
+	}
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "更新", "SAE环境-添加应用", envName, string(data), ctx.Logger, envName)
+
+	arg := new(service.AddSAEAppToEnvRequest)
+	err = c.BindJSON(arg)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	// authorization check
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		if production {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.EditConfig {
+				ctx.UnAuthorized = true
+				return
+			}
+
+			err = commonutil.CheckZadigProfessionalLicense()
+			if err != nil {
+				ctx.Err = err
+				return
+			}
+		} else {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].Env.EditConfig {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
+	}
+
+	ctx.Err = service.AddSAEAppToEnv(ctx.UserName, projectKey, envName, arg, ctx.Logger)
+}
+
+// @Summary Delete SAE App from Env
+// @Description Delete SAE App from Env
+// @Tags 	environment
+// @Accept 	json
+// @Produce json
+// @Param 	projectName	query		string										true	"project name"
+// @Param 	name 		path		string										true	"env name"
+// @Param 	production 	query		bool										true	"is production"
+// @Param 	body 		body 		service.DelSAEAppFromEnvRequest 			true 	"body"
+// @Success 200
+// @Router /api/aslan/environment/environments/sae/{name}/app [put]
+func DeleteSAEServiceFromEnv(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectKey := c.Query("projectName")
+	envName := c.Param("name")
+	production := c.Query("production") == "true"
+
+	data, err := c.GetRawData()
+	if err != nil {
+		log.Errorf("UpdateSAEEnv GetRawData() err : %v", err)
+	}
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "更新", "SAE环境-删除应用", envName, string(data), ctx.Logger, envName)
+
+	arg := new(service.DelSAEAppFromEnvRequest)
+	err = c.BindJSON(arg)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	// authorization check
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		if production {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.EditConfig {
+				ctx.UnAuthorized = true
+				return
+			}
+
+			err = commonutil.CheckZadigProfessionalLicense()
+			if err != nil {
+				ctx.Err = err
+				return
+			}
+		} else {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].Env.EditConfig {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
+	}
+
+	ctx.Err = service.DelSAEAppFromEnv(ctx.UserName, projectKey, envName, arg, ctx.Logger)
 }
