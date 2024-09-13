@@ -119,39 +119,41 @@ func CreateSAEEnv(username string, env *models.SAEEnv, isCreateEnv bool, log *za
 				return e.ErrDeleteEnv.AddErr(err)
 			}
 
-			resourceIds := "["
-			for _, app := range resp.Applications {
-				projectMatched := false
-				envMatched := false
-				for _, tag := range app.Tags {
-					if tag.Key == setting.SAEZadigProjectTagKey && tag.Value == env.ProjectName {
-						projectMatched = true
+			if len(resp.Applications) > 0 {
+				resourceIds := "["
+				for _, app := range resp.Applications {
+					projectMatched := false
+					envMatched := false
+					for _, tag := range app.Tags {
+						if tag.Key == setting.SAEZadigProjectTagKey && tag.Value == env.ProjectName {
+							projectMatched = true
+						}
+						if tag.Key == setting.SAEZadigEnvTagKey && tag.Value == env.EnvName {
+							envMatched = true
+						}
 					}
-					if tag.Key == setting.SAEZadigEnvTagKey && tag.Value == env.EnvName {
-						envMatched = true
+					if projectMatched && envMatched && !addedApps.Has(app.AppID) {
+						resourceIds += fmt.Sprintf(`"%s",`, app.AppID)
 					}
 				}
-				if projectMatched && envMatched && !addedApps.Has(app.AppID) {
-					resourceIds += fmt.Sprintf(`"%s",`, app.AppID)
+				resourceIds = strings.TrimSuffix(resourceIds, ",") + "]"
+				saeRequest := &sae20190506.UntagResourcesRequest{
+					RegionId:     tea.String(env.RegionID),
+					ResourceType: tea.String("application"),
+					TagKeys:      tea.String(fmt.Sprintf(`["%s","%s"]`, setting.SAEZadigProjectTagKey, setting.SAEZadigEnvTagKey)),
+					ResourceIds:  tea.String(resourceIds),
 				}
-			}
-			resourceIds = strings.TrimSuffix(resourceIds, ",") + "]"
-			saeRequest := &sae20190506.UntagResourcesRequest{
-				RegionId:     tea.String(env.RegionID),
-				ResourceType: tea.String("application"),
-				TagKeys:      tea.String(fmt.Sprintf(`["%s","%s"]`, setting.SAEZadigProjectTagKey, setting.SAEZadigEnvTagKey)),
-				ResourceIds:  tea.String(resourceIds),
-			}
-			saeResp, err := saeClient.UntagResources(saeRequest)
-			if err != nil {
-				err = fmt.Errorf("Failed to un tag resources, err: %s", err)
-				log.Error(err)
-				return e.ErrDeleteEnv.AddErr(err)
-			}
-			if !tea.BoolValue(saeResp.Body.Success) {
-				err = fmt.Errorf("Failed to un tag resources, statusCode: %d, code: %s, errCode: %s, message: %s", tea.Int32Value(saeResp.StatusCode), tea.ToString(saeResp.Body.Code), tea.ToString(saeResp.Body.ErrorCode), tea.ToString(saeResp.Body.Message))
-				log.Error(err)
-				return e.ErrDeleteEnv.AddErr(err)
+				saeResp, err := saeClient.UntagResources(saeRequest)
+				if err != nil {
+					err = fmt.Errorf("Failed to un tag resources, err: %s", err)
+					log.Error(err)
+					return e.ErrDeleteEnv.AddErr(err)
+				}
+				if !tea.BoolValue(saeResp.Body.Success) {
+					err = fmt.Errorf("Failed to un tag resources, statusCode: %d, code: %s, errCode: %s, message: %s", tea.Int32Value(saeResp.StatusCode), tea.ToString(saeResp.Body.Code), tea.ToString(saeResp.Body.ErrorCode), tea.ToString(saeResp.Body.Message))
+					log.Error(err)
+					return e.ErrDeleteEnv.AddErr(err)
+				}
 			}
 
 			if currentPage*pageSize >= resp.TotalSize {
@@ -163,34 +165,38 @@ func CreateSAEEnv(username string, env *models.SAEEnv, isCreateEnv bool, log *za
 	}
 
 	// add tags
-	resourceIds := "["
-	for _, app := range env.Applications {
-		resourceIds += fmt.Sprintf(`"%s",`, app.AppID)
-	}
-	resourceIds = strings.TrimSuffix(resourceIds, ",") + "]"
-	saeRequest := &sae20190506.TagResourcesRequest{
-		RegionId:     tea.String(env.RegionID),
-		ResourceType: tea.String("application"),
-		Tags:         tea.String(fmt.Sprintf(`[{"Key":"%s","Value":"%s"}, {"Key":"%s","Value":"%s"}]`, setting.SAEZadigProjectTagKey, env.ProjectName, setting.SAEZadigEnvTagKey, env.EnvName)),
-		ResourceIds:  tea.String(resourceIds),
-	}
-	saeResp, err := saeClient.TagResources(saeRequest)
-	if err != nil {
-		err = fmt.Errorf("Failed to tag resources, err: %s", err)
-		log.Error(err)
-		return e.ErrCreateEnv.AddErr(err)
-	}
-	if !tea.BoolValue(saeResp.Body.Success) {
-		err = fmt.Errorf("Failed to tag resources, statusCode: %d, code: %s, errCode: %s, message: %s", tea.Int32Value(saeResp.StatusCode), tea.ToString(saeResp.Body.Code), tea.ToString(saeResp.Body.ErrorCode), tea.ToString(saeResp.Body.Message))
-		log.Error(err)
-		return e.ErrCreateEnv.AddErr(err)
+	if len(env.Applications) > 0 {
+		resourceIds := "["
+		for _, app := range env.Applications {
+			resourceIds += fmt.Sprintf(`"%s",`, app.AppID)
+		}
+		resourceIds = strings.TrimSuffix(resourceIds, ",") + "]"
+		saeRequest := &sae20190506.TagResourcesRequest{
+			RegionId:     tea.String(env.RegionID),
+			ResourceType: tea.String("application"),
+			Tags:         tea.String(fmt.Sprintf(`[{"Key":"%s","Value":"%s"}, {"Key":"%s","Value":"%s"}]`, setting.SAEZadigProjectTagKey, env.ProjectName, setting.SAEZadigEnvTagKey, env.EnvName)),
+			ResourceIds:  tea.String(resourceIds),
+		}
+		saeResp, err := saeClient.TagResources(saeRequest)
+		if err != nil {
+			err = fmt.Errorf("Failed to tag resources, err: %s", err)
+			log.Error(err)
+			return e.ErrCreateEnv.AddErr(err)
+		}
+		if !tea.BoolValue(saeResp.Body.Success) {
+			err = fmt.Errorf("Failed to tag resources, statusCode: %d, code: %s, errCode: %s, message: %s", tea.Int32Value(saeResp.StatusCode), tea.ToString(saeResp.Body.Code), tea.ToString(saeResp.Body.ErrorCode), tea.ToString(saeResp.Body.Message))
+			log.Error(err)
+			return e.ErrCreateEnv.AddErr(err)
+		}
 	}
 
 	if isCreateEnv {
+		env.UpdateBy = username
 		err = commonrepo.NewSAEEnvColl().Create(env)
 		if err != nil {
-			log.Errorf("[User:%s][EnvName:%s][Product:%s] create sae env error: %s", username, err)
-			return e.ErrCreateEnv
+			err = fmt.Errorf("Failed to create sae env, projectName:%s, envName: %s, error: %s", env.ProjectName, env.EnvName, err)
+			log.Error(err)
+			return e.ErrCreateEnv.AddErr(err)
 		}
 	}
 
@@ -326,6 +332,8 @@ func ListSAEApps(regionID, namespace, projectName, envName, appName string, isCr
 		app := &models.SAEApplication{
 			AppName:          tea.StringValue(saeApp.AppName),
 			AppID:            tea.StringValue(saeApp.AppId),
+			ImageUrl:         tea.StringValue(saeApp.ImageUrl),
+			PackageUrl:       tea.StringValue(saeApp.PackageUrl),
 			Tags:             tags,
 			Instances:        tea.Int32Value(saeApp.Instances),
 			RunningInstances: tea.Int32Value(saeApp.RunningInstances),
@@ -662,8 +670,10 @@ func ListSAEAppInstances(projectName, envName, appID string, log *zap.SugaredLog
 		}
 
 		saeRequest := &sae20190506.DescribeApplicationInstancesRequest{
-			AppId:   tea.String(appID),
-			GroupId: tea.String(group.GroupId),
+			AppId:       tea.String(appID),
+			GroupId:     tea.String(group.GroupId),
+			CurrentPage: tea.Int32(1),
+			PageSize:    tea.Int32(1000),
 		}
 		saeResp, err := saeClient.DescribeApplicationInstances(saeRequest)
 		if err != nil {
