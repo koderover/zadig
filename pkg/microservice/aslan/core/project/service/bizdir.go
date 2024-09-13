@@ -18,6 +18,7 @@ package service
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
@@ -283,12 +284,25 @@ func SearchBizDir(serviceName, projectName string, labels []string) ([]*SearchBi
 		}
 	}
 
+	labelFilter := make(map[string]string)
+
 	for _, lb := range labels {
-		log.Infof("label: %s", lb)
+		kvs := strings.Split(lb, ":")
+		if len(kvs) < 2 {
+			log.Errorf("cannot query label without value")
+			return nil, fmt.Errorf("cannot query label without value")
+		}
+
+		key := kvs[0]
+		value := strings.Join(kvs[1:], ":")
+
+		log.Infof("label key: %s", key)
+		log.Infof("label value: %s", value)
+		labelFilter[key] = value
 	}
 
 	labeledServiceMap := make(map[string][]string)
-	labelbindings, err := commonrepo.NewLabelBindingColl().ListService(nil)
+	labelbindings, err := commonrepo.NewLabelBindingColl().ListService(&commonrepo.LabelBindingListOption{LabelFilter: labelFilter})
 	for _, label := range labelbindings {
 		if _, ok := labeledServiceMap[label.ProjectKey]; !ok {
 			labeledServiceMap[label.ProjectKey] = make([]string, 0)
