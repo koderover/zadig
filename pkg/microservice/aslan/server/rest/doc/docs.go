@@ -673,6 +673,62 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/aslan/environment/environments/sae/{name}/app/{appID}/instance": {
+            "get": {
+                "description": "List SAE Application Instances",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environment"
+                ],
+                "summary": "List SAE Application Instances",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "env name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "app ID",
+                        "name": "appID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "is production",
+                        "name": "production",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/service.SAEAppGroup"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/aslan/environment/environments/sae/{name}/app/{appID}/instance/{instanceID}/log": {
             "get": {
                 "description": "Get SAE Application Instance Log",
@@ -786,62 +842,6 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "OK"
-                    }
-                }
-            }
-        },
-        "/api/aslan/environment/environments/sae/{name}/app/{appID}/instances": {
-            "get": {
-                "description": "List SAE Application Instances",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "environment"
-                ],
-                "summary": "List SAE Application Instances",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "project name",
-                        "name": "projectName",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "env name",
-                        "name": "name",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "app ID",
-                        "name": "appID",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "boolean",
-                        "description": "is production",
-                        "name": "production",
-                        "in": "query",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/service.SAEAppGroup"
-                            }
-                        }
                     }
                 }
             }
@@ -9159,11 +9159,17 @@ const docTemplate = `{
                 "cpu": {
                     "type": "integer"
                 },
+                "image_url": {
+                    "type": "string"
+                },
                 "instances": {
                     "type": "integer"
                 },
                 "mem": {
                     "type": "integer"
+                },
+                "package_url": {
+                    "type": "string"
                 },
                 "running_instances": {
                     "type": "integer"

@@ -3172,6 +3172,10 @@ func RestartSAEApp(c *gin.Context) {
 	appID := c.Param("appID")
 	envName := c.Param("name")
 
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv,
+		"重启", "SAE环境-应用", fmt.Sprintf("SAE环境名称:%s,应用ID:%s", envName, appID),
+		"", ctx.Logger, envName)
+
 	// authorization check
 	if !ctx.Resources.IsSystemAdmin {
 		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
@@ -3235,6 +3239,10 @@ func RescaleSAEApp(c *gin.Context) {
 		return
 	}
 
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv,
+		"扩缩容", "SAE环境-应用", fmt.Sprintf("SAE环境名称:%s,应用ID:%s,副本数:%d", envName, appID, replicas),
+		"", ctx.Logger, envName)
+
 	// authorization check
 	if !ctx.Resources.IsSystemAdmin {
 		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
@@ -3293,6 +3301,10 @@ func RollbackSAEApp(c *gin.Context) {
 	appID := c.Param("appID")
 	envName := c.Param("name")
 	versionID := c.Query("versionID")
+
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv,
+		"回滚", "SAE环境-应用", fmt.Sprintf("SAE环境名称:%s,应用ID:%s,版本ID:%s", envName, appID, versionID),
+		"", ctx.Logger, envName)
 
 	// authorization check
 	if !ctx.Resources.IsSystemAdmin {
@@ -3392,7 +3404,7 @@ func ListSAEAppVersion(c *gin.Context) {
 // @Param 	appID			path		string										true	"app ID"
 // @Param 	production 		query		bool										true	"is production"
 // @Success 200 			{array} 	service.SAEAppGroup
-// @Router /api/aslan/environment/environments/sae/{name}/app/{appID}/instances [get]
+// @Router /api/aslan/environment/environments/sae/{name}/app/{appID}/instance [get]
 func ListSAEAppInstances(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -3466,6 +3478,10 @@ func RestartSAEAppInstance(c *gin.Context) {
 	appID := c.Param("appID")
 	instanceID := c.Param("instanceID")
 	envName := c.Param("name")
+
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv,
+		"重启", "SAE环境-应用实例", fmt.Sprintf("SAE环境名称:%s,应用ID:%s,实例ID:%s", envName, appID, instanceID),
+		"", ctx.Logger, envName)
 
 	// authorization check
 	if !ctx.Resources.IsSystemAdmin {
