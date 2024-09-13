@@ -88,7 +88,7 @@ func GetSAEEnv(username, envName, productName string, log *zap.SugaredLogger) (*
 	return env, nil
 }
 
-func CreateSAEEnv(username string, env *models.SAEEnv, isCreateEnv bool, log *zap.SugaredLogger) error {
+func CreateSAEEnv(username string, env *models.SAEEnv, log *zap.SugaredLogger) error {
 	saeModel, err := commonrepo.NewSAEColl().FindDefault()
 	if err != nil {
 		err = fmt.Errorf("Failed to find default sae, err: %s", err)
@@ -100,68 +100,6 @@ func CreateSAEEnv(username string, env *models.SAEEnv, isCreateEnv bool, log *za
 		err = fmt.Errorf("Failed to create sae client, err: %s", err)
 		log.Error(err)
 		return e.ErrCreateEnv.AddErr(err)
-	}
-
-	// remove tags
-	if !isCreateEnv {
-		addedApps := sets.NewString()
-		for _, app := range env.Applications {
-			addedApps.Insert(app.AppID)
-		}
-
-		currentPage := int32(1)
-		pageSize := int32(1000)
-		for {
-			resp, err := ListSAEApps(env.RegionID, env.NamespaceID, env.ProjectName, env.EnvName, "", false, currentPage, pageSize, log)
-			if err != nil {
-				err = fmt.Errorf("Failed to list sae apps, err: %s", err)
-				log.Error(err)
-				return e.ErrDeleteEnv.AddErr(err)
-			}
-
-			if len(resp.Applications) > 0 {
-				resourceIds := "["
-				for _, app := range resp.Applications {
-					projectMatched := false
-					envMatched := false
-					for _, tag := range app.Tags {
-						if tag.Key == setting.SAEZadigProjectTagKey && tag.Value == env.ProjectName {
-							projectMatched = true
-						}
-						if tag.Key == setting.SAEZadigEnvTagKey && tag.Value == env.EnvName {
-							envMatched = true
-						}
-					}
-					if projectMatched && envMatched && !addedApps.Has(app.AppID) {
-						resourceIds += fmt.Sprintf(`"%s",`, app.AppID)
-					}
-				}
-				resourceIds = strings.TrimSuffix(resourceIds, ",") + "]"
-				saeRequest := &sae20190506.UntagResourcesRequest{
-					RegionId:     tea.String(env.RegionID),
-					ResourceType: tea.String("application"),
-					TagKeys:      tea.String(fmt.Sprintf(`["%s","%s"]`, setting.SAEZadigProjectTagKey, setting.SAEZadigEnvTagKey)),
-					ResourceIds:  tea.String(resourceIds),
-				}
-				saeResp, err := saeClient.UntagResources(saeRequest)
-				if err != nil {
-					err = fmt.Errorf("Failed to un tag resources, err: %s", err)
-					log.Error(err)
-					return e.ErrDeleteEnv.AddErr(err)
-				}
-				if !tea.BoolValue(saeResp.Body.Success) {
-					err = fmt.Errorf("Failed to un tag resources, statusCode: %d, code: %s, errCode: %s, message: %s", tea.Int32Value(saeResp.StatusCode), tea.ToString(saeResp.Body.Code), tea.ToString(saeResp.Body.ErrorCode), tea.ToString(saeResp.Body.Message))
-					log.Error(err)
-					return e.ErrDeleteEnv.AddErr(err)
-				}
-			}
-
-			if currentPage*pageSize >= resp.TotalSize {
-				break
-			}
-			currentPage++
-			pageSize += 1000
-		}
 	}
 
 	// add tags
@@ -190,14 +128,12 @@ func CreateSAEEnv(username string, env *models.SAEEnv, isCreateEnv bool, log *za
 		}
 	}
 
-	if isCreateEnv {
-		env.UpdateBy = username
-		err = commonrepo.NewSAEEnvColl().Create(env)
-		if err != nil {
-			err = fmt.Errorf("Failed to create sae env, projectName:%s, envName: %s, error: %s", env.ProjectName, env.EnvName, err)
-			log.Error(err)
-			return e.ErrCreateEnv.AddErr(err)
-		}
+	env.UpdateBy = username
+	err = commonrepo.NewSAEEnvColl().Create(env)
+	if err != nil {
+		err = fmt.Errorf("Failed to create sae env, projectName:%s, envName: %s, error: %s", env.ProjectName, env.EnvName, err)
+		log.Error(err)
+		return e.ErrCreateEnv.AddErr(err)
 	}
 
 	return nil
@@ -281,7 +217,7 @@ type ListSAEAppsResponse struct {
 	TotalSize    int32                    `json:"total_size"`
 }
 
-func ListSAEApps(regionID, namespace, projectName, envName, appName string, isCreateEnv bool, currentPage, pageSize int32, log *zap.SugaredLogger) (*ListSAEAppsResponse, error) {
+func ListSAEApps(regionID, namespace, projectName, envName, appName string, isAddApp bool, currentPage, pageSize int32, log *zap.SugaredLogger) (*ListSAEAppsResponse, error) {
 	saeModel, err := commonrepo.NewSAEColl().FindDefault()
 	if err != nil {
 		err = fmt.Errorf("Failed to find default sae, err: %s", err)
@@ -297,7 +233,7 @@ func ListSAEApps(regionID, namespace, projectName, envName, appName string, isCr
 	}
 
 	tags := ""
-	if !isCreateEnv {
+	if !isAddApp {
 		tags = fmt.Sprintf(`[{"Key":"%s","Value":"%s"}, {"Key":"%s","Value":"%s"}]`, setting.SAEZadigProjectTagKey, projectName, setting.SAEZadigEnvTagKey, envName)
 	}
 	saeRequest := &sae20190506.ListApplicationsRequest{
@@ -793,4 +729,112 @@ func GetSAEAppInstanceLog(projectName, envName, appID, instanceID string, log *z
 	}
 
 	return tea.StringValue(saeResp.Body.Data), nil
+}
+
+type AddSAEAppToEnvRequest struct {
+	AppIDs []string `json:"app_ids"`
+}
+
+func AddSAEAppToEnv(username string, projectName, envName string, req *AddSAEAppToEnvRequest, log *zap.SugaredLogger) error {
+	opt := &commonrepo.SAEEnvFindOptions{ProjectName: projectName, EnvName: envName}
+	env, err := commonrepo.NewSAEEnvColl().Find(opt)
+	if err != nil {
+		err = fmt.Errorf("Failed to find SAE env, projectName: %s, envName: %s, error: %s", projectName, envName, err)
+		log.Error(err)
+		return e.ErrAddSAEAppToEnv.AddErr(err)
+	}
+
+	saeModel, err := commonrepo.NewSAEColl().FindDefault()
+	if err != nil {
+		err = fmt.Errorf("Failed to find default sae, err: %s", err)
+		log.Error(err)
+		return e.ErrAddSAEAppToEnv.AddErr(err)
+	}
+	saeClient, err := sae.NewClient(saeModel, env.RegionID)
+	if err != nil {
+		err = fmt.Errorf("Failed to create sae client, err: %s", err)
+		log.Error(err)
+		return e.ErrAddSAEAppToEnv.AddErr(err)
+	}
+
+	if len(req.AppIDs) > 0 {
+		resourceIds := "["
+		for _, appID := range req.AppIDs {
+			resourceIds += fmt.Sprintf(`"%s",`, appID)
+		}
+		resourceIds = strings.TrimSuffix(resourceIds, ",") + "]"
+		saeRequest := &sae20190506.TagResourcesRequest{
+			RegionId:     tea.String(env.RegionID),
+			ResourceType: tea.String("application"),
+			Tags:         tea.String(fmt.Sprintf(`[{"Key":"%s","Value":"%s"}, {"Key":"%s","Value":"%s"}]`, setting.SAEZadigProjectTagKey, env.ProjectName, setting.SAEZadigEnvTagKey, env.EnvName)),
+			ResourceIds:  tea.String(resourceIds),
+		}
+		saeResp, err := saeClient.TagResources(saeRequest)
+		if err != nil {
+			err = fmt.Errorf("Failed to tag resources, err: %s", err)
+			log.Error(err)
+			return e.ErrAddSAEAppToEnv.AddErr(err)
+		}
+		if !tea.BoolValue(saeResp.Body.Success) {
+			err = fmt.Errorf("Failed to tag resources, statusCode: %d, code: %s, errCode: %s, message: %s", tea.Int32Value(saeResp.StatusCode), tea.ToString(saeResp.Body.Code), tea.ToString(saeResp.Body.ErrorCode), tea.ToString(saeResp.Body.Message))
+			log.Error(err)
+			return e.ErrAddSAEAppToEnv.AddErr(err)
+		}
+	}
+
+	return nil
+}
+
+type DelSAEAppFromEnvRequest struct {
+	AppIDs []string `json:"app_ids"`
+}
+
+func DelSAEAppFromEnv(username string, projectName, envName string, req *DelSAEAppFromEnvRequest, log *zap.SugaredLogger) error {
+	opt := &commonrepo.SAEEnvFindOptions{ProjectName: projectName, EnvName: envName}
+	env, err := commonrepo.NewSAEEnvColl().Find(opt)
+	if err != nil {
+		err = fmt.Errorf("Failed to find SAE env, projectName: %s, envName: %s, error: %s", projectName, envName, err)
+		log.Error(err)
+		return e.ErrDelSAEAppFromEnv.AddErr(err)
+	}
+
+	saeModel, err := commonrepo.NewSAEColl().FindDefault()
+	if err != nil {
+		err = fmt.Errorf("Failed to find default sae, err: %s", err)
+		log.Error(err)
+		return e.ErrDelSAEAppFromEnv.AddErr(err)
+	}
+	saeClient, err := sae.NewClient(saeModel, env.RegionID)
+	if err != nil {
+		err = fmt.Errorf("Failed to create sae client, err: %s", err)
+		log.Error(err)
+		return e.ErrDelSAEAppFromEnv.AddErr(err)
+	}
+
+	if len(req.AppIDs) > 0 {
+		resourceIds := "["
+		for _, app := range req.AppIDs {
+			resourceIds += fmt.Sprintf(`"%s",`, app)
+		}
+		resourceIds = strings.TrimSuffix(resourceIds, ",") + "]"
+		saeRequest := &sae20190506.UntagResourcesRequest{
+			RegionId:     tea.String(env.RegionID),
+			ResourceType: tea.String("application"),
+			TagKeys:      tea.String(fmt.Sprintf(`["%s","%s"]`, setting.SAEZadigProjectTagKey, setting.SAEZadigEnvTagKey)),
+			ResourceIds:  tea.String(resourceIds),
+		}
+		saeResp, err := saeClient.UntagResources(saeRequest)
+		if err != nil {
+			err = fmt.Errorf("Failed to un tag resources, err: %s", err)
+			log.Error(err)
+			return e.ErrDelSAEAppFromEnv.AddErr(err)
+		}
+		if !tea.BoolValue(saeResp.Body.Success) {
+			err = fmt.Errorf("Failed to un tag resources, statusCode: %d, code: %s, errCode: %s, message: %s", tea.Int32Value(saeResp.StatusCode), tea.ToString(saeResp.Body.Code), tea.ToString(saeResp.Body.ErrorCode), tea.ToString(saeResp.Body.Message))
+			log.Error(err)
+			return e.ErrDelSAEAppFromEnv.AddErr(err)
+		}
+	}
+
+	return nil
 }
