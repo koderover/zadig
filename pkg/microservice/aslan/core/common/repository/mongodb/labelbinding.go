@@ -69,6 +69,35 @@ type LabelBindingListOption struct {
 	LabelFilter map[string]string
 }
 
+func (c *LabelBindingColl) List(opt *LabelBindingListOption) ([]*models.LabelBinding, error) {
+	var bindings []*models.LabelBinding
+
+	query := bson.M{}
+
+	if len(opt.ServiceName) > 0 {
+		query["service_name"] = opt.ServiceName
+	}
+
+	if len(opt.ProjectKey) > 0 {
+		query["project_key"] = opt.ProjectKey
+	}
+
+	if opt.Production != nil {
+		query["production"] = *opt.Production
+	}
+
+	cursor, err := c.Find(context.TODO(), query)
+	if err != nil {
+		return nil, err
+	}
+	err = cursor.All(context.TODO(), &bindings)
+	if err != nil {
+		return nil, err
+	}
+
+	return bindings, err
+}
+
 func (c *LabelBindingColl) ListService(opt *LabelBindingListOption) ([]*models.LabelBinding, error) {
 	var bindings []*models.LabelBinding
 
