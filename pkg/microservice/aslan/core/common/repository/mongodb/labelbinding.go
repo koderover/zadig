@@ -173,7 +173,7 @@ func (c *LabelBindingColl) ListService(opt *LabelBindingListOption) ([]*models.L
 	if opt.LabelFilter != nil && len(opt.LabelFilter) > 0 {
 		pipeline = append(pipeline, bson.M{
 			"$match": bson.M{
-				"$count": len(opt.LabelFilter),
+				"count": len(opt.LabelFilter),
 			},
 		})
 	}
