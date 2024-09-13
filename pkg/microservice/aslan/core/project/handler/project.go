@@ -217,11 +217,6 @@ func SearchBizDirByProject(c *gin.Context) {
 		return
 	}
 
-	if req.ProjectName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid project name")
-		return
-	}
-
 	err = util.CheckZadigEnterpriseLicense()
 	if err != nil {
 		ctx.Err = err
@@ -267,11 +262,6 @@ func SearchBizDirByService(c *gin.Context) {
 	err = c.ShouldBindQuery(req)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid param, err: " + err.Error())
-		return
-	}
-
-	if req.ServiceName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid serivce name")
 		return
 	}
 
