@@ -87,11 +87,25 @@ func GetBizDirProject() ([]GroupDetail, error) {
 	return resp, nil
 }
 
-func GetBizDirProjectServices(projectName string) ([]string, error) {
+func GetBizDirProjectServices(projectName string, labels []string) ([]string, error) {
 	svcSet := sets.NewString()
+	labeledSvcSet := sets.NewString()
 	productTmpl, err := templaterepo.NewProductColl().Find(projectName)
 	if err != nil {
 		return nil, e.ErrGetBizDirProjectService.AddErr(fmt.Errorf("Can not find project %s, error: %s", projectName, err))
+	}
+
+	projectedTestingServiceMap, err := getProjectServiceByLabel(labels)
+	if err != nil {
+		return nil, err
+	}
+
+	if _, ok := projectedTestingServiceMap[projectName]; !ok {
+		return svcSet.List(), nil
+	}
+
+	for _, svc := range projectedTestingServiceMap[projectName] {
+		labeledSvcSet.Insert(svc)
 	}
 
 	testServices, err := commonrepo.NewServiceColl().ListMaxRevisionsForServices(productTmpl.AllTestServiceInfos(), "")
@@ -99,6 +113,9 @@ func GetBizDirProjectServices(projectName string) ([]string, error) {
 		return nil, e.ErrGetBizDirProjectService.AddErr(fmt.Errorf("Failed to list testing services by %+v, err: %s", productTmpl.AllTestServiceInfos(), err))
 	}
 	for _, svc := range testServices {
+		if !labeledSvcSet.Has(svc.ServiceName) {
+			continue
+		}
 		svcSet.Insert(svc.ServiceName)
 	}
 
@@ -107,6 +124,10 @@ func GetBizDirProjectServices(projectName string) ([]string, error) {
 		return nil, e.ErrGetBizDirProjectService.AddErr(fmt.Errorf("Failed to production list services by %+v, err: %s", projectName, err))
 	}
 	for _, svc := range prodServices {
+		// TODO: change this logic: in patch 3.2.0 there are no production service with labels, so it is safe to ignore all production service
+		if len(labels) > 0 {
+			continue
+		}
 		svcSet.Insert(svc.ServiceName)
 	}
 
