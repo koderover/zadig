@@ -1931,10 +1931,14 @@ definitions:
         type: string
       cpu:
         type: integer
+      image_url:
+        type: string
       instances:
         type: integer
       mem:
         type: integer
+      package_url:
+        type: string
       running_instances:
         type: integer
       tags:
@@ -5692,6 +5696,44 @@ paths:
       summary: Update SAE Env
       tags:
       - environment
+  /api/aslan/environment/environments/sae/{name}/app/{appID}/instance:
+    get:
+      consumes:
+      - application/json
+      description: List SAE Application Instances
+      parameters:
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: app ID
+        in: path
+        name: appID
+        required: true
+        type: string
+      - description: is production
+        in: query
+        name: production
+        required: true
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/service.SAEAppGroup'
+            type: array
+      summary: List SAE Application Instances
+      tags:
+      - environment
   /api/aslan/environment/environments/sae/{name}/app/{appID}/instance/{instanceID}/log:
     get:
       consumes:
@@ -5770,44 +5812,6 @@ paths:
         "200":
           description: OK
       summary: Restart SAE Application Instance
-      tags:
-      - environment
-  /api/aslan/environment/environments/sae/{name}/app/{appID}/instances:
-    get:
-      consumes:
-      - application/json
-      description: List SAE Application Instances
-      parameters:
-      - description: project name
-        in: query
-        name: projectName
-        required: true
-        type: string
-      - description: env name
-        in: path
-        name: name
-        required: true
-        type: string
-      - description: app ID
-        in: path
-        name: appID
-        required: true
-        type: string
-      - description: is production
-        in: query
-        name: production
-        required: true
-        type: boolean
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            items:
-              $ref: '#/definitions/service.SAEAppGroup'
-            type: array
-      summary: List SAE Application Instances
       tags:
       - environment
   /api/aslan/environment/environments/sae/{name}/app/{appID}/rescale:
