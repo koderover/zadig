@@ -163,8 +163,15 @@ func GetBizDirProjectServices(c *gin.Context) {
 		}
 	}
 
-	projectName := c.Query("projectName")
-	if projectName == "" {
+	req := new(searchBizDirByProjectReq)
+
+	err = c.ShouldBindQuery(req)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid param, err: " + err.Error())
+		return
+	}
+
+	if req.ProjectName == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid project name")
 		return
 	}
@@ -175,7 +182,7 @@ func GetBizDirProjectServices(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = projectservice.GetBizDirProjectServices(projectName)
+	ctx.Resp, ctx.Err = projectservice.GetBizDirProjectServices(req.ProjectName, req.Labels)
 }
 
 type searchBizDirByProjectReq struct {
