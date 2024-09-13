@@ -284,7 +284,7 @@ func SearchBizDir(serviceName, projectName string, labels []string) ([]*SearchBi
 	}
 
 	for _, lb := range labels {
-		log.Infof("label:", lb)
+		log.Infof("label: %s", lb)
 	}
 
 	labeledServiceMap := make(map[string][]string)
