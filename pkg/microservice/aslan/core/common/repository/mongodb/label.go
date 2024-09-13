@@ -61,10 +61,20 @@ func (c *LabelColl) Create(args *models.Label) error {
 	return err
 }
 
-func (c *LabelColl) List() ([]*models.Label, error) {
+type LabelListOption struct {
+	Keys []string
+}
+
+func (c *LabelColl) List(opt *LabelListOption) ([]*models.Label, error) {
 	var labels []*models.Label
 
 	query := bson.M{}
+
+	if opt.Keys != nil && len(opt.Keys) > 0 {
+		query["key"] = bson.M{
+			"$in": opt.Keys,
+		}
+	}
 
 	cursor, err := c.Collection.Find(context.TODO(), query)
 	if err != nil {

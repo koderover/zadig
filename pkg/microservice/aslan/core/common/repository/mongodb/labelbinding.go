@@ -152,8 +152,6 @@ func (c *LabelBindingColl) ListService(opt *LabelBindingListOption) ([]*models.L
 		}
 	}
 
-	fmt.Printf(">>>>>>>>>>>>>>>> final query: %+v <<<<<<<<<<<<<<<<<<<", finalQuery)
-
 	pipeline := []bson.M{
 		{
 			"$match": finalQuery,

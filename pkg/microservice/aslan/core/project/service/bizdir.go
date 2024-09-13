@@ -286,6 +286,32 @@ func SearchBizDir(serviceName, projectName string, labels []string) ([]*SearchBi
 
 	labelFilter := make(map[string]string)
 
+	labelKeys := make([]string, 0)
+
+	for _, lb := range labels {
+		kvs := strings.Split(lb, ":")
+		if len(kvs) < 2 {
+			log.Errorf("cannot query label without value")
+			return nil, fmt.Errorf("cannot query label without value")
+		}
+
+		key := kvs[0]
+
+		labelKeys = append(labelKeys, key)
+	}
+
+	labelsettings, err := commonrepo.NewLabelColl().List(&commonrepo.LabelListOption{Keys: labelKeys})
+	if err != nil {
+		log.Errorf("failed to list label settings, error: %s", err)
+		return nil, fmt.Errorf("failed to list label settings, error: %s", err)
+	}
+
+	labelIDMap := make(map[string]string)
+
+	for _, labelSetting := range labelsettings {
+		labelIDMap[labelSetting.Key] = labelSetting.ID.Hex()
+	}
+
 	for _, lb := range labels {
 		kvs := strings.Split(lb, ":")
 		if len(kvs) < 2 {
@@ -296,9 +322,7 @@ func SearchBizDir(serviceName, projectName string, labels []string) ([]*SearchBi
 		key := kvs[0]
 		value := strings.Join(kvs[1:], ":")
 
-		log.Infof("label key: %s", key)
-		log.Infof("label value: %s", value)
-		labelFilter[key] = value
+		labelFilter[labelIDMap[key]] = value
 	}
 
 	labeledServiceMap := make(map[string][]string)

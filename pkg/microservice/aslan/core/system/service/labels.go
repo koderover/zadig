@@ -38,7 +38,7 @@ func CreateServiceLabelSetting(args *commonmodels.Label, log *zap.SugaredLogger)
 }
 
 func ListServiceLabelSettings(log *zap.SugaredLogger) ([]*commonmodels.Label, error) {
-	labels, err := commonrepo.NewLabelColl().List()
+	labels, err := commonrepo.NewLabelColl().List(&commonrepo.LabelListOption{})
 	if err != nil {
 		log.Errorf("List service label err:%v", err)
 		return nil, err
