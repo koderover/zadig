@@ -2660,6 +2660,13 @@ definitions:
     - ProtocolTCP
     - ProtocolUDP
     - ProtocolSCTP
+  service.AddSAEAppToEnvRequest:
+    properties:
+      app_ids:
+        items:
+          type: string
+        type: array
+    type: object
   service.ConvertVaraibleKVAndYamlActionType:
     enum:
     - toKV
@@ -2778,6 +2785,13 @@ definitions:
         allOf:
         - $ref: '#/definitions/service.ValuesDataArgs'
         description: for helm products
+    type: object
+  service.DelSAEAppFromEnvRequest:
+    properties:
+      app_ids:
+        items:
+          type: string
+        type: array
     type: object
   service.DeployStatus:
     enum:
@@ -5662,10 +5676,11 @@ paths:
       summary: Get SAE Env
       tags:
       - environment
-    put:
+  /api/aslan/environment/environments/sae/{name}/app:
+    post:
       consumes:
       - application/json
-      description: Update SAE Env
+      description: Add SAE App to Env
       parameters:
       - description: project name
         in: query
@@ -5687,13 +5702,47 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/models.SAEEnv'
+          $ref: '#/definitions/service.AddSAEAppToEnvRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
-      summary: Update SAE Env
+      summary: Add SAE App to Env
+      tags:
+      - environment
+    put:
+      consumes:
+      - application/json
+      description: Delete SAE App from Env
+      parameters:
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: is production
+        in: query
+        name: production
+        required: true
+        type: boolean
+      - description: body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/service.DelSAEAppFromEnvRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Delete SAE App from Env
       tags:
       - environment
   /api/aslan/environment/environments/sae/{name}/app/{appID}/instance:
@@ -5994,9 +6043,9 @@ paths:
         name: production
         required: true
         type: boolean
-      - description: is create env
+      - description: is add app
         in: query
-        name: isCreateEnv
+        name: isAddApp
         required: true
         type: boolean
       - description: app name

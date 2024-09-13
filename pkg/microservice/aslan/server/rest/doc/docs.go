@@ -451,8 +451,8 @@ const docTemplate = `{
                     },
                     {
                         "type": "boolean",
-                        "description": "is create env",
-                        "name": "isCreateEnv",
+                        "description": "is add app",
+                        "name": "isAddApp",
                         "in": "query",
                         "required": true
                     },
@@ -581,56 +581,6 @@ const docTemplate = `{
                     }
                 }
             },
-            "put": {
-                "description": "Update SAE Env",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "environment"
-                ],
-                "summary": "Update SAE Env",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "project name",
-                        "name": "projectName",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "env name",
-                        "name": "name",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "boolean",
-                        "description": "is production",
-                        "name": "production",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "description": "body",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/models.SAEEnv"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK"
-                    }
-                }
-            },
             "delete": {
                 "description": "Delete SAE Env",
                 "consumes": [
@@ -664,6 +614,108 @@ const docTemplate = `{
                         "name": "production",
                         "in": "query",
                         "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/api/aslan/environment/environments/sae/{name}/app": {
+            "put": {
+                "description": "Delete SAE App from Env",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environment"
+                ],
+                "summary": "Delete SAE App from Env",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "env name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "is production",
+                        "name": "production",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "description": "body",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/service.DelSAEAppFromEnvRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            },
+            "post": {
+                "description": "Add SAE App to Env",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environment"
+                ],
+                "summary": "Add SAE App to Env",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "env name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "is production",
+                        "name": "production",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "description": "body",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/service.AddSAEAppToEnvRequest"
+                        }
                     }
                 ],
                 "responses": {
@@ -10224,6 +10276,17 @@ const docTemplate = `{
                 "ProtocolSCTP"
             ]
         },
+        "service.AddSAEAppToEnvRequest": {
+            "type": "object",
+            "properties": {
+                "app_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
         "service.ConvertVaraibleKVAndYamlActionType": {
             "type": "string",
             "enum": [
@@ -10404,6 +10467,17 @@ const docTemplate = `{
                             "$ref": "#/definitions/service.ValuesDataArgs"
                         }
                     ]
+                }
+            }
+        },
+        "service.DelSAEAppFromEnvRequest": {
+            "type": "object",
+            "properties": {
+                "app_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 }
             }
         },
