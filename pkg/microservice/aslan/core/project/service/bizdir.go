@@ -302,8 +302,9 @@ func SearchBizDir(serviceName, projectName string, labels []string) ([]*SearchBi
 	}
 
 	labeledServiceMap := make(map[string][]string)
-	labelbindings, err := commonrepo.NewLabelBindingColl().ListService(&commonrepo.LabelBindingListOption{LabelFilter: labelFilter})
-	for _, label := range labelbindings {
+	boundService, err := commonrepo.NewLabelBindingColl().ListService(&commonrepo.LabelBindingListOption{LabelFilter: labelFilter})
+	for _, label := range boundService {
+		log.Infof("bound service: %s, project: %s", label.ServiceName, label.ProjectKey)
 		if _, ok := labeledServiceMap[label.ProjectKey]; !ok {
 			labeledServiceMap[label.ProjectKey] = make([]string, 0)
 		}
