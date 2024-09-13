@@ -1,0 +1,19 @@
+# OS
+.DS_Store
+
+# IDE
+.idea
+.settings
+.cache/
+.vscode/
+.project
+.history/
+
+# Go build directory
+bin/
+pkg/
+
+# Unit test / coverage reports
+coverage.*
+
+*.sh
