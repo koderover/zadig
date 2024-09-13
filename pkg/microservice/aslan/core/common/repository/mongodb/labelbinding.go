@@ -69,7 +69,7 @@ type LabelBindingListOption struct {
 	LabelFilter map[string]string
 }
 
-func (c *LabelBindingColl) List(opt *LabelBindingListOption) ([]*models.LabelBinding, error) {
+func (c *LabelBindingColl) ListService(opt *LabelBindingListOption) ([]*models.LabelBinding, error) {
 	var bindings []*models.LabelBinding
 
 	query := bson.M{}
@@ -86,36 +86,77 @@ func (c *LabelBindingColl) List(opt *LabelBindingListOption) ([]*models.LabelBin
 		}
 	}
 
+	searchQueryFlag := false
+
 	if len(opt.ServiceName) > 0 {
+		searchQueryFlag = true
 		query["service_name"] = opt.ServiceName
 	}
 
 	if len(opt.ProjectKey) > 0 {
+		searchQueryFlag = true
 		query["project_key"] = opt.ProjectKey
 	}
 
 	if opt.Production != nil {
+		searchQueryFlag = true
 		query["production"] = *opt.Production
+	}
+
+	andQuery := make([]bson.M, 0)
+
+	if searchQueryFlag {
+		andQuery = append(andQuery, query)
+	}
+
+	if len(opt.LabelFilter) > 0 {
+		andQuery = append(andQuery, bson.M{
+			"$or": labelMatch,
+		})
+	}
+
+	finalQuery := bson.M{}
+
+	if len(andQuery) > 0 {
+		finalQuery = bson.M{
+			"$and": andQuery,
+		}
 	}
 
 	pipeline := []bson.M{
 		{
-			"$match": bson.M{
-				"$and": []bson.M{
-					{},
-				},
-			},
+			"$match": finalQuery,
 		},
 		{
 			"$group": bson.M{
-				"_id":          nil,
-				"count":        bson.M{"$sum": 1},
-				"max_revision": bson.M{"$max": "$revision"},
+				"_id": bson.M{
+					"service_name": "$service_name",
+					"project_key":  "$project_key",
+					"production":   "$production",
+				},
+				"count": bson.M{"$sum": 1},
 			},
 		},
 	}
 
-	cursor, err := c.Collection.Find(context.TODO(), query)
+	if len(opt.LabelFilter) > 0 {
+		pipeline = append(pipeline, bson.M{
+			"$match": bson.M{
+				"$count": len(opt.LabelFilter),
+			},
+		})
+	}
+
+	pipeline = append(pipeline, bson.M{
+		"$project": bson.M{
+			"_id":          0,
+			"service_name": "$_id.service_name",
+			"project_key":  "$_id.project_key",
+			"production":   "$_id.production",
+		},
+	})
+
+	cursor, err := c.Aggregate(context.TODO(), pipeline)
 	if err != nil {
 		return nil, err
 	}
