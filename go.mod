@@ -338,3 +338,5 @@ require (
 replace github.com/Sirupsen/logrus => github.com/sirupsen/logrus v1.9.0
 
 replace github.com/docker/libnetwork => github.com/docker/libnetwork v0.8.0-dev.2.0.20220716072657-0dde5c895075
+
+replace github.com/alibabacloud-go/sae-20190506 => ./pkg/localpkg/sae-20190506
