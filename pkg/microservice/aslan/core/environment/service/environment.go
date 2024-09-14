@@ -2701,6 +2701,11 @@ func preCreateProduct(envName string, args *commonmodels.Product, kubeClient cli
 		log.Errorf("[%s][P:%s] duplicate product", envName, args.ProductName)
 		return e.ErrCreateEnv.AddDesc(e.DuplicateEnvErrMsg)
 	}
+	opt2 := &commonrepo.SAEEnvFindOptions{ProjectName: args.ProductName, EnvName: envName}
+	if _, err := commonrepo.NewSAEEnvColl().Find(opt2); err == nil {
+		log.Errorf("[%s][P:%s] duplicate product", envName, args.ProductName)
+		return e.ErrCreateEnv.AddDesc(e.DuplicateEnvErrMsg)
+	}
 
 	if productTmpl.ProductFeature.DeployType == setting.HelmDeployType || productTmpl.ProductFeature.DeployType == setting.K8SDeployType {
 		args.AnalysisConfig = &commonmodels.AnalysisConfig{
