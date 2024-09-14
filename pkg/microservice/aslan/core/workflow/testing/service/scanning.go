@@ -722,8 +722,12 @@ func generateCustomWorkflowFromScanningModule(scanInfo *commonmodels.Scanning, a
 	}
 
 	job := make([]*commonmodels.Job, 0)
+	name := scanInfo.Name
+	if len(name) >= 32 {
+		name = strings.TrimSuffix(scanInfo.Name[:31], "-")
+	}
 	job = append(job, &commonmodels.Job{
-		Name:    scanInfo.Name,
+		Name:    name,
 		JobType: config.JobZadigScanning,
 		Skipped: false,
 		Spec: &commonmodels.ZadigScanningJobSpec{
