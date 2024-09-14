@@ -60,10 +60,7 @@ func UpdateServiceLabelSetting(id string, args *commonmodels.Label, log *zap.Sug
 func DeleteServiceLabelSetting(id string, log *zap.SugaredLogger) error {
 	// first make sure the label is not used
 	bindings, err := commonrepo.NewLabelBindingColl().List(&commonrepo.LabelBindingListOption{
-		ServiceName: "",
-		ProjectKey:  "",
-		Production:  nil,
-		LabelFilter: nil,
+		LabelID: id,
 	})
 
 	if err != nil {
