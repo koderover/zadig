@@ -1114,6 +1114,12 @@ func (j *DeployJob) GetOutPuts(log *zap.SugaredLogger) []string {
 		resp = append(resp, getOutputKey(targetKey, []*commonmodels.Output{{Name: "IMAGE"}})...)
 	}
 	resp = append(resp, getOutputKey(j.job.Name, ensureDeployInOutputs())...)
+
+	outputs := []*commonmodels.Output{}
+	outputs = append(outputs, &commonmodels.Output{
+		Name: IMAGEKEY,
+	})
+	resp = append(resp, getOutputKey(j.job.Name+".<SERVICE>.<MODULE>", outputs)...)
 	return resp
 }
 
