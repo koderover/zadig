@@ -185,6 +185,7 @@ func createOrUpdateMongodbIndex(ctx context.Context) {
 		commonrepo.NewLabelColl(),
 		commonrepo.NewLabelBindingColl(),
 		commonrepo.NewSAEColl(),
+		commonrepo.NewSAEEnvColl(),
 
 		// msg queue
 		commonrepo.NewMsgQueueCommonColl(),
