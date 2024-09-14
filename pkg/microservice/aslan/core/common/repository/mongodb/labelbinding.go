@@ -96,6 +96,7 @@ type LabelBindingListOption struct {
 	ProjectKey  string
 	Production  *bool
 	LabelFilter map[string]string
+	LabelID     string
 }
 
 func (c *LabelBindingColl) List(opt *LabelBindingListOption) ([]*models.LabelBinding, error) {
@@ -105,6 +106,10 @@ func (c *LabelBindingColl) List(opt *LabelBindingListOption) ([]*models.LabelBin
 
 	if len(opt.ServiceName) > 0 {
 		query["service_name"] = opt.ServiceName
+	}
+
+	if len(opt.LabelID) > 0 {
+		query["label_id"] = opt.LabelID
 	}
 
 	if len(opt.ProjectKey) > 0 {
@@ -149,6 +154,10 @@ func (c *LabelBindingColl) ListService(opt *LabelBindingListOption) ([]*models.L
 	if len(opt.ServiceName) > 0 {
 		searchQueryFlag = true
 		query["service_name"] = opt.ServiceName
+	}
+
+	if len(opt.LabelID) > 0 {
+		query["label_id"] = opt.LabelID
 	}
 
 	if len(opt.ProjectKey) > 0 {

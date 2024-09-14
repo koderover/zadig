@@ -656,6 +656,11 @@ func generateDefaultSystemActions() *SystemActions {
 			Edit:   false,
 			Delete: false,
 		},
+		LabelManagement: &LabelManagementActions{
+			Create: false,
+			Edit:   false,
+			Delete: false,
+		},
 	}
 }
 

@@ -58,7 +58,25 @@ func UpdateServiceLabelSetting(id string, args *commonmodels.Label, log *zap.Sug
 }
 
 func DeleteServiceLabelSetting(id string, log *zap.SugaredLogger) error {
-	err := commonrepo.NewLabelColl().Delete(id)
+	// first make sure the label is not used
+	bindings, err := commonrepo.NewLabelBindingColl().List(&commonrepo.LabelBindingListOption{
+		ServiceName: "",
+		ProjectKey:  "",
+		Production:  nil,
+		LabelFilter: nil,
+	})
+
+	if err != nil {
+		log.Errorf("failed to validate if the label is used, error: %s", err)
+		return fmt.Errorf("failed to validate if the label is used, error: %s", err)
+	}
+
+	if len(bindings) > 0 {
+		log.Errorf("label is still being used, cannot delete")
+		return fmt.Errorf("label is still being used, cannot delete")
+	}
+
+	err = commonrepo.NewLabelColl().Delete(id)
 	if err != nil {
 		log.Errorf("delete service label err:%v", err)
 		return err
