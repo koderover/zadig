@@ -24,6 +24,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
@@ -48,8 +49,36 @@ func (c *LabelBindingColl) GetCollectionName() string {
 }
 
 func (c *LabelBindingColl) EnsureIndex(ctx context.Context) error {
-	// TODO: ADD MEEEEEEE !!!!
-	return nil
+	mod := []mongo.IndexModel{
+		{
+			Keys: bson.D{
+				bson.E{Key: "service_name", Value: 1},
+				bson.E{Key: "project_key", Value: 1},
+				bson.E{Key: "production", Value: 1},
+			},
+			Options: options.Index().SetUnique(false),
+		},
+		{
+			Keys: bson.D{
+				bson.E{Key: "label_id", Value: 1},
+				bson.E{Key: "value", Value: 1},
+			},
+			Options: options.Index().SetUnique(false),
+		},
+		// each key can only be assigned to a service once
+		{
+			Keys: bson.D{
+				bson.E{Key: "service_name", Value: 1},
+				bson.E{Key: "project_key", Value: 1},
+				bson.E{Key: "production", Value: 1},
+				bson.E{Key: "label_id", Value: 1},
+			},
+			Options: options.Index().SetUnique(true),
+		},
+	}
+	_, err := c.Indexes().CreateMany(ctx, mod)
+
+	return err
 }
 
 func (c *LabelBindingColl) Create(args *models.LabelBinding) error {
