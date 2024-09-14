@@ -652,7 +652,7 @@ func OpenAPIGetProductionService(c *gin.Context) {
 	}
 
 	envName := c.Param("name")
-	projectKey := c.Query("projectName")
+	projectKey := c.Query("projectKey")
 	serviceName := c.Param("serviceName")
 	workLoadType := c.Query("workLoadType")
 
