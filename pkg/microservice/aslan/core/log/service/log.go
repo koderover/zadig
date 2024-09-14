@@ -166,7 +166,13 @@ func GetScanningContainerLogs(scanID string, taskID int64, log *zap.SugaredLogge
 		log.Errorf("failed to get scanning from db to get scanning detail, the error is: %s", err)
 		return "", err
 	}
-	scanningLogFilePrefix := fmt.Sprintf("%s-%s", scanning.Name, scanning.Name)
+
+	name := scanning.Name
+	if len(name) >= 32 {
+		name = strings.TrimSuffix(scanning.Name[:31], "-")
+	}
+
+	scanningLogFilePrefix := fmt.Sprintf("%s-%s", name, name)
 
 	buildLog, err := getContainerLogFromS3(workflowName, scanningLogFilePrefix, taskID, log)
 	if err != nil {
