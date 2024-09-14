@@ -89,6 +89,35 @@ func GetSAEEnv(username, envName, productName string, log *zap.SugaredLogger) (*
 }
 
 func CreateSAEEnv(username string, env *models.SAEEnv, log *zap.SugaredLogger) error {
+	envCheck1, err := commonrepo.NewSAEEnvColl().Find(&commonrepo.SAEEnvFindOptions{
+		ProjectName:       env.ProjectName,
+		EnvName:           env.EnvName,
+		IgnoreNotFoundErr: true})
+	if err != nil {
+		err = fmt.Errorf("Failed to find sae env %s/%s, err: %s", env.ProjectName, env.EnvName, err)
+		log.Error(err)
+		return e.ErrCreateEnv.AddErr(err)
+	}
+	if envCheck1 != nil {
+		err = fmt.Errorf("Envrionment %s/%s already exists", env.ProjectName, env.EnvName)
+		log.Error(err)
+		return e.ErrCreateEnv.AddErr(err)
+	}
+	envCheck2, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		Name:              env.ProjectName,
+		EnvName:           env.EnvName,
+		IgnoreNotFoundErr: true})
+	if err != nil {
+		err = fmt.Errorf("Failed to find env %s/%s, err: %s", env.ProjectName, env.EnvName, err)
+		log.Error(err)
+		return e.ErrCreateEnv.AddErr(err)
+	}
+	if envCheck2 != nil {
+		err = fmt.Errorf("Envrionment %s/%s already exists", env.ProjectName, env.EnvName)
+		log.Error(err)
+		return e.ErrCreateEnv.AddErr(err)
+	}
+
 	saeModel, err := commonrepo.NewSAEColl().FindDefault()
 	if err != nil {
 		err = fmt.Errorf("Failed to find default sae, err: %s", err)
