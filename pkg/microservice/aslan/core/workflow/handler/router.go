@@ -267,11 +267,6 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		plugin.GET("", ListUnofficalPluginRepositories)
 		plugin.DELETE("/:id", DeletePluginRepo)
 	}
-
-	bundles := router.Group("bundle-resources")
-	{
-		bundles.GET("", GetBundleResources)
-	}
 }
 
 type OpenAPIRouter struct{}

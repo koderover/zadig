@@ -21,7 +21,6 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/koderover/zadig/v2/pkg/types"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -34,11 +33,11 @@ import (
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	commontypes "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/types"
 	service2 "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/environment/service"
-	config2 "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/label/config"
 	workflowservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/shared/client/user"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
+	"github.com/koderover/zadig/v2/pkg/types"
 )
 
 type GetCollaborationUpdateResp struct {
@@ -452,7 +451,7 @@ func syncNewResource(products *SyncCollaborationInstanceArgs, updateResp *GetCol
 	var newCommonWorkflows []workflowservice.WorkflowCopyItem
 	for _, workflow := range newResp.Workflow {
 		if workflow.CollaborationType == config.CollaborationNew {
-			if config2.IsCustomWorkflow(workflow.WorkflowType) {
+			if config.IsCustomWorkflow(workflow.WorkflowType) {
 				newCommonWorkflows = append(newCommonWorkflows, workflowservice.WorkflowCopyItem{
 					ProjectName:    projectName,
 					Old:            workflow.BaseName,
@@ -578,7 +577,7 @@ func getCollaborationDelete(updateResp *GetCollaborationUpdateResp) *GetCollabor
 		}
 		for _, workflow := range item.Workflows {
 			if workflow.CollaborationType == config.CollaborationNew {
-				if config2.IsCustomWorkflow(workflow.WorkflowType) {
+				if config.IsCustomWorkflow(workflow.WorkflowType) {
 					commonWorkflowSet.Insert(workflow.Name)
 				} else {
 					workflowSet.Insert(workflow.Name)
@@ -589,7 +588,7 @@ func getCollaborationDelete(updateResp *GetCollaborationUpdateResp) *GetCollabor
 	for _, item := range updateResp.Update {
 		for _, deleteWorkflow := range item.DeleteSpec.Workflows {
 			if deleteWorkflow.CollaborationType == config.CollaborationNew {
-				if config2.IsCustomWorkflow(deleteWorkflow.WorkflowType) {
+				if config.IsCustomWorkflow(deleteWorkflow.WorkflowType) {
 					commonWorkflowSet.Insert(deleteWorkflow.Name)
 				} else {
 					workflowSet.Insert(deleteWorkflow.Name)
@@ -604,7 +603,7 @@ func getCollaborationDelete(updateResp *GetCollaborationUpdateResp) *GetCollabor
 		for _, workflow := range item.UpdateSpec.Workflows {
 			if workflow.Old.CollaborationType == config.CollaborationNew &&
 				workflow.New.CollaborationType == config.CollaborationShare {
-				if config2.IsCustomWorkflow(workflow.Old.WorkflowType) {
+				if config.IsCustomWorkflow(workflow.Old.WorkflowType) {
 					commonWorkflowSet.Insert(workflow.Old.Name)
 				} else {
 					workflowSet.Insert(workflow.Old.Name)
@@ -866,7 +865,7 @@ func GetCollaborationNew(projectName, uid, identityType, userName string, logger
 
 func getWorkflowDisplayName(workflowName, workflowType string) string {
 	resp := workflowName
-	if config2.IsCustomWorkflow(workflowType) {
+	if config.IsCustomWorkflow(workflowType) {
 		workflow, err := commonrepo.NewWorkflowV4Coll().Find(workflowName)
 		if err != nil {
 			log.Errorf("workflow v4 :%s not found", workflowName)

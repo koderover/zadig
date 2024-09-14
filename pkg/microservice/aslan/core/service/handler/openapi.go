@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/gin-gonic/gin"
+	"github.com/koderover/zadig/v2/pkg/util/boolptr"
 
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	svcservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/service/service"
@@ -462,6 +463,37 @@ func GetYamlServiceOpenAPI(c *gin.Context) {
 	}
 
 	ctx.Resp, ctx.Err = svcservice.OpenAPIGetYamlService(projectKey, serviceName, ctx.Logger)
+}
+
+func GetYamlServiceLabelOpenAPI(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	projectKey := c.Query("projectKey")
+	if projectKey == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("projectKey cannot be empty")
+		return
+	}
+
+	productionStr := c.Query("production")
+
+	var production *bool
+	switch productionStr {
+	case "true":
+		production = boolptr.True()
+	case "false":
+		production = boolptr.False()
+	default:
+		production = nil
+	}
+
+	serviceName := c.Param("name")
+	if serviceName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("serviceName cannot be empty")
+		return
+	}
+
+	ctx.Resp, ctx.Err = svcservice.OpenAPIListServiceLabels(projectKey, serviceName, production, ctx.Logger)
 }
 
 func GetProductionYamlServiceOpenAPI(c *gin.Context) {

@@ -46,11 +46,6 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		Cluster.GET("/irsa", GetIRSAInfo)
 	}
 
-	bundles := router.Group("bundle-resources")
-	{
-		bundles.GET("", GetBundleResources)
-	}
-
 	istio := router.Group("istio")
 	{
 		istio.GET("/check/:id", CheckIstiod)

@@ -232,6 +232,37 @@ func OpenAPIGetYamlService(projectKey, serviceName string, logger *zap.SugaredLo
 	return resp, nil
 }
 
+func OpenAPIListServiceLabels(projectKey, serviceName string, production *bool, log *zap.SugaredLogger) ([]*ServiceLabelResp, error) {
+	resp := make([]*ServiceLabelResp, 0)
+
+	labelbindings, err := commonrepo.NewLabelBindingColl().List(&commonrepo.LabelBindingListOption{
+		ServiceName: serviceName,
+		ProjectKey:  projectKey,
+		Production:  production,
+	})
+
+	if err != nil {
+		log.Errorf("failed to list label bindings for project: %s, service: %s, error: %s", projectKey, serviceName, err)
+		return nil, fmt.Errorf("failed to list label bindings for project: %s, service: %s, error: %s", projectKey, serviceName, err)
+	}
+
+	for _, binding := range labelbindings {
+		// TODO: query the data all at once
+		labelSetting, err := commonrepo.NewLabelColl().GetByID(binding.LabelID)
+		if err != nil {
+			log.Errorf("failed to find the label setting for id: %s", binding.LabelID)
+			return nil, fmt.Errorf("failed to find the label setting for id: %s", binding.LabelID)
+		}
+
+		resp = append(resp, &ServiceLabelResp{
+			Key:   labelSetting.Key,
+			Value: binding.Value,
+		})
+	}
+
+	return resp, nil
+}
+
 func GetProductionYamlServiceOpenAPI(projectKey, serviceName string, logger *zap.SugaredLogger) (*OpenAPIGetYamlServiceResp, error) {
 	var resp *OpenAPIGetYamlServiceResp
 	service, err := commonservice.GetServiceTemplate(serviceName, setting.K8SDeployType, projectKey, setting.ProductStatusDeleting, 0, true, logger)

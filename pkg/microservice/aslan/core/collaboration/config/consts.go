@@ -16,9 +16,18 @@ limitations under the License.
 
 package config
 
+import "github.com/koderover/zadig/v2/pkg/setting"
+
 type CollaborationType string
 
 const (
 	CollaborationShare CollaborationType = "share"
 	CollaborationNew   CollaborationType = "new"
 )
+
+func IsCustomWorkflow(workflowType string) bool {
+	if workflowType == setting.CustomWorkflowType || workflowType == string(setting.ReleaseWorkflow) {
+		return true
+	}
+	return false
+}

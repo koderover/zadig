@@ -51,6 +51,7 @@ var systemResourceActionAliasMap = map[string]string{
 	"S3StorageManagement":  "对象存储",
 	"HelmRepoManagement":   "Chart 仓库",
 	"DBInstanceManagement": "数据库",
+	"LabelManagement":      "标签管理",
 }
 
 var systemResourceSequence = []string{
@@ -67,6 +68,7 @@ var systemResourceSequence = []string{
 	"S3StorageManagement",
 	"HelmRepoManagement",
 	"DBInstanceManagement",
+	"LabelManagement",
 }
 
 var projectResourceAliasMap = map[string]string{

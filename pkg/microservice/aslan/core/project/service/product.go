@@ -50,7 +50,6 @@ import (
 	commontypes "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/types"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	environmentservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/environment/service"
-	service2 "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/label/service"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/shared/client/user"
 	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
@@ -1141,14 +1140,6 @@ func DeleteCollabrationMode(productName string, userName string, log *zap.Sugare
 	// delete all collaborationIns
 	if err := mongodb.NewCollaborationInstanceColl().DeleteByProject(productName); err != nil {
 		log.Errorf("fail to DeleteByProject err:%s", err)
-		return err
-	}
-	return nil
-}
-
-func DeleteLabels(productName string, log *zap.SugaredLogger) error {
-	if err := service2.DeleteLabelsAndBindingsByProject(productName, log); err != nil {
-		log.Errorf("delete labels and bindings by project fail , err :%s", err)
 		return err
 	}
 	return nil

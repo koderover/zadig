@@ -18,6 +18,7 @@ package service
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
@@ -86,11 +87,25 @@ func GetBizDirProject() ([]GroupDetail, error) {
 	return resp, nil
 }
 
-func GetBizDirProjectServices(projectName string) ([]string, error) {
+func GetBizDirProjectServices(projectName string, labels []string) ([]string, error) {
 	svcSet := sets.NewString()
+	labeledSvcSet := sets.NewString()
 	productTmpl, err := templaterepo.NewProductColl().Find(projectName)
 	if err != nil {
 		return nil, e.ErrGetBizDirProjectService.AddErr(fmt.Errorf("Can not find project %s, error: %s", projectName, err))
+	}
+
+	projectedTestingServiceMap, err := getProjectServiceByLabel(labels)
+	if err != nil {
+		return nil, err
+	}
+
+	if _, ok := projectedTestingServiceMap[projectName]; !ok {
+		return svcSet.List(), nil
+	}
+
+	for _, svc := range projectedTestingServiceMap[projectName] {
+		labeledSvcSet.Insert(svc)
 	}
 
 	testServices, err := commonrepo.NewServiceColl().ListMaxRevisionsForServices(productTmpl.AllTestServiceInfos(), "")
@@ -98,6 +113,9 @@ func GetBizDirProjectServices(projectName string) ([]string, error) {
 		return nil, e.ErrGetBizDirProjectService.AddErr(fmt.Errorf("Failed to list testing services by %+v, err: %s", productTmpl.AllTestServiceInfos(), err))
 	}
 	for _, svc := range testServices {
+		if !labeledSvcSet.Has(svc.ServiceName) {
+			continue
+		}
 		svcSet.Insert(svc.ServiceName)
 	}
 
@@ -106,13 +124,17 @@ func GetBizDirProjectServices(projectName string) ([]string, error) {
 		return nil, e.ErrGetBizDirProjectService.AddErr(fmt.Errorf("Failed to production list services by %+v, err: %s", projectName, err))
 	}
 	for _, svc := range prodServices {
+		// TODO: change this logic: in patch 3.2.0 there are no production service with labels, so it is safe to ignore all production service
+		if len(labels) > 0 {
+			continue
+		}
 		svcSet.Insert(svc.ServiceName)
 	}
 
 	return svcSet.List(), nil
 }
 
-func SearchBizDirByProject(projectKeyword string) ([]GroupDetail, error) {
+func SearchBizDirByProject(projectKeyword string, labels []string) ([]GroupDetail, error) {
 	groups, err := commonrepo.NewProjectGroupColl().List()
 	if err != nil {
 		return nil, e.ErrSearchBizDirByProject.AddErr(fmt.Errorf("failed to list project groups, error: %v", err))
@@ -139,9 +161,17 @@ func SearchBizDirByProject(projectKeyword string) ([]GroupDetail, error) {
 		log.Errorf("too many projects(>=999) found by filter %s", projectKeyword)
 	}
 
+	projectedTestingServiceMap, err := getProjectServiceByLabel(labels)
+	if err != nil {
+		return nil, err
+	}
+
 	groupProjectMap := make(map[string][]*commonmodels.ProjectDetail)
 	resp := []GroupDetail{}
 	for _, project := range projects {
+		if _, ok := projectedTestingServiceMap[project.Name]; !ok {
+			continue
+		}
 		projectDetail := &commonmodels.ProjectDetail{
 			ProjectKey:        project.Name,
 			ProjectName:       project.Alias,
@@ -174,7 +204,7 @@ type SearchBizDirByServiceProject struct {
 	Services []string                    `json:"services"`
 }
 
-func SearchBizDirByService(serviceName string) ([]*SearchBizDirByServiceGroup, error) {
+func SearchBizDirByService(serviceName string, labels []string) ([]*SearchBizDirByServiceGroup, error) {
 	resp := []*SearchBizDirByServiceGroup{}
 	groups, err := commonrepo.NewProjectGroupColl().List()
 	if err != nil {
@@ -198,12 +228,41 @@ func SearchBizDirByService(serviceName string) ([]*SearchBizDirByServiceGroup, e
 		}
 	}
 
+	projectedTestingServiceMap, err := getProjectServiceByLabel(labels)
+	if err != nil {
+		return nil, err
+	}
+
 	groupMap := make(map[string]*SearchBizDirByServiceGroup)
 	projectMap := make(map[string]*SearchBizDirByServiceProject)
 	addToRespMap := func(service *commonmodels.Service) {
 		if _, ok := templateProjectMap[service.ProductName]; !ok {
 			log.Warnf("project %s not found for service %s", service.ProductName, service.ServiceName)
 			return
+		}
+
+		if len(labels) > 0 {
+			// TODO: change this logic: in patch 3.2.0 there are no production service with labels, so it is safe to ignore all production service
+			if service.Production {
+				return
+			}
+
+			if _, ok := projectedTestingServiceMap[service.ProductName]; !ok {
+				// if service is not shown in label filter, ignore it
+				return
+			}
+
+			found := false
+			for _, svc := range projectedTestingServiceMap[service.ProductName] {
+				if svc == service.ServiceName {
+					found = true
+					break
+				}
+			}
+
+			if !found {
+				return
+			}
 		}
 
 		groupName, ok := projectGroupMap[service.ProductName]
@@ -444,6 +503,66 @@ func GetBizDirServiceDetail(projectName, serviceName string) ([]GetBizDirService
 			resp = append(resp, detail)
 		}
 
+	}
+
+	return resp, nil
+}
+
+func getProjectServiceByLabel(labels []string) (map[string][]string, error) {
+	resp := make(map[string][]string)
+
+	labelFilter := make(map[string]string)
+
+	labelKeys := make([]string, 0)
+
+	for _, lb := range labels {
+		kvs := strings.Split(lb, ":")
+		if len(kvs) < 2 {
+			log.Errorf("cannot query label without value")
+			return nil, fmt.Errorf("cannot query label without value")
+		}
+
+		key := kvs[0]
+
+		labelKeys = append(labelKeys, key)
+	}
+
+	labelsettings, err := commonrepo.NewLabelColl().List(&commonrepo.LabelListOption{Keys: labelKeys})
+	if err != nil {
+		log.Errorf("failed to list label settings, error: %s", err)
+		return nil, fmt.Errorf("failed to list label settings, error: %s", err)
+	}
+
+	labelIDMap := make(map[string]string)
+
+	for _, labelSetting := range labelsettings {
+		labelIDMap[labelSetting.Key] = labelSetting.ID.Hex()
+	}
+
+	for _, lb := range labels {
+		kvs := strings.Split(lb, ":")
+		if len(kvs) < 2 {
+			log.Errorf("cannot query label without value")
+			return nil, fmt.Errorf("cannot query label without value")
+		}
+
+		key := kvs[0]
+		value := strings.Join(kvs[1:], ":")
+
+		labelFilter[labelIDMap[key]] = value
+	}
+
+	boundService, err := commonrepo.NewLabelBindingColl().ListService(&commonrepo.LabelBindingListOption{LabelFilter: labelFilter})
+	if err != nil {
+		log.Errorf("failed to list label bindings for labels, error: %s", err)
+		return nil, fmt.Errorf("failed to list label bindings for labels, error: %s", err)
+	}
+	for _, label := range boundService {
+		// TODO: currently labels can only be bound by testing service, ignoring production service.
+		if _, ok := resp[label.ProjectKey]; !ok {
+			resp[label.ProjectKey] = make([]string, 0)
+		}
+		resp[label.ProjectKey] = append(resp[label.ProjectKey], label.ServiceName)
 	}
 
 	return resp, nil
