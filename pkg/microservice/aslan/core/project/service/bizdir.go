@@ -249,7 +249,6 @@ func SearchBizDirByService(serviceName string, labels []string) ([]*SearchBizDir
 
 			if _, ok := projectedTestingServiceMap[service.ProductName]; !ok {
 				// if service is not shown in label filter, ignore it
-				log.Debugf("project not found, ignoring service: %s", service.ServiceName)
 				return
 			}
 
@@ -262,7 +261,6 @@ func SearchBizDirByService(serviceName string, labels []string) ([]*SearchBizDir
 			}
 
 			if !found {
-				log.Debugf("service not having required label, ignoring service: %s", service.ServiceName)
 				return
 			}
 		}

@@ -39,7 +39,7 @@ func CreateServiceLabelSetting(c *gin.Context) {
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
-		if !ctx.Resources.SystemActions.DBInstanceManagement.Create {
+		if !ctx.Resources.SystemActions.LabelManagement.Create {
 			ctx.UnAuthorized = true
 			return
 		}
@@ -75,7 +75,7 @@ func UpdateServiceLabelSetting(c *gin.Context) {
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
-		if !ctx.Resources.SystemActions.DBInstanceManagement.Create {
+		if !ctx.Resources.SystemActions.LabelManagement.Edit {
 			ctx.UnAuthorized = true
 			return
 		}
@@ -108,7 +108,7 @@ func DeleteServiceLabelSetting(c *gin.Context) {
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
-		if !ctx.Resources.SystemActions.DBInstanceManagement.Create {
+		if !ctx.Resources.SystemActions.LabelManagement.Delete {
 			ctx.UnAuthorized = true
 			return
 		}

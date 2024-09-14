@@ -139,6 +139,10 @@ const (
 	VerbCreateDBInstanceManagement = "create_dbinstance_management"
 	VerbEditDBInstanceManagement   = "edit_dbinstance_management"
 	VerbDeleteDBInstanceManagement = "delete_dbinstance_management"
+	// label management
+	VerbCreateLabelSetting = "create_label_setting"
+	VerbEditLabelSetting   = "edit_label_setting"
+	VerbDeleteLabelSetting = "delete_label_setting"
 )
 
 type AuthorizedResources struct {
@@ -175,6 +179,7 @@ type SystemActions struct {
 	S3StorageManagement  *S3StorageManagementActions  `json:"s3storage_management"`
 	HelmRepoManagement   *HelmRepoManagementActions   `json:"helmrepo_management"`
 	DBInstanceManagement *DBInstanceManagementActions `json:"dbinstance_management"`
+	LabelManagement      *LabelManagementActions      `json:"label_management"`
 }
 
 type WorkflowActions struct {
@@ -333,6 +338,12 @@ type HelmRepoManagementActions struct {
 type DBInstanceManagementActions struct {
 	Create bool
 	View   bool
+	Edit   bool
+	Delete bool
+}
+
+type LabelManagementActions struct {
+	Create bool
 	Edit   bool
 	Delete bool
 }

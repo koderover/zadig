@@ -838,5 +838,11 @@ func modifySystemAction(systemActions *SystemActions, verb string) {
 		systemActions.DBInstanceManagement.Edit = true
 	case VerbDeleteDBInstanceManagement:
 		systemActions.DBInstanceManagement.Delete = true
+	case VerbCreateLabelSetting:
+		systemActions.LabelManagement.Create = true
+	case VerbEditLabelSetting:
+		systemActions.LabelManagement.Edit = true
+	case VerbDeleteLabelSetting:
+		systemActions.LabelManagement.Delete = true
 	}
 }

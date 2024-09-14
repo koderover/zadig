@@ -1178,7 +1178,6 @@ func UpdateServiceLabel(c *gin.Context) {
 
 	labelBindingID := c.Param("id")
 
-	// TODO: add operation log back and redesign
 	requestByte, err := json.Marshal(req)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc("failed to decode request body, error: " + err.Error())
