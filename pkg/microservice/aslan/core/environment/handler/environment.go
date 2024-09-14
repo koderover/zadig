@@ -3480,7 +3480,7 @@ func GetSAEAppInstanceLog(c *gin.Context) {
 
 		if production {
 			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-				!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.ManagePods {
+				!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.View {
 				ctx.UnAuthorized = true
 				return
 			}
@@ -3492,7 +3492,7 @@ func GetSAEAppInstanceLog(c *gin.Context) {
 			}
 		} else {
 			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-				!ctx.Resources.ProjectAuthInfo[projectKey].Env.ManagePods {
+				!ctx.Resources.ProjectAuthInfo[projectKey].Env.View {
 				ctx.UnAuthorized = true
 				return
 			}
