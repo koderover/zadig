@@ -68,6 +68,7 @@ var systemResourceSequence = []string{
 	"S3StorageManagement",
 	"HelmRepoManagement",
 	"DBInstanceManagement",
+	"LabelManagement",
 }
 
 var projectResourceAliasMap = map[string]string{
