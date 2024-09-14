@@ -442,6 +442,17 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		dbs.DELETE("/:id", DeleteDBInstance)
 		dbs.POST("/validate", ValidateDBInstance)
 	}
+
+	sae := router.Group("sae")
+	{
+		sae.POST("", CreateSAE)
+		sae.GET("", ListSAE)
+		sae.GET("/detail", ListSAEInfo)
+		sae.GET("/:id", GetSAE)
+		sae.PUT("/:id", UpdateSAE)
+		sae.DELETE("/:id", DeleteSAE)
+		sae.POST("/validate", ValidateSAE)
+	}
 }
 
 type OpenAPIRouter struct{}

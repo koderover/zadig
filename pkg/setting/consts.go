@@ -940,3 +940,8 @@ const (
 	UserTypeGroup       string = "group"
 	UserTypeTaskCreator string = "task_creator"
 )
+
+const (
+	SAEZadigProjectTagKey = "ZADIG_PROJECT"
+	SAEZadigEnvTagKey     = "ZADIG_ENV"
+)
