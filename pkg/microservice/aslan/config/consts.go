@@ -621,3 +621,10 @@ const (
 	Testing    = "testing"
 	Both       = "both"
 )
+
+type DistributeImageMethod string
+
+const (
+	DistributeImageMethodImagePush DistributeImageMethod = "image_push"
+	DistributeImageMethodCloudSync DistributeImageMethod = "cloud_sync"
+)

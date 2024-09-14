@@ -28,6 +28,7 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"gopkg.in/yaml.v2"
 
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/types/step"
 )
@@ -57,10 +58,7 @@ func (s *DistributeImageStep) Run(ctx context.Context) error {
 		return errors.New("image registry infos are missing")
 	}
 
-	if err := s.loginSourceRegistry(); err != nil {
-		return err
-	}
-
+	wg := sync.WaitGroup{}
 	errList := new(multierror.Error)
 	errLock := sync.Mutex{}
 	appendError := func(err error) {
@@ -69,62 +67,95 @@ func (s *DistributeImageStep) Run(ctx context.Context) error {
 		errList = multierror.Append(errList, err)
 	}
 
-	wg := sync.WaitGroup{}
-	for _, target := range s.spec.DistributeTarget {
-		wg.Add(1)
-		go func(target *step.DistributeTaskTarget) {
-			defer wg.Done()
-			pullCmd := dockerPullCmd(target.SourceImage)
-			out := bytes.Buffer{}
-			pullCmd.Stdout = &out
-			pullCmd.Stderr = &out
-			if err := pullCmd.Run(); err != nil {
-				errMsg := fmt.Sprintf("failed to pull image: %s %s", err, out.String())
-				appendError(errors.New(errMsg))
-				return
-			}
-			log.Infof("pull source image [%s] succeed", target.SourceImage)
+	if s.spec.Type == config.DistributeImageMethodCloudSync {
+		log.Info("Distribute images type is cloud sync, try to pull image.")
 
-			tagCmd := dockerTagCmd(target.SourceImage, target.TargetImage)
-			out = bytes.Buffer{}
-			tagCmd.Stdout = &out
-			tagCmd.Stderr = &out
-			if err := tagCmd.Run(); err != nil {
-				errMsg := fmt.Sprintf("failed to tag image: %s %s", err, out.String())
-				appendError(errors.New(errMsg))
-				return
-			}
-			log.Infof("tag image [%s] to [%s] succeed", target.SourceImage, target.TargetImage)
-		}(target)
-	}
-	wg.Wait()
-	if err := errList.ErrorOrNil(); err != nil {
-		return fmt.Errorf("prepare source images error: %v", err)
-	}
-	log.Infof("Finish prepare source images.")
+		if err := s.loginTargetRegistry(); err != nil {
+			return err
+		}
+		for _, target := range s.spec.DistributeTarget {
+			wg.Add(1)
+			go func(target *step.DistributeTaskTarget) {
+				defer wg.Done()
+				pushCmd := dockerPullCmd(target.TargetImage)
+				out := bytes.Buffer{}
+				pushCmd.Stdout = &out
+				pushCmd.Stderr = &out
+				if err := pushCmd.Run(); err != nil {
+					errMsg := fmt.Sprintf("failed to pull image: %s %s", err, out.String())
+					appendError(errors.New(errMsg))
+					return
+				}
+				log.Infof("pull image [%s] succeed", target.TargetImage)
+			}(target)
+		}
+		wg.Wait()
+		if err := errList.ErrorOrNil(); err != nil {
+			return fmt.Errorf("pull target images error: %v", err)
+		}
+		return nil
+	} else {
+		if err := s.loginSourceRegistry(); err != nil {
+			return err
+		}
 
-	if err := s.loginTargetRegistry(); err != nil {
-		return err
-	}
-	for _, target := range s.spec.DistributeTarget {
-		wg.Add(1)
-		go func(target *step.DistributeTaskTarget) {
-			defer wg.Done()
-			pushCmd := dockerPush(target.TargetImage)
-			out := bytes.Buffer{}
-			pushCmd.Stdout = &out
-			pushCmd.Stderr = &out
-			if err := pushCmd.Run(); err != nil {
-				errMsg := fmt.Sprintf("failed to push image: %s %s", err, out.String())
-				appendError(errors.New(errMsg))
-				return
-			}
-			log.Infof("push image [%s] succeed", target.TargetImage)
-		}(target)
-	}
-	wg.Wait()
-	if err := errList.ErrorOrNil(); err != nil {
-		return fmt.Errorf("push target images error: %v", err)
+		for _, target := range s.spec.DistributeTarget {
+			wg.Add(1)
+			go func(target *step.DistributeTaskTarget) {
+				defer wg.Done()
+				pullCmd := dockerPullCmd(target.SourceImage)
+				out := bytes.Buffer{}
+				pullCmd.Stdout = &out
+				pullCmd.Stderr = &out
+				if err := pullCmd.Run(); err != nil {
+					errMsg := fmt.Sprintf("failed to pull image: %s %s", err, out.String())
+					appendError(errors.New(errMsg))
+					return
+				}
+				log.Infof("pull source image [%s] succeed", target.SourceImage)
+
+				tagCmd := dockerTagCmd(target.SourceImage, target.TargetImage)
+				out = bytes.Buffer{}
+				tagCmd.Stdout = &out
+				tagCmd.Stderr = &out
+				if err := tagCmd.Run(); err != nil {
+					errMsg := fmt.Sprintf("failed to tag image: %s %s", err, out.String())
+					appendError(errors.New(errMsg))
+					return
+				}
+				log.Infof("tag image [%s] to [%s] succeed", target.SourceImage, target.TargetImage)
+			}(target)
+		}
+		wg.Wait()
+		if err := errList.ErrorOrNil(); err != nil {
+			return fmt.Errorf("prepare source images error: %v", err)
+		}
+		log.Infof("Finish prepare source images.")
+
+		if err := s.loginTargetRegistry(); err != nil {
+			return err
+		}
+		for _, target := range s.spec.DistributeTarget {
+			wg.Add(1)
+			go func(target *step.DistributeTaskTarget) {
+				defer wg.Done()
+				pushCmd := dockerPush(target.TargetImage)
+				out := bytes.Buffer{}
+				pushCmd.Stdout = &out
+				pushCmd.Stderr = &out
+				if err := pushCmd.Run(); err != nil {
+					errMsg := fmt.Sprintf("failed to push image: %s %s", err, out.String())
+					appendError(errors.New(errMsg))
+					return
+				}
+				log.Infof("push image [%s] succeed", target.TargetImage)
+			}(target)
+		}
+		wg.Wait()
+		if err := errList.ErrorOrNil(); err != nil {
+			return fmt.Errorf("push target images error: %v", err)
+		}
+
 	}
 
 	log.Info("Finish distribute images.")
