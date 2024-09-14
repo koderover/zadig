@@ -320,6 +320,13 @@ const (
 	ServiceScanningType ScanningModuleType = "service_scanning"
 )
 
+type FreeStyleJobType string
+
+const (
+	NormalFreeStyleJobType  FreeStyleJobType = ""
+	ServiceFreeStyleJobType FreeStyleJobType = "service_freestyle"
+)
+
 type DeployContent string
 
 const (

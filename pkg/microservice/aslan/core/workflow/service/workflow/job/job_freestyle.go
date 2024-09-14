@@ -103,6 +103,11 @@ func (j *FreeStyleJob) SetPreset() error {
 		return err
 	}
 	j.job.Spec = j.spec
+	if j.spec.Source == config.SourceFromJob {
+		j.spec.OriginJobName = j.spec.JobName
+	} else if j.spec.Source == config.SourceRuntime {
+		//
+	}
 	return nil
 }
 
@@ -228,6 +233,11 @@ func (j *FreeStyleJob) MergeArgs(args *commonmodels.Job) error {
 				break
 			}
 		}
+		j.spec.FreestyleJobType = argsSpec.FreestyleJobType
+		j.spec.JobName = argsSpec.JobName
+		j.spec.Services = argsSpec.Services
+		j.spec.Source = argsSpec.Source
+		j.spec.OriginJobName = argsSpec.OriginJobName
 		j.job.Spec = j.spec
 	}
 	return nil
@@ -265,16 +275,57 @@ func (j *FreeStyleJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		return resp, err
 	}
 	j.job.Spec = j.spec
+
+	registries, err := commonservice.ListRegistryNamespaces("", true, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	if j.spec.FreestyleJobType == config.ServiceFreeStyleJobType {
+		tasks := []*commonmodels.JobTask{}
+
+		switch j.spec.Source {
+		case config.SourceRuntime, config.SourceFromJob:
+			for _, service := range j.spec.Services {
+				task, err := j.toJob(taskID, registries, service, logger)
+				if err != nil {
+					return nil, err
+				}
+				tasks = append(tasks, task)
+			}
+		}
+		return tasks, nil
+	} else {
+		// save user defined variables.
+		jobTask, err := j.toJob(taskID, registries, nil, logger)
+		if err != nil {
+			return nil, err
+		}
+		return []*commonmodels.JobTask{jobTask}, nil
+	}
+}
+
+func (j *FreeStyleJob) toJob(taskID int64, registries []*commonmodels.RegistryNamespace, service *commonmodels.FreeStyleServiceInfo, logger *zap.SugaredLogger) (*commonmodels.JobTask, error) {
 	jobTaskSpec := &commonmodels.JobTaskFreestyleSpec{
 		Properties: *j.spec.Properties,
-		Steps:      j.stepsToStepTasks(j.spec.Steps),
+		Steps:      j.stepsToStepTasks(j.spec.Steps, service),
+	}
+
+	jobName := j.job.Name
+	jobKey := j.job.Name
+	jobInfo := map[string]string{
+		JobNameKey: j.job.Name,
+	}
+	if service != nil {
+		jobName = jobNameFormat(service.ServiceName + "-" + service.ServiceModule + "-" + j.job.Name)
+		jobKey = strings.Join([]string{j.job.Name, service.ServiceName, service.ServiceModule}, ".")
+		jobInfo["service_name"] = service.ServiceName
+		jobInfo["service_module"] = service.ServiceModule
 	}
 	jobTask := &commonmodels.JobTask{
-		Name: j.job.Name,
-		Key:  j.job.Name,
-		JobInfo: map[string]string{
-			JobNameKey: j.job.Name,
-		},
+		Name:        jobName,
+		Key:         jobKey,
+		JobInfo:     jobInfo,
 		JobType:     string(config.JobFreestyle),
 		Spec:        jobTaskSpec,
 		Timeout:     j.spec.Properties.Timeout,
@@ -287,25 +338,31 @@ func (j *FreeStyleJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		jobTask.VMLabels = j.spec.Properties.VMLabels
 	}
 
-	registries, err := commonservice.ListRegistryNamespaces("", true, logger)
-	if err != nil {
-		return resp, err
-	}
 	jobTaskSpec.Properties.Registries = registries
 	jobTaskSpec.Properties.ShareStorageDetails = getShareStorageDetail(j.workflow.ShareStorages, j.spec.Properties.ShareStorageInfo, j.workflow.Name, taskID)
 
 	basicImage, err := commonrepo.NewBasicImageColl().Find(jobTaskSpec.Properties.ImageID)
 	if err != nil {
-		return resp, fmt.Errorf("failed to find base image: %s,error :%v", jobTaskSpec.Properties.ImageID, err)
+		return nil, fmt.Errorf("failed to find base image: %s,error :%v", jobTaskSpec.Properties.ImageID, err)
 	}
 	jobTaskSpec.Properties.BuildOS = basicImage.Value
-	// save user defined variables.
+
+	if service != nil {
+		jobTaskSpec.Properties.Envs = service.KeyVals
+		for _, env := range jobTaskSpec.Properties.Envs {
+			if strings.HasPrefix(env.Value, "{{.") && strings.HasSuffix(env.Value, "}}") {
+				env.Value = strings.ReplaceAll(env.Value, "<SERVICE>", service.ServiceName)
+				env.Value = strings.ReplaceAll(env.Value, "<MODULE>", service.ServiceModule)
+			}
+		}
+	}
+
 	jobTaskSpec.Properties.CustomEnvs = jobTaskSpec.Properties.Envs
-	jobTaskSpec.Properties.Envs = append(jobTaskSpec.Properties.Envs, getfreestyleJobVariables(jobTaskSpec.Steps, taskID, j.workflow.Project, j.workflow.Name, j.workflow.DisplayName, jobTask.Infrastructure)...)
-	return []*commonmodels.JobTask{jobTask}, nil
+	jobTaskSpec.Properties.Envs = append(jobTaskSpec.Properties.Envs, getfreestyleJobVariables(jobTaskSpec.Steps, taskID, j.workflow.Project, j.workflow.Name, j.workflow.DisplayName, jobTask.Infrastructure, service)...)
+	return jobTask, nil
 }
 
-func (j *FreeStyleJob) stepsToStepTasks(step []*commonmodels.Step) []*commonmodels.StepTask {
+func (j *FreeStyleJob) stepsToStepTasks(step []*commonmodels.Step, service *commonmodels.FreeStyleServiceInfo) []*commonmodels.StepTask {
 	logger := log.SugaredLogger()
 	resp := []*commonmodels.StepTask{}
 	for _, step := range step {
@@ -320,17 +377,32 @@ func (j *FreeStyleJob) stepsToStepTasks(step []*commonmodels.Step) []*commonmode
 				continue
 			}
 			newRepos := []*types.Repository{}
-			for _, repo := range stepTaskSpec.Repos {
-				if repo.SourceFrom == types.RepoSourceParam {
-					paramRepo, err := findMatchedRepoFromParams(j.workflow.Params, repo.GlobalParamName)
-					if err != nil {
-						logger.Errorf("findMatchedRepoFromParams error: %v", err)
+			if service != nil {
+				for _, repo := range service.Repos {
+					if repo.SourceFrom == types.RepoSourceParam {
+						paramRepo, err := findMatchedRepoFromParams(j.workflow.Params, repo.GlobalParamName)
+						if err != nil {
+							logger.Errorf("findMatchedRepoFromParams error: %v", err)
+							continue
+						}
+						newRepos = append(newRepos, paramRepo)
 						continue
 					}
-					newRepos = append(newRepos, paramRepo)
-					continue
+					newRepos = append(newRepos, repo)
 				}
-				newRepos = append(newRepos, repo)
+			} else {
+				for _, repo := range stepTaskSpec.Repos {
+					if repo.SourceFrom == types.RepoSourceParam {
+						paramRepo, err := findMatchedRepoFromParams(j.workflow.Params, repo.GlobalParamName)
+						if err != nil {
+							logger.Errorf("findMatchedRepoFromParams error: %v", err)
+							continue
+						}
+						newRepos = append(newRepos, paramRepo)
+						continue
+					}
+					newRepos = append(newRepos, repo)
+				}
 			}
 			stepTaskSpec.Repos = newRepos
 			stepTask.Spec = stepTaskSpec
@@ -386,7 +458,7 @@ func (j *FreeStyleJob) stepsToStepTasks(step []*commonmodels.Step) []*commonmode
 	return resp
 }
 
-func getfreestyleJobVariables(steps []*commonmodels.StepTask, taskID int64, project, workflowName, workflowDisplayName, infrastructure string) []*commonmodels.KeyVal {
+func getfreestyleJobVariables(steps []*commonmodels.StepTask, taskID int64, project, workflowName, workflowDisplayName, infrastructure string, serviceAndImage *commonmodels.FreeStyleServiceInfo) []*commonmodels.KeyVal {
 	ret := []*commonmodels.KeyVal{}
 	repos := []*types.Repository{}
 	for _, step := range steps {
@@ -404,6 +476,11 @@ func getfreestyleJobVariables(steps []*commonmodels.StepTask, taskID int64, proj
 	ret = append(ret, PrepareDefaultWorkflowTaskEnvs(project, workflowName, workflowDisplayName, infrastructure, taskID)...)
 	// repo envs
 	ret = append(ret, getReposVariables(repos)...)
+	// service envs
+	if serviceAndImage != nil {
+		ret = append(ret, &commonmodels.KeyVal{Key: "SERVICE_NAME", Value: serviceAndImage.ServiceName, IsCredential: false})
+		ret = append(ret, &commonmodels.KeyVal{Key: "SERVICE_MODULE", Value: serviceAndImage.ServiceModule, IsCredential: false})
+	}
 
 	buildURL := fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/custom/%s/%d?display_name=%s", configbase.SystemAddress(), project, workflowName, taskID, url.QueryEscape(workflowDisplayName))
 	ret = append(ret, &commonmodels.KeyVal{Key: "BUILD_URL", Value: buildURL, IsCredential: false})
