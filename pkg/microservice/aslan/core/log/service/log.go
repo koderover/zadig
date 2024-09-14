@@ -172,7 +172,7 @@ func GetScanningContainerLogs(scanID string, taskID int64, log *zap.SugaredLogge
 		name = strings.TrimSuffix(scanning.Name[:31], "-")
 	}
 
-	scanningLogFilePrefix := fmt.Sprintf("%s-%s", name, name)
+	scanningLogFilePrefix := fmt.Sprintf("%s-%s", scanning.Name, name)
 
 	buildLog, err := getContainerLogFromS3(workflowName, scanningLogFilePrefix, taskID, log)
 	if err != nil {
