@@ -105,6 +105,8 @@ func initJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTas
 		jobCtl = NewBlueKingJobCtl(job, workflowCtx, ack, logger)
 	case string(config.JobApproval):
 		jobCtl = NewApprovalJobCtl(job, workflowCtx, ack, logger)
+	case string(config.JobNotification):
+		jobCtl = NewNotificationJobCtl(job, workflowCtx, ack, logger)
 	default:
 		jobCtl = NewFreestyleJobCtl(job, workflowCtx, ack, logger)
 	}

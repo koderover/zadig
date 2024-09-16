@@ -247,6 +247,7 @@ const (
 	JobGrafana              JobType = "grafana"
 	JobBlueKing             JobType = "blueking"
 	JobApproval             JobType = "approval"
+	JobNotification         JobType = "notification"
 )
 
 const (
