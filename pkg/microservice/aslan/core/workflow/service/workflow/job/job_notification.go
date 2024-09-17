@@ -144,6 +144,7 @@ func (j *NotificationJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) 
 			LarkUserIDs:     j.spec.LarkUserIDs,
 			Content:         j.spec.Content,
 			Title:           j.spec.Title,
+			IsAtAll:         j.spec.IsAtAll,
 		},
 		Timeout:     0,
 		ErrorPolicy: j.job.ErrorPolicy,

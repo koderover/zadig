@@ -19,6 +19,7 @@ package jobcontroller
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	configbase "github.com/koderover/zadig/v2/pkg/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
@@ -27,6 +28,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/instantmessage"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/tool/httpclient"
+	"github.com/samber/lo"
 	"go.uber.org/zap"
 )
 
@@ -60,7 +62,7 @@ func (c *NotificationJobCtl) Run(ctx context.Context) {
 	c.ack()
 
 	if c.jobTaskSpec.WebHookType == setting.NotifyWebHookTypeFeishu {
-		err := sendLarkMessage(c.workflowCtx.WorkflowName, c.workflowCtx.WorkflowDisplayName, c.workflowCtx.TaskID, c.jobTaskSpec.FeiShuWebHook, c.jobTaskSpec.Title, c.jobTaskSpec.Content)
+		err := sendLarkMessage(c.workflowCtx.WorkflowName, c.workflowCtx.WorkflowDisplayName, c.workflowCtx.TaskID, c.jobTaskSpec.FeiShuWebHook, c.jobTaskSpec.Title, c.jobTaskSpec.Content, c.jobTaskSpec.LarkUserIDs, c.jobTaskSpec.IsAtAll)
 		if err != nil {
 			c.logger.Error(err)
 			c.job.Status = config.StatusFailed
@@ -76,7 +78,7 @@ func (c *NotificationJobCtl) Run(ctx context.Context) {
 	return
 }
 
-func sendLarkMessage(workflowName, workflowDisplayName string, taskID int64, uri, title, message string) error {
+func sendLarkMessage(workflowName, workflowDisplayName string, taskID int64, uri, title, message string, idList []string, isAtAll bool) error {
 	// first generate lark card
 	card := instantmessage.NewLarkCard()
 	card.SetConfig(true)
@@ -103,7 +105,44 @@ func sendLarkMessage(workflowName, workflowDisplayName string, taskID int64, uri
 	// TODO: if required, add proxy to it
 	c := httpclient.New()
 	_, err := c.Post(uri, httpclient.SetBody(reqBody))
-	return err
+
+	if err != nil {
+		return err
+	}
+
+	// then send @ message
+	if len(idList) > 0 {
+		atUserList := []string{}
+		idList = lo.Filter(idList, func(s string, _ int) bool { return s != "All" })
+		for _, userID := range idList {
+			atUserList = append(atUserList, fmt.Sprintf("<at user_id=\"%s\"></at>", userID))
+		}
+		atMessage := strings.Join(atUserList, " ")
+		if isAtAll {
+			atMessage += "<at user_id=\"all\"></at>"
+		}
+
+		var larkAtMessage interface{}
+
+		larkAtMessage = &instantmessage.FeiShuMessage{
+			Text: atMessage,
+		}
+
+		if strings.Contains(uri, "bot/v2/hook") {
+			larkAtMessage = &instantmessage.FeiShuMessageV2{
+				MsgType: "text",
+				Content: instantmessage.FeiShuContentV2{
+					Text: atMessage,
+				},
+			}
+		}
+
+		_, err = c.Post(uri, httpclient.SetBody(larkAtMessage))
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (c *NotificationJobCtl) SaveInfo(ctx context.Context) error {

@@ -617,6 +617,7 @@ type JobTaskNotificationSpec struct {
 	AtMobiles       []string                  `bson:"at_mobiles,omitempty"          yaml:"at_mobiles,omitempty"          json:"at_mobiles,omitempty"`
 	WechatUserIDs   []string                  `bson:"wechat_user_ids,omitempty"     yaml:"wechat_user_ids,omitempty"     json:"wechat_user_ids,omitempty"`
 	LarkUserIDs     []string                  `bson:"lark_user_ids,omitempty"       yaml:"lark_user_ids,omitempty"       json:"lark_user_ids,omitempty"`
+	IsAtAll         bool                      `bson:"is_at_all"                     yaml:"is_at_all"                     json:"is_at_all"`
 	Content         string                    `bson:"content"                       yaml:"content"                       json:"content"`
 	Title           string                    `bson:"title"                         yaml:"title"                         json:"title"`
 }
