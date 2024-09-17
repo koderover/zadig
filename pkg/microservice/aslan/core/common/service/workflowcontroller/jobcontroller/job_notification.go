@@ -18,7 +18,9 @@ package jobcontroller
 
 import (
 	"context"
+	"fmt"
 
+	configbase "github.com/koderover/zadig/v2/pkg/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
@@ -58,7 +60,7 @@ func (c *NotificationJobCtl) Run(ctx context.Context) {
 	c.ack()
 
 	if c.jobTaskSpec.WebHookType == setting.NotifyWebHookTypeFeishu {
-		err := sendLarkMessage(c.jobTaskSpec.FeiShuWebHook, c.jobTaskSpec.Title, c.jobTaskSpec.Content)
+		err := sendLarkMessage(c.workflowCtx.WorkflowName, c.workflowCtx.WorkflowDisplayName, c.workflowCtx.TaskID, c.jobTaskSpec.FeiShuWebHook, c.jobTaskSpec.Title, c.jobTaskSpec.Content)
 		if err != nil {
 			c.logger.Error(err)
 			c.job.Status = config.StatusFailed
@@ -74,7 +76,7 @@ func (c *NotificationJobCtl) Run(ctx context.Context) {
 	return
 }
 
-func sendLarkMessage(uri, title, message string) error {
+func sendLarkMessage(workflowName, workflowDisplayName string, taskID int64, uri, title, message string) error {
 	// first generate lark card
 	card := instantmessage.NewLarkCard()
 	card.SetConfig(true)
@@ -85,7 +87,13 @@ func sendLarkMessage(uri, title, message string) error {
 	)
 
 	card.AddI18NElementsZhcnFeild(message, true)
-	card.AddI18NElementsZhcnAction("点击查看更多信息", "https://www.baidu.com")
+	url := fmt.Sprintf("%s/v1/projects/detail/{{.Task.ProductName}}/pipelines/custom/%s/%d?display_name=%s",
+		configbase.SystemAddress(),
+		workflowName,
+		taskID,
+		workflowDisplayName,
+	)
+	card.AddI18NElementsZhcnAction("点击查看更多信息", url)
 
 	reqBody := instantmessage.LarkCardReq{
 		MsgType: "interactive",
