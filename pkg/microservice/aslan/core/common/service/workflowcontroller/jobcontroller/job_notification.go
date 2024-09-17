@@ -79,7 +79,7 @@ func sendLarkMessage(uri, title, message string) error {
 	card := instantmessage.NewLarkCard()
 	card.SetConfig(true)
 	card.SetHeader(
-		"green",
+		"blue",
 		title,
 		"plain_text",
 	)
