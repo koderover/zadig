@@ -18,11 +18,13 @@ package jobcontroller
 
 import (
 	"context"
-	"time"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/instantmessage"
+	"github.com/koderover/zadig/v2/pkg/setting"
+	"github.com/koderover/zadig/v2/pkg/tool/httpclient"
 	"go.uber.org/zap"
 )
 
@@ -55,10 +57,45 @@ func (c *NotificationJobCtl) Run(ctx context.Context) {
 	c.job.Status = config.StatusRunning
 	c.ack()
 
-	time.Sleep(10 * time.Second)
+	if c.jobTaskSpec.WebHookType == setting.NotifyWebHookTypeFeishu {
+		err := sendLarkMessage(c.jobTaskSpec.FeiShuWebHook, c.jobTaskSpec.Title, c.jobTaskSpec.Content)
+		if err != nil {
+			c.logger.Error(err)
+			c.job.Status = config.StatusFailed
+			c.job.Error = err.Error()
+			c.ack()
+			return
+		}
+	}
+
+	//time.Sleep(10 * time.Second)
 	c.job.Status = config.StatusPassed
 
 	return
+}
+
+func sendLarkMessage(uri, title, message string) error {
+	// first generate lark card
+	card := instantmessage.NewLarkCard()
+	card.SetConfig(true)
+	card.SetHeader(
+		"blue-50",
+		title,
+		"plain_text",
+	)
+
+	card.AddI18NElementsZhcnFeild(message, true)
+	card.AddI18NElementsZhcnAction("点击查看更多信息", "https://www.baidu.com")
+
+	reqBody := instantmessage.LarkCardReq{
+		MsgType: "interactive",
+		Card:    card,
+	}
+
+	// TODO: if required, add proxy to it
+	c := httpclient.New()
+	_, err := c.Post(uri, httpclient.SetBody(reqBody))
+	return err
 }
 
 func (c *NotificationJobCtl) SaveInfo(ctx context.Context) error {
