@@ -975,13 +975,6 @@ func (j *BuildJob) LintJob() error {
 	return nil
 }
 
-var buildReferrableOutput = []string{
-	IMAGEKEY,
-	BRANCHKEY,
-	GITURLKEY,
-	COMMITIDKEY,
-}
-
 func (j *BuildJob) GetOutPuts(log *zap.SugaredLogger) []string {
 	resp := []string{}
 	j.spec = &commonmodels.ZadigBuildJobSpec{}
