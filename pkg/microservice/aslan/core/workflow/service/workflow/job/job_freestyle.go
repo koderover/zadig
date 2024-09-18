@@ -351,7 +351,7 @@ func (j *FreeStyleJob) toJob(taskID int64, registries []*commonmodels.RegistryNa
 	if service != nil {
 		params, err := getWorkflowStageParams(j.workflow, taskID, "")
 		if err != nil {
-			log.Errorf("SOMETHING WENT WRONG")
+			log.Errorf("failed to get workflow stage parameters, error: %s", err)
 			return nil, err
 		}
 
