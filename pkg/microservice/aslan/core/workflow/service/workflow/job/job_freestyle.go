@@ -353,6 +353,7 @@ func (j *FreeStyleJob) toJob(taskID int64, registries []*commonmodels.RegistryNa
 			if strings.HasPrefix(env.Value, "{{.") && strings.HasSuffix(env.Value, "}}") {
 				env.Value = strings.ReplaceAll(env.Value, "<SERVICE>", service.ServiceName)
 				env.Value = strings.ReplaceAll(env.Value, "<MODULE>", service.ServiceModule)
+				log.Infof(">>>>>>>>>>>>>> final value is : %s <<<<<<<<<<<<<<<<<<<", env.Value)
 			}
 		}
 	}
