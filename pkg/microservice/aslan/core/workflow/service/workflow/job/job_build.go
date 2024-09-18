@@ -44,6 +44,9 @@ const (
 	IMAGEKEY    = "IMAGE"
 	IMAGETAGKEY = "imageTag"
 	PKGFILEKEY  = "PKG_FILE"
+	BRANCHKEY   = "BRANCH"
+	GITURLKEY   = "GITURL"
+	COMMITIDKEY = "COMMITID"
 )
 
 type BuildJob struct {
@@ -972,6 +975,13 @@ func (j *BuildJob) LintJob() error {
 	return nil
 }
 
+var buildReferrableOutput = []string{
+	IMAGEKEY,
+	BRANCHKEY,
+	GITURLKEY,
+	COMMITIDKEY,
+}
+
 func (j *BuildJob) GetOutPuts(log *zap.SugaredLogger) []string {
 	resp := []string{}
 	j.spec = &commonmodels.ZadigBuildJobSpec{}
@@ -998,9 +1008,13 @@ func (j *BuildJob) GetOutPuts(log *zap.SugaredLogger) []string {
 	}
 
 	outputs := []*commonmodels.Output{}
-	outputs = append(outputs, &commonmodels.Output{
-		Name: IMAGEKEY,
-	})
+
+	for _, output := range buildReferrableOutput {
+		outputs = append(outputs, &commonmodels.Output{
+			Name: output,
+		})
+	}
+
 	resp = append(resp, getOutputKey(j.job.Name+".<SERVICE>.<MODULE>", outputs)...)
 	return resp
 }
