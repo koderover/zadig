@@ -354,8 +354,12 @@ func (j *FreeStyleJob) toJob(taskID int64, registries []*commonmodels.RegistryNa
 				env.Value = strings.ReplaceAll(env.Value, "<SERVICE>", service.ServiceName)
 				env.Value = strings.ReplaceAll(env.Value, "<MODULE>", service.ServiceModule)
 			}
-			log.Infof(">>>>>>>>>>>>>> final value is : %s <<<<<<<<<<<<<<<<<<<", env.Value)
 		}
+	}
+
+	err = RenderStageVariables(j.workflow, taskID, "")
+	if err != nil {
+		log.Errorf("SOMETHING WENT WRONG")
 	}
 
 	jobTaskSpec.Properties.CustomEnvs = jobTaskSpec.Properties.Envs
