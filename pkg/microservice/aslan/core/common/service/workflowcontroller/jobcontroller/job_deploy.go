@@ -338,12 +338,47 @@ L:
 				break L
 			}
 		}
+
+		for _, container := range deploy.Spec.Template.Spec.InitContainers {
+			if container.Name == serviceModule.ServiceModule {
+				err = updater.UpdateDeploymentInitImage(deploy.Namespace, deploy.Name, serviceModule.ServiceModule, serviceModule.Image, c.kubeClient)
+				if err != nil {
+					return fmt.Errorf("failed to update container image in %s/deployments/%s/%s: %v", env.Namespace, deploy.Name, container.Name, err)
+				}
+				c.jobTaskSpec.ReplaceResources = append(c.jobTaskSpec.ReplaceResources, commonmodels.Resource{
+					Kind:      setting.Deployment,
+					Container: container.Name,
+					Origin:    container.Image,
+					Name:      deploy.Name,
+				})
+				replaced = true
+				c.jobTaskSpec.RelatedPodLabels = append(c.jobTaskSpec.RelatedPodLabels, deploy.Spec.Template.Labels)
+				break L
+			}
+		}
 	}
 Loop:
 	for _, sts := range statefulSets {
 		for _, container := range sts.Spec.Template.Spec.Containers {
 			if container.Name == serviceModule.ServiceModule {
 				err = updater.UpdateStatefulSetImage(sts.Namespace, sts.Name, serviceModule.ServiceModule, serviceModule.Image, c.kubeClient)
+				if err != nil {
+					return fmt.Errorf("failed to update container image in %s/statefulsets/%s/%s: %v", env.Namespace, sts.Name, container.Name, err)
+				}
+				c.jobTaskSpec.ReplaceResources = append(c.jobTaskSpec.ReplaceResources, commonmodels.Resource{
+					Kind:      setting.StatefulSet,
+					Container: container.Name,
+					Origin:    container.Image,
+					Name:      sts.Name,
+				})
+				replaced = true
+				c.jobTaskSpec.RelatedPodLabels = append(c.jobTaskSpec.RelatedPodLabels, sts.Spec.Template.Labels)
+				break Loop
+			}
+		}
+		for _, container := range sts.Spec.Template.Spec.InitContainers {
+			if container.Name == serviceModule.ServiceModule {
+				err = updater.UpdateStatefulSetInitImage(sts.Namespace, sts.Name, serviceModule.ServiceModule, serviceModule.Image, c.kubeClient)
 				if err != nil {
 					return fmt.Errorf("failed to update container image in %s/statefulsets/%s/%s: %v", env.Namespace, sts.Name, container.Name, err)
 				}
@@ -378,12 +413,46 @@ CronLoop:
 				break CronLoop
 			}
 		}
+		for _, container := range cron.Spec.JobTemplate.Spec.Template.Spec.InitContainers {
+			if container.Name == serviceModule.ServiceModule {
+				err = updater.UpdateCronJobInitImage(cron.Namespace, cron.Name, serviceModule.ServiceModule, serviceModule.Image, c.kubeClient, false)
+				if err != nil {
+					return fmt.Errorf("failed to update container image in %s/cronJob/%s/%s: %v", env.Namespace, cron.Name, container.Name, err)
+				}
+				c.jobTaskSpec.ReplaceResources = append(c.jobTaskSpec.ReplaceResources, commonmodels.Resource{
+					Kind:      setting.CronJob,
+					Container: container.Name,
+					Origin:    container.Image,
+					Name:      cron.Name,
+				})
+				replaced = true
+				c.jobTaskSpec.RelatedPodLabels = append(c.jobTaskSpec.RelatedPodLabels, cron.Spec.JobTemplate.Spec.Template.Labels)
+				break CronLoop
+			}
+		}
 	}
 BetaCronLoop:
 	for _, cron := range betaCronJobs {
 		for _, container := range cron.Spec.JobTemplate.Spec.Template.Spec.Containers {
 			if container.Name == serviceModule.ServiceModule {
 				err = updater.UpdateCronJobImage(cron.Namespace, cron.Name, serviceModule.ServiceModule, serviceModule.Image, c.kubeClient, true)
+				if err != nil {
+					return fmt.Errorf("failed to update container image in %s/cronJobBeta/%s/%s: %v", env.Namespace, cron.Name, container.Name, err)
+				}
+				c.jobTaskSpec.ReplaceResources = append(c.jobTaskSpec.ReplaceResources, commonmodels.Resource{
+					Kind:      setting.CronJob,
+					Container: container.Name,
+					Origin:    container.Image,
+					Name:      cron.Name,
+				})
+				replaced = true
+				c.jobTaskSpec.RelatedPodLabels = append(c.jobTaskSpec.RelatedPodLabels, cron.Spec.JobTemplate.Spec.Template.Labels)
+				break BetaCronLoop
+			}
+		}
+		for _, container := range cron.Spec.JobTemplate.Spec.Template.Spec.InitContainers {
+			if container.Name == serviceModule.ServiceModule {
+				err = updater.UpdateCronJobInitImage(cron.Namespace, cron.Name, serviceModule.ServiceModule, serviceModule.Image, c.kubeClient, true)
 				if err != nil {
 					return fmt.Errorf("failed to update container image in %s/cronJobBeta/%s/%s: %v", env.Namespace, cron.Name, container.Name, err)
 				}
