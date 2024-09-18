@@ -28,7 +28,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/workflowcontroller/jobcontroller"
 )
 
-var reg = regexp.MustCompile(`{{\.job\.([a-zA-Z0-9_-]+)\.([a-zA-Z0-9_-]+)\.([a-zA-Z0-9_-]+)\.output\.IMAGE}}`)
+var reg = regexp.MustCompile(`{{\.job\.([\p{L}\p{N}]+)\.([a-zA-Z0-9_-]+)\.([a-zA-Z0-9_-]+)\.output\.IMAGE}}`)
 
 type CustomStageCtl struct {
 	stage       *commonmodels.StageTask
