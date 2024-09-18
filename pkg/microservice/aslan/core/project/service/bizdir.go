@@ -89,23 +89,9 @@ func GetBizDirProject() ([]GroupDetail, error) {
 
 func GetBizDirProjectServices(projectName string, labels []string) ([]string, error) {
 	svcSet := sets.NewString()
-	labeledSvcSet := sets.NewString()
 	productTmpl, err := templaterepo.NewProductColl().Find(projectName)
 	if err != nil {
 		return nil, e.ErrGetBizDirProjectService.AddErr(fmt.Errorf("Can not find project %s, error: %s", projectName, err))
-	}
-
-	projectedTestingServiceMap, err := getProjectServiceByLabel(labels)
-	if err != nil {
-		return nil, err
-	}
-
-	if _, ok := projectedTestingServiceMap[projectName]; !ok {
-		return svcSet.List(), nil
-	}
-
-	for _, svc := range projectedTestingServiceMap[projectName] {
-		labeledSvcSet.Insert(svc)
 	}
 
 	testServices, err := commonrepo.NewServiceColl().ListMaxRevisionsForServices(productTmpl.AllTestServiceInfos(), "")
@@ -113,9 +99,6 @@ func GetBizDirProjectServices(projectName string, labels []string) ([]string, er
 		return nil, e.ErrGetBizDirProjectService.AddErr(fmt.Errorf("Failed to list testing services by %+v, err: %s", productTmpl.AllTestServiceInfos(), err))
 	}
 	for _, svc := range testServices {
-		if !labeledSvcSet.Has(svc.ServiceName) {
-			continue
-		}
 		svcSet.Insert(svc.ServiceName)
 	}
 
