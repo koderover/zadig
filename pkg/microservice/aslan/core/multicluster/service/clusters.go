@@ -599,6 +599,23 @@ func UpdateCluster(id string, args *K8SCluster, logger *zap.SugaredLogger) (*com
 		}
 	}
 
+	cluster = &commonmodels.K8SCluster{
+		Name:           args.Name,
+		Description:    args.Description,
+		AdvancedConfig: advancedConfig,
+		Production:     args.Production,
+		Cache:          args.Cache,
+		DindCfg:        args.DindCfg,
+		Type:           args.Type,
+		KubeConfig:     args.KubeConfig,
+		ShareStorage:   args.ShareStorage,
+		Provider:       args.Provider,
+	}
+	cluster, err = s.UpdateCluster(id, cluster, logger)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update cluster %q: %s", id, err)
+	}
+
 	return cluster, UpgradeAgent(id, logger)
 }
 
