@@ -21,6 +21,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/koderover/zadig/v2/pkg/setting"
 	"go.uber.org/zap"
 
 	configbase "github.com/koderover/zadig/v2/pkg/config"
@@ -348,18 +349,20 @@ func (j *FreeStyleJob) toJob(taskID int64, registries []*commonmodels.RegistryNa
 	jobTaskSpec.Properties.BuildOS = basicImage.Value
 
 	if service != nil {
+		params, err := getWorkflowStageParams(j.workflow, taskID, "")
+		if err != nil {
+			log.Errorf("SOMETHING WENT WRONG")
+			return nil, err
+		}
+
 		jobTaskSpec.Properties.Envs = service.KeyVals
 		for _, env := range jobTaskSpec.Properties.Envs {
 			if strings.HasPrefix(env.Value, "{{.") && strings.HasSuffix(env.Value, "}}") {
 				env.Value = strings.ReplaceAll(env.Value, "<SERVICE>", service.ServiceName)
 				env.Value = strings.ReplaceAll(env.Value, "<MODULE>", service.ServiceModule)
+				env.Value = renderString(env.Value, setting.RenderValueTemplate, params)
 			}
 		}
-	}
-
-	err = RenderStageVariables(j.workflow, taskID, "")
-	if err != nil {
-		log.Errorf("SOMETHING WENT WRONG")
 	}
 
 	jobTaskSpec.Properties.CustomEnvs = jobTaskSpec.Properties.Envs
