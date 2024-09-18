@@ -1306,7 +1306,7 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, 
 					spec.Repos = stepSpec.Repos
 					continue
 				}
-				if step.StepType == config.StepArchive {
+				if step.StepType == config.StepArchive && strings.HasSuffix(step.Name, "-pkgfile-archive") {
 					stepSpec := &stepspec.StepArchiveSpec{}
 					if err := commonmodels.IToi(step.Spec, &stepSpec); err != nil {
 						continue
