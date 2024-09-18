@@ -1014,9 +1014,9 @@ func (j *BuildJob) GetOutPuts(log *zap.SugaredLogger) []string {
 	})
 
 	resp = append(resp, getOutputKey(j.job.Name+".<SERVICE>.<MODULE>", outputs)...)
-	resp = append(resp, j.job.Name+".<SERVICE>.<MODULE>"+BRANCHKEY)
-	resp = append(resp, j.job.Name+".<SERVICE>.<MODULE>"+GITURLKEY)
-	resp = append(resp, j.job.Name+".<SERVICE>.<MODULE>"+COMMITIDKEY)
+	resp = append(resp, "{{."+j.job.Name+".<SERVICE>.<MODULE>."+BRANCHKEY+"}}")
+	resp = append(resp, "{{."+j.job.Name+".<SERVICE>.<MODULE>."+GITURLKEY+"}}")
+	resp = append(resp, "{{."+j.job.Name+".<SERVICE>.<MODULE>."+COMMITIDKEY+"}}")
 	return resp
 }
 
