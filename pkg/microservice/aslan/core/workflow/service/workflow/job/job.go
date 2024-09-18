@@ -587,13 +587,7 @@ func getWorkflowStageParams(workflow *commonmodels.WorkflowV4, taskID int64, cre
 					resp = append(resp, &commonmodels.Param{Name: fmt.Sprintf("job.%s.%s.%s.COMMITID",
 						job.Name, serviceAndBuild.ServiceName, serviceAndBuild.ServiceModule),
 						Value: commitID, ParamsType: "string", IsCredential: false})
-					resp = append(resp, &commonmodels.Param{Name: fmt.Sprintf("job.%s.%s.%s.output.BRANCH",
-						job.Name, serviceAndBuild.ServiceName, serviceAndBuild.ServiceModule),
-						Value: branch, ParamsType: "string", IsCredential: false})
-					resp = append(resp, &commonmodels.Param{Name: fmt.Sprintf("job.%s.%s.%s.output.COMMITID",
-						job.Name, serviceAndBuild.ServiceName, serviceAndBuild.ServiceModule),
-						Value: commitID, ParamsType: "string", IsCredential: false})
-					resp = append(resp, &commonmodels.Param{Name: fmt.Sprintf("job.%s.%s.%s.output.GITURL",
+					resp = append(resp, &commonmodels.Param{Name: fmt.Sprintf("job.%s.%s.%s.GITURL",
 						job.Name, serviceAndBuild.ServiceName, serviceAndBuild.ServiceModule),
 						Value: gitURL, ParamsType: "string", IsCredential: false})
 				}

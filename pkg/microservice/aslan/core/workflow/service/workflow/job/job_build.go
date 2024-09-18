@@ -1009,13 +1009,14 @@ func (j *BuildJob) GetOutPuts(log *zap.SugaredLogger) []string {
 
 	outputs := []*commonmodels.Output{}
 
-	for _, output := range buildReferrableOutput {
-		outputs = append(outputs, &commonmodels.Output{
-			Name: output,
-		})
-	}
+	outputs = append(outputs, &commonmodels.Output{
+		Name: IMAGEKEY,
+	})
 
 	resp = append(resp, getOutputKey(j.job.Name+".<SERVICE>.<MODULE>", outputs)...)
+	resp = append(resp, j.job.Name+".<SERVICE>.<MODULE>"+BRANCHKEY)
+	resp = append(resp, j.job.Name+".<SERVICE>.<MODULE>"+GITURLKEY)
+	resp = append(resp, j.job.Name+".<SERVICE>.<MODULE>"+COMMITIDKEY)
 	return resp
 }
 
