@@ -184,30 +184,19 @@ func getContainers(data string) ([]*commonmodels.Container, error) {
 		return containers, fmt.Errorf("unmarshal yaml data error: %v", err)
 	}
 
+	for _, val := range res.Spec.Template.Spec.InitContainers {
+		container, err := parseContainer(val, setting.ContainerTypeInit)
+		if err != nil {
+			return containers, err
+		}
+
+		containers = append(containers, container)
+	}
+
 	for _, val := range res.Spec.Template.Spec.Containers {
-
-		if _, ok := val["name"]; !ok {
-			return containers, errors.New("yaml file missing name key")
-		}
-
-		nameStr, ok := val["name"].(string)
-		if !ok {
-			return containers, errors.New("error name value")
-		}
-
-		if _, ok := val["image"]; !ok {
-			return containers, errors.New("yaml file missing image key")
-		}
-
-		imageStr, ok := val["image"].(string)
-		if !ok {
-			return containers, errors.New("error image value")
-		}
-
-		container := &commonmodels.Container{
-			Name:      nameStr,
-			Image:     imageStr,
-			ImageName: ExtractImageName(imageStr),
+		container, err := parseContainer(val, setting.ContainerTypeNormal)
+		if err != nil {
+			return containers, err
 		}
 
 		containers = append(containers, container)
@@ -224,30 +213,19 @@ func getCronJobContainers(data string) ([]*commonmodels.Container, error) {
 		return containers, fmt.Errorf("unmarshal yaml data error: %v", err)
 	}
 
+	for _, val := range res.Spec.Template.Spec.Template.Spec.InitContainers {
+		container, err := parseContainer(val, setting.ContainerTypeInit)
+		if err != nil {
+			return containers, err
+		}
+
+		containers = append(containers, container)
+	}
+
 	for _, val := range res.Spec.Template.Spec.Template.Spec.Containers {
-
-		if _, ok := val["name"]; !ok {
-			return containers, errors.New("yaml file missing name key")
-		}
-
-		nameStr, ok := val["name"].(string)
-		if !ok {
-			return containers, errors.New("error name value")
-		}
-
-		if _, ok := val["image"]; !ok {
-			return containers, errors.New("yaml file missing image key")
-		}
-
-		imageStr, ok := val["image"].(string)
-		if !ok {
-			return containers, errors.New("error image value")
-		}
-
-		container := &commonmodels.Container{
-			Name:      nameStr,
-			Image:     imageStr,
-			ImageName: ExtractImageName(imageStr),
+		container, err := parseContainer(val, setting.ContainerTypeNormal)
+		if err != nil {
+			return containers, err
 		}
 
 		containers = append(containers, container)
@@ -503,4 +481,32 @@ func getValuesByPath(paths map[string]string, flatMap map[string]interface{}) ma
 		}
 	}
 	return ret
+}
+
+func parseContainer(val map[string]interface{}, containerType setting.ContainerType) (*commonmodels.Container, error) {
+	if _, ok := val["name"]; !ok {
+		return nil, errors.New("yaml file missing name key")
+	}
+
+	nameStr, ok := val["name"].(string)
+	if !ok {
+		return nil, errors.New("error name value")
+	}
+
+	if _, ok := val["image"]; !ok {
+		return nil, errors.New("yaml file missing image key")
+	}
+
+	imageStr, ok := val["image"].(string)
+	if !ok {
+		return nil, errors.New("error image value")
+	}
+
+	container := &commonmodels.Container{
+		Name:      nameStr,
+		Type:      containerType,
+		Image:     imageStr,
+		ImageName: ExtractImageName(imageStr),
+	}
+	return container, nil
 }

@@ -940,3 +940,10 @@ const (
 	UserTypeGroup       string = "group"
 	UserTypeTaskCreator string = "task_creator"
 )
+
+type ContainerType string
+
+const (
+	ContainerTypeInit   ContainerType = "init"
+	ContainerTypeNormal ContainerType = ""
+)
