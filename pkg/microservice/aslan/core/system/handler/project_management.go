@@ -311,16 +311,48 @@ func SearchJiraProjectIssuesWithJQL(c *gin.Context) {
 	ctx.Resp, ctx.Err = service.SearchJiraProjectIssuesWithJQL(c.Param("id"), c.Query("project"), strings.ReplaceAll(c.Query("jql"), "{{.system.username}}", ctx.UserName), c.Query("summary"))
 }
 
+// @Summary Get Jira Types
+// @Description Get Jira Types
+// @Tags 	system
+// @Accept 	json
+// @Produce json
+// @Param 	id 			path		string										true	"jira id"
+// @Param 	project 	query		string										true	"jira project key"
+// @Success 200 		{array} 	jira.IssueTypeWithStatus
+// @Router /api/aslan/system/project_management/{id}/jira/type [get]
 func GetJiraTypes(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	ctx.Resp, ctx.Err = service.GetJiraTypes(c.Param("id"), c.Query("project"))
 }
 
+// @Summary Get Jira Project Status
+// @Description Get Jira Project Status
+// @Tags 	system
+// @Accept 	json
+// @Produce json
+// @Param 	id 			path		string										true	"jira id"
+// @Param 	project 	query		string										true	"jira project id"
+// @Success 200 		{array} 	string
+// @Router /api/aslan/system/project_management/{id}/jira/status [get]
+func GetJiraProjectStatus(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	ctx.Resp, ctx.Err = service.GetJiraProjectStatus(c.Param("id"), c.Query("project"))
+}
+
+// @Summary Get Jira All Status
+// @Description Get Jira All Status
+// @Tags 	system
+// @Accept 	json
+// @Produce json
+// @Param 	id 			path		string										true	"jira id"
+// @Success 200 		{array} 	jira.Status
+// @Router /api/aslan/system/project_management/{id}/jira/allStatus [get]
 func GetJiraAllStatus(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	ctx.Resp, ctx.Err = service.GetJiraAllStatus(c.Param("id"), c.Query("project"))
+	ctx.Resp, ctx.Err = service.GetJiraAllStatus(c.Param("id"))
 }
 
 func HandleJiraEvent(c *gin.Context) {

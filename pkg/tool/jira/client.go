@@ -27,10 +27,11 @@ import (
 type Client struct {
 	Host string
 	*req.Client
-	Issue   *IssueService
-	Project *ProjectService
-	Board   *BoardService
-	Sprint  *SprintService
+	Issue    *IssueService
+	Project  *ProjectService
+	Board    *BoardService
+	Sprint   *SprintService
+	Platform *PlatformService
 }
 
 func NewJiraClientWithAuthType(host, username, password, token string, _type config.JiraAuthType) *Client {
@@ -58,6 +59,7 @@ func NewJiraClientWithBasicAuth(host, username, password string) *Client {
 	c.Project = &ProjectService{client: c}
 	c.Board = &BoardService{client: c}
 	c.Sprint = &SprintService{client: c}
+	c.Platform = &PlatformService{client: c}
 
 	return c
 }

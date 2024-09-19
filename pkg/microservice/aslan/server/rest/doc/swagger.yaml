@@ -65,6 +65,14 @@ definitions:
     x-enum-varnames:
     - SourceRuntime
     - SourceFromJob
+  config.DistributeImageMethod:
+    enum:
+    - image_push
+    - cloud_sync
+    type: string
+    x-enum-varnames:
+    - DistributeImageMethodImagePush
+    - DistributeImageMethodCloudSync
   config.JiraAuthType:
     enum:
     - password_or_token
@@ -73,6 +81,18 @@ definitions:
     x-enum-varnames:
     - JiraBasicAuth
     - JiraPersonalAccessToken
+  config.JobErrorPolicy:
+    enum:
+    - stop
+    - ignore_error
+    - manual_check
+    - retry
+    type: string
+    x-enum-varnames:
+    - JobErrorPolicyStop
+    - JobErrorPolicyIgnoreError
+    - JobErrorPolicyManualCheck
+    - JobErrorPolicyRetry
   config.JobRunPolicy:
     enum:
     - ""
@@ -256,6 +276,8 @@ definitions:
     - wait_for_approval
     - debug_before
     - debug_after
+    - unstable
+    - wait_for_manual_error_handling
     type: string
     x-enum-varnames:
     - StatusDisabled
@@ -279,6 +301,8 @@ definitions:
     - StatusWaitingApprove
     - StatusDebugBefore
     - StatusDebugAfter
+    - StatusUnstable
+    - StatusManualApproval
   github_com_koderover_zadig_v2_pkg_microservice_aslan_core_common_service.EnvService:
     properties:
       deployed:
@@ -578,6 +602,31 @@ definitions:
     required:
     - service_variable_kvs
     - variable_yaml
+    type: object
+  jira.IssueTypeWithStatus:
+    properties:
+      status:
+        items:
+          type: string
+        type: array
+      type:
+        type: string
+    type: object
+  jira.Status:
+    properties:
+      id:
+        type: string
+      name:
+        type: string
+      statusCategory:
+        $ref: '#/definitions/jira.StatusCategory'
+    type: object
+  jira.StatusCategory:
+    properties:
+      id:
+        type: integer
+      key:
+        type: string
     type: object
   kube.SetIstioGrayscaleConfigRequest:
     properties:
@@ -992,10 +1041,6 @@ definitions:
         items:
           $ref: '#/definitions/models.ServiceKeyVal'
         type: array
-      latest_variable_kvs:
-        items:
-          $ref: '#/definitions/types.RenderVariableKV'
-        type: array
       modules:
         items:
           $ref: '#/definitions/models.DeployModuleInfo'
@@ -1017,6 +1062,7 @@ definitions:
           $ref: '#/definitions/types.RenderVariableKV'
         type: array
       variable_yaml:
+        description: LatestVariableKVs []*commontypes.RenderVariableKV `bson:"latest_variable_kvs"              yaml:"latest_variable_kvs"                 json:"latest_variable_kvs"`
         type: string
     type: object
   models.DeployTargets:
@@ -1121,6 +1167,8 @@ definitions:
         type: string
       env_name:
         type: string
+      health_checks:
+        $ref: '#/definitions/models.PmHealthCheck'
       host_id:
         type: string
       pm_info:
@@ -1291,6 +1339,8 @@ definitions:
     type: object
   models.Job:
     properties:
+      error_policy:
+        $ref: '#/definitions/models.JobErrorPolicy'
       name:
         type: string
       run_policy:
@@ -1305,6 +1355,17 @@ definitions:
       spec: {}
       type:
         $ref: '#/definitions/config.JobType'
+    type: object
+  models.JobErrorPolicy:
+    properties:
+      approval_users:
+        items:
+          $ref: '#/definitions/models.User'
+        type: array
+      maximum_retry:
+        type: integer
+      policy:
+        $ref: '#/definitions/config.JobErrorPolicy'
     type: object
   models.JobTaskSQLSpec:
     properties:
@@ -1343,6 +1404,8 @@ definitions:
       is_credential:
         type: boolean
       key:
+        type: string
+      registry_id:
         type: string
       type:
         $ref: '#/definitions/models.ParameterSettingType'
@@ -1487,11 +1550,13 @@ definitions:
     enum:
     - string
     - choice
+    - image
     - external
     type: string
     x-enum-varnames:
     - StringType
     - ChoiceType
+    - ImageType
     - ExternalType
   models.PatchItem:
     properties:
@@ -1777,6 +1842,8 @@ definitions:
         type: string
       sprint_id:
         type: integer
+      sprint_name:
+        type: string
     type: object
   models.ReleasePlanJiraSprintAssociation:
     properties:
@@ -2309,6 +2376,8 @@ definitions:
     properties:
       cluster_id:
         type: string
+      distribute_method:
+        $ref: '#/definitions/config.DistributeImageMethod'
       enable_target_image_tag_rule:
         type: boolean
       job_name:
@@ -7135,6 +7204,29 @@ paths:
       summary: Get Meego Work Item Type List
       tags:
       - system
+  /api/aslan/system/project_management/{id}/jira/allStatus:
+    get:
+      consumes:
+      - application/json
+      description: Get Jira All Status
+      parameters:
+      - description: jira id
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/jira.Status'
+            type: array
+      summary: Get Jira All Status
+      tags:
+      - system
   /api/aslan/system/project_management/{id}/jira/board:
     get:
       consumes:
@@ -7264,6 +7356,62 @@ paths:
           schema:
             $ref: '#/definitions/service.JiraSprintResp'
       summary: List Jira Sprint Issues
+      tags:
+      - system
+  /api/aslan/system/project_management/{id}/jira/status:
+    get:
+      consumes:
+      - application/json
+      description: Get Jira Project Status
+      parameters:
+      - description: jira id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: jira project id
+        in: query
+        name: project
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              type: string
+            type: array
+      summary: Get Jira Project Status
+      tags:
+      - system
+  /api/aslan/system/project_management/{id}/jira/type:
+    get:
+      consumes:
+      - application/json
+      description: Get Jira Types
+      parameters:
+      - description: jira id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: jira project key
+        in: query
+        name: project
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/jira.IssueTypeWithStatus'
+            type: array
+      summary: Get Jira Types
       tags:
       - system
   /api/aslan/system/project_management/project:

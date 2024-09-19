@@ -53,10 +53,11 @@ func (ifs IssueFields) String() string {
 }
 
 type Event struct {
-	Timestamp          int64  `json:"timestamp"`
-	WebhookEvent       string `json:"webhookEvent"`
-	IssueEventTypeName string `json:"issue_event_type_name"`
-	Issue              *Issue `json:"issue"`
+	Timestamp          int64      `json:"timestamp"`
+	WebhookEvent       string     `json:"webhookEvent"`
+	IssueEventTypeName string     `json:"issue_event_type_name"`
+	Issue              *Issue     `json:"issue"`
+	ChangeLog          *ChangeLog `json:"changelog"`
 }
 
 // Issue IssueResult:Issues
@@ -178,4 +179,18 @@ type Component struct {
 	ID          string `json:"id,omitempty"`
 	Name        string `json:"name,omitempty"`
 	Description string `json:"description,omitempty"`
+}
+
+type ChangeLog struct {
+	ID    string           `json:"id,omitempty"`
+	Items []*ChangeLogItem `json:"items,omitempty"`
+}
+
+type ChangeLogItem struct {
+	Field      string `json:"field,omitempty"`
+	FieldType  string `json:"fieldtype,omitempty"`
+	From       string `json:"from,omitempty"`
+	FromString string `json:"fromString,omitempty"`
+	To         string `json:"to,omitempty"`
+	ToString   string `json:"toString,omitempty"`
 }

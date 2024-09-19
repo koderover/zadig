@@ -319,7 +319,7 @@ func GetJiraTypes(id, project string) ([]*jira.IssueTypeWithStatus, error) {
 	return jira.NewJiraClientWithAuthType(info.JiraHost, info.JiraUser, info.JiraToken, info.JiraPersonalAccessToken, info.JiraAuthType).Issue.GetTypes(project)
 }
 
-func GetJiraAllStatus(id, project string) ([]string, error) {
+func GetJiraProjectStatus(id, project string) ([]string, error) {
 	info, err := mongodb.NewProjectManagementColl().GetJiraByID(id)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
@@ -327,7 +327,18 @@ func GetJiraAllStatus(id, project string) ([]string, error) {
 		}
 		return nil, err
 	}
-	return jira.NewJiraClientWithAuthType(info.JiraHost, info.JiraUser, info.JiraToken, info.JiraPersonalAccessToken, info.JiraAuthType).Project.ListAllStatues(project)
+	return jira.NewJiraClientWithAuthType(info.JiraHost, info.JiraUser, info.JiraToken, info.JiraPersonalAccessToken, info.JiraAuthType).Project.ListProjectStatues(project)
+}
+
+func GetJiraAllStatus(id string) ([]*jira.Status, error) {
+	info, err := mongodb.NewProjectManagementColl().GetJiraByID(id)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return jira.NewJiraClientWithAuthType(info.JiraHost, info.JiraUser, info.JiraToken, info.JiraPersonalAccessToken, info.JiraAuthType).Platform.ListAllStatues()
 }
 
 func SearchJiraIssues(id, project, _type, status, summary string, ne bool) ([]*jira.Issue, error) {
@@ -402,6 +413,40 @@ func HandleJiraHookEvent(workflowName, hookName string, event *jira.Event, logge
 		logger.Error(errMsg)
 		return errors.New(errMsg)
 	}
+
+	if jiraHook.EnabledIssueStatusChange {
+		if event.ChangeLog == nil || len(event.ChangeLog.Items) == 0 {
+			logger.Errorf("HandleJiraHookEvent: nil change log or change log items, skip")
+			return nil
+		}
+
+		statusChangeMatched := false
+		changelog := &jira.ChangeLogItem{}
+		for _, item := range event.ChangeLog.Items {
+			if item.Field != "status" || item.FieldType != "jira" {
+				continue
+			}
+
+			if jiraHook.FromStatus.ID == "000000" {
+				if item.To == jiraHook.ToStatus.ID {
+					statusChangeMatched = true
+				}
+			} else {
+				if item.From == jiraHook.FromStatus.ID && item.To == jiraHook.ToStatus.ID {
+					statusChangeMatched = true
+				}
+			}
+
+			changelog = item
+			break
+		}
+
+		if !statusChangeMatched {
+			logger.Infof("HandleJiraHookEvent: hook %s/%s status change not matched, skip. status changelog: %+v", workflowName, hookName, changelog)
+			return nil
+		}
+	}
+
 	taskInfo, err := workflow.CreateWorkflowTaskV4ByBuildInTrigger(setting.JiraHookTaskCreator, jiraHook.WorkflowArg, logger)
 	if err != nil {
 		errMsg := fmt.Sprintf("HandleJiraHookEvent: failed to create workflow task: %s", err)
