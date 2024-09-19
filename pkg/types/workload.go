@@ -54,7 +54,8 @@ type KubeResource struct {
 	Spec struct {
 		Template struct {
 			Spec struct {
-				Containers []map[string]interface{} `yaml:"containers"`
+				InitContainers []map[string]interface{} `yaml:"initContainers"`
+				Containers     []map[string]interface{} `yaml:"containers"`
 			} `yaml:"spec"`
 		} `yaml:"template"`
 	} `yaml:"spec"`
@@ -71,7 +72,8 @@ type CronjobResource struct {
 			Spec struct {
 				Template struct {
 					Spec struct {
-						Containers []map[string]interface{} `yaml:"containers"`
+						InitContainers []map[string]interface{} `yaml:"initContainers"`
+						Containers     []map[string]interface{} `yaml:"containers"`
 					} `yaml:"spec"`
 				} `yaml:"template"`
 			} `yaml:"spec"`
