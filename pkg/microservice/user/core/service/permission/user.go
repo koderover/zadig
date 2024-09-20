@@ -93,6 +93,7 @@ type SyncUserInfo struct {
 	IdentityType string `json:"identityType"`
 	Name         string `json:"name"`
 	Email        string `json:"email"`
+	Phone        string `json:"phone"`
 }
 
 type RetrieveResp struct {
@@ -684,6 +685,7 @@ func SyncUser(syncUserInfo *SyncUserInfo, ifUpdateLoginTime bool, logger *zap.Su
 			Name:         syncUserInfo.Name,
 			Account:      syncUserInfo.Account,
 			Email:        syncUserInfo.Email,
+			Phone:        syncUserInfo.Phone,
 			IdentityType: syncUserInfo.IdentityType,
 		}
 		err = orm.CreateUser(user, tx)
