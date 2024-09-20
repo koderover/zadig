@@ -357,6 +357,7 @@ func (j *FreeStyleJob) toJob(taskID int64, registries []*commonmodels.RegistryNa
 
 		jobTaskSpec.Properties.Envs = service.KeyVals
 		for _, env := range jobTaskSpec.Properties.Envs {
+			env.Value = strings.TrimPrefix(env.Value, "<+fixed>")
 			if strings.HasPrefix(env.Value, "{{.") && strings.HasSuffix(env.Value, "}}") {
 				env.Value = strings.ReplaceAll(env.Value, "<SERVICE>", service.ServiceName)
 				env.Value = strings.ReplaceAll(env.Value, "<MODULE>", service.ServiceModule)
