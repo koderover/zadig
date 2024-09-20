@@ -94,6 +94,7 @@ func GetUserPermissionByProject(uid, projectName string, log *zap.SugaredLogger)
 		if role.Name == ProjectAdminRole {
 			return &GetUserRulesByProjectResp{
 				IsProjectAdmin: true,
+				ProjectVerbs:   projectVerbSet.List(),
 			}, nil
 		}
 		actions, err := ListActionByRole(role.ID)
@@ -127,10 +128,15 @@ func GetUserPermissionByProject(uid, projectName string, log *zap.SugaredLogger)
 	}
 
 	for _, role := range groupRoleMap {
+		if role.Namespace != projectName {
+			continue
+		}
+
 		// if the user's group has project admin role,
 		if role.Name == ProjectAdminRole {
 			return &GetUserRulesByProjectResp{
 				IsProjectAdmin: true,
+				ProjectVerbs:   projectVerbSet.List(),
 			}, nil
 		}
 		// if the role has been seen previously, it has already been processed
