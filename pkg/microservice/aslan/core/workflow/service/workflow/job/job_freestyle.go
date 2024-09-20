@@ -309,7 +309,7 @@ func (j *FreeStyleJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 func (j *FreeStyleJob) toJob(taskID int64, registries []*commonmodels.RegistryNamespace, service *commonmodels.FreeStyleServiceInfo, logger *zap.SugaredLogger) (*commonmodels.JobTask, error) {
 	jobTaskSpec := &commonmodels.JobTaskFreestyleSpec{
 		Properties: *j.spec.Properties,
-		Steps:      j.stepsToStepTasks(j.spec.Steps, service),
+		Steps:      j.stepsToStepTasks(j.spec.Steps, service, registries),
 	}
 
 	jobName := j.job.Name
@@ -357,6 +357,7 @@ func (j *FreeStyleJob) toJob(taskID int64, registries []*commonmodels.RegistryNa
 
 		jobTaskSpec.Properties.Envs = service.KeyVals
 		for _, env := range jobTaskSpec.Properties.Envs {
+			env.Value = strings.TrimPrefix(env.Value, "<+fixed>")
 			if strings.HasPrefix(env.Value, "{{.") && strings.HasSuffix(env.Value, "}}") {
 				env.Value = strings.ReplaceAll(env.Value, "<SERVICE>", service.ServiceName)
 				env.Value = strings.ReplaceAll(env.Value, "<MODULE>", service.ServiceModule)
@@ -366,11 +367,11 @@ func (j *FreeStyleJob) toJob(taskID int64, registries []*commonmodels.RegistryNa
 	}
 
 	jobTaskSpec.Properties.CustomEnvs = jobTaskSpec.Properties.Envs
-	jobTaskSpec.Properties.Envs = append(jobTaskSpec.Properties.Envs, getfreestyleJobVariables(jobTaskSpec.Steps, taskID, j.workflow.Project, j.workflow.Name, j.workflow.DisplayName, jobTask.Infrastructure, service)...)
+	jobTaskSpec.Properties.Envs = append(jobTaskSpec.Properties.Envs, getfreestyleJobVariables(jobTaskSpec.Steps, taskID, j.workflow.Project, j.workflow.Name, j.workflow.DisplayName, jobTask.Infrastructure, service, registries)...)
 	return jobTask, nil
 }
 
-func (j *FreeStyleJob) stepsToStepTasks(step []*commonmodels.Step, service *commonmodels.FreeStyleServiceInfo) []*commonmodels.StepTask {
+func (j *FreeStyleJob) stepsToStepTasks(step []*commonmodels.Step, service *commonmodels.FreeStyleServiceInfo, registries []*commonmodels.RegistryNamespace) []*commonmodels.StepTask {
 	logger := log.SugaredLogger()
 	resp := []*commonmodels.StepTask{}
 	for _, step := range step {
@@ -443,7 +444,13 @@ func (j *FreeStyleJob) stepsToStepTasks(step []*commonmodels.Step, service *comm
 			if err := commonmodels.IToi(stepTask.Spec, stepTaskSpec); err != nil {
 				continue
 			}
+			dockerLoginCmds := []string{}
+			for _, reregistry := range registries {
+				dockerLoginCmds = append(dockerLoginCmds, fmt.Sprintf(`docker login -u "$%s_REGISTRY_AK" -p "$%s_REGISTRY_SK" "$%s_REGISTRY_HOST" &> /dev/null`, reregistry.Namespace, reregistry.Namespace, reregistry.Namespace))
+			}
+
 			stepTaskSpec.Scripts = append(strings.Split(replaceWrapLine(stepTaskSpec.Script), "\n"), outputScript(j.spec.Outputs, j.spec.Properties.Infrastructure)...)
+			stepTaskSpec.Scripts = append(dockerLoginCmds, stepTaskSpec.Scripts...)
 			stepTask.Spec = stepTaskSpec
 			// add debug step before shell step
 			debugBeforeStep := &commonmodels.StepTask{
@@ -466,7 +473,7 @@ func (j *FreeStyleJob) stepsToStepTasks(step []*commonmodels.Step, service *comm
 	return resp
 }
 
-func getfreestyleJobVariables(steps []*commonmodels.StepTask, taskID int64, project, workflowName, workflowDisplayName, infrastructure string, serviceAndImage *commonmodels.FreeStyleServiceInfo) []*commonmodels.KeyVal {
+func getfreestyleJobVariables(steps []*commonmodels.StepTask, taskID int64, project, workflowName, workflowDisplayName, infrastructure string, serviceAndImage *commonmodels.FreeStyleServiceInfo, registries []*commonmodels.RegistryNamespace) []*commonmodels.KeyVal {
 	ret := []*commonmodels.KeyVal{}
 	repos := []*types.Repository{}
 	for _, step := range steps {
@@ -488,6 +495,12 @@ func getfreestyleJobVariables(steps []*commonmodels.StepTask, taskID int64, proj
 	if serviceAndImage != nil {
 		ret = append(ret, &commonmodels.KeyVal{Key: "SERVICE_NAME", Value: serviceAndImage.ServiceName, IsCredential: false})
 		ret = append(ret, &commonmodels.KeyVal{Key: "SERVICE_MODULE", Value: serviceAndImage.ServiceModule, IsCredential: false})
+	}
+	// registry envs
+	for _, registry := range registries {
+		ret = append(ret, &commonmodels.KeyVal{Key: registry.Namespace + "_REGISTRY_HOST", Value: registry.RegAddr, IsCredential: false})
+		ret = append(ret, &commonmodels.KeyVal{Key: registry.Namespace + "_REGISTRY_AK", Value: registry.AccessKey, IsCredential: false})
+		ret = append(ret, &commonmodels.KeyVal{Key: registry.Namespace + "_REGISTRY_SK", Value: registry.SecretKey, IsCredential: true})
 	}
 
 	buildURL := fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/custom/%s/%d?display_name=%s", configbase.SystemAddress(), project, workflowName, taskID, url.QueryEscape(workflowDisplayName))
