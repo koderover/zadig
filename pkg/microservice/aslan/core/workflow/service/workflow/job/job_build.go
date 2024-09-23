@@ -25,6 +25,7 @@ import (
 	"sync"
 
 	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	configbase "github.com/koderover/zadig/v2/pkg/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
@@ -981,6 +982,8 @@ func (j *BuildJob) GetOutPuts(log *zap.SugaredLogger) []string {
 	if err := commonmodels.IToiYaml(j.job.Spec, j.spec); err != nil {
 		return resp
 	}
+
+	outputKeys := sets.NewString()
 	for _, build := range j.spec.ServiceAndBuilds {
 		jobKey := strings.Join([]string{j.job.Name, build.ServiceName, build.ServiceModule}, ".")
 		buildInfo, err := commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: build.BuildName})
@@ -990,22 +993,27 @@ func (j *BuildJob) GetOutPuts(log *zap.SugaredLogger) []string {
 		}
 		if buildInfo.TemplateID == "" {
 			resp = append(resp, getOutputKey(jobKey, ensureBuildInOutputs(buildInfo.Outputs))...)
+			for _, output := range ensureBuildInOutputs(buildInfo.Outputs) {
+				outputKeys = outputKeys.Insert(output.Name)
+			}
 			continue
 		}
+
 		buildTemplate, err := commonrepo.NewBuildTemplateColl().Find(&commonrepo.BuildTemplateQueryOption{ID: buildInfo.TemplateID})
 		if err != nil {
 			log.Errorf("found build template %s failed, err: %s", buildInfo.TemplateID, err)
 			continue
 		}
 		resp = append(resp, getOutputKey(jobKey, ensureBuildInOutputs(buildTemplate.Outputs))...)
+		for _, output := range ensureBuildInOutputs(buildTemplate.Outputs) {
+			outputKeys = outputKeys.Insert(output.Name)
+		}
 	}
 
 	outputs := []*commonmodels.Output{}
-
-	outputs = append(outputs, &commonmodels.Output{
-		Name: IMAGEKEY,
-	})
-
+	for _, outputKey := range outputKeys.List() {
+		outputs = append(outputs, &commonmodels.Output{Name: outputKey})
+	}
 	resp = append(resp, getOutputKey(j.job.Name+".<SERVICE>.<MODULE>", outputs)...)
 	resp = append(resp, "{{.job."+j.job.Name+".<SERVICE>.<MODULE>."+BRANCHKEY+"}}")
 	resp = append(resp, "{{.job."+j.job.Name+".<SERVICE>.<MODULE>."+GITURLKEY+"}}")
