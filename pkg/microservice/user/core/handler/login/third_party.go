@@ -110,6 +110,7 @@ func verifyAndDecode(ctx context.Context, code string) (*login.Claims, error) {
 		return nil, e.ErrCallBackUser.AddDesc(fmt.Sprintf("failed to verify ID token: %v", err))
 	}
 	var claimsRaw json.RawMessage
+	fmt.Printf(">>>>>>>>>>>>>>>>>>>> claims raw: %+v <<<<<<<<<<<<<<<<<<<\n", claimsRaw)
 	if err := idToken.Claims(&claimsRaw); err != nil {
 		return nil, e.ErrCallBackUser.AddDesc(fmt.Sprintf("error decoding ID token claims: %v", err))
 	}
