@@ -44,6 +44,9 @@ const (
 	IMAGEKEY    = "IMAGE"
 	IMAGETAGKEY = "imageTag"
 	PKGFILEKEY  = "PKG_FILE"
+	BRANCHKEY   = "BRANCH"
+	GITURLKEY   = "GITURL"
+	COMMITIDKEY = "COMMITID"
 )
 
 type BuildJob struct {
@@ -998,10 +1001,15 @@ func (j *BuildJob) GetOutPuts(log *zap.SugaredLogger) []string {
 	}
 
 	outputs := []*commonmodels.Output{}
+
 	outputs = append(outputs, &commonmodels.Output{
 		Name: IMAGEKEY,
 	})
+
 	resp = append(resp, getOutputKey(j.job.Name+".<SERVICE>.<MODULE>", outputs)...)
+	resp = append(resp, "{{.job."+j.job.Name+".<SERVICE>.<MODULE>."+BRANCHKEY+"}}")
+	resp = append(resp, "{{.job."+j.job.Name+".<SERVICE>.<MODULE>."+GITURLKEY+"}}")
+	resp = append(resp, "{{.job."+j.job.Name+".<SERVICE>.<MODULE>."+COMMITIDKEY+"}}")
 	return resp
 }
 

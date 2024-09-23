@@ -154,6 +154,12 @@ func ReplaceWorkloadImages(rawYaml string, images []*commonmodels.Container) (st
 					deployment.Spec.Template.Spec.Containers[i].Image = image.Image
 				}
 			}
+			for i, container := range deployment.Spec.Template.Spec.InitContainers {
+				containerName := container.Name
+				if image, ok := imageMap[containerName]; ok {
+					deployment.Spec.Template.Spec.InitContainers[i].Image = image.Image
+				}
+			}
 
 			yamlStr, err = resourceToYaml(deployment)
 			if err != nil {
@@ -174,6 +180,12 @@ func ReplaceWorkloadImages(rawYaml string, images []*commonmodels.Container) (st
 					statefulSet.Spec.Template.Spec.Containers[i].Image = image.Image
 				}
 			}
+			for i, container := range statefulSet.Spec.Template.Spec.InitContainers {
+				containerName := container.Name
+				if image, ok := imageMap[containerName]; ok {
+					statefulSet.Spec.Template.Spec.InitContainers[i].Image = image.Image
+				}
+			}
 			yamlStr, err = resourceToYaml(statefulSet)
 			if err != nil {
 				return "", nil, err
@@ -191,6 +203,12 @@ func ReplaceWorkloadImages(rawYaml string, images []*commonmodels.Container) (st
 				containerName := container.Name
 				if image, ok := imageMap[containerName]; ok {
 					job.Spec.Template.Spec.Containers[i].Image = image.Image
+				}
+			}
+			for i, container := range job.Spec.Template.Spec.InitContainers {
+				containerName := container.Name
+				if image, ok := imageMap[containerName]; ok {
+					job.Spec.Template.Spec.InitContainers[i].Image = image.Image
 				}
 			}
 			yamlStr, err = resourceToYaml(job)
@@ -213,6 +231,12 @@ func ReplaceWorkloadImages(rawYaml string, images []*commonmodels.Container) (st
 						cronJob.Spec.JobTemplate.Spec.Template.Spec.Containers[i].Image = image.Image
 					}
 				}
+				for i, val := range cronJob.Spec.JobTemplate.Spec.Template.Spec.InitContainers {
+					containerName := val.Name
+					if image, ok := imageMap[containerName]; ok {
+						cronJob.Spec.JobTemplate.Spec.Template.Spec.InitContainers[i].Image = image.Image
+					}
+				}
 				yamlStr, err = resourceToYaml(cronJob)
 				if err != nil {
 					return "", nil, err
@@ -230,6 +254,12 @@ func ReplaceWorkloadImages(rawYaml string, images []*commonmodels.Container) (st
 					containerName := val.Name
 					if image, ok := imageMap[containerName]; ok {
 						cronJob.Spec.JobTemplate.Spec.Template.Spec.Containers[i].Image = image.Image
+					}
+				}
+				for i, val := range cronJob.Spec.JobTemplate.Spec.Template.Spec.InitContainers {
+					containerName := val.Name
+					if image, ok := imageMap[containerName]; ok {
+						cronJob.Spec.JobTemplate.Spec.Template.Spec.InitContainers[i].Image = image.Image
 					}
 				}
 				yamlStr, err = resourceToYaml(cronJob)

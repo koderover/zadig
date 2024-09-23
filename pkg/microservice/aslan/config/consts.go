@@ -210,8 +210,11 @@ const (
 type JobType string
 
 const (
-	JobBuild                JobType = "build"
-	JobDeploy               JobType = "deploy"
+	// deprecated
+	JobBuild JobType = "build"
+	// deprecated
+	JobDeploy JobType = "deploy"
+
 	JobZadigBuild           JobType = "zadig-build"
 	JobZadigDistributeImage JobType = "zadig-distribute-image"
 	JobZadigTesting         JobType = "zadig-test"

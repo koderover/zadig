@@ -158,6 +158,7 @@ func Callback(c *gin.Context) {
 		Account:      claims.PreferredUsername,
 		Name:         claims.Name,
 		Email:        claims.Email,
+		Phone:        claims.Phone,
 		IdentityType: claims.FederatedClaims.ConnectorId,
 	}, true, ctx.Logger)
 	if err != nil {

@@ -25,6 +25,7 @@ import (
 type Claims struct {
 	Name              string          `json:"name"`
 	Email             string          `json:"email"`
+	Phone             string          `json:"phone"`
 	UID               string          `json:"uid"`
 	PreferredUsername string          `json:"preferred_username"`
 	FederatedClaims   FederatedClaims `json:"federated_claims"`

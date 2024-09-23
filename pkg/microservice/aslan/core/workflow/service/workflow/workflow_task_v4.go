@@ -729,6 +729,41 @@ func ManualExecWorkflowTaskV4(workflowName string, taskID int64, stageName strin
 
 	for _, stage := range task.WorkflowArgs.Stages {
 		if stage.Name == stageName {
+			for _, job := range stage.Jobs {
+				err := jobctl.ClearOptions(job, task.WorkflowArgs)
+				if err != nil {
+					log.Errorf("failed to remove the job options in the workflow parameters for job %s, stage: %s, error: %s", job.Name, stage.Name, err)
+					return fmt.Errorf("failed to remove the job options in the workflow parameters for job %s, stage: %s, error: %s", job.Name, stage.Name, err)
+				}
+
+				// TODO: move this logic to job controller
+				if job.JobType == config.JobZadigBuild {
+					if err := setZadigBuildRepos(job, logger); err != nil {
+						log.Errorf("zadig build job set build info error: %v", err)
+						return e.ErrCreateTask.AddDesc(err.Error())
+					}
+				}
+				if job.JobType == config.JobFreestyle {
+					if err := setFreeStyleRepos(job, logger); err != nil {
+						log.Errorf("freestyle job set build info error: %v", err)
+						return e.ErrCreateTask.AddDesc(err.Error())
+					}
+				}
+				if job.JobType == config.JobZadigTesting {
+					if err := setZadigTestingRepos(job, logger); err != nil {
+						log.Errorf("testing job set build info error: %v", err)
+						return e.ErrCreateTask.AddDesc(err.Error())
+					}
+				}
+
+				if job.JobType == config.JobZadigScanning {
+					if err := setZadigScanningRepos(job, logger); err != nil {
+						log.Errorf("scanning job set build info error: %v", err)
+						return e.ErrCreateTask.AddDesc(err.Error())
+					}
+				}
+			}
+
 			stage.Jobs = jobs
 		}
 	}
@@ -737,6 +772,24 @@ func ManualExecWorkflowTaskV4(workflowName string, taskID int64, stageName strin
 			stage.Jobs = jobs
 		}
 	}
+
+	if err := jobctl.RemoveFixedValueMarks(task.OriginWorkflowArgs); err != nil {
+		log.Errorf("RemoveFixedValueMarks error: %v", err)
+		return e.ErrCreateTask.AddDesc(err.Error())
+	}
+
+	if err := jobctl.RenderGlobalVariables(task.OriginWorkflowArgs, task.TaskID, task.TaskCreator, task.TaskCreatorID); err != nil {
+		log.Errorf("RenderGlobalVariables error: %v", err)
+		return e.ErrCreateTask.AddDesc(err.Error())
+	}
+
+	if err := jobctl.RenderStageVariables(task.WorkflowArgs, task.TaskID, task.TaskCreator); err != nil {
+		log.Errorf("RenderStageVariables error: %v", err)
+		return e.ErrCreateTask.AddDesc(err.Error())
+	}
+
+	// set workflow params repo info, like commitid, branch etc.
+	setZadigParamRepos(task.WorkflowArgs, logger)
 
 	foundStage := false
 	newStageNameJobTasksMap := make(map[string][]*commonmodels.JobTask, 0)
@@ -837,6 +890,16 @@ func ManualExecWorkflowTaskV4(workflowName string, taskID int64, stageName strin
 
 	if !found {
 		return errors.Errorf("stage %s not found in workflow %s or status is passed", stageName, workflowName)
+	}
+
+	if err := workflowTaskLint(task, logger); err != nil {
+		return err
+	}
+
+	task.WorkflowArgs, _, err = service.FillServiceModules2Jobs(task.WorkflowArgs)
+	if err != nil {
+		log.Errorf("fill serviceModules to jobs error: %v", err)
+		return e.ErrCreateTask.AddDesc(err.Error())
 	}
 
 	task.Status = config.StatusCreated
@@ -1306,7 +1369,7 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, 
 					spec.Repos = stepSpec.Repos
 					continue
 				}
-				if step.StepType == config.StepArchive {
+				if step.StepType == config.StepArchive && strings.HasSuffix(step.Name, "-pkgfile-archive") {
 					stepSpec := &stepspec.StepArchiveSpec{}
 					if err := commonmodels.IToi(step.Spec, &stepSpec); err != nil {
 						continue
