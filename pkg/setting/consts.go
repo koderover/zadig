@@ -916,3 +916,10 @@ const (
 	SQLExecStatusFailed  SQLExecStatus = "failed"
 	SQLExecStatusNotExec SQLExecStatus = "not_exec"
 )
+
+type ContainerType string
+
+const (
+	ContainerTypeInit   ContainerType = "init"
+	ContainerTypeNormal ContainerType = ""
+)

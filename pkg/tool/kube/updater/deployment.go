@@ -90,6 +90,12 @@ func UpdateDeploymentImage(ns, name, container, image string, cl client.Client) 
 	return PatchDeployment(ns, name, patchBytes, cl)
 }
 
+func UpdateDeploymentInitImage(ns, name, container, image string, cl client.Client) error {
+	patchBytes := []byte(fmt.Sprintf(`{"spec":{"template":{"spec":{"initContainers":[{"name":"%s","image":"%s"}]}}}}`, container, image))
+
+	return PatchDeployment(ns, name, patchBytes, cl)
+}
+
 func ScaleDeployment(ns, name string, replicas int, cl client.Client) error {
 	patchBytes := []byte(fmt.Sprintf(`{"spec":{"replicas": %d}}`, replicas))
 	return PatchDeployment(ns, name, patchBytes, cl)

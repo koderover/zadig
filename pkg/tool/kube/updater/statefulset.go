@@ -74,6 +74,12 @@ func UpdateStatefulSetImage(ns, name, container, image string, cl client.Client)
 	return PatchStatefulSet(ns, name, patchBytes, cl)
 }
 
+func UpdateStatefulSetInitImage(ns, name, container, image string, cl client.Client) error {
+	patchBytes := []byte(fmt.Sprintf(`{"spec":{"template":{"spec":{"initContainers":[{"name":"%s","image":"%s"}]}}}}`, container, image))
+
+	return PatchStatefulSet(ns, name, patchBytes, cl)
+}
+
 func ScaleStatefulSet(ns, name string, replicas int, cl client.Client) error {
 	patchBytes := []byte(fmt.Sprintf(`{"spec":{"replicas": %d}}`, replicas))
 	return PatchStatefulSet(ns, name, patchBytes, cl)
