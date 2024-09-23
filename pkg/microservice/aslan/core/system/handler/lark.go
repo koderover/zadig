@@ -20,6 +20,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/lark"
+	"github.com/koderover/zadig/v2/pkg/setting"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 )
 
@@ -28,18 +29,25 @@ func GetLarkDepartment(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	approvalID, departmentID := c.Param("id"), c.Param("department_id")
+	userIDType := c.Query("user_id_type")
+	if userIDType == "" {
+		userIDType = setting.LarkUserOpenID
+	}
 	if departmentID == "root" {
-		ctx.Resp, ctx.Err = lark.GetLarkAppContactRange(approvalID)
+		ctx.Resp, ctx.Err = lark.GetLarkAppContactRange(approvalID, userIDType)
 	} else {
-		ctx.Resp, ctx.Err = lark.GetLarkDepartment(approvalID, departmentID)
+		ctx.Resp, ctx.Err = lark.GetLarkDepartment(approvalID, departmentID, userIDType)
 	}
 }
 
 func GetLarkUserID(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	id, err := lark.GetLarkUserID(c.Param("id"), c.Query("type"), c.Query("value"))
+	userIDType := c.Query("user_id_type")
+	if userIDType == "" {
+		userIDType = setting.LarkUserOpenID
+	}
+	id, err := lark.GetLarkUserID(c.Param("id"), c.Query("type"), c.Query("value"), userIDType)
 	if err != nil {
 		ctx.Err = err
 		return

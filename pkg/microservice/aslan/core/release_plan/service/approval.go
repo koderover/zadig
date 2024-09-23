@@ -31,6 +31,7 @@ import (
 	"github.com/google/uuid"
 	workwxservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/workwx"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
+	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/pkg/errors"
 
 	configbase "github.com/koderover/zadig/v2/pkg/config"
@@ -475,7 +476,7 @@ func createLarkApproval(approval *models.LarkApproval, manager, phone, content s
 
 	var userID string
 	if approval.DefaultApprovalInitiator == nil {
-		userID, err = client.GetUserOpenIDByEmailOrMobile(lark.QueryTypeMobile, phone)
+		userID, err = client.GetUserIDByEmailOrMobile(lark.QueryTypeMobile, phone, setting.LarkUserOpenID)
 		if err != nil {
 			return errors.Wrapf(err, "get user lark id by mobile-%s", phone)
 		}

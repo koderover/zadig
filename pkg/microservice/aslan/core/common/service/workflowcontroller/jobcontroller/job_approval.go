@@ -35,6 +35,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/instantmessage"
 	larkservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/lark"
 	workwxservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/workwx"
+	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/tool/dingtalk"
 	"github.com/koderover/zadig/v2/pkg/tool/lark"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
@@ -197,7 +198,7 @@ func waitForLarkApprove(ctx context.Context, spec *commonmodels.JobTaskApprovalS
 
 	var userID string
 	if approval.DefaultApprovalInitiator == nil {
-		userID, err = client.GetUserOpenIDByEmailOrMobile(lark.QueryTypeMobile, workflowCtx.WorkflowTaskCreatorMobile)
+		userID, err = client.GetUserIDByEmailOrMobile(lark.QueryTypeMobile, workflowCtx.WorkflowTaskCreatorMobile, setting.LarkUserOpenID)
 		if err != nil {
 			return config.StatusFailed, fmt.Errorf("get user lark id by mobile-%s, error: %s", workflowCtx.WorkflowTaskCreatorMobile, err)
 		}

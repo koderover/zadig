@@ -50,16 +50,16 @@ type DepartmentInfo struct {
 	SubDepartmentList []*lark.DepartmentInfo `json:"sub_department_list"`
 }
 
-func GetLarkDepartment(approvalID, openID string) (*DepartmentInfo, error) {
+func GetLarkDepartment(approvalID, openID, userIDType string) (*DepartmentInfo, error) {
 	cli, err := GetLarkClientByIMAppID(approvalID)
 	if err != nil {
 		return nil, errors.Wrap(err, "get client")
 	}
-	userList, err := cli.ListUserFromDepartment(openID)
+	userList, err := cli.ListUserFromDepartment(openID, userIDType)
 	if err != nil {
 		return nil, errors.Wrap(err, "get user list")
 	}
-	departmentList, err := cli.ListSubDepartmentsInfo(openID)
+	departmentList, err := cli.ListSubDepartmentsInfo(openID, userIDType)
 	if err != nil {
 		return nil, errors.Wrap(err, "get sub-department list")
 	}
@@ -69,12 +69,12 @@ func GetLarkDepartment(approvalID, openID string) (*DepartmentInfo, error) {
 	}, nil
 }
 
-func GetLarkAppContactRange(approvalID string) (*DepartmentInfo, error) {
+func GetLarkAppContactRange(approvalID, userIDType string) (*DepartmentInfo, error) {
 	cli, err := GetLarkClientByIMAppID(approvalID)
 	if err != nil {
 		return nil, errors.Wrap(err, "get client")
 	}
-	reply, err := cli.ListAppContactRange()
+	reply, err := cli.ListAppContactRange(userIDType)
 	if err != nil {
 		return nil, errors.Wrap(err, "list range")
 	}
@@ -87,11 +87,11 @@ func GetLarkAppContactRange(approvalID string) (*DepartmentInfo, error) {
 	)
 	wg.Add(2)
 	util.Go(func() {
-		userList, err1 = getLarkUserInfoConcurrently(cli, reply.UserIDs, 10)
+		userList, err1 = getLarkUserInfoConcurrently(cli, reply.UserIDs, userIDType, 10)
 		wg.Done()
 	})
 	util.Go(func() {
-		departmentList, err2 = getLarkDepartmentInfoConcurrently(cli, reply.DepartmentIDs, 10)
+		departmentList, err2 = getLarkDepartmentInfoConcurrently(cli, reply.DepartmentIDs, userIDType, 10)
 		wg.Done()
 	})
 	wg.Wait()
@@ -107,7 +107,7 @@ func GetLarkAppContactRange(approvalID string) (*DepartmentInfo, error) {
 	}, nil
 }
 
-func getLarkUserInfoConcurrently(client *lark.Client, idList []string, concurrentNum int) ([]*lark.UserInfo, error) {
+func getLarkUserInfoConcurrently(client *lark.Client, idList []string, userIDType string, concurrentNum int) ([]*lark.UserInfo, error) {
 	var reply []*lark.UserInfo
 	idNum := len(idList)
 
@@ -120,7 +120,7 @@ func getLarkUserInfoConcurrently(client *lark.Client, idList []string, concurren
 	for i := 0; i < concurrentNum; i++ {
 		go func() {
 			for arg := range argCh {
-				info, err := client.GetUserInfoByID(arg)
+				info, err := client.GetUserInfoByID(arg, userIDType)
 				resultCh <- &result{
 					UserInfo: info,
 					Err:      err,
@@ -143,7 +143,7 @@ func getLarkUserInfoConcurrently(client *lark.Client, idList []string, concurren
 	return reply, nil
 }
 
-func getLarkDepartmentInfoConcurrently(client *lark.Client, idList []string, concurrentNum int) ([]*lark.DepartmentInfo, error) {
+func getLarkDepartmentInfoConcurrently(client *lark.Client, idList []string, userIDType string, concurrentNum int) ([]*lark.DepartmentInfo, error) {
 	var reply []*lark.DepartmentInfo
 	idNum := len(idList)
 
@@ -156,7 +156,7 @@ func getLarkDepartmentInfoConcurrently(client *lark.Client, idList []string, con
 	for i := 0; i < concurrentNum; i++ {
 		go func() {
 			for arg := range argCh {
-				info, err := client.GetDepartmentInfoByID(arg)
+				info, err := client.GetDepartmentInfoByID(arg, userIDType)
 				resultCh <- &result{
 					DepartmentInfo: info,
 					Err:            err,
@@ -179,7 +179,7 @@ func getLarkDepartmentInfoConcurrently(client *lark.Client, idList []string, con
 	return reply, nil
 }
 
-func GetLarkUserID(approvalID, queryType, queryValue string) (string, error) {
+func GetLarkUserID(approvalID, queryType, queryValue, userIDType string) (string, error) {
 	switch queryType {
 	case "email":
 	default:
@@ -190,7 +190,7 @@ func GetLarkUserID(approvalID, queryType, queryValue string) (string, error) {
 	if err != nil {
 		return "", errors.Wrap(err, "get client")
 	}
-	return cli.GetUserOpenIDByEmailOrMobile(lark.QueryTypeEmail, queryValue)
+	return cli.GetUserIDByEmailOrMobile(lark.QueryTypeEmail, queryValue, userIDType)
 }
 
 var (

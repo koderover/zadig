@@ -301,7 +301,7 @@ func CheckWorkflowV4ApprovalInitiator(workflowName, uid string, log *zap.Sugared
 						if isMobileChecked[spec.LarkApproval.ID] {
 							continue
 						}
-						_, err = cli.GetUserOpenIDByEmailOrMobile(larktool.QueryTypeMobile, userInfo.Phone)
+						_, err = cli.GetUserIDByEmailOrMobile(larktool.QueryTypeMobile, userInfo.Phone, setting.LarkUserOpenID)
 						if err != nil {
 							return e.ErrCheckApprovalInitiator.AddDesc(fmt.Sprintf("lark app id: %s, phone: %s, error: %v",
 								spec.LarkApproval.ID, userInfo.Phone, err))

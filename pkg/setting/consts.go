@@ -805,6 +805,7 @@ const (
 
 // lark app
 const (
+	LarkUserID           = "user_id"
 	LarkUserOpenID       = "open_id"
 	LarkDepartmentOpenID = "open_department_id"
 )
