@@ -25,7 +25,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/setting"
 )
 
-func (client *Client) GetUserOpenIDByEmailOrMobile(_type, value string) (string, error) {
+func (client *Client) GetUserIDByEmailOrMobile(_type, value, userIDType string) (string, error) {
 	if value == "" {
 		return "", errors.New("empty value")
 	}
@@ -39,7 +39,7 @@ func (client *Client) GetUserOpenIDByEmailOrMobile(_type, value string) (string,
 		return "", errors.New("invalid query type")
 	}
 	req := larkcontact.NewBatchGetIdUserReqBuilder().
-		UserIdType(setting.LarkUserOpenID).
+		UserIdType(userIDType).
 		Body(body).
 		Build()
 
@@ -59,11 +59,11 @@ func (client *Client) GetUserOpenIDByEmailOrMobile(_type, value string) (string,
 }
 
 // ListAppContactRange get users, departments, groups open id authorized by the lark app
-func (client *Client) ListAppContactRange() (*ContactRange, error) {
+func (client *Client) ListAppContactRange(userIDType string) (*ContactRange, error) {
 	cr := &ContactRange{}
 	pageToken := ""
 	for {
-		result, page, err := client.listAppContactRangeWithPage(pageToken, defaultPageSize)
+		result, page, err := client.listAppContactRangeWithPage(userIDType, pageToken, defaultPageSize)
 		if err != nil {
 			return nil, err
 		}
@@ -80,9 +80,9 @@ func (client *Client) ListAppContactRange() (*ContactRange, error) {
 	return cr, nil
 }
 
-func (client *Client) listAppContactRangeWithPage(pageToken string, size int) (*ContactRange, *pageInfo, error) {
+func (client *Client) listAppContactRangeWithPage(userIDType, pageToken string, size int) (*ContactRange, *pageInfo, error) {
 	req := larkcontact.NewListScopeReqBuilder().
-		UserIdType(setting.LarkUserOpenID).
+		UserIdType(userIDType).
 		DepartmentIdType(setting.LarkDepartmentOpenID).
 		PageSize(size).
 		PageToken(pageToken).
@@ -104,11 +104,11 @@ func (client *Client) listAppContactRangeWithPage(pageToken string, size int) (*
 	}, getPageInfo(resp.Data.HasMore, resp.Data.PageToken), nil
 }
 
-func (client *Client) ListSubDepartmentsInfo(departmentID string) ([]*DepartmentInfo, error) {
+func (client *Client) ListSubDepartmentsInfo(departmentID, userIDType string) ([]*DepartmentInfo, error) {
 	var list []*DepartmentInfo
 	pageToken := ""
 	for {
-		resp, page, err := client.listSubDepartmentsInfoWithPage(departmentID, pageToken, defaultPageSize)
+		resp, page, err := client.listSubDepartmentsInfoWithPage(departmentID, userIDType, pageToken, defaultPageSize)
 		if err != nil {
 			return nil, err
 		}
@@ -122,10 +122,10 @@ func (client *Client) ListSubDepartmentsInfo(departmentID string) ([]*Department
 	return list, nil
 }
 
-func (client *Client) listSubDepartmentsInfoWithPage(departmentID, pageToken string, size int) ([]*DepartmentInfo, *pageInfo, error) {
+func (client *Client) listSubDepartmentsInfoWithPage(departmentID, userIDType, pageToken string, size int) ([]*DepartmentInfo, *pageInfo, error) {
 	req := larkcontact.NewChildrenDepartmentReqBuilder().
 		DepartmentId(departmentID).
-		UserIdType(setting.LarkUserOpenID).
+		UserIdType(userIDType).
 		DepartmentIdType(setting.LarkDepartmentOpenID).
 		FetchChild(false).
 		PageSize(size).
@@ -151,11 +151,11 @@ func (client *Client) listSubDepartmentsInfoWithPage(departmentID, pageToken str
 	return list, getPageInfo(resp.Data.HasMore, resp.Data.PageToken), nil
 }
 
-func (client *Client) ListUserFromDepartment(departmentID string) ([]*UserInfo, error) {
+func (client *Client) ListUserFromDepartment(departmentID, userIDType string) ([]*UserInfo, error) {
 	var list []*UserInfo
 	pageToken := ""
 	for {
-		resp, page, err := client.listUserFromDepartmentWithPage(departmentID, pageToken, defaultPageSize)
+		resp, page, err := client.listUserFromDepartmentWithPage(departmentID, userIDType, pageToken, defaultPageSize)
 		if err != nil {
 			return nil, err
 		}
@@ -169,9 +169,9 @@ func (client *Client) ListUserFromDepartment(departmentID string) ([]*UserInfo, 
 	return list, nil
 }
 
-func (client *Client) listUserFromDepartmentWithPage(departmentID, pageToken string, size int) ([]*UserInfo, *pageInfo, error) {
+func (client *Client) listUserFromDepartmentWithPage(departmentID, userIDType, pageToken string, size int) ([]*UserInfo, *pageInfo, error) {
 	req := larkcontact.NewFindByDepartmentUserReqBuilder().
-		UserIdType(setting.LarkUserOpenID).
+		UserIdType(userIDType).
 		DepartmentIdType(setting.LarkDepartmentOpenID).
 		DepartmentId(departmentID).
 		PageSize(size).
@@ -198,10 +198,10 @@ func (client *Client) listUserFromDepartmentWithPage(departmentID, pageToken str
 	return list, getPageInfo(resp.Data.HasMore, resp.Data.PageToken), nil
 }
 
-func (client *Client) GetUserInfoByID(id string) (*UserInfo, error) {
+func (client *Client) GetUserInfoByID(id, userIDType string) (*UserInfo, error) {
 	req := larkcontact.NewGetUserReqBuilder().
 		UserId(id).
-		UserIdType(setting.LarkUserOpenID).
+		UserIdType(userIDType).
 		DepartmentIdType(setting.LarkDepartmentOpenID).
 		Build()
 
@@ -230,10 +230,10 @@ func (client *Client) GetUserInfoByID(id string) (*UserInfo, error) {
 	}, nil
 }
 
-func (client *Client) GetDepartmentInfoByID(id string) (*DepartmentInfo, error) {
+func (client *Client) GetDepartmentInfoByID(id, userIDType string) (*DepartmentInfo, error) {
 	req := larkcontact.NewGetDepartmentReqBuilder().
 		DepartmentId(id).
-		UserIdType(setting.LarkUserOpenID).
+		UserIdType(userIDType).
 		DepartmentIdType(setting.LarkDepartmentOpenID).
 		Build()
 
