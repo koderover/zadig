@@ -275,6 +275,10 @@ func CheckWorkflowV4ApprovalInitiator(workflowName, uid string, log *zap.Sugared
 		return errors.New("failed to get user info by id")
 	}
 
+	if len(userInfo.Phone) == 0 {
+		return e.ErrCheckApprovalPhoneNotFound.AddDesc("phone not configured")
+	}
+
 	// If default approval initiator is not set, check whether the user's mobile phone number can be queried
 	// and only need to check once for each im app type
 	isMobileChecked := map[string]bool{}

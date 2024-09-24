@@ -821,7 +821,8 @@ var (
 	//-----------------------------------------------------------------------------------------------
 	// check workflow task lark or dingtalk approval available releated errors: 6940-6949
 	//-----------------------------------------------------------------------------------------------
-	ErrCheckApprovalInitiator = NewHTTPError(6940, "获取 IM 审批发起人账号信息失败")
+	ErrCheckApprovalInitiator     = NewHTTPError(6940, "获取 IM 审批发起人账号信息失败")
+	ErrCheckApprovalPhoneNotFound = NewHTTPError(6941, "获取 IM 审批发起人账号信息失败: 手机号未配置")
 
 	//-----------------------------------------------------------------------------------------------
 	// project management releated errors: 6950-6959
