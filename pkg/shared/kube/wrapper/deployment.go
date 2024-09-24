@@ -46,7 +46,7 @@ func (w *deployment) Unwrap() *appsv1.Deployment {
 }
 
 func (w *deployment) Ready() bool {
-	return w.Status.Replicas == w.Status.AvailableReplicas
+	return w.Status.Replicas == w.Status.AvailableReplicas && w.Status.UnavailableReplicas == 0
 }
 
 func (w *deployment) WorkloadResource(pods []*corev1.Pod) *resource.Workload {
