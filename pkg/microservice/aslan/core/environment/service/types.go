@@ -500,11 +500,6 @@ func (env *OpenAPICreateEnvArgs) Validate() error {
 	if env.RegistryID == "" {
 		return fmt.Errorf("registry_id is required")
 	}
-	if !env.Production {
-		if env.Services == nil || len(env.Services) == 0 {
-			return fmt.Errorf("services is required")
-		}
-	}
 	return nil
 }
 
