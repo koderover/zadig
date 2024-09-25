@@ -46,7 +46,7 @@ func (w *statefulSet) Unwrap() *appsv1.StatefulSet {
 }
 
 func (w *statefulSet) Ready() bool {
-	return w.Status.Replicas == w.Status.ReadyReplicas
+	return w.Status.Replicas == w.Status.AvailableReplicas
 }
 
 func (w *statefulSet) WorkloadResource(pods []*corev1.Pod) *resource.Workload {
