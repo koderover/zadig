@@ -40,10 +40,11 @@ import (
 )
 
 type ListEnvServiceVersionsResponse struct {
-	ServiceName string `json:"service_name"`
-	Revision    int64  `json:"revision"`
-	CreateTime  int64  `json:"create_time"`
-	CreateBy    string `json:"create_by"`
+	ServiceName string                    `json:"service_name"`
+	Revision    int64                     `json:"revision"`
+	Containers  []*commonmodels.Container `json:"containers"`
+	CreateTime  int64                     `json:"create_time"`
+	CreateBy    string                    `json:"create_by"`
 }
 
 func ListEnvServiceVersions(ctx *internalhandler.Context, projectName, envName, serviceName string, isHelmChart, isProduction bool, log *zap.SugaredLogger) ([]ListEnvServiceVersionsResponse, error) {
@@ -61,6 +62,7 @@ func ListEnvServiceVersions(ctx *internalhandler.Context, projectName, envName, 
 		resp = append(resp, ListEnvServiceVersionsResponse{
 			ServiceName: name,
 			Revision:    revision.Revision,
+			Containers:  revision.Service.Containers,
 			CreateTime:  revision.CreateTime,
 			CreateBy:    revision.CreateBy,
 		})
