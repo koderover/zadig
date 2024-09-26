@@ -56,7 +56,7 @@ func NewJunitReportStep(spec interface{}, workspace string, envs, secretEnvs []s
 		return junitReportStep, fmt.Errorf("marshal spec %+v failed", spec)
 	}
 	if err := yaml.Unmarshal(yamlBytes, &junitReportStep.spec); err != nil {
-		return junitReportStep, fmt.Errorf("unmarshal spec %s to shell spec failed", yamlBytes)
+		return junitReportStep, fmt.Errorf("unmarshal spec %s to junit report spec failed", yamlBytes)
 	}
 	return junitReportStep, nil
 }

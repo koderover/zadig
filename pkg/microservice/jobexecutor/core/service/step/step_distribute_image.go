@@ -47,7 +47,7 @@ func NewDistributeImageStep(spec interface{}, workspace string, envs, secretEnvs
 		return distributeImageStep, fmt.Errorf("marshal spec %+v failed", spec)
 	}
 	if err := yaml.Unmarshal(yamlBytes, &distributeImageStep.spec); err != nil {
-		return distributeImageStep, fmt.Errorf("unmarshal spec %s to shell spec failed", yamlBytes)
+		return distributeImageStep, fmt.Errorf("unmarshal spec %s to distribute image spec failed", yamlBytes)
 	}
 	return distributeImageStep, nil
 }

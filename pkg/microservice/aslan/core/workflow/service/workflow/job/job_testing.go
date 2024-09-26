@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"net/url"
 	"path"
+	"path/filepath"
 	"strings"
 
 	"go.uber.org/zap"
@@ -519,9 +520,27 @@ func (j *TestingJob) toJobtask(testing *commonmodels.TestModule, defaultS3 *comm
 	jobTaskSpec.Steps = append(jobTaskSpec.Steps, debugAfterStep)
 	// init archive html step
 	if len(testingInfo.TestReportPath) > 0 {
+		ext := filepath.Ext(testingInfo.TestReportPath)
+		if ext != ".html" {
+			return jobTask, fmt.Errorf("test report path: %s is not a html file", testingInfo.TestReportPath)
+		}
+		outputPath := strings.TrimSuffix(testingInfo.TestReportPath, ext) + "-archive" + ext
+
+		archiveHtmlStep := &commonmodels.StepTask{
+			Name:      config.TestJobHTMLReportArchiveStepName,
+			JobName:   jobTask.Name,
+			StepType:  config.StepArchiveHtml,
+			Onfailure: true,
+			Spec: step.StepArchiveHtmlSpec{
+				HtmlPath:   testingInfo.TestReportPath,
+				OutputPath: outputPath,
+			},
+		}
+		jobTaskSpec.Steps = append(jobTaskSpec.Steps, archiveHtmlStep)
+
 		uploads := []*step.Upload{
 			{
-				FilePath:        testingInfo.TestReportPath,
+				FilePath:        outputPath,
 				DestinationPath: path.Join(j.workflow.Name, fmt.Sprint(taskID), jobTask.Name, "html"),
 			},
 		}

@@ -53,7 +53,7 @@ func NewDownloadArchiveStep(spec interface{}, dirs *types.AgentWorkDirs, envs, s
 		return archiveStep, fmt.Errorf("marshal spec %+v failed", spec)
 	}
 	if err := yaml.Unmarshal(yamlBytes, &archiveStep.spec); err != nil {
-		return archiveStep, fmt.Errorf("unmarshal spec %s to shell spec failed", yamlBytes)
+		return archiveStep, fmt.Errorf("unmarshal spec %s to download archive spec failed", yamlBytes)
 	}
 	return archiveStep, nil
 }

@@ -56,7 +56,7 @@ func NewBatchFileStep(jobOutput []string, spec interface{}, dirs *types.AgentWor
 		return batchFileStep, fmt.Errorf("marshal spec %+v failed", spec)
 	}
 	if err := yaml.Unmarshal(yamlBytes, &batchFileStep.spec); err != nil {
-		return batchFileStep, fmt.Errorf("unmarshal spec %s to script spec failed", yamlBytes)
+		return batchFileStep, fmt.Errorf("unmarshal spec %s to batch file spec failed", yamlBytes)
 	}
 	batchFileStep.Logger = logger
 

@@ -57,7 +57,7 @@ func NewShellStep(jobOutput []string, spec interface{}, dirs *types.AgentWorkDir
 		return shellStep, fmt.Errorf("marshal spec %+v failed", spec)
 	}
 	if err := yaml.Unmarshal(yamlBytes, &shellStep.spec); err != nil {
-		return shellStep, fmt.Errorf("unmarshal spec %s to script spec failed", yamlBytes)
+		return shellStep, fmt.Errorf("unmarshal spec %s to shell spec failed", yamlBytes)
 	}
 	shellStep.Logger = logger
 

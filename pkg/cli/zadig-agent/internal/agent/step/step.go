@@ -78,6 +78,11 @@ func RunStep(ctx context.Context, jobCtx *jobctl.JobContext, step *commonmodels.
 		if err != nil {
 			return err
 		}
+	case "archive_html":
+		stepInstance, err = archive.NewArchiveHtmlStep(step.Spec, dirs, envs, secretEnvs, logger)
+		if err != nil {
+			return err
+		}
 	case "tar_archive":
 		stepInstance, err = archive.NewTarArchiveStep(step.Spec, dirs, envs, secretEnvs, logger)
 		if err != nil {

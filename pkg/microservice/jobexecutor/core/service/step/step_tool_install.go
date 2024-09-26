@@ -37,7 +37,7 @@ func NewToolInstallStep(spec interface{}, workspace string, envs, secretEnvs []s
 		return toolInstallStep, fmt.Errorf("marshal spec %+v failed", spec)
 	}
 	if err := yaml.Unmarshal(yamlBytes, &toolInstallStep.spec); err != nil {
-		return toolInstallStep, fmt.Errorf("unmarshal spec %s to shell spec failed", yamlBytes)
+		return toolInstallStep, fmt.Errorf("unmarshal spec %s to tool install spec failed", yamlBytes)
 	}
 	return toolInstallStep, nil
 }

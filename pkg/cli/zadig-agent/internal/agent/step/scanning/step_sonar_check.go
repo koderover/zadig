@@ -49,7 +49,7 @@ func NewSonarCheckStep(spec interface{}, dirs *types.AgentWorkDirs, envs, secret
 		return sonarCheckStep, fmt.Errorf("marshal spec %+v failed", spec)
 	}
 	if err := yaml.Unmarshal(yamlBytes, &sonarCheckStep.spec); err != nil {
-		return sonarCheckStep, fmt.Errorf("unmarshal spec %s to shell spec failed", yamlBytes)
+		return sonarCheckStep, fmt.Errorf("unmarshal spec %s to sonar check spec failed", yamlBytes)
 	}
 	sonarCheckStep.Logger = logger
 	return sonarCheckStep, nil

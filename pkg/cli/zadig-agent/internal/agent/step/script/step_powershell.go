@@ -56,7 +56,7 @@ func NewPowerShellStep(jobOutput []string, spec interface{}, dirs *types.AgentWo
 		return powershellStep, fmt.Errorf("marshal spec %+v failed", spec)
 	}
 	if err := yaml.Unmarshal(yamlBytes, &powershellStep.spec); err != nil {
-		return powershellStep, fmt.Errorf("unmarshal spec %s to script spec failed", yamlBytes)
+		return powershellStep, fmt.Errorf("unmarshal spec %s to power shell spec failed", yamlBytes)
 	}
 	powershellStep.Logger = logger
 

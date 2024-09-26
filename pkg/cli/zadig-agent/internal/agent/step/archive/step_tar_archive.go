@@ -51,7 +51,7 @@ func NewTarArchiveStep(spec interface{}, dirs *types.AgentWorkDirs, envs, secret
 		return tarArchiveStep, fmt.Errorf("marshal spec %+v failed", spec)
 	}
 	if err := yaml.Unmarshal(yamlBytes, &tarArchiveStep.spec); err != nil {
-		return tarArchiveStep, fmt.Errorf("unmarshal spec %s to script spec failed", yamlBytes)
+		return tarArchiveStep, fmt.Errorf("unmarshal spec %s to tar archive spec failed", yamlBytes)
 	}
 	return tarArchiveStep, nil
 }
