@@ -324,6 +324,7 @@ func waitForLarkApprove(ctx context.Context, spec *commonmodels.JobTaskApprovalS
 			cancelApproval()
 			return config.StatusCancelled, fmt.Errorf("workflow was canceled")
 		case <-timeoutChan:
+			cancelApproval()
 			return config.StatusTimeout, fmt.Errorf("workflow timeout")
 		default:
 			done, isApprove, err := approvalUpdate(approval)
