@@ -396,6 +396,32 @@ func MergeRenderVariableKVs(kvsList ...[]*RenderVariableKV) (string, []*RenderVa
 	return yaml, ret, nil
 }
 
+// merge service variables base on service template variables
+// serivce variables has higher value priority, service template variables has higher type priority
+func MergeServiceAndServiceTemplateVariableKVs(service []*ServiceVariableKV, serivceTemplate []*ServiceVariableKV) (string, []*ServiceVariableKV, error) {
+	serivce := map[string]*ServiceVariableKV{}
+	for _, kv := range service {
+		serivce[kv.Key] = kv
+	}
+
+	ret := []*ServiceVariableKV{}
+	for _, kv := range serivceTemplate {
+		if serviceKV, ok := serivce[kv.Key]; !ok {
+			ret = append(ret, kv)
+		} else {
+			newKV := transferServiceVariable(serviceKV, kv)
+			ret = append(ret, newKV)
+		}
+	}
+
+	yaml, err := ServiceVariableKVToYaml(ret)
+	if err != nil {
+		return "", nil, fmt.Errorf("failed to convert service variable kv to yaml, err: %w", err)
+	}
+
+	return yaml, ret, nil
+}
+
 // merge render variables base on service template variables
 // render variables has higher value priority, service template variables has higher type priority
 // normally used to get latest variables for a service
