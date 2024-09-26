@@ -113,7 +113,6 @@ func verifyAndDecode(ctx context.Context, code string) (*login.Claims, error) {
 	if err := idToken.Claims(&claimsRaw); err != nil {
 		return nil, e.ErrCallBackUser.AddDesc(fmt.Sprintf("error decoding ID token claims: %v", err))
 	}
-	fmt.Printf(">>>>>>>>>>>>>>>>>>>> claims raw: %+v <<<<<<<<<<<<<<<<<<<\n", string(claimsRaw))
 	buff := new(bytes.Buffer)
 	if err := json.Indent(buff, claimsRaw, "", "  "); err != nil {
 		return nil, e.ErrCallBackUser.AddDesc(fmt.Sprintf("error indenting ID token claims: %v", err))
