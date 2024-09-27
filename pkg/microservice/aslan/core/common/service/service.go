@@ -302,7 +302,7 @@ func GetEstimatedMergedVariables(services []*commonmodels.Service, product *temp
 				continue
 			}
 
-			_, mergedKVs, err := commontypes.MergeServiceVariableKVsIfNotExist(service.ServiceVariableKVs, sourceTemplate.ServiceVariableKVs)
+			_, mergedKVs, err := commontypes.MergeServiceAndServiceTemplateVariableKVs(service.ServiceVariableKVs, sourceTemplate.ServiceVariableKVs)
 			if err != nil {
 				log.Errorf("Failed to merge service variable kvs if not exist, error: %s", err)
 				continue
