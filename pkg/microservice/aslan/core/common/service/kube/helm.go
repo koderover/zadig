@@ -187,6 +187,9 @@ func GeneMergedValues(productSvc *commonmodels.ProductService, svcRender *templa
 	}
 
 	// replace image into service's values.yaml
+	for _, replaceValuesMap := range replaceValuesMaps {
+		log.Debugf("replace maps: %+v", replaceValuesMap)
+	}
 	replacedValuesYaml, err := commonutil.ReplaceImage(targetChart.ValuesYaml, replaceValuesMaps...)
 	if err != nil {
 		return "", fmt.Errorf("failed to replace image uri %s/%s, err %s", productSvc.ProductName, serviceName, err.Error())
@@ -203,12 +206,20 @@ func GeneMergedValues(productSvc *commonmodels.ProductService, svcRender *templa
 	if fullValues {
 		baseValuesYaml = targetChart.ValuesYaml
 	}
+	log.Debugf("base values yaml: %s", baseValuesYaml)
+	log.Debugf("default values yaml: %s", defaultValues)
+	log.Debugf("override yaml: %s", targetChart.GetOverrideYaml())
+	log.Debugf("override values: %v", targetChart.OverrideValues)
+	for _, imageKV := range imageKVS {
+		log.Debugf("image kv: %+v", imageKV)
+	}
 
 	// merge override values and kvs into service's yaml
 	mergedValuesYaml, err := helmtool.MergeOverrideValues(baseValuesYaml, defaultValues, targetChart.GetOverrideYaml(), targetChart.OverrideValues, imageKVS)
 	if err != nil {
 		return "", fmt.Errorf("failed to merge override values, err: %s", err)
 	}
+	log.Debugf("merged values yaml: %s", mergedValuesYaml)
 	return mergedValuesYaml, nil
 }
 
