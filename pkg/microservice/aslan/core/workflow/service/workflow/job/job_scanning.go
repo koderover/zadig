@@ -255,6 +255,9 @@ func (j *ScanningJob) MergeWebhookRepo(webhookRepo *types.Repository) error {
 	for _, scanning := range j.spec.Scannings {
 		scanning.Repos = mergeRepos(scanning.Repos, []*types.Repository{webhookRepo})
 	}
+	for _, serviceAndScaning := range j.spec.ServiceAndScannings {
+		serviceAndScaning.Repos = mergeRepos(serviceAndScaning.Repos, []*types.Repository{webhookRepo})
+	}
 	j.job.Spec = j.spec
 	return nil
 }
@@ -284,9 +287,11 @@ func (j *ScanningJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		if j.spec.OriginJobName != "" {
 			j.spec.JobName = j.spec.OriginJobName
 		}
-		targets, err := j.getOriginReferedJobTargets(j.spec.JobName)
+
+		referredJob := getOriginJobName(j.workflow, j.spec.JobName)
+		targets, err := j.getOriginReferedJobTargets(referredJob)
 		if err != nil {
-			return resp, fmt.Errorf("get origin refered job: %s targets failed, err: %v", j.spec.JobName, err)
+			return resp, fmt.Errorf("get origin refered job: %s targets failed, err: %v", referredJob, err)
 		}
 		// clear service and image list to prevent old data from remaining
 		j.spec.TargetServices = targets
@@ -816,9 +821,26 @@ func (j *ScanningJob) getOriginReferedJobTargets(jobName string) ([]*commonmodel
 				servicetargets = scanningSpec.TargetServices
 				return servicetargets, nil
 			}
+			if job.JobType == config.JobFreestyle {
+				deploySpec := &commonmodels.FreestyleJobSpec{}
+				if err := commonmodels.IToi(job.Spec, deploySpec); err != nil {
+					return servicetargets, err
+				}
+				if deploySpec.FreestyleJobType != config.ServiceFreeStyleJobType {
+					return servicetargets, fmt.Errorf("freestyle job type %s not supported in reference", deploySpec.FreestyleJobType)
+				}
+				for _, svc := range deploySpec.Services {
+					target := &commonmodels.ServiceTestTarget{
+						ServiceName:   svc.ServiceName,
+						ServiceModule: svc.ServiceModule,
+					}
+					servicetargets = append(servicetargets, target)
+				}
+				return servicetargets, nil
+			}
 		}
 	}
-	return nil, fmt.Errorf("build job %s not found", jobName)
+	return nil, fmt.Errorf("ScanningJob: refered job %s not found", jobName)
 }
 
 func getScanningJobVariables(repos []*types.Repository, taskID int64, project, workflowName, workflowDisplayName, infrastructure, scanningType, serviceName, serviceModule, scanningName string) []*commonmodels.KeyVal {

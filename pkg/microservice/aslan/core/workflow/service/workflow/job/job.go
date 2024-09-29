@@ -23,7 +23,6 @@ import (
 	"path"
 	"regexp"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/pkg/errors"
@@ -31,7 +30,7 @@ import (
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
-	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/types"
 	"github.com/koderover/zadig/v2/pkg/types/job"
@@ -307,11 +306,8 @@ type RepoIndex struct {
 }
 
 func GetWorkflowRepoIndex(workflow *commonmodels.WorkflowV4, currentJobName string, log *zap.SugaredLogger) []*RepoIndex {
-	var (
-		buildMap         sync.Map
-		buildTemplateMap sync.Map
-	)
 	resp := []*RepoIndex{}
+	buildService := commonservice.NewBuildService()
 	jobRankMap := getJobRankMap(workflow.Stages)
 	for _, stage := range workflow.Stages {
 		for _, job := range stage.Jobs {
@@ -326,27 +322,9 @@ func GetWorkflowRepoIndex(workflow *commonmodels.WorkflowV4, currentJobName stri
 					continue
 				}
 				for _, build := range jobSpec.ServiceAndBuilds {
-					var err error
-					var buildInfo *commonmodels.Build
-					buildMapValue, ok := buildMap.Load(build.BuildName)
-					if !ok {
-						buildInfo, err = commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: build.BuildName})
-						if err != nil {
-							log.Errorf("find build: %s error: %v", build.BuildName, err)
-							buildMap.Store(build.BuildName, nil)
-							continue
-						}
-						buildMap.Store(build.BuildName, buildInfo)
-					} else {
-						if buildMapValue == nil {
-							log.Errorf("find build: %s error: %v", build.BuildName, err)
-							continue
-						}
-						buildInfo = buildMapValue.(*commonmodels.Build)
-					}
-
-					if err := fillBuildDetail(buildInfo, build.ServiceName, build.ServiceModule, &buildTemplateMap); err != nil {
-						log.Errorf("fill build: %s detail error: %v", build.BuildName, err)
+					buildInfo, err := buildService.GetBuild(build.BuildName, build.ServiceName, build.ServiceModule)
+					if err != nil {
+						log.Errorf("get build info failed, err: %v", err)
 						continue
 					}
 					for _, target := range buildInfo.Targets {
@@ -782,6 +760,10 @@ func getOriginJobNameByRecursion(workflow *commonmodels.WorkflowV4, jobName stri
 					return getOriginJobNameByRecursion(workflow, v.JobName, depth)
 				}
 			case *commonmodels.ZadigDeployJobSpec:
+				if v.Source == config.SourceFromJob {
+					return getOriginJobNameByRecursion(workflow, v.JobName, depth)
+				}
+			case *commonmodels.ZadigVMDeployJobSpec:
 				if v.Source == config.SourceFromJob {
 					return getOriginJobNameByRecursion(workflow, v.JobName, depth)
 				}

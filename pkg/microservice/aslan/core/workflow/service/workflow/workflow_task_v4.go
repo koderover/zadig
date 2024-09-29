@@ -1710,6 +1710,11 @@ func setZadigTestingRepos(job *commonmodels.Job, logger *zap.SugaredLogger) erro
 			return err
 		}
 	}
+	for _, build := range spec.ServiceAndTests {
+		if err := setManunalBuilds(build.Repos, build.Repos, logger); err != nil {
+			return err
+		}
+	}
 	job.Spec = spec
 	return nil
 }
@@ -1724,6 +1729,11 @@ func setZadigScanningRepos(job *commonmodels.Job, logger *zap.SugaredLogger) err
 			return err
 		}
 	}
+	for _, build := range spec.ServiceAndScannings {
+		if err := setManunalBuilds(build.Repos, build.Repos, logger); err != nil {
+			return err
+		}
+	}
 	job.Spec = spec
 	return nil
 }
@@ -1732,6 +1742,11 @@ func setFreeStyleRepos(job *commonmodels.Job, logger *zap.SugaredLogger) error {
 	spec := &commonmodels.FreestyleJobSpec{}
 	if err := commonmodels.IToi(job.Spec, spec); err != nil {
 		return err
+	}
+	for _, build := range spec.Services {
+		if err := setManunalBuilds(build.Repos, build.Repos, logger); err != nil {
+			return err
+		}
 	}
 	for _, step := range spec.Steps {
 		if step.StepType != config.StepGit {

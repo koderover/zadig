@@ -68,7 +68,6 @@ func (j *ImageDistributeJob) SetPreset() error {
 
 	if j.spec.Source == config.SourceFromJob {
 		serviceReferredJob := getOriginJobName(j.workflow, j.spec.JobName)
-
 		targets, _, err := j.getOriginReferredJobTargets(serviceReferredJob, j.spec.JobName)
 		if err != nil {
 			return fmt.Errorf("failed to get referred job info for distribute job: %s, error: %s", j.job.Name, err)
@@ -245,7 +244,6 @@ func (j *ImageDistributeJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, erro
 	switch j.spec.Source {
 	case config.SourceFromJob:
 		serviceReferredJob := getOriginJobName(j.workflow, j.spec.JobName)
-
 		targets, registryID, err := j.getOriginReferredJobTargets(serviceReferredJob, j.spec.JobName)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get referred job info for distribute job: %s, error: %s", j.job.Name, err)
@@ -447,7 +445,7 @@ serviceLoop:
 	}
 
 	if !found {
-		return nil, "", fmt.Errorf("referred service job %s not found", serviceReferredJob)
+		return nil, "", fmt.Errorf("ImageDistributeJob: referred job %s not found", serviceReferredJob)
 	}
 
 	// then we determine the image for the selected job, use the output for each module is enough
