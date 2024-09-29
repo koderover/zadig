@@ -49,7 +49,7 @@ type UpdateContainerImageArgs struct {
 	Production    bool   `json:"production"`
 }
 
-func updateContainerForHelmChart(serviceName, image, containerName string, product *models.Product) error {
+func updateContainerForHelmChart(username, serviceName, image, containerName string, product *models.Product) error {
 	targetProductService := product.GetServiceMap()[serviceName]
 	if targetProductService == nil {
 		return fmt.Errorf("failed to find service in product: %s", serviceName)
@@ -68,7 +68,7 @@ func updateContainerForHelmChart(serviceName, image, containerName string, produ
 		return err
 	}
 
-	err = kube.UpgradeHelmRelease(product, targetProductService, serviceObj, []string{image}, 0, "")
+	err = kube.UpgradeHelmRelease(product, targetProductService, serviceObj, []string{image}, 0, username)
 	if err != nil {
 		return fmt.Errorf("failed to upgrade helm release, err: %s", err.Error())
 	}
@@ -128,7 +128,7 @@ func UpdateContainerImage(requestID, username string, args *UpdateContainerImage
 		if err != nil {
 			return e.ErrUpdateConainterImage.AddErr(err)
 		}
-		err = updateContainerForHelmChart(serviceName, args.Image, args.ContainerName, product)
+		err = updateContainerForHelmChart(username, serviceName, args.Image, args.ContainerName, product)
 		if err != nil {
 			return e.ErrUpdateConainterImage.AddErr(err)
 		}
