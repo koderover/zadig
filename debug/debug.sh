@@ -14,7 +14,7 @@ dlv --headless --log --listen :9009 --api-version 2 --accept-multiclient --wd=$(
 DLV_PID=$!
 
 # 捕获Ctrl-C信号并终止Delve进程
-trap "kill -9 $DLV_PID" SIGINT
+trap "pkill -9 dlv $SERVICE_NAME"
 
 # 等待Delve进程结束
 wait $DLV_PID

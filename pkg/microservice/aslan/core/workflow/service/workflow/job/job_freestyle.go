@@ -184,15 +184,21 @@ func (j *FreeStyleJob) GetRepos() ([]*types.Repository, error) {
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return resp, err
 	}
-	for _, step := range j.spec.Steps {
-		if step.StepType != config.StepGit {
-			continue
+	if j.spec.FreestyleJobType == config.ServiceFreeStyleJobType {
+		for _, service := range j.spec.Services {
+			resp = append(resp, service.Repos...)
 		}
-		stepSpec := &steptypes.StepGitSpec{}
-		if err := commonmodels.IToi(step.Spec, stepSpec); err != nil {
-			return resp, err
+	} else {
+		for _, step := range j.spec.Steps {
+			if step.StepType != config.StepGit {
+				continue
+			}
+			stepSpec := &steptypes.StepGitSpec{}
+			if err := commonmodels.IToi(step.Spec, stepSpec); err != nil {
+				return resp, err
+			}
+			resp = append(resp, stepSpec.Repos...)
 		}
-		resp = append(resp, stepSpec.Repos...)
 	}
 	return resp, nil
 }
@@ -253,17 +259,25 @@ func (j *FreeStyleJob) MergeWebhookRepo(webhookRepo *types.Repository) error {
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return err
 	}
-	for _, step := range j.spec.Steps {
-		if step.StepType != config.StepGit {
-			continue
+
+	if j.spec.FreestyleJobType == config.ServiceFreeStyleJobType {
+		for _, service := range j.spec.Services {
+			service.Repos = mergeRepos(service.Repos, []*types.Repository{webhookRepo})
 		}
-		stepSpec := &steptypes.StepGitSpec{}
-		if err := commonmodels.IToi(step.Spec, stepSpec); err != nil {
-			return fmt.Errorf("parse git step spec error: %v", err)
+	} else {
+		for _, step := range j.spec.Steps {
+			if step.StepType != config.StepGit {
+				continue
+			}
+			stepSpec := &steptypes.StepGitSpec{}
+			if err := commonmodels.IToi(step.Spec, stepSpec); err != nil {
+				return fmt.Errorf("parse git step spec error: %v", err)
+			}
+			stepSpec.Repos = mergeRepos(stepSpec.Repos, []*types.Repository{webhookRepo})
+			step.Spec = stepSpec
 		}
-		stepSpec.Repos = mergeRepos(stepSpec.Repos, []*types.Repository{webhookRepo})
-		step.Spec = stepSpec
 	}
+
 	j.job.Spec = j.spec
 	return nil
 }
@@ -285,15 +299,28 @@ func (j *FreeStyleJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 	if j.spec.FreestyleJobType == config.ServiceFreeStyleJobType {
 		tasks := []*commonmodels.JobTask{}
 
-		switch j.spec.Source {
-		case config.SourceRuntime, config.SourceFromJob:
-			for _, service := range j.spec.Services {
-				task, err := j.toJob(taskID, registries, service, logger)
-				if err != nil {
-					return nil, err
-				}
-				tasks = append(tasks, task)
+		// get info from previous job
+		if j.spec.Source == config.SourceFromJob {
+			// adapt to the front end, use the direct quoted job name
+			if j.spec.OriginJobName != "" {
+				j.spec.JobName = j.spec.OriginJobName
 			}
+
+			referredJob := getOriginJobName(j.workflow, j.spec.JobName)
+			targets, err := j.getOriginReferedJobTargets(referredJob)
+			if err != nil {
+				return resp, fmt.Errorf("get origin refered job: %s targets failed, err: %v", referredJob, err)
+			}
+			// clear service list to prevent old data from remaining
+			j.spec.Services = targets
+		}
+
+		for _, service := range j.spec.Services {
+			task, err := j.toJob(taskID, registries, service, logger)
+			if err != nil {
+				return nil, err
+			}
+			tasks = append(tasks, task)
 		}
 		return tasks, nil
 	} else {
@@ -525,4 +552,131 @@ func (j *FreeStyleJob) GetOutPuts(log *zap.SugaredLogger) []string {
 	jobKey := j.job.Name
 	resp = append(resp, getOutputKey(jobKey, j.spec.Outputs)...)
 	return resp
+}
+
+func (j *FreeStyleJob) getOriginReferedJobTargets(jobName string) ([]*commonmodels.FreeStyleServiceInfo, error) {
+	servicetargets := []*commonmodels.FreeStyleServiceInfo{}
+	originTargetMap := make(map[string]*commonmodels.FreeStyleServiceInfo)
+	for _, target := range j.spec.Services {
+		originTargetMap[target.GetKey()] = target
+	}
+
+	for _, stage := range j.workflow.Stages {
+		for _, job := range stage.Jobs {
+			if job.Name != jobName {
+				continue
+			}
+			if job.JobType == config.JobZadigBuild {
+				buildSpec := &commonmodels.ZadigBuildJobSpec{}
+				if err := commonmodels.IToi(job.Spec, buildSpec); err != nil {
+					return servicetargets, err
+				}
+				for _, build := range buildSpec.ServiceAndBuilds {
+					target := &commonmodels.FreeStyleServiceInfo{
+						ServiceName:   build.ServiceName,
+						ServiceModule: build.ServiceModule,
+						KeyVals:       j.spec.Properties.Envs,
+					}
+					if originTarget, ok := originTargetMap[target.GetKey()]; ok {
+						target.Repos = originTarget.Repos
+					} else {
+						return servicetargets, fmt.Errorf("refered job %s target %s not found", jobName, target.GetKey())
+					}
+
+					servicetargets = append(servicetargets, target)
+				}
+				return servicetargets, nil
+			}
+			if job.JobType == config.JobZadigDistributeImage {
+				distributeSpec := &commonmodels.ZadigDistributeImageJobSpec{}
+				if err := commonmodels.IToi(job.Spec, distributeSpec); err != nil {
+					return servicetargets, err
+				}
+				for _, distribute := range distributeSpec.Targets {
+					target := &commonmodels.FreeStyleServiceInfo{
+						ServiceName:   distribute.ServiceName,
+						ServiceModule: distribute.ServiceModule,
+						KeyVals:       j.spec.Properties.Envs,
+					}
+					if originTarget, ok := originTargetMap[target.GetKey()]; ok {
+						target.Repos = originTarget.Repos
+					} else {
+						return servicetargets, fmt.Errorf("refered job %s target %s not found", jobName, target.GetKey())
+					}
+
+					servicetargets = append(servicetargets, target)
+				}
+				return servicetargets, nil
+			}
+			if job.JobType == config.JobZadigDeploy {
+				deploySpec := &commonmodels.ZadigDeployJobSpec{}
+				if err := commonmodels.IToi(job.Spec, deploySpec); err != nil {
+					return servicetargets, err
+				}
+				for _, svc := range deploySpec.Services {
+					for _, module := range svc.Modules {
+						target := &commonmodels.FreeStyleServiceInfo{
+							ServiceName:   svc.ServiceName,
+							ServiceModule: module.ServiceModule,
+							KeyVals:       j.spec.Properties.Envs,
+						}
+						if originTarget, ok := originTargetMap[target.GetKey()]; ok {
+							target.Repos = originTarget.Repos
+						} else {
+							return servicetargets, fmt.Errorf("refered job %s target %s not found", jobName, target.GetKey())
+						}
+
+						servicetargets = append(servicetargets, target)
+					}
+				}
+				return servicetargets, nil
+			}
+			if job.JobType == config.JobZadigScanning {
+				scanningSpec := &commonmodels.ZadigScanningJobSpec{}
+				if err := commonmodels.IToi(job.Spec, scanningSpec); err != nil {
+					return servicetargets, err
+				}
+				for _, svc := range scanningSpec.TargetServices {
+					target := &commonmodels.FreeStyleServiceInfo{
+						ServiceName:   svc.ServiceName,
+						ServiceModule: svc.ServiceModule,
+						KeyVals:       j.spec.Properties.Envs,
+					}
+					if originTarget, ok := originTargetMap[target.GetKey()]; ok {
+						target.Repos = originTarget.Repos
+					} else {
+						return servicetargets, fmt.Errorf("refered job %s target %s not found", jobName, target.GetKey())
+					}
+
+					servicetargets = append(servicetargets, target)
+				}
+				return servicetargets, nil
+			}
+			if job.JobType == config.JobFreestyle {
+				deploySpec := &commonmodels.FreestyleJobSpec{}
+				if err := commonmodels.IToi(job.Spec, deploySpec); err != nil {
+					return servicetargets, err
+				}
+				if deploySpec.FreestyleJobType != config.ServiceFreeStyleJobType {
+					return servicetargets, fmt.Errorf("freestyle job type %s not supported in reference", deploySpec.FreestyleJobType)
+				}
+				for _, svc := range deploySpec.Services {
+					target := &commonmodels.FreeStyleServiceInfo{
+						ServiceName:   svc.ServiceName,
+						ServiceModule: svc.ServiceModule,
+						KeyVals:       j.spec.Properties.Envs,
+					}
+					if originTarget, ok := originTargetMap[target.GetKey()]; ok {
+						target.Repos = originTarget.Repos
+					} else {
+						return servicetargets, fmt.Errorf("refered job %s target %s not found", jobName, target.GetKey())
+					}
+
+					servicetargets = append(servicetargets, target)
+				}
+				return servicetargets, nil
+			}
+		}
+	}
+	return nil, fmt.Errorf("FreeStyleJob: refered job %s not found", jobName)
 }

@@ -102,7 +102,7 @@ func GetWorkflowArgs(productName, namespace string, serviceBuildInfos []*Service
 			moBuild = &commonmodels.Build{}
 			target.HasBuild = false
 		}
-		err = fillBuildDetail(moBuild, serviceBuildInfo.ServiceName, serviceBuildInfo.ServiceModule)
+		err = commonservice.FillBuildDetail(moBuild, serviceBuildInfo.ServiceName, serviceBuildInfo.ServiceModule, nil)
 		if err != nil {
 			return resp, e.ErrListBuildModule.AddErr(err)
 		}
@@ -409,7 +409,7 @@ func PresetWorkflowArgs(namespace, workflowName string, log *zap.SugaredLogger) 
 				target.HasBuild = false
 			}
 			target.BuildName = moBuild.Name
-			err = fillBuildDetail(moBuild, containerArr[1], containerArr[2])
+			err = commonservice.FillBuildDetail(moBuild, containerArr[1], containerArr[2], nil)
 			if err != nil {
 				return resp, e.ErrListBuildModule.AddErr(err)
 			}
@@ -2038,44 +2038,6 @@ func CreateArtifactWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator
 	return resp, nil
 }
 
-// fillBuildDetail fill the contents for builds created from build templates
-func fillBuildDetail(moduleBuild *commonmodels.Build, serviceName, serviceModule string) error {
-	if moduleBuild.TemplateID == "" {
-		return nil
-	}
-	buildTemplate, err := commonrepo.NewBuildTemplateColl().Find(&commonrepo.BuildTemplateQueryOption{
-		ID: moduleBuild.TemplateID,
-	})
-	if err != nil {
-		return fmt.Errorf("failed to find build template with id: %s, err: %s", moduleBuild.TemplateID, err)
-	}
-
-	moduleBuild.Timeout = buildTemplate.Timeout
-	moduleBuild.PreBuild = buildTemplate.PreBuild
-	moduleBuild.JenkinsBuild = buildTemplate.JenkinsBuild
-	moduleBuild.Scripts = buildTemplate.Scripts
-	moduleBuild.PostBuild = buildTemplate.PostBuild
-	moduleBuild.SSHs = buildTemplate.SSHs
-	moduleBuild.PMDeployScripts = buildTemplate.PMDeployScripts
-	moduleBuild.CacheEnable = buildTemplate.CacheEnable
-	moduleBuild.CacheDirType = buildTemplate.CacheDirType
-	moduleBuild.CacheUserDir = buildTemplate.CacheUserDir
-	moduleBuild.AdvancedSettingsModified = buildTemplate.AdvancedSettingsModified
-
-	// repos are configured by service modules
-	for _, serviceConfig := range moduleBuild.Targets {
-		if serviceConfig.ServiceName == serviceName && serviceConfig.ServiceModule == serviceModule {
-			moduleBuild.Repos = serviceConfig.Repos
-			if moduleBuild.PreBuild == nil {
-				moduleBuild.PreBuild = &commonmodels.PreBuild{}
-			}
-			moduleBuild.PreBuild.Envs = commonservice.MergeBuildEnvs(moduleBuild.PreBuild.Envs, serviceConfig.Envs)
-			break
-		}
-	}
-	return nil
-}
-
 func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredLogger) ([]map[string]interface{}, error) {
 	var (
 		subTasks    = make([]map[string]interface{}, 0)
@@ -2098,7 +2060,7 @@ func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredL
 		return nil, e.ErrConvertSubTasks.AddErr(err)
 	}
 
-	err = fillBuildDetail(module, args.ServiceName, args.Target)
+	err = commonservice.FillBuildDetail(module, args.ServiceName, args.Target, nil)
 	if err != nil {
 		return nil, e.ErrConvertSubTasks.AddErr(err)
 	}

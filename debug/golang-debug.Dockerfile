@@ -13,7 +13,7 @@ ENV VERSION=1.4.0
 # COPY debug debug
 
 RUN apk update
-RUN apk --no-cache add bash git curl
+RUN apk --no-cache add bash git curl make
 RUN go install github.com/go-delve/delve/cmd/dlv@latest
 
 # https://wiki.alpinelinux.org/wiki/Setting_the_timezone

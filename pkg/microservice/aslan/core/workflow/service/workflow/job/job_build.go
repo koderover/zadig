@@ -22,7 +22,6 @@ import (
 	"os"
 	"path"
 	"strings"
-	"sync"
 
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -76,30 +75,13 @@ func (j *BuildJob) SetPreset() error {
 	if err != nil {
 		return fmt.Errorf("get services map error: %v", err)
 	}
-	var buildMap sync.Map
-	var buildTemplateMap sync.Map
+
+	buildSvc := commonservice.NewBuildService()
 	newBuilds := make([]*commonmodels.ServiceAndBuild, 0)
 	for _, build := range j.spec.ServiceAndBuilds {
-		var buildInfo *commonmodels.Build
-		buildMapValue, ok := buildMap.Load(build.BuildName)
-		if !ok {
-			buildInfo, err = commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: build.BuildName, ProductName: j.workflow.Project})
-			if err != nil {
-				log.Errorf("find build: %s error: %v", build.BuildName, err)
-				buildMap.Store(build.BuildName, nil)
-				continue
-			}
-			buildMap.Store(build.BuildName, buildInfo)
-		} else {
-			if buildMapValue == nil {
-				log.Errorf("find build: %s error: %v", build.BuildName, err)
-				continue
-			}
-			buildInfo = buildMapValue.(*commonmodels.Build)
-		}
-
-		if err := fillBuildDetail(buildInfo, build.ServiceName, build.ServiceModule, &buildTemplateMap); err != nil {
-			log.Errorf("fill build: %s detail error: %v", build.BuildName, err)
+		buildInfo, err := buildSvc.GetBuild(build.BuildName, build.ServiceName, build.ServiceModule)
+		if err != nil {
+			log.Errorf("find build: %s error: %v", build.BuildName, err)
 			continue
 		}
 		for _, target := range buildInfo.Targets {
@@ -128,22 +110,24 @@ func (j *BuildJob) SetPreset() error {
 	}
 	j.spec.ServiceAndBuilds = newBuilds
 
+	defaultServiceAndBuildMap := make(map[string]*commonmodels.ServiceAndBuild)
+	for _, svc := range j.spec.DefaultServiceAndBuilds {
+		defaultServiceAndBuildMap[svc.GetKey()] = svc
+	}
+
+	newDefaultBuilds := make([]*commonmodels.ServiceAndBuild, 0)
+	for _, build := range j.spec.ServiceAndBuilds {
+		if _, ok := defaultServiceAndBuildMap[build.GetKey()]; ok {
+			newDefaultBuilds = append(newDefaultBuilds, build)
+		}
+	}
+	j.spec.DefaultServiceAndBuilds = newDefaultBuilds
+
 	j.job.Spec = j.spec
 	return nil
 }
 
 func (j *BuildJob) ClearSelectionField() error {
-	j.spec = &commonmodels.ZadigBuildJobSpec{}
-	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
-		return err
-	}
-	chosenObject := make([]*commonmodels.ServiceAndBuild, 0)
-
-	// some weird logic says we shouldn't clear user's selection if there are only one service in the selection pool.
-	if len(j.spec.ServiceAndBuilds) != 1 {
-		j.spec.ServiceAndBuilds = chosenObject
-	}
-	j.job.Spec = j.spec
 	return nil
 }
 
@@ -185,30 +169,12 @@ func (j *BuildJob) SetOptions() error {
 		return fmt.Errorf("get services map error: %v", err)
 	}
 
-	var buildMap sync.Map
-	var buildTemplateMap sync.Map
+	buildSvc := commonservice.NewBuildService()
 	newBuilds := make([]*commonmodels.ServiceAndBuild, 0)
 	for _, build := range originalSpec.ServiceAndBuilds {
-		var buildInfo *commonmodels.Build
-		buildMapValue, ok := buildMap.Load(build.BuildName)
-		if !ok {
-			buildInfo, err = commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: build.BuildName, ProductName: j.workflow.Project})
-			if err != nil {
-				log.Errorf("find build: %s error: %v", build.BuildName, err)
-				buildMap.Store(build.BuildName, nil)
-				continue
-			}
-			buildMap.Store(build.BuildName, buildInfo)
-		} else {
-			if buildMapValue == nil {
-				log.Errorf("find build: %s error: %v", build.BuildName, err)
-				continue
-			}
-			buildInfo = buildMapValue.(*commonmodels.Build)
-		}
-
-		if err := fillBuildDetail(buildInfo, build.ServiceName, build.ServiceModule, &buildTemplateMap); err != nil {
-			log.Errorf("fill build: %s detail error: %v", build.BuildName, err)
+		buildInfo, err := buildSvc.GetBuild(build.BuildName, build.ServiceName, build.ServiceModule)
+		if err != nil {
+			log.Errorf("find build: %s error: %v", build.BuildName, err)
 			continue
 		}
 		for _, target := range buildInfo.Targets {
@@ -259,32 +225,11 @@ func (j *BuildJob) GetRepos() ([]*types.Repository, error) {
 		return resp, err
 	}
 
-	var (
-		err              error
-		buildMap         sync.Map
-		buildTemplateMap sync.Map
-	)
+	buildSvc := commonservice.NewBuildService()
 	for _, build := range j.spec.ServiceAndBuilds {
-		var buildInfo *commonmodels.Build
-		buildMapValue, ok := buildMap.Load(build.BuildName)
-		if !ok {
-			buildInfo, err = commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: build.BuildName, ProductName: j.workflow.Project})
-			if err != nil {
-				log.Errorf("find build: %s error: %v", build.BuildName, err)
-				buildMap.Store(build.BuildName, nil)
-				continue
-			}
-			buildMap.Store(build.BuildName, buildInfo)
-		} else {
-			if buildMapValue == nil {
-				log.Errorf("find build: %s error: %v", build.BuildName, err)
-				continue
-			}
-			buildInfo = buildMapValue.(*commonmodels.Build)
-		}
-
-		if err := fillBuildDetail(buildInfo, build.ServiceName, build.ServiceModule, &buildTemplateMap); err != nil {
-			log.Errorf("fill build: %s detail error: %v", build.BuildName, err)
+		buildInfo, err := buildSvc.GetBuild(build.BuildName, build.ServiceName, build.ServiceModule)
+		if err != nil {
+			log.Errorf("find build: %s error: %v", build.BuildName, err)
 			continue
 		}
 		for _, target := range buildInfo.Targets {
@@ -320,6 +265,7 @@ func (j *BuildJob) MergeArgs(args *commonmodels.Job) error {
 			}
 		}
 		j.spec.ServiceAndBuilds = newBuilds
+		j.spec.DefaultServiceAndBuilds = argsSpec.DefaultServiceAndBuilds
 		j.job.Spec = j.spec
 	}
 	return nil
@@ -366,22 +312,16 @@ func (j *BuildJob) UpdateWithLatestSetting() error {
 		userConfiguredService[key] = service
 	}
 
+	buildSvc := commonservice.NewBuildService()
 	mergedServiceAndBuilds := make([]*commonmodels.ServiceAndBuild, 0)
-	var buildTemplateMap sync.Map
-
 	for _, buildInfo := range latestSpec.ServiceAndBuilds {
 		key := fmt.Sprintf("%s++%s", buildInfo.ServiceName, buildInfo.ServiceModule)
 		// if a service is selected (in the map above) and is in the latest build job config, add it to the list.
 		// user defined kv and repo should be merged into the newly created list.
 		if userDefinedArgs, ok := userConfiguredService[key]; ok {
-			latestBuild, err := commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: buildInfo.BuildName, ProductName: j.workflow.Project})
+			latestBuild, err := buildSvc.GetBuild(buildInfo.BuildName, buildInfo.ServiceName, buildInfo.ServiceModule)
 			if err != nil {
 				log.Errorf("find build: %s error: %v", buildInfo.BuildName, err)
-				continue
-			}
-
-			if err := fillBuildDetail(latestBuild, buildInfo.ServiceName, buildInfo.ServiceModule, &buildTemplateMap); err != nil {
-				log.Errorf("fill build: %s detail error: %v", buildInfo.BuildName, err)
 				continue
 			}
 
@@ -448,10 +388,16 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		return resp, fmt.Errorf("find default s3 storage error: %v", err)
 	}
 
-	var (
-		buildMap         sync.Map
-		buildTemplateMap sync.Map
-	)
+	if j.spec.Source == config.SourceFromJob {
+		referredJob := getOriginJobName(j.workflow, j.spec.JobName)
+		targets, err := j.getOriginReferedJobTargets(referredJob)
+		if err != nil {
+			return resp, fmt.Errorf("build job %s, get origin refered job: %s targets failed, err: %v", j.spec.JobName, referredJob, err)
+		}
+		j.spec.ServiceAndBuilds = targets
+	}
+
+	buildSvc := commonservice.NewBuildService()
 	for _, build := range j.spec.ServiceAndBuilds {
 		imageTag := commonservice.ReleaseCandidate(build.Repos, taskID, j.workflow.Project, build.ServiceModule, "", build.ImageName, "image")
 
@@ -465,20 +411,9 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 
 		pkgFile := fmt.Sprintf("%s.tar.gz", commonservice.ReleaseCandidate(build.Repos, taskID, j.workflow.Project, build.ServiceModule, "", build.ImageName, "tar"))
 
-		var buildInfo *commonmodels.Build
-		buildMapValue, ok := buildMap.Load(build.BuildName)
-		if !ok {
-			buildInfo, err = commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: build.BuildName, ProductName: j.workflow.Project})
-			if err != nil {
-				return resp, fmt.Errorf("find build: %s error: %v", build.BuildName, err)
-			}
-			buildMap.Store(build.BuildName, buildInfo)
-		} else {
-			buildInfo = buildMapValue.(*commonmodels.Build)
-		}
-		// it only fills build detail created from template
-		if err := fillBuildDetail(buildInfo, build.ServiceName, build.ServiceModule, &buildTemplateMap); err != nil {
-			return resp, err
+		buildInfo, err := buildSvc.GetBuild(build.BuildName, build.ServiceName, build.ServiceModule)
+		if err != nil {
+			return resp, fmt.Errorf("find build: %s error: %v", build.BuildName, err)
 		}
 		basicImage, err := commonrepo.NewBasicImageColl().Find(buildInfo.PreBuild.ImageID)
 		if err != nil {
@@ -876,56 +811,6 @@ func modelS3toS3(modelS3 *commonmodels.S3Storage) *step.S3 {
 	return resp
 }
 
-func fillBuildDetail(moduleBuild *commonmodels.Build, serviceName, serviceModule string, buildTemplateMap *sync.Map) error {
-	if moduleBuild.TemplateID == "" {
-		return nil
-	}
-
-	var err error
-	var buildTemplate *commonmodels.BuildTemplate
-	buildTemplateMapValue, ok := buildTemplateMap.Load(moduleBuild.TemplateID)
-	if !ok {
-		buildTemplate, err = commonrepo.NewBuildTemplateColl().Find(&commonrepo.BuildTemplateQueryOption{
-			ID: moduleBuild.TemplateID,
-		})
-		if err != nil {
-			return fmt.Errorf("failed to find build template with id: %s, err: %s", moduleBuild.TemplateID, err)
-		}
-		buildTemplateMap.Store(moduleBuild.TemplateID, buildTemplate)
-	} else {
-		buildTemplate = buildTemplateMapValue.(*commonmodels.BuildTemplate)
-	}
-
-	moduleBuild.Timeout = buildTemplate.Timeout
-	moduleBuild.PreBuild = buildTemplate.PreBuild
-	moduleBuild.JenkinsBuild = buildTemplate.JenkinsBuild
-	moduleBuild.ScriptType = buildTemplate.ScriptType
-	moduleBuild.Scripts = buildTemplate.Scripts
-	moduleBuild.PostBuild = buildTemplate.PostBuild
-	moduleBuild.SSHs = buildTemplate.SSHs
-	moduleBuild.PMDeployScripts = buildTemplate.PMDeployScripts
-	moduleBuild.CacheEnable = buildTemplate.CacheEnable
-	moduleBuild.CacheDirType = buildTemplate.CacheDirType
-	moduleBuild.CacheUserDir = buildTemplate.CacheUserDir
-	moduleBuild.AdvancedSettingsModified = buildTemplate.AdvancedSettingsModified
-	moduleBuild.Outputs = buildTemplate.Outputs
-	moduleBuild.Infrastructure = buildTemplate.Infrastructure
-	moduleBuild.VMLabels = buildTemplate.VmLabels
-
-	// repos are configured by service modules
-	for _, serviceConfig := range moduleBuild.Targets {
-		if serviceConfig.ServiceName == serviceName && serviceConfig.ServiceModule == serviceModule {
-			moduleBuild.Repos = serviceConfig.Repos
-			if moduleBuild.PreBuild == nil {
-				moduleBuild.PreBuild = &commonmodels.PreBuild{}
-			}
-			moduleBuild.PreBuild.Envs = commonservice.MergeBuildEnvs(moduleBuild.PreBuild.Envs, serviceConfig.Envs)
-			break
-		}
-	}
-	return nil
-}
-
 func renderEnv(data string, kvs []*commonmodels.KeyVal) string {
 	mapper := func(data string) string {
 		for _, envar := range kvs {
@@ -947,16 +832,14 @@ func mergeRepos(templateRepos []*types.Repository, customRepos []*types.Reposito
 		if repo.RepoNamespace == "" {
 			repo.RepoNamespace = repo.RepoOwner
 		}
-		repoKey := strings.Join([]string{repo.Source, repo.RepoNamespace, repo.RepoName}, "/")
-		customRepoMap[repoKey] = repo
+		customRepoMap[repo.GetKey()] = repo
 	}
 	for _, repo := range templateRepos {
 		if repo.RepoNamespace == "" {
 			repo.RepoNamespace = repo.RepoOwner
 		}
-		repoKey := strings.Join([]string{repo.Source, repo.GetRepoNamespace(), repo.RepoName}, "/")
 		// user can only set default branch in custom workflow.
-		if cv, ok := customRepoMap[repoKey]; ok {
+		if cv, ok := customRepoMap[repo.GetKey()]; ok {
 			repo.Branch = cv.Branch
 			repo.Tag = cv.Tag
 			repo.PR = cv.PR
@@ -1046,4 +929,181 @@ func ensureBuildInOutputs(outputs []*commonmodels.Output) []*commonmodels.Output
 
 func getBuildJobCacheObjectPath(workflowName, serviceName, serviceModule string) string {
 	return fmt.Sprintf("%s/cache/%s/%s", workflowName, serviceName, serviceModule)
+}
+
+func (j *BuildJob) getOriginReferedJobTargets(jobName string) ([]*commonmodels.ServiceAndBuild, error) {
+	servicetargets := []*commonmodels.ServiceAndBuild{}
+	originTargetMap := make(map[string]*commonmodels.ServiceAndBuild)
+
+	servicesMap, err := repository.GetMaxRevisionsServicesMap(j.workflow.Project, false)
+	if err != nil {
+		return nil, fmt.Errorf("get services map error: %v", err)
+	}
+
+	buildSvc := commonservice.NewBuildService()
+	for _, build := range j.spec.ServiceAndBuilds {
+		buildInfo, err := buildSvc.GetBuild(build.BuildName, build.ServiceName, build.ServiceModule)
+		if err != nil {
+			err = fmt.Errorf("get build %s failed, err: %s", build.BuildName, err)
+			log.Error(err)
+			return nil, err
+		}
+
+		target := &commonmodels.ServiceAndBuild{
+			ServiceName:   build.ServiceName,
+			ServiceModule: build.ServiceModule,
+			BuildName:     build.BuildName,
+			ImageName:     build.ImageName,
+			KeyVals:       buildInfo.PreBuild.Envs,
+			Repos:         buildInfo.Repos,
+		}
+
+		service := servicesMap[build.ServiceName]
+		if service == nil {
+			return nil, fmt.Errorf("service %s not found", build.ServiceName)
+		}
+		for _, container := range service.Containers {
+			if container.Name == build.ServiceModule {
+				target.ImageName = container.ImageName
+				break
+			}
+		}
+
+		originTargetMap[target.GetKey()] = target
+	}
+
+	for _, stage := range j.workflow.Stages {
+		for _, job := range stage.Jobs {
+			if job.Name != jobName {
+				continue
+			}
+			if job.JobType == config.JobZadigBuild {
+				buildSpec := &commonmodels.ZadigBuildJobSpec{}
+				if err := commonmodels.IToi(job.Spec, buildSpec); err != nil {
+					return servicetargets, err
+				}
+				for _, build := range buildSpec.ServiceAndBuilds {
+					target := &commonmodels.ServiceAndBuild{
+						ServiceName:   build.ServiceName,
+						ServiceModule: build.ServiceModule,
+					}
+					if originService, ok := originTargetMap[build.GetKey()]; ok {
+						target.KeyVals = originService.KeyVals
+						target.Repos = originService.Repos
+						target.BuildName = originService.BuildName
+						target.ImageName = originService.ImageName
+						target.ShareStorageInfo = originService.ShareStorageInfo
+					} else {
+						log.Warnf("service %s not found in %s job's config ", target.GetKey(), j.job.Name)
+						continue
+					}
+
+					servicetargets = append(servicetargets, target)
+				}
+				return servicetargets, nil
+			}
+			if job.JobType == config.JobZadigDistributeImage {
+				distributeSpec := &commonmodels.ZadigDistributeImageJobSpec{}
+				if err := commonmodels.IToi(job.Spec, distributeSpec); err != nil {
+					return servicetargets, err
+				}
+				for _, distribute := range distributeSpec.Targets {
+					target := &commonmodels.ServiceAndBuild{
+						ServiceName:   distribute.ServiceName,
+						ServiceModule: distribute.ServiceModule,
+					}
+					if originService, ok := originTargetMap[target.GetKey()]; ok {
+						target.KeyVals = originService.KeyVals
+						target.Repos = originService.Repos
+						target.BuildName = originService.BuildName
+						target.ImageName = originService.ImageName
+						target.ShareStorageInfo = originService.ShareStorageInfo
+					} else {
+						log.Warnf("service %s not found in %s job's config ", target.GetKey(), j.job.Name)
+						continue
+					}
+					servicetargets = append(servicetargets, target)
+				}
+				return servicetargets, nil
+			}
+			if job.JobType == config.JobZadigDeploy {
+				deploySpec := &commonmodels.ZadigDeployJobSpec{}
+				if err := commonmodels.IToi(job.Spec, deploySpec); err != nil {
+					return servicetargets, err
+				}
+				for _, svc := range deploySpec.Services {
+					for _, module := range svc.Modules {
+						target := &commonmodels.ServiceAndBuild{
+							ServiceName:   svc.ServiceName,
+							ServiceModule: module.ServiceModule,
+						}
+						if originService, ok := originTargetMap[target.GetKey()]; ok {
+							target.KeyVals = originService.KeyVals
+							target.Repos = originService.Repos
+							target.BuildName = originService.BuildName
+							target.ImageName = originService.ImageName
+							target.ShareStorageInfo = originService.ShareStorageInfo
+						} else {
+							log.Warnf("service %s not found in %s job's config ", target.GetKey(), j.job.Name)
+							continue
+						}
+						servicetargets = append(servicetargets, target)
+					}
+				}
+				return servicetargets, nil
+			}
+			if job.JobType == config.JobZadigScanning {
+				scanningSpec := &commonmodels.ZadigScanningJobSpec{}
+				if err := commonmodels.IToi(job.Spec, scanningSpec); err != nil {
+					return servicetargets, err
+				}
+				for _, svc := range scanningSpec.TargetServices {
+					target := &commonmodels.ServiceAndBuild{
+						ServiceName:   svc.ServiceName,
+						ServiceModule: svc.ServiceModule,
+					}
+					if originService, ok := originTargetMap[target.GetKey()]; ok {
+						target.KeyVals = originService.KeyVals
+						target.Repos = originService.Repos
+						target.BuildName = originService.BuildName
+						target.ImageName = originService.ImageName
+						target.ShareStorageInfo = originService.ShareStorageInfo
+					} else {
+						log.Warnf("service %s not found in %s job's config ", target.GetKey(), j.job.Name)
+						continue
+					}
+					servicetargets = append(servicetargets, target)
+				}
+				return servicetargets, nil
+			}
+			if job.JobType == config.JobFreestyle {
+				deploySpec := &commonmodels.FreestyleJobSpec{}
+				if err := commonmodels.IToi(job.Spec, deploySpec); err != nil {
+					return servicetargets, err
+				}
+				if deploySpec.FreestyleJobType != config.ServiceFreeStyleJobType {
+					return servicetargets, fmt.Errorf("freestyle job type %s not supported in reference", deploySpec.FreestyleJobType)
+				}
+				for _, svc := range deploySpec.Services {
+					target := &commonmodels.ServiceAndBuild{
+						ServiceName:   svc.ServiceName,
+						ServiceModule: svc.ServiceModule,
+					}
+					if originService, ok := originTargetMap[target.GetKey()]; ok {
+						target.KeyVals = originService.KeyVals
+						target.Repos = originService.Repos
+						target.BuildName = originService.BuildName
+						target.ImageName = originService.ImageName
+						target.ShareStorageInfo = originService.ShareStorageInfo
+					} else {
+						log.Warnf("service %s not found in %s job's config ", target.GetKey(), j.job.Name)
+						continue
+					}
+					servicetargets = append(servicetargets, target)
+				}
+				return servicetargets, nil
+			}
+		}
+	}
+	return nil, fmt.Errorf("BuilJob: refered job %s not found", jobName)
 }

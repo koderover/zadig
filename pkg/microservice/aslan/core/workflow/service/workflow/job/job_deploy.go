@@ -70,6 +70,7 @@ func (j *DeployJob) setDefaultDeployContent() {
 	}
 }
 
+// Deprecated?
 func (j *DeployJob) getOriginReferredJobTargets(jobName string) ([]*commonmodels.ServiceAndImage, error) {
 	serviceAndImages := []*commonmodels.ServiceAndImage{}
 	for _, stage := range j.workflow.Stages {
@@ -738,8 +739,7 @@ func generateEnvDeployServiceInfo(env, project string, spec *commonmodels.ZadigD
 		})
 	}
 
-	registryID := envInfo.RegistryID
-	if registryID == "" {
+	if envInfo.RegistryID == "" {
 		registry, err := commonrepo.NewRegistryNamespaceColl().Find(&commonrepo.FindRegOps{
 			IsDefault: true,
 		})
@@ -747,7 +747,7 @@ func generateEnvDeployServiceInfo(env, project string, spec *commonmodels.ZadigD
 		if err != nil {
 			return nil, "", fmt.Errorf("failed to find default registry for env: %s, error: %s", env, err)
 		}
-		registryID = registry.ID.Hex()
+		envInfo.RegistryID = registry.ID.Hex()
 	}
 
 	return resp, envInfo.RegistryID, nil
@@ -801,11 +801,11 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		if j.spec.OriginJobName != "" {
 			j.spec.JobName = j.spec.OriginJobName
 		}
-		serviceReferredJob := getOriginJobName(j.workflow, j.spec.OriginJobName)
 
+		serviceReferredJob := getOriginJobName(j.workflow, j.spec.OriginJobName)
 		deployOrder, err := j.getReferredJobOrder(serviceReferredJob, j.spec.OriginJobName)
 		if err != nil {
-			return resp, fmt.Errorf("get origin refered job: %s targets failed, err: %v", j.spec.JobName, err)
+			return resp, fmt.Errorf("get origin refered job: %s targets failed, err: %v", serviceReferredJob, err)
 		}
 
 		configurationServiceMap := make(map[string]*commonmodels.DeployServiceInfo)
