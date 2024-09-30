@@ -128,7 +128,10 @@ func waitForNativeApprove(ctx context.Context, spec *commonmodels.JobTaskApprova
 		case <-timeoutChan:
 			return config.StatusTimeout, fmt.Errorf("workflow timeout")
 		default:
-			approved, _, navtiveApproval, err := approvalservice.GlobalApproveMap.IsApproval(approveKey)
+			approved, rejected, navtiveApproval, err := approvalservice.GlobalApproveMap.IsApproval(approveKey)
+			if err != nil {
+				return config.StatusFailed, fmt.Errorf("get approval status error: %s", err)
+			}
 			if navtiveApproval != nil {
 				for _, nativeUser := range navtiveApproval.ApproveUsers {
 					for _, user := range approval.ApproveUsers {
@@ -144,11 +147,9 @@ func waitForNativeApprove(ctx context.Context, spec *commonmodels.JobTaskApprova
 			// update the approval user information
 			ack()
 
-			if err != nil {
-				return config.StatusReject, err
-			}
-
-			if approved {
+			if rejected {
+				return config.StatusReject, nil
+			} else if approved {
 				return config.StatusPassed, nil
 			}
 		}
@@ -341,7 +342,7 @@ func waitForLarkApprove(ctx context.Context, spec *commonmodels.JobTaskApprovalS
 					return config.StatusPassed, nil
 				}
 				if finalInstance.ApproveOrReject == config.Reject && !isApprove {
-					return config.StatusReject, fmt.Errorf("Approval has been rejected")
+					return config.StatusReject, nil
 				}
 				return config.StatusFailed, errors.New("check final approval status failed")
 			}

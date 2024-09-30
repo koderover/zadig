@@ -731,7 +731,7 @@ func ApproveReleasePlan(c *handler.Context, planID string, req *ApproveRequest) 
 	}
 
 	approvalKey := plan.Approval.NativeApproval.InstanceCode
-	approval, ok := approvalservice.GlobalApproveMap.GetApproval(approvalKey)
+	_, ok := approvalservice.GlobalApproveMap.GetApproval(approvalKey)
 	if !ok {
 		// restore data after restart aslan
 		log.Infof("updateNativeApproval: approval instance code %s not found, set it", plan.Approval.NativeApproval.InstanceCode)
@@ -742,17 +742,19 @@ func ApproveReleasePlan(c *handler.Context, planID string, req *ApproveRequest) 
 		plan.Approval.NativeApproval.ApproveUsers = originApprovalUsers
 	}
 
-	approval, err = approvalservice.GlobalApproveMap.DoApproval(approvalKey, c.UserName, c.UserID, req.Comment, req.Approve)
+	approval, err := approvalservice.GlobalApproveMap.DoApproval(approvalKey, c.UserName, c.UserID, req.Comment, req.Approve)
 	if err != nil {
 		return errors.Wrap(err, "do approval")
 	}
 
 	plan.Approval.NativeApproval = approval
-	approved, _, _, err := approvalservice.GlobalApproveMap.IsApproval(approvalKey)
+	approved, rejected, _, err := approvalservice.GlobalApproveMap.IsApproval(approvalKey)
 	if err != nil {
-		plan.Approval.Status = config.StatusReject
+		return errors.Wrap(err, "is approval")
 	}
-	if approved {
+	if rejected {
+		plan.Approval.Status = config.StatusReject
+	} else if approved {
 		plan.Approval.Status = config.StatusPassed
 	}
 	var planLog *models.ReleasePlanLog
