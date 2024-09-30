@@ -290,6 +290,7 @@ type DeploySourceType string
 
 const (
 	SourceRuntime DeploySourceType = "runtime"
+	SourceFixed   DeploySourceType = "fixed"
 	SourceFromJob DeploySourceType = "fromjob"
 )
 

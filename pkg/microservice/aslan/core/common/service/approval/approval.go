@@ -111,17 +111,18 @@ func (c *GlobalApproveManager) DoApproval(key, userName, userID, comment string,
 	return approvalData, nil
 }
 
-func (c *GlobalApproveManager) IsApproval(key string) (bool, int, *commonmodels.NativeApproval, error) {
+// first return value is whether the approval is approved, second return value is whether the approval is rejected
+func (c *GlobalApproveManager) IsApproval(key string) (bool, bool, *commonmodels.NativeApproval, error) {
 	approval, ok := c.GetApproval(key)
 	if !ok {
-		return false, 0, nil, fmt.Errorf("not found approval")
+		return false, false, nil, fmt.Errorf("not found approval")
 	}
 
 	ApproveCount := 0
 	for _, user := range approval.ApproveUsers {
 		if user.RejectOrApprove == config.Reject {
 			approval.RejectOrApprove = config.Reject
-			return false, ApproveCount, approval, fmt.Errorf("%s reject this task", user.UserName)
+			return false, true, approval, nil
 		}
 		if user.RejectOrApprove == config.Approve {
 			ApproveCount++
@@ -129,7 +130,7 @@ func (c *GlobalApproveManager) IsApproval(key string) (bool, int, *commonmodels.
 	}
 	if ApproveCount >= approval.NeededApprovers {
 		approval.RejectOrApprove = config.Approve
-		return true, ApproveCount, approval, nil
+		return true, false, approval, nil
 	}
-	return false, ApproveCount, approval, nil
+	return false, false, approval, nil
 }
