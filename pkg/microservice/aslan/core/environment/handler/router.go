@@ -217,6 +217,22 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		environments.GET("/:name/version/:serviceName/revision/:revision", GetEnvServiceVersionYaml)
 		environments.GET("/:name/version/:serviceName/diff", DiffEnvServiceVersions)
 		environments.POST("/:name/version/:serviceName/rollback", RollbackEnvServiceVersion)
+
+		environments.GET("sae", ListSAEEnvs)
+		environments.POST("sae", CreateSAEEnv)
+		environments.GET("sae/:name", GetSAEEnv)
+		environments.DELETE("sae/:name", DeleteSAEEnv)
+		environments.GET("sae/app", ListSAEApps)
+		environments.GET("sae/namespace", ListSAENamespaces)
+		environments.POST("sae/:name/app", AddSAEServiceToEnv)
+		environments.PUT("sae/:name/app", DeleteSAEServiceFromEnv)
+		environments.GET("sae/:name/app/:appID/versions", ListSAEAppVersion)
+		environments.POST("sae/:name/app/:appID/restart", RestartSAEApp)
+		environments.POST("sae/:name/app/:appID/rescale", RescaleSAEApp)
+		environments.POST("sae/:name/app/:appID/rollback", RollbackSAEApp)
+		environments.GET("sae/:name/app/:appID/instance", ListSAEAppInstances)
+		environments.POST("sae/:name/app/:appID/instance/:instanceID/restart", RestartSAEAppInstance)
+		environments.GET("sae/:name/app/:appID/instance/:instanceID/log", GetSAEAppInstanceLog)
 	}
 
 	// ---------------------------------------------------------------------------------------
