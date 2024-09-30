@@ -60,7 +60,7 @@ func NewJunitReportStep(spec interface{}, dirs *types.AgentWorkDirs, envs, secre
 		return junitReportStep, fmt.Errorf("marshal spec %+v failed", spec)
 	}
 	if err := yaml.Unmarshal(yamlBytes, &junitReportStep.spec); err != nil {
-		return junitReportStep, fmt.Errorf("unmarshal spec %s to shell spec failed", yamlBytes)
+		return junitReportStep, fmt.Errorf("unmarshal spec %s to junit report spec failed", yamlBytes)
 	}
 	junitReportStep.Logger = logger
 	return junitReportStep, nil

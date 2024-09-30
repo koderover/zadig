@@ -52,7 +52,7 @@ func NewArchiveStep(spec interface{}, dirs *types.AgentWorkDirs, envs, secretEnv
 		return archiveStep, fmt.Errorf("marshal spec %+v failed", spec)
 	}
 	if err := yaml.Unmarshal(yamlBytes, &archiveStep.spec); err != nil {
-		return archiveStep, fmt.Errorf("unmarshal spec %s to script spec failed", yamlBytes)
+		return archiveStep, fmt.Errorf("unmarshal spec %s to archive spec failed", yamlBytes)
 	}
 	return archiveStep, nil
 }

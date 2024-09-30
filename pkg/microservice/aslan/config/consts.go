@@ -196,6 +196,7 @@ const (
 	StepImageDistribute   StepType = "image_distribute"
 	StepDownloadArchive   StepType = "download_archive"
 	StepArchive           StepType = "archive"
+	StepArchiveHtml       StepType = "archive_html"
 	StepArchiveDistribute StepType = "archive_distribute"
 	StepJunitReport       StepType = "junit_report"
 	StepHtmlReport        StepType = "html_report"
@@ -497,10 +498,11 @@ const (
 )
 
 const (
-	TestJobJunitReportStepName   = "junit-report-step"
-	TestJobHTMLReportStepName    = "html-report-step"
-	TestJobArchiveResultStepName = "archive-result-step"
-	TestJobObjectStorageStepName = "object-storage-step"
+	TestJobJunitReportStepName       = "junit-report-step"
+	TestJobHTMLReportStepName        = "html-report-step"
+	TestJobHTMLReportArchiveStepName = "html-report-archive-step"
+	TestJobArchiveResultStepName     = "archive-result-step"
+	TestJobObjectStorageStepName     = "object-storage-step"
 )
 
 const (

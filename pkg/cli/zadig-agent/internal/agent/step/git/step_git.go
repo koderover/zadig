@@ -56,7 +56,7 @@ func NewGitStep(spec interface{}, dirs *agenttypes.AgentWorkDirs, envs, secretEn
 		return gitStep, fmt.Errorf("marshal spec %+v failed", spec)
 	}
 	if err := yaml.Unmarshal(yamlBytes, &gitStep.spec); err != nil {
-		return gitStep, fmt.Errorf("unmarshal spec %s to script spec failed", yamlBytes)
+		return gitStep, fmt.Errorf("unmarshal spec %s to git spec failed", yamlBytes)
 	}
 	return gitStep, nil
 }
