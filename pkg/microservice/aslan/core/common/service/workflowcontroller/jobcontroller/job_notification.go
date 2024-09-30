@@ -62,7 +62,13 @@ func (c *NotificationJobCtl) Run(ctx context.Context) {
 	c.ack()
 
 	if c.jobTaskSpec.WebHookType == setting.NotifyWebHookTypeFeishu {
-		err := sendLarkMessage(c.workflowCtx.ProjectName, c.workflowCtx.WorkflowName, c.workflowCtx.WorkflowDisplayName, c.workflowCtx.TaskID, c.jobTaskSpec.FeiShuWebHook, c.jobTaskSpec.Title, c.jobTaskSpec.Content, c.jobTaskSpec.LarkUserIDs, c.jobTaskSpec.IsAtAll)
+		larkAtUserIDs := make([]string, 0)
+
+		for _, user := range c.jobTaskSpec.LarkAtUsers {
+			larkAtUserIDs = append(larkAtUserIDs, user.ID)
+		}
+
+		err := sendLarkMessage(c.workflowCtx.ProjectName, c.workflowCtx.WorkflowName, c.workflowCtx.WorkflowDisplayName, c.workflowCtx.TaskID, c.jobTaskSpec.FeiShuWebHook, c.jobTaskSpec.Title, c.jobTaskSpec.Content, larkAtUserIDs, c.jobTaskSpec.IsAtAll)
 		if err != nil {
 			c.logger.Error(err)
 			c.job.Status = config.StatusFailed
@@ -121,7 +127,7 @@ func sendLarkMessage(productName, workflowName, workflowDisplayName string, task
 	}
 
 	// then send @ message
-	if len(idList) > 0 {
+	if len(idList) > 0 || isAtAll {
 		atUserList := []string{}
 		idList = lo.Filter(idList, func(s string, _ int) bool { return s != "All" })
 		for _, userID := range idList {

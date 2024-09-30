@@ -113,7 +113,7 @@ func (j *NotificationJob) UpdateWithLatestSetting() error {
 	j.spec.WebHookNotify = latestSpec.WebHookNotify
 	j.spec.AtMobiles = latestSpec.AtMobiles
 	j.spec.WechatUserIDs = latestSpec.WechatUserIDs
-	j.spec.LarkUserIDs = latestSpec.LarkUserIDs
+	j.spec.LarkAtUsers = latestSpec.LarkAtUsers
 
 	j.job.Spec = j.spec
 	return nil
@@ -141,7 +141,7 @@ func (j *NotificationJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) 
 			WebHookNotify:   j.spec.WebHookNotify,
 			AtMobiles:       j.spec.AtMobiles,
 			WechatUserIDs:   j.spec.WechatUserIDs,
-			LarkUserIDs:     j.spec.LarkUserIDs,
+			LarkAtUsers:     j.spec.LarkAtUsers,
 			Content:         j.spec.Content,
 			Title:           j.spec.Title,
 			IsAtAll:         j.spec.IsAtAll,
