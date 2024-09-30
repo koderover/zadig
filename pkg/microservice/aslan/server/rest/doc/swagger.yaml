@@ -60,10 +60,12 @@ definitions:
   config.DeploySourceType:
     enum:
     - runtime
+    - fixed
     - fromjob
     type: string
     x-enum-varnames:
     - SourceRuntime
+    - SourceFixed
     - SourceFromJob
   config.DistributeImageMethod:
     enum:
@@ -426,6 +428,8 @@ definitions:
         $ref: '#/definitions/models.ImagePathSpec'
       name:
         type: string
+      type:
+        $ref: '#/definitions/setting.ContainerType'
     type: object
   github_com_koderover_zadig_v2_pkg_microservice_aslan_core_service_service.Variable:
     properties:
@@ -889,6 +893,8 @@ definitions:
         $ref: '#/definitions/models.ImagePathSpec'
       name:
         type: string
+      type:
+        $ref: '#/definitions/setting.ContainerType'
     type: object
   models.CreateUpdateCommonEnvCfgArgs:
     properties:
@@ -3267,6 +3273,10 @@ definitions:
     type: object
   service.ListEnvServiceVersionsResponse:
     properties:
+      containers:
+        items:
+          $ref: '#/definitions/models.Container'
+        type: array
       create_by:
         type: string
       create_time:
@@ -4034,6 +4044,14 @@ definitions:
       yamlSource:
         type: string
     type: object
+  setting.ContainerType:
+    enum:
+    - init
+    - ""
+    type: string
+    x-enum-varnames:
+    - ContainerTypeInit
+    - ContainerTypeNormal
   setting.IntegrationLevel:
     enum:
     - system

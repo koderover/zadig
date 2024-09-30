@@ -6604,10 +6604,12 @@
             "type": "string",
             "enum": [
                 "runtime",
+                "fixed",
                 "fromjob"
             ],
             "x-enum-varnames": [
                 "SourceRuntime",
+                "SourceFixed",
                 "SourceFromJob"
             ]
         },
@@ -7069,6 +7071,9 @@
                 },
                 "name": {
                     "type": "string"
+                },
+                "type": {
+                    "$ref": "#/definitions/setting.ContainerType"
                 }
             }
         },
@@ -7770,6 +7775,9 @@
                 },
                 "name": {
                     "type": "string"
+                },
+                "type": {
+                    "$ref": "#/definitions/setting.ContainerType"
                 }
             }
         },
@@ -11315,6 +11323,12 @@
         "service.ListEnvServiceVersionsResponse": {
             "type": "object",
             "properties": {
+                "containers": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.Container"
+                    }
+                },
                 "create_by": {
                     "type": "string"
                 },
@@ -12486,6 +12500,17 @@
                     "type": "string"
                 }
             }
+        },
+        "setting.ContainerType": {
+            "type": "string",
+            "enum": [
+                "init",
+                ""
+            ],
+            "x-enum-varnames": [
+                "ContainerTypeInit",
+                "ContainerTypeNormal"
+            ]
         },
         "setting.IntegrationLevel": {
             "type": "string",
