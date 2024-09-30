@@ -76,7 +76,7 @@ func (s *JunitReportStep) Run(ctx context.Context) error {
 	s.spec.ReportDir = helper.ReplaceEnvWithValue(s.spec.ReportDir, envMap)
 
 	reportDir := filepath.Join(s.workspace, s.spec.ReportDir)
-	failedCaseCount, err := mergeGinkgoTestResults(s.spec.FileName, reportDir, s.spec.DestDir, time.Now(), s.Logger)
+	results, err := mergeGinkgoTestResults(s.spec.FileName, reportDir, s.spec.DestDir, time.Now(), s.Logger)
 	if err != nil {
 		return fmt.Errorf("failed to merge test result: %s", err)
 	}
@@ -119,29 +119,28 @@ func (s *JunitReportStep) Run(ctx context.Context) error {
 		}
 	}
 	s.Logger.Infof("Finish archive %s.", s.spec.FileName)
-	if failedCaseCount > 0 {
-		return fmt.Errorf("%d case(s) failed", failedCaseCount)
+	if results.Failures > 0 || results.Errors > 0 {
+		return fmt.Errorf("%d case(s) failed, %d case(s) error", results.Failures, results.Errors)
 	}
 	return nil
 }
 
-func mergeGinkgoTestResults(testResultFile, testResultPath, testUploadPath string, startTime time.Time, logger *log.JobLogger) (int, error) {
+func mergeGinkgoTestResults(testResultFile, testResultPath, testUploadPath string, startTime time.Time, logger *log.JobLogger) (*meta.TestSuite, error) {
 	var (
 		err           error
 		newXMLBytes   []byte
 		summaryResult = &meta.TestSuite{
 			TestCases: []meta.TestCase{},
 		}
-		failedCaseCount int
 	)
 
 	if len(testResultPath) == 0 {
-		return failedCaseCount, nil
+		return summaryResult, nil
 	}
 
 	files, err := ioutil.ReadDir(testResultPath)
 	if err != nil || len(files) == 0 {
-		return failedCaseCount, fmt.Errorf("test result files not found in path %s", testResultPath)
+		return summaryResult, fmt.Errorf("test result files not found in path %s", testResultPath)
 	}
 
 	// sort and process xml files by modified time
@@ -154,7 +153,7 @@ func mergeGinkgoTestResults(testResultFile, testResultPath, testUploadPath strin
 			logger.Infof("name %s mod time: %v", file.Name(), file.ModTime())
 
 			// 1. read file
-			xmlBytes, err2 := os.ReadFile(filePath)
+			xmlBytes, err2 := ioutil.ReadFile(filePath)
 			if err2 != nil {
 				logger.Warnf("Read file [%s], error: %v", filePath, err2)
 				continue
@@ -214,7 +213,7 @@ func mergeGinkgoTestResults(testResultFile, testResultPath, testUploadPath strin
 	// 1. xml marshal indent
 	newXMLBytes, err = xml.MarshalIndent(summaryResult, "  ", "    ")
 	if err != nil {
-		return failedCaseCount, err
+		return summaryResult, err
 	}
 	// 2. append header
 	newXMLBytes = append([]byte(xml.Header), newXMLBytes...)
@@ -223,13 +222,13 @@ func mergeGinkgoTestResults(testResultFile, testResultPath, testUploadPath strin
 	newXMLStr := replaceTestSuiteTag(string(newXMLBytes), ReploaceTestSuite, strings.ToLower(ReploaceTestSuite))
 
 	//4. write xml bytes into file
-	err = os.WriteFile(filepath.Join(testUploadPath, testResultFile), []byte(newXMLStr), 0644)
+	err = ioutil.WriteFile(filepath.Join(testUploadPath, testResultFile), []byte(newXMLStr), 0644)
 	if err != nil {
-		return failedCaseCount, err
+		return summaryResult, err
 	}
 
-	logger.Infof("merge test results files %s succeeded", filepath.Join(testUploadPath, testResultFile))
-	return summaryResult.Failures, nil
+	logger.Infof("merge test results files %s succeeded", testResultFile)
+	return summaryResult, nil
 }
 
 func getSecondSince(startTime time.Time) float64 {
