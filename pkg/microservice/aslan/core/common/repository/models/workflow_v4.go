@@ -1020,10 +1020,21 @@ type WorkflowV4Hook struct {
 }
 
 type JiraHook struct {
-	Name        string      `bson:"name" json:"name"`
-	Enabled     bool        `bson:"enabled" json:"enabled"`
-	Description string      `bson:"description" json:"description"`
-	WorkflowArg *WorkflowV4 `bson:"workflow_arg" json:"workflow_arg"`
+	Name                     string         `bson:"name" json:"name"`
+	Enabled                  bool           `bson:"enabled" json:"enabled"`
+	Description              string         `bson:"description" json:"description"`
+	JiraID                   string         `bson:"jira_id" json:"jira_id"`
+	JiraSystemIdentity       string         `bson:"jira_system_identity" json:"jira_system_identity"`
+	JiraURL                  string         `bson:"jira_url"             json:"jira_url"`
+	EnabledIssueStatusChange bool           `bson:"enabled_issue_status_change" json:"enabled_issue_status_change"`
+	FromStatus               JiraHookStatus `bson:"from_status" json:"from_status"`
+	ToStatus                 JiraHookStatus `bson:"to_status" json:"to_status"`
+	WorkflowArg              *WorkflowV4    `bson:"workflow_arg" json:"workflow_arg"`
+}
+
+type JiraHookStatus struct {
+	ID   string `bson:"id,omitempty"                 json:"id,omitempty"`
+	Name string `bson:"name,omitempty"               json:"name,omitempty"`
 }
 
 type MeegoHook struct {

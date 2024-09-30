@@ -348,7 +348,8 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		pm.GET("/:id/jira/issue", SearchJiraIssues)
 		pm.GET("/:id/jira/issue/jql", SearchJiraProjectIssuesWithJQL)
 		pm.GET("/:id/jira/type", GetJiraTypes)
-		pm.GET("/:id/jira/status", GetJiraAllStatus)
+		pm.GET("/:id/jira/status", GetJiraProjectStatus)
+		pm.GET("/:id/jira/allStatus", GetJiraAllStatus)
 		pm.POST("/jira/webhook/:workflowName/:hookName", HandleJiraEvent)
 		pm.POST("/meego/webhook/:workflowName/:hookName", HandleMeegoEvent)
 	}

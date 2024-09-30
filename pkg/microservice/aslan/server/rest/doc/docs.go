@@ -4256,6 +4256,41 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/aslan/system/project_management/{id}/jira/allStatus": {
+            "get": {
+                "description": "Get Jira All Status",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "system"
+                ],
+                "summary": "Get Jira All Status",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "jira id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/jira.Status"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/aslan/system/project_management/{id}/jira/board": {
             "get": {
                 "description": "List Jira Boards",
@@ -4448,6 +4483,90 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/service.JiraSprintResp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/aslan/system/project_management/{id}/jira/status": {
+            "get": {
+                "description": "Get Jira Project Status",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "system"
+                ],
+                "summary": "Get Jira Project Status",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "jira id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "jira project id",
+                        "name": "project",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/aslan/system/project_management/{id}/jira/type": {
+            "get": {
+                "description": "Get Jira Types",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "system"
+                ],
+                "summary": "Get Jira Types",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "jira id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "jira project key",
+                        "name": "project",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/jira.IssueTypeWithStatus"
+                            }
                         }
                     }
                 }
@@ -5485,6 +5604,17 @@ const docTemplate = `{
                 "SourceFromJob"
             ]
         },
+        "config.DistributeImageMethod": {
+            "type": "string",
+            "enum": [
+                "image_push",
+                "cloud_sync"
+            ],
+            "x-enum-varnames": [
+                "DistributeImageMethodImagePush",
+                "DistributeImageMethodCloudSync"
+            ]
+        },
         "config.JiraAuthType": {
             "type": "string",
             "enum": [
@@ -5494,6 +5624,21 @@ const docTemplate = `{
             "x-enum-varnames": [
                 "JiraBasicAuth",
                 "JiraPersonalAccessToken"
+            ]
+        },
+        "config.JobErrorPolicy": {
+            "type": "string",
+            "enum": [
+                "stop",
+                "ignore_error",
+                "manual_check",
+                "retry"
+            ],
+            "x-enum-varnames": [
+                "JobErrorPolicyStop",
+                "JobErrorPolicyIgnoreError",
+                "JobErrorPolicyManualCheck",
+                "JobErrorPolicyRetry"
             ]
         },
         "config.JobRunPolicy": {
@@ -5701,7 +5846,9 @@ const docTemplate = `{
                 "distributed",
                 "wait_for_approval",
                 "debug_before",
-                "debug_after"
+                "debug_after",
+                "unstable",
+                "wait_for_manual_error_handling"
             ],
             "x-enum-varnames": [
                 "StatusDisabled",
@@ -5724,7 +5871,9 @@ const docTemplate = `{
                 "StatusDistributed",
                 "StatusWaitingApprove",
                 "StatusDebugBefore",
-                "StatusDebugAfter"
+                "StatusDebugAfter",
+                "StatusUnstable",
+                "StatusManualApproval"
             ]
         },
         "github_com_koderover_zadig_v2_pkg_microservice_aslan_core_common_service.EnvService": {
@@ -6180,6 +6329,45 @@ const docTemplate = `{
                     }
                 },
                 "variable_yaml": {
+                    "type": "string"
+                }
+            }
+        },
+        "jira.IssueTypeWithStatus": {
+            "type": "object",
+            "properties": {
+                "status": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "jira.Status": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "statusCategory": {
+                    "$ref": "#/definitions/jira.StatusCategory"
+                }
+            }
+        },
+        "jira.StatusCategory": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "integer"
+                },
+                "key": {
                     "type": "string"
                 }
             }
@@ -6803,12 +6991,6 @@ const docTemplate = `{
                         "$ref": "#/definitions/models.ServiceKeyVal"
                     }
                 },
-                "latest_variable_kvs": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/types.RenderVariableKV"
-                    }
-                },
                 "modules": {
                     "type": "array",
                     "items": {
@@ -6838,6 +7020,7 @@ const docTemplate = `{
                     }
                 },
                 "variable_yaml": {
+                    "description": "LatestVariableKVs []*commontypes.RenderVariableKV ` + "`" + `bson:\"latest_variable_kvs\"              yaml:\"latest_variable_kvs\"                 json:\"latest_variable_kvs\"` + "`" + `",
                     "type": "string"
                 }
             }
@@ -6996,6 +7179,9 @@ const docTemplate = `{
                 },
                 "env_name": {
                     "type": "string"
+                },
+                "health_checks": {
+                    "$ref": "#/definitions/models.PmHealthCheck"
                 },
                 "host_id": {
                     "type": "string"
@@ -7256,6 +7442,9 @@ const docTemplate = `{
         "models.Job": {
             "type": "object",
             "properties": {
+                "error_policy": {
+                    "$ref": "#/definitions/models.JobErrorPolicy"
+                },
                 "name": {
                     "type": "string"
                 },
@@ -7275,6 +7464,23 @@ const docTemplate = `{
                 "spec": {},
                 "type": {
                     "$ref": "#/definitions/config.JobType"
+                }
+            }
+        },
+        "models.JobErrorPolicy": {
+            "type": "object",
+            "properties": {
+                "approval_users": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.User"
+                    }
+                },
+                "maximum_retry": {
+                    "type": "integer"
+                },
+                "policy": {
+                    "$ref": "#/definitions/config.JobErrorPolicy"
                 }
             }
         },
@@ -7334,6 +7540,9 @@ const docTemplate = `{
                     "type": "boolean"
                 },
                 "key": {
+                    "type": "string"
+                },
+                "registry_id": {
                     "type": "string"
                 },
                 "type": {
@@ -7549,11 +7758,13 @@ const docTemplate = `{
             "enum": [
                 "string",
                 "choice",
+                "image",
                 "external"
             ],
             "x-enum-varnames": [
                 "StringType",
                 "ChoiceType",
+                "ImageType",
                 "ExternalType"
             ]
         },
@@ -7975,6 +8186,9 @@ const docTemplate = `{
                 },
                 "sprint_id": {
                     "type": "integer"
+                },
+                "sprint_name": {
+                    "type": "string"
                 }
             }
         },
@@ -8767,6 +8981,9 @@ const docTemplate = `{
             "properties": {
                 "cluster_id": {
                     "type": "string"
+                },
+                "distribute_method": {
+                    "$ref": "#/definitions/config.DistributeImageMethod"
                 },
                 "enable_target_image_tag_rule": {
                     "type": "boolean"

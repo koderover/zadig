@@ -52,7 +52,7 @@ func (s *ProjectService) ListProjects() ([]*Project, error) {
 	return list, nil
 }
 
-func (s *ProjectService) ListAllStatues(project string) ([]string, error) {
+func (s *ProjectService) ListProjectStatues(project string) ([]string, error) {
 	resp, err := s.client.Issue.GetTypes(project)
 	if err != nil {
 		return nil, err
