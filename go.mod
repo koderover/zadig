@@ -7,7 +7,7 @@ require (
 	github.com/27149chen/afero v1.6.2
 	github.com/JohannesKaufmann/html-to-markdown v1.6.0
 	github.com/Knetic/govaluate v3.0.0+incompatible
-	github.com/RyanCarrier/dijkstra v1.1.0
+	github.com/RyanCarrier/dijkstra v1.3.0
 	github.com/andygrunwald/go-gerrit v0.0.0-20220906192238-4fc99996c860
 	github.com/andygrunwald/go-jira v1.16.0
 	github.com/antihax/optional v1.0.0
