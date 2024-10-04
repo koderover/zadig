@@ -793,7 +793,7 @@ spec:
       containers:
       - name: agent
         image: {{.HubAgentImage}}
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         env:
         - name: AGENT_NODE_NAME
           valueFrom:
@@ -960,7 +960,7 @@ spec:
       containers:
       - name: agent
         image: {{.HubAgentImage}}
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         env:
         - name: AGENT_NODE_NAME
           valueFrom:
