@@ -21,6 +21,14 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
+	"github.com/koderover/zadig/v2/pkg/shared/client/systemconfig"
+	"github.com/koderover/zadig/v2/pkg/shared/client/user"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
+	"github.com/koderover/zadig/v2/pkg/tool/mail"
+	"github.com/samber/lo"
+	"go.uber.org/zap"
+
 	configbase "github.com/koderover/zadig/v2/pkg/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
@@ -28,8 +36,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/instantmessage"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/tool/httpclient"
-	"github.com/samber/lo"
-	"go.uber.org/zap"
 )
 
 type NotificationJobCtl struct {
@@ -78,6 +84,24 @@ func (c *NotificationJobCtl) Run(ctx context.Context) {
 		}
 	} else if c.jobTaskSpec.WebHookType == setting.NotifyWebHookTypeDingDing {
 		err := sendDingDingMessage(c.workflowCtx.ProjectName, c.workflowCtx.WorkflowName, c.workflowCtx.WorkflowDisplayName, c.workflowCtx.TaskID, c.jobTaskSpec.DingDingWebHook, c.jobTaskSpec.Title, c.jobTaskSpec.Content, c.jobTaskSpec.AtMobiles, c.jobTaskSpec.IsAtAll)
+		if err != nil {
+			c.logger.Error(err)
+			c.job.Status = config.StatusFailed
+			c.job.Error = err.Error()
+			c.ack()
+			return
+		}
+	} else if c.jobTaskSpec.WebHookType == setting.NotifyWebHookTypeWechatWork {
+		err := sendWorkWxMessage(c.workflowCtx.ProjectName, c.workflowCtx.WorkflowName, c.workflowCtx.WorkflowDisplayName, c.workflowCtx.TaskID, c.jobTaskSpec.WeChatWebHook, c.jobTaskSpec.Content, c.jobTaskSpec.AtMobiles, c.jobTaskSpec.IsAtAll)
+		if err != nil {
+			c.logger.Error(err)
+			c.job.Status = config.StatusFailed
+			c.job.Error = err.Error()
+			c.ack()
+			return
+		}
+	} else if c.jobTaskSpec.WebHookType == setting.NotifyWebHookTypeMail {
+		err := sendMailMessage(c.workflowCtx.ProjectName, c.workflowCtx.WorkflowName, c.workflowCtx.WorkflowDisplayName, c.workflowCtx.TaskID, c.jobTaskSpec.Title, c.jobTaskSpec.Content, c.jobTaskSpec.MailUsers)
 		if err != nil {
 			c.logger.Error(err)
 			c.job.Status = config.StatusFailed
@@ -186,6 +210,82 @@ func sendDingDingMessage(productName, workflowName, workflowDisplayName string, 
 	}
 
 	return nil
+}
+
+func sendWorkWxMessage(productName, workflowName, workflowDisplayName string, taskID int64, uri, message string, idList []string, isAtAll bool) error {
+	processedMessage := generateGeneralNotificationMessage(productName, workflowName, workflowDisplayName, taskID, message)
+
+	idList = lo.Filter(idList, func(s string, _ int) bool { return s != "All" })
+	atList := make([]string, 0)
+
+	for _, id := range idList {
+		atList = append(atList, fmt.Sprintf("<@%s>", id))
+	}
+
+	if len(atList) > 0 {
+		processedMessage = fmt.Sprintf(processedMessage, fmt.Sprintf("##### **相关人员**: %s \n", strings.Join(atList, " ")))
+	}
+
+	msgCard := &instantmessage.WeChatWorkCard{
+		MsgType:  "markdown",
+		Markdown: instantmessage.Markdown{Content: processedMessage},
+	}
+
+	// TODO: if required, add proxy to it
+	c := httpclient.New()
+
+	_, err := c.Post(uri, httpclient.SetBody(msgCard))
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func sendMailMessage(productName, workflowName, workflowDisplayName string, taskID int64, title, message string, users []*commonmodels.User) error {
+	processedMessage := generateGeneralNotificationMessage(productName, workflowName, workflowDisplayName, taskID, message)
+
+	if len(users) == 0 {
+		return nil
+	}
+
+	email, err := systemconfig.New().GetEmailHost()
+	if err != nil {
+		return err
+	}
+
+	users, userMap := util.GeneFlatUsers(users)
+	for _, u := range users {
+		info, ok := userMap[u.UserID]
+		if !ok {
+			info, err = user.New().GetUserByID(u.UserID)
+			if err != nil {
+				log.Warnf("sendMailMessage GetUserByUid error, error msg:%s", err)
+				continue
+			}
+		}
+
+		if info.Email == "" {
+			log.Warnf("sendMailMessage user %s email is empty", info.Name)
+			continue
+		}
+		err = mail.SendEmail(&mail.EmailParams{
+			From:     email.UserName,
+			To:       info.Email,
+			Subject:  title,
+			Host:     email.Name,
+			UserName: email.UserName,
+			Password: email.Password,
+			Port:     email.Port,
+			Body:     processedMessage,
+		})
+		if err != nil {
+			log.Errorf("sendMailMessage SendEmail error, error msg:%s", err)
+			continue
+		}
+	}
+
+	return err
 }
 
 func generateGeneralNotificationMessage(productName, workflowName, workflowDisplayName string, taskID int64, content string) string {
