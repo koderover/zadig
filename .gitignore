@@ -37,6 +37,9 @@ zadig-portal/yarn-error.log
 godoc-proxy/website/node_modules/
 godoc-proxy/website/dist
 
+#Swagger info
+pkg/microservice/aslan/server/rest/doc
+
 npm-debug.log
 .bowerrc
 /.editorconfig
