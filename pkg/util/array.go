@@ -24,3 +24,9 @@ func InStringArray(target string, str_array []string) bool {
 	}
 	return false
 }
+
+func CopyIntSlice(src []int) []int {
+	dst := make([]int, len(src))
+	copy(dst, src)
+	return dst
+}

@@ -211,6 +211,9 @@ func (j *TestingJob) MergeWebhookRepo(webhookRepo *types.Repository) error {
 	for _, testing := range j.spec.TestModules {
 		testing.Repos = mergeRepos(testing.Repos, []*types.Repository{webhookRepo})
 	}
+	for _, serviceAndTest := range j.spec.ServiceAndTests {
+		serviceAndTest.Repos = mergeRepos(serviceAndTest.Repos, []*types.Repository{webhookRepo})
+	}
 	j.job.Spec = j.spec
 	return nil
 }
@@ -246,9 +249,11 @@ func (j *TestingJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		if j.spec.OriginJobName != "" {
 			j.spec.JobName = j.spec.OriginJobName
 		}
-		targets, err := j.getOriginReferedJobTargets(j.spec.JobName)
+
+		referredJob := getOriginJobName(j.workflow, j.spec.JobName)
+		targets, err := j.getOriginReferedJobTargets(referredJob)
 		if err != nil {
-			return resp, fmt.Errorf("get origin refered job: %s targets failed, err: %v", j.spec.JobName, err)
+			return resp, fmt.Errorf("get origin refered job: %s targets failed, err: %v", referredJob, err)
 		}
 		// clear service and image list to prevent old data from remaining
 		j.spec.TargetServices = targets
@@ -329,9 +334,26 @@ func (j *TestingJob) getOriginReferedJobTargets(jobName string) ([]*commonmodels
 				servicetargets = scanningSpec.TargetServices
 				return servicetargets, nil
 			}
+			if job.JobType == config.JobFreestyle {
+				deploySpec := &commonmodels.FreestyleJobSpec{}
+				if err := commonmodels.IToi(job.Spec, deploySpec); err != nil {
+					return servicetargets, err
+				}
+				if deploySpec.FreestyleJobType != config.ServiceFreeStyleJobType {
+					return servicetargets, fmt.Errorf("freestyle job type %s not supported in reference", deploySpec.FreestyleJobType)
+				}
+				for _, svc := range deploySpec.Services {
+					target := &commonmodels.ServiceTestTarget{
+						ServiceName:   svc.ServiceName,
+						ServiceModule: svc.ServiceModule,
+					}
+					servicetargets = append(servicetargets, target)
+				}
+				return servicetargets, nil
+			}
 		}
 	}
-	return nil, fmt.Errorf("build job %s not found", jobName)
+	return nil, fmt.Errorf("TestingJob: refered job %s not found", jobName)
 }
 
 func (j *TestingJob) toJobtask(testing *commonmodels.TestModule, defaultS3 *commonmodels.S3Storage, taskID int64, testType, serviceName, serviceModule string, logger *zap.SugaredLogger) (*commonmodels.JobTask, error) {
