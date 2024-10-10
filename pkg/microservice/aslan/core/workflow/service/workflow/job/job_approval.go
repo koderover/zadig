@@ -121,31 +121,83 @@ func (j *ApprovalJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 	}
 
 	nativeApproval := j.spec.NativeApproval
-	if nativeApproval != nil {
+	if nativeApproval != nil && j.spec.Source != config.SourceFromJob {
 		approvalUser, _ := util.GeneFlatUsers(nativeApproval.ApproveUsers)
 		nativeApproval.ApproveUsers = approvalUser
 	}
 
-	resp := make([]*commonmodels.JobTask, 0)
-	resp = append(resp, &commonmodels.JobTask{
+	jobSpec := &commonmodels.JobTaskApprovalSpec{
+		Timeout:          j.spec.Timeout,
+		Type:             j.spec.Type,
+		Description:      j.spec.Description,
+		NativeApproval:   nativeApproval,
+		LarkApproval:     j.spec.LarkApproval,
+		DingTalkApproval: j.spec.DingTalkApproval,
+		WorkWXApproval:   j.spec.WorkWXApproval,
+	}
+	jobTask := &commonmodels.JobTask{
 		Name: j.job.Name,
 		JobInfo: map[string]string{
 			JobNameKey: j.job.Name,
 		},
-		Key:     j.job.Name,
-		JobType: string(config.JobApproval),
-		Spec: &commonmodels.JobTaskApprovalSpec{
-			Timeout:          j.spec.Timeout,
-			Type:             j.spec.Type,
-			Description:      j.spec.Description,
-			NativeApproval:   nativeApproval,
-			LarkApproval:     j.spec.LarkApproval,
-			DingTalkApproval: j.spec.DingTalkApproval,
-			WorkWXApproval:   j.spec.WorkWXApproval,
-		},
+		Key:         j.job.Name,
+		JobType:     string(config.JobApproval),
+		Spec:        jobSpec,
 		Timeout:     j.spec.Timeout,
 		ErrorPolicy: j.job.ErrorPolicy,
-	})
+	}
+
+	if j.spec.Source == config.SourceFromJob {
+		originJobSpec, err := j.getOriginReferedJob(j.job.Name)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get origin refered job: %s", err)
+		}
+
+		if originJobSpec.Type != jobSpec.Type {
+			return nil, fmt.Errorf("origin refered job type is different from current job type")
+		}
+
+		switch originJobSpec.Type {
+		case config.NativeApproval:
+			approvalUser, _ := util.GeneFlatUsers(originJobSpec.NativeApproval.ApproveUsers)
+			jobSpec.NativeApproval.ApproveUsers = approvalUser
+		case config.LarkApproval:
+			if originJobSpec.LarkApproval == nil {
+				return nil, fmt.Errorf("lark approval not found")
+			}
+
+			if originJobSpec.LarkApproval.ID != jobSpec.LarkApproval.ID {
+				return nil, fmt.Errorf("origin refered lark id is different from current lark id")
+			}
+
+			jobSpec.LarkApproval.ApprovalNodes = originJobSpec.LarkApproval.ApprovalNodes
+		case config.DingTalkApproval:
+			if originJobSpec.DingTalkApproval == nil {
+				return nil, fmt.Errorf("dingtalk approval not found")
+			}
+
+			if originJobSpec.DingTalkApproval.ID != jobSpec.DingTalkApproval.ID {
+				return nil, fmt.Errorf("origin refered dingtalk id is different from current dingtalk id")
+			}
+
+			jobSpec.DingTalkApproval.ApprovalNodes = originJobSpec.DingTalkApproval.ApprovalNodes
+		case config.WorkWXApproval:
+			if originJobSpec.WorkWXApproval == nil {
+				return nil, fmt.Errorf("workwx approval not found")
+			}
+
+			if originJobSpec.WorkWXApproval.ID != jobSpec.WorkWXApproval.ID {
+				return nil, fmt.Errorf("origin refered workwx id is different from current workwx id")
+			}
+
+			jobSpec.WorkWXApproval.ApprovalNodes = originJobSpec.WorkWXApproval.ApprovalNodes
+		default:
+			return nil, fmt.Errorf("invalid approval type %s", originJobSpec.Type)
+		}
+	}
+
+	resp := make([]*commonmodels.JobTask, 0)
+	resp = append(resp, jobTask)
 
 	return resp, nil
 }
@@ -218,4 +270,36 @@ func (j *ApprovalJob) LintJob() error {
 	}
 
 	return nil
+}
+
+func (j *ApprovalJob) getOriginReferedJob(jobName string) (*commonmodels.ApprovalJobSpec, error) {
+	var err error
+	resp := &commonmodels.ApprovalJobSpec{}
+
+	for _, stage := range j.workflow.Stages {
+		for _, job := range stage.Jobs {
+			if job.Name != jobName {
+				continue
+			}
+			if job.JobType != config.JobApproval {
+				continue
+			}
+
+			approvalSpec := &commonmodels.ApprovalJobSpec{}
+			if err = commonmodels.IToi(job.Spec, approvalSpec); err != nil {
+				return resp, err
+			}
+
+			if approvalSpec.Source == config.SourceFromJob {
+				resp, err = j.getOriginReferedJob(job.Name)
+				if err != nil {
+					return resp, err
+				}
+			}
+
+			return resp, nil
+		}
+	}
+
+	return nil, fmt.Errorf("approval job %s not found", jobName)
 }
