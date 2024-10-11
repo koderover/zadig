@@ -52,11 +52,19 @@ func (c *ReleasePlanColl) GetCollectionName() string {
 func (c *ReleasePlanColl) EnsureIndex(ctx context.Context) error {
 	mod := []mongo.IndexModel{
 		{
+			Keys:    bson.M{"index": 1},
+			Options: options.Index().SetUnique(true),
+		},
+		{
 			Keys:    bson.M{"name": 1},
 			Options: options.Index().SetUnique(false),
 		},
 		{
 			Keys:    bson.M{"manager": 1},
+			Options: options.Index().SetUnique(false),
+		},
+		{
+			Keys:    bson.M{"status": 1},
 			Options: options.Index().SetUnique(false),
 		},
 		{
@@ -165,10 +173,19 @@ func (c *ReleasePlanColl) ListByOptions(opt *ListReleasePlanOption) ([]*models.R
 		opts.SetProjection(projection)
 	}
 
-	count, err := c.Collection.CountDocuments(ctx, query)
+	var (
+		err   error
+		count int64
+	)
+	if len(query) == 0 {
+		count, err = c.Collection.EstimatedDocumentCount(ctx)
+	} else {
+		count, err = c.Collection.CountDocuments(ctx, query)
+	}
 	if err != nil {
 		return nil, 0, err
 	}
+
 	cursor, err := c.Collection.Find(ctx, query, opts)
 	if err != nil {
 		return nil, 0, err
