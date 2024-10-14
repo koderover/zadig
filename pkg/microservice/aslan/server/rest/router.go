@@ -54,6 +54,9 @@ import (
 	emailHandler "github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/email/handler"
 	featuresHandler "github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/features/handler"
 	"github.com/koderover/zadig/v2/pkg/tool/metrics"
+
+	// Note: have to load docs for swagger to work. See https://blog.csdn.net/weixin_43249914/article/details/103035711
+	// _ "github.com/koderover/zadig/v2/pkg/microservice/aslan/server/rest/doc"
 )
 
 func init() {
