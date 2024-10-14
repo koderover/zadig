@@ -31,7 +31,7 @@ func CreateConnector(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -43,11 +43,11 @@ func CreateConnector(c *gin.Context) {
 
 	args := &service.Connector{}
 	if err := c.ShouldBindJSON(args); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
-	ctx.Err = service.CreateConnector(args, ctx.Logger)
+	ctx.RespErr = service.CreateConnector(args, ctx.Logger)
 }
 
 func ListConnectors(c *gin.Context) {
@@ -56,7 +56,7 @@ func ListConnectors(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -68,17 +68,17 @@ func ListConnectors(c *gin.Context) {
 
 	encryptedKey := c.Query("encryptedKey")
 	if len(encryptedKey) == 0 {
-		ctx.Err = e.ErrInvalidParam
+		ctx.RespErr = e.ErrInvalidParam
 		return
 	}
-	ctx.Resp, ctx.Err = service.ListConnectors(encryptedKey, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.ListConnectors(encryptedKey, ctx.Logger)
 }
 
 func ListConnectorsInternal(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.ListConnectorsInternal(ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.ListConnectorsInternal(ctx.Logger)
 }
 
 func DeleteConnector(c *gin.Context) {
@@ -87,7 +87,7 @@ func DeleteConnector(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -97,7 +97,7 @@ func DeleteConnector(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = service.DeleteConnector(c.Param("id"), ctx.Logger)
+	ctx.RespErr = service.DeleteConnector(c.Param("id"), ctx.Logger)
 }
 
 func GetConnector(c *gin.Context) {
@@ -106,7 +106,7 @@ func GetConnector(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -116,7 +116,7 @@ func GetConnector(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.GetConnector(c.Param("id"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetConnector(c.Param("id"), ctx.Logger)
 }
 
 func UpdateConnector(c *gin.Context) {
@@ -125,7 +125,7 @@ func UpdateConnector(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -137,10 +137,10 @@ func UpdateConnector(c *gin.Context) {
 
 	args := &service.Connector{}
 	if err := c.ShouldBindJSON(args); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 	args.ID = c.Param("id")
 
-	ctx.Err = service.UpdateConnector(args, ctx.Logger)
+	ctx.RespErr = service.UpdateConnector(args, ctx.Logger)
 }

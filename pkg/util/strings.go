@@ -100,6 +100,27 @@ func GetPinyinFromChinese(han string) (string, string) {
 	return fullLetter, firstLetter
 }
 
+func GetKeyAndInitials(name string) (string, string) {
+	firstLetter := ""
+	fullLetter := ""
+	a := pinyin.NewArgs()
+	for _, r := range name {
+		if unicode.Is(unicode.Han, r) {
+			pinyinArr := pinyin.Pinyin(string(r), a)
+			for _, pinyin := range pinyinArr {
+				for _, l := range pinyin {
+					fullLetter += l
+					firstLetter += string(l[0])
+				}
+			}
+		} else {
+			fullLetter += string(r)
+			firstLetter += string(r)
+		}
+	}
+	return fullLetter, firstLetter
+}
+
 func GetEnvSleepCronName(projectName, envName string, isEnable bool) string {
 	suffix := "sleep"
 	if !isEnable {

@@ -30,7 +30,7 @@ func GetTestDashboard(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.GetTestDashboard(0, 0, "", ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetTestDashboard(0, 0, "", ctx.Logger)
 }
 
 type DailyTestStat struct {
@@ -60,13 +60,13 @@ func GetTestStatOpenAPI(c *gin.Context) {
 
 	args := new(OpenAPIGetTestStatArgs)
 	if err := c.ShouldBindQuery(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 
 	testStatistics, err := service.GetTestDashboard(args.StartDate, args.EndDate, args.Project, ctx.Logger)
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
@@ -76,7 +76,7 @@ func GetTestStatOpenAPI(c *gin.Context) {
 	}
 	testDailyInfo, err := service.GetTestTrendMeasure(args.StartDate, args.EndDate, projects, ctx.Logger)
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 

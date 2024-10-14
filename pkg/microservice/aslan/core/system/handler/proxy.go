@@ -39,7 +39,7 @@ func GetProxyConfig(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -62,7 +62,7 @@ func ListProxies(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -74,7 +74,7 @@ func ListProxies(c *gin.Context) {
 	//	return
 	//}
 
-	ctx.Resp, ctx.Err = service.ListProxies(ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.ListProxies(ctx.Logger)
 }
 
 func GetProxy(c *gin.Context) {
@@ -83,7 +83,7 @@ func GetProxy(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -94,7 +94,7 @@ func GetProxy(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.GetProxy(c.Param("id"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetProxy(c.Param("id"), ctx.Logger)
 }
 
 func CreateProxy(c *gin.Context) {
@@ -103,7 +103,7 @@ func CreateProxy(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -126,12 +126,12 @@ func CreateProxy(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindWith(&args, binding.JSON); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid proxy args")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid proxy args")
 		return
 	}
 	args.UpdateBy = ctx.UserName
 
-	ctx.Err = service.CreateProxy(args, ctx.Logger)
+	ctx.RespErr = service.CreateProxy(args, ctx.Logger)
 }
 
 func UpdateProxy(c *gin.Context) {
@@ -140,7 +140,7 @@ func UpdateProxy(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -163,12 +163,12 @@ func UpdateProxy(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindWith(&args, binding.JSON); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid proxy args")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid proxy args")
 		return
 	}
 	args.UpdateBy = ctx.UserName
 
-	ctx.Err = service.UpdateProxy(c.Param("id"), args, ctx.Logger)
+	ctx.RespErr = service.UpdateProxy(c.Param("id"), args, ctx.Logger)
 }
 
 func DeleteProxy(c *gin.Context) {
@@ -177,7 +177,7 @@ func DeleteProxy(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -190,7 +190,7 @@ func DeleteProxy(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = service.DeleteProxy(c.Param("id"), ctx.Logger)
+	ctx.RespErr = service.DeleteProxy(c.Param("id"), ctx.Logger)
 }
 
 func TestConnection(c *gin.Context) {
@@ -199,7 +199,7 @@ func TestConnection(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -216,7 +216,7 @@ func TestConnection(c *gin.Context) {
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.ShouldBindWith(&args, binding.JSON); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid proxy args")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid proxy args")
 		return
 	}
 
@@ -226,5 +226,5 @@ func TestConnection(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = service.TestConnection(args, ctx.Logger)
+	ctx.RespErr = service.TestConnection(args, ctx.Logger)
 }

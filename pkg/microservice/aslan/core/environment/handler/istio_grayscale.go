@@ -43,7 +43,7 @@ func EnableIstioGrayscale(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -52,7 +52,7 @@ func EnableIstioGrayscale(c *gin.Context) {
 	projectKey := c.Query("projectName")
 	production := c.Query("production") == "true"
 	if !production {
-		ctx.Err = fmt.Errorf("testing environment not support")
+		ctx.RespErr = fmt.Errorf("testing environment not support")
 	}
 
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "开启Istio灰度", "环境", envName, "", ctx.Logger, envName)
@@ -73,11 +73,11 @@ func EnableIstioGrayscale(c *gin.Context) {
 		}
 	}
 
-	if ctx.Err = util.CheckZadigEnterpriseLicense(); ctx.Err != nil {
+	if ctx.RespErr = util.CheckZadigEnterpriseLicense(); ctx.RespErr != nil {
 		return
 	}
 
-	ctx.Err = service.EnableIstioGrayscale(c, envName, projectKey)
+	ctx.RespErr = service.EnableIstioGrayscale(c, envName, projectKey)
 }
 
 // @Summary Disable Istio Grayscale
@@ -94,7 +94,7 @@ func DisableIstioGrayscale(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -103,7 +103,7 @@ func DisableIstioGrayscale(c *gin.Context) {
 	projectKey := c.Query("projectName")
 	production := c.Query("production") == "true"
 	if !production {
-		ctx.Err = fmt.Errorf("testing environment not support")
+		ctx.RespErr = fmt.Errorf("testing environment not support")
 	}
 
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv,
@@ -126,7 +126,7 @@ func DisableIstioGrayscale(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = service.DisableIstioGrayscale(c, envName, projectKey)
+	ctx.RespErr = service.DisableIstioGrayscale(c, envName, projectKey)
 }
 
 // @Summary Check Istio Grayscale Ready
@@ -144,7 +144,7 @@ func CheckIstioGrayscaleReady(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -153,7 +153,7 @@ func CheckIstioGrayscaleReady(c *gin.Context) {
 	projectKey := c.Query("projectName")
 	production := c.Query("production") == "true"
 	if !production {
-		ctx.Err = fmt.Errorf("testing environment not support")
+		ctx.RespErr = fmt.Errorf("testing environment not support")
 	}
 
 	// authorization checks
@@ -172,7 +172,7 @@ func CheckIstioGrayscaleReady(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.Err = service.CheckIstioGrayscaleReady(c, envName, c.Param("op"), projectKey)
+	ctx.Resp, ctx.RespErr = service.CheckIstioGrayscaleReady(c, envName, c.Param("op"), projectKey)
 }
 
 // @Summary Get Istio Grayscale Config
@@ -189,7 +189,7 @@ func GetIstioGrayscaleConfig(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -198,7 +198,7 @@ func GetIstioGrayscaleConfig(c *gin.Context) {
 	projectKey := c.Query("projectName")
 	production := c.Query("production") == "true"
 	if !production {
-		ctx.Err = fmt.Errorf("testing environment not support")
+		ctx.RespErr = fmt.Errorf("testing environment not support")
 	}
 
 	// authorization checks
@@ -217,7 +217,7 @@ func GetIstioGrayscaleConfig(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.Err = service.GetIstioGrayscaleConfig(c, envName, projectKey)
+	ctx.Resp, ctx.RespErr = service.GetIstioGrayscaleConfig(c, envName, projectKey)
 }
 
 // @Summary Set Istio Grayscale Config
@@ -235,7 +235,7 @@ func SetIstioGrayscaleConfig(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -244,7 +244,7 @@ func SetIstioGrayscaleConfig(c *gin.Context) {
 	projectKey := c.Query("projectName")
 	production := c.Query("production") == "true"
 	if !production {
-		ctx.Err = fmt.Errorf("testing environment not support")
+		ctx.RespErr = fmt.Errorf("testing environment not support")
 	}
 
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv,
@@ -270,15 +270,15 @@ func SetIstioGrayscaleConfig(c *gin.Context) {
 	req := kube.SetIstioGrayscaleConfigRequest{}
 	err = c.ShouldBindJSON(&req)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
-	if ctx.Err = util.CheckZadigEnterpriseLicense(); ctx.Err != nil {
+	if ctx.RespErr = util.CheckZadigEnterpriseLicense(); ctx.RespErr != nil {
 		return
 	}
 
-	ctx.Err = service.SetIstioGrayscaleConfig(c, envName, projectKey, req)
+	ctx.RespErr = service.SetIstioGrayscaleConfig(c, envName, projectKey, req)
 }
 
 // @Summary Get Portal Service for Istio Grayscale
@@ -296,7 +296,7 @@ func GetIstioGrayscalePortalService(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -306,7 +306,7 @@ func GetIstioGrayscalePortalService(c *gin.Context) {
 	projectKey := c.Query("projectName")
 	production := c.Query("production") == "true"
 	if !production {
-		ctx.Err = fmt.Errorf("testing environment not support")
+		ctx.RespErr = fmt.Errorf("testing environment not support")
 	}
 
 	// authorization checks
@@ -325,7 +325,7 @@ func GetIstioGrayscalePortalService(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.Err = service.GetIstioGrayscalePortalService(c, projectKey, envName, serviceName)
+	ctx.Resp, ctx.RespErr = service.GetIstioGrayscalePortalService(c, projectKey, envName, serviceName)
 	return
 }
 
@@ -345,7 +345,7 @@ func SetupIstioGrayscalePortalService(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -355,7 +355,7 @@ func SetupIstioGrayscalePortalService(c *gin.Context) {
 	projectKey := c.Query("projectName")
 	production := c.Query("production") == "true"
 	if !production {
-		ctx.Err = fmt.Errorf("testing environment not support")
+		ctx.RespErr = fmt.Errorf("testing environment not support")
 	}
 
 	// authorization checks
@@ -377,14 +377,14 @@ func SetupIstioGrayscalePortalService(c *gin.Context) {
 	req := []service.SetupPortalServiceRequest{}
 	err = c.ShouldBindJSON(&req)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
-	if ctx.Err = util.CheckZadigEnterpriseLicense(); ctx.Err != nil {
+	if ctx.RespErr = util.CheckZadigEnterpriseLicense(); ctx.RespErr != nil {
 		return
 	}
 
-	ctx.Err = service.SetupIstioGrayscalePortalService(c, projectKey, envName, serviceName, req)
+	ctx.RespErr = service.SetupIstioGrayscalePortalService(c, projectKey, envName, serviceName, req)
 	return
 }

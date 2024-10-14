@@ -31,23 +31,23 @@ func ListHarborProjects(c *gin.Context) {
 
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("pageSize", "10"))
-	ctx.Resp, ctx.Err = svcservice.ListHarborProjects(page, pageSize, ctx.Logger)
+	ctx.Resp, ctx.RespErr = svcservice.ListHarborProjects(page, pageSize, ctx.Logger)
 }
 
 func ListHarborChartRepos(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	ctx.Resp, ctx.Err = svcservice.ListHarborChartRepos(c.Param("project"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = svcservice.ListHarborChartRepos(c.Param("project"), ctx.Logger)
 }
 
 func ListHarborChartVersions(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	ctx.Resp, ctx.Err = svcservice.ListHarborChartVersions(c.Param("project"), c.Param("chart"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = svcservice.ListHarborChartVersions(c.Param("project"), c.Param("chart"), ctx.Logger)
 }
 
 func FindHarborChartDetail(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	ctx.Resp, ctx.Err = svcservice.FindHarborChartDetail(c.Param("project"), c.Param("chart"), c.Param("version"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = svcservice.FindHarborChartDetail(c.Param("project"), c.Param("chart"), c.Param("version"), ctx.Logger)
 }

@@ -41,7 +41,7 @@ func GetChartTemplate(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -54,7 +54,7 @@ func GetChartTemplate(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.Err = templateservice.GetChartTemplate(c.Param("name"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = templateservice.GetChartTemplate(c.Param("name"), ctx.Logger)
 }
 
 func GetTemplateVariables(c *gin.Context) {
@@ -63,7 +63,7 @@ func GetTemplateVariables(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -80,7 +80,7 @@ func GetTemplateVariables(c *gin.Context) {
 	//	}
 	//}
 
-	ctx.Resp, ctx.Err = templateservice.GetChartTemplateVariables(c.Param("name"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = templateservice.GetChartTemplateVariables(c.Param("name"), ctx.Logger)
 }
 
 func ListFiles(c *gin.Context) {
@@ -89,7 +89,7 @@ func ListFiles(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -103,7 +103,7 @@ func ListFiles(c *gin.Context) {
 	}
 
 	// TODO: support to return multiple files in a bulk
-	ctx.Resp, ctx.Err = templateservice.GetFileContentForTemplate(c.Param("name"), c.Query("filePath"), c.Query("fileName"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = templateservice.GetFileContentForTemplate(c.Param("name"), c.Query("filePath"), c.Query("fileName"), ctx.Logger)
 }
 
 func ListChartTemplates(c *gin.Context) {
@@ -112,7 +112,7 @@ func ListChartTemplates(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -129,7 +129,7 @@ func ListChartTemplates(c *gin.Context) {
 	//	}
 	//}
 
-	ctx.Resp, ctx.Err = templateservice.ListChartTemplates(ctx.Logger)
+	ctx.Resp, ctx.RespErr = templateservice.ListChartTemplates(ctx.Logger)
 }
 
 func AddChartTemplate(c *gin.Context) {
@@ -138,14 +138,14 @@ func AddChartTemplate(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	args := &addChartArgs{}
 	if err := c.ShouldBindJSON(args); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
@@ -160,7 +160,7 @@ func AddChartTemplate(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = templateservice.AddChartTemplate(args.Name, args.DownloadFromSourceArgs, ctx.Logger)
+	ctx.RespErr = templateservice.AddChartTemplate(args.Name, args.DownloadFromSourceArgs, ctx.Logger)
 }
 
 func UpdateChartTemplate(c *gin.Context) {
@@ -169,14 +169,14 @@ func UpdateChartTemplate(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	args := &addChartArgs{}
 	if err := c.ShouldBindJSON(args); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
@@ -191,7 +191,7 @@ func UpdateChartTemplate(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = templateservice.UpdateChartTemplate(c.Param("name"), args.DownloadFromSourceArgs, ctx.Logger)
+	ctx.RespErr = templateservice.UpdateChartTemplate(c.Param("name"), args.DownloadFromSourceArgs, ctx.Logger)
 }
 
 func UpdateChartTemplateVariables(c *gin.Context) {
@@ -200,7 +200,7 @@ func UpdateChartTemplateVariables(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -215,18 +215,18 @@ func UpdateChartTemplateVariables(c *gin.Context) {
 
 	args := make([]*commonmodels.Variable, 0)
 	if err := c.ShouldBindJSON(&args); err != nil {
-		ctx.Err = errors.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = errors.ErrInvalidParam.AddErr(err)
 		return
 	}
 
-	ctx.Err = templateservice.UpdateChartTemplateVariables(c.Param("name"), args, ctx.Logger)
+	ctx.RespErr = templateservice.UpdateChartTemplateVariables(c.Param("name"), args, ctx.Logger)
 }
 
 func GetChartTemplateReference(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = templateservice.GetChartTemplateReference(c.Param("name"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = templateservice.GetChartTemplateReference(c.Param("name"), ctx.Logger)
 }
 
 func SyncChartTemplateReference(c *gin.Context) {
@@ -235,7 +235,7 @@ func SyncChartTemplateReference(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -250,7 +250,7 @@ func SyncChartTemplateReference(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = templateservice.SyncHelmTemplateReference(ctx.UserName, c.Param("name"), ctx.Logger)
+	ctx.RespErr = templateservice.SyncHelmTemplateReference(ctx.UserName, c.Param("name"), ctx.Logger)
 }
 
 func RemoveChartTemplate(c *gin.Context) {
@@ -259,7 +259,7 @@ func RemoveChartTemplate(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -274,5 +274,5 @@ func RemoveChartTemplate(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = templateservice.RemoveChartTemplate(c.Param("name"), ctx.Logger)
+	ctx.RespErr = templateservice.RemoveChartTemplate(c.Param("name"), ctx.Logger)
 }

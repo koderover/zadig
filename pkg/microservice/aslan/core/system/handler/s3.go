@@ -39,7 +39,7 @@ func ListS3Storage(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -53,10 +53,10 @@ func ListS3Storage(c *gin.Context) {
 
 	encryptedKey := c.Query("encryptedKey")
 	if len(encryptedKey) == 0 {
-		ctx.Err = e.ErrInvalidParam
+		ctx.RespErr = e.ErrInvalidParam
 		return
 	}
-	ctx.Resp, ctx.Err = service.ListS3Storage(encryptedKey, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.ListS3Storage(encryptedKey, ctx.Logger)
 }
 
 // @Summary List S3 Storage By Project
@@ -73,14 +73,14 @@ func ListS3StorageByProject(c *gin.Context) {
 
 	if err != nil {
 		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	projectName := c.Query("projectName")
 	if len(projectName) == 0 {
-		ctx.Err = e.ErrInvalidParam
+		ctx.RespErr = e.ErrInvalidParam
 		return
 	}
 
@@ -91,7 +91,7 @@ func ListS3StorageByProject(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.Err = service.ListS3StorageByProject(projectName, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.ListS3StorageByProject(projectName, ctx.Logger)
 }
 
 func CreateS3Storage(c *gin.Context) {
@@ -99,7 +99,7 @@ func CreateS3Storage(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -124,20 +124,20 @@ func CreateS3Storage(c *gin.Context) {
 	}
 
 	if err := c.BindJSON(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
 	licenseStatus, err := plutusvendor.New().CheckZadigXLicenseStatus()
 	if err != nil {
-		ctx.Err = fmt.Errorf("failed to validate zadig license status, error: %s", err)
+		ctx.RespErr = fmt.Errorf("failed to validate zadig license status, error: %s", err)
 		return
 	}
 	if args.Provider == config.S3StorageProviderAmazonS3 {
 		if !((licenseStatus.Type == plutusvendor.ZadigSystemTypeProfessional ||
 			licenseStatus.Type == plutusvendor.ZadigSystemTypeEnterprise) &&
 			licenseStatus.Status == plutusvendor.ZadigXLicenseStatusNormal) {
-			ctx.Err = e.ErrLicenseInvalid.AddDesc("")
+			ctx.RespErr = e.ErrLicenseInvalid.AddDesc("")
 			return
 		}
 	}
@@ -146,11 +146,11 @@ func CreateS3Storage(c *gin.Context) {
 		S3Storage: args,
 	}
 	if err := storage.Validate(); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
-	ctx.Err = service.CreateS3Storage(ctx.UserName, args, ctx.Logger)
+	ctx.RespErr = service.CreateS3Storage(ctx.UserName, args, ctx.Logger)
 }
 
 func GetS3Storage(c *gin.Context) {
@@ -159,7 +159,7 @@ func GetS3Storage(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -172,7 +172,7 @@ func GetS3Storage(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.GetS3Storage(c.Param("id"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetS3Storage(c.Param("id"), ctx.Logger)
 }
 
 func UpdateS3Storage(c *gin.Context) {
@@ -180,7 +180,7 @@ func UpdateS3Storage(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -205,20 +205,20 @@ func UpdateS3Storage(c *gin.Context) {
 	}
 
 	if err := c.BindJSON(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
 	licenseStatus, err := plutusvendor.New().CheckZadigXLicenseStatus()
 	if err != nil {
-		ctx.Err = fmt.Errorf("failed to validate zadig license status, error: %s", err)
+		ctx.RespErr = fmt.Errorf("failed to validate zadig license status, error: %s", err)
 		return
 	}
 	if args.Provider == config.S3StorageProviderAmazonS3 {
 		if !((licenseStatus.Type == plutusvendor.ZadigSystemTypeProfessional ||
 			licenseStatus.Type == plutusvendor.ZadigSystemTypeEnterprise) &&
 			licenseStatus.Status == plutusvendor.ZadigXLicenseStatusNormal) {
-			ctx.Err = e.ErrLicenseInvalid.AddDesc("")
+			ctx.RespErr = e.ErrLicenseInvalid.AddDesc("")
 			return
 		}
 	}
@@ -227,12 +227,12 @@ func UpdateS3Storage(c *gin.Context) {
 		S3Storage: args,
 	}
 	if err := storage.Validate(); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
 	id := c.Param("id")
-	ctx.Err = service.UpdateS3Storage(ctx.UserName, id, args, ctx.Logger)
+	ctx.RespErr = service.UpdateS3Storage(ctx.UserName, id, args, ctx.Logger)
 }
 
 func DeleteS3Storage(c *gin.Context) {
@@ -240,7 +240,7 @@ func DeleteS3Storage(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -255,7 +255,7 @@ func DeleteS3Storage(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = service.DeleteS3Storage(ctx.UserName, c.Param("id"), ctx.Logger)
+	ctx.RespErr = service.DeleteS3Storage(ctx.UserName, c.Param("id"), ctx.Logger)
 }
 
 type ListTarsOption struct {
@@ -268,9 +268,9 @@ func ListTars(c *gin.Context) {
 
 	args := new(ListTarsOption)
 	if err := c.ShouldBindJSON(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.ListTars(c.Param("id"), c.Query("kind"), args.Names, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.ListTars(c.Param("id"), c.Query("kind"), args.Names, ctx.Logger)
 }

@@ -33,7 +33,7 @@ func ConnectSshPmExec(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -43,17 +43,17 @@ func ConnectSshPmExec(c *gin.Context) {
 	hostId := c.Query("hostId")
 	name := c.Param("name")
 	if projectKey == "" || ip == "" || name == "" || hostId == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("param projectName or ip or name or hostId is empty")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("param projectName or ip or name or hostId is empty")
 	}
 	colsStr := c.DefaultQuery("cols", "135")
 	cols, err := strconv.Atoi(colsStr)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 	}
 	rowsStr := c.DefaultQuery("rows", "40")
 	rows, err := strconv.Atoi(rowsStr)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 	}
 
 	// authorization checks
@@ -72,7 +72,7 @@ func ConnectSshPmExec(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = service.ConnectSshPmExec(c, ctx.UserName, name, projectKey, ip, hostId, cols, rows, ctx.Logger)
+	ctx.RespErr = service.ConnectSshPmExec(c, ctx.UserName, name, projectKey, ip, hostId, cols, rows, ctx.Logger)
 }
 
 // @summary Exec VM Service Command
@@ -92,7 +92,7 @@ func ExecVmServiceCommand(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -103,7 +103,7 @@ func ExecVmServiceCommand(c *gin.Context) {
 	name := c.Param("name")
 	serviceName := c.Param("serviceName")
 	if projectKey == "" || name == "" || hostId == "" || commandType == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("param projectName or name or hostId or commandType is empty")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("param projectName or name or hostId or commandType is empty")
 	}
 
 	// authorization checks
@@ -124,9 +124,9 @@ func ExecVmServiceCommand(c *gin.Context) {
 
 	err = commonutil.CheckZadigProfessionalLicense()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.ExecVmServiceCommand(projectKey, name, serviceName, hostId, service.VmServiceCommandType(commandType), ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.ExecVmServiceCommand(projectKey, name, serviceName, hostId, service.VmServiceCommandType(commandType), ctx.Logger)
 }

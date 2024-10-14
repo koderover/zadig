@@ -38,7 +38,7 @@ func ListConfigMaps(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -65,7 +65,7 @@ func ListConfigMaps(c *gin.Context) {
 
 			err = commonutil.CheckZadigProfessionalLicense()
 			if err != nil {
-				ctx.Err = err
+				ctx.RespErr = err
 				return
 			}
 		} else {
@@ -87,7 +87,7 @@ func ListConfigMaps(c *gin.Context) {
 		Production:  production,
 	}
 
-	ctx.Resp, ctx.Err = service.ListConfigMaps(args, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.ListConfigMaps(args, ctx.Logger)
 }
 
 func RollBackConfigMap(c *gin.Context) {
@@ -95,7 +95,7 @@ func RollBackConfigMap(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -112,7 +112,7 @@ func RollBackConfigMap(c *gin.Context) {
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.BindJSON(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 
@@ -137,7 +137,7 @@ func RollBackConfigMap(c *gin.Context) {
 
 			err = commonutil.CheckZadigProfessionalLicense()
 			if err != nil {
-				ctx.Err = err
+				ctx.RespErr = err
 				return
 			}
 		} else {
@@ -153,11 +153,11 @@ func RollBackConfigMap(c *gin.Context) {
 	}
 
 	if args.SrcConfigName == args.DestinConfigName {
-		ctx.Err = e.ErrRollBackConfigMap.AddDesc("same source and destination configmap name.")
+		ctx.RespErr = e.ErrRollBackConfigMap.AddDesc("same source and destination configmap name.")
 		return
 	}
 
-	ctx.Err = service.RollBackConfigMap(args.EnvName, args, ctx.UserName, ctx.UserID, ctx.Logger)
+	ctx.RespErr = service.RollBackConfigMap(args.EnvName, args, ctx.UserName, ctx.UserID, ctx.Logger)
 }
 
 func MigrateHistoryConfigMaps(c *gin.Context) {
@@ -166,7 +166,7 @@ func MigrateHistoryConfigMaps(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -193,7 +193,7 @@ func MigrateHistoryConfigMaps(c *gin.Context) {
 
 			err = commonutil.CheckZadigProfessionalLicense()
 			if err != nil {
-				ctx.Err = err
+				ctx.RespErr = err
 				return
 			}
 		} else {
@@ -208,5 +208,5 @@ func MigrateHistoryConfigMaps(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.Err = service.MigrateHistoryConfigMaps(envName, projectKey, production, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.MigrateHistoryConfigMaps(envName, projectKey, production, ctx.Logger)
 }

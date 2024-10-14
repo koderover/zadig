@@ -48,14 +48,14 @@ func OpenAPIListDeliveryVersion(c *gin.Context) {
 
 	if err != nil {
 		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	req := new(OpenAPIListDeliveryVersionRequest)
 	if err := c.ShouldBindQuery(&req); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 
@@ -89,11 +89,11 @@ func OpenAPIListDeliveryVersion(c *gin.Context) {
 
 	err = commonutil.CheckZadigProfessionalLicense()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.OpenAPIListDeliveryVersion(req.ProjectKey, req.PageNum, req.PageSize)
+	ctx.Resp, ctx.RespErr = service.OpenAPIListDeliveryVersion(req.ProjectKey, req.PageNum, req.PageSize)
 }
 
 // @Summary OpenAPI Get Delivery Version
@@ -110,7 +110,7 @@ func OpenAPIGetDeliveryVersion(c *gin.Context) {
 
 	if err != nil {
 		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -118,12 +118,12 @@ func OpenAPIGetDeliveryVersion(c *gin.Context) {
 	//params validate
 	ID := c.Param("id")
 	if ID == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("id can't be empty!")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("id can't be empty!")
 		return
 	}
 	projectKey := c.Query("projectKey")
 	if projectKey == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("projectKey can't be empty!")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("projectKey can't be empty!")
 		return
 	}
 
@@ -150,11 +150,11 @@ func OpenAPIGetDeliveryVersion(c *gin.Context) {
 
 	err = commonutil.CheckZadigProfessionalLicense()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.OpenAPIGetDeliveryVersion(c.Param("id"))
+	ctx.Resp, ctx.RespErr = service.OpenAPIGetDeliveryVersion(c.Param("id"))
 }
 
 // @Summary OpenAPI Delete Delivery Version
@@ -171,7 +171,7 @@ func OpenAPIDeleteDeliveryVersion(c *gin.Context) {
 
 	if err != nil {
 		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -179,12 +179,12 @@ func OpenAPIDeleteDeliveryVersion(c *gin.Context) {
 	//params validate
 	ID := c.Param("id")
 	if ID == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("id can't be empty!")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("id can't be empty!")
 		return
 	}
 	projectKey := c.Query("projectKey")
 	if projectKey == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("projectKey can't be empty!")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("projectKey can't be empty!")
 		return
 	}
 
@@ -207,11 +207,11 @@ func OpenAPIDeleteDeliveryVersion(c *gin.Context) {
 
 	err = commonutil.CheckZadigProfessionalLicense()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
-	ctx.Err = service.OpenAPIDeleteDeliveryVersion(c.Param("id"))
+	ctx.RespErr = service.OpenAPIDeleteDeliveryVersion(c.Param("id"))
 }
 
 // @Summary OpenAPI Create K8S Delivery Version
@@ -228,14 +228,14 @@ func OpenAPICreateK8SDeliveryVersion(c *gin.Context) {
 
 	if err != nil {
 		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	req := new(service.OpenAPICreateK8SDeliveryVersionRequest)
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 	req.CreateBy = ctx.UserName
@@ -256,11 +256,11 @@ func OpenAPICreateK8SDeliveryVersion(c *gin.Context) {
 
 	err = commonutil.CheckZadigProfessionalLicense()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
-	ctx.Err = service.OpenAPICreateK8SDeliveryVersion(req)
+	ctx.RespErr = service.OpenAPICreateK8SDeliveryVersion(req)
 }
 
 // @Summary OpenAPI Create Helm Delivery Version
@@ -277,14 +277,14 @@ func OpenAPICreateHelmDeliveryVersion(c *gin.Context) {
 
 	if err != nil {
 		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	req := new(service.OpenAPICreateHelmDeliveryVersionRequest)
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 	req.CreateBy = ctx.UserName
@@ -305,9 +305,9 @@ func OpenAPICreateHelmDeliveryVersion(c *gin.Context) {
 
 	err = commonutil.CheckZadigProfessionalLicense()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
-	ctx.Err = service.OpenAPICreateHelmDeliveryVersion(req)
+	ctx.RespErr = service.OpenAPICreateHelmDeliveryVersion(req)
 }

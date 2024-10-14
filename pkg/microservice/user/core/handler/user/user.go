@@ -38,27 +38,27 @@ func SyncLdapUser(c *gin.Context) {
 	err := GenerateUserAuthInfo(ctx)
 	if err != nil {
 		ctx.UnAuthorized = true
-		ctx.Err = fmt.Errorf("failed to generate user authorization info, error: %s", err)
+		ctx.RespErr = fmt.Errorf("failed to generate user authorization info, error: %s", err)
 		return
 	}
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
 		ctx.UnAuthorized = true
-		ctx.Err = fmt.Errorf("failed to generate user authorization info, error: %s", err)
+		ctx.RespErr = fmt.Errorf("failed to generate user authorization info, error: %s", err)
 		return
 	}
 
 	ldapID := c.Param("ldapId")
 
-	ctx.Err = permission.SearchAndSyncUser(ldapID, ctx.Logger)
+	ctx.RespErr = permission.SearchAndSyncUser(ldapID, ctx.Logger)
 }
 
 func CountSystemUsers(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = permission.GetUserCount(ctx.Logger)
+	ctx.Resp, ctx.RespErr = permission.GetUserCount(ctx.Logger)
 }
 
 func CheckDuplicateUser(c *gin.Context) {
@@ -67,7 +67,7 @@ func CheckDuplicateUser(c *gin.Context) {
 
 	username := c.Query("username")
 
-	ctx.Err = permission.CheckDuplicateUser(username, ctx.Logger)
+	ctx.RespErr = permission.CheckDuplicateUser(username, ctx.Logger)
 }
 
 func GetUser(c *gin.Context) {
@@ -78,7 +78,7 @@ func GetUser(c *gin.Context) {
 	err := GenerateUserAuthInfo(ctx)
 	if err != nil {
 		ctx.UnAuthorized = true
-		ctx.Err = fmt.Errorf("failed to generate user authorization info, error: %s", err)
+		ctx.RespErr = fmt.Errorf("failed to generate user authorization info, error: %s", err)
 		return
 	}
 
@@ -86,12 +86,12 @@ func GetUser(c *gin.Context) {
 	if !ctx.Resources.IsSystemAdmin {
 		if ctx.UserID != c.Param("uid") {
 			ctx.UnAuthorized = true
-			ctx.Err = fmt.Errorf("failed to generate user authorization info, error: %s", err)
+			ctx.RespErr = fmt.Errorf("failed to generate user authorization info, error: %s", err)
 			return
 		}
 	}
 
-	ctx.Resp, ctx.Err = permission.GetUser(c.Param("uid"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = permission.GetUser(c.Param("uid"), ctx.Logger)
 }
 
 func DeleteUser(c *gin.Context) {
@@ -102,7 +102,7 @@ func DeleteUser(c *gin.Context) {
 	err := GenerateUserAuthInfo(ctx)
 	if err != nil {
 		ctx.UnAuthorized = true
-		ctx.Err = fmt.Errorf("failed to generate user authorization info, error: %s", err)
+		ctx.RespErr = fmt.Errorf("failed to generate user authorization info, error: %s", err)
 		return
 	}
 
@@ -112,7 +112,7 @@ func DeleteUser(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = permission.DeleteUserByUID(c.Param("uid"), ctx.Logger)
+	ctx.RespErr = permission.DeleteUserByUID(c.Param("uid"), ctx.Logger)
 }
 
 func GetPersonalUser(c *gin.Context) {
@@ -120,10 +120,10 @@ func GetPersonalUser(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	uid := c.Param("uid")
 	if ctx.UserID != uid {
-		ctx.Err = e.ErrForbidden
+		ctx.RespErr = e.ErrForbidden
 		return
 	}
-	ctx.Resp, ctx.Err = permission.GetUser(uid, ctx.Logger)
+	ctx.Resp, ctx.RespErr = permission.GetUser(uid, ctx.Logger)
 }
 
 func GetUserSetting(c *gin.Context) {
@@ -131,10 +131,10 @@ func GetUserSetting(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	uid := c.Param("uid")
 	if ctx.UserID != uid {
-		ctx.Err = e.ErrForbidden
+		ctx.RespErr = e.ErrForbidden
 		return
 	}
-	ctx.Resp, ctx.Err = permission.GetUserSetting(uid, ctx.Logger)
+	ctx.Resp, ctx.RespErr = permission.GetUserSetting(uid, ctx.Logger)
 }
 
 func ListUsers(c *gin.Context) {
@@ -145,7 +145,7 @@ func ListUsers(c *gin.Context) {
 	err := GenerateUserAuthInfo(ctx)
 	if err != nil {
 		ctx.UnAuthorized = true
-		ctx.Err = fmt.Errorf("failed to generate user authorization info, error: %s", err)
+		ctx.RespErr = fmt.Errorf("failed to generate user authorization info, error: %s", err)
 		return
 	}
 
@@ -158,7 +158,7 @@ func ListUsers(c *gin.Context) {
 
 	args := &permission.QueryArgs{}
 	if err := c.ShouldBindJSON(args); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
@@ -171,14 +171,14 @@ func ListUsers(c *gin.Context) {
 	}
 
 	if len(args.UIDs) > 0 {
-		ctx.Resp, ctx.Err = permission.SearchUsersByUIDs(args.UIDs, ctx.Logger)
+		ctx.Resp, ctx.RespErr = permission.SearchUsersByUIDs(args.UIDs, ctx.Logger)
 	} else if len(args.Account) > 0 {
 		if len(args.IdentityType) == 0 {
 			args.IdentityType = config.SystemIdentityType
 		}
-		ctx.Resp, ctx.Err = permission.SearchUserByAccount(args, ctx.Logger)
+		ctx.Resp, ctx.RespErr = permission.SearchUserByAccount(args, ctx.Logger)
 	} else {
-		ctx.Resp, ctx.Err = permission.SearchUsers(args, ctx.Logger)
+		ctx.Resp, ctx.RespErr = permission.SearchUsers(args, ctx.Logger)
 	}
 }
 
@@ -200,13 +200,13 @@ func OpenAPIListUsersBrief(c *gin.Context) {
 	err = GenerateUserAuthInfo(ctx)
 	if err != nil {
 		ctx.UnAuthorized = true
-		ctx.Err = fmt.Errorf("failed to generate user authorization info, error: %s", err)
+		ctx.RespErr = fmt.Errorf("failed to generate user authorization info, error: %s", err)
 		return
 	}
 
 	args := &permission.OpenAPIQueryArgs{}
 	if err := c.ShouldBindQuery(args); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
@@ -227,7 +227,7 @@ func OpenAPIListUsersBrief(c *gin.Context) {
 	}
 
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
@@ -255,13 +255,13 @@ func ListUsersBrief(c *gin.Context) {
 	err := GenerateUserAuthInfo(ctx)
 	if err != nil {
 		ctx.UnAuthorized = true
-		ctx.Err = fmt.Errorf("failed to generate user authorization info, error: %s", err)
+		ctx.RespErr = fmt.Errorf("failed to generate user authorization info, error: %s", err)
 		return
 	}
 
 	args := &permission.QueryArgs{}
 	if err := c.ShouldBindJSON(args); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
@@ -286,7 +286,7 @@ func ListUsersBrief(c *gin.Context) {
 	}
 
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
@@ -314,7 +314,7 @@ func CreateUser(c *gin.Context) {
 	err := GenerateUserAuthInfo(ctx)
 	if err != nil {
 		ctx.UnAuthorized = true
-		ctx.Err = fmt.Errorf("failed to generate user authorization info, error: %s", err)
+		ctx.RespErr = fmt.Errorf("failed to generate user authorization info, error: %s", err)
 		return
 	}
 
@@ -326,10 +326,10 @@ func CreateUser(c *gin.Context) {
 
 	args := &permission.User{}
 	if err := c.ShouldBindJSON(args); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
-	ctx.Resp, ctx.Err = permission.CreateUser(args, ctx.Logger)
+	ctx.Resp, ctx.RespErr = permission.CreateUser(args, ctx.Logger)
 }
 
 func UpdateUser(c *gin.Context) {
@@ -340,7 +340,7 @@ func UpdateUser(c *gin.Context) {
 	err := GenerateUserAuthInfo(ctx)
 	if err != nil {
 		ctx.UnAuthorized = true
-		ctx.Err = fmt.Errorf("failed to generate user authorization info, error: %s", err)
+		ctx.RespErr = fmt.Errorf("failed to generate user authorization info, error: %s", err)
 		return
 	}
 
@@ -352,11 +352,11 @@ func UpdateUser(c *gin.Context) {
 
 	args := &permission.UpdateUserInfo{}
 	if err := c.ShouldBindJSON(args); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 	uid := c.Param("uid")
-	ctx.Err = permission.UpdateUser(uid, args, ctx.Logger)
+	ctx.RespErr = permission.UpdateUser(uid, args, ctx.Logger)
 }
 
 func UpdatePersonalUser(c *gin.Context) {
@@ -364,15 +364,15 @@ func UpdatePersonalUser(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	args := &permission.UpdateUserInfo{}
 	if err := c.ShouldBindJSON(args); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 	uid := c.Param("uid")
 	if ctx.UserID != uid {
-		ctx.Err = e.ErrForbidden
+		ctx.RespErr = e.ErrForbidden
 		return
 	}
-	ctx.Err = permission.UpdateUser(uid, args, ctx.Logger)
+	ctx.RespErr = permission.UpdateUser(uid, args, ctx.Logger)
 }
 
 func UpdateUserSetting(c *gin.Context) {
@@ -380,15 +380,15 @@ func UpdateUserSetting(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	args := &permission.UserSetting{}
 	if err := c.ShouldBindJSON(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 	uid := c.Param("uid")
 	if ctx.UserID != uid {
-		ctx.Err = e.ErrForbidden
+		ctx.RespErr = e.ErrForbidden
 		return
 	}
-	ctx.Err = permission.UpdateUserSetting(uid, args)
+	ctx.RespErr = permission.UpdateUserSetting(uid, args)
 }
 
 func SignUp(c *gin.Context) {
@@ -396,16 +396,16 @@ func SignUp(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	args := &permission.User{}
 	if err := c.ShouldBindJSON(args); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
-	ctx.Resp, ctx.Err = permission.CreateUser(args, ctx.Logger)
+	ctx.Resp, ctx.RespErr = permission.CreateUser(args, ctx.Logger)
 }
 
 func Retrieve(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	ctx.Resp, ctx.Err = permission.Retrieve(c.Query("account"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = permission.Retrieve(c.Query("account"), ctx.Logger)
 }
 
 func UpdatePassword(c *gin.Context) {
@@ -413,11 +413,11 @@ func UpdatePassword(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	args := &permission.Password{}
 	if err := c.ShouldBindJSON(args); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 	args.Uid = c.Param("uid")
-	ctx.Err = permission.UpdatePassword(args, ctx.Logger)
+	ctx.RespErr = permission.UpdatePassword(args, ctx.Logger)
 }
 
 func Reset(c *gin.Context) {
@@ -425,9 +425,9 @@ func Reset(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	args := &permission.ResetParams{}
 	if err := c.ShouldBindJSON(args); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 	args.Uid = ctx.UserID
-	ctx.Err = permission.Reset(args, ctx.Logger)
+	ctx.RespErr = permission.Reset(args, ctx.Logger)
 }

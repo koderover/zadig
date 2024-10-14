@@ -36,11 +36,11 @@ func GetBuildStat(c *gin.Context) {
 
 	args := new(GetBuildStatArgs)
 	if err := c.ShouldBindQuery(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.GetBuildTotalAndSuccess(&models.BuildStatOption{
+	ctx.Resp, ctx.RespErr = service.GetBuildTotalAndSuccess(&models.BuildStatOption{
 		StartDate: args.StartDate,
 		EndDate:   args.EndDate,
 	}, ctx.Logger)
@@ -58,7 +58,7 @@ func GetBuildStatForOpenAPI(c *gin.Context) {
 
 	args := new(OpenAPIGetBuildStatArgs)
 	if err := c.ShouldBindQuery(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 
@@ -71,5 +71,5 @@ func GetBuildStatForOpenAPI(c *gin.Context) {
 		queryArgs.ProductNames = []string{args.Project}
 	}
 
-	ctx.Resp, ctx.Err = service.GetBuildStats(queryArgs, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetBuildStats(queryArgs, ctx.Logger)
 }

@@ -46,7 +46,7 @@ func ListEnvServiceVersions(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -54,7 +54,7 @@ func ListEnvServiceVersions(c *gin.Context) {
 	projectKey := c.Query("projectName")
 	envName := c.Param("name")
 	if envName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("empty name")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("empty name")
 		return
 	}
 	production := c.Query("production") == "true"
@@ -78,7 +78,7 @@ func ListEnvServiceVersions(c *gin.Context) {
 
 			err = commonutil.CheckZadigProfessionalLicense()
 			if err != nil {
-				ctx.Err = err
+				ctx.RespErr = err
 				return
 			}
 		} else {
@@ -95,17 +95,17 @@ func ListEnvServiceVersions(c *gin.Context) {
 
 	serviceName := c.Param("serviceName")
 	if serviceName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("empty serviceName")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("empty serviceName")
 		return
 	}
 
 	isHelmChart, err := strconv.ParseBool(c.Query("isHelmChart"))
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(fmt.Errorf("invalid isHelmChart: %s", err))
+		ctx.RespErr = e.ErrInvalidParam.AddErr(fmt.Errorf("invalid isHelmChart: %s", err))
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.ListEnvServiceVersions(ctx, projectKey, envName, serviceName, isHelmChart, production, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.ListEnvServiceVersions(ctx, projectKey, envName, serviceName, isHelmChart, production, ctx.Logger)
 }
 
 // @Summary Get Environment Service Version Yaml
@@ -126,7 +126,7 @@ func GetEnvServiceVersionYaml(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -134,7 +134,7 @@ func GetEnvServiceVersionYaml(c *gin.Context) {
 	projectKey := c.Query("projectName")
 	envName := c.Param("name")
 	if envName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("empty name")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("empty name")
 		return
 	}
 	production := c.Query("production") == "true"
@@ -158,7 +158,7 @@ func GetEnvServiceVersionYaml(c *gin.Context) {
 
 			err = commonutil.CheckZadigProfessionalLicense()
 			if err != nil {
-				ctx.Err = err
+				ctx.RespErr = err
 				return
 			}
 		} else {
@@ -175,23 +175,23 @@ func GetEnvServiceVersionYaml(c *gin.Context) {
 
 	serviceName := c.Param("serviceName")
 	if serviceName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("empty serviceName")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("empty serviceName")
 		return
 	}
 
 	revision, err := strconv.ParseInt(c.Param("revision"), 10, 64)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(fmt.Errorf("invalid revision: %s", err))
+		ctx.RespErr = e.ErrInvalidParam.AddErr(fmt.Errorf("invalid revision: %s", err))
 		return
 	}
 
 	isHelmChart, err := strconv.ParseBool(c.Query("isHelmChart"))
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(fmt.Errorf("invalid isHelmChart: %s", err))
+		ctx.RespErr = e.ErrInvalidParam.AddErr(fmt.Errorf("invalid isHelmChart: %s", err))
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.GetEnvServiceVersionYaml(ctx, projectKey, envName, serviceName, revision, isHelmChart, production, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetEnvServiceVersionYaml(ctx, projectKey, envName, serviceName, revision, isHelmChart, production, ctx.Logger)
 }
 
 // @Summary Diff Environment Service Versions
@@ -213,7 +213,7 @@ func DiffEnvServiceVersions(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -221,7 +221,7 @@ func DiffEnvServiceVersions(c *gin.Context) {
 	projectKey := c.Query("projectName")
 	envName := c.Param("name")
 	if envName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("empty name")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("empty name")
 		return
 	}
 	production := c.Query("production") == "true"
@@ -245,7 +245,7 @@ func DiffEnvServiceVersions(c *gin.Context) {
 
 			err = commonutil.CheckZadigProfessionalLicense()
 			if err != nil {
-				ctx.Err = err
+				ctx.RespErr = err
 				return
 			}
 		} else {
@@ -262,28 +262,28 @@ func DiffEnvServiceVersions(c *gin.Context) {
 
 	serviceName := c.Param("serviceName")
 	if serviceName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("empty serviceName")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("empty serviceName")
 		return
 	}
 
 	revisionA, err := strconv.ParseInt(c.Query("revisionA"), 10, 64)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(fmt.Errorf("invalid revisionA: %s", err))
+		ctx.RespErr = e.ErrInvalidParam.AddErr(fmt.Errorf("invalid revisionA: %s", err))
 		return
 	}
 	revisionB, err := strconv.ParseInt(c.Query("revisionB"), 10, 64)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(fmt.Errorf("invalid revisionB: %s", err))
+		ctx.RespErr = e.ErrInvalidParam.AddErr(fmt.Errorf("invalid revisionB: %s", err))
 		return
 	}
 
 	isHelmChart, err := strconv.ParseBool(c.Query("isHelmChart"))
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(fmt.Errorf("invalid isHelmChart: %s", err))
+		ctx.RespErr = e.ErrInvalidParam.AddErr(fmt.Errorf("invalid isHelmChart: %s", err))
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.DiffEnvServiceVersions(ctx, projectKey, envName, serviceName, revisionA, revisionB, isHelmChart, production, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.DiffEnvServiceVersions(ctx, projectKey, envName, serviceName, revisionA, revisionB, isHelmChart, production, ctx.Logger)
 }
 
 // @Summary Rollback Environment Service Version
@@ -303,7 +303,7 @@ func RollbackEnvServiceVersion(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -311,7 +311,7 @@ func RollbackEnvServiceVersion(c *gin.Context) {
 	projectKey := c.Query("projectName")
 	envName := c.Param("name")
 	if envName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("empty name")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("empty name")
 		return
 	}
 	production := c.Query("production") == "true"
@@ -346,28 +346,28 @@ func RollbackEnvServiceVersion(c *gin.Context) {
 
 	serviceName := c.Param("serviceName")
 	if serviceName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("empty serviceName")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("empty serviceName")
 		return
 	}
 
 	revision, err := strconv.ParseInt(c.Query("revision"), 10, 64)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(fmt.Errorf("invalid revison: %s", err))
+		ctx.RespErr = e.ErrInvalidParam.AddErr(fmt.Errorf("invalid revison: %s", err))
 		return
 	}
 
 	isHelmChart, err := strconv.ParseBool(c.Query("isHelmChart"))
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(fmt.Errorf("invalid isHelmChart: %s", err))
+		ctx.RespErr = e.ErrInvalidParam.AddErr(fmt.Errorf("invalid isHelmChart: %s", err))
 		return
 	}
 
 	if err := commonutil.CheckZadigProfessionalLicense(); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "回滚", "环境-服务", fmt.Sprintf("环境: %s, 服务: %s, 版本: %d", envName, serviceName, revision), "", ctx.Logger, envName)
 
-	ctx.Err = service.RollbackEnvServiceVersion(ctx, projectKey, envName, serviceName, revision, isHelmChart, production, ctx.Logger)
+	ctx.RespErr = service.RollbackEnvServiceVersion(ctx, projectKey, envName, serviceName, revision, isHelmChart, production, ctx.Logger)
 }

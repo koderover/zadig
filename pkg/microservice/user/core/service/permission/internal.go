@@ -41,6 +41,7 @@ var readOnlyAction = []string{
 	VerbGetEnvironment,
 	VerbGetProductionEnv,
 	VerbGetScan,
+	VerbGetSprint,
 }
 
 func InitializeProjectAuthorization(namespace string, isPublic bool, admins []string, log *zap.SugaredLogger) error {

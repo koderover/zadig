@@ -34,16 +34,16 @@ func GetLocalTestSuite(c *gin.Context) {
 
 	taskID, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid task id")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid task id")
 		return
 	}
 	testType := c.Query("testType")
 	if testType == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid testType")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid testType")
 		return
 	}
 
-	ctx.Resp, ctx.Err = commonservice.GetLocalTestSuite(c.Param("pipelineName"), "", testType, taskID, c.Param("testName"), config.SingleType, ctx.Logger)
+	ctx.Resp, ctx.RespErr = commonservice.GetLocalTestSuite(c.Param("pipelineName"), "", testType, taskID, c.Param("testName"), config.SingleType, ctx.Logger)
 }
 
 func GetWorkflowV4LocalTestSuite(c *gin.Context) {
@@ -52,11 +52,11 @@ func GetWorkflowV4LocalTestSuite(c *gin.Context) {
 
 	taskID, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid task id")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid task id")
 		return
 	}
 
-	ctx.Resp, ctx.Err = commonservice.GetWorkflowV4LocalTestSuite(c.Param("workflowName"), c.Param("jobName"), taskID, ctx.Logger)
+	ctx.Resp, ctx.RespErr = commonservice.GetWorkflowV4LocalTestSuite(c.Param("workflowName"), c.Param("jobName"), taskID, ctx.Logger)
 }
 
 func GetWorkflowLocalTestSuite(c *gin.Context) {
@@ -65,12 +65,12 @@ func GetWorkflowLocalTestSuite(c *gin.Context) {
 
 	taskID, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid task id")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid task id")
 		return
 	}
 	testType := c.Query("testType")
 	if testType == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid testType")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid testType")
 		return
 	}
 
@@ -79,12 +79,12 @@ func GetWorkflowLocalTestSuite(c *gin.Context) {
 	if workflowType == string(config.TestType) {
 		workflowTypeString = config.TestType
 	}
-	ctx.Resp, ctx.Err = commonservice.GetLocalTestSuite(c.Param("pipelineName"), c.Param("serviceName"), testType, taskID, c.Param("testName"), workflowTypeString, ctx.Logger)
+	ctx.Resp, ctx.RespErr = commonservice.GetLocalTestSuite(c.Param("pipelineName"), c.Param("serviceName"), testType, taskID, c.Param("testName"), workflowTypeString, ctx.Logger)
 }
 
 func GetTestLocalTestSuite(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.GetTestLocalTestSuite(c.Param("testName"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetTestLocalTestSuite(c.Param("testName"), ctx.Logger)
 }

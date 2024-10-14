@@ -38,7 +38,7 @@ func UpdateStatefulSetContainerImage(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -83,7 +83,7 @@ func UpdateStatefulSetContainerImage(c *gin.Context) {
 
 			err = commonutil.CheckZadigProfessionalLicense()
 			if err != nil {
-				ctx.Err = err
+				ctx.RespErr = err
 				return
 			}
 		} else {
@@ -101,11 +101,11 @@ func UpdateStatefulSetContainerImage(c *gin.Context) {
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.BindJSON(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 
-	ctx.Err = service.UpdateContainerImage(ctx.RequestID, ctx.UserName, args, ctx.Logger)
+	ctx.RespErr = service.UpdateContainerImage(ctx.RequestID, ctx.UserName, args, ctx.Logger)
 }
 
 func UpdateDeploymentContainerImage(c *gin.Context) {
@@ -113,7 +113,7 @@ func UpdateDeploymentContainerImage(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -163,7 +163,7 @@ func UpdateDeploymentContainerImage(c *gin.Context) {
 
 			err = commonutil.CheckZadigProfessionalLicense()
 			if err != nil {
-				ctx.Err = err
+				ctx.RespErr = err
 				return
 			}
 		} else {
@@ -195,11 +195,11 @@ func UpdateDeploymentContainerImage(c *gin.Context) {
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.BindJSON(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 
-	ctx.Err = service.UpdateContainerImage(ctx.RequestID, ctx.UserName, args, ctx.Logger)
+	ctx.RespErr = service.UpdateContainerImage(ctx.RequestID, ctx.UserName, args, ctx.Logger)
 }
 
 func UpdateCronJobContainerImage(c *gin.Context) {
@@ -207,7 +207,7 @@ func UpdateCronJobContainerImage(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -250,7 +250,7 @@ func UpdateCronJobContainerImage(c *gin.Context) {
 
 			err = commonutil.CheckZadigProfessionalLicense()
 			if err != nil {
-				ctx.Err = err
+				ctx.RespErr = err
 				return
 			}
 		} else {
@@ -268,11 +268,11 @@ func UpdateCronJobContainerImage(c *gin.Context) {
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.BindJSON(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 
-	ctx.Err = service.UpdateContainerImage(ctx.RequestID, ctx.UserName, args, ctx.Logger)
+	ctx.RespErr = service.UpdateContainerImage(ctx.RequestID, ctx.UserName, args, ctx.Logger)
 }
 
 type OpenAPIUpdateContainerImageArgs struct {
@@ -290,7 +290,7 @@ func OpenAPIUpdateDeploymentContainerImage(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -344,7 +344,7 @@ func OpenAPIUpdateDeploymentContainerImage(c *gin.Context) {
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.BindJSON(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 
@@ -358,7 +358,7 @@ func OpenAPIUpdateDeploymentContainerImage(c *gin.Context) {
 		Image:         args.Image,
 	}
 
-	ctx.Err = service.UpdateContainerImage(ctx.RequestID, ctx.UserName, origArgs, ctx.Logger)
+	ctx.RespErr = service.UpdateContainerImage(ctx.RequestID, ctx.UserName, origArgs, ctx.Logger)
 }
 
 func OpenAPIUpdateStatefulSetContainerImage(c *gin.Context) {
@@ -366,7 +366,7 @@ func OpenAPIUpdateStatefulSetContainerImage(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -409,7 +409,7 @@ func OpenAPIUpdateStatefulSetContainerImage(c *gin.Context) {
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.BindJSON(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 
@@ -423,7 +423,7 @@ func OpenAPIUpdateStatefulSetContainerImage(c *gin.Context) {
 		Image:         args.Image,
 	}
 
-	ctx.Err = service.UpdateContainerImage(ctx.RequestID, ctx.UserName, origArgs, ctx.Logger)
+	ctx.RespErr = service.UpdateContainerImage(ctx.RequestID, ctx.UserName, origArgs, ctx.Logger)
 }
 
 func OpenAPIUpdateCronJobContainerImage(c *gin.Context) {
@@ -431,7 +431,7 @@ func OpenAPIUpdateCronJobContainerImage(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -472,7 +472,7 @@ func OpenAPIUpdateCronJobContainerImage(c *gin.Context) {
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.BindJSON(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 
@@ -486,5 +486,5 @@ func OpenAPIUpdateCronJobContainerImage(c *gin.Context) {
 		Image:         args.Image,
 	}
 
-	ctx.Err = service.UpdateContainerImage(ctx.RequestID, ctx.UserName, origArgs, ctx.Logger)
+	ctx.RespErr = service.UpdateContainerImage(ctx.RequestID, ctx.UserName, origArgs, ctx.Logger)
 }

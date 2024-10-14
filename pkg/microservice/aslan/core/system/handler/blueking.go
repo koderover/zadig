@@ -38,7 +38,7 @@ func ListBluekingBusiness(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -53,7 +53,7 @@ func ListBluekingBusiness(c *gin.Context) {
 	err = c.ShouldBindQuery(&args)
 
 	if args.ID == "" {
-		ctx.Err = e.ErrInvalidParam
+		ctx.RespErr = e.ErrInvalidParam
 		return
 	}
 
@@ -65,7 +65,7 @@ func ListBluekingBusiness(c *gin.Context) {
 		args.PerPage = 2000
 	}
 
-	ctx.Resp, ctx.Err = service.ListBlueKingBusiness(args.ID, args.Page, args.PerPage, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.ListBlueKingBusiness(args.ID, args.Page, args.PerPage, ctx.Logger)
 }
 
 type ListBlueKingExecutionPlanReq struct {
@@ -81,7 +81,7 @@ func ListBlueKingExecutionPlan(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -96,7 +96,7 @@ func ListBlueKingExecutionPlan(c *gin.Context) {
 	args := new(ListBlueKingExecutionPlanReq)
 	err = c.ShouldBindQuery(args)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 
@@ -107,7 +107,7 @@ func ListBlueKingExecutionPlan(c *gin.Context) {
 		args.PerPage = 1000
 	}
 
-	ctx.Resp, ctx.Err = service.ListBlueKingExecutionPlan(args.ToolID, args.BusinessID, args.Name, args.Page, args.PerPage, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.ListBlueKingExecutionPlan(args.ToolID, args.BusinessID, args.Name, args.Page, args.PerPage, ctx.Logger)
 }
 
 func GetBlueKingExecutionPlanDetail(c *gin.Context) {
@@ -115,7 +115,7 @@ func GetBlueKingExecutionPlanDetail(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -130,17 +130,17 @@ func GetBlueKingExecutionPlanDetail(c *gin.Context) {
 	args := new(ListBlueKingExecutionPlanReq)
 	err = c.ShouldBindQuery(args)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 
 	planIDStr := c.Param("id")
 	planID, err := strconv.ParseInt(planIDStr, 10, 64)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 	}
 
-	ctx.Resp, ctx.Err = service.GetBlueKingExecutionPlanDetail(args.ToolID, args.BusinessID, planID, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetBlueKingExecutionPlanDetail(args.ToolID, args.BusinessID, planID, ctx.Logger)
 }
 
 type BKTopologyResp struct {
@@ -152,7 +152,7 @@ func GetBlueKingBusinessTopology(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -167,13 +167,13 @@ func GetBlueKingBusinessTopology(c *gin.Context) {
 	args := new(ListBlueKingExecutionPlanReq)
 	err = c.ShouldBindQuery(args)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 
 	resp, err := service.GetBlueKingBusinessTopology(args.ToolID, args.BusinessID, ctx.Logger)
 	if err != nil {
-		ctx.Err = e.ErrInternalError.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInternalError.AddDesc(err.Error())
 		return
 	}
 
@@ -195,7 +195,7 @@ func ListServerByBlueKingTopologyNode(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -210,7 +210,7 @@ func ListServerByBlueKingTopologyNode(c *gin.Context) {
 	args := new(ListServerByBlueKingTopologyNodeReq)
 	err = c.ShouldBindQuery(args)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 
@@ -221,7 +221,7 @@ func ListServerByBlueKingTopologyNode(c *gin.Context) {
 		args.PerPage = 500
 	}
 
-	ctx.Resp, ctx.Err = service.ListServerByBlueKingTopologyNode(args.ToolID, args.BusinessID, args.InstanceID, args.ObjectID, args.Page, args.PerPage, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.ListServerByBlueKingTopologyNode(args.ToolID, args.BusinessID, args.InstanceID, args.ObjectID, args.Page, args.PerPage, ctx.Logger)
 }
 
 func ListServerByBlueKingBusiness(c *gin.Context) {
@@ -229,7 +229,7 @@ func ListServerByBlueKingBusiness(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -244,7 +244,7 @@ func ListServerByBlueKingBusiness(c *gin.Context) {
 	args := new(ListBlueKingExecutionPlanReq)
 	err = c.ShouldBindQuery(args)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 
@@ -255,5 +255,5 @@ func ListServerByBlueKingBusiness(c *gin.Context) {
 		args.PerPage = 500
 	}
 
-	ctx.Resp, ctx.Err = service.ListServerByBlueKingBusiness(args.ToolID, args.BusinessID, args.Page, args.PerPage, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.ListServerByBlueKingBusiness(args.ToolID, args.BusinessID, args.Page, args.PerPage, ctx.Logger)
 }

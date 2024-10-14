@@ -30,14 +30,14 @@ func ListPluginTemplates(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = workflow.ListPluginTemplates(ctx.Logger)
+	ctx.Resp, ctx.RespErr = workflow.ListPluginTemplates(ctx.Logger)
 }
 
 func ListUnofficalPluginRepositories(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = workflow.ListUnofficalPluginRepositories(ctx.Logger)
+	ctx.Resp, ctx.RespErr = workflow.ListUnofficalPluginRepositories(ctx.Logger)
 }
 
 func DeletePluginRepo(c *gin.Context) {
@@ -46,7 +46,7 @@ func DeletePluginRepo(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -57,7 +57,7 @@ func DeletePluginRepo(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = workflow.DeletePluginRepo(c.Param("id"), ctx.Logger)
+	ctx.RespErr = workflow.DeletePluginRepo(c.Param("id"), ctx.Logger)
 }
 
 func UpsertUserPluginRepository(c *gin.Context) {
@@ -66,7 +66,7 @@ func UpsertUserPluginRepository(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -79,10 +79,10 @@ func UpsertUserPluginRepository(c *gin.Context) {
 
 	req := new(commonmodels.PluginRepo)
 	if err := c.ShouldBindJSON(req); err != nil {
-		ctx.Err = errors.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = errors.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
-	ctx.Err = workflow.UpsertUserPluginRepository(req, ctx.Logger)
+	ctx.RespErr = workflow.UpsertUserPluginRepository(req, ctx.Logger)
 }
 
 func UpsertEnterprisePluginRepository(c *gin.Context) {
@@ -91,8 +91,8 @@ func UpsertEnterprisePluginRepository(c *gin.Context) {
 
 	req := new(commonmodels.PluginRepo)
 	if err := c.ShouldBindJSON(req); err != nil {
-		ctx.Err = errors.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = errors.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
-	ctx.Err = workflow.UpsertEnterprisePluginRepository(req, ctx.Logger)
+	ctx.RespErr = workflow.UpsertEnterprisePluginRepository(req, ctx.Logger)
 }

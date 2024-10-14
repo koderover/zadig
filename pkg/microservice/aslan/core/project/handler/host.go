@@ -45,24 +45,24 @@ func ListPMHosts(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	encryptedKey := c.Query("encryptedKey")
 	if len(encryptedKey) == 0 {
-		ctx.Err = e.ErrInvalidParam
+		ctx.RespErr = e.ErrInvalidParam
 		return
 	}
-	ctx.Resp, ctx.Err = systemservice.ListPrivateKeys(encryptedKey, c.Query("projectName"), c.Query("keyword"), false, ctx.Logger)
+	ctx.Resp, ctx.RespErr = systemservice.ListPrivateKeys(encryptedKey, c.Query("projectName"), c.Query("keyword"), false, ctx.Logger)
 }
 
 func GetPMHost(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.GetPrivateKey(c.Param("id"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetPrivateKey(c.Param("id"), ctx.Logger)
 }
 
 func ListLabels(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.ListLabels()
+	ctx.Resp, ctx.RespErr = service.ListLabels()
 }
 
 func CreatePMHost(c *gin.Context) {
@@ -71,7 +71,7 @@ func CreatePMHost(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -102,12 +102,12 @@ func CreatePMHost(c *gin.Context) {
 
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 	if err := c.ShouldBindWith(&args, binding.JSON); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid physical machine args")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid physical machine args")
 		return
 	}
 	args.UpdateBy = ctx.UserName
 	args.ProjectName = projectKey
-	ctx.Resp, ctx.Err = systemservice.CreatePrivateKey(args, ctx.Logger)
+	ctx.Resp, ctx.RespErr = systemservice.CreatePrivateKey(args, ctx.Logger)
 }
 
 func BatchCreatePMHost(c *gin.Context) {
@@ -116,7 +116,7 @@ func BatchCreatePMHost(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -134,7 +134,7 @@ func BatchCreatePMHost(c *gin.Context) {
 	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "批量新增", "项目资源-主机管理", "", string(data), ctx.Logger)
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 	if err := c.ShouldBindJSON(&args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid physical machine args")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid physical machine args")
 		return
 	}
 
@@ -153,7 +153,7 @@ func BatchCreatePMHost(c *gin.Context) {
 	for _, pmArg := range args.Data {
 		pmArg.ProjectName = projectKey
 	}
-	ctx.Err = systemservice.BatchCreatePrivateKey(args.Data, args.Option, ctx.UserName, ctx.Logger)
+	ctx.RespErr = systemservice.BatchCreatePrivateKey(args.Data, args.Option, ctx.UserName, ctx.Logger)
 }
 
 func UpdatePMHost(c *gin.Context) {
@@ -162,7 +162,7 @@ func UpdatePMHost(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -180,7 +180,7 @@ func UpdatePMHost(c *gin.Context) {
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.ShouldBindWith(&args, binding.JSON); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid physical machine args")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid physical machine args")
 		return
 	}
 	args.UpdateBy = ctx.UserName
@@ -197,7 +197,7 @@ func UpdatePMHost(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = systemservice.UpdatePrivateKey(c.Param("id"), args, ctx.Logger)
+	ctx.RespErr = systemservice.UpdatePrivateKey(c.Param("id"), args, ctx.Logger)
 }
 
 // TODO: add authorization to this
@@ -206,7 +206,7 @@ func DeletePMHost(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -215,7 +215,7 @@ func DeletePMHost(c *gin.Context) {
 		ID: c.Param("id"),
 	})
 	if err != nil {
-		ctx.Err = e.ErrDeletePrivateKey.AddErr(fmt.Errorf("find pm host from db error: %v", err))
+		ctx.RespErr = e.ErrDeletePrivateKey.AddErr(fmt.Errorf("find pm host from db error: %v", err))
 		return
 	}
 
@@ -232,7 +232,7 @@ func DeletePMHost(c *gin.Context) {
 	}
 
 	internalhandler.InsertOperationLog(c, ctx.UserName, "", "删除", "项目资源-主机管理", fmt.Sprintf("id:%s", c.Param("id")), "", ctx.Logger)
-	ctx.Err = systemservice.DeletePrivateKey(c.Param("id"), ctx.UserName, ctx.Logger)
+	ctx.RespErr = systemservice.DeletePrivateKey(c.Param("id"), ctx.UserName, ctx.Logger)
 }
 
 func GetAgentAccessCmd(c *gin.Context) {
@@ -240,7 +240,7 @@ func GetAgentAccessCmd(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -248,7 +248,7 @@ func GetAgentAccessCmd(c *gin.Context) {
 	projectKey := c.Query("projectName")
 	vmID := c.Param("id")
 	if vmID == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid vm id")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid vm id")
 		return
 	}
 
@@ -266,7 +266,7 @@ func GetAgentAccessCmd(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.Err = vmservice.GetAgentAccessCmd(vmID, ctx.Logger)
+	ctx.Resp, ctx.RespErr = vmservice.GetAgentAccessCmd(vmID, ctx.Logger)
 }
 
 func OfflineVM(c *gin.Context) {
@@ -275,7 +275,7 @@ func OfflineVM(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -283,7 +283,7 @@ func OfflineVM(c *gin.Context) {
 	projectKey := c.Query("projectName")
 	vmID := c.Param("id")
 	if vmID == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid vm id")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid vm id")
 		return
 	}
 
@@ -301,7 +301,7 @@ func OfflineVM(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = vmservice.OfflineVM(vmID, ctx.UserName, ctx.Logger)
+	ctx.RespErr = vmservice.OfflineVM(vmID, ctx.UserName, ctx.Logger)
 }
 
 func RecoveryVM(c *gin.Context) {
@@ -310,7 +310,7 @@ func RecoveryVM(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -318,7 +318,7 @@ func RecoveryVM(c *gin.Context) {
 	projectKey := c.Query("projectName")
 	vmID := c.Param("id")
 	if vmID == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid vm id")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid vm id")
 		return
 	}
 
@@ -336,7 +336,7 @@ func RecoveryVM(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.Err = vmservice.RecoveryVM(vmID, ctx.UserName, ctx.Logger)
+	ctx.Resp, ctx.RespErr = vmservice.RecoveryVM(vmID, ctx.UserName, ctx.Logger)
 }
 
 func UpgradeAgent(c *gin.Context) {
@@ -345,7 +345,7 @@ func UpgradeAgent(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -353,7 +353,7 @@ func UpgradeAgent(c *gin.Context) {
 	projectKey := c.Query("projectName")
 	vmID := c.Param("id")
 	if vmID == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid vm id")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid vm id")
 		return
 	}
 
@@ -371,5 +371,5 @@ func UpgradeAgent(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.Err = vmservice.UpgradeAgent(vmID, ctx.UserName, ctx.Logger)
+	ctx.Resp, ctx.RespErr = vmservice.UpgradeAgent(vmID, ctx.UserName, ctx.Logger)
 }

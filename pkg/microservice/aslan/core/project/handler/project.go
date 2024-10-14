@@ -49,14 +49,14 @@ func ListProjects(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	args := &projectListArgs{}
 	if err := c.ShouldBindQuery(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 
@@ -68,7 +68,7 @@ func ListProjects(c *gin.Context) {
 		var found bool
 		authorizedProjectList, found, err = internalhandler.ListAuthorizedProjects(ctx.UserID)
 		if err != nil {
-			ctx.Err = e.ErrInternalError.AddDesc(err.Error())
+			ctx.RespErr = e.ErrInternalError.AddDesc(err.Error())
 			return
 		}
 
@@ -83,11 +83,11 @@ func ListProjects(c *gin.Context) {
 
 	ungrouped, err := strconv.ParseBool(c.Query("ungrouped"))
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(fmt.Errorf("ungrouped is not bool"))
+		ctx.RespErr = e.ErrInvalidParam.AddErr(fmt.Errorf("ungrouped is not bool"))
 		return
 	}
 
-	ctx.Resp, ctx.Err = projectservice.ListProjects(
+	ctx.Resp, ctx.RespErr = projectservice.ListProjects(
 		&projectservice.ProjectListOptions{
 			IgnoreNoEnvs:     args.IgnoreNoEnvs,
 			IgnoreNoVersions: args.IgnoreNoVersions,
@@ -116,7 +116,7 @@ func GetBizDirProject(c *gin.Context) {
 
 	if err != nil {
 		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -130,11 +130,11 @@ func GetBizDirProject(c *gin.Context) {
 
 	err = util.CheckZadigEnterpriseLicense()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
-	ctx.Resp, ctx.Err = projectservice.GetBizDirProject()
+	ctx.Resp, ctx.RespErr = projectservice.GetBizDirProject()
 }
 
 // @Summary Get Bussiness Directory Project Services
@@ -151,7 +151,7 @@ func GetBizDirProjectServices(c *gin.Context) {
 
 	if err != nil {
 		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -167,22 +167,22 @@ func GetBizDirProjectServices(c *gin.Context) {
 
 	err = c.ShouldBindQuery(req)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid param, err: " + err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid param, err: " + err.Error())
 		return
 	}
 
 	if req.ProjectName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid project name")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid project name")
 		return
 	}
 
 	err = util.CheckZadigEnterpriseLicense()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
-	ctx.Resp, ctx.Err = projectservice.GetBizDirProjectServices(req.ProjectName, req.Labels)
+	ctx.Resp, ctx.RespErr = projectservice.GetBizDirProjectServices(req.ProjectName, req.Labels)
 }
 
 type searchBizDirByProjectReq struct {
@@ -204,7 +204,7 @@ func SearchBizDirByProject(c *gin.Context) {
 
 	if err != nil {
 		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -220,17 +220,17 @@ func SearchBizDirByProject(c *gin.Context) {
 
 	err = c.ShouldBindQuery(req)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid param, err: " + err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid param, err: " + err.Error())
 		return
 	}
 
 	err = util.CheckZadigEnterpriseLicense()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
-	ctx.Resp, ctx.Err = projectservice.SearchBizDirByProject(req.ProjectName, req.Labels)
+	ctx.Resp, ctx.RespErr = projectservice.SearchBizDirByProject(req.ProjectName, req.Labels)
 }
 
 type searchBizDirByServiceReq struct {
@@ -252,7 +252,7 @@ func SearchBizDirByService(c *gin.Context) {
 
 	if err != nil {
 		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -268,17 +268,17 @@ func SearchBizDirByService(c *gin.Context) {
 
 	err = c.ShouldBindQuery(req)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid param, err: " + err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid param, err: " + err.Error())
 		return
 	}
 
 	err = util.CheckZadigEnterpriseLicense()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
-	ctx.Resp, ctx.Err = projectservice.SearchBizDirByService(req.ServiceName, req.Labels)
+	ctx.Resp, ctx.RespErr = projectservice.SearchBizDirByService(req.ServiceName, req.Labels)
 }
 
 type searchBizDirReq struct {
@@ -302,7 +302,7 @@ func GetBizDirServiceDetail(c *gin.Context) {
 
 	if err != nil {
 		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -316,21 +316,21 @@ func GetBizDirServiceDetail(c *gin.Context) {
 
 	projectName := c.Query("projectName")
 	if projectName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid project name")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid project name")
 		return
 	}
 
 	serviceName := c.Query("serviceName")
 	if serviceName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid service name")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid service name")
 		return
 	}
 
 	err = util.CheckZadigEnterpriseLicense()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
-	ctx.Resp, ctx.Err = projectservice.GetBizDirServiceDetail(projectName, serviceName)
+	ctx.Resp, ctx.RespErr = projectservice.GetBizDirServiceDetail(projectName, serviceName)
 }

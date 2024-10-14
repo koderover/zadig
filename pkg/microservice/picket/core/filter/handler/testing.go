@@ -27,5 +27,5 @@ func ListTestings(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.ListTestings(c.Request.Header, c.Request.URL.Query(), ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.ListTestings(c.Request.Header, c.Request.URL.Query(), ctx.Logger)
 }

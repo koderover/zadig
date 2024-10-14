@@ -66,7 +66,7 @@ func Login(c *gin.Context) {
 	authCodeURL := oauth2Config.AuthCodeURL(config.AppState, oauth2.AccessTypeOffline)
 	systemConfig, err := aslan.New(configbase.AslanServiceAddress()).GetDefaultLogin()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 	defaultLogin := ""
@@ -134,21 +134,21 @@ func Callback(c *gin.Context) {
 
 	// Authorization redirect callback from OAuth2 auth flow.
 	if errMsg := c.Query("error"); errMsg != "" {
-		ctx.Err = e.ErrCallBackUser.AddDesc(errMsg)
+		ctx.RespErr = e.ErrCallBackUser.AddDesc(errMsg)
 		return
 	}
 	code := c.Query("code")
 	if code == "" {
-		ctx.Err = e.ErrCallBackUser.AddDesc(fmt.Sprintf("no code in request: %q", c.Request.Form))
+		ctx.RespErr = e.ErrCallBackUser.AddDesc(fmt.Sprintf("no code in request: %q", c.Request.Form))
 		return
 	}
 	if state := c.Query("state"); state != config.AppState {
-		ctx.Err = e.ErrCallBackUser.AddDesc(fmt.Sprintf("expected state %q got %q", config.AppState, state))
+		ctx.RespErr = e.ErrCallBackUser.AddDesc(fmt.Sprintf("expected state %q got %q", config.AppState, state))
 		return
 	}
 	claims, err := verifyAndDecode(c.Request.Context(), code)
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
@@ -162,14 +162,14 @@ func Callback(c *gin.Context) {
 		IdentityType: claims.FederatedClaims.ConnectorId,
 	}, true, ctx.Logger)
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
 	systemSettings, err := aslan.New(configbase.AslanServiceAddress()).GetSystemSecurityAndPrivacySettings()
 	if err != nil {
 		log.Errorf("failed to get system security settings, error: %s", err)
-		ctx.Err = fmt.Errorf("failed to get system security settings, error: %s", err)
+		ctx.RespErr = fmt.Errorf("failed to get system security settings, error: %s", err)
 		return
 	}
 
@@ -177,7 +177,7 @@ func Callback(c *gin.Context) {
 	claims.StandardClaims.ExpiresAt = time.Now().Add(time.Duration(systemSettings.TokenExpirationTime) * time.Hour).Unix()
 	userToken, err := login.CreateToken(claims)
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 	err = cache.NewRedisCache(config.RedisUserTokenDB()).Write(claims.UID, userToken, time.Duration(systemSettings.TokenExpirationTime)*time.Hour)

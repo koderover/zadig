@@ -45,7 +45,7 @@ func ListServiceTemplate(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -78,12 +78,12 @@ func ListServiceTemplate(c *gin.Context) {
 	if production {
 		err = commonutil.CheckZadigProfessionalLicense()
 		if err != nil {
-			ctx.Err = err
+			ctx.RespErr = err
 			return
 		}
 	}
 
-	ctx.Resp, ctx.Err = commonservice.ListServiceTemplate(projectName, production, ctx.Logger)
+	ctx.Resp, ctx.RespErr = commonservice.ListServiceTemplate(projectName, production, ctx.Logger)
 }
 
 func ListWorkloadTemplate(c *gin.Context) {
@@ -92,7 +92,7 @@ func ListWorkloadTemplate(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -131,13 +131,13 @@ func ListWorkloadTemplate(c *gin.Context) {
 	if production {
 		err = commonutil.CheckZadigProfessionalLicense()
 		if err != nil {
-			ctx.Err = err
+			ctx.RespErr = err
 			return
 		}
 	}
 
 	// anyone with a token should be able to use this API
-	ctx.Resp, ctx.Err = commonservice.ListWorkloadTemplate(projectName, envName, production, ctx.Logger)
+	ctx.Resp, ctx.RespErr = commonservice.ListWorkloadTemplate(projectName, envName, production, ctx.Logger)
 }
 
 func GetServiceTemplate(c *gin.Context) {
@@ -145,7 +145,7 @@ func GetServiceTemplate(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -183,17 +183,17 @@ func GetServiceTemplate(c *gin.Context) {
 	if production {
 		err = commonutil.CheckZadigProfessionalLicense()
 		if err != nil {
-			ctx.Err = err
+			ctx.RespErr = err
 			return
 		}
 	}
 
 	revision, err := strconv.ParseInt(c.DefaultQuery("revision", "0"), 10, 64)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid revision number")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid revision number")
 		return
 	}
-	ctx.Resp, ctx.Err = commonservice.GetServiceTemplateWithStructure(c.Param("name"), c.Param("type"), projectName, setting.ProductStatusDeleting, revision, production, ctx.Logger)
+	ctx.Resp, ctx.RespErr = commonservice.GetServiceTemplateWithStructure(c.Param("name"), c.Param("type"), projectName, setting.ProductStatusDeleting, revision, production, ctx.Logger)
 }
 
 func GetServiceTemplateOption(c *gin.Context) {
@@ -201,7 +201,7 @@ func GetServiceTemplateOption(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -256,17 +256,17 @@ func GetServiceTemplateOption(c *gin.Context) {
 	if production {
 		err = commonutil.CheckZadigProfessionalLicense()
 		if err != nil {
-			ctx.Err = err
+			ctx.RespErr = err
 			return
 		}
 	}
 
 	revision, err := strconv.ParseInt(c.DefaultQuery("revision", "0"), 10, 64)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid revision number")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid revision number")
 		return
 	}
-	ctx.Resp, ctx.Err = svcservice.GetServiceTemplateOption(c.Param("name"), projectName, revision, production, ctx.Logger)
+	ctx.Resp, ctx.RespErr = svcservice.GetServiceTemplateOption(c.Param("name"), projectName, revision, production, ctx.Logger)
 }
 
 type createServiceTemplateRequest struct {
@@ -294,7 +294,7 @@ func CreateServiceTemplate(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -347,19 +347,19 @@ func CreateServiceTemplate(c *gin.Context) {
 	if production {
 		err = commonutil.CheckZadigProfessionalLicense()
 		if err != nil {
-			ctx.Err = err
+			ctx.RespErr = err
 			return
 		}
 	}
 
 	if err := c.BindJSON(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid ServiceTmpl json args")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid ServiceTmpl json args")
 		return
 	}
 
 	force, err := strconv.ParseBool(c.Query("force"))
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("force params error")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("force params error")
 		return
 	}
 
@@ -373,7 +373,7 @@ func CreateServiceTemplate(c *gin.Context) {
 	svc.ServiceVariableKVs = args.ServiceVariableKVs
 	svc.Yaml = args.Yaml
 
-	ctx.Resp, ctx.Err = svcservice.CreateServiceTemplate(ctx.UserName, svc, force, production, ctx.Logger)
+	ctx.Resp, ctx.RespErr = svcservice.CreateServiceTemplate(ctx.UserName, svc, force, production, ctx.Logger)
 }
 
 // used in cron, update service env status
@@ -382,14 +382,14 @@ func UpdateServiceTemplate(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	args := new(commonservice.ServiceTmplObject)
 	if err := c.ShouldBindJSON(args); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 	if args.Username != "system" {
@@ -411,7 +411,7 @@ func UpdateServiceTemplate(c *gin.Context) {
 	}
 
 	args.Username = ctx.UserName
-	ctx.Err = svcservice.UpdateServiceEnvStatus(args)
+	ctx.RespErr = svcservice.UpdateServiceEnvStatus(args)
 }
 
 type updateServiceVariableRequest struct {
@@ -435,7 +435,7 @@ func UpdateServiceVariable(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -443,7 +443,7 @@ func UpdateServiceVariable(c *gin.Context) {
 	req := new(updateServiceVariableRequest)
 	servceTmplObjectargs := new(commonservice.ServiceTmplObject)
 	if err := c.ShouldBindJSON(req); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
@@ -478,7 +478,7 @@ func UpdateServiceVariable(c *gin.Context) {
 	if production {
 		err = commonutil.CheckZadigProfessionalLicense()
 		if err != nil {
-			ctx.Err = err
+			ctx.RespErr = err
 			return
 		}
 	}
@@ -491,7 +491,7 @@ func UpdateServiceVariable(c *gin.Context) {
 
 	internalhandler.InsertOperationLog(c, ctx.UserName, servceTmplObjectargs.ProductName, "更新", detail, fmt.Sprintf("服务名称:%s", servceTmplObjectargs.ServiceName), "", ctx.Logger)
 
-	ctx.Err = svcservice.UpdateServiceVariables(servceTmplObjectargs, production)
+	ctx.RespErr = svcservice.UpdateServiceVariables(servceTmplObjectargs, production)
 }
 
 func UpdateServiceHealthCheckStatus(c *gin.Context) {
@@ -499,14 +499,14 @@ func UpdateServiceHealthCheckStatus(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	args := new(commonservice.ServiceTmplObject)
 	if err := c.ShouldBindJSON(args); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
@@ -529,7 +529,7 @@ func UpdateServiceHealthCheckStatus(c *gin.Context) {
 		internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductName, "更新", "项目管理-服务", fmt.Sprintf("服务名称:%s,版本号:%d", args.ServiceName, args.Revision), "", ctx.Logger)
 	}
 	args.Username = ctx.UserName
-	ctx.Err = svcservice.UpdateServiceHealthCheckStatus(args)
+	ctx.RespErr = svcservice.UpdateServiceHealthCheckStatus(args)
 }
 
 type ValidatorResp struct {
@@ -542,7 +542,7 @@ func YamlValidator(c *gin.Context) {
 
 	args := new(svcservice.YamlValidatorReq)
 	if err := c.BindJSON(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid yaml args")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid yaml args")
 		return
 	}
 	resp := make([]*ValidatorResp, 0)
@@ -558,7 +558,7 @@ func HelmReleaseNaming(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -582,7 +582,7 @@ func HelmReleaseNaming(c *gin.Context) {
 
 			err = commonutil.CheckZadigProfessionalLicense()
 			if err != nil {
-				ctx.Err = err
+				ctx.RespErr = err
 				return
 			}
 		} else {
@@ -595,13 +595,13 @@ func HelmReleaseNaming(c *gin.Context) {
 	}
 
 	if projectName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("projectName can't be nil")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("projectName can't be nil")
 		return
 	}
 
 	args := new(svcservice.ReleaseNamingRule)
 	if err := c.BindJSON(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid yaml args")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid yaml args")
 		return
 	}
 
@@ -613,7 +613,7 @@ func HelmReleaseNaming(c *gin.Context) {
 	bs, _ := json.Marshal(args)
 	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "修改", detail, args.ServiceName, string(bs), ctx.Logger)
 
-	ctx.Err = svcservice.UpdateReleaseNamingRule(ctx.UserName, ctx.RequestID, projectName, args, production, ctx.Logger)
+	ctx.RespErr = svcservice.UpdateReleaseNamingRule(ctx.UserName, ctx.RequestID, projectName, args, production, ctx.Logger)
 }
 
 func DeleteServiceTemplate(c *gin.Context) {
@@ -621,7 +621,7 @@ func DeleteServiceTemplate(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -657,14 +657,14 @@ func DeleteServiceTemplate(c *gin.Context) {
 	if production {
 		err = commonutil.CheckZadigProfessionalLicense()
 		if err != nil {
-			ctx.Err = err
+			ctx.RespErr = err
 			return
 		}
 	}
 
 	internalhandler.InsertOperationLog(c, ctx.UserName, c.Query("projectName"), "删除", detail, c.Param("name"), "", ctx.Logger)
 
-	ctx.Err = svcservice.DeleteServiceTemplate(c.Param("name"), c.Param("type"), projectName, production, ctx.Logger)
+	ctx.RespErr = svcservice.DeleteServiceTemplate(c.Param("name"), c.Param("type"), projectName, production, ctx.Logger)
 }
 
 func ListServicePort(c *gin.Context) {
@@ -672,10 +672,10 @@ func ListServicePort(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	revision, err := strconv.ParseInt(c.DefaultQuery("revision", "0"), 10, 64)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid revision number")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid revision number")
 		return
 	}
-	ctx.Resp, ctx.Err = svcservice.ListServicePort(c.Param("name"), c.Param("type"), c.Query("projectName"), setting.ProductStatusDeleting, revision, ctx.Logger)
+	ctx.Resp, ctx.RespErr = svcservice.ListServicePort(c.Param("name"), c.Param("type"), c.Query("projectName"), setting.ProductStatusDeleting, revision, ctx.Logger)
 }
 
 func UpdateWorkloads(c *gin.Context) {
@@ -685,7 +685,7 @@ func UpdateWorkloads(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -703,7 +703,7 @@ func UpdateWorkloads(c *gin.Context) {
 
 	err = c.ShouldBindJSON(args)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid UpdateWorkloadsArgs")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid UpdateWorkloadsArgs")
 		return
 	}
 
@@ -711,7 +711,7 @@ func UpdateWorkloads(c *gin.Context) {
 	production := c.Query("production") == "true"
 	envName := c.Query("env")
 	if projectName == "" || envName == "" {
-		ctx.Err = e.ErrInvalidParam
+		ctx.RespErr = e.ErrInvalidParam
 		return
 	}
 
@@ -734,7 +734,7 @@ func UpdateWorkloads(c *gin.Context) {
 
 			err = commonutil.CheckZadigProfessionalLicense()
 			if err != nil {
-				ctx.Err = err
+				ctx.RespErr = err
 				return
 			}
 		} else {
@@ -758,7 +758,7 @@ func UpdateWorkloads(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = svcservice.UpdateWorkloads(c, ctx.RequestID, ctx.UserName, projectName, envName, *args, production, ctx.Logger)
+	ctx.RespErr = svcservice.UpdateWorkloads(c, ctx.RequestID, ctx.UserName, projectName, envName, *args, production, ctx.Logger)
 }
 
 func CreateK8sWorkloads(c *gin.Context) {
@@ -766,7 +766,7 @@ func CreateK8sWorkloads(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -810,18 +810,18 @@ func CreateK8sWorkloads(c *gin.Context) {
 	if production {
 		err = commonutil.CheckZadigProfessionalLicense()
 		if err != nil {
-			ctx.Err = err
+			ctx.RespErr = err
 			return
 		}
 	}
 
 	err = c.BindJSON(args)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid K8sWorkloadsArgs args")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid K8sWorkloadsArgs args")
 		return
 	}
 
-	ctx.Err = svcservice.CreateK8sWorkLoads(c, ctx.RequestID, ctx.UserName, args, production, ctx.Logger)
+	ctx.RespErr = svcservice.CreateK8sWorkLoads(c, ctx.RequestID, ctx.UserName, args, production, ctx.Logger)
 }
 
 func GetServiceTemplateProductName(c *gin.Context) {
@@ -862,7 +862,7 @@ func CreatePMService(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -894,40 +894,40 @@ func CreatePMService(c *gin.Context) {
 	}
 
 	if err := c.BindJSON(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid service json args")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid service json args")
 		return
 	}
 	if args.Build.Name == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("构建名称不能为空!")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("构建名称不能为空!")
 		return
 	}
 
 	for _, heathCheck := range args.ServiceTmplObject.HealthChecks {
 		if heathCheck.TimeOut < 2 || heathCheck.TimeOut > 60 {
-			ctx.Err = e.ErrInvalidParam.AddDesc("超时时间必须在2-60之间")
+			ctx.RespErr = e.ErrInvalidParam.AddDesc("超时时间必须在2-60之间")
 			return
 		}
 		if heathCheck.Interval != 0 {
 			if heathCheck.Interval < 2 || heathCheck.Interval > 60 {
-				ctx.Err = e.ErrInvalidParam.AddDesc("间隔时间必须在2-60之间")
+				ctx.RespErr = e.ErrInvalidParam.AddDesc("间隔时间必须在2-60之间")
 				return
 			}
 		}
 		if heathCheck.HealthyThreshold != 0 {
 			if heathCheck.HealthyThreshold < 2 || heathCheck.HealthyThreshold > 10 {
-				ctx.Err = e.ErrInvalidParam.AddDesc("健康阈值必须在2-10之间")
+				ctx.RespErr = e.ErrInvalidParam.AddDesc("健康阈值必须在2-10之间")
 				return
 			}
 		}
 		if heathCheck.UnhealthyThreshold != 0 {
 			if heathCheck.UnhealthyThreshold < 2 || heathCheck.UnhealthyThreshold > 10 {
-				ctx.Err = e.ErrInvalidParam.AddDesc("不健康阈值必须在2-10之间")
+				ctx.RespErr = e.ErrInvalidParam.AddDesc("不健康阈值必须在2-10之间")
 				return
 			}
 		}
 	}
 
-	ctx.Err = svcservice.CreatePMService(ctx.UserName, args, ctx.Logger)
+	ctx.RespErr = svcservice.CreatePMService(ctx.UserName, args, ctx.Logger)
 }
 
 func UpdatePmServiceTemplate(c *gin.Context) {
@@ -935,7 +935,7 @@ func UpdatePmServiceTemplate(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -967,29 +967,29 @@ func UpdatePmServiceTemplate(c *gin.Context) {
 
 	for _, heathCheck := range args.ServiceTmplObject.HealthChecks {
 		if heathCheck.TimeOut < 2 || heathCheck.TimeOut > 60 {
-			ctx.Err = e.ErrInvalidParam.AddDesc("超时时间必须在2-60之间")
+			ctx.RespErr = e.ErrInvalidParam.AddDesc("超时时间必须在2-60之间")
 			return
 		}
 		if heathCheck.Interval != 0 {
 			if heathCheck.Interval < 2 || heathCheck.Interval > 60 {
-				ctx.Err = e.ErrInvalidParam.AddDesc("间隔时间必须在2-60之间")
+				ctx.RespErr = e.ErrInvalidParam.AddDesc("间隔时间必须在2-60之间")
 				return
 			}
 		}
 		if heathCheck.HealthyThreshold != 0 {
 			if heathCheck.HealthyThreshold < 2 || heathCheck.HealthyThreshold > 10 {
-				ctx.Err = e.ErrInvalidParam.AddDesc("健康阈值必须在2-10之间")
+				ctx.RespErr = e.ErrInvalidParam.AddDesc("健康阈值必须在2-10之间")
 				return
 			}
 		}
 		if heathCheck.UnhealthyThreshold != 0 {
 			if heathCheck.UnhealthyThreshold < 2 || heathCheck.UnhealthyThreshold > 10 {
-				ctx.Err = e.ErrInvalidParam.AddDesc("不健康阈值必须在2-10之间")
+				ctx.RespErr = e.ErrInvalidParam.AddDesc("不健康阈值必须在2-10之间")
 				return
 			}
 		}
 	}
-	ctx.Err = commonservice.UpdatePmServiceTemplate(ctx.UserName, args, ctx.Logger)
+	ctx.RespErr = commonservice.UpdatePmServiceTemplate(ctx.UserName, args, ctx.Logger)
 }
 
 // @Summary convert varaible kv and yaml
@@ -1006,13 +1006,13 @@ func ConvertVaraibleKVAndYaml(c *gin.Context) {
 
 	args := new(commonservice.ConvertVaraibleKVAndYamlArgs)
 	if err := c.ShouldBindJSON(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid ConvertVariableKVAndYamlArgs")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid ConvertVariableKVAndYamlArgs")
 		return
 	}
 
 	resp, err := commonservice.ConvertVaraibleKVAndYaml(args)
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
@@ -1032,14 +1032,14 @@ func AddServiceLabel(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	req := new(addServiceLabelReq)
 	if err := c.ShouldBindJSON(req); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
@@ -1083,13 +1083,13 @@ func AddServiceLabel(c *gin.Context) {
 
 	requestByte, err := json.Marshal(req)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("failed to decode request body, error: " + err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("failed to decode request body, error: " + err.Error())
 		return
 	}
 
 	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "新建", detail, fmt.Sprintf("服务名称:%s", req.ServiceName), string(requestByte), ctx.Logger)
 
-	ctx.Err = svcservice.AddServiceLabel(req.LabelID, projectName, req.ServiceName, production, req.Value, ctx.Logger)
+	ctx.RespErr = svcservice.AddServiceLabel(req.LabelID, projectName, req.ServiceName, production, req.Value, ctx.Logger)
 }
 
 type updateServiceLabelReq struct {
@@ -1101,26 +1101,26 @@ func UpdateServiceLabel(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	req := new(updateServiceLabelReq)
 	if err := c.ShouldBindJSON(req); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
 	productionInterface, ok := c.Get("production")
 	if !ok {
-		ctx.Err = fmt.Errorf("production not set by previous function")
+		ctx.RespErr = fmt.Errorf("production not set by previous function")
 		return
 	}
 
 	production, ok := productionInterface.(bool)
 	if !ok {
-		ctx.Err = fmt.Errorf("production is not boolean")
+		ctx.RespErr = fmt.Errorf("production is not boolean")
 		return
 	}
 
@@ -1132,25 +1132,25 @@ func UpdateServiceLabel(c *gin.Context) {
 	// authorization
 	projectNameInterface, ok := c.Get("projectKey")
 	if !ok {
-		ctx.Err = fmt.Errorf("project key not set by previous function")
+		ctx.RespErr = fmt.Errorf("project key not set by previous function")
 		return
 	}
 
 	projectName, ok := projectNameInterface.(string)
 	if !ok {
-		ctx.Err = fmt.Errorf("project key is not string")
+		ctx.RespErr = fmt.Errorf("project key is not string")
 		return
 	}
 
 	serviceNameInterface, ok := c.Get("serviceName")
 	if !ok {
-		ctx.Err = fmt.Errorf("service name not set by previous function")
+		ctx.RespErr = fmt.Errorf("service name not set by previous function")
 		return
 	}
 
 	serviceName, ok := serviceNameInterface.(string)
 	if !ok {
-		ctx.Err = fmt.Errorf("service name is not string")
+		ctx.RespErr = fmt.Errorf("service name is not string")
 		return
 	}
 
@@ -1180,13 +1180,13 @@ func UpdateServiceLabel(c *gin.Context) {
 
 	requestByte, err := json.Marshal(req)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("failed to decode request body, error: " + err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("failed to decode request body, error: " + err.Error())
 		return
 	}
 
 	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "更新", detail, fmt.Sprintf("服务名称:%s", serviceName), string(requestByte), ctx.Logger)
 
-	ctx.Err = svcservice.UpdateServiceLabel(labelBindingID, req.Value, ctx.Logger)
+	ctx.RespErr = svcservice.UpdateServiceLabel(labelBindingID, req.Value, ctx.Logger)
 }
 
 func DeleteServiceLabel(c *gin.Context) {
@@ -1194,20 +1194,20 @@ func DeleteServiceLabel(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	productionInterface, ok := c.Get("production")
 	if !ok {
-		ctx.Err = fmt.Errorf("production not set by previous function")
+		ctx.RespErr = fmt.Errorf("production not set by previous function")
 		return
 	}
 
 	production, ok := productionInterface.(bool)
 	if !ok {
-		ctx.Err = fmt.Errorf("production is not boolean")
+		ctx.RespErr = fmt.Errorf("production is not boolean")
 		return
 	}
 
@@ -1219,25 +1219,25 @@ func DeleteServiceLabel(c *gin.Context) {
 	// authorization
 	projectNameInterface, ok := c.Get("projectKey")
 	if !ok {
-		ctx.Err = fmt.Errorf("project key not set by previous function")
+		ctx.RespErr = fmt.Errorf("project key not set by previous function")
 		return
 	}
 
 	projectName, ok := projectNameInterface.(string)
 	if !ok {
-		ctx.Err = fmt.Errorf("project key is not string")
+		ctx.RespErr = fmt.Errorf("project key is not string")
 		return
 	}
 
 	serviceNameInterface, ok := c.Get("serviceName")
 	if !ok {
-		ctx.Err = fmt.Errorf("service name not set by previous function")
+		ctx.RespErr = fmt.Errorf("service name not set by previous function")
 		return
 	}
 
 	serviceName, ok := serviceNameInterface.(string)
 	if !ok {
-		ctx.Err = fmt.Errorf("service name is not string")
+		ctx.RespErr = fmt.Errorf("service name is not string")
 		return
 	}
 
@@ -1267,7 +1267,7 @@ func DeleteServiceLabel(c *gin.Context) {
 
 	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "删除", detail, fmt.Sprintf("服务名称:%s", serviceName), "", ctx.Logger)
 
-	ctx.Err = svcservice.DeleteServiceLabel(labelBindingID, ctx.Logger)
+	ctx.RespErr = svcservice.DeleteServiceLabel(labelBindingID, ctx.Logger)
 }
 
 type listServiceLabelReq struct {
@@ -1281,14 +1281,14 @@ func ListServiceLabels(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	req := new(listServiceLabelReq)
 	if err := c.ShouldBindQuery(req); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
@@ -1322,5 +1322,5 @@ func ListServiceLabels(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.Err = svcservice.ListServiceLabels(req.ProjectKey, req.ServiceName, production, ctx.Logger)
+	ctx.Resp, ctx.RespErr = svcservice.ListServiceLabels(req.ProjectKey, req.ServiceName, production, ctx.Logger)
 }

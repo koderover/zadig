@@ -34,7 +34,7 @@ func ListGrafanaAlert(c *gin.Context) {
 
 	contents, err := service.ListGrafanaAlert(c.Param("id"))
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 

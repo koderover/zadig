@@ -44,7 +44,7 @@ func (h *handlers) Get(c *gin.Context) {
 	}
 
 	c.Header(HeaderXData, fmt.Sprint(data))
-	ctx.Resp, ctx.Err = data, nil
+	ctx.Resp, ctx.RespErr = data, nil
 }
 
 func (h *handlers) Set(c *gin.Context) {
@@ -53,7 +53,7 @@ func (h *handlers) Set(c *gin.Context) {
 
 	h.cache.Set(c.Param("key"), c.Param("value"))
 
-	ctx.Resp, ctx.Err = MsgSuccess, nil
+	ctx.Resp, ctx.RespErr = MsgSuccess, nil
 }
 
 func (h *handlers) Delete(c *gin.Context) {
@@ -62,7 +62,7 @@ func (h *handlers) Delete(c *gin.Context) {
 
 	h.cache.Delete(c.Param("key"))
 
-	ctx.Resp, ctx.Err = MsgSuccess, nil
+	ctx.Resp, ctx.RespErr = MsgSuccess, nil
 }
 
 func (h *handlers) List(c *gin.Context) {
@@ -71,7 +71,7 @@ func (h *handlers) List(c *gin.Context) {
 
 	cacheData := h.cache.List()
 
-	ctx.Resp, ctx.Err = cacheData, nil
+	ctx.Resp, ctx.RespErr = cacheData, nil
 }
 
 func (h *handlers) Purge(c *gin.Context) {
@@ -80,5 +80,5 @@ func (h *handlers) Purge(c *gin.Context) {
 
 	h.cache.Purge()
 
-	ctx.Resp, ctx.Err = MsgSuccess, nil
+	ctx.Resp, ctx.RespErr = MsgSuccess, nil
 }

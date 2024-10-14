@@ -37,16 +37,16 @@ func Evaluate(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	projectName := c.Query("projectName")
 	if projectName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid EvaluateArgs , projectName is empty")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid EvaluateArgs , projectName is empty")
 		return
 	}
 	args := new(evaluateArgs)
 
 	if err := c.ShouldBindJSON(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err).AddDesc("invalid EvaluateArgs")
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err).AddDesc("invalid EvaluateArgs")
 		return
 	}
 	data, err := service.Evaluate(c.Request.Header, projectName, args.Data, ctx.Logger)
 	ctx.Resp = evaluateResp{Data: data}
-	ctx.Err = err
+	ctx.RespErr = err
 }

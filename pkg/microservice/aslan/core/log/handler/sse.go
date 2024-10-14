@@ -43,7 +43,7 @@ func GetContainerLogsSSE(c *gin.Context) {
 
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -81,7 +81,7 @@ func GetProductionEnvContainerLogsSSE(c *gin.Context) {
 	logger := ginzap.WithContext(c).Sugar()
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -122,7 +122,7 @@ func GetBuildJobContainerLogsSSE(c *gin.Context) {
 
 	taskID, err := strconv.ParseInt(c.Param("taskId"), 10, 64)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid task id")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid task id")
 		internalhandler.JSONResponse(c, ctx)
 		return
 	}
@@ -153,7 +153,7 @@ func GetWorkflowJobContainerLogsSSE(c *gin.Context) {
 
 	taskID, err := strconv.ParseInt(c.Param("taskID"), 10, 64)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid task id")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid task id")
 		internalhandler.JSONResponse(c, ctx)
 		return
 	}
@@ -184,7 +184,7 @@ func GetWorkflowBuildJobContainerLogsSSE(c *gin.Context) {
 
 	taskID, err := strconv.ParseInt(c.Param("taskId"), 10, 64)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid task id")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid task id")
 		internalhandler.JSONResponse(c, ctx)
 		return
 	}
@@ -221,7 +221,7 @@ func GetTestJobContainerLogsSSE(c *gin.Context) {
 
 	taskID, err := strconv.ParseInt(c.Param("taskId"), 10, 64)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid task id")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid task id")
 		internalhandler.JSONResponse(c, ctx)
 		return
 	}
@@ -253,7 +253,7 @@ func GetWorkflowTestJobContainerLogsSSE(c *gin.Context) {
 
 	taskID, err := strconv.ParseInt(c.Param("taskId"), 10, 64)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid task id")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid task id")
 		internalhandler.JSONResponse(c, ctx)
 		return
 	}
@@ -324,7 +324,7 @@ func GetWorkflowBuildV3JobContainerLogsSSE(c *gin.Context) {
 
 	taskID, err := strconv.ParseInt(c.Param("taskId"), 10, 64)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid task id")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid task id")
 		internalhandler.JSONResponse(c, ctx)
 		return
 	}
@@ -360,19 +360,19 @@ func GetScanningContainerLogsSSE(c *gin.Context) {
 
 	id := c.Param("id")
 	if id == "" {
-		ctx.Err = fmt.Errorf("id must be provided")
+		ctx.RespErr = fmt.Errorf("id must be provided")
 		return
 	}
 
 	taskIDStr := c.Param("scan_id")
 	if taskIDStr == "" {
-		ctx.Err = fmt.Errorf("scan_id must be provided")
+		ctx.RespErr = fmt.Errorf("scan_id must be provided")
 		return
 	}
 
 	taskID, err := strconv.ParseInt(taskIDStr, 10, 64)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid task id")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid task id")
 		return
 	}
 
@@ -411,19 +411,19 @@ func GetTestingContainerLogsSSE(c *gin.Context) {
 
 	testName := c.Param("test_name")
 	if testName == "" {
-		ctx.Err = fmt.Errorf("testName must be provided")
+		ctx.RespErr = fmt.Errorf("testName must be provided")
 		return
 	}
 
 	taskIDStr := c.Param("task_id")
 	if taskIDStr == "" {
-		ctx.Err = fmt.Errorf("task_id must be provided")
+		ctx.RespErr = fmt.Errorf("task_id must be provided")
 		return
 	}
 
 	taskID, err := strconv.ParseInt(taskIDStr, 10, 64)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid task id")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid task id")
 		return
 	}
 
@@ -435,25 +435,25 @@ func GetTestingContainerLogsSSE(c *gin.Context) {
 	workflowTask, err := commonrepo.NewworkflowTaskv4Coll().Find(workflowName, taskID)
 	if err != nil {
 		ctx.Logger.Errorf("failed to find workflow task for testing: %s, err: %s", testName, err)
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
 	if len(workflowTask.Stages) != 1 {
 		ctx.Logger.Errorf("Invalid stage length: stage length for testing should be 1")
-		ctx.Err = fmt.Errorf("invalid stage length")
+		ctx.RespErr = fmt.Errorf("invalid stage length")
 		return
 	}
 
 	if len(workflowTask.Stages[0].Jobs) != 1 {
 		ctx.Logger.Errorf("Invalid Job length: job length for testing should be 1")
-		ctx.Err = fmt.Errorf("invalid job length")
+		ctx.RespErr = fmt.Errorf("invalid job length")
 		return
 	}
 
 	jobInfo := new(commonmodels.TaskJobInfo)
 	if err := commonmodels.IToi(workflowTask.Stages[0].Jobs[0].JobInfo, jobInfo); err != nil {
-		ctx.Err = fmt.Errorf("convert job info to task job info error: %v", err)
+		ctx.RespErr = fmt.Errorf("convert job info to task job info error: %v", err)
 		return
 	}
 
@@ -478,7 +478,7 @@ func GetJenkinsJobContainerLogsSSE(c *gin.Context) {
 
 	jobID, err := strconv.ParseInt(c.Param("jobID"), 10, 64)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid task id")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid task id")
 		internalhandler.JSONResponse(c, ctx)
 		return
 	}

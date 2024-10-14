@@ -31,22 +31,22 @@ func CreateWorkflowView(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	req := &commonmodels.WorkflowView{}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ctx.Err = errors.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = errors.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 	if req.Name == "" {
-		ctx.Err = fmt.Errorf("view name cannot be empty")
+		ctx.RespErr = fmt.Errorf("view name cannot be empty")
 		return
 	}
 	if req.ProjectName == "" {
-		ctx.Err = fmt.Errorf("project name cannot be empty")
+		ctx.RespErr = fmt.Errorf("project name cannot be empty")
 		return
 	}
 
@@ -64,7 +64,7 @@ func CreateWorkflowView(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = workflowservice.CreateWorkflowView(req.Name, req.ProjectName, req.Workflows, ctx.UserName, ctx.Logger)
+	ctx.RespErr = workflowservice.CreateWorkflowView(req.Name, req.ProjectName, req.Workflows, ctx.UserName, ctx.Logger)
 }
 
 func UpdateWorkflowView(c *gin.Context) {
@@ -72,14 +72,14 @@ func UpdateWorkflowView(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	req := &commonmodels.WorkflowView{}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ctx.Err = errors.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = errors.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 
@@ -97,7 +97,7 @@ func UpdateWorkflowView(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = workflowservice.UpdateWorkflowView(req, ctx.UserName, ctx.Logger)
+	ctx.RespErr = workflowservice.UpdateWorkflowView(req, ctx.UserName, ctx.Logger)
 }
 
 func GetWorkflowViewPreset(c *gin.Context) {
@@ -106,7 +106,7 @@ func GetWorkflowViewPreset(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -127,14 +127,14 @@ func GetWorkflowViewPreset(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.Err = workflowservice.GetWorkflowViewPreset(projectKey, c.Query("viewName"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = workflowservice.GetWorkflowViewPreset(projectKey, c.Query("viewName"), ctx.Logger)
 }
 
 func ListWorkflowViewNames(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = workflowservice.ListWorkflowViewNames(c.Query("projectName"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = workflowservice.ListWorkflowViewNames(c.Query("projectName"), ctx.Logger)
 }
 
 func DeleteWorkflowView(c *gin.Context) {
@@ -142,7 +142,7 @@ func DeleteWorkflowView(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -164,5 +164,5 @@ func DeleteWorkflowView(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = workflowservice.DeleteWorkflowView(projectKey, viewName, ctx.Logger)
+	ctx.RespErr = workflowservice.DeleteWorkflowView(projectKey, viewName, ctx.Logger)
 }

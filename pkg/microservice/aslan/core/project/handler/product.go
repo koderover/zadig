@@ -41,7 +41,7 @@ func GetProductTemplate(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	productTemplatName := c.Param("name")
-	ctx.Resp, ctx.Err = commonservice.GetProductTemplate(productTemplatName, ctx.Logger)
+	ctx.Resp, ctx.RespErr = commonservice.GetProductTemplate(productTemplatName, ctx.Logger)
 }
 
 // TODO: no authorization whatsoever
@@ -64,12 +64,12 @@ func GetProductTemplateServices(c *gin.Context) {
 	if envType == types.ShareEnv {
 		isBaseEnv, err = strconv.ParseBool(isBaseEnvStr)
 		if err != nil {
-			ctx.Err = fmt.Errorf("failed to parse %s to bool: %s", isBaseEnvStr, err)
+			ctx.RespErr = fmt.Errorf("failed to parse %s to bool: %s", isBaseEnvStr, err)
 			return
 		}
 	}
 
-	ctx.Resp, ctx.Err = projectservice.GetProductTemplateServices(productTemplatName, envType, isBaseEnv, baseEnvName, ctx.Logger)
+	ctx.Resp, ctx.RespErr = projectservice.GetProductTemplateServices(productTemplatName, envType, isBaseEnv, baseEnvName, ctx.Logger)
 }
 
 func CreateProductTemplate(c *gin.Context) {
@@ -78,7 +78,7 @@ func CreateProductTemplate(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -103,12 +103,12 @@ func CreateProductTemplate(c *gin.Context) {
 	}
 
 	if err := c.BindJSON(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid ProductTmpl json args")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid ProductTmpl json args")
 		return
 	}
 
 	args.UpdateBy = ctx.UserName
-	ctx.Err = projectservice.CreateProductTemplate(args, ctx.Logger)
+	ctx.RespErr = projectservice.CreateProductTemplate(args, ctx.Logger)
 }
 
 // UpdateProductTemplate ...
@@ -117,8 +117,7 @@ func UpdateProductTemplate(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -135,7 +134,7 @@ func UpdateProductTemplate(c *gin.Context) {
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.BindJSON(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid ProductTmpl json args")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid ProductTmpl json args")
 		return
 	}
 
@@ -153,7 +152,7 @@ func UpdateProductTemplate(c *gin.Context) {
 	}
 
 	args.UpdateBy = ctx.UserName
-	ctx.Err = projectservice.UpdateProductTemplate(c.Param("name"), args, ctx.Logger)
+	ctx.RespErr = projectservice.UpdateProductTemplate(c.Param("name"), args, ctx.Logger)
 }
 
 // TODO: old API with no authorizations
@@ -164,7 +163,7 @@ func UpdateProductTmplStatus(c *gin.Context) {
 	productName := c.Param("name")
 	onboardingStatus := c.Param("status")
 
-	ctx.Err = projectservice.UpdateProductTmplStatus(productName, onboardingStatus, ctx.Logger)
+	ctx.RespErr = projectservice.UpdateProductTmplStatus(productName, onboardingStatus, ctx.Logger)
 }
 
 func TransferProject(c *gin.Context) {
@@ -173,7 +172,7 @@ func TransferProject(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -195,11 +194,11 @@ func TransferProject(c *gin.Context) {
 	// license checks
 	err = util.CheckZadigEnterpriseLicense()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
-	ctx.Err = projectservice.TransferHostProject(ctx.UserName, productName, ctx.Logger)
+	ctx.RespErr = projectservice.TransferHostProject(ctx.UserName, productName, ctx.Logger)
 }
 
 func UpdateProject(c *gin.Context) {
@@ -208,7 +207,7 @@ func UpdateProject(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -225,13 +224,13 @@ func UpdateProject(c *gin.Context) {
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.BindJSON(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid ProductTmpl json args")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid ProductTmpl json args")
 		return
 	}
 	args.UpdateBy = ctx.UserName
 	productName := c.Query("projectName")
 	if productName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("productName can't be empty")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("productName can't be empty")
 		return
 	}
 
@@ -247,7 +246,7 @@ func UpdateProject(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = projectservice.UpdateProject(productName, args, ctx.Logger)
+	ctx.RespErr = projectservice.UpdateProject(productName, args, ctx.Logger)
 }
 
 type UpdateOrchestrationServiceReq struct {
@@ -261,14 +260,14 @@ func UpdateServiceOrchestration(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	projectName := c.Param("name")
 	if projectName == "" {
-		ctx.Err = e.ErrInvalidParam
+		ctx.RespErr = e.ErrInvalidParam
 		return
 	}
 
@@ -276,7 +275,7 @@ func UpdateServiceOrchestration(c *gin.Context) {
 
 	args := new(UpdateOrchestrationServiceReq)
 	if err := c.BindJSON(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid UpdateOrchestrationServiceReq json args")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid UpdateOrchestrationServiceReq json args")
 		return
 	}
 
@@ -293,7 +292,7 @@ func UpdateServiceOrchestration(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = projectservice.UpdateServiceOrchestration(projectName, args.Services, ctx.UserName, ctx.Logger)
+	ctx.RespErr = projectservice.UpdateServiceOrchestration(projectName, args.Services, ctx.UserName, ctx.Logger)
 }
 
 func UpdateProductionServiceOrchestration(c *gin.Context) {
@@ -302,14 +301,14 @@ func UpdateProductionServiceOrchestration(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	projectName := c.Param("name")
 	if projectName == "" {
-		ctx.Err = e.ErrInvalidParam
+		ctx.RespErr = e.ErrInvalidParam
 		return
 	}
 
@@ -317,7 +316,7 @@ func UpdateProductionServiceOrchestration(c *gin.Context) {
 
 	args := new(UpdateOrchestrationServiceReq)
 	if err := c.BindJSON(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid UpdateOrchestrationServiceReq json args")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid UpdateOrchestrationServiceReq json args")
 		return
 	}
 
@@ -334,7 +333,7 @@ func UpdateProductionServiceOrchestration(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = projectservice.UpdateProductionServiceOrchestration(projectName, args.ProductionServices, ctx.UserName, ctx.Logger)
+	ctx.RespErr = projectservice.UpdateProductionServiceOrchestration(projectName, args.ProductionServices, ctx.UserName, ctx.Logger)
 }
 
 func DeleteProductTemplate(c *gin.Context) {
@@ -342,7 +341,7 @@ func DeleteProductTemplate(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -365,17 +364,17 @@ func DeleteProductTemplate(c *gin.Context) {
 
 	isDelete, err := strconv.ParseBool(c.Query("is_delete"))
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalidParam is_delete")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalidParam is_delete")
 		return
 	}
-	ctx.Err = projectservice.DeleteProductTemplate(ctx.UserName, projectKey, ctx.RequestID, isDelete, ctx.Logger)
+	ctx.RespErr = projectservice.DeleteProductTemplate(ctx.UserName, projectKey, ctx.RequestID, isDelete, ctx.Logger)
 }
 
 func ListTemplatesHierachy(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = projectservice.ListTemplatesHierachy(ctx.UserName, ctx.Logger)
+	ctx.Resp, ctx.RespErr = projectservice.ListTemplatesHierachy(ctx.UserName, ctx.Logger)
 }
 
 func GetCustomMatchRules(c *gin.Context) {
@@ -384,7 +383,7 @@ func GetCustomMatchRules(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -392,7 +391,7 @@ func GetCustomMatchRules(c *gin.Context) {
 	projectKey := c.Param("name")
 
 	if projectKey == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("productName can not be null!")
 		return
 	}
 
@@ -409,7 +408,7 @@ func GetCustomMatchRules(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.Err = projectservice.GetCustomMatchRules(projectKey, ctx.Logger)
+	ctx.Resp, ctx.RespErr = projectservice.GetCustomMatchRules(projectKey, ctx.Logger)
 }
 
 func CreateOrUpdateMatchRules(c *gin.Context) {
@@ -418,7 +417,7 @@ func CreateOrUpdateMatchRules(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -426,7 +425,7 @@ func CreateOrUpdateMatchRules(c *gin.Context) {
 	projectKey := c.Param("name")
 
 	if projectKey == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("productName can not be null!")
 		return
 	}
 
@@ -449,16 +448,16 @@ func CreateOrUpdateMatchRules(c *gin.Context) {
 	data, err := c.GetRawData()
 	if err != nil {
 		log.Errorf("CreateOrUpdateMatchRules c.GetRawData() err : %v", err)
-		ctx.Err = e.ErrInvalidParam
+		ctx.RespErr = e.ErrInvalidParam
 		return
 	}
 	if err = json.Unmarshal(data, &args); err != nil {
 		log.Errorf("CreateOrUpdateMatchRules json.Unmarshal err : %v", err)
-		ctx.Err = e.ErrInvalidParam
+		ctx.RespErr = e.ErrInvalidParam
 		return
 	}
 
-	ctx.Err = projectservice.UpdateCustomMatchRules(projectKey, ctx.UserName, ctx.RequestID, args.Rules)
+	ctx.RespErr = projectservice.UpdateCustomMatchRules(projectKey, ctx.UserName, ctx.RequestID, args.Rules)
 }
 
 // @Summary Get global variables
@@ -475,7 +474,7 @@ func GetGlobalVariables(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -483,7 +482,7 @@ func GetGlobalVariables(c *gin.Context) {
 	projectKey := c.Param("name")
 
 	if projectKey == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("productName can not be null!")
 		return
 	}
 
@@ -514,7 +513,7 @@ func GetGlobalVariables(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = projectservice.GetGlobalVariables(projectKey, false, ctx.Logger)
+	ctx.Resp, ctx.RespErr = projectservice.GetGlobalVariables(projectKey, false, ctx.Logger)
 }
 
 // @Summary Get global production_variables
@@ -531,7 +530,7 @@ func GetProductionGlobalVariables(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -539,7 +538,7 @@ func GetProductionGlobalVariables(c *gin.Context) {
 	projectKey := c.Param("name")
 
 	if projectKey == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("productName can not be null!")
 		return
 	}
 
@@ -565,7 +564,7 @@ func GetProductionGlobalVariables(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.Err = projectservice.GetGlobalVariables(projectKey, true, ctx.Logger)
+	ctx.Resp, ctx.RespErr = projectservice.GetGlobalVariables(projectKey, true, ctx.Logger)
 }
 
 type updateGlobalVariablesRequest struct {
@@ -587,7 +586,7 @@ func UpdateGlobalVariables(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -595,7 +594,7 @@ func UpdateGlobalVariables(c *gin.Context) {
 	projectKey := c.Param("name")
 
 	if projectKey == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("productName can not be null!")
 		return
 	}
 
@@ -603,7 +602,7 @@ func UpdateGlobalVariables(c *gin.Context) {
 
 	args := new(updateGlobalVariablesRequest)
 	if err := c.BindJSON(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid UpdateGlobalVariablesRequest json args")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid UpdateGlobalVariablesRequest json args")
 		return
 	}
 
@@ -620,7 +619,7 @@ func UpdateGlobalVariables(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = projectservice.UpdateGlobalVariables(projectKey, ctx.UserName, args.GlobalVariables, false)
+	ctx.RespErr = projectservice.UpdateGlobalVariables(projectKey, ctx.UserName, args.GlobalVariables, false)
 }
 
 // @Summary Update production_global variables
@@ -638,7 +637,7 @@ func UpdateProductionGlobalVariables(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -646,7 +645,7 @@ func UpdateProductionGlobalVariables(c *gin.Context) {
 	projectKey := c.Param("name")
 
 	if projectKey == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("productName can not be null!")
 		return
 	}
 
@@ -654,7 +653,7 @@ func UpdateProductionGlobalVariables(c *gin.Context) {
 
 	args := new(updateGlobalVariablesRequest)
 	if err := c.BindJSON(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid UpdateGlobalVariablesRequest json args")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid UpdateGlobalVariablesRequest json args")
 		return
 	}
 
@@ -671,7 +670,7 @@ func UpdateProductionGlobalVariables(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = projectservice.UpdateGlobalVariables(projectKey, ctx.UserName, args.GlobalVariables, true)
+	ctx.RespErr = projectservice.UpdateGlobalVariables(projectKey, ctx.UserName, args.GlobalVariables, true)
 }
 
 // @Summary Get global variable candidates
@@ -688,7 +687,7 @@ func GetGlobalVariableCandidates(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -696,7 +695,7 @@ func GetGlobalVariableCandidates(c *gin.Context) {
 	projectKey := c.Param("name")
 
 	if projectKey == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("productName can not be null!")
 		return
 	}
 
@@ -713,7 +712,7 @@ func GetGlobalVariableCandidates(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.Err = projectservice.GetGlobalVariableCandidates(projectKey, false, ctx.Logger)
+	ctx.Resp, ctx.RespErr = projectservice.GetGlobalVariableCandidates(projectKey, false, ctx.Logger)
 }
 
 // @Summary Get production_global variable candidates
@@ -730,7 +729,7 @@ func GetProductionGlobalVariableCandidates(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -738,7 +737,7 @@ func GetProductionGlobalVariableCandidates(c *gin.Context) {
 	projectKey := c.Param("name")
 
 	if projectKey == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("productName can not be null!")
 		return
 	}
 
@@ -755,7 +754,7 @@ func GetProductionGlobalVariableCandidates(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.Err = projectservice.GetGlobalVariableCandidates(c.Param("name"), true, ctx.Logger)
+	ctx.Resp, ctx.RespErr = projectservice.GetGlobalVariableCandidates(c.Param("name"), true, ctx.Logger)
 }
 
 func CreateProjectGroup(c *gin.Context) {
@@ -763,7 +762,7 @@ func CreateProjectGroup(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -779,7 +778,7 @@ func CreateProjectGroup(c *gin.Context) {
 	// license checks
 	err = util.CheckZadigEnterpriseLicense()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
@@ -787,22 +786,22 @@ func CreateProjectGroup(c *gin.Context) {
 	data, err := c.GetRawData()
 	if err != nil {
 		ctx.Logger.Errorf("failed to get raw data from request, error: %v", err)
-		ctx.Err = e.ErrCreateProjectGroup.AddDesc(err.Error())
+		ctx.RespErr = e.ErrCreateProjectGroup.AddDesc(err.Error())
 		return
 	}
 
 	if err = json.Unmarshal(data, args); err != nil {
 		ctx.Logger.Errorf("failed to unmarshal data, error: %v", err)
-		ctx.Err = e.ErrCreateProjectGroup.AddDesc(err.Error())
+		ctx.RespErr = e.ErrCreateProjectGroup.AddDesc(err.Error())
 		return
 	}
 	if err := args.Validate(); err != nil {
-		ctx.Err = e.ErrCreateProjectGroup.AddErr(err)
+		ctx.RespErr = e.ErrCreateProjectGroup.AddErr(err)
 		return
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName, "", "新增", "分组", args.GroupName, string(data), ctx.Logger)
 
-	ctx.Err = projectservice.CreateProjectGroup(args, ctx.UserName, ctx.Logger)
+	ctx.RespErr = projectservice.CreateProjectGroup(args, ctx.UserName, ctx.Logger)
 }
 
 func UpdateProjectGroup(c *gin.Context) {
@@ -810,7 +809,7 @@ func UpdateProjectGroup(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -826,7 +825,7 @@ func UpdateProjectGroup(c *gin.Context) {
 	// license checks
 	err = util.CheckZadigEnterpriseLicense()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
@@ -834,22 +833,22 @@ func UpdateProjectGroup(c *gin.Context) {
 	data, err := c.GetRawData()
 	if err != nil {
 		ctx.Logger.Errorf("failed to get raw data from request, error: %v", err)
-		ctx.Err = e.ErrUpdateProjectGroup.AddDesc(err.Error())
+		ctx.RespErr = e.ErrUpdateProjectGroup.AddDesc(err.Error())
 		return
 	}
 
 	if err = json.Unmarshal(data, args); err != nil {
 		ctx.Logger.Errorf("failed to unmarshal data, error: %v", err)
-		ctx.Err = e.ErrUpdateProjectGroup.AddDesc(err.Error())
+		ctx.RespErr = e.ErrUpdateProjectGroup.AddDesc(err.Error())
 		return
 	}
 	if err := args.Validate(); err != nil {
-		ctx.Err = e.ErrUpdateProjectGroup.AddErr(err)
+		ctx.RespErr = e.ErrUpdateProjectGroup.AddErr(err)
 		return
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName, "", "编辑", "分组", args.GroupName, string(data), ctx.Logger)
 
-	ctx.Err = projectservice.UpdateProjectGroup(args, ctx.UserName, ctx.Logger)
+	ctx.RespErr = projectservice.UpdateProjectGroup(args, ctx.UserName, ctx.Logger)
 }
 
 func DeleteProjectGroup(c *gin.Context) {
@@ -857,7 +856,7 @@ func DeleteProjectGroup(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -873,18 +872,18 @@ func DeleteProjectGroup(c *gin.Context) {
 	// license checks
 	err = util.CheckZadigEnterpriseLicense()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
 	groupName := c.Query("groupName")
 	if groupName == "" {
-		ctx.Err = e.ErrDeleteProjectGroup.AddErr(errors.New("group name is empty"))
+		ctx.RespErr = e.ErrDeleteProjectGroup.AddErr(errors.New("group name is empty"))
 		return
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName, "", "删除", "分组", groupName, groupName, ctx.Logger)
 
-	ctx.Err = projectservice.DeleteProjectGroup(groupName, ctx.Logger)
+	ctx.RespErr = projectservice.DeleteProjectGroup(groupName, ctx.Logger)
 }
 
 func ListProjectGroups(c *gin.Context) {
@@ -892,12 +891,12 @@ func ListProjectGroups(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
-	ctx.Resp, ctx.Err = projectservice.ListProjectGroupNames()
+	ctx.Resp, ctx.RespErr = projectservice.ListProjectGroupNames()
 }
 
 func GetPresetProjectGroup(c *gin.Context) {
@@ -905,7 +904,7 @@ func GetPresetProjectGroup(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -913,9 +912,9 @@ func GetPresetProjectGroup(c *gin.Context) {
 	// license checks
 	err = util.CheckZadigEnterpriseLicense()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
-	ctx.Resp, ctx.Err = projectservice.GetProjectGroupRelation(c.Query("groupName"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = projectservice.GetProjectGroupRelation(c.Query("groupName"), ctx.Logger)
 }

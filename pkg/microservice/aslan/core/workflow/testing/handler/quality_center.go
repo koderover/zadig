@@ -30,7 +30,7 @@ func ListTestingWithStat(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -43,5 +43,5 @@ func ListTestingWithStat(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.Err = service.ListTesting(ctx.UserID, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.ListTesting(ctx.UserID, ctx.Logger)
 }

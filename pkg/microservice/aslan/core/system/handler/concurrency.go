@@ -32,7 +32,7 @@ func GetWorkflowConcurrency(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -43,7 +43,7 @@ func GetWorkflowConcurrency(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.GetWorkflowConcurrency()
+	ctx.Resp, ctx.RespErr = service.GetWorkflowConcurrency()
 }
 
 func UpdateWorkflowConcurrency(c *gin.Context) {
@@ -52,7 +52,7 @@ func UpdateWorkflowConcurrency(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -65,15 +65,15 @@ func UpdateWorkflowConcurrency(c *gin.Context) {
 
 	args := new(service.WorkflowConcurrencySettings)
 	if err := c.BindJSON(args); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
 	// args validation
 	if args.BuildConcurrency <= 0 || args.WorkflowConcurrency <= 0 {
-		ctx.Err = errors.New("concurrency cannot be less than 1")
+		ctx.RespErr = errors.New("concurrency cannot be less than 1")
 		return
 	}
 
-	ctx.Err = service.UpdateWorkflowConcurrency(args.WorkflowConcurrency, args.BuildConcurrency, ctx.Logger)
+	ctx.RespErr = service.UpdateWorkflowConcurrency(args.WorkflowConcurrency, args.BuildConcurrency, ctx.Logger)
 }

@@ -16,17 +16,17 @@ func AIAnalyzeBuildLog(c *gin.Context) {
 
 	taskID, err := strconv.ParseInt(c.Param("taskID"), 10, 64)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid task id")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid task id")
 		return
 	}
 
 	data, err := c.GetRawData()
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("failed to get raw data")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("failed to get raw data")
 		return
 	}
 
 	args := new(ai.BuildLogAnalysisArgs)
 	args.Log = string(data)
-	ctx.Resp, ctx.Err = ai.AnalyzeBuildLog(args, c.Query("projectName"), c.Param("workflowName"), c.Param("jobName"), taskID, ctx.Logger)
+	ctx.Resp, ctx.RespErr = ai.AnalyzeBuildLog(args, c.Query("projectName"), c.Param("workflowName"), c.Param("jobName"), taskID, ctx.Logger)
 }

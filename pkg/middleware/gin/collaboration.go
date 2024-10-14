@@ -42,7 +42,7 @@ func GetCollaborationNew() gin.HandlerFunc {
 		}
 		newResp, err := service.GetCollaborationNew(projectName, ctx.UserID, ctx.IdentityType, ctx.Account, ctx.Logger)
 		if err != nil {
-			ctx.Err = err
+			ctx.RespErr = err
 			c.Abort()
 			return
 		}
@@ -53,7 +53,7 @@ func GetCollaborationNew() gin.HandlerFunc {
 		if newResp.IfSync {
 			err := service.SyncCollaborationInstance(nil, projectName, ctx.UserID, ctx.IdentityType, ctx.Account, ctx.RequestID, ctx.Logger)
 			if err != nil {
-				ctx.Err = err
+				ctx.RespErr = err
 				c.Abort()
 				return
 			}

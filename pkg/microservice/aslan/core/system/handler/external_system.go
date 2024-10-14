@@ -37,7 +37,7 @@ func CreateExternalSystem(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -61,11 +61,11 @@ func CreateExternalSystem(c *gin.Context) {
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	if args.Name == "" || args.Server == "" {
-		ctx.Err = errors.New("name and server must be provided")
+		ctx.RespErr = errors.New("name and server must be provided")
 		return
 	}
 
-	ctx.Err = service.CreateExternalSystem(args, ctx.Logger)
+	ctx.RespErr = service.CreateExternalSystem(args, ctx.Logger)
 }
 
 type listQuery struct {
@@ -85,13 +85,13 @@ func ListExternalSystem(c *gin.Context) {
 	// Query Verification
 	args := &listQuery{}
 	if err := c.ShouldBindQuery(args); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
 	encryptedKey := c.Query("encryptedKey")
 	if len(encryptedKey) == 0 {
-		ctx.Err = e.ErrInvalidParam
+		ctx.RespErr = e.ErrInvalidParam
 		return
 	}
 	systemList, length, err := service.ListExternalSystem(encryptedKey, args.PageNum, args.PageSize, ctx.Logger)
@@ -102,7 +102,7 @@ func ListExternalSystem(c *gin.Context) {
 		}
 		return
 	}
-	ctx.Err = err
+	ctx.RespErr = err
 }
 
 func GetExternalSystemDetail(c *gin.Context) {
@@ -111,7 +111,7 @@ func GetExternalSystemDetail(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -122,7 +122,7 @@ func GetExternalSystemDetail(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.GetExternalSystemDetail(c.Param("id"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetExternalSystemDetail(c.Param("id"), ctx.Logger)
 }
 
 func UpdateExternalSystem(c *gin.Context) {
@@ -131,7 +131,7 @@ func UpdateExternalSystem(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -155,11 +155,11 @@ func UpdateExternalSystem(c *gin.Context) {
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	if req.Name == "" || req.Server == "" {
-		ctx.Err = errors.New("name and server must be provided")
+		ctx.RespErr = errors.New("name and server must be provided")
 		return
 	}
 
-	ctx.Err = service.UpdateExternalSystem(c.Param("id"), req, ctx.Logger)
+	ctx.RespErr = service.UpdateExternalSystem(c.Param("id"), req, ctx.Logger)
 }
 
 func DeleteExternalSystem(c *gin.Context) {
@@ -168,7 +168,7 @@ func DeleteExternalSystem(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -181,5 +181,5 @@ func DeleteExternalSystem(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = service.DeleteExternalSystem(c.Param("id"), ctx.Logger)
+	ctx.RespErr = service.DeleteExternalSystem(c.Param("id"), ctx.Logger)
 }

@@ -28,7 +28,7 @@ func InitTestStat(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Err = service.InitTestStat(ctx.Logger)
+	ctx.RespErr = service.InitTestStat(ctx.Logger)
 }
 
 func GetTestAverageMeasure(c *gin.Context) {
@@ -37,10 +37,10 @@ func GetTestAverageMeasure(c *gin.Context) {
 	//params validate
 	args := new(getStatReq)
 	if err := c.BindJSON(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
-	ctx.Resp, ctx.Err = service.GetTestAverageMeasure(args.StartDate, args.EndDate, args.ProductNames, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetTestAverageMeasure(args.StartDate, args.EndDate, args.ProductNames, ctx.Logger)
 }
 
 func GetTestCaseMeasure(c *gin.Context) {
@@ -49,10 +49,10 @@ func GetTestCaseMeasure(c *gin.Context) {
 	//params validate
 	args := new(getStatReq)
 	if err := c.BindJSON(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
-	ctx.Resp, ctx.Err = service.GetTestCaseMeasure(args.StartDate, args.EndDate, args.ProductNames, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetTestCaseMeasure(args.StartDate, args.EndDate, args.ProductNames, ctx.Logger)
 }
 
 func GetTestDeliveryDeployMeasure(c *gin.Context) {
@@ -61,10 +61,10 @@ func GetTestDeliveryDeployMeasure(c *gin.Context) {
 	//params validate
 	args := new(getStatReq)
 	if err := c.BindJSON(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
-	ctx.Resp, ctx.Err = service.GetTestDeliveryDeployMeasure(args.StartDate, args.EndDate, args.ProductNames, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetTestDeliveryDeployMeasure(args.StartDate, args.EndDate, args.ProductNames, ctx.Logger)
 }
 
 func GetTestHealthMeasure(c *gin.Context) {
@@ -73,10 +73,10 @@ func GetTestHealthMeasure(c *gin.Context) {
 	//params validate
 	args := new(getStatReq)
 	if err := c.BindJSON(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
-	ctx.Resp, ctx.Err = service.GetTestHealthMeasure(args.StartDate, args.EndDate, args.ProductNames, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetTestHealthMeasure(args.StartDate, args.EndDate, args.ProductNames, ctx.Logger)
 }
 
 func GetTestTrendMeasure(c *gin.Context) {
@@ -85,10 +85,10 @@ func GetTestTrendMeasure(c *gin.Context) {
 	//params validate
 	args := new(getStatReq)
 	if err := c.BindJSON(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
-	ctx.Resp, ctx.Err = service.GetTestTrendMeasure(args.StartDate, args.EndDate, args.ProductNames, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetTestTrendMeasure(args.StartDate, args.EndDate, args.ProductNames, ctx.Logger)
 }
 
 //func GetTestTrendOpenAPI(c *gin.Context) {

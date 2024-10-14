@@ -36,7 +36,7 @@ import (
 func ListKubeEvents(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -68,7 +68,7 @@ func ListKubeEvents(c *gin.Context) {
 
 			err = commonutil.CheckZadigProfessionalLicense()
 			if err != nil {
-				ctx.Err = err
+				ctx.RespErr = err
 				return
 			}
 		} else {
@@ -82,7 +82,7 @@ func ListKubeEvents(c *gin.Context) {
 			}
 		}
 	}
-	ctx.Resp, ctx.Err = service.ListKubeEvents(envName, productName, name, rtype, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.ListKubeEvents(envName, productName, name, rtype, ctx.Logger)
 }
 
 func ListAvailableNamespaces(c *gin.Context) {
@@ -91,7 +91,7 @@ func ListAvailableNamespaces(c *gin.Context) {
 
 	clusterID := c.Query("clusterId")
 	listType := c.Query("type")
-	ctx.Resp, ctx.Err = service.ListAvailableNamespaces(clusterID, listType, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.ListAvailableNamespaces(clusterID, listType, ctx.Logger)
 }
 
 func DeletePod(c *gin.Context) {
@@ -99,7 +99,7 @@ func DeletePod(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -132,7 +132,7 @@ func DeletePod(c *gin.Context) {
 
 			err = commonutil.CheckZadigProfessionalLicense()
 			if err != nil {
-				ctx.Err = err
+				ctx.RespErr = err
 				return
 			}
 		} else {
@@ -147,7 +147,7 @@ func DeletePod(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = service.DeletePod(envName, projectName, podName, production, ctx.Logger)
+	ctx.RespErr = service.DeletePod(envName, projectName, podName, production, ctx.Logger)
 }
 
 func ListPodEvents(c *gin.Context) {
@@ -155,7 +155,7 @@ func ListPodEvents(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -184,7 +184,7 @@ func ListPodEvents(c *gin.Context) {
 
 			err = commonutil.CheckZadigProfessionalLicense()
 			if err != nil {
-				ctx.Err = err
+				ctx.RespErr = err
 				return
 			}
 		} else {
@@ -199,21 +199,21 @@ func ListPodEvents(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.Err = service.ListPodEvents(envName, projectKey, podName, production, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.ListPodEvents(envName, projectKey, podName, production, ctx.Logger)
 }
 
 func ListNodes(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.ListAvailableNodes(c.Query("clusterId"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.ListAvailableNodes(c.Query("clusterId"), ctx.Logger)
 }
 
 func DownloadFileFromPod(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -226,11 +226,11 @@ func DownloadFileFromPod(c *gin.Context) {
 	production := c.Query("production") == "true"
 
 	if len(container) == 0 {
-		ctx.Err = e.ErrInvalidParam.AddDesc("container can't be nil")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("container can't be nil")
 		return
 	}
 	if len(filePath) == 0 {
-		ctx.Err = e.ErrInvalidParam.AddDesc("file path can't be nil")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("file path can't be nil")
 		return
 	}
 
@@ -252,7 +252,7 @@ func DownloadFileFromPod(c *gin.Context) {
 
 			err = commonutil.CheckZadigProfessionalLicense()
 			if err != nil {
-				ctx.Err = err
+				ctx.RespErr = err
 				return
 			}
 		} else {
@@ -269,7 +269,7 @@ func DownloadFileFromPod(c *gin.Context) {
 
 	fileBytes, path, err := service.DownloadFile(envName, projectKey, podName, container, filePath, production, ctx.Logger)
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 	fileName := filepath.Base(path)
@@ -281,21 +281,21 @@ func ListNamespace(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.ListNamespace(c.Param("clusterID"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.ListNamespace(c.Param("clusterID"), ctx.Logger)
 }
 
 func ListDeploymentNames(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.ListDeploymentNames(c.Param("clusterID"), c.Param("namespace"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.ListDeploymentNames(c.Param("clusterID"), c.Param("namespace"), ctx.Logger)
 }
 
 func ListWorkloadsInfo(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.ListWorkloadsInfo(c.Param("clusterID"), c.Param("namespace"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.ListWorkloadsInfo(c.Param("clusterID"), c.Param("namespace"), ctx.Logger)
 }
 
 // @Summary Get Pods Info
@@ -312,19 +312,19 @@ func ListPodsInfo(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	projectKey := c.Query("projectName")
 	if projectKey == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("projectName can't be empty")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("projectName can't be empty")
 		return
 	}
 	envName := c.Query("envName")
 	if envName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("envName can't be empty")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("envName can't be empty")
 		return
 	}
 	production := c.Query("production") == "true"
@@ -347,7 +347,7 @@ func ListPodsInfo(c *gin.Context) {
 
 			err = commonutil.CheckZadigProfessionalLicense()
 			if err != nil {
-				ctx.Err = err
+				ctx.RespErr = err
 				return
 			}
 		} else {
@@ -362,7 +362,7 @@ func ListPodsInfo(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.Err = service.ListPodsInfo(projectKey, envName, production, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.ListPodsInfo(projectKey, envName, production, ctx.Logger)
 }
 
 // @Summary Get Pods Detail Info
@@ -380,24 +380,24 @@ func GetPodsDetailInfo(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	projectKey := c.Query("projectName")
 	if projectKey == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("projectName can't be empty")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("projectName can't be empty")
 		return
 	}
 	envName := c.Query("envName")
 	if envName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("envName can't be empty")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("envName can't be empty")
 		return
 	}
 	podName := c.Param("podName")
 	if podName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("podName can't be empty")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("podName can't be empty")
 		return
 	}
 	production := c.Query("production") == "true"
@@ -421,7 +421,7 @@ func GetPodsDetailInfo(c *gin.Context) {
 
 			err = commonutil.CheckZadigProfessionalLicense()
 			if err != nil {
-				ctx.Err = err
+				ctx.RespErr = err
 				return
 			}
 		} else {
@@ -436,34 +436,34 @@ func GetPodsDetailInfo(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.Err = service.GetPodDetailInfo(projectKey, envName, podName, production, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetPodDetailInfo(projectKey, envName, podName, production, ctx.Logger)
 }
 
 func ListCustomWorkload(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.ListCustomWorkload(c.Param("clusterID"), c.Param("namespace"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.ListCustomWorkload(c.Param("clusterID"), c.Param("namespace"), ctx.Logger)
 }
 
 func ListCanaryDeploymentServiceInfo(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.ListCanaryDeploymentServiceInfo(c.Param("clusterID"), c.Param("namespace"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.ListCanaryDeploymentServiceInfo(c.Param("clusterID"), c.Param("namespace"), ctx.Logger)
 }
 
 func ListAllK8sResourcesInNamespace(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.ListAllK8sResourcesInNamespace(c.Param("clusterID"), c.Param("namespace"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.ListAllK8sResourcesInNamespace(c.Param("clusterID"), c.Param("namespace"), ctx.Logger)
 }
 
 func ListK8sResOverview(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -472,7 +472,7 @@ func ListK8sResOverview(c *gin.Context) {
 	queryParam := &service.FetchResourceArgs{}
 	err = c.BindQuery(queryParam)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
@@ -497,7 +497,7 @@ func ListK8sResOverview(c *gin.Context) {
 
 			err = commonutil.CheckZadigProfessionalLicense()
 			if err != nil {
-				ctx.Err = err
+				ctx.RespErr = err
 				return
 			}
 		} else {
@@ -516,13 +516,13 @@ func ListK8sResOverview(c *gin.Context) {
 	if len(queryParam.ResourceTypes) == 0 {
 		queryParam.ResourceTypes = c.Param("resourceType")
 	}
-	ctx.Resp, ctx.Err = service.ListK8sResOverview(queryParam, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.ListK8sResOverview(queryParam, ctx.Logger)
 }
 
 func GetK8sResourceYaml(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -531,7 +531,7 @@ func GetK8sResourceYaml(c *gin.Context) {
 	queryParam := &service.FetchResourceArgs{}
 	err = c.BindQuery(queryParam)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
@@ -556,7 +556,7 @@ func GetK8sResourceYaml(c *gin.Context) {
 
 			err = commonutil.CheckZadigProfessionalLicense()
 			if err != nil {
-				ctx.Err = err
+				ctx.RespErr = err
 				return
 			}
 		} else {
@@ -571,13 +571,13 @@ func GetK8sResourceYaml(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.Err = service.GetK8sResourceYaml(queryParam, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetK8sResourceYaml(queryParam, ctx.Logger)
 }
 
 func GetK8sWorkflowDetail(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -587,7 +587,7 @@ func GetK8sWorkflowDetail(c *gin.Context) {
 	queryParam := &service.FetchResourceArgs{}
 	err = c.BindQuery(queryParam)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
@@ -612,7 +612,7 @@ func GetK8sWorkflowDetail(c *gin.Context) {
 
 			err = commonutil.CheckZadigProfessionalLicense()
 			if err != nil {
-				ctx.Err = err
+				ctx.RespErr = err
 				return
 			}
 		} else {
@@ -630,7 +630,7 @@ func GetK8sWorkflowDetail(c *gin.Context) {
 	workloadType := c.Param("workloadType")
 	workloadName := c.Param("workloadName")
 
-	ctx.Resp, ctx.Err = service.GetWorkloadDetail(queryParam, workloadType, workloadName, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetWorkloadDetail(queryParam, workloadType, workloadName, ctx.Logger)
 }
 
 // @Summary Get Resource Deploy Status
@@ -645,7 +645,7 @@ func GetK8sWorkflowDetail(c *gin.Context) {
 func GetResourceDeployStatus(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -654,7 +654,7 @@ func GetResourceDeployStatus(c *gin.Context) {
 	request := &service.K8sDeployStatusCheckRequest{}
 	err = c.BindJSON(request)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
@@ -681,7 +681,7 @@ func GetResourceDeployStatus(c *gin.Context) {
 
 			err = commonutil.CheckZadigProfessionalLicense()
 			if err != nil {
-				ctx.Err = err
+				ctx.RespErr = err
 				return
 			}
 		} else {
@@ -696,13 +696,13 @@ func GetResourceDeployStatus(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.Err = service.GetResourceDeployStatus(projectKey, request, production, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetResourceDeployStatus(projectKey, request, production, ctx.Logger)
 }
 
 func GetReleaseDeployStatus(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -711,7 +711,7 @@ func GetReleaseDeployStatus(c *gin.Context) {
 	request := &service.HelmDeployStatusCheckRequest{}
 	err = c.BindJSON(request)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
@@ -738,7 +738,7 @@ func GetReleaseDeployStatus(c *gin.Context) {
 
 			err = commonutil.CheckZadigProfessionalLicense()
 			if err != nil {
-				ctx.Err = err
+				ctx.RespErr = err
 				return
 			}
 		} else {
@@ -753,7 +753,7 @@ func GetReleaseDeployStatus(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.Err = service.GetReleaseDeployStatus(projectKey, production, request)
+	ctx.Resp, ctx.RespErr = service.GetReleaseDeployStatus(projectKey, production, request)
 }
 
 // @Summary Get Release Instance Deploy Status
@@ -768,7 +768,7 @@ func GetReleaseDeployStatus(c *gin.Context) {
 func GetReleaseInstanceDeployStatus(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -777,7 +777,7 @@ func GetReleaseInstanceDeployStatus(c *gin.Context) {
 	request := &service.HelmDeployStatusCheckRequest{}
 	err = c.BindJSON(request)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
@@ -804,7 +804,7 @@ func GetReleaseInstanceDeployStatus(c *gin.Context) {
 
 			err = commonutil.CheckZadigProfessionalLicense()
 			if err != nil {
-				ctx.Err = err
+				ctx.RespErr = err
 				return
 			}
 		} else {
@@ -819,7 +819,7 @@ func GetReleaseInstanceDeployStatus(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.Err = service.GetReleaseInstanceDeployStatus(projectKey, production, request)
+	ctx.Resp, ctx.RespErr = service.GetReleaseInstanceDeployStatus(projectKey, production, request)
 }
 
 type OpenAPIListKubeEventResponse struct {
@@ -847,7 +847,7 @@ func OpenAPIListKubeEvents(c *gin.Context) {
 
 	origResp, err := service.ListKubeEvents(envName, productName, name, rtype, ctx.Logger)
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 	resp := make([]*OpenAPIListKubeEventResponse, 0)

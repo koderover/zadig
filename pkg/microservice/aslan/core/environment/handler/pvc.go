@@ -33,7 +33,7 @@ func ListPvcs(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -42,7 +42,7 @@ func ListPvcs(c *gin.Context) {
 	projectKey := c.Query("projectName")
 	production := c.Query("production") == "true"
 	if envName == "" || projectKey == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("param envName or projectName is invalid")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("param envName or projectName is invalid")
 		return
 	}
 
@@ -65,7 +65,7 @@ func ListPvcs(c *gin.Context) {
 
 			err = commonutil.CheckZadigProfessionalLicense()
 			if err != nil {
-				ctx.Err = err
+				ctx.RespErr = err
 				return
 			}
 		} else {
@@ -80,5 +80,5 @@ func ListPvcs(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.Err = service.ListPvcs(envName, projectKey, production, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.ListPvcs(envName, projectKey, production, ctx.Logger)
 }

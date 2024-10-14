@@ -45,10 +45,10 @@ func CleanWorkspace(c *gin.Context) {
 	internalhandler.InsertOperationLog(c, ctx.UserName, c.GetString("productName"), "清理", "单服务工作流-工作目录", c.Query("pipelineName"), "", ctx.Logger)
 	name := c.Query("pipelineName")
 	if name == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("empty pipeline name")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("empty pipeline name")
 		return
 	}
-	ctx.Err = service.CleanWorkspace(ctx.UserName, name, ctx.Logger)
+	ctx.RespErr = service.CleanWorkspace(ctx.UserName, name, ctx.Logger)
 }
 
 func GetWorkspaceFile(c *gin.Context) {
@@ -83,31 +83,31 @@ func GetGitRepoInfo(c *gin.Context) {
 
 	codehostIDStr := c.Param("codehostId")
 	if codehostIDStr == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("empty codehost ID")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("empty codehost ID")
 		return
 	}
 
 	codehostID, err := strconv.Atoi(codehostIDStr)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("cannot convert codehost id to int")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("cannot convert codehost id to int")
 		return
 	}
 
 	repoName := c.Query("repoName")
 	if repoName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("empty repo name")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("empty repo name")
 		return
 	}
 
 	branchName := c.Query("branchName")
 	if branchName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("empty branch name")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("empty branch name")
 		return
 	}
 
 	remoteName := c.Query("remoteName")
 	if remoteName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("empty remote name")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("empty remote name")
 		return
 	}
 
@@ -117,7 +117,7 @@ func GetGitRepoInfo(c *gin.Context) {
 	if namespace == "" {
 		namespace = c.Query("repoOwner")
 	}
-	ctx.Resp, ctx.Err = service.GetGitRepoInfo(codehostID, c.Query("repoOwner"), namespace, repoName, branchName, remoteName, dir, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetGitRepoInfo(codehostID, c.Query("repoOwner"), namespace, repoName, branchName, remoteName, dir, ctx.Logger)
 }
 
 type repoInfo struct {
@@ -136,12 +136,12 @@ func GetRepoTree(c *gin.Context) {
 
 	info := &repoInfo{}
 	if err := c.ShouldBindQuery(info); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
 	if info.RepoLink != "" {
-		ctx.Resp, ctx.Err = service.GetPublicRepoTree(info.RepoLink, info.Path, ctx.Logger)
+		ctx.Resp, ctx.RespErr = service.GetPublicRepoTree(info.RepoLink, info.Path, ctx.Logger)
 		return
 	}
 
@@ -150,7 +150,7 @@ func GetRepoTree(c *gin.Context) {
 		owner = info.Namespace
 	}
 
-	ctx.Resp, ctx.Err = service.GetRepoTree(info.CodeHostID, owner, info.Repo, info.Path, info.Branch, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetRepoTree(info.CodeHostID, owner, info.Repo, info.Path, info.Branch, ctx.Logger)
 }
 
 func GetContents(c *gin.Context) {
@@ -160,23 +160,23 @@ func GetContents(c *gin.Context) {
 	codehostIDStr := c.Param("codehostId")
 	codehostID, err := strconv.Atoi(codehostIDStr)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("cannot convert codehost id to int")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("cannot convert codehost id to int")
 		return
 	}
 
 	repoName := c.Query("repoName")
 	if repoName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("repoName cannot be empty")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("repoName cannot be empty")
 		return
 	}
 	branchName := c.Query("branchName")
 	path := c.Query("path")
 	isDir, err := strconv.ParseBool(c.Query("isDir"))
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalidParam isDir")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalidParam isDir")
 		return
 	}
 	repoOwner := c.Query("repoOwner")
 
-	ctx.Resp, ctx.Err = service.GetContents(codehostID, repoOwner, repoName, path, branchName, isDir, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetContents(codehostID, repoOwner, repoName, path, branchName, isDir, ctx.Logger)
 }

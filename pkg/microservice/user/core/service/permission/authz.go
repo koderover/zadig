@@ -581,6 +581,20 @@ func generateDefaultProjectActions() *ProjectActions {
 			Create: false,
 			Delete: false,
 		},
+		SprintTemplate: &SprintTemplateActions{
+			Edit:    false,
+		},
+		Sprint: &SprintActions{
+			View:    false,
+			Create:  false,
+			Edit:    false,
+			Delete:  false,
+		},
+		SprintWorkItem: &SprintWorkItemActions{
+			Create:  false,
+			Edit:    false,
+			Delete:  false,
+		},
 	}
 }
 
@@ -754,6 +768,22 @@ func modifyUserProjectAuth(userAuthInfo *ProjectActions, verb string) {
 		userAuthInfo.Scanning.Delete = true
 	case VerbRunScan:
 		userAuthInfo.Scanning.Execute = true
+	case VerbEditSprintTemplate:
+		userAuthInfo.SprintTemplate.Edit = true
+	case VerbGetSprint:
+		userAuthInfo.Sprint.View = true
+	case VerbCreateSprint:
+		userAuthInfo.Sprint.Create = true
+	case VerbEditSprint:
+		userAuthInfo.Sprint.Edit = true
+	case VerbDeleteSprint:
+		userAuthInfo.Sprint.Delete = true
+	case VerbCreateSprintWorkItem:
+		userAuthInfo.SprintWorkItem.Create = true
+	case VerbEditSprintWorkItem:
+		userAuthInfo.SprintWorkItem.Edit = true
+	case VerbDeleteSprintWorkItem:
+		userAuthInfo.SprintWorkItem.Delete = true
 	}
 }
 

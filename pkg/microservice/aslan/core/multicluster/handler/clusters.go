@@ -34,7 +34,7 @@ func ListClusters(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -62,7 +62,7 @@ func ListClusters(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.Err = service.ListClusters(clusters, projectName, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.ListClusters(clusters, projectName, ctx.Logger)
 }
 
 func GetCluster(c *gin.Context) {
@@ -70,7 +70,7 @@ func GetCluster(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -83,7 +83,7 @@ func GetCluster(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.Err = service.GetCluster(c.Param("id"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetCluster(c.Param("id"), ctx.Logger)
 }
 
 func CreateCluster(c *gin.Context) {
@@ -91,7 +91,7 @@ func CreateCluster(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -106,12 +106,12 @@ func CreateCluster(c *gin.Context) {
 
 	args := new(service.K8SCluster)
 	if err := c.BindJSON(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
 	if err := args.Clean(); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
@@ -119,11 +119,11 @@ func CreateCluster(c *gin.Context) {
 	args.CreatedBy = ctx.UserName
 	err = args.Validate()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.CreateCluster(args, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.CreateCluster(args, ctx.Logger)
 }
 
 func UpdateCluster(c *gin.Context) {
@@ -131,7 +131,7 @@ func UpdateCluster(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -146,24 +146,24 @@ func UpdateCluster(c *gin.Context) {
 
 	args := new(service.K8SCluster)
 	if err := c.BindJSON(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		log.Errorf("Failed to bind data: %s", err)
 		return
 	}
 
 	if err := args.Clean(); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		log.Errorf("Failed to clean args: %s", err)
 		return
 	}
 
 	err = args.Validate()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.UpdateCluster(c.Param("id"), args, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.UpdateCluster(c.Param("id"), args, ctx.Logger)
 }
 
 func GetDeletionInfo(c *gin.Context) {
@@ -171,7 +171,7 @@ func GetDeletionInfo(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -184,7 +184,7 @@ func GetDeletionInfo(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.Err = service.GetClusterDeletionInfo(c.Param("id"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetClusterDeletionInfo(c.Param("id"), ctx.Logger)
 }
 
 func DeleteCluster(c *gin.Context) {
@@ -192,7 +192,7 @@ func DeleteCluster(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -205,7 +205,7 @@ func DeleteCluster(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = service.DeleteCluster(ctx.UserName, c.Param("id"), ctx.Logger)
+	ctx.RespErr = service.DeleteCluster(ctx.UserName, c.Param("id"), ctx.Logger)
 }
 
 func GetClusterStrategyReferences(c *gin.Context) {
@@ -214,11 +214,11 @@ func GetClusterStrategyReferences(c *gin.Context) {
 
 	clusterID := c.Param("id")
 	if strings.TrimSpace(clusterID) == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid clusterID")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid clusterID")
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.GetClusterStrategyReferences(clusterID, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetClusterStrategyReferences(clusterID, ctx.Logger)
 }
 
 func DisconnectCluster(c *gin.Context) {
@@ -226,7 +226,7 @@ func DisconnectCluster(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -239,7 +239,7 @@ func DisconnectCluster(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = service.DisconnectCluster(ctx.UserName, c.Param("id"), ctx.Logger)
+	ctx.RespErr = service.DisconnectCluster(ctx.UserName, c.Param("id"), ctx.Logger)
 }
 
 func ReconnectCluster(c *gin.Context) {
@@ -247,7 +247,7 @@ func ReconnectCluster(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -260,7 +260,7 @@ func ReconnectCluster(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = service.ReconnectCluster(ctx.UserName, c.Param("id"), ctx.Logger)
+	ctx.RespErr = service.ReconnectCluster(ctx.UserName, c.Param("id"), ctx.Logger)
 }
 
 func ClusterConnectFromAgent(c *gin.Context) {
@@ -273,8 +273,8 @@ func GetClusterYaml(hubURI string) func(*gin.Context) {
 	return func(c *gin.Context) {
 		ctx := internalhandler.NewContext(c)
 		defer func() {
-			if ctx.Err != nil {
-				c.JSON(e.ErrorMessage(ctx.Err))
+			if ctx.RespErr != nil {
+				c.JSON(e.ErrorMessage(ctx.RespErr))
 				c.Abort()
 				return
 			}
@@ -288,7 +288,7 @@ func GetClusterYaml(hubURI string) func(*gin.Context) {
 		)
 
 		if err != nil {
-			ctx.Err = e.ErrInvalidParam.AddErr(err)
+			ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 			return
 		}
 
@@ -302,7 +302,7 @@ func UpgradeAgent(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -315,14 +315,14 @@ func UpgradeAgent(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = service.UpgradeAgent(c.Param("id"), ctx.Logger)
+	ctx.RespErr = service.UpgradeAgent(c.Param("id"), ctx.Logger)
 }
 
 func CheckEphemeralContainers(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.CheckEphemeralContainers(c, c.Query("projectName"), c.Query("envName"))
+	ctx.Resp, ctx.RespErr = service.CheckEphemeralContainers(c, c.Query("projectName"), c.Query("envName"))
 }
 
 func GetIRSAInfo(c *gin.Context) {
@@ -330,7 +330,7 @@ func GetIRSAInfo(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -343,5 +343,5 @@ func GetIRSAInfo(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.Err = service.GetClusterIRSAInfo(c.Query("id"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetClusterIRSAInfo(c.Query("id"), ctx.Logger)
 }

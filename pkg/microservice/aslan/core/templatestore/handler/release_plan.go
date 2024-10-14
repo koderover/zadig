@@ -41,7 +41,7 @@ func GetReleasePlanTemplateByID(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		internalhandler.JSONResponse(c, ctx)
 		return
@@ -55,7 +55,7 @@ func GetReleasePlanTemplateByID(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.Err = templateservice.GetReleasePlanTemplateByID(c.Param("id"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = templateservice.GetReleasePlanTemplateByID(c.Param("id"), ctx.Logger)
 }
 
 // @Summary List Release Plan Template
@@ -70,7 +70,7 @@ func ListReleasePlanTemplate(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -83,7 +83,7 @@ func ListReleasePlanTemplate(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.Err = templateservice.ListReleasePlanTemplate(ctx.Logger)
+	ctx.Resp, ctx.RespErr = templateservice.ListReleasePlanTemplate(ctx.Logger)
 }
 
 // @summary Create Release Plan Template
@@ -99,7 +99,7 @@ func CreateReleasePlanTemplate(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -113,18 +113,18 @@ func CreateReleasePlanTemplate(c *gin.Context) {
 	}
 
 	if err = commonutil.CheckZadigProfessionalLicense(); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
 	args := new(commonmodels.ReleasePlanTemplate)
 
 	if err := c.ShouldBindJSON(&args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 
-	ctx.Err = templateservice.CreateReleasePlanTemplate(ctx.UserName, args, ctx.Logger)
+	ctx.RespErr = templateservice.CreateReleasePlanTemplate(ctx.UserName, args, ctx.Logger)
 }
 
 // @summary Update Release Plan Template
@@ -140,7 +140,7 @@ func UpdateReleasePlanTemplate(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -154,18 +154,18 @@ func UpdateReleasePlanTemplate(c *gin.Context) {
 	}
 
 	if err = commonutil.CheckZadigProfessionalLicense(); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
 	args := new(commonmodels.ReleasePlanTemplate)
 
 	if err := c.ShouldBindYAML(&args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 
-	ctx.Err = templateservice.UpdateReleasePlanTemplate(ctx.UserName, c.Param("id"), args, ctx.Logger)
+	ctx.RespErr = templateservice.UpdateReleasePlanTemplate(ctx.UserName, c.Param("id"), args, ctx.Logger)
 }
 
 // @summary Delete Release Plan Template by ID
@@ -182,7 +182,7 @@ func DeleteReleasePlanTemplateByID(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -195,5 +195,5 @@ func DeleteReleasePlanTemplateByID(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = templateservice.DeleteReleasePlanTemplateByID(c.Param("id"), ctx.Logger)
+	ctx.RespErr = templateservice.DeleteReleasePlanTemplateByID(c.Param("id"), ctx.Logger)
 }

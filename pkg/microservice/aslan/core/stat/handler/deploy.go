@@ -35,11 +35,11 @@ func GetDeployStat(c *gin.Context) {
 
 	args := new(GetDeployStatArgs)
 	if err := c.ShouldBindQuery(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.GetDeployDashboard(args.StartDate, args.EndDate, []string{}, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetDeployDashboard(args.StartDate, args.EndDate, []string{}, ctx.Logger)
 }
 
 type OpenAPIGetDeployStatArgs struct {
@@ -54,7 +54,7 @@ func GetDeployStatsOpenAPI(c *gin.Context) {
 
 	args := new(OpenAPIGetDeployStatArgs)
 	if err := c.ShouldBindQuery(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 
@@ -63,5 +63,5 @@ func GetDeployStatsOpenAPI(c *gin.Context) {
 		projects = append(projects, args.Project)
 	}
 
-	ctx.Resp, ctx.Err = service.GetDeployDashboard(args.StartDate, args.EndDate, projects, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetDeployDashboard(args.StartDate, args.EndDate, projects, ctx.Logger)
 }

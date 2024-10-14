@@ -41,6 +41,7 @@ import (
 	environmentservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/environment/service"
 	multiclusterservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/multicluster/service"
 	releaseplanservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/release_plan/service"
+	sprintservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/sprint_management/service"
 	systemservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/service"
 	workflowservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow"
 	hubserverconfig "github.com/koderover/zadig/v2/pkg/microservice/hubserver/config"
@@ -123,6 +124,7 @@ func Start(ctx context.Context) {
 	initDatabaseConnection()
 	initKlock()
 	initReleasePlanWatcher()
+	initSprintManagementWatcher()
 
 	initService()
 	initDinD()
@@ -316,6 +318,10 @@ func initKlock() {
 func initReleasePlanWatcher() {
 	go releaseplanservice.WatchExecutingWorkflow()
 	go releaseplanservice.WatchApproval()
+}
+
+func initSprintManagementWatcher() {
+	go sprintservice.WatchExecutingSprintWorkItemTask()
 }
 
 func initDatabaseConnection() {

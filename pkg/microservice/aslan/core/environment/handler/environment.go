@@ -72,14 +72,14 @@ func ListProducts(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	projectName := c.Query("projectName")
 	if projectName == "" {
-		ctx.Err = e.ErrInvalidParam
+		ctx.RespErr = e.ErrInvalidParam
 		return
 	}
 
@@ -119,9 +119,9 @@ func ListProducts(c *gin.Context) {
 	}
 
 	if production {
-		ctx.Resp, ctx.Err = service.ListProductionEnvs(ctx.UserID, projectName, envFilter, ctx.Logger)
+		ctx.Resp, ctx.RespErr = service.ListProductionEnvs(ctx.UserID, projectName, envFilter, ctx.Logger)
 	} else {
-		ctx.Resp, ctx.Err = service.ListProducts(ctx.UserID, projectName, envFilter, false, ctx.Logger)
+		ctx.Resp, ctx.RespErr = service.ListProducts(ctx.UserID, projectName, envFilter, false, ctx.Logger)
 	}
 }
 
@@ -143,7 +143,7 @@ func UpdateMultiProducts(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -151,11 +151,11 @@ func UpdateMultiProducts(c *gin.Context) {
 	request := &service.UpdateEnvRequest{}
 	err = c.ShouldBindQuery(request)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 	if request.ProjectName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("projectName can not be empty")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("projectName can not be empty")
 		return
 	}
 
@@ -163,7 +163,7 @@ func UpdateMultiProducts(c *gin.Context) {
 	if production {
 		err = commonutil.CheckZadigProfessionalLicense()
 		if err != nil {
-			ctx.Err = err
+			ctx.RespErr = err
 			return
 		}
 	}
@@ -176,7 +176,7 @@ func createProduct(c *gin.Context, param *service.CreateEnvRequest, createArgs [
 	envNameList := make([]string, 0)
 	for _, arg := range createArgs {
 		if arg.EnvName == "" {
-			ctx.Err = e.ErrInvalidParam.AddDesc("envName is empty")
+			ctx.RespErr = e.ErrInvalidParam.AddDesc("envName is empty")
 			return
 		}
 		arg.ProductName = param.ProjectName
@@ -185,11 +185,11 @@ func createProduct(c *gin.Context, param *service.CreateEnvRequest, createArgs [
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, param.ProjectName, setting.OperationSceneEnv, "新增", "环境", strings.Join(envNameList, "-"), requestBody, ctx.Logger, envNameList...)
 	switch param.Type {
 	case setting.K8SDeployType:
-		ctx.Err = service.CreateYamlProduct(param.ProjectName, ctx.UserName, ctx.RequestID, createArgs, ctx.Logger)
+		ctx.RespErr = service.CreateYamlProduct(param.ProjectName, ctx.UserName, ctx.RequestID, createArgs, ctx.Logger)
 	case setting.SourceFromExternal:
-		ctx.Err = service.CreateHostProductionProduct(param.ProjectName, ctx.UserName, ctx.RequestID, createArgs, ctx.Logger)
+		ctx.RespErr = service.CreateHostProductionProduct(param.ProjectName, ctx.UserName, ctx.RequestID, createArgs, ctx.Logger)
 	default:
-		ctx.Err = service.CreateHelmProduct(param.ProjectName, ctx.UserName, ctx.RequestID, createArgs, ctx.Logger)
+		ctx.RespErr = service.CreateHelmProduct(param.ProjectName, ctx.UserName, ctx.RequestID, createArgs, ctx.Logger)
 	}
 }
 
@@ -198,7 +198,7 @@ func copyProduct(c *gin.Context, param *service.CreateEnvRequest, createArgs []*
 	envNames := make([]string, 0)
 	for _, arg := range createArgs {
 		if arg.EnvName == "" || arg.BaseEnvName == "" {
-			ctx.Err = e.ErrInvalidParam.AddDesc("envName or baseEnvName is empty")
+			ctx.RespErr = e.ErrInvalidParam.AddDesc("envName or baseEnvName is empty")
 			return
 		}
 		arg.ProductName = param.ProjectName
@@ -207,9 +207,9 @@ func copyProduct(c *gin.Context, param *service.CreateEnvRequest, createArgs []*
 	}
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, param.ProjectName, setting.OperationSceneEnv, "复制", "环境", strings.Join(envNameCopyList, ","), requestBody, ctx.Logger, envNames...)
 	if param.Type == setting.K8SDeployType {
-		ctx.Err = service.CopyYamlProduct(ctx.UserName, ctx.RequestID, param.ProjectName, createArgs, ctx.Logger)
+		ctx.RespErr = service.CopyYamlProduct(ctx.UserName, ctx.RequestID, param.ProjectName, createArgs, ctx.Logger)
 	} else {
-		ctx.Err = service.CopyHelmProduct(param.ProjectName, ctx.UserName, ctx.RequestID, createArgs, ctx.Logger)
+		ctx.RespErr = service.CopyHelmProduct(param.ProjectName, ctx.UserName, ctx.RequestID, createArgs, ctx.Logger)
 	}
 }
 
@@ -235,7 +235,7 @@ func CreateProduct(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -243,7 +243,7 @@ func CreateProduct(c *gin.Context) {
 	createParam := &service.CreateEnvRequest{}
 	err = c.ShouldBindQuery(createParam)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
@@ -265,7 +265,7 @@ func CreateProduct(c *gin.Context) {
 
 			err = commonutil.CheckZadigProfessionalLicense()
 			if err != nil {
-				ctx.Err = err
+				ctx.RespErr = err
 				return
 			}
 		} else {
@@ -278,14 +278,14 @@ func CreateProduct(c *gin.Context) {
 	}
 
 	if createParam.ProjectName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("projectName can not be empty")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("projectName can not be empty")
 		return
 	}
 
 	data, err := c.GetRawData()
 	if err != nil {
 		log.Infof("CreateProduct failed to get request data, err: %s", err)
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
@@ -293,14 +293,14 @@ func CreateProduct(c *gin.Context) {
 		createArgs := make([]*service.CreateSingleProductArg, 0)
 		if err = json.Unmarshal(data, &createArgs); err != nil {
 			log.Errorf("copyHelmProduct json.Unmarshal err : %s", err)
-			ctx.Err = e.ErrInvalidParam.AddErr(err)
+			ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 			return
 		}
 
 		if production {
 			err = service.EnsureProductionNamespace(createArgs)
 			if err != nil {
-				ctx.Err = e.ErrInvalidParam.AddErr(err)
+				ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 				return
 			}
 
@@ -352,16 +352,16 @@ func CreateProduct(c *gin.Context) {
 		c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 		if err := c.BindJSON(args); err != nil {
-			ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+			ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 			return
 		}
 
 		if args.EnvName == "" {
-			ctx.Err = e.ErrInvalidParam.AddDesc("envName can not be null!")
+			ctx.RespErr = e.ErrInvalidParam.AddDesc("envName can not be null!")
 			return
 		}
 
-		ctx.Err = service.CreateProduct(ctx.UserName, ctx.RequestID, &service.ProductCreateArg{Product: args}, ctx.Logger)
+		ctx.RespErr = service.CreateProduct(ctx.UserName, ctx.RequestID, &service.ProductCreateArg{Product: args}, ctx.Logger)
 	}
 }
 
@@ -380,7 +380,7 @@ func InitializeEnv(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -390,12 +390,12 @@ func InitializeEnv(c *gin.Context) {
 	data, err := c.GetRawData()
 	if err != nil {
 		log.Infof("CreateProduct failed to get request data, err: %s", err)
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
 	if projectKey == "" {
-		ctx.Err = fmt.Errorf("projectName cannot be empty")
+		ctx.RespErr = fmt.Errorf("projectName cannot be empty")
 		return
 	}
 
@@ -420,7 +420,7 @@ func InitializeEnv(c *gin.Context) {
 		log.Errorf("initialize a json.Unmarshal err : %v", err)
 	}
 
-	ctx.Err = service.InitializeEnvironment(projectKey, args, envType, setting.ProjectApplicationType(appType), ctx.Logger)
+	ctx.RespErr = service.InitializeEnvironment(projectKey, args, envType, setting.ProjectApplicationType(appType), ctx.Logger)
 }
 
 type UpdateProductParams struct {
@@ -435,7 +435,7 @@ func UpdateProduct(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -450,14 +450,14 @@ func UpdateProduct(c *gin.Context) {
 	}
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("updateProductImpl json.Unmarshal err : %v", err)
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "更新", "环境变量", envName, string(data), ctx.Logger, envName)
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.BindJSON(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 
@@ -477,9 +477,9 @@ func UpdateProduct(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = service.UpdateCVMProduct(envName, projectKey, ctx.UserName, ctx.RequestID, ctx.Logger)
-	if ctx.Err != nil {
-		ctx.Logger.Errorf("failed to update product %s %s: %v", envName, projectKey, ctx.Err)
+	ctx.RespErr = service.UpdateCVMProduct(envName, projectKey, ctx.UserName, ctx.RequestID, ctx.Logger)
+	if ctx.RespErr != nil {
+		ctx.Logger.Errorf("failed to update product %s %s: %v", envName, projectKey, ctx.RespErr)
 	}
 }
 
@@ -489,7 +489,7 @@ func UpdateProductRegistry(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -500,19 +500,19 @@ func UpdateProductRegistry(c *gin.Context) {
 	data, err := c.GetRawData()
 	if err != nil {
 		log.Errorf("updateProductImpl c.GetRawData() err : %v", err)
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("updateProductImpl json.Unmarshal err : %v", err)
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "更新", "环境", envName, string(data), ctx.Logger, envName)
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.BindJSON(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 
@@ -535,7 +535,7 @@ func UpdateProductRegistry(c *gin.Context) {
 			}
 
 			if err := commonutil.CheckZadigProfessionalLicense(); err != nil {
-				ctx.Err = err
+				ctx.RespErr = err
 				return
 			}
 		} else {
@@ -550,9 +550,9 @@ func UpdateProductRegistry(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = service.UpdateProductRegistry(envName, projectKey, args.RegistryID, production, ctx.Logger)
-	if ctx.Err != nil {
-		ctx.Logger.Errorf("failed to update product %s %s: %v", envName, args.RegistryID, ctx.Err)
+	ctx.RespErr = service.UpdateProductRegistry(envName, projectKey, args.RegistryID, production, ctx.Logger)
+	if ctx.RespErr != nil {
+		ctx.Logger.Errorf("failed to update product %s %s: %v", envName, args.RegistryID, ctx.RespErr)
 	}
 }
 
@@ -562,7 +562,7 @@ func UpdateProductRecycleDay(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -593,16 +593,16 @@ func UpdateProductRecycleDay(c *gin.Context) {
 		recycleDay int
 	)
 	if recycleDayStr == "" || envName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("envName or recycleDay不能为空")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("envName or recycleDay不能为空")
 		return
 	}
 	recycleDay, err = strconv.Atoi(recycleDayStr)
 	if err != nil || recycleDay < 0 {
-		ctx.Err = e.ErrInvalidParam.AddDesc("recycleDay必须是正整数")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("recycleDay必须是正整数")
 		return
 	}
 
-	ctx.Err = service.UpdateProductRecycleDay(envName, projectKey, recycleDay)
+	ctx.RespErr = service.UpdateProductRecycleDay(envName, projectKey, recycleDay)
 }
 
 func UpdateProductAlias(c *gin.Context) {
@@ -610,7 +610,7 @@ func UpdateProductAlias(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -643,7 +643,7 @@ func UpdateProductAlias(c *gin.Context) {
 
 			err = commonutil.CheckZadigProfessionalLicense()
 			if err != nil {
-				ctx.Err = err
+				ctx.RespErr = err
 				return
 			}
 		} else {
@@ -658,7 +658,7 @@ func UpdateProductAlias(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = service.UpdateProductAlias(envName, projectKey, arg.Alias, production)
+	ctx.RespErr = service.UpdateProductAlias(envName, projectKey, arg.Alias, production)
 }
 
 func AffectedServices(c *gin.Context) {
@@ -668,7 +668,7 @@ func AffectedServices(c *gin.Context) {
 	envName := c.Param("name")
 	projectName := c.Query("projectName")
 	if projectName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("projectName can't be empty!")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("projectName can't be empty!")
 		return
 	}
 
@@ -677,7 +677,7 @@ func AffectedServices(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.GetAffectedServices(projectName, envName, arg, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetAffectedServices(projectName, envName, arg, ctx.Logger)
 }
 
 func EstimatedValues(c *gin.Context) {
@@ -687,25 +687,25 @@ func EstimatedValues(c *gin.Context) {
 	envName := c.Param("name")
 	projectName := c.Query("projectName")
 	if projectName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("projectName can't be empty!")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("projectName can't be empty!")
 		return
 	}
 
 	serviceName := c.Query("serviceName")
 	if serviceName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("serviceName can't be empty!")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("serviceName can't be empty!")
 		return
 	}
 
 	isHelmChartDeploy := c.Query("isHelmChartDeploy")
 	if isHelmChartDeploy == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("isHelmChartDeploy can't be empty!")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("isHelmChartDeploy can't be empty!")
 		return
 	}
 
 	arg := new(service.EstimateValuesArg)
 	if err := c.ShouldBind(arg); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 
@@ -714,12 +714,12 @@ func EstimatedValues(c *gin.Context) {
 	if production {
 		err := commonutil.CheckZadigProfessionalLicense()
 		if err != nil {
-			ctx.Err = err
+			ctx.RespErr = err
 			return
 		}
 	}
 
-	ctx.Resp, ctx.Err = service.GeneEstimatedValues(projectName, envName, serviceName, c.Query("scene"), c.Query("format"), arg, isHelmChartDeploy == "true", ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GeneEstimatedValues(projectName, envName, serviceName, c.Query("scene"), c.Query("format"), arg, isHelmChartDeploy == "true", ctx.Logger)
 }
 func SyncHelmProductRenderset(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
@@ -727,7 +727,7 @@ func SyncHelmProductRenderset(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -736,12 +736,12 @@ func SyncHelmProductRenderset(c *gin.Context) {
 	envName := c.Param("name")
 
 	if projectKey == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("projectName can't be empty!")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("projectName can't be empty!")
 		return
 	}
 
 	if envName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("envName can't be empty!")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("envName can't be empty!")
 		return
 	}
 
@@ -761,7 +761,7 @@ func SyncHelmProductRenderset(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = service.SyncHelmProductEnvironment(projectKey, envName, ctx.RequestID, ctx.Logger)
+	ctx.RespErr = service.SyncHelmProductEnvironment(projectKey, envName, ctx.RequestID, ctx.Logger)
 }
 
 func generalRequestValidate(c *gin.Context) (string, string, error) {
@@ -782,14 +782,14 @@ func UpdateHelmProductDefaultValues(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	projectKey, envName, err := generalRequestValidate(c)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
@@ -835,25 +835,25 @@ func UpdateHelmProductDefaultValues(c *gin.Context) {
 
 	err = c.BindJSON(arg)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
 	licenseStatus, err := plutusvendor.New().CheckZadigXLicenseStatus()
 	if err != nil {
-		ctx.Err = fmt.Errorf("failed to validate zadig license status, error: %s", err)
+		ctx.RespErr = fmt.Errorf("failed to validate zadig license status, error: %s", err)
 		return
 	}
 
 	if arg.ValuesData != nil && arg.ValuesData.AutoSync {
 		if !commonutil.ValidateZadigProfessionalLicense(licenseStatus) {
-			ctx.Err = e.ErrLicenseInvalid.AddDesc("")
+			ctx.RespErr = e.ErrLicenseInvalid.AddDesc("")
 			return
 		}
 	}
 
 	arg.DeployType = setting.HelmDeployType
-	ctx.Err = service.UpdateProductDefaultValues(projectKey, envName, ctx.UserName, ctx.RequestID, arg, production, ctx.Logger)
+	ctx.RespErr = service.UpdateProductDefaultValues(projectKey, envName, ctx.UserName, ctx.RequestID, arg, production, ctx.Logger)
 }
 
 func PreviewHelmProductDefaultValues(c *gin.Context) {
@@ -861,21 +861,21 @@ func PreviewHelmProductDefaultValues(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	projectKey, envName, err := generalRequestValidate(c)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
 	arg := new(service.EnvRendersetArg)
 	err = c.BindJSON(arg)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
@@ -899,7 +899,7 @@ func PreviewHelmProductDefaultValues(c *gin.Context) {
 
 			err := commonutil.CheckZadigProfessionalLicense()
 			if err != nil {
-				ctx.Err = err
+				ctx.RespErr = err
 				return
 			}
 		} else {
@@ -915,7 +915,7 @@ func PreviewHelmProductDefaultValues(c *gin.Context) {
 	}
 
 	arg.DeployType = setting.HelmDeployType
-	ctx.Resp, ctx.Err = service.PreviewHelmProductGlobalVariables(projectKey, envName, arg.DefaultValues, production, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.PreviewHelmProductGlobalVariables(projectKey, envName, arg.DefaultValues, production, ctx.Logger)
 }
 
 type updateK8sProductGlobalVariablesRequest struct {
@@ -929,14 +929,14 @@ func PreviewGlobalVariables(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	projectKey, envName, err := generalRequestValidate(c)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
@@ -959,7 +959,7 @@ func PreviewGlobalVariables(c *gin.Context) {
 
 			err := commonutil.CheckZadigProfessionalLicense()
 			if err != nil {
-				ctx.Err = err
+				ctx.RespErr = err
 				return
 			}
 		} else {
@@ -978,10 +978,10 @@ func PreviewGlobalVariables(c *gin.Context) {
 
 	err = c.BindJSON(arg)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
-	ctx.Resp, ctx.Err = service.PreviewProductGlobalVariables(projectKey, envName, arg.GlobalVariables, production, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.PreviewProductGlobalVariables(projectKey, envName, arg.GlobalVariables, production, ctx.Logger)
 }
 
 // @Summary Update global variables
@@ -1000,14 +1000,14 @@ func UpdateK8sProductGlobalVariables(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	projectKey, envName, err := generalRequestValidate(c)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
@@ -1037,7 +1037,7 @@ func UpdateK8sProductGlobalVariables(c *gin.Context) {
 			}
 
 			if err := commonutil.CheckZadigProfessionalLicense(); err != nil {
-				ctx.Err = err
+				ctx.RespErr = err
 				return
 			}
 		} else {
@@ -1054,11 +1054,11 @@ func UpdateK8sProductGlobalVariables(c *gin.Context) {
 
 	err = c.BindJSON(arg)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
-	ctx.Err = service.UpdateProductGlobalVariables(projectKey, envName, ctx.UserName, ctx.RequestID, arg.CurrentRevision, arg.GlobalVariables, production, ctx.Logger)
+	ctx.RespErr = service.UpdateProductGlobalVariables(projectKey, envName, ctx.UserName, ctx.RequestID, arg.CurrentRevision, arg.GlobalVariables, production, ctx.Logger)
 }
 
 // @Summary Update helm product charts
@@ -1077,14 +1077,14 @@ func UpdateHelmProductCharts(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	projectKey, envName, err := generalRequestValidate(c)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
@@ -1125,7 +1125,7 @@ func UpdateHelmProductCharts(c *gin.Context) {
 			}
 
 			if err := commonutil.CheckZadigProfessionalLicense(); err != nil {
-				ctx.Err = err
+				ctx.RespErr = err
 				return
 			}
 		} else {
@@ -1142,17 +1142,17 @@ func UpdateHelmProductCharts(c *gin.Context) {
 
 	err = c.BindJSON(arg)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
-	ctx.Err = service.UpdateHelmProductCharts(projectKey, envName, ctx.UserName, ctx.RequestID, production, arg, ctx.Logger)
+	ctx.RespErr = service.UpdateHelmProductCharts(projectKey, envName, ctx.UserName, ctx.RequestID, production, arg, ctx.Logger)
 }
 
 func updateMultiEnvWrapper(c *gin.Context, request *service.UpdateEnvRequest, production bool, ctx *internalhandler.Context) {
 	deployType, err := service.GetProductDeployType(request.ProjectName)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 	log.Infof("update multiple envs for project: %s, deploy type: %s", request.ProjectName, deployType)
@@ -1175,18 +1175,18 @@ func updateMultiK8sEnv(c *gin.Context, request *service.UpdateEnvRequest, produc
 	data, err := c.GetRawData()
 	if err != nil {
 		log.Errorf("UpdateMultiProducts c.GetRawData() err : %v", err)
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 	if err = json.Unmarshal(data, &args); err != nil {
 		log.Errorf("UpdateMultiProducts json.Unmarshal err : %v", err)
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
 	licenseStatus, err := plutusvendor.New().CheckZadigXLicenseStatus()
 	if err != nil {
-		ctx.Err = fmt.Errorf("failed to validate zadig license status, error: %s", err)
+		ctx.RespErr = fmt.Errorf("failed to validate zadig license status, error: %s", err)
 		return
 	}
 	var envNames []string
@@ -1196,7 +1196,7 @@ func updateMultiK8sEnv(c *gin.Context, request *service.UpdateEnvRequest, produc
 				if !((licenseStatus.Type == plutusvendor.ZadigSystemTypeProfessional ||
 					licenseStatus.Type == plutusvendor.ZadigSystemTypeEnterprise) &&
 					licenseStatus.Status == plutusvendor.ZadigXLicenseStatusNormal) {
-					ctx.Err = e.ErrLicenseInvalid.AddDesc("")
+					ctx.RespErr = e.ErrLicenseInvalid.AddDesc("")
 					return
 				}
 			}
@@ -1240,11 +1240,11 @@ func updateMultiK8sEnv(c *gin.Context, request *service.UpdateEnvRequest, produc
 	ctx.UnAuthorized = !permitted
 
 	if ctx.UnAuthorized {
-		ctx.Err = fmt.Errorf("not all input envs are allowed, allowed envs are %v", envAuthorization.EditEnvList)
+		ctx.RespErr = fmt.Errorf("not all input envs are allowed, allowed envs are %v", envAuthorization.EditEnvList)
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.UpdateMultipleK8sEnv(args, envNames, request.ProjectName, ctx.RequestID, request.Force, production, ctx.UserName, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.UpdateMultipleK8sEnv(args, envNames, request.ProjectName, ctx.RequestID, request.Force, production, ctx.UserName, ctx.Logger)
 }
 
 func updateMultiHelmEnv(c *gin.Context, request *service.UpdateEnvRequest, production bool, ctx *internalhandler.Context) {
@@ -1294,11 +1294,11 @@ func updateMultiHelmEnv(c *gin.Context, request *service.UpdateEnvRequest, produ
 	ctx.UnAuthorized = !permitted
 
 	if ctx.UnAuthorized {
-		ctx.Err = fmt.Errorf("not all input envs are allowed, allowed envs are %v", envAuthorization.EditEnvList)
+		ctx.RespErr = fmt.Errorf("not all input envs are allowed, allowed envs are %v", envAuthorization.EditEnvList)
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.UpdateMultipleHelmEnv(
+	ctx.Resp, ctx.RespErr = service.UpdateMultipleHelmEnv(
 		ctx.RequestID, ctx.UserName, args, production, ctx.Logger,
 	)
 }
@@ -1352,25 +1352,25 @@ func updateMultiHelmChartEnv(c *gin.Context, request *service.UpdateEnvRequest, 
 	ctx.UnAuthorized = !permitted
 
 	if ctx.UnAuthorized {
-		ctx.Err = fmt.Errorf("not all input envs are allowed, allowed envs are %v", envAuthorization.EditEnvList)
+		ctx.RespErr = fmt.Errorf("not all input envs are allowed, allowed envs are %v", envAuthorization.EditEnvList)
 		return
 	}
 
 	licenseStatus, err := plutusvendor.New().CheckZadigXLicenseStatus()
 	if err != nil {
-		ctx.Err = fmt.Errorf("failed to validate zadig license status, error: %s", err)
+		ctx.RespErr = fmt.Errorf("failed to validate zadig license status, error: %s", err)
 		return
 	}
 	for _, chartValue := range args.ChartValues {
 		if chartValue.DeployStrategy == setting.ServiceDeployStrategyImport {
 			if !commonutil.ValidateZadigProfessionalLicense(licenseStatus) {
-				ctx.Err = e.ErrLicenseInvalid.AddDesc("")
+				ctx.RespErr = e.ErrLicenseInvalid.AddDesc("")
 				return
 			}
 		}
 	}
 
-	ctx.Resp, ctx.Err = service.UpdateMultipleHelmChartEnv(
+	ctx.Resp, ctx.RespErr = service.UpdateMultipleHelmChartEnv(
 		ctx.RequestID, ctx.UserName, args, production, ctx.Logger,
 	)
 }
@@ -1380,12 +1380,12 @@ func updateMultiCvmEnv(c *gin.Context, request *service.UpdateEnvRequest, ctx *i
 	data, err := c.GetRawData()
 	if err != nil {
 		log.Errorf("UpdateMultiProducts c.GetRawData() err : %v", err)
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 	if err = json.Unmarshal(data, &args); err != nil {
 		log.Errorf("UpdateMultiProducts json.Unmarshal err : %v", err)
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 	var envNames []string
@@ -1414,7 +1414,7 @@ func updateMultiCvmEnv(c *gin.Context, request *service.UpdateEnvRequest, ctx *i
 		}
 	}
 
-	ctx.Resp, ctx.Err = service.UpdateMultiCVMProducts(envNames, request.ProjectName, ctx.UserName, ctx.RequestID, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.UpdateMultiCVMProducts(envNames, request.ProjectName, ctx.UserName, ctx.RequestID, ctx.Logger)
 }
 
 // @Summary Get Product
@@ -1432,7 +1432,7 @@ func GetEnvironment(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -1460,7 +1460,7 @@ func GetEnvironment(c *gin.Context) {
 
 			err = commonutil.CheckZadigProfessionalLicense()
 			if err != nil {
-				ctx.Err = err
+				ctx.RespErr = err
 				return
 			}
 		} else {
@@ -1476,7 +1476,7 @@ func GetEnvironment(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.Err = service.GetProduct(ctx.UserName, envName, projectKey, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetProduct(ctx.UserName, envName, projectKey, ctx.Logger)
 }
 
 func GetEstimatedRenderCharts(c *gin.Context) {
@@ -1484,19 +1484,19 @@ func GetEstimatedRenderCharts(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	projectKey := c.Query("projectName")
 	if projectKey == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("projectName can't be empty!")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("projectName can't be empty!")
 		return
 	}
 	envName := c.Param("name")
 	if envName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("envName can't be empty!")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("envName can't be empty!")
 		return
 	}
 	production := c.Query("production") == "true"
@@ -1520,7 +1520,7 @@ func GetEstimatedRenderCharts(c *gin.Context) {
 
 			err = commonutil.CheckZadigProfessionalLicense()
 			if err != nil {
-				ctx.Err = err
+				ctx.RespErr = err
 				return
 			}
 		} else {
@@ -1537,12 +1537,12 @@ func GetEstimatedRenderCharts(c *gin.Context) {
 
 	arg := &commonservice.GetSvcRenderRequest{}
 	if err := c.ShouldBindJSON(arg); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
-	ctx.Resp, ctx.Err = service.GetEstimatedRenderCharts(projectKey, envName, arg.GetSvcRendersArgs, production, ctx.Logger)
-	if ctx.Err != nil {
-		ctx.Logger.Errorf("failed to get estimatedRenderCharts %s %s: %v", envName, projectKey, ctx.Err)
+	ctx.Resp, ctx.RespErr = service.GetEstimatedRenderCharts(projectKey, envName, arg.GetSvcRendersArgs, production, ctx.Logger)
+	if ctx.RespErr != nil {
+		ctx.Logger.Errorf("failed to get estimatedRenderCharts %s %s: %v", envName, projectKey, ctx.RespErr)
 	}
 }
 
@@ -1561,7 +1561,7 @@ func DeleteProduct(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -1571,7 +1571,7 @@ func DeleteProduct(c *gin.Context) {
 	isDelete, err := strconv.ParseBool(c.Query("is_delete"))
 	production := c.Query("production") == "true"
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalidParam is_delete")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalidParam is_delete")
 		return
 	}
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "删除", "环境", envName, "", ctx.Logger, envName)
@@ -1590,7 +1590,7 @@ func DeleteProduct(c *gin.Context) {
 			}
 
 			if err := commonutil.CheckZadigProfessionalLicense(); err != nil {
-				ctx.Err = err
+				ctx.RespErr = err
 				return
 			}
 		} else {
@@ -1603,9 +1603,9 @@ func DeleteProduct(c *gin.Context) {
 	}
 
 	if production {
-		ctx.Err = service.DeleteProductionProduct(ctx.UserName, envName, projectKey, ctx.RequestID, ctx.Logger)
+		ctx.RespErr = service.DeleteProductionProduct(ctx.UserName, envName, projectKey, ctx.RequestID, ctx.Logger)
 	} else {
-		ctx.Err = service.DeleteProduct(ctx.UserName, envName, projectKey, ctx.RequestID, isDelete, ctx.Logger)
+		ctx.RespErr = service.DeleteProduct(ctx.UserName, envName, projectKey, ctx.RequestID, isDelete, ctx.Logger)
 	}
 
 }
@@ -1626,7 +1626,7 @@ func DeleteProductServices(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -1635,12 +1635,12 @@ func DeleteProductServices(c *gin.Context) {
 	data, err := c.GetRawData()
 	if err != nil {
 		log.Errorf("DeleteProductServices c.GetRawData() err : %v", err)
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("DeleteProductServices json.Unmarshal err : %v", err)
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
@@ -1679,7 +1679,7 @@ func DeleteProductServices(c *gin.Context) {
 	if production {
 		err = commonutil.CheckZadigProfessionalLicense()
 		if err != nil {
-			ctx.Err = err
+			ctx.RespErr = err
 			return
 		}
 	} else {
@@ -1687,7 +1687,7 @@ func DeleteProductServices(c *gin.Context) {
 		// we should prompt the user that `Delete the service in the subenvironment before deleting the service in the base environment`.
 		svcsInSubEnvs, err := service.CheckServicesDeployedInSubEnvs(c, projectKey, envName, args.ServiceNames)
 		if err != nil {
-			ctx.Err = err
+			ctx.RespErr = err
 			return
 		}
 		if len(svcsInSubEnvs) > 0 {
@@ -1696,13 +1696,13 @@ func DeleteProductServices(c *gin.Context) {
 				data[k] = v
 			}
 
-			ctx.Err = e.NewWithExtras(e.ErrDeleteSvcHasSvcsInSubEnv, "", data)
+			ctx.RespErr = e.NewWithExtras(e.ErrDeleteSvcHasSvcsInSubEnv, "", data)
 			return
 		}
 	}
 
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "删除", "环境的服务", fmt.Sprintf("%s:[%s]", envName, strings.Join(args.ServiceNames, ",")), "", ctx.Logger, envName)
-	ctx.Err = service.DeleteProductServices(ctx.UserName, ctx.RequestID, envName, projectKey, args.ServiceNames, production, ctx.Logger)
+	ctx.RespErr = service.DeleteProductServices(ctx.UserName, ctx.RequestID, envName, projectKey, args.ServiceNames, production, ctx.Logger)
 }
 
 // @Summary Delete helm release from envrionment
@@ -1721,7 +1721,7 @@ func DeleteHelmReleases(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -1752,7 +1752,7 @@ func DeleteHelmReleases(c *gin.Context) {
 			}
 
 			if err := commonutil.CheckZadigProfessionalLicense(); err != nil {
-				ctx.Err = err
+				ctx.RespErr = err
 				return
 			}
 		} else {
@@ -1768,11 +1768,11 @@ func DeleteHelmReleases(c *gin.Context) {
 	}
 
 	if err := commonutil.CheckZadigProfessionalLicense(); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
-	ctx.Err = service.DeleteProductHelmReleases(ctx.UserName, ctx.RequestID, envName, projectKey, releaseNameArr, production, ctx.Logger)
+	ctx.RespErr = service.DeleteProductHelmReleases(ctx.UserName, ctx.RequestID, envName, projectKey, releaseNameArr, production, ctx.Logger)
 }
 
 func ListGroups(c *gin.Context) {
@@ -1780,7 +1780,7 @@ func ListGroups(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -1791,7 +1791,7 @@ func ListGroups(c *gin.Context) {
 	envGroupRequest := new(service.EnvGroupRequest)
 	err = c.BindQuery(envGroupRequest)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(fmt.Sprintf("bind query err :%s", err))
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(fmt.Sprintf("bind query err :%s", err))
 		return
 	}
 
@@ -1814,7 +1814,7 @@ func ListGroups(c *gin.Context) {
 			}
 
 			if err := commonutil.CheckZadigProfessionalLicense(); err != nil {
-				ctx.Err = err
+				ctx.RespErr = err
 				return
 			}
 		} else {
@@ -1836,7 +1836,7 @@ func ListGroups(c *gin.Context) {
 		envGroupRequest.Page = 1
 	}
 
-	ctx.Resp, count, ctx.Err = service.ListGroups(envGroupRequest.ServiceName, envName, envGroupRequest.ProjectName, envGroupRequest.PerPage, envGroupRequest.Page, production, ctx.Logger)
+	ctx.Resp, count, ctx.RespErr = service.ListGroups(envGroupRequest.ServiceName, envName, envGroupRequest.ProjectName, envGroupRequest.PerPage, envGroupRequest.Page, production, ctx.Logger)
 	c.Writer.Header().Set("X-Total", strconv.Itoa(count))
 }
 
@@ -1853,7 +1853,7 @@ func ListWorkloads(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	args := new(ListWorkloadsArgs)
 	if err := c.ShouldBindQuery(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 
@@ -1899,7 +1899,7 @@ func ListWorkloads(c *gin.Context) {
 	ctx.Resp = &NamespaceResource{
 		Services: services,
 	}
-	ctx.Err = err
+	ctx.RespErr = err
 	c.Writer.Header().Set("X-Total", strconv.Itoa(count))
 }
 
@@ -1922,14 +1922,14 @@ func ListWorkloadsInEnv(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	args := &workloadQueryArgs{}
 	if err := c.ShouldBindQuery(args); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
@@ -1955,7 +1955,7 @@ func ListWorkloadsInEnv(c *gin.Context) {
 			}
 
 			if err := commonutil.CheckZadigProfessionalLicense(); err != nil {
-				ctx.Err = err
+				ctx.RespErr = err
 				return
 			}
 		} else {
@@ -1974,7 +1974,7 @@ func ListWorkloadsInEnv(c *gin.Context) {
 	ctx.Resp = &NamespaceResource{
 		Services: services,
 	}
-	ctx.Err = err
+	ctx.RespErr = err
 	c.Writer.Header().Set("X-Total", strconv.Itoa(count))
 }
 
@@ -1995,16 +1995,16 @@ func GetGlobalVariableCandidates(c *gin.Context) {
 	envName := c.Param("name")
 
 	if projectKey == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("productName can not be null!")
 		return
 	}
 
 	if envName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("name can not be null!")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("name can not be null!")
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.GetGlobalVariableCandidate(projectKey, envName, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetGlobalVariableCandidate(projectKey, envName, ctx.Logger)
 }
 
 // @Summary Get environment configs
@@ -2020,19 +2020,19 @@ func GetEnvConfigs(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	projectKey := c.Query("projectName")
 	if projectKey == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("productName can not be null!")
 		return
 	}
 	envName := c.Param("name")
 	if envName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("name can not be null!")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("name can not be null!")
 		return
 	}
 	production := c.Query("production") == "true"
@@ -2055,7 +2055,7 @@ func GetEnvConfigs(c *gin.Context) {
 
 			err = commonutil.CheckZadigProfessionalLicense()
 			if err != nil {
-				ctx.Err = err
+				ctx.RespErr = err
 				return
 			}
 		} else {
@@ -2070,7 +2070,7 @@ func GetEnvConfigs(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.Err = service.GetEnvConfigs(projectKey, envName, &production, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetEnvConfigs(projectKey, envName, &production, ctx.Logger)
 }
 
 // @Summary Update environment configs
@@ -2087,19 +2087,19 @@ func UpdateEnvConfigs(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	projectKey := c.Query("projectName")
 	if projectKey == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("productName can not be null!")
 		return
 	}
 	envName := c.Param("name")
 	if envName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("name can not be null!")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("name can not be null!")
 		return
 	}
 	production := c.Query("production") == "true"
@@ -2128,7 +2128,7 @@ func UpdateEnvConfigs(c *gin.Context) {
 			}
 
 			if err := commonutil.CheckZadigProfessionalLicense(); err != nil {
-				ctx.Err = err
+				ctx.RespErr = err
 				return
 			}
 		} else {
@@ -2146,11 +2146,11 @@ func UpdateEnvConfigs(c *gin.Context) {
 	arg := new(service.EnvConfigsArgs)
 	err = c.BindJSON(arg)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
-	ctx.Err = service.UpdateEnvConfigs(projectKey, envName, arg, &production, ctx.Logger)
+	ctx.RespErr = service.UpdateEnvConfigs(projectKey, envName, arg, &production, ctx.Logger)
 }
 
 // @Summary Run environment Analysis
@@ -2166,19 +2166,19 @@ func RunAnalysis(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	projectKey := c.Query("projectName")
 	if projectKey == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("productName can not be null!")
 		return
 	}
 	envName := c.Param("name")
 	if envName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("name can not be null!")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("name can not be null!")
 		return
 	}
 	production := c.Query("production") == "true"
@@ -2201,7 +2201,7 @@ func RunAnalysis(c *gin.Context) {
 
 			err = commonutil.CheckZadigProfessionalLicense()
 			if err != nil {
-				ctx.Err = err
+				ctx.RespErr = err
 				return
 			}
 		} else {
@@ -2216,7 +2216,7 @@ func RunAnalysis(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.Err = service.EnvAnalysis(projectKey, envName, &production, c.Query("triggerName"), ctx.UserName, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.EnvAnalysis(projectKey, envName, &production, c.Query("triggerName"), ctx.UserName, ctx.Logger)
 }
 
 // @Summary Upsert Env Analysis Cron
@@ -2233,19 +2233,19 @@ func UpsertEnvAnalysisCron(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	projectKey := c.Query("projectName")
 	if projectKey == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("productName can not be null!")
 		return
 	}
 	envName := c.Param("name")
 	if envName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("name can not be null!")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("name can not be null!")
 		return
 	}
 	production := c.Query("production") == "true"
@@ -2267,7 +2267,7 @@ func UpsertEnvAnalysisCron(c *gin.Context) {
 			}
 
 			if err := commonutil.CheckZadigProfessionalLicense(); err != nil {
-				ctx.Err = err
+				ctx.RespErr = err
 				return
 			}
 		} else {
@@ -2292,11 +2292,11 @@ func UpsertEnvAnalysisCron(c *gin.Context) {
 	arg := new(service.EnvAnalysisCronArg)
 	err = c.BindJSON(arg)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
-	ctx.Err = service.UpsertEnvAnalysisCron(projectKey, envName, &production, arg, ctx.Logger)
+	ctx.RespErr = service.UpsertEnvAnalysisCron(projectKey, envName, &production, arg, ctx.Logger)
 }
 
 // @Summary Get Env Analysis Cron
@@ -2312,19 +2312,19 @@ func GetEnvAnalysisCron(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	projectKey := c.Query("projectName")
 	if projectKey == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("productName can not be null!")
 		return
 	}
 	envName := c.Param("name")
 	if envName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("name can not be null!")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("name can not be null!")
 		return
 	}
 	production := c.Query("production") == "true"
@@ -2346,7 +2346,7 @@ func GetEnvAnalysisCron(c *gin.Context) {
 			}
 
 			if err := commonutil.CheckZadigProfessionalLicense(); err != nil {
-				ctx.Err = err
+				ctx.RespErr = err
 				return
 			}
 		} else {
@@ -2361,7 +2361,7 @@ func GetEnvAnalysisCron(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.Err = service.GetEnvAnalysisCron(projectKey, envName, &production, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetEnvAnalysisCron(projectKey, envName, &production, ctx.Logger)
 }
 
 type EnvAnalysisHistoryReq struct {
@@ -2381,7 +2381,7 @@ func GetEnvAnalysisHistory(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -2389,7 +2389,7 @@ func GetEnvAnalysisHistory(c *gin.Context) {
 	req := &EnvAnalysisHistoryReq{}
 	err = c.ShouldBindQuery(req)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
@@ -2414,7 +2414,7 @@ func GetEnvAnalysisHistory(c *gin.Context) {
 			}
 
 			if err := commonutil.CheckZadigProfessionalLicense(); err != nil {
-				ctx.Err = err
+				ctx.RespErr = err
 				return
 			}
 		} else {
@@ -2434,7 +2434,7 @@ func GetEnvAnalysisHistory(c *gin.Context) {
 		Total:  count,
 		Result: result,
 	}
-	ctx.Err = err
+	ctx.RespErr = err
 }
 
 // @Summary Environment Sleep
@@ -2453,24 +2453,24 @@ func EnvSleep(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	envName := c.Param("name")
 	if envName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("name can't be empty!")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("name can't be empty!")
 		return
 	}
 	projectName := c.Query("projectName")
 	if projectName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("projectName can't be empty!")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("projectName can't be empty!")
 		return
 	}
 	action := c.Query("action")
 	if action == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("action can't be empty!")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("action can't be empty!")
 		return
 	}
 	production := c.Query("production") == "true"
@@ -2503,7 +2503,7 @@ func EnvSleep(c *gin.Context) {
 
 			err = commonutil.CheckZadigProfessionalLicense()
 			if err != nil {
-				ctx.Err = err
+				ctx.RespErr = err
 				return
 			}
 		} else {
@@ -2528,7 +2528,7 @@ func EnvSleep(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = service.EnvSleep(projectName, envName, action == "enable", production, ctx.Logger)
+	ctx.RespErr = service.EnvSleep(projectName, envName, action == "enable", production, ctx.Logger)
 }
 
 // @Summary Get Env Sleep Cron
@@ -2545,19 +2545,19 @@ func GetEnvSleepCron(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	projectName := c.Query("projectName")
 	if projectName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("productName can not be null!")
 		return
 	}
 	envName := c.Param("name")
 	if envName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("name can not be null!")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("name can not be null!")
 		return
 	}
 	production := c.Query("production") == "true"
@@ -2584,7 +2584,7 @@ func GetEnvSleepCron(c *gin.Context) {
 
 			err = commonutil.CheckZadigProfessionalLicense()
 			if err != nil {
-				ctx.Err = err
+				ctx.RespErr = err
 				return
 			}
 		} else {
@@ -2609,7 +2609,7 @@ func GetEnvSleepCron(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.GetEnvSleepCron(projectName, envName, &production, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetEnvSleepCron(projectName, envName, &production, ctx.Logger)
 }
 
 // @Summary Upsert Env Sleep Cron
@@ -2628,19 +2628,19 @@ func UpsertEnvSleepCron(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	projectName := c.Query("projectName")
 	if projectName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("productName can not be null!")
 		return
 	}
 	envName := c.Param("name")
 	if envName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("name can not be null!")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("name can not be null!")
 		return
 	}
 	production := c.Query("production") == "true"
@@ -2655,7 +2655,7 @@ func UpsertEnvSleepCron(c *gin.Context) {
 	arg := new(service.EnvSleepCronArg)
 	err = c.BindJSON(arg)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
@@ -2681,7 +2681,7 @@ func UpsertEnvSleepCron(c *gin.Context) {
 
 			err = commonutil.CheckZadigProfessionalLicense()
 			if err != nil {
-				ctx.Err = err
+				ctx.RespErr = err
 				return
 			}
 		} else {
@@ -2706,5 +2706,5 @@ func UpsertEnvSleepCron(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = service.UpsertEnvSleepCron(projectName, envName, &production, arg, ctx.Logger)
+	ctx.RespErr = service.UpsertEnvSleepCron(projectName, envName, &production, arg, ctx.Logger)
 }

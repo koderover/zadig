@@ -38,7 +38,7 @@ func CreateInstall(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -61,12 +61,12 @@ func CreateInstall(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindWith(&args, binding.JSON); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid Install args")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid Install args")
 		return
 	}
 	args.UpdateBy = ctx.UserName
 
-	ctx.Err = service.CreateInstall(args, ctx.Logger)
+	ctx.RespErr = service.CreateInstall(args, ctx.Logger)
 }
 
 func UpdateInstall(c *gin.Context) {
@@ -75,7 +75,7 @@ func UpdateInstall(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -98,25 +98,25 @@ func UpdateInstall(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindWith(&args, binding.JSON); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid Install args")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid Install args")
 		return
 	}
 	args.UpdateBy = ctx.UserName
 	name := args.Name
 	version := args.Version
 	if name == "" || version == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("名称或者版本号不能为空!")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("名称或者版本号不能为空!")
 		return
 	}
 
-	ctx.Err = service.UpdateInstall(name, version, args, ctx.Logger)
+	ctx.RespErr = service.UpdateInstall(name, version, args, ctx.Logger)
 }
 
 func GetInstall(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.GetInstall(c.Param("name"), c.Param("version"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetInstall(c.Param("name"), c.Param("version"), ctx.Logger)
 }
 
 func ListInstalls(c *gin.Context) {
@@ -124,9 +124,9 @@ func ListInstalls(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if c.Query("available") == "" || c.Query("available") != "true" {
-		ctx.Resp, ctx.Err = service.ListInstalls(ctx.Logger)
+		ctx.Resp, ctx.RespErr = service.ListInstalls(ctx.Logger)
 	} else {
-		ctx.Resp, ctx.Err = service.ListAvaiableInstalls(ctx.Logger)
+		ctx.Resp, ctx.RespErr = service.ListAvaiableInstalls(ctx.Logger)
 	}
 }
 
@@ -136,7 +136,7 @@ func DeleteInstall(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -159,15 +159,15 @@ func DeleteInstall(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindWith(&args, binding.JSON); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid Install args")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid Install args")
 		return
 	}
 	name := args.Name
 	version := args.Version
 	if name == "" || version == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("名称或者版本号不能为空!")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("名称或者版本号不能为空!")
 		return
 	}
 
-	ctx.Err = service.DeleteInstall(name, version, ctx.Logger)
+	ctx.RespErr = service.DeleteInstall(name, version, ctx.Logger)
 }

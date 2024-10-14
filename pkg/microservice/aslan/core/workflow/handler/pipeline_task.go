@@ -184,18 +184,18 @@ func GetArtifactFile(c *gin.Context) {
 
 	taskID, err := strconv.ParseInt(c.Param("taskId"), 10, 64)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid task id")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid task id")
 		return
 	}
 	notHistoryFileFlag, err := strconv.ParseBool(c.DefaultQuery("notHistoryFileFlag", "false"))
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid notHistoryFileFlag")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid notHistoryFileFlag")
 		return
 	}
 
 	resp, err := workflow.GetArtifactFileContent(c.Param("pipelineName"), taskID, notHistoryFileFlag, ctx.Logger)
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 	if notHistoryFileFlag {

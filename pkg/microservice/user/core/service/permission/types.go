@@ -79,6 +79,17 @@ const (
 	VerbEditScan   = "edit_scan"
 	VerbDeleteScan = "delete_scan"
 	VerbRunScan    = "run_scan"
+	// Sprint Template
+	VerbEditSprintTemplate = "edit_sprint_template"
+	// Sprint
+	VerbGetSprint     = "get_sprint"
+	VerbCreateSprint  = "create_sprint"
+	VerbEditSprint    = "edit_sprint"
+	VerbDeleteSprint  = "delete_sprint"
+	// Sprint WorkItem
+	VerbCreateSprintWorkItem = "create_sprint_workitem"
+	VerbEditSprintWorkItem   = "edit_sprint_workitem"
+	VerbDeleteSprintWorkItem = "delete_sprint_workitem"
 )
 
 // system level authorization actions
@@ -162,6 +173,9 @@ type ProjectActions struct {
 	Test              *TestActions              `json:"test"`
 	Scanning          *ScanningActions          `json:"scanning"`
 	Version           *VersionActions           `json:"version"`
+	SprintTemplate    *SprintTemplateActions    `json:"sprint_template"`
+	Sprint            *SprintActions            `json:"sprint"`
+	SprintWorkItem    *SprintWorkItemActions    `json:"sprint_workitem"`
 }
 
 type SystemActions struct {
@@ -255,6 +269,23 @@ type ScanningActions struct {
 type VersionActions struct {
 	View   bool
 	Create bool
+	Delete bool
+}
+
+type SprintTemplateActions struct {
+	Edit bool
+}
+
+type SprintActions struct {
+	Create  bool
+	View    bool
+	Edit    bool
+	Delete  bool
+}
+
+type SprintWorkItemActions struct {
+	Create bool
+	Edit   bool
 	Delete bool
 }
 

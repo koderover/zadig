@@ -35,7 +35,7 @@ func GetCodeHostList(c *gin.Context) {
 
 	codeHostSlice := make([]*systemconfig.CodeHost, 0)
 	codeHosts, err := systemconfig.New().ListCodeHostsInternal()
-	ctx.Err = err
+	ctx.RespErr = err
 	for _, codeHost := range codeHosts {
 		codeHost.AccessToken = setting.MaskValue
 		codeHost.AccessKey = setting.MaskValue
@@ -55,11 +55,11 @@ func CodeHostGetNamespaceList(c *gin.Context) {
 	keyword := c.Query("key")
 
 	if codehostID == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("empty codehostId")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("empty codehostId")
 		return
 	}
 	chID, _ := strconv.Atoi(codehostID)
-	ctx.Resp, ctx.Err = service.CodeHostListNamespaces(chID, keyword, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.CodeHostListNamespaces(chID, keyword, ctx.Logger)
 }
 
 type CodeHostListProjectsArgs struct {
@@ -77,25 +77,25 @@ func CodeHostGetProjectsList(c *gin.Context) {
 	repoOwner := c.Query("repoOwner")
 
 	if codehostID == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("empty codehostId")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("empty codehostId")
 		return
 	}
 	if repoOwner == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("empty repoOwner")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("empty repoOwner")
 		return
 	}
 	if namespaceType == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("empty namespaceType")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("empty namespaceType")
 		return
 	}
 	if namespaceType != service.UserKind && namespaceType != service.GroupKind && namespaceType != service.OrgKind && namespaceType != service.EnterpriseKind {
-		ctx.Err = e.ErrInvalidParam.AddDesc("namespaceType must be user/group/org")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("namespaceType must be user/group/org")
 		return
 	}
 
 	args := &CodeHostListProjectsArgs{}
 	if err := c.ShouldBindQuery(args); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
@@ -109,7 +109,7 @@ func CodeHostGetProjectsList(c *gin.Context) {
 		args.Key,
 		ctx.Logger)
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
@@ -136,25 +136,25 @@ func CodeHostGetBranchList(c *gin.Context) {
 	repoName := c.Query("repoName") // pro Name, id/name -> gitlab = id
 	args := new(CodeHostGetPageNateListArgs)
 	if err := c.ShouldBindQuery(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 
 	if codehostID == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("empty codehostId")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("empty codehostId")
 		return
 	}
 	if repoOwner == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("empty repoOwner")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("empty repoOwner")
 		return
 	}
 	if repoName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("empty repoName")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("empty repoName")
 		return
 	}
 
 	chID, _ := strconv.Atoi(codehostID)
-	ctx.Resp, ctx.Err = service.CodeHostListBranches(
+	ctx.Resp, ctx.RespErr = service.CodeHostListBranches(
 		chID,
 		repoName,
 		strings.Replace(repoOwner, "%2F", "/", -1),
@@ -173,24 +173,24 @@ func CodeHostGetTagList(c *gin.Context) {
 	repoName := c.Query("repoName") // pro Name, id/name -> gitlab = id
 	args := new(CodeHostGetPageNateListArgs)
 	if err := c.ShouldBindQuery(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 	if codehostID == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("empty codehostId")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("empty codehostId")
 		return
 	}
 	if repoOwner == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("empty repoOwner")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("empty repoOwner")
 		return
 	}
 	if repoName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("empty repoName")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("empty repoName")
 		return
 	}
 
 	chID, _ := strconv.Atoi(codehostID)
-	ctx.Resp, ctx.Err = service.CodeHostListTags(chID, repoName, strings.Replace(repoOwner, "%2F", "/", -1), args.Key, args.Page, args.PerPage, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.CodeHostListTags(chID, repoName, strings.Replace(repoOwner, "%2F", "/", -1), args.Key, args.Page, args.PerPage, ctx.Logger)
 }
 
 func CodeHostGetPRList(c *gin.Context) {
@@ -203,27 +203,27 @@ func CodeHostGetPRList(c *gin.Context) {
 
 	args := new(CodeHostGetPageNateListArgs)
 	if err := c.ShouldBindQuery(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 
 	if codehostID == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("empty codehostId")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("empty codehostId")
 		return
 	}
 	if repoOwner == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("empty repoOwner")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("empty repoOwner")
 		return
 	}
 	if repoName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("empty repoName")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("empty repoName")
 		return
 	}
 
 	targetBr := c.Query("targetBranch")
 
 	chID, _ := strconv.Atoi(codehostID)
-	ctx.Resp, ctx.Err = service.CodeHostListPRs(chID, repoName, strings.Replace(repoOwner, "%2F", "/", -1), targetBr, args.Key, args.Page, args.PerPage, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.CodeHostListPRs(chID, repoName, strings.Replace(repoOwner, "%2F", "/", -1), targetBr, args.Key, args.Page, args.PerPage, ctx.Logger)
 }
 
 func CodeHostGetCommits(c *gin.Context) {
@@ -236,27 +236,27 @@ func CodeHostGetCommits(c *gin.Context) {
 
 	args := new(CodeHostGetPageNateListArgs)
 	if err := c.ShouldBindQuery(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 
 	if codehostID == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("empty codehostId")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("empty codehostId")
 		return
 	}
 	if repoNamespace == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("empty repoNamespace")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("empty repoNamespace")
 		return
 	}
 	if repoName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("empty repoName")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("empty repoName")
 		return
 	}
 
 	targetBr := c.Query("branchName")
 
 	chID, _ := strconv.Atoi(codehostID)
-	ctx.Resp, ctx.Err = service.CodeHostListCommits(chID, repoName, strings.Replace(repoNamespace, "%2F", "/", -1), targetBr, args.Page, args.PerPage, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.CodeHostListCommits(chID, repoName, strings.Replace(repoNamespace, "%2F", "/", -1), targetBr, args.Page, args.PerPage, ctx.Logger)
 }
 
 func ListRepoInfos(c *gin.Context) {
@@ -266,10 +266,10 @@ func ListRepoInfos(c *gin.Context) {
 	args := new(service.RepoInfoList)
 	err := c.BindJSON(args)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid repo args")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid repo args")
 		return
 	}
-	ctx.Resp, ctx.Err = service.ListRepoInfos(args.Infos, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.ListRepoInfos(args.Infos, ctx.Logger)
 }
 
 func MatchBranchesList(c *gin.Context) {
@@ -282,24 +282,24 @@ func MatchBranchesList(c *gin.Context) {
 	regular := c.Query("regular")
 
 	if codehostID == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("empty codehostId")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("empty codehostId")
 		return
 	}
 	if repoOwner == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("empty repoOwner")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("empty repoOwner")
 		return
 	}
 	if repoName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("empty repoName")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("empty repoName")
 		return
 	}
 	if regular == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("empty regular")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("empty regular")
 		return
 	}
 
 	chID, _ := strconv.Atoi(codehostID)
-	ctx.Resp, ctx.Err = service.MatchBranchesList(
+	ctx.Resp, ctx.RespErr = service.MatchBranchesList(
 		chID,
 		repoName,
 		strings.Replace(repoOwner, "%2F", "/", -1),

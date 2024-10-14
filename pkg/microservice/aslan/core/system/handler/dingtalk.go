@@ -32,7 +32,7 @@ func GetDingTalkDepartment(c *gin.Context) {
 	if deptID == "root" {
 		deptID = "1"
 	}
-	ctx.Resp, ctx.Err = dingtalk.GetDingTalkDepartment(c.Param("id"), deptID)
+	ctx.Resp, ctx.RespErr = dingtalk.GetDingTalkDepartment(c.Param("id"), deptID)
 }
 
 func GetDingTalkUserID(c *gin.Context) {
@@ -40,7 +40,7 @@ func GetDingTalkUserID(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	userID, err := dingtalk.GetDingTalkUserIDByMobile(c.Param("id"), c.Query("mobile"))
-	ctx.Resp, ctx.Err = map[string]string{"user_id": userID}, err
+	ctx.Resp, ctx.RespErr = map[string]string{"user_id": userID}, err
 }
 
 func DingTalkEventHandler(c *gin.Context) {
@@ -50,9 +50,9 @@ func DingTalkEventHandler(c *gin.Context) {
 	log.Infof("DingTalkEventHandler: New request url %s", c.Request.RequestURI)
 	body, err := c.GetRawData()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
-	ctx.Resp, ctx.Err = dingtalk.EventHandler(c.Param("ak"), body,
+	ctx.Resp, ctx.RespErr = dingtalk.EventHandler(c.Param("ak"), body,
 		c.Query("signature"), c.Query("timestamp"), c.Query("nonce"))
 }

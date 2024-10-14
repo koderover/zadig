@@ -34,19 +34,19 @@ func CreateCICDTools(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	args := new(commonmodels.JenkinsIntegration)
 	if err := c.BindJSON(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid jenkinsIntegration json args")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid jenkinsIntegration json args")
 		return
 	}
 
 	if args.Type != setting.CICDToolTypeJenkins && args.Type != setting.CICDToolTypeBlueKing {
-		ctx.Err = fmt.Errorf("invalid type: %s. cicd tool type should be of type jenkins or blueKing", args.Type)
+		ctx.RespErr = fmt.Errorf("invalid type: %s. cicd tool type should be of type jenkins or blueKing", args.Type)
 		return
 	}
 
@@ -58,10 +58,10 @@ func CreateCICDTools(c *gin.Context) {
 
 	args.UpdateBy = ctx.UserName
 	if _, err := url.Parse(args.URL); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid url")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid url")
 		return
 	}
-	ctx.Err = service.CreateCICDTools(args, ctx.Logger)
+	ctx.RespErr = service.CreateCICDTools(args, ctx.Logger)
 	return
 }
 
@@ -70,7 +70,7 @@ func ListCICDTools(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -83,10 +83,10 @@ func ListCICDTools(c *gin.Context) {
 
 	encryptedKey := c.Query("encryptedKey")
 	if len(encryptedKey) == 0 {
-		ctx.Err = e.ErrInvalidParam
+		ctx.RespErr = e.ErrInvalidParam
 		return
 	}
-	ctx.Resp, ctx.Err = service.ListCICDTools(encryptedKey, c.Query("type"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.ListCICDTools(encryptedKey, c.Query("type"), ctx.Logger)
 }
 
 func UpdateCICDTools(c *gin.Context) {
@@ -94,14 +94,14 @@ func UpdateCICDTools(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	args := new(commonmodels.JenkinsIntegration)
 	if err := c.BindJSON(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid CI/CD tools json args")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid CI/CD tools json args")
 		return
 	}
 
@@ -112,7 +112,7 @@ func UpdateCICDTools(c *gin.Context) {
 	}
 
 	args.UpdateBy = ctx.UserName
-	ctx.Err = service.UpdateCICDTools(c.Param("id"), args, ctx.Logger)
+	ctx.RespErr = service.UpdateCICDTools(c.Param("id"), args, ctx.Logger)
 }
 
 func DeleteCICDTools(c *gin.Context) {
@@ -120,7 +120,7 @@ func DeleteCICDTools(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -131,5 +131,5 @@ func DeleteCICDTools(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = service.DeleteCICDTools(c.Param("id"), ctx.Logger)
+	ctx.RespErr = service.DeleteCICDTools(c.Param("id"), ctx.Logger)
 }

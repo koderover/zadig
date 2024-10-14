@@ -34,7 +34,7 @@ func ListGuanceyunMonitor(c *gin.Context) {
 
 	contents, err := service.ListGuanceyunMonitor(c.Param("id"), c.Query("search"))
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 

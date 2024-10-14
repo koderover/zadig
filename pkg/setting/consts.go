@@ -423,15 +423,16 @@ const (
 
 // operation scenes
 const (
-	OperationSceneProject  = "project"
-	OperationSceneBuild    = "build"
-	OperationSceneWorkflow = "workflow"
-	OperationSceneEnv      = "environment"
-	OperationSceneService  = "service"
-	OperationSceneTest     = "test"
-	OperationSceneScanning = "scanning"
-	OperationSceneVersion  = "version"
-	OperationSceneSystem   = "system"
+	OperationSceneProject          = "project"
+	OperationSceneBuild            = "build"
+	OperationSceneWorkflow         = "workflow"
+	OperationSceneEnv              = "environment"
+	OperationSceneService          = "service"
+	OperationSceneTest             = "test"
+	OperationSceneScanning         = "scanning"
+	OperationSceneVersion          = "version"
+	OperationSceneSystem           = "system"
+	OperationSceneSprintManagement = "sprint_management"
 )
 
 // Service Related
@@ -948,4 +949,11 @@ type ContainerType string
 const (
 	ContainerTypeInit   ContainerType = "init"
 	ContainerTypeNormal ContainerType = ""
+)
+
+type SprintWorkItemActivityType string
+
+const (
+	SprintWorkItemActivityTypeEvent   SprintWorkItemActivityType = "event"
+	SprintWorkItemActivityTypeComment SprintWorkItemActivityType = "comment"
 )

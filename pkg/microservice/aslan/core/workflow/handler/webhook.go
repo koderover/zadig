@@ -36,18 +36,18 @@ func ProcessWebHook(c *gin.Context) {
 
 	payload, err := c.GetRawData()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
 	if github.WebHookType(c.Request) != "" {
-		ctx.Err = processGithub(payload, c.Request, ctx.RequestID, ctx.Logger)
+		ctx.RespErr = processGithub(payload, c.Request, ctx.RequestID, ctx.Logger)
 	} else if gitlab.HookEventType(c.Request) != "" {
-		ctx.Err = webhook.ProcessGitlabHook(payload, c.Request, ctx.RequestID, ctx.Logger)
+		ctx.RespErr = webhook.ProcessGitlabHook(payload, c.Request, ctx.RequestID, ctx.Logger)
 	} else if gitee.HookEventType(c.Request) != "" {
-		ctx.Err = webhook.ProcessGiteeHook(payload, c.Request, ctx.RequestID, ctx.Logger)
+		ctx.RespErr = webhook.ProcessGiteeHook(payload, c.Request, ctx.RequestID, ctx.Logger)
 	} else {
-		ctx.Err = webhook.ProcessGerritHook(payload, c.Request, ctx.RequestID, ctx.Logger)
+		ctx.RespErr = webhook.ProcessGerritHook(payload, c.Request, ctx.RequestID, ctx.Logger)
 	}
 }
 

@@ -26,12 +26,12 @@ func CheckIstiod(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.CheckIstiod(c, c.Param("id"))
+	ctx.Resp, ctx.RespErr = service.CheckIstiod(c, c.Param("id"))
 }
 
 func OpenAPICheckIstiod(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.CheckIstiod(c, c.Param("id"))
+	ctx.Resp, ctx.RespErr = service.CheckIstiod(c, c.Param("id"))
 }

@@ -27,12 +27,12 @@ func ListNacosNamespace(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = commonservice.ListNacosNamespace(c.Param("nacosID"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = commonservice.ListNacosNamespace(c.Param("nacosID"), ctx.Logger)
 }
 
 func ListNacosConfig(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = commonservice.ListNacosConfig(c.Param("nacosID"), c.Param("nacosNamespaceID"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = commonservice.ListNacosConfig(c.Param("nacosID"), c.Param("nacosNamespaceID"), ctx.Logger)
 }

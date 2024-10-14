@@ -32,7 +32,7 @@ func ListReleases(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -41,7 +41,7 @@ func ListReleases(c *gin.Context) {
 
 	args := &service.HelmReleaseQueryArgs{}
 	if err := c.ShouldBindQuery(args); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
@@ -65,7 +65,7 @@ func ListReleases(c *gin.Context) {
 			}
 
 			if err := commonutil.CheckZadigProfessionalLicense(); err != nil {
-				ctx.Err = err
+				ctx.RespErr = err
 				return
 			}
 		} else {
@@ -81,14 +81,14 @@ func ListReleases(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.Err = service.ListReleases(args, envName, production, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.ListReleases(args, envName, production, ctx.Logger)
 }
 
 func GetChartValues(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -118,7 +118,7 @@ func GetChartValues(c *gin.Context) {
 			}
 
 			if err := commonutil.CheckZadigProfessionalLicense(); err != nil {
-				ctx.Err = err
+				ctx.RespErr = err
 				return
 			}
 		} else {
@@ -134,9 +134,9 @@ func GetChartValues(c *gin.Context) {
 	}
 
 	if isHelmChartDeploy == "false" {
-		ctx.Resp, ctx.Err = commonservice.GetChartValues(projectKey, envName, serviceName, false, production, true)
+		ctx.Resp, ctx.RespErr = commonservice.GetChartValues(projectKey, envName, serviceName, false, production, true)
 	} else {
-		ctx.Resp, ctx.Err = commonservice.GetChartValues(projectKey, envName, releaseName, true, production, true)
+		ctx.Resp, ctx.RespErr = commonservice.GetChartValues(projectKey, envName, releaseName, true, production, true)
 	}
 }
 
@@ -145,7 +145,7 @@ func GetChartInfos(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -172,7 +172,7 @@ func GetChartInfos(c *gin.Context) {
 			}
 
 			if err := commonutil.CheckZadigProfessionalLicense(); err != nil {
-				ctx.Err = err
+				ctx.RespErr = err
 				return
 			}
 		} else {
@@ -187,7 +187,7 @@ func GetChartInfos(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.Err = service.GetChartInfos(projectKey, envName, servicesName, production, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetChartInfos(projectKey, envName, servicesName, production, ctx.Logger)
 }
 
 func GetImageInfos(c *gin.Context) {
@@ -195,7 +195,7 @@ func GetImageInfos(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -223,7 +223,7 @@ func GetImageInfos(c *gin.Context) {
 			}
 
 			if err := commonutil.CheckZadigProfessionalLicense(); err != nil {
-				ctx.Err = err
+				ctx.RespErr = err
 				return
 			}
 		} else {
@@ -238,5 +238,5 @@ func GetImageInfos(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.Err = service.GetImageInfos(projectKey, envName, servicesName, production, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetImageInfos(projectKey, envName, servicesName, production, ctx.Logger)
 }

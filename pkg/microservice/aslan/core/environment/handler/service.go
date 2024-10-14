@@ -46,7 +46,7 @@ func ListSvcsInEnv(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -81,7 +81,7 @@ func ListSvcsInEnv(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = commonservice.ListServicesInEnv(envName, projectKey, nil, ctx.Logger)
+	ctx.Resp, ctx.RespErr = commonservice.ListServicesInEnv(envName, projectKey, nil, ctx.Logger)
 }
 
 func GetService(c *gin.Context) {
@@ -90,7 +90,7 @@ func GetService(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -128,7 +128,7 @@ func GetService(c *gin.Context) {
 
 			err = commonutil.CheckZadigProfessionalLicense()
 			if err != nil {
-				ctx.Err = err
+				ctx.RespErr = err
 				return
 			}
 		} else {
@@ -153,7 +153,7 @@ func GetService(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.GetService(envName, projectKey, serviceName, production, workLoadType, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetService(envName, projectKey, serviceName, production, workLoadType, ctx.Logger)
 }
 
 func RestartService(c *gin.Context) {
@@ -161,7 +161,7 @@ func RestartService(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -189,7 +189,7 @@ func RestartService(c *gin.Context) {
 			}
 
 			if err := commonutil.CheckZadigProfessionalLicense(); err != nil {
-				ctx.Err = err
+				ctx.RespErr = err
 				return
 			}
 		} else {
@@ -213,7 +213,7 @@ func RestartService(c *gin.Context) {
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv,
 		"重启", "环境-服务", fmt.Sprintf("环境名称:%s,服务名称:%s", c.Param("name"), c.Param("serviceName")),
 		"", ctx.Logger, args.EnvName)
-	ctx.Err = service.RestartService(args.EnvName, args, production, ctx.Logger)
+	ctx.RespErr = service.RestartService(args.EnvName, args, production, ctx.Logger)
 }
 
 type FetchServiceYamlResponse struct {
@@ -234,7 +234,7 @@ func FetchServiceYaml(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -262,7 +262,7 @@ func FetchServiceYaml(c *gin.Context) {
 
 			err = commonutil.CheckZadigProfessionalLicense()
 			if err != nil {
-				ctx.Err = err
+				ctx.RespErr = err
 				return
 			}
 		} else {
@@ -278,7 +278,7 @@ func FetchServiceYaml(c *gin.Context) {
 	}
 
 	resp := new(FetchServiceYamlResponse)
-	resp.Yaml, ctx.Err = service.FetchServiceYaml(projectKey, envName, serviceName, ctx.Logger)
+	resp.Yaml, ctx.RespErr = service.FetchServiceYaml(projectKey, envName, serviceName, ctx.Logger)
 	ctx.Resp = resp
 }
 
@@ -300,7 +300,7 @@ func PreviewService(c *gin.Context) {
 
 	args := new(service.PreviewServiceArgs)
 	if err := c.BindJSON(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 
@@ -308,7 +308,7 @@ func PreviewService(c *gin.Context) {
 	args.EnvName = c.Param("name")
 	args.ServiceName = c.Param("serviceName")
 
-	ctx.Resp, ctx.Err = service.PreviewService(args, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.PreviewService(args, ctx.Logger)
 }
 
 func BatchPreviewServices(c *gin.Context) {
@@ -319,14 +319,14 @@ func BatchPreviewServices(c *gin.Context) {
 	args := make([]*service.PreviewServiceArgs, 0)
 	if err := c.BindJSON(&args); err != nil {
 		ctx.Logger.Errorf("faield to bind args, err: %s", err)
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 
 	production := c.Query("production") == "true"
 	if production {
 		if err := commonutil.CheckZadigProfessionalLicense(); err != nil {
-			ctx.Err = err
+			ctx.RespErr = err
 			return
 		}
 	}
@@ -336,7 +336,7 @@ func BatchPreviewServices(c *gin.Context) {
 		arg.EnvName = c.Param("name")
 	}
 
-	ctx.Resp, ctx.Err = service.BatchPreviewService(args, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.BatchPreviewService(args, ctx.Logger)
 }
 
 // @Summary Update service
@@ -355,7 +355,7 @@ func UpdateService(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -385,7 +385,7 @@ func UpdateService(c *gin.Context) {
 			}
 
 			if err := commonutil.CheckZadigProfessionalLicense(); err != nil {
-				ctx.Err = err
+				ctx.RespErr = err
 				return
 			}
 		} else {
@@ -402,12 +402,12 @@ func UpdateService(c *gin.Context) {
 
 	svcRev := new(service.SvcRevision)
 	if err := c.BindJSON(svcRev); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 
 	if c.Param("serviceName") != svcRev.ServiceName {
-		ctx.Err = e.ErrInvalidParam.AddDesc("serviceName not match")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("serviceName not match")
 		return
 	}
 
@@ -421,7 +421,7 @@ func UpdateService(c *gin.Context) {
 		UpdateServiceTmpl: svcRev.UpdateServiceTmpl,
 	}
 
-	ctx.Err = service.UpdateService(args, ctx.Logger)
+	ctx.RespErr = service.UpdateService(args, ctx.Logger)
 }
 
 func RestartWorkload(c *gin.Context) {
@@ -429,7 +429,7 @@ func RestartWorkload(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -480,7 +480,7 @@ func RestartWorkload(c *gin.Context) {
 
 			err = commonutil.CheckZadigProfessionalLicense()
 			if err != nil {
-				ctx.Err = err
+				ctx.RespErr = err
 				return
 			}
 		} else {
@@ -495,7 +495,7 @@ func RestartWorkload(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = service.RestartScale(args, production, ctx.Logger)
+	ctx.RespErr = service.RestartScale(args, production, ctx.Logger)
 }
 
 func ScaleNewService(c *gin.Context) {
@@ -503,7 +503,7 @@ func ScaleNewService(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -536,7 +536,7 @@ func ScaleNewService(c *gin.Context) {
 			}
 
 			if err := commonutil.CheckZadigProfessionalLicense(); err != nil {
-				ctx.Err = err
+				ctx.RespErr = err
 				return
 			}
 		} else {
@@ -561,11 +561,11 @@ func ScaleNewService(c *gin.Context) {
 
 	number, err := strconv.Atoi(c.Query("number"))
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid number format")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid number format")
 		return
 	}
 
-	ctx.Err = service.Scale(&service.ScaleArgs{
+	ctx.RespErr = service.Scale(&service.ScaleArgs{
 		Type:        resourceType,
 		ProductName: projectKey,
 		EnvName:     envName,
@@ -594,7 +594,7 @@ func OpenAPIGetService(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -622,7 +622,7 @@ func OpenAPIGetService(c *gin.Context) {
 
 	origResp, err := service.GetService(envName, projectKey, serviceName, false, workLoadType, ctx.Logger)
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
@@ -646,7 +646,7 @@ func OpenAPIGetProductionService(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -690,7 +690,7 @@ func OpenAPIGetProductionService(c *gin.Context) {
 
 	origResp, err := service.GetService(envName, projectKey, serviceName, true, workLoadType, ctx.Logger)
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 

@@ -37,7 +37,7 @@ func GetProductNameByDelivery(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	id := c.Param("id")
 	if id == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("id can't be empty!")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("id can't be empty!")
 		return
 	}
 	args := new(commonrepo.DeliveryVersionArgs)
@@ -56,7 +56,7 @@ func GetDeliveryVersion(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -64,12 +64,12 @@ func GetDeliveryVersion(c *gin.Context) {
 	//params validate
 	ID := c.Param("id")
 	if ID == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("id can't be empty!")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("id can't be empty!")
 		return
 	}
 	projectKey := c.Query("projectName")
 	if projectKey == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("projectName can't be empty!")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("projectName can't be empty!")
 		return
 	}
 
@@ -96,13 +96,13 @@ func GetDeliveryVersion(c *gin.Context) {
 
 	err = commonutil.CheckZadigProfessionalLicense()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
 	version := new(commonrepo.DeliveryVersionArgs)
 	version.ID = ID
-	ctx.Resp, ctx.Err = deliveryservice.GetDetailReleaseData(version, ctx.Logger)
+	ctx.Resp, ctx.RespErr = deliveryservice.GetDetailReleaseData(version, ctx.Logger)
 }
 
 func ListDeliveryVersion(c *gin.Context) {
@@ -110,7 +110,7 @@ func ListDeliveryVersion(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -118,7 +118,7 @@ func ListDeliveryVersion(c *gin.Context) {
 	args := new(deliveryservice.ListDeliveryVersionArgs)
 	err = c.BindQuery(args)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
@@ -155,12 +155,12 @@ func ListDeliveryVersion(c *gin.Context) {
 
 	err = commonutil.CheckZadigProfessionalLicense()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
 	var total int
-	ctx.Resp, total, ctx.Err = deliveryservice.ListDeliveryVersion(args, ctx.Logger)
+	ctx.Resp, total, ctx.RespErr = deliveryservice.ListDeliveryVersion(args, ctx.Logger)
 	c.Writer.Header().Add("X-Total", strconv.Itoa(total))
 }
 
@@ -203,7 +203,7 @@ func CreateK8SDeliveryVersion(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -211,7 +211,7 @@ func CreateK8SDeliveryVersion(c *gin.Context) {
 	args := new(deliveryservice.CreateK8SDeliveryVersionArgs)
 	err = c.ShouldBindJSON(args)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 	args.CreateBy = ctx.UserName
@@ -233,7 +233,7 @@ func CreateK8SDeliveryVersion(c *gin.Context) {
 	bs, _ := json.Marshal(args)
 	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductName, "新建", "版本交付", fmt.Sprintf("%s-%s", args.EnvName, args.Version), string(bs), ctx.Logger)
 
-	ctx.Err = deliveryservice.CreateK8SDeliveryVersion(args, ctx.Logger)
+	ctx.RespErr = deliveryservice.CreateK8SDeliveryVersion(args, ctx.Logger)
 }
 
 func CreateHelmDeliveryVersion(c *gin.Context) {
@@ -241,7 +241,7 @@ func CreateHelmDeliveryVersion(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -249,7 +249,7 @@ func CreateHelmDeliveryVersion(c *gin.Context) {
 	args := new(deliveryservice.CreateHelmDeliveryVersionArgs)
 	err = c.ShouldBindJSON(args)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 	args.CreateBy = ctx.UserName
@@ -271,7 +271,7 @@ func CreateHelmDeliveryVersion(c *gin.Context) {
 	bs, _ := json.Marshal(args)
 	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductName, "新建", "版本交付", fmt.Sprintf("%s-%s", args.EnvName, args.Version), string(bs), ctx.Logger)
 
-	ctx.Err = deliveryservice.CreateHelmDeliveryVersion(args, ctx.Logger)
+	ctx.RespErr = deliveryservice.CreateHelmDeliveryVersion(args, ctx.Logger)
 }
 
 func DeleteDeliveryVersion(c *gin.Context) {
@@ -279,7 +279,7 @@ func DeleteDeliveryVersion(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -304,21 +304,21 @@ func DeleteDeliveryVersion(c *gin.Context) {
 
 	err = commonutil.CheckZadigProfessionalLicense()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
 	//params validate
 	ID := c.Param("id")
 	if ID == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("ID can't be empty!")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("ID can't be empty!")
 		return
 	}
 	version := new(commonrepo.DeliveryVersionArgs)
 	version.ID = ID
-	ctx.Err = deliveryservice.DeleteDeliveryVersion(version, ctx.Logger)
-	if ctx.Err != nil {
-		ctx.Err = fmt.Errorf("failed to delete delivery version, ID: %s, error: %v", ID, ctx.Err)
+	ctx.RespErr = deliveryservice.DeleteDeliveryVersion(version, ctx.Logger)
+	if ctx.RespErr != nil {
+		ctx.RespErr = fmt.Errorf("failed to delete delivery version, ID: %s, error: %v", ID, ctx.RespErr)
 	}
 
 	errs := make([]string, 0)
@@ -340,7 +340,7 @@ func DeleteDeliveryVersion(c *gin.Context) {
 	}
 
 	if len(errs) != 0 {
-		ctx.Err = e.NewHTTPError(500, strings.Join(errs, ","))
+		ctx.RespErr = e.NewHTTPError(500, strings.Join(errs, ","))
 	}
 }
 
@@ -350,7 +350,7 @@ func DownloadDeliveryChart(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -369,7 +369,7 @@ func DownloadDeliveryChart(c *gin.Context) {
 
 	fileBytes, fileName, err := deliveryservice.DownloadDeliveryChart(projectName, versionName, chartName, ctx.Logger)
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
@@ -383,7 +383,7 @@ func GetChartVersionFromRepo(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -400,7 +400,7 @@ func GetChartVersionFromRepo(c *gin.Context) {
 	chartName := c.Query("chartName")
 	chartRepoName := c.Query("chartRepoName")
 
-	ctx.Resp, ctx.Err = deliveryservice.GetChartVersion(chartName, chartRepoName)
+	ctx.Resp, ctx.RespErr = deliveryservice.GetChartVersion(chartName, chartRepoName)
 }
 
 func PreviewGetDeliveryChart(c *gin.Context) {
@@ -409,7 +409,7 @@ func PreviewGetDeliveryChart(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -426,7 +426,7 @@ func PreviewGetDeliveryChart(c *gin.Context) {
 	chartName := c.Query("chartName")
 	projectName := c.Query("projectName")
 
-	ctx.Resp, ctx.Err = deliveryservice.PreviewDeliveryChart(projectName, versionName, chartName, ctx.Logger)
+	ctx.Resp, ctx.RespErr = deliveryservice.PreviewDeliveryChart(projectName, versionName, chartName, ctx.Logger)
 }
 
 func GetDeliveryChartFilePath(c *gin.Context) {
@@ -435,7 +435,7 @@ func GetDeliveryChartFilePath(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -451,11 +451,11 @@ func GetDeliveryChartFilePath(c *gin.Context) {
 	args := new(deliveryservice.DeliveryChartFilePathArgs)
 	err = c.BindQuery(args)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
-	ctx.Resp, ctx.Err = deliveryservice.GetDeliveryChartFilePath(args, ctx.Logger)
+	ctx.Resp, ctx.RespErr = deliveryservice.GetDeliveryChartFilePath(args, ctx.Logger)
 }
 
 func GetDeliveryChartFileContent(c *gin.Context) {
@@ -464,7 +464,7 @@ func GetDeliveryChartFileContent(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -480,10 +480,10 @@ func GetDeliveryChartFileContent(c *gin.Context) {
 	args := new(deliveryservice.DeliveryChartFileContentArgs)
 	err = c.BindQuery(args)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
-	ctx.Resp, ctx.Err = deliveryservice.GetDeliveryChartFileContent(args, ctx.Logger)
+	ctx.Resp, ctx.RespErr = deliveryservice.GetDeliveryChartFileContent(args, ctx.Logger)
 }
 
 func ApplyDeliveryGlobalVariables(c *gin.Context) {
@@ -492,7 +492,7 @@ func ApplyDeliveryGlobalVariables(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -508,10 +508,10 @@ func ApplyDeliveryGlobalVariables(c *gin.Context) {
 	args := new(deliveryservice.DeliveryVariablesApplyArgs)
 	err = c.BindJSON(args)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
-	ctx.Resp, ctx.Err = deliveryservice.ApplyDeliveryGlobalVariables(args, ctx.Logger)
+	ctx.Resp, ctx.RespErr = deliveryservice.ApplyDeliveryGlobalVariables(args, ctx.Logger)
 }
 
 // @Summary Check Delivery Version
@@ -528,7 +528,7 @@ func CheckDeliveryVersion(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -536,5 +536,5 @@ func CheckDeliveryVersion(c *gin.Context) {
 	versionName := c.Query("version")
 	projectName := c.Query("projectName")
 
-	ctx.Err = deliveryservice.CheckDeliveryVersion(projectName, versionName)
+	ctx.RespErr = deliveryservice.CheckDeliveryVersion(projectName, versionName)
 }

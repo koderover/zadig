@@ -38,7 +38,7 @@ func GetFeature(c *gin.Context) {
 	enabled, err := service.FeatureEnabled(name, ctx.Logger)
 
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
@@ -53,7 +53,7 @@ func UpdateOrCreateFeature(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -66,8 +66,8 @@ func UpdateOrCreateFeature(c *gin.Context) {
 
 	req := new(service.FeatureReq)
 	if err := c.ShouldBindJSON(req); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
-	ctx.Err = service.UpdateOrCreateFeature(req, ctx.Logger)
+	ctx.RespErr = service.UpdateOrCreateFeature(req, ctx.Logger)
 }

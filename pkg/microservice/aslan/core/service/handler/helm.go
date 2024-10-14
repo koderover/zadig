@@ -34,7 +34,7 @@ func ListHelmServices(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -67,12 +67,12 @@ func ListHelmServices(c *gin.Context) {
 	if production {
 		err = commonutil.CheckZadigProfessionalLicense()
 		if err != nil {
-			ctx.Err = err
+			ctx.RespErr = err
 			return
 		}
 	}
 
-	ctx.Resp, ctx.Err = svcservice.ListHelmServices(projectKey, production, ctx.Logger)
+	ctx.Resp, ctx.RespErr = svcservice.ListHelmServices(projectKey, production, ctx.Logger)
 }
 
 func GetHelmServiceModule(c *gin.Context) {
@@ -81,7 +81,7 @@ func GetHelmServiceModule(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -114,17 +114,17 @@ func GetHelmServiceModule(c *gin.Context) {
 	if production {
 		err = commonutil.CheckZadigProfessionalLicense()
 		if err != nil {
-			ctx.Err = err
+			ctx.RespErr = err
 			return
 		}
 	}
 
 	revision, err := strconv.ParseInt(c.DefaultQuery("revision", "0"), 10, 64)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid revision number")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid revision number")
 		return
 	}
-	ctx.Resp, ctx.Err = svcservice.GetHelmServiceModule(c.Param("serviceName"), projectKey, revision, production, ctx.Logger)
+	ctx.Resp, ctx.RespErr = svcservice.GetHelmServiceModule(c.Param("serviceName"), projectKey, revision, production, ctx.Logger)
 }
 
 func GetFilePath(c *gin.Context) {
@@ -133,7 +133,7 @@ func GetFilePath(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -166,7 +166,7 @@ func GetFilePath(c *gin.Context) {
 	if production {
 		err = commonutil.CheckZadigProfessionalLicense()
 		if err != nil {
-			ctx.Err = err
+			ctx.RespErr = err
 			return
 		}
 	}
@@ -176,10 +176,10 @@ func GetFilePath(c *gin.Context) {
 		revision, err = strconv.ParseInt(c.Query("revision"), 10, 64)
 	}
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid revision number")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid revision number")
 		return
 	}
-	ctx.Resp, ctx.Err = svcservice.GetFilePath(c.Param("serviceName"), projectKey, revision, c.Query("dir"), production, ctx.Logger)
+	ctx.Resp, ctx.RespErr = svcservice.GetFilePath(c.Param("serviceName"), projectKey, revision, c.Query("dir"), production, ctx.Logger)
 }
 
 func GetFileContent(c *gin.Context) {
@@ -188,7 +188,7 @@ func GetFileContent(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -221,7 +221,7 @@ func GetFileContent(c *gin.Context) {
 	if production {
 		err = commonutil.CheckZadigProfessionalLicense()
 		if err != nil {
-			ctx.Err = err
+			ctx.RespErr = err
 			return
 		}
 	}
@@ -229,11 +229,11 @@ func GetFileContent(c *gin.Context) {
 	param := new(svcservice.GetFileContentParam)
 	err = c.ShouldBindQuery(param)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
-	ctx.Resp, ctx.Err = svcservice.GetFileContent(c.Param("serviceName"), projectKey, param, production, ctx.Logger)
+	ctx.Resp, ctx.RespErr = svcservice.GetFileContent(c.Param("serviceName"), projectKey, param, production, ctx.Logger)
 }
 
 func UpdateFileContent(c *gin.Context) {
@@ -242,7 +242,7 @@ func UpdateFileContent(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -275,7 +275,7 @@ func UpdateFileContent(c *gin.Context) {
 	if production {
 		err = commonutil.CheckZadigProfessionalLicense()
 		if err != nil {
-			ctx.Err = err
+			ctx.RespErr = err
 			return
 		}
 	}
@@ -283,12 +283,12 @@ func UpdateFileContent(c *gin.Context) {
 	param := new(svcservice.HelmChartEditInfo)
 	err = c.ShouldBind(param)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
 	param.Production = production
-	ctx.Err = svcservice.EditFileContent(c.Param("serviceName"), projectKey, ctx.UserName, ctx.RequestID, param, ctx.Logger)
+	ctx.RespErr = svcservice.EditFileContent(c.Param("serviceName"), projectKey, ctx.UserName, ctx.RequestID, param, ctx.Logger)
 }
 
 func CreateOrUpdateHelmService(c *gin.Context) {
@@ -297,20 +297,20 @@ func CreateOrUpdateHelmService(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	projectKey := c.Query("projectName")
 	if projectKey == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("projectName can't be nil")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("projectName can't be nil")
 		return
 	}
 
 	args := new(svcservice.HelmServiceCreationArgs)
 	if err := c.BindJSON(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid HelmService json args")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid HelmService json args")
 		return
 	}
 	args.CreatedBy, args.RequestID = ctx.UserName, ctx.RequestID
@@ -340,7 +340,7 @@ func CreateOrUpdateHelmService(c *gin.Context) {
 
 			err = commonutil.CheckZadigProfessionalLicense()
 			if err != nil {
-				ctx.Err = err
+				ctx.RespErr = err
 				return
 			}
 		} else {
@@ -353,7 +353,7 @@ func CreateOrUpdateHelmService(c *gin.Context) {
 	}
 
 	args.Production = production
-	ctx.Resp, ctx.Err = svcservice.CreateOrUpdateHelmService(projectKey, args, false, ctx.Logger)
+	ctx.Resp, ctx.RespErr = svcservice.CreateOrUpdateHelmService(projectKey, args, false, ctx.Logger)
 }
 
 func UpdateHelmService(c *gin.Context) {
@@ -362,20 +362,20 @@ func UpdateHelmService(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	projectKey := c.Query("projectName")
 	if projectKey == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("projectName can't be nil")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("projectName can't be nil")
 		return
 	}
 
 	args := new(svcservice.HelmServiceCreationArgs)
 	if err := c.BindJSON(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid HelmService json args")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid HelmService json args")
 		return
 	}
 	args.CreatedBy, args.RequestID = ctx.UserName, ctx.RequestID
@@ -405,7 +405,7 @@ func UpdateHelmService(c *gin.Context) {
 
 			err = commonutil.CheckZadigProfessionalLicense()
 			if err != nil {
-				ctx.Err = err
+				ctx.RespErr = err
 				return
 			}
 		} else {
@@ -418,7 +418,7 @@ func UpdateHelmService(c *gin.Context) {
 	}
 
 	args.Production = production
-	ctx.Resp, ctx.Err = svcservice.CreateOrUpdateHelmService(projectKey, args, true, ctx.Logger)
+	ctx.Resp, ctx.RespErr = svcservice.CreateOrUpdateHelmService(projectKey, args, true, ctx.Logger)
 }
 
 func CreateOrUpdateBulkHelmServices(c *gin.Context) {
@@ -427,20 +427,20 @@ func CreateOrUpdateBulkHelmServices(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	projectKey := c.Query("projectName")
 	if projectKey == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("projectName can't be nil")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("projectName can't be nil")
 		return
 	}
 
 	args := new(svcservice.BulkHelmServiceCreationArgs)
 	if err := c.BindJSON(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid HelmService json args")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid HelmService json args")
 		return
 	}
 	args.CreatedBy, args.RequestID = ctx.UserName, ctx.RequestID
@@ -478,10 +478,10 @@ func CreateOrUpdateBulkHelmServices(c *gin.Context) {
 	if production {
 		err = commonutil.CheckZadigProfessionalLicense()
 		if err != nil {
-			ctx.Err = err
+			ctx.RespErr = err
 			return
 		}
 	}
 
-	ctx.Resp, ctx.Err = svcservice.CreateOrUpdateBulkHelmService(projectKey, args, false, ctx.Logger)
+	ctx.Resp, ctx.RespErr = svcservice.CreateOrUpdateBulkHelmService(projectKey, args, false, ctx.Logger)
 }

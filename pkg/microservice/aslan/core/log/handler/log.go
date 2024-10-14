@@ -35,11 +35,11 @@ func GetBuildJobContainerLogs(c *gin.Context) {
 
 	taskID, err := strconv.ParseInt(c.Param("taskId"), 10, 64)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid task id")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid task id")
 		return
 	}
 	// Use all lowercase job names to avoid subdomain errors
-	ctx.Resp, ctx.Err = logservice.GetBuildJobContainerLogs(
+	ctx.Resp, ctx.RespErr = logservice.GetBuildJobContainerLogs(
 		c.Param("pipelineName"),
 		c.Param("serviceName"),
 		taskID,
@@ -53,11 +53,11 @@ func GetWorkflowBuildJobContainerLogs(c *gin.Context) {
 
 	taskID, err := strconv.ParseInt(c.Param("taskId"), 10, 64)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid task id")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid task id")
 		return
 	}
 	// Use all lowercase job names to avoid subdomain errors
-	ctx.Resp, ctx.Err = logservice.GetWorkflowBuildJobContainerLogs(strings.ToLower(c.Param("pipelineName")), c.Param("serviceName"), c.Query("type"), taskID, ctx.Logger)
+	ctx.Resp, ctx.RespErr = logservice.GetWorkflowBuildJobContainerLogs(strings.ToLower(c.Param("pipelineName")), c.Param("serviceName"), c.Query("type"), taskID, ctx.Logger)
 }
 
 func GetWorkflowV4JobContainerLogs(c *gin.Context) {
@@ -66,11 +66,11 @@ func GetWorkflowV4JobContainerLogs(c *gin.Context) {
 
 	taskID, err := strconv.ParseInt(c.Param("taskID"), 10, 64)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid task id")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid task id")
 		return
 	}
 	// Use all lowercase job names to avoid subdomain errors
-	ctx.Resp, ctx.Err = logservice.GetWorkflowV4JobContainerLogs(strings.ToLower(c.Param("workflowName")), c.Param("jobName"), taskID, ctx.Logger)
+	ctx.Resp, ctx.RespErr = logservice.GetWorkflowV4JobContainerLogs(strings.ToLower(c.Param("workflowName")), c.Param("jobName"), taskID, ctx.Logger)
 }
 
 func GetTestJobContainerLogs(c *gin.Context) {
@@ -79,12 +79,12 @@ func GetTestJobContainerLogs(c *gin.Context) {
 
 	taskID, err := strconv.ParseInt(c.Param("taskId"), 10, 64)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid task id")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid task id")
 		return
 	}
 
 	// Use all lowercase job names to avoid subdomain errors
-	ctx.Resp, ctx.Err = logservice.GetTestJobContainerLogs(strings.ToLower(c.Param("pipelineName")), c.Param("testName"), taskID, ctx.Logger)
+	ctx.Resp, ctx.RespErr = logservice.GetTestJobContainerLogs(strings.ToLower(c.Param("pipelineName")), c.Param("testName"), taskID, ctx.Logger)
 }
 
 func GetWorkflowTestJobContainerLogs(c *gin.Context) {
@@ -93,12 +93,12 @@ func GetWorkflowTestJobContainerLogs(c *gin.Context) {
 
 	taskID, err := strconv.ParseInt(c.Param("taskId"), 10, 64)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid task id")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid task id")
 		return
 	}
 
 	// Use all lowercase job names to avoid subdomain errors
-	ctx.Resp, ctx.Err = logservice.GetWorkflowTestJobContainerLogs(strings.ToLower(c.Param("pipelineName")), c.Param("serviceName"), c.Query("workflowType"), taskID, ctx.Logger)
+	ctx.Resp, ctx.RespErr = logservice.GetWorkflowTestJobContainerLogs(strings.ToLower(c.Param("pipelineName")), c.Param("serviceName"), c.Query("workflowType"), taskID, ctx.Logger)
 }
 
 func GetContainerLogs(c *gin.Context) {
@@ -121,7 +121,7 @@ func GetContainerLogs(c *gin.Context) {
 	}
 
 	if !follow {
-		ctx.Resp, ctx.Err = logservice.GetCurrentContainerLogs(podName, containerName, envName, productName, tailLines, ctx.Logger)
+		ctx.Resp, ctx.RespErr = logservice.GetCurrentContainerLogs(podName, containerName, envName, productName, tailLines, ctx.Logger)
 		return
 	}
 
@@ -136,11 +136,11 @@ func GetWorkflowBuildV3JobContainerLogs(c *gin.Context) {
 
 	taskID, err := strconv.ParseInt(c.Param("taskId"), 10, 64)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid task id")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid task id")
 		return
 	}
 	// Use all lowercase job names to avoid subdomain errors
-	ctx.Resp, ctx.Err = logservice.GetWorkflowBuildV3JobContainerLogs(strings.ToLower(c.Param("workflowName")), c.Query("type"), taskID, ctx.Logger)
+	ctx.Resp, ctx.RespErr = logservice.GetWorkflowBuildV3JobContainerLogs(strings.ToLower(c.Param("workflowName")), c.Query("type"), taskID, ctx.Logger)
 }
 
 func GetScanningContainerLogs(c *gin.Context) {
@@ -149,23 +149,23 @@ func GetScanningContainerLogs(c *gin.Context) {
 
 	id := c.Param("id")
 	if id == "" {
-		ctx.Err = fmt.Errorf("id must be provided")
+		ctx.RespErr = fmt.Errorf("id must be provided")
 		return
 	}
 
 	taskIDStr := c.Param("scan_id")
 	if taskIDStr == "" {
-		ctx.Err = fmt.Errorf("scan_id must be provided")
+		ctx.RespErr = fmt.Errorf("scan_id must be provided")
 		return
 	}
 
 	taskID, err := strconv.ParseInt(taskIDStr, 10, 64)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid task id")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid task id")
 		return
 	}
 
-	ctx.Resp, ctx.Err = logservice.GetScanningContainerLogs(id, taskID, ctx.Logger)
+	ctx.Resp, ctx.RespErr = logservice.GetScanningContainerLogs(id, taskID, ctx.Logger)
 }
 
 func GetTestingContainerLogs(c *gin.Context) {
@@ -174,21 +174,21 @@ func GetTestingContainerLogs(c *gin.Context) {
 
 	testName := c.Param("test_name")
 	if testName == "" {
-		ctx.Err = fmt.Errorf("testName must be provided")
+		ctx.RespErr = fmt.Errorf("testName must be provided")
 		return
 	}
 
 	taskIDStr := c.Param("task_id")
 	if taskIDStr == "" {
-		ctx.Err = fmt.Errorf("task_id must be provided")
+		ctx.RespErr = fmt.Errorf("task_id must be provided")
 		return
 	}
 
 	taskID, err := strconv.ParseInt(taskIDStr, 10, 64)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid task id")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid task id")
 		return
 	}
 
-	ctx.Resp, ctx.Err = logservice.GetTestingContainerLogs(testName, taskID, ctx.Logger)
+	ctx.Resp, ctx.RespErr = logservice.GetTestingContainerLogs(testName, taskID, ctx.Logger)
 }

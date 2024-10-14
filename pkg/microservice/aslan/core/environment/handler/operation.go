@@ -40,7 +40,7 @@ func GetOperationLogs(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -49,7 +49,7 @@ func GetOperationLogs(c *gin.Context) {
 	projectKey := c.Query("projectName")
 	production := c.Query("production") == "true"
 	if len(projectKey) == 0 {
-		ctx.Err = e.ErrFindOperationLog.AddDesc("projectName can't be nil")
+		ctx.RespErr = e.ErrFindOperationLog.AddDesc("projectName can't be nil")
 		return
 	}
 
@@ -72,7 +72,7 @@ func GetOperationLogs(c *gin.Context) {
 
 			err = commonutil.CheckZadigProfessionalLicense()
 			if err != nil {
-				ctx.Err = err
+				ctx.RespErr = err
 				return
 			}
 		} else {
@@ -89,19 +89,19 @@ func GetOperationLogs(c *gin.Context) {
 
 	page, err := strconv.Atoi(c.DefaultQuery("page", "1"))
 	if err != nil {
-		ctx.Err = e.ErrFindOperationLog.AddErr(err)
+		ctx.RespErr = e.ErrFindOperationLog.AddErr(err)
 		return
 	}
 
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("pageSize", "50"))
 	if err != nil {
-		ctx.Err = e.ErrFindOperationLog.AddErr(err)
+		ctx.RespErr = e.ErrFindOperationLog.AddErr(err)
 		return
 	}
 
 	status, _ := strconv.Atoi(c.DefaultQuery("status", "0"))
 	if err != nil {
-		ctx.Err = e.ErrFindOperationLog.AddErr(err)
+		ctx.RespErr = e.ErrFindOperationLog.AddErr(err)
 		return
 	}
 
@@ -119,7 +119,7 @@ func GetOperationLogs(c *gin.Context) {
 
 	logs, count, err := service.FindOperation(args, ctx.Logger)
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 	ctx.Resp = &OperationLog{

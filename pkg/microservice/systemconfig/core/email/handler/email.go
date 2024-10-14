@@ -33,7 +33,7 @@ func GetEmailHost(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -43,13 +43,13 @@ func GetEmailHost(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.GetEmailHost(ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetEmailHost(ctx.Logger)
 }
 
 func GetEmailHostInternal(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	ctx.Resp, ctx.Err = service.GetEmailHostInternal(ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetEmailHostInternal(ctx.Logger)
 }
 
 func GetEncryptedEmailHost(c *gin.Context) {
@@ -58,7 +58,7 @@ func GetEncryptedEmailHost(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -70,10 +70,10 @@ func GetEncryptedEmailHost(c *gin.Context) {
 
 	encryptedKey := c.Query("encryptedKey")
 	if len(encryptedKey) == 0 {
-		ctx.Err = e.ErrInvalidParam
+		ctx.RespErr = e.ErrInvalidParam
 		return
 	}
-	ctx.Resp, ctx.Err = service.GetEncryptedEmailHost(encryptedKey, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetEncryptedEmailHost(encryptedKey, ctx.Logger)
 }
 
 func CreateEmailHost(c *gin.Context) {
@@ -82,7 +82,7 @@ func CreateEmailHost(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -94,10 +94,10 @@ func CreateEmailHost(c *gin.Context) {
 
 	req := new(models.EmailHost)
 	if err := c.ShouldBindJSON(req); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
-	ctx.Resp, ctx.Err = service.CreateEmailHost(req, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.CreateEmailHost(req, ctx.Logger)
 }
 
 func UpdateEmailHost(c *gin.Context) {
@@ -106,7 +106,7 @@ func UpdateEmailHost(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -118,10 +118,10 @@ func UpdateEmailHost(c *gin.Context) {
 
 	req := new(models.EmailHost)
 	if err := c.ShouldBindJSON(req); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
-	ctx.Resp, ctx.Err = service.UpdateEmailHost(req, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.UpdateEmailHost(req, ctx.Logger)
 }
 
 func DeleteEmailHost(c *gin.Context) {
@@ -130,7 +130,7 @@ func DeleteEmailHost(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -140,7 +140,7 @@ func DeleteEmailHost(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = service.DeleteEmailHost(ctx.Logger)
+	ctx.RespErr = service.DeleteEmailHost(ctx.Logger)
 }
 
 func GetEmailService(c *gin.Context) {
@@ -149,7 +149,7 @@ func GetEmailService(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -159,7 +159,7 @@ func GetEmailService(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.GetEmailService(ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetEmailService(ctx.Logger)
 }
 
 func CreateEmailService(c *gin.Context) {
@@ -168,7 +168,7 @@ func CreateEmailService(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -180,10 +180,10 @@ func CreateEmailService(c *gin.Context) {
 
 	req := new(models.EmailService)
 	if err := c.ShouldBindJSON(req); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
-	ctx.Resp, ctx.Err = service.CreateEmailService(req, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.CreateEmailService(req, ctx.Logger)
 }
 
 func UpdateEmailService(c *gin.Context) {
@@ -192,7 +192,7 @@ func UpdateEmailService(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -204,10 +204,10 @@ func UpdateEmailService(c *gin.Context) {
 
 	req := new(models.EmailService)
 	if err := c.ShouldBindJSON(req); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
-	ctx.Resp, ctx.Err = service.UpdateEmailService(req, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.UpdateEmailService(req, ctx.Logger)
 }
 
 func DeleteEmailService(c *gin.Context) {
@@ -216,7 +216,7 @@ func DeleteEmailService(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -226,5 +226,5 @@ func DeleteEmailService(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = service.DeleteEmailService(ctx.Logger)
+	ctx.RespErr = service.DeleteEmailService(ctx.Logger)
 }

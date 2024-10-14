@@ -39,7 +39,7 @@ func GetPipelineTaskSSE(c *gin.Context) {
 
 	taskID, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("Invalid id Args")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("Invalid id Args")
 		internalhandler.JSONResponse(c, ctx)
 		return
 	}
@@ -133,7 +133,7 @@ func GetWorkflowTaskSSE(c *gin.Context) {
 
 	taskID, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("Invalid id Args")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("Invalid id Args")
 		internalhandler.JSONResponse(c, ctx)
 		return
 	}
@@ -192,7 +192,7 @@ func GetWorkflowTaskV3SSE(c *gin.Context) {
 
 	taskID, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("Invalid id Args")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("Invalid id Args")
 		internalhandler.JSONResponse(c, ctx)
 		return
 	}

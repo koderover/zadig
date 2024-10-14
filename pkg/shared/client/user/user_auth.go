@@ -25,6 +25,9 @@ type ProjectActions struct {
 	Test              *TestActions              `json:"test"`
 	Scanning          *ScanningActions          `json:"scanning"`
 	Version           *VersionActions           `json:"version"`
+	Sprint            *SprintActions            `json:"sprint"`
+	SprintTemplate    *SprintTemplateActions    `json:"sprint_template"`
+	SprintWorkItem    *SprintWorkItemActions    `json:"sprint_workitem"`
 }
 
 type SystemActions struct {
@@ -206,6 +209,24 @@ type DBInstanceManagementActions struct {
 }
 
 type LabelManagementActions struct {
+	Create bool
+	Edit   bool
+	Delete bool
+}
+
+type SprintTemplateActions struct {
+	Edit bool
+}
+
+type SprintActions struct {
+	Create  bool
+	View    bool
+	Edit    bool
+	Delete  bool
+	Archive bool
+}
+
+type SprintWorkItemActions struct {
 	Create bool
 	Edit   bool
 	Delete bool

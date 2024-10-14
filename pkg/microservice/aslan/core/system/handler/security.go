@@ -33,7 +33,7 @@ func CreateOrUpdateSecuritySettings(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -56,15 +56,15 @@ func CreateOrUpdateSecuritySettings(c *gin.Context) {
 	}
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("failed to update sonar integration: %s", err)
+		ctx.RespErr = fmt.Errorf("failed to update sonar integration: %s", err)
 		return
 	}
 
 	if args.TokenExpirationTime > 8640 {
-		ctx.Err = errors.New("token expiration time cannot be greater than 8640 hour")
+		ctx.RespErr = errors.New("token expiration time cannot be greater than 8640 hour")
 		return
 	}
-	ctx.Err = service.CreateOrUpdateSecuritySettings(args, ctx.Logger)
+	ctx.RespErr = service.CreateOrUpdateSecuritySettings(args, ctx.Logger)
 }
 
 func GetSecuritySettings(c *gin.Context) {
@@ -72,7 +72,7 @@ func GetSecuritySettings(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -85,7 +85,7 @@ func GetSecuritySettings(c *gin.Context) {
 
 	resp, err := service.GetSecuritySettings(ctx.Logger)
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 	ctx.Resp = resp

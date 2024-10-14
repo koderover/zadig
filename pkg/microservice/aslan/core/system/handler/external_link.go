@@ -35,7 +35,7 @@ func ListExternalLinks(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.ListExternalLinks(ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.ListExternalLinks(ctx.Logger)
 }
 
 func CreateExternalLink(c *gin.Context) {
@@ -44,7 +44,7 @@ func CreateExternalLink(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -68,12 +68,12 @@ func CreateExternalLink(c *gin.Context) {
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.ShouldBindJSON(&args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid externalLink args")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid externalLink args")
 		return
 	}
 	args.UpdateBy = ctx.UserName
 
-	ctx.Err = service.CreateExternalLink(args, ctx.Logger)
+	ctx.RespErr = service.CreateExternalLink(args, ctx.Logger)
 }
 
 func UpdateExternalLink(c *gin.Context) {
@@ -82,7 +82,7 @@ func UpdateExternalLink(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -106,12 +106,12 @@ func UpdateExternalLink(c *gin.Context) {
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.ShouldBindJSON(&args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid externalLink args")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid externalLink args")
 		return
 	}
 	args.UpdateBy = ctx.UserName
 
-	ctx.Err = service.UpdateExternalLink(c.Param("id"), args, ctx.Logger)
+	ctx.RespErr = service.UpdateExternalLink(c.Param("id"), args, ctx.Logger)
 }
 
 func DeleteExternalLink(c *gin.Context) {
@@ -120,7 +120,7 @@ func DeleteExternalLink(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -133,5 +133,5 @@ func DeleteExternalLink(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = service.DeleteExternalLink(c.Param("id"), ctx.Logger)
+	ctx.RespErr = service.DeleteExternalLink(c.Param("id"), ctx.Logger)
 }

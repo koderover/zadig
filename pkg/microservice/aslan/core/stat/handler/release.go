@@ -28,7 +28,7 @@ func CreateMonthlyReleaseStat(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Err = service.CreateMonthlyReleaseStat(ctx.Logger)
+	ctx.RespErr = service.CreateMonthlyReleaseStat(ctx.Logger)
 }
 
 type GetReleaseDashboardArgs struct {
@@ -42,9 +42,9 @@ func GetReleaseDashboard(c *gin.Context) {
 
 	args := new(GetReleaseDashboardArgs)
 	if err := c.ShouldBindQuery(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.GetReleaseDashboard(args.StartDate, args.EndDate, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetReleaseDashboard(args.StartDate, args.EndDate, ctx.Logger)
 }

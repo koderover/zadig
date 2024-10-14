@@ -69,11 +69,11 @@ func (h *handlers) StartDevMode(c *gin.Context) {
 
 	var startInfo types.StartDevmodeInfo
 	if err := c.BindJSON(&startInfo); err != nil {
-		ctx.Err = errors.New("invalid request body")
+		ctx.RespErr = errors.New("invalid request body")
 		return
 	}
 
-	ctx.Err = h.zgctl.StartDevMode(c, projectName, envName, serviceName, dataDir, startInfo.DevImage)
+	ctx.RespErr = h.zgctl.StartDevMode(c, projectName, envName, serviceName, dataDir, startInfo.DevImage)
 }
 
 func (h *handlers) StopDevMode(c *gin.Context) {
@@ -84,7 +84,7 @@ func (h *handlers) StopDevMode(c *gin.Context) {
 	serviceName := c.Param("serviceName")
 	projectName := c.Query("projectName")
 
-	ctx.Err = h.zgctl.StopDevMode(c, projectName, envName, serviceName)
+	ctx.RespErr = h.zgctl.StopDevMode(c, projectName, envName, serviceName)
 }
 
 func (h *handlers) DevImages(c *gin.Context) {
@@ -103,9 +103,9 @@ func (h *handlers) ConfigKubeconfig(c *gin.Context) {
 
 	var kubeconfig KubeconfigInfo
 	if err := c.BindJSON(&kubeconfig); err != nil {
-		ctx.Err = errors.New("invalid request body")
+		ctx.RespErr = errors.New("invalid request body")
 		return
 	}
 
-	ctx.Err = h.zgctl.ConfigKubeconfig(projectName, envName, kubeconfig.KubeConfig.Path)
+	ctx.RespErr = h.zgctl.ConfigKubeconfig(projectName, envName, kubeconfig.KubeConfig.Path)
 }

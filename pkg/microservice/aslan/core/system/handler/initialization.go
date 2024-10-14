@@ -29,7 +29,7 @@ func GetSystemInitializationStatus(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.GetSystemInitializationStatus(ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetSystemInitializationStatus(ctx.Logger)
 }
 
 type InitializeUserReq struct {
@@ -67,14 +67,14 @@ func InitializeUser(c *gin.Context) {
 
 	req := new(InitializeUserReq)
 	if err := c.BindJSON(req); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid user initialization config")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid user initialization config")
 		return
 	}
 
 	if err := req.Validate(); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 
-	ctx.Err = service.InitializeUser(req.Username, req.Password, req.Company, req.Email, req.Phone, req.ImprovementPlan, ctx.Logger)
+	ctx.RespErr = service.InitializeUser(req.Username, req.Password, req.Company, req.Email, req.Phone, req.ImprovementPlan, ctx.Logger)
 }

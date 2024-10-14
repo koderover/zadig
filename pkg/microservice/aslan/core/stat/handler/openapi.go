@@ -55,14 +55,14 @@ func GetReleaseStatOpenAPI(c *gin.Context) {
 	//params validate
 	args := new(getStatReqV2)
 	if err := c.ShouldBindQuery(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
 	if err := args.Validate(); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.GetReleaseStatOpenAPI(args.StartTime, args.EndTime, args.ProjectName, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetReleaseStatOpenAPI(args.StartTime, args.EndTime, args.ProjectName, ctx.Logger)
 }

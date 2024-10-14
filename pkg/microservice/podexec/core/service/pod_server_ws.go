@@ -41,7 +41,7 @@ func ServeWs(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -50,7 +50,7 @@ func ServeWs(c *gin.Context) {
 	containerName := c.Param("containerName")
 
 	if podName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("containerName can't be empty,please check!")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("containerName can't be empty,please check!")
 		return
 	}
 	log.Infof("exec containerName: %s, pod: %s", containerName, podName)
@@ -59,7 +59,7 @@ func ServeWs(c *gin.Context) {
 	envName := c.Param("envName")
 	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: productName, EnvName: envName})
 	if err != nil {
-		ctx.Err = e.ErrInternalError.AddDesc(fmt.Sprintf("failed to find product %s/%s, err: %s", productName, envName, err))
+		ctx.RespErr = e.ErrInternalError.AddDesc(fmt.Sprintf("failed to find product %s/%s, err: %s", productName, envName, err))
 		return
 	}
 	namespace, clusterID := productInfo.Namespace, productInfo.ClusterID
@@ -67,7 +67,7 @@ func ServeWs(c *gin.Context) {
 	pty, err := NewTerminalSession(c.Writer, c.Request, nil)
 	if err != nil {
 		log.Errorf("get pty failed: %v", err)
-		ctx.Err = e.ErrInternalError.AddDesc(fmt.Sprintf("get pty failed: %v", err))
+		ctx.RespErr = e.ErrInternalError.AddDesc(fmt.Sprintf("get pty failed: %v", err))
 		return
 	}
 	defer func() {
@@ -82,7 +82,7 @@ func ServeWs(c *gin.Context) {
 		_, _ = pty.Write([]byte(msg))
 		pty.Done()
 
-		ctx.Err = e.ErrInternalError.AddDesc(fmt.Sprintf("get kubecli err :%v", err))
+		ctx.RespErr = e.ErrInternalError.AddDesc(fmt.Sprintf("get kubecli err :%v", err))
 		return
 	}
 
@@ -93,7 +93,7 @@ func ServeWs(c *gin.Context) {
 		_, _ = pty.Write([]byte(msg))
 		pty.Done()
 
-		ctx.Err = e.ErrInternalError.AddDesc(fmt.Sprintf("Validate pod error! err: %v", err))
+		ctx.RespErr = e.ErrInternalError.AddDesc(fmt.Sprintf("Validate pod error! err: %v", err))
 		return
 	}
 
@@ -104,7 +104,7 @@ func ServeWs(c *gin.Context) {
 		_, _ = pty.Write([]byte(msg))
 		pty.Done()
 
-		ctx.Err = e.ErrInternalError.AddDesc(fmt.Sprintf("Exec to pod error! err: %v", err))
+		ctx.RespErr = e.ErrInternalError.AddDesc(fmt.Sprintf("Exec to pod error! err: %v", err))
 		return
 	}
 }
@@ -115,11 +115,11 @@ func DebugWorkflow(c *gin.Context) {
 	logger := ctx.Logger
 	taskID, err := strconv.ParseInt(c.Param("taskID"), 10, 64)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("无效 task ID")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("无效 task ID")
 		return
 	}
 
-	ctx.Err = debugWorkflow(c, c.Param("workflowName"), c.Param("jobName"), taskID, logger)
+	ctx.RespErr = debugWorkflow(c, c.Param("workflowName"), c.Param("jobName"), taskID, logger)
 	return
 }
 

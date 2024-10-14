@@ -36,17 +36,17 @@ func CreateStatDashboardConfig(c *gin.Context) {
 	//params validate
 	args := new(service.StatDashboardConfig)
 	if err := c.BindJSON(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
 	err := commonutil.CheckZadigProfessionalLicense()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
-	ctx.Err = service.CreateStatDashboardConfig(args, ctx.Logger)
+	ctx.RespErr = service.CreateStatDashboardConfig(args, ctx.Logger)
 }
 
 type listStatDashboardConfigResp struct {
@@ -60,7 +60,7 @@ func ListStatDashboardConfigs(c *gin.Context) {
 	resp, err := service.ListDashboardConfigs(ctx.Logger)
 
 	ctx.Resp = listStatDashboardConfigResp{resp}
-	ctx.Err = err
+	ctx.RespErr = err
 }
 
 func UpdateStatDashboardConfig(c *gin.Context) {
@@ -70,17 +70,17 @@ func UpdateStatDashboardConfig(c *gin.Context) {
 	//params validate
 	args := new(service.StatDashboardConfig)
 	if err := c.BindJSON(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
 	err := commonutil.CheckZadigProfessionalLicense()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
-	ctx.Err = service.UpdateStatDashboardConfig(c.Param("id"), args, ctx.Logger)
+	ctx.RespErr = service.UpdateStatDashboardConfig(c.Param("id"), args, ctx.Logger)
 }
 
 func DeleteStatDashboardConfig(c *gin.Context) {
@@ -89,11 +89,11 @@ func DeleteStatDashboardConfig(c *gin.Context) {
 
 	err := commonutil.CheckZadigProfessionalLicense()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
-	ctx.Err = service.DeleteStatDashboardConfig(c.Param("id"), ctx.Logger)
+	ctx.RespErr = service.DeleteStatDashboardConfig(c.Param("id"), ctx.Logger)
 }
 
 type getStatDashboardReq struct {
@@ -111,20 +111,20 @@ func GetStatsDashboard(c *gin.Context) {
 
 	args := new(getStatDashboardReq)
 	if err := c.ShouldBindQuery(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
 	err := commonutil.CheckZadigEnterpriseLicense()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
 	resp, err := service.GetStatsDashboard(args.StartTime, args.EndTime, nil, ctx.Logger)
 
 	ctx.Resp = getStatDashboardResp{resp}
-	ctx.Err = err
+	ctx.RespErr = err
 }
 
 func GetStatsDashboardGeneralData(c *gin.Context) {
@@ -133,17 +133,17 @@ func GetStatsDashboardGeneralData(c *gin.Context) {
 
 	args := new(getStatDashboardReq)
 	if err := c.ShouldBindQuery(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
 	err := commonutil.CheckZadigEnterpriseLicense()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.GetStatsDashboardGeneralData(args.StartTime, args.EndTime, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetStatsDashboardGeneralData(args.StartTime, args.EndTime, ctx.Logger)
 }
 
 func GetAIStatsAnalysis(c *gin.Context) {
@@ -153,23 +153,23 @@ func GetAIStatsAnalysis(c *gin.Context) {
 	// get params prompt, projectList, duration from query
 	reqData, err := c.GetRawData()
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 	args := new(ai.AiAnalysisReq)
 	if err := json.Unmarshal(reqData, args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
-	ctx.Resp, ctx.Err = ai.AnalyzeProjectStats(args, ctx.Logger)
+	ctx.Resp, ctx.RespErr = ai.AnalyzeProjectStats(args, ctx.Logger)
 }
 
 func GetAIStatsAnalysisPrompts(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = ai.GetAiPrompts(ctx.Logger)
+	ctx.Resp, ctx.RespErr = ai.GetAiPrompts(ctx.Logger)
 }
 
 func GetProjectsOverview(c *gin.Context) {
@@ -178,7 +178,7 @@ func GetProjectsOverview(c *gin.Context) {
 
 	args := new(getStatDashboardReq)
 	if err := c.ShouldBindQuery(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
@@ -188,7 +188,7 @@ func GetProjectsOverview(c *gin.Context) {
 		args.EndTime = now.Unix()
 	}
 
-	ctx.Resp, ctx.Err = service.GetProjectsOverview(args.StartTime, args.EndTime, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetProjectsOverview(args.StartTime, args.EndTime, ctx.Logger)
 }
 
 type aiStatReq struct {
@@ -203,7 +203,7 @@ func GetCurrently30DayBuildTrend(c *gin.Context) {
 
 	args := new(aiStatReq)
 	if err := c.ShouldBindQuery(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
@@ -213,7 +213,7 @@ func GetCurrently30DayBuildTrend(c *gin.Context) {
 		args.EndTime = now.Unix()
 	}
 
-	ctx.Resp, ctx.Err = service.GetCurrently30DayBuildTrend(args.StartTime, args.EndTime, args.Projects, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetCurrently30DayBuildTrend(args.StartTime, args.EndTime, args.Projects, ctx.Logger)
 }
 
 func GetEfficiencyRadar(c *gin.Context) {
@@ -222,7 +222,7 @@ func GetEfficiencyRadar(c *gin.Context) {
 
 	args := new(aiStatReq)
 	if err := c.ShouldBindQuery(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 	if args.StartTime == 0 && args.EndTime == 0 {
@@ -231,7 +231,7 @@ func GetEfficiencyRadar(c *gin.Context) {
 		args.EndTime = now.Unix()
 	}
 
-	ctx.Resp, ctx.Err = service.GetEfficiencyRadar(args.StartTime, args.EndTime, args.Projects, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetEfficiencyRadar(args.StartTime, args.EndTime, args.Projects, ctx.Logger)
 }
 
 type AIMonthAttentionResp struct {
@@ -245,7 +245,7 @@ func GetMonthAttention(c *gin.Context) {
 
 	args := new(aiStatReq)
 	if err := c.ShouldBindQuery(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 	if args.StartTime == 0 && args.EndTime == 0 {
@@ -256,7 +256,7 @@ func GetMonthAttention(c *gin.Context) {
 
 	data, err := service.GetMonthAttention(args.StartTime, args.EndTime, args.Projects, ctx.Logger)
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
@@ -264,7 +264,7 @@ func GetMonthAttention(c *gin.Context) {
 	resp, err := ai.AnalyzeMonthAttention(args.StartTime, args.EndTime, data, ctx.Logger)
 	if err != nil {
 		if err != ai.ReturnAnswerWrongFormat {
-			ctx.Err = err
+			ctx.RespErr = err
 			return
 		}
 	}
@@ -280,7 +280,7 @@ func GetRequirementDevDepPeriod(c *gin.Context) {
 
 	args := new(aiStatReq)
 	if err := c.ShouldBindQuery(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 	if args.StartTime == 0 && args.EndTime == 0 {
@@ -289,5 +289,5 @@ func GetRequirementDevDepPeriod(c *gin.Context) {
 		args.EndTime = now.Unix()
 	}
 
-	ctx.Resp, ctx.Err = service.GetRequirementDevDelPeriod(args.StartTime, args.EndTime, args.Projects, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetRequirementDevDelPeriod(args.StartTime, args.EndTime, args.Projects, ctx.Logger)
 }

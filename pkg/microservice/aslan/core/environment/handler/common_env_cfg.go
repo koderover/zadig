@@ -42,7 +42,7 @@ func DeleteCommonEnvCfg(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -52,7 +52,7 @@ func DeleteCommonEnvCfg(c *gin.Context) {
 	commonEnvCfgType := c.Query("commonEnvCfgType")
 	objectName := c.Param("objectName")
 	if envName == "" || projectKey == "" || objectName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("param envName or projectName or objectName is invalid")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("param envName or projectName or objectName is invalid")
 		return
 	}
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "删除", "环境配置", fmt.Sprintf("%s:%s:%s", envName, commonEnvCfgType, objectName), "", ctx.Logger, envName)
@@ -78,7 +78,7 @@ func DeleteCommonEnvCfg(c *gin.Context) {
 
 			err = commonutil.CheckZadigProfessionalLicense()
 			if err != nil {
-				ctx.Err = err
+				ctx.RespErr = err
 				return
 			}
 		} else {
@@ -93,7 +93,7 @@ func DeleteCommonEnvCfg(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = service.DeleteCommonEnvCfg(envName, projectKey, objectName, config.CommonEnvCfgType(commonEnvCfgType), production, ctx.Logger)
+	ctx.RespErr = service.DeleteCommonEnvCfg(envName, projectKey, objectName, config.CommonEnvCfgType(commonEnvCfgType), production, ctx.Logger)
 }
 
 func CreateCommonEnvCfg(c *gin.Context) {
@@ -101,7 +101,7 @@ func CreateCommonEnvCfg(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -113,12 +113,12 @@ func CreateCommonEnvCfg(c *gin.Context) {
 	data, err := c.GetRawData()
 	if err != nil {
 		log.Errorf("CreateCommonEnvCfg c.GetRawData() err : %v", err)
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("CreateCommonEnvCfg json.Unmarshal err : %v", err)
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, c.Query("projectName"), setting.OperationSceneEnv, "新建", "环境配置", fmt.Sprintf("%s:%s", args.EnvName, args.CommonEnvCfgType), string(data), ctx.Logger, c.Param("name"))
@@ -145,7 +145,7 @@ func CreateCommonEnvCfg(c *gin.Context) {
 
 			err = commonutil.CheckZadigProfessionalLicense()
 			if err != nil {
-				ctx.Err = err
+				ctx.RespErr = err
 				return
 			}
 		} else {
@@ -161,18 +161,18 @@ func CreateCommonEnvCfg(c *gin.Context) {
 	}
 
 	if err := c.BindJSON(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 	if args.YamlData == "" {
-		ctx.Err = e.ErrInvalidParam
+		ctx.RespErr = e.ErrInvalidParam
 		return
 	}
 	args.EnvName = envName
 	args.ProductName = projectKey
 	args.Production = production
 
-	ctx.Err = service.CreateCommonEnvCfg(args, ctx.UserName, ctx.Logger)
+	ctx.RespErr = service.CreateCommonEnvCfg(args, ctx.UserName, ctx.Logger)
 }
 
 func UpdateCommonEnvCfg(c *gin.Context) {
@@ -180,7 +180,7 @@ func UpdateCommonEnvCfg(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -220,7 +220,7 @@ func UpdateCommonEnvCfg(c *gin.Context) {
 
 			err = commonutil.CheckZadigProfessionalLicense()
 			if err != nil {
-				ctx.Err = err
+				ctx.RespErr = err
 				return
 			}
 		} else {
@@ -236,11 +236,11 @@ func UpdateCommonEnvCfg(c *gin.Context) {
 	}
 
 	if err := c.BindJSON(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 	if len(args.YamlData) == 0 {
-		ctx.Err = e.ErrInvalidParam.AddDesc("yaml info can't be nil")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("yaml info can't be nil")
 		return
 	}
 	args.EnvName = envName
@@ -250,12 +250,12 @@ func UpdateCommonEnvCfg(c *gin.Context) {
 	if len(c.Query("rollback")) > 0 {
 		isRollBack, err = strconv.ParseBool(c.Query("rollback"))
 		if err != nil {
-			ctx.Err = e.ErrInvalidParam.AddErr(err)
+			ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 			return
 		}
 	}
 
-	ctx.Err = service.UpdateCommonEnvCfg(args, ctx.UserName, isRollBack, ctx.Logger)
+	ctx.RespErr = service.UpdateCommonEnvCfg(args, ctx.UserName, isRollBack, ctx.Logger)
 }
 
 func ListCommonEnvCfgHistory(c *gin.Context) {
@@ -264,7 +264,7 @@ func ListCommonEnvCfgHistory(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -292,7 +292,7 @@ func ListCommonEnvCfgHistory(c *gin.Context) {
 
 			err = commonutil.CheckZadigProfessionalLicense()
 			if err != nil {
-				ctx.Err = err
+				ctx.RespErr = err
 				return
 			}
 		} else {
@@ -314,7 +314,7 @@ func ListCommonEnvCfgHistory(c *gin.Context) {
 	args.Name = c.Param("objectName")
 	args.Production = production
 
-	ctx.Resp, ctx.Err = service.ListEnvResourceHistory(args, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.ListEnvResourceHistory(args, ctx.Logger)
 }
 
 func ListLatestEnvCfg(c *gin.Context) {
@@ -322,14 +322,14 @@ func ListLatestEnvCfg(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	args := new(service.ListCommonEnvCfgHistoryArgs)
 	if err := c.ShouldBindQuery(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
@@ -355,7 +355,7 @@ func ListLatestEnvCfg(c *gin.Context) {
 
 			err = commonutil.CheckZadigProfessionalLicense()
 			if err != nil {
-				ctx.Err = err
+				ctx.RespErr = err
 				return
 			}
 		} else {
@@ -370,7 +370,7 @@ func ListLatestEnvCfg(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.Err = service.ListLatestEnvResources(args, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.ListLatestEnvResources(args, ctx.Logger)
 }
 
 func SyncEnvResource(c *gin.Context) {
@@ -379,7 +379,7 @@ func SyncEnvResource(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -407,7 +407,7 @@ func SyncEnvResource(c *gin.Context) {
 
 			err = commonutil.CheckZadigProfessionalLicense()
 			if err != nil {
-				ctx.Err = err
+				ctx.RespErr = err
 				return
 			}
 		} else {
@@ -429,5 +429,5 @@ func SyncEnvResource(c *gin.Context) {
 		Type:        c.Param("type"),
 		Production:  production,
 	}
-	ctx.Err = service.SyncEnvResource(args, ctx.Logger)
+	ctx.RespErr = service.SyncEnvResource(args, ctx.Logger)
 }

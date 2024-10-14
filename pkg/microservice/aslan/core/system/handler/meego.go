@@ -39,7 +39,7 @@ func GetMeegoProjects(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	id := c.Param("id")
-	ctx.Resp, ctx.Err = service.GetMeegoProjects(id)
+	ctx.Resp, ctx.RespErr = service.GetMeegoProjects(id)
 }
 
 // @Summary Get Meego Work Item Type List
@@ -58,7 +58,7 @@ func GetWorkItemTypeList(c *gin.Context) {
 	id := c.Param("id")
 	projectID := c.Param("projectID")
 
-	ctx.Resp, ctx.Err = service.GetWorkItemTypeList(id, projectID)
+	ctx.Resp, ctx.RespErr = service.GetWorkItemTypeList(id, projectID)
 }
 
 // @Summary List Meego Work Items
@@ -85,7 +85,7 @@ func ListMeegoWorkItems(c *gin.Context) {
 	if pageNumStr != "" {
 		pageNumber, err := strconv.Atoi(pageNumStr)
 		if err != nil {
-			ctx.Err = errors.New("invalid page_num")
+			ctx.RespErr = errors.New("invalid page_num")
 			return
 		}
 		pageNum = pageNumber
@@ -95,20 +95,20 @@ func ListMeegoWorkItems(c *gin.Context) {
 	if pageSizeStr != "" {
 		pageSizeConv, err := strconv.Atoi(pageSizeStr)
 		if err != nil {
-			ctx.Err = errors.New("invalid page_size")
+			ctx.RespErr = errors.New("invalid page_size")
 			return
 		}
 		pageSize = pageSizeConv
 	}
 	if typeKey == "" {
-		ctx.Err = errors.New("type_key cannot be empty")
+		ctx.RespErr = errors.New("type_key cannot be empty")
 		return
 	}
 
 	id := c.Param("id")
 	nameQuery := c.Query("item_name")
 
-	ctx.Resp, ctx.Err = service.ListMeegoWorkItems(id, projectID, typeKey, nameQuery, pageNum, pageSize)
+	ctx.Resp, ctx.RespErr = service.ListMeegoWorkItems(id, projectID, typeKey, nameQuery, pageNum, pageSize)
 }
 
 func ListAvailableWorkItemTransitions(c *gin.Context) {
@@ -119,11 +119,11 @@ func ListAvailableWorkItemTransitions(c *gin.Context) {
 	workItemIDStr := c.Param("workItemID")
 	workItemID, err := strconv.Atoi(workItemIDStr)
 	if err != nil {
-		ctx.Err = errors.New("invalid work item id")
+		ctx.RespErr = errors.New("invalid work item id")
 		return
 	}
 	workItemTypeKey := c.Query("type_key")
 
 	id := c.Param("id")
-	ctx.Resp, ctx.Err = service.ListAvailableWorkItemTransitions(id, projectID, workItemTypeKey, workItemID)
+	ctx.Resp, ctx.RespErr = service.ListAvailableWorkItemTransitions(id, projectID, workItemTypeKey, workItemID)
 }

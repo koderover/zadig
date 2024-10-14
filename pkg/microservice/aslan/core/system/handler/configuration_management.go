@@ -33,7 +33,7 @@ func ListConfigurationManagement(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -48,7 +48,7 @@ func ListConfigurationManagement(c *gin.Context) {
 	//	return
 	//}
 
-	ctx.Resp, ctx.Err = service.ListConfigurationManagement(c.Query("type"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.ListConfigurationManagement(c.Query("type"), ctx.Logger)
 }
 
 func CreateConfigurationManagement(c *gin.Context) {
@@ -57,14 +57,14 @@ func CreateConfigurationManagement(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	var args commonmodels.ConfigurationManagement
 	if err := c.ShouldBindJSON(&args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
@@ -74,7 +74,7 @@ func CreateConfigurationManagement(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = service.CreateConfigurationManagement(&args, ctx.Logger)
+	ctx.RespErr = service.CreateConfigurationManagement(&args, ctx.Logger)
 }
 
 func GetConfigurationManagement(c *gin.Context) {
@@ -83,7 +83,7 @@ func GetConfigurationManagement(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -94,7 +94,7 @@ func GetConfigurationManagement(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.GetConfigurationManagement(c.Param("id"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetConfigurationManagement(c.Param("id"), ctx.Logger)
 }
 
 func UpdateConfigurationManagement(c *gin.Context) {
@@ -103,14 +103,14 @@ func UpdateConfigurationManagement(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	var args commonmodels.ConfigurationManagement
 	if err := c.ShouldBindJSON(&args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
@@ -120,7 +120,7 @@ func UpdateConfigurationManagement(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = service.UpdateConfigurationManagement(c.Param("id"), &args, ctx.Logger)
+	ctx.RespErr = service.UpdateConfigurationManagement(c.Param("id"), &args, ctx.Logger)
 }
 
 func DeleteConfigurationManagement(c *gin.Context) {
@@ -129,7 +129,7 @@ func DeleteConfigurationManagement(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -140,7 +140,7 @@ func DeleteConfigurationManagement(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = service.DeleteConfigurationManagement(c.Param("id"), ctx.Logger)
+	ctx.RespErr = service.DeleteConfigurationManagement(c.Param("id"), ctx.Logger)
 }
 
 func ValidateConfigurationManagement(c *gin.Context) {
@@ -149,14 +149,14 @@ func ValidateConfigurationManagement(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	b, err := c.GetRawData()
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
@@ -166,7 +166,7 @@ func ValidateConfigurationManagement(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = service.ValidateConfigurationManagement(string(b), ctx.Logger)
+	ctx.RespErr = service.ValidateConfigurationManagement(string(b), ctx.Logger)
 }
 
 func ListApolloApps(c *gin.Context) {
@@ -175,12 +175,12 @@ func ListApolloApps(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.ListApolloApps(c.Param("id"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.ListApolloApps(c.Param("id"), ctx.Logger)
 }
 
 func ListApolloEnvAndClusters(c *gin.Context) {
@@ -188,12 +188,12 @@ func ListApolloEnvAndClusters(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.ListApolloEnvAndClusters(c.Param("id"), c.Param("app_id"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.ListApolloEnvAndClusters(c.Param("id"), c.Param("app_id"), ctx.Logger)
 }
 
 func ListApolloConfigByType(c *gin.Context) {
@@ -201,12 +201,12 @@ func ListApolloConfigByType(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.ListApolloConfigByType(c.Param("id"), c.Param("app_id"), c.Query("format"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.ListApolloConfigByType(c.Param("id"), c.Param("app_id"), c.Query("format"), ctx.Logger)
 }
 
 func ListApolloNamespaces(c *gin.Context) {
@@ -214,12 +214,12 @@ func ListApolloNamespaces(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.ListApolloNamespaces(c.Param("id"), c.Param("app_id"), c.Param("env"), c.Param("cluster"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.ListApolloNamespaces(c.Param("id"), c.Param("app_id"), c.Param("env"), c.Param("cluster"), ctx.Logger)
 }
 
 func ListApolloConfig(c *gin.Context) {
@@ -227,12 +227,12 @@ func ListApolloConfig(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.ListApolloConfig(c.Param("id"), c.Param("app_id"), c.Param("env"), c.Param("cluster"), c.Param("namespace"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.ListApolloConfig(c.Param("id"), c.Param("app_id"), c.Param("env"), c.Param("cluster"), c.Param("namespace"), ctx.Logger)
 }
 
 func ListNacosConfigByType(c *gin.Context) {
@@ -240,12 +240,12 @@ func ListNacosConfigByType(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.ListNacosConfigByType(c.Param("id"), c.Query("format"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.ListNacosConfigByType(c.Param("id"), c.Query("format"), ctx.Logger)
 }
 
 func GetNacosConfig(c *gin.Context) {
@@ -253,10 +253,10 @@ func GetNacosConfig(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.GetNacosConfig(c.Param("id"), c.Param("namespace"), c.Param("group_name"), c.Param("data_name"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetNacosConfig(c.Param("id"), c.Param("namespace"), c.Param("group_name"), c.Param("data_name"), ctx.Logger)
 }

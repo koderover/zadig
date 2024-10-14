@@ -32,7 +32,7 @@ func PatchDebugContainer(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -66,7 +66,7 @@ func PatchDebugContainer(c *gin.Context) {
 
 			err = commonutil.CheckZadigProfessionalLicense()
 			if err != nil {
-				ctx.Err = err
+				ctx.RespErr = err
 				return
 			}
 		} else {
@@ -81,5 +81,5 @@ func PatchDebugContainer(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = service.PatchDebugContainer(c, projectKey, envName, podName, debugImage, production)
+	ctx.RespErr = service.PatchDebugContainer(c, projectKey, envName, podName, debugImage, production)
 }

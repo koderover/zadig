@@ -57,7 +57,7 @@ func CreateTestModule(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -90,11 +90,11 @@ func CreateTestModule(c *gin.Context) {
 
 	err = c.BindJSON(args)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid Test args")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid Test args")
 		return
 	}
 
-	ctx.Err = service.CreateTesting(ctx.UserName, args, ctx.Logger)
+	ctx.RespErr = service.CreateTesting(ctx.UserName, args, ctx.Logger)
 }
 
 func UpdateTestModule(c *gin.Context) {
@@ -102,7 +102,7 @@ func UpdateTestModule(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -135,11 +135,11 @@ func UpdateTestModule(c *gin.Context) {
 
 	err = c.BindJSON(args)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid Test args")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid Test args")
 		return
 	}
 
-	ctx.Err = service.UpdateTesting(ctx.UserName, args, ctx.Logger)
+	ctx.RespErr = service.UpdateTesting(ctx.UserName, args, ctx.Logger)
 }
 
 func ListTestModules(c *gin.Context) {
@@ -147,7 +147,7 @@ func ListTestModules(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -183,7 +183,7 @@ func ListTestModules(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.Err = service.ListTestingOpt(projects, c.Query("testType"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.ListTestingOpt(projects, c.Query("testType"), ctx.Logger)
 }
 
 func GetTestModule(c *gin.Context) {
@@ -192,7 +192,7 @@ func GetTestModule(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -232,10 +232,10 @@ func GetTestModule(c *gin.Context) {
 	name := c.Param("name")
 
 	if name == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("empty Name")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("empty Name")
 		return
 	}
-	ctx.Resp, ctx.Err = service.GetTesting(name, projectKey, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetTesting(name, projectKey, ctx.Logger)
 }
 
 func DeleteTestModule(c *gin.Context) {
@@ -244,7 +244,7 @@ func DeleteTestModule(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -269,11 +269,11 @@ func DeleteTestModule(c *gin.Context) {
 
 	name := c.Param("name")
 	if name == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("empty Name")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("empty Name")
 		return
 	}
 
-	ctx.Err = commonservice.DeleteTestModule(name, projectKey, ctx.RequestID, ctx.Logger)
+	ctx.RespErr = commonservice.DeleteTestModule(name, projectKey, ctx.RequestID, ctx.Logger)
 }
 
 func GetHTMLTestReport(c *gin.Context) {

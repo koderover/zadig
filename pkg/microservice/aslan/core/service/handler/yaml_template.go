@@ -40,7 +40,7 @@ func LoadServiceFromYamlTemplate(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -48,7 +48,7 @@ func LoadServiceFromYamlTemplate(c *gin.Context) {
 	req := new(svcservice.LoadServiceFromYamlTemplateReq)
 
 	if err := c.ShouldBindJSON(req); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
@@ -84,12 +84,12 @@ func LoadServiceFromYamlTemplate(c *gin.Context) {
 
 	if production {
 		if err := commonutil.CheckZadigProfessionalLicense(); err != nil {
-			ctx.Err = err
+			ctx.RespErr = err
 			return
 		}
 	}
 
-	ctx.Err = svcservice.LoadServiceFromYamlTemplate(ctx.UserName, req, false, production, ctx.Logger)
+	ctx.RespErr = svcservice.LoadServiceFromYamlTemplate(ctx.UserName, req, false, production, ctx.Logger)
 }
 
 // @Summary Reload service from yaml template
@@ -106,14 +106,14 @@ func ReloadServiceFromYamlTemplate(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	req := new(svcservice.LoadServiceFromYamlTemplateReq)
 	if err := c.ShouldBindJSON(req); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
@@ -150,12 +150,12 @@ func ReloadServiceFromYamlTemplate(c *gin.Context) {
 
 	if production {
 		if err := commonutil.CheckZadigProfessionalLicense(); err != nil {
-			ctx.Err = err
+			ctx.RespErr = err
 			return
 		}
 	}
 
-	ctx.Err = svcservice.ReloadServiceFromYamlTemplate(ctx.UserName, req, production, ctx.Logger)
+	ctx.RespErr = svcservice.ReloadServiceFromYamlTemplate(ctx.UserName, req, production, ctx.Logger)
 }
 
 func PreviewServiceYamlFromYamlTemplate(c *gin.Context) {
@@ -164,9 +164,9 @@ func PreviewServiceYamlFromYamlTemplate(c *gin.Context) {
 
 	req := new(svcservice.LoadServiceFromYamlTemplateReq)
 	if err := c.ShouldBindJSON(req); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 	req.ProjectName = c.Query("projectName")
-	ctx.Resp, ctx.Err = svcservice.PreviewServiceFromYamlTemplate(req, ctx.Logger)
+	ctx.Resp, ctx.RespErr = svcservice.PreviewServiceFromYamlTemplate(req, ctx.Logger)
 }

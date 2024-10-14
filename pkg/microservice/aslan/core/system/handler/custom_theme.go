@@ -33,7 +33,7 @@ func GetThemeInfos(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.GetThemeInfos(ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetThemeInfos(ctx.Logger)
 }
 
 func UpdateThemeInfo(c *gin.Context) {
@@ -41,7 +41,7 @@ func UpdateThemeInfo(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -49,14 +49,14 @@ func UpdateThemeInfo(c *gin.Context) {
 	args, err := c.GetRawData()
 	if err != nil {
 		log.Errorf("UpdateThemeInfo GetRawData err :%v", err)
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 
 	theme := &models.Theme{}
 	if err := json.Unmarshal(args, theme); err != nil {
 		log.Errorf("UpdateThemeInfo Unmarshal err :%v", err)
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 
@@ -71,9 +71,9 @@ func UpdateThemeInfo(c *gin.Context) {
 	}
 
 	if err = commonutil.CheckZadigProfessionalLicense(); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
-	ctx.Err = service.UpdateThemeInfo(theme, ctx.Logger)
+	ctx.RespErr = service.UpdateThemeInfo(theme, ctx.Logger)
 }

@@ -35,7 +35,7 @@ func OpenAPICreateProductTemplate(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -57,19 +57,19 @@ func OpenAPICreateProductTemplate(c *gin.Context) {
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.BindJSON(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid ProductTmpl json args")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid ProductTmpl json args")
 		return
 	}
 
 	// input validation for OpenAPI
 	err = args.Validate()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
 	// finally, we create the project
-	ctx.Err = service.CreateProjectOpenAPI(ctx.UserID, ctx.UserName, args, ctx.Logger)
+	ctx.RespErr = service.CreateProjectOpenAPI(ctx.UserID, ctx.UserName, args, ctx.Logger)
 }
 
 // @Summary OpenAPI Initialize Yaml Project
@@ -85,7 +85,7 @@ func OpenAPIInitializeYamlProject(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -109,11 +109,11 @@ func OpenAPIInitializeYamlProject(c *gin.Context) {
 	// input validation for OpenAPI
 	err = args.Validate()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
-	ctx.Err = service.InitializeYAMLProject(ctx.UserID, ctx.UserName, ctx.RequestID, args, ctx.Logger)
+	ctx.RespErr = service.InitializeYAMLProject(ctx.UserID, ctx.UserName, ctx.RequestID, args, ctx.Logger)
 }
 
 func OpenAPIInitializeHelmProject(c *gin.Context) {
@@ -121,7 +121,7 @@ func OpenAPIInitializeHelmProject(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -134,11 +134,11 @@ func OpenAPIInitializeHelmProject(c *gin.Context) {
 	args := new(service.OpenAPIInitializeProjectReq)
 	data, err := c.GetRawData()
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid InitializeHelmProject params")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid InitializeHelmProject params")
 		return
 	}
 	if err = json.Unmarshal(data, args); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName+"(openAPI)", args.ProjectName, "OpenAPI"+"初始化", "项目管理-helm项目", args.ProjectName, string(data), ctx.Logger)
@@ -147,11 +147,11 @@ func OpenAPIInitializeHelmProject(c *gin.Context) {
 	// input validation for OpenAPI
 	err = args.Validate()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
-	ctx.Err = service.OpenAPIInitializeHelmProject(ctx.UserID, ctx.UserName, ctx.RequestID, args, ctx.Logger)
+	ctx.RespErr = service.OpenAPIInitializeHelmProject(ctx.UserID, ctx.UserName, ctx.RequestID, args, ctx.Logger)
 }
 
 func OpenAPIListProject(c *gin.Context) {
@@ -159,7 +159,7 @@ func OpenAPIListProject(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -172,7 +172,7 @@ func OpenAPIListProject(c *gin.Context) {
 		var found bool
 		authorizedProjectList, found, err = internalhandler.ListAuthorizedProjects(ctx.UserID)
 		if err != nil {
-			ctx.Err = e.ErrInternalError.AddDesc(err.Error())
+			ctx.RespErr = e.ErrInternalError.AddDesc(err.Error())
 			return
 		}
 
@@ -187,11 +187,11 @@ func OpenAPIListProject(c *gin.Context) {
 
 	args := new(service.OpenAPIListProjectReq)
 	if err := c.ShouldBindQuery(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid ListProjectOpenAPI params")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid ListProjectOpenAPI params")
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.ListProjectOpenAPI(authorizedProjectList, args.PageSize, args.PageNum, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.ListProjectOpenAPI(authorizedProjectList, args.PageSize, args.PageNum, ctx.Logger)
 }
 
 func OpenAPIGetProjectDetail(c *gin.Context) {
@@ -199,14 +199,14 @@ func OpenAPIGetProjectDetail(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	authorizedProjectList, found, err := internalhandler.ListAuthorizedProjects(ctx.UserID)
 	if err != nil {
-		ctx.Err = e.ErrInternalError.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInternalError.AddDesc(err.Error())
 		return
 	}
 
@@ -217,7 +217,7 @@ func OpenAPIGetProjectDetail(c *gin.Context) {
 
 	projectKey := c.Query("projectKey")
 	if projectKey == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("projectKey is empty")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("projectKey is empty")
 		return
 	}
 
@@ -234,7 +234,7 @@ func OpenAPIGetProjectDetail(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.GetProjectDetailOpenAPI(projectKey, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetProjectDetailOpenAPI(projectKey, ctx.Logger)
 }
 
 func OpenAPIDeleteProject(c *gin.Context) {
@@ -242,14 +242,14 @@ func OpenAPIDeleteProject(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	projectKey := c.Query("projectKey")
 	if projectKey == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("projectKey is empty")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("projectKey is empty")
 		return
 	}
 
@@ -262,12 +262,12 @@ func OpenAPIDeleteProject(c *gin.Context) {
 
 	isDelete, err := strconv.ParseBool(c.Query("isDelete"))
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid param isDelete")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid param isDelete")
 		return
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "OpenAPI"+"删除", "项目管理-项目", projectKey, "", ctx.Logger)
 
-	ctx.Err = service.DeleteProjectOpenAPI(ctx.UserName, ctx.RequestID, projectKey, isDelete, ctx.Logger)
+	ctx.RespErr = service.DeleteProjectOpenAPI(ctx.UserName, ctx.RequestID, projectKey, isDelete, ctx.Logger)
 }
 
 func OpenAPIGetGlobalVariables(c *gin.Context) {
@@ -276,9 +276,9 @@ func OpenAPIGetGlobalVariables(c *gin.Context) {
 
 	projectKey := c.Query("projectKey")
 	if projectKey == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("projectKey is empty")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("projectKey is empty")
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.OpenAPIGetGlobalVariables(projectKey, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.OpenAPIGetGlobalVariables(projectKey, ctx.Logger)
 }

@@ -38,6 +38,7 @@ import (
 	projecthandler "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/project/handler"
 	releaseplanhandler "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/release_plan/handler"
 	servicehandler "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/service/handler"
+	sprintmanagementhandler "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/sprint_management/handler"
 	stathandler "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/stat/handler"
 	systemhandler "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/handler"
 	templatehandler "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/templatestore/handler"
@@ -123,25 +124,26 @@ func (s *engine) injectRouterGroup(router *gin.RouterGroup) {
 
 	// inject aslan related APIs
 	for name, r := range map[string]injector{
-		"/api/project":       new(projecthandler.Router),
-		"/api/code":          new(codehosthandler.Router),
-		"/api/system":        new(systemhandler.Router),
-		"/api/service":       new(servicehandler.Router),
-		"/api/environment":   new(environmenthandler.Router),
-		"/api/cron":          new(cronhandler.Router),
-		"/api/workflow":      new(workflowhandler.Router),
-		"/api/release_plan":  new(releaseplanhandler.Router),
-		"/api/build":         new(buildhandler.Router),
-		"/api/delivery":      new(deliveryhandler.Router),
-		"/api/logs":          new(loghandler.Router),
-		"/api/testing":       new(testinghandler.Router),
-		"/api/quality":       new(testinghandler.QualityCenterRouter),
-		"/api/cluster":       new(multiclusterhandler.Router),
-		"/api/template":      new(templatehandler.Router),
-		"/api/collaboration": new(collaborationhandler.Router),
-		"/api/stat":          new(stathandler.Router),
-		"/api/cache":         cachehandler.NewRouter(),
-		"/api/vm":            new(vmhandler.Router),
+		"/api/project":           new(projecthandler.Router),
+		"/api/code":              new(codehosthandler.Router),
+		"/api/system":            new(systemhandler.Router),
+		"/api/service":           new(servicehandler.Router),
+		"/api/environment":       new(environmenthandler.Router),
+		"/api/cron":              new(cronhandler.Router),
+		"/api/workflow":          new(workflowhandler.Router),
+		"/api/release_plan":      new(releaseplanhandler.Router),
+		"/api/sprint_management": new(sprintmanagementhandler.Router),
+		"/api/build":             new(buildhandler.Router),
+		"/api/delivery":          new(deliveryhandler.Router),
+		"/api/logs":              new(loghandler.Router),
+		"/api/testing":           new(testinghandler.Router),
+		"/api/quality":           new(testinghandler.QualityCenterRouter),
+		"/api/cluster":           new(multiclusterhandler.Router),
+		"/api/template":          new(templatehandler.Router),
+		"/api/collaboration":     new(collaborationhandler.Router),
+		"/api/stat":              new(stathandler.Router),
+		"/api/cache":             cachehandler.NewRouter(),
+		"/api/vm":                new(vmhandler.Router),
 	} {
 		r.Inject(router.Group(name))
 	}

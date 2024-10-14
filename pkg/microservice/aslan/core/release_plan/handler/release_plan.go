@@ -34,7 +34,7 @@ func GetReleasePlan(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -46,11 +46,11 @@ func GetReleasePlan(c *gin.Context) {
 
 	err = commonutil.CheckZadigEnterpriseLicense()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.GetReleasePlan(c.Param("id"))
+	ctx.Resp, ctx.RespErr = service.GetReleasePlan(c.Param("id"))
 }
 
 func GetReleasePlanLogs(c *gin.Context) {
@@ -59,7 +59,7 @@ func GetReleasePlanLogs(c *gin.Context) {
 
 	if err != nil {
 		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -71,11 +71,11 @@ func GetReleasePlanLogs(c *gin.Context) {
 
 	err = commonutil.CheckZadigEnterpriseLicense()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.GetReleasePlanLogs(c.Param("id"))
+	ctx.Resp, ctx.RespErr = service.GetReleasePlanLogs(c.Param("id"))
 }
 
 func CreateReleasePlan(c *gin.Context) {
@@ -84,7 +84,7 @@ func CreateReleasePlan(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -96,17 +96,17 @@ func CreateReleasePlan(c *gin.Context) {
 
 	req := new(models.ReleasePlan)
 	if err := c.ShouldBindJSON(req); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 
 	err = commonutil.CheckZadigEnterpriseLicense()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
-	ctx.Err = service.CreateReleasePlan(ctx, req)
+	ctx.RespErr = service.CreateReleasePlan(ctx, req)
 }
 
 func UpdateReleasePlan(c *gin.Context) {
@@ -115,7 +115,7 @@ func UpdateReleasePlan(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -127,16 +127,16 @@ func UpdateReleasePlan(c *gin.Context) {
 
 	err = commonutil.CheckZadigEnterpriseLicense()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
 	req := new(service.UpdateReleasePlanArgs)
 	if err := c.ShouldBindJSON(req); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
-	ctx.Err = service.UpdateReleasePlan(ctx, c.Param("id"), req)
+	ctx.RespErr = service.UpdateReleasePlan(ctx, c.Param("id"), req)
 }
 
 func DeleteReleasePlan(c *gin.Context) {
@@ -144,7 +144,7 @@ func DeleteReleasePlan(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -156,81 +156,81 @@ func DeleteReleasePlan(c *gin.Context) {
 
 	err = commonutil.CheckZadigEnterpriseLicense()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
-	ctx.Err = service.DeleteReleasePlan(c, ctx.UserName, c.Param("id"))
+	ctx.RespErr = service.DeleteReleasePlan(c, ctx.UserName, c.Param("id"))
 }
 
 func ExecuteReleaseJob(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	err = commonutil.CheckZadigEnterpriseLicense()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
 	req := new(service.ExecuteReleaseJobArgs)
 	if err := c.ShouldBindJSON(req); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 
 	// only release plan manager can execute release job
 	// so no need to check authorization there
-	ctx.Err = service.ExecuteReleaseJob(ctx, c.Param("id"), req, ctx.Resources.IsSystemAdmin)
+	ctx.RespErr = service.ExecuteReleaseJob(ctx, c.Param("id"), req, ctx.Resources.IsSystemAdmin)
 }
 
 func ScheduleExecuteReleasePlan(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	err = commonutil.CheckZadigEnterpriseLicense()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
-	ctx.Err = service.ScheduleExecuteReleasePlan(ctx, c.Param("id"))
+	ctx.RespErr = service.ScheduleExecuteReleasePlan(ctx, c.Param("id"))
 }
 
 func SkipReleaseJob(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	err = commonutil.CheckZadigEnterpriseLicense()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
 	req := new(service.SkipReleaseJobArgs)
 	if err := c.ShouldBindJSON(req); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 
 	// only release plan manager can skip release job
 	// so no need to check authorization there
-	ctx.Err = service.SkipReleaseJob(ctx, c.Param("id"), req, ctx.Resources.IsSystemAdmin)
+	ctx.RespErr = service.SkipReleaseJob(ctx, c.Param("id"), req, ctx.Resources.IsSystemAdmin)
 }
 
 func UpdateReleaseJobStatus(c *gin.Context) {
@@ -238,44 +238,44 @@ func UpdateReleaseJobStatus(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	err = commonutil.CheckZadigEnterpriseLicense()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
 	// only release plan manager can execute release job
 	// so no need to check authorization there
-	ctx.Err = service.UpdateReleasePlanStatus(ctx, c.Param("id"), c.Param("status"), ctx.Resources.IsSystemAdmin)
+	ctx.RespErr = service.UpdateReleasePlanStatus(ctx, c.Param("id"), c.Param("status"), ctx.Resources.IsSystemAdmin)
 }
 
 func ApproveReleasePlan(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	err = commonutil.CheckZadigEnterpriseLicense()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
 	req := new(service.ApproveRequest)
 	if err := c.ShouldBindJSON(req); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 
-	ctx.Err = service.ApproveReleasePlan(ctx, c.Param("id"), req)
+	ctx.RespErr = service.ApproveReleasePlan(ctx, c.Param("id"), req)
 }
 
 // @Summary List Release Plans
@@ -294,7 +294,7 @@ func ListReleasePlans(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -306,15 +306,15 @@ func ListReleasePlans(c *gin.Context) {
 
 	err = commonutil.CheckZadigEnterpriseLicense()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
 	opt := new(service.ListReleasePlanOption)
 	if err := c.ShouldBindQuery(&opt); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.ListReleasePlans(opt)
+	ctx.Resp, ctx.RespErr = service.ListReleasePlans(opt)
 }

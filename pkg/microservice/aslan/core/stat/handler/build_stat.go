@@ -34,7 +34,7 @@ func GetAllPipelineTask(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Err = service.GetAllPipelineTask(ctx.Logger)
+	ctx.RespErr = service.GetAllPipelineTask(ctx.Logger)
 }
 
 func GetBuildDailyAverageMeasure(c *gin.Context) {
@@ -44,11 +44,11 @@ func GetBuildDailyAverageMeasure(c *gin.Context) {
 
 	args := new(getStatReq)
 	if err := c.BindJSON(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.GetBuildDailyAverageMeasure(args.StartDate, args.EndDate, args.ProductNames, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetBuildDailyAverageMeasure(args.StartDate, args.EndDate, args.ProductNames, ctx.Logger)
 }
 
 func GetBuildDailyMeasure(c *gin.Context) {
@@ -57,11 +57,11 @@ func GetBuildDailyMeasure(c *gin.Context) {
 	//params validate
 	args := new(getStatReq)
 	if err := c.BindJSON(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.GetBuildDailyMeasure(args.StartDate, args.EndDate, args.ProductNames, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetBuildDailyMeasure(args.StartDate, args.EndDate, args.ProductNames, ctx.Logger)
 }
 
 func GetBuildHealthMeasure(c *gin.Context) {
@@ -70,11 +70,11 @@ func GetBuildHealthMeasure(c *gin.Context) {
 	//params validate
 	args := new(getStatReq)
 	if err := c.BindJSON(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.GetBuildHealthMeasure(args.StartDate, args.EndDate, args.ProductNames, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetBuildHealthMeasure(args.StartDate, args.EndDate, args.ProductNames, ctx.Logger)
 }
 
 func GetLatestTenBuildMeasure(c *gin.Context) {
@@ -84,12 +84,12 @@ func GetLatestTenBuildMeasure(c *gin.Context) {
 	// TODO: ?????????????????
 	args := new(getStatReq)
 	if err := c.BindJSON(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
 	// TODO:                                                    ↓ only this is used
-	ctx.Resp, ctx.Err = service.GetLatestTenBuildMeasure(args.ProductNames, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetLatestTenBuildMeasure(args.ProductNames, ctx.Logger)
 }
 
 func GetTenDurationMeasure(c *gin.Context) {
@@ -98,11 +98,11 @@ func GetTenDurationMeasure(c *gin.Context) {
 	//params validate
 	args := new(getStatReq)
 	if err := c.BindJSON(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.GetTenDurationMeasure(args.StartDate, args.EndDate, args.ProductNames, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetTenDurationMeasure(args.StartDate, args.EndDate, args.ProductNames, ctx.Logger)
 }
 
 func GetBuildTrendMeasure(c *gin.Context) {
@@ -111,9 +111,9 @@ func GetBuildTrendMeasure(c *gin.Context) {
 	//params validate
 	args := new(getStatReq)
 	if err := c.BindJSON(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.GetBuildTrendMeasure(args.StartDate, args.EndDate, args.ProductNames, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetBuildTrendMeasure(args.StartDate, args.EndDate, args.ProductNames, ctx.Logger)
 }

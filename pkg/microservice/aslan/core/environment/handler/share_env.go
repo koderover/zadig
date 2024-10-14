@@ -34,7 +34,7 @@ func CheckWorkloadsK8sServices(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -62,7 +62,7 @@ func CheckWorkloadsK8sServices(c *gin.Context) {
 
 			err = commonutil.CheckZadigProfessionalLicense()
 			if err != nil {
-				ctx.Err = err
+				ctx.RespErr = err
 				return
 			}
 		} else {
@@ -77,7 +77,7 @@ func CheckWorkloadsK8sServices(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.Err = service.CheckWorkloadsK8sServices(c, envName, projectKey, production)
+	ctx.Resp, ctx.RespErr = service.CheckWorkloadsK8sServices(c, envName, projectKey, production)
 }
 
 func EnableBaseEnv(c *gin.Context) {
@@ -85,7 +85,7 @@ func EnableBaseEnv(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -94,7 +94,7 @@ func EnableBaseEnv(c *gin.Context) {
 	projectKey := c.Query("projectName")
 	production := c.Query("production") == "true"
 	if production {
-		ctx.Err = fmt.Errorf("production environment not support")
+		ctx.RespErr = fmt.Errorf("production environment not support")
 	}
 
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "开启自测模式", "环境", envName, "", ctx.Logger, envName)
@@ -117,11 +117,11 @@ func EnableBaseEnv(c *gin.Context) {
 
 	err = commonutil.CheckZadigProfessionalLicense()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
-	ctx.Err = service.EnableBaseEnv(c, envName, projectKey)
+	ctx.RespErr = service.EnableBaseEnv(c, envName, projectKey)
 }
 
 func DisableBaseEnv(c *gin.Context) {
@@ -129,7 +129,7 @@ func DisableBaseEnv(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -138,7 +138,7 @@ func DisableBaseEnv(c *gin.Context) {
 	projectKey := c.Query("projectName")
 	production := c.Query("production") == "true"
 	if production {
-		ctx.Err = fmt.Errorf("production environment not support")
+		ctx.RespErr = fmt.Errorf("production environment not support")
 	}
 
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv,
@@ -163,11 +163,11 @@ func DisableBaseEnv(c *gin.Context) {
 
 	err = commonutil.CheckZadigProfessionalLicense()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
-	ctx.Err = service.DisableBaseEnv(c, envName, projectKey)
+	ctx.RespErr = service.DisableBaseEnv(c, envName, projectKey)
 }
 
 func CheckShareEnvReady(c *gin.Context) {
@@ -175,7 +175,7 @@ func CheckShareEnvReady(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -184,7 +184,7 @@ func CheckShareEnvReady(c *gin.Context) {
 	projectKey := c.Query("projectName")
 	production := c.Query("production") == "true"
 	if production {
-		ctx.Err = fmt.Errorf("production environment not support")
+		ctx.RespErr = fmt.Errorf("production environment not support")
 	}
 
 	// authorization checks
@@ -203,7 +203,7 @@ func CheckShareEnvReady(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.Err = service.CheckShareEnvReady(c, envName, c.Param("op"), projectKey)
+	ctx.Resp, ctx.RespErr = service.CheckShareEnvReady(c, envName, c.Param("op"), projectKey)
 }
 
 // @Summary Get Portal Service for Share Env
@@ -221,7 +221,7 @@ func GetPortalService(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -231,7 +231,7 @@ func GetPortalService(c *gin.Context) {
 	projectKey := c.Query("projectName")
 	production := c.Query("production") == "true"
 	if production {
-		ctx.Err = fmt.Errorf("production environment not support")
+		ctx.RespErr = fmt.Errorf("production environment not support")
 	}
 
 	// authorization checks
@@ -250,7 +250,7 @@ func GetPortalService(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.Err = service.GetPortalService(c, projectKey, envName, serviceName)
+	ctx.Resp, ctx.RespErr = service.GetPortalService(c, projectKey, envName, serviceName)
 	return
 }
 
@@ -270,7 +270,7 @@ func SetupPortalService(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -280,7 +280,7 @@ func SetupPortalService(c *gin.Context) {
 	projectKey := c.Query("projectName")
 	production := c.Query("production") == "true"
 	if production {
-		ctx.Err = fmt.Errorf("production environment not support")
+		ctx.RespErr = fmt.Errorf("production environment not support")
 	}
 
 	// authorization checks
@@ -302,16 +302,16 @@ func SetupPortalService(c *gin.Context) {
 	req := []service.SetupPortalServiceRequest{}
 	err = c.ShouldBindJSON(&req)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
 	err = commonutil.CheckZadigProfessionalLicense()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
-	ctx.Err = service.SetupPortalService(c, projectKey, envName, serviceName, req)
+	ctx.RespErr = service.SetupPortalService(c, projectKey, envName, serviceName, req)
 	return
 }

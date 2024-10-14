@@ -35,7 +35,7 @@ func ListDeliveryArtifacts(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -68,7 +68,7 @@ func ListDeliveryArtifacts(c *gin.Context) {
 	} else {
 		perPage, err = strconv.Atoi(perPageStr)
 		if err != nil {
-			ctx.Err = e.ErrInvalidParam.AddDesc(fmt.Sprintf("perPage args err :%s", err))
+			ctx.RespErr = e.ErrInvalidParam.AddDesc(fmt.Sprintf("perPage args err :%s", err))
 			return
 		}
 	}
@@ -78,7 +78,7 @@ func ListDeliveryArtifacts(c *gin.Context) {
 	} else {
 		page, err = strconv.Atoi(pageStr)
 		if err != nil {
-			ctx.Err = e.ErrInvalidParam.AddDesc(fmt.Sprintf("page args err :%s", err))
+			ctx.RespErr = e.ErrInvalidParam.AddDesc(fmt.Sprintf("page args err :%s", err))
 			return
 		}
 	}
@@ -87,7 +87,7 @@ func ListDeliveryArtifacts(c *gin.Context) {
 
 	artifacts, total, err := deliveryservice.ListDeliveryArtifacts(args, ctx.Logger)
 	c.Writer.Header().Add("X-Total", strconv.Itoa(total))
-	ctx.Resp, ctx.Err = artifacts, err
+	ctx.Resp, ctx.RespErr = artifacts, err
 }
 
 func GetDeliveryArtifactIDByImage(c *gin.Context) {
@@ -96,7 +96,7 @@ func GetDeliveryArtifactIDByImage(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -111,14 +111,14 @@ func GetDeliveryArtifactIDByImage(c *gin.Context) {
 
 	image := c.Query("image")
 	if image == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("image can't be empty!")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("image can't be empty!")
 		return
 	}
 	args := &commonrepo.DeliveryArtifactArgs{
 		Image: image,
 	}
 
-	ctx.Resp, ctx.Err = deliveryservice.GetDeliveryArtifactIDByImage(args, ctx.Logger)
+	ctx.Resp, ctx.RespErr = deliveryservice.GetDeliveryArtifactIDByImage(args, ctx.Logger)
 }
 
 func GetDeliveryArtifact(c *gin.Context) {
@@ -127,7 +127,7 @@ func GetDeliveryArtifact(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -142,14 +142,14 @@ func GetDeliveryArtifact(c *gin.Context) {
 
 	id := c.Param("id")
 	if id == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("id can't be empty!")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("id can't be empty!")
 		return
 	}
 	args := &commonrepo.DeliveryArtifactArgs{
 		ID: id,
 	}
 
-	ctx.Resp, ctx.Err = deliveryservice.GetDeliveryArtifact(args, ctx.Logger)
+	ctx.Resp, ctx.RespErr = deliveryservice.GetDeliveryArtifact(args, ctx.Logger)
 }
 
 func CreateDeliveryActivities(c *gin.Context) {
@@ -158,7 +158,7 @@ func CreateDeliveryActivities(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -174,13 +174,13 @@ func CreateDeliveryActivities(c *gin.Context) {
 	var deliveryActivity commonmodels.DeliveryActivity
 	if err := c.ShouldBindWith(&deliveryActivity, binding.JSON); err != nil {
 		ctx.Logger.Infof("ShouldBindWith err :%v", err)
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 	ID := c.Param("id")
 	if ID == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("id can't be empty!")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("id can't be empty!")
 		return
 	}
-	ctx.Err = deliveryservice.InsertDeliveryActivities(&deliveryActivity, ID, ctx.Logger)
+	ctx.RespErr = deliveryservice.InsertDeliveryActivities(&deliveryActivity, ID, ctx.Logger)
 }

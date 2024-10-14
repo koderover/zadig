@@ -35,14 +35,14 @@ func ListHelmRepos(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	encryptedKey := c.Query("encryptedKey")
 	if len(encryptedKey) == 0 {
-		ctx.Err = e.ErrInvalidParam
+		ctx.RespErr = e.ErrInvalidParam
 		return
 	}
 
@@ -53,7 +53,7 @@ func ListHelmRepos(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.Err = helmservice.ListHelmRepos(encryptedKey, ctx.Logger)
+	ctx.Resp, ctx.RespErr = helmservice.ListHelmRepos(encryptedKey, ctx.Logger)
 }
 
 // @Summary List Helm Repos By Project
@@ -70,14 +70,14 @@ func ListHelmReposByProject(c *gin.Context) {
 
 	if err != nil {
 		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	projectKey := c.Query("projectName")
 	if len(projectKey) == 0 {
-		ctx.Err = e.ErrInvalidParam
+		ctx.RespErr = e.ErrInvalidParam
 		return
 	}
 
@@ -88,14 +88,14 @@ func ListHelmReposByProject(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.Err = helmservice.ListHelmReposByProject(projectKey, ctx.Logger)
+	ctx.Resp, ctx.RespErr = helmservice.ListHelmReposByProject(projectKey, ctx.Logger)
 }
 
 func ListHelmReposPublic(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = helmservice.ListHelmReposPublic()
+	ctx.Resp, ctx.RespErr = helmservice.ListHelmReposPublic()
 }
 
 func CreateHelmRepo(c *gin.Context) {
@@ -103,14 +103,14 @@ func CreateHelmRepo(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	args := new(commonmodels.HelmRepo)
 	if err := c.BindJSON(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid helmRepo json args")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid helmRepo json args")
 		return
 	}
 
@@ -124,11 +124,11 @@ func CreateHelmRepo(c *gin.Context) {
 
 	args.UpdateBy = ctx.UserName
 	if _, err := url.Parse(args.URL); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid url")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid url")
 		return
 	}
 
-	ctx.Err = service.CreateHelmRepo(args, ctx.Logger)
+	ctx.RespErr = service.CreateHelmRepo(args, ctx.Logger)
 }
 
 func UpdateHelmRepo(c *gin.Context) {
@@ -137,14 +137,14 @@ func UpdateHelmRepo(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	args := new(commonmodels.HelmRepo)
 	if err := c.BindJSON(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid helmRepo json args")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid helmRepo json args")
 		return
 	}
 
@@ -157,7 +157,7 @@ func UpdateHelmRepo(c *gin.Context) {
 	}
 
 	args.UpdateBy = ctx.UserName
-	ctx.Err = service.UpdateHelmRepo(c.Param("id"), args, ctx.Logger)
+	ctx.RespErr = service.UpdateHelmRepo(c.Param("id"), args, ctx.Logger)
 }
 
 func DeleteHelmRepo(c *gin.Context) {
@@ -165,7 +165,7 @@ func DeleteHelmRepo(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -178,12 +178,12 @@ func DeleteHelmRepo(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = service.DeleteHelmRepo(c.Param("id"), ctx.Logger)
+	ctx.RespErr = service.DeleteHelmRepo(c.Param("id"), ctx.Logger)
 }
 
 func ListCharts(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.ListCharts(c.Param("name"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.ListCharts(c.Param("name"), ctx.Logger)
 }

@@ -32,10 +32,10 @@ func GetCollaborationNew(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	projectName := c.Query("projectName")
 	if projectName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("projectName can not be empty")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("projectName can not be empty")
 		return
 	}
-	ctx.Resp, ctx.Err = service.GetCollaborationNew(projectName, ctx.UserID, ctx.IdentityType, ctx.Account, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetCollaborationNew(projectName, ctx.UserID, ctx.IdentityType, ctx.Account, ctx.Logger)
 }
 
 // @Summary Sync Collaboration Instance
@@ -55,23 +55,23 @@ func SyncCollaborationInstance(c *gin.Context) {
 	data, err := c.GetRawData()
 	if err != nil {
 		log.Errorf("SyncCollaborationInstance c.GetRawData() err: %s", err)
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("SyncCollaborationInstance json.Unmarshal err: %s", err)
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 	if projectName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("projectName can not be empty")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("projectName can not be empty")
 		return
 	}
-	ctx.Err = service.SyncCollaborationInstance(args, projectName, ctx.UserID, ctx.IdentityType, ctx.Account, ctx.RequestID, ctx.Logger)
+	ctx.RespErr = service.SyncCollaborationInstance(args, projectName, ctx.UserID, ctx.IdentityType, ctx.Account, ctx.RequestID, ctx.Logger)
 }
 
 func CleanCIResources(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	ctx.Err = service.CleanCIResources(ctx.UserName, ctx.RequestID, ctx.Logger)
+	ctx.RespErr = service.CleanCIResources(ctx.UserName, ctx.RequestID, ctx.Logger)
 }

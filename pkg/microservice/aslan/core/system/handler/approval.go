@@ -34,7 +34,7 @@ func ListIMApp(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -48,7 +48,7 @@ func ListIMApp(c *gin.Context) {
 	//	return
 	//}
 
-	ctx.Resp, ctx.Err = service.ListIMApp(c.Query("type"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.ListIMApp(c.Query("type"), ctx.Logger)
 }
 
 func CreateIMApp(c *gin.Context) {
@@ -56,14 +56,14 @@ func CreateIMApp(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	var args commonmodels.IMApp
 	if err := c.ShouldBindJSON(&args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
@@ -75,11 +75,11 @@ func CreateIMApp(c *gin.Context) {
 
 	err = commonutil.CheckZadigProfessionalLicense()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
-	ctx.Err = service.CreateIMApp(&args, ctx.Logger)
+	ctx.RespErr = service.CreateIMApp(&args, ctx.Logger)
 }
 
 func UpdateIMApp(c *gin.Context) {
@@ -88,14 +88,14 @@ func UpdateIMApp(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	var args commonmodels.IMApp
 	if err := c.ShouldBindJSON(&args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
@@ -107,11 +107,11 @@ func UpdateIMApp(c *gin.Context) {
 
 	err = commonutil.CheckZadigProfessionalLicense()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
-	ctx.Err = service.UpdateIMApp(c.Param("id"), &args, ctx.Logger)
+	ctx.RespErr = service.UpdateIMApp(c.Param("id"), &args, ctx.Logger)
 }
 
 func DeleteIMApp(c *gin.Context) {
@@ -120,7 +120,7 @@ func DeleteIMApp(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -131,7 +131,7 @@ func DeleteIMApp(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = service.DeleteIMApp(c.Param("id"), ctx.Logger)
+	ctx.RespErr = service.DeleteIMApp(c.Param("id"), ctx.Logger)
 }
 
 func ValidateIMApp(c *gin.Context) {
@@ -140,14 +140,14 @@ func ValidateIMApp(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	var args commonmodels.IMApp
 	if err := c.ShouldBindJSON(&args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
@@ -157,5 +157,5 @@ func ValidateIMApp(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = service.ValidateIMApp(&args, ctx.Logger)
+	ctx.RespErr = service.ValidateIMApp(&args, ctx.Logger)
 }

@@ -29,7 +29,7 @@ func GetDefaultLogin(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.GetDefaultLogin(ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetDefaultLogin(ctx.Logger)
 }
 
 func UpdateDefaultLogin(c *gin.Context) {
@@ -38,14 +38,14 @@ func UpdateDefaultLogin(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	args := new(service.UpdateDefaultLoginParams)
 	if err := c.BindJSON(args); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
@@ -55,5 +55,5 @@ func UpdateDefaultLogin(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = service.UpdateDefaultLogin(args.DefaultLogin, ctx.Logger)
+	ctx.RespErr = service.UpdateDefaultLogin(args.DefaultLogin, ctx.Logger)
 }

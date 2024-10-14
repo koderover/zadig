@@ -34,7 +34,7 @@ func GetBuildTemplate(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -47,7 +47,7 @@ func GetBuildTemplate(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.Err = templateservice.GetBuildTemplateByID(c.Param("id"))
+	ctx.Resp, ctx.RespErr = templateservice.GetBuildTemplateByID(c.Param("id"))
 }
 
 func ListBuildTemplates(c *gin.Context) {
@@ -56,7 +56,7 @@ func ListBuildTemplates(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -72,11 +72,11 @@ func ListBuildTemplates(c *gin.Context) {
 
 	args := &listYamlQuery{}
 	if err := c.ShouldBindQuery(args); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
-	ctx.Resp, ctx.Err = templateservice.ListBuildTemplates(args.PageNum, args.PageSize)
+	ctx.Resp, ctx.RespErr = templateservice.ListBuildTemplates(args.PageNum, args.PageSize)
 }
 
 func AddBuildTemplate(c *gin.Context) {
@@ -85,7 +85,7 @@ func AddBuildTemplate(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -93,7 +93,7 @@ func AddBuildTemplate(c *gin.Context) {
 	args := new(commonmodels.BuildTemplate)
 	err = c.BindJSON(args)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid Build args")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid Build args")
 		return
 	}
 
@@ -108,7 +108,7 @@ func AddBuildTemplate(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = templateservice.AddBuildTemplate(ctx.UserName, args, ctx.Logger)
+	ctx.RespErr = templateservice.AddBuildTemplate(ctx.UserName, args, ctx.Logger)
 }
 
 func UpdateBuildTemplate(c *gin.Context) {
@@ -117,7 +117,7 @@ func UpdateBuildTemplate(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -125,7 +125,7 @@ func UpdateBuildTemplate(c *gin.Context) {
 	args := new(commonmodels.BuildTemplate)
 	err = c.BindJSON(args)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid Build args")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid Build args")
 		return
 	}
 
@@ -140,7 +140,7 @@ func UpdateBuildTemplate(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = templateservice.UpdateBuildTemplate(c.Param("id"), args, ctx.Logger)
+	ctx.RespErr = templateservice.UpdateBuildTemplate(c.Param("id"), args, ctx.Logger)
 }
 
 func RemoveBuildTemplate(c *gin.Context) {
@@ -149,7 +149,7 @@ func RemoveBuildTemplate(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -164,12 +164,12 @@ func RemoveBuildTemplate(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = templateservice.RemoveBuildTemplate(c.Param("id"), ctx.Logger)
+	ctx.RespErr = templateservice.RemoveBuildTemplate(c.Param("id"), ctx.Logger)
 }
 
 func GetBuildTemplateReference(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = templateservice.GetBuildTemplateReference(c.Param("id"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = templateservice.GetBuildTemplateReference(c.Param("id"), ctx.Logger)
 }

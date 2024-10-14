@@ -31,7 +31,7 @@ func PullNotify(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.PullNotify(ctx.UserName, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.PullNotify(ctx.UserName, ctx.Logger)
 }
 
 type readNotificationsArgs struct {
@@ -45,10 +45,10 @@ func ReadNotify(c *gin.Context) {
 
 	err := c.BindJSON(args)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid readnotificationsargs")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid readnotificationsargs")
 		return
 	}
-	ctx.Err = service.ReadNotify(ctx.UserName, args.IDs, ctx.Logger)
+	ctx.RespErr = service.ReadNotify(ctx.UserName, args.IDs, ctx.Logger)
 }
 
 type deleteNotificationsArgs struct {
@@ -62,10 +62,10 @@ func DeleteNotifies(c *gin.Context) {
 	args := new(deleteNotificationsArgs)
 
 	if err := c.BindJSON(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid args")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid args")
 		return
 	}
-	ctx.Err = service.DeleteNotifies(ctx.UserName, args.IDs, ctx.Logger)
+	ctx.RespErr = service.DeleteNotifies(ctx.UserName, args.IDs, ctx.Logger)
 }
 
 func UpsertSubscription(c *gin.Context) {
@@ -75,10 +75,10 @@ func UpsertSubscription(c *gin.Context) {
 
 	err := c.BindJSON(args)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid subscription args")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid subscription args")
 		return
 	}
-	ctx.Err = service.UpsertSubscription(ctx.UserName, args, ctx.Logger)
+	ctx.RespErr = service.UpsertSubscription(ctx.UserName, args, ctx.Logger)
 }
 
 func UpdateSubscribe(c *gin.Context) {
@@ -88,15 +88,15 @@ func UpdateSubscribe(c *gin.Context) {
 
 	err := c.BindJSON(args)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid subscription args")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid subscription args")
 		return
 	}
 	notifytype, err := strconv.Atoi(c.Param("type"))
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid notification type")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid notification type")
 		return
 	}
-	ctx.Err = service.UpdateSubscribe(ctx.UserName, notifytype, args, ctx.Logger)
+	ctx.RespErr = service.UpdateSubscribe(ctx.UserName, notifytype, args, ctx.Logger)
 }
 
 func Unsubscribe(c *gin.Context) {
@@ -104,15 +104,15 @@ func Unsubscribe(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	notifytype, err := strconv.Atoi(c.Param("type"))
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid notification type")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid notification type")
 		return
 	}
-	ctx.Err = service.Unsubscribe(ctx.UserName, notifytype, ctx.Logger)
+	ctx.RespErr = service.Unsubscribe(ctx.UserName, notifytype, ctx.Logger)
 }
 
 func ListSubscriptions(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.ListSubscriptions(ctx.UserName, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.ListSubscriptions(ctx.UserName, ctx.Logger)
 }

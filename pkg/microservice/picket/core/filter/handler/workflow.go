@@ -28,26 +28,26 @@ func ListTestWorkflows(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	testName := c.Param("testName")
-	ctx.Resp, ctx.Err = service.ListTestWorkflows(testName, ctx.UserID, c.Request.Header, c.Request.URL.Query(), ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.ListTestWorkflows(testName, ctx.UserID, c.Request.Header, c.Request.URL.Query(), ctx.Logger)
 }
 
 func ListWorkflows(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.ListWorkflows(c.Request.Header, c.Request.URL.Query(), ctx.UserID, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.ListWorkflows(c.Request.Header, c.Request.URL.Query(), ctx.UserID, ctx.Logger)
 }
 
 func ListWorkflowsV3(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.ListWorkflowsV3(c.Request.Header, c.Request.URL.Query(), ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.ListWorkflowsV3(c.Request.Header, c.Request.URL.Query(), ctx.Logger)
 }
 
 func ListAllWorkflows(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.ListAllWorkflows(c.Request.Header, c.Request.URL.Query(), ctx.UserID, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.ListAllWorkflows(c.Request.Header, c.Request.URL.Query(), ctx.UserID, ctx.Logger)
 }

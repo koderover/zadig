@@ -33,7 +33,7 @@ func GetScanningTemplate(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -46,7 +46,7 @@ func GetScanningTemplate(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.Err = templateservice.GetScanningTemplateByID(c.Param("id"))
+	ctx.Resp, ctx.RespErr = templateservice.GetScanningTemplateByID(c.Param("id"))
 }
 
 func ListScanningTemplates(c *gin.Context) {
@@ -54,7 +54,7 @@ func ListScanningTemplates(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -70,11 +70,11 @@ func ListScanningTemplates(c *gin.Context) {
 
 	args := &listYamlQuery{}
 	if err := c.ShouldBindQuery(args); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
-	ctx.Resp, ctx.Err = templateservice.ListScanningTemplates(args.PageNum, args.PageSize)
+	ctx.Resp, ctx.RespErr = templateservice.ListScanningTemplates(args.PageNum, args.PageSize)
 }
 
 func CreateScanningTemplate(c *gin.Context) {
@@ -82,7 +82,7 @@ func CreateScanningTemplate(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -90,7 +90,7 @@ func CreateScanningTemplate(c *gin.Context) {
 	args := new(commonmodels.ScanningTemplate)
 	err = c.BindJSON(args)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid Build args")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid Build args")
 		return
 	}
 
@@ -105,7 +105,7 @@ func CreateScanningTemplate(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = templateservice.CreateScanningTemplate(ctx.UserName, args, ctx.Logger)
+	ctx.RespErr = templateservice.CreateScanningTemplate(ctx.UserName, args, ctx.Logger)
 }
 
 func UpdateScanningTemplate(c *gin.Context) {
@@ -113,7 +113,7 @@ func UpdateScanningTemplate(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -121,7 +121,7 @@ func UpdateScanningTemplate(c *gin.Context) {
 	args := new(commonmodels.ScanningTemplate)
 	err = c.BindJSON(args)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid scanning args")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid scanning args")
 		return
 	}
 
@@ -136,7 +136,7 @@ func UpdateScanningTemplate(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = templateservice.UpdateScanningTemplate(c.Param("id"), args, ctx.Logger)
+	ctx.RespErr = templateservice.UpdateScanningTemplate(c.Param("id"), args, ctx.Logger)
 }
 
 func DeleteScanningTemplate(c *gin.Context) {
@@ -145,7 +145,7 @@ func DeleteScanningTemplate(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -160,12 +160,12 @@ func DeleteScanningTemplate(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = templateservice.DeleteScanningTemplate(c.Param("id"), ctx.Logger)
+	ctx.RespErr = templateservice.DeleteScanningTemplate(c.Param("id"), ctx.Logger)
 }
 
 func GetScanningTemplateReference(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = templateservice.GetScanningTemplateReference(c.Param("id"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = templateservice.GetScanningTemplateReference(c.Param("id"), ctx.Logger)
 }

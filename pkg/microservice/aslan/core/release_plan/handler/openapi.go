@@ -38,7 +38,7 @@ func OpenAPIListReleasePlans(c *gin.Context) {
 
 	if err != nil {
 		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -50,17 +50,17 @@ func OpenAPIListReleasePlans(c *gin.Context) {
 
 	opt := new(OpenAPIListReleasePlanOption)
 	if err := c.ShouldBindQuery(&opt); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 
 	err = commonutil.CheckZadigEnterpriseLicense()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.OpenAPIListReleasePlans(opt.PageNum, opt.PageSize)
+	ctx.Resp, ctx.RespErr = service.OpenAPIListReleasePlans(opt.PageNum, opt.PageSize)
 }
 
 func OpenAPIGetReleasePlan(c *gin.Context) {
@@ -69,7 +69,7 @@ func OpenAPIGetReleasePlan(c *gin.Context) {
 
 	if err != nil {
 		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -81,11 +81,11 @@ func OpenAPIGetReleasePlan(c *gin.Context) {
 
 	err = commonutil.CheckZadigEnterpriseLicense()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.OpenAPIGetReleasePlan(c.Param("id"))
+	ctx.Resp, ctx.RespErr = service.OpenAPIGetReleasePlan(c.Param("id"))
 }
 
 func OpenAPICreateReleasePlan(c *gin.Context) {
@@ -94,7 +94,7 @@ func OpenAPICreateReleasePlan(c *gin.Context) {
 
 	if err != nil {
 		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -106,15 +106,15 @@ func OpenAPICreateReleasePlan(c *gin.Context) {
 
 	opt := new(service.OpenAPICreateReleasePlanArgs)
 	if err := c.ShouldBindJSON(&opt); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 
 	err = commonutil.CheckZadigEnterpriseLicense()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
-	ctx.Err = service.OpenAPICreateReleasePlan(ctx, opt)
+	ctx.RespErr = service.OpenAPICreateReleasePlan(ctx, opt)
 }

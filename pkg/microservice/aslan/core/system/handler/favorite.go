@@ -39,15 +39,15 @@ func CreateFavorite(c *gin.Context) {
 	switch f.Type {
 	case service.FavoriteTypeEnv:
 		if f.ProductName == "" {
-			ctx.Err = e.ErrInvalidParam.AddDesc("empty projectName")
+			ctx.RespErr = e.ErrInvalidParam.AddDesc("empty projectName")
 			return
 		}
 	default:
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid type")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid type")
 		return
 	}
 
-	ctx.Err = service.CreateFavorite(f)
+	ctx.RespErr = service.CreateFavorite(f)
 	return
 }
 
@@ -64,14 +64,14 @@ func DeleteFavorite(c *gin.Context) {
 	switch f.Type {
 	case service.FavoriteTypeEnv:
 		if f.ProductName == "" {
-			ctx.Err = e.ErrInvalidParam.AddDesc("empty projectName")
+			ctx.RespErr = e.ErrInvalidParam.AddDesc("empty projectName")
 			return
 		}
 	default:
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid type")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid type")
 		return
 	}
 
-	ctx.Err = service.DeleteFavorite(f)
+	ctx.RespErr = service.DeleteFavorite(f)
 	return
 }

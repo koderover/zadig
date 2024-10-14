@@ -38,10 +38,10 @@ func ListFavoritePipelines(c *gin.Context) {
 	productName := c.Query("projectName")
 	workflowType := c.Query("type")
 	if workflowType == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("type can't be empty!")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("type can't be empty!")
 		return
 	}
-	ctx.Resp, ctx.Err = workflow.ListFavoritePipelines(&commonrepo.FavoriteArgs{UserID: ctx.UserID, ProductName: productName, Type: workflowType})
+	ctx.Resp, ctx.RespErr = workflow.ListFavoritePipelines(&commonrepo.FavoriteArgs{UserID: ctx.UserID, ProductName: productName, Type: workflowType})
 }
 
 func DeleteFavoritePipeline(c *gin.Context) {
@@ -52,11 +52,11 @@ func DeleteFavoritePipeline(c *gin.Context) {
 	workflowName := c.Param("name")
 	workflowType := c.Param("type")
 	if workflowName == "" || workflowType == "" || productName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("productName or name or type can't be empty!")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("productName or name or type can't be empty!")
 		return
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName, productName, "删除", "收藏工作流", workflowName, "", ctx.Logger)
-	ctx.Err = workflow.DeleteFavoritePipeline(&commonrepo.FavoriteArgs{UserID: ctx.UserID, ProductName: productName, Type: workflowType, Name: workflowName})
+	ctx.RespErr = workflow.DeleteFavoritePipeline(&commonrepo.FavoriteArgs{UserID: ctx.UserID, ProductName: productName, Type: workflowType, Name: workflowName})
 }
 
 func CreateFavoritePipeline(c *gin.Context) {
@@ -75,10 +75,10 @@ func CreateFavoritePipeline(c *gin.Context) {
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.BindJSON(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid Favorite json args")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid Favorite json args")
 		return
 	}
 	args.UserID = ctx.UserID
 
-	ctx.Err = workflow.CreateFavoritePipeline(args, ctx.Logger)
+	ctx.RespErr = workflow.CreateFavoritePipeline(args, ctx.Logger)
 }

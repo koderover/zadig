@@ -32,7 +32,7 @@ func CreateServiceLabelSetting(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -47,11 +47,11 @@ func CreateServiceLabelSetting(c *gin.Context) {
 
 	args := new(commonmodels.Label)
 	if err := c.BindJSON(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid label json args")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid label json args")
 		return
 	}
 
-	ctx.Err = service.CreateServiceLabelSetting(args, ctx.Logger)
+	ctx.RespErr = service.CreateServiceLabelSetting(args, ctx.Logger)
 }
 
 func ListServiceLabelSettings(c *gin.Context) {
@@ -60,7 +60,7 @@ func ListServiceLabelSettings(c *gin.Context) {
 
 	// TODO: List service label have no authorization right now because it does not need one.
 
-	ctx.Resp, ctx.Err = service.ListServiceLabelSettings(ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.ListServiceLabelSettings(ctx.Logger)
 }
 
 func UpdateServiceLabelSetting(c *gin.Context) {
@@ -68,7 +68,7 @@ func UpdateServiceLabelSetting(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -83,17 +83,17 @@ func UpdateServiceLabelSetting(c *gin.Context) {
 
 	args := new(commonmodels.Label)
 	if err := c.BindJSON(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid label json args")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid label json args")
 		return
 	}
 
 	id := c.Param("id")
 	if len(id) == 0 {
-		ctx.Err = e.ErrInvalidParam.AddDesc("id cannot be empty")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("id cannot be empty")
 		return
 	}
 
-	ctx.Err = service.UpdateServiceLabelSetting(id, args, ctx.Logger)
+	ctx.RespErr = service.UpdateServiceLabelSetting(id, args, ctx.Logger)
 }
 
 func DeleteServiceLabelSetting(c *gin.Context) {
@@ -101,7 +101,7 @@ func DeleteServiceLabelSetting(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -116,9 +116,9 @@ func DeleteServiceLabelSetting(c *gin.Context) {
 
 	id := c.Param("id")
 	if len(id) == 0 {
-		ctx.Err = e.ErrInvalidParam.AddDesc("id cannot be empty")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("id cannot be empty")
 		return
 	}
 
-	ctx.Err = service.DeleteServiceLabelSetting(id, ctx.Logger)
+	ctx.RespErr = service.DeleteServiceLabelSetting(id, ctx.Logger)
 }
