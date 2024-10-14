@@ -12,6 +12,8 @@ bin
 gin-bin
 .mock
 out
+.nocalhost
+debug
 
 # Files
 *.tar.gz

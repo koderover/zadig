@@ -26,6 +26,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/mozillazg/go-pinyin"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
@@ -482,12 +483,33 @@ func RenderKeyVals(input, origin []*commonmodels.KeyVal) []*commonmodels.KeyVal 
 
 // use service name and service module hash to generate job name
 func jobNameFormat(jobName string) string {
-	if len(jobName) > 63 {
-		jobName = jobName[:63]
+	if len(jobName) <= 63 {
+		jobName = strings.Trim(jobName, "-")
+		jobName = strings.ToLower(jobName)
+		return jobName
 	}
-	jobName = strings.Trim(jobName, "-")
-	jobName = strings.ToLower(jobName)
-	return jobName
+
+	pyArgs := pinyin.NewArgs()
+	pyArgs.Fallback = func(r rune, a pinyin.Args) []string {
+		return []string{string(r)}
+	}
+
+	res := pinyin.Pinyin(jobName, pyArgs)
+
+	pinyins := make([]string, 0)
+	for _, py := range res {
+		pinyins = append(pinyins, strings.Join(py, ""))
+	}
+
+	resp := strings.Join(pinyins, "")
+	if len(resp) > 63 {
+		resp = strings.TrimSuffix(resp[:63], "-")
+		resp = strings.ToLower(resp)
+		return resp
+	}
+	resp = strings.TrimSuffix(resp, "-")
+	resp = strings.ToLower(resp)
+	return resp
 }
 
 // before workflowflow task was created, we need to remove the fixed mark from variables.
