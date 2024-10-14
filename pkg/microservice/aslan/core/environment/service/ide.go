@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"time"
 
+	configbase "github.com/koderover/zadig/v2/pkg/config"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -206,7 +207,7 @@ func patchDeployment(ctx context.Context, kclient client.Client, selector labels
 		corev1.Container{
 			Name:            types.IDEContainerNameDev,
 			Image:           devImage,
-			ImagePullPolicy: corev1.PullAlways,
+			ImagePullPolicy: util.ToPullPolicy(configbase.ImagePullPolicy()),
 			Command:         []string{"/bin/sh", "-c", "tail -f /dev/null"},
 			WorkingDir:      types.DevmodeWorkDir,
 			Resources: corev1.ResourceRequirements{
@@ -225,7 +226,7 @@ func patchDeployment(ctx context.Context, kclient client.Client, selector labels
 		corev1.Container{
 			Name:            types.IDEContainerNameSidecar,
 			Image:           types.IDESidecarImage,
-			ImagePullPolicy: corev1.PullAlways,
+			ImagePullPolicy: util.ToPullPolicy(configbase.ImagePullPolicy()),
 			Command:         []string{"/bin/sh", "-c", "tail -f /dev/null"},
 			WorkingDir:      types.DevmodeWorkDir,
 			Resources: corev1.ResourceRequirements{
@@ -318,7 +319,7 @@ func patchStatefulSet(ctx context.Context, kclient client.Client, selector label
 		corev1.Container{
 			Name:            types.IDEContainerNameDev,
 			Image:           devImage,
-			ImagePullPolicy: corev1.PullAlways,
+			ImagePullPolicy: util.ToPullPolicy(configbase.ImagePullPolicy()),
 			Command:         []string{"/bin/sh", "-c", "tail -f /dev/null"},
 			WorkingDir:      types.DevmodeWorkDir,
 			Resources: corev1.ResourceRequirements{
@@ -337,7 +338,7 @@ func patchStatefulSet(ctx context.Context, kclient client.Client, selector label
 		corev1.Container{
 			Name:            types.IDEContainerNameSidecar,
 			Image:           types.IDESidecarImage,
-			ImagePullPolicy: corev1.PullAlways,
+			ImagePullPolicy: util.ToPullPolicy(configbase.ImagePullPolicy()),
 			Command:         []string{"/bin/sh", "-c", "tail -f /dev/null"},
 			WorkingDir:      types.DevmodeWorkDir,
 			Resources: corev1.ResourceRequirements{

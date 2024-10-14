@@ -31,6 +31,7 @@ import (
 	"strings"
 	"time"
 
+	configbase "github.com/koderover/zadig/v2/pkg/config"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
 	batchv1 "k8s.io/api/batch/v1"
@@ -518,7 +519,7 @@ func buildJobWithLinkedNs(taskType config.TaskType, jobImage, jobName, serviceNa
 					},
 					Containers: []corev1.Container{
 						{
-							ImagePullPolicy:          corev1.PullAlways,
+							ImagePullPolicy:          util.ToPullPolicy(configbase.ImagePullPolicy()),
 							Name:                     labels["s-type"],
 							Image:                    jobImage,
 							Env:                      getEnvs(ctx),

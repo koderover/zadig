@@ -30,6 +30,7 @@ import (
 	"strings"
 	"time"
 
+	configbase "github.com/koderover/zadig/v2/pkg/config"
 	"github.com/mozillazg/go-pinyin"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -356,7 +357,7 @@ echo $result > %s
 					ImagePullSecrets: ImagePullSecrets,
 					Containers: []corev1.Container{
 						{
-							ImagePullPolicy: corev1.PullAlways,
+							ImagePullPolicy: util.ToPullPolicy(configbase.ImagePullPolicy()),
 							Name:            GetJobContainerName(jobTask.Name),
 							Image:           jobTaskSpec.Plugin.Image,
 							Args:            jobTaskSpec.Plugin.Args,
@@ -481,7 +482,7 @@ func buildJob(jobType, jobImage, jobName, clusterID, currentNamespace string, re
 					},
 					Containers: []corev1.Container{
 						{
-							ImagePullPolicy: corev1.PullAlways,
+							ImagePullPolicy: util.ToPullPolicy(configbase.ImagePullPolicy()),
 							Name:            GetJobContainerName(strings.ReplaceAll(jobTask.Name, "_", "-")),
 							Image:           jobImage,
 							Command:         []string{"/bin/sh", "-c"},
@@ -556,7 +557,7 @@ func BuildCleanJob(jobName, clusterID, workflowName string, taskID int64) (*batc
 					RestartPolicy: corev1.RestartPolicyNever,
 					Containers: []corev1.Container{
 						{
-							ImagePullPolicy: corev1.PullAlways,
+							ImagePullPolicy: util.ToPullPolicy(configbase.ImagePullPolicy()),
 							Name:            jobName,
 							Image:           image,
 							WorkingDir:      workspace,
