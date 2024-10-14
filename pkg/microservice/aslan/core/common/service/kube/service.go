@@ -362,6 +362,7 @@ func (s *Service) GetYaml(id, agentImage, aslanURL, hubURI string, useDeployment
 			ScheduleWorkflow:     scheduleWorkflow,
 			EnableIRSA:           cluster.AdvancedConfig.EnableIRSA,
 			IRSARoleARN:          cluster.AdvancedConfig.IRSARoleARM,
+			ImagePullPolicy:      config2.ImagePullPolicy(),
 		})
 	} else {
 		err = YamlTemplateForNamespace.Execute(buffer, TemplateSchema{
@@ -380,6 +381,7 @@ func (s *Service) GetYaml(id, agentImage, aslanURL, hubURI string, useDeployment
 			DindStorageSizeInGiB: dindStorageSizeInGiB,
 			EnableIRSA:           cluster.AdvancedConfig.EnableIRSA,
 			IRSARoleARN:          cluster.AdvancedConfig.IRSARoleARM,
+			ImagePullPolicy:      config2.ImagePullPolicy(),
 		})
 	}
 
@@ -690,6 +692,7 @@ type TemplateSchema struct {
 	ScheduleWorkflow     bool
 	EnableIRSA           bool
 	IRSARoleARN          string
+	ImagePullPolicy      string
 }
 
 const (
@@ -793,7 +796,7 @@ spec:
       containers:
       - name: agent
         image: {{.HubAgentImage}}
-        imagePullPolicy: Always
+        imagePullPolicy: {{.ImagePullPolicy}}
         env:
         - name: AGENT_NODE_NAME
           valueFrom:
@@ -960,7 +963,7 @@ spec:
       containers:
       - name: agent
         image: {{.HubAgentImage}}
-        imagePullPolicy: Always
+        imagePullPolicy: {{.ImagePullPolicy}}
         env:
         - name: AGENT_NODE_NAME
           valueFrom:

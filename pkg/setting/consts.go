@@ -24,6 +24,7 @@ const LocalConfig = "local.env"
 const (
 	// common
 	ENVSystemAddress           = "ADDRESS"
+	ENVImagePullPolicy         = "IMAGE_PULL_POLICY"
 	ENVMode                    = "MODE"
 	ENVMongoDBConnectionString = "MONGODB_CONNECTION_STRING"
 	ENVAslanDBName             = "ASLAN_DB"

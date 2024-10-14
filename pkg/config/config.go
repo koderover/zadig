@@ -32,6 +32,10 @@ func SystemAddress() string {
 	return viper.GetString(setting.ENVSystemAddress)
 }
 
+func ImagePullPolicy() string {
+	return viper.GetString(setting.ENVImagePullPolicy)
+}
+
 func ChartVersion() string {
 	return viper.GetString(setting.ENVChartVersion)
 }

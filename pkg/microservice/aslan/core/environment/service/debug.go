@@ -22,6 +22,8 @@ import (
 	"fmt"
 	"strings"
 
+	configbase "github.com/koderover/zadig/v2/pkg/config"
+	"github.com/koderover/zadig/v2/pkg/util"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -41,8 +43,8 @@ const K8sBetaVersionForEphemeralContainer = "v1.23"
 
 func PatchDebugContainer(ctx context.Context, projectName, envName, podName, debugImage string, production bool) error {
 	prod, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
-		Name:    projectName,
-		EnvName: envName,
+		Name:       projectName,
+		EnvName:    envName,
 		Production: &production,
 	})
 	if err != nil {
@@ -117,7 +119,7 @@ func genDebugContainer(imageName string) *corev1.EphemeralContainer {
 			Name:                     ZadigDebugContainerName,
 			Image:                    imageName,
 			Command:                  []string{"tail", "-f", "/dev/null"},
-			ImagePullPolicy:          corev1.PullAlways,
+			ImagePullPolicy:          util.ToPullPolicy(configbase.ImagePullPolicy()),
 			TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
 		},
 	}
