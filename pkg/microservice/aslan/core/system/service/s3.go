@@ -27,8 +27,8 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/s3"
+	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/tool/crypto"
 	"github.com/koderover/zadig/v2/pkg/tool/errors"
@@ -80,7 +80,7 @@ func ListS3Storage(encryptedKey string, logger *zap.SugaredLogger) ([]*commonmod
 	if err == nil && len(stores) == 0 {
 		stores = make([]*commonmodels.S3Storage, 0)
 	}
-	aesKey, err := service.GetAesKeyFromEncryptedKey(encryptedKey, logger)
+	aesKey, err := commonutil.GetAesKeyFromEncryptedKey(encryptedKey, logger)
 	if err != nil {
 		logger.Errorf("ListS3Storage GetAesKeyFromEncryptedKey err:%s", err)
 		return nil, err

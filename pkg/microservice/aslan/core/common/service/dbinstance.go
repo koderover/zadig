@@ -28,11 +28,12 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/tool/crypto"
 )
 
 func ListDBInstances(encryptedKey string, log *zap.SugaredLogger) ([]*commonmodels.DBInstance, error) {
-	aesKey, err := GetAesKeyFromEncryptedKey(encryptedKey, log)
+	aesKey, err := commonutil.GetAesKeyFromEncryptedKey(encryptedKey, log)
 	if err != nil {
 		log.Errorf("ListDBInstances GetAesKeyFromEncryptedKey err:%v", err)
 		return nil, err

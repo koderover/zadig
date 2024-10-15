@@ -87,6 +87,7 @@ func prepareHelmProductCreation(templateProduct *templatemodels.Product, product
 			if !ok {
 				return e.ErrCreateEnv.AddDesc(fmt.Sprintf("failed to find service info in template_service, serviceName: %s", serviceName))
 			}
+			rc.ValuesYaml = serviceTmpl.HelmChart.ValuesYaml
 
 			serviceResp := &commonmodels.ProductService{
 				ServiceName: serviceTmpl.ServiceName,
@@ -97,10 +98,8 @@ func prepareHelmProductCreation(templateProduct *templatemodels.Product, product
 				Render:      rc,
 			}
 			serviceResp.Containers = make([]*commonmodels.Container, 0)
-			var err error
 			for _, c := range serviceTmpl.Containers {
-				image := c.Image
-				image, err = genImageFromYaml(c, rc.ValuesYaml, defaultValuesYaml, rc.GetOverrideYaml(), rc.OverrideValues)
+				image, err := genImageFromYaml(c, rc.ValuesYaml, defaultValuesYaml, rc.GetOverrideYaml(), rc.OverrideValues)
 				if err != nil {
 					errMsg := fmt.Sprintf("genImageFromYaml product template %s,service name:%s,error:%s", productObj.ProductName, rc.ServiceName, err)
 					log.Error(errMsg)

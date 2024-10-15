@@ -26,6 +26,7 @@ import (
 	templatemodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models/template"
 	commontypes "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/types"
 	"github.com/koderover/zadig/v2/pkg/setting"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
 type Product struct {
@@ -342,6 +343,40 @@ func (p *Product) GetChartServiceMap() map[string]*ProductService {
 	}
 
 	return ret
+}
+
+func (p *Product) LintServices() {
+	svcMap := make(map[string]*ProductService)
+	chartSvcMap := make(map[string]*ProductService)
+
+	shouldKeepService := func(svcMap map[string]*ProductService, svc *ProductService, key string) bool {
+		if prevSvc, ok := svcMap[key]; ok {
+			if prevSvc.Revision < svc.Revision {
+				svcMap[key] = svc
+				return true
+			}
+			log.Warnf("service %s has older revision %d, drop it", key, svc.Revision)
+			return false
+		}
+		svcMap[key] = svc
+		return true
+	}
+
+	for i, group := range p.Services {
+		newGroup := []*ProductService{}
+		for _, svc := range group {
+			if svc.FromZadig() {
+				if shouldKeepService(svcMap, svc, svc.ServiceName) {
+					newGroup = append(newGroup, svc)
+				}
+			} else {
+				if shouldKeepService(chartSvcMap, svc, svc.ReleaseName) {
+					newGroup = append(newGroup, svc)
+				}
+			}
+		}
+		p.Services[i] = newGroup
+	}
 }
 
 func (p *Product) GetProductSvcNames() []string {

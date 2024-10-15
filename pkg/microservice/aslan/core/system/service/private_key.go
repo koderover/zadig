@@ -25,6 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
+	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
@@ -54,7 +55,7 @@ func ListPrivateKeys(encryptedKey, projectName, keyword string, systemOnly bool,
 		}
 	}
 
-	aesKey, err := commonservice.GetAesKeyFromEncryptedKey(encryptedKey, log)
+	aesKey, err := commonutil.GetAesKeyFromEncryptedKey(encryptedKey, log)
 	if err != nil {
 		return nil, err
 	}
