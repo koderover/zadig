@@ -13,7 +13,6 @@ gin-bin
 .mock
 out
 .nocalhost
-debug
 
 # Files
 *.tar.gz
@@ -61,5 +60,16 @@ docker/*.tar.gz
 *.patch
 /main
 
+# Test files
 test/integration/reporters/*.xml
 pkg/cli/upgradeassistant/cmd/migrate/*_test.go
+
+# Debug binary
+debug/aslan
+debug/cron
+debug/hub-agent
+debug/hub-server
+debug/init
+debug/ua
+debug/user
+debug/zadig-agent

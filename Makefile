@@ -73,3 +73,11 @@ tar-zadig-agent-%: zadig-agent-%
 
 zadig-agent-clean:
 	@rm -rf $(ZADIG_AGENT_OUT_DIR)/*
+
+# debug scripts
+%.build:
+	./debug/build.sh $*
+%.run:
+	./debug/run.sh $*
+%.debug:
+	./debug/debug.sh $*

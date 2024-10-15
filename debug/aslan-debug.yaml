@@ -1,0 +1,40 @@
+name: aslan
+serviceType: deployment
+containers:
+  - name: aslan
+    dev:
+      gitUrl: ""
+      image: koderover.tencentcloudcr.com/test/golang-debug:latest
+      shell: bash
+      workDir: /home/petrus/Project/koderover/zadig
+      storageClass: ""
+      resources:
+        limits:
+          memory: 2048Mi
+          cpu: "2"
+        requests:
+          memory: 512Mi
+          cpu: "0.5"
+      persistentVolumeDirs: []
+      command:
+        run:
+          - ./debug/run.sh
+          - aslan
+        debug:
+          - ./debug/debug.sh
+          - aslan
+      debug:
+        remoteDebugPort: 9009
+        language: go
+      hotReload: false
+      sync:
+        type: send
+        mode: pattern
+        deleteProtection: true
+        filePattern:
+          - ./
+        ignoreFilePattern:
+          - .git
+      env: []
+      portForward:
+        - 9009:9009
