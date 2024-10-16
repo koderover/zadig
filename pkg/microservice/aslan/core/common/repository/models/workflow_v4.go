@@ -867,6 +867,8 @@ type BlueKingJobSpec struct {
 type ApprovalJobSpec struct {
 	Timeout          int64                   `bson:"timeout"                     yaml:"timeout"                       json:"timeout"`
 	Type             config.ApprovalType     `bson:"type"                        yaml:"type"                          json:"type"`
+	JobName          string                  `bson:"job_name"                    yaml:"job_name"                      json:"job_name"`
+	OriginJobName    string                  `bson:"origin_job_name"             yaml:"origin_job_name"               json:"origin_job_name"`
 	Source           config.DeploySourceType `bson:"source"                      yaml:"source"                        json:"source"`
 	Description      string                  `bson:"description"                 yaml:"description"                   json:"description"`
 	NativeApproval   *NativeApproval         `bson:"native_approval"             yaml:"native_approval,omitempty"     json:"native_approval,omitempty"`
