@@ -688,6 +688,7 @@ func generateEnvDeployServiceInfo(env, project string, spec *commonmodels.ZadigD
 
 		item := &commonmodels.DeployServiceInfo{
 			ServiceName: service.ServiceName,
+			VariableConfigs: serviceKVSettingMap[service.ServiceName],
 			// VariableKVs: kvs,
 			// LatestVariableKVs: svcInfo.LatestVariableKVs,
 			VariableYaml: service.GetServiceRender().OverrideYaml.YamlContent,
