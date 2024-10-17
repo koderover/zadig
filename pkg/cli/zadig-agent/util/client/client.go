@@ -96,7 +96,10 @@ func Download(url, path string, rfs ...RequestFunc) error {
 func New(cfs ...ClientFunc) *Client {
 	r := resty.New()
 	r.SetTransport(&http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		TLSClientConfig:   &tls.Config{InsecureSkipVerify: true},
+		DisableKeepAlives: false,
+		MaxIdleConns:      100,
+		IdleConnTimeout:   90 * time.Second,
 	})
 	r.SetHeader("Content-Type", "application/json").
 		SetHeader("Accept", "application/json").
