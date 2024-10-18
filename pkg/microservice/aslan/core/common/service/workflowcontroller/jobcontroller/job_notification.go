@@ -215,9 +215,11 @@ func sendDingDingMessage(productName, workflowName, workflowDisplayName string, 
 	// TODO: if required, add proxy to it
 	c := httpclient.New()
 
-	_, err := c.Post(uri, httpclient.SetBody(messageReq))
+	resp, err := c.Post(uri, httpclient.SetBody(messageReq))
 	if err != nil {
 		return err
+	} else {
+		fmt.Println(string(resp.Body()))
 	}
 
 	return nil
