@@ -49,12 +49,28 @@ type DingDingAt struct {
 	IsAtAll   bool     `json:"isAtAll"`
 }
 
-func (w *Service) sendDingDingMessage(uri, title, content string, atMobiles []string, isAtAll bool) error {
+const (
+	DingDingMsgType = "actionCard"
+)
+
+func (w *Service) sendDingDingMessage(uri, title, content, actionURL string, atMobiles []string, isAtAll bool) error {
 	message := &DingDingMessage{
-		MsgType: msgType,
-		MarkDown: &DingDingMarkDown{
-			Title: title,
-			Text:  content,
+		MsgType: DingDingMsgType,
+		//MarkDown: &DingDingMarkDown{
+		//	Title: title,
+		//	Text:  content,
+		//},
+		ActionCard: &DingDingActionCard{
+			HideAvatar:        "0",
+			ButtonOrientation: "0",
+			Text:              content,
+			Title:             title,
+			Buttons: []*DingDingButton{
+				{
+					Title:     "点击查看更多信息",
+					ActionURL: actionURL,
+				},
+			},
 		},
 	}
 	message.At = &DingDingAt{

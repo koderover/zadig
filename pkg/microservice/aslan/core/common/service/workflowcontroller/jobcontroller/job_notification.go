@@ -197,7 +197,7 @@ func sendDingDingMessage(productName, workflowName, workflowDisplayName string, 
 	)
 
 	messageReq := instantmessage.DingDingMessage{
-		MsgType: "actionCard",
+		MsgType: instantmessage.DingDingMsgType,
 		ActionCard: &instantmessage.DingDingActionCard{
 			HideAvatar:        "0",
 			ButtonOrientation: "0",

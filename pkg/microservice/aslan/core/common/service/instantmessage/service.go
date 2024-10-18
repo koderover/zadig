@@ -298,7 +298,8 @@ func (w *Service) sendMessage(task *task.Task, notifyCtl *models.NotifyCtl, test
 			if task.Type == config.SingleType {
 				title = "工作流状态"
 			}
-			err := w.sendDingDingMessage(uri, title, content, atMobiles, isAtAll)
+			workflowDetailURL := fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/multi/%s/%d?display_name=%s", configbase.SystemAddress(), task.ProductName, task.PipelineName, task.TaskID, url.PathEscape(task.PipelineDisplayName))
+			err := w.sendDingDingMessage(uri, title, content, workflowDetailURL, atMobiles, isAtAll)
 			if err != nil {
 				log.Errorf("sendDingDingMessage err : %s", err)
 				return err
@@ -482,7 +483,7 @@ func (w *Service) createNotifyBodyOfWorkflowIM(weChatNotification *wechatNotific
 
 	buttonContent := "点击查看更多信息"
 	workflowDetailURL := "{{.BaseURI}}/v1/projects/detail/{{.Task.ProductName}}/pipelines/{{ isSingle .IsSingle }}/{{.Task.PipelineName}}/{{.Task.TaskID}}?display_name={{.EncodedDisplayName}}"
-	moreInformation := fmt.Sprintf("[%s](%s)", buttonContent, workflowDetailURL)
+	//moreInformation := fmt.Sprintf("[%s](%s)", buttonContent, workflowDetailURL)
 	tplTitle, _ = getTplExec(tplTitle, weChatNotification)
 
 	if weChatNotification.WebHookType != setting.NotifyWebHookTypeFeishu {
@@ -490,7 +491,7 @@ func (w *Service) createNotifyBodyOfWorkflowIM(weChatNotification *wechatNotific
 		tplcontent += strings.Join(build, "")
 		tplcontent = fmt.Sprintf("%s%s", tplcontent, test)
 		tplcontent = tplcontent + getNotifyAtContent(notify)
-		tplcontent = fmt.Sprintf("%s%s%s", tplTitle, tplcontent, moreInformation)
+		tplcontent = fmt.Sprintf("%s%s", tplTitle, tplcontent)
 		tplExecContent, _ := getTplExec(tplcontent, weChatNotification)
 		return tplTitle, tplExecContent, nil, nil
 	}
