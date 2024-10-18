@@ -255,7 +255,7 @@ func (w *Service) getApproveNotificationContent(notify *models.NotifyCtl, task *
 		if err != nil {
 			return "", "", nil, nil, err
 		}
-		return title, content, nil, nil, nil
+		return title, content, nil, webhookNotify, nil
 	}
 
 	lc := NewLarkCard()
@@ -606,7 +606,7 @@ func (w *Service) getNotificationContent(notify *models.NotifyCtl, task *models.
 			return "", "", nil, nil, err
 		}
 
-		return title, content, nil, nil, nil
+		return title, content, nil, webhookNotify, nil
 	}
 
 	lc := NewLarkCard()
