@@ -17,14 +17,25 @@ limitations under the License.
 package instantmessage
 
 type DingDingMessage struct {
-	MsgType  string            `json:"msgtype"`
-	MarkDown *DingDingMarkDown `json:"markdown"`
-	At       *DingDingAt       `json:"at"`
+	MsgType    string              `json:"msgtype"`
+	MarkDown   *DingDingMarkDown   `json:"markdown"`
+	ActionCard *DingDingActionCard `json:"actionCard"`
+	At         *DingDingAt         `json:"at"`
 }
 
 type DingDingMarkDown struct {
 	Title string `json:"title"`
 	Text  string `json:"text"`
+}
+
+// DingDingActionCard API ref: https://open.dingtalk.com/document/robots/custom-robot-access
+type DingDingActionCard struct {
+	HideAvatar        string `json:"hideAvatar,omitempty"`     // 0: show, 1: hide
+	ButtonOrientation string `json:"btnOrientation,omitempty"` // 0: vertical, 1: horizontal
+	SingleURL         string `json:"singleURL,omitempty"`
+	SingleTitle       string `json:"singleTitle,omitempty"`
+	Text              string `json:"text,omitempty"`
+	Title             string `json:"title,omitempty"`
 }
 
 type DingDingAt struct {

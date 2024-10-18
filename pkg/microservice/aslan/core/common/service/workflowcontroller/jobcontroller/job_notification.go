@@ -186,13 +186,24 @@ func sendLarkMessage(productName, workflowName, workflowDisplayName string, task
 }
 
 func sendDingDingMessage(productName, workflowName, workflowDisplayName string, taskID int64, uri, title, message string, idList []string, isAtAll bool) error {
-	processedMessage := generateGeneralNotificationMessage(productName, workflowName, workflowDisplayName, taskID, message)
+	//processedMessage := generateGeneralNotificationMessage(productName, workflowName, workflowDisplayName, taskID, message)
+
+	url := fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/custom/%s/%d?display_name=%s",
+		configbase.SystemAddress(),
+		productName,
+		workflowName,
+		taskID,
+		workflowDisplayName,
+	)
 
 	messageReq := instantmessage.DingDingMessage{
-		MsgType: "markdown",
-		MarkDown: &instantmessage.DingDingMarkDown{
-			Title: title,
-			Text:  processedMessage,
+		MsgType: "actionCard",
+		ActionCard: &instantmessage.DingDingActionCard{
+			HideAvatar:        "0",
+			ButtonOrientation: "0",
+			SingleURL:         url,
+			Text:              message,
+			Title:             title,
 		},
 	}
 
