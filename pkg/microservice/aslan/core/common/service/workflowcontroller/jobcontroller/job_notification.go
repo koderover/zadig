@@ -92,7 +92,7 @@ func (c *NotificationJobCtl) Run(ctx context.Context) {
 			return
 		}
 	} else if c.jobTaskSpec.WebHookType == setting.NotifyWebHookTypeWechatWork {
-		err := sendWorkWxMessage(c.workflowCtx.ProjectName, c.workflowCtx.WorkflowName, c.workflowCtx.WorkflowDisplayName, c.workflowCtx.TaskID, c.jobTaskSpec.WeChatWebHook, c.jobTaskSpec.Content, c.jobTaskSpec.AtMobiles, c.jobTaskSpec.IsAtAll)
+		err := sendWorkWxMessage(c.workflowCtx.ProjectName, c.workflowCtx.WorkflowName, c.workflowCtx.WorkflowDisplayName, c.workflowCtx.TaskID, c.jobTaskSpec.WeChatWebHook, c.jobTaskSpec.Title, c.jobTaskSpec.Content, c.jobTaskSpec.AtMobiles, c.jobTaskSpec.IsAtAll)
 		if err != nil {
 			c.logger.Error(err)
 			c.job.Status = config.StatusFailed
@@ -186,7 +186,7 @@ func sendLarkMessage(productName, workflowName, workflowDisplayName string, task
 }
 
 func sendDingDingMessage(productName, workflowName, workflowDisplayName string, taskID int64, uri, title, message string, idList []string, isAtAll bool) error {
-	//processedMessage := generateGeneralNotificationMessage(productName, workflowName, workflowDisplayName, taskID, message)
+	processedMessage := generateGeneralNotificationMessage(productName, workflowName, workflowDisplayName, taskID, title, message)
 
 	url := fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/custom/%s/%d?display_name=%s",
 		configbase.SystemAddress(),
@@ -201,7 +201,7 @@ func sendDingDingMessage(productName, workflowName, workflowDisplayName string, 
 		ActionCard: &instantmessage.DingDingActionCard{
 			HideAvatar:        "0",
 			ButtonOrientation: "0",
-			Text:              message,
+			Text:              processedMessage,
 			Title:             title,
 			Buttons: []*instantmessage.DingDingButton{
 				{
@@ -230,8 +230,8 @@ func sendDingDingMessage(productName, workflowName, workflowDisplayName string, 
 	return nil
 }
 
-func sendWorkWxMessage(productName, workflowName, workflowDisplayName string, taskID int64, uri, message string, idList []string, isAtAll bool) error {
-	processedMessage := generateGeneralNotificationMessage(productName, workflowName, workflowDisplayName, taskID, message)
+func sendWorkWxMessage(productName, workflowName, workflowDisplayName string, taskID int64, uri, title, message string, idList []string, isAtAll bool) error {
+	processedMessage := generateGeneralNotificationMessage(productName, workflowName, workflowDisplayName, taskID, title, message)
 
 	idList = lo.Filter(idList, func(s string, _ int) bool { return s != "All" })
 	atList := make([]string, 0)
@@ -261,7 +261,7 @@ func sendWorkWxMessage(productName, workflowName, workflowDisplayName string, ta
 }
 
 func sendMailMessage(productName, workflowName, workflowDisplayName string, taskID int64, title, message string, users []*commonmodels.User) error {
-	processedMessage := generateGeneralNotificationMessage(productName, workflowName, workflowDisplayName, taskID, message)
+	processedMessage := generateGeneralNotificationMessage(productName, workflowName, workflowDisplayName, taskID, title, message)
 
 	if len(users) == 0 {
 		return nil
@@ -306,17 +306,10 @@ func sendMailMessage(productName, workflowName, workflowDisplayName string, task
 	return err
 }
 
-func generateGeneralNotificationMessage(productName, workflowName, workflowDisplayName string, taskID int64, content string) string {
-	url := fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/custom/%s/%d?display_name=%s",
-		configbase.SystemAddress(),
-		productName,
-		workflowName,
-		taskID,
-		workflowDisplayName,
-	)
+func generateGeneralNotificationMessage(productName, workflowName, workflowDisplayName string, taskID int64, title, content string) string {
+	titleStr := fmt.Sprintf("#### %s", title)
 
-	resp := content + "\n"
-	resp += fmt.Sprintf("- 触发的工作流: %s\n", url)
+	resp := fmt.Sprintf("%s\n%s", titleStr, content)
 	return resp
 }
 
