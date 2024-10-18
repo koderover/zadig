@@ -539,7 +539,7 @@ func (w *Service) getNotificationContent(notify *models.NotifyCtl, task *models.
 		workflowDetailURLTpl = "{{.BaseURI}}/v1/projects/detail/{{.Task.ProjectName}}/pipelines/custom/{{.Task.WorkflowName}}/{{.Task.TaskID}}?display_name={{.EncodedDisplayName}}"
 		workflowDetailURL = fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/custom/%s?display_name=%s", configbase.SystemAddress(), task.ProjectName, task.WorkflowName, url.PathEscape(task.WorkflowDisplayName))
 	}
-	moreInformation := fmt.Sprintf("\n\n{{if eq .WebHookType \"dingding\"}}---\n\n{{end}}[%s](%s)", buttonContent, workflowDetailURLTpl)
+	//moreInformation := fmt.Sprintf("\n\n{{if eq .WebHookType \"dingding\"}}---\n\n{{end}}[%s](%s)", buttonContent, workflowDetailURLTpl)
 
 	if notify.WebHookType == setting.NotifyWebHookTypeMail {
 		title, err := getWorkflowTaskTplExec(mailTplTitle, workflowNotification)
@@ -600,7 +600,7 @@ func (w *Service) getNotificationContent(notify *models.NotifyCtl, task *models.
 		tplcontent := strings.Join(tplBaseInfo, "")
 		tplcontent += strings.Join(jobContents, "")
 		tplcontent = tplcontent + getNotifyAtContent(notify)
-		tplcontent = fmt.Sprintf("%s%s%s", title, tplcontent, moreInformation)
+		tplcontent = fmt.Sprintf("%s%s", title, tplcontent)
 		content, err := getWorkflowTaskTplExec(tplcontent, workflowNotification)
 		if err != nil {
 			return "", "", nil, nil, err
@@ -785,7 +785,6 @@ func getJobTaskTplExec(tplcontent string, args *jobTaskNotification) (string, er
 func (w *Service) sendNotification(title, content string, notify *models.NotifyCtl, card *LarkCard, webhookNotify *webhooknotify.WorkflowNotify) error {
 	switch notify.WebHookType {
 	case setting.NotifyWebHookTypeDingDing:
-		log.Infof(">>>>>>>>>>>> webhook notify is: %+v <<<<<<<<<<<<<<<<", webhookNotify)
 		workflowDetailURL := fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/multi/%s/%d?display_name=%s", configbase.SystemAddress(), webhookNotify.ProjectName, webhookNotify.WorkflowName, webhookNotify.TaskID, url.PathEscape(webhookNotify.WorkflowDisplayName))
 		if err := w.sendDingDingMessage(notify.DingDingWebHook, title, content, workflowDetailURL, notify.AtMobiles, notify.IsAtAll); err != nil {
 			return err
