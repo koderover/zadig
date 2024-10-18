@@ -201,9 +201,14 @@ func sendDingDingMessage(productName, workflowName, workflowDisplayName string, 
 		ActionCard: &instantmessage.DingDingActionCard{
 			HideAvatar:        "0",
 			ButtonOrientation: "0",
-			SingleURL:         url,
 			Text:              message,
 			Title:             title,
+			Buttons: []*instantmessage.DingDingButton{
+				{
+					Title:     "点击查看更多信息",
+					ActionURL: url,
+				},
+			},
 		},
 	}
 

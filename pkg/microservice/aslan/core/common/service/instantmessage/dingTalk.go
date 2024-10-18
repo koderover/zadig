@@ -30,12 +30,18 @@ type DingDingMarkDown struct {
 
 // DingDingActionCard API ref: https://open.dingtalk.com/document/robots/custom-robot-access
 type DingDingActionCard struct {
-	HideAvatar        string `json:"hideAvatar,omitempty"`     // 0: show, 1: hide
-	ButtonOrientation string `json:"btnOrientation,omitempty"` // 0: vertical, 1: horizontal
-	SingleURL         string `json:"singleURL,omitempty"`
-	SingleTitle       string `json:"singleTitle,omitempty"`
-	Text              string `json:"text,omitempty"`
-	Title             string `json:"title,omitempty"`
+	HideAvatar        string            `json:"hideAvatar,omitempty"`     // 0: show, 1: hide
+	ButtonOrientation string            `json:"btnOrientation,omitempty"` // 0: vertical, 1: horizontal
+	SingleURL         string            `json:"singleURL,omitempty"`
+	SingleTitle       string            `json:"singleTitle,omitempty"`
+	Text              string            `json:"text,omitempty"`
+	Title             string            `json:"title,omitempty"`
+	Buttons           []*DingDingButton `json:"btns,omitempty"`
+}
+
+type DingDingButton struct {
+	ActionURL string `json:"actionURL,omitempty"`
+	Title     string `json:"title,omitempty"`
 }
 
 type DingDingAt struct {
