@@ -19,6 +19,7 @@ package jobcontroller
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"strings"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
@@ -188,12 +189,12 @@ func sendLarkMessage(productName, workflowName, workflowDisplayName string, task
 func sendDingDingMessage(productName, workflowName, workflowDisplayName string, taskID int64, uri, title, message string, idList []string, isAtAll bool) error {
 	processedMessage := generateGeneralNotificationMessage(productName, workflowName, workflowDisplayName, taskID, title, message)
 
-	url := fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/custom/%s/%d?display_name=%s",
+	actionURL := fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/custom/%s/%d?display_name=%s",
 		configbase.SystemAddress(),
 		productName,
 		workflowName,
 		taskID,
-		workflowDisplayName,
+		url.PathEscape(workflowDisplayName),
 	)
 
 	messageReq := instantmessage.DingDingMessage{
@@ -206,7 +207,7 @@ func sendDingDingMessage(productName, workflowName, workflowDisplayName string, 
 			Buttons: []*instantmessage.DingDingButton{
 				{
 					Title:     "点击查看更多信息",
-					ActionURL: url,
+					ActionURL: actionURL,
 				},
 			},
 		},

@@ -785,7 +785,8 @@ func getJobTaskTplExec(tplcontent string, args *jobTaskNotification) (string, er
 func (w *Service) sendNotification(title, content string, notify *models.NotifyCtl, card *LarkCard, webhookNotify *webhooknotify.WorkflowNotify) error {
 	switch notify.WebHookType {
 	case setting.NotifyWebHookTypeDingDing:
-		if err := w.sendDingDingMessage(notify.DingDingWebHook, title, content, notify.AtMobiles, notify.IsAtAll); err != nil {
+		workflowDetailURL := fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/multi/%s/%d?display_name=%s", configbase.SystemAddress(), webhookNotify.ProjectName, webhookNotify.WorkflowName, webhookNotify.TaskID, url.PathEscape(webhookNotify.WorkflowDisplayName))
+		if err := w.sendDingDingMessage(notify.DingDingWebHook, title, content, workflowDetailURL, notify.AtMobiles, notify.IsAtAll); err != nil {
 			return err
 		}
 	case setting.NotifyWebHookTypeFeishu:
