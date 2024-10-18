@@ -205,7 +205,7 @@ func (w *Service) getApproveNotificationContent(notify *models.NotifyCtl, task *
 
 	buttonContent := "点击查看更多信息"
 	workflowDetailURL := "{{.BaseURI}}/v1/projects/detail/{{.Task.ProjectName}}/pipelines/custom/{{.Task.WorkflowName}}/{{.Task.TaskID}}?display_name={{.EncodedDisplayName}}"
-	moreInformation := fmt.Sprintf("[%s](%s)", buttonContent, workflowDetailURL)
+	//moreInformation := fmt.Sprintf("[%s](%s)", buttonContent, workflowDetailURL)
 	if notify.WebHookType == setting.NotifyWebHookTypeMail {
 		title, err = getWorkflowTaskTplExec(mailTplTitle, workflowNotification)
 		if err != nil {
@@ -250,7 +250,7 @@ func (w *Service) getApproveNotificationContent(notify *models.NotifyCtl, task *
 	} else if notify.WebHookType != setting.NotifyWebHookTypeFeishu {
 		tplcontent := strings.Join(tplBaseInfo, "")
 		tplcontent = tplcontent + getNotifyAtContent(notify)
-		tplcontent = fmt.Sprintf("%s%s%s", title, tplcontent, moreInformation)
+		tplcontent = fmt.Sprintf("%s%s", title, tplcontent)
 		content, err := getWorkflowTaskTplExec(tplcontent, workflowNotification)
 		if err != nil {
 			return "", "", nil, nil, err
