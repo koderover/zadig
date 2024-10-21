@@ -93,7 +93,7 @@ func (c *NotificationJobCtl) Run(ctx context.Context) {
 			return
 		}
 	} else if c.jobTaskSpec.WebHookType == setting.NotifyWebHookTypeWechatWork {
-		err := sendWorkWxMessage(c.workflowCtx.ProjectName, c.workflowCtx.WorkflowName, c.workflowCtx.WorkflowDisplayName, c.workflowCtx.TaskID, c.jobTaskSpec.WeChatWebHook, c.jobTaskSpec.Title, c.jobTaskSpec.Content, c.jobTaskSpec.AtMobiles, c.jobTaskSpec.IsAtAll)
+		err := sendWorkWxMessage(c.workflowCtx.ProjectName, c.workflowCtx.WorkflowName, c.workflowCtx.WorkflowDisplayName, c.workflowCtx.TaskID, c.jobTaskSpec.WeChatWebHook, c.jobTaskSpec.Title, c.jobTaskSpec.Content, c.jobTaskSpec.WechatUserIDs, c.jobTaskSpec.IsAtAll)
 		if err != nil {
 			c.logger.Error(err)
 			c.job.Status = config.StatusFailed
@@ -240,11 +240,7 @@ func sendWorkWxMessage(productName, workflowName, workflowDisplayName string, ta
 		url.PathEscape(workflowDisplayName),
 	)
 
-	fmt.Println(">>>>>>>>>>> id list before filter length is:", len(idList))
-
 	idList = lo.Filter(idList, func(s string, _ int) bool { return s != "All" })
-
-	fmt.Println(">>>>>>>>>>> id list after filter length is:", len(idList))
 	atList := make([]string, 0)
 
 	for _, id := range idList {
