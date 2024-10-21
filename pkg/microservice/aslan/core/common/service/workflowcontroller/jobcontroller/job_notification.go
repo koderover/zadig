@@ -240,7 +240,11 @@ func sendWorkWxMessage(productName, workflowName, workflowDisplayName string, ta
 		url.PathEscape(workflowDisplayName),
 	)
 
+	fmt.Println(">>>>>>>>>>> id list before filter length is:", len(idList))
+
 	idList = lo.Filter(idList, func(s string, _ int) bool { return s != "All" })
+
+	fmt.Println(">>>>>>>>>>> id list after filter length is:", len(idList))
 	atList := make([]string, 0)
 
 	for _, id := range idList {
