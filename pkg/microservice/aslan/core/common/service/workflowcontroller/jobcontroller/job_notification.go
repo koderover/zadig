@@ -247,11 +247,6 @@ func sendWorkWxMessage(productName, workflowName, workflowDisplayName string, ta
 		atList = append(atList, fmt.Sprintf("<@%s>", id))
 	}
 
-	atMessage := ""
-	if len(atList) > 0 {
-		atMessage = fmt.Sprintf("##### **相关人员**: %s \n", strings.Join(atList, " "))
-	}
-
 	msgCard := &instantmessage.WeChatWorkCard{
 		MsgType: string(instantmessage.WeChatTextTypeTemplateCard),
 		TemplateCard: instantmessage.TemplateCard{
@@ -282,7 +277,10 @@ func sendWorkWxMessage(productName, workflowName, workflowDisplayName string, ta
 		return err
 	}
 
-	if len(atMessage) > 0 {
+	if len(atList) > 0 {
+		fmt.Println("1111111111")
+		atMessage := fmt.Sprintf("##### **相关人员**: %s \n", strings.Join(atList, " "))
+
 		atMessageBody := &instantmessage.WeChatWorkCard{
 			MsgType:  string(instantmessage.WeChatTextTypeMarkdown),
 			Markdown: instantmessage.Markdown{Content: atMessage},
