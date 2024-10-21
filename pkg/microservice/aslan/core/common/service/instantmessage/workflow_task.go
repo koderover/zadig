@@ -807,7 +807,7 @@ func (w *Service) sendNotification(title, content string, notify *models.NotifyC
 			return fmt.Errorf("failed to send notification to webhook, address %s, token: %s, error: %v", notify.WebHookNotify.Address, notify.WebHookNotify.Token, err)
 		}
 	default:
-		if err := w.SendWeChatWorkMessage(weChatTextTypeMarkdown, notify.WeChatWebHook, content); err != nil {
+		if err := w.SendWeChatWorkMessage(WeChatTextTypeMarkdown, notify.WeChatWebHook, content); err != nil {
 			return err
 		}
 	}

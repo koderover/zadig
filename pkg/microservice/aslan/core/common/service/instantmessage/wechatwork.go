@@ -82,7 +82,7 @@ func (w *Service) SendWeChatWorkMessage(textType TextType, uri, content string) 
 				Content: content,
 			},
 		}
-	} else if textType == weChatTextTypeMarkdown {
+	} else if textType == WeChatTextTypeMarkdown {
 		message = &WeChatWorkCard{
 			MsgType: msgType,
 			Markdown: Markdown{

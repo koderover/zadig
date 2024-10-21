@@ -324,7 +324,7 @@ func (w *Service) sendMessage(task *task.Task, notifyCtl *models.NotifyCtl, test
 				return err
 			}
 		} else {
-			typeText := weChatTextTypeMarkdown
+			typeText := WeChatTextTypeMarkdown
 			if task.Type == config.SingleType {
 				typeText = weChatTextTypeText
 			}
