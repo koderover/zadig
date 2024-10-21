@@ -21,21 +21,47 @@ import (
 )
 
 const (
-	markdownColorInfo               = "info"
-	markdownColorComment            = "comment"
-	markdownColorWarning            = "warning"
-	weChatTextTypeText     TextType = "text"
-	weChatTextTypeMarkdown TextType = "markdown"
+	markdownColorInfo                   = "info"
+	markdownColorComment                = "comment"
+	markdownColorWarning                = "warning"
+	weChatTextTypeText         TextType = "text"
+	weChatTextTypeMarkdown     TextType = "markdown"
+	WeChatTextTypeTemplateCard TextType = "template_card"
 )
 
 type TextType string
 
 type WeChatWorkCard struct {
-	MsgType  string   `json:"msgtype"`
-	Markdown Markdown `json:"markdown"`
+	MsgType      string       `json:"msgtype"`
+	Markdown     Markdown     `json:"markdown,omitempty"`
+	TemplateCard TemplateCard `json:"template_card,omitempty"`
 }
 type Markdown struct {
 	Content string `json:"content"`
+}
+
+type TemplateCard struct {
+	CardType     string                `json:"card_type"`
+	MainTitle    *TemplateCardTitle    `json:"main_title"`
+	SubTitleText string                `json:"sub_title_text"`
+	JumpList     []*WechatWorkLink     `json:"jump_list"`
+	CardAction   *WechatWorkCardAction `json:"card_action"`
+}
+
+type TemplateCardTitle struct {
+	Title       string `json:"title"`
+	Description string `json:"desc"`
+}
+
+type WechatWorkLink struct {
+	Type  int    `json:"type"` // 0 - non-link, 1 - url, 2 - application
+	Title string `json:"title"`
+	URL   string `json:"url"`
+}
+
+type WechatWorkCardAction struct {
+	Type int    `json:"type"` // 1 - url, 2 - application
+	URL  string `json:"url"`
 }
 
 type Messsage struct {

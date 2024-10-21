@@ -234,6 +234,14 @@ func sendDingDingMessage(productName, workflowName, workflowDisplayName string, 
 func sendWorkWxMessage(productName, workflowName, workflowDisplayName string, taskID int64, uri, title, message string, idList []string, isAtAll bool) error {
 	processedMessage := generateGeneralNotificationMessage(productName, workflowName, workflowDisplayName, taskID, title, message)
 
+	actionURL := fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/custom/%s/%d?display_name=%s",
+		configbase.SystemAddress(),
+		productName,
+		workflowName,
+		taskID,
+		url.PathEscape(workflowDisplayName),
+	)
+
 	idList = lo.Filter(idList, func(s string, _ int) bool { return s != "All" })
 	atList := make([]string, 0)
 
@@ -246,8 +254,25 @@ func sendWorkWxMessage(productName, workflowName, workflowDisplayName string, ta
 	}
 
 	msgCard := &instantmessage.WeChatWorkCard{
-		MsgType:  "markdown",
-		Markdown: instantmessage.Markdown{Content: processedMessage},
+		MsgType: string(instantmessage.WeChatTextTypeTemplateCard),
+		TemplateCard: instantmessage.TemplateCard{
+			CardType: "text_notice",
+			MainTitle: &instantmessage.TemplateCardTitle{
+				Title: title,
+			},
+			SubTitleText: processedMessage,
+			JumpList: []*instantmessage.WechatWorkLink{
+				{
+					Type:  1,
+					URL:   actionURL,
+					Title: "点击查看更多信息",
+				},
+			},
+			CardAction: &instantmessage.WechatWorkCardAction{
+				Type: 1,
+				URL:  actionURL,
+			},
+		},
 	}
 
 	// TODO: if required, add proxy to it
