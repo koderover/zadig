@@ -288,7 +288,9 @@ func sendWorkWxMessage(productName, workflowName, workflowDisplayName string, ta
 			Markdown: instantmessage.Markdown{Content: atMessage},
 		}
 
-		_, err = c.Post(uri, httpclient.SetBody(atMessageBody))
+		resp, err := c.Post(uri, httpclient.SetBody(atMessageBody))
+
+		fmt.Println(">>>>>>>>>>>>>>>>>>", resp.Body())
 
 		if err != nil {
 			return err
