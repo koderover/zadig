@@ -187,7 +187,7 @@ func sendLarkMessage(productName, workflowName, workflowDisplayName string, task
 }
 
 func sendDingDingMessage(productName, workflowName, workflowDisplayName string, taskID int64, uri, title, message string, idList []string, isAtAll bool) error {
-	processedMessage := generateGeneralNotificationMessage(productName, workflowName, workflowDisplayName, taskID, title, message)
+	processedMessage := generateDingDingNotificationMessage(title, message)
 
 	actionURL := fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/custom/%s/%d?display_name=%s",
 		configbase.SystemAddress(),
@@ -232,8 +232,6 @@ func sendDingDingMessage(productName, workflowName, workflowDisplayName string, 
 }
 
 func sendWorkWxMessage(productName, workflowName, workflowDisplayName string, taskID int64, uri, title, message string, idList []string, isAtAll bool) error {
-	processedMessage := generateGeneralNotificationMessage(productName, workflowName, workflowDisplayName, taskID, title, message)
-
 	actionURL := fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/custom/%s/%d?display_name=%s",
 		configbase.SystemAddress(),
 		productName,
@@ -249,8 +247,9 @@ func sendWorkWxMessage(productName, workflowName, workflowDisplayName string, ta
 		atList = append(atList, fmt.Sprintf("<@%s>", id))
 	}
 
+	atMessage := ""
 	if len(atList) > 0 {
-		processedMessage = fmt.Sprintf(processedMessage, fmt.Sprintf("##### **相关人员**: %s \n", strings.Join(atList, " ")))
+		atMessage = fmt.Sprintf("##### **相关人员**: %s \n", strings.Join(atList, " "))
 	}
 
 	msgCard := &instantmessage.WeChatWorkCard{
@@ -260,7 +259,7 @@ func sendWorkWxMessage(productName, workflowName, workflowDisplayName string, ta
 			MainTitle: &instantmessage.TemplateCardTitle{
 				Title: title,
 			},
-			SubTitleText: processedMessage,
+			SubTitleText: message,
 			JumpList: []*instantmessage.WechatWorkLink{
 				{
 					Type:  1,
@@ -283,11 +282,24 @@ func sendWorkWxMessage(productName, workflowName, workflowDisplayName string, ta
 		return err
 	}
 
+	if len(atMessage) > 0 {
+		atMessageBody := &instantmessage.WeChatWorkCard{
+			MsgType:  string(instantmessage.WeChatTextTypeMarkdown),
+			Markdown: instantmessage.Markdown{Content: atMessage},
+		}
+
+		_, err = c.Post(uri, httpclient.SetBody(atMessageBody))
+
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
 func sendMailMessage(productName, workflowName, workflowDisplayName string, taskID int64, title, message string, users []*commonmodels.User) error {
-	processedMessage := generateGeneralNotificationMessage(productName, workflowName, workflowDisplayName, taskID, title, message)
+	processedMessage := generateDingDingNotificationMessage(title, message)
 
 	if len(users) == 0 {
 		return nil
@@ -332,7 +344,7 @@ func sendMailMessage(productName, workflowName, workflowDisplayName string, task
 	return err
 }
 
-func generateGeneralNotificationMessage(productName, workflowName, workflowDisplayName string, taskID int64, title, content string) string {
+func generateDingDingNotificationMessage(title, content string) string {
 	titleStr := fmt.Sprintf("#### %s", title)
 
 	resp := fmt.Sprintf("%s\n%s", titleStr, content)

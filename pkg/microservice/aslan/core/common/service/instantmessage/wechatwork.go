@@ -25,7 +25,7 @@ const (
 	markdownColorComment                = "comment"
 	markdownColorWarning                = "warning"
 	weChatTextTypeText         TextType = "text"
-	weChatTextTypeMarkdown     TextType = "markdown"
+	WeChatTextTypeMarkdown     TextType = "markdown"
 	WeChatTextTypeTemplateCard TextType = "template_card"
 )
 
