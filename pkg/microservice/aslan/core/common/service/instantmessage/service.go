@@ -372,12 +372,12 @@ func (w *Service) createNotifyBody(weChatNotification *wechatNotification) (cont
 // @note pipeline notification, deprecated
 func (w *Service) createNotifyBodyOfWorkflowIM(weChatNotification *wechatNotification, notify *models.NotifyCtl) (string, string, *LarkCard, error) {
 	weChatNotification.EncodedDisplayName = url.PathEscape(weChatNotification.Task.PipelineDisplayName)
-	tplTitle := "{{if ne .WebHookType \"feishu\"}}#### {{end}}{{getIcon .Task.Status }}{{if eq .WebHookType \"wechat\"}}<font color=\"{{ getColor .Task.Status }}\">工作流{{.Task.PipelineDisplayName}} #{{.Task.TaskID}} {{ taskStatus .Task.Status }}</font>{{else}}工作流 {{.Task.PipelineDisplayName}} #{{.Task.TaskID}} {{ taskStatus .Task.Status }}{{end}} \n"
-	tplBaseInfo := []string{"{{if eq .WebHookType \"dingding\"}}##### {{end}}**执行用户**：{{.Task.TaskCreator}} \n",
-		"{{if eq .WebHookType \"dingding\"}}##### {{end}}**环境信息**：{{.Task.WorkflowArgs.Namespace}} \n",
-		"{{if eq .WebHookType \"dingding\"}}##### {{end}}**项目名称**：{{.Task.ProductName}} \n",
-		"{{if eq .WebHookType \"dingding\"}}##### {{end}}**开始时间**：{{ getStartTime .Task.StartTime}} \n",
-		"{{if eq .WebHookType \"dingding\"}}##### {{end}}**持续时间**：{{ getDuration .TotalTime}} \n",
+	tplTitle := "{{if ne .WebHookType \"feishu\"}}#### {{end}}{{getIcon .Task.Status }}工作流 {{.Task.PipelineDisplayName}} #{{.Task.TaskID}} {{ taskStatus .Task.Status }} \n"
+	tplBaseInfo := []string{"{{if eq .WebHookType \"dingding\"}}##### {{end}}{{if eq .WebHookType \"wechat\"}}**{{end}}执行用户{{if eq .WebHookType \"wechat\"}}**{{end}}：{{.Task.TaskCreator}} \n",
+		"{{if eq .WebHookType \"dingding\"}}##### {{end}}{{if eq .WebHookType \"wechat\"}}**{{end}}环境信息{{if eq .WebHookType \"wechat\"}}**{{end}}：{{.Task.WorkflowArgs.Namespace}} \n",
+		"{{if eq .WebHookType \"dingding\"}}##### {{end}}{{if eq .WebHookType \"wechat\"}}**{{end}}项目名称{{if eq .WebHookType \"wechat\"}}**{{end}}：{{.Task.ProductName}} \n",
+		"{{if eq .WebHookType \"dingding\"}}##### {{end}}{{if eq .WebHookType \"wechat\"}}**{{end}}开始时间{{if eq .WebHookType \"wechat\"}}**{{end}}：{{ getStartTime .Task.StartTime}} \n",
+		"{{if eq .WebHookType \"dingding\"}}##### {{end}}{{if eq .WebHookType \"wechat\"}}**{{end}}持续时间{{if eq .WebHookType \"wechat\"}}**{{end}}：{{ getDuration .TotalTime}} \n",
 	}
 
 	build := []string{}
