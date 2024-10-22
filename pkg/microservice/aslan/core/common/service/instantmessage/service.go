@@ -373,11 +373,11 @@ func (w *Service) createNotifyBody(weChatNotification *wechatNotification) (cont
 func (w *Service) createNotifyBodyOfWorkflowIM(weChatNotification *wechatNotification, notify *models.NotifyCtl) (string, string, *LarkCard, error) {
 	weChatNotification.EncodedDisplayName = url.PathEscape(weChatNotification.Task.PipelineDisplayName)
 	tplTitle := "{{if ne .WebHookType \"feishu\"}}#### {{end}}{{getIcon .Task.Status }}工作流 {{.Task.PipelineDisplayName}} #{{.Task.TaskID}} {{ taskStatus .Task.Status }} \n"
-	tplBaseInfo := []string{"{{if eq .WebHookType \"dingding\"}}##### {{end}}{{if eq .WebHookType \"wechat\"}}**{{end}}执行用户{{if eq .WebHookType \"wechat\"}}**{{end}}：{{.Task.TaskCreator}} \n",
-		"{{if eq .WebHookType \"dingding\"}}##### {{end}}{{if eq .WebHookType \"wechat\"}}**{{end}}环境信息{{if eq .WebHookType \"wechat\"}}**{{end}}：{{.Task.WorkflowArgs.Namespace}} \n",
-		"{{if eq .WebHookType \"dingding\"}}##### {{end}}{{if eq .WebHookType \"wechat\"}}**{{end}}项目名称{{if eq .WebHookType \"wechat\"}}**{{end}}：{{.Task.ProductName}} \n",
-		"{{if eq .WebHookType \"dingding\"}}##### {{end}}{{if eq .WebHookType \"wechat\"}}**{{end}}开始时间{{if eq .WebHookType \"wechat\"}}**{{end}}：{{ getStartTime .Task.StartTime}} \n",
-		"{{if eq .WebHookType \"dingding\"}}##### {{end}}{{if eq .WebHookType \"wechat\"}}**{{end}}持续时间{{if eq .WebHookType \"wechat\"}}**{{end}}：{{ getDuration .TotalTime}} \n",
+	tplBaseInfo := []string{"{{if eq .WebHookType \"dingding\"}}##### {{end}}{{if ne .WebHookType \"wechat\"}}**{{end}}执行用户{{if ne .WebHookType \"wechat\"}}**{{end}}：{{.Task.TaskCreator}} \n",
+		"{{if eq .WebHookType \"dingding\"}}##### {{end}}{{if ne .WebHookType \"wechat\"}}**{{end}}环境信息{{if ne .WebHookType \"wechat\"}}**{{end}}：{{.Task.WorkflowArgs.Namespace}} \n",
+		"{{if eq .WebHookType \"dingding\"}}##### {{end}}{{if ne .WebHookType \"wechat\"}}**{{end}}项目名称{{if ne .WebHookType \"wechat\"}}**{{end}}：{{.Task.ProductName}} \n",
+		"{{if eq .WebHookType \"dingding\"}}##### {{end}}{{if ne .WebHookType \"wechat\"}}**{{end}}开始时间{{if ne .WebHookType \"wechat\"}}**{{end}}：{{ getStartTime .Task.StartTime}} \n",
+		"{{if eq .WebHookType \"dingding\"}}##### {{end}}{{if ne .WebHookType \"wechat\"}}**{{end}}持续时间{{if ne .WebHookType \"wechat\"}}**{{end}}：{{ getDuration .TotalTime}} \n",
 	}
 
 	build := []string{}
@@ -492,7 +492,9 @@ func (w *Service) createNotifyBodyOfWorkflowIM(weChatNotification *wechatNotific
 		tplcontent += strings.Join(build, "")
 		tplcontent = fmt.Sprintf("%s%s", tplcontent, test)
 		tplcontent = tplcontent + getNotifyAtContent(notify)
-		tplcontent = fmt.Sprintf("%s%s", tplTitle, tplcontent)
+		if weChatNotification.WebHookType != setting.NotifyWebHookTypeWechatWork {
+			tplcontent = fmt.Sprintf("%s%s", tplTitle, tplcontent)
+		}
 		tplExecContent, _ := getTplExec(tplcontent, weChatNotification)
 		return tplTitle, tplExecContent, nil, nil
 	}
