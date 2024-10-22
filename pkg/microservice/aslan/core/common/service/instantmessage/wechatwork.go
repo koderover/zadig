@@ -73,7 +73,7 @@ type Text struct {
 	Content string `json:"content"`
 }
 
-func (w *Service) SendWeChatWorkMessage(textType TextType, uri, content string) error {
+func (w *Service) SendWeChatWorkMessage(textType TextType, uri, link, title, content string) error {
 	var message interface{}
 	if textType == weChatTextTypeText {
 		message = &Messsage{
@@ -87,6 +87,28 @@ func (w *Service) SendWeChatWorkMessage(textType TextType, uri, content string) 
 			MsgType: msgType,
 			Markdown: Markdown{
 				Content: content,
+			},
+		}
+	} else if textType == WeChatTextTypeTemplateCard {
+		message = &WeChatWorkCard{
+			MsgType: string(WeChatTextTypeTemplateCard),
+			TemplateCard: TemplateCard{
+				CardType: "text_notice",
+				MainTitle: &TemplateCardTitle{
+					Title: title,
+				},
+				SubTitleText: content,
+				JumpList: []*WechatWorkLink{
+					{
+						Type:  1,
+						URL:   link,
+						Title: "点击查看更多信息",
+					},
+				},
+				CardAction: &WechatWorkCardAction{
+					Type: 1,
+					URL:  link,
+				},
 			},
 		}
 	} else {

@@ -328,7 +328,8 @@ func (w *Service) sendMessage(task *task.Task, notifyCtl *models.NotifyCtl, test
 			if task.Type == config.SingleType {
 				typeText = weChatTextTypeText
 			}
-			err := w.SendWeChatWorkMessage(typeText, uri, content)
+			workflowDetailURL := fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/multi/%s/%d?display_name=%s", configbase.SystemAddress(), task.ProductName, task.PipelineName, task.TaskID, url.PathEscape(task.PipelineDisplayName))
+			err := w.SendWeChatWorkMessage(typeText, uri, workflowDetailURL, title, content)
 			if err != nil {
 				log.Errorf("SendWeChatWorkMessage err : %s", err)
 				return err
