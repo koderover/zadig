@@ -187,7 +187,7 @@ func sendLarkMessage(productName, workflowName, workflowDisplayName string, task
 }
 
 func sendDingDingMessage(productName, workflowName, workflowDisplayName string, taskID int64, uri, title, message string, idList []string, isAtAll bool) error {
-	processedMessage := generateDingDingNotificationMessage(title, message)
+	processedMessage := generateDingDingNotificationMessage(title, message, idList)
 
 	actionURL := fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/custom/%s/%d?display_name=%s",
 		configbase.SystemAddress(),
