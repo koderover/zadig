@@ -296,8 +296,6 @@ func sendWorkWxMessage(productName, workflowName, workflowDisplayName string, ta
 }
 
 func sendMailMessage(productName, workflowName, workflowDisplayName string, taskID int64, title, message string, users []*commonmodels.User) error {
-	processedMessage := generateDingDingNotificationMessage(title, message)
-
 	if len(users) == 0 {
 		return nil
 	}
@@ -331,7 +329,7 @@ func sendMailMessage(productName, workflowName, workflowDisplayName string, task
 			UserName: email.UserName,
 			Password: email.Password,
 			Port:     email.Port,
-			Body:     processedMessage,
+			Body:     message,
 		})
 		if err != nil {
 			log.Errorf("sendMailMessage SendEmail error, error msg:%s", err)
