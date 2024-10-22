@@ -521,7 +521,7 @@ func (w *Service) createNotifyBodyOfWorkflowIM(weChatNotification *wechatNotific
 
 func (w *Service) createNotifyBodyOfTestIM(desc string, weChatNotification *wechatNotification, notify *models.NotifyCtl) (string, string, *LarkCard, error) {
 
-	tplTitle := "{{if ne .WebHookType \"feishu\"}}#### {{end}}{{getIcon .Task.Status }}{{if eq .WebHookType \"wechat\"}}<font color=\"{{ getColor .Task.Status }}\">工作流{{.Task.PipelineName}} #{{.Task.TaskID}} {{ taskStatus .Task.Status }}</font>{{else}}工作流 {{.Task.PipelineName}} #{{.Task.TaskID}} {{ taskStatus .Task.Status }}{{end}} \n"
+	tplTitle := "{{if and (ne .WebHookType \"feishu\") (ne .WebHookType \"wechat\")}}#### {{end}}{{getIcon .Task.Status }}{{if eq .WebHookType \"wechat\"}}<font color=\"{{ getColor .Task.Status }}\">工作流{{.Task.PipelineName}} #{{.Task.TaskID}} {{ taskStatus .Task.Status }}</font>{{else}}工作流 {{.Task.PipelineName}} #{{.Task.TaskID}} {{ taskStatus .Task.Status }}{{end}} \n"
 	tplBaseInfo := []string{"{{if eq .WebHookType \"dingding\"}}##### {{end}}**执行用户**：{{.Task.TaskCreator}} \n",
 		"{{if eq .WebHookType \"dingding\"}}##### {{end}}**项目名称**：{{.Task.ProductName}} \n",
 		"{{if eq .WebHookType \"dingding\"}}##### {{end}}**持续时间**：{{ getDuration .TotalTime}} \n",
