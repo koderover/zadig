@@ -341,7 +341,7 @@ func sendMailMessage(productName, workflowName, workflowDisplayName string, task
 }
 
 func generateDingDingNotificationMessage(title, content string) string {
-	titleStr := fmt.Sprintf("#### %s", title)
+	titleStr := fmt.Sprintf("####<font color=#0000FF> %s", title)
 
 	resp := fmt.Sprintf("%s\n%s", titleStr, content)
 	return resp
