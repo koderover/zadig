@@ -32,6 +32,7 @@ import (
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
+	helmservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/helm"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/notify"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/repository"
@@ -64,7 +65,7 @@ func InstallService(helmClient *helmtool.HelmClient, param *kube.ReleaseInstallP
 func setProductServiceError(productInfo *commonmodels.Product, serviceName string, err error) error {
 	foundSvc := false
 	// update service revision data in product
-	for groupIndex, svcGroup := range productInfo.Services {
+	for _, svcGroup := range productInfo.Services {
 		for _, svc := range svcGroup {
 			if svc.ServiceName == serviceName {
 				if err != nil {
@@ -76,11 +77,15 @@ func setProductServiceError(productInfo *commonmodels.Product, serviceName strin
 				break
 			}
 		}
+
 		if foundSvc {
-			if err := commonrepo.NewProductColl().UpdateGroup(productInfo.EnvName, productInfo.ProductName, groupIndex, svcGroup); err != nil {
-				return fmt.Errorf("failed to update service group: %s:%s, err: %s ", productInfo.ProductName, productInfo.EnvName, err)
-			}
 			break
+		}
+	}
+	if foundSvc {
+		err := helmservice.UpdateHelmAllServicesInEnv(productInfo.ProductName, productInfo.EnvName, productInfo.Services, productInfo.Production)
+		if err != nil {
+			return fmt.Errorf("failed to update %s/%s product services, err: %s ", productInfo.ProductName, productInfo.EnvName, err)
 		}
 	}
 	return nil
@@ -89,7 +94,7 @@ func setProductServiceError(productInfo *commonmodels.Product, serviceName strin
 func updateServiceRevisionInProduct(productInfo *commonmodels.Product, serviceName string, serviceRevision int64) error {
 	foundSvc := false
 	// update service revision data in product
-	for groupIndex, svcGroup := range productInfo.Services {
+	for _, svcGroup := range productInfo.Services {
 		for _, svc := range svcGroup {
 			if svc.ServiceName == serviceName {
 				svc.Revision = serviceRevision
@@ -97,11 +102,15 @@ func updateServiceRevisionInProduct(productInfo *commonmodels.Product, serviceNa
 				break
 			}
 		}
+
 		if foundSvc {
-			if err := commonrepo.NewProductColl().UpdateGroup(productInfo.EnvName, productInfo.ProductName, groupIndex, svcGroup); err != nil {
-				return fmt.Errorf("failed to update service group: %s:%s, err: %s ", productInfo.ProductName, productInfo.EnvName, err)
-			}
 			break
+		}
+	}
+	if foundSvc {
+		err := helmservice.UpdateHelmAllServicesInEnv(productInfo.ProductName, productInfo.EnvName, productInfo.Services, productInfo.Production)
+		if err != nil {
+			return fmt.Errorf("failed to update %s/%s product services, err: %s ", productInfo.ProductName, productInfo.EnvName, err)
 		}
 	}
 	return nil

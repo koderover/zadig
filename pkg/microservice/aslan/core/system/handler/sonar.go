@@ -24,7 +24,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/koderover/zadig/v2/pkg/tool/crypto"
 
-	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
+	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/service"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
@@ -136,7 +136,7 @@ func ListSonarIntegration(c *gin.Context) {
 		return
 	}
 
-	aesKey, err := commonservice.GetAesKeyFromEncryptedKey(encryptedKey, ctx.Logger)
+	aesKey, err := commonutil.GetAesKeyFromEncryptedKey(encryptedKey, ctx.Logger)
 	if err != nil {
 		ctx.Err = err
 		return
@@ -182,7 +182,7 @@ func GetSonarIntegration(c *gin.Context) {
 		return
 	}
 
-	aesKey, err := commonservice.GetAesKeyFromEncryptedKey(encryptedKey, ctx.Logger)
+	aesKey, err := commonutil.GetAesKeyFromEncryptedKey(encryptedKey, ctx.Logger)
 	if err != nil {
 		ctx.Err = err
 		return

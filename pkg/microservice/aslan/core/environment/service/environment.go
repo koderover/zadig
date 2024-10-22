@@ -55,6 +55,7 @@ import (
 	templaterepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/collaboration"
+	helmservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/helm"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/imnotify"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/notify"
@@ -731,6 +732,7 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]st
 		return e.ErrUpdateEnv.AddDesc(e.UpdateEnvStatusErrMsg)
 	}
 
+	updateProd.LintServices()
 	// 按照产品模板的顺序来创建或者更新服务
 	for groupIndex, prodServiceGroup := range updateProd.Services {
 		//Mark if there is k8s type service in this group
@@ -846,9 +848,9 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]st
 		}
 		wg.Wait()
 
-		err = commonrepo.NewProductCollWithSession(session).UpdateGroup(envName, productName, groupIndex, groupSvcs)
+		err = helmservice.UpdateHelmServicesGroupInEnv(productName, envName, groupIndex, groupSvcs, updateProd.Production)
 		if err != nil {
-			log.Errorf("Failed to update collection - service group %d. Error: %v", groupIndex, err)
+			log.Errorf("Failed to update %s/%s - service group %d. Error: %v", productName, envName, groupIndex, err)
 			err = e.ErrUpdateEnv.AddDesc(err.Error())
 			mongotool.AbortTransaction(session)
 			return
@@ -1736,8 +1738,8 @@ func UpdateHelmProductCharts(productName, envName, userName, requestID string, p
 			updatedRcMap[serviceName] = rcValues
 		}
 
-		// update service to latest revision acts like update service templates
 		if args.UpdateServiceTmpl {
+			// update service to latest revision acts like update service templates
 			updateEnvArg := &UpdateMultiHelmProductArg{
 				ProductName: productName,
 				EnvNames:    []string{envName},
@@ -1745,14 +1747,15 @@ func UpdateHelmProductCharts(productName, envName, userName, requestID string, p
 			}
 			_, err = UpdateMultipleHelmEnv(requestID, userName, updateEnvArg, product.Production, log)
 			return err
-		}
+		} else {
+			// update values
+			rcList := make([]*templatemodels.ServiceRender, 0)
+			for _, rc := range updatedRcMap {
+				rcList = append(rcList, rc)
+			}
 
-		rcList := make([]*templatemodels.ServiceRender, 0)
-		for _, rc := range updatedRcMap {
-			rcList = append(rcList, rc)
+			return UpdateProductVariable(productName, envName, userName, requestID, rcList, nil, product.DefaultValues, product.YamlData, log)
 		}
-
-		return UpdateProductVariable(productName, envName, userName, requestID, rcList, nil, product.DefaultValues, product.YamlData, log)
 	}
 }
 
@@ -2316,18 +2319,20 @@ func deleteK8sProductServices(productInfo *commonmodels.Product, serviceNames []
 		}
 	}
 
-	for serviceGroupIndex, serviceGroup := range productInfo.Services {
+	newServices := make([][]*commonmodels.ProductService, 0)
+	for _, serviceGroup := range productInfo.Services {
 		var group []*commonmodels.ProductService
 		for _, service := range serviceGroup {
 			if !util.InStringArray(service.ServiceName, serviceNames) {
 				group = append(group, service)
 			}
 		}
-		err := commonrepo.NewProductColl().UpdateGroup(productInfo.EnvName, productInfo.ProductName, serviceGroupIndex, group)
-		if err != nil {
-			log.Errorf("update product error: %v", err)
-			return err
-		}
+		newServices = append(newServices, group)
+	}
+	err := helmservice.UpdateHelmAllServicesInEnv(productInfo.ProductName, productInfo.EnvName, newServices, productInfo.Production)
+	if err != nil {
+		log.Errorf("failed to UpdateHelmProductServices %s/%s, error: %v", productInfo.ProductName, productInfo.EnvName, err)
+		return err
 	}
 
 	// remove related service in global variables
@@ -2336,7 +2341,7 @@ func deleteK8sProductServices(productInfo *commonmodels.Product, serviceNames []
 	for _, singleName := range serviceNames {
 		delete(productInfo.ServiceDeployStrategy, singleName)
 	}
-	err := commonrepo.NewProductColl().UpdateDeployStrategyAndGlobalVariable(productInfo.EnvName, productInfo.ProductName, productInfo.ServiceDeployStrategy, productInfo.GlobalVariables)
+	err = commonrepo.NewProductColl().UpdateDeployStrategyAndGlobalVariable(productInfo.EnvName, productInfo.ProductName, productInfo.ServiceDeployStrategy, productInfo.GlobalVariables)
 	if err != nil {
 		log.Errorf("failed to update product deploy strategy, err: %s", err)
 	}
@@ -2501,6 +2506,7 @@ func createGroups(user, requestID string, args *commonmodels.Product, eventStart
 		return
 	}
 
+	args.LintServices()
 	for groupIndex, group := range args.Services {
 		err = envHandleFunc(getProjectType(args.ProductName), log).createGroup(user, args, group, informer, kubeClient)
 		if err != nil {
@@ -2508,9 +2514,9 @@ func createGroups(user, requestID string, args *commonmodels.Product, eventStart
 			log.Errorf("createGroup error :%+v", err)
 			return
 		}
-		err = commonrepo.NewProductColl().UpdateGroup(envName, args.ProductName, groupIndex, group)
+		err = helmservice.UpdateHelmServicesGroupInEnv(args.ProductName, args.EnvName, groupIndex, group, args.Production)
 		if err != nil {
-			log.Errorf("Failed to update collection - service group %d. Error: %v", groupIndex, err)
+			log.Errorf("Failed to update helm product %s/%s - service group %d. Error: %v", args.ProductName, args.EnvName, groupIndex, err)
 			err = e.ErrUpdateEnv.AddDesc(err.Error())
 			return
 		}
@@ -3155,6 +3161,7 @@ func proceedHelmRelease(productResp *commonmodels.Product, helmClient *helmtool.
 		return
 	}
 
+	productResp.LintServices()
 	errList := new(multierror.Error)
 	for groupIndex, groupServices := range productResp.Services {
 		installParamList := make([]*kube.ReleaseInstallParam, 0)
@@ -3184,9 +3191,10 @@ func proceedHelmRelease(productResp *commonmodels.Product, helmClient *helmtool.
 		if groupServiceErr != nil {
 			errList = multierror.Append(errList, groupServiceErr...)
 		}
-		err := commonrepo.NewProductCollWithSession(session).UpdateGroup(envName, productName, groupIndex, groupServices)
+
+		err := helmservice.UpdateHelmServicesGroupInEnv(productName, envName, groupIndex, groupServices, productResp.Production)
 		if err != nil {
-			log.Errorf("Failed to update service group %d. Error: %v", groupIndex, err)
+			log.Errorf("failed to UpdateHelmProductServices %s/%s, error: %v", productName, envName, err)
 			mongotool.AbortTransaction(session)
 			return err
 		}

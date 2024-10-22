@@ -28,6 +28,7 @@ import (
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	helmservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/helm"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/kube"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/setting"
@@ -258,13 +259,9 @@ func RollbackEnvServiceVersion(ctx *internalhandler.Context, projectName, envNam
 			return e.ErrRollbackEnvServiceVersion.AddErr(err)
 		}
 
-		err = commonutil.CreateEnvServiceVersion(env, envSvcVersion.Service, ctx.UserName, session, log)
-		if err != nil {
-			log.Errorf("failed to create env service version for service %s/%s, error: %v", envSvcVersion.EnvName, envSvcVersion.Service.ServiceName, err)
-		}
-
 		groupIndex := -1
 		svcIndex := -1
+		env.LintServices()
 		for i, group := range env.Services {
 			for j, svc := range group {
 				if svc.ServiceName == envSvcVersion.Service.ServiceName {
@@ -284,9 +281,8 @@ func RollbackEnvServiceVersion(ctx *internalhandler.Context, projectName, envNam
 		}
 
 		env.Services[groupIndex][svcIndex] = envSvcVersion.Service
-		err = commonrepo.NewProductCollWithSession(session).UpdateGroup(envName, projectName, groupIndex, env.Services[groupIndex])
+		err = helmservice.UpdateHelmServiceInEnv(env, envSvcVersion.Service, ctx.UserName)
 		if err != nil {
-			mongotool.AbortTransaction(session)
 			return e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to update service %s in env %s/%s, isProudction %v", envSvcVersion.Service.ServiceName, envSvcVersion.ProductName, envSvcVersion.EnvName, envSvcVersion.Production))
 		}
 

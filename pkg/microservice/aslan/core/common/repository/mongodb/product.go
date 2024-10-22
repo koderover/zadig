@@ -160,6 +160,7 @@ func (c *ProductColl) Find(opt *ProductFindOptions) (*models.Product, error) {
 	if err != nil && mongo.ErrNoDocuments == err && opt.IgnoreNotFoundErr {
 		return nil, nil
 	}
+	res.LintServices()
 	return res, err
 }
 
@@ -442,9 +443,9 @@ func (c *ProductColl) Create(args *models.Product) error {
 	return err
 }
 
-// UpdateGroup TODO UpdateGroup needs to be optimized
+// @todo UpdateGroup needs to be optimized
 // Service info may be override when updating multiple services in same group at the sametime
-func (c *ProductColl) UpdateGroup(envName, productName string, groupIndex int, group []*models.ProductService) error {
+func (c *ProductColl) UpdateServicesGroup(productName, envName string, groupIndex int, group []*models.ProductService) error {
 	serviceGroup := fmt.Sprintf("services.%d", groupIndex)
 	query := bson.M{
 		"env_name":     envName,
@@ -458,6 +459,80 @@ func (c *ProductColl) UpdateGroup(envName, productName string, groupIndex int, g
 	_, err := c.UpdateOne(mongotool.SessionContext(context.TODO(), c.Session), query, bson.M{"$set": change})
 
 	return err
+}
+
+// @todo UpdateServices needs to be optimized
+// Service info may be override when updating multiple services at the sametime
+func (c *ProductColl) UpdateAllServices(productName, envName string, services [][]*models.ProductService) error {
+	query := bson.M{
+		"env_name":     envName,
+		"product_name": productName,
+	}
+	change := bson.M{
+		"update_time": time.Now().Unix(),
+		"services":    services,
+	}
+
+	_, err := c.UpdateOne(mongotool.SessionContext(context.TODO(), c.Session), query, bson.M{"$set": change})
+
+	return err
+}
+
+// Note: Only use for update a service
+// UpdateOneService updates a specific service in a group by its index
+func (c *ProductColl) UpdateOneService(productName, envName string, groupIndex, serviceIndex int, service *models.ProductService) error {
+	servicePath := fmt.Sprintf("services.%d.%d", groupIndex, serviceIndex)
+	query := bson.M{
+		"env_name":     envName,
+		"product_name": productName,
+		fmt.Sprintf("%s.service_name", servicePath): service.ServiceName, // ensure service_name equals
+		servicePath: bson.M{"$exists": true}, // ensure the service exists
+	}
+	change := bson.M{
+		"$set": bson.M{
+			servicePath:   service,
+			"update_time": time.Now().Unix(),
+		},
+	}
+
+	result, err := c.UpdateOne(mongotool.SessionContext(context.TODO(), c.Session), query, change)
+	if err != nil {
+		return err
+	}
+
+	if result.MatchedCount == 0 {
+		return fmt.Errorf("no matching record found to update at %s", servicePath)
+	}
+
+	return nil
+}
+
+// Note: Only use for add a service
+// AddOneService adds a specific service in a group by its index if it does not already exist
+func (c *ProductColl) AddOneService(productName, envName string, groupIndex, serviceIndex int, service *models.ProductService) error {
+	servicePath := fmt.Sprintf("services.%d.%d", groupIndex, serviceIndex)
+	query := bson.M{
+		"env_name":     envName,
+		"product_name": productName,
+		servicePath:    bson.M{"$exists": false}, // ensure the service does not exist
+	}
+	change := bson.M{
+		"$set": bson.M{
+			servicePath:   service,
+			"update_time": time.Now().Unix(),
+		},
+	}
+
+	result, err := c.UpdateOne(mongotool.SessionContext(context.TODO(), c.Session), query, change)
+	if err != nil {
+		return err
+	}
+
+	if result.MatchedCount == 0 {
+		return fmt.Errorf("service already exists at %s", servicePath)
+	}
+
+	return nil
 }
 
 func (c *ProductColl) UpdateDeployStrategyAndGlobalVariable(envName, productName string, deployStrategy map[string]string, globalVariables []*types.GlobalVariableKV) error {

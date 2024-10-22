@@ -42,17 +42,15 @@ import (
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	templatemodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
+	helmservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/helm"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/notify"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/repository"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
-	"github.com/koderover/zadig/v2/pkg/setting"
 	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
 	"github.com/koderover/zadig/v2/pkg/tool/cache"
 	helmtool "github.com/koderover/zadig/v2/pkg/tool/helmclient"
 	kubeutil "github.com/koderover/zadig/v2/pkg/tool/kube/util"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
-	"github.com/koderover/zadig/v2/pkg/tool/mongo"
 	"github.com/koderover/zadig/v2/pkg/types"
 	"github.com/koderover/zadig/v2/pkg/util"
 	"github.com/koderover/zadig/v2/pkg/util/fs"
@@ -325,96 +323,8 @@ func UpgradeHelmRelease(product *commonmodels.Product, productSvc *commonmodels.
 		return err
 	}
 
-	session := mongo.Session()
-	defer session.EndSession(context.TODO())
-
-	err = mongo.StartTransaction(session)
-	if err != nil {
-		return err
-	}
-
-	err = commonutil.CreateEnvServiceVersion(product, productSvc, user, session, log.SugaredLogger())
-	if err != nil {
-		log.Errorf("failed to create helm service version, err: %v", err)
-	}
-
-	productColl := commonrepo.NewProductCollWithSession(session)
-
-	envLock := cache.NewRedisLock(fmt.Sprintf("UpgradeHelmRelease:%s:%s", product.ProductName, product.EnvName))
-	envLock.Lock()
-	defer envLock.Unlock()
-
-	newProductInfo, err := productColl.Find(&commonrepo.ProductFindOptions{Name: product.ProductName, EnvName: product.EnvName})
-	if err != nil {
-		mongo.AbortTransaction(session)
-		return errors.Wrapf(err, "failed to find product %s", product.ProductName)
-	}
-
-	productSvcMap := newProductInfo.GetServiceMap()
-	productChartSvcMap := newProductInfo.GetChartServiceMap()
-	if productSvc.FromZadig() {
-		productSvcMap[productSvc.ServiceName] = productSvc
-		productSvcMap[productSvc.ServiceName].UpdateTime = time.Now().Unix()
-		delete(productChartSvcMap, productSvc.ReleaseName)
-	} else {
-		productChartSvcMap[productSvc.ReleaseName] = productSvc
-		productChartSvcMap[productSvc.ReleaseName].UpdateTime = time.Now().Unix()
-		for _, svc := range productSvcMap {
-			if svc.ReleaseName == productSvc.ReleaseName {
-				delete(productSvcMap, svc.ServiceName)
-				break
-			}
-		}
-	}
-
-	templateProduct, err := template.NewProductCollWithSess(session).Find(product.ProductName)
-	if err != nil {
-		mongo.AbortTransaction(session)
-		return errors.Wrapf(err, "failed to find template product %s", product.ProductName)
-	}
-
-	newProductInfo.Services = [][]*commonmodels.ProductService{}
-	serviceOrchestration := templateProduct.Services
-	if product.Production {
-		serviceOrchestration = templateProduct.ProductionServices
-	}
-
-	for i, svcGroup := range serviceOrchestration {
-		if len(newProductInfo.Services) >= i {
-			newProductInfo.Services = append(newProductInfo.Services, []*commonmodels.ProductService{})
-		}
-
-		for _, svc := range svcGroup {
-			if productSvcMap[svc] != nil {
-				newProductInfo.Services[i] = append(newProductInfo.Services[i], productSvcMap[svc])
-			}
-		}
-	}
-	for _, service := range productChartSvcMap {
-		newProductInfo.Services[len(newProductInfo.Services)-1] = append(newProductInfo.Services[len(newProductInfo.Services)-1], service)
-	}
-
-	if productSvc.DeployStrategy == setting.ServiceDeployStrategyDeploy {
-		if productSvc.FromZadig() {
-			newProductInfo.ServiceDeployStrategy = commonutil.SetServiceDeployStrategyDepoly(newProductInfo.ServiceDeployStrategy, productSvc.ServiceName)
-		} else {
-			newProductInfo.ServiceDeployStrategy = commonutil.SetChartServiceDeployStrategyDepoly(newProductInfo.ServiceDeployStrategy, productSvc.ReleaseName)
-		}
-	} else if productSvc.DeployStrategy == setting.ServiceDeployStrategyImport {
-		if productSvc.FromZadig() {
-			newProductInfo.ServiceDeployStrategy = commonutil.SetServiceDeployStrategyImport(newProductInfo.ServiceDeployStrategy, productSvc.ServiceName)
-		} else {
-			newProductInfo.ServiceDeployStrategy = commonutil.SetChartServiceDeployStrategyImport(newProductInfo.ServiceDeployStrategy, productSvc.ReleaseName)
-		}
-	}
-
-	if err = productColl.Update(newProductInfo); err != nil {
-		log.Errorf("update product %s error: %s", newProductInfo.ProductName, err.Error())
-		mongo.AbortTransaction(session)
-		return fmt.Errorf("failed to update product info, name %s", newProductInfo.ProductName)
-	}
-
-	return mongo.CommitTransaction(session)
+	err = helmservice.UpdateHelmServiceInEnv(product, productSvc, user)
+	return err
 }
 
 func UninstallServiceByName(helmClient helmclient.Client, serviceName string, env *commonmodels.Product, revision int64, force bool) error {
@@ -517,7 +427,8 @@ func DeleteHelmReleaseFromEnv(userName, requestID string, productInfo *commonmod
 		}
 	}
 
-	for serviceGroupIndex, serviceGroup := range productInfo.Services {
+	newSevices := make([][]*commonmodels.ProductService, 0)
+	for _, serviceGroup := range productInfo.Services {
 		var group []*commonmodels.ProductService
 		for _, service := range serviceGroup {
 			if !service.FromZadig() {
@@ -530,11 +441,13 @@ func DeleteHelmReleaseFromEnv(userName, requestID string, productInfo *commonmod
 				}
 			}
 		}
-		err := commonrepo.NewProductColl().UpdateGroup(productInfo.EnvName, productInfo.ProductName, serviceGroupIndex, group)
-		if err != nil {
-			log.Errorf("update product error: %v", err)
-			return err
-		}
+		newSevices = append(newSevices, group)
+	}
+	productInfo.Services = newSevices
+	err = helmservice.UpdateHelmAllServicesInEnv(productInfo.ProductName, productInfo.EnvName, productInfo.Services, productInfo.Production)
+	if err != nil {
+		log.Errorf("UpdateHelmProductServices error: %v", err)
+		return err
 	}
 
 	// services deployed by zadig
@@ -656,7 +569,8 @@ func DeleteHelmServiceFromEnv(userName, requestID string, productInfo *commonmod
 	deleteServiceSet := sets.NewString(serviceNames...)
 	deletedSvcRevision := make(map[string]int64)
 
-	for serviceGroupIndex, serviceGroup := range productInfo.Services {
+	newServices := make([][]*commonmodels.ProductService, 0)
+	for _, serviceGroup := range productInfo.Services {
 		var group []*commonmodels.ProductService
 		for _, service := range serviceGroup {
 			if !deleteServiceSet.Has(service.ServiceName) {
@@ -665,11 +579,14 @@ func DeleteHelmServiceFromEnv(userName, requestID string, productInfo *commonmod
 				deletedSvcRevision[service.ServiceName] = service.Revision
 			}
 		}
-		err := commonrepo.NewProductColl().UpdateGroup(productInfo.EnvName, productInfo.ProductName, serviceGroupIndex, group)
-		if err != nil {
-			log.Errorf("update product error: %v", err)
-			return err
-		}
+		newServices = append(newServices, group)
+	}
+	productInfo.Services = newServices
+	err = helmservice.UpdateHelmAllServicesInEnv(productInfo.ProductName, productInfo.EnvName, productInfo.Services, productInfo.Production)
+	if err != nil {
+		err = fmt.Errorf("UpdateHelmProductServices error: %v", err)
+		log.Error(err)
+		return err
 	}
 
 	// services deployed by zadig

@@ -23,7 +23,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
-	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
+	helmservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/helm"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/service"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
@@ -53,7 +53,7 @@ func ListHelmRepos(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.Err = commonservice.ListHelmRepos(encryptedKey, ctx.Logger)
+	ctx.Resp, ctx.Err = helmservice.ListHelmRepos(encryptedKey, ctx.Logger)
 }
 
 // @Summary List Helm Repos By Project
@@ -88,14 +88,14 @@ func ListHelmReposByProject(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.Err = commonservice.ListHelmReposByProject(projectKey, ctx.Logger)
+	ctx.Resp, ctx.Err = helmservice.ListHelmReposByProject(projectKey, ctx.Logger)
 }
 
 func ListHelmReposPublic(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = commonservice.ListHelmReposPublic()
+	ctx.Resp, ctx.Err = helmservice.ListHelmReposPublic()
 }
 
 func CreateHelmRepo(c *gin.Context) {

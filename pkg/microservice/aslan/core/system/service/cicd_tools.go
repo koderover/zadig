@@ -21,7 +21,7 @@ import (
 
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
+	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/tool/crypto"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
@@ -46,7 +46,7 @@ func ListCICDTools(encryptedKey, toolType string, log *zap.SugaredLogger) ([]*co
 		return tools, nil
 	}
 
-	aesKey, err := service.GetAesKeyFromEncryptedKey(encryptedKey, log)
+	aesKey, err := commonutil.GetAesKeyFromEncryptedKey(encryptedKey, log)
 	if err != nil {
 		log.Errorf("List CI/CD Tools GetAesKeyFromEncryptedKey err:%v", err)
 		return nil, err

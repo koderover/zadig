@@ -28,6 +28,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models/msg_queue"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/gerrit"
+	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/webhook"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/workflowcontroller"
 	"github.com/koderover/zadig/v2/pkg/setting"
@@ -112,7 +113,7 @@ func EncryptKeyVals(encryptedKey string, kvs []*commonmodels.KeyVal, logger *zap
 	if encryptedKey == "" {
 		return nil
 	}
-	aesKey, err := GetAesKeyFromEncryptedKey(encryptedKey, logger)
+	aesKey, err := commonutil.GetAesKeyFromEncryptedKey(encryptedKey, logger)
 	if err != nil {
 		log.Errorf("EncypteKeyVals GetAesKeyFromEncryptedKey err:%v", err)
 		return err
@@ -133,7 +134,7 @@ func EncryptParams(encryptedKey string, params []*commonmodels.Param, logger *za
 	if encryptedKey == "" {
 		return nil
 	}
-	aesKey, err := GetAesKeyFromEncryptedKey(encryptedKey, logger)
+	aesKey, err := commonutil.GetAesKeyFromEncryptedKey(encryptedKey, logger)
 	if err != nil {
 		log.Errorf("EncyptParams GetAesKeyFromEncryptedKey err:%v", err)
 		return err

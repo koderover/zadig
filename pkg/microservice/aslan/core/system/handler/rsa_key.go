@@ -19,7 +19,7 @@ package handler
 import (
 	"github.com/gin-gonic/gin"
 
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
+	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 )
@@ -27,7 +27,7 @@ import (
 func GetRSAPublicKey(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	ctx.Resp, ctx.Err = service.GetRSAPublicKey()
+	ctx.Resp, ctx.Err = commonutil.GetRSAPublicKey()
 }
 
 func GetTextFromEncryptedKey(c *gin.Context) {
@@ -38,5 +38,5 @@ func GetTextFromEncryptedKey(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam
 		return
 	}
-	ctx.Resp, ctx.Err = service.GetAesKeyFromEncryptedKey(encryptedKey, ctx.Logger)
+	ctx.Resp, ctx.Err = commonutil.GetAesKeyFromEncryptedKey(encryptedKey, ctx.Logger)
 }

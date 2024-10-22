@@ -76,9 +76,9 @@ func ListRegistryNamespaces(encryptedKey string, getRealCredential bool, log *za
 		log.Errorf("RegistryNamespace.List error: %s", err)
 		return resp, fmt.Errorf("RegistryNamespace.List error: %s", err)
 	}
-	var aesKey *GetAesKeyFromEncryptedKeyResp
+	var aesKey *commonutil.GetAesKeyFromEncryptedKeyResp
 	if len(encryptedKey) > 0 {
-		aesKey, err = GetAesKeyFromEncryptedKey(encryptedKey, log)
+		aesKey, err = commonutil.GetAesKeyFromEncryptedKey(encryptedKey, log)
 		if err != nil {
 			log.Errorf("RegistryNamespace.List GetAesKeyFromEncryptedKey error: %s", err)
 			return nil, err

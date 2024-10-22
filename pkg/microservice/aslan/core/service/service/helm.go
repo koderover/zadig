@@ -46,6 +46,7 @@ import (
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
+	helmservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/helm"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/command"
 	fsservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/fs"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/repository"
@@ -888,7 +889,7 @@ func CreateOrUpdateHelmServiceFromRepo(projectName string, args *HelmServiceCrea
 			}()
 
 			// copy to latest dir and upload to s3
-			if err = commonservice.CopyAndUploadService(projectName, serviceName, currentFilePath, []string{fmt.Sprintf("%s-%d", serviceName, rev)}, args.Production); err != nil {
+			if err = helmservice.CopyAndUploadService(projectName, serviceName, currentFilePath, []string{fmt.Sprintf("%s-%d", serviceName, rev)}, args.Production); err != nil {
 				log.Errorf("Failed to save or upload files for service %s in project %s, error: %s", serviceName, projectName, err)
 				finalErr = e.ErrCreateTemplate.AddErr(err)
 				return
@@ -1072,7 +1073,7 @@ func CreateOrUpdateHelmServiceFromGitRepo(projectName string, args *HelmServiceC
 			}()
 
 			// save files to disk and upload them to s3
-			if err = commonservice.SaveAndUploadService(projectName, serviceName, []string{fmt.Sprintf("%s-%d", serviceName, rev)}, fsTree, args.Production); err != nil {
+			if err = helmservice.SaveAndUploadService(projectName, serviceName, []string{fmt.Sprintf("%s-%d", serviceName, rev)}, fsTree, args.Production); err != nil {
 				log.Errorf("Failed to save or upload files for service %s in project %s, error: %s", serviceName, projectName, err)
 				finalErr = e.ErrCreateTemplate.AddErr(err)
 				return
