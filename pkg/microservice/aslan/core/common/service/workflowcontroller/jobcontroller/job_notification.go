@@ -278,7 +278,6 @@ func sendWorkWxMessage(productName, workflowName, workflowDisplayName string, ta
 	}
 
 	if len(atList) > 0 {
-		fmt.Println("1111111111")
 		atMessage := fmt.Sprintf("##### **相关人员**: %s \n", strings.Join(atList, " "))
 
 		atMessageBody := &instantmessage.WeChatWorkCard{
@@ -286,9 +285,7 @@ func sendWorkWxMessage(productName, workflowName, workflowDisplayName string, ta
 			Markdown: instantmessage.Markdown{Content: atMessage},
 		}
 
-		resp, err := c.Post(uri, httpclient.SetBody(atMessageBody))
-
-		fmt.Println(">>>>>>>>>>>>>>>>>>", resp.Body())
+		_, err := c.Post(uri, httpclient.SetBody(atMessageBody))
 
 		if err != nil {
 			return err
@@ -312,6 +309,7 @@ func sendMailMessage(productName, workflowName, workflowDisplayName string, task
 
 	users, userMap := util.GeneFlatUsers(users)
 	for _, u := range users {
+		log.Infof("Sending Mail to user: %s", u.UserName)
 		info, ok := userMap[u.UserID]
 		if !ok {
 			info, err = user.New().GetUserByID(u.UserID)
