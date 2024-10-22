@@ -808,7 +808,7 @@ func (w *Service) sendNotification(title, content string, notify *models.NotifyC
 		}
 	default:
 		workflowDetailURL := fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/multi/%s/%d?display_name=%s", configbase.SystemAddress(), webhookNotify.ProjectName, webhookNotify.WorkflowName, webhookNotify.TaskID, url.PathEscape(webhookNotify.WorkflowDisplayName))
-		if err := w.SendWeChatWorkMessage(WeChatTextTypeMarkdown, notify.WeChatWebHook, workflowDetailURL, title, content); err != nil {
+		if err := w.SendWeChatWorkMessage(WeChatTextTypeTemplateCard, notify.WeChatWebHook, workflowDetailURL, title, content); err != nil {
 			return err
 		}
 	}
