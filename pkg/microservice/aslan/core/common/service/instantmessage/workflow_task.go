@@ -518,6 +518,10 @@ func (w *Service) getNotificationContent(notify *models.NotifyCtl, task *models.
 	}
 	webhookNotify.Stages = workflowNotifyStages
 
+	for i, content := range jobContents {
+		fmt.Printf(">>>>>>>>>>>>>>> jobcontent [%d] is [%s] <<<<<<<<<<<<<<<<\n", i, content)
+	}
+
 	title, err := getWorkflowTaskTplExec(tplTitle, workflowNotification)
 	if err != nil {
 		return "", "", nil, nil, err
@@ -600,7 +604,9 @@ func (w *Service) getNotificationContent(notify *models.NotifyCtl, task *models.
 		tplcontent := strings.Join(tplBaseInfo, "")
 		tplcontent += strings.Join(jobContents, "")
 		tplcontent = tplcontent + getNotifyAtContent(notify)
-		tplcontent = fmt.Sprintf("%s%s", title, tplcontent)
+		if notify.WebHookType != setting.NotifyWebHookTypeWechatWork {
+			tplcontent = fmt.Sprintf("%s%s", title, tplcontent)
+		}
 		content, err := getWorkflowTaskTplExec(tplcontent, workflowNotification)
 		if err != nil {
 			return "", "", nil, nil, err
