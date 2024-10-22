@@ -340,10 +340,15 @@ func sendMailMessage(productName, workflowName, workflowDisplayName string, task
 	return err
 }
 
-func generateDingDingNotificationMessage(title, content string) string {
+func generateDingDingNotificationMessage(title, content string, idList []string) string {
 	titleStr := fmt.Sprintf("#### <font color=#3270e3>%s</font>", title)
 
-	resp := fmt.Sprintf("%s\n%s", titleStr, content)
+	atMessage := ""
+	if len(idList) > 0 {
+		atMessage = fmt.Sprintf("##### **相关人员**: @%s \n", strings.Join(idList, "@"))
+	}
+
+	resp := fmt.Sprintf("%s\n%s\n%s", titleStr, content, atMessage)
 	return resp
 }
 
