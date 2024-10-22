@@ -49,22 +49,23 @@ type WebHookNotify struct {
 }
 
 type WorkflowNotify struct {
-	TaskID              int64                  `json:"task_id"`
-	ProjectName         string                 `json:"project_name"`
-	WorkflowName        string                 `json:"workflow_name"`
-	WorkflowDisplayName string                 `json:"workflow_display_name"`
-	Status              config.Status          `json:"status"`
-	Remark              string                 `json:"remark"`
-	DetailURL           string                 `json:"detail_url"`
-	Error               string                 `json:"error"`
-	CreateTime          int64                  `json:"create_time"`
-	StartTime           int64                  `json:"start_time"`
-	EndTime             int64                  `json:"end_time"`
-	Stages              []*WorkflowNotifyStage `json:"stages"`
-	TaskCreator         string                 `json:"task_creator"`
-	TaskCreatorID       string                 `json:"task_creator_id"`
-	TaskCreatorPhone    string                 `json:"task_creator_phone"`
-	TaskCreatorEmail    string                 `json:"task_creator_email"`
+	TaskID              int64                         `json:"task_id"`
+	ProjectName         string                        `json:"project_name"`
+	WorkflowName        string                        `json:"workflow_name"`
+	WorkflowDisplayName string                        `json:"workflow_display_name"`
+	Status              config.Status                 `json:"status"`
+	Remark              string                        `json:"remark"`
+	DetailURL           string                        `json:"detail_url"`
+	Error               string                        `json:"error"`
+	CreateTime          int64                         `json:"create_time"`
+	StartTime           int64                         `json:"start_time"`
+	EndTime             int64                         `json:"end_time"`
+	Stages              []*WorkflowNotifyStage        `json:"stages"`
+	TaskCreator         string                        `json:"task_creator"`
+	TaskCreatorID       string                        `json:"task_creator_id"`
+	TaskCreatorPhone    string                        `json:"task_creator_phone"`
+	TaskCreatorEmail    string                        `json:"task_creator_email"`
+	TaskType            config.CustomWorkflowTaskType `json:"task_type"`
 }
 
 type WorkflowNotifyStage struct {

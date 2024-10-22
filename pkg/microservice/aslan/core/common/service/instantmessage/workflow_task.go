@@ -302,6 +302,7 @@ func (w *Service) getNotificationContent(notify *models.NotifyCtl, task *models.
 		TaskCreatorID:       task.TaskCreatorID,
 		TaskCreatorPhone:    task.TaskCreatorPhone,
 		TaskCreatorEmail:    task.TaskCreatorEmail,
+		TaskType:            task.Type,
 	}
 
 	tplTitle := "{{if and (ne .WebHookType \"feishu\") (ne .WebHookType \"wechat\")}}#### {{end}}{{getIcon .Task.Status }}{{getTaskType .Task.Type}} {{.Task.WorkflowDisplayName}} #{{.Task.TaskID}} {{ taskStatus .Task.Status }} \n"
@@ -787,10 +788,21 @@ func getJobTaskTplExec(tplcontent string, args *jobTaskNotification) (string, er
 }
 
 func (w *Service) sendNotification(title, content string, notify *models.NotifyCtl, card *LarkCard, webhookNotify *webhooknotify.WorkflowNotify) error {
+	link := ""
+	switch webhookNotify.TaskType {
+	case config.WorkflowTaskTypeWorkflow:
+		link = fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/custom/%s?display_name=%s", configbase.SystemAddress(), webhookNotify.ProjectName, webhookNotify.WorkflowName, url.PathEscape(webhookNotify.WorkflowDisplayName))
+	case config.WorkflowTaskTypeScanning:
+		segs := strings.Split(webhookNotify.WorkflowName, "-")
+		link = fmt.Sprintf("%s/v1/projects/detail/%s/scanner/detail/%s/task/%d?id=%s", configbase.SystemAddress(), webhookNotify.ProjectName, url.PathEscape(webhookNotify.WorkflowDisplayName), webhookNotify.TaskID, segs[len(segs)-1])
+	case config.WorkflowTaskTypeTesting:
+		link = fmt.Sprintf("%s/v1/projects/detail/%s/test/detail/function/%s/%d", configbase.SystemAddress(), webhookNotify.ProjectName, url.PathEscape(webhookNotify.WorkflowDisplayName), webhookNotify.TaskID)
+	default:
+		link = fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/custom/%s?display_name=%s", configbase.SystemAddress(), webhookNotify.ProjectName, webhookNotify.WorkflowName, url.PathEscape(webhookNotify.WorkflowDisplayName))
+	}
 	switch notify.WebHookType {
 	case setting.NotifyWebHookTypeDingDing:
-		workflowDetailURL := fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/multi/%s/%d?display_name=%s", configbase.SystemAddress(), webhookNotify.ProjectName, webhookNotify.WorkflowName, webhookNotify.TaskID, url.PathEscape(webhookNotify.WorkflowDisplayName))
-		if err := w.sendDingDingMessage(notify.DingDingWebHook, title, content, workflowDetailURL, notify.AtMobiles, notify.IsAtAll); err != nil {
+		if err := w.sendDingDingMessage(notify.DingDingWebHook, title, content, link, notify.AtMobiles, notify.IsAtAll); err != nil {
 			return err
 		}
 	case setting.NotifyWebHookTypeFeishu:
@@ -811,8 +823,7 @@ func (w *Service) sendNotification(title, content string, notify *models.NotifyC
 			return fmt.Errorf("failed to send notification to webhook, address %s, token: %s, error: %v", notify.WebHookNotify.Address, notify.WebHookNotify.Token, err)
 		}
 	default:
-		workflowDetailURL := fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/multi/%s/%d?display_name=%s", configbase.SystemAddress(), webhookNotify.ProjectName, webhookNotify.WorkflowName, webhookNotify.TaskID, url.PathEscape(webhookNotify.WorkflowDisplayName))
-		if err := w.SendWeChatWorkMessage(WeChatTextTypeTemplateCard, notify.WeChatWebHook, workflowDetailURL, title, content); err != nil {
+		if err := w.SendWeChatWorkMessage(WeChatTextTypeTemplateCard, notify.WeChatWebHook, link, title, content); err != nil {
 			return err
 		}
 		atContent := getNotifyAtContent(notify)
