@@ -108,6 +108,10 @@ func (c *BuildColl) Find(opt *BuildFindOption) (*models.Build, error) {
 		query["product_name"] = opt.ProductName
 	}
 
+	if len(query) == 0 {
+		return nil, errors.New("empty query")
+	}
+
 	resp := new(models.Build)
 	err := c.Collection.FindOne(context.TODO(), query).Decode(resp)
 	if err != nil {

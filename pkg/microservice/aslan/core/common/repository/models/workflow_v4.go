@@ -286,7 +286,8 @@ type FreestyleJobSpec struct {
 	// fromjob/runtime, runtime 表示运行时输入，fromjob 表示从上游构建任务中获取
 	Source config.DeploySourceType `bson:"source"     yaml:"source"     json:"source"`
 	// 当 source 为 fromjob 时需要，指定部署镜像来源是上游哪一个构建任务
-	JobName string `bson:"job_name"             yaml:"job_name"             json:"job_name"`
+	JobName  string `bson:"job_name"             yaml:"job_name"             json:"job_name"`
+	RefRepos bool   `bson:"ref_repos"            yaml:"ref_repos"            json:"ref_repos"`
 	// save the origin quoted job name
 	OriginJobName string                  `bson:"origin_job_name"      yaml:"origin_job_name"     json:"origin_job_name"`
 	Properties    *JobProperties          `bson:"properties"           yaml:"properties"          json:"properties"`
@@ -297,15 +298,27 @@ type FreestyleJobSpec struct {
 
 type FreeStyleServiceInfo struct {
 	ServiceName   string              `bson:"service_name"              yaml:"service_name"          json:"service_name"`
-	ServiceModule string              `bson:"service_module"      yaml:"service_module"       json:"service_module"`
+	ServiceModule string              `bson:"service_module"            yaml:"service_module"        json:"service_module"`
 	Repos         []*types.Repository `bson:"repos"                     yaml:"repos"                 json:"repos"`
 	KeyVals       []*KeyVal           `bson:"key_vals"                  yaml:"key_vals"              json:"key_vals"`
 }
 
+func (i *FreeStyleServiceInfo) GetKey() string {
+	if i == nil {
+		return ""
+	}
+	return i.ServiceName + "-" + i.ServiceModule
+}
+
 type ZadigBuildJobSpec struct {
-	DockerRegistryID        string             `bson:"docker_registry_id"     yaml:"docker_registry_id"         json:"docker_registry_id"`
-	ServiceAndBuilds        []*ServiceAndBuild `bson:"service_and_builds"     yaml:"service_and_builds"         json:"service_and_builds"`
-	ServiceAndBuildsOptions []*ServiceAndBuild `bson:"-"                      yaml:"service_and_builds_options" json:"service_and_builds_options"`
+	Source                  config.DeploySourceType `bson:"source"                 yaml:"source"                      json:"source"`
+	JobName                 string                  `bson:"job_name"               yaml:"job_name"                    json:"job_name"`
+	OriginJobName           string                  `bson:"origin_job_name"        yaml:"origin_job_name"             json:"origin_job_name"`
+	RefRepos                bool                    `bson:"ref_repos"              yaml:"ref_repos"                   json:"ref_repos"`
+	DockerRegistryID        string                  `bson:"docker_registry_id"     yaml:"docker_registry_id"          json:"docker_registry_id"`
+	DefaultServiceAndBuilds []*ServiceAndBuild      `bson:"default_service_and_builds"     yaml:"default_service_and_builds"         json:"default_service_and_builds"`
+	ServiceAndBuilds        []*ServiceAndBuild      `bson:"service_and_builds"     yaml:"service_and_builds"         json:"service_and_builds"`
+	ServiceAndBuildsOptions []*ServiceAndBuild      `bson:"-"                      yaml:"service_and_builds_options" json:"service_and_builds_options"`
 }
 
 type ServiceAndBuild struct {
@@ -318,6 +331,13 @@ type ServiceAndBuild struct {
 	KeyVals          []*KeyVal           `bson:"key_vals"            yaml:"key_vals"             json:"key_vals"`
 	Repos            []*types.Repository `bson:"repos"               yaml:"repos"                json:"repos"`
 	ShareStorageInfo *ShareStorageInfo   `bson:"share_storage_info"  yaml:"share_storage_info"   json:"share_storage_info"`
+}
+
+func (i *ServiceAndBuild) GetKey() string {
+	if i == nil {
+		return ""
+	}
+	return i.ServiceName + "-" + i.ServiceModule
 }
 
 type ZadigDeployJobSpec struct {
@@ -481,6 +501,7 @@ type ZadigTestingJobSpec struct {
 	Source        config.DeploySourceType `bson:"source"            yaml:"source"            json:"source"`
 	JobName       string                  `bson:"job_name"          yaml:"job_name"          json:"job_name"`
 	OriginJobName string                  `bson:"origin_job_name"   yaml:"origin_job_name"   json:"origin_job_name"`
+	RefRepos      bool                    `bson:"ref_repos"         yaml:"ref_repos"         json:"ref_repos"`
 	// selected service in service testing
 	TargetServices []*ServiceTestTarget `bson:"target_services"   yaml:"target_services"   json:"target_services"`
 	// field for non-service tests.
@@ -513,6 +534,7 @@ type ZadigScanningJobSpec struct {
 	Source        config.DeploySourceType   `bson:"source"           yaml:"source"           json:"source"`
 	JobName       string                    `bson:"job_name"         yaml:"job_name"         json:"job_name"`
 	OriginJobName string                    `bson:"origin_job_name"  yaml:"origin_job_name"  json:"origin_job_name"`
+	RefRepos      bool                      `bson:"ref_repos"        yaml:"ref_repos"        json:"ref_repos"`
 	// Scannings used only for normal scanning. for service scanning we use
 	Scannings []*ScanningModule `bson:"scannings"        yaml:"scannings"        json:"scannings"`
 	// ServiceAndScannings is the configured field for this job. It includes all the services along with its configured scanning.

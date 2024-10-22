@@ -139,6 +139,10 @@ func (repo *Repository) GetRepoNamespace() string {
 	return repo.RepoOwner
 }
 
+func (repo *Repository) GetKey() string {
+	return strings.Join([]string{repo.Source, repo.GetRepoNamespace(), repo.RepoName}, "/")
+}
+
 type RepoSource string
 
 const (

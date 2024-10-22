@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"sync"
 
 	"github.com/koderover/zadig/v2/pkg/util"
 	"go.uber.org/zap"
@@ -31,6 +30,7 @@ import (
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
+	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	codehostdb "github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/codehost/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
@@ -397,9 +397,11 @@ func (j *VMDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		if j.spec.OriginJobName != "" {
 			j.spec.JobName = j.spec.OriginJobName
 		}
-		targets, err := j.getOriginReferedJobTargets(j.spec.JobName, int(taskID))
+
+		referredJob := getOriginJobName(j.workflow, j.spec.JobName)
+		targets, err := j.getOriginReferedJobTargets(referredJob, int(taskID))
 		if err != nil {
-			return resp, fmt.Errorf("get origin refered job: %s targets failed, err: %v", j.spec.JobName, err)
+			return resp, fmt.Errorf("get origin refered job: %s targets failed, err: %v", referredJob, err)
 		}
 
 		s3Storage, err = commonrepo.NewS3StorageColl().FindDefault()
@@ -418,10 +420,7 @@ func (j *VMDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		originS3StorageSubfolder = s3Storage.Subfolder
 	}
 
-	var (
-		buildMap         sync.Map
-		buildTemplateMap sync.Map
-	)
+	buildSvc := commonservice.NewBuildService()
 	for _, vmDeployInfo := range j.spec.ServiceAndVMDeploys {
 		s3Storage.Subfolder = originS3StorageSubfolder
 
@@ -429,20 +428,9 @@ func (j *VMDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		if !ok {
 			return resp, fmt.Errorf("service %s not found", vmDeployInfo.ServiceName)
 		}
-		var buildInfo *commonmodels.Build
-		buildMapValue, ok := buildMap.Load(service.BuildName)
-		if !ok {
-			buildInfo, err = commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: service.BuildName, ProductName: j.workflow.Project})
-			if err != nil {
-				return resp, fmt.Errorf("find build: %s error: %v", service.BuildName, err)
-			}
-			buildMap.Store(service.BuildName, buildInfo)
-		} else {
-			buildInfo = buildMapValue.(*commonmodels.Build)
-		}
-		// it only fills build detail created from template
-		if err := fillBuildDetail(buildInfo, vmDeployInfo.ServiceName, vmDeployInfo.ServiceName, &buildTemplateMap); err != nil {
-			return resp, err
+		buildInfo, err := buildSvc.GetBuild(service.BuildName, vmDeployInfo.ServiceName, vmDeployInfo.ServiceModule)
+		if err != nil {
+			return resp, fmt.Errorf("get build info for service %s error: %v", vmDeployInfo.ServiceName, err)
 		}
 		basicImage, err := commonrepo.NewBasicImageColl().Find(buildInfo.PreDeploy.ImageID)
 		if err != nil {

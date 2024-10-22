@@ -256,7 +256,9 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 						{
 							Name:    "build",
 							JobType: config.JobZadigBuild,
-							Spec:    commonmodels.ZadigBuildJobSpec{},
+							Spec: commonmodels.ZadigBuildJobSpec{
+								Source: config.SourceRuntime,
+							},
 						},
 					},
 				},
@@ -289,7 +291,9 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 						{
 							Name:    "build",
 							JobType: config.JobZadigBuild,
-							Spec:    commonmodels.ZadigBuildJobSpec{},
+							Spec: commonmodels.ZadigBuildJobSpec{
+								Source: config.SourceRuntime,
+							},
 						},
 					},
 				},
@@ -405,7 +409,9 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 						{
 							Name:    "build",
 							JobType: config.JobZadigBuild,
-							Spec:    commonmodels.ZadigBuildJobSpec{},
+							Spec: commonmodels.ZadigBuildJobSpec{
+								Source: config.SourceRuntime,
+							},
 						},
 					},
 				},
@@ -451,7 +457,9 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 						{
 							Name:    "build",
 							JobType: config.JobZadigBuild,
-							Spec:    commonmodels.ZadigBuildJobSpec{},
+							Spec: commonmodels.ZadigBuildJobSpec{
+								Source: config.SourceRuntime,
+							},
 						},
 					},
 				},
@@ -550,7 +558,9 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 						{
 							Name:    "build",
 							JobType: config.JobZadigBuild,
-							Spec:    commonmodels.ZadigBuildJobSpec{},
+							Spec: commonmodels.ZadigBuildJobSpec{
+								Source: config.SourceRuntime,
+							},
 						},
 					},
 				},
@@ -583,7 +593,9 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 						{
 							Name:    "build",
 							JobType: config.JobZadigBuild,
-							Spec:    commonmodels.ZadigBuildJobSpec{},
+							Spec: commonmodels.ZadigBuildJobSpec{
+								Source: config.SourceRuntime,
+							},
 						},
 					},
 				},
@@ -1122,7 +1134,9 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 						{
 							Name:    "build",
 							JobType: config.JobZadigBuild,
-							Spec:    commonmodels.ZadigBuildJobSpec{},
+							Spec: commonmodels.ZadigBuildJobSpec{
+								Source: config.SourceRuntime,
+							},
 						},
 					},
 				},
@@ -1181,7 +1195,9 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 						{
 							Name:    "build",
 							JobType: config.JobZadigBuild,
-							Spec:    commonmodels.ZadigBuildJobSpec{},
+							Spec: commonmodels.ZadigBuildJobSpec{
+								Source: config.SourceRuntime,
+							},
 						},
 					},
 				},
@@ -1240,7 +1256,9 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 						{
 							Name:    "build",
 							JobType: config.JobZadigBuild,
-							Spec:    commonmodels.ZadigBuildJobSpec{},
+							Spec: commonmodels.ZadigBuildJobSpec{
+								Source: config.SourceRuntime,
+							},
 						},
 					},
 				},
@@ -1284,7 +1302,9 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 						{
 							Name:    "build",
 							JobType: config.JobZadigBuild,
-							Spec:    commonmodels.ZadigBuildJobSpec{},
+							Spec: commonmodels.ZadigBuildJobSpec{
+								Source: config.SourceRuntime,
+							},
 						},
 					},
 				},
@@ -1340,7 +1360,9 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 						{
 							Name:    "build",
 							JobType: config.JobZadigBuild,
-							Spec:    commonmodels.ZadigBuildJobSpec{},
+							Spec: commonmodels.ZadigBuildJobSpec{
+								Source: config.SourceRuntime,
+							},
 						},
 					},
 				},
@@ -1457,7 +1479,9 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 						{
 							Name:    "build",
 							JobType: config.JobZadigBuild,
-							Spec:    commonmodels.ZadigBuildJobSpec{},
+							Spec: commonmodels.ZadigBuildJobSpec{
+								Source: config.SourceRuntime,
+							},
 						},
 					},
 				},

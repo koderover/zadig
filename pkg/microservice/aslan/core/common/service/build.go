@@ -17,7 +17,9 @@ limitations under the License.
 package service
 
 import (
+	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"go.uber.org/zap"
@@ -218,4 +220,100 @@ func MergeParams(templateEnvs []*commonmodels.Param, customEnvs []*commonmodels.
 		}
 	}
 	return retEnvs
+}
+
+type BuildService struct {
+	BuildMap         sync.Map
+	BuildTemplateMap sync.Map
+}
+
+func NewBuildService() *BuildService {
+	return &BuildService{
+		BuildMap:         sync.Map{},
+		BuildTemplateMap: sync.Map{},
+	}
+}
+
+func (c *BuildService) GetBuild(buildName, serviceName, serviceModule string) (*commonmodels.Build, error) {
+	var err error
+	buildInfo := &commonmodels.Build{}
+	buildMapValue, ok := c.BuildMap.Load(buildName)
+	if !ok {
+		buildInfo, err = commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: buildName})
+		if err != nil {
+			c.BuildMap.Store(buildName, nil)
+			return nil, fmt.Errorf("find build: %s error: %v", buildName, err)
+		}
+		c.BuildMap.Store(buildName, buildInfo)
+	} else {
+		if buildMapValue == nil {
+			return nil, fmt.Errorf("failed to find build: %s", buildName)
+		}
+		buildInfo = buildMapValue.(*commonmodels.Build)
+	}
+
+	if err := FillBuildDetail(buildInfo, serviceName, serviceModule, &c.BuildTemplateMap); err != nil {
+		return nil, err
+	}
+	return buildInfo, nil
+}
+
+func FillBuildDetail(moduleBuild *commonmodels.Build, serviceName, serviceModule string, cacheMap *sync.Map) error {
+	if moduleBuild.TemplateID == "" {
+		return nil
+	}
+
+	var err error
+	var buildTemplate *commonmodels.BuildTemplate
+
+	if cacheMap == nil {
+		buildTemplate, err = commonrepo.NewBuildTemplateColl().Find(&commonrepo.BuildTemplateQueryOption{
+			ID: moduleBuild.TemplateID,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to find build template with id: %s, err: %s", moduleBuild.TemplateID, err)
+		}
+	} else {
+		buildTemplateMapValue, ok := cacheMap.Load(moduleBuild.TemplateID)
+		if !ok {
+			buildTemplate, err = commonrepo.NewBuildTemplateColl().Find(&commonrepo.BuildTemplateQueryOption{
+				ID: moduleBuild.TemplateID,
+			})
+			if err != nil {
+				return fmt.Errorf("failed to find build template with id: %s, err: %s", moduleBuild.TemplateID, err)
+			}
+			cacheMap.Store(moduleBuild.TemplateID, buildTemplate)
+		} else {
+			buildTemplate = buildTemplateMapValue.(*commonmodels.BuildTemplate)
+		}
+	}
+
+	moduleBuild.Timeout = buildTemplate.Timeout
+	moduleBuild.PreBuild = buildTemplate.PreBuild
+	moduleBuild.JenkinsBuild = buildTemplate.JenkinsBuild
+	moduleBuild.ScriptType = buildTemplate.ScriptType
+	moduleBuild.Scripts = buildTemplate.Scripts
+	moduleBuild.PostBuild = buildTemplate.PostBuild
+	moduleBuild.SSHs = buildTemplate.SSHs
+	moduleBuild.PMDeployScripts = buildTemplate.PMDeployScripts
+	moduleBuild.CacheEnable = buildTemplate.CacheEnable
+	moduleBuild.CacheDirType = buildTemplate.CacheDirType
+	moduleBuild.CacheUserDir = buildTemplate.CacheUserDir
+	moduleBuild.AdvancedSettingsModified = buildTemplate.AdvancedSettingsModified
+	moduleBuild.Outputs = buildTemplate.Outputs
+	moduleBuild.Infrastructure = buildTemplate.Infrastructure
+	moduleBuild.VMLabels = buildTemplate.VmLabels
+
+	// repos are configured by service modules
+	for _, serviceConfig := range moduleBuild.Targets {
+		if serviceConfig.ServiceName == serviceName && serviceConfig.ServiceModule == serviceModule {
+			moduleBuild.Repos = serviceConfig.Repos
+			if moduleBuild.PreBuild == nil {
+				moduleBuild.PreBuild = &commonmodels.PreBuild{}
+			}
+			moduleBuild.PreBuild.Envs = MergeBuildEnvs(moduleBuild.PreBuild.Envs, serviceConfig.Envs)
+			break
+		}
+	}
+	return nil
 }
