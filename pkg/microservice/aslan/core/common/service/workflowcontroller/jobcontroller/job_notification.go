@@ -341,7 +341,7 @@ func sendMailMessage(title, message string, users []*commonmodels.User, callerID
 }
 
 func generateDingDingNotificationMessage(title, content string, idList []string) string {
-	titleStr := fmt.Sprintf("#### <font color=#3270e3>%s</font>", title)
+	titleStr := fmt.Sprintf("### <font color=#3270e3>**%s**</font>", title)
 
 	atMessage := ""
 	if len(idList) > 0 {
