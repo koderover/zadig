@@ -102,7 +102,7 @@ func (c *NotificationJobCtl) Run(ctx context.Context) {
 			return
 		}
 	} else if c.jobTaskSpec.WebHookType == setting.NotifyWebHookTypeMail {
-		err := sendMailMessage(c.workflowCtx.ProjectName, c.workflowCtx.WorkflowName, c.workflowCtx.WorkflowDisplayName, c.workflowCtx.TaskID, c.jobTaskSpec.Title, c.jobTaskSpec.Content, c.jobTaskSpec.MailUsers)
+		err := sendMailMessage(c.jobTaskSpec.Title, c.jobTaskSpec.Content, c.jobTaskSpec.MailUsers, c.workflowCtx.WorkflowTaskCreatorUserID)
 		if err != nil {
 			c.logger.Error(err)
 			c.job.Status = config.StatusFailed
@@ -295,7 +295,7 @@ func sendWorkWxMessage(productName, workflowName, workflowDisplayName string, ta
 	return nil
 }
 
-func sendMailMessage(productName, workflowName, workflowDisplayName string, taskID int64, title, message string, users []*commonmodels.User) error {
+func sendMailMessage(title, message string, users []*commonmodels.User, callerID string) error {
 	if len(users) == 0 {
 		return nil
 	}
@@ -305,7 +305,7 @@ func sendMailMessage(productName, workflowName, workflowDisplayName string, task
 		return err
 	}
 
-	users, userMap := util.GeneFlatUsers(users)
+	users, userMap := util.GeneFlatUsersWithCaller(users, callerID)
 	for _, u := range users {
 		log.Infof("Sending Mail to user: %s", u.UserName)
 		info, ok := userMap[u.UserID]

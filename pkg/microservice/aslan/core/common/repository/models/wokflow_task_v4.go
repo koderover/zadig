@@ -672,6 +672,7 @@ type WorkflowTaskCtx struct {
 	DockerMountDir              string
 	ConfigMapMountDir           string
 	WorkflowTaskCreatorUsername string
+	WorkflowTaskCreatorUserID   string
 	WorkflowTaskCreatorEmail    string
 	WorkflowTaskCreatorMobile   string
 	WorkflowKeyVals             []*KeyVal
