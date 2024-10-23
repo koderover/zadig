@@ -305,7 +305,7 @@ func (w *Service) getNotificationContent(notify *models.NotifyCtl, task *models.
 		TaskType:            task.Type,
 	}
 
-	tplTitle := "{{if and (ne .WebHookType \"feishu\") (ne .WebHookType \"wechat\")}}#### {{end}}{{if eq .WebHookType \"dingding\"}}<font color=#3270e3>{{end}}{{getIcon .Task.Status }}{{getTaskType .Task.Type}} {{.Task.WorkflowDisplayName}} #{{.Task.TaskID}} {{ taskStatus .Task.Status }}{{if eq .WebHookType \"dingding\"}}</font>{{end}} \n"
+	tplTitle := "{{if and (ne .WebHookType \"feishu\") (ne .WebHookType \"wechat\")}}#### {{end}}{{if eq .WebHookType \"dingding\"}}<font color=\"{{ getColor .Task.Status }}\">{{end}}{{getIcon .Task.Status }}{{getTaskType .Task.Type}} {{.Task.WorkflowDisplayName}} #{{.Task.TaskID}} {{ taskStatus .Task.Status }}{{if eq .WebHookType \"dingding\"}}</font>{{end}} \n"
 	mailTplTitle := "{{getIcon .Task.Status }} {{getTaskType .Task.Type}} {{.Task.WorkflowDisplayName}}#{{.Task.TaskID}} {{ taskStatus .Task.Status }}"
 
 	tplBaseInfo := []string{"{{if eq .WebHookType \"dingding\"}}##### {{end}}{{if ne .WebHookType \"wechat\"}}**{{end}}执行用户{{if ne .WebHookType \"wechat\"}}**{{end}}：{{.Task.TaskCreator}} \n",
@@ -653,13 +653,10 @@ func getWorkflowTaskTplExec(tplcontent string, args *workflowTaskNotification) (
 		},
 		"getColor": func(status config.Status) string {
 			if status == config.StatusPassed || status == config.StatusCreated {
-				return markdownColorInfo
-			} else if status == config.StatusTimeout || status == config.StatusCancelled {
-				return markdownColorComment
-			} else if status == config.StatusFailed {
-				return markdownColorWarning
+				return textColorGreen
+			} else {
+				return textColorRed
 			}
-			return markdownColorComment
 		},
 		"taskStatus": func(status config.Status) string {
 			if status == config.StatusPassed {

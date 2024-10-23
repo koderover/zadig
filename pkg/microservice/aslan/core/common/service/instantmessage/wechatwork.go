@@ -21,12 +21,17 @@ import (
 )
 
 const (
-	markdownColorInfo                   = "info"
-	markdownColorComment                = "comment"
-	markdownColorWarning                = "warning"
+	markdownColorInfo    = "info"
+	markdownColorComment = "comment"
+	markdownColorWarning = "warning"
+
 	weChatTextTypeText         TextType = "text"
 	WeChatTextTypeMarkdown     TextType = "markdown"
 	WeChatTextTypeTemplateCard TextType = "template_card"
+
+	textColorBlue  = "#3270e3"
+	textColorGreen = "#2c672b"
+	textColorRed   = "#ad3228"
 )
 
 type TextType string
