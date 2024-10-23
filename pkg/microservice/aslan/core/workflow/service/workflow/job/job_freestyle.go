@@ -549,8 +549,12 @@ func (j *FreeStyleJob) GetOutPuts(log *zap.SugaredLogger) []string {
 		return resp
 	}
 
-	jobKey := j.job.Name
-	resp = append(resp, getOutputKey(jobKey, j.spec.Outputs)...)
+	if j.spec.FreestyleJobType == config.ServiceFreeStyleJobType {
+		resp = append(resp, getOutputKey(j.job.Name+".<SERVICE>.<MODULE>", j.spec.Outputs)...)
+	} else if j.spec.FreestyleJobType == config.NormalFreeStyleJobType {
+		jobKey := j.job.Name
+		resp = append(resp, getOutputKey(jobKey, j.spec.Outputs)...)
+	}
 	return resp
 }
 
@@ -575,7 +579,7 @@ func (j *FreeStyleJob) getOriginReferedJobTargets(jobName string) ([]*commonmode
 					target := &commonmodels.FreeStyleServiceInfo{
 						ServiceName:   build.ServiceName,
 						ServiceModule: build.ServiceModule,
-						KeyVals:       j.spec.Properties.Envs,
+						KeyVals:       j.spec.Properties.DeepCopyEnvs(),
 					}
 					if originTarget, ok := originTargetMap[target.GetKey()]; ok {
 						target.Repos = originTarget.Repos
@@ -596,7 +600,7 @@ func (j *FreeStyleJob) getOriginReferedJobTargets(jobName string) ([]*commonmode
 					target := &commonmodels.FreeStyleServiceInfo{
 						ServiceName:   distribute.ServiceName,
 						ServiceModule: distribute.ServiceModule,
-						KeyVals:       j.spec.Properties.Envs,
+						KeyVals:       j.spec.Properties.DeepCopyEnvs(),
 					}
 					if originTarget, ok := originTargetMap[target.GetKey()]; ok {
 						target.Repos = originTarget.Repos
@@ -618,7 +622,7 @@ func (j *FreeStyleJob) getOriginReferedJobTargets(jobName string) ([]*commonmode
 						target := &commonmodels.FreeStyleServiceInfo{
 							ServiceName:   svc.ServiceName,
 							ServiceModule: module.ServiceModule,
-							KeyVals:       j.spec.Properties.Envs,
+							KeyVals:       j.spec.Properties.DeepCopyEnvs(),
 						}
 						if originTarget, ok := originTargetMap[target.GetKey()]; ok {
 							target.Repos = originTarget.Repos
@@ -640,7 +644,7 @@ func (j *FreeStyleJob) getOriginReferedJobTargets(jobName string) ([]*commonmode
 					target := &commonmodels.FreeStyleServiceInfo{
 						ServiceName:   svc.ServiceName,
 						ServiceModule: svc.ServiceModule,
-						KeyVals:       j.spec.Properties.Envs,
+						KeyVals:       j.spec.Properties.DeepCopyEnvs(),
 					}
 					if originTarget, ok := originTargetMap[target.GetKey()]; ok {
 						target.Repos = originTarget.Repos
@@ -664,7 +668,7 @@ func (j *FreeStyleJob) getOriginReferedJobTargets(jobName string) ([]*commonmode
 					target := &commonmodels.FreeStyleServiceInfo{
 						ServiceName:   svc.ServiceName,
 						ServiceModule: svc.ServiceModule,
-						KeyVals:       j.spec.Properties.Envs,
+						KeyVals:       j.spec.Properties.DeepCopyEnvs(),
 					}
 					if originTarget, ok := originTargetMap[target.GetKey()]; ok {
 						target.Repos = originTarget.Repos
