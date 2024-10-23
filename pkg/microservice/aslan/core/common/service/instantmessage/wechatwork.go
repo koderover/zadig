@@ -30,8 +30,8 @@ const (
 	WeChatTextTypeTemplateCard TextType = "template_card"
 
 	textColorBlue  = "#3270e3"
-	textColorGreen = "#2c672b"
-	textColorRed   = "#ad3228"
+	textColorGreen = "#00a13e"
+	textColorRed   = "#eb0823"
 )
 
 type TextType string
