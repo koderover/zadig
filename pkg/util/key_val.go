@@ -16,7 +16,16 @@ limitations under the License.
 
 package util
 
-import "gopkg.in/yaml.v3"
+import (
+	"fmt"
+	"regexp"
+
+	"github.com/traefik/yaegi/interp"
+	"github.com/traefik/yaegi/stdlib"
+	"gopkg.in/yaml.v3"
+)
+
+const goTemplateKeyRegExp = `{{\.(\w+)}}`
 
 type KVInput []*KeyValue
 
@@ -40,4 +49,46 @@ func (i KVInput) FormYamlString() (string, error) {
 		return "", err
 	}
 	return string(out), nil
+}
+
+// FindVariableKeyRef finds all the key used in the input param and return them as a string array
+func FindVariableKeyRef(input string) []string {
+	re := regexp.MustCompile(goTemplateKeyRegExp)
+
+	// Find all matches
+	matches := re.FindAllStringSubmatch(input, -1)
+
+	// Extract the keys
+	keys := make([]string, 0, len(matches))
+	for _, match := range matches {
+		if len(match) > 1 {
+			keys = append(keys, match[1]) // match[1] contains the key
+		}
+	}
+
+	return keys
+}
+
+// RunScriptWithCallFunc runs the given script with a caller function, the response is now forced to be string array.
+func RunScriptWithCallFunc(script, callFunc string) ([]string, error) {
+	i := interp.New(interp.Options{})
+	i.Use(stdlib.Symbols)
+
+	// Evaluate the code snippet
+	_, err := i.Eval(script)
+	if err != nil {
+		return nil, fmt.Errorf("error executing code: %w", err)
+	}
+	v, err := i.Eval(callFunc)
+	if err != nil {
+		return nil, fmt.Errorf("error executing ResultFunction: %w", err)
+	}
+
+	// Assert the returned value is of the expected type
+	result, ok := v.Interface().([]string)
+	if !ok {
+		return nil, fmt.Errorf("unexpected return type")
+	}
+
+	return result, nil
 }

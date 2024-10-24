@@ -19,8 +19,9 @@ package types
 type ParameterSettingType string
 
 const (
-	StringType   ParameterSettingType = "string"
-	ChoiceType   ParameterSettingType = "choice"
+	StringType ParameterSettingType = "string"
+	ChoiceType ParameterSettingType = "choice"
+	// Deprecated
 	ExternalType ParameterSettingType = "external"
 )
 

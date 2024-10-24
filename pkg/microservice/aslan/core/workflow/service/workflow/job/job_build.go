@@ -729,11 +729,14 @@ func renderKeyVals(input, origin []*commonmodels.KeyVal) []*commonmodels.KeyVal 
 
 	for _, originKV := range origin {
 		item := &commonmodels.KeyVal{
-			Key:          originKV.Key,
-			Value:        originKV.Value,
-			Type:         originKV.Type,
-			IsCredential: originKV.IsCredential,
-			ChoiceOption: originKV.ChoiceOption,
+			Key:               originKV.Key,
+			Value:             originKV.Value,
+			Type:              originKV.Type,
+			IsCredential:      originKV.IsCredential,
+			ChoiceOption:      originKV.ChoiceOption,
+			FunctionReference: originKV.FunctionReference,
+			CallFunction:      originKV.CallFunction,
+			Script:            originKV.Script,
 		}
 		for _, inputKV := range input {
 			if originKV.Key == inputKV.Key {
