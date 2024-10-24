@@ -97,7 +97,7 @@ func (s *GitStep) runGitCmds() error {
 
 		c.Cmd.Env = s.envs
 		if !c.DisableTrace {
-			s.Logger.Printf("%s\n", strings.Join(c.Cmd.Args, " "))
+			s.Logger.Printf("%s\n", helper.MaskSecretEnvs(strings.Join(c.Cmd.Args, " "), s.secretEnvs))
 		}
 		if err := c.Cmd.Start(); err != nil {
 			if c.IgnoreError {
