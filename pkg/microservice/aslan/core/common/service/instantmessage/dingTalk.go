@@ -17,9 +17,10 @@ limitations under the License.
 package instantmessage
 
 type DingDingMessage struct {
-	MsgType  string            `json:"msgtype"`
-	MarkDown *DingDingMarkDown `json:"markdown"`
-	At       *DingDingAt       `json:"at"`
+	MsgType    string              `json:"msgtype"`
+	MarkDown   *DingDingMarkDown   `json:"markdown"`
+	ActionCard *DingDingActionCard `json:"actionCard"`
+	At         *DingDingAt         `json:"at"`
 }
 
 type DingDingMarkDown struct {
@@ -27,17 +28,45 @@ type DingDingMarkDown struct {
 	Text  string `json:"text"`
 }
 
+// DingDingActionCard API ref: https://open.dingtalk.com/document/robots/custom-robot-access
+type DingDingActionCard struct {
+	HideAvatar        string            `json:"hideAvatar,omitempty"`     // 0: show, 1: hide
+	ButtonOrientation string            `json:"btnOrientation,omitempty"` // 0: vertical, 1: horizontal
+	SingleURL         string            `json:"singleURL,omitempty"`
+	SingleTitle       string            `json:"singleTitle,omitempty"`
+	Text              string            `json:"text,omitempty"`
+	Title             string            `json:"title,omitempty"`
+	Buttons           []*DingDingButton `json:"btns,omitempty"`
+}
+
+type DingDingButton struct {
+	ActionURL string `json:"actionURL,omitempty"`
+	Title     string `json:"title,omitempty"`
+}
+
 type DingDingAt struct {
 	AtMobiles []string `json:"atMobiles"`
 	IsAtAll   bool     `json:"isAtAll"`
 }
 
-func (w *Service) sendDingDingMessage(uri, title, content string, atMobiles []string, isAtAll bool) error {
+const (
+	DingDingMsgType = "actionCard"
+)
+
+func (w *Service) sendDingDingMessage(uri, title, content, actionURL string, atMobiles []string, isAtAll bool) error {
 	message := &DingDingMessage{
-		MsgType: msgType,
-		MarkDown: &DingDingMarkDown{
-			Title: title,
-			Text:  content,
+		MsgType: DingDingMsgType,
+		ActionCard: &DingDingActionCard{
+			HideAvatar:        "0",
+			ButtonOrientation: "0",
+			Text:              content,
+			Title:             title,
+			Buttons: []*DingDingButton{
+				{
+					Title:     "点击查看更多信息",
+					ActionURL: actionURL,
+				},
+			},
 		},
 	}
 	message.At = &DingDingAt{

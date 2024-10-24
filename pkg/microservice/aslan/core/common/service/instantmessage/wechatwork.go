@@ -21,21 +21,52 @@ import (
 )
 
 const (
-	markdownColorInfo               = "info"
-	markdownColorComment            = "comment"
-	markdownColorWarning            = "warning"
-	weChatTextTypeText     TextType = "text"
-	weChatTextTypeMarkdown TextType = "markdown"
+	markdownColorInfo    = "info"
+	markdownColorComment = "comment"
+	markdownColorWarning = "warning"
+
+	weChatTextTypeText         TextType = "text"
+	WeChatTextTypeMarkdown     TextType = "markdown"
+	WeChatTextTypeTemplateCard TextType = "template_card"
+
+	textColorBlue  = "#3270e3"
+	textColorGreen = "#00a13e"
+	textColorRed   = "#eb0823"
 )
 
 type TextType string
 
 type WeChatWorkCard struct {
-	MsgType  string   `json:"msgtype"`
-	Markdown Markdown `json:"markdown"`
+	MsgType      string       `json:"msgtype"`
+	Markdown     Markdown     `json:"markdown,omitempty"`
+	TemplateCard TemplateCard `json:"template_card,omitempty"`
 }
 type Markdown struct {
 	Content string `json:"content"`
+}
+
+type TemplateCard struct {
+	CardType     string                `json:"card_type"`
+	MainTitle    *TemplateCardTitle    `json:"main_title"`
+	SubTitleText string                `json:"sub_title_text"`
+	JumpList     []*WechatWorkLink     `json:"jump_list"`
+	CardAction   *WechatWorkCardAction `json:"card_action"`
+}
+
+type TemplateCardTitle struct {
+	Title       string `json:"title"`
+	Description string `json:"desc"`
+}
+
+type WechatWorkLink struct {
+	Type  int    `json:"type"` // 0 - non-link, 1 - url, 2 - application
+	Title string `json:"title"`
+	URL   string `json:"url"`
+}
+
+type WechatWorkCardAction struct {
+	Type int    `json:"type"` // 1 - url, 2 - application
+	URL  string `json:"url"`
 }
 
 type Messsage struct {
@@ -47,7 +78,7 @@ type Text struct {
 	Content string `json:"content"`
 }
 
-func (w *Service) SendWeChatWorkMessage(textType TextType, uri, content string) error {
+func (w *Service) SendWeChatWorkMessage(textType TextType, uri, link, title, content string) error {
 	var message interface{}
 	if textType == weChatTextTypeText {
 		message = &Messsage{
@@ -56,11 +87,33 @@ func (w *Service) SendWeChatWorkMessage(textType TextType, uri, content string) 
 				Content: content,
 			},
 		}
-	} else if textType == weChatTextTypeMarkdown {
+	} else if textType == WeChatTextTypeMarkdown {
 		message = &WeChatWorkCard{
 			MsgType: msgType,
 			Markdown: Markdown{
 				Content: content,
+			},
+		}
+	} else if textType == WeChatTextTypeTemplateCard {
+		message = &WeChatWorkCard{
+			MsgType: string(WeChatTextTypeTemplateCard),
+			TemplateCard: TemplateCard{
+				CardType: "text_notice",
+				MainTitle: &TemplateCardTitle{
+					Title: title,
+				},
+				SubTitleText: content,
+				JumpList: []*WechatWorkLink{
+					{
+						Type:  1,
+						URL:   link,
+						Title: "点击查看更多信息",
+					},
+				},
+				CardAction: &WechatWorkCardAction{
+					Type: 1,
+					URL:  link,
+				},
 			},
 		}
 	} else {

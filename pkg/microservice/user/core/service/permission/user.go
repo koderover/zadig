@@ -699,6 +699,7 @@ func SyncUser(syncUserInfo *SyncUserInfo, ifUpdateLoginTime bool, logger *zap.Su
 			Name:    syncUserInfo.Name,
 			Account: syncUserInfo.Account,
 			Email:   syncUserInfo.Email,
+			Phone:   syncUserInfo.Phone,
 		}, tx)
 		if err != nil {
 			tx.Rollback()

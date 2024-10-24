@@ -233,6 +233,7 @@ func (c *workflowCtl) Run(ctx context.Context, concurrency int) {
 		Remark:                      c.workflowTask.Remark,
 		TaskID:                      c.workflowTask.TaskID,
 		WorkflowTaskCreatorUsername: c.workflowTask.TaskCreator,
+		WorkflowTaskCreatorUserID:   c.workflowTask.TaskCreatorID,
 		WorkflowTaskCreatorMobile:   c.workflowTask.TaskCreatorPhone,
 		WorkflowTaskCreatorEmail:    c.workflowTask.TaskCreatorEmail,
 		Workspace:                   "/workspace",
