@@ -20,6 +20,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"strings"
 
 	"go.uber.org/zap"
 
@@ -140,7 +141,9 @@ func GetGitRepoInfo(codehostID int, repoOwner, repoNamespace, repoName, branchNa
 		dir = "/"
 	}
 
-	base := path.Join(config.S3StoragePath(), repoName)
+	repoSegs := strings.Split(repoName, "/")
+
+	base := path.Join(config.S3StoragePath(), repoSegs[len(repoSegs)-1])
 	if err := os.RemoveAll(base); err != nil {
 		log.Warnf("dir remove err:%s", err)
 	}
