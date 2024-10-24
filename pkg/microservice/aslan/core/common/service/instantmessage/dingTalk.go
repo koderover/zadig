@@ -56,10 +56,6 @@ const (
 func (w *Service) sendDingDingMessage(uri, title, content, actionURL string, atMobiles []string, isAtAll bool) error {
 	message := &DingDingMessage{
 		MsgType: DingDingMsgType,
-		//MarkDown: &DingDingMarkDown{
-		//	Title: title,
-		//	Text:  content,
-		//},
 		ActionCard: &DingDingActionCard{
 			HideAvatar:        "0",
 			ButtonOrientation: "0",
