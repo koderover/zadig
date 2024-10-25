@@ -186,7 +186,7 @@ func ExecuteReleaseJob(c *gin.Context) {
 
 	// only release plan manager can execute release job
 	// so no need to check authorization there
-	ctx.Err = service.ExecuteReleaseJob(ctx, c.Param("id"), req)
+	ctx.Err = service.ExecuteReleaseJob(ctx, c.Param("id"), req, ctx.Resources.IsSystemAdmin)
 }
 
 func ScheduleExecuteReleasePlan(c *gin.Context) {
@@ -230,7 +230,7 @@ func SkipReleaseJob(c *gin.Context) {
 
 	// only release plan manager can skip release job
 	// so no need to check authorization there
-	ctx.Err = service.SkipReleaseJob(ctx, c.Param("id"), req)
+	ctx.Err = service.SkipReleaseJob(ctx, c.Param("id"), req, ctx.Resources.IsSystemAdmin)
 }
 
 func UpdateReleaseJobStatus(c *gin.Context) {
@@ -251,7 +251,7 @@ func UpdateReleaseJobStatus(c *gin.Context) {
 
 	// only release plan manager can execute release job
 	// so no need to check authorization there
-	ctx.Err = service.UpdateReleasePlanStatus(ctx, c.Param("id"), c.Param("status"))
+	ctx.Err = service.UpdateReleasePlanStatus(ctx, c.Param("id"), c.Param("status"), ctx.Resources.IsSystemAdmin)
 }
 
 func ApproveReleasePlan(c *gin.Context) {
