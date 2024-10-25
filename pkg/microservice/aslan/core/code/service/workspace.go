@@ -141,9 +141,7 @@ func GetGitRepoInfo(codehostID int, repoOwner, repoNamespace, repoName, branchNa
 		dir = "/"
 	}
 
-	repoSegs := strings.Split(repoName, "/")
-
-	base := path.Join(config.S3StoragePath(), repoSegs[len(repoSegs)-1])
+	base := path.Join(config.S3StoragePath(), strings.Replace(repoName, "/", "-", -1))
 	if err := os.RemoveAll(base); err != nil {
 		log.Warnf("dir remove err:%s", err)
 	}
