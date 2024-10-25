@@ -612,7 +612,7 @@ func SkipReleaseJob(c *handler.Context, planID string, args *SkipReleaseJobArgs)
 	return nil
 }
 
-func UpdateReleasePlanStatus(c *handler.Context, planID, status string, isSystemAdmin bool) error {
+func UpdateReleasePlanStatus(c *handler.Context, planID, status string) error {
 	approveLock := getLock(planID)
 	approveLock.Lock()
 	defer approveLock.Unlock()
@@ -624,7 +624,7 @@ func UpdateReleasePlanStatus(c *handler.Context, planID, status string, isSystem
 		return errors.Wrap(err, "get plan")
 	}
 
-	if c.UserID != plan.ManagerID && !isSystemAdmin {
+	if c.UserID != plan.ManagerID {
 		return errors.Errorf("only manager can update plan status")
 	}
 

@@ -251,7 +251,7 @@ func UpdateReleaseJobStatus(c *gin.Context) {
 
 	// only release plan manager can execute release job
 	// so no need to check authorization there
-	ctx.Err = service.UpdateReleasePlanStatus(ctx, c.Param("id"), c.Param("status"), ctx.Resources.IsSystemAdmin)
+	ctx.Err = service.UpdateReleasePlanStatus(ctx, c.Param("id"), c.Param("status"))
 }
 
 func ApproveReleasePlan(c *gin.Context) {
