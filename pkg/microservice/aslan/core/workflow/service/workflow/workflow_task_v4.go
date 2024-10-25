@@ -710,7 +710,7 @@ type ManualExecWorkflowTaskV4Request struct {
 	Jobs []*commonmodels.Job `json:"jobs"`
 }
 
-func ManualExecWorkflowTaskV4(workflowName string, taskID int64, stageName string, jobs []*commonmodels.Job, executorID, executorName string, logger *zap.SugaredLogger) error {
+func ManualExecWorkflowTaskV4(workflowName string, taskID int64, stageName string, jobs []*commonmodels.Job, executorID, executorName string, isSystemAdmin bool, logger *zap.SugaredLogger) error {
 	task, err := commonrepo.NewworkflowTaskv4Coll().Find(workflowName, taskID)
 	if err != nil {
 		logger.Errorf("find workflowTaskV4 error: %s", err)
@@ -849,6 +849,10 @@ func ManualExecWorkflowTaskV4(workflowName string, taskID int64, stageName strin
 			stage.ManualExec.Excuted = true
 
 			approval := false
+			if isSystemAdmin {
+				approval = true
+			}
+
 			for _, user := range stage.ManualExec.ManualExecUsers {
 				if user.Type == setting.UserTypeTaskCreator {
 					if executorID == task.TaskCreatorID {
