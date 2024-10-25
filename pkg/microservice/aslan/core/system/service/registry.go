@@ -32,6 +32,7 @@ import (
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/registry"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
@@ -133,8 +134,6 @@ func CreateRegistryNamespace(username string, args *commonmodels.RegistryNamespa
 }
 
 func UpdateRegistryNamespace(username, id string, args *commonmodels.RegistryNamespace, log *zap.SugaredLogger) error {
-	regOps := new(commonrepo.FindRegOps)
-	regOps.IsDefault = true
 	defaultReg, err := commonservice.FindDefaultRegistry(false, log)
 	if err != nil {
 		if err != mongo.ErrNoDocuments && err != mongo.ErrNilDocument {
@@ -153,6 +152,11 @@ func UpdateRegistryNamespace(username, id string, args *commonmodels.RegistryNam
 		}
 	}
 
+	originReg, err := commonrepo.NewRegistryNamespaceColl().Find(&commonrepo.FindRegOps{ID: id})
+	if err != nil {
+		return fmt.Errorf("failed to find registry, id: %s, err: %v", id, err)
+	}
+
 	args.UpdateBy = username
 	args.Namespace = strings.TrimSpace(args.Namespace)
 
@@ -160,6 +164,34 @@ func UpdateRegistryNamespace(username, id string, args *commonmodels.RegistryNam
 		log.Errorf("RegistryNamespace.Update error: %v", err)
 		return fmt.Errorf("RegistryNamespace.Update error: %v", err)
 	}
+
+	util.Go(func() {
+		if originReg.RegAddr == args.RegAddr && originReg.AccessKey == args.AccessKey && originReg.SecretKey == args.SecretKey {
+			return
+		}
+
+		envs, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{})
+		if err != nil {
+			log.Errorf("[UpdateRegistryNamespace] failed to list all envs, err: %v", err)
+			return
+		}
+
+		for _, env := range envs {
+			if env.RegistryID == id {
+				kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), env.ClusterID)
+				if err != nil {
+					log.Errorf("[UpdateRegistryNamespace] GetKubeClient %s error: %v", env.ClusterID, err)
+					continue
+				}
+
+				err = kube.CreateOrUpdateDefaultRegistrySecret(env.Namespace, args, kubeClient)
+				if err != nil {
+					log.Errorf("[UpdateRegistryNamespaces] CreateOrUpdateDefaultRegistrySecret, namespace: %s, regID: %s error: %s", env.Namespace, id, err)
+				}
+			}
+		}
+	})
+
 	return SyncDinDForRegistries()
 }
 
