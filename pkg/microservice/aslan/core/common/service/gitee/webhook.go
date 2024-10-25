@@ -38,6 +38,11 @@ func (c *Client) CreateWebHook(owner, repo string) (string, error) {
 }
 
 func (c *Client) DeleteWebHook(owner, repo, hookID string) error {
+	// special case when the webhook is created manually, we don't delete it
+	if hookID == "" {
+		return nil
+	}
+
 	hookIDInt, err := strconv.ParseInt(hookID, 10, 64)
 	if err != nil {
 		return err
