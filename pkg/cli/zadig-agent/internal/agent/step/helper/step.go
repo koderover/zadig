@@ -47,28 +47,6 @@ func maskSecret(secrets []string, message string) string {
 	return out
 }
 
-func maskSecretEnvs(message string, secretEnvs []string) string {
-	out := message
-
-	for _, val := range secretEnvs {
-		if len(val) == 0 {
-			continue
-		}
-		sl := strings.Split(val, "=")
-
-		if len(sl) != 2 {
-			continue
-		}
-
-		if len(sl[0]) == 0 || len(sl[1]) == 0 {
-			// invalid key value pair received
-			continue
-		}
-		out = strings.Replace(out, strings.Join(sl[1:], "="), secretEnvMask, -1)
-	}
-	return out
-}
-
 func IsDirEmpty(dir string) bool {
 	f, err := os.Open(dir)
 	if err != nil {
@@ -150,7 +128,7 @@ func HandleCmdOutput(pipe io.ReadCloser, needPersistentLog bool, logFile string,
 		}
 
 		if needPersistentLog {
-			err := util.WriteFile(logFile, lineBytes, 0700)
+			err := util.WriteFile(logFile, []byte(MaskSecretEnvs(string(lineBytes), secretEnvs)), 0700)
 			if err != nil {
 				logger.Warnf("Failed to write file when processing cmd output: %s", err)
 			}
@@ -175,7 +153,6 @@ func ReplaceEnvWithValue(str string, envs map[string]string) string {
 	}
 	return ret
 }
-
 
 func ReplaceEnvArrWithValue(str []string, envs map[string]string) []string {
 	ret := []string{}
