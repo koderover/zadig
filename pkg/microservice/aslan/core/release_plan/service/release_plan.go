@@ -365,7 +365,7 @@ type ExecuteReleaseJobArgs struct {
 	Spec interface{} `json:"spec"`
 }
 
-func ExecuteReleaseJob(c *handler.Context, planID string, args *ExecuteReleaseJobArgs) error {
+func ExecuteReleaseJob(c *handler.Context, planID string, args *ExecuteReleaseJobArgs, isSystemAdmin bool) error {
 	approveLock := getLock(planID)
 	approveLock.Lock()
 	defer approveLock.Unlock()
@@ -388,7 +388,7 @@ func ExecuteReleaseJob(c *handler.Context, planID string, args *ExecuteReleaseJo
 		}
 	}
 
-	if plan.ManagerID != c.UserID {
+	if plan.ManagerID != c.UserID && !isSystemAdmin {
 		return errors.Errorf("only manager can execute")
 	}
 
@@ -542,7 +542,7 @@ type SkipReleaseJobArgs struct {
 	Spec interface{} `json:"spec"`
 }
 
-func SkipReleaseJob(c *handler.Context, planID string, args *SkipReleaseJobArgs) error {
+func SkipReleaseJob(c *handler.Context, planID string, args *SkipReleaseJobArgs, isSystemAdmin bool) error {
 	approveLock := getLock(planID)
 	approveLock.Lock()
 	defer approveLock.Unlock()
@@ -565,7 +565,7 @@ func SkipReleaseJob(c *handler.Context, planID string, args *SkipReleaseJobArgs)
 		}
 	}
 
-	if plan.ManagerID != c.UserID {
+	if plan.ManagerID != c.UserID && !isSystemAdmin {
 		return errors.Errorf("only manager can skip")
 	}
 
