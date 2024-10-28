@@ -209,7 +209,9 @@ FOR:
 
 	var envs []string
 	for _, env := range jobTaskSpec.Properties.Envs {
-		envs = append(envs, fmt.Sprintf("%s=\"%s\"", env.Key, strings.ReplaceAll(env.Value, `"`, `\"`)))
+		removeDquoteVal := strings.ReplaceAll(env.Value, `"`, `\"`)
+		removeBquoteVal := strings.ReplaceAll(removeDquoteVal, "`", "\\`")
+		envs = append(envs, fmt.Sprintf("%s=\"%s\"", env.Key, removeBquoteVal))
 	}
 	script := ""
 	if len(envs) != 0 {
