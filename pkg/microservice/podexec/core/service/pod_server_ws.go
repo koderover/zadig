@@ -209,7 +209,7 @@ FOR:
 
 	var envs []string
 	for _, env := range jobTaskSpec.Properties.Envs {
-		envs = append(envs, fmt.Sprintf("%s=%s", env.Key, env.Value))
+		envs = append(envs, fmt.Sprintf("%s=\"%s\"", env.Key, strings.ReplaceAll(env.Value, `"`, `\"`)))
 	}
 	script := ""
 	if len(envs) != 0 {
