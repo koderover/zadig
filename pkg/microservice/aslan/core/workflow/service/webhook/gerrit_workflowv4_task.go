@@ -204,6 +204,14 @@ func TriggerWorkflowV4ByGerritEvent(event *gerritTypeEvent, body []byte, uri, ba
 			if !item.Enabled {
 				continue
 			}
+
+			// do a deep copy by do a serialization and de-serialization
+			workflowBytes, err := json.Marshal(workflow)
+			if err != nil {
+				log.Errorf("failed to do workflow serialization for workflow: %s, error: %s", workflow.Name, err)
+				continue
+			}
+
 			if item.WorkflowArg == nil {
 				continue
 			}
@@ -227,6 +235,14 @@ func TriggerWorkflowV4ByGerritEvent(event *gerritTypeEvent, body []byte, uri, ba
 				continue
 			}
 			log.Infof("event match hook %v of %s", item.MainRepo, workflow.Name)
+
+			duplicatedWorkflow := new(commonmodels.WorkflowV4)
+			err = json.Unmarshal(workflowBytes, &duplicatedWorkflow)
+			if err != nil {
+				log.Errorf("failed to clone workflow: %s, error: %s", workflow.Name, err)
+				continue
+			}
+
 			eventRepo := matcher.GetHookRepo(item.MainRepo)
 
 			var mergeRequestID, commitID string
@@ -275,25 +291,25 @@ func TriggerWorkflowV4ByGerritEvent(event *gerritTypeEvent, body []byte, uri, ba
 					CommitID:       commitID,
 				}
 			}
-			if err := job.MergeArgs(workflow, item.WorkflowArg); err != nil {
+			if err := job.MergeArgs(duplicatedWorkflow, item.WorkflowArg); err != nil {
 				errMsg := fmt.Sprintf("merge workflow args error: %v", err)
 				log.Error(errMsg)
 				errorList = multierror.Append(errorList, fmt.Errorf(errMsg))
 				continue
 			}
-			if err := job.MergeWebhookRepo(workflow, eventRepo); err != nil {
+			if err := job.MergeWebhookRepo(duplicatedWorkflow, eventRepo); err != nil {
 				errMsg := fmt.Sprintf("merge webhook repo info to workflowargs error: %v", err)
 				log.Error(errMsg)
 				errorList = multierror.Append(errorList, fmt.Errorf(errMsg))
 				continue
 			}
 			if notification != nil {
-				workflow.NotificationID = notification.ID.Hex()
+				duplicatedWorkflow.NotificationID = notification.ID.Hex()
 			}
-			workflow.HookPayload = hookPayload
+			duplicatedWorkflow.HookPayload = hookPayload
 			if resp, err := workflowservice.CreateWorkflowTaskV4(&workflowservice.CreateWorkflowTaskV4Args{
 				Name: setting.WebhookTaskCreator,
-			}, workflow, log); err != nil {
+			}, duplicatedWorkflow, log); err != nil {
 				errMsg := fmt.Sprintf("failed to create workflow task when receive push event due to %v ", err)
 				log.Error(errMsg)
 				errorList = multierror.Append(errorList, fmt.Errorf(errMsg))
