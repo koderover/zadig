@@ -17,6 +17,7 @@ limitations under the License.
 package webhook
 
 import (
+	"encoding/json"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -232,6 +233,14 @@ func TriggerWorkflowV4ByGithubEvent(event interface{}, baseURI, deliveryID, requ
 		if workflow.HookCtls == nil {
 			continue
 		}
+
+		// do a deep copy by do a serialization and de-serialization
+		workflowBytes, err := json.Marshal(workflow)
+		if err != nil {
+			log.Errorf("failed to do workflow serialization for workflow: %s, error: %s", workflow.Name, err)
+			continue
+		}
+
 		for _, item := range workflow.HookCtls {
 			if !item.Enabled {
 				continue
@@ -312,31 +321,39 @@ func TriggerWorkflowV4ByGithubEvent(event interface{}, baseURI, deliveryID, requ
 			}
 
 			log.Infof("event match hook %v of %s", item.MainRepo, workflow.Name)
+
+			duplicatedWorkflow := new(commonmodels.WorkflowV4)
+			err = json.Unmarshal(workflowBytes, &duplicatedWorkflow)
+			if err != nil {
+				log.Errorf("failed to clone workflow: %s, error: %s", workflow.Name, err)
+				continue
+			}
+
 			eventRepo := matcher.GetHookRepo(item.MainRepo)
-			if err := job.MergeArgs(workflow, item.WorkflowArg); err != nil {
+			if err := job.MergeArgs(duplicatedWorkflow, item.WorkflowArg); err != nil {
 				errMsg := fmt.Sprintf("merge workflow args error: %v", err)
 				log.Error(errMsg)
 				mErr = multierror.Append(mErr, fmt.Errorf(errMsg))
 				continue
 			}
-			if err := job.MergeWebhookRepo(workflow, eventRepo); err != nil {
+			if err := job.MergeWebhookRepo(duplicatedWorkflow, eventRepo); err != nil {
 				errMsg := fmt.Sprintf("merge webhook repo info to workflowargs error: %v", err)
 				log.Error(errMsg)
 				mErr = multierror.Append(mErr, fmt.Errorf(errMsg))
 				continue
 			}
-			workflow.HookPayload = hookPayload
+			duplicatedWorkflow.HookPayload = hookPayload
 			if resp, err := workflowservice.CreateWorkflowTaskV4(&workflowservice.CreateWorkflowTaskV4Args{
 				Name: setting.WebhookTaskCreator,
-			}, workflow, log); err != nil {
+			}, duplicatedWorkflow, log); err != nil {
 				errMsg := fmt.Sprintf("failed to create workflow task when receive push event due to %v ", err)
 				log.Error(errMsg)
 				mErr = multierror.Append(mErr, fmt.Errorf(errMsg))
 			} else {
-				if workflow.HookPayload.IsPr {
+				if duplicatedWorkflow.HookPayload.IsPr {
 					// Updating the comment in the git repository, this will not cause the function to return error if this function call fails
 					if err := scmnotify.NewService().CreateGitCheckForWorkflowV4(workflow, resp.TaskID, log); err != nil {
-						log.Warnf("Failed to create github check status for custom workflow %s, taskID: %d the error is: %s", workflow.Name, resp.TaskID, err)
+						log.Warnf("Failed to create github check status for custom workflow %s, taskID: %d the error is: %s", duplicatedWorkflow.Name, resp.TaskID, err)
 					}
 				}
 				log.Infof("succeed to create task %v", resp)
