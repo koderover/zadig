@@ -48,6 +48,7 @@ import (
 	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
 	"github.com/koderover/zadig/v2/pkg/tool/crypto"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
+	"github.com/koderover/zadig/v2/pkg/tool/kube/informer"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/multicluster"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/types"
@@ -172,8 +173,7 @@ func (s *Service) CreateCluster(cluster *models.K8SCluster, id string, logger *z
 }
 
 func (s *Service) UpdateCluster(id string, cluster *models.K8SCluster, logger *zap.SugaredLogger) (*models.K8SCluster, error) {
-	_, err := s.coll.Get(id)
-
+	origCluster, err := s.coll.Get(id)
 	if err != nil {
 		return nil, e.ErrUpdateCluster.AddErr(e.ErrClusterNotFound.AddDesc(cluster.Name))
 	}
@@ -184,6 +184,18 @@ func (s *Service) UpdateCluster(id string, cluster *models.K8SCluster, logger *z
 		}
 
 		return nil, e.ErrUpdateCluster.AddDesc(e.DuplicateClusterNameFound)
+	}
+
+	if origCluster.Type == setting.KubeConfigClusterType && origCluster.KubeConfig != cluster.KubeConfig {
+		envs, err := mongodb.NewProductColl().List(&commonrepo.ProductListOptions{
+			ClusterID: id,
+		})
+		if err != nil {
+			return nil, e.ErrUpdateCluster.AddErr(fmt.Errorf("failed to list envs by clusterID %s, err %v", id, err))
+		}
+		for _, env := range envs {
+			informer.DeleteInformer(env.ClusterID, env.Namespace)
+		}
 	}
 
 	err = s.coll.UpdateMutableFields(cluster, id)
