@@ -21,5 +21,5 @@ package handler
 //	ctx := internalhandler.NewContext(c)
 //	defer func() { internalhandler.JSONResponse(c, ctx) }()
 //
-//	ctx.Resp, ctx.Err = service.ListTestStat(ctx.Logger)
+//	ctx.Resp, ctx.RespErr = service.ListTestStat(ctx.Logger)
 //}
