@@ -50,19 +50,19 @@ func CreateLLMIntegration(c *gin.Context) {
 
 	args := new(CreateLLMIntegrationRequest)
 	if err := c.BindJSON(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid create llm Integration json args")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid create llm Integration json args")
 		return
 	}
 
 	err := commonutil.CheckZadigProfessionalLicense()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
 	llmProvider := convertLLMArgToModel(args)
 	llmProvider.UpdatedBy = ctx.UserName
-	ctx.Err = service.CreateLLMIntegration(context.TODO(), llmProvider)
+	ctx.RespErr = service.CreateLLMIntegration(context.TODO(), llmProvider)
 }
 
 type GetLLMIntegrationRespone struct {
@@ -85,11 +85,11 @@ func GetLLMIntegration(c *gin.Context) {
 
 	id := c.Param("id")
 	if len(id) == 0 {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid llm id")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid llm id")
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.GetLLMIntegration(context.TODO(), id)
+	ctx.Resp, ctx.RespErr = service.GetLLMIntegration(context.TODO(), id)
 }
 
 // @Summary List llm integrations
@@ -103,7 +103,7 @@ func ListLLMIntegration(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.ListLLMIntegration(context.TODO())
+	ctx.Resp, ctx.RespErr = service.ListLLMIntegration(context.TODO())
 }
 
 type checkLLMIntegrationResponse struct {
@@ -122,7 +122,7 @@ func CheckLLMIntegration(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	resp := &checkLLMIntegrationResponse{}
-	resp.Check, ctx.Err = service.CheckLLMIntegration(context.TODO())
+	resp.Check, ctx.RespErr = service.CheckLLMIntegration(context.TODO())
 	ctx.Resp = resp
 }
 
@@ -141,25 +141,25 @@ func UpdateLLMIntegration(c *gin.Context) {
 
 	id := c.Param("id")
 	if len(id) == 0 {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid llm id")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid llm id")
 		return
 	}
 
 	args := new(CreateLLMIntegrationRequest)
 	if err := c.BindJSON(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid update llm integration json args")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid update llm integration json args")
 		return
 	}
 
 	err := commonutil.CheckZadigProfessionalLicense()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
 	llmProvider := convertLLMArgToModel(args)
 	llmProvider.UpdatedBy = ctx.UserName
-	ctx.Err = service.UpdateLLMIntegration(context.TODO(), c.Param("id"), llmProvider)
+	ctx.RespErr = service.UpdateLLMIntegration(context.TODO(), c.Param("id"), llmProvider)
 }
 
 // @Summary Delete a llm integration
@@ -176,11 +176,11 @@ func DeleteLLMIntegration(c *gin.Context) {
 
 	id := c.Param("id")
 	if len(id) == 0 {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid llm id")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid llm id")
 		return
 	}
 
-	ctx.Err = service.DeleteLLMIntegration(context.TODO(), id)
+	ctx.RespErr = service.DeleteLLMIntegration(context.TODO(), id)
 }
 
 func convertLLMArgToModel(args *CreateLLMIntegrationRequest) *commonmodels.LLMIntegration {

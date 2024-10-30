@@ -33,7 +33,7 @@ func GetUserAuthInfo(c *gin.Context) {
 
 	uid := c.Query("uid")
 
-	ctx.Resp, ctx.Err = userservice.GetUserAuthInfo(uid, ctx.Logger)
+	ctx.Resp, ctx.RespErr = userservice.GetUserAuthInfo(uid, ctx.Logger)
 }
 
 func CheckCollaborationModePermission(c *gin.Context) {
@@ -42,7 +42,7 @@ func CheckCollaborationModePermission(c *gin.Context) {
 
 	args := &types.CheckCollaborationModePermissionReq{}
 	if err := c.ShouldBindQuery(args); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
@@ -63,7 +63,7 @@ func CheckPermissionGivenByCollaborationMode(c *gin.Context) {
 
 	args := &types.CheckCollaborationModePermissionReq{}
 	if err := c.ShouldBindQuery(args); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
@@ -143,7 +143,7 @@ func ListAuthorizedWorkflows(c *gin.Context) {
 
 	args := &types.ListAuthorizedWorkflowsReq{}
 	if err := c.ShouldBindQuery(args); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
@@ -169,7 +169,7 @@ func ListAuthorizedEnvs(c *gin.Context) {
 
 	args := &types.ListAuthorizedEnvsReq{}
 	if err := c.ShouldBindQuery(args); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 

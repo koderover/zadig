@@ -33,7 +33,7 @@ func PatchWorkload(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -60,11 +60,11 @@ func PatchWorkload(c *gin.Context) {
 
 	var staretInfo types.StartDevmodeInfo
 	if err := c.BindJSON(&staretInfo); err != nil {
-		ctx.Err = errors.New("invalid request body")
+		ctx.RespErr = errors.New("invalid request body")
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.PatchWorkload(c, projectKey, envName, serviceName, staretInfo.DevImage)
+	ctx.Resp, ctx.RespErr = service.PatchWorkload(c, projectKey, envName, serviceName, staretInfo.DevImage)
 }
 
 func RecoverWorkload(c *gin.Context) {
@@ -73,7 +73,7 @@ func RecoverWorkload(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -98,5 +98,5 @@ func RecoverWorkload(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = service.RecoverWorkload(c, projectKey, envName, serviceName)
+	ctx.RespErr = service.RecoverWorkload(c, projectKey, envName, serviceName)
 }

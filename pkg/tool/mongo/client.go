@@ -29,6 +29,7 @@ import (
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
+	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -57,6 +58,27 @@ func Session() mongo.Session {
 		return nil
 	}
 	return session
+}
+
+func SessionWithTransaction(ctx context.Context) (mongo.Session, func(error), error) {
+	session := Session()
+	err := StartTransaction(session)
+	if err != nil {
+		return session, nil, errors.Wrap(err, "StartTransaction")
+	}
+
+	deferFunc := func(err error) {
+		if err != nil {
+			err = AbortTransaction(session)
+			if err != nil {
+				log.Errorf("Failed to abort transaction, err: %v", err)
+			}
+		}
+		session.EndSession(ctx)
+		return
+	}
+
+	return session, deferFunc, nil
 }
 
 func StartTransaction(session mongo.Session) error {

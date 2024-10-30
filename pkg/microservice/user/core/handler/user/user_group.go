@@ -40,7 +40,7 @@ func CreateUserGroup(c *gin.Context) {
 	err := GenerateUserAuthInfo(ctx)
 	if err != nil {
 		ctx.UnAuthorized = true
-		ctx.Err = fmt.Errorf("failed to generate user authorization info, error: %s", err)
+		ctx.RespErr = fmt.Errorf("failed to generate user authorization info, error: %s", err)
 		return
 	}
 
@@ -54,16 +54,16 @@ func CreateUserGroup(c *gin.Context) {
 	req := new(createUserGroupReq)
 	err = c.BindJSON(req)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam
+		ctx.RespErr = e.ErrInvalidParam
 		return
 	}
 
 	if err = commonutil.CheckZadigEnterpriseLicense(); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
-	ctx.Err = permission.CreateUserGroup(req.Name, req.Description, req.UIDs, ctx.Logger)
+	ctx.RespErr = permission.CreateUserGroup(req.Name, req.Description, req.UIDs, ctx.Logger)
 }
 
 type listUserGroupsReq struct {
@@ -91,7 +91,7 @@ func OpenApiListUserGroups(c *gin.Context) {
 	err := GenerateUserAuthInfo(ctx)
 	if err != nil {
 		ctx.UnAuthorized = true
-		ctx.Err = fmt.Errorf("failed to generate user authorization info, error: %s", err)
+		ctx.RespErr = fmt.Errorf("failed to generate user authorization info, error: %s", err)
 		return
 	}
 
@@ -104,19 +104,19 @@ func OpenApiListUserGroups(c *gin.Context) {
 	query := new(openAPIListUserGroupReq)
 	err = c.BindQuery(&query)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam
+		ctx.RespErr = e.ErrInvalidParam
 		return
 	}
 
 	err = commonutil.CheckZadigEnterpriseLicense()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
 	groupList, count, err := permission.ListUserGroups(query.Name, query.PageNum, query.PageSize, ctx.Logger)
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
@@ -134,11 +134,11 @@ func ListUserGroups(c *gin.Context) {
 	query := new(listUserGroupsReq)
 	err := c.BindQuery(&query)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam
+		ctx.RespErr = e.ErrInvalidParam
 		return
 	}
-  
-  if query.PageNum == 0 {
+
+	if query.PageNum == 0 {
 		query.PageNum = 1
 	}
 
@@ -150,7 +150,7 @@ func ListUserGroups(c *gin.Context) {
 		groupList, count, err := permission.ListUserGroupsByUid(query.Uid, ctx.Logger)
 
 		if err != nil {
-			ctx.Err = err
+			ctx.RespErr = err
 			return
 		}
 
@@ -162,7 +162,7 @@ func ListUserGroups(c *gin.Context) {
 		groupList, count, err := permission.ListUserGroups(query.Name, query.PageNum, query.PageSize, ctx.Logger)
 
 		if err != nil {
-			ctx.Err = err
+			ctx.RespErr = err
 			return
 		}
 
@@ -170,7 +170,7 @@ func ListUserGroups(c *gin.Context) {
 			GroupList: groupList,
 			Count:     count,
 		}
-  }
+	}
 }
 
 func GetUserGroup(c *gin.Context) {
@@ -181,7 +181,7 @@ func GetUserGroup(c *gin.Context) {
 	err := GenerateUserAuthInfo(ctx)
 	if err != nil {
 		ctx.UnAuthorized = true
-		ctx.Err = fmt.Errorf("failed to generate user authorization info, error: %s", err)
+		ctx.RespErr = fmt.Errorf("failed to generate user authorization info, error: %s", err)
 		return
 	}
 
@@ -194,7 +194,7 @@ func GetUserGroup(c *gin.Context) {
 
 	groupID := c.Param("id")
 
-	ctx.Resp, ctx.Err = permission.GetUserGroup(groupID, ctx.Logger)
+	ctx.Resp, ctx.RespErr = permission.GetUserGroup(groupID, ctx.Logger)
 }
 
 func UpdateUserGroupInfo(c *gin.Context) {
@@ -205,7 +205,7 @@ func UpdateUserGroupInfo(c *gin.Context) {
 	err := GenerateUserAuthInfo(ctx)
 	if err != nil {
 		ctx.UnAuthorized = true
-		ctx.Err = fmt.Errorf("failed to generate user authorization info, error: %s", err)
+		ctx.RespErr = fmt.Errorf("failed to generate user authorization info, error: %s", err)
 		return
 	}
 
@@ -220,16 +220,16 @@ func UpdateUserGroupInfo(c *gin.Context) {
 
 	req := new(createUserGroupReq)
 	if err := c.BindJSON(req); err != nil {
-		ctx.Err = e.ErrInvalidParam
+		ctx.RespErr = e.ErrInvalidParam
 		return
 	}
 
 	if err = commonutil.CheckZadigEnterpriseLicense(); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
-	ctx.Err = permission.UpdateUserGroupInfo(groupID, req.Name, req.Description, ctx.Logger)
+	ctx.RespErr = permission.UpdateUserGroupInfo(groupID, req.Name, req.Description, ctx.Logger)
 }
 
 func DeleteUserGroup(c *gin.Context) {
@@ -240,7 +240,7 @@ func DeleteUserGroup(c *gin.Context) {
 	err := GenerateUserAuthInfo(ctx)
 	if err != nil {
 		ctx.UnAuthorized = true
-		ctx.Err = fmt.Errorf("failed to generate user authorization info, error: %s", err)
+		ctx.RespErr = fmt.Errorf("failed to generate user authorization info, error: %s", err)
 		return
 	}
 
@@ -253,7 +253,7 @@ func DeleteUserGroup(c *gin.Context) {
 
 	groupID := c.Param("id")
 
-	ctx.Err = permission.DeleteUserGroup(groupID, ctx.Logger)
+	ctx.RespErr = permission.DeleteUserGroup(groupID, ctx.Logger)
 }
 
 type bulkUserReq struct {
@@ -268,7 +268,7 @@ func BulkAddUserToUserGroup(c *gin.Context) {
 	err := GenerateUserAuthInfo(ctx)
 	if err != nil {
 		ctx.UnAuthorized = true
-		ctx.Err = fmt.Errorf("failed to generate user authorization info, error: %s", err)
+		ctx.RespErr = fmt.Errorf("failed to generate user authorization info, error: %s", err)
 		return
 	}
 
@@ -283,16 +283,16 @@ func BulkAddUserToUserGroup(c *gin.Context) {
 	req := new(bulkUserReq)
 	err = c.BindJSON(&req)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam
+		ctx.RespErr = e.ErrInvalidParam
 		return
 	}
 
 	if err = commonutil.CheckZadigEnterpriseLicense(); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
-	ctx.Err = permission.BulkAddUserToUserGroup(groupID, req.UIDs, ctx.Logger)
+	ctx.RespErr = permission.BulkAddUserToUserGroup(groupID, req.UIDs, ctx.Logger)
 }
 
 func BulkRemoveUserFromUserGroup(c *gin.Context) {
@@ -303,7 +303,7 @@ func BulkRemoveUserFromUserGroup(c *gin.Context) {
 	err := GenerateUserAuthInfo(ctx)
 	if err != nil {
 		ctx.UnAuthorized = true
-		ctx.Err = fmt.Errorf("failed to generate user authorization info, error: %s", err)
+		ctx.RespErr = fmt.Errorf("failed to generate user authorization info, error: %s", err)
 		return
 	}
 
@@ -318,14 +318,14 @@ func BulkRemoveUserFromUserGroup(c *gin.Context) {
 	req := new(bulkUserReq)
 	err = c.BindJSON(&req)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam
+		ctx.RespErr = e.ErrInvalidParam
 		return
 	}
 
 	if err = commonutil.CheckZadigEnterpriseLicense(); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
-	ctx.Err = permission.BulkRemoveUserFromUserGroup(groupID, req.UIDs, ctx.Logger)
+	ctx.RespErr = permission.BulkRemoveUserFromUserGroup(groupID, req.UIDs, ctx.Logger)
 }

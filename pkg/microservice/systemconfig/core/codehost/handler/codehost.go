@@ -36,7 +36,7 @@ func CreateSystemCodeHost(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -48,19 +48,19 @@ func CreateSystemCodeHost(c *gin.Context) {
 
 	req := new(models.CodeHost)
 	if err := c.ShouldBindJSON(req); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
 	err = commonutil.CheckZadigEnterpriseLicense()
 	if err != nil {
 		if req.Type == setting.SourceFromGiteeEE {
-			ctx.Err = err
+			ctx.RespErr = err
 			return
 		}
 	}
 
-	ctx.Resp, ctx.Err = service.CreateSystemCodeHost(req, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.CreateSystemCodeHost(req, ctx.Logger)
 }
 
 func ListSystemCodeHost(c *gin.Context) {
@@ -68,16 +68,16 @@ func ListSystemCodeHost(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	encryptedKey := c.Query("encryptedKey")
 	if len(encryptedKey) == 0 {
-		ctx.Err = e.ErrInvalidParam
+		ctx.RespErr = e.ErrInvalidParam
 		return
 	}
-	ctx.Resp, ctx.Err = service.SystemList(encryptedKey, c.Query("address"), c.Query("owner"), c.Query("source"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.SystemList(encryptedKey, c.Query("address"), c.Query("owner"), c.Query("source"), ctx.Logger)
 }
 
 func ListCodeHostInternal(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	ctx.Resp, ctx.Err = service.ListInternal(c.Query("address"), c.Query("owner"), c.Query("source"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.ListInternal(c.Query("address"), c.Query("owner"), c.Query("source"), ctx.Logger)
 }
 
 func DeleteSystemCodeHost(c *gin.Context) {
@@ -85,7 +85,7 @@ func DeleteSystemCodeHost(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -98,10 +98,10 @@ func DeleteSystemCodeHost(c *gin.Context) {
 	idParam := c.Param("id")
 	id, err := strconv.Atoi(idParam)
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
-	ctx.Err = service.DeleteCodeHost(id, ctx.Logger)
+	ctx.RespErr = service.DeleteCodeHost(id, ctx.Logger)
 }
 
 func GetSystemCodeHost(c *gin.Context) {
@@ -110,7 +110,7 @@ func GetSystemCodeHost(c *gin.Context) {
 	idParam := c.Param("id")
 	id, err := strconv.Atoi(idParam)
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
@@ -118,12 +118,12 @@ func GetSystemCodeHost(c *gin.Context) {
 	if len(c.Query("ignoreDelete")) > 0 {
 		ignoreDelete, err = strconv.ParseBool(c.Query("ignoreDelete"))
 		if err != nil {
-			ctx.Err = fmt.Errorf("failed to parse param ignoreDelete, err: %s", err)
+			ctx.RespErr = fmt.Errorf("failed to parse param ignoreDelete, err: %s", err)
 			return
 		}
 	}
 
-	ctx.Resp, ctx.Err = service.GetCodeHost(id, ignoreDelete, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetCodeHost(id, ignoreDelete, ctx.Logger)
 }
 
 func AuthCodeHost(c *gin.Context) {
@@ -133,13 +133,13 @@ func AuthCodeHost(c *gin.Context) {
 	id := c.Param("id")
 	idInt, err := strconv.Atoi(id)
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
 	url, err := service.AuthCodeHost(c.Query("redirect_url"), idInt, ctx.Logger)
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		ctx.Logger.Errorf("auth err,id:%d,err: %s", idInt, err)
 		return
 	}
@@ -154,7 +154,7 @@ func Callback(c *gin.Context) {
 	redirectURL, err := service.HandleCallback(state, c.Request, ctx.Logger)
 	if err != nil {
 		ctx.Logger.Errorf("Callback err:%s", err)
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 	c.Redirect(http.StatusFound, redirectURL)
@@ -165,7 +165,7 @@ func UpdateSystemCodeHost(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -178,12 +178,12 @@ func UpdateSystemCodeHost(c *gin.Context) {
 	idParam := c.Param("id")
 	id, err := strconv.Atoi(idParam)
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 	req := &models.CodeHost{}
 	if err := c.ShouldBindJSON(req); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 	req.ID = id
@@ -191,10 +191,10 @@ func UpdateSystemCodeHost(c *gin.Context) {
 	err = commonutil.CheckZadigProfessionalLicense()
 	if err != nil {
 		if req.Type == setting.SourceFromGiteeEE {
-			ctx.Err = e.ErrLicenseInvalid.AddDesc("")
+			ctx.RespErr = e.ErrLicenseInvalid.AddDesc("")
 			return
 		}
 	}
 
-	ctx.Resp, ctx.Err = service.UpdateCodeHost(req, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.UpdateCodeHost(req, ctx.Logger)
 }

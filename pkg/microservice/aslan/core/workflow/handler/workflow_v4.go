@@ -77,7 +77,7 @@ func CreateWorkflowV4(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -86,7 +86,7 @@ func CreateWorkflowV4(c *gin.Context) {
 	data := getBody(c)
 	if err := yaml.Unmarshal([]byte(data), args); err != nil {
 		log.Errorf("CreateWorkflowv4 yaml.Unmarshal err : %s", err)
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName, args.Project, "新增", "自定义工作流", args.Name, data, ctx.Logger)
@@ -107,7 +107,7 @@ func CreateWorkflowV4(c *gin.Context) {
 	}
 
 	if err := workflow.CreateWorkflowV4(ctx.UserName, args, ctx.Logger); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
@@ -127,7 +127,7 @@ func SetWorkflowTasksCustomFields(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -138,12 +138,12 @@ func SetWorkflowTasksCustomFields(c *gin.Context) {
 	data, err := c.GetRawData()
 	if err != nil {
 		log.Errorf("SetWorkflowTasksCustomFields c.GetRawData() err : %v", err)
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("SetWorkflowTasksCustomFields json.Unmarshal err : %v", err)
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 
@@ -161,7 +161,7 @@ func SetWorkflowTasksCustomFields(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = workflow.SetWorkflowTasksCustomFields(projectKey, workflowName, args, ctx.Logger)
+	ctx.RespErr = workflow.SetWorkflowTasksCustomFields(projectKey, workflowName, args, ctx.Logger)
 }
 
 func GetWorkflowTasksCustomFields(c *gin.Context) {
@@ -171,7 +171,7 @@ func GetWorkflowTasksCustomFields(c *gin.Context) {
 	workflowName := c.Param("workflowName")
 	projectName := c.Query("projectName")
 
-	ctx.Resp, ctx.Err = workflow.GetWorkflowTasksCustomFields(projectName, workflowName, ctx.Logger)
+	ctx.Resp, ctx.RespErr = workflow.GetWorkflowTasksCustomFields(projectName, workflowName, ctx.Logger)
 }
 
 func LintWorkflowV4(c *gin.Context) {
@@ -190,10 +190,10 @@ func LintWorkflowV4(c *gin.Context) {
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.ShouldBindYAML(&args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
-	ctx.Err = workflow.LintWorkflowV4(args, ctx.Logger)
+	ctx.RespErr = workflow.LintWorkflowV4(args, ctx.Logger)
 }
 
 func ListWorkflowV4(c *gin.Context) {
@@ -201,14 +201,14 @@ func ListWorkflowV4(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	args := &listWorkflowV4Query{}
 	if err := c.ShouldBindQuery(args); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
@@ -257,7 +257,7 @@ func ListWorkflowV4(c *gin.Context) {
 		Total:        int64(len(workflowList)),
 	}
 	ctx.Resp = resp
-	ctx.Err = err
+	ctx.RespErr = err
 }
 
 func ListWorkflowV4CanTrigger(c *gin.Context) {
@@ -266,12 +266,12 @@ func ListWorkflowV4CanTrigger(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
-	ctx.Resp, ctx.Err = workflow.ListWorkflowV4CanTrigger(ctx)
+	ctx.Resp, ctx.RespErr = workflow.ListWorkflowV4CanTrigger(ctx)
 }
 
 func UpdateWorkflowV4(c *gin.Context) {
@@ -280,7 +280,7 @@ func UpdateWorkflowV4(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -289,7 +289,7 @@ func UpdateWorkflowV4(c *gin.Context) {
 	data := getBody(c)
 	if err := yaml.Unmarshal([]byte(data), args); err != nil {
 		log.Errorf("UpdateWorkflowV4 yaml.Unmarshal err : %s", err)
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 
@@ -313,7 +313,7 @@ func UpdateWorkflowV4(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = workflow.UpdateWorkflowV4(c.Param("name"), ctx.UserName, args, ctx.Logger)
+	ctx.RespErr = workflow.UpdateWorkflowV4(c.Param("name"), ctx.UserName, args, ctx.Logger)
 }
 
 func DeleteWorkflowV4(c *gin.Context) {
@@ -321,7 +321,7 @@ func DeleteWorkflowV4(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -329,7 +329,7 @@ func DeleteWorkflowV4(c *gin.Context) {
 	w, err := workflow.FindWorkflowV4Raw(c.Param("name"), ctx.Logger)
 	if err != nil {
 		ctx.Logger.Errorf("DeleteWorkflowV4 error: %v", err)
-		ctx.Err = e.ErrDeleteWorkflow.AddErr(err)
+		ctx.RespErr = e.ErrDeleteWorkflow.AddErr(err)
 		return
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName, w.Project, "(OpenAPI)"+"删除", "自定义工作流", c.Param("name"), "", ctx.Logger)
@@ -348,7 +348,7 @@ func DeleteWorkflowV4(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = workflow.DeleteWorkflowV4(c.Param("name"), ctx.Logger)
+	ctx.RespErr = workflow.DeleteWorkflowV4(c.Param("name"), ctx.Logger)
 }
 
 func FindWorkflowV4(c *gin.Context) {
@@ -357,7 +357,7 @@ func FindWorkflowV4(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -395,28 +395,28 @@ func GetWorkflowV4Preset(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = workflow.GetWorkflowv4Preset(c.Query("encryptedKey"), c.Param("name"), ctx.UserID, ctx.UserName, ctx.Logger)
+	ctx.Resp, ctx.RespErr = workflow.GetWorkflowv4Preset(c.Query("encryptedKey"), c.Param("name"), ctx.UserID, ctx.UserName, ctx.Logger)
 }
 
 func GetWebhookForWorkflowV4Preset(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = workflow.GetWebhookForWorkflowV4Preset(c.Query("workflowName"), c.Query("triggerName"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = workflow.GetWebhookForWorkflowV4Preset(c.Query("workflowName"), c.Query("triggerName"), ctx.Logger)
 }
 
 func CheckWorkflowV4Approval(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Err = workflow.CheckWorkflowV4ApprovalInitiator(c.Param("name"), ctx.UserID, ctx.Logger)
+	ctx.RespErr = workflow.CheckWorkflowV4ApprovalInitiator(c.Param("name"), ctx.UserID, ctx.Logger)
 }
 
 func ListWebhookForWorkflowV4(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = workflow.ListWebhookForWorkflowV4(c.Query("workflowName"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = workflow.ListWebhookForWorkflowV4(c.Query("workflowName"), ctx.Logger)
 }
 
 func CreateWebhookForWorkflowV4(c *gin.Context) {
@@ -425,20 +425,20 @@ func CreateWebhookForWorkflowV4(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	req := new(commonmodels.WorkflowV4Hook)
 	if err := c.ShouldBindJSON(req); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 	w, err := workflow.FindWorkflowV4Raw(c.Param("workflowName"), ctx.Logger)
 	if err != nil {
 		ctx.Logger.Errorf("CreateWebhookForWorkflowV4 error: %v", err)
-		ctx.Err = e.ErrCreateWebhook.AddErr(err)
+		ctx.RespErr = e.ErrCreateWebhook.AddErr(err)
 		return
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName, w.Project, "新建", "自定义工作流-webhook", w.Name, getBody(c), ctx.Logger)
@@ -461,7 +461,7 @@ func CreateWebhookForWorkflowV4(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = workflow.CreateWebhookForWorkflowV4(c.Param("workflowName"), req, ctx.Logger)
+	ctx.RespErr = workflow.CreateWebhookForWorkflowV4(c.Param("workflowName"), req, ctx.Logger)
 }
 
 func UpdateWebhookForWorkflowV4(c *gin.Context) {
@@ -470,20 +470,20 @@ func UpdateWebhookForWorkflowV4(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	req := new(commonmodels.WorkflowV4Hook)
 	if err := c.ShouldBindJSON(req); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 	w, err := workflow.FindWorkflowV4Raw(c.Param("workflowName"), ctx.Logger)
 	if err != nil {
 		ctx.Logger.Errorf("UpdateWebhookForWorkflowV4 error: %v", err)
-		ctx.Err = e.ErrUpdateWebhook.AddErr(err)
+		ctx.RespErr = e.ErrUpdateWebhook.AddErr(err)
 		return
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName, w.Project, "更新", "自定义工作流-webhook", w.Name, getBody(c), ctx.Logger)
@@ -506,7 +506,7 @@ func UpdateWebhookForWorkflowV4(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = workflow.UpdateWebhookForWorkflowV4(c.Param("workflowName"), req, ctx.Logger)
+	ctx.RespErr = workflow.UpdateWebhookForWorkflowV4(c.Param("workflowName"), req, ctx.Logger)
 }
 
 func DeleteWebhookForWorkflowV4(c *gin.Context) {
@@ -515,7 +515,7 @@ func DeleteWebhookForWorkflowV4(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -523,7 +523,7 @@ func DeleteWebhookForWorkflowV4(c *gin.Context) {
 	w, err := workflow.FindWorkflowV4Raw(c.Param("workflowName"), ctx.Logger)
 	if err != nil {
 		ctx.Logger.Errorf("DeleteWebhookForWorkflowV4 error: %v", err)
-		ctx.Err = e.ErrDeleteWebhook.AddErr(err)
+		ctx.RespErr = e.ErrDeleteWebhook.AddErr(err)
 		return
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName, w.Project, "删除", "自定义工作流-webhook", w.Name, "", ctx.Logger)
@@ -546,7 +546,7 @@ func DeleteWebhookForWorkflowV4(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = workflow.DeleteWebhookForWorkflowV4(c.Param("workflowName"), c.Param("triggerName"), ctx.Logger)
+	ctx.RespErr = workflow.DeleteWebhookForWorkflowV4(c.Param("workflowName"), c.Param("triggerName"), ctx.Logger)
 }
 
 func CreateJiraHookForWorkflowV4(c *gin.Context) {
@@ -554,20 +554,20 @@ func CreateJiraHookForWorkflowV4(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	jira := new(commonmodels.JiraHook)
 	if err := c.ShouldBindJSON(jira); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 	w, err := workflow.FindWorkflowV4Raw(c.Param("workflowName"), ctx.Logger)
 	if err != nil {
 		ctx.Logger.Errorf("CreateJiraHookForWorkflowV4 error: %v", err)
-		ctx.Err = e.ErrCreateJiraHook.AddErr(err)
+		ctx.RespErr = e.ErrCreateJiraHook.AddErr(err)
 		return
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName, w.Project, "新建", "自定义工作流-jirahook", w.Name, getBody(c), ctx.Logger)
@@ -593,23 +593,23 @@ func CreateJiraHookForWorkflowV4(c *gin.Context) {
 	// license checks
 	err = util.CheckZadigProfessionalLicense()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
-	ctx.Err = workflow.CreateJiraHookForWorkflowV4(c.Param("workflowName"), jira, ctx.Logger)
+	ctx.RespErr = workflow.CreateJiraHookForWorkflowV4(c.Param("workflowName"), jira, ctx.Logger)
 }
 
 func GetJiraHookForWorkflowV4Preset(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	ctx.Resp, ctx.Err = workflow.GetJiraHookForWorkflowV4Preset(c.Query("workflowName"), c.Query("hookName"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = workflow.GetJiraHookForWorkflowV4Preset(c.Query("workflowName"), c.Query("hookName"), ctx.Logger)
 }
 
 func ListJiraHookForWorkflowV4(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	ctx.Resp, ctx.Err = workflow.ListJiraHookForWorkflowV4(c.Param("workflowName"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = workflow.ListJiraHookForWorkflowV4(c.Param("workflowName"), ctx.Logger)
 }
 
 func UpdateJiraHookForWorkflowV4(c *gin.Context) {
@@ -617,20 +617,20 @@ func UpdateJiraHookForWorkflowV4(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	jira := new(commonmodels.JiraHook)
 	if err := c.ShouldBindJSON(jira); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 	w, err := workflow.FindWorkflowV4Raw(c.Param("workflowName"), ctx.Logger)
 	if err != nil {
 		ctx.Logger.Errorf("UpdateJiraHookForWorkflowV4 error: %v", err)
-		ctx.Err = e.ErrUpdateJiraHook.AddErr(err)
+		ctx.RespErr = e.ErrUpdateJiraHook.AddErr(err)
 		return
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName, w.Project, "更新", "自定义工作流-jirahook", w.Name, getBody(c), ctx.Logger)
@@ -656,11 +656,11 @@ func UpdateJiraHookForWorkflowV4(c *gin.Context) {
 	// license checks
 	err = util.CheckZadigProfessionalLicense()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
-	ctx.Err = workflow.UpdateJiraHookForWorkflowV4(c.Param("workflowName"), jira, ctx.Logger)
+	ctx.RespErr = workflow.UpdateJiraHookForWorkflowV4(c.Param("workflowName"), jira, ctx.Logger)
 }
 
 func DeleteJiraHookForWorkflowV4(c *gin.Context) {
@@ -668,7 +668,7 @@ func DeleteJiraHookForWorkflowV4(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -676,7 +676,7 @@ func DeleteJiraHookForWorkflowV4(c *gin.Context) {
 	w, err := workflow.FindWorkflowV4Raw(c.Param("workflowName"), ctx.Logger)
 	if err != nil {
 		ctx.Logger.Errorf("DeleteJiraHookForWorkflowV4 error: %v", err)
-		ctx.Err = e.ErrDeleteJiraHook.AddErr(err)
+		ctx.RespErr = e.ErrDeleteJiraHook.AddErr(err)
 		return
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName, w.Project, "删除", "自定义工作流-jirahook", w.Name, "", ctx.Logger)
@@ -699,7 +699,7 @@ func DeleteJiraHookForWorkflowV4(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = workflow.DeleteJiraHookForWorkflowV4(c.Param("workflowName"), c.Param("hookName"), ctx.Logger)
+	ctx.RespErr = workflow.DeleteJiraHookForWorkflowV4(c.Param("workflowName"), c.Param("hookName"), ctx.Logger)
 }
 
 func CreateMeegoHookForWorkflowV4(c *gin.Context) {
@@ -707,20 +707,20 @@ func CreateMeegoHookForWorkflowV4(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	jira := new(commonmodels.MeegoHook)
 	if err := c.ShouldBindJSON(jira); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 	w, err := workflow.FindWorkflowV4Raw(c.Param("workflowName"), ctx.Logger)
 	if err != nil {
 		ctx.Logger.Errorf("CreateMeegoHookForWorkflowV4 error: %v", err)
-		ctx.Err = e.ErrCreateMeegoHook.AddErr(err)
+		ctx.RespErr = e.ErrCreateMeegoHook.AddErr(err)
 		return
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName, w.Project, "新建", "自定义工作流-meegohook", w.Name, getBody(c), ctx.Logger)
@@ -746,23 +746,23 @@ func CreateMeegoHookForWorkflowV4(c *gin.Context) {
 	// license checks
 	err = util.CheckZadigProfessionalLicense()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
-	ctx.Err = workflow.CreateMeegoHookForWorkflowV4(c.Param("workflowName"), jira, ctx.Logger)
+	ctx.RespErr = workflow.CreateMeegoHookForWorkflowV4(c.Param("workflowName"), jira, ctx.Logger)
 }
 
 func GetMeegoHookForWorkflowV4Preset(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	ctx.Resp, ctx.Err = workflow.GetMeegoHookForWorkflowV4Preset(c.Query("workflowName"), c.Query("hookName"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = workflow.GetMeegoHookForWorkflowV4Preset(c.Query("workflowName"), c.Query("hookName"), ctx.Logger)
 }
 
 func ListMeegoHookForWorkflowV4(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	ctx.Resp, ctx.Err = workflow.ListMeegoHookForWorkflowV4(c.Param("workflowName"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = workflow.ListMeegoHookForWorkflowV4(c.Param("workflowName"), ctx.Logger)
 }
 
 func UpdateMeegoHookForWorkflowV4(c *gin.Context) {
@@ -770,20 +770,20 @@ func UpdateMeegoHookForWorkflowV4(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	jira := new(commonmodels.MeegoHook)
 	if err := c.ShouldBindJSON(jira); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 	w, err := workflow.FindWorkflowV4Raw(c.Param("workflowName"), ctx.Logger)
 	if err != nil {
 		ctx.Logger.Errorf("UpdateMeegoHookForWorkflowV4 error: %v", err)
-		ctx.Err = e.ErrUpdateMeegoHook.AddErr(err)
+		ctx.RespErr = e.ErrUpdateMeegoHook.AddErr(err)
 		return
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName, w.Project, "更新", "自定义工作流-meegohook", w.Name, getBody(c), ctx.Logger)
@@ -809,11 +809,11 @@ func UpdateMeegoHookForWorkflowV4(c *gin.Context) {
 	// license checks
 	err = util.CheckZadigProfessionalLicense()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
-	ctx.Err = workflow.UpdateMeegoHookForWorkflowV4(c.Param("workflowName"), jira, ctx.Logger)
+	ctx.RespErr = workflow.UpdateMeegoHookForWorkflowV4(c.Param("workflowName"), jira, ctx.Logger)
 }
 
 func DeleteMeegoHookForWorkflowV4(c *gin.Context) {
@@ -822,7 +822,7 @@ func DeleteMeegoHookForWorkflowV4(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -830,7 +830,7 @@ func DeleteMeegoHookForWorkflowV4(c *gin.Context) {
 	w, err := workflow.FindWorkflowV4Raw(c.Param("workflowName"), ctx.Logger)
 	if err != nil {
 		ctx.Logger.Errorf("DeleteMeegoHookForWorkflowV4 error: %v", err)
-		ctx.Err = e.ErrDeleteMeegoHook.AddErr(err)
+		ctx.RespErr = e.ErrDeleteMeegoHook.AddErr(err)
 		return
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName, w.Project, "删除", "自定义工作流-meegohook", w.Name, "", ctx.Logger)
@@ -853,7 +853,7 @@ func DeleteMeegoHookForWorkflowV4(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = workflow.DeleteMeegoHookForWorkflowV4(c.Param("workflowName"), c.Param("hookName"), ctx.Logger)
+	ctx.RespErr = workflow.DeleteMeegoHookForWorkflowV4(c.Param("workflowName"), c.Param("hookName"), ctx.Logger)
 }
 
 func CreateGeneralHookForWorkflowV4(c *gin.Context) {
@@ -862,20 +862,20 @@ func CreateGeneralHookForWorkflowV4(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	hook := new(commonmodels.GeneralHook)
 	if err := c.ShouldBindJSON(hook); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 	w, err := workflow.FindWorkflowV4Raw(c.Param("workflowName"), ctx.Logger)
 	if err != nil {
 		ctx.Logger.Errorf("CreateGeneralHookForWorkflowV4 error: %v", err)
-		ctx.Err = e.ErrCreateGeneralHook.AddErr(err)
+		ctx.RespErr = e.ErrCreateGeneralHook.AddErr(err)
 		return
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName, w.Project, "新建", "自定义工作流-generalhook", w.Name, getBody(c), ctx.Logger)
@@ -898,19 +898,19 @@ func CreateGeneralHookForWorkflowV4(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = workflow.CreateGeneralHookForWorkflowV4(c.Param("workflowName"), hook, ctx.Logger)
+	ctx.RespErr = workflow.CreateGeneralHookForWorkflowV4(c.Param("workflowName"), hook, ctx.Logger)
 }
 
 func GetGeneralHookForWorkflowV4Preset(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	ctx.Resp, ctx.Err = workflow.GetGeneralHookForWorkflowV4Preset(c.Query("workflowName"), c.Query("hookName"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = workflow.GetGeneralHookForWorkflowV4Preset(c.Query("workflowName"), c.Query("hookName"), ctx.Logger)
 }
 
 func ListGeneralHookForWorkflowV4(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	ctx.Resp, ctx.Err = workflow.ListGeneralHookForWorkflowV4(c.Param("workflowName"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = workflow.ListGeneralHookForWorkflowV4(c.Param("workflowName"), ctx.Logger)
 }
 
 func UpdateGeneralHookForWorkflowV4(c *gin.Context) {
@@ -919,20 +919,20 @@ func UpdateGeneralHookForWorkflowV4(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	hook := new(commonmodels.GeneralHook)
 	if err := c.ShouldBindJSON(hook); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 	w, err := workflow.FindWorkflowV4Raw(c.Param("workflowName"), ctx.Logger)
 	if err != nil {
 		ctx.Logger.Errorf("UpdateGeneralHookForWorkflowV4 error: %v", err)
-		ctx.Err = e.ErrUpdateGeneralHook.AddErr(err)
+		ctx.RespErr = e.ErrUpdateGeneralHook.AddErr(err)
 		return
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName, w.Project, "更新", "自定义工作流-generalhook", w.Name, getBody(c), ctx.Logger)
@@ -955,7 +955,7 @@ func UpdateGeneralHookForWorkflowV4(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = workflow.UpdateGeneralHookForWorkflowV4(c.Param("workflowName"), hook, ctx.Logger)
+	ctx.RespErr = workflow.UpdateGeneralHookForWorkflowV4(c.Param("workflowName"), hook, ctx.Logger)
 }
 
 func DeleteGeneralHookForWorkflowV4(c *gin.Context) {
@@ -964,7 +964,7 @@ func DeleteGeneralHookForWorkflowV4(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -972,7 +972,7 @@ func DeleteGeneralHookForWorkflowV4(c *gin.Context) {
 	w, err := workflow.FindWorkflowV4Raw(c.Param("workflowName"), ctx.Logger)
 	if err != nil {
 		ctx.Logger.Errorf("DeleteGeneralHookForWorkflowV4 error: %v", err)
-		ctx.Err = e.ErrDeleteGeneralHook.AddErr(err)
+		ctx.RespErr = e.ErrDeleteGeneralHook.AddErr(err)
 		return
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName, w.Project, "删除", "自定义工作流-generalhook", w.Name, "", ctx.Logger)
@@ -995,27 +995,27 @@ func DeleteGeneralHookForWorkflowV4(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = workflow.DeleteGeneralHookForWorkflowV4(c.Param("workflowName"), c.Param("hookName"), ctx.Logger)
+	ctx.RespErr = workflow.DeleteGeneralHookForWorkflowV4(c.Param("workflowName"), c.Param("hookName"), ctx.Logger)
 }
 
 func GeneralHookEventHandler(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	ctx.Err = workflow.GeneralHookEventHandler(c.Param("workflowName"), c.Param("hookName"), ctx.Logger)
+	ctx.RespErr = workflow.GeneralHookEventHandler(c.Param("workflowName"), c.Param("hookName"), ctx.Logger)
 }
 
 func GetCronForWorkflowV4Preset(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = workflow.GetCronForWorkflowV4Preset(c.Query("workflowName"), c.Query("cronID"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = workflow.GetCronForWorkflowV4Preset(c.Query("workflowName"), c.Query("cronID"), ctx.Logger)
 }
 
 func ListCronForWorkflowV4(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = workflow.ListCronForWorkflowV4(c.Query("workflowName"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = workflow.ListCronForWorkflowV4(c.Query("workflowName"), ctx.Logger)
 }
 
 func CreateCronForWorkflowV4(c *gin.Context) {
@@ -1024,20 +1024,20 @@ func CreateCronForWorkflowV4(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	req := new(commonmodels.Cronjob)
 	if err := c.ShouldBindJSON(req); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 	w, err := workflow.FindWorkflowV4Raw(c.Param("workflowName"), ctx.Logger)
 	if err != nil {
 		ctx.Logger.Errorf("CreateCronForWorkflowV4 error: %v", err)
-		ctx.Err = e.ErrUpsertCronjob.AddErr(err)
+		ctx.RespErr = e.ErrUpsertCronjob.AddErr(err)
 		return
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName, w.Project, "新建", "自定义工作流-cron", w.Name, getBody(c), ctx.Logger)
@@ -1060,7 +1060,7 @@ func CreateCronForWorkflowV4(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = workflow.CreateCronForWorkflowV4(c.Param("workflowName"), req, ctx.Logger)
+	ctx.RespErr = workflow.CreateCronForWorkflowV4(c.Param("workflowName"), req, ctx.Logger)
 }
 
 func UpdateCronForWorkflowV4(c *gin.Context) {
@@ -1069,14 +1069,14 @@ func UpdateCronForWorkflowV4(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	req := new(commonmodels.Cronjob)
 	if err := c.ShouldBindJSON(req); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName, req.WorkflowV4Args.Project, "更新", "自定义工作流-cron", req.WorkflowV4Args.Name, getBody(c), ctx.Logger)
@@ -1099,7 +1099,7 @@ func UpdateCronForWorkflowV4(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = workflow.UpdateCronForWorkflowV4(req, ctx.Logger)
+	ctx.RespErr = workflow.UpdateCronForWorkflowV4(req, ctx.Logger)
 }
 
 func DeleteCronForWorkflowV4(c *gin.Context) {
@@ -1108,7 +1108,7 @@ func DeleteCronForWorkflowV4(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -1116,7 +1116,7 @@ func DeleteCronForWorkflowV4(c *gin.Context) {
 	w, err := workflow.FindWorkflowV4Raw(c.Param("workflowName"), ctx.Logger)
 	if err != nil {
 		ctx.Logger.Errorf("CreateCronForWorkflowV4 error: %v", err)
-		ctx.Err = e.ErrUpsertCronjob.AddErr(err)
+		ctx.RespErr = e.ErrUpsertCronjob.AddErr(err)
 		return
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName, w.Project, "删除", "自定义工作流-cron", w.Name, "", ctx.Logger)
@@ -1139,7 +1139,7 @@ func DeleteCronForWorkflowV4(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = workflow.DeleteCronForWorkflowV4(c.Param("workflowName"), c.Param("cronID"), ctx.Logger)
+	ctx.RespErr = workflow.DeleteCronForWorkflowV4(c.Param("workflowName"), c.Param("cronID"), ctx.Logger)
 }
 
 func GetPatchParams(c *gin.Context) {
@@ -1147,11 +1147,11 @@ func GetPatchParams(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	req := &commonmodels.PatchItem{}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ctx.Err = errors.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = errors.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 
-	ctx.Resp, ctx.Err = workflow.GetPatchParams(req, ctx.Logger)
+	ctx.Resp, ctx.RespErr = workflow.GetPatchParams(req, ctx.Logger)
 }
 
 func GetWorkflowGlobalVars(c *gin.Context) {
@@ -1161,7 +1161,7 @@ func GetWorkflowGlobalVars(c *gin.Context) {
 	args := new(commonmodels.WorkflowV4)
 
 	if err := c.ShouldBindYAML(&args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 	ctx.Resp = workflow.GetWorkflowGlabalVars(args, c.Param("jobName"), ctx.Logger)
@@ -1174,7 +1174,7 @@ func GetWorkflowRepoIndex(c *gin.Context) {
 	args := new(commonmodels.WorkflowV4)
 
 	if err := c.ShouldBindYAML(&args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 	ctx.Resp = workflow.GetWorkflowRepoIndex(args, c.Param("jobName"), ctx.Logger)
@@ -1184,14 +1184,14 @@ func CheckShareStorageEnabled(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = workflow.CheckShareStorageEnabled(c.Query("id"), c.Query("type"), c.Query("name"), c.Query("project"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = workflow.CheckShareStorageEnabled(c.Query("id"), c.Query("type"), c.Query("name"), c.Query("project"), ctx.Logger)
 }
 
 func ListAllAvailableWorkflows(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = workflow.ListAllAvailableWorkflows(c.QueryArray("projects"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = workflow.ListAllAvailableWorkflows(c.QueryArray("projects"), ctx.Logger)
 }
 
 // @Summary Get filtered env services
@@ -1208,10 +1208,10 @@ func GetFilteredEnvServices(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	req := new(filterDeployServiceVarsQuery)
 	if err := c.ShouldBindJSON(req); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
-	ctx.Resp, ctx.Err = workflow.GetFilteredEnvServices(req.WorkflowName, req.JobName, req.EnvName, req.ServiceNames, ctx.Logger)
+	ctx.Resp, ctx.RespErr = workflow.GetFilteredEnvServices(req.WorkflowName, req.JobName, req.EnvName, req.ServiceNames, ctx.Logger)
 }
 
 // @Summary Compare Helm Service Yaml In Env
@@ -1227,7 +1227,7 @@ func CompareHelmServiceYamlInEnv(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	req := new(getHelmValuesDifferenceReq)
 	if err := c.ShouldBindJSON(req); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 	projectName := c.Query("projectName")
@@ -1236,7 +1236,7 @@ func CompareHelmServiceYamlInEnv(c *gin.Context) {
 	for _, imageInfos := range req.ServiceModules {
 		images = append(images, imageInfos.Image)
 	}
-	ctx.Resp, ctx.Err = workflow.CompareHelmServiceYamlInEnv(req.ServiceName, req.VariableYaml, req.EnvName, projectName, images, req.IsProduction, req.UpdateServiceRevision, req.IsHelmChartDeploy, ctx.Logger)
+	ctx.Resp, ctx.RespErr = workflow.CompareHelmServiceYamlInEnv(req.ServiceName, req.VariableYaml, req.EnvName, projectName, images, req.IsProduction, req.UpdateServiceRevision, req.IsHelmChartDeploy, ctx.Logger)
 }
 
 type YamlResponse struct {
@@ -1256,14 +1256,14 @@ func RenderMseServiceYaml(c *gin.Context) {
 
 	req := new(RenderMseServiceYamlReq)
 	if err := c.ShouldBindJSON(req); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 
 	if req.MseGrayReleaseService.YamlContent == "" {
 		mseServiceYaml, err := workflow.GetMseOriginalServiceYaml(c.Query("projectName"), req.EnvName, req.MseGrayReleaseService.ServiceName, req.GrayTag)
 		if err != nil {
-			ctx.Err = err
+			ctx.RespErr = err
 			return
 		}
 		ctx.Resp = YamlResponse{Yaml: mseServiceYaml}
@@ -1272,7 +1272,7 @@ func RenderMseServiceYaml(c *gin.Context) {
 
 	mseServiceYaml, err := workflow.RenderMseServiceYaml(c.Query("projectName"), req.EnvName, req.LastGrayTag, req.GrayTag, &req.MseGrayReleaseService)
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 	ctx.Resp = YamlResponse{Yaml: mseServiceYaml}
@@ -1284,7 +1284,7 @@ func GetMseOfflineResources(c *gin.Context) {
 
 	services, err := workflow.GetMseOfflineResources(c.Query("grayTag"), c.Query("envName"), c.Query("projectName"))
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 	ctx.Resp = struct {
@@ -1300,7 +1300,7 @@ func GetBlueGreenServiceK8sServiceYaml(c *gin.Context) {
 
 	blueGreenServiceYaml, err := workflow.GetBlueGreenServiceK8sServiceYaml(c.Query("projectName"), c.Param("envName"), c.Param("serviceName"))
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 	ctx.Resp = YamlResponse{Yaml: blueGreenServiceYaml}
@@ -1312,7 +1312,7 @@ func GetMseTagsInEnv(c *gin.Context) {
 
 	tags, err := workflow.GetMseTagsInEnv(c.Param("envName"), c.Query("projectName"))
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 	ctx.Resp = struct {
@@ -1328,7 +1328,7 @@ func GetJenkinsJobParams(c *gin.Context) {
 
 	jobParams, err := workflow.GetJenkinsJobParams(c.Param("id"), c.Param("jobName"))
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 	ctx.Resp = struct {
@@ -1353,7 +1353,7 @@ func ValidateSQL(c *gin.Context) {
 
 	req := new(ValidateSQLReq)
 	if err := c.ShouldBindJSON(req); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 

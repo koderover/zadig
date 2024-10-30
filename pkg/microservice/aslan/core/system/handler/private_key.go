@@ -37,7 +37,7 @@ func ListPrivateKeysInternal(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.ListPrivateKeysInternal(ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.ListPrivateKeysInternal(ctx.Logger)
 }
 
 func ListPrivateKeys(c *gin.Context) {
@@ -46,14 +46,14 @@ func ListPrivateKeys(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	encryptedKey := c.Query("encryptedKey")
 	if len(encryptedKey) == 0 {
-		ctx.Err = e.ErrInvalidParam
+		ctx.RespErr = e.ErrInvalidParam
 		return
 	}
 
@@ -67,7 +67,7 @@ func ListPrivateKeys(c *gin.Context) {
 	//	return
 	//}
 
-	ctx.Resp, ctx.Err = service.ListPrivateKeys(encryptedKey, "", c.Query("keyword"), true, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.ListPrivateKeys(encryptedKey, "", c.Query("keyword"), true, ctx.Logger)
 }
 
 func GetPrivateKey(c *gin.Context) {
@@ -76,7 +76,7 @@ func GetPrivateKey(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -87,7 +87,7 @@ func GetPrivateKey(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.GetPrivateKey(c.Param("id"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetPrivateKey(c.Param("id"), ctx.Logger)
 }
 
 func CreatePrivateKey(c *gin.Context) {
@@ -95,7 +95,7 @@ func CreatePrivateKey(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -121,18 +121,18 @@ func CreatePrivateKey(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindWith(&args, binding.JSON); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid PrivateKey args")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid PrivateKey args")
 		return
 	}
 	args.UpdateBy = ctx.UserName
 
 	err = args.Validate()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.CreatePrivateKey(args, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.CreatePrivateKey(args, ctx.Logger)
 }
 
 func UpdatePrivateKey(c *gin.Context) {
@@ -140,7 +140,7 @@ func UpdatePrivateKey(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -165,18 +165,18 @@ func UpdatePrivateKey(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindWith(&args, binding.JSON); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid PrivateKey args")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid PrivateKey args")
 		return
 	}
 	args.UpdateBy = ctx.UserName
 
 	err = args.Validate()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
-	ctx.Err = service.UpdatePrivateKey(c.Param("id"), args, ctx.Logger)
+	ctx.RespErr = service.UpdatePrivateKey(c.Param("id"), args, ctx.Logger)
 }
 
 func DeletePrivateKey(c *gin.Context) {
@@ -184,7 +184,7 @@ func DeletePrivateKey(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -199,14 +199,14 @@ func DeletePrivateKey(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = service.DeletePrivateKey(c.Param("id"), ctx.UserName, ctx.Logger)
+	ctx.RespErr = service.DeletePrivateKey(c.Param("id"), ctx.UserName, ctx.Logger)
 }
 
 func ListLabels(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.ListLabels()
+	ctx.Resp, ctx.RespErr = service.ListLabels()
 }
 
 type privateKeyArgs struct {
@@ -219,7 +219,7 @@ func BatchCreatePrivateKey(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -245,15 +245,15 @@ func BatchCreatePrivateKey(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid PrivateKey args")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid PrivateKey args")
 		return
 	}
 
 	err = commonutil.CheckZadigProfessionalLicense()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
-	ctx.Err = service.BatchCreatePrivateKey(args.Data, args.Option, ctx.UserName, ctx.Logger)
+	ctx.RespErr = service.BatchCreatePrivateKey(args.Data, args.Option, ctx.UserName, ctx.Logger)
 }

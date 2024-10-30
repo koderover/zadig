@@ -44,14 +44,14 @@ func CreateProjectCodeHost(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	projectKey := c.Param("name")
 	if projectKey == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("productName can not be null!")
 		return
 	}
 
@@ -69,16 +69,16 @@ func CreateProjectCodeHost(c *gin.Context) {
 
 	req := new(models.CodeHost)
 	if err := c.ShouldBindJSON(req); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
 	if err != nil {
-		ctx.Err = e.ErrLicenseInvalid.AddDesc("")
+		ctx.RespErr = e.ErrLicenseInvalid.AddDesc("")
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.CreateProjectCodeHost(projectKey, req, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.CreateProjectCodeHost(projectKey, req, ctx.Logger)
 }
 
 // @Summary List Project CodeHost
@@ -95,14 +95,14 @@ func ListProjectCodeHost(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	projectKey := c.Param("name")
 	if projectKey == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("productName can not be null!")
 		return
 	}
 
@@ -121,11 +121,11 @@ func ListProjectCodeHost(c *gin.Context) {
 
 	encryptedKey := c.Query("encryptedKey")
 	if len(encryptedKey) == 0 {
-		ctx.Err = e.ErrInvalidParam
+		ctx.RespErr = e.ErrInvalidParam
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.GetProjectCodehostList(projectKey, encryptedKey, c.Query("address"), c.Query("owner"), c.Query("source"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetProjectCodehostList(projectKey, encryptedKey, c.Query("address"), c.Query("owner"), c.Query("source"), ctx.Logger)
 }
 
 // @Summary Delete Project CodeHost
@@ -142,14 +142,14 @@ func DeleteCodeHost(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	projectKey := c.Param("name")
 	if projectKey == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("productName can not be null!")
 		return
 	}
 
@@ -168,17 +168,17 @@ func DeleteCodeHost(c *gin.Context) {
 	// license checks
 	err = util.CheckZadigEnterpriseLicense()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
 	idParam := c.Param("id")
 	id, err := strconv.Atoi(idParam)
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
-	ctx.Err = service.DeleteProjectCodeHost(projectKey, id, ctx.Logger)
+	ctx.RespErr = service.DeleteProjectCodeHost(projectKey, id, ctx.Logger)
 }
 
 // @Summary Update Project CodeHost
@@ -196,21 +196,21 @@ func UpdateProjectCodeHost(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	projectKey := c.Param("name")
 	if projectKey == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("productName can not be null!")
 		return
 	}
 
 	// license checks
 	err = util.CheckZadigEnterpriseLicense()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
@@ -229,23 +229,23 @@ func UpdateProjectCodeHost(c *gin.Context) {
 	idParam := c.Param("id")
 	id, err := strconv.Atoi(idParam)
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 	req := &models.CodeHost{}
 	if err := c.ShouldBindJSON(req); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 	req.ID = id
 
 	err = commonutil.CheckZadigEnterpriseLicense()
 	if err != nil {
-		ctx.Err = e.ErrLicenseInvalid.AddDesc("")
+		ctx.RespErr = e.ErrLicenseInvalid.AddDesc("")
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.UpdateProjectSystemCodeHost(projectKey, req, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.UpdateProjectSystemCodeHost(projectKey, req, ctx.Logger)
 }
 
 // @Summary Get Project CodeHost
@@ -262,14 +262,14 @@ func GetProjectCodeHost(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	projectKey := c.Param("name")
 	if projectKey == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("productName can not be null!")
 		return
 	}
 
@@ -288,7 +288,7 @@ func GetProjectCodeHost(c *gin.Context) {
 	idParam := c.Param("id")
 	id, err := strconv.Atoi(idParam)
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
@@ -296,12 +296,12 @@ func GetProjectCodeHost(c *gin.Context) {
 	if len(c.Query("ignoreDelete")) > 0 {
 		ignoreDelete, err = strconv.ParseBool(c.Query("ignoreDelete"))
 		if err != nil {
-			ctx.Err = fmt.Errorf("failed to parse param ignoreDelete, err: %s", err)
+			ctx.RespErr = fmt.Errorf("failed to parse param ignoreDelete, err: %s", err)
 			return
 		}
 	}
 
-	ctx.Resp, ctx.Err = service.GetProjectCodeHost(id, projectKey, ignoreDelete, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetProjectCodeHost(id, projectKey, ignoreDelete, ctx.Logger)
 }
 
 // @Summary List Available CodeHost
@@ -318,14 +318,14 @@ func ListAvailableCodeHost(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	projectKey := c.Param("name")
 	if projectKey == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("productName can not be null!")
 		return
 	}
 
@@ -333,26 +333,26 @@ func ListAvailableCodeHost(c *gin.Context) {
 	if !ctx.Resources.IsSystemAdmin {
 		authorizedProjectList, found, err := internalhandler.ListAuthorizedProjects(ctx.UserID)
 		if err != nil {
-			ctx.Err = e.ErrInternalError.AddDesc(err.Error())
+			ctx.RespErr = e.ErrInternalError.AddDesc(err.Error())
 			return
 		}
 		if !found {
-			ctx.Err = e.ErrUnauthorized
+			ctx.RespErr = e.ErrUnauthorized
 			return
 		}
 
 		authorizedProjectSet := sets.NewString(authorizedProjectList...)
 		if !authorizedProjectSet.Has(projectKey) {
-			ctx.Err = e.ErrUnauthorized
+			ctx.RespErr = e.ErrUnauthorized
 			return
 		}
 	}
 
 	encryptedKey := c.Query("encryptedKey")
 	if len(encryptedKey) == 0 {
-		ctx.Err = e.ErrInvalidParam
+		ctx.RespErr = e.ErrInvalidParam
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.GetAvailableCodehostList(projectKey, encryptedKey, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetAvailableCodehostList(projectKey, encryptedKey, ctx.Logger)
 }

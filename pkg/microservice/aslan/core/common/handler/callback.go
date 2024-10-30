@@ -35,11 +35,11 @@ func HandleCallback(c *gin.Context) {
 	err := c.ShouldBindJSON(req)
 	if err != nil {
 		log.Errorf("failed to validate callback request, the error is: %s", err)
-		ctx.Err = fmt.Errorf("failed to validate callback request, the error is: %s", err)
+		ctx.RespErr = fmt.Errorf("failed to validate callback request, the error is: %s", err)
 		return
 	}
 
-	ctx.Err = commonservice.HandleCallback(req)
+	ctx.RespErr = commonservice.HandleCallback(req)
 
 }
 

@@ -43,7 +43,7 @@ func OpenAPICreateRegistry(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -66,17 +66,17 @@ func OpenAPICreateRegistry(c *gin.Context) {
 	}
 
 	if err := c.BindJSON(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 
 	err = args.Validate()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
-	ctx.Err = service.OpenAPICreateRegistry(ctx.UserName, args, ctx.Logger)
+	ctx.RespErr = service.OpenAPICreateRegistry(ctx.UserName, args, ctx.Logger)
 }
 
 func OpenAPIListRegistry(c *gin.Context) {
@@ -85,7 +85,7 @@ func OpenAPIListRegistry(c *gin.Context) {
 
 	registry, err := service.ListRegistries(ctx.Logger)
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
@@ -108,7 +108,7 @@ func OpenAPIGetRegistry(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -121,7 +121,7 @@ func OpenAPIGetRegistry(c *gin.Context) {
 
 	registry, err := commonservice.FindRegistryById(c.Param("id"), true, ctx.Logger)
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
@@ -141,7 +141,7 @@ func OpenAPIUpdateRegistry(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -154,14 +154,14 @@ func OpenAPIUpdateRegistry(c *gin.Context) {
 
 	registryInfo, err := commonservice.FindRegistryById(c.Param("id"), true, ctx.Logger)
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
 	args := new(service.OpenAPIRegistry)
 
 	if err := c.BindJSON(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
@@ -172,23 +172,23 @@ func OpenAPIUpdateRegistry(c *gin.Context) {
 	registryInfo.IsDefault = args.IsDefault
 
 	if err := registryInfo.Validate(); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 	if err := registryInfo.LicenseValidate(); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
 	internalhandler.InsertOperationLog(c, ctx.UserName+"(openAPI)", "", "更新", "资源配置-镜像仓库", c.Param("id"), "", ctx.Logger)
-	ctx.Err = service.UpdateRegistryNamespace(ctx.UserName, c.Param("id"), registryInfo, ctx.Logger)
+	ctx.RespErr = service.UpdateRegistryNamespace(ctx.UserName, c.Param("id"), registryInfo, ctx.Logger)
 }
 
 func OpenAPIListCluster(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.OpenAPIListCluster(c.Query("projectName"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.OpenAPIListCluster(c.Query("projectName"), ctx.Logger)
 }
 
 // @Summary OpenAPI Create Cluster
@@ -204,7 +204,7 @@ func OpenAPICreateCluster(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -217,7 +217,7 @@ func OpenAPICreateCluster(c *gin.Context) {
 
 	req := new(service.OpenAPICreateClusterRequest)
 	if err := c.BindJSON(req); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		log.Errorf("Failed to bind data: %s", err)
 		return
 	}
@@ -290,19 +290,19 @@ rules:
 	}
 
 	if err := cluster.Clean(); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
 	err = cluster.Validate()
 	if err != nil {
-		ctx.Err = fmt.Errorf("failed to validate cluster: %v", err)
+		ctx.RespErr = fmt.Errorf("failed to validate cluster: %v", err)
 		return
 	}
 
 	clusterResp, err := clusterservice.CreateCluster(cluster, ctx.Logger)
 	if err != nil {
-		ctx.Err = fmt.Errorf("Failed to create cluster: %v", err)
+		ctx.RespErr = fmt.Errorf("Failed to create cluster: %v", err)
 		return
 	}
 
@@ -344,7 +344,7 @@ func OpenAPIUpdateCluster(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -357,13 +357,13 @@ func OpenAPIUpdateCluster(c *gin.Context) {
 
 	args := new(service.OpenAPICluster)
 	if err := c.BindJSON(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		log.Errorf("Failed to bind data: %s", err)
 		return
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName+"(openAPI)", "", "更新", "资源配置-集群", c.Param("id"), "", ctx.Logger)
 
-	ctx.Err = service.OpenAPIUpdateCluster(ctx.UserName, c.Param("id"), args, ctx.Logger)
+	ctx.RespErr = service.OpenAPIUpdateCluster(ctx.UserName, c.Param("id"), args, ctx.Logger)
 }
 
 func OpenAPIDeleteCluster(c *gin.Context) {
@@ -371,7 +371,7 @@ func OpenAPIDeleteCluster(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -383,5 +383,5 @@ func OpenAPIDeleteCluster(c *gin.Context) {
 	}
 
 	internalhandler.InsertOperationLog(c, ctx.UserName+"(openAPI)", "", "删除", "资源配置-集群", c.Param("id"), "", ctx.Logger)
-	ctx.Err = service.OpenAPIDeleteCluster(ctx.UserName, c.Param("id"), ctx.Logger)
+	ctx.RespErr = service.OpenAPIDeleteCluster(ctx.UserName, c.Param("id"), ctx.Logger)
 }

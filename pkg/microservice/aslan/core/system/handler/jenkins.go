@@ -49,14 +49,14 @@ func TestJenkinsConnection(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	args := new(service.JenkinsArgs)
 	if err := c.BindJSON(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid jenkinsArgs json args")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid jenkinsArgs json args")
 		return
 	}
 
@@ -66,19 +66,19 @@ func TestJenkinsConnection(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = service.TestJenkinsConnection(args, ctx.Logger)
+	ctx.RespErr = service.TestJenkinsConnection(args, ctx.Logger)
 }
 
 func ListJobNames(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.ListJobNames(c.Param("id"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.ListJobNames(c.Param("id"), ctx.Logger)
 }
 
 func ListJobBuildArgs(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.ListJobBuildArgs(c.Param("id"), c.Param("jobName"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.ListJobBuildArgs(c.Param("id"), c.Param("jobName"), ctx.Logger)
 }

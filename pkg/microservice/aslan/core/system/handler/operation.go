@@ -34,7 +34,7 @@ func GetOperationLogs(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -47,19 +47,19 @@ func GetOperationLogs(c *gin.Context) {
 
 	status, err := strconv.Atoi(c.Query("status"))
 	if err != nil {
-		ctx.Err = e.ErrFindOperationLog.AddErr(err)
+		ctx.RespErr = e.ErrFindOperationLog.AddErr(err)
 		return
 	}
 
 	perPage, err := strconv.Atoi(c.Query("per_page"))
 	if err != nil {
-		ctx.Err = e.ErrFindOperationLog.AddErr(err)
+		ctx.RespErr = e.ErrFindOperationLog.AddErr(err)
 		return
 	}
 
 	page, err := strconv.Atoi(c.Query("page"))
 	if err != nil {
-		ctx.Err = e.ErrFindOperationLog.AddErr(err)
+		ctx.RespErr = e.ErrFindOperationLog.AddErr(err)
 		return
 	}
 
@@ -82,7 +82,7 @@ func GetOperationLogs(c *gin.Context) {
 
 	resp, count, err := service.FindOperation(args, ctx.Logger)
 	ctx.Resp = resp
-	ctx.Err = err
+	ctx.RespErr = err
 	c.Writer.Header().Set("X-Total", strconv.Itoa(count))
 }
 
@@ -92,7 +92,7 @@ func AddSystemOperationLog(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -100,7 +100,7 @@ func AddSystemOperationLog(c *gin.Context) {
 	args := new(models2.OperationLog)
 	err = c.BindJSON(args)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid insertOperationLogs args")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid insertOperationLogs args")
 		return
 	}
 
@@ -110,7 +110,7 @@ func AddSystemOperationLog(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.InsertOperation(args, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.InsertOperation(args, ctx.Logger)
 }
 
 type updateOperationArgs struct {
@@ -123,7 +123,7 @@ func UpdateOperationLog(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -131,7 +131,7 @@ func UpdateOperationLog(c *gin.Context) {
 	args := new(updateOperationArgs)
 	err = c.BindJSON(args)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid insertOperationLogs args")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid insertOperationLogs args")
 		return
 	}
 
@@ -141,5 +141,5 @@ func UpdateOperationLog(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = service.UpdateOperation(c.Param("id"), args.Status, ctx.Logger)
+	ctx.RespErr = service.UpdateOperation(c.Param("id"), args.Status, ctx.Logger)
 }

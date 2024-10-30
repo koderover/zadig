@@ -37,14 +37,14 @@ func PreloadServiceTemplate(c *gin.Context) {
 
 	codehostID, err := strconv.Atoi(codehostIDStr)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("cannot convert codehost id to int")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("cannot convert codehost id to int")
 		return
 	}
 
 	repoName := c.Query("repoName")
 	repoUUID := c.Query("repoUUID")
 	if repoName == "" && repoUUID == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("repoName and repoUUID cannot be empty at the same time")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("repoName and repoUUID cannot be empty at the same time")
 		return
 	}
 
@@ -55,7 +55,7 @@ func PreloadServiceTemplate(c *gin.Context) {
 	remoteName := c.Query("remoteName")
 	repoOwner := c.Query("repoOwner")
 
-	ctx.Resp, ctx.Err = svcservice.PreloadServiceFromCodeHost(codehostID, repoOwner, repoName, repoUUID, branchName, remoteName, path, isDir, ctx.Logger)
+	ctx.Resp, ctx.RespErr = svcservice.PreloadServiceFromCodeHost(codehostID, repoOwner, repoName, repoUUID, branchName, remoteName, path, isDir, ctx.Logger)
 }
 
 func LoadServiceTemplate(c *gin.Context) {
@@ -64,7 +64,7 @@ func LoadServiceTemplate(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -73,14 +73,14 @@ func LoadServiceTemplate(c *gin.Context) {
 
 	codehostID, err := strconv.Atoi(codehostIDStr)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("cannot convert codehost id to string")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("cannot convert codehost id to string")
 		return
 	}
 
 	repoName := c.Query("repoName")
 	repoUUID := c.Query("repoUUID")
 	if repoName == "" && repoUUID == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("repoName and repoUUID cannot be empty at the same time")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("repoName and repoUUID cannot be empty at the same time")
 		return
 	}
 
@@ -88,7 +88,7 @@ func LoadServiceTemplate(c *gin.Context) {
 
 	args := new(svcservice.LoadServiceReq)
 	if err := c.BindJSON(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid LoadServiceReq json args")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid LoadServiceReq json args")
 		return
 	}
 
@@ -132,12 +132,12 @@ func LoadServiceTemplate(c *gin.Context) {
 
 	if production {
 		if err := commonutil.CheckZadigProfessionalLicense(); err != nil {
-			ctx.Err = err
+			ctx.RespErr = err
 			return
 		}
 	}
 
-	ctx.Err = svcservice.LoadServiceFromCodeHost(ctx.UserName, codehostID, repoOwner, namespace, repoName, repoUUID, branchName, remoteName, args, false, production, ctx.Logger)
+	ctx.RespErr = svcservice.LoadServiceFromCodeHost(ctx.UserName, codehostID, repoOwner, namespace, repoName, repoUUID, branchName, remoteName, args, false, production, ctx.Logger)
 }
 
 func SyncServiceTemplate(c *gin.Context) {
@@ -145,7 +145,7 @@ func SyncServiceTemplate(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -154,14 +154,14 @@ func SyncServiceTemplate(c *gin.Context) {
 
 	codehostID, err := strconv.Atoi(codehostIDStr)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("cannot convert codehost id to string")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("cannot convert codehost id to string")
 		return
 	}
 
 	repoName := c.Query("repoName")
 	repoUUID := c.Query("repoUUID")
 	if repoName == "" && repoUUID == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("repoName and repoUUID cannot be empty at the same time")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("repoName and repoUUID cannot be empty at the same time")
 		return
 	}
 
@@ -169,7 +169,7 @@ func SyncServiceTemplate(c *gin.Context) {
 
 	args := new(svcservice.LoadServiceReq)
 	if err := c.BindJSON(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid LoadServiceReq json args")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid LoadServiceReq json args")
 		return
 	}
 
@@ -213,12 +213,12 @@ func SyncServiceTemplate(c *gin.Context) {
 
 	if production {
 		if err := commonutil.CheckZadigProfessionalLicense(); err != nil {
-			ctx.Err = err
+			ctx.RespErr = err
 			return
 		}
 	}
 
-	ctx.Err = svcservice.LoadServiceFromCodeHost(ctx.UserName, codehostID, repoOwner, namespace, repoName, repoUUID, branchName, remoteName, args, true, production, ctx.Logger)
+	ctx.RespErr = svcservice.LoadServiceFromCodeHost(ctx.UserName, codehostID, repoOwner, namespace, repoName, repoUUID, branchName, remoteName, args, true, production, ctx.Logger)
 }
 
 // ValidateServiceUpdate seems to require no privilege
@@ -230,14 +230,14 @@ func ValidateServiceUpdate(c *gin.Context) {
 
 	codehostID, err := strconv.Atoi(codehostIDStr)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("cannot convert codehost id to string")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("cannot convert codehost id to string")
 		return
 	}
 
 	repoName := c.Query("repoName")
 	repoUUID := c.Query("repoUUID")
 	if repoName == "" && repoUUID == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("repoName and repoUUID cannot be empty at the same time")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("repoName and repoUUID cannot be empty at the same time")
 		return
 	}
 
@@ -249,5 +249,5 @@ func ValidateServiceUpdate(c *gin.Context) {
 	repoOwner := c.Query("repoOwner")
 	serviceName := c.Query("serviceName")
 
-	ctx.Err = svcservice.ValidateServiceUpdate(codehostID, serviceName, repoOwner, repoName, repoUUID, branchName, remoteName, path, isDir, ctx.Logger)
+	ctx.RespErr = svcservice.ValidateServiceUpdate(codehostID, serviceName, repoOwner, repoName, repoUUID, branchName, remoteName, path, isDir, ctx.Logger)
 }

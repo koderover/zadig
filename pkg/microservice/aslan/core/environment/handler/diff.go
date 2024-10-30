@@ -32,7 +32,7 @@ func ServiceDiff(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -60,7 +60,7 @@ func ServiceDiff(c *gin.Context) {
 
 			err = commonutil.CheckZadigProfessionalLicense()
 			if err != nil {
-				ctx.Err = err
+				ctx.RespErr = err
 				return
 			}
 		} else {
@@ -75,5 +75,5 @@ func ServiceDiff(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.Err = service.GetServiceDiff(envName, projectKey, c.Param("serviceName"), production, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetServiceDiff(envName, projectKey, c.Param("serviceName"), production, ctx.Logger)
 }

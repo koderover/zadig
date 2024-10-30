@@ -80,6 +80,13 @@ type Identity struct {
 	GID          string `json:"gid,omitempty"`
 }
 
+func GeneSystemUserBriefInfo() UserBriefInfo {
+	return UserBriefInfo{
+		Name:    setting.SystemUser,
+		Account: setting.SystemUser,
+	}
+}
+
 func (id *Identity) GetID() string {
 	if id.IdentityType == "user" {
 		return id.UID

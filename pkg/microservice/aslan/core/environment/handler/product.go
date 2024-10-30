@@ -65,7 +65,7 @@ func GetInitProduct(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -84,7 +84,7 @@ func GetInitProduct(c *gin.Context) {
 	if envType == types.ShareEnv {
 		isBaseEnv, err = strconv.ParseBool(isBaseEnvStr)
 		if err != nil {
-			ctx.Err = fmt.Errorf("failed to parse %s to bool: %s", isBaseEnvStr, err)
+			ctx.RespErr = fmt.Errorf("failed to parse %s to bool: %s", isBaseEnvStr, err)
 			return
 		}
 	}
@@ -106,7 +106,7 @@ func GetInitProduct(c *gin.Context) {
 
 	product, err := service.GetInitProduct(projectKey, envType, isBaseEnv, baseEnvName, false, ctx.Logger)
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 

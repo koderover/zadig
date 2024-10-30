@@ -39,7 +39,7 @@ func ListProjectManagement(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -50,7 +50,7 @@ func ListProjectManagement(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.ListProjectManagement(ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.ListProjectManagement(ctx.Logger)
 }
 
 // @Summary List Project Management For Project
@@ -66,7 +66,7 @@ func ListProjectManagementForProject(c *gin.Context) {
 
 	if err != nil {
 		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -80,7 +80,7 @@ func ListProjectManagementForProject(c *gin.Context) {
 		pm.MeegoPluginSecret = ""
 		pm.MeegoUserKey = ""
 	}
-	ctx.Err = err
+	ctx.RespErr = err
 	ctx.Resp = pms
 }
 
@@ -89,7 +89,7 @@ func CreateProjectManagement(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -102,17 +102,17 @@ func CreateProjectManagement(c *gin.Context) {
 
 	req := new(models.ProjectManagement)
 	if err := c.ShouldBindJSON(req); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
 	err = util.CheckZadigEnterpriseLicense()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
-	ctx.Err = service.CreateProjectManagement(req, ctx.Logger)
+	ctx.RespErr = service.CreateProjectManagement(req, ctx.Logger)
 }
 
 func UpdateProjectManagement(c *gin.Context) {
@@ -120,7 +120,7 @@ func UpdateProjectManagement(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -133,17 +133,17 @@ func UpdateProjectManagement(c *gin.Context) {
 
 	req := new(models.ProjectManagement)
 	if err := c.ShouldBindJSON(req); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
 	err = util.CheckZadigEnterpriseLicense()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
-	ctx.Err = service.UpdateProjectManagement(c.Param("id"), req, ctx.Logger)
+	ctx.RespErr = service.UpdateProjectManagement(c.Param("id"), req, ctx.Logger)
 }
 
 func DeleteProjectManagement(c *gin.Context) {
@@ -152,7 +152,7 @@ func DeleteProjectManagement(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -163,7 +163,7 @@ func DeleteProjectManagement(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = service.DeleteProjectManagement(c.Param("id"), ctx.Logger)
+	ctx.RespErr = service.DeleteProjectManagement(c.Param("id"), ctx.Logger)
 }
 
 func Validate(c *gin.Context) {
@@ -172,7 +172,7 @@ func Validate(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -185,16 +185,16 @@ func Validate(c *gin.Context) {
 
 	req := new(models.ProjectManagement)
 	if err := c.ShouldBindJSON(req); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 	switch req.Type {
 	case setting.PMJira:
-		ctx.Err = service.ValidateJira(req)
+		ctx.RespErr = service.ValidateJira(req)
 	case setting.PMMeego:
-		ctx.Err = service.ValidateMeego(req)
+		ctx.RespErr = service.ValidateMeego(req)
 	default:
-		ctx.Err = e.ErrValidateProjectManagement.AddDesc("invalid type")
+		ctx.RespErr = e.ErrValidateProjectManagement.AddDesc("invalid type")
 	}
 }
 
@@ -209,7 +209,7 @@ func Validate(c *gin.Context) {
 func ListJiraProjects(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	ctx.Resp, ctx.Err = service.ListJiraProjects(c.Param("id"))
+	ctx.Resp, ctx.RespErr = service.ListJiraProjects(c.Param("id"))
 }
 
 // @Summary List Jira Boards
@@ -224,7 +224,7 @@ func ListJiraProjects(c *gin.Context) {
 func ListJiraBoards(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	ctx.Resp, ctx.Err = service.ListJiraBoards(c.Param("id"), c.Query("projectKey"))
+	ctx.Resp, ctx.RespErr = service.ListJiraBoards(c.Param("id"), c.Query("projectKey"))
 }
 
 // @Summary List Jira Sprints
@@ -242,12 +242,12 @@ func ListJiraSprints(c *gin.Context) {
 
 	boardID, err := strconv.Atoi(c.Param("boardID"))
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid board id")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid board id")
 		return
 
 	}
 
-	ctx.Resp, ctx.Err = service.ListJiraSprints(c.Param("id"), boardID)
+	ctx.Resp, ctx.RespErr = service.ListJiraSprints(c.Param("id"), boardID)
 }
 
 // @Summary Get Jira Sprint
@@ -265,12 +265,12 @@ func GetJiraSprint(c *gin.Context) {
 
 	sprintID, err := strconv.Atoi(c.Param("sprintID"))
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid sprint id")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid sprint id")
 		return
 
 	}
 
-	ctx.Resp, ctx.Err = service.GetJiraSprint(c.Param("id"), sprintID)
+	ctx.Resp, ctx.RespErr = service.GetJiraSprint(c.Param("id"), sprintID)
 }
 
 // @Summary List Jira Sprint Issues
@@ -288,18 +288,18 @@ func ListJiraSprintIssues(c *gin.Context) {
 
 	sprintID, err := strconv.Atoi(c.Param("sprintID"))
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid sprint id")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid sprint id")
 		return
 
 	}
 
-	ctx.Resp, ctx.Err = service.ListJiraSprintIssues(c.Param("id"), sprintID)
+	ctx.Resp, ctx.RespErr = service.ListJiraSprintIssues(c.Param("id"), sprintID)
 }
 
 func SearchJiraIssues(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	ctx.Resp, ctx.Err = service.SearchJiraIssues(c.Param("id"), c.Query("project"), c.Query("type"), c.Query("status"), c.Query("summary"), c.Query("ne") == "true")
+	ctx.Resp, ctx.RespErr = service.SearchJiraIssues(c.Param("id"), c.Query("project"), c.Query("type"), c.Query("status"), c.Query("summary"), c.Query("ne") == "true")
 }
 
 func SearchJiraProjectIssuesWithJQL(c *gin.Context) {
@@ -308,7 +308,7 @@ func SearchJiraProjectIssuesWithJQL(c *gin.Context) {
 
 	// 5.22 JQL only support {{.system.username}} variable
 	// refactor if more variables are needed
-	ctx.Resp, ctx.Err = service.SearchJiraProjectIssuesWithJQL(c.Param("id"), c.Query("project"), strings.ReplaceAll(c.Query("jql"), "{{.system.username}}", ctx.UserName), c.Query("summary"))
+	ctx.Resp, ctx.RespErr = service.SearchJiraProjectIssuesWithJQL(c.Param("id"), c.Query("project"), strings.ReplaceAll(c.Query("jql"), "{{.system.username}}", ctx.UserName), c.Query("summary"))
 }
 
 // @Summary Get Jira Types
@@ -323,7 +323,7 @@ func SearchJiraProjectIssuesWithJQL(c *gin.Context) {
 func GetJiraTypes(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	ctx.Resp, ctx.Err = service.GetJiraTypes(c.Param("id"), c.Query("project"))
+	ctx.Resp, ctx.RespErr = service.GetJiraTypes(c.Param("id"), c.Query("project"))
 }
 
 // @Summary Get Jira Project Status
@@ -338,7 +338,7 @@ func GetJiraTypes(c *gin.Context) {
 func GetJiraProjectStatus(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	ctx.Resp, ctx.Err = service.GetJiraProjectStatus(c.Param("id"), c.Query("project"))
+	ctx.Resp, ctx.RespErr = service.GetJiraProjectStatus(c.Param("id"), c.Query("project"))
 }
 
 // @Summary Get Jira All Status
@@ -352,7 +352,7 @@ func GetJiraProjectStatus(c *gin.Context) {
 func GetJiraAllStatus(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	ctx.Resp, ctx.Err = service.GetJiraAllStatus(c.Param("id"))
+	ctx.Resp, ctx.RespErr = service.GetJiraAllStatus(c.Param("id"))
 }
 
 func HandleJiraEvent(c *gin.Context) {
@@ -360,11 +360,11 @@ func HandleJiraEvent(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	event := new(jira.Event)
 	if err := c.ShouldBindJSON(event); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
-	ctx.Err = service.HandleJiraHookEvent(c.Param("workflowName"), c.Param("hookName"), event, ctx.Logger)
+	ctx.RespErr = service.HandleJiraHookEvent(c.Param("workflowName"), c.Param("hookName"), event, ctx.Logger)
 }
 
 func HandleMeegoEvent(c *gin.Context) {
@@ -372,9 +372,9 @@ func HandleMeegoEvent(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	event := new(meego.GeneralWebhookRequest)
 	if err := c.ShouldBindJSON(event); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
-	ctx.Err = service.HandleMeegoHookEvent(c.Param("workflowName"), c.Param("hookName"), event, ctx.Logger)
+	ctx.RespErr = service.HandleMeegoHookEvent(c.Param("workflowName"), c.Param("hookName"), event, ctx.Logger)
 }

@@ -50,8 +50,10 @@ import (
 	commontypes "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/types"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	environmentservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/environment/service"
+	sprintservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/sprint_management/service"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/shared/client/user"
+	"github.com/koderover/zadig/v2/pkg/shared/handler"
 	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
 	"github.com/koderover/zadig/v2/pkg/shared/kube/resource"
 	"github.com/koderover/zadig/v2/pkg/shared/kube/wrapper"
@@ -148,6 +150,11 @@ func CreateProductTemplate(args *template.Product, log *zap.SugaredLogger) (err 
 			return e.ErrCreateProduct.AddErr(fmt.Errorf("create project successfully, but failed to add project to current group, please add the project %s to group %s manually, error: %v", args.ProductName, args.GroupName, err))
 		}
 	}
+
+	// init sprint template
+	ctx := handler.NewBackgroupContext()
+	sprintservice.InitSprintTemplate(ctx, args.ProductName)
+
 	return
 }
 

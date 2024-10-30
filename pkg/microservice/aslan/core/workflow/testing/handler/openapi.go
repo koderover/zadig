@@ -32,7 +32,7 @@ func OpenAPICreateScanningModule(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -40,12 +40,12 @@ func OpenAPICreateScanningModule(c *gin.Context) {
 	args := new(testingservice.OpenAPICreateScanningReq)
 	err = c.BindJSON(args)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 	}
 
 	isValid, err := args.Validate()
 	if !isValid {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 
@@ -63,7 +63,7 @@ func OpenAPICreateScanningModule(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = testingservice.OpenAPICreateScanningModule(ctx.UserName, args, ctx.Logger)
+	ctx.RespErr = testingservice.OpenAPICreateScanningModule(ctx.UserName, args, ctx.Logger)
 }
 
 func OpenAPICreateScanningTask(c *gin.Context) {
@@ -71,7 +71,7 @@ func OpenAPICreateScanningTask(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -79,18 +79,18 @@ func OpenAPICreateScanningTask(c *gin.Context) {
 	args := new(testingservice.OpenAPICreateScanningTaskReq)
 	err = c.BindJSON(args)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 	}
 	args.ProjectName = c.Query("projectKey")
 	args.ScanName = c.Param("scanName")
 	isValid, err := args.Validate()
 	if !isValid {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 	data, err := c.GetRawData()
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProjectName, "OpenAPI"+"新增", "代码扫描任务", args.ScanName, string(data), ctx.Logger)
 
@@ -111,7 +111,7 @@ func OpenAPICreateScanningTask(c *gin.Context) {
 	ctx.Resp = testingservice.OpenAPICreateScanningTaskResp{
 		TaskID: taskID,
 	}
-	ctx.Err = err
+	ctx.RespErr = err
 }
 
 func OpenAPIGetScanningTaskDetail(c *gin.Context) {
@@ -122,15 +122,15 @@ func OpenAPIGetScanningTaskDetail(c *gin.Context) {
 	projectKey := c.Query("projectKey")
 	taskID, err := strconv.ParseInt(c.Param("taskID"), 10, 64)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid param taskID")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid param taskID")
 		return
 	}
 	if taskID == 0 || projectKey == "" || scanName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid params")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid params")
 		return
 	}
 
-	ctx.Resp, ctx.Err = testingservice.OpenAPIGetScanningTaskDetail(taskID, projectKey, scanName, ctx.Logger)
+	ctx.Resp, ctx.RespErr = testingservice.OpenAPIGetScanningTaskDetail(taskID, projectKey, scanName, ctx.Logger)
 }
 
 func OpenAPICreateTestTask(c *gin.Context) {
@@ -138,7 +138,7 @@ func OpenAPICreateTestTask(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -146,16 +146,16 @@ func OpenAPICreateTestTask(c *gin.Context) {
 	args := new(testingservice.OpenAPICreateTestTaskReq)
 	data, err := c.GetRawData()
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 	if err = json.Unmarshal(data, args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 	isValid, err := args.Validate()
 	if !isValid {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProjectName, "新增", "OpenAPI"+"测试-task", fmt.Sprintf("%s-%s", args.TestName, "job"), string(data), ctx.Logger)
@@ -177,7 +177,7 @@ func OpenAPICreateTestTask(c *gin.Context) {
 	ctx.Resp = testingservice.OpenAPICreateTestTaskResp{
 		TaskID: taskID,
 	}
-	ctx.Err = err
+	ctx.RespErr = err
 }
 
 func OpenAPIGetTestTaskResult(c *gin.Context) {
@@ -188,13 +188,13 @@ func OpenAPIGetTestTaskResult(c *gin.Context) {
 	testName := c.Param("testName")
 	taskID, err := strconv.ParseInt(c.Param("taskID"), 10, 64)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid param taskID")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid param taskID")
 		return
 	}
 	if taskID == 0 || projectKey == "" || testName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid params")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid params")
 		return
 	}
 
-	ctx.Resp, ctx.Err = testingservice.OpenAPIGetTestTaskResult(taskID, projectKey, testName, ctx.Logger)
+	ctx.Resp, ctx.RespErr = testingservice.OpenAPIGetTestTaskResult(taskID, projectKey, testName, ctx.Logger)
 }

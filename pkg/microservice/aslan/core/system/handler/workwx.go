@@ -39,13 +39,13 @@ func GetWorkWxDepartment(c *gin.Context) {
 	req := new(getWorkWXDepartmentReq)
 	err := c.ShouldBindQuery(&req)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
 	appID := c.Param("id")
 
-	ctx.Resp, ctx.Err = service.GetWorkWxDepartment(appID, req.DepartmentID, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetWorkWxDepartment(appID, req.DepartmentID, ctx.Logger)
 }
 
 type getWorkWXUsersReq struct {
@@ -59,13 +59,13 @@ func GetWorkWxUsers(c *gin.Context) {
 	req := new(getWorkWXUsersReq)
 	err := c.ShouldBindQuery(&req)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
 	appID := c.Param("id")
 
-	ctx.Resp, ctx.Err = service.GetWorkWxUsers(appID, req.DepartmentID, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetWorkWxUsers(appID, req.DepartmentID, ctx.Logger)
 }
 
 type validateWorkWXCallbackReq struct {

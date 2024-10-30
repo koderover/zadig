@@ -46,7 +46,7 @@ func CreateTestTask(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -78,7 +78,7 @@ func CreateTestTask(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindWith(&args, binding.JSON); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 
@@ -86,9 +86,9 @@ func CreateTestTask(c *gin.Context) {
 		args.TestTaskCreator = ctx.UserName
 	}
 
-	ctx.Resp, ctx.Err = service.CreateTestTaskV2(args, ctx.UserName, ctx.Account, ctx.UserID, ctx.Logger)
-	if ctx.Err != nil {
-		notify.SendFailedTaskMessage(ctx.UserName, args.ProductName, args.TestName, ctx.RequestID, config.TestType, ctx.Err, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.CreateTestTaskV2(args, ctx.UserName, ctx.Account, ctx.UserID, ctx.Logger)
+	if ctx.RespErr != nil {
+		notify.SendFailedTaskMessage(ctx.UserName, args.ProductName, args.TestName, ctx.RequestID, config.TestType, ctx.RespErr, ctx.Logger)
 	}
 }
 
@@ -97,7 +97,7 @@ func ListTestTask(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -114,7 +114,7 @@ func ListTestTask(c *gin.Context) {
 	} else {
 		pageSize, err = strconv.Atoi(pageSizeStr)
 		if err != nil {
-			ctx.Err = e.ErrInvalidParam.AddDesc(fmt.Sprintf("pageSize args err :%s", err))
+			ctx.RespErr = e.ErrInvalidParam.AddDesc(fmt.Sprintf("pageSize args err :%s", err))
 			return
 		}
 	}
@@ -124,7 +124,7 @@ func ListTestTask(c *gin.Context) {
 	} else {
 		pageNum, err = strconv.Atoi(pageNumStr)
 		if err != nil {
-			ctx.Err = e.ErrInvalidParam.AddDesc(fmt.Sprintf("page args err :%s", err))
+			ctx.RespErr = e.ErrInvalidParam.AddDesc(fmt.Sprintf("page args err :%s", err))
 			return
 		}
 	}
@@ -143,7 +143,7 @@ func ListTestTask(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.Err = service.ListTestTask(testName, projectKey, pageNum, pageSize, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.ListTestTask(testName, projectKey, pageNum, pageSize, ctx.Logger)
 }
 
 func CancelTestTaskV3(c *gin.Context) {
@@ -151,7 +151,7 @@ func CancelTestTaskV3(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -178,13 +178,13 @@ func CancelTestTaskV3(c *gin.Context) {
 
 	taskID, err := strconv.ParseInt(taskIDStr, 10, 64)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(fmt.Sprintf("taskID args err :%s", err))
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(fmt.Sprintf("taskID args err :%s", err))
 		return
 	}
 
 	workflowName := fmt.Sprintf(setting.TestWorkflowNamingConvention, testName)
 
-	ctx.Err = workflowservice.CancelWorkflowTaskV4(ctx.UserName, workflowName, taskID, ctx.Logger)
+	ctx.RespErr = workflowservice.CancelWorkflowTaskV4(ctx.UserName, workflowName, taskID, ctx.Logger)
 }
 
 func GetTestTaskInfo(c *gin.Context) {
@@ -192,7 +192,7 @@ func GetTestTaskInfo(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -217,11 +217,11 @@ func GetTestTaskInfo(c *gin.Context) {
 
 	taskID, err := strconv.ParseInt(taskIDStr, 10, 64)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(fmt.Sprintf("taskID args err :%s", err))
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(fmt.Sprintf("taskID args err :%s", err))
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.GetTestTaskDetail(projectKey, testName, taskID, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetTestTaskDetail(projectKey, testName, taskID, ctx.Logger)
 }
 
 func GetTestTaskJUnitReportInfo(c *gin.Context) {
@@ -229,7 +229,7 @@ func GetTestTaskJUnitReportInfo(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -254,11 +254,11 @@ func GetTestTaskJUnitReportInfo(c *gin.Context) {
 
 	taskID, err := strconv.ParseInt(taskIDStr, 10, 64)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(fmt.Sprintf("taskID args err :%s", err))
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(fmt.Sprintf("taskID args err :%s", err))
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.GetTestTaskReportDetail(projectKey, testName, taskID, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetTestTaskReportDetail(projectKey, testName, taskID, ctx.Logger)
 }
 
 func GetTestTaskHtmlReportInfo(c *gin.Context) {
@@ -266,7 +266,7 @@ func GetTestTaskHtmlReportInfo(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -291,7 +291,7 @@ func GetTestTaskHtmlReportInfo(c *gin.Context) {
 
 	taskID, err := strconv.ParseInt(taskIDStr, 10, 64)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(fmt.Sprintf("taskID args err :%s", err))
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(fmt.Sprintf("taskID args err :%s", err))
 		return
 	}
 
@@ -310,7 +310,7 @@ func RestartTestTaskV2(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -337,13 +337,13 @@ func RestartTestTaskV2(c *gin.Context) {
 
 	taskID, err := strconv.ParseInt(taskIDStr, 10, 64)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(fmt.Sprintf("taskID args err :%s", err))
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(fmt.Sprintf("taskID args err :%s", err))
 		return
 	}
 
 	workflowName := fmt.Sprintf(setting.TestWorkflowNamingConvention, testName)
 
-	ctx.Err = workflowservice.RetryWorkflowTaskV4(workflowName, taskID, ctx.Logger)
+	ctx.RespErr = workflowservice.RetryWorkflowTaskV4(workflowName, taskID, ctx.Logger)
 }
 
 func GetTestingTaskArtifact(c *gin.Context) {
@@ -351,7 +351,7 @@ func GetTestingTaskArtifact(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -377,7 +377,7 @@ func GetTestingTaskArtifact(c *gin.Context) {
 
 	taskID, err := strconv.ParseInt(taskIDStr, 10, 64)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid task id")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid task id")
 		return
 	}
 
@@ -385,7 +385,7 @@ func GetTestingTaskArtifact(c *gin.Context) {
 
 	resp, err := workflowservice.GetWorkflowV4ArtifactFileContent(workflowName, jobName, taskID, ctx.Logger)
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 	c.Writer.Header().Set("Content-Disposition", `attachment; filename="artifact.tar.gz"`)
@@ -398,7 +398,7 @@ func GetTestingTaskSSE(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -423,7 +423,7 @@ func GetTestingTaskSSE(c *gin.Context) {
 
 	taskID, err := strconv.ParseInt(taskIDStr, 10, 64)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(fmt.Sprintf("taskID args err :%s", err))
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(fmt.Sprintf("taskID args err :%s", err))
 		return
 	}
 

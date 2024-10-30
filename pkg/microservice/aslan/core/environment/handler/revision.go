@@ -30,7 +30,7 @@ func ListProductsRevision(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -54,7 +54,7 @@ func ListProductsRevision(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.Err = service.ListProductsRevision(projectKey, envName, false, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.ListProductsRevision(projectKey, envName, false, ctx.Logger)
 }
 
 // ListProductsRevisionSnaps called from cron service
@@ -62,6 +62,6 @@ func ListProductsRevisionSnaps(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.ListProductSnapsByOption(c.Query("deployType"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.ListProductSnapsByOption(c.Query("deployType"), ctx.Logger)
 	return
 }

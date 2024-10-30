@@ -31,7 +31,7 @@ func CleanImageCache(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -42,7 +42,7 @@ func CleanImageCache(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = service.CleanImageCache(ctx.Logger)
+	ctx.RespErr = service.CleanImageCache(ctx.Logger)
 }
 
 func SetCron(c *gin.Context) {
@@ -51,7 +51,7 @@ func SetCron(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -64,10 +64,10 @@ func SetCron(c *gin.Context) {
 
 	arg := new(SetCleanConfig)
 	if err := c.ShouldBindJSON(arg); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
-	ctx.Err = service.SetCron(arg.Cron, arg.CronEnabled, ctx.Logger)
+	ctx.RespErr = service.SetCron(arg.Cron, arg.CronEnabled, ctx.Logger)
 }
 
 type SetCleanConfig struct {
@@ -81,7 +81,7 @@ func CleanCacheState(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -92,12 +92,12 @@ func CleanCacheState(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.GetOrCreateCleanCacheState()
+	ctx.Resp, ctx.RespErr = service.GetOrCreateCleanCacheState()
 }
 
 func CleanSharedStorage(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Err = service.CleanSharedStorage()
+	ctx.RespErr = service.CleanSharedStorage()
 }

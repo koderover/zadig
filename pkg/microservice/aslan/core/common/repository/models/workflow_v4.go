@@ -254,6 +254,11 @@ type WorkflowServiceModule struct {
 	ServiceModule string              `bson:"service_module" json:"service_module"`
 	ServiceName   string              `bson:"service_name"   json:"service_name"`
 	CodeInfo      []*types.Repository `bson:"code_info"      json:"code_info"`
+	Images        []string            `bson:"images"         json:"images"`
+}
+
+func (s *WorkflowServiceModule) GetKey() string {
+	return fmt.Sprintf("%s-%s", s.ServiceName, s.ServiceModule)
 }
 
 type CustomDeployJobSpec struct {

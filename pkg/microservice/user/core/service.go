@@ -137,6 +137,7 @@ var readOnlyAction = []string{
 	permissionservice.VerbGetEnvironment,
 	permissionservice.VerbGetProductionEnv,
 	permissionservice.VerbGetScan,
+	permissionservice.VerbGetSprint,
 }
 
 func InitializeUserDBAndTables() {

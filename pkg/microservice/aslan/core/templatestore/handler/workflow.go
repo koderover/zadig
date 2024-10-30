@@ -33,7 +33,7 @@ func GetWorkflowTemplateByID(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		internalhandler.JSONResponse(c, ctx)
 		return
@@ -69,7 +69,7 @@ func ListWorkflowTemplate(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -95,7 +95,7 @@ func ListWorkflowTemplate(c *gin.Context) {
 		excludeBuildIn = true
 	}
 
-	ctx.Resp, ctx.Err = templateservice.ListWorkflowTemplate(c.Query("category"), excludeBuildIn, ctx.Logger)
+	ctx.Resp, ctx.RespErr = templateservice.ListWorkflowTemplate(c.Query("category"), excludeBuildIn, ctx.Logger)
 }
 
 func CreateWorkflowTemplate(c *gin.Context) {
@@ -103,7 +103,7 @@ func CreateWorkflowTemplate(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -117,18 +117,18 @@ func CreateWorkflowTemplate(c *gin.Context) {
 	}
 
 	if err = commonutil.CheckZadigProfessionalLicense(); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
 	args := new(commonmodels.WorkflowV4Template)
 
 	if err := c.ShouldBindYAML(&args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 
-	ctx.Err = templateservice.CreateWorkflowTemplate(ctx.UserName, args, ctx.Logger)
+	ctx.RespErr = templateservice.CreateWorkflowTemplate(ctx.UserName, args, ctx.Logger)
 }
 
 func UpdateWorkflowTemplate(c *gin.Context) {
@@ -137,7 +137,7 @@ func UpdateWorkflowTemplate(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -151,18 +151,18 @@ func UpdateWorkflowTemplate(c *gin.Context) {
 	}
 
 	if err = commonutil.CheckZadigProfessionalLicense(); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
 	args := new(commonmodels.WorkflowV4Template)
 
 	if err := c.ShouldBindYAML(&args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 
-	ctx.Err = templateservice.UpdateWorkflowTemplate(ctx.UserName, args, ctx.Logger)
+	ctx.RespErr = templateservice.UpdateWorkflowTemplate(ctx.UserName, args, ctx.Logger)
 }
 
 func DeleteWorkflowTemplateByID(c *gin.Context) {
@@ -171,7 +171,7 @@ func DeleteWorkflowTemplateByID(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -184,5 +184,5 @@ func DeleteWorkflowTemplateByID(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = templateservice.DeleteWorkflowTemplateByID(c.Param("id"), ctx.Logger)
+	ctx.RespErr = templateservice.DeleteWorkflowTemplateByID(c.Param("id"), ctx.Logger)
 }

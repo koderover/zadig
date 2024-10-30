@@ -32,7 +32,7 @@ func CreateAnnouncement(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -41,7 +41,7 @@ func CreateAnnouncement(c *gin.Context) {
 
 	err = c.BindJSON(args)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid notify args")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid notify args")
 		return
 	}
 
@@ -51,7 +51,7 @@ func CreateAnnouncement(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = service.CreateAnnouncement(ctx.UserName, args, ctx.Logger)
+	ctx.RespErr = service.CreateAnnouncement(ctx.UserName, args, ctx.Logger)
 }
 
 func UpdateAnnouncement(c *gin.Context) {
@@ -60,7 +60,7 @@ func UpdateAnnouncement(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -69,7 +69,7 @@ func UpdateAnnouncement(c *gin.Context) {
 
 	err = c.BindJSON(args)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid notify args")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid notify args")
 		return
 	}
 
@@ -79,21 +79,21 @@ func UpdateAnnouncement(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = service.UpdateAnnouncement(ctx.UserName, args.ID.Hex(), args, ctx.Logger)
+	ctx.RespErr = service.UpdateAnnouncement(ctx.UserName, args.ID.Hex(), args, ctx.Logger)
 }
 
 func PullAllAnnouncement(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.PullAllAnnouncement(ctx.UserName, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.PullAllAnnouncement(ctx.UserName, ctx.Logger)
 }
 
 func PullNotifyAnnouncement(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.PullNotifyAnnouncement(ctx.UserName, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.PullNotifyAnnouncement(ctx.UserName, ctx.Logger)
 }
 
 func DeleteAnnouncement(c *gin.Context) {
@@ -102,7 +102,7 @@ func DeleteAnnouncement(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -115,5 +115,5 @@ func DeleteAnnouncement(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = service.DeleteAnnouncement(ctx.UserName, ID, ctx.Logger)
+	ctx.RespErr = service.DeleteAnnouncement(ctx.UserName, ID, ctx.Logger)
 }

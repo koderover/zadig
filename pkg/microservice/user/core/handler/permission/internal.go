@@ -41,19 +41,19 @@ func InitializeProject(c *gin.Context) {
 
 	err := c.BindJSON(&req)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 
 	if req.Namespace == "*" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("args namespace can't be *")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("args namespace can't be *")
 		return
 	}
 
 	err = userhandler.GenerateUserAuthInfo(ctx)
 	if err != nil {
 		ctx.UnAuthorized = true
-		ctx.Err = fmt.Errorf("failed to generate user authorization info, error: %s", err)
+		ctx.RespErr = fmt.Errorf("failed to generate user authorization info, error: %s", err)
 		return
 	}
 
@@ -68,7 +68,7 @@ func InitializeProject(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = permission.InitializeProjectAuthorization(req.Namespace, req.IsPublic, req.Admins, ctx.Logger)
+	ctx.RespErr = permission.InitializeProjectAuthorization(req.Namespace, req.IsPublic, req.Admins, ctx.Logger)
 }
 
 func DeleteProjectRoles(c *gin.Context) {
@@ -77,14 +77,14 @@ func DeleteProjectRoles(c *gin.Context) {
 
 	namespace := c.Query("namespace")
 	if namespace == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("args namespace can't be empty")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("args namespace can't be empty")
 		return
 	}
 
 	err := userhandler.GenerateUserAuthInfo(ctx)
 	if err != nil {
 		ctx.UnAuthorized = true
-		ctx.Err = fmt.Errorf("failed to generate user authorization info, error: %s", err)
+		ctx.RespErr = fmt.Errorf("failed to generate user authorization info, error: %s", err)
 		return
 	}
 
@@ -99,7 +99,7 @@ func DeleteProjectRoles(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = permission.DeleteAllRolesInNamespace(namespace, ctx.Logger)
+	ctx.RespErr = permission.DeleteAllRolesInNamespace(namespace, ctx.Logger)
 }
 
 func SetProjectVisibility(c *gin.Context) {
@@ -108,14 +108,14 @@ func SetProjectVisibility(c *gin.Context) {
 
 	namespace := c.Query("namespace")
 	if namespace == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("args namespace can't be empty")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("args namespace can't be empty")
 		return
 	}
 
 	err := userhandler.GenerateUserAuthInfo(ctx)
 	if err != nil {
 		ctx.UnAuthorized = true
-		ctx.Err = fmt.Errorf("failed to generate user authorization info, error: %s", err)
+		ctx.RespErr = fmt.Errorf("failed to generate user authorization info, error: %s", err)
 		return
 	}
 
@@ -132,5 +132,5 @@ func SetProjectVisibility(c *gin.Context) {
 
 	visible, err := strconv.ParseBool(c.Query("is_public"))
 
-	ctx.Err = permission.SetProjectVisibility(namespace, visible, ctx.Logger)
+	ctx.RespErr = permission.SetProjectVisibility(namespace, visible, ctx.Logger)
 }

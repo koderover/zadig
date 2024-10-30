@@ -40,13 +40,13 @@ func OpenAPIListRoleBindings(c *gin.Context) {
 	err := userhandler.GenerateUserAuthInfo(ctx)
 	if err != nil {
 		ctx.UnAuthorized = true
-		ctx.Err = fmt.Errorf("failed to generate user authorization info, error: %s", err)
+		ctx.RespErr = fmt.Errorf("failed to generate user authorization info, error: %s", err)
 		return
 	}
 
 	projectName := c.Query("namespace")
 	if projectName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("namespace is empty")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("namespace is empty")
 		return
 	}
 
@@ -70,11 +70,11 @@ func OpenAPIListRoleBindings(c *gin.Context) {
 	uid := c.Query("uid")
 	gid := c.Query("gid")
 	if uid != "" && gid != "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("cannot pass uid and gid together")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("cannot pass uid and gid together")
 		return
 	}
 
-	ctx.Resp, ctx.Err = permission.ListRoleBindings(projectName, uid, gid, ctx.Logger)
+	ctx.Resp, ctx.RespErr = permission.ListRoleBindings(projectName, uid, gid, ctx.Logger)
 }
 
 func ListRoleBindings(c *gin.Context) {
@@ -83,18 +83,18 @@ func ListRoleBindings(c *gin.Context) {
 
 	projectName := c.Query("namespace")
 	if projectName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("namespace is empty")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("namespace is empty")
 		return
 	}
 
 	uid := c.Query("uid")
 	gid := c.Query("gid")
 	if uid != "" && gid != "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("cannot pass uid and gid together")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("cannot pass uid and gid together")
 		return
 	}
 
-	ctx.Resp, ctx.Err = permission.ListRoleBindings(projectName, uid, gid, ctx.Logger)
+	ctx.Resp, ctx.RespErr = permission.ListRoleBindings(projectName, uid, gid, ctx.Logger)
 }
 
 type createRoleBindingReq struct {
@@ -108,7 +108,7 @@ func OpenAPICreateRoleBinding(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -121,7 +121,7 @@ func CreateRoleBinding(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -133,20 +133,20 @@ func CreateRoleBindingImpl(c *gin.Context, ctx *internalhandler.Context) {
 	data, err := c.GetRawData()
 	if err != nil {
 		log.Errorf("CreateRoleBinding c.GetRawData() err : %v", err)
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	projectName := c.Query("namespace")
 	if projectName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("namespace is empty")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("namespace is empty")
 		return
 	}
 
 	req := new(createRoleBindingReq)
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
@@ -155,7 +155,7 @@ func CreateRoleBindingImpl(c *gin.Context, ctx *internalhandler.Context) {
 		if arg.IdentityType == "user" {
 			userInfo, err := permission.GetUser(arg.UID, ctx.Logger)
 			if err != nil {
-				ctx.Err = e.ErrInvalidParam.AddErr(err)
+				ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 				return
 			}
 			username := ""
@@ -166,7 +166,7 @@ func CreateRoleBindingImpl(c *gin.Context, ctx *internalhandler.Context) {
 		} else if arg.IdentityType == "group" {
 			groupInfo, err := permission.GetUserGroup(arg.GID, ctx.Logger)
 			if err != nil {
-				ctx.Err = e.ErrInvalidParam.AddErr(err)
+				ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 				return
 			}
 			username := ""
@@ -196,7 +196,7 @@ func CreateRoleBindingImpl(c *gin.Context, ctx *internalhandler.Context) {
 		}
 	}
 
-	ctx.Err = permission.CreateRoleBindings(req.Role, projectName, req.Identities, ctx.Logger)
+	ctx.RespErr = permission.CreateRoleBindings(req.Role, projectName, req.Identities, ctx.Logger)
 }
 
 type updateRoleBindingForUserReq struct {
@@ -209,7 +209,7 @@ func OpenAPIUpdateRoleBindingForUser(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -222,7 +222,7 @@ func UpdateRoleBindingForUser(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -235,30 +235,30 @@ func UpdateRoleBindingForUserImpl(c *gin.Context, ctx *internalhandler.Context) 
 	data, err := c.GetRawData()
 	if err != nil {
 		log.Errorf("CreateSystemRoleBinding c.GetRawData() err : %v", err)
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	projectName := c.Query("namespace")
 	if projectName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("namespace is empty")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("namespace is empty")
 		return
 	}
 	userID := c.Param("uid")
 	if userID == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("uid is empty")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("uid is empty")
 		return
 	}
 	args := new(updateRoleBindingForUserReq)
 	if err := c.ShouldBindJSON(&args); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
 	userInfo, err := permission.GetUser(userID, ctx.Logger)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
@@ -291,7 +291,7 @@ func UpdateRoleBindingForUserImpl(c *gin.Context, ctx *internalhandler.Context) 
 		}
 	}
 
-	ctx.Err = permission.UpdateRoleBindingForUser(userID, projectName, args.Roles, ctx.Logger)
+	ctx.RespErr = permission.UpdateRoleBindingForUser(userID, projectName, args.Roles, ctx.Logger)
 }
 
 func OpenAPIDeleteRoleBindingForUser(c *gin.Context) {
@@ -300,7 +300,7 @@ func OpenAPIDeleteRoleBindingForUser(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -313,7 +313,7 @@ func DeleteRoleBindingForUser(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -326,25 +326,25 @@ func DeleteRoleBindingForUserImpl(c *gin.Context, ctx *internalhandler.Context) 
 	data, err := c.GetRawData()
 	if err != nil {
 		log.Errorf("CreateSystemRoleBinding c.GetRawData() err : %v", err)
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	projectName := c.Query("namespace")
 	if projectName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("namespace is empty")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("namespace is empty")
 		return
 	}
 	userID := c.Param("uid")
 	if userID == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("uid is empty")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("uid is empty")
 		return
 	}
 
 	userInfo, err := permission.GetUser(userID, ctx.Logger)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
@@ -373,7 +373,7 @@ func DeleteRoleBindingForUserImpl(c *gin.Context, ctx *internalhandler.Context) 
 		}
 	}
 
-	ctx.Err = permission.DeleteRoleBindingForUser(userID, projectName, ctx.Logger)
+	ctx.RespErr = permission.DeleteRoleBindingForUser(userID, projectName, ctx.Logger)
 }
 
 func OpenAPIUpdateRoleBindingForGroup(c *gin.Context) {
@@ -382,7 +382,7 @@ func OpenAPIUpdateRoleBindingForGroup(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -395,7 +395,7 @@ func UpdateRoleBindingForGroup(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -408,30 +408,30 @@ func UpdateRoleBindingForGroupImpl(c *gin.Context, ctx *internalhandler.Context)
 	data, err := c.GetRawData()
 	if err != nil {
 		log.Errorf("CreateSystemRoleBinding c.GetRawData() err : %v", err)
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	projectName := c.Query("namespace")
 	if projectName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("namespace is empty")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("namespace is empty")
 		return
 	}
 	groupID := c.Param("gid")
 	if groupID == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("gid is empty")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("gid is empty")
 		return
 	}
 	args := new(updateRoleBindingForUserReq)
 	if err := c.ShouldBindJSON(&args); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
 	groupInfo, err := permission.GetUserGroup(groupID, ctx.Logger)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
@@ -464,7 +464,7 @@ func UpdateRoleBindingForGroupImpl(c *gin.Context, ctx *internalhandler.Context)
 		}
 	}
 
-	ctx.Err = permission.UpdateRoleBindingForUserGroup(groupID, projectName, args.Roles, ctx.Logger)
+	ctx.RespErr = permission.UpdateRoleBindingForUserGroup(groupID, projectName, args.Roles, ctx.Logger)
 }
 
 func OpenAPIDeleteRoleBindingForGroup(c *gin.Context) {
@@ -473,7 +473,7 @@ func OpenAPIDeleteRoleBindingForGroup(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -485,7 +485,7 @@ func DeleteRoleBindingForGroup(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -497,25 +497,25 @@ func DeleteRoleBindingForGroupImpl(c *gin.Context, ctx *internalhandler.Context)
 	data, err := c.GetRawData()
 	if err != nil {
 		log.Errorf("CreateSystemRoleBinding c.GetRawData() err : %v", err)
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	projectName := c.Query("namespace")
 	if projectName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("namespace is empty")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("namespace is empty")
 		return
 	}
 	groupID := c.Param("gid")
 	if groupID == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("gid is empty")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("gid is empty")
 		return
 	}
 
 	groupInfo, err := permission.GetUserGroup(groupID, ctx.Logger)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
@@ -544,5 +544,5 @@ func DeleteRoleBindingForGroupImpl(c *gin.Context, ctx *internalhandler.Context)
 		}
 	}
 
-	ctx.Err = permission.DeleteRoleBindingForUserGroup(groupID, projectName, ctx.Logger)
+	ctx.RespErr = permission.DeleteRoleBindingForUserGroup(groupID, projectName, ctx.Logger)
 }

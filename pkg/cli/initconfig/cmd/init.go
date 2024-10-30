@@ -23,7 +23,6 @@ import (
 	"sync"
 	"time"
 
-	workflowservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/spf13/cobra"
 
 	"github.com/koderover/zadig/v2/pkg/config"
@@ -36,6 +35,7 @@ import (
 	systemrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/repository/mongodb"
 	systemservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/service"
 	templateservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/templatestore/service"
+	workflowservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow"
 	configmongodb "github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/email/repository/mongodb"
 	userdb "github.com/koderover/zadig/v2/pkg/microservice/user/core/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/shared/client/aslan"

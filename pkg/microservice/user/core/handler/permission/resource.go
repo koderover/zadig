@@ -31,14 +31,14 @@ func OpenAPIGetResourceActionDefinitions(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	projectName := c.Query("projectName")
 	if projectName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("namespace is empty")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("namespace is empty")
 		return
 	}
 
@@ -60,7 +60,7 @@ func OpenAPIGetResourceActionDefinitions(c *gin.Context) {
 	}
 
 	envType := c.Query("envType")
-	ctx.Resp, ctx.Err = permission.GetResourceActionDefinitions("project", envType, ctx.Logger)
+	ctx.Resp, ctx.RespErr = permission.GetResourceActionDefinitions("project", envType, ctx.Logger)
 }
 
 func GetResourceActionDefinitions(c *gin.Context) {
@@ -69,5 +69,5 @@ func GetResourceActionDefinitions(c *gin.Context) {
 
 	scope := c.Query("scope")
 	envType := c.Query("env_type")
-	ctx.Resp, ctx.Err = permission.GetResourceActionDefinitions(scope, envType, ctx.Logger)
+	ctx.Resp, ctx.RespErr = permission.GetResourceActionDefinitions(scope, envType, ctx.Logger)
 }

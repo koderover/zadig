@@ -38,7 +38,7 @@ func GetBasicImage(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -49,14 +49,14 @@ func GetBasicImage(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.GetBasicImage(c.Param("id"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetBasicImage(c.Param("id"), ctx.Logger)
 }
 
 func ListBasicImages(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.ListBasicImages(c.Query("image_from"), c.Query("image_type"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.ListBasicImages(c.Query("image_from"), c.Query("image_type"), ctx.Logger)
 }
 
 func CreateBasicImage(c *gin.Context) {
@@ -65,7 +65,7 @@ func CreateBasicImage(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -89,12 +89,12 @@ func CreateBasicImage(c *gin.Context) {
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.ShouldBindWith(&args, binding.JSON); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid BasicImage args")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid BasicImage args")
 		return
 	}
 	args.UpdateBy = ctx.UserName
 
-	ctx.Err = service.CreateBasicImage(args, ctx.Logger)
+	ctx.RespErr = service.CreateBasicImage(args, ctx.Logger)
 }
 
 func UpdateBasicImage(c *gin.Context) {
@@ -103,7 +103,7 @@ func UpdateBasicImage(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -127,12 +127,12 @@ func UpdateBasicImage(c *gin.Context) {
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.ShouldBindWith(&args, binding.JSON); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid BasicImage args")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid BasicImage args")
 		return
 	}
 	args.UpdateBy = ctx.UserName
 
-	ctx.Err = service.UpdateBasicImage(c.Param("id"), args, ctx.Logger)
+	ctx.RespErr = service.UpdateBasicImage(c.Param("id"), args, ctx.Logger)
 }
 
 func DeleteBasicImage(c *gin.Context) {
@@ -141,7 +141,7 @@ func DeleteBasicImage(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -154,5 +154,5 @@ func DeleteBasicImage(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = service.DeleteBasicImage(c.Param("id"), ctx.Logger)
+	ctx.RespErr = service.DeleteBasicImage(c.Param("id"), ctx.Logger)
 }

@@ -35,5 +35,5 @@ func GetWebhookConfig(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.GetWebhookConfig(context.TODO(), ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetWebhookConfig(context.TODO(), ctx.Logger)
 }

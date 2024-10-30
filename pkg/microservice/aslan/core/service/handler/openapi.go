@@ -18,20 +18,20 @@ func LoadServiceFromYamlTemplateOpenAPI(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	req := new(svcservice.OpenAPILoadServiceFromYamlTemplateReq)
 	if err := c.ShouldBindJSON(req); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 	req.Production = false
 
 	if err := req.Validate(); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
@@ -51,7 +51,7 @@ func LoadServiceFromYamlTemplateOpenAPI(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = svcservice.OpenAPILoadServiceFromYamlTemplate(ctx.UserName, req, false, ctx.Logger)
+	ctx.RespErr = svcservice.OpenAPILoadServiceFromYamlTemplate(ctx.UserName, req, false, ctx.Logger)
 }
 
 func LoadProductionServiceFromYamlTemplateOpenAPI(c *gin.Context) {
@@ -60,13 +60,13 @@ func LoadProductionServiceFromYamlTemplateOpenAPI(c *gin.Context) {
 
 	req := new(svcservice.OpenAPILoadServiceFromYamlTemplateReq)
 	if err := c.ShouldBindJSON(req); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 	req.Production = true
 
 	if err := req.Validate(); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
@@ -75,11 +75,11 @@ func LoadProductionServiceFromYamlTemplateOpenAPI(c *gin.Context) {
 
 	err := commonutil.CheckZadigProfessionalLicense()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
-	ctx.Err = svcservice.OpenAPILoadServiceFromYamlTemplate(ctx.UserName, req, false, ctx.Logger)
+	ctx.RespErr = svcservice.OpenAPILoadServiceFromYamlTemplate(ctx.UserName, req, false, ctx.Logger)
 }
 
 func CreateRawYamlServicesOpenAPI(c *gin.Context) {
@@ -87,25 +87,25 @@ func CreateRawYamlServicesOpenAPI(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	projectKey := c.Query("projectKey")
 	if projectKey == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("projectKey cannot be empty")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("projectKey cannot be empty")
 		return
 	}
 
 	req := new(svcservice.OpenAPICreateYamlServiceReq)
 	data, err := c.GetRawData()
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid request body")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid request body")
 		return
 	}
 	if err = json.Unmarshal(data, req); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("failed to unmarshal request body")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("failed to unmarshal request body")
 		return
 	}
 
@@ -124,7 +124,7 @@ func CreateRawYamlServicesOpenAPI(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = svcservice.CreateRawYamlServicesOpenAPI(ctx.UserName, projectKey, req, ctx.Logger)
+	ctx.RespErr = svcservice.CreateRawYamlServicesOpenAPI(ctx.UserName, projectKey, req, ctx.Logger)
 }
 
 func CreateRawProductionYamlServicesOpenAPI(c *gin.Context) {
@@ -132,25 +132,25 @@ func CreateRawProductionYamlServicesOpenAPI(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	projectKey := c.Query("projectKey")
 	if projectKey == "" {
-		ctx.Err = fmt.Errorf("projectKey cannot be empty")
+		ctx.RespErr = fmt.Errorf("projectKey cannot be empty")
 		return
 	}
 
 	req := new(svcservice.OpenAPICreateYamlServiceReq)
 	data, err := c.GetRawData()
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid request body")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid request body")
 		return
 	}
 	if err = json.Unmarshal(data, req); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("failed to unmarshal request body")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("failed to unmarshal request body")
 		return
 	}
 	req.Production = true
@@ -172,11 +172,11 @@ func CreateRawProductionYamlServicesOpenAPI(c *gin.Context) {
 
 	err = commonutil.CheckZadigProfessionalLicense()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
-	ctx.Err = svcservice.CreateRawYamlServicesOpenAPI(ctx.UserName, projectKey, req, ctx.Logger)
+	ctx.RespErr = svcservice.CreateRawYamlServicesOpenAPI(ctx.UserName, projectKey, req, ctx.Logger)
 }
 
 func UpdateServiceConfigOpenAPI(c *gin.Context) {
@@ -184,20 +184,20 @@ func UpdateServiceConfigOpenAPI(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	args := new(svcservice.OpenAPIUpdateServiceConfigArgs)
 	if err := c.BindJSON(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid update service config json args")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid update service config json args")
 		return
 	}
 	args.ProjectName = c.Query("projectKey")
 	args.ServiceName = c.Param("name")
 	if err := args.Validate(); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 
@@ -217,7 +217,7 @@ func UpdateServiceConfigOpenAPI(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = svcservice.OpenAPIUpdateServiceConfig(ctx.UserName, args, ctx.Logger)
+	ctx.RespErr = svcservice.OpenAPIUpdateServiceConfig(ctx.UserName, args, ctx.Logger)
 }
 
 func UpdateProductionServiceConfigOpenAPI(c *gin.Context) {
@@ -225,20 +225,20 @@ func UpdateProductionServiceConfigOpenAPI(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	args := new(svcservice.OpenAPIUpdateServiceConfigArgs)
 	if err := c.BindJSON(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid update service config json args")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid update service config json args")
 		return
 	}
 	args.ProjectName = c.Query("projectKey")
 	args.ServiceName = c.Param("name")
 	if err := args.Validate(); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 
@@ -260,11 +260,11 @@ func UpdateProductionServiceConfigOpenAPI(c *gin.Context) {
 
 	err = commonutil.CheckZadigProfessionalLicense()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
-	ctx.Err = svcservice.OpenAPIProductionUpdateServiceConfig(ctx.UserName, args, ctx.Logger)
+	ctx.RespErr = svcservice.OpenAPIProductionUpdateServiceConfig(ctx.UserName, args, ctx.Logger)
 }
 
 func UpdateServiceVariableOpenAPI(c *gin.Context) {
@@ -272,25 +272,25 @@ func UpdateServiceVariableOpenAPI(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	req := new(svcservice.OpenAPIUpdateServiceVariableRequest)
 	if err := c.ShouldBindJSON(req); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
 	projectKey := c.Query("projectKey")
 	if projectKey == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("projectKey cannot be empty")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("projectKey cannot be empty")
 		return
 	}
 	serviceName := c.Param("name")
 	if serviceName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("serviceName cannot be empty")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("serviceName cannot be empty")
 		return
 	}
 
@@ -309,7 +309,7 @@ func UpdateServiceVariableOpenAPI(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = svcservice.OpenAPIUpdateServiceVariable(ctx.UserName, projectKey, serviceName, req, ctx.Logger)
+	ctx.RespErr = svcservice.OpenAPIUpdateServiceVariable(ctx.UserName, projectKey, serviceName, req, ctx.Logger)
 }
 
 func UpdateProductionServiceVariableOpenAPI(c *gin.Context) {
@@ -317,25 +317,25 @@ func UpdateProductionServiceVariableOpenAPI(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	req := new(svcservice.OpenAPIUpdateServiceVariableRequest)
 	if err := c.ShouldBindJSON(req); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
 	projectKey := c.Query("projectKey")
 	if projectKey == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("projectKey cannot be empty")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("projectKey cannot be empty")
 		return
 	}
 	serviceName := c.Param("name")
 	if serviceName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("serviceName cannot be empty")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("serviceName cannot be empty")
 		return
 	}
 
@@ -356,11 +356,11 @@ func UpdateProductionServiceVariableOpenAPI(c *gin.Context) {
 
 	err = commonutil.CheckZadigProfessionalLicense()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
-	ctx.Err = svcservice.OpenAPIUpdateProductionServiceVariable(ctx.UserName, projectKey, serviceName, req, ctx.Logger)
+	ctx.RespErr = svcservice.OpenAPIUpdateProductionServiceVariable(ctx.UserName, projectKey, serviceName, req, ctx.Logger)
 }
 
 func DeleteYamlServicesOpenAPI(c *gin.Context) {
@@ -368,19 +368,19 @@ func DeleteYamlServicesOpenAPI(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	projectKey := c.Query("projectKey")
 	if projectKey == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("projectKey cannot be empty")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("projectKey cannot be empty")
 		return
 	}
 	serviceName := c.Param("name")
 	if serviceName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("serviceName cannot be empty")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("serviceName cannot be empty")
 		return
 	}
 
@@ -399,7 +399,7 @@ func DeleteYamlServicesOpenAPI(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = svcservice.DeleteServiceTemplate(serviceName, "k8s", projectKey, false, ctx.Logger)
+	ctx.RespErr = svcservice.DeleteServiceTemplate(serviceName, "k8s", projectKey, false, ctx.Logger)
 }
 
 func DeleteProductionServicesOpenAPI(c *gin.Context) {
@@ -407,19 +407,19 @@ func DeleteProductionServicesOpenAPI(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	projectKey := c.Query("projectKey")
 	if projectKey == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("projectKey cannot be empty")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("projectKey cannot be empty")
 		return
 	}
 	serviceName := c.Param("name")
 	if serviceName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("serviceName cannot be empty")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("serviceName cannot be empty")
 		return
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "OpenAPI"+"删除", "项目管理-生产服务", serviceName, "", ctx.Logger)
@@ -439,11 +439,11 @@ func DeleteProductionServicesOpenAPI(c *gin.Context) {
 
 	err = commonutil.CheckZadigProfessionalLicense()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
-	ctx.Err = svcservice.DeleteServiceTemplate(serviceName, "k8s", projectKey, false, ctx.Logger)
+	ctx.RespErr = svcservice.DeleteServiceTemplate(serviceName, "k8s", projectKey, false, ctx.Logger)
 }
 
 func GetYamlServiceOpenAPI(c *gin.Context) {
@@ -452,17 +452,17 @@ func GetYamlServiceOpenAPI(c *gin.Context) {
 
 	projectKey := c.Query("projectKey")
 	if projectKey == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("projectKey cannot be empty")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("projectKey cannot be empty")
 		return
 	}
 
 	serviceName := c.Param("name")
 	if serviceName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("serviceName cannot be empty")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("serviceName cannot be empty")
 		return
 	}
 
-	ctx.Resp, ctx.Err = svcservice.OpenAPIGetYamlService(projectKey, serviceName, ctx.Logger)
+	ctx.Resp, ctx.RespErr = svcservice.OpenAPIGetYamlService(projectKey, serviceName, ctx.Logger)
 }
 
 func GetYamlServiceLabelOpenAPI(c *gin.Context) {
@@ -471,7 +471,7 @@ func GetYamlServiceLabelOpenAPI(c *gin.Context) {
 
 	projectKey := c.Query("projectKey")
 	if projectKey == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("projectKey cannot be empty")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("projectKey cannot be empty")
 		return
 	}
 
@@ -489,11 +489,11 @@ func GetYamlServiceLabelOpenAPI(c *gin.Context) {
 
 	serviceName := c.Param("name")
 	if serviceName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("serviceName cannot be empty")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("serviceName cannot be empty")
 		return
 	}
 
-	ctx.Resp, ctx.Err = svcservice.OpenAPIListServiceLabels(projectKey, serviceName, production, ctx.Logger)
+	ctx.Resp, ctx.RespErr = svcservice.OpenAPIListServiceLabels(projectKey, serviceName, production, ctx.Logger)
 }
 
 func GetProductionYamlServiceOpenAPI(c *gin.Context) {
@@ -502,23 +502,23 @@ func GetProductionYamlServiceOpenAPI(c *gin.Context) {
 
 	projectKey := c.Query("projectKey")
 	if projectKey == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("projectKey cannot be empty")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("projectKey cannot be empty")
 		return
 	}
 
 	serviceName := c.Param("name")
 	if serviceName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("serviceName cannot be empty")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("serviceName cannot be empty")
 		return
 	}
 
 	err := commonutil.CheckZadigProfessionalLicense()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
-	ctx.Resp, ctx.Err = svcservice.GetProductionYamlServiceOpenAPI(projectKey, serviceName, ctx.Logger)
+	ctx.Resp, ctx.RespErr = svcservice.GetProductionYamlServiceOpenAPI(projectKey, serviceName, ctx.Logger)
 }
 
 func ListYamlServicesOpenAPI(c *gin.Context) {
@@ -527,13 +527,13 @@ func ListYamlServicesOpenAPI(c *gin.Context) {
 
 	projectKey := c.Query("projectKey")
 	if projectKey == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("projectKey cannot be empty")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("projectKey cannot be empty")
 		return
 	}
 
 	resp, err := svcservice.ListServiceTemplateOpenAPI(projectKey, ctx.Logger)
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 	ctx.Resp = resp
@@ -545,19 +545,19 @@ func ListProductionYamlServicesOpenAPI(c *gin.Context) {
 
 	projectKey := c.Query("projectKey")
 	if projectKey == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("projectKey cannot be empty")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("projectKey cannot be empty")
 		return
 	}
 
 	err := commonutil.CheckZadigProfessionalLicense()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
 	resp, err := svcservice.ListProductionServiceTemplateOpenAPI(projectKey, ctx.Logger)
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 	ctx.Resp = resp

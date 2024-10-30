@@ -31,25 +31,25 @@ func CreateOrUpdateDashboardConfiguration(c *gin.Context) {
 
 	args := new(service.DashBoardConfig)
 	if err := c.BindJSON(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid dashboard config")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid dashboard config")
 		return
 	}
 
-	ctx.Err = service.CreateOrUpdateDashboardConfiguration(ctx.UserName, ctx.UserID, args, ctx.Logger)
+	ctx.RespErr = service.CreateOrUpdateDashboardConfiguration(ctx.UserName, ctx.UserID, args, ctx.Logger)
 }
 
 func GetDashboardConfiguration(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.GetDashboardConfiguration(ctx.UserName, ctx.UserID, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetDashboardConfiguration(ctx.UserName, ctx.UserID, ctx.Logger)
 }
 
 func GetRunningWorkflow(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.GetRunningWorkflow(ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetRunningWorkflow(ctx.Logger)
 }
 
 func GetMyWorkflow(c *gin.Context) {
@@ -57,12 +57,12 @@ func GetMyWorkflow(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.GetMyWorkflow(c.Request.Header, ctx.UserName, ctx.UserID, ctx.Resources.IsSystemAdmin, c.Query("card_id"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetMyWorkflow(c.Request.Header, ctx.UserName, ctx.UserID, ctx.Resources.IsSystemAdmin, c.Query("card_id"), ctx.Logger)
 }
 
 func GetMyEnvironment(c *gin.Context) {
@@ -72,5 +72,5 @@ func GetMyEnvironment(c *gin.Context) {
 	projectName := c.Query("projectName")
 	envName := c.Param("name")
 
-	ctx.Resp, ctx.Err = service.GetMyEnvironment(projectName, envName, ctx.UserName, ctx.UserID, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetMyEnvironment(projectName, envName, ctx.UserName, ctx.UserID, ctx.Logger)
 }

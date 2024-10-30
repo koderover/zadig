@@ -42,7 +42,7 @@ func UpdateStrategy(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -55,12 +55,12 @@ func UpdateStrategy(c *gin.Context) {
 
 	args := new(models.CapacityStrategy)
 	if err := c.BindJSON(args); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
 	if err := service.UpdateSysCapStrategy(args); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 	}
 }
 
@@ -70,7 +70,7 @@ func GarbageCollection(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -83,11 +83,11 @@ func GarbageCollection(c *gin.Context) {
 
 	flag := new(DryRunFlag)
 	if err := c.BindJSON(flag); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 	if err := service.HandleSystemGC(flag.DryRun); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 	}
 }
 
@@ -97,7 +97,7 @@ func CleanCache(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -109,7 +109,7 @@ func CleanCache(c *gin.Context) {
 	}
 
 	if err := service.CleanCache(); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 	}
 }
 
@@ -119,7 +119,7 @@ func GetStrategy(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -133,7 +133,7 @@ func GetStrategy(c *gin.Context) {
 	target := c.Param(reqParamTarget)
 	resp, err := service.GetCapacityStrategy(models.CapacityTarget(target))
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 	ctx.Resp = resp

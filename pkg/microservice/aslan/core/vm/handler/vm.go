@@ -31,7 +31,7 @@ func GetAgentAccessCmd(c *gin.Context) {
 
 	if err != nil {
 		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -44,10 +44,10 @@ func GetAgentAccessCmd(c *gin.Context) {
 
 	vmID := c.Param("vmid")
 	if vmID == "" {
-		ctx.Err = fmt.Errorf("invalid request: %s", "vmID is empty")
+		ctx.RespErr = fmt.Errorf("invalid request: %s", "vmID is empty")
 		return
 	}
-	ctx.Resp, ctx.Err = service.GetAgentAccessCmd(vmID, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetAgentAccessCmd(vmID, ctx.Logger)
 }
 
 func OfflineVM(c *gin.Context) {
@@ -56,7 +56,7 @@ func OfflineVM(c *gin.Context) {
 
 	if err != nil {
 		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -67,7 +67,7 @@ func OfflineVM(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = service.OfflineVM(c.Param("vmid"), ctx.UserName, ctx.Logger)
+	ctx.RespErr = service.OfflineVM(c.Param("vmid"), ctx.UserName, ctx.Logger)
 }
 
 func RecoveryVM(c *gin.Context) {
@@ -76,7 +76,7 @@ func RecoveryVM(c *gin.Context) {
 
 	if err != nil {
 		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -87,7 +87,7 @@ func RecoveryVM(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.RecoveryVM(c.Param("vmid"), ctx.UserName, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.RecoveryVM(c.Param("vmid"), ctx.UserName, ctx.Logger)
 }
 
 func UpgradeAgent(c *gin.Context) {
@@ -96,7 +96,7 @@ func UpgradeAgent(c *gin.Context) {
 
 	if err != nil {
 		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -107,7 +107,7 @@ func UpgradeAgent(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.UpgradeAgent(c.Param("vmid"), ctx.UserName, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.UpgradeAgent(c.Param("vmid"), ctx.UserName, ctx.Logger)
 }
 
 func ListVMs(c *gin.Context) {
@@ -116,12 +116,12 @@ func ListVMs(c *gin.Context) {
 
 	if err != nil {
 		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.ListVMs(ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.ListVMs(ctx.Logger)
 }
 
 func ListVMLabels(c *gin.Context) {
@@ -130,12 +130,12 @@ func ListVMLabels(c *gin.Context) {
 
 	if err != nil {
 		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.ListVMLabels(c.Query("projectName"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.ListVMLabels(c.Query("projectName"), ctx.Logger)
 }
 
 func RegisterAgent(c *gin.Context) {
@@ -144,11 +144,11 @@ func RegisterAgent(c *gin.Context) {
 
 	args := new(service.RegisterAgentRequest)
 	if err := c.ShouldBindJSON(args); err != nil {
-		ctx.Err = fmt.Errorf("invalid request: %s", err)
+		ctx.RespErr = fmt.Errorf("invalid request: %s", err)
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.RegisterAgent(args, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.RegisterAgent(args, ctx.Logger)
 }
 
 func VerifyAgent(c *gin.Context) {
@@ -157,11 +157,11 @@ func VerifyAgent(c *gin.Context) {
 
 	args := new(service.VerifyAgentRequest)
 	if err := c.ShouldBindJSON(args); err != nil {
-		ctx.Err = fmt.Errorf("invalid request: %s", err)
+		ctx.RespErr = fmt.Errorf("invalid request: %s", err)
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.VerifyAgent(args, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.VerifyAgent(args, ctx.Logger)
 }
 
 func HeartbeatAgent(c *gin.Context) {
@@ -170,11 +170,11 @@ func HeartbeatAgent(c *gin.Context) {
 
 	args := new(service.HeartbeatRequest)
 	if err := c.ShouldBindJSON(args); err != nil {
-		ctx.Err = fmt.Errorf("invalid request: %s", err)
+		ctx.RespErr = fmt.Errorf("invalid request: %s", err)
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.Heartbeat(args, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.Heartbeat(args, ctx.Logger)
 }
 
 func PollingAgentJob(c *gin.Context) {
@@ -183,11 +183,11 @@ func PollingAgentJob(c *gin.Context) {
 
 	token := c.Query("token")
 	if token == "" {
-		ctx.Err = fmt.Errorf("invalid request: %s", "token is empty")
+		ctx.RespErr = fmt.Errorf("invalid request: %s", "token is empty")
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.PollingAgentJob(token, 0, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.PollingAgentJob(token, 0, ctx.Logger)
 }
 
 func ReportAgentJob(c *gin.Context) {
@@ -196,9 +196,9 @@ func ReportAgentJob(c *gin.Context) {
 
 	args := new(service.ReportJobArgs)
 	if err := c.ShouldBindJSON(args); err != nil {
-		ctx.Err = fmt.Errorf("invalid request: %s", err)
+		ctx.RespErr = fmt.Errorf("invalid request: %s", err)
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.ReportAgentJob(args, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.ReportAgentJob(args, ctx.Logger)
 }

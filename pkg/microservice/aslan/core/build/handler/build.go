@@ -37,7 +37,7 @@ func FindBuildModule(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -57,7 +57,7 @@ func FindBuildModule(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.Err = buildservice.FindBuild(c.Param("name"), projectKey, ctx.Logger)
+	ctx.Resp, ctx.RespErr = buildservice.FindBuild(c.Param("name"), projectKey, ctx.Logger)
 }
 
 func ListBuildModules(c *gin.Context) {
@@ -65,7 +65,7 @@ func ListBuildModules(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -101,7 +101,7 @@ func ListBuildModules(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = buildservice.ListBuild(c.Query("name"), c.Query("targets"), projectKey, ctx.Logger)
+	ctx.Resp, ctx.RespErr = buildservice.ListBuild(c.Query("name"), c.Query("targets"), projectKey, ctx.Logger)
 }
 
 func ListBuildModulesByServiceModule(c *gin.Context) {
@@ -109,7 +109,7 @@ func ListBuildModulesByServiceModule(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -156,7 +156,7 @@ func ListBuildModulesByServiceModule(c *gin.Context) {
 	updateServiceRevision = c.Query("updateServiceRevision") == "true"
 	envName := c.Query("envName")
 
-	ctx.Resp, ctx.Err = buildservice.ListBuildModulesByServiceModule(c.Query("encryptedKey"), projectKey, envName, excludeJenkins, updateServiceRevision, ctx.Logger)
+	ctx.Resp, ctx.RespErr = buildservice.ListBuildModulesByServiceModule(c.Query("encryptedKey"), projectKey, envName, excludeJenkins, updateServiceRevision, ctx.Logger)
 }
 
 func CreateBuildModule(c *gin.Context) {
@@ -164,7 +164,7 @@ func CreateBuildModule(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -182,7 +182,7 @@ func CreateBuildModule(c *gin.Context) {
 
 	err = c.BindJSON(args)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid Build args")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid Build args")
 		return
 	}
 
@@ -199,7 +199,7 @@ func CreateBuildModule(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = buildservice.CreateBuild(ctx.UserName, args, ctx.Logger)
+	ctx.RespErr = buildservice.CreateBuild(ctx.UserName, args, ctx.Logger)
 }
 
 func UpdateBuildModule(c *gin.Context) {
@@ -208,7 +208,7 @@ func UpdateBuildModule(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -226,7 +226,7 @@ func UpdateBuildModule(c *gin.Context) {
 
 	err = c.BindJSON(args)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid Build args")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid Build args")
 		return
 	}
 
@@ -243,7 +243,7 @@ func UpdateBuildModule(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = buildservice.UpdateBuild(ctx.UserName, args, ctx.Logger)
+	ctx.RespErr = buildservice.UpdateBuild(ctx.UserName, args, ctx.Logger)
 }
 
 func DeleteBuildModule(c *gin.Context) {
@@ -252,7 +252,7 @@ func DeleteBuildModule(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -275,11 +275,11 @@ func DeleteBuildModule(c *gin.Context) {
 	}
 
 	if name == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("empty Name")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("empty Name")
 		return
 	}
 
-	ctx.Err = buildservice.DeleteBuild(name, projectKey, ctx.Logger)
+	ctx.RespErr = buildservice.DeleteBuild(name, projectKey, ctx.Logger)
 }
 
 func UpdateBuildTargets(c *gin.Context) {
@@ -288,7 +288,7 @@ func UpdateBuildTargets(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -302,19 +302,19 @@ func UpdateBuildTargets(c *gin.Context) {
 	data, err := c.GetRawData()
 	if err != nil {
 		log.Errorf("UpdateBuildTargets c.GetRawData() err : %v", err)
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("UpdateBuildTargets json.Unmarshal err : %v", err)
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "更新", "项目管理-服务组件", args.Name, string(data), ctx.Logger)
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.BindJSON(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
@@ -331,5 +331,5 @@ func UpdateBuildTargets(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = buildservice.UpdateBuildTargets(args.Name, c.Query("projectName"), args.Targets, ctx.Logger)
+	ctx.RespErr = buildservice.UpdateBuildTargets(args.Name, c.Query("projectName"), args.Targets, ctx.Logger)
 }

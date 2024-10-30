@@ -32,7 +32,7 @@ func ListDetailTestModules(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -69,5 +69,5 @@ func ListDetailTestModules(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.Err = service.ListTestingDetails(projectKey, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.ListTestingDetails(projectKey, ctx.Logger)
 }

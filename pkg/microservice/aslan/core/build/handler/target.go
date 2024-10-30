@@ -32,7 +32,7 @@ func ListDeployTarget(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -68,7 +68,7 @@ func ListDeployTarget(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = buildservice.ListDeployTarget(projectKey, ctx.Logger)
+	ctx.Resp, ctx.RespErr = buildservice.ListDeployTarget(projectKey, ctx.Logger)
 }
 
 func ListBuildModulesForProduct(c *gin.Context) {
@@ -77,7 +77,7 @@ func ListBuildModulesForProduct(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -111,9 +111,9 @@ func ListBuildModulesForProduct(c *gin.Context) {
 
 	containerList, err := buildservice.ListContainers(projectKey, ctx.Logger)
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
-	ctx.Resp, ctx.Err = buildservice.ListBuildForProduct(projectKey, containerList, ctx.Logger)
+	ctx.Resp, ctx.RespErr = buildservice.ListBuildForProduct(projectKey, containerList, ctx.Logger)
 }

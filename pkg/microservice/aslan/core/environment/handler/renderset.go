@@ -47,7 +47,7 @@ func GetServiceRenderCharts(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -57,12 +57,12 @@ func GetServiceRenderCharts(c *gin.Context) {
 	production := c.Query("production") == "true"
 
 	if projectKey == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("productName can not be null!")
 		return
 	}
 
 	if envName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("envName can not be null!")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("envName can not be null!")
 		return
 	}
 
@@ -85,7 +85,7 @@ func GetServiceRenderCharts(c *gin.Context) {
 
 			err = commonutil.CheckZadigProfessionalLicense()
 			if err != nil {
-				ctx.Err = err
+				ctx.RespErr = err
 				return
 			}
 		} else {
@@ -102,11 +102,11 @@ func GetServiceRenderCharts(c *gin.Context) {
 
 	arg := &commonservice.GetSvcRenderRequest{}
 	if err := c.ShouldBindJSON(arg); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
-	ctx.Resp, _, ctx.Err = commonservice.GetSvcRenderArgs(projectKey, envName, arg.GetSvcRendersArgs, ctx.Logger)
+	ctx.Resp, _, ctx.RespErr = commonservice.GetSvcRenderArgs(projectKey, envName, arg.GetSvcRendersArgs, ctx.Logger)
 }
 
 // @Summary Get service variables
@@ -124,7 +124,7 @@ func GetServiceVariables(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -134,7 +134,7 @@ func GetServiceVariables(c *gin.Context) {
 	production := c.Query("production") == "true"
 
 	if projectKey == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("productName can not be null!")
 		return
 	}
 
@@ -160,7 +160,7 @@ func GetServiceVariables(c *gin.Context) {
 
 				err = commonutil.CheckZadigProfessionalLicense()
 				if err != nil {
-					ctx.Err = err
+					ctx.RespErr = err
 					return
 				}
 			} else {
@@ -176,7 +176,7 @@ func GetServiceVariables(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, _, ctx.Err = commonservice.GetK8sSvcRenderArgs(projectKey, envName, c.Query("serviceName"), production, ctx.Logger)
+	ctx.Resp, _, ctx.RespErr = commonservice.GetK8sSvcRenderArgs(projectKey, envName, c.Query("serviceName"), production, ctx.Logger)
 }
 
 func GetProductDefaultValues(c *gin.Context) {
@@ -184,7 +184,7 @@ func GetProductDefaultValues(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -194,12 +194,12 @@ func GetProductDefaultValues(c *gin.Context) {
 	production := c.Query("production") == "true"
 
 	if projectKey == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("productName can not be null!")
 		return
 	}
 
 	if envName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("envName can not be null!")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("envName can not be null!")
 		return
 	}
 
@@ -222,7 +222,7 @@ func GetProductDefaultValues(c *gin.Context) {
 
 			err = commonutil.CheckZadigProfessionalLicense()
 			if err != nil {
-				ctx.Err = err
+				ctx.RespErr = err
 				return
 			}
 		} else {
@@ -237,7 +237,7 @@ func GetProductDefaultValues(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.Err = service.GetDefaultValues(projectKey, envName, production, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetDefaultValues(projectKey, envName, production, ctx.Logger)
 }
 
 func GetYamlContent(c *gin.Context) {
@@ -247,21 +247,21 @@ func GetYamlContent(c *gin.Context) {
 	arg := &service.YamlContentRequestArg{}
 
 	if err := c.ShouldBindQuery(arg); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 	if arg.CodehostID == 0 && len(arg.RepoLink) == 0 {
-		ctx.Err = e.ErrInvalidParam.AddDesc("neither codehost nor repo link is specified")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("neither codehost nor repo link is specified")
 		return
 	}
 
 	if len(arg.ValuesPaths) == 0 {
-		ctx.Err = e.ErrInvalidParam.AddDesc("paths can't be empty")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("paths can't be empty")
 		return
 	}
 
 	pathArr := strings.Split(arg.ValuesPaths, ",")
-	ctx.Resp, ctx.Err = service.GetMergedYamlContent(arg, pathArr)
+	ctx.Resp, ctx.RespErr = service.GetMergedYamlContent(arg, pathArr)
 }
 
 type getGlobalVariablesRespone struct {
@@ -284,7 +284,7 @@ func GetGlobalVariables(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -294,12 +294,12 @@ func GetGlobalVariables(c *gin.Context) {
 	production := c.Query("production") == "true"
 
 	if projectKey == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("productName can not be null!")
 		return
 	}
 
 	if envName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("envName can not be null!")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("envName can not be null!")
 		return
 	}
 
@@ -326,7 +326,7 @@ func GetGlobalVariables(c *gin.Context) {
 
 			err = commonutil.CheckZadigProfessionalLicense()
 			if err != nil {
-				ctx.Err = err
+				ctx.RespErr = err
 				return
 			}
 		} else {
@@ -352,6 +352,6 @@ func GetGlobalVariables(c *gin.Context) {
 
 	resp := new(getGlobalVariablesRespone)
 
-	resp.GlobalVariables, resp.Revision, ctx.Err = service.GetGlobalVariables(projectKey, envName, production, ctx.Logger)
+	resp.GlobalVariables, resp.Revision, ctx.RespErr = service.GetGlobalVariables(projectKey, envName, production, ctx.Logger)
 	ctx.Resp = resp
 }

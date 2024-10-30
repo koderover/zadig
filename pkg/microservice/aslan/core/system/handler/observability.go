@@ -30,14 +30,14 @@ func ListObservability(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.ListObservability(c.Query("type"), false)
+	ctx.Resp, ctx.RespErr = service.ListObservability(c.Query("type"), false)
 }
 
 func ListObservabilityDetail(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.ListObservability(c.Query("type"), true)
+	ctx.Resp, ctx.RespErr = service.ListObservability(c.Query("type"), true)
 }
 
 func CreateObservability(c *gin.Context) {
@@ -46,17 +46,17 @@ func CreateObservability(c *gin.Context) {
 
 	var args commonmodels.Observability
 	if err := c.ShouldBindJSON(&args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
 	err := commonutil.CheckZadigProfessionalLicense()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
-	ctx.Err = service.CreateObservability(&args)
+	ctx.RespErr = service.CreateObservability(&args)
 }
 
 func UpdateObservability(c *gin.Context) {
@@ -65,24 +65,24 @@ func UpdateObservability(c *gin.Context) {
 
 	var args commonmodels.Observability
 	if err := c.ShouldBindJSON(&args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
 	err := commonutil.CheckZadigProfessionalLicense()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
-	ctx.Err = service.UpdateObservability(c.Param("id"), &args)
+	ctx.RespErr = service.UpdateObservability(c.Param("id"), &args)
 }
 
 func DeleteObservability(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Err = service.DeleteObservability(c.Param("id"))
+	ctx.RespErr = service.DeleteObservability(c.Param("id"))
 }
 
 func ValidateObservability(c *gin.Context) {
@@ -91,8 +91,8 @@ func ValidateObservability(c *gin.Context) {
 
 	var args commonmodels.Observability
 	if err := c.ShouldBindJSON(&args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
-	ctx.Err = service.ValidateObservability(&args)
+	ctx.RespErr = service.ValidateObservability(&args)
 }

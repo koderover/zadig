@@ -34,13 +34,13 @@ func GetTestArtifactInfo(c *gin.Context) {
 
 	taskID, err := strconv.ParseInt(c.Param("taskId"), 10, 64)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid task id")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid task id")
 		return
 	}
 
 	dir := c.Query("dir")
 
-	ctx.Resp, ctx.Err = service.GetTestArtifactInfo(c.Param("pipelineName"), dir, taskID, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetTestArtifactInfo(c.Param("pipelineName"), dir, taskID, ctx.Logger)
 }
 
 func GetTestArtifactInfoV2(c *gin.Context) {
@@ -49,13 +49,13 @@ func GetTestArtifactInfoV2(c *gin.Context) {
 
 	taskID, err := strconv.ParseInt(c.Param("taskId"), 10, 64)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid task id")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid task id")
 		return
 	}
 
 	workflowName := fmt.Sprintf(setting.TestWorkflowNamingConvention, c.Param("testName"))
 
-	ctx.Resp, ctx.Err = service.GetWorkflowV4ArtifactInfo(workflowName, c.Query("jobName"), taskID, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetWorkflowV4ArtifactInfo(workflowName, c.Query("jobName"), taskID, ctx.Logger)
 }
 
 func GetWorkflowV4ArtifactInfo(c *gin.Context) {
@@ -64,9 +64,9 @@ func GetWorkflowV4ArtifactInfo(c *gin.Context) {
 
 	taskID, err := strconv.ParseInt(c.Param("taskId"), 10, 64)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid task id")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid task id")
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.GetWorkflowV4ArtifactInfo(c.Param("workflowName"), c.Param("jobName"), taskID, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetWorkflowV4ArtifactInfo(c.Param("workflowName"), c.Param("jobName"), taskID, ctx.Logger)
 }

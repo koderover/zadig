@@ -33,7 +33,7 @@ func ListSecrets(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -42,7 +42,7 @@ func ListSecrets(c *gin.Context) {
 	projectKey := c.Query("projectName")
 	production := c.Query("production") == "true"
 	if envName == "" || projectKey == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("param envName or projectName is invalid")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("param envName or projectName is invalid")
 		return
 	}
 
@@ -64,7 +64,7 @@ func ListSecrets(c *gin.Context) {
 
 			err = commonutil.CheckZadigProfessionalLicense()
 			if err != nil {
-				ctx.Err = err
+				ctx.RespErr = err
 				return
 			}
 		} else {
@@ -79,5 +79,5 @@ func ListSecrets(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.Err = service.ListSecrets(envName, projectKey, production, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.ListSecrets(envName, projectKey, production, ctx.Logger)
 }

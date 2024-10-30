@@ -28,7 +28,7 @@ func LocalLogin(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	args := &login.LoginArgs{}
 	if err := c.ShouldBindJSON(args); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 	resp, failedCount, err := login.LocalLogin(args, ctx.Logger)
@@ -37,7 +37,7 @@ func LocalLogin(c *gin.Context) {
 	} else {
 		c.Header("x-require-captcha", "false")
 	}
-	ctx.Resp, ctx.Err = resp, err
+	ctx.Resp, ctx.RespErr = resp, err
 }
 
 type getCaptchaResp struct {
@@ -51,7 +51,7 @@ func GetCaptcha(c *gin.Context) {
 
 	id, picBase64, err := login.GetCaptcha(ctx.Logger)
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 	ctx.Resp = &getCaptchaResp{

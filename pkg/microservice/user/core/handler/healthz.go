@@ -27,7 +27,7 @@ import (
 func Healthz(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	ctx.Err = Health()
+	ctx.RespErr = Health()
 }
 
 func Health() error {

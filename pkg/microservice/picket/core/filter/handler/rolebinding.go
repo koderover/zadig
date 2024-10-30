@@ -30,9 +30,9 @@ func ListBindings(c *gin.Context) {
 
 	projectName := c.Query("projectName")
 	if projectName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("projectName is empty")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("projectName is empty")
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.ListBindings(c.Request.Header, c.Request.URL.Query(), ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.ListBindings(c.Request.Header, c.Request.URL.Query(), ctx.Logger)
 }

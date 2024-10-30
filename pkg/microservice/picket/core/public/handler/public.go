@@ -33,7 +33,7 @@ func CreateWorkflowTask(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	req := new(models.WorkflowTaskArgs)
 	if err := c.ShouldBindJSON(req); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		ctx.Logger.Errorf("ShouldBindJSON err:%s", err)
 		return
 	}
@@ -42,13 +42,13 @@ func CreateWorkflowTask(c *gin.Context) {
 
 	body, err := json.Marshal(req)
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		ctx.Logger.Errorf("Marshal err:%s", err)
 		return
 	}
 	res, err := service.CreateWorkflowTask(c.Request.Header, c.Request.URL.Query(), req.WorkflowName, body, ctx.Logger)
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		ctx.Logger.Errorf("CreateWorkflowTask err:%s", err)
 		return
 	}
@@ -56,7 +56,7 @@ func CreateWorkflowTask(c *gin.Context) {
 	var resp *CreateWorkflowTaskResp
 	err = json.Unmarshal(res, &resp)
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		ctx.Logger.Errorf("Unmarshal err:%s", err)
 		return
 	}
@@ -129,7 +129,7 @@ func ListWorkflowTask(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	commitId := c.Query("commitId")
-	ctx.Resp, ctx.Err = service.ListWorkflowTask(c.Request.Header, c.Request.URL.Query(), commitId, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.ListWorkflowTask(c.Request.Header, c.Request.URL.Query(), commitId, ctx.Logger)
 }
 
 func GetWorkflowDetail(c *gin.Context) {
@@ -138,7 +138,7 @@ func GetWorkflowDetail(c *gin.Context) {
 	id := c.Param("id")
 	name := c.Param("name")
 	c.Header("Content-Type", "application/json")
-	ctx.Resp, ctx.Err = service.GetDetailedWorkflowTask(c.Request.Header, c.Request.URL.Query(), id, name, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetDetailedWorkflowTask(c.Request.Header, c.Request.URL.Query(), id, name, ctx.Logger)
 }
 
 func ListDelivery(c *gin.Context) {
@@ -149,12 +149,12 @@ func ListDelivery(c *gin.Context) {
 	taskIDStr := c.Query("taskId")
 	perPageStr := c.Query("perPage")
 	pageStr := c.Query("page")
-	ctx.Resp, ctx.Err = service.ListDelivery(c.Request.Header, c.Request.URL.Query(), productName, workflowName, taskIDStr, perPageStr, pageStr, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.ListDelivery(c.Request.Header, c.Request.URL.Query(), productName, workflowName, taskIDStr, perPageStr, pageStr, ctx.Logger)
 }
 
 func GetArtifactInfo(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	image := c.Query("image")
-	ctx.Resp, ctx.Err = service.GetArtifactInfo(c.Request.Header, c.Request.URL.Query(), image, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetArtifactInfo(c.Request.Header, c.Request.URL.Query(), image, ctx.Logger)
 }

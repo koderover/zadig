@@ -32,14 +32,14 @@ func ListDBInstance(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	encryptedKey := c.Query("encryptedKey")
 	if len(encryptedKey) == 0 {
-		ctx.Err = e.ErrInvalidParam
+		ctx.RespErr = e.ErrInvalidParam
 		return
 	}
 
@@ -51,7 +51,7 @@ func ListDBInstance(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.Err = commonservice.ListDBInstances(encryptedKey, ctx.Logger)
+	ctx.Resp, ctx.RespErr = commonservice.ListDBInstances(encryptedKey, ctx.Logger)
 }
 
 func ListDBInstanceInfo(c *gin.Context) {
@@ -59,7 +59,7 @@ func ListDBInstanceInfo(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -71,7 +71,7 @@ func ListDBInstanceInfo(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.Err = commonservice.ListDBInstancesInfo(ctx.Logger)
+	ctx.Resp, ctx.RespErr = commonservice.ListDBInstancesInfo(ctx.Logger)
 }
 
 // @Summary List DB Instances Info By Project
@@ -88,14 +88,14 @@ func ListDBInstancesInfoByProject(c *gin.Context) {
 
 	if err != nil {
 		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	projectKey := c.Query("projectName")
 	if len(projectKey) == 0 {
-		ctx.Err = e.ErrInvalidParam
+		ctx.RespErr = e.ErrInvalidParam
 		return
 	}
 
@@ -106,7 +106,7 @@ func ListDBInstancesInfoByProject(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.Err = commonservice.ListDBInstancesInfoByProject(projectKey, ctx.Logger)
+	ctx.Resp, ctx.RespErr = commonservice.ListDBInstancesInfoByProject(projectKey, ctx.Logger)
 }
 
 func CreateDBInstance(c *gin.Context) {
@@ -114,7 +114,7 @@ func CreateDBInstance(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -129,12 +129,12 @@ func CreateDBInstance(c *gin.Context) {
 
 	args := new(commonmodels.DBInstance)
 	if err := c.BindJSON(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid helmRepo json args")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid helmRepo json args")
 		return
 	}
 
 	args.UpdateBy = ctx.UserName
-	ctx.Err = commonservice.CreateDBInstance(args, ctx.Logger)
+	ctx.RespErr = commonservice.CreateDBInstance(args, ctx.Logger)
 }
 
 func GetDBInstance(c *gin.Context) {
@@ -142,7 +142,7 @@ func GetDBInstance(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -157,11 +157,11 @@ func GetDBInstance(c *gin.Context) {
 
 	id := c.Param("id")
 	if len(id) == 0 {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid db instance id")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid db instance id")
 		return
 	}
 
-	ctx.Resp, ctx.Err = commonservice.FindDBInstance(id, "")
+	ctx.Resp, ctx.RespErr = commonservice.FindDBInstance(id, "")
 }
 
 func UpdateDBInstance(c *gin.Context) {
@@ -169,7 +169,7 @@ func UpdateDBInstance(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -184,18 +184,18 @@ func UpdateDBInstance(c *gin.Context) {
 
 	id := c.Param("id")
 	if len(id) == 0 {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid db instance id")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid db instance id")
 		return
 	}
 
 	args := new(commonmodels.DBInstance)
 	if err := c.BindJSON(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid db json args")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid db json args")
 		return
 	}
 	args.UpdateBy = ctx.UserName
 
-	ctx.Err = commonservice.UpdateDBInstance(id, args, ctx.Logger)
+	ctx.RespErr = commonservice.UpdateDBInstance(id, args, ctx.Logger)
 }
 
 func DeleteDBInstance(c *gin.Context) {
@@ -203,7 +203,7 @@ func DeleteDBInstance(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -218,11 +218,11 @@ func DeleteDBInstance(c *gin.Context) {
 
 	id := c.Param("id")
 	if len(id) == 0 {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid db instance id")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid db instance id")
 		return
 	}
 
-	ctx.Err = commonservice.DeleteDBInstance(id)
+	ctx.RespErr = commonservice.DeleteDBInstance(id)
 }
 
 func ValidateDBInstance(c *gin.Context) {
@@ -230,7 +230,7 @@ func ValidateDBInstance(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -245,9 +245,9 @@ func ValidateDBInstance(c *gin.Context) {
 
 	args := new(commonmodels.DBInstance)
 	if err := c.BindJSON(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid helmRepo json args")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid helmRepo json args")
 		return
 	}
 
-	ctx.Err = commonservice.ValidateDBInstance(args)
+	ctx.RespErr = commonservice.ValidateDBInstance(args)
 }

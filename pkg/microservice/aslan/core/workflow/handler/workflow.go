@@ -67,7 +67,7 @@ func AutoCreateWorkflow(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -111,7 +111,7 @@ func CreateWorkflow(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -146,13 +146,13 @@ func CreateWorkflow(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindWith(&args, binding.JSON); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 	args.UpdateBy = ctx.UserName
 	args.CreateBy = ctx.UserName
 	if err := workflow.CreateWorkflow(args, ctx.Logger); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
@@ -174,7 +174,7 @@ func UpdateWorkflow(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -213,11 +213,11 @@ func UpdateWorkflow(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindWith(&args, binding.JSON); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 	args.UpdateBy = ctx.UserName
-	ctx.Err = workflow.UpdateWorkflow(args, ctx.Logger)
+	ctx.RespErr = workflow.UpdateWorkflow(args, ctx.Logger)
 }
 
 func ListWorkflows(c *gin.Context) {
@@ -227,7 +227,7 @@ func ListWorkflows(c *gin.Context) {
 	projects := c.QueryArray("projects")
 	projectName := c.Query("projectName")
 	if projectName != "" && len(projects) > 0 {
-		ctx.Err = e.ErrInvalidParam.AddDesc("projects and projectName can not be set together")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("projects and projectName can not be set together")
 		return
 	}
 	if projectName != "" {
@@ -240,7 +240,7 @@ func ListWorkflows(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = workflow.ListWorkflows(projects, ctx.UserID, workflowNames, ctx.Logger)
+	ctx.Resp, ctx.RespErr = workflow.ListWorkflows(projects, ctx.UserID, workflowNames, ctx.Logger)
 }
 
 // TODO: this API is used only by picket, should be removed later
@@ -248,7 +248,7 @@ func ListTestWorkflows(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = workflow.ListTestWorkflows(c.Param("testName"), c.QueryArray("projects"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = workflow.ListTestWorkflows(c.Param("testName"), c.QueryArray("projects"), ctx.Logger)
 }
 
 // FindWorkflow find a workflow
@@ -258,7 +258,7 @@ func FindWorkflow(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -268,7 +268,7 @@ func FindWorkflow(c *gin.Context) {
 	w, err := workflow.FindWorkflow(workflowName, ctx.Logger)
 	if err != nil {
 		ctx.Logger.Errorf("FindWorkflow error: %v", err)
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
@@ -298,7 +298,7 @@ func DeleteWorkflow(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -321,14 +321,14 @@ func DeleteWorkflow(c *gin.Context) {
 	}
 
 	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "删除", "工作流", workflowName, "", ctx.Logger)
-	ctx.Err = commonservice.DeleteWorkflow(workflowName, ctx.RequestID, false, ctx.Logger)
+	ctx.RespErr = commonservice.DeleteWorkflow(workflowName, ctx.RequestID, false, ctx.Logger)
 }
 
 func PreSetWorkflow(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = workflow.PreSetWorkflow(c.Param("productName"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = workflow.PreSetWorkflow(c.Param("productName"), ctx.Logger)
 }
 
 func CopyWorkflow(c *gin.Context) {
@@ -337,7 +337,7 @@ func CopyWorkflow(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -347,7 +347,7 @@ func CopyWorkflow(c *gin.Context) {
 	w, err := workflow.FindWorkflow(workflowName, ctx.Logger)
 	if err != nil {
 		ctx.Logger.Errorf("FindWorkflow error: %v", err)
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
@@ -365,7 +365,7 @@ func CopyWorkflow(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = workflow.CopyWorkflow(workflowName, c.Param("new"), c.Param("newDisplay"), ctx.UserName, ctx.Logger)
+	ctx.RespErr = workflow.CopyWorkflow(workflowName, c.Param("new"), c.Param("newDisplay"), ctx.UserName, ctx.Logger)
 }
 
 // @Summary [DONT USE]  ZadigDeployJobSpec

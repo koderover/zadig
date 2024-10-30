@@ -58,7 +58,7 @@ func OpenAPIScaleWorkloads(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -82,14 +82,14 @@ func OpenAPIScaleWorkloads(c *gin.Context) {
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.BindJSON(req); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid ProductTmpl json args")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid ProductTmpl json args")
 		return
 	}
 
 	// input validation for OpenAPI
 	err = req.Validate()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
@@ -109,7 +109,7 @@ func OpenAPIScaleWorkloads(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = service.OpenAPIScale(req, ctx.Logger)
+	ctx.RespErr = service.OpenAPIScale(req, ctx.Logger)
 }
 
 func OpenAPIApplyYamlService(c *gin.Context) {
@@ -117,7 +117,7 @@ func OpenAPIApplyYamlService(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -125,14 +125,14 @@ func OpenAPIApplyYamlService(c *gin.Context) {
 	req := new(service.OpenAPIApplyYamlServiceReq)
 
 	if err := c.BindJSON(req); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid ProductTmpl json args")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid ProductTmpl json args")
 		return
 	}
 
 	projectKey := c.Query("projectKey")
 
 	if projectKey == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("projectKey cannot be empty")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("projectKey cannot be empty")
 		return
 	}
 
@@ -144,7 +144,7 @@ func OpenAPIApplyYamlService(c *gin.Context) {
 	// input validation for OpenAPI
 	err = req.Validate()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
@@ -177,7 +177,7 @@ func OpenAPIApplyYamlService(c *gin.Context) {
 
 	_, err = service.OpenAPIApplyYamlService(projectKey, req, false, ctx.RequestID, ctx.UserName, ctx.Logger)
 
-	ctx.Err = err
+	ctx.RespErr = err
 }
 
 func OpenAPIDeleteYamlServiceFromEnv(c *gin.Context) {
@@ -185,7 +185,7 @@ func OpenAPIDeleteYamlServiceFromEnv(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -193,27 +193,27 @@ func OpenAPIDeleteYamlServiceFromEnv(c *gin.Context) {
 	req := new(service.OpenAPIDeleteYamlServiceFromEnvReq)
 
 	if err := c.BindJSON(req); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid request body")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid request body")
 		return
 	}
 
 	// input validation for OpenAPI
 	err = req.Validate()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
 	projectKey := c.Query("projectKey")
 
 	if projectKey == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("projectKey cannot be empty")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("projectKey cannot be empty")
 		return
 	}
 
 	svcsInSubEnvs, err := service.CheckServicesDeployedInSubEnvs(c, projectKey, req.EnvName, req.ServiceNames)
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
@@ -223,7 +223,7 @@ func OpenAPIDeleteYamlServiceFromEnv(c *gin.Context) {
 			data[k] = v
 		}
 
-		ctx.Err = e.NewWithExtras(e.ErrDeleteSvcHasSvcsInSubEnv, "", data)
+		ctx.RespErr = e.NewWithExtras(e.ErrDeleteSvcHasSvcsInSubEnv, "", data)
 		return
 	}
 
@@ -245,7 +245,7 @@ func OpenAPIDeleteYamlServiceFromEnv(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = service.DeleteProductServices(ctx.UserName, ctx.RequestID, req.EnvName, projectKey, req.ServiceNames, false, ctx.Logger)
+	ctx.RespErr = service.DeleteProductServices(ctx.UserName, ctx.RequestID, req.EnvName, projectKey, req.ServiceNames, false, ctx.Logger)
 }
 
 func OpenAPIDeleteProductionYamlServiceFromEnv(c *gin.Context) {
@@ -253,26 +253,26 @@ func OpenAPIDeleteProductionYamlServiceFromEnv(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	req := new(service.OpenAPIDeleteYamlServiceFromEnvReq)
 	if err := c.BindJSON(req); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid request body")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid request body")
 		return
 	}
 	// input validation for OpenAPI
 	err = req.Validate()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
 	projectKey := c.Query("projectKey")
 	if projectKey == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("projectKey cannot be empty")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("projectKey cannot be empty")
 		return
 	}
 
@@ -296,11 +296,11 @@ func OpenAPIDeleteProductionYamlServiceFromEnv(c *gin.Context) {
 
 	err = commonutil.CheckZadigProfessionalLicense()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
-	ctx.Err = service.DeleteProductServices(ctx.UserName, ctx.RequestID, req.EnvName, projectKey, req.ServiceNames, true, ctx.Logger)
+	ctx.RespErr = service.DeleteProductServices(ctx.UserName, ctx.RequestID, req.EnvName, projectKey, req.ServiceNames, true, ctx.Logger)
 }
 
 func OpenAPIApplyProductionYamlService(c *gin.Context) {
@@ -308,26 +308,26 @@ func OpenAPIApplyProductionYamlService(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	req := new(service.OpenAPIApplyYamlServiceReq)
 	if err := c.BindJSON(req); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid ProductTmpl json args")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid ProductTmpl json args")
 		return
 	}
 	// input validation for OpenAPI
 	err = req.Validate()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
 	projectKey := c.Query("projectKey")
 	if projectKey == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("projectKey cannot be empty")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("projectKey cannot be empty")
 		return
 	}
 
@@ -341,7 +341,7 @@ func OpenAPIApplyProductionYamlService(c *gin.Context) {
 	}
 	data, err := c.GetRawData()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "(openAPI)"+"更新", "生产环境", req.EnvName, string(data), ctx.Logger, req.EnvName)
@@ -364,12 +364,12 @@ func OpenAPIApplyProductionYamlService(c *gin.Context) {
 
 	err = commonutil.CheckZadigProfessionalLicense()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
 	_, err = service.OpenAPIApplyYamlService(projectKey, req, true, ctx.RequestID, ctx.UserName, ctx.Logger)
-	ctx.Err = err
+	ctx.RespErr = err
 }
 
 func OpenAPIUpdateCommonEnvCfg(c *gin.Context) {
@@ -377,7 +377,7 @@ func OpenAPIUpdateCommonEnvCfg(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -386,17 +386,17 @@ func OpenAPIUpdateCommonEnvCfg(c *gin.Context) {
 
 	data, err := c.GetRawData()
 	if err != nil {
-		ctx.Err = e.ErrUpdateEnvCfg.AddErr(fmt.Errorf("failed to get request data err : %v", err))
+		ctx.RespErr = e.ErrUpdateEnvCfg.AddErr(fmt.Errorf("failed to get request data err : %v", err))
 		return
 	}
 	if err = json.Unmarshal(data, args); err != nil {
-		ctx.Err = e.ErrUpdateEnvCfg.AddErr(fmt.Errorf("failed to unmarshal request data err : %v", err))
+		ctx.RespErr = e.ErrUpdateEnvCfg.AddErr(fmt.Errorf("failed to unmarshal request data err : %v", err))
 		return
 	}
 	projectKey := c.Query("projectKey")
 	args.ProductName = projectKey
 	if err := args.Validate(); err != nil {
-		ctx.Err = e.ErrUpdateEnvCfg.AddErr(fmt.Errorf("failed to validate request data err : %v", err))
+		ctx.RespErr = e.ErrUpdateEnvCfg.AddErr(fmt.Errorf("failed to validate request data err : %v", err))
 		return
 	}
 
@@ -418,7 +418,7 @@ func OpenAPIUpdateCommonEnvCfg(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = service.OpenAPIUpdateCommonEnvCfg(projectKey, args, ctx.UserName, ctx.Logger)
+	ctx.RespErr = service.OpenAPIUpdateCommonEnvCfg(projectKey, args, ctx.UserName, ctx.Logger)
 }
 
 func OpenAPIUpdateProductionCommonEnvCfg(c *gin.Context) {
@@ -426,7 +426,7 @@ func OpenAPIUpdateProductionCommonEnvCfg(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -436,19 +436,19 @@ func OpenAPIUpdateProductionCommonEnvCfg(c *gin.Context) {
 	data, err := c.GetRawData()
 	if err != nil {
 		msg := fmt.Errorf("failed to get request data err : %v", err)
-		ctx.Err = e.ErrUpdateEnvCfg.AddErr(msg)
+		ctx.RespErr = e.ErrUpdateEnvCfg.AddErr(msg)
 		return
 	}
 	if err = json.Unmarshal(data, args); err != nil {
 		msg := fmt.Errorf("failed to unmarshal request data err : %v", err)
-		ctx.Err = e.ErrUpdateEnvCfg.AddErr(msg)
+		ctx.RespErr = e.ErrUpdateEnvCfg.AddErr(msg)
 		return
 	}
 	projectKey := c.Query("projectKey")
 	args.ProductName = projectKey
 	if err := args.Validate(); err != nil {
 		msg := fmt.Errorf("failed to validate request data err : %v", err)
-		ctx.Err = e.ErrUpdateEnvCfg.AddErr(msg)
+		ctx.RespErr = e.ErrUpdateEnvCfg.AddErr(msg)
 		return
 	}
 
@@ -472,11 +472,11 @@ func OpenAPIUpdateProductionCommonEnvCfg(c *gin.Context) {
 
 	err = commonutil.CheckZadigProfessionalLicense()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
-	ctx.Err = service.OpenAPIUpdateCommonEnvCfg(projectKey, args, ctx.UserName, ctx.Logger)
+	ctx.RespErr = service.OpenAPIUpdateCommonEnvCfg(projectKey, args, ctx.UserName, ctx.Logger)
 }
 
 func OpenAPICreateCommonEnvCfg(c *gin.Context) {
@@ -484,7 +484,7 @@ func OpenAPICreateCommonEnvCfg(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -492,25 +492,25 @@ func OpenAPICreateCommonEnvCfg(c *gin.Context) {
 	args := new(service.OpenAPIEnvCfgArgs)
 	data, err := c.GetRawData()
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 	if err = json.Unmarshal(data, args); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 	args.ProductName, args.EnvName, err = generalOpenAPIRequestValidate(c)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 	if err := args.Validate(); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 	logData, err := json.Marshal(args)
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, args.ProductName, setting.OperationSceneEnv, "(OpenAPI)"+"新建", "环境配置", fmt.Sprintf("%s:%s:%s", args.EnvName, args.CommonEnvCfgType, args.Name), string(logData), ctx.Logger, args.Name)
@@ -533,11 +533,11 @@ func OpenAPICreateCommonEnvCfg(c *gin.Context) {
 
 	err = commonutil.CheckZadigProfessionalLicense()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
-	ctx.Err = service.OpenAPICreateCommonEnvCfg(args.ProductName, args, ctx.UserName, ctx.Logger)
+	ctx.RespErr = service.OpenAPICreateCommonEnvCfg(args.ProductName, args, ctx.UserName, ctx.Logger)
 }
 
 func OpenAPIListProductionCommonEnvCfg(c *gin.Context) {
@@ -546,17 +546,17 @@ func OpenAPIListProductionCommonEnvCfg(c *gin.Context) {
 
 	projectName, envName, err := generalOpenAPIRequestValidate(c)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
 	err = commonutil.CheckZadigProfessionalLicense()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.OpenAPIListCommonEnvCfg(projectName, envName, c.Query("type"), true, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.OpenAPIListCommonEnvCfg(projectName, envName, c.Query("type"), true, ctx.Logger)
 }
 
 func OpenAPIGetProductionCommonEnvCfg(c *gin.Context) {
@@ -565,22 +565,22 @@ func OpenAPIGetProductionCommonEnvCfg(c *gin.Context) {
 
 	projectName, envName, err := generalOpenAPIRequestValidate(c)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 	cfgName := c.Param("cfgName")
 	if cfgName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("cfgName is empty")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("cfgName is empty")
 		return
 	}
 
 	err = commonutil.CheckZadigProfessionalLicense()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.OpenAPIGetCommonEnvCfg(projectName, envName, c.Query("type"), cfgName, true, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.OpenAPIGetCommonEnvCfg(projectName, envName, c.Query("type"), cfgName, true, ctx.Logger)
 }
 
 func OpenAPIListCommonEnvCfg(c *gin.Context) {
@@ -589,11 +589,11 @@ func OpenAPIListCommonEnvCfg(c *gin.Context) {
 
 	projectName, envName, err := generalOpenAPIRequestValidate(c)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.OpenAPIListCommonEnvCfg(projectName, envName, c.Query("type"), false, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.OpenAPIListCommonEnvCfg(projectName, envName, c.Query("type"), false, ctx.Logger)
 }
 
 func OpenAPIGetCommonEnvCfg(c *gin.Context) {
@@ -602,16 +602,16 @@ func OpenAPIGetCommonEnvCfg(c *gin.Context) {
 
 	projectName, envName, err := generalOpenAPIRequestValidate(c)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 	cfgName := c.Param("cfgName")
 	if cfgName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("cfgName is empty")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("cfgName is empty")
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.OpenAPIGetCommonEnvCfg(projectName, envName, c.Query("type"), cfgName, false, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.OpenAPIGetCommonEnvCfg(projectName, envName, c.Query("type"), cfgName, false, ctx.Logger)
 }
 
 func OpenAPIDeleteCommonEnvCfg(c *gin.Context) {
@@ -619,24 +619,24 @@ func OpenAPIDeleteCommonEnvCfg(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	projectName, envName, err := generalOpenAPIRequestValidate(c)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 	cfgName := c.Param("cfgName")
 	if cfgName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("cfgName is empty")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("cfgName is empty")
 		return
 	}
 	cfgType := c.Query("type")
 	if cfgType == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("type is empty")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("type is empty")
 		return
 	}
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "OpenAPI"+"删除", "测试环境配置", fmt.Sprintf("%s:%s:%s", envName, cfgType, cfgName), "", ctx.Logger, envName)
@@ -654,7 +654,7 @@ func OpenAPIDeleteCommonEnvCfg(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = service.OpenAPIDeleteCommonEnvCfg(projectName, envName, cfgType, cfgName, ctx.Logger)
+	ctx.RespErr = service.OpenAPIDeleteCommonEnvCfg(projectName, envName, cfgType, cfgName, ctx.Logger)
 }
 
 func OpenAPIDeleteProductionEnvCommonEnvCfg(c *gin.Context) {
@@ -662,24 +662,24 @@ func OpenAPIDeleteProductionEnvCommonEnvCfg(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	projectName, envName, err := generalOpenAPIRequestValidate(c)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 	cfgName := c.Param("cfgName")
 	if cfgName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("cfgName is empty")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("cfgName is empty")
 		return
 	}
 	cfgType := c.Query("type")
 	if cfgType == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("type is empty")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("type is empty")
 		return
 	}
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "OpenAPI"+"删除", "生产环境配置", fmt.Sprintf("%s:%s:%s", envName, cfgType, cfgName), "", ctx.Logger, envName)
@@ -699,11 +699,11 @@ func OpenAPIDeleteProductionEnvCommonEnvCfg(c *gin.Context) {
 
 	err = commonutil.CheckZadigProfessionalLicense()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
-	ctx.Err = service.OpenAPIDeleteProductionEnvCommonEnvCfg(projectName, envName, cfgType, cfgName, ctx.Logger)
+	ctx.RespErr = service.OpenAPIDeleteProductionEnvCommonEnvCfg(projectName, envName, cfgType, cfgName, ctx.Logger)
 }
 
 func OpenAPICreateK8sEnv(c *gin.Context) {
@@ -711,7 +711,7 @@ func OpenAPICreateK8sEnv(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -720,16 +720,16 @@ func OpenAPICreateK8sEnv(c *gin.Context) {
 
 	data, err := c.GetRawData()
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 	if err = json.Unmarshal(data, args); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 	args.ProjectName = c.Query("projectKey")
 	if err := args.Validate(); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
@@ -748,7 +748,7 @@ func OpenAPICreateK8sEnv(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = service.OpenAPICreateK8sEnv(args, ctx.UserName, ctx.RequestID, ctx.Logger)
+	ctx.RespErr = service.OpenAPICreateK8sEnv(args, ctx.UserName, ctx.RequestID, ctx.Logger)
 }
 
 func OpenAPIDeleteProductionEnv(c *gin.Context) {
@@ -756,14 +756,14 @@ func OpenAPIDeleteProductionEnv(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	projectName, envName, err := generalOpenAPIRequestValidate(c)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "(OpenAPI)"+"删除", "生产环境", envName, "", ctx.Logger, envName)
@@ -783,11 +783,11 @@ func OpenAPIDeleteProductionEnv(c *gin.Context) {
 
 	err = commonutil.CheckZadigProfessionalLicense()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
-	ctx.Err = service.DeleteProductionProduct(ctx.UserName, envName, projectName, ctx.RequestID, ctx.Logger)
+	ctx.RespErr = service.DeleteProductionProduct(ctx.UserName, envName, projectName, ctx.RequestID, ctx.Logger)
 }
 
 func OpenAPICreateProductionEnv(c *gin.Context) {
@@ -795,7 +795,7 @@ func OpenAPICreateProductionEnv(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -804,17 +804,17 @@ func OpenAPICreateProductionEnv(c *gin.Context) {
 
 	data, err := c.GetRawData()
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 	if err = json.Unmarshal(data, args); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 	args.ProjectName = c.Query("projectKey")
 	args.Production = true
 	if err := args.Validate(); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
@@ -835,11 +835,11 @@ func OpenAPICreateProductionEnv(c *gin.Context) {
 
 	err = commonutil.CheckZadigProfessionalLicense()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
-	ctx.Err = service.OpenAPICreateProductionEnv(args, ctx.UserName, ctx.RequestID, ctx.Logger)
+	ctx.RespErr = service.OpenAPICreateProductionEnv(args, ctx.UserName, ctx.RequestID, ctx.Logger)
 }
 
 func OpenAPIDeleteEnv(c *gin.Context) {
@@ -847,19 +847,19 @@ func OpenAPIDeleteEnv(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	projectName, envName, err := generalOpenAPIRequestValidate(c)
 	if err != nil {
-		ctx.Err = e.ErrDeleteResource.AddErr(err)
+		ctx.RespErr = e.ErrDeleteResource.AddErr(err)
 		return
 	}
 	isDelete, err := strconv.ParseBool(c.Query("isDelete"))
 	if err != nil {
-		ctx.Err = e.ErrDeleteResource.AddErr(err)
+		ctx.RespErr = e.ErrDeleteResource.AddErr(err)
 		return
 	}
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "(OpenAPI)"+"删除", "测试环境", envName, "", ctx.Logger, envName)
@@ -877,7 +877,7 @@ func OpenAPIDeleteEnv(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = service.DeleteProduct(ctx.UserName, envName, projectName, ctx.RequestID, isDelete, ctx.Logger)
+	ctx.RespErr = service.DeleteProduct(ctx.UserName, envName, projectName, ctx.RequestID, isDelete, ctx.Logger)
 }
 
 func OpenAPIGetEnvDetail(c *gin.Context) {
@@ -886,11 +886,11 @@ func OpenAPIGetEnvDetail(c *gin.Context) {
 
 	projectName, envName, err := generalOpenAPIRequestValidate(c)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.GetEnvDetail(projectName, envName, false, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetEnvDetail(projectName, envName, false, ctx.Logger)
 }
 
 func OpenAPIGetProductionEnvDetail(c *gin.Context) {
@@ -899,17 +899,17 @@ func OpenAPIGetProductionEnvDetail(c *gin.Context) {
 
 	projectName, envName, err := generalOpenAPIRequestValidate(c)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
 	err = commonutil.CheckZadigProfessionalLicense()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.GetEnvDetail(projectName, envName, true, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetEnvDetail(projectName, envName, true, ctx.Logger)
 }
 
 func OpenAPIUpdateEnvBasicInfo(c *gin.Context) {
@@ -919,22 +919,22 @@ func OpenAPIUpdateEnvBasicInfo(c *gin.Context) {
 	args := new(service.EnvBasicInfoArgs)
 	data, err := c.GetRawData()
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 	if err = json.Unmarshal(data, args); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
 	projectName, envName, err := generalOpenAPIRequestValidate(c)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "(OpenAPI)"+"更新", "测试环境", envName, string(data), ctx.Logger, envName)
 
-	ctx.Err = service.OpenAPIUpdateEnvBasicInfo(args, ctx.UserName, projectName, envName, false, ctx.Logger)
+	ctx.RespErr = service.OpenAPIUpdateEnvBasicInfo(args, ctx.UserName, projectName, envName, false, ctx.Logger)
 }
 
 func OpenAPIUpdateYamlServices(c *gin.Context) {
@@ -942,7 +942,7 @@ func OpenAPIUpdateYamlServices(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -950,17 +950,17 @@ func OpenAPIUpdateYamlServices(c *gin.Context) {
 	args := new(service.OpenAPIServiceVariablesReq)
 	data, err := c.GetRawData()
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 	if err = json.Unmarshal(data, args); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
 	projectName, envName, err := generalOpenAPIRequestValidate(c)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "(OpenAPI)"+"环境管理-更新服务", "测试环境", envName, string(data), ctx.Logger, envName)
@@ -978,7 +978,7 @@ func OpenAPIUpdateYamlServices(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = service.OpenAPIUpdateYamlService(args, ctx.UserName, ctx.RequestID, projectName, envName, false, ctx.Logger)
+	ctx.RespErr = service.OpenAPIUpdateYamlService(args, ctx.UserName, ctx.RequestID, projectName, envName, false, ctx.Logger)
 }
 
 func OpenAPIGetEnvGlobalVariables(c *gin.Context) {
@@ -987,11 +987,11 @@ func OpenAPIGetEnvGlobalVariables(c *gin.Context) {
 
 	projectName, envName, err := generalOpenAPIRequestValidate(c)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.OpenAPIGetGlobalVariables(projectName, envName, false, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.OpenAPIGetGlobalVariables(projectName, envName, false, ctx.Logger)
 }
 
 func OpenAPIGetProductionEnvGlobalVariables(c *gin.Context) {
@@ -1000,11 +1000,11 @@ func OpenAPIGetProductionEnvGlobalVariables(c *gin.Context) {
 
 	projectName, envName, err := generalOpenAPIRequestValidate(c)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.OpenAPIGetGlobalVariables(projectName, envName, true, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.OpenAPIGetGlobalVariables(projectName, envName, true, ctx.Logger)
 }
 
 // @Summary OpenAPI Update K8S Environment Global Variables
@@ -1024,24 +1024,24 @@ func OpenAPIUpdateGlobalVariables(c *gin.Context) {
 	args := new(service.OpenAPIEnvGlobalVariables)
 	data, err := c.GetRawData()
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 	if err = json.Unmarshal(data, args); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
 	projectName, envName, err := generalOpenAPIRequestValidate(c)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "(OpenAPI)"+"更新", "测试环境管理-更新全局变量", envName, string(data), ctx.Logger, envName)
 
 	err = commonutil.CheckZadigProfessionalLicense()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
@@ -1051,11 +1051,11 @@ func OpenAPIUpdateGlobalVariables(c *gin.Context) {
 		Production: util.GetBoolPointer(false),
 	})
 	if err != nil {
-		ctx.Err = fmt.Errorf("GetProductEnv envName:%s productName: %s error, error msg:%s", envName, projectName, err)
+		ctx.RespErr = fmt.Errorf("GetProductEnv envName:%s productName: %s error, error msg:%s", envName, projectName, err)
 		return
 	}
 
-	ctx.Err = service.UpdateProductGlobalVariables(projectName, envName, ctx.UserName, ctx.RequestID, env.UpdateTime, args.GlobalVariables, false, ctx.Logger)
+	ctx.RespErr = service.UpdateProductGlobalVariables(projectName, envName, ctx.UserName, ctx.RequestID, env.UpdateTime, args.GlobalVariables, false, ctx.Logger)
 }
 
 func OpenAPIUpdateProductionYamlServices(c *gin.Context) {
@@ -1063,7 +1063,7 @@ func OpenAPIUpdateProductionYamlServices(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -1071,17 +1071,17 @@ func OpenAPIUpdateProductionYamlServices(c *gin.Context) {
 	args := new(service.OpenAPIServiceVariablesReq)
 	data, err := c.GetRawData()
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 	if err = json.Unmarshal(data, args); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
 	projectName, envName, err := generalOpenAPIRequestValidate(c)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "(OpenAPI)"+"环境管理-更新服务", "生产环境", envName, string(data), ctx.Logger, envName)
@@ -1101,11 +1101,11 @@ func OpenAPIUpdateProductionYamlServices(c *gin.Context) {
 
 	err = commonutil.CheckZadigProfessionalLicense()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
-	ctx.Err = service.OpenAPIUpdateYamlService(args, ctx.UserName, ctx.RequestID, projectName, envName, true, ctx.Logger)
+	ctx.RespErr = service.OpenAPIUpdateYamlService(args, ctx.UserName, ctx.RequestID, projectName, envName, true, ctx.Logger)
 }
 
 // @Summary OpenAPI Update Production K8S Environment Global Variables
@@ -1123,7 +1123,7 @@ func OpenAPIUpdateProductionGlobalVariables(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -1131,17 +1131,17 @@ func OpenAPIUpdateProductionGlobalVariables(c *gin.Context) {
 	args := new(service.OpenAPIEnvGlobalVariables)
 	data, err := c.GetRawData()
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 	if err = json.Unmarshal(data, &args); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
 	projectName, envName, err := generalOpenAPIRequestValidate(c)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "(OpenAPI)"+"更新", "生产环境管理-更新全局变量", envName, string(data), ctx.Logger, envName)
@@ -1161,7 +1161,7 @@ func OpenAPIUpdateProductionGlobalVariables(c *gin.Context) {
 
 	err = commonutil.CheckZadigProfessionalLicense()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
@@ -1171,11 +1171,11 @@ func OpenAPIUpdateProductionGlobalVariables(c *gin.Context) {
 		Production: util.GetBoolPointer(true),
 	})
 	if err != nil {
-		ctx.Err = fmt.Errorf("GetProductEnv envName:%s productName: %s error, error msg:%s", envName, projectName, err)
+		ctx.RespErr = fmt.Errorf("GetProductEnv envName:%s productName: %s error, error msg:%s", envName, projectName, err)
 		return
 	}
 
-	ctx.Err = service.UpdateProductGlobalVariables(projectName, envName, ctx.UserName, ctx.RequestID, env.UpdateTime, args.GlobalVariables, true, ctx.Logger)
+	ctx.RespErr = service.UpdateProductGlobalVariables(projectName, envName, ctx.UserName, ctx.RequestID, env.UpdateTime, args.GlobalVariables, true, ctx.Logger)
 }
 
 func OpenAPIUpdateProductionEnvBasicInfo(c *gin.Context) {
@@ -1183,7 +1183,7 @@ func OpenAPIUpdateProductionEnvBasicInfo(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -1191,17 +1191,17 @@ func OpenAPIUpdateProductionEnvBasicInfo(c *gin.Context) {
 	args := new(service.EnvBasicInfoArgs)
 	data, err := c.GetRawData()
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 	if err = json.Unmarshal(data, args); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
 	projectName, envName, err := generalOpenAPIRequestValidate(c)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "(OpenAPI)"+"更新", "生产环境", envName, string(data), ctx.Logger, envName)
@@ -1220,11 +1220,11 @@ func OpenAPIUpdateProductionEnvBasicInfo(c *gin.Context) {
 
 	err = commonutil.CheckZadigProfessionalLicense()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
-	ctx.Err = service.OpenAPIUpdateEnvBasicInfo(args, ctx.UserName, projectName, envName, true, ctx.Logger)
+	ctx.RespErr = service.OpenAPIUpdateEnvBasicInfo(args, ctx.UserName, projectName, envName, true, ctx.Logger)
 }
 
 func OpenAPIListEnvs(c *gin.Context) {
@@ -1232,14 +1232,14 @@ func OpenAPIListEnvs(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	projectKey := c.Query("projectKey")
 	if projectKey == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("projectKey is empty")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("projectKey is empty")
 		return
 	}
 
@@ -1268,7 +1268,7 @@ func OpenAPIListEnvs(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.OpenAPIListEnvs(ctx.UserID, projectKey, envFilter, false, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.OpenAPIListEnvs(ctx.UserID, projectKey, envFilter, false, ctx.Logger)
 }
 
 func OpenAPIListProductionEnvs(c *gin.Context) {
@@ -1276,14 +1276,14 @@ func OpenAPIListProductionEnvs(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	projectKey := c.Query("projectKey")
 	if projectKey == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("projectKey is empty")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("projectKey is empty")
 		return
 	}
 
@@ -1314,11 +1314,11 @@ func OpenAPIListProductionEnvs(c *gin.Context) {
 
 	err = commonutil.CheckZadigProfessionalLicense()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.OpenAPIListProductionEnvs(ctx.UserID, projectKey, envFilter, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.OpenAPIListProductionEnvs(ctx.UserID, projectKey, envFilter, ctx.Logger)
 }
 
 func OpenAPIRestartService(c *gin.Context) {
@@ -1326,19 +1326,19 @@ func OpenAPIRestartService(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	projectName, envName, err := generalOpenAPIRequestValidate(c)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 	serviceName := c.Param("serviceName")
 	if serviceName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("serviceName is empty")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("serviceName is empty")
 		return
 	}
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "OpenAPI"+"重启", "环境-服务", fmt.Sprintf("环境名称:%s,服务名称:%s", envName, serviceName), "", ctx.Logger)
@@ -1359,7 +1359,7 @@ func OpenAPIRestartService(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = service.OpenAPIRestartService(projectName, envName, serviceName, false, ctx.Logger)
+	ctx.RespErr = service.OpenAPIRestartService(projectName, envName, serviceName, false, ctx.Logger)
 }
 
 func OpenAPIProductionRestartService(c *gin.Context) {
@@ -1367,19 +1367,19 @@ func OpenAPIProductionRestartService(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	projectName, envName, err := generalOpenAPIRequestValidate(c)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 	serviceName := c.Param("serviceName")
 	if serviceName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("serviceName is empty")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("serviceName is empty")
 		return
 	}
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "OpenAPI"+"重启", "环境-服务", fmt.Sprintf("环境名称:%s,服务名称:%s", envName, serviceName), "", ctx.Logger)
@@ -1402,11 +1402,11 @@ func OpenAPIProductionRestartService(c *gin.Context) {
 
 	err = commonutil.CheckZadigProfessionalLicense()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
-	ctx.Err = service.OpenAPIRestartService(projectName, envName, serviceName, true, ctx.Logger)
+	ctx.RespErr = service.OpenAPIRestartService(projectName, envName, serviceName, true, ctx.Logger)
 }
 
 func OpenAPICheckWorkloadsK8sServices(c *gin.Context) {
@@ -1414,14 +1414,14 @@ func OpenAPICheckWorkloadsK8sServices(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	projectKey, envName, err := generalOpenAPIRequestValidate(c)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
@@ -1441,7 +1441,7 @@ func OpenAPICheckWorkloadsK8sServices(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.Err = service.CheckWorkloadsK8sServices(c, envName, projectKey, false)
+	ctx.Resp, ctx.RespErr = service.CheckWorkloadsK8sServices(c, envName, projectKey, false)
 }
 
 func OpenAPIEnableBaseEnv(c *gin.Context) {
@@ -1449,14 +1449,14 @@ func OpenAPIEnableBaseEnv(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	projectKey, envName, err := generalOpenAPIRequestValidate(c)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
@@ -1480,11 +1480,11 @@ func OpenAPIEnableBaseEnv(c *gin.Context) {
 
 	err = commonutil.CheckZadigEnterpriseLicense()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
-	ctx.Err = service.EnableBaseEnv(c, envName, projectKey)
+	ctx.RespErr = service.EnableBaseEnv(c, envName, projectKey)
 }
 
 func OpenAPIDsiableBaseEnv(c *gin.Context) {
@@ -1492,14 +1492,14 @@ func OpenAPIDsiableBaseEnv(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	projectKey, envName, err := generalOpenAPIRequestValidate(c)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
@@ -1525,11 +1525,11 @@ func OpenAPIDsiableBaseEnv(c *gin.Context) {
 
 	err = commonutil.CheckZadigEnterpriseLicense()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
-	ctx.Err = service.DisableBaseEnv(c, envName, projectKey)
+	ctx.RespErr = service.DisableBaseEnv(c, envName, projectKey)
 }
 
 type OpenAPIShareEnvReadyResponse struct {
@@ -1550,14 +1550,14 @@ func OpenAPICheckShareEnvReady(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	projectKey, envName, err := generalOpenAPIRequestValidate(c)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
@@ -1579,7 +1579,7 @@ func OpenAPICheckShareEnvReady(c *gin.Context) {
 
 	origResp, err := service.CheckShareEnvReady(c, envName, c.Param("op"), projectKey)
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
@@ -1608,20 +1608,20 @@ func OpenAPIGetPortalService(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	projectKey, envName, err := generalOpenAPIRequestValidate(c)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
 	serviceName := c.Param("serviceName")
 	if serviceName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("serviceName is empty")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("serviceName is empty")
 		return
 	}
 
@@ -1643,7 +1643,7 @@ func OpenAPIGetPortalService(c *gin.Context) {
 
 	origResp, err := service.GetPortalService(c, projectKey, envName, serviceName)
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
@@ -1673,20 +1673,20 @@ func OpenAPISetPortalService(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	projectKey, envName, err := generalOpenAPIRequestValidate(c)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
 	serviceName := c.Param("serviceName")
 	if serviceName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("serviceName is empty")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("serviceName is empty")
 		return
 	}
 
@@ -1709,7 +1709,7 @@ func OpenAPISetPortalService(c *gin.Context) {
 	req := []OpenAPISetPortalServiceRequest{}
 	err = c.ShouldBindJSON(&req)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
@@ -1724,10 +1724,10 @@ func OpenAPISetPortalService(c *gin.Context) {
 
 	err = commonutil.CheckZadigEnterpriseLicense()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
-	ctx.Err = service.SetupPortalService(c, projectKey, envName, serviceName, origReq)
+	ctx.RespErr = service.SetupPortalService(c, projectKey, envName, serviceName, origReq)
 	return
 }

@@ -23,7 +23,7 @@ func CreateCustomWorkflowTask(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -32,7 +32,7 @@ func CreateCustomWorkflowTask(c *gin.Context) {
 	data := getBody(c)
 	if err := json.Unmarshal([]byte(data), args); err != nil {
 		log.Errorf("CreateWorkflowTaskv4 json.Unmarshal err : %s", err)
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 
@@ -56,7 +56,7 @@ func CreateCustomWorkflowTask(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.Err = workflowservice.CreateCustomWorkflowTask(ctx.UserName, args, ctx.Logger)
+	ctx.Resp, ctx.RespErr = workflowservice.CreateCustomWorkflowTask(ctx.UserName, args, ctx.Logger)
 }
 
 func OpenAPICreateWorkflowView(c *gin.Context) {
@@ -64,7 +64,7 @@ func OpenAPICreateWorkflowView(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -72,12 +72,12 @@ func OpenAPICreateWorkflowView(c *gin.Context) {
 	args := new(workflowservice.OpenAPICreateWorkflowViewReq)
 	err = c.BindJSON(args)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 	}
 
 	isValid, err := args.Validate()
 	if !isValid {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 
@@ -95,7 +95,7 @@ func OpenAPICreateWorkflowView(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = workflowservice.CreateWorkflowViewOpenAPI(args.Name, args.ProjectName, args.WorkflowList, ctx.UserName, ctx.Logger)
+	ctx.RespErr = workflowservice.CreateWorkflowViewOpenAPI(args.Name, args.ProjectName, args.WorkflowList, ctx.UserName, ctx.Logger)
 }
 
 func OpenAPIGetWorkflowViews(c *gin.Context) {
@@ -104,11 +104,11 @@ func OpenAPIGetWorkflowViews(c *gin.Context) {
 
 	projectKey := c.Query("projectKey")
 	if projectKey == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("projectKey is required")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("projectKey is required")
 		return
 	}
 
-	ctx.Resp, ctx.Err = workflowservice.OpenAPIGetWorkflowViews(projectKey, ctx.Logger)
+	ctx.Resp, ctx.RespErr = workflowservice.OpenAPIGetWorkflowViews(projectKey, ctx.Logger)
 }
 
 func OpenAPIUpdateWorkflowView(c *gin.Context) {
@@ -116,26 +116,26 @@ func OpenAPIUpdateWorkflowView(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	viewName := c.Param("name")
 	if viewName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("view name is required")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("view name is required")
 		return
 	}
 	args := new(workflowservice.OpenAPICreateWorkflowViewReq)
 	err = c.BindJSON(args)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 	}
 	args.Name = viewName
 	args.ProjectName = c.Query("projectKey")
 	isValid, err := args.Validate()
 	if !isValid {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProjectName, "(OpenAPI)"+"更新", "工作流视图", viewName, "", ctx.Logger)
@@ -164,7 +164,7 @@ func OpenAPIUpdateWorkflowView(c *gin.Context) {
 		})
 	}
 
-	ctx.Err = workflowservice.UpdateWorkflowViewOpenAPI(viewName, args.ProjectName, list, ctx.UserName, ctx.Logger)
+	ctx.RespErr = workflowservice.UpdateWorkflowViewOpenAPI(viewName, args.ProjectName, list, ctx.UserName, ctx.Logger)
 }
 
 func OpenAPIDeleteWorkflowView(c *gin.Context) {
@@ -172,20 +172,20 @@ func OpenAPIDeleteWorkflowView(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	viewName := c.Param("name")
 	if viewName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("view name is required")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("view name is required")
 		return
 	}
 
 	projectKey := c.Query("projectKey")
 	if projectKey == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("projectKey is required")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("projectKey is required")
 		return
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "(OpenAPI)"+"删除", "工作流视图", viewName, "", ctx.Logger)
@@ -204,7 +204,7 @@ func OpenAPIDeleteWorkflowView(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = workflowservice.DeleteWorkflowView(projectKey, viewName, ctx.Logger)
+	ctx.RespErr = workflowservice.DeleteWorkflowView(projectKey, viewName, ctx.Logger)
 }
 
 type getworkflowTaskReq struct {
@@ -219,10 +219,10 @@ func OpenAPIGetWorkflowTaskV4(c *gin.Context) {
 	args := new(getworkflowTaskReq)
 	err := c.BindQuery(args)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
-	ctx.Resp, ctx.Err = workflowservice.GetWorkflowTaskV4(args.WorkflowName, args.TaskID, ctx.Logger)
+	ctx.Resp, ctx.RespErr = workflowservice.GetWorkflowTaskV4(args.WorkflowName, args.TaskID, ctx.Logger)
 }
 
 func OpenAPICancelWorkflowTaskV4(c *gin.Context) {
@@ -232,10 +232,10 @@ func OpenAPICancelWorkflowTaskV4(c *gin.Context) {
 	args := new(getworkflowTaskReq)
 	err := c.BindJSON(args)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
-	ctx.Err = workflowservice.CancelWorkflowTaskV4(ctx.UserName, args.WorkflowName, args.TaskID, ctx.Logger)
+	ctx.RespErr = workflowservice.CancelWorkflowTaskV4(ctx.UserName, args.WorkflowName, args.TaskID, ctx.Logger)
 }
 
 func OpenAPICreateProductWorkflowTask(c *gin.Context) {
@@ -243,7 +243,7 @@ func OpenAPICreateProductWorkflowTask(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -252,7 +252,7 @@ func OpenAPICreateProductWorkflowTask(c *gin.Context) {
 	data := getBody(c)
 	if err := json.Unmarshal([]byte(data), args); err != nil {
 		log.Errorf("openapi CreateWorkflowTaskv4 json.Unmarshal err : %s", err)
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 
@@ -260,7 +260,7 @@ func OpenAPICreateProductWorkflowTask(c *gin.Context) {
 
 	isValid, err := args.Validate()
 	if !isValid {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 
@@ -282,7 +282,7 @@ func OpenAPICreateProductWorkflowTask(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.Err = workflowservice.OpenAPICreateProductWorkflowTask(ctx.UserName, args, ctx.Logger)
+	ctx.Resp, ctx.RespErr = workflowservice.OpenAPICreateProductWorkflowTask(ctx.UserName, args, ctx.Logger)
 }
 
 func OpenAPIDeleteCustomWorkflowV4(c *gin.Context) {
@@ -290,7 +290,7 @@ func OpenAPIDeleteCustomWorkflowV4(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -298,7 +298,7 @@ func OpenAPIDeleteCustomWorkflowV4(c *gin.Context) {
 	workflowKey := c.Query("workflowKey")
 	projectKey := c.Query("projectKey")
 	if workflowKey == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("workflowKey is required")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("workflowKey is required")
 		return
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "(OpenAPI)"+"删除", "自定义工作流", workflowKey, "", ctx.Logger)
@@ -317,7 +317,7 @@ func OpenAPIDeleteCustomWorkflowV4(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = workflowservice.OpenAPIDeleteCustomWorkflowV4(workflowKey, projectKey, ctx.Logger)
+	ctx.RespErr = workflowservice.OpenAPIDeleteCustomWorkflowV4(workflowKey, projectKey, ctx.Logger)
 }
 
 func OpenAPIGetCustomWorkflowV4(c *gin.Context) {
@@ -327,15 +327,15 @@ func OpenAPIGetCustomWorkflowV4(c *gin.Context) {
 	workflowName := c.Param("name")
 	projectName := c.Query("projectKey")
 	if workflowName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("workflowKey is required")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("workflowKey is required")
 		return
 	}
 	if projectName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("projectKey is required")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("projectKey is required")
 		return
 	}
 
-	ctx.Resp, ctx.Err = workflowservice.OpenAPIGetCustomWorkflowV4(workflowName, projectName, ctx.Logger)
+	ctx.Resp, ctx.RespErr = workflowservice.OpenAPIGetCustomWorkflowV4(workflowName, projectName, ctx.Logger)
 }
 
 func OpenAPIDeleteProductWorkflowV4(c *gin.Context) {
@@ -343,7 +343,7 @@ func OpenAPIDeleteProductWorkflowV4(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -351,7 +351,7 @@ func OpenAPIDeleteProductWorkflowV4(c *gin.Context) {
 	workflowKey := c.Query("workflowKey")
 	projectKey := c.Query("projectKey")
 	if workflowKey == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("workflowKey is required")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("workflowKey is required")
 		return
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "(OpenAPI)"+"删除", "产品工作流", workflowKey, "", ctx.Logger)
@@ -370,7 +370,7 @@ func OpenAPIDeleteProductWorkflowV4(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = workflowservice.OpenAPIDeleteProductWorkflowV4(workflowKey, ctx.RequestID, ctx.RequestID, ctx.Logger)
+	ctx.RespErr = workflowservice.OpenAPIDeleteProductWorkflowV4(workflowKey, ctx.RequestID, ctx.RequestID, ctx.Logger)
 }
 
 func OpenAPIGetProductWorkflowTasksV4(c *gin.Context) {
@@ -379,23 +379,23 @@ func OpenAPIGetProductWorkflowTasksV4(c *gin.Context) {
 
 	projectKey := c.Query("projectKey")
 	if projectKey == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("projectKey is required")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("projectKey is required")
 		return
 	}
 	workflowKey := c.Param("name")
 	if workflowKey == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("workflowKey is required")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("workflowKey is required")
 		return
 	}
 
 	args := new(workflowservice.OpenAPIPageParamsFromReq)
 	err := c.BindQuery(args)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 
-	ctx.Resp, ctx.Err = workflowservice.OpenAPIGetProductWorkflowTasksV4(projectKey, workflowKey, args.PageNum, args.PageSize, ctx.Logger)
+	ctx.Resp, ctx.RespErr = workflowservice.OpenAPIGetProductWorkflowTasksV4(projectKey, workflowKey, args.PageNum, args.PageSize, ctx.Logger)
 }
 
 func OpenAPIGetProductWorkflowTaskV4(c *gin.Context) {
@@ -404,21 +404,21 @@ func OpenAPIGetProductWorkflowTaskV4(c *gin.Context) {
 
 	projectKey := c.Query("projectKey")
 	if projectKey == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("projectKey is required")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("projectKey is required")
 		return
 	}
 	workflowName := c.Param("name")
 	if workflowName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("workflowKey is required")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("workflowKey is required")
 		return
 	}
 	taskID, err := strconv.ParseInt(c.Param("taskID"), 10, 64)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("taskID is required")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("taskID is required")
 		return
 	}
 
-	ctx.Resp, ctx.Err = workflowservice.OpenAPIGetProductWorkflowTaskV4(projectKey, workflowName, taskID, ctx.Logger)
+	ctx.Resp, ctx.RespErr = workflowservice.OpenAPIGetProductWorkflowTaskV4(projectKey, workflowName, taskID, ctx.Logger)
 }
 
 func OpenAPIGetWorkflowV4List(c *gin.Context) {
@@ -428,15 +428,15 @@ func OpenAPIGetWorkflowV4List(c *gin.Context) {
 	args := new(workflowservice.OpenAPIWorkflowV4ListReq)
 	err := c.ShouldBindQuery(args)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 	if args.ProjectKey == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("projectKey is required")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("projectKey is required")
 		return
 	}
 
-	ctx.Resp, ctx.Err = workflowservice.OpenAPIGetCustomWorkflowV4List(args, ctx.Logger)
+	ctx.Resp, ctx.RespErr = workflowservice.OpenAPIGetCustomWorkflowV4List(args, ctx.Logger)
 }
 
 func OpenAPIRetryCustomWorkflowTaskV4(c *gin.Context) {
@@ -445,12 +445,12 @@ func OpenAPIRetryCustomWorkflowTaskV4(c *gin.Context) {
 
 	name, taskID, err := generalRequestValidate(c)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName, c.Query("projectKey"), "OpenAPI"+"重试", "自定义工作流任务", name, fmt.Sprintf("%d", taskID), ctx.Logger)
 
-	ctx.Err = workflowservice.OpenAPIRetryCustomWorkflowTaskV4(name, c.Query("projectKey"), taskID, ctx.Logger)
+	ctx.RespErr = workflowservice.OpenAPIRetryCustomWorkflowTaskV4(name, c.Query("projectKey"), taskID, ctx.Logger)
 }
 
 func OpenAPIGetCustomWorkflowTaskV4(c *gin.Context) {
@@ -459,18 +459,18 @@ func OpenAPIGetCustomWorkflowTaskV4(c *gin.Context) {
 
 	workflowKey := c.Param("name")
 	if workflowKey == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("workflowKey is required")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("workflowKey is required")
 		return
 	}
 
 	args := new(workflowservice.OpenAPIPageParamsFromReq)
 	err := c.BindQuery(args)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 
-	ctx.Resp, ctx.Err = workflowservice.OpenAPIGetCustomWorkflowTaskV4(workflowKey, args.ProjectKey, args.PageNum, args.PageSize, ctx.Logger)
+	ctx.Resp, ctx.RespErr = workflowservice.OpenAPIGetCustomWorkflowTaskV4(workflowKey, args.ProjectKey, args.PageNum, args.PageSize, ctx.Logger)
 }
 
 func OpenAPIApproveStage(c *gin.Context) {
@@ -480,22 +480,22 @@ func OpenAPIApproveStage(c *gin.Context) {
 
 	data, err := c.GetRawData()
 	if err != nil {
-		ctx.Err = fmt.Errorf("failed to get raw data from request, error: %s", err)
+		ctx.RespErr = fmt.Errorf("failed to get raw data from request, error: %s", err)
 		return
 	}
 	if err = json.Unmarshal(data, args); err != nil {
-		ctx.Err = fmt.Errorf("failed to unmarshal request data, error: %s", err)
+		ctx.RespErr = fmt.Errorf("failed to unmarshal request data, error: %s", err)
 		return
 	}
 
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.ShouldBindJSON(&args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 
-	ctx.Err = workflowservice.ApproveStage(args.WorkflowName, args.StageName, ctx.UserName, ctx.UserID, args.Comment, args.TaskID, args.Approve, ctx.Logger)
+	ctx.RespErr = workflowservice.ApproveStage(args.WorkflowName, args.StageName, ctx.UserName, ctx.UserID, args.Comment, args.TaskID, args.Approve, ctx.Logger)
 }
 
 func generalRequestValidate(c *gin.Context) (string, int64, error) {

@@ -61,7 +61,7 @@ func CreateWorkflowTaskV4(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -70,7 +70,7 @@ func CreateWorkflowTaskV4(c *gin.Context) {
 	data := getBody(c)
 	if err := json.Unmarshal([]byte(data), args); err != nil {
 		log.Errorf("CreateWorkflowTaskv4 json.Unmarshal err : %s", err)
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 
@@ -94,7 +94,7 @@ func CreateWorkflowTaskV4(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.Err = workflow.CreateWorkflowTaskV4(&workflow.CreateWorkflowTaskV4Args{
+	ctx.Resp, ctx.RespErr = workflow.CreateWorkflowTaskV4(&workflow.CreateWorkflowTaskV4Args{
 		Name:    ctx.UserName,
 		Account: ctx.Account,
 		UserID:  ctx.UserID,
@@ -108,7 +108,7 @@ func CreateWorkflowTaskV4ByBuildInTrigger(c *gin.Context) {
 
 	args := new(commonmodels.WorkflowV4)
 	if err := c.ShouldBindJSON(&args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 	triggerName := c.Query("triggerName")
@@ -116,7 +116,7 @@ func CreateWorkflowTaskV4ByBuildInTrigger(c *gin.Context) {
 		triggerName = setting.DefaultTaskRevoker
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName, args.Project, "新建", "自定义工作流任务", args.Name, getBody(c), ctx.Logger)
-	ctx.Resp, ctx.Err = workflow.CreateWorkflowTaskV4ByBuildInTrigger(triggerName, args, ctx.Logger)
+	ctx.Resp, ctx.RespErr = workflow.CreateWorkflowTaskV4ByBuildInTrigger(triggerName, args, ctx.Logger)
 }
 
 type listWorkflowTaskV4PreviewResp struct {
@@ -130,14 +130,14 @@ func ListWorkflowTaskV4ByFilter(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	filter := &workflow.TaskHistoryFilter{}
 	if err := c.ShouldBindQuery(filter); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
@@ -166,7 +166,7 @@ func ListWorkflowTaskV4ByFilter(c *gin.Context) {
 		Total:        total,
 	}
 	ctx.Resp = resp
-	ctx.Err = err
+	ctx.RespErr = err
 }
 
 func GetWorkflowTaskV4(c *gin.Context) {
@@ -174,14 +174,14 @@ func GetWorkflowTaskV4(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	taskID, err := strconv.ParseInt(c.Param("taskID"), 10, 64)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid task id")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid task id")
 		return
 	}
 
@@ -190,7 +190,7 @@ func GetWorkflowTaskV4(c *gin.Context) {
 	w, err := workflow.FindWorkflowV4Raw(workflowName, ctx.Logger)
 	if err != nil {
 		ctx.Logger.Errorf("CreateCronForWorkflowV4 error: %v", err)
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
@@ -212,7 +212,7 @@ func GetWorkflowTaskV4(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.Err = workflow.GetWorkflowTaskV4(workflowName, taskID, ctx.Logger)
+	ctx.Resp, ctx.RespErr = workflow.GetWorkflowTaskV4(workflowName, taskID, ctx.Logger)
 }
 
 func CancelWorkflowTaskV4(c *gin.Context) {
@@ -221,14 +221,14 @@ func CancelWorkflowTaskV4(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	taskID, err := strconv.ParseInt(c.Param("taskID"), 10, 64)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid task id")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid task id")
 		return
 	}
 
@@ -259,7 +259,7 @@ func CancelWorkflowTaskV4(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = workflow.CancelWorkflowTaskV4(username, workflowName, taskID, ctx.Logger)
+	ctx.RespErr = workflow.CancelWorkflowTaskV4(username, workflowName, taskID, ctx.Logger)
 }
 
 func CloneWorkflowTaskV4(c *gin.Context) {
@@ -267,7 +267,7 @@ func CloneWorkflowTaskV4(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -277,7 +277,7 @@ func CloneWorkflowTaskV4(c *gin.Context) {
 
 	taskID, err := strconv.ParseInt(c.Param("taskID"), 10, 64)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid task id")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid task id")
 		return
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "克隆", "自定义工作流任务", c.Param("workflowName"), "", ctx.Logger)
@@ -300,7 +300,7 @@ func CloneWorkflowTaskV4(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.Err = workflow.CloneWorkflowTaskV4(workflowName, taskID, ctx.Logger)
+	ctx.Resp, ctx.RespErr = workflow.CloneWorkflowTaskV4(workflowName, taskID, ctx.Logger)
 }
 
 func GetManualExecWorkflowTaskV4Info(c *gin.Context) {
@@ -308,7 +308,7 @@ func GetManualExecWorkflowTaskV4Info(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -318,7 +318,7 @@ func GetManualExecWorkflowTaskV4Info(c *gin.Context) {
 
 	taskID, err := strconv.ParseInt(c.Param("taskID"), 10, 64)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid task id")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid task id")
 		return
 	}
 
@@ -340,7 +340,7 @@ func GetManualExecWorkflowTaskV4Info(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.Err = workflow.GetManualExecWorkflowTaskV4Info(workflowName, taskID, ctx.Logger)
+	ctx.Resp, ctx.RespErr = workflow.GetManualExecWorkflowTaskV4Info(workflowName, taskID, ctx.Logger)
 }
 
 func RetryWorkflowTaskV4(c *gin.Context) {
@@ -349,7 +349,7 @@ func RetryWorkflowTaskV4(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -359,7 +359,7 @@ func RetryWorkflowTaskV4(c *gin.Context) {
 
 	taskID, err := strconv.ParseInt(c.Param("taskID"), 10, 64)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid task id")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid task id")
 		return
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "重试", "自定义工作流任务", c.Param("workflowName"), "", ctx.Logger)
@@ -382,7 +382,7 @@ func RetryWorkflowTaskV4(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = workflow.RetryWorkflowTaskV4(workflowName, taskID, ctx.Logger)
+	ctx.RespErr = workflow.RetryWorkflowTaskV4(workflowName, taskID, ctx.Logger)
 }
 
 // @Summary Manually Execute Workflow Task V4
@@ -402,7 +402,7 @@ func ManualExecWorkflowTaskV4(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -412,7 +412,7 @@ func ManualExecWorkflowTaskV4(c *gin.Context) {
 	stageName := c.Query("stageName")
 	taskID, err := strconv.ParseInt(c.Param("taskID"), 10, 64)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid task id")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid task id")
 		return
 	}
 
@@ -420,7 +420,7 @@ func ManualExecWorkflowTaskV4(c *gin.Context) {
 	data := getBody(c)
 	if err := json.Unmarshal([]byte(data), args); err != nil {
 		log.Errorf("ManualExecWorkflowTaskV4 json.Unmarshal err : %s", err)
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 
@@ -444,7 +444,7 @@ func ManualExecWorkflowTaskV4(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = workflow.ManualExecWorkflowTaskV4(workflowName, taskID, stageName, args.Jobs, ctx.UserID, ctx.UserName, ctx.Resources.IsSystemAdmin, ctx.Logger)
+	ctx.RespErr = workflow.ManualExecWorkflowTaskV4(workflowName, taskID, stageName, args.Jobs, ctx.UserID, ctx.UserName, ctx.Resources.IsSystemAdmin, ctx.Logger)
 }
 
 func SetWorkflowTaskV4Breakpoint(c *gin.Context) {
@@ -453,7 +453,7 @@ func SetWorkflowTaskV4Breakpoint(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -463,7 +463,7 @@ func SetWorkflowTaskV4Breakpoint(c *gin.Context) {
 	w, err := workflow.FindWorkflowV4Raw(workflowName, ctx.Logger)
 	if err != nil {
 		ctx.Logger.Errorf("SetWorkflowTaskV4Breakpoint error: %v", err)
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
@@ -487,7 +487,7 @@ func SetWorkflowTaskV4Breakpoint(c *gin.Context) {
 
 	taskID, err := strconv.ParseInt(c.Param("taskID"), 10, 64)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid task id")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid task id")
 		return
 	}
 	var set bool
@@ -495,16 +495,16 @@ func SetWorkflowTaskV4Breakpoint(c *gin.Context) {
 	case "set", "unset":
 		set = c.Query("operation") == "set"
 	default:
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid operation")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid operation")
 		return
 	}
 	switch c.Param("position") {
 	case "before", "after":
 	default:
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid position")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid position")
 		return
 	}
-	ctx.Err = workflow.SetWorkflowTaskV4Breakpoint(workflowName, c.Param("jobName"), taskID, set, c.Param("position"), ctx.Logger)
+	ctx.RespErr = workflow.SetWorkflowTaskV4Breakpoint(workflowName, c.Param("jobName"), taskID, set, c.Param("position"), ctx.Logger)
 }
 
 func EnableDebugWorkflowTaskV4(c *gin.Context) {
@@ -513,7 +513,7 @@ func EnableDebugWorkflowTaskV4(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -523,7 +523,7 @@ func EnableDebugWorkflowTaskV4(c *gin.Context) {
 	w, err := workflow.FindWorkflowV4Raw(workflowName, ctx.Logger)
 	if err != nil {
 		ctx.Logger.Errorf("EnableDebugWorkflowTaskV4 error: %v", err)
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
@@ -547,10 +547,10 @@ func EnableDebugWorkflowTaskV4(c *gin.Context) {
 
 	taskID, err := strconv.ParseInt(c.Param("taskID"), 10, 64)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid task id")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid task id")
 		return
 	}
-	ctx.Err = workflow.EnableDebugWorkflowTaskV4(workflowName, taskID, ctx.Logger)
+	ctx.RespErr = workflow.EnableDebugWorkflowTaskV4(workflowName, taskID, ctx.Logger)
 }
 
 func StopDebugWorkflowTaskJobV4(c *gin.Context) {
@@ -559,7 +559,7 @@ func StopDebugWorkflowTaskJobV4(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -569,7 +569,7 @@ func StopDebugWorkflowTaskJobV4(c *gin.Context) {
 	w, err := workflow.FindWorkflowV4Raw(workflowName, ctx.Logger)
 	if err != nil {
 		ctx.Logger.Errorf("EnableDebugWorkflowTaskV4 error: %v", err)
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
@@ -593,10 +593,10 @@ func StopDebugWorkflowTaskJobV4(c *gin.Context) {
 
 	taskID, err := strconv.ParseInt(c.Param("taskID"), 10, 64)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid task id")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid task id")
 		return
 	}
-	ctx.Err = workflow.StopDebugWorkflowTaskJobV4(workflowName, c.Param("jobName"), taskID, c.Param("position"), ctx.Logger)
+	ctx.RespErr = workflow.StopDebugWorkflowTaskJobV4(workflowName, c.Param("jobName"), taskID, c.Param("position"), ctx.Logger)
 }
 
 func ApproveStage(c *gin.Context) {
@@ -615,11 +615,11 @@ func ApproveStage(c *gin.Context) {
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.ShouldBindJSON(&args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 
-	ctx.Err = workflow.ApproveStage(args.WorkflowName, args.JobName, ctx.UserName, ctx.UserID, args.Comment, args.TaskID, args.Approve, ctx.Logger)
+	ctx.RespErr = workflow.ApproveStage(args.WorkflowName, args.JobName, ctx.UserName, ctx.UserID, args.Comment, args.TaskID, args.Approve, ctx.Logger)
 }
 
 type HandleJobErrorRequest struct {
@@ -645,11 +645,11 @@ func HandleJobError(c *gin.Context) {
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.ShouldBindJSON(&args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 
-	ctx.Err = workflow.HandleJobError(args.WorkflowName, args.JobName, ctx.UserID, ctx.UserName, args.TaskID, args.Decision, ctx.Logger)
+	ctx.RespErr = workflow.HandleJobError(args.WorkflowName, args.JobName, ctx.UserID, ctx.UserName, args.TaskID, args.Decision, ctx.Logger)
 }
 
 func GetWorkflowV4ArtifactFileContent(c *gin.Context) {
@@ -657,7 +657,7 @@ func GetWorkflowV4ArtifactFileContent(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -667,7 +667,7 @@ func GetWorkflowV4ArtifactFileContent(c *gin.Context) {
 	w, err := workflow.FindWorkflowV4Raw(workflowName, ctx.Logger)
 	if err != nil {
 		ctx.Logger.Errorf("EnableDebugWorkflowTaskV4 error: %v", err)
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
@@ -691,13 +691,13 @@ func GetWorkflowV4ArtifactFileContent(c *gin.Context) {
 
 	taskID, err := strconv.ParseInt(c.Param("taskId"), 10, 64)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid task id")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid task id")
 		return
 	}
 
 	resp, err := workflow.GetWorkflowV4ArtifactFileContent(workflowName, c.Param("jobName"), taskID, ctx.Logger)
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 	c.Writer.Header().Set("Content-Disposition", `attachment; filename="artifact.tar.gz"`)
@@ -710,7 +710,7 @@ func GetWorkflowV4BuildJobArtifactFile(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -720,7 +720,7 @@ func GetWorkflowV4BuildJobArtifactFile(c *gin.Context) {
 	w, err := workflow.FindWorkflowV4Raw(workflowName, ctx.Logger)
 	if err != nil {
 		ctx.Logger.Errorf("EnableDebugWorkflowTaskV4 error: %v", err)
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
@@ -744,13 +744,13 @@ func GetWorkflowV4BuildJobArtifactFile(c *gin.Context) {
 
 	taskID, err := strconv.ParseInt(c.Param("taskId"), 10, 64)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid task id")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid task id")
 		return
 	}
 
 	resp, filename, err := workflow.GetWorkflowV4BuildJobArtifactFile(workflowName, c.Param("jobName"), taskID, ctx.Logger)
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 	c.Writer.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, filename))
@@ -762,5 +762,5 @@ func GetWorkflowTaskFilters(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = workflow.ListWorkflowFilterInfo(c.Query("projectName"), c.Param("name"), c.Query("queryType"), c.Query("jobName"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = workflow.ListWorkflowFilterInfo(c.Query("projectName"), c.Param("name"), c.Query("queryType"), c.Query("jobName"), ctx.Logger)
 }

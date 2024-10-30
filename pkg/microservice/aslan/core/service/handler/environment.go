@@ -46,12 +46,12 @@ func GetDeployableEnvs(c *gin.Context) {
 	if production {
 		err := commonutil.CheckZadigProfessionalLicense()
 		if err != nil {
-			ctx.Err = err
+			ctx.RespErr = err
 			return
 		}
 	}
 
-	ctx.Resp, ctx.Err = service.GetDeployableEnvs(c.Param("name"), c.Query("projectName"), production)
+	ctx.Resp, ctx.RespErr = service.GetDeployableEnvs(c.Param("name"), c.Query("projectName"), production)
 }
 
 // GetKubeWorkloads api used to force user to have get environments privilege to use, now it is removed.
@@ -60,7 +60,7 @@ func GetKubeWorkloads(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.GetKubeWorkloads(c.Query("namespace"), c.Query("cluster_id"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetKubeWorkloads(c.Query("namespace"), c.Query("cluster_id"), ctx.Logger)
 }
 
 func LoadKubeWorkloadsYaml(c *gin.Context) {
@@ -68,7 +68,7 @@ func LoadKubeWorkloadsYaml(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -81,7 +81,7 @@ func LoadKubeWorkloadsYaml(c *gin.Context) {
 		ctx.Logger.Errorf("copyHelmProduct json.Unmarshal err : %s", err)
 	}
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
@@ -113,9 +113,9 @@ func LoadKubeWorkloadsYaml(c *gin.Context) {
 
 	err = commonutil.CheckZadigEnterpriseLicense()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
-	ctx.Err = service.LoadKubeWorkloadsYaml(ctx.UserName, args, false, production, ctx.Logger)
+	ctx.RespErr = service.LoadKubeWorkloadsYaml(ctx.UserName, args, false, production, ctx.Logger)
 }

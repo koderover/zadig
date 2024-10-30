@@ -32,7 +32,7 @@ func OpenAPICreateBuildModule(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -43,7 +43,7 @@ func OpenAPICreateBuildModule(c *gin.Context) {
 		args := new(buildservice.OpenAPIBuildCreationFromTemplateReq)
 		err := c.BindJSON(args)
 		if err != nil {
-			ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+			ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 			return
 		}
 
@@ -62,24 +62,24 @@ func OpenAPICreateBuildModule(c *gin.Context) {
 
 		isValid, err := args.Validate()
 		if !isValid {
-			ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+			ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 			return
 		}
 
 		err = commonutil.CheckZadigProfessionalLicense()
 		if err != nil {
-			ctx.Err = err
+			ctx.RespErr = err
 			return
 		}
 
-		ctx.Err = buildservice.OpenAPICreateBuildModuleFromTemplate(ctx.UserName, args, ctx.Logger)
+		ctx.RespErr = buildservice.OpenAPICreateBuildModuleFromTemplate(ctx.UserName, args, ctx.Logger)
 		return
 	}
 
 	args := new(buildservice.OpenAPIBuildCreationReq)
 	err = c.BindJSON(args)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 
@@ -98,11 +98,11 @@ func OpenAPICreateBuildModule(c *gin.Context) {
 
 	isValid, err := args.Validate()
 	if !isValid {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 
-	ctx.Err = buildservice.OpenAPICreateBuildModule(ctx.UserName, args, ctx.Logger)
+	ctx.RespErr = buildservice.OpenAPICreateBuildModule(ctx.UserName, args, ctx.Logger)
 }
 
 func OpenAPIDeleteBuildModule(c *gin.Context) {
@@ -111,7 +111,7 @@ func OpenAPIDeleteBuildModule(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -134,11 +134,11 @@ func OpenAPIDeleteBuildModule(c *gin.Context) {
 	}
 
 	if buildName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("empty build name.")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("empty build name.")
 		return
 	}
 
-	ctx.Err = buildservice.DeleteBuild(buildName, projectKey, ctx.Logger)
+	ctx.RespErr = buildservice.DeleteBuild(buildName, projectKey, ctx.Logger)
 }
 
 func OpenAPIListBuildModules(c *gin.Context) {
@@ -146,21 +146,21 @@ func OpenAPIListBuildModules(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	projectKey := c.Query("projectKey")
 	if projectKey == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("empty project key.")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("empty project key.")
 		return
 	}
 
 	args := new(buildservice.OpenAPIPageParamsFromReq)
 	err = c.BindQuery(args)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 
@@ -193,7 +193,7 @@ func OpenAPIListBuildModules(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = buildservice.OpenAPIListBuildModules(projectKey, args.PageNum, args.PageSize, ctx.Logger)
+	ctx.Resp, ctx.RespErr = buildservice.OpenAPIListBuildModules(projectKey, args.PageNum, args.PageSize, ctx.Logger)
 }
 
 func OpenAPIGetBuildModule(c *gin.Context) {
@@ -201,19 +201,19 @@ func OpenAPIGetBuildModule(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	name := c.Param("name")
 	if name == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("empty buildName.")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("empty buildName.")
 		return
 	}
 	projectKey := c.Query("projectKey")
 	if projectKey == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("empty projectKey.")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("empty projectKey.")
 		return
 	}
 
@@ -230,5 +230,5 @@ func OpenAPIGetBuildModule(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.Err = buildservice.OpenAPIGetBuildModule(name, projectKey, ctx.Logger)
+	ctx.Resp, ctx.RespErr = buildservice.OpenAPIGetBuildModule(name, projectKey, ctx.Logger)
 }

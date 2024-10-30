@@ -34,7 +34,7 @@ func BuildModuleToSubTasks(c *gin.Context) {
 	}
 	resp, err := workflow.BuildModuleToSubTasks(args, ctx.Logger)
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 

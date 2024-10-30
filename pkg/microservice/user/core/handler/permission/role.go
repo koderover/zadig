@@ -77,7 +77,7 @@ func CreateRoleTemplate(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -85,14 +85,14 @@ func CreateRoleTemplate(c *gin.Context) {
 	data, err := c.GetRawData()
 	if err != nil {
 		log.Errorf("CreateRole c.GetRawData() err : %v", err)
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	args := &permission.CreateRoleReq{}
 	if err := c.ShouldBindJSON(args); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
@@ -106,38 +106,38 @@ func CreateRoleTemplate(c *gin.Context) {
 
 	err = checkLicense(args.Actions)
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
-	ctx.Err = permission.CreateRoleTemplate(args, ctx.Logger)
+	ctx.RespErr = permission.CreateRoleTemplate(args, ctx.Logger)
 }
 
 func CreateRoleImpl(c *gin.Context, ctx *internalhandler.Context) {
 	data, err := c.GetRawData()
 	if err != nil {
 		log.Errorf("CreateRole c.GetRawData() err : %v", err)
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	args := &permission.CreateRoleReq{}
 	if err := c.ShouldBindJSON(args); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
 	err = userhandler.GenerateUserAuthInfo(ctx)
 	if err != nil {
 		ctx.UnAuthorized = true
-		ctx.Err = fmt.Errorf("failed to generate user authorization info, error: %s", err)
+		ctx.RespErr = fmt.Errorf("failed to generate user authorization info, error: %s", err)
 		return
 	}
 
 	projectName := c.Query("namespace")
 	if projectName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("namespace is empty")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("namespace is empty")
 		return
 	}
 
@@ -160,11 +160,11 @@ func CreateRoleImpl(c *gin.Context, ctx *internalhandler.Context) {
 
 	err = checkLicense(args.Actions)
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
-	ctx.Err = permission.CreateRole(projectName, args, ctx.Logger)
+	ctx.RespErr = permission.CreateRole(projectName, args, ctx.Logger)
 }
 
 func OpenAPIUpdateRole(c *gin.Context) {
@@ -187,27 +187,27 @@ func UpdateRoleImpl(c *gin.Context, ctx *internalhandler.Context) {
 	data, err := c.GetRawData()
 	if err != nil {
 		log.Errorf("UpdateRole c.GetRawData() err : %v", err)
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	args := &permission.CreateRoleReq{}
 	if err := c.ShouldBindJSON(args); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
 	err = userhandler.GenerateUserAuthInfo(ctx)
 	if err != nil {
 		ctx.UnAuthorized = true
-		ctx.Err = fmt.Errorf("failed to generate user authorization info, error: %s", err)
+		ctx.RespErr = fmt.Errorf("failed to generate user authorization info, error: %s", err)
 		return
 	}
 
 	projectName := c.Query("namespace")
 	if projectName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("namespace is empty")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("namespace is empty")
 		return
 	}
 	name := c.Param("name")
@@ -253,13 +253,13 @@ func UpdateRoleImpl(c *gin.Context, ctx *internalhandler.Context) {
 	//	}
 	//}
 
-	ctx.Err = permission.UpdateRole(projectName, args, ctx.Logger)
+	ctx.RespErr = permission.UpdateRole(projectName, args, ctx.Logger)
 }
 
 func UpdateRoleTemplate(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -269,14 +269,14 @@ func UpdateRoleTemplate(c *gin.Context) {
 	data, err := c.GetRawData()
 	if err != nil {
 		log.Errorf("UpdateRole c.GetRawData() err : %v", err)
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	args := &permission.CreateRoleReq{}
 	if err := c.ShouldBindJSON(args); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
@@ -293,11 +293,11 @@ func UpdateRoleTemplate(c *gin.Context) {
 
 	err = checkLicense(args.Actions)
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
-	ctx.Err = permission.UpdateRoleTemplate(args, ctx.Logger)
+	ctx.RespErr = permission.UpdateRoleTemplate(args, ctx.Logger)
 }
 
 func OpenAPIListRoles(c *gin.Context) {
@@ -307,13 +307,13 @@ func OpenAPIListRoles(c *gin.Context) {
 	err := userhandler.GenerateUserAuthInfo(ctx)
 	if err != nil {
 		ctx.UnAuthorized = true
-		ctx.Err = fmt.Errorf("failed to generate user authorization info, error: %s", err)
+		ctx.RespErr = fmt.Errorf("failed to generate user authorization info, error: %s", err)
 		return
 	}
 
 	projectName := c.Query("namespace")
 	if projectName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("args namespace can't be empty")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("args namespace can't be empty")
 		return
 	}
 
@@ -336,9 +336,9 @@ func OpenAPIListRoles(c *gin.Context) {
 
 	uid := c.Query("uid")
 	if uid == "" {
-		ctx.Resp, ctx.Err = permission.ListRolesByNamespace(projectName, ctx.Logger)
+		ctx.Resp, ctx.RespErr = permission.ListRolesByNamespace(projectName, ctx.Logger)
 	} else {
-		ctx.Resp, ctx.Err = permission.ListRolesByNamespaceAndUserID(projectName, uid, ctx.Logger)
+		ctx.Resp, ctx.RespErr = permission.ListRolesByNamespaceAndUserID(projectName, uid, ctx.Logger)
 	}
 }
 
@@ -348,14 +348,14 @@ func ListRoles(c *gin.Context) {
 
 	projectName := c.Query("namespace")
 	if projectName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("args namespace can't be empty")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("args namespace can't be empty")
 		return
 	}
 	uid := c.Query("uid")
 	if uid == "" {
-		ctx.Resp, ctx.Err = permission.ListRolesByNamespace(projectName, ctx.Logger)
+		ctx.Resp, ctx.RespErr = permission.ListRolesByNamespace(projectName, ctx.Logger)
 	} else {
-		ctx.Resp, ctx.Err = permission.ListRolesByNamespaceAndUserID(projectName, uid, ctx.Logger)
+		ctx.Resp, ctx.RespErr = permission.ListRolesByNamespaceAndUserID(projectName, uid, ctx.Logger)
 	}
 }
 
@@ -363,7 +363,7 @@ func ListRoleTemplates(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = permission.ListRoleTemplates(ctx.Logger)
+	ctx.Resp, ctx.RespErr = permission.ListRoleTemplates(ctx.Logger)
 }
 
 func OpenAPIGetRole(c *gin.Context) {
@@ -373,13 +373,13 @@ func OpenAPIGetRole(c *gin.Context) {
 	err := userhandler.GenerateUserAuthInfo(ctx)
 	if err != nil {
 		ctx.UnAuthorized = true
-		ctx.Err = fmt.Errorf("failed to generate user authorization info, error: %s", err)
+		ctx.RespErr = fmt.Errorf("failed to generate user authorization info, error: %s", err)
 		return
 	}
 
 	projectName := c.Query("namespace")
 	if projectName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("args namespace can't be empty")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("args namespace can't be empty")
 		return
 	}
 
@@ -400,7 +400,7 @@ func OpenAPIGetRole(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.Err = permission.GetRole(projectName, c.Param("name"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = permission.GetRole(projectName, c.Param("name"), ctx.Logger)
 }
 
 func GetRole(c *gin.Context) {
@@ -409,18 +409,18 @@ func GetRole(c *gin.Context) {
 
 	projectName := c.Query("namespace")
 	if projectName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("args namespace can't be empty")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("args namespace can't be empty")
 		return
 	}
 
-	ctx.Resp, ctx.Err = permission.GetRole(projectName, c.Param("name"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = permission.GetRole(projectName, c.Param("name"), ctx.Logger)
 }
 
 func GetRoleTemplate(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = permission.GetRoleTemplate(c.Param("name"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = permission.GetRoleTemplate(c.Param("name"), ctx.Logger)
 }
 
 func OpenAPIDeleteRole(c *gin.Context) {
@@ -434,7 +434,7 @@ func OpenAPIDeleteRole(c *gin.Context) {
 func DeleteRoleTemplate(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -450,7 +450,7 @@ func DeleteRoleTemplate(c *gin.Context) {
 	name := c.Param("name")
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, "*", setting.OperationSceneProject, "删除", "角色", "角色名称："+name, "", ctx.Logger, name)
 
-	ctx.Err = permission.DeleteRoleTemplate(c.Param("name"), ctx.Logger)
+	ctx.RespErr = permission.DeleteRoleTemplate(c.Param("name"), ctx.Logger)
 }
 
 func DeleteRole(c *gin.Context) {
@@ -465,14 +465,14 @@ func DeleteRoleImpl(c *gin.Context, ctx *internalhandler.Context) {
 	name := c.Param("name")
 	projectName := c.Query("namespace")
 	if projectName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("args namespace can't be empty")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("args namespace can't be empty")
 		return
 	}
 
 	err := userhandler.GenerateUserAuthInfo(ctx)
 	if err != nil {
 		ctx.UnAuthorized = true
-		ctx.Err = fmt.Errorf("failed to generate user authorization info, error: %s", err)
+		ctx.RespErr = fmt.Errorf("failed to generate user authorization info, error: %s", err)
 		return
 	}
 
@@ -493,5 +493,5 @@ func DeleteRoleImpl(c *gin.Context, ctx *internalhandler.Context) {
 
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneProject, "删除", "角色", "角色名称："+name, "", ctx.Logger, name)
 
-	ctx.Err = permission.DeleteRole(name, projectName, ctx.Logger)
+	ctx.RespErr = permission.DeleteRole(name, projectName, ctx.Logger)
 }

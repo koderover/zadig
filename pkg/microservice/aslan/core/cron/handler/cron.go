@@ -52,11 +52,11 @@ func DisableCronjob(c *gin.Context) {
 	args := new(DisableCronjobReq)
 
 	if err := c.BindJSON(args); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
-	ctx.Err = cronservice.DisableCronjob(args.Name, args.Type, ctx.Logger)
+	ctx.RespErr = cronservice.DisableCronjob(args.Name, args.Type, ctx.Logger)
 }
 
 type cronjobResp struct {
@@ -109,7 +109,7 @@ func ListActiveCronjobFailsafe(c *gin.Context) {
 		})
 	}
 	ctx.Resp = resp
-	ctx.Err = err
+	ctx.RespErr = err
 }
 
 func ListActiveCronjob(c *gin.Context) {
@@ -141,7 +141,7 @@ func ListActiveCronjob(c *gin.Context) {
 		})
 	}
 	ctx.Resp = resp
-	ctx.Err = err
+	ctx.RespErr = err
 }
 
 func ListCronjob(c *gin.Context) {
@@ -173,5 +173,5 @@ func ListCronjob(c *gin.Context) {
 		})
 	}
 	ctx.Resp = resp
-	ctx.Err = err
+	ctx.RespErr = err
 }

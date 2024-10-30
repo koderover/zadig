@@ -32,7 +32,7 @@ func DeleteUser(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -44,7 +44,7 @@ func DeleteUser(c *gin.Context) {
 	}
 
 	uid := c.Param("id")
-	ctx.Resp, ctx.Err = service.DeleteUser(uid, c.Request.Header, c.Request.URL.Query(), ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.DeleteUser(uid, c.Request.Header, c.Request.URL.Query(), ctx.Logger)
 }
 
 func SearchUsers(c *gin.Context) {
@@ -52,7 +52,7 @@ func SearchUsers(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -70,8 +70,8 @@ func SearchUsers(c *gin.Context) {
 
 	if err := c.ShouldBindJSON(req); err != nil {
 		ctx.Logger.Errorf("bindjson err :%s", err)
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
-	ctx.Resp, ctx.Err = service.SearchUsers(c.Request.Header, c.Request.URL.Query(), req, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.SearchUsers(c.Request.Header, c.Request.URL.Query(), req, ctx.Logger)
 }

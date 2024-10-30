@@ -64,13 +64,13 @@ func FindScanningProjectNameFromID(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 
 	if scanningID == "" {
-		ctx.Err = MissingIDError
+		ctx.RespErr = MissingIDError
 		return
 	}
 
 	scanning, err := service.GetScanningModuleByID(scanningID, ctx.Logger)
 	if err != nil {
-		ctx.Err = fmt.Errorf("failed to find scanning module of id: %s, error: %s", scanningID, err)
+		ctx.RespErr = fmt.Errorf("failed to find scanning module of id: %s, error: %s", scanningID, err)
 	}
 	c.Set("projectKey", scanning.ProjectName)
 	c.Next()
@@ -81,7 +81,7 @@ func CreateScanningModule(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -113,12 +113,12 @@ func CreateScanningModule(c *gin.Context) {
 
 	if err = commonutil.CheckZadigProfessionalLicense(); err != nil {
 		if args.CheckQualityGate == true || len(args.AdvancedSetting.NotifyCtls) != 0 {
-			ctx.Err = err
+			ctx.RespErr = err
 			return
 		}
 	}
 
-	ctx.Err = service.CreateScanningModule(ctx.UserName, args, ctx.Logger)
+	ctx.RespErr = service.CreateScanningModule(ctx.UserName, args, ctx.Logger)
 }
 
 func UpdateScanningModule(c *gin.Context) {
@@ -127,7 +127,7 @@ func UpdateScanningModule(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -159,18 +159,18 @@ func UpdateScanningModule(c *gin.Context) {
 
 	id := c.Param("id")
 	if id == "" {
-		ctx.Err = MissingIDError
+		ctx.RespErr = MissingIDError
 		return
 	}
 
 	if err = commonutil.CheckZadigProfessionalLicense(); err != nil {
 		if args.CheckQualityGate == true || len(args.AdvancedSetting.NotifyCtls) != 0 {
-			ctx.Err = err
+			ctx.RespErr = err
 			return
 		}
 	}
 
-	ctx.Err = service.UpdateScanningModule(id, ctx.UserName, args, ctx.Logger)
+	ctx.RespErr = service.UpdateScanningModule(id, ctx.UserName, args, ctx.Logger)
 }
 
 func ListScanningModule(c *gin.Context) {
@@ -179,7 +179,7 @@ func ListScanningModule(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -233,7 +233,7 @@ func ListScanningModule(c *gin.Context) {
 
 	resp, _, err := service.ListScanningModule(projectKey, ctx.Logger)
 	ctx.Resp = resp
-	ctx.Err = err
+	ctx.RespErr = err
 }
 
 func GetScanningModule(c *gin.Context) {
@@ -241,20 +241,20 @@ func GetScanningModule(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	id := c.Param("id")
 	if id == "" {
-		ctx.Err = MissingIDError
+		ctx.RespErr = MissingIDError
 		return
 	}
 
 	resp, err := service.GetScanningModuleByID(id, ctx.Logger)
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
@@ -280,7 +280,7 @@ func DeleteScanningModule(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -304,11 +304,11 @@ func DeleteScanningModule(c *gin.Context) {
 
 	id := c.Param("id")
 	if id == "" {
-		ctx.Err = MissingIDError
+		ctx.RespErr = MissingIDError
 		return
 	}
 
-	ctx.Err = service.DeleteScanningModuleByID(id, ctx.Logger)
+	ctx.RespErr = service.DeleteScanningModuleByID(id, ctx.Logger)
 }
 
 type createScanningTaskResp struct {
@@ -320,7 +320,7 @@ func CreateScanningTask(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -355,7 +355,7 @@ func CreateScanningTask(c *gin.Context) {
 
 	resp, err := service.CreateScanningTaskV2(scanningID, ctx.UserName, ctx.Account, ctx.UserID, req, "", ctx.Logger)
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 	ctx.Resp = &createScanningTaskResp{TaskID: resp}
@@ -372,7 +372,7 @@ func ListScanningTask(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -396,11 +396,11 @@ func ListScanningTask(c *gin.Context) {
 	// Query Verification
 	args := &listQuery{}
 	if err := c.ShouldBindQuery(args); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.ListScanningTask(scanningID, args.PageNum, args.PageSize, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.ListScanningTask(scanningID, args.PageNum, args.PageSize, ctx.Logger)
 }
 
 func GetScanningTask(c *gin.Context) {
@@ -409,7 +409,7 @@ func GetScanningTask(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -432,17 +432,17 @@ func GetScanningTask(c *gin.Context) {
 
 	taskIDStr := c.Param("scan_id")
 	if taskIDStr == "" {
-		ctx.Err = fmt.Errorf("scan_id must be provided")
+		ctx.RespErr = fmt.Errorf("scan_id must be provided")
 		return
 	}
 
 	taskID, err := strconv.ParseInt(taskIDStr, 10, 64)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(fmt.Sprintf("invalid task id: %s", err))
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(fmt.Sprintf("invalid task id: %s", err))
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.GetScanningTaskInfo(scanningID, taskID, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetScanningTaskInfo(scanningID, taskID, ctx.Logger)
 }
 
 func CancelScanningTask(c *gin.Context) {
@@ -451,7 +451,7 @@ func CancelScanningTask(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -460,13 +460,13 @@ func CancelScanningTask(c *gin.Context) {
 	scanningID := c.Param("id")
 	taskIDStr := c.Param("scan_id")
 	if taskIDStr == "" {
-		ctx.Err = fmt.Errorf("scan_id must be provided")
+		ctx.RespErr = fmt.Errorf("scan_id must be provided")
 		return
 	}
 
 	taskID, err := strconv.ParseInt(taskIDStr, 10, 64)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(fmt.Sprintf("invalid task id: %s", err))
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(fmt.Sprintf("invalid task id: %s", err))
 		return
 	}
 
@@ -487,7 +487,7 @@ func CancelScanningTask(c *gin.Context) {
 
 	workflowName := fmt.Sprintf(setting.ScanWorkflowNamingConvention, scanningID)
 
-	ctx.Err = workflowservice.CancelWorkflowTaskV4(ctx.UserName, workflowName, taskID, ctx.Logger)
+	ctx.RespErr = workflowservice.CancelWorkflowTaskV4(ctx.UserName, workflowName, taskID, ctx.Logger)
 }
 
 func GetScanningArtifactInfo(c *gin.Context) {
@@ -496,18 +496,18 @@ func GetScanningArtifactInfo(c *gin.Context) {
 
 	taskIDStr := c.Param("scan_id")
 	if taskIDStr == "" {
-		ctx.Err = fmt.Errorf("scan_id must be provided")
+		ctx.RespErr = fmt.Errorf("scan_id must be provided")
 		return
 	}
 
 	taskID, err := strconv.ParseInt(taskIDStr, 10, 64)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(fmt.Sprintf("invalid task id: %s", err))
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(fmt.Sprintf("invalid task id: %s", err))
 		return
 	}
 
 	scanningID := c.Param("id")
-	ctx.Resp, ctx.Err = service.GetWorkflowV4ScanningArtifactInfo(scanningID, c.Query("jobName"), taskID, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetWorkflowV4ScanningArtifactInfo(scanningID, c.Query("jobName"), taskID, ctx.Logger)
 }
 
 func GetScanningTaskArtifact(c *gin.Context) {
@@ -515,7 +515,7 @@ func GetScanningTaskArtifact(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -541,20 +541,20 @@ func GetScanningTaskArtifact(c *gin.Context) {
 
 	taskID, err := strconv.ParseInt(taskIDStr, 10, 64)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid task id")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid task id")
 		return
 	}
 
 	scanningInfo, err := commonrepo.NewScanningColl().GetByID(scanningID)
 	if err != nil {
-		ctx.Err = fmt.Errorf("failed to get scanning from mongodb, the error is: %s", err)
+		ctx.RespErr = fmt.Errorf("failed to get scanning from mongodb, the error is: %s", err)
 		return
 	}
 	workflowName := fmt.Sprintf(setting.ScanWorkflowNamingConvention, scanningInfo.ID.Hex())
 
 	resp, err := workflowservice.GetWorkflowV4ArtifactFileContent(workflowName, jobName, taskID, ctx.Logger)
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 	c.Writer.Header().Set("Content-Disposition", `attachment; filename="artifact.tar.gz"`)
@@ -567,7 +567,7 @@ func GetScanningTaskSSE(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -590,13 +590,13 @@ func GetScanningTaskSSE(c *gin.Context) {
 
 	taskIDStr := c.Param("scan_id")
 	if taskIDStr == "" {
-		ctx.Err = fmt.Errorf("scan_id must be provided")
+		ctx.RespErr = fmt.Errorf("scan_id must be provided")
 		return
 	}
 
 	taskID, err := strconv.ParseInt(taskIDStr, 10, 64)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(fmt.Sprintf("invalid task id: %s", err))
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(fmt.Sprintf("invalid task id: %s", err))
 		return
 	}
 

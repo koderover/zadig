@@ -35,18 +35,18 @@ func ListVariableSets(c *gin.Context) {
 	option := &service.VariableSetFindOption{}
 	err := c.BindQuery(option)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.ListVariableSets(option, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.ListVariableSets(option, ctx.Logger)
 }
 
 func GetVariableSet(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.GetVariableSet(c.Param("id"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetVariableSet(c.Param("id"), ctx.Logger)
 }
 
 func CreateVariableSet(c *gin.Context) {
@@ -54,7 +54,7 @@ func CreateVariableSet(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -78,20 +78,20 @@ func CreateVariableSet(c *gin.Context) {
 	// license checks
 	err = util.CheckZadigProfessionalLicense()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
 	args := &service.CreateVariableSetRequest{}
 	err = c.BindJSON(args)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 	args.UserName = ctx.UserName
 	args.ProjectName = projectKey
 
-	ctx.Err = service.CreateVariableSet(args)
+	ctx.RespErr = service.CreateVariableSet(args)
 }
 
 func UpdateVariableSet(c *gin.Context) {
@@ -99,7 +99,7 @@ func UpdateVariableSet(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -123,21 +123,21 @@ func UpdateVariableSet(c *gin.Context) {
 	// license checks
 	err = util.CheckZadigProfessionalLicense()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
 	args := &service.CreateVariableSetRequest{}
 	err = c.BindJSON(args)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 	args.UserName = ctx.UserName
 	args.ID = c.Param("id")
 	args.ProjectName = projectKey
 
-	ctx.Err = service.UpdateVariableSet(args, ctx.RequestID, ctx.Logger)
+	ctx.RespErr = service.UpdateVariableSet(args, ctx.RequestID, ctx.Logger)
 }
 
 func DeleteVariableSet(c *gin.Context) {
@@ -145,7 +145,7 @@ func DeleteVariableSet(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -169,9 +169,9 @@ func DeleteVariableSet(c *gin.Context) {
 	// license checks
 	err = util.CheckZadigProfessionalLicense()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
-	ctx.Err = service.DeleteVariableSet(c.Param("id"), projectKey, ctx.Logger)
+	ctx.RespErr = service.DeleteVariableSet(c.Param("id"), projectKey, ctx.Logger)
 }

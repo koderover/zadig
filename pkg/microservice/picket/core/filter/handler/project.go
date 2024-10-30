@@ -31,7 +31,7 @@ func ListProjects(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.ListProjects(c.Request.Header, c.Request.URL.Query(), ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.ListProjects(c.Request.Header, c.Request.URL.Query(), ctx.Logger)
 }
 
 func CreateProject(c *gin.Context) {
@@ -40,14 +40,14 @@ func CreateProject(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	args := &service.CreateProjectArgs{}
 	if err := c.ShouldBindBodyWith(args, binding.JSON); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err).AddDesc("invalid CreateProjectReq")
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err).AddDesc("invalid CreateProjectReq")
 		return
 	}
 
@@ -67,7 +67,7 @@ func CreateProject(c *gin.Context) {
 
 	body := getReqBody(c)
 
-	ctx.Resp, ctx.Err = service.CreateProject(c.Request.Header, body, c.Request.URL.Query(), args, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.CreateProject(c.Request.Header, body, c.Request.URL.Query(), args, ctx.Logger)
 }
 
 func getReqBody(c *gin.Context) (body []byte) {
@@ -89,14 +89,14 @@ func UpdateProject(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	args := new(UpdateProjectReq)
 	if err := c.ShouldBindBodyWith(args, binding.JSON); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err).AddDesc("invalid UpdateProject")
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err).AddDesc("invalid UpdateProject")
 		return
 	}
 
@@ -119,7 +119,7 @@ func UpdateProject(c *gin.Context) {
 	}
 
 	body := getReqBody(c)
-	ctx.Resp, ctx.Err = service.UpdateProject(c.Request.Header, c.Request.URL.Query(), body, args.ProductName, args.Public, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.UpdateProject(c.Request.Header, c.Request.URL.Query(), body, args.ProductName, args.Public, ctx.Logger)
 }
 
 func DeleteProject(c *gin.Context) {
@@ -127,7 +127,7 @@ func DeleteProject(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -152,5 +152,5 @@ func DeleteProject(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.DeleteProject(c.Request.Header, c.Request.URL.Query(), projectKey, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.DeleteProject(c.Request.Header, c.Request.URL.Query(), projectKey, ctx.Logger)
 }

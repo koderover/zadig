@@ -42,7 +42,7 @@ func CreateYamlTemplate(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -50,7 +50,7 @@ func CreateYamlTemplate(c *gin.Context) {
 	req := &template.YamlTemplate{}
 
 	if err := c.ShouldBindJSON(req); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
@@ -65,7 +65,7 @@ func CreateYamlTemplate(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = templateservice.CreateYamlTemplate(req, ctx.Logger)
+	ctx.RespErr = templateservice.CreateYamlTemplate(req, ctx.Logger)
 }
 
 // @Summary Update yaml template
@@ -83,7 +83,7 @@ func UpdateYamlTemplate(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -91,14 +91,14 @@ func UpdateYamlTemplate(c *gin.Context) {
 	req := &template.YamlTemplate{}
 
 	if err := c.ShouldBindJSON(req); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
 	bs, _ := json.Marshal(req)
 	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "模板-YAML", req.Name, string(bs), ctx.Logger)
 
-	ctx.Err = templateservice.UpdateYamlTemplate(c.Param("id"), req, ctx.Logger)
+	ctx.RespErr = templateservice.UpdateYamlTemplate(c.Param("id"), req, ctx.Logger)
 }
 
 // @Summary Update yaml template variable
@@ -116,7 +116,7 @@ func UpdateYamlTemplateVariable(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -124,7 +124,7 @@ func UpdateYamlTemplateVariable(c *gin.Context) {
 	req := &template.YamlTemplate{}
 
 	if err := c.ShouldBindJSON(req); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
@@ -139,7 +139,7 @@ func UpdateYamlTemplateVariable(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = templateservice.UpdateYamlTemplateVariable(c.Param("id"), req, ctx.Logger)
+	ctx.RespErr = templateservice.UpdateYamlTemplateVariable(c.Param("id"), req, ctx.Logger)
 }
 
 type listYamlQuery struct {
@@ -159,7 +159,7 @@ func ListYamlTemplate(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -179,7 +179,7 @@ func ListYamlTemplate(c *gin.Context) {
 	// Query Verification
 	args := &listYamlQuery{}
 	if err := c.ShouldBindQuery(args); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
@@ -191,7 +191,7 @@ func ListYamlTemplate(c *gin.Context) {
 		Total:           total,
 	}
 	ctx.Resp = resp
-	ctx.Err = err
+	ctx.RespErr = err
 }
 
 // @Summary Get yaml template detail
@@ -208,7 +208,7 @@ func GetYamlTemplateDetail(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -225,7 +225,7 @@ func GetYamlTemplateDetail(c *gin.Context) {
 	//	}
 	//}
 
-	ctx.Resp, ctx.Err = templateservice.GetYamlTemplateDetail(c.Param("id"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = templateservice.GetYamlTemplateDetail(c.Param("id"), ctx.Logger)
 }
 
 func DeleteYamlTemplate(c *gin.Context) {
@@ -234,7 +234,7 @@ func DeleteYamlTemplate(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -249,14 +249,14 @@ func DeleteYamlTemplate(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = templateservice.DeleteYamlTemplate(c.Param("id"), ctx.Logger)
+	ctx.RespErr = templateservice.DeleteYamlTemplate(c.Param("id"), ctx.Logger)
 }
 
 func GetYamlTemplateReference(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = templateservice.GetYamlTemplateReference(c.Param("id"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = templateservice.GetYamlTemplateReference(c.Param("id"), ctx.Logger)
 }
 
 func SyncYamlTemplateReference(c *gin.Context) {
@@ -265,7 +265,7 @@ func SyncYamlTemplateReference(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -280,7 +280,7 @@ func SyncYamlTemplateReference(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = templateservice.SyncYamlTemplateReference(ctx.UserName, c.Param("id"), ctx.Logger)
+	ctx.RespErr = templateservice.SyncYamlTemplateReference(ctx.UserName, c.Param("id"), ctx.Logger)
 }
 
 type getYamlTemplateVariablesReq struct {
@@ -302,11 +302,11 @@ func ValidateTemplateVariables(c *gin.Context) {
 
 	req := &getYamlTemplateVariablesReq{}
 	if err := c.ShouldBindJSON(req); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
-	ctx.Err = templateservice.ValidateVariable(req.Content, req.VariableYaml)
+	ctx.RespErr = templateservice.ValidateVariable(req.Content, req.VariableYaml)
 }
 
 // DEPRECATED since 1.18, now we auto extract varialbes when save yaml content
@@ -316,11 +316,11 @@ func ExtractTemplateVariables(c *gin.Context) {
 
 	req := &getYamlTemplateVariablesReq{}
 	if err := c.ShouldBindJSON(req); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
-	ctx.Resp, ctx.Err = templateservice.ExtractVariable(req.VariableYaml)
+	ctx.Resp, ctx.RespErr = templateservice.ExtractVariable(req.VariableYaml)
 }
 
 // DEPRECATED, since 1.18
@@ -330,9 +330,9 @@ func GetFlatKvs(c *gin.Context) {
 
 	req := &getYamlTemplateVariablesReq{}
 	if err := c.ShouldBindJSON(req); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
-	ctx.Resp, ctx.Err = templateservice.FlattenKvs(req.VariableYaml)
+	ctx.Resp, ctx.RespErr = templateservice.FlattenKvs(req.VariableYaml)
 }

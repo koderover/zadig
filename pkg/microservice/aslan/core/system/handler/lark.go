@@ -34,9 +34,9 @@ func GetLarkDepartment(c *gin.Context) {
 		userIDType = setting.LarkUserOpenID
 	}
 	if departmentID == "root" {
-		ctx.Resp, ctx.Err = lark.GetLarkAppContactRange(approvalID, userIDType)
+		ctx.Resp, ctx.RespErr = lark.GetLarkAppContactRange(approvalID, userIDType)
 	} else {
-		ctx.Resp, ctx.Err = lark.GetLarkDepartment(approvalID, departmentID, userIDType)
+		ctx.Resp, ctx.RespErr = lark.GetLarkDepartment(approvalID, departmentID, userIDType)
 	}
 }
 
@@ -49,7 +49,7 @@ func GetLarkUserID(c *gin.Context) {
 	}
 	id, err := lark.GetLarkUserID(c.Param("id"), c.Query("type"), c.Query("value"), userIDType)
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 	ctx.Resp = map[string]string{"id": id}
@@ -61,10 +61,10 @@ func LarkEventHandler(c *gin.Context) {
 
 	body, err := c.GetRawData()
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
-	ctx.Resp, ctx.Err = lark.EventHandler(
+	ctx.Resp, ctx.RespErr = lark.EventHandler(
 		c.Param("id"),
 		c.GetHeader("X-Lark-Signature"),
 		c.GetHeader("X-Lark-Request-Timestamp"),

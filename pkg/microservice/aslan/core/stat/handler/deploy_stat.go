@@ -28,7 +28,7 @@ func InitDeployStat(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Err = service.InitDeployStat(ctx.Logger)
+	ctx.RespErr = service.InitDeployStat(ctx.Logger)
 }
 
 func GetPipelineHealthMeasure(c *gin.Context) {
@@ -37,10 +37,10 @@ func GetPipelineHealthMeasure(c *gin.Context) {
 	//params validate
 	args := new(getStatReq)
 	if err := c.BindJSON(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
-	ctx.Resp, ctx.Err = service.GetPipelineHealthMeasure(args.StartDate, args.EndDate, args.ProductNames, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetPipelineHealthMeasure(args.StartDate, args.EndDate, args.ProductNames, ctx.Logger)
 }
 
 func GetDeployHealthMeasure(c *gin.Context) {
@@ -49,10 +49,10 @@ func GetDeployHealthMeasure(c *gin.Context) {
 	//params validate
 	args := new(getStatReq)
 	if err := c.BindJSON(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
-	ctx.Resp, ctx.Err = service.GetDeployHealthMeasure(args.StartDate, args.EndDate, args.ProductNames, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetDeployHealthMeasure(args.StartDate, args.EndDate, args.ProductNames, ctx.Logger)
 }
 
 func GetDeployWeeklyMeasure(c *gin.Context) {
@@ -61,10 +61,10 @@ func GetDeployWeeklyMeasure(c *gin.Context) {
 	//params validate
 	args := new(getStatReq)
 	if err := c.BindJSON(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
-	ctx.Resp, ctx.Err = service.GetDeployWeeklyMeasure(args.StartDate, args.EndDate, args.ProductNames, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetDeployWeeklyMeasure(args.StartDate, args.EndDate, args.ProductNames, ctx.Logger)
 }
 
 func GetDeployTopFiveHigherMeasure(c *gin.Context) {
@@ -73,10 +73,10 @@ func GetDeployTopFiveHigherMeasure(c *gin.Context) {
 	//params validate
 	args := new(getStatReq)
 	if err := c.BindJSON(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
-	ctx.Resp, ctx.Err = service.GetDeployTopFiveHigherMeasure(args.StartDate, args.EndDate, args.ProductNames, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetDeployTopFiveHigherMeasure(args.StartDate, args.EndDate, args.ProductNames, ctx.Logger)
 }
 
 func GetDeployTopFiveFailureMeasure(c *gin.Context) {
@@ -85,8 +85,8 @@ func GetDeployTopFiveFailureMeasure(c *gin.Context) {
 	//params validate
 	args := new(getStatReq)
 	if err := c.BindJSON(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
-	ctx.Resp, ctx.Err = service.GetDeployTopFiveFailureMeasure(args.StartDate, args.EndDate, args.ProductNames, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetDeployTopFiveFailureMeasure(args.StartDate, args.EndDate, args.ProductNames, ctx.Logger)
 }

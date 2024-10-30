@@ -29,14 +29,14 @@ func CreateWeeklyDeployStat(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Err = service.CreateWeeklyDeployStat(ctx.Logger)
+	ctx.RespErr = service.CreateWeeklyDeployStat(ctx.Logger)
 }
 
 func CreateMonthlyDeployStat(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Err = service.CreateMonthlyDeployStat(ctx.Logger)
+	ctx.RespErr = service.CreateMonthlyDeployStat(ctx.Logger)
 }
 
 type getStatGeneralReq struct {
@@ -52,11 +52,11 @@ func GetDeployHeathStats(c *gin.Context) {
 
 	args := new(getStatGeneralReq)
 	if err := c.ShouldBindQuery(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.GetDeployHeathStats(args.StartTime, args.EndTime, args.Projects, args.ProductionType, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetDeployHeathStats(args.StartTime, args.EndTime, args.Projects, args.ProductionType, ctx.Logger)
 }
 
 func GetDeployWeeklyTrend(c *gin.Context) {
@@ -65,11 +65,11 @@ func GetDeployWeeklyTrend(c *gin.Context) {
 
 	args := new(getStatGeneralReq)
 	if err := c.ShouldBindQuery(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.GetDeployWeeklyTrend(args.StartTime, args.EndTime, args.Projects, args.ProductionType, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetDeployWeeklyTrend(args.StartTime, args.EndTime, args.Projects, args.ProductionType, ctx.Logger)
 }
 
 func GetDeployMonthlyTrend(c *gin.Context) {
@@ -78,11 +78,11 @@ func GetDeployMonthlyTrend(c *gin.Context) {
 
 	args := new(getStatGeneralReq)
 	if err := c.ShouldBindQuery(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.GetDeployMonthlyTrend(args.StartTime, args.EndTime, args.Projects, args.ProductionType, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetDeployMonthlyTrend(args.StartTime, args.EndTime, args.Projects, args.ProductionType, ctx.Logger)
 }
 
 type getStateReqWithTop struct {
@@ -97,11 +97,11 @@ func GetTopDeployedService(c *gin.Context) {
 
 	args := new(getStateReqWithTop)
 	if err := c.ShouldBindQuery(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.GetTopDeployedService(args.StartTime, args.EndTime, args.Projects, args.Top, args.ProductionType, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetTopDeployedService(args.StartTime, args.EndTime, args.Projects, args.Top, args.ProductionType, ctx.Logger)
 }
 
 func GetTopDeployFailuresByService(c *gin.Context) {
@@ -110,9 +110,9 @@ func GetTopDeployFailuresByService(c *gin.Context) {
 
 	args := new(getStateReqWithTop)
 	if err := c.ShouldBindQuery(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.GetTopDeployFailuresByService(args.StartTime, args.EndTime, args.Projects, args.Top, args.ProductionType, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetTopDeployFailuresByService(args.StartTime, args.EndTime, args.Projects, args.Top, args.ProductionType, ctx.Logger)
 }

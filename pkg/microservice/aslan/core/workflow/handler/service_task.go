@@ -32,5 +32,5 @@ func ListServiceWorkflows(c *gin.Context) {
 	serviceName := c.Param("serviceName")
 	serviceType := c.Param("serviceType")
 
-	ctx.Resp, ctx.Err = workflow.ListServiceWorkflows(productName, envName, serviceName, serviceType, ctx.Logger)
+	ctx.Resp, ctx.RespErr = workflow.ListServiceWorkflows(productName, envName, serviceName, serviceType, ctx.Logger)
 }

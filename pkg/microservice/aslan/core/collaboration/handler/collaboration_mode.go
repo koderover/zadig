@@ -40,10 +40,10 @@ func GetCollaborationMode(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	projectName := c.Query("projectName")
 	if projectName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("projectName can not be empty")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("projectName can not be empty")
 		return
 	}
-	ctx.Resp, ctx.Err = collaboration.GetCollaborationModes([]string{projectName}, ctx.Logger)
+	ctx.Resp, ctx.RespErr = collaboration.GetCollaborationModes([]string{projectName}, ctx.Logger)
 }
 
 func CreateCollaborationMode(c *gin.Context) {
@@ -54,24 +54,24 @@ func CreateCollaborationMode(c *gin.Context) {
 	data, err := c.GetRawData()
 	if err != nil {
 		log.Errorf("CreateCollaborationMode c.GetRawData() err: %s", err)
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("CreateCollaborationMode json.Unmarshal err: %s", err)
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 
 	detail, err := generateCollaborationDetailLog(ctx.Account, args, ctx.Logger)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 
 	internalhandler.InsertOperationLog(c, ctx.Account, args.ProjectName, "新增", "协作模式", detail, string(data), ctx.Logger)
 
-	ctx.Err = service.CreateCollaborationMode(ctx.Account, args, ctx.Logger)
+	ctx.RespErr = service.CreateCollaborationMode(ctx.Account, args, ctx.Logger)
 }
 
 func UpdateCollaborationMode(c *gin.Context) {
@@ -82,24 +82,24 @@ func UpdateCollaborationMode(c *gin.Context) {
 	data, err := c.GetRawData()
 	if err != nil {
 		log.Errorf("UpdateCollaborationMode c.GetRawData() err: %s", err)
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("UpdateCollaborationMode json.Unmarshal err: %s", err)
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 
 	detail, err := generateCollaborationDetailLog(ctx.Account, args, ctx.Logger)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 
 	internalhandler.InsertOperationLog(c, ctx.Account, args.ProjectName, "更新", "协作模式", detail, string(data), ctx.Logger)
 
-	ctx.Err = service.UpdateCollaborationMode(ctx.Account, args, ctx.Logger)
+	ctx.RespErr = service.UpdateCollaborationMode(ctx.Account, args, ctx.Logger)
 }
 
 func DeleteCollaborationMode(c *gin.Context) {
@@ -108,13 +108,13 @@ func DeleteCollaborationMode(c *gin.Context) {
 
 	projectName := c.Query("projectName")
 	if projectName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("projectName can not be empty")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("projectName can not be empty")
 		return
 	}
 	name := c.Param("name")
 	internalhandler.InsertOperationLog(c, ctx.Account, projectName, "删除", "协作模式", name, "", ctx.Logger)
 
-	ctx.Err = service.DeleteCollaborationMode(ctx.Account, projectName, name, ctx.Logger)
+	ctx.RespErr = service.DeleteCollaborationMode(ctx.Account, projectName, name, ctx.Logger)
 }
 
 func generateCollaborationDetailLog(username string, args *commonmodels.CollaborationMode, logger *zap.SugaredLogger) (string, error) {

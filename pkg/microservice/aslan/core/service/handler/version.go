@@ -43,7 +43,7 @@ func ListServiceVersions(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -74,11 +74,11 @@ func ListServiceVersions(c *gin.Context) {
 
 	serviceName := c.Param("serviceName")
 	if serviceName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("empty serviceName")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("empty serviceName")
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.ListServiceVersions(ctx, projectKey, serviceName, production, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.ListServiceVersions(ctx, projectKey, serviceName, production, ctx.Logger)
 }
 
 // @Summary Get Service Version Yaml
@@ -97,7 +97,7 @@ func GetServiceVersionYaml(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -128,17 +128,17 @@ func GetServiceVersionYaml(c *gin.Context) {
 
 	serviceName := c.Param("serviceName")
 	if serviceName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("empty serviceName")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("empty serviceName")
 		return
 	}
 
 	revision, err := strconv.ParseInt(c.Param("revision"), 10, 64)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(fmt.Errorf("invalid revison: %s", err))
+		ctx.RespErr = e.ErrInvalidParam.AddErr(fmt.Errorf("invalid revison: %s", err))
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.GetServiceVersionYaml(ctx, projectKey, serviceName, revision, production, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetServiceVersionYaml(ctx, projectKey, serviceName, revision, production, ctx.Logger)
 }
 
 // @Summary Diff Service Versions
@@ -158,7 +158,7 @@ func DiffServiceVersions(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -189,22 +189,22 @@ func DiffServiceVersions(c *gin.Context) {
 
 	serviceName := c.Param("serviceName")
 	if serviceName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("empty serviceName")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("empty serviceName")
 		return
 	}
 
 	revisionA, err := strconv.ParseInt(c.Query("revisionA"), 10, 64)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(fmt.Errorf("invalid revisionA: %s", err))
+		ctx.RespErr = e.ErrInvalidParam.AddErr(fmt.Errorf("invalid revisionA: %s", err))
 		return
 	}
 	revisionB, err := strconv.ParseInt(c.Query("revisionB"), 10, 64)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(fmt.Errorf("invalid revisionB: %s", err))
+		ctx.RespErr = e.ErrInvalidParam.AddErr(fmt.Errorf("invalid revisionB: %s", err))
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.DiffServiceVersions(ctx, projectKey, serviceName, revisionA, revisionB, production, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.DiffServiceVersions(ctx, projectKey, serviceName, revisionA, revisionB, production, ctx.Logger)
 }
 
 // @Summary Rollback Service Version
@@ -223,7 +223,7 @@ func RollbackServiceVersion(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -253,24 +253,24 @@ func RollbackServiceVersion(c *gin.Context) {
 	}
 
 	if err := commonutil.CheckZadigProfessionalLicense(); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
 	serviceName := c.Param("serviceName")
 	if serviceName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("empty serviceName")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("empty serviceName")
 		return
 	}
 
 	revision, err := strconv.ParseInt(c.Query("revision"), 10, 64)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(fmt.Errorf("invalid revision: %s", err))
+		ctx.RespErr = e.ErrInvalidParam.AddErr(fmt.Errorf("invalid revision: %s", err))
 		return
 	}
 
 	if err := commonutil.CheckZadigProfessionalLicense(); err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
@@ -280,5 +280,5 @@ func RollbackServiceVersion(c *gin.Context) {
 	}
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneService, "回滚", detail, fmt.Sprintf("服务: %s, 版本: %d", serviceName, revision), "", ctx.Logger)
 
-	ctx.Err = service.RollbackServiceVersion(ctx, projectKey, serviceName, revision, production, ctx.Logger)
+	ctx.RespErr = service.RollbackServiceVersion(ctx, projectKey, serviceName, revision, production, ctx.Logger)
 }

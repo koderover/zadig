@@ -39,7 +39,7 @@ func CreateSonarIntegration(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -62,15 +62,15 @@ func CreateSonarIntegration(c *gin.Context) {
 	}
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("failed to update sonar integration: %s", err)
+		ctx.RespErr = fmt.Errorf("failed to update sonar integration: %s", err)
 		return
 	}
 
 	if args.ServerAddress == "" || args.Token == "" {
-		ctx.Err = SonarIntegrationValidationError
+		ctx.RespErr = SonarIntegrationValidationError
 		return
 	}
-	ctx.Err = service.CreateSonarIntegration(args, ctx.Logger)
+	ctx.RespErr = service.CreateSonarIntegration(args, ctx.Logger)
 }
 
 func UpdateSonarIntegration(c *gin.Context) {
@@ -79,7 +79,7 @@ func UpdateSonarIntegration(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -102,15 +102,15 @@ func UpdateSonarIntegration(c *gin.Context) {
 	}
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("failed to update sonar integration: %s", err)
+		ctx.RespErr = fmt.Errorf("failed to update sonar integration: %s", err)
 		return
 	}
 
 	if args.ServerAddress == "" || args.Token == "" {
-		ctx.Err = SonarIntegrationValidationError
+		ctx.RespErr = SonarIntegrationValidationError
 		return
 	}
-	ctx.Err = service.UpdateSonarIntegration(c.Param("id"), args, ctx.Logger)
+	ctx.RespErr = service.UpdateSonarIntegration(c.Param("id"), args, ctx.Logger)
 }
 
 func ListSonarIntegration(c *gin.Context) {
@@ -118,7 +118,7 @@ func ListSonarIntegration(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -132,26 +132,26 @@ func ListSonarIntegration(c *gin.Context) {
 
 	encryptedKey := c.Query("encryptedKey")
 	if len(encryptedKey) == 0 {
-		ctx.Err = e.ErrInvalidParam
+		ctx.RespErr = e.ErrInvalidParam
 		return
 	}
 
 	aesKey, err := commonutil.GetAesKeyFromEncryptedKey(encryptedKey, ctx.Logger)
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
 	sonarList, _, err := service.ListSonarIntegration(ctx.Logger)
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
 	for _, sonar := range sonarList {
 		encryptedSonarToken, err := crypto.AesEncryptByKey(sonar.Token, aesKey.PlainText)
 		if err != nil {
-			ctx.Err = fmt.Errorf("failed to encrypt sonar token, err: %s", err)
+			ctx.RespErr = fmt.Errorf("failed to encrypt sonar token, err: %s", err)
 			return
 		}
 		sonar.Token = encryptedSonarToken
@@ -165,7 +165,7 @@ func GetSonarIntegration(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -178,24 +178,24 @@ func GetSonarIntegration(c *gin.Context) {
 
 	encryptedKey := c.Query("encryptedKey")
 	if len(encryptedKey) == 0 {
-		ctx.Err = e.ErrInvalidParam
+		ctx.RespErr = e.ErrInvalidParam
 		return
 	}
 
 	aesKey, err := commonutil.GetAesKeyFromEncryptedKey(encryptedKey, ctx.Logger)
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 
 	resp, err := service.GetSonarIntegration(c.Param("id"), ctx.Logger)
 	if err != nil {
-		ctx.Err = err
+		ctx.RespErr = err
 		return
 	}
 	encryptedSonarToken, err := crypto.AesEncryptByKey(resp.Token, aesKey.PlainText)
 	if err != nil {
-		ctx.Err = fmt.Errorf("failed to encrypt sonar token, err: %s", err)
+		ctx.RespErr = fmt.Errorf("failed to encrypt sonar token, err: %s", err)
 		return
 	}
 	resp.Token = encryptedSonarToken
@@ -208,7 +208,7 @@ func DeleteSonarIntegration(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -220,7 +220,7 @@ func DeleteSonarIntegration(c *gin.Context) {
 	}
 
 	internalhandler.InsertOperationLog(c, ctx.UserName, "", "删除", "系统配置-Sonar集成", fmt.Sprintf("id:%s", c.Param("id")), "", ctx.Logger)
-	ctx.Err = service.DeleteSonarIntegration(c.Param("id"), ctx.Logger)
+	ctx.RespErr = service.DeleteSonarIntegration(c.Param("id"), ctx.Logger)
 }
 
 func ValidateSonarInformation(c *gin.Context) {
@@ -229,7 +229,7 @@ func ValidateSonarInformation(c *gin.Context) {
 
 	if err != nil {
 
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -245,14 +245,14 @@ func ValidateSonarInformation(c *gin.Context) {
 	data, err := c.GetRawData()
 	if err != nil {
 		log.Errorf("Validate sonar integration GetRawData err : %s", err)
-		ctx.Err = fmt.Errorf("validate sonar integration GetRawData err : %s", err)
+		ctx.RespErr = fmt.Errorf("validate sonar integration GetRawData err : %s", err)
 		return
 	}
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("Validate sonar integration Unmarshal err : %s", err)
-		ctx.Err = fmt.Errorf("validate sonar integration Unmarshal err : %s", err)
+		ctx.RespErr = fmt.Errorf("validate sonar integration Unmarshal err : %s", err)
 		return
 	}
 
-	ctx.Err = service.ValidateSonarIntegration(args, ctx.Logger)
+	ctx.RespErr = service.ValidateSonarIntegration(args, ctx.Logger)
 }

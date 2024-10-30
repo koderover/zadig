@@ -27,12 +27,12 @@ func GetUserRules(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = permission.GetUserRules(ctx.UserID, ctx.Logger)
+	ctx.Resp, ctx.RespErr = permission.GetUserRules(ctx.UserID, ctx.Logger)
 }
 
 func GetUserRulesByProject(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = permission.GetUserPermissionByProject(ctx.UserID, c.Param("name"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = permission.GetUserPermissionByProject(ctx.UserID, c.Param("name"), ctx.Logger)
 }

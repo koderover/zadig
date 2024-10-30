@@ -81,9 +81,11 @@ var projectResourceAliasMap = map[string]string{
 	"Test":                  "测试",
 	"Scan":                  "代码扫描",
 	"Delivery":              "版本管理",
+	"SprintManagement":      "迭代管理",
 }
 
 var projectResourceSequence = []string{
+	"SprintManagement",
 	"Workflow",
 	"Environment",
 	"ProductionEnvironment",
