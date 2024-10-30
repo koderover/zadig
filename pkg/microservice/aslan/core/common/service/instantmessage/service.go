@@ -338,7 +338,7 @@ func (w *Service) sendMessage(task *task.Task, notifyCtl *models.NotifyCtl, test
 				return err
 			}
 
-			err = client.SendMessage(LarkReceiverTypeChat, LarkMessageTypeCard, notifyCtl.FeishuChatID, string(messageContent))
+			err = client.SendMessage(LarkReceiverTypeChat, LarkMessageTypeCard, notifyCtl.FeishuChat.ChatID, string(messageContent))
 
 			atMessage := getNotifyAtContent(notifyCtl)
 
@@ -351,7 +351,7 @@ func (w *Service) sendMessage(task *task.Task, notifyCtl *models.NotifyCtl, test
 				return err
 			}
 
-			err = client.SendMessage(LarkReceiverTypeChat, LarkMessageTypeText, notifyCtl.FeishuChatID, string(atMessageContent))
+			err = client.SendMessage(LarkReceiverTypeChat, LarkMessageTypeText, notifyCtl.FeishuChat.ChatID, string(atMessageContent))
 
 			if err != nil {
 				return err

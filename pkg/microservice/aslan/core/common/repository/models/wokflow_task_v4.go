@@ -19,13 +19,14 @@ package models
 import (
 	"time"
 
-	"github.com/koderover/zadig/v2/pkg/tool/blueking"
-	"github.com/koderover/zadig/v2/pkg/tool/lark"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
+	larkservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/lark"
 	commontypes "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/types"
 	"github.com/koderover/zadig/v2/pkg/setting"
+	"github.com/koderover/zadig/v2/pkg/tool/blueking"
+	"github.com/koderover/zadig/v2/pkg/tool/lark"
 	"github.com/koderover/zadig/v2/pkg/types"
 )
 
@@ -613,8 +614,7 @@ type JobTaskNotificationSpec struct {
 	WeChatWebHook   string                    `bson:"weChat_webHook,omitempty"        yaml:"weChat_webHook,omitempty"         json:"weChat_webHook,omitempty"`
 	DingDingWebHook string                    `bson:"dingding_webhook,omitempty"      yaml:"dingding_webhook,omitempty"       json:"dingding_webhook,omitempty"`
 	FeiShuAppID     string                    `bson:"feishu_app_id,omitempty"         yaml:"feishu_app_id,omitempty"          json:"feishu_app_id,omitempty"`
-	FeishuChatID    string                    `bson:"feishu_chat_id,omitempty"        yaml:"feishu_chat_id,omitempty"         json:"feishu_chat_id,omitempty"`
-	FeishuChatName  string                    `bson:"feishu_chat_name,omitempty"      yaml:"feishu_chat_name,omitempty"       json:"feishu_chat_name,omitempty"`
+	FeishuChat      *larkservice.LarkChat     `bson:"feishu_chat,omitempty"           yaml:"feishu_chat,omitempty"            json:"feishu_chat,omitempty"`
 	MailUsers       []*User                   `bson:"mail_users,omitempty"            yaml:"mail_users,omitempty"             json:"mail_users,omitempty"`
 	WebHookNotify   WebhookNotify             `bson:"webhook_notify,omitempty"        yaml:"webhook_notify,omitempty"         json:"webhook_notify,omitempty"`
 	AtMobiles       []string                  `bson:"at_mobiles,omitempty"            yaml:"at_mobiles,omitempty"             json:"at_mobiles,omitempty"`

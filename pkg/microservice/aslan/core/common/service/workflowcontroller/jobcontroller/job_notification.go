@@ -89,7 +89,7 @@ func (c *NotificationJobCtl) Run(ctx context.Context) {
 		client := lark.NewClient(larkInfo.AppID, larkInfo.AppSecret)
 
 		// TODO: distinct the receiver type
-		err = sendLarkMessage(client, c.workflowCtx.ProjectName, c.workflowCtx.WorkflowName, c.workflowCtx.WorkflowDisplayName, c.workflowCtx.TaskID, instantmessage.LarkReceiverTypeChat, c.jobTaskSpec.FeishuChatID, c.jobTaskSpec.Title, c.jobTaskSpec.Content, larkAtUserIDs, c.jobTaskSpec.IsAtAll)
+		err = sendLarkMessage(client, c.workflowCtx.ProjectName, c.workflowCtx.WorkflowName, c.workflowCtx.WorkflowDisplayName, c.workflowCtx.TaskID, instantmessage.LarkReceiverTypeChat, c.jobTaskSpec.FeishuChat.ChatID, c.jobTaskSpec.Title, c.jobTaskSpec.Content, larkAtUserIDs, c.jobTaskSpec.IsAtAll)
 		if err != nil {
 			c.logger.Error(err)
 			c.job.Status = config.StatusFailed
