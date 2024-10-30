@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	"github.com/koderover/zadig/v2/pkg/setting"
+	util2 "github.com/koderover/zadig/v2/pkg/util"
 	"go.uber.org/zap"
 
 	configbase "github.com/koderover/zadig/v2/pkg/config"
@@ -539,6 +540,15 @@ func (j *FreeStyleJob) LintJob() error {
 	if err := commonmodels.IToiYaml(j.job.Spec, j.spec); err != nil {
 		return err
 	}
+
+	// calculate all the referenced keys for frontend
+	for _, kv := range j.spec.Properties.Envs {
+		if kv.Type == commonmodels.Script {
+			kv.FunctionReference = util2.FindVariableKeyRef(kv.CallFunction)
+		}
+	}
+
+	j.job.Spec = j.spec
 	return checkOutputNames(j.spec.Outputs)
 }
 

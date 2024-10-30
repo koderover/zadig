@@ -37,9 +37,11 @@ type WorkflowV3 struct {
 type ParameterSettingType string
 
 const (
-	StringType   ParameterSettingType = "string"
-	ChoiceType   ParameterSettingType = "choice"
-	ImageType    ParameterSettingType = "image"
+	StringType ParameterSettingType = "string"
+	ChoiceType ParameterSettingType = "choice"
+	ImageType  ParameterSettingType = "image"
+	Script     ParameterSettingType = "script"
+	// Deprecated
 	ExternalType ParameterSettingType = "external"
 )
 

@@ -187,12 +187,15 @@ type TargetRepo struct {
 }
 
 type KeyVal struct {
-	Key          string               `bson:"key"                       json:"key"                         yaml:"key"`
-	Value        string               `bson:"value"                     json:"value"                       yaml:"value"`
-	Type         ParameterSettingType `bson:"type,omitempty"            json:"type,omitempty"              yaml:"type"`
-	RegistryID   string               `bson:"registry_id,omitempty"     json:"registry_id"                 yaml:"registry_id"`
-	ChoiceOption []string             `bson:"choice_option,omitempty"   json:"choice_option,omitempty"     yaml:"choice_option,omitempty"`
-	IsCredential bool                 `bson:"is_credential"             json:"is_credential"               yaml:"is_credential"`
+	Key               string               `bson:"key"                          json:"key"                          yaml:"key"`
+	Value             string               `bson:"value"                        json:"value"                        yaml:"value"`
+	Type              ParameterSettingType `bson:"type,omitempty"               json:"type,omitempty"               yaml:"type"`
+	RegistryID        string               `bson:"registry_id,omitempty"        json:"registry_id"                  yaml:"registry_id"`
+	ChoiceOption      []string             `bson:"choice_option,omitempty"      json:"choice_option,omitempty"      yaml:"choice_option,omitempty"`
+	Script            string               `bson:"script,omitempty"             json:"script,omitempty"             yaml:"script,omitempty"`
+	CallFunction      string               `bson:"call_function,omitempty"      json:"call_function,omitempty"      yaml:"call_function,omitempty"`
+	FunctionReference []string             `bson:"function_reference,omitempty" json:"function_reference,omitempty" yaml:"function_reference,omitempty"`
+	IsCredential      bool                 `bson:"is_credential"                json:"is_credential"                yaml:"is_credential"`
 }
 
 type Item struct {

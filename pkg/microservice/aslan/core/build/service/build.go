@@ -22,6 +22,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/koderover/zadig/v2/pkg/util"
 	goerrors "github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
@@ -653,6 +654,13 @@ func correctFields(build *commonmodels.Build) error {
 					build.PreBuild.StrategyID = buildTemplate.PreBuild.StrategyID
 				}
 			}
+		}
+	}
+
+	// calculate all the referenced keys for frontend
+	for _, kv := range build.PreBuild.Envs {
+		if kv.Type == commonmodels.Script {
+			kv.FunctionReference = util.FindVariableKeyRef(kv.CallFunction)
 		}
 	}
 
