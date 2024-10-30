@@ -327,8 +327,14 @@ func (j *ScanningJob) GetOutPuts(log *zap.SugaredLogger) []string {
 		return resp
 	}
 	scanningNames := []string{}
-	for _, scanning := range j.spec.Scannings {
-		scanningNames = append(scanningNames, scanning.Name)
+	if j.spec.ScanningType == config.NormalScanningType {
+		for _, scanning := range j.spec.Scannings {
+			scanningNames = append(scanningNames, scanning.Name)
+		}
+	} else if j.spec.ScanningType == config.ServiceScanningType {
+		for _, scanning := range j.spec.ServiceAndScannings {
+			scanningNames = append(scanningNames, scanning.Name)
+		}
 	}
 	scanningInfos, _, err := commonrepo.NewScanningColl().List(&commonrepo.ScanningListOption{ScanningNames: scanningNames, ProjectName: j.workflow.Project}, 0, 0)
 	if err != nil {
@@ -338,16 +344,15 @@ func (j *ScanningJob) GetOutPuts(log *zap.SugaredLogger) []string {
 	for _, scanningInfo := range scanningInfos {
 		jobKey := strings.Join([]string{j.job.Name, scanningInfo.Name}, ".")
 		if j.spec.ScanningType == config.ServiceScanningType {
-			for _, target := range j.spec.TargetServices {
-				for _, scanning := range j.spec.ServiceAndScannings {
-					if scanning.ServiceName != target.ServiceName || scanning.ServiceModule != target.ServiceModule {
-						continue
-					}
-					jobKey = strings.Join([]string{j.job.Name, scanning.Name, target.ServiceName, target.ServiceModule}, ".")
-				}
+			for _, scanning := range j.spec.ServiceAndScannings {
+				jobKey = strings.Join([]string{j.job.Name, scanningInfo.Name, scanning.ServiceName, scanning.ServiceModule}, ".")
+				resp = append(resp, getOutputKey(jobKey, scanningInfo.Outputs)...)
 			}
+			resp = append(resp, getOutputKey(j.job.Name+"."+scanningInfo.Name+".<SERVICE>.<MODULE>", scanningInfo.Outputs)...)
+		} else {
+			resp = append(resp, getOutputKey(jobKey, scanningInfo.Outputs)...)
 		}
-		resp = append(resp, getOutputKey(jobKey, ensureScanningOutputs(scanningInfo.Outputs))...)
+
 	}
 	return resp
 }

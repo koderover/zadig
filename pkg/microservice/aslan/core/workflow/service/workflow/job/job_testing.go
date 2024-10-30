@@ -704,10 +704,18 @@ func (j *TestingJob) GetOutPuts(log *zap.SugaredLogger) []string {
 	if err := commonmodels.IToiYaml(j.job.Spec, j.spec); err != nil {
 		return resp
 	}
+
 	testNames := []string{}
-	for _, testing := range j.spec.TestModules {
-		testNames = append(testNames, testing.Name)
+	if j.spec.TestType == config.ServiceTestType {
+		for _, testing := range j.spec.ServiceAndTests {
+			testNames = append(testNames, testing.Name)
+		}
+	} else if j.spec.TestType == config.ProductTestType {
+		for _, testing := range j.spec.TestModules {
+			testNames = append(testNames, testing.Name)
+		}
 	}
+
 	testingInfos, err := commonrepo.NewTestingColl().List(&commonrepo.ListTestOption{TestNames: testNames})
 	if err != nil {
 		log.Errorf("list testinfos error: %v", err)
@@ -716,17 +724,16 @@ func (j *TestingJob) GetOutPuts(log *zap.SugaredLogger) []string {
 	for _, testingInfo := range testingInfos {
 		jobKey := strings.Join([]string{j.job.Name, testingInfo.Name}, ".")
 		if j.spec.TestType == config.ServiceTestType {
-			for _, target := range j.spec.TargetServices {
-				for _, scanning := range j.spec.ServiceAndTests {
-					if scanning.ServiceName != target.ServiceName || scanning.ServiceModule != target.ServiceModule {
-						continue
-					}
-					jobKey = strings.Join([]string{j.job.Name, scanning.Name, target.ServiceName, target.ServiceModule}, ".")
-				}
+			for _, testing := range j.spec.ServiceAndTests {
+				jobKey = strings.Join([]string{j.job.Name, testingInfo.Name, testing.ServiceName, testing.ServiceModule}, ".")
+				resp = append(resp, getOutputKey(jobKey, testingInfo.Outputs)...)
 			}
+			resp = append(resp, getOutputKey(j.job.Name+"."+testingInfo.Name+".<SERVICE>.<MODULE>", testingInfo.Outputs)...)
+		} else {
+			resp = append(resp, getOutputKey(jobKey, testingInfo.Outputs)...)
 		}
-		resp = append(resp, getOutputKey(jobKey, testingInfo.Outputs)...)
 	}
+
 	return resp
 }
 

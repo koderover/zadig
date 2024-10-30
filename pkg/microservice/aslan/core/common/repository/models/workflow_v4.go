@@ -1042,6 +1042,26 @@ type JobProperties struct {
 	ServiceName string `bson:"service_name" json:"service_name" yaml:"service_name"`
 }
 
+func (j *JobProperties) DeepCopyEnvs() []*KeyVal {
+	envs := make([]*KeyVal, 0)
+
+	for _, env := range j.Envs {
+		choiceOption := make([]string, 0)
+		for _, choice := range env.ChoiceOption {
+			choiceOption = append(choiceOption, choice)
+		}
+		envs = append(envs, &KeyVal{
+			Key:          env.Key,
+			Value:        env.Value,
+			Type:         env.Type,
+			RegistryID:   env.RegistryID,
+			ChoiceOption: choiceOption,
+			IsCredential: env.IsCredential,
+		})
+	}
+	return envs
+}
+
 type Step struct {
 	Name     string          `bson:"name"           json:"name"             yaml:"name"`
 	Timeout  int64           `bson:"timeout"        json:"timeout"          yaml:"timeout"`
