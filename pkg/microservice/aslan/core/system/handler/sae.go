@@ -40,14 +40,14 @@ func ListSAE(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	encryptedKey := c.Query("encryptedKey")
 	if len(encryptedKey) == 0 {
-		ctx.Err = e.ErrInvalidParam
+		ctx.RespErr = e.ErrInvalidParam
 		return
 	}
 
@@ -57,7 +57,7 @@ func ListSAE(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = sae.ListSAE(encryptedKey, ctx.Logger)
+	ctx.Resp, ctx.RespErr = sae.ListSAE(encryptedKey, ctx.Logger)
 }
 
 // @Summary List SAE Detail
@@ -72,12 +72,12 @@ func ListSAEInfo(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
-	ctx.Resp, ctx.Err = sae.ListSAEInfo(ctx.Logger)
+	ctx.Resp, ctx.RespErr = sae.ListSAEInfo(ctx.Logger)
 }
 
 // @Summary Create SAE
@@ -93,7 +93,7 @@ func CreateSAE(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -106,12 +106,12 @@ func CreateSAE(c *gin.Context) {
 
 	args := new(commonmodels.SAE)
 	if err := c.BindJSON(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid sae json args")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid sae json args")
 		return
 	}
 
 	args.UpdateBy = ctx.UserName
-	ctx.Err = sae.CreateSAE(args, ctx.Logger)
+	ctx.RespErr = sae.CreateSAE(args, ctx.Logger)
 }
 
 // @Summary Get SAE
@@ -126,7 +126,7 @@ func GetSAE(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -139,11 +139,11 @@ func GetSAE(c *gin.Context) {
 
 	id := c.Param("id")
 	if len(id) == 0 {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid id")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid id")
 		return
 	}
 
-	ctx.Resp, ctx.Err = sae.FindSAE(id, "")
+	ctx.Resp, ctx.RespErr = sae.FindSAE(id, "")
 }
 
 // @Summary Update SAE
@@ -160,7 +160,7 @@ func UpdateSAE(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -173,18 +173,18 @@ func UpdateSAE(c *gin.Context) {
 
 	id := c.Param("id")
 	if len(id) == 0 {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid id")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid id")
 		return
 	}
 
 	args := new(commonmodels.SAE)
 	if err := c.BindJSON(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid sae json args")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid sae json args")
 		return
 	}
 	args.UpdateBy = ctx.UserName
 
-	ctx.Err = sae.UpdateSAE(id, args, ctx.Logger)
+	ctx.RespErr = sae.UpdateSAE(id, args, ctx.Logger)
 }
 
 // @Summary Delete SAE
@@ -200,7 +200,7 @@ func DeleteSAE(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -213,11 +213,11 @@ func DeleteSAE(c *gin.Context) {
 
 	id := c.Param("id")
 	if len(id) == 0 {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid id")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid id")
 		return
 	}
 
-	ctx.Err = sae.DeleteSAE(id)
+	ctx.RespErr = sae.DeleteSAE(id)
 }
 
 // @Summary Validate SAE
@@ -233,7 +233,7 @@ func ValidateSAE(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -246,9 +246,9 @@ func ValidateSAE(c *gin.Context) {
 
 	args := new(commonmodels.SAE)
 	if err := c.BindJSON(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid sae json args")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid sae json args")
 		return
 	}
 
-	ctx.Err = sae.ValidateSAE(args)
+	ctx.RespErr = sae.ValidateSAE(args)
 }

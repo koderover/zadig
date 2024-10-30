@@ -26,12 +26,12 @@ import (
 
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
+	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/tool/crypto"
 )
 
 func ListSAE(encryptedKey string, log *zap.SugaredLogger) ([]*commonmodels.SAE, error) {
-	aesKey, err := service.GetAesKeyFromEncryptedKey(encryptedKey, log)
+	aesKey, err := commonutil.GetAesKeyFromEncryptedKey(encryptedKey, log)
 	if err != nil {
 		log.Errorf("ListSAE GetAesKeyFromEncryptedKey err:%v", err)
 		return nil, err

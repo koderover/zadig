@@ -457,7 +457,7 @@ func GetTestingTaskSSE(c *gin.Context) {
 //	defer func() { internalhandler.JSONResponse(c, ctx) }()
 //
 //	if err != nil {
-//		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+//		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 //		ctx.UnAuthorized = true
 //		return
 //	}
@@ -482,11 +482,11 @@ func GetTestingTaskSSE(c *gin.Context) {
 //
 //	taskID, err := strconv.ParseInt(c.Param("id"), 10, 64)
 //	if err != nil {
-//		ctx.Err = e.ErrInvalidParam.AddDesc("invalid task id")
+//		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid task id")
 //		return
 //	}
 //
-//	ctx.Err = workflowservice.RestartPipelineTaskV2(ctx.UserName, taskID, c.Param("name"), config.TestType, ctx.Logger)
+//	ctx.RespErr = workflowservice.RestartPipelineTaskV2(ctx.UserName, taskID, c.Param("name"), config.TestType, ctx.Logger)
 //}
 //
 //func CancelTestTaskV2(c *gin.Context) {
@@ -495,7 +495,7 @@ func GetTestingTaskSSE(c *gin.Context) {
 //
 //	if err != nil {
 //
-//		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+//		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 //		ctx.UnAuthorized = true
 //		return
 //	}
@@ -519,8 +519,8 @@ func GetTestingTaskSSE(c *gin.Context) {
 //
 //	taskID, err := strconv.ParseInt(c.Param("id"), 10, 64)
 //	if err != nil {
-//		ctx.Err = e.ErrInvalidParam.AddDesc("invalid task id")
+//		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid task id")
 //		return
 //	}
-//	ctx.Err = commonservice.CancelTaskV2(ctx.UserName, c.Param("name"), taskID, config.TestType, ctx.RequestID, ctx.Logger)
+//	ctx.RespErr = commonservice.CancelTaskV2(ctx.UserName, c.Param("name"), taskID, config.TestType, ctx.RequestID, ctx.Logger)
 //}

@@ -232,7 +232,7 @@ func UpdateRoleImpl(c *gin.Context, ctx *internalhandler.Context) {
 
 	//licenseStatus, err := plutusvendor.New().CheckZadigXLicenseStatus()
 	//if err != nil {
-	//	ctx.Err = fmt.Errorf("failed to validate zadig license status, error: %s", err)
+	//	ctx.RespErr = fmt.Errorf("failed to validate zadig license status, error: %s", err)
 	//	return
 	//}
 	//if !((licenseStatus.Type == plutusvendor.ZadigSystemTypeProfessional ||
@@ -248,7 +248,7 @@ func UpdateRoleImpl(c *gin.Context, ctx *internalhandler.Context) {
 	//		actionSet.Has(permission.VerbConfigProductionEnv) || actionSet.Has(permission.VerbEditProductionEnv) ||
 	//		actionSet.Has(permission.VerbDeleteProductionEnv) || actionSet.Has(permission.VerbDebugProductionEnvPod) ||
 	//		actionSet.Has(permission.VerbGetDelivery) || actionSet.Has(permission.VerbCreateDelivery) || actionSet.Has(permission.VerbDeleteDelivery) {
-	//		ctx.Err = e.ErrLicenseInvalid.AddDesc("")
+	//		ctx.RespErr = e.ErrLicenseInvalid.AddDesc("")
 	//		return
 	//	}
 	//}
