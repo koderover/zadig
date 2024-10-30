@@ -23,8 +23,6 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/koderover/zadig/v2/pkg/cli/upgradeassistant/internal/upgradepath"
-	templaterepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
-	sprintservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/sprint_management/service"
 	"github.com/koderover/zadig/v2/pkg/microservice/user/core/repository"
 	usermodels "github.com/koderover/zadig/v2/pkg/microservice/user/core/repository/models"
 	"github.com/koderover/zadig/v2/pkg/shared/handler"
@@ -38,10 +36,6 @@ func init() {
 func V310ToV320() error {
 	ctx := handler.NewBackgroupContext()
 	ctx.Logger.Infof("-------- start init existed project's sprint template --------")
-	if err := initProjectSprintTemplate(ctx); err != nil {
-		ctx.Logger.Errorf("failed to init project sprint template, error: %s", err)
-		return err
-	}
 	if err := addGetSprintActionForReadOnlyRole(ctx); err != nil {
 		ctx.Logger.Errorf("failed to add get_sprint action for read-only role, error: %s", err)
 		return err
@@ -51,21 +45,6 @@ func V310ToV320() error {
 }
 
 func V320ToV310() error {
-	return nil
-}
-
-func initProjectSprintTemplate(ctx *handler.Context) error {
-	projects, err := templaterepo.NewProductColl().List()
-	if err != nil {
-		err = fmt.Errorf("failed to list project list, error: %s", err)
-		ctx.Logger.Error(err)
-		return err
-	}
-
-	for _, project := range projects {
-		sprintservice.InitSprintTemplate(ctx, project.ProjectName)
-	}
-
 	return nil
 }
 
@@ -88,12 +67,40 @@ func addGetSprintActionForReadOnlyRole(ctx *handler.Context) error {
 		return nil
 	}
 
-	roleBindings := []*usermodels.RoleActionBinding{}
+	updateRoleIDs := []uint{}
 	for _, role := range roles {
+		roleActionBingding := []*usermodels.RoleActionBinding{}
+		err = repository.DB.Where("role_id = ?", role.ID).Find(&roleActionBingding).Error
+		if err != nil && errors.Is(err, gorm.ErrRecordNotFound) {
+			err = fmt.Errorf("failed to list roleActionBingding, err: %v", err)
+			ctx.Logger.Error(err)
+			return err
+		}
+
+		found := false
+		for _, binding := range roleActionBingding {
+			if binding.ActionID == action.ID {
+				found = true
+				break
+			}
+
+		}
+
+		if !found {
+			updateRoleIDs = append(updateRoleIDs, role.ID)
+		}
+	}
+
+	roleBindings := []*usermodels.RoleActionBinding{}
+	for _, id := range updateRoleIDs {
 		roleBindings = append(roleBindings, &usermodels.RoleActionBinding{
-			RoleID:   role.ID,
+			RoleID:   id,
 			ActionID: action.ID,
 		})
+	}
+
+	if len(roleBindings) == 0 {
+		return nil
 	}
 
 	err = repository.DB.Create(roleBindings).Error

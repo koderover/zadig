@@ -85,15 +85,15 @@ type ListSprintTemplateOption struct {
 }
 
 type ListSprintTemplateResp struct {
-	List  []*models.SprintTemplate `json:"list"`
-	Total int64                    `json:"total"`
+	List []*models.SprintTemplate `json:"list"`
+	// Total int64                    `json:"total"`
 }
 
 func ListSprintTemplate(ctx *handler.Context, opt *ListSprintTemplateOption) (*ListSprintTemplateResp, error) {
 	var (
-		list  []*commonmodels.SprintTemplate
-		total int64
-		err   error
+		list []*commonmodels.SprintTemplate
+		// total int64
+		err error
 	)
 	list, err = mongodb.NewSprintTemplateColl().List(ctx, &mongodb.SprintTemplateListOption{ProjectName: opt.ProjectName})
 	if err != nil {
@@ -101,8 +101,8 @@ func ListSprintTemplate(ctx *handler.Context, opt *ListSprintTemplateOption) (*L
 	}
 
 	return &ListSprintTemplateResp{
-		List:  list,
-		Total: total,
+		List: list,
+		// Total: total,
 	}, nil
 }
 

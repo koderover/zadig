@@ -104,9 +104,13 @@ func (c *SprintTemplateColl) Update(ctx *handler.Context, obj *models.SprintTemp
 }
 
 func (c *SprintTemplateColl) UpsertByName(ctx *handler.Context, obj *models.SprintTemplate) error {
-	query := bson.M{"name": obj.Name}
-	change := bson.M{"$set": obj}
 	obj.UpdateTime = time.Now().Unix()
+	obj.UpdatedBy = ctx.GenUserBriefInfo()
+	query := bson.M{
+		"project_name": obj.ProjectName,
+		"name":         obj.Name,
+	}
+	change := bson.M{"$set": obj}
 	_, err := c.UpdateOne(mongotool.SessionContext(ctx, c.Session), query, change, options.Update().SetUpsert(true))
 	return err
 }
