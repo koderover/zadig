@@ -40,8 +40,8 @@ func RenderWorkflowVariables(c *gin.Context) {
 
 	req := new(RenderWorkflowVariableReq)
 	if err := c.ShouldBindJSON(req); err != nil {
-		ctx.Err = errors.ErrInvalidParam.AddDesc(err.Error())
+		ctx.RespErr = errors.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
-	ctx.Resp, ctx.Err = workflow.RenderWorkflowVariables(req.ProjectKey, req.WorkflowName, req.VariableType, req.JobName, req.VariableKey, req.Input, ctx.Logger)
+	ctx.Resp, ctx.RespErr = workflow.RenderWorkflowVariables(req.ProjectKey, req.WorkflowName, req.VariableType, req.JobName, req.VariableKey, req.Input, ctx.Logger)
 }
