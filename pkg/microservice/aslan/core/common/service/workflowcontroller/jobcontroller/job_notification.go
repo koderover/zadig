@@ -23,6 +23,7 @@ import (
 	"net/url"
 	"strings"
 
+	larkservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/lark"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/shared/client/systemconfig"
 	"github.com/koderover/zadig/v2/pkg/shared/client/user"
@@ -77,7 +78,7 @@ func (c *NotificationJobCtl) Run(ctx context.Context) {
 			larkAtUserIDs = append(larkAtUserIDs, user.ID)
 		}
 
-		larkInfo, err := mongodb.NewIMAppColl().GetLarkByAppID(context.TODO(), c.jobTaskSpec.FeiShuAppID)
+		client, err := larkservice.GetLarkClientByIMAppID(c.jobTaskSpec.FeiShuAppID)
 		if err != nil {
 			c.logger.Error(err)
 			c.job.Status = config.StatusFailed
@@ -85,8 +86,6 @@ func (c *NotificationJobCtl) Run(ctx context.Context) {
 			c.ack()
 			return
 		}
-
-		client := lark.NewClient(larkInfo.AppID, larkInfo.AppSecret)
 
 		// TODO: distinct the receiver type
 		err = sendLarkMessage(client, c.workflowCtx.ProjectName, c.workflowCtx.WorkflowName, c.workflowCtx.WorkflowDisplayName, c.workflowCtx.TaskID, instantmessage.LarkReceiverTypeChat, c.jobTaskSpec.FeishuChat.ChatID, c.jobTaskSpec.Title, c.jobTaskSpec.Content, larkAtUserIDs, c.jobTaskSpec.IsAtAll)
