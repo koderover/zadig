@@ -36,13 +36,13 @@ package handler
 //	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 //
 //	if err := c.ShouldBindJSON(&req); err != nil {
-//		ctx.Err = errors.ErrInvalidParam.AddDesc(err.Error())
+//		ctx.RespErr = errors.ErrInvalidParam.AddDesc(err.Error())
 //		return
 //	}
 //	workflowID, err := workflowservice.CreateWorkflowV3(ctx.UserName, req, ctx.Logger)
 //	resp := createWorkflowResp{ID: workflowID}
 //	ctx.Resp = resp
-//	ctx.Err = err
+//	ctx.RespErr = err
 //}
 //
 //type listWorkflowV3Query struct {
@@ -63,7 +63,7 @@ package handler
 //	// Query Verification
 //	args := &listWorkflowV3Query{}
 //	if err := c.ShouldBindQuery(args); err != nil {
-//		ctx.Err = err
+//		ctx.RespErr = err
 //		return
 //	}
 //
@@ -73,14 +73,14 @@ package handler
 //		Total:        total,
 //	}
 //	ctx.Resp = resp
-//	ctx.Err = err
+//	ctx.RespErr = err
 //}
 //
 //func GetWorkflowV3Detail(c *gin.Context) {
 //	ctx := internalhandler.NewContext(c)
 //	defer func() { internalhandler.JSONResponse(c, ctx) }()
 //
-//	ctx.Resp, ctx.Err = workflowservice.GetWorkflowV3Detail(c.Param("id"), ctx.Logger)
+//	ctx.Resp, ctx.RespErr = workflowservice.GetWorkflowV3Detail(c.Param("id"), ctx.Logger)
 //}
 //
 //func UpdateWorkflowV3(c *gin.Context) {
@@ -100,23 +100,23 @@ package handler
 //	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 //
 //	if err := c.ShouldBindJSON(&req); err != nil {
-//		ctx.Err = errors.ErrInvalidParam.AddDesc(err.Error())
+//		ctx.RespErr = errors.ErrInvalidParam.AddDesc(err.Error())
 //		return
 //	}
 //
-//	ctx.Err = workflowservice.UpdateWorkflowV3(c.Param("id"), ctx.UserName, req, ctx.Logger)
+//	ctx.RespErr = workflowservice.UpdateWorkflowV3(c.Param("id"), ctx.UserName, req, ctx.Logger)
 //}
 //
 //func DeleteWorkflowV3(c *gin.Context) {
 //	ctx := internalhandler.NewContext(c)
 //	defer func() { internalhandler.JSONResponse(c, ctx) }()
 //
-//	ctx.Err = workflowservice.DeleteWorkflowV3(c.Param("id"), ctx.Logger)
+//	ctx.RespErr = workflowservice.DeleteWorkflowV3(c.Param("id"), ctx.Logger)
 //}
 //
 //func GetWorkflowV3Args(c *gin.Context) {
 //	ctx := internalhandler.NewContext(c)
 //	defer func() { internalhandler.JSONResponse(c, ctx) }()
 //
-//	ctx.Resp, ctx.Err = workflowservice.GetWorkflowV3Args(c.Param("id"), ctx.Logger)
+//	ctx.Resp, ctx.RespErr = workflowservice.GetWorkflowV3Args(c.Param("id"), ctx.Logger)
 //}

@@ -98,13 +98,13 @@ func GetTestTrendMeasure(c *gin.Context) {
 //	//params validate
 //	args := new(getStatReq)
 //	if err := c.BindJSON(args); err != nil {
-//		ctx.Err = e.ErrInvalidParam.AddErr(err)
+//		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 //		return
 //	}
 //
 //	resp, err := service.GetTestTrendMeasure(args.StartDate, args.EndDate, args.ProductNames, ctx.Logger)
 //	if err != nil {
-//		ctx.Err = err
+//		ctx.RespErr = err
 //		return
 //	}
 //

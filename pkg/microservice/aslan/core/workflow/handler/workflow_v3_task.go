@@ -32,11 +32,11 @@ package handler
 //	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 //
 //	if err := c.ShouldBindJSON(&args); err != nil {
-//		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+//		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 //		return
 //	}
 //
-//	ctx.Resp, ctx.Err = workflow.CreateWorkflowTaskV3(args, ctx.UserName, ctx.RequestID, ctx.Logger)
+//	ctx.Resp, ctx.RespErr = workflow.CreateWorkflowTaskV3(args, ctx.UserName, ctx.RequestID, ctx.Logger)
 //}
 //
 //func RestartWorkflowTaskV3(c *gin.Context) {
@@ -46,11 +46,11 @@ package handler
 //
 //	taskID, err := strconv.ParseInt(c.Param("id"), 10, 64)
 //	if err != nil {
-//		ctx.Err = e.ErrInvalidParam.AddDesc("invalid task id")
+//		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid task id")
 //		return
 //	}
 //
-//	ctx.Err = workflow.RestartWorkflowTaskV3(ctx.UserName, taskID, c.Param("name"), config.WorkflowTypeV3, ctx.Logger)
+//	ctx.RespErr = workflow.RestartWorkflowTaskV3(ctx.UserName, taskID, c.Param("name"), config.WorkflowTypeV3, ctx.Logger)
 //}
 //
 //func CancelWorkflowTaskV3(c *gin.Context) {
@@ -60,10 +60,10 @@ package handler
 //
 //	taskID, err := strconv.ParseInt(c.Param("id"), 10, 64)
 //	if err != nil {
-//		ctx.Err = e.ErrInvalidParam.AddDesc("invalid task id")
+//		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid task id")
 //		return
 //	}
-//	ctx.Err = commonservice.CancelWorkflowTaskV3(ctx.UserName, c.Param("name"), taskID, config.WorkflowTypeV3, ctx.RequestID, ctx.Logger)
+//	ctx.RespErr = commonservice.CancelWorkflowTaskV3(ctx.UserName, c.Param("name"), taskID, config.WorkflowTypeV3, ctx.RequestID, ctx.Logger)
 //}
 //
 //// ListWorkflowV3TasksResult workflowtask分页信息
@@ -73,16 +73,16 @@ package handler
 //
 //	maxResult, err := strconv.Atoi(c.Param("max"))
 //	if err != nil {
-//		ctx.Err = e.ErrInvalidParam.AddDesc("invalid max result number")
+//		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid max result number")
 //		return
 //	}
 //	startAt, err := strconv.Atoi(c.Param("start"))
 //	if err != nil {
-//		ctx.Err = e.ErrInvalidParam.AddDesc("invalid start at number")
+//		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid start at number")
 //		return
 //	}
 //
-//	ctx.Resp, ctx.Err = workflow.ListWorkflowTasksV3Result(c.Param("name"), config.WorkflowTypeV3, maxResult, startAt, ctx.Logger)
+//	ctx.Resp, ctx.RespErr = workflow.ListWorkflowTasksV3Result(c.Param("name"), config.WorkflowTypeV3, maxResult, startAt, ctx.Logger)
 //}
 //
 //func GetWorkflowTaskV3(c *gin.Context) {
@@ -91,11 +91,11 @@ package handler
 //
 //	taskID, err := strconv.ParseInt(c.Param("id"), 10, 64)
 //	if err != nil {
-//		ctx.Err = e.ErrInvalidParam.AddDesc("invalid task id")
+//		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid task id")
 //		return
 //	}
 //
-//	ctx.Resp, ctx.Err = workflow.GetWorkflowTaskV3(taskID, c.Param("name"), config.WorkflowTypeV3, ctx.Logger)
+//	ctx.Resp, ctx.RespErr = workflow.GetWorkflowTaskV3(taskID, c.Param("name"), config.WorkflowTypeV3, ctx.Logger)
 //}
 //
 //type WebhookPayload struct {
@@ -124,9 +124,9 @@ package handler
 //
 //	taskID, err := strconv.ParseInt(c.Param("id"), 10, 64)
 //	if err != nil {
-//		ctx.Err = e.ErrInvalidParam.AddDesc("invalid task id")
+//		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid task id")
 //		return
 //	}
 //
-//	ctx.Resp, ctx.Err = workflow.GetWorkflowTaskV3Callback(taskID, c.Param("name"), ctx.Logger)
+//	ctx.Resp, ctx.RespErr = workflow.GetWorkflowTaskV3Callback(taskID, c.Param("name"), ctx.Logger)
 //}

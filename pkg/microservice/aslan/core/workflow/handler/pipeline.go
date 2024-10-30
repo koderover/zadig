@@ -51,14 +51,14 @@ package handler
 //	ctx := internalhandler.NewContext(c)
 //	defer func() { internalhandler.JSONResponse(c, ctx) }()
 //
-//	ctx.Resp, ctx.Err = workflow.ListPipelines(ctx.Logger)
+//	ctx.Resp, ctx.RespErr = workflow.ListPipelines(ctx.Logger)
 //}
 //
 //func GetPipeline(c *gin.Context) {
 //	ctx := internalhandler.NewContext(c)
 //	defer func() { internalhandler.JSONResponse(c, ctx) }()
 //
-//	ctx.Resp, ctx.Err = workflow.GetPipeline(ctx.UserID, c.Param("name"), ctx.Logger)
+//	ctx.Resp, ctx.RespErr = workflow.GetPipeline(ctx.UserID, c.Param("name"), ctx.Logger)
 //}
 //
 //// UpsertPipeline create a new pipeline
@@ -79,11 +79,11 @@ package handler
 //
 //	if err := c.BindJSON(args); err != nil || len(args.Name) == 0 {
 //		log.Error(err)
-//		ctx.Err = e.ErrInvalidParam.AddDesc(fmt.Sprintf("invalid pipeline json args: %v", err))
+//		ctx.RespErr = e.ErrInvalidParam.AddDesc(fmt.Sprintf("invalid pipeline json args: %v", err))
 //		return
 //	}
 //	args.UpdateBy = ctx.UserName
-//	ctx.Err = workflow.UpsertPipeline(args, ctx.Logger)
+//	ctx.RespErr = workflow.UpsertPipeline(args, ctx.Logger)
 //}
 //
 //// CopyPipeline duplicate pipeline
@@ -92,7 +92,7 @@ package handler
 //	defer func() { internalhandler.JSONResponse(c, ctx) }()
 //
 //	internalhandler.InsertOperationLog(c, ctx.UserName, c.GetString("productName"), "复制", "单服务-工作流", fmt.Sprintf("old:%s,new:%s", c.Param("old"), c.Param("new")), "", ctx.Logger)
-//	ctx.Err = workflow.CopyPipeline(c.Param("old"), c.Param("new"), ctx.UserName, ctx.Logger)
+//	ctx.RespErr = workflow.CopyPipeline(c.Param("old"), c.Param("new"), ctx.UserName, ctx.Logger)
 //}
 //
 //// RenamePipeline rename pipeline
@@ -101,7 +101,7 @@ package handler
 //	defer func() { internalhandler.JSONResponse(c, ctx) }()
 //
 //	internalhandler.InsertOperationLog(c, ctx.UserName, c.GetString("productName"), "修改", "单服务-工作流", fmt.Sprintf("old:%s,new:%s", c.Param("old"), c.Param("new")), "", ctx.Logger)
-//	ctx.Err = workflow.RenamePipeline(c.Param("old"), c.Param("new"), ctx.Logger)
+//	ctx.RespErr = workflow.RenamePipeline(c.Param("old"), c.Param("new"), ctx.Logger)
 //}
 //
 //// DeletePipeline delete pipeline
@@ -110,5 +110,5 @@ package handler
 //	defer func() { internalhandler.JSONResponse(c, ctx) }()
 //
 //	internalhandler.InsertOperationLog(c, ctx.UserName, c.GetString("productName"), "删除", "单服务-工作流", c.Param("name"), "", ctx.Logger)
-//	ctx.Err = commonservice.DeletePipeline(c.Param("name"), ctx.RequestID, false, ctx.Logger)
+//	ctx.RespErr = commonservice.DeletePipeline(c.Param("name"), ctx.RequestID, false, ctx.Logger)
 //}

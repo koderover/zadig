@@ -957,3 +957,8 @@ const (
 	SprintWorkItemActivityTypeEvent   SprintWorkItemActivityType = "event"
 	SprintWorkItemActivityTypeComment SprintWorkItemActivityType = "comment"
 )
+
+const (
+	SAEZadigProjectTagKey = "ZADIG_PROJECT"
+	SAEZadigEnvTagKey     = "ZADIG_ENV"
+)

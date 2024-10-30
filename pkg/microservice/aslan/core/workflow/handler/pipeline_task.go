@@ -68,7 +68,7 @@ import (
 //		c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 //
 //		if err := c.BindJSON(args); err != nil {
-//			ctx.Err = e.ErrInvalidParam.AddDesc("invalid PipelineTaskArgs")
+//			ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid PipelineTaskArgs")
 //			return
 //		}
 //		if args.TaskCreator == "" {
@@ -76,11 +76,11 @@ import (
 //		}
 //
 //		args.ReqID = ctx.RequestID
-//		ctx.Resp, ctx.Err = workflow.CreatePipelineTask(args, ctx.Logger)
+//		ctx.Resp, ctx.RespErr = workflow.CreatePipelineTask(args, ctx.Logger)
 //
 //		// 发送通知
-//		if ctx.Err != nil {
-//			notify.SendFailedTaskMessage(ctx.UserName, args.ProductName, args.PipelineName, ctx.RequestID, config.SingleType, ctx.Err, ctx.Logger)
+//		if ctx.RespErr != nil {
+//			notify.SendFailedTaskMessage(ctx.UserName, args.ProductName, args.PipelineName, ctx.RequestID, config.SingleType, ctx.RespErr, ctx.Logger)
 //		}
 //
 // }
@@ -93,15 +93,15 @@ import (
 //
 //		maxResult, err := strconv.Atoi(c.Param("max"))
 //		if err != nil {
-//			ctx.Err = e.ErrInvalidParam.AddDesc("invalid max result number")
+//			ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid max result number")
 //			return
 //		}
 //		startAt, err := strconv.Atoi(c.Param("start"))
 //		if err != nil {
-//			ctx.Err = e.ErrInvalidParam.AddDesc("invalid start at number")
+//			ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid start at number")
 //			return
 //		}
-//		ctx.Resp, ctx.Err = workflow.ListPipelineTasksV2Result(c.Param("name"), config.SingleType, "", []string{}, maxResult, startAt, ctx.Logger)
+//		ctx.Resp, ctx.RespErr = workflow.ListPipelineTasksV2Result(c.Param("name"), config.SingleType, "", []string{}, maxResult, startAt, ctx.Logger)
 //	}
 //
 //	func GetPipelineTask(c *gin.Context) {
@@ -110,11 +110,11 @@ import (
 //
 //		taskID, err := strconv.ParseInt(c.Param("id"), 10, 64)
 //		if err != nil {
-//			ctx.Err = e.ErrInvalidParam.AddDesc("invalid task id")
+//			ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid task id")
 //			return
 //		}
 //
-//		ctx.Resp, ctx.Err = workflow.GetPipelineTaskV2(taskID, c.Param("name"), config.SingleType, ctx.Logger)
+//		ctx.Resp, ctx.RespErr = workflow.GetPipelineTaskV2(taskID, c.Param("name"), config.SingleType, ctx.Logger)
 //	}
 //
 //	func RestartPipelineTask(c *gin.Context) {
@@ -124,11 +124,11 @@ import (
 //
 //		taskID, err := strconv.ParseInt(c.Param("id"), 10, 64)
 //		if err != nil {
-//			ctx.Err = e.ErrInvalidParam.AddDesc("invalid task id")
+//			ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid task id")
 //			return
 //		}
 //
-//		ctx.Err = workflow.RestartPipelineTaskV2(ctx.UserName, taskID, c.Param("name"), config.SingleType, ctx.Logger)
+//		ctx.RespErr = workflow.RestartPipelineTaskV2(ctx.UserName, taskID, c.Param("name"), config.SingleType, ctx.Logger)
 //	}
 //
 //	func CancelTaskV2(c *gin.Context) {
@@ -138,10 +138,10 @@ import (
 //
 //		taskID, err := strconv.ParseInt(c.Param("id"), 10, 64)
 //		if err != nil {
-//			ctx.Err = e.ErrInvalidParam.AddDesc("invalid task id")
+//			ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid task id")
 //			return
 //		}
-//		ctx.Err = commonservice.CancelTaskV2(ctx.UserName, c.Param("name"), taskID, config.SingleType, ctx.RequestID, ctx.Logger)
+//		ctx.RespErr = commonservice.CancelTaskV2(ctx.UserName, c.Param("name"), taskID, config.SingleType, ctx.RequestID, ctx.Logger)
 //	}
 //
 // // ListPipelineUpdatableProductNames 启动任务时检查部署环境
@@ -150,7 +150,7 @@ import (
 //		ctx := internalhandler.NewContext(c)
 //		defer func() { internalhandler.JSONResponse(c, ctx) }()
 //
-//		ctx.Resp, ctx.Err = workflow.ListPipelineUpdatableProductNames(ctx.UserName, c.Param("name"), ctx.Logger)
+//		ctx.Resp, ctx.RespErr = workflow.ListPipelineUpdatableProductNames(ctx.UserName, c.Param("name"), ctx.Logger)
 //	}
 //
 //	func GetPackageFile(c *gin.Context) {
@@ -159,19 +159,19 @@ import (
 //
 //		pipelineName := c.Query("pipelineName")
 //		if pipelineName == "" {
-//			ctx.Err = e.ErrInvalidParam.AddDesc("invalid pipelineName")
+//			ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid pipelineName")
 //			return
 //		}
 //
 //		taskID, err := strconv.ParseInt(c.Query("taskId"), 10, 64)
 //		if err != nil {
-//			ctx.Err = e.ErrInvalidParam.AddDesc("invalid taskId")
+//			ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid taskId")
 //			return
 //		}
 //
 //		resp, pkgFile, err := workflow.GePackageFileContent(pipelineName, taskID, ctx.Logger)
 //		if err != nil {
-//			ctx.Err = err
+//			ctx.RespErr = err
 //			return
 //		}
 //		c.Writer.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, pkgFile))
