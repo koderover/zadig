@@ -609,8 +609,8 @@ type PatchTaskItem struct {
 }
 
 type LarkChat struct {
-	ChatID   string `json:"chat_id"`
-	ChatName string `json:"chat_name"`
+	ChatID   string `json:"chat_id"   bson:"chat_id"   yaml:"chat_id"`
+	ChatName string `json:"chat_name" bson:"chat_name" yaml:"chat_name"`
 }
 
 type JobTaskNotificationSpec struct {
