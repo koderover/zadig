@@ -181,7 +181,7 @@ func ListRoleBindings(ns, uid, gid string, log *zap.SugaredLogger) ([]*RoleBindi
 					log.Errorf("failed to get user group info for gid: %s, error:%s", uid, err)
 					return nil, fmt.Errorf("failed to get user group info for gid: %s, error:%s", uid, err)
 				}
-				users, err := orm.ListUsersByGroup(gid, repository.DB)
+				users, err := orm.ListUsersByGroup(roleBinding.GroupID, repository.DB)
 				if err != nil {
 					tx.Rollback()
 					log.Errorf("failed to list users by gid: %s, error is: %s", gid, err)
@@ -199,8 +199,8 @@ func ListRoleBindings(ns, uid, gid string, log *zap.SugaredLogger) ([]*RoleBindi
 				}
 
 				groupInfoMap[roleBinding.GroupID] = &BindingGroupInfo{
-					GID:  roleBinding.GroupID,
-					Name: groupInfo.GroupName,
+					GID:       roleBinding.GroupID,
+					Name:      groupInfo.GroupName,
 					UserInfos: userInfos,
 				}
 			}

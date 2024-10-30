@@ -55,7 +55,7 @@ func GetSprintTemplate(c *gin.Context) {
 			return
 		}
 		if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectName].SprintTemplate.Edit {
+			!ctx.Resources.ProjectAuthInfo[projectName].Sprint.View {
 			ctx.UnAuthorized = true
 			return
 		}
@@ -195,7 +195,7 @@ func ListSprintTemplates(c *gin.Context) {
 			return
 		}
 		if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectName].SprintTemplate.Edit {
+			!ctx.Resources.ProjectAuthInfo[projectName].Sprint.View {
 			ctx.UnAuthorized = true
 			return
 		}
@@ -241,7 +241,7 @@ func GetDefaultSprintTemplates(c *gin.Context) {
 			return
 		}
 		if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectName].SprintTemplate.Edit {
+			!ctx.Resources.ProjectAuthInfo[projectName].Sprint.View {
 			ctx.UnAuthorized = true
 			return
 		}

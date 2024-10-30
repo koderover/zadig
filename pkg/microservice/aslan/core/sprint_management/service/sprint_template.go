@@ -268,11 +268,6 @@ func UpdateSprintTemplateStageWorkflows(ctx *handler.Context, sprintTemplateID, 
 		return e.ErrUpdateSprintTemplate.AddErr(errors.Wrapf(err, "List sprints by template id %s", sprintTemplateID))
 	}
 
-	workflowMap := make(map[string]*models.SprintWorkflow)
-	for _, workflow := range workflowTemplates {
-		workflowMap[workflow.Name] = workflow
-	}
-
 	if len(sprints) > 0 {
 		updateSprintWorkflowsMap := make(map[string][]*models.SprintWorkflow)
 		for _, sprint := range sprints {
