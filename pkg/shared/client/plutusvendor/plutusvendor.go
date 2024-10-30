@@ -38,6 +38,10 @@ const (
 	ZadigSystemTypeProfessional = "professional"
 	ZadigSystemTypeEnterprise   = "enterprise"
 	ZadigXLicenseStatusNormal   = "normal"
+
+	ZadigLicenseFeatureAI = "ai"
+	ZadigLicenseFeatureSae = "sae"
+	ZadigLicenseFeatureDelivery = "delivery"
 )
 
 type ZadigXLicenseStatus struct {

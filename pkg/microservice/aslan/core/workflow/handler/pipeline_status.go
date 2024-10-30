@@ -21,7 +21,7 @@ package handler
 //	ctx := internalhandler.NewContext(c)
 //	defer func() { internalhandler.JSONResponse(c, ctx) }()
 //
-//	ctx.Resp, ctx.Err = workflow.ListPipelinesPreview(ctx.UserID, ctx.Logger)
+//	ctx.Resp, ctx.RespErr = workflow.ListPipelinesPreview(ctx.UserID, ctx.Logger)
 //}
 //
 //// find task by commitId
@@ -29,5 +29,5 @@ package handler
 //	ctx := internalhandler.NewContext(c)
 //	defer func() { internalhandler.JSONResponse(c, ctx) }()
 //
-//	ctx.Resp, ctx.Err = workflow.FindTasks(c.Query("commitId"), ctx.Logger)
+//	ctx.Resp, ctx.RespErr = workflow.FindTasks(c.Query("commitId"), ctx.Logger)
 //}
