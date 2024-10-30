@@ -26,6 +26,7 @@ import (
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/sprint_management/service"
+	"github.com/koderover/zadig/v2/pkg/setting"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/types"
@@ -359,6 +360,8 @@ func DeleteSprintWorkItem(c *gin.Context) {
 		return
 	}
 
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneSprintManagement, "删除", "迭代管理-工作项", fmt.Sprintf("工作项ID: %s", c.Param("id")), "", ctx.Logger, "")
+
 	ctx.RespErr = service.DeleteSprintWorkItem(ctx, c.Param("id"))
 }
 
@@ -420,7 +423,7 @@ func ExecSprintWorkItemWorkflow(c *gin.Context) {
 		return
 	}
 
-	ctx.RespErr = service.ExecSprintWorkItemWorkflow(ctx, workitemIDs, workflowName, args)
+	ctx.RespErr = service.ExecSprintWorkItemWorkflow(ctx, c.Param("id"), workitemIDs, workflowName, args)
 }
 
 // @Summary Clone SprintWorkItem Task
@@ -433,7 +436,7 @@ func ExecSprintWorkItemWorkflow(c *gin.Context) {
 // @Param 	workflowName	query		string									true	"workflow name"
 // @Param 	taskID			query		string									true	"workitem task id"
 // @Success 200
-// @Router /api/aslan/sprint_management/v1/sprint_workitem/task/clone [post]
+// @Router /api/aslan/sprint_management/v1/sprint_workitem/{id}/task/clone [post]
 func CloneSprintWorkItemTask(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

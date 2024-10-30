@@ -275,48 +275,8 @@ func UpdateSprintTemplateStageWorkflows(ctx *handler.Context, sprintTemplateID, 
 
 	if len(sprints) > 0 {
 		updateSprintWorkflowsMap := make(map[string][]*models.SprintWorkflow)
-
 		for _, sprint := range sprints {
-			for _, stage := range sprint.Stages {
-				if stage.ID == stage.ID {
-					newWorkflows := make([]*models.SprintWorkflow, 0)
-					stageWorkflowMap := make(map[string]*models.SprintWorkflow)
-					for _, workflow := range stage.Workflows {
-						stageWorkflowMap[workflow.Name] = workflow
-					}
-
-					// set deleted workflows to IsDeleted = true
-					for _, workflow := range stage.Workflows {
-						if _, ok := workflowMap[workflow.Name]; !ok {
-							workflow.IsDeleted = true
-						}
-						stageWorkflowMap[workflow.Name] = workflow
-					}
-
-					// add/update workflows in stage template
-					for _, workflowTemplate := range workflowTemplates {
-						if workflow, ok := stageWorkflowMap[workflowTemplate.Name]; !ok {
-							// not find this workflow in stage, add new workflow
-							newWorkflows = append(newWorkflows, workflowTemplate)
-						} else {
-							// find this workflow in stage, update it
-							workflow.DisplayName = workflowTemplate.DisplayName
-							workflow.IsDeleted = workflowTemplate.IsDeleted
-							newWorkflows = append(newWorkflows, workflow)
-							delete(stageWorkflowMap, workflow.Name)
-						}
-					}
-
-					// add remind workflows in stage
-					for _, workflow := range stageWorkflowMap {
-						newWorkflows = append(newWorkflows, workflow)
-					}
-
-					updateSprintWorkflowsMap[sprint.ID.Hex()] = newWorkflows
-					break
-				}
-			}
-
+			updateSprintWorkflowsMap[sprint.ID.Hex()] = workflowTemplates
 		}
 
 		err = mongodb.NewSprintCollWithSession(session).BulkUpdateStageWorkflows(ctx, stageID, updateSprintWorkflowsMap)
