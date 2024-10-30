@@ -276,6 +276,24 @@ func ArchiveSprint(ctx *handler.Context, id string) error {
 	return nil
 }
 
+func ActivateArchivedSprint(ctx *handler.Context, id string) error {
+	sprint, err := mongodb.NewSprintColl().GetByID(ctx, id)
+	if err != nil {
+		return e.ErrUpdateSprintName.AddErr(errors.Wrap(err, "Get sprint"))
+	}
+
+	if !sprint.IsArchived {
+		return e.ErrUpdateSprintName.AddDesc("Sprint is not archived")
+	}
+
+	err = mongodb.NewSprintColl().ActivateArchivedByID(ctx, id)
+	if err != nil {
+		return e.ErrArchiveSprint.AddErr(errors.Wrapf(err, "Archive sprint %s", id))
+	}
+
+	return nil
+}
+
 func UpdateSprintName(ctx *handler.Context, id, name string) error {
 	sprint, err := mongodb.NewSprintColl().GetByID(ctx, id)
 	if err != nil {

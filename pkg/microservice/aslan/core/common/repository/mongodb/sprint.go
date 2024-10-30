@@ -442,6 +442,21 @@ func (c *SprintColl) ArchiveByID(ctx *handler.Context, idStr string) error {
 	return err
 }
 
+func (c *SprintColl) ActivateArchivedByID(ctx *handler.Context, idStr string) error {
+	id, err := primitive.ObjectIDFromHex(idStr)
+	if err != nil {
+		return err
+	}
+	query := bson.M{"_id": id, "is_archived": true}
+	change := bson.M{"$set": bson.M{
+		"is_archived": false,
+		"update_time": time.Now().Unix(),
+		"updated_by":  ctx.GenUserBriefInfo(),
+	}}
+	_, err = c.UpdateOne(mongotool.SessionContext(ctx, c.Session), query, change)
+	return err
+}
+
 func (c *SprintColl) UpdateName(ctx *handler.Context, idStr string, obj *models.Sprint) error {
 	id, err := primitive.ObjectIDFromHex(idStr)
 	if err != nil {

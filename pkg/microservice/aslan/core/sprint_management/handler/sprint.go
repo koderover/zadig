@@ -226,7 +226,7 @@ func ArchiveSprint(c *gin.Context) {
 			return
 		}
 		if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectName].Sprint.Archive {
+			!ctx.Resources.ProjectAuthInfo[projectName].Sprint.Edit {
 			ctx.UnAuthorized = true
 			return
 		}
@@ -241,6 +241,49 @@ func ArchiveSprint(c *gin.Context) {
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneSprintManagement, "更新", "迭代管理-迭代", fmt.Sprintf("归档迭代ID: %s", c.Param("id")), "", ctx.Logger, "")
 
 	ctx.RespErr = service.ArchiveSprint(ctx, c.Param("id"))
+}
+
+// @Summary Activate Archived Sprint
+// @Description Activate Archived Sprint
+// @Tags 	SprintManagement
+// @Accept 	json
+// @Produce json
+// @Param 	projectName		query		string							true	"project name"
+// @Param 	id				path		string							true	"sprint id"
+// @Success 200
+// @Router /api/aslan/sprint_management/v1/sprint/{id}/activate [put]
+func ActivateArchivedSprint(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectName := c.Query("projectName")
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectName]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectName].Sprint.Edit {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	err = commonutil.CheckZadigEnterpriseLicense()
+	if err != nil {
+		ctx.RespErr = err
+		return
+	}
+
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneSprintManagement, "更新", "迭代管理-迭代", fmt.Sprintf("激活已归档迭代ID: %s", c.Param("id")), "", ctx.Logger, "")
+
+	ctx.RespErr = service.ActivateArchivedSprint(ctx, c.Param("id"))
 }
 
 // @Summary List Sprint
