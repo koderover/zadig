@@ -44,8 +44,9 @@ type BindingUserInfo struct {
 }
 
 type BindingGroupInfo struct {
-	GID  string `json:"group_id"`
-	Name string `json:"name"`
+	GID       string             `json:"group_id"`
+	Name      string             `json:"name"`
+	UserInfos []*BindingUserInfo `json:"user_infos,omitempty"`
 }
 
 func ListRoleBindings(ns, uid, gid string, log *zap.SugaredLogger) ([]*RoleBindingResp, error) {
@@ -85,9 +86,26 @@ func ListRoleBindings(ns, uid, gid string, log *zap.SugaredLogger) ([]*RoleBindi
 			return nil, fmt.Errorf("failed to get user group info for gid: %s, error:%s", uid, err)
 		}
 
+		users, err := orm.ListUsersByGroup(gid, repository.DB)
+		if err != nil {
+			log.Errorf("failed to list users by gid: %s, error is: %s", gid, err)
+			return nil, fmt.Errorf("failed to list users by gid: %s, error is: %s", gid, err)
+		}
+
+		userInfos := make([]*BindingUserInfo, 0)
+		for _, user := range users {
+			userInfos = append(userInfos, &BindingUserInfo{
+				IdentityType: user.IdentityType,
+				UID:          user.UID,
+				Account:      user.Account,
+				Username:     user.Name,
+			})
+		}
+
 		groupInfoMap[gid] = &BindingGroupInfo{
-			GID:  gid,
-			Name: groupInfo.GroupName,
+			GID:       gid,
+			Name:      groupInfo.GroupName,
+			UserInfos: userInfos,
 		}
 
 		roles, err := orm.ListRoleByGroupIDs([]string{gid}, repository.DB)
@@ -163,9 +181,27 @@ func ListRoleBindings(ns, uid, gid string, log *zap.SugaredLogger) ([]*RoleBindi
 					log.Errorf("failed to get user group info for gid: %s, error:%s", uid, err)
 					return nil, fmt.Errorf("failed to get user group info for gid: %s, error:%s", uid, err)
 				}
+				users, err := orm.ListUsersByGroup(gid, repository.DB)
+				if err != nil {
+					tx.Rollback()
+					log.Errorf("failed to list users by gid: %s, error is: %s", gid, err)
+					return nil, fmt.Errorf("failed to list users by gid: %s, error is: %s", gid, err)
+				}
+
+				userInfos := make([]*BindingUserInfo, 0)
+				for _, user := range users {
+					userInfos = append(userInfos, &BindingUserInfo{
+						IdentityType: user.IdentityType,
+						UID:          user.UID,
+						Account:      user.Account,
+						Username:     user.Name,
+					})
+				}
+
 				groupInfoMap[roleBinding.GroupID] = &BindingGroupInfo{
 					GID:  roleBinding.GroupID,
 					Name: groupInfo.GroupName,
+					UserInfos: userInfos,
 				}
 			}
 		}
