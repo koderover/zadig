@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"sync"
 
+	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/pkg/errors"
 
 	config2 "github.com/koderover/zadig/v2/pkg/config"
@@ -107,12 +108,7 @@ func GetLarkAppContactRange(approvalID, userIDType string) (*DepartmentInfo, err
 	}, nil
 }
 
-type LarkChat struct {
-	ChatID   string `json:"chat_id"`
-	ChatName string `json:"chat_name"`
-}
-
-func ListAvailableLarkChat(imAppID string) ([]*LarkChat, error) {
+func ListAvailableLarkChat(imAppID string) ([]*commonmodels.LarkChat, error) {
 	cli, err := GetLarkClientByIMAppID(imAppID)
 	if err != nil {
 		log.Errorf("failed to get lark client for id: %s, error: %s", imAppID, err)
@@ -125,10 +121,10 @@ func ListAvailableLarkChat(imAppID string) ([]*LarkChat, error) {
 		return nil, fmt.Errorf("failed to list lark chats, error: %s", err)
 	}
 
-	resp := make([]*LarkChat, 0)
+	resp := make([]*commonmodels.LarkChat, 0)
 
 	for _, chat := range chatList {
-		resp = append(resp, &LarkChat{
+		resp = append(resp, &commonmodels.LarkChat{
 			ChatID:   util.GetStringFromPointer(chat.ChatId),
 			ChatName: util.GetStringFromPointer(chat.Name),
 		})
@@ -137,7 +133,7 @@ func ListAvailableLarkChat(imAppID string) ([]*LarkChat, error) {
 	return resp, nil
 }
 
-func SearchLarkChat(imAppID, query string) ([]*LarkChat, error) {
+func SearchLarkChat(imAppID, query string) ([]*commonmodels.LarkChat, error) {
 	cli, err := GetLarkClientByIMAppID(imAppID)
 	if err != nil {
 		log.Errorf("failed to get lark client for id: %s, error: %s", imAppID, err)
@@ -150,10 +146,10 @@ func SearchLarkChat(imAppID, query string) ([]*LarkChat, error) {
 		return nil, fmt.Errorf("failed to list lark chats, error: %s", err)
 	}
 
-	resp := make([]*LarkChat, 0)
+	resp := make([]*commonmodels.LarkChat, 0)
 
 	for _, chat := range chatList {
-		resp = append(resp, &LarkChat{
+		resp = append(resp, &commonmodels.LarkChat{
 			ChatID:   util.GetStringFromPointer(chat.ChatId),
 			ChatName: util.GetStringFromPointer(chat.Name),
 		})

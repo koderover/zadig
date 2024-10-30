@@ -23,7 +23,6 @@ import (
 	"reflect"
 	"strings"
 
-	larkservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/lark"
 	"github.com/koderover/zadig/v2/pkg/tool/blueking"
 	"github.com/koderover/zadig/v2/pkg/tool/workwx"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -911,7 +910,7 @@ type NotificationJobSpec struct {
 	WeChatWebHook   string                    `bson:"weChat_webHook,omitempty"      yaml:"weChat_webHook,omitempty"      json:"weChat_webHook,omitempty"`
 	DingDingWebHook string                    `bson:"dingding_webhook,omitempty"    yaml:"dingding_webhook,omitempty"    json:"dingding_webhook,omitempty"`
 	FeiShuAppID     string                    `bson:"feishu_app_id,omitempty"       yaml:"feishu_app_id,omitempty"       json:"feishu_app_id,omitempty"`
-	FeishuChat      *larkservice.LarkChat     `bson:"feishu_chat,omitempty"         yaml:"feishu_chat,omitempty"         json:"feishu_chat,omitempty"`
+	FeishuChat      *LarkChat                 `bson:"feishu_chat,omitempty"         yaml:"feishu_chat,omitempty"         json:"feishu_chat,omitempty"`
 	FeiShuWebHook   string                    `bson:"feishu_webhook,omitempty"      yaml:"feishu_webhook,omitempty"      json:"feishu_webhook,omitempty"`
 	MailUsers       []*User                   `bson:"mail_users,omitempty"          yaml:"mail_users,omitempty"          json:"mail_users,omitempty"`
 	WebHookNotify   WebhookNotify             `bson:"webhook_notify,omitempty"      yaml:"webhook_notify,omitempty"      json:"webhook_notify,omitempty"`

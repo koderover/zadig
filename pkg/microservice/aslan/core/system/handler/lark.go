@@ -18,6 +18,7 @@ package handler
 
 import (
 	"github.com/gin-gonic/gin"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/lark"
 	"github.com/koderover/zadig/v2/pkg/setting"
@@ -73,7 +74,7 @@ func LarkEventHandler(c *gin.Context) {
 }
 
 type listChatResp struct {
-	Chats []*lark.LarkChat `json:"chats"`
+	Chats []*models.LarkChat `json:"chats"`
 }
 
 func ListAvailableLarkChat(c *gin.Context) {
