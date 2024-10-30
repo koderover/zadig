@@ -18,6 +18,7 @@ package instantmessage
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"sort"
@@ -26,6 +27,7 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/lark"
 	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -323,6 +325,38 @@ func (w *Service) sendMessage(task *task.Task, notifyCtl *models.NotifyCtl, test
 				log.Errorf("SendFeiShu @ message err : %s", err)
 				return err
 			}
+		} else if webHookType == setting.NotifyWebhookTypeFeishuApp {
+			client, err := lark.GetLarkClientByIMAppID(notifyCtl.FeiShuAppID)
+			if err != nil {
+				log.Errorf("send feishu message by application err: %s", err)
+				return err
+			}
+
+			messageContent, err := json.Marshal(larkCard)
+			if err != nil {
+				log.Errorf("send feishu message by application err: [marshal content err]: %s", err)
+				return err
+			}
+
+			err = client.SendMessage(LarkReceiverTypeChat, LarkMessageTypeCard, notifyCtl.FeishuChatID, string(messageContent))
+
+			atMessage := getNotifyAtContent(notifyCtl)
+
+			larkAtMessage := &FeiShuMessage{
+				Text: atMessage,
+			}
+
+			atMessageContent, err := json.Marshal(larkAtMessage)
+			if err != nil {
+				return err
+			}
+
+			err = client.SendMessage(LarkReceiverTypeChat, LarkMessageTypeText, notifyCtl.FeishuChatID, string(atMessageContent))
+
+			if err != nil {
+				return err
+			}
+
 		} else {
 			typeText := WeChatTextTypeTemplateCard
 			if task.Type == config.SingleType {

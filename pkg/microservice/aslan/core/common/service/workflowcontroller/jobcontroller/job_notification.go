@@ -18,6 +18,7 @@ package jobcontroller
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"strings"
@@ -25,6 +26,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/shared/client/systemconfig"
 	"github.com/koderover/zadig/v2/pkg/shared/client/user"
+	"github.com/koderover/zadig/v2/pkg/tool/lark"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/tool/mail"
 	"github.com/samber/lo"
@@ -68,14 +70,26 @@ func (c *NotificationJobCtl) Run(ctx context.Context) {
 	c.job.Status = config.StatusRunning
 	c.ack()
 
-	if c.jobTaskSpec.WebHookType == setting.NotifyWebHookTypeFeishu {
+	if c.jobTaskSpec.WebHookType == setting.NotifyWebhookTypeFeishuApp {
 		larkAtUserIDs := make([]string, 0)
 
 		for _, user := range c.jobTaskSpec.LarkAtUsers {
 			larkAtUserIDs = append(larkAtUserIDs, user.ID)
 		}
 
-		err := sendLarkMessage(c.workflowCtx.ProjectName, c.workflowCtx.WorkflowName, c.workflowCtx.WorkflowDisplayName, c.workflowCtx.TaskID, c.jobTaskSpec.FeiShuWebHook, c.jobTaskSpec.Title, c.jobTaskSpec.Content, larkAtUserIDs, c.jobTaskSpec.IsAtAll)
+		larkInfo, err := mongodb.NewIMAppColl().GetLarkByAppID(context.TODO(), c.jobTaskSpec.FeiShuAppID)
+		if err != nil {
+			c.logger.Error(err)
+			c.job.Status = config.StatusFailed
+			c.job.Error = err.Error()
+			c.ack()
+			return
+		}
+
+		client := lark.NewClient(larkInfo.AppID, larkInfo.AppSecret)
+
+		// TODO: distinct the receiver type
+		err = sendLarkMessage(client, c.workflowCtx.ProjectName, c.workflowCtx.WorkflowName, c.workflowCtx.WorkflowDisplayName, c.workflowCtx.TaskID, instantmessage.LarkReceiverTypeChat, c.jobTaskSpec.FeishuChatID, c.jobTaskSpec.Title, c.jobTaskSpec.Content, larkAtUserIDs, c.jobTaskSpec.IsAtAll)
 		if err != nil {
 			c.logger.Error(err)
 			c.job.Status = config.StatusFailed
@@ -110,6 +124,12 @@ func (c *NotificationJobCtl) Run(ctx context.Context) {
 			c.ack()
 			return
 		}
+	} else {
+		c.logger.Error("unsupported notification type")
+		c.job.Status = config.StatusFailed
+		c.job.Error = "unsupported notification type"
+		c.ack()
+		return
 	}
 
 	//time.Sleep(10 * time.Second)
@@ -118,7 +138,7 @@ func (c *NotificationJobCtl) Run(ctx context.Context) {
 	return
 }
 
-func sendLarkMessage(productName, workflowName, workflowDisplayName string, taskID int64, uri, title, message string, idList []string, isAtAll bool) error {
+func sendLarkMessage(client *lark.Client, productName, workflowName, workflowDisplayName string, taskID int64, receiverType, receiverID, title, message string, idList []string, isAtAll bool) error {
 	// first generate lark card
 	card := instantmessage.NewLarkCard()
 	card.SetConfig(true)
@@ -138,14 +158,12 @@ func sendLarkMessage(productName, workflowName, workflowDisplayName string, task
 	)
 	card.AddI18NElementsZhcnAction("点击查看更多信息", url)
 
-	reqBody := instantmessage.LarkCardReq{
-		MsgType: "interactive",
-		Card:    card,
+	messageContent, err := json.Marshal(card)
+	if err != nil {
+		return err
 	}
 
-	// TODO: if required, add proxy to it
-	c := httpclient.New()
-	_, err := c.Post(uri, httpclient.SetBody(reqBody))
+	err = client.SendMessage(receiverType, instantmessage.LarkMessageTypeCard, receiverID, string(messageContent))
 
 	if err != nil {
 		return err
@@ -163,22 +181,17 @@ func sendLarkMessage(productName, workflowName, workflowDisplayName string, task
 			atMessage += "<at user_id=\"all\"></at>"
 		}
 
-		var larkAtMessage interface{}
-
-		larkAtMessage = &instantmessage.FeiShuMessage{
+		larkAtMessage := &instantmessage.FeiShuMessage{
 			Text: atMessage,
 		}
 
-		if strings.Contains(uri, "bot/v2/hook") {
-			larkAtMessage = &instantmessage.FeiShuMessageV2{
-				MsgType: "text",
-				Content: instantmessage.FeiShuContentV2{
-					Text: atMessage,
-				},
-			}
+		atMessageContent, err := json.Marshal(larkAtMessage)
+		if err != nil {
+			return err
 		}
 
-		_, err = c.Post(uri, httpclient.SetBody(larkAtMessage))
+		err = client.SendMessage(receiverType, instantmessage.LarkMessageTypeText, receiverID, string(atMessageContent))
+
 		if err != nil {
 			return err
 		}

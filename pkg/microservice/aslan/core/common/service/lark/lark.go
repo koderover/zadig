@@ -107,6 +107,86 @@ func GetLarkAppContactRange(approvalID, userIDType string) (*DepartmentInfo, err
 	}, nil
 }
 
+type LarkChat struct {
+	ChatID   string `json:"chat_id"`
+	ChatName string `json:"chat_name"`
+}
+
+func ListAvailableLarkChat(imAppID string) ([]*LarkChat, error) {
+	cli, err := GetLarkClientByIMAppID(imAppID)
+	if err != nil {
+		log.Errorf("failed to get lark client for id: %s, error: %s", imAppID, err)
+		return nil, fmt.Errorf("failed to get lark client, error: %s", err)
+	}
+
+	chatList, _, _, err := cli.ListAvailableChats(100)
+	if err != nil {
+		log.Errorf("failed to list lark chats, error: %s", err)
+		return nil, fmt.Errorf("failed to list lark chats, error: %s", err)
+	}
+
+	resp := make([]*LarkChat, 0)
+
+	for _, chat := range chatList {
+		resp = append(resp, &LarkChat{
+			ChatID:   util.GetStringFromPointer(chat.ChatId),
+			ChatName: util.GetStringFromPointer(chat.Name),
+		})
+	}
+
+	return resp, nil
+}
+
+func SearchLarkChat(imAppID, query string) ([]*LarkChat, error) {
+	cli, err := GetLarkClientByIMAppID(imAppID)
+	if err != nil {
+		log.Errorf("failed to get lark client for id: %s, error: %s", imAppID, err)
+		return nil, fmt.Errorf("failed to get lark client, error: %s", err)
+	}
+
+	chatList, _, _, err := cli.SearchAvailableChats(query, 100, "")
+	if err != nil {
+		log.Errorf("failed to list lark chats, error: %s", err)
+		return nil, fmt.Errorf("failed to list lark chats, error: %s", err)
+	}
+
+	resp := make([]*LarkChat, 0)
+
+	for _, chat := range chatList {
+		resp = append(resp, &LarkChat{
+			ChatID:   util.GetStringFromPointer(chat.ChatId),
+			ChatName: util.GetStringFromPointer(chat.Name),
+		})
+	}
+
+	return resp, nil
+}
+
+func ListLarkChatMembers(imAppID, chatID string) ([]*lark.UserInfo, error) {
+	cli, err := GetLarkClientByIMAppID(imAppID)
+	if err != nil {
+		log.Errorf("failed to get lark client for id: %s, error: %s", imAppID, err)
+		return nil, fmt.Errorf("failed to get lark client, error: %s", err)
+	}
+
+	chatMembers, err := cli.ListAllChatMembers(chatID)
+	if err != nil {
+		log.Errorf("failed to list lark chats, error: %s", err)
+		return nil, fmt.Errorf("failed to list lark chats, error: %s", err)
+	}
+
+	resp := make([]*lark.UserInfo, 0)
+
+	for _, member := range chatMembers {
+		resp = append(resp, &lark.UserInfo{
+			ID:   util.GetStringFromPointer(member.MemberId),
+			Name: util.GetStringFromPointer(member.Name),
+		})
+	}
+
+	return resp, nil
+}
+
 func getLarkUserInfoConcurrently(client *lark.Client, idList []string, userIDType string, concurrentNum int) ([]*lark.UserInfo, error) {
 	var reply []*lark.UserInfo
 	idNum := len(idList)

@@ -17,6 +17,7 @@ limitations under the License.
 package models
 
 import (
+	"github.com/koderover/zadig/v2/pkg/tool/lark"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
@@ -68,14 +69,17 @@ type ScheduleCtrl struct {
 }
 
 type NotifyCtl struct {
-	Enabled         bool     `bson:"enabled"                          json:"enabled"`
-	WebHookType     string   `bson:"webhook_type"                     json:"webhook_type"`
-	WeChatWebHook   string   `bson:"weChat_webHook,omitempty"         json:"weChat_webHook,omitempty"`
-	DingDingWebHook string   `bson:"dingding_webhook,omitempty"       json:"dingding_webhook,omitempty"`
-	FeiShuWebHook   string   `bson:"feishu_webhook,omitempty"         json:"feishu_webhook,omitempty"`
-	AtMobiles       []string `bson:"at_mobiles,omitempty"             json:"at_mobiles,omitempty"`
-	IsAtAll         bool     `bson:"is_at_all,omitempty"              json:"is_at_all,omitempty"`
-	NotifyTypes     []string `bson:"notify_type"                      json:"notify_type"`
+	Enabled         bool             `bson:"enabled"                          json:"enabled"`
+	WebHookType     string           `bson:"webhook_type"                     json:"webhook_type"`
+	WeChatWebHook   string           `bson:"weChat_webHook,omitempty"         json:"weChat_webHook,omitempty"`
+	DingDingWebHook string           `bson:"dingding_webhook,omitempty"       json:"dingding_webhook,omitempty"`
+	FeiShuWebHook   string           `bson:"feishu_webhook,omitempty"         json:"feishu_webhook,omitempty"`
+	FeiShuAppID     string           `bson:"feishu_app_id,omitempty"          json:"feishu_app_id,omitempty"`
+	FeishuChatID    string           `bson:"feishu_chat_id,omitempty"         json:"feishu_chat_id,omitempty"`
+	AtMobiles       []string         `bson:"at_mobiles,omitempty"             json:"at_mobiles,omitempty"`
+	LarkAtUsers     []*lark.UserInfo `bson:"lark_at_users,omitempty"          json:"lark_at_users,omitempty"`
+	IsAtAll         bool             `bson:"is_at_all,omitempty"              json:"is_at_all,omitempty"`
+	NotifyTypes     []string         `bson:"notify_type"                      json:"notify_type"`
 }
 
 type TestingHook struct {

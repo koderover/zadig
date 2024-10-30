@@ -22,6 +22,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/lark"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
+	larktool "github.com/koderover/zadig/v2/pkg/tool/lark"
 )
 
 func GetLarkDepartment(c *gin.Context) {
@@ -69,4 +70,51 @@ func LarkEventHandler(c *gin.Context) {
 		c.GetHeader("X-Lark-Signature"),
 		c.GetHeader("X-Lark-Request-Timestamp"),
 		c.GetHeader("X-Lark-Request-Nonce"), string(body))
+}
+
+type listChatResp struct {
+	Chats []*lark.LarkChat `json:"chats"`
+}
+
+func ListAvailableLarkChat(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	chatList, err := lark.ListAvailableLarkChat(c.Param("id"))
+	if err != nil {
+		ctx.RespErr = err
+		return
+	}
+
+	ctx.Resp = listChatResp{Chats: chatList}
+}
+
+func SearchLarkChat(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	chatList, err := lark.SearchLarkChat(c.Param("id"), c.Query("query"))
+	if err != nil {
+		ctx.RespErr = err
+		return
+	}
+
+	ctx.Resp = listChatResp{Chats: chatList}
+}
+
+type listMembersResp struct {
+	Members []*larktool.UserInfo `json:"members"`
+}
+
+func ListLarkChatMembers(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	members, err := lark.ListLarkChatMembers(c.Param("id"), c.Param("chat_id"))
+	if err != nil {
+		ctx.RespErr = err
+		return
+	}
+
+	ctx.Resp = listMembersResp{Members: members}
 }
