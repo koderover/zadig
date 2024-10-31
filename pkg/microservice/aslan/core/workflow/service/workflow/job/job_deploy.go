@@ -688,7 +688,7 @@ func generateEnvDeployServiceInfo(env, project string, spec *commonmodels.ZadigD
 		}
 
 		item := &commonmodels.DeployServiceInfo{
-			ServiceName: service.ServiceName,
+			ServiceName:     service.ServiceName,
 			VariableConfigs: serviceKVSettingMap[service.ServiceName],
 			// VariableKVs: kvs,
 			// LatestVariableKVs: svcInfo.LatestVariableKVs,
@@ -824,34 +824,22 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			}
 		}
 
-		services := make([]*commonmodels.DeployServiceInfo, 0)
-		for _, deploysvc := range deployOrder {
-			if configuredService, ok := configurationServiceMap[deploysvc.ServiceName]; ok {
-				moduleList := make([]*commonmodels.DeployModuleInfo, 0)
+		for _, service := range j.spec.Services {
+			moduleList := make([]*commonmodels.DeployModuleInfo, 0)
 
-				for _, module := range deploysvc.ServiceModules {
-					key := fmt.Sprintf("%s++%s", deploysvc.ServiceName, module.ServiceModule)
-					if _, ok := deployModuleMap[key]; ok {
-						moduleList = append(moduleList, module)
-					}
-				}
-				services = append(services, &commonmodels.DeployServiceInfo{
-					ServiceName:     configuredService.ServiceName,
-					VariableConfigs: configuredService.VariableConfigs,
-					VariableKVs:     configuredService.VariableKVs,
-					//LatestVariableKVs: configuredService.LatestVariableKVs,
-					VariableYaml:  configuredService.VariableYaml,
-					UpdateConfig:  configuredService.UpdateConfig,
-					Updatable:     configuredService.Updatable,
-					Deployed:      configuredService.Deployed,
-					KeyVals:       configuredService.KeyVals,
-					LatestKeyVals: configuredService.LatestKeyVals,
-					Modules:       moduleList,
-				})
+			deployService, ok := deployServiceMap[service.ServiceName]
+			if !ok {
+				continue
 			}
-		}
 
-		j.spec.Services = services
+			for _, module := range deployService.ServiceModules {
+				key := fmt.Sprintf("%s++%s", service.ServiceName, module.ServiceModule)
+				if _, ok := deployModuleMap[key]; ok {
+					moduleList = append(moduleList, module)
+				}
+			}
+			service.Modules = moduleList
+		}
 	}
 
 	serviceMap := map[string]*commonmodels.DeployServiceInfo{}
