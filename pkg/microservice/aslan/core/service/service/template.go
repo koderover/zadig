@@ -328,7 +328,7 @@ func reloadServiceFromChartTemplate(service *commonmodels.Service, chartTemplate
 }
 
 func buildYamlTemplateVariables(service *commonmodels.Service, template *commonmodels.YamlTemplate) (string, []*commontypes.ServiceVariableKV, error) {
-	_, serviceVariableKVs, err := commontypes.MergeServiceAndServiceTemplateVariableKVs(service.ServiceVariableKVs, template.ServiceVariableKVs)
+	_, serviceVariableKVs, err := commontypes.MergeServiceVariableKVsIfNotExist(service.ServiceVariableKVs, template.ServiceVariableKVs)
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to merge service variable kvs, err: %w", err)
 	}

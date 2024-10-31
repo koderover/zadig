@@ -332,16 +332,33 @@ func transferServiceVariable(render, template *ServiceVariableKV) *ServiceVariab
 	return ret
 }
 
-func MergeServiceVariableKVsIfNotExist(kvsList ...[]*ServiceVariableKV) (string, []*ServiceVariableKV, error) {
-	kvSet := sets.NewString()
+// MergeServiceVariableKVsIfNotExist merges the currentKV with the template KV
+// 1. use the currentKV's value if the key exists in currentKV
+// 2. if a key's type is choice, fetch option from the template, but the default key will not change
+// 3. use the templateKV's value if the key does not exist in currentKV
+func MergeServiceVariableKVsIfNotExist(currentKV, templateKV []*ServiceVariableKV) (string, []*ServiceVariableKV, error) {
+	templateKeySet := sets.NewString()
+	templateKVMap := make(map[string]*ServiceVariableKV)
+
+	for _, kv := range templateKV {
+		templateKVMap[kv.Key] = kv
+		templateKeySet.Insert(kv.Key)
+	}
+
 	ret := make([]*ServiceVariableKV, 0)
-	for _, kvs := range kvsList {
-		for _, kv := range kvs {
-			if !kvSet.Has(kv.Key) {
-				kvSet.Insert(kv.Key)
-				ret = append(ret, kv)
+	for _, kv := range currentKV {
+		if templateKeySet.Has(kv.Key) {
+			templateKeySet.Delete(kv.Key)
+			if kv.Type == ServiceVariableKVTypeEnum {
+				kv.Options = templateKVMap[kv.Key].Options
 			}
 		}
+
+		ret = append(ret, kv)
+	}
+
+	for _, key := range templateKeySet.List() {
+		ret = append(ret, templateKVMap[key])
 	}
 
 	yaml, err := ServiceVariableKVToYaml(ret)
@@ -391,32 +408,6 @@ func MergeRenderVariableKVs(kvsList ...[]*RenderVariableKV) (string, []*RenderVa
 	yaml, err := RenderVariableKVToYaml(ret)
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to convert render variable kv to yaml, err: %w", err)
-	}
-
-	return yaml, ret, nil
-}
-
-// merge service variables base on service template variables
-// serivce variables has higher value priority, service template variables has higher type priority
-func MergeServiceAndServiceTemplateVariableKVs(service []*ServiceVariableKV, serivceTemplate []*ServiceVariableKV) (string, []*ServiceVariableKV, error) {
-	serivce := map[string]*ServiceVariableKV{}
-	for _, kv := range service {
-		serivce[kv.Key] = kv
-	}
-
-	ret := []*ServiceVariableKV{}
-	for _, kv := range serivceTemplate {
-		if serviceKV, ok := serivce[kv.Key]; !ok {
-			ret = append(ret, kv)
-		} else {
-			newKV := transferServiceVariable(serviceKV, kv)
-			ret = append(ret, newKV)
-		}
-	}
-
-	yaml, err := ServiceVariableKVToYaml(ret)
-	if err != nil {
-		return "", nil, fmt.Errorf("failed to convert service variable kv to yaml, err: %w", err)
 	}
 
 	return yaml, ret, nil
