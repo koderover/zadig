@@ -57,6 +57,7 @@ import (
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
+	"github.com/koderover/zadig/v2/pkg/tool/cache"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/updater"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/util"
@@ -805,6 +806,11 @@ func (hClient *HelmClient) PushChart(repoEntry *repo.Entry, chartPath string) er
 func (hClient *HelmClient) GetChartValues(repoEntry *repo.Entry, projectName, releaseName, chartRepo, chartName, chartVersion string, isProduction bool) (string, error) {
 	chartRef := fmt.Sprintf("%s/%s", chartRepo, chartName)
 	localPath := config.LocalServicePathWithRevision(projectName, releaseName, chartVersion, isProduction)
+
+	lock := cache.NewRedisLock(fmt.Sprintf("download-chart-%s", localPath))
+	lock.Lock()
+	defer lock.Unlock()
+
 	// remove local file to untar
 	_ = os.RemoveAll(localPath)
 
