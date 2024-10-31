@@ -22,6 +22,8 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
+	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
@@ -159,6 +161,11 @@ func (j *NotificationJob) LintJob() error {
 	}
 	if j.spec.Title == "" {
 		return fmt.Errorf("job title is empty")
+	}
+
+	err := commonutil.CheckZadigProfessionalLicense()
+	if err != nil {
+		return e.ErrLicenseInvalid.AddDesc("")
 	}
 	return nil
 }

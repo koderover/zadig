@@ -31,6 +31,8 @@ import (
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
+	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
+	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/types"
 	steptypes "github.com/koderover/zadig/v2/pkg/types/step"
@@ -545,6 +547,13 @@ func (j *FreeStyleJob) LintJob() error {
 	for _, kv := range j.spec.Properties.Envs {
 		if kv.Type == commonmodels.Script {
 			kv.FunctionReference = util2.FindVariableKeyRef(kv.CallFunction)
+		}
+	}
+
+	if j.spec.FreestyleJobType == config.ServiceFreeStyleJobType {
+		err := commonutil.CheckZadigProfessionalLicense()
+		if err != nil {
+			return e.ErrLicenseInvalid.AddDesc("")
 		}
 	}
 
