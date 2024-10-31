@@ -90,7 +90,9 @@ func RenderWorkflowVariables(projectKey, workflowName, variableType, jobName, va
 }
 
 func renderScriptedVariableOptions(script, callFunction string, userInput map[string]string) ([]string, error) {
-	t, err := template.New("scriptRender").Parse(callFunction)
+	renderedCallfunc := parseCallFuncWithSpecialVariables(callFunction, userInput)
+
+	t, err := template.New("scriptRender").Parse(renderedCallfunc)
 	if err != nil {
 		return nil, err
 	}
@@ -107,4 +109,24 @@ func renderScriptedVariableOptions(script, callFunction string, userInput map[st
 	}
 
 	return resp, nil
+}
+
+const (
+	SpecialVariableService       = `$SERVICE_NAME`
+	SpecialVariableServiceModule = `$SERVICE_MODULE`
+)
+
+var SpecialVariableInputMap = map[string]string{
+	SpecialVariableService:       "ZADIG_SERVICE",
+	SpecialVariableServiceModule: "ZADIG_SERVICE_MODULE",
+}
+
+func parseCallFuncWithSpecialVariables(callFunction string, userInput map[string]string) string {
+	resp := callFunction
+
+	for specialVarKey, specialVarUserInputKey := range SpecialVariableInputMap {
+		resp = strings.ReplaceAll(resp, specialVarKey, userInput[specialVarUserInputKey])
+	}
+
+	return resp
 }
