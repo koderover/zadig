@@ -495,7 +495,8 @@ func GetGlobalVariables(c *gin.Context) {
 	} else if projectedAuthInfo, ok := ctx.Resources.ProjectAuthInfo[projectKey]; ok {
 		if projectedAuthInfo.IsProjectAdmin {
 			permitted = true
-		} else if projectedAuthInfo.Service.Edit ||
+		} else if projectedAuthInfo.Service.Create ||
+			projectedAuthInfo.Service.Edit ||
 			projectedAuthInfo.Service.View ||
 			projectedAuthInfo.Env.EditConfig ||
 			projectedAuthInfo.Env.Create {
@@ -552,6 +553,7 @@ func GetProductionGlobalVariables(c *gin.Context) {
 			// this api is called when the user is trying to
 			// a. view and edit the production service's global variables
 			// b. edit the value of the global variables in production env
+			!ctx.Resources.ProjectAuthInfo[projectKey].ProductionService.Create &&
 			!ctx.Resources.ProjectAuthInfo[projectKey].ProductionService.Edit &&
 			!ctx.Resources.ProjectAuthInfo[projectKey].ProductionService.View &&
 			!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.EditConfig {
@@ -613,6 +615,7 @@ func UpdateGlobalVariables(c *gin.Context) {
 			return
 		}
 		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].Service.Create &&
 			!ctx.Resources.ProjectAuthInfo[projectKey].Service.Edit {
 			ctx.UnAuthorized = true
 			return
@@ -664,6 +667,7 @@ func UpdateProductionGlobalVariables(c *gin.Context) {
 			return
 		}
 		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].ProductionService.Create &&
 			!ctx.Resources.ProjectAuthInfo[projectKey].ProductionService.Edit {
 			ctx.UnAuthorized = true
 			return
@@ -706,6 +710,7 @@ func GetGlobalVariableCandidates(c *gin.Context) {
 			return
 		}
 		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].Service.Create &&
 			!ctx.Resources.ProjectAuthInfo[projectKey].Service.Edit {
 			ctx.UnAuthorized = true
 			return
@@ -748,6 +753,7 @@ func GetProductionGlobalVariableCandidates(c *gin.Context) {
 			return
 		}
 		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].ProductionService.Create &&
 			!ctx.Resources.ProjectAuthInfo[projectKey].ProductionService.Edit {
 			ctx.UnAuthorized = true
 			return
