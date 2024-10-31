@@ -3,7 +3,8 @@ package main
 import (
 	"os"
 
-	jira "github.com/andygrunwald/go-jira"
+	"github.com/andygrunwald/go-jira"
+	"github.com/koderover/zadig/v2/pkg/config"
 	"github.com/spf13/viper"
 
 	"github.com/koderover/zadig/v2/pkg/tool/log"
@@ -20,7 +21,7 @@ const (
 
 func main() {
 	log.Init(&log.Config{
-		Level:       "info",
+		Level:       config.LogLevel(),
 		Development: false,
 		MaxSize:     5,
 	})

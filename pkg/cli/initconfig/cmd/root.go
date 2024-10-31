@@ -17,6 +17,7 @@ limitations under the License.
 package cmd
 
 import (
+	"github.com/koderover/zadig/v2/pkg/config"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
@@ -42,7 +43,7 @@ func initConfig() {
 	viper.AutomaticEnv()
 
 	log.Init(&log.Config{
-		Level:    "debug",
+		Level:    config.LogLevel(),
 		NoCaller: true,
 	})
 }

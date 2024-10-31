@@ -22,17 +22,18 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/command/cmd/agent"
-	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/command/cmd/start"
-	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/config"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/command/cmd/agent"
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/command/cmd/start"
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/config"
 	agentconfig "github.com/koderover/zadig/v2/pkg/cli/zadig-agent/config"
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/helper/log"
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/common"
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/register"
 	osutil "github.com/koderover/zadig/v2/pkg/cli/zadig-agent/util/os"
+	globalconfig "github.com/koderover/zadig/v2/pkg/config"
 	pkglog "github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
@@ -153,7 +154,7 @@ func initPkgLog() {
 	}
 
 	pkglog.Init(&pkglog.Config{
-		Level:      "debug",
+		Level:      globalconfig.LogLevel(),
 		Filename:   filepath.Join(path, "zadig-agent.log"),
 		SendToFile: true,
 	})

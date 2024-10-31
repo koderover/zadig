@@ -70,10 +70,6 @@ func Namespace() string {
 	return viper.GetString(setting.ENVNamespace)
 }
 
-func LogLevel() int {
-	return viper.GetInt(setting.ENVLogLevel)
-}
-
 func CollieAPIAddress() string {
 	return configbase.CollieServiceAddress()
 }
