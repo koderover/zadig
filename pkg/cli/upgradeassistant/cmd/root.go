@@ -48,7 +48,7 @@ func init() {
 	cobra.OnInitialize(initConfig)
 
 	log.Init(&log.Config{
-		Level:    "debug",
+		Level:    config.LogLevel(),
 		NoCaller: false,
 	})
 

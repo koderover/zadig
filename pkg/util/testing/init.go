@@ -21,12 +21,13 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/koderover/zadig/v2/pkg/config"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	fsutil "github.com/koderover/zadig/v2/pkg/util/fs"
 )
 
 func init() {
-	log.Init(&log.Config{Level: "debug"})
+	log.Init(&log.Config{Level: config.LogLevel()})
 
 	// TODO: LOU: clean the path when test is done
 	tmpRoot, err := os.MkdirTemp("", "")

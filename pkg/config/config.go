@@ -49,8 +49,13 @@ func Mode() string {
 	return mode
 }
 
+// LogLevel returns the configured log level, returns info if unset
 func LogLevel() string {
-	return "debug"
+	logLevel := viper.GetString(setting.ENVLogLevel)
+	if len(logLevel) == 0 {
+		return "info"
+	}
+	return logLevel
 }
 
 func SendLogToFile() bool {
