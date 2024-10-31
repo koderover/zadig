@@ -115,7 +115,12 @@ func ValidateServiceUpdate(codehostID int, serviceName, repoOwner, repoName, rep
 func preloadGerritService(detail *systemconfig.CodeHost, repoName, branchName, remoteName, loadPath string, isDir bool) ([]string, error) {
 	ret := make([]string, 0)
 
-	base := path.Join(config.S3StoragePath(), repoName)
+	if remoteName == "" {
+		remoteName = "origin"
+	}
+
+	base := path.Join(config.S3StoragePath(), strings.Replace(repoName, "/", "-", -1))
+
 	if _, err := os.Stat(base); os.IsNotExist(err) {
 		err = command.RunGitCmds(detail, setting.GerritDefaultOwner, setting.GerritDefaultOwner, repoName, branchName, remoteName)
 		if err != nil {
@@ -179,7 +184,9 @@ func preloadGiteeService(detail *systemconfig.CodeHost, repoOwner, repoName, bra
 	if remoteName == "" {
 		remoteName = "origin"
 	}
-	base := path.Join(config.S3StoragePath(), repoName)
+
+	base := path.Join(config.S3StoragePath(), strings.Replace(repoName, "/", "-", -1))
+
 	if exist, err := util.PathExists(base); !exist {
 		log.Warnf("path does not exist,err:%s", err)
 		err = command.RunGitCmds(detail, repoOwner, repoOwner, repoName, branchName, remoteName)
@@ -243,7 +250,7 @@ func loadGerritService(username string, ch *systemconfig.CodeHost, repoOwner, re
 	if remoteName == "" {
 		remoteName = "origin"
 	}
-	base := path.Join(config.S3StoragePath(), repoName)
+	base := path.Join(config.S3StoragePath(), strings.Replace(repoName, "/", "-", -1))
 	// we should not use the cache stored on local disk since files stored in remove gerrit server may be changed
 	_ = os.RemoveAll(base)
 	// TODO there may by concurrency issues since same directory are used by multiple requests
