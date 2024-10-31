@@ -49,6 +49,7 @@ type SprintWorkflow struct {
 	Name        string `bson:"name"         yaml:"name"         json:"name"`
 	DisplayName string `bson:"display_name" yaml:"display_name" json:"display_name"`
 	IsDeleted   bool   `bson:"is_deleted"   yaml:"is_deleted"   json:"is_deleted"`
+	Disabled    bool   `bson:"disabled"     yaml:"disabled"     json:"disabled"`
 }
 
 func (SprintTemplate) TableName() string {

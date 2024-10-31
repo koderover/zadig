@@ -175,6 +175,10 @@ func updateSprintWorklow(ctx *handler.Context, sprint *commonmodels.Sprint) erro
 			workflowMap[workflow.Name].DisplayName = workflow.DisplayName
 			changed = true
 		}
+		if workflowMap[workflow.Name].Disabled != workflow.Disabled {
+			workflowMap[workflow.Name].Disabled = workflow.Disabled
+			changed = true
+		}
 		delete(workflowMap, workflow.Name)
 	}
 	if len(workflowMap) > 0 {

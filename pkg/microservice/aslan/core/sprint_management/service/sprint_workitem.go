@@ -588,6 +588,17 @@ func createSprintWorkItemActivity(ctx *handler.Context, session mongo.Session, s
 }
 
 func ExecSprintWorkItemWorkflow(ctx *handler.Context, id string, workitemIDs []string, workflowName string, workflowArgs *commonmodels.WorkflowV4) error {
+	workflow, err := mongodb.NewWorkflowV4Coll().Find(workflowName)
+	if err != nil {
+		return e.ErrExecSprintWorkItemTask.AddErr(errors.Wrapf(err, "Find workflow by name %s", workflowName))
+	}
+	if workflow == nil {
+		return e.ErrExecSprintWorkItemTask.AddErr(errors.New("Workflow not found"))
+	}
+	if workflow.Disabled {
+		return e.ErrExecSprintWorkItemTask.AddErr(errors.New("Workflow is disabled"))
+	}
+
 	idSet := sets.NewString(workitemIDs...)
 	idSet.Insert(id)
 	opt := mongodb.ListSprintWorkItemOption{
