@@ -2341,6 +2341,7 @@ func CompareHelmServiceYamlInEnv(serviceName, variableYaml, envName, projectName
 				return nil, fmt.Errorf("failed to merge override values, err: %s", err)
 			}
 		}
+		currentYaml = strings.TrimSuffix(currentYaml, "\n")
 		return &GetHelmValuesDifferenceResp{
 			Current: currentYaml,
 			Latest:  variableYaml,
