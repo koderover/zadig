@@ -3042,11 +3042,9 @@ func diffRenderSet(username, productName, envName string, productResp *commonmod
 
 		productSvc := productResp.GetServiceMap()[serviceName]
 		if productSvc != nil {
-			log.Debugf("1 valuesYaml: %s", latestChartInfo.ValuesYaml)
 			renderChartArgMap[serviceName].FillRenderChartModel(productSvc.GetServiceRender(), productSvc.GetServiceRender().ChartVersion, latestChartInfo.ValuesYaml)
 			newChartInfos = append(newChartInfos, productSvc.GetServiceRender())
 		} else {
-			log.Debugf("2 valuesYaml: %s", latestChartInfo.ValuesYaml)
 			renderChartArgMap[serviceName].FillRenderChartModel(latestChartInfo, latestChartInfo.ChartVersion, latestChartInfo.ValuesYaml)
 			newChartInfos = append(newChartInfos, latestChartInfo)
 		}

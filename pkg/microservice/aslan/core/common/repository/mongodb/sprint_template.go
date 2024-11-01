@@ -72,14 +72,29 @@ func (c *SprintTemplateColl) GetCollectionName() string {
 }
 
 func (c *SprintTemplateColl) EnsureIndex(ctx context.Context) error {
-	index := mongo.IndexModel{
-		Keys: bson.D{
-			bson.E{Key: "project_name", Value: 1},
-			bson.E{Key: "key", Value: 1},
+	mod := []mongo.IndexModel{
+		{
+			Keys: bson.D{
+				bson.E{Key: "project_name", Value: 1},
+			},
+			Options: options.Index().SetUnique(false),
 		},
-		Options: options.Index().SetUnique(true),
+		{
+			Keys: bson.D{
+				bson.E{Key: "project_name", Value: 1},
+				bson.E{Key: "key", Value: 1},
+			},
+			Options: options.Index().SetUnique(true),
+		},
+		{
+			Keys: bson.D{
+				bson.E{Key: "project_name", Value: 1},
+				bson.E{Key: "name", Value: 1},
+			},
+			Options: options.Index().SetUnique(false),
+		},
 	}
-	_, err := c.Indexes().CreateOne(mongotool.SessionContext(ctx, c.Session), index)
+	_, err := c.Indexes().CreateMany(mongotool.SessionContext(ctx, c.Session), mod)
 
 	return err
 }
@@ -165,7 +180,7 @@ func (c *SprintTemplateColl) List(ctx *handler.Context, option *SprintTemplateLi
 		query["project_name"] = option.ProjectName
 	}
 	opt := options.Find().
-		SetSort(bson.D{{"_name", -1}})
+		SetSort(bson.D{{"create_time", -1}})
 
 	cursor, err := c.Collection.Find(mongotool.SessionContext(ctx, c.Session), query, opt)
 	if err != nil {

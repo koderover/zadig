@@ -77,18 +77,18 @@ func (c *SprintColl) EnsureIndex(ctx context.Context) error {
 			Keys: bson.D{
 				bson.E{Key: "project_name", Value: 1},
 				bson.E{Key: "key", Value: 1},
-				bson.E{Key: "key_initials", Value: 1},
 				bson.E{Key: "name", Value: 1},
-				bson.E{Key: "create_time", Value: 1},
 				bson.E{Key: "is_archived", Value: 1},
+				bson.E{Key: "key_initials", Value: 1},
+				bson.E{Key: "create_time", Value: 1},
 			},
 			Options: options.Index().SetUnique(false).SetName("project_name_filter_create_time_idx"),
 		},
 		{
 			Keys: bson.D{
 				bson.E{Key: "project_name", Value: 1},
-				bson.E{Key: "create_time", Value: 1},
 				bson.E{Key: "is_archived", Value: 1},
+				bson.E{Key: "create_time", Value: 1},
 			},
 			Options: options.Index().SetUnique(false).SetName("project_name_create_time_idx"),
 		},
