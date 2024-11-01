@@ -19,11 +19,15 @@ package migrate
 import (
 	"fmt"
 
+	"github.com/pkg/errors"
+	"gorm.io/gorm"
+
 	"github.com/koderover/zadig/v2/pkg/cli/upgradeassistant/internal/upgradepath"
 	templaterepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	sprintservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/sprint_management/service"
+	"github.com/koderover/zadig/v2/pkg/microservice/user/core/repository"
+	usermodels "github.com/koderover/zadig/v2/pkg/microservice/user/core/repository/models"
 	"github.com/koderover/zadig/v2/pkg/shared/handler"
-	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
 func init() {
@@ -34,8 +38,14 @@ func init() {
 func V310ToV320() error {
 	ctx := handler.NewBackgroupContext()
 	ctx.Logger.Infof("-------- start init existed project's sprint template --------")
-	if err := initProjectSprintTemplate(ctx); err != nil {
-		log.Infof("migrate infrastructure filed in testing, scanning and sacnning template module job err: %v", err)
+	if err := initAllProjectSprintTemplate(ctx); err != nil {
+		ctx.Logger.Errorf("failed to init existed project's sprint template, error: %s", err)
+		return err
+	}
+
+	ctx.Logger.Infof("-------- start add get_sprint action for read-only role --------")
+	if err := addGetSprintActionForReadOnlyRole(ctx); err != nil {
+		ctx.Logger.Errorf("failed to add get_sprint action for read-only role, error: %s", err)
 		return err
 	}
 
@@ -46,7 +56,7 @@ func V320ToV310() error {
 	return nil
 }
 
-func initProjectSprintTemplate(ctx *handler.Context) error {
+func initAllProjectSprintTemplate(ctx *handler.Context) error {
 	projects, err := templaterepo.NewProductColl().List()
 	if err != nil {
 		err = fmt.Errorf("failed to list project list, error: %s", err)
@@ -55,7 +65,70 @@ func initProjectSprintTemplate(ctx *handler.Context) error {
 	}
 
 	for _, project := range projects {
-		sprintservice.InitSprintTemplate(ctx, project.ProjectName)
+		sprintservice.InitSprintTemplate(ctx, project.ProductName)
+	}
+
+	return nil
+}
+
+func addGetSprintActionForReadOnlyRole(ctx *handler.Context) error {
+	action := &usermodels.Action{}
+	err := repository.DB.Where("action = ? AND resource = ?", "get_sprint", "SprintManagement").First(&action).Error
+	if err != nil && errors.Is(err, gorm.ErrRecordNotFound) {
+		return fmt.Errorf("failed to get SprintManagement/get_sprint action, err: %v", err)
+	}
+
+	roles := []*usermodels.NewRole{}
+	err = repository.DB.Where("name = ?", "read-only").Find(&roles).Error
+	if err != nil && errors.Is(err, gorm.ErrRecordNotFound) {
+		err = fmt.Errorf("failed to get read-only roles, err: %v", err)
+		ctx.Logger.Error(err)
+		return err
+	}
+	if len(roles) == 0 {
+		ctx.Logger.Infof("role read-only not found")
+		return nil
+	}
+
+	updateRoleIDs := []uint{}
+	for _, role := range roles {
+		roleActionBingding := []*usermodels.RoleActionBinding{}
+		err = repository.DB.Where("role_id = ?", role.ID).Find(&roleActionBingding).Error
+		if err != nil && errors.Is(err, gorm.ErrRecordNotFound) {
+			err = fmt.Errorf("failed to list roleActionBingding, err: %v", err)
+			ctx.Logger.Error(err)
+			return err
+		}
+
+		found := false
+		for _, binding := range roleActionBingding {
+			if binding.ActionID == action.ID {
+				found = true
+				break
+			}
+
+		}
+
+		if !found {
+			updateRoleIDs = append(updateRoleIDs, role.ID)
+		}
+	}
+
+	roleBindings := []*usermodels.RoleActionBinding{}
+	for _, id := range updateRoleIDs {
+		roleBindings = append(roleBindings, &usermodels.RoleActionBinding{
+			RoleID:   id,
+			ActionID: action.ID,
+		})
+	}
+
+	if len(roleBindings) == 0 {
+		return nil
+	}
+
+	err = repository.DB.Create(roleBindings).Error
+	if err != nil {
+		return fmt.Errorf("failed to create roleBingdings, err: %v", err)
 	}
 
 	return nil

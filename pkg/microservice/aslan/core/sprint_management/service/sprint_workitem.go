@@ -587,9 +587,22 @@ func createSprintWorkItemActivity(ctx *handler.Context, session mongo.Session, s
 	return nil
 }
 
-func ExecSprintWorkItemWorkflow(ctx *handler.Context, workitemIDs []string, workflowName string, workflowArgs *commonmodels.WorkflowV4) error {
+func ExecSprintWorkItemWorkflow(ctx *handler.Context, id string, workitemIDs []string, workflowName string, workflowArgs *commonmodels.WorkflowV4) error {
+	workflow, err := mongodb.NewWorkflowV4Coll().Find(workflowName)
+	if err != nil {
+		return e.ErrExecSprintWorkItemTask.AddErr(errors.Wrapf(err, "Find workflow by name %s", workflowName))
+	}
+	if workflow == nil {
+		return e.ErrExecSprintWorkItemTask.AddErr(errors.New("Workflow not found"))
+	}
+	if workflow.Disabled {
+		return e.ErrExecSprintWorkItemTask.AddErr(errors.New("Workflow is disabled"))
+	}
+
+	idSet := sets.NewString(workitemIDs...)
+	idSet.Insert(id)
 	opt := mongodb.ListSprintWorkItemOption{
-		IDs: workitemIDs,
+		IDs: idSet.List(),
 	}
 	workitem, err := mongodb.NewSprintWorkItemColl().List(ctx, opt)
 	if err != nil {
@@ -597,10 +610,15 @@ func ExecSprintWorkItemWorkflow(ctx *handler.Context, workitemIDs []string, work
 	}
 
 	sprintID := ""
-	stageID := ""
+	reqWorkItemStageID := ""
+	currentWorkItem := &commonmodels.SprintWorkItem{}
 	foundWorkitemIDSet := sets.NewString()
 	for _, item := range workitem {
 		foundWorkitemIDSet.Insert(item.ID.Hex())
+
+		if item.ID.Hex() == id {
+			currentWorkItem = item
+		}
 
 		if sprintID == "" {
 			sprintID = item.SprintID
@@ -608,24 +626,23 @@ func ExecSprintWorkItemWorkflow(ctx *handler.Context, workitemIDs []string, work
 			return e.ErrExecSprintWorkItemTask.AddErr(errors.New("Workitems in different sprints"))
 		}
 
-		if stageID == "" {
-			stageID = item.StageID
-		} else if stageID != item.StageID {
+		if reqWorkItemStageID == "" {
+			reqWorkItemStageID = item.StageID
+		} else if reqWorkItemStageID != item.StageID {
 			return e.ErrExecSprintWorkItemTask.AddErr(errors.New("Workitems in different stages"))
 		}
 	}
-	for _, id := range workitemIDs {
-		if !foundWorkitemIDSet.Has(id) {
-			return e.ErrExecSprintWorkItemTask.AddErr(fmt.Errorf("Workitem %s not found", id))
-		}
+	if !foundWorkitemIDSet.Equal(idSet) {
+		return e.ErrExecSprintWorkItemTask.AddErr(fmt.Errorf("Found workitems not equal with request workitems, difference: %v", idSet.Difference(foundWorkitemIDSet).List()))
 	}
 
 	if sprintID == "" {
 		return e.ErrExecSprintWorkItemTask.AddErr(errors.New("Sprint not found"))
 	}
-	if stageID == "" {
-		return e.ErrExecSprintWorkItemTask.AddErr(errors.New("Stage not found"))
+	if currentWorkItem.StageID != reqWorkItemStageID {
+		return e.ErrExecSprintWorkItemTask.AddErr(errors.New("Workitems not in the same stage"))
 	}
+
 	sprint, err := mongodb.NewSprintColl().GetByID(ctx, sprintID)
 	if err != nil {
 		return e.ErrExecSprintWorkItemTask.AddErr(errors.Wrapf(err, "Get sprint by id %s", sprintID))
@@ -636,12 +653,24 @@ func ExecSprintWorkItemWorkflow(ctx *handler.Context, workitemIDs []string, work
 	}
 
 	for _, stage := range sprint.Stages {
-		if stage.ID == stageID {
+		if stage.ID == currentWorkItem.StageID {
+			// check workitemIDs in current stage
 			stageWorkItemIDset := sets.NewString(stage.WorkItemIDs...)
 			for _, id := range workitemIDs {
 				if !stageWorkItemIDset.Has(id) {
 					return e.ErrExecSprintWorkItemTask.AddErr(fmt.Errorf("Workitem %s not found in stage", id))
 				}
+			}
+
+			// check current stage has workflow
+			found := false
+			for _, workflow := range stage.Workflows {
+				if workflow.Name == workflowName {
+					found = true
+				}
+			}
+			if !found {
+				return e.ErrExecSprintWorkItemTask.AddErr(fmt.Errorf("Workflow %s not found in %s stage", workflowName, stage.Name))
 			}
 		}
 	}

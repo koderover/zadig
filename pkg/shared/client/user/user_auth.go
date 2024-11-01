@@ -223,7 +223,6 @@ type SprintActions struct {
 	View    bool
 	Edit    bool
 	Delete  bool
-	Archive bool
 }
 
 type SprintWorkItemActions struct {

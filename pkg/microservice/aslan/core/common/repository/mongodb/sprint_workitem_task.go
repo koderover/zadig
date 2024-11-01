@@ -35,7 +35,6 @@ import (
 
 type SprintWorkItemTaskQueryOption struct {
 	ID   string
-	Name string
 }
 
 type SprintWorkItemTaskListOption struct {
@@ -80,6 +79,14 @@ func (c *SprintWorkItemTaskColl) EnsureIndex(ctx context.Context) error {
 			Keys: bson.D{
 				bson.E{Key: "workflow_name", Value: 1},
 				bson.E{Key: "sprint_workitem_ids", Value: 1},
+				bson.E{Key: "create_time", Value: 1},
+			},
+			Options: options.Index().SetUnique(false),
+		},
+		{
+			Keys: bson.D{
+				bson.E{Key: "status", Value: 1},
+				bson.E{Key: "create_time", Value: 1},
 			},
 			Options: options.Index().SetUnique(false),
 		},
@@ -141,9 +148,6 @@ func (c *SprintWorkItemTaskColl) Find(ctx *handler.Context, opt *SprintWorkItemT
 		}
 		query["_id"] = id
 	}
-	if len(opt.Name) > 0 {
-		query["name"] = opt.Name
-	}
 	resp := new(models.SprintWorkItemTask)
 	err := c.Collection.FindOne(mongotool.SessionContext(ctx, c.Session), query).Decode(resp)
 	if err != nil {
@@ -167,14 +171,14 @@ func (c *SprintWorkItemTaskColl) List(ctx *handler.Context, option *SprintWorkIt
 	}
 	opt.SetSort(bson.D{{"create_time", -1}})
 
+	if len(option.WorkflowName) > 0 {
+		query["workflow_name"] = option.WorkflowName
+	}
 	if len(option.ID) > 0 {
 		query["sprint_workitem_ids"] = bson.M{"$regex": option.ID}
 	}
 	if len(option.Status) > 0 {
 		query["status"] = bson.M{"$in": option.Status}
-	}
-	if len(option.WorkflowName) > 0 {
-		query["workflow_name"] = option.WorkflowName
 	}
 
 	var (

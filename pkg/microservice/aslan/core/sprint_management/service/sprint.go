@@ -173,6 +173,10 @@ func updateSprintWorklow(ctx *handler.Context, sprint *commonmodels.Sprint) erro
 			workflowMap[workflow.Name].DisplayName = workflow.DisplayName
 			changed = true
 		}
+		if workflowMap[workflow.Name].Disabled != workflow.Disabled {
+			workflowMap[workflow.Name].Disabled = workflow.Disabled
+			changed = true
+		}
 		delete(workflowMap, workflow.Name)
 	}
 	if len(workflowMap) > 0 {
@@ -259,7 +263,34 @@ func DeleteSprint(ctx *handler.Context, id string) error {
 }
 
 func ArchiveSprint(ctx *handler.Context, id string) error {
-	err := mongodb.NewSprintColl().ArchiveByID(ctx, id)
+	sprint, err := mongodb.NewSprintColl().GetByID(ctx, id)
+	if err != nil {
+		return e.ErrUpdateSprintName.AddErr(errors.Wrap(err, "Get sprint"))
+	}
+
+	if sprint.IsArchived {
+		return e.ErrUpdateSprintName.AddDesc("Sprint is archived")
+	}
+
+	err = mongodb.NewSprintColl().ArchiveByID(ctx, id)
+	if err != nil {
+		return e.ErrArchiveSprint.AddErr(errors.Wrapf(err, "Archive sprint %s", id))
+	}
+
+	return nil
+}
+
+func ActivateArchivedSprint(ctx *handler.Context, id string) error {
+	sprint, err := mongodb.NewSprintColl().GetByID(ctx, id)
+	if err != nil {
+		return e.ErrUpdateSprintName.AddErr(errors.Wrap(err, "Get sprint"))
+	}
+
+	if !sprint.IsArchived {
+		return e.ErrUpdateSprintName.AddDesc("Sprint is not archived")
+	}
+
+	err = mongodb.NewSprintColl().ActivateArchivedByID(ctx, id)
 	if err != nil {
 		return e.ErrArchiveSprint.AddErr(errors.Wrapf(err, "Archive sprint %s", id))
 	}

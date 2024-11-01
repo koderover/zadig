@@ -44,6 +44,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 			sprint.GET("/:id", GetSprint)
 			sprint.PUT("/:id/name", UpdateSprintName)
 			sprint.PUT("/:id/archive", ArchiveSprint)
+			sprint.PUT("/:id/activate", ActivateArchivedSprint)
 			sprint.DELETE("/:id", DeleteSprint)
 		}
 

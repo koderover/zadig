@@ -30,7 +30,7 @@ type SprintTemplate struct {
 	ID          primitive.ObjectID     `bson:"_id,omitempty"    yaml:"-"                  json:"id"`
 	Name        string                 `bson:"name"             yaml:"name"               json:"name"`
 	Key         string                 `bson:"key"              yaml:"key"                json:"key"`
-	KeyInitials string                 `bson:"key_initials"     yaml:"key_initials"      json:"key_initials"`
+	KeyInitials string                 `bson:"key_initials"     yaml:"key_initials"       json:"key_initials"`
 	ProjectName string                 `bson:"project_name"     yaml:"project_name"       json:"project_name"`
 	CreatedBy   types.UserBriefInfo    `bson:"created_by"       yaml:"created_by"         json:"created_by"`
 	CreateTime  int64                  `bson:"create_time"      yaml:"create_time"        json:"create_time"`
@@ -49,6 +49,7 @@ type SprintWorkflow struct {
 	Name        string `bson:"name"         yaml:"name"         json:"name"`
 	DisplayName string `bson:"display_name" yaml:"display_name" json:"display_name"`
 	IsDeleted   bool   `bson:"is_deleted"   yaml:"is_deleted"   json:"is_deleted"`
+	Disabled    bool   `bson:"disabled"     yaml:"disabled"     json:"disabled"`
 }
 
 func (SprintTemplate) TableName() string {

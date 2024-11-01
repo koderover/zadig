@@ -19,6 +19,7 @@ package service
 import (
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
@@ -26,6 +27,8 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/shared/handler"
 	"github.com/koderover/zadig/v2/pkg/tool/cache"
+	stepspec "github.com/koderover/zadig/v2/pkg/types/step"
+	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 func WatchExecutingSprintWorkItemTask() {
@@ -77,69 +80,156 @@ func updateSprintWorkItemTask(ctx *handler.Context, workItemTask *models.SprintW
 			if _, ok := serviceModuleMap[key]; !ok {
 				serviceModuleMap[key] = serviceModule
 			} else {
+				artifactSet := sets.NewString(serviceModuleMap[key].Artifacts...)
+				artifactSet.Insert(serviceModule.Artifacts...)
+				serviceModuleMap[key].Artifacts = artifactSet.List()
 				serviceModuleMap[key].CodeInfo = append(serviceModuleMap[key].CodeInfo, serviceModule.CodeInfo...)
-				serviceModuleMap[key].Images = append(serviceModuleMap[key].Images, serviceModule.Images...)
 			}
 		}
 	}
 
-	for _, stage := range workflowTask.WorkflowArgs.Stages {
-		for _, job := range stage.Jobs {
-			if job.Skipped {
-				continue
-			}
-			switch job.JobType {
-			case config.JobZadigBuild:
-				build := new(models.ZadigBuildJobSpec)
-				if err := models.IToi(job.Spec, build); err != nil {
+	for _, stage := range workflowTask.Stages {
+		for _, jobTask := range stage.Jobs {
+			switch jobTask.JobType {
+			case string(config.JobZadigBuild):
+				taskJobSpec := &models.JobTaskFreestyleSpec{}
+				if err := models.IToi(jobTask.Spec, taskJobSpec); err != nil {
 					ctx.Logger.Errorf("failed to convert job spec to build job spec, error: %s", err)
 					continue
 				}
-				serviceModules := make([]*models.WorkflowServiceModule, 0)
-				for _, serviceAndBuild := range build.ServiceAndBuilds {
-					sm := &models.WorkflowServiceModule{
-						ServiceName:   serviceAndBuild.ServiceName,
-						ServiceModule: serviceAndBuild.ServiceModule,
+
+				serviceModule := &models.WorkflowServiceModule{}
+				for _, arg := range taskJobSpec.Properties.Envs {
+					if arg.Key == "SERVICE_NAME" {
+						serviceModule.ServiceName = arg.Value
+						continue
 					}
-					for _, repo := range serviceAndBuild.Repos {
-						sm.CodeInfo = append(sm.CodeInfo, repo)
+					if arg.Key == "SERVICE_MODULE" {
+						serviceModule.ServiceModule = arg.Value
+						continue
 					}
-					serviceModules = append(serviceModules, sm)
 				}
-				addToServiceModuleMap(serviceModules)
-			case config.JobZadigDeploy:
-				deploy := new(models.ZadigDeployJobSpec)
-				if err := models.IToi(job.Spec, deploy); err != nil {
+				for _, step := range taskJobSpec.Steps {
+					if step.StepType == config.StepGit {
+						stepSpec := &stepspec.StepGitSpec{}
+						if err := models.IToi(step.Spec, &stepSpec); err != nil {
+							ctx.Logger.Errorf("failed to convert step spec to step git spec, error: %s", err)
+							continue
+						}
+						serviceModule.CodeInfo = stepSpec.Repos
+						continue
+					}
+				}
+
+				addToServiceModuleMap([]*models.WorkflowServiceModule{serviceModule})
+			case string(config.JobZadigDeploy):
+				taskDeploySpec := &models.JobTaskDeploySpec{}
+				if err := models.IToi(jobTask.Spec, taskDeploySpec); err != nil {
 					ctx.Logger.Errorf("failed to convert job spec to deploy job spec, error: %s", err)
 					continue
 				}
+
 				serviceModules := make([]*models.WorkflowServiceModule, 0)
-				for _, svc := range deploy.Services {
-					for _, module := range svc.Modules {
-						sm := &models.WorkflowServiceModule{
-							ServiceName:   svc.ServiceName,
-							ServiceModule: module.ServiceModule,
-							Images:        []string{module.Image},
-						}
-						serviceModules = append(serviceModules, sm)
+				// for compatibility
+				if taskDeploySpec.ServiceModule != "" {
+					serviceModules = append(serviceModules, &models.WorkflowServiceModule{
+						ServiceName:   taskDeploySpec.ServiceName,
+						ServiceModule: taskDeploySpec.ServiceModule,
+						Artifacts:     []string{taskDeploySpec.Image},
+					})
+				}
+
+				for _, imageAndmodule := range taskDeploySpec.ServiceAndImages {
+					serviceModules = append(serviceModules, &models.WorkflowServiceModule{
+						ServiceName:   taskDeploySpec.ServiceName,
+						ServiceModule: imageAndmodule.ServiceModule,
+						Artifacts:     []string{imageAndmodule.Image},
+					})
+				}
+
+				addToServiceModuleMap(serviceModules)
+			case string(config.JobZadigHelmDeploy):
+				taskDeploySpec := &models.JobTaskHelmDeploySpec{}
+				if err := models.IToi(jobTask.Spec, taskDeploySpec); err != nil {
+					ctx.Logger.Errorf("failed to convert job spec to helm deploy job spec, error: %s", err)
+					continue
+				}
+
+				serviceModules := make([]*models.WorkflowServiceModule, 0)
+
+				for _, imageAndmodule := range taskDeploySpec.ImageAndModules {
+					serviceModules = append(serviceModules, &models.WorkflowServiceModule{
+						ServiceName:   taskDeploySpec.ServiceName,
+						ServiceModule: imageAndmodule.ServiceModule,
+						Artifacts:     []string{imageAndmodule.Image},
+					})
+				}
+
+				addToServiceModuleMap(serviceModules)
+			case string(config.JobZadigVMDeploy):
+				taskJobSpec := &models.JobTaskFreestyleSpec{}
+				if err := models.IToi(jobTask.Spec, taskJobSpec); err != nil {
+					ctx.Logger.Errorf("failed to convert job spec to vm deploy job spec, error: %s", err)
+					continue
+				}
+
+				serviceModule := &models.WorkflowServiceModule{}
+				for _, arg := range taskJobSpec.Properties.Envs {
+					if arg.Key == "SERVICE_NAME" {
+						serviceModule.ServiceName = arg.Value
+						continue
+					}
+					if arg.Key == "SERVICE_MODULE" {
+						serviceModule.ServiceModule = arg.Value
+						continue
 					}
 				}
-				addToServiceModuleMap(serviceModules)
-			case config.JobZadigDistributeImage:
-				distribute := new(models.ZadigDistributeImageJobSpec)
-				if err := models.IToi(job.Spec, distribute); err != nil {
+				for _, step := range taskJobSpec.Steps {
+					if step.StepType == config.StepDownloadArchive {
+						stepSpec := &stepspec.StepDownloadArchiveSpec{}
+						if err := models.IToi(step.Spec, &stepSpec); err != nil {
+							ctx.Logger.Errorf("failed to convert step spec to step download archive spec, error: %s", err)
+							continue
+						}
+
+						url := stepSpec.S3.Endpoint + "/" + stepSpec.S3.Bucket + "/"
+						if len(stepSpec.S3.Subfolder) > 0 {
+							url += strings.TrimLeft(stepSpec.S3.Subfolder, "/")
+						}
+						url += "/" + stepSpec.FileName
+						serviceModule.Artifacts = append(serviceModule.Artifacts, url)
+					}
+				}
+
+				addToServiceModuleMap([]*models.WorkflowServiceModule{serviceModule})
+			case string(config.JobZadigDistributeImage):
+				distribute := &models.JobTaskFreestyleSpec{}
+				if err := models.IToi(jobTask.Spec, distribute); err != nil {
 					ctx.Logger.Errorf("failed to convert job spec to distribute image job spec, error: %s", err)
 					continue
 				}
 				serviceModules := make([]*models.WorkflowServiceModule, 0)
-				for _, target := range distribute.Targets {
-					sm := &models.WorkflowServiceModule{
-						ServiceName:   target.ServiceName,
-						ServiceModule: target.ServiceModule,
-						Images:        []string{target.TargetImage},
+
+				for _, step := range distribute.Steps {
+					if step.StepType == config.StepDistributeImage {
+						stepSpec := &stepspec.StepImageDistributeSpec{}
+						if err := models.IToi(step.Spec, &stepSpec); err != nil {
+							ctx.Logger.Errorf("failed to convert step spec to step distribute spec, error: %s", err)
+							break
+						}
+
+						for _, target := range stepSpec.DistributeTarget {
+							sm := &models.WorkflowServiceModule{
+								ServiceName:   target.ServiceName,
+								ServiceModule: target.ServiceModule,
+								Artifacts:     []string{target.TargetImage},
+							}
+							serviceModules = append(serviceModules, sm)
+						}
+						break
 					}
-					serviceModules = append(serviceModules, sm)
 				}
+
 				addToServiceModuleMap(serviceModules)
 			}
 		}

@@ -77,18 +77,18 @@ func (c *SprintColl) EnsureIndex(ctx context.Context) error {
 			Keys: bson.D{
 				bson.E{Key: "project_name", Value: 1},
 				bson.E{Key: "key", Value: 1},
-				bson.E{Key: "key_initials", Value: 1},
 				bson.E{Key: "name", Value: 1},
-				bson.E{Key: "create_time", Value: 1},
 				bson.E{Key: "is_archived", Value: 1},
+				bson.E{Key: "key_initials", Value: 1},
+				bson.E{Key: "create_time", Value: 1},
 			},
 			Options: options.Index().SetUnique(false).SetName("project_name_filter_create_time_idx"),
 		},
 		{
 			Keys: bson.D{
 				bson.E{Key: "project_name", Value: 1},
-				bson.E{Key: "create_time", Value: 1},
 				bson.E{Key: "is_archived", Value: 1},
+				bson.E{Key: "create_time", Value: 1},
 			},
 			Options: options.Index().SetUnique(false).SetName("project_name_create_time_idx"),
 		},
@@ -435,6 +435,21 @@ func (c *SprintColl) ArchiveByID(ctx *handler.Context, idStr string) error {
 	query := bson.M{"_id": id, "is_archived": false}
 	change := bson.M{"$set": bson.M{
 		"is_archived": true,
+		"update_time": time.Now().Unix(),
+		"updated_by":  ctx.GenUserBriefInfo(),
+	}}
+	_, err = c.UpdateOne(mongotool.SessionContext(ctx, c.Session), query, change)
+	return err
+}
+
+func (c *SprintColl) ActivateArchivedByID(ctx *handler.Context, idStr string) error {
+	id, err := primitive.ObjectIDFromHex(idStr)
+	if err != nil {
+		return err
+	}
+	query := bson.M{"_id": id, "is_archived": true}
+	change := bson.M{"$set": bson.M{
+		"is_archived": false,
 		"update_time": time.Now().Unix(),
 		"updated_by":  ctx.GenUserBriefInfo(),
 	}}
