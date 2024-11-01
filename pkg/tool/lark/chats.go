@@ -87,7 +87,7 @@ func (client *Client) ListAllChatMembers(chatID string) ([]*larkim.ListMember, e
 	hasMore := util.GetBoolFromPointer(apiResp.Data.HasMore)
 	pageToken := util.GetStringFromPointer(apiResp.Data.PageToken)
 	for hasMore {
-		reqBuilder := larkim.NewGetChatMembersReqBuilder().ChatId(chatID).PageSize(2).PageToken(pageToken)
+		reqBuilder := larkim.NewGetChatMembersReqBuilder().ChatId(chatID).PageSize(100).PageToken(pageToken)
 		apiResp, err := client.Im.ChatMembers.Get(context.TODO(), reqBuilder.Build())
 		if err != nil {
 			return nil, err
