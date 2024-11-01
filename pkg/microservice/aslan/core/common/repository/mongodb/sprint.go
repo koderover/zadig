@@ -103,7 +103,7 @@ func (c *SprintColl) EnsureIndex(ctx context.Context) error {
 			Keys: bson.D{
 				bson.E{Key: "create_time", Value: 1},
 			},
-			Options: options.Index().SetUnique(false).SetName("project_name_create_time_idx"),
+			Options: options.Index().SetUnique(false).SetName("create_time_idx"),
 		},
 	}
 
