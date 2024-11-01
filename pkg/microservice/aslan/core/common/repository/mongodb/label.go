@@ -27,6 +27,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type LabelColl struct {
@@ -47,8 +48,15 @@ func (c *LabelColl) GetCollectionName() string {
 }
 
 func (c *LabelColl) EnsureIndex(ctx context.Context) error {
-	// currently no query is required for the label defining collection
-	return nil
+	mod := mongo.IndexModel{
+		Keys: bson.D{
+			bson.E{Key: "key", Value: 1},
+		},
+		Options: options.Index().SetUnique(true),
+	}
+
+	_, err := c.Indexes().CreateOne(ctx, mod)
+	return err
 }
 
 func (c *LabelColl) Create(args *models.Label) error {
