@@ -348,7 +348,7 @@ func (j *FreeStyleJob) toJob(taskID int64, registries []*commonmodels.RegistryNa
 		JobNameKey: j.job.Name,
 	}
 	if service != nil {
-		jobName = jobNameFormat(service.ServiceName + "-" + service.ServiceModule + "-" + j.job.Name)
+		jobName = jobNameFormat(j.job.Name + "-" + service.ServiceName + "-" + service.ServiceModule)
 		jobKey = strings.Join([]string{j.job.Name, service.ServiceName, service.ServiceModule}, ".")
 		jobInfo["service_name"] = service.ServiceName
 		jobInfo["service_module"] = service.ServiceModule
