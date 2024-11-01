@@ -323,10 +323,17 @@ func transferServiceVariable(render, template *ServiceVariableKV) *ServiceVariab
 
 	ret := &ServiceVariableKV{}
 	if render.Type != template.Type {
-		ret = template
+		ret.Key = template.Key
+		ret.Value = template.Value
+		ret.Type = template.Type
+		ret.Options = template.Options
+		ret.Desc = template.Desc
 	} else {
-		ret = template
+		ret.Key = template.Key
 		ret.Value = render.Value
+		ret.Type = template.Type
+		ret.Options = template.Options
+		ret.Desc = template.Desc
 	}
 
 	return ret
