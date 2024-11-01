@@ -32,11 +32,9 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	vmcommonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/vm"
 	statrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/stat/repository/mongodb"
-	"github.com/koderover/zadig/v2/pkg/shared/handler"
 	systemrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/repository/mongodb"
 	systemservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/service"
 	templateservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/templatestore/service"
-	sprintservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/sprint_management/service"
 	workflowservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow"
 	configmongodb "github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/email/repository/mongodb"
 	userdb "github.com/koderover/zadig/v2/pkg/microservice/user/core/repository/mongodb"
@@ -253,9 +251,6 @@ func initSystemData() error {
 	}
 
 	templateservice.InitWorkflowTemplate()
-
-	ctx := handler.NewBackgroupContext()
-	sprintservice.InitAllProjectSprintTemplate(ctx)
 
 	// update offical plugins
 	workflowservice.UpdateOfficalPluginRepository(log.SugaredLogger())

@@ -17,7 +17,6 @@
 package service
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/pkg/errors"
@@ -26,7 +25,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
-	templaterepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/types"
@@ -354,19 +352,4 @@ func ListSprint(ctx *handler.Context, opt *ListSprintOption) (*ListSprintResp, e
 		List:  list,
 		Total: total,
 	}, nil
-}
-
-func InitAllProjectSprintTemplate(ctx *handler.Context) {
-	projects, err := templaterepo.NewProductColl().List()
-	if err != nil {
-		err = fmt.Errorf("failed to list project list, error: %s", err)
-		ctx.Logger.Error(err)
-		return
-	}
-
-	for _, project := range projects {
-		InitSprintTemplate(ctx, project.ProductName)
-	}
-
-	return
 }

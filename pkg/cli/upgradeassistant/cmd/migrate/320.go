@@ -23,6 +23,8 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/koderover/zadig/v2/pkg/cli/upgradeassistant/internal/upgradepath"
+	templaterepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
+	sprintservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/sprint_management/service"
 	"github.com/koderover/zadig/v2/pkg/microservice/user/core/repository"
 	usermodels "github.com/koderover/zadig/v2/pkg/microservice/user/core/repository/models"
 	"github.com/koderover/zadig/v2/pkg/shared/handler"
@@ -36,6 +38,12 @@ func init() {
 func V310ToV320() error {
 	ctx := handler.NewBackgroupContext()
 	ctx.Logger.Infof("-------- start init existed project's sprint template --------")
+	if err := initAllProjectSprintTemplate(ctx); err != nil {
+		ctx.Logger.Errorf("failed to init existed project's sprint template, error: %s", err)
+		return err
+	}
+
+	ctx.Logger.Infof("-------- start add get_sprint action for read-only role --------")
 	if err := addGetSprintActionForReadOnlyRole(ctx); err != nil {
 		ctx.Logger.Errorf("failed to add get_sprint action for read-only role, error: %s", err)
 		return err
@@ -45,6 +53,21 @@ func V310ToV320() error {
 }
 
 func V320ToV310() error {
+	return nil
+}
+
+func initAllProjectSprintTemplate(ctx *handler.Context) error {
+	projects, err := templaterepo.NewProductColl().List()
+	if err != nil {
+		err = fmt.Errorf("failed to list project list, error: %s", err)
+		ctx.Logger.Error(err)
+		return err
+	}
+
+	for _, project := range projects {
+		sprintservice.InitSprintTemplate(ctx, project.ProductName)
+	}
+
 	return nil
 }
 
