@@ -259,12 +259,14 @@ func UpdateFileContent(c *gin.Context) {
 
 		if production {
 			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].ProductionService.Create &&
 				!ctx.Resources.ProjectAuthInfo[projectKey].ProductionService.Edit {
 				ctx.UnAuthorized = true
 				return
 			}
 		} else {
 			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].Service.Create &&
 				!ctx.Resources.ProjectAuthInfo[projectKey].Service.Edit {
 				ctx.UnAuthorized = true
 				return
@@ -398,6 +400,7 @@ func UpdateHelmService(c *gin.Context) {
 
 		if production {
 			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].ProductionService.Create &&
 				!ctx.Resources.ProjectAuthInfo[projectKey].ProductionService.Edit {
 				ctx.UnAuthorized = true
 				return
@@ -410,6 +413,7 @@ func UpdateHelmService(c *gin.Context) {
 			}
 		} else {
 			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].Service.Create &&
 				!ctx.Resources.ProjectAuthInfo[projectKey].Service.Edit {
 				ctx.UnAuthorized = true
 				return

@@ -404,6 +404,7 @@ func UpdateServiceTemplate(c *gin.Context) {
 			return
 		}
 		if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectName].Service.Create &&
 			!ctx.Resources.ProjectAuthInfo[projectName].Service.Edit {
 			ctx.UnAuthorized = true
 			return
@@ -462,12 +463,14 @@ func UpdateServiceVariable(c *gin.Context) {
 		}
 		if production {
 			if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectName].ProductionService.Create &&
 				!ctx.Resources.ProjectAuthInfo[projectName].ProductionService.Edit {
 				ctx.UnAuthorized = true
 				return
 			}
 		} else {
 			if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectName].Service.Create &&
 				!ctx.Resources.ProjectAuthInfo[projectName].Service.Edit {
 				ctx.UnAuthorized = true
 				return
@@ -575,6 +578,7 @@ func HelmReleaseNaming(c *gin.Context) {
 
 		if production {
 			if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectName].ProductionService.Create &&
 				!ctx.Resources.ProjectAuthInfo[projectName].ProductionService.Edit {
 				ctx.UnAuthorized = true
 				return
@@ -587,6 +591,7 @@ func HelmReleaseNaming(c *gin.Context) {
 			}
 		} else {
 			if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectName].Service.Create &&
 				!ctx.Resources.ProjectAuthInfo[projectName].Service.Edit {
 				ctx.UnAuthorized = true
 				return
