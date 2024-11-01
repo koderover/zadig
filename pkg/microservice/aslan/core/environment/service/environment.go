@@ -1733,7 +1733,7 @@ func UpdateHelmProductCharts(productName, envName, userName, requestID string, p
 				return e.ErrUpdateEnv.AddDesc(fmt.Sprintf("failed to find current chart values for service: %s", serviceName))
 			}
 
-			arg.FillRenderChartModel(rcValues, rcValues.ChartVersion)
+			arg.FillRenderChartModel(rcValues, rcValues.ChartVersion, rcValues.ValuesYaml)
 			changedCharts = append(changedCharts, arg)
 			updatedRcMap[serviceName] = rcValues
 		}
@@ -3042,10 +3042,12 @@ func diffRenderSet(username, productName, envName string, productResp *commonmod
 
 		productSvc := productResp.GetServiceMap()[serviceName]
 		if productSvc != nil {
-			renderChartArgMap[serviceName].FillRenderChartModel(productSvc.GetServiceRender(), productSvc.GetServiceRender().ChartVersion)
+			log.Debugf("1 valuesYaml: %s", latestChartInfo.ValuesYaml)
+			renderChartArgMap[serviceName].FillRenderChartModel(productSvc.GetServiceRender(), productSvc.GetServiceRender().ChartVersion, latestChartInfo.ValuesYaml)
 			newChartInfos = append(newChartInfos, productSvc.GetServiceRender())
 		} else {
-			renderChartArgMap[serviceName].FillRenderChartModel(latestChartInfo, latestChartInfo.ChartVersion)
+			log.Debugf("2 valuesYaml: %s", latestChartInfo.ValuesYaml)
+			renderChartArgMap[serviceName].FillRenderChartModel(latestChartInfo, latestChartInfo.ChartVersion, latestChartInfo.ValuesYaml)
 			newChartInfos = append(newChartInfos, latestChartInfo)
 		}
 	}

@@ -59,9 +59,7 @@ func prepareHelmProductCreation(templateProduct *templatemodels.Product, product
 			return fmt.Errorf("failed to find chart info in product, serviceName: %s productName: %s", singleCV.ServiceName, templateProduct.ProjectName)
 		}
 		chartInfo := &templatemodels.ServiceRender{}
-		singleCV.FillRenderChartModel(chartInfo, tc.ChartVersion)
-		chartInfo.ChartVersion = tc.ChartVersion
-		chartInfo.ValuesYaml = tc.ValuesYaml
+		singleCV.FillRenderChartModel(chartInfo, tc.ChartVersion, tc.ValuesYaml)
 		cvMap[singleCV.ServiceName] = chartInfo
 		productObj.ServiceRenders = append(productObj.ServiceRenders, chartInfo)
 		serviceDeployStrategy[singleCV.ServiceName] = singleCV.DeployStrategy
