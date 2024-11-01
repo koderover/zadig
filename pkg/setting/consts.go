@@ -933,6 +933,7 @@ type NotifyWebHookType string
 const (
 	NotifyWebHookTypeDingDing   NotifyWebHookType = "dingding"
 	NotifyWebHookTypeFeishu     NotifyWebHookType = "feishu"
+	NotifyWebhookTypeFeishuApp  NotifyWebHookType = "feishu_app"
 	NotifyWebHookTypeWechatWork NotifyWebHookType = "wechat"
 	NotifyWebHookTypeMail       NotifyWebHookType = "mail"
 	NotifyWebHookTypeWebook     NotifyWebHookType = "webhook"

@@ -315,6 +315,10 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		lark.GET("/:id/department/:department_id", GetLarkDepartment)
 		lark.GET("/:id/user", GetLarkUserID)
 		lark.POST("/:id/webhook", LarkEventHandler)
+
+		lark.GET("/:id/chat", ListAvailableLarkChat)
+		lark.GET("/:id/chat/search", SearchLarkChat)
+		lark.GET("/:id/chat/:chat_id/members", ListLarkChatMembers)
 	}
 
 	dingtalk := router.Group("dingtalk")

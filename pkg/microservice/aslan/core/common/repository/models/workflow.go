@@ -19,6 +19,7 @@ package models
 import (
 	"fmt"
 
+	"github.com/koderover/zadig/v2/pkg/tool/lark"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
@@ -332,11 +333,13 @@ type NotifyCtl struct {
 	DingDingWebHook string                    `bson:"dingding_webhook,omitempty"    yaml:"dingding_webhook,omitempty"    json:"dingding_webhook,omitempty"`
 	FeiShuAppID     string                    `bson:"feishu_app_id,omitempty"       yaml:"feishu_app_id,omitempty"       json:"feishu_app_id,omitempty"`
 	FeiShuWebHook   string                    `bson:"feishu_webhook,omitempty"      yaml:"feishu_webhook,omitempty"      json:"feishu_webhook,omitempty"`
+	FeishuChat      *LarkChat                 `bson:"feishu_chat,omitempty"         yaml:"feishu_chat,omitempty"         json:"feishu_chat,omitempty"`
 	MailUsers       []*User                   `bson:"mail_users,omitempty"          yaml:"mail_users,omitempty"          json:"mail_users,omitempty"`
 	WebHookNotify   WebhookNotify             `bson:"webhook_notify,omitempty"      yaml:"webhook_notify,omitempty"      json:"webhook_notify,omitempty"`
 	AtMobiles       []string                  `bson:"at_mobiles,omitempty"          yaml:"at_mobiles,omitempty"          json:"at_mobiles,omitempty"`
 	WechatUserIDs   []string                  `bson:"wechat_user_ids,omitempty"     yaml:"wechat_user_ids,omitempty"     json:"wechat_user_ids,omitempty"`
 	LarkUserIDs     []string                  `bson:"lark_user_ids,omitempty"       yaml:"lark_user_ids,omitempty"       json:"lark_user_ids,omitempty"`
+	LarkAtUsers     []*lark.UserInfo          `bson:"lark_at_users"                 yaml:"lark_at_users"                 json:"lark_at_users"`
 	IsAtAll         bool                      `bson:"is_at_all,omitempty"           yaml:"is_at_all,omitempty"           json:"is_at_all,omitempty"`
 	NotifyTypes     []string                  `bson:"notify_type"                   yaml:"notify_type"                   json:"notify_type"`
 }

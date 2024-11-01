@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"sync"
 
+	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/pkg/errors"
 
 	config2 "github.com/koderover/zadig/v2/pkg/config"
@@ -105,6 +106,81 @@ func GetLarkAppContactRange(approvalID, userIDType string) (*DepartmentInfo, err
 		UserList:          userList,
 		SubDepartmentList: departmentList,
 	}, nil
+}
+
+func ListAvailableLarkChat(imAppID string) ([]*commonmodels.LarkChat, error) {
+	cli, err := GetLarkClientByIMAppID(imAppID)
+	if err != nil {
+		log.Errorf("failed to get lark client for id: %s, error: %s", imAppID, err)
+		return nil, fmt.Errorf("failed to get lark client, error: %s", err)
+	}
+
+	chatList, _, _, err := cli.ListAvailableChats(100)
+	if err != nil {
+		log.Errorf("failed to list lark chats, error: %s", err)
+		return nil, fmt.Errorf("failed to list lark chats, error: %s", err)
+	}
+
+	resp := make([]*commonmodels.LarkChat, 0)
+
+	for _, chat := range chatList {
+		resp = append(resp, &commonmodels.LarkChat{
+			ChatID:   util.GetStringFromPointer(chat.ChatId),
+			ChatName: util.GetStringFromPointer(chat.Name),
+		})
+	}
+
+	return resp, nil
+}
+
+func SearchLarkChat(imAppID, query string) ([]*commonmodels.LarkChat, error) {
+	cli, err := GetLarkClientByIMAppID(imAppID)
+	if err != nil {
+		log.Errorf("failed to get lark client for id: %s, error: %s", imAppID, err)
+		return nil, fmt.Errorf("failed to get lark client, error: %s", err)
+	}
+
+	chatList, _, _, err := cli.SearchAvailableChats(query, 100, "")
+	if err != nil {
+		log.Errorf("failed to list lark chats, error: %s", err)
+		return nil, fmt.Errorf("failed to list lark chats, error: %s", err)
+	}
+
+	resp := make([]*commonmodels.LarkChat, 0)
+
+	for _, chat := range chatList {
+		resp = append(resp, &commonmodels.LarkChat{
+			ChatID:   util.GetStringFromPointer(chat.ChatId),
+			ChatName: util.GetStringFromPointer(chat.Name),
+		})
+	}
+
+	return resp, nil
+}
+
+func ListLarkChatMembers(imAppID, chatID string) ([]*lark.UserInfo, error) {
+	cli, err := GetLarkClientByIMAppID(imAppID)
+	if err != nil {
+		log.Errorf("failed to get lark client for id: %s, error: %s", imAppID, err)
+		return nil, fmt.Errorf("failed to get lark client, error: %s", err)
+	}
+
+	chatMembers, err := cli.ListAllChatMembers(chatID)
+	if err != nil {
+		log.Errorf("failed to list lark chats, error: %s", err)
+		return nil, fmt.Errorf("failed to list lark chats, error: %s", err)
+	}
+
+	resp := make([]*lark.UserInfo, 0)
+
+	for _, member := range chatMembers {
+		resp = append(resp, &lark.UserInfo{
+			ID:   util.GetStringFromPointer(member.MemberId),
+			Name: util.GetStringFromPointer(member.Name),
+		})
+	}
+
+	return resp, nil
 }
 
 func getLarkUserInfoConcurrently(client *lark.Client, idList []string, userIDType string, concurrentNum int) ([]*lark.UserInfo, error) {

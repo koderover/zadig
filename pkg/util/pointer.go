@@ -38,3 +38,10 @@ func GetBoolFromPointer(source *bool) bool {
 	}
 	return *source
 }
+
+func GetStringFromPointer(source *string) string {
+	if source == nil {
+		return ""
+	}
+	return *source
+}

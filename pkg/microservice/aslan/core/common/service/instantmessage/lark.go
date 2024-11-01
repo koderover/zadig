@@ -34,6 +34,19 @@ const (
 	feishuTagButton               = "button"
 )
 
+const (
+	LarkReceiverTypeChat  = "chat_id"
+	LarkReceiverTypeOpen  = "open_id"
+	LarkReceiverTypeUnion = "union_id"
+	LarkReceiverTypeUser  = "user_id"
+	LarkReceiverTypeEmail = "email"
+)
+
+const (
+	LarkMessageTypeCard = "interactive"
+	LarkMessageTypeText = "text"
+)
+
 type LarkCardReq struct {
 	MsgType string    `json:"msg_type"`
 	Card    *LarkCard `json:"card"`
