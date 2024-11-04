@@ -17,15 +17,17 @@ limitations under the License.
 package service
 
 import (
+	"go.uber.org/zap"
+
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/s3"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/tool/crypto"
 	"github.com/koderover/zadig/v2/pkg/tool/errors"
 	s3tool "github.com/koderover/zadig/v2/pkg/tool/s3"
-	"go.uber.org/zap"
 )
 
 func UpdateS3Storage(updateBy, id string, storage *commonmodels.S3Storage, logger *zap.SugaredLogger) error {
@@ -123,5 +125,5 @@ func GetS3Storage(id string, logger *zap.SugaredLogger) (*commonmodels.S3Storage
 }
 
 func ListTars(id, kind string, serviceNames []string, logger *zap.SugaredLogger) ([]*commonmodels.TarInfo, error) {
-	return service.ListTars(id, kind, serviceNames)
+	return commonservice.ListTars(id, kind, serviceNames)
 }
