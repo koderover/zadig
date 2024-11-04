@@ -22,6 +22,7 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/util"
 	"go.uber.org/zap"
 
@@ -40,9 +41,11 @@ func RenderWorkflowVariables(projectKey, workflowName, variableType, jobName, va
 	userInput := make(map[string]string)
 	// generate a user input map
 	for _, kv := range input {
+		// first remove all <+fixed> prefix
+		replacedString := strings.ReplaceAll(kv.Value, setting.FixedValueMark, "")
 		// special logic: since when we call the function we use value instead of parameter, add quotation mark to the value, and escape the " character
-		val := strings.ReplaceAll(kv.Value, `"`, `\"`)
-		userInput[kv.Key] = fmt.Sprintf("\"%s\"", val)
+		replacedString = strings.ReplaceAll(replacedString, `"`, `\"`)
+		userInput[kv.Key] = fmt.Sprintf("\"%s\"", replacedString)
 	}
 
 	switch variableType {
