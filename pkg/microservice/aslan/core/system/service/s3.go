@@ -74,7 +74,7 @@ func ListS3Storage(encryptedKey string, logger *zap.SugaredLogger) ([]*commonmod
 	if err == nil && len(stores) == 0 {
 		stores = make([]*commonmodels.S3Storage, 0)
 	}
-	aesKey, err := service.GetAesKeyFromEncryptedKey(encryptedKey, logger)
+	aesKey, err := commonservice.GetAesKeyFromEncryptedKey(encryptedKey, logger)
 	if err != nil {
 		logger.Errorf("ListS3Storage GetAesKeyFromEncryptedKey err:%s", err)
 		return nil, err
