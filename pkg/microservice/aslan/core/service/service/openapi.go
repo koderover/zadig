@@ -139,7 +139,7 @@ func OpenAPIUpdateServiceVariable(userName, projectName, serviceName string, arg
 			}
 		}
 	}
-	yaml, err := commontypes.ServiceVariableKVToYaml(serviceKvs)
+	yaml, err := commontypes.ServiceVariableKVToYaml(serviceKvs, true)
 	if err != nil {
 		logger.Errorf("failed to convert service variable kv to yaml, err: %v", err)
 		return fmt.Errorf("failed to convert service variable kv to yaml, err: %w", err)
@@ -179,7 +179,7 @@ func OpenAPIUpdateProductionServiceVariable(userName, projectName, serviceName s
 		}
 	}
 
-	yaml, err := commontypes.ServiceVariableKVToYaml(serviceKvs)
+	yaml, err := commontypes.ServiceVariableKVToYaml(serviceKvs, true)
 	if err != nil {
 		logger.Errorf("failed to convert service variable kv to yaml, err: %v", err)
 		return fmt.Errorf("failed to convert service variable kv to yaml, err: %w", err)

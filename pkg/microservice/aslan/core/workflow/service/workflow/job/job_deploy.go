@@ -920,7 +920,7 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 				varsYaml := ""
 				varKVs := []*commontypes.RenderVariableKV{}
 				if slices.Contains(jobTaskSpec.DeployContents, config.DeployVars) {
-					varsYaml, err = commontypes.RenderVariableKVToYaml(jobTaskSpec.VariableKVs)
+					varsYaml, err = commontypes.RenderVariableKVToYaml(jobTaskSpec.VariableKVs, true)
 					if err != nil {
 						return nil, errors.Errorf("generate vars yaml error: %v", err)
 					}

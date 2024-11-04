@@ -346,7 +346,7 @@ func updateK8sProduct(exitedProd *commonmodels.Product, user, requestID string, 
 				return e.ErrUpdateEnv.AddErr(fmtErr)
 			}
 
-			svcRender.OverrideYaml.YamlContent, err = commontypes.RenderVariableKVToYaml(svcRender.OverrideYaml.RenderVariableKVs)
+			svcRender.OverrideYaml.YamlContent, err = commontypes.RenderVariableKVToYaml(svcRender.OverrideYaml.RenderVariableKVs, true)
 			if err != nil {
 				fmtErr := fmt.Errorf("failed to convert render variable kvs to yaml, err: %w", err)
 				log.Error(fmtErr)

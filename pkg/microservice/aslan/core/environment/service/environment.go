@@ -3364,7 +3364,7 @@ func UpdateProductGlobalVariablesWithRender(templateProduct *templatemodels.Prod
 		for _, svc := range svcSet.List() {
 			if curVariable, ok := svcVariableMap[svc]; ok {
 				curVariable.OverrideYaml.RenderVariableKVs = commontypes.UpdateRenderVariable(args, curVariable.OverrideYaml.RenderVariableKVs)
-				curVariable.OverrideYaml.YamlContent, err = commontypes.RenderVariableKVToYaml(curVariable.OverrideYaml.RenderVariableKVs)
+				curVariable.OverrideYaml.YamlContent, err = commontypes.RenderVariableKVToYaml(curVariable.OverrideYaml.RenderVariableKVs, true)
 				if err != nil {
 					return fmt.Errorf("failed to convert service %s's render variables to yaml, err: %s", svc, err)
 				}
@@ -3936,7 +3936,7 @@ func PreviewProductGlobalVariablesWithRender(product *commonmodels.Product, args
 		for _, svc := range svcSet.List() {
 			if curVariable, ok := svcVariableMap[svc]; ok {
 				curVariable.OverrideYaml.RenderVariableKVs = commontypes.UpdateRenderVariable(args, curVariable.OverrideYaml.RenderVariableKVs)
-				curVariable.OverrideYaml.YamlContent, err = commontypes.RenderVariableKVToYaml(curVariable.OverrideYaml.RenderVariableKVs)
+				curVariable.OverrideYaml.YamlContent, err = commontypes.RenderVariableKVToYaml(curVariable.OverrideYaml.RenderVariableKVs, true)
 				if err != nil {
 					return nil, fmt.Errorf("failed to convert service %s's render variables to yaml, err: %s", svc, err)
 				}

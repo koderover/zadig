@@ -832,7 +832,7 @@ func OpenAPICreateK8sEnv(args *OpenAPICreateEnvArgs, userName, requestID string,
 			return e.ErrCreateEnv.AddDesc(err.Error())
 		}
 
-		variableYaml, err := commontypes.RenderVariableKVToYaml(s.VariableKVs)
+		variableYaml, err := commontypes.RenderVariableKVToYaml(s.VariableKVs, true)
 		if err != nil {
 			logger.Errorf("failed to render variable: %v", err)
 			return e.ErrCreateEnv.AddErr(fmt.Errorf("failed to render variable: %v", err))
