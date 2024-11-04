@@ -177,7 +177,7 @@ func (c *DeployJobCtl) run(ctx context.Context) error {
 	varsYaml := ""
 	varKVs := []*commontypes.RenderVariableKV{}
 	if slices.Contains(c.jobTaskSpec.DeployContents, config.DeployVars) {
-		varsYaml, err = commontypes.RenderVariableKVToYaml(c.jobTaskSpec.VariableKVs)
+		varsYaml, err = commontypes.RenderVariableKVToYaml(c.jobTaskSpec.VariableKVs, true)
 		if err != nil {
 			msg := fmt.Sprintf("generate vars yaml error: %v", err)
 			logError(c.job, msg, c.logger)
@@ -274,7 +274,7 @@ func (c *DeployJobCtl) updateSystemService(env *commonmodels.Product, currentYam
 		return errors.New(msg)
 	}
 
-	variableYaml, err := commontypes.RenderVariableKVToYaml(variableKVs)
+	variableYaml, err := commontypes.RenderVariableKVToYaml(variableKVs, true)
 	if err != nil {
 		msg := fmt.Sprintf("convert render variable to yaml error: %v", err)
 		return errors.New(msg)

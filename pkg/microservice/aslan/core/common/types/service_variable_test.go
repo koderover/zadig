@@ -238,7 +238,7 @@ var _ = Describe("Service", func() {
 	Context("convert kvs and yaml", func() {
 		It("convert kvs to yaml", func() {
 			for _, testCase := range kvToYamlTestCases {
-				actual, err := types.ServiceVariableKVToYaml(testCase.kvs)
+				actual, err := types.ServiceVariableKVToYaml(testCase.kvs, true)
 				Expect(err).ShouldNot(HaveOccurred())
 				Expect(string(actual)).To(Equal(testCase.expected))
 			}
@@ -249,7 +249,7 @@ var _ = Describe("Service", func() {
 				actual, err := types.YamlToServiceVariableKV(testCase.yamlStr, testCase.origKVs)
 				Expect(err).ShouldNot(HaveOccurred())
 
-				actualYaml, err := types.ServiceVariableKVToYaml(actual)
+				actualYaml, err := types.ServiceVariableKVToYaml(actual, true)
 				Expect(err).ShouldNot(HaveOccurred())
 
 				Expect(actualYaml).To(Equal(testCase.expected))

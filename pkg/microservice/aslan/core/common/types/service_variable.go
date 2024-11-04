@@ -127,7 +127,7 @@ func marshalYamlNode(node *yaml.Node) (string, error) {
 
 // not suitable for flatten kv
 // ServiceVariableKV is a kv which aggregate complicated struct to the first layer
-func ServiceVariableKVToYaml(kvs []*ServiceVariableKV) (string, error) {
+func ServiceVariableKVToYaml(kvs []*ServiceVariableKV, forceCheck bool) (string, error) {
 	node := &yaml.Node{
 		Kind: yaml.MappingNode,
 	}
@@ -162,9 +162,11 @@ func ServiceVariableKVToYaml(kvs []*ServiceVariableKV) (string, error) {
 				return "", fmt.Errorf("invaild value for boolean, key: %v, value: %v", kv.Key, kv.Value)
 			}
 		case ServiceVariableKVTypeEnum:
-			v := fmt.Sprintf("%v", kv.Value)
-			if !sets.NewString(kv.Options...).Has(v) {
-				return "", fmt.Errorf("invaild value for enum, key: %v, value: %v, options: %v", kv.Key, kv.Value, kv.Options)
+			if forceCheck {
+				v := fmt.Sprintf("%v", kv.Value)
+				if !sets.NewString(kv.Options...).Has(v) {
+					return "", fmt.Errorf("invaild value for enum, key: %v, value: %v, options: %v", kv.Key, kv.Value, kv.Options)
+				}
 			}
 			node = addValueToNode(kv.Key, kv.Value, node)
 		default:
@@ -351,7 +353,7 @@ func MergeServiceVariableKVsIfNotExist(kvsList ...[]*ServiceVariableKV) (string,
 		}
 	}
 
-	yaml, err := ServiceVariableKVToYaml(ret)
+	yaml, err := ServiceVariableKVToYaml(ret, true)
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to convert service variable kv to yaml, err: %w", err)
 	}
@@ -373,7 +375,7 @@ func MergeServiceVariableKVs(kvsList ...[]*ServiceVariableKV) (string, []*Servic
 		ret = append(ret, kv)
 	}
 
-	yaml, err := ServiceVariableKVToYaml(ret)
+	yaml, err := ServiceVariableKVToYaml(ret, true)
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to convert service variable kv to yaml, err: %w", err)
 	}
@@ -395,7 +397,7 @@ func MergeRenderVariableKVs(kvsList ...[]*RenderVariableKV) (string, []*RenderVa
 		ret = append(ret, kv)
 	}
 
-	yaml, err := RenderVariableKVToYaml(ret)
+	yaml, err := RenderVariableKVToYaml(ret, true)
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to convert render variable kv to yaml, err: %w", err)
 	}
@@ -421,7 +423,7 @@ func MergeServiceAndServiceTemplateVariableKVs(service []*ServiceVariableKV, ser
 		}
 	}
 
-	yaml, err := ServiceVariableKVToYaml(ret)
+	yaml, err := ServiceVariableKVToYaml(ret, false)
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to convert service variable kv to yaml, err: %w", err)
 	}
@@ -459,7 +461,7 @@ func MergeRenderAndServiceTemplateVariableKVs(render []*RenderVariableKV, serivc
 		}
 	}
 
-	yaml, err := RenderVariableKVToYaml(ret)
+	yaml, err := RenderVariableKVToYaml(ret, false)
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to convert render variable kv to yaml, err: %w", err)
 	}
@@ -468,13 +470,13 @@ func MergeRenderAndServiceTemplateVariableKVs(render []*RenderVariableKV, serivc
 }
 
 // RenderVariableKVToYaml
-func RenderVariableKVToYaml(kvs []*RenderVariableKV) (string, error) {
+func RenderVariableKVToYaml(kvs []*RenderVariableKV, forceCheck bool) (string, error) {
 	serviceVariableKVs := make([]*ServiceVariableKV, 0)
 	for _, kv := range kvs {
 		serviceVariableKVs = append(serviceVariableKVs, &kv.ServiceVariableKV)
 	}
 
-	return ServiceVariableKVToYaml(serviceVariableKVs)
+	return ServiceVariableKVToYaml(serviceVariableKVs, forceCheck)
 }
 
 func GlobalVariableKVToYaml(kvs []*GlobalVariableKV) (string, error) {
@@ -483,7 +485,7 @@ func GlobalVariableKVToYaml(kvs []*GlobalVariableKV) (string, error) {
 		serviceVariableKVs = append(serviceVariableKVs, &kv.ServiceVariableKV)
 	}
 
-	return ServiceVariableKVToYaml(serviceVariableKVs)
+	return ServiceVariableKVToYaml(serviceVariableKVs, true)
 }
 
 // validate global variables base on global variables define
@@ -677,7 +679,7 @@ func ClipRenderVariableKVs(template []*ServiceVariableKV, render []*RenderVariab
 		}
 	}
 
-	yaml, err = RenderVariableKVToYaml(ret)
+	yaml, err = RenderVariableKVToYaml(ret, true)
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to convert render variable kv to yaml, err: %w", err)
 	}
@@ -698,7 +700,7 @@ func ClipServiceVariableKVs(clipRange []*ServiceVariableKV, kvs []*ServiceVariab
 		}
 	}
 
-	yaml, err := ServiceVariableKVToYaml(ret)
+	yaml, err := ServiceVariableKVToYaml(ret, false)
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to convert service variable kv to yaml, err: %w", err)
 	}

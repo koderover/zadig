@@ -157,7 +157,7 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 	if err != nil {
 		return e.ErrUpdateEnv.AddErr(fmt.Errorf("failed to update global variable, err: %s", err))
 	}
-	args.ServiceRev.VariableYaml, err = commontypes.RenderVariableKVToYaml(args.ServiceRev.VariableKVs)
+	args.ServiceRev.VariableYaml, err = commontypes.RenderVariableKVToYaml(args.ServiceRev.VariableKVs, true)
 	if err != nil {
 		return e.ErrUpdateEnv.AddErr(fmt.Errorf("failed to convert render variable to yaml, err: %s", err))
 	}
