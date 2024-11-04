@@ -23,9 +23,8 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/service"
+	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/codehost/repository/mongodb"
-	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/types"
 	steptypes "github.com/koderover/zadig/v2/pkg/types/step"
 )
@@ -664,7 +663,7 @@ func (p *ZadigVMDeployJobInput) UpdateJobSpec(job *commonmodels.Job) (*commonmod
 			ServiceName: inputSvc.ServiceName,
 		}
 
-		artifacts, err := service.ListTars(newSpec.S3StorageID, "file", []string{inputSvc.ServiceName}, log.SugaredLogger())
+		artifacts, err := commonservice.ListTars(newSpec.S3StorageID, "file", []string{inputSvc.ServiceName})
 		if err != nil {
 			return nil, fmt.Errorf("failed to validate given file: %s, error: %s", inputSvc.FileName, err)
 		}
