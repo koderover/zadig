@@ -22,6 +22,7 @@ import (
 
 	"github.com/koderover/zadig/v2/pkg/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/user/core/repository"
+	"github.com/koderover/zadig/v2/pkg/microservice/user/core/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/user/core/repository/orm"
 	"github.com/koderover/zadig/v2/pkg/tool/cache"
 	"github.com/koderover/zadig/v2/pkg/types"
@@ -46,7 +47,7 @@ type BindingUserInfo struct {
 type BindingGroupInfo struct {
 	GID       string             `json:"group_id"`
 	Name      string             `json:"name"`
-	UserInfos []*BindingUserInfo `json:"user_infos,omitempty"`
+	UserInfos []*BindingUserInfo `json:"user_infos"`
 }
 
 func ListRoleBindings(ns, uid, gid string, log *zap.SugaredLogger) ([]*RoleBindingResp, error) {
@@ -181,11 +182,22 @@ func ListRoleBindings(ns, uid, gid string, log *zap.SugaredLogger) ([]*RoleBindi
 					log.Errorf("failed to get user group info for gid: %s, error:%s", uid, err)
 					return nil, fmt.Errorf("failed to get user group info for gid: %s, error:%s", uid, err)
 				}
-				users, err := orm.ListUsersByGroup(roleBinding.GroupID, repository.DB)
-				if err != nil {
-					tx.Rollback()
-					log.Errorf("failed to list users by gid: %s, error is: %s", gid, err)
-					return nil, fmt.Errorf("failed to list users by gid: %s, error is: %s", gid, err)
+
+				var users []*models.User
+				if groupInfo.IsAllUserGroup() {
+					users, err = orm.ListAllUsers(repository.DB)
+					if err != nil {
+						tx.Rollback()
+						log.Errorf("failed to list all users, error is: %s", err)
+						return nil, fmt.Errorf("failed to list all users, error is: %s", err)
+					}
+				} else {
+					users, err = orm.ListUsersByGroup(roleBinding.GroupID, repository.DB)
+					if err != nil {
+						tx.Rollback()
+						log.Errorf("failed to list users by gid: %s, error is: %s", gid, err)
+						return nil, fmt.Errorf("failed to list users by gid: %s, error is: %s", gid, err)
+					}
 				}
 
 				userInfos := make([]*BindingUserInfo, 0)
