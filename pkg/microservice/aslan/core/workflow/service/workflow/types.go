@@ -23,7 +23,9 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/service"
 	"github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/codehost/repository/mongodb"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/types"
 	steptypes "github.com/koderover/zadig/v2/pkg/types/step"
 )
@@ -625,6 +627,77 @@ func (p *ZadigScanningJobInput) UpdateJobSpec(job *commonmodels.Job) (*commonmod
 				}
 			}
 		}
+	}
+
+	job.Spec = newSpec
+
+	return job, nil
+}
+
+type ZadigVMDeployJobInput struct {
+	EnvName     string                 `json:"env_name"` // required
+	ServiceList []*VMServiceDeployArgs `json:"service_list"`
+}
+
+type VMServiceDeployArgs struct {
+	ServiceName string `json:"service_name"`
+	FileName    string `json:"file_name"`
+}
+
+func (p *ZadigVMDeployJobInput) UpdateJobSpec(job *commonmodels.Job) (*commonmodels.Job, error) {
+	newSpec := new(commonmodels.ZadigVMDeployJobSpec)
+	if err := commonmodels.IToi(job.Spec, newSpec); err != nil {
+		return nil, errors.New("unable to cast job.Spec into commonmodels.ZadigVMDeployJobSpec")
+	}
+
+	newSpec.Env = p.EnvName
+	newSpec.ServiceAndVMDeploys = make([]*commonmodels.ServiceAndVMDeploy, 0)
+	serviceMap := map[string]*commonmodels.ServiceAndVMDeploy{}
+	for _, inputSvc := range p.ServiceList {
+		if _, ok := serviceMap[inputSvc.ServiceName]; ok {
+			// previously added, return error since there are 2 services, which is not allowed in the vm deploy
+			return nil, fmt.Errorf("cannot deploy 2 same service")
+		}
+
+		// register the service but not using it just in case someone decide to deploy the same service more than 1 time.
+		serviceMap[inputSvc.ServiceName] = &commonmodels.ServiceAndVMDeploy{
+			ServiceName: inputSvc.ServiceName,
+		}
+
+		artifacts, err := service.ListTars(newSpec.S3StorageID, "file", []string{inputSvc.ServiceName}, log.SugaredLogger())
+		if err != nil {
+			return nil, fmt.Errorf("failed to validate given file: %s, error: %s", inputSvc.FileName, err)
+		}
+
+		found := false
+		var taskID int64
+		workflowType := ""
+		workflowName := ""
+		jobTaskName := ""
+
+		for _, artifact := range artifacts {
+			if artifact.FileName == inputSvc.FileName {
+				taskID = artifact.TaskID
+				workflowType = artifact.WorkflowType
+				workflowName = artifact.WorkflowName
+				jobTaskName = artifact.JobTaskName
+				found = true
+				break
+			}
+		}
+
+		if !found {
+			return nil, fmt.Errorf("failed to validate given file: %s, error: artifact not found in zadig artifact list", inputSvc.FileName)
+		}
+
+		newSpec.ServiceAndVMDeploys = append(newSpec.ServiceAndVMDeploys, &commonmodels.ServiceAndVMDeploy{
+			ServiceName:  inputSvc.ServiceName,
+			FileName:     inputSvc.FileName,
+			TaskID:       int(taskID),
+			WorkflowType: config.PipelineType(workflowType),
+			WorkflowName: workflowName,
+			JobTaskName:  jobTaskName,
+		})
 	}
 
 	job.Spec = newSpec
