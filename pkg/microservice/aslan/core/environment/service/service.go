@@ -368,7 +368,7 @@ func FetchServiceYaml(productName, envName, serviceName string, _ *zap.SugaredLo
 }
 
 func PreviewService(args *PreviewServiceArgs, _ *zap.SugaredLogger) (*SvcDiffResult, error) {
-	newVariableYaml, err := commontypes.RenderVariableKVToYaml(args.VariableKVs)
+	newVariableYaml, err := commontypes.RenderVariableKVToYaml(args.VariableKVs, true)
 	if err != nil {
 		return nil, e.ErrPreviewYaml.AddErr(err)
 	}

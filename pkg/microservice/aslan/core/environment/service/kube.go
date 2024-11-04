@@ -972,7 +972,7 @@ func GetResourceDeployStatus(productName string, request *K8sDeployStatusCheckRe
 	fakeRenderMap := make(map[string]*template.ServiceRender)
 
 	for _, sv := range request.Services {
-		variableYaml, err := commontypes.RenderVariableKVToYaml(sv.VariableKVs)
+		variableYaml, err := commontypes.RenderVariableKVToYaml(sv.VariableKVs, true)
 		if err != nil {
 			return nil, e.ErrGetResourceDeployInfo.AddErr(fmt.Errorf("failed to convert render variable yaml, err: %s", err))
 		}

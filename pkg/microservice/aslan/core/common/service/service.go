@@ -1294,7 +1294,7 @@ type ConvertVaraibleKVAndYamlArgs struct {
 func ConvertVaraibleKVAndYaml(args *ConvertVaraibleKVAndYamlArgs) (*ConvertVaraibleKVAndYamlArgs, error) {
 	var err error
 	if args.Action == ConvertVaraibleKVAndYamlActionTypeToYaml {
-		args.Yaml, err = commontypes.ServiceVariableKVToYaml(args.KVs)
+		args.Yaml, err = commontypes.ServiceVariableKVToYaml(args.KVs, true)
 		if err != nil {
 			return nil, fmt.Errorf("failed to convert service variable kv to yaml, err: %w", err)
 		}
