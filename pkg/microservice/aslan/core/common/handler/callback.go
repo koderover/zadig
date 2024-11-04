@@ -58,7 +58,7 @@ func WebhookNotifyTest(c *gin.Context) {
 	// // 读取请求体
 	// bodyBytes, err := ioutil.ReadAll(c.Request.Body)
 	// if err != nil {
-	// 	ctx.Err = fmt.Errorf("Failed to read request body")
+	// 	ctx.RespErr = fmt.Errorf("Failed to read request body")
 	// 	return
 	// }
 

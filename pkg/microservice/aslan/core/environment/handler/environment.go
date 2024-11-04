@@ -2724,14 +2724,14 @@ func ListSAEEnvs(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	projectKey := c.Query("projectName")
 	if projectKey == "" {
-		ctx.Err = e.ErrInvalidParam
+		ctx.RespErr = e.ErrInvalidParam
 		return
 	}
 
@@ -2762,7 +2762,7 @@ func ListSAEEnvs(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.ListSAEEnvs(ctx.UserID, projectKey, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.ListSAEEnvs(ctx.UserID, projectKey, ctx.Logger)
 }
 
 // @Summary Get SAE Env
@@ -2780,7 +2780,7 @@ func GetSAEEnv(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -2805,7 +2805,7 @@ func GetSAEEnv(c *gin.Context) {
 
 			err = commonutil.CheckZadigProfessionalLicense()
 			if err != nil {
-				ctx.Err = err
+				ctx.RespErr = err
 				return
 			}
 		} else {
@@ -2817,7 +2817,7 @@ func GetSAEEnv(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.Err = service.GetSAEEnv(ctx.UserName, envName, projectKey, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetSAEEnv(ctx.UserName, envName, projectKey, ctx.Logger)
 }
 
 // @Summary Create SAE Env
@@ -2836,7 +2836,7 @@ func CreateSAEEnv(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -2855,7 +2855,7 @@ func CreateSAEEnv(c *gin.Context) {
 	arg := new(models.SAEEnv)
 	err = c.BindJSON(arg)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
@@ -2875,7 +2875,7 @@ func CreateSAEEnv(c *gin.Context) {
 
 			err = commonutil.CheckZadigProfessionalLicense()
 			if err != nil {
-				ctx.Err = err
+				ctx.RespErr = err
 				return
 			}
 		} else {
@@ -2887,7 +2887,7 @@ func CreateSAEEnv(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = service.CreateSAEEnv(ctx.UserName, arg, ctx.Logger)
+	ctx.RespErr = service.CreateSAEEnv(ctx.UserName, arg, ctx.Logger)
 }
 
 // @Summary Delete SAE Env
@@ -2905,7 +2905,7 @@ func DeleteSAEEnv(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -2932,7 +2932,7 @@ func DeleteSAEEnv(c *gin.Context) {
 
 			err = commonutil.CheckZadigProfessionalLicense()
 			if err != nil {
-				ctx.Err = err
+				ctx.RespErr = err
 				return
 			}
 		} else {
@@ -2944,7 +2944,7 @@ func DeleteSAEEnv(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = service.DeleteSAEEnv(ctx.UserName, projectKey, envName, ctx.Logger)
+	ctx.RespErr = service.DeleteSAEEnv(ctx.UserName, projectKey, envName, ctx.Logger)
 }
 
 // @Summary List SAE Apps
@@ -2968,7 +2968,7 @@ func ListSAEApps(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -2982,11 +2982,11 @@ func ListSAEApps(c *gin.Context) {
 	appName := c.Query("appName")
 	currentPage, err := strconv.Atoi(c.Query("currentPage"))
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("currentPage must be a number")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("currentPage must be a number")
 	}
 	pageSize, err := strconv.Atoi(c.Query("pageSize"))
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("pageSize must be a number")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("pageSize must be a number")
 	}
 
 	// authorization check
@@ -3005,7 +3005,7 @@ func ListSAEApps(c *gin.Context) {
 
 			err = commonutil.CheckZadigProfessionalLicense()
 			if err != nil {
-				ctx.Err = err
+				ctx.RespErr = err
 				return
 			}
 		} else {
@@ -3017,7 +3017,7 @@ func ListSAEApps(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.Err = service.ListSAEApps(regionID, namespace, projectKey, envName, appName, isAddApp, int32(currentPage), int32(pageSize), ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.ListSAEApps(regionID, namespace, projectKey, envName, appName, isAddApp, int32(currentPage), int32(pageSize), ctx.Logger)
 }
 
 // @Summary List SAE Namespaces
@@ -3035,7 +3035,7 @@ func ListSAENamespaces(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -3060,7 +3060,7 @@ func ListSAENamespaces(c *gin.Context) {
 
 			err = commonutil.CheckZadigProfessionalLicense()
 			if err != nil {
-				ctx.Err = err
+				ctx.RespErr = err
 				return
 			}
 		} else {
@@ -3072,7 +3072,7 @@ func ListSAENamespaces(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.Err = service.ListSAENamespaces(regionID, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.ListSAENamespaces(regionID, ctx.Logger)
 }
 
 // @Summary Restart SAE Application
@@ -3091,7 +3091,7 @@ func RestartSAEApp(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -3121,7 +3121,7 @@ func RestartSAEApp(c *gin.Context) {
 
 			err = commonutil.CheckZadigProfessionalLicense()
 			if err != nil {
-				ctx.Err = err
+				ctx.RespErr = err
 				return
 			}
 		} else {
@@ -3133,7 +3133,7 @@ func RestartSAEApp(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = service.RestartSAEApp(projectKey, envName, appID, ctx.Logger)
+	ctx.RespErr = service.RestartSAEApp(projectKey, envName, appID, ctx.Logger)
 }
 
 // @Summary Rescale SAE Application
@@ -3153,7 +3153,7 @@ func RescaleSAEApp(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -3164,7 +3164,7 @@ func RescaleSAEApp(c *gin.Context) {
 	envName := c.Param("name")
 	replicas, err := strconv.Atoi(c.Query("replicas"))
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("replicas must be a number")
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("replicas must be a number")
 		return
 	}
 
@@ -3188,7 +3188,7 @@ func RescaleSAEApp(c *gin.Context) {
 
 			err = commonutil.CheckZadigProfessionalLicense()
 			if err != nil {
-				ctx.Err = err
+				ctx.RespErr = err
 				return
 			}
 		} else {
@@ -3200,7 +3200,7 @@ func RescaleSAEApp(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = service.RescaleSAEApp(projectKey, envName, appID, int32(replicas), ctx.Logger)
+	ctx.RespErr = service.RescaleSAEApp(projectKey, envName, appID, int32(replicas), ctx.Logger)
 }
 
 // @Summary Rollback SAE Application
@@ -3220,7 +3220,7 @@ func RollbackSAEApp(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -3251,7 +3251,7 @@ func RollbackSAEApp(c *gin.Context) {
 
 			err = commonutil.CheckZadigProfessionalLicense()
 			if err != nil {
-				ctx.Err = err
+				ctx.RespErr = err
 				return
 			}
 		} else {
@@ -3263,7 +3263,7 @@ func RollbackSAEApp(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = service.RollbackSAEApp(projectKey, envName, appID, versionID, ctx.Logger)
+	ctx.RespErr = service.RollbackSAEApp(projectKey, envName, appID, versionID, ctx.Logger)
 }
 
 // @Summary List SAE Application Verions
@@ -3282,7 +3282,7 @@ func ListSAEAppVersion(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -3308,7 +3308,7 @@ func ListSAEAppVersion(c *gin.Context) {
 
 			err = commonutil.CheckZadigProfessionalLicense()
 			if err != nil {
-				ctx.Err = err
+				ctx.RespErr = err
 				return
 			}
 		} else {
@@ -3320,7 +3320,7 @@ func ListSAEAppVersion(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.Err = service.ListSAEAppVersions(projectKey, envName, appID, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.ListSAEAppVersions(projectKey, envName, appID, ctx.Logger)
 }
 
 // @Summary List SAE Application Instances
@@ -3339,7 +3339,7 @@ func ListSAEAppInstances(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -3365,7 +3365,7 @@ func ListSAEAppInstances(c *gin.Context) {
 
 			err = commonutil.CheckZadigProfessionalLicense()
 			if err != nil {
-				ctx.Err = err
+				ctx.RespErr = err
 				return
 			}
 		} else {
@@ -3377,7 +3377,7 @@ func ListSAEAppInstances(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.Err = service.ListSAEAppInstances(projectKey, envName, appID, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.ListSAEAppInstances(projectKey, envName, appID, ctx.Logger)
 }
 
 // @Summary Restart SAE Application Instance
@@ -3397,7 +3397,7 @@ func RestartSAEAppInstance(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -3428,7 +3428,7 @@ func RestartSAEAppInstance(c *gin.Context) {
 
 			err = commonutil.CheckZadigProfessionalLicense()
 			if err != nil {
-				ctx.Err = err
+				ctx.RespErr = err
 				return
 			}
 		} else {
@@ -3440,7 +3440,7 @@ func RestartSAEAppInstance(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = service.RestartSAEAppInstance(projectKey, envName, appID, instanceID, ctx.Logger)
+	ctx.RespErr = service.RestartSAEAppInstance(projectKey, envName, appID, instanceID, ctx.Logger)
 }
 
 // @Summary Get SAE Application Instance Log
@@ -3460,7 +3460,7 @@ func GetSAEAppInstanceLog(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -3487,7 +3487,7 @@ func GetSAEAppInstanceLog(c *gin.Context) {
 
 			err = commonutil.CheckZadigProfessionalLicense()
 			if err != nil {
-				ctx.Err = err
+				ctx.RespErr = err
 				return
 			}
 		} else {
@@ -3499,7 +3499,7 @@ func GetSAEAppInstanceLog(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.Err = service.GetSAEAppInstanceLog(projectKey, envName, appID, instanceID, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetSAEAppInstanceLog(projectKey, envName, appID, instanceID, ctx.Logger)
 }
 
 // @Summary Add SAE App to Env
@@ -3518,7 +3518,7 @@ func AddSAEServiceToEnv(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -3537,7 +3537,7 @@ func AddSAEServiceToEnv(c *gin.Context) {
 	arg := new(service.AddSAEAppToEnvRequest)
 	err = c.BindJSON(arg)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
@@ -3557,7 +3557,7 @@ func AddSAEServiceToEnv(c *gin.Context) {
 
 			err = commonutil.CheckZadigProfessionalLicense()
 			if err != nil {
-				ctx.Err = err
+				ctx.RespErr = err
 				return
 			}
 		} else {
@@ -3569,7 +3569,7 @@ func AddSAEServiceToEnv(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = service.AddSAEAppToEnv(ctx.UserName, projectKey, envName, arg, ctx.Logger)
+	ctx.RespErr = service.AddSAEAppToEnv(ctx.UserName, projectKey, envName, arg, ctx.Logger)
 }
 
 // @Summary Delete SAE App from Env
@@ -3588,7 +3588,7 @@ func DeleteSAEServiceFromEnv(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
@@ -3607,7 +3607,7 @@ func DeleteSAEServiceFromEnv(c *gin.Context) {
 	arg := new(service.DelSAEAppFromEnvRequest)
 	err = c.BindJSON(arg)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
@@ -3627,7 +3627,7 @@ func DeleteSAEServiceFromEnv(c *gin.Context) {
 
 			err = commonutil.CheckZadigProfessionalLicense()
 			if err != nil {
-				ctx.Err = err
+				ctx.RespErr = err
 				return
 			}
 		} else {
@@ -3639,5 +3639,5 @@ func DeleteSAEServiceFromEnv(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = service.DelSAEAppFromEnv(ctx.UserName, projectKey, envName, arg, ctx.Logger)
+	ctx.RespErr = service.DelSAEAppFromEnv(ctx.UserName, projectKey, envName, arg, ctx.Logger)
 }
