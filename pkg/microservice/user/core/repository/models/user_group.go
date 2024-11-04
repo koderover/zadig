@@ -16,6 +16,10 @@ limitations under the License.
 
 package models
 
+import (
+	"github.com/koderover/zadig/v2/pkg/setting"
+)
+
 type UserGroup struct {
 	Model
 	GroupID     string `gorm:"column:group_id"    json:"group_id"`
@@ -31,4 +35,11 @@ type UserGroup struct {
 // TableName sets the insert table name for this struct type
 func (UserGroup) TableName() string {
 	return "user_group"
+}
+
+func (ug *UserGroup) IsAllUserGroup() bool {
+	if ug.GroupName == "所有用户" && ug.Type == int64(setting.RoleTypeSystem) {
+		return true
+	}
+	return false
 }
