@@ -57,6 +57,7 @@ func CreateS3Storage(updateBy string, storage *commonmodels.S3Storage, logger *z
 	if s3Storage.Provider == setting.ProviderSourceAli || s3Storage.Provider == setting.ProviderSourceTencent {
 		forcedPathStyle = false
 	}
+	logger.Infof("Calling s3tool.NewClient with Endpoint: %s, Ak: %s, Sk: %s, Region: %s, Insecure: %v, ForcedPathStyle: %v", s3Storage.Endpoint, s3Storage.Ak, s3Storage.Sk, s3Storage.Region, s3Storage.Insecure, forcedPathStyle)
 	client, err := s3tool.NewClient(s3Storage.Endpoint, s3Storage.Ak, s3Storage.Sk, s3Storage.Region, s3Storage.Insecure, forcedPathStyle)
 	if err != nil {
 		logger.Warnf("Failed to create s3 client, error is: %+v", err)
