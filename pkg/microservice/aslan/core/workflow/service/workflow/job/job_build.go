@@ -958,7 +958,7 @@ func (j *BuildJob) getOriginReferedJobTargets(jobName string) ([]*commonmodels.S
 			BuildName:     build.BuildName,
 			ImageName:     build.ImageName,
 			KeyVals:       buildInfo.PreBuild.Envs,
-			Repos:         buildInfo.Repos,
+			Repos:         build.Repos,
 		}
 
 		service := servicesMap[build.ServiceName]
@@ -1052,6 +1052,30 @@ func (j *BuildJob) getOriginReferedJobTargets(jobName string) ([]*commonmodels.S
 						}
 						servicetargets = append(servicetargets, target)
 					}
+				}
+				return servicetargets, nil
+			}
+			if job.JobType == config.JobZadigTesting {
+				testingSpec := &commonmodels.ZadigTestingJobSpec{}
+				if err := commonmodels.IToi(job.Spec, testingSpec); err != nil {
+					return servicetargets, err
+				}
+				for _, svc := range testingSpec.TargetServices {
+					target := &commonmodels.ServiceAndBuild{
+						ServiceName:   svc.ServiceName,
+						ServiceModule: svc.ServiceModule,
+					}
+					if originService, ok := originTargetMap[target.GetKey()]; ok {
+						target.KeyVals = originService.KeyVals
+						target.Repos = originService.Repos
+						target.BuildName = originService.BuildName
+						target.ImageName = originService.ImageName
+						target.ShareStorageInfo = originService.ShareStorageInfo
+					} else {
+						log.Warnf("service %s not found in %s job's config ", target.GetKey(), j.job.Name)
+						continue
+					}
+					servicetargets = append(servicetargets, target)
 				}
 				return servicetargets, nil
 			}
