@@ -33,7 +33,7 @@ import (
 func UpdateS3Storage(updateBy, id string, storage *commonmodels.S3Storage, logger *zap.SugaredLogger) error {
 	s3Storage := &s3.S3{S3Storage: storage}
 	forcedPathStyle := true
-	if s3Storage.Provider == setting.ProviderSourceAli {
+	if s3Storage.Provider == setting.ProviderSourceAli || s3Storage.Provider == setting.ProviderSourceTencent {
 		forcedPathStyle = false
 	}
 	client, err := s3tool.NewClient(s3Storage.Endpoint, s3Storage.Ak, s3Storage.Sk, s3Storage.Region, s3Storage.Insecure, forcedPathStyle)
@@ -53,7 +53,7 @@ func UpdateS3Storage(updateBy, id string, storage *commonmodels.S3Storage, logge
 func CreateS3Storage(updateBy string, storage *commonmodels.S3Storage, logger *zap.SugaredLogger) error {
 	s3Storage := &s3.S3{S3Storage: storage}
 	forcedPathStyle := true
-	if s3Storage.Provider == setting.ProviderSourceAli {
+	if s3Storage.Provider == setting.ProviderSourceAli || s3Storage.Provider == setting.ProviderSourceTencent {
 		forcedPathStyle = false
 	}
 	client, err := s3tool.NewClient(s3Storage.Endpoint, s3Storage.Ak, s3Storage.Sk, s3Storage.Region, s3Storage.Insecure, forcedPathStyle)
