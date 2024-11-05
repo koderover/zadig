@@ -349,7 +349,7 @@ func RollbackEnvServiceVersion(ctx *internalhandler.Context, projectName, envNam
 		// 				// in needToAddValues, but not in service's chart values, add it to mergedValues and set value from needToAddValues
 		// 				mergedValuesFlatMap[key] = value
 		// 			} else {
-		// 				// in needToAddValues, and in service's chart values, add it to mergedValues and set value from template serivce values
+		// 				// in needToAddValues, and in service's chart values, add it to mergedValues and set value from template service values
 		// 				mergedValuesFlatMap[key] = v
 		// 			}
 		// 		}

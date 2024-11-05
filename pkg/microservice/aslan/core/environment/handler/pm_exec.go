@@ -84,7 +84,7 @@ func ConnectSshPmExec(c *gin.Context) {
 // @Param 	hostId			query		string									true	"host id"
 // @Param 	commandType		query		service.VmServiceCommandType			true	"vm service command type"
 // @Param 	name 			path		string									true	"env name"
-// @Param 	serviceName 	path		string									true	"serivce name"
+// @Param 	serviceName 	path		string									true	"service name"
 // @success 200 			{object} 	service.ExecVmServiceCommandResponse
 // @Router /api/aslan/environment/environments/{name}/services/{serviceName}/execmd [post]
 func ExecVmServiceCommand(c *gin.Context) {
