@@ -32,6 +32,7 @@ import (
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/v2/pkg/setting"
+	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/types"
 	"github.com/koderover/zadig/v2/pkg/types/step"
@@ -735,6 +736,96 @@ func (j *TestingJob) GetOutPuts(log *zap.SugaredLogger) []string {
 	}
 
 	return resp
+}
+
+func (j *TestingJob) GetRenderVariables(ctx *internalhandler.Context, jobName, serviceName, moduleName string, getAvaiableVars bool) ([]*commonmodels.KeyVal, error) {
+	keyValMap := NewKeyValMap()
+	j.spec = &commonmodels.ZadigTestingJobSpec{}
+	if err := commonmodels.IToiYaml(j.job.Spec, j.spec); err != nil {
+		err = fmt.Errorf("failed to convert freestyle job spec error: %v", err)
+		ctx.Logger.Error(err)
+		return nil, err
+	}
+
+	if j.spec.TestType == config.ServiceTestType {
+		testingMap := map[string]*commonmodels.TestModule{}
+		for _, service := range j.spec.ServiceAndTests {
+			testingMap[service.GetKey()] = &service.TestModule
+		}
+
+		if getAvaiableVars {
+			for _, service := range j.spec.ServiceAndTests {
+				for _, keyVal := range service.KeyVals {
+					keyValMap.Insert(&commonmodels.KeyVal{
+						Key:               getJobVariableKey(j.job.Name, jobName, "<SERVICE>", "<MODULE>", keyVal.Key, getAvaiableVars),
+						Value:             keyVal.Value,
+						Type:              keyVal.Type,
+						RegistryID:        keyVal.RegistryID,
+						Script:            keyVal.Script,
+						CallFunction:      keyVal.CallFunction,
+						FunctionReference: keyVal.FunctionReference,
+					})
+				}
+			}
+
+			if jobName == j.job.Name {
+				keyValMap.Insert(&commonmodels.KeyVal{
+					Key:   getJobVariableKey(j.job.Name, jobName, "<SERVICE>", "<MODULE>", "SERVICE_NAME", getAvaiableVars),
+					Value: "",
+				})
+				keyValMap.Insert(&commonmodels.KeyVal{
+					Key:   getJobVariableKey(j.job.Name, jobName, "<SERVICE>", "<MODULE>", "SERVICE_MODULE", getAvaiableVars),
+					Value: "",
+				})
+			}
+		} else {
+			for _, service := range j.spec.TargetServices {
+				testing, ok := testingMap[service.GetKey()]
+				if !ok {
+					continue
+				}
+
+				for _, keyVal := range testing.KeyVals {
+					keyValMap.Insert(&commonmodels.KeyVal{
+						Key:               getJobVariableKey(j.job.Name, jobName, service.ServiceName, service.ServiceModule, keyVal.Key, getAvaiableVars),
+						Value:             keyVal.Value,
+						Type:              keyVal.Type,
+						RegistryID:        keyVal.RegistryID,
+						Script:            keyVal.Script,
+						CallFunction:      keyVal.CallFunction,
+						FunctionReference: keyVal.FunctionReference,
+					})
+				}
+
+				if jobName == j.job.Name {
+					keyValMap.Insert(&commonmodels.KeyVal{
+						Key:   getJobVariableKey(j.job.Name, jobName, service.ServiceName, service.ServiceModule, "SERVICE_NAME", getAvaiableVars),
+						Value: service.ServiceName,
+					})
+					keyValMap.Insert(&commonmodels.KeyVal{
+						Key:   getJobVariableKey(j.job.Name, jobName, service.ServiceName, service.ServiceModule, "SERVICE_MODULE", getAvaiableVars),
+						Value: service.ServiceModule,
+					})
+				}
+			}
+		}
+	} else {
+		for _, testing := range j.spec.TestModules {
+			for _, keyVal := range testing.KeyVals {
+				keyValMap.Insert(&commonmodels.KeyVal{
+					Key:               getJobVariableKey(j.job.Name, jobName, "", "", keyVal.Key, getAvaiableVars),
+					Value:             keyVal.Value,
+					Type:              keyVal.Type,
+					RegistryID:        keyVal.RegistryID,
+					Script:            keyVal.Script,
+					CallFunction:      keyVal.CallFunction,
+					FunctionReference: keyVal.FunctionReference,
+				})
+			}
+		}
+
+	}
+	return keyValMap.List(), nil
 }
 
 func getTestingJobVariables(repos []*types.Repository, taskID int64, project, workflowName, workflowDisplayName, testingProject, testingName, testType, serviceName, serviceModule, infrastructure string, log *zap.SugaredLogger) []*commonmodels.KeyVal {

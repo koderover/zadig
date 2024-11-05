@@ -677,7 +677,7 @@ func ListCustomWorkload(clusterID, namespace string, log *zap.SugaredLogger) ([]
 	return resp, nil
 }
 
-// list serivce and matched deployment containers for canary and blue-green deployment.
+// list service and matched deployment containers for canary and blue-green deployment.
 func ListCanaryDeploymentServiceInfo(clusterID, namespace string, log *zap.SugaredLogger) ([]*ServiceMatchedDeploymentContainers, error) {
 	resp := []*ServiceMatchedDeploymentContainers{}
 	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)

@@ -34,6 +34,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/repository"
 	templ "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/template"
 	"github.com/koderover/zadig/v2/pkg/setting"
+	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/types"
 	"github.com/koderover/zadig/v2/pkg/types/job"
@@ -45,6 +46,7 @@ const (
 	IMAGETAGKEY = "imageTag"
 	PKGFILEKEY  = "PKG_FILE"
 	BRANCHKEY   = "BRANCH"
+	REPONAMEKEY = "REPONAME"
 	GITURLKEY   = "GITURL"
 	COMMITIDKEY = "COMMITID"
 )
@@ -901,10 +903,94 @@ func (j *BuildJob) GetOutPuts(log *zap.SugaredLogger) []string {
 		outputs = append(outputs, &commonmodels.Output{Name: outputKey})
 	}
 	resp = append(resp, getOutputKey(j.job.Name+".<SERVICE>.<MODULE>", outputs)...)
-	resp = append(resp, "{{.job."+j.job.Name+".<SERVICE>.<MODULE>."+BRANCHKEY+"}}")
 	resp = append(resp, "{{.job."+j.job.Name+".<SERVICE>.<MODULE>."+GITURLKEY+"}}")
+	resp = append(resp, "{{.job."+j.job.Name+".<SERVICE>.<MODULE>."+BRANCHKEY+"}}")
 	resp = append(resp, "{{.job."+j.job.Name+".<SERVICE>.<MODULE>."+COMMITIDKEY+"}}")
 	return resp
+}
+
+func (j *BuildJob) GetRenderVariables(ctx *internalhandler.Context, jobName, serviceName, moduleName string, getAvaiableVars bool) ([]*commonmodels.KeyVal, error) {
+	keyValMap := NewKeyValMap()
+	j.spec = &commonmodels.ZadigBuildJobSpec{}
+	if err := commonmodels.IToiYaml(j.job.Spec, j.spec); err != nil {
+		err = fmt.Errorf("failed to convert freestyle job spec error: %v", err)
+		ctx.Logger.Error(err)
+		return nil, err
+	}
+
+	for _, service := range j.spec.ServiceAndBuilds {
+		if getAvaiableVars {
+			branchKeyVal := &commonmodels.KeyVal{
+				Key:   getJobVariableKey(j.job.Name, jobName, "<SERVICE>", "<MODULE>", BRANCHKEY, getAvaiableVars),
+				Value: "",
+			}
+			commitidKeyVal := &commonmodels.KeyVal{
+				Key:   getJobVariableKey(j.job.Name, jobName, "<SERVICE>", "<MODULE>", COMMITIDKEY, getAvaiableVars),
+				Value: "",
+			}
+			repoNameKeyVal := &commonmodels.KeyVal{
+				Key:   getJobVariableKey(j.job.Name, jobName, "<SERVICE>", "<MODULE>", REPONAMEKEY, getAvaiableVars),
+				Value: "",
+			}
+			keyValMap.Insert(branchKeyVal, commitidKeyVal, repoNameKeyVal)
+
+			for _, keyVal := range service.KeyVals {
+				keyValMap.Insert(&commonmodels.KeyVal{
+					Key:   getJobVariableKey(j.job.Name, jobName, "<SERVICE>", "<MODULE>", keyVal.Key, getAvaiableVars),
+					Value: keyVal.Value,
+				})
+			}
+		} else {
+			for _, keyVal := range service.KeyVals {
+				keyValMap.Insert(&commonmodels.KeyVal{
+					Key:   getJobVariableKey(j.job.Name, jobName, service.ServiceName, service.ServiceModule, keyVal.Key, getAvaiableVars),
+					Value: keyVal.Value,
+				})
+			}
+
+			for _, repo := range service.Repos {
+				// only use the first repo
+				branchKeyVal := &commonmodels.KeyVal{
+					Key:   getJobVariableKey(j.job.Name, jobName, service.ServiceName, service.ServiceModule, BRANCHKEY, getAvaiableVars),
+					Value: repo.Branch,
+				}
+				commitidKeyVal := &commonmodels.KeyVal{
+					Key:   getJobVariableKey(j.job.Name, jobName, service.ServiceName, service.ServiceModule, COMMITIDKEY, getAvaiableVars),
+					Value: repo.CommitID,
+				}
+				repoNameKeyVal := &commonmodels.KeyVal{
+					Key:   getJobVariableKey(j.job.Name, jobName, service.ServiceName, service.ServiceModule, REPONAMEKEY, getAvaiableVars),
+					Value: repo.RepoName,
+				}
+				keyValMap.Insert(branchKeyVal, commitidKeyVal, repoNameKeyVal)
+
+				break
+			}
+		}
+
+		if jobName == j.job.Name {
+			if getAvaiableVars {
+				keyValMap.Insert(&commonmodels.KeyVal{
+					Key:   getJobVariableKey(j.job.Name, jobName, "<SERVICE>", "<MODULE>", "SERVICE_NAME", getAvaiableVars),
+					Value: service.ServiceName,
+				})
+				keyValMap.Insert(&commonmodels.KeyVal{
+					Key:   getJobVariableKey(j.job.Name, jobName, "<SERVICE>", "<MODULE>", "SERVICE_MODULE", getAvaiableVars),
+					Value: service.ServiceModule,
+				})
+			} else {
+				keyValMap.Insert(&commonmodels.KeyVal{
+					Key:   getJobVariableKey(j.job.Name, jobName, service.ServiceName, service.ServiceModule, "SERVICE_NAME", getAvaiableVars),
+					Value: service.ServiceName,
+				})
+				keyValMap.Insert(&commonmodels.KeyVal{
+					Key:   getJobVariableKey(j.job.Name, jobName, service.ServiceName, service.ServiceModule, "SERVICE_MODULE", getAvaiableVars),
+					Value: service.ServiceModule,
+				})
+			}
+		}
+	}
+	return keyValMap.List(), nil
 }
 
 func ensureBuildInOutputs(outputs []*commonmodels.Output) []*commonmodels.Output {

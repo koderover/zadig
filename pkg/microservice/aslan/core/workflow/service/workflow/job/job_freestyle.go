@@ -32,6 +32,7 @@ import (
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
+	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/types"
@@ -575,6 +576,98 @@ func (j *FreeStyleJob) GetOutPuts(log *zap.SugaredLogger) []string {
 		resp = append(resp, getOutputKey(jobKey, j.spec.Outputs)...)
 	}
 	return resp
+}
+
+func (j *FreeStyleJob) GetRenderVariables(ctx *internalhandler.Context, jobName, serviceName, moduleName string, getAvaiableVars bool) ([]*commonmodels.KeyVal, error) {
+	keyValMap := NewKeyValMap()
+	j.spec = &commonmodels.FreestyleJobSpec{}
+	if err := commonmodels.IToiYaml(j.job.Spec, j.spec); err != nil {
+		err = fmt.Errorf("failed to convert freestyle job spec error: %v", err)
+		ctx.Logger.Error(err)
+		return nil, err
+	}
+
+	if j.spec.FreestyleJobType == config.ServiceFreeStyleJobType {
+		for _, service := range j.spec.Services {
+			for _, env := range service.KeyVals {
+				key := getJobVariableKey(j.job.Name, jobName, serviceName, moduleName, env.Key, getAvaiableVars)
+				if getAvaiableVars {
+					key = getJobVariableKey(j.job.Name, jobName, "<SERVICE>", "<MODULE>", env.Key, getAvaiableVars)
+				}
+
+				keyValMap.Insert(&commonmodels.KeyVal{
+					Key:               key,
+					Value:             env.Value,
+					Type:              env.Type,
+					RegistryID:        env.RegistryID,
+					Script:            env.Script,
+					CallFunction:      env.CallFunction,
+					FunctionReference: env.FunctionReference,
+				})
+			}
+		}
+
+		if jobName == j.job.Name {
+			if getAvaiableVars {
+				keyValMap.Insert(&commonmodels.KeyVal{
+					Key:   getJobVariableKey(j.job.Name, jobName, "<SERVICE>", "<MODULE>", "SERVICE_NAME", getAvaiableVars),
+					Value: "",
+				})
+				keyValMap.Insert(&commonmodels.KeyVal{
+					Key:   getJobVariableKey(j.job.Name, jobName, "<SERVICE>", "<MODULE>", "SERVICE_MODULE", getAvaiableVars),
+					Value: "",
+				})
+			} else {
+				for _, service := range j.spec.Services {
+					if service.ServiceName == serviceName && service.ServiceModule == moduleName {
+						keyValMap.Insert(&commonmodels.KeyVal{
+							Key:   getJobVariableKey(j.job.Name, jobName, serviceName, moduleName, "SERVICE_NAME", getAvaiableVars),
+							Value: service.ServiceName,
+						})
+						keyValMap.Insert(&commonmodels.KeyVal{
+							Key:   getJobVariableKey(j.job.Name, jobName, serviceName, moduleName, "SERVICE_MODULE", getAvaiableVars),
+							Value: service.ServiceModule,
+						})
+						break
+					}
+				}
+			}
+		}
+	} else {
+		for _, env := range j.spec.Properties.Envs {
+			keyValMap.Insert(&commonmodels.KeyVal{
+				Key:               getJobVariableKey(j.job.Name, jobName, "", "", env.Key, getAvaiableVars),
+				Value:             env.Value,
+				Type:              env.Type,
+				RegistryID:        env.RegistryID,
+				Script:            env.Script,
+				CallFunction:      env.CallFunction,
+				FunctionReference: env.FunctionReference,
+			})
+		}
+	}
+	return keyValMap.List(), nil
+}
+
+func (j *FreeStyleJob) RenderVariables(ctx *internalhandler.Context, serviceName, moduleName, key string, buildInVarMap map[string]string) ([]string, error) {
+	resp := []string{}
+	j.spec = &commonmodels.FreestyleJobSpec{}
+	if err := commonmodels.IToiYaml(j.job.Spec, j.spec); err != nil {
+		return resp, err
+	}
+
+	for _, kv := range j.spec.Properties.Envs {
+		if kv.Key == key {
+			resp, err := renderScriptedVariableOptions(ctx, serviceName, moduleName, kv.Script, kv.CallFunction, buildInVarMap)
+			if err != nil {
+				err = fmt.Errorf("Failed to render kv for key: %s, error: %s", key, err)
+				ctx.Logger.Error(err)
+				return nil, err
+			}
+			return resp, nil
+		}
+	}
+	return resp, nil
 }
 
 func (j *FreeStyleJob) getOriginReferedJobTargets(jobName string) ([]*commonmodels.FreeStyleServiceInfo, error) {

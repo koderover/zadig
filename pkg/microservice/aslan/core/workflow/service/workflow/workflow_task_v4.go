@@ -46,6 +46,7 @@ import (
 	jobctl "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/job"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/shared/client/user"
+	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	"github.com/koderover/zadig/v2/pkg/tool/cache"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	larktool "github.com/koderover/zadig/v2/pkg/tool/lark"
@@ -260,6 +261,49 @@ func GetWorkflowv4Preset(encryptedKey, workflowName, uid, username string, log *
 	}
 	clearWorkflowV4Triggers(workflow)
 	return workflow, nil
+}
+
+func GetWorkflowV4DynamicVariableAvailable(ctx *internalhandler.Context, workflow *commonmodels.WorkflowV4, jobName string) ([]string, error) {
+	resp := make([]string, 0)
+
+	variables, err := jobctl.GetRenderWorkflowVariables(ctx, workflow, jobName, "", "", true)
+	if err != nil {
+		err = fmt.Errorf("Failed to get render workflow variables, error: %v", err)
+		ctx.Logger.Error(err)
+		return nil, err
+	}
+
+	for _, kv := range variables {
+		resp = append(resp, kv.Key)
+	}
+
+	return resp, nil
+}
+
+func RenderWorkflowV4Variables(ctx *internalhandler.Context, workflow *commonmodels.WorkflowV4, jobName, serviceName, moduleName, key string) ([]string, error) {
+	resp := make([]string, 0)
+
+	variables, err := jobctl.GetRenderWorkflowVariables(ctx, workflow, jobName, serviceName, moduleName, false)
+	if err != nil {
+		err = fmt.Errorf("Failed to get render workflow variables, error: %v", err)
+		ctx.Logger.Error(err)
+		return nil, err
+	}
+
+	buildInVarMap := make(map[string]string)
+	for _, kv := range variables {
+		kv.Key = strings.ReplaceAll(kv.Key, "-", "_")
+		buildInVarMap[kv.Key] = kv.Value
+	}
+
+	resp, err = jobctl.RenderWorkflowVariables(ctx, workflow, jobName, serviceName, moduleName, key, buildInVarMap)
+	if err != nil {
+		err = fmt.Errorf("Failed to render workflow variables, error: %v", err)
+		ctx.Logger.Error(err)
+		return nil, err
+	}
+
+	return resp, nil
 }
 
 // CheckWorkflowV4ApprovalInitiator check if the workflow contains lark or dingtalk approval

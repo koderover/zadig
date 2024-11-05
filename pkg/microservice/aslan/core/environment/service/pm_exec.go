@@ -150,7 +150,7 @@ func ExecVmServiceCommand(projectName, envName, serviceName, hostId string, comm
 		host.Port = setting.PMHostDefaultPort
 	}
 
-	serivce, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{ServiceName: serviceName, ProductName: projectName})
+	service, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{ServiceName: serviceName, ProductName: projectName})
 	if err != nil {
 		err = fmt.Errorf("Service.Find service %s error: %s", serviceName, err)
 		return nil, e.ErrLoginPm.AddErr(err)
@@ -159,11 +159,11 @@ func ExecVmServiceCommand(projectName, envName, serviceName, hostId string, comm
 	cmd := ""
 	switch commandType {
 	case VmServiceCommandTypeStart:
-		cmd = serivce.StartCmd
+		cmd = service.StartCmd
 	case VmServiceCommandTypeStop:
-		cmd = serivce.StopCmd
+		cmd = service.StopCmd
 	case VmServiceCommandTypeRestart:
-		cmd = serivce.RestartCmd
+		cmd = service.RestartCmd
 	default:
 		err = fmt.Errorf("unknown command type %s", commandType)
 		log.Error(err)

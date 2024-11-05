@@ -39,6 +39,7 @@ import (
 	aslanUtil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/setting"
+	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/util"
 )
@@ -1110,6 +1111,59 @@ func (j *DeployJob) GetOutPuts(log *zap.SugaredLogger) []string {
 	})
 	resp = append(resp, getOutputKey(j.job.Name+".<SERVICE>.<MODULE>", outputs)...)
 	return resp
+}
+
+func (j *DeployJob) GetRenderVariables(ctx *internalhandler.Context, jobName, serviceName, moduleName string, getAvaiableVars bool) ([]*commonmodels.KeyVal, error) {
+	keyValMap := NewKeyValMap()
+	j.spec = &commonmodels.ZadigDeployJobSpec{}
+	if err := commonmodels.IToiYaml(j.job.Spec, j.spec); err != nil {
+		err = fmt.Errorf("failed to convert freestyle job spec error: %v", err)
+		ctx.Logger.Error(err)
+		return nil, err
+	}
+
+	if getAvaiableVars {
+		if j.spec.Source != config.SourceFromJob {
+			keyValMap.Insert(&commonmodels.KeyVal{
+				Key:   getJobVariableKey(j.job.Name, jobName, "<SERVICE>", "<MODULE>", "IMAGE", getAvaiableVars),
+				Value: "",
+			})
+		}
+		keyValMap.Insert(&commonmodels.KeyVal{
+			Key:   getJobVariableKey(j.job.Name, jobName, "<SERVICE>", "<MODULE>", "SERVICE_NAME", getAvaiableVars),
+			Value: "",
+		})
+		keyValMap.Insert(&commonmodels.KeyVal{
+			Key:   getJobVariableKey(j.job.Name, jobName, "<SERVICE>", "<MODULE>", "SERVICE_MODULE", getAvaiableVars),
+			Value: "",
+		})
+	} else {
+		for _, service := range j.spec.Services {
+			for _, module := range service.Modules {
+				if j.spec.Source != config.SourceFromJob {
+					keyValMap.Insert(&commonmodels.KeyVal{
+						Key:   getJobVariableKey(j.job.Name, jobName, service.ServiceName, module.ServiceModule, "IMAGE", getAvaiableVars),
+						Value: module.Image,
+					})
+				}
+				keyValMap.Insert(&commonmodels.KeyVal{
+					Key:   getJobVariableKey(j.job.Name, jobName, service.ServiceName, module.ServiceModule, "SERVICE_NAME", getAvaiableVars),
+					Value: service.ServiceName,
+				})
+				keyValMap.Insert(&commonmodels.KeyVal{
+					Key:   getJobVariableKey(j.job.Name, jobName, service.ServiceName, module.ServiceModule, "SERVICE_MODULE", getAvaiableVars),
+					Value: module.ServiceModule,
+				})
+			}
+		}
+	}
+
+	keyValMap.Insert(&commonmodels.KeyVal{
+		Key:   getJobVariableKey(j.job.Name, jobName, "", "", "envName", getAvaiableVars),
+		Value: j.spec.Env,
+	})
+
+	return keyValMap.List(), nil
 }
 
 func ensureDeployInOutputs() []*commonmodels.Output {

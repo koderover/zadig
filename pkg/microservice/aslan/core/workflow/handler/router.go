@@ -181,6 +181,8 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		workflowV4.PUT("/:name", UpdateWorkflowV4)
 		workflowV4.DELETE("/:name", DeleteWorkflowV4)
 		workflowV4.GET("/preset/:name", GetWorkflowV4Preset)
+		workflowV4.POST("/dynamicVariable/available", GetWorkflowV4DynamicVariableAvailable)
+		workflowV4.POST("/dynamicVariable/render", RenderWorkflowV4DynamicVariables)
 		workflowV4.GET("/webhook/preset", GetWebhookForWorkflowV4Preset)
 		workflowV4.GET("/webhook", ListWebhookForWorkflowV4)
 		workflowV4.POST("/webhook/:workflowName", CreateWebhookForWorkflowV4)
@@ -266,14 +268,6 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		plugin.POST("/enterprise", UpsertEnterprisePluginRepository)
 		plugin.GET("", ListUnofficalPluginRepositories)
 		plugin.DELETE("/:id", DeletePluginRepo)
-	}
-
-	// ---------------------------------------------------------------------------------------
-	// utility apis
-	// ---------------------------------------------------------------------------------------
-	util := router.Group("utils")
-	{
-		util.POST("/renderVariables", RenderWorkflowVariables)
 	}
 }
 
