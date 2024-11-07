@@ -67,6 +67,10 @@ func (s *P4Step) Run(ctx context.Context) error {
 
 func (s *P4Step) syncPerforceWorkspace() error {
 	for i, repo := range s.spec.Repos {
+		log.Infof("sync perforce code host: %s", repo.PerforceHost)
+		log.Infof("sync perforce code port: %d", repo.PerforcePort)
+		log.Infof("sync perforce code username: %s", repo.Username)
+		log.Infof("sync perforce code password: %s", repo.Password)
 		err := s.syncP4Depot(s.envs, repo, i)
 		if err != nil {
 			repoName := ""
