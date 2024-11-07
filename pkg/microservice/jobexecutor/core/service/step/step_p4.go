@@ -69,8 +69,14 @@ func (s *P4Step) syncPerforceWorkspace() error {
 	for _, repo := range s.spec.Repos {
 		err := syncP4Depot(s.envs, repo)
 		if err != nil {
-			log.Errorf("sync p4 depot: %s error: %s", repo.Depot, err)
-			return fmt.Errorf("sync p4 depot: %s error: %s", repo.Depot, err)
+			repoName := ""
+			if repo.Stream != "" {
+				repoName = repo.Stream
+			} else {
+				repoName = repo.ViewMapping
+			}
+			log.Errorf("sync p4 depot: %s error: %s", repoName, err)
+			return fmt.Errorf("sync p4 depot: %s error: %s", repoName, err)
 		}
 	}
 
