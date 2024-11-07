@@ -500,6 +500,13 @@ func generateMobileCustomWorkflow(projectName, workflowName string, focalBasicIm
 					},
 				},
 				{
+					Name:     "perforce",
+					StepType: config.StepPerforce,
+					Spec: &step.StepP4Spec{
+						Repos: []*types.Repository{},
+					},
+				},
+				{
 					Name:     "shell",
 					StepType: config.StepShell,
 					Spec: &step.StepShellSpec{

@@ -54,6 +54,9 @@ type CodeHost struct {
 	AuthType           types.AuthType `json:"auth_type,omitempty"`
 	SSHKey             string         `json:"ssh_key,omitempty"`
 	PrivateAccessToken string         `json:"private_access_token,omitempty"`
+	// perforce Type parameters
+	P4Host string `json:"perforce_host"`
+	P4Port int    `json:"perforce_port"`
 }
 
 type Option struct {

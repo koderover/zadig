@@ -500,13 +500,25 @@ func (j *VMDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		}
 		jobTaskSpec.Steps = append(jobTaskSpec.Steps, toolInstallStep)
 		// init git clone step
+		repos := vmRenderRepos(buildInfo.DeployRepos, jobTaskSpec.Properties.Envs)
+		gitRepos, p4Repos := splitReposByType(repos)
+
 		gitStep := &commonmodels.StepTask{
 			Name:     vmDeployInfo.ServiceName + "-git",
 			JobName:  jobTask.Name,
 			StepType: config.StepGit,
-			Spec:     step.StepGitSpec{Repos: vmRenderRepos(buildInfo.DeployRepos, jobTaskSpec.Properties.Envs)},
+			Spec:     step.StepGitSpec{Repos: gitRepos},
 		}
 		jobTaskSpec.Steps = append(jobTaskSpec.Steps, gitStep)
+
+		p4Step := &commonmodels.StepTask{
+			Name:     vmDeployInfo.ServiceName + "-perforce",
+			JobName:  jobTask.Name,
+			StepType: config.StepPerforce,
+			Spec:     step.StepP4Spec{Repos: p4Repos},
+		}
+
+		jobTaskSpec.Steps = append(jobTaskSpec.Steps, p4Step)
 
 		objectPath := ""
 		if vmDeployInfo.WorkflowType == config.WorkflowType {

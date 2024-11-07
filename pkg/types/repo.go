@@ -52,9 +52,12 @@ type Repository struct {
 	Address     string `bson:"address"                      json:"address"                 yaml:"address"`
 	AuthorName  string `bson:"author_name,omitempty"        json:"author_name,omitempty"   yaml:"author_name,omitempty"`
 	CheckoutRef string `bson:"checkout_ref,omitempty"       json:"checkout_ref,omitempty"  yaml:"checkout_ref,omitempty"`
-	// username/password authorization
+	// username/password authorization for git/perforce
 	Username string `bson:"username,omitempty"           json:"username,omitempty"      yaml:"username,omitempty"`
 	Password string `bson:"password,omitempty"           json:"password,omitempty"      yaml:"password,omitempty"`
+	// perforce host & port
+	PerforceHost string `bson:"perforce_host,omitempty" json:"perforce_host,omitempty" yaml:"perforce_host,omitempty"`
+	PerforcePort int    `bson:"perforce_port,omitempty" json:"perforce_port,omitempty" yaml:"perforce_port,omitempty"`
 	// Now EnableProxy is not something we store. We decide this on runtime
 	EnableProxy bool `bson:"-"       json:"enable_proxy,omitempty"                         yaml:"enable_proxy,omitempty"`
 	// FilterRegexp is the regular expression filter for the branches and tags
@@ -73,6 +76,14 @@ type Repository struct {
 	ServiceModule   string     `bson:"service_module" json:"service_module" yaml:"service_module"`
 	JobRepoIndex    int        `bson:"repo_index" json:"repo_index" yaml:"repo_index"`
 	SubmissionID    string     `bson:"submission_id" json:"submission_id" yaml:"submission_id"`
+	// perforce settings
+	DepotType string `bson:"depot_type,omitempty"    json:"depot_type,omitempty"    yaml:"depot_type,omitempty"`
+	// Stream is used for stream type depot
+	Stream string `bson:"stream,omitempty"        json:"stream,omitempty"        yaml:"stream,omitempty"`
+	// ViewMapping is used for local type depot
+	ViewMapping  string `bson:"view_mapping,omitempty"  json:"view_mapping,omitempty"  yaml:"view_mapping,omitempty"`
+	ChangeListID int    `bson:"changelist_id,omitempty" json:"changelist_id,omitempty" yaml:"changelist_id,omitempty"`
+	ShelveID     int    `bson:"shelve_id,omitempty"     json:"shelve_id,omitempty"     yaml:"shelve_id,omitempty"`
 }
 
 // repo source, repo can come from params or other job
@@ -165,6 +176,9 @@ const (
 
 	// ProviderGiteeEE
 	ProviderGiteeEE = "gitee-enterprise"
+
+	// ProviderPerforce
+	ProviderPerforce = "perforce"
 
 	// ProviderOther
 	ProviderOther = "other"

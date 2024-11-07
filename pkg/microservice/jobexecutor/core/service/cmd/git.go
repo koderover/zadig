@@ -33,8 +33,8 @@ func InitGit(dir string) *exec.Cmd {
 	return cmd
 }
 
-// RemoteAdd sets the remote origin for the repository.
-func RemoteAdd(remoteName, remote string) *exec.Cmd {
+// GitRemoteAdd sets the remote origin for the repository.
+func GitRemoteAdd(remoteName, remote string) *exec.Cmd {
 	return exec.Command(
 		"git",
 		"remote",
@@ -44,8 +44,8 @@ func RemoteAdd(remoteName, remote string) *exec.Cmd {
 	)
 }
 
-// RemoteRemove removes the remote origin for the repository.
-func RemoteRemove(remoteName string) *exec.Cmd {
+// GitRemoteRemove removes the remote origin for the repository.
+func GitRemoteRemove(remoteName string) *exec.Cmd {
 	return exec.Command(
 		"git",
 		"remote",
@@ -54,8 +54,8 @@ func RemoteRemove(remoteName string) *exec.Cmd {
 	)
 }
 
-// CheckoutHead returns command git checkout -qf FETCH_HEAD
-func CheckoutHead() *exec.Cmd {
+// GitCheckoutHead returns command git checkout -qf FETCH_HEAD
+func GitCheckoutHead() *exec.Cmd {
 	return exec.Command(
 		"git",
 		"checkout",
@@ -64,7 +64,7 @@ func CheckoutHead() *exec.Cmd {
 	)
 }
 
-func CheckoutCommit(commit string) *exec.Cmd {
+func GitCheckoutCommit(commit string) *exec.Cmd {
 	return exec.Command(
 		"git",
 		"checkout",
@@ -72,10 +72,10 @@ func CheckoutCommit(commit string) *exec.Cmd {
 	)
 }
 
-// Fetch fetches changes by ref, ref can be a tag, branch or pr. --depth=1 is used to limit fetching
+// GitFetch fetches changes by ref, ref can be a tag, branch or pr. --depth=1 is used to limit fetching
 // to the last commit from the tip of each remote branch history.
 // e.g. git fetch origin +refs/heads/onboarding --depth=1
-func Fetch(remoteName, ref string) *exec.Cmd {
+func GitFetch(remoteName, ref string) *exec.Cmd {
 	return exec.Command(
 		"git",
 		"fetch",
@@ -85,10 +85,10 @@ func Fetch(remoteName, ref string) *exec.Cmd {
 	)
 }
 
-// DeepenedFetch deepens the fetch history. It is similar with Fetch but accepts 500 more commit history than
+// GitDeepenedFetch deepens the fetch history. It is similar with Fetch but accepts 500 more commit history than
 // last Fetch operation by --deepen=500 option.
 // e.g. git fetch origin +refs/heads/onboarding --deepen=500
-func DeepenedFetch(remoteName, ref, source string) *exec.Cmd {
+func GitDeepenedFetch(remoteName, ref, source string) *exec.Cmd {
 	cmdArgs := []string{
 		"fetch",
 		remoteName,
@@ -103,9 +103,9 @@ func DeepenedFetch(remoteName, ref, source string) *exec.Cmd {
 	)
 }
 
-// ResetMerge reset last merge
+// GitResetMerge reset last merge
 // It return command git reset --merge
-func ResetMerge() *exec.Cmd {
+func GitResetMerge() *exec.Cmd {
 	return exec.Command(
 		"git",
 		"reset",
@@ -114,9 +114,9 @@ func ResetMerge() *exec.Cmd {
 
 }
 
-// Merge merge a branch
+// GitMerge merge a branch
 // e.g. git merge demo
-func Merge(branch string) *exec.Cmd {
+func GitMerge(branch string) *exec.Cmd {
 	return exec.Command(
 		"git",
 		"merge",
@@ -125,8 +125,8 @@ func Merge(branch string) *exec.Cmd {
 	)
 }
 
-// UpdateSubmodules returns command: git submodule update --init --recursive
-func UpdateSubmodules() *exec.Cmd {
+// GitUpdateSubmodules returns command: git submodule update --init --recursive
+func GitUpdateSubmodules() *exec.Cmd {
 	cmd := exec.Command(
 		"git",
 		"submodule",
@@ -137,9 +137,9 @@ func UpdateSubmodules() *exec.Cmd {
 	return cmd
 }
 
-// SetConfig returns command: git config --global $KEY $VA
+// GitSetConfig returns command: git config --global $KEY $VA
 // e.g. git config --global user.name username
-func SetConfig(key, value string) *exec.Cmd {
+func GitSetConfig(key, value string) *exec.Cmd {
 	return exec.Command(
 		"git",
 		"config",
@@ -149,18 +149,17 @@ func SetConfig(key, value string) *exec.Cmd {
 	)
 }
 
-// SetConfig returns command: git config --global $KEY $VA
-// e.g. git config --global user.name username
-func Gc() *exec.Cmd {
+// GitGc returns command: git gc
+func GitGc() *exec.Cmd {
 	return exec.Command(
 		"git",
 		"gc",
 	)
 }
 
-// ShowLastLog returns command git --no-pager log --oneline -1
+// GitShowLastLog returns command git --no-pager log --oneline -1
 // It shows last commit messge with sha
-func ShowLastLog() *exec.Cmd {
+func GitShowLastLog() *exec.Cmd {
 	return exec.Command(
 		"git",
 		"--no-pager",

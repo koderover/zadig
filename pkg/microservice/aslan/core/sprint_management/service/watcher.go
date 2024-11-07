@@ -27,6 +27,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/shared/handler"
 	"github.com/koderover/zadig/v2/pkg/tool/cache"
+	"github.com/koderover/zadig/v2/pkg/types"
 	stepspec "github.com/koderover/zadig/v2/pkg/types/step"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
@@ -116,7 +117,22 @@ func updateSprintWorkItemTask(ctx *handler.Context, workItemTask *models.SprintW
 							ctx.Logger.Errorf("failed to convert step spec to step git spec, error: %s", err)
 							continue
 						}
-						serviceModule.CodeInfo = stepSpec.Repos
+						if serviceModule.CodeInfo == nil {
+							serviceModule.CodeInfo = make([]*types.Repository, 0)
+						}
+						serviceModule.CodeInfo = append(serviceModule.CodeInfo, stepSpec.Repos...)
+						continue
+					}
+					if step.StepType == config.StepPerforce {
+						stepSpec := &stepspec.StepP4Spec{}
+						if err := models.IToi(step.Spec, &stepSpec); err != nil {
+							ctx.Logger.Errorf("failed to convert step spec to step perforce spec, error: %s", err)
+							continue
+						}
+						if serviceModule.CodeInfo == nil {
+							serviceModule.CodeInfo = make([]*types.Repository, 0)
+						}
+						serviceModule.CodeInfo = append(serviceModule.CodeInfo, stepSpec.Repos...)
 						continue
 					}
 				}

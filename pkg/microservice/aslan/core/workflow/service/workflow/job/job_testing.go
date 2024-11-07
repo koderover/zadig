@@ -494,14 +494,27 @@ func (j *TestingJob) toJobtask(testing *commonmodels.TestModule, defaultS3 *comm
 		}
 		jobTaskSpec.Steps = append(jobTaskSpec.Steps, downloadArchiveStep)
 	}
+	repos := renderRepos(testing.Repos, testingInfo.Repos, jobTaskSpec.Properties.Envs)
+	gitRepos, p4Repos := splitReposByType(repos)
+
 	// init git clone step
 	gitStep := &commonmodels.StepTask{
 		Name:     testing.Name + "-git",
 		JobName:  jobTask.Name,
 		StepType: config.StepGit,
-		Spec:     step.StepGitSpec{Repos: renderRepos(testing.Repos, testingInfo.Repos, jobTaskSpec.Properties.Envs)},
+		Spec:     step.StepGitSpec{Repos: gitRepos},
 	}
 	jobTaskSpec.Steps = append(jobTaskSpec.Steps, gitStep)
+
+	p4Step := &commonmodels.StepTask{
+		Name:     testing.Name + "-perforce",
+		JobName:  jobTask.Name,
+		StepType: config.StepPerforce,
+		Spec:     step.StepP4Spec{Repos: p4Repos},
+	}
+
+	jobTaskSpec.Steps = append(jobTaskSpec.Steps, p4Step)
+
 	// init debug before step
 	debugBeforeStep := &commonmodels.StepTask{
 		Name:     testing.Name + "-debug_before",
