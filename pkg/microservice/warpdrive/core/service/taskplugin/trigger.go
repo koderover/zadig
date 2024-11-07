@@ -29,7 +29,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/warpdrive/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/warpdrive/core/service/taskplugin/s3"
 	"github.com/koderover/zadig/v2/pkg/microservice/warpdrive/core/service/types/task"
-	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/tool/httpclient"
 	krkubeclient "github.com/koderover/zadig/v2/pkg/tool/kube/client"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
@@ -172,11 +171,7 @@ func (p *TriggerTaskPlugin) getS3Storage(pipelineTask *task.Task) (string, error
 	} else {
 		store.Subfolder = fmt.Sprintf("%s/%d/%s", pipelineTask.PipelineName, pipelineTask.TaskID, "artifact")
 	}
-	forcedPathStyle := true
-	if store.Provider == setting.ProviderSourceAli {
-		forcedPathStyle = false
-	}
-	s3client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Region, store.Insecure, forcedPathStyle)
+	s3client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Region, store.Insecure, store.Provider)
 	if err != nil {
 		return "", err
 	}

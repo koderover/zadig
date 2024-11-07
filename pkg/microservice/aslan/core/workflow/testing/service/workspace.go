@@ -58,11 +58,7 @@ func GetTestArtifactInfo(pipelineName, dir string, taskID int64, log *zap.Sugare
 	} else {
 		storage.Subfolder = fmt.Sprintf("%s/%d/%s", pipelineName, taskID, "artifact")
 	}
-	forcedPathStyle := true
-	if storage.Provider == setting.ProviderSourceAli {
-		forcedPathStyle = false
-	}
-	client, err := s3tool.NewClient(storage.Endpoint, storage.Ak, storage.Sk, storage.Region, storage.Insecure, forcedPathStyle)
+	client, err := s3tool.NewClient(storage.Endpoint, storage.Ak, storage.Sk, storage.Region, storage.Insecure, storage.Provider)
 	if err != nil {
 		log.Errorf("GetTestArtifactInfo create s3 client err:%v", err)
 		return resp, err
@@ -184,11 +180,7 @@ func GetWorkflowV4ArtifactInfo(workflowName, jobName string, taskID int64, log *
 		log.Errorf("GetTestArtifactInfo FindDefaultS3 err:%v", err)
 		return resp, err
 	}
-	forcedPathStyle := true
-	if storage.Provider == setting.ProviderSourceAli {
-		forcedPathStyle = false
-	}
-	client, err := s3tool.NewClient(storage.Endpoint, storage.Ak, storage.Sk, storage.Region, storage.Insecure, forcedPathStyle)
+	client, err := s3tool.NewClient(storage.Endpoint, storage.Ak, storage.Sk, storage.Region, storage.Insecure, storage.Provider)
 	if err != nil {
 		log.Errorf("GetTestArtifactInfo create s3 client err:%v", err)
 		return resp, err
@@ -316,11 +308,7 @@ func GetWorkflowV4ScanningArtifactInfo(scanningID, jobName string, taskID int64,
 		log.Errorf("GetTestArtifactInfo FindDefaultS3 err:%v", err)
 		return resp, err
 	}
-	forcedPathStyle := true
-	if storage.Provider == setting.ProviderSourceAli {
-		forcedPathStyle = false
-	}
-	client, err := s3tool.NewClient(storage.Endpoint, storage.Ak, storage.Sk, storage.Region, storage.Insecure, forcedPathStyle)
+	client, err := s3tool.NewClient(storage.Endpoint, storage.Ak, storage.Sk, storage.Region, storage.Insecure, storage.Provider)
 	if err != nil {
 		log.Errorf("GetWorkflowV4ScanningArtifactInfo create s3 client err:%v", err)
 		return resp, err

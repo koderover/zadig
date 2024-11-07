@@ -937,11 +937,7 @@ func (p *ReleaseImagePlugin) downloadService(productName, serviceName, storageUR
 	}
 
 	s3Storage.Subfolder = filepath.Join(s3Storage.Subfolder, configbase.ObjectStorageServicePath(productName, serviceName))
-	forcedPathStyle := true
-	if s3Storage.Provider == setting.ProviderSourceAli {
-		forcedPathStyle = false
-	}
-	s3Client, err := s3tool.NewClient(s3Storage.Endpoint, s3Storage.Ak, s3Storage.Sk, s3Storage.Region, s3Storage.Insecure, forcedPathStyle)
+	s3Client, err := s3tool.NewClient(s3Storage.Endpoint, s3Storage.Ak, s3Storage.Sk, s3Storage.Region, s3Storage.Insecure, s3Storage.Provider)
 	if err != nil {
 		p.Log.Errorf("failed to create s3 client, err: %s", err)
 		return "", err

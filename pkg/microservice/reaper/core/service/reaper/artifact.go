@@ -134,11 +134,7 @@ func artifactsUpload(ctx *meta.Context, activeWorkspace string, artifactPaths []
 }
 
 func s3FileUpload(store *s3.S3, sourceFile, objectKey string) error {
-	forcedPathStyle := true
-	if store.Provider == setting.ProviderSourceAli {
-		forcedPathStyle = false
-	}
-	s3client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Region, store.Insecure, forcedPathStyle)
+	s3client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Region, store.Insecure, int8(store.Provider))
 	if err != nil {
 		log.Errorf("failed to create s3 client, error is: %s", err)
 		return err

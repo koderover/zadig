@@ -37,7 +37,6 @@ import (
 	s3service "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/s3"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/stat/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/stat/repository/mongodb"
-	"github.com/koderover/zadig/v2/pkg/setting"
 	s3tool "github.com/koderover/zadig/v2/pkg/tool/s3"
 	"github.com/koderover/zadig/v2/pkg/types/step"
 	"github.com/koderover/zadig/v2/pkg/util"
@@ -190,11 +189,7 @@ func getTestReportFromDefaultS3(objectKey string) (*commonmodels.TestReport, err
 		return testReport, fmt.Errorf("failed to genarate tmp file, err: %s", err)
 	}
 
-	forcedPathStyle := true
-	if defaultS3Storage.Provider == setting.ProviderSourceAli {
-		forcedPathStyle = false
-	}
-	client, err := s3tool.NewClient(defaultS3Storage.Endpoint, defaultS3Storage.Ak, defaultS3Storage.Sk, defaultS3Storage.Region, defaultS3Storage.Insecure, forcedPathStyle)
+	client, err := s3tool.NewClient(defaultS3Storage.Endpoint, defaultS3Storage.Ak, defaultS3Storage.Sk, defaultS3Storage.Region, defaultS3Storage.Insecure, defaultS3Storage.Provider)
 	if err != nil {
 		return testReport, fmt.Errorf("failed to create s3 client for download, error: %s", err)
 	}
