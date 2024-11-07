@@ -196,6 +196,7 @@ type KeyVal struct {
 	CallFunction      string               `bson:"call_function,omitempty"      json:"call_function,omitempty"      yaml:"call_function,omitempty"`
 	FunctionReference []string             `bson:"function_reference,omitempty" json:"function_reference,omitempty" yaml:"function_reference,omitempty"`
 	IsCredential      bool                 `bson:"is_credential"                json:"is_credential"                yaml:"is_credential"`
+	Description       string               `bson:"description"                  json:"description"                  yaml:"description"`
 }
 
 type Item struct {

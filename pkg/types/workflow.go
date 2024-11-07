@@ -36,6 +36,7 @@ type ParameterSetting struct {
 	// ExternalSetting It is the configuration of the external system to obtain the variable
 	ExternalSetting *ExternalSetting `json:"external_setting"`
 	IsCredential    bool             `json:"is_credential"`
+	Description     string           `json:"description"`
 }
 
 type ExternalSetting struct {
