@@ -91,6 +91,7 @@ func generateBuildModuleFromOpenAPIRequest(req *OpenAPIBuildCreationReq, log *za
 			Value:        kv.DefaultValue,
 			Type:         commonmodels.ParameterSettingType(kv.Type),
 			ChoiceOption: kv.ChoiceOption,
+			Description:  kv.Description,
 			IsCredential: kv.IsCredential,
 		})
 	}
