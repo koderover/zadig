@@ -469,11 +469,7 @@ func (h *TaskAckHandler) uploadTaskData(pt *task.Task) error {
 								testJobName := strings.Replace(strings.ToLower(fmt.Sprintf("%s-%s-%d-%s-%s",
 									config.WorkflowType, pt.PipelineName, pt.TaskID, config.TaskTestingV2, testInfo.TestModuleName)), "_", "-", -1)
 								fileSrc := fmt.Sprintf("%s/%d/%s/%s", pt.PipelineName, pt.TaskID, "test", testJobName)
-								forcedPathStyle := true
-								if storage.Provider == setting.ProviderSourceAli {
-									forcedPathStyle = false
-								}
-								client, err := s3tool.NewClient(storage.Endpoint, storage.Ak, storage.Sk, storage.Region, storage.Insecure, forcedPathStyle)
+								client, err := s3tool.NewClient(storage.Endpoint, storage.Ak, storage.Sk, storage.Region, storage.Insecure, storage.Provider)
 								objectKey := storage.GetObjectPath(fileSrc)
 								err = client.Download(storage.Bucket, objectKey, filename)
 								if err != nil {
@@ -643,11 +639,7 @@ func (h *TaskAckHandler) uploadTaskData(pt *task.Task) error {
 							testJobName := strings.Replace(strings.ToLower(fmt.Sprintf("%s-%s-%d-%s-%s",
 								config.TestType, pipelineName, pt.TaskID, config.TaskTestingV2, testInfo.TestModuleName)), "_", "-", -1)
 							fileSrc := fmt.Sprintf("%s/%d/%s/%s", pipelineName, pt.TaskID, "test", testJobName)
-							forcedPathStyle := true
-							if storage.Provider == setting.ProviderSourceAli {
-								forcedPathStyle = false
-							}
-							client, err := s3tool.NewClient(storage.Endpoint, storage.Ak, storage.Sk, storage.Region, storage.Insecure, forcedPathStyle)
+							client, err := s3tool.NewClient(storage.Endpoint, storage.Ak, storage.Sk, storage.Region, storage.Insecure, storage.Provider)
 							objectKey := storage.GetObjectPath(fileSrc)
 							err = client.Download(storage.Bucket, objectKey, filename)
 							if err != nil {

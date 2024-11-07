@@ -29,7 +29,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	vmmodel "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models/vm"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
-	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/tool/cache"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	s3tool "github.com/koderover/zadig/v2/pkg/tool/s3"
@@ -113,11 +112,7 @@ func uploadVMJobLog2S3(job *vmmodel.VMJob) error {
 		} else {
 			store.Subfolder = fmt.Sprintf("%s/%d/%s", strings.ToLower(job.WorkflowName), job.TaskID, "log")
 		}
-		forcedPathStyle := true
-		if store.Provider == setting.ProviderSourceAli {
-			forcedPathStyle = false
-		}
-		s3client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Region, store.Insecure, forcedPathStyle)
+		s3client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Region, store.Insecure, store.Provider)
 		if err != nil {
 			return fmt.Errorf("saveContainerLog s3 create client error: %v", err)
 		}

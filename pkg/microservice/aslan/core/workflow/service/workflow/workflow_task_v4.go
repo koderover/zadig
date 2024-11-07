@@ -1913,11 +1913,7 @@ func GetWorkflowV4ArtifactFileContent(workflowName, jobName string, taskID int64
 		log.Errorf("GetTestArtifactInfo FindDefaultS3 err:%v", err)
 		return []byte{}, fmt.Errorf("findDefaultS3 err: %v", err)
 	}
-	forcedPathStyle := true
-	if storage.Provider == setting.ProviderSourceAli {
-		forcedPathStyle = false
-	}
-	client, err := s3tool.NewClient(storage.Endpoint, storage.Ak, storage.Sk, storage.Region, storage.Insecure, forcedPathStyle)
+	client, err := s3tool.NewClient(storage.Endpoint, storage.Ak, storage.Sk, storage.Region, storage.Insecure, storage.Provider)
 	if err != nil {
 		log.Errorf("GetTestArtifactInfo Create S3 client err:%+v", err)
 		return []byte{}, fmt.Errorf("create S3 client err: %v", err)
@@ -1988,11 +1984,7 @@ func GetWorkflowV4BuildJobArtifactFile(workflowName, jobName string, taskID int6
 		log.Errorf("GetWorkflowV4BuildJobArtifactFile FindDefaultS3 err:%v", err)
 		return []byte{}, "", fmt.Errorf("findDefaultS3 err: %v", err)
 	}
-	forcedPathStyle := true
-	if storage.Provider == setting.ProviderSourceAli {
-		forcedPathStyle = false
-	}
-	client, err := s3tool.NewClient(storage.Endpoint, storage.Ak, storage.Sk, storage.Region, storage.Insecure, forcedPathStyle)
+	client, err := s3tool.NewClient(storage.Endpoint, storage.Ak, storage.Sk, storage.Region, storage.Insecure, storage.Provider)
 	if err != nil {
 		log.Errorf("GetWorkflowV4BuildJobArtifactFile Create S3 client err:%+v", err)
 		return []byte{}, "", fmt.Errorf("create S3 client err: %v", err)

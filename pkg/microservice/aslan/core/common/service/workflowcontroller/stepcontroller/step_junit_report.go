@@ -32,7 +32,6 @@ import (
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/s3"
-	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	s3tool "github.com/koderover/zadig/v2/pkg/tool/s3"
 	"github.com/koderover/zadig/v2/pkg/types/step"
@@ -94,11 +93,7 @@ func (s *junitReportCtl) AfterRun(ctx context.Context) error {
 		log.Errorf("find defalt s3 error: %v", err)
 		return err
 	}
-	forcedPathStyle := true
-	if storage.Provider == setting.ProviderSourceAli {
-		forcedPathStyle = false
-	}
-	client, err := s3tool.NewClient(storage.Endpoint, storage.Ak, storage.Sk, storage.Region, storage.Insecure, forcedPathStyle)
+	client, err := s3tool.NewClient(storage.Endpoint, storage.Ak, storage.Sk, storage.Region, storage.Insecure, storage.Provider)
 	if err != nil {
 		log.Errorf("NewClient err:%v", err)
 		return err

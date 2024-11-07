@@ -1163,11 +1163,7 @@ func GePackageFileContent(pipelineName string, taskID int64, log *zap.SugaredLog
 	defer func() {
 		_ = os.Remove(tmpfile.Name())
 	}()
-	forcedPathStyle := true
-	if storage.Provider == setting.ProviderSourceAli {
-		forcedPathStyle = false
-	}
-	client, err := s3tool.NewClient(storage.Endpoint, storage.Ak, storage.Sk, storage.Region, storage.Insecure, forcedPathStyle)
+	client, err := s3tool.NewClient(storage.Endpoint, storage.Ak, storage.Sk, storage.Region, storage.Insecure, storage.Provider)
 	if err != nil {
 		return nil, packageFile, fmt.Errorf("failed to get s3 client to download %s, error is: %v", packageFile, err)
 	}
@@ -1242,11 +1238,7 @@ func GetArtifactAndS3Info(pipelineName, dir string, taskID int64, notHistoryFile
 	} else {
 		storage.Subfolder = fmt.Sprintf("%s/%d/%s", pipelineName, taskID, "artifact")
 	}
-	forcedPathStyle := true
-	if storage.Provider == setting.ProviderSourceAli {
-		forcedPathStyle = false
-	}
-	client, err := s3tool.NewClient(storage.Endpoint, storage.Ak, storage.Sk, storage.Region, storage.Insecure, forcedPathStyle)
+	client, err := s3tool.NewClient(storage.Endpoint, storage.Ak, storage.Sk, storage.Region, storage.Insecure, storage.Provider)
 	if err != nil {
 		log.Errorf("GetTestArtifactInfo Create S3 client err:%+v", err)
 		return nil, nil, fis, nil, err

@@ -30,6 +30,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 
+	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	fsutil "github.com/koderover/zadig/v2/pkg/util/fs"
 )
@@ -51,11 +52,16 @@ var defaultDownloadOption = &DownloadOption{
 	RetryNum: 3,
 }
 
-func NewClient(endpoint, ak, sk, region string, insecure, forcedPathStyle bool) (*Client, error) {
+func NewClient(endpoint, ak, sk, region string, insecure bool, provider int8) (*Client, error) {
+	s3ForcePathStyle := true
+	if provider == setting.ProviderSourceAli || provider == setting.ProviderSourceTencent {
+		s3ForcePathStyle = false
+	}
+
 	creds := credentials.NewStaticCredentials(ak, sk, "")
 	config := &aws.Config{
 		Endpoint:         aws.String(endpoint),
-		S3ForcePathStyle: aws.Bool(forcedPathStyle),
+		S3ForcePathStyle: aws.Bool(s3ForcePathStyle),
 		Credentials:      creds,
 		DisableSSL:       aws.Bool(insecure),
 	}

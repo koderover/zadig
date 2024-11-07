@@ -43,11 +43,7 @@ func (r *Reaper) archiveS3Files() (err error) {
 		} else {
 			store.Subfolder = fmt.Sprintf("%s/%d/%s", r.Ctx.PipelineName, r.Ctx.TaskID, "file")
 		}
-		forcedPathStyle := true
-		if store.Provider == setting.ProviderSourceAli {
-			forcedPathStyle = false
-		}
-		s3client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Region, store.Insecure, forcedPathStyle)
+		s3client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Region, store.Insecure, int8(store.Provider))
 		if err != nil {
 			log.Errorf("failed to create s3 client, error is: %+v", err)
 			return err
@@ -102,11 +98,7 @@ func (r *Reaper) archiveTestFiles() error {
 		//log.Warningf("upload filepath not exist")
 		return nil
 	}
-	forcedPathStyle := true
-	if store.Provider == setting.ProviderSourceAli {
-		forcedPathStyle = false
-	}
-	s3client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Region, store.Insecure, forcedPathStyle)
+	s3client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Region, store.Insecure, int8(store.Provider))
 	if err != nil {
 		log.Errorf("failed to create s3 client, error is: %+v", err)
 		return err
@@ -154,11 +146,7 @@ func (r *Reaper) archiveHTMLTestReportFile() error {
 	}
 
 	fileName := filepath.Base(r.Ctx.Archive.TestReportFile)
-	forcedPathStyle := true
-	if store.Provider == setting.ProviderSourceAli {
-		forcedPathStyle = false
-	}
-	s3client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Region, store.Insecure, forcedPathStyle)
+	s3client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Region, store.Insecure, int8(store.Provider))
 	if err != nil {
 		log.Errorf("failed to create s3 client, error is: %+v", err)
 		return err

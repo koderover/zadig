@@ -28,7 +28,6 @@ import (
 
 	"github.com/koderover/zadig/v2/pkg/microservice/reaper/core/service/meta"
 	"github.com/koderover/zadig/v2/pkg/microservice/reaper/internal/s3"
-	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	s3tool "github.com/koderover/zadig/v2/pkg/tool/s3"
 	"github.com/koderover/zadig/v2/pkg/util"
@@ -120,11 +119,7 @@ func (gcm *TarCacheManager) Archive(source, dest string) error {
 	//}
 
 	if store, err := gcm.getS3Storage(); err == nil {
-		forcedPathStyle := true
-		if store.Provider == setting.ProviderSourceAli {
-			forcedPathStyle = false
-		}
-		s3client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Region, store.Insecure, forcedPathStyle)
+		s3client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Region, store.Insecure, int8(store.Provider))
 		if err != nil {
 			log.Errorf("Archive s3 create s3 client error: %+v", err)
 			return err
@@ -141,11 +136,7 @@ func (gcm *TarCacheManager) Archive(source, dest string) error {
 
 func (gcm *TarCacheManager) Unarchive(source, dest string) error {
 	if store, err := gcm.getS3Storage(); err == nil {
-		forcedPathStyle := true
-		if store.Provider == setting.ProviderSourceAli {
-			forcedPathStyle = false
-		}
-		s3client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Region, store.Insecure, forcedPathStyle)
+		s3client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Region, store.Insecure, int8(store.Provider))
 		if err != nil {
 			return err
 		}

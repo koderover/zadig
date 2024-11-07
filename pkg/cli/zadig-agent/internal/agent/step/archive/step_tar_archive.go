@@ -29,7 +29,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/helper/log"
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/agent/step/helper"
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/common/types"
-	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/tool/s3"
 	"github.com/koderover/zadig/v2/pkg/types/step"
 	"github.com/koderover/zadig/v2/pkg/util/fs"
@@ -61,11 +60,7 @@ func (s *TarArchiveStep) Run(ctx context.Context) error {
 		return nil
 	}
 	s.logger.Infof(fmt.Sprintf("Start tar archive %s.", s.spec.FileName))
-	forcedPathStyle := true
-	if s.spec.S3Storage.Provider == setting.ProviderSourceAli {
-		forcedPathStyle = false
-	}
-	client, err := s3.NewClient(s.spec.S3Storage.Endpoint, s.spec.S3Storage.Ak, s.spec.S3Storage.Sk, s.spec.S3Storage.Region, s.spec.S3Storage.Insecure, forcedPathStyle)
+	client, err := s3.NewClient(s.spec.S3Storage.Endpoint, s.spec.S3Storage.Ak, s.spec.S3Storage.Sk, s.spec.S3Storage.Region, s.spec.S3Storage.Insecure, s.spec.S3Storage.Provider)
 	if err != nil {
 		if s.spec.IgnoreErr {
 			s.logger.Errorf("failed to create s3 client to upload file, err: %s", err)
