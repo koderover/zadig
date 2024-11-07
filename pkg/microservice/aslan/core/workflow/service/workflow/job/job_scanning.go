@@ -828,6 +828,14 @@ func (j *ScanningJob) getOriginReferedJobTargets(jobName string) ([]*commonmodel
 				servicetargets = scanningSpec.TargetServices
 				return servicetargets, nil
 			}
+			if job.JobType == config.JobZadigTesting {
+				testingSpec := &commonmodels.ZadigTestingJobSpec{}
+				if err := commonmodels.IToi(job.Spec, testingSpec); err != nil {
+					return servicetargets, err
+				}
+				servicetargets = testingSpec.TargetServices
+				return servicetargets, nil
+			}
 			if job.JobType == config.JobFreestyle {
 				deploySpec := &commonmodels.FreestyleJobSpec{}
 				if err := commonmodels.IToi(job.Spec, deploySpec); err != nil {

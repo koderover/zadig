@@ -675,6 +675,27 @@ func (j *FreeStyleJob) getOriginReferedJobTargets(jobName string) ([]*commonmode
 				}
 				return servicetargets, nil
 			}
+			if job.JobType == config.JobZadigTesting {
+				testingSpec := &commonmodels.ZadigTestingJobSpec{}
+				if err := commonmodels.IToi(job.Spec, testingSpec); err != nil {
+					return servicetargets, err
+				}
+				for _, svc := range testingSpec.TargetServices {
+					target := &commonmodels.FreeStyleServiceInfo{
+						ServiceName:   svc.ServiceName,
+						ServiceModule: svc.ServiceModule,
+						KeyVals:       j.spec.Properties.DeepCopyEnvs(),
+					}
+					if originTarget, ok := originTargetMap[target.GetKey()]; ok {
+						target.Repos = originTarget.Repos
+					} else {
+						return servicetargets, fmt.Errorf("refered job %s target %s not found", jobName, target.GetKey())
+					}
+
+					servicetargets = append(servicetargets, target)
+				}
+				return servicetargets, nil
+			}
 			if job.JobType == config.JobFreestyle {
 				deploySpec := &commonmodels.FreestyleJobSpec{}
 				if err := commonmodels.IToi(job.Spec, deploySpec); err != nil {
