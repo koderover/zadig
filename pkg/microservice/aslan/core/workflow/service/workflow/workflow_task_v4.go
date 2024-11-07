@@ -51,6 +51,7 @@ import (
 	larktool "github.com/koderover/zadig/v2/pkg/tool/lark"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	s3tool "github.com/koderover/zadig/v2/pkg/tool/s3"
+	"github.com/koderover/zadig/v2/pkg/tool/sonar"
 	workflowtool "github.com/koderover/zadig/v2/pkg/tool/workflow"
 	"github.com/koderover/zadig/v2/pkg/types"
 	jobspec "github.com/koderover/zadig/v2/pkg/types/job"
@@ -1480,6 +1481,7 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, 
 					continue
 				}
 			}
+			sonarURL := ""
 			for _, arg := range taskJobSpec.Properties.Envs {
 				if arg.Key == "SONAR_LINK" {
 					spec.LinkURL = arg.Value
@@ -1501,6 +1503,30 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, 
 				if arg.Key == "SERVICE_MODULE" {
 					spec.ServiceModule = arg.Value
 					continue
+				}
+				if arg.Key == "SONAR_URL" {
+					sonarURL = arg.Value
+					continue
+				}
+			}
+			if spec.LinkURL == "" {
+				if sonarURL != "" {
+					projectKey := ""
+					projectScanningOutputKey := jobspec.GetJobOutputKey(job.Key, setting.WorkflowScanningJobOutputKeyProject)
+					projectScanningOutputKey = workflowcontroller.GetContextKey(projectScanningOutputKey)
+
+					if context[projectScanningOutputKey] != "" {
+						projectKey = context[projectScanningOutputKey]
+					}
+
+					resultAddr, err := sonar.GetSonarAddressWithProjectKey(sonarURL, projectKey)
+					if err != nil {
+						log.Errorf("failed to get sonar address with project key %s, error: %v", projectKey, err)
+						continue
+					}
+					spec.LinkURL = resultAddr
+				} else {
+					log.Errorf("failed to get sonar url from job task's env")
 				}
 			}
 			jobPreview.Spec = spec

@@ -35,6 +35,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/s3"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/scmnotify"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/webhook"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/workflowcontroller"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	workflowservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/v2/pkg/setting"
@@ -42,6 +43,7 @@ import (
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/sonar"
 	"github.com/koderover/zadig/v2/pkg/types"
+	jobspec "github.com/koderover/zadig/v2/pkg/types/job"
 	stepspec "github.com/koderover/zadig/v2/pkg/types/step"
 )
 
@@ -610,10 +612,40 @@ func GetScanningTaskInfo(scanningID string, taskID int64, log *zap.SugaredLogger
 			return nil, err
 		}
 
+		sonarURL := ""
+		for _, arg := range jobTaskSpec.Properties.Envs {
+			// if arg.Key == "SONAR_LINK" {
+			// 	spec.LinkURL = arg.Value
+			// 	continue
+			// }
+			if arg.Key == "SONAR_URL" {
+				sonarURL = arg.Value
+				break
+			}
+		}
+
 		projectKey := sonar.GetSonarProjectKeyFromConfig(scanningInfo.Parameter)
-		resultAddr, err = sonar.GetSonarAddressWithProjectKey(sonarInfo.ServerAddress, renderEnv(projectKey, jobTaskSpec.Properties.Envs))
-		if err != nil {
-			log.Errorf("failed to get sonar address with project key, error: %s", err)
+
+		if projectKey == "" {
+			jobKey := workflowTask.Stages[0].Jobs[0].Key
+			projectScanningOutputKey := jobspec.GetJobOutputKey(jobKey, setting.WorkflowScanningJobOutputKeyProject)
+			projectScanningOutputKey = workflowcontroller.GetContextKey(projectScanningOutputKey)
+
+			if workflowTask.GlobalContext[projectScanningOutputKey] != "" {
+				projectKey = workflowTask.GlobalContext[projectScanningOutputKey]
+			}
+
+			resultAddr, err = sonar.GetSonarAddressWithProjectKey(sonarURL, projectKey)
+			if err != nil {
+				resultAddr = sonarURL
+				log.Errorf("failed to get sonar address with project key %s, error: %v", projectKey, err)
+			}
+		} else {
+			resultAddr, err = sonar.GetSonarAddressWithProjectKey(sonarInfo.ServerAddress, renderEnv(projectKey, jobTaskSpec.Properties.Envs))
+			if err != nil {
+				resultAddr = sonarURL
+				log.Errorf("failed to get sonar address with project key, error: %s", err)
+			}
 		}
 
 		for _, step := range jobTaskSpec.Steps {
