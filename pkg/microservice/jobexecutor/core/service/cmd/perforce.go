@@ -65,7 +65,7 @@ func PerforceLogin(host string, port int, username, password string) []*exec.Cmd
 
 const streamTypeConfigFile = `Client: %s
 Root: /workspace/%s
-Type: writable
+Type: writeable
 Stream: %s`
 
 const localTypeConfigFile = `Client: %s
