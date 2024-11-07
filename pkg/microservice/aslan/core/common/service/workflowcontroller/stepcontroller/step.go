@@ -74,7 +74,7 @@ func instantiateStepCtl(step *commonmodels.StepTask, workflowCtx *commonmodels.W
 	case config.StepGit:
 		stepCtl, err = NewGitCtl(step, logger)
 	case config.StepPerforce:
-		stepCtl, err = NewP4Ctl(step, workflowCtx, logger)
+		stepCtl, err = NewP4Ctl(jobName, step, workflowCtx, logger)
 	case config.StepShell:
 		stepCtl, err = NewShellCtl(step, logger)
 	case config.StepPowerShell:

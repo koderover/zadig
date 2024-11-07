@@ -34,7 +34,7 @@ type perforceCtl struct {
 	log    *zap.SugaredLogger
 }
 
-func NewP4Ctl(stepTask *commonmodels.StepTask, workflowCtx *commonmodels.WorkflowTaskCtx, log *zap.SugaredLogger) (*perforceCtl, error) {
+func NewP4Ctl(jobName string, stepTask *commonmodels.StepTask, workflowCtx *commonmodels.WorkflowTaskCtx, log *zap.SugaredLogger) (*perforceCtl, error) {
 	yamlString, err := yaml.Marshal(stepTask.Spec)
 	if err != nil {
 		return nil, fmt.Errorf("marshal git spec error: %v", err)
@@ -46,6 +46,7 @@ func NewP4Ctl(stepTask *commonmodels.StepTask, workflowCtx *commonmodels.Workflo
 	p4Spec.WorkflowName = workflowCtx.WorkflowName
 	p4Spec.ProjectKey = workflowCtx.ProjectName
 	p4Spec.TaskID = workflowCtx.TaskID
+	p4Spec.JobName = jobName
 	stepTask.Spec = p4Spec
 	return &perforceCtl{p4Spec: p4Spec, log: log, step: stepTask}, nil
 }

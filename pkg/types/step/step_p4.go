@@ -23,6 +23,7 @@ type StepP4Spec struct {
 	WorkflowName string              `bson:"workflow_name"  json:"workflow_name" yaml:"workflow_name"`
 	ProjectKey   string              `bson:"project_key"    json:"project_key"   yaml:"project_key"`
 	TaskID       int64               `bson:"task_id"        json:"task_id"       yaml:"task_id"`
+	JobName      string              `bson:"job_name"       json:"job_name"      yaml:"job_name"`
 	// P4 is unable to use http/https proxy since it does not use HTTP protocol
 	// Proxy *Proxy              `bson:"proxy"          json:"proxy"    yaml:"proxy"`
 }

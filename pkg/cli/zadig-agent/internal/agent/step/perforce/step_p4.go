@@ -14,39 +14,42 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package step
+package perforce
 
 import (
-	"bufio"
 	"context"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
-	"gopkg.in/yaml.v3"
+	"gopkg.in/yaml.v2"
 
-	c "github.com/koderover/zadig/v2/pkg/microservice/jobexecutor/core/service/cmd"
-	"github.com/koderover/zadig/v2/pkg/setting"
-	"github.com/koderover/zadig/v2/pkg/tool/log"
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/helper/log"
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/helper/perforce"
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/agent/step/helper"
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/common"
+	agenttypes "github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/common/types"
 	"github.com/koderover/zadig/v2/pkg/types"
 	"github.com/koderover/zadig/v2/pkg/types/step"
 )
 
 type P4Step struct {
-	spec       *step.StepP4Spec
+	spec       *step.StepGitSpec
 	envs       []string
 	secretEnvs []string
-	workspace  string
+	dirs       *agenttypes.AgentWorkDirs
+	Logger     *log.JobLogger
 }
 
-func NewP4Step(spec interface{}, workspace string, envs, secretEnvs []string) (*P4Step, error) {
-	p4Step := &P4Step{workspace: workspace, envs: envs, secretEnvs: secretEnvs}
+func NewP4Step(spec interface{}, dirs *agenttypes.AgentWorkDirs, envs, secretEnvs []string, logger *log.JobLogger) (*P4Step, error) {
+	p4Step := &P4Step{dirs: dirs, envs: envs, secretEnvs: secretEnvs, Logger: logger}
 	yamlBytes, err := yaml.Marshal(spec)
 	if err != nil {
 		return p4Step, fmt.Errorf("marshal spec %+v failed", spec)
 	}
 	if err := yaml.Unmarshal(yamlBytes, &p4Step.spec); err != nil {
-		return p4Step, fmt.Errorf("unmarshal spec %s to perforce spec failed", yamlBytes)
+		return p4Step, fmt.Errorf("unmarshal spec %s to git spec failed", yamlBytes)
 	}
 	return p4Step, nil
 }
@@ -66,8 +69,8 @@ func (s *P4Step) Run(ctx context.Context) error {
 }
 
 func (s *P4Step) syncPerforceWorkspace() error {
-	for i, repo := range s.spec.Repos {
-		err := s.syncP4Depot(s.envs, repo, i)
+	for _, repo := range s.spec.Repos {
+		err := syncP4Depot(s.envs, s.secretEnvs, repo, s.Logger)
 		if err != nil {
 			repoName := ""
 			if repo.Stream != "" {
@@ -83,8 +86,8 @@ func (s *P4Step) syncPerforceWorkspace() error {
 	return nil
 }
 
-func (s *P4Step) syncP4Depot(envs []string, repo *types.Repository, repoIndex int) error {
-	finalCmds := make([]*c.Command, 0)
+func syncP4Depot(envs, secretEnvs []string, repo *types.Repository, logger *log.JobLogger) error {
+	finalCmds := make([]*common.Command, 0)
 	if repo == nil {
 		return fmt.Errorf("nil repository given to p4 depot job")
 	}
@@ -98,36 +101,37 @@ func (s *P4Step) syncP4Depot(envs []string, repo *types.Repository, repoIndex in
 		envCopy = append(envCopy, env)
 	}
 
-	loginCmds := c.PerforceLogin(repo.PerforceHost, repo.PerforcePort, repo.Username, repo.Password)
+	loginCmds := perforce.PerforceLogin(repo.PerforceHost, repo.PerforcePort, repo.Username, repo.Password)
 
 	for _, cmd := range loginCmds {
-		finalCmds = append(finalCmds, &c.Command{
+		finalCmds = append(finalCmds, &common.Command{
 			Cmd:          cmd,
 			DisableTrace: true,
 		})
 	}
 
-	clientName := fmt.Sprintf("%s_%s_%d_ch%d_%s", s.spec.JobName, s.spec.WorkflowName, s.spec.TaskID, repoIndex, s.spec.ProjectKey)
+	// TODO: generate client name by depot/codehost info to make it unique
+	clientName := "zadig-client"
 
-	createWorkspaceCmds := c.PerforceCreateWorkspace(clientName, repo.DepotType, repo.Stream, repo.ViewMapping)
+	createWorkspaceCmds := perforce.PerforceCreateWorkspace(clientName, repo.DepotType, repo.Stream, repo.ViewMapping)
 	for _, cmd := range createWorkspaceCmds {
-		finalCmds = append(finalCmds, &c.Command{
+		finalCmds = append(finalCmds, &common.Command{
 			Cmd:          cmd,
 			DisableTrace: true,
 		})
 	}
 
-	syncCodeCmd := c.PerforceSync(clientName, repo.ChangeListID)
+	syncCodeCmd := perforce.PerforceSync(clientName, repo.ChangeListID)
 	for _, cmd := range syncCodeCmd {
-		finalCmds = append(finalCmds, &c.Command{
+		finalCmds = append(finalCmds, &common.Command{
 			Cmd:          cmd,
 			DisableTrace: true,
 		})
 	}
 
-	unshelveCmd := c.PerforceUnshelve(clientName, repo.ShelveID)
+	unshelveCmd := perforce.PerforceUnshelve(clientName, repo.ShelveID)
 	for _, cmd := range unshelveCmd {
-		finalCmds = append(finalCmds, &c.Command{
+		finalCmds = append(finalCmds, &common.Command{
 			Cmd:          cmd,
 			DisableTrace: true,
 		})
@@ -144,31 +148,40 @@ func (s *P4Step) syncP4Depot(envs []string, repo *types.Repository, repoIndex in
 		if err != nil {
 			return err
 		}
-
-		outScanner := bufio.NewScanner(cmdOutReader)
-		go func() {
-			for outScanner.Scan() {
-				fmt.Printf("%s   %s\n", time.Now().Format(setting.WorkflowTimeFormat), maskSecret(tokens, outScanner.Text()))
-			}
-		}()
-
 		cmdErrReader, err := command.Cmd.StderrPipe()
 		if err != nil {
 			return err
 		}
 
-		errScanner := bufio.NewScanner(cmdErrReader)
-		go func() {
-			for errScanner.Scan() {
-				fmt.Printf("%s   %s\n", time.Now().Format(setting.WorkflowTimeFormat), maskSecret(tokens, errScanner.Text()))
-			}
-		}()
-
 		command.Cmd.Env = envs
 		if !command.DisableTrace {
-			fmt.Printf("%s   %s\n", time.Now().Format(setting.WorkflowTimeFormat), strings.Join(command.Cmd.Args, " "))
+			logger.Printf("%s\n", helper.MaskSecretEnvs(strings.Join(command.Cmd.Args, " "), secretEnvs))
 		}
-		if err := command.Cmd.Run(); err != nil {
+		if err := command.Cmd.Start(); err != nil {
+			if command.IgnoreError {
+				continue
+			}
+			return err
+		}
+
+		var wg sync.WaitGroup
+		needPersistentLog := true
+		// write script output to log file
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+
+			helper.HandleCmdOutput(cmdOutReader, needPersistentLog, logger.GetLogfilePath(), secretEnvs, log.GetSimpleLogger())
+		}()
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+
+			helper.HandleCmdOutput(cmdErrReader, needPersistentLog, logger.GetLogfilePath(), secretEnvs, log.GetSimpleLogger())
+		}()
+
+		wg.Wait()
+		if err := command.Cmd.Wait(); err != nil {
 			if command.IgnoreError {
 				continue
 			}

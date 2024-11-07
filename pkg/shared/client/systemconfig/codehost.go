@@ -92,6 +92,8 @@ func (c *Client) GetCodeHost(id int) (*CodeHost, error) {
 		AuthType:           resp.AuthType,
 		SSHKey:             resp.SSHKey,
 		PrivateAccessToken: resp.PrivateAccessToken,
+		P4Host:             resp.P4Host,
+		P4Port:             resp.P4Port,
 	}
 
 	return res, nil
