@@ -44,6 +44,11 @@ func PerforceLogin(host string, port int, username, password string) []*exec.Cmd
 		fmt.Sprintf("P4USER=%s", username),
 	))
 
+	cmds = append(cmds, exec.Command(
+		"p4",
+		"set",
+	))
+
 	loginCmd := exec.Command(
 		"p4",
 		"login",
