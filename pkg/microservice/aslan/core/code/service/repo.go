@@ -22,6 +22,7 @@ import (
 	"sync"
 
 	"github.com/hashicorp/go-multierror"
+	"github.com/koderover/zadig/v2/pkg/types"
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/code/client"
@@ -71,7 +72,7 @@ func ListRepoInfos(infos []*GitRepoInfo, log *zap.SugaredLogger) ([]*GitRepoInfo
 			log.Errorf("get code host info err:%s", err)
 			return nil, err
 		}
-		if ch.Type == setting.SourceFromOther {
+		if ch.Type == types.ProviderOther || ch.Type == types.ProviderPerforce {
 			continue
 		}
 		codehostClient, err := open.OpenClient(ch, log)

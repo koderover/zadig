@@ -19,6 +19,11 @@ RUN apt-get install -y \
   librrd-dev \
   sudo
 
+RUN wget -qO - https://package.perforce.com/perforce.pubkey | gpg --dearmor | sudo tee /usr/share/keyrings/perforce.gpg
+RUN echo deb [signed-by=/usr/share/keyrings/perforce.gpg] https://package.perforce.com/apt/ubuntu bionic release > /etc/apt/sources.list.d/perforce.list
+RUN apt-get update && apt-get install -y helix-p4d
+
+
 # timezone modification
 RUN ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
 

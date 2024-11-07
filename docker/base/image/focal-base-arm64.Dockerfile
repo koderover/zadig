@@ -22,6 +22,11 @@ RUN apt-get install -y \
 # timezone modification
 RUN ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
 
+# NOTE THAT ARM64 support for p4 is discontinued
+#RUN wget -qO - https://package.perforce.com/perforce.pubkey | gpg --dearmor | sudo tee /usr/share/keyrings/perforce.gpg
+#RUN echo deb [signed-by=/usr/share/keyrings/perforce.gpg] https://package.perforce.com/apt/ubuntu focal release > /etc/apt/sources.list.d/perforce.list
+#RUN apt-get update && apt-get install -y helix-p4d
+
 # install docker client
 RUN curl -fsSL "http://resources.koderover.com/docker-cli-v19.03.2.tar.gz" -o docker.tgz &&\
     tar -xvzf docker.tgz &&\

@@ -20,6 +20,7 @@ prereq:
 microservice: prereq $(MICROSERVICE_TARGETS:=.image)
 microservice.push: prereq $(MICROSERVICE_TARGETS:=.push)
 buildbase: prereq $(BUILD_BASE_TARGETS:=.buildbase)
+buildbasetest: prereq $(BUILD_BASE_TARGETS:=.buildbasetest)
 debugtools: prereq $(DEBUG_TOOLS_TARGETS:=.push)
 
 %.image: MAKE_IMAGE_TAG ?= ${IMAGE_REPOSITORY}/$*:${VERSION}
@@ -39,6 +40,10 @@ debugtools: prereq $(DEBUG_TOOLS_TARGETS:=.push)
 %.buildbase: MAKE_IMAGE_TAG ?= ${IMAGE_REPOSITORY}/build-base:$*
 %.buildbase:
 	@docker buildx build -t ${MAKE_IMAGE_TAG} --platform linux/amd64,linux/arm64 -f docker/$*-base.Dockerfile --push .
+
+%.buildbasetest: MAKE_IMAGE_TAG ?= ${IMAGE_REPOSITORY}/build-base:$*-$(shell date +'%Y%m%d%H%M%S')
+%.buildbasetest:
+	@docker buildx build -t ${MAKE_IMAGE_TAG} --progress plain --no-cache --platform linux/amd64 -f docker/$*-base.Dockerfile --push .
 
 swag:
 	swag init --parseDependency --parseInternal --parseDepth 1 -d cmd/aslan,pkg/microservice/aslan -g ../../pkg/microservice/aslan/server/rest/router.go -o pkg/microservice/aslan/server/rest/doc
