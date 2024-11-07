@@ -570,16 +570,18 @@ func (j *ScanningJob) toJobTask(scanning *commonmodels.ScanningModule, taskID in
 
 		}
 
+		sonarLinkKeyVal := &commonmodels.KeyVal{
+			Key: "SONAR_LINK",
+		}
 		projectKey := renderEnv(sonar.GetSonarProjectKeyFromConfig(scanningInfo.Parameter), jobTaskSpec.Properties.Envs)
-		resultAddr, err := sonar.GetSonarAddressWithProjectKey(sonarInfo.ServerAddress, projectKey)
-		if err != nil {
-			log.Errorf("failed to get sonar address with project key, error: %s", err)
+		if projectKey != "" {
+			resultAddr, err := sonar.GetSonarAddressWithProjectKey(sonarInfo.ServerAddress, projectKey)
+			if err != nil {
+				log.Errorf("failed to get sonar address with project key, error: %s", err)
+			}
+			sonarLinkKeyVal.Value = resultAddr
 		}
 
-		sonarLinkKeyVal := &commonmodels.KeyVal{
-			Key:   "SONAR_LINK",
-			Value: resultAddr,
-		}
 		jobTaskSpec.Properties.Envs = append(jobTaskSpec.Properties.Envs, sonarLinkKeyVal)
 		jobTaskSpec.Properties.Envs = append(jobTaskSpec.Properties.Envs, &commonmodels.KeyVal{
 			Key:          "SONAR_TOKEN",
