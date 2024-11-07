@@ -385,7 +385,7 @@ func (j *FreeStyleJob) toJob(taskID int64, registries []*commonmodels.RegistryNa
 			return nil, err
 		}
 
-		jobTaskSpec.Properties.Envs = service.KeyVals
+		jobTaskSpec.Properties.Envs = service.DeepCopyKeyVals()
 		for _, env := range jobTaskSpec.Properties.Envs {
 			if strings.HasPrefix(env.Value, "{{.") && strings.HasSuffix(env.Value, "}}") {
 				env.Value = strings.ReplaceAll(env.Value, "<SERVICE>", service.ServiceName)
@@ -598,10 +598,10 @@ func (j *FreeStyleJob) getOriginReferedJobTargets(jobName string) ([]*commonmode
 					target := &commonmodels.FreeStyleServiceInfo{
 						ServiceName:   build.ServiceName,
 						ServiceModule: build.ServiceModule,
-						KeyVals:       j.spec.Properties.DeepCopyEnvs(),
 					}
 					if originTarget, ok := originTargetMap[target.GetKey()]; ok {
 						target.Repos = originTarget.Repos
+						target.KeyVals = originTarget.KeyVals
 					} else {
 						return servicetargets, fmt.Errorf("refered job %s target %s not found", jobName, target.GetKey())
 					}
@@ -619,10 +619,10 @@ func (j *FreeStyleJob) getOriginReferedJobTargets(jobName string) ([]*commonmode
 					target := &commonmodels.FreeStyleServiceInfo{
 						ServiceName:   distribute.ServiceName,
 						ServiceModule: distribute.ServiceModule,
-						KeyVals:       j.spec.Properties.DeepCopyEnvs(),
 					}
 					if originTarget, ok := originTargetMap[target.GetKey()]; ok {
 						target.Repos = originTarget.Repos
+						target.KeyVals = originTarget.KeyVals
 					} else {
 						return servicetargets, fmt.Errorf("refered job %s target %s not found", jobName, target.GetKey())
 					}
@@ -641,10 +641,10 @@ func (j *FreeStyleJob) getOriginReferedJobTargets(jobName string) ([]*commonmode
 						target := &commonmodels.FreeStyleServiceInfo{
 							ServiceName:   svc.ServiceName,
 							ServiceModule: module.ServiceModule,
-							KeyVals:       j.spec.Properties.DeepCopyEnvs(),
 						}
 						if originTarget, ok := originTargetMap[target.GetKey()]; ok {
 							target.Repos = originTarget.Repos
+							target.KeyVals = originTarget.KeyVals
 						} else {
 							return servicetargets, fmt.Errorf("refered job %s target %s not found", jobName, target.GetKey())
 						}
@@ -663,10 +663,10 @@ func (j *FreeStyleJob) getOriginReferedJobTargets(jobName string) ([]*commonmode
 					target := &commonmodels.FreeStyleServiceInfo{
 						ServiceName:   svc.ServiceName,
 						ServiceModule: svc.ServiceModule,
-						KeyVals:       j.spec.Properties.DeepCopyEnvs(),
 					}
 					if originTarget, ok := originTargetMap[target.GetKey()]; ok {
 						target.Repos = originTarget.Repos
+						target.KeyVals = originTarget.KeyVals
 					} else {
 						return servicetargets, fmt.Errorf("refered job %s target %s not found", jobName, target.GetKey())
 					}
@@ -684,10 +684,10 @@ func (j *FreeStyleJob) getOriginReferedJobTargets(jobName string) ([]*commonmode
 					target := &commonmodels.FreeStyleServiceInfo{
 						ServiceName:   svc.ServiceName,
 						ServiceModule: svc.ServiceModule,
-						KeyVals:       j.spec.Properties.DeepCopyEnvs(),
 					}
 					if originTarget, ok := originTargetMap[target.GetKey()]; ok {
 						target.Repos = originTarget.Repos
+						target.KeyVals = originTarget.KeyVals
 					} else {
 						return servicetargets, fmt.Errorf("refered job %s target %s not found", jobName, target.GetKey())
 					}
@@ -708,10 +708,10 @@ func (j *FreeStyleJob) getOriginReferedJobTargets(jobName string) ([]*commonmode
 					target := &commonmodels.FreeStyleServiceInfo{
 						ServiceName:   svc.ServiceName,
 						ServiceModule: svc.ServiceModule,
-						KeyVals:       j.spec.Properties.DeepCopyEnvs(),
 					}
 					if originTarget, ok := originTargetMap[target.GetKey()]; ok {
 						target.Repos = originTarget.Repos
+						target.KeyVals = originTarget.KeyVals
 					} else {
 						return servicetargets, fmt.Errorf("refered job %s target %s not found", jobName, target.GetKey())
 					}
