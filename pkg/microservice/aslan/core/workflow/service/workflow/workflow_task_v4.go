@@ -2013,6 +2013,16 @@ func GetWorkflowV4BuildJobArtifactFile(workflowName, jobName string, taskID int6
 	return fileByts, stepSpec.UploadDetail[0].Name, nil
 }
 
+func UpdateWorkflowV4TaskRemark(workflowName string, taskID int64, remark string, log *zap.SugaredLogger) error {
+	workflowTask, err := commonrepo.NewworkflowTaskv4Coll().Find(workflowName, taskID)
+	if err != nil {
+		return fmt.Errorf("cannot find workflow task, workflow name: %s, task id: %d", workflowName, taskID)
+	}
+
+	workflowTask.Remark = remark
+	return commonrepo.NewworkflowTaskv4Coll().Update(workflowTask.ID.Hex(), workflowTask)
+}
+
 func ListWorkflowFilterInfo(project, workflow, typeName string, jobName string, logger *zap.SugaredLogger) ([]string, error) {
 	if project == "" || workflow == "" || typeName == "" {
 		return []string{}, fmt.Errorf("paramerter is empty")

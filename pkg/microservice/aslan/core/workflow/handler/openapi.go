@@ -453,6 +453,62 @@ func OpenAPIRetryCustomWorkflowTaskV4(c *gin.Context) {
 	ctx.RespErr = workflowservice.OpenAPIRetryCustomWorkflowTaskV4(name, c.Query("projectKey"), taskID, ctx.Logger)
 }
 
+func OpenAPIUpdateWorkflowV4TaskRemark(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	workflowName := c.Param("name")
+
+	w, err := workflowservice.FindWorkflowV4Raw(workflowName, ctx.Logger)
+	if err != nil {
+		ctx.Logger.Errorf("EnableDebugWorkflowTaskV4 error: %v", err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	args := new(updateWorkflowV4TaskRemarkReq)
+	data := getBody(c)
+	if err := json.Unmarshal([]byte(data), args); err != nil {
+		log.Errorf("CreateWorkflowTaskv4 json.Unmarshal err : %s", err)
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
+		return
+	}
+
+	internalhandler.InsertOperationLog(c, ctx.UserName, w.Project, "OpenAPI"+"更新", "自定义工作流任务", workflowName, data, ctx.Logger)
+
+	// authorization check
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[w.Project]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		if !ctx.Resources.ProjectAuthInfo[w.Project].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[w.Project].Workflow.Execute {
+			// check if the permission is given by collaboration mode
+			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, w.Project, types.ResourceTypeWorkflow, workflowName, types.WorkflowActionRun)
+			if err != nil || !permitted {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
+	}
+
+	taskID, err := strconv.ParseInt(c.Param("taskID"), 10, 64)
+	if err != nil {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid task id")
+		return
+	}
+
+	ctx.RespErr = workflowservice.UpdateWorkflowV4TaskRemark(workflowName, taskID, args.Remark, ctx.Logger)
+}
+
 func OpenAPIGetCustomWorkflowTaskV4(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
