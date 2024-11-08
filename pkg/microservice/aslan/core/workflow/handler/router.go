@@ -243,6 +243,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		taskV4.POST("/handle/error", HandleJobError)
 		taskV4.GET("/workflow/:workflowName/taskId/:taskId/job/:jobName", GetWorkflowV4ArtifactFileContent)
 		taskV4.GET("/workflow/:workflowName/taskId/:taskId/job/:jobName/build", GetWorkflowV4BuildJobArtifactFile)
+		taskV4.PUT("/workflow/:workflowName/taskId/:taskId/remark", UpdateWorkflowV4TaskRemark)
 		taskV4.POST("/trigger", CreateWorkflowTaskV4ByBuildInTrigger)
 	}
 
@@ -289,6 +290,7 @@ func (*OpenAPIRouter) Inject(router *gin.RouterGroup) {
 		custom.DELETE("", OpenAPIDeleteCustomWorkflowV4)
 		custom.GET("/:name/detail", OpenAPIGetCustomWorkflowV4)
 		custom.POST("/:name/task/:taskID", OpenAPIRetryCustomWorkflowTaskV4)
+		custom.PUT("/:name/task/:taskID", OpenAPIUpdateWorkflowV4TaskRemark)
 		custom.GET("/:name/tasks", OpenAPIGetCustomWorkflowTaskV4)
 
 	}
