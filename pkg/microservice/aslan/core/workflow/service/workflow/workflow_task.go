@@ -493,6 +493,7 @@ func PresetWorkflowArgs(namespace, workflowName string, log *zap.SugaredLogger) 
 							Value:        moduleEnv.Value,
 							IsCredential: moduleEnv.IsCredential,
 							ChoiceOption: moduleEnv.ChoiceOption,
+							Description:  moduleEnv.Description,
 							Type:         moduleEnv.Type,
 						})
 					}

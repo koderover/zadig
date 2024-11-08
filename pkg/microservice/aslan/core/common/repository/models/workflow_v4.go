@@ -1099,6 +1099,7 @@ func (j *JobProperties) DeepCopyEnvs() []*KeyVal {
 			RegistryID:   env.RegistryID,
 			ChoiceOption: choiceOption,
 			IsCredential: env.IsCredential,
+			Description:  env.Description,
 		})
 	}
 	return envs
