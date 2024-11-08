@@ -324,7 +324,7 @@ func createSingleYamlProduct(templateProduct *templatemodels.Product, requestID,
 
 	for _, svg := range arg.Services {
 		for _, sv := range svg {
-			variableYaml, err := commontypes.RenderVariableKVToYaml(sv.VariableKVs)
+			variableYaml, err := commontypes.RenderVariableKVToYaml(sv.VariableKVs, true)
 			if err != nil {
 				return fmt.Errorf("failed to convert render variable kvs to yaml, svcName: %s, err: %w", sv.ServiceName, err)
 			}
