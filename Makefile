@@ -39,7 +39,7 @@ debugtools: prereq $(DEBUG_TOOLS_TARGETS:=.push)
 
 %.buildbase: MAKE_IMAGE_TAG ?= ${IMAGE_REPOSITORY}/build-base:$*
 %.buildbase:
-	@docker buildx build -t ${MAKE_IMAGE_TAG} --platform linux/amd64,linux/arm64 -f docker/$*-base.Dockerfile --push .
+	@docker buildx build -t ${MAKE_IMAGE_TAG} --no-cache --platform linux/amd64,linux/arm64 -f docker/$*-base.Dockerfile --push .
 
 %.buildbasetest: MAKE_IMAGE_TAG ?= ${IMAGE_REPOSITORY}/build-base:$*-$(shell date +'%Y%m%d%H%M%S')
 %.buildbasetest:

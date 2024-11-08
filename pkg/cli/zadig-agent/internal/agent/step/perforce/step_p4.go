@@ -63,6 +63,7 @@ func (s *P4Step) Run(ctx context.Context) error {
 	err := s.syncPerforceWorkspace()
 	if err != nil {
 		log.Infof("sync perforce code error: %s", err)
+		return fmt.Errorf("sync perforce code error: %s", err)
 	}
 
 	return nil

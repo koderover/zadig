@@ -1,5 +1,7 @@
 FROM ubuntu:focal
 
+ARG TARGETPLATFORM
+
 RUN sed -i -E "s/[a-zA-Z0-9]+.ubuntu.com/mirrors.aliyun.com/g" /etc/apt/sources.list
 RUN apt-get clean && apt-get update && apt-get install -y apt-transport-https ca-certificates
 RUN DEBIAN_FRONTEND=noninteractive apt install -y tzdata
