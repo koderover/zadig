@@ -25,8 +25,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
-	"github.com/samber/lo"
-	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 type ApprovalJob struct {
@@ -228,50 +226,50 @@ func (j *ApprovalJob) LintJob() error {
 		if j.spec.NativeApproval == nil {
 			return fmt.Errorf("approval not found")
 		}
-		allApproveUsers, _ := util.GeneFlatUsers(j.spec.NativeApproval.ApproveUsers)
-		if len(allApproveUsers) < j.spec.NativeApproval.NeededApprovers {
-			return fmt.Errorf("all approve users should not less than needed approvers")
-		}
+		// allApproveUsers, _ := util.GeneFlatUsers(j.spec.NativeApproval.ApproveUsers)
+		// if len(allApproveUsers) < j.spec.NativeApproval.NeededApprovers {
+		// 	return fmt.Errorf("all approve users should not less than needed approvers")
+		// }
 	case config.LarkApproval:
 		if j.spec.LarkApproval == nil {
 			return fmt.Errorf("approval not found")
 		}
-		if len(j.spec.LarkApproval.ApprovalNodes) == 0 {
-			return fmt.Errorf("num of approval-node is 0")
-		}
-		for i, node := range j.spec.LarkApproval.ApprovalNodes {
-			if len(node.ApproveUsers) == 0 {
-				return fmt.Errorf("num of approval-node %d approver is 0", i)
-			}
-			if !lo.Contains([]string{"AND", "OR"}, string(node.Type)) {
-				return fmt.Errorf("approval-node %d type should be AND or OR", i)
-			}
-		}
+		// if len(j.spec.LarkApproval.ApprovalNodes) == 0 {
+		// 	return fmt.Errorf("num of approval-node is 0")
+		// }
+		// for i, node := range j.spec.LarkApproval.ApprovalNodes {
+		// 	if len(node.ApproveUsers) == 0 {
+		// 		return fmt.Errorf("num of approval-node %d approver is 0", i)
+		// 	}
+		// 	if !lo.Contains([]string{"AND", "OR"}, string(node.Type)) {
+		// 		return fmt.Errorf("approval-node %d type should be AND or OR", i)
+		// 	}
+		// }
 	case config.DingTalkApproval:
 		if j.spec.DingTalkApproval == nil {
 			return fmt.Errorf("approval not found")
 		}
-		userIDSets := sets.NewString()
+		// userIDSets := sets.NewString()
 		if len(j.spec.DingTalkApproval.ApprovalNodes) > 20 {
 			return fmt.Errorf("num of approval-node should not exceed 20")
 		}
-		if len(j.spec.DingTalkApproval.ApprovalNodes) == 0 {
-			return fmt.Errorf("num of approval-node is 0")
-		}
-		for i, node := range j.spec.DingTalkApproval.ApprovalNodes {
-			if len(node.ApproveUsers) == 0 {
-				return fmt.Errorf("num of approval-node %d approver is 0", i)
-			}
-			for _, user := range node.ApproveUsers {
-				if userIDSets.Has(user.ID) {
-					return fmt.Errorf("duplicate approvers %s should not appear in a complete approval process", user.Name)
-				}
-				userIDSets.Insert(user.ID)
-			}
-			if !lo.Contains([]string{"AND", "OR"}, string(node.Type)) {
-				return fmt.Errorf("approval-node %d type should be AND or OR", i)
-			}
-		}
+		// if len(j.spec.DingTalkApproval.ApprovalNodes) == 0 {
+		// 	return fmt.Errorf("num of approval-node is 0")
+		// }
+		// for i, node := range j.spec.DingTalkApproval.ApprovalNodes {
+		// 	if len(node.ApproveUsers) == 0 {
+		// 		return fmt.Errorf("num of approval-node %d approver is 0", i)
+		// 	}
+		// 	for _, user := range node.ApproveUsers {
+		// 		if userIDSets.Has(user.ID) {
+		// 			return fmt.Errorf("duplicate approvers %s should not appear in a complete approval process", user.Name)
+		// 		}
+		// 		userIDSets.Insert(user.ID)
+		// 	}
+		// 	if !lo.Contains([]string{"AND", "OR"}, string(node.Type)) {
+		// 		return fmt.Errorf("approval-node %d type should be AND or OR", i)
+		// 	}
+		// }
 	case config.WorkWXApproval:
 		// TODO: do some linting if required
 	default:
