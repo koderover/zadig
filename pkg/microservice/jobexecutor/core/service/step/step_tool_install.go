@@ -84,13 +84,9 @@ func (s *ToolInstallStep) runIntallationScripts(tool *step.Tool) error {
 		s.spec.S3Storage.Subfolder = fmt.Sprintf("%s/%s-v%s", config.ConstructCachePath, tool.Name, tool.Version)
 		filepath := strings.Split(tool.Download, "/")
 		fileName := filepath[len(filepath)-1]
-		forcedPathStyle := true
-		if s.spec.S3Storage.Provider == setting.ProviderSourceAli {
-			forcedPathStyle = false
-		}
 
 		tmpPath = path.Join(os.TempDir(), fileName)
-		s3client, err := s3tool.NewClient(s.spec.S3Storage.Endpoint, s.spec.S3Storage.Ak, s.spec.S3Storage.Sk, s.spec.S3Storage.Region, s.spec.S3Storage.Insecure, forcedPathStyle)
+		s3client, err := s3tool.NewClient(s.spec.S3Storage.Endpoint, s.spec.S3Storage.Ak, s.spec.S3Storage.Sk, s.spec.S3Storage.Region, s.spec.S3Storage.Insecure, s.spec.S3Storage.Provider)
 		if err == nil {
 			objectKey := GetObjectPath(fileName, s.spec.S3Storage.Subfolder)
 			err = s3client.Download(

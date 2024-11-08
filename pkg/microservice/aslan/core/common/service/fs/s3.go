@@ -30,7 +30,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/command"
 	s3service "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/s3"
-	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/shared/client/systemconfig"
 	s3tool "github.com/koderover/zadig/v2/pkg/tool/s3"
 	fsutil "github.com/koderover/zadig/v2/pkg/util/fs"
@@ -78,11 +77,7 @@ func archiveAndUploadFiles(fileTree fs.FS, names []string, s3Base string, s3Stor
 		return err
 	}
 
-	forcedPathStyle := true
-	if s3Storage.Provider == setting.ProviderSourceAli {
-		forcedPathStyle = false
-	}
-	client, err := s3tool.NewClient(s3Storage.Endpoint, s3Storage.Ak, s3Storage.Sk, s3Storage.Region, s3Storage.Insecure, forcedPathStyle)
+	client, err := s3tool.NewClient(s3Storage.Endpoint, s3Storage.Ak, s3Storage.Sk, s3Storage.Region, s3Storage.Insecure, s3Storage.Provider)
 	if err != nil {
 		logger.Errorf("Failed to get s3 client, err: %s", err)
 		return err
@@ -121,12 +116,7 @@ func DownloadAndExtractFilesFromS3(name, localBase, s3Base string, logger *zap.S
 	localPath := filepath.Join(tmpDir, tarball)
 	s3Path := filepath.Join(s3.Subfolder, s3Base, tarball)
 
-	forcedPathStyle := true
-	if s3.Provider == setting.ProviderSourceAli {
-		forcedPathStyle = false
-	}
-
-	client, err := s3tool.NewClient(s3.Endpoint, s3.Ak, s3.Sk, s3.Region, s3.Insecure, forcedPathStyle)
+	client, err := s3tool.NewClient(s3.Endpoint, s3.Ak, s3.Sk, s3.Region, s3.Insecure, s3.Provider)
 	if err != nil {
 		logger.Errorf("Failed to create s3 client, err: %s", err)
 		return err
@@ -158,11 +148,7 @@ func DeleteArchivedFileFromS3(names []string, s3Base string, logger *zap.Sugared
 		s3PathList = append(s3PathList, s3Path)
 	}
 
-	forcedPathStyle := true
-	if s3.Provider == setting.ProviderSourceAli {
-		forcedPathStyle = false
-	}
-	client, err := s3tool.NewClient(s3.Endpoint, s3.Ak, s3.Sk, s3.Region, s3.Insecure, forcedPathStyle)
+	client, err := s3tool.NewClient(s3.Endpoint, s3.Ak, s3.Sk, s3.Region, s3.Insecure, s3.Provider)
 	if err != nil {
 		logger.Errorf("Failed to create s3 client, err: %s", err)
 		return err

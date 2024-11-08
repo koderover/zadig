@@ -31,7 +31,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/helper/log"
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/agent/step/helper"
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/common/types"
-	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/tool/s3"
 	"github.com/koderover/zadig/v2/pkg/types/step"
 )
@@ -70,11 +69,7 @@ func (s *ArchiveStep) Run(ctx context.Context) error {
 		if upload.DestinationPath == "" || upload.FilePath == "" {
 			return nil
 		}
-		forcedPathStyle := true
-		if s.spec.S3.Provider == setting.ProviderSourceAli {
-			forcedPathStyle = false
-		}
-		client, err := s3.NewClient(s.spec.S3.Endpoint, s.spec.S3.Ak, s.spec.S3.Sk, s.spec.S3.Region, s.spec.S3.Insecure, forcedPathStyle)
+		client, err := s3.NewClient(s.spec.S3.Endpoint, s.spec.S3.Ak, s.spec.S3.Sk, s.spec.S3.Region, s.spec.S3.Insecure, s.spec.S3.Provider)
 		if err != nil {
 			return fmt.Errorf("failed to create s3 client to upload file, err: %s", err)
 		}
