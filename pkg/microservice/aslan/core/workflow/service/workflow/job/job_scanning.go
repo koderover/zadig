@@ -23,6 +23,7 @@ import (
 	"strings"
 
 	"github.com/koderover/zadig/v2/pkg/setting"
+	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	"github.com/koderover/zadig/v2/pkg/tool/sonar"
 	"github.com/koderover/zadig/v2/pkg/types/step"
 	"go.uber.org/zap"
@@ -355,6 +356,102 @@ func (j *ScanningJob) GetOutPuts(log *zap.SugaredLogger) []string {
 
 	}
 	return resp
+}
+
+func (j *ScanningJob) GetRenderVariables(ctx *internalhandler.Context, jobName, serviceName, moduleName string, getAvaiableVars bool) ([]*commonmodels.KeyVal, error) {
+	keyValMap := NewKeyValMap()
+	j.spec = &commonmodels.ZadigScanningJobSpec{}
+	if err := commonmodels.IToiYaml(j.job.Spec, j.spec); err != nil {
+		err = fmt.Errorf("failed to convert freestyle job spec error: %v", err)
+		ctx.Logger.Error(err)
+		return nil, err
+	}
+
+	if j.spec.ScanningType == config.ServiceScanningType {
+		scanningMap := map[string]*commonmodels.ScanningModule{}
+		for _, service := range j.spec.ServiceAndScannings {
+			scanningMap[service.GetKey()] = &service.ScanningModule
+		}
+
+		if getAvaiableVars {
+			for _, service := range j.spec.ServiceAndScannings {
+				scanning, ok := scanningMap[service.GetKey()]
+				if !ok {
+					continue
+				}
+
+				for _, keyVal := range scanning.KeyVals {
+					keyValMap.Insert(&commonmodels.KeyVal{
+						Key:               getJobVariableKey(j.job.Name, jobName, "<SERVICE>", "<MODULE>", keyVal.Key, getAvaiableVars),
+						Value:             keyVal.Value,
+						Type:              keyVal.Type,
+						RegistryID:        keyVal.RegistryID,
+						Script:            keyVal.Script,
+						CallFunction:      keyVal.CallFunction,
+						FunctionReference: keyVal.FunctionReference,
+					})
+				}
+
+				if jobName == j.job.Name {
+					keyValMap.Insert(&commonmodels.KeyVal{
+						Key:   getJobVariableKey(j.job.Name, jobName, "<SERVICE>", "<MODULE>", "SERVICE_NAME", getAvaiableVars),
+						Value: service.ServiceName,
+					})
+					keyValMap.Insert(&commonmodels.KeyVal{
+						Key:   getJobVariableKey(j.job.Name, jobName, "<SERVICE>", "<MODULE>", "SERVICE_MODULE", getAvaiableVars),
+						Value: service.ServiceModule,
+					})
+				}
+			}
+		} else {
+			for _, service := range j.spec.TargetServices {
+				scanning, ok := scanningMap[service.GetKey()]
+				if !ok {
+					continue
+				}
+
+				for _, keyVal := range scanning.KeyVals {
+					keyValMap.Insert(&commonmodels.KeyVal{
+						Key:               getJobVariableKey(j.job.Name, jobName, service.ServiceName, service.ServiceModule, keyVal.Key, getAvaiableVars),
+						Value:             keyVal.Value,
+						Type:              keyVal.Type,
+						RegistryID:        keyVal.RegistryID,
+						Script:            keyVal.Script,
+						CallFunction:      keyVal.CallFunction,
+						FunctionReference: keyVal.FunctionReference,
+					})
+				}
+
+				if jobName == j.job.Name {
+					keyValMap.Insert(&commonmodels.KeyVal{
+						Key:   getJobVariableKey(j.job.Name, jobName, serviceName, moduleName, "SERVICE_NAME", getAvaiableVars),
+						Value: service.ServiceName,
+					})
+					keyValMap.Insert(&commonmodels.KeyVal{
+						Key:   getJobVariableKey(j.job.Name, jobName, serviceName, moduleName, "SERVICE_MODULE", getAvaiableVars),
+						Value: service.ServiceModule,
+					})
+				}
+			}
+		}
+
+	} else {
+		for _, scanning := range j.spec.Scannings {
+			for _, keyVal := range scanning.KeyVals {
+				keyValMap.Insert(&commonmodels.KeyVal{
+					Key:               getJobVariableKey(j.job.Name, jobName, "", "", keyVal.Key, getAvaiableVars),
+					Value:             keyVal.Value,
+					Type:              keyVal.Type,
+					RegistryID:        keyVal.RegistryID,
+					Script:            keyVal.Script,
+					CallFunction:      keyVal.CallFunction,
+					FunctionReference: keyVal.FunctionReference,
+				})
+			}
+		}
+
+	}
+	return keyValMap.List(), nil
 }
 
 func (j *ScanningJob) toJobTask(scanning *commonmodels.ScanningModule, taskID int64, scanningType, serviceName, serviceModule string, logger *zap.SugaredLogger) (*commonmodels.JobTask, error) {

@@ -434,14 +434,14 @@ func MergeServiceAndServiceTemplateVariableKVs(service []*ServiceVariableKV, ser
 // merge render variables base on service template variables
 // render variables has higher value priority, service template variables has higher type priority
 // normally used to get latest variables for a service
-func MergeRenderAndServiceTemplateVariableKVs(render []*RenderVariableKV, serivceTemplate []*ServiceVariableKV) (string, []*RenderVariableKV, error) {
+func MergeRenderAndServiceTemplateVariableKVs(render []*RenderVariableKV, serviceTemplate []*ServiceVariableKV) (string, []*RenderVariableKV, error) {
 	renderMap := map[string]*RenderVariableKV{}
 	for _, kv := range render {
 		renderMap[kv.Key] = kv
 	}
 
 	ret := []*RenderVariableKV{}
-	for _, kv := range serivceTemplate {
+	for _, kv := range serviceTemplate {
 		if renderKV, ok := renderMap[kv.Key]; !ok {
 			ret = append(ret, &RenderVariableKV{
 				ServiceVariableKV: *kv,
@@ -548,7 +548,7 @@ func RemoveGlobalVariableRelatedService(globalVariableKVs []*GlobalVariableKV, s
 	return globalVariableKVs
 }
 
-// update global variable's related serivces and render variables value base on useGlobalVariable flag
+// update global variable's related services and render variables value base on useGlobalVariable flag
 func UpdateGlobalVariableKVs(serviceName string, globalVariables []*GlobalVariableKV, argVariables, currentVariables []*RenderVariableKV) ([]*GlobalVariableKV, []*RenderVariableKV, error) {
 	globalVariableMap := map[string]*GlobalVariableKV{}
 	for _, kv := range globalVariables {

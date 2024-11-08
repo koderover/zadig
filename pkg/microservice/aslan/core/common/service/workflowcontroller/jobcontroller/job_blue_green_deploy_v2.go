@@ -148,7 +148,7 @@ func (c *BlueGreenDeployV2JobCtl) run(ctx context.Context) error {
 	// green service selector add original version label
 	greenService.Spec.Selector[config.BlueGreenVersionLabelName] = config.OriginVersion
 	if err := updater.CreateOrPatchService(greenService, c.kubeClient); err != nil {
-		msg := fmt.Sprintf("add origin label selector to green serivce: %s error: %v", greenService.Name, err)
+		msg := fmt.Sprintf("add origin label selector to green service: %s error: %v", greenService.Name, err)
 		logError(c.job, msg, c.logger)
 		c.jobTaskSpec.Events.Error(msg)
 		return errors.New(msg)
@@ -166,12 +166,12 @@ func (c *BlueGreenDeployV2JobCtl) run(ctx context.Context) error {
 	}
 	service.Namespace = c.namespace
 	if err := c.kubeClient.Create(ctx, service); err != nil {
-		msg := fmt.Sprintf("create blue serivce: %s error: %v", c.jobTaskSpec.Service.ServiceName, err)
+		msg := fmt.Sprintf("create blue service: %s error: %v", c.jobTaskSpec.Service.ServiceName, err)
 		logError(c.job, msg, c.logger)
 		c.jobTaskSpec.Events.Error(msg)
 		return errors.New(msg)
 	}
-	c.jobTaskSpec.Events.Info(fmt.Sprintf("create blue serivce: %s success", service.Name))
+	c.jobTaskSpec.Events.Info(fmt.Sprintf("create blue service: %s success", service.Name))
 
 	// create blue deployment
 	deployment := &v1.Deployment{}

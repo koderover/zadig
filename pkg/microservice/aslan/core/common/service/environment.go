@@ -323,7 +323,7 @@ func GetChartValues(projectName, envName, serviceName string, isHelmChartDeploy 
 		serviceMap := prod.GetServiceMap()
 		prodSvc, ok := serviceMap[serviceName]
 		if !ok {
-			return nil, fmt.Errorf("failed to find sercice: %s in env: %s", serviceName, envName)
+			return nil, fmt.Errorf("failed to find service: %s in env: %s", serviceName, envName)
 		}
 
 		revisionSvc, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{

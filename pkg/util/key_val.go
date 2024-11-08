@@ -25,7 +25,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-const goTemplateKeyRegExp = `{{\.(\w+)}}`
+const GoTemplateKeyRegExp = `{{\.(job(\.[^{}]+){2}|job(\.[^{}]+){4}|workflow\.params(\.[^{}]+){1}|workflow(\.[^{}]+){1})}}`
 
 type KVInput []*KeyValue
 
@@ -53,7 +53,7 @@ func (i KVInput) FormYamlString() (string, error) {
 
 // FindVariableKeyRef finds all the key used in the input param and return them as a string array
 func FindVariableKeyRef(input string) []string {
-	re := regexp.MustCompile(goTemplateKeyRegExp)
+	re := regexp.MustCompile(GoTemplateKeyRegExp)
 
 	// Find all matches
 	matches := re.FindAllStringSubmatch(input, -1)
@@ -77,11 +77,26 @@ func RunScriptWithCallFunc(script, callFunc string) ([]string, error) {
 	// Evaluate the code snippet
 	_, err := i.Eval(script)
 	if err != nil {
-		return nil, fmt.Errorf("error executing code: %w", err)
+		return nil, fmt.Errorf("检查脚本失败, 错误: %w", err)
 	}
 	v, err := i.Eval(callFunc)
 	if err != nil {
-		return nil, fmt.Errorf("error executing ResultFunction: %w", err)
+		return nil, fmt.Errorf("执行调用函数失败，错误: %w", err)
+	}
+
+	if !v.IsValid() {
+		return nil, fmt.Errorf("unexpected invalid return value")
+	}
+	if v.IsNil() {
+		return nil, fmt.Errorf("unexpected nil return value")
+	}
+
+	if v.IsZero() {
+		return []string{}, nil
+	}
+
+	if !v.CanInterface() {
+		return nil, fmt.Errorf("unexpected non-interface return value")
 	}
 
 	// Assert the returned value is of the expected type

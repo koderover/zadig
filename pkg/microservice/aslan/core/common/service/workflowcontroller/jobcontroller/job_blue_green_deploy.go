@@ -134,7 +134,7 @@ func (c *BlueGreenDeployJobCtl) run(ctx context.Context) error {
 		c.ack()
 		service.Spec.Selector[config.BlueGreenVersionLabelName] = config.OriginVersion
 		if err := updater.CreateOrPatchService(service, c.kubeClient); err != nil {
-			msg := fmt.Sprintf("add origin label selector to serivce: %s error: %v", c.jobTaskSpec.K8sServiceName, err)
+			msg := fmt.Sprintf("add origin label selector to service: %s error: %v", c.jobTaskSpec.K8sServiceName, err)
 			logError(c.job, msg, c.logger)
 			c.jobTaskSpec.Events.Error(msg)
 			return errors.New(msg)
@@ -146,7 +146,7 @@ func (c *BlueGreenDeployJobCtl) run(ctx context.Context) error {
 		if _, ok := service.Spec.Selector[config.BlueGreenVersionLabelName]; !ok {
 			service.Spec.Selector[config.BlueGreenVersionLabelName] = previousLabel
 			if err := updater.CreateOrPatchService(service, c.kubeClient); err != nil {
-				msg := fmt.Sprintf("add label selector to serivce: %s error: %v", c.jobTaskSpec.K8sServiceName, err)
+				msg := fmt.Sprintf("add label selector to service: %s error: %v", c.jobTaskSpec.K8sServiceName, err)
 				logError(c.job, msg, c.logger)
 				c.jobTaskSpec.Events.Error(msg)
 				return errors.New(msg)
@@ -170,7 +170,7 @@ func (c *BlueGreenDeployJobCtl) run(ctx context.Context) error {
 	blueService.ObjectMeta.ResourceVersion = ""
 
 	if err := updater.CreateOrPatchService(blueService, c.kubeClient); err != nil {
-		msg := fmt.Sprintf("create blue serivce: %s error: %v", c.jobTaskSpec.BlueK8sServiceName, err)
+		msg := fmt.Sprintf("create blue service: %s error: %v", c.jobTaskSpec.BlueK8sServiceName, err)
 		logError(c.job, msg, c.logger)
 		c.jobTaskSpec.Events.Error(msg)
 		return errors.New(msg)

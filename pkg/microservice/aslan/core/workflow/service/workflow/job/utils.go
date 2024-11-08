@@ -145,3 +145,31 @@ func getReposVariables(repos []*types.Repository) []*commonmodels.KeyVal {
 	}
 	return ret
 }
+
+type KeyValMap struct {
+	keyValMap map[string]*commonmodels.KeyVal
+}
+
+func NewKeyValMap() *KeyValMap {
+	return &KeyValMap{}
+}
+
+func (m *KeyValMap) Insert(keyVals ...*commonmodels.KeyVal) {
+	if m.keyValMap == nil {
+		m.keyValMap = make(map[string]*commonmodels.KeyVal)
+	}
+	for _, keyVal := range keyVals {
+		if _, ok := m.keyValMap[keyVal.Key]; ok {
+			continue
+		}
+		m.keyValMap[keyVal.Key] = keyVal
+	}
+}
+
+func (m *KeyValMap) List() []*commonmodels.KeyVal {
+	ret := make([]*commonmodels.KeyVal, 0)
+	for _, kv := range m.keyValMap {
+		ret = append(ret, kv)
+	}
+	return ret
+}
