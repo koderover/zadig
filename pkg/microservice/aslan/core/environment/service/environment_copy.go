@@ -157,7 +157,7 @@ func BulkCopyYamlProduct(projectName, user, requestID string, arg CopyYamlProduc
 
 			for _, svc := range newProduct.GetServiceMap() {
 				if variableKVs, ok := svcVariableKVMap[svc.ServiceName]; ok {
-					yamlContent, err := commontypes.RenderVariableKVToYaml(variableKVs)
+					yamlContent, err := commontypes.RenderVariableKVToYaml(variableKVs, true)
 					if err != nil {
 						return fmt.Errorf("failed to convert variable kvs to yaml, err: %w", err)
 					}

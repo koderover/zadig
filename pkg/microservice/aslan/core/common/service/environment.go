@@ -153,7 +153,7 @@ func FillGitNamespace(yamlData *templatemodels.CustomYaml) error {
 
 func latestVariables(variableKVs []*commontypes.RenderVariableKV, serviceTemplate *models.Service) ([]*commontypes.RenderVariableKV, string, error) {
 	if serviceTemplate == nil {
-		yamlStr, err := commontypes.RenderVariableKVToYaml(variableKVs)
+		yamlStr, err := commontypes.RenderVariableKVToYaml(variableKVs, true)
 		if err != nil {
 			return nil, "", fmt.Errorf("failed to convert render variableKVs to yaml, err: %s", err)
 		}
