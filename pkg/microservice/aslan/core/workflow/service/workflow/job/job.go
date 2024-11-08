@@ -559,28 +559,6 @@ func JobSkiped(job *commonmodels.Job) bool {
 	return job.Skipped
 }
 
-func RenderKeyVals(input, origin []*commonmodels.KeyVal) []*commonmodels.KeyVal {
-	resp := make([]*commonmodels.KeyVal, 0)
-
-	for _, originKV := range origin {
-		item := &commonmodels.KeyVal{
-			Key:          originKV.Key,
-			Value:        originKV.Value,
-			Type:         originKV.Type,
-			IsCredential: originKV.IsCredential,
-			ChoiceOption: originKV.ChoiceOption,
-		}
-		for _, inputKV := range input {
-			if originKV.Key == inputKV.Key {
-				// always use origin credential config.
-				item.Value = inputKV.Value
-			}
-		}
-		resp = append(resp, item)
-	}
-	return resp
-}
-
 // use service name and service module hash to generate job name
 func jobNameFormat(jobName string) string {
 	if len(jobName) <= 63 {
