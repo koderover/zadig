@@ -103,7 +103,8 @@ func PerforceCreateWorkspace(clientName, depotType, streamInfo, viewMapping stri
 		mappings := strings.Split(viewMapping, "\n")
 		viewMappingStr := ""
 		for _, mapping := range mappings {
-			viewMappingStr += fmt.Sprintf("    %s\n", mapping)
+			// now we support only $P4CLIENT as a special variable
+			viewMappingStr += fmt.Sprintf("    %s\n", strings.Replace(mapping, "$P4CLIENT", clientName, -1))
 		}
 		configFile = fmt.Sprintf(localTypeConfigFile, clientName, viewMappingStr)
 	default:

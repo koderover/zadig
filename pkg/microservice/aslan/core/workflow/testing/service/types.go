@@ -142,6 +142,11 @@ type ScanningRepoInfo struct {
 	PRs           []int  `json:"prs"`
 	Branch        string `json:"branch"`
 	Tag           string `json:"tag"`
+	DepotType     string `json:"depot_type"`
+	Stream        string `json:"stream"`
+	ViewMapping   string `json:"view_mapping"`
+	ChangeListID  int    `json:"changelist_id"`
+	ShelveID      int    `json:"shelve_id"`
 }
 
 type ScanningStatistic struct {

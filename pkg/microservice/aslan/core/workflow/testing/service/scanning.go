@@ -699,6 +699,11 @@ func generateCustomWorkflowFromScanningModule(scanInfo *commonmodels.Scanning, a
 			AuthType:           rep.AuthType,
 			SSHKey:             rep.SSHKey,
 			PrivateAccessToken: rep.PrivateAccessToken,
+			DepotType:          arg.DepotType,
+			Stream:             arg.Stream,
+			ViewMapping:        arg.ViewMapping,
+			ChangeListID:       arg.ChangeListID,
+			ShelveID:           arg.ShelveID,
 		})
 	}
 
