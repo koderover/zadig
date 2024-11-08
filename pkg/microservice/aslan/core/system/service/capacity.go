@@ -113,7 +113,7 @@ func CleanCache() error {
 	}
 
 	s3Server := s3.FindInternalS3()
-	client, err := s3tool.NewClient(s3Server.Endpoint, s3Server.Ak, s3Server.Sk, s3Server.Region, s3Server.Insecure, false)
+	client, err := s3tool.NewClient(s3Server.Endpoint, s3Server.Ak, s3Server.Sk, s3Server.Region, s3Server.Insecure, setting.ProviderSourceSystemDefault)
 	if err != nil {
 		log.Errorf("Failed to create s3 client, error: %+v", err)
 		return err
@@ -430,11 +430,7 @@ func cleanStaleTasks(tasks []*task.Task, s3Server *s3.S3, dryRun bool) []string 
 		ids[i] = task.ID.Hex()
 		paths[i] = fmt.Sprintf("%s/%d/", task.PipelineName, task.TaskID)
 	}
-	forcedPathStyle := true
-	if s3Server.Provider == setting.ProviderSourceAli {
-		forcedPathStyle = false
-	}
-	s3client, err := s3tool.NewClient(s3Server.Endpoint, s3Server.Ak, s3Server.Sk, s3Server.Region, s3Server.Insecure, forcedPathStyle)
+	s3client, err := s3tool.NewClient(s3Server.Endpoint, s3Server.Ak, s3Server.Sk, s3Server.Region, s3Server.Insecure, s3Server.Provider)
 	if err == nil {
 		go s3client.RemoveFiles(s3Server.Bucket, paths)
 	}
@@ -448,11 +444,7 @@ func cleanStaleTaskV4s(tasks []*commonmodels.WorkflowTask, s3Server *s3.S3, dryR
 		ids[i] = task.ID.Hex()
 		paths[i] = fmt.Sprintf("%s/%d/", task.WorkflowName, task.TaskID)
 	}
-	forcedPathStyle := true
-	if s3Server.Provider == setting.ProviderSourceAli {
-		forcedPathStyle = false
-	}
-	s3client, err := s3tool.NewClient(s3Server.Endpoint, s3Server.Ak, s3Server.Sk, s3Server.Region, s3Server.Insecure, forcedPathStyle)
+	s3client, err := s3tool.NewClient(s3Server.Endpoint, s3Server.Ak, s3Server.Sk, s3Server.Region, s3Server.Insecure, s3Server.Provider)
 	if err == nil {
 		go s3client.RemoveFiles(s3Server.Bucket, paths)
 	}

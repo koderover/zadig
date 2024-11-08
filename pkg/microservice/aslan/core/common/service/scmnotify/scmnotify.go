@@ -32,7 +32,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/github"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/s3"
-	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/shared/client/systemconfig"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	s3tool "github.com/koderover/zadig/v2/pkg/tool/s3"
@@ -261,11 +260,7 @@ func downloadReport(taskInfo *task.Task, fileName, testName string, logger *zap.
 	}()
 
 	objectKey := store.GetObjectPath(fileName)
-	forcedPathStyle := true
-	if store.Provider == setting.ProviderSourceAli {
-		forcedPathStyle = false
-	}
-	client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Region, store.Insecure, forcedPathStyle)
+	client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Region, store.Insecure, store.Provider)
 	if err != nil {
 		return nil, err
 	}

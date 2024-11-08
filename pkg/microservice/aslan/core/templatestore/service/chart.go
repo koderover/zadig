@@ -585,12 +585,7 @@ func processChartFromGitRepo(name string, args *fs.DownloadFromSourceArgs, logge
 			return
 		}
 
-		forcedPathStyle := true
-		if s3Storage.Provider == setting.ProviderSourceAli {
-			forcedPathStyle = false
-		}
-
-		s3Client, err2 := s3tool.NewClient(s3Storage.Endpoint, s3Storage.Ak, s3Storage.Sk, s3Storage.Region, s3Storage.Insecure, forcedPathStyle)
+		s3Client, err2 := s3tool.NewClient(s3Storage.Endpoint, s3Storage.Ak, s3Storage.Sk, s3Storage.Region, s3Storage.Insecure, s3Storage.Provider)
 		if err2 != nil {
 			logger.Errorf("Failed to create s3 client, err: %s", err)
 			err = err2

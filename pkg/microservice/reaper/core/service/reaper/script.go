@@ -32,7 +32,6 @@ import (
 
 	"github.com/koderover/zadig/v2/pkg/microservice/reaper/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/reaper/internal/s3"
-	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/tool/httpclient"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	s3tool "github.com/koderover/zadig/v2/pkg/tool/s3"
@@ -88,11 +87,7 @@ func (r *Reaper) runIntallationScripts() error {
 			filepath := strings.Split(install.Download, "/")
 			fileName := filepath[len(filepath)-1]
 			tmpPath = path.Join(os.TempDir(), fileName)
-			forcedPathStyle := true
-			if store.Provider == setting.ProviderSourceAli {
-				forcedPathStyle = false
-			}
-			s3client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Region, store.Insecure, forcedPathStyle)
+			s3client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Region, store.Insecure, int8(store.Provider))
 			if err == nil {
 				objectKey := store.GetObjectPath(fileName)
 				err = s3client.Download(
@@ -458,11 +453,7 @@ func (r *Reaper) downloadArtifactFile() error {
 		store.Subfolder = fmt.Sprintf("%s/%d/%s", r.Ctx.ArtifactInfo.WorkflowName, r.Ctx.ArtifactInfo.TaskID, "file")
 	}
 
-	forcedPathStyle := true
-	if store.Provider == setting.ProviderSourceAli {
-		forcedPathStyle = false
-	}
-	s3client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Region, store.Insecure, forcedPathStyle)
+	s3client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Region, store.Insecure, int8(store.Provider))
 	if err != nil {
 		log.Errorf("s3 create client err:%s", err)
 		return err
