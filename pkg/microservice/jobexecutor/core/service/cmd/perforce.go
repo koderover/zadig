@@ -161,9 +161,9 @@ func PerforceUnshelve(clientName string, shelveID int) []*exec.Cmd {
 	} else {
 		cmds = append(cmds, exec.Command(
 			"p4",
-			"unshelve",
 			"-c",
 			clientName,
+			"unshelve",
 			"-s",
 			fmt.Sprintf("%d", shelveID),
 		))
