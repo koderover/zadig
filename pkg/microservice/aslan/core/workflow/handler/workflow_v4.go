@@ -391,6 +391,59 @@ func FindWorkflowV4(c *gin.Context) {
 	c.YAML(200, resp)
 }
 
+// @Summary Render Workflow V4 Variables
+// @Description Render Workflow V4 Variables
+// @Tags 	workflow
+// @Accept 	json
+// @Produce json
+// @Param 	jobName			query		string									true	"job name"
+// @Param 	serviceName		query		string									false	"service name"
+// @Param 	moduleName		query		string									false	"service module name"
+// @Param 	key				query		string									true	"render variable key"
+// @Param 	body 			body 		commonmodels.WorkflowV4		  			true 	"body"
+// @Success 200 			{array} 	string
+// @Router /api/aslan/workflow/v4/dynamicVariable/render [post]
+func RenderWorkflowV4DynamicVariables(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	args := new(commonmodels.WorkflowV4)
+	data := getBody(c)
+	if err := json.Unmarshal([]byte(data), args); err != nil {
+		err = fmt.Errorf("RenderWorkflowV4Variables json.Unmarshal err : %s", err)
+		ctx.Logger.Error(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	ctx.Resp, ctx.RespErr = workflow.RenderWorkflowV4Variables(ctx, args, c.Query("jobName"), c.Query("serviceName"), c.Query("moduleName"), c.Query("key"))
+}
+
+// @Summary Get Workflow V4 Dynamic Variable's Available Variables
+// @Description Get Workflow V4 Dynamic Variable's Available Variables
+// @Tags 	workflow
+// @Accept 	json
+// @Produce json
+// @Param 	jobName			query		string									true	"job name"
+// @Param 	body 			body 		commonmodels.WorkflowV4		  			true 	"body"
+// @Success 200 			{array} 	string
+// @Router /api/aslan/workflow/v4/dynamicVariable/available [post]
+func GetWorkflowV4DynamicVariableAvailable(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	args := new(commonmodels.WorkflowV4)
+	data := getBody(c)
+	if err := json.Unmarshal([]byte(data), args); err != nil {
+		err = fmt.Errorf("RenderWorkflowV4Variables json.Unmarshal err : %s", err)
+		ctx.Logger.Error(err)
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	ctx.Resp, ctx.RespErr = workflow.GetWorkflowV4DynamicVariableAvailable(ctx, args, c.Query("jobName"))
+}
+
 func GetWorkflowV4Preset(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

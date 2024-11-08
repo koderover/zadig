@@ -541,9 +541,23 @@ type ServiceAndTest struct {
 	TestModule    `bson:",inline"  yaml:",inline"  json:",inline"`
 }
 
+func (s *ServiceAndTest) GetKey() string {
+	if s == nil {
+		return ""
+	}
+	return s.ServiceName + "-" + s.ServiceModule
+}
+
 type ServiceTestTarget struct {
 	ServiceName   string `bson:"service_name"        yaml:"service_name"     json:"service_name"`
 	ServiceModule string `bson:"service_module"      yaml:"service_module"   json:"service_module"`
+}
+
+func (s *ServiceTestTarget) GetKey() string {
+	if s == nil {
+		return ""
+	}
+	return s.ServiceName + "-" + s.ServiceModule
 }
 
 type TestModule struct {
@@ -572,6 +586,13 @@ type ServiceAndScannings struct {
 	ServiceName    string `bson:"service_name"        yaml:"service_name"     json:"service_name"`
 	ServiceModule  string `bson:"service_module"      yaml:"service_module"   json:"service_module"`
 	ScanningModule `bson:",inline"  yaml:",inline"  json:",inline"`
+}
+
+func (s *ServiceAndScannings) GetKey() string {
+	if s == nil {
+		return ""
+	}
+	return s.ServiceName + "-" + s.ServiceModule
 }
 
 type ScanningModule struct {

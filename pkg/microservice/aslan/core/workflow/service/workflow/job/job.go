@@ -33,6 +33,7 @@ import (
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/v2/pkg/setting"
+	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	"github.com/koderover/zadig/v2/pkg/types"
 	"github.com/koderover/zadig/v2/pkg/types/job"
 )
@@ -262,6 +263,125 @@ func MergeWebhookRepo(workflow *commonmodels.WorkflowV4, repo *types.Repository)
 		}
 	}
 	return nil
+}
+
+func GetRenderWorkflowVariables(ctx *internalhandler.Context, workflow *commonmodels.WorkflowV4, jobName, serviceName, moduleName string, getAvaiableVars bool) ([]*commonmodels.KeyVal, error) {
+	resp := []*commonmodels.KeyVal{}
+
+	key := "project"
+	if getAvaiableVars {
+		key = "{{.project}}"
+	}
+	resp = append(resp, &commonmodels.KeyVal{
+		Key:          key,
+		Value:        workflow.Project,
+		Type:         "string",
+		IsCredential: false,
+	})
+
+	key = "workflow_name"
+	if getAvaiableVars {
+		key = "{{.workflow.name}}"
+	}
+	resp = append(resp, &commonmodels.KeyVal{
+		Key:          key,
+		Value:        workflow.Name,
+		Type:         "string",
+		IsCredential: false,
+	})
+
+	for _, param := range workflow.Params {
+		key := "workflow_params_" + param.Name
+		if getAvaiableVars {
+			key = "{{.workflow.params." + param.Name + "}}"
+		}
+		resp = append(resp, &commonmodels.KeyVal{
+			Key:   key,
+			Value: param.Value,
+		})
+	}
+
+	for _, stage := range workflow.Stages {
+		for _, job := range stage.Jobs {
+			switch job.JobType {
+			case config.JobZadigBuild:
+				jobCtl := &BuildJob{job: job, workflow: workflow}
+				vars, err := jobCtl.GetRenderVariables(ctx, jobName, serviceName, moduleName, getAvaiableVars)
+				if err != nil {
+					err = errors.Wrapf(err, "failed to get render variables for build job %s", job.Name)
+					ctx.Logger.Error(err)
+					return resp, err
+				}
+				resp = append(resp, vars...)
+			case config.JobFreestyle:
+				jobCtl := &FreeStyleJob{job: job, workflow: workflow}
+				vars, err := jobCtl.GetRenderVariables(ctx, jobName, serviceName, moduleName, getAvaiableVars)
+				if err != nil {
+					err = errors.Wrapf(err, "failed to get render variables for freestyle job %s", job.Name)
+					ctx.Logger.Error(err)
+					return resp, err
+				}
+				resp = append(resp, vars...)
+			case config.JobZadigTesting:
+				jobCtl := &TestingJob{job: job, workflow: workflow}
+				vars, err := jobCtl.GetRenderVariables(ctx, jobName, serviceName, moduleName, getAvaiableVars)
+				if err != nil {
+					err = errors.Wrapf(err, "failed to get render variables for testing job %s", job.Name)
+					ctx.Logger.Error(err)
+					return resp, err
+				}
+				resp = append(resp, vars...)
+			case config.JobZadigScanning:
+				jobCtl := &ScanningJob{job: job, workflow: workflow}
+				vars, err := jobCtl.GetRenderVariables(ctx, jobName, serviceName, moduleName, getAvaiableVars)
+				if err != nil {
+					err = errors.Wrapf(err, "failed to get render variables for scanning job %s", job.Name)
+					ctx.Logger.Error(err)
+					return resp, err
+				}
+				resp = append(resp, vars...)
+			case config.JobZadigDeploy:
+				jobCtl := &DeployJob{job: job, workflow: workflow}
+				vars, err := jobCtl.GetRenderVariables(ctx, jobName, serviceName, moduleName, getAvaiableVars)
+				if err != nil {
+					err = errors.Wrapf(err, "failed to get render variables for deploy job %s", job.Name)
+					ctx.Logger.Error(err)
+					return resp, err
+				}
+				resp = append(resp, vars...)
+			}
+		}
+	}
+
+	return resp, nil
+}
+
+func RenderWorkflowVariables(ctx *internalhandler.Context, workflow *commonmodels.WorkflowV4, jobName, serviceName, moduleName, key string, buildInVarMap map[string]string) ([]string, error) {
+	resp := []string{}
+
+	for _, stage := range workflow.Stages {
+		for _, job := range stage.Jobs {
+			if job.Name != jobName {
+				continue
+			}
+
+			switch job.JobType {
+			case config.JobFreestyle:
+				jobCtl := &FreeStyleJob{job: job, workflow: workflow}
+				vars, err := jobCtl.RenderVariables(ctx, serviceName, moduleName, key, buildInVarMap)
+				if err != nil {
+					err = errors.Wrapf(err, "failed to render variables for build job %s", job.Name)
+					ctx.Logger.Error(err)
+					return resp, err
+				}
+				return vars, nil
+			default:
+				return nil, fmt.Errorf("unsupported job type: %s", job.JobType)
+			}
+		}
+	}
+
+	return resp, fmt.Errorf("key: %s not found in job: %s for workflow: %s", key, jobName, workflow.Name)
 }
 
 func GetWorkflowOutputs(workflow *commonmodels.WorkflowV4, currentJobName string, log *zap.SugaredLogger) []string {
