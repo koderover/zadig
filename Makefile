@@ -42,6 +42,8 @@ debugtools: prereq $(DEBUG_TOOLS_TARGETS:=.push)
 
 swag:
 	swag init --parseDependency --parseInternal --parseDepth 1 -d cmd/aslan,pkg/microservice/aslan -g ../../pkg/microservice/aslan/server/rest/router.go -o pkg/microservice/aslan/server/rest/doc
+swag-user:
+	swag init --parseDependency --parseInternal --parseDepth 1 -d cmd/aslan,pkg/microservice/user -g ../../pkg/microservice/user/server/rest/router.go -o pkg/microservice/user/server/rest/doc
 
 # zadig-agent
 # Usage:

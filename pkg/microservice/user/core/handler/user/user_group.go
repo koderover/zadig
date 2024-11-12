@@ -32,6 +32,14 @@ type createUserGroupReq struct {
 	UIDs        []string `json:"uids"`
 }
 
+// @Summary 创建用户组
+// @Description 创建用户组
+// @Tags 	user
+// @Accept 	json
+// @Produce json
+// @Param 	body 			body 		createUserGroupReq 	true 	"body"
+// @Success 200
+// @Router /api/v1/user-group [post]
 func CreateUserGroup(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -260,6 +268,15 @@ type bulkUserReq struct {
 	UIDs []string `json:"uids"`
 }
 
+// @Summary 添加用户到用户组
+// @Description 添加用户到用户组
+// @Tags 	user
+// @Accept 	json
+// @Produce json
+// @Param 	id 				path 		string 			true 	"用户组ID"
+// @Param 	body 			body 		bulkUserReq 	true 	"body"
+// @Success 200
+// @Router /api/v1/user-group/{id}/bulk-create-users [post]
 func BulkAddUserToUserGroup(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

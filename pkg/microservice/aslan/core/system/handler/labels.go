@@ -27,6 +27,14 @@ import (
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 )
 
+// @Summary 创建服务标签
+// @Description 只需要传入参数key
+// @Tags 	system
+// @Accept 	json
+// @Produce json
+// @Param 	body 			body 		commonmodels.Label 	  true 	"body"
+// @Success 200
+// @Router /api/aslan/system/labels [post]
 func CreateServiceLabelSetting(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -54,6 +62,13 @@ func CreateServiceLabelSetting(c *gin.Context) {
 	ctx.RespErr = service.CreateServiceLabelSetting(args, ctx.Logger)
 }
 
+// @Summary 获取服务标签配置列表
+// @Description
+// @Tags 	system
+// @Accept 	json
+// @Produce json
+// @Success 200 			{array} 	commonmodels.Label
+// @Router /api/aslan/system/labels [get]
 func ListServiceLabelSettings(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
