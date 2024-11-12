@@ -134,9 +134,9 @@ func PerforceSync(clientName string, changelistID int) []*exec.Cmd {
 	if changelistID == 0 {
 		cmds = append(cmds, exec.Command(
 			"p4",
-			"sync",
 			"-c",
 			clientName,
+			"sync",
 		))
 	} else {
 		cmds = append(cmds, exec.Command(
