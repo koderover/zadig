@@ -400,7 +400,7 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 	}
 
 	buildSvc := commonservice.NewBuildService()
-	for _, build := range j.spec.ServiceAndBuilds {
+	for jobSubTaskID, build := range j.spec.ServiceAndBuilds {
 		imageTag := commonservice.ReleaseCandidate(build.Repos, taskID, j.workflow.Project, build.ServiceModule, "", build.ImageName, "image")
 
 		image := fmt.Sprintf("%s/%s", registry.RegAddr, imageTag)
@@ -428,13 +428,15 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		outputs := ensureBuildInOutputs(buildInfo.Outputs)
 		jobTaskSpec := &commonmodels.JobTaskFreestyleSpec{}
 		jobTask := &commonmodels.JobTask{
-			Name: jobNameFormat(build.ServiceName + "-" + build.ServiceModule + "-" + j.job.Name),
 			JobInfo: map[string]string{
 				"service_name":   build.ServiceName,
 				"service_module": build.ServiceModule,
 				JobNameKey:       j.job.Name,
 			},
-			Key:            strings.Join([]string{j.job.Name, build.ServiceName, build.ServiceModule}, "."),
+			Key:            genJobKey(j.job.Name, build.ServiceName, build.ServiceModule),
+			Name:           GenJobName(j.workflow, j.job.Name, jobSubTaskID),
+			DisplayName:    genJobDisplayName(j.job.Name, build.ServiceName, build.ServiceModule),
+			OriginName:     j.job.Name,
 			JobType:        string(config.JobZadigBuild),
 			Spec:           jobTaskSpec,
 			Timeout:        int64(buildInfo.Timeout),

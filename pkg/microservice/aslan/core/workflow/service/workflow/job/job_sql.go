@@ -122,11 +122,13 @@ func (j *SQLJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 	}
 	j.job.Spec = j.spec
 	jobTask := &commonmodels.JobTask{
-		Name: j.job.Name,
+		Key:         genJobKey(j.job.Name),
+		DisplayName: genJobDisplayName(j.job.Name),
+		Name:        GenJobName(j.workflow, j.job.Name, 0),
+		OriginName:  j.job.Name,
 		JobInfo: map[string]string{
 			JobNameKey: j.job.Name,
 		},
-		Key:     j.job.Name,
 		JobType: string(config.JobSQL),
 		Spec: &commonmodels.JobTaskSQLSpec{
 			ID:   j.spec.ID,

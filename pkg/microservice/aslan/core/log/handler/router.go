@@ -29,11 +29,6 @@ func (*Router) Inject(router *gin.RouterGroup) {
 
 	log := router.Group("log")
 	{
-		log.GET("/pipelines/:pipelineName/tasks/:taskId/service/:serviceName", GetBuildJobContainerLogs)
-		log.GET("/workflow/:pipelineName/tasks/:taskId/service/:serviceName", GetWorkflowBuildJobContainerLogs)
-		log.GET("/pipelines/:pipelineName/tasks/:taskId/tests/:testName", GetTestJobContainerLogs)
-		log.GET("/workflow/:pipelineName/tasks/:taskId/tests/:testName/service/:serviceName", GetWorkflowTestJobContainerLogs)
-		log.GET("/v3/workflow/:workflowName/tasks/:taskId", GetWorkflowBuildV3JobContainerLogs)
 		log.GET("/testing/:test_name/tasks/:task_id", GetTestingContainerLogs)
 		log.GET("/scanning/:id/task/:scan_id", GetScanningContainerLogs)
 		log.GET("/v4/workflow/:workflowName/tasks/:taskID/jobs/:jobName", GetWorkflowV4JobContainerLogs)
@@ -44,12 +39,6 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	{
 		sse.GET("/pods/:podName/containers/:containerName", GetContainerLogsSSE)
 		sse.GET("/production/pods/:podName/containers/:containerName", GetProductionEnvContainerLogsSSE)
-		sse.GET("/build/:pipelineName/:taskId/:lines", GetBuildJobContainerLogsSSE)
-		sse.GET("/workflow/build/:pipelineName/:taskId/:lines/:serviceName", GetWorkflowBuildJobContainerLogsSSE)
-		sse.GET("/test/:pipelineName/:taskId/:testName/:lines", GetTestJobContainerLogsSSE)
-		sse.GET("/workflow/test/:pipelineName/:taskId/:testName/:lines/:serviceName", GetWorkflowTestJobContainerLogsSSE)
-		sse.GET("/service/build/:serviceName/:envName/:productName", GetServiceJobContainerLogsSSE)
-		sse.GET("/v3/workflow/build/:workflowName/:taskId/:lines", GetWorkflowBuildV3JobContainerLogsSSE)
 		sse.GET("/testing/:test_name/tasks/:task_id", GetTestingContainerLogsSSE)
 		sse.GET("/scanning/:id/task/:scan_id", GetScanningContainerLogsSSE)
 		sse.GET("/v4/workflow/:workflowName/:taskID/:jobName/:lines", GetWorkflowJobContainerLogsSSE)

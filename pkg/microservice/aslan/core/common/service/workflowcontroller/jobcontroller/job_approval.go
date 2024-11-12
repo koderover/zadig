@@ -78,11 +78,11 @@ func (c *ApprovalJobCtl) Run(ctx context.Context) {
 	case config.NativeApproval:
 		status, err = waitForNativeApprove(ctx, c.jobTaskSpec, c.workflowCtx.WorkflowName, c.job.Name, c.workflowCtx.TaskID, c.ack)
 	case config.LarkApproval:
-		status, err = waitForLarkApprove(ctx, c.jobTaskSpec, c.workflowCtx, c.job.Name, c.ack)
+		status, err = waitForLarkApprove(ctx, c.jobTaskSpec, c.workflowCtx, c.job.DisplayName, c.ack)
 	case config.DingTalkApproval:
-		status, err = waitForDingTalkApprove(ctx, c.jobTaskSpec, c.workflowCtx, c.job.Name, c.ack)
+		status, err = waitForDingTalkApprove(ctx, c.jobTaskSpec, c.workflowCtx, c.job.DisplayName, c.ack)
 	case config.WorkWXApproval:
-		status, err = waitForWorkWXApprove(ctx, c.jobTaskSpec, c.workflowCtx, c.job.Name, c.ack)
+		status, err = waitForWorkWXApprove(ctx, c.jobTaskSpec, c.workflowCtx, c.job.DisplayName, c.ack)
 	default:
 		err = errors.New("invalid approval type")
 	}
@@ -156,7 +156,7 @@ func waitForNativeApprove(ctx context.Context, spec *commonmodels.JobTaskApprova
 	}
 }
 
-func waitForLarkApprove(ctx context.Context, spec *commonmodels.JobTaskApprovalSpec, workflowCtx *commonmodels.WorkflowTaskCtx, jobName string, ack func()) (config.Status, error) {
+func waitForLarkApprove(ctx context.Context, spec *commonmodels.JobTaskApprovalSpec, workflowCtx *commonmodels.WorkflowTaskCtx, jobDisplayName string, ack func()) (config.Status, error) {
 	log.Infof("waitForLarkApprove start")
 	approval := spec.LarkApproval
 	if approval == nil {
@@ -195,7 +195,7 @@ func waitForLarkApprove(ctx context.Context, spec *commonmodels.JobTaskApprovalS
 	}
 
 	formContent := fmt.Sprintf("项目名称: %s\n工作流名称: %s\n任务名称: %s%s\n备注: %s\n\n更多详见: %s",
-		workflowCtx.ProjectName, workflowCtx.WorkflowDisplayName, jobName, descForm, workflowCtx.Remark, detailURL)
+		workflowCtx.ProjectName, workflowCtx.WorkflowDisplayName, jobDisplayName, descForm, workflowCtx.Remark, detailURL)
 
 	var userID string
 	if approval.DefaultApprovalInitiator == nil {
@@ -351,7 +351,7 @@ func waitForLarkApprove(ctx context.Context, spec *commonmodels.JobTaskApprovalS
 	}
 }
 
-func waitForDingTalkApprove(ctx context.Context, spec *commonmodels.JobTaskApprovalSpec, workflowCtx *commonmodels.WorkflowTaskCtx, jobName string, ack func()) (config.Status, error) {
+func waitForDingTalkApprove(ctx context.Context, spec *commonmodels.JobTaskApprovalSpec, workflowCtx *commonmodels.WorkflowTaskCtx, jobDisplayName string, ack func()) (config.Status, error) {
 	log.Infof("waitForDingTalkApprove start")
 	approval := spec.DingTalkApproval
 	if approval == nil {
@@ -382,7 +382,7 @@ func waitForDingTalkApprove(ctx context.Context, spec *commonmodels.JobTaskAppro
 		descForm = fmt.Sprintf("\n描述: %s", spec.Description)
 	}
 	formContent := fmt.Sprintf("项目名称: %s\n工作流名称: %s\n任务名称: %s%s\n\n备注: %s\n\n更多详见: %s",
-		workflowCtx.ProjectName, workflowCtx.WorkflowDisplayName, jobName, descForm, workflowCtx.Remark, detailURL)
+		workflowCtx.ProjectName, workflowCtx.WorkflowDisplayName, jobDisplayName, descForm, workflowCtx.Remark, detailURL)
 
 	var userID string
 	if approval.DefaultApprovalInitiator == nil {
@@ -517,7 +517,7 @@ func waitForDingTalkApprove(ctx context.Context, spec *commonmodels.JobTaskAppro
 	}
 }
 
-func waitForWorkWXApprove(ctx context.Context, spec *commonmodels.JobTaskApprovalSpec, workflowCtx *commonmodels.WorkflowTaskCtx, jobName string, ack func()) (config.Status, error) {
+func waitForWorkWXApprove(ctx context.Context, spec *commonmodels.JobTaskApprovalSpec, workflowCtx *commonmodels.WorkflowTaskCtx, jobDisplayName string, ack func()) (config.Status, error) {
 	log.Infof("waitForWorkWXApprove start...")
 	approval := spec.WorkWXApproval
 	if approval == nil {
@@ -550,7 +550,7 @@ func waitForWorkWXApprove(ctx context.Context, spec *commonmodels.JobTaskApprova
 	}
 
 	formContent := fmt.Sprintf("项目名称: %s\n\n工作流名称: %s\n\n任务名称: %s%s\n备注: %s\n\n更多详见: %s",
-		workflowCtx.ProjectName, workflowCtx.WorkflowDisplayName, jobName, descForm, workflowCtx.Remark, detailURL)
+		workflowCtx.ProjectName, workflowCtx.WorkflowDisplayName, jobDisplayName, descForm, workflowCtx.Remark, detailURL)
 
 	var applicant string
 	if approval.CreatorUser != nil {

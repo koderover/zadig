@@ -24,25 +24,27 @@ import (
 )
 
 type VMJob struct {
-	ID            primitive.ObjectID `bson:"_id,omitempty"          json:"id,omitempty"`
-	ProjectName   string             `bson:"project_name"           json:"project_name"`
-	WorkflowName  string             `bson:"workflow_name"          json:"workflow_name"`
-	TaskID        int64              `bson:"task_id"                json:"task_id"`
-	JobOriginName string             `bson:"job_origin_name"        json:"job_origin_name"`
-	JobName       string             `bson:"job_name"               json:"job_name"`
-	JobType       string             `bson:"job_type"               json:"job_type"`
-	Status        string             `bson:"status"                 json:"status"`
-	IsDeleted     bool               `bson:"is_deleted"             json:"is_deleted"`
-	VMID          string             `bson:"vm_id"                  json:"-"`
-	CreatedTime   int64              `bson:"created_time"           json:"created_time"`
-	StartTime     int64              `bson:"start_time"             json:"-"`
-	EndTime       int64              `bson:"end_time"               json:"-"`
-	Error         string             `bson:"error"                  json:"-"`
-	VMLabels      []string           `bson:"vm_labels"              json:"-"`
-	VMName        []string           `bson:"vm_name"                json:"-"`
-	JobCtx        string             `bson:"job_ctx"                json:"job_ctx"`
-	LogFile       string             `bson:"log_file"               json:"log_file"`
-	Outputs       []*job.JobOutput   `bson:"outputs"                json:"outputs"`
+	ID             primitive.ObjectID `bson:"_id,omitempty"          json:"id,omitempty"`
+	ProjectName    string             `bson:"project_name"           json:"project_name"`
+	WorkflowName   string             `bson:"workflow_name"          json:"workflow_name"`
+	TaskID         int64              `bson:"task_id"                json:"task_id"`
+	JobOriginName  string             `bson:"job_origin_name"        json:"job_origin_name"`
+	JobName        string             `bson:"job_name"               json:"job_name"`
+	JobDisplayName string             `bson:"job_display_name"       json:"job_display_name"`
+	JobKey         string             `bson:"job_key"                json:"job_key"`
+	JobType        string             `bson:"job_type"               json:"job_type"`
+	Status         string             `bson:"status"                 json:"status"`
+	IsDeleted      bool               `bson:"is_deleted"             json:"is_deleted"`
+	VMID           string             `bson:"vm_id"                  json:"-"`
+	CreatedTime    int64              `bson:"created_time"           json:"created_time"`
+	StartTime      int64              `bson:"start_time"             json:"-"`
+	EndTime        int64              `bson:"end_time"               json:"-"`
+	Error          string             `bson:"error"                  json:"-"`
+	VMLabels       []string           `bson:"vm_labels"              json:"-"`
+	VMName         []string           `bson:"vm_name"                json:"-"`
+	JobCtx         string             `bson:"job_ctx"                json:"job_ctx"`
+	LogFile        string             `bson:"log_file"               json:"log_file"`
+	Outputs        []*job.JobOutput   `bson:"outputs"                json:"outputs"`
 }
 
 type ReportJobParameters struct {

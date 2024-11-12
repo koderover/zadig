@@ -29,37 +29,6 @@ import (
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 )
 
-func GetBuildJobContainerLogs(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	taskID, err := strconv.ParseInt(c.Param("taskId"), 10, 64)
-	if err != nil {
-		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid task id")
-		return
-	}
-	// Use all lowercase job names to avoid subdomain errors
-	ctx.Resp, ctx.RespErr = logservice.GetBuildJobContainerLogs(
-		c.Param("pipelineName"),
-		c.Param("serviceName"),
-		taskID,
-		ctx.Logger,
-	)
-}
-
-func GetWorkflowBuildJobContainerLogs(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	taskID, err := strconv.ParseInt(c.Param("taskId"), 10, 64)
-	if err != nil {
-		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid task id")
-		return
-	}
-	// Use all lowercase job names to avoid subdomain errors
-	ctx.Resp, ctx.RespErr = logservice.GetWorkflowBuildJobContainerLogs(strings.ToLower(c.Param("pipelineName")), c.Param("serviceName"), c.Query("type"), taskID, ctx.Logger)
-}
-
 func GetWorkflowV4JobContainerLogs(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -71,34 +40,6 @@ func GetWorkflowV4JobContainerLogs(c *gin.Context) {
 	}
 	// Use all lowercase job names to avoid subdomain errors
 	ctx.Resp, ctx.RespErr = logservice.GetWorkflowV4JobContainerLogs(strings.ToLower(c.Param("workflowName")), c.Param("jobName"), taskID, ctx.Logger)
-}
-
-func GetTestJobContainerLogs(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	taskID, err := strconv.ParseInt(c.Param("taskId"), 10, 64)
-	if err != nil {
-		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid task id")
-		return
-	}
-
-	// Use all lowercase job names to avoid subdomain errors
-	ctx.Resp, ctx.RespErr = logservice.GetTestJobContainerLogs(strings.ToLower(c.Param("pipelineName")), c.Param("testName"), taskID, ctx.Logger)
-}
-
-func GetWorkflowTestJobContainerLogs(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	taskID, err := strconv.ParseInt(c.Param("taskId"), 10, 64)
-	if err != nil {
-		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid task id")
-		return
-	}
-
-	// Use all lowercase job names to avoid subdomain errors
-	ctx.Resp, ctx.RespErr = logservice.GetWorkflowTestJobContainerLogs(strings.ToLower(c.Param("pipelineName")), c.Param("serviceName"), c.Query("workflowType"), taskID, ctx.Logger)
 }
 
 func GetContainerLogs(c *gin.Context) {
@@ -128,19 +69,6 @@ func GetContainerLogs(c *gin.Context) {
 	internalhandler.Stream(c, func(ctx1 context.Context, streamChan chan interface{}) {
 		logservice.ContainerLogStream(ctx1, streamChan, envName, productName, podName, containerName, follow, tailLines, ctx.Logger)
 	}, ctx.Logger)
-}
-
-func GetWorkflowBuildV3JobContainerLogs(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	taskID, err := strconv.ParseInt(c.Param("taskId"), 10, 64)
-	if err != nil {
-		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid task id")
-		return
-	}
-	// Use all lowercase job names to avoid subdomain errors
-	ctx.Resp, ctx.RespErr = logservice.GetWorkflowBuildV3JobContainerLogs(strings.ToLower(c.Param("workflowName")), c.Query("type"), taskID, ctx.Logger)
 }
 
 func GetScanningContainerLogs(c *gin.Context) {

@@ -87,7 +87,10 @@ func (j *UpdateEnvIstioConfigJob) ToJobs(taskID int64) ([]*commonmodels.JobTask,
 	}
 
 	jobTask := &commonmodels.JobTask{
-		Name: jobNameFormat(j.job.Name),
+		Name:        GenJobName(j.workflow, j.job.Name, 0),
+		Key:         genJobKey(j.job.Name),
+		DisplayName: genJobDisplayName(j.job.Name),
+		OriginName:  j.job.Name,
 		JobInfo: map[string]string{
 			JobNameKey: j.job.Name,
 		},

@@ -421,7 +421,7 @@ func (j *VMDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 	}
 
 	buildSvc := commonservice.NewBuildService()
-	for _, vmDeployInfo := range j.spec.ServiceAndVMDeploys {
+	for jobSubTaskID, vmDeployInfo := range j.spec.ServiceAndVMDeploys {
 		s3Storage.Subfolder = originS3StorageSubfolder
 
 		service, ok := serviceMap[vmDeployInfo.ServiceName]
@@ -439,13 +439,15 @@ func (j *VMDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 
 		jobTaskSpec := &commonmodels.JobTaskFreestyleSpec{}
 		jobTask := &commonmodels.JobTask{
-			Name: jobNameFormat(vmDeployInfo.ServiceName + "-" + vmDeployInfo.ServiceModule + "-" + j.job.Name),
+			Name:        GenJobName(j.workflow, j.job.Name, jobSubTaskID),
+			Key:         genJobKey(j.job.Name, vmDeployInfo.ServiceName, vmDeployInfo.ServiceModule),
+			DisplayName: genJobDisplayName(j.job.Name, vmDeployInfo.ServiceName, vmDeployInfo.ServiceModule),
+			OriginName:  j.job.Name,
 			JobInfo: map[string]string{
 				"service_name":   vmDeployInfo.ServiceName,
 				"service_module": vmDeployInfo.ServiceModule,
 				JobNameKey:       j.job.Name,
 			},
-			Key:            strings.Join([]string{j.job.Name, vmDeployInfo.ServiceName, vmDeployInfo.ServiceModule}, "."),
 			JobType:        string(config.JobZadigVMDeploy),
 			Spec:           jobTaskSpec,
 			Timeout:        int64(buildInfo.Timeout),

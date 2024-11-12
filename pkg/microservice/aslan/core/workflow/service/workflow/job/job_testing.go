@@ -236,7 +236,7 @@ func (j *TestingJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 
 	if j.spec.TestType == config.ProductTestType {
 		for _, testing := range j.spec.TestModules {
-			jobTask, err := j.toJobtask(testing, defaultS3, taskID, "", "", "", logger)
+			jobTask, err := j.toJobtask(0, testing, defaultS3, taskID, "", "", "", logger)
 			if err != nil {
 				return resp, err
 			}
@@ -261,15 +261,17 @@ func (j *TestingJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 	}
 
 	if j.spec.TestType == config.ServiceTestType {
+		jobSubTaskID := 0
 		for _, target := range j.spec.TargetServices {
 			for _, testing := range j.spec.ServiceAndTests {
 				if testing.ServiceName != target.ServiceName || testing.ServiceModule != target.ServiceModule {
 					continue
 				}
-				jobTask, err := j.toJobtask(&testing.TestModule, defaultS3, taskID, string(j.spec.TestType), testing.ServiceName, testing.ServiceModule, logger)
+				jobTask, err := j.toJobtask(jobSubTaskID, &testing.TestModule, defaultS3, taskID, string(j.spec.TestType), testing.ServiceName, testing.ServiceModule, logger)
 				if err != nil {
 					return resp, err
 				}
+				jobSubTaskID++
 				resp = append(resp, jobTask)
 			}
 		}
@@ -365,7 +367,7 @@ func (j *TestingJob) getOriginReferedJobTargets(jobName string) ([]*commonmodels
 	return nil, fmt.Errorf("TestingJob: refered job %s not found", jobName)
 }
 
-func (j *TestingJob) toJobtask(testing *commonmodels.TestModule, defaultS3 *commonmodels.S3Storage, taskID int64, testType, serviceName, serviceModule string, logger *zap.SugaredLogger) (*commonmodels.JobTask, error) {
+func (j *TestingJob) toJobtask(jobSubTaskID int, testing *commonmodels.TestModule, defaultS3 *commonmodels.S3Storage, taskID int64, testType, serviceName, serviceModule string, logger *zap.SugaredLogger) (*commonmodels.JobTask, error) {
 	testingInfo, err := commonrepo.NewTestingColl().Find(testing.Name, "")
 	if err != nil {
 		return nil, fmt.Errorf("find testing: %s error: %v", testing.Name, err)
@@ -379,7 +381,9 @@ func (j *TestingJob) toJobtask(testing *commonmodels.TestModule, defaultS3 *comm
 		return nil, fmt.Errorf("list registries error: %v", err)
 	}
 	randStr := rand.String(5)
-	jobName := jobNameFormat(testing.Name + "-" + j.job.Name + "-" + randStr)
+	jobKey := genJobKey(j.job.Name, testing.Name)
+	jobName := GenJobName(j.workflow, j.job.Name, jobSubTaskID)
+	jobDisplayName := genJobDisplayName(j.job.Name, testing.Name)
 	jobInfo := map[string]string{
 		JobNameKey:     j.job.Name,
 		"test_type":    testType,
@@ -387,7 +391,8 @@ func (j *TestingJob) toJobtask(testing *commonmodels.TestModule, defaultS3 *comm
 		"rand_str":     randStr,
 	}
 	if testType == string(config.ServiceTestType) {
-		jobName = jobNameFormat(serviceName + "-" + serviceModule + "-" + j.job.Name)
+		jobDisplayName = genJobDisplayName(j.job.Name, serviceName, serviceModule)
+		jobKey = genJobKey(j.job.Name, serviceName, serviceModule)
 		jobInfo = map[string]string{
 			JobNameKey:       j.job.Name,
 			"test_type":      testType,
@@ -396,14 +401,12 @@ func (j *TestingJob) toJobtask(testing *commonmodels.TestModule, defaultS3 *comm
 		}
 	}
 
-	jobKey := strings.Join([]string{j.job.Name, testing.Name}, ".")
-	if testType == string(config.ServiceTestType) {
-		jobKey = strings.Join([]string{j.job.Name, testing.Name, serviceName, serviceModule}, ".")
-	}
 	jobTaskSpec := &commonmodels.JobTaskFreestyleSpec{}
 	jobTask := &commonmodels.JobTask{
-		Name:           jobName,
 		Key:            jobKey,
+		Name:           jobName,
+		DisplayName:    jobDisplayName,
+		OriginName:     j.job.Name,
 		JobInfo:        jobInfo,
 		JobType:        string(config.JobZadigTesting),
 		Spec:           jobTaskSpec,

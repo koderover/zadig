@@ -128,7 +128,7 @@ func (c *FreestyleJobCtl) prepare(ctx context.Context) error {
 		c.jobTaskSpec.Properties.ClusterID = setting.LocalClusterID
 	}
 	// init step configration.
-	if err := stepcontroller.PrepareSteps(ctx, c.workflowCtx, &c.jobTaskSpec.Properties.Paths, c.job.Name, c.jobTaskSpec.Steps, c.logger); err != nil {
+	if err := stepcontroller.PrepareSteps(ctx, c.workflowCtx, &c.jobTaskSpec.Properties.Paths, c.job.Key, c.jobTaskSpec.Steps, c.logger); err != nil {
 		logError(c.job, err.Error(), c.logger)
 		return err
 	}
@@ -277,6 +277,8 @@ func (c *FreestyleJobCtl) runVMJob(ctx context.Context) (string, error) {
 		vmJob.WorkflowName = c.workflowCtx.WorkflowName
 		vmJob.TaskID = c.workflowCtx.TaskID
 		vmJob.JobName = c.job.Name
+		vmJob.JobDisplayName = c.job.DisplayName
+		vmJob.JobKey = c.job.Key
 		vmJob.JobType = c.job.JobType
 		vmJob.JobOriginName = jobInfo.JobName
 	}
@@ -372,7 +374,7 @@ func (c *FreestyleJobCtl) complete(ctx context.Context) {
 		}
 		return
 	}
-	if err := stepcontroller.SummarizeSteps(ctx, c.workflowCtx, &c.jobTaskSpec.Properties.Paths, c.job.Name, c.jobTaskSpec.Steps, c.logger); err != nil {
+	if err := stepcontroller.SummarizeSteps(ctx, c.workflowCtx, &c.jobTaskSpec.Properties.Paths, c.job.Key, c.jobTaskSpec.Steps, c.logger); err != nil {
 		c.logger.Error(err)
 		c.job.Error = err.Error()
 		return
@@ -395,7 +397,7 @@ func (c *FreestyleJobCtl) vmComplete(ctx context.Context, jobID string) {
 	}
 
 	// summarize steps
-	if err := stepcontroller.SummarizeSteps(ctx, c.workflowCtx, &c.jobTaskSpec.Properties.Paths, c.job.Name, c.jobTaskSpec.Steps, c.logger); err != nil {
+	if err := stepcontroller.SummarizeSteps(ctx, c.workflowCtx, &c.jobTaskSpec.Properties.Paths, c.job.Key, c.jobTaskSpec.Steps, c.logger); err != nil {
 		c.logger.Error(err)
 		c.job.Error = err.Error()
 		return
@@ -433,6 +435,9 @@ func BuildJobExcutorContext(jobTaskSpec *commonmodels.JobTaskFreestyleSpec, job 
 
 	jobContext := &JobContext{
 		Name:          job.Name,
+		Key:           job.Key,
+		OriginName:    job.OriginName,
+		DisplayName:   job.DisplayName,
 		Envs:          envVars,
 		SecretEnvs:    secretEnvVars,
 		WorkflowName:  workflowCtx.WorkflowName,

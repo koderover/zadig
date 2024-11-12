@@ -185,7 +185,7 @@ func (j *CustomDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) 
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return resp, err
 	}
-	for _, target := range j.spec.Targets {
+	for jobSubTaskID, target := range j.spec.Targets {
 		t := strings.Split(target.Target, "/")
 		if len(t) != 3 {
 			log.Errorf("target string: %s wrong format", target.Target)
@@ -205,8 +205,10 @@ func (j *CustomDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) 
 			SkipCheckRunStatus: j.spec.SkipCheckRunStatus,
 		}
 		jobTask := &commonmodels.JobTask{
-			Name: jobNameFormat(j.job.Name + "-" + workloadType + "-" + workloadName + "-" + containerName),
-			Key:  strings.Join([]string{j.job.Name, workloadType, workloadName, containerName}, "."),
+			Name:        GenJobName(j.workflow, j.job.Name, jobSubTaskID),
+			Key:         genJobKey(j.job.Name, workloadType, workloadName, containerName),
+			DisplayName: genJobDisplayName(j.job.Name, workloadType, workloadName, containerName),
+			OriginName:  j.job.Name,
 			JobInfo: map[string]string{
 				JobNameKey:       j.job.Name,
 				"workload_type":  workloadType,

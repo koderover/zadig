@@ -358,8 +358,8 @@ func (j *FreeStyleJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			j.spec.Services = targets
 		}
 
-		for _, service := range j.spec.Services {
-			task, err := j.toJob(taskID, registries, service, logger)
+		for jobSubTaskID, service := range j.spec.Services {
+			task, err := j.toJob(taskID, jobSubTaskID, registries, service, logger)
 			if err != nil {
 				return nil, err
 			}
@@ -368,7 +368,7 @@ func (j *FreeStyleJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		return tasks, nil
 	} else {
 		// save user defined variables.
-		jobTask, err := j.toJob(taskID, registries, nil, logger)
+		jobTask, err := j.toJob(taskID, 0, registries, nil, logger)
 		if err != nil {
 			return nil, err
 		}
@@ -376,26 +376,29 @@ func (j *FreeStyleJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 	}
 }
 
-func (j *FreeStyleJob) toJob(taskID int64, registries []*commonmodels.RegistryNamespace, service *commonmodels.FreeStyleServiceInfo, logger *zap.SugaredLogger) (*commonmodels.JobTask, error) {
+func (j *FreeStyleJob) toJob(taskID int64, jobSubTaskID int, registries []*commonmodels.RegistryNamespace, service *commonmodels.FreeStyleServiceInfo, logger *zap.SugaredLogger) (*commonmodels.JobTask, error) {
 	jobTaskSpec := &commonmodels.JobTaskFreestyleSpec{
 		Properties: *j.spec.Properties,
 		Steps:      j.stepsToStepTasks(j.spec.Steps, service, registries),
 	}
 
-	jobName := j.job.Name
-	jobKey := j.job.Name
+	jobDisplayName := genJobDisplayName(j.job.Name)
+	jobKey := genJobKey(j.job.Name)
+	jobName := GenJobName(j.workflow, j.job.Name, jobSubTaskID)
 	jobInfo := map[string]string{
 		JobNameKey: j.job.Name,
 	}
 	if service != nil {
-		jobName = jobNameFormat(service.ServiceName + "-" + service.ServiceModule + "-" + j.job.Name)
-		jobKey = strings.Join([]string{j.job.Name, service.ServiceName, service.ServiceModule}, ".")
+		jobDisplayName = genJobDisplayName(j.job.Name, service.ServiceName, service.ServiceModule)
+		jobKey = genJobKey(j.job.Name, service.ServiceName, service.ServiceModule)
 		jobInfo["service_name"] = service.ServiceName
 		jobInfo["service_module"] = service.ServiceModule
 	}
 	jobTask := &commonmodels.JobTask{
-		Name:        jobName,
 		Key:         jobKey,
+		Name:        jobName,
+		DisplayName: jobDisplayName,
+		OriginName:  j.job.Name,
 		JobInfo:     jobInfo,
 		JobType:     string(config.JobFreestyle),
 		Spec:        jobTaskSpec,

@@ -18,7 +18,6 @@ package job
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
@@ -83,13 +82,15 @@ func (j *BlueGreenReleaseJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, err
 	if !found {
 		return resp, fmt.Errorf("no blue-green release job: %s found, please check workflow configuration", j.spec.FromJob)
 	}
-	for _, target := range deployJobSpec.Targets {
+	for jobSubTaskID, target := range deployJobSpec.Targets {
 		if target.WorkloadName == "" {
 			continue
 		}
 		task := &commonmodels.JobTask{
-			Name: jobNameFormat(j.job.Name + "-" + target.K8sServiceName),
-			Key:  strings.Join([]string{j.job.Name, target.K8sServiceName}, "."),
+			Name:        GenJobName(j.workflow, j.job.Name, jobSubTaskID),
+			Key:         genJobKey(j.job.Name, target.K8sServiceName),
+			DisplayName: genJobDisplayName(j.job.Name, target.K8sServiceName),
+			OriginName:  j.job.Name,
 			JobInfo: map[string]string{
 				JobNameKey:         j.job.Name,
 				"k8s_service_name": target.K8sServiceName,

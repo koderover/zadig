@@ -174,15 +174,16 @@ type ScanningTaskResp struct {
 }
 
 type ScanningTaskDetail struct {
-	Creator       string              `json:"creator"`
-	Status        string              `json:"status"`
-	CreateTime    int64               `json:"create_time"`
-	EndTime       int64               `json:"end_time"`
-	RepoInfo      []*types.Repository `json:"repo_info"`
-	SonarMetrics  *step.SonarMetrics  `json:"sonar_metrics"`
-	ResultLink    string              `json:"result_link,omitempty"`
-	IsHasArtifact bool                `json:"is_has_artifact"`
-	JobName       string              `json:"job_name"`
+	Creator        string              `json:"creator"`
+	Status         string              `json:"status"`
+	CreateTime     int64               `json:"create_time"`
+	EndTime        int64               `json:"end_time"`
+	RepoInfo       []*types.Repository `json:"repo_info"`
+	SonarMetrics   *step.SonarMetrics  `json:"sonar_metrics"`
+	ResultLink     string              `json:"result_link,omitempty"`
+	IsHasArtifact  bool                `json:"is_has_artifact"`
+	JobName        string              `json:"job_name"`
+	JobDisplayName string              `json:"job_display_name"`
 }
 
 func ConvertToDBScanningModule(args *Scanning) *commonmodels.Scanning {
