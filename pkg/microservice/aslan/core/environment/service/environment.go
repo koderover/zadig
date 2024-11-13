@@ -111,10 +111,12 @@ func ListProducts(userID, projectName string, envNames []string, production bool
 	}
 
 	var res []*EnvResp
-	reg, err := commonservice.FindDefaultRegistry(false, log)
+	defaultRegID := ""
+	defaultReg, err := commonservice.FindDefaultRegistry(false, log)
 	if err != nil {
 		log.Errorf("FindDefaultRegistry error: %v", err)
-		return nil, e.ErrListEnvs.AddErr(err)
+	} else {
+		defaultRegID = defaultReg.ID.Hex()
 	}
 
 	clusters, err := commonrepo.NewK8SClusterColl().List(&commonrepo.ClusterListOpts{})
@@ -157,7 +159,7 @@ func ListProducts(userID, projectName string, envNames []string, production bool
 	}
 	for _, env := range envs {
 		if len(env.RegistryID) == 0 {
-			env.RegistryID = reg.ID.Hex()
+			env.RegistryID = defaultRegID
 		}
 
 		var baseRefs []string
