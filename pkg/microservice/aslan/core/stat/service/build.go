@@ -69,15 +69,18 @@ func GetBuildTotalAndSuccess(args *models.BuildStatOption, log *zap.SugaredLogge
 	}
 
 	buildJobStat, err := commonrepo.NewJobInfoColl().GetBuildJobsStats(0, 0, []string{})
-	if err != nil {
+	if err != nil && err != mongo.ErrNilDocument {
 		log.Errorf("failed to get total build job stats, error: %s", err)
 		return nil, fmt.Errorf("failed to get total build job stats, error: %s", err)
 	}
 
 	resp := &dashboardBuild{
-		Total:                buildJobStat.Count,
-		Success:              buildJobStat.Success,
 		DashboardBuildDailys: weeklyBuildData,
+	}
+
+	if buildJobStat != nil {
+		resp.Total = buildJobStat.Count
+		resp.Success = buildJobStat.Success
 	}
 
 	return resp, nil
