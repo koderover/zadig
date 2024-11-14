@@ -504,5 +504,7 @@ func (j *ImageDistributeJob) GetOutPuts(log *zap.SugaredLogger) []string {
 		targetKey := strings.Join([]string{j.job.Name, target.ServiceName, target.ServiceModule}, ".")
 		resp = append(resp, getOutputKey(targetKey, []*commonmodels.Output{{Name: "IMAGE"}})...)
 	}
+	targetKey := strings.Join([]string{j.job.Name, "<SERVICE>", "<MODULE>"}, ".")
+	resp = append(resp, getOutputKey(targetKey, []*commonmodels.Output{{Name: "IMAGE"}})...)
 	return resp
 }
