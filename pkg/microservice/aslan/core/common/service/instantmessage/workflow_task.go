@@ -182,14 +182,14 @@ func (w *Service) getApproveNotificationContent(notify *models.NotifyCtl, task *
 		TaskCreatorEmail:    task.TaskCreatorEmail,
 	}
 
-	tplTitle := "{if and (ne .WebHookType \"feishu\") (ne .WebHookType \"wechat\")}}### {{end}}{{if eq .WebHookType \"dingding\"}}<font color=#3270e3>**{{end}}{{getIcon .Task.Status }}工作流 {{.Task.WorkflowDisplayName}} #{{.Task.TaskID}} 等待审批{{if eq .WebHookType \"dingding\"}}**</font>{{end}} \n"
+	tplTitle := "{{if and (ne .WebHookType \"feishu\") (ne .WebHookType \"wechat\")}}### {{end}}{{if eq .WebHookType \"dingding\"}}<font color=#3270e3>**{{end}}{{getIcon .Task.Status }}工作流 {{.Task.WorkflowDisplayName}} #{{.Task.TaskID}} 等待审批{{if eq .WebHookType \"dingding\"}}**</font>{{end}} \n"
 	mailTplTitle := "{{getIcon .Task.Status }}工作流 {{.Task.WorkflowDisplayName}} #{{.Task.TaskID}} 等待审批\n"
 
-	tplBaseInfo := []string{"{{if eq .WebHookType \"dingding\"}}##### {{end}}{{if ne .WebHookType \"wechat\"}**{{end}}执行用户{{if ne .WebHookType \"wechat\"}**{{end}}：{{.Task.TaskCreator}} \n",
-		"{{if eq .WebHookType \"dingding\"}}##### {{end}}{{if ne .WebHookType \"wechat\"}**{{end}}项目名称{{if ne .WebHookType \"wechat\"}**{{end}}：{{.Task.ProjectName}} \n",
-		"{{if eq .WebHookType \"dingding\"}}##### {{end}}{{if ne .WebHookType \"wechat\"}**{{end}}开始时间{{if ne .WebHookType \"wechat\"}**{{end}}：{{ getStartTime .Task.StartTime}} \n",
-		"{{if eq .WebHookType \"dingding\"}}##### {{end}}{{if ne .WebHookType \"wechat\"}**{{end}}持续时间{{if ne .WebHookType \"wechat\"}**{{end}}：{{ getDuration .TotalTime}} \n",
-		"{{if eq .WebHookType \"dingding\"}}##### {{end}}{{if ne .WebHookType \"wechat\"}**{{end}}备注{{if ne .WebHookType \"wechat\"}**{{end}}：{{.Task.Remark}} \n",
+	tplBaseInfo := []string{"{{if eq .WebHookType \"dingding\"}}##### {{end}}{{if ne .WebHookType \"wechat\"}}**{{end}}执行用户{{if ne .WebHookType \"wechat\"}}**{{end}}：{{.Task.TaskCreator}} \n",
+		"{{if eq .WebHookType \"dingding\"}}##### {{end}}{{if ne .WebHookType \"wechat\"}}**{{end}}项目名称{{if ne .WebHookType \"wechat\"}}**{{end}}：{{.Task.ProjectName}} \n",
+		"{{if eq .WebHookType \"dingding\"}}##### {{end}}{{if ne .WebHookType \"wechat\"}}**{{end}}开始时间{{if ne .WebHookType \"wechat\"}}**{{end}}：{{ getStartTime .Task.StartTime}} \n",
+		"{{if eq .WebHookType \"dingding\"}}##### {{end}}{{if ne .WebHookType \"wechat\"}}**{{end}}持续时间{{if ne .WebHookType \"wechat\"}}**{{end}}：{{ getDuration .TotalTime}} \n",
+		"{{if eq .WebHookType \"dingding\"}}##### {{end}}{{if ne .WebHookType \"wechat\"}}**{{end}}备注{{if ne .WebHookType \"wechat\"}}**{{end}}：{{.Task.Remark}} \n",
 	}
 	mailTplBaseInfo := []string{"执行用户：{{.Task.TaskCreator}} \n",
 		"项目名称：{{.Task.ProjectName}} \n",
