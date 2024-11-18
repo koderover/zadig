@@ -33,7 +33,6 @@ import (
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	workflowservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/testing/service"
-	"github.com/koderover/zadig/v2/pkg/setting"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
@@ -494,7 +493,7 @@ func CancelScanningTask(c *gin.Context) {
 		}
 	}
 
-	workflowName := fmt.Sprintf(setting.ScanWorkflowNamingConvention, scanningID)
+	workflowName := commonutil.GenScanningWorkflowName(scanningID)
 
 	ctx.RespErr = workflowservice.CancelWorkflowTaskV4(ctx.UserName, workflowName, taskID, ctx.Logger)
 }
@@ -559,7 +558,7 @@ func GetScanningTaskArtifact(c *gin.Context) {
 		ctx.RespErr = fmt.Errorf("failed to get scanning from mongodb, the error is: %s", err)
 		return
 	}
-	workflowName := fmt.Sprintf(setting.ScanWorkflowNamingConvention, scanningInfo.ID.Hex())
+	workflowName := commonutil.GenScanningWorkflowName(scanningInfo.ID.Hex())
 
 	resp, err := workflowservice.GetWorkflowV4ArtifactFileContent(workflowName, jobName, taskID, ctx.Logger)
 	if err != nil {

@@ -27,7 +27,7 @@ import (
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
-	"github.com/koderover/zadig/v2/pkg/setting"
+	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	openapitool "github.com/koderover/zadig/v2/pkg/tool/openapi"
 	"github.com/koderover/zadig/v2/pkg/types"
 )
@@ -149,7 +149,7 @@ func OpenAPICreateTestTask(userName, account, userID string, args *OpenAPICreate
 }
 
 func OpenAPIGetTestTaskResult(taskID int64, productName, testName string, logger *zap.SugaredLogger) (*OpenAPITestTaskDetail, error) {
-	workflowName := fmt.Sprintf(setting.TestWorkflowNamingConvention, testName)
+	workflowName := commonutil.GenTestingWorkflowName(testName)
 	workflowTask, err := commonrepo.NewworkflowTaskv4Coll().Find(workflowName, taskID)
 	if err != nil {
 		logger.Errorf("failed to find workflow task %d for test: %s, error: %s", taskID, testName, err)

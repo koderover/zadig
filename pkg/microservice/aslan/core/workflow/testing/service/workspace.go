@@ -33,6 +33,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/s3"
+	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	s3tool "github.com/koderover/zadig/v2/pkg/tool/s3"
 	"github.com/koderover/zadig/v2/pkg/types/step"
@@ -257,8 +258,8 @@ func GetWorkflowV4ScanningArtifactInfo(scanningID, jobName string, taskID int64,
 	if err != nil {
 		return nil, fmt.Errorf("failed to get scanning from mongodb, the error is: %s", err)
 	}
-	workflowName := fmt.Sprintf(setting.ScanWorkflowNamingConvention, scanningInfo.ID.Hex())
 
+	workflowName := commonutil.GenScanningWorkflowName(scanningInfo.ID.Hex())
 	workflowTask, err := mongodb.NewworkflowTaskv4Coll().Find(workflowName, taskID)
 	if err != nil {
 		return resp, fmt.Errorf("cannot find workflow task, workflow name: %s, task id: %d", workflowName, taskID)

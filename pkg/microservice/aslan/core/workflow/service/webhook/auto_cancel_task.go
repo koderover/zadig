@@ -189,10 +189,10 @@ func AutoCancelWorkflowV4Task(autoCancelOpt *AutoCancelOpt, log *zap.SugaredLogg
 		if task.WorkflowArgs.HookPayload.CommitID == autoCancelOpt.CommitID {
 			continue
 		}
+
 		if err = workflowcontroller.CancelWorkflowTask(task.TaskCreator, task.WorkflowName, task.TaskID, log); err != nil {
 			log.Errorf(" failed,task.TaskCreator:%s, task.WorkflowName:%s, task.TaskID:%d, error: %v", task.TaskCreator, task.WorkflowName, task.TaskID, err)
 		}
-		break
 	}
 	return nil
 }

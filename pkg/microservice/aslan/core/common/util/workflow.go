@@ -17,7 +17,10 @@ limitations under the License.
 package util
 
 import (
+	"fmt"
+
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
@@ -34,4 +37,11 @@ func CalcWorkflowTaskRunningTime(task *commonmodels.WorkflowTask) int64 {
 		}
 	}
 	return runningTime
+}
+func GenScanningWorkflowName(scanningID string) string {
+	return fmt.Sprintf(setting.ScanWorkflowNamingConvention, scanningID)
+}
+
+func GenTestingWorkflowName(testingName string) string {
+	return fmt.Sprintf(setting.TestWorkflowNamingConvention, testingName)
 }

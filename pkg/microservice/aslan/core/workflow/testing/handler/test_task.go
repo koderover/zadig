@@ -29,6 +29,7 @@ import (
 	"github.com/gin-gonic/gin/binding"
 	"k8s.io/apimachinery/pkg/util/wait"
 
+	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/notify"
@@ -182,7 +183,7 @@ func CancelTestTaskV3(c *gin.Context) {
 		return
 	}
 
-	workflowName := fmt.Sprintf(setting.TestWorkflowNamingConvention, testName)
+	workflowName := commonutil.GenTestingWorkflowName(testName)
 
 	ctx.RespErr = workflowservice.CancelWorkflowTaskV4(ctx.UserName, workflowName, taskID, ctx.Logger)
 }
@@ -341,7 +342,7 @@ func RestartTestTaskV2(c *gin.Context) {
 		return
 	}
 
-	workflowName := fmt.Sprintf(setting.TestWorkflowNamingConvention, testName)
+	workflowName := commonutil.GenTestingWorkflowName(testName)
 
 	ctx.RespErr = workflowservice.RetryWorkflowTaskV4(workflowName, taskID, ctx.Logger)
 }
@@ -381,7 +382,7 @@ func GetTestingTaskArtifact(c *gin.Context) {
 		return
 	}
 
-	workflowName := fmt.Sprintf(setting.TestWorkflowNamingConvention, testName)
+	workflowName := commonutil.GenTestingWorkflowName(testName)
 
 	resp, err := workflowservice.GetWorkflowV4ArtifactFileContent(workflowName, jobName, taskID, ctx.Logger)
 	if err != nil {

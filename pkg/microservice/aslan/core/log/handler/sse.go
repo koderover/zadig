@@ -23,14 +23,14 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
+	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/workflowcontroller/jobcontroller"
+	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	logservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/log/service"
 	jobctl "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/job"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/testing/service"
-	"github.com/koderover/zadig/v2/pkg/setting"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/types"
@@ -185,7 +185,7 @@ func GetScanningContainerLogsSSE(c *gin.Context) {
 		clusterId = resp.AdvancedSetting.ClusterID
 	}
 
-	workflowName := fmt.Sprintf(setting.ScanWorkflowNamingConvention, id)
+	workflowName := commonutil.GenScanningWorkflowName(id)
 	workflowTask, err := commonrepo.NewworkflowTaskv4Coll().Find(workflowName, taskID)
 	if err != nil {
 		ctx.Logger.Errorf("failed to find workflow task for scanning: %s, err: %s", workflowName, err)
@@ -212,7 +212,7 @@ func GetScanningContainerLogsSSE(c *gin.Context) {
 			ctx1, streamChan,
 			&logservice.GetContainerOptions{
 				Namespace:    namespace,
-				PipelineName: fmt.Sprintf(setting.ScanWorkflowNamingConvention, id),
+				PipelineName: commonutil.GenScanningWorkflowName(id),
 				SubTask:      jobcontroller.GetJobContainerName(jobName),
 				TaskID:       taskID,
 				TailLines:    tails,
@@ -247,7 +247,8 @@ func GetTestingContainerLogsSSE(c *gin.Context) {
 	if err != nil {
 		tails = int64(9999999)
 	}
-	workflowName := fmt.Sprintf(setting.TestWorkflowNamingConvention, testName)
+
+	workflowName := commonutil.GenTestingWorkflowName(testName)
 	workflowTask, err := commonrepo.NewworkflowTaskv4Coll().Find(workflowName, taskID)
 	if err != nil {
 		ctx.Logger.Errorf("failed to find workflow task for testing: %s, err: %s", testName, err)
@@ -275,7 +276,7 @@ func GetTestingContainerLogsSSE(c *gin.Context) {
 			ctx1, streamChan,
 			&logservice.GetContainerOptions{
 				Namespace:    config.Namespace(),
-				PipelineName: fmt.Sprintf(setting.TestWorkflowNamingConvention, testName),
+				PipelineName: commonutil.GenTestingWorkflowName(testName),
 				SubTask:      jobcontroller.GetJobContainerName(jobName),
 				TaskID:       taskID,
 				TailLines:    tails,

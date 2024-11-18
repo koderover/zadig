@@ -28,13 +28,16 @@ import (
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/scmnotify"
+	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	testingservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/testing/service"
 	"github.com/koderover/zadig/v2/pkg/setting"
+	"github.com/koderover/zadig/v2/pkg/types"
 )
 
 type gitEventMatcherForTesting interface {
 	Match(*commonmodels.MainHookRepo) (bool, error)
 	UpdateTaskArgs(*commonmodels.TestTaskArgs, string) *commonmodels.TestTaskArgs
+	GetHookRepo(hookRepo *commonmodels.MainHookRepo) *types.Repository
 }
 
 type testArgsFactory struct {
@@ -55,6 +58,17 @@ type gitlabPushEventMatcherForTesting struct {
 	log     *zap.SugaredLogger
 	testing *commonmodels.Testing
 	event   *gitlab.PushEvent
+}
+
+func (gmem *gitlabPushEventMatcherForTesting) GetHookRepo(hookRepo *commonmodels.MainHookRepo) *types.Repository {
+	return &types.Repository{
+		CodehostID:    hookRepo.CodehostID,
+		RepoName:      hookRepo.RepoName,
+		RepoOwner:     hookRepo.RepoOwner,
+		RepoNamespace: hookRepo.GetRepoNamespace(),
+		Branch:        hookRepo.Branch,
+		Source:        hookRepo.Source,
+	}
 }
 
 func (gpem *gitlabPushEventMatcherForTesting) Match(hookRepo *commonmodels.MainHookRepo) (bool, error) {
@@ -99,6 +113,17 @@ type gitlabTagEventMatcherForTesting struct {
 	log     *zap.SugaredLogger
 	testing *commonmodels.Testing
 	event   *gitlab.TagEvent
+}
+
+func (gmem *gitlabTagEventMatcherForTesting) GetHookRepo(hookRepo *commonmodels.MainHookRepo) *types.Repository {
+	return &types.Repository{
+		CodehostID:    hookRepo.CodehostID,
+		RepoName:      hookRepo.RepoName,
+		RepoOwner:     hookRepo.RepoOwner,
+		RepoNamespace: hookRepo.GetRepoNamespace(),
+		Branch:        hookRepo.Branch,
+		Source:        hookRepo.Source,
+	}
 }
 
 func (gtem gitlabTagEventMatcherForTesting) Match(hookRepo *commonmodels.MainHookRepo) (bool, error) {
@@ -150,6 +175,7 @@ func TriggerTestByGitlabEvent(event interface{}, baseURI, requestID string, log 
 	}
 
 	var notification *commonmodels.Notification
+	var hookPayload *commonmodels.HookPayload
 
 	for _, testing := range testingList {
 		if testing.HookCtl != nil && testing.HookCtl.Enabled {
@@ -172,10 +198,15 @@ func TriggerTestByGitlabEvent(event interface{}, baseURI, requestID string, log 
 					var mergeRequestID, commitID, ref, eventType string
 					var prID int
 					autoCancelOpt := &AutoCancelOpt{
-						TaskType: config.TestType,
-						MainRepo: item.MainRepo,
-						TestArgs: item.TestArgs,
+						WorkflowName: commonutil.GenTestingWorkflowName(testing.Name),
+						TaskType:     config.TestType,
+						MainRepo:     item.MainRepo,
+						TestArgs:     item.TestArgs,
+						AutoCancel:   item.AutoCancel,
 					}
+
+					eventRepo := matcher.GetHookRepo(item.MainRepo)
+
 					switch ev := event.(type) {
 					case *gitlab.MergeEvent:
 						eventType = EventTypePR
@@ -185,6 +216,17 @@ func TriggerTestByGitlabEvent(event interface{}, baseURI, requestID string, log 
 						autoCancelOpt.MergeRequestID = mergeRequestID
 						autoCancelOpt.CommitID = commitID
 						autoCancelOpt.Type = eventType
+
+						hookPayload = &commonmodels.HookPayload{
+							Owner:          eventRepo.RepoOwner,
+							Repo:           eventRepo.RepoName,
+							Branch:         eventRepo.Branch,
+							IsPr:           true,
+							MergeRequestID: mergeRequestID,
+							CommitID:       commitID,
+							CodehostID:     eventRepo.CodehostID,
+							EventType:      eventType,
+						}
 					case *gitlab.PushEvent:
 						eventType = EventTypePush
 						ref = ev.Ref
@@ -192,11 +234,26 @@ func TriggerTestByGitlabEvent(event interface{}, baseURI, requestID string, log 
 						autoCancelOpt.Ref = ref
 						autoCancelOpt.CommitID = commitID
 						autoCancelOpt.Type = eventType
+
+						hookPayload = &commonmodels.HookPayload{
+							Owner:      eventRepo.RepoOwner,
+							Repo:       eventRepo.RepoName,
+							Branch:     eventRepo.Branch,
+							Ref:        ref,
+							IsPr:       false,
+							CommitID:   commitID,
+							CodehostID: eventRepo.CodehostID,
+							EventType:  eventType,
+						}
 					case *gitlab.TagEvent:
 						eventType = EventTypeTag
+
+						hookPayload = &commonmodels.HookPayload{
+							EventType: eventType,
+						}
 					}
 					if autoCancelOpt.Type != "" {
-						err := AutoCancelTask(autoCancelOpt, log)
+						err = AutoCancelWorkflowV4Task(autoCancelOpt, log)
 						if err != nil {
 							log.Errorf("failed to auto cancel testing task when receive event %v due to %v ", event, err)
 							mErr = multierror.Append(mErr, err)
@@ -226,6 +283,7 @@ func TriggerTestByGitlabEvent(event interface{}, baseURI, requestID string, log 
 					}
 
 					// 3. create task with args
+					args.HookPayload = hookPayload
 					if resp, err := testingservice.CreateTestTaskV2(args, "webhook", "", "", log); err != nil {
 						log.Errorf("failed to create testing task when receive event %v due to %v ", event, err)
 						mErr = multierror.Append(mErr, err)
@@ -275,6 +333,18 @@ type gitlabMergeEventMatcherForTesting struct {
 	log      *zap.SugaredLogger
 	testing  *commonmodels.Testing
 	event    *gitlab.MergeEvent
+}
+
+func (gmem *gitlabMergeEventMatcherForTesting) GetHookRepo(hookRepo *commonmodels.MainHookRepo) *types.Repository {
+	return &types.Repository{
+		CodehostID:    hookRepo.CodehostID,
+		RepoName:      hookRepo.RepoName,
+		RepoOwner:     hookRepo.RepoOwner,
+		RepoNamespace: hookRepo.GetRepoNamespace(),
+		Branch:        hookRepo.Branch,
+		Source:        hookRepo.Source,
+		PR:            gmem.event.ObjectAttributes.IID,
+	}
 }
 
 func (gmem *gitlabMergeEventMatcherForTesting) Match(hookRepo *commonmodels.MainHookRepo) (bool, error) {

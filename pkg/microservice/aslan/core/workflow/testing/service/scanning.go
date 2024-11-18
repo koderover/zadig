@@ -37,6 +37,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/webhook"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/workflowcontroller"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
+	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	workflowservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/shared/client/systemconfig"
@@ -489,6 +490,7 @@ func CreateScanningTaskV2(id, username, account, userID string, req *CreateScann
 		log.Errorf("failed to getenerate custom workflow from mongodb, the error is: %s", err)
 		return 0, err
 	}
+	scanningWorkflow.HookPayload = req.HookPayload
 
 	createResp, err := workflowservice.CreateWorkflowTaskV4(&workflowservice.CreateWorkflowTaskV4Args{
 		Name:    username,
@@ -511,7 +513,7 @@ func ListScanningTask(id string, pageNum, pageSize int, log *zap.SugaredLogger) 
 		return nil, err
 	}
 
-	workflowName := fmt.Sprintf(setting.ScanWorkflowNamingConvention, scanningInfo.ID.Hex())
+	workflowName := commonutil.GenScanningWorkflowName(scanningInfo.ID.Hex())
 	workflowTasks, total, err := commonrepo.NewworkflowTaskv4Coll().List(&commonrepo.ListWorkflowTaskV4Option{
 		WorkflowName: workflowName,
 		ProjectName:  scanningInfo.ProjectName,
@@ -556,7 +558,7 @@ func GetScanningTaskInfo(scanningID string, taskID int64, log *zap.SugaredLogger
 		return nil, err
 	}
 
-	workflowName := fmt.Sprintf(setting.ScanWorkflowNamingConvention, scanningInfo.ID.Hex())
+	workflowName := commonutil.GenScanningWorkflowName(scanningInfo.ID.Hex())
 	workflowTask, err := commonrepo.NewworkflowTaskv4Coll().Find(workflowName, taskID)
 	if err != nil {
 		log.Errorf("failed to find workflow task %d for scanning: %s, error: %s", taskID, scanningID, err)
@@ -692,7 +694,7 @@ func generateCustomWorkflowFromScanningModule(scanInfo *commonmodels.Scanning, a
 	}
 
 	resp := &commonmodels.WorkflowV4{
-		Name:             fmt.Sprintf(setting.ScanWorkflowNamingConvention, scanInfo.ID.Hex()),
+		Name:             commonutil.GenScanningWorkflowName(scanInfo.ID.Hex()),
 		DisplayName:      scanInfo.Name,
 		Stages:           nil,
 		Project:          scanInfo.ProjectName,

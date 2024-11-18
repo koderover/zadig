@@ -128,8 +128,9 @@ type ListScanningRespItem struct {
 }
 
 type CreateScanningTaskReq struct {
-	KeyVals []*commonmodels.KeyVal `json:"key_vals"`
-	Repos   []*ScanningRepoInfo    `json:"repos"`
+	KeyVals     []*commonmodels.KeyVal    `json:"key_vals"`
+	Repos       []*ScanningRepoInfo       `json:"repos"`
+	HookPayload *commonmodels.HookPayload `json:"hook_payload"`
 }
 
 type ScanningRepoInfo struct {

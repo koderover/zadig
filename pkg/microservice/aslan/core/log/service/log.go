@@ -31,7 +31,7 @@ import (
 	s3service "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/s3"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/workflowcontroller/jobcontroller"
 	jobctl "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/job"
-	"github.com/koderover/zadig/v2/pkg/setting"
+	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/containerlog"
 	s3tool "github.com/koderover/zadig/v2/pkg/tool/s3"
 	"github.com/koderover/zadig/v2/pkg/util"
@@ -111,7 +111,7 @@ func GetCurrentContainerLogs(podName, containerName, envName, productName string
 }
 
 func GetScanningContainerLogs(scanID string, taskID int64, log *zap.SugaredLogger) (string, error) {
-	workflowName := fmt.Sprintf(setting.ScanWorkflowNamingConvention, scanID)
+	workflowName := commonutil.GenScanningWorkflowName(scanID)
 	workflowTask, err := commonrepo.NewworkflowTaskv4Coll().Find(workflowName, taskID)
 	if err != nil {
 		return "", fmt.Errorf("failed to find workflow task for scanning: %s, err: %s", workflowName, err)
@@ -159,7 +159,7 @@ func GetScanningContainerLogs(scanID string, taskID int64, log *zap.SugaredLogge
 }
 
 func GetTestingContainerLogs(testName string, taskID int64, log *zap.SugaredLogger) (string, error) {
-	workflowName := fmt.Sprintf(setting.TestWorkflowNamingConvention, testName)
+	workflowName := commonutil.GenTestingWorkflowName(testName)
 
 	workflowTask, err := commonrepo.NewworkflowTaskv4Coll().Find(workflowName, taskID)
 	if err != nil {
