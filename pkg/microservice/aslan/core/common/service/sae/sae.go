@@ -19,7 +19,7 @@ package sae
 import (
 	"fmt"
 
-	sae20190506 "github.com/alibabacloud-go/sae-20190506/client"
+	sae "github.com/alibabacloud-go/sae-20190506/client"
 	"github.com/alibabacloud-go/tea/tea"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -98,7 +98,7 @@ func validateSAE(args *commonmodels.SAE) error {
 		return fmt.Errorf("new SAE client err:%v", err)
 	}
 
-	describeNamespacesRequest := &sae20190506.DescribeNamespacesRequest{}
+	describeNamespacesRequest := &sae.DescribeNamespacesRequest{}
 	saeResp, err := client.DescribeNamespaces(describeNamespacesRequest)
 	if err != nil {
 		return fmt.Errorf("Failed to describe namespace list err: %v", err)

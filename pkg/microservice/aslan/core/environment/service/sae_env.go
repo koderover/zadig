@@ -20,8 +20,9 @@ import (
 	"fmt"
 	"strings"
 
-	sae20190506 "github.com/alibabacloud-go/sae-20190506/client"
+	sae "github.com/alibabacloud-go/sae-20190506/client"
 	"github.com/alibabacloud-go/tea/tea"
+	"github.com/koderover/zadig/v2/pkg/util/converter"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -29,7 +30,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/sae"
+	saeservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/sae"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/pkg/errors"
@@ -124,7 +125,7 @@ func CreateSAEEnv(username string, env *models.SAEEnv, log *zap.SugaredLogger) e
 		log.Error(err)
 		return e.ErrCreateEnv.AddErr(err)
 	}
-	saeClient, err := sae.NewClient(saeModel, env.RegionID)
+	saeClient, err := saeservice.NewClient(saeModel, env.RegionID)
 	if err != nil {
 		err = fmt.Errorf("Failed to create sae client, err: %s", err)
 		log.Error(err)
@@ -138,7 +139,7 @@ func CreateSAEEnv(username string, env *models.SAEEnv, log *zap.SugaredLogger) e
 			resourceIds += fmt.Sprintf(`"%s",`, app.AppID)
 		}
 		resourceIds = strings.TrimSuffix(resourceIds, ",") + "]"
-		saeRequest := &sae20190506.TagResourcesRequest{
+		saeRequest := &sae.TagResourcesRequest{
 			RegionId:     tea.String(env.RegionID),
 			ResourceType: tea.String("application"),
 			Tags:         tea.String(fmt.Sprintf(`[{"Key":"%s","Value":"%s"}, {"Key":"%s","Value":"%s"}]`, setting.SAEZadigProjectTagKey, env.ProjectName, setting.SAEZadigEnvTagKey, env.EnvName)),
@@ -184,7 +185,7 @@ func DeleteSAEEnv(username string, projectName, envName string, log *zap.Sugared
 		return e.ErrDeleteEnv.AddErr(err)
 	}
 
-	saeClient, err := sae.NewClient(saeModel, env.RegionID)
+	saeClient, err := saeservice.NewClient(saeModel, env.RegionID)
 	if err != nil {
 		err = fmt.Errorf("Failed to create sae client, err: %s", err)
 		log.Error(err)
@@ -206,7 +207,7 @@ func DeleteSAEEnv(username string, projectName, envName string, log *zap.Sugared
 			resourceIds += fmt.Sprintf(`"%s",`, app.AppID)
 		}
 		resourceIds = strings.TrimSuffix(resourceIds, ",") + "]"
-		saeRequest := &sae20190506.UntagResourcesRequest{
+		saeRequest := &sae.UntagResourcesRequest{
 			RegionId:     tea.String(env.RegionID),
 			ResourceType: tea.String("application"),
 			TagKeys:      tea.String(fmt.Sprintf(`["%s","%s"]`, setting.SAEZadigProjectTagKey, setting.SAEZadigEnvTagKey)),
@@ -254,7 +255,7 @@ func ListSAEApps(regionID, namespace, projectName, envName, appName string, isAd
 		return nil, e.ErrListSAEApps.AddErr(err)
 	}
 
-	saeClient, err := sae.NewClient(saeModel, regionID)
+	saeClient, err := saeservice.NewClient(saeModel, regionID)
 	if err != nil {
 		err = fmt.Errorf("Failed to create sae client, err: %s", err)
 		log.Error(err)
@@ -265,7 +266,7 @@ func ListSAEApps(regionID, namespace, projectName, envName, appName string, isAd
 	if !isAddApp {
 		tags = fmt.Sprintf(`[{"Key":"%s","Value":"%s"}, {"Key":"%s","Value":"%s"}]`, setting.SAEZadigProjectTagKey, projectName, setting.SAEZadigEnvTagKey, envName)
 	}
-	saeRequest := &sae20190506.ListApplicationsRequest{
+	saeRequest := &sae.ListApplicationsRequest{
 		NamespaceId: tea.String(namespace),
 		Tags:        tea.String(tags),
 		AppName:     tea.String(appName),
@@ -332,14 +333,14 @@ func ListSAENamespaces(regionID string, log *zap.SugaredLogger) ([]*SAENamespace
 		return nil, e.ErrListSAEApps.AddErr(err)
 	}
 
-	saeClient, err := sae.NewClient(saeModel, regionID)
+	saeClient, err := saeservice.NewClient(saeModel, regionID)
 	if err != nil {
 		err = fmt.Errorf("Failed to create sae client, err: %s", err)
 		log.Error(err)
 		return nil, e.ErrListSAEApps.AddErr(err)
 	}
 
-	saeRequest := &sae20190506.DescribeNamespacesRequest{
+	saeRequest := &sae.DescribeNamespacesRequest{
 		CurrentPage: tea.Int32(1),
 		PageSize:    tea.Int32(1000),
 	}
@@ -385,14 +386,14 @@ func RestartSAEApp(projectName, envName, appID string, log *zap.SugaredLogger) e
 		return e.ErrRestartService.AddErr(err)
 	}
 
-	saeClient, err := sae.NewClient(saeModel, env.RegionID)
+	saeClient, err := saeservice.NewClient(saeModel, env.RegionID)
 	if err != nil {
 		err = fmt.Errorf("Failed to create sae client, err: %s", err)
 		log.Error(err)
 		return e.ErrRestartService.AddErr(err)
 	}
 
-	saeRequest := &sae20190506.RestartApplicationRequest{
+	saeRequest := &sae.RestartApplicationRequest{
 		AppId: tea.String(appID),
 	}
 	saeResp, err := saeClient.RestartApplication(saeRequest)
@@ -426,14 +427,14 @@ func RescaleSAEApp(projectName, envName, appID string, Replicas int32, log *zap.
 		return e.ErrScaleService.AddErr(err)
 	}
 
-	saeClient, err := sae.NewClient(saeModel, env.RegionID)
+	saeClient, err := saeservice.NewClient(saeModel, env.RegionID)
 	if err != nil {
 		err = fmt.Errorf("Failed to create sae client, err: %s", err)
 		log.Error(err)
 		return e.ErrScaleService.AddErr(err)
 	}
 
-	saeRequest := &sae20190506.RescaleApplicationRequest{
+	saeRequest := &sae.RescaleApplicationRequest{
 		AppId:    tea.String(appID),
 		Replicas: tea.Int32(Replicas),
 	}
@@ -468,14 +469,14 @@ func RollbackSAEApp(projectName, envName, appID, versionID string, log *zap.Suga
 		return e.ErrRollbackEnvServiceVersion.AddErr(err)
 	}
 
-	saeClient, err := sae.NewClient(saeModel, env.RegionID)
+	saeClient, err := saeservice.NewClient(saeModel, env.RegionID)
 	if err != nil {
 		err = fmt.Errorf("Failed to create sae client, err: %s", err)
 		log.Error(err)
 		return e.ErrRollbackEnvServiceVersion.AddErr(err)
 	}
 
-	saeRequest := &sae20190506.RollbackApplicationRequest{
+	saeRequest := &sae.RollbackApplicationRequest{
 		AppId:     tea.String(appID),
 		VersionId: tea.String(versionID),
 	}
@@ -518,14 +519,14 @@ func ListSAEAppVersions(projectName, envName, appID string, log *zap.SugaredLogg
 		return nil, e.ErrListEnvServiceVersions.AddErr(err)
 	}
 
-	saeClient, err := sae.NewClient(saeModel, env.RegionID)
+	saeClient, err := saeservice.NewClient(saeModel, env.RegionID)
 	if err != nil {
 		err = fmt.Errorf("Failed to create sae client, err: %s", err)
 		log.Error(err)
 		return nil, e.ErrRollbackEnvServiceVersion.AddErr(err)
 	}
 
-	saeRequest := &sae20190506.ListAppVersionsRequest{
+	saeRequest := &sae.ListAppVersionsRequest{
 		AppId: tea.String(appID),
 	}
 	saeResp, err := saeClient.ListAppVersions(saeRequest)
@@ -598,14 +599,14 @@ func ListSAEAppInstances(projectName, envName, appID string, log *zap.SugaredLog
 		return nil, e.ErrListServicePod.AddErr(err)
 	}
 
-	saeClient, err := sae.NewClient(saeModel, env.RegionID)
+	saeClient, err := saeservice.NewClient(saeModel, env.RegionID)
 	if err != nil {
 		err = fmt.Errorf("Failed to create sae client, err: %s", err)
 		log.Error(err)
 		return nil, e.ErrListServicePod.AddErr(err)
 	}
 
-	saeRequest := &sae20190506.DescribeApplicationGroupsRequest{
+	saeRequest := &sae.DescribeApplicationGroupsRequest{
 		AppId: tea.String(appID),
 	}
 	saeResp, err := saeClient.DescribeApplicationGroups(saeRequest)
@@ -634,7 +635,7 @@ func ListSAEAppInstances(projectName, envName, appID string, log *zap.SugaredLog
 			ImageUrl:         tea.StringValue(saeGroup.ImageUrl),
 		}
 
-		saeRequest := &sae20190506.DescribeApplicationInstancesRequest{
+		saeRequest := &sae.DescribeApplicationInstancesRequest{
 			AppId:       tea.String(appID),
 			GroupId:     tea.String(group.GroupId),
 			CurrentPage: tea.Int32(1),
@@ -693,14 +694,14 @@ func RestartSAEAppInstance(projectName, envName, appID, instanceID string, log *
 		return e.ErrRestartService.AddErr(err)
 	}
 
-	saeClient, err := sae.NewClient(saeModel, env.RegionID)
+	saeClient, err := saeservice.NewClient(saeModel, env.RegionID)
 	if err != nil {
 		err = fmt.Errorf("Failed to create sae client, err: %s", err)
 		log.Error(err)
 		return e.ErrRestartService.AddErr(err)
 	}
 
-	saeRequest := &sae20190506.RestartInstancesRequest{
+	saeRequest := &sae.RestartInstancesRequest{
 		AppId:       tea.String(appID),
 		InstanceIds: tea.String(instanceID),
 	}
@@ -719,6 +720,250 @@ func RestartSAEAppInstance(projectName, envName, appID, instanceID string, log *
 	return nil
 }
 
+func ListSAEChangeOrder(projectName, envName, appID string, page, perPage int, log *zap.SugaredLogger) (interface{}, error) {
+	opt := &commonrepo.SAEEnvFindOptions{ProjectName: projectName, EnvName: envName}
+	env, err := commonrepo.NewSAEEnvColl().Find(opt)
+	if err != nil {
+		err = fmt.Errorf("Failed to find SAE env, projectName: %s, envName: %s, error: %s", projectName, envName, err)
+		log.Error(err)
+		return "", e.ErrGetService.AddErr(err)
+	}
+
+	saeModel, err := commonrepo.NewSAEColl().FindDefault()
+	if err != nil {
+		err = fmt.Errorf("Failed to find default sae, err: %s", err)
+		log.Error(err)
+		return "", e.ErrGetService.AddErr(err)
+	}
+
+	saeClient, err := saeservice.NewClient(saeModel, env.RegionID)
+	if err != nil {
+		err = fmt.Errorf("Failed to create sae client, err: %s", err)
+		log.Error(err)
+		return "", e.ErrGetService.AddErr(err)
+	}
+
+	saeRequest := &sae.ListChangeOrdersRequest{
+		AppId:       tea.String(appID),
+		CurrentPage: tea.Int32(int32(page)),
+		PageSize:    tea.Int32(int32(perPage)),
+	}
+	saeResp, err := saeClient.ListChangeOrders(saeRequest)
+	if err != nil {
+		err = fmt.Errorf("failed to get change order list, appID: %s, err: %s", appID, err)
+		log.Error(err)
+		return "", e.ErrGetService.AddErr(err)
+	}
+
+	if !tea.BoolValue(saeResp.Body.Success) {
+		err = fmt.Errorf("failed to get change order list, appID: %s, statusCode: %d, code: %s, errCode: %s, message: %s", appID, tea.Int32Value(saeResp.StatusCode), tea.ToString(saeResp.Body.Code), tea.ToString(saeResp.Body.ErrorCode), tea.ToString(saeResp.Body.Message))
+		log.Error(err)
+		return "", e.ErrGetService.AddErr(err)
+	}
+
+	return converter.ConvertToSnakeCase(saeResp.Body.Data), nil
+}
+
+func GetSAEChangeOrder(projectName, envName, appID, orderID string, log *zap.SugaredLogger) (interface{}, error) {
+	opt := &commonrepo.SAEEnvFindOptions{ProjectName: projectName, EnvName: envName}
+	env, err := commonrepo.NewSAEEnvColl().Find(opt)
+	if err != nil {
+		err = fmt.Errorf("Failed to find SAE env, projectName: %s, envName: %s, error: %s", projectName, envName, err)
+		log.Error(err)
+		return "", e.ErrQueryContainerLogs.AddErr(err)
+	}
+
+	saeModel, err := commonrepo.NewSAEColl().FindDefault()
+	if err != nil {
+		err = fmt.Errorf("failed to find default sae, err: %s", err)
+		log.Error(err)
+		return "", e.ErrQueryContainerLogs.AddErr(err)
+	}
+
+	saeClient, err := saeservice.NewClient(saeModel, env.RegionID)
+	if err != nil {
+		err = fmt.Errorf("Failed to create sae client, err: %s", err)
+		log.Error(err)
+		return "", e.ErrQueryContainerLogs.AddErr(err)
+	}
+
+	saeRequest := &sae.DescribeChangeOrderRequest{ChangeOrderId: tea.String(orderID)}
+	saeResp, err := saeClient.DescribeChangeOrder(saeRequest)
+	if err != nil {
+		err = fmt.Errorf("failed to get change order detail, orderID: %s, appID: %s, err: %s", orderID, appID, err)
+		log.Error(err)
+		return "", e.ErrGetService.AddErr(err)
+	}
+
+	if !tea.BoolValue(saeResp.Body.Success) {
+		err = fmt.Errorf("failed to get change order detail, appID: %s, statusCode: %d, code: %s, errCode: %s, message: %s", appID, tea.Int32Value(saeResp.StatusCode), tea.ToString(saeResp.Body.Code), tea.ToString(saeResp.Body.ErrorCode), tea.ToString(saeResp.Body.Message))
+		log.Error(err)
+		return "", e.ErrGetService.AddErr(err)
+	}
+
+	return converter.ConvertToSnakeCase(saeResp.Body.Data), nil
+}
+
+func AbortSAEChangeOrder(projectName, envName, appID, orderID string, log *zap.SugaredLogger) error {
+	opt := &commonrepo.SAEEnvFindOptions{ProjectName: projectName, EnvName: envName}
+	env, err := commonrepo.NewSAEEnvColl().Find(opt)
+	if err != nil {
+		err = fmt.Errorf("failed to find SAE env, projectName: %s, envName: %s, error: %s", projectName, envName, err)
+		log.Error(err)
+		return err
+	}
+
+	saeModel, err := commonrepo.NewSAEColl().FindDefault()
+	if err != nil {
+		err = fmt.Errorf("failed to find default sae, err: %s", err)
+		log.Error(err)
+		return err
+	}
+
+	saeClient, err := saeservice.NewClient(saeModel, env.RegionID)
+	if err != nil {
+		err = fmt.Errorf("failed to create sae client, err: %s", err)
+		log.Error(err)
+		return err
+	}
+
+	saeRequest := &sae.AbortChangeOrderRequest{ChangeOrderId: tea.String(orderID)}
+	saeResp, err := saeClient.AbortChangeOrder(saeRequest)
+	if err != nil {
+		err = fmt.Errorf("failed to abort change order, orderID: %s, appID: %s, err: %s", orderID, appID, err)
+		log.Error(err)
+		return err
+	}
+
+	if !tea.BoolValue(saeResp.Body.Success) {
+		err = fmt.Errorf("failed to abort change order, appID: %s, statusCode: %d, code: %s, errCode: %s, message: %s", appID, tea.Int32Value(saeResp.StatusCode), tea.ToString(saeResp.Body.Code), tea.ToString(saeResp.Body.ErrorCode), tea.ToString(saeResp.Body.Message))
+		log.Error(err)
+		return err
+	}
+
+	return nil
+}
+
+func RollbackSAEChangeOrder(projectName, envName, appID, orderID string, log *zap.SugaredLogger) error {
+	opt := &commonrepo.SAEEnvFindOptions{ProjectName: projectName, EnvName: envName}
+	env, err := commonrepo.NewSAEEnvColl().Find(opt)
+	if err != nil {
+		err = fmt.Errorf("failed to find SAE env, projectName: %s, envName: %s, error: %s", projectName, envName, err)
+		log.Error(err)
+		return err
+	}
+
+	saeModel, err := commonrepo.NewSAEColl().FindDefault()
+	if err != nil {
+		err = fmt.Errorf("failed to find default sae, err: %s", err)
+		log.Error(err)
+		return err
+	}
+
+	saeClient, err := saeservice.NewClient(saeModel, env.RegionID)
+	if err != nil {
+		err = fmt.Errorf("failed to create sae client, err: %s", err)
+		log.Error(err)
+		return err
+	}
+
+	saeRequest := &sae.AbortAndRollbackChangeOrderRequest{ChangeOrderId: tea.String(orderID)}
+	saeResp, err := saeClient.AbortAndRollbackChangeOrder(saeRequest)
+	if err != nil {
+		err = fmt.Errorf("failed to rollback change order, orderID: %s, appID: %s, err: %s", orderID, appID, err)
+		log.Error(err)
+		return err
+	}
+
+	if !tea.BoolValue(saeResp.Body.Success) {
+		err = fmt.Errorf("failed to rollback change order, appID: %s, statusCode: %d, code: %s, errCode: %s, message: %s", appID, tea.Int32Value(saeResp.StatusCode), tea.ToString(saeResp.Body.Code), tea.ToString(saeResp.Body.ErrorCode), tea.ToString(saeResp.Body.Message))
+		log.Error(err)
+		return err
+	}
+
+	return nil
+}
+
+func ConfirmSAEPipelineBatch(projectName, envName, appID, orderID string, log *zap.SugaredLogger) error {
+	opt := &commonrepo.SAEEnvFindOptions{ProjectName: projectName, EnvName: envName}
+	env, err := commonrepo.NewSAEEnvColl().Find(opt)
+	if err != nil {
+		err = fmt.Errorf("failed to find SAE env, projectName: %s, envName: %s, error: %s", projectName, envName, err)
+		log.Error(err)
+		return err
+	}
+
+	saeModel, err := commonrepo.NewSAEColl().FindDefault()
+	if err != nil {
+		err = fmt.Errorf("failed to find default sae, err: %s", err)
+		log.Error(err)
+		return err
+	}
+
+	saeClient, err := saeservice.NewClient(saeModel, env.RegionID)
+	if err != nil {
+		err = fmt.Errorf("failed to create sae client, err: %s", err)
+		log.Error(err)
+		return err
+	}
+
+	saeRequest := &sae.AbortAndRollbackChangeOrderRequest{ChangeOrderId: tea.String(orderID)}
+	saeResp, err := saeClient.AbortAndRollbackChangeOrder(saeRequest)
+	if err != nil {
+		err = fmt.Errorf("failed to rollback change order, orderID: %s, appID: %s, err: %s", orderID, appID, err)
+		log.Error(err)
+		return err
+	}
+
+	if !tea.BoolValue(saeResp.Body.Success) {
+		err = fmt.Errorf("failed to rollback change order, appID: %s, statusCode: %d, code: %s, errCode: %s, message: %s", appID, tea.Int32Value(saeResp.StatusCode), tea.ToString(saeResp.Body.Code), tea.ToString(saeResp.Body.ErrorCode), tea.ToString(saeResp.Body.Message))
+		log.Error(err)
+		return err
+	}
+
+	return nil
+}
+
+func GetSAEPipeline(projectName, envName, appID, pipelineID string, log *zap.SugaredLogger) (interface{}, error) {
+	opt := &commonrepo.SAEEnvFindOptions{ProjectName: projectName, EnvName: envName}
+	env, err := commonrepo.NewSAEEnvColl().Find(opt)
+	if err != nil {
+		err = fmt.Errorf("failed to find SAE env, projectName: %s, envName: %s, error: %s", projectName, envName, err)
+		log.Error(err)
+		return nil, err
+	}
+
+	saeModel, err := commonrepo.NewSAEColl().FindDefault()
+	if err != nil {
+		err = fmt.Errorf("failed to find default sae, err: %s", err)
+		log.Error(err)
+		return nil, err
+	}
+
+	saeClient, err := saeservice.NewClient(saeModel, env.RegionID)
+	if err != nil {
+		err = fmt.Errorf("failed to create sae client, err: %s", err)
+		log.Error(err)
+		return nil, err
+	}
+
+	saeRequest := &sae.DescribePipelineRequest{PipelineId: tea.String(pipelineID)}
+	saeResp, err := saeClient.DescribePipeline(saeRequest)
+	if err != nil {
+		err = fmt.Errorf("failed to get pipeline, pipelineID: %s, appID: %s, err: %s", pipelineID, appID, err)
+		log.Error(err)
+		return nil, err
+	}
+
+	if !tea.BoolValue(saeResp.Body.Success) {
+		err = fmt.Errorf("failed to get pipeline, pipelineID: %s, statusCode: %d, code: %s, errCode: %s, message: %s", pipelineID, tea.Int32Value(saeResp.StatusCode), tea.ToString(saeResp.Body.Code), tea.ToString(saeResp.Body.ErrorCode), tea.ToString(saeResp.Body.Message))
+		log.Error(err)
+		return nil, err
+	}
+
+	return converter.ConvertToSnakeCase(saeResp.Body.Data), nil
+}
+
 func GetSAEAppInstanceLog(projectName, envName, appID, instanceID string, log *zap.SugaredLogger) (string, error) {
 	opt := &commonrepo.SAEEnvFindOptions{ProjectName: projectName, EnvName: envName}
 	env, err := commonrepo.NewSAEEnvColl().Find(opt)
@@ -735,14 +980,14 @@ func GetSAEAppInstanceLog(projectName, envName, appID, instanceID string, log *z
 		return "", e.ErrQueryContainerLogs.AddErr(err)
 	}
 
-	saeClient, err := sae.NewClient(saeModel, env.RegionID)
+	saeClient, err := saeservice.NewClient(saeModel, env.RegionID)
 	if err != nil {
 		err = fmt.Errorf("Failed to create sae client, err: %s", err)
 		log.Error(err)
 		return "", e.ErrQueryContainerLogs.AddErr(err)
 	}
 
-	saeRequest := &sae20190506.DescribeInstanceLogRequest{
+	saeRequest := &sae.DescribeInstanceLogRequest{
 		InstanceId: tea.String(instanceID),
 	}
 	saeResp, err := saeClient.DescribeInstanceLog(saeRequest)
@@ -779,7 +1024,7 @@ func AddSAEAppToEnv(username string, projectName, envName string, req *AddSAEApp
 		log.Error(err)
 		return e.ErrAddSAEAppToEnv.AddErr(err)
 	}
-	saeClient, err := sae.NewClient(saeModel, env.RegionID)
+	saeClient, err := saeservice.NewClient(saeModel, env.RegionID)
 	if err != nil {
 		err = fmt.Errorf("Failed to create sae client, err: %s", err)
 		log.Error(err)
@@ -792,7 +1037,7 @@ func AddSAEAppToEnv(username string, projectName, envName string, req *AddSAEApp
 			resourceIds += fmt.Sprintf(`"%s",`, appID)
 		}
 		resourceIds = strings.TrimSuffix(resourceIds, ",") + "]"
-		saeRequest := &sae20190506.TagResourcesRequest{
+		saeRequest := &sae.TagResourcesRequest{
 			RegionId:     tea.String(env.RegionID),
 			ResourceType: tea.String("application"),
 			Tags:         tea.String(fmt.Sprintf(`[{"Key":"%s","Value":"%s"}, {"Key":"%s","Value":"%s"}]`, setting.SAEZadigProjectTagKey, env.ProjectName, setting.SAEZadigEnvTagKey, env.EnvName)),
@@ -833,7 +1078,7 @@ func DelSAEAppFromEnv(username string, projectName, envName string, req *DelSAEA
 		log.Error(err)
 		return e.ErrDelSAEAppFromEnv.AddErr(err)
 	}
-	saeClient, err := sae.NewClient(saeModel, env.RegionID)
+	saeClient, err := saeservice.NewClient(saeModel, env.RegionID)
 	if err != nil {
 		err = fmt.Errorf("Failed to create sae client, err: %s", err)
 		log.Error(err)
@@ -846,7 +1091,7 @@ func DelSAEAppFromEnv(username string, projectName, envName string, req *DelSAEA
 			resourceIds += fmt.Sprintf(`"%s",`, app)
 		}
 		resourceIds = strings.TrimSuffix(resourceIds, ",") + "]"
-		saeRequest := &sae20190506.UntagResourcesRequest{
+		saeRequest := &sae.UntagResourcesRequest{
 			RegionId:     tea.String(env.RegionID),
 			ResourceType: tea.String("application"),
 			TagKeys:      tea.String(fmt.Sprintf(`["%s","%s"]`, setting.SAEZadigProjectTagKey, setting.SAEZadigEnvTagKey)),

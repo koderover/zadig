@@ -3209,7 +3209,7 @@ func RollbackSAEApp(c *gin.Context) {
 	versionID := c.Query("versionID")
 
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv,
-		"回滚", "SAE环境-应用", fmt.Sprintf("SAE环境名称:%s,应用ID:%s,版本ID:%s", envName, appID, versionID),
+		"版本回滚", "SAE环境-应用", fmt.Sprintf("SAE环境名称:%s,应用ID:%s,版本ID:%s", envName, appID, versionID),
 		"", ctx.Logger, envName)
 
 	// authorization check
@@ -3418,6 +3418,323 @@ func RestartSAEAppInstance(c *gin.Context) {
 	}
 
 	ctx.RespErr = service.RestartSAEAppInstance(projectKey, envName, appID, instanceID, ctx.Logger)
+}
+
+func ListSAEChangeOrder(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectKey := c.Query("projectName")
+	production := c.Query("production") == "true"
+	appID := c.Param("appID")
+	envName := c.Param("name")
+
+	// default for page is 1, for page size is 20.
+	perPageStr := c.Query("per_page")
+	pageStr := c.Query("page")
+	var (
+		perPage int
+		page    int
+	)
+	if perPageStr == "" {
+		perPage = 20
+	} else {
+		perPage, err = strconv.Atoi(perPageStr)
+		if err != nil {
+			ctx.RespErr = e.ErrInvalidParam.AddDesc(fmt.Sprintf("perPage args err :%s", err))
+			return
+		}
+	}
+
+	if pageStr == "" {
+		page = 1
+	} else {
+		page, err = strconv.Atoi(pageStr)
+		if err != nil {
+			ctx.RespErr = e.ErrInvalidParam.AddDesc(fmt.Sprintf("page args err :%s", err))
+			return
+		}
+	}
+
+	// authorization check
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		if production {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.View {
+				ctx.UnAuthorized = true
+				return
+			}
+		} else {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].Env.View {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
+	}
+
+	err = commonutil.CheckZadigLicenseFeatureSae()
+	if err != nil {
+		ctx.RespErr = err
+		return
+	}
+
+	ctx.Resp, ctx.RespErr = service.ListSAEChangeOrder(projectKey, envName, appID, page, perPage, ctx.Logger)
+}
+
+func GetSAEChangeOrder(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectKey := c.Query("projectName")
+	production := c.Query("production") == "true"
+	appID := c.Param("appID")
+	orderID := c.Param("orderID")
+	envName := c.Param("name")
+
+	// authorization check
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		if production {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.View {
+				ctx.UnAuthorized = true
+				return
+			}
+		} else {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].Env.View {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
+	}
+
+	err = commonutil.CheckZadigLicenseFeatureSae()
+	if err != nil {
+		ctx.RespErr = err
+		return
+	}
+
+	ctx.Resp, ctx.RespErr = service.GetSAEChangeOrder(projectKey, envName, appID, orderID, ctx.Logger)
+}
+
+func AbortSAEChangeOrder(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectKey := c.Query("projectName")
+	production := c.Query("production") == "true"
+	appID := c.Param("appID")
+	orderID := c.Param("orderID")
+	envName := c.Param("name")
+
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv,
+		"执行终止", "SAE环境-应用", fmt.Sprintf("SAE环境名称:%s,应用ID:%s,变更流程ID:%s", envName, appID, orderID),
+		"", ctx.Logger, envName)
+
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		if production {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.ManagePods {
+				ctx.UnAuthorized = true
+				return
+			}
+		} else {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].Env.ManagePods {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
+	}
+
+	err = commonutil.CheckZadigLicenseFeatureSae()
+	if err != nil {
+		ctx.RespErr = err
+		return
+	}
+
+	ctx.RespErr = service.AbortSAEChangeOrder(projectKey, envName, appID, orderID, ctx.Logger)
+}
+
+func RollbackSAEChangeOrder(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectKey := c.Query("projectName")
+	production := c.Query("production") == "true"
+	appID := c.Param("appID")
+	orderID := c.Param("orderID")
+	envName := c.Param("name")
+
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv,
+		"部署回滚", "SAE环境-应用", fmt.Sprintf("SAE环境名称:%s,应用ID:%s,变更流程ID:%s", envName, appID, orderID),
+		"", ctx.Logger, envName)
+
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		if production {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.ManagePods {
+				ctx.UnAuthorized = true
+				return
+			}
+		} else {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].Env.ManagePods {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
+	}
+
+	err = commonutil.CheckZadigLicenseFeatureSae()
+	if err != nil {
+		ctx.RespErr = err
+		return
+	}
+
+	ctx.RespErr = service.RollbackSAEChangeOrder(projectKey, envName, appID, orderID, ctx.Logger)
+}
+
+func ConfirmSAEPipelineBatch(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectKey := c.Query("projectName")
+	production := c.Query("production") == "true"
+	appID := c.Param("appID")
+	orderID := c.Param("orderID")
+	envName := c.Param("name")
+
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv,
+		"灰度执行", "SAE环境-应用", fmt.Sprintf("SAE环境名称:%s,应用ID:%s,变更流程ID:%s", envName, appID, orderID),
+		"", ctx.Logger, envName)
+
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		if production {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.ManagePods {
+				ctx.UnAuthorized = true
+				return
+			}
+		} else {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].Env.ManagePods {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
+	}
+
+	err = commonutil.CheckZadigLicenseFeatureSae()
+	if err != nil {
+		ctx.RespErr = err
+		return
+	}
+
+	ctx.RespErr = service.ConfirmSAEPipelineBatch(projectKey, envName, appID, orderID, ctx.Logger)
+}
+
+func GetSAEPipeline(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectKey := c.Query("projectName")
+	production := c.Query("production") == "true"
+	appID := c.Param("appID")
+	pipelineID := c.Param("pipelineID")
+	envName := c.Param("name")
+
+	// authorization check
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		if production {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.View {
+				ctx.UnAuthorized = true
+				return
+			}
+		} else {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].Env.View {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
+	}
+
+	err = commonutil.CheckZadigLicenseFeatureSae()
+	if err != nil {
+		ctx.RespErr = err
+		return
+	}
+
+	ctx.Resp, ctx.RespErr = service.GetSAEPipeline(projectKey, envName, appID, pipelineID, ctx.Logger)
 }
 
 // @Summary Get SAE Application Instance Log
