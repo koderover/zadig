@@ -141,7 +141,6 @@ type ProductListByFilterOpt struct {
 	Filter string
 }
 
-// @note pinyin search
 func (c *ProductColl) PageListProjectByFilter(opt ProductListByFilterOpt) ([]*ProjectInfo, int, error) {
 	findOption := bson.M{}
 

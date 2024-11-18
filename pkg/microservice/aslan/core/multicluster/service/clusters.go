@@ -49,6 +49,7 @@ import (
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/kube"
+	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
@@ -818,16 +819,17 @@ func UpgradeAgent(id string, logger *zap.SugaredLogger) error {
 
 	for _, u := range resources {
 		if u.GetKind() == "StatefulSet" && u.GetName() == types.DindStatefulSetName {
+			// dind statefulset resource
 			if err = kubeClient.Get(context.TODO(), client.ObjectKey{
 				Name:      types.DindStatefulSetName,
 				Namespace: setting.AttachedClusterNamespace,
 			}, &appsv1.StatefulSet{}); err != nil {
 				logger.Infof("failed to get dind from %s, start to create dind", setting.AttachedClusterNamespace)
-				err = updater.CreateOrPatchUnstructured(u, kubeClient)
 			} else {
 				err = UpgradeDind(kubeClient, clusterInfo, setting.AttachedClusterNamespace)
 			}
 		} else {
+			// ohther resource
 			err = updater.CreateOrPatchUnstructured(u, kubeClient)
 		}
 
@@ -1148,6 +1150,9 @@ func UpgradeDind(kclient client.Client, cluster *commonmodels.K8SCluster, ns str
 			}
 		}
 	}
+
+	dindSts.Spec.Template.Spec.Tolerations = commonutil.BuildTolerations(cluster.AdvancedConfig, cluster.DindCfg.StrategyID)
+	dindSts.Spec.Template.Spec.Affinity = commonutil.AddNodeAffinity(cluster.AdvancedConfig, cluster.DindCfg.StrategyID)
 
 	err = kclient.Update(ctx, dindSts)
 	if apierrors.IsInvalid(err) {

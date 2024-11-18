@@ -379,7 +379,6 @@ func (r *Reaper) RunPostScripts() error {
 	return cmd.Run()
 }
 
-// @note run pm deploy scripts
 func (r *Reaper) RunPMDeployScripts() error {
 	if len(r.Ctx.PMDeployScripts) == 0 {
 		return nil

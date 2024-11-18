@@ -32,9 +32,13 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/serializer/json"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"k8s.io/helm/pkg/releaseutil"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 
@@ -45,6 +49,7 @@ import (
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	aslanClient "github.com/koderover/zadig/v2/pkg/shared/client/aslan"
 	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
@@ -52,6 +57,7 @@ import (
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/informer"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/multicluster"
+	"github.com/koderover/zadig/v2/pkg/tool/kube/serializer"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/types"
 )
@@ -401,7 +407,54 @@ func (s *Service) GetYaml(id, agentImage, aslanURL, hubURI string, useDeployment
 		return nil, err
 	}
 
-	return buffer.Bytes(), nil
+	retYaml := ""
+	manifests := releaseutil.SplitManifests(buffer.String())
+	resources := make([]*unstructured.Unstructured, 0, len(manifests))
+	for _, item := range manifests {
+		u, err := serializer.NewDecoder().YamlToUnstructured([]byte(item))
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode yaml to unstructured: %v", err)
+		}
+
+		if u.GetKind() == "StatefulSet" && u.GetName() == types.DindStatefulSetName {
+			jsonData, err := u.MarshalJSON()
+			if err != nil {
+				log.Errorf("Failed to marshal JSON, manifest is\n%v\n, error: %v", u, err)
+			}
+			obj, err := serializer.NewDecoder().JSONToRuntimeObject(jsonData)
+			if err != nil {
+				log.Errorf("Failed to convert JSON to Object, manifest is\n%v\n, error: %v", u, err)
+			}
+
+			dindSts, ok := obj.(*appsv1.StatefulSet)
+			if !ok {
+				log.Errorf("Failed to convert Object to StatefulSet, manifest is\n%v\n", u)
+			}
+
+			dindSts.Spec.Template.Spec.Tolerations = commonutil.BuildTolerations(cluster.AdvancedConfig, cluster.DindCfg.StrategyID)
+			dindSts.Spec.Template.Spec.Affinity = commonutil.AddNodeAffinity(cluster.AdvancedConfig, cluster.DindCfg.StrategyID)
+
+			scheme := runtime.NewScheme()
+			appsv1.AddToScheme(scheme)
+			serializer := json.NewYAMLSerializer(json.DefaultMetaFactory, scheme, scheme)
+			var yamlBuffer bytes.Buffer
+			err = serializer.Encode(dindSts, &yamlBuffer)
+			if err != nil {
+				err = fmt.Errorf("Failed to encode StatefulSet to YAML, error: %v", err)
+				log.Error(err)
+				return nil, err
+			} else {
+				retYaml += yamlBuffer.String() + "---\n"
+			}
+		} else {
+			retYaml += item + "---\n"
+		}
+
+		resources = append(resources, u)
+	}
+	retYaml = strings.TrimRight(retYaml, "---\n")
+
+	return []byte(retYaml), nil
 }
 
 func (s *Service) UpdateUpgradeAgentInfo(id, updateHubagentErrorMsg string) error {
