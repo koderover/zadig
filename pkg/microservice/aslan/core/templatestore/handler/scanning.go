@@ -28,6 +28,14 @@ import (
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 )
 
+// @Summary 获取代码扫描模版
+// @Description
+// @Tags 	template
+// @Accept 	json
+// @Produce json
+// @Param 	id			path		string								true	"代码扫描模版ID"
+// @Success 200  		{object} 	commonmodels.ScanningTemplate
+// @Router /api/aslan/template/scanning/{id} [get]
 func GetScanningTemplate(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

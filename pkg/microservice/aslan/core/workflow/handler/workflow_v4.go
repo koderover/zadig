@@ -72,6 +72,16 @@ type listWorkflowV4Resp struct {
 	Total        int64                `json:"total"`
 }
 
+// @Summary 创建工作流
+// @Description 创建工作流
+// @Tags 	workflow
+// @Accept 	plain
+// @Produce json
+// @Param 	projectName		query		string								true	"项目标识"
+// @Param 	viewName 		query		string								true	"需要添加的视图名称"
+// @Param 	body 			body 		commonmodels.WorkflowV4 			true 	"工作流Yaml"
+// @Success 200
+// @Router /api/aslan/workflow/v4 [post]
 func CreateWorkflowV4(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -274,6 +284,16 @@ func ListWorkflowV4CanTrigger(c *gin.Context) {
 	ctx.Resp, ctx.RespErr = workflow.ListWorkflowV4CanTrigger(ctx)
 }
 
+// @Summary 更新工作流
+// @Description 更新工作流
+// @Tags 	workflow
+// @Accept 	plain
+// @Produce json
+// @Param 	projectName		query		string								true	"项目标识"
+// @Param 	name			path		string								true	"工作流标识"
+// @Param 	body 			body 		commonmodels.WorkflowV4 			true 	"工作流Yaml"
+// @Success 200
+// @Router /api/aslan/workflow/v4/{name} [put]
 func UpdateWorkflowV4(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

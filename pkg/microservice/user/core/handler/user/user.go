@@ -137,6 +137,14 @@ func GetUserSetting(c *gin.Context) {
 	ctx.Resp, ctx.RespErr = permission.GetUserSetting(uid, ctx.Logger)
 }
 
+// @Summary 获取用户列表
+// @Description 获取用户列表只需要传page和per_page参数，搜索时需要再加上name参数
+// @Tags 	user
+// @Accept 	json
+// @Produce json
+// @Param 	body 		body 		permission.QueryArgs 	  true 	"body"
+// @Success 200 		{object} 	types.UsersResp
+// @Router /api/v1/users/search [post]
 func ListUsers(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

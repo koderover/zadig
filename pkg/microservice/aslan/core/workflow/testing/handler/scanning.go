@@ -76,6 +76,15 @@ func FindScanningProjectNameFromID(c *gin.Context) {
 	c.Next()
 }
 
+// @Summary 创建代码扫描
+// @Description 使用模版创建时，template_id为必传
+// @Tags 	testing
+// @Accept 	json
+// @Produce json
+// @Param 	projectName 	query		string								true	"项目标识"
+// @Param 	body 			body 		service.Scanning 					true 	"body"
+// @Success 200
+// @Router /api/aslan/testing/scanning [post]
 func CreateScanningModule(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

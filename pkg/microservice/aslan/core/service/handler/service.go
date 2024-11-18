@@ -1032,6 +1032,14 @@ type addServiceLabelReq struct {
 	Value       string `json:"value,omitempty"`
 }
 
+// @Summary 服务添加标签
+// @Description 全部参数都是必传
+// @Tags 	service
+// @Accept 	json
+// @Produce json
+// @Param 	body 			body 		addServiceLabelReq 	  true 	"body"
+// @Success 200
+// @Router /api/aslan/service/labels [post]
 func AddServiceLabel(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -1281,6 +1289,16 @@ type listServiceLabelReq struct {
 	Production  string `json:"production,omitempty" form:"production,omitempty"`
 }
 
+// @Summary 获取服务的标签列表
+// @Description
+// @Tags 	service
+// @Accept 	json
+// @Produce json
+// @Param 	projectKey		query		string							true	"项目标识"
+// @Param 	serviceName		query		string							true	"服务名称"
+// @Param 	production		query		string							true	"是否为生产服务，true:生产服务，false:非生产服务"
+// @Success 200 			{object} 	svcservice.ServiceLabelResp
+// @Router /api/aslan/service/labels [get]
 func ListServiceLabels(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

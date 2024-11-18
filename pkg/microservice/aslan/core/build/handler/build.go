@@ -32,6 +32,15 @@ import (
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
+// @Summary 获取构建详情
+// @Description
+// @Tags 	build
+// @Accept 	json
+// @Produce json
+// @Param 	projectKey		query		string							true	"项目标识"
+// @Param 	name			path		string							true	"构建标识"
+// @Success 200 			{object} 	commonmodels.Build
+// @Router /api/aslan/build/build/{name} [get]
 func FindBuildModule(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -202,6 +211,14 @@ func CreateBuildModule(c *gin.Context) {
 	ctx.RespErr = buildservice.CreateBuild(ctx.UserName, args, ctx.Logger)
 }
 
+// @Summary 更新构建
+// @Description 如果仅需要更新服务和代码信息，则只需要更新target_repos字段
+// @Tags 	build
+// @Accept 	json
+// @Produce json
+// @Param 	body 			body 		commonmodels.Build		  true 	"body"
+// @Success 200
+// @Router /api/aslan/build/build [put]
 func UpdateBuildModule(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
