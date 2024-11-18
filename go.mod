@@ -8,8 +8,8 @@ require (
 	github.com/JohannesKaufmann/html-to-markdown v1.6.0
 	github.com/Knetic/govaluate v3.0.0+incompatible
 	github.com/RyanCarrier/dijkstra v1.1.0
-	github.com/alibabacloud-go/darabonba-openapi/v2 v2.0.9
-	github.com/alibabacloud-go/sae-20190506 v1.23.6
+	github.com/alibabacloud-go/darabonba-openapi/v2 v2.0.10
+	github.com/alibabacloud-go/sae-20190506 v1.24.3
 	github.com/alibabacloud-go/tea v1.2.2
 	github.com/andygrunwald/go-gerrit v0.0.0-20220906192238-4fc99996c860
 	github.com/andygrunwald/go-jira v1.16.0
@@ -83,6 +83,7 @@ require (
 	github.com/stretchr/testify v1.9.0
 	github.com/swaggo/files v0.0.0-20220728132757-551d4a08d97a
 	github.com/swaggo/gin-swagger v1.5.3
+	github.com/swaggo/swag v1.16.3
 	github.com/tidwall/gjson v1.14.3
 	github.com/traefik/yaegi v0.16.1
 	github.com/xanzy/go-gitlab v0.73.1
@@ -133,14 +134,14 @@ require (
 	github.com/Microsoft/go-winio v0.5.1 // indirect
 	github.com/PuerkitoBio/goquery v1.9.2 // indirect
 	github.com/agext/levenshtein v1.2.3 // indirect
-	github.com/alibabacloud-go/alibabacloud-gateway-spi v0.0.4 // indirect
-	github.com/alibabacloud-go/debug v1.0.0 // indirect
+	github.com/alibabacloud-go/alibabacloud-gateway-spi v0.0.5 // indirect
+	github.com/alibabacloud-go/debug v1.0.1 // indirect
 	github.com/alibabacloud-go/endpoint-util v1.1.0 // indirect
 	github.com/alibabacloud-go/openapi-util v0.1.0 // indirect
 	github.com/alibabacloud-go/tea-utils v1.3.1 // indirect
 	github.com/alibabacloud-go/tea-utils/v2 v2.0.6 // indirect
 	github.com/alibabacloud-go/tea-xml v1.1.3 // indirect
-	github.com/aliyun/credentials-go v1.3.1 // indirect
+	github.com/aliyun/credentials-go v1.3.10 // indirect
 	github.com/andybalholm/brotli v1.0.5 // indirect
 	github.com/andybalholm/cascadia v1.3.2 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20200428143746-21a406dcc535 // indirect
@@ -283,11 +284,10 @@ require (
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/subosito/gotenv v1.2.0 // indirect
-	github.com/swaggo/swag v1.16.3 // indirect
 	github.com/tdewolff/parse/v2 v2.7.11 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.0 // indirect
-	github.com/tjfoc/gmsm v1.3.2 // indirect
+	github.com/tjfoc/gmsm v1.4.1 // indirect
 	github.com/tklauser/go-sysconf v0.3.10 // indirect
 	github.com/tklauser/numcpus v0.4.0 // indirect
 	github.com/trivago/tgo v1.0.7 // indirect
@@ -321,7 +321,7 @@ require (
 	google.golang.org/appengine v1.6.7 // indirect
 	gopkg.in/alexcesaro/quotedprintable.v3 v3.0.0-20150716171945-2caba252f4dc // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
-	gopkg.in/ini.v1 v1.66.6 // indirect
+	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/square/go-jose.v2 v2.6.0 // indirect
 	k8s.io/apiserver v0.25.0 // indirect
 	k8s.io/component-base v0.25.0 // indirect
@@ -338,5 +338,3 @@ require (
 replace github.com/Sirupsen/logrus => github.com/sirupsen/logrus v1.9.0
 
 replace github.com/docker/libnetwork => github.com/docker/libnetwork v0.8.0-dev.2.0.20220716072657-0dde5c895075
-
-replace github.com/alibabacloud-go/sae-20190506 => ./pkg/localpkg/sae-20190506
