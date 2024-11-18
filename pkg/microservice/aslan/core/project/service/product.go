@@ -889,6 +889,18 @@ func DeleteProductsAsync(userName, productName, requestID string, isDelete bool,
 			errList = multierror.Append(errList, err)
 		}
 	}
+
+	saeEnvs, err := commonrepo.NewSAEEnvColl().List(&commonrepo.SAEEnvListOptions{ProjectName: productName})
+	if err != nil {
+		return e.ErrListProducts.AddErr(fmt.Errorf("failed to list sae envs: %v", err))
+	}
+	for _, env := range saeEnvs {
+		err = environmentservice.DeleteSAEEnv(userName, productName, env.EnvName, log)
+		if err != nil {
+			errList = multierror.Append(errList, err)
+		}
+	}
+
 	if err := errList.ErrorOrNil(); err != nil {
 		log.Errorf("DeleteProductsAsync err:%v", err)
 		return err
