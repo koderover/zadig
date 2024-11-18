@@ -2802,12 +2802,6 @@ func GetSAEEnv(c *gin.Context) {
 				ctx.UnAuthorized = true
 				return
 			}
-
-			err = commonutil.CheckZadigProfessionalLicense()
-			if err != nil {
-				ctx.RespErr = err
-				return
-			}
 		} else {
 			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
 				!ctx.Resources.ProjectAuthInfo[projectKey].Env.View {
@@ -2873,11 +2867,6 @@ func CreateSAEEnv(c *gin.Context) {
 				return
 			}
 
-			err = commonutil.CheckZadigProfessionalLicense()
-			if err != nil {
-				ctx.RespErr = err
-				return
-			}
 		} else {
 			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
 				!ctx.Resources.ProjectAuthInfo[projectKey].Env.Create {
@@ -2885,6 +2874,12 @@ func CreateSAEEnv(c *gin.Context) {
 				return
 			}
 		}
+	}
+
+	err = commonutil.CheckZadigLicenseFeatureSae()
+	if err != nil {
+		ctx.RespErr = err
+		return
 	}
 
 	ctx.RespErr = service.CreateSAEEnv(ctx.UserName, arg, ctx.Logger)
@@ -2927,12 +2922,6 @@ func DeleteSAEEnv(c *gin.Context) {
 			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
 				!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.EditConfig {
 				ctx.UnAuthorized = true
-				return
-			}
-
-			err = commonutil.CheckZadigProfessionalLicense()
-			if err != nil {
-				ctx.RespErr = err
 				return
 			}
 		} else {
@@ -3002,12 +2991,6 @@ func ListSAEApps(c *gin.Context) {
 				ctx.UnAuthorized = true
 				return
 			}
-
-			err = commonutil.CheckZadigProfessionalLicense()
-			if err != nil {
-				ctx.RespErr = err
-				return
-			}
 		} else {
 			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
 				!ctx.Resources.ProjectAuthInfo[projectKey].Env.View {
@@ -3055,12 +3038,6 @@ func ListSAENamespaces(c *gin.Context) {
 			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
 				!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.View {
 				ctx.UnAuthorized = true
-				return
-			}
-
-			err = commonutil.CheckZadigProfessionalLicense()
-			if err != nil {
-				ctx.RespErr = err
 				return
 			}
 		} else {
@@ -3118,12 +3095,6 @@ func RestartSAEApp(c *gin.Context) {
 				ctx.UnAuthorized = true
 				return
 			}
-
-			err = commonutil.CheckZadigProfessionalLicense()
-			if err != nil {
-				ctx.RespErr = err
-				return
-			}
 		} else {
 			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
 				!ctx.Resources.ProjectAuthInfo[projectKey].Env.ManagePods {
@@ -3131,6 +3102,12 @@ func RestartSAEApp(c *gin.Context) {
 				return
 			}
 		}
+	}
+
+	err = commonutil.CheckZadigLicenseFeatureSae()
+	if err != nil {
+		ctx.RespErr = err
+		return
 	}
 
 	ctx.RespErr = service.RestartSAEApp(projectKey, envName, appID, ctx.Logger)
@@ -3185,12 +3162,6 @@ func RescaleSAEApp(c *gin.Context) {
 				ctx.UnAuthorized = true
 				return
 			}
-
-			err = commonutil.CheckZadigProfessionalLicense()
-			if err != nil {
-				ctx.RespErr = err
-				return
-			}
 		} else {
 			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
 				!ctx.Resources.ProjectAuthInfo[projectKey].Env.ManagePods {
@@ -3198,6 +3169,12 @@ func RescaleSAEApp(c *gin.Context) {
 				return
 			}
 		}
+	}
+
+	err = commonutil.CheckZadigLicenseFeatureSae()
+	if err != nil {
+		ctx.RespErr = err
+		return
 	}
 
 	ctx.RespErr = service.RescaleSAEApp(projectKey, envName, appID, int32(replicas), ctx.Logger)
@@ -3248,12 +3225,6 @@ func RollbackSAEApp(c *gin.Context) {
 				ctx.UnAuthorized = true
 				return
 			}
-
-			err = commonutil.CheckZadigProfessionalLicense()
-			if err != nil {
-				ctx.RespErr = err
-				return
-			}
 		} else {
 			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
 				!ctx.Resources.ProjectAuthInfo[projectKey].Env.ManagePods {
@@ -3261,6 +3232,12 @@ func RollbackSAEApp(c *gin.Context) {
 				return
 			}
 		}
+	}
+
+	err = commonutil.CheckZadigLicenseFeatureSae()
+	if err != nil {
+		ctx.RespErr = err
+		return
 	}
 
 	ctx.RespErr = service.RollbackSAEApp(projectKey, envName, appID, versionID, ctx.Logger)
@@ -3305,12 +3282,6 @@ func ListSAEAppVersion(c *gin.Context) {
 				ctx.UnAuthorized = true
 				return
 			}
-
-			err = commonutil.CheckZadigProfessionalLicense()
-			if err != nil {
-				ctx.RespErr = err
-				return
-			}
 		} else {
 			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
 				!ctx.Resources.ProjectAuthInfo[projectKey].Env.View {
@@ -3318,6 +3289,12 @@ func ListSAEAppVersion(c *gin.Context) {
 				return
 			}
 		}
+	}
+
+	err = commonutil.CheckZadigLicenseFeatureSae()
+	if err != nil {
+		ctx.RespErr = err
+		return
 	}
 
 	ctx.Resp, ctx.RespErr = service.ListSAEAppVersions(projectKey, envName, appID, ctx.Logger)
@@ -3362,12 +3339,6 @@ func ListSAEAppInstances(c *gin.Context) {
 				ctx.UnAuthorized = true
 				return
 			}
-
-			err = commonutil.CheckZadigProfessionalLicense()
-			if err != nil {
-				ctx.RespErr = err
-				return
-			}
 		} else {
 			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
 				!ctx.Resources.ProjectAuthInfo[projectKey].Env.View {
@@ -3375,6 +3346,12 @@ func ListSAEAppInstances(c *gin.Context) {
 				return
 			}
 		}
+	}
+
+	err = commonutil.CheckZadigLicenseFeatureSae()
+	if err != nil {
+		ctx.RespErr = err
+		return
 	}
 
 	ctx.Resp, ctx.RespErr = service.ListSAEAppInstances(projectKey, envName, appID, ctx.Logger)
@@ -3425,12 +3402,6 @@ func RestartSAEAppInstance(c *gin.Context) {
 				ctx.UnAuthorized = true
 				return
 			}
-
-			err = commonutil.CheckZadigProfessionalLicense()
-			if err != nil {
-				ctx.RespErr = err
-				return
-			}
 		} else {
 			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
 				!ctx.Resources.ProjectAuthInfo[projectKey].Env.ManagePods {
@@ -3438,6 +3409,12 @@ func RestartSAEAppInstance(c *gin.Context) {
 				return
 			}
 		}
+	}
+
+	err = commonutil.CheckZadigLicenseFeatureSae()
+	if err != nil {
+		ctx.RespErr = err
+		return
 	}
 
 	ctx.RespErr = service.RestartSAEAppInstance(projectKey, envName, appID, instanceID, ctx.Logger)
@@ -3484,12 +3461,6 @@ func GetSAEAppInstanceLog(c *gin.Context) {
 				ctx.UnAuthorized = true
 				return
 			}
-
-			err = commonutil.CheckZadigProfessionalLicense()
-			if err != nil {
-				ctx.RespErr = err
-				return
-			}
 		} else {
 			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
 				!ctx.Resources.ProjectAuthInfo[projectKey].Env.View {
@@ -3497,6 +3468,12 @@ func GetSAEAppInstanceLog(c *gin.Context) {
 				return
 			}
 		}
+	}
+
+	err = commonutil.CheckZadigLicenseFeatureSae()
+	if err != nil {
+		ctx.RespErr = err
+		return
 	}
 
 	ctx.Resp, ctx.RespErr = service.GetSAEAppInstanceLog(projectKey, envName, appID, instanceID, ctx.Logger)
@@ -3554,12 +3531,6 @@ func AddSAEServiceToEnv(c *gin.Context) {
 				ctx.UnAuthorized = true
 				return
 			}
-
-			err = commonutil.CheckZadigProfessionalLicense()
-			if err != nil {
-				ctx.RespErr = err
-				return
-			}
 		} else {
 			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
 				!ctx.Resources.ProjectAuthInfo[projectKey].Env.EditConfig {
@@ -3567,6 +3538,12 @@ func AddSAEServiceToEnv(c *gin.Context) {
 				return
 			}
 		}
+	}
+
+	err = commonutil.CheckZadigLicenseFeatureSae()
+	if err != nil {
+		ctx.RespErr = err
+		return
 	}
 
 	ctx.RespErr = service.AddSAEAppToEnv(ctx.UserName, projectKey, envName, arg, ctx.Logger)
@@ -3622,12 +3599,6 @@ func DeleteSAEServiceFromEnv(c *gin.Context) {
 			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
 				!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.EditConfig {
 				ctx.UnAuthorized = true
-				return
-			}
-
-			err = commonutil.CheckZadigProfessionalLicense()
-			if err != nil {
-				ctx.RespErr = err
 				return
 			}
 		} else {

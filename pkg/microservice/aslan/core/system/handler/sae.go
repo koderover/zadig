@@ -23,6 +23,7 @@ import (
 
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	sae "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/sae"
+	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 )
@@ -104,6 +105,12 @@ func CreateSAE(c *gin.Context) {
 		return
 	}
 
+	err = commonutil.CheckZadigLicenseFeatureSae()
+	if err != nil {
+		ctx.RespErr = err
+		return
+	}
+
 	args := new(commonmodels.SAE)
 	if err := c.BindJSON(args); err != nil {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid sae json args")
@@ -168,6 +175,12 @@ func UpdateSAE(c *gin.Context) {
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
 		ctx.UnAuthorized = true
+		return
+	}
+
+	err = commonutil.CheckZadigLicenseFeatureSae()
+	if err != nil {
+		ctx.RespErr = err
 		return
 	}
 
