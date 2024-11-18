@@ -69,6 +69,12 @@ func (j *FreeStyleJob) Instantiate() error {
 				return fmt.Errorf("parse git step spec error: %v", err)
 			}
 			step.Spec = stepSpec
+		case config.StepPerforce:
+			stepSpec := &steptypes.StepP4Spec{}
+			if err := commonmodels.IToiYaml(step.Spec, stepSpec); err != nil {
+				return fmt.Errorf("parse git step spec error: %v", err)
+			}
+			step.Spec = stepSpec
 		case config.StepShell:
 			stepSpec := &steptypes.StepShellSpec{}
 			if err := commonmodels.IToiYaml(step.Spec, stepSpec); err != nil {
@@ -168,7 +174,20 @@ func (j *FreeStyleJob) ClearSelectionField() error {
 						return fmt.Errorf("parse git step spec error: %v", err)
 					}
 					latestStepSpec := &steptypes.StepGitSpec{}
-					if err := commonmodels.IToiYaml(step.Spec, latestStepSpec); err != nil {
+					if err := commonmodels.IToiYaml(latestStep.Spec, latestStepSpec); err != nil {
+						return fmt.Errorf("parse git step spec error: %v", err)
+					}
+					latestStepSpec.Repos = mergeRepos(latestStepSpec.Repos, stepSpec.Repos)
+					step.Spec = latestStepSpec
+				}
+
+				if step.StepType == config.StepPerforce {
+					stepSpec := &steptypes.StepP4Spec{}
+					if err := commonmodels.IToiYaml(step.Spec, stepSpec); err != nil {
+						return fmt.Errorf("parse git step spec error: %v", err)
+					}
+					latestStepSpec := &steptypes.StepP4Spec{}
+					if err := commonmodels.IToiYaml(latestStep.Spec, latestStepSpec); err != nil {
 						return fmt.Errorf("parse git step spec error: %v", err)
 					}
 					latestStepSpec.Repos = mergeRepos(latestStepSpec.Repos, stepSpec.Repos)
@@ -194,14 +213,21 @@ func (j *FreeStyleJob) GetRepos() ([]*types.Repository, error) {
 		}
 	} else {
 		for _, step := range j.spec.Steps {
-			if step.StepType != config.StepGit {
+			if step.StepType == config.StepGit {
+				stepSpec := &steptypes.StepGitSpec{}
+				if err := commonmodels.IToi(step.Spec, stepSpec); err != nil {
+					return resp, err
+				}
+				resp = append(resp, stepSpec.Repos...)
+			} else if step.StepType == config.StepPerforce {
+				stepSpec := &steptypes.StepP4Spec{}
+				if err := commonmodels.IToi(step.Spec, stepSpec); err != nil {
+					return resp, err
+				}
+				resp = append(resp, stepSpec.Repos...)
+			} else {
 				continue
 			}
-			stepSpec := &steptypes.StepGitSpec{}
-			if err := commonmodels.IToi(step.Spec, stepSpec); err != nil {
-				return resp, err
-			}
-			resp = append(resp, stepSpec.Repos...)
 		}
 	}
 	return resp, nil
@@ -221,29 +247,42 @@ func (j *FreeStyleJob) MergeArgs(args *commonmodels.Job) error {
 		j.spec.Properties.Envs = renderKeyVals(argsSpec.Properties.Envs, j.spec.Properties.Envs)
 
 		for _, step := range j.spec.Steps {
-			if step.StepType != config.StepGit {
+			if step.StepType != config.StepGit && step.StepType != config.StepPerforce {
 				continue
 			}
 			for _, stepArgs := range argsSpec.Steps {
-				if stepArgs.StepType != config.StepGit {
+				if stepArgs.StepType != config.StepGit && step.StepType != config.StepPerforce {
 					continue
 				}
 				if stepArgs.Name != step.Name {
 					continue
 				}
-				stepSpec := &steptypes.StepGitSpec{}
-				if err := commonmodels.IToi(step.Spec, stepSpec); err != nil {
-					return fmt.Errorf("parse git step spec error: %v", err)
+				if step.StepType == config.StepGit {
+					stepSpec := &steptypes.StepGitSpec{}
+					if err := commonmodels.IToi(step.Spec, stepSpec); err != nil {
+						return fmt.Errorf("parse git step spec error: %v", err)
+					}
+					stepArgsSpec := &steptypes.StepGitSpec{}
+					if err := commonmodels.IToi(stepArgs.Spec, stepArgsSpec); err != nil {
+						return fmt.Errorf("parse git step spec error: %v", err)
+					}
+					stepSpec.Repos = mergeRepos(stepSpec.Repos, stepArgsSpec.Repos)
+					step.Spec = stepSpec
+				} else if step.StepType == config.StepPerforce {
+					stepSpec := &steptypes.StepP4Spec{}
+					if err := commonmodels.IToi(step.Spec, stepSpec); err != nil {
+						return fmt.Errorf("parse git step spec error: %v", err)
+					}
+					stepArgsSpec := &steptypes.StepP4Spec{}
+					if err := commonmodels.IToi(stepArgs.Spec, stepArgsSpec); err != nil {
+						return fmt.Errorf("parse git step spec error: %v", err)
+					}
+					stepSpec.Repos = mergeRepos(stepSpec.Repos, stepArgsSpec.Repos)
+					step.Spec = stepSpec
 				}
-				stepArgsSpec := &steptypes.StepGitSpec{}
-				if err := commonmodels.IToi(stepArgs.Spec, stepArgsSpec); err != nil {
-					return fmt.Errorf("parse git step spec error: %v", err)
-				}
-				stepSpec.Repos = mergeRepos(stepSpec.Repos, stepArgsSpec.Repos)
-				step.Spec = stepSpec
-				break
 			}
 		}
+
 		j.spec.FreestyleJobType = argsSpec.FreestyleJobType
 		j.spec.JobName = argsSpec.JobName
 		j.spec.Services = argsSpec.Services
@@ -424,12 +463,20 @@ func (j *FreeStyleJob) stepsToStepTasks(step []*commonmodels.Step, service *comm
 							logger.Errorf("findMatchedRepoFromParams error: %v", err)
 							continue
 						}
+						// perforce git repo belongs to perforce step, not git step
+						if paramRepo.Source == types.ProviderPerforce {
+							continue
+						}
 						newRepos = append(newRepos, paramRepo)
+						continue
+					}
+					if repo.Source == types.ProviderPerforce {
 						continue
 					}
 					newRepos = append(newRepos, repo)
 				}
 			} else {
+				// if it is not multi-service type job, the repo info is already split, no need to do double-check
 				for _, repo := range stepTaskSpec.Repos {
 					if repo.SourceFrom == types.RepoSourceParam {
 						paramRepo, err := findMatchedRepoFromParams(j.workflow.Params, repo.GlobalParamName)
@@ -445,8 +492,53 @@ func (j *FreeStyleJob) stepsToStepTasks(step []*commonmodels.Step, service *comm
 			}
 			stepTaskSpec.Repos = newRepos
 			stepTask.Spec = stepTaskSpec
-
 		}
+
+		if stepTask.StepType == config.StepPerforce {
+			stepTaskSpec := &steptypes.StepP4Spec{}
+			if err := commonmodels.IToi(stepTask.Spec, stepTaskSpec); err != nil {
+				continue
+			}
+			newRepos := []*types.Repository{}
+			if service != nil {
+				for _, repo := range service.Repos {
+					if repo.SourceFrom == types.RepoSourceParam {
+						paramRepo, err := findMatchedRepoFromParams(j.workflow.Params, repo.GlobalParamName)
+						if err != nil {
+							logger.Errorf("findMatchedRepoFromParams error: %v", err)
+							continue
+						}
+						// perforce git repo belongs to git step, not perforce step
+						if paramRepo.Source != types.ProviderPerforce {
+							continue
+						}
+						newRepos = append(newRepos, paramRepo)
+						continue
+					}
+					if repo.Source != types.ProviderPerforce {
+						continue
+					}
+					newRepos = append(newRepos, repo)
+				}
+			} else {
+				// if it is not multi-service type job, the repo info is already split, no need to do double-check
+				for _, repo := range stepTaskSpec.Repos {
+					if repo.SourceFrom == types.RepoSourceParam {
+						paramRepo, err := findMatchedRepoFromParams(j.workflow.Params, repo.GlobalParamName)
+						if err != nil {
+							logger.Errorf("findMatchedRepoFromParams error: %v", err)
+							continue
+						}
+						newRepos = append(newRepos, paramRepo)
+						continue
+					}
+					newRepos = append(newRepos, repo)
+				}
+			}
+			stepTaskSpec.Repos = newRepos
+			stepTask.Spec = stepTaskSpec
+		}
+
 		if stepTask.StepType == config.StepDockerBuild {
 			stepTaskSpec := &steptypes.StepDockerBuildSpec{}
 			if err := commonmodels.IToi(stepTask.Spec, stepTaskSpec); err != nil {
@@ -507,15 +599,23 @@ func getfreestyleJobVariables(steps []*commonmodels.StepTask, taskID int64, proj
 	ret := []*commonmodels.KeyVal{}
 	repos := []*types.Repository{}
 	for _, step := range steps {
-		if step.StepType != config.StepGit {
+		if step.StepType == config.StepGit {
+			stepSpec := &steptypes.StepGitSpec{}
+			if err := commonmodels.IToi(step.Spec, stepSpec); err != nil {
+				log.Errorf("failed to convert step spec error: %v", err)
+				continue
+			}
+			repos = append(repos, stepSpec.Repos...)
+		} else if step.StepType == config.StepPerforce {
+			stepSpec := &steptypes.StepP4Spec{}
+			if err := commonmodels.IToi(step.Spec, stepSpec); err != nil {
+				log.Errorf("failed to convert step spec error: %v", err)
+				continue
+			}
+			repos = append(repos, stepSpec.Repos...)
+		} else {
 			continue
 		}
-		stepSpec := &steptypes.StepGitSpec{}
-		if err := commonmodels.IToi(step.Spec, stepSpec); err != nil {
-			log.Errorf("failed to convert step spec error: %v", err)
-			continue
-		}
-		repos = append(repos, stepSpec.Repos...)
 	}
 	// basic envs
 	ret = append(ret, PrepareDefaultWorkflowTaskEnvs(project, workflowName, workflowDisplayName, infrastructure, taskID)...)

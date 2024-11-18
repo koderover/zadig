@@ -54,6 +54,9 @@ type CodeHost struct {
 	AuthType           types.AuthType `json:"auth_type,omitempty"`
 	SSHKey             string         `json:"ssh_key,omitempty"`
 	PrivateAccessToken string         `json:"private_access_token,omitempty"`
+	// perforce Type parameters
+	P4Host string `json:"perforce_host"`
+	P4Port int    `json:"perforce_port"`
 }
 
 type Option struct {
@@ -89,6 +92,8 @@ func (c *Client) GetCodeHost(id int) (*CodeHost, error) {
 		AuthType:           resp.AuthType,
 		SSHKey:             resp.SSHKey,
 		PrivateAccessToken: resp.PrivateAccessToken,
+		P4Host:             resp.P4Host,
+		P4Port:             resp.P4Port,
 	}
 
 	return res, nil

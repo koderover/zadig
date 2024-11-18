@@ -606,14 +606,27 @@ func (j *ScanningJob) toJobTask(scanning *commonmodels.ScanningModule, taskID in
 		jobTaskSpec.Steps = append(jobTaskSpec.Steps, downloadArchiveStep)
 	}
 
+	repos := renderRepos(scanning.Repos, scanningInfo.Repos, jobTaskSpec.Properties.Envs)
+	gitRepos, p4Repos := splitReposByType(repos)
+
 	// init git clone step
 	gitStep := &commonmodels.StepTask{
 		Name:     scanning.Name + "-git",
 		JobName:  jobTask.Name,
 		StepType: config.StepGit,
-		Spec:     step.StepGitSpec{Repos: renderRepos(scanning.Repos, scanningInfo.Repos, jobTaskSpec.Properties.Envs)},
+		Spec:     step.StepGitSpec{Repos: gitRepos},
 	}
 	jobTaskSpec.Steps = append(jobTaskSpec.Steps, gitStep)
+
+	p4Step := &commonmodels.StepTask{
+		Name:     scanning.Name + "-perforce",
+		JobName:  jobTask.Name,
+		StepType: config.StepPerforce,
+		Spec:     step.StepP4Spec{Repos: p4Repos},
+	}
+
+	jobTaskSpec.Steps = append(jobTaskSpec.Steps, p4Step)
+
 	repoName := ""
 	branch := ""
 	if len(scanningInfo.Repos) > 0 {

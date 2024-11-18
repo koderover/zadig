@@ -35,17 +35,21 @@ import (
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/shared/client/aslan"
 	"github.com/koderover/zadig/v2/pkg/tool/crypto"
+	"github.com/koderover/zadig/v2/pkg/types"
 )
 
 const callback = "/api/directory/codehosts/callback"
 
 func CreateSystemCodeHost(codehost *models.CodeHost, _ *zap.SugaredLogger) (*models.CodeHost, error) {
-	if codehost.Type == setting.SourceFromOther {
+	if codehost.Type == types.ProviderOther {
 		codehost.IsReady = "2"
 	}
-	if codehost.Type == setting.SourceFromGerrit {
+	if codehost.Type == types.ProviderGerrit {
 		codehost.IsReady = "2"
 		codehost.AccessToken = base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s:%s", codehost.Username, codehost.Password)))
+	}
+	if codehost.Type == types.ProviderPerforce {
+		codehost.IsReady = "2"
 	}
 
 	if codehost.Alias != "" {

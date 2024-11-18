@@ -24,6 +24,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/agent/step/archive"
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/agent/step/docker"
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/agent/step/git"
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/agent/step/perforce"
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/agent/step/scanning"
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/agent/step/script"
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/agent/step/testing"
@@ -65,6 +66,11 @@ func RunStep(ctx context.Context, jobCtx *jobctl.JobContext, step *commonmodels.
 		}
 	case "git":
 		stepInstance, err = git.NewGitStep(step.Spec, dirs, envs, secretEnvs, logger)
+		if err != nil {
+			return err
+		}
+	case "perforce":
+		stepInstance, err = perforce.NewP4Step(step.Spec, dirs, envs, secretEnvs, logger)
 		if err != nil {
 			return err
 		}

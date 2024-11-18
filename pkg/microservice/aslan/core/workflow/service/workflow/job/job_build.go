@@ -540,14 +540,24 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 
 		// init git clone step
 		repos := renderRepos(build.Repos, buildInfo.Repos, jobTaskSpec.Properties.Envs)
+		gitRepos, p4Repos := splitReposByType(repos)
 		gitStep := &commonmodels.StepTask{
 			Name:     build.ServiceName + "-git",
 			JobName:  jobTask.Name,
 			StepType: config.StepGit,
-			Spec:     step.StepGitSpec{Repos: repos},
+			Spec:     step.StepGitSpec{Repos: gitRepos},
 		}
 
 		jobTaskSpec.Steps = append(jobTaskSpec.Steps, gitStep)
+
+		p4Step := &commonmodels.StepTask{
+			Name:     build.ServiceName + "-perforce",
+			JobName:  jobTask.Name,
+			StepType: config.StepPerforce,
+			Spec:     step.StepP4Spec{Repos: p4Repos},
+		}
+
+		jobTaskSpec.Steps = append(jobTaskSpec.Steps, p4Step)
 		// init debug before step
 		debugBeforeStep := &commonmodels.StepTask{
 			Name:     build.ServiceName + "-debug_before",
@@ -767,6 +777,22 @@ func renderRepos(input, origin []*types.Repository, kvs []*commonmodels.KeyVal) 
 		}
 	}
 	return resp
+}
+
+// splitReposByType split the repository by types. currently it will return non-perforce repos and perforce repos
+func splitReposByType(repos []*types.Repository) (gitRepos, p4Repos []*types.Repository) {
+	gitRepos = make([]*types.Repository, 0)
+	p4Repos = make([]*types.Repository, 0)
+
+	for _, repo := range repos {
+		if repo.Source == types.ProviderPerforce {
+			p4Repos = append(p4Repos, repo)
+		} else {
+			gitRepos = append(gitRepos, repo)
+		}
+	}
+
+	return
 }
 
 func replaceWrapLine(script string) string {

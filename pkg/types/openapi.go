@@ -22,7 +22,8 @@ import (
 )
 
 type OpenAPIRepoInput struct {
-	CodeHostName  string `json:"codehost_name"`
+	CodeHostName string `json:"codehost_name"`
+	// git type
 	RepoNamespace string `json:"repo_namespace"`
 	RepoName      string `json:"repo_name"`
 	Branch        string `json:"branch"`
@@ -31,6 +32,11 @@ type OpenAPIRepoInput struct {
 	RemoteName    string `json:"remote_name"`
 	CheckoutPath  string `json:"checkout_path"`
 	SubModules    bool   `json:"submodules"`
+	// perforce type
+	Stream       string `json:"stream"`
+	ViewMapping  string `json:"view_mapping"`
+	ChangelistID int    `json:"changelist_id"`
+	ShelveID     int    `json:"shelve_id"`
 }
 
 type OpenAPIWebhookConfigDetail struct {

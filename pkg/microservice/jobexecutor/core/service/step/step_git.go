@@ -70,7 +70,7 @@ func (s *GitStep) Run(ctx context.Context) error {
 
 func (s *GitStep) RunGitGc(folder string) error {
 	// envs := r.getUserEnvs()
-	cmd := c.Gc()
+	cmd := c.GitGc()
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	// cmd.Env = envs
@@ -110,12 +110,11 @@ func (s *GitStep) runGitCmds() error {
 	// 获取git代码
 	cmds := make([]*c.Command, 0)
 
-	cmds = append(cmds, &c.Command{Cmd: c.SetConfig("user.email", "ci@koderover.com"), DisableTrace: true})
-	cmds = append(cmds, &c.Command{Cmd: c.SetConfig("user.name", "koderover"), DisableTrace: true})
+	cmds = append(cmds, &c.Command{Cmd: c.GitSetConfig("user.email", "ci@koderover.com"), DisableTrace: true})
+	cmds = append(cmds, &c.Command{Cmd: c.GitSetConfig("user.name", "koderover"), DisableTrace: true})
 
 	// https://stackoverflow.com/questions/24952683/git-push-error-rpc-failed-result-56-http-code-200-fatal-the-remote-end-hun/36843260
-	//cmds = append(cmds, &c.Command{Cmd: c.SetConfig("http.postBuffer", "524288000"), DisableTrace: true})
-	cmds = append(cmds, &c.Command{Cmd: c.SetConfig("http.postBuffer", "2097152000"), DisableTrace: true})
+	cmds = append(cmds, &c.Command{Cmd: c.GitSetConfig("http.postBuffer", "2097152000"), DisableTrace: true})
 	var tokens []string
 	var hostNames = sets.NewString()
 	for _, repo := range s.spec.Repos {
@@ -217,7 +216,7 @@ func (s *GitStep) buildGitCommands(repo *types.Repository, hostNames sets.String
 	if isDirEmpty(filepath.Join(workDir, ".git")) {
 		cmds = append(cmds, &c.Command{Cmd: c.InitGit(workDir)})
 	} else {
-		cmds = append(cmds, &c.Command{Cmd: c.RemoteRemove(repo.RemoteName), DisableTrace: true, IgnoreError: true})
+		cmds = append(cmds, &c.Command{Cmd: c.GitRemoteRemove(repo.RemoteName), DisableTrace: true, IgnoreError: true})
 	}
 
 	// namespace represents the real owner
@@ -229,7 +228,7 @@ func (s *GitStep) buildGitCommands(repo *types.Repository, hostNames sets.String
 		u, _ := url.Parse(repo.Address)
 		host := strings.TrimSuffix(strings.Join([]string{u.Host, u.Path}, "/"), "/")
 		cmds = append(cmds, &c.Command{
-			Cmd:          c.RemoteAdd(repo.RemoteName, OAuthCloneURL(repo.Source, repo.OauthToken, host, owner, repo.RepoName, u.Scheme)),
+			Cmd:          c.GitRemoteAdd(repo.RemoteName, OAuthCloneURL(repo.Source, repo.OauthToken, host, owner, repo.RepoName, u.Scheme)),
 			DisableTrace: true,
 		})
 	} else if repo.Source == types.ProviderGerrit {
@@ -238,11 +237,11 @@ func (s *GitStep) buildGitCommands(repo *types.Repository, hostNames sets.String
 		u.User = url.UserPassword(repo.Username, repo.Password)
 
 		cmds = append(cmds, &c.Command{
-			Cmd:          c.RemoteAdd(repo.RemoteName, u.String()),
+			Cmd:          c.GitRemoteAdd(repo.RemoteName, u.String()),
 			DisableTrace: true,
 		})
 	} else if repo.Source == types.ProviderGitee || repo.Source == types.ProviderGiteeEE {
-		cmds = append(cmds, &c.Command{Cmd: c.RemoteAdd(repo.RemoteName, HTTPSCloneURL(repo.Source, repo.OauthToken, repo.RepoOwner, repo.RepoName, repo.Address)), DisableTrace: true})
+		cmds = append(cmds, &c.Command{Cmd: c.GitRemoteAdd(repo.RemoteName, HTTPSCloneURL(repo.Source, repo.OauthToken, repo.RepoOwner, repo.RepoName, repo.Address)), DisableTrace: true})
 	} else if repo.Source == types.ProviderOther {
 		if repo.AuthType == types.SSHAuthType {
 			host := getHost(repo.Address)
@@ -258,7 +257,7 @@ func (s *GitStep) buildGitCommands(repo *types.Repository, hostNames sets.String
 				remoteName = fmt.Sprintf("%s/%s/%s.git", repo.Address, repo.RepoOwner, repo.RepoName)
 			}
 			cmds = append(cmds, &c.Command{
-				Cmd:          c.RemoteAdd(repo.RemoteName, remoteName),
+				Cmd:          c.GitRemoteAdd(repo.RemoteName, remoteName),
 				DisableTrace: true,
 			})
 		} else if repo.AuthType == types.PrivateAccessTokenAuthType {
@@ -268,14 +267,14 @@ func (s *GitStep) buildGitCommands(repo *types.Repository, hostNames sets.String
 			} else {
 				host := strings.TrimSuffix(strings.Join([]string{u.Host, u.Path}, "/"), "/")
 				cmds = append(cmds, &c.Command{
-					Cmd:          c.RemoteAdd(repo.RemoteName, OAuthCloneURL(repo.Source, repo.PrivateAccessToken, host, repo.RepoOwner, repo.RepoName, u.Scheme)),
+					Cmd:          c.GitRemoteAdd(repo.RemoteName, OAuthCloneURL(repo.Source, repo.PrivateAccessToken, host, repo.RepoOwner, repo.RepoName, u.Scheme)),
 					DisableTrace: true,
 				})
 			}
 		}
 	} else {
 		// github
-		cmds = append(cmds, &c.Command{Cmd: c.RemoteAdd(repo.RemoteName, HTTPSCloneURL(repo.Source, repo.OauthToken, owner, repo.RepoName, "")), DisableTrace: true})
+		cmds = append(cmds, &c.Command{Cmd: c.GitRemoteAdd(repo.RemoteName, HTTPSCloneURL(repo.Source, repo.OauthToken, owner, repo.RepoName, "")), DisableTrace: true})
 	}
 
 	ref := repo.Ref()
@@ -283,31 +282,31 @@ func (s *GitStep) buildGitCommands(repo *types.Repository, hostNames sets.String
 		return cmds
 	}
 
-	cmds = append(cmds, &c.Command{Cmd: c.Fetch(repo.RemoteName, ref)}, &c.Command{Cmd: c.CheckoutHead()})
+	cmds = append(cmds, &c.Command{Cmd: c.GitFetch(repo.RemoteName, ref)}, &c.Command{Cmd: c.GitCheckoutHead()})
 
 	// PR rebase branch 请求
 	if len(repo.PRs) > 0 && len(repo.Branch) > 0 {
 		cmds = append(
 			cmds,
-			&c.Command{Cmd: c.DeepenedFetch(repo.RemoteName, repo.BranchRef(), repo.Source)},
-			&c.Command{Cmd: c.ResetMerge()},
+			&c.Command{Cmd: c.GitDeepenedFetch(repo.RemoteName, repo.BranchRef(), repo.Source)},
+			&c.Command{Cmd: c.GitResetMerge()},
 		)
 		for _, pr := range repo.PRs {
 			newBranch := fmt.Sprintf("pr%d", pr)
 			ref := fmt.Sprintf("%s:%s", repo.PRRefByPRID(pr), newBranch)
 			cmds = append(
 				cmds,
-				&c.Command{Cmd: c.DeepenedFetch(repo.RemoteName, ref, repo.Source)},
-				&c.Command{Cmd: c.Merge(newBranch)},
+				&c.Command{Cmd: c.GitDeepenedFetch(repo.RemoteName, ref, repo.Source)},
+				&c.Command{Cmd: c.GitMerge(newBranch)},
 			)
 		}
 	}
 
 	if repo.SubModules {
-		cmds = append(cmds, &c.Command{Cmd: c.UpdateSubmodules()})
+		cmds = append(cmds, &c.Command{Cmd: c.GitUpdateSubmodules()})
 	}
 
-	cmds = append(cmds, &c.Command{Cmd: c.ShowLastLog()})
+	cmds = append(cmds, &c.Command{Cmd: c.GitShowLastLog()})
 
 	setCmdsWorkDir(workDir, cmds)
 

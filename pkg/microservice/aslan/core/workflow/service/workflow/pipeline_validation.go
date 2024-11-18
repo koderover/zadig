@@ -490,42 +490,49 @@ func getlatestPrNum(build *types.Repository) int {
 
 // 根据传入的build arg设置build参数
 func setBuildFromArg(build, buildArg *types.Repository) {
-	// single pr build
-	if buildArg.PR > 0 && len(buildArg.Branch) == 0 {
-		build.PRs = []int{buildArg.PR}
-		build.Branch = ""
-	}
-	//single pr rebase branch build
-	if buildArg.PR > 0 && len(buildArg.Branch) > 0 {
-		build.PRs = []int{buildArg.PR}
-		build.Branch = buildArg.Branch
-	}
-	// multi prs build
-	if len(buildArg.PRs) > 0 && len(buildArg.Branch) == 0 {
-		build.PRs = buildArg.PRs
-		build.Branch = ""
-	}
-	//multi prs rebase branch build
-	if len(buildArg.PRs) > 0 && len(buildArg.Branch) > 0 {
-		build.PRs = buildArg.PRs
-		build.Branch = buildArg.Branch
-	}
-	// single branch build
-	if buildArg.PR == 0 && len(buildArg.PRs) == 0 && len(buildArg.Branch) > 0 {
-		build.PRs = []int{}
-		build.Branch = buildArg.Branch
-	}
+	if build.Source == types.ProviderPerforce {
+		// single pr build
+		if buildArg.PR > 0 && len(buildArg.Branch) == 0 {
+			build.PRs = []int{buildArg.PR}
+			build.Branch = ""
+		}
+		//single pr rebase branch build
+		if buildArg.PR > 0 && len(buildArg.Branch) > 0 {
+			build.PRs = []int{buildArg.PR}
+			build.Branch = buildArg.Branch
+		}
+		// multi prs build
+		if len(buildArg.PRs) > 0 && len(buildArg.Branch) == 0 {
+			build.PRs = buildArg.PRs
+			build.Branch = ""
+		}
+		//multi prs rebase branch build
+		if len(buildArg.PRs) > 0 && len(buildArg.Branch) > 0 {
+			build.PRs = buildArg.PRs
+			build.Branch = buildArg.Branch
+		}
+		// single branch build
+		if buildArg.PR == 0 && len(buildArg.PRs) == 0 && len(buildArg.Branch) > 0 {
+			build.PRs = []int{}
+			build.Branch = buildArg.Branch
+		}
 
-	if buildArg.Tag != "" {
-		build.Tag = buildArg.Tag
-	}
+		if buildArg.Tag != "" {
+			build.Tag = buildArg.Tag
+		}
 
-	if buildArg.CommitID != "" {
-		build.CommitID = buildArg.CommitID
-	}
+		if buildArg.CommitID != "" {
+			build.CommitID = buildArg.CommitID
+		}
 
-	if buildArg.CommitMessage != "" {
-		build.CommitMessage = buildArg.CommitMessage
+		if buildArg.CommitMessage != "" {
+			build.CommitMessage = buildArg.CommitMessage
+		}
+	} else {
+		build.Stream = buildArg.Stream
+		build.ViewMapping = buildArg.ViewMapping
+		build.ChangeListID = buildArg.ChangeListID
+		build.ShelveID = buildArg.ShelveID
 	}
 
 	if buildArg.IsPrimary {
@@ -544,7 +551,7 @@ func setManunalBuilds(builds []*types.Repository, buildArgs []*types.Repository,
 			defer wg.Done()
 
 			for _, buildArg := range buildArgs {
-				if buildArg.RepoOwner == build.RepoOwner && buildArg.RepoName == build.RepoName && buildArg.CheckoutPath == build.CheckoutPath {
+				if buildArg.Source == build.Source && buildArg.RepoOwner == build.RepoOwner && buildArg.RepoName == build.RepoName && buildArg.CheckoutPath == build.CheckoutPath {
 					setBuildFromArg(build, buildArg)
 					break
 				}

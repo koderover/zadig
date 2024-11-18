@@ -1419,7 +1419,18 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, 
 				if step.StepType == config.StepGit {
 					stepSpec := &stepspec.StepGitSpec{}
 					commonmodels.IToi(step.Spec, &stepSpec)
-					spec.Repos = stepSpec.Repos
+					if spec.Repos == nil {
+						spec.Repos = make([]*types.Repository, 0)
+					}
+					spec.Repos = append(spec.Repos, stepSpec.Repos...)
+					continue
+				} else if step.StepType == config.StepPerforce {
+					stepSpec := &stepspec.StepP4Spec{}
+					commonmodels.IToi(step.Spec, &stepSpec)
+					if spec.Repos == nil {
+						spec.Repos = make([]*types.Repository, 0)
+					}
+					spec.Repos = append(spec.Repos, stepSpec.Repos...)
 					continue
 				}
 				if step.StepType == config.StepArchive && strings.HasSuffix(step.Name, "-pkgfile-archive") {
@@ -1462,7 +1473,18 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, 
 				if step.StepType == config.StepGit {
 					stepSpec := &stepspec.StepGitSpec{}
 					commonmodels.IToi(step.Spec, &stepSpec)
-					spec.Repos = stepSpec.Repos
+					if spec.Repos == nil {
+						spec.Repos = make([]*types.Repository, 0)
+					}
+					spec.Repos = append(spec.Repos, stepSpec.Repos...)
+					continue
+				} else if step.StepType == config.StepPerforce {
+					stepSpec := &stepspec.StepP4Spec{}
+					commonmodels.IToi(step.Spec, &stepSpec)
+					if spec.Repos == nil {
+						spec.Repos = make([]*types.Repository, 0)
+					}
+					spec.Repos = append(spec.Repos, stepSpec.Repos...)
 					continue
 				}
 			}
@@ -1515,9 +1537,23 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, 
 				if step.StepType == config.StepGit {
 					stepSpec := &stepspec.StepGitSpec{}
 					commonmodels.IToi(step.Spec, &stepSpec)
-					spec.Repos = stepSpec.Repos
+					if spec.Repos == nil {
+						spec.Repos = make([]*types.Repository, 0)
+					}
+					spec.Repos = append(spec.Repos, stepSpec.Repos...)
 					continue
 				}
+
+				if step.StepType == config.StepPerforce {
+					stepSpec := &stepspec.StepP4Spec{}
+					commonmodels.IToi(step.Spec, &stepSpec)
+					if spec.Repos == nil {
+						spec.Repos = make([]*types.Repository, 0)
+					}
+					spec.Repos = append(spec.Repos, stepSpec.Repos...)
+					continue
+				}
+
 				if step.StepType == config.StepSonarGetMetrics {
 					stepSpec := &stepspec.StepSonarGetMetricsSpec{}
 					commonmodels.IToi(step.Spec, &stepSpec)
@@ -1823,17 +1859,27 @@ func setFreeStyleRepos(job *commonmodels.Job, logger *zap.SugaredLogger) error {
 		}
 	}
 	for _, step := range spec.Steps {
-		if step.StepType != config.StepGit {
+		if step.StepType == config.StepGit {
+			stepSpec := &stepspec.StepGitSpec{}
+			if err := commonmodels.IToi(step.Spec, stepSpec); err != nil {
+				return err
+			}
+			if err := setManunalBuilds(stepSpec.Repos, stepSpec.Repos, logger); err != nil {
+				return err
+			}
+			step.Spec = stepSpec
+		} else if step.StepType == config.StepPerforce {
+			stepSpec := &stepspec.StepP4Spec{}
+			if err := commonmodels.IToi(step.Spec, stepSpec); err != nil {
+				return err
+			}
+			if err := setManunalBuilds(stepSpec.Repos, stepSpec.Repos, logger); err != nil {
+				return err
+			}
+			step.Spec = stepSpec
+		} else {
 			continue
 		}
-		stepSpec := &stepspec.StepGitSpec{}
-		if err := commonmodels.IToi(step.Spec, stepSpec); err != nil {
-			return err
-		}
-		if err := setManunalBuilds(stepSpec.Repos, stepSpec.Repos, logger); err != nil {
-			return err
-		}
-		step.Spec = stepSpec
 	}
 	job.Spec = spec
 	return nil

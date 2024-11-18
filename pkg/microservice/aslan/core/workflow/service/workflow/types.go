@@ -192,6 +192,47 @@ func (p *FreestyleJobInput) UpdateJobSpec(job *commonmodels.Job) (*commonmodels.
 			}
 			step.Spec = gitStepSpec
 		}
+
+		// for perforce type codehost, since we don't have an anchor to the codehost, we are forced to use all the user's input
+		if step.StepType == config.StepPerforce {
+			p4StepSpec := new(steptypes.StepP4Spec)
+			if err := commonmodels.IToi(step.Spec, p4StepSpec); err != nil {
+				return nil, errors.New("unable to cast git step Spec into commonmodels.StepGitSpec")
+			}
+			newRepos := make([]*types.Repository, 0)
+
+			for _, inputRepo := range p.RepoInfo {
+				repoInfo, err := mongodb.NewCodehostColl().GetSystemCodeHostByAlias(inputRepo.CodeHostName)
+				if err != nil {
+					return nil, errors.New("failed to find code host with name:" + inputRepo.CodeHostName)
+				}
+
+				if repoInfo.Type != types.ProviderPerforce {
+					continue
+				}
+				var depotType string
+				if inputRepo.Stream != "" {
+					depotType = "stream"
+				} else {
+					depotType = "local"
+				}
+				newRepos = append(newRepos, &types.Repository{
+					Source:       repoInfo.Type,
+					CodehostID:   repoInfo.ID,
+					Username:     repoInfo.Username,
+					Password:     repoInfo.Password,
+					PerforceHost: repoInfo.P4Host,
+					PerforcePort: repoInfo.P4Port,
+					DepotType:    depotType,
+					Stream:       inputRepo.Stream,
+					ViewMapping:  inputRepo.ViewMapping,
+					ChangeListID: inputRepo.ChangelistID,
+					ShelveID:     inputRepo.ShelveID,
+				})
+			}
+			p4StepSpec.Repos = newRepos
+			step.Spec = p4StepSpec
+		}
 	}
 
 	job.Spec = newSpec

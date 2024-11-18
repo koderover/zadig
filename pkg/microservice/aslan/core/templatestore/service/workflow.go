@@ -540,6 +540,11 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 										Spec:     &steptypes.StepGitSpec{},
 									},
 									{
+										Name:     "perforce",
+										StepType: config.StepPerforce,
+										Spec:     &steptypes.StepP4Spec{},
+									},
+									{
 										Name:     "shell",
 										StepType: config.StepShell,
 										Spec: &steptypes.StepShellSpec{
@@ -802,6 +807,11 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 										Spec:     &steptypes.StepGitSpec{},
 									},
 									{
+										Name:     "perforce",
+										StepType: config.StepPerforce,
+										Spec:     &steptypes.StepP4Spec{},
+									},
+									{
 										Name:     "shell",
 										StepType: config.StepShell,
 										Spec: &steptypes.StepShellSpec{
@@ -893,6 +903,11 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 										Name:     "git",
 										StepType: config.StepGit,
 										Spec:     &steptypes.StepGitSpec{},
+									},
+									{
+										Name:     "perforce",
+										StepType: config.StepPerforce,
+										Spec:     &steptypes.StepP4Spec{},
 									},
 									{
 										Name:     "shell",
@@ -1105,6 +1120,11 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 										Name:     "git",
 										StepType: config.StepGit,
 										Spec:     &steptypes.StepGitSpec{},
+									},
+									{
+										Name:     "perforce",
+										StepType: config.StepPerforce,
+										Spec:     &steptypes.StepP4Spec{},
 									},
 									{
 										Name:     "shell",
