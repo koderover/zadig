@@ -748,7 +748,7 @@ func ListSAEChangeOrder(projectName, envName, appID string, page, perPage int, l
 		CurrentPage: tea.Int32(int32(page)),
 		PageSize:    tea.Int32(int32(perPage)),
 	}
-	saeResp, err := saeClient.ListChangeOrders(saeRequest)
+	saeResp, err := saeClient.ListChangeOrdersWithOptions(saeRequest, generateCNCookie(), nil)
 	if err != nil {
 		err = fmt.Errorf("failed to get change order list, appID: %s, err: %s", appID, err)
 		log.Error(err)
@@ -788,7 +788,7 @@ func GetSAEChangeOrder(projectName, envName, appID, orderID string, log *zap.Sug
 	}
 
 	saeRequest := &sae.DescribeChangeOrderRequest{ChangeOrderId: tea.String(orderID)}
-	saeResp, err := saeClient.DescribeChangeOrder(saeRequest)
+	saeResp, err := saeClient.DescribeChangeOrderWithOptions(saeRequest, generateCNCookie(), nil)
 	if err != nil {
 		err = fmt.Errorf("failed to get change order detail, orderID: %s, appID: %s, err: %s", orderID, appID, err)
 		log.Error(err)
@@ -948,7 +948,7 @@ func GetSAEPipeline(projectName, envName, appID, pipelineID string, log *zap.Sug
 	}
 
 	saeRequest := &sae.DescribePipelineRequest{PipelineId: tea.String(pipelineID)}
-	saeResp, err := saeClient.DescribePipeline(saeRequest)
+	saeResp, err := saeClient.DescribePipelineWithOptions(saeRequest, generateCNCookie(), nil)
 	if err != nil {
 		err = fmt.Errorf("failed to get pipeline, pipelineID: %s, appID: %s, err: %s", pipelineID, appID, err)
 		log.Error(err)
@@ -1111,4 +1111,11 @@ func DelSAEAppFromEnv(username string, projectName, envName string, req *DelSAEA
 	}
 
 	return nil
+}
+
+func generateCNCookie() map[string]*string {
+	cnCookie := "aliyun_lang=zh"
+	return map[string]*string{
+		"cookie": tea.String(cnCookie),
+	}
 }
