@@ -259,19 +259,32 @@ func sendWorkWxMessage(productName, workflowName, workflowDisplayName string, ta
 		atList = append(atList, fmt.Sprintf("<@%s>", id))
 	}
 
-	moreInformation := fmt.Sprintf("[%s](%s)", "点击查看更多信息", actionURL)
-
-	content := fmt.Sprintf("### %s\n%s\n%s", title, message, moreInformation)
-
-	markDownMessage := &instantmessage.WeChatWorkCard{
-		MsgType:  string(instantmessage.WeChatTextTypeMarkdown),
-		Markdown: instantmessage.Markdown{Content: content},
+	msgCard := &instantmessage.WeChatWorkCard{
+		MsgType: string(instantmessage.WeChatTextTypeTemplateCard),
+		TemplateCard: instantmessage.TemplateCard{
+			CardType: "text_notice",
+			MainTitle: &instantmessage.TemplateCardTitle{
+				Title: title,
+			},
+			SubTitleText: message,
+			JumpList: []*instantmessage.WechatWorkLink{
+				{
+					Type:  1,
+					URL:   actionURL,
+					Title: "点击查看更多信息",
+				},
+			},
+			CardAction: &instantmessage.WechatWorkCardAction{
+				Type: 1,
+				URL:  actionURL,
+			},
+		},
 	}
 
 	// TODO: if required, add proxy to it
 	c := httpclient.New()
 
-	_, err := c.Post(uri, httpclient.SetBody(markDownMessage))
+	_, err := c.Post(uri, httpclient.SetBody(msgCard))
 	if err != nil {
 		return err
 	}
