@@ -885,7 +885,7 @@ func RollbackSAEChangeOrder(projectName, envName, appID, orderID string, log *za
 	return nil
 }
 
-func ConfirmSAEPipelineBatch(projectName, envName, appID, orderID string, log *zap.SugaredLogger) error {
+func ConfirmSAEPipelineBatch(projectName, envName, appID, pipelineID string, log *zap.SugaredLogger) error {
 	opt := &commonrepo.SAEEnvFindOptions{ProjectName: projectName, EnvName: envName}
 	env, err := commonrepo.NewSAEEnvColl().Find(opt)
 	if err != nil {
@@ -908,10 +908,13 @@ func ConfirmSAEPipelineBatch(projectName, envName, appID, orderID string, log *z
 		return err
 	}
 
-	saeRequest := &sae.AbortAndRollbackChangeOrderRequest{ChangeOrderId: tea.String(orderID)}
-	saeResp, err := saeClient.AbortAndRollbackChangeOrder(saeRequest)
+	saeRequest := &sae.ConfirmPipelineBatchRequest{
+		PipelineId: tea.String(pipelineID),
+		Confirm:    tea.Bool(true),
+	}
+	saeResp, err := saeClient.ConfirmPipelineBatch(saeRequest)
 	if err != nil {
-		err = fmt.Errorf("failed to rollback change order, orderID: %s, appID: %s, err: %s", orderID, appID, err)
+		err = fmt.Errorf("failed to rollback change order, pipelineID: %s, appID: %s, err: %s", pipelineID, appID, err)
 		log.Error(err)
 		return err
 	}

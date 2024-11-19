@@ -3653,11 +3653,11 @@ func ConfirmSAEPipelineBatch(c *gin.Context) {
 	projectKey := c.Query("projectName")
 	production := c.Query("production") == "true"
 	appID := c.Param("appID")
-	orderID := c.Param("orderID")
+	pipelineID := c.Param("pipelineID")
 	envName := c.Param("name")
 
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv,
-		"灰度执行", "SAE环境-应用", fmt.Sprintf("SAE环境名称:%s,应用ID:%s,变更流程ID:%s", envName, appID, orderID),
+		"灰度执行", "SAE环境-应用", fmt.Sprintf("SAE环境名称:%s,应用ID:%s,变更流程ID:%s", envName, appID, pipelineID),
 		"", ctx.Logger, envName)
 
 	if !ctx.Resources.IsSystemAdmin {
@@ -3687,7 +3687,7 @@ func ConfirmSAEPipelineBatch(c *gin.Context) {
 		return
 	}
 
-	ctx.RespErr = service.ConfirmSAEPipelineBatch(projectKey, envName, appID, orderID, ctx.Logger)
+	ctx.RespErr = service.ConfirmSAEPipelineBatch(projectKey, envName, appID, pipelineID, ctx.Logger)
 }
 
 func GetSAEPipeline(c *gin.Context) {
