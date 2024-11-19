@@ -761,7 +761,7 @@ func ListSAEChangeOrder(projectName, envName, appID string, page, perPage int, l
 		return "", e.ErrGetService.AddErr(err)
 	}
 
-	return converter.ConvertToSnakeCase(saeResp.Body.Data), nil
+	return converter.ConvertToSnakeCase(saeResp.Body.Data)
 }
 
 func GetSAEChangeOrder(projectName, envName, appID, orderID string, log *zap.SugaredLogger) (interface{}, error) {
@@ -801,7 +801,7 @@ func GetSAEChangeOrder(projectName, envName, appID, orderID string, log *zap.Sug
 		return "", e.ErrGetService.AddErr(err)
 	}
 
-	return converter.ConvertToSnakeCase(saeResp.Body.Data), nil
+	return converter.ConvertToSnakeCase(saeResp.Body.Data)
 }
 
 func AbortSAEChangeOrder(projectName, envName, appID, orderID string, log *zap.SugaredLogger) error {
@@ -961,7 +961,7 @@ func GetSAEPipeline(projectName, envName, appID, pipelineID string, log *zap.Sug
 		return nil, err
 	}
 
-	return converter.ConvertToSnakeCase(saeResp.Body.Data), nil
+	return converter.ConvertToSnakeCase(saeResp.Body.Data)
 }
 
 func GetSAEAppInstanceLog(projectName, envName, appID, instanceID string, log *zap.SugaredLogger) (string, error) {
