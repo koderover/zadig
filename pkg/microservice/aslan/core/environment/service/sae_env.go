@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	sae "github.com/alibabacloud-go/sae-20190506/client"
+	teautil "github.com/alibabacloud-go/tea-utils/v2/service"
 	"github.com/alibabacloud-go/tea/tea"
 	"github.com/koderover/zadig/v2/pkg/util/converter"
 	"go.uber.org/zap"
@@ -748,7 +749,7 @@ func ListSAEChangeOrder(projectName, envName, appID string, page, perPage int, l
 		CurrentPage: tea.Int32(int32(page)),
 		PageSize:    tea.Int32(int32(perPage)),
 	}
-	saeResp, err := saeClient.ListChangeOrdersWithOptions(saeRequest, generateCNCookie(), nil)
+	saeResp, err := saeClient.ListChangeOrdersWithOptions(saeRequest, generateCNCookie(), &teautil.RuntimeOptions{})
 	if err != nil {
 		err = fmt.Errorf("failed to get change order list, appID: %s, err: %s", appID, err)
 		log.Error(err)
@@ -788,7 +789,7 @@ func GetSAEChangeOrder(projectName, envName, appID, orderID string, log *zap.Sug
 	}
 
 	saeRequest := &sae.DescribeChangeOrderRequest{ChangeOrderId: tea.String(orderID)}
-	saeResp, err := saeClient.DescribeChangeOrderWithOptions(saeRequest, generateCNCookie(), nil)
+	saeResp, err := saeClient.DescribeChangeOrderWithOptions(saeRequest, generateCNCookie(), &teautil.RuntimeOptions{})
 	if err != nil {
 		err = fmt.Errorf("failed to get change order detail, orderID: %s, appID: %s, err: %s", orderID, appID, err)
 		log.Error(err)
@@ -948,7 +949,7 @@ func GetSAEPipeline(projectName, envName, appID, pipelineID string, log *zap.Sug
 	}
 
 	saeRequest := &sae.DescribePipelineRequest{PipelineId: tea.String(pipelineID)}
-	saeResp, err := saeClient.DescribePipelineWithOptions(saeRequest, generateCNCookie(), nil)
+	saeResp, err := saeClient.DescribePipelineWithOptions(saeRequest, generateCNCookie(), &teautil.RuntimeOptions{})
 	if err != nil {
 		err = fmt.Errorf("failed to get pipeline, pipelineID: %s, appID: %s, err: %s", pipelineID, appID, err)
 		log.Error(err)
