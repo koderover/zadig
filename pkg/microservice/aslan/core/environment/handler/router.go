@@ -231,6 +231,12 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		environments.POST("sae/:name/app/:appID/rescale", RescaleSAEApp)
 		environments.POST("sae/:name/app/:appID/rollback", RollbackSAEApp)
 		environments.GET("sae/:name/app/:appID/instance", ListSAEAppInstances)
+		environments.GET("sae/:name/app/:appID/changeOrder", ListSAEChangeOrder)
+		environments.GET("sae/:name/app/:appID/changeOrder/:orderID", GetSAEChangeOrder)
+		environments.POST("sae/:name/app/:appID/changeOrder/:orderID/abort", AbortSAEChangeOrder)
+		environments.POST("sae/:name/app/:appID/changeOrder/:orderID/rollback", RollbackSAEChangeOrder)
+		environments.POST("sae/:name/app/:appID/pipeline/:pipelineID/confirmPipelineBatch", ConfirmSAEPipelineBatch)
+		environments.GET("sae/:name/app/:appID/pipeline/:pipelineID", GetSAEPipeline)
 		environments.POST("sae/:name/app/:appID/instance/:instanceID/restart", RestartSAEAppInstance)
 		environments.GET("sae/:name/app/:appID/instance/:instanceID/log", GetSAEAppInstanceLog)
 	}
