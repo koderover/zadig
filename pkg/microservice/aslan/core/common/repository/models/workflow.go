@@ -327,26 +327,32 @@ type ProductDistribute struct {
 }
 
 type NotifyCtl struct {
-	Enabled         bool                      `bson:"enabled"                       yaml:"enabled"                       json:"enabled"`
-	WebHookType     setting.NotifyWebHookType `bson:"webhook_type"                  yaml:"webhook_type"                  json:"webhook_type"`
+	Enabled     bool                      `bson:"enabled"                       yaml:"enabled"                       json:"enabled"`
+	WebHookType setting.NotifyWebHookType `bson:"webhook_type"                  yaml:"webhook_type"                  json:"webhook_type"`
+
+	LarkGroupNotificationConfig  *LarkGroupNotificationConfig  `bson:"lark_group_notification_config,omitempty"  yaml:"lark_group_notification_config,omitempty"  json:"lark_group_notification_config,omitempty"`
+	LarkPersonNotificationConfig *LarkPersonNotificationConfig `bson:"lark_person_notification_config,omitempty" yaml:"lark_person_notification_config,omitempty" json:"lark_person_notification_config,omitempty"`
+	LarkHookNotificationConfig   *LarkHookNotificationConfig   `bson:"lark_hook_notification_config,omitempty"   yaml:"lark_hook_notification_config,omitempty"   json:"lark_hook_notification_config,omitempty"`
+	WechatNotificationConfig     *WechatNotificationConfig     `bson:"wechat_notification_config,omitempty"      yaml:"wechat_notification_config,omitempty"      json:"wechat_notification_config,omitempty"`
+	DingDingNotificationConfig   *DingDingNotificationConfig   `bson:"dingding_notification_config,omitempty"    yaml:"dingding_notification_config,omitempty"    json:"dingding_notification_config,omitempty"`
+	MailNotificationConfig       *MailNotificationConfig       `bson:"mail_notification_config,omitempty"        yaml:"mail_notification_config,omitempty"        json:"mail_notification_config,omitempty"`
+	WebhookNotificationConfig    *WebhookNotificationConfig    `bson:"webhook_notification_config,omitempty"     yaml:"webhook_notification_config,omitempty"     json:"webhook_notification_config,omitempty"`
+
+	// below is the deprecated field. the value of those will be empty if the data is created after version 3.3.0. These
+	// field will only be used for data compatibility. USE WITH CAUTION!!!
 	WeChatWebHook   string                    `bson:"weChat_webHook,omitempty"      yaml:"weChat_webHook,omitempty"      json:"weChat_webHook,omitempty"`
 	DingDingWebHook string                    `bson:"dingding_webhook,omitempty"    yaml:"dingding_webhook,omitempty"    json:"dingding_webhook,omitempty"`
 	FeiShuAppID     string                    `bson:"feishu_app_id,omitempty"       yaml:"feishu_app_id,omitempty"       json:"feishu_app_id,omitempty"`
 	FeiShuWebHook   string                    `bson:"feishu_webhook,omitempty"      yaml:"feishu_webhook,omitempty"      json:"feishu_webhook,omitempty"`
 	FeishuChat      *LarkChat                 `bson:"feishu_chat,omitempty"         yaml:"feishu_chat,omitempty"         json:"feishu_chat,omitempty"`
 	MailUsers       []*User                   `bson:"mail_users,omitempty"          yaml:"mail_users,omitempty"          json:"mail_users,omitempty"`
-	WebHookNotify   WebhookNotify             `bson:"webhook_notify,omitempty"      yaml:"webhook_notify,omitempty"      json:"webhook_notify,omitempty"`
+	WebHookNotify   WebhookNotificationConfig `bson:"webhook_notify,omitempty"      yaml:"webhook_notify,omitempty"      json:"webhook_notify,omitempty"`
 	AtMobiles       []string                  `bson:"at_mobiles,omitempty"          yaml:"at_mobiles,omitempty"          json:"at_mobiles,omitempty"`
 	WechatUserIDs   []string                  `bson:"wechat_user_ids,omitempty"     yaml:"wechat_user_ids,omitempty"     json:"wechat_user_ids,omitempty"`
 	LarkUserIDs     []string                  `bson:"lark_user_ids,omitempty"       yaml:"lark_user_ids,omitempty"       json:"lark_user_ids,omitempty"`
 	LarkAtUsers     []*lark.UserInfo          `bson:"lark_at_users"                 yaml:"lark_at_users"                 json:"lark_at_users"`
 	IsAtAll         bool                      `bson:"is_at_all,omitempty"           yaml:"is_at_all,omitempty"           json:"is_at_all,omitempty"`
 	NotifyTypes     []string                  `bson:"notify_type"                   yaml:"notify_type"                   json:"notify_type"`
-}
-
-type WebhookNotify struct {
-	Address string `bson:"address"       yaml:"address"        json:"address"`
-	Token   string `bson:"token"         yaml:"token"          json:"token"`
 }
 
 type TaskInfo struct {

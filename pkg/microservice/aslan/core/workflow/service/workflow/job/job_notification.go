@@ -23,6 +23,7 @@ import (
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
+	"github.com/koderover/zadig/v2/pkg/setting"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
@@ -107,15 +108,24 @@ func (j *NotificationJob) UpdateWithLatestSetting() error {
 	}
 
 	// use the latest webhook settings, except for title and content
-	j.spec.WebHookType = latestSpec.WebHookType
+	j.spec.LarkGroupNotificationConfig = latestSpec.LarkGroupNotificationConfig
+	j.spec.LarkPersonNotificationConfig = latestSpec.LarkPersonNotificationConfig
+	j.spec.WechatNotificationConfig = latestSpec.WechatNotificationConfig
+	j.spec.DingDingNotificationConfig = latestSpec.DingDingNotificationConfig
+	j.spec.MailNotificationConfig = latestSpec.MailNotificationConfig
+	j.spec.WebhookNotificationConfig = latestSpec.WebhookNotificationConfig
+
+	// ========= compatibility code below, these field will only be used to generate new configuration ===============
 	j.spec.WeChatWebHook = latestSpec.WeChatWebHook
-	j.spec.FeiShuWebHook = latestSpec.FeiShuWebHook
 	j.spec.DingDingWebHook = latestSpec.DingDingWebHook
+	j.spec.FeiShuAppID = latestSpec.FeiShuAppID
+	j.spec.FeishuChat = latestSpec.FeishuChat
 	j.spec.MailUsers = latestSpec.MailUsers
 	j.spec.WebHookNotify = latestSpec.WebHookNotify
 	j.spec.AtMobiles = latestSpec.AtMobiles
 	j.spec.WechatUserIDs = latestSpec.WechatUserIDs
 	j.spec.LarkAtUsers = latestSpec.LarkAtUsers
+	j.spec.IsAtAll = latestSpec.IsAtAll
 
 	j.job.Spec = j.spec
 	return nil
@@ -127,6 +137,12 @@ func (j *NotificationJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) 
 		return nil, err
 	}
 	j.job.Spec = j.spec
+
+	taskSpec, err := generateNotificationJobSpec(j.spec)
+	if err != nil {
+		return nil, err
+	}
+
 	jobTask := &commonmodels.JobTask{
 		Name:        GenJobName(j.workflow, j.job.Name, 0),
 		Key:         genJobKey(j.job.Name),
@@ -135,26 +151,91 @@ func (j *NotificationJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) 
 		JobInfo: map[string]string{
 			JobNameKey: j.job.Name,
 		},
-		JobType: string(config.JobNotification),
-		Spec: &commonmodels.JobTaskNotificationSpec{
-			WebHookType:     j.spec.WebHookType,
-			WeChatWebHook:   j.spec.WeChatWebHook,
-			DingDingWebHook: j.spec.DingDingWebHook,
-			FeiShuAppID:     j.spec.FeiShuAppID,
-			FeishuChat:      j.spec.FeishuChat,
-			MailUsers:       j.spec.MailUsers,
-			WebHookNotify:   j.spec.WebHookNotify,
-			AtMobiles:       j.spec.AtMobiles,
-			WechatUserIDs:   j.spec.WechatUserIDs,
-			LarkAtUsers:     j.spec.LarkAtUsers,
-			Content:         j.spec.Content,
-			Title:           j.spec.Title,
-			IsAtAll:         j.spec.IsAtAll,
-		},
+		JobType:     string(config.JobNotification),
+		Spec:        taskSpec,
 		Timeout:     0,
 		ErrorPolicy: j.job.ErrorPolicy,
 	}
 	return []*commonmodels.JobTask{jobTask}, nil
+}
+
+func generateNotificationJobSpec(spec *commonmodels.NotificationJobSpec) (*commonmodels.JobTaskNotificationSpec, error) {
+	resp := &commonmodels.JobTaskNotificationSpec{
+		WebHookType: spec.WebHookType,
+		Content:     spec.Content,
+		Title:       spec.Title,
+	}
+
+	switch spec.WebHookType {
+	case setting.NotifyWebHookTypeDingDing:
+		if spec.DingDingNotificationConfig != nil {
+			resp.DingDingNotificationConfig = spec.DingDingNotificationConfig
+		} else {
+			if len(spec.DingDingWebHook) == 0 {
+				return nil, fmt.Errorf("failed to parse old notification data: dingding_webhook field is empty")
+			}
+			resp.DingDingNotificationConfig = &commonmodels.DingDingNotificationConfig{
+				HookAddress: spec.DingDingWebHook,
+				AtMobiles:   spec.AtMobiles,
+				IsAtAll:     spec.IsAtAll,
+			}
+		}
+	case setting.NotifyWebHookTypeWechatWork:
+		if spec.WechatNotificationConfig != nil {
+			resp.WechatNotificationConfig = spec.WechatNotificationConfig
+		} else {
+			if len(spec.WeChatWebHook) == 0 {
+				return nil, fmt.Errorf("failed to parse old notification data: weChat_webHook field is empty")
+			}
+			resp.WechatNotificationConfig = &commonmodels.WechatNotificationConfig{
+				HookAddress: spec.WeChatWebHook,
+				AtUsers:     spec.WechatUserIDs,
+				IsAtAll:     spec.IsAtAll,
+			}
+		}
+	case setting.NotifyWebHookTypeMail:
+		if spec.MailNotificationConfig != nil {
+			resp.MailNotificationConfig = spec.MailNotificationConfig
+		} else {
+			if len(spec.MailUsers) == 0 {
+				return nil, fmt.Errorf("failed to parse old notification data: mail_users field is empty")
+			}
+			resp.MailNotificationConfig = &commonmodels.MailNotificationConfig{TargetUsers: spec.MailUsers}
+		}
+	case setting.NotifyWebhookTypeFeishuApp:
+		if spec.LarkGroupNotificationConfig != nil {
+			resp.LarkGroupNotificationConfig = spec.LarkGroupNotificationConfig
+		} else {
+			if len(spec.FeiShuAppID) == 0 || spec.FeishuChat == nil {
+				return nil, fmt.Errorf("failed to parse old notification data: either feishu_app field is empty or feishu_chat field is empty")
+			}
+			resp.LarkGroupNotificationConfig = &commonmodels.LarkGroupNotificationConfig{
+				AppID:   spec.FeiShuAppID,
+				Chat:    spec.FeishuChat,
+				AtUsers: spec.LarkAtUsers,
+				IsAtAll: spec.IsAtAll,
+			}
+		}
+	case setting.NotifyWebHookTypeWebook:
+		if spec.WebhookNotificationConfig != nil {
+			resp.WebhookNotificationConfig = spec.WebhookNotificationConfig
+		} else {
+			if len(spec.WebHookNotify.Address) == 0 && len(spec.WebHookNotify.Token) == 0 {
+				return nil, fmt.Errorf("failed to parse old notification data: webhook_notify field is nil")
+			}
+			resp.WebhookNotificationConfig = &spec.WebHookNotify
+		}
+	case setting.NotifyWebHookTypeFeishuPerson:
+		if spec.LarkPersonNotificationConfig == nil {
+			return nil, fmt.Errorf("lark_person_notification_config cannot be empty for type feishu_person notification")
+		}
+
+		resp.LarkPersonNotificationConfig = spec.LarkPersonNotificationConfig
+	default:
+		return nil, fmt.Errorf("unsupported notification type: %s", spec.WebHookType)
+	}
+
+	return resp, nil
 }
 
 func (j *NotificationJob) LintJob() error {

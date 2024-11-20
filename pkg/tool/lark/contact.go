@@ -25,9 +25,9 @@ import (
 	"github.com/koderover/zadig/v2/pkg/setting"
 )
 
-func (client *Client) GetUserIDByEmailOrMobile(_type, value, userIDType string) (string, error) {
+func (client *Client) GetUserIDByEmailOrMobile(_type, value, userIDType string) (*larkcontact.UserContactInfo, error) {
 	if value == "" {
-		return "", errors.New("empty value")
+		return nil, errors.New("empty value")
 	}
 	var body *larkcontact.BatchGetIdUserReqBody
 	switch _type {
@@ -36,7 +36,7 @@ func (client *Client) GetUserIDByEmailOrMobile(_type, value, userIDType string) 
 	case QueryTypeEmail:
 		body = larkcontact.NewBatchGetIdUserReqBodyBuilder().Emails([]string{value}).Build()
 	default:
-		return "", errors.New("invalid query type")
+		return nil, errors.New("invalid query type")
 	}
 	req := larkcontact.NewBatchGetIdUserReqBuilder().
 		UserIdType(userIDType).
@@ -46,16 +46,16 @@ func (client *Client) GetUserIDByEmailOrMobile(_type, value, userIDType string) 
 	resp, err := client.Contact.User.BatchGetId(context.Background(), req)
 
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	if !resp.Success() {
-		return "", resp.CodeError
+		return nil, resp.CodeError
 	}
 	if len(resp.Data.UserList) == 0 || resp.Data.UserList[0].UserId == nil {
-		return "", errors.New("user not found")
+		return nil, errors.New("user not found")
 	}
 
-	return *resp.Data.UserList[0].UserId, nil
+	return resp.Data.UserList[0], nil
 }
 
 // ListAppContactRange get users, departments, groups open id authorized by the lark app
