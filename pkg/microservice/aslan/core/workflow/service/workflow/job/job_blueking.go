@@ -130,12 +130,14 @@ func (j *BlueKingJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 
 	resp := make([]*commonmodels.JobTask, 0)
 	resp = append(resp, &commonmodels.JobTask{
-		Name: j.job.Name,
+		Name:        GenJobName(j.workflow, j.job.Name, 0),
+		Key:         genJobKey(j.job.Name, strconv.FormatInt(j.spec.ExecutionPlanID, 10)),
+		DisplayName: genJobDisplayName(j.job.Name),
+		OriginName:  j.job.Name,
 		JobInfo: map[string]string{
 			JobNameKey:        j.job.Name,
 			"blueking_job_id": strconv.FormatInt(j.spec.ExecutionPlanID, 10),
 		},
-		Key:     j.job.Name + "." + strconv.FormatInt(j.spec.ExecutionPlanID, 10),
 		JobType: string(config.JobBlueKing),
 		Spec: &commonmodels.JobTaskBlueKingSpec{
 			ToolID:          j.spec.ToolID,

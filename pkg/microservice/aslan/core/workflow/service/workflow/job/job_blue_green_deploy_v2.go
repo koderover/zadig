@@ -415,7 +415,7 @@ func (j *BlueGreenDeployV2Job) ToJobs(taskID int64) ([]*commonmodels.JobTask, er
 		return resp, errors.Errorf("target services is empty")
 	}
 
-	for _, target := range j.spec.Services {
+	for jobSubTaskID, target := range j.spec.Services {
 		var (
 			deployment              *v1.Deployment
 			deploymentYaml          string
@@ -536,8 +536,10 @@ func (j *BlueGreenDeployV2Job) ToJobs(taskID int64) ([]*commonmodels.JobTask, er
 		target.GreenDeploymentName = greenDeploymentName
 
 		task := &commonmodels.JobTask{
-			Name: jobNameFormat(j.job.Name + "-" + target.ServiceName),
-			Key:  strings.Join([]string{j.job.Name, target.ServiceName}, "."),
+			Name:        GenJobName(j.workflow, j.job.Name, jobSubTaskID),
+			Key:         genJobKey(j.job.Name),
+			DisplayName: genJobDisplayName(j.job.Name),
+			OriginName:  j.job.Name,
 			JobInfo: map[string]string{
 				JobNameKey:     j.job.Name,
 				"service_name": target.ServiceName,

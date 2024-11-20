@@ -274,7 +274,7 @@ func (j *ScanningJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 
 	if j.spec.ScanningType == config.NormalScanningType {
 		for _, scanning := range j.spec.Scannings {
-			jobTask, err := j.toJobTask(scanning, taskID, string(j.spec.ScanningType), "", "", logger)
+			jobTask, err := j.toJobTask(0, scanning, taskID, string(j.spec.ScanningType), "", "", logger)
 			if err != nil {
 				return nil, err
 			}
@@ -299,15 +299,17 @@ func (j *ScanningJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 	}
 
 	if j.spec.ScanningType == config.ServiceScanningType {
+		jobSubTaskID := 0
 		for _, target := range j.spec.TargetServices {
 			for _, scanning := range j.spec.ServiceAndScannings {
 				if scanning.ServiceName != target.ServiceName || scanning.ServiceModule != target.ServiceModule {
 					continue
 				}
-				jobTask, err := j.toJobTask(&scanning.ScanningModule, taskID, string(j.spec.ScanningType), scanning.ServiceName, scanning.ServiceModule, logger)
+				jobTask, err := j.toJobTask(jobSubTaskID, &scanning.ScanningModule, taskID, string(j.spec.ScanningType), scanning.ServiceName, scanning.ServiceModule, logger)
 				if err != nil {
 					return resp, err
 				}
+				jobSubTaskID++
 				resp = append(resp, jobTask)
 			}
 		}
@@ -454,7 +456,7 @@ func (j *ScanningJob) GetRenderVariables(ctx *internalhandler.Context, jobName, 
 	return keyValMap.List(), nil
 }
 
-func (j *ScanningJob) toJobTask(scanning *commonmodels.ScanningModule, taskID int64, scanningType, serviceName, serviceModule string, logger *zap.SugaredLogger) (*commonmodels.JobTask, error) {
+func (j *ScanningJob) toJobTask(jobSubTaskID int, scanning *commonmodels.ScanningModule, taskID int64, scanningType, serviceName, serviceModule string, logger *zap.SugaredLogger) (*commonmodels.JobTask, error) {
 	scanningInfo, err := commonrepo.NewScanningColl().Find(j.workflow.Project, scanning.Name)
 	if err != nil {
 		return nil, fmt.Errorf("find scanning: %s error: %v", scanning.Name, err)
@@ -489,14 +491,19 @@ func (j *ScanningJob) toJobTask(scanning *commonmodels.ScanningModule, taskID in
 		jobInfo["service_module"] = serviceModule
 	}
 
-	jobKey := strings.Join([]string{j.job.Name, scanning.Name}, ".")
+	jobName := GenJobName(j.workflow, j.job.Name, jobSubTaskID)
+	jobKey := genJobKey(j.job.Name, scanning.Name)
+	jobDisplayName := genJobDisplayName(j.job.Name, scanning.Name)
 	if scanningType == string(config.ServiceScanningType) {
-		jobKey = strings.Join([]string{j.job.Name, scanning.Name, serviceName, serviceModule}, ".")
+		jobKey = genJobKey(j.job.Name, serviceName, serviceModule)
+		jobDisplayName = genJobDisplayName(j.job.Name, serviceName, serviceModule)
 	}
 
 	jobTask := &commonmodels.JobTask{
-		Name:           jobNameFormat(strings.Join([]string{scanning.Name, j.job.Name, serviceName, serviceModule}, "-")),
 		Key:            jobKey,
+		Name:           jobName,
+		DisplayName:    jobDisplayName,
+		OriginName:     j.job.Name,
 		JobInfo:        jobInfo,
 		JobType:        string(config.JobZadigScanning),
 		Spec:           jobTaskSpec,

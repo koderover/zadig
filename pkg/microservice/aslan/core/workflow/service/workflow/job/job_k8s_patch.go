@@ -230,8 +230,10 @@ func (j *K8sPacthJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		return resp, err
 	}
 	jobTask := &commonmodels.JobTask{
-		Name: j.job.Name,
-		Key:  j.job.Name,
+		Name:        GenJobName(j.workflow, j.job.Name, 0),
+		Key:         genJobKey(j.job.Name),
+		DisplayName: genJobDisplayName(j.job.Name),
+		OriginName:  j.job.Name,
 		JobInfo: map[string]string{
 			JobNameKey: j.job.Name,
 		},

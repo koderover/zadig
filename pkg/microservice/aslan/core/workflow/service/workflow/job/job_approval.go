@@ -139,11 +139,13 @@ func (j *ApprovalJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		WorkWXApproval:   j.spec.WorkWXApproval,
 	}
 	jobTask := &commonmodels.JobTask{
-		Name: j.job.Name,
+		Name:        GenJobName(j.workflow, j.job.Name, 0),
+		Key:         genJobKey(j.job.Name),
+		DisplayName: genJobDisplayName(j.job.Name),
+		OriginName:  j.job.Name,
 		JobInfo: map[string]string{
 			JobNameKey: j.job.Name,
 		},
-		Key:         j.job.Name,
 		JobType:     string(config.JobApproval),
 		Spec:        jobSpec,
 		Timeout:     j.spec.Timeout,

@@ -33,10 +33,10 @@ type StepCtl interface {
 	AfterRun(ctx context.Context) error
 }
 
-func PrepareSteps(ctx context.Context, workflowCtx *commonmodels.WorkflowTaskCtx, jobPath *string, jobName string, steps []*commonmodels.StepTask, logger *zap.SugaredLogger) error {
+func PrepareSteps(ctx context.Context, workflowCtx *commonmodels.WorkflowTaskCtx, jobPath *string, jobKey string, steps []*commonmodels.StepTask, logger *zap.SugaredLogger) error {
 	stepCtls := []StepCtl{}
 	for _, step := range steps {
-		stepCtl, err := instantiateStepCtl(step, workflowCtx, jobPath, jobName, logger)
+		stepCtl, err := instantiateStepCtl(step, workflowCtx, jobPath, jobKey, logger)
 		if err != nil {
 			return err
 		}
@@ -50,10 +50,10 @@ func PrepareSteps(ctx context.Context, workflowCtx *commonmodels.WorkflowTaskCtx
 	return nil
 }
 
-func SummarizeSteps(ctx context.Context, workflowCtx *commonmodels.WorkflowTaskCtx, jobPath *string, jobName string, steps []*commonmodels.StepTask, logger *zap.SugaredLogger) error {
+func SummarizeSteps(ctx context.Context, workflowCtx *commonmodels.WorkflowTaskCtx, jobPath *string, jobKey string, steps []*commonmodels.StepTask, logger *zap.SugaredLogger) error {
 	stepCtls := []StepCtl{}
 	for _, step := range steps {
-		stepCtl, err := instantiateStepCtl(step, workflowCtx, jobPath, jobName, logger)
+		stepCtl, err := instantiateStepCtl(step, workflowCtx, jobPath, jobKey, logger)
 		if err != nil {
 			return err
 		}
@@ -67,14 +67,14 @@ func SummarizeSteps(ctx context.Context, workflowCtx *commonmodels.WorkflowTaskC
 	return nil
 }
 
-func instantiateStepCtl(step *commonmodels.StepTask, workflowCtx *commonmodels.WorkflowTaskCtx, jobPath *string, jobName string, logger *zap.SugaredLogger) (StepCtl, error) {
+func instantiateStepCtl(step *commonmodels.StepTask, workflowCtx *commonmodels.WorkflowTaskCtx, jobPath *string, jobKey string, logger *zap.SugaredLogger) (StepCtl, error) {
 	var stepCtl StepCtl
 	var err error
 	switch step.StepType {
 	case config.StepGit:
 		stepCtl, err = NewGitCtl(step, logger)
 	case config.StepPerforce:
-		stepCtl, err = NewP4Ctl(jobName, step, workflowCtx, logger)
+		stepCtl, err = NewP4Ctl(jobKey, step, workflowCtx, logger)
 	case config.StepShell:
 		stepCtl, err = NewShellCtl(step, logger)
 	case config.StepPowerShell:
@@ -100,7 +100,7 @@ func instantiateStepCtl(step *commonmodels.StepTask, workflowCtx *commonmodels.W
 	case config.StepSonarGetMetrics:
 		stepCtl, err = NewSonarGetMetricsCtl(step, workflowCtx, logger)
 	case config.StepDistributeImage:
-		stepCtl, err = NewDistributeCtl(step, workflowCtx, jobName, logger)
+		stepCtl, err = NewDistributeCtl(step, workflowCtx, jobKey, logger)
 	case config.StepDebugBefore, config.StepDebugAfter:
 		stepCtl, err = NewDebugCtl()
 	default:

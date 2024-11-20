@@ -169,12 +169,14 @@ func (j *JenkinsJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 	}
 	for _, job := range j.spec.Jobs {
 		resp = append(resp, &commonmodels.JobTask{
-			Name: j.job.Name,
+			Name:        GenJobName(j.workflow, j.job.Name, 0),
+			Key:         genJobKey(j.job.Name, job.JobName),
+			DisplayName: genJobDisplayName(j.job.Name),
+			OriginName:  j.job.Name,
 			JobInfo: map[string]string{
 				JobNameKey:         j.job.Name,
 				"jenkins_job_name": job.JobName,
 			},
-			Key:     j.job.Name + "." + job.JobName,
 			JobType: string(config.JobJenkins),
 			Spec: &commonmodels.JobTaskJenkinsSpec{
 				ID: j.spec.ID,

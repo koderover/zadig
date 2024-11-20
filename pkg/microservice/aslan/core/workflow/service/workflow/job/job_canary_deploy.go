@@ -20,7 +20,6 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"strings"
 
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
@@ -214,7 +213,7 @@ func (j *CanaryDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) 
 		return resp, fmt.Errorf("failed to get kube client: %s, err: %v", j.spec.ClusterID, err)
 	}
 
-	for _, target := range j.spec.Targets {
+	for jobSubTaskID, target := range j.spec.Targets {
 		service, exist, err := getter.GetService(j.spec.Namespace, target.K8sServiceName, kubeClient)
 		if err != nil || !exist {
 			msg := fmt.Sprintf("Failed to get service, err: %v", err)
@@ -248,8 +247,10 @@ func (j *CanaryDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) 
 		target.WorkloadType = setting.Deployment
 		canaryReplica := math.Ceil(float64(*deployment.Spec.Replicas) * (float64(target.CanaryPercentage) / 100))
 		task := &commonmodels.JobTask{
-			Name: jobNameFormat(j.job.Name + "-" + target.K8sServiceName),
-			Key:  strings.Join([]string{j.job.Name, target.K8sServiceName}, "."),
+			Name:        GenJobName(j.workflow, j.job.Name, jobSubTaskID),
+			Key:         genJobKey(j.job.Name, target.K8sServiceName),
+			DisplayName: genJobDisplayName(j.job.Name, target.K8sServiceName),
+			OriginName:  j.job.Name,
 			JobInfo: map[string]string{
 				JobNameKey:         j.job.Name,
 				"k8s_service_name": target.K8sServiceName,

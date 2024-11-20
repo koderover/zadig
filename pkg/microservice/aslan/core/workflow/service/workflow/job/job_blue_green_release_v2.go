@@ -18,7 +18,6 @@ package job
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
@@ -103,10 +102,12 @@ func (j *BlueGreenReleaseV2Job) ToJobs(taskID int64) ([]*commonmodels.JobTask, e
 	}
 	timeout := templateProduct.Timeout * 60
 
-	for _, target := range deployJobSpec.Services {
+	for jobSubTaskID, target := range deployJobSpec.Services {
 		task := &commonmodels.JobTask{
-			Name: jobNameFormat(j.job.Name + "-" + target.ServiceName),
-			Key:  strings.Join([]string{j.job.Name, target.ServiceName}, "."),
+			Name:        GenJobName(j.workflow, j.job.Name, jobSubTaskID),
+			Key:         genJobKey(j.job.Name, target.ServiceName),
+			DisplayName: genJobDisplayName(j.job.Name, target.ServiceName),
+			OriginName:  j.job.Name,
 			JobInfo: map[string]string{
 				JobNameKey:     j.job.Name,
 				"service_name": target.ServiceName,

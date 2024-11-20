@@ -20,7 +20,6 @@ import (
 	"bufio"
 	"context"
 	"crypto/tls"
-	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -43,7 +42,6 @@ import (
 	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/containerlog"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/getter"
-	"github.com/koderover/zadig/v2/pkg/tool/kube/label"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/watcher"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
@@ -165,107 +163,6 @@ func parseServiceName(fullServiceName, serviceModule string) (string, string) {
 	return serviceName, serviceModule
 }
 
-func TaskContainerLogStream(ctx context.Context, streamChan chan interface{}, options *GetContainerOptions, log *zap.SugaredLogger) {
-	if options == nil {
-		return
-	}
-	log.Debugf("Start to get task container log.")
-
-	serviceName, serviceModule := parseServiceName(options.ServiceName, options.ServiceModule)
-
-	// Cloud host scenario reads real-time logs from the environment, so pipelineName is empty.
-	if options.EnvName != "" && options.ProductName != "" && options.PipelineName == "" {
-		// Modify pipelineName to check whether pipelineName is empty:
-		// - Empty pipelineName indicates requests from the environment
-		// - Non-empty pipelineName indicate requests from workflow tasks
-		options.PipelineName = fmt.Sprintf("%s-%s-%s", serviceName, options.EnvName, "job")
-		if taskObj, err := commonrepo.NewTaskColl().FindTask(options.PipelineName, config.ServiceType); err == nil {
-			options.TaskID = taskObj.TaskID
-		}
-	} else if options.ProductName != "" {
-		workflowInfo, err := commonrepo.NewWorkflowColl().Find(options.PipelineName)
-		if err != nil {
-			log.Errorf("Failed to find product workflow of name: %s, error: %s", options.PipelineName, err)
-			return
-		}
-		var buildName string
-		for _, buildInfo := range workflowInfo.BuildStage.Modules {
-			if buildInfo.Target.ServiceName == serviceName && buildInfo.Target.ServiceModule == serviceModule {
-				buildName = buildInfo.Target.BuildName
-			}
-		}
-		buildFindOptions := &commonrepo.BuildFindOption{
-			ProductName: options.ProductName,
-			Name:        buildName,
-		}
-
-		build, err := commonrepo.NewBuildColl().Find(buildFindOptions)
-		if err != nil {
-			log.Errorf("Failed to query build for service %s: %s", serviceName, err)
-			return
-			//// Maybe this service is a shared service
-			//buildFindOptions := &commonrepo.BuildFindOption{
-			//	Targets: []string{serviceModule},
-			//}
-			//if serviceName != "" {
-			//	buildFindOptions.ServiceName = serviceName
-			//}
-			//
-			//build, err = commonrepo.NewBuildColl().Find(buildFindOptions)
-			//if err != nil {
-			//	log.Errorf("Failed to query build for service %s: %s", serviceName, err)
-			//	return
-			//}
-		}
-		options.ClusterID = setting.LocalClusterID
-		options.Namespace = config.Namespace()
-		// Compatible with the situation where the old data has not been modified
-		if build != nil && build.PreBuild != nil && build.PreBuild.ClusterID != "" {
-			// since there are 2 cases in this situation: if no template is used, then we use the old logic
-			if build.TemplateID == "" {
-				options.ClusterID = build.PreBuild.ClusterID
-
-				switch build.PreBuild.ClusterID {
-				case setting.LocalClusterID:
-					options.Namespace = config.Namespace()
-				default:
-					options.Namespace = setting.AttachedClusterNamespace
-				}
-			} else {
-				// otherwise we have to get the template ID and find its cluster settings
-				template, err := commonrepo.NewBuildTemplateColl().Find(&commonrepo.BuildTemplateQueryOption{
-					ID: build.TemplateID,
-				})
-				if err != nil {
-					log.Errorf("failed to find build template of ID: [%s], error: [%s]", build.TemplateID, err)
-					return
-				}
-				options.ClusterID = template.PreBuild.ClusterID
-				switch template.PreBuild.ClusterID {
-				case setting.LocalClusterID:
-					options.Namespace = config.Namespace()
-				default:
-					options.Namespace = setting.AttachedClusterNamespace
-				}
-			}
-		}
-	}
-
-	if options.SubTask == "" {
-		options.SubTask = string(config.TaskBuild)
-	}
-	options.SubTask = strings.Replace(options.SubTask, "_", "-", -1)
-
-	selector := labels.Set(label.GetJobLabels(&label.JobLabel{
-		PipelineName: options.PipelineName,
-		TaskID:       options.TaskID,
-		TaskType:     options.SubTask,
-		ServiceName:  options.ServiceName,
-		PipelineType: options.PipelineType,
-	})).AsSelector()
-	waitAndGetLog(ctx, streamChan, selector, options, log)
-}
-
 func WorkflowTaskV4ContainerLogStream(ctx context.Context, streamChan chan interface{}, options *GetContainerOptions, log *zap.SugaredLogger) {
 	if options == nil {
 		return
@@ -345,32 +242,6 @@ func WorkflowTaskV4ContainerLogStream(ctx context.Context, streamChan chan inter
 		selector := getWorkflowSelector(options)
 		waitAndGetLog(ctx, streamChan, selector, options, log)
 	}
-}
-
-func TestJobContainerLogStream(ctx context.Context, streamChan chan interface{}, options *GetContainerOptions, log *zap.SugaredLogger) {
-	options.SubTask = string(config.TaskTestingV2)
-	selector := labels.Set(label.GetJobLabels(&label.JobLabel{
-		PipelineName: options.PipelineName,
-		TaskID:       options.TaskID,
-		TaskType:     options.SubTask,
-		ServiceName:  options.ServiceName,
-		PipelineType: options.PipelineType,
-	})).AsSelector()
-	// get cluster ID
-	testing, _ := commonrepo.NewTestingColl().Find(getTestName(options.ServiceName), "")
-	// Compatible with the situation where the old data has not been modified
-	if testing != nil && testing.PreTest != nil && testing.PreTest.ClusterID != "" {
-		options.ClusterID = testing.PreTest.ClusterID
-
-		switch testing.PreTest.ClusterID {
-		case setting.LocalClusterID:
-			options.Namespace = config.Namespace()
-		default:
-			options.Namespace = setting.AttachedClusterNamespace
-		}
-	}
-
-	waitAndGetLog(ctx, streamChan, selector, options, log)
 }
 
 func getTestName(serviceName string) string {

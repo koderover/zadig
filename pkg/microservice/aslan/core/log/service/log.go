@@ -23,38 +23,19 @@ import (
 	"os"
 	"strings"
 
-	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"go.uber.org/zap"
 
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
+	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/kube"
 	s3service "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/s3"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/workflowcontroller/jobcontroller"
+	jobctl "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/job"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/containerlog"
 	s3tool "github.com/koderover/zadig/v2/pkg/tool/s3"
 	"github.com/koderover/zadig/v2/pkg/util"
 )
-
-func GetBuildJobContainerLogs(pipelineName, serviceName string, taskID int64, log *zap.SugaredLogger) (string, error) {
-	buildJobNamePrefix := fmt.Sprintf("%s-%s-%d-%s-%s", config.SingleType, pipelineName, taskID, config.TaskBuild, serviceName)
-	buildLog, err := getContainerLogFromS3(pipelineName, buildJobNamePrefix, taskID, log)
-	if err != nil {
-		return "", err
-	}
-
-	return buildLog, nil
-}
-
-func GetWorkflowBuildJobContainerLogs(pipelineName, serviceName, buildType string, taskID int64, log *zap.SugaredLogger) (string, error) {
-	buildJobNamePrefix := fmt.Sprintf("%s-%s-%d-%s-%s", config.WorkflowType, pipelineName, taskID, buildType, serviceName)
-	buildLog, err := getContainerLogFromS3(pipelineName, buildJobNamePrefix, taskID, log)
-	if err != nil {
-		return "", err
-	}
-
-	return buildLog, nil
-}
 
 func GetWorkflowV4JobContainerLogs(workflowName, jobName string, taskID int64, log *zap.SugaredLogger) (string, error) {
 	buildJobNamePrefix := jobName
@@ -63,21 +44,6 @@ func GetWorkflowV4JobContainerLogs(workflowName, jobName string, taskID int64, l
 		return "", err
 	}
 	return buildLog, nil
-}
-
-func GetTestJobContainerLogs(pipelineName, serviceName string, taskID int64, log *zap.SugaredLogger) (string, error) {
-	taskName := fmt.Sprintf("%s-%s-%d-%s-%s", config.SingleType, pipelineName, taskID, config.TaskTestingV2, serviceName)
-	return getContainerLogFromS3(pipelineName, taskName, taskID, log)
-}
-
-func GetWorkflowTestJobContainerLogs(pipelineName, serviceName, pipelineType string, taskID int64, log *zap.SugaredLogger) (string, error) {
-	workflowTypeString := config.WorkflowType
-	if pipelineType == string(config.TestType) {
-		workflowTypeString = config.TestType
-	}
-
-	taskName := fmt.Sprintf("%s-%s-%d-%s-%s", workflowTypeString, pipelineName, taskID, config.TaskTestingV2, serviceName)
-	return getContainerLogFromS3(pipelineName, taskName, taskID, log)
 }
 
 func getContainerLogFromS3(pipelineName, filenamePrefix string, taskID int64, log *zap.SugaredLogger) (string, error) {
@@ -144,44 +110,52 @@ func GetCurrentContainerLogs(podName, containerName, envName, productName string
 	return buf.String(), nil
 }
 
-func GetWorkflowBuildV3JobContainerLogs(workflowName, buildType string, taskID int64, log *zap.SugaredLogger) (string, error) {
-	buildJobNamePrefix := fmt.Sprintf("%s-%s-%d-%s-%s", config.WorkflowTypeV3, workflowName, taskID, buildType, fmt.Sprintf("%s-job", workflowName))
-	buildLog, err := getContainerLogFromS3(workflowName, buildJobNamePrefix, taskID, log)
-	if err != nil {
-		return "", err
-	}
-
-	return buildLog, nil
-}
-
 func GetScanningContainerLogs(scanID string, taskID int64, log *zap.SugaredLogger) (string, error) {
 	workflowName := fmt.Sprintf(setting.ScanWorkflowNamingConvention, scanID)
-
-	scanning, err := commonrepo.NewScanningColl().GetByID(scanID)
+	workflowTask, err := commonrepo.NewworkflowTaskv4Coll().Find(workflowName, taskID)
 	if err != nil {
-		log.Errorf("failed to get scanning from db to get scanning detail, the error is: %s", err)
+		return "", fmt.Errorf("failed to find workflow task for scanning: %s, err: %s", workflowName, err)
+	}
+
+	if len(workflowTask.Stages) != 1 {
+		log.Errorf("Invalid stage length: stage length for scanning should be 1")
+		return "", fmt.Errorf("invalid stage length")
+	}
+
+	if len(workflowTask.Stages[0].Jobs) != 1 {
+		log.Errorf("Invalid Job length: job length for scanning should be 1")
+		return "", fmt.Errorf("invalid job length")
+	}
+
+	jobInfo := new(commonmodels.TaskJobInfo)
+	if err := commonmodels.IToi(workflowTask.Stages[0].Jobs[0].JobInfo, jobInfo); err != nil {
+		return "", fmt.Errorf("convert job info to task job info error: %v", err)
+	}
+
+	job := workflowTask.Stages[0].Jobs[0]
+	jobName := jobctl.GenJobName(workflowTask.WorkflowArgs, job.OriginName, 0)
+	if job.OriginName == "" {
+		// compatible with old data
+		scanning, err := commonrepo.NewScanningColl().GetByID(scanID)
+		if err != nil {
+			log.Errorf("failed to get scanning from db to get scanning detail, the error is: %s", err)
+			return "", err
+		}
+
+		name := scanning.Name
+		if len(name) >= 32 {
+			name = strings.TrimSuffix(scanning.Name[:31], "-")
+		}
+
+		jobName = fmt.Sprintf("%s-%s", scanning.Name, name)
+	}
+
+	scanningLog, err := getContainerLogFromS3(workflowName, jobcontroller.GetJobContainerName(jobName), taskID, log)
+	if err != nil {
 		return "", err
 	}
 
-	name := scanning.Name
-	if len(name) >= 32 {
-		name = strings.TrimSuffix(scanning.Name[:31], "-")
-	}
-
-	scanningLogFilePrefix := fmt.Sprintf("%s-%s", scanning.Name, name)
-
-	if len(scanningLogFilePrefix) > 63 {
-		scanningLogFilePrefix = scanningLogFilePrefix[:63]
-	}
-	scanningLogFilePrefix = strings.Trim(scanningLogFilePrefix, "-")
-	scanningLogFilePrefix = strings.ToLower(scanningLogFilePrefix)
-
-	buildLog, err := getContainerLogFromS3(workflowName, scanningLogFilePrefix, taskID, log)
-	if err != nil {
-		return "", err
-	}
-
-	return buildLog, nil
+	return scanningLog, nil
 }
 
 func GetTestingContainerLogs(testName string, taskID int64, log *zap.SugaredLogger) (string, error) {
@@ -203,15 +177,20 @@ func GetTestingContainerLogs(testName string, taskID int64, log *zap.SugaredLogg
 		return "", fmt.Errorf("invalid job length")
 	}
 
-	jobInfo := new(commonmodels.TaskJobInfo)
-	if err := commonmodels.IToi(workflowTask.Stages[0].Jobs[0].JobInfo, jobInfo); err != nil {
-		return "", fmt.Errorf("convert job info to task job info error: %v", err)
+	job := workflowTask.Stages[0].Jobs[0]
+	jobName := jobctl.GenJobName(workflowTask.WorkflowArgs, job.OriginName, 0)
+	if job.OriginName == "" {
+		// compatible with old data
+		jobInfo := new(commonmodels.TaskJobInfo)
+		if err := commonmodels.IToi(workflowTask.Stages[0].Jobs[0].JobInfo, jobInfo); err != nil {
+			return "", fmt.Errorf("convert job info to task job info error: %v", err)
+		}
+		jobName = strings.ToLower(fmt.Sprintf("%s-%s-%s", jobInfo.JobName, jobInfo.TestingName, jobInfo.RandStr))
 	}
 
-	buildJobNamePrefix := strings.ToLower(fmt.Sprintf("%s-%s-%s", jobInfo.JobName, jobInfo.TestingName, jobInfo.RandStr))
-	buildLog, err := getContainerLogFromS3(workflowName, buildJobNamePrefix, taskID, log)
+	testingLog, err := getContainerLogFromS3(workflowName, jobcontroller.GetJobContainerName(jobName), taskID, log)
 	if err != nil {
 		return "", err
 	}
-	return buildLog, nil
+	return testingLog, nil
 }

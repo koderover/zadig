@@ -85,9 +85,15 @@ type StageTask struct {
 type JobTask struct {
 	ProjectKey  string `bson:"project_key"         json:"project_key"`
 	WorkflowKey string `bson:"workflow_key"        json:"workflow_key"`
-	Name        string `bson:"name"                json:"name"`
-	// jobTask unique id, unique in the workflow
-	Key        string `bson:"key"                 json:"key"`
+	// job key, used by variables in context
+	Key string `bson:"key"                 json:"key"`
+	// job name, and also the job id, unique in a workflow, also used in k8s job's container name
+	Name string `bson:"name"                json:"name"`
+	// job origin name in workflow
+	OriginName string `bson:"origin_name"         json:"origin_name"`
+	// job display name, used in frontend or in notification
+	DisplayName string `bson:"display_name"        json:"display_name"`
+	// k8s' job name for this job
 	K8sJobName string `bson:"k8s_job_name"        json:"k8s_job_name"`
 	// JobInfo contains the fields that make up the job task name, for frontend display
 	JobInfo          interface{}              `bson:"job_info"            json:"job_info"`

@@ -192,8 +192,11 @@ func (j *IstioRollBackJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error)
 
 	for _, target := range j.spec.Targets {
 		jobTask := &commonmodels.JobTask{
-			Name:    jobNameFormat(j.job.Name + "-" + target.WorkloadName),
-			JobType: string(config.JobIstioRollback),
+			Name:        GenJobName(j.workflow, j.job.Name, 0),
+			Key:         genJobKey(j.job.Name, target.WorkloadName),
+			DisplayName: genJobDisplayName(j.job.Name, target.WorkloadName),
+			OriginName:  j.job.Name,
+			JobType:     string(config.JobIstioRollback),
 			JobInfo: map[string]string{
 				JobNameKey:      j.job.Name,
 				"workload_name": target.WorkloadName,

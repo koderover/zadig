@@ -24,7 +24,10 @@ import (
 )
 
 type JobContext struct {
-	Name string `yaml:"name"`
+	Name        string `yaml:"name"`
+	Key         string `yaml:"key"`
+	OriginName  string `yaml:"origin_name"`
+	DisplayName string `yaml:"display_name"`
 	// Workspace 容器工作目录 [必填]
 	Workspace string `yaml:"workspace"`
 	Proxy     *Proxy `yaml:"proxy"`

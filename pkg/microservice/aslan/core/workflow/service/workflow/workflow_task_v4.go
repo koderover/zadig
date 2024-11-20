@@ -102,6 +102,9 @@ type StageTaskPreview struct {
 
 type JobTaskPreview struct {
 	Name                 string                       `bson:"name"           json:"name"`
+	Key                  string                       `bson:"key"            json:"key"`
+	DisplayName          string                       `bson:"display_name"   json:"display_name"`
+	OriginName           string                       `bson:"origin_name"    json:"origin_name"`
 	JobType              string                       `bson:"type"           json:"type"`
 	Status               config.Status                `bson:"status"         json:"status"`
 	StartTime            int64                        `bson:"start_time"     json:"start_time,omitempty"`
@@ -1374,6 +1377,9 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, 
 		}
 		jobPreview := &JobTaskPreview{
 			Name:                 job.Name,
+			Key:                  job.Key,
+			OriginName:           job.OriginName,
+			DisplayName:          job.DisplayName,
 			Status:               job.Status,
 			StartTime:            job.StartTime,
 			EndTime:              job.EndTime,

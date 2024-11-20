@@ -173,3 +173,30 @@ func (m *KeyValMap) List() []*commonmodels.KeyVal {
 	}
 	return ret
 }
+func genJobDisplayName(jobName string, options ...string) string {
+	parts := append([]string{jobName}, options...)
+	return strings.Join(parts, "-")
+}
+
+func genJobKey(jobName string, options ...string) string {
+	parts := append([]string{jobName}, options...)
+	return strings.Join(parts, ".")
+}
+
+func GenJobName(workflow *commonmodels.WorkflowV4, jobName string, subTaskID int) string {
+	stageName := ""
+	stageIndex := 0
+	jobIndex := 0
+	for i, stage := range workflow.Stages {
+		for j, job := range stage.Jobs {
+			if job.Name == jobName {
+				stageName = stage.Name
+				stageIndex = i
+				jobIndex = j
+				break
+			}
+		}
+	}
+
+	return fmt.Sprintf("job-%d-%d-%d-%s-%s", stageIndex, jobIndex, subTaskID, stageName, jobName)
+}

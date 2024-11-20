@@ -18,7 +18,6 @@ package job
 
 import (
 	"fmt"
-	"strings"
 
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
@@ -201,8 +200,10 @@ func (j *MseGrayReleaseJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error
 			return nil, errors.Errorf("service-%s: each service must contain one deployment", service.ServiceName)
 		}
 		resp = append(resp, &commonmodels.JobTask{
-			Name: jobNameFormat(service.ServiceName + "-" + j.job.Name),
-			Key:  strings.Join([]string{j.job.Name, service.ServiceName}, "."),
+			Name:        GenJobName(j.workflow, j.job.Name, 0),
+			Key:         genJobKey(j.job.Name, service.ServiceName),
+			DisplayName: genJobDisplayName(j.job.Name, service.ServiceName),
+			OriginName:  j.job.Name,
 			JobInfo: map[string]string{
 				JobNameKey:     j.job.Name,
 				"service_name": service.ServiceName,

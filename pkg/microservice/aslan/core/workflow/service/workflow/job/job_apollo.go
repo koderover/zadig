@@ -268,11 +268,13 @@ func (j *ApolloJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		return nil, errors.New("apollo issue list is empty")
 	}
 	jobTask := &commonmodels.JobTask{
-		Name: j.job.Name,
+		Name:        GenJobName(j.workflow, j.job.Name, 0),
+		Key:         genJobKey(j.job.Name),
+		DisplayName: genJobDisplayName(j.job.Name),
+		OriginName:  j.job.Name,
 		JobInfo: map[string]string{
 			JobNameKey: j.job.Name,
 		},
-		Key:     j.job.Name,
 		JobType: string(config.JobApollo),
 		Spec: &commonmodels.JobTaskApolloSpec{
 			ApolloID: j.spec.ApolloID,

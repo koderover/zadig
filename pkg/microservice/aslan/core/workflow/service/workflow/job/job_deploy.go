@@ -855,7 +855,7 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 	timeout := templateProduct.Timeout * 60
 
 	if j.spec.DeployType == setting.K8SDeployType {
-		for _, svc := range j.spec.Services {
+		for jobSubTaskID, svc := range j.spec.Services {
 			serviceName := svc.ServiceName
 			jobTaskSpec := &commonmodels.JobTaskDeploySpec{
 				Env:                envName,
@@ -921,8 +921,10 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 				}
 			}
 			jobTask := &commonmodels.JobTask{
-				Name: jobNameFormat(serviceName + "-" + j.job.Name),
-				Key:  strings.Join([]string{j.job.Name, serviceName}, "."),
+				Key:         genJobKey(j.job.Name, serviceName),
+				Name:        GenJobName(j.workflow, j.job.Name, jobSubTaskID),
+				DisplayName: genJobDisplayName(j.job.Name, serviceName),
+				OriginName:  j.job.Name,
 				JobInfo: map[string]string{
 					JobNameKey:     j.job.Name,
 					"service_name": serviceName,
@@ -992,7 +994,7 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 	}
 
 	if j.spec.DeployType == setting.HelmDeployType {
-		for _, svc := range j.spec.Services {
+		for jobSubTaskID, svc := range j.spec.Services {
 			var serviceRevision int64
 			if pSvc, ok := productServiceMap[svc.ServiceName]; ok {
 				serviceRevision = pSvc.Revision
@@ -1035,8 +1037,10 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 				})
 			}
 			jobTask := &commonmodels.JobTask{
-				Name: jobNameFormat(svc.ServiceName + "-" + j.job.Name),
-				Key:  strings.Join([]string{j.job.Name, svc.ServiceName}, "."),
+				Key:         genJobKey(j.job.Name, svc.ServiceName),
+				Name:        GenJobName(j.workflow, j.job.Name, jobSubTaskID),
+				DisplayName: genJobDisplayName(j.job.Name, svc.ServiceName),
+				OriginName:  j.job.Name,
 				JobInfo: map[string]string{
 					JobNameKey:     j.job.Name,
 					"service_name": svc.ServiceName,

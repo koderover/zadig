@@ -335,16 +335,17 @@ func (w *Service) getNotificationContent(notify *models.NotifyCtl, task *models.
 
 		for _, job := range stage.Jobs {
 			workflowNotifyJob := &webhooknotify.WorkflowNotifyJobTask{
-				Name:      job.Name,
-				JobType:   job.JobType,
-				Status:    job.Status,
-				StartTime: job.StartTime,
-				EndTime:   job.EndTime,
-				Error:     job.Error,
+				Name:        job.Name,
+				DisplayName: job.DisplayName,
+				JobType:     job.JobType,
+				Status:      job.Status,
+				StartTime:   job.StartTime,
+				EndTime:     job.EndTime,
+				Error:       job.Error,
 			}
 
-			jobTplcontent := "{{if ne .WebHookType \"feishu\"}}\n\n{{end}}{{if eq .WebHookType \"dingding\"}}---\n\n##### {{end}}**{{jobType .Job.JobType }}**: {{.Job.Name}}    **状态**: {{taskStatus .Job.Status }} \n"
-			mailJobTplcontent := "{{jobType .Job.JobType }}：{{.Job.Name}}    状态：{{taskStatus .Job.Status }} \n"
+			jobTplcontent := "{{if ne .WebHookType \"feishu\"}}\n\n{{end}}{{if eq .WebHookType \"dingding\"}}---\n\n##### {{end}}**{{jobType .Job.JobType }}**: {{.Job.DisplayName}}    **状态**: {{taskStatus .Job.Status }} \n"
+			mailJobTplcontent := "{{jobType .Job.JobType }}：{{.Job.DisplayName}}    状态：{{taskStatus .Job.Status }} \n"
 			switch job.JobType {
 			case string(config.JobZadigBuild):
 				fallthrough

@@ -32,12 +32,12 @@ import (
 type distributeImageCtl struct {
 	step                *commonmodels.StepTask
 	workflowCtx         *commonmodels.WorkflowTaskCtx
-	jobName             string
+	jobKey              string
 	distributeImageSpec *step.StepImageDistributeSpec
 	log                 *zap.SugaredLogger
 }
 
-func NewDistributeCtl(stepTask *commonmodels.StepTask, workflowCtx *commonmodels.WorkflowTaskCtx, jobName string, log *zap.SugaredLogger) (*distributeImageCtl, error) {
+func NewDistributeCtl(stepTask *commonmodels.StepTask, workflowCtx *commonmodels.WorkflowTaskCtx, jobKey string, log *zap.SugaredLogger) (*distributeImageCtl, error) {
 	yamlString, err := yaml.Marshal(stepTask.Spec)
 	if err != nil {
 		return nil, fmt.Errorf("marshal image distribute spec error: %v", err)
@@ -47,7 +47,7 @@ func NewDistributeCtl(stepTask *commonmodels.StepTask, workflowCtx *commonmodels
 		return nil, fmt.Errorf("unmarshal image distribute error: %v", err)
 	}
 	stepTask.Spec = distributeSpec
-	return &distributeImageCtl{distributeImageSpec: distributeSpec, workflowCtx: workflowCtx, jobName: jobName, log: log, step: stepTask}, nil
+	return &distributeImageCtl{distributeImageSpec: distributeSpec, workflowCtx: workflowCtx, jobKey: jobKey, log: log, step: stepTask}, nil
 }
 
 func (s *distributeImageCtl) PreRun(ctx context.Context) error {
@@ -64,7 +64,7 @@ func (s *distributeImageCtl) PreRun(ctx context.Context) error {
 
 func (s *distributeImageCtl) AfterRun(ctx context.Context) error {
 	for _, target := range s.distributeImageSpec.DistributeTarget {
-		targetKey := strings.Join([]string{s.jobName, target.ServiceName, target.ServiceModule}, ".")
+		targetKey := strings.Join([]string{s.jobKey, target.ServiceName, target.ServiceModule}, ".")
 		s.workflowCtx.GlobalContextSet(job.GetJobOutputKey(targetKey, "IMAGE"), target.TargetImage)
 	}
 	return nil

@@ -322,8 +322,10 @@ func (j *ImageDistributeJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, erro
 		},
 	}
 	jobTask := &commonmodels.JobTask{
-		Name: j.job.Name,
-		Key:  j.job.Name,
+		Name:        GenJobName(j.workflow, j.job.Name, 0),
+		Key:         genJobKey(j.job.Name),
+		DisplayName: genJobDisplayName(j.job.Name),
+		OriginName:  j.job.Name,
 		JobInfo: map[string]string{
 			JobNameKey: j.job.Name,
 		},
@@ -501,10 +503,10 @@ func (j *ImageDistributeJob) GetOutPuts(log *zap.SugaredLogger) []string {
 		return resp
 	}
 	for _, target := range j.spec.Targets {
-		targetKey := strings.Join([]string{j.job.Name, target.ServiceName, target.ServiceModule}, ".")
+		targetKey := genJobKey(j.job.Name, target.ServiceName, target.ServiceModule)
 		resp = append(resp, getOutputKey(targetKey, []*commonmodels.Output{{Name: "IMAGE"}})...)
 	}
-	targetKey := strings.Join([]string{j.job.Name, "<SERVICE>", "<MODULE>"}, ".")
+	targetKey := genJobKey(j.job.Name, "<SERVICE>", "<MODULE>")
 	resp = append(resp, getOutputKey(targetKey, []*commonmodels.Output{{Name: "IMAGE"}})...)
 	return resp
 }
