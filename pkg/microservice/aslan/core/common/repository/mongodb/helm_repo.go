@@ -103,13 +103,14 @@ func (c *HelmRepoColl) Update(id string, args *models.HelmRepo) error {
 
 	query := bson.M{"_id": oid}
 	change := bson.M{"$set": bson.M{
-		"repo_name":  args.RepoName,
-		"url":        args.URL,
-		"username":   args.Username,
-		"password":   args.Password,
-		"projects":   args.Projects,
-		"update_by":  args.UpdateBy,
-		"updated_at": time.Now().Unix(),
+		"repo_name":    args.RepoName,
+		"url":          args.URL,
+		"username":     args.Username,
+		"password":     args.Password,
+		"projects":     args.Projects,
+		"enable_proxy": args.EnableProxy,
+		"update_by":    args.UpdateBy,
+		"updated_at":   time.Now().Unix(),
 	}}
 
 	_, err = c.UpdateOne(context.TODO(), query, change, options.Update().SetUpsert(true))

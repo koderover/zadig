@@ -20,9 +20,9 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -31,6 +31,9 @@ import (
 	"reflect"
 	"strings"
 	"sync"
+	"time"
+
+	"github.com/pkg/errors"
 
 	cm "github.com/chartmuseum/helm-push/pkg/chartmuseum"
 	hc "github.com/mittwald/go-helm-client"
@@ -39,6 +42,7 @@ import (
 	"helm.sh/helm/v3/pkg/chart/loader"
 	"helm.sh/helm/v3/pkg/cli"
 	"helm.sh/helm/v3/pkg/downloader"
+	"helm.sh/helm/v3/pkg/getter"
 	"helm.sh/helm/v3/pkg/plugin"
 	"helm.sh/helm/v3/pkg/registry"
 	"helm.sh/helm/v3/pkg/release"
@@ -52,6 +56,7 @@ import (
 	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
+	"k8s.io/helm/pkg/chartutil"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 
@@ -82,10 +87,12 @@ func init() {
 
 type HelmClient struct {
 	*hc.HelmClient
-	kubeClient client.Client
-	Namespace  string
-	lock       *sync.Mutex
-	RestConfig *rest.Config
+	kubeClient     client.Client
+	Namespace      string
+	lock           *sync.Mutex
+	RestConfig     *rest.Config
+	RegistryClient *registry.Client
+	Transport      *http.Transport
 }
 
 // NewClient returns a new Helm client with no construct parameters
@@ -102,11 +109,12 @@ func NewClient() (*HelmClient, error) {
 	helmClient := hcClient.(*hc.HelmClient)
 	helmClient.Settings = generalSettings
 	return &HelmClient{
-		helmClient,
-		nil,
-		"",
-		&sync.Mutex{},
-		nil,
+		HelmClient:     helmClient,
+		kubeClient:     nil,
+		Namespace:      "",
+		lock:           &sync.Mutex{},
+		RestConfig:     nil,
+		RegistryClient: nil,
 	}, nil
 }
 
@@ -136,11 +144,12 @@ func NewClientFromNamespace(clusterID, namespace string) (*HelmClient, error) {
 
 	helmClient := hcClient.(*hc.HelmClient)
 	return &HelmClient{
-		helmClient,
-		kubeClient,
-		namespace,
-		&sync.Mutex{},
-		restConfig,
+		HelmClient:     helmClient,
+		kubeClient:     kubeClient,
+		Namespace:      namespace,
+		lock:           &sync.Mutex{},
+		RestConfig:     restConfig,
+		RegistryClient: nil,
 	}, nil
 }
 
@@ -160,11 +169,12 @@ func NewClientFromRestConf(restConfig *rest.Config, ns string) (*HelmClient, err
 
 	helmClient := hcClient.(*hc.HelmClient)
 	return &HelmClient{
-		helmClient,
-		nil,
-		ns,
-		&sync.Mutex{},
-		restConfig,
+		HelmClient:     helmClient,
+		kubeClient:     nil,
+		Namespace:      ns,
+		lock:           &sync.Mutex{},
+		RestConfig:     restConfig,
+		RegistryClient: nil,
 	}, nil
 }
 
@@ -578,12 +588,30 @@ func (hClient *HelmClient) InstallOrUpgradeChart(ctx context.Context, spec *hc.C
 	}
 }
 
+func (hClient *HelmClient) newGetter(providers getter.Providers, repoUrl string) (getter.Getter, error) {
+	u, err := url.Parse(repoUrl)
+	if err != nil {
+		return nil, errors.Errorf("invalid chart URL format: %s", repoUrl)
+	}
+
+	for _, pp := range providers {
+		if pp.Provides(u.Scheme) {
+			return pp.New(getter.WithTransport(hClient.Transport))
+		}
+	}
+	return nil, errors.Errorf("scheme %q not supported", u.Scheme)
+}
+
 // UpdateChartRepo works like executing `helm repo update`
 // environment `HELM_REPO_USERNAME` and `HELM_REPO_PASSWORD` are only required for ali acr repos
 func (hClient *HelmClient) UpdateChartRepo(repoEntry *repo.Entry) (string, error) {
 	chartRepo, err := repo.NewChartRepository(repoEntry, hClient.Providers)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to new chart repo: %s, err: %w", repoEntry.Name, err)
+	}
+	chartRepo.Client, err = hClient.newGetter(hClient.Providers, repoEntry.URL)
+	if err != nil {
+		return "", fmt.Errorf("failed to new getter for repo: %s, err: %w", repoEntry.URL, err)
 	}
 	chartRepo.CachePath = hClient.Settings.RepositoryCache
 
@@ -659,6 +687,7 @@ func (hClient *HelmClient) DownloadChart(repoEntry *repo.Entry, chartRef string,
 	if err != nil {
 		return err
 	}
+
 	pull := action.NewPullWithOpts(action.WithConfig(&action.Configuration{}))
 	pull.Password = repoEntry.Username
 	pull.Username = repoEntry.Password
@@ -667,7 +696,7 @@ func (hClient *HelmClient) DownloadChart(repoEntry *repo.Entry, chartRef string,
 	pull.DestDir = destDir
 	pull.UntarDir = destDir
 	pull.Untar = unTar
-	_, err = pull.Run(chartRef)
+	_, err = hClient.runPull(pull, chartRef)
 	return err
 }
 
@@ -695,8 +724,102 @@ func (hClient *HelmClient) downloadOCIChart(repoEntry *repo.Entry, chartRef stri
 	pull.DestDir = destDir
 	pull.UntarDir = destDir
 	pull.Untar = unTar
-	_, err = pull.Run(chartRef)
+	_, err = hClient.runPull(pull, chartRef)
 	return err
+}
+
+// rewrite Pull.Run in helm.sh/helm/v3/pkg/action to support proxy
+func (hClient *HelmClient) runPull(p *action.Pull, chartRef string) (string, error) {
+	var out strings.Builder
+
+	c := downloader.ChartDownloader{
+		Out:     &out,
+		Keyring: p.Keyring,
+		Verify:  downloader.VerifyNever,
+		Getters: getter.All(p.Settings),
+		Options: []getter.Option{
+			getter.WithBasicAuth(p.Username, p.Password),
+			getter.WithPassCredentialsAll(p.PassCredentialsAll),
+			getter.WithTLSClientConfig(p.CertFile, p.KeyFile, p.CaFile),
+			getter.WithInsecureSkipVerifyTLS(p.InsecureSkipTLSverify),
+		},
+		RegistryClient:   hClient.RegistryClient,
+		RepositoryConfig: p.Settings.RepositoryConfig,
+		RepositoryCache:  p.Settings.RepositoryCache,
+	}
+	c.Options = append(c.Options, getter.WithTransport(hClient.Transport))
+
+	if registry.IsOCI(chartRef) {
+		c.Options = append(c.Options,
+			getter.WithRegistryClient(hClient.RegistryClient))
+	}
+
+	if p.Verify {
+		c.Verify = downloader.VerifyAlways
+	} else if p.VerifyLater {
+		c.Verify = downloader.VerifyLater
+	}
+
+	// If untar is set, we fetch to a tempdir, then untar and copy after
+	// verification.
+	dest := p.DestDir
+	if p.Untar {
+		var err error
+		dest, err = ioutil.TempDir("", "helm-")
+		if err != nil {
+			return out.String(), errors.Wrap(err, "failed to untar")
+		}
+		defer os.RemoveAll(dest)
+	}
+
+	if p.RepoURL != "" {
+		chartURL, err := repo.FindChartInAuthAndTLSAndPassRepoURL(p.RepoURL, p.Username, p.Password, chartRef, p.Version, p.CertFile, p.KeyFile, p.CaFile, p.InsecureSkipTLSverify, p.PassCredentialsAll, getter.All(p.Settings))
+		if err != nil {
+			return out.String(), err
+		}
+		chartRef = chartURL
+	}
+
+	saved, v, err := c.DownloadTo(chartRef, p.Version, dest)
+	if err != nil {
+		return out.String(), err
+	}
+
+	if p.Verify {
+		for name := range v.SignedBy.Identities {
+			fmt.Fprintf(&out, "Signed by: %v\n", name)
+		}
+		fmt.Fprintf(&out, "Using Key With Fingerprint: %X\n", v.SignedBy.PrimaryKey.Fingerprint)
+		fmt.Fprintf(&out, "Chart Hash Verified: %s\n", v.FileHash)
+	}
+
+	// After verification, untar the chart into the requested directory.
+	if p.Untar {
+		ud := p.UntarDir
+		if !filepath.IsAbs(ud) {
+			ud = filepath.Join(p.DestDir, ud)
+		}
+		// Let udCheck to check conflict file/dir without replacing ud when untarDir is the current directory(.).
+		udCheck := ud
+		if udCheck == "." {
+			_, udCheck = filepath.Split(chartRef)
+		} else {
+			_, chartName := filepath.Split(chartRef)
+			udCheck = filepath.Join(udCheck, chartName)
+		}
+
+		if _, err := os.Stat(udCheck); err != nil {
+			if err := os.MkdirAll(udCheck, 0755); err != nil {
+				return out.String(), errors.Wrap(err, "failed to untar (mkdir)")
+			}
+
+		} else {
+			return out.String(), errors.Errorf("failed to untar: a file or directory with the name %s already exists", udCheck)
+		}
+
+		return out.String(), chartutil.ExpandFile(ud, saved)
+	}
+	return out.String(), nil
 }
 
 func (hClient *HelmClient) pushAcrChart(repoEntry *repo.Entry, chartPath string) error {
@@ -716,8 +839,9 @@ func (hClient *HelmClient) pushAcrChart(repoEntry *repo.Entry, chartPath string)
 	return nil
 }
 
-func (hClient *HelmClient) pushChartMuseum(repoEntry *repo.Entry, chartPath string) error {
-	chartClient, err := cm.NewClient(
+func (hClient *HelmClient) pushChartMuseum(repoEntry *repo.Entry, chartPath string, proxy *Proxy) error {
+	chartClient, err := newHelmChartMuseumClient(
+		proxy,
 		cm.URL(repoEntry.URL),
 		cm.Username(repoEntry.Username),
 		cm.Password(repoEntry.Password),
@@ -740,12 +864,35 @@ func (hClient *HelmClient) pushChartMuseum(repoEntry *repo.Entry, chartPath stri
 }
 
 func (hClient *HelmClient) pushOCIRegistry(repoEntry *repo.Entry, chartPath string) error {
-	pushConfig := &action.Configuration{}
 	var err error
+
+	// copy from helm.sh/helm/v3/pkg/registry
+	httpclient := &http.Client{
+		// From https://github.com/google/go-containerregistry/blob/31786c6cbb82d6ec4fb8eb79cd9387905130534e/pkg/v1/remote/options.go#L87
+		Transport: &http.Transport{
+			DialContext: (&net.Dialer{
+				// By default we wrap the transport in retries, so reduce the
+				// default dial timeout to 5s to avoid 5x 30s of connection
+				// timeouts when doing the "ping" on certain http registries.
+				Timeout:   5 * time.Second,
+				KeepAlive: 30 * time.Second,
+			}).DialContext,
+			ForceAttemptHTTP2:     true,
+			MaxIdleConns:          100,
+			IdleConnTimeout:       90 * time.Second,
+			TLSHandshakeTimeout:   10 * time.Second,
+			ExpectContinueTimeout: 1 * time.Second,
+			Proxy:                 hClient.Transport.Proxy,
+			TLSClientConfig:       hClient.Transport.TLSClientConfig,
+		},
+	}
+
+	pushConfig := &action.Configuration{}
 	pushConfig.RegistryClient, err = registry.NewClient(
 		registry.ClientOptEnableCache(true),
 		registry.ClientOptDebug(true),
 		registry.ClientOptWriter(os.Stdout),
+		registry.ClientOptHTTPClient(httpclient),
 	)
 
 	hostUrl := strings.TrimPrefix(repoEntry.URL, fmt.Sprintf("%s://", registry.OCIScheme))
@@ -783,7 +930,7 @@ func handlePushResponse(resp *http.Response) error {
 	return nil
 }
 
-func (hClient *HelmClient) PushChart(repoEntry *repo.Entry, chartPath string) error {
+func (hClient *HelmClient) PushChart(repoEntry *repo.Entry, chartPath string, proxy *Proxy) error {
 	hClient.lock.Lock()
 	defer hClient.lock.Unlock()
 	repoUrl, err := url.Parse(repoEntry.URL)
@@ -799,7 +946,7 @@ func (hClient *HelmClient) PushChart(repoEntry *repo.Entry, chartPath string) er
 		if err != nil {
 			return err
 		}
-		return hClient.pushChartMuseum(repoEntry, chartPath)
+		return hClient.pushChartMuseum(repoEntry, chartPath, proxy)
 	}
 }
 
@@ -873,4 +1020,30 @@ func mergeUpgradeOptions(chartSpec *hc.ChartSpec, upgradeOptions *action.Upgrade
 	upgradeOptions.CleanupOnFail = chartSpec.CleanupOnFail
 	upgradeOptions.DryRun = chartSpec.DryRun
 	upgradeOptions.SubNotes = chartSpec.SubNotes
+}
+
+type Proxy struct {
+	Enabled  bool
+	URL      string
+	ProxyURL string
+}
+
+// rewrite NewClient() in github.com/chartmuseum/helm-push/pkg/chartmuseum to support proxy
+func newHelmChartMuseumClient(proxy *Proxy, opts ...cm.Option) (*cm.Client, error) {
+	var client cm.Client
+	client.Client = &http.Client{}
+	client.Option(opts...)
+
+	if !proxy.Enabled {
+		return &client, nil
+	}
+
+	transport, err := util.NewTransport(proxy.URL, "", "", "", false, proxy.ProxyURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to new transport, err: %s", err)
+	}
+
+	client.Transport = transport
+
+	return &client, nil
 }

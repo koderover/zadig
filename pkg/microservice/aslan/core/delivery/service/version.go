@@ -923,13 +923,18 @@ func handleSingleChart(chartData *DeliveryChartData, product *commonmodels.Produ
 		return nil, err
 	}
 
-	client, err := helmtool.NewClient()
+	client, err := commonutil.NewHelmClient(chartRepo)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create chart repo client, repoName: %s", chartRepo.RepoName)
 	}
 
-	log.Infof("pushing chart %s to %s...", filepath.Base(chartPackagePath), chartRepo.URL)
-	err = client.PushChart(commonutil.GeneHelmRepo(chartRepo), chartPackagePath)
+	proxy, err := commonutil.GenHelmChartProxy(chartRepo)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to generate helm chart proxy, repoName: %s", chartRepo.RepoName)
+	}
+
+	log.Debugf("pushing chart %s to %s...", filepath.Base(chartPackagePath), chartRepo.URL)
+	err = client.PushChart(commonutil.GeneHelmRepo(chartRepo), chartPackagePath, proxy)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to push chart: %s", chartPackagePath)
 	}
@@ -1986,7 +1991,7 @@ func downloadChart(deliveryVersion *commonmodels.DeliveryVersion, chartInfo *com
 	if err != nil {
 		return "", err
 	}
-	hClient, err := helmtool.NewClient()
+	hClient, err := commonutil.NewHelmClient(chartRepo)
 	if err != nil {
 		return "", err
 	}
@@ -2052,7 +2057,7 @@ func getIndexInfoFromChartRepo(chartRepoName string) (*repo.IndexFile, error) {
 	if err != nil {
 		return nil, err
 	}
-	hClient, err := helmtool.NewClient()
+	hClient, err := commonutil.NewHelmClient(chartRepo)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create chart repo client")
 	}

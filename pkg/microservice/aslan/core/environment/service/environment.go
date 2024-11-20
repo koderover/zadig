@@ -69,7 +69,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/tool/analysis"
 	"github.com/koderover/zadig/v2/pkg/tool/cache"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
-	"github.com/koderover/zadig/v2/pkg/tool/helmclient"
 	helmtool "github.com/koderover/zadig/v2/pkg/tool/helmclient"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/informer"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/serializer"
@@ -1549,7 +1548,7 @@ func GeneEstimatedValues(productName, envName, serviceOrReleaseName, scene, form
 			return nil, fmt.Errorf("failed to query chart-repo info, repoName: %s", arg.ChartRepo)
 		}
 
-		client, err := helmtool.NewClient()
+		client, err := commonutil.NewHelmClient(chartRepo)
 		if err != nil {
 			return nil, fmt.Errorf("failed to new helm client, err %s", err)
 		}
@@ -3156,7 +3155,7 @@ func proceedHelmRelease(productResp *commonmodels.Product, helmClient *helmtool.
 			// remove local file to untar
 			_ = os.RemoveAll(localPath)
 
-			hClient, err := helmclient.NewClient()
+			hClient, err := commonutil.NewHelmClient(chartRepo)
 			if err != nil {
 				return err
 			}

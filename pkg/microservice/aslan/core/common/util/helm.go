@@ -31,12 +31,14 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	templatemodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models/template"
+	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/command"
 	fsservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/fs"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/shared/client/systemconfig"
 	helmtool "github.com/koderover/zadig/v2/pkg/tool/helmclient"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
+	"github.com/koderover/zadig/v2/pkg/util"
 	"github.com/koderover/zadig/v2/pkg/util/converter"
 	fsutil "github.com/koderover/zadig/v2/pkg/util/fs"
 	yamlutil "github.com/koderover/zadig/v2/pkg/util/yaml"
@@ -374,4 +376,54 @@ func GeneHelmMergedValues(productSvc *commonmodels.ProductService, defaultValues
 		return "", fmt.Errorf("failed to merge override yaml %s and values %s, err: %s", renderChart.GetOverrideYaml(), renderChart.OverrideValues, err)
 	}
 	return mergedValues, nil
+}
+
+func NewHelmClient(chartRepo *commonmodels.HelmRepo) (*helmtool.HelmClient, error) {
+	client, err := helmtool.NewClient()
+	if err != nil {
+		return nil, fmt.Errorf("failed to new helm client, err: %s", err)
+	}
+
+	if !chartRepo.EnableProxy {
+		return client, nil
+	} else {
+		proxy, err := commonrepo.NewProxyColl().List(&commonrepo.ProxyArgs{})
+		if err != nil {
+			return nil, fmt.Errorf("failed to get proxy, err: %s", err)
+		}
+
+		if len(proxy) == 0 {
+			return nil, fmt.Errorf("enabled proxy for helm client, but no proxy found")
+		}
+
+		transport, err := util.NewTransport(chartRepo.URL, "", "", "", false, proxy[0].GetProxyURL())
+		if err != nil {
+			return nil, fmt.Errorf("failed to new transport, err: %s", err)
+		}
+
+		client.Transport = transport
+
+		return client, nil
+	}
+}
+
+func GenHelmChartProxy(chartRepo *commonmodels.HelmRepo) (*helmtool.Proxy, error) {
+	proxy := &helmtool.Proxy{
+		Enabled: chartRepo.EnableProxy,
+		URL:     chartRepo.URL,
+	}
+
+	if chartRepo.EnableProxy {
+		proxies, err := commonrepo.NewProxyColl().List(&commonrepo.ProxyArgs{})
+		if err != nil {
+			return nil, fmt.Errorf("failed to get proxy, err: %s", err)
+		}
+
+		if len(proxies) == 0 {
+			return nil, fmt.Errorf("enabled proxy for helm chart, but no proxy found")
+		}
+		proxy.ProxyURL = proxies[0].GetProxyURL()
+	}
+
+	return proxy, nil
 }

@@ -30,6 +30,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/clientcmd/api"
+	"k8s.io/klog/v2"
 	"k8s.io/metrics/pkg/client/clientset/versioned/typed/metrics/v1beta1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -39,6 +40,10 @@ import (
 var once sync.Once
 
 var c cluster.Cluster
+
+func init() {
+	ctrl.SetLogger(klog.Background())
+}
 
 // Cluster is a singleton, it will be initialized only once.
 func Cluster() cluster.Cluster {
