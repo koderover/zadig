@@ -948,7 +948,7 @@ func (w *Service) sendNotification(title, content string, notify *models.NotifyC
 			return fmt.Errorf("failed to send notification by lark app: failed to send lark at message, error: %s", err)
 		}
 	case setting.NotifyWebHookTypeFeishuPerson:
-		client, err := larkservice.GetLarkClientByIMAppID(notify.LarkGroupNotificationConfig.AppID)
+		client, err := larkservice.GetLarkClientByIMAppID(notify.LarkPersonNotificationConfig.AppID)
 		if err != nil {
 			return fmt.Errorf("failed to send notification by lark app: failed to create lark client appID: %s, error: %s", notify.LarkGroupNotificationConfig.AppID, err)
 		}
