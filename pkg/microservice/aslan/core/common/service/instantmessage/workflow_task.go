@@ -229,7 +229,7 @@ func (w *Service) SendWorkflowTaskNotifications(task *models.WorkflowTask) error
 							return fmt.Errorf("executor phone not configured")
 						}
 
-						client, err := larkservice.GetLarkClientByIMAppID(notify.LarkGroupNotificationConfig.AppID)
+						client, err := larkservice.GetLarkClientByIMAppID(notify.LarkPersonNotificationConfig.AppID)
 						if err != nil {
 							return fmt.Errorf("failed to get notify target info: create feishu client error: %s", err)
 						}
