@@ -958,6 +958,10 @@ func (w *Service) sendNotification(title, content string, notify *models.NotifyC
 			return fmt.Errorf("failed to send notification by lark app: failed to parse the lark card, error: %s", err)
 		}
 
+		fmt.Println("card!!!!!!!!!!!!!!!!!!!!!!!!")
+		fmt.Println(messageContent)
+		fmt.Println("==================================================")
+
 		respErr := new(multierror.Error)
 		for _, target := range notify.LarkPersonNotificationConfig.TargetUsers {
 			err = w.sendFeishuMessageFromClient(client, target.IDType, target.ID, LarkMessageTypeCard, string(messageContent))
