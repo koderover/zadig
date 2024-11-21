@@ -210,14 +210,15 @@ func (w *Service) SendWorkflowTaskNotifications(task *models.WorkflowTask) error
 			}
 
 			if notify.WebHookType == setting.NotifyWebHookTypeFeishuPerson {
-				if task.TaskCreatorID != "" {
-					errMsg := fmt.Sprintf("executor id is empty, cannot send message")
-					log.Error(errMsg)
-					return errors.New(errMsg)
-				}
 
 				for _, target := range notify.LarkPersonNotificationConfig.TargetUsers {
 					if target.IsExecutor {
+						if task.TaskCreatorID == "" {
+							errMsg := fmt.Sprintf("executor id is empty, cannot send message")
+							log.Error(errMsg)
+							return errors.New(errMsg)
+						}
+
 						userInfo, err := userclient.New().GetUserByID(task.TaskCreatorID)
 						if err != nil {
 							log.Errorf("failed to find user %s, error: %s", task.TaskCreatorID, err)
