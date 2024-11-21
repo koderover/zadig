@@ -266,7 +266,11 @@ func GetLarkUserID(approvalID, queryType, queryValue, userIDType string) (string
 	if err != nil {
 		return "", errors.Wrap(err, "get client")
 	}
-	return cli.GetUserIDByEmailOrMobile(lark.QueryTypeEmail, queryValue, userIDType)
+	userInfo, err := cli.GetUserIDByEmailOrMobile(lark.QueryTypeEmail, queryValue, userIDType)
+	if err != nil {
+		return "", err
+	}
+	return util.GetStringFromPointer(userInfo.UserId), nil
 }
 
 var (

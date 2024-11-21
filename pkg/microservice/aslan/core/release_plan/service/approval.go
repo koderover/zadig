@@ -32,6 +32,7 @@ import (
 	workwxservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/workwx"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/setting"
+	util2 "github.com/koderover/zadig/v2/pkg/util"
 	"github.com/pkg/errors"
 
 	configbase "github.com/koderover/zadig/v2/pkg/config"
@@ -476,10 +477,11 @@ func createLarkApproval(approval *models.LarkApproval, manager, phone, content s
 
 	var userID string
 	if approval.DefaultApprovalInitiator == nil {
-		userID, err = client.GetUserIDByEmailOrMobile(lark.QueryTypeMobile, phone, setting.LarkUserOpenID)
+		userInfo, err := client.GetUserIDByEmailOrMobile(lark.QueryTypeMobile, phone, setting.LarkUserOpenID)
 		if err != nil {
 			return errors.Wrapf(err, "get user lark id by mobile-%s", phone)
 		}
+		userID = util2.GetStringFromPointer(userInfo.UserId)
 	} else {
 		userID = approval.DefaultApprovalInitiator.ID
 		content = fmt.Sprintf("审批发起人: %s\n%s", manager, content)

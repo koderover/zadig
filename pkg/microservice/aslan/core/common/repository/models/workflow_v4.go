@@ -988,9 +988,9 @@ type LarkPersonNotificationConfig struct {
 }
 
 type LarkHookNotificationConfig struct {
-	HookAddress string           `bson:"hook_address" json:"hook_address" yaml:"hook_address"`
-	AtUsers     []*lark.UserInfo `bson:"at_users"     json:"at_users"     yaml:"at_users"`
-	IsAtAll     bool             `bson:"is_at_all"    json:"is_at_all"    yaml:"is_at_all"`
+	HookAddress string   `bson:"hook_address" json:"hook_address" yaml:"hook_address"`
+	AtUsers     []string `bson:"at_users"     json:"at_users"     yaml:"at_users"`
+	IsAtAll     bool     `bson:"is_at_all"    json:"is_at_all"    yaml:"is_at_all"`
 }
 
 type WechatNotificationConfig struct {

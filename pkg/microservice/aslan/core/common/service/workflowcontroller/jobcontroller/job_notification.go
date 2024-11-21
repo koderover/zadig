@@ -136,7 +136,6 @@ func (c *NotificationJobCtl) Run(ctx context.Context) {
 		}
 
 		// the logic to change the executor in the list to the real user.
-
 		respErr := new(multierror.Error)
 
 		for _, target := range c.jobTaskSpec.LarkPersonNotificationConfig.TargetUsers {

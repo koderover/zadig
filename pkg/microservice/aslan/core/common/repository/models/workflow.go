@@ -338,6 +338,8 @@ type NotifyCtl struct {
 	MailNotificationConfig       *MailNotificationConfig       `bson:"mail_notification_config,omitempty"        yaml:"mail_notification_config,omitempty"        json:"mail_notification_config,omitempty"`
 	WebhookNotificationConfig    *WebhookNotificationConfig    `bson:"webhook_notification_config,omitempty"     yaml:"webhook_notification_config,omitempty"     json:"webhook_notification_config,omitempty"`
 
+	NotifyTypes []string `bson:"notify_type"                   yaml:"notify_type"                   json:"notify_type"`
+
 	// below is the deprecated field. the value of those will be empty if the data is created after version 3.3.0. These
 	// field will only be used for data compatibility. USE WITH CAUTION!!!
 	WeChatWebHook   string                    `bson:"weChat_webHook,omitempty"      yaml:"weChat_webHook,omitempty"      json:"weChat_webHook,omitempty"`
@@ -352,7 +354,91 @@ type NotifyCtl struct {
 	LarkUserIDs     []string                  `bson:"lark_user_ids,omitempty"       yaml:"lark_user_ids,omitempty"       json:"lark_user_ids,omitempty"`
 	LarkAtUsers     []*lark.UserInfo          `bson:"lark_at_users"                 yaml:"lark_at_users"                 json:"lark_at_users"`
 	IsAtAll         bool                      `bson:"is_at_all,omitempty"           yaml:"is_at_all,omitempty"           json:"is_at_all,omitempty"`
-	NotifyTypes     []string                  `bson:"notify_type"                   yaml:"notify_type"                   json:"notify_type"`
+}
+
+// GenerateNewNotifyConfigWithOldData use the data before 3.3.0 in notifyCtl and generate the new config data based on the deprecated data.
+func (n *NotifyCtl) GenerateNewNotifyConfigWithOldData() error {
+	switch n.WebHookType {
+	case setting.NotifyWebHookTypeDingDing:
+		if n.DingDingNotificationConfig != nil {
+			return nil
+		} else {
+			if len(n.DingDingWebHook) == 0 {
+				return fmt.Errorf("failed to parse old notification data: dingding_webhook field is empty")
+			}
+			n.DingDingNotificationConfig = &DingDingNotificationConfig{
+				HookAddress: n.DingDingWebHook,
+				AtMobiles:   n.AtMobiles,
+				IsAtAll:     n.IsAtAll,
+			}
+		}
+	case setting.NotifyWebHookTypeWechatWork:
+		if n.WechatNotificationConfig != nil {
+			return nil
+		} else {
+			if len(n.WeChatWebHook) == 0 {
+				return fmt.Errorf("failed to parse old notification data: weChat_webHook field is empty")
+			}
+			n.WechatNotificationConfig = &WechatNotificationConfig{
+				HookAddress: n.WeChatWebHook,
+				AtUsers:     n.WechatUserIDs,
+				IsAtAll:     n.IsAtAll,
+			}
+		}
+	case setting.NotifyWebHookTypeMail:
+		if n.MailNotificationConfig != nil {
+			return nil
+		} else {
+			if len(n.MailUsers) == 0 {
+				return fmt.Errorf("failed to parse old notification data: mail_users field is empty")
+			}
+			n.MailNotificationConfig = &MailNotificationConfig{TargetUsers: n.MailUsers}
+		}
+	case setting.NotifyWebhookTypeFeishuApp:
+		if n.LarkGroupNotificationConfig != nil {
+			return nil
+		} else {
+			if len(n.FeiShuAppID) == 0 || n.FeishuChat == nil {
+				return fmt.Errorf("failed to parse old notification data: either feishu_app field is empty or feishu_chat field is empty")
+			}
+			n.LarkGroupNotificationConfig = &LarkGroupNotificationConfig{
+				AppID:   n.FeiShuAppID,
+				Chat:    n.FeishuChat,
+				AtUsers: n.LarkAtUsers,
+				IsAtAll: n.IsAtAll,
+			}
+		}
+	case setting.NotifyWebHookTypeWebook:
+		if n.WebhookNotificationConfig != nil {
+			return nil
+		} else {
+			if len(n.WebHookNotify.Address) == 0 && len(n.WebHookNotify.Token) == 0 {
+				return fmt.Errorf("failed to parse old notification data: webhook_notify field is nil")
+			}
+			n.WebhookNotificationConfig = &n.WebHookNotify
+		}
+	case setting.NotifyWebHookTypeFeishuPerson:
+		if n.LarkPersonNotificationConfig == nil {
+			return fmt.Errorf("lark_person_notification_config cannot be empty for type feishu_person notification")
+		}
+	case setting.NotifyWebHookTypeFeishu:
+		if n.LarkHookNotificationConfig != nil {
+			return nil
+		} else {
+			if len(n.FeiShuWebHook) == 0 {
+				return fmt.Errorf("failed to parse old notification data: feishu_webhook field is empty")
+			}
+			n.LarkHookNotificationConfig = &LarkHookNotificationConfig{
+				HookAddress: n.FeiShuWebHook,
+				AtUsers:     n.LarkUserIDs,
+				IsAtAll:     n.IsAtAll,
+			}
+		}
+	default:
+		return fmt.Errorf("unsupported notification type: %s", n.WebHookType)
+	}
+
+	return nil
 }
 
 type TaskInfo struct {
