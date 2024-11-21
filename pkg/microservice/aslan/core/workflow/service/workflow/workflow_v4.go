@@ -711,6 +711,13 @@ func clearWorkflowV4Triggers(workflow *commonmodels.WorkflowV4) {
 func ensureWorkflowV4Resp(encryptedKey string, workflow *commonmodels.WorkflowV4, logger *zap.SugaredLogger) error {
 	var buildMap sync.Map
 	var buildTemplateMap sync.Map
+	for _, notify := range workflow.NotifyCtls {
+		err := notify.GenerateNewNotifyConfigWithOldData()
+		if err != nil {
+			return err
+		}
+	}
+
 	for _, stage := range workflow.Stages {
 		for _, job := range stage.Jobs {
 			err := ensureWorkflowV4JobResp(job, logger, &buildMap, &buildTemplateMap, encryptedKey, workflow.Project)
@@ -719,6 +726,7 @@ func ensureWorkflowV4Resp(encryptedKey string, workflow *commonmodels.WorkflowV4
 			}
 		}
 	}
+
 	return nil
 }
 
@@ -932,6 +940,21 @@ func ensureWorkflowV4JobResp(job *commonmodels.Job, logger *zap.SugaredLogger, b
 			}
 			testing.KeyVals = commonservice.MergeBuildEnvs(testingInfo.PreTest.Envs, testing.KeyVals)
 		}
+	}
+	if job.JobType == config.JobNotification {
+		spec := &commonmodels.NotificationJobSpec{}
+		if err := commonmodels.IToi(job.Spec, spec); err != nil {
+			logger.Errorf(err.Error())
+			return e.ErrFindWorkflow.AddErr(err)
+		}
+
+		err := spec.GenerateNewNotifyConfigWithOldData()
+		if err != nil {
+			logger.Errorf(err.Error())
+			return e.ErrFindWorkflow.AddErr(err)
+		}
+
+		job.Spec = spec
 	}
 	return nil
 }

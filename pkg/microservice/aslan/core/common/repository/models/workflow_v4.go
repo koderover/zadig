@@ -974,6 +974,78 @@ type NotificationJobSpec struct {
 	IsAtAll         bool                      `bson:"is_at_all"                     yaml:"is_at_all"                     json:"is_at_all"`
 }
 
+// GenerateNewNotifyConfigWithOldData use the data before 3.3.0 in notifyCtl and generate the new config data based on the deprecated data.
+func (n *NotificationJobSpec) GenerateNewNotifyConfigWithOldData() error {
+	switch n.WebHookType {
+	case setting.NotifyWebHookTypeDingDing:
+		if n.DingDingNotificationConfig != nil {
+			return nil
+		} else {
+			if len(n.DingDingWebHook) == 0 {
+				return fmt.Errorf("failed to parse old notification data: dingding_webhook field is empty")
+			}
+			n.DingDingNotificationConfig = &DingDingNotificationConfig{
+				HookAddress: n.DingDingWebHook,
+				AtMobiles:   n.AtMobiles,
+				IsAtAll:     n.IsAtAll,
+			}
+		}
+	case setting.NotifyWebHookTypeWechatWork:
+		if n.WechatNotificationConfig != nil {
+			return nil
+		} else {
+			if len(n.WeChatWebHook) == 0 {
+				return fmt.Errorf("failed to parse old notification data: weChat_webHook field is empty")
+			}
+			n.WechatNotificationConfig = &WechatNotificationConfig{
+				HookAddress: n.WeChatWebHook,
+				AtUsers:     n.WechatUserIDs,
+				IsAtAll:     n.IsAtAll,
+			}
+		}
+	case setting.NotifyWebHookTypeMail:
+		if n.MailNotificationConfig != nil {
+			return nil
+		} else {
+			if len(n.MailUsers) == 0 {
+				return fmt.Errorf("failed to parse old notification data: mail_users field is empty")
+			}
+			n.MailNotificationConfig = &MailNotificationConfig{TargetUsers: n.MailUsers}
+		}
+	case setting.NotifyWebhookTypeFeishuApp:
+		if n.LarkGroupNotificationConfig != nil {
+			return nil
+		} else {
+			if len(n.FeiShuAppID) == 0 || n.FeishuChat == nil {
+				return fmt.Errorf("failed to parse old notification data: either feishu_app field is empty or feishu_chat field is empty")
+			}
+			n.LarkGroupNotificationConfig = &LarkGroupNotificationConfig{
+				AppID:   n.FeiShuAppID,
+				Chat:    n.FeishuChat,
+				AtUsers: n.LarkAtUsers,
+				IsAtAll: n.IsAtAll,
+			}
+		}
+	case setting.NotifyWebHookTypeWebook:
+		if n.WebhookNotificationConfig != nil {
+			return nil
+		} else {
+			if len(n.WebHookNotify.Address) == 0 && len(n.WebHookNotify.Token) == 0 {
+				return fmt.Errorf("failed to parse old notification data: webhook_notify field is nil")
+			}
+			n.WebhookNotificationConfig = &n.WebHookNotify
+		}
+	case setting.NotifyWebHookTypeFeishuPerson:
+		if n.LarkPersonNotificationConfig == nil {
+			return fmt.Errorf("lark_person_notification_config cannot be empty for type feishu_person notification")
+		}
+	default:
+		return fmt.Errorf("unsupported notification type: %s", n.WebHookType)
+	}
+
+	return nil
+}
+
 // TODO: why is_at_all? it could be done in backend
 type LarkGroupNotificationConfig struct {
 	AppID   string           `bson:"app_id"    json:"app_id"    yaml:"app_id"`

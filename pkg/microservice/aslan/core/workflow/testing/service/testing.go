@@ -352,6 +352,14 @@ func GetTesting(name, productName string, log *zap.SugaredLogger) (*commonmodels
 		resp.PreTest.ConcurrencyLimit = -1
 	}
 
+	for _, notify := range resp.NotifyCtls {
+		err := notify.GenerateNewNotifyConfigWithOldData()
+		if err != nil {
+			log.Errorf(err.Error())
+			return nil, err
+		}
+	}
+
 	workflowservice.EnsureTestingResp(resp)
 
 	return resp, nil

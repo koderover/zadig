@@ -23,7 +23,6 @@ import (
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
-	"github.com/koderover/zadig/v2/pkg/setting"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
@@ -166,74 +165,17 @@ func generateNotificationJobSpec(spec *commonmodels.NotificationJobSpec) (*commo
 		Title:       spec.Title,
 	}
 
-	switch spec.WebHookType {
-	case setting.NotifyWebHookTypeDingDing:
-		if spec.DingDingNotificationConfig != nil {
-			resp.DingDingNotificationConfig = spec.DingDingNotificationConfig
-		} else {
-			if len(spec.DingDingWebHook) == 0 {
-				return nil, fmt.Errorf("failed to parse old notification data: dingding_webhook field is empty")
-			}
-			resp.DingDingNotificationConfig = &commonmodels.DingDingNotificationConfig{
-				HookAddress: spec.DingDingWebHook,
-				AtMobiles:   spec.AtMobiles,
-				IsAtAll:     spec.IsAtAll,
-			}
-		}
-	case setting.NotifyWebHookTypeWechatWork:
-		if spec.WechatNotificationConfig != nil {
-			resp.WechatNotificationConfig = spec.WechatNotificationConfig
-		} else {
-			if len(spec.WeChatWebHook) == 0 {
-				return nil, fmt.Errorf("failed to parse old notification data: weChat_webHook field is empty")
-			}
-			resp.WechatNotificationConfig = &commonmodels.WechatNotificationConfig{
-				HookAddress: spec.WeChatWebHook,
-				AtUsers:     spec.WechatUserIDs,
-				IsAtAll:     spec.IsAtAll,
-			}
-		}
-	case setting.NotifyWebHookTypeMail:
-		if spec.MailNotificationConfig != nil {
-			resp.MailNotificationConfig = spec.MailNotificationConfig
-		} else {
-			if len(spec.MailUsers) == 0 {
-				return nil, fmt.Errorf("failed to parse old notification data: mail_users field is empty")
-			}
-			resp.MailNotificationConfig = &commonmodels.MailNotificationConfig{TargetUsers: spec.MailUsers}
-		}
-	case setting.NotifyWebhookTypeFeishuApp:
-		if spec.LarkGroupNotificationConfig != nil {
-			resp.LarkGroupNotificationConfig = spec.LarkGroupNotificationConfig
-		} else {
-			if len(spec.FeiShuAppID) == 0 || spec.FeishuChat == nil {
-				return nil, fmt.Errorf("failed to parse old notification data: either feishu_app field is empty or feishu_chat field is empty")
-			}
-			resp.LarkGroupNotificationConfig = &commonmodels.LarkGroupNotificationConfig{
-				AppID:   spec.FeiShuAppID,
-				Chat:    spec.FeishuChat,
-				AtUsers: spec.LarkAtUsers,
-				IsAtAll: spec.IsAtAll,
-			}
-		}
-	case setting.NotifyWebHookTypeWebook:
-		if spec.WebhookNotificationConfig != nil {
-			resp.WebhookNotificationConfig = spec.WebhookNotificationConfig
-		} else {
-			if len(spec.WebHookNotify.Address) == 0 && len(spec.WebHookNotify.Token) == 0 {
-				return nil, fmt.Errorf("failed to parse old notification data: webhook_notify field is nil")
-			}
-			resp.WebhookNotificationConfig = &spec.WebHookNotify
-		}
-	case setting.NotifyWebHookTypeFeishuPerson:
-		if spec.LarkPersonNotificationConfig == nil {
-			return nil, fmt.Errorf("lark_person_notification_config cannot be empty for type feishu_person notification")
-		}
-
-		resp.LarkPersonNotificationConfig = spec.LarkPersonNotificationConfig
-	default:
-		return nil, fmt.Errorf("unsupported notification type: %s", spec.WebHookType)
+	err := spec.GenerateNewNotifyConfigWithOldData()
+	if err != nil {
+		return nil, err
 	}
+
+	resp.MailNotificationConfig = spec.MailNotificationConfig
+	resp.WechatNotificationConfig = spec.WechatNotificationConfig
+	resp.LarkPersonNotificationConfig = spec.LarkPersonNotificationConfig
+	resp.LarkGroupNotificationConfig = spec.LarkGroupNotificationConfig
+	resp.DingDingNotificationConfig = spec.DingDingNotificationConfig
+	resp.WebhookNotificationConfig = spec.WebhookNotificationConfig
 
 	return resp, nil
 }

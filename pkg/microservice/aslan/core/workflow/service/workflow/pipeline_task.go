@@ -939,6 +939,14 @@ func GetTesting(name, productName string, log *zap.SugaredLogger) (*commonmodels
 		resp.Schedules = &schedule
 	}
 
+	for _, notify := range resp.NotifyCtls {
+		err := notify.GenerateNewNotifyConfigWithOldData()
+		if err != nil {
+			log.Errorf(err.Error())
+			return nil, err
+		}
+	}
+
 	EnsureTestingResp(resp)
 
 	return resp, nil
