@@ -126,7 +126,7 @@ func (c *NotificationJobCtl) Run(ctx context.Context) {
 			return
 		}
 	} else if c.jobTaskSpec.WebHookType == setting.NotifyWebHookTypeFeishuPerson {
-		client, err := larkservice.GetLarkClientByIMAppID(c.jobTaskSpec.LarkGroupNotificationConfig.AppID)
+		client, err := larkservice.GetLarkClientByIMAppID(c.jobTaskSpec.LarkPersonNotificationConfig.AppID)
 		if err != nil {
 			c.logger.Error(err)
 			c.job.Status = config.StatusFailed
