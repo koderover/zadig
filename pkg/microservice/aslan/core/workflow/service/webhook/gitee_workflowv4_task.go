@@ -308,6 +308,9 @@ func TriggerWorkflowV4ByGiteeEvent(event interface{}, baseURI, requestID string,
 				}
 			case *gitee.TagPushEvent:
 				eventType = EventTypeTag
+				hookPayload = &commonmodels.HookPayload{
+					EventType: eventType,
+				}
 			}
 			if autoCancelOpt.Type != "" {
 				err := AutoCancelWorkflowV4Task(autoCancelOpt, log)

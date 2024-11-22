@@ -73,8 +73,8 @@ type ScanningAdvancedSetting struct {
 }
 
 type ScanningHookCtl struct {
-	Enabled bool            `bson:"enabled" json:"enabled"`
-	Items   []*ScanningHook `bson:"items"   json:"items"`
+	Enabled bool            `bson:"enabled"      json:"enabled"`
+	Items   []*ScanningHook `bson:"items"        json:"items"`
 }
 
 type ScanningHook struct {
@@ -87,6 +87,7 @@ type ScanningHook struct {
 	MatchFolders []string               `bson:"match_folders" json:"match_folders"`
 	IsRegular    bool                   `bson:"is_regular"    json:"is_regular"`
 	IsManual     bool                   `bson:"is_manual"     json:"is_manual"`
+	AutoCancel   bool                   `bson:"auto_cancel"   json:"auto_cancel"`
 }
 
 type SonarInfo struct {

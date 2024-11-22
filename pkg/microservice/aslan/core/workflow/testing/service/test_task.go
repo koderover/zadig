@@ -32,6 +32,7 @@ import (
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/s3"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/scmnotify"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	workflowservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
@@ -182,7 +183,7 @@ type TestTaskList struct {
 }
 
 func ListTestTask(testName, projectKey string, pageNum, pageSize int, log *zap.SugaredLogger) (*TestTaskList, error) {
-	workflowName := fmt.Sprintf(setting.TestWorkflowNamingConvention, testName)
+	workflowName := util.GenTestingWorkflowName(testName)
 	workflowTasks, total, err := commonrepo.NewworkflowTaskv4Coll().List(&commonrepo.ListWorkflowTaskV4Option{
 		WorkflowName: workflowName,
 		ProjectName:  projectKey,
@@ -243,7 +244,7 @@ func ListTestTask(testName, projectKey string, pageNum, pageSize int, log *zap.S
 }
 
 func GetTestTaskDetail(projectKey, testName string, taskID int64, log *zap.SugaredLogger) (*task.Task, error) {
-	workflowName := fmt.Sprintf(setting.TestWorkflowNamingConvention, testName)
+	workflowName := util.GenTestingWorkflowName(testName)
 	workflowTask, err := commonrepo.NewworkflowTaskv4Coll().Find(workflowName, taskID)
 	if err != nil {
 		log.Errorf("failed to find workflow task %d for test: %s, error: %s", taskID, testName, err)
@@ -380,7 +381,7 @@ func GetTestTaskDetail(projectKey, testName string, taskID int64, log *zap.Sugar
 }
 
 func GetTestTaskReportDetail(projectKey, testName string, taskID int64, log *zap.SugaredLogger) ([]*commonmodels.TestSuite, error) {
-	workflowName := fmt.Sprintf(setting.TestWorkflowNamingConvention, testName)
+	workflowName := util.GenTestingWorkflowName(testName)
 	testResults := make([]*commonmodels.TestSuite, 0)
 
 	testResultList, err := commonrepo.NewCustomWorkflowTestReportColl().ListByWorkflow(workflowName, testName, taskID)
@@ -416,7 +417,7 @@ func generateCustomWorkflowFromTestingModule(testInfo *commonmodels.Testing, arg
 	}
 
 	resp := &commonmodels.WorkflowV4{
-		Name:             fmt.Sprintf(setting.TestWorkflowNamingConvention, testInfo.Name),
+		Name:             util.GenTestingWorkflowName(testInfo.Name),
 		DisplayName:      testInfo.Name,
 		Stages:           nil,
 		Project:          testInfo.ProductName,
@@ -473,6 +474,7 @@ func generateCustomWorkflowFromTestingModule(testInfo *commonmodels.Testing, arg
 	})
 
 	resp.Stages = stage
+	resp.HookPayload = args.HookPayload
 
 	return resp, nil
 }

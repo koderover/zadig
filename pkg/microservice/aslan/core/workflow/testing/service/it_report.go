@@ -17,19 +17,17 @@ limitations under the License.
 package service
 
 import (
-	"fmt"
-	"github.com/koderover/zadig/v2/pkg/setting"
-
 	"go.uber.org/zap"
 
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 )
 
 func GetTestLocalTestSuite(testName string, log *zap.SugaredLogger) (*commonmodels.TestSuite, error) {
 	resp := new(commonmodels.TestSuite)
 
-	testCustomWorkflowName := fmt.Sprintf(setting.TestWorkflowNamingConvention, testName)
+	testCustomWorkflowName := commonutil.GenTestingWorkflowName(testName)
 	testTasks, err := commonrepo.NewJobInfoColl().GetTestJobsByWorkflow(testCustomWorkflowName)
 	if err != nil {
 		log.Errorf("failed to get test task from mongodb, error: %s", err)

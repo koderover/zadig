@@ -27,11 +27,14 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	scanningservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/testing/service"
+	"github.com/koderover/zadig/v2/pkg/types"
 )
 
 type gitEventMatcherForScanning interface {
 	Match(repository *commonmodels.ScanningHook) (bool, error)
+	GetHookRepo(hookRepo *commonmodels.MainHookRepo) *types.Repository
 }
 
 func TriggerScanningByGithubEvent(event interface{}, requestID string, log *zap.SugaredLogger) error {
@@ -46,6 +49,7 @@ func TriggerScanningByGithubEvent(event interface{}, requestID string, log *zap.
 	diffSrv := func(pullRequestEvent *github.PullRequestEvent, codehostId int) ([]string, error) {
 		return findChangedFilesOfPullRequest(pullRequestEvent, codehostId)
 	}
+	hookPayload := &commonmodels.HookPayload{}
 
 	log.Infof("Matching scanning list to find matched task to run.")
 	for _, scanning := range scanningList {
@@ -60,10 +64,74 @@ func TriggerScanningByGithubEvent(event interface{}, requestID string, log *zap.
 					mErr = multierror.Append(err)
 				} else if matches {
 					log.Infof("event match hook %v of %s", item, scanning.Name)
-					var mergeRequestID string
-					if ev, isPr := event.(*github.PullRequestEvent); isPr {
-						mergeRequestID = strconv.Itoa(*ev.PullRequest.Number)
+
+					var commitID, ref, eventType string
+					var prID, mergeRequestID int
+
+					mainRepo := ConvertScanningHookToMainHookRepo(item)
+					autoCancelOpt := &AutoCancelOpt{
+						WorkflowName: commonutil.GenScanningWorkflowName(scanning.ID.Hex()),
+						TaskType:     config.ScanningType,
+						MainRepo:     mainRepo,
+						AutoCancel:   item.AutoCancel,
 					}
+
+					switch ev := event.(type) {
+					case *github.PullRequestEvent:
+						eventType = EventTypePR
+						if ev.PullRequest != nil && ev.PullRequest.Number != nil && ev.PullRequest.Head != nil && ev.PullRequest.Head.SHA != nil {
+							mergeRequestID = *ev.PullRequest.Number
+							commitID = *ev.PullRequest.Head.SHA
+							prID = mergeRequestID
+							autoCancelOpt.MergeRequestID = strconv.Itoa(mergeRequestID)
+							autoCancelOpt.Type = eventType
+						}
+
+						hookPayload = &commonmodels.HookPayload{
+							Owner:          *ev.Repo.Owner.Login,
+							Repo:           *ev.Repo.Name,
+							Branch:         *ev.PullRequest.Base.Ref,
+							Ref:            *ev.PullRequest.Head.SHA,
+							IsPr:           true,
+							CodehostID:     mainRepo.CodehostID,
+							MergeRequestID: strconv.Itoa(mergeRequestID),
+							CommitID:       commitID,
+							EventType:      eventType,
+						}
+					case *github.PushEvent:
+						if ev.GetRef() != "" && ev.GetHeadCommit().GetID() != "" {
+							eventType = EventTypePush
+							ref = ev.GetRef()
+							commitID = ev.GetHeadCommit().GetID()
+							autoCancelOpt.Type = eventType
+							autoCancelOpt.Ref = ref
+							autoCancelOpt.CommitID = commitID
+
+							hookPayload = &commonmodels.HookPayload{
+								Owner:      *ev.Repo.Owner.Login,
+								Repo:       *ev.Repo.Name,
+								Ref:        ref,
+								IsPr:       false,
+								CommitID:   commitID,
+								EventType:  eventType,
+								CodehostID: mainRepo.CodehostID,
+							}
+						}
+					case *github.CreateEvent:
+						eventType = EventTypeTag
+						hookPayload = &commonmodels.HookPayload{
+							EventType: eventType,
+						}
+					}
+
+					if autoCancelOpt.Type != "" {
+						err := AutoCancelWorkflowV4Task(autoCancelOpt, log)
+						if err != nil {
+							log.Errorf("failed to auto cancel scanning task when receive event %v due to %v ", event, err)
+							mErr = multierror.Append(mErr, err)
+						}
+					}
+
 					triggerRepoInfo := make([]*scanningservice.ScanningRepoInfo, 0)
 					for _, scanningRepo := range scanning.Repos {
 						// if this is the triggering repo, we simply skip it and add it later with correct info
@@ -85,21 +153,14 @@ func TriggerScanningByGithubEvent(event interface{}, requestID string, log *zap.
 						RepoOwner:  item.RepoOwner,
 						RepoName:   item.RepoName,
 						Branch:     item.Branch,
-					}
-					if mergeRequestID != "" {
-						prID, err := strconv.Atoi(mergeRequestID)
-						if err != nil {
-							log.Errorf("failed to convert mergeRequestID: %s to int, error: %s", mergeRequestID, err)
-							mErr = multierror.Append(mErr, err)
-							continue
-						}
-						repoInfo.PR = prID
+						PR:         prID,
 					}
 
 					triggerRepoInfo = append(triggerRepoInfo, repoInfo)
 
 					if resp, err := scanningservice.CreateScanningTaskV2(scanning.ID.Hex(), "webhook", "", "", &scanningservice.CreateScanningTaskReq{
-						Repos: triggerRepoInfo,
+						Repos:       triggerRepoInfo,
+						HookPayload: hookPayload,
 					}, "", log); err != nil {
 						log.Errorf("failed to create testing task when receive event %v due to %v ", event, err)
 						mErr = multierror.Append(mErr, err)
@@ -119,6 +180,19 @@ type githubPushEventMatcherForScanning struct {
 	log      *zap.SugaredLogger
 	scanning *commonmodels.Scanning
 	event    *github.PushEvent
+}
+
+func (gpem *githubPushEventMatcherForScanning) GetHookRepo(hookRepo *commonmodels.MainHookRepo) *types.Repository {
+	return &types.Repository{
+		CodehostID:    hookRepo.CodehostID,
+		RepoName:      hookRepo.RepoName,
+		RepoOwner:     hookRepo.RepoOwner,
+		RepoNamespace: hookRepo.GetRepoNamespace(),
+		Branch:        hookRepo.Branch,
+		CommitID:      *gpem.event.HeadCommit.ID,
+		CommitMessage: *gpem.event.HeadCommit.Message,
+		Source:        hookRepo.Source,
+	}
 }
 
 func (gpem githubPushEventMatcherForScanning) Match(hookRepo *commonmodels.ScanningHook) (bool, error) {
@@ -156,6 +230,20 @@ type githubMergeEventMatcherForScanning struct {
 	log      *zap.SugaredLogger
 	scanning *commonmodels.Scanning
 	event    *github.PullRequestEvent
+}
+
+func (gmem *githubMergeEventMatcherForScanning) GetHookRepo(hookRepo *commonmodels.MainHookRepo) *types.Repository {
+	return &types.Repository{
+		CodehostID:    hookRepo.CodehostID,
+		RepoName:      hookRepo.RepoName,
+		RepoOwner:     hookRepo.RepoOwner,
+		RepoNamespace: hookRepo.GetRepoNamespace(),
+		Branch:        hookRepo.Branch,
+		PR:            *gmem.event.PullRequest.Number,
+		CommitID:      *gmem.event.PullRequest.Head.SHA,
+		CommitMessage: *gmem.event.PullRequest.Title,
+		Source:        hookRepo.Source,
+	}
 }
 
 func (gmem githubMergeEventMatcherForScanning) Match(hookRepo *commonmodels.ScanningHook) (bool, error) {
@@ -204,6 +292,18 @@ type githubTagEventMatcherForScanning struct {
 	log      *zap.SugaredLogger
 	scanning *commonmodels.Scanning
 	event    *github.CreateEvent
+}
+
+func (gtem *githubTagEventMatcherForScanning) GetHookRepo(hookRepo *commonmodels.MainHookRepo) *types.Repository {
+	return &types.Repository{
+		CodehostID:    hookRepo.CodehostID,
+		RepoName:      hookRepo.RepoName,
+		RepoOwner:     hookRepo.RepoOwner,
+		RepoNamespace: hookRepo.GetRepoNamespace(),
+		Branch:        hookRepo.Branch,
+		Tag:           hookRepo.Tag,
+		Source:        hookRepo.Source,
+	}
 }
 
 func (gtem githubTagEventMatcherForScanning) Match(hookRepo *commonmodels.ScanningHook) (bool, error) {

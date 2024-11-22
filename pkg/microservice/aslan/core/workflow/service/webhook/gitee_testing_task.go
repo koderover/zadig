@@ -27,14 +27,27 @@ import (
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/scmnotify"
+	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	testingservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/testing/service"
 	"github.com/koderover/zadig/v2/pkg/tool/gitee"
+	"github.com/koderover/zadig/v2/pkg/types"
 )
 
 type giteePushEventMatcherForTesting struct {
 	log     *zap.SugaredLogger
 	testing *commonmodels.Testing
 	event   *gitee.PushEvent
+}
+
+func (gpem *giteePushEventMatcherForTesting) GetHookRepo(hookRepo *commonmodels.MainHookRepo) *types.Repository {
+	return &types.Repository{
+		CodehostID:    hookRepo.CodehostID,
+		RepoName:      hookRepo.RepoName,
+		RepoNamespace: hookRepo.GetRepoNamespace(),
+		RepoOwner:     hookRepo.RepoOwner,
+		Branch:        hookRepo.Branch,
+		Source:        hookRepo.Source,
+	}
 }
 
 func (gpem *giteePushEventMatcherForTesting) Match(hookRepo *commonmodels.MainHookRepo) (bool, error) {
@@ -84,6 +97,18 @@ type giteeTagEventMatcherForTesting struct {
 	event   *gitee.TagPushEvent
 }
 
+func (gtem *giteeTagEventMatcherForTesting) GetHookRepo(hookRepo *commonmodels.MainHookRepo) *types.Repository {
+	return &types.Repository{
+		CodehostID:    hookRepo.CodehostID,
+		RepoName:      hookRepo.RepoName,
+		RepoOwner:     hookRepo.RepoOwner,
+		RepoNamespace: hookRepo.GetRepoNamespace(),
+		Branch:        hookRepo.Branch,
+		Tag:           hookRepo.Tag,
+		Source:        hookRepo.Source,
+	}
+}
+
 func (gtem giteeTagEventMatcherForTesting) Match(hookRepo *commonmodels.MainHookRepo) (bool, error) {
 	ev := gtem.event
 	if (hookRepo.RepoOwner + "/" + hookRepo.RepoName) == ev.Project.PathWithNamespace {
@@ -123,6 +148,18 @@ type giteeMergeEventMatcherForTesting struct {
 	log      *zap.SugaredLogger
 	testing  *commonmodels.Testing
 	event    *gitee.PullRequestEvent
+}
+
+func (gmem *giteeMergeEventMatcherForTesting) GetHookRepo(hookRepo *commonmodels.MainHookRepo) *types.Repository {
+	return &types.Repository{
+		CodehostID:    hookRepo.CodehostID,
+		RepoName:      hookRepo.RepoName,
+		RepoOwner:     hookRepo.RepoOwner,
+		RepoNamespace: hookRepo.GetRepoNamespace(),
+		Branch:        hookRepo.Branch,
+		PR:            gmem.event.PullRequest.Number,
+		Source:        hookRepo.Source,
+	}
 }
 
 func (gmem *giteeMergeEventMatcherForTesting) Match(hookRepo *commonmodels.MainHookRepo) (bool, error) {
@@ -211,6 +248,7 @@ func TriggerTestByGiteeEvent(event interface{}, baseURI, requestID string, log *
 		return findChangedFilesOfPullRequestEvent(PullRequestEvent, codehostId)
 	}
 
+	var hookPayload *commonmodels.HookPayload
 	var notification *commonmodels.Notification
 	for _, testing := range testingList {
 		if testing.HookCtl != nil && testing.HookCtl.Enabled {
@@ -233,10 +271,14 @@ func TriggerTestByGiteeEvent(event interface{}, baseURI, requestID string, log *
 					var mergeRequestID, commitID, ref, eventType string
 					prID := 0
 					autoCancelOpt := &AutoCancelOpt{
-						TaskType: config.TestType,
-						MainRepo: item.MainRepo,
-						TestArgs: item.TestArgs,
+						TaskType:     config.TestType,
+						MainRepo:     item.MainRepo,
+						TestArgs:     item.TestArgs,
+						WorkflowName: commonutil.GenTestingWorkflowName(testing.Name),
+						AutoCancel:   item.AutoCancel,
 					}
+					eventRepo := matcher.GetHookRepo(item.MainRepo)
+
 					switch ev := event.(type) {
 					case *gitee.PullRequestEvent:
 						eventType = EventTypePR
@@ -248,6 +290,17 @@ func TriggerTestByGiteeEvent(event interface{}, baseURI, requestID string, log *
 							autoCancelOpt.Type = EventTypePR
 							prID = ev.PullRequest.Number
 						}
+
+						hookPayload = &commonmodels.HookPayload{
+							Owner:          eventRepo.RepoOwner,
+							Repo:           eventRepo.RepoName,
+							CodehostID:     item.MainRepo.CodehostID,
+							Branch:         eventRepo.Branch,
+							IsPr:           true,
+							MergeRequestID: mergeRequestID,
+							CommitID:       commitID,
+							EventType:      eventType,
+						}
 					case *gitee.PushEvent:
 						eventType = EventTypePush
 						ref = ev.Ref
@@ -255,20 +308,32 @@ func TriggerTestByGiteeEvent(event interface{}, baseURI, requestID string, log *
 						autoCancelOpt.Ref = ref
 						autoCancelOpt.CommitID = commitID
 						autoCancelOpt.Type = EventTypePush
+
+						hookPayload = &commonmodels.HookPayload{
+							Owner:      eventRepo.RepoOwner,
+							Repo:       eventRepo.RepoName,
+							CodehostID: item.MainRepo.CodehostID,
+							Branch:     eventRepo.Branch,
+							Ref:        ref,
+							IsPr:       false,
+							CommitID:   commitID,
+							EventType:  eventType,
+						}
 					case *gitee.TagPushEvent:
 						eventType = EventTypeTag
+						hookPayload = &commonmodels.HookPayload{
+							EventType: eventType,
+						}
 					}
 
 					if autoCancelOpt.Type != "" {
-						// If it is a merge request, and the webhook trigger is configured with automatic cancellation,
-						// It is necessary to confirm whether the task triggered by the commit of the merge request before this commit has been processed, and it will be cancelled if it is not processed.
-						err := AutoCancelTask(autoCancelOpt, log)
+						err := AutoCancelWorkflowV4Task(autoCancelOpt, log)
 						if err != nil {
 							log.Errorf("failed to auto cancel testing task when receive event %v due to %s ", event, err)
 							mErr = multierror.Append(mErr, err)
 						}
 
-						if notification == nil {
+						if autoCancelOpt.Type == EventTypePR && notification == nil {
 							notification, err = scmnotify.NewService().SendInitWebhookComment(
 								item.MainRepo, prID, baseURI, false, true, false, false, log,
 							)
@@ -292,6 +357,7 @@ func TriggerTestByGiteeEvent(event interface{}, baseURI, requestID string, log *
 					args.CodehostID = item.MainRepo.CodehostID
 					args.RepoOwner = item.MainRepo.RepoOwner
 					args.RepoName = item.MainRepo.RepoName
+					args.HookPayload = hookPayload
 
 					// 3. create task with args
 					if resp, err := testingservice.CreateTestTaskV2(args, "webhook", "", "", log); err != nil {

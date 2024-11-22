@@ -27,6 +27,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/s3"
+	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	s3tool "github.com/koderover/zadig/v2/pkg/tool/s3"
@@ -209,7 +210,7 @@ func handleWorkflowTaskRetentionCenter(strategy *commonmodels.CapacityStrategy, 
 			return err
 		}
 		for _, testing := range testings {
-			workflowName := fmt.Sprintf(setting.TestWorkflowNamingConvention, testing.Name)
+			workflowName := commonutil.GenTestingWorkflowName(testing.Name)
 			err = archiveWorkflowTaskV4(workflowName, retention.MaxItems, retention.MaxDays)
 			if err != nil {
 				log.Errorf("archiveWorkflowTaskV4 %s failed, err: %v", workflowName, err)
@@ -224,7 +225,7 @@ func handleWorkflowTaskRetentionCenter(strategy *commonmodels.CapacityStrategy, 
 			return err
 		}
 		for _, scanning := range scannings {
-			workflowName := fmt.Sprintf(setting.ScanWorkflowNamingConvention, scanning.ID.Hex())
+			workflowName := commonutil.GenScanningWorkflowName(scanning.ID.Hex())
 			err = archiveWorkflowTaskV4(workflowName, retention.MaxItems, retention.MaxDays)
 			if err != nil {
 				log.Errorf("archiveWorkflowTaskV4 %s failed, err: %v", workflowName, err)
@@ -290,7 +291,7 @@ func handleWorkflowTaskRetentionCenter(strategy *commonmodels.CapacityStrategy, 
 			return err
 		}
 		for _, testing := range testings {
-			workflowName := fmt.Sprintf(setting.TestWorkflowNamingConvention, testing.Name)
+			workflowName := commonutil.GenTestingWorkflowName(testing.Name)
 			v4Option := &commonrepo.ListWorkflowTaskV4Option{
 				WorkflowName: workflowName,
 				Skip:         retention.MaxItems,
@@ -317,7 +318,7 @@ func handleWorkflowTaskRetentionCenter(strategy *commonmodels.CapacityStrategy, 
 			return err
 		}
 		for _, scanning := range scannings {
-			workflowName := fmt.Sprintf(setting.ScanWorkflowNamingConvention, scanning.ID.Hex())
+			workflowName := commonutil.GenScanningWorkflowName(scanning.ID.Hex())
 			v4Option := &commonrepo.ListWorkflowTaskV4Option{
 				WorkflowName: workflowName,
 				Skip:         retention.MaxItems,

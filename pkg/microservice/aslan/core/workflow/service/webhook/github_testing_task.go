@@ -27,8 +27,10 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	testingservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/testing/service"
 	"github.com/koderover/zadig/v2/pkg/setting"
+	"github.com/koderover/zadig/v2/pkg/types"
 )
 
 func TriggerTestByGithubEvent(event interface{}, requestID string, log *zap.SugaredLogger) error {
@@ -42,6 +44,8 @@ func TriggerTestByGithubEvent(event interface{}, requestID string, log *zap.Suga
 	diffSrv := func(pullRequestEvent *github.PullRequestEvent, codehostId int) ([]string, error) {
 		return findChangedFilesOfPullRequest(pullRequestEvent, codehostId)
 	}
+
+	hookPayload := &commonmodels.HookPayload{}
 	for _, testing := range testingList {
 		if testing.HookCtl != nil && testing.HookCtl.Enabled {
 			for _, item := range testing.HookCtl.Items {
@@ -58,9 +62,11 @@ func TriggerTestByGithubEvent(event interface{}, requestID string, log *zap.Suga
 					log.Infof("event match hook %v of %s", item.MainRepo, testing.Name)
 					var mergeRequestID, commitID, ref, eventType string
 					autoCancelOpt := &AutoCancelOpt{
-						TaskType: config.TestType,
-						MainRepo: item.MainRepo,
-						TestArgs: item.TestArgs,
+						WorkflowName: commonutil.GenTestingWorkflowName(testing.Name),
+						TaskType:     config.TestType,
+						MainRepo:     item.MainRepo,
+						TestArgs:     item.TestArgs,
+						AutoCancel:   item.AutoCancel,
 					}
 					switch ev := event.(type) {
 					case *github.PullRequestEvent:
@@ -71,6 +77,18 @@ func TriggerTestByGithubEvent(event interface{}, requestID string, log *zap.Suga
 							autoCancelOpt.MergeRequestID = mergeRequestID
 							autoCancelOpt.Type = eventType
 						}
+
+						hookPayload = &commonmodels.HookPayload{
+							Owner:          *ev.Repo.Owner.Login,
+							Repo:           *ev.Repo.Name,
+							Branch:         *ev.PullRequest.Base.Ref,
+							Ref:            *ev.PullRequest.Head.SHA,
+							IsPr:           true,
+							CodehostID:     item.MainRepo.CodehostID,
+							MergeRequestID: mergeRequestID,
+							CommitID:       commitID,
+							EventType:      eventType,
+						}
 					case *github.PushEvent:
 						if ev.GetRef() != "" && ev.GetHeadCommit().GetID() != "" {
 							eventType = EventTypePush
@@ -79,14 +97,27 @@ func TriggerTestByGithubEvent(event interface{}, requestID string, log *zap.Suga
 							autoCancelOpt.Type = eventType
 							autoCancelOpt.Ref = ref
 							autoCancelOpt.CommitID = commitID
+
+							hookPayload = &commonmodels.HookPayload{
+								Owner:      *ev.Repo.Owner.Login,
+								Repo:       *ev.Repo.Name,
+								Ref:        ref,
+								IsPr:       false,
+								CommitID:   commitID,
+								EventType:  eventType,
+								CodehostID: item.MainRepo.CodehostID,
+							}
 						}
 					case *github.CreateEvent:
 						eventType = EventTypeTag
+						hookPayload = &commonmodels.HookPayload{
+							EventType: eventType,
+						}
 					}
 					if autoCancelOpt.Type != "" {
-						err := AutoCancelTask(autoCancelOpt, log)
+						err := AutoCancelWorkflowV4Task(autoCancelOpt, log)
 						if err != nil {
-							log.Errorf("failed to auto cancel workflow task when receive event due to %v ", err)
+							log.Errorf("failed to auto cancel testing task when receive event %v due to %v ", event, err)
 							mErr = multierror.Append(mErr, err)
 						}
 					}
@@ -100,6 +131,7 @@ func TriggerTestByGithubEvent(event interface{}, requestID string, log *zap.Suga
 					args.CodehostID = item.MainRepo.CodehostID
 					args.RepoOwner = item.MainRepo.RepoOwner
 					args.RepoName = item.MainRepo.RepoName
+					args.HookPayload = hookPayload
 					if resp, err := testingservice.CreateTestTaskV2(args, "webhook", "", "", log); err != nil {
 						log.Errorf("failed to create testing task when receive event %v due to %v ", event, err)
 						mErr = multierror.Append(mErr, err)
@@ -126,6 +158,19 @@ type githubMergeEventMatcherForTesting struct {
 	log      *zap.SugaredLogger
 	testing  *commonmodels.Testing
 	event    *github.PullRequestEvent
+}
+
+func (gpem *githubPushEventMatcherForTesting) GetHookRepo(hookRepo *commonmodels.MainHookRepo) *types.Repository {
+	return &types.Repository{
+		CodehostID:    hookRepo.CodehostID,
+		RepoName:      hookRepo.RepoName,
+		RepoOwner:     hookRepo.RepoOwner,
+		RepoNamespace: hookRepo.GetRepoNamespace(),
+		Branch:        hookRepo.Branch,
+		CommitID:      *gpem.event.HeadCommit.ID,
+		CommitMessage: *gpem.event.HeadCommit.Message,
+		Source:        hookRepo.Source,
+	}
 }
 
 func (gpem *githubPushEventMatcherForTesting) Match(hookRepo *commonmodels.MainHookRepo) (bool, error) {
@@ -171,6 +216,18 @@ type githubTagEventMatcherForTesting struct {
 	log     *zap.SugaredLogger
 	testing *commonmodels.Testing
 	event   *github.CreateEvent
+}
+
+func (gtem *githubTagEventMatcherForTesting) GetHookRepo(hookRepo *commonmodels.MainHookRepo) *types.Repository {
+	return &types.Repository{
+		CodehostID:    hookRepo.CodehostID,
+		RepoName:      hookRepo.RepoName,
+		RepoOwner:     hookRepo.RepoOwner,
+		RepoNamespace: hookRepo.GetRepoNamespace(),
+		Branch:        hookRepo.Branch,
+		Tag:           hookRepo.Tag,
+		Source:        hookRepo.Source,
+	}
 }
 
 func (gtem githubTagEventMatcherForTesting) Match(hookRepo *commonmodels.MainHookRepo) (bool, error) {
@@ -232,6 +289,20 @@ func createGithubEventMatcherForTesting(
 	}
 
 	return nil
+}
+
+func (gmem *githubMergeEventMatcherForTesting) GetHookRepo(hookRepo *commonmodels.MainHookRepo) *types.Repository {
+	return &types.Repository{
+		CodehostID:    hookRepo.CodehostID,
+		RepoName:      hookRepo.RepoName,
+		RepoOwner:     hookRepo.RepoOwner,
+		RepoNamespace: hookRepo.GetRepoNamespace(),
+		Branch:        hookRepo.Branch,
+		PR:            *gmem.event.PullRequest.Number,
+		CommitID:      *gmem.event.PullRequest.Head.SHA,
+		CommitMessage: *gmem.event.PullRequest.Title,
+		Source:        hookRepo.Source,
+	}
 }
 
 func (gmem *githubMergeEventMatcherForTesting) Match(hookRepo *commonmodels.MainHookRepo) (bool, error) {

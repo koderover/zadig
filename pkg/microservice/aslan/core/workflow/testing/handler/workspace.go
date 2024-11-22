@@ -17,13 +17,12 @@ limitations under the License.
 package handler
 
 import (
-	"fmt"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
 
+	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/testing/service"
-	"github.com/koderover/zadig/v2/pkg/setting"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 )
@@ -53,7 +52,7 @@ func GetTestArtifactInfoV2(c *gin.Context) {
 		return
 	}
 
-	workflowName := fmt.Sprintf(setting.TestWorkflowNamingConvention, c.Param("testName"))
+	workflowName := commonutil.GenTestingWorkflowName(c.Param("testName"))
 
 	ctx.Resp, ctx.RespErr = service.GetWorkflowV4ArtifactInfo(workflowName, c.Query("jobName"), taskID, ctx.Logger)
 }

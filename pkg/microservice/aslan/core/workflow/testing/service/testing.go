@@ -227,7 +227,7 @@ func ListTestingOpt(productNames []string, testType string, log *zap.SugaredLogg
 }
 
 func GetTestTask(testName string) (*commonmodels.TestTaskStat, error) {
-	testCustomWorkflowName := fmt.Sprintf(setting.TestWorkflowNamingConvention, testName)
+	testCustomWorkflowName := commonutil.GenTestingWorkflowName(testName)
 	testTasks, err := commonrepo.NewJobInfoColl().GetTestJobsByWorkflow(testCustomWorkflowName)
 	if err != nil {
 		log.Errorf("failed to get test task from mongodb, error: %s", err)
@@ -465,7 +465,7 @@ func GetWorkflowV4HTMLTestReport(workflowName, jobName string, taskID int64, log
 }
 
 func GetTestTaskHTMLTestReport(testName string, taskID int64, log *zap.SugaredLogger) (string, error) {
-	workflowName := fmt.Sprintf(setting.TestWorkflowNamingConvention, testName)
+	workflowName := commonutil.GenTestingWorkflowName(testName)
 	workflowTask, err := mongodb.NewworkflowTaskv4Coll().Find(workflowName, taskID)
 	if err != nil {
 		return "", fmt.Errorf("cannot find workflow task, workflow name: %s, task id: %d", workflowName, taskID)

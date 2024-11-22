@@ -18,6 +18,7 @@ package webhook
 
 import (
 	"regexp"
+	"strconv"
 
 	"github.com/xanzy/go-gitlab"
 	"go.uber.org/zap"
@@ -28,7 +29,9 @@ import (
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/scmnotify"
+	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	scanningservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/testing/service"
+	"github.com/koderover/zadig/v2/pkg/types"
 )
 
 func TriggerScanningByGitlabEvent(event interface{}, baseURI, requestID string, log *zap.SugaredLogger) error {
@@ -45,6 +48,7 @@ func TriggerScanningByGitlabEvent(event interface{}, baseURI, requestID string, 
 	}
 
 	var notification *commonmodels.Notification
+	var hookPayload *commonmodels.HookPayload
 
 	for _, scanning := range scanningList {
 		if scanning.AdvancedSetting.HookCtl != nil && scanning.AdvancedSetting.HookCtl.Enabled {
@@ -60,16 +64,75 @@ func TriggerScanningByGitlabEvent(event interface{}, baseURI, requestID string, 
 					mErr = multierror.Append(mErr, err)
 				} else if matches {
 					log.Infof("event match hook %v of %s", item, scanning.Name)
-					var mergeRequestID int
-					if ev, isPr := event.(*gitlab.MergeEvent); isPr {
-						// 如果是merge request，且该webhook触发器配置了自动取消，
-						// 则需要确认该merge request在本次commit之前的commit触发的任务是否处理完，没有处理完则取消掉。
-						mergeRequestID = ev.ObjectAttributes.IID
+					var commitID, ref, eventType string
+					var prID, mergeRequestID int
 
-						if notification == nil {
-							mainRepo := ConvertScanningHookToMainHookRepo(item)
+					mainRepo := ConvertScanningHookToMainHookRepo(item)
+					autoCancelOpt := &AutoCancelOpt{
+						WorkflowName: commonutil.GenScanningWorkflowName(scanning.ID.Hex()),
+						TaskType:     config.ScanningType,
+						MainRepo:     mainRepo,
+						AutoCancel:   item.AutoCancel,
+					}
+
+					eventRepo := matcher.GetHookRepo(mainRepo)
+
+					switch ev := event.(type) {
+					case *gitlab.MergeEvent:
+						eventType = EventTypePR
+						mergeRequestID = ev.ObjectAttributes.IID
+						commitID = ev.ObjectAttributes.LastCommit.ID
+						prID = ev.ObjectAttributes.IID
+						autoCancelOpt.MergeRequestID = strconv.Itoa(mergeRequestID)
+						autoCancelOpt.CommitID = commitID
+						autoCancelOpt.Type = eventType
+
+						hookPayload = &commonmodels.HookPayload{
+							Owner:          eventRepo.RepoOwner,
+							Repo:           eventRepo.RepoName,
+							Branch:         eventRepo.Branch,
+							IsPr:           true,
+							MergeRequestID: strconv.Itoa(mergeRequestID),
+							CommitID:       commitID,
+							CodehostID:     eventRepo.CodehostID,
+							EventType:      eventType,
+						}
+					case *gitlab.PushEvent:
+						eventType = EventTypePush
+						ref = ev.Ref
+						commitID = ev.After
+						autoCancelOpt.Ref = ref
+						autoCancelOpt.CommitID = commitID
+						autoCancelOpt.Type = eventType
+
+						hookPayload = &commonmodels.HookPayload{
+							Owner:      eventRepo.RepoOwner,
+							Repo:       eventRepo.RepoName,
+							Branch:     eventRepo.Branch,
+							Ref:        ref,
+							IsPr:       false,
+							CommitID:   commitID,
+							CodehostID: eventRepo.CodehostID,
+							EventType:  eventType,
+						}
+					case *gitlab.TagEvent:
+						eventType = EventTypeTag
+
+						hookPayload = &commonmodels.HookPayload{
+							EventType: eventType,
+						}
+					}
+
+					if autoCancelOpt.Type != "" {
+						err = AutoCancelWorkflowV4Task(autoCancelOpt, log)
+						if err != nil {
+							log.Errorf("failed to auto cancel scanning task when receive event %v due to %v ", event, err)
+							mErr = multierror.Append(mErr, err)
+						}
+						// 发送本次commit的通知
+						if autoCancelOpt.Type == EventTypePR && notification == nil {
 							notification, _ = scmnotify.NewService().SendInitWebhookComment(
-								mainRepo, ev.ObjectAttributes.IID, baseURI, false, false, true, false, log,
+								mainRepo, prID, baseURI, false, true, false, false, log,
 							)
 						}
 					}
@@ -106,7 +169,8 @@ func TriggerScanningByGitlabEvent(event interface{}, baseURI, requestID string, 
 					}
 
 					if resp, err := scanningservice.CreateScanningTaskV2(scanning.ID.Hex(), "webhook", "", "", &scanningservice.CreateScanningTaskReq{
-						Repos: triggerRepoInfo,
+						Repos:       triggerRepoInfo,
+						HookPayload: hookPayload,
 					}, notificationID, log); err != nil {
 						log.Errorf("failed to create testing task when receive event %v due to %v ", event, err)
 						mErr = multierror.Append(mErr, err)
@@ -157,6 +221,17 @@ type gitlabPushEventMatcherForScanning struct {
 	event    *gitlab.PushEvent
 }
 
+func (gmem *gitlabPushEventMatcherForScanning) GetHookRepo(hookRepo *commonmodels.MainHookRepo) *types.Repository {
+	return &types.Repository{
+		CodehostID:    hookRepo.CodehostID,
+		RepoName:      hookRepo.RepoName,
+		RepoOwner:     hookRepo.RepoOwner,
+		RepoNamespace: hookRepo.GetRepoNamespace(),
+		Branch:        hookRepo.Branch,
+		Source:        hookRepo.Source,
+	}
+}
+
 func (gpem *gitlabPushEventMatcherForScanning) Match(hookRepo *commonmodels.ScanningHook) (bool, error) {
 	ev := gpem.event
 	if hookRepo == nil {
@@ -198,6 +273,18 @@ type gitlabMergeEventMatcherForScanning struct {
 	log      *zap.SugaredLogger
 	scanning *commonmodels.Scanning
 	event    *gitlab.MergeEvent
+}
+
+func (gmem *gitlabMergeEventMatcherForScanning) GetHookRepo(hookRepo *commonmodels.MainHookRepo) *types.Repository {
+	return &types.Repository{
+		CodehostID:    hookRepo.CodehostID,
+		RepoName:      hookRepo.RepoName,
+		RepoOwner:     hookRepo.RepoOwner,
+		RepoNamespace: hookRepo.GetRepoNamespace(),
+		Branch:        hookRepo.Branch,
+		Source:        hookRepo.Source,
+		PR:            gmem.event.ObjectAttributes.IID,
+	}
 }
 
 func (gmem *gitlabMergeEventMatcherForScanning) Match(hookRepo *commonmodels.ScanningHook) (bool, error) {
@@ -246,6 +333,17 @@ type gitlabTagEventMatcherForScanning struct {
 	log      *zap.SugaredLogger
 	scanning *commonmodels.Scanning
 	event    *gitlab.TagEvent
+}
+
+func (gmem *gitlabTagEventMatcherForScanning) GetHookRepo(hookRepo *commonmodels.MainHookRepo) *types.Repository {
+	return &types.Repository{
+		CodehostID:    hookRepo.CodehostID,
+		RepoName:      hookRepo.RepoName,
+		RepoOwner:     hookRepo.RepoOwner,
+		RepoNamespace: hookRepo.GetRepoNamespace(),
+		Branch:        hookRepo.Branch,
+		Source:        hookRepo.Source,
+	}
 }
 
 func (gtem *gitlabTagEventMatcherForScanning) Match(hookRepo *commonmodels.ScanningHook) (bool, error) {
