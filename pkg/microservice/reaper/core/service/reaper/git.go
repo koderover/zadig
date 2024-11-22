@@ -149,6 +149,7 @@ func (r *Reaper) runGitCmds() error {
 		if !c.DisableTrace {
 			log.Infof("%s", strings.Join(c.Cmd.Args, " "))
 		}
+
 		if err := c.Cmd.Run(); err != nil {
 			if c.IgnoreError {
 				continue
@@ -175,6 +176,9 @@ func (r *Reaper) buildGitCommands(repo *meta.Repo, hostNames sets.String) []*c.C
 	if _, err := os.Stat(workDir); os.IsNotExist(err) {
 		os.MkdirAll(workDir, 0777)
 	}
+	defer func() {
+		defer setCmdsWorkDir(workDir, cmds)
+	}()
 
 	// 预防非正常退出导致git被锁住
 	indexLockPath := path.Join(workDir, "/.git/index.lock")
@@ -280,8 +284,6 @@ func (r *Reaper) buildGitCommands(repo *meta.Repo, hostNames sets.String) []*c.C
 	}
 
 	cmds = append(cmds, &c.Command{Cmd: c.ShowLastLog()})
-
-	setCmdsWorkDir(workDir, cmds)
 
 	return cmds
 }

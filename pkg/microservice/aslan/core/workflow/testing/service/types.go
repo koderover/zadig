@@ -18,6 +18,7 @@ package service
 
 import (
 	"fmt"
+	"strings"
 
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/types"
@@ -148,6 +149,17 @@ type ScanningRepoInfo struct {
 	ViewMapping   string `json:"view_mapping"`
 	ChangeListID  int    `json:"changelist_id"`
 	ShelveID      int    `json:"shelve_id"`
+}
+
+func (repo *ScanningRepoInfo) GetRepoNamespace() string {
+	if repo.RepoNamespace != "" {
+		return repo.RepoNamespace
+	}
+	return repo.RepoOwner
+}
+
+func (repo *ScanningRepoInfo) GetKey() string {
+	return strings.Join([]string{repo.Source, repo.GetRepoNamespace(), repo.RepoName}, "/")
 }
 
 type ScanningStatistic struct {

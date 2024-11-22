@@ -707,8 +707,18 @@ func generateCustomWorkflowFromScanningModule(scanInfo *commonmodels.Scanning, a
 	stage := make([]*commonmodels.WorkflowStage, 0)
 
 	repos := make([]*types.Repository, 0)
+	scanInfoRepoMap := make(map[string]*types.Repository)
+	for _, repo := range scanInfo.Repos {
+		scanInfoRepoMap[repo.GetKey()] = repo
+	}
 
 	for _, arg := range args.Repos {
+		scanInfoRepo, ok := scanInfoRepoMap[arg.GetKey()]
+		if !ok {
+			log.Errorf("failed to find scanning repo info for codehost: %d", arg.CodehostID)
+			return nil, fmt.Errorf("failed to find scanning repo info for codehost: %d", arg.CodehostID)
+		}
+
 		rep, err := systemconfig.New().GetCodeHost(arg.CodehostID)
 		if err != nil {
 			log.Errorf("failed to get codehost info from mongodb, the error is: %s", err)
@@ -738,6 +748,9 @@ func generateCustomWorkflowFromScanningModule(scanInfo *commonmodels.Scanning, a
 			ViewMapping:        arg.ViewMapping,
 			ChangeListID:       arg.ChangeListID,
 			ShelveID:           arg.ShelveID,
+			RemoteName:         scanInfoRepo.RemoteName,
+			CheckoutPath:       scanInfoRepo.CheckoutPath,
+			SubModules:         scanInfoRepo.SubModules,
 		})
 	}
 

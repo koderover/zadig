@@ -183,6 +183,9 @@ func buildGitCommands(repo *Repo, hostNames sets.String) []*Command {
 	if _, err := os.Stat(workDir); os.IsNotExist(err) {
 		os.MkdirAll(workDir, 0777)
 	}
+	defer func() {
+		defer setCmdsWorkDir(workDir, cmds)
+	}()
 
 	if strings.Contains(repoName, "-new") {
 		repo.Name = strings.TrimSuffix(repo.Name, "-new")
@@ -274,8 +277,6 @@ func buildGitCommands(repo *Repo, hostNames sets.String) []*Command {
 	cmds = append(cmds, &Command{Cmd: Fetch(repo.RemoteName, repo.BranchRef())})
 	cmds = append(cmds, &Command{Cmd: CheckoutHead()})
 	cmds = append(cmds, &Command{Cmd: ShowLastLog()})
-
-	setCmdsWorkDir(workDir, cmds)
 
 	return cmds
 }
