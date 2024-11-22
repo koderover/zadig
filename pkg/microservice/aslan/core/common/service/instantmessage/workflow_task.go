@@ -703,7 +703,7 @@ func (w *Service) getNotificationContent(notify *models.NotifyCtl, task *models.
 	} else if notify.WebHookType == setting.NotifyWebHookTypeWebook {
 		webhookNotify.DetailURL = workflowDetailURL
 		return "", "", nil, webhookNotify, nil
-	} else if notify.WebHookType != setting.NotifyWebHookTypeFeishu {
+	} else if notify.WebHookType != setting.NotifyWebHookTypeFeishu && notify.WebHookType != setting.NotifyWebhookTypeFeishuApp && notify.WebHookType != setting.NotifyWebHookTypeFeishuPerson {
 		tplcontent := strings.Join(tplBaseInfo, "")
 		tplcontent += strings.Join(jobContents, "")
 		tplcontent = tplcontent + getNotifyAtContent(notify)
