@@ -959,7 +959,7 @@ func (w *Service) sendNotification(title, content string, notify *models.NotifyC
 		}
 
 		fmt.Println("card!!!!!!!!!!!!!!!!!!!!!!!!")
-		fmt.Println(messageContent)
+		fmt.Println(string(messageContent))
 		fmt.Println("==================================================")
 
 		respErr := new(multierror.Error)
