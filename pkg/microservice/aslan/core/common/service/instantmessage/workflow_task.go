@@ -349,7 +349,7 @@ func (w *Service) getApproveNotificationContent(notify *models.NotifyCtl, task *
 	} else if notify.WebHookType == setting.NotifyWebHookTypeWebook {
 		webhookNotify.DetailURL = fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/custom/%s?display_name=%s", configbase.SystemAddress(), task.ProjectName, task.WorkflowName, url.PathEscape(task.WorkflowDisplayName))
 		return "", "", nil, webhookNotify, nil
-	} else if notify.WebHookType != setting.NotifyWebHookTypeFeishu {
+	} else if notify.WebHookType != setting.NotifyWebHookTypeFeishu && notify.WebHookType != setting.NotifyWebhookTypeFeishuApp && notify.WebHookType != setting.NotifyWebHookTypeFeishuPerson {
 		tplcontent := strings.Join(tplBaseInfo, "")
 		tplcontent = tplcontent + getNotifyAtContent(notify)
 		tplcontent = fmt.Sprintf("%s%s", title, tplcontent)
@@ -957,10 +957,6 @@ func (w *Service) sendNotification(title, content string, notify *models.NotifyC
 		if err != nil {
 			return fmt.Errorf("failed to send notification by lark app: failed to parse the lark card, error: %s", err)
 		}
-
-		fmt.Println("card!!!!!!!!!!!!!!!!!!!!!!!!")
-		fmt.Println(string(messageContent))
-		fmt.Println("==================================================")
 
 		respErr := new(multierror.Error)
 		for _, target := range notify.LarkPersonNotificationConfig.TargetUsers {
