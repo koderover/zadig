@@ -150,6 +150,26 @@ func GetWorkflowTemplateByID(idStr string, logger *zap.SugaredLogger) (*commonmo
 		logger.Error(errMsg)
 		return template, e.ErrGetWorkflowTemplate.AddDesc(errMsg)
 	}
+	// do data compatibility updates
+	for _, stage := range template.Stages {
+		for _, job := range stage.Jobs {
+			if job.JobType == config.JobNotification {
+				spec := &commonmodels.NotificationJobSpec{}
+				if err := commonmodels.IToi(job.Spec, spec); err != nil {
+					logger.Errorf(err.Error())
+					return nil, err
+				}
+
+				err := spec.GenerateNewNotifyConfigWithOldData()
+				if err != nil {
+					logger.Errorf(err.Error())
+					return nil, err
+				}
+
+				job.Spec = spec
+			}
+		}
+	}
 	return template, nil
 }
 

@@ -18,8 +18,11 @@ package lark
 
 type UserInfo struct {
 	ID     string `json:"id" yaml:"id" bson:"id"`
+	IDType string `json:"id_type" yaml:"id_type" bson:"id_type"`
 	Name   string `json:"name" yaml:"name" bson:"name"`
 	Avatar string `json:"avatar,omitempty" yaml:"avatar,omitempty" bson:"avatar,omitempty"`
+	// IsExecutor marks if the user is the executor of the workflow
+	IsExecutor bool `json:"is_executor" yaml:"is_executor" bson:"is_executor"`
 }
 
 type DepartmentInfo struct {

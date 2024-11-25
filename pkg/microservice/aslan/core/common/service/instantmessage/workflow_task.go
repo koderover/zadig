@@ -19,6 +19,7 @@ package instantmessage
 import (
 	"bytes"
 	_ "embed"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/url"
@@ -30,15 +31,19 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	"github.com/hashicorp/go-multierror"
 	configbase "github.com/koderover/zadig/v2/pkg/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
+	larkservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/lark"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/webhooknotify"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	userclient "github.com/koderover/zadig/v2/pkg/shared/client/user"
+	"github.com/koderover/zadig/v2/pkg/tool/lark"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/types"
 	"github.com/koderover/zadig/v2/pkg/types/step"
+	"github.com/koderover/zadig/v2/pkg/util"
 )
 
 //go:embed notification.html
@@ -65,6 +70,12 @@ func (w *Service) SendWorkflowTaskApproveNotifications(workflowName string, task
 		if !notify.Enabled {
 			continue
 		}
+
+		err := notify.GenerateNewNotifyConfigWithOldData()
+		if err != nil {
+			return err
+		}
+
 		title, content, larkCard, webhookNotify, err := w.getApproveNotificationContent(notify, task)
 		if err != nil {
 			errMsg := fmt.Sprintf("failed to get notification content, err: %s", err)
@@ -88,6 +99,48 @@ func (w *Service) SendWorkflowTaskApproveNotifications(workflowName string, task
 						})
 						break
 					}
+				}
+			}
+		}
+
+		if notify.WebHookType == setting.NotifyWebHookTypeFeishuPerson {
+			if task.TaskCreatorID != "" {
+				errMsg := fmt.Sprintf("executor id is empty, cannot send message")
+				log.Error(errMsg)
+				return errors.New(errMsg)
+			}
+
+			for _, target := range notify.LarkPersonNotificationConfig.TargetUsers {
+				if target.IsExecutor {
+					userInfo, err := userclient.New().GetUserByID(task.TaskCreatorID)
+					if err != nil {
+						log.Errorf("failed to find user %s, error: %s", task.TaskCreatorID, err)
+						return fmt.Errorf("failed to find user %s, error: %s", task.TaskCreatorID, err)
+					}
+
+					if len(userInfo.Phone) == 0 {
+						return fmt.Errorf("executor phone not configured")
+					}
+
+					client, err := larkservice.GetLarkClientByIMAppID(notify.LarkGroupNotificationConfig.AppID)
+					if err != nil {
+						return fmt.Errorf("failed to get notify target info: create feishu client error: %s", err)
+					}
+
+					larkUser, err := client.GetUserIDByEmailOrMobile(lark.QueryTypeMobile, userInfo.Phone, setting.LarkUserID)
+					if err != nil {
+						return fmt.Errorf("find lark user with phone %s error: %v", userInfo.Phone, err)
+					}
+
+					userDetailedInfo, err := client.GetUserInfoByID(util.GetStringFromPointer(larkUser.UserId), setting.LarkUserID)
+					if err != nil {
+						return fmt.Errorf("find lark user info for userID %s error: %v", util.GetStringFromPointer(larkUser.UserId), err)
+					}
+
+					target.ID = util.GetStringFromPointer(larkUser.UserId)
+					target.Name = userDetailedInfo.Name
+					target.Avatar = userDetailedInfo.Avatar
+					target.IDType = setting.LarkUserID
 				}
 			}
 		}
@@ -123,6 +176,12 @@ func (w *Service) SendWorkflowTaskNotifications(task *models.WorkflowTask) error
 		if !notify.Enabled {
 			continue
 		}
+
+		err := notify.GenerateNewNotifyConfigWithOldData()
+		if err != nil {
+			return err
+		}
+
 		statusSets := sets.NewString(notify.NotifyTypes...)
 		if statusSets.Has(string(task.Status)) || (statusChanged && statusSets.Has(string(config.StatusChanged))) {
 			title, content, larkCard, webhookNotify, err := w.getNotificationContent(notify, task)
@@ -134,7 +193,7 @@ func (w *Service) SendWorkflowTaskNotifications(task *models.WorkflowTask) error
 
 			if notify.WebHookType == setting.NotifyWebHookTypeMail {
 				if task.TaskCreatorID != "" {
-					for _, user := range notify.MailUsers {
+					for _, user := range notify.MailNotificationConfig.TargetUsers {
 						if user.Type == setting.UserTypeTaskCreator {
 							userInfo, err := userclient.New().GetUserByID(task.TaskCreatorID)
 							if err != nil {
@@ -146,6 +205,49 @@ func (w *Service) SendWorkflowTaskNotifications(task *models.WorkflowTask) error
 							user.UserName = userInfo.Name
 							break
 						}
+					}
+				}
+			}
+
+			if notify.WebHookType == setting.NotifyWebHookTypeFeishuPerson {
+
+				for _, target := range notify.LarkPersonNotificationConfig.TargetUsers {
+					if target.IsExecutor {
+						if task.TaskCreatorID == "" {
+							errMsg := fmt.Sprintf("executor id is empty, cannot send message")
+							log.Error(errMsg)
+							return errors.New(errMsg)
+						}
+
+						userInfo, err := userclient.New().GetUserByID(task.TaskCreatorID)
+						if err != nil {
+							log.Errorf("failed to find user %s, error: %s", task.TaskCreatorID, err)
+							return fmt.Errorf("failed to find user %s, error: %s", task.TaskCreatorID, err)
+						}
+
+						if len(userInfo.Phone) == 0 {
+							return fmt.Errorf("executor phone not configured")
+						}
+
+						client, err := larkservice.GetLarkClientByIMAppID(notify.LarkPersonNotificationConfig.AppID)
+						if err != nil {
+							return fmt.Errorf("failed to get notify target info: create feishu client error: %s", err)
+						}
+
+						larkUser, err := client.GetUserIDByEmailOrMobile(lark.QueryTypeMobile, userInfo.Phone, setting.LarkUserID)
+						if err != nil {
+							return fmt.Errorf("find lark user with phone %s error: %v", userInfo.Phone, err)
+						}
+
+						userDetailedInfo, err := client.GetUserInfoByID(util.GetStringFromPointer(larkUser.UserId), setting.LarkUserID)
+						if err != nil {
+							return fmt.Errorf("find lark user info for userID %s error: %v", util.GetStringFromPointer(larkUser.UserId), err)
+						}
+
+						target.ID = util.GetStringFromPointer(larkUser.UserId)
+						target.Name = userDetailedInfo.Name
+						target.Avatar = userDetailedInfo.Avatar
+						target.IDType = setting.LarkUserID
 					}
 				}
 			}
@@ -182,7 +284,7 @@ func (w *Service) getApproveNotificationContent(notify *models.NotifyCtl, task *
 		TaskCreatorEmail:    task.TaskCreatorEmail,
 	}
 
-	tplTitle := "{{if ne .WebHookType \"feishu\"}}### {{end}}{{if eq .WebHookType \"dingding\"}}<font color=#3270e3>**{{end}}{{getIcon .Task.Status }}工作流 {{.Task.WorkflowDisplayName}} #{{.Task.TaskID}} 等待审批{{if eq .WebHookType \"dingding\"}}**</font>{{end}} \n"
+	tplTitle := "{{if and (ne .WebHookType \"feishu\") (ne .WebHookType \"feishu_app\") (ne .WebHookType \"feishu_person\")}}### {{end}}{{if eq .WebHookType \"dingding\"}}<font color=#3270e3>**{{end}}{{getIcon .Task.Status }}工作流 {{.Task.WorkflowDisplayName}} #{{.Task.TaskID}} 等待审批{{if eq .WebHookType \"dingding\"}}**</font>{{end}} \n"
 	mailTplTitle := "{{getIcon .Task.Status }}工作流 {{.Task.WorkflowDisplayName}} #{{.Task.TaskID}} 等待审批\n"
 
 	tplBaseInfo := []string{"{{if eq .WebHookType \"dingding\"}}##### {{end}}**执行用户**：{{.Task.TaskCreator}} \n",
@@ -247,7 +349,7 @@ func (w *Service) getApproveNotificationContent(notify *models.NotifyCtl, task *
 	} else if notify.WebHookType == setting.NotifyWebHookTypeWebook {
 		webhookNotify.DetailURL = fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/custom/%s?display_name=%s", configbase.SystemAddress(), task.ProjectName, task.WorkflowName, url.PathEscape(task.WorkflowDisplayName))
 		return "", "", nil, webhookNotify, nil
-	} else if notify.WebHookType != setting.NotifyWebHookTypeFeishu {
+	} else if notify.WebHookType != setting.NotifyWebHookTypeFeishu && notify.WebHookType != setting.NotifyWebhookTypeFeishuApp && notify.WebHookType != setting.NotifyWebHookTypeFeishuPerson {
 		tplcontent := strings.Join(tplBaseInfo, "")
 		tplcontent = tplcontent + getNotifyAtContent(notify)
 		tplcontent = fmt.Sprintf("%s%s", title, tplcontent)
@@ -306,7 +408,7 @@ func (w *Service) getNotificationContent(notify *models.NotifyCtl, task *models.
 		TaskType:            task.Type,
 	}
 
-	tplTitle := "{{if ne .WebHookType \"feishu\"}}### {{end}}{{if eq .WebHookType \"dingding\"}}<font color=\"{{ getColor .Task.Status }}\"><b>{{end}}{{getIcon .Task.Status }}{{getTaskType .Task.Type}} {{.Task.WorkflowDisplayName}} #{{.Task.TaskID}} {{ taskStatus .Task.Status }}{{if eq .WebHookType \"dingding\"}}</b></font>{{end}} \n"
+	tplTitle := "{{if and (ne .WebHookType \"feishu\") (ne .WebHookType \"feishu_app\") (ne .WebHookType \"feishu_person\")}}### {{end}}{{if eq .WebHookType \"dingding\"}}<font color=\"{{ getColor .Task.Status }}\"><b>{{end}}{{getIcon .Task.Status }}{{getTaskType .Task.Type}} {{.Task.WorkflowDisplayName}} #{{.Task.TaskID}} {{ taskStatus .Task.Status }}{{if eq .WebHookType \"dingding\"}}</b></font>{{end}} \n"
 	mailTplTitle := "{{getIcon .Task.Status }} {{getTaskType .Task.Type}} {{.Task.WorkflowDisplayName}}#{{.Task.TaskID}} {{ taskStatus .Task.Status }}"
 
 	tplBaseInfo := []string{"{{if eq .WebHookType \"dingding\"}}##### {{end}}**执行用户**：{{.Task.TaskCreator}} \n",
@@ -344,7 +446,7 @@ func (w *Service) getNotificationContent(notify *models.NotifyCtl, task *models.
 				Error:       job.Error,
 			}
 
-			jobTplcontent := "{{if ne .WebHookType \"feishu\"}}\n\n{{end}}{{if eq .WebHookType \"dingding\"}}---\n\n##### {{end}}**{{jobType .Job.JobType }}**: {{.Job.DisplayName}}    **状态**: {{taskStatus .Job.Status }} \n"
+			jobTplcontent := "{{if and (ne .WebHookType \"feishu\") (ne .WebHookType \"feishu_app\") (ne .WebHookType \"feishu_person\")}}\n\n{{end}}{{if eq .WebHookType \"dingding\"}}---\n\n##### {{end}}**{{jobType .Job.JobType }}**: {{.Job.DisplayName}}    **状态**: {{taskStatus .Job.Status }} \n"
 			mailJobTplcontent := "{{jobType .Job.JobType }}：{{.Job.DisplayName}}    状态：{{taskStatus .Job.Status }} \n"
 			switch job.JobType {
 			case string(config.JobZadigBuild):
@@ -601,7 +703,7 @@ func (w *Service) getNotificationContent(notify *models.NotifyCtl, task *models.
 	} else if notify.WebHookType == setting.NotifyWebHookTypeWebook {
 		webhookNotify.DetailURL = workflowDetailURL
 		return "", "", nil, webhookNotify, nil
-	} else if notify.WebHookType != setting.NotifyWebHookTypeFeishu {
+	} else if notify.WebHookType != setting.NotifyWebHookTypeFeishu && notify.WebHookType != setting.NotifyWebhookTypeFeishuApp && notify.WebHookType != setting.NotifyWebHookTypeFeishuPerson {
 		tplcontent := strings.Join(tplBaseInfo, "")
 		tplcontent += strings.Join(jobContents, "")
 		tplcontent = tplcontent + getNotifyAtContent(notify)
@@ -805,28 +907,68 @@ func (w *Service) sendNotification(title, content string, notify *models.NotifyC
 
 	switch notify.WebHookType {
 	case setting.NotifyWebHookTypeDingDing:
-		if err := w.sendDingDingMessage(notify.DingDingWebHook, title, content, link, notify.AtMobiles, notify.IsAtAll); err != nil {
+		if err := w.sendDingDingMessage(notify.DingDingNotificationConfig.HookAddress, title, content, link, notify.DingDingNotificationConfig.AtMobiles, notify.DingDingNotificationConfig.IsAtAll); err != nil {
 			return err
 		}
 	case setting.NotifyWebHookTypeFeishu:
-		if err := w.sendFeishuMessage(notify.FeiShuWebHook, card); err != nil {
+		if err := w.sendFeishuMessage(notify.LarkHookNotificationConfig.HookAddress, card); err != nil {
 			return err
 		}
-		if err := w.sendFeishuMessageOfSingleType("", notify.FeiShuWebHook, getNotifyAtContent(notify)); err != nil {
+		if err := w.sendFeishuMessageOfSingleType("", notify.LarkHookNotificationConfig.HookAddress, getNotifyAtContent(notify)); err != nil {
 			return err
 		}
 	case setting.NotifyWebHookTypeMail:
-		if err := w.sendMailMessage(title, content, notify.MailUsers); err != nil {
+		if err := w.sendMailMessage(title, content, notify.MailNotificationConfig.TargetUsers); err != nil {
 			return err
 		}
 	case setting.NotifyWebHookTypeWebook:
-		webhookclient := webhooknotify.NewClient(notify.WebHookNotify.Address, notify.WebHookNotify.Token)
+		webhookclient := webhooknotify.NewClient(notify.WebhookNotificationConfig.Address, notify.WebhookNotificationConfig.Token)
 		err := webhookclient.SendWorkflowWebhook(webhookNotify)
 		if err != nil {
-			return fmt.Errorf("failed to send notification to webhook, address %s, token: %s, error: %v", notify.WebHookNotify.Address, notify.WebHookNotify.Token, err)
+			return fmt.Errorf("failed to send notification to webhook, address %s, token: %s, error: %v", notify.WebhookNotificationConfig.Address, notify.WebhookNotificationConfig.Token, err)
 		}
+	case setting.NotifyWebhookTypeFeishuApp:
+		client, err := larkservice.GetLarkClientByIMAppID(notify.LarkGroupNotificationConfig.AppID)
+		if err != nil {
+			return fmt.Errorf("failed to send notification by lark app: failed to create lark client appID: %s, error: %s", notify.LarkGroupNotificationConfig.AppID, err)
+		}
+
+		messageContent, err := json.Marshal(card)
+		if err != nil {
+			return fmt.Errorf("failed to send notification by lark app: failed to parse the lark card, error: %s", err)
+		}
+
+		err = w.sendFeishuMessageFromClient(client, LarkReceiverTypeChat, notify.LarkGroupNotificationConfig.Chat.ChatID, LarkMessageTypeCard, string(messageContent))
+		if err != nil {
+			return fmt.Errorf("failed to send notification by lark app: failed to send lark card, error: %s", err)
+		}
+
+		err = w.sendFeishuMessageFromClient(client, LarkReceiverTypeChat, notify.LarkGroupNotificationConfig.Chat.ChatID, LarkMessageTypeText, getNotifyAtContent(notify))
+		if err != nil {
+			return fmt.Errorf("failed to send notification by lark app: failed to send lark at message, error: %s", err)
+		}
+	case setting.NotifyWebHookTypeFeishuPerson:
+		client, err := larkservice.GetLarkClientByIMAppID(notify.LarkPersonNotificationConfig.AppID)
+		if err != nil {
+			return fmt.Errorf("failed to send notification by lark app: failed to create lark client appID: %s, error: %s", notify.LarkGroupNotificationConfig.AppID, err)
+		}
+
+		messageContent, err := json.Marshal(card)
+		if err != nil {
+			return fmt.Errorf("failed to send notification by lark app: failed to parse the lark card, error: %s", err)
+		}
+
+		respErr := new(multierror.Error)
+		for _, target := range notify.LarkPersonNotificationConfig.TargetUsers {
+			err = w.sendFeishuMessageFromClient(client, target.IDType, target.ID, LarkMessageTypeCard, string(messageContent))
+			if err != nil {
+				respErr = multierror.Append(respErr, err)
+			}
+		}
+
+		return respErr.ErrorOrNil()
 	default:
-		if err := w.SendWeChatWorkMessage(WeChatTextTypeMarkdown, notify.WeChatWebHook, "", "", content); err != nil {
+		if err := w.SendWeChatWorkMessage(WeChatTextTypeMarkdown, notify.WechatNotificationConfig.HookAddress, "", "", content); err != nil {
 			return err
 		}
 	}

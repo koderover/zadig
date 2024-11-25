@@ -931,12 +931,13 @@ const (
 type NotifyWebHookType string
 
 const (
-	NotifyWebHookTypeDingDing   NotifyWebHookType = "dingding"
-	NotifyWebHookTypeFeishu     NotifyWebHookType = "feishu"
-	NotifyWebhookTypeFeishuApp  NotifyWebHookType = "feishu_app"
-	NotifyWebHookTypeWechatWork NotifyWebHookType = "wechat"
-	NotifyWebHookTypeMail       NotifyWebHookType = "mail"
-	NotifyWebHookTypeWebook     NotifyWebHookType = "webhook"
+	NotifyWebHookTypeDingDing     NotifyWebHookType = "dingding"
+	NotifyWebHookTypeFeishu       NotifyWebHookType = "feishu"
+	NotifyWebHookTypeFeishuPerson NotifyWebHookType = "feishu_person"
+	NotifyWebhookTypeFeishuApp    NotifyWebHookType = "feishu_app"
+	NotifyWebHookTypeWechatWork   NotifyWebHookType = "wechat"
+	NotifyWebHookTypeMail         NotifyWebHookType = "mail"
+	NotifyWebHookTypeWebook       NotifyWebHookType = "webhook"
 )
 
 const (

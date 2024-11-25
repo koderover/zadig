@@ -24,6 +24,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/koderover/zadig/v2/pkg/util"
 	"go.uber.org/zap"
 
 	configbase "github.com/koderover/zadig/v2/pkg/config"
@@ -199,10 +200,11 @@ func waitForLarkApprove(ctx context.Context, spec *commonmodels.JobTaskApprovalS
 
 	var userID string
 	if approval.DefaultApprovalInitiator == nil {
-		userID, err = client.GetUserIDByEmailOrMobile(lark.QueryTypeMobile, workflowCtx.WorkflowTaskCreatorMobile, setting.LarkUserOpenID)
+		userInfo, err := client.GetUserIDByEmailOrMobile(lark.QueryTypeMobile, workflowCtx.WorkflowTaskCreatorMobile, setting.LarkUserOpenID)
 		if err != nil {
 			return config.StatusFailed, fmt.Errorf("get user lark id by mobile-%s, error: %s", workflowCtx.WorkflowTaskCreatorMobile, err)
 		}
+		userID = util.GetStringFromPointer(userInfo.UserId)
 	} else {
 		userID = approval.DefaultApprovalInitiator.ID
 		formContent = fmt.Sprintf("审批发起人: %s\n%s", workflowCtx.WorkflowTaskCreatorUsername, formContent)

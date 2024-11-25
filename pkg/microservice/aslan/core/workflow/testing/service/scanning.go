@@ -215,6 +215,14 @@ func GetScanningModuleByID(id string, log *zap.SugaredLogger) (*Scanning, error)
 		}
 	}
 
+	for _, notify := range scanning.AdvancedSetting.NotifyCtls {
+		err := notify.GenerateNewNotifyConfigWithOldData()
+		if err != nil {
+			log.Errorf(err.Error())
+			return nil, err
+		}
+	}
+
 	if scanning.TemplateID != "" {
 		tmpl, err := commonrepo.NewScanningTemplateColl().Find(&commonrepo.ScanningTemplateQueryOption{ID: scanning.TemplateID})
 		if err != nil {
@@ -691,6 +699,14 @@ func generateCustomWorkflowFromScanningModule(scanInfo *commonmodels.Scanning, a
 	// compatibility code
 	if concurrencyLimit == 0 {
 		concurrencyLimit = -1
+	}
+
+	for _, notify := range scanInfo.AdvancedSetting.NotifyCtls {
+		err := notify.GenerateNewNotifyConfigWithOldData()
+		if err != nil {
+			log.Errorf(err.Error())
+			return nil, err
+		}
 	}
 
 	resp := &commonmodels.WorkflowV4{

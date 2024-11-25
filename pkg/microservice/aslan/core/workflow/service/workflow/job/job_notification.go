@@ -107,15 +107,24 @@ func (j *NotificationJob) UpdateWithLatestSetting() error {
 	}
 
 	// use the latest webhook settings, except for title and content
-	j.spec.WebHookType = latestSpec.WebHookType
+	j.spec.LarkGroupNotificationConfig = latestSpec.LarkGroupNotificationConfig
+	j.spec.LarkPersonNotificationConfig = latestSpec.LarkPersonNotificationConfig
+	j.spec.WechatNotificationConfig = latestSpec.WechatNotificationConfig
+	j.spec.DingDingNotificationConfig = latestSpec.DingDingNotificationConfig
+	j.spec.MailNotificationConfig = latestSpec.MailNotificationConfig
+	j.spec.WebhookNotificationConfig = latestSpec.WebhookNotificationConfig
+
+	// ========= compatibility code below, these field will only be used to generate new configuration ===============
 	j.spec.WeChatWebHook = latestSpec.WeChatWebHook
-	j.spec.FeiShuWebHook = latestSpec.FeiShuWebHook
 	j.spec.DingDingWebHook = latestSpec.DingDingWebHook
+	j.spec.FeiShuAppID = latestSpec.FeiShuAppID
+	j.spec.FeishuChat = latestSpec.FeishuChat
 	j.spec.MailUsers = latestSpec.MailUsers
 	j.spec.WebHookNotify = latestSpec.WebHookNotify
 	j.spec.AtMobiles = latestSpec.AtMobiles
 	j.spec.WechatUserIDs = latestSpec.WechatUserIDs
 	j.spec.LarkAtUsers = latestSpec.LarkAtUsers
+	j.spec.IsAtAll = latestSpec.IsAtAll
 
 	j.job.Spec = j.spec
 	return nil
@@ -127,6 +136,12 @@ func (j *NotificationJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) 
 		return nil, err
 	}
 	j.job.Spec = j.spec
+
+	taskSpec, err := generateNotificationJobSpec(j.spec)
+	if err != nil {
+		return nil, err
+	}
+
 	jobTask := &commonmodels.JobTask{
 		Name:        GenJobName(j.workflow, j.job.Name, 0),
 		Key:         genJobKey(j.job.Name),
@@ -135,26 +150,34 @@ func (j *NotificationJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) 
 		JobInfo: map[string]string{
 			JobNameKey: j.job.Name,
 		},
-		JobType: string(config.JobNotification),
-		Spec: &commonmodels.JobTaskNotificationSpec{
-			WebHookType:     j.spec.WebHookType,
-			WeChatWebHook:   j.spec.WeChatWebHook,
-			DingDingWebHook: j.spec.DingDingWebHook,
-			FeiShuAppID:     j.spec.FeiShuAppID,
-			FeishuChat:      j.spec.FeishuChat,
-			MailUsers:       j.spec.MailUsers,
-			WebHookNotify:   j.spec.WebHookNotify,
-			AtMobiles:       j.spec.AtMobiles,
-			WechatUserIDs:   j.spec.WechatUserIDs,
-			LarkAtUsers:     j.spec.LarkAtUsers,
-			Content:         j.spec.Content,
-			Title:           j.spec.Title,
-			IsAtAll:         j.spec.IsAtAll,
-		},
+		JobType:     string(config.JobNotification),
+		Spec:        taskSpec,
 		Timeout:     0,
 		ErrorPolicy: j.job.ErrorPolicy,
 	}
 	return []*commonmodels.JobTask{jobTask}, nil
+}
+
+func generateNotificationJobSpec(spec *commonmodels.NotificationJobSpec) (*commonmodels.JobTaskNotificationSpec, error) {
+	resp := &commonmodels.JobTaskNotificationSpec{
+		WebHookType: spec.WebHookType,
+		Content:     spec.Content,
+		Title:       spec.Title,
+	}
+
+	err := spec.GenerateNewNotifyConfigWithOldData()
+	if err != nil {
+		return nil, err
+	}
+
+	resp.MailNotificationConfig = spec.MailNotificationConfig
+	resp.WechatNotificationConfig = spec.WechatNotificationConfig
+	resp.LarkPersonNotificationConfig = spec.LarkPersonNotificationConfig
+	resp.LarkGroupNotificationConfig = spec.LarkGroupNotificationConfig
+	resp.DingDingNotificationConfig = spec.DingDingNotificationConfig
+	resp.WebhookNotificationConfig = spec.WebhookNotificationConfig
+
+	return resp, nil
 }
 
 func (j *NotificationJob) LintJob() error {

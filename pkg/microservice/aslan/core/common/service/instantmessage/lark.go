@@ -20,6 +20,7 @@ import (
 	"strings"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
+	"github.com/koderover/zadig/v2/pkg/tool/lark"
 )
 
 const (
@@ -194,6 +195,16 @@ func (w *Service) sendFeishuMessage(uri string, lcMsg *LarkCard) error {
 	}
 	_, err := w.SendMessageRequest(uri, message)
 	return err
+}
+
+func (w *Service) sendFeishuMessageFromClient(client *lark.Client, receiverType, receiverID, messageType, messageBody string) error {
+	err := client.SendMessage(receiverType, messageType, receiverID, messageBody)
+
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (w *Service) sendFeishuMessageOfSingleType(title, uri, content string) error {

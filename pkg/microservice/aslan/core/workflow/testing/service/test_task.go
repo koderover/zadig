@@ -416,6 +416,13 @@ func generateCustomWorkflowFromTestingModule(testInfo *commonmodels.Testing, arg
 		concurrencyLimit = -1
 	}
 
+	for _, notify := range testInfo.NotifyCtls {
+		err := notify.GenerateNewNotifyConfigWithOldData()
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	resp := &commonmodels.WorkflowV4{
 		Name:             util.GenTestingWorkflowName(testInfo.Name),
 		DisplayName:      testInfo.Name,

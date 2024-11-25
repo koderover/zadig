@@ -23,13 +23,7 @@ import (
 	"net/url"
 	"strings"
 
-	larkservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/lark"
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
-	"github.com/koderover/zadig/v2/pkg/shared/client/systemconfig"
-	"github.com/koderover/zadig/v2/pkg/shared/client/user"
-	"github.com/koderover/zadig/v2/pkg/tool/lark"
-	"github.com/koderover/zadig/v2/pkg/tool/log"
-	"github.com/koderover/zadig/v2/pkg/tool/mail"
+	"github.com/hashicorp/go-multierror"
 	"github.com/samber/lo"
 	"go.uber.org/zap"
 
@@ -38,8 +32,16 @@ import (
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/instantmessage"
+	larkservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/lark"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/setting"
+	"github.com/koderover/zadig/v2/pkg/shared/client/systemconfig"
+	"github.com/koderover/zadig/v2/pkg/shared/client/user"
 	"github.com/koderover/zadig/v2/pkg/tool/httpclient"
+	"github.com/koderover/zadig/v2/pkg/tool/lark"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
+	"github.com/koderover/zadig/v2/pkg/tool/mail"
+	util2 "github.com/koderover/zadig/v2/pkg/util"
 )
 
 type NotificationJobCtl struct {
@@ -74,11 +76,11 @@ func (c *NotificationJobCtl) Run(ctx context.Context) {
 	if c.jobTaskSpec.WebHookType == setting.NotifyWebhookTypeFeishuApp {
 		larkAtUserIDs := make([]string, 0)
 
-		for _, user := range c.jobTaskSpec.LarkAtUsers {
+		for _, user := range c.jobTaskSpec.LarkGroupNotificationConfig.AtUsers {
 			larkAtUserIDs = append(larkAtUserIDs, user.ID)
 		}
 
-		client, err := larkservice.GetLarkClientByIMAppID(c.jobTaskSpec.FeiShuAppID)
+		client, err := larkservice.GetLarkClientByIMAppID(c.jobTaskSpec.LarkGroupNotificationConfig.AppID)
 		if err != nil {
 			c.logger.Error(err)
 			c.job.Status = config.StatusFailed
@@ -88,7 +90,7 @@ func (c *NotificationJobCtl) Run(ctx context.Context) {
 		}
 
 		// TODO: distinct the receiver type
-		err = sendLarkMessage(client, c.workflowCtx.ProjectName, c.workflowCtx.WorkflowName, c.workflowCtx.WorkflowDisplayName, c.workflowCtx.TaskID, instantmessage.LarkReceiverTypeChat, c.jobTaskSpec.FeishuChat.ChatID, c.jobTaskSpec.Title, c.jobTaskSpec.Content, larkAtUserIDs, c.jobTaskSpec.IsAtAll)
+		err = sendLarkMessage(client, c.workflowCtx.ProjectName, c.workflowCtx.WorkflowName, c.workflowCtx.WorkflowDisplayName, c.workflowCtx.TaskID, instantmessage.LarkReceiverTypeChat, c.jobTaskSpec.LarkGroupNotificationConfig.Chat.ChatID, c.jobTaskSpec.Title, c.jobTaskSpec.Content, larkAtUserIDs, c.jobTaskSpec.LarkGroupNotificationConfig.IsAtAll)
 		if err != nil {
 			c.logger.Error(err)
 			c.job.Status = config.StatusFailed
@@ -97,7 +99,7 @@ func (c *NotificationJobCtl) Run(ctx context.Context) {
 			return
 		}
 	} else if c.jobTaskSpec.WebHookType == setting.NotifyWebHookTypeDingDing {
-		err := sendDingDingMessage(c.workflowCtx.ProjectName, c.workflowCtx.WorkflowName, c.workflowCtx.WorkflowDisplayName, c.workflowCtx.TaskID, c.jobTaskSpec.DingDingWebHook, c.jobTaskSpec.Title, c.jobTaskSpec.Content, c.jobTaskSpec.AtMobiles, c.jobTaskSpec.IsAtAll)
+		err := sendDingDingMessage(c.workflowCtx.ProjectName, c.workflowCtx.WorkflowName, c.workflowCtx.WorkflowDisplayName, c.workflowCtx.TaskID, c.jobTaskSpec.DingDingNotificationConfig.HookAddress, c.jobTaskSpec.Title, c.jobTaskSpec.Content, c.jobTaskSpec.DingDingNotificationConfig.AtMobiles, c.jobTaskSpec.DingDingNotificationConfig.IsAtAll)
 		if err != nil {
 			c.logger.Error(err)
 			c.job.Status = config.StatusFailed
@@ -106,7 +108,7 @@ func (c *NotificationJobCtl) Run(ctx context.Context) {
 			return
 		}
 	} else if c.jobTaskSpec.WebHookType == setting.NotifyWebHookTypeWechatWork {
-		err := sendWorkWxMessage(c.workflowCtx.ProjectName, c.workflowCtx.WorkflowName, c.workflowCtx.WorkflowDisplayName, c.workflowCtx.TaskID, c.jobTaskSpec.WeChatWebHook, c.jobTaskSpec.Title, c.jobTaskSpec.Content, c.jobTaskSpec.WechatUserIDs, c.jobTaskSpec.IsAtAll)
+		err := sendWorkWxMessage(c.workflowCtx.ProjectName, c.workflowCtx.WorkflowName, c.workflowCtx.WorkflowDisplayName, c.workflowCtx.TaskID, c.jobTaskSpec.WechatNotificationConfig.HookAddress, c.jobTaskSpec.Title, c.jobTaskSpec.Content, c.jobTaskSpec.WechatNotificationConfig.AtUsers, c.jobTaskSpec.WechatNotificationConfig.IsAtAll)
 		if err != nil {
 			c.logger.Error(err)
 			c.job.Status = config.StatusFailed
@@ -115,11 +117,68 @@ func (c *NotificationJobCtl) Run(ctx context.Context) {
 			return
 		}
 	} else if c.jobTaskSpec.WebHookType == setting.NotifyWebHookTypeMail {
-		err := sendMailMessage(c.jobTaskSpec.Title, c.jobTaskSpec.Content, c.jobTaskSpec.MailUsers, c.workflowCtx.WorkflowTaskCreatorUserID)
+		err := sendMailMessage(c.jobTaskSpec.Title, c.jobTaskSpec.Content, c.jobTaskSpec.MailNotificationConfig.TargetUsers, c.workflowCtx.WorkflowTaskCreatorUserID)
 		if err != nil {
 			c.logger.Error(err)
 			c.job.Status = config.StatusFailed
 			c.job.Error = err.Error()
+			c.ack()
+			return
+		}
+	} else if c.jobTaskSpec.WebHookType == setting.NotifyWebHookTypeFeishuPerson {
+		client, err := larkservice.GetLarkClientByIMAppID(c.jobTaskSpec.LarkPersonNotificationConfig.AppID)
+		if err != nil {
+			c.logger.Error(err)
+			c.job.Status = config.StatusFailed
+			c.job.Error = err.Error()
+			c.ack()
+			return
+		}
+
+		// the logic to change the executor in the list to the real user.
+		respErr := new(multierror.Error)
+
+		for _, target := range c.jobTaskSpec.LarkPersonNotificationConfig.TargetUsers {
+			if target.IsExecutor {
+				userInfo, err := user.New().GetUserByID(c.workflowCtx.WorkflowTaskCreatorUserID)
+				if err != nil || userInfo == nil {
+					respErr = multierror.Append(respErr, fmt.Errorf("cannot find task invoker's information, error: %s", err))
+					continue
+				}
+
+				if len(userInfo.Phone) == 0 {
+					respErr = multierror.Append(respErr, fmt.Errorf("phone not configured"))
+					continue
+				}
+
+				larkUser, err := client.GetUserIDByEmailOrMobile(lark.QueryTypeMobile, userInfo.Phone, setting.LarkUserID)
+				if err != nil {
+					respErr = multierror.Append(fmt.Errorf("find lark user with phone %s error: %v", userInfo.Phone, err))
+					continue
+				}
+
+				userDetailedInfo, err := client.GetUserInfoByID(util2.GetStringFromPointer(larkUser.UserId), setting.LarkUserID)
+				if err != nil {
+					respErr = multierror.Append(fmt.Errorf("find lark user info for userID %s error: %v", util2.GetStringFromPointer(larkUser.UserId), err))
+					continue
+				}
+
+				target.ID = util2.GetStringFromPointer(larkUser.UserId)
+				target.Name = userDetailedInfo.Name
+				target.Avatar = userDetailedInfo.Avatar
+				target.IDType = setting.LarkUserID
+			}
+
+			err = sendLarkMessage(client, c.workflowCtx.ProjectName, c.workflowCtx.WorkflowName, c.workflowCtx.WorkflowDisplayName, c.workflowCtx.TaskID, target.IDType, target.ID, c.jobTaskSpec.Title, c.jobTaskSpec.Content, make([]string, 0), false)
+			if err != nil {
+				respErr = multierror.Append(respErr, err)
+			}
+		}
+
+		if respErr.ErrorOrNil() != nil {
+			c.logger.Error(respErr.Error())
+			c.job.Status = config.StatusFailed
+			c.job.Error = respErr.Error()
 			c.ack()
 			return
 		}
