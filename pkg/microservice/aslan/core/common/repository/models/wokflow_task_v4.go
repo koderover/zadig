@@ -60,6 +60,7 @@ type WorkflowTask struct {
 	IsDebug             bool                          `bson:"is_debug"                  json:"is_debug"`
 	ShareStorages       []*ShareStorage               `bson:"share_storages"            json:"share_storages"`
 	Type                config.CustomWorkflowTaskType `bson:"type"                      json:"type"`
+	Hash                string                        `bson:"hash"                      json:"hash"`
 }
 
 func (WorkflowTask) TableName() string {
