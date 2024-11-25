@@ -857,7 +857,7 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]st
 		}
 		wg.Wait()
 
-		err = helmservice.UpdateHelmServicesGroupInEnv(productName, envName, groupIndex, groupSvcs, updateProd.Production)
+		err = helmservice.UpdateServicesGroupInEnv(productName, envName, groupIndex, groupSvcs, updateProd.Production)
 		if err != nil {
 			log.Errorf("Failed to update %s/%s - service group %d. Error: %v", productName, envName, groupIndex, err)
 			err = e.ErrUpdateEnv.AddDesc(err.Error())
@@ -2338,7 +2338,7 @@ func deleteK8sProductServices(productInfo *commonmodels.Product, serviceNames []
 		}
 		newServices = append(newServices, group)
 	}
-	err := helmservice.UpdateHelmAllServicesInEnv(productInfo.ProductName, productInfo.EnvName, newServices, productInfo.Production)
+	err := helmservice.UpdateAllServicesInEnv(productInfo.ProductName, productInfo.EnvName, newServices, productInfo.Production)
 	if err != nil {
 		log.Errorf("failed to UpdateHelmProductServices %s/%s, error: %v", productInfo.ProductName, productInfo.EnvName, err)
 		return err
@@ -2523,7 +2523,7 @@ func createGroups(user, requestID string, args *commonmodels.Product, eventStart
 			log.Errorf("createGroup error :%+v", err)
 			return
 		}
-		err = helmservice.UpdateHelmServicesGroupInEnv(args.ProductName, args.EnvName, groupIndex, group, args.Production)
+		err = helmservice.UpdateServicesGroupInEnv(args.ProductName, args.EnvName, groupIndex, group, args.Production)
 		if err != nil {
 			log.Errorf("Failed to update helm product %s/%s - service group %d. Error: %v", args.ProductName, args.EnvName, groupIndex, err)
 			err = e.ErrUpdateEnv.AddDesc(err.Error())
@@ -3206,7 +3206,7 @@ func proceedHelmRelease(productResp *commonmodels.Product, helmClient *helmtool.
 			errList = multierror.Append(errList, groupServiceErr...)
 		}
 
-		err := helmservice.UpdateHelmServicesGroupInEnv(productName, envName, groupIndex, groupServices, productResp.Production)
+		err := helmservice.UpdateServicesGroupInEnv(productName, envName, groupIndex, groupServices, productResp.Production)
 		if err != nil {
 			log.Errorf("failed to UpdateHelmProductServices %s/%s, error: %v", productName, envName, err)
 			mongotool.AbortTransaction(session)

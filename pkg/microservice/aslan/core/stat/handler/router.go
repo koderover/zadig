@@ -122,5 +122,6 @@ func (*OpenAPIRouter) Inject(router *gin.RouterGroup) {
 	v2 := router.Group("/v2")
 	{
 		v2.GET("/release", GetReleaseStatOpenAPI)
+		v2.GET("/rollback/detail", GetRollbackStatDetailOpenAPI)
 	}
 }

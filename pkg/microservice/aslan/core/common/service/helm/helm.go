@@ -109,8 +109,8 @@ func CopyAndUploadService(projectName, serviceName, currentChartPath string, cop
 	return fsservice.CopyAndUploadFiles(names, path.Join(localBase, serviceName), s3Base, localBase, currentChartPath, log.SugaredLogger())
 }
 
-// Update helm Service and ServiceDeployStrategy for a single service in environment
-func UpdateHelmServiceInEnv(product *commonmodels.Product, productSvc *commonmodels.ProductService, user string) error {
+// Update Service and ServiceDeployStrategy for a single service in environment
+func UpdateServiceInEnv(product *commonmodels.Product, productSvc *commonmodels.ProductService, user string) error {
 	session := mongo.Session()
 	defer session.EndSession(context.TODO())
 
@@ -208,8 +208,8 @@ func UpdateHelmServiceInEnv(product *commonmodels.Product, productSvc *commonmod
 	return mongo.CommitTransaction(session)
 }
 
-// Update all helm services in environment
-func UpdateHelmAllServicesInEnv(productName, envName string, services [][]*models.ProductService, production bool) error {
+// Update all services in environment
+func UpdateAllServicesInEnv(productName, envName string, services [][]*models.ProductService, production bool) error {
 	session := mongo.Session()
 	defer session.EndSession(context.TODO())
 
@@ -272,8 +272,8 @@ func UpdateHelmAllServicesInEnv(productName, envName string, services [][]*model
 	return mongo.CommitTransaction(session)
 }
 
-// Update a helm services group in environment
-func UpdateHelmServicesGroupInEnv(productName, envName string, index int, group []*models.ProductService, production bool) error {
+// Update a services group in environment
+func UpdateServicesGroupInEnv(productName, envName string, index int, group []*models.ProductService, production bool) error {
 	session := mongo.Session()
 	defer session.EndSession(context.TODO())
 

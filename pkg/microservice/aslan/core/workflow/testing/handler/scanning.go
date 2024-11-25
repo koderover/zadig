@@ -129,6 +129,15 @@ func CreateScanningModule(c *gin.Context) {
 	ctx.RespErr = service.CreateScanningModule(ctx.UserName, args, ctx.Logger)
 }
 
+// @Summary 更新代码扫描
+// @Description body参数与创建代码扫描相同
+// @Tags 	testing
+// @Accept 	json
+// @Produce json
+// @Param 	projectName 	query		string								true	"项目标识"
+// @Param 	body 			body 		service.Scanning 					true 	"body"
+// @Success 200
+// @Router /api/aslan/testing/scanning/{id} [put]
 func UpdateScanningModule(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -181,6 +190,14 @@ func UpdateScanningModule(c *gin.Context) {
 	ctx.RespErr = service.UpdateScanningModule(id, ctx.UserName, args, ctx.Logger)
 }
 
+// @Summary 获取代码扫描列表
+// @Description
+// @Tags 	testing
+// @Accept 	json
+// @Produce json
+// @Param 	projectName 	query		string								true	"项目标识"
+// @Success 200 			{array} 	service.ListScanningRespItem
+// @Router /api/aslan/testing/scanning [get]
 func ListScanningModule(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -244,6 +261,15 @@ func ListScanningModule(c *gin.Context) {
 	ctx.RespErr = err
 }
 
+// @Summary 获取代码扫描详情
+// @Description
+// @Tags 	testing
+// @Accept 	json
+// @Produce json
+// @Param 	projectName 	query		string								true	"项目标识"
+// @Param 	id 				query		string								true	"代码扫描 ID"
+// @Success 200 			{object} 	service.Scanning
+// @Router /api/aslan/testing/scanning/{id} [get]
 func GetScanningModule(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

@@ -80,8 +80,8 @@ const (
 	FreestyleType PipelineType = "freestyle"
 	// TestType 测试
 	TestType PipelineType = "test"
-	// ServiceType 服务
-	ServiceType PipelineType = "service"
+	// PipelineTypeService 服务
+	PipelineTypeService PipelineType = "service"
 	// WorkflowTypeV3
 	WorkflowTypeV3 PipelineType = "workflow_v3"
 	// WorkflowTypeV4
@@ -309,8 +309,32 @@ const (
 type EnvType string
 
 const (
-	EnvTypeTest       = "test"
-	EvnTypeProduction = "production"
+	EnvTypeZadig EnvType = "zadig"
+	EnvTypeSae   EnvType = "sae"
+)
+
+type EnvOperation string
+
+const (
+	EnvOperationRollback EnvOperation = "rollback"
+)
+
+type EnvOperationType string
+
+const (
+	EnvOperationTypeZadig          EnvOperationType = "zadig"
+	EnvOperationTypeSae            EnvOperationType = "sae"
+	EnvOperationTypeSaeChangeOrder EnvOperationType = "sae_change_order"
+)
+
+type ServiceType string
+
+const (
+	ServiceTypeHelm      ServiceType = "helm"
+	ServiceTypeHelmChart ServiceType = "helm_chart"
+	ServiceTypeK8S       ServiceType = "k8s"
+	ServiceTypeSae       ServiceType = "sae"
+	ServiceTypeVM        ServiceType = "vm"
 )
 
 type TestModuleType string

@@ -341,7 +341,7 @@ func (c *TaskColl) List(option *ListTaskOption) (ret []*TaskPreview, err error) 
 
 	if option.Type != "" {
 		query["type"] = option.Type
-		if option.Type == config.ServiceType {
+		if option.Type == config.PipelineTypeService {
 			selector = append(selector, bson.E{"namespace", 1})
 			selector = append(selector, bson.E{"service_name", 1})
 		}

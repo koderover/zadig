@@ -223,7 +223,7 @@ func CreateServiceTask(args *commonmodels.ServiceTaskArgs, log *zap.SugaredLogge
 	}
 
 	task := &taskmodels.Task{
-		Type:          config.ServiceType,
+		Type:          config.PipelineTypeService,
 		ProductName:   args.ProductName,
 		TaskCreator:   args.ServiceTaskCreator,
 		Status:        config.StatusCreated,

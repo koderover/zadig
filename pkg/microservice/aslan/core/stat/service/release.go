@@ -21,14 +21,14 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/stat/repository/models"
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/stat/repository/mongodb"
-	"github.com/koderover/zadig/v2/pkg/util"
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/stat/repository/models"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/stat/repository/mongodb"
+	"github.com/koderover/zadig/v2/pkg/util"
 )
 
 func GetReleaseStatOpenAPI(startDate, endDate int64, productName string, log *zap.SugaredLogger) (*OpenAPIStatV2, error) {
