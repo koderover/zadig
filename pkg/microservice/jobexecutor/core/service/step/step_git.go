@@ -176,6 +176,8 @@ func (s *GitStep) runGitCmds() error {
 		if !c.DisableTrace {
 			fmt.Printf("%s   %s\n", time.Now().Format(setting.WorkflowTimeFormat), strings.Join(c.Cmd.Args, " "))
 		}
+		log.Debugf("[cmd dir]: %s", c.Cmd.Dir)
+		log.Debugf("[run git cmd]: %s", strings.Join(c.Cmd.Args, " "))
 		if err := c.Cmd.Run(); err != nil {
 			if c.IgnoreError {
 				continue
@@ -198,6 +200,9 @@ func (s *GitStep) buildGitCommands(repo *types.Repository, hostNames sets.String
 	if len(repo.CheckoutPath) != 0 {
 		workDir = filepath.Join(s.workspace, repo.CheckoutPath)
 	}
+	defer func() {
+		setCmdsWorkDir(workDir, cmds)
+	}()
 
 	if _, err := os.Stat(workDir); os.IsNotExist(err) {
 		os.MkdirAll(workDir, 0777)
@@ -307,8 +312,6 @@ func (s *GitStep) buildGitCommands(repo *types.Repository, hostNames sets.String
 	}
 
 	cmds = append(cmds, &c.Command{Cmd: c.GitShowLastLog()})
-
-	setCmdsWorkDir(workDir, cmds)
 
 	return cmds
 }

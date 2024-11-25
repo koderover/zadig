@@ -145,6 +145,9 @@ func (s *GitStep) buildGitCommands(repo *types.Repository, hostNames sets.String
 	if len(repo.CheckoutPath) != 0 {
 		workDir = filepath.Join(s.dirs.Workspace, repo.CheckoutPath)
 	}
+	defer func() {
+		helper.SetCmdsWorkDir(workDir, cmds)
+	}()
 
 	if _, err := os.Stat(workDir); os.IsNotExist(err) {
 		err = os.MkdirAll(workDir, 0777)
@@ -269,8 +272,6 @@ func (s *GitStep) buildGitCommands(repo *types.Repository, hostNames sets.String
 	}
 
 	cmds = append(cmds, &common.Command{Cmd: gitcmd.ShowLastLog()})
-
-	helper.SetCmdsWorkDir(workDir, cmds)
 
 	return cmds
 }
