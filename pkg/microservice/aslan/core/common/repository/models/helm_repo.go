@@ -21,15 +21,16 @@ import (
 )
 
 type HelmRepo struct {
-	ID        primitive.ObjectID `bson:"_id,omitempty"         json:"id,omitempty"`
-	RepoName  string             `bson:"repo_name,omitempty"   json:"repo_name,omitempty"`
-	URL       string             `bson:"url"                   json:"url"`
-	Username  string             `bson:"username"              json:"username"`
-	Password  string             `bson:"password"              json:"password"`
-	Projects  []string           `bson:"projects"              json:"projects"`
-	UpdateBy  string             `bson:"update_by"             json:"update_by"`
-	CreatedAt int64              `bson:"created_at"            json:"created_at"`
-	UpdatedAt int64              `bson:"updated_at"            json:"updated_at"`
+	ID          primitive.ObjectID `bson:"_id,omitempty"         json:"id,omitempty"`
+	RepoName    string             `bson:"repo_name,omitempty"   json:"repo_name,omitempty"`
+	URL         string             `bson:"url"                   json:"url"`
+	Username    string             `bson:"username"              json:"username"`
+	Password    string             `bson:"password"              json:"password"`
+	Projects    []string           `bson:"projects"              json:"projects"`
+	EnableProxy bool               `bson:"enable_proxy"          json:"enable_proxy"`
+	UpdateBy    string             `bson:"update_by"             json:"update_by"`
+	CreatedAt   int64              `bson:"created_at"            json:"created_at"`
+	UpdatedAt   int64              `bson:"updated_at"            json:"updated_at"`
 }
 
 func (h HelmRepo) TableName() string {

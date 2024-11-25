@@ -22,7 +22,6 @@ import (
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
-	"github.com/koderover/zadig/v2/pkg/tool/helmclient"
 )
 
 type IndexFileResp struct {
@@ -74,7 +73,7 @@ func ListCharts(name string, log *zap.SugaredLogger) (*IndexFileResp, error) {
 		return nil, err
 	}
 
-	client, err := helmclient.NewClient()
+	client, err := commonutil.NewHelmClient(chartRepo)
 	if err != nil {
 		return nil, err
 	}

@@ -24,9 +24,15 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"k8s.io/klog/v2"
+	controllerruntime "sigs.k8s.io/controller-runtime"
 
 	"github.com/koderover/zadig/v2/pkg/tool/kube/util"
 )
+
+func init() {
+	controllerruntime.SetLogger(klog.Background())
+}
 
 func DeleteSecrets(namespace string, selector labels.Selector, clientset *kubernetes.Clientset) error {
 	deletePolicy := metav1.DeletePropagationForeground

@@ -31,9 +31,11 @@ type Proxy struct {
 	NeedPassword bool   `bson:"need_password"                json:"need_password"`
 	Username     string `bson:"username"                     json:"username"`
 	Password     string `bson:"password"                     json:"password"`
-	// 代理用途，app表示应用代理，repo表示代码库代理。保留字段，暂时默认设置为default，以后可能用到。
-	Usage                  string `bson:"usage"                        json:"usage"`
-	EnableRepoProxy        bool   `bson:"enable_repo_proxy"            json:"enable_repo_proxy"`
+	// Deprecated，代理用途，app表示应用代理，repo表示代码库代理。保留字段，暂时默认设置为default，以后可能用到。
+	Usage string `bson:"usage"                        json:"usage"`
+	// Deprecated
+	EnableRepoProxy bool `bson:"enable_repo_proxy"            json:"enable_repo_proxy"`
+	// Deprecated
 	EnableApplicationProxy bool   `bson:"enable_application_proxy"     json:"enable_application_proxy"`
 	CreateTime             int64  `bson:"create_time"                  json:"create_time"`
 	UpdateTime             int64  `bson:"update_time"                  json:"update_time"`

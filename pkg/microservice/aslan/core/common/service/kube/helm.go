@@ -265,7 +265,7 @@ func UpgradeHelmRelease(product *commonmodels.Product, productSvc *commonmodels.
 		// remove local file to untar
 		_ = os.RemoveAll(localPath)
 
-		hClient, err := helmtool.NewClient()
+		hClient, err := commonutil.NewHelmClient(chartRepo)
 		if err != nil {
 			return err
 		}

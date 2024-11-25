@@ -113,7 +113,7 @@ func GetEnvServiceVersionYaml(ctx *internalhandler.Context, projectName, envName
 			return resp, e.ErrDiffEnvServiceVersions.AddErr(fmt.Errorf("failed to query chart-repo info, repoName: %s", chartRepoName))
 		}
 
-		client, err := helmtool.NewClient()
+		client, err := commonutil.NewHelmClient(chartRepo)
 		if err != nil {
 			return resp, e.ErrDiffEnvServiceVersions.AddErr(fmt.Errorf("failed to new helm client, err %s", err))
 		}
