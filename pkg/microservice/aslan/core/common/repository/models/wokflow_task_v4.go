@@ -59,6 +59,7 @@ type WorkflowTask struct {
 	IsDebug             bool                          `bson:"is_debug"                  json:"is_debug"`
 	ShareStorages       []*ShareStorage               `bson:"share_storages"            json:"share_storages"`
 	Type                config.CustomWorkflowTaskType `bson:"type"                      json:"type"`
+	Hash                string                        `bson:"hash"                      json:"hash"`
 }
 
 func (WorkflowTask) TableName() string {
@@ -140,6 +141,7 @@ type WorkflowTaskPreview struct {
 	EndTime             int64           `bson:"end_time"              json:"end_time,omitempty"`
 	WorkflowArgs        *WorkflowV4     `bson:"workflow_args"         json:"-"`
 	Stages              []*StagePreview `bson:"stages"                json:"stages,omitempty"`
+	Hash                string          `bson:"hash"                  json:"hash"`
 }
 
 type StagePreview struct {
