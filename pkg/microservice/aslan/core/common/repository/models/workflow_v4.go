@@ -44,7 +44,6 @@ type WorkflowV4 struct {
 	DisplayName     string                   `bson:"display_name"        yaml:"display_name"        json:"display_name"`
 	Disabled        bool                     `bson:"disabled"            yaml:"disabled"            json:"disabled"`
 	Category        setting.WorkflowCategory `bson:"category"            yaml:"category"            json:"category"`
-	KeyVals         []*KeyVal                `bson:"key_vals"            yaml:"key_vals"            json:"key_vals"`
 	Params          []*Param                 `bson:"params"              yaml:"params"              json:"params"`
 	Stages          []*WorkflowStage         `bson:"stages"              yaml:"stages"              json:"stages"`
 	Project         string                   `bson:"project"             yaml:"project"             json:"project"`
@@ -77,7 +76,7 @@ func (w *WorkflowV4) UpdateHash() {
 
 func (w *WorkflowV4) CalculateHash() [md5.Size]byte {
 	fieldList := make(map[string]interface{})
-	ignoringFieldList := []string{"CreatedBy", "CreateTime", "UpdatedBy", "UpdateTime", "Description", "Hash"}
+	ignoringFieldList := []string{"CreatedBy", "CreateTime", "UpdatedBy", "UpdateTime", "Description", "Hash", "DisplayName", "HookCtls", "JiraHookCtls", "MeegoHookCtls", "GeneralHookCtls", "ConcurrencyLimit", "ShareStorages", "NotifyCtls"}
 	ignoringFields := sets.NewString(ignoringFieldList...)
 
 	val := reflect.ValueOf(*w)

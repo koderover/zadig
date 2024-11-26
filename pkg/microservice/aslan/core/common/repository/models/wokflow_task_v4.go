@@ -36,7 +36,6 @@ type WorkflowTask struct {
 	Params              []*Param                      `bson:"params"                    json:"params"`
 	WorkflowArgs        *WorkflowV4                   `bson:"workflow_args"             json:"workflow_args"`
 	OriginWorkflowArgs  *WorkflowV4                   `bson:"origin_workflow_args"      json:"origin_workflow_args"`
-	KeyVals             []*KeyVal                     `bson:"key_vals"                  json:"key_vals"`
 	GlobalContext       map[string]string             `bson:"global_context"            json:"global_context"`
 	ClusterIDMap        map[string]bool               `bson:"cluster_id_map"            json:"cluster_id_map"`
 	Status              config.Status                 `bson:"status"                    json:"status,omitempty"`
