@@ -829,6 +829,9 @@ func getNotifyAtContent(notify *models.NotifyCtl) string {
 		if notify.LarkHookNotificationConfig.IsAtAll {
 			resp += "<at user_id=\"all\"></at>"
 		}
+
+		fmt.Println("===========================")
+		fmt.Println("resp is:", resp)
 	}
 	return resp
 }
