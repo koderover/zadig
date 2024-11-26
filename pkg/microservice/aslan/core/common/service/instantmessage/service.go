@@ -815,23 +815,42 @@ func getNotifyAtContent(notify *models.NotifyCtl) string {
 		for _, userID := range notify.LarkUserIDs {
 			atUserList = append(atUserList, fmt.Sprintf("<at user_id=\"%s\"></at>", userID))
 		}
-		resp = strings.Join(atUserList, " ")
+		msg := strings.Join(atUserList, " ")
 		if notify.LarkHookNotificationConfig.IsAtAll {
-			resp += "<at user_id=\"all\"></at>"
+			msg += "<at user_id=\"all\"></at>"
 		}
+
+		larkAtMessage := &FeiShuMessage{
+			Text: msg,
+		}
+
+		atMessageContent, err := json.Marshal(larkAtMessage)
+		if err != nil {
+			log.Errorf("failed to generate lark at info, error: %s", err)
+			return ""
+		}
+		return string(atMessageContent)
 	}
 	if notify.WebHookType == setting.NotifyWebhookTypeFeishuApp {
 		atUserList := []string{}
 		for _, userID := range notify.LarkGroupNotificationConfig.AtUsers {
 			atUserList = append(atUserList, fmt.Sprintf("<at user_id=\"%s\"></at>", userID.ID))
 		}
-		resp = strings.Join(atUserList, " ")
+		msg := strings.Join(atUserList, " ")
 		if notify.LarkHookNotificationConfig.IsAtAll {
-			resp += "<at user_id=\"all\"></at>"
+			msg += "<at user_id=\"all\"></at>"
 		}
 
-		fmt.Println("===========================")
-		fmt.Println("resp is:", resp)
+		larkAtMessage := &FeiShuMessage{
+			Text: msg,
+		}
+
+		atMessageContent, err := json.Marshal(larkAtMessage)
+		if err != nil {
+			log.Errorf("failed to generate lark at info, error: %s", err)
+			return ""
+		}
+		return string(atMessageContent)
 	}
 	return resp
 }
