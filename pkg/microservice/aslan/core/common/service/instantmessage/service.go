@@ -796,14 +796,14 @@ func genTestCaseText(test string, subTask, testReports map[string]interface{}) s
 func getNotifyAtContent(notify *models.NotifyCtl) string {
 	resp := ""
 	if notify.WebHookType == setting.NotifyWebHookTypeDingDing {
-		notify.AtMobiles = lo.Filter(notify.DingDingNotificationConfig.AtMobiles, func(s string, _ int) bool { return s != "All" })
+		notify.DingDingNotificationConfig.AtMobiles = lo.Filter(notify.DingDingNotificationConfig.AtMobiles, func(s string, _ int) bool { return s != "All" })
 		if len(notify.AtMobiles) > 0 {
 			resp = fmt.Sprintf("##### **相关人员**: @%s \n", strings.Join(notify.DingDingNotificationConfig.AtMobiles, "@"))
 		}
 	}
 	if notify.WebHookType == setting.NotifyWebHookTypeWechatWork && len(notify.WechatUserIDs) > 0 {
 		atUserList := []string{}
-		notify.WechatUserIDs = lo.Filter(notify.WechatNotificationConfig.AtUsers, func(s string, _ int) bool { return s != "All" })
+		notify.WechatNotificationConfig.AtUsers = lo.Filter(notify.WechatNotificationConfig.AtUsers, func(s string, _ int) bool { return s != "All" })
 		for _, userID := range notify.WechatUserIDs {
 			atUserList = append(atUserList, fmt.Sprintf("<@%s>", userID))
 		}
@@ -811,25 +811,46 @@ func getNotifyAtContent(notify *models.NotifyCtl) string {
 	}
 	if notify.WebHookType == setting.NotifyWebHookTypeFeishu {
 		atUserList := []string{}
-		notify.LarkUserIDs = lo.Filter(notify.LarkHookNotificationConfig.AtUsers, func(s string, _ int) bool { return s != "All" })
+		notify.LarkHookNotificationConfig.AtUsers = lo.Filter(notify.LarkHookNotificationConfig.AtUsers, func(s string, _ int) bool { return s != "All" })
 		for _, userID := range notify.LarkUserIDs {
 			atUserList = append(atUserList, fmt.Sprintf("<at user_id=\"%s\"></at>", userID))
 		}
-		resp = strings.Join(atUserList, " ")
+		msg := strings.Join(atUserList, " ")
 		if notify.LarkHookNotificationConfig.IsAtAll {
-			resp += "<at user_id=\"all\"></at>"
+			msg += "<at user_id=\"all\"></at>"
 		}
+
+		larkAtMessage := &FeiShuMessage{
+			Text: msg,
+		}
+
+		atMessageContent, err := json.Marshal(larkAtMessage)
+		if err != nil {
+			log.Errorf("failed to generate lark at info, error: %s", err)
+			return ""
+		}
+		return string(atMessageContent)
 	}
 	if notify.WebHookType == setting.NotifyWebhookTypeFeishuApp {
 		atUserList := []string{}
-		notify.LarkUserIDs = lo.Filter(notify.LarkHookNotificationConfig.AtUsers, func(s string, _ int) bool { return s != "All" })
-		for _, userID := range notify.LarkUserIDs {
-			atUserList = append(atUserList, fmt.Sprintf("<at user_id=\"%s\"></at>", userID))
+		for _, userID := range notify.LarkGroupNotificationConfig.AtUsers {
+			atUserList = append(atUserList, fmt.Sprintf("<at user_id=\"%s\"></at>", userID.ID))
 		}
-		resp = strings.Join(atUserList, " ")
+		msg := strings.Join(atUserList, " ")
 		if notify.LarkHookNotificationConfig.IsAtAll {
-			resp += "<at user_id=\"all\"></at>"
+			msg += "<at user_id=\"all\"></at>"
 		}
+
+		larkAtMessage := &FeiShuMessage{
+			Text: msg,
+		}
+
+		atMessageContent, err := json.Marshal(larkAtMessage)
+		if err != nil {
+			log.Errorf("failed to generate lark at info, error: %s", err)
+			return ""
+		}
+		return string(atMessageContent)
 	}
 	return resp
 }
