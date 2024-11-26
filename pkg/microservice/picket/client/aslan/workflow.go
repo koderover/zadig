@@ -37,17 +37,6 @@ func (c *Client) ListWorkflows(header http.Header, qs url.Values) ([]byte, error
 	return res.Body(), nil
 }
 
-func (c *Client) ListWorkflowsV3(header http.Header, qs url.Values) ([]byte, error) {
-	url := "/workflow/v3"
-
-	res, err := c.Get(url, httpclient.SetHeadersFromHTTPHeader(header), httpclient.SetQueryParamsFromValues(qs))
-	if err != nil {
-		return nil, err
-	}
-
-	return res.Body(), nil
-}
-
 func (c *Client) ListAllWorkflows(header http.Header, qs url.Values) ([]byte, error) {
 	url := "/workflow/v4/all"
 
