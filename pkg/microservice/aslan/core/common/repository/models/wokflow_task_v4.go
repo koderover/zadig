@@ -37,7 +37,6 @@ type WorkflowTask struct {
 	Params              []*Param                      `bson:"params"                    json:"params"`
 	WorkflowArgs        *WorkflowV4                   `bson:"workflow_args"             json:"workflow_args"`
 	OriginWorkflowArgs  *WorkflowV4                   `bson:"origin_workflow_args"      json:"origin_workflow_args"`
-	KeyVals             []*KeyVal                     `bson:"key_vals"                  json:"key_vals"`
 	GlobalContext       map[string]string             `bson:"global_context"            json:"global_context"`
 	ClusterIDMap        map[string]bool               `bson:"cluster_id_map"            json:"cluster_id_map"`
 	Status              config.Status                 `bson:"status"                    json:"status,omitempty"`
@@ -60,6 +59,7 @@ type WorkflowTask struct {
 	IsDebug             bool                          `bson:"is_debug"                  json:"is_debug"`
 	ShareStorages       []*ShareStorage               `bson:"share_storages"            json:"share_storages"`
 	Type                config.CustomWorkflowTaskType `bson:"type"                      json:"type"`
+	Hash                string                        `bson:"hash"                      json:"hash"`
 }
 
 func (WorkflowTask) TableName() string {
@@ -135,6 +135,7 @@ type WorkflowTaskPreview struct {
 	EndTime             int64           `bson:"end_time"              json:"end_time,omitempty"`
 	WorkflowArgs        *WorkflowV4     `bson:"workflow_args"         json:"-"`
 	Stages              []*StagePreview `bson:"stages"                json:"stages,omitempty"`
+	Hash                string          `bson:"hash"                  json:"hash"`
 }
 
 type StagePreview struct {

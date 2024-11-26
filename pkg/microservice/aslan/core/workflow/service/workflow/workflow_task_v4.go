@@ -445,14 +445,18 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 		return resp, err
 	}
 
+	workflowTask := &commonmodels.WorkflowTask{}
+
 	if args.Type == config.WorkflowTaskTypeWorkflow || args.Type == "" {
-		orignalWorkflow, err := commonrepo.NewWorkflowV4Coll().Find(workflow.Name)
+		originalWorkflow, err := commonrepo.NewWorkflowV4Coll().Find(workflow.Name)
 		if err != nil {
 			return resp, e.ErrCreateTask.AddErr(fmt.Errorf("cannot find workflow %s, error: %v", workflow.Name, err))
 		}
-		if orignalWorkflow.Disabled {
+		if originalWorkflow.Disabled {
 			return resp, e.ErrCreateTask.AddDesc("workflow is disabled")
 		}
+
+		workflowTask.Hash = originalWorkflow.Hash
 	} else {
 		if workflow.Disabled {
 			return resp, e.ErrCreateTask.AddDesc("workflow is disabled")
@@ -468,8 +472,6 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 		log.Errorf("instantiate workflow error: %s", err)
 		return resp, e.ErrCreateTask.AddErr(err)
 	}
-
-	workflowTask := &commonmodels.WorkflowTask{}
 
 	// if user info exists, get user email and put it to workflow task info
 	if args.UserID != "" {
@@ -529,7 +531,6 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 	workflowTask.WorkflowDisplayName = workflow.DisplayName
 	workflowTask.ProjectName = workflow.Project
 	workflowTask.Params = workflow.Params
-	workflowTask.KeyVals = workflow.KeyVals
 	workflowTask.ShareStorages = workflow.ShareStorages
 	workflowTask.IsDebug = workflow.Debug
 	workflowTask.Remark = workflow.Remark
@@ -1076,6 +1077,7 @@ func ListWorkflowTaskV4ByFilter(filter *TaskHistoryFilter, filterList []string, 
 			CreateTime:          task.CreateTime,
 			StartTime:           task.StartTime,
 			EndTime:             task.EndTime,
+			Hash:                task.Hash,
 		}
 
 		stagePreviews := make([]*commonmodels.StagePreview, 0)
