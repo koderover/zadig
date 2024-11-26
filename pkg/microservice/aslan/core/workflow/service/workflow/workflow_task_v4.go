@@ -531,7 +531,6 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 	workflowTask.WorkflowDisplayName = workflow.DisplayName
 	workflowTask.ProjectName = workflow.Project
 	workflowTask.Params = workflow.Params
-	workflowTask.KeyVals = workflow.KeyVals
 	workflowTask.ShareStorages = workflow.ShareStorages
 	workflowTask.IsDebug = workflow.Debug
 	workflowTask.Remark = workflow.Remark
