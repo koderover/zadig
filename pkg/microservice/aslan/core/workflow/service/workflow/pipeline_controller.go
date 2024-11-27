@@ -439,7 +439,7 @@ func BlockedTaskQueue() ([]*task.Task, error) {
 
 func ParallelRunningAndQueuedTasks(currentTask *task.Task) bool {
 	//只有产品工作流单一工作流任务支持并发，其他的类型暂不支持
-	if currentTask.Type == config.SingleType || currentTask.Type == config.TestType || currentTask.Type == config.ServiceType {
+	if currentTask.Type == config.SingleType || currentTask.Type == config.TestType || currentTask.Type == config.PipelineTypeService {
 		return false
 	}
 	//如果是产品工作流判断是否设置了并行

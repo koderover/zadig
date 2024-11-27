@@ -171,15 +171,28 @@ type ProductService struct {
 	Revision    int64                         `bson:"revision"                   json:"revision"`
 	Containers  []*Container                  `bson:"containers"                 json:"containers,omitempty"`
 	Error       string                        `bson:"error,omitempty"            json:"error,omitempty"`
-	Resources   []*ServiceResource            `bson:"resources,omitempty"             json:"resources,omitempty"`
+	Resources   []*ServiceResource            `bson:"resources,omitempty"        json:"resources,omitempty"`
 	UpdateTime  int64                         `bson:"update_time"                json:"update_time"`
 	Render      *templatemodels.ServiceRender `bson:"render"                     json:"render,omitempty"` // New since 1.9.0 used to replace service renders in render_set
 
 	EnvConfigs     []*EnvConfig                    `bson:"-"                          json:"env_configs,omitempty"`
+	RenderedYaml   string                          `bson:"rendered_yaml,omitempty"    json:"rendered_yaml,omitempty"`
 	VariableYaml   string                          `bson:"-"                          json:"variable_yaml,omitempty"`
 	VariableKVs    []*commontypes.RenderVariableKV `bson:"-"                          json:"variable_kvs,omitempty"`
 	Updatable      bool                            `bson:"-"                          json:"updatable"`
 	DeployStrategy string                          `bson:"-"                          json:"deploy_strategy"`
+}
+
+func (svc *ProductService) GetServiceType() config.ServiceType {
+	if svc.Type == setting.K8SDeployType {
+		return config.ServiceTypeK8S
+	} else if svc.Type == setting.HelmDeployType {
+		return config.ServiceTypeHelm
+	} else if svc.Type == setting.HelmChartDeployType {
+		return config.ServiceTypeHelmChart
+	} else {
+		return config.ServiceTypeVM
+	}
 }
 
 func (svc *ProductService) FromZadig() bool {

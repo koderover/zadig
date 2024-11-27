@@ -27,13 +27,17 @@ import (
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
+	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	saeservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/sae"
 	"github.com/koderover/zadig/v2/pkg/setting"
+	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/pkg/errors"
 )
 
@@ -454,7 +458,7 @@ func RescaleSAEApp(projectName, envName, appID string, Replicas int32, log *zap.
 	return nil
 }
 
-func RollbackSAEApp(projectName, envName, appID, versionID string, log *zap.SugaredLogger) error {
+func RollbackSAEApp(ctx *internalhandler.Context, projectName, envName, appID, versionID string, log *zap.SugaredLogger) error {
 	opt := &commonrepo.SAEEnvFindOptions{ProjectName: projectName, EnvName: envName}
 	env, err := commonrepo.NewSAEEnvColl().Find(opt)
 	if err != nil {
@@ -491,6 +495,85 @@ func RollbackSAEApp(projectName, envName, appID, versionID string, log *zap.Suga
 		err = fmt.Errorf("Failed to rollback application %s, statusCode: %d, code: %s, errCode: %s, message: %s", appID, tea.Int32Value(saeResp.StatusCode), tea.ToString(saeResp.Body.Code), tea.ToString(saeResp.Body.ErrorCode), tea.ToString(saeResp.Body.Message))
 		log.Error(err)
 		return e.ErrRollbackEnvServiceVersion.AddErr(err)
+	}
+
+	err = createSaeRollbackRecord(ctx, saeClient, projectName, envName, appID, versionID, env.Production)
+	if err != nil {
+		log.Error(errors.Wrap(err, "Failed to create sae rollback record"))
+	}
+
+	return nil
+}
+
+func createSaeRollbackRecord(ctx *internalhandler.Context, saeClient *sae.Client, projectName, envName, appID, versionID string, production bool) error {
+	saeRequest := &sae.DescribeApplicationConfigRequest{
+		AppId: tea.String(appID),
+	}
+	saeResp, err := saeClient.DescribeApplicationConfig(saeRequest)
+	if err != nil {
+		err = fmt.Errorf("Failed to describe application %s config, err: %s", appID, err)
+		log.Error(err)
+		return err
+	}
+	if !tea.BoolValue(saeResp.Body.Success) {
+		err = fmt.Errorf("Failed to describe application %s config, statusCode: %d, code: %s, errCode: %s, message: %s", appID, tea.Int32Value(saeResp.StatusCode), tea.ToString(saeResp.Body.Code), tea.ToString(saeResp.Body.ErrorCode), tea.ToString(saeResp.Body.Message))
+		log.Error(err)
+		return err
+	}
+
+	originSaeApp := &models.SAEApplication{
+		AppName:    tea.StringValue(saeResp.Body.Data.AppName),
+		AppID:      tea.StringValue(saeResp.Body.Data.AppId),
+		ImageUrl:   tea.StringValue(saeResp.Body.Data.ImageUrl),
+		PackageUrl: tea.StringValue(saeResp.Body.Data.PackageUrl),
+		Instances:  tea.Int32Value(saeResp.Body.Data.Replicas),
+		Cpu:        tea.Int32Value(saeResp.Body.Data.Cpu),
+		Mem:        tea.Int32Value(saeResp.Body.Data.Memory),
+	}
+
+	saeRequest = &sae.DescribeApplicationConfigRequest{
+		AppId:     tea.String(appID),
+		VersionId: tea.String(versionID),
+	}
+	saeResp, err = saeClient.DescribeApplicationConfig(saeRequest)
+	if err != nil {
+		err = fmt.Errorf("Failed to describe application %s config, versionID: %s, err: %s", appID, versionID, err)
+		log.Error(err)
+		return err
+	}
+	if !tea.BoolValue(saeResp.Body.Success) {
+		err = fmt.Errorf("Failed to describe application %s config, versionID: %s, statusCode: %d, code: %s, errCode: %s, message: %s", appID, versionID, tea.Int32Value(saeResp.StatusCode), tea.ToString(saeResp.Body.Code), tea.ToString(saeResp.Body.ErrorCode), tea.ToString(saeResp.Body.Message))
+		log.Error(err)
+		return err
+	}
+
+	updateSaeApp := &models.SAEApplication{
+		AppName:    tea.StringValue(saeResp.Body.Data.AppName),
+		AppID:      tea.StringValue(saeResp.Body.Data.AppId),
+		ImageUrl:   tea.StringValue(saeResp.Body.Data.ImageUrl),
+		PackageUrl: tea.StringValue(saeResp.Body.Data.PackageUrl),
+		Instances:  tea.Int32Value(saeResp.Body.Data.Replicas),
+		Cpu:        tea.Int32Value(saeResp.Body.Data.Cpu),
+		Mem:        tea.Int32Value(saeResp.Body.Data.Memory),
+	}
+
+	rollbackRecord := &commonmodels.EnvInfo{
+		ProjectName:   projectName,
+		EnvName:       envName,
+		EnvType:       config.EnvTypeSae,
+		Production:    production,
+		Operation:     config.EnvOperationRollback,
+		OperationType: config.EnvOperationTypeSae,
+		ServiceName:   originSaeApp.AppName,
+		ServiceType:   config.ServiceTypeSae,
+		OriginSaeApp:  originSaeApp,
+		UpdateSaeApp:  updateSaeApp,
+	}
+	err = mongodb.NewEnvInfoColl().Create(ctx, rollbackRecord)
+	if err != nil {
+		err = fmt.Errorf("Failed to create sae rollback record, projectName: %s, envName: %s, appName %s, error: %s", projectName, envName, originSaeApp.AppName, err)
+		log.Error(err)
+		return err
 	}
 
 	return nil
@@ -845,7 +928,7 @@ func AbortSAEChangeOrder(projectName, envName, appID, orderID string, log *zap.S
 	return nil
 }
 
-func RollbackSAEChangeOrder(projectName, envName, appID, orderID string, log *zap.SugaredLogger) error {
+func RollbackSAEChangeOrder(ctx *internalhandler.Context, projectName, envName, appID, orderID string, log *zap.SugaredLogger) error {
 	opt := &commonrepo.SAEEnvFindOptions{ProjectName: projectName, EnvName: envName}
 	env, err := commonrepo.NewSAEEnvColl().Find(opt)
 	if err != nil {
@@ -878,6 +961,30 @@ func RollbackSAEChangeOrder(projectName, envName, appID, orderID string, log *za
 
 	if !tea.BoolValue(saeResp.Body.Success) {
 		err = fmt.Errorf("failed to rollback change order, appID: %s, statusCode: %d, code: %s, errCode: %s, message: %s", appID, tea.Int32Value(saeResp.StatusCode), tea.ToString(saeResp.Body.Code), tea.ToString(saeResp.Body.ErrorCode), tea.ToString(saeResp.Body.Message))
+		log.Error(err)
+		return err
+	}
+
+	app, err := getSaeApplication(saeClient, appID)
+	if err != nil {
+		err = errors.Wrapf(err, "Failed to get sae application %s", appID)
+		log.Error(err)
+		return err
+	}
+
+	rollbackRecord := &commonmodels.EnvInfo{
+		ProjectName:   projectName,
+		EnvName:       envName,
+		EnvType:       config.EnvTypeSae,
+		Production:    env.Production,
+		Operation:     config.EnvOperationRollback,
+		OperationType: config.EnvOperationTypeSaeChangeOrder,
+		ServiceName:   app.AppName,
+		ServiceType:   config.ServiceTypeSae,
+	}
+	err = mongodb.NewEnvInfoColl().Create(ctx, rollbackRecord)
+	if err != nil {
+		err = fmt.Errorf("Failed to create sae rollback record, projectName: %s, envName: %s, appName %s, error: %s", projectName, envName, app.AppName, err)
 		log.Error(err)
 		return err
 	}
@@ -1122,4 +1229,33 @@ func generateCNCookie() map[string]*string {
 	return map[string]*string{
 		"cookie": tea.String(cnCookie),
 	}
+}
+
+func getSaeApplication(saeClient *sae.Client, appId string) (*commonmodels.SAEApplication, error) {
+	saeRequest := &sae.GetApplicationRequest{
+		AppId: tea.String(appId),
+	}
+	saeResp, err := saeClient.GetApplication(saeRequest)
+	if err != nil {
+		err = fmt.Errorf("Failed to un tag resources, err: %s", err)
+		log.Error(err)
+		return nil, err
+	}
+
+	if tea.StringValue(saeResp.Body.Message) != "success" {
+		err = fmt.Errorf("Failed to get application, statusCode: %d, message: %s", tea.Int32Value(saeResp.StatusCode), tea.ToString(saeResp.Body.Message))
+		log.Error(err)
+		return nil, err
+	}
+
+	app := &commonmodels.SAEApplication{
+		AppName:          tea.StringValue(saeResp.Body.Application.AppName),
+		AppID:            tea.StringValue(saeResp.Body.Application.AppId),
+		Instances:        tea.Int32Value(saeResp.Body.Application.Instances),
+		RunningInstances: tea.Int32Value(saeResp.Body.Application.RunningInstances),
+		Cpu:              tea.Int32Value(saeResp.Body.Application.Cpu),
+		Mem:              tea.Int32Value(saeResp.Body.Application.Mem),
+	}
+
+	return app, nil
 }

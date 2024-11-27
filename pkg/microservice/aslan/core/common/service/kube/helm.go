@@ -323,7 +323,7 @@ func UpgradeHelmRelease(product *commonmodels.Product, productSvc *commonmodels.
 		return err
 	}
 
-	err = helmservice.UpdateHelmServiceInEnv(product, productSvc, user)
+	err = helmservice.UpdateServiceInEnv(product, productSvc, user)
 	return err
 }
 
@@ -444,7 +444,7 @@ func DeleteHelmReleaseFromEnv(userName, requestID string, productInfo *commonmod
 		newSevices = append(newSevices, group)
 	}
 	productInfo.Services = newSevices
-	err = helmservice.UpdateHelmAllServicesInEnv(productInfo.ProductName, productInfo.EnvName, productInfo.Services, productInfo.Production)
+	err = helmservice.UpdateAllServicesInEnv(productInfo.ProductName, productInfo.EnvName, productInfo.Services, productInfo.Production)
 	if err != nil {
 		log.Errorf("UpdateHelmProductServices error: %v", err)
 		return err
@@ -582,7 +582,7 @@ func DeleteHelmServiceFromEnv(userName, requestID string, productInfo *commonmod
 		newServices = append(newServices, group)
 	}
 	productInfo.Services = newServices
-	err = helmservice.UpdateHelmAllServicesInEnv(productInfo.ProductName, productInfo.EnvName, productInfo.Services, productInfo.Production)
+	err = helmservice.UpdateAllServicesInEnv(productInfo.ProductName, productInfo.EnvName, productInfo.Services, productInfo.Production)
 	if err != nil {
 		err = fmt.Errorf("UpdateHelmProductServices error: %v", err)
 		log.Error(err)

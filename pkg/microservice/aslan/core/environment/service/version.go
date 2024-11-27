@@ -177,6 +177,18 @@ func RollbackEnvServiceVersion(ctx *internalhandler.Context, projectName, envNam
 		return e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to find %s/%s env, isProduction %v, error: %v", projectName, envName, isProduction, err))
 	}
 
+	preProdSvc := env.GetServiceMap()[serviceName]
+	if preProdSvc == nil {
+		if envSvcVersion.Service.Type == setting.HelmChartDeployType {
+			preProdSvc = env.GetChartServiceMap()[serviceName]
+		} else {
+			return e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to find service %s in env %s", envSvcVersion.Service.ServiceName, envSvcVersion.EnvName))
+		}
+	}
+
+	session := mongotool.Session()
+	defer session.EndSession(context.Background())
+
 	if envSvcVersion.Service.Type == setting.K8SDeployType {
 		kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), env.ClusterID)
 		if err != nil {
@@ -216,16 +228,14 @@ func RollbackEnvServiceVersion(ctx *internalhandler.Context, projectName, envNam
 			err = fmt.Errorf("Failed to render env %s, service %s, revision %d, error: %v", envSvcVersion.EnvName, envSvcVersion.Service.ServiceName, envSvcVersion.Service.Revision, err)
 			return e.ErrRollbackEnvServiceVersion.AddErr(err)
 		}
+		envSvcVersion.Service.RenderedYaml = parsedYaml
 
-		preProdSvc := env.GetServiceMap()[envSvcVersion.Service.ServiceName]
-		if preProdSvc == nil {
-			return e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to find service %s in env %s", envSvcVersion.Service.ServiceName, envSvcVersion.EnvName))
-		}
 		preResourceYaml, err := kube.RenderEnvService(env, preProdSvc.GetServiceRender(), preProdSvc)
 		if err != nil {
 			err = fmt.Errorf("Failed to render env %s, service %s, revision %d, error: %v", envSvcVersion.EnvName, envSvcVersion.Service.ServiceName, envSvcVersion.Service.Revision, err)
 			return e.ErrRollbackEnvServiceVersion.AddErr(err)
 		}
+		preProdSvc.RenderedYaml = preResourceYaml
 
 		err = kube.CheckResourceAppliedByOtherEnv(parsedYaml, env, envSvcVersion.Service.ServiceName)
 		if err != nil {
@@ -250,9 +260,6 @@ func RollbackEnvServiceVersion(ctx *internalhandler.Context, projectName, envNam
 		if err != nil {
 			return e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to create or patch resource for env %s, service %s, revision %d, error: %v", envSvcVersion.EnvName, envSvcVersion.Service.ServiceName, envSvcVersion.Service.Revision, err))
 		}
-
-		session := mongotool.Session()
-		defer session.EndSession(context.Background())
 
 		err = mongotool.StartTransaction(session)
 		if err != nil {
@@ -281,9 +288,28 @@ func RollbackEnvServiceVersion(ctx *internalhandler.Context, projectName, envNam
 		}
 
 		env.Services[groupIndex][svcIndex] = envSvcVersion.Service
-		err = helmservice.UpdateHelmServiceInEnv(env, envSvcVersion.Service, ctx.UserName)
+		err = helmservice.UpdateServiceInEnv(env, envSvcVersion.Service, ctx.UserName)
 		if err != nil {
 			return e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to update service %s in env %s/%s, isProudction %v", envSvcVersion.Service.ServiceName, envSvcVersion.ProductName, envSvcVersion.EnvName, envSvcVersion.Production))
+		}
+
+		// create rollback record
+		rollbackRecord := &commonmodels.EnvInfo{
+			ProjectName:   projectName,
+			EnvName:       envName,
+			EnvType:       config.EnvTypeZadig,
+			Production:    env.Production,
+			Operation:     config.EnvOperationRollback,
+			OperationType: config.EnvOperationTypeZadig,
+			ServiceName:   serviceName,
+			ServiceType:   envSvcVersion.Service.GetServiceType(),
+			OriginService: preProdSvc,
+			UpdateService: envSvcVersion.Service,
+		}
+		err = mongodb.NewEnvInfoCollWithSession(session).Create(ctx, rollbackRecord)
+		if err != nil {
+			mongotool.AbortTransaction(session)
+			return e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to create rollback record for env %s/%s, isProudction %v, service: %s, err: %v", envSvcVersion.ProductName, envSvcVersion.EnvName, envSvcVersion.Production, serviceName, err))
 		}
 
 		for _, globalKV := range env.GlobalVariables {
@@ -316,85 +342,6 @@ func RollbackEnvServiceVersion(ctx *internalhandler.Context, projectName, envNam
 			}
 		}
 
-		// if env.DefaultValues != "" {
-		// 	mergedValues, err := helmtool.MergeOverrideValues("", envSvcVersion.DefaultValues, envSvcVersion.Service.GetServiceRender().GetOverrideYaml(), envSvcVersion.Service.GetServiceRender().OverrideValues, nil)
-		// 	if err != nil {
-		// 		return e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to merge service %s's override yaml %s and values %s, err: %s", envSvcVersion.Service.ServiceName, envSvcVersion.Service.GetServiceRender().GetOverrideYaml(), envSvcVersion.Service.GetServiceRender().OverrideValues, err))
-		// 	}
-
-		// 	mergedValuesFlatMap, err := converter.YamlToFlatMap([]byte(mergedValues))
-		// 	if err != nil {
-		// 		return e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to convert mergedSvcValues to flatMap, err: %s", err))
-		// 	}
-		// 	defaultValuesFlatMap, err := converter.YamlToFlatMap([]byte(env.DefaultValues))
-		// 	if err != nil {
-		// 		return e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to convert defaultValues to flatMap, err: %s", err))
-		// 	}
-
-		// 	// in current env's defaultValues, but not in service's mergedValues, add it to needToAddValues
-		// 	needToAddValuesFlatMap := make(map[string]interface{})
-		// 	for defaultKey, defaultValue := range defaultValuesFlatMap {
-		// 		if _, ok := mergedValuesFlatMap[defaultKey]; !ok {
-		// 			needToAddValuesFlatMap[defaultKey] = defaultValue
-		// 		}
-		// 	}
-
-		// 	if envSvcVersion.Service.Type == setting.HelmDeployType {
-		// 		svcTmplValuesFlatMap, err := converter.YamlToFlatMap([]byte(svcTmpl.HelmChart.ValuesYaml))
-		// 		if err != nil {
-		// 			return e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to convert template service %s's values yaml to flatMap, err: %v", svcTmpl.ServiceName, err))
-		// 		}
-		// 		for key, value := range needToAddValuesFlatMap {
-		// 			if v, ok := svcTmplValuesFlatMap[key]; !ok {
-		// 				// in needToAddValues, but not in service's chart values, add it to mergedValues and set value from needToAddValues
-		// 				mergedValuesFlatMap[key] = value
-		// 			} else {
-		// 				// in needToAddValues, and in service's chart values, add it to mergedValues and set value from template service values
-		// 				mergedValuesFlatMap[key] = v
-		// 			}
-		// 		}
-		// 	} else if envSvcVersion.Service.Type == setting.HelmChartDeployType {
-		// 		chartRepoName := envSvcVersion.Service.GetServiceRender().ChartRepo
-		// 		chartName := envSvcVersion.Service.GetServiceRender().ChartName
-		// 		chartVersion := envSvcVersion.Service.GetServiceRender().ChartVersion
-		// 		chartRepo, err := commonrepo.NewHelmRepoColl().Find(&commonrepo.HelmRepoFindOption{RepoName: chartRepoName})
-		// 		if err != nil {
-		// 			return fmt.Errorf("failed to query chart-repo info, productName: %s, repoName: %s", env.ProductName, chartRepoName)
-		// 		}
-
-		// 		hClient, err := helmclient.NewClient()
-		// 		if err != nil {
-		// 			return err
-		// 		}
-
-		// 		valuesYaml, err := hClient.GetChartValues(commonutil.GeneHelmRepo(chartRepo), env.ProductName, serviceName, chartRepoName, chartName, chartVersion)
-		// 		if err != nil {
-		// 			return fmt.Errorf("failed to get chart values, chartRepo: %s, chartName: %s, chartVersion: %s, err %s", chartRepoName, chartName, chartVersion, err)
-		// 		}
-		// 		valuesYamlFlatMap, err := converter.YamlToFlatMap([]byte(valuesYaml))
-		// 		if err != nil {
-		// 			return e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to convert mergedSvcValues to flatMap, err: %s", err))
-		// 		}
-
-		// 		for key, value := range needToAddValuesFlatMap {
-		// 			if v, ok := valuesYamlFlatMap[key]; !ok {
-		// 				// in needToAddValues, but not in service's chart values, add it to mergedValues and set value from needToAddValues
-		// 				mergedValuesFlatMap[key] = value
-		// 			} else {
-		// 				// in needToAddValues, and in service's chart values, add it to mergedValues and set value from chart values
-		// 				mergedValuesFlatMap[key] = v
-		// 			}
-		// 		}
-		// 	}
-
-		// 	mergedValuesByte, err := yaml.Marshal(mergedValuesFlatMap)
-		// 	if err != nil {
-		// 		return e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to mashal mergedValuesFlatMap, err: %s", err))
-		// 	}
-
-		// 	envSvcVersion.Service.GetServiceRender().OverrideYaml.YamlContent = string(mergedValuesByte)
-		// 	envSvcVersion.Service.GetServiceRender().OverrideValues = ""
-		// } else {
 		mergedValues, err := helmtool.MergeOverrideValues("", envSvcVersion.DefaultValues, envSvcVersion.Service.GetServiceRender().GetOverrideYaml(), envSvcVersion.Service.GetServiceRender().OverrideValues, nil)
 		if err != nil {
 			return e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to merge service %s's override yaml %s and values %s, err: %s", envSvcVersion.Service.ServiceName, envSvcVersion.Service.GetServiceRender().GetOverrideYaml(), envSvcVersion.Service.GetServiceRender().OverrideValues, err))
@@ -403,11 +350,33 @@ func RollbackEnvServiceVersion(ctx *internalhandler.Context, projectName, envNam
 		envSvcVersion.Service.GetServiceRender().OverrideYaml.YamlContent = mergedValues
 		envSvcVersion.Service.GetServiceRender().OverrideValues = ""
 		env.DefaultValues = ""
-		// }
 
 		err = kube.UpgradeHelmRelease(env, envSvcVersion.Service, svcTmpl, nil, 0, ctx.UserName)
 		if err != nil {
 			return e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to upgrade helm release for env %s, service %s, revision %d, error: %v", envSvcVersion.EnvName, envSvcVersion.Service.ServiceName, envSvcVersion.Service.Revision, err))
+		}
+
+		rollbackRecord := &commonmodels.EnvInfo{
+			ProjectName:   projectName,
+			EnvName:       envName,
+			EnvType:       config.EnvTypeZadig,
+			Production:    env.Production,
+			Operation:     config.EnvOperationRollback,
+			OperationType: config.EnvOperationTypeZadig,
+			ServiceName:   serviceName,
+			ServiceType:   envSvcVersion.Service.GetServiceType(),
+			OriginService: preProdSvc,
+			UpdateService: envSvcVersion.Service,
+		}
+		err = mongodb.NewEnvInfoCollWithSession(session).Create(ctx, rollbackRecord)
+		if err != nil {
+			mongotool.AbortTransaction(session)
+			return e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to create rollback record for env %s/%s, isProudction %v, service: %s", envSvcVersion.ProductName, envSvcVersion.EnvName, envSvcVersion.Production, serviceName))
+		}
+
+		err = mongotool.CommitTransaction(session)
+		if err != nil {
+			return e.ErrRollbackEnvServiceVersion.AddErr(err)
 		}
 	}
 

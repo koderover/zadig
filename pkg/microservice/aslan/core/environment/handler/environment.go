@@ -3240,7 +3240,7 @@ func RollbackSAEApp(c *gin.Context) {
 		return
 	}
 
-	ctx.RespErr = service.RollbackSAEApp(projectKey, envName, appID, versionID, ctx.Logger)
+	ctx.RespErr = service.RollbackSAEApp(ctx, projectKey, envName, appID, versionID, ctx.Logger)
 }
 
 // @Summary List SAE Application Verions
@@ -3637,7 +3637,7 @@ func RollbackSAEChangeOrder(c *gin.Context) {
 		return
 	}
 
-	ctx.RespErr = service.RollbackSAEChangeOrder(projectKey, envName, appID, orderID, ctx.Logger)
+	ctx.RespErr = service.RollbackSAEChangeOrder(ctx, projectKey, envName, appID, orderID, ctx.Logger)
 }
 
 func ConfirmSAEPipelineBatch(c *gin.Context) {

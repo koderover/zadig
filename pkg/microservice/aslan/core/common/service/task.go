@@ -155,7 +155,7 @@ func CancelTask(userName, pipelineName string, taskID int64, typeString config.P
 }
 
 func GetServiceTasks(log *zap.SugaredLogger) (map[string][]string, error) {
-	taskPreviewList, err := mongodb.NewTaskColl().List(&mongodb.ListTaskOption{Type: config.ServiceType})
+	taskPreviewList, err := mongodb.NewTaskColl().List(&mongodb.ListTaskOption{Type: config.PipelineTypeService})
 	if err != nil {
 		log.Errorf("getJobNamespaceAndSelector PipelineTaskV2.List error: %v", err)
 		return nil, e.ErrListTasks
