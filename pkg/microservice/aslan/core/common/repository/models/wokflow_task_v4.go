@@ -633,6 +633,14 @@ type JobTaskNotificationSpec struct {
 	Title   string `bson:"title"                         yaml:"title"                         json:"title"`
 }
 
+type JobTaskSAEReleaseSpec struct {
+	Env           string      `bson:"env"             json:"env"             yaml:"env"`
+	AppID         string      `bson:"app_id"          json:"app_id"          yaml:"app_id"`
+	RegionID      string      `bson:"region_id"       json:"region_id"       yaml:"region_id"`
+	ChangeOrderID string      `bson:"change_order_id" json:"change_order_id" yaml:"change_order_id"`
+	Service       interface{} `bson:"service"         json:"service"         yaml:"service"`
+}
+
 type Event struct {
 	EventType string `bson:"event_type"             json:"event_type"            yaml:"event_type"`
 	Time      string `bson:"time"                   json:"time"                  yaml:"time"`

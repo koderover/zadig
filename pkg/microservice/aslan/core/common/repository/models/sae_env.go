@@ -49,6 +49,8 @@ type SAEApplication struct {
 	RunningInstances int32     `json:"running_instances"`
 	Cpu              int32     `json:"cpu"`
 	Mem              int32     `json:"mem"`
+	ServiceName      string    `json:"service_name"`
+	ServiceModule    string    `json:"service_module"`
 }
 
 func (SAEEnv) TableName() string {

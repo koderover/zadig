@@ -17,6 +17,7 @@ limitations under the License.
 package sae
 
 import (
+	"encoding/json"
 	"fmt"
 
 	sae "github.com/alibabacloud-go/sae-20190506/client"
@@ -108,4 +109,21 @@ func validateSAE(args *commonmodels.SAE) error {
 	}
 
 	return nil
+}
+
+// CreateKVMap takes a string and de-serialize it into a struct that we can use
+func CreateKVMap(kv *string) (map[string]*commonmodels.SAEKV, error) {
+	envList := make([]*commonmodels.SAEKV, 0)
+	err := json.Unmarshal([]byte(tea.StringValue(kv)), &envList)
+	if err != nil {
+		return nil, err
+	}
+
+	resp := make(map[string]*commonmodels.SAEKV)
+
+	for _, env := range envList {
+		resp[env.Key] = env
+	}
+
+	return resp, nil
 }

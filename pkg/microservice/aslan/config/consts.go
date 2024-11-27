@@ -284,6 +284,20 @@ const (
 	WorkWXApproval   ApprovalType = "workwx"
 )
 
+type SAEUpdateStrategy string
+
+const (
+	SAEUpdateTypeGrayBatch = "GrayBatchUpdate"
+	SAEUpdateTypeBatch     = "BatchUpdate"
+)
+
+type SAEBatchReleaseType string
+
+const (
+	SAEBatchReleaseTypeAuto   = "auto"
+	SAEBatchReleaseTypeManual = "manual"
+)
+
 type ApproveOrReject string
 
 const (
