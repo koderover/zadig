@@ -121,10 +121,9 @@ func RunStep(ctx context.Context, jobCtx *jobctl.JobContext, step *commonmodels.
 	case "debug_after":
 		return nil
 	default:
-		//err := fmt.Errorf("step type: %s does not match any known type", step.StepType)
-		//log.Error(err)
-		//return err
-		logger.Infof(fmt.Sprintf("step type: %s does not match any known type", step.StepType))
+		err := fmt.Errorf("step type: %s does not match any known type", step.StepType)
+		log.Error(err)
+		return err
 	}
 	if err := stepInstance.Run(ctx); err != nil {
 		return err

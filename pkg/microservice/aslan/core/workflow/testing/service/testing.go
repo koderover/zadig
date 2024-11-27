@@ -23,13 +23,13 @@ import (
 	"path"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 
+	pkgconfig "github.com/koderover/zadig/v2/pkg/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models/msg_queue"
@@ -43,9 +43,9 @@ import (
 	"github.com/koderover/zadig/v2/pkg/setting"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	s3tool "github.com/koderover/zadig/v2/pkg/tool/s3"
+	tartool "github.com/koderover/zadig/v2/pkg/tool/tar"
 	"github.com/koderover/zadig/v2/pkg/types"
 	"github.com/koderover/zadig/v2/pkg/types/step"
-	"github.com/koderover/zadig/v2/pkg/util"
 )
 
 func CreateTesting(username string, testing *commonmodels.Testing, log *zap.SugaredLogger) error {
@@ -387,67 +387,6 @@ func ListCronjob(name, jobType string) ([]*commonmodels.Cronjob, error) {
 	})
 }
 
-func GetHTMLTestReport(pipelineName, pipelineType, taskIDStr, testName string, log *zap.SugaredLogger) (string, error) {
-	if err := validateTestReportParam(pipelineName, pipelineType, taskIDStr, testName, log); err != nil {
-		return "", e.ErrGetTestReport.AddErr(err)
-	}
-
-	taskID, err := strconv.ParseInt(taskIDStr, 10, 64)
-	if err != nil {
-		log.Errorf("invalid taskID: %s, err: %s", taskIDStr, err)
-		return "", e.ErrGetTestReport.AddDesc("invalid taskID")
-	}
-
-	task, err := commonrepo.NewTaskColl().Find(taskID, pipelineName, config.PipelineType(pipelineType))
-	if err != nil {
-		log.Errorf("find task failed, pipelineName: %s, type: %s, taskID: %s, err: %s", pipelineName, config.PipelineType(pipelineType), taskIDStr, err)
-		return "", e.ErrGetTestReport.AddErr(err)
-	}
-
-	store, err := s3.UnmarshalNewS3StorageFromEncrypted(task.StorageURI)
-	if err != nil {
-		log.Errorf("parse storageURI failed, err: %s", err)
-		return "", e.ErrGetTestReport.AddErr(err)
-	}
-
-	if store.Subfolder != "" {
-		store.Subfolder = fmt.Sprintf("%s/%s/%d/%s", store.Subfolder, pipelineName, taskID, "test")
-	} else {
-		store.Subfolder = fmt.Sprintf("%s/%d/%s", pipelineName, taskID, "test")
-	}
-
-	fileName := fmt.Sprintf("%s-%s-%s-%s-%s-html", pipelineType, pipelineName, taskIDStr, config.TaskTestingV2, testName)
-	fileName = strings.Replace(strings.ToLower(fileName), "_", "-", -1)
-
-	tmpFilename, err := util.GenerateTmpFile()
-	if err != nil {
-		log.Errorf("generate temp file error: %s", err)
-		return "", e.ErrGetTestReport.AddErr(err)
-	}
-	defer func() {
-		_ = os.Remove(tmpFilename)
-	}()
-	client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Region, store.Insecure, store.Provider)
-	if err != nil {
-		log.Errorf("download html test report error: %s", err)
-		return "", e.ErrGetTestReport.AddErr(err)
-	}
-	objectKey := store.GetObjectPath(fileName)
-	err = client.Download(store.Bucket, objectKey, tmpFilename)
-	if err != nil {
-		log.Errorf("download html test report error: %s", err)
-		return "", e.ErrGetTestReport.AddErr(err)
-	}
-
-	content, err := os.ReadFile(tmpFilename)
-	if err != nil {
-		log.Errorf("parse test report file error: %s", err)
-		return "", e.ErrGetTestReport.AddErr(err)
-	}
-
-	return string(content), nil
-}
-
 func GetWorkflowV4HTMLTestReport(workflowName, jobName string, taskID int64, log *zap.SugaredLogger) (string, error) {
 	workflowTask, err := mongodb.NewworkflowTaskv4Coll().Find(workflowName, taskID)
 	if err != nil {
@@ -469,7 +408,7 @@ func GetWorkflowV4HTMLTestReport(workflowName, jobName string, taskID int64, log
 		return "", fmt.Errorf("cannot find job task, workflow name: %s, task id: %d, job name: %s", workflowName, taskID, jobName)
 	}
 
-	return downloadHtmlReportFromJobTask(jobTask, workflowName, taskID, log)
+	return downloadHtmlReportFromJobTask(jobTask, workflowTask.ProjectName, workflowName, taskID, log)
 }
 
 func GetTestTaskHTMLTestReport(testName string, taskID int64, log *zap.SugaredLogger) (string, error) {
@@ -491,13 +430,15 @@ func GetTestTaskHTMLTestReport(testName string, taskID int64, log *zap.SugaredLo
 		return "", fmt.Errorf("cannot find job task for test task, workflow name: %s, task id: %d", workflowName, taskID)
 	}
 
-	return downloadHtmlReportFromJobTask(jobTask, workflowName, taskID, log)
+	return downloadHtmlReportFromJobTask(jobTask, workflowTask.ProjectName, workflowName, taskID, log)
 }
 
-func downloadHtmlReportFromJobTask(jobTask *commonmodels.JobTask, workflowName string, taskID int64, log *zap.SugaredLogger) (string, error) {
+func downloadHtmlReportFromJobTask(jobTask *commonmodels.JobTask, projectName, workflowName string, taskID int64, log *zap.SugaredLogger) (string, error) {
 	jobSpec := &commonmodels.JobTaskFreestyleSpec{}
 	if err := commonmodels.IToi(jobTask.Spec, jobSpec); err != nil {
-		return "", fmt.Errorf("unmashal job spec error: %v", err)
+		err := fmt.Errorf("unmashal job spec error: %v", err)
+		log.Error(err)
+		return "", err
 	}
 
 	var stepTask *commonmodels.StepTask
@@ -505,57 +446,147 @@ func downloadHtmlReportFromJobTask(jobTask *commonmodels.JobTask, workflowName s
 		if step.Name != config.TestJobHTMLReportStepName {
 			continue
 		}
-		if step.StepType != config.StepArchive {
-			return "", fmt.Errorf("step: %s was not a html report step", step.Name)
+		if step.StepType != config.StepArchive && step.StepType != config.StepTarArchive {
+			err := fmt.Errorf("step: %s was not a html report step", step.Name)
+			log.Error(err)
+			return "", err
 		}
 		stepTask = step
 	}
 	if stepTask == nil {
-		return "", fmt.Errorf("cannot find step task for test task, workflow name: %s, task id: %d", workflowName, taskID)
-	}
-	stepSpec := &step.StepArchiveSpec{}
-	if err := commonmodels.IToi(stepTask.Spec, stepSpec); err != nil {
-		return "", fmt.Errorf("unmashal step spec error: %v", err)
-	}
-	filePath := ""
-	for _, artifact := range stepSpec.UploadDetail {
-		fileName := path.Base(artifact.FilePath)
-		filePath = filepath.Join(artifact.DestinationPath, fileName)
+		err := fmt.Errorf("cannot find step task for test task, workflow name: %s, task id: %d", workflowName, taskID)
+		log.Error(err)
+		return "", err
 	}
 
+	htmlReportPath := pkgconfig.LocalHtmlReportPath(projectName, workflowName, jobTask.Name, taskID)
+
+	// check if exist first
+	_, err := os.Stat(htmlReportPath)
+	if err != nil && !os.IsNotExist(err) {
+		// err
+		err = fmt.Errorf("failed to check html report file, path: %s, err: %s", htmlReportPath, err)
+		log.Error(err)
+		return "", e.ErrGetTestReport.AddErr(err)
+	} else if err == nil {
+		// exist
+		return htmlReportPath, nil
+	}
+
+	// not exist
+	err = os.MkdirAll(htmlReportPath, os.ModePerm)
+	if err != nil {
+		err = fmt.Errorf("failed to create html report path, path: %s, err: %s", htmlReportPath, err)
+		log.Error(err)
+		return "", e.ErrGetTestReport.AddErr(err)
+	}
+
+	// download it from s3
 	store, err := s3.FindDefaultS3()
 	if err != nil {
-		log.Errorf("parse storageURI failed, err: %s", err)
+		err = fmt.Errorf("failed to find default s3, err: %s", err)
+		log.Error(err)
 		return "", e.ErrGetTestReport.AddErr(err)
 	}
 
-	tmpFilename, err := util.GenerateTmpFile()
-	if err != nil {
-		log.Errorf("generate temp file error: %s", err)
-		return "", e.ErrGetTestReport.AddErr(err)
-	}
-	defer func() {
-		_ = os.Remove(tmpFilename)
-	}()
 	client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Region, store.Insecure, store.Provider)
 	if err != nil {
 		log.Errorf("download html test report error: %s", err)
 		return "", e.ErrGetTestReport.AddErr(err)
 	}
-	objectKey := store.GetObjectPath(filePath)
-	err = client.Download(store.Bucket, objectKey, tmpFilename)
-	if err != nil {
-		log.Errorf("download html test report error: %s", err)
-		return "", e.ErrGetTestReport.AddErr(err)
+
+	if stepTask.StepType == config.StepArchive {
+		stepSpec := &step.StepArchiveSpec{}
+		if err := commonmodels.IToi(stepTask.Spec, stepSpec); err != nil {
+			return "", fmt.Errorf("unmashal step spec error: %v", err)
+		}
+
+		fpath := ""
+		fname := ""
+		for _, artifact := range stepSpec.UploadDetail {
+			fname = path.Base(artifact.FilePath)
+			fpath = filepath.Join(artifact.DestinationPath, fname)
+		}
+
+		objectKey := store.GetObjectPath(fpath)
+		downloadDest := filepath.Join(htmlReportPath, fname)
+		err = client.Download(store.Bucket, objectKey, downloadDest)
+		if err != nil {
+			err = fmt.Errorf("download html test report error: %s", err)
+			log.Error(err)
+			return "", e.ErrGetTestReport.AddErr(err)
+		}
+
+		return htmlReportPath, nil
+	} else if stepTask.StepType == config.StepTarArchive {
+		stepSpec := &step.StepTarArchiveSpec{}
+		if err := commonmodels.IToi(stepTask.Spec, stepSpec); err != nil {
+			return "", e.ErrGetTestReport.AddErr(fmt.Errorf("unmashal step spec error: %v", err))
+		}
+
+		downloadDest := filepath.Join(htmlReportPath, setting.HtmlReportArchivedFileName)
+		objectKey := filepath.Join(stepSpec.S3DestDir, stepSpec.FileName)
+		err = client.Download(store.Bucket, objectKey, downloadDest)
+		if err != nil {
+			err = fmt.Errorf("download html test report error: %s", err)
+			log.Error(err)
+			return "", e.ErrGetTestReport.AddErr(err)
+		}
+
+		err = tartool.Untar(downloadDest, htmlReportPath, true)
+		if err != nil {
+			err = fmt.Errorf("Untar %s err: %v", downloadDest, err)
+			log.Error(err)
+			return "", e.ErrGetTestReport.AddErr(err)
+		}
+
+		if len(stepSpec.ResultDirs) == 0 {
+			return "", e.ErrGetTestReport.AddErr(fmt.Errorf("not found html report step in job task"))
+		}
+
+		unTarFilePath := filepath.Join(htmlReportPath, stepSpec.ResultDirs[0])
+		unTarFileInfo, err := os.Stat(unTarFilePath)
+		if err != nil {
+			err = fmt.Errorf("failed to stat untar files %s, err: %v", unTarFilePath, err)
+			log.Error(err)
+			return "", e.ErrGetTestReport.AddErr(err)
+		}
+
+		if unTarFileInfo.IsDir() {
+			untarFiles, err := os.ReadDir(unTarFilePath)
+			if err != nil {
+				err = fmt.Errorf("failed to read files in extracted directory, path: %s, err: %s", htmlReportPath, err)
+				log.Error(err)
+				return "", e.ErrGetTestReport.AddErr(err)
+			}
+
+			// Batch move files
+			for _, file := range untarFiles {
+				oldPath := filepath.Join(unTarFilePath, file.Name())
+				newPath := filepath.Join(htmlReportPath, file.Name())
+				err := os.Rename(oldPath, newPath)
+				if err != nil {
+					err = fmt.Errorf("failed to move file from %s to %s, err: %s", oldPath, newPath, err)
+					log.Error(err)
+					return "", e.ErrGetTestReport.AddErr(err)
+				}
+			}
+
+			err = os.Remove(unTarFilePath)
+			if err != nil {
+				log.Errorf("remove extracted directory %s err: %v", downloadDest, err)
+			}
+		}
+
+		err = os.Remove(downloadDest)
+		if err != nil {
+			log.Errorf("remove download file %s err: %v", downloadDest, err)
+		}
+
+		return htmlReportPath, nil
 	}
 
-	content, err := os.ReadFile(tmpFilename)
-	if err != nil {
-		log.Errorf("parse test report file error: %s", err)
-		return "", e.ErrGetTestReport.AddErr(err)
-	}
-
-	return string(content), nil
+	return "", e.ErrGetTestReport.AddErr(fmt.Errorf("not found html report step in job task"))
 }
 
 func validateTestReportParam(pipelineName, pipelineType, taskIDStr, testName string, log *zap.SugaredLogger) error {

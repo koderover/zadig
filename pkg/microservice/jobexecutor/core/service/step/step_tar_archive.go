@@ -32,7 +32,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/tool/s3"
 	"github.com/koderover/zadig/v2/pkg/types/step"
-	"github.com/koderover/zadig/v2/pkg/util/fs"
 )
 
 type TarArchiveStep struct {
@@ -90,11 +89,6 @@ func (s *TarArchiveStep) Run(ctx context.Context) error {
 			artifactPath = strings.TrimPrefix(artifactPath, "/")
 			artifactPath = filepath.Join(s.workspace, artifactPath)
 		}
-		isDir, err := fs.IsDir(artifactPath)
-		if err != nil || !isDir {
-			log.Errorf("artifactPath is not exist %s or is not dir, err: %s", artifactPath, err)
-			continue
-		}
 		cmdAndArtifactFullPaths = append(cmdAndArtifactFullPaths, artifactPath)
 	}
 
@@ -138,6 +132,7 @@ func (s *TarArchiveStep) Run(ctx context.Context) error {
 		}
 	}()
 
+	log.Debugf("tar cmd: %s", cmd.String())
 	if err = cmd.Run(); err != nil {
 		if s.spec.IgnoreErr {
 			log.Errorf("failed to compress %s, cmd: %s, err: %s", tarName, cmd.String(), err)

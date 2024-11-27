@@ -177,6 +177,8 @@ func initCron() {
 		log.Infof("[CRONJOB] gitlab token updated....")
 	})
 
+	Scheduler.Every(1).Days().At("04:00").Do(cleanCacheFiles)
+
 	Scheduler.StartAsync()
 }
 

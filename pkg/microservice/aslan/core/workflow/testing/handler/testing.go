@@ -276,35 +276,24 @@ func DeleteTestModule(c *gin.Context) {
 	ctx.RespErr = commonservice.DeleteTestModule(name, projectKey, ctx.RequestID, ctx.Logger)
 }
 
-func GetHTMLTestReport(c *gin.Context) {
-	content, err := service.GetHTMLTestReport(
-		c.Query("pipelineName"),
-		c.Query("pipelineType"),
-		c.Query("taskID"),
-		c.Query("testName"),
-		ginzap.WithContext(c).Sugar(),
-	)
-	if err != nil {
-		c.JSON(500, gin.H{"err": err})
-		return
-	}
-
-	c.Header("content-type", "text/html")
-	c.String(200, content)
-}
-
 func GetWorkflowV4HTMLTestReport(c *gin.Context) {
-	taskID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	filepath := c.Param("path")
+	taskID, err := strconv.ParseInt(c.Param("taskID"), 10, 64)
 	if err != nil {
-		c.JSON(500, gin.H{"err": err})
+		c.JSON(500, gin.H{"err": fmt.Sprintf("invalid taskID %s", c.Param("taskID"))})
 		return
 	}
-	content, err := service.GetWorkflowV4HTMLTestReport(c.Param("workflowName"), c.Param("jobName"), taskID, ginzap.WithContext(c).Sugar())
+	htmlReportDir, err := service.GetWorkflowV4HTMLTestReport(c.Param("workflowName"), c.Param("jobName"), taskID, ginzap.WithContext(c).Sugar())
 	if err != nil {
-		c.JSON(500, gin.H{"err": err})
+		c.JSON(500, gin.H{"err": fmt.Sprintf("get workflow html test report failed, err: %v", err)})
 		return
 	}
 
-	c.Header("content-type", "text/html")
-	c.String(200, content)
+	filepath, err = findDefaultHtmlReportFilePath(htmlReportDir, filepath)
+	if err != nil {
+		c.JSON(500, gin.H{"err": err.Error()})
+		return
+	}
+
+	c.FileFromFS(filepath, gin.Dir(htmlReportDir, false))
 }

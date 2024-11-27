@@ -565,51 +565,36 @@ func (j *TestingJob) toJobtask(jobSubTaskID int, testing *commonmodels.TestModul
 		StepType: config.StepDebugAfter,
 	}
 	jobTaskSpec.Steps = append(jobTaskSpec.Steps, debugAfterStep)
+
+	tarDestDir := "/tmp"
+	if testingInfo.ScriptType == types.ScriptTypeBatchFile {
+		tarDestDir = "%TMP%"
+	} else if testingInfo.ScriptType == types.ScriptTypePowerShell {
+		tarDestDir = "%TMP%"
+	}
+
 	// init archive html step
 	if len(testingInfo.TestReportPath) > 0 {
-		ext := filepath.Ext(testingInfo.TestReportPath)
-		if ext != ".html" {
-			return jobTask, fmt.Errorf("test report path: %s is not a html file", testingInfo.TestReportPath)
-		}
-		outputPath := strings.TrimSuffix(testingInfo.TestReportPath, ext) + "-archive" + ext
-
-		archiveHtmlStep := &commonmodels.StepTask{
-			Name:      config.TestJobHTMLReportArchiveStepName,
-			JobName:   jobTask.Name,
-			StepType:  config.StepArchiveHtml,
-			Onfailure: true,
-			Spec: step.StepArchiveHtmlSpec{
-				HtmlPath:   testingInfo.TestReportPath,
-				OutputPath: outputPath,
-			},
-		}
-		jobTaskSpec.Steps = append(jobTaskSpec.Steps, archiveHtmlStep)
-
-		uploads := []*step.Upload{
-			{
-				FilePath:        outputPath,
-				DestinationPath: path.Join(j.workflow.Name, fmt.Sprint(taskID), jobTask.Name, "html"),
-			},
-		}
-		archiveStep := &commonmodels.StepTask{
+		testReportDir := filepath.Dir(testingInfo.TestReportPath)
+		testReportName := filepath.Base(testingInfo.TestReportPath)
+		tarArchiveStep := &commonmodels.StepTask{
 			Name:      config.TestJobHTMLReportStepName,
 			JobName:   jobTask.Name,
-			StepType:  config.StepArchive,
+			StepType:  config.StepTarArchive,
 			Onfailure: true,
-			Spec: step.StepArchiveSpec{
-				UploadDetail: uploads,
-				S3:           modelS3toS3(defaultS3),
+			Spec: &step.StepTarArchiveSpec{
+				FileName:     setting.HtmlReportArchivedFileName,
+				AbsResultDir: true,
+				ResultDirs:   []string{testReportName},
+				ChangeTarDir: true,
+				TarDir:       "$WORKSPACE/" + testReportDir,
+				DestDir:      tarDestDir,
+				S3DestDir:    path.Join(j.workflow.Name, fmt.Sprint(taskID), jobTask.Name, "html-report"),
 			},
 		}
-		jobTaskSpec.Steps = append(jobTaskSpec.Steps, archiveStep)
+		jobTaskSpec.Steps = append(jobTaskSpec.Steps, tarArchiveStep)
 	}
 
-	destDir := "/tmp"
-	if testingInfo.ScriptType == types.ScriptTypeBatchFile {
-		destDir = "%TMP%"
-	} else if testingInfo.ScriptType == types.ScriptTypePowerShell {
-		destDir = "%TMP%"
-	}
 	// init test result storage step
 	if len(testingInfo.ArtifactPaths) > 0 {
 		tarArchiveStep := &commonmodels.StepTask{
@@ -621,7 +606,7 @@ func (j *TestingJob) toJobtask(jobSubTaskID int, testing *commonmodels.TestModul
 				ResultDirs: testingInfo.ArtifactPaths,
 				S3DestDir:  path.Join(j.workflow.Name, fmt.Sprint(taskID), jobTask.Name, "test-result"),
 				FileName:   setting.ArtifactResultOut,
-				DestDir:    destDir,
+				DestDir:    tarDestDir,
 			},
 		}
 		if len(testingInfo.ArtifactPaths) > 1 || testingInfo.ArtifactPaths[0] != "" {
@@ -644,7 +629,7 @@ func (j *TestingJob) toJobtask(jobSubTaskID int, testing *commonmodels.TestModul
 				S3DestDir:      path.Join(j.workflow.Name, fmt.Sprint(taskID), jobTask.Name, "junit"),
 				TestName:       testing.Name,
 				TestProject:    testing.ProjectName,
-				DestDir:        destDir,
+				DestDir:        tarDestDir,
 				FileName:       "merged.xml",
 				ServiceName:    serviceName,
 				ServiceModule:  serviceModule,

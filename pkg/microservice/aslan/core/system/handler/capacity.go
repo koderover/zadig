@@ -17,6 +17,7 @@ limitations under the License.
 package handler
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/gin-gonic/gin"
@@ -58,6 +59,9 @@ func UpdateStrategy(c *gin.Context) {
 		ctx.RespErr = err
 		return
 	}
+
+	bs, _ := json.Marshal(args)
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "任务配置", "", string(bs), ctx.Logger)
 
 	if err := service.UpdateSysCapStrategy(args); err != nil {
 		ctx.RespErr = err

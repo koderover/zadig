@@ -219,6 +219,11 @@ func LocalChartTemplatePath(name string) string {
 	return LocalTemplatePath(name, setting.ChartTemplatesPath)
 }
 
+// if this path is changed, must also change cleanCacheFiles in pkg/microservice/aslan/core/clean_cache_files.go
+func LocalHtmlReportPath(projectName, workflowName, jobTaskName string, taskID int64) string {
+	return filepath.Join(DataPath(), "project", projectName, "workflow", workflowName, "jobTask", jobTaskName, "task", fmt.Sprintf("%d", taskID), "html-report") + "/"
+}
+
 func MongoURI() string {
 	return viper.GetString(setting.ENVMongoDBConnectionString)
 }

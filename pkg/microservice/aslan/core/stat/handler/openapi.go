@@ -78,10 +78,6 @@ type getRollbackStatDetail struct {
 }
 
 func (req *getRollbackStatDetail) Validate() error {
-	if req.ProjectKey == "" {
-		return e.ErrInvalidParam.AddDesc("projectKey is empty")
-	}
-
 	if req.StartTime == 0 || req.EndTime == 0 {
 		return e.ErrInvalidParam.AddDesc("starTime and endTime is empty")
 	}
@@ -109,7 +105,7 @@ func (req *getRollbackStatDetail) Validate() error {
 // @Tags 	OpenAPI
 // @Accept 	json
 // @Produce json
-// @Param 	projectKey		query		string							true	"项目标识"
+// @Param 	projectKey		query		string							false	"项目标识"
 // @Param 	envName			query		string							false	"环境名称"
 // @Param 	serviceName		query		string							false	"服务名称"
 // @Param 	startTime 		query		int								true	"开始时间，格式为时间戳"
