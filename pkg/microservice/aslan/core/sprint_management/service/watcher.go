@@ -73,6 +73,7 @@ func updateSprintWorkItemTask(ctx *handler.Context, workItemTask *models.SprintW
 	workItemTask.Status = workflowTask.Status
 	workItemTask.StartTime = workflowTask.StartTime
 	workItemTask.EndTime = workflowTask.EndTime
+	workItemTask.Hash = workflowTask.Hash
 
 	serviceModuleMap := make(map[string]*models.WorkflowServiceModule)
 	addToServiceModuleMap := func(serviceModules []*models.WorkflowServiceModule) {
