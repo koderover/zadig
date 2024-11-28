@@ -202,7 +202,7 @@ func (c *SAEDeployJobCtl) wait(ctx context.Context, client *sae.Client) {
 				c.job.Status = config.StatusPrepare
 				c.ack()
 			case 1, 8, 9, 11, 12:
-				c.job.Status = config.StatusPrepare
+				c.job.Status = config.StatusRunning
 				c.ack()
 			case 2:
 				c.job.Status = config.StatusPassed
