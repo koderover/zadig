@@ -88,7 +88,7 @@ func (c *SAEDeployJobCtl) Run(ctx context.Context) {
 		return
 	}
 
-	lowerCamelEnvs, err := converter.ConvertToLowerCamelCase(c.jobTaskSpec.Envs)
+	lowerCamelEnvs, err := converter.ConvertToLowerCamelCase(c.jobTaskSpec)
 	if err != nil {
 		err = fmt.Errorf("failed to serialize sae envs, err: %s", err)
 		c.logger.Error(err)
@@ -97,7 +97,7 @@ func (c *SAEDeployJobCtl) Run(ctx context.Context) {
 		return
 	}
 
-	envBytes, err := json.Marshal(lowerCamelEnvs)
+	envBytes, err := json.Marshal(lowerCamelEnvs["envs"])
 	if err != nil {
 		err = fmt.Errorf("failed to serialize sae envs, err: %s", err)
 		c.logger.Error(err)

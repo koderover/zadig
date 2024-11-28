@@ -289,10 +289,18 @@ func ListSAEApps(regionID, namespace, projectName, envName, appName string, isAd
 	apps := make([]*models.SAEApplication, 0)
 	for _, saeApp := range saeResp.Body.Data.Applications {
 		tags := make([]*models.SAETag, 0)
+		serviceName := ""
+		serviceModule := ""
 		for _, saeTag := range saeApp.Tags {
 			tag := &models.SAETag{
 				Key:   tea.StringValue(saeTag.Key),
 				Value: tea.StringValue(saeTag.Value),
+			}
+			if tea.StringValue(saeTag.Key) == setting.SAEZadigServiceTagKey {
+				serviceName = tea.StringValue(saeTag.Value)
+			}
+			if tea.StringValue(saeTag.Key) == setting.SAEZadigServiceModuleTagKey {
+				serviceModule = tea.StringValue(saeTag.Value)
 			}
 			tags = append(tags, tag)
 		}
@@ -306,6 +314,8 @@ func ListSAEApps(regionID, namespace, projectName, envName, appName string, isAd
 			RunningInstances: tea.Int32Value(saeApp.RunningInstances),
 			Cpu:              tea.Int32Value(saeApp.Cpu),
 			Mem:              tea.Int32Value(saeApp.Mem),
+			ServiceName:      serviceName,
+			ServiceModule:    serviceModule,
 		}
 		apps = append(apps, app)
 	}
