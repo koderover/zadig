@@ -253,6 +253,7 @@ const (
 	JobBlueKing             JobType = "blueking"
 	JobApproval             JobType = "approval"
 	JobNotification         JobType = "notification"
+	JobSAEDeploy            JobType = "sae_deploy"
 )
 
 const (

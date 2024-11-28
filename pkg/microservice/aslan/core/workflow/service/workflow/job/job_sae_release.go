@@ -25,18 +25,33 @@ import (
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	saeservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/sae"
+	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/setting"
+	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
-type SAEReleaseJob struct {
+type SAEDeployJob struct {
 	job      *commonmodels.Job
 	workflow *commonmodels.WorkflowV4
 	spec     *commonmodels.SAEReleaseJobSpec
 }
 
-func (j *SAEReleaseJob) Instantiate() error {
+func (j *SAEDeployJob) LintJob() error {
+	j.spec = &commonmodels.SAEReleaseJobSpec{}
+	if err := commonmodels.IToiYaml(j.job.Spec, j.spec); err != nil {
+		return err
+	}
+
+	err := commonutil.CheckZadigProfessionalLicense()
+	if err != nil {
+		return e.ErrLicenseInvalid.AddDesc("")
+	}
+	return nil
+}
+
+func (j *SAEDeployJob) Instantiate() error {
 	j.spec = &commonmodels.SAEReleaseJobSpec{}
 	if err := commonmodels.IToiYaml(j.job.Spec, j.spec); err != nil {
 		return err
@@ -45,7 +60,7 @@ func (j *SAEReleaseJob) Instantiate() error {
 	return nil
 }
 
-func (j *SAEReleaseJob) SetPreset() error {
+func (j *SAEDeployJob) SetPreset() error {
 	j.spec = &commonmodels.SAEReleaseJobSpec{}
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return err
@@ -69,7 +84,7 @@ func (j *SAEReleaseJob) SetPreset() error {
 	return nil
 }
 
-func (j *SAEReleaseJob) ClearSelectionField() error {
+func (j *SAEDeployJob) ClearSelectionField() error {
 	j.spec = &commonmodels.SAEReleaseJobSpec{}
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return err
@@ -82,7 +97,7 @@ func (j *SAEReleaseJob) ClearSelectionField() error {
 	return nil
 }
 
-func (j *SAEReleaseJob) SetOptions() error {
+func (j *SAEDeployJob) SetOptions() error {
 	j.spec = &commonmodels.SAEReleaseJobSpec{}
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return err
@@ -99,7 +114,7 @@ func (j *SAEReleaseJob) SetOptions() error {
 	return nil
 }
 
-func (j *SAEReleaseJob) ClearOptions() error {
+func (j *SAEDeployJob) ClearOptions() error {
 	j.spec = &commonmodels.SAEReleaseJobSpec{}
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return err
@@ -111,7 +126,7 @@ func (j *SAEReleaseJob) ClearOptions() error {
 	return nil
 }
 
-func (j *SAEReleaseJob) MergeArgs(args *commonmodels.Job) error {
+func (j *SAEDeployJob) MergeArgs(args *commonmodels.Job) error {
 	j.spec = &commonmodels.SAEReleaseJobSpec{}
 	if err := commonmodels.IToi(args.Spec, j.spec); err != nil {
 		return err
@@ -120,7 +135,7 @@ func (j *SAEReleaseJob) MergeArgs(args *commonmodels.Job) error {
 	return nil
 }
 
-func (j *SAEReleaseJob) UpdateWithLatestSetting() error {
+func (j *SAEDeployJob) UpdateWithLatestSetting() error {
 	j.spec = &commonmodels.SAEReleaseJobSpec{}
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return err
@@ -157,7 +172,7 @@ func (j *SAEReleaseJob) UpdateWithLatestSetting() error {
 	return nil
 }
 
-func (j *SAEReleaseJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
+func (j *SAEDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 	j.spec = &commonmodels.SAEReleaseJobSpec{}
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return nil, err
