@@ -35,11 +35,11 @@ import (
 type SAEDeployJob struct {
 	job      *commonmodels.Job
 	workflow *commonmodels.WorkflowV4
-	spec     *commonmodels.SAEReleaseJobSpec
+	spec     *commonmodels.SAEDeployJobSpec
 }
 
 func (j *SAEDeployJob) LintJob() error {
-	j.spec = &commonmodels.SAEReleaseJobSpec{}
+	j.spec = &commonmodels.SAEDeployJobSpec{}
 	if err := commonmodels.IToiYaml(j.job.Spec, j.spec); err != nil {
 		return err
 	}
@@ -52,7 +52,7 @@ func (j *SAEDeployJob) LintJob() error {
 }
 
 func (j *SAEDeployJob) Instantiate() error {
-	j.spec = &commonmodels.SAEReleaseJobSpec{}
+	j.spec = &commonmodels.SAEDeployJobSpec{}
 	if err := commonmodels.IToiYaml(j.job.Spec, j.spec); err != nil {
 		return err
 	}
@@ -61,7 +61,7 @@ func (j *SAEDeployJob) Instantiate() error {
 }
 
 func (j *SAEDeployJob) SetPreset() error {
-	j.spec = &commonmodels.SAEReleaseJobSpec{}
+	j.spec = &commonmodels.SAEDeployJobSpec{}
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return err
 	}
@@ -85,7 +85,7 @@ func (j *SAEDeployJob) SetPreset() error {
 }
 
 func (j *SAEDeployJob) ClearSelectionField() error {
-	j.spec = &commonmodels.SAEReleaseJobSpec{}
+	j.spec = &commonmodels.SAEDeployJobSpec{}
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return err
 	}
@@ -98,7 +98,7 @@ func (j *SAEDeployJob) ClearSelectionField() error {
 }
 
 func (j *SAEDeployJob) SetOptions() error {
-	j.spec = &commonmodels.SAEReleaseJobSpec{}
+	j.spec = &commonmodels.SAEDeployJobSpec{}
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return err
 	}
@@ -115,7 +115,7 @@ func (j *SAEDeployJob) SetOptions() error {
 }
 
 func (j *SAEDeployJob) ClearOptions() error {
-	j.spec = &commonmodels.SAEReleaseJobSpec{}
+	j.spec = &commonmodels.SAEDeployJobSpec{}
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return err
 	}
@@ -127,7 +127,7 @@ func (j *SAEDeployJob) ClearOptions() error {
 }
 
 func (j *SAEDeployJob) MergeArgs(args *commonmodels.Job) error {
-	j.spec = &commonmodels.SAEReleaseJobSpec{}
+	j.spec = &commonmodels.SAEDeployJobSpec{}
 	if err := commonmodels.IToi(args.Spec, j.spec); err != nil {
 		return err
 	}
@@ -136,7 +136,7 @@ func (j *SAEDeployJob) MergeArgs(args *commonmodels.Job) error {
 }
 
 func (j *SAEDeployJob) UpdateWithLatestSetting() error {
-	j.spec = &commonmodels.SAEReleaseJobSpec{}
+	j.spec = &commonmodels.SAEDeployJobSpec{}
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return err
 	}
@@ -146,7 +146,7 @@ func (j *SAEDeployJob) UpdateWithLatestSetting() error {
 		log.Errorf("Failed to find original workflow to set options, error: %s", err)
 	}
 
-	latestSpec := new(commonmodels.SAEReleaseJobSpec)
+	latestSpec := new(commonmodels.SAEDeployJobSpec)
 	found := false
 	for _, stage := range latestWorkflow.Stages {
 		if !found {
@@ -173,7 +173,7 @@ func (j *SAEDeployJob) UpdateWithLatestSetting() error {
 }
 
 func (j *SAEDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
-	j.spec = &commonmodels.SAEReleaseJobSpec{}
+	j.spec = &commonmodels.SAEDeployJobSpec{}
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return nil, err
 	}

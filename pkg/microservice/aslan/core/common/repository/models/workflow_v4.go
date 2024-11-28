@@ -1085,7 +1085,7 @@ type WebhookNotificationConfig struct {
 	Token   string `bson:"token"         yaml:"token"          json:"token"`
 }
 
-type SAEReleaseJobSpec struct {
+type SAEDeployJobSpec struct {
 	DockerRegistryID string                  `bson:"docker_registry_id"       yaml:"docker_registry_id"          json:"docker_registry_id"`
 	EnvConfig        *DeployEnvConfig        `bson:"env_config"               yaml:"env_config"                  json:"env_config"`
 	EnvOptions       []*SAEEnvInfo           `bson:"-"                        yaml:"env_options"                 json:"env_options"`

@@ -24,7 +24,7 @@ import (
 	"go.uber.org/zap"
 )
 
-type SAEReleaseJobCtl struct {
+type SAEDeployJobCtl struct {
 	job         *commonmodels.JobTask
 	workflowCtx *commonmodels.WorkflowTaskCtx
 	logger      *zap.SugaredLogger
@@ -32,13 +32,13 @@ type SAEReleaseJobCtl struct {
 	ack         func()
 }
 
-func NewSAEReleaseJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, ack func(), logger *zap.SugaredLogger) *SAEReleaseJobCtl {
+func NewSAEDeployJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, ack func(), logger *zap.SugaredLogger) *SAEDeployJobCtl {
 	jobTaskSpec := &commonmodels.JobTaskSAEReleaseSpec{}
 	if err := commonmodels.IToi(job.Spec, jobTaskSpec); err != nil {
 		logger.Error(err)
 	}
 	job.Spec = jobTaskSpec
-	return &SAEReleaseJobCtl{
+	return &SAEDeployJobCtl{
 		job:         job,
 		workflowCtx: workflowCtx,
 		logger:      logger,
@@ -47,8 +47,8 @@ func NewSAEReleaseJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.Wo
 	}
 }
 
-func (c *SAEReleaseJobCtl) Clean(ctx context.Context) {}
+func (c *SAEDeployJobCtl) Clean(ctx context.Context) {}
 
-func (c *SAEReleaseJobCtl) Run(ctx context.Context) {
+func (c *SAEDeployJobCtl) Run(ctx context.Context) {
 	c.job.Status = config.StatusRunning
 }
