@@ -68,6 +68,10 @@ func (j *SAEDeployJob) SetPreset() error {
 		return err
 	}
 
+	if j.spec.ServiceConfig.Source == config.SourceFromJob {
+		j.spec.OriginJobName = j.spec.JobName
+	}
+
 	// create env options for frontend to select
 	envOptions, err := generateSAEEnvOption(j.workflow.Project)
 	if err != nil {
