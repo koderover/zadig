@@ -21,6 +21,8 @@ import (
 
 	sae "github.com/alibabacloud-go/sae-20190506/client"
 	"github.com/alibabacloud-go/tea/tea"
+	"github.com/koderover/zadig/v2/pkg/types/job"
+
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
@@ -178,6 +180,8 @@ func (j *SAEDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		return nil, err
 	}
 
+	resp := make([]*commonmodels.JobTask, 0)
+
 	if j.spec.ServiceConfig.Source == config.SourceFromJob {
 		if j.spec.OriginJobName != "" {
 			j.spec.JobName = j.spec.OriginJobName
@@ -185,9 +189,59 @@ func (j *SAEDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 
 	}
 
-	j.job.Spec = j.spec
+	envInfo, err := commonrepo.NewSAEEnvColl().Find(&commonrepo.SAEEnvFindOptions{
+		ProjectName:       j.workflow.Project,
+		EnvName:           j.spec.EnvConfig.Name,
+		IgnoreNotFoundErr: false,
+	})
 
-	return nil, nil
+	if err != nil {
+		log.Errorf("failed to find env of name: %s, error: %s", j.spec.EnvConfig.Name, err)
+		return nil, fmt.Errorf("failed to find env of name: %s, error: %s", j.spec.EnvConfig.Name, err)
+	}
+
+	for jobSubTaskID, svc := range j.spec.ServiceConfig.Services {
+		if j.spec.ServiceConfig.Source == config.SourceFromJob {
+			svc.Image = job.GetJobOutputKey(fmt.Sprintf("%s.%s.%s", j.spec.OriginJobName, svc.ServiceName, svc.ServiceModule), IMAGEKEY)
+		}
+
+		jobTaskSpec := &commonmodels.JobTaskSAEDeploySpec{
+			Env: j.spec.EnvConfig.Name,
+			// TODO: Change me when production property for sae env is done.
+			Production: true,
+
+			AppID:         svc.AppID,
+			AppName:       svc.AppName,
+			ServiceName:   svc.ServiceName,
+			ServiceModule: svc.ServiceModule,
+			RegionID:      envInfo.RegionID,
+
+			Image:                 svc.Image,
+			UpdateStrategy:        svc.UpdateStrategy,
+			BatchWaitTime:         svc.BatchWaitTime,
+			MinReadyInstances:     svc.MinReadyInstances,
+			MinReadyInstanceRatio: svc.MinReadyInstanceRatio,
+			Envs:                  svc.Envs,
+		}
+
+		jobTask := &commonmodels.JobTask{
+			Key:         genJobKey(j.job.Name, svc.ServiceName),
+			Name:        GenJobName(j.workflow, j.job.Name, jobSubTaskID),
+			DisplayName: genJobDisplayName(j.job.Name, svc.ServiceName),
+			OriginName:  j.job.Name,
+			JobInfo: map[string]string{
+				JobNameKey:     j.job.Name,
+				"service_name": svc.ServiceName,
+			},
+			JobType:     string(config.JobSAEDeploy),
+			Spec:        jobTaskSpec,
+			ErrorPolicy: j.job.ErrorPolicy,
+		}
+
+		resp = append(resp, jobTask)
+	}
+
+	return resp, nil
 }
 
 func generateSAEEnvOption(projectKey string) (envOptions []*commonmodels.SAEEnvInfo, err error) {
@@ -224,7 +278,8 @@ func generateSAEEnvOption(projectKey string) (envOptions []*commonmodels.SAEEnvI
 			Tags:        tea.String(tags),
 			CurrentPage: tea.Int32(1),
 			// TODO: possibly fix the hard-coded paging.
-			PageSize: tea.Int32(10000),
+			PageSize:    tea.Int32(10000),
+			NamespaceId: tea.String(env.NamespaceID),
 		}
 
 		saeResp, err := saeClient.ListApplications(saeRequest)

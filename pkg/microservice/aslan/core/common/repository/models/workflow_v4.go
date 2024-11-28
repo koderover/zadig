@@ -1105,7 +1105,7 @@ type DeployEnvConfig struct {
 }
 
 type SAEDeployServiceConfig struct {
-	// supported value: runtime/fixed/fromjob
+	// supported value: runtime/fromjob
 	Source          config.DeploySourceType `bson:"source"            json:"source"            yaml:"source"`
 	Services        []*SAEDeployServiceInfo `bson:"services"          json:"services"          yaml:"services"`
 	DefaultServices []*ServiceNameAndModule `bson:"default_services"  json:"default_services"  yaml:"default_services"`
@@ -1117,11 +1117,11 @@ type SAEEnvInfo struct {
 }
 
 type SAEKV struct {
-	Name        string `bson:"name"        json:"name"        yaml:"name"`
-	Value       string `bson:"value"       json:"value"       yaml:"value"`
-	ValueFrom   string `bson:"valueFrom"   json:"valueFrom"   yaml:"valueFrom"`
-	ConfigMapID string `bson:"configMapId" json:"configMapId" yaml:"configMapId"`
-	Key         string `bson:"key"         json:"key"         yaml:"key"`
+	Name        string `bson:"name"          json:"name"          yaml:"name"`
+	Value       string `bson:"value"         json:"value"         yaml:"value"`
+	ValueFrom   string `bson:"value_from"    json:"value_from"    yaml:"value_from"`
+	ConfigMapID string `bson:"config_map_id" json:"config_map_id" yaml:"config_map_id"`
+	Key         string `bson:"key"           json:"key"           yaml:"key"`
 }
 
 // SAEServiceInfo is the service info in the SAE env, with its bound service

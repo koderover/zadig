@@ -725,21 +725,21 @@ func ListSAEChangeOrder(projectName, envName, appID string, page, perPage int, l
 	opt := &commonrepo.SAEEnvFindOptions{ProjectName: projectName, EnvName: envName}
 	env, err := commonrepo.NewSAEEnvColl().Find(opt)
 	if err != nil {
-		err = fmt.Errorf("Failed to find SAE env, projectName: %s, envName: %s, error: %s", projectName, envName, err)
+		err = fmt.Errorf("failed to find SAE env, projectName: %s, envName: %s, error: %s", projectName, envName, err)
 		log.Error(err)
 		return "", e.ErrGetService.AddErr(err)
 	}
 
 	saeModel, err := commonrepo.NewSAEColl().FindDefault()
 	if err != nil {
-		err = fmt.Errorf("Failed to find default sae, err: %s", err)
+		err = fmt.Errorf("failed to find default sae, err: %s", err)
 		log.Error(err)
 		return "", e.ErrGetService.AddErr(err)
 	}
 
 	saeClient, err := saeservice.NewClient(saeModel, env.RegionID)
 	if err != nil {
-		err = fmt.Errorf("Failed to create sae client, err: %s", err)
+		err = fmt.Errorf("failed to create sae client, err: %s", err)
 		log.Error(err)
 		return "", e.ErrGetService.AddErr(err)
 	}
