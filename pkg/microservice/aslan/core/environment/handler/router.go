@@ -228,6 +228,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		environments.PUT("sae/:name/app", DeleteSAEServiceFromEnv)
 		environments.GET("sae/:name/app/:appID/versions", ListSAEAppVersion)
 		environments.POST("sae/:name/app/:appID/restart", RestartSAEApp)
+		environments.POST("sae/:name/app/:appID/serviceBind", BindSAEAppToService)
 		environments.POST("sae/:name/app/:appID/rescale", RescaleSAEApp)
 		environments.POST("sae/:name/app/:appID/rollback", RollbackSAEApp)
 		environments.GET("sae/:name/app/:appID/instance", ListSAEAppInstances)

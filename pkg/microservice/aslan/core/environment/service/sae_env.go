@@ -17,6 +17,7 @@ limitations under the License.
 package service
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -293,10 +294,18 @@ func ListSAEApps(regionID, namespace, projectName, envName, appName string, isAd
 	apps := make([]*models.SAEApplication, 0)
 	for _, saeApp := range saeResp.Body.Data.Applications {
 		tags := make([]*models.SAETag, 0)
+		serviceName := ""
+		serviceModule := ""
 		for _, saeTag := range saeApp.Tags {
 			tag := &models.SAETag{
 				Key:   tea.StringValue(saeTag.Key),
 				Value: tea.StringValue(saeTag.Value),
+			}
+			if tea.StringValue(saeTag.Key) == setting.SAEZadigServiceTagKey {
+				serviceName = tea.StringValue(saeTag.Value)
+			}
+			if tea.StringValue(saeTag.Key) == setting.SAEZadigServiceModuleTagKey {
+				serviceModule = tea.StringValue(saeTag.Value)
 			}
 			tags = append(tags, tag)
 		}
@@ -310,6 +319,8 @@ func ListSAEApps(regionID, namespace, projectName, envName, appName string, isAd
 			RunningInstances: tea.Int32Value(saeApp.RunningInstances),
 			Cpu:              tea.Int32Value(saeApp.Cpu),
 			Mem:              tea.Int32Value(saeApp.Mem),
+			ServiceName:      serviceName,
+			ServiceModule:    serviceModule,
 		}
 		apps = append(apps, app)
 	}
@@ -411,6 +422,90 @@ func RestartSAEApp(projectName, envName, appID string, log *zap.SugaredLogger) e
 		err = fmt.Errorf("Failed to restart application %s, statusCode: %d, code: %s, errCode: %s, message: %s", appID, tea.Int32Value(saeResp.StatusCode), tea.ToString(saeResp.Body.Code), tea.ToString(saeResp.Body.ErrorCode), tea.ToString(saeResp.Body.Message))
 		log.Error(err)
 		return e.ErrRestartService.AddErr(err)
+	}
+
+	return nil
+}
+
+func BindSAEAppToService(projectName, envName, appID, serviceName, serviceModule string, log *zap.SugaredLogger) error {
+	opt := &commonrepo.SAEEnvFindOptions{ProjectName: projectName, EnvName: envName}
+	env, err := commonrepo.NewSAEEnvColl().Find(opt)
+	if err != nil {
+		err = fmt.Errorf("failed to find SAE env, projectName: %s, envName: %s, error: %s", projectName, envName, err)
+		log.Error(err)
+		return e.ErrScaleService.AddErr(err)
+	}
+
+	saeModel, err := commonrepo.NewSAEColl().FindDefault()
+	if err != nil {
+		err = fmt.Errorf("failed to find default sae, err: %s", err)
+		log.Error(err)
+		return e.ErrScaleService.AddErr(err)
+	}
+
+	saeClient, err := saeservice.NewClient(saeModel, env.RegionID)
+	if err != nil {
+		err = fmt.Errorf("failed to create sae client, err: %s", err)
+		log.Error(err)
+		return e.ErrScaleService.AddErr(err)
+	}
+
+	resourceIds, err := json.Marshal([]string{appID})
+	if err != nil {
+		err = fmt.Errorf("failed to bind sae application %s to service: json marshal failed, err: %s", appID, err)
+		log.Error(err)
+		return e.ErrScaleService.AddErr(err)
+	}
+
+	// if service name and service module is empty, we delete the service binding tag for this app.
+	if len(serviceName) == 0 && len(serviceModule) == 0 {
+		tagKeys := []string{setting.SAEZadigServiceTagKey, setting.SAEZadigServiceModuleTagKey}
+		tagKeyStr, err := json.Marshal(tagKeys)
+		if err != nil {
+			err = fmt.Errorf("failed to bind sae application %s to service: json marshal failed, err: %s", appID, err)
+			log.Error(err)
+			return e.ErrScaleService.AddErr(err)
+		}
+
+		saeRequest := &sae.UntagResourcesRequest{
+			DeleteAll:    tea.Bool(false),
+			RegionId:     tea.String(env.RegionID),
+			ResourceIds:  tea.String(string(resourceIds)),
+			ResourceType: tea.String("application"),
+			TagKeys:      tea.String(string(tagKeyStr)),
+		}
+
+		saeResp, err := saeClient.UntagResources(saeRequest)
+		if err != nil {
+			err = fmt.Errorf("failed to unbind application %s to service, err: %s", appID, err)
+			log.Error(err)
+			return e.ErrScaleService.AddErr(err)
+		}
+		if !tea.BoolValue(saeResp.Body.Success) {
+			err = fmt.Errorf("failed to unbind application %s to service, statusCode: %d, code: %s, errCode: %s, message: %s", appID, tea.Int32Value(saeResp.StatusCode), tea.ToString(saeResp.Body.Code), tea.ToString(saeResp.Body.ErrorCode), tea.ToString(saeResp.Body.Message))
+			log.Error(err)
+			return e.ErrScaleService.AddErr(err)
+		}
+
+		return nil
+	}
+
+	saeRequest := &sae.TagResourcesRequest{
+		RegionId:     tea.String(env.RegionID),
+		ResourceType: tea.String("application"),
+		Tags:         tea.String(fmt.Sprintf(`[{"Key":"%s","Value":"%s"}, {"Key":"%s","Value":"%s"}]`, setting.SAEZadigServiceTagKey, serviceName, setting.SAEZadigServiceModuleTagKey, serviceModule)),
+		ResourceIds:  tea.String(string(resourceIds)),
+	}
+	saeResp, err := saeClient.TagResources(saeRequest)
+	if err != nil {
+		err = fmt.Errorf("failed to bind application %s to service, err: %s", appID, err)
+		log.Error(err)
+		return e.ErrScaleService.AddErr(err)
+	}
+	if !tea.BoolValue(saeResp.Body.Success) {
+		err = fmt.Errorf("failed to bind application %s to service, statusCode: %d, code: %s, errCode: %s, message: %s", appID, tea.Int32Value(saeResp.StatusCode), tea.ToString(saeResp.Body.Code), tea.ToString(saeResp.Body.ErrorCode), tea.ToString(saeResp.Body.Message))
+		log.Error(err)
+		return e.ErrScaleService.AddErr(err)
 	}
 
 	return nil
@@ -808,21 +903,21 @@ func ListSAEChangeOrder(projectName, envName, appID string, page, perPage int, l
 	opt := &commonrepo.SAEEnvFindOptions{ProjectName: projectName, EnvName: envName}
 	env, err := commonrepo.NewSAEEnvColl().Find(opt)
 	if err != nil {
-		err = fmt.Errorf("Failed to find SAE env, projectName: %s, envName: %s, error: %s", projectName, envName, err)
+		err = fmt.Errorf("failed to find SAE env, projectName: %s, envName: %s, error: %s", projectName, envName, err)
 		log.Error(err)
 		return "", e.ErrGetService.AddErr(err)
 	}
 
 	saeModel, err := commonrepo.NewSAEColl().FindDefault()
 	if err != nil {
-		err = fmt.Errorf("Failed to find default sae, err: %s", err)
+		err = fmt.Errorf("failed to find default sae, err: %s", err)
 		log.Error(err)
 		return "", e.ErrGetService.AddErr(err)
 	}
 
 	saeClient, err := saeservice.NewClient(saeModel, env.RegionID)
 	if err != nil {
-		err = fmt.Errorf("Failed to create sae client, err: %s", err)
+		err = fmt.Errorf("failed to create sae client, err: %s", err)
 		log.Error(err)
 		return "", e.ErrGetService.AddErr(err)
 	}
@@ -1143,16 +1238,18 @@ func AddSAEAppToEnv(username string, projectName, envName string, req *AddSAEApp
 	}
 
 	if len(req.AppIDs) > 0 {
-		resourceIds := "["
-		for _, appID := range req.AppIDs {
-			resourceIds += fmt.Sprintf(`"%s",`, appID)
+		resourceIds, err := json.Marshal(req.AppIDs)
+		if err != nil {
+			err = fmt.Errorf("failed to tag resources: marshal app_ids failed, err: %s", err)
+			log.Error(err)
+			return e.ErrAddSAEAppToEnv.AddErr(err)
 		}
-		resourceIds = strings.TrimSuffix(resourceIds, ",") + "]"
+
 		saeRequest := &sae.TagResourcesRequest{
 			RegionId:     tea.String(env.RegionID),
 			ResourceType: tea.String("application"),
 			Tags:         tea.String(fmt.Sprintf(`[{"Key":"%s","Value":"%s"}, {"Key":"%s","Value":"%s"}]`, setting.SAEZadigProjectTagKey, env.ProjectName, setting.SAEZadigEnvTagKey, env.EnvName)),
-			ResourceIds:  tea.String(resourceIds),
+			ResourceIds:  tea.String(string(resourceIds)),
 		}
 		saeResp, err := saeClient.TagResources(saeRequest)
 		if err != nil {

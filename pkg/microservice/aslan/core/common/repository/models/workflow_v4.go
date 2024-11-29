@@ -1050,7 +1050,8 @@ func (n *NotificationJobSpec) GenerateNewNotifyConfigWithOldData() error {
 			return fmt.Errorf("lark_person_notification_config cannot be empty for type feishu_person notification")
 		}
 	default:
-		return fmt.Errorf("unsupported notification type: %s", n.WebHookType)
+		// TODO: this code is commented because of chagee old data. uncomment it if possible
+		//return fmt.Errorf("unsupported notification type: %s", n.WebHookType)
 	}
 
 	return nil
@@ -1094,6 +1095,93 @@ type MailNotificationConfig struct {
 type WebhookNotificationConfig struct {
 	Address string `bson:"address"       yaml:"address"        json:"address"`
 	Token   string `bson:"token"         yaml:"token"          json:"token"`
+}
+
+type SAEDeployJobSpec struct {
+	DockerRegistryID string                  `bson:"docker_registry_id"       yaml:"docker_registry_id"          json:"docker_registry_id"`
+	EnvConfig        *DeployEnvConfig        `bson:"env_config"               yaml:"env_config"                  json:"env_config"`
+	EnvOptions       []*SAEEnvInfo           `bson:"-"                        yaml:"env_options"                 json:"env_options"`
+	Production       bool                    `bson:"production"               yaml:"production"                  json:"production"`
+	ServiceConfig    *SAEDeployServiceConfig `bson:"service_config"           yaml:"service_config"              json:"service_config"`
+
+	// 当 source 为 fromjob 时需要，指定部署镜像来源是上游哪一个构建任务
+	JobName string `bson:"job_name"             yaml:"job_name"             json:"job_name"`
+	// save the origin quoted job name
+	OriginJobName string `bson:"origin_job_name"      yaml:"origin_job_name"      json:"origin_job_name"`
+}
+
+type DeployEnvConfig struct {
+	// supported value: runtime/fixed
+	Source config.DeploySourceType `bson:"source" json:"source" yaml:"source"`
+	Name   string                  `bson:"name"   json:"name"   yaml:"name"`
+}
+
+type SAEDeployServiceConfig struct {
+	// supported value: runtime/fromjob
+	Source          config.DeploySourceType `bson:"source"            json:"source"            yaml:"source"`
+	Services        []*SAEDeployServiceInfo `bson:"services"          json:"services"          yaml:"services"`
+	DefaultServices []*ServiceNameAndModule `bson:"default_services"  json:"default_services"  yaml:"default_services"`
+}
+
+type SAEEnvInfo struct {
+	Env      string            `bson:"-" json:"env" yaml:"env"`
+	Services []*SAEServiceInfo `bson:"-" json:"services" yaml:"services"`
+}
+
+type SAEKV struct {
+	Name        string `bson:"name"          json:"name"          yaml:"name"`
+	Value       string `bson:"value"         json:"value"         yaml:"value"`
+	ConfigMapID int    `bson:"config_map_id" json:"config_map_id" yaml:"config_map_id"`
+	Key         string `bson:"key"           json:"key"           yaml:"key"`
+}
+
+// SAEServiceInfo is the service info in the SAE env, with its bound service
+type SAEServiceInfo struct {
+	AppID     string   `bson:"app_id"    json:"app_id"    yaml:"app_id"`
+	AppName   string   `bson:"app_name"  json:"app_name"  yaml:"app_name"`
+	Image     string   `bson:"image"     json:"image"     yaml:"image"`
+	Instances int32    `bson:"instances" json:"instances" yaml:"instances"`
+	Envs      []*SAEKV `bson:"envs"      json:"envs"      yaml:"envs"`
+
+	ServiceName   string `bson:"service_name"   json:"service_name"   yaml:"service_name"`
+	ServiceModule string `bson:"service_module" json:"service_module" yaml:"service_module"`
+}
+
+// SAEDeployServiceInfo is the deployment configuration for sae deployment job
+type SAEDeployServiceInfo struct {
+	AppID   string `bson:"app_id"   json:"app_id"   yaml:"app_id"`
+	AppName string `bson:"app_name" json:"app_name" yaml:"app_name"`
+	Image   string `bson:"image"    json:"image"    yaml:"image"`
+
+	ServiceName   string `bson:"service_name"   json:"service_name"   yaml:"service_name"`
+	ServiceModule string `bson:"service_module" json:"service_module" yaml:"service_module"`
+
+	// sae instance count. used only for frontend to do rendering
+	Instances int32 `bson:"instances" json:"instances" yaml:"instances"`
+
+	// field description: https://api.aliyun.com/document/sae/2019-05-06/DeployApplication
+	// note that the camelcase has been converted to snake case.
+	UpdateStrategy        *SAEUpdateStrategy `bson:"update_strategy"          json:"update_strategy"          yaml:"update_strategy"`
+	BatchWaitTime         int32              `bson:"batch_wait_time"          json:"batch_wait_time"          yaml:"batch_wait_time"`
+	MinReadyInstances     int32              `bson:"min_ready_instances"      json:"min_ready_instances"      yaml:"min_ready_instances"`
+	MinReadyInstanceRatio int32              `bson:"min_ready_instance_ratio" json:"min_ready_instance_ratio" yaml:"min_ready_instance_ratio"`
+	Envs                  []*SAEKV           `bson:"envs"                     json:"envs"                     yaml:"envs"`
+}
+
+type SAEUpdateStrategy struct {
+	Type        config.SAEUpdateStrategy `bson:"type"         json:"type"         yaml:"type"`
+	BatchUpdate *SAEBatchUpdateConfig    `bson:"batch_update" json:"batch_update" yaml:"batch_update"`
+	GrayUpdate  *SAEGrayUpdateConfig     `bson:"gray_update"  json:"gray_update"  yaml:"gray_update"`
+}
+
+type SAEBatchUpdateConfig struct {
+	Batch         int                        `bson:"batch"           json:"batch"           yaml:"batch"`
+	ReleaseType   config.SAEBatchReleaseType `bson:"release_type"    json:"release_type"    yaml:"release_type"`
+	BatchWaitTime int                        `bson:"batch_wait_time" json:"batch_wait_time" yaml:"batch_wait_time"`
+}
+
+type SAEGrayUpdateConfig struct {
+	Gray int `bson:"gray" json:"gray" yaml:"gray"`
 }
 
 type JenkinsJobInfo struct {

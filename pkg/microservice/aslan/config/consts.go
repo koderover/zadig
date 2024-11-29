@@ -253,6 +253,7 @@ const (
 	JobBlueKing             JobType = "blueking"
 	JobApproval             JobType = "approval"
 	JobNotification         JobType = "notification"
+	JobSAEDeploy            JobType = "sae-deploy"
 )
 
 const (
@@ -282,6 +283,20 @@ const (
 	LarkApproval     ApprovalType = "lark"
 	DingTalkApproval ApprovalType = "dingtalk"
 	WorkWXApproval   ApprovalType = "workwx"
+)
+
+type SAEUpdateStrategy string
+
+const (
+	SAEUpdateTypeGrayBatch = "GrayBatchUpdate"
+	SAEUpdateTypeBatch     = "BatchUpdate"
+)
+
+type SAEBatchReleaseType string
+
+const (
+	SAEBatchReleaseTypeAuto   = "auto"
+	SAEBatchReleaseTypeManual = "manual"
 )
 
 type ApproveOrReject string

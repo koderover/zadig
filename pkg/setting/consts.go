@@ -965,6 +965,8 @@ const (
 )
 
 const (
-	SAEZadigProjectTagKey = "ZADIG_PROJECT"
-	SAEZadigEnvTagKey     = "ZADIG_ENV"
+	SAEZadigProjectTagKey       = "ZADIG_PROJECT"
+	SAEZadigEnvTagKey           = "ZADIG_ENV"
+	SAEZadigServiceTagKey       = "ZADIG_SERVICE"
+	SAEZadigServiceModuleTagKey = "ZADIG_SERVICE_MODULE"
 )

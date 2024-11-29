@@ -633,6 +633,28 @@ type JobTaskNotificationSpec struct {
 	Title   string `bson:"title"                         yaml:"title"                         json:"title"`
 }
 
+type JobTaskSAEDeploySpec struct {
+	// env info
+	Env        string `bson:"env"             json:"env"             yaml:"env"`
+	Production bool   `bson:"production"      json:"production"      yaml:"production"`
+
+	// service info
+	AppID         string `bson:"app_id"          json:"app_id"          yaml:"app_id"`
+	AppName       string `bson:"app_name"        json:"app_name"        yaml:"app_name"`
+	ServiceName   string `bson:"service_name"    json:"service_name"    yaml:"service_name"`
+	ServiceModule string `bson:"service_module"  json:"service_module"  yaml:"service_module"`
+	RegionID      string `bson:"region_id"       json:"region_id"       yaml:"region_id"`
+
+	// deploy info
+	Image                 string             `bson:"image"                    json:"image"                    yaml:"image"`
+	UpdateStrategy        *SAEUpdateStrategy `bson:"update_strategy"          json:"update_strategy"          yaml:"update_strategy"`
+	BatchWaitTime         int32              `bson:"batch_wait_time"          json:"batch_wait_time"          yaml:"batch_wait_time"`
+	MinReadyInstances     int32              `bson:"min_ready_instances"      json:"min_ready_instances"      yaml:"min_ready_instances"`
+	MinReadyInstanceRatio int32              `bson:"min_ready_instance_ratio" json:"min_ready_instance_ratio" yaml:"min_ready_instance_ratio"`
+	Envs                  []*SAEKV           `bson:"envs"                     json:"envs"                     yaml:"envs"`
+	ChangeOrderID         string             `bson:"change_order_id"          json:"change_order_id"          yaml:"change_order_id"`
+}
+
 type Event struct {
 	EventType string `bson:"event_type"             json:"event_type"            yaml:"event_type"`
 	Time      string `bson:"time"                   json:"time"                  yaml:"time"`

@@ -17,6 +17,7 @@ limitations under the License.
 package sae
 
 import (
+	"encoding/json"
 	"fmt"
 
 	sae "github.com/alibabacloud-go/sae-20190506/client"
@@ -108,4 +109,74 @@ func validateSAE(args *commonmodels.SAE) error {
 	}
 
 	return nil
+}
+
+type SAEKV struct {
+	Name      string        `json:"name"`
+	Value     string        `json:"value,omitempty"`
+	ValueFrom *SAEValueFrom `json:"valueFrom,omitempty"`
+}
+
+type SAEValueFrom struct {
+	ConfigMapRef *SAEConfigMapRef `json:"configMapRef,omitempty"`
+}
+
+type SAEConfigMapRef struct {
+	ConfigMapID int    `json:"configMapId"`
+	Key         string `json:"key"`
+}
+
+// CreateKVMap takes a string and de-serialize it into a struct that we can use
+func CreateKVMap(kv *string) (map[string]*commonmodels.SAEKV, error) {
+	envList := make([]*SAEKV, 0)
+	err := json.Unmarshal([]byte(tea.StringValue(kv)), &envList)
+	if err != nil {
+		return nil, err
+	}
+
+	resp := make(map[string]*commonmodels.SAEKV)
+
+	for _, env := range envList {
+		resp[env.Name] = &commonmodels.SAEKV{
+			Name:  env.Name,
+			Value: env.Value,
+			//ValueFrom:   env.ValueFrom,
+
+		}
+
+		if env.ValueFrom != nil && env.ValueFrom.ConfigMapRef != nil {
+			resp[env.Name].ConfigMapID = env.ValueFrom.ConfigMapRef.ConfigMapID
+			resp[env.Name].Key = env.ValueFrom.ConfigMapRef.Key
+		}
+	}
+
+	return resp, nil
+}
+
+func ToSAEKVString(envs []*commonmodels.SAEKV) (*string, error) {
+	if len(envs) == 0 {
+		return nil, nil
+	}
+	resp := make([]*SAEKV, 0)
+	for _, kv := range envs {
+		saekv := &SAEKV{
+			Name:  kv.Name,
+			Value: kv.Value,
+		}
+
+		if kv.ConfigMapID != 0 {
+			saekv.ValueFrom = &SAEValueFrom{ConfigMapRef: &SAEConfigMapRef{
+				ConfigMapID: kv.ConfigMapID,
+				Key:         kv.Key,
+			}}
+		}
+		resp = append(resp, saekv)
+	}
+
+	envStr, err := json.Marshal(resp)
+	if err != nil {
+		return nil, err
+	}
+
+	return tea.String(string(envStr)), nil
 }
