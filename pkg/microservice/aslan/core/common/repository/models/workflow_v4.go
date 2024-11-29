@@ -1145,6 +1145,9 @@ type SAEDeployServiceInfo struct {
 	ServiceName   string `bson:"service_name"   json:"service_name"   yaml:"service_name"`
 	ServiceModule string `bson:"service_module" json:"service_module" yaml:"service_module"`
 
+	// sae instance count. used only for frontend to do rendering
+	Instances int32 `bson:"instances" json:"instances" yaml:"instances"`
+
 	// field description: https://api.aliyun.com/document/sae/2019-05-06/DeployApplication
 	// note that the camelcase has been converted to snake case.
 	UpdateStrategy        *SAEUpdateStrategy `bson:"update_strategy"          json:"update_strategy"          yaml:"update_strategy"`

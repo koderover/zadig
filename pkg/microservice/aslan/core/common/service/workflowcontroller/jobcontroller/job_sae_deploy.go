@@ -230,7 +230,6 @@ func (c *SAEDeployJobCtl) wait(ctx context.Context, client *sae.Client) {
 			}
 		}
 	}
-
 }
 
 func (c *SAEDeployJobCtl) SaveInfo(ctx context.Context) error {

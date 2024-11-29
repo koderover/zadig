@@ -490,6 +490,7 @@ func generateSAEDefaultSelectedService(projectKey, envName string, defaultServic
 						AppID:         tea.StringValue(saeApp.AppId),
 						AppName:       tea.StringValue(saeApp.AppName),
 						Image:         tea.StringValue(saeApp.ImageUrl),
+						Instances:     tea.Int32Value(saeApp.Instances),
 						ServiceName:   serviceName,
 						ServiceModule: serviceModule,
 						Envs:          kv,
