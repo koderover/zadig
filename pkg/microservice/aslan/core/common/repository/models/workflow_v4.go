@@ -1039,7 +1039,8 @@ func (n *NotificationJobSpec) GenerateNewNotifyConfigWithOldData() error {
 			return fmt.Errorf("lark_person_notification_config cannot be empty for type feishu_person notification")
 		}
 	default:
-		return fmt.Errorf("unsupported notification type: %s", n.WebHookType)
+		// TODO: this code is commented because of chagee old data. uncomment it if possible
+		//return fmt.Errorf("unsupported notification type: %s", n.WebHookType)
 	}
 
 	return nil
