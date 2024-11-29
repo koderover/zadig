@@ -115,15 +115,16 @@ type saeKV struct {
 	Name      string `json:"name"`
 	Value     string `json:"value"`
 	ValueFrom struct {
-		ConfigMapID string `json:"configMapId"`
-		Key         string `json:"key"`
+		ConfigMapRef struct {
+			ConfigMapID string `json:"configMapId"`
+			Key         string `json:"key"`
+		} `json:"configMapRef"`
 	} `json:"valueFrom"`
 }
 
 // CreateKVMap takes a string and de-serialize it into a struct that we can use
 func CreateKVMap(kv *string) (map[string]*commonmodels.SAEKV, error) {
 	envList := make([]*saeKV, 0)
-	fmt.Println(tea.StringValue(kv))
 	err := json.Unmarshal([]byte(tea.StringValue(kv)), &envList)
 	if err != nil {
 		return nil, err
@@ -136,8 +137,8 @@ func CreateKVMap(kv *string) (map[string]*commonmodels.SAEKV, error) {
 			Name:  env.Name,
 			Value: env.Value,
 			//ValueFrom:   env.ValueFrom,
-			ConfigMapID: env.ValueFrom.ConfigMapID,
-			Key:         env.ValueFrom.Key,
+			ConfigMapID: env.ValueFrom.ConfigMapRef.ConfigMapID,
+			Key:         env.ValueFrom.ConfigMapRef.Key,
 		}
 	}
 
