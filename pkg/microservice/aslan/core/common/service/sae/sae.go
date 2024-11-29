@@ -123,6 +123,7 @@ type saeKV struct {
 // CreateKVMap takes a string and de-serialize it into a struct that we can use
 func CreateKVMap(kv *string) (map[string]*commonmodels.SAEKV, error) {
 	envList := make([]*saeKV, 0)
+	fmt.Println(tea.StringValue(kv))
 	err := json.Unmarshal([]byte(tea.StringValue(kv)), &envList)
 	if err != nil {
 		return nil, err
