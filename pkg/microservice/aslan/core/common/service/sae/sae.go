@@ -111,9 +111,17 @@ func validateSAE(args *commonmodels.SAE) error {
 	return nil
 }
 
+type saeKV struct {
+	Name        string `json:"name"`
+	Value       string `json:"value"`
+	ValueFrom   string `json:"valueFrom"`
+	ConfigMapID string `json:"configMapId"`
+	Key         string `json:"key"`
+}
+
 // CreateKVMap takes a string and de-serialize it into a struct that we can use
 func CreateKVMap(kv *string) (map[string]*commonmodels.SAEKV, error) {
-	envList := make([]*commonmodels.SAEKV, 0)
+	envList := make([]*saeKV, 0)
 	err := json.Unmarshal([]byte(tea.StringValue(kv)), &envList)
 	if err != nil {
 		return nil, err
@@ -122,7 +130,13 @@ func CreateKVMap(kv *string) (map[string]*commonmodels.SAEKV, error) {
 	resp := make(map[string]*commonmodels.SAEKV)
 
 	for _, env := range envList {
-		resp[env.Key] = env
+		resp[env.Key] = &commonmodels.SAEKV{
+			Name:        env.Name,
+			Value:       env.Value,
+			ValueFrom:   env.ValueFrom,
+			ConfigMapID: env.ConfigMapID,
+			Key:         env.Key,
+		}
 	}
 
 	return resp, nil
