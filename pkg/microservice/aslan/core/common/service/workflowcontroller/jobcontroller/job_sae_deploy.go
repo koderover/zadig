@@ -30,7 +30,6 @@ import (
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	saeservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/sae"
-	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/util/converter"
 )
 
@@ -169,18 +168,30 @@ func (c *SAEDeployJobCtl) Run(ctx context.Context) {
 }
 
 func (c *SAEDeployJobCtl) wait(ctx context.Context, client *sae.Client) {
-	timeout := time.After(time.Duration(setting.DeployTimeout) * time.Second)
+	//timeout := time.After(time.Duration(setting.DeployTimeout) * time.Second)
 
 	for {
 		select {
 		case <-ctx.Done():
 			c.job.Status = config.StatusCancelled
-			return
 
-		case <-timeout:
-			// TODO: maybe add logic?
-			c.job.Status = config.StatusTimeout
+			saeRequest := &sae.AbortAndRollbackChangeOrderRequest{ChangeOrderId: tea.String(c.jobTaskSpec.ChangeOrderID)}
+			saeResp, err := client.AbortAndRollbackChangeOrder(saeRequest)
+			if err != nil {
+				err = fmt.Errorf("failed to rollback change order, orderID: %s, appID: %s, err: %s", c.jobTaskSpec.ChangeOrderID, c.jobTaskSpec.AppID, err)
+				c.logger.Warn(err)
+			}
+
+			if !tea.BoolValue(saeResp.Body.Success) {
+				err = fmt.Errorf("failed to rollback change order, appID: %s, statusCode: %d, code: %s, errCode: %s, message: %s", c.jobTaskSpec.AppID, tea.Int32Value(saeResp.StatusCode), tea.ToString(saeResp.Body.Code), tea.ToString(saeResp.Body.ErrorCode), tea.ToString(saeResp.Body.Message))
+				c.logger.Warn(err)
+			}
+
 			return
+		//case <-timeout:
+		//	// TODO: maybe add logic?
+		//	c.job.Status = config.StatusTimeout
+		//	return
 
 		default:
 			time.Sleep(time.Second * 2)
