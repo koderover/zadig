@@ -689,6 +689,7 @@ func ExecSprintWorkItemWorkflow(ctx *handler.Context, id string, workitemIDs []s
 		WorkflowTaskID:    task.TaskID,
 		SprintWorkItemIDs: workitemIDs,
 		Status:            config.StatusCreated,
+		Hash:              workflow.Hash,
 		CreateTime:        time.Now().Unix(),
 		Creator:           ctx.GenUserBriefInfo(),
 	}

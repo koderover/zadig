@@ -29,6 +29,7 @@ type SprintWorkItemTask struct {
 	WorkflowTaskID     int64                    `bson:"workflow_task_id"     yaml:"workflow_task_id"     json:"workflow_task_id"`
 	Status             config.Status            `bson:"status"               yaml:"status"               json:"status"`
 	ServiceModuleDatas []*WorkflowServiceModule `bson:"service_module_datas" yaml:"service_module_datas" json:"service_module_datas"`
+	Hash               string                   `bson:"hash"                 yaml:"hash"                 json:"hash"`
 	Creator            types.UserBriefInfo      `bson:"creator"              yaml:"creator"              json:"creator"`
 	CreateTime         int64                    `bson:"create_time"          yaml:"create_time"          json:"create_time"`
 	StartTime          int64                    `bson:"start_time"           yaml:"start_time"           json:"start_time"`
