@@ -3113,6 +3113,62 @@ func RestartSAEApp(c *gin.Context) {
 	ctx.RespErr = service.RestartSAEApp(projectKey, envName, appID, ctx.Logger)
 }
 
+type BindSAEAppToServiceReq struct {
+	ServiceName   string `json:"service_name"`
+	ServiceModule string `json:"service_module"`
+}
+
+func BindSAEAppToService(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectKey := c.Query("projectName")
+	production := c.Query("production") == "true"
+	appID := c.Param("appID")
+	envName := c.Param("name")
+
+	arg := new(BindSAEAppToServiceReq)
+	err = c.BindJSON(arg)
+	if err != nil {
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv,
+		"关联", "SAE 环境-应用", fmt.Sprintf("%s-%s 关联 服务 %s(%s)", envName, appID, arg.ServiceModule, arg.ServiceName),
+		"", ctx.Logger, envName)
+
+	// authorization check
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		if production {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.EditConfig {
+				ctx.UnAuthorized = true
+				return
+			}
+		} else {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].Env.EditConfig {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
+	}
+
+	ctx.RespErr = service.BindSAEAppToService(projectKey, envName, appID, arg.ServiceName, arg.ServiceModule, ctx.Logger)
+}
+
 // @Summary Rescale SAE Application
 // @Description Rescale SAE Application
 // @Tags 	environment
