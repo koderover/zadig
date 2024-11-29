@@ -159,14 +159,18 @@ func ToSAEKVString(envs []*commonmodels.SAEKV) (*string, error) {
 	}
 	resp := make([]*SAEKV, 0)
 	for _, kv := range envs {
-		resp = append(resp, &SAEKV{
+		saekv := &SAEKV{
 			Name:  kv.Name,
 			Value: kv.Value,
-			ValueFrom: &SAEValueFrom{ConfigMapRef: &SAEConfigMapRef{
+		}
+
+		if kv.ConfigMapID != 0 {
+			saekv.ValueFrom = &SAEValueFrom{ConfigMapRef: &SAEConfigMapRef{
 				ConfigMapID: kv.ConfigMapID,
 				Key:         kv.Key,
-			}},
-		})
+			}}
+		}
+		resp = append(resp, saekv)
 	}
 
 	envStr, err := json.Marshal(resp)
