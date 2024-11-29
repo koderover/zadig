@@ -141,8 +141,12 @@ func CreateKVMap(kv *string) (map[string]*commonmodels.SAEKV, error) {
 			Name:  env.Name,
 			Value: env.Value,
 			//ValueFrom:   env.ValueFrom,
-			ConfigMapID: env.ValueFrom.ConfigMapRef.ConfigMapID,
-			Key:         env.ValueFrom.ConfigMapRef.Key,
+
+		}
+
+		if env.ValueFrom != nil && env.ValueFrom.ConfigMapRef != nil {
+			resp[env.Name].ConfigMapID = env.ValueFrom.ConfigMapRef.ConfigMapID
+			resp[env.Name].Key = env.ValueFrom.ConfigMapRef.Key
 		}
 	}
 
