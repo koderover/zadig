@@ -26,8 +26,8 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	// 查看html测试报告不做鉴权
 	testReport := router.Group("report")
 	{
-		testReport.GET("", GetHTMLTestReport)
-		testReport.GET("workflowv4/:workflowName/id/:id/job/:jobName", GetWorkflowV4HTMLTestReport)
+		testReport.GET("/html/testing/:projectName/:testingName/:taskID/*path", GetTestTaskHtmlReportInfo)
+		testReport.GET("/html/workflowv4/:projectName/:workflowName/:jobName/:taskID/*path", GetWorkflowV4HTMLTestReport)
 	}
 
 	// sse apis
@@ -103,7 +103,6 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		testTask.DELETE("", CancelTestTaskV3)
 		testTask.GET("/detail", GetTestTaskInfo)
 		testTask.GET("/report", GetTestTaskJUnitReportInfo)
-		testTask.GET("/html_report", GetTestTaskHtmlReportInfo)
 		testTask.POST("/restart", RestartTestTaskV2)
 		testTask.GET("/artifact", GetTestingTaskArtifact)
 		// TODO:  below is the deprecated apis, remove after 2.2.0

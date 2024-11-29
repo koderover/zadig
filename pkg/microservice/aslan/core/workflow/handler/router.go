@@ -47,7 +47,6 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		sse.GET("/workflowTasks/running", RunningWorkflowTasksSSE)
 		sse.GET("/workflowTasks/pending", PendingWorkflowTasksSSE)
 		sse.GET("/tasks/id/:id/pipelines/:name", GetPipelineTaskSSE)
-		sse.GET("/workflowtask/v3/id/:id/name/:name", GetWorkflowTaskV3SSE)
 	}
 
 	// ---------------------------------------------------------------------------------------
@@ -135,32 +134,6 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	{
 		serviceTask.GET("/workflows/:productName/:envName/:serviceName/:serviceType", ListServiceWorkflows)
 	}
-
-	// ---------------------------------------------------------------------------------------
-	// 新版本 通用工作流（暂命名） 接口
-	// ---------------------------------------------------------------------------------------
-	//workflowV3 := router.Group("v3")
-	//{
-	//	workflowV3.POST("", CreateWorkflowV3)
-	//	workflowV3.GET("", ListWorkflowsV3)
-	//	workflowV3.GET("/:id", GetWorkflowV3Detail)
-	//	workflowV3.PUT("/:id", UpdateWorkflowV3)
-	//	workflowV3.DELETE("/:id", DeleteWorkflowV3)
-	//	workflowV3.GET("/:id/args", GetWorkflowV3Args)
-	//}
-
-	// ---------------------------------------------------------------------------------------
-	// workflow v3 任务接口
-	// ---------------------------------------------------------------------------------------
-	//taskV3 := router.Group("v3/workflowtask")
-	//{
-	//	taskV3.POST("", CreateWorkflowTaskV3)
-	//	taskV3.POST("/id/:id/name/:name/restart", RestartWorkflowTaskV3)
-	//	taskV3.DELETE("/id/:id/name/:name", CancelWorkflowTaskV3)
-	//	taskV3.GET("/max/:max/start/:start/name/:name", ListWorkflowV3TasksResult)
-	//	taskV3.GET("/id/:id/name/:name", GetWorkflowTaskV3)
-	//	taskV3.GET("/callback/id/:id/name/:name", GetWorkflowTaskV3Callback)
-	//}
 
 	// ---------------------------------------------------------------------------------------
 	// 新版本 通用工作流（暂命名） 接口

@@ -747,7 +747,11 @@ const (
 // Note: **Restricted because of product design since v1.9.0**.
 const AttachedClusterNamespace = "koderover-agent"
 
-const ArtifactResultOut = "artifactResultOut.tar.gz"
+// testing constants
+const (
+	ArtifactResultOut          = "artifactResultOut.tar.gz"
+	HtmlReportArchivedFileName = "htmlReportArchived.tar.gz"
+)
 
 const (
 	DefaultReleaseNaming     = "$Service$"

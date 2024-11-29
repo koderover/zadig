@@ -31,7 +31,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/common/types"
 	"github.com/koderover/zadig/v2/pkg/tool/s3"
 	"github.com/koderover/zadig/v2/pkg/types/step"
-	"github.com/koderover/zadig/v2/pkg/util/fs"
 )
 
 type TarArchiveStep struct {
@@ -78,18 +77,18 @@ func (s *TarArchiveStep) Run(ctx context.Context) error {
 	cmdAndArtifactFullPaths := make([]string, 0)
 	cmdAndArtifactFullPaths = append(cmdAndArtifactFullPaths, "-czf")
 	cmdAndArtifactFullPaths = append(cmdAndArtifactFullPaths, tarName)
+	if s.spec.ChangeTarDir {
+		cmdAndArtifactFullPaths = append(cmdAndArtifactFullPaths, "--exclude", tarName, "-C", s.spec.TarDir)
+	}
+
 	for _, artifactPath := range s.spec.ResultDirs {
 		if len(artifactPath) == 0 {
 			continue
 		}
 		artifactPath = helper.ReplaceEnvWithValue(artifactPath, envMap)
-		artifactPath = strings.TrimPrefix(artifactPath, "/")
-
-		artifactPath := filepath.Join(s.workspace, artifactPath)
-		isDir, err := fs.IsDir(artifactPath)
-		if err != nil || !isDir {
-			s.logger.Errorf("artifactPath is not exist %s or is not dir, err: %s", artifactPath, err)
-			continue
+		if !s.spec.AbsResultDir {
+			artifactPath = strings.TrimPrefix(artifactPath, "/")
+			artifactPath = filepath.Join(s.workspace, artifactPath)
 		}
 		cmdAndArtifactFullPaths = append(cmdAndArtifactFullPaths, artifactPath)
 	}
@@ -111,8 +110,11 @@ func (s *TarArchiveStep) Run(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to close %s err: %s", tarName, err)
 	}
+
 	cmd := exec.Command("tar", cmdAndArtifactFullPaths...)
 	cmd.Stderr = os.Stderr
+
+	log.Debugf("tar cmd: %s", cmd.String())
 	if err = cmd.Run(); err != nil {
 		if s.spec.IgnoreErr {
 			s.logger.Errorf("failed to compress %s, cmd: %s, err: %s", tarName, cmd.String(), err)

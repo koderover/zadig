@@ -39,7 +39,8 @@ const (
 	serviceDeployableURLRegExp   = `^\/api\/aslan\/service\/services\/[\w-]+\/environments\/deployable$`
 	generalWebhookURLRegExp      = `^\/api\/aslan\/workflow\/v4\/generalhook\/[\w-]+\/[^/]+\/webhook$`
 	codeHostAuthURLRegExp        = `^\/api\/v1\/codehosts\/\w+\/auth$`
-	testReportURLRegExp          = `^\/api\/aslan\/testing\/report\/workflowv4\/[\w-]+\/id\/\w+\/job\/[^/]+$`
+	// workflowTestTaskReportURLRegExp = `^\/api\/aslan\/testing\/report\/workflowv4\/[\w-]+\/id\/\w+\/job\/[^/]+$`
+	// testingTaskReportURLRegExp      = `^\/api\/aslan\/testing\/testtask\/[\w-]+\/\w+\/[^/]+$`
 )
 
 func IsPublicURL(reqPath, method string) bool {
@@ -202,7 +203,10 @@ func IsPublicURL(reqPath, method string) bool {
 		return true
 	}
 
-	if realPath == "/api/aslan/testing/report" && method == http.MethodGet {
+	if strings.HasPrefix(realPath, "/api/aslan/testing/report/html/workflowv4") && method == http.MethodGet {
+		return true
+	}
+	if strings.HasPrefix(realPath, "/api/aslan/testing/report/html/testing") && method == http.MethodGet {
 		return true
 	}
 
@@ -254,11 +258,6 @@ func IsPublicURL(reqPath, method string) bool {
 
 	match, _ = regexp.MatchString(generalWebhookURLRegExp, realPath)
 	if match && method == http.MethodPost {
-		return true
-	}
-
-	match, _ = regexp.MatchString(testReportURLRegExp, realPath)
-	if match && method == http.MethodGet {
 		return true
 	}
 

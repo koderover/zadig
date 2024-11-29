@@ -50,27 +50,6 @@ func ListWorkflows(header http.Header, qs url.Values, uid string, logger *zap.Su
 	return aslan.New().ListWorkflows(header, qs)
 }
 
-func ListWorkflowsV3(header http.Header, qs url.Values, logger *zap.SugaredLogger) ([]byte, error) {
-	rules := []*rule{{
-		method:   "/api/aslan/workflow/workflow",
-		endpoint: "GET",
-	}}
-	names, err := getAllowedProjects(header, rules, config.AND, logger)
-	if err != nil {
-		logger.Errorf("Failed to get allowed project names, err: %s", err)
-		return nil, err
-	}
-	if len(names) == 0 {
-		return nil, nil
-	}
-	if !(len(names) == 1 && names[0] == "*") {
-		for _, name := range names {
-			qs.Add("projects", name)
-		}
-	}
-	return aslan.New().ListWorkflowsV3(header, qs)
-}
-
 func ListAllWorkflows(header http.Header, qs url.Values, uid string, logger *zap.SugaredLogger) ([]byte, error) {
 	projects, _, err := user.New().ListAuthorizedProjectsByResourceAndVerb(uid, types.ResourceTypeWorkflow, types.WorkflowActionView)
 	if err != nil {

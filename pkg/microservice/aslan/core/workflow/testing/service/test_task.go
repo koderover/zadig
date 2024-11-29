@@ -219,7 +219,6 @@ func ListTestTask(testName, projectKey string, pageNum, pageSize int, log *zap.S
 				Skips:     testResult.SkipCaseNum,
 				Errors:    testResult.ErrorCaseNum,
 				Time:      testResult.TestTime,
-				TestCases: testResult.TestCases,
 				Name:      testResult.TestName,
 			}
 		}

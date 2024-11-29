@@ -22,6 +22,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"os"
+	"path/filepath"
 	"strconv"
 	"time"
 
@@ -29,10 +31,10 @@ import (
 	"github.com/gin-gonic/gin/binding"
 	"k8s.io/apimachinery/pkg/util/wait"
 
-	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/notify"
+	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	workflowservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/testing/service"
 	"github.com/koderover/zadig/v2/pkg/setting"
@@ -263,47 +265,69 @@ func GetTestTaskJUnitReportInfo(c *gin.Context) {
 }
 
 func GetTestTaskHtmlReportInfo(c *gin.Context) {
-	ctx, err := internalhandler.NewContextWithAuthorization(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	if err != nil {
-		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
-		ctx.UnAuthorized = true
-		return
-	}
-
-	projectKey := c.Query("projectName")
-	testName := c.Query("testName")
-	taskIDStr := c.Query("taskID")
-
-	// authorization check
-	if !ctx.Resources.IsSystemAdmin {
-		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
-			ctx.UnAuthorized = true
-			return
-		}
-
-		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectKey].Test.View {
-			ctx.UnAuthorized = true
-			return
-		}
-	}
+	_ = c.Param("projectName")
+	testName := c.Param("testingName")
+	taskIDStr := c.Param("taskID")
+	filepath := c.Param("path")
 
 	taskID, err := strconv.ParseInt(taskIDStr, 10, 64)
 	if err != nil {
-		ctx.RespErr = e.ErrInvalidParam.AddDesc(fmt.Sprintf("taskID args err :%s", err))
+		c.JSON(500, gin.H{"err": fmt.Sprintf("failed to parse taskID %s, err :%s", taskIDStr, err)})
 		return
 	}
 
-	content, err := service.GetTestTaskHTMLTestReport(testName, taskID, ginzap.WithContext(c).Sugar())
+	htmlReportDir, err := service.GetTestTaskHTMLTestReport(testName, taskID, ginzap.WithContext(c).Sugar())
 	if err != nil {
-		c.JSON(500, gin.H{"err": err})
+		c.JSON(500, gin.H{"err": fmt.Sprintf("failed to get testing task html report, err :%s", err)})
 		return
 	}
 
-	c.Header("content-type", "text/html")
-	c.String(200, content)
+	filepath, err = findDefaultHtmlReportFilePath(htmlReportDir, filepath)
+	if err != nil {
+		c.JSON(500, gin.H{"err": err.Error()})
+		return
+	}
+
+	c.FileFromFS(filepath, gin.Dir(htmlReportDir, false))
+}
+
+func findDefaultHtmlReportFilePath(htmlReportDir string, htmlFilepath string) (string, error) {
+	// user specified path, just return
+	if htmlFilepath != "/" {
+		return htmlFilepath, nil
+	}
+
+	// user not specified, find default html file path for user
+	files, err := os.ReadDir(htmlReportDir)
+	if err != nil {
+		return "", fmt.Errorf("failed to read dir %s, err :%s", htmlReportDir, err)
+	}
+
+	fileName := ""
+	foundIndex := false
+	for _, file := range files {
+		if !file.IsDir() {
+			if file.Name() == "index.html" {
+				foundIndex = true
+				break
+			}
+			if fileName == "" && filepath.Ext(file.Name()) == ".html" {
+				fileName = file.Name()
+			}
+		}
+	}
+
+	if foundIndex {
+		// return / avoid always 301 redirect
+		return "/", nil
+	}
+
+	if fileName != "" {
+		htmlFilepath = "/" + fileName
+		return htmlFilepath, nil
+	} else {
+		return "", fmt.Errorf("no html file found in %s", htmlReportDir)
+	}
 }
 
 func RestartTestTaskV2(c *gin.Context) {
@@ -451,77 +475,3 @@ func GetTestingTaskSSE(c *gin.Context) {
 		}
 	}, ctx.Logger)
 }
-
-// TODO: Deprecated code, remove after v2.2.0
-//func RestartTestTask(c *gin.Context) {
-//	ctx, err := internalhandler.NewContextWithAuthorization(c)
-//	defer func() { internalhandler.JSONResponse(c, ctx) }()
-//
-//	if err != nil {
-//		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
-//		ctx.UnAuthorized = true
-//		return
-//	}
-//
-//	projectKey := c.Param("productName")
-//
-//	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "重启", "测试任务", c.Param("name"), "", ctx.Logger)
-//
-//	// authorization check
-//	if !ctx.Resources.IsSystemAdmin {
-//		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
-//			ctx.UnAuthorized = true
-//			return
-//		}
-//
-//		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-//			!ctx.Resources.ProjectAuthInfo[projectKey].Test.Execute {
-//			ctx.UnAuthorized = true
-//			return
-//		}
-//	}
-//
-//	taskID, err := strconv.ParseInt(c.Param("id"), 10, 64)
-//	if err != nil {
-//		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid task id")
-//		return
-//	}
-//
-//	ctx.RespErr = workflowservice.RestartPipelineTaskV2(ctx.UserName, taskID, c.Param("name"), config.TestType, ctx.Logger)
-//}
-//
-//func CancelTestTaskV2(c *gin.Context) {
-//	ctx, err := internalhandler.NewContextWithAuthorization(c)
-//	defer func() { internalhandler.JSONResponse(c, ctx) }()
-//
-//	if err != nil {
-//
-//		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
-//		ctx.UnAuthorized = true
-//		return
-//	}
-//
-//	projectKey := c.Param("productName")
-//	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "取消", "测试任务", c.Param("name"), "", ctx.Logger)
-//
-//	// authorization check
-//	if !ctx.Resources.IsSystemAdmin {
-//		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
-//			ctx.UnAuthorized = true
-//			return
-//		}
-//
-//		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-//			!ctx.Resources.ProjectAuthInfo[projectKey].Test.Execute {
-//			ctx.UnAuthorized = true
-//			return
-//		}
-//	}
-//
-//	taskID, err := strconv.ParseInt(c.Param("id"), 10, 64)
-//	if err != nil {
-//		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid task id")
-//		return
-//	}
-//	ctx.RespErr = commonservice.CancelTaskV2(ctx.UserName, c.Param("name"), taskID, config.TestType, ctx.RequestID, ctx.Logger)
-//}
