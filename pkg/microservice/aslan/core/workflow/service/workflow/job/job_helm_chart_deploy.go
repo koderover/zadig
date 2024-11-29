@@ -282,7 +282,7 @@ func (j *HelmChartDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, erro
 		return resp, fmt.Errorf("product %s deploy type is not helm", j.workflow.Project)
 	}
 
-	for _, deploy := range j.spec.DeployHelmCharts {
+	for subJobTaskID, deploy := range j.spec.DeployHelmCharts {
 		jobTaskSpec := &commonmodels.JobTaskHelmChartDeploySpec{
 			Env:                envName,
 			DeployHelmChart:    deploy,
@@ -292,7 +292,7 @@ func (j *HelmChartDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, erro
 		}
 
 		jobTask := &commonmodels.JobTask{
-			Name:        GenJobName(j.workflow, j.job.Name, 0),
+			Name:        GenJobName(j.workflow, j.job.Name, subJobTaskID),
 			Key:         genJobKey(j.job.Name),
 			DisplayName: genJobDisplayName(j.job.Name),
 			OriginName:  j.job.Name,

@@ -235,8 +235,8 @@ func (j *TestingJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 	}
 
 	if j.spec.TestType == config.ProductTestType {
-		for _, testing := range j.spec.TestModules {
-			jobTask, err := j.toJobtask(0, testing, defaultS3, taskID, "", "", "", logger)
+		for jobSubTaskID, testing := range j.spec.TestModules {
+			jobTask, err := j.toJobtask(jobSubTaskID, testing, defaultS3, taskID, "", "", "", logger)
 			if err != nil {
 				return resp, err
 			}

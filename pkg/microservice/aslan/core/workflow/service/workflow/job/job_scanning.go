@@ -273,8 +273,8 @@ func (j *ScanningJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 	}
 
 	if j.spec.ScanningType == config.NormalScanningType {
-		for _, scanning := range j.spec.Scannings {
-			jobTask, err := j.toJobTask(0, scanning, taskID, string(j.spec.ScanningType), "", "", logger)
+		for subJobTaskID, scanning := range j.spec.Scannings {
+			jobTask, err := j.toJobTask(subJobTaskID, scanning, taskID, string(j.spec.ScanningType), "", "", logger)
 			if err != nil {
 				return nil, err
 			}
