@@ -453,6 +453,39 @@ func BindSAEAppToService(projectName, envName, appID, serviceName, serviceModule
 		return e.ErrScaleService.AddErr(err)
 	}
 
+	// if service name and service module is empty, we delete the service binding tag for this app.
+	if len(serviceName) == 0 && len(serviceModule) == 0 {
+		tagKeys := []string{setting.SAEZadigServiceTagKey, setting.SAEZadigServiceModuleTagKey}
+		tagKeyStr, err := json.Marshal(tagKeys)
+		if err != nil {
+			err = fmt.Errorf("failed to bind sae application %s to service: json marshal failed, err: %s", appID, err)
+			log.Error(err)
+			return e.ErrScaleService.AddErr(err)
+		}
+
+		saeRequest := &sae.UntagResourcesRequest{
+			DeleteAll:    tea.Bool(false),
+			RegionId:     tea.String(env.RegionID),
+			ResourceIds:  tea.String(string(resourceIds)),
+			ResourceType: tea.String("application"),
+			TagKeys:      tea.String(string(tagKeyStr)),
+		}
+
+		saeResp, err := saeClient.UntagResources(saeRequest)
+		if err != nil {
+			err = fmt.Errorf("failed to unbind application %s to service, err: %s", appID, err)
+			log.Error(err)
+			return e.ErrScaleService.AddErr(err)
+		}
+		if !tea.BoolValue(saeResp.Body.Success) {
+			err = fmt.Errorf("failed to unbind application %s to service, statusCode: %d, code: %s, errCode: %s, message: %s", appID, tea.Int32Value(saeResp.StatusCode), tea.ToString(saeResp.Body.Code), tea.ToString(saeResp.Body.ErrorCode), tea.ToString(saeResp.Body.Message))
+			log.Error(err)
+			return e.ErrScaleService.AddErr(err)
+		}
+
+		return nil
+	}
+
 	saeRequest := &sae.TagResourcesRequest{
 		RegionId:     tea.String(env.RegionID),
 		ResourceType: tea.String("application"),
