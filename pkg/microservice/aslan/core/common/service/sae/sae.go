@@ -116,7 +116,7 @@ type saeKV struct {
 	Value     string `json:"value"`
 	ValueFrom struct {
 		ConfigMapRef struct {
-			ConfigMapID string `json:"configMapId"`
+			ConfigMapID int    `json:"configMapId"`
 			Key         string `json:"key"`
 		} `json:"configMapRef"`
 	} `json:"valueFrom"`

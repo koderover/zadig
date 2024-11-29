@@ -1120,7 +1120,7 @@ type SAEEnvInfo struct {
 type SAEKV struct {
 	Name        string `bson:"name"          json:"name"          yaml:"name"`
 	Value       string `bson:"value"         json:"value"         yaml:"value"`
-	ConfigMapID string `bson:"config_map_id" json:"config_map_id" yaml:"config_map_id"`
+	ConfigMapID int    `bson:"config_map_id" json:"config_map_id" yaml:"config_map_id"`
 	Key         string `bson:"key"           json:"key"           yaml:"key"`
 }
 
