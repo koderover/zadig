@@ -87,16 +87,7 @@ func (c *SAEDeployJobCtl) Run(ctx context.Context) {
 		return
 	}
 
-	lowerCamelEnvs, err := converter.ConvertToLowerCamelCase(c.jobTaskSpec)
-	if err != nil {
-		err = fmt.Errorf("failed to serialize sae envs, err: %s", err)
-		c.logger.Error(err)
-		c.job.Status = config.StatusFailed
-		c.job.Error = err.Error()
-		return
-	}
-
-	envBytes, err := json.Marshal(lowerCamelEnvs["envs"])
+	saeEnvs, err := saeservice.ToSAEKVString(c.jobTaskSpec.Envs)
 	if err != nil {
 		err = fmt.Errorf("failed to serialize sae envs, err: %s", err)
 		c.logger.Error(err)
@@ -123,11 +114,6 @@ func (c *SAEDeployJobCtl) Run(ctx context.Context) {
 		return
 	}
 
-	saeRequestEnvs := tea.String(string(envBytes))
-	if len(lowerCamelEnvs) == 0 {
-		saeRequestEnvs = nil
-	}
-
 	saeRequestUpdateStrategy := tea.String(string(updateStrategyBytes))
 	if len(lowerCamelUpdateStrategy) == 0 {
 		saeRequestUpdateStrategy = nil
@@ -136,7 +122,7 @@ func (c *SAEDeployJobCtl) Run(ctx context.Context) {
 	saeRequest := &sae.DeployApplicationRequest{
 		AppId:                 tea.String(c.jobTaskSpec.AppID),
 		BatchWaitTime:         tea.Int32(c.jobTaskSpec.BatchWaitTime),
-		Envs:                  saeRequestEnvs,
+		Envs:                  saeEnvs,
 		ImageUrl:              tea.String(c.jobTaskSpec.Image),
 		MinReadyInstanceRatio: tea.Int32(c.jobTaskSpec.MinReadyInstanceRatio),
 		MinReadyInstances:     tea.Int32(c.jobTaskSpec.MinReadyInstances),
