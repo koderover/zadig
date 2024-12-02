@@ -196,6 +196,7 @@ func (j *SAEDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 	envInfo, err := commonrepo.NewSAEEnvColl().Find(&commonrepo.SAEEnvFindOptions{
 		ProjectName:       j.workflow.Project,
 		EnvName:           j.spec.EnvConfig.Name,
+		Production:        &j.spec.Production,
 		IgnoreNotFoundErr: false,
 	})
 
@@ -210,9 +211,8 @@ func (j *SAEDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		}
 
 		jobTaskSpec := &commonmodels.JobTaskSAEDeploySpec{
-			Env: j.spec.EnvConfig.Name,
-			// TODO: Change me when production property for sae env is done.
-			Production: true,
+			Env:        j.spec.EnvConfig.Name,
+			Production: j.spec.Production,
 
 			AppID:         svc.AppID,
 			AppName:       svc.AppName,

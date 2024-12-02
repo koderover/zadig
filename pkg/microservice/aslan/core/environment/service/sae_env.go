@@ -42,9 +42,10 @@ import (
 	"github.com/pkg/errors"
 )
 
-func ListSAEEnvs(userID, projectName string, log *zap.SugaredLogger) ([]*EnvResp, error) {
+func ListSAEEnvs(userID, projectName string, production bool, log *zap.SugaredLogger) ([]*EnvResp, error) {
 	envs, err := commonrepo.NewSAEEnvColl().List(&commonrepo.SAEEnvListOptions{
 		ProjectName:         projectName,
+		Production:          &production,
 		IsSortByProductName: true,
 	})
 	if err != nil {
@@ -84,8 +85,8 @@ func ListSAEEnvs(userID, projectName string, log *zap.SugaredLogger) ([]*EnvResp
 	return res, nil
 }
 
-func GetSAEEnv(username, envName, productName string, log *zap.SugaredLogger) (*models.SAEEnv, error) {
-	opt := &commonrepo.SAEEnvFindOptions{ProjectName: productName, EnvName: envName}
+func GetSAEEnv(username, productName, envName string, production bool, log *zap.SugaredLogger) (*models.SAEEnv, error) {
+	opt := &commonrepo.SAEEnvFindOptions{ProjectName: productName, EnvName: envName, Production: &production}
 	env, err := commonrepo.NewSAEEnvColl().Find(opt)
 	if err != nil {
 		log.Errorf("[User:%s][EnvName:%s][Product:%s] Product.FindByOwner error: %s", username, envName, productName, err)
@@ -175,8 +176,8 @@ func CreateSAEEnv(username string, env *models.SAEEnv, log *zap.SugaredLogger) e
 	return nil
 }
 
-func DeleteSAEEnv(username string, projectName, envName string, log *zap.SugaredLogger) error {
-	opt := &commonrepo.SAEEnvFindOptions{ProjectName: projectName, EnvName: envName}
+func DeleteSAEEnv(username string, projectName, envName string, production bool, log *zap.SugaredLogger) error {
+	opt := &commonrepo.SAEEnvFindOptions{ProjectName: projectName, EnvName: envName, Production: &production}
 	env, err := commonrepo.NewSAEEnvColl().Find(opt)
 	if err != nil {
 		err = fmt.Errorf("[User:%s][EnvName:%s][Product:%s] Find SAE Env error: %s", username, envName, projectName, err)
@@ -201,7 +202,7 @@ func DeleteSAEEnv(username string, projectName, envName string, log *zap.Sugared
 	currentPage := int32(1)
 	pageSize := int32(1000)
 	for {
-		resp, err := ListSAEApps(env.RegionID, env.NamespaceID, projectName, env.EnvName, "", false, currentPage, pageSize, log)
+		resp, err := ListSAEApps(env.RegionID, env.NamespaceID, projectName, env.EnvName, production, "", false, currentPage, pageSize, log)
 		if err != nil {
 			err = fmt.Errorf("Failed to list sae apps, err: %s", err)
 			log.Error(err)
@@ -253,7 +254,7 @@ type ListSAEAppsResponse struct {
 	TotalSize    int32                    `json:"total_size"`
 }
 
-func ListSAEApps(regionID, namespace, projectName, envName, appName string, isAddApp bool, currentPage, pageSize int32, log *zap.SugaredLogger) (*ListSAEAppsResponse, error) {
+func ListSAEApps(regionID, namespace, projectName, envName string, production bool, appName string, isAddApp bool, currentPage, pageSize int32, log *zap.SugaredLogger) (*ListSAEAppsResponse, error) {
 	saeModel, err := commonrepo.NewSAEColl().FindDefault()
 	if err != nil {
 		err = fmt.Errorf("Failed to find default sae, err: %s", err)
@@ -386,8 +387,8 @@ func ListSAENamespaces(regionID string, log *zap.SugaredLogger) ([]*SAENamespace
 	return resp, nil
 }
 
-func RestartSAEApp(projectName, envName, appID string, log *zap.SugaredLogger) error {
-	opt := &commonrepo.SAEEnvFindOptions{ProjectName: projectName, EnvName: envName}
+func RestartSAEApp(projectName, envName string, production bool, appID string, log *zap.SugaredLogger) error {
+	opt := &commonrepo.SAEEnvFindOptions{ProjectName: projectName, EnvName: envName, Production: &production}
 	env, err := commonrepo.NewSAEEnvColl().Find(opt)
 	if err != nil {
 		err = fmt.Errorf("Failed to find SAE env, projectName: %s, envName: %s, error: %s", projectName, envName, err)
@@ -427,8 +428,8 @@ func RestartSAEApp(projectName, envName, appID string, log *zap.SugaredLogger) e
 	return nil
 }
 
-func BindSAEAppToService(projectName, envName, appID, serviceName, serviceModule string, log *zap.SugaredLogger) error {
-	opt := &commonrepo.SAEEnvFindOptions{ProjectName: projectName, EnvName: envName}
+func BindSAEAppToService(projectName, envName string, production bool, appID, serviceName, serviceModule string, log *zap.SugaredLogger) error {
+	opt := &commonrepo.SAEEnvFindOptions{ProjectName: projectName, EnvName: envName, Production: &production}
 	env, err := commonrepo.NewSAEEnvColl().Find(opt)
 	if err != nil {
 		err = fmt.Errorf("failed to find SAE env, projectName: %s, envName: %s, error: %s", projectName, envName, err)
@@ -511,8 +512,8 @@ func BindSAEAppToService(projectName, envName, appID, serviceName, serviceModule
 	return nil
 }
 
-func RescaleSAEApp(projectName, envName, appID string, Replicas int32, log *zap.SugaredLogger) error {
-	opt := &commonrepo.SAEEnvFindOptions{ProjectName: projectName, EnvName: envName}
+func RescaleSAEApp(projectName, envName string, production bool, appID string, Replicas int32, log *zap.SugaredLogger) error {
+	opt := &commonrepo.SAEEnvFindOptions{ProjectName: projectName, EnvName: envName, Production: &production}
 	env, err := commonrepo.NewSAEEnvColl().Find(opt)
 	if err != nil {
 		err = fmt.Errorf("Failed to find SAE env, projectName: %s, envName: %s, error: %s", projectName, envName, err)
@@ -553,7 +554,7 @@ func RescaleSAEApp(projectName, envName, appID string, Replicas int32, log *zap.
 	return nil
 }
 
-func RollbackSAEApp(ctx *internalhandler.Context, projectName, envName, appID, versionID string, log *zap.SugaredLogger) error {
+func RollbackSAEApp(ctx *internalhandler.Context, projectName, envName string, production bool, appID, versionID string, log *zap.SugaredLogger) error {
 	opt := &commonrepo.SAEEnvFindOptions{ProjectName: projectName, EnvName: envName}
 	env, err := commonrepo.NewSAEEnvColl().Find(opt)
 	if err != nil {
@@ -682,8 +683,8 @@ type SAEAppVersion struct {
 	WarUrl          string `json:"war_url"`
 }
 
-func ListSAEAppVersions(projectName, envName, appID string, log *zap.SugaredLogger) ([]*SAEAppVersion, error) {
-	opt := &commonrepo.SAEEnvFindOptions{ProjectName: projectName, EnvName: envName}
+func ListSAEAppVersions(projectName, envName string, production bool, appID string, log *zap.SugaredLogger) ([]*SAEAppVersion, error) {
+	opt := &commonrepo.SAEEnvFindOptions{ProjectName: projectName, EnvName: envName, Production: &production}
 	env, err := commonrepo.NewSAEEnvColl().Find(opt)
 	if err != nil {
 		err = fmt.Errorf("Failed to find SAE env, projectName: %s, envName: %s, error: %s", projectName, envName, err)
@@ -762,8 +763,8 @@ type SAEAppGroup struct {
 	Instances        []*SAEAppInstance `json:"instances"`
 }
 
-func ListSAEAppInstances(projectName, envName, appID string, log *zap.SugaredLogger) ([]*SAEAppGroup, error) {
-	opt := &commonrepo.SAEEnvFindOptions{ProjectName: projectName, EnvName: envName}
+func ListSAEAppInstances(projectName, envName string, production bool, appID string, log *zap.SugaredLogger) ([]*SAEAppGroup, error) {
+	opt := &commonrepo.SAEEnvFindOptions{ProjectName: projectName, EnvName: envName, Production: &production}
 	env, err := commonrepo.NewSAEEnvColl().Find(opt)
 	if err != nil {
 		err = fmt.Errorf("Failed to find SAE env, projectName: %s, envName: %s, error: %s", projectName, envName, err)
@@ -857,8 +858,8 @@ func ListSAEAppInstances(projectName, envName, appID string, log *zap.SugaredLog
 	return resp, nil
 }
 
-func RestartSAEAppInstance(projectName, envName, appID, instanceID string, log *zap.SugaredLogger) error {
-	opt := &commonrepo.SAEEnvFindOptions{ProjectName: projectName, EnvName: envName}
+func RestartSAEAppInstance(projectName, envName string, production bool, appID, instanceID string, log *zap.SugaredLogger) error {
+	opt := &commonrepo.SAEEnvFindOptions{ProjectName: projectName, EnvName: envName, Production: &production}
 	env, err := commonrepo.NewSAEEnvColl().Find(opt)
 	if err != nil {
 		err = fmt.Errorf("Failed to find SAE env, projectName: %s, envName: %s, error: %s", projectName, envName, err)
@@ -899,8 +900,8 @@ func RestartSAEAppInstance(projectName, envName, appID, instanceID string, log *
 	return nil
 }
 
-func ListSAEChangeOrder(projectName, envName, appID string, page, perPage int, log *zap.SugaredLogger) (interface{}, error) {
-	opt := &commonrepo.SAEEnvFindOptions{ProjectName: projectName, EnvName: envName}
+func ListSAEChangeOrder(projectName, envName string, production bool, appID string, page, perPage int, log *zap.SugaredLogger) (interface{}, error) {
+	opt := &commonrepo.SAEEnvFindOptions{ProjectName: projectName, EnvName: envName, Production: &production}
 	env, err := commonrepo.NewSAEEnvColl().Find(opt)
 	if err != nil {
 		err = fmt.Errorf("failed to find SAE env, projectName: %s, envName: %s, error: %s", projectName, envName, err)
@@ -983,8 +984,8 @@ func GetSAEChangeOrder(projectName, envName, appID, orderID string, log *zap.Sug
 	return converter.ConvertToSnakeCase(saeResp.Body.Data)
 }
 
-func AbortSAEChangeOrder(projectName, envName, appID, orderID string, log *zap.SugaredLogger) error {
-	opt := &commonrepo.SAEEnvFindOptions{ProjectName: projectName, EnvName: envName}
+func AbortSAEChangeOrder(projectName, envName string, production bool, appID, orderID string, log *zap.SugaredLogger) error {
+	opt := &commonrepo.SAEEnvFindOptions{ProjectName: projectName, EnvName: envName, Production: &production}
 	env, err := commonrepo.NewSAEEnvColl().Find(opt)
 	if err != nil {
 		err = fmt.Errorf("failed to find SAE env, projectName: %s, envName: %s, error: %s", projectName, envName, err)
@@ -1023,8 +1024,8 @@ func AbortSAEChangeOrder(projectName, envName, appID, orderID string, log *zap.S
 	return nil
 }
 
-func RollbackSAEChangeOrder(ctx *internalhandler.Context, projectName, envName, appID, orderID string, log *zap.SugaredLogger) error {
-	opt := &commonrepo.SAEEnvFindOptions{ProjectName: projectName, EnvName: envName}
+func RollbackSAEChangeOrder(ctx *internalhandler.Context, projectName, envName string, production bool, appID, orderID string, log *zap.SugaredLogger) error {
+	opt := &commonrepo.SAEEnvFindOptions{ProjectName: projectName, EnvName: envName, Production: &production}
 	env, err := commonrepo.NewSAEEnvColl().Find(opt)
 	if err != nil {
 		err = fmt.Errorf("failed to find SAE env, projectName: %s, envName: %s, error: %s", projectName, envName, err)
@@ -1087,8 +1088,8 @@ func RollbackSAEChangeOrder(ctx *internalhandler.Context, projectName, envName, 
 	return nil
 }
 
-func ConfirmSAEPipelineBatch(projectName, envName, appID, pipelineID string, log *zap.SugaredLogger) error {
-	opt := &commonrepo.SAEEnvFindOptions{ProjectName: projectName, EnvName: envName}
+func ConfirmSAEPipelineBatch(projectName, envName string, production bool, appID, pipelineID string, log *zap.SugaredLogger) error {
+	opt := &commonrepo.SAEEnvFindOptions{ProjectName: projectName, EnvName: envName, Production: &production}
 	env, err := commonrepo.NewSAEEnvColl().Find(opt)
 	if err != nil {
 		err = fmt.Errorf("failed to find SAE env, projectName: %s, envName: %s, error: %s", projectName, envName, err)
@@ -1130,8 +1131,8 @@ func ConfirmSAEPipelineBatch(projectName, envName, appID, pipelineID string, log
 	return nil
 }
 
-func GetSAEPipeline(projectName, envName, appID, pipelineID string, log *zap.SugaredLogger) (interface{}, error) {
-	opt := &commonrepo.SAEEnvFindOptions{ProjectName: projectName, EnvName: envName}
+func GetSAEPipeline(projectName, envName string, production bool, appID, pipelineID string, log *zap.SugaredLogger) (interface{}, error) {
+	opt := &commonrepo.SAEEnvFindOptions{ProjectName: projectName, EnvName: envName, Production: &production}
 	env, err := commonrepo.NewSAEEnvColl().Find(opt)
 	if err != nil {
 		err = fmt.Errorf("failed to find SAE env, projectName: %s, envName: %s, error: %s", projectName, envName, err)
@@ -1170,8 +1171,8 @@ func GetSAEPipeline(projectName, envName, appID, pipelineID string, log *zap.Sug
 	return converter.ConvertToSnakeCase(saeResp.Body.Data)
 }
 
-func GetSAEAppInstanceLog(projectName, envName, appID, instanceID string, log *zap.SugaredLogger) (string, error) {
-	opt := &commonrepo.SAEEnvFindOptions{ProjectName: projectName, EnvName: envName}
+func GetSAEAppInstanceLog(projectName, envName string, production bool, appID, instanceID string, log *zap.SugaredLogger) (string, error) {
+	opt := &commonrepo.SAEEnvFindOptions{ProjectName: projectName, EnvName: envName, Production: &production}
 	env, err := commonrepo.NewSAEEnvColl().Find(opt)
 	if err != nil {
 		err = fmt.Errorf("Failed to find SAE env, projectName: %s, envName: %s, error: %s", projectName, envName, err)
@@ -1215,8 +1216,8 @@ type AddSAEAppToEnvRequest struct {
 	AppIDs []string `json:"app_ids"`
 }
 
-func AddSAEAppToEnv(username string, projectName, envName string, req *AddSAEAppToEnvRequest, log *zap.SugaredLogger) error {
-	opt := &commonrepo.SAEEnvFindOptions{ProjectName: projectName, EnvName: envName}
+func AddSAEAppToEnv(username string, projectName, envName string, production bool, req *AddSAEAppToEnvRequest, log *zap.SugaredLogger) error {
+	opt := &commonrepo.SAEEnvFindOptions{ProjectName: projectName, EnvName: envName, Production: &production}
 	env, err := commonrepo.NewSAEEnvColl().Find(opt)
 	if err != nil {
 		err = fmt.Errorf("Failed to find SAE env, projectName: %s, envName: %s, error: %s", projectName, envName, err)
@@ -1271,8 +1272,8 @@ type DelSAEAppFromEnvRequest struct {
 	AppIDs []string `json:"app_ids"`
 }
 
-func DelSAEAppFromEnv(username string, projectName, envName string, req *DelSAEAppFromEnvRequest, log *zap.SugaredLogger) error {
-	opt := &commonrepo.SAEEnvFindOptions{ProjectName: projectName, EnvName: envName}
+func DelSAEAppFromEnv(username string, projectName, envName string, production bool, req *DelSAEAppFromEnvRequest, log *zap.SugaredLogger) error {
+	opt := &commonrepo.SAEEnvFindOptions{ProjectName: projectName, EnvName: envName, Production: &production}
 	env, err := commonrepo.NewSAEEnvColl().Find(opt)
 	if err != nil {
 		err = fmt.Errorf("Failed to find SAE env, projectName: %s, envName: %s, error: %s", projectName, envName, err)

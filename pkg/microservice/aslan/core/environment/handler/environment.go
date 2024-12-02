@@ -2762,7 +2762,7 @@ func ListSAEEnvs(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.RespErr = service.ListSAEEnvs(ctx.UserID, projectKey, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.ListSAEEnvs(ctx.UserID, projectKey, production, ctx.Logger)
 }
 
 // @Summary Get SAE Env
@@ -2811,7 +2811,7 @@ func GetSAEEnv(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.RespErr = service.GetSAEEnv(ctx.UserName, envName, projectKey, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetSAEEnv(ctx.UserName, projectKey, envName, production, ctx.Logger)
 }
 
 // @Summary Create SAE Env
@@ -2933,7 +2933,7 @@ func DeleteSAEEnv(c *gin.Context) {
 		}
 	}
 
-	ctx.RespErr = service.DeleteSAEEnv(ctx.UserName, projectKey, envName, ctx.Logger)
+	ctx.RespErr = service.DeleteSAEEnv(ctx.UserName, projectKey, envName, production, ctx.Logger)
 }
 
 // @Summary List SAE Apps
@@ -3000,7 +3000,7 @@ func ListSAEApps(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.RespErr = service.ListSAEApps(regionID, namespace, projectKey, envName, appName, isAddApp, int32(currentPage), int32(pageSize), ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.ListSAEApps(regionID, namespace, projectKey, envName, production, appName, isAddApp, int32(currentPage), int32(pageSize), ctx.Logger)
 }
 
 // @Summary List SAE Namespaces
@@ -3110,7 +3110,7 @@ func RestartSAEApp(c *gin.Context) {
 		return
 	}
 
-	ctx.RespErr = service.RestartSAEApp(projectKey, envName, appID, ctx.Logger)
+	ctx.RespErr = service.RestartSAEApp(projectKey, envName, production, appID, ctx.Logger)
 }
 
 type BindSAEAppToServiceReq struct {
@@ -3118,6 +3118,18 @@ type BindSAEAppToServiceReq struct {
 	ServiceModule string `json:"service_module"`
 }
 
+// @Summary 关联SAE应用到服务
+// @Description
+// @Tags 	environment
+// @Accept 	json
+// @Produce json
+// @Param 	projectName	query		string									true	"项目标识"
+// @Param 	production	query		string									true	"是否生产环境，目前必须为true"
+// @Param 	name 		path		string									true	"环境名称"
+// @Param 	appID 		path		string									true	"SAE应用ID"
+// @Param 	body 		body 		BindSAEAppToServiceReq 					true 	"body"
+// @Success 200
+// @Router /api/aslan/environment/environments/sae/{name}/app/{appID}/serviceBind [post]
 func BindSAEAppToService(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -3166,7 +3178,7 @@ func BindSAEAppToService(c *gin.Context) {
 		}
 	}
 
-	ctx.RespErr = service.BindSAEAppToService(projectKey, envName, appID, arg.ServiceName, arg.ServiceModule, ctx.Logger)
+	ctx.RespErr = service.BindSAEAppToService(projectKey, envName, production, appID, arg.ServiceName, arg.ServiceModule, ctx.Logger)
 }
 
 // @Summary Rescale SAE Application
@@ -3233,7 +3245,7 @@ func RescaleSAEApp(c *gin.Context) {
 		return
 	}
 
-	ctx.RespErr = service.RescaleSAEApp(projectKey, envName, appID, int32(replicas), ctx.Logger)
+	ctx.RespErr = service.RescaleSAEApp(projectKey, envName, production, appID, int32(replicas), ctx.Logger)
 }
 
 // @Summary Rollback SAE Application
@@ -3296,7 +3308,7 @@ func RollbackSAEApp(c *gin.Context) {
 		return
 	}
 
-	ctx.RespErr = service.RollbackSAEApp(ctx, projectKey, envName, appID, versionID, ctx.Logger)
+	ctx.RespErr = service.RollbackSAEApp(ctx, projectKey, envName, production, appID, versionID, ctx.Logger)
 }
 
 // @Summary List SAE Application Verions
@@ -3353,7 +3365,7 @@ func ListSAEAppVersion(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.RespErr = service.ListSAEAppVersions(projectKey, envName, appID, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.ListSAEAppVersions(projectKey, envName, production, appID, ctx.Logger)
 }
 
 // @Summary List SAE Application Instances
@@ -3410,7 +3422,7 @@ func ListSAEAppInstances(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.RespErr = service.ListSAEAppInstances(projectKey, envName, appID, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.ListSAEAppInstances(projectKey, envName, production, appID, ctx.Logger)
 }
 
 // @Summary Restart SAE Application Instance
@@ -3473,7 +3485,7 @@ func RestartSAEAppInstance(c *gin.Context) {
 		return
 	}
 
-	ctx.RespErr = service.RestartSAEAppInstance(projectKey, envName, appID, instanceID, ctx.Logger)
+	ctx.RespErr = service.RestartSAEAppInstance(projectKey, envName, production, appID, instanceID, ctx.Logger)
 }
 
 func ListSAEChangeOrder(c *gin.Context) {
@@ -3546,7 +3558,7 @@ func ListSAEChangeOrder(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.RespErr = service.ListSAEChangeOrder(projectKey, envName, appID, page, perPage, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.ListSAEChangeOrder(projectKey, envName, production, appID, page, perPage, ctx.Logger)
 }
 
 func GetSAEChangeOrder(c *gin.Context) {
@@ -3643,7 +3655,7 @@ func AbortSAEChangeOrder(c *gin.Context) {
 		return
 	}
 
-	ctx.RespErr = service.AbortSAEChangeOrder(projectKey, envName, appID, orderID, ctx.Logger)
+	ctx.RespErr = service.AbortSAEChangeOrder(projectKey, envName, production, appID, orderID, ctx.Logger)
 }
 
 func RollbackSAEChangeOrder(c *gin.Context) {
@@ -3693,7 +3705,7 @@ func RollbackSAEChangeOrder(c *gin.Context) {
 		return
 	}
 
-	ctx.RespErr = service.RollbackSAEChangeOrder(ctx, projectKey, envName, appID, orderID, ctx.Logger)
+	ctx.RespErr = service.RollbackSAEChangeOrder(ctx, projectKey, envName, production, appID, orderID, ctx.Logger)
 }
 
 func ConfirmSAEPipelineBatch(c *gin.Context) {
@@ -3743,7 +3755,7 @@ func ConfirmSAEPipelineBatch(c *gin.Context) {
 		return
 	}
 
-	ctx.RespErr = service.ConfirmSAEPipelineBatch(projectKey, envName, appID, pipelineID, ctx.Logger)
+	ctx.RespErr = service.ConfirmSAEPipelineBatch(projectKey, envName, production, appID, pipelineID, ctx.Logger)
 }
 
 func GetSAEPipeline(c *gin.Context) {
@@ -3790,7 +3802,7 @@ func GetSAEPipeline(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.RespErr = service.GetSAEPipeline(projectKey, envName, appID, pipelineID, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetSAEPipeline(projectKey, envName, production, appID, pipelineID, ctx.Logger)
 }
 
 // @Summary Get SAE Application Instance Log
@@ -3849,7 +3861,7 @@ func GetSAEAppInstanceLog(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.RespErr = service.GetSAEAppInstanceLog(projectKey, envName, appID, instanceID, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GetSAEAppInstanceLog(projectKey, envName, production, appID, instanceID, ctx.Logger)
 }
 
 // @Summary Add SAE App to Env
@@ -3919,7 +3931,7 @@ func AddSAEServiceToEnv(c *gin.Context) {
 		return
 	}
 
-	ctx.RespErr = service.AddSAEAppToEnv(ctx.UserName, projectKey, envName, arg, ctx.Logger)
+	ctx.RespErr = service.AddSAEAppToEnv(ctx.UserName, projectKey, envName, production, arg, ctx.Logger)
 }
 
 // @Summary Delete SAE App from Env
@@ -3983,5 +3995,5 @@ func DeleteSAEServiceFromEnv(c *gin.Context) {
 		}
 	}
 
-	ctx.RespErr = service.DelSAEAppFromEnv(ctx.UserName, projectKey, envName, arg, ctx.Logger)
+	ctx.RespErr = service.DelSAEAppFromEnv(ctx.UserName, projectKey, envName, production, arg, ctx.Logger)
 }

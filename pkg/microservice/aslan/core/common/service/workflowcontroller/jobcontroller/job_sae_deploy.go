@@ -59,10 +59,10 @@ func NewSAEDeployJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.Wor
 func (c *SAEDeployJobCtl) Clean(ctx context.Context) {}
 
 func (c *SAEDeployJobCtl) Run(ctx context.Context) {
-	opt := &commonrepo.SAEEnvFindOptions{ProjectName: c.workflowCtx.ProjectName, EnvName: c.jobTaskSpec.Env}
+	opt := &commonrepo.SAEEnvFindOptions{ProjectName: c.workflowCtx.ProjectName, EnvName: c.jobTaskSpec.Env, Production: &c.jobTaskSpec.Production}
 	env, err := commonrepo.NewSAEEnvColl().Find(opt)
 	if err != nil {
-		err = fmt.Errorf("failed to find SAE env, projectName: %s, envName: %s, error: %s", c.workflowCtx.ProjectName, c.jobTaskSpec.Env, err)
+		err = fmt.Errorf("failed to find SAE env, projectName: %s, envName: %s, production %v, error: %s", c.workflowCtx.ProjectName, c.jobTaskSpec.Env, c.jobTaskSpec.Production, err)
 		c.logger.Error(err)
 		c.job.Status = config.StatusFailed
 		c.job.Error = err.Error()
