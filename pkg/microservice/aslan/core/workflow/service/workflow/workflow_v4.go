@@ -95,11 +95,6 @@ func CreateWorkflowV4(user string, workflow *commonmodels.WorkflowV4, logger *za
 	if err := LintWorkflowV4(workflow, logger); err != nil {
 		return err
 	}
-	// lark approval different node type need different approval definition
-	// check whether lark approvals in workflow need to create lark approval definition
-	if err := createLarkApprovalDefinition(workflow); err != nil {
-		return errors.Wrap(err, "create lark approval definition")
-	}
 
 	workflow.CreatedBy = user
 	workflow.UpdatedBy = user
@@ -277,11 +272,6 @@ func UpdateWorkflowV4(name, user string, inputWorkflow *commonmodels.WorkflowV4,
 				return e.ErrUpsertWorkflow.AddErr(err)
 			}
 		}
-	}
-	// lark approval different node type need different approval definition
-	// check whether lark approvals in workflow need to create lark approval definition
-	if err := createLarkApprovalDefinition(inputWorkflow); err != nil {
-		return errors.Wrap(err, "create lark approval definition")
 	}
 
 	if err := commonrepo.NewWorkflowV4Coll().Update(
