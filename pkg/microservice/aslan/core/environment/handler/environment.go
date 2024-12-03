@@ -2934,13 +2934,13 @@ func DeleteSAEEnv(c *gin.Context) {
 
 		if production {
 			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-				!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.EditConfig {
+				!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.Delete {
 				ctx.UnAuthorized = true
 				return
 			}
 		} else {
 			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-				!ctx.Resources.ProjectAuthInfo[projectKey].Env.EditConfig {
+				!ctx.Resources.ProjectAuthInfo[projectKey].Env.Delete {
 				ctx.UnAuthorized = true
 				return
 			}
@@ -2992,29 +2992,31 @@ func ListSAEApps(c *gin.Context) {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc("pageSize must be a number")
 	}
 
-	permitted := false
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
 
-	if ctx.Resources.IsSystemAdmin {
-		permitted = true
-	} else if projectedAuthInfo, ok := ctx.Resources.ProjectAuthInfo[projectKey]; ok {
-		if projectedAuthInfo.IsProjectAdmin {
-			permitted = true
-		} else if projectedAuthInfo.Env.View ||
-			projectedAuthInfo.Workflow.Execute {
-			permitted = true
-		} else if collaborationViewEnvPermitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionView); err != nil && collaborationViewEnvPermitted {
-			permitted = true
+		if production {
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.View {
+				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionView)
+				if err != nil || !permitted {
+					ctx.UnAuthorized = true
+					return
+				}
+			}
 		} else {
-			collaborationAuthorizedEdit, err := internalhandler.CheckPermissionGivenByCollaborationMode(ctx.UserID, projectKey, types.ResourceTypeWorkflow, types.WorkflowActionRun)
-			if err == nil && collaborationAuthorizedEdit {
-				permitted = true
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].Env.View {
+				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionView)
+				if err != nil || !permitted {
+					ctx.UnAuthorized = true
+					return
+				}
 			}
 		}
-	}
-
-	if !permitted {
-		ctx.UnAuthorized = true
-		return
 	}
 
 	ctx.Resp, ctx.RespErr = service.ListSAEApps(regionID, namespace, projectKey, envName, production, appName, isAddApp, int32(currentPage), int32(pageSize), ctx.Logger)
@@ -3330,8 +3332,8 @@ func RollbackSAEApp(c *gin.Context) {
 
 		if production {
 			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-				!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.EditConfig {
-				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionEditConfig)
+				!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.ManagePods {
+				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionManagePod)
 				if err != nil || !permitted {
 					ctx.UnAuthorized = true
 					return
@@ -3339,8 +3341,8 @@ func RollbackSAEApp(c *gin.Context) {
 			}
 		} else {
 			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-				!ctx.Resources.ProjectAuthInfo[projectKey].Env.EditConfig {
-				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionEditConfig)
+				!ctx.Resources.ProjectAuthInfo[projectKey].Env.ManagePods {
+				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionManagePod)
 				if err != nil || !permitted {
 					ctx.UnAuthorized = true
 					return
@@ -3713,8 +3715,8 @@ func AbortSAEChangeOrder(c *gin.Context) {
 
 		if production {
 			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-				!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.EditConfig {
-				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionEditConfig)
+				!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.ManagePods {
+				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionManagePod)
 				if err != nil || !permitted {
 					ctx.UnAuthorized = true
 					return
@@ -3722,8 +3724,8 @@ func AbortSAEChangeOrder(c *gin.Context) {
 			}
 		} else {
 			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-				!ctx.Resources.ProjectAuthInfo[projectKey].Env.EditConfig {
-				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionEditConfig)
+				!ctx.Resources.ProjectAuthInfo[projectKey].Env.ManagePods {
+				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionManagePod)
 				if err != nil || !permitted {
 					ctx.UnAuthorized = true
 					return
@@ -3769,8 +3771,8 @@ func RollbackSAEChangeOrder(c *gin.Context) {
 
 		if production {
 			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-				!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.EditConfig {
-				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionEditConfig)
+				!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.ManagePods {
+				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionManagePod)
 				if err != nil || !permitted {
 					ctx.UnAuthorized = true
 					return
@@ -3778,8 +3780,8 @@ func RollbackSAEChangeOrder(c *gin.Context) {
 			}
 		} else {
 			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-				!ctx.Resources.ProjectAuthInfo[projectKey].Env.EditConfig {
-				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionEditConfig)
+				!ctx.Resources.ProjectAuthInfo[projectKey].Env.ManagePods {
+				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionManagePod)
 				if err != nil || !permitted {
 					ctx.UnAuthorized = true
 					return
@@ -3825,8 +3827,8 @@ func ConfirmSAEPipelineBatch(c *gin.Context) {
 
 		if production {
 			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-				!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.EditConfig {
-				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionEditConfig)
+				!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.ManagePods {
+				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionManagePod)
 				if err != nil || !permitted {
 					ctx.UnAuthorized = true
 					return
@@ -3834,8 +3836,8 @@ func ConfirmSAEPipelineBatch(c *gin.Context) {
 			}
 		} else {
 			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-				!ctx.Resources.ProjectAuthInfo[projectKey].Env.EditConfig {
-				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionEditConfig)
+				!ctx.Resources.ProjectAuthInfo[projectKey].Env.ManagePods {
+				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionManagePod)
 				if err != nil || !permitted {
 					ctx.UnAuthorized = true
 					return

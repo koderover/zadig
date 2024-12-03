@@ -219,7 +219,7 @@ func DeleteSAEEnv(username string, projectName, envName string, production bool,
 		saeRequest := &sae.UntagResourcesRequest{
 			RegionId:     tea.String(env.RegionID),
 			ResourceType: tea.String("application"),
-			TagKeys:      tea.String(fmt.Sprintf(`["%s","%s"]`, setting.SAEZadigProjectTagKey, setting.SAEZadigEnvTagKey)),
+			TagKeys:      tea.String(fmt.Sprintf(`["%s","%s","%s","%s"]`, setting.SAEZadigProjectTagKey, setting.SAEZadigEnvTagKey, setting.SAEZadigServiceTagKey, setting.SAEZadigServiceModuleTagKey)),
 			ResourceIds:  tea.String(resourceIds),
 		}
 		saeResp, err := saeClient.UntagResources(saeRequest)
@@ -1305,7 +1305,7 @@ func DelSAEAppFromEnv(username string, projectName, envName string, production b
 		saeRequest := &sae.UntagResourcesRequest{
 			RegionId:     tea.String(env.RegionID),
 			ResourceType: tea.String("application"),
-			TagKeys:      tea.String(fmt.Sprintf(`["%s","%s"]`, setting.SAEZadigProjectTagKey, setting.SAEZadigEnvTagKey)),
+			TagKeys:      tea.String(fmt.Sprintf(`["%s","%s","%s","%s"]`, setting.SAEZadigProjectTagKey, setting.SAEZadigEnvTagKey, setting.SAEZadigServiceTagKey, setting.SAEZadigServiceModuleTagKey)),
 			ResourceIds:  tea.String(resourceIds),
 		}
 		saeResp, err := saeClient.UntagResources(saeRequest)
