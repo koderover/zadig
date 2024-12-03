@@ -612,6 +612,10 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 		return resp, err
 	}
 
+	if err := createLarkApprovalDefinition(workflow); err != nil {
+		return resp, errors.Wrap(err, "create lark approval definition")
+	}
+
 	workflow.HookCtls = nil
 	workflow.JiraHookCtls = nil
 	workflow.MeegoHookCtls = nil
