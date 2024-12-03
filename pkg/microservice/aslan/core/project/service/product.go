@@ -890,7 +890,7 @@ func DeleteProductsAsync(userName, productName, requestID string, isDelete bool,
 		return e.ErrListProducts.AddErr(fmt.Errorf("failed to list sae envs: %v", err))
 	}
 	for _, env := range saeEnvs {
-		err = environmentservice.DeleteSAEEnv(userName, productName, env.EnvName, log)
+		err = environmentservice.DeleteSAEEnv(userName, productName, env.EnvName, env.Production, log)
 		if err != nil {
 			errList = multierror.Append(errList, err)
 		}

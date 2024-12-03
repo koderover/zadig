@@ -50,7 +50,7 @@ type SAEEnvFindOptions struct {
 type SAEEnvListOptions struct {
 	EnvName             string
 	ProjectName         string
-	Namespace           string
+	Production          *bool
 	IsSortByUpdateTime  bool
 	IsSortByProductName bool
 	InEnvs              []string
@@ -79,20 +79,25 @@ func (c *SAEEnvColl) EnsureIndex(ctx context.Context) error {
 	mod := []mongo.IndexModel{
 		{
 			Keys: bson.D{
-				bson.E{Key: "env_name", Value: 1},
 				bson.E{Key: "project_name", Value: 1},
+				bson.E{Key: "production", Value: 1},
+				bson.E{Key: "update_time", Value: 1},
 			},
-			Options: options.Index().SetUnique(true),
+			Options: options.Index().SetUnique(true).SetName("idx_project_production"),
 		},
 		{
 			Keys: bson.D{
-				bson.E{Key: "env_name", Value: 1},
 				bson.E{Key: "project_name", Value: 1},
+				bson.E{Key: "env_name", Value: 1},
+				bson.E{Key: "production", Value: 1},
 				bson.E{Key: "update_time", Value: 1},
 			},
-			Options: options.Index().SetUnique(false),
+			Options: options.Index().SetUnique(false).SetName("idx_project_env_production_time"),
 		},
 	}
+
+	c.Indexes().DropOne(ctx, "env_name_1_project_name_1")
+	c.Indexes().DropOne(ctx, "env_name_1_project_name_1_update_time_1")
 
 	_, err := c.Indexes().CreateMany(ctx, mod)
 
@@ -123,16 +128,16 @@ func (c *SAEEnvColl) List(opt *SAEEnvListOptions) ([]*models.SAEEnv, error) {
 	if opt == nil {
 		opt = &SAEEnvListOptions{}
 	}
+	if opt.ProjectName != "" {
+		query["project_name"] = opt.ProjectName
+	}
 	if opt.EnvName != "" {
 		query["env_name"] = opt.EnvName
 	} else if len(opt.InEnvs) > 0 {
 		query["env_name"] = bson.M{"$in": opt.InEnvs}
 	}
-	if opt.ProjectName != "" {
-		query["project_name"] = opt.ProjectName
-	}
-	if opt.Namespace != "" {
-		query["namespace"] = opt.Namespace
+	if opt.Production != nil {
+		query["production"] = *opt.Production
 	}
 	if len(opt.InIDs) > 0 {
 		var oids []primitive.ObjectID
