@@ -42,9 +42,10 @@ import (
 	"github.com/pkg/errors"
 )
 
-func ListSAEEnvs(userID, projectName string, production bool, log *zap.SugaredLogger) ([]*EnvResp, error) {
+func ListSAEEnvs(userID, projectName string, envNames []string, production bool, log *zap.SugaredLogger) ([]*EnvResp, error) {
 	envs, err := commonrepo.NewSAEEnvColl().List(&commonrepo.SAEEnvListOptions{
 		ProjectName:         projectName,
+		InEnvs:              envNames,
 		Production:          &production,
 		IsSortByProductName: true,
 	})
@@ -75,6 +76,7 @@ func ListSAEEnvs(userID, projectName string, production bool, log *zap.SugaredLo
 		res = append(res, &EnvResp{
 			ProjectName: projectName,
 			Name:        env.EnvName,
+			Production:  env.Production,
 			UpdateTime:  env.UpdateTime,
 			UpdateBy:    env.UpdateBy,
 			Namespace:   env.NamespaceID,
