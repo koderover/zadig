@@ -815,21 +815,10 @@ func getNotifyAtContent(notify *models.NotifyCtl) string {
 		for _, userID := range notify.LarkUserIDs {
 			atUserList = append(atUserList, fmt.Sprintf("<at user_id=\"%s\"></at>", userID))
 		}
-		msg := strings.Join(atUserList, " ")
+		resp = strings.Join(atUserList, " ")
 		if notify.LarkHookNotificationConfig.IsAtAll {
-			msg += "<at user_id=\"all\"></at>"
+			resp += "<at user_id=\"all\"></at>"
 		}
-
-		larkAtMessage := &FeiShuMessage{
-			Text: msg,
-		}
-
-		atMessageContent, err := json.Marshal(larkAtMessage)
-		if err != nil {
-			log.Errorf("failed to generate lark at info, error: %s", err)
-			return ""
-		}
-		return string(atMessageContent)
 	}
 	if notify.WebHookType == setting.NotifyWebhookTypeFeishuApp {
 		atUserList := []string{}
