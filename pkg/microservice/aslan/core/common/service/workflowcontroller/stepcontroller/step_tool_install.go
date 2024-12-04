@@ -63,17 +63,7 @@ func (s *toolInstallCtl) PreRun(ctx context.Context) error {
 	}
 	objectStorage, _ := commonrepo.NewS3StorageColl().FindDefault()
 	if objectStorage != nil {
-		spec.S3Storage.Endpoint = objectStorage.Endpoint
-		spec.S3Storage.Sk = objectStorage.Sk
-		spec.S3Storage.Ak = objectStorage.Ak
-		spec.S3Storage.Subfolder = objectStorage.Subfolder
-		spec.S3Storage.Bucket = objectStorage.Bucket
-		spec.S3Storage.Insecure = objectStorage.Insecure
-		spec.S3Storage.Protocol = "https"
-		if objectStorage.Insecure {
-			spec.S3Storage.Protocol = "http"
-		}
-		spec.S3Storage.Region = objectStorage.Region
+		spec.S3Storage = modelS3toS3(objectStorage)
 	}
 
 	for _, tool := range s.toolInstalldSpec.Installs {
