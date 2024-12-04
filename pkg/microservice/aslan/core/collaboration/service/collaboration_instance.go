@@ -260,13 +260,9 @@ func getDiff(cmMap map[string]*models.CollaborationMode, ciMap map[string]*model
 	var deleteItems []models.CollaborationInstance
 	for name, cm := range cmMap {
 		if ci, ok := ciMap[name]; ok {
-			if cm.Revision < ci.Revision {
-				return nil, fmt.Errorf("CollaborationMode:%s revision error", name)
-			} else if cm.Revision > ci.Revision {
-				updateItems = append(updateItems, getUpdateDiff(cm, ci))
-				instance := genCollaborationInstance(*cm, projectName, uid, identityType, userName)
-				updateInstance = append(updateInstance, *instance)
-			}
+			updateItems = append(updateItems, getUpdateDiff(cm, ci))
+			instance := genCollaborationInstance(*cm, projectName, uid, identityType, userName)
+			updateInstance = append(updateInstance, *instance)
 		} else {
 			newItems = append(newItems, *cm)
 		}
