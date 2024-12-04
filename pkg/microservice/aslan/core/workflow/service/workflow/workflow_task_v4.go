@@ -1606,12 +1606,18 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, 
 					projectKey := ""
 					projectScanningOutputKey := jobspec.GetJobOutputKey(job.Key, setting.WorkflowScanningJobOutputKeyProject)
 					projectScanningOutputKey = workflowcontroller.GetContextKey(projectScanningOutputKey)
-
 					if context[projectScanningOutputKey] != "" {
 						projectKey = context[projectScanningOutputKey]
 					}
 
-					resultAddr, err := sonar.GetSonarAddressWithProjectKey(sonarURL, projectKey)
+					branch := ""
+					branchScanningOutputKey := jobspec.GetJobOutputKey(job.Key, setting.WorkflowScanningJobOutputKeyBranch)
+					branchScanningOutputKey = workflowcontroller.GetContextKey(branchScanningOutputKey)
+					if context[branchScanningOutputKey] != "" {
+						branch = context[branchScanningOutputKey]
+					}
+
+					resultAddr, err := sonar.GetSonarAddress(sonarURL, projectKey, branch)
 					if err != nil {
 						log.Errorf("failed to get sonar address with project key %s, error: %v", projectKey, err)
 						continue

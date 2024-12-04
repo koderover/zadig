@@ -636,14 +636,14 @@ func (j *ScanningJob) toJobTask(jobSubTaskID int, scanning *commonmodels.Scannin
 
 	repoName := ""
 	branch := ""
-	if len(scanningInfo.Repos) > 0 {
-		if scanningInfo.Repos[0].CheckoutPath != "" {
-			repoName = scanningInfo.Repos[0].CheckoutPath
+	if len(scanning.Repos) > 0 {
+		if scanning.Repos[0].CheckoutPath != "" {
+			repoName = scanning.Repos[0].CheckoutPath
 		} else {
 			repoName = scanningInfo.Repos[0].RepoName
 		}
 
-		branch = scanningInfo.Repos[0].Branch
+		branch = scanning.Repos[0].Branch
 	}
 	// init debug before step
 	debugBeforeStep := &commonmodels.StepTask{
@@ -691,13 +691,12 @@ func (j *ScanningJob) toJobTask(jobSubTaskID int, scanning *commonmodels.Scannin
 			Key: "SONAR_LINK",
 		}
 		projectKey := renderEnv(sonar.GetSonarProjectKeyFromConfig(scanningInfo.Parameter), jobTaskSpec.Properties.Envs)
-		if projectKey != "" {
-			resultAddr, err := sonar.GetSonarAddressWithProjectKey(sonarInfo.ServerAddress, projectKey)
-			if err != nil {
-				log.Errorf("failed to get sonar address with project key, error: %s", err)
-			}
-			sonarLinkKeyVal.Value = resultAddr
+		sonarBranch := renderEnv(sonar.GetSonarBranchFromConfig(scanningInfo.Parameter), append(jobTaskSpec.Properties.Envs, &commonmodels.KeyVal{Key: "branch", Value: branch}))
+		resultAddr, err := sonar.GetSonarAddress(sonarInfo.ServerAddress, projectKey, sonarBranch)
+		if err != nil {
+			log.Errorf("failed to get sonar address, project: %s, branch: %s,, error: %s", projectKey, sonarBranch, err)
 		}
+		sonarLinkKeyVal.Value = resultAddr
 
 		jobTaskSpec.Properties.Envs = append(jobTaskSpec.Properties.Envs, sonarLinkKeyVal)
 		jobTaskSpec.Properties.Envs = append(jobTaskSpec.Properties.Envs, &commonmodels.KeyVal{
@@ -777,6 +776,7 @@ func (j *ScanningJob) toJobTask(jobSubTaskID int, scanning *commonmodels.Scannin
 			StepType: config.StepSonarGetMetrics,
 			Spec: &step.StepSonarGetMetricsSpec{
 				ProjectKey:       projectKey,
+				Branch:           sonarBranch,
 				Parameter:        scanningInfo.Parameter,
 				CheckDir:         repoName,
 				SonarToken:       sonarInfo.Token,
@@ -1036,6 +1036,11 @@ func ensureScanningOutputs(outputs []*commonmodels.Output) []*commonmodels.Outpu
 	if _, ok := keyMap[setting.WorkflowScanningJobOutputKeyProject]; !ok {
 		outputs = append(outputs, &commonmodels.Output{
 			Name: setting.WorkflowScanningJobOutputKeyProject,
+		})
+	}
+	if _, ok := keyMap[setting.WorkflowScanningJobOutputKeyBranch]; !ok {
+		outputs = append(outputs, &commonmodels.Output{
+			Name: setting.WorkflowScanningJobOutputKeyBranch,
 		})
 	}
 	return outputs
