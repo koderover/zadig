@@ -536,6 +536,15 @@ func (j *ScanningJob) toJobTask(jobSubTaskID int, scanning *commonmodels.Scannin
 		ShareStorageDetails: getShareStorageDetail(j.workflow.ShareStorages, scanning.ShareStorageInfo, j.workflow.Name, taskID),
 	}
 
+	if scanningType == string(config.ServiceScanningType) {
+		for _, env := range jobTaskSpec.Properties.Envs {
+			if strings.HasPrefix(env.Value, "{{.") && strings.HasSuffix(env.Value, "}}") {
+				env.Value = strings.ReplaceAll(env.Value, "<SERVICE>", serviceName)
+				env.Value = strings.ReplaceAll(env.Value, "<MODULE>", serviceModule)
+			}
+		}
+	}
+
 	cacheS3 := &commonmodels.S3Storage{}
 	clusterInfo, err := commonrepo.NewK8SClusterColl().Get(scanningInfo.AdvancedSetting.ClusterID)
 	if err != nil {
