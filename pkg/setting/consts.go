@@ -588,6 +588,8 @@ const (
 	ProviderSourceQiniu
 	ProviderSourceHuawei
 	ProviderSourceSystemDefault
+	ProviderSourceGoogle
+	ProviderSourceVolcano
 )
 
 // helm related
