@@ -390,6 +390,8 @@ func (j *TestingJob) toJobtask(jobSubTaskID int, testing *commonmodels.TestModul
 		"testing_name": testing.Name,
 		"rand_str":     randStr,
 	}
+
+	customEnvs := renderKeyVals(testing.KeyVals, testingInfo.PreTest.Envs)
 	if testType == string(config.ServiceTestType) {
 		jobDisplayName = genJobDisplayName(j.job.Name, serviceName, serviceModule)
 		jobKey = genJobKey(j.job.Name, serviceName, serviceModule)
@@ -398,6 +400,13 @@ func (j *TestingJob) toJobtask(jobSubTaskID int, testing *commonmodels.TestModul
 			"test_type":      testType,
 			"service_name":   serviceName,
 			"service_module": serviceModule,
+		}
+
+		for _, env := range customEnvs {
+			if strings.HasPrefix(env.Value, "{{.") && strings.HasSuffix(env.Value, "}}") {
+				env.Value = strings.ReplaceAll(env.Value, "<SERVICE>", serviceName)
+				env.Value = strings.ReplaceAll(env.Value, "<MODULE>", serviceModule)
+			}
 		}
 	}
 
@@ -420,7 +429,7 @@ func (j *TestingJob) toJobtask(jobSubTaskID int, testing *commonmodels.TestModul
 		Timeout:             int64(testingInfo.Timeout),
 		ResourceRequest:     testingInfo.PreTest.ResReq,
 		ResReqSpec:          testingInfo.PreTest.ResReqSpec,
-		CustomEnvs:          renderKeyVals(testing.KeyVals, testingInfo.PreTest.Envs),
+		CustomEnvs:          customEnvs,
 		ClusterID:           testingInfo.PreTest.ClusterID,
 		StrategyID:          testingInfo.PreTest.StrategyID,
 		BuildOS:             basicImage.Value,
