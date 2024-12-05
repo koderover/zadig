@@ -198,5 +198,7 @@ func GenJobName(workflow *commonmodels.WorkflowV4, jobName string, subTaskID int
 		}
 	}
 
-	return fmt.Sprintf("job-%d-%d-%d-%s-%s", stageIndex, jobIndex, subTaskID, stageName, jobName)
+	_ = stageName
+
+	return fmt.Sprintf("job-%d-%d-%d-%s", stageIndex, jobIndex, subTaskID, jobName)
 }
