@@ -42,6 +42,7 @@ const (
 	SonarWorkDirKey = "sonar.working.directory"
 	CETaskIDKey     = "ceTaskId"
 	ProjectKey      = "projectKey"
+	BranchKey       = "branch"
 )
 
 func NewSonarClient(host, token string) *Client {
@@ -109,11 +110,20 @@ func (c *Client) GetCETaskInfo(taskID string) (*CETaskInfo, error) {
 	return res, nil
 }
 
-func (c *Client) GetComponentMeasures(componentKey string) (*MeasuresComponentResponse, error) {
-	url := "/api/measures/component"
+func (c *Client) GetComponentMeasures(component, branch string) (*MeasuresComponentResponse, error) {
 	resp := &MeasuresComponentResponse{}
-	if _, err := c.Client.Get(url, httpclient.SetQueryParam("component", componentKey), httpclient.SetQueryParam("metricKeys", "ncloc,bugs,vulnerabilities,code_smells,coverage"), httpclient.SetResult(resp)); err != nil {
-		return nil, fmt.Errorf("search sonar component measures: component %s, error: %v", componentKey, err)
+	rfs := []httpclient.RequestFunc{
+		httpclient.SetQueryParam("component", component),
+		httpclient.SetQueryParam("metricKeys", "ncloc,bugs,vulnerabilities,code_smells,coverage"), httpclient.SetResult(resp),
+	}
+
+	if branch != "" {
+		rfs = append(rfs, httpclient.SetQueryParam("branch", branch))
+	}
+
+	url := "/api/measures/component"
+	if _, err := c.Client.Get(url, rfs...); err != nil {
+		return nil, fmt.Errorf("failed to search sonar component measures, component: %s, branch: %s, error: %v", component, branch, err)
 	}
 	return resp, nil
 }
@@ -148,7 +158,10 @@ type Condition struct {
 func (c *Client) GetQualityGateInfo(analysisID string) (*ProjectInfo, error) {
 	url := "/api/qualitygates/project_status"
 	res := &ProjectInfo{}
-	if _, err := c.Client.Get(url, httpclient.SetQueryParam("analysisId", analysisID), httpclient.SetResult(res)); err != nil {
+	if _, err := c.Client.Get(url,
+		httpclient.SetQueryParam("analysisId", analysisID),
+		httpclient.SetResult(res),
+	); err != nil {
 		return nil, fmt.Errorf("get sonar quality gate: %s info error: %v", analysisID, err)
 	}
 	return res, nil
@@ -187,6 +200,10 @@ func GetSonarCETaskID(content string) string {
 
 func GetProjectKey(content string) string {
 	return getKeyValue(content, ProjectKey)
+}
+
+func GetBranch(content string) string {
+	return getKeyValue(content, BranchKey)
 }
 
 func getKeyValue(content, inputKey string) string {
@@ -239,9 +256,21 @@ func GetSonarProjectKeyFromConfig(config string) string {
 	return key
 }
 
-// GetSonarAddressWithProjectKey return the corresponding project address according to projectKey
+func GetSonarBranchFromConfig(config string) string {
+	v := viper.New()
+	v.SetConfigType("properties")
+	err := v.ReadConfig(strings.NewReader(config))
+	if err != nil {
+		return ""
+	}
+	// Returns the empty string if sonar.branch.name is empty or does not exist.
+	key, _ := v.Get("sonar.branch.name").(string)
+	return key
+}
+
+// GetSonarAddress return the corresponding project address according to projectKey
 // If the projectKey is empty or an error occurs, the original baseAddr is returned
-func GetSonarAddressWithProjectKey(baseAddr, projectKey string) (string, error) {
+func GetSonarAddress(baseAddr, projectKey, branch string) (string, error) {
 	if projectKey == "" {
 		return baseAddr, nil
 	}
@@ -250,6 +279,12 @@ func GetSonarAddressWithProjectKey(baseAddr, projectKey string) (string, error) 
 		return baseAddr, fmt.Errorf("failed to parse sonar server address, error: %s", err)
 	}
 	u = u.JoinPath("dashboard")
-	u.RawQuery = url.Values{"id": {projectKey}}.Encode()
+
+	values := url.Values{"id": {projectKey}}
+	if branch != "" {
+		values["branch"] = []string{branch}
+	}
+
+	u.RawQuery = values.Encode()
 	return u.String(), nil
 }

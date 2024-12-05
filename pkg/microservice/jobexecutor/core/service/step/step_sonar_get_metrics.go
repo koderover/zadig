@@ -88,13 +88,28 @@ func (s *SonarGetMetrics) Run(ctx context.Context) error {
 			log.Error("can not get sonar project key")
 			return nil
 		}
-		outputFileName = filepath.Join(job.JobOutputDir, setting.WorkflowScanningJobOutputKeyProject)
-		err = util.AppendToFile(outputFileName, projectKey)
-		if err != nil {
-			err = fmt.Errorf("append sonar project key %s to output file %s error: %v", ceTaskID, outputFileName, err)
-			log.Error(err)
-			return nil
+		s.spec.ProjectKey = projectKey
+	}
+	outputFileName = filepath.Join(job.JobOutputDir, setting.WorkflowScanningJobOutputKeyProject)
+	err = util.AppendToFile(outputFileName, s.spec.ProjectKey)
+	if err != nil {
+		err = fmt.Errorf("append sonar project key %s to output file %s error: %v", ceTaskID, outputFileName, err)
+		log.Error(err)
+		return nil
+	}
+
+	if s.spec.Branch == "" {
+		branch := sonar.GetBranch(taskReportContent)
+		if branch != "" {
+			s.spec.Branch = branch
 		}
+	}
+	outputFileName = filepath.Join(job.JobOutputDir, setting.WorkflowScanningJobOutputKeyBranch)
+	err = util.AppendToFile(outputFileName, s.spec.Branch)
+	if err != nil {
+		err = fmt.Errorf("append sonar branch %s to output file %s error: %v", ceTaskID, outputFileName, err)
+		log.Error(err)
+		return nil
 	}
 
 	return nil

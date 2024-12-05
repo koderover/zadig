@@ -930,6 +930,7 @@ const (
 const (
 	WorkflowScanningJobOutputKey        = "SonarCETaskID"
 	WorkflowScanningJobOutputKeyProject = "SonarProjectKey"
+	WorkflowScanningJobOutputKeyBranch =  "SonarBranchKey"
 )
 
 type NotifyWebHookType string

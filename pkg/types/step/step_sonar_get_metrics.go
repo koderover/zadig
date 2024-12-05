@@ -20,6 +20,7 @@ import "github.com/koderover/zadig/v2/pkg/tool/sonar"
 
 type StepSonarGetMetricsSpec struct {
 	ProjectKey       string        `bson:"project_key"        json:"project_key"        yaml:"project_key"`
+	Branch           string        `bson:"branch"             json:"branch"             yaml:"branch"`
 	Parameter        string        `bson:"parameter"          json:"parameter"          yaml:"parameter"`
 	SonarToken       string        `bson:"sonar_token"        json:"sonar_token"        yaml:"sonar_token"`
 	SonarServer      string        `bson:"sonar_server"       json:"sonar_server"       yaml:"sonar_server"`
