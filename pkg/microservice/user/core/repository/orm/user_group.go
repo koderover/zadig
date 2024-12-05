@@ -49,7 +49,7 @@ func ListUserGroups(queryName string, pageNum, pageSize int, db *gorm.DB) ([]*mo
 		return nil, 0, err
 	}
 
-	err = db.Table(models.UserGroup{}.TableName()).Count(&count).Error
+	err = query.Table(models.UserGroup{}.TableName()).Count(&count).Error
 	if err != nil {
 		return nil, 0, err
 	}
