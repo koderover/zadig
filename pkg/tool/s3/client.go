@@ -54,7 +54,7 @@ var defaultDownloadOption = &DownloadOption{
 
 func NewClient(endpoint, ak, sk, region string, insecure bool, provider int8) (*Client, error) {
 	s3ForcePathStyle := true
-	if provider == setting.ProviderSourceAli || provider == setting.ProviderSourceTencent || provider == setting.ProviderSourceHuawei {
+	if provider == setting.ProviderSourceAli || provider == setting.ProviderSourceTencent || provider == setting.ProviderSourceHuawei || provider == setting.ProviderSourceVolcano {
 		s3ForcePathStyle = false
 	}
 
