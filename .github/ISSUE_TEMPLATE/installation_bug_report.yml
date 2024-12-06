@@ -1,0 +1,99 @@
+name: 安装问题报告 / Installation bug report
+description: Tell us about a installation bug you are experiencing
+title: "[installation]"
+labels: [installation]
+assignees: [PetrusZ]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **为避免无效问题和冗余问题，提问前请确认。/ To avoid invalid and redundant questions, please confirm before asking**
+
+        1. 你确定了解 Kubernetes 的基础知识以及相关工具使用。/ Are you sure you understand the basics of Kubernetes and how to use related tools?
+        2. 你确定 Google 不能解决你的问题。/ Are you sure Google cannot solve your problem?
+        3. 你确定文档站以及已有的 issue 不能解决你的问题。/ Are you sure documentation sites and existing issues cannot solve your problem?
+        4. 你确定不按照模板填写，issue 可能会直接被关闭。/ Are you sure that failure to fill out the template may result in the issue being closed directly?
+  - type: checkboxes
+    id: installation-method
+    attributes:
+      label: 安装方式 / Installation method
+      options:
+        - label: 脚本安装 / Script Installation
+        - label: Helm 安装 / Helm Installation
+  - type: textarea
+    id: describe-the-bug
+    attributes:
+      label: 描述你遇到的问题 / Describe the bug
+      description: 简洁有效的说明。A clear and concise description of what the bug is.
+    validations:
+      required: true
+  - type: textarea
+    id: installation-parameters
+    attributes:
+      label: 安装参数 / Installation Parameters
+      description: 提供通过脚本安装时的参数或通过 helm 安装时使用的 values。Provide the parameters used during installation via script or the values used when installing via Helm.
+    validations:
+      required: true
+  - type: textarea
+    id: script-installation-log
+    attributes:
+      label: 脚本安装日志 / Script installation log
+      placeholder: |
+        脚本名称 / Script Name：
+        日志 / Log：
+    validations:
+      required: false
+  - type: textarea
+    id: pod-status-list
+    attributes:
+      label: Pod 状态列表 / Pod Status List
+      description: Zadig 的所有 Pod 的状态截图或日志。Status screenshot or log of all Zadig Pods.
+    validations:
+      required: true
+  - type: textarea
+    id: abnormal-pod-event
+    attributes:
+      label: 异常 Pod 的 Event / Abnormal Pod Event
+      description: 异常 Pod 的 Event 截图或日志。Event screenshot or log of abnormal Pods.
+    validations:
+      required: false
+  - type: textarea
+    id: storage-status
+    attributes:
+      label: PVC/PV/Storage Class 的状态 / PVC/PV/Storage Class Status
+      description: PVC、PV、Storage Class 的状态截图或日志。Status screenshot or log of PVC, PV, and Storage Class.
+    validations:
+      required: false
+  - type: input
+    id: zadig-version
+    attributes:
+      label: Zadig 版本 / Zadig version
+    validations:
+      required: true
+  - type: input
+    id: k8s-version
+    attributes:
+      label: Kubernetes 版本 / Kubernetes version
+    validations:
+      required: true
+  - type: textarea
+    id: installation-environment
+    attributes:
+      label: 安装环境 / Installation Environment
+      description: 提供安装环境的相关信息，例如操作系统、内核版本、Docker 版本、机器配置规格等。Provide relevant information about the installation environment, such as the operating system, kernel version, Docker version, machine configuration, etc.
+      placeholder: |
+        例如：Architecture: x86_64
+        例如：CentOS 7.6,Ubuntu 18.04 LTS
+        例如：Kernel 4.15.0-106-generic
+        例如：CPU/Memory： 4 Cores / 8 GB RAM
+        例如：Docker 19.03.5
+        例如：Tencent Cloud（TKE）, AliCloud（ACK）, Self-hosting ...
+    validations:
+      required: false
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: 附加信息 / Additional context
+      description: 有关该问题的任何其他背景信息。 / Add any other context about the problem here.
+    validations:
+      required: false
