@@ -572,7 +572,8 @@ func (c *workflowCtl) updateWorkflowTask() {
 	if success := UpdateQueue(c.workflowTask); !success {
 		c.logger.Errorf("%s:%d update t status error", c.workflowTask.WorkflowName, c.workflowTask.TaskID)
 	}
-	// TODO update workflow task
+
+	c.workflowTask.Remark = ""
 	if err := commonrepo.NewworkflowTaskv4Coll().Update(c.workflowTask.ID.Hex(), c.workflowTask); err != nil {
 		c.logger.Errorf("update workflow task v4 failed,error: %v", err)
 	}
