@@ -32,6 +32,7 @@ import (
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
+	codehostrepo "github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/codehost/repository/mongodb"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
@@ -457,6 +458,7 @@ func (j *FreeStyleJob) stepsToStepTasks(step []*commonmodels.Step, service *comm
 			if err := commonmodels.IToi(stepTask.Spec, stepTaskSpec); err != nil {
 				continue
 			}
+
 			newRepos := []*types.Repository{}
 			if service != nil {
 				for _, repo := range service.Repos {
@@ -493,7 +495,15 @@ func (j *FreeStyleJob) stepsToStepTasks(step []*commonmodels.Step, service *comm
 					newRepos = append(newRepos, repo)
 				}
 			}
+
+			codehosts, err := codehostrepo.NewCodehostColl().AvailableCodeHost(j.workflow.Project)
+			if err != nil {
+				log.Errorf("find %s project codehost error: %v", j.workflow.Project, err)
+				continue
+			}
+
 			stepTaskSpec.Repos = newRepos
+			stepTaskSpec.CodeHosts = codehosts
 			stepTask.Spec = stepTaskSpec
 		}
 
