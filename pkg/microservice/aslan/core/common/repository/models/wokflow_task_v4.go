@@ -39,7 +39,7 @@ type WorkflowTask struct {
 	GlobalContext       map[string]string             `bson:"global_context"            json:"global_context"`
 	ClusterIDMap        map[string]bool               `bson:"cluster_id_map"            json:"cluster_id_map"`
 	Status              config.Status                 `bson:"status"                    json:"status,omitempty"`
-	Remark              string                        `bson:"remark"                    json:"remark"`
+	Remark              string                        `bson:"remark,omitempty"          json:"remark"`
 	TaskCreator         string                        `bson:"task_creator"              json:"task_creator,omitempty"`
 	TaskCreatorID       string                        `bson:"task_creator_id"           json:"task_creator_id,omitempty"`
 	TaskCreatorPhone    string                        `bson:"task_creator_phone"        json:"task_creator_phone"`
