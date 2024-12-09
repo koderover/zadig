@@ -28,7 +28,7 @@ import (
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/v2/pkg/setting"
-	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
+	"github.com/koderover/zadig/v2/pkg/tool/kube/clientmanager"
 	"github.com/koderover/zadig/v2/pkg/types"
 )
 
@@ -38,7 +38,7 @@ type PVC struct {
 }
 
 func ListStorageClasses(ctx context.Context, clusterID string, scType types.StorageClassType) ([]string, error) {
-	kclient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
+	kclient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(clusterID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get kube client: %s", err)
 	}
@@ -71,7 +71,7 @@ func ListStorageClasses(ctx context.Context, clusterID string, scType types.Stor
 }
 
 func ListPVCs(ctx context.Context, clusterID, namespace string) ([]PVC, error) {
-	kclient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
+	kclient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(clusterID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get kube client: %s", err)
 	}
@@ -119,7 +119,7 @@ type ContainerResp struct {
 }
 
 func ListDeployments(ctx context.Context, clusterID, namespace string) ([]*DeploymentResp, error) {
-	kclient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
+	kclient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(clusterID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get kube client: %s", err)
 	}
@@ -154,7 +154,7 @@ type IstioVirtualServiceResp struct {
 }
 
 func ListIstioVirtualServices(ctx context.Context, clusterID, namespace string) ([]*IstioVirtualServiceResp, error) {
-	istioClient, err := kubeclient.GetIstioClientV1Alpha3Client(config.HubServerAddress(), clusterID)
+	istioClient, err := clientmanager.NewKubeClientManager().GetIstioV1Alpha3Client(clusterID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get kube client: %s", err)
 	}

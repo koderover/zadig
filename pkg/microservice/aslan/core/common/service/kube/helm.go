@@ -49,6 +49,7 @@ import (
 	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
 	"github.com/koderover/zadig/v2/pkg/tool/cache"
 	helmtool "github.com/koderover/zadig/v2/pkg/tool/helmclient"
+	"github.com/koderover/zadig/v2/pkg/tool/kube/clientmanager"
 	kubeutil "github.com/koderover/zadig/v2/pkg/tool/kube/util"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/types"
@@ -394,7 +395,7 @@ func DeleteHelmReleaseFromEnv(userName, requestID string, productInfo *commonmod
 	}
 
 	ctx := context.TODO()
-	kclient, err := kubeclient.GetKubeClient(config.HubServerAddress(), productInfo.ClusterID)
+	kclient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(productInfo.ClusterID)
 	if err != nil {
 		return err
 	}
@@ -556,7 +557,7 @@ func DeleteHelmServiceFromEnv(userName, requestID string, productInfo *commonmod
 	}
 
 	ctx := context.TODO()
-	kclient, err := kubeclient.GetKubeClient(config.HubServerAddress(), productInfo.ClusterID)
+	kclient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(productInfo.ClusterID)
 	if err != nil {
 		return err
 	}
@@ -665,7 +666,7 @@ func EnsureDeleteZadigServiceByHelmRelease(ctx context.Context, env *commonmodel
 		return fmt.Errorf("failed to get Service names from manifest: %s", err)
 	}
 
-	kclient, err := kubeclient.GetKubeClient(config.HubServerAddress(), env.ClusterID)
+	kclient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(env.ClusterID)
 	if err != nil {
 		return fmt.Errorf("failed to get kube client: %s", err)
 	}

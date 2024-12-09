@@ -36,6 +36,7 @@ import (
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
 	helmtool "github.com/koderover/zadig/v2/pkg/tool/helmclient"
+	"github.com/koderover/zadig/v2/pkg/tool/kube/clientmanager"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/util"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	zadigtypes "github.com/koderover/zadig/v2/pkg/types"
@@ -482,7 +483,7 @@ func EnsureDeletePreCreatedServices(ctx context.Context, productName, namespace 
 		return fmt.Errorf("failed to get Service names from manifest: %s", err)
 	}
 
-	kclient, err := kubeclient.GetKubeClient(config.HubServerAddress(), env.ClusterID)
+	kclient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(env.ClusterID)
 	if err != nil {
 		return fmt.Errorf("failed to get kube client: %s", err)
 	}
@@ -515,7 +516,7 @@ func EnsureZadigServiceByManifest(ctx context.Context, productName, namespace, m
 		return fmt.Errorf("failed to get Service names from manifest: %s", err)
 	}
 
-	kclient, err := kubeclient.GetKubeClient(config.HubServerAddress(), env.ClusterID)
+	kclient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(env.ClusterID)
 	if err != nil {
 		return fmt.Errorf("failed to get kube client: %s", err)
 	}

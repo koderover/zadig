@@ -47,7 +47,6 @@ import (
 	"sigs.k8s.io/yaml"
 
 	commonconfig "github.com/koderover/zadig/v2/pkg/config"
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
@@ -56,11 +55,11 @@ import (
 	commontypes "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/types"
 	"github.com/koderover/zadig/v2/pkg/microservice/podexec/core/service"
 	"github.com/koderover/zadig/v2/pkg/setting"
-	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
 	"github.com/koderover/zadig/v2/pkg/shared/kube/resource"
 	"github.com/koderover/zadig/v2/pkg/shared/kube/wrapper"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	helmtool "github.com/koderover/zadig/v2/pkg/tool/helmclient"
+	"github.com/koderover/zadig/v2/pkg/tool/kube/clientmanager"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/informer"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/serializer"
@@ -205,7 +204,7 @@ func FindNsUseEnvs(productInfo *commonmodels.Product, log *zap.SugaredLogger) ([
 // ListAvailableNamespaces lists available namespaces created by non-koderover
 func ListAvailableNamespaces(clusterID, listType string, log *zap.SugaredLogger) ([]*AvailableNamespace, error) {
 	resp := make([]*AvailableNamespace, 0)
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
+	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(clusterID)
 	if err != nil {
 		log.Errorf("ListNamespaces clusterID:%s err:%v", clusterID, err)
 		return resp, err
@@ -258,7 +257,7 @@ func DeletePod(envName, productName, podName string, production bool, log *zap.S
 	if err != nil {
 		return e.ErrDeletePod.AddErr(err)
 	}
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), product.ClusterID)
+	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(product.ClusterID)
 	if err != nil {
 		return e.ErrDeletePod.AddErr(err)
 	}
@@ -360,7 +359,7 @@ func unTarAll(reader io.Reader, destDir, prefix string) error {
 	return nil
 }
 
-func execPodCopy(kubeClient kubernetes.Interface, cfg *rest.Config, cmd []string, filePath, targetDir, namespace, podName, containerName string) (string, error) {
+func execPodCopy(kubeClient *kubernetes.Clientset, cfg *rest.Config, cmd []string, filePath, targetDir, namespace, podName, containerName string) (string, error) {
 	req := kubeClient.CoreV1().RESTClient().Post().
 		Resource("pods").
 		Name(podName).
@@ -418,7 +417,7 @@ func DownloadFile(envName, productName, podName, container, path string, product
 		return nil, "", err
 	}
 
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), product.ClusterID)
+	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(product.ClusterID)
 	if err != nil {
 		return nil, "", e.ErrGetPodFile.AddErr(err)
 	}
@@ -483,7 +482,7 @@ func getModifiedServiceFromObjectMeta(om metav1.Object) *serviceInfo {
 
 func ListAvailableNodes(clusterID string, log *zap.SugaredLogger) (*NodeResp, error) {
 	resp := new(NodeResp)
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
+	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(clusterID)
 	if err != nil {
 		log.Errorf("ListAvailableNodes clusterID:%s err:%s", clusterID, err)
 		return resp, err
@@ -536,7 +535,7 @@ func nodeLabel(node *corev1.Node) []string {
 
 func ListNamespace(clusterID string, log *zap.SugaredLogger) ([]string, error) {
 	resp := make([]string, 0)
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
+	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(clusterID)
 	if err != nil {
 		log.Errorf("ListNamespaces clusterID:%s err:%v", clusterID, err)
 		return resp, err
@@ -557,7 +556,7 @@ func ListNamespace(clusterID string, log *zap.SugaredLogger) ([]string, error) {
 
 func ListDeploymentNames(clusterID, namespace string, log *zap.SugaredLogger) ([]string, error) {
 	resp := make([]string, 0)
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
+	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(clusterID)
 	if err != nil {
 		log.Errorf("ListDeployment clusterID:%s err:%v", clusterID, err)
 		return resp, err
@@ -585,7 +584,7 @@ type WorkloadInfo struct {
 // for now,only support deployment
 func ListWorkloadsInfo(clusterID, namespace string, log *zap.SugaredLogger) ([]*WorkloadInfo, error) {
 	resp := make([]*WorkloadInfo, 0)
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
+	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(clusterID)
 	if err != nil {
 		log.Errorf("ListDeployments clusterID:%s err:%v", clusterID, err)
 		return resp, err
@@ -617,7 +616,7 @@ type WorkloadImageTarget struct {
 
 func ListCustomWorkload(clusterID, namespace string, log *zap.SugaredLogger) ([]*WorkloadImageTarget, error) {
 	resp := make([]*WorkloadImageTarget, 0)
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
+	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(clusterID)
 	if err != nil {
 		log.Errorf("ListCustomWorkload clusterID:%s err:%v", clusterID, err)
 		return resp, err
@@ -649,7 +648,7 @@ func ListCustomWorkload(clusterID, namespace string, log *zap.SugaredLogger) ([]
 		}
 	}
 
-	clientset, err := kubeclient.GetClientset(config.HubServerAddress(), clusterID)
+	clientset, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(clusterID)
 	if err != nil {
 		log.Errorf("get client set error: %v", err)
 		return resp, err
@@ -680,7 +679,7 @@ func ListCustomWorkload(clusterID, namespace string, log *zap.SugaredLogger) ([]
 // list service and matched deployment containers for canary and blue-green deployment.
 func ListCanaryDeploymentServiceInfo(clusterID, namespace string, log *zap.SugaredLogger) ([]*ServiceMatchedDeploymentContainers, error) {
 	resp := []*ServiceMatchedDeploymentContainers{}
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
+	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(clusterID)
 	if err != nil {
 		log.Errorf("get kubeclient error: %v, clusterID: %s", err, clusterID)
 		return resp, err
@@ -726,12 +725,12 @@ type K8sResource struct {
 
 func ListAllK8sResourcesInNamespace(clusterID, namespace string, log *zap.SugaredLogger) ([]*K8sResource, error) {
 	resp := []*K8sResource{}
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
+	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(clusterID)
 	if err != nil {
 		log.Errorf("get kubeclient error: %v, clusterID: %s", err, clusterID)
 		return resp, err
 	}
-	discoveryCli, err := kubeclient.GetDiscoveryClient(config.HubServerAddress(), clusterID)
+	discoveryCli, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(clusterID)
 	if err != nil {
 		log.Errorf("get discovery client clusterID:%s error:%v", clusterID, err)
 		return resp, err
@@ -790,12 +789,12 @@ func ListK8sResOverview(args *FetchResourceArgs, log *zap.SugaredLogger) (*K8sRe
 		return nil, e.ErrListK8sResources.AddErr(fmt.Errorf("failed to get product info, err: %s", err))
 	}
 
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), productInfo.ClusterID)
+	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(productInfo.ClusterID)
 	if err != nil {
 		return nil, e.ErrListK8sResources.AddErr(err)
 	}
 
-	cls, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), productInfo.ClusterID)
+	cls, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(productInfo.ClusterID)
 	if err != nil {
 		return nil, e.ErrListK8sResources.AddDesc(err.Error())
 	}
@@ -844,12 +843,12 @@ func GetK8sResourceYaml(args *FetchResourceArgs, log *zap.SugaredLogger) (string
 		return "", e.ErrGetK8sResource.AddErr(fmt.Errorf("failed to get product info, err: %s", err))
 	}
 
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), productInfo.ClusterID)
+	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(productInfo.ClusterID)
 	if err != nil {
 		return "", e.ErrGetK8sResource.AddErr(fmt.Errorf("failed to init kube client with id: %s, err: %s", productInfo.ClusterID, err))
 	}
 
-	cls, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), productInfo.ClusterID)
+	cls, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(productInfo.ClusterID)
 	if err != nil {
 		return "", e.ErrGetK8sResource.AddErr(fmt.Errorf("failed to init clientset with id: %s, err: %s", productInfo.ClusterID, err))
 	}
@@ -894,12 +893,12 @@ func GetWorkloadDetail(args *FetchResourceArgs, workloadType, workloadName strin
 		return nil, e.ErrGetK8sResource.AddErr(fmt.Errorf("failed to get product info, err: %s", err))
 	}
 
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), productInfo.ClusterID)
+	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(productInfo.ClusterID)
 	if err != nil {
 		return nil, e.ErrGetK8sResource.AddErr(fmt.Errorf("failed to init kube client with id: %s, err: %s", productInfo.ClusterID, err))
 	}
 
-	cls, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), productInfo.ClusterID)
+	cls, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(productInfo.ClusterID)
 	if err != nil {
 		return nil, err
 	}
@@ -1020,11 +1019,11 @@ func GetResourceDeployStatus(productName string, request *K8sDeployStatusCheckRe
 		})
 	}
 
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
+	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(clusterID)
 	if err != nil {
 		return nil, e.ErrGetResourceDeployInfo.AddErr(err)
 	}
-	clientset, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), clusterID)
+	clientset, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(clusterID)
 	if err != nil {
 		log.Errorf("failed to create kubernetes clientset for clusterID: %s, the error is: %s", clusterID, err)
 		return nil, e.ErrGetResourceDeployInfo.AddErr(err)
@@ -1112,7 +1111,7 @@ func GetReleaseDeployStatus(productName string, production bool, request *HelmDe
 		})
 	}
 
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
+	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(clusterID)
 	if err != nil {
 		return nil, e.ErrGetResourceDeployInfo.AddErr(err)
 	}
@@ -1264,7 +1263,7 @@ func ListPodsInfo(projectName, envName string, production bool, log *zap.Sugared
 		return nil, e.ErrListPod.AddErr(fmt.Errorf("failed to get product info, err: %s", err))
 	}
 
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), productInfo.ClusterID)
+	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(productInfo.ClusterID)
 	if err != nil {
 		return res, e.ErrListPod.AddErr(err)
 	}
@@ -1310,7 +1309,7 @@ func GetPodDetailInfo(projectName, envName, podName string, production bool, log
 		return nil, e.ErrGetPodDetail.AddErr(fmt.Errorf("failed to get product info, err: %s", err))
 	}
 
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), productInfo.ClusterID)
+	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(productInfo.ClusterID)
 	if err != nil {
 		return nil, e.ErrGetPodDetail.AddErr(err)
 	}

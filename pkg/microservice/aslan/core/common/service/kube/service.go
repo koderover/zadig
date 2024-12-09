@@ -33,7 +33,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
@@ -50,6 +49,7 @@ import (
 	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
 	"github.com/koderover/zadig/v2/pkg/tool/crypto"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
+	"github.com/koderover/zadig/v2/pkg/tool/kube/clientmanager"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/informer"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/multicluster"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
@@ -62,11 +62,6 @@ func GetKubeAPIReader(clusterID string) (client.Reader, error) {
 
 func GetRESTConfig(clusterID string) (*rest.Config, error) {
 	return kubeclient.GetRESTConfig(config.HubServerAddress(), clusterID)
-}
-
-// GetClientset returns a client to interact with APIServer which implements kubernetes.Interface
-func GetClientset(clusterID string) (kubernetes.Interface, error) {
-	return kubeclient.GetClientset(config.HubServerAddress(), clusterID)
 }
 
 type Service struct {
@@ -139,7 +134,7 @@ func (s *Service) CreateCluster(cluster *models.K8SCluster, id string, logger *z
 		// resource: Namespace: koderover-agent | Service: dind | StatefulSet: dind
 		if cluster.AdvancedConfig != nil && cluster.AdvancedConfig.ScheduleWorkflow {
 			// since we will always be able to connect with direct connection
-			err := InitializeExternalCluster(config.HubServerAddress(), cluster.ID.Hex())
+			err := InitializeExternalCluster(cluster.ID.Hex())
 			if err != nil {
 				return nil, err
 			}
@@ -218,16 +213,6 @@ func (s *Service) DeleteCluster(user string, id string, logger *zap.SugaredLogge
 	//clusterInfo, err := s.coll.Get(id)
 	//if err != nil {
 	//	return e.ErrDeleteCluster.AddErr(e.ErrClusterNotFound.AddDesc(id))
-	//}
-
-	// Now we only clear the cluster resources when the cluster is using a kubeconfig
-	// This logic is required if the cluster need to be re-applied to Zadig.
-	// 2023-12-06 this logic is removed. Cluster resource under koderover-agent ns is no longer maintained
-	//if clusterInfo.Type == setting.KubeConfigClusterType {
-	//	err = RemoveClusterResources(config.HubServerAddress(), id)
-	//	if err != nil {
-	//		return e.ErrDeleteCluster.AddDesc(err.Error())
-	//	}
 	//}
 
 	err := s.coll.Delete(id)
@@ -450,8 +435,8 @@ func getDindCfg(cluster *models.K8SCluster) (replicas int, limitsCPU, limitsMemo
 // Namespace: koderover-agent
 // Service: dind
 // StatefulSet: dind
-func InitializeExternalCluster(hubserverAddr, clusterID string) error {
-	clientset, err := kubeclient.GetKubeClientSet(hubserverAddr, clusterID)
+func InitializeExternalCluster(clusterID string) error {
+	clientset, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(clusterID)
 	if err != nil {
 		return err
 	}
@@ -632,31 +617,6 @@ func InitializeExternalCluster(hubserverAddr, clusterID string) error {
 	_, err = clientset.CoreV1().Services("koderover-agent").Create(context.TODO(), dindService, metav1.CreateOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to create dind service to initialize cluster, err: %s", err)
-	}
-
-	return nil
-}
-
-// RemoveClusterResources Removes all the resources in the koderover-agent namespace along with the namespace itself
-func RemoveClusterResources(hubserverAddr, clusterID string) error {
-	clientset, err := kubeclient.GetKubeClientSet(hubserverAddr, clusterID)
-	if err != nil {
-		return err
-	}
-
-	err = clientset.CoreV1().Services("koderover-agent").Delete(context.TODO(), "dind", metav1.DeleteOptions{})
-	if err != nil {
-		log.Errorf("failed to delete dind service, err: %s", err)
-	}
-
-	err = clientset.AppsV1().StatefulSets("koderover-agent").Delete(context.TODO(), "dind", metav1.DeleteOptions{})
-	if err != nil {
-		log.Errorf("failed to delete dind statefulset, err: %s", err)
-	}
-
-	err = clientset.CoreV1().Namespaces().Delete(context.TODO(), "koderover-agent", metav1.DeleteOptions{})
-	if err != nil {
-		log.Errorf("failed to delete koderover-agent ns, err: %s", err)
 	}
 
 	return nil

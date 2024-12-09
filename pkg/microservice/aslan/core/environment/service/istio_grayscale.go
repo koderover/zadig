@@ -33,6 +33,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/setting"
 	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
+	"github.com/koderover/zadig/v2/pkg/tool/kube/clientmanager"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/util/boolptr"
 )
@@ -50,7 +51,7 @@ func EnableIstioGrayscale(ctx context.Context, envName, productName string) erro
 	ns := prod.Namespace
 	clusterID := prod.ClusterID
 
-	kclient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
+	kclient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(clusterID)
 	if err != nil {
 		return e.ErrEnableIstioGrayscale.AddErr(fmt.Errorf("failed to get kube client: %s", err))
 	}
@@ -105,7 +106,7 @@ func DisableIstioGrayscale(ctx context.Context, envName, productName string) err
 	ns := prod.Namespace
 	clusterID := prod.ClusterID
 
-	kclient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
+	kclient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(clusterID)
 	if err != nil {
 		return e.ErrDisableIstioGrayscale.AddErr(fmt.Errorf("failed to get kube client: %s", err))
 	}
@@ -175,7 +176,7 @@ func CheckIstioGrayscaleReady(ctx context.Context, envName, op, productName stri
 	ns := prod.Namespace
 	clusterID := prod.ClusterID
 
-	kclient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
+	kclient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(clusterID)
 	if err != nil {
 		return nil, e.ErrCheckIstioGrayscale.AddErr(fmt.Errorf("failed to get kube client: %s", err))
 	}
@@ -257,7 +258,7 @@ func GetIstioGrayscalePortalService(ctx context.Context, productName, envName, s
 	ns := env.Namespace
 	clusterID := env.ClusterID
 
-	kclient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
+	kclient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(clusterID)
 	if err != nil {
 		return resp, e.ErrGetIstioGrayscalePortalService.AddErr(fmt.Errorf("failed to get kube client: %s", err))
 	}
@@ -304,7 +305,7 @@ func SetupIstioGrayscalePortalService(ctx context.Context, productName, envName,
 	ns := env.Namespace
 	clusterID := env.ClusterID
 
-	kclient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
+	kclient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(clusterID)
 	if err != nil {
 		return e.ErrSetupIstioGrayscalePortalService.AddErr(fmt.Errorf("failed to get kube client: %s", err))
 	}

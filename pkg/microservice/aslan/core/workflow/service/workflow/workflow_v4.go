@@ -70,10 +70,10 @@ import (
 	"github.com/koderover/zadig/v2/pkg/shared/client/plutusvendor"
 	"github.com/koderover/zadig/v2/pkg/shared/client/user"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
-	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	helmtool "github.com/koderover/zadig/v2/pkg/tool/helmclient"
 	"github.com/koderover/zadig/v2/pkg/tool/jenkins"
+	"github.com/koderover/zadig/v2/pkg/tool/kube/clientmanager"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/serializer"
 	"github.com/koderover/zadig/v2/pkg/tool/lark"
@@ -2725,7 +2725,7 @@ func GetMseOfflineResources(grayTag, envName, projectName string) ([]string, err
 	if err != nil {
 		return nil, errors.Errorf("failed to find product %s: %v", projectName, err)
 	}
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), prod.ClusterID)
+	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(prod.ClusterID)
 	if err != nil {
 		return nil, err
 	}
@@ -2805,7 +2805,7 @@ func GetMseTagsInEnv(envName, projectName string) ([]string, error) {
 	if err != nil {
 		return nil, errors.Errorf("failed to find product %s: %v", projectName, err)
 	}
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), prod.ClusterID)
+	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(prod.ClusterID)
 	if err != nil {
 		return nil, err
 	}

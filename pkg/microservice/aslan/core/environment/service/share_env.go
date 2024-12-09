@@ -44,6 +44,7 @@ import (
 	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	helmtool "github.com/koderover/zadig/v2/pkg/tool/helmclient"
+	"github.com/koderover/zadig/v2/pkg/tool/kube/clientmanager"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/util"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	zadigtypes "github.com/koderover/zadig/v2/pkg/types"
@@ -72,7 +73,7 @@ func CheckWorkloadsK8sServices(ctx context.Context, envName, productName string,
 	ns := prod.Namespace
 	clusterID := prod.ClusterID
 
-	kclient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
+	kclient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(clusterID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get kube client: %s", err)
 	}
@@ -93,7 +94,7 @@ func EnableBaseEnv(ctx context.Context, envName, productName string) error {
 	ns := prod.Namespace
 	clusterID := prod.ClusterID
 
-	kclient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
+	kclient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(clusterID)
 	if err != nil {
 		return fmt.Errorf("failed to get kube client: %s", err)
 	}
@@ -149,7 +150,7 @@ func DisableBaseEnv(ctx context.Context, envName, productName string) error {
 	ns := prod.Namespace
 	clusterID := prod.ClusterID
 
-	kclient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
+	kclient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(clusterID)
 	if err != nil {
 		return fmt.Errorf("failed to get kube client: %s", err)
 	}
@@ -214,7 +215,7 @@ func CheckShareEnvReady(ctx context.Context, envName, op, productName string) (*
 	ns := prod.Namespace
 	clusterID := prod.ClusterID
 
-	kclient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
+	kclient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(clusterID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get kube client: %s", err)
 	}
@@ -744,7 +745,7 @@ func GetPortalService(ctx context.Context, productName, envName, serviceName str
 	ns := env.Namespace
 	clusterID := env.ClusterID
 
-	kclient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
+	kclient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(clusterID)
 	if err != nil {
 		return resp, e.ErrGetPortalService.AddErr(fmt.Errorf("failed to get kube client: %s", err))
 	}
@@ -845,7 +846,7 @@ func SetupPortalService(ctx context.Context, productName, envName, serviceName s
 	ns := env.Namespace
 	clusterID := env.ClusterID
 
-	kclient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
+	kclient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(clusterID)
 	if err != nil {
 		return e.ErrSetupPortalService.AddErr(fmt.Errorf("failed to get kube client: %s", err))
 	}

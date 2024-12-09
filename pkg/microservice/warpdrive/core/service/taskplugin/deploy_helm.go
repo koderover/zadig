@@ -44,6 +44,7 @@ import (
 	helmtool "github.com/koderover/zadig/v2/pkg/tool/helmclient"
 	"github.com/koderover/zadig/v2/pkg/tool/httpclient"
 	krkubeclient "github.com/koderover/zadig/v2/pkg/tool/kube/client"
+	"github.com/koderover/zadig/v2/pkg/tool/kube/clientmanager"
 	s3tool "github.com/koderover/zadig/v2/pkg/tool/s3"
 	fsutil "github.com/koderover/zadig/v2/pkg/util/fs"
 )
@@ -125,7 +126,7 @@ func (p *HelmDeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task,
 			return
 		}
 
-		p.kubeClient, err = kubeclient.GetKubeClient(pipelineTask.ConfigPayload.HubServerAddr, pipelineTask.ConfigPayload.DeployClusterID)
+		p.kubeClient, err = clientmanager.NewKubeClientManager().GetControllerRuntimeClient(pipelineTask.ConfigPayload.DeployClusterID)
 		if err != nil {
 			err = errors.WithMessage(err, "can't init k8s client")
 			return

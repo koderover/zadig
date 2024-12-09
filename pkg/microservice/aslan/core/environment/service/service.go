@@ -36,10 +36,10 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/repository"
 	commontypes "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/types"
 	"github.com/koderover/zadig/v2/pkg/setting"
-	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
 	internalresource "github.com/koderover/zadig/v2/pkg/shared/kube/resource"
 	"github.com/koderover/zadig/v2/pkg/shared/kube/wrapper"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
+	"github.com/koderover/zadig/v2/pkg/tool/kube/clientmanager"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/informer"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/serializer"
@@ -63,7 +63,7 @@ func Scale(args *ScaleArgs, logger *zap.SugaredLogger) error {
 		return e.ErrScaleService.AddErr(fmt.Errorf("environment is sleeping"))
 	}
 
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), prod.ClusterID)
+	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(prod.ClusterID)
 	if err != nil {
 		return e.ErrScaleService.AddErr(err)
 	}
@@ -113,7 +113,7 @@ func RestartScale(args *RestartScaleArgs, production bool, _ *zap.SugaredLogger)
 		return e.ErrScaleService.AddErr(fmt.Errorf("environment is sleeping"))
 	}
 
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), prod.ClusterID)
+	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(prod.ClusterID)
 	if err != nil {
 		return err
 	}
@@ -156,12 +156,12 @@ func GetService(envName, productName, serviceName string, production bool, workL
 		return nil, e.ErrGetService.AddErr(err)
 	}
 
-	clientset, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), env.ClusterID)
+	clientset, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(env.ClusterID)
 	if err != nil {
 		log.Errorf("Failed to create kubernetes clientset for cluster id: %s, the error is: %s", env.ClusterID, err)
 		return nil, e.ErrGetService.AddErr(err)
 	}
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), env.ClusterID)
+	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(env.ClusterID)
 	if err != nil {
 		return nil, e.ErrGetService.AddErr(err)
 	}
@@ -436,7 +436,7 @@ func RestartService(envName string, args *SvcOptArgs, production bool, log *zap.
 		return e.ErrScaleService.AddErr(fmt.Errorf("environment is sleeping"))
 	}
 
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), productObj.ClusterID)
+	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(productObj.ClusterID)
 	if err != nil {
 		return err
 	}

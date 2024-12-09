@@ -40,6 +40,7 @@ import (
 	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
 	"github.com/koderover/zadig/v2/pkg/tool/httpclient"
 	"github.com/koderover/zadig/v2/pkg/tool/kodo"
+	"github.com/koderover/zadig/v2/pkg/tool/kube/clientmanager"
 )
 
 func int32Ptr(i int32) *int32 { return &i }
@@ -238,12 +239,12 @@ func ToExtensionTask(sb map[string]interface{}) (*task.Extension, error) {
 }
 
 func GetK8sClients(hubServerAddr, clusterID string) (crClient.Client, kubernetes.Interface, *rest.Config, crClient.Reader, error) {
-	controllerRuntimeClient, err := kubeclient.GetKubeClient(hubServerAddr, clusterID)
+	controllerRuntimeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(clusterID)
 	if err != nil {
 		return nil, nil, nil, nil, fmt.Errorf("failed to get controller runtime client: %s", err)
 	}
 
-	clientset, err := kubeclient.GetKubeClientSet(hubServerAddr, clusterID)
+	clientset, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(clusterID)
 	if err != nil {
 		return nil, nil, nil, nil, fmt.Errorf("failed to get clientset: %s", err)
 	}

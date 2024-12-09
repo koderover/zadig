@@ -34,7 +34,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/repository/models"
 	systemmongodb "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/setting"
-	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
+	"github.com/koderover/zadig/v2/pkg/tool/kube/clientmanager"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
@@ -79,7 +79,7 @@ func (c *OfflineServiceJobCtl) Run(ctx context.Context) {
 	}
 	c.jobTaskSpec.Namespace = env.Namespace
 
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), env.ClusterID)
+	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(env.ClusterID)
 	if err != nil {
 		c.job.Error = fmt.Sprintf("get kube client error: %v", err)
 		c.job.Status = config.StatusFailed

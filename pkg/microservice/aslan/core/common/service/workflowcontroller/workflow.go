@@ -44,6 +44,7 @@ import (
 	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
 	"github.com/koderover/zadig/v2/pkg/tool/cache"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
+	"github.com/koderover/zadig/v2/pkg/tool/kube/clientmanager"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/podexec"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/updater"
@@ -307,12 +308,12 @@ FOR:
 		return e.ErrSetBreakpoint.AddDesc("修改断点意外失败: convert job task spec")
 	}
 
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), jobTaskSpec.Properties.ClusterID)
+	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(jobTaskSpec.Properties.ClusterID)
 	if err != nil {
 		log.Errorf("set workflowTaskV4 breakpoint failed: get kube client error: %s", err)
 		return e.ErrSetBreakpoint.AddDesc("修改断点意外失败: get kube client")
 	}
-	clientSet, err := kubeclient.GetClientset(config.HubServerAddress(), jobTaskSpec.Properties.ClusterID)
+	clientSet, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(jobTaskSpec.Properties.ClusterID)
 	if err != nil {
 		log.Errorf("set workflowTaskV4 breakpoint failed: get kube client set error: %s", err)
 		return e.ErrSetBreakpoint.AddDesc("修改断点意外失败: get kube client set")
@@ -443,12 +444,12 @@ FOR:
 		return e.ErrStopDebugShell.AddDesc("结束调试意外失败")
 	}
 
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), jobTaskSpec.Properties.ClusterID)
+	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(jobTaskSpec.Properties.ClusterID)
 	if err != nil {
 		logger.Errorf("stop workflowTaskV4 debug shell failed: get kube client error: %s", err)
 		return e.ErrSetBreakpoint.AddDesc("结束调试意外失败: get kube client")
 	}
-	clientSet, err := kubeclient.GetClientset(config.HubServerAddress(), jobTaskSpec.Properties.ClusterID)
+	clientSet, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(jobTaskSpec.Properties.ClusterID)
 	if err != nil {
 		logger.Errorf("stop workflowTaskV4 debug shell failed: get kube client set error: %s", err)
 		return e.ErrSetBreakpoint.AddDesc("结束调试意外失败: get kube client set")
@@ -607,7 +608,7 @@ func (c *workflowCtl) CleanShareStorage() {
 		if clusterID == setting.LocalClusterID || clusterID == "" {
 			namespace = config.Namespace()
 		}
-		kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
+		kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(clusterID)
 		if err != nil {
 			c.logger.Errorf("can't init k8s client: %v", err)
 			continue

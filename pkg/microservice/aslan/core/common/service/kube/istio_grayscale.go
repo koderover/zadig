@@ -40,6 +40,7 @@ import (
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
+	"github.com/koderover/zadig/v2/pkg/tool/kube/clientmanager"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	zadigtypes "github.com/koderover/zadig/v2/pkg/types"
 	"github.com/koderover/zadig/v2/pkg/util/boolptr"
@@ -97,7 +98,7 @@ func SetIstioGrayscaleWeight(ctx context.Context, envMap map[string]*commonmodel
 		ns := env.Namespace
 		clusterID := env.ClusterID
 
-		kclient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
+		kclient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(clusterID)
 		if err != nil {
 			return fmt.Errorf("failed to get kube client: %s", err)
 		}
@@ -169,7 +170,7 @@ func SetIstioGrayscaleHeaderMatch(ctx context.Context, envMap map[string]*common
 		}
 		baseNs := envMap[baseEnvName].Namespace
 
-		kclient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
+		kclient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(clusterID)
 		if err != nil {
 			return fmt.Errorf("failed to get kube client: %s", err)
 		}

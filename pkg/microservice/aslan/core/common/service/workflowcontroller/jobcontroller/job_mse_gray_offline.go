@@ -36,6 +36,7 @@ import (
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
+	"github.com/koderover/zadig/v2/pkg/tool/kube/clientmanager"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/informer"
 	"github.com/koderover/zadig/v2/pkg/types"
@@ -94,13 +95,13 @@ func (c *MseGrayOfflineJobCtl) Run(ctx context.Context) {
 		return
 	}
 
-	c.kubeClient, err = kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
+	c.kubeClient, err = clientmanager.NewKubeClientManager().GetControllerRuntimeClient(clusterID)
 	if err != nil {
 		msg := fmt.Sprintf("can't init k8s client: %v", err)
 		logError(c.job, msg, c.logger)
 		return
 	}
-	c.clientSet, err = kubeclient.GetKubeClientSet(config.HubServerAddress(), clusterID)
+	c.clientSet, err = clientmanager.NewKubeClientManager().GetKubernetesClientSet(clusterID)
 	if err != nil {
 		msg := fmt.Sprintf("can't init k8s clientset: %v", err)
 		logError(c.job, msg, c.logger)

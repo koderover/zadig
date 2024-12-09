@@ -53,6 +53,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/shared/kube/resource"
 	"github.com/koderover/zadig/v2/pkg/shared/kube/wrapper"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
+	"github.com/koderover/zadig/v2/pkg/tool/kube/clientmanager"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/informer"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/serializer"
@@ -164,7 +165,7 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 	newProductSvc.GetServiceRender().OverrideYaml.RenderVariableKVs = args.ServiceRev.VariableKVs
 	newProductSvc.GetServiceRender().OverrideYaml.YamlContent = args.ServiceRev.VariableYaml
 
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), prodinfo.ClusterID)
+	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(prodinfo.ClusterID)
 	if err != nil {
 		return e.ErrUpdateEnv.AddErr(err)
 	}
@@ -179,7 +180,7 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 		return e.ErrUpdateEnv.AddErr(err)
 	}
 
-	cls, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), prodinfo.ClusterID)
+	cls, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(prodinfo.ClusterID)
 	if err != nil {
 		return e.ErrUpdateEnv.AddDesc(err.Error())
 	}
@@ -323,7 +324,7 @@ func (k *K8sService) listGroupServices(allServices []*commonmodels.ProductServic
 	var resp []*commonservice.ServiceResp
 	var mutex sync.RWMutex
 
-	cls, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), productInfo.ClusterID)
+	cls, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(productInfo.ClusterID)
 	if err != nil {
 		log.Errorf("failed to init client set, err: %s", err)
 		return nil
@@ -460,7 +461,7 @@ func (k *K8sService) listGroupServices(allServices []*commonmodels.ProductServic
 func (k *K8sService) GetGroupService(service *commonmodels.ProductService, string, informer informers.SharedInformerFactory, productInfo *commonmodels.Product) *commonservice.ServiceResp {
 	envName := productInfo.EnvName
 
-	cls, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), productInfo.ClusterID)
+	cls, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(productInfo.ClusterID)
 	if err != nil {
 		log.Errorf("failed to init client set, err: %s", err)
 		return nil

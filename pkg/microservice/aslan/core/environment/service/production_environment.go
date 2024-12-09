@@ -34,6 +34,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/setting"
 	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
+	"github.com/koderover/zadig/v2/pkg/tool/kube/clientmanager"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/informer"
 	"github.com/koderover/zadig/v2/pkg/util"
 )
@@ -113,7 +114,7 @@ func DeleteProductionProduct(username, envName, productName, requestID string, l
 		ctx := context.TODO()
 		clusterID := productInfo.ClusterID
 
-		kclient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
+		kclient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(clusterID)
 		if err != nil {
 			return fmt.Errorf("failed to get kube client: %s", err)
 		}

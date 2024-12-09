@@ -38,6 +38,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/shared/kube/wrapper"
 	"github.com/koderover/zadig/v2/pkg/tool/cache"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
+	"github.com/koderover/zadig/v2/pkg/tool/kube/clientmanager"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/podexec"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
@@ -261,7 +262,7 @@ func GetOrCreateCleanCacheState() (*commonmodels.DindClean, error) {
 }
 
 func dockerPrune(clusterID, namespace, podName string, logger *zap.SugaredLogger) (string, error) {
-	kclient, err := kubeclient.GetClientset(config.HubServerAddress(), clusterID)
+	kclient, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(clusterID)
 	if err != nil {
 		return "", fmt.Errorf("failed to get clientset for cluster %q: %s", clusterID, err)
 	}
@@ -332,7 +333,7 @@ func getDindPods() ([]types.DindPod, error) {
 }
 
 func getDindPodsInCluster(clusterID, ns string) ([]*corev1.Pod, error) {
-	kclient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
+	kclient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(clusterID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get kube client for cluster %q: %s", clusterID, err)
 	}

@@ -43,6 +43,7 @@ import (
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/gerrit"
 	"github.com/koderover/zadig/v2/pkg/tool/gitee"
+	"github.com/koderover/zadig/v2/pkg/tool/kube/clientmanager"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/types"
@@ -677,7 +678,7 @@ func getImageInfoFromWorkload(envName, productName, serviceName, container strin
 		return "", err
 	}
 
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), product.ClusterID)
+	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(product.ClusterID)
 	if err != nil {
 		return "", err
 	}
@@ -686,7 +687,7 @@ func getImageInfoFromWorkload(envName, productName, serviceName, container strin
 		return findCurrentlyUsingImage(product, serviceName, container)
 	}
 
-	clientset, err := kubeclient.GetClientset(config.HubServerAddress(), product.ClusterID)
+	clientset, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(product.ClusterID)
 	if err != nil {
 		log.Errorf("get client set error: %v", err)
 		return "", err

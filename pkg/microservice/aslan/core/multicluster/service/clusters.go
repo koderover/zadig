@@ -52,6 +52,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/setting"
 	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
+	"github.com/koderover/zadig/v2/pkg/tool/kube/clientmanager"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/serializer"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/updater"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
@@ -763,14 +764,14 @@ func UpgradeAgent(id string, logger *zap.SugaredLogger) error {
 		return fmt.Errorf("cluster %s status %s not support Upgrade Agent", clusterInfo.Name, clusterInfo.Status)
 	}
 
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), id)
+	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(id)
 	if err != nil {
 		return fmt.Errorf("failed to get kube client: %s cluster: %s", err, clusterInfo.Name)
 	}
 
 	// Upgrade local cluster.
 	if id == setting.LocalClusterID {
-		clientset, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), id)
+		clientset, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(id)
 		if err != nil {
 			return err
 		}
@@ -1181,7 +1182,7 @@ func UpgradeDind(kclient client.Client, cluster *commonmodels.K8SCluster, ns str
 }
 
 func createDynamicPVC(clusterID, prefix string, nfsProperties *types.NFSProperties, logger *zap.SugaredLogger) error {
-	kclient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
+	kclient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(clusterID)
 	if err != nil {
 		return fmt.Errorf("failed to get kube client: %s", err)
 	}

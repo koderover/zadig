@@ -109,29 +109,6 @@ func GetKubeMetricsClientFromKubeConfig(clusterID, kubeConfig string) (*v1beta1.
 	return v1beta1.NewForConfig(cfg)
 }
 
-func GetDynamicKubeclient(hubServerAddr, clusterID string) (dynamic.Interface, error) {
-	if clusterID == "" {
-		return krkubeclient.NewDynamicClient()
-	}
-
-	clusterService, err := NewAgent(hubServerAddr)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get clusterService: %v", err)
-	}
-
-	return clusterService.GetDynamicKubeClient(clusterID)
-}
-
-func GetDynamicKubeclientFromKubeConfig(clusterID, kubeConfig string) (dynamic.Interface, error) {
-	cfg, err := GetRestConfigFromKubeConfig(clusterID, kubeConfig)
-	if err != nil {
-		log.Errorf("failed to get kubeconfig from file, error: %s", err)
-		return nil, err
-	}
-
-	return dynamic.NewForConfig(cfg)
-}
-
 func GetIstioV1Alpha3Client(hubServerAddr, clusterID string) (*v1alpha3.NetworkingV1alpha3Client, error) {
 	if clusterID == "" {
 		return krkubeclient.NewIstioV1Alpha3Client()

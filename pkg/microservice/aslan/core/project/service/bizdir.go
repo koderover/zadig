@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
@@ -31,9 +30,9 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/repository"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/setting"
-	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	helmtool "github.com/koderover/zadig/v2/pkg/tool/helmclient"
+	"github.com/koderover/zadig/v2/pkg/tool/kube/clientmanager"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/informer"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"helm.sh/helm/v3/pkg/action"
@@ -358,7 +357,7 @@ func GetBizDirServiceDetail(projectName, serviceName string) ([]GetBizDirService
 				continue
 			}
 
-			cls, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), env.ClusterID)
+			cls, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(env.ClusterID)
 			if err != nil {
 				detail.Error = err.Error()
 				log.Warnf("[BIZDIR] failed to get service status & image info due to kube client creation, err: %s", err)

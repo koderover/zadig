@@ -36,6 +36,7 @@ import (
 	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	helmtool "github.com/koderover/zadig/v2/pkg/tool/helmclient"
+	"github.com/koderover/zadig/v2/pkg/tool/kube/clientmanager"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/informer"
 	mongotool "github.com/koderover/zadig/v2/pkg/tool/mongo"
 )
@@ -190,7 +191,7 @@ func RollbackEnvServiceVersion(ctx *internalhandler.Context, projectName, envNam
 	defer session.EndSession(context.Background())
 
 	if envSvcVersion.Service.Type == setting.K8SDeployType {
-		kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), env.ClusterID)
+		kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(env.ClusterID)
 		if err != nil {
 			return e.ErrRollbackEnvServiceVersion.AddErr(err)
 		}
@@ -205,7 +206,7 @@ func RollbackEnvServiceVersion(ctx *internalhandler.Context, projectName, envNam
 			return e.ErrRollbackEnvServiceVersion.AddErr(err)
 		}
 
-		cls, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), env.ClusterID)
+		cls, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(env.ClusterID)
 		if err != nil {
 			log.Errorf("[%s][%s] error: %v", envName, env.Namespace, err)
 			return e.ErrRollbackEnvServiceVersion.AddDesc(err.Error())

@@ -26,7 +26,7 @@ import (
 	helmclient "github.com/mittwald/go-helm-client"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
-	yaml "gopkg.in/yaml.v3"
+	"gopkg.in/yaml.v3"
 	"helm.sh/helm/v3/pkg/releaseutil"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
@@ -49,6 +49,7 @@ import (
 	helmtool "github.com/koderover/zadig/v2/pkg/tool/helmclient"
 	"github.com/koderover/zadig/v2/pkg/tool/httpclient"
 	krkubeclient "github.com/koderover/zadig/v2/pkg/tool/kube/client"
+	"github.com/koderover/zadig/v2/pkg/tool/kube/clientmanager"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/label"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/updater"
@@ -61,7 +62,8 @@ func InitializeReleaseImagePlugin(taskType config.TaskType) TaskPlugin {
 	return &ReleaseImagePlugin{
 		Name:       taskType,
 		kubeClient: krkubeclient.Client(),
-		clientset:  krkubeclient.Clientset(),
+		// TODO: ↓ remove the whole warpdrive, this is destructive change.
+		//clientset:  krkubeclient.Clientset(),
 		restConfig: krkubeclient.RESTConfig(),
 		httpClient: httpclient.New(
 			httpclient.SetHostURL(configbase.AslanServiceAddress()),
@@ -77,7 +79,7 @@ type ReleaseImagePlugin struct {
 	JobName       string
 	FileName      string
 	kubeClient    client.Client
-	clientset     kubernetes.Interface
+	clientset     *kubernetes.Clientset
 	restConfig    *rest.Config
 	Task          *task.ReleaseImage
 	Log           *zap.SugaredLogger
@@ -298,14 +300,14 @@ DistributeLoop:
 				distribute.DeployEndTime = time.Now().Unix()
 				continue
 			}
-			p.kubeClient, err = kubeclient.GetKubeClient(p.HubServerAddr, distribute.DeployClusterID)
+			p.kubeClient, err = clientmanager.NewKubeClientManager().GetControllerRuntimeClient(distribute.DeployClusterID)
 			if err != nil {
 				err = errors.WithMessage(err, "can't init k8s client")
 				distribute.DeployStatus = string(config.StatusFailed)
 				distribute.DeployEndTime = time.Now().Unix()
 				continue
 			}
-			p.clientset, err = kubeclient.GetClientset(p.HubServerAddr, distribute.DeployClusterID)
+			p.clientset, err = clientmanager.NewKubeClientManager().GetKubernetesClientSet(distribute.DeployClusterID)
 			if err != nil {
 				err = errors.WithMessage(err, "can't init k8s clientset")
 				distribute.DeployStatus = string(config.StatusFailed)

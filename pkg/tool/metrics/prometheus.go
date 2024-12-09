@@ -14,9 +14,8 @@ import (
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/v2/pkg/setting"
-	"github.com/koderover/zadig/v2/pkg/shared/kube/client"
-	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
 	"github.com/koderover/zadig/v2/pkg/shared/kube/wrapper"
+	"github.com/koderover/zadig/v2/pkg/tool/kube/clientmanager"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/getter"
 )
 
@@ -176,7 +175,7 @@ func UpdatePodMetrics() error {
 	MemoryPercentage.Reset()
 	Healthy.Reset()
 
-	metricsClient, err := client.GetKubeMetricsClient(config.HubServerAddress(), setting.LocalClusterID)
+	metricsClient, err := clientmanager.NewKubeClientManager().GetKubernetesMetricsClient(setting.LocalClusterID)
 	if err != nil {
 		fmt.Printf("failed to get metrics client, err: %v\n", err)
 		return err
@@ -188,7 +187,7 @@ func UpdatePodMetrics() error {
 		return err
 	}
 
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), setting.LocalClusterID)
+	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(setting.LocalClusterID)
 	if err != nil {
 		return err
 	}

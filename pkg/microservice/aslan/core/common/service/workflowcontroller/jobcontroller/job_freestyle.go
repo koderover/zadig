@@ -24,7 +24,6 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
 	"k8s.io/client-go/informers"
@@ -40,9 +39,9 @@ import (
 	vmmongodb "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/vm"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/workflowcontroller/stepcontroller"
 	"github.com/koderover/zadig/v2/pkg/setting"
-	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
 	"github.com/koderover/zadig/v2/pkg/tool/dockerhost"
 	krkubeclient "github.com/koderover/zadig/v2/pkg/tool/kube/client"
+	"github.com/koderover/zadig/v2/pkg/tool/kube/clientmanager"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/informer"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/updater"
 	"github.com/koderover/zadig/v2/pkg/types/step"
@@ -245,7 +244,7 @@ func (c *FreestyleJobCtl) run(ctx context.Context) error {
 	}
 
 	// set informer when job and cm have been created
-	clientSet, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), c.jobTaskSpec.Properties.ClusterID)
+	clientSet, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(c.jobTaskSpec.Properties.ClusterID)
 	if err != nil {
 		return errors.Wrap(err, "get kube client set")
 	}

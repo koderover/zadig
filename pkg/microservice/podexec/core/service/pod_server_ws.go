@@ -32,6 +32,7 @@ import (
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
+	"github.com/koderover/zadig/v2/pkg/tool/kube/clientmanager"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
@@ -174,12 +175,12 @@ FOR:
 		_ = pty.Close()
 	}()
 
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), jobTaskSpec.Properties.ClusterID)
+	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(jobTaskSpec.Properties.ClusterID)
 	if err != nil {
 		log.Errorf("debug workflow failed: get kube client error: %s", err)
 		return e.ErrGetDebugShell.AddDesc("启动调试终端意外失败: get kube client")
 	}
-	clientSet, err := kubeclient.GetClientset(config.HubServerAddress(), jobTaskSpec.Properties.ClusterID)
+	clientSet, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(jobTaskSpec.Properties.ClusterID)
 	if err != nil {
 		log.Errorf("debug workflow failed: get kube client set error: %s", err)
 		return e.ErrGetDebugShell.AddDesc("启动调试终端意外失败: get kube client set")
