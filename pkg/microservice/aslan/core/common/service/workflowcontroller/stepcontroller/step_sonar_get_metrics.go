@@ -86,6 +86,12 @@ func (s *sonarGetMetricsCtl) AfterRun(ctx context.Context) error {
 	}
 
 	client := sonar.NewSonarClient(s.sonarGetMetricsSpec.SonarServer, s.sonarGetMetricsSpec.SonarToken)
+	analysisID, err := client.WaitForCETaskTobeDone(id, time.Minute*10)
+	if err != nil {
+		log.Error(err)
+		return err
+	}
+
 	resp, err := client.GetComponentMeasures(s.sonarGetMetricsSpec.ProjectKey, s.sonarGetMetricsSpec.Branch)
 	if err != nil {
 		err = fmt.Errorf("get component measures error: %v", err)
@@ -111,11 +117,6 @@ func (s *sonarGetMetricsCtl) AfterRun(ctx context.Context) error {
 	}
 
 	if s.sonarGetMetricsSpec.CheckQualityGate {
-		analysisID, err := client.WaitForCETaskTobeDone(id, time.Minute*10)
-		if err != nil {
-			log.Error(err)
-			return err
-		}
 		gateInfo, err := client.GetQualityGateInfo(analysisID)
 		if err != nil {
 			log.Error(err)
