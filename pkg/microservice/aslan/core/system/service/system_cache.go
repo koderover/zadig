@@ -25,6 +25,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -34,7 +35,6 @@ import (
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/setting"
-	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
 	"github.com/koderover/zadig/v2/pkg/shared/kube/wrapper"
 	"github.com/koderover/zadig/v2/pkg/tool/cache"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
@@ -263,17 +263,7 @@ func GetOrCreateCleanCacheState() (*commonmodels.DindClean, error) {
 }
 
 func dockerPrune(clusterID, namespace, podName string, logger *zap.SugaredLogger) (string, error) {
-	kclient, err := kubeclient.GetClientset(config.HubServerAddress(), clusterID)
-	if err != nil {
-		return "", fmt.Errorf("failed to get clientset for cluster %q: %s", clusterID, err)
-	}
-
-	restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), clusterID)
-	if err != nil {
-		return "", fmt.Errorf("failed to get rest config for cluster %q: %s", clusterID, err)
-	}
-
-	cleanInfo, errString, _, err := podexec.KubeExec(kclient, restConfig, podexec.ExecOptions{
+	cleanInfo, errString, _, err := podexec.KubeExec(clusterID, podexec.ExecOptions{
 		Command:   []string{"docker", "system", "prune", "--volumes", "-a", "-f"},
 		Namespace: namespace,
 		PodName:   podName,
@@ -334,7 +324,7 @@ func getDindPods() ([]types.DindPod, error) {
 }
 
 func getDindPodsInCluster(clusterID, ns string) ([]*corev1.Pod, error) {
-	kclient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
+	kclient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(clusterID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get kube client for cluster %q: %s", clusterID, err)
 	}

@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-multierror"
+	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	versionedclient "istio.io/client-go/pkg/clientset/versioned"
@@ -41,7 +42,6 @@ import (
 	"k8s.io/helm/pkg/releaseutil"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
@@ -417,7 +417,7 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 	kubeClient := applyParam.KubeClient
 	istioClient := applyParam.IstioClient
 
-	clientSet, errGetClientSet := kubeclient.GetKubeClientSet(config.HubServerAddress(), productInfo.ClusterID)
+	clientSet, errGetClientSet := clientmanager.NewKubeClientManager().GetKubernetesClientSet(productInfo.ClusterID)
 	if errGetClientSet != nil {
 		err = errors.WithMessagef(errGetClientSet, "failed to init k8s clientset")
 		return nil, err

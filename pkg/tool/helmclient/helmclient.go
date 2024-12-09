@@ -33,10 +33,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pkg/errors"
-
 	cm "github.com/chartmuseum/helm-push/pkg/chartmuseum"
 	hc "github.com/mittwald/go-helm-client"
+	"github.com/pkg/errors"
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chart"
 	"helm.sh/helm/v3/pkg/chart/loader"
@@ -61,8 +60,8 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
-	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
 	"github.com/koderover/zadig/v2/pkg/tool/cache"
+	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/updater"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/util"
@@ -121,12 +120,12 @@ func NewClient() (*HelmClient, error) {
 // NewClientFromNamespace returns a new Helm client constructed with the provided clusterID and namespace
 // a kubeClient will be initialized to support necessary k8s operations when install/upgrade helm charts
 func NewClientFromNamespace(clusterID, namespace string) (*HelmClient, error) {
-	restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), clusterID)
+	restConfig, err := clientmanager.NewKubeClientManager().GetRestConfig(clusterID)
 	if err != nil {
 		return nil, err
 	}
 
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
+	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(clusterID)
 	if err != nil {
 		return nil, err
 	}

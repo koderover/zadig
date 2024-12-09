@@ -33,8 +33,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 
@@ -47,26 +45,16 @@ import (
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	aslanClient "github.com/koderover/zadig/v2/pkg/shared/client/aslan"
-	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
+	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	"github.com/koderover/zadig/v2/pkg/tool/crypto"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
-	"github.com/koderover/zadig/v2/pkg/tool/kube/informer"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/multicluster"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/types"
 )
 
 func GetKubeAPIReader(clusterID string) (client.Reader, error) {
-	return kubeclient.GetKubeAPIReader(config.HubServerAddress(), clusterID)
-}
-
-func GetRESTConfig(clusterID string) (*rest.Config, error) {
-	return kubeclient.GetRESTConfig(config.HubServerAddress(), clusterID)
-}
-
-// GetClientset returns a client to interact with APIServer which implements kubernetes.Interface
-func GetClientset(clusterID string) (kubernetes.Interface, error) {
-	return kubeclient.GetClientset(config.HubServerAddress(), clusterID)
+	return clientmanager.NewKubeClientManager().GetControllerRuntimeAPIReader(clusterID)
 }
 
 type Service struct {
@@ -139,7 +127,7 @@ func (s *Service) CreateCluster(cluster *models.K8SCluster, id string, logger *z
 		// resource: Namespace: koderover-agent | Service: dind | StatefulSet: dind
 		if cluster.AdvancedConfig != nil && cluster.AdvancedConfig.ScheduleWorkflow {
 			// since we will always be able to connect with direct connection
-			err := InitializeExternalCluster(config.HubServerAddress(), cluster.ID.Hex())
+			err := InitializeExternalCluster(cluster.ID.Hex())
 			if err != nil {
 				return nil, err
 			}
@@ -175,11 +163,6 @@ func (s *Service) CreateCluster(cluster *models.K8SCluster, id string, logger *z
 }
 
 func (s *Service) UpdateCluster(id string, cluster *models.K8SCluster, logger *zap.SugaredLogger) (*models.K8SCluster, error) {
-	origCluster, err := s.coll.Get(id)
-	if err != nil {
-		return nil, e.ErrUpdateCluster.AddErr(e.ErrClusterNotFound.AddDesc(cluster.Name))
-	}
-
 	if existed, err := s.coll.HasDuplicateName(id, cluster.Name); existed || err != nil {
 		if err != nil {
 			logger.Warnf("failed to find duplicated name %v", err)
@@ -188,16 +171,10 @@ func (s *Service) UpdateCluster(id string, cluster *models.K8SCluster, logger *z
 		return nil, e.ErrUpdateCluster.AddDesc(e.DuplicateClusterNameFound)
 	}
 
-	if origCluster.Type == setting.KubeConfigClusterType && origCluster.KubeConfig != cluster.KubeConfig {
-		envs, err := mongodb.NewProductColl().List(&commonrepo.ProductListOptions{
-			ClusterID: id,
-		})
-		if err != nil {
-			return nil, e.ErrUpdateCluster.AddErr(fmt.Errorf("failed to list envs by clusterID %s, err %v", id, err))
-		}
-		for _, env := range envs {
-			informer.DeleteInformer(env.ClusterID, env.Namespace)
-		}
+	err := clientmanager.NewKubeClientManager().Clear(id)
+	if err != nil {
+		log.Errorf("failed to clear old cache, error: %s", err)
+		return nil, e.ErrUpdateCluster.AddDesc(fmt.Sprintf("failed to clear old cache, error: %s", err))
 	}
 
 	err = s.coll.UpdateMutableFields(cluster, id)
@@ -215,22 +192,12 @@ func (s *Service) UpdateCluster(id string, cluster *models.K8SCluster, logger *z
 }
 
 func (s *Service) DeleteCluster(user string, id string, logger *zap.SugaredLogger) error {
-	//clusterInfo, err := s.coll.Get(id)
-	//if err != nil {
-	//	return e.ErrDeleteCluster.AddErr(e.ErrClusterNotFound.AddDesc(id))
-	//}
+	err := clientmanager.NewKubeClientManager().Clear(id)
+	if err != nil {
+		log.Errorf("failed to clear old cache, error: %s", err)
+	}
 
-	// Now we only clear the cluster resources when the cluster is using a kubeconfig
-	// This logic is required if the cluster need to be re-applied to Zadig.
-	// 2023-12-06 this logic is removed. Cluster resource under koderover-agent ns is no longer maintained
-	//if clusterInfo.Type == setting.KubeConfigClusterType {
-	//	err = RemoveClusterResources(config.HubServerAddress(), id)
-	//	if err != nil {
-	//		return e.ErrDeleteCluster.AddDesc(err.Error())
-	//	}
-	//}
-
-	err := s.coll.Delete(id)
+	err = s.coll.Delete(id)
 	if err != nil {
 		logger.Errorf("failed to delete cluster by id %s %v", id, err)
 		return e.ErrDeleteCluster.AddErr(err)
@@ -450,8 +417,8 @@ func getDindCfg(cluster *models.K8SCluster) (replicas int, limitsCPU, limitsMemo
 // Namespace: koderover-agent
 // Service: dind
 // StatefulSet: dind
-func InitializeExternalCluster(hubserverAddr, clusterID string) error {
-	clientset, err := kubeclient.GetKubeClientSet(hubserverAddr, clusterID)
+func InitializeExternalCluster(clusterID string) error {
+	clientset, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(clusterID)
 	if err != nil {
 		return err
 	}
@@ -632,31 +599,6 @@ func InitializeExternalCluster(hubserverAddr, clusterID string) error {
 	_, err = clientset.CoreV1().Services("koderover-agent").Create(context.TODO(), dindService, metav1.CreateOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to create dind service to initialize cluster, err: %s", err)
-	}
-
-	return nil
-}
-
-// RemoveClusterResources Removes all the resources in the koderover-agent namespace along with the namespace itself
-func RemoveClusterResources(hubserverAddr, clusterID string) error {
-	clientset, err := kubeclient.GetKubeClientSet(hubserverAddr, clusterID)
-	if err != nil {
-		return err
-	}
-
-	err = clientset.CoreV1().Services("koderover-agent").Delete(context.TODO(), "dind", metav1.DeleteOptions{})
-	if err != nil {
-		log.Errorf("failed to delete dind service, err: %s", err)
-	}
-
-	err = clientset.AppsV1().StatefulSets("koderover-agent").Delete(context.TODO(), "dind", metav1.DeleteOptions{})
-	if err != nil {
-		log.Errorf("failed to delete dind statefulset, err: %s", err)
-	}
-
-	err = clientset.CoreV1().Namespaces().Delete(context.TODO(), "koderover-agent", metav1.DeleteOptions{})
-	if err != nil {
-		log.Errorf("failed to delete koderover-agent ns, err: %s", err)
 	}
 
 	return nil

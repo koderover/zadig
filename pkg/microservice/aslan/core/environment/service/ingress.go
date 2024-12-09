@@ -22,6 +22,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	"go.uber.org/zap"
 	extensionsv1beta1 "k8s.io/api/extensions/v1beta1"
 	v1 "k8s.io/api/networking/v1"
@@ -55,11 +56,11 @@ func ListIngresses(envName, productName string, production bool, log *zap.Sugare
 	if err != nil {
 		return nil, e.ErrListResources.AddErr(err)
 	}
-	kubeCli, err := kubeclient.GetKubeClient(config.HubServerAddress(), product.ClusterID)
+	kubeCli, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(product.ClusterID)
 	if err != nil {
 		return nil, e.ErrListResources.AddErr(err)
 	}
-	cliSet, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), product.ClusterID)
+	cliSet, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(product.ClusterID)
 	if err != nil {
 		return nil, e.ErrListResources.AddErr(err)
 	}
@@ -218,7 +219,7 @@ func UpdateOrCreateIngress(args *models.CreateUpdateCommonEnvCfgArgs, userName s
 		return e.ErrUpdateResource.AddErr(err)
 	}
 
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), product.ClusterID)
+	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(product.ClusterID)
 	if err != nil {
 		return e.ErrUpdateResource.AddErr(err)
 	}

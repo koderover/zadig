@@ -22,16 +22,16 @@ import (
 	"strings"
 
 	"github.com/hashicorp/go-multierror"
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
-	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
-	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
-	"github.com/koderover/zadig/v2/pkg/setting"
-	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
-	"github.com/koderover/zadig/v2/pkg/tool/kube/updater"
-	"github.com/koderover/zadig/v2/pkg/util"
+	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	"go.uber.org/zap"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+
+	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
+	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/v2/pkg/setting"
+	"github.com/koderover/zadig/v2/pkg/tool/kube/updater"
+	"github.com/koderover/zadig/v2/pkg/util"
 )
 
 const SplitSymbol = "&"
@@ -49,7 +49,7 @@ func FilterWorkloadsByEnv(exist []commonmodels.Workload, productName, env string
 func DeleteClusterResource(selector labels.Selector, clusterID string, log *zap.SugaredLogger) error {
 	log.Infof("Deleting cluster resources with selector: [%s]", selector)
 
-	clientset, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), clusterID)
+	clientset, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(clusterID)
 	if err != nil {
 		log.Errorf("failed to create kubernetes clientset for clusterID: %s, the error is: %s", clusterID, err)
 		return err
@@ -73,7 +73,7 @@ func DeleteClusterResource(selector labels.Selector, clusterID string, log *zap.
 func DeleteNamespacedResource(namespace string, selector labels.Selector, clusterID string, log *zap.SugaredLogger) error {
 	log.Infof("Deleting namespaced resources with selector: [%s] in namespace [%s]", selector, namespace)
 
-	clientset, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), clusterID)
+	clientset, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(clusterID)
 	if err != nil {
 		log.Errorf("failed to create kubernetes clientset for clusterID: %s, the error is: %s", clusterID, err)
 		return err
@@ -154,7 +154,7 @@ func DeleteNamespacedResource(namespace string, selector labels.Selector, cluste
 func DeleteNamespaceIfMatch(namespace string, selector labels.Selector, clusterID string, log *zap.SugaredLogger) error {
 	log.Infof("Checking if namespace [%s] has matching labels: [%s]", namespace, selector.String())
 
-	clientset, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), clusterID)
+	clientset, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(clusterID)
 	if err != nil {
 		log.Errorf("failed to create kubernetes clientset for clusterID: %s, the error is: %s", clusterID, err)
 		return err
@@ -176,12 +176,12 @@ func DeleteNamespaceIfMatch(namespace string, selector labels.Selector, clusterI
 func DeleteZadigLabelFromNamespace(namespace string, clusterID string, log *zap.SugaredLogger) error {
 	log.Infof("removing zadig label from namespace [%s]", namespace)
 
-	clientset, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), clusterID)
+	clientset, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(clusterID)
 	if err != nil {
 		log.Errorf("failed to create kubernetes clientset for clusterID: %s, the error is: %s", clusterID, err)
 		return err
 	}
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
+	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(clusterID)
 	if err != nil {
 		return err
 	}

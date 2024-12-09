@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
@@ -36,7 +37,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	fsservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/fs"
 	"github.com/koderover/zadig/v2/pkg/setting"
-	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/serializer"
@@ -94,11 +94,11 @@ func DeleteCommonEnvCfg(envName, productName, objectName string, commonEnvCfgTyp
 		return e.ErrDeleteResource.AddErr(err)
 	}
 
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), product.ClusterID)
+	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(product.ClusterID)
 	if err != nil {
 		return e.ErrDeleteResource.AddErr(err)
 	}
-	clientset, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), product.ClusterID)
+	clientset, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(product.ClusterID)
 	if err != nil {
 		log.Errorf("failed to create kubernetes clientset for clusterID: %s, the error is: %s", product.ClusterID, err)
 		return e.ErrDeleteResource.AddErr(err)
@@ -243,11 +243,11 @@ func CreateCommonEnvCfg(args *models.CreateUpdateCommonEnvCfgArgs, userName stri
 		return e.ErrUpdateResource.AddErr(err)
 	}
 
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), product.ClusterID)
+	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(product.ClusterID)
 	if err != nil {
 		return e.ErrUpdateResource.AddErr(err)
 	}
-	clientset, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), product.ClusterID)
+	clientset, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(product.ClusterID)
 	if err != nil {
 		log.Errorf("failed to create kubernetes clientset for clusterID: %s, the error is: %s", product.ClusterID, err)
 		return e.ErrUpdateResource.AddErr(err)
@@ -484,11 +484,11 @@ func ListEnvResourceHistory(args *ListCommonEnvCfgHistoryArgs, log *zap.SugaredL
 	if err != nil {
 		return nil, e.ErrListResources.AddErr(err)
 	}
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), product.ClusterID)
+	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(product.ClusterID)
 	if err != nil {
 		return nil, e.ErrListResources.AddErr(err)
 	}
-	clientset, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), product.ClusterID)
+	clientset, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(product.ClusterID)
 	if err != nil {
 		return nil, e.ErrListResources.AddErr(err)
 	}

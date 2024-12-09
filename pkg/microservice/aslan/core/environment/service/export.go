@@ -17,17 +17,16 @@ limitations under the License.
 package service
 
 import (
+	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	"go.uber.org/zap"
 	"helm.sh/helm/v3/pkg/releaseutil"
 	"k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/kube"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/setting"
-	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/serializer"
 )
@@ -49,13 +48,13 @@ func ExportYaml(envName, productName, serviceName, source string, production boo
 	}
 
 	namespace := env.Namespace
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), env.ClusterID)
+	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(env.ClusterID)
 	if err != nil {
 		log.Errorf("cluster is not connected [%s][%s][%s]", env.EnvName, env.ProductName, env.ClusterID)
 		return res
 	}
 
-	clientSet, err := kubeclient.GetClientset(config.HubServerAddress(), env.ClusterID)
+	clientSet, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(env.ClusterID)
 	if err != nil {
 		log.Errorf("failed to get clientset for cluster %s", env.ClusterID)
 		return res
