@@ -21,6 +21,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -28,14 +29,17 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/v2/pkg/setting"
-	krkubeclient "github.com/koderover/zadig/v2/pkg/tool/kube/client"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/updater"
 )
 
 func CleanJobCronJob(log *zap.SugaredLogger) {
-	kubeClient := krkubeclient.Client()
 	log.Infof("start clean job...")
+	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient("")
+	if err != nil {
+		log.Errorf("failed to create kubernetes client, error: %s", err)
+		return
+	}
 	workflowSelector := labels.Set{"p-type": "workflow"}.AsSelector()
 	singleSelector := labels.Set{"p-type": "single"}.AsSelector()
 	testSelector := labels.Set{"p-type": "test"}.AsSelector()
@@ -49,8 +53,12 @@ func CleanJobCronJob(log *zap.SugaredLogger) {
 }
 
 func CleanConfigmapCronJob(log *zap.SugaredLogger) {
-	kubeClient := krkubeclient.Client()
 	log.Infof("start clean configmap...")
+	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient("")
+	if err != nil {
+		log.Errorf("failed to create kubernetes client, error: %s", err)
+		return
+	}
 	workflowSelector := labels.Set{"p-type": "workflow"}.AsSelector()
 	singleSelector := labels.Set{"p-type": "single"}.AsSelector()
 	testSelector := labels.Set{"p-type": "test"}.AsSelector()

@@ -68,9 +68,9 @@ import (
 	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
 	"github.com/koderover/zadig/v2/pkg/tool/analysis"
 	"github.com/koderover/zadig/v2/pkg/tool/cache"
+	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	helmtool "github.com/koderover/zadig/v2/pkg/tool/helmclient"
-	"github.com/koderover/zadig/v2/pkg/tool/kube/informer"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/serializer"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/updater"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
@@ -668,28 +668,17 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]st
 		return
 	}
 
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), existedProd.ClusterID)
+	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(existedProd.ClusterID)
 	if err != nil {
 		return e.ErrUpdateEnv.AddErr(err)
 	}
 
-	restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), existedProd.ClusterID)
+	istioClient, err := clientmanager.NewKubeClientManager().GetIstioClientSet(existedProd.ClusterID)
 	if err != nil {
 		return e.ErrUpdateEnv.AddErr(err)
 	}
 
-	istioClient, err := versionedclient.NewForConfig(restConfig)
-	if err != nil {
-		return e.ErrUpdateEnv.AddErr(err)
-	}
-
-	cls, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), existedProd.ClusterID)
-	if err != nil {
-		log.Errorf("[%s][%s] error: %v", envName, namespace, err)
-		return e.ErrUpdateEnv.AddDesc(err.Error())
-
-	}
-	inf, err := informer.NewInformer(existedProd.ClusterID, namespace, cls)
+	inf, err := clientmanager.NewKubeClientManager().GetInformer(existedProd.ClusterID, namespace)
 	if err != nil {
 		log.Errorf("[%s][%s] error: %v", envName, namespace, err)
 		return e.ErrUpdateEnv.AddDesc(err.Error())
@@ -910,7 +899,7 @@ func UpdateProductRegistry(envName, productName, registryID string, production b
 		log.Errorf("UpdateProductRegistry UpdateRegistry by envName:%s registryID:%s error: %v", envName, registryID, err)
 		return e.ErrUpdateEnv.AddErr(err)
 	}
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), exitedProd.ClusterID)
+	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(exitedProd.ClusterID)
 	if err != nil {
 		return e.ErrUpdateEnv.AddErr(err)
 	}
@@ -1636,7 +1625,7 @@ func UpdateProductDefaultValues(productName, envName, userName, requestID string
 		return e.ErrUpdateEnv.AddErr(err)
 	}
 
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), product.ClusterID)
+	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(product.ClusterID)
 	if err != nil {
 		log.Errorf("UpdateHelmProductRenderset GetKubeClient error, error msg:%s", err)
 		return err
@@ -2093,7 +2082,7 @@ func DeleteProduct(username, envName, productName, requestID string, isDelete bo
 	}
 
 	// delete informer's cache
-	informer.DeleteInformer(productInfo.ClusterID, productInfo.Namespace)
+	clientmanager.NewKubeClientManager().DeleteInformer(productInfo.ClusterID, productInfo.Namespace)
 
 	envCMMap, err := collaboration.GetEnvCMMap([]string{productName}, log)
 	if err != nil {
@@ -2103,12 +2092,7 @@ func DeleteProduct(username, envName, productName, requestID string, isDelete bo
 		return fmt.Errorf("this is a base environment, collaborations:%v is related", cmSets.List())
 	}
 
-	restConfig, err := kube.GetRESTConfig(productInfo.ClusterID)
-	if err != nil {
-		return e.ErrDeleteEnv.AddErr(err)
-	}
-
-	istioClient, err := versionedclient.NewForConfig(restConfig)
+	istioClient, err := clientmanager.NewKubeClientManager().GetIstioClientSet(productInfo.ClusterID)
 	if err != nil {
 		return e.ErrDeleteEnv.AddErr(err)
 	}
@@ -2159,7 +2143,7 @@ func DeleteProduct(username, envName, productName, requestID string, isDelete bo
 				return
 			}
 			if isDelete {
-				if hc, errHelmClient := helmtool.NewClientFromRestConf(restConfig, productInfo.Namespace); errHelmClient == nil {
+				if hc, errHelmClient := helmtool.NewClientFromNamespace(productInfo.ClusterID, productInfo.Namespace); errHelmClient == nil {
 					for _, service := range productInfo.GetServiceMap() {
 						if !commonutil.ServiceDeployed(service.ServiceName, productInfo.ServiceDeployStrategy) {
 							continue
@@ -2346,17 +2330,12 @@ func deleteK8sProductServices(productInfo *commonmodels.Product, serviceNames []
 	}
 
 	ctx := context.TODO()
-	kclient, err := kubeclient.GetKubeClient(config.HubServerAddress(), productInfo.ClusterID)
+	kclient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(productInfo.ClusterID)
 	if err != nil {
 		return fmt.Errorf("failed to get kube client: %s", err)
 	}
 
-	restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), productInfo.ClusterID)
-	if err != nil {
-		return fmt.Errorf("failed to get rest config: %s", err)
-	}
-
-	istioClient, err := versionedclient.NewForConfig(restConfig)
+	istioClient, err := clientmanager.NewKubeClientManager().GetIstioClientSet(productInfo.ClusterID)
 	if err != nil {
 		return fmt.Errorf("failed to new istio client: %s", err)
 	}
@@ -3398,7 +3377,7 @@ func UpdateProductGlobalVariables(productName, envName, userName, requestID stri
 		return e.ErrUpdateEnv.AddErr(err)
 	}
 
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), product.ClusterID)
+	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(product.ClusterID)
 	if err != nil {
 		log.Errorf("UpdateHelmProductRenderset GetKubeClient error, error msg:%s", err)
 		return err
@@ -3663,8 +3642,7 @@ func EnvAnalysis(projectName, envName string, production *bool, triggerName stri
 	}
 
 	analysiser, err := analysis.NewAnalysis(
-		ctx,
-		config.HubServerAddress(), env.ClusterID,
+		ctx, env.ClusterID,
 		llmClient,
 		filters, env.Namespace,
 		false, // noCache bool
@@ -4163,19 +4141,19 @@ func EnvSleep(productName, envName string, isEnable, isProduction bool, log *zap
 		return e.ErrAnalysisEnvResource.AddErr(err)
 	}
 
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), prod.ClusterID)
+	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(prod.ClusterID)
 	if err != nil {
 		err = fmt.Errorf("failed to get kube client, err: %s", err)
 		log.Error(err)
 		return e.ErrEnvSleep.AddErr(err)
 	}
-	clientset, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), prod.ClusterID)
+	clientset, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(prod.ClusterID)
 	if err != nil {
 		wrapErr := fmt.Errorf("Failed to create kubernetes clientset for cluster id: %s, the error is: %s", prod.ClusterID, err)
 		log.Error(wrapErr)
 		return e.ErrEnvSleep.AddErr(wrapErr)
 	}
-	informer, err := informer.NewInformer(prod.ClusterID, prod.Namespace, clientset)
+	informer, err := clientmanager.NewKubeClientManager().GetInformer(prod.ClusterID, prod.Namespace)
 	if err != nil {
 		wrapErr := fmt.Errorf("[%s][%s] error: %v", envName, prod.Namespace, err)
 		log.Error(wrapErr)

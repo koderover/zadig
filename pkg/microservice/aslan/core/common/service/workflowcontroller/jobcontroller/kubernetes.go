@@ -30,7 +30,7 @@ import (
 	"strings"
 	"time"
 
-	configbase "github.com/koderover/zadig/v2/pkg/config"
+	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	"github.com/mozillazg/go-pinyin"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -42,23 +42,20 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	crClient "sigs.k8s.io/controller-runtime/pkg/client"
 
+	configbase "github.com/koderover/zadig/v2/pkg/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/kube"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/multicluster/service"
-	"github.com/koderover/zadig/v2/pkg/microservice/warpdrive/core/service/types/task"
 	"github.com/koderover/zadig/v2/pkg/setting"
-	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
 	"github.com/koderover/zadig/v2/pkg/shared/kube/wrapper"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/containerlog"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/getter"
-	"github.com/koderover/zadig/v2/pkg/tool/kube/podexec"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/updater"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	s3tool "github.com/koderover/zadig/v2/pkg/tool/s3"
@@ -87,27 +84,23 @@ const (
 	IMAGETAGKEY = "imageTag"
 )
 
-func GetK8sClients(hubServerAddr, clusterID string) (crClient.Client, kubernetes.Interface, *rest.Config, crClient.Reader, error) {
-	controllerRuntimeClient, err := kubeclient.GetKubeClient(hubServerAddr, clusterID)
+func GetK8sClients(hubServerAddr, clusterID string) (crClient.Client, kubernetes.Interface, crClient.Reader, error) {
+	controllerRuntimeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(clusterID)
 	if err != nil {
-		return nil, nil, nil, nil, fmt.Errorf("failed to get controller runtime client: %s", err)
+		return nil, nil, nil, fmt.Errorf("failed to get controller runtime client: %s", err)
 	}
 
-	clientset, err := kubeclient.GetKubeClientSet(hubServerAddr, clusterID)
+	clientset, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(clusterID)
 	if err != nil {
-		return nil, nil, nil, nil, fmt.Errorf("failed to get clientset: %s", err)
+		return nil, nil, nil, fmt.Errorf("failed to get clientset: %s", err)
 	}
 
-	restConfig, err := kubeclient.GetRESTConfig(hubServerAddr, clusterID)
+	kubeClientReader, err := clientmanager.NewKubeClientManager().GetControllerRuntimeAPIReader(clusterID)
 	if err != nil {
-		return nil, nil, nil, nil, fmt.Errorf("failed to get rest config: %s", err)
-	}
-	kubeClientReader, err := kubeclient.GetKubeAPIReader(hubServerAddr, clusterID)
-	if err != nil {
-		return nil, nil, nil, nil, fmt.Errorf("failed to get api reader: %s", err)
+		return nil, nil, nil, fmt.Errorf("failed to get api reader: %s", err)
 	}
 
-	return controllerRuntimeClient, clientset, restConfig, kubeClientReader, nil
+	return controllerRuntimeClient, clientset, kubeClientReader, nil
 }
 
 type JobLabel struct {
@@ -317,7 +310,7 @@ echo $result > %s
 	return job, nil
 }
 
-func buildJob(jobType, jobImage, jobName, clusterID, currentNamespace string, resReq setting.Request, resReqSpec setting.RequestSpec, jobTask *commonmodels.JobTask, jobTaskSpec *commonmodels.JobTaskFreestyleSpec, workflowCtx *commonmodels.WorkflowTaskCtx, registries []*task.RegistryNamespace) (*batchv1.Job, error) {
+func buildJob(jobType, jobImage, jobName, clusterID, currentNamespace string, resReq setting.Request, resReqSpec setting.RequestSpec, jobTask *commonmodels.JobTask, jobTaskSpec *commonmodels.JobTaskFreestyleSpec, workflowCtx *commonmodels.WorkflowTaskCtx) (*batchv1.Job, error) {
 	var (
 		jobExecutorBootingScript string
 		jobExecutorBinaryFile    = JobExecutorFile
@@ -832,7 +825,7 @@ func isPodFailed(podName, namespace string, apiReader client.Reader, xl *zap.Sug
 	return nil
 }
 
-func waitJobEndByCheckingConfigMap(ctx context.Context, taskTimeout <-chan time.Time, namespace, jobName string, checkFile bool, kubeClient crClient.Client, clientset kubernetes.Interface, restConfig *rest.Config, informer informers.SharedInformerFactory, jobTask *commonmodels.JobTask, ack func(), xl *zap.SugaredLogger) (status config.Status, errMsg string) {
+func waitJobEndByCheckingConfigMap(ctx context.Context, taskTimeout <-chan time.Time, namespace, jobName string, checkFile bool, informer informers.SharedInformerFactory, jobTask *commonmodels.JobTask, ack func(), xl *zap.SugaredLogger) (status config.Status, errMsg string) {
 	xl.Infof("wait job to end: %s %s", namespace, jobName)
 	podLister := informer.Core().V1().Pods().Lister().Pods(namespace)
 	jobLister := informer.Batch().V1().Jobs().Lister().Jobs(namespace)
@@ -1008,7 +1001,7 @@ func saveContainerLog(namespace, clusterID, workflowName, jobName string, taskID
 		return pods[i].CreationTimestamp.Before(&pods[j].CreationTimestamp)
 	})
 
-	clientSet, err := kubeclient.GetClientset(config.HubServerAddress(), clusterID)
+	clientSet, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(clusterID)
 	if err != nil {
 		log.Errorf("saveContainerLog, get client set error: %s", err)
 		return err
@@ -1063,59 +1056,6 @@ func GetObjectPath(subFolder, name string) string {
 	}
 
 	return strings.TrimLeft(name, "/")
-}
-
-func checkFileExistsWithRetry(clientset kubernetes.Interface, restConfig *rest.Config, namespace, pod, container, filePath string, retryCount int, retryInterval time.Duration) (bool, error) {
-	opt := podexec.ExecOptions{
-		Command:       []string{"ls", filePath},
-		Namespace:     namespace,
-		PodName:       pod,
-		ContainerName: container,
-	}
-	_, stderr, success, err := kubeExecWithRetry(clientset, restConfig, opt, retryCount, retryInterval)
-	if !success {
-		return false, err
-	}
-	if stderr == "" {
-		return true, nil
-	}
-	return false, errors.Errorf("check file exist failed, stderr: %s", stderr)
-}
-
-func kubeExecWithRetry(clientset kubernetes.Interface, restConfig *rest.Config, options podexec.ExecOptions, retryCount int, retryInterval time.Duration) (stdout, stderr string, success bool, err error) {
-	for i := 0; i < retryCount; i++ {
-		stdout, stderr, success, err = podexec.KubeExec(clientset, restConfig, options)
-		if success || stdout != "" || stderr != "" || err == nil {
-			return
-		}
-		// this fail maybe caused by connecting to k8s, so we should retry
-		time.Sleep(retryInterval)
-	}
-
-	return
-}
-
-func checkDogFoodExistsInContainerWithRetry(clientset kubernetes.Interface, restConfig *rest.Config, namespace, pod, container string, retryCount int, retryInterval time.Duration) (status commontypes.JobStatus, found bool, err error) {
-	for i := 0; i < retryCount; i++ {
-		status, found, err = checkDogFoodExistsInContainer(clientset, restConfig, namespace, pod, container)
-		if err == nil {
-			return
-		}
-		time.Sleep(retryInterval)
-	}
-
-	return
-}
-
-func checkDogFoodExistsInContainer(clientset kubernetes.Interface, restConfig *rest.Config, namespace, pod, container string) (commontypes.JobStatus, bool, error) {
-	stdout, _, success, err := podexec.KubeExec(clientset, restConfig, podexec.ExecOptions{
-		Command:       []string{"/bin/sh", "-c", fmt.Sprintf("test -f %[1]s && cat %[1]s", setting.DogFood)},
-		Namespace:     namespace,
-		PodName:       pod,
-		ContainerName: container,
-	})
-
-	return commontypes.JobStatus(stdout), success, err
 }
 
 func waitDeploymentReady(ctx context.Context, deploymentName, namespace string, timout int64, kubeClient crClient.Client, logger *zap.SugaredLogger) (config.Status, error) {

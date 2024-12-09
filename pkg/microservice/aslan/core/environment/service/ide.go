@@ -23,7 +23,7 @@ import (
 	"fmt"
 	"time"
 
-	configbase "github.com/koderover/zadig/v2/pkg/config"
+	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -31,10 +31,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
+	configbase "github.com/koderover/zadig/v2/pkg/config"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/setting"
-	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/types"
 	"github.com/koderover/zadig/v2/pkg/util"
@@ -57,7 +56,7 @@ func PatchWorkload(ctx context.Context, projectName, envName, serviceName, devIm
 	ns := project.Namespace
 	clusterID := project.ClusterID
 
-	kclient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
+	kclient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(clusterID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get kube client: %s", err)
 	}
@@ -92,7 +91,7 @@ func RecoverWorkload(ctx context.Context, projectName, envName, serviceName stri
 	ns := project.Namespace
 	clusterID := project.ClusterID
 
-	kclient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
+	kclient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(clusterID)
 	if err != nil {
 		return fmt.Errorf("failed to get kube client: %s", err)
 	}

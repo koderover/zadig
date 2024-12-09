@@ -20,17 +20,15 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
-	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
 )
 
 func CheckIstiod(ctx context.Context, clusterID string) (bool, error) {
-	kclient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
+	kclient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(clusterID)
 	if err != nil {
 		return false, fmt.Errorf("failed to get kube client: %s", err)
 	}

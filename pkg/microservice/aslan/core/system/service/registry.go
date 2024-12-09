@@ -27,7 +27,6 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
@@ -36,7 +35,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/registry"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/setting"
-	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
+	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/util"
 )
@@ -178,7 +177,7 @@ func UpdateRegistryNamespace(username, id string, args *commonmodels.RegistryNam
 
 		for _, env := range envs {
 			if env.RegistryID == id {
-				kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), env.ClusterID)
+				kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(env.ClusterID)
 				if err != nil {
 					log.Errorf("[UpdateRegistryNamespace] GetKubeClient %s error: %v", env.ClusterID, err)
 					continue

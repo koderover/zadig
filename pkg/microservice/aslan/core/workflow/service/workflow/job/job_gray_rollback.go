@@ -21,7 +21,7 @@ import (
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
-	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
+	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
@@ -47,7 +47,7 @@ func (j *GrayRollbackJob) SetPreset() error {
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return err
 	}
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), j.spec.ClusterID)
+	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(j.spec.ClusterID)
 	if err != nil {
 		return fmt.Errorf("failed to get kube client, err: %v", err)
 	}
@@ -105,7 +105,7 @@ func (j *GrayRollbackJob) SetOptions(approvalTicket *commonmodels.ApprovalTicket
 		return fmt.Errorf("failed to find the original workflow: %s", j.workflow.Name)
 	}
 
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), j.spec.ClusterID)
+	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(j.spec.ClusterID)
 	if err != nil {
 		return fmt.Errorf("failed to get kube client, err: %v", err)
 	}
@@ -249,7 +249,7 @@ func (j *GrayRollbackJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) 
 		return resp, fmt.Errorf("cluster id: %s not found", j.spec.ClusterID)
 	}
 
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), j.spec.ClusterID)
+	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(j.spec.ClusterID)
 	if err != nil {
 		return resp, fmt.Errorf("failed to get kube client, err: %v", err)
 	}

@@ -40,7 +40,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/kube"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
@@ -158,12 +157,7 @@ func ListReleases(args *HelmReleaseQueryArgs, envName string, production bool, l
 		return nil, fmt.Errorf("failed to find project: %s, err: %s", projectName, err)
 	}
 
-	restConfig, err := kube.GetRESTConfig(prod.ClusterID)
-	if err != nil {
-		log.Errorf("GetRESTConfig error: %s", err)
-		return nil, fmt.Errorf("failed to get k8s rest config, err: %s", err)
-	}
-	helmClientInterface, err := helmtool.NewClientFromRestConf(restConfig, prod.Namespace)
+	helmClientInterface, err := helmtool.NewClientFromNamespace(prod.ClusterID, prod.Namespace)
 	if err != nil {
 		log.Errorf("[%s][%s] NewClientFromRestConf error: %s", envName, projectName, err)
 		return nil, fmt.Errorf("failed to init helm client, err: %s", err)
@@ -385,12 +379,7 @@ func prepareChartVersionData(prod *models.Product, serviceObj *models.Service) e
 		return err
 	}
 
-	restConfig, err := kube.GetRESTConfig(prod.ClusterID)
-	if err != nil {
-		log.Errorf("get rest config error: %s", err)
-		return err
-	}
-	helmClient, err := helmtool.NewClientFromRestConf(restConfig, prod.Namespace)
+	helmClient, err := helmtool.NewClientFromNamespace(prod.ClusterID, prod.Namespace)
 	if err != nil {
 		log.Errorf("[%s][%s] init helm client error: %s", prod.EnvName, productName, err)
 		return err
@@ -504,11 +493,7 @@ func GetImageInfos(productName, envName, serviceNames string, production bool, l
 		return nil, fmt.Errorf("failed to find product: %s:%s to get image infos, err: %s", productName, envName, err)
 	}
 
-	restConfig, err := kube.GetRESTConfig(prod.ClusterID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get rest config: %s:%s to get image infos, err: %s", productName, envName, err)
-	}
-	helmClient, err := helmtool.NewClientFromRestConf(restConfig, prod.Namespace)
+	helmClient, err := helmtool.NewClientFromNamespace(prod.ClusterID, prod.Namespace)
 	if err != nil {
 		return nil, fmt.Errorf("failed to init kube client: %s:%s to get image infos, err: %s", productName, envName, err)
 	}

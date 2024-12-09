@@ -20,6 +20,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	"go.uber.org/zap"
 	networkingv1alpha3 "istio.io/api/networking/v1alpha3"
 	"istio.io/client-go/pkg/apis/networking/v1alpha3"
@@ -33,7 +34,6 @@ import (
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/setting"
-	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/updater"
 )
@@ -92,20 +92,20 @@ func (c *IstioReleaseJobCtl) Run(ctx context.Context) {
 	c.ack()
 
 	var err error
-	c.kubeClient, err = kubeclient.GetKubeClient(config.HubServerAddress(), c.jobTaskSpec.ClusterID)
+	c.kubeClient, err = clientmanager.NewKubeClientManager().GetControllerRuntimeClient(c.jobTaskSpec.ClusterID)
 	if err != nil {
 		c.Errorf("can't init k8s client: %v", err)
 		return
 	}
 
-	cli, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), c.jobTaskSpec.ClusterID)
+	cli, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(c.jobTaskSpec.ClusterID)
 	if err != nil {
 		logError(c.job, "failed to prepare istio client to do the resource update", c.logger)
 		return
 	}
 	// initialize istio client
 	// NOTE that the only supported version is v1alpha3 right now
-	istioClient, err := kubeclient.GetIstioClientV1Alpha3Client(config.HubServerAddress(), c.jobTaskSpec.ClusterID)
+	istioClient, err := clientmanager.NewKubeClientManager().GetIstioClientSet(c.jobTaskSpec.ClusterID)
 	if err != nil {
 		c.Errorf("failed to prepare istio client to do the resource update")
 		return
@@ -245,7 +245,7 @@ func (c *IstioReleaseJobCtl) Run(ctx context.Context) {
 		newDestinationRuleName := fmt.Sprintf(ServiceDestinationRuleTemplate, c.jobTaskSpec.Targets.WorkloadName)
 
 		c.ack()
-		destinationRule, err := istioClient.DestinationRules(c.jobTaskSpec.Namespace).Get(context.TODO(), newDestinationRuleName, v1.GetOptions{})
+		destinationRule, err := istioClient.NetworkingV1alpha3().DestinationRules(c.jobTaskSpec.Namespace).Get(context.TODO(), newDestinationRuleName, v1.GetOptions{})
 		if err == nil {
 			// Found destination rule, update it
 			c.Infof("Has found Destination Rule `%s` in ns `%s` and just update it.", newDestinationRuleName, c.jobTaskSpec.Namespace)
@@ -254,7 +254,7 @@ func (c *IstioReleaseJobCtl) Run(ctx context.Context) {
 				Host:    c.jobTaskSpec.Targets.Host,
 				Subsets: subsetList,
 			}
-			_, err = istioClient.DestinationRules(c.jobTaskSpec.Namespace).Update(context.TODO(), destinationRule, v1.UpdateOptions{})
+			_, err = istioClient.NetworkingV1alpha3().DestinationRules(c.jobTaskSpec.Namespace).Update(context.TODO(), destinationRule, v1.UpdateOptions{})
 			if err != nil {
 				c.Errorf("failed to create new destination rule: %s, error: %s", newDestinationRuleName, err)
 				return
@@ -277,7 +277,7 @@ func (c *IstioReleaseJobCtl) Run(ctx context.Context) {
 				},
 			}
 			// Not found destination rule, create it
-			_, err = istioClient.DestinationRules(c.jobTaskSpec.Namespace).Create(context.TODO(), targetDestinationRule, v1.CreateOptions{})
+			_, err = istioClient.NetworkingV1alpha3().DestinationRules(c.jobTaskSpec.Namespace).Create(context.TODO(), targetDestinationRule, v1.CreateOptions{})
 			if err != nil {
 				c.Errorf("failed to create new destination rule: %s, error: %s", newDestinationRuleName, err)
 				return
@@ -286,7 +286,7 @@ func (c *IstioReleaseJobCtl) Run(ctx context.Context) {
 
 		// if a virtual service is provided, we simply get it and take its host information
 		if c.jobTaskSpec.Targets.VirtualServiceName != "" {
-			vs, err := istioClient.VirtualServices(c.jobTaskSpec.Namespace).Get(context.TODO(), c.jobTaskSpec.Targets.VirtualServiceName, v1.GetOptions{})
+			vs, err := istioClient.NetworkingV1alpha3().VirtualServices(c.jobTaskSpec.Namespace).Get(context.TODO(), c.jobTaskSpec.Targets.VirtualServiceName, v1.GetOptions{})
 			if err != nil {
 				c.Errorf("failed to find virtual service of name: %s, error is: %s", c.jobTaskSpec.Targets.VirtualServiceName, err)
 				return
@@ -334,7 +334,7 @@ func (c *IstioReleaseJobCtl) Run(ctx context.Context) {
 			vs.Spec.Http[0].Route = newHTTPRoutingRules
 			c.Infof("Modifying Virtual Service: %s", c.jobTaskSpec.Targets.VirtualServiceName)
 			c.ack()
-			_, err = istioClient.VirtualServices(c.jobTaskSpec.Namespace).Update(context.TODO(), vs, v1.UpdateOptions{})
+			_, err = istioClient.NetworkingV1alpha3().VirtualServices(c.jobTaskSpec.Namespace).Update(context.TODO(), vs, v1.UpdateOptions{})
 			if err != nil {
 				c.Errorf("update virtual service: %s failed, error: %s", c.jobTaskSpec.Targets.VirtualServiceName, err)
 				return
@@ -366,7 +366,7 @@ func (c *IstioReleaseJobCtl) Run(ctx context.Context) {
 				Route: newHTTPRoutingRules,
 			})
 
-			vs, err := istioClient.VirtualServices(c.jobTaskSpec.Namespace).Get(context.TODO(), vsName, v1.GetOptions{})
+			vs, err := istioClient.NetworkingV1alpha3().VirtualServices(c.jobTaskSpec.Namespace).Get(context.TODO(), vsName, v1.GetOptions{})
 			if err != nil {
 				if !apierrors.IsNotFound(err) {
 					c.Errorf("failed to find virtual service of name: %s, error is: %s", vsName, err)
@@ -389,7 +389,7 @@ func (c *IstioReleaseJobCtl) Run(ctx context.Context) {
 					},
 				}
 
-				_, err := istioClient.VirtualServices(c.jobTaskSpec.Namespace).Create(context.TODO(), zadigVirtualService, v1.CreateOptions{})
+				_, err := istioClient.NetworkingV1alpha3().VirtualServices(c.jobTaskSpec.Namespace).Create(context.TODO(), zadigVirtualService, v1.CreateOptions{})
 				if err != nil {
 					c.Errorf("failed to create virtual service: %s, err: %v", vsName, err)
 					return
@@ -405,7 +405,7 @@ func (c *IstioReleaseJobCtl) Run(ctx context.Context) {
 					Http:  httpRoutes,
 				}
 
-				_, err := istioClient.VirtualServices(c.jobTaskSpec.Namespace).Update(context.TODO(), vs, v1.UpdateOptions{})
+				_, err := istioClient.NetworkingV1alpha3().VirtualServices(c.jobTaskSpec.Namespace).Update(context.TODO(), vs, v1.UpdateOptions{})
 				if err != nil {
 					c.Errorf("failed to update virtual service: %s, err: %v", vsName, err)
 					return
@@ -422,7 +422,7 @@ func (c *IstioReleaseJobCtl) Run(ctx context.Context) {
 			newVSName = c.jobTaskSpec.Targets.VirtualServiceName
 		}
 
-		vs, err := istioClient.VirtualServices(c.jobTaskSpec.Namespace).Get(context.TODO(), newVSName, v1.GetOptions{})
+		vs, err := istioClient.NetworkingV1alpha3().VirtualServices(c.jobTaskSpec.Namespace).Get(context.TODO(), newVSName, v1.GetOptions{})
 		if err != nil {
 			c.Errorf("failed to find virtual service of name: %s, error is: %s", newVSName, err)
 			return
@@ -448,7 +448,7 @@ func (c *IstioReleaseJobCtl) Run(ctx context.Context) {
 		vs.Spec.Http[0].Route = newHTTPRoutingRules
 		c.Infof("Modifying Virtual Service: %s", c.jobTaskSpec.Targets.VirtualServiceName)
 		c.ack()
-		_, err = istioClient.VirtualServices(c.jobTaskSpec.Namespace).Update(context.TODO(), vs, v1.UpdateOptions{})
+		_, err = istioClient.NetworkingV1alpha3().VirtualServices(c.jobTaskSpec.Namespace).Update(context.TODO(), vs, v1.UpdateOptions{})
 		if err != nil {
 			c.Errorf("update virtual service: %s failed, error: %s", c.jobTaskSpec.Targets.VirtualServiceName, err)
 			return
@@ -499,7 +499,7 @@ func (c *IstioReleaseJobCtl) Run(ctx context.Context) {
 				return
 			}
 
-			modifiedVS, err := istioClient.VirtualServices(c.jobTaskSpec.Namespace).Get(context.TODO(), newVSName, v1.GetOptions{})
+			modifiedVS, err := istioClient.NetworkingV1alpha3().VirtualServices(c.jobTaskSpec.Namespace).Get(context.TODO(), newVSName, v1.GetOptions{})
 			if err != nil {
 				c.Errorf("failed to find virtual service of name: %s, error is: %s", newVSName, err)
 				return
@@ -518,7 +518,7 @@ func (c *IstioReleaseJobCtl) Run(ctx context.Context) {
 				modifiedVS.Spec.Http[0].Route = route
 				c.Infof("switching the queries back to the original workload on virtual service: %s", vs.Name)
 				c.ack()
-				_, err = istioClient.VirtualServices(c.jobTaskSpec.Namespace).Update(context.TODO(), modifiedVS, v1.UpdateOptions{})
+				_, err = istioClient.NetworkingV1alpha3().VirtualServices(c.jobTaskSpec.Namespace).Update(context.TODO(), modifiedVS, v1.UpdateOptions{})
 				if err != nil {
 					c.Errorf("virtual service update failed, error: %s", err)
 					return
@@ -527,7 +527,7 @@ func (c *IstioReleaseJobCtl) Run(ctx context.Context) {
 				c.Infof("deleting the virtual service created by zadig: %s", vs.Name)
 				c.ack()
 				// else we simply delete
-				err := istioClient.VirtualServices(c.jobTaskSpec.Namespace).Delete(context.TODO(), modifiedVS.Name, v1.DeleteOptions{})
+				err := istioClient.NetworkingV1alpha3().VirtualServices(c.jobTaskSpec.Namespace).Delete(context.TODO(), modifiedVS.Name, v1.DeleteOptions{})
 				if err != nil {
 					c.Errorf("virtual service deletion failed, error: %s", err)
 					return
@@ -539,7 +539,7 @@ func (c *IstioReleaseJobCtl) Run(ctx context.Context) {
 			c.Infof("deleteing the destination rule created by zadig: %s", newDestinationRuleName)
 			c.ack()
 
-			err = istioClient.DestinationRules(c.jobTaskSpec.Namespace).Delete(context.TODO(), newDestinationRuleName, v1.DeleteOptions{})
+			err = istioClient.NetworkingV1alpha3().DestinationRules(c.jobTaskSpec.Namespace).Delete(context.TODO(), newDestinationRuleName, v1.DeleteOptions{})
 			if err != nil {
 				c.Errorf("destination rule deletion failed, error: %s", err)
 				return

@@ -22,6 +22,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	"go.uber.org/zap"
 	versionedclient "istio.io/client-go/pkg/clientset/versioned"
 	extensionsv1beta1 "k8s.io/api/extensions/v1beta1"
@@ -29,7 +30,6 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 	crClient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
@@ -37,7 +37,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/getter"
-	"github.com/koderover/zadig/v2/pkg/tool/kube/informer"
 	"github.com/koderover/zadig/v2/pkg/types"
 )
 
@@ -47,7 +46,6 @@ type MseGrayOfflineJobCtl struct {
 	logger      *zap.SugaredLogger
 	jobTaskSpec *commonmodels.JobTaskMseGrayOfflineSpec
 	kubeClient  crClient.Client
-	restConfig  *rest.Config
 	informer    informers.SharedInformerFactory
 	clientSet   *kubernetes.Clientset
 	istioClient *versionedclient.Clientset
@@ -87,26 +85,19 @@ func (c *MseGrayOfflineJobCtl) Run(ctx context.Context) {
 	c.jobTaskSpec.Namespace = env.Namespace
 	clusterID := env.ClusterID
 
-	c.restConfig, err = kubeclient.GetRESTConfig(config.HubServerAddress(), clusterID)
-	if err != nil {
-		msg := fmt.Sprintf("can't get k8s rest config: %v", err)
-		logError(c.job, msg, c.logger)
-		return
-	}
-
-	c.kubeClient, err = kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
+	c.kubeClient, err = clientmanager.NewKubeClientManager().GetControllerRuntimeClient(clusterID)
 	if err != nil {
 		msg := fmt.Sprintf("can't init k8s client: %v", err)
 		logError(c.job, msg, c.logger)
 		return
 	}
-	c.clientSet, err = kubeclient.GetKubeClientSet(config.HubServerAddress(), clusterID)
+	c.clientSet, err = clientmanager.NewKubeClientManager().GetKubernetesClientSet(clusterID)
 	if err != nil {
 		msg := fmt.Sprintf("can't init k8s clientset: %v", err)
 		logError(c.job, msg, c.logger)
 		return
 	}
-	c.informer, err = informer.NewInformer(clusterID, c.jobTaskSpec.Namespace, c.clientSet)
+	c.informer, err = clientmanager.NewKubeClientManager().GetInformer(clusterID, c.jobTaskSpec.Namespace)
 	if err != nil {
 		msg := fmt.Sprintf("can't init k8s informer: %v", err)
 		logError(c.job, msg, c.logger)

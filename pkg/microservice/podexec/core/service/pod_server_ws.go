@@ -22,15 +22,14 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
 
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
-	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
@@ -75,7 +74,7 @@ func ServeWs(c *gin.Context) {
 		_ = pty.Close()
 	}()
 
-	kubeCli, cfg, err := NewKubeOutClusterClient(clusterID)
+	kubeCli, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(clusterID)
 	if err != nil {
 		msg := fmt.Sprintf("get kubecli err :%v", err)
 		log.Errorf(msg)
@@ -97,7 +96,7 @@ func ServeWs(c *gin.Context) {
 		return
 	}
 
-	err = ExecPod(kubeCli, cfg, []string{"/bin/sh"}, pty, namespace, podName, containerName)
+	err = ExecPod(clusterID, []string{"/bin/sh"}, pty, namespace, podName, containerName)
 	if err != nil {
 		msg := fmt.Sprintf("Exec to pod error! err: %v", err)
 		log.Errorf(msg)
@@ -174,20 +173,10 @@ FOR:
 		_ = pty.Close()
 	}()
 
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), jobTaskSpec.Properties.ClusterID)
+	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(jobTaskSpec.Properties.ClusterID)
 	if err != nil {
 		log.Errorf("debug workflow failed: get kube client error: %s", err)
 		return e.ErrGetDebugShell.AddDesc("启动调试终端意外失败: get kube client")
-	}
-	clientSet, err := kubeclient.GetClientset(config.HubServerAddress(), jobTaskSpec.Properties.ClusterID)
-	if err != nil {
-		log.Errorf("debug workflow failed: get kube client set error: %s", err)
-		return e.ErrGetDebugShell.AddDesc("启动调试终端意外失败: get kube client set")
-	}
-	restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), jobTaskSpec.Properties.ClusterID)
-	if err != nil {
-		log.Errorf("debug workflow failed: get kube rest config error: %s", err)
-		return e.ErrGetDebugShell.AddDesc("启动调试终端意外失败: get kube rest config")
 	}
 
 	pods, err := getter.ListPods(jobTaskSpec.Properties.Namespace, labels.Set{"job-name": task.K8sJobName}.AsSelector(), kubeClient)
@@ -219,7 +208,7 @@ FOR:
 	}
 	script += "bash\n"
 
-	err = ExecPod(clientSet, restConfig, []string{"/bin/sh", "-c", script}, pty, jobTaskSpec.Properties.Namespace, pod.Name, pod.Spec.Containers[0].Name)
+	err = ExecPod(jobTaskSpec.Properties.ClusterID, []string{"/bin/sh", "-c", script}, pty, jobTaskSpec.Properties.Namespace, pod.Name, pod.Spec.Containers[0].Name)
 	if err != nil {
 		msg := fmt.Sprintf("Exec to pod error! err: %v", err)
 		log.Errorf(msg)

@@ -23,15 +23,15 @@ import (
 	"os"
 	"strings"
 
+	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	"go.uber.org/zap"
 
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/kube"
 	s3service "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/s3"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/workflowcontroller/jobcontroller"
-	jobctl "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/job"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
+	jobctl "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/job"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/containerlog"
 	s3tool "github.com/koderover/zadig/v2/pkg/tool/s3"
 	"github.com/koderover/zadig/v2/pkg/util"
@@ -94,7 +94,7 @@ func GetCurrentContainerLogs(podName, containerName, envName, productName string
 		log.Errorf("Failed to find env %s in project %s, err: %s", envName, productName, err)
 		return "", err
 	}
-	clientset, err := kube.GetClientset(env.ClusterID)
+	clientset, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(env.ClusterID)
 	if err != nil {
 		log.Errorf("Failed to get kube client, err: %s", err)
 		return "", err

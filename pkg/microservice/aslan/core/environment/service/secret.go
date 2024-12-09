@@ -21,6 +21,7 @@ import (
 	"sort"
 	"sync"
 
+	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/yaml"
@@ -28,7 +29,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
-	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/updater"
@@ -49,7 +49,7 @@ func ListSecrets(envName, productName string, production bool, log *zap.SugaredL
 	if err != nil {
 		return nil, e.ErrListResources.AddErr(err)
 	}
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), product.ClusterID)
+	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(product.ClusterID)
 	if err != nil {
 		return nil, e.ErrListResources.AddErr(err)
 	}
@@ -148,7 +148,7 @@ func UpdateSecret(args *models.CreateUpdateCommonEnvCfgArgs, userName string, lo
 		return e.ErrUpdateResource.AddErr(err)
 	}
 
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), product.ClusterID)
+	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(product.ClusterID)
 	if err != nil {
 		return e.ErrUpdateResource.AddErr(err)
 	}
@@ -181,7 +181,7 @@ func UpdateSecret(args *models.CreateUpdateCommonEnvCfgArgs, userName string, lo
 	if !args.RestartAssociatedSvc {
 		return nil
 	}
-	clientset, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), product.ClusterID)
+	clientset, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(product.ClusterID)
 	if err != nil {
 		log.Errorf("failed to create kubernetes clientset for clusterID: %s, the error is: %s", product.ClusterID, err)
 		return e.ErrUpdateConfigMap.AddErr(err)

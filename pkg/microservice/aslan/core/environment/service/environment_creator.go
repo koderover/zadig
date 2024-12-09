@@ -22,11 +22,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	"go.mongodb.org/mongo-driver/mongo"
 
 	"github.com/hashicorp/go-multierror"
 	"go.uber.org/zap"
-	versionedclient "istio.io/client-go/pkg/clientset/versioned"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 
@@ -36,10 +36,8 @@ import (
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/v2/pkg/setting"
-	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	helmtool "github.com/koderover/zadig/v2/pkg/tool/helmclient"
-	"github.com/koderover/zadig/v2/pkg/tool/kube/informer"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/serializer"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/updater"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
@@ -148,18 +146,13 @@ func (creator *HelmProductCreator) Create(user, requestID string, args *ProductC
 		}
 	}
 
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
+	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(clusterID)
 	if err != nil {
 		log.Errorf("[%s][%s] GetKubeClient error: %v", args.EnvName, args.ProductName, err)
 		return e.ErrCreateEnv.AddErr(err)
 	}
 
-	restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), clusterID)
-	if err != nil {
-		return e.ErrCreateEnv.AddErr(err)
-	}
-
-	istioClient, err := versionedclient.NewForConfig(restConfig)
+	istioClient, err := clientmanager.NewKubeClientManager().GetIstioClientSet(clusterID)
 	if err != nil {
 		return e.ErrCreateEnv.AddErr(err)
 	}
@@ -223,7 +216,7 @@ func (creator *ExternalProductCreator) Create(user, requestID string, args *Prod
 	args.Status = setting.ProductStatusUnstable
 	args.RecycleDay = config.DefaultRecycleDay()
 
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), args.ClusterID)
+	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(args.ClusterID)
 	if err != nil {
 		return e.ErrCreateEnv.AddErr(err)
 	}
@@ -287,25 +280,17 @@ func (creator *K8sYamlProductCreator) Create(user, requestID string, args *Produ
 			clusterID = projectClusterRelations[0].ClusterID
 		}
 	}
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
+	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(clusterID)
 	if err != nil {
 		return e.ErrCreateEnv.AddErr(err)
 	}
 
-	cls, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), clusterID)
-	if err != nil {
-		return e.ErrCreateEnv.AddErr(err)
-	}
-	inf, err := informer.NewInformer(clusterID, args.Namespace, cls)
+	inf, err := clientmanager.NewKubeClientManager().GetInformer(clusterID, args.Namespace)
 	if err != nil {
 		return e.ErrCreateEnv.AddErr(err)
 	}
 
-	restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), clusterID)
-	if err != nil {
-		return fmt.Errorf("failed to get rest config: %s", err)
-	}
-	istioClient, err := versionedclient.NewForConfig(restConfig)
+	istioClient, err := clientmanager.NewKubeClientManager().GetIstioClientSet(clusterID)
 	if err != nil {
 		return fmt.Errorf("failed to new istio client: %s", err)
 	}

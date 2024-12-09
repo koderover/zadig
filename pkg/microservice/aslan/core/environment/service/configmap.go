@@ -23,6 +23,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
@@ -37,7 +38,6 @@ import (
 	commontpl "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/v2/pkg/setting"
-	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/updater"
@@ -92,7 +92,7 @@ func ListConfigMaps(args *ListConfigMapArgs, log *zap.SugaredLogger) ([]*ListCon
 	if err != nil {
 		return nil, e.ErrListConfigMaps.AddErr(err)
 	}
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), product.ClusterID)
+	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(product.ClusterID)
 	if err != nil {
 		return nil, e.ErrListConfigMaps.AddErr(err)
 	}
@@ -214,7 +214,7 @@ func UpdateConfigMap(args *models.CreateUpdateCommonEnvCfgArgs, userName string,
 		cm.Data[key] = value
 	}
 
-	clientset, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), product.ClusterID)
+	clientset, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(product.ClusterID)
 	if err != nil {
 		log.Errorf("failed to create kubernetes clientset for clusterID: %s, the error is: %s", product.ClusterID, err)
 		return e.ErrUpdateConfigMap.AddErr(err)
@@ -251,7 +251,7 @@ func UpdateConfigMap(args *models.CreateUpdateCommonEnvCfgArgs, userName string,
 	if !args.RestartAssociatedSvc || tplProduct.ProductFeature.DeployType != setting.K8SDeployType {
 		return nil
 	}
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), product.ClusterID)
+	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(product.ClusterID)
 	if err != nil {
 		return e.ErrUpdateConfigMap.AddErr(err)
 	}
@@ -270,12 +270,12 @@ func RollBackConfigMap(envName string, args *RollBackConfigMapArgs, userName, us
 	if err != nil {
 		return e.ErrUpdateConfigMap.AddErr(err)
 	}
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), product.ClusterID)
+	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(product.ClusterID)
 	if err != nil {
 		return e.ErrUpdateConfigMap.AddErr(err)
 	}
 
-	clientset, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), product.ClusterID)
+	clientset, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(product.ClusterID)
 	if err != nil {
 		log.Errorf("failed to create kubernetes clientset for clusterID: %s, the error is: %s", product.ClusterID, err)
 		return e.ErrUpdateConfigMap.AddErr(err)
@@ -419,7 +419,7 @@ func MigrateHistoryConfigMaps(envName, productName string, production bool, log 
 		if product.IsExisted {
 			continue
 		}
-		kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), product.ClusterID)
+		kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(product.ClusterID)
 		if err != nil {
 			return nil, e.ErrListResources.AddErr(err)
 		}

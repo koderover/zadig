@@ -28,7 +28,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
+	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	"github.com/pingcap/tidb/parser"
 	_ "github.com/pingcap/tidb/parser/test_driver"
 	"github.com/pkg/errors"
@@ -62,6 +62,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/repository"
 	commomtemplate "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/template"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/webhook"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/job"
 	jobctl "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/job"
@@ -70,7 +71,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/shared/client/plutusvendor"
 	"github.com/koderover/zadig/v2/pkg/shared/client/user"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
-	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	helmtool "github.com/koderover/zadig/v2/pkg/tool/helmclient"
 	"github.com/koderover/zadig/v2/pkg/tool/jenkins"
@@ -2741,7 +2741,7 @@ func GetMseOfflineResources(grayTag, envName, projectName string) ([]string, err
 	if err != nil {
 		return nil, errors.Errorf("failed to find product %s: %v", projectName, err)
 	}
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), prod.ClusterID)
+	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(prod.ClusterID)
 	if err != nil {
 		return nil, err
 	}
@@ -2821,7 +2821,7 @@ func GetMseTagsInEnv(envName, projectName string) ([]string, error) {
 	if err != nil {
 		return nil, errors.Errorf("failed to find product %s: %v", projectName, err)
 	}
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), prod.ClusterID)
+	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(prod.ClusterID)
 	if err != nil {
 		return nil, err
 	}
