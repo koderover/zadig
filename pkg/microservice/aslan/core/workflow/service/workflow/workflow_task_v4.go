@@ -1109,8 +1109,10 @@ func ListWorkflowTaskV4ByFilter(filter *TaskHistoryFilter, filterList []string, 
 					serviceModules := make([]*commonmodels.WorkflowServiceModule, 0)
 					for _, serviceAndBuild := range build.ServiceAndBuilds {
 						sm := &commonmodels.WorkflowServiceModule{
-							ServiceName:   serviceAndBuild.ServiceName,
-							ServiceModule: serviceAndBuild.ServiceModule,
+							ServiceWithModule: commonmodels.ServiceWithModule{
+								ServiceName:   serviceAndBuild.ServiceName,
+								ServiceModule: serviceAndBuild.ServiceModule,
+							},
 						}
 						for _, repo := range serviceAndBuild.Repos {
 							sm.CodeInfo = append(sm.CodeInfo, repo)
@@ -1127,8 +1129,10 @@ func ListWorkflowTaskV4ByFilter(filter *TaskHistoryFilter, filterList []string, 
 					for _, svc := range deploy.Services {
 						for _, module := range svc.Modules {
 							sm := &commonmodels.WorkflowServiceModule{
-								ServiceName:   svc.ServiceName,
-								ServiceModule: module.ServiceModule,
+								ServiceWithModule: commonmodels.ServiceWithModule{
+									ServiceName:   svc.ServiceName,
+									ServiceModule: module.ServiceModule,
+								},
 							}
 							serviceModules = append(serviceModules, sm)
 						}
@@ -1147,8 +1151,10 @@ func ListWorkflowTaskV4ByFilter(filter *TaskHistoryFilter, filterList []string, 
 					serviceModules := make([]*commonmodels.WorkflowServiceModule, 0)
 					for _, service := range test.ServiceAndTests {
 						sm := &commonmodels.WorkflowServiceModule{
-							ServiceName:   service.ServiceName,
-							ServiceModule: service.ServiceModule,
+							ServiceWithModule: commonmodels.ServiceWithModule{
+								ServiceName:   service.ServiceName,
+								ServiceModule: service.ServiceModule,
+							},
 						}
 						for _, repo := range service.Repos {
 							sm.CodeInfo = append(sm.CodeInfo, repo)
@@ -1184,8 +1190,10 @@ func ListWorkflowTaskV4ByFilter(filter *TaskHistoryFilter, filterList []string, 
 					serviceModules := make([]*commonmodels.WorkflowServiceModule, 0)
 					for _, target := range distribute.Targets {
 						sm := &commonmodels.WorkflowServiceModule{
-							ServiceName:   target.ServiceName,
-							ServiceModule: target.ServiceModule,
+							ServiceWithModule: commonmodels.ServiceWithModule{
+								ServiceName:   target.ServiceName,
+								ServiceModule: target.ServiceModule,
+							},
 						}
 						serviceModules = append(serviceModules, sm)
 					}

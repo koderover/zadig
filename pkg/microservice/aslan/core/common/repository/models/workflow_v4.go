@@ -261,10 +261,9 @@ type JobErrorPolicy struct {
 }
 
 type WorkflowServiceModule struct {
-	ServiceModule string              `bson:"service_module" json:"service_module"`
-	ServiceName   string              `bson:"service_name"   json:"service_name"`
-	CodeInfo      []*types.Repository `bson:"code_info"      json:"code_info"`
-	Artifacts     []string            `bson:"artifacts"      json:"artifacts"`
+	ServiceWithModule `bson:",inline" json:",inline"`
+	CodeInfo          []*types.Repository `bson:"code_info"      json:"code_info"`
+	Artifacts         []string            `bson:"artifacts"      json:"artifacts"`
 }
 
 func (s *WorkflowServiceModule) GetKey() string {
@@ -312,10 +311,9 @@ type FreestyleJobSpec struct {
 }
 
 type FreeStyleServiceInfo struct {
-	ServiceName   string              `bson:"service_name"              yaml:"service_name"          json:"service_name"`
-	ServiceModule string              `bson:"service_module"            yaml:"service_module"        json:"service_module"`
-	Repos         []*types.Repository `bson:"repos"                     yaml:"repos"                 json:"repos"`
-	KeyVals       []*KeyVal           `bson:"key_vals"                  yaml:"key_vals"              json:"key_vals"`
+	ServiceWithModule `bson:",inline"                   yaml:",inline"               json:",inline"`
+	Repos             []*types.Repository `bson:"repos"                     yaml:"repos"                 json:"repos"`
+	KeyVals           []*KeyVal           `bson:"key_vals"                  yaml:"key_vals"              json:"key_vals"`
 }
 
 func (j *FreeStyleServiceInfo) DeepCopyKeyVals() []*KeyVal {

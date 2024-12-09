@@ -41,16 +41,20 @@ func ListDeployTarget(productName string, log *zap.SugaredLogger) ([]*commonmode
 		case setting.K8SDeployType, setting.HelmDeployType:
 			for _, container := range svc.Containers {
 				serviceObjects = append(serviceObjects, &commonmodels.ServiceModuleTarget{
-					ProductName:   svc.ProductName,
-					ServiceName:   svc.ServiceName,
-					ServiceModule: container.Name,
+					ProductName: svc.ProductName,
+					ServiceWithModule: commonmodels.ServiceWithModule{
+						ServiceName:   svc.ServiceName,
+						ServiceModule: container.Name,
+					},
 				})
 			}
 		case setting.PMDeployType:
 			serviceObjects = append(serviceObjects, &commonmodels.ServiceModuleTarget{
-				ProductName:   svc.ProductName,
-				ServiceName:   svc.ServiceName,
-				ServiceModule: svc.ServiceName,
+				ProductName: svc.ProductName,
+				ServiceWithModule: commonmodels.ServiceWithModule{
+					ServiceName:   svc.ServiceName,
+					ServiceModule: svc.ServiceName,
+				},
 			})
 		}
 	}
@@ -83,16 +87,20 @@ func ListContainers(productName string, log *zap.SugaredLogger) ([]*commonmodels
 			}
 			for _, container := range serviceDetail.Containers {
 				containerList = append(containerList, &commonmodels.ServiceModuleTarget{
-					ProductName:   service.ProductName,
-					ServiceName:   service.ServiceName,
-					ServiceModule: container.Name,
+					ProductName: service.ProductName,
+					ServiceWithModule: commonmodels.ServiceWithModule{
+						ServiceName:   service.ServiceName,
+						ServiceModule: container.Name,
+					},
 				})
 			}
 		} else if service.Type == setting.PMDeployType {
 			containerList = append(containerList, &commonmodels.ServiceModuleTarget{
-				ProductName:   service.ProductName,
-				ServiceName:   service.ServiceName,
-				ServiceModule: service.ServiceName,
+				ProductName: service.ProductName,
+				ServiceWithModule: commonmodels.ServiceWithModule{
+					ServiceName:   service.ServiceName,
+					ServiceModule: service.ServiceName,
+				},
 			})
 		}
 	}

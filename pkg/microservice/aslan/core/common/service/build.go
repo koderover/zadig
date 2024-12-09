@@ -165,9 +165,11 @@ func EnsureResp(build *commonmodels.Build) {
 			}
 			targetRepo := &commonmodels.TargetRepo{
 				Service: &commonmodels.ServiceModuleTargetBase{
-					ProductName:   target.ProductName,
-					ServiceName:   target.ServiceName,
-					ServiceModule: target.ServiceModule,
+					ProductName: target.ProductName,
+					ServiceWithModule: commonmodels.ServiceWithModule{
+						ServiceName:   target.ServiceName,
+						ServiceModule: target.ServiceModule,
+					},
 				},
 				Repos: target.Repos,
 				Envs:  envs,

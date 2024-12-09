@@ -135,9 +135,11 @@ func generateBuildModuleFromOpenAPIRequest(req *OpenAPIBuildCreationReq, log *za
 	targetInfo := make([]*commonmodels.ServiceModuleTarget, 0)
 	for _, target := range req.TargetServices {
 		targetInfo = append(targetInfo, &commonmodels.ServiceModuleTarget{
-			ProductName:   req.ProjectName,
-			ServiceName:   target.ServiceName,
-			ServiceModule: target.ServiceModule,
+			ProductName: req.ProjectName,
+			ServiceWithModule: commonmodels.ServiceWithModule{
+				ServiceName:   target.ServiceName,
+				ServiceModule: target.ServiceModule,
+			},
 		})
 	}
 	ret.Targets = targetInfo
@@ -205,9 +207,11 @@ func generateBuildModuleFromOpenAPITemplateRequest(req *OpenAPIBuildCreationFrom
 
 	for _, targetService := range req.TargetServices {
 		serviceInfo := &commonmodels.ServiceModuleTargetBase{
-			ProductName:   req.ProjectName,
-			ServiceName:   targetService.ServiceName,
-			ServiceModule: targetService.ServiceModule,
+			ProductName: req.ProjectName,
+			ServiceWithModule: commonmodels.ServiceWithModule{
+				ServiceName:   targetService.ServiceName,
+				ServiceModule: targetService.ServiceModule,
+			},
 		}
 
 		repoInfo := make([]*types.Repository, 0)
@@ -297,9 +301,9 @@ func OpenAPIListBuildModules(projectName string, pageNum, pageSize int64, logger
 			UpdateBy:    build.UpdateBy,
 		}
 
-		services := make([]*ServiceModule, 0)
+		services := make([]*commonmodels.ServiceWithModule, 0)
 		for _, target := range build.Targets {
-			service := &ServiceModule{
+			service := &commonmodels.ServiceWithModule{
 				ServiceName:   target.ServiceName,
 				ServiceModule: target.ServiceModule,
 			}
@@ -358,9 +362,9 @@ func OpenAPIGetBuildModule(name, projectName string, logger *zap.SugaredLogger) 
 		resp.Repos = append(resp.Repos, repo)
 	}
 
-	resp.TargetServices = make([]*ServiceModule, 0)
+	resp.TargetServices = make([]*commonmodels.ServiceWithModule, 0)
 	for _, target := range build.Targets {
-		service := &ServiceModule{
+		service := &commonmodels.ServiceWithModule{
 			ServiceName:   target.ServiceName,
 			ServiceModule: target.ServiceModule,
 		}

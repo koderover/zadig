@@ -28,9 +28,9 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models/msg_queue"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/gerrit"
-	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/webhook"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/workflowcontroller"
+	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/tool/crypto"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
@@ -194,8 +194,10 @@ func FillServiceModules2Jobs(args *commonmodels.WorkflowV4) (*commonmodels.Workf
 				}
 				for _, serviceAndBuild := range build.ServiceAndBuilds {
 					sm := &commonmodels.WorkflowServiceModule{
-						ServiceName:   serviceAndBuild.ServiceName,
-						ServiceModule: serviceAndBuild.ServiceModule,
+						ServiceWithModule: commonmodels.ServiceWithModule{
+							ServiceName:   serviceAndBuild.ServiceName,
+							ServiceModule: serviceAndBuild.ServiceModule,
+						},
 					}
 					for _, repo := range serviceAndBuild.Repos {
 						sm.CodeInfo = append(sm.CodeInfo, repo)
@@ -217,8 +219,10 @@ func FillServiceModules2Jobs(args *commonmodels.WorkflowV4) (*commonmodels.Workf
 				for _, serviceInfo := range deploy.Services {
 					for _, moduleInfo := range serviceInfo.Modules {
 						sm := &commonmodels.WorkflowServiceModule{
-							ServiceName:   serviceInfo.ServiceName,
-							ServiceModule: moduleInfo.ServiceModule,
+							ServiceWithModule: commonmodels.ServiceWithModule{
+								ServiceName:   serviceInfo.ServiceName,
+								ServiceModule: moduleInfo.ServiceModule,
+							},
 						}
 						services = append(services, sm)
 					}
@@ -237,8 +241,10 @@ func FillServiceModules2Jobs(args *commonmodels.WorkflowV4) (*commonmodels.Workf
 				}
 				for _, serviceAndTesting := range testing.ServiceAndTests {
 					sm := &commonmodels.WorkflowServiceModule{
-						ServiceName:   serviceAndTesting.ServiceName,
-						ServiceModule: serviceAndTesting.ServiceModule,
+						ServiceWithModule: commonmodels.ServiceWithModule{
+							ServiceName:   serviceAndTesting.ServiceName,
+							ServiceModule: serviceAndTesting.ServiceModule,
+						},
 					}
 					services = append(services, sm)
 				}
