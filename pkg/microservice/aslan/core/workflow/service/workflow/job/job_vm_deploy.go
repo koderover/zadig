@@ -32,6 +32,7 @@ import (
 	templaterepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	codehostdb "github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/codehost/repository/mongodb"
+	codehostrepo "github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/codehost/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/types"
@@ -505,11 +506,16 @@ func (j *VMDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		repos := vmRenderRepos(buildInfo.DeployRepos, jobTaskSpec.Properties.Envs)
 		gitRepos, p4Repos := splitReposByType(repos)
 
+		codehosts, err := codehostrepo.NewCodehostColl().AvailableCodeHost(j.workflow.Project)
+		if err != nil {
+			return nil, fmt.Errorf("find %s project codehost error: %v", j.workflow.Project, err)
+		}
+
 		gitStep := &commonmodels.StepTask{
 			Name:     vmDeployInfo.ServiceName + "-git",
 			JobName:  jobTask.Name,
 			StepType: config.StepGit,
-			Spec:     step.StepGitSpec{Repos: gitRepos},
+			Spec:     step.StepGitSpec{Repos: gitRepos, CodeHosts: codehosts},
 		}
 		jobTaskSpec.Steps = append(jobTaskSpec.Steps, gitStep)
 
