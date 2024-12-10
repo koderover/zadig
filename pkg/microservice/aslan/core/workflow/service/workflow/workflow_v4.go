@@ -436,18 +436,19 @@ func ListWorkflowV4(projectName, viewName, userID string, names, v4Names []strin
 			}
 		}
 		workflow := &Workflow{
-			Name:          workflowModel.Name,
-			DisplayName:   workflowModel.DisplayName,
-			ProjectName:   workflowModel.Project,
-			Disabled:      workflowModel.Disabled,
-			EnabledStages: stages,
-			CreateTime:    workflowModel.CreateTime,
-			UpdateTime:    workflowModel.UpdateTime,
-			UpdateBy:      workflowModel.UpdatedBy,
-			WorkflowType:  setting.CustomWorkflowType,
-			Description:   workflowModel.Description,
-			BaseRefs:      baseRefs,
-			BaseName:      workflowModel.BaseName,
+			Name:                 workflowModel.Name,
+			DisplayName:          workflowModel.DisplayName,
+			ProjectName:          workflowModel.Project,
+			Disabled:             workflowModel.Disabled,
+			EnabledStages:        stages,
+			CreateTime:           workflowModel.CreateTime,
+			UpdateTime:           workflowModel.UpdateTime,
+			UpdateBy:             workflowModel.UpdatedBy,
+			WorkflowType:         setting.CustomWorkflowType,
+			Description:          workflowModel.Description,
+			BaseRefs:             baseRefs,
+			BaseName:             workflowModel.BaseName,
+			EnableApprovalTicket: workflowModel.EnableApprovalTicket,
 		}
 		if workflowModel.Category == setting.ReleaseWorkflow {
 			workflow.WorkflowType = string(setting.ReleaseWorkflow)

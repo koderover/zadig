@@ -70,6 +70,7 @@ type Workflow struct {
 	BaseName             string                     `json:"base_name"`
 	BaseRefs             []string                   `json:"base_refs"`
 	NeverRun             bool                       `json:"never_run"`
+	EnableApprovalTicket bool                       `json:"enable_approval_ticket"`
 }
 
 type TaskInfo struct {
