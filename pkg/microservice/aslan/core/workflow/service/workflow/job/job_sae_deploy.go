@@ -73,11 +73,11 @@ func (j *SAEDeployJob) SetPreset() error {
 	}
 
 	// create env options for frontend to select
-	envOptions, err := generateSAEEnvOption(j.workflow.Project)
-	if err != nil {
-		return err
-	}
-	j.spec.EnvOptions = envOptions
+	//envOptions, err := generateSAEEnvOption(j.workflow.Project)
+	//if err != nil {
+	//	return err
+	//}
+	//j.spec.EnvOptions = envOptions
 
 	// fill in the defaulted selected app info for frontend
 	selectedServiceList, err := generateSAEDefaultSelectedService(j.workflow.Project, j.spec.EnvConfig.Name, j.spec.ServiceConfig.DefaultServices)
@@ -103,14 +103,14 @@ func (j *SAEDeployJob) ClearSelectionField() error {
 	return nil
 }
 
-func (j *SAEDeployJob) SetOptions() error {
+func (j *SAEDeployJob) SetOptions(approvalTicket *commonmodels.ApprovalTicket) error {
 	j.spec = &commonmodels.SAEDeployJobSpec{}
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return err
 	}
 
 	// create env options for frontend to select
-	envOptions, err := generateSAEEnvOption(j.workflow.Project)
+	envOptions, err := generateSAEEnvOption(j.workflow.Project, approvalTicket)
 	if err != nil {
 		return err
 	}
@@ -248,7 +248,7 @@ func (j *SAEDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 	return resp, nil
 }
 
-func generateSAEEnvOption(projectKey string) (envOptions []*commonmodels.SAEEnvInfo, err error) {
+func generateSAEEnvOption(projectKey string, approvalTicket *commonmodels.ApprovalTicket) (envOptions []*commonmodels.SAEEnvInfo, err error) {
 	saeModel, err := commonrepo.NewSAEColl().FindDefault()
 	if err != nil {
 		err = fmt.Errorf("failed to find default sae, err: %s", err)
@@ -266,7 +266,16 @@ func generateSAEEnvOption(projectKey string) (envOptions []*commonmodels.SAEEnvI
 		return nil, fmt.Errorf("failed to list sae envs for project: %s, error: %s", projectKey, err)
 	}
 
+	var allowedServices []*commonmodels.ServiceWithModule
+	if approvalTicket != nil {
+		allowedServices = approvalTicket.Services
+	}
+
 	for _, env := range envs {
+		if approvalTicket != nil && !isAllowedEnv(env.EnvName, approvalTicket.Envs) {
+			continue
+		}
+
 		serviceList := make([]*commonmodels.SAEServiceInfo, 0)
 
 		saeClient, err := saeservice.NewClient(saeModel, env.RegionID)
@@ -317,6 +326,10 @@ func generateSAEEnvOption(projectKey string) (envOptions []*commonmodels.SAEEnvI
 			}
 
 			if !tagged {
+				continue
+			}
+
+			if !isAllowedService(serviceName, serviceModule, allowedServices) {
 				continue
 			}
 

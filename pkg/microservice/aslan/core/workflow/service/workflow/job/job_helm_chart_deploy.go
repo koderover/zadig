@@ -79,7 +79,7 @@ func (j *HelmChartDeployJob) SetPreset() error {
 }
 
 // SetOptions gets all helm chart info in all envs, and set it in EnvOptions field
-func (j *HelmChartDeployJob) SetOptions() error {
+func (j *HelmChartDeployJob) SetOptions(approvalTicket *commonmodels.ApprovalTicket) error {
 	j.spec = &commonmodels.ZadigHelmChartDeployJobSpec{}
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return err
@@ -111,16 +111,18 @@ func (j *HelmChartDeployJob) SetOptions() error {
 	envOptions := make([]*commonmodels.ZadigHelmDeployEnvInformation, 0)
 
 	if latestSpec.EnvSource == "fixed" {
-		chartInfo, err := generateEnvHelmChartInfo(latestSpec.Env, j.workflow.Project)
-		if err != nil {
-			log.Errorf("failed to generate helm chart deploy info for env: %s, error: %s", latestSpec.Env, err)
-			return err
-		}
+		if approvalTicket == nil || isAllowedEnv(latestSpec.Env, approvalTicket.Envs) {
+			chartInfo, err := generateEnvHelmChartInfo(latestSpec.Env, j.workflow.Project)
+			if err != nil {
+				log.Errorf("failed to generate helm chart deploy info for env: %s, error: %s", latestSpec.Env, err)
+				return err
+			}
 
-		envOptions = append(envOptions, &commonmodels.ZadigHelmDeployEnvInformation{
-			Env:      latestSpec.Env,
-			Services: chartInfo,
-		})
+			envOptions = append(envOptions, &commonmodels.ZadigHelmDeployEnvInformation{
+				Env:      latestSpec.Env,
+				Services: chartInfo,
+			})
+		}
 	} else {
 		productList, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
 			Name: j.workflow.Project,
@@ -131,6 +133,10 @@ func (j *HelmChartDeployJob) SetOptions() error {
 		}
 
 		for _, env := range productList {
+			if approvalTicket != nil && !isAllowedEnv(env.EnvName, approvalTicket.Envs) {
+				continue
+			}
+
 			serviceDeployOption, err := generateEnvHelmChartInfo(env.EnvName, j.workflow.Project)
 			if err != nil {
 				log.Errorf("failed to generate chart deployment info for env: %s, error: %s", env.EnvName, err)

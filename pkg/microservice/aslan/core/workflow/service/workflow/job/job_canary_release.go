@@ -49,7 +49,7 @@ func (j *CanaryReleaseJob) SetPreset() error {
 	return nil
 }
 
-func (j *CanaryReleaseJob) SetOptions() error {
+func (j *CanaryReleaseJob) SetOptions(approvalTicket *commonmodels.ApprovalTicket) error {
 	return nil
 }
 

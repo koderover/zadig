@@ -48,6 +48,10 @@ func CreateCustomWorkflowTask(username string, args *OpenAPICreateCustomWorkflow
 		return nil, e.ErrFindWorkflow.AddDesc(err.Error())
 	}
 
+	if workflow.EnableApprovalTicket {
+		return nil, e.ErrCreateTask.AddDesc("workflow need approval ticket to run, which is not supported by openAPI right now.")
+	}
+
 	for _, stage := range workflow.Stages {
 		for _, job := range stage.Jobs {
 			if err := jobctl.SetPreset(job, workflow); err != nil {

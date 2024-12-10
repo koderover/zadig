@@ -99,7 +99,7 @@ func (j *JenkinsJob) SetPreset() error {
 	return nil
 }
 
-func (j *JenkinsJob) SetOptions() error {
+func (j *JenkinsJob) SetOptions(approvalTicket *commonmodels.ApprovalTicket) error {
 	return nil
 }
 

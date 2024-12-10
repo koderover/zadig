@@ -102,7 +102,7 @@ func (j *ImageDistributeJob) SetPreset() error {
 	return nil
 }
 
-func (j *ImageDistributeJob) SetOptions() error {
+func (j *ImageDistributeJob) SetOptions(approvalTicket *commonmodels.ApprovalTicket) error {
 	j.spec = &commonmodels.ZadigDistributeImageJobSpec{}
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return err
@@ -114,13 +114,19 @@ func (j *ImageDistributeJob) SetOptions() error {
 	}
 
 	options := make([]*commonmodels.DistributeTarget, 0)
+	var allowedServices []*commonmodels.ServiceWithModule
+	if approvalTicket != nil {
+		allowedServices = approvalTicket.Services
+	}
 	for _, svc := range servicesMap {
 		for _, module := range svc.Containers {
-			options = append(options, &commonmodels.DistributeTarget{
-				ServiceName:   svc.ServiceName,
-				ServiceModule: module.Name,
-				ImageName:     util.ExtractImageName(module.Image),
-			})
+			if isAllowedService(svc.ServiceName, module.Name, allowedServices) {
+				options = append(options, &commonmodels.DistributeTarget{
+					ServiceName:   svc.ServiceName,
+					ServiceModule: module.Name,
+					ImageName:     util.ExtractImageName(module.Image),
+				})
+			}
 		}
 	}
 

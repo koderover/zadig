@@ -119,7 +119,7 @@ func (j *NacosJob) SetPreset() error {
 	return nil
 }
 
-func (j *NacosJob) SetOptions() error {
+func (j *NacosJob) SetOptions(approvalTicket *commonmodels.ApprovalTicket) error {
 	return nil
 }
 

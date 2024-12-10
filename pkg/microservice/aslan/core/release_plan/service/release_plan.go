@@ -258,7 +258,7 @@ func GetReleasePlan(id string) (*models.ReleasePlan, error) {
 
 			for _, stage := range originalWorkflow.Stages {
 				for _, item := range stage.Jobs {
-					err := job.SetOptions(item, originalWorkflow)
+					err := job.SetOptions(item, originalWorkflow, nil)
 					if err != nil {
 						errMsg := fmt.Sprintf("merge workflow args set options error: %v", err)
 						log.Error(errMsg)

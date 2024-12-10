@@ -56,7 +56,7 @@ func (j *NotificationJob) ClearSelectionField() error {
 	return nil
 }
 
-func (j *NotificationJob) SetOptions() error {
+func (j *NotificationJob) SetOptions(approvalTicket *commonmodels.ApprovalTicket) error {
 	return nil
 }
 

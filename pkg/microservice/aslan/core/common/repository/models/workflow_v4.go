@@ -66,8 +66,9 @@ type WorkflowV4 struct {
 	Hash            string                   `bson:"hash"                yaml:"hash"                json:"hash"`
 	// ConcurrencyLimit is the max number of concurrent runs of this workflow
 	// -1 means no limit
-	ConcurrencyLimit int          `bson:"concurrency_limit"   yaml:"concurrency_limit"   json:"concurrency_limit"`
-	CustomField      *CustomField `bson:"custom_field"        yaml:"-"                   json:"custom_field"`
+	ConcurrencyLimit     int          `bson:"concurrency_limit"      yaml:"concurrency_limit"      json:"concurrency_limit"`
+	CustomField          *CustomField `bson:"custom_field"           yaml:"-"                      json:"custom_field"`
+	EnableApprovalTicket bool         `bson:"enable_approval_ticket" yaml:"enable_approval_ticket" json:"enable_approval_ticket"`
 }
 
 func (w *WorkflowV4) UpdateHash() {

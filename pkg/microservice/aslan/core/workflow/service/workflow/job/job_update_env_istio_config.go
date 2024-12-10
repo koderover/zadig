@@ -45,7 +45,7 @@ func (j *UpdateEnvIstioConfigJob) SetPreset() error {
 	return nil
 }
 
-func (j *UpdateEnvIstioConfigJob) SetOptions() error {
+func (j *UpdateEnvIstioConfigJob) SetOptions(approvalTicket *commonmodels.ApprovalTicket) error {
 	return nil
 }
 

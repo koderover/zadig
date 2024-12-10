@@ -122,7 +122,7 @@ func (j *FreeStyleJob) SetPreset() error {
 	return nil
 }
 
-func (j *FreeStyleJob) SetOptions() error {
+func (j *FreeStyleJob) SetOptions(approvalTicket *commonmodels.ApprovalTicket) error {
 	return nil
 }
 

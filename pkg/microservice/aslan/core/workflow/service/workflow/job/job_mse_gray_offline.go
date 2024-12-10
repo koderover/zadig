@@ -51,7 +51,7 @@ func (j *MseGrayOfflineJob) SetPreset() error {
 	return nil
 }
 
-func (j *MseGrayOfflineJob) SetOptions() error {
+func (j *MseGrayOfflineJob) SetOptions(approvalTicket *commonmodels.ApprovalTicket) error {
 	return nil
 }
 

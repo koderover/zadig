@@ -1240,7 +1240,7 @@ func GetWebhookForWorkflowV4Preset(workflowName, triggerName string, logger *zap
 
 	for _, stage := range workflow.Stages {
 		for _, item := range stage.Jobs {
-			err := job.SetOptions(item, workflow)
+			err := job.SetOptions(item, workflow, nil)
 			if err != nil {
 				errMsg := fmt.Sprintf("merge workflow args set options error: %v", err)
 				log.Error(errMsg)
@@ -1372,7 +1372,7 @@ func GetGeneralHookForWorkflowV4Preset(workflowName, hookName string, logger *za
 
 	for _, stage := range workflow.Stages {
 		for _, item := range stage.Jobs {
-			err := job.SetOptions(item, workflow)
+			err := job.SetOptions(item, workflow, nil)
 			if err != nil {
 				errMsg := fmt.Sprintf("merge workflow args set options error: %v", err)
 				log.Error(errMsg)
@@ -1566,7 +1566,7 @@ func GetJiraHookForWorkflowV4Preset(workflowName, hookName string, logger *zap.S
 
 	for _, stage := range workflow.Stages {
 		for _, item := range stage.Jobs {
-			err := job.SetOptions(item, workflow)
+			err := job.SetOptions(item, workflow, nil)
 			if err != nil {
 				errMsg := fmt.Sprintf("merge workflow args set options error: %v", err)
 				log.Error(errMsg)
@@ -1726,7 +1726,7 @@ func GetMeegoHookForWorkflowV4Preset(workflowName, hookName string, logger *zap.
 
 	for _, stage := range workflow.Stages {
 		for _, item := range stage.Jobs {
-			err := job.SetOptions(item, workflow)
+			err := job.SetOptions(item, workflow, nil)
 			if err != nil {
 				errMsg := fmt.Sprintf("merge workflow args set options error: %v", err)
 				log.Error(errMsg)
@@ -1996,7 +1996,7 @@ func GetCronForWorkflowV4Preset(workflowName, cronID string, logger *zap.Sugared
 
 	for _, stage := range workflow.Stages {
 		for _, item := range stage.Jobs {
-			err := job.SetOptions(item, workflow)
+			err := job.SetOptions(item, workflow, nil)
 			if err != nil {
 				errMsg := fmt.Sprintf("merge workflow args set options error: %v", err)
 				log.Error(errMsg)

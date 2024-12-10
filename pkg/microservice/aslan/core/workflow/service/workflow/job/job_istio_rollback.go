@@ -51,7 +51,7 @@ func (j *IstioRollBackJob) SetPreset() error {
 	return nil
 }
 
-func (j *IstioRollBackJob) SetOptions() error {
+func (j *IstioRollBackJob) SetOptions(approvalTicket *commonmodels.ApprovalTicket) error {
 	j.spec = &commonmodels.IstioRollBackJobSpec{}
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return err

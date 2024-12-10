@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
@@ -131,5 +132,20 @@ func (c *ApprovalTicketColl) List(opt *ApprovalTicketListOption) ([]*models.Appr
 		return nil, err
 	}
 
+	return resp, nil
+}
+
+func (c *ApprovalTicketColl) GetByID(idstring string) (*models.ApprovalTicket, error) {
+	resp := new(models.ApprovalTicket)
+	id, err := primitive.ObjectIDFromHex(idstring)
+	if err != nil {
+		return nil, err
+	}
+	query := bson.M{"_id": id}
+
+	err = c.FindOne(context.TODO(), query).Decode(&resp)
+	if err != nil {
+		return nil, err
+	}
 	return resp, nil
 }

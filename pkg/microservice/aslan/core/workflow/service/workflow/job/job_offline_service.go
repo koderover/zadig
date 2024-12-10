@@ -52,7 +52,7 @@ func (j *OfflineServiceJob) SetPreset() error {
 	return nil
 }
 
-func (j *OfflineServiceJob) SetOptions() error {
+func (j *OfflineServiceJob) SetOptions(approvalTicket *commonmodels.ApprovalTicket) error {
 	return nil
 }
 

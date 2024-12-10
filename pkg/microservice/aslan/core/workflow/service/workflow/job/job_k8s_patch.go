@@ -52,7 +52,7 @@ func (j *K8sPacthJob) SetPreset() error {
 	return nil
 }
 
-func (j *K8sPacthJob) SetOptions() error {
+func (j *K8sPacthJob) SetOptions(approvalTicket *commonmodels.ApprovalTicket) error {
 	j.spec = &commonmodels.K8sPatchJobSpec{}
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return err

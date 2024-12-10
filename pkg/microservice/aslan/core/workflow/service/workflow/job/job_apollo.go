@@ -55,7 +55,7 @@ func (j *ApolloJob) SetPreset() error {
 	return nil
 }
 
-func (j *ApolloJob) SetOptions() error {
+func (j *ApolloJob) SetOptions(approvalTicket *commonmodels.ApprovalTicket) error {
 	j.spec = &commonmodels.ApolloJobSpec{}
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return err

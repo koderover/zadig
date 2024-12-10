@@ -61,7 +61,7 @@ func (j *MseGrayReleaseJob) SetPreset() error {
 	return nil
 }
 
-func (j *MseGrayReleaseJob) SetOptions() error {
+func (j *MseGrayReleaseJob) SetOptions(approvalTicket *commonmodels.ApprovalTicket) error {
 	return nil
 }
 

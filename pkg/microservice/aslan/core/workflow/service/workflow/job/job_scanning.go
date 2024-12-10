@@ -107,7 +107,53 @@ func (j *ScanningJob) SetPreset() error {
 	return nil
 }
 
-func (j *ScanningJob) SetOptions() error {
+func (j *ScanningJob) SetOptions(approvalTicket *commonmodels.ApprovalTicket) error {
+	j.spec = &commonmodels.ZadigScanningJobSpec{}
+	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
+		return err
+	}
+
+	latestWorkflow, err := commonrepo.NewWorkflowV4Coll().Find(j.workflow.Name)
+	if err != nil {
+		log.Errorf("Failed to find original workflow to set options, error: %s", err)
+	}
+
+	latestSpec := new(commonmodels.ZadigScanningJobSpec)
+	found := false
+	for _, stage := range latestWorkflow.Stages {
+		if !found {
+			for _, job := range stage.Jobs {
+				if job.Name == j.job.Name && job.JobType == j.job.JobType {
+					if err := commonmodels.IToi(job.Spec, latestSpec); err != nil {
+						return err
+					}
+					found = true
+					break
+				}
+			}
+		} else {
+			break
+		}
+	}
+
+	if !found {
+		return fmt.Errorf("failed to find the original workflow: %s", j.workflow.Name)
+	}
+
+	var allowedServices []*commonmodels.ServiceWithModule
+	if approvalTicket != nil {
+		allowedServices = approvalTicket.Services
+	}
+
+	newScanningRange := make([]*commonmodels.ServiceAndScannings, 0)
+	for _, svcScanning := range latestSpec.ServiceAndScannings {
+		if isAllowedService(svcScanning.ServiceName, svcScanning.ServiceModule, allowedServices) {
+			newScanningRange = append(newScanningRange, svcScanning)
+		}
+	}
+
+	j.spec.ServiceAndScannings = newScanningRange
+	j.job.Spec = j.spec
 	return nil
 }
 

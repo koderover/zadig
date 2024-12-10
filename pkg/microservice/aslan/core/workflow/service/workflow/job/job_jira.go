@@ -53,7 +53,7 @@ func (j *JiraJob) SetPreset() error {
 	return nil
 }
 
-func (j *JiraJob) SetOptions() error {
+func (j *JiraJob) SetOptions(approvalTicket *commonmodels.ApprovalTicket) error {
 	return nil
 }
 
