@@ -35,7 +35,7 @@ type ApprovalTicket struct {
 	ExecutionWindowStart int64                 `bson:"execution_window_start" json:"execution_window_start"`
 	ExecutionWindowEnd   int64                 `bson:"execution_window_end" json:"execution_window_end"`
 
-	CreateTime int64 `json:"create_time"`
+	CreateTime int64 `bson:"create_time" json:"create_time"`
 }
 
 type ApprovalTicketUser struct {

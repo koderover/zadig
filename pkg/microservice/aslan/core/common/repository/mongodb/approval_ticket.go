@@ -19,6 +19,7 @@ package mongodb
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -72,6 +73,8 @@ func (c *ApprovalTicketColl) Create(ticket *models.ApprovalTicket) error {
 	if ticket == nil {
 		return fmt.Errorf("nil Module args")
 	}
+
+	ticket.CreateTime = time.Now().Unix()
 
 	_, err := c.Collection.InsertOne(context.TODO(), ticket)
 
