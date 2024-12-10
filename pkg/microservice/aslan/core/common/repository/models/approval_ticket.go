@@ -25,15 +25,15 @@ import (
 type ApprovalTicket struct {
 	ID primitive.ObjectID `bson:"_id,omitempty"                json:"id,omitempty"`
 
-	ApprovalID string `json:"approval_id"`
-	Status     int    `json:"status"`
+	ApprovalID string `bson:"approval_id" json:"approval_id"`
+	Status     int    `bson:"status"      json:"status"`
 
-	ProjectKey           string                `json:"project_key"`
-	Envs                 []string              `json:"envs"`
-	Services             []*ServiceWithModule  `json:"services"`
-	Users                []*ApprovalTicketUser `json:"users"`
-	ExecutionWindowStart int64                 `json:"execution_window_start"`
-	ExecutionWindowEnd   int64                 `json:"execution_window_end"`
+	ProjectKey           string                `bson:"project_key" json:"project_key"`
+	Envs                 []string              `bson:"envs" json:"envs"`
+	Services             []*ServiceWithModule  `bson:"services" json:"services"`
+	Users                []*ApprovalTicketUser `bson:"users" json:"users"`
+	ExecutionWindowStart int64                 `bson:"execution_window_start" json:"execution_window_start"`
+	ExecutionWindowEnd   int64                 `bson:"execution_window_end" json:"execution_window_end"`
 
 	CreateTime int64 `json:"create_time"`
 }
