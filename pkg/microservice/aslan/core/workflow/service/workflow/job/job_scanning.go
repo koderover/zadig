@@ -32,6 +32,7 @@ import (
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
+	codehostrepo "github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/codehost/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/types"
 )
@@ -625,12 +626,17 @@ func (j *ScanningJob) toJobTask(jobSubTaskID int, scanning *commonmodels.Scannin
 	repos := renderRepos(scanning.Repos, scanningInfo.Repos, jobTaskSpec.Properties.Envs)
 	gitRepos, p4Repos := splitReposByType(repos)
 
+	codehosts, err := codehostrepo.NewCodehostColl().AvailableCodeHost(j.workflow.Project)
+	if err != nil {
+		return nil, fmt.Errorf("find %s project codehost error: %v", j.workflow.Project, err)
+	}
+
 	// init git clone step
 	gitStep := &commonmodels.StepTask{
 		Name:     scanning.Name + "-git",
 		JobName:  jobTask.Name,
 		StepType: config.StepGit,
-		Spec:     step.StepGitSpec{Repos: gitRepos},
+		Spec:     step.StepGitSpec{Repos: gitRepos, CodeHosts: codehosts},
 	}
 	jobTaskSpec.Steps = append(jobTaskSpec.Steps, gitStep)
 
