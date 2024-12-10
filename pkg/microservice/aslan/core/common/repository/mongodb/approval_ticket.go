@@ -85,6 +85,7 @@ type ApprovalTicketListOption struct {
 	UserEmail  *string
 	ProjectKey *string
 	Query      *string
+	Status     *int32
 }
 
 func (c *ApprovalTicketColl) List(opt *ApprovalTicketListOption) ([]*models.ApprovalTicket, error) {
@@ -96,6 +97,10 @@ func (c *ApprovalTicketColl) List(opt *ApprovalTicketListOption) ([]*models.Appr
 
 	if opt.ProjectKey != nil {
 		query["project_key"] = opt.ProjectKey
+	}
+
+	if opt.Status != nil {
+		query["status"] = opt.Status
 	}
 
 	if opt.UserEmail != nil {

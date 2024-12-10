@@ -17,6 +17,9 @@ limitations under the License.
 package service
 
 import (
+	"fmt"
+
+	templaterepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	userclient "github.com/koderover/zadig/v2/pkg/shared/client/user"
 	"github.com/koderover/zadig/v2/pkg/util"
 	"go.uber.org/zap"
@@ -27,6 +30,12 @@ import (
 )
 
 func CreateApprovalTicket(req *commonmodels.ApprovalTicket, log *zap.SugaredLogger) error {
+	_, err := templaterepo.NewProductColl().Find(req.ProjectKey)
+	if err != nil {
+		log.Errorf("failed to find project: %s, error: %s", req.ProjectKey, err)
+		return e.ErrCreateApprovalTicket.AddErr(fmt.Errorf("failed to find project: %s, error: %s", req.ProjectKey, err))
+	}
+
 	if err := commonrepo.NewApprovalTicketColl().Create(req); err != nil {
 		log.Errorf("create approval ticket %s error: %v", req.ApprovalID, err)
 		return e.ErrCreateApprovalTicket.AddErr(err)
@@ -46,6 +55,7 @@ func ListApprovalTicket(projectKey, query, userID string, log *zap.SugaredLogger
 		UserEmail:  util.GetStrPointer(userInfo.Email),
 		ProjectKey: util.GetStrPointer(projectKey),
 		Query:      util.GetStrPointer(query),
+		Status:     util.GetInt32Pointer(1),
 	})
 
 	if err != nil {
