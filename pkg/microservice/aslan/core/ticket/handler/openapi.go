@@ -57,5 +57,5 @@ func OpenAPICreateApprovalTicket(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp = ticketservice.CreateApprovalTicket(args, ctx.Logger)
+	ctx.RespErr = ticketservice.CreateApprovalTicket(args, ctx.Logger)
 }
