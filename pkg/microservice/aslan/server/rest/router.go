@@ -42,6 +42,7 @@ import (
 	stathandler "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/stat/handler"
 	systemhandler "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/handler"
 	templatehandler "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/templatestore/handler"
+	tickethandler "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/ticket/handler"
 	vmhandler "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/vm/handler"
 	workflowhandler "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/handler"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow"
@@ -55,7 +56,6 @@ import (
 	emailHandler "github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/email/handler"
 	featuresHandler "github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/features/handler"
 	"github.com/koderover/zadig/v2/pkg/tool/metrics"
-
 	// Note: have to load docs for swagger to work. See https://blog.csdn.net/weixin_43249914/article/details/103035711
 	// _ "github.com/koderover/zadig/v2/pkg/microservice/aslan/server/rest/doc"
 )
@@ -113,6 +113,7 @@ func (s *engine) injectRouterGroup(router *gin.RouterGroup) {
 		"/openapi/delivery":     new(deliveryhandler.OpenAPIRouter),
 		"/openapi/cluster":      new(multiclusterhandler.OpenAPIRouter),
 		"/openapi/logs":         new(loghandler.OpenAPIRouter),
+		"/openapi/ticket":       new(tickethandler.OpenAPIRouter),
 	} {
 		r.Inject(router.Group(name))
 	}
@@ -144,6 +145,7 @@ func (s *engine) injectRouterGroup(router *gin.RouterGroup) {
 		"/api/stat":              new(stathandler.Router),
 		"/api/cache":             cachehandler.NewRouter(),
 		"/api/vm":                new(vmhandler.Router),
+		"/api/ticket":            new(tickethandler.Router),
 	} {
 		r.Inject(router.Group(name))
 	}

@@ -680,9 +680,11 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 
 			for _, distribute := range workflow.DistributeStage.Distributes {
 				serviceModule := &commonmodels.ServiceModuleTarget{
-					ProductName:   args.ProductTmplName,
-					ServiceName:   target.ServiceName,
-					ServiceModule: target.Name,
+					ProductName: args.ProductTmplName,
+					ServiceWithModule: commonmodels.ServiceWithModule{
+						ServiceName:   target.ServiceName,
+						ServiceModule: target.Name,
+					},
 				}
 				if distribute.Target != nil {
 					serviceModule.ProductName = distribute.Target.ProductName
@@ -937,9 +939,11 @@ func AddDataToArgsOrCreateReleaseImageTask(args *commonmodels.WorkflowTaskArgs, 
 				for _, build := range builds {
 					for _, moduleTarget := range build.Targets {
 						serviceModuleTarget := &commonmodels.ServiceModuleTarget{
-							ProductName:   serviceTmpl.ProductName,
-							ServiceName:   serviceTmpl.ServiceName,
-							ServiceModule: container.Name,
+							ProductName: serviceTmpl.ProductName,
+							ServiceWithModule: commonmodels.ServiceWithModule{
+								ServiceName:   serviceTmpl.ServiceName,
+								ServiceModule: container.Name,
+							},
 						}
 						if reflect.DeepEqual(moduleTarget, serviceModuleTarget) {
 							deployEnv := commonmodels.DeployEnv{Env: serviceTmpl.ServiceName + "/" + container.Name, Type: serviceTmpl.Type, ProductName: serviceTmpl.ProductName}
@@ -960,9 +964,11 @@ func AddDataToArgsOrCreateReleaseImageTask(args *commonmodels.WorkflowTaskArgs, 
 				repos := build.Repos
 				for _, container := range serviceTmpl.Containers {
 					serviceModuleTarget := &commonmodels.ServiceModuleTarget{
-						ProductName:   serviceTmpl.ProductName,
-						ServiceName:   serviceTmpl.ServiceName,
-						ServiceModule: container.Name,
+						ProductName: serviceTmpl.ProductName,
+						ServiceWithModule: commonmodels.ServiceWithModule{
+							ServiceName:   serviceTmpl.ServiceName,
+							ServiceModule: container.Name,
+						},
 					}
 					for _, buildTarget := range build.Targets {
 						if reflect.DeepEqual(buildTarget, serviceModuleTarget) {
@@ -1120,9 +1126,11 @@ func createReleaseImageTask(workflow *commonmodels.Workflow, args *commonmodels.
 				if distribute.Target.ServiceModule == imageInfo.ServiceModule && distribute.Target.ServiceName == imageInfo.ServiceName {
 					distributeTasks, err = formatDistributeSubtasks(
 						&commonmodels.ServiceModuleTarget{
-							ProductName:   args.ProductTmplName,
-							ServiceName:   imageInfo.ServiceName,
-							ServiceModule: imageInfo.ServiceModule,
+							ProductName: args.ProductTmplName,
+							ServiceWithModule: commonmodels.ServiceWithModule{
+								ServiceName:   imageInfo.ServiceName,
+								ServiceModule: imageInfo.ServiceModule,
+							},
 						},
 						workflow.DistributeStage.Releases,
 						workflow.DistributeStage.ImageRepo,
@@ -1873,9 +1881,11 @@ func CreateArtifactWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator
 
 			for _, distribute := range workflow.DistributeStage.Distributes {
 				serviceModule := &commonmodels.ServiceModuleTarget{
-					ProductName:   args.ProductTmplName,
-					ServiceName:   artifact.ServiceName,
-					ServiceModule: artifact.Name,
+					ProductName: args.ProductTmplName,
+					ServiceWithModule: commonmodels.ServiceWithModule{
+						ServiceName:   artifact.ServiceName,
+						ServiceModule: artifact.Name,
+					},
 				}
 				if distribute.Target != nil {
 					serviceModule.ProductName = distribute.Target.ProductName

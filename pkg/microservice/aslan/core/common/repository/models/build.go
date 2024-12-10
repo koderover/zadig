@@ -166,18 +166,21 @@ type ParamVal struct {
 }
 
 type ServiceModuleTarget struct {
-	ProductName   string              `bson:"product_name"                  json:"product_name"`
-	ServiceName   string              `bson:"service_name"                  json:"service_name"`
-	ServiceModule string              `bson:"service_module"                json:"service_module"`
-	BuildName     string              `bson:"build_name"                    json:"build_name"`
-	Repos         []*types.Repository `bson:"repos,omitempty"               json:"repos,omitempty"`
-	Envs          []*KeyVal           `bson:"envs,omitempty"                json:"envs"`
+	ProductName       string `bson:"product_name"                  json:"product_name"`
+	ServiceWithModule `bson:",inline"                       json:",inline"`
+	BuildName         string              `bson:"build_name"                    json:"build_name"`
+	Repos             []*types.Repository `bson:"repos,omitempty"               json:"repos,omitempty"`
+	Envs              []*KeyVal           `bson:"envs,omitempty"                json:"envs"`
+}
+
+type ServiceWithModule struct {
+	ServiceName   string `bson:"service_name"   json:"service_name"   yaml:"service_name"`
+	ServiceModule string `bson:"service_module" json:"service_module" yaml:"service_module"`
 }
 
 type ServiceModuleTargetBase struct {
-	ProductName   string `json:"product_name"`
-	ServiceName   string `json:"service_name"`
-	ServiceModule string `json:"service_module"`
+	ProductName       string `json:"product_name"`
+	ServiceWithModule `json:",inline"`
 }
 
 type TargetRepo struct {

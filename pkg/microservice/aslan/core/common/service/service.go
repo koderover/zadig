@@ -706,9 +706,11 @@ func UpdatePmServiceTemplate(username string, args *ServiceTmplBuildObject, log 
 
 		if !include {
 			currentBuild.Targets = append(currentBuild.Targets, &commonmodels.ServiceModuleTarget{
-				ProductName:   args.ServiceTmplObject.ProductName,
-				ServiceName:   args.ServiceTmplObject.ServiceName,
-				ServiceModule: args.ServiceTmplObject.ServiceName,
+				ProductName: args.ServiceTmplObject.ProductName,
+				ServiceWithModule: commonmodels.ServiceWithModule{
+					ServiceName:   args.ServiceTmplObject.ServiceName,
+					ServiceModule: args.ServiceTmplObject.ServiceName,
+				},
 			})
 			if err = UpdateBuild(username, currentBuild, log); err != nil {
 				return e.ErrUpdateService.AddDesc("update current build failed")

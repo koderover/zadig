@@ -89,34 +89,29 @@ type OpenAPIBuildListResp struct {
 }
 
 type OpenAPIBuildBrief struct {
-	Name           string           `json:"name"`
-	ProjectName    string           `json:"project_key"`
-	Source         string           `json:"source"`
-	UpdateBy       string           `json:"update_by"`
-	UpdateTime     int64            `json:"update_time"`
-	TargetServices []*ServiceModule `json:"target_services"`
-}
-
-type ServiceModule struct {
-	ServiceName   string `json:"service_name"`
-	ServiceModule string `json:"service_module"`
+	Name           string                            `json:"name"`
+	ProjectName    string                            `json:"project_key"`
+	Source         string                            `json:"source"`
+	UpdateBy       string                            `json:"update_by"`
+	UpdateTime     int64                             `json:"update_time"`
+	TargetServices []*commonmodels.ServiceWithModule `json:"target_services"`
 }
 
 type OpenAPIBuildDetailResp struct {
-	ProjectName     string                        `json:"project_key"`
-	Name            string                        `json:"name"`
-	Source          string                        `json:"source"`
-	TargetServices  []*ServiceModule              `json:"target_services"`
-	TemplateName    string                        `json:"template_name"`
-	UpdateBy        string                        `json:"update_by"`
-	UpdateTime      int64                         `json:"update_time"`
-	Repos           []*OpenAPIRepo                `json:"repos"`
-	BuildEnv        *OpenAPIBuildEnv              `json:"build_env"`
-	AdvancedSetting *types.OpenAPIAdvancedSetting `json:"advanced_settings"`
-	BuildScript     string                        `json:"build_script"`
-	Parameters      []*commonmodels.ServiceKeyVal `json:"parameters"`
-	Outputs         []*commonmodels.Output        `json:"outputs"`
-	PostBuild       *commonmodels.PostBuild       `json:"post_build"`
+	ProjectName     string                            `json:"project_key"`
+	Name            string                            `json:"name"`
+	Source          string                            `json:"source"`
+	TargetServices  []*commonmodels.ServiceWithModule `json:"target_services"`
+	TemplateName    string                            `json:"template_name"`
+	UpdateBy        string                            `json:"update_by"`
+	UpdateTime      int64                             `json:"update_time"`
+	Repos           []*OpenAPIRepo                    `json:"repos"`
+	BuildEnv        *OpenAPIBuildEnv                  `json:"build_env"`
+	AdvancedSetting *types.OpenAPIAdvancedSetting     `json:"advanced_settings"`
+	BuildScript     string                            `json:"build_script"`
+	Parameters      []*commonmodels.ServiceKeyVal     `json:"parameters"`
+	Outputs         []*commonmodels.Output            `json:"outputs"`
+	PostBuild       *commonmodels.PostBuild           `json:"post_build"`
 }
 
 type OpenAPIRepo struct {

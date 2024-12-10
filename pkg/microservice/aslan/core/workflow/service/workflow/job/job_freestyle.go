@@ -792,8 +792,10 @@ func (j *FreeStyleJob) getOriginReferedJobTargets(jobName string) ([]*commonmode
 				}
 				for _, build := range buildSpec.ServiceAndBuilds {
 					target := &commonmodels.FreeStyleServiceInfo{
-						ServiceName:   build.ServiceName,
-						ServiceModule: build.ServiceModule,
+						ServiceWithModule: commonmodels.ServiceWithModule{
+							ServiceName:   build.ServiceName,
+							ServiceModule: build.ServiceModule,
+						},
 					}
 					if originTarget, ok := originTargetMap[target.GetKey()]; ok {
 						target.Repos = originTarget.Repos
@@ -813,8 +815,10 @@ func (j *FreeStyleJob) getOriginReferedJobTargets(jobName string) ([]*commonmode
 				}
 				for _, distribute := range distributeSpec.Targets {
 					target := &commonmodels.FreeStyleServiceInfo{
-						ServiceName:   distribute.ServiceName,
-						ServiceModule: distribute.ServiceModule,
+						ServiceWithModule: commonmodels.ServiceWithModule{
+							ServiceName:   distribute.ServiceName,
+							ServiceModule: distribute.ServiceModule,
+						},
 					}
 					if originTarget, ok := originTargetMap[target.GetKey()]; ok {
 						target.Repos = originTarget.Repos
@@ -835,8 +839,10 @@ func (j *FreeStyleJob) getOriginReferedJobTargets(jobName string) ([]*commonmode
 				for _, svc := range deploySpec.Services {
 					for _, module := range svc.Modules {
 						target := &commonmodels.FreeStyleServiceInfo{
-							ServiceName:   svc.ServiceName,
-							ServiceModule: module.ServiceModule,
+							ServiceWithModule: commonmodels.ServiceWithModule{
+								ServiceName:   svc.ServiceName,
+								ServiceModule: module.ServiceModule,
+							},
 						}
 						if originTarget, ok := originTargetMap[target.GetKey()]; ok {
 							target.Repos = originTarget.Repos
@@ -857,8 +863,10 @@ func (j *FreeStyleJob) getOriginReferedJobTargets(jobName string) ([]*commonmode
 				}
 				for _, svc := range scanningSpec.TargetServices {
 					target := &commonmodels.FreeStyleServiceInfo{
-						ServiceName:   svc.ServiceName,
-						ServiceModule: svc.ServiceModule,
+						ServiceWithModule: commonmodels.ServiceWithModule{
+							ServiceName:   svc.ServiceName,
+							ServiceModule: svc.ServiceModule,
+						},
 					}
 					if originTarget, ok := originTargetMap[target.GetKey()]; ok {
 						target.Repos = originTarget.Repos
@@ -878,8 +886,10 @@ func (j *FreeStyleJob) getOriginReferedJobTargets(jobName string) ([]*commonmode
 				}
 				for _, svc := range testingSpec.TargetServices {
 					target := &commonmodels.FreeStyleServiceInfo{
-						ServiceName:   svc.ServiceName,
-						ServiceModule: svc.ServiceModule,
+						ServiceWithModule: commonmodels.ServiceWithModule{
+							ServiceName:   svc.ServiceName,
+							ServiceModule: svc.ServiceModule,
+						},
 					}
 					if originTarget, ok := originTargetMap[target.GetKey()]; ok {
 						target.Repos = originTarget.Repos
@@ -902,8 +912,10 @@ func (j *FreeStyleJob) getOriginReferedJobTargets(jobName string) ([]*commonmode
 				}
 				for _, svc := range deploySpec.Services {
 					target := &commonmodels.FreeStyleServiceInfo{
-						ServiceName:   svc.ServiceName,
-						ServiceModule: svc.ServiceModule,
+						ServiceWithModule: commonmodels.ServiceWithModule{
+							ServiceName:   svc.ServiceName,
+							ServiceModule: svc.ServiceModule,
+						},
 					}
 					if originTarget, ok := originTargetMap[target.GetKey()]; ok {
 						target.Repos = originTarget.Repos

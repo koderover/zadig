@@ -147,9 +147,11 @@ func ListServiceWorkflows(productName, envName, serviceName, serviceType string,
 		for _, container := range service.Containers {
 			// 不存在构建的服务组件直接跳过，不返回
 			target := commonmodels.ServiceModuleTarget{
-				ProductName:   service.ProductName,
-				ServiceName:   service.ServiceName,
-				ServiceModule: container.Name,
+				ProductName: service.ProductName,
+				ServiceWithModule: commonmodels.ServiceWithModule{
+					ServiceName:   service.ServiceName,
+					ServiceModule: container.Name,
+				},
 			}
 			serviceModuleTarget := fmt.Sprintf("%s%s%s%s%s", service.ProductName, SplitSymbol, service.ServiceName, SplitSymbol, container.Name)
 			moBuild, _ := findModuleByTargetAndVersion(allModules, serviceModuleTarget)
@@ -160,9 +162,11 @@ func ListServiceWorkflows(productName, envName, serviceName, serviceType string,
 		}
 	} else {
 		target := commonmodels.ServiceModuleTarget{
-			ProductName:   service.ProductName,
-			ServiceName:   service.ServiceName,
-			ServiceModule: service.ServiceName,
+			ProductName: service.ProductName,
+			ServiceWithModule: commonmodels.ServiceWithModule{
+				ServiceName:   service.ServiceName,
+				ServiceModule: service.ServiceName,
+			},
 		}
 		serviceModuleTarget := fmt.Sprintf("%s%s%s%s%s", service.ProductName, SplitSymbol, service.ServiceName, SplitSymbol, service.ServiceName)
 		moBuild, _ := findModuleByTargetAndVersion(allModules, serviceModuleTarget)

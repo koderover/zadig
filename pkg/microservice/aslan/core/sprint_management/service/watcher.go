@@ -150,17 +150,21 @@ func updateSprintWorkItemTask(ctx *handler.Context, workItemTask *models.SprintW
 				// for compatibility
 				if taskDeploySpec.ServiceModule != "" {
 					serviceModules = append(serviceModules, &models.WorkflowServiceModule{
-						ServiceName:   taskDeploySpec.ServiceName,
-						ServiceModule: taskDeploySpec.ServiceModule,
-						Artifacts:     []string{taskDeploySpec.Image},
+						ServiceWithModule: models.ServiceWithModule{
+							ServiceName:   taskDeploySpec.ServiceName,
+							ServiceModule: taskDeploySpec.ServiceModule,
+						},
+						Artifacts: []string{taskDeploySpec.Image},
 					})
 				}
 
 				for _, imageAndmodule := range taskDeploySpec.ServiceAndImages {
 					serviceModules = append(serviceModules, &models.WorkflowServiceModule{
-						ServiceName:   taskDeploySpec.ServiceName,
-						ServiceModule: imageAndmodule.ServiceModule,
-						Artifacts:     []string{imageAndmodule.Image},
+						ServiceWithModule: models.ServiceWithModule{
+							ServiceName:   taskDeploySpec.ServiceName,
+							ServiceModule: imageAndmodule.ServiceModule,
+						},
+						Artifacts: []string{imageAndmodule.Image},
 					})
 				}
 
@@ -176,9 +180,11 @@ func updateSprintWorkItemTask(ctx *handler.Context, workItemTask *models.SprintW
 
 				for _, imageAndmodule := range taskDeploySpec.ImageAndModules {
 					serviceModules = append(serviceModules, &models.WorkflowServiceModule{
-						ServiceName:   taskDeploySpec.ServiceName,
-						ServiceModule: imageAndmodule.ServiceModule,
-						Artifacts:     []string{imageAndmodule.Image},
+						ServiceWithModule: models.ServiceWithModule{
+							ServiceName:   taskDeploySpec.ServiceName,
+							ServiceModule: imageAndmodule.ServiceModule,
+						},
+						Artifacts: []string{imageAndmodule.Image},
 					})
 				}
 
@@ -237,9 +243,11 @@ func updateSprintWorkItemTask(ctx *handler.Context, workItemTask *models.SprintW
 
 						for _, target := range stepSpec.DistributeTarget {
 							sm := &models.WorkflowServiceModule{
-								ServiceName:   target.ServiceName,
-								ServiceModule: target.ServiceModule,
-								Artifacts:     []string{target.TargetImage},
+								ServiceWithModule: models.ServiceWithModule{
+									ServiceName:   target.ServiceName,
+									ServiceModule: target.ServiceModule,
+								},
+								Artifacts: []string{target.TargetImage},
 							}
 							serviceModules = append(serviceModules, sm)
 						}

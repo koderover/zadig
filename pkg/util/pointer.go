@@ -21,6 +21,10 @@ func GetBoolPointer(data bool) *bool {
 }
 
 func GetStrPointer(data string) *string {
+	if len(data) == 0 {
+		return nil
+	}
+
 	return &data
 }
 
