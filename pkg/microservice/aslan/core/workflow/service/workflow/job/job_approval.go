@@ -101,10 +101,21 @@ func (j *ApprovalJob) UpdateWithLatestSetting() error {
 	if !found {
 		return fmt.Errorf("failed to find the original workflow: %s", j.workflow.Name)
 	}
-	// just use the latest config
-	j.spec = latestSpec
 
-	j.job.Spec = j.spec
+	if latestSpec.NativeApproval != nil && j.spec.NativeApproval != nil {
+		latestSpec.NativeApproval.ApproveUsers = j.spec.NativeApproval.ApproveUsers
+	}
+	if latestSpec.LarkApproval != nil && j.spec.LarkApproval != nil {
+		latestSpec.LarkApproval.ApprovalNodes = j.spec.LarkApproval.ApprovalNodes
+	}
+	if latestSpec.DingTalkApproval != nil && j.spec.DingTalkApproval != nil {
+		latestSpec.DingTalkApproval.ApprovalNodes = j.spec.DingTalkApproval.ApprovalNodes
+	}
+	if latestSpec.WorkWXApproval != nil && j.spec.WorkWXApproval != nil {
+		latestSpec.WorkWXApproval.ApprovalNodes = j.spec.WorkWXApproval.ApprovalNodes
+	}
+
+	j.job.Spec = latestSpec
 	return nil
 }
 
@@ -158,7 +169,7 @@ func (j *ApprovalJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			j.spec.JobName = j.spec.OriginJobName
 		}
 
-		serviceReferredJob := getOriginJobName(j.workflow, j.spec.OriginJobName)
+		serviceReferredJob := getOriginJobName(j.workflow, j.spec.JobName)
 		originJobSpec, err := j.getOriginReferedJobSpec(serviceReferredJob)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get origin refered job: %s", err)
