@@ -202,7 +202,10 @@ func (c *JobInfoColl) GetBuildJobsStats(startTime, endTime int64, projectNames [
 		return nil, err
 	}
 
-	_ = cursor.Next(context.TODO())
+	ok := cursor.Next(context.TODO())
+	if !ok {
+		return nil, nil
+	}
 
 	result := new(models.ServiceDeployCountWithStatus)
 	if err := cursor.Decode(&result); err != nil {
