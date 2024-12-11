@@ -114,9 +114,11 @@ func CreatePMService(username string, args *ServiceTmplBuildObject, log *zap.Sug
 		}
 	} else {
 		build.Targets = append(build.Targets, &commonmodels.ServiceModuleTarget{
-			ProductName:   args.ServiceTmplObject.ProductName,
-			ServiceName:   args.ServiceTmplObject.ServiceName,
-			ServiceModule: args.ServiceTmplObject.ServiceName,
+			ProductName: args.ServiceTmplObject.ProductName,
+			ServiceWithModule: commonmodels.ServiceWithModule{
+				ServiceName:   args.ServiceTmplObject.ServiceName,
+				ServiceModule: args.ServiceTmplObject.ServiceName,
+			},
 		})
 		if err = commonservice.UpdateBuild(username, build, log); err != nil {
 			return e.ErrCreateTemplate.AddDesc("update build failed")

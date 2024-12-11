@@ -257,7 +257,7 @@ func (j *DeployJob) SetPreset() error {
 	} else if j.spec.Source == config.SourceRuntime {
 		envName := strings.ReplaceAll(j.spec.Env, setting.FixedValueMark, "")
 
-		serviceDeployOption, _, err := generateEnvDeployServiceInfo(envName, j.workflow.Project, j.spec)
+		serviceDeployOption, _, err := generateEnvDeployServiceInfo(envName, j.workflow.Project, j.spec, nil)
 		if err != nil {
 			log.Errorf("failed to generate service deployment info for env: %s, error: %s", envName, err)
 			return err
@@ -316,7 +316,7 @@ func (j *DeployJob) SetPreset() error {
 }
 
 // SetOptions get the service deployment info from ALL envs and set these information into the EnvOptions Field
-func (j *DeployJob) SetOptions() error {
+func (j *DeployJob) SetOptions(approvalTicket *commonmodels.ApprovalTicket) error {
 	j.spec = &commonmodels.ZadigDeployJobSpec{}
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return err
@@ -351,21 +351,28 @@ func (j *DeployJob) SetOptions() error {
 
 	envOptions := make([]*commonmodels.ZadigDeployEnvInformation, 0)
 
+	var allowedServices []*commonmodels.ServiceWithModule
+	if approvalTicket != nil {
+		allowedServices = approvalTicket.Services
+	}
+
 	if strings.HasPrefix(latestSpec.Env, setting.FixedValueMark) {
 		// if the env is fixed, we put the env in the option
 		envName := strings.ReplaceAll(latestSpec.Env, setting.FixedValueMark, "")
 
-		serviceInfo, registryID, err := generateEnvDeployServiceInfo(envName, j.workflow.Project, latestSpec)
-		if err != nil {
-			log.Errorf("failed to generate service deployment info for env: %s, error: %s", envName, err)
-			return err
-		}
+		if approvalTicket == nil || isAllowedEnv(envName, approvalTicket.Envs) {
+			serviceInfo, registryID, err := generateEnvDeployServiceInfo(envName, j.workflow.Project, latestSpec, allowedServices)
+			if err != nil {
+				log.Errorf("failed to generate service deployment info for env: %s, error: %s", envName, err)
+				return err
+			}
 
-		envOptions = append(envOptions, &commonmodels.ZadigDeployEnvInformation{
-			Env:        envName,
-			RegistryID: registryID,
-			Services:   serviceInfo,
-		})
+			envOptions = append(envOptions, &commonmodels.ZadigDeployEnvInformation{
+				Env:        envName,
+				RegistryID: registryID,
+				Services:   serviceInfo,
+			})
+		}
 	} else {
 		// otherwise list all the envs in this project
 		products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
@@ -384,7 +391,11 @@ func (j *DeployJob) SetOptions() error {
 				continue
 			}
 
-			serviceDeployOption, registryID, err := generateEnvDeployServiceInfo(env.EnvName, j.workflow.Project, latestSpec)
+			if approvalTicket != nil && !isAllowedEnv(env.EnvName, approvalTicket.Envs) {
+				continue
+			}
+
+			serviceDeployOption, registryID, err := generateEnvDeployServiceInfo(env.EnvName, j.workflow.Project, latestSpec, allowedServices)
 			if err != nil {
 				log.Errorf("failed to generate service deployment info for env: %s, error: %s", env.EnvName, err)
 				return err
@@ -487,7 +498,7 @@ func (j *DeployJob) UpdateWithLatestSetting() error {
 		env = strings.TrimPrefix(latestSpec.Env, setting.FixedValueMark)
 	}
 
-	deployableService, _, err := generateEnvDeployServiceInfo(env, j.workflow.Project, latestSpec)
+	deployableService, _, err := generateEnvDeployServiceInfo(env, j.workflow.Project, latestSpec, nil)
 	if err != nil {
 		log.Errorf("failed to generate deployable service from latest workflow spec, err: %s", err)
 		return err
@@ -558,7 +569,7 @@ func (j *DeployJob) UpdateWithLatestSetting() error {
 }
 
 // generateEnvDeployServiceInfo generates the valid deployable service and calculate the visible kvs defined in the spec
-func generateEnvDeployServiceInfo(env, project string, spec *commonmodels.ZadigDeployJobSpec) ([]*commonmodels.DeployServiceInfo, string, error) {
+func generateEnvDeployServiceInfo(env, project string, spec *commonmodels.ZadigDeployJobSpec, allowedServices []*commonmodels.ServiceWithModule) ([]*commonmodels.DeployServiceInfo, string, error) {
 	resp := make([]*commonmodels.DeployServiceInfo, 0)
 	envInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
 		Name:       project,
@@ -581,11 +592,13 @@ func generateEnvDeployServiceInfo(env, project string, spec *commonmodels.ZadigD
 		for _, service := range envServiceMap {
 			modules := make([]*commonmodels.DeployModuleInfo, 0)
 			for _, module := range service.Containers {
-				modules = append(modules, &commonmodels.DeployModuleInfo{
-					ServiceModule: module.Name,
-					Image:         module.Image,
-					ImageName:     commonutil.ExtractImageName(module.Image),
-				})
+				if isAllowedService(service.ServiceName, module.Name, allowedServices) {
+					modules = append(modules, &commonmodels.DeployModuleInfo{
+						ServiceModule: module.Name,
+						Image:         module.Image,
+						ImageName:     commonutil.ExtractImageName(module.Image),
+					})
+				}
 			}
 
 			kvs := make([]*commontypes.RenderVariableKV, 0)
@@ -666,11 +679,13 @@ func generateEnvDeployServiceInfo(env, project string, spec *commonmodels.ZadigD
 	for _, service := range envServiceMap {
 		modules := make([]*commonmodels.DeployModuleInfo, 0)
 		for _, module := range service.Containers {
-			modules = append(modules, &commonmodels.DeployModuleInfo{
-				ServiceModule: module.Name,
-				Image:         module.Image,
-				ImageName:     commonutil.ExtractImageName(module.Image),
-			})
+			if isAllowedService(service.ServiceName, module.Name, allowedServices) {
+				modules = append(modules, &commonmodels.DeployModuleInfo{
+					ServiceModule: module.Name,
+					Image:         module.Image,
+					ImageName:     commonutil.ExtractImageName(module.Image),
+				})
+			}
 		}
 
 		kvs := make([]*commontypes.RenderVariableKV, 0)
@@ -715,11 +730,13 @@ func generateEnvDeployServiceInfo(env, project string, spec *commonmodels.ZadigD
 
 		modules := make([]*commonmodels.DeployModuleInfo, 0)
 		for _, module := range service.Containers {
-			modules = append(modules, &commonmodels.DeployModuleInfo{
-				ServiceModule: module.Name,
-				Image:         module.Image,
-				ImageName:     commonutil.ExtractImageName(module.Image),
-			})
+			if isAllowedService(service.ServiceName, module.Name, allowedServices) {
+				modules = append(modules, &commonmodels.DeployModuleInfo{
+					ServiceModule: module.Name,
+					Image:         module.Image,
+					ImageName:     commonutil.ExtractImageName(module.Image),
+				})
+			}
 		}
 
 		kvs := make([]*commontypes.RenderVariableKV, 0)
@@ -1065,6 +1082,31 @@ func checkServiceExsistsInEnv(serviceMap map[string]*commonmodels.ProductService
 		return fmt.Errorf("service %s not exists in env %s", serviceName, env)
 	}
 	return nil
+}
+
+// isAllowedEnv calculate if the env is allowed by the allowedEnv restriction.
+// note that if allowedEnv is empty, it will be seen as no restrictions
+func isAllowedEnv(env string, allowedEnv []string) bool {
+	if allowedEnv == nil || len(allowedEnv) == 0 {
+		return true
+	}
+
+	allowedSets := sets.NewString(allowedEnv...)
+	return allowedSets.Has(env)
+}
+
+func isAllowedService(serviceName, serviceModule string, allowedServices []*commonmodels.ServiceWithModule) bool {
+	if allowedServices == nil || len(allowedServices) == 0 {
+		return true
+	}
+
+	svcSets := sets.NewString()
+	for _, allowedSvc := range allowedServices {
+		key := fmt.Sprintf("%s++%s", allowedSvc.ServiceName, allowedSvc.ServiceModule)
+		svcSets.Insert(key)
+	}
+
+	return svcSets.Has(fmt.Sprintf("%s++%s", serviceName, serviceModule))
 }
 
 func (j *DeployJob) LintJob() error {

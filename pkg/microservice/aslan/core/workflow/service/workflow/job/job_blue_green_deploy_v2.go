@@ -88,7 +88,7 @@ func (j *BlueGreenDeployV2Job) SetPreset() error {
 	return nil
 }
 
-func (j *BlueGreenDeployV2Job) SetOptions() error {
+func (j *BlueGreenDeployV2Job) SetOptions(approvalTicket *commonmodels.ApprovalTicket) error {
 	j.spec = &commonmodels.BlueGreenDeployV2JobSpec{}
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return err
@@ -125,20 +125,22 @@ func (j *BlueGreenDeployV2Job) SetOptions() error {
 	envOptions := make([]*commonmodels.ZadigBlueGreenDeployEnvInformation, 0)
 
 	if strings.HasPrefix(originalSpec.Env, setting.FixedValueMark) {
-		// if the env is fixed, we put the env in the option
-		envName := strings.ReplaceAll(originalSpec.Env, setting.FixedValueMark, "")
+		if approvalTicket == nil || isAllowedEnv(originalSpec.Env, approvalTicket.Envs) {
+			// if the env is fixed, we put the env in the option
+			envName := strings.ReplaceAll(originalSpec.Env, setting.FixedValueMark, "")
 
-		serviceInfo, registryID, err := generateBlueGreenEnvDeployServiceInfo(envName, j.workflow.Project, originalSpec.Services)
-		if err != nil {
-			log.Errorf("failed to generate blue-green deploy info for env: %s, error: %s", envName, err)
-			return err
+			serviceInfo, registryID, err := generateBlueGreenEnvDeployServiceInfo(envName, j.workflow.Project, originalSpec.Services)
+			if err != nil {
+				log.Errorf("failed to generate blue-green deploy info for env: %s, error: %s", envName, err)
+				return err
+			}
+
+			envOptions = append(envOptions, &commonmodels.ZadigBlueGreenDeployEnvInformation{
+				Env:        envName,
+				RegistryID: registryID,
+				Services:   serviceInfo,
+			})
 		}
-
-		envOptions = append(envOptions, &commonmodels.ZadigBlueGreenDeployEnvInformation{
-			Env:        envName,
-			RegistryID: registryID,
-			Services:   serviceInfo,
-		})
 	} else {
 		// otherwise list all the envs in this project
 		products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
@@ -149,6 +151,10 @@ func (j *BlueGreenDeployV2Job) SetOptions() error {
 			return fmt.Errorf("can't list envs in project %s, error: %w", j.workflow.Project, err)
 		}
 		for _, env := range products {
+			if approvalTicket != nil && !isAllowedEnv(env.EnvName, approvalTicket.Envs) {
+				continue
+			}
+
 			serviceInfo, registryID, err := generateBlueGreenEnvDeployServiceInfo(env.EnvName, j.workflow.Project, originalSpec.Services)
 			if err != nil {
 				log.Errorf("failed to generate blue-green deploy info for env: %s, error: %s", env.EnvName, err)

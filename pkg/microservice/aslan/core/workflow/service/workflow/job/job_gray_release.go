@@ -51,7 +51,7 @@ func (j *GrayReleaseJob) SetPreset() error {
 	return nil
 }
 
-func (j *GrayReleaseJob) SetOptions() error {
+func (j *GrayReleaseJob) SetOptions(approvalTicket *commonmodels.ApprovalTicket) error {
 	j.spec = &commonmodels.GrayReleaseJobSpec{}
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return err

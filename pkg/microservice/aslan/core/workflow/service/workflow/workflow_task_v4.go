@@ -87,6 +87,8 @@ type WorkflowTaskPreview struct {
 	Error               string                `bson:"error,omitempty"           json:"error,omitempty"`
 	IsRestart           bool                  `bson:"is_restart"                json:"is_restart"`
 	Debug               bool                  `bson:"debug"                     json:"debug"`
+	ApprovalTicketID    string                `bson:"approval_ticket_id"        json:"approval_ticket_id"`
+	ApprovalID          string                `bson:"approval_id"               json:"approval_id"`
 }
 
 type StageTaskPreview struct {
@@ -226,15 +228,24 @@ type DistributeImageJobSpec struct {
 	DistributeTarget []*step.DistributeTaskTarget `bson:"distribute_target"            json:"distribute_target"`
 }
 
-func GetWorkflowv4Preset(encryptedKey, workflowName, uid, username string, log *zap.SugaredLogger) (*commonmodels.WorkflowV4, error) {
+func GetWorkflowv4Preset(encryptedKey, workflowName, uid, username, ticketID string, log *zap.SugaredLogger) (*commonmodels.WorkflowV4, error) {
 	workflow, err := commonrepo.NewWorkflowV4Coll().Find(workflowName)
 	if err != nil {
 		log.Errorf("cannot find workflow %s, the error is: %v", workflowName, err)
 		return nil, e.ErrPresetWorkflow.AddDesc(err.Error())
 	}
+	var approvalTicket *commonmodels.ApprovalTicket
+	if workflow.EnableApprovalTicket {
+		approvalTicket, err = commonrepo.NewApprovalTicketColl().GetByID(ticketID)
+		if err != nil {
+			log.Errorf("cannot find approval ticket of id %s, the error is: %v", ticketID, err)
+			return nil, e.ErrPresetWorkflow.AddDesc(err.Error())
+		}
+	}
+
 	for _, stage := range workflow.Stages {
 		for _, job := range stage.Jobs {
-			if err := jobctl.SetOptions(job, workflow); err != nil {
+			if err := jobctl.SetOptions(job, workflow, approvalTicket); err != nil {
 				log.Errorf("cannot get workflow %s options for job %s, the error is: %v", workflowName, job.Name, err)
 				return nil, e.ErrPresetWorkflow.AddDesc(err.Error())
 			}
@@ -414,10 +425,11 @@ func CheckWorkflowV4ApprovalInitiator(workflowName, uid string, log *zap.Sugared
 }
 
 type CreateWorkflowTaskV4Args struct {
-	Name    string
-	Account string
-	UserID  string
-	Type    config.CustomWorkflowTaskType
+	Name             string
+	Account          string
+	UserID           string
+	Type             config.CustomWorkflowTaskType
+	ApprovalTicketID string
 }
 
 func CreateWorkflowTaskV4ByBuildInTrigger(triggerName string, args *commonmodels.WorkflowV4, log *zap.SugaredLogger) (*CreateTaskV4Resp, error) {
@@ -448,7 +460,20 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 		return resp, err
 	}
 
+	var userInfo *types.UserInfo
+	var err error
+
 	workflowTask := &commonmodels.WorkflowTask{}
+
+	// if user info exists, get user email and put it to workflow task info
+	if args.UserID != "" {
+		userInfo, err = user.New().GetUserByID(args.UserID)
+		if err != nil || userInfo == nil {
+			return resp, errors.New("failed to get user info by uid")
+		}
+		workflowTask.TaskCreatorEmail = userInfo.Email
+		workflowTask.TaskCreatorPhone = userInfo.Phone
+	}
 
 	if args.Type == config.WorkflowTaskTypeWorkflow || args.Type == "" {
 		originalWorkflow, err := commonrepo.NewWorkflowV4Coll().Find(workflow.Name)
@@ -457,6 +482,45 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 		}
 		if originalWorkflow.Disabled {
 			return resp, e.ErrCreateTask.AddDesc("workflow is disabled")
+		}
+
+		// do approval ticket check
+		if originalWorkflow.EnableApprovalTicket {
+			approvalTicket, err := commonrepo.NewApprovalTicketColl().GetByID(args.ApprovalTicketID)
+			if err != nil {
+				return nil, e.ErrCreateTask.AddErr(fmt.Errorf("cannot find approval ticket of id: %s, error: %s", args.ApprovalTicketID, err))
+			}
+
+			if approvalTicket.ProjectKey != originalWorkflow.Project {
+				return resp, e.ErrCreateTask.AddDesc("workflow task creation denied: project key mismatch.")
+			}
+
+			// if it is not the correct time to run the workflow deny it
+			if (approvalTicket.ExecutionWindowStart != 0 && time.Now().Unix() < approvalTicket.ExecutionWindowStart) ||
+				(approvalTicket.ExecutionWindowEnd != 0 && time.Now().Unix() > approvalTicket.ExecutionWindowEnd) {
+				return resp, e.ErrCreateTask.AddDesc("workflow task creation denied: not in execution time window.")
+			}
+
+			if len(approvalTicket.Users) != 0 {
+				if args.UserID == "" {
+					return resp, e.ErrCreateTask.AddDesc("workflow task creation denied: task creator cannot be identified.")
+				}
+
+				found := false
+				for _, allowedUser := range approvalTicket.Users {
+					if allowedUser.Email == userInfo.Email {
+						found = true
+						break
+					}
+				}
+
+				if !found {
+					return resp, e.ErrCreateTask.AddDesc(fmt.Sprintf("workflow task creation denied: user %s is not allowed to create workflow task.", userInfo.Name))
+				}
+			}
+
+			workflowTask.ApprovalTicketID = args.ApprovalTicketID
+			workflowTask.ApprovalID = approvalTicket.ApprovalID
 		}
 
 		workflowTask.Hash = originalWorkflow.Hash
@@ -474,16 +538,6 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 	if err := jobctl.InstantiateWorkflow(workflow); err != nil {
 		log.Errorf("instantiate workflow error: %s", err)
 		return resp, e.ErrCreateTask.AddErr(err)
-	}
-
-	// if user info exists, get user email and put it to workflow task info
-	if args.UserID != "" {
-		userInfo, err := user.New().GetUserByID(args.UserID)
-		if err != nil || userInfo == nil {
-			return resp, errors.New("failed to get user info by uid")
-		}
-		workflowTask.TaskCreatorEmail = userInfo.Email
-		workflowTask.TaskCreatorPhone = userInfo.Phone
 	}
 
 	for _, stage := range workflow.Stages {
@@ -654,15 +708,30 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 }
 
 func GetManualExecWorkflowTaskV4Info(workflowName string, taskID int64, logger *zap.SugaredLogger) (*commonmodels.WorkflowV4, error) {
+	originWorkflow, err := commonrepo.NewWorkflowV4Coll().Find(workflowName)
+	if err != nil {
+		log.Errorf("find workflowV4 error: %s", err)
+		return nil, e.ErrFindWorkflow.AddErr(err)
+	}
+
 	task, err := commonrepo.NewworkflowTaskv4Coll().Find(workflowName, taskID)
 	if err != nil {
 		logger.Errorf("find workflowTaskV4 error: %s", err)
 		return nil, e.ErrGetTask.AddErr(err)
 	}
 
+	var approvalTicket *commonmodels.ApprovalTicket
+	if originWorkflow.EnableApprovalTicket {
+		approvalTicket, err = commonrepo.NewApprovalTicketColl().GetByID(task.ApprovalTicketID)
+		if err != nil {
+			log.Errorf("cannot find approval ticket of id %s, the error is: %v", task.ApprovalTicketID, err)
+			return nil, e.ErrPresetWorkflow.AddDesc(err.Error())
+		}
+	}
+
 	for _, stage := range task.OriginWorkflowArgs.Stages {
 		for _, job := range stage.Jobs {
-			if err := jobctl.SetOptions(job, task.WorkflowArgs); err != nil {
+			if err := jobctl.SetOptions(job, task.WorkflowArgs, approvalTicket); err != nil {
 				log.Errorf("cannot get workflow %s options for job %s, the error is: %v", workflowName, job.Name, err)
 				return nil, e.ErrPresetWorkflow.AddDesc(err.Error())
 			}
@@ -672,6 +741,16 @@ func GetManualExecWorkflowTaskV4Info(workflowName string, taskID int64, logger *
 }
 
 func CloneWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredLogger) (*commonmodels.WorkflowV4, error) {
+	originalWorkflow, err := commonrepo.NewWorkflowV4Coll().Find(workflowName)
+	if err != nil {
+		logger.Errorf("find workflowV4 error: %s", err)
+		return nil, e.ErrFindWorkflow.AddErr(err)
+	}
+
+	if originalWorkflow.EnableApprovalTicket {
+		return nil, e.ErrCloneTask.AddDesc("无法克隆开启了预审批的工作流")
+	}
+
 	task, err := commonrepo.NewworkflowTaskv4Coll().Find(workflowName, taskID)
 	if err != nil {
 		logger.Errorf("find workflowTaskV4 error: %s", err)
@@ -680,7 +759,7 @@ func CloneWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredL
 
 	for _, stage := range task.OriginWorkflowArgs.Stages {
 		for _, job := range stage.Jobs {
-			if err := jobctl.SetOptions(job, task.OriginWorkflowArgs); err != nil {
+			if err := jobctl.SetOptions(job, task.OriginWorkflowArgs, nil); err != nil {
 				log.Errorf("cannot get workflow %s options for job %s, the error is: %v", workflowName, job.Name, err)
 				return nil, e.ErrPresetWorkflow.AddDesc(err.Error())
 			}
@@ -1109,8 +1188,10 @@ func ListWorkflowTaskV4ByFilter(filter *TaskHistoryFilter, filterList []string, 
 					serviceModules := make([]*commonmodels.WorkflowServiceModule, 0)
 					for _, serviceAndBuild := range build.ServiceAndBuilds {
 						sm := &commonmodels.WorkflowServiceModule{
-							ServiceName:   serviceAndBuild.ServiceName,
-							ServiceModule: serviceAndBuild.ServiceModule,
+							ServiceWithModule: commonmodels.ServiceWithModule{
+								ServiceName:   serviceAndBuild.ServiceName,
+								ServiceModule: serviceAndBuild.ServiceModule,
+							},
 						}
 						for _, repo := range serviceAndBuild.Repos {
 							sm.CodeInfo = append(sm.CodeInfo, repo)
@@ -1127,8 +1208,10 @@ func ListWorkflowTaskV4ByFilter(filter *TaskHistoryFilter, filterList []string, 
 					for _, svc := range deploy.Services {
 						for _, module := range svc.Modules {
 							sm := &commonmodels.WorkflowServiceModule{
-								ServiceName:   svc.ServiceName,
-								ServiceModule: module.ServiceModule,
+								ServiceWithModule: commonmodels.ServiceWithModule{
+									ServiceName:   svc.ServiceName,
+									ServiceModule: module.ServiceModule,
+								},
 							}
 							serviceModules = append(serviceModules, sm)
 						}
@@ -1147,8 +1230,10 @@ func ListWorkflowTaskV4ByFilter(filter *TaskHistoryFilter, filterList []string, 
 					serviceModules := make([]*commonmodels.WorkflowServiceModule, 0)
 					for _, service := range test.ServiceAndTests {
 						sm := &commonmodels.WorkflowServiceModule{
-							ServiceName:   service.ServiceName,
-							ServiceModule: service.ServiceModule,
+							ServiceWithModule: commonmodels.ServiceWithModule{
+								ServiceName:   service.ServiceName,
+								ServiceModule: service.ServiceModule,
+							},
 						}
 						for _, repo := range service.Repos {
 							sm.CodeInfo = append(sm.CodeInfo, repo)
@@ -1184,8 +1269,10 @@ func ListWorkflowTaskV4ByFilter(filter *TaskHistoryFilter, filterList []string, 
 					serviceModules := make([]*commonmodels.WorkflowServiceModule, 0)
 					for _, target := range distribute.Targets {
 						sm := &commonmodels.WorkflowServiceModule{
-							ServiceName:   target.ServiceName,
-							ServiceModule: target.ServiceModule,
+							ServiceWithModule: commonmodels.ServiceWithModule{
+								ServiceName:   target.ServiceName,
+								ServiceModule: target.ServiceModule,
+							},
 						}
 						serviceModules = append(serviceModules, sm)
 					}
@@ -1271,6 +1358,8 @@ func GetWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredLog
 		Error:               task.Error,
 		IsRestart:           task.IsRestart,
 		Debug:               task.IsDebug,
+		ApprovalTicketID:    task.ApprovalTicketID,
+		ApprovalID:          task.ApprovalID,
 	}
 	timeNow := time.Now().Unix()
 	for _, stage := range task.Stages {

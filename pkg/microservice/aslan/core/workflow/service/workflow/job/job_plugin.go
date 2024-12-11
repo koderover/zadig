@@ -52,7 +52,7 @@ func (j *PluginJob) SetPreset() error {
 	return nil
 }
 
-func (j *PluginJob) SetOptions() error {
+func (j *PluginJob) SetOptions(approvalTicket *commonmodels.ApprovalTicket) error {
 	return nil
 }
 

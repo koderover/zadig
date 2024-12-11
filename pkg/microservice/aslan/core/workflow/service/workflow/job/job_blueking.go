@@ -50,7 +50,7 @@ func (j *BlueKingJob) SetPreset() error {
 	return nil
 }
 
-func (j *BlueKingJob) SetOptions() error {
+func (j *BlueKingJob) SetOptions(approvalTicket *commonmodels.ApprovalTicket) error {
 	return nil
 }
 

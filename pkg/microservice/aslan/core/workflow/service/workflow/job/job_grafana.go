@@ -53,7 +53,7 @@ func (j *GrafanaJob) SetPreset() error {
 	return nil
 }
 
-func (j *GrafanaJob) SetOptions() error {
+func (j *GrafanaJob) SetOptions(approvalTicket *commonmodels.ApprovalTicket) error {
 	return nil
 }
 

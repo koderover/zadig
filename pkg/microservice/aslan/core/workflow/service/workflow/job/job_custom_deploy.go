@@ -51,7 +51,7 @@ func (j *CustomDeployJob) SetPreset() error {
 }
 
 // SetOptions get the options from the original workflow regardless of the currently selected items
-func (j *CustomDeployJob) SetOptions() error {
+func (j *CustomDeployJob) SetOptions(approvalTicket *commonmodels.ApprovalTicket) error {
 	j.spec = &commonmodels.CustomDeployJobSpec{}
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return err

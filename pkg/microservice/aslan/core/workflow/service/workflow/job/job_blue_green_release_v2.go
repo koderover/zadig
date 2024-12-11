@@ -50,7 +50,7 @@ func (j *BlueGreenReleaseV2Job) SetPreset() error {
 	return nil
 }
 
-func (j *BlueGreenReleaseV2Job) SetOptions() error {
+func (j *BlueGreenReleaseV2Job) SetOptions(approvalTicket *commonmodels.ApprovalTicket) error {
 	return nil
 }
 

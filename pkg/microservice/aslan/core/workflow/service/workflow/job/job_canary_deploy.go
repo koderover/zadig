@@ -59,7 +59,7 @@ func (j *CanaryDeployJob) SetPreset() error {
 	return nil
 }
 
-func (j *CanaryDeployJob) SetOptions() error {
+func (j *CanaryDeployJob) SetOptions(approvalTicket *commonmodels.ApprovalTicket) error {
 	j.spec = &commonmodels.CanaryDeployJobSpec{}
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return err

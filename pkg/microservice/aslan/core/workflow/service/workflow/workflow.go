@@ -70,6 +70,7 @@ type Workflow struct {
 	BaseName             string                     `json:"base_name"`
 	BaseRefs             []string                   `json:"base_refs"`
 	NeverRun             bool                       `json:"never_run"`
+	EnableApprovalTicket bool                       `json:"enable_approval_ticket"`
 }
 
 type TaskInfo struct {
@@ -407,10 +408,12 @@ func FindWorkflow(workflowName string, log *zap.SugaredLogger) (*commonmodels.Wo
 							HideServiceModule: false,
 							BuildModuleVer:    "stable",
 							Target: &commonmodels.ServiceModuleTarget{
-								ProductName:   serviceTmpl.ProductName,
-								ServiceName:   serviceTmpl.ServiceName,
-								ServiceModule: container.Name,
-								BuildName:     findBuildName(key, moList),
+								ProductName: serviceTmpl.ProductName,
+								ServiceWithModule: commonmodels.ServiceWithModule{
+									ServiceName:   serviceTmpl.ServiceName,
+									ServiceModule: container.Name,
+								},
+								BuildName: findBuildName(key, moList),
 							},
 						})
 					} else {
@@ -453,9 +456,11 @@ func FindWorkflow(workflowName string, log *zap.SugaredLogger) (*commonmodels.Wo
 						artifactModules = append(artifactModules, &commonmodels.ArtifactModule{
 							HideServiceModule: false,
 							Target: &commonmodels.ServiceModuleTarget{
-								ProductName:   serviceTmpl.ProductName,
-								ServiceName:   serviceTmpl.ServiceName,
-								ServiceModule: container.Name,
+								ProductName: serviceTmpl.ProductName,
+								ServiceWithModule: commonmodels.ServiceWithModule{
+									ServiceName:   serviceTmpl.ServiceName,
+									ServiceModule: container.Name,
+								},
 							},
 						})
 					} else {
@@ -549,10 +554,12 @@ func PreSetWorkflow(productName string, log *zap.SugaredLogger) ([]*PreSetResp, 
 			if v, ok := targets[target]; ok {
 				preSet := &PreSetResp{
 					Target: &commonmodels.ServiceModuleTarget{
-						ProductName:   moTarget.ProductName,
-						ServiceName:   moTarget.ServiceName,
-						ServiceModule: moTarget.ServiceModule,
-						BuildName:     mo.Name,
+						ProductName: moTarget.ProductName,
+						ServiceWithModule: commonmodels.ServiceWithModule{
+							ServiceName:   moTarget.ServiceName,
+							ServiceModule: moTarget.ServiceModule,
+						},
+						BuildName: mo.Name,
 					},
 					Deploy:          v,
 					BuildModuleVers: []string{},

@@ -56,7 +56,7 @@ func (j *ApprovalJob) SetPreset() error {
 	return nil
 }
 
-func (j *ApprovalJob) SetOptions() error {
+func (j *ApprovalJob) SetOptions(approvalTicket *commonmodels.ApprovalTicket) error {
 	return nil
 }
 

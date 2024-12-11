@@ -328,6 +328,7 @@ var (
 	ErrGetDebugShell = NewHTTPError(6172, "获取调试 Shell 失败")
 
 	ErrEnableDebug = NewHTTPError(6173, "开启工作流任务调试失败")
+	ErrCloneTask   = NewHTTPError(6174, "克隆工作流任务失败")
 	//-----------------------------------------------------------------------------------------------
 	// Keystore APIs Range: 6180 - 6189
 	//-----------------------------------------------------------------------------------------------
@@ -967,4 +968,10 @@ var (
 	ErrListSprintWorkItemTask    = NewHTTPError(7089, "列出迭代工作项任务失败")
 	ErrExecSprintWorkItemTask    = NewHTTPError(7090, "执行迭代工作项任务失败")
 	ErrCloneSprintWorkItemTask   = NewHTTPError(7091, "克隆迭代工作项任务失败")
+
+	//-----------------------------------------------------------------------------------------------
+	// sprint managetment releated errors: 7100 - 7119
+	//-----------------------------------------------------------------------------------------------
+	ErrCreateApprovalTicket = NewHTTPError(7100, "创建预审批单失败")
+	ErrListApprovalTicket   = NewHTTPError(7101, "列出预审批单失败")
 )

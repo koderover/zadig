@@ -52,7 +52,7 @@ func (j *IstioReleaseJob) SetPreset() error {
 	return nil
 }
 
-func (j *IstioReleaseJob) SetOptions() error {
+func (j *IstioReleaseJob) SetOptions(approvalTicket *commonmodels.ApprovalTicket) error {
 	j.spec = &commonmodels.IstioJobSpec{}
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return err

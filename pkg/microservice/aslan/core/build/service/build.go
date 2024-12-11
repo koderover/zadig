@@ -55,10 +55,9 @@ type BuildResp struct {
 }
 
 type ServiceModuleAndBuildResp struct {
-	ServiceName   string       `json:"service_name"`
-	ServiceModule string       `json:"service_module"`
-	ImageName     string       `json:"image_name"`
-	ModuleBuilds  []*BuildResp `json:"module_builds"`
+	commonmodels.ServiceWithModule `json:",inline"`
+	ImageName                      string       `json:"image_name"`
+	ModuleBuilds                   []*BuildResp `json:"module_builds"`
 }
 
 func FindBuild(name, productName string, log *zap.SugaredLogger) (*commonmodels.Build, error) {
@@ -205,9 +204,11 @@ func ListBuildModulesByServiceModule(encryptedKey, productName, envName string, 
 				Infrastructure: buildModule.Infrastructure,
 			}
 			serviceModuleAndBuildResp = append(serviceModuleAndBuildResp, &ServiceModuleAndBuildResp{
-				ServiceName:   serviceTmpl.ServiceName,
-				ServiceModule: serviceTmpl.ServiceName,
-				ModuleBuilds:  []*BuildResp{build},
+				ServiceWithModule: commonmodels.ServiceWithModule{
+					ServiceName:   serviceTmpl.ServiceName,
+					ServiceModule: serviceTmpl.ServiceName,
+				},
+				ModuleBuilds: []*BuildResp{build},
 			})
 			continue
 		}
@@ -263,10 +264,12 @@ func ListBuildModulesByServiceModule(encryptedKey, productName, envName string, 
 				})
 			}
 			serviceModuleAndBuildResp = append(serviceModuleAndBuildResp, &ServiceModuleAndBuildResp{
-				ServiceName:   serviceTmpl.ServiceName,
-				ServiceModule: container.Name,
-				ImageName:     container.ImageName,
-				ModuleBuilds:  resp,
+				ServiceWithModule: commonmodels.ServiceWithModule{
+					ServiceName:   serviceTmpl.ServiceName,
+					ServiceModule: container.Name,
+				},
+				ImageName:    container.ImageName,
+				ModuleBuilds: resp,
 			})
 		}
 	}
@@ -286,11 +289,13 @@ func fillBuildTargetData(build *commonmodels.Build) error {
 	build.Targets = make([]*commonmodels.ServiceModuleTarget, 0, len(build.TargetRepos))
 	for _, target := range build.TargetRepos {
 		build.Targets = append(build.Targets, &commonmodels.ServiceModuleTarget{
-			ProductName:   target.Service.ProductName,
-			ServiceName:   target.Service.ServiceName,
-			ServiceModule: target.Service.ServiceModule,
-			Repos:         target.Repos,
-			Envs:          commonservice.MergeBuildEnvs(buildTemplate.PreBuild.Envs, target.Envs),
+			ProductName: target.Service.ProductName,
+			ServiceWithModule: commonmodels.ServiceWithModule{
+				ServiceName:   target.Service.ServiceName,
+				ServiceModule: target.Service.ServiceModule,
+			},
+			Repos: target.Repos,
+			Envs:  commonservice.MergeBuildEnvs(buildTemplate.PreBuild.Envs, target.Envs),
 		})
 	}
 	return nil
@@ -325,7 +330,7 @@ func CreateBuild(username string, build *commonmodels.Build, log *zap.SugaredLog
 	}
 
 	if err := commonrepo.NewBuildColl().Create(build); err != nil {
-		log.Errorf("[Build.Upsert] %s error: %v", build.Name, err)
+		log.Errorf("[Build.Create] %s error: %v", build.Name, err)
 		return e.ErrCreateBuildModule.AddErr(err)
 	}
 

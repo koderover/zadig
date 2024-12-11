@@ -51,7 +51,7 @@ func (j *MeegoTransitionJob) SetPreset() error {
 	return nil
 }
 
-func (j *MeegoTransitionJob) SetOptions() error {
+func (j *MeegoTransitionJob) SetOptions(approvalTicket *commonmodels.ApprovalTicket) error {
 	return nil
 }
 

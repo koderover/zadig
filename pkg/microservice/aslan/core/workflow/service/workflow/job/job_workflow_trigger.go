@@ -56,7 +56,7 @@ func (j *WorkflowTriggerJob) SetPreset() error {
 	return nil
 }
 
-func (j *WorkflowTriggerJob) SetOptions() error {
+func (j *WorkflowTriggerJob) SetOptions(approvalTicket *commonmodels.ApprovalTicket) error {
 	j.spec = &commonmodels.WorkflowTriggerJobSpec{}
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return err

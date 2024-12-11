@@ -53,7 +53,7 @@ type JobCtl interface {
 	// SetPreset sets all the default values configured by user
 	SetPreset() error
 	// SetOptions sets all the possible options for the workflow
-	SetOptions() error
+	SetOptions(ticket *commonmodels.ApprovalTicket) error
 	// ClearOptions clears the option field to save space for db and memory
 	ClearOptions() error
 	ClearSelectionField() error
@@ -183,12 +183,12 @@ func ClearSelectionField(job *commonmodels.Job, workflow *commonmodels.WorkflowV
 	return jobCtl.ClearSelectionField()
 }
 
-func SetOptions(job *commonmodels.Job, workflow *commonmodels.WorkflowV4) error {
+func SetOptions(job *commonmodels.Job, workflow *commonmodels.WorkflowV4, approvalTicket *commonmodels.ApprovalTicket) error {
 	jobCtl, err := InitJobCtl(job, workflow)
 	if err != nil {
 		return warpJobError(job.Name, err)
 	}
-	return jobCtl.SetOptions()
+	return jobCtl.SetOptions(approvalTicket)
 }
 
 func ClearOptions(job *commonmodels.Job, workflow *commonmodels.WorkflowV4) error {

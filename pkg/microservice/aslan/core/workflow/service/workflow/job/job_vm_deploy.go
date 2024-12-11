@@ -107,7 +107,7 @@ func (j *VMDeployJob) SetPreset() error {
 	return nil
 }
 
-func (j *VMDeployJob) SetOptions() error {
+func (j *VMDeployJob) SetOptions(approvalTicket *commonmodels.ApprovalTicket) error {
 	j.spec = &commonmodels.ZadigVMDeployJobSpec{}
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return err
@@ -127,8 +127,17 @@ func (j *VMDeployJob) SetOptions() error {
 
 	envOptions := make([]*commonmodels.ZadigVMDeployEnvInformation, 0)
 
+	var allowedServices []*commonmodels.ServiceWithModule
+	if approvalTicket != nil {
+		allowedServices = approvalTicket.Services
+	}
+
 	for _, env := range envs {
-		info, err := generateVMDeployServiceInfo(j.workflow.Project, env.EnvName)
+		if approvalTicket != nil && !isAllowedEnv(env.EnvName, approvalTicket.Envs) {
+			continue
+		}
+
+		info, err := generateVMDeployServiceInfo(j.workflow.Project, env.EnvName, allowedServices)
 		if err != nil {
 			log.Errorf("failed to generate service deploy info for project: %s, error: %s", j.workflow.Project, err)
 			return err
@@ -215,7 +224,7 @@ func (j *VMDeployJob) UpdateWithLatestSetting() error {
 		j.spec.OriginJobName = latestSpec.OriginJobName
 	}
 
-	deployableService, err := generateVMDeployServiceInfo(j.workflow.Project, latestSpec.Env)
+	deployableService, err := generateVMDeployServiceInfo(j.workflow.Project, latestSpec.Env, nil)
 	if err != nil {
 		log.Errorf("failed to generate deployable vm service for env: %s, project: %s, error: %s", latestSpec.Env, j.workflow.Project, err)
 		return err
@@ -254,7 +263,7 @@ func (j *VMDeployJob) UpdateWithLatestSetting() error {
 
 // generateVMDeployServiceInfo generated all deployable service and its corresponding data.
 // currently it ignores the env service info, just gives all the service defined in the template.
-func generateVMDeployServiceInfo(project, env string) ([]*commonmodels.ServiceAndVMDeploy, error) {
+func generateVMDeployServiceInfo(project, env string, allowedServices []*commonmodels.ServiceWithModule) ([]*commonmodels.ServiceAndVMDeploy, error) {
 	resp := make([]*commonmodels.ServiceAndVMDeploy, 0)
 
 	environmentInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
@@ -278,6 +287,10 @@ func generateVMDeployServiceInfo(project, env string) ([]*commonmodels.ServiceAn
 
 		if err != nil {
 			return nil, fmt.Errorf("failed to find service: %s in project: %s, error: %s", svc.ServiceName, project, err)
+		}
+
+		if !isAllowedService(templateSvc.ServiceName, templateSvc.ServiceName, allowedServices) {
+			continue
 		}
 
 		if templateSvc.BuildName == "" {

@@ -50,7 +50,7 @@ func (j *GuanceyunCheckJob) SetPreset() error {
 	return nil
 }
 
-func (j *GuanceyunCheckJob) SetOptions() error {
+func (j *GuanceyunCheckJob) SetOptions(approvalTicket *commonmodels.ApprovalTicket) error {
 	return nil
 }
 

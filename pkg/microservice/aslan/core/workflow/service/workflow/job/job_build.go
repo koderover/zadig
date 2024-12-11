@@ -133,7 +133,7 @@ func (j *BuildJob) ClearSelectionField() error {
 	return nil
 }
 
-func (j *BuildJob) SetOptions() error {
+func (j *BuildJob) SetOptions(approvalTicket *commonmodels.ApprovalTicket) error {
 	j.spec = &commonmodels.ZadigBuildJobSpec{}
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return err
@@ -171,9 +171,18 @@ func (j *BuildJob) SetOptions() error {
 		return fmt.Errorf("get services map error: %v", err)
 	}
 
+	var allowedServices []*commonmodels.ServiceWithModule
+	if approvalTicket != nil {
+		allowedServices = approvalTicket.Services
+	}
+
 	buildSvc := commonservice.NewBuildService()
 	newBuilds := make([]*commonmodels.ServiceAndBuild, 0)
 	for _, build := range originalSpec.ServiceAndBuilds {
+		if !isAllowedService(build.ServiceName, build.ServiceModule, allowedServices) {
+			continue
+		}
+
 		buildInfo, err := buildSvc.GetBuild(build.BuildName, build.ServiceName, build.ServiceModule)
 		if err != nil {
 			log.Errorf("find build: %s error: %v", build.BuildName, err)

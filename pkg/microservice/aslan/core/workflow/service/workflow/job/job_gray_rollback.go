@@ -72,7 +72,7 @@ func (j *GrayRollbackJob) SetPreset() error {
 	return nil
 }
 
-func (j *GrayRollbackJob) SetOptions() error {
+func (j *GrayRollbackJob) SetOptions(approvalTicket *commonmodels.ApprovalTicket) error {
 	j.spec = &commonmodels.GrayRollbackJobSpec{}
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return err

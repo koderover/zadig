@@ -74,6 +74,8 @@ func CreateWorkflowTaskV4(c *gin.Context) {
 		return
 	}
 
+	ticketID := c.Query("approval_ticket_id")
+
 	internalhandler.InsertOperationLog(c, ctx.UserName, args.Project, "新建", "自定义工作流任务", args.Name, data, ctx.Logger)
 
 	// authorization check
@@ -95,9 +97,10 @@ func CreateWorkflowTaskV4(c *gin.Context) {
 	}
 
 	ctx.Resp, ctx.RespErr = workflow.CreateWorkflowTaskV4(&workflow.CreateWorkflowTaskV4Args{
-		Name:    ctx.UserName,
-		Account: ctx.Account,
-		UserID:  ctx.UserID,
+		Name:             ctx.UserName,
+		Account:          ctx.Account,
+		UserID:           ctx.UserID,
+		ApprovalTicketID: ticketID,
 	}, args, ctx.Logger)
 }
 

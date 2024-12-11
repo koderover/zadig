@@ -59,6 +59,8 @@ type WorkflowTask struct {
 	ShareStorages       []*ShareStorage               `bson:"share_storages"            json:"share_storages"`
 	Type                config.CustomWorkflowTaskType `bson:"type"                      json:"type"`
 	Hash                string                        `bson:"hash"                      json:"hash"`
+	ApprovalTicketID    string                        `bson:"approval_ticket_id"        json:"approval_ticket_id"`
+	ApprovalID          string                        `bson:"approval_id"               json:"approval_id"`
 }
 
 func (WorkflowTask) TableName() string {
