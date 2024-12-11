@@ -171,9 +171,18 @@ func (j *BuildJob) SetOptions(approvalTicket *commonmodels.ApprovalTicket) error
 		return fmt.Errorf("get services map error: %v", err)
 	}
 
+	var allowedServices []*commonmodels.ServiceWithModule
+	if approvalTicket != nil {
+		allowedServices = approvalTicket.Services
+	}
+
 	buildSvc := commonservice.NewBuildService()
 	newBuilds := make([]*commonmodels.ServiceAndBuild, 0)
 	for _, build := range originalSpec.ServiceAndBuilds {
+		if !isAllowedService(build.ServiceName, build.ServiceModule, allowedServices) {
+			continue
+		}
+
 		buildInfo, err := buildSvc.GetBuild(build.BuildName, build.ServiceName, build.ServiceModule)
 		if err != nil {
 			log.Errorf("find build: %s error: %v", build.BuildName, err)
@@ -204,26 +213,7 @@ func (j *BuildJob) SetOptions(approvalTicket *commonmodels.ApprovalTicket) error
 		newBuilds = append(newBuilds, build)
 	}
 
-	filteredBuilds := make([]*commonmodels.ServiceAndBuild, 0)
-
-	if approvalTicket != nil {
-		approvedMap := make(map[string]bool)
-		for _, svc := range approvalTicket.Services {
-			key := fmt.Sprintf("%s++%s", svc.ServiceName, svc.ServiceModule)
-			approvedMap[key] = true
-		}
-
-		for _, svcOpt := range newBuilds {
-			key := fmt.Sprintf("%s++%s", svcOpt.ServiceName, svcOpt.ServiceModule)
-			if _, ok := approvedMap[key]; ok {
-				filteredBuilds = append(filteredBuilds, svcOpt)
-			}
-		}
-	} else {
-		filteredBuilds = newBuilds
-	}
-
-	j.spec.ServiceAndBuildsOptions = filteredBuilds
+	j.spec.ServiceAndBuildsOptions = newBuilds
 	j.job.Spec = j.spec
 	return nil
 }
