@@ -804,8 +804,8 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			j.spec.JobName = j.spec.OriginJobName
 		}
 
-		serviceReferredJob := getOriginJobName(j.workflow, j.spec.OriginJobName)
-		deployOrder, err := j.getReferredJobOrder(serviceReferredJob, j.spec.OriginJobName)
+		serviceReferredJob := getOriginJobName(j.workflow, j.spec.JobName)
+		deployOrder, err := j.getReferredJobOrder(serviceReferredJob, j.spec.JobName)
 		if err != nil {
 			return resp, fmt.Errorf("get origin refered job: %s targets failed, err: %v", serviceReferredJob, err)
 		}
