@@ -133,6 +133,7 @@ func GitUpdateSubmodules() *exec.Cmd {
 		"update",
 		"--init",
 		"--recursive",
+		"--quiet",
 	)
 	return cmd
 }
