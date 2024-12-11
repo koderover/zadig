@@ -16,12 +16,44 @@ limitations under the License.
 
 package common
 
-import "os/exec"
+import (
+	"fmt"
+	"os/exec"
+)
 
 type Command struct {
-	Cmd *exec.Cmd
+	Cmd           *exec.Cmd
+	BeforeRun     func(args ...interface{}) error
+	BeforeRunArgs []interface{}
+	AfterRun      func(args ...interface{}) error
+	AfterRunArgs  []interface{}
 	// DisableTrace display command args
 	DisableTrace bool
 	// IgnoreError ingore command run error
 	IgnoreError bool
+}
+
+func (c *Command) Run() error {
+	if c.BeforeRun != nil {
+		if err := c.BeforeRun(c.BeforeRunArgs...); err != nil {
+			if !c.IgnoreError {
+				return fmt.Errorf("before execute error: %v", err)
+			}
+		}
+	}
+
+	err := c.Cmd.Run()
+	if !c.IgnoreError && err != nil {
+		return err
+	}
+
+	if c.AfterRun != nil {
+		if afterErr := c.AfterRun(c.AfterRunArgs...); afterErr != nil {
+			if !c.IgnoreError {
+				return fmt.Errorf("after execute error: %v", afterErr)
+			}
+		}
+	}
+
+	return nil
 }
