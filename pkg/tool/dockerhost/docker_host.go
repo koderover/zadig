@@ -25,6 +25,7 @@ import (
 
 	"github.com/buraksezer/consistent"
 	"github.com/cespare/xxhash"
+	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	"go.uber.org/zap"
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -32,7 +33,6 @@ import (
 
 	"github.com/koderover/zadig/v2/pkg/config"
 	"github.com/koderover/zadig/v2/pkg/setting"
-	"github.com/koderover/zadig/v2/pkg/tool/kube/clientmanager"
 )
 
 var once sync.Once

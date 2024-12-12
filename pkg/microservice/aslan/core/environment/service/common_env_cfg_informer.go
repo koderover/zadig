@@ -21,6 +21,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -33,7 +34,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/setting"
-	"github.com/koderover/zadig/v2/pkg/tool/kube/clientmanager"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 

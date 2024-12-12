@@ -23,6 +23,7 @@ import (
 	"time"
 
 	types "github.com/golang/protobuf/ptypes/struct"
+	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	"google.golang.org/protobuf/encoding/protojson"
 	networkingv1alpha3 "istio.io/api/networking/v1alpha3"
 	"istio.io/client-go/pkg/apis/networking/v1alpha3"
@@ -39,8 +40,6 @@ import (
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/setting"
-	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
-	"github.com/koderover/zadig/v2/pkg/tool/kube/clientmanager"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	zadigtypes "github.com/koderover/zadig/v2/pkg/types"
 	"github.com/koderover/zadig/v2/pkg/util/boolptr"
@@ -103,12 +102,7 @@ func SetIstioGrayscaleWeight(ctx context.Context, envMap map[string]*commonmodel
 			return fmt.Errorf("failed to get kube client: %s", err)
 		}
 
-		restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), clusterID)
-		if err != nil {
-			return fmt.Errorf("failed to get rest config: %s", err)
-		}
-
-		istioClient, err := versionedclient.NewForConfig(restConfig)
+		istioClient, err := clientmanager.NewKubeClientManager().GetIstioClientSet(clusterID)
 		if err != nil {
 			return fmt.Errorf("failed to new istio client: %s", err)
 		}
@@ -175,12 +169,7 @@ func SetIstioGrayscaleHeaderMatch(ctx context.Context, envMap map[string]*common
 			return fmt.Errorf("failed to get kube client: %s", err)
 		}
 
-		restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), clusterID)
-		if err != nil {
-			return fmt.Errorf("failed to get rest config: %s", err)
-		}
-
-		istioClient, err := versionedclient.NewForConfig(restConfig)
+		istioClient, err := clientmanager.NewKubeClientManager().GetIstioClientSet(clusterID)
 		if err != nil {
 			return fmt.Errorf("failed to new istio client: %s", err)
 		}
@@ -825,12 +814,7 @@ func EnsureEnvoyFilter(ctx context.Context, istioClient versionedclient.Interfac
 }
 
 func reGenerateEnvoyFilter(ctx context.Context, clusterID string, headerKeys []string) error {
-	restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), clusterID)
-	if err != nil {
-		return fmt.Errorf("failed to get rest config: %s", err)
-	}
-
-	istioClient, err := versionedclient.NewForConfig(restConfig)
+	istioClient, err := clientmanager.NewKubeClientManager().GetIstioClientSet(clusterID)
 	if err != nil {
 		return fmt.Errorf("failed to new istio client: %s", err)
 	}

@@ -27,6 +27,7 @@ import (
 	"time"
 
 	jenkins "github.com/koderover/gojenkins"
+	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
@@ -38,7 +39,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/workflowcontroller/jobcontroller"
 	vmservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/vm/service"
 	"github.com/koderover/zadig/v2/pkg/setting"
-	"github.com/koderover/zadig/v2/pkg/tool/kube/clientmanager"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/containerlog"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/watcher"

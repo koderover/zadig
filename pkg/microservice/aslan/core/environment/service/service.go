@@ -19,6 +19,7 @@ package service
 import (
 	"fmt"
 
+	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"helm.sh/helm/v3/pkg/releaseutil"
@@ -39,7 +40,6 @@ import (
 	internalresource "github.com/koderover/zadig/v2/pkg/shared/kube/resource"
 	"github.com/koderover/zadig/v2/pkg/shared/kube/wrapper"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
-	"github.com/koderover/zadig/v2/pkg/tool/kube/clientmanager"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/informer"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/serializer"

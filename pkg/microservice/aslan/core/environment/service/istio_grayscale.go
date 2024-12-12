@@ -20,20 +20,18 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	versionedclient "istio.io/client-go/pkg/clientset/versioned"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/kube"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/setting"
-	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
-	"github.com/koderover/zadig/v2/pkg/tool/kube/clientmanager"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/util/boolptr"
 )
@@ -56,12 +54,7 @@ func EnableIstioGrayscale(ctx context.Context, envName, productName string) erro
 		return e.ErrEnableIstioGrayscale.AddErr(fmt.Errorf("failed to get kube client: %s", err))
 	}
 
-	restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), clusterID)
-	if err != nil {
-		return e.ErrEnableIstioGrayscale.AddErr(fmt.Errorf("failed to get rest config: %s", err))
-	}
-
-	istioClient, err := versionedclient.NewForConfig(restConfig)
+	istioClient, err := clientmanager.NewKubeClientManager().GetIstioClientSet(clusterID)
 	if err != nil {
 		return e.ErrEnableIstioGrayscale.AddErr(fmt.Errorf("failed to new istio client: %s", err))
 	}
@@ -111,12 +104,7 @@ func DisableIstioGrayscale(ctx context.Context, envName, productName string) err
 		return e.ErrDisableIstioGrayscale.AddErr(fmt.Errorf("failed to get kube client: %s", err))
 	}
 
-	restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), clusterID)
-	if err != nil {
-		return e.ErrDisableIstioGrayscale.AddErr(fmt.Errorf("failed to get rest config: %s", err))
-	}
-
-	istioClient, err := versionedclient.NewForConfig(restConfig)
+	istioClient, err := clientmanager.NewKubeClientManager().GetIstioClientSet(clusterID)
 	if err != nil {
 		return e.ErrDisableIstioGrayscale.AddErr(fmt.Errorf("failed to new istio client: %s", err))
 	}
@@ -262,11 +250,7 @@ func GetIstioGrayscalePortalService(ctx context.Context, productName, envName, s
 	if err != nil {
 		return resp, e.ErrGetIstioGrayscalePortalService.AddErr(fmt.Errorf("failed to get kube client: %s", err))
 	}
-	restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), clusterID)
-	if err != nil {
-		return resp, e.ErrGetIstioGrayscalePortalService.AddErr(fmt.Errorf("failed to get rest config: %s", err))
-	}
-	istioClient, err := versionedclient.NewForConfig(restConfig)
+	istioClient, err := clientmanager.NewKubeClientManager().GetIstioClientSet(clusterID)
 	if err != nil {
 		return resp, e.ErrGetIstioGrayscalePortalService.AddErr(fmt.Errorf("failed to new istio client: %s", err))
 	}
@@ -309,11 +293,7 @@ func SetupIstioGrayscalePortalService(ctx context.Context, productName, envName,
 	if err != nil {
 		return e.ErrSetupIstioGrayscalePortalService.AddErr(fmt.Errorf("failed to get kube client: %s", err))
 	}
-	restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), clusterID)
-	if err != nil {
-		return e.ErrSetupIstioGrayscalePortalService.AddErr(fmt.Errorf("failed to get rest config: %s", err))
-	}
-	istioClient, err := versionedclient.NewForConfig(restConfig)
+	istioClient, err := clientmanager.NewKubeClientManager().GetIstioClientSet(clusterID)
 	if err != nil {
 		return e.ErrSetupIstioGrayscalePortalService.AddErr(fmt.Errorf("failed to new istio client: %s", err))
 	}
@@ -354,7 +334,7 @@ func SetupIstioGrayscalePortalService(ctx context.Context, productName, envName,
 			return e.ErrSetupIstioGrayscalePortalService.AddErr(fmt.Errorf("failed to parse k8s project services, err: %w", err))
 		}
 	} else if deployType == setting.HelmDeployType {
-		svcs, err = parseHelmProjectServices(ctx, restConfig, env, envName, productName, serviceName, kclient, ns)
+		svcs, err = parseHelmProjectServices(ctx, clusterID, env, envName, productName, serviceName, kclient, ns)
 		if err != nil {
 			return e.ErrSetupIstioGrayscalePortalService.AddErr(fmt.Errorf("failed to parse helm project services, err: %w", err))
 		}

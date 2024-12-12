@@ -28,7 +28,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/hubagent/server/rest"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/shared/client/aslan"
-	"github.com/koderover/zadig/v2/pkg/tool/kube/clientmanager"
+	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	registrytool "github.com/koderover/zadig/v2/pkg/tool/registries"
 )

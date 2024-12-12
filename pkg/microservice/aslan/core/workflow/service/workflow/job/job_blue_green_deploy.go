@@ -22,6 +22,7 @@ import (
 	"regexp"
 	"time"
 
+	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	"k8s.io/apimachinery/pkg/labels"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
@@ -29,7 +30,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
-	"github.com/koderover/zadig/v2/pkg/tool/kube/clientmanager"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 )

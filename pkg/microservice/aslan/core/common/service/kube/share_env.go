@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	helmclient "github.com/mittwald/go-helm-client"
 	networkingv1alpha3 "istio.io/api/networking/v1alpha3"
 	versionedclient "istio.io/client-go/pkg/clientset/versioned"
@@ -31,12 +32,9 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
-	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
 	helmtool "github.com/koderover/zadig/v2/pkg/tool/helmclient"
-	"github.com/koderover/zadig/v2/pkg/tool/kube/clientmanager"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/util"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	zadigtypes "github.com/koderover/zadig/v2/pkg/types"
@@ -521,12 +519,7 @@ func EnsureZadigServiceByManifest(ctx context.Context, productName, namespace, m
 		return fmt.Errorf("failed to get kube client: %s", err)
 	}
 
-	restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), env.ClusterID)
-	if err != nil {
-		return fmt.Errorf("failed to get rest config: %s", err)
-	}
-
-	istioClient, err := versionedclient.NewForConfig(restConfig)
+	istioClient, err := clientmanager.NewKubeClientManager().GetIstioClientSet(env.ClusterID)
 	if err != nil {
 		return fmt.Errorf("failed to get istio client: %s", err)
 	}

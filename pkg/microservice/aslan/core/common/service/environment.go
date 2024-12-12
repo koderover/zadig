@@ -23,12 +23,12 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
 	"istio.io/client-go/pkg/apis/networking/v1alpha3"
-	versionedclient "istio.io/client-go/pkg/clientset/versioned"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -39,7 +39,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	templatemodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models/template"
@@ -55,7 +54,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/shared/kube/wrapper"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	helmtool "github.com/koderover/zadig/v2/pkg/tool/helmclient"
-	"github.com/koderover/zadig/v2/pkg/tool/kube/clientmanager"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/informer"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
@@ -307,12 +305,7 @@ func GetChartValues(projectName, envName, serviceName string, isHelmChartDeploy 
 		return nil, fmt.Errorf("failed to find project: %s, err: %s", projectName, err)
 	}
 
-	restConfig, err := kube.GetRESTConfig(prod.ClusterID)
-	if err != nil {
-		log.Errorf("GetRESTConfig error: %s", err)
-		return nil, fmt.Errorf("failed to get k8s rest config, err: %s", err)
-	}
-	helmClient, err := helmtool.NewClientFromRestConf(restConfig, prod.Namespace)
+	helmClient, err := helmtool.NewClientFromNamespace(prod.ClusterID, prod.Namespace)
 	if err != nil {
 		log.Errorf("[%s][%s] NewClientFromRestConf error: %s", envName, projectName, err)
 		return nil, fmt.Errorf("failed to init helm client, err: %s", err)
@@ -794,11 +787,7 @@ func ListWorkloadDetails(envName, clusterID, namespace, productName string, perP
 		log.Errorf("Failed to get server version info for cluster: %s, the error is: %s", clusterID, err)
 		return 0, resp, e.ErrListGroups.AddDesc(err.Error())
 	}
-	restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), clusterID)
-	if err != nil {
-		return 0, resp, e.ErrListGroups.AddErr(fmt.Errorf("failed to get rest config: %s", err))
-	}
-	istioClient, err := versionedclient.NewForConfig(restConfig)
+	istioClient, err := clientmanager.NewKubeClientManager().GetIstioClientSet(clusterID)
 	if err != nil {
 		return 0, resp, e.ErrListGroups.AddErr(fmt.Errorf("failed to new istio client: %s", err))
 	}

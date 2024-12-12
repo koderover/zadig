@@ -22,20 +22,18 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"k8s.io/apimachinery/pkg/version"
-	"k8s.io/client-go/discovery"
+	"k8s.io/client-go/kubernetes"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	configbase "github.com/koderover/zadig/v2/pkg/config"
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
-	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
-	"github.com/koderover/zadig/v2/pkg/tool/kube/clientmanager"
 	"github.com/koderover/zadig/v2/pkg/util"
 )
 
@@ -65,12 +63,7 @@ func PatchDebugContainer(ctx context.Context, projectName, envName, podName, deb
 		return fmt.Errorf("failed to get kube clientset: %s", err)
 	}
 
-	restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), clusterID)
-	if err != nil {
-		return fmt.Errorf("failed to get rest config: %s", err)
-	}
-
-	discoveryClient, err := discovery.NewDiscoveryClientForConfig(restConfig)
+	discoveryClient, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(clusterID)
 	if err != nil {
 		return fmt.Errorf("failed to get discovery client: %s", err)
 	}
@@ -99,7 +92,7 @@ func PatchDebugContainer(ctx context.Context, projectName, envName, podName, deb
 	return err
 }
 
-func checkK8sVersion(client *discovery.DiscoveryClient) (string, error) {
+func checkK8sVersion(client *kubernetes.Clientset) (string, error) {
 	serverInfo, err := client.ServerVersion()
 	if err != nil {
 		return "", err

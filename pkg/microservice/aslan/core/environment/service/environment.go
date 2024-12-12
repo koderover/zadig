@@ -30,6 +30,7 @@ import (
 
 	"github.com/cenkalti/backoff/v4"
 	"github.com/hashicorp/go-multierror"
+	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
@@ -70,7 +71,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/tool/cache"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	helmtool "github.com/koderover/zadig/v2/pkg/tool/helmclient"
-	"github.com/koderover/zadig/v2/pkg/tool/kube/clientmanager"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/informer"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/serializer"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/updater"
@@ -674,12 +674,7 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]st
 		return e.ErrUpdateEnv.AddErr(err)
 	}
 
-	restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), existedProd.ClusterID)
-	if err != nil {
-		return e.ErrUpdateEnv.AddErr(err)
-	}
-
-	istioClient, err := versionedclient.NewForConfig(restConfig)
+	istioClient, err := clientmanager.NewKubeClientManager().GetIstioClientSet(existedProd.ClusterID)
 	if err != nil {
 		return e.ErrUpdateEnv.AddErr(err)
 	}
@@ -2113,12 +2108,7 @@ func DeleteProduct(username, envName, productName, requestID string, isDelete bo
 		return fmt.Errorf("this is a base environment, collaborations:%v is related", cmSets.List())
 	}
 
-	restConfig, err := kube.GetRESTConfig(productInfo.ClusterID)
-	if err != nil {
-		return e.ErrDeleteEnv.AddErr(err)
-	}
-
-	istioClient, err := versionedclient.NewForConfig(restConfig)
+	istioClient, err := clientmanager.NewKubeClientManager().GetIstioClientSet(productInfo.ClusterID)
 	if err != nil {
 		return e.ErrDeleteEnv.AddErr(err)
 	}
@@ -2169,7 +2159,7 @@ func DeleteProduct(username, envName, productName, requestID string, isDelete bo
 				return
 			}
 			if isDelete {
-				if hc, errHelmClient := helmtool.NewClientFromRestConf(restConfig, productInfo.Namespace); errHelmClient == nil {
+				if hc, errHelmClient := helmtool.NewClientFromNamespace(productInfo.ClusterID, productInfo.Namespace); errHelmClient == nil {
 					for _, service := range productInfo.GetServiceMap() {
 						if !commonutil.ServiceDeployed(service.ServiceName, productInfo.ServiceDeployStrategy) {
 							continue
@@ -2361,12 +2351,7 @@ func deleteK8sProductServices(productInfo *commonmodels.Product, serviceNames []
 		return fmt.Errorf("failed to get kube client: %s", err)
 	}
 
-	restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), productInfo.ClusterID)
-	if err != nil {
-		return fmt.Errorf("failed to get rest config: %s", err)
-	}
-
-	istioClient, err := versionedclient.NewForConfig(restConfig)
+	istioClient, err := clientmanager.NewKubeClientManager().GetIstioClientSet(productInfo.ClusterID)
 	if err != nil {
 		return fmt.Errorf("failed to new istio client: %s", err)
 	}
@@ -3673,8 +3658,7 @@ func EnvAnalysis(projectName, envName string, production *bool, triggerName stri
 	}
 
 	analysiser, err := analysis.NewAnalysis(
-		ctx,
-		config.HubServerAddress(), env.ClusterID,
+		ctx, env.ClusterID,
 		llmClient,
 		filters, env.Namespace,
 		false, // noCache bool

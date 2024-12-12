@@ -27,6 +27,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	"go.uber.org/zap"
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/releaseutil"
@@ -40,7 +41,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/remotecommand"
 	"k8s.io/kubectl/pkg/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -53,13 +53,11 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/repository"
 	commontypes "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/types"
-	"github.com/koderover/zadig/v2/pkg/microservice/podexec/core/service"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/shared/kube/resource"
 	"github.com/koderover/zadig/v2/pkg/shared/kube/wrapper"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	helmtool "github.com/koderover/zadig/v2/pkg/tool/helmclient"
-	"github.com/koderover/zadig/v2/pkg/tool/kube/clientmanager"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/informer"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/serializer"
@@ -359,7 +357,12 @@ func unTarAll(reader io.Reader, destDir, prefix string) error {
 	return nil
 }
 
-func execPodCopy(kubeClient *kubernetes.Clientset, cfg *rest.Config, cmd []string, filePath, targetDir, namespace, podName, containerName string) (string, error) {
+func execPodCopy(clusterID string, cmd []string, filePath, targetDir, namespace, podName, containerName string) (string, error) {
+	kubeClient, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(clusterID)
+	if err != nil {
+		return "", err
+	}
+
 	req := kubeClient.CoreV1().RESTClient().Post().
 		Resource("pods").
 		Name(podName).
@@ -375,7 +378,7 @@ func execPodCopy(kubeClient *kubernetes.Clientset, cfg *rest.Config, cmd []strin
 		TTY:       false,
 	}, scheme.ParameterCodec)
 
-	executor, err := remotecommand.NewSPDYExecutor(cfg, "POST", req.URL())
+	executor, err := clientmanager.NewKubeClientManager().GetSPDYExecutor(clusterID, req.URL())
 	if err != nil {
 		log.Errorf("NewSPDYExecutor err: %v", err)
 		return "", err
@@ -430,12 +433,7 @@ func DownloadFile(envName, productName, podName, container, path string, product
 		return nil, "", e.ErrGetPodFile.AddDesc(fmt.Sprintf("pod: %s not exits", podName))
 	}
 
-	kubeCli, cfg, err := service.NewKubeOutClusterClient(product.ClusterID)
-	if err != nil {
-		return nil, "", e.ErrGetPodFile.AddDesc(fmt.Sprintf("get kubecli err :%v", err))
-	}
-
-	localPath, err := execPodCopy(kubeCli, cfg, []string{"tar", "cf", "-", path}, path, podFileTmpPath(envName, productName, podName, container), product.Namespace, podName, container)
+	localPath, err := execPodCopy(product.ClusterID, []string{"tar", "cf", "-", path}, path, podFileTmpPath(envName, productName, podName, container), product.Namespace, podName, container)
 	if err != nil {
 		return nil, "", e.ErrGetPodFile.AddErr(err)
 	}

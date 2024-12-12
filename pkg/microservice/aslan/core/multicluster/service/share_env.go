@@ -20,12 +20,11 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	"github.com/koderover/zadig/v2/pkg/tool/kube/clientmanager"
 )
 
 func CheckIstiod(ctx context.Context, clusterID string) (bool, error) {

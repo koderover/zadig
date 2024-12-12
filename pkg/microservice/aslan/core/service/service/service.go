@@ -29,6 +29,7 @@ import (
 	gotemplate "text/template"
 	"time"
 
+	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -55,7 +56,6 @@ import (
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/gerrit"
 	"github.com/koderover/zadig/v2/pkg/tool/httpclient"
-	"github.com/koderover/zadig/v2/pkg/tool/kube/clientmanager"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	mongotool "github.com/koderover/zadig/v2/pkg/tool/mongo"

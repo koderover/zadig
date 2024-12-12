@@ -26,11 +26,12 @@ import (
 	newgoCron "github.com/go-co-op/gocron"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/hashicorp/go-multierror"
+	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	client2 "sigs.k8s.io/controller-runtime/pkg/client"
+	controllerRuntimeClient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	commonconfig "github.com/koderover/zadig/v2/pkg/config"
 	configbase "github.com/koderover/zadig/v2/pkg/config"
@@ -51,8 +52,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/tool/git/gitlab"
 	gormtool "github.com/koderover/zadig/v2/pkg/tool/gorm"
 	"github.com/koderover/zadig/v2/pkg/tool/klock"
-	"github.com/koderover/zadig/v2/pkg/tool/kube/clientmanager"
-	"github.com/koderover/zadig/v2/pkg/tool/kube/multicluster"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	mongotool "github.com/koderover/zadig/v2/pkg/tool/mongo"
 	"github.com/koderover/zadig/v2/pkg/tool/rsa"
@@ -212,16 +211,8 @@ func initResourcesForExternalClusters() {
 		if cluster.Local || cluster.Status != hubserverconfig.Normal {
 			continue
 		}
-		var client client2.Client
-		switch cluster.Type {
-		case setting.AgentClusterType, "":
-			client, err = multicluster.GetKubeClient(config.HubServerAddress(), cluster.ID.Hex())
-		case setting.KubeConfigClusterType:
-			client, err = multicluster.GetKubeClientFromKubeConfig(cluster.ID.Hex(), cluster.KubeConfig)
-		default:
-			logger.Errorf("failed to create kubeclient: unknown cluster type: %s", cluster.Type)
-			return
-		}
+		var client controllerRuntimeClient.Client
+		client, err = clientmanager.NewKubeClientManager().GetControllerRuntimeClient(cluster.ID.Hex())
 		if err != nil {
 			logger.Errorf("GetKubeClient id-%s err: %v", cluster.ID.Hex(), err)
 			return

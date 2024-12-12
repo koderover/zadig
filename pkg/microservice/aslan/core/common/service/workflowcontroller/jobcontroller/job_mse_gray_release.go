@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	"go.uber.org/zap"
 	"helm.sh/helm/v3/pkg/releaseutil"
 	versionedclient "istio.io/client-go/pkg/clientset/versioned"
@@ -32,15 +33,12 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 	crClient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/setting"
-	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
-	"github.com/koderover/zadig/v2/pkg/tool/kube/clientmanager"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/informer"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/serializer"
 )
@@ -51,7 +49,6 @@ type MseGrayReleaseJobCtl struct {
 	logger      *zap.SugaredLogger
 	jobTaskSpec *commonmodels.JobTaskMseGrayReleaseSpec
 	kubeClient  crClient.Client
-	restConfig  *rest.Config
 	informer    informers.SharedInformerFactory
 	clientSet   *kubernetes.Clientset
 	istioClient *versionedclient.Clientset
@@ -91,13 +88,6 @@ func (c *MseGrayReleaseJobCtl) Run(ctx context.Context) {
 	}
 	c.namespace = env.Namespace
 	clusterID := env.ClusterID
-
-	c.restConfig, err = kubeclient.GetRESTConfig(config.HubServerAddress(), clusterID)
-	if err != nil {
-		msg := fmt.Sprintf("can't get k8s rest config: %v", err)
-		logError(c.job, msg, c.logger)
-		return
-	}
 
 	c.kubeClient, err = clientmanager.NewKubeClientManager().GetControllerRuntimeClient(clusterID)
 	if err != nil {

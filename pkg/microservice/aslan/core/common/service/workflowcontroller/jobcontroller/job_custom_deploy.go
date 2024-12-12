@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/version"
@@ -32,8 +33,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/setting"
 	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
 	"github.com/koderover/zadig/v2/pkg/shared/kube/wrapper"
-	krkubeclient "github.com/koderover/zadig/v2/pkg/tool/kube/client"
-	"github.com/koderover/zadig/v2/pkg/tool/kube/clientmanager"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/updater"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
@@ -101,8 +100,22 @@ func (c *CustomDeployJobCtl) run(ctx context.Context) error {
 			return err
 		}
 	} else {
-		c.kubeClient = krkubeclient.Client()
-		c.version, err = krkubeclient.Clientset().Discovery().ServerVersion()
+		controllerRuntimeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient("")
+		if err != nil {
+			msg := fmt.Sprintf("can't get k8s controller runtime client, error: %v", err)
+			logError(c.job, msg, c.logger)
+			return errors.New(msg)
+		}
+		c.kubeClient = controllerRuntimeClient
+
+		clientset, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet("")
+		if err != nil {
+			msg := fmt.Sprintf("can't get k8s server version: %v", err)
+			logError(c.job, msg, c.logger)
+			return errors.New(msg)
+		}
+
+		c.version, err = clientset.Discovery().ServerVersion()
 		if err != nil {
 			msg := fmt.Sprintf("can't get k8s server version: %v", err)
 			logError(c.job, msg, c.logger)

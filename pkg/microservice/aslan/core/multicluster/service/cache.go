@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
@@ -28,7 +29,6 @@ import (
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/v2/pkg/setting"
-	"github.com/koderover/zadig/v2/pkg/tool/kube/clientmanager"
 	"github.com/koderover/zadig/v2/pkg/types"
 )
 
@@ -154,12 +154,12 @@ type IstioVirtualServiceResp struct {
 }
 
 func ListIstioVirtualServices(ctx context.Context, clusterID, namespace string) ([]*IstioVirtualServiceResp, error) {
-	istioClient, err := clientmanager.NewKubeClientManager().GetIstioV1Alpha3Client(clusterID)
+	istioClient, err := clientmanager.NewKubeClientManager().GetIstioClientSet(clusterID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get kube client: %s", err)
 	}
 
-	vsList, err := istioClient.VirtualServices(namespace).List(ctx, v1.ListOptions{})
+	vsList, err := istioClient.NetworkingV1alpha3().VirtualServices(namespace).List(ctx, v1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}

@@ -19,19 +19,13 @@ package podexec
 import (
 	"bytes"
 	"io"
-	"net/http"
 	"strings"
-	"time"
 
+	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/remotecommand"
 	"k8s.io/utils/exec"
-
-	krkubeclient "github.com/koderover/zadig/v2/pkg/tool/kube/client"
-	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
 // ExecOptions passed to ExecWithOptions
@@ -45,37 +39,15 @@ type ExecOptions struct {
 	PreserveWhitespace bool
 }
 
-// ExecWithOptions executes a command in the specified container,
-// returning stdout, stderr and error. `options` allowed for
-// additional parameters to be passed.
-func ExecWithOptions(options ExecOptions) (string, string, bool, error) {
-	return KubeExec(krkubeclient.Clientset(), krkubeclient.RESTConfig(), options)
-}
-
-func KubeExecWithRetry(kclient kubernetes.Interface, restConfig *rest.Config, options ExecOptions, retryCount int, retryInterval time.Duration) (string, string, bool, error) {
-	var (
-		stdout, stderr string
-		err            error
-		success        bool
-	)
-
-	for i := 0; i < retryCount; i++ {
-		stdout, stderr, success, err = KubeExec(kclient, restConfig, options)
-		if err != nil {
-			log.Warnf("KubeExecWithRetry: Failed to exec command in pod %s/%s, error: %v", options.Namespace, options.PodName, err)
-			time.Sleep(retryInterval)
-			continue
-		}
-		break
-	}
-
-	return stdout, stderr, success, err
-}
-
-func KubeExec(kclient kubernetes.Interface, restConfig *rest.Config, options ExecOptions) (string, string, bool, error) {
+func KubeExec(clusterID string, options ExecOptions) (string, string, bool, error) {
 	const tty = false
 
-	req := kclient.CoreV1().RESTClient().Post().
+	kubeClient, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(clusterID)
+	if err != nil {
+		return "", "", false, err
+	}
+
+	req := kubeClient.CoreV1().RESTClient().Post().
 		Resource("pods").
 		Name(options.PodName).
 		Namespace(options.Namespace).
@@ -90,7 +62,7 @@ func KubeExec(kclient kubernetes.Interface, restConfig *rest.Config, options Exe
 		TTY:       tty,
 	}, scheme.ParameterCodec)
 
-	executor, err := remotecommand.NewSPDYExecutor(restConfig, http.MethodPost, req.URL())
+	executor, err := clientmanager.NewKubeClientManager().GetSPDYExecutor(clusterID, req.URL())
 	if err != nil {
 		return "", "", false, err
 	}

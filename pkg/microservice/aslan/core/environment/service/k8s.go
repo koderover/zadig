@@ -26,10 +26,10 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-multierror"
+	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	"go.uber.org/zap"
 	"helm.sh/helm/v3/pkg/releaseutil"
 	"istio.io/client-go/pkg/apis/networking/v1alpha3"
-	versionedclient "istio.io/client-go/pkg/clientset/versioned"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -53,7 +53,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/shared/kube/resource"
 	"github.com/koderover/zadig/v2/pkg/shared/kube/wrapper"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
-	"github.com/koderover/zadig/v2/pkg/tool/kube/clientmanager"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/informer"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/serializer"
@@ -170,12 +169,7 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 		return e.ErrUpdateEnv.AddErr(err)
 	}
 
-	restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), prodinfo.ClusterID)
-	if err != nil {
-		return e.ErrUpdateEnv.AddErr(err)
-	}
-
-	istioClient, err := versionedclient.NewForConfig(restConfig)
+	istioClient, err := clientmanager.NewKubeClientManager().GetIstioClientSet(prodinfo.ClusterID)
 	if err != nil {
 		return e.ErrUpdateEnv.AddErr(err)
 	}
@@ -356,12 +350,7 @@ func (k *K8sService) listGroupServices(allServices []*commonmodels.ProductServic
 		}
 	}
 
-	restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), productInfo.ClusterID)
-	if err != nil {
-		log.Errorf("failed to get rest config: %s", err)
-		return nil
-	}
-	istioClient, err := versionedclient.NewForConfig(restConfig)
+	istioClient, err := clientmanager.NewKubeClientManager().GetIstioClientSet(productInfo.ClusterID)
 	if err != nil {
 		log.Errorf("failed to new istio client: %s", err)
 		return nil
@@ -660,12 +649,7 @@ func (k *K8sService) createGroup(username string, product *commonmodels.Product,
 		errList = multierror.Append(errList, err)
 	}
 
-	restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), prod.ClusterID)
-	if err != nil {
-		return fmt.Errorf("failed to get rest config: %s", err)
-	}
-
-	istioClient, err := versionedclient.NewForConfig(restConfig)
+	istioClient, err := clientmanager.NewKubeClientManager().GetIstioClientSet(prod.ClusterID)
 	if err != nil {
 		return fmt.Errorf("failed to new istio client: %s", err)
 	}

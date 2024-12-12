@@ -25,6 +25,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	helmclient "github.com/mittwald/go-helm-client"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -46,10 +47,8 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/notify"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/repository"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
-	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
 	"github.com/koderover/zadig/v2/pkg/tool/cache"
 	helmtool "github.com/koderover/zadig/v2/pkg/tool/helmclient"
-	"github.com/koderover/zadig/v2/pkg/tool/kube/clientmanager"
 	kubeutil "github.com/koderover/zadig/v2/pkg/tool/kube/util"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/types"
@@ -385,11 +384,7 @@ func DeleteHelmReleaseFromEnv(userName, requestID string, productInfo *commonmod
 
 	log.Infof("remove releases from env, releaseNames: %v", releaseNames)
 
-	restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), productInfo.ClusterID)
-	if err != nil {
-		return err
-	}
-	helmClient, err := helmtool.NewClientFromRestConf(restConfig, productInfo.Namespace)
+	helmClient, err := helmtool.NewClientFromNamespace(productInfo.ClusterID, productInfo.Namespace)
 	if err != nil {
 		return err
 	}
@@ -400,7 +395,7 @@ func DeleteHelmReleaseFromEnv(userName, requestID string, productInfo *commonmod
 		return err
 	}
 
-	istioClient, err := versionedclient.NewForConfig(restConfig)
+	istioClient, err := clientmanager.NewKubeClientManager().GetIstioClientSet(productInfo.ClusterID)
 	if err != nil {
 		return err
 	}
@@ -547,11 +542,7 @@ func DeleteHelmServiceFromEnv(userName, requestID string, productInfo *commonmod
 
 	log.Infof("remove svc from env, svc: %v", serviceNames)
 
-	restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), productInfo.ClusterID)
-	if err != nil {
-		return err
-	}
-	helmClient, err := helmtool.NewClientFromRestConf(restConfig, productInfo.Namespace)
+	helmClient, err := helmtool.NewClientFromNamespace(productInfo.ClusterID, productInfo.Namespace)
 	if err != nil {
 		return err
 	}
@@ -562,7 +553,7 @@ func DeleteHelmServiceFromEnv(userName, requestID string, productInfo *commonmod
 		return err
 	}
 
-	istioClient, err := versionedclient.NewForConfig(restConfig)
+	istioClient, err := clientmanager.NewKubeClientManager().GetIstioClientSet(productInfo.ClusterID)
 	if err != nil {
 		return err
 	}
@@ -671,12 +662,7 @@ func EnsureDeleteZadigServiceByHelmRelease(ctx context.Context, env *commonmodel
 		return fmt.Errorf("failed to get kube client: %s", err)
 	}
 
-	restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), env.ClusterID)
-	if err != nil {
-		return fmt.Errorf("failed to get rest config: %s", err)
-	}
-
-	istioClient, err := versionedclient.NewForConfig(restConfig)
+	istioClient, err := clientmanager.NewKubeClientManager().GetIstioClientSet(env.ClusterID)
 	if err != nil {
 		return fmt.Errorf("failed to get istio client: %s", err)
 	}

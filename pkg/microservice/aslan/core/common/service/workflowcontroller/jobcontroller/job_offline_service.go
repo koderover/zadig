@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
+	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 
 	"go.uber.org/zap"
 
@@ -34,7 +35,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/repository/models"
 	systemmongodb "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/setting"
-	"github.com/koderover/zadig/v2/pkg/tool/kube/clientmanager"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
