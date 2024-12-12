@@ -71,12 +71,11 @@ type WorkflowDebugEvent struct {
 }
 
 type workflowCtl struct {
-	workflowTask       *commonmodels.WorkflowTask
-	globalContextMutex sync.RWMutex
-	clusterIDMutex     sync.RWMutex
-	logger             *zap.SugaredLogger
-	prefix             string
-	ack                func()
+	workflowTask      *commonmodels.WorkflowTask
+	workflowTaskMutex sync.RWMutex
+	logger            *zap.SugaredLogger
+	prefix            string
+	ack               func()
 }
 
 func NewWorkflowController(workflowTask *commonmodels.WorkflowTask, logger *zap.SugaredLogger) *workflowCtl {
@@ -572,10 +571,15 @@ func (c *workflowCtl) updateWorkflowTask() {
 	if success := UpdateQueue(c.workflowTask); !success {
 		c.logger.Errorf("%s:%d update t status error", c.workflowTask.WorkflowName, c.workflowTask.TaskID)
 	}
-	// TODO update workflow task
+
+	c.workflowTaskMutex.Lock()
+	c.workflowTask.Remark = ""
 	if err := commonrepo.NewworkflowTaskv4Coll().Update(c.workflowTask.ID.Hex(), c.workflowTask); err != nil {
+		c.workflowTaskMutex.Unlock()
 		c.logger.Errorf("update workflow task v4 failed,error: %v", err)
+		return
 	}
+	c.workflowTaskMutex.Unlock()
 
 	if c.workflowTask.Status == config.StatusPassed || c.workflowTask.Status == config.StatusFailed || c.workflowTask.Status == config.StatusTimeout || c.workflowTask.Status == config.StatusCancelled || c.workflowTask.Status == config.StatusReject || c.workflowTask.Status == config.StatusPause {
 		c.logger.Infof("%s:%d:%v task done", c.workflowTask.WorkflowName, c.workflowTask.TaskID, c.workflowTask.Status)
@@ -640,8 +644,8 @@ func (c *workflowCtl) CleanShareStorage() {
 }
 
 func (c *workflowCtl) addClusterID(clusterID string) {
-	c.clusterIDMutex.Lock()
-	defer c.clusterIDMutex.Unlock()
+	c.workflowTaskMutex.Lock()
+	defer c.workflowTaskMutex.Unlock()
 	c.workflowTask.ClusterIDMap[clusterID] = true
 }
 
@@ -651,8 +655,8 @@ const (
 )
 
 func (c *workflowCtl) getGlobalContextAll() map[string]string {
-	c.globalContextMutex.RLock()
-	defer c.globalContextMutex.RUnlock()
+	c.workflowTaskMutex.RLock()
+	defer c.workflowTaskMutex.RUnlock()
 	res := make(map[string]string, len(c.workflowTask.GlobalContext))
 	for k, v := range c.workflowTask.GlobalContext {
 		k = strings.Join(strings.Split(k, split), ".")
@@ -662,21 +666,21 @@ func (c *workflowCtl) getGlobalContextAll() map[string]string {
 }
 
 func (c *workflowCtl) getGlobalContext(key string) (string, bool) {
-	c.globalContextMutex.RLock()
-	defer c.globalContextMutex.RUnlock()
+	c.workflowTaskMutex.RLock()
+	defer c.workflowTaskMutex.RUnlock()
 	v, existed := c.workflowTask.GlobalContext[GetContextKey(key)]
 	return v, existed
 }
 
 func (c *workflowCtl) setGlobalContext(key, value string) {
-	c.globalContextMutex.Lock()
-	defer c.globalContextMutex.Unlock()
+	c.workflowTaskMutex.Lock()
+	defer c.workflowTaskMutex.Unlock()
 	c.workflowTask.GlobalContext[GetContextKey(key)] = value
 }
 
 func (c *workflowCtl) globalContextEach(f func(k, v string) bool) {
-	c.globalContextMutex.RLock()
-	defer c.globalContextMutex.RUnlock()
+	c.workflowTaskMutex.RLock()
+	defer c.workflowTaskMutex.RUnlock()
 	for k, v := range c.workflowTask.GlobalContext {
 		k = strings.Join(strings.Split(k, split), ".")
 		if !f(k, v) {

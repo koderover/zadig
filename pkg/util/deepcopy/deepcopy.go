@@ -20,7 +20,23 @@ import (
 	"fmt"
 	"reflect"
 	"unsafe"
+
+	afastjson "github.com/segmentio/encoding/json"
 )
+
+func JsonFromTo(original, copy interface{}) error {
+	copyBytes, err := afastjson.Marshal(original)
+	if err != nil {
+		return fmt.Errorf("fast marshal from original failed, error: %v", err)
+	}
+
+	err = afastjson.Unmarshal(copyBytes, copy)
+	if err != nil {
+		return fmt.Errorf("fast unmarshal to copy failed, error: %v", err)
+	}
+
+	return nil
+}
 
 // FromTo deep copies original and assigns the copy to the copy argument (pointer).
 func FromTo(original, copy interface{}) error {
