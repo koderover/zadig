@@ -171,6 +171,7 @@ func CleanImageCache(logger *zap.SugaredLogger) error {
 				continue
 			}
 			if !wrapper.Pod(dindPod.Pod).Ready() {
+				log.Errorf("dind pod %s/%s is not ready", dindPod.ClusterName, dindPod.Pod.Name)
 				continue
 			}
 

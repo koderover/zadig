@@ -60,6 +60,7 @@ type DockerHostsI interface {
 type dockerhosts struct {
 	rwLock        *sync.RWMutex
 	store         map[ClusterID]*consistent.Consistent
+	currentIndex  map[ClusterID]int
 	hubServerAddr string
 	syncInterval  time.Duration
 
@@ -87,12 +88,16 @@ func NewDockerHosts(hubServerAddr string, logger *zap.SugaredLogger) DockerHosts
 	return dockerHosts
 }
 
+// round-robin get best docker host
 func (d *dockerhosts) GetBestHost(clusterID ClusterID, key string) string {
 	if d.store[clusterID] == nil {
 		d.initClusterInfo(clusterID)
 	}
 
-	member := d.store[clusterID].LocateKey([]byte(key))
+	// round-robin
+	members := d.store[clusterID].GetMembers()
+	member := members[d.currentIndex[clusterID]]
+	d.currentIndex[clusterID] = (d.currentIndex[clusterID] + 1) % len(members)
 
 	return member.String()
 }
@@ -109,6 +114,11 @@ func (d *dockerhosts) initClusterInfo(clusterID ClusterID) {
 		Load:              1.25,
 		Hasher:            hasher{},
 	}
+
+	if d.currentIndex == nil {
+		d.currentIndex = make(map[ClusterID]int)
+	}
+	d.currentIndex[clusterID] = 0
 
 	d.store[clusterID] = consistent.New(members, cfg)
 }
