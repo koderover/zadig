@@ -475,7 +475,7 @@ func (cm *KubeClientManager) getControllerRuntimeCluster(clusterID string) (cont
 
 	controllerClient, err := createControllerRuntimeCluster(cfg)
 	if err == nil {
-		log.Info("111111111111111111111111111")
+		fmt.Println("111111111111111111111111111")
 		go func() {
 			if err := controllerClient.Start(ctrl.SetupSignalHandler()); err != nil {
 				log.Errorf("failed to start controller runtime cluster, error: %s", err)
