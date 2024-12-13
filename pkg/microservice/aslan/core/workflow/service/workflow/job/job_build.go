@@ -942,9 +942,6 @@ func (j *BuildJob) GetOutPuts(log *zap.SugaredLogger) []string {
 		outputs = append(outputs, &commonmodels.Output{Name: outputKey})
 	}
 	resp = append(resp, getOutputKey(j.job.Name+".<SERVICE>.<MODULE>", outputs)...)
-	resp = append(resp, "{{.job."+j.job.Name+".<SERVICE>.<MODULE>."+GITURLKEY+"}}")
-	resp = append(resp, "{{.job."+j.job.Name+".<SERVICE>.<MODULE>."+BRANCHKEY+"}}")
-	resp = append(resp, "{{.job."+j.job.Name+".<SERVICE>.<MODULE>."+COMMITIDKEY+"}}")
 	return resp
 }
 
