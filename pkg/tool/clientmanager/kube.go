@@ -487,6 +487,8 @@ func (cm *KubeClientManager) getControllerRuntimeCluster(clusterID string) (cont
 			return nil, fmt.Errorf("failed to wait for controller runtime cluster to sync")
 		}
 		cm.controllerRuntimeClusterMap.Store(clusterID, controllerClient)
+	} else {
+		fmt.Println(">>>>>>>>>>>>>>>>>>>create cluster failed, error: ", err.Error())
 	}
 	return controllerClient, err
 }
