@@ -443,6 +443,8 @@ func (cm *KubeClientManager) getControllerRuntimeCluster(clusterID string) (cont
 		return cls.(controllerRuntimeCluster.Cluster), nil
 	}
 
+	fmt.Println(">>>>>>>>>>>> No cluster found in cache, creating cluster for cluster id:", clusterID)
+
 	if clusterID == setting.LocalClusterID {
 		cls, err := createControllerRuntimeCluster(ctrl.GetConfigOrDie())
 		if err == nil {
