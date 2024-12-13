@@ -443,14 +443,20 @@ func (cm *KubeClientManager) getControllerRuntimeCluster(clusterID string) (cont
 		return cls.(controllerRuntimeCluster.Cluster), nil
 	}
 
-	fmt.Println(">>>>>>>>>>>> No cluster found in cache, creating cluster for cluster id:", clusterID)
-
 	if clusterID == setting.LocalClusterID {
-		cls, err := createControllerRuntimeCluster(ctrl.GetConfigOrDie())
+		controllerClient, err := createControllerRuntimeCluster(ctrl.GetConfigOrDie())
 		if err == nil {
-			cm.controllerRuntimeClusterMap.Store(clusterID, cls)
+			go func() {
+				if err := controllerClient.Start(ctrl.SetupSignalHandler()); err != nil {
+					log.Errorf("failed to start controller runtime cluster, error: %s", err)
+				}
+			}()
+			if !controllerClient.GetCache().WaitForCacheSync(context.Background()) {
+				return nil, fmt.Errorf("failed to wait for controller runtime cluster to sync")
+			}
+			cm.controllerRuntimeClusterMap.Store(clusterID, controllerClient)
 		}
-		return cls, err
+		return controllerClient, err
 	}
 
 	clusterInfo, err := aslanClient.New(config.AslanServiceAddress()).GetClusterInfo(clusterID)
@@ -477,7 +483,6 @@ func (cm *KubeClientManager) getControllerRuntimeCluster(clusterID string) (cont
 
 	controllerClient, err := createControllerRuntimeCluster(cfg)
 	if err == nil {
-		fmt.Println("111111111111111111111111111")
 		go func() {
 			if err := controllerClient.Start(ctrl.SetupSignalHandler()); err != nil {
 				log.Errorf("failed to start controller runtime cluster, error: %s", err)
@@ -487,8 +492,6 @@ func (cm *KubeClientManager) getControllerRuntimeCluster(clusterID string) (cont
 			return nil, fmt.Errorf("failed to wait for controller runtime cluster to sync")
 		}
 		cm.controllerRuntimeClusterMap.Store(clusterID, controllerClient)
-	} else {
-		fmt.Println(">>>>>>>>>>>>>>>>>>>create cluster failed, error: ", err.Error())
 	}
 	return controllerClient, err
 }
