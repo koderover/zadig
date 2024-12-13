@@ -35,7 +35,6 @@ import (
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	helmtool "github.com/koderover/zadig/v2/pkg/tool/helmclient"
-	"github.com/koderover/zadig/v2/pkg/tool/kube/informer"
 	mongotool "github.com/koderover/zadig/v2/pkg/tool/mongo"
 )
 
@@ -199,13 +198,7 @@ func RollbackEnvServiceVersion(ctx *internalhandler.Context, projectName, envNam
 			return e.ErrRollbackEnvServiceVersion.AddErr(err)
 		}
 
-		cls, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(env.ClusterID)
-		if err != nil {
-			log.Errorf("[%s][%s] error: %v", envName, env.Namespace, err)
-			return e.ErrRollbackEnvServiceVersion.AddDesc(err.Error())
-
-		}
-		informer, err := informer.NewInformer(env.ClusterID, env.Namespace, cls)
+		informer, err := clientmanager.NewKubeClientManager().GetInformer(env.ClusterID, env.Namespace)
 		if err != nil {
 			log.Errorf("[%s][%s] error: %v", envName, env.Namespace, err)
 			return e.ErrRollbackEnvServiceVersion.AddDesc(err.Error())

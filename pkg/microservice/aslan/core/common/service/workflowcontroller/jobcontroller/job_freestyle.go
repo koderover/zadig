@@ -39,7 +39,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/workflowcontroller/stepcontroller"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/tool/dockerhost"
-	"github.com/koderover/zadig/v2/pkg/tool/kube/informer"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/updater"
 	"github.com/koderover/zadig/v2/pkg/types/step"
 )
@@ -232,11 +231,7 @@ func (c *FreestyleJobCtl) run(ctx context.Context) error {
 	}
 
 	// set informer when job and cm have been created
-	clientSet, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(c.jobTaskSpec.Properties.ClusterID)
-	if err != nil {
-		return errors.Wrap(err, "get kube client set")
-	}
-	informer, err := informer.NewInformer(c.jobTaskSpec.Properties.ClusterID, c.jobTaskSpec.Properties.Namespace, clientSet)
+	informer, err := clientmanager.NewKubeClientManager().GetInformer(c.jobTaskSpec.Properties.ClusterID, c.jobTaskSpec.Properties.Namespace)
 	if err != nil {
 		return errors.Wrap(err, "get informer")
 	}

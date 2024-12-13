@@ -35,7 +35,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/shared/kube/wrapper"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/getter"
-	"github.com/koderover/zadig/v2/pkg/tool/kube/informer"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/types"
 	"github.com/koderover/zadig/v2/pkg/util"
@@ -65,12 +64,7 @@ func CalculateNonK8sProductStatus(productInfo *commonmodels.Product, log *zap.Su
 
 func CalculateK8sProductStatus(productInfo *commonmodels.Product, log *zap.SugaredLogger) (string, error) {
 	envName, productName := productInfo.EnvName, productInfo.ProductName
-	cls, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(productInfo.ClusterID)
-	if err != nil {
-		log.Errorf("[%s][%s] error: %v", envName, productName, err)
-		return setting.PodUnstable, e.ErrListGroups.AddDesc(err.Error())
-	}
-	inf, err := informer.NewInformer(productInfo.ClusterID, productInfo.Namespace, cls)
+	inf, err := clientmanager.NewKubeClientManager().GetInformer(productInfo.ClusterID, productInfo.Namespace)
 	if err != nil {
 		log.Errorf("[%s][%s] error: %v", envName, productName, err)
 		return setting.PodUnstable, e.ErrListGroups.AddDesc(err.Error())
@@ -131,12 +125,8 @@ func ListGroups(serviceName, envName, productName string, perPage, page int, pro
 		log.Errorf("[%s][%s] failed to get kubeclient error: %v", envName, productName, err)
 		return resp, count, e.ErrListGroups.AddDesc(err.Error())
 	}
-	cls, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(productInfo.ClusterID)
-	if err != nil {
-		log.Errorf("[%s][%s] error: %v", envName, productName, err)
-		return resp, count, e.ErrListGroups.AddDesc(err.Error())
-	}
-	inf, err := informer.NewInformer(productInfo.ClusterID, productInfo.Namespace, cls)
+
+	inf, err := clientmanager.NewKubeClientManager().GetInformer(productInfo.ClusterID, productInfo.Namespace)
 	if err != nil {
 		log.Errorf("[%s][%s] error: %v", envName, productName, err)
 		return resp, count, e.ErrListGroups.AddDesc(err.Error())

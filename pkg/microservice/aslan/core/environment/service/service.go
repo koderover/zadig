@@ -41,7 +41,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/shared/kube/wrapper"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/getter"
-	"github.com/koderover/zadig/v2/pkg/tool/kube/informer"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/serializer"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/updater"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
@@ -166,7 +165,7 @@ func GetService(envName, productName, serviceName string, production bool, workL
 		return nil, e.ErrGetService.AddErr(err)
 	}
 
-	inf, err := informer.NewInformer(env.ClusterID, env.Namespace, clientset)
+	inf, err := clientmanager.NewKubeClientManager().GetInformer(env.ClusterID, env.Namespace)
 	if err != nil {
 		log.Errorf("Failed to create informer for namespace [%s] in cluster [%s], the error is: %s", env.Namespace, env.ClusterID, err)
 		return nil, e.ErrGetService.AddErr(err)

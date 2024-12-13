@@ -55,7 +55,6 @@ import (
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	helmtool "github.com/koderover/zadig/v2/pkg/tool/helmclient"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/getter"
-	"github.com/koderover/zadig/v2/pkg/tool/kube/informer"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	zadigtypes "github.com/koderover/zadig/v2/pkg/types"
 	"github.com/koderover/zadig/v2/pkg/util"
@@ -530,7 +529,7 @@ func ListWorkloadsInEnv(envName, productName, filter string, perPage, page int, 
 	if err != nil {
 		return 0, nil, e.ErrListGroups.AddDesc(err.Error())
 	}
-	informer, err := informer.NewInformer(productInfo.ClusterID, productInfo.Namespace, cls)
+	informer, err := clientmanager.NewKubeClientManager().GetInformer(productInfo.ClusterID, productInfo.Namespace)
 	if err != nil {
 		log.Errorf("[%s][%s] error: %v", envName, productInfo.Namespace, err)
 		return 0, nil, e.ErrListGroups.AddDesc(err.Error())
@@ -777,7 +776,7 @@ func ListWorkloadDetails(envName, clusterID, namespace, productName string, perP
 		log.Errorf("[%s][%s] error: %v", envName, namespace, err)
 		return 0, resp, e.ErrListGroups.AddDesc(err.Error())
 	}
-	informer, err := informer.NewInformer(clusterID, namespace, cls)
+	informer, err := clientmanager.NewKubeClientManager().GetInformer(clusterID, namespace)
 	if err != nil {
 		log.Errorf("[%s][%s] error: %v", envName, namespace, err)
 		return 0, resp, e.ErrListGroups.AddDesc(err.Error())

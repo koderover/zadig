@@ -38,7 +38,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/setting"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	helmtool "github.com/koderover/zadig/v2/pkg/tool/helmclient"
-	"github.com/koderover/zadig/v2/pkg/tool/kube/informer"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/serializer"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/updater"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
@@ -286,11 +285,7 @@ func (creator *K8sYamlProductCreator) Create(user, requestID string, args *Produ
 		return e.ErrCreateEnv.AddErr(err)
 	}
 
-	cls, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(clusterID)
-	if err != nil {
-		return e.ErrCreateEnv.AddErr(err)
-	}
-	inf, err := informer.NewInformer(clusterID, args.Namespace, cls)
+	inf, err := clientmanager.NewKubeClientManager().GetInformer(clusterID, args.Namespace)
 	if err != nil {
 		return e.ErrCreateEnv.AddErr(err)
 	}

@@ -50,7 +50,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/shared/kube/wrapper"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/getter"
-	"github.com/koderover/zadig/v2/pkg/tool/kube/informer"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/updater"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/types/job"
@@ -144,7 +143,7 @@ func (c *DeployJobCtl) run(ctx context.Context) error {
 		return errors.New(msg)
 	}
 
-	c.informer, err = informer.NewInformer(c.jobTaskSpec.ClusterID, c.namespace, c.clientSet)
+	c.informer, err = clientmanager.NewKubeClientManager().GetInformer(c.jobTaskSpec.ClusterID, c.namespace)
 	if err != nil {
 		msg := fmt.Sprintf("can't init k8s informer: %v", err)
 		logError(c.job, msg, c.logger)

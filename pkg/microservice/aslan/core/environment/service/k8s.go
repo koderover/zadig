@@ -54,7 +54,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/shared/kube/wrapper"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/getter"
-	"github.com/koderover/zadig/v2/pkg/tool/kube/informer"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/serializer"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	mongotool "github.com/koderover/zadig/v2/pkg/tool/mongo"
@@ -174,11 +173,7 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 		return e.ErrUpdateEnv.AddErr(err)
 	}
 
-	cls, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(prodinfo.ClusterID)
-	if err != nil {
-		return e.ErrUpdateEnv.AddDesc(err.Error())
-	}
-	inf, err := informer.NewInformer(prodinfo.ClusterID, prodinfo.Namespace, cls)
+	inf, err := clientmanager.NewKubeClientManager().GetInformer(prodinfo.ClusterID, prodinfo.Namespace)
 	if err != nil {
 		return e.ErrUpdateEnv.AddDesc(err.Error())
 	}

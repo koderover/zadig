@@ -29,7 +29,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
-	"github.com/koderover/zadig/v2/pkg/tool/kube/informer"
 	"github.com/koderover/zadig/v2/pkg/util"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -65,7 +64,7 @@ func DeleteProductionProduct(username, envName, productName, requestID string, l
 	}
 
 	// delete informer's cache
-	informer.DeleteInformer(productInfo.ClusterID, productInfo.Namespace)
+	clientmanager.NewKubeClientManager().DeleteInformer(productInfo.ClusterID, productInfo.Namespace)
 	envCMMap, err := collaboration.GetEnvCMMap([]string{productName}, log)
 	if err != nil {
 		return e.ErrUpdateEnv.AddErr(errors.Wrapf(err, "get env cm map error"))

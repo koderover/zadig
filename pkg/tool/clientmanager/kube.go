@@ -22,10 +22,12 @@ import (
 	"net/url"
 	"os"
 	"sync"
+	"time"
 
 	"github.com/pkg/errors"
 	istioClient "istio.io/client-go/pkg/clientset/versioned"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
@@ -37,8 +39,10 @@ import (
 	controllerRuntimeCluster "sigs.k8s.io/controller-runtime/pkg/cluster"
 
 	"github.com/koderover/zadig/v2/pkg/config"
+	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	aslanClient "github.com/koderover/zadig/v2/pkg/shared/client/aslan"
+	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
 )
 
 var kubeClientManagerInstance *KubeClientManager
@@ -52,11 +56,11 @@ type KubeClientManager struct {
 	metricsClientMap            sync.Map
 	istioClientSetMap           sync.Map
 
-	clientReaderMap     sync.Map
 	informerStopChanMap sync.Map
 	informerFactoryMap  sync.Map
+	informerMutex       sync.Mutex
 
-	mutex sync.Mutex
+	generalMutex sync.Mutex
 }
 
 func NewKubeClientManager() *KubeClientManager {
@@ -250,6 +254,82 @@ func (cm *KubeClientManager) GetIstioClientSet(clusterID string) (*istioClient.C
 	return cli, err
 }
 
+func (cm *KubeClientManager) GetInformer(clusterID, namespace string) (informers.SharedInformerFactory, error) {
+	clusterID = handleClusterID(clusterID)
+
+	key := generateInformerKey(clusterID, namespace)
+
+	client, ok := cm.informerFactoryMap.Load(key)
+	if ok {
+		return client.(informers.SharedInformerFactory), nil
+	}
+
+	opts := informers.WithNamespace(namespace)
+	clientset, err := cm.GetKubernetesClientSet(clusterID)
+	if err != nil {
+		return nil, err
+	}
+
+	informerFactory := informers.NewSharedInformerFactoryWithOptions(clientset, time.Minute, opts)
+	// register the resources to be watched
+	informerFactory.Apps().V1().Deployments().Lister()
+	informerFactory.Apps().V1().StatefulSets().Lister()
+	informerFactory.Core().V1().Services().Lister()
+	informerFactory.Core().V1().Pods().Lister()
+	informerFactory.Core().V1().ConfigMaps().Lister()
+	informerFactory.Batch().V1().Jobs().Lister()
+	versionInfo, err := clientset.Discovery().ServerVersion()
+	if err != nil {
+		return nil, err
+	}
+
+	// if less than v1.22.0, then we look for the extensions/v1beta1 ingress
+	if kubeclient.VersionLessThan122(versionInfo) {
+		informerFactory.Extensions().V1beta1().Ingresses().Lister()
+	} else {
+		// otherwise above resource is deprecated, we watch for the k8s.networking.io/v1 ingress
+		informerFactory.Networking().V1().Ingresses().Lister()
+	}
+
+	if kubeclient.VersionLessThan121(versionInfo) {
+		informerFactory.Batch().V1beta1().CronJobs().Lister()
+	} else {
+		informerFactory.Batch().V1().CronJobs().Lister()
+	}
+
+	cm.informerMutex.Lock()
+	defer cm.informerMutex.Unlock()
+
+	stopchan := make(chan struct{})
+	informerFactory.Start(stopchan)
+	// wait for the cache to be synced for the first time
+	informerFactory.WaitForCacheSync(make(chan struct{}))
+
+	oldStopChan, ok := cm.informerStopChanMap.Load(key)
+	if ok {
+		close(oldStopChan.(chan struct{}))
+		cm.informerStopChanMap.Delete(key)
+	}
+
+	cm.informerStopChanMap.Store(key, stopchan)
+	cm.informerFactoryMap.Store(key, informerFactory)
+
+	return informerFactory, nil
+}
+
+func (cm *KubeClientManager) DeleteInformer(clusterID, namespace string) {
+	cm.informerMutex.Lock()
+	defer cm.informerMutex.Unlock()
+
+	oldStopChan, ok := cm.informerStopChanMap.Load(generateInformerKey(clusterID, namespace))
+	if ok {
+		close(oldStopChan.(chan struct{}))
+		cm.informerStopChanMap.Delete(generateInformerKey(clusterID, namespace))
+	}
+
+	cm.informerFactoryMap.Delete(generateInformerKey(clusterID, namespace))
+}
+
 // GetSPDYExecutor does not return singleton since this kind of client is not commonly reused.
 func (cm *KubeClientManager) GetSPDYExecutor(clusterID string, URL *url.URL) (remotecommand.Executor, error) {
 	clusterID = handleClusterID(clusterID)
@@ -322,6 +402,35 @@ func (cm *KubeClientManager) GetRestConfig(clusterID string) (*rest.Config, erro
 	}
 
 	return cfg, err
+}
+
+func (cm *KubeClientManager) Clear(clusterID string) error {
+	cm.generalMutex.Lock()
+	defer cm.generalMutex.Unlock()
+
+	cm.controllerRuntimeClusterMap.Delete(clusterID)
+	cm.kubernetesClientSetMap.Delete(clusterID)
+	cm.metricsClientMap.Delete(clusterID)
+	cm.istioClientSetMap.Delete(clusterID)
+
+	envs, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
+		ClusterID: clusterID,
+	})
+
+	if err != nil {
+		return fmt.Errorf("failed to list envs by clusterID %s, err %v", clusterID, err)
+	}
+
+	for _, env := range envs {
+		stopchan, ok := cm.informerStopChanMap.Load(generateInformerKey(clusterID, env.Namespace))
+		if ok {
+			close(stopchan.(chan struct{}))
+		}
+		cm.informerStopChanMap.Delete(generateInformerKey(clusterID, env.Namespace))
+		cm.informerFactoryMap.Delete(generateInformerKey(clusterID, env.Namespace))
+	}
+
+	return nil
 }
 
 func (cm *KubeClientManager) getControllerRuntimeCluster(clusterID string) (controllerRuntimeCluster.Cluster, error) {
@@ -418,4 +527,8 @@ func createControllerRuntimeCluster(restConfig *rest.Config) (controllerRuntimeC
 	}
 
 	return c, nil
+}
+
+func generateInformerKey(clusterID, namespace string) string {
+	return fmt.Sprintf(setting.InformerNamingConvention, clusterID, namespace)
 }

@@ -39,7 +39,6 @@ import (
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/setting"
-	"github.com/koderover/zadig/v2/pkg/tool/kube/informer"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/serializer"
 )
 
@@ -102,7 +101,7 @@ func (c *MseGrayReleaseJobCtl) Run(ctx context.Context) {
 		return
 	}
 
-	c.informer, err = informer.NewInformer(clusterID, c.namespace, c.clientSet)
+	c.informer, err = clientmanager.NewKubeClientManager().GetInformer(clusterID, c.namespace)
 	if err != nil {
 		msg := fmt.Sprintf("can't init k8s informer: %v", err)
 		logError(c.job, msg, c.logger)

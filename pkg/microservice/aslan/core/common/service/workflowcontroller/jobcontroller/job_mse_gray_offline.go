@@ -37,7 +37,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/getter"
-	"github.com/koderover/zadig/v2/pkg/tool/kube/informer"
 	"github.com/koderover/zadig/v2/pkg/types"
 )
 
@@ -98,7 +97,7 @@ func (c *MseGrayOfflineJobCtl) Run(ctx context.Context) {
 		logError(c.job, msg, c.logger)
 		return
 	}
-	c.informer, err = informer.NewInformer(clusterID, c.jobTaskSpec.Namespace, c.clientSet)
+	c.informer, err = clientmanager.NewKubeClientManager().GetInformer(clusterID, c.jobTaskSpec.Namespace)
 	if err != nil {
 		msg := fmt.Sprintf("can't init k8s informer: %v", err)
 		logError(c.job, msg, c.logger)

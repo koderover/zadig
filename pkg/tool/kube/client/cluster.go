@@ -24,8 +24,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -73,45 +71,11 @@ func Start(ctx context.Context) error {
 	return Cluster().Start(ctx)
 }
 
-func RESTConfigFromAPIConfig(cfg *api.Config) (*rest.Config, error) {
-	// use the current context in kubeconfig
-	return clientcmd.BuildConfigFromKubeconfigGetter("", func() (config *api.Config, err error) {
-		return cfg, nil
-	})
-}
-
-func NewClientFromAPIConfig(cfg *api.Config) (client.Client, error) {
-	restConfig, err := RESTConfigFromAPIConfig(cfg)
-	if err != nil {
-		return nil, err
-	}
-
-	cls, err := initCluster(restConfig)
-	if err != nil {
-		return nil, err
-	}
-
-	return newAPIClient(cls.GetClient(), cls.GetAPIReader()), nil
-}
-
-func GetKubeClientFromRestConfig(cfg *rest.Config) (client.Client, error) {
-	cls, err := initCluster(cfg)
-	if err != nil {
-		return nil, err
-	}
-
-	return newAPIClient(cls.GetClient(), cls.GetAPIReader()), nil
-}
-
 // apiClient is similar with the default Client(), but it always gets objects from API server.
 type apiClient struct {
 	client.Client
 
 	apiReader client.Reader
-}
-
-func newAPIClient(c client.Client, r client.Reader) client.Client {
-	return &apiClient{Client: c, apiReader: r}
 }
 
 func (c *apiClient) Get(ctx context.Context, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {

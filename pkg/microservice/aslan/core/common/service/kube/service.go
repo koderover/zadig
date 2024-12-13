@@ -48,7 +48,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	"github.com/koderover/zadig/v2/pkg/tool/crypto"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
-	"github.com/koderover/zadig/v2/pkg/tool/kube/informer"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/multicluster"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/types"
@@ -164,11 +163,6 @@ func (s *Service) CreateCluster(cluster *models.K8SCluster, id string, logger *z
 }
 
 func (s *Service) UpdateCluster(id string, cluster *models.K8SCluster, logger *zap.SugaredLogger) (*models.K8SCluster, error) {
-	origCluster, err := s.coll.Get(id)
-	if err != nil {
-		return nil, e.ErrUpdateCluster.AddErr(e.ErrClusterNotFound.AddDesc(cluster.Name))
-	}
-
 	if existed, err := s.coll.HasDuplicateName(id, cluster.Name); existed || err != nil {
 		if err != nil {
 			logger.Warnf("failed to find duplicated name %v", err)
@@ -177,16 +171,10 @@ func (s *Service) UpdateCluster(id string, cluster *models.K8SCluster, logger *z
 		return nil, e.ErrUpdateCluster.AddDesc(e.DuplicateClusterNameFound)
 	}
 
-	if origCluster.Type == setting.KubeConfigClusterType && origCluster.KubeConfig != cluster.KubeConfig {
-		envs, err := mongodb.NewProductColl().List(&commonrepo.ProductListOptions{
-			ClusterID: id,
-		})
-		if err != nil {
-			return nil, e.ErrUpdateCluster.AddErr(fmt.Errorf("failed to list envs by clusterID %s, err %v", id, err))
-		}
-		for _, env := range envs {
-			informer.DeleteInformer(env.ClusterID, env.Namespace)
-		}
+	err := clientmanager.NewKubeClientManager().Clear(id)
+	if err != nil {
+		log.Errorf("failed to clear old cache, error: %s", err)
+		return nil, e.ErrUpdateCluster.AddDesc(fmt.Sprintf("failed to clear old cache, error: %s", err))
 	}
 
 	err = s.coll.UpdateMutableFields(cluster, id)
@@ -204,12 +192,12 @@ func (s *Service) UpdateCluster(id string, cluster *models.K8SCluster, logger *z
 }
 
 func (s *Service) DeleteCluster(user string, id string, logger *zap.SugaredLogger) error {
-	//clusterInfo, err := s.coll.Get(id)
-	//if err != nil {
-	//	return e.ErrDeleteCluster.AddErr(e.ErrClusterNotFound.AddDesc(id))
-	//}
+	err := clientmanager.NewKubeClientManager().Clear(id)
+	if err != nil {
+		log.Errorf("failed to clear old cache, error: %s", err)
+	}
 
-	err := s.coll.Delete(id)
+	err = s.coll.Delete(id)
 	if err != nil {
 		logger.Errorf("failed to delete cluster by id %s %v", id, err)
 		return e.ErrDeleteCluster.AddErr(err)

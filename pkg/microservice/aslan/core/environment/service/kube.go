@@ -59,7 +59,6 @@ import (
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	helmtool "github.com/koderover/zadig/v2/pkg/tool/helmclient"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/getter"
-	"github.com/koderover/zadig/v2/pkg/tool/kube/informer"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/serializer"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/updater"
 	kubeutil "github.com/koderover/zadig/v2/pkg/tool/kube/util"
@@ -792,12 +791,7 @@ func ListK8sResOverview(args *FetchResourceArgs, log *zap.SugaredLogger) (*K8sRe
 		return nil, e.ErrListK8sResources.AddErr(err)
 	}
 
-	cls, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(productInfo.ClusterID)
-	if err != nil {
-		return nil, e.ErrListK8sResources.AddDesc(err.Error())
-	}
-
-	inf, err := informer.NewInformer(productInfo.ClusterID, productInfo.Namespace, cls)
+	inf, err := clientmanager.NewKubeClientManager().GetInformer(productInfo.ClusterID, productInfo.Namespace)
 	if err != nil {
 		return nil, e.ErrListGroups.AddDesc(err.Error())
 	}

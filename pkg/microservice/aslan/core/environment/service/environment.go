@@ -30,7 +30,6 @@ import (
 
 	"github.com/cenkalti/backoff/v4"
 	"github.com/hashicorp/go-multierror"
-	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
@@ -69,9 +68,9 @@ import (
 	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
 	"github.com/koderover/zadig/v2/pkg/tool/analysis"
 	"github.com/koderover/zadig/v2/pkg/tool/cache"
+	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	helmtool "github.com/koderover/zadig/v2/pkg/tool/helmclient"
-	"github.com/koderover/zadig/v2/pkg/tool/kube/informer"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/serializer"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/updater"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
@@ -679,13 +678,7 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]st
 		return e.ErrUpdateEnv.AddErr(err)
 	}
 
-	cls, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(existedProd.ClusterID)
-	if err != nil {
-		log.Errorf("[%s][%s] error: %v", envName, namespace, err)
-		return e.ErrUpdateEnv.AddDesc(err.Error())
-
-	}
-	inf, err := informer.NewInformer(existedProd.ClusterID, namespace, cls)
+	inf, err := clientmanager.NewKubeClientManager().GetInformer(existedProd.ClusterID, namespace)
 	if err != nil {
 		log.Errorf("[%s][%s] error: %v", envName, namespace, err)
 		return e.ErrUpdateEnv.AddDesc(err.Error())
@@ -2098,7 +2091,7 @@ func DeleteProduct(username, envName, productName, requestID string, isDelete bo
 	}
 
 	// delete informer's cache
-	informer.DeleteInformer(productInfo.ClusterID, productInfo.Namespace)
+	clientmanager.NewKubeClientManager().DeleteInformer(productInfo.ClusterID, productInfo.Namespace)
 
 	envCMMap, err := collaboration.GetEnvCMMap([]string{productName}, log)
 	if err != nil {
@@ -4169,7 +4162,7 @@ func EnvSleep(productName, envName string, isEnable, isProduction bool, log *zap
 		log.Error(wrapErr)
 		return e.ErrEnvSleep.AddErr(wrapErr)
 	}
-	informer, err := informer.NewInformer(prod.ClusterID, prod.Namespace, clientset)
+	informer, err := clientmanager.NewKubeClientManager().GetInformer(prod.ClusterID, prod.Namespace)
 	if err != nil {
 		wrapErr := fmt.Errorf("[%s][%s] error: %v", envName, prod.Namespace, err)
 		log.Error(wrapErr)

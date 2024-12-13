@@ -32,7 +32,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	helmtool "github.com/koderover/zadig/v2/pkg/tool/helmclient"
-	"github.com/koderover/zadig/v2/pkg/tool/kube/informer"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"helm.sh/helm/v3/pkg/action"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -363,7 +362,7 @@ func GetBizDirServiceDetail(projectName, serviceName string) ([]GetBizDirService
 				resp = append(resp, detail)
 				continue
 			}
-			inf, err := informer.NewInformer(env.ClusterID, env.Namespace, cls)
+			inf, err := clientmanager.NewKubeClientManager().GetInformer(env.ClusterID, env.Namespace)
 			if err != nil {
 				detail.Error = err.Error()
 				log.Warnf("[BIZDIR] failed to get service status & image info due to kube informer creation, err: %s", err)
