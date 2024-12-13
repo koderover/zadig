@@ -446,6 +446,7 @@ func (cm *KubeClientManager) getControllerRuntimeCluster(clusterID string) (cont
 	if clusterID == setting.LocalClusterID {
 		controllerClient, err := createControllerRuntimeCluster(ctrl.GetConfigOrDie())
 		if err == nil {
+			fmt.Println(">>>>>>>>>>>>>>>>>>>> 11111111111111111")
 			go func() {
 				if err := controllerClient.Start(ctrl.SetupSignalHandler()); err != nil {
 					log.Errorf("failed to start controller runtime cluster, error: %s", err)
@@ -455,6 +456,8 @@ func (cm *KubeClientManager) getControllerRuntimeCluster(clusterID string) (cont
 				return nil, fmt.Errorf("failed to wait for controller runtime cluster to sync")
 			}
 			cm.controllerRuntimeClusterMap.Store(clusterID, controllerClient)
+		} else {
+			fmt.Println(">>>>>>>>>>>>>>>>>>>> 222222222222222222")
 		}
 		return controllerClient, err
 	}
