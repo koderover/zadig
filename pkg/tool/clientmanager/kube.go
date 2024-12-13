@@ -17,6 +17,7 @@ limitations under the License.
 package clientmanager
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -24,6 +25,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/pkg/errors"
 	istioClient "istio.io/client-go/pkg/clientset/versioned"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -473,6 +475,14 @@ func (cm *KubeClientManager) getControllerRuntimeCluster(clusterID string) (cont
 
 	controllerClient, err := createControllerRuntimeCluster(cfg)
 	if err == nil {
+		go func() {
+			if err := controllerClient.Start(ctrl.SetupSignalHandler()); err != nil {
+				log.Errorf("failed to start controller runtime cluster, error: %s", err)
+			}
+		}()
+		if !controllerClient.GetCache().WaitForCacheSync(context.Background()) {
+			return nil, fmt.Errorf("failed to wait for controller runtime cluster to sync")
+		}
 		cm.controllerRuntimeClusterMap.Store(clusterID, controllerClient)
 	}
 	return controllerClient, err
