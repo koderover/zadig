@@ -20,9 +20,9 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	"go.uber.org/zap"
 
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
@@ -88,12 +88,12 @@ type GetKubeWorkloadsResp struct {
 }
 
 func GetKubeWorkloads(namespace, clusterID string, log *zap.SugaredLogger) (*GetKubeWorkloadsResp, error) {
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
+	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(clusterID)
 	if err != nil {
 		log.Errorf("cluster is not connected [%s] err:%s", clusterID, err)
 		return nil, err
 	}
-	cliSet, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), clusterID)
+	cliSet, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(clusterID)
 	if err != nil {
 		return nil, err
 	}
@@ -206,12 +206,12 @@ type GetKubeWorkloadsYamlResp struct {
 
 // LoadKubeWorkloadsYaml creates service from existing workloads in k8s namespace
 func LoadKubeWorkloadsYaml(username string, params *LoadKubeWorkloadsYamlReq, force, proudction bool, log *zap.SugaredLogger) error {
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), params.ClusterID)
+	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(params.ClusterID)
 	if err != nil {
 		log.Errorf("cluster is not connected [%s]", params.ClusterID)
 		return e.ErrGetService.AddErr(err)
 	}
-	cliSet, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), params.ClusterID)
+	cliSet, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(params.ClusterID)
 	if err != nil {
 		return e.ErrGetService.AddErr(err)
 	}

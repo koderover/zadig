@@ -21,6 +21,7 @@ import (
 	"sort"
 	"sync"
 
+	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
@@ -29,7 +30,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
-	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/updater"
@@ -54,7 +54,7 @@ func ListPvcs(envName, productName string, production bool, log *zap.SugaredLogg
 	if err != nil {
 		return nil, e.ErrListResources.AddErr(err)
 	}
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), product.ClusterID)
+	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(product.ClusterID)
 	if err != nil {
 		return nil, e.ErrListResources.AddErr(err)
 	}
@@ -181,7 +181,7 @@ func UpdatePvc(args *models.CreateUpdateCommonEnvCfgArgs, userName string, log *
 		return e.ErrUpdateResource.AddErr(err)
 	}
 
-	clientset, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), product.ClusterID)
+	clientset, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(product.ClusterID)
 	if err != nil {
 		log.Errorf("failed to create kubernetes clientset for clusterID: %s, the error is: %s", product.ClusterID, err)
 		return e.ErrUpdateResource.AddErr(err)
@@ -215,7 +215,7 @@ func UpdatePvc(args *models.CreateUpdateCommonEnvCfgArgs, userName string, log *
 	if !args.RestartAssociatedSvc {
 		return nil
 	}
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), product.ClusterID)
+	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(product.ClusterID)
 	if err != nil {
 		return e.ErrUpdateResource.AddErr(err)
 	}

@@ -23,26 +23,20 @@ import (
 
 	"strings"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/kubernetes"
 
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
-func PrepareDinD(dynamicClient dynamic.Interface, namespace string, regList []*RegistryInfoForDinDUpdate) error {
-	// set statefulset GVR
-	stsResource := schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "statefulsets"}
-
-	volumeMountList := make([]interface{}, 0)
-	volumeList := make([]interface{}, 0)
-	insecureRegistryList := make([]interface{}, 0)
+func PrepareDinD(client *kubernetes.Clientset, namespace string, regList []*RegistryInfoForDinDUpdate) error {
+	insecureRegistryList := make([]string, 0)
 
 	mountFlag := false
 	insecureFlag := false
-	sourceList := make([]interface{}, 0)
+	sourceList := make([]corev1.VolumeProjection, 0)
 	insecureMap := sets.NewString()
 
 	for _, reg := range regList {
@@ -62,25 +56,25 @@ func PrepareDinD(dynamicClient dynamic.Interface, namespace string, regList []*R
 			if reg.AdvancedSetting.TLSEnabled && reg.AdvancedSetting.TLSCert != "" {
 				if !insecureMap.Has(addr[1]) {
 					mountName := fmt.Sprintf("%s-cert", reg.ID.Hex())
-					err := ensureCertificateSecret(dynamicClient, mountName, namespace, reg.AdvancedSetting.TLSCert)
+					err := ensureCertificateSecret(client, mountName, namespace, reg.AdvancedSetting.TLSCert)
 					if err != nil {
 						log.Errorf("failed to ensure secret: %s, the error is: %s", mountName, err)
 						return err
 					}
-					// create secret mount info
-					secretMount := map[string]interface{}{
-						"name": mountName,
-						"items": []interface{}{
-							map[string]interface{}{
-								"key":  "ca.crt",
-								"path": fmt.Sprintf("%s/%s", addr[1], "ca.crt"),
-							},
-						},
-					}
 
 					// create projected volumes sources list
-					sourceList = append(sourceList, map[string]interface{}{
-						"secret": secretMount,
+					sourceList = append(sourceList, corev1.VolumeProjection{
+						Secret: &corev1.SecretProjection{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: mountName,
+							},
+							Items: []corev1.KeyToPath{
+								{
+									Key:  "ca.crt",
+									Path: fmt.Sprintf("%s/%s", addr[1], "ca.crt"),
+								},
+							},
+						},
 					})
 
 					// set mountFlag to add mounting volume to dind
@@ -91,99 +85,80 @@ func PrepareDinD(dynamicClient dynamic.Interface, namespace string, regList []*R
 		}
 	}
 
-	if mountFlag {
-		volumeMountMap := map[string]interface{}{
-			"mountPath": "/etc/docker/certs.d",
-			"name":      "cert-mount",
-		}
-		volumeMountList = append(volumeMountList, volumeMountMap)
-		volumeList = append(volumeList, map[string]interface{}{
-			"name": "cert-mount",
-			"projected": map[string]interface{}{
-				"sources": sourceList,
-			},
-		})
-	}
-
-	result, getErr := dynamicClient.Resource(stsResource).Namespace(namespace).Get(context.TODO(), "dind", metav1.GetOptions{})
-	if getErr != nil {
-		log.Errorf("failed to get dind statefulset, the error is: %s", getErr)
-		return getErr
-	}
-
-	// extract spec containers
-	containers, found, err := unstructured.NestedSlice(result.Object, "spec", "template", "spec", "containers")
-	if err != nil || !found || containers == nil {
+	dindSts, err := client.AppsV1().StatefulSets(namespace).Get(context.TODO(), "dind", metav1.GetOptions{})
+	if err != nil {
+		log.Errorf("failed to get dind statefulset, the error is: %s", err)
 		return err
 	}
 
+	if len(dindSts.Spec.Template.Spec.Containers) == 0 {
+		return fmt.Errorf("failed to extract container from dind sts")
+	}
+
 	if mountFlag {
+		volumeMount := corev1.VolumeMount{
+			MountPath: "/etc/docker/certs.d",
+			Name:      "cert-mount",
+		}
+
 		// update spec.template.spec.containers[0].volumeMounts
-		if err := unstructured.SetNestedField(containers[0].(map[string]interface{}), volumeMountList, "volumeMounts"); err != nil {
-			return err
+		dindSts.Spec.Template.Spec.Containers[0].VolumeMounts = append(dindSts.Spec.Template.Spec.Containers[0].VolumeMounts, volumeMount)
+
+		volume := corev1.Volume{
+			Name: "cert-mount",
+			VolumeSource: corev1.VolumeSource{
+				Projected: &corev1.ProjectedVolumeSource{
+					Sources: sourceList,
+				},
+			},
 		}
+
 		// update spec.template.spec.volumes
-		if err := unstructured.SetNestedField(result.Object, volumeList, "spec", "template", "spec", "volumes"); err != nil {
-			return err
-		}
+		dindSts.Spec.Template.Spec.Volumes = append(dindSts.Spec.Template.Spec.Volumes, volume)
 	}
 
 	if insecureFlag {
 		// update spec.template.spec.containers[0].args
-		if err := unstructured.SetNestedField(containers[0].(map[string]interface{}), insecureRegistryList, "args"); err != nil {
-			return err
-		}
+		dindSts.Spec.Template.Spec.Containers[0].Args = insecureRegistryList
 	}
 
-	if err := unstructured.SetNestedField(result.Object, containers, "spec", "template", "spec", "containers"); err != nil {
-		return err
-	}
-
-	_, updateErr := dynamicClient.Resource(stsResource).Namespace(namespace).Update(context.TODO(), result, metav1.UpdateOptions{})
+	_, updateErr := client.AppsV1().StatefulSets(namespace).Update(context.TODO(), dindSts, metav1.UpdateOptions{})
 	if updateErr != nil {
 		log.Errorf("failed to update dind, the error is: %s", updateErr)
 	}
 	return updateErr
 }
 
-func ensureCertificateSecret(dynamicClient dynamic.Interface, secretName, namespace, cert string) error {
-	certificateString := base64.StdEncoding.EncodeToString([]byte(cert))
-	datamap := map[string]interface{}{
-		"ca.crt": certificateString,
+func ensureCertificateSecret(client *kubernetes.Clientset, secretName, namespace, cert string) error {
+	certify := make([]byte, 0)
+	base64.StdEncoding.Encode(certify, []byte(cert))
+	datamap := map[string][]byte{
+		"ca.crt": certify,
 	}
 
-	// setup secret GVR for future use
-	secretsGVR := schema.GroupVersionResource{
-		Version:  "v1",
-		Resource: "secrets",
-	}
-
-	secret, err := dynamicClient.Resource(secretsGVR).Namespace(namespace).Get(context.TODO(), secretName, metav1.GetOptions{})
+	secret, err := client.CoreV1().Secrets(namespace).Get(context.TODO(), secretName, metav1.GetOptions{})
 	// if there is an error, either because of not found or anything else, we try to create a secret with the given information
 	if err != nil {
-		secret := &unstructured.Unstructured{
-			Object: map[string]interface{}{
-				"apiVersion": "v1",
-				"kind":       "Secret",
-				"metadata": map[string]interface{}{
-					"name": secretName,
-				},
-				"type": "Opaque",
-				"data": datamap,
+		secret := &corev1.Secret{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "Secret",
+				APIVersion: "v1",
 			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name: secretName,
+			},
+			Data: datamap,
+			Type: "Opaque",
 		}
 
-		_, err := dynamicClient.Resource(secretsGVR).Namespace(namespace).Create(context.TODO(), secret, metav1.CreateOptions{})
+		_, err := client.CoreV1().Secrets(namespace).Create(context.TODO(), secret, metav1.CreateOptions{})
 		if err != nil {
 			log.Errorf("failed to create secret: %s, the error is: %s", secretName, err)
 		}
 		return err
 	} else {
-		if err := unstructured.SetNestedField(secret.Object, datamap, "data"); err != nil {
-			log.Errorf("failed to set data in secret object, the error is: %s", err)
-			return err
-		}
-		_, err := dynamicClient.Resource(secretsGVR).Namespace(namespace).Update(context.TODO(), secret, metav1.UpdateOptions{})
+		secret.Data = datamap
+		_, err := client.CoreV1().Secrets(namespace).Update(context.TODO(), secret, metav1.UpdateOptions{})
 		if err != nil {
 			log.Errorf("failed to update secret: %s, the error is: %s", secretName, err)
 		}

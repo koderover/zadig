@@ -29,6 +29,7 @@ import (
 	gotemplate "text/template"
 	"time"
 
+	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -52,7 +53,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/environment/service"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/shared/client/systemconfig"
-	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/gerrit"
 	"github.com/koderover/zadig/v2/pkg/tool/httpclient"
@@ -187,13 +187,13 @@ type K8sWorkloadsArgs struct {
 }
 
 func CreateK8sWorkLoads(ctx context.Context, requestID, userName string, args *K8sWorkloadsArgs, production bool, log *zap.SugaredLogger) error {
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), args.ClusterID)
+	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(args.ClusterID)
 	if err != nil {
 		log.Errorf("[%s] error: %v", args.Namespace, err)
 		return err
 	}
 
-	clientset, err := kubeclient.GetClientset(config.HubServerAddress(), args.ClusterID)
+	clientset, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(args.ClusterID)
 	if err != nil {
 		log.Errorf("get client set error: %v", err)
 		return err
@@ -351,12 +351,12 @@ type UpdateWorkloadsArgs struct {
 }
 
 func UpdateWorkloads(ctx context.Context, requestID, username, productName, envName string, args UpdateWorkloadsArgs, production bool, log *zap.SugaredLogger) error {
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), args.ClusterID)
+	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(args.ClusterID)
 	if err != nil {
 		log.Errorf("[%s] error: %s", args.Namespace, err)
 		return err
 	}
-	clientset, err := kubeclient.GetClientset(config.HubServerAddress(), args.ClusterID)
+	clientset, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(args.ClusterID)
 	if err != nil {
 		log.Errorf("get client set error: %v", err)
 		return err

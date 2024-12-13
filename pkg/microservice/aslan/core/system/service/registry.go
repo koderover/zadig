@@ -24,6 +24,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 
@@ -35,7 +36,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/registry"
 	"github.com/koderover/zadig/v2/pkg/setting"
-	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	registrytool "github.com/koderover/zadig/v2/pkg/tool/registries"
 	"github.com/koderover/zadig/v2/pkg/util"
@@ -178,7 +178,7 @@ func UpdateRegistryNamespace(username, id string, args *commonmodels.RegistryNam
 
 		for _, env := range envs {
 			if env.RegistryID == id {
-				kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), env.ClusterID)
+				kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(env.ClusterID)
 				if err != nil {
 					log.Errorf("[UpdateRegistryNamespace] GetKubeClient %s error: %v", env.ClusterID, err)
 					continue
@@ -637,10 +637,10 @@ func SyncDinDForRegistries() error {
 		regList = append(regList, regItem)
 	}
 
-	dynamicClient, err := kubeclient.GetDynamicKubeClient(config.HubServerAddress(), setting.LocalClusterID)
+	clientSet, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(setting.LocalClusterID)
 	if err != nil {
 		return fmt.Errorf("failed to get dynamic client to update dind, err: %s", err)
 	}
 
-	return registrytool.PrepareDinD(dynamicClient, config.Namespace(), regList)
+	return registrytool.PrepareDinD(clientSet, config.Namespace(), regList)
 }

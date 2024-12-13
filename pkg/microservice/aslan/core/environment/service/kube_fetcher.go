@@ -23,6 +23,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	"go.uber.org/zap"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
@@ -37,7 +38,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
 	"github.com/koderover/zadig/v2/pkg/shared/kube/resource"
@@ -344,7 +344,7 @@ func ListJobs(page, pageSize int, namespace string, kc client.Client) (*K8sResou
 }
 
 func ListCronJobs(page, pageSize int, clusterID, namespace string, kc client.Client, informer informers.SharedInformerFactory) (*K8sResourceResp, error) {
-	cls, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), clusterID)
+	cls, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(clusterID)
 	if err != nil {
 		return nil, err
 	}
@@ -422,7 +422,7 @@ func ListServices(page, pageSize int, namespace string, kc client.Client, inform
 }
 
 func ListIngressOverview(page, pageSize int, clusterID, namespace string, kc client.Client, log *zap.SugaredLogger) (*K8sResourceResp, error) {
-	cliSet, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), clusterID)
+	cliSet, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(clusterID)
 	if err != nil {
 		return nil, err
 	}

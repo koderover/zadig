@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-multierror"
+	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
@@ -54,7 +55,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/shared/client/user"
 	"github.com/koderover/zadig/v2/pkg/shared/handler"
-	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
 	"github.com/koderover/zadig/v2/pkg/shared/kube/resource"
 	"github.com/koderover/zadig/v2/pkg/shared/kube/wrapper"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
@@ -383,7 +383,7 @@ func optimizeServiceYaml(projectName string, serviceInfo []*commonmodels.Service
 	k8sNsMap := make(map[string]string)
 	for _, product := range products {
 		k8sNsMap[product.EnvName] = product.Namespace
-		kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), product.ClusterID)
+		kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(product.ClusterID)
 		if err != nil {
 			log.Errorf("failed to init kube client for product %s, err: %s", product.EnvName, err)
 			continue
@@ -502,8 +502,7 @@ func transferProducts(user string, projectInfo *template.Product, templateServic
 
 	// build rendersets and services, set necessary attributes
 	for _, product := range products {
-
-		kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), product.ClusterID)
+		kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(product.ClusterID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to generate kube client for product %s, error: %s", product.ProductName, err)
 		}

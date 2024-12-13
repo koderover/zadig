@@ -20,8 +20,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	"go.uber.org/zap"
-	versionedclient "istio.io/client-go/pkg/clientset/versioned"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
@@ -33,10 +33,8 @@ import (
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
-	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	helmtool "github.com/koderover/zadig/v2/pkg/tool/helmclient"
-	"github.com/koderover/zadig/v2/pkg/tool/kube/informer"
 	mongotool "github.com/koderover/zadig/v2/pkg/tool/mongo"
 )
 
@@ -190,28 +188,17 @@ func RollbackEnvServiceVersion(ctx *internalhandler.Context, projectName, envNam
 	defer session.EndSession(context.Background())
 
 	if envSvcVersion.Service.Type == setting.K8SDeployType {
-		kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), env.ClusterID)
+		kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(env.ClusterID)
 		if err != nil {
 			return e.ErrRollbackEnvServiceVersion.AddErr(err)
 		}
 
-		restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), env.ClusterID)
+		istioClient, err := clientmanager.NewKubeClientManager().GetIstioClientSet(env.ClusterID)
 		if err != nil {
 			return e.ErrRollbackEnvServiceVersion.AddErr(err)
 		}
 
-		istioClient, err := versionedclient.NewForConfig(restConfig)
-		if err != nil {
-			return e.ErrRollbackEnvServiceVersion.AddErr(err)
-		}
-
-		cls, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), env.ClusterID)
-		if err != nil {
-			log.Errorf("[%s][%s] error: %v", envName, env.Namespace, err)
-			return e.ErrRollbackEnvServiceVersion.AddDesc(err.Error())
-
-		}
-		informer, err := informer.NewInformer(env.ClusterID, env.Namespace, cls)
+		informer, err := clientmanager.NewKubeClientManager().GetInformer(env.ClusterID, env.Namespace)
 		if err != nil {
 			log.Errorf("[%s][%s] error: %v", envName, env.Namespace, err)
 			return e.ErrRollbackEnvServiceVersion.AddDesc(err.Error())

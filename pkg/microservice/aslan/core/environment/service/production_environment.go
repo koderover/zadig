@@ -21,21 +21,17 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/pkg/errors"
-	"go.uber.org/zap"
-	versionedclient "istio.io/client-go/pkg/clientset/versioned"
-
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/collaboration"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/notify"
 	"github.com/koderover/zadig/v2/pkg/setting"
-	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
+	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
-	"github.com/koderover/zadig/v2/pkg/tool/kube/informer"
 	"github.com/koderover/zadig/v2/pkg/util"
+	"github.com/pkg/errors"
+	"go.uber.org/zap"
 )
 
 func ListProductionEnvs(userId string, projectName string, envNames []string, log *zap.SugaredLogger) ([]*EnvResp, error) {
@@ -68,7 +64,7 @@ func DeleteProductionProduct(username, envName, productName, requestID string, l
 	}
 
 	// delete informer's cache
-	informer.DeleteInformer(productInfo.ClusterID, productInfo.Namespace)
+	clientmanager.NewKubeClientManager().DeleteInformer(productInfo.ClusterID, productInfo.Namespace)
 	envCMMap, err := collaboration.GetEnvCMMap([]string{productName}, log)
 	if err != nil {
 		return e.ErrUpdateEnv.AddErr(errors.Wrapf(err, "get env cm map error"))
@@ -113,17 +109,12 @@ func DeleteProductionProduct(username, envName, productName, requestID string, l
 		ctx := context.TODO()
 		clusterID := productInfo.ClusterID
 
-		kclient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
+		kclient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(clusterID)
 		if err != nil {
 			return fmt.Errorf("failed to get kube client: %s", err)
 		}
 
-		restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), clusterID)
-		if err != nil {
-			return fmt.Errorf("failed to get rest config: %s", err)
-		}
-
-		istioClient, err := versionedclient.NewForConfig(restConfig)
+		istioClient, err := clientmanager.NewKubeClientManager().GetIstioClientSet(clusterID)
 		if err != nil {
 			return fmt.Errorf("failed to new istio client: %s", err)
 		}

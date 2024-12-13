@@ -25,6 +25,7 @@ import (
 
 	"github.com/buraksezer/consistent"
 	"github.com/cespare/xxhash"
+	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	"go.uber.org/zap"
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -32,7 +33,6 @@ import (
 
 	"github.com/koderover/zadig/v2/pkg/config"
 	"github.com/koderover/zadig/v2/pkg/setting"
-	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
 )
 
 var once sync.Once
@@ -119,7 +119,7 @@ func (d *dockerhosts) getDockerHostsSvc(clusterID ClusterID) []consistent.Member
 		ns = setting.AttachedClusterNamespace
 	}
 
-	kclient, err := kubeclient.GetKubeClient(d.hubServerAddr, string(clusterID))
+	kclient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(string(clusterID))
 	if err != nil {
 		d.logger.Warnf("Failed to get kubeclient for cluster %q: %s. Try to use default dockerhosts.", clusterID, err)
 		return d.getDefaultDockerHosts()

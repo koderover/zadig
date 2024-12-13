@@ -716,12 +716,7 @@ func ensureChartFiles(chartData *DeliveryChartData, prod *commonmodels.Product) 
 		return "", err
 	}
 
-	restConfig, err := kube.GetRESTConfig(prod.ClusterID)
-	if err != nil {
-		log.Errorf("get rest config error: %s", err)
-		return "", err
-	}
-	helmClient, err := helmtool.NewClientFromRestConf(restConfig, prod.Namespace)
+	helmClient, err := helmtool.NewClientFromNamespace(prod.ClusterID, prod.Namespace)
 	if err != nil {
 		log.Errorf("[%s][%s] init helm client error: %s", prod.ProductName, prod.Namespace, err)
 		return "", err
