@@ -436,6 +436,8 @@ func (cm *KubeClientManager) Clear(clusterID string) error {
 func (cm *KubeClientManager) getControllerRuntimeCluster(clusterID string) (controllerRuntimeCluster.Cluster, error) {
 	clusterID = handleClusterID(clusterID)
 
+	fmt.Println("getting controller runtime cluster for id:", clusterID)
+
 	cls, ok := cm.controllerRuntimeClusterMap.Load(clusterID)
 	if ok {
 		return cls.(controllerRuntimeCluster.Cluster), nil
