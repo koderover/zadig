@@ -34,6 +34,7 @@ import (
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/types"
 	"github.com/koderover/zadig/v2/pkg/types/job"
 )
@@ -668,9 +669,11 @@ func getWorkflowStageParams(workflow *commonmodels.WorkflowV4, taskID int64, cre
 				if err := commonmodels.IToi(job.Spec, build); err != nil {
 					return nil, errors.Wrap(err, "Itoi")
 				}
+				log.Debugf("getWorkflowStageParams build")
 				var serviceAndModuleName, branchList, gitURLs []string
 				for _, serviceAndBuild := range build.ServiceAndBuilds {
 					serviceAndModuleName = append(serviceAndModuleName, serviceAndBuild.ServiceModule+"/"+serviceAndBuild.ServiceName)
+					log.Debugf("serviceAndModuleName: %s", serviceAndModuleName)
 					branch, commitID, gitURL := "", "", ""
 					if len(serviceAndBuild.Repos) > 0 {
 						branch = serviceAndBuild.Repos[0].Branch
@@ -692,6 +695,8 @@ func getWorkflowStageParams(workflow *commonmodels.WorkflowV4, taskID int64, cre
 					resp = append(resp, &commonmodels.Param{Name: fmt.Sprintf("job.%s.%s.%s.GITURL",
 						job.Name, serviceAndBuild.ServiceName, serviceAndBuild.ServiceModule),
 						Value: gitURL, ParamsType: "string", IsCredential: false})
+					log.Debugf("gitURL: %s", gitURL)
+					log.Debugf("resp: %+v", resp[len(resp)-1])
 				}
 				resp = append(resp, &commonmodels.Param{Name: fmt.Sprintf("job.%s.SERVICES", job.Name), Value: strings.Join(serviceAndModuleName, ","), ParamsType: "string", IsCredential: false})
 				resp = append(resp, &commonmodels.Param{Name: fmt.Sprintf("job.%s.BRANCHES", job.Name), Value: strings.Join(branchList, ","), ParamsType: "string", IsCredential: false})

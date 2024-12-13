@@ -449,6 +449,7 @@ func (j *TestingJob) toJobtask(jobSubTaskID int, testing *commonmodels.TestModul
 		}
 
 		for _, env := range customEnvs {
+			log.Debugf("env: %+v", env)
 			if strings.HasPrefix(env.Value, "{{.") && strings.HasSuffix(env.Value, "}}") {
 				env.Value = strings.ReplaceAll(env.Value, "<SERVICE>", serviceName)
 				env.Value = strings.ReplaceAll(env.Value, "<MODULE>", serviceModule)
