@@ -344,10 +344,6 @@ func TriggerTestByGiteeEvent(event interface{}, baseURI, requestID string, log *
 						}
 					}
 
-					if notification != nil {
-						item.TestArgs.NotificationID = notification.ID.Hex()
-					}
-
 					args := matcher.UpdateTaskArgs(item.TestArgs, requestID)
 					args.Ref = ref
 					args.EventType = eventType
@@ -358,6 +354,11 @@ func TriggerTestByGiteeEvent(event interface{}, baseURI, requestID string, log *
 					args.RepoOwner = item.MainRepo.RepoOwner
 					args.RepoName = item.MainRepo.RepoName
 					args.HookPayload = hookPayload
+
+					if notification != nil {
+						item.TestArgs.NotificationID = notification.ID.Hex()
+						args.NotificationID = notification.ID.Hex()
+					}
 
 					// 3. create task with args
 					if resp, err := testingservice.CreateTestTaskV2(args, "webhook", "", "", log); err != nil {
