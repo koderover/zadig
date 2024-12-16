@@ -70,7 +70,11 @@ func GetProjectCodehostList(projectName, encryptedKey, address, owner, source st
 	return systemconfig_codehost_service.EncypteCodeHost(encryptedKey, codeHosts, log)
 }
 
-func DeleteProjectCodeHost(projectName string, id int, _ *zap.SugaredLogger) error {
+func DeleteProjectCodeHosts(projectName string) error {
+	return mongodb.NewCodehostColl().DeleteProjectCodeHosts(projectName)
+}
+
+func DeleteProjectCodeHostByID(projectName string, id int, _ *zap.SugaredLogger) error {
 	return mongodb.NewCodehostColl().DeleteProjectCodeHostByID(projectName, id)
 }
 
