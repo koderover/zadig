@@ -130,7 +130,7 @@ func (d *dockerhosts) GetBestHostIndex(clusterID ClusterID) int {
 func (d *dockerhosts) SetBestHostIndex(clusterID ClusterID, index int) {
 	err := cache.NewRedisCache(config.RedisCommonCacheTokenDB()).HWrite(bestHostIndexKey, string(clusterID), strconv.Itoa(index), 0)
 	if err != nil {
-		log.Errorf("GetBestHostIndex error: %v", err)
+		log.Errorf("SetBestHostIndex error: %v", err)
 	}
 }
 

@@ -30,6 +30,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/tool/s3"
 	"github.com/koderover/zadig/v2/pkg/types/step"
+	"github.com/koderover/zadig/v2/pkg/util"
 )
 
 type ArchiveStep struct {
@@ -67,11 +68,11 @@ func (s *ArchiveStep) Run(ctx context.Context) error {
 			return fmt.Errorf("failed to create s3 client to upload file, err: %s", err)
 		}
 
-		envmaps := makeEnvMap(s.envs, s.secretEnvs)
+		envmaps := util.MakeEnvMap(s.envs, s.secretEnvs)
 
 		upload.AbsFilePath = fmt.Sprintf("$WORKSPACE/%s", upload.FilePath)
-		upload.AbsFilePath = replaceEnvWithValue(upload.AbsFilePath, envmaps)
-		upload.DestinationPath = replaceEnvWithValue(upload.DestinationPath, envmaps)
+		upload.AbsFilePath = util.ReplaceEnvWithValue(upload.AbsFilePath, envmaps)
+		upload.DestinationPath = util.ReplaceEnvWithValue(upload.DestinationPath, envmaps)
 
 		if len(s.spec.S3.Subfolder) > 0 {
 			upload.DestinationPath = strings.TrimLeft(path.Join(s.spec.S3.Subfolder, upload.DestinationPath), "/")
@@ -96,18 +97,4 @@ func (s *ArchiveStep) Run(ctx context.Context) error {
 		}
 	}
 	return nil
-}
-
-func replaceEnvWithValue(str string, envs map[string]string) string {
-	ret := str
-	// Exec twice to render nested variables
-	for i := 0; i < 2; i++ {
-		for key, value := range envs {
-			strKey := fmt.Sprintf("$%s", key)
-			ret = strings.ReplaceAll(ret, strKey, value)
-			strKey = fmt.Sprintf("${%s}", key)
-			ret = strings.ReplaceAll(ret, strKey, value)
-		}
-	}
-	return ret
 }

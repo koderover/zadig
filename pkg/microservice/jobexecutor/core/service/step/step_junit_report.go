@@ -34,6 +34,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/tool/s3"
 	"github.com/koderover/zadig/v2/pkg/types/step"
+	"github.com/koderover/zadig/v2/pkg/util"
 )
 
 const (
@@ -66,8 +67,8 @@ func (s *JunitReportStep) Run(ctx context.Context) error {
 		return fmt.Errorf("create dest dir: %s error: %s", s.spec.DestDir, err)
 	}
 
-	envMap := makeEnvMap(s.envs, s.secretEnvs)
-	s.spec.ReportDir = replaceEnvWithValue(s.spec.ReportDir, envMap)
+	envMap := util.MakeEnvMap(s.envs, s.secretEnvs)
+	s.spec.ReportDir = util.ReplaceEnvWithValue(s.spec.ReportDir, envMap)
 
 	reportDir := filepath.Join(s.workspace, s.spec.ReportDir)
 	results, err := mergeGinkgoTestResults(s.spec.FileName, reportDir, s.spec.DestDir, time.Now())

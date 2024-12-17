@@ -39,6 +39,7 @@ import (
 	gittool "github.com/koderover/zadig/v2/pkg/tool/git"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/types"
+	"github.com/koderover/zadig/v2/pkg/util"
 	"github.com/koderover/zadig/v2/pkg/types/step"
 )
 
@@ -159,7 +160,7 @@ func (s *GitStep) runGitCmds() error {
 		outScanner := bufio.NewScanner(cmdOutReader)
 		go func() {
 			for outScanner.Scan() {
-				fmt.Printf("%s   %s\n", time.Now().Format(setting.WorkflowTimeFormat), maskSecret(tokens, outScanner.Text()))
+				fmt.Printf("%s   %s\n", time.Now().Format(setting.WorkflowTimeFormat),util.MaskSecret(tokens, outScanner.Text()))
 			}
 		}()
 
@@ -171,7 +172,7 @@ func (s *GitStep) runGitCmds() error {
 		errScanner := bufio.NewScanner(cmdErrReader)
 		go func() {
 			for errScanner.Scan() {
-				fmt.Printf("%s   %s\n", time.Now().Format(setting.WorkflowTimeFormat), maskSecret(tokens, errScanner.Text()))
+				fmt.Printf("%s   %s\n", time.Now().Format(setting.WorkflowTimeFormat),util.MaskSecret(tokens, errScanner.Text()))
 			}
 		}()
 
