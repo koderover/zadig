@@ -1088,7 +1088,7 @@ func saveContainerLog(namespace, clusterID, workflowName, jobName string, taskID
 	}
 
 	if len(pods[0].Status.ContainerStatuses) < 1 {
-		return fmt.Errorf("no cotainer statuses : %s", selector)
+		return fmt.Errorf("no container statuses : %s", selector)
 	}
 
 	buf := new(bytes.Buffer)

@@ -230,6 +230,15 @@ func (c *CodehostColl) codeHostList(integrationLevel setting.IntegrationLevel) (
 	return codeHosts, nil
 }
 
+func (c *CodehostColl) DeleteProjectCodeHosts(projectName string) error {
+	query := bson.M{
+		"integration_level": setting.IntegrationLevelProject,
+		"project":           projectName,
+		"deleted_at":        0,
+	}
+	return c.deleteCodeHost(query)
+}
+
 func (c *CodehostColl) DeleteProjectCodeHostByID(projectName string, ID int) error {
 	query := bson.M{
 		"id":                ID,

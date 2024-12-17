@@ -178,7 +178,7 @@ func DeleteCodeHost(c *gin.Context) {
 		ctx.RespErr = err
 		return
 	}
-	ctx.RespErr = service.DeleteProjectCodeHost(projectKey, id, ctx.Logger)
+	ctx.RespErr = service.DeleteProjectCodeHostByID(projectKey, id, ctx.Logger)
 }
 
 // @Summary Update Project CodeHost
