@@ -426,7 +426,7 @@ func TriggerWorkflowV4ByGitlabEvent(event interface{}, baseURI, requestID string
 				continue
 			}
 			if notification != nil {
-				workflow.NotificationID = notification.ID.Hex()
+				duplicatedWorkflow.NotificationID = notification.ID.Hex()
 			}
 			duplicatedWorkflow.HookPayload = hookPayload
 			if resp, err := workflowservice.CreateWorkflowTaskV4(&workflowservice.CreateWorkflowTaskV4Args{
