@@ -18,7 +18,6 @@ package service
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"io/fs"
 	"os"
@@ -28,6 +27,8 @@ import (
 	"sync"
 	"text/template"
 	"time"
+
+	"github.com/segmentio/encoding/json"
 
 	"github.com/27149chen/afero"
 	"github.com/otiai10/copy"

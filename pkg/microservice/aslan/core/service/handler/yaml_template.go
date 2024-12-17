@@ -17,8 +17,9 @@ limitations under the License.
 package handler
 
 import (
-	"encoding/json"
 	"fmt"
+
+	"github.com/segmentio/encoding/json"
 
 	"github.com/gin-gonic/gin"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"

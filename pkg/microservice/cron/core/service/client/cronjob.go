@@ -19,13 +19,14 @@ package client
 import (
 	"bytes"
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"path"
 	"time"
+
+	"github.com/segmentio/encoding/json"
 
 	"go.uber.org/zap"
 

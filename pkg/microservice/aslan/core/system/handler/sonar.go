@@ -17,9 +17,10 @@ limitations under the License.
 package handler
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
+
+	"github.com/segmentio/encoding/json"
 
 	"github.com/gin-gonic/gin"
 	"github.com/koderover/zadig/v2/pkg/tool/crypto"

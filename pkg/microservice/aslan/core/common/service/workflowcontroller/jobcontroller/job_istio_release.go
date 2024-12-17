@@ -15,10 +15,11 @@ package jobcontroller
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strconv"
 	"time"
+
+	"github.com/segmentio/encoding/json"
 
 	"go.uber.org/zap"
 	networkingv1alpha3 "istio.io/api/networking/v1alpha3"

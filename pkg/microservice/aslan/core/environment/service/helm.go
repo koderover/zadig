@@ -17,12 +17,13 @@ limitations under the License.
 package service
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
+
+	"github.com/segmentio/encoding/json"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/repository"
 

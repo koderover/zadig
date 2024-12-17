@@ -18,7 +18,6 @@ package instantmessage
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"net/url"
 	"sort"
@@ -26,6 +25,8 @@ import (
 	"strings"
 	"text/template"
 	"time"
+
+	"github.com/segmentio/encoding/json"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/lark"
 	"github.com/samber/lo"

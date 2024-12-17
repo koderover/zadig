@@ -17,13 +17,13 @@ limitations under the License.
 package s3
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"path/filepath"
 	"strings"
 
 	"github.com/koderover/zadig/v2/pkg/tool/crypto"
+	"github.com/segmentio/encoding/json"
 )
 
 type S3 struct {

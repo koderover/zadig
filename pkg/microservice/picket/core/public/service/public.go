@@ -17,10 +17,11 @@ limitations under the License.
 package service
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
+
+	"github.com/segmentio/encoding/json"
 
 	"go.uber.org/zap"
 

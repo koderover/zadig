@@ -17,12 +17,13 @@ limitations under the License.
 package os
 
 import (
-	"encoding/json"
 	"fmt"
 	"net"
 	"os"
 	"os/user"
 	"runtime"
+
+	"github.com/segmentio/encoding/json"
 
 	"github.com/shirou/gopsutil/mem"
 )

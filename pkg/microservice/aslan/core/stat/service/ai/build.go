@@ -17,9 +17,10 @@ limitations under the License.
 package ai
 
 import (
-	"encoding/json"
 	"fmt"
 	"time"
+
+	"github.com/segmentio/encoding/json"
 
 	"go.uber.org/zap"
 

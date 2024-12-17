@@ -17,10 +17,11 @@ limitations under the License.
 package service
 
 import (
-	"encoding/json"
 	"fmt"
 	"sort"
 	"strings"
+
+	"github.com/segmentio/encoding/json"
 
 	"go.uber.org/zap"
 	extensionsv1beta1 "k8s.io/api/extensions/v1beta1"

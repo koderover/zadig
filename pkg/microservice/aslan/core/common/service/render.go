@@ -17,8 +17,9 @@ limitations under the License.
 package service
 
 import (
-	"encoding/json"
 	"reflect"
+
+	"github.com/segmentio/encoding/json"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	templatemodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models/template"

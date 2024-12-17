@@ -17,8 +17,9 @@ limitations under the License.
 package models
 
 import (
-	"encoding/json"
 	"fmt"
+
+	"github.com/segmentio/encoding/json"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 

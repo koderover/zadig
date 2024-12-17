@@ -18,7 +18,6 @@ package service
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"net/url"
 	"regexp"
@@ -26,6 +25,8 @@ import (
 	"strings"
 	templ "text/template"
 	"time"
+
+	"github.com/segmentio/encoding/json"
 
 	"github.com/pkg/errors"
 	"go.uber.org/zap"

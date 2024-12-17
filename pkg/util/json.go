@@ -17,9 +17,10 @@ limitations under the License.
 package util
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
+
+	"github.com/segmentio/encoding/json"
 
 	"sigs.k8s.io/yaml"
 )

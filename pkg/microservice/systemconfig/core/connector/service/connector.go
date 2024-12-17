@@ -17,8 +17,9 @@ limitations under the License.
 package service
 
 import (
-	"encoding/json"
 	"fmt"
+
+	"github.com/segmentio/encoding/json"
 
 	"go.uber.org/zap"
 
@@ -182,7 +183,7 @@ func UpdateConnector(ct *Connector, logger *zap.SugaredLogger) error {
 		logger.Errorf("Failed to marshal config, err: %s", err)
 		return err
 	}
-	
+
 	cfg := make(map[string]interface{})
 	err = json.Unmarshal(cf, &cfg)
 	if err != nil {
