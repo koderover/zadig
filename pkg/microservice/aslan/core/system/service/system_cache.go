@@ -51,6 +51,7 @@ const (
 	CleanStatusSuccess  = "success"
 	CleanStatusCleaning = "cleaning"
 	CleanStatusFailed   = "failed"
+	CleanStatusTimeout  = "timeout"
 )
 
 // SetCron set the docker clean cron
@@ -152,7 +153,7 @@ func CleanImageCache(logger *zap.SugaredLogger) error {
 	// Note: Since the total number of dind instances of Zadig users will not exceed `50` within one or two years
 	// (at this time, the resource amount may be `200C400GiB`, and the resource cost is too high), concurrency can be
 	// left out of consideration.
-	timeout, cancel := context.WithTimeout(context.Background(), 20*time.Minute)
+	timeout, cancel := context.WithTimeout(context.Background(), 60*time.Minute)
 	defer cancel()
 	res := make(chan *commonmodels.DindClean)
 	go func(ch chan *commonmodels.DindClean) {
@@ -213,7 +214,7 @@ func CleanImageCache(logger *zap.SugaredLogger) error {
 	select {
 	case <-timeout.Done():
 		err = commonrepo.NewDindCleanColl().UpdateStatusInfo(&commonmodels.DindClean{
-			Status:         CleanStatusFailed,
+			Status:         CleanStatusTimeout,
 			DindCleanInfos: []*commonmodels.DindCleanInfo{},
 		})
 		if err != nil {
