@@ -29,12 +29,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/koderover/zadig/v2/pkg/setting"
 	"gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/jobexecutor/config"
 	c "github.com/koderover/zadig/v2/pkg/microservice/jobexecutor/core/service/cmd"
+	codehostmodels "github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/codehost/repository/models"
+	"github.com/koderover/zadig/v2/pkg/setting"
+	gittool "github.com/koderover/zadig/v2/pkg/tool/git"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/types"
 	"github.com/koderover/zadig/v2/pkg/types/step"
@@ -139,6 +141,7 @@ func (s *GitStep) runGitCmds() error {
 			tokens = append(tokens, repo.PrivateAccessToken)
 			tokens = append(tokens, repo.SSHKey)
 		}
+
 		tokens = append(tokens, repo.OauthToken)
 		cmds = append(cmds, s.buildGitCommands(repo, hostNames)...)
 	}
@@ -176,16 +179,22 @@ func (s *GitStep) runGitCmds() error {
 		if !c.DisableTrace {
 			fmt.Printf("%s   %s\n", time.Now().Format(setting.WorkflowTimeFormat), strings.Join(c.Cmd.Args, " "))
 		}
+
 		log.Debugf("[cmd dir]: %s", c.Cmd.Dir)
 		log.Debugf("[run git cmd]: %s", strings.Join(c.Cmd.Args, " "))
-		if err := c.Cmd.Run(); err != nil {
-			if c.IgnoreError {
-				continue
-			}
+		if err := c.Run(); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func (s *GitStep) GetWorkDir(repo *types.Repository) string {
+	workDir := filepath.Join(s.workspace, repo.RepoName)
+	if len(repo.CheckoutPath) != 0 {
+		workDir = filepath.Join(s.workspace, repo.CheckoutPath)
+	}
+	return workDir
 }
 
 func (s *GitStep) buildGitCommands(repo *types.Repository, hostNames sets.String) []*c.Command {
@@ -196,10 +205,7 @@ func (s *GitStep) buildGitCommands(repo *types.Repository, hostNames sets.String
 		return cmds
 	}
 
-	workDir := filepath.Join(s.workspace, repo.RepoName)
-	if len(repo.CheckoutPath) != 0 {
-		workDir = filepath.Join(s.workspace, repo.CheckoutPath)
-	}
+	workDir := s.GetWorkDir(repo)
 	defer func() {
 		setCmdsWorkDir(workDir, cmds)
 	}()
@@ -230,6 +236,7 @@ func (s *GitStep) buildGitCommands(repo *types.Repository, hostNames sets.String
 		owner = repo.RepoOwner
 	}
 	if repo.Source == types.ProviderGitlab {
+		// gitlab
 		u, _ := url.Parse(repo.Address)
 		host := strings.TrimSuffix(strings.Join([]string{u.Host, u.Path}, "/"), "/")
 		cmds = append(cmds, &c.Command{
@@ -237,6 +244,7 @@ func (s *GitStep) buildGitCommands(repo *types.Repository, hostNames sets.String
 			DisableTrace: true,
 		})
 	} else if repo.Source == types.ProviderGerrit {
+		// gerrit
 		u, _ := url.Parse(repo.Address)
 		u.Path = fmt.Sprintf("/a/%s", repo.RepoName)
 		u.User = url.UserPassword(repo.Username, repo.Password)
@@ -246,8 +254,10 @@ func (s *GitStep) buildGitCommands(repo *types.Repository, hostNames sets.String
 			DisableTrace: true,
 		})
 	} else if repo.Source == types.ProviderGitee || repo.Source == types.ProviderGiteeEE {
+		// gitee
 		cmds = append(cmds, &c.Command{Cmd: c.GitRemoteAdd(repo.RemoteName, HTTPSCloneURL(repo.Source, repo.OauthToken, repo.RepoOwner, repo.RepoName, repo.Address)), DisableTrace: true})
 	} else if repo.Source == types.ProviderOther {
+		// other
 		if repo.AuthType == types.SSHAuthType {
 			host := getHost(repo.Address)
 			if !hostNames.Has(host) {
@@ -266,6 +276,7 @@ func (s *GitStep) buildGitCommands(repo *types.Repository, hostNames sets.String
 				DisableTrace: true,
 			})
 		} else if repo.AuthType == types.PrivateAccessTokenAuthType {
+			// private accessToken auth
 			u, err := url.Parse(repo.Address)
 			if err != nil {
 				log.Errorf("failed to parse url,err:%s", err)
@@ -308,7 +319,16 @@ func (s *GitStep) buildGitCommands(repo *types.Repository, hostNames sets.String
 	}
 
 	if repo.SubModules {
-		cmds = append(cmds, &c.Command{Cmd: c.GitUpdateSubmodules()})
+		cmd := &c.Command{
+			Cmd:       c.GitUpdateSubmodules(),
+			BeforeRun: AddOAuthInSubmoduleURLs,
+			BeforeRunArgs: []interface{}{
+				s.GetWorkDir(repo),
+				repo,
+				s.spec.CodeHosts,
+			},
+		}
+		cmds = append(cmds, cmd)
 	}
 
 	cmds = append(cmds, &c.Command{Cmd: c.GitShowLastLog()})
@@ -375,4 +395,157 @@ func HTTPSCloneURL(source, token, owner, name string, optionalGiteeAddr string) 
 	}
 	//return fmt.Sprintf("https://x-access-token:%s@%s/%s/%s.git", g.GetInstallationToken(owner), g.GetGithubHost(), owner, name)
 	return fmt.Sprintf("https://x-access-token:%s@%s/%s/%s.git", token, "github.com", owner, name)
+}
+
+func AddOAuthInSubmoduleURLs(args ...interface{}) error {
+	if len(args) != 3 {
+		return fmt.Errorf("invalid args length: %d", len(args))
+	}
+
+	repoPath, ok := args[0].(string)
+	if !ok {
+		return fmt.Errorf("invalid args[0] type: %T", args[0])
+	}
+	mainRepo, ok := args[1].(*types.Repository)
+	if !ok {
+		return fmt.Errorf("invalid args[1] type: %T", args[1])
+	}
+	codeHosts, ok := args[2].([]*codehostmodels.CodeHost)
+	if !ok {
+		return fmt.Errorf("invalid args[2] type: %T", args[2])
+	}
+
+	repoURL, err := gittool.GetRepoUrl(repoPath)
+	if err != nil {
+		return fmt.Errorf("unable to get repository URL: %v", err)
+	}
+
+	submoduleURLMap, err := gittool.GetSubmoduleURLs(repoPath)
+	if err != nil {
+		return fmt.Errorf("unable to get submodule URLs: %v", err)
+	}
+
+	for name, url := range submoduleURLMap {
+		newURL, err := convertToOAuthURL(repoURL, url, mainRepo, codeHosts)
+		if err != nil {
+			return fmt.Errorf("unable to convert submodule URL to oauth url: %v", err)
+		}
+		submoduleURLMap[name] = newURL
+	}
+
+	err = gittool.UpdateSubmoduleURLs(repoPath, submoduleURLMap)
+	if err != nil {
+		return fmt.Errorf("unable to update submodule URLs: %v", err)
+	}
+
+	return nil
+}
+
+func convertToOAuthURL(repoURL, submoduleURL string, mainRepo *types.Repository, codeHosts []*codehostmodels.CodeHost) (string, error) {
+	if strings.HasPrefix(submoduleURL, "git@") {
+		log.Warnf("unsupported submodule URL protocol: %s, use ssh private key", submoduleURL)
+		return submoduleURL, nil
+	}
+
+	parsedUrl, err := url.Parse(submoduleURL)
+	if err != nil {
+		return "", fmt.Errorf("unable to parse URL: %v", err)
+	}
+
+	if parsedUrl.Scheme == "" {
+		return submoduleURL, nil
+		// // It's a relative path
+		// if strings.HasPrefix(repoURL, "git@") {
+		// 	log.Warnf("unsupported main repo URL protocol: %s, use ssh private key", submoduleURL)
+		// 	return submoduleURL, nil
+		// }
+
+		// u, err := url.Parse(repoURL)
+		// if err != nil {
+		// 	return "", fmt.Errorf("unable to parse repository URL: %v", err)
+		// }
+
+		// // Convert relative path to absolute path
+		// u.Path = path.Join(u.Path, submoduleURL)
+
+		// for _, codeHost := range codeHosts {
+		// 	u = setAuthInSubmoduleURL(u, codeHost)
+		// }
+
+		// return u.String(), nil
+	} else if parsedUrl.Scheme == "http" || parsedUrl.Scheme == "https" {
+		// It's an http(s) protocol
+		for _, codeHost := range codeHosts {
+			newUrl, err := setAuthInSubmoduleURL(parsedUrl, mainRepo, codeHost)
+			if err == nil {
+				return newUrl.String(), nil
+			}
+		}
+		log.Warnf("no matching codehost found for submodule URL: %s", submoduleURL)
+		return submoduleURL, nil
+	} else if parsedUrl.Scheme == "ssh" {
+		// not process ssh protocol
+		return submoduleURL, nil
+	} else {
+		return "", fmt.Errorf("unsupported URL protocol: %s", parsedUrl.Scheme)
+	}
+}
+
+func setAuthInSubmoduleURL(u *url.URL, mainRepo *types.Repository, codeHost *codehostmodels.CodeHost) (*url.URL, error) {
+	if mainRepo.Source == types.ProviderGitlab || mainRepo.Source == types.ProviderGitee || mainRepo.Source == types.ProviderGiteeEE {
+		if strings.HasPrefix(u.String(), mainRepo.Address) {
+			u.User = url.UserPassword(step.OauthTokenPrefix, mainRepo.OauthToken)
+			return u, nil
+		}
+	} else if mainRepo.Source == types.ProviderGerrit {
+		if strings.HasPrefix(u.String(), mainRepo.Address) {
+			u.User = url.UserPassword(mainRepo.Username, mainRepo.Password)
+			return u, nil
+		}
+	} else if mainRepo.Source == types.ProviderOther {
+		if mainRepo.AuthType == types.SSHAuthType {
+			// don't process ssh protocol
+		} else if mainRepo.AuthType == types.PrivateAccessTokenAuthType {
+			if strings.HasPrefix(u.String(), mainRepo.Address) {
+				u.User = url.UserPassword(step.OauthTokenPrefix, mainRepo.PrivateAccessToken)
+				return u, nil
+			}
+		}
+	} else if mainRepo.Source == types.ProviderGithub {
+		if strings.HasPrefix(u.String(), mainRepo.Address) {
+			log.Debugf("1")
+			u.User = url.UserPassword("x-access-token", mainRepo.OauthToken)
+			return u, nil
+		}
+	}
+
+	if codeHost.Type == types.ProviderGitlab || codeHost.Type == types.ProviderGitee || codeHost.Type == types.ProviderGiteeEE {
+		if strings.HasPrefix(u.String(), codeHost.Address) {
+			u.User = url.UserPassword(step.OauthTokenPrefix, codeHost.AccessToken)
+			return u, nil
+		}
+	} else if codeHost.Type == types.ProviderGerrit {
+		// gerrit
+		if strings.HasPrefix(u.String(), codeHost.Address) {
+			u.User = url.UserPassword(codeHost.Username, codeHost.Password)
+			return u, nil
+		}
+	} else if codeHost.Type == types.ProviderOther {
+		if codeHost.AuthType == types.SSHAuthType {
+			// don't process ssh protocol
+		} else if codeHost.AuthType == types.PrivateAccessTokenAuthType {
+			if strings.HasPrefix(u.String(), codeHost.Address) {
+				u.User = url.UserPassword(step.OauthTokenPrefix, codeHost.PrivateAccessToken)
+				return u, nil
+			}
+		}
+	} else if codeHost.Type == types.ProviderGithub {
+		if strings.HasPrefix(u.String(), codeHost.Address) {
+			log.Debugf("2")
+			u.User = url.UserPassword("x-access-token", codeHost.AccessToken)
+			return u, nil
+		}
+	}
+
+	return nil, fmt.Errorf("no matching repo/codehost found for submodule URL: %s", u.String())
 }

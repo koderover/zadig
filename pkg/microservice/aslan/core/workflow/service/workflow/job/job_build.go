@@ -33,6 +33,7 @@ import (
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/repository"
 	templ "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/template"
+	codehostrepo "github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/codehost/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
@@ -549,6 +550,11 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			jobTaskSpec.Steps = append(jobTaskSpec.Steps, downloadArchiveStep)
 		}
 
+		codehosts, err := codehostrepo.NewCodehostColl().AvailableCodeHost(j.workflow.Project)
+		if err != nil {
+			return resp, fmt.Errorf("find %s project codehost error: %v", j.workflow.Project, err)
+		}
+
 		// init git clone step
 		repos := renderRepos(build.Repos, buildInfo.Repos, jobTaskSpec.Properties.Envs)
 		gitRepos, p4Repos := splitReposByType(repos)
@@ -556,7 +562,10 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			Name:     build.ServiceName + "-git",
 			JobName:  jobTask.Name,
 			StepType: config.StepGit,
-			Spec:     step.StepGitSpec{Repos: gitRepos},
+			Spec: step.StepGitSpec{
+				CodeHosts: codehosts,
+				Repos:     gitRepos,
+			},
 		}
 
 		jobTaskSpec.Steps = append(jobTaskSpec.Steps, gitStep)

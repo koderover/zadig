@@ -19,12 +19,14 @@ package step
 import (
 	"fmt"
 
+	codehostmodels "github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/codehost/repository/models"
 	"github.com/koderover/zadig/v2/pkg/types"
 )
 
 type StepGitSpec struct {
-	Repos []*types.Repository `bson:"repos"          json:"repos"    yaml:"repos"`
-	Proxy *Proxy              `bson:"proxy"          json:"proxy"    yaml:"proxy"`
+	CodeHosts []*codehostmodels.CodeHost `bson:"codehosts"      json:"codehosts"  yaml:"codehosts"`
+	Repos     []*types.Repository        `bson:"repos"          json:"repos"      yaml:"repos"`
+	Proxy     *Proxy                     `bson:"proxy"          json:"proxy"      yaml:"proxy"`
 }
 
 const (
