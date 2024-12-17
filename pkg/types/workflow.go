@@ -33,6 +33,7 @@ type ParameterSetting struct {
 	DefaultValue string `json:"default_value"`
 	// choiceOption Are all options enumerated
 	ChoiceOption []string `json:"choice_option"`
+	ChoiceValue  []string `json:"choice_value"`
 	// ExternalSetting It is the configuration of the external system to obtain the variable
 	ExternalSetting *ExternalSetting `json:"external_setting"`
 	IsCredential    bool             `json:"is_credential"`

@@ -256,11 +256,12 @@ const (
 )
 
 type KeyVal struct {
-	Key          string               `bson:"key"                 json:"key"`
-	Value        string               `bson:"value"               json:"value"`
-	Type         ParameterSettingType `bson:"type,omitempty"                json:"type,omitempty"`
-	ChoiceOption []string             `bson:"choice_option,omitempty"       json:"choice_option,omitempty"`
-	IsCredential bool                 `bson:"is_credential"       json:"is_credential"`
+	Key          string               `bson:"key"                       json:"key"`
+	Value        string               `bson:"value"                     json:"value"`
+	Type         ParameterSettingType `bson:"type,omitempty"            json:"type,omitempty"`
+	ChoiceOption []string             `bson:"choice_option,omitempty"   json:"choice_option,omitempty"`
+	ChoiceValue  []string             `bson:"choice_value,omitempty"    json:"choice_value,omitempty"`
+	IsCredential bool                 `bson:"is_credential"             json:"is_credential"`
 }
 
 type Repository struct {

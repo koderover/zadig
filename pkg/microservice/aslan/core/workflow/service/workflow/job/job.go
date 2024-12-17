@@ -630,6 +630,9 @@ func RenderStageVariables(workflow *commonmodels.WorkflowV4, taskID int64, creat
 
 func renderString(value, template string, inputs []*commonmodels.Param) string {
 	for _, input := range inputs {
+		if input.ParamsType == "multi-select" {
+			input.Value = strings.Join(input.ChoiceValue, ",")
+		}
 		value = strings.ReplaceAll(value, fmt.Sprintf(template, input.Name), input.Value)
 	}
 	return value
@@ -637,7 +640,11 @@ func renderString(value, template string, inputs []*commonmodels.Param) string {
 
 func renderMultiLineString(value, template string, inputs []*commonmodels.Param) string {
 	for _, input := range inputs {
-		inputValue := strings.ReplaceAll(input.Value, "\n", "\\n")
+		var inputValue string
+		if input.ParamsType == "multi-select" {
+			inputValue = strings.Join(input.ChoiceValue, ",")
+		}
+		inputValue = strings.ReplaceAll(inputValue, "\n", "\\n")
 		value = strings.ReplaceAll(value, fmt.Sprintf(template, input.Name), inputValue)
 	}
 	return value

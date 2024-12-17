@@ -195,6 +195,7 @@ type KeyVal struct {
 	Type              ParameterSettingType `bson:"type,omitempty"               json:"type,omitempty"               yaml:"type"`
 	RegistryID        string               `bson:"registry_id,omitempty"        json:"registry_id"                  yaml:"registry_id"`
 	ChoiceOption      []string             `bson:"choice_option,omitempty"      json:"choice_option,omitempty"      yaml:"choice_option,omitempty"`
+	ChoiceValue       []string             `bson:"choice_value,omitempty"       json:"choice_value,omitempty"       yaml:"choice_value,omitempty"`
 	Script            string               `bson:"script,omitempty"             json:"script,omitempty"             yaml:"script,omitempty"`
 	CallFunction      string               `bson:"call_function,omitempty"      json:"call_function,omitempty"      yaml:"call_function,omitempty"`
 	FunctionReference []string             `bson:"function_reference,omitempty" json:"function_reference,omitempty" yaml:"function_reference,omitempty"`
