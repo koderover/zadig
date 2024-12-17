@@ -17,10 +17,11 @@ limitations under the License.
 package gitee
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"time"
+
+	"github.com/segmentio/encoding/json"
 )
 
 // EventType represents a gitee event type.

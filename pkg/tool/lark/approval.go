@@ -18,8 +18,9 @@ package lark
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
+
+	"github.com/segmentio/encoding/json"
 
 	larkapproval "github.com/larksuite/oapi-sdk-go/v3/service/approval/v4"
 	"github.com/pkg/errors"

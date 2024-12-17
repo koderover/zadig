@@ -17,8 +17,9 @@ limitations under the License.
 package handler
 
 import (
-	"encoding/json"
 	"time"
+
+	"github.com/segmentio/encoding/json"
 
 	"github.com/gin-gonic/gin"
 

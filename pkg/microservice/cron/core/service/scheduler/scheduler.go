@@ -17,11 +17,12 @@ limitations under the License.
 package scheduler
 
 import (
-	"encoding/json"
 	"fmt"
 	"reflect"
 	"sync"
 	"time"
+
+	"github.com/segmentio/encoding/json"
 
 	"github.com/jasonlvhit/gocron"
 	"github.com/rfyiamcool/cronlib"

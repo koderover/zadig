@@ -17,9 +17,10 @@ limitations under the License.
 package service
 
 import (
-	"encoding/json"
 	"fmt"
 	"time"
+
+	"github.com/segmentio/encoding/json"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"

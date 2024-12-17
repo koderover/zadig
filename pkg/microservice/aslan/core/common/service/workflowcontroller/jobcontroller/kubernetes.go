@@ -19,7 +19,6 @@ package jobcontroller
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"path"
@@ -29,6 +28,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/segmentio/encoding/json"
 
 	configbase "github.com/koderover/zadig/v2/pkg/config"
 	"github.com/mozillazg/go-pinyin"

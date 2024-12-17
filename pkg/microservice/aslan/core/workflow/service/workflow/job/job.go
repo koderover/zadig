@@ -18,12 +18,13 @@ package job
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"path"
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/segmentio/encoding/json"
 
 	"github.com/mozillazg/go-pinyin"
 	"github.com/pkg/errors"

@@ -17,8 +17,9 @@ limitations under the License.
 package open
 
 import (
-	"encoding/json"
 	"fmt"
+
+	"github.com/segmentio/encoding/json"
 
 	"go.uber.org/zap"
 

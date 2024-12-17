@@ -17,10 +17,11 @@ limitations under the License.
 package service
 
 import (
-	"encoding/json"
 	"io/ioutil"
 	"net/http"
 	"testing"
+
+	"github.com/segmentio/encoding/json"
 )
 
 func TestGetProduct(t *testing.T) {

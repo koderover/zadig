@@ -18,11 +18,12 @@ package service
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/segmentio/encoding/json"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"

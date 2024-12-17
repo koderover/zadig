@@ -18,10 +18,11 @@ package client
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
+
+	"github.com/segmentio/encoding/json"
 
 	"go.uber.org/zap"
 )

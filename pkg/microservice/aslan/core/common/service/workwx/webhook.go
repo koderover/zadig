@@ -18,9 +18,10 @@ package workwx
 
 import (
 	"context"
-	"encoding/json"
 	"encoding/xml"
 	"fmt"
+
+	"github.com/segmentio/encoding/json"
 
 	"github.com/koderover/zadig/v2/pkg/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"

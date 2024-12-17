@@ -18,10 +18,11 @@ package jobcontroller
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/url"
 	"strings"
+
+	"github.com/segmentio/encoding/json"
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/samber/lo"

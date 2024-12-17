@@ -19,7 +19,6 @@ package service
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -28,6 +27,8 @@ import (
 	"text/template"
 	gotemplate "text/template"
 	"time"
+
+	"github.com/segmentio/encoding/json"
 
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
