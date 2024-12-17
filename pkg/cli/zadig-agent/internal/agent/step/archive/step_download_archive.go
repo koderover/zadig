@@ -29,11 +29,11 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/helper/log"
-	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/agent/step/helper"
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/common/types"
-	util "github.com/koderover/zadig/v2/pkg/cli/zadig-agent/util/file"
+	agentutil "github.com/koderover/zadig/v2/pkg/cli/zadig-agent/util/file"
 	"github.com/koderover/zadig/v2/pkg/tool/s3"
 	"github.com/koderover/zadig/v2/pkg/types/step"
+	"github.com/koderover/zadig/v2/pkg/util"
 )
 
 type DownloadArchiveStep struct {
@@ -63,9 +63,9 @@ func (s *DownloadArchiveStep) Run(ctx context.Context) error {
 		s.logger.Infof(fmt.Sprintf("Download Archive ended. Duration: %.2f seconds", time.Since(start).Seconds()))
 	}()
 
-	envmaps := helper.MakeEnvMap(s.envs, s.secretEnvs)
-	fileName := helper.ReplaceEnvWithValue(s.spec.FileName, envmaps)
-	s.spec.DestDir = helper.ReplaceEnvWithValue(s.spec.DestDir, envmaps)
+	envmaps := util.MakeEnvMap(s.envs, s.secretEnvs)
+	fileName := util.ReplaceEnvWithValue(s.spec.FileName, envmaps)
+	s.spec.DestDir = util.ReplaceEnvWithValue(s.spec.DestDir, envmaps)
 	s.logger.Infof(fmt.Sprintf("Start download artifact %s.", fileName))
 
 	client, err := s3.NewClient(s.spec.S3.Endpoint, s.spec.S3.Ak, s.spec.S3.Sk, s.spec.S3.Region, s.spec.S3.Insecure, s.spec.S3.Provider)
@@ -91,7 +91,7 @@ func (s *DownloadArchiveStep) Run(ctx context.Context) error {
 			}
 		}
 	} else {
-		if sourceFilename, err := util.GenerateTmpFile(); err == nil {
+		if sourceFilename, err := agentutil.GenerateTmpFile(); err == nil {
 			defer func() {
 				_ = os.Remove(sourceFilename)
 			}()

@@ -19,7 +19,6 @@ package job
 import (
 	"fmt"
 	"net/url"
-	"os"
 	"path"
 	"strings"
 
@@ -34,6 +33,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/repository"
 	templ "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/template"
 	codehostrepo "github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/codehost/repository/mongodb"
+	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
@@ -493,9 +493,9 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			}
 
 			if jobTaskSpec.Properties.CacheEnable {
-				jobTaskSpec.Properties.CacheUserDir = renderEnv(jobTaskSpec.Properties.CacheUserDir, jobTaskSpec.Properties.Envs)
+				jobTaskSpec.Properties.CacheUserDir = commonutil.RenderEnv(jobTaskSpec.Properties.CacheUserDir, jobTaskSpec.Properties.Envs)
 				if jobTaskSpec.Properties.Cache.MediumType == types.NFSMedium {
-					jobTaskSpec.Properties.Cache.NFSProperties.Subpath = renderEnv(jobTaskSpec.Properties.Cache.NFSProperties.Subpath, jobTaskSpec.Properties.Envs)
+					jobTaskSpec.Properties.Cache.NFSProperties.Subpath = commonutil.RenderEnv(jobTaskSpec.Properties.Cache.NFSProperties.Subpath, jobTaskSpec.Properties.Envs)
 				} else if jobTaskSpec.Properties.Cache.MediumType == types.ObjectMedium {
 					cacheS3, err = commonrepo.NewS3StorageColl().Find(jobTaskSpec.Properties.Cache.ObjectProperties.ID)
 					if err != nil {
@@ -788,7 +788,7 @@ func renderRepos(input, origin []*types.Repository, kvs []*commonmodels.KeyVal) 
 		resp = append(resp, originRepo)
 		for _, inputRepo := range input {
 			if originRepo.RepoName == inputRepo.RepoName && originRepo.RepoOwner == inputRepo.RepoOwner {
-				inputRepo.CheckoutPath = renderEnv(inputRepo.CheckoutPath, kvs)
+				inputRepo.CheckoutPath = commonutil.RenderEnv(inputRepo.CheckoutPath, kvs)
 				if inputRepo.RemoteName == "" {
 					inputRepo.RemoteName = "origin"
 				}
@@ -862,21 +862,6 @@ func modelS3toS3(modelS3 *commonmodels.S3Storage) *step.S3 {
 		resp.Protocol = "http"
 	}
 	return resp
-}
-
-func renderEnv(data string, kvs []*commonmodels.KeyVal) string {
-	mapper := func(data string) string {
-		for _, envar := range kvs {
-			if data != envar.Key {
-				continue
-			}
-
-			return envar.Value
-		}
-
-		return fmt.Sprintf("$%s", data)
-	}
-	return os.Expand(data, mapper)
 }
 
 func mergeRepos(templateRepos []*types.Repository, customRepos []*types.Repository) []*types.Repository {
