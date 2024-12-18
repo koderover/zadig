@@ -574,11 +574,6 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 		return resp, e.ErrCreateTask.AddDesc(err.Error())
 	}
 
-	if err := jobctl.RenderGlobalVariables(workflow, nextTaskID, args.Name, args.Account); err != nil {
-		log.Errorf("RenderGlobalVariables error: %v", err)
-		return resp, e.ErrCreateTask.AddDesc(err.Error())
-	}
-
 	workflowTask.TaskID = nextTaskID
 	workflowTask.TaskCreator = args.Name
 	workflowTask.TaskCreatorID = args.UserID
@@ -632,8 +627,8 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 			}
 		}
 
-		if err := jobctl.RenderStageVariables(workflow, nextTaskID, args.Name); err != nil {
-			log.Errorf("RenderStageVariables error: %v", err)
+		if err := jobctl.RenderWorkflowParams(workflow, nextTaskID, args.Name, args.Account); err != nil {
+			log.Errorf("RenderGlobalVariables error: %v", err)
 			return resp, e.ErrCreateTask.AddDesc(err.Error())
 		}
 
@@ -915,13 +910,8 @@ func ManualExecWorkflowTaskV4(workflowName string, taskID int64, stageName strin
 		return e.ErrCreateTask.AddDesc(err.Error())
 	}
 
-	if err := jobctl.RenderGlobalVariables(task.OriginWorkflowArgs, task.TaskID, task.TaskCreator, task.TaskCreatorID); err != nil {
+	if err := jobctl.RenderWorkflowParams(task.OriginWorkflowArgs, task.TaskID, task.TaskCreator, task.TaskCreatorID); err != nil {
 		log.Errorf("RenderGlobalVariables error: %v", err)
-		return e.ErrCreateTask.AddDesc(err.Error())
-	}
-
-	if err := jobctl.RenderStageVariables(task.WorkflowArgs, task.TaskID, task.TaskCreator); err != nil {
-		log.Errorf("RenderStageVariables error: %v", err)
 		return e.ErrCreateTask.AddDesc(err.Error())
 	}
 

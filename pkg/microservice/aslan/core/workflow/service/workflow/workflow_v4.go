@@ -1016,6 +1016,10 @@ func LintWorkflowV4(workflow *commonmodels.WorkflowV4, logger *zap.SugaredLogger
 			return e.ErrUpsertWorkflow.AddDesc(fmt.Sprintf("duplicated stage name: %s", stage.Name))
 		}
 		for _, job := range stage.Jobs {
+			if jobctl.JobSkiped(job) {
+				continue
+			}
+
 			if match := reg.MatchString(job.Name); !match {
 				logger.Errorf("job name [%s] did not match %s", job.Name, setting.JobNameRegx)
 				return e.ErrUpsertWorkflow.AddDesc(fmt.Sprintf("job name [%s] did not match %s", job.Name, setting.JobNameRegx))
@@ -1038,6 +1042,10 @@ func LintWorkflowV4(workflow *commonmodels.WorkflowV4, logger *zap.SugaredLogger
 func createLarkApprovalDefinition(workflow *commonmodels.WorkflowV4) error {
 	for _, stage := range workflow.Stages {
 		for _, job := range stage.Jobs {
+			if jobctl.JobSkiped(job) {
+				continue
+			}
+
 			if job.JobType == config.JobApproval {
 				spec := new(commonmodels.ApprovalJobSpec)
 				err := commonmodels.IToi(job.Spec, spec)
