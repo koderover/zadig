@@ -766,6 +766,7 @@ func renderKeyVals(input, origin []*commonmodels.KeyVal) []*commonmodels.KeyVal 
 			Type:              originKV.Type,
 			IsCredential:      originKV.IsCredential,
 			ChoiceOption:      originKV.ChoiceOption,
+			ChoiceValue:       originKV.ChoiceValue,
 			Description:       originKV.Description,
 			FunctionReference: originKV.FunctionReference,
 			CallFunction:      originKV.CallFunction,
