@@ -21,7 +21,6 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/koderover/zadig/v2/pkg/setting"
 	util2 "github.com/koderover/zadig/v2/pkg/util"
 	"go.uber.org/zap"
 
@@ -423,19 +422,9 @@ func (j *FreeStyleJob) toJob(taskID int64, jobSubTaskID int, registries []*commo
 	jobTaskSpec.Properties.BuildOS = basicImage.Value
 
 	if service != nil {
-		params, err := getWorkflowStageParams(j.workflow, taskID, "")
+		err = renderServiceVariables(j.workflow, jobTaskSpec.Properties.Envs, service.ServiceName, service.ServiceModule)
 		if err != nil {
-			log.Errorf("failed to get workflow stage parameters, error: %s", err)
-			return nil, err
-		}
-
-		jobTaskSpec.Properties.Envs = service.DeepCopyKeyVals()
-		for _, env := range jobTaskSpec.Properties.Envs {
-			if strings.HasPrefix(env.Value, "{{.") && strings.HasSuffix(env.Value, "}}") {
-				env.Value = strings.ReplaceAll(env.Value, "<SERVICE>", service.ServiceName)
-				env.Value = strings.ReplaceAll(env.Value, "<MODULE>", service.ServiceModule)
-				env.Value = renderString(env.Value, setting.RenderValueTemplate, params)
-			}
+			return nil, fmt.Errorf("failed to render service variables, error: %v", err)
 		}
 	}
 

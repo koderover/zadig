@@ -449,11 +449,9 @@ func (j *TestingJob) toJobtask(jobSubTaskID int, testing *commonmodels.TestModul
 			"service_module": serviceModule,
 		}
 
-		for _, env := range customEnvs {
-			if strings.HasPrefix(env.Value, "{{.") && strings.HasSuffix(env.Value, "}}") {
-				env.Value = strings.ReplaceAll(env.Value, "<SERVICE>", serviceName)
-				env.Value = strings.ReplaceAll(env.Value, "<MODULE>", serviceModule)
-			}
+		err = renderServiceVariables(j.workflow, customEnvs, serviceName, serviceModule)
+		if err != nil {
+			return nil, fmt.Errorf("failed to render service variables, error: %v", err)
 		}
 	}
 
