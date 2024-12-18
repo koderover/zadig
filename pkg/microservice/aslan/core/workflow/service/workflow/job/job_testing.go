@@ -449,10 +449,17 @@ func (j *TestingJob) toJobtask(jobSubTaskID int, testing *commonmodels.TestModul
 			"service_module": serviceModule,
 		}
 
+		params, err := getWorkflowStageParams(j.workflow, taskID, "")
+		if err != nil {
+			log.Errorf("failed to get workflow stage parameters, error: %s", err)
+			return nil, err
+		}
+
 		for _, env := range customEnvs {
 			if strings.HasPrefix(env.Value, "{{.") && strings.HasSuffix(env.Value, "}}") {
 				env.Value = strings.ReplaceAll(env.Value, "<SERVICE>", serviceName)
 				env.Value = strings.ReplaceAll(env.Value, "<MODULE>", serviceModule)
+				env.Value = renderString(env.Value, setting.RenderValueTemplate, params)
 			}
 		}
 	}
