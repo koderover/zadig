@@ -557,18 +557,9 @@ func (j *ScanningJob) toJobTask(jobSubTaskID int, scanning *commonmodels.Scannin
 	}
 
 	if scanningType == string(config.ServiceScanningType) {
-		params, err := getWorkflowStageParams(j.workflow, taskID, "")
+		err = renderServiceVariables(j.workflow, jobTaskSpec.Properties.Envs, serviceName, serviceModule)
 		if err != nil {
-			log.Errorf("failed to get workflow stage parameters, error: %s", err)
-			return nil, err
-
-		}
-		for _, env := range jobTaskSpec.Properties.Envs {
-			if strings.HasPrefix(env.Value, "{{.") && strings.HasSuffix(env.Value, "}}") {
-				env.Value = strings.ReplaceAll(env.Value, "<SERVICE>", serviceName)
-				env.Value = strings.ReplaceAll(env.Value, "<MODULE>", serviceModule)
-				env.Value = renderString(env.Value, setting.RenderValueTemplate, params)
-			}
+			return nil, fmt.Errorf("failed to render service variables, error: %v", err)
 		}
 	}
 

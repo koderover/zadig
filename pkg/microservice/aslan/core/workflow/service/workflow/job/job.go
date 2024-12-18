@@ -620,7 +620,7 @@ func RenderStageVariables(workflow *commonmodels.WorkflowV4, taskID int64, creat
 	if err != nil {
 		return fmt.Errorf("marshal workflow error: %v", err)
 	}
-	params, err := getWorkflowStageParams(workflow, taskID, creator)
+	params, err := getWorkflowStageParams(workflow)
 	if err != nil {
 		return fmt.Errorf("get workflow stage params error: %v", err)
 	}
@@ -658,7 +658,7 @@ func getWorkflowDefaultParams(workflow *commonmodels.WorkflowV4, taskID int64, c
 	return resp, nil
 }
 
-func getWorkflowStageParams(workflow *commonmodels.WorkflowV4, taskID int64, creator string) ([]*commonmodels.Param, error) {
+func getWorkflowStageParams(workflow *commonmodels.WorkflowV4) ([]*commonmodels.Param, error) {
 	resp := []*commonmodels.Param{}
 	for _, stage := range workflow.Stages {
 		for _, job := range stage.Jobs {
@@ -912,4 +912,25 @@ func findMatchedRepoFromParams(params []*commonmodels.Param, paramName string) (
 		}
 	}
 	return nil, fmt.Errorf("not found repo from params")
+}
+
+func renderServiceVariables(workflow *commonmodels.WorkflowV4, envs []*commonmodels.KeyVal, serviceName string, serviceModule string) error {
+	if serviceName == "" || serviceModule == "" {
+		return nil
+	}
+
+	params, err := getWorkflowStageParams(workflow)
+	if err != nil {
+		err = fmt.Errorf("failed to get workflow stage parameters, error: %s", err)
+		return err
+
+	}
+	for _, env := range envs {
+		if strings.HasPrefix(env.Value, "{{.") && strings.HasSuffix(env.Value, "}}") {
+			env.Value = strings.ReplaceAll(env.Value, "<SERVICE>", serviceName)
+			env.Value = strings.ReplaceAll(env.Value, "<MODULE>", serviceModule)
+			env.Value = renderString(env.Value, setting.RenderValueTemplate, params)
+		}
+	}
+	return nil
 }
