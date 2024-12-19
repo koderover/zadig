@@ -643,6 +643,8 @@ func renderMultiLineString(value, template string, inputs []*commonmodels.Param)
 		var inputValue string
 		if input.ParamsType == "multi-select" {
 			inputValue = strings.Join(input.ChoiceValue, ",")
+		} else {
+			inputValue = input.Value
 		}
 		inputValue = strings.ReplaceAll(inputValue, "\n", "\\n")
 		value = strings.ReplaceAll(value, fmt.Sprintf(template, input.Name), inputValue)
