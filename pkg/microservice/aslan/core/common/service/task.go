@@ -17,8 +17,9 @@ limitations under the License.
 package service
 
 import (
-	"encoding/json"
 	"fmt"
+
+	"github.com/segmentio/encoding/json"
 
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"

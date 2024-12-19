@@ -18,7 +18,6 @@ package jobcontroller
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -26,6 +25,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/segmentio/encoding/json"
 
 	"go.uber.org/zap"
 

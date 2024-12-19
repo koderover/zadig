@@ -18,11 +18,12 @@ package workflowcontroller
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/segmentio/encoding/json"
 
 	"go.mongodb.org/mongo-driver/mongo"
 

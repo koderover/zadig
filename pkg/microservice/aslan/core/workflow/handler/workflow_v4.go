@@ -18,9 +18,10 @@ package handler
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"io"
+
+	"github.com/segmentio/encoding/json"
 
 	"github.com/gin-gonic/gin"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"

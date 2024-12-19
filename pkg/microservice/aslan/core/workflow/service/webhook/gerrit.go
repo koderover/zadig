@@ -17,7 +17,6 @@ limitations under the License.
 package webhook
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -28,6 +27,8 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+
+	"github.com/segmentio/encoding/json"
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/otiai10/copy"

@@ -17,10 +17,11 @@ limitations under the License.
 package service
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
+
+	"github.com/segmentio/encoding/json"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	templaterepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"

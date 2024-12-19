@@ -18,13 +18,14 @@ package job
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/segmentio/encoding/json"
 
 	"gopkg.in/yaml.v3"
 

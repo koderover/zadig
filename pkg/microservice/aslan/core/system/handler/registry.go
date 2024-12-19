@@ -18,9 +18,10 @@ package handler
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"io"
+
+	"github.com/segmentio/encoding/json"
 
 	"github.com/gin-gonic/gin"
 	"k8s.io/apimachinery/pkg/util/sets"
