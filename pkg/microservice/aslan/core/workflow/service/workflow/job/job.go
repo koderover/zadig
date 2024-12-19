@@ -940,6 +940,9 @@ func renderServiceVariables(workflow *commonmodels.WorkflowV4, envs []*commonmod
 	}
 	for _, env := range envs {
 		if strings.HasPrefix(env.Value, "{{.") && strings.HasSuffix(env.Value, "}}") {
+			if env.Type == commonmodels.MultiSelectType {
+				env.Value = strings.Join(env.ChoiceValue, ",")
+			}
 			env.Value = strings.ReplaceAll(env.Value, "<SERVICE>", serviceName)
 			env.Value = strings.ReplaceAll(env.Value, "<MODULE>", serviceModule)
 			env.Value = renderString(env.Value, setting.RenderValueTemplate, params)
