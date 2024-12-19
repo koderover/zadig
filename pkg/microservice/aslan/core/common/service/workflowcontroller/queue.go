@@ -334,19 +334,6 @@ func BlockedTaskQueue() ([]*commonmodels.WorkflowQueue, error) {
 	return queues, nil
 }
 
-func ParallelRunningAndQueuedTasks(currentTask *commonmodels.WorkflowQueue) bool {
-	for _, t := range ListTasks() {
-		// task状态为TaskQueued说明task已经被send到nsq,wd已经开始处理但是没有返回ack
-		if t.Status != config.StatusRunning && t.Status != config.StatusQueued {
-			continue
-		}
-		if t.WorkflowName == currentTask.WorkflowName {
-			return true
-		}
-	}
-	return false
-}
-
 func updateQueueAndRunTask(t *commonmodels.WorkflowQueue, jobConcurrency int) error {
 	logger := log.SugaredLogger()
 	// 更新队列状态为TaskQueued

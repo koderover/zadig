@@ -142,6 +142,10 @@ func CreateProductTemplate(args *template.Product, log *zap.SugaredLogger) (err 
 		return e.ErrCreateProduct.AddDesc(fmt.Sprintf("failed to initialize project authorization info for project: %s, error: %s", args.ProductName, err))
 	}
 
+	// init sprint template
+	ctx := handler.NewBackgroupContext()
+	sprintservice.InitSprintTemplate(ctx, args.ProductName)
+
 	// add project to current project group
 	if args.GroupName != "" {
 		err = AddProject2CurrentGroup(args.GroupName, args.ProductName, args.ProjectName, args.UpdateBy, args.ProductFeature.DeployType)
@@ -150,10 +154,6 @@ func CreateProductTemplate(args *template.Product, log *zap.SugaredLogger) (err 
 			return e.ErrCreateProduct.AddErr(fmt.Errorf("create project successfully, but failed to add project to current group, please add the project %s to group %s manually, error: %v", args.ProductName, args.GroupName, err))
 		}
 	}
-
-	// init sprint template
-	ctx := handler.NewBackgroupContext()
-	sprintservice.InitSprintTemplate(ctx, args.ProductName)
 
 	return
 }

@@ -34,10 +34,10 @@ import (
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/registry"
+	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
-	registrytool "github.com/koderover/zadig/v2/pkg/tool/registries"
 	"github.com/koderover/zadig/v2/pkg/util"
 )
 
@@ -130,7 +130,7 @@ func CreateRegistryNamespace(username string, args *commonmodels.RegistryNamespa
 		return fmt.Errorf("RegistryNamespace.Create error: %v", err)
 	}
 
-	return SyncDinDForRegistries()
+	return commonutil.SyncDinDForRegistries()
 }
 
 func UpdateRegistryNamespace(username, id string, args *commonmodels.RegistryNamespace, log *zap.SugaredLogger) error {
@@ -192,7 +192,7 @@ func UpdateRegistryNamespace(username, id string, args *commonmodels.RegistryNam
 		}
 	})
 
-	return SyncDinDForRegistries()
+	return commonutil.SyncDinDForRegistries()
 }
 
 func DeleteRegistryNamespace(id string, log *zap.SugaredLogger) error {
@@ -236,7 +236,7 @@ func DeleteRegistryNamespace(id string, log *zap.SugaredLogger) error {
 			return err
 		}
 	}
-	return SyncDinDForRegistries()
+	return commonutil.SyncDinDForRegistries()
 }
 
 func ListAllRepos(log *zap.SugaredLogger) ([]*RepoInfo, error) {
@@ -614,33 +614,4 @@ func UpdateRegistryNamespaceDefault(args *commonmodels.RegistryNamespace, log *z
 		return fmt.Errorf("UpdateRegistryNamespaceDefault.Update error: %v", err)
 	}
 	return nil
-}
-
-func SyncDinDForRegistries() error {
-	registries, err := commonrepo.NewRegistryNamespaceColl().FindAll(&commonrepo.FindRegOps{})
-	if err != nil {
-		return fmt.Errorf("failed to list registry to update dind, err: %s", err)
-	}
-
-	regList := make([]*registrytool.RegistryInfoForDinDUpdate, 0)
-	for _, reg := range registries {
-		regItem := &registrytool.RegistryInfoForDinDUpdate{
-			ID:      reg.ID,
-			RegAddr: reg.RegAddr,
-		}
-		if reg.AdvancedSetting != nil {
-			regItem.AdvancedSetting = &registrytool.RegistryAdvancedSetting{
-				TLSEnabled: reg.AdvancedSetting.TLSEnabled,
-				TLSCert:    reg.AdvancedSetting.TLSCert,
-			}
-		}
-		regList = append(regList, regItem)
-	}
-
-	dynamicClient, err := kubeclient.GetDynamicKubeClient(config.HubServerAddress(), setting.LocalClusterID)
-	if err != nil {
-		return fmt.Errorf("failed to get dynamic client to update dind, err: %s", err)
-	}
-
-	return registrytool.PrepareDinD(dynamicClient, config.Namespace(), regList)
 }

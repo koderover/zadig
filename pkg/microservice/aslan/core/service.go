@@ -33,6 +33,7 @@ import (
 	client2 "sigs.k8s.io/controller-runtime/pkg/client"
 
 	commonconfig "github.com/koderover/zadig/v2/pkg/config"
+	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	configbase "github.com/koderover/zadig/v2/pkg/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/kube"
@@ -305,7 +306,7 @@ func initResourcesForExternalClusters() {
 }
 
 func initDinD() {
-	err := systemservice.SyncDinDForRegistries()
+	err := commonutil.SyncDinDForRegistries()
 	if err != nil {
 		log.Fatal(err)
 	}

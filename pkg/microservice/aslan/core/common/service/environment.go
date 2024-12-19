@@ -175,7 +175,7 @@ func GetK8sProductionSvcRenderArgs(productName, envName, serviceName string, log
 		Production: util.GetBoolPointer(true),
 	})
 	if err != nil {
-		return nil, errors.Wrapf(err, fmt.Sprintf("failed to find envrionment : %s/%s, error: %s ", productName, envName))
+		return nil, errors.Wrapf(err, fmt.Sprintf("failed to find envrionment : %s/%s", productName, envName))
 	}
 
 	prodSvc := productInfo.GetServiceMap()[serviceName]

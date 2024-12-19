@@ -23,10 +23,12 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/multicluster/service"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
+	"github.com/koderover/zadig/v2/pkg/types"
 )
 
 func ListClusters(c *gin.Context) {
@@ -163,7 +165,191 @@ func UpdateCluster(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.RespErr = service.UpdateCluster(c.Param("id"), args, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.UpdateCluster(ctx, c.Param("id"), args)
+}
+
+// @Summary 添加/更新集群调度策略
+// @Description
+// @Tags 	cluster
+// @Accept 	json
+// @Produce json
+// @Param 	id				path		string								true	"集群ID"
+// @Param 	body 			body 		service.ScheduleStrategy			true 	"body"
+// @Success 200 			{object} 	commonmodels.K8SCluster
+// @Router /api/aslan/cluster/clusters/{id}/strategy [put]
+func AddOrUpdateClusterStrategy(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	// authorization check
+	if !ctx.Resources.IsSystemAdmin {
+		if !ctx.Resources.SystemActions.ClusterManagement.Edit {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	args := new(service.ScheduleStrategy)
+	if err := c.BindJSON(args); err != nil {
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
+		log.Errorf("Failed to bind data: %s", err)
+		return
+	}
+
+	err = args.Validate()
+	if err != nil {
+		ctx.RespErr = err
+		return
+	}
+
+	ctx.Resp, ctx.RespErr = service.AddOrUpdateClusterStrategy(ctx, c.Param("id"), args)
+}
+
+// @Summary 删除集群调度策略
+// @Description
+// @Tags 	cluster
+// @Accept 	json
+// @Produce json
+// @Param 	id				path		string								true	"集群ID"
+// @Param 	strategyID		query		string								true	"调度策略ID"
+// @Success 200 			{object} 	commonmodels.K8SCluster
+// @Router /api/aslan/cluster/clusters/{id}/strategy [delete]
+func DeleteClusterStrategy(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	// authorization check
+	if !ctx.Resources.IsSystemAdmin {
+		if !ctx.Resources.SystemActions.ClusterManagement.Edit {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	ctx.Resp, ctx.RespErr = service.DeleteClusterStrategy(ctx, c.Param("id"), c.Query("strategyID"))
+}
+
+// @Summary 更新集群缓存
+// @Description
+// @Tags 	cluster
+// @Accept 	json
+// @Produce json
+// @Param 	id				path		string								true	"集群ID"
+// @Param 	body 			body 		types.Cache							true 	"body"
+// @Success 200 			{object} 	commonmodels.K8SCluster
+// @Router /api/aslan/cluster/clusters/{id}/cache [put]
+func UpdateClusterCache(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	// authorization check
+	if !ctx.Resources.IsSystemAdmin {
+		if !ctx.Resources.SystemActions.ClusterManagement.Edit {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	args := new(types.Cache)
+	if err := c.BindJSON(args); err != nil {
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
+		log.Errorf("Failed to bind data: %s", err)
+		return
+	}
+
+	ctx.Resp, ctx.RespErr = service.UpdateClusterCache(ctx, c.Param("id"), args)
+}
+
+// @Summary 更新集群共享存储
+// @Description
+// @Tags 	cluster
+// @Accept 	json
+// @Produce json
+// @Param 	id				path		string								true	"集群ID"
+// @Param 	body 			body 		types.ShareStorage					true 	"body"
+// @Success 200 			{object} 	commonmodels.K8SCluster
+// @Router /api/aslan/cluster/clusters/{id}/storage [put]
+func UpdateClusterStorage(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	// authorization check
+	if !ctx.Resources.IsSystemAdmin {
+		if !ctx.Resources.SystemActions.ClusterManagement.Edit {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	args := new(types.ShareStorage)
+	if err := c.BindJSON(args); err != nil {
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
+		log.Errorf("Failed to bind data: %s", err)
+		return
+	}
+
+	ctx.Resp, ctx.RespErr = service.UpdateClusterStorage(ctx, c.Param("id"), args)
+}
+
+// @Summary 更新集群Dind配置
+// @Description
+// @Tags 	cluster
+// @Accept 	json
+// @Produce json
+// @Param 	id				path		string								true	"集群ID"
+// @Param 	body 			body 		commonmodels.DindCfg				true 	"body"
+// @Success 200 			{object} 	commonmodels.K8SCluster
+// @Router /api/aslan/cluster/clusters/{id}/dind [put]
+func UpdateClusterDind(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	// authorization check
+	if !ctx.Resources.IsSystemAdmin {
+		if !ctx.Resources.SystemActions.ClusterManagement.Edit {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	args := new(commonmodels.DindCfg)
+	if err := c.BindJSON(args); err != nil {
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
+		log.Errorf("Failed to bind data: %s", err)
+		return
+	}
+
+	ctx.Resp, ctx.RespErr = service.UpdateClusterDind(ctx, c.Param("id"), args)
 }
 
 func GetDeletionInfo(c *gin.Context) {
