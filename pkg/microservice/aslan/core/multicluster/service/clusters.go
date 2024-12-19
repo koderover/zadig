@@ -1168,6 +1168,7 @@ func UpgradeDind(kclient client.Client, cluster *commonmodels.K8SCluster, ns str
 		}
 	}
 
+	var dockerStorageExists bool
 	if cluster.DindCfg.Storage != nil {
 		switch cluster.DindCfg.Storage.Type {
 		case commonmodels.DindStorageRootfs:
@@ -1222,7 +1223,6 @@ func UpgradeDind(kclient client.Client, cluster *commonmodels.K8SCluster, ns str
 				dindSts.Spec.Template.Spec.Containers[i] = container
 			}
 
-			var dockerStorageExists bool
 			for _, volumeClaimTemplate := range dindSts.Spec.VolumeClaimTemplates {
 				if volumeClaimTemplate.Name == types.DindMountName {
 					dockerStorageExists = true
@@ -1260,11 +1260,25 @@ func UpgradeDind(kclient client.Client, cluster *commonmodels.K8SCluster, ns str
 		dindSts.Spec.Template.Spec.Affinity = commonutil.AddNodeAffinity(cluster.AdvancedConfig, cluster.DindCfg.StrategyID)
 	}
 
-	err = kclient.Update(ctx, dindSts)
-	if err != nil {
-		err = fmt.Errorf("failed to update StatefulSet `dind`: %s", err)
-		log.Error(err)
-		return err
+	if dockerStorageExists {
+		err = kclient.Update(ctx, dindSts)
+		if err != nil {
+			err = fmt.Errorf("failed to update StatefulSet `dind`: %s", err)
+			log.Error(err)
+			return err
+		}
+	} else {
+		err = kclient.Delete(ctx, dindSts)
+		if err != nil {
+			err = fmt.Errorf("failed to delete StatefulSet `dind`: %s", err)
+			log.Error(err)
+		}
+		err = kclient.Create(ctx, dindSts)
+		if err != nil {
+			err = fmt.Errorf("failed to create StatefulSet `dind`: %s", err)
+			log.Error(err)
+			return err
+		}
 	}
 
 	if scaleupd {
