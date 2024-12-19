@@ -32,6 +32,7 @@ import (
 	agenttypes "github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/common/types"
 	"github.com/koderover/zadig/v2/pkg/types"
 	"github.com/koderover/zadig/v2/pkg/types/step"
+	"github.com/koderover/zadig/v2/pkg/util"
 )
 
 type P4Step struct {
@@ -156,7 +157,7 @@ func syncP4Depot(envs, secretEnvs []string, repo *types.Repository, logger *log.
 
 		command.Cmd.Env = envs
 		if !command.DisableTrace {
-			logger.Printf("%s\n", helper.MaskSecretEnvs(strings.Join(command.Cmd.Args, " "), secretEnvs))
+			logger.Printf("%s\n", util.MaskSecretEnvs(strings.Join(command.Cmd.Args, " "), secretEnvs))
 		}
 		if err := command.Cmd.Start(); err != nil {
 			if command.IgnoreError {

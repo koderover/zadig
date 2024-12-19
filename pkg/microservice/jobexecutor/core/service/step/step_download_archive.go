@@ -59,9 +59,9 @@ func (s *DownloadArchiveStep) Run(ctx context.Context) error {
 		log.Infof("Download Archive ended. Duration: %.2f seconds", time.Since(start).Seconds())
 	}()
 
-	envmaps := makeEnvMap(s.envs, s.secretEnvs)
-	fileName := replaceEnvWithValue(s.spec.FileName, envmaps)
-	s.spec.DestDir = replaceEnvWithValue(s.spec.DestDir, envmaps)
+	envmaps := util.MakeEnvMap(s.envs, s.secretEnvs)
+	fileName := util.ReplaceEnvWithValue(s.spec.FileName, envmaps)
+	s.spec.DestDir = util.ReplaceEnvWithValue(s.spec.DestDir, envmaps)
 	log.Infof("Start download archive %s.", fileName)
 
 	client, err := s3.NewClient(s.spec.S3.Endpoint, s.spec.S3.Ak, s.spec.S3.Sk, s.spec.S3.Region, s.spec.S3.Insecure, s.spec.S3.Provider)

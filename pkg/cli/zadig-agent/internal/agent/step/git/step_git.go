@@ -41,6 +41,7 @@ import (
 	gittool "github.com/koderover/zadig/v2/pkg/tool/git"
 	"github.com/koderover/zadig/v2/pkg/types"
 	"github.com/koderover/zadig/v2/pkg/types/step"
+	"github.com/koderover/zadig/v2/pkg/util"
 )
 
 type GitStep struct {
@@ -99,7 +100,7 @@ func (s *GitStep) runGitCmds() error {
 
 		c.Cmd.Env = s.envs
 		if !c.DisableTrace {
-			s.Logger.Printf("%s\n", helper.MaskSecretEnvs(strings.Join(c.Cmd.Args, " "), s.secretEnvs))
+			s.Logger.Printf("%s\n", util.MaskSecretEnvs(strings.Join(c.Cmd.Args, " "), s.secretEnvs))
 		}
 		if err := c.Cmd.Start(); err != nil {
 			if c.IgnoreError {
@@ -351,18 +352,6 @@ func HTTPSCloneURL(source, token, owner, name string, optionalGiteeAddr string) 
 	}
 	//return fmt.Sprintf("https://x-access-token:%s@%s/%s/%s.git", g.GetInstallationToken(owner), g.GetGithubHost(), owner, name)
 	return fmt.Sprintf("https://x-access-token:%s@%s/%s/%s.git", token, "github.com", owner, name)
-}
-
-func maskSecret(secrets []string, message string) string {
-	out := message
-
-	for _, val := range secrets {
-		if len(val) == 0 {
-			continue
-		}
-		out = strings.Replace(out, val, "********", -1)
-	}
-	return out
 }
 
 func AddOAuthInSubmoduleURLs(args ...interface{}) error {

@@ -31,6 +31,7 @@ import (
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
+	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	codehostdb "github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/codehost/repository/mongodb"
 	codehostrepo "github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/codehost/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/setting"
@@ -821,7 +822,7 @@ func getVMDeployJobVariables(vmDeploy *commonmodels.ServiceAndVMDeploy, buildInf
 
 func vmRenderRepos(repos []*types.Repository, kvs []*commonmodels.KeyVal) []*types.Repository {
 	for _, inputRepo := range repos {
-		inputRepo.CheckoutPath = renderEnv(inputRepo.CheckoutPath, kvs)
+		inputRepo.CheckoutPath = commonutil.RenderEnv(inputRepo.CheckoutPath, kvs)
 		if inputRepo.RemoteName == "" {
 			inputRepo.RemoteName = "origin"
 		}

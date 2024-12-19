@@ -33,6 +33,7 @@ import (
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	codehostrepo "github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/codehost/repository/mongodb"
+	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/types"
 )
@@ -722,8 +723,8 @@ func (j *ScanningJob) toJobTask(jobSubTaskID int, scanning *commonmodels.Scannin
 		sonarLinkKeyVal := &commonmodels.KeyVal{
 			Key: "SONAR_LINK",
 		}
-		projectKey := renderEnv(sonar.GetSonarProjectKeyFromConfig(scanningInfo.Parameter), jobTaskSpec.Properties.Envs)
-		sonarBranch := renderEnv(sonar.GetSonarBranchFromConfig(scanningInfo.Parameter), append(jobTaskSpec.Properties.Envs, &commonmodels.KeyVal{Key: "branch", Value: branch}))
+		projectKey := commonutil.RenderEnv(sonar.GetSonarProjectKeyFromConfig(scanningInfo.Parameter), jobTaskSpec.Properties.Envs)
+		sonarBranch := commonutil.RenderEnv(sonar.GetSonarBranchFromConfig(scanningInfo.Parameter), append(jobTaskSpec.Properties.Envs, &commonmodels.KeyVal{Key: "branch", Value: branch}))
 		resultAddr, err := sonar.GetSonarAddress(sonarInfo.ServerAddress, projectKey, sonarBranch)
 		if err != nil {
 			log.Errorf("failed to get sonar address, project: %s, branch: %s,, error: %s", projectKey, sonarBranch, err)
@@ -749,7 +750,7 @@ func (j *ScanningJob) toJobTask(jobSubTaskID int, scanning *commonmodels.Scannin
 			if scanningInfo.ScriptType == types.ScriptTypeShell || scanningInfo.ScriptType == "" {
 				sonarConfig := fmt.Sprintf("sonar.login=%s\nsonar.host.url=%s\n%s", sonarInfo.Token, sonarInfo.ServerAddress, scanningInfo.Parameter)
 				sonarConfig = strings.ReplaceAll(sonarConfig, "$branch", branch)
-				sonarScript := fmt.Sprintf("set -e\ncd %s\ncat > sonar-project.properties << EOF\n%s\nEOF\nsonar-scanner", repoName, renderEnv(sonarConfig, jobTaskSpec.Properties.Envs))
+				sonarScript := fmt.Sprintf("set -e\ncd %s\ncat > sonar-project.properties << EOF\n%s\nEOF\nsonar-scanner", repoName, commonutil.RenderEnv(sonarConfig, jobTaskSpec.Properties.Envs))
 
 				sonarScriptStep.Name = scanning.Name + "-sonar-shell"
 				sonarScriptStep.StepType = config.StepShell
@@ -763,7 +764,7 @@ func (j *ScanningJob) toJobTask(jobSubTaskID int, scanning *commonmodels.Scannin
 
 				sonarConfig := fmt.Sprintf("sonar.login=%s\nsonar.host.url=%s\n%s", sonarInfo.Token, sonarInfo.ServerAddress, scanningInfo.Parameter)
 				sonarConfig = strings.ReplaceAll(sonarConfig, "$branch", branch)
-				sonarConfig = renderEnv(sonarConfig, jobTaskSpec.Properties.Envs)
+				sonarConfig = commonutil.RenderEnv(sonarConfig, jobTaskSpec.Properties.Envs)
 				sonarConfigArr := strings.Split(sonarConfig, "\n")
 				for _, config := range sonarConfigArr {
 					sonarScript += fmt.Sprintf("echo %s\n", config)
@@ -782,7 +783,7 @@ func (j *ScanningJob) toJobTask(jobSubTaskID int, scanning *commonmodels.Scannin
 
 				sonarConfig := fmt.Sprintf("sonar.login=%s\nsonar.host.url=%s\n%s", sonarInfo.Token, sonarInfo.ServerAddress, scanningInfo.Parameter)
 				sonarConfig = strings.ReplaceAll(sonarConfig, "$branch", branch)
-				sonarConfig = renderEnv(sonarConfig, jobTaskSpec.Properties.Envs)
+				sonarConfig = commonutil.RenderEnv(sonarConfig, jobTaskSpec.Properties.Envs)
 				sonarConfigArr := strings.Split(sonarConfig, "\n")
 				for _, config := range sonarConfigArr {
 					sonarScript += fmt.Sprintf("%s\n", config)

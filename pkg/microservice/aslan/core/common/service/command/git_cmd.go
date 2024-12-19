@@ -37,6 +37,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/shared/client/systemconfig"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/types"
+	"github.com/koderover/zadig/v2/pkg/util"
 )
 
 type Repo struct {
@@ -138,7 +139,7 @@ func RunGitCmds(codehostDetail *systemconfig.CodeHost, repoOwner, repoNamespace,
 		outScanner := bufio.NewScanner(cmdOutReader)
 		go func() {
 			for outScanner.Scan() {
-				fmt.Printf("%s\n", maskSecret(tokens, outScanner.Text()))
+				fmt.Printf("%s\n",util.MaskSecret(tokens, outScanner.Text()))
 			}
 		}()
 
@@ -150,7 +151,7 @@ func RunGitCmds(codehostDetail *systemconfig.CodeHost, repoOwner, repoNamespace,
 		errScanner := bufio.NewScanner(cmdErrReader)
 		go func() {
 			for errScanner.Scan() {
-				fmt.Printf("%s\n", maskSecret(tokens, errScanner.Text()))
+				fmt.Printf("%s\n",util.MaskSecret(tokens, errScanner.Text()))
 			}
 		}()
 
@@ -372,18 +373,6 @@ func setCmdsWorkDir(dir string, cmds []*Command) {
 	for _, c := range cmds {
 		c.Cmd.Dir = dir
 	}
-}
-
-func maskSecret(secrets []string, message string) string {
-	out := message
-
-	for _, val := range secrets {
-		if len(val) == 0 {
-			continue
-		}
-		out = strings.Replace(out, val, "********", -1)
-	}
-	return out
 }
 
 // git@github.com or git@github.com:2000
