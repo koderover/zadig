@@ -421,6 +421,12 @@ func (j *FreeStyleJob) toJob(taskID int64, jobSubTaskID int, registries []*commo
 	}
 	jobTaskSpec.Properties.BuildOS = basicImage.Value
 
+	for _, env := range jobTaskSpec.Properties.Envs {
+		if env.Type == commonmodels.MultiSelectType {
+			env.Value = strings.Join(env.ChoiceValue, ",")
+		}
+	}
+
 	if service != nil {
 		err = renderServiceVariables(j.workflow, jobTaskSpec.Properties.Envs, service.ServiceName, service.ServiceModule)
 		if err != nil {

@@ -944,10 +944,6 @@ func renderServiceVariables(workflow *commonmodels.WorkflowV4, envs []*commonmod
 			env.Value = strings.ReplaceAll(env.Value, "<MODULE>", serviceModule)
 			env.Value = renderString(env.Value, setting.RenderValueTemplate, params)
 		}
-
-		if env.Type == commonmodels.MultiSelectType {
-			env.Value = strings.Join(env.ChoiceValue, ",")
-		}
 	}
 	return nil
 }
