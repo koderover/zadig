@@ -22,6 +22,7 @@ type JenkinsBuildParam struct {
 	Type         JenkinsParamType `bson:"type,omitempty"                json:"type,omitempty"`
 	AutoGenerate bool             `bson:"auto_generate,omitempty"       json:"auto_generate,omitempty"`
 	ChoiceOption []string         `bson:"choice_option,omitempty"       json:"choice_option,omitempty"`
+	ChoiceValue  []string         `bson:"choice_value,omitempty"        json:"choice_value,omitempty"`
 }
 
 type JenkinsParamType string
