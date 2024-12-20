@@ -28,14 +28,14 @@ import (
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ecr"
+	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 
-	"github.com/koderover/zadig/v2/pkg/setting"
-	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
-	registrytool "github.com/koderover/zadig/v2/pkg/tool/registries"
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
+	registrytool "github.com/koderover/zadig/v2/pkg/tool/registries"
 	"github.com/koderover/zadig/v2/pkg/util"
 )
 
@@ -137,7 +137,7 @@ func SyncDinDForRegistries() error {
 		regList = append(regList, regItem)
 	}
 
-	dynamicClient, err := kubeclient.GetDynamicKubeClient(config.HubServerAddress(), setting.LocalClusterID)
+	dynamicClient, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(setting.LocalClusterID)
 	if err != nil {
 		return fmt.Errorf("failed to get dynamic client to update dind, err: %s", err)
 	}
