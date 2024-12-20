@@ -37,6 +37,11 @@ func (*Router) Inject(router *gin.RouterGroup) {
 
 		Cluster.POST("", CreateCluster)
 		Cluster.PUT("/:id", UpdateCluster)
+		Cluster.PUT("/:id/strategy", AddOrUpdateClusterStrategy)
+		Cluster.DELETE("/:id/strategy", DeleteClusterStrategy)
+		Cluster.PUT("/:id/cache", UpdateClusterCache)
+		Cluster.PUT("/:id/storage", UpdateClusterStorage)
+		Cluster.PUT("/:id/dind", UpdateClusterDind)
 		Cluster.GET("/:id/deletion", GetDeletionInfo)
 		Cluster.DELETE("/:id", DeleteCluster)
 		Cluster.GET("/:id/strategy/references", GetClusterStrategyReferences)

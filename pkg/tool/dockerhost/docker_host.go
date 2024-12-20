@@ -20,11 +20,13 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
+	"strconv"
 	"sync"
 	"time"
 
 	"github.com/buraksezer/consistent"
 	"github.com/cespare/xxhash"
+	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -33,9 +35,14 @@ import (
 	"github.com/koderover/zadig/v2/pkg/config"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
+	"github.com/koderover/zadig/v2/pkg/tool/cache"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
-var once sync.Once
+var (
+	once             sync.Once
+	bestHostIndexKey = "docker_best_host_index"
+)
 
 type Member string
 
@@ -87,14 +94,44 @@ func NewDockerHosts(hubServerAddr string, logger *zap.SugaredLogger) DockerHosts
 	return dockerHosts
 }
 
+// round-robin get best docker host
 func (d *dockerhosts) GetBestHost(clusterID ClusterID, key string) string {
 	if d.store[clusterID] == nil {
 		d.initClusterInfo(clusterID)
 	}
 
-	member := d.store[clusterID].LocateKey([]byte(key))
+	// round-robin
+	members := d.store[clusterID].GetMembers()
+	index := d.GetBestHostIndex(clusterID)
+	index = (index + 1) % len(members)
+	member := members[index]
+	d.SetBestHostIndex(clusterID, index)
 
 	return member.String()
+}
+
+func (d *dockerhosts) GetBestHostIndex(clusterID ClusterID) int {
+	indexStr, err := cache.NewRedisCache(config.RedisCommonCacheTokenDB()).HGetString(bestHostIndexKey, string(clusterID))
+	if err != nil {
+		if err != redis.Nil {
+			log.Errorf("GetBestHostIndex error: %v", err)
+		}
+		return 0
+	}
+
+	ret, err := strconv.Atoi(indexStr)
+	if err != nil {
+		log.Errorf("GetBestHostIndex error: %v", err)
+		return 0
+	}
+	return ret
+}
+
+func (d *dockerhosts) SetBestHostIndex(clusterID ClusterID, index int) {
+	err := cache.NewRedisCache(config.RedisCommonCacheTokenDB()).HWrite(bestHostIndexKey, string(clusterID), strconv.Itoa(index), 0)
+	if err != nil {
+		log.Errorf("GetBestHostIndex error: %v", err)
+	}
 }
 
 func (d *dockerhosts) initClusterInfo(clusterID ClusterID) {

@@ -26,8 +26,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/hashicorp/go-multierror"
-	templaterepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
-	"github.com/koderover/zadig/v2/pkg/shared/client/plutusvendor"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
@@ -40,7 +38,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -48,8 +45,12 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	templaterepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/kube"
+	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/setting"
+	"github.com/koderover/zadig/v2/pkg/shared/client/plutusvendor"
+	"github.com/koderover/zadig/v2/pkg/shared/handler"
 	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/serializer"
@@ -354,96 +355,24 @@ func CreateCluster(args *K8SCluster, logger *zap.SugaredLogger) (*commonmodels.K
 		return nil, fmt.Errorf("failed to new kube service: %s", err)
 	}
 
-	var advancedConfig *commonmodels.AdvancedConfig
-	if args.AdvancedConfig != nil {
-		advancedConfig = &commonmodels.AdvancedConfig{
-			Strategy:     args.AdvancedConfig.Strategy,
-			NodeLabels:   convertToNodeSelectorRequirements(args.AdvancedConfig.NodeLabels),
-			ProjectNames: args.AdvancedConfig.ProjectNames,
-			Tolerations:  args.AdvancedConfig.Tolerations,
-			EnableIRSA:   args.AdvancedConfig.EnableIRSA,
-			IRSARoleARM:  args.AdvancedConfig.IRSARoleARM,
-		}
-		advancedConfig.ScheduleStrategy = make([]*commonmodels.ScheduleStrategy, 0)
-		if args.AdvancedConfig.ScheduleStrategy != nil {
-			if err := validateStrategies(args.AdvancedConfig.ScheduleStrategy); err != nil {
-				return nil, err
-			}
-			for _, strategy := range args.AdvancedConfig.ScheduleStrategy {
-				err := strategy.Validate()
-				if err != nil {
-					msg := fmt.Errorf("create cluster failed, schedule strategy is invalid, err: %s", err)
-					logger.Error(msg)
-					return nil, msg
-				}
-				if strategy.StrategyID == "" {
-					strategy.StrategyID = primitive.NewObjectID().Hex()
-				}
-				advancedConfig.ScheduleStrategy = append(advancedConfig.ScheduleStrategy, &commonmodels.ScheduleStrategy{
-					StrategyID:   strategy.StrategyID,
-					StrategyName: strategy.StrategyName,
-					Strategy:     strategy.Strategy,
-					NodeLabels:   convertToNodeSelectorRequirements(strategy.NodeLabels),
-					Tolerations:  strategy.Tolerations,
-					Default:      strategy.Default,
-				})
-			}
-		}
-
-		if args.AdvancedConfig.ClusterAccessYaml == "" {
-			advancedConfig.ClusterAccessYaml = kube.ClusterAccessYamlTemplate
-			advancedConfig.ScheduleWorkflow = true
-		} else {
-			// check the cluster access yaml
-			err = kube.ValidateClusterRoleYAML(args.AdvancedConfig.ClusterAccessYaml, logger)
-			if err != nil {
-				return nil, fmt.Errorf("invalid cluster access yaml: %s", err)
-			}
-			advancedConfig.ClusterAccessYaml = args.AdvancedConfig.ClusterAccessYaml
-			advancedConfig.ScheduleWorkflow = args.AdvancedConfig.ScheduleWorkflow
-		}
-		// init local cluster
-	} else {
-		advancedConfig = &commonmodels.AdvancedConfig{
-			ClusterAccessYaml: kube.ClusterAccessYamlTemplate,
-			ScheduleWorkflow:  true,
-			Strategy:          setting.NormalSchedule,
-			ScheduleStrategy: []*commonmodels.ScheduleStrategy{
-				{
-					StrategyID:   primitive.NewObjectID().Hex(),
-					StrategyName: setting.NormalScheduleName,
-					Strategy:     setting.NormalSchedule,
-					Default:      true,
-				},
-			},
-		}
-	}
-
-	err = buildConfigs(args)
+	cluster, err := K8SClusterArgsToModel(args)
 	if err != nil {
 		return nil, err
-	}
-
-	cluster := &commonmodels.K8SCluster{
-		Name:           args.Name,
-		Description:    args.Description,
-		AdvancedConfig: advancedConfig,
-		Status:         args.Status,
-		Production:     args.Production,
-		Provider:       args.Provider,
-		CreatedAt:      args.CreatedAt,
-		CreatedBy:      args.CreatedBy,
-		Cache:          args.Cache,
-		DindCfg:        args.DindCfg,
-		Type:           args.Type,
-		KubeConfig:     args.KubeConfig,
-		ShareStorage:   args.ShareStorage,
 	}
 
 	return s.CreateCluster(cluster, args.ID, logger)
 }
 
-func validateStrategies(strategies []*ScheduleStrategy) error {
+func validateStrategies(strategies []*commonmodels.ScheduleStrategy) error {
+	err := commonutil.CheckZadigProfessionalLicense()
+	if err != nil {
+		for _, strategy := range strategies {
+			if strategy.Strategy == setting.RequiredSchedule || strategy.Tolerations != "" {
+				return e.ErrLicenseInvalid.AddDesc("")
+			}
+		}
+	}
+
 	names := make(map[string]struct{}, len(strategies))
 	defaultCount := 0
 	for _, strategy := range strategies {
@@ -461,162 +390,334 @@ func validateStrategies(strategies []*ScheduleStrategy) error {
 	return nil
 }
 
-func UpdateCluster(id string, args *K8SCluster, logger *zap.SugaredLogger) (*commonmodels.K8SCluster, error) {
+func UpdateCluster(ctx *handler.Context, id string, args *K8SCluster) (*commonmodels.K8SCluster, error) {
 	s, err := kube.NewService("")
 	if err != nil {
 		return nil, fmt.Errorf("failed to new kube service: %s", err)
 	}
 
-	advancedConfig := new(commonmodels.AdvancedConfig)
-	if args.AdvancedConfig != nil {
-		advancedConfig.Strategy = args.AdvancedConfig.Strategy
-		advancedConfig.NodeLabels = convertToNodeSelectorRequirements(args.AdvancedConfig.NodeLabels)
-		advancedConfig.Tolerations = args.AdvancedConfig.Tolerations
-
-		// compatible with open source version
-		licenseStatus, err := plutusvendor.New().CheckZadigXLicenseStatus()
-		if err != nil {
-			return nil, fmt.Errorf("failed to validate zadig license status, error: %s", err)
-		}
-		if licenseStatus.Type == plutusvendor.ZadigSystemTypeBasic {
-			var strategyID string
-			if len(args.AdvancedConfig.ScheduleStrategy) > 0 {
-				strategyID = args.AdvancedConfig.ScheduleStrategy[0].StrategyID
-			} else {
-				strategyID = primitive.NewObjectID().Hex()
-			}
-			advancedConfig.ScheduleStrategy = make([]*commonmodels.ScheduleStrategy, 0)
-			advancedConfig.ScheduleStrategy = append(advancedConfig.ScheduleStrategy, &commonmodels.ScheduleStrategy{
-				StrategyID:  strategyID,
-				Strategy:    advancedConfig.Strategy,
-				NodeLabels:  advancedConfig.NodeLabels,
-				Tolerations: advancedConfig.Tolerations,
-				Default:     true,
-			})
-		} else {
-			if args.AdvancedConfig.ScheduleStrategy != nil {
-				if err := validateStrategies(args.AdvancedConfig.ScheduleStrategy); err != nil {
-					return nil, err
-				}
-				for _, strategy := range args.AdvancedConfig.ScheduleStrategy {
-					if err := strategy.Validate(); err != nil {
-						msg := fmt.Errorf("update cluster failed, schedule strategy is invalid, err: %s", err)
-						logger.Error(msg)
-						return nil, msg
-					}
-
-					if strategy.StrategyID == "" {
-						strategy.StrategyID = primitive.NewObjectID().Hex()
-					}
-
-					advancedConfig.ScheduleStrategy = append(advancedConfig.ScheduleStrategy, &commonmodels.ScheduleStrategy{
-						StrategyID:   strategy.StrategyID,
-						StrategyName: strategy.StrategyName,
-						Strategy:     strategy.Strategy,
-						NodeLabels:   convertToNodeSelectorRequirements(strategy.NodeLabels),
-						Tolerations:  strategy.Tolerations,
-						Default:      strategy.Default,
-					})
-				}
-			}
-		}
-
-		if args.AdvancedConfig.ClusterAccessYaml == "" || args.Local {
-			advancedConfig.ClusterAccessYaml = kube.ClusterAccessYamlTemplate
-			advancedConfig.ScheduleWorkflow = true
-		} else {
-			// check the cluster access yaml
-			err = kube.ValidateClusterRoleYAML(args.AdvancedConfig.ClusterAccessYaml, logger)
-			if err != nil {
-				return nil, fmt.Errorf("invalid cluster access yaml: %s", err)
-			}
-			advancedConfig.ClusterAccessYaml = args.AdvancedConfig.ClusterAccessYaml
-			advancedConfig.ScheduleWorkflow = args.AdvancedConfig.ScheduleWorkflow
-		}
-
-		advancedConfig.EnableIRSA = args.AdvancedConfig.EnableIRSA
-		advancedConfig.IRSARoleARM = args.AdvancedConfig.IRSARoleARM
-
-		// Delete all projects associated with clusterID
-		err = commonrepo.NewProjectClusterRelationColl().Delete(&commonrepo.ProjectClusterRelationOption{ClusterID: id})
-		if err != nil {
-			logger.Errorf("Failed to delete projectClusterRelation err:%s", err)
-		}
-		for _, projectName := range args.AdvancedConfig.ProjectNames {
-			err = commonrepo.NewProjectClusterRelationColl().Create(&commonmodels.ProjectClusterRelation{
-				ProjectName: projectName,
-				ClusterID:   id,
-				CreatedBy:   args.CreatedBy,
-			})
-			if err != nil {
-				logger.Errorf("Failed to create projectClusterRelation err:%s", err)
-			}
-		}
+	cluster, err := s.GetCluster(id, ctx.Logger)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get cluster %q: %s", id, err)
 	}
 
-	cluster := &commonmodels.K8SCluster{
-		Name:           args.Name,
-		Description:    args.Description,
-		AdvancedConfig: advancedConfig,
-		Production:     args.Production,
-		Cache:          args.Cache,
-		DindCfg:        args.DindCfg,
-		Type:           args.Type,
-		KubeConfig:     args.KubeConfig,
-		ShareStorage:   args.ShareStorage,
-		Provider:       args.Provider,
+	clusterArgs, err := K8SClusterArgsToModel(args)
+	if err != nil {
+		return nil, err
 	}
-	cluster, err = s.UpdateCluster(id, cluster, logger)
+
+	cluster.Name = clusterArgs.Name
+	cluster.Description = clusterArgs.Description
+	cluster.Provider = clusterArgs.Provider
+	cluster.Production = clusterArgs.Production
+	cluster.KubeConfig = clusterArgs.KubeConfig
+	cluster.AdvancedConfig.ClusterAccessYaml = clusterArgs.AdvancedConfig.ClusterAccessYaml
+	cluster.AdvancedConfig.ScheduleWorkflow = clusterArgs.AdvancedConfig.ScheduleWorkflow
+	cluster.AdvancedConfig.EnableIRSA = clusterArgs.AdvancedConfig.EnableIRSA
+	cluster.AdvancedConfig.IRSARoleARM = clusterArgs.AdvancedConfig.IRSARoleARM
+
+	// Delete all projects associated with clusterID
+	hasErr := false
+	err = commonrepo.NewProjectClusterRelationColl().Delete(&commonrepo.ProjectClusterRelationOption{ClusterID: id})
+	if err != nil {
+		hasErr = true
+		ctx.Logger.Errorf("Failed to delete projectClusterRelation err:%s", err)
+	}
+	for _, projectName := range args.AdvancedConfig.ProjectNames {
+		err = commonrepo.NewProjectClusterRelationColl().Create(&commonmodels.ProjectClusterRelation{
+			ProjectName: projectName,
+			ClusterID:   id,
+			CreatedBy:   args.CreatedBy,
+		})
+		if err != nil {
+			hasErr = true
+			ctx.Logger.Errorf("Failed to create projectClusterRelation err:%s", err)
+		}
+	}
+	if !hasErr {
+		cluster.AdvancedConfig.ProjectNames = args.AdvancedConfig.ProjectNames
+	} else {
+		cluster.AdvancedConfig.ProjectNames = GetProjectNames(id, ctx.Logger)
+	}
+
+	cluster, err = s.UpdateCluster(id, cluster, ctx.Logger)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update cluster %q: %s", id, err)
 	}
+
 	// if we don't need this cluster to schedule workflow, we don't need to upgrade hub-agent
 	if cluster.AdvancedConfig != nil && !cluster.AdvancedConfig.ScheduleWorkflow {
 		return cluster, nil
 	}
 
-	err = buildConfigs(args)
+	return cluster, UpgradeAgent(id, ctx.Logger)
+}
+
+func AddOrUpdateClusterStrategy(ctx *handler.Context, id string, strategy *ScheduleStrategy) (*commonmodels.K8SCluster, error) {
+	s, err := kube.NewService("")
+	if err != nil {
+		return nil, fmt.Errorf("failed to new kube service: %s", err)
+	}
+
+	cluster, err := s.GetCluster(id, ctx.Logger)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get cluster %q: %s", id, err)
+	}
+
+	if cluster.AdvancedConfig != nil {
+		if strategy.StrategyID == "" {
+			// create a new strategy
+			strategyID := primitive.NewObjectID().Hex()
+			cluster.AdvancedConfig.ScheduleStrategy = append(cluster.AdvancedConfig.ScheduleStrategy, &commonmodels.ScheduleStrategy{
+				StrategyID:   strategyID,
+				StrategyName: strategy.StrategyName,
+				Strategy:     strategy.Strategy,
+				NodeLabels:   convertToNodeSelectorRequirements(strategy.NodeLabels),
+				Tolerations:  strategy.Tolerations,
+				Default:      strategy.Default,
+			})
+		} else {
+			// update an existing strategy
+			for _, s := range cluster.AdvancedConfig.ScheduleStrategy {
+				if s.StrategyID == strategy.StrategyID {
+					s.StrategyName = strategy.StrategyName
+					s.Strategy = strategy.Strategy
+					s.NodeLabels = convertToNodeSelectorRequirements(strategy.NodeLabels)
+					s.Tolerations = strategy.Tolerations
+					s.Default = strategy.Default
+				}
+			}
+		}
+
+		if strategy.Default {
+			for _, s := range cluster.AdvancedConfig.ScheduleStrategy {
+				if s.StrategyID != strategy.StrategyID {
+					s.Default = false
+				}
+			}
+		}
+
+		err = validateStrategies(cluster.AdvancedConfig.ScheduleStrategy)
+		if err != nil {
+			return nil, fmt.Errorf("failed to validate strategies: %s", err)
+		}
+	} else {
+		return nil, fmt.Errorf("advanced config is nil")
+	}
+
+	err = buildConfigs(cluster)
+	if err != nil {
+		return nil, err
+	}
+
+	cluster, err = s.UpdateCluster(id, cluster, ctx.Logger)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update cluster %q: %s", id, err)
+	}
+	cluster.AdvancedConfig.ProjectNames = GetProjectNames(id, ctx.Logger)
+
+	// if we don't need this cluster to schedule workflow, we don't need to upgrade hub-agent
+	if cluster.AdvancedConfig != nil && !cluster.AdvancedConfig.ScheduleWorkflow {
+		return cluster, nil
+	}
+
+	return cluster, UpgradeAgent(id, ctx.Logger)
+}
+
+func DeleteClusterStrategy(ctx *handler.Context, id, strategyID string) (*commonmodels.K8SCluster, error) {
+	s, err := kube.NewService("")
+	if err != nil {
+		return nil, fmt.Errorf("failed to new kube service: %s", err)
+	}
+
+	cluster, err := s.GetCluster(id, ctx.Logger)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get cluster %q: %s", id, err)
+	}
+
+	if cluster.DindCfg != nil {
+		dindStrategyID := cluster.DindCfg.StrategyID
+		if strategyID == dindStrategyID {
+			return nil, fmt.Errorf("strategy is in use by dind")
+		}
+	}
+
+	if cluster.AdvancedConfig != nil {
+		strategys := make([]*commonmodels.ScheduleStrategy, 0)
+		for _, strategy := range cluster.AdvancedConfig.ScheduleStrategy {
+			if strategy.StrategyID == strategyID {
+				if strategy.Default {
+					return nil, fmt.Errorf("default strategy can't be deleted")
+				}
+			} else {
+				strategys = append(strategys, strategy)
+			}
+		}
+		cluster.AdvancedConfig.ScheduleStrategy = strategys
+	}
+
+	err = buildConfigs(cluster)
+	if err != nil {
+		return nil, err
+	}
+
+	cluster, err = s.UpdateCluster(id, cluster, ctx.Logger)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update cluster %q: %s", id, err)
+	}
+	cluster.AdvancedConfig.ProjectNames = GetProjectNames(id, ctx.Logger)
+
+	// if we don't need this cluster to schedule workflow, we don't need to upgrade hub-agent
+	if cluster.AdvancedConfig != nil && !cluster.AdvancedConfig.ScheduleWorkflow {
+		return cluster, nil
+	}
+
+	return cluster, UpgradeAgent(id, ctx.Logger)
+}
+
+func UpdateClusterCache(ctx *handler.Context, id string, cache *types.Cache) (*commonmodels.K8SCluster, error) {
+	if cache == nil {
+		return nil, fmt.Errorf("cache is nil")
+	}
+
+	s, err := kube.NewService("")
+	if err != nil {
+		return nil, fmt.Errorf("failed to new kube service: %s", err)
+	}
+
+	cluster, err := s.GetCluster(id, ctx.Logger)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get cluster %q: %s", id, err)
+	}
+
+	// If the user chooses to use dynamically generated storage resources, the system automatically creates the PVC.
+	// TODO: If the PVC is not successfully bound to the PV, it is necessary to consider how to expose this abnormal information.
+	if cache.MediumType == types.NFSMedium && cache.NFSProperties.ProvisionType == types.DynamicProvision {
+		//if id == setting.LocalClusterID {
+		//	args.DindCfg = nil
+		//}
+
+		if err := createDynamicPVC(id, "cache", &cache.NFSProperties, ctx.Logger); err != nil {
+			return nil, err
+		}
+	}
+
+	// if we don't need this cluster to schedule workflow, we don't need to upgrade hub-agent
+	if cluster.AdvancedConfig != nil && !cluster.AdvancedConfig.ScheduleWorkflow {
+		return cluster, nil
+	}
+
+	cluster.Cache = *cache
+
+	err = buildConfigs(cluster)
+	if err != nil {
+		return nil, err
+	}
+
+	cluster, err = s.UpdateCluster(id, cluster, ctx.Logger)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update cluster %q: %s", id, err)
+	}
+	cluster.AdvancedConfig.ProjectNames = GetProjectNames(id, ctx.Logger)
+
+	// if we don't need this cluster to schedule workflow, we don't need to upgrade hub-agent
+	if cluster.AdvancedConfig != nil && !cluster.AdvancedConfig.ScheduleWorkflow {
+		return cluster, nil
+	}
+
+	return cluster, UpgradeAgent(id, ctx.Logger)
+}
+
+func UpdateClusterStorage(ctx *handler.Context, id string, shareStorage *types.ShareStorage) (*commonmodels.K8SCluster, error) {
+	if shareStorage == nil {
+		return nil, fmt.Errorf("share storage is nil")
+	}
+
+	s, err := kube.NewService("")
+	if err != nil {
+		return nil, fmt.Errorf("failed to new kube service: %s", err)
+	}
+
+	cluster, err := s.GetCluster(id, ctx.Logger)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get cluster %q: %s", id, err)
+	}
+	cluster.ShareStorage = *shareStorage
+
+	err = buildConfigs(cluster)
 	if err != nil {
 		return nil, err
 	}
 
 	// If the user chooses to use dynamically generated storage resources, the system automatically creates the PVC.
 	// TODO: If the PVC is not successfully bound to the PV, it is necessary to consider how to expose this abnormal information.
-	//       Depends on product design.
-	// TODO: Currently can't change cluster to right config, if previous config is wrong.
-	if args.Cache.MediumType == types.NFSMedium && args.Cache.NFSProperties.ProvisionType == types.DynamicProvision {
-		//if id == setting.LocalClusterID {
-		//	args.DindCfg = nil
-		//}
-
-		if err := createDynamicPVC(id, "cache", &args.Cache.NFSProperties, logger); err != nil {
-			return nil, err
-		}
-	}
-	if args.ShareStorage.MediumType == types.NFSMedium && args.ShareStorage.NFSProperties.ProvisionType == types.DynamicProvision {
-		if err := createDynamicPVC(id, "share-storage", &args.ShareStorage.NFSProperties, logger); err != nil {
+	if shareStorage.MediumType == types.NFSMedium && shareStorage.NFSProperties.ProvisionType == types.DynamicProvision {
+		if err := createDynamicPVC(id, "share-storage", &shareStorage.NFSProperties, ctx.Logger); err != nil {
 			return nil, err
 		}
 	}
 
-	cluster = &commonmodels.K8SCluster{
-		Name:           args.Name,
-		Description:    args.Description,
-		AdvancedConfig: advancedConfig,
-		Production:     args.Production,
-		Cache:          args.Cache,
-		DindCfg:        args.DindCfg,
-		Type:           args.Type,
-		KubeConfig:     args.KubeConfig,
-		ShareStorage:   args.ShareStorage,
-		Provider:       args.Provider,
-	}
-	cluster, err = s.UpdateCluster(id, cluster, logger)
+	cluster, err = s.UpdateCluster(id, cluster, ctx.Logger)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update cluster %q: %s", id, err)
 	}
+	cluster.AdvancedConfig.ProjectNames = GetProjectNames(id, ctx.Logger)
 
-	return cluster, UpgradeAgent(id, logger)
+	// if we don't need this cluster to schedule workflow, we don't need to upgrade hub-agent
+	if cluster.AdvancedConfig != nil && !cluster.AdvancedConfig.ScheduleWorkflow {
+		return cluster, nil
+	}
+
+	return cluster, UpgradeAgent(id, ctx.Logger)
+}
+
+func UpdateClusterDind(ctx *handler.Context, id string, dindCfg *commonmodels.DindCfg) (*commonmodels.K8SCluster, error) {
+	if dindCfg == nil {
+		return nil, fmt.Errorf("dindCfg is nil")
+	}
+
+	err := commonutil.CheckZadigProfessionalLicense()
+	if err != nil {
+		if dindCfg.Replicas != 1 {
+			return nil, e.ErrLicenseInvalid.AddDesc("")
+		}
+		if dindCfg.Resources != nil {
+			if dindCfg.Resources.Limits != nil {
+				if dindCfg.Resources.Limits.CPU != 4000 || dindCfg.Resources.Limits.Memory != 8192 {
+					return nil, e.ErrLicenseInvalid.AddDesc("")
+				}
+			}
+		}
+	}
+
+	s, err := kube.NewService("")
+	if err != nil {
+		return nil, fmt.Errorf("failed to new kube service: %s", err)
+	}
+
+	cluster, err := s.GetCluster(id, ctx.Logger)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get cluster %q: %s", id, err)
+	}
+	cluster.DindCfg = dindCfg
+
+	err = buildConfigs(cluster)
+	if err != nil {
+		return nil, err
+	}
+
+	cluster, err = s.UpdateCluster(id, cluster, ctx.Logger)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update cluster %q: %s", id, err)
+	}
+	cluster.AdvancedConfig.ProjectNames = GetProjectNames(id, ctx.Logger)
+
+	// if we don't need this cluster to schedule workflow, we don't need to upgrade hub-agent
+	if cluster.AdvancedConfig != nil && !cluster.AdvancedConfig.ScheduleWorkflow {
+		return cluster, nil
+	}
+
+	return cluster, UpgradeAgent(id, ctx.Logger)
 }
 
 func GetClusterStatus() map[string]float64 {
@@ -790,62 +891,62 @@ func UpgradeAgent(id string, logger *zap.SugaredLogger) error {
 		}
 
 		return UpgradeDind(kubeClient, clusterInfo, config.Namespace())
-	}
-
-	// Upgrade attached cluster.
-	yamls, err := s.GetYaml(id, config.HubAgentImage(), configbase.SystemAddress(), "/api/hub", true, logger)
-	if err != nil {
-		return err
-	}
-
-	errList := new(multierror.Error)
-	manifests := releaseutil.SplitManifests(string(yamls))
-	resources := make([]*unstructured.Unstructured, 0, len(manifests))
-	for _, item := range manifests {
-		u, err := serializer.NewDecoder().YamlToUnstructured([]byte(item))
-		// kubeconfig cluster does not need to upgrade hub-agent.
-		uName := u.GetName()
-		if clusterInfo.Type == setting.KubeConfigClusterType && (uName == "hub-agent" || uName == "koderover-agent-node-agent") {
-			continue
-		}
+	} else {
+		// Upgrade attached cluster.
+		yamls, err := s.GetYaml(id, config.HubAgentImage(), configbase.SystemAddress(), "/api/hub", true, logger)
 		if err != nil {
-			log.Errorf("[UpgradeAgent] Failed to convert yaml to Unstructured, manifest is\n%s\n, error: %v", item, err)
-			errList = multierror.Append(errList, err)
-			continue
+			return err
 		}
-		resources = append(resources, u)
-	}
 
-	for _, u := range resources {
-		if u.GetKind() == "StatefulSet" && u.GetName() == types.DindStatefulSetName {
-			if err = kubeClient.Get(context.TODO(), client.ObjectKey{
-				Name:      types.DindStatefulSetName,
-				Namespace: setting.AttachedClusterNamespace,
-			}, &appsv1.StatefulSet{}); err != nil {
-				logger.Infof("failed to get dind from %s, start to create dind", setting.AttachedClusterNamespace)
-				err = updater.CreateOrPatchUnstructured(u, kubeClient)
-			} else {
-				err = UpgradeDind(kubeClient, clusterInfo, setting.AttachedClusterNamespace)
+		errList := new(multierror.Error)
+		manifests := releaseutil.SplitManifests(string(yamls))
+		resources := make([]*unstructured.Unstructured, 0, len(manifests))
+		for _, item := range manifests {
+			u, err := serializer.NewDecoder().YamlToUnstructured([]byte(item))
+			// kubeconfig cluster does not need to upgrade hub-agent.
+			uName := u.GetName()
+			if clusterInfo.Type == setting.KubeConfigClusterType && (uName == "hub-agent" || uName == "koderover-agent-node-agent") {
+				continue
 			}
-		} else {
-			err = updater.CreateOrPatchUnstructured(u, kubeClient)
+			if err != nil {
+				log.Errorf("[UpgradeAgent] Failed to convert yaml to Unstructured, manifest is\n%s\n, error: %v", item, err)
+				errList = multierror.Append(errList, err)
+				continue
+			}
+			resources = append(resources, u)
 		}
 
-		if err != nil {
-			log.Errorf("[UpgradeAgent] Failed to create or update %s, manifest is\n%v\n, error: %v", u.GetKind(), u, err)
-			errList = multierror.Append(errList, err)
-			continue
-		}
-	}
-	updateHubagentErrorMsg := ""
-	if len(errList.Errors) > 0 {
-		updateHubagentErrorMsg = errList.Error()
-	}
+		for _, u := range resources {
+			if u.GetKind() == "StatefulSet" && u.GetName() == types.DindStatefulSetName {
+				if err = kubeClient.Get(context.TODO(), client.ObjectKey{
+					Name:      types.DindStatefulSetName,
+					Namespace: setting.AttachedClusterNamespace,
+				}, &appsv1.StatefulSet{}); err != nil {
+					logger.Infof("failed to get dind from %s, start to create dind", setting.AttachedClusterNamespace)
+					err = updater.CreateOrPatchUnstructured(u, kubeClient)
+				} else {
+					err = UpgradeDind(kubeClient, clusterInfo, setting.AttachedClusterNamespace)
+				}
+			} else {
+				err = updater.CreateOrPatchUnstructured(u, kubeClient)
+			}
 
-	return s.UpdateUpgradeAgentInfo(id, updateHubagentErrorMsg)
+			if err != nil {
+				log.Errorf("[UpgradeAgent] Failed to create or update %s, manifest is\n%v\n, error: %v", u.GetKind(), u, err)
+				errList = multierror.Append(errList, err)
+				continue
+			}
+		}
+		updateHubagentErrorMsg := ""
+		if len(errList.Errors) > 0 {
+			updateHubagentErrorMsg = errList.Error()
+		}
+
+		return s.UpdateUpgradeAgentInfo(id, updateHubagentErrorMsg)
+	}
 }
 
-func buildConfigs(args *K8SCluster) error {
+func buildConfigs(args *commonmodels.K8SCluster) error {
 	// If user does not configure a cache for the cluster, object storage is used by default.
 	err := setClusterCache(args)
 	if err != nil {
@@ -866,7 +967,7 @@ func buildConfigs(args *K8SCluster) error {
 	return nil
 }
 
-func setClusterCache(args *K8SCluster) error {
+func setClusterCache(args *commonmodels.K8SCluster) error {
 	if args.Cache.MediumType != "" {
 		return nil
 	}
@@ -883,7 +984,7 @@ func setClusterCache(args *K8SCluster) error {
 	// - Since the local cluster will be written to the database when Zadig is created, empty ID indicates
 	//   that the cluster is attached.
 	// - Currently, we do not support attaching the local cluster again.
-	if (args.ID != setting.LocalClusterID) && strings.Contains(defaultStorage.Endpoint, ZadigMinioSVC) {
+	if (args.ID.Hex() != setting.LocalClusterID) && strings.Contains(defaultStorage.Endpoint, ZadigMinioSVC) {
 		return nil
 	}
 
@@ -895,7 +996,7 @@ func setClusterCache(args *K8SCluster) error {
 	return nil
 }
 
-func setClusterDind(cluster *K8SCluster) error {
+func setClusterDind(cluster *commonmodels.K8SCluster) error {
 	if cluster.DindCfg == nil {
 		cluster.DindCfg = &commonmodels.DindCfg{
 			Replicas: kube.DefaultDindReplicas,
@@ -937,7 +1038,7 @@ func setClusterDind(cluster *K8SCluster) error {
 	return nil
 }
 
-func validateTolerations(cluster *K8SCluster) error {
+func validateTolerations(cluster *commonmodels.K8SCluster) error {
 	if cluster.AdvancedConfig != nil {
 		if cluster.AdvancedConfig.Tolerations != "" {
 			ts := make([]corev1.Toleration, 0)
@@ -1032,6 +1133,11 @@ func UpgradeDind(kclient client.Client, cluster *commonmodels.K8SCluster, ns str
 	}, dindSts)
 	if err != nil {
 		return fmt.Errorf("failed to get dind StatefulSet in local cluster: %s", err)
+	}
+
+	scaleupd := false
+	if *dindSts.Spec.Replicas < int32(cluster.DindCfg.Replicas) {
+		scaleupd = true
 	}
 
 	dindSts.Spec.Replicas = util.GetInt32Pointer(int32(cluster.DindCfg.Replicas))
@@ -1149,35 +1255,26 @@ func UpgradeDind(kclient client.Client, cluster *commonmodels.K8SCluster, ns str
 		}
 	}
 
-	err = kclient.Update(ctx, dindSts)
-	if apierrors.IsInvalid(err) {
-		deleteOption := metav1.DeletePropagationForeground
-		err = kclient.Delete(ctx, dindSts, &client.DeleteOptions{
-			PropagationPolicy: &deleteOption,
-		})
-		if err != nil {
-			return fmt.Errorf("failed to delete StatefulSet `dind`: %s", err)
-		}
-
-		newDindSts := &appsv1.StatefulSet{}
-		newDindSts.Name = dindSts.Name
-		newDindSts.Namespace = dindSts.Namespace
-		newDindSts.Labels = dindSts.Labels
-		newDindSts.Annotations = dindSts.Annotations
-		newDindSts.Spec = dindSts.Spec
-
-		return wait.PollImmediate(3*time.Second, 30*time.Second, func() (bool, error) {
-			err := kclient.Create(ctx, newDindSts)
-			if err == nil {
-				return true, nil
-			}
-
-			log.Warnf("Failed to create StatefulSet `dind`: %s", err)
-			return false, nil
-		})
+	if cluster.DindCfg.StrategyID != "" {
+		dindSts.Spec.Template.Spec.Tolerations = commonutil.BuildTolerations(cluster.AdvancedConfig, cluster.DindCfg.StrategyID)
+		dindSts.Spec.Template.Spec.Affinity = commonutil.AddNodeAffinity(cluster.AdvancedConfig, cluster.DindCfg.StrategyID)
 	}
 
-	return err
+	err = kclient.Update(ctx, dindSts)
+	if err != nil {
+		err = fmt.Errorf("failed to update StatefulSet `dind`: %s", err)
+		log.Error(err)
+		return err
+	}
+
+	if scaleupd {
+		err = commonutil.SyncDinDForRegistries()
+		if err != nil {
+			log.Errorf("SyncDinDForRegistries error: %v", err)
+		}
+	}
+
+	return nil
 }
 
 func createDynamicPVC(clusterID, prefix string, nfsProperties *types.NFSProperties, logger *zap.SugaredLogger) error {
@@ -1463,4 +1560,100 @@ func GetClusterIRSAInfo(clusterID string, logger *zap.SugaredLogger) (*GetCluste
 	}
 
 	return resp, nil
+}
+
+func K8SClusterArgsToModel(args *K8SCluster) (*commonmodels.K8SCluster, error) {
+	advancedConfig := &commonmodels.AdvancedConfig{}
+	if args.AdvancedConfig != nil {
+		advancedConfig.Strategy = args.AdvancedConfig.Strategy
+		advancedConfig.NodeLabels = convertToNodeSelectorRequirements(args.AdvancedConfig.NodeLabels)
+		advancedConfig.ProjectNames = args.AdvancedConfig.ProjectNames
+		advancedConfig.Tolerations = args.AdvancedConfig.Tolerations
+		advancedConfig.ClusterAccessYaml = args.AdvancedConfig.ClusterAccessYaml
+		advancedConfig.ScheduleWorkflow = args.AdvancedConfig.ScheduleWorkflow
+		advancedConfig.EnableIRSA = args.AdvancedConfig.EnableIRSA
+		advancedConfig.IRSARoleARM = args.AdvancedConfig.IRSARoleARM
+
+		advancedConfig.ScheduleStrategy = make([]*commonmodels.ScheduleStrategy, 0)
+		for _, strategy := range args.AdvancedConfig.ScheduleStrategy {
+			err := strategy.Validate()
+			if err != nil {
+				return nil, fmt.Errorf("failed to validate cluster, schedule strategy is invalid, err: %s", err)
+			}
+			if strategy.StrategyID == "" {
+				strategy.StrategyID = primitive.NewObjectID().Hex()
+			}
+
+			advancedConfig.ScheduleStrategy = append(advancedConfig.ScheduleStrategy, &commonmodels.ScheduleStrategy{
+				StrategyID:   strategy.StrategyID,
+				StrategyName: strategy.StrategyName,
+				Strategy:     strategy.Strategy,
+				NodeLabels:   convertToNodeSelectorRequirements(strategy.NodeLabels),
+				Tolerations:  strategy.Tolerations,
+				Default:      strategy.Default,
+			})
+		}
+
+		if args.AdvancedConfig.ClusterAccessYaml == "" {
+			advancedConfig.ClusterAccessYaml = kube.ClusterAccessYamlTemplate
+			advancedConfig.ScheduleWorkflow = true
+		} else {
+			// check the cluster access yaml
+			err := kube.ValidateClusterRoleYAML(args.AdvancedConfig.ClusterAccessYaml, log.SugaredLogger())
+			if err != nil {
+				return nil, fmt.Errorf("invalid cluster access yaml: %s", err)
+			}
+			advancedConfig.ClusterAccessYaml = args.AdvancedConfig.ClusterAccessYaml
+			advancedConfig.ScheduleWorkflow = args.AdvancedConfig.ScheduleWorkflow
+		}
+	} else {
+		advancedConfig = &commonmodels.AdvancedConfig{
+			ClusterAccessYaml: kube.ClusterAccessYamlTemplate,
+			ScheduleWorkflow:  true,
+			Strategy:          setting.NormalSchedule,
+			ScheduleStrategy: []*commonmodels.ScheduleStrategy{
+				{
+					StrategyID:   primitive.NewObjectID().Hex(),
+					StrategyName: setting.NormalScheduleName,
+					Strategy:     setting.NormalSchedule,
+					Default:      true,
+				},
+			},
+		}
+	}
+
+	cluster := &commonmodels.K8SCluster{
+		Name:           args.Name,
+		Description:    args.Description,
+		AdvancedConfig: advancedConfig,
+		Status:         args.Status,
+		Production:     args.Production,
+		Provider:       args.Provider,
+		CreatedAt:      args.CreatedAt,
+		CreatedBy:      args.CreatedBy,
+		Cache:          args.Cache,
+		DindCfg:        args.DindCfg,
+		Type:           args.Type,
+		KubeConfig:     args.KubeConfig,
+		ShareStorage:   args.ShareStorage,
+	}
+
+	if err := validateStrategies(cluster.AdvancedConfig.ScheduleStrategy); err != nil {
+		return nil, fmt.Errorf("failed to validate cluster, schedule strategys are invalid, err: %s", err)
+	}
+
+	if args.ID != "" {
+		var err error
+		cluster.ID, err = primitive.ObjectIDFromHex(args.ID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to convert cluster arg id to object id, err: %s", err)
+		}
+	}
+
+	err := buildConfigs(cluster)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build configs for cluster %s: %s", args.Name, err)
+	}
+
+	return cluster, nil
 }
