@@ -836,10 +836,8 @@ func waitJobEndByCheckingConfigMap(ctx context.Context, taskTimeout <-chan time.
 		select {
 		case <-ctx.Done():
 			return config.StatusCancelled, ""
-
 		case <-taskTimeout:
 			return config.StatusTimeout, ""
-
 		default:
 			job, err := jobLister.Get(jobName)
 			if err != nil {
@@ -864,6 +862,14 @@ func waitJobEndByCheckingConfigMap(ctx context.Context, taskTimeout <-chan time.
 					return config.StatusFailed, errMsg
 				}
 				for _, pod := range pods {
+					commonrepo.NewWaitPodFinishLogColl().Create(
+						&commonrepo.WaitPodFinishLog{
+							Namespace: namespace,
+							PodName:   pod.Name,
+							JobName:   jobName,
+							Status:    string(pod.Status.Phase),
+						})
+
 					ipod := wrapper.Pod(pod)
 					if ipod.Pending() {
 						continue
