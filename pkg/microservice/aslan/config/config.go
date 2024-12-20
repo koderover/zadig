@@ -94,6 +94,14 @@ func ExecutorImage() string {
 	return viper.GetString(setting.ENVExecutorImage)
 }
 
+func ExecutorLogLevel() string {
+	logLevel := viper.GetString(setting.ENVExecutorLogLevel)
+	if len(logLevel) == 0 {
+		return "info"
+	}
+	return logLevel
+}
+
 func KodespaceVersion() string {
 	return viper.GetString(setting.ENVKodespaceVersion)
 }

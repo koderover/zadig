@@ -31,6 +31,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/types/step"
+	"github.com/koderover/zadig/v2/pkg/util"
 	"github.com/koderover/zadig/v2/pkg/util/fs"
 )
 
@@ -58,14 +59,14 @@ func NewDockerBuildStep(spec interface{}, workspace string, envs, secretEnvs []s
 func (s *DockerBuildStep) Run(ctx context.Context) error {
 	log.Infof("Start docker build.")
 
-	envMap := makeEnvMap(s.envs, s.secretEnvs)
+	envMap := util.MakeEnvMap(s.envs, s.secretEnvs)
 	if image, ok := envMap["IMAGE"]; ok {
 		s.spec.ImageName = image
 	}
 
-	s.spec.WorkDir = replaceEnvWithValue(s.spec.WorkDir, envMap)
-	s.spec.DockerFile = replaceEnvWithValue(s.spec.DockerFile, envMap)
-	s.spec.BuildArgs = replaceEnvWithValue(s.spec.BuildArgs, envMap)
+	s.spec.WorkDir = util.ReplaceEnvWithValue(s.spec.WorkDir, envMap)
+	s.spec.DockerFile = util.ReplaceEnvWithValue(s.spec.DockerFile, envMap)
+	s.spec.BuildArgs = util.ReplaceEnvWithValue(s.spec.BuildArgs, envMap)
 
 	if err := s.dockerLogin(); err != nil {
 		return err

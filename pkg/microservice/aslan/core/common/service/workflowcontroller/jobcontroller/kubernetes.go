@@ -577,6 +577,11 @@ func getEnvs(configMapMountDir string, jobTaskSpec *commonmodels.JobTaskFreestyl
 			Value: jobTaskSpec.Properties.DockerHost,
 		})
 	}
+	ret = append(ret, corev1.EnvVar{
+		Name:  setting.ENVLogLevel,
+		Value: config.ExecutorLogLevel(),
+	})
+
 	return ret
 }
 

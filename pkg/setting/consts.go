@@ -47,6 +47,7 @@ const (
 	ENVPodName              = "BE_POD_NAME"
 	ENVNamespace            = "BE_POD_NAMESPACE"
 	ENVLogLevel             = "LOG_LEVEL"
+	ENVExecutorLogLevel     = "EXECUTOR_LOG_LEVEL"
 	ENVServiceStartTimeout  = "SERVICE_START_TIMEOUT"
 	ENVDefaultEnvRecycleDay = "DEFAULT_ENV_RECYCLE_DAY"
 	ENVDefaultIngressClass  = "DEFAULT_INGRESS_CLASS"
@@ -932,7 +933,7 @@ const (
 const (
 	WorkflowScanningJobOutputKey        = "SonarCETaskID"
 	WorkflowScanningJobOutputKeyProject = "SonarProjectKey"
-	WorkflowScanningJobOutputKeyBranch =  "SonarBranchKey"
+	WorkflowScanningJobOutputKeyBranch  = "SonarBranchKey"
 )
 
 type NotifyWebHookType string
