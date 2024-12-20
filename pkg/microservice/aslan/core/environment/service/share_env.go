@@ -22,6 +22,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	networkingv1alpha3 "istio.io/api/networking/v1alpha3"
 	versionedclient "istio.io/client-go/pkg/clientset/versioned"
 	appsv1 "k8s.io/api/apps/v1"
@@ -30,10 +31,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
@@ -41,7 +40,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/repository"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/setting"
-	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	helmtool "github.com/koderover/zadig/v2/pkg/tool/helmclient"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/util"
@@ -72,7 +70,7 @@ func CheckWorkloadsK8sServices(ctx context.Context, envName, productName string,
 	ns := prod.Namespace
 	clusterID := prod.ClusterID
 
-	kclient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
+	kclient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(clusterID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get kube client: %s", err)
 	}
@@ -93,17 +91,12 @@ func EnableBaseEnv(ctx context.Context, envName, productName string) error {
 	ns := prod.Namespace
 	clusterID := prod.ClusterID
 
-	kclient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
+	kclient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(clusterID)
 	if err != nil {
 		return fmt.Errorf("failed to get kube client: %s", err)
 	}
 
-	restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), clusterID)
-	if err != nil {
-		return fmt.Errorf("failed to get rest config: %s", err)
-	}
-
-	istioClient, err := versionedclient.NewForConfig(restConfig)
+	istioClient, err := clientmanager.NewKubeClientManager().GetIstioClientSet(clusterID)
 	if err != nil {
 		return fmt.Errorf("failed to new istio client: %s", err)
 	}
@@ -149,17 +142,12 @@ func DisableBaseEnv(ctx context.Context, envName, productName string) error {
 	ns := prod.Namespace
 	clusterID := prod.ClusterID
 
-	kclient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
+	kclient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(clusterID)
 	if err != nil {
 		return fmt.Errorf("failed to get kube client: %s", err)
 	}
 
-	restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), clusterID)
-	if err != nil {
-		return fmt.Errorf("failed to get rest config: %s", err)
-	}
-
-	istioClient, err := versionedclient.NewForConfig(restConfig)
+	istioClient, err := clientmanager.NewKubeClientManager().GetIstioClientSet(clusterID)
 	if err != nil {
 		return fmt.Errorf("failed to new istio client: %s", err)
 	}
@@ -214,17 +202,12 @@ func CheckShareEnvReady(ctx context.Context, envName, op, productName string) (*
 	ns := prod.Namespace
 	clusterID := prod.ClusterID
 
-	kclient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
+	kclient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(clusterID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get kube client: %s", err)
 	}
 
-	restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), clusterID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get rest config: %s", err)
-	}
-
-	istioClient, err := versionedclient.NewForConfig(restConfig)
+	istioClient, err := clientmanager.NewKubeClientManager().GetIstioClientSet(clusterID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to new istio client: %s", err)
 	}
@@ -744,15 +727,11 @@ func GetPortalService(ctx context.Context, productName, envName, serviceName str
 	ns := env.Namespace
 	clusterID := env.ClusterID
 
-	kclient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
+	kclient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(clusterID)
 	if err != nil {
 		return resp, e.ErrGetPortalService.AddErr(fmt.Errorf("failed to get kube client: %s", err))
 	}
-	restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), clusterID)
-	if err != nil {
-		return resp, e.ErrGetPortalService.AddErr(fmt.Errorf("failed to get rest config: %s", err))
-	}
-	istioClient, err := versionedclient.NewForConfig(restConfig)
+	istioClient, err := clientmanager.NewKubeClientManager().GetIstioClientSet(clusterID)
 	if err != nil {
 		return resp, e.ErrGetPortalService.AddErr(fmt.Errorf("failed to new istio client: %s", err))
 	}
@@ -845,15 +824,11 @@ func SetupPortalService(ctx context.Context, productName, envName, serviceName s
 	ns := env.Namespace
 	clusterID := env.ClusterID
 
-	kclient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
+	kclient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(clusterID)
 	if err != nil {
 		return e.ErrSetupPortalService.AddErr(fmt.Errorf("failed to get kube client: %s", err))
 	}
-	restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), clusterID)
-	if err != nil {
-		return e.ErrSetupPortalService.AddErr(fmt.Errorf("failed to get rest config: %s", err))
-	}
-	istioClient, err := versionedclient.NewForConfig(restConfig)
+	istioClient, err := clientmanager.NewKubeClientManager().GetIstioClientSet(clusterID)
 	if err != nil {
 		return e.ErrSetupPortalService.AddErr(fmt.Errorf("failed to new istio client: %s", err))
 	}
@@ -894,7 +869,7 @@ func SetupPortalService(ctx context.Context, productName, envName, serviceName s
 			return e.ErrSetupPortalService.AddErr(fmt.Errorf("failed to parse k8s project services, err: %w", err))
 		}
 	} else if deployType == setting.HelmDeployType {
-		svcs, err = parseHelmProjectServices(ctx, restConfig, env, envName, productName, serviceName, kclient, ns)
+		svcs, err = parseHelmProjectServices(ctx, clusterID, env, envName, productName, serviceName, kclient, ns)
 		if err != nil {
 			return e.ErrSetupPortalService.AddErr(fmt.Errorf("failed to parse helm project services, err: %w", err))
 		}
@@ -961,9 +936,9 @@ func updateVirtualServiceForPortalService(ctx context.Context, svc *corev1.Servi
 	return nil
 }
 
-func parseHelmProjectServices(ctx context.Context, restConfig *rest.Config, env *commonmodels.Product, envName string, productName string, serviceName string, kclient client.Client, ns string) ([]*corev1.Service, error) {
+func parseHelmProjectServices(ctx context.Context, clusterID string, env *commonmodels.Product, envName string, productName string, serviceName string, kclient client.Client, ns string) ([]*corev1.Service, error) {
 	svcs := []*corev1.Service{}
-	helmClient, err := helmtool.NewClientFromRestConf(restConfig, env.Namespace)
+	helmClient, err := helmtool.NewClientFromNamespace(clusterID, env.Namespace)
 	if err != nil {
 		log.Errorf("[%s][%s] NewClientFromRestConf error: %s", envName, productName, err)
 		return nil, fmt.Errorf("failed to init helm client, err: %s", err)

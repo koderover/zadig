@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -41,7 +42,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/workflowcontroller/jobcontroller"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/workflowstat"
 	"github.com/koderover/zadig/v2/pkg/setting"
-	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
 	"github.com/koderover/zadig/v2/pkg/tool/cache"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/getter"
@@ -306,20 +306,10 @@ FOR:
 		return e.ErrSetBreakpoint.AddDesc("修改断点意外失败: convert job task spec")
 	}
 
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), jobTaskSpec.Properties.ClusterID)
+	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(jobTaskSpec.Properties.ClusterID)
 	if err != nil {
 		log.Errorf("set workflowTaskV4 breakpoint failed: get kube client error: %s", err)
 		return e.ErrSetBreakpoint.AddDesc("修改断点意外失败: get kube client")
-	}
-	clientSet, err := kubeclient.GetClientset(config.HubServerAddress(), jobTaskSpec.Properties.ClusterID)
-	if err != nil {
-		log.Errorf("set workflowTaskV4 breakpoint failed: get kube client set error: %s", err)
-		return e.ErrSetBreakpoint.AddDesc("修改断点意外失败: get kube client set")
-	}
-	restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), jobTaskSpec.Properties.ClusterID)
-	if err != nil {
-		log.Errorf("set workflowTaskV4 breakpoint failed: get kube rest config error: %s", err)
-		return e.ErrSetBreakpoint.AddDesc("修改断点意外失败: get kube rest config")
 	}
 
 	// job task is running, check whether shell step has run, and touch breakpoint file
@@ -349,7 +339,7 @@ FOR:
 				ContainerName: pod.Spec.Containers[0].Name,
 				Command:       []string{"sh", "-c", cmd},
 			}
-			_, stderr, success, _ := podexec.KubeExec(clientSet, restConfig, opt)
+			_, stderr, success, _ := podexec.KubeExec(jobTaskSpec.Properties.ClusterID, opt)
 			logger.Errorf("set workflowTaskV4 breakpoint exec %s error: %s", cmd, stderr)
 			return success
 		}
@@ -442,20 +432,10 @@ FOR:
 		return e.ErrStopDebugShell.AddDesc("结束调试意外失败")
 	}
 
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), jobTaskSpec.Properties.ClusterID)
+	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(jobTaskSpec.Properties.ClusterID)
 	if err != nil {
 		logger.Errorf("stop workflowTaskV4 debug shell failed: get kube client error: %s", err)
 		return e.ErrSetBreakpoint.AddDesc("结束调试意外失败: get kube client")
-	}
-	clientSet, err := kubeclient.GetClientset(config.HubServerAddress(), jobTaskSpec.Properties.ClusterID)
-	if err != nil {
-		logger.Errorf("stop workflowTaskV4 debug shell failed: get kube client set error: %s", err)
-		return e.ErrSetBreakpoint.AddDesc("结束调试意外失败: get kube client set")
-	}
-	restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), jobTaskSpec.Properties.ClusterID)
-	if err != nil {
-		logger.Errorf("stop workflowTaskV4 debug shell failed: get kube rest config error: %s", err)
-		return e.ErrSetBreakpoint.AddDesc("结束调试意外失败: get kube rest config")
 	}
 
 	pods, err := getter.ListPods(jobTaskSpec.Properties.Namespace, labels.Set{"job-name": task.K8sJobName}.AsSelector(), kubeClient)
@@ -481,7 +461,7 @@ FOR:
 			ContainerName: pod.Spec.Containers[0].Name,
 			Command:       []string{"sh", "-c", cmd},
 		}
-		_, stderr, success, _ := podexec.KubeExec(clientSet, restConfig, opt)
+		_, stderr, success, _ := podexec.KubeExec(jobTaskSpec.Properties.ClusterID, opt)
 		if stderr != "" {
 			logger.Errorf("stop workflowTaskV4 debug shell exec %s error: %s", cmd, stderr)
 		}
@@ -611,12 +591,12 @@ func (c *workflowCtl) CleanShareStorage() {
 		if clusterID == setting.LocalClusterID || clusterID == "" {
 			namespace = config.Namespace()
 		}
-		kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
+		kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(clusterID)
 		if err != nil {
 			c.logger.Errorf("can't init k8s client: %v", err)
 			continue
 		}
-		kubeApiServer, err := kubeclient.GetKubeAPIReader(config.HubServerAddress(), clusterID)
+		kubeApiServer, err := clientmanager.NewKubeClientManager().GetControllerRuntimeAPIReader(clusterID)
 		if err != nil {
 			c.logger.Errorf("can't init k8s api reader: %v", err)
 			continue

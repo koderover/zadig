@@ -25,6 +25,7 @@ import (
 	"sync"
 
 	"github.com/google/go-github/v35/github"
+	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	"go.uber.org/zap"
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -677,7 +678,7 @@ func getImageInfoFromWorkload(envName, productName, serviceName, container strin
 		return "", err
 	}
 
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), product.ClusterID)
+	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(product.ClusterID)
 	if err != nil {
 		return "", err
 	}
@@ -686,7 +687,7 @@ func getImageInfoFromWorkload(envName, productName, serviceName, container strin
 		return findCurrentlyUsingImage(product, serviceName, container)
 	}
 
-	clientset, err := kubeclient.GetClientset(config.HubServerAddress(), product.ClusterID)
+	clientset, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(product.ClusterID)
 	if err != nil {
 		log.Errorf("get client set error: %v", err)
 		return "", err

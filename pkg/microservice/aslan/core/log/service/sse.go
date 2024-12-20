@@ -27,6 +27,7 @@ import (
 	"time"
 
 	jenkins "github.com/koderover/gojenkins"
+	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
@@ -35,11 +36,9 @@ import (
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	vmmongodb "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/vm"
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/workflowcontroller/jobcontroller"
 	vmservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/vm/service"
 	"github.com/koderover/zadig/v2/pkg/setting"
-	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/containerlog"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/watcher"
@@ -81,7 +80,7 @@ func ContainerLogStream(ctx context.Context, streamChan chan interface{}, envNam
 		log.Errorf("kubeCli.GetContainerLogStream error: %v", err)
 		return
 	}
-	clientset, err := kube.GetClientset(productInfo.ClusterID)
+	clientset, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(productInfo.ClusterID)
 	if err != nil {
 		log.Errorf("failed to find ns and kubeClient: %v", err)
 		return
@@ -89,7 +88,7 @@ func ContainerLogStream(ctx context.Context, streamChan chan interface{}, envNam
 	containerLogStream(ctx, streamChan, productInfo.Namespace, podName, containerName, follow, tailLines, clientset, log)
 }
 
-func containerLogStream(ctx context.Context, streamChan chan interface{}, namespace, podName, containerName string, follow bool, tailLines int64, client kubernetes.Interface, log *zap.SugaredLogger) {
+func containerLogStream(ctx context.Context, streamChan chan interface{}, namespace, podName, containerName string, follow bool, tailLines int64, client *kubernetes.Clientset, log *zap.SugaredLogger) {
 	log.Infof("[GetContainerLogsSSE] Get container log of pod %s", podName)
 
 	out, err := containerlog.GetContainerLogStream(ctx, namespace, podName, containerName, follow, tailLines, client)
@@ -254,7 +253,7 @@ func waitAndGetLog(ctx context.Context, streamChan chan interface{}, selector la
 	defer cancel()
 
 	log.Debugf("Waiting until pod is running before establishing the stream. labelSelector: %+v, clusterId: %s, namespace: %s", selector, options.ClusterID, options.Namespace)
-	clientSet, err := kubeclient.GetClientset(config.HubServerAddress(), options.ClusterID)
+	clientSet, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(options.ClusterID)
 	if err != nil {
 		log.Errorf("GetContainerLogs, get client set error: %s", err)
 		return
@@ -266,7 +265,7 @@ func waitAndGetLog(ctx context.Context, streamChan chan interface{}, selector la
 		return
 	}
 
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), options.ClusterID)
+	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(options.ClusterID)
 	if err != nil {
 		log.Errorf("GetContainerLogs, get kube client error: %s", err)
 		return
