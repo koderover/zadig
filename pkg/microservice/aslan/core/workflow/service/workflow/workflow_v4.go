@@ -2215,25 +2215,6 @@ func checkClusterShareStorage(id string) (bool, error) {
 
 func ListAllAvailableWorkflows(projects []string, log *zap.SugaredLogger) ([]*Workflow, error) {
 	resp := make([]*Workflow, 0)
-	allProductWorkflows, err := commonrepo.NewWorkflowColl().ListWorkflowsByProjects(projects)
-	if err != nil {
-		log.Errorf("failed to get all product workflows, error: %s", err)
-		return nil, err
-	}
-	for _, productWorkflow := range allProductWorkflows {
-		resp = append(resp, &Workflow{
-			Name:         productWorkflow.Name,
-			DisplayName:  productWorkflow.DisplayName,
-			ProjectName:  productWorkflow.ProductTmplName,
-			UpdateTime:   productWorkflow.UpdateTime,
-			CreateTime:   productWorkflow.CreateTime,
-			UpdateBy:     productWorkflow.UpdateBy,
-			WorkflowType: "",
-			Description:  productWorkflow.Description,
-			BaseName:     productWorkflow.BaseName,
-		})
-	}
-
 	allCustomWorkflows, err := commonrepo.NewWorkflowV4Coll().ListByProjectNames(projects)
 	if err != nil {
 		log.Errorf("failed to get all custom workflows, error: %s", err)

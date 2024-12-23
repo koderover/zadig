@@ -18,10 +18,11 @@ package service
 
 import (
 	"fmt"
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"math"
 	"net/http"
 	"strings"
+
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
@@ -217,7 +218,7 @@ func GetMyWorkflow(header http.Header, username, userID string, isAdmin bool, ca
 	return resp, nil
 }
 
-func GetMyEnvironment(projectName, envName, username, userID string, log *zap.SugaredLogger) (*EnvResponse, error) {
+func GetMyEnvironment(projectName, envName string, production bool, username, userID string, log *zap.SugaredLogger) (*EnvResponse, error) {
 	cfg, err := commonrepo.NewDashboardConfigColl().GetByUser(username, userID)
 	// if there is an error and the error is not empty document then we return error
 	if err != nil {
@@ -229,10 +230,15 @@ func GetMyEnvironment(projectName, envName, username, userID string, log *zap.Su
 		}
 	}
 	envInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
-		Name:    projectName,
-		EnvName: envName,
+		Name:       projectName,
+		EnvName:    envName,
+		Production: &production,
 	})
 	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return nil, nil
+		}
+
 		log.Infof("failed to get environment info, the error is: %s", err)
 		return nil, err
 	}
@@ -243,6 +249,14 @@ func GetMyEnvironment(projectName, envName, username, userID string, log *zap.Su
 	if err != nil {
 		log.Infof("failed to get project info, the error is: %s", err)
 		return nil, err
+	}
+
+	getImage := func(svc *service.ServiceResp) string {
+		image := ""
+		if len(svc.Images) > 0 {
+			image = svc.Images[0]
+		}
+		return image
 	}
 
 	targetServiceMap := make(map[string]int)
@@ -312,9 +326,10 @@ func GetMyEnvironment(projectName, envName, username, userID string, log *zap.Su
 		if targetServiceCount == 0 {
 			for _, svc := range svcList {
 				entry := &EnvService{
-					ServiceName: svc.ServiceDisplayName,
-					Status:      svc.Status,
-					Image:       svc.Images[0],
+					ServiceName:  svc.ServiceDisplayName,
+					WorkloadType: svc.WorkLoadType,
+					Status:       svc.Status,
+					Image:        svc.Images[0],
 				}
 				if entry.ServiceName == "" {
 					entry.ServiceName = svc.ServiceName
@@ -326,9 +341,10 @@ func GetMyEnvironment(projectName, envName, username, userID string, log *zap.Su
 			for _, svc := range svcList {
 				if _, ok := targetServiceMap[svc.ServiceName]; ok {
 					entry := &EnvService{
-						ServiceName: svc.ServiceDisplayName,
-						Status:      svc.Status,
-						Image:       svc.Images[0],
+						ServiceName:  svc.ServiceDisplayName,
+						WorkloadType: svc.WorkLoadType,
+						Status:       svc.Status,
+						Image:        getImage(svc),
 					}
 					if entry.ServiceName == "" {
 						entry.ServiceName = svc.ServiceName
@@ -349,9 +365,10 @@ func GetMyEnvironment(projectName, envName, username, userID string, log *zap.Su
 		if targetServiceCount == 0 {
 			for _, svc := range svcList {
 				entry := &EnvService{
-					ServiceName: svc.ServiceDisplayName,
-					Status:      svc.Status,
-					Image:       svc.Images[0],
+					ServiceName:  svc.ServiceDisplayName,
+					WorkloadType: svc.WorkLoadType,
+					Status:       svc.Status,
+					Image:        getImage(svc),
 				}
 				if entry.ServiceName == "" {
 					entry.ServiceName = svc.ServiceName
@@ -363,9 +380,10 @@ func GetMyEnvironment(projectName, envName, username, userID string, log *zap.Su
 			for _, svc := range svcList {
 				if _, ok := targetServiceMap[svc.ServiceName]; ok {
 					entry := &EnvService{
-						ServiceName: svc.ServiceDisplayName,
-						Status:      svc.Status,
-						Image:       svc.Images[0],
+						ServiceName:  svc.ServiceDisplayName,
+						WorkloadType: svc.WorkLoadType,
+						Status:       svc.Status,
+						Image:        getImage(svc),
 					}
 					if entry.ServiceName == "" {
 						entry.ServiceName = svc.ServiceName

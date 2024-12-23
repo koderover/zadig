@@ -118,6 +118,8 @@ type MyWorkflowCardConfig struct {
 type MyEnvCardConfig struct {
 	EnvType        string   `json:"env_type"`
 	EnvName        string   `json:"env_name"`
+	Production     bool     `json:"production"`
+	ProjectType    string   `json:"project_type"`
 	ProjectName    string   `json:"project_name"`
 	ServiceModules []string `json:"service_modules"`
 }
@@ -152,9 +154,10 @@ type EnvResponse struct {
 }
 
 type EnvService struct {
-	ServiceName string `json:"service_name"`
-	Status      string `json:"status"`
-	Image       string `json:"image"`
+	ServiceName  string `json:"service_name"`
+	WorkloadType string `json:"workload_type"`
+	Status       string `json:"status"`
+	Image        string `json:"image"`
 }
 
 type VMEnvService struct {

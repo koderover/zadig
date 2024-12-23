@@ -71,6 +71,12 @@ func GetMyEnvironment(c *gin.Context) {
 
 	projectName := c.Query("projectName")
 	envName := c.Param("name")
+	productionStr := c.Query("production")
 
-	ctx.Resp, ctx.RespErr = service.GetMyEnvironment(projectName, envName, ctx.UserName, ctx.UserID, ctx.Logger)
+	production := false
+	if productionStr == "true" {
+		production = true
+	}
+
+	ctx.Resp, ctx.RespErr = service.GetMyEnvironment(projectName, envName, production, ctx.UserName, ctx.UserID, ctx.Logger)
 }
