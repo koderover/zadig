@@ -788,6 +788,7 @@ func RetryWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredL
 	for _, stage := range task.WorkflowArgs.Stages {
 		for _, job := range stage.Jobs {
 			if job.Skipped {
+				log.Debugf("skip jobName: %s", job.Name)
 				continue
 			}
 			jobCtl, err := jobctl.InitJobCtl(job, task.WorkflowArgs)
@@ -799,7 +800,8 @@ func RetryWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredL
 				return errors.Errorf("job %s toJobs error: %s", job.Name, err)
 			}
 			for _, jobTask := range jobTasks {
-				jobTaskMap[jobTask.Key] = jobTask
+				log.Debugf("1 jobTaskName: %s", jobTask.Name)
+				jobTaskMap[jobTask.Name] = jobTask
 			}
 		}
 	}
@@ -821,7 +823,8 @@ func RetryWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredL
 			jobTask.StartTime = 0
 			jobTask.EndTime = 0
 			jobTask.Error = ""
-			if t, ok := jobTaskMap[jobTask.Key]; ok {
+			log.Debugf("2 jobTaskName: %s", jobTask.Name)
+			if t, ok := jobTaskMap[jobTask.Name]; ok {
 				jobTask.Spec = t.Spec
 			} else {
 				return errors.Errorf("failed to get jobTask %s origin spec", jobTask.Name)
