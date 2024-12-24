@@ -99,7 +99,8 @@ type CreateFromChartTemplate struct {
 	YamlData     *templatemodels.CustomYaml `bson:"yaml_data,omitempty"   json:"yaml_data,omitempty"`
 	TemplateName string                     `bson:"template_name" json:"template_name"`
 	ServiceName  string                     `bson:"service_name" json:"service_name"`
-	Variables    []*Variable                `bson:"variables" json:"variables"`
+	// custom variables in chart template
+	Variables []*Variable `bson:"variables" json:"variables"`
 }
 
 type CreateFromChartRepo struct {
@@ -196,9 +197,10 @@ type ServiceTmplRevision struct {
 }
 
 type HelmChart struct {
-	Name       string `bson:"name"               json:"name"`
-	Repo       string `bson:"repo"               json:"repo"`
-	Version    string `bson:"version"            json:"version"`
+	Name    string `bson:"name"               json:"name"`
+	Repo    string `bson:"repo"               json:"repo"`
+	Version string `bson:"version"            json:"version"`
+	// full values yaml in service
 	ValuesYaml string `bson:"values_yaml"        json:"values_yaml"`
 }
 

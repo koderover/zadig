@@ -835,7 +835,6 @@ func CreateOrUpdateHelmServiceFromRepo(projectName string, args *HelmServiceCrea
 	filePaths = createFromRepo.Paths
 	base = path.Join(config.S3StoragePath(), createFromRepo.Repo)
 
-	helmRenderCharts := make([]*templatemodels.ServiceRender, 0, len(filePaths))
 	var wg wait.Group
 	var mux sync.RWMutex
 	var serviceList []*commonmodels.Service
@@ -962,12 +961,6 @@ func CreateOrUpdateHelmServiceFromRepo(projectName string, args *HelmServiceCrea
 				return
 			}
 			serviceList = append(serviceList, svc)
-
-			helmRenderCharts = append(helmRenderCharts, &templatemodels.ServiceRender{
-				ServiceName:  serviceName,
-				ChartVersion: svc.HelmChart.Version,
-				ValuesYaml:   svc.HelmChart.ValuesYaml,
-			})
 		})
 	}
 
