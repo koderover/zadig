@@ -2334,17 +2334,24 @@ func CompareHelmServiceYamlInEnv(serviceName, variableYaml, envName, projectName
 
 	if isHelmChartDeploy {
 		currentYaml := ""
+		latestYaml := ""
 		chartInfo := prod.GetChartDeployRenderMap()[serviceName]
 		if chartInfo != nil {
 			currentYaml, err = helmtool.MergeOverrideValues("", "", chartInfo.GetOverrideYaml(), chartInfo.OverrideValues, nil)
 			if err != nil {
 				return nil, fmt.Errorf("failed to merge override values, err: %s", err)
 			}
+
+			latestYaml, err = helmtool.MergeOverrideValues("", "", variableYaml, chartInfo.OverrideValues, nil)
+			if err != nil {
+				return nil, fmt.Errorf("failed to merge override values, err: %s", err)
+			}
 		}
 		currentYaml = strings.TrimSuffix(currentYaml, "\n")
+		latestYaml = strings.TrimSuffix(latestYaml, "\n")
 		return &GetHelmValuesDifferenceResp{
 			Current: currentYaml,
-			Latest:  variableYaml,
+			Latest:  latestYaml,
 		}, nil
 	}
 
