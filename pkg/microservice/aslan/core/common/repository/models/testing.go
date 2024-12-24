@@ -104,6 +104,7 @@ type PreTest struct {
 	// EnableProxy
 	EnableProxy      bool   `bson:"enable_proxy"           json:"enable_proxy"`
 	ClusterID        string `bson:"cluster_id"             json:"cluster_id"`
+	ClusterSource    string `bson:"cluster_source"         json:"cluster_source"`
 	StrategyID       string `bson:"strategy_id"            json:"strategy_id"`
 	ConcurrencyLimit int    `bson:"concurrency_limit"      json:"concurrency_limit"`
 	// TODO: Deprecated.

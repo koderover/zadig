@@ -675,3 +675,8 @@ const (
 	DistributeImageMethodImagePush DistributeImageMethod = "image_push"
 	DistributeImageMethodCloudSync DistributeImageMethod = "cloud_sync"
 )
+
+const (
+	AgentTypeZadigDefaultServiceAccountName      = "koderover-agent"
+	KubeConfigTypeZadigDefaultServiceAccountName = "zadig-workflow-sa"
+)
