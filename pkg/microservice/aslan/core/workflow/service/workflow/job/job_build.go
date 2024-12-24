@@ -267,7 +267,20 @@ func (j *BuildJob) MergeArgs(args *commonmodels.Job) error {
 			}
 		}
 		j.spec.ServiceAndBuilds = newBuilds
-		j.spec.DefaultServiceAndBuilds = argsSpec.DefaultServiceAndBuilds
+
+		newDefaultBuilds := []*commonmodels.ServiceAndBuild{}
+		for _, build := range j.spec.ServiceAndBuilds {
+			for _, argsBuild := range argsSpec.DefaultServiceAndBuilds {
+				if build.BuildName == argsBuild.BuildName && build.ServiceName == argsBuild.ServiceName && build.ServiceModule == argsBuild.ServiceModule {
+					build.Repos = mergeRepos(build.Repos, argsBuild.Repos)
+					build.KeyVals = renderKeyVals(argsBuild.KeyVals, build.KeyVals)
+					newDefaultBuilds = append(newDefaultBuilds, build)
+					break
+				}
+			}
+		}
+		j.spec.DefaultServiceAndBuilds = newDefaultBuilds
+
 		j.job.Spec = j.spec
 	}
 	return nil
