@@ -372,7 +372,7 @@ func buildJob(jobType, jobImage, jobName, clusterID, currentNamespace string, re
 		if clusterID != setting.LocalClusterID {
 			serviceAccountName = config.AgentTypeZadigDefaultServiceAccountName
 		} else {
-			controllerRuntimeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
+			controllerRuntimeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(clusterID)
 			if err != nil {
 				return nil, fmt.Errorf("failed to create client for target cluster %s, err: %s", clusterID, err)
 			}
