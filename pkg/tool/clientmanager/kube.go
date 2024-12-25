@@ -470,7 +470,7 @@ func (cm *KubeClientManager) getControllerRuntimeCluster(clusterID string) (cont
 	}
 
 	if clusterInfo.Status != setting.Normal {
-		return nil, fmt.Errorf("cluster %s status: %s, cannot create client", clusterID, clusterInfo.Status)
+		return nil, fmt.Errorf("unable to connect to cluster: %s, status: %s", clusterInfo.Name, clusterInfo.Status)
 	}
 
 	var cfg *rest.Config
