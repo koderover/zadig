@@ -150,6 +150,10 @@ func InitJobCtl(job *commonmodels.Job, workflow *commonmodels.WorkflowV4) (JobCt
 func InstantiateWorkflow(workflow *commonmodels.WorkflowV4) error {
 	for _, stage := range workflow.Stages {
 		for _, job := range stage.Jobs {
+			if JobSkiped(job) {
+				continue
+			}
+
 			if err := Instantiate(job, workflow); err != nil {
 				return err
 			}
@@ -602,29 +606,20 @@ func RemoveFixedValueMarks(workflow *commonmodels.WorkflowV4) error {
 	return json.Unmarshal([]byte(replacedString), &workflow)
 }
 
-func RenderGlobalVariables(workflow *commonmodels.WorkflowV4, taskID int64, creator, account string) error {
+func RenderWorkflowParams(workflow *commonmodels.WorkflowV4, taskID int64, creator, account string) error {
 	b, err := json.Marshal(workflow)
 	if err != nil {
 		return fmt.Errorf("marshal workflow error: %v", err)
 	}
-	params, err := getWorkflowDefaultParams(workflow, taskID, creator, account)
+	globalParams, err := getWorkflowDefaultParams(workflow, taskID, creator, account)
 	if err != nil {
 		return fmt.Errorf("get workflow default params error: %v", err)
 	}
-	replacedString := renderMultiLineString(string(b), setting.RenderValueTemplate, params)
-	return json.Unmarshal([]byte(replacedString), &workflow)
-}
-
-func RenderStageVariables(workflow *commonmodels.WorkflowV4, taskID int64, creator string) error {
-	b, err := json.Marshal(workflow)
-	if err != nil {
-		return fmt.Errorf("marshal workflow error: %v", err)
-	}
-	params, err := getWorkflowStageParams(workflow)
+	stageParams, err := getWorkflowStageParams(workflow)
 	if err != nil {
 		return fmt.Errorf("get workflow stage params error: %v", err)
 	}
-	replacedString := renderMultiLineString(string(b), setting.RenderValueTemplate, params)
+	replacedString := renderMultiLineString(string(b), setting.RenderValueTemplate, append(globalParams, stageParams...))
 	return json.Unmarshal([]byte(replacedString), &workflow)
 }
 
