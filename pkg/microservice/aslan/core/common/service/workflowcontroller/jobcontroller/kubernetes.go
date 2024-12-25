@@ -368,7 +368,22 @@ func buildJob(jobType, jobImage, jobName, clusterID, currentNamespace string, re
 
 	if targetCluster.Type == setting.AgentClusterType {
 		commands = []string{"/bin/sh", "-c", fmt.Sprintf("cp /app/* %s", ExecutorVolumePath)}
-		serviceAccountName = config.AgentTypeZadigDefaultServiceAccountName
+
+		if clusterID != setting.LocalClusterID {
+			serviceAccountName = config.AgentTypeZadigDefaultServiceAccountName
+		} else {
+			controllerRuntimeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create client for target cluster %s, err: %s", clusterID, err)
+			}
+			deploy, deployExists, err := getter.GetDeployment(config.Namespace(), "aslan", controllerRuntimeClient)
+			if err != nil || !deployExists {
+				return nil, fmt.Errorf("failed to find aslan deployment to determine the correct service account, error: %s", err)
+			}
+
+			serviceAccountName = deploy.Spec.Template.Spec.ServiceAccountName
+		}
+
 	} else {
 		commands = []string{"/bin/sh", "-c", fmt.Sprintf(
 			`cp /app/* %s &&
