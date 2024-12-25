@@ -82,11 +82,6 @@ func MongoDatabase() string {
 	return configbase.MongoDatabase()
 }
 
-// TODO: Marked for deletion, use general config
-func HubServerAddress() string {
-	return configbase.HubServerServiceAddress()
-}
-
 func HubAgentImage() string {
 	return viper.GetString(setting.ENVHubAgentImage)
 }

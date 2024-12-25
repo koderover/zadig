@@ -826,19 +826,19 @@ func GetClusterStrategyReferences(clusterID string, logger *zap.SugaredLogger) (
 }
 
 func DisconnectCluster(username string, clusterID string, logger *zap.SugaredLogger) error {
-	s, _ := kube.NewService(config.HubServerAddress())
+	s, _ := kube.NewService(configbase.HubServerServiceAddress())
 
 	return s.DisconnectCluster(username, clusterID, logger)
 }
 
 func ReconnectCluster(username string, clusterID string, logger *zap.SugaredLogger) error {
-	s, _ := kube.NewService(config.HubServerAddress())
+	s, _ := kube.NewService(configbase.HubServerServiceAddress())
 
 	return s.ReconnectCluster(username, clusterID, logger)
 }
 
 func ProxyAgent(writer gin.ResponseWriter, request *http.Request) {
-	s, _ := kube.NewService(config.HubServerAddress())
+	s, _ := kube.NewService(configbase.HubServerServiceAddress())
 
 	s.ProxyAgent(writer, request)
 }

@@ -131,7 +131,7 @@ func (c *FreestyleJobCtl) prepare(ctx context.Context) error {
 
 func (c *FreestyleJobCtl) run(ctx context.Context) error {
 	// get kube client
-	hubServerAddr := config.HubServerAddress()
+	hubServerAddr := zadigconfig.HubServerServiceAddress()
 	if c.jobTaskSpec.Properties.ClusterID == setting.LocalClusterID {
 		c.jobTaskSpec.Properties.Namespace = zadigconfig.Namespace()
 	} else {
