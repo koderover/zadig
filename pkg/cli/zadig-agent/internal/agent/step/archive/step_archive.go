@@ -29,10 +29,10 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/helper/log"
-	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/agent/step/helper"
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/common/types"
 	"github.com/koderover/zadig/v2/pkg/tool/s3"
 	"github.com/koderover/zadig/v2/pkg/types/step"
+	"github.com/koderover/zadig/v2/pkg/util"
 )
 
 type ArchiveStep struct {
@@ -63,8 +63,8 @@ func (s *ArchiveStep) Run(ctx context.Context) error {
 	}()
 
 	for _, upload := range s.spec.UploadDetail {
-		envmaps := helper.MakeEnvMap(s.envs, s.secretEnvs)
-		s.logger.Infof(fmt.Sprintf("Start archive %s.", helper.ReplaceEnvWithValue(upload.FilePath, envmaps)))
+		envmaps := util.MakeEnvMap(s.envs, s.secretEnvs)
+		s.logger.Infof(fmt.Sprintf("Start archive %s.", util.ReplaceEnvWithValue(upload.FilePath, envmaps)))
 
 		if upload.DestinationPath == "" || upload.FilePath == "" {
 			return nil
@@ -75,8 +75,8 @@ func (s *ArchiveStep) Run(ctx context.Context) error {
 		}
 
 		upload.AbsFilePath = fmt.Sprintf("$env:WORKSPACE/%s", upload.FilePath)
-		upload.AbsFilePath = helper.ReplaceEnvWithValue(upload.AbsFilePath, envmaps)
-		upload.DestinationPath = helper.ReplaceEnvWithValue(upload.DestinationPath, envmaps)
+		upload.AbsFilePath = util.ReplaceEnvWithValue(upload.AbsFilePath, envmaps)
+		upload.DestinationPath = util.ReplaceEnvWithValue(upload.DestinationPath, envmaps)
 
 		if runtime.GOOS == "windows" {
 			upload.AbsFilePath = filepath.FromSlash(filepath.ToSlash(upload.AbsFilePath))

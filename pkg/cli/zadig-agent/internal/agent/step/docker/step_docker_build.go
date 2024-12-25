@@ -33,6 +33,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/common/types"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/types/step"
+	"github.com/koderover/zadig/v2/pkg/util"
 	"github.com/koderover/zadig/v2/pkg/util/fs"
 )
 
@@ -65,10 +66,10 @@ func (s *DockerBuildStep) Run(ctx context.Context) error {
 		s.logger.Infof(fmt.Sprintf("Docker build ended. Duration: %.2f seconds.", time.Since(start).Seconds()))
 	}()
 
-	envMap := helper.MakeEnvMap(s.envs, s.secretEnvs)
-	s.spec.WorkDir = helper.ReplaceEnvWithValue(s.spec.WorkDir, envMap)
-	s.spec.DockerFile = helper.ReplaceEnvWithValue(s.spec.DockerFile, envMap)
-	s.spec.BuildArgs = helper.ReplaceEnvWithValue(s.spec.BuildArgs, envMap)
+	envMap := util.MakeEnvMap(s.envs, s.secretEnvs)
+	s.spec.WorkDir = util.ReplaceEnvWithValue(s.spec.WorkDir, envMap)
+	s.spec.DockerFile = util.ReplaceEnvWithValue(s.spec.DockerFile, envMap)
+	s.spec.BuildArgs = util.ReplaceEnvWithValue(s.spec.BuildArgs, envMap)
 
 	if err := s.dockerLogin(); err != nil {
 		return err

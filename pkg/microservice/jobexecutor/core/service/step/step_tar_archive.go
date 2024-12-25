@@ -32,6 +32,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/tool/s3"
 	"github.com/koderover/zadig/v2/pkg/types/step"
+	"github.com/koderover/zadig/v2/pkg/util"
 )
 
 type TarArchiveStep struct {
@@ -68,10 +69,10 @@ func (s *TarArchiveStep) Run(ctx context.Context) error {
 		}
 	}
 
-	envMap := makeEnvMap(s.envs, s.secretEnvs)
+	envMap := util.MakeEnvMap(s.envs, s.secretEnvs)
 	tarName := filepath.Join(s.spec.DestDir, s.spec.FileName)
-	tarName = replaceEnvWithValue(tarName, envMap)
-	s.spec.TarDir = replaceEnvWithValue(s.spec.TarDir, envMap)
+	tarName = util.ReplaceEnvWithValue(tarName, envMap)
+	s.spec.TarDir = util.ReplaceEnvWithValue(s.spec.TarDir, envMap)
 
 	cmdAndArtifactFullPaths := make([]string, 0)
 	cmdAndArtifactFullPaths = append(cmdAndArtifactFullPaths, "-czf")
@@ -84,7 +85,7 @@ func (s *TarArchiveStep) Run(ctx context.Context) error {
 		if len(artifactPath) == 0 {
 			continue
 		}
-		artifactPath = replaceEnvWithValue(artifactPath, envMap)
+		artifactPath = util.ReplaceEnvWithValue(artifactPath, envMap)
 		if !s.spec.AbsResultDir {
 			artifactPath = strings.TrimPrefix(artifactPath, "/")
 			artifactPath = filepath.Join(s.workspace, artifactPath)

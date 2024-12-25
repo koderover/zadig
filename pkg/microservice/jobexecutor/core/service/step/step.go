@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/jobexecutor/config"
@@ -157,7 +156,7 @@ func handleCmdOutput(pipe io.ReadCloser, needPersistentLog bool, logFile string,
 			break
 		}
 
-		fmt.Printf("%s   %s", time.Now().Format(setting.WorkflowTimeFormat), maskSecretEnvs(string(lineBytes), secretEnvs))
+		fmt.Printf("%s   %s", time.Now().Format(setting.WorkflowTimeFormat), util.MaskSecretEnvs(string(lineBytes), secretEnvs))
 
 		if needPersistentLog {
 			err := util.WriteFile(logFile, lineBytes, 0700)
@@ -166,44 +165,6 @@ func handleCmdOutput(pipe io.ReadCloser, needPersistentLog bool, logFile string,
 			}
 		}
 	}
-}
-
-const (
-	secretEnvMask = "********"
-)
-
-func maskSecret(secrets []string, message string) string {
-	out := message
-
-	for _, val := range secrets {
-		if len(val) == 0 {
-			continue
-		}
-		out = strings.Replace(out, val, "********", -1)
-	}
-	return out
-}
-
-func maskSecretEnvs(message string, secretEnvs []string) string {
-	out := message
-
-	for _, val := range secretEnvs {
-		if len(val) == 0 {
-			continue
-		}
-		sl := strings.Split(val, "=")
-
-		if len(sl) != 2 {
-			continue
-		}
-
-		if len(sl[0]) == 0 || len(sl[1]) == 0 {
-			// invalid key value pair received
-			continue
-		}
-		out = strings.Replace(out, strings.Join(sl[1:], "="), secretEnvMask, -1)
-	}
-	return out
 }
 
 func isDirEmpty(dir string) bool {
@@ -221,18 +182,4 @@ func setCmdsWorkDir(dir string, cmds []*cmd.Command) {
 	for _, c := range cmds {
 		c.Cmd.Dir = dir
 	}
-}
-
-func makeEnvMap(envs ...[]string) map[string]string {
-	envMap := map[string]string{}
-	for _, env := range envs {
-		for _, env := range env {
-			sl := strings.Split(env, "=")
-			if len(sl) != 2 {
-				continue
-			}
-			envMap[sl[0]] = sl[1]
-		}
-	}
-	return envMap
 }

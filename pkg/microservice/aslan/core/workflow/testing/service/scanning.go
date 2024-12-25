@@ -19,7 +19,6 @@ package service
 import (
 	"context"
 	"fmt"
-	"os"
 	"sort"
 	"strings"
 	"time"
@@ -807,19 +806,4 @@ func renderKeyVals(input, origin []*commonmodels.KeyVal) []*commonmodels.KeyVal 
 		}
 	}
 	return origin
-}
-
-func renderEnv(data string, kvs []*commonmodels.KeyVal) string {
-	mapper := func(data string) string {
-		for _, envar := range kvs {
-			if data != envar.Key {
-				continue
-			}
-
-			return envar.Value
-		}
-
-		return fmt.Sprintf("$%s", data)
-	}
-	return os.Expand(data, mapper)
 }

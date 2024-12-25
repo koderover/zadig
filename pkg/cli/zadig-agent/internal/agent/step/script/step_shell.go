@@ -33,6 +33,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/helper/log"
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/agent/step/helper"
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/common/types"
+	"github.com/koderover/zadig/v2/pkg/util"
 )
 
 type ShellStep struct {
@@ -71,7 +72,7 @@ func (s *ShellStep) Run(ctx context.Context) error {
 		s.Logger.Infof(fmt.Sprintf("Script Execution ended. Duration: %.2f seconds.", time.Since(start).Seconds()))
 	}()
 
-	envmaps := helper.MakeEnvMap(s.envs, s.secretEnvs)
+	envmaps := util.MakeEnvMap(s.envs, s.secretEnvs)
 	userScriptFile, err := generateScript(s.spec, s.dirs, s.JobOutput, envmaps, s.Logger)
 	if err != nil {
 		return fmt.Errorf("generate script failed: %v", err)
@@ -126,7 +127,7 @@ func generateScript(spec *StepShellSpec, dirs *types.AgentWorkDirs, jobOutput []
 	}
 	scripts := []string{}
 	scripts = append(scripts, spec.Scripts...)
-	scripts = helper.ReplaceEnvArrWithValue(scripts, envmaps)
+	scripts = util.ReplaceEnvArrWithValue(scripts, envmaps)
 
 	// add job output to script
 	if len(jobOutput) > 0 {

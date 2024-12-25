@@ -312,8 +312,8 @@ func (b *JobCtxBuilder) BuildReaperContext(pipelineTask *task.Task, serviceName 
 			// use AbsFilePath to avoid change the original user input since a job may be retried
 			upload.AbsFilePath = fmt.Sprintf("$WORKSPACE/%s", upload.FilePath)
 			// then we replace it with our env variables
-			upload.AbsFilePath = replaceEnvWithValue(upload.AbsFilePath, envmaps)
-			upload.DestinationPath = replaceEnvWithValue(upload.DestinationPath, envmaps)
+			upload.AbsFilePath = util.ReplaceEnvWithValue(upload.AbsFilePath, envmaps)
+			upload.DestinationPath = util.ReplaceEnvWithValue(upload.DestinationPath, envmaps)
 		}
 	}
 

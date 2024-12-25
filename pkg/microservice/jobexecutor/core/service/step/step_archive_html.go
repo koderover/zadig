@@ -27,6 +27,7 @@ import (
 	"github.com/koderover/obelisk"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/types/step"
+	"github.com/koderover/zadig/v2/pkg/util"
 )
 
 type ArchiveHtmlStep struct {
@@ -54,11 +55,11 @@ func (s *ArchiveHtmlStep) Run(ctx context.Context) error {
 		log.Infof("Archive html ended. Duration: %.2f seconds", time.Since(start).Seconds())
 	}()
 
-	envmaps := makeEnvMap(s.envs, s.secretEnvs)
+	envmaps := util.MakeEnvMap(s.envs, s.secretEnvs)
 	s.spec.HtmlPath = fmt.Sprintf("$WORKSPACE/%s", s.spec.HtmlPath)
-	s.spec.HtmlPath = replaceEnvWithValue(s.spec.HtmlPath, envmaps)
+	s.spec.HtmlPath = util.ReplaceEnvWithValue(s.spec.HtmlPath, envmaps)
 	s.spec.OutputPath = fmt.Sprintf("$WORKSPACE/%s", s.spec.OutputPath)
-	s.spec.OutputPath = replaceEnvWithValue(s.spec.OutputPath, envmaps)
+	s.spec.OutputPath = util.ReplaceEnvWithValue(s.spec.OutputPath, envmaps)
 
 	log.Infof("Start archive html %s.", s.spec.HtmlPath)
 	req := obelisk.Request{URL: fmt.Sprintf("file://%s", s.spec.HtmlPath)}

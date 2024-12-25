@@ -29,9 +29,9 @@ import (
 
 	"github.com/koderover/obelisk"
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/helper/log"
-	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/agent/step/helper"
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/common/types"
 	"github.com/koderover/zadig/v2/pkg/types/step"
+	"github.com/koderover/zadig/v2/pkg/util"
 )
 
 type ArchiveHtmlStep struct {
@@ -65,13 +65,13 @@ func (s *ArchiveHtmlStep) Run(ctx context.Context) error {
 	arc := obelisk.Archiver{EnableLog: true}
 	arc.Validate()
 
-	envmaps := helper.MakeEnvMap(s.envs, s.secretEnvs)
-	s.logger.Infof(fmt.Sprintf("Start archive html %s.", helper.ReplaceEnvWithValue(s.spec.HtmlPath, envmaps)))
+	envmaps := util.MakeEnvMap(s.envs, s.secretEnvs)
+	s.logger.Infof(fmt.Sprintf("Start archive html %s.", util.ReplaceEnvWithValue(s.spec.HtmlPath, envmaps)))
 
 	s.spec.HtmlPath = fmt.Sprintf("$env:WORKSPACE/%s", s.spec.HtmlPath)
-	s.spec.HtmlPath = helper.ReplaceEnvWithValue(s.spec.HtmlPath, envmaps)
+	s.spec.HtmlPath = util.ReplaceEnvWithValue(s.spec.HtmlPath, envmaps)
 	s.spec.OutputPath = fmt.Sprintf("$env:WORKSPACE/%s", s.spec.OutputPath)
-	s.spec.OutputPath = helper.ReplaceEnvWithValue(s.spec.OutputPath, envmaps)
+	s.spec.OutputPath = util.ReplaceEnvWithValue(s.spec.OutputPath, envmaps)
 
 	if runtime.GOOS == "windows" {
 		s.spec.HtmlPath = filepath.FromSlash(filepath.ToSlash(s.spec.HtmlPath))
