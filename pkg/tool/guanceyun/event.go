@@ -17,7 +17,7 @@
 package guanceyun
 
 import (
-	"github.com/segmentio/encoding/json"
+	"encoding/json"
 
 	"github.com/pkg/errors"
 )

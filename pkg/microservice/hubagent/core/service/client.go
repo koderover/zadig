@@ -19,13 +19,12 @@ package service
 import (
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"strings"
 	"time"
-
-	"github.com/segmentio/encoding/json"
 
 	"github.com/cenkalti/backoff/v4"
 	"github.com/gorilla/websocket"

@@ -17,11 +17,10 @@ limitations under the License.
 package webhook
 
 import (
+	"encoding/json"
 	"fmt"
 	"regexp"
 	"strconv"
-
-	"github.com/segmentio/encoding/json"
 
 	"github.com/hashicorp/go-multierror"
 	"go.uber.org/zap"

@@ -17,11 +17,10 @@ limitations under the License.
 package webhook
 
 import (
+	"encoding/json"
 	"fmt"
 	"regexp"
 	"strconv"
-
-	"github.com/segmentio/encoding/json"
 
 	"github.com/google/go-github/v35/github"
 	"github.com/hashicorp/go-multierror"

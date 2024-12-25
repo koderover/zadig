@@ -17,7 +17,7 @@ limitations under the License.
 package json
 
 import (
-	"github.com/segmentio/encoding/json"
+	"encoding/json"
 
 	"helm.sh/helm/v3/pkg/strvals"
 )

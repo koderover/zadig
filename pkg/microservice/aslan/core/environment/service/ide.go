@@ -18,11 +18,10 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
-
-	"github.com/segmentio/encoding/json"
 
 	configbase "github.com/koderover/zadig/v2/pkg/config"
 	appsv1 "k8s.io/api/apps/v1"

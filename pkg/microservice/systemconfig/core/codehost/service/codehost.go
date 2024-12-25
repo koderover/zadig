@@ -18,13 +18,12 @@ package service
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
 	"time"
-
-	"github.com/segmentio/encoding/json"
 
 	"go.uber.org/zap"
 	"golang.org/x/oauth2"

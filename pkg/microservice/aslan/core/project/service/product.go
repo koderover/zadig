@@ -18,14 +18,13 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"regexp"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/segmentio/encoding/json"
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/pkg/errors"

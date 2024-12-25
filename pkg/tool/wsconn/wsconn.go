@@ -18,11 +18,10 @@ package wsconn
 
 import (
 	"bytes"
+	"encoding/json"
 	"io"
 	"sync"
 	"time"
-
-	"github.com/segmentio/encoding/json"
 
 	"github.com/gorilla/websocket"
 	"golang.org/x/crypto/ssh"

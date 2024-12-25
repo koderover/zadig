@@ -17,7 +17,7 @@ limitations under the License.
 package handler
 
 import (
-"github.com/segmentio/encoding/json"
+"encoding/json"
 "errors"
 "fmt"
 

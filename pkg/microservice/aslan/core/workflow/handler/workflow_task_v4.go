@@ -18,12 +18,11 @@ package handler
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"strconv"
 	"strings"
-
-	"github.com/segmentio/encoding/json"
 
 	"github.com/gin-gonic/gin"
 	workflowtool "github.com/koderover/zadig/v2/pkg/tool/workflow"

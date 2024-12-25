@@ -19,12 +19,11 @@ package handler
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"strconv"
 	"time"
-
-	"github.com/segmentio/encoding/json"
 
 	"github.com/gin-gonic/gin"
 	"k8s.io/apimachinery/pkg/util/wait"

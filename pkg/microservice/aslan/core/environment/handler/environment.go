@@ -18,14 +18,13 @@ package handler
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"strconv"
 	"strings"
-
-	"github.com/segmentio/encoding/json"
 
 	"github.com/gin-gonic/gin"
 	"github.com/koderover/zadig/v2/pkg/types"

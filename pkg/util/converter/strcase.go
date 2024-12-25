@@ -17,7 +17,7 @@ limitations under the License.
 package converter
 
 import (
-	"github.com/segmentio/encoding/json"
+	"encoding/json"
 
 	"github.com/iancoleman/strcase"
 )

@@ -17,9 +17,8 @@ limitations under the License.
 package aslan
 
 import (
+	"encoding/json"
 	"fmt"
-
-	"github.com/segmentio/encoding/json"
 
 	"github.com/pkg/errors"
 

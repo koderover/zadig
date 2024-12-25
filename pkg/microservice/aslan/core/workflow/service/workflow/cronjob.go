@@ -17,7 +17,7 @@ limitations under the License.
 package workflow
 
 import (
-	"github.com/segmentio/encoding/json"
+	"encoding/json"
 
 	"go.uber.org/zap"
 

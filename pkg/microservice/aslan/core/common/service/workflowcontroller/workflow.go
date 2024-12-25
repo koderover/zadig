@@ -18,12 +18,11 @@ package workflowcontroller
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"sync"
 	"time"
-
-	"github.com/segmentio/encoding/json"
 
 	"github.com/google/uuid"
 	"go.uber.org/zap"

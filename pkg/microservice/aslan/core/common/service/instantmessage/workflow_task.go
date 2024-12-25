@@ -19,6 +19,7 @@ package instantmessage
 import (
 	"bytes"
 	_ "embed"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/url"
@@ -27,8 +28,6 @@ import (
 	"strings"
 	"text/template"
 	"time"
-
-	"github.com/segmentio/encoding/json"
 
 	"k8s.io/apimachinery/pkg/util/sets"
 

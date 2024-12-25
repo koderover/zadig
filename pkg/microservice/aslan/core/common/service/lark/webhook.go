@@ -22,11 +22,10 @@ import (
 	"crypto/cipher"
 	"crypto/sha256"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
-
-	"github.com/segmentio/encoding/json"
 
 	"github.com/pkg/errors"
 	"github.com/tidwall/gjson"

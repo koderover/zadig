@@ -17,7 +17,7 @@ limitations under the License.
 package service
 
 import (
-	"github.com/segmentio/encoding/json"
+	"encoding/json"
 
 	"github.com/dexidp/dex/connector/gitea"
 	"github.com/dexidp/dex/connector/github"

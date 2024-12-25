@@ -18,10 +18,9 @@ package lark
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"sync"
-
-	"github.com/segmentio/encoding/json"
 
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/pkg/errors"

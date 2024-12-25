@@ -18,11 +18,10 @@ package jobcontroller
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"sync"
-
-	"github.com/segmentio/encoding/json"
 
 	"github.com/hashicorp/go-multierror"
 	"go.uber.org/zap"

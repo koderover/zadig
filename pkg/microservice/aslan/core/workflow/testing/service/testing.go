@@ -17,14 +17,13 @@ limitations under the License.
 package service
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path"
 	"path/filepath"
 	"strconv"
 	"time"
-
-	"github.com/segmentio/encoding/json"
 
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"go.mongodb.org/mongo-driver/mongo"

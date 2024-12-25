@@ -19,12 +19,11 @@ package service
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"time"
-
-	"github.com/segmentio/encoding/json"
 
 	"github.com/gorilla/websocket"
 	corev1 "k8s.io/api/core/v1"

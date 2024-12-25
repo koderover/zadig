@@ -19,6 +19,7 @@ package service
 import (
 	"bytes"
 	"cmp"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -28,8 +29,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	"github.com/segmentio/encoding/json"
 
 	"github.com/blang/semver/v4"
 	"github.com/chartmuseum/helm-push/pkg/helm"

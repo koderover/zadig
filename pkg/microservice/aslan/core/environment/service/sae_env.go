@@ -17,10 +17,9 @@ limitations under the License.
 package service
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
-
-	"github.com/segmentio/encoding/json"
 
 	sae "github.com/alibabacloud-go/sae-20190506/client"
 	teautil "github.com/alibabacloud-go/tea-utils/v2/service"

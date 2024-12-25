@@ -17,11 +17,10 @@
 package approval
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
-
-	"github.com/segmentio/encoding/json"
 
 	"github.com/redis/go-redis/v9"
 

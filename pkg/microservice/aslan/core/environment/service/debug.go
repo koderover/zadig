@@ -18,10 +18,9 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
-
-	"github.com/segmentio/encoding/json"
 
 	configbase "github.com/koderover/zadig/v2/pkg/config"
 	"github.com/koderover/zadig/v2/pkg/util"

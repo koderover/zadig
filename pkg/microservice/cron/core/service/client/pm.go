@@ -18,11 +18,10 @@ package client
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
-
-	"github.com/segmentio/encoding/json"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/cron/core/service"
 	"github.com/pkg/errors"

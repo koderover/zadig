@@ -4,10 +4,9 @@
 package analysis
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
-
-	"github.com/segmentio/encoding/json"
 )
 
 const (

@@ -19,6 +19,7 @@ package helmclient
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -31,8 +32,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	"github.com/segmentio/encoding/json"
 
 	"github.com/pkg/errors"
 

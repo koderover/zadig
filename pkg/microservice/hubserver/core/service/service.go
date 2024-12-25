@@ -18,13 +18,12 @@ package service
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
 	"sync"
 	"time"
-
-	"github.com/segmentio/encoding/json"
 
 	"github.com/gorilla/mux"
 	"k8s.io/apimachinery/pkg/util/proxy"

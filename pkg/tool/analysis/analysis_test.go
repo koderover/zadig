@@ -17,11 +17,10 @@ package analysis
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"testing"
-
-	"github.com/segmentio/encoding/json"
 
 	"github.com/magiconair/properties/assert"
 	"github.com/stretchr/testify/require"

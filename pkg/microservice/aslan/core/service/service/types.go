@@ -17,9 +17,8 @@ limitations under the License.
 package service
 
 import (
+	"encoding/json"
 	"fmt"
-
-	"github.com/segmentio/encoding/json"
 
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"

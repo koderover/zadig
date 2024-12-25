@@ -18,12 +18,11 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
-
-	"github.com/segmentio/encoding/json"
 
 	"go.uber.org/zap"
 

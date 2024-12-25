@@ -19,6 +19,7 @@ package zgctl
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"math/rand"
@@ -28,8 +29,6 @@ import (
 	"strings"
 	"text/template"
 	"time"
-
-	"github.com/segmentio/encoding/json"
 
 	"github.com/dgraph-io/badger/v3"
 	"github.com/shirou/gopsutil/v3/process"

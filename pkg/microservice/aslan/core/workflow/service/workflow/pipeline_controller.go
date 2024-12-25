@@ -17,11 +17,10 @@ limitations under the License.
 package workflow
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
-
-	"github.com/segmentio/encoding/json"
 
 	"k8s.io/apimachinery/pkg/util/sets"
 

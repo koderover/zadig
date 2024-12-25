@@ -17,11 +17,10 @@ limitations under the License.
 package client
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
-
-	"github.com/segmentio/encoding/json"
 
 	"github.com/pkg/errors"
 	"go.uber.org/zap"

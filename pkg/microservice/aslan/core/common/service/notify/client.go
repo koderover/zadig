@@ -18,11 +18,10 @@ package notify
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
-
-	"github.com/segmentio/encoding/json"
 
 	"github.com/pkg/errors"
 

@@ -20,6 +20,7 @@ import (
 	"bytes"
 	gocontext "context"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -27,8 +28,6 @@ import (
 	"reflect"
 	"strings"
 	"time"
-
-	"github.com/segmentio/encoding/json"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt"

@@ -18,11 +18,10 @@ package kodo
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"strings"
 	"time"
-
-	"github.com/segmentio/encoding/json"
 
 	"github.com/koderover/zadig/v2/pkg/tool/kodo/qbox"
 )

@@ -17,10 +17,9 @@ limitations under the License.
 package service
 
 import (
+	"encoding/json"
 	"sort"
 	"sync"
-
-	"github.com/segmentio/encoding/json"
 
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"

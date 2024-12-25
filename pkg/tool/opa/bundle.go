@@ -18,10 +18,9 @@ package opa
 
 import (
 	"crypto/sha256"
+	"encoding/json"
 	"fmt"
 	"path/filepath"
-
-	"github.com/segmentio/encoding/json"
 
 	"github.com/27149chen/afero"
 

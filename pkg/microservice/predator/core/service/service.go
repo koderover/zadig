@@ -18,6 +18,7 @@ package service
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -25,8 +26,6 @@ import (
 	"path"
 	"strings"
 	"time"
-
-	"github.com/segmentio/encoding/json"
 
 	"gopkg.in/yaml.v3"
 

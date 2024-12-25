@@ -18,11 +18,10 @@ package models
 
 import (
 	"crypto/md5"
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"strings"
-
-	"github.com/segmentio/encoding/json"
 
 	"github.com/koderover/zadig/v2/pkg/tool/blueking"
 	"github.com/koderover/zadig/v2/pkg/tool/workwx"

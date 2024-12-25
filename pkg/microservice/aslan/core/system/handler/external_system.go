@@ -18,11 +18,10 @@ package handler
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
-
-	"github.com/segmentio/encoding/json"
 
 	"github.com/gin-gonic/gin"
 

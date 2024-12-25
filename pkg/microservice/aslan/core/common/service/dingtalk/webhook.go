@@ -18,9 +18,8 @@ package dingtalk
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
-
-	"github.com/segmentio/encoding/json"
 
 	"github.com/pkg/errors"
 	"github.com/redis/go-redis/v9"

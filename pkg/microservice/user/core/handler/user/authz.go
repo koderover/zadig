@@ -17,9 +17,8 @@ limitations under the License.
 package user
 
 import (
+	"encoding/json"
 	"fmt"
-
-	"github.com/segmentio/encoding/json"
 
 	"github.com/gin-gonic/gin"
 	userservice "github.com/koderover/zadig/v2/pkg/microservice/user/core/service/permission"

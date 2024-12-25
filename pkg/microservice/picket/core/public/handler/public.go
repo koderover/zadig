@@ -17,9 +17,8 @@ limitations under the License.
 package handler
 
 import (
+	"encoding/json"
 	"net/http"
-
-	"github.com/segmentio/encoding/json"
 
 	"github.com/gin-gonic/gin"
 

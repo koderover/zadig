@@ -17,9 +17,8 @@ limitations under the License.
 package service
 
 import (
+	"encoding/json"
 	"fmt"
-
-	"github.com/segmentio/encoding/json"
 
 	"github.com/hashicorp/go-multierror"
 	"go.uber.org/zap"

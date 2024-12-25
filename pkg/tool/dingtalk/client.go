@@ -17,9 +17,8 @@
 package dingtalk
 
 import (
+	"encoding/json"
 	"time"
-
-	"github.com/segmentio/encoding/json"
 
 	"github.com/imroc/req/v3"
 	cache "github.com/patrickmn/go-cache"
