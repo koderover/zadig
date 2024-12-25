@@ -50,6 +50,8 @@ import (
 var kubeClientManagerInstance *KubeClientManager
 var once sync.Once
 
+var stopContext = ctrl.SetupSignalHandler()
+
 // TODO: Implement a Zadig-Kubernetes client interface, forbid business code to access these clients directly
 
 type KubeClientManager struct {
@@ -447,7 +449,7 @@ func (cm *KubeClientManager) getControllerRuntimeCluster(clusterID string) (cont
 		controllerClient, err := createControllerRuntimeCluster(ctrl.GetConfigOrDie())
 		if err == nil {
 			go func() {
-				if err := controllerClient.Start(ctrl.SetupSignalHandler()); err != nil {
+				if err := controllerClient.Start(stopContext); err != nil {
 					log.Errorf("failed to start controller runtime cluster, error: %s", err)
 				}
 			}()
@@ -487,9 +489,11 @@ func (cm *KubeClientManager) getControllerRuntimeCluster(clusterID string) (cont
 
 	controllerClient, err := createControllerRuntimeCluster(cfg)
 	if err == nil {
-		if err := controllerClient.Start(ctrl.SetupSignalHandler()); err != nil {
-			log.Errorf("failed to start controller runtime cluster, error: %s", err)
-		}
+		go func() {
+			if err := controllerClient.Start(stopContext); err != nil {
+				log.Errorf("failed to start controller runtime cluster, error: %s", err)
+			}
+		}()
 
 		if !controllerClient.GetCache().WaitForCacheSync(context.Background()) {
 			return nil, fmt.Errorf("failed to wait for controller runtime cluster to sync")
