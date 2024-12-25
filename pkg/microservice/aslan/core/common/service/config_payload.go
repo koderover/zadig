@@ -17,6 +17,7 @@ limitations under the License.
 package service
 
 import (
+	configbase "github.com/koderover/zadig/v2/pkg/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
@@ -57,7 +58,7 @@ func GetConfigPayload(codeHostID int) *models.ConfigPayload {
 		},
 		ClassicBuild:       config.UseClassicBuild(),
 		CustomDNSSupported: config.CustomDNSNotSupported(),
-		HubServerAddr:      config.HubServerAddress(),
+		HubServerAddr:      configbase.HubServerServiceAddress(),
 		JenkinsBuildConfig: models.JenkinsBuildConfig{
 			JenkinsBuildImage: config.JenkinsImage(),
 		},

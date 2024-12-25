@@ -28,7 +28,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
-func GetContainerLogs(namespace, podName, containerName string, follow bool, tailLines int64, out io.Writer, clientset kubernetes.Interface) error {
+func GetContainerLogs(namespace, podName, containerName string, follow bool, tailLines int64, out io.Writer, clientset *kubernetes.Clientset) error {
 	readCloser, err := GetContainerLogStream(context.TODO(), namespace, podName, containerName, follow, tailLines, clientset)
 	if err != nil {
 		log.Warnf("Failed to get pod log from stream: %s. Try to get logs from pod object.", err)
@@ -60,7 +60,7 @@ func GetContainerLogs(namespace, podName, containerName string, follow bool, tai
 	return err
 }
 
-func GetContainerLogStream(ctx context.Context, namespace, podName, containerName string, follow bool, tailLines int64, clientset kubernetes.Interface) (io.ReadCloser, error) {
+func GetContainerLogStream(ctx context.Context, namespace, podName, containerName string, follow bool, tailLines int64, clientset *kubernetes.Clientset) (io.ReadCloser, error) {
 	logOptions := &corev1.PodLogOptions{
 		Container: containerName,
 		Follow:    follow,

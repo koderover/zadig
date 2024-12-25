@@ -65,14 +65,14 @@ type JsonOutput struct {
 	Results  []Result       `json:"results"`
 }
 
-func NewAnalysis(ctx context.Context, hubserverAddr, clusterID string, llmClient llm.ILLM, filters []string, namespace string, noCache bool, explain bool, maxConcurrency int, withDoc bool) (*Analysis, error) {
+func NewAnalysis(ctx context.Context, clusterID string, llmClient llm.ILLM, filters []string, namespace string, noCache bool, explain bool, maxConcurrency int, withDoc bool) (*Analysis, error) {
 	if llmClient == nil && explain {
 		fmtErr := fmt.Errorf("Error: AI provider not specified in configuration")
 		log.Error(fmtErr)
 		return nil, fmtErr
 	}
 
-	client, err := NewClient(hubserverAddr, clusterID)
+	client, err := NewClient(clusterID)
 	if err != nil {
 		log.Errorf("Error initialising kubernetes client: %v", err)
 		return nil, err

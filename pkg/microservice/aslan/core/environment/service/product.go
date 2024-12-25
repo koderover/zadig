@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"time"
 
+	configbase "github.com/koderover/zadig/v2/pkg/config"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -279,7 +280,7 @@ func buildProductResp(envName string, prod *commonmodels.Product, log *zap.Sugar
 	}
 
 	if prod.ClusterID != "" {
-		clusterService, err := kube.NewService(config.HubServerAddress())
+		clusterService, err := kube.NewService(configbase.HubServerServiceAddress())
 		if err != nil {
 			prodResp.Status = setting.ClusterNotFound
 			prodResp.Error = "未找到该环境绑定的集群"

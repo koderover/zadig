@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v2"
 	appsv1 "k8s.io/api/apps/v1"
@@ -31,7 +32,6 @@ import (
 	"k8s.io/cli-runtime/pkg/printers"
 	"k8s.io/helm/pkg/releaseutil"
 
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models/template"
@@ -406,13 +406,13 @@ func fetchImportedManifests(option *GeneSvcYamlOption, productInfo *models.Produ
 
 	manifests := releaseutil.SplitManifests(fullRenderedYaml)
 
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), productInfo.ClusterID)
+	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(productInfo.ClusterID)
 	if err != nil {
 		log.Errorf("cluster is not connected [%s]", productInfo.ClusterID)
 		return "", nil, errors.Wrapf(err, "cluster is not connected [%s]", productInfo.ClusterID)
 	}
 
-	clientset, err := kubeclient.GetClientset(config.HubServerAddress(), productInfo.ClusterID)
+	clientset, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(productInfo.ClusterID)
 	if err != nil {
 		log.Errorf("get client set error: %v", err)
 		return "", nil, err

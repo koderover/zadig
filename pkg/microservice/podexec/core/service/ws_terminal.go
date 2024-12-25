@@ -26,15 +26,13 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/remotecommand"
 
-	conf "github.com/koderover/zadig/v2/pkg/microservice/podexec/config"
-	"github.com/koderover/zadig/v2/pkg/shared/kube/client"
 	"github.com/koderover/zadig/v2/pkg/shared/kube/wrapper"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
@@ -176,7 +174,7 @@ func (t *TerminalSession) Close() error {
 }
 
 // 验证是否存在
-func ValidatePod(kubeClient kubernetes.Interface, namespace, podName, containerName string) (bool, error) {
+func ValidatePod(kubeClient *kubernetes.Clientset, namespace, podName, containerName string) (bool, error) {
 	pod, err := kubeClient.CoreV1().Pods(namespace).Get(context.TODO(), podName, metav1.GetOptions{})
 	if err != nil {
 		return false, err
@@ -203,7 +201,12 @@ func ValidatePod(kubeClient kubernetes.Interface, namespace, podName, containerN
 }
 
 // ExecPod do pod exec
-func ExecPod(kubeClient kubernetes.Interface, cfg *rest.Config, cmd []string, ptyHandler PtyHandler, namespace, podName, containerName string) error {
+func ExecPod(clusterID string, cmd []string, ptyHandler PtyHandler, namespace, podName, containerName string) error {
+	kubeClient, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(clusterID)
+	if err != nil {
+		return err
+	}
+
 	req := kubeClient.CoreV1().RESTClient().Post().
 		Resource("pods").
 		Name(podName).
@@ -219,7 +222,7 @@ func ExecPod(kubeClient kubernetes.Interface, cfg *rest.Config, cmd []string, pt
 		TTY:       true,
 	}, scheme.ParameterCodec)
 
-	executor, err := remotecommand.NewSPDYExecutor(cfg, "POST", req.URL())
+	executor, err := clientmanager.NewKubeClientManager().GetSPDYExecutor(clusterID, req.URL())
 	if err != nil {
 		log.Errorf("NewSPDYExecutor err: %v", err)
 		return err
@@ -237,21 +240,4 @@ func ExecPod(kubeClient kubernetes.Interface, cfg *rest.Config, cmd []string, pt
 		return err
 	}
 	return nil
-}
-
-// NewKubeOutClusterClient returns kubeClient and config
-func NewKubeOutClusterClient(clusterID string) (kubernetes.Interface, *rest.Config, error) {
-	clientset, err := client.GetClientset(conf.HubServerAddr(), clusterID)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to init clientset for cluster: %s, err:%v", clusterID, err)
-	}
-
-	config, err := client.GetRESTConfig(conf.HubServerAddr(), clusterID)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get restconfig for cluster: %s, err:%v", clusterID, err)
-	}
-
-	config.QPS = 20
-	config.Burst = 40
-	return clientset, config, nil
 }

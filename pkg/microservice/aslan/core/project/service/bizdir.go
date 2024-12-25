@@ -20,21 +20,18 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/pm"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/repository"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/setting"
-	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
+	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	helmtool "github.com/koderover/zadig/v2/pkg/tool/helmclient"
-	"github.com/koderover/zadig/v2/pkg/tool/kube/informer"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"helm.sh/helm/v3/pkg/action"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -358,14 +355,14 @@ func GetBizDirServiceDetail(projectName, serviceName string) ([]GetBizDirService
 				continue
 			}
 
-			cls, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), env.ClusterID)
+			cls, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(env.ClusterID)
 			if err != nil {
 				detail.Error = err.Error()
 				log.Warnf("[BIZDIR] failed to get service status & image info due to kube client creation, err: %s", err)
 				resp = append(resp, detail)
 				continue
 			}
-			inf, err := informer.NewInformer(env.ClusterID, env.Namespace, cls)
+			inf, err := clientmanager.NewKubeClientManager().GetInformer(env.ClusterID, env.Namespace)
 			if err != nil {
 				detail.Error = err.Error()
 				log.Warnf("[BIZDIR] failed to get service status & image info due to kube informer creation, err: %s", err)
@@ -396,12 +393,7 @@ func GetBizDirServiceDetail(projectName, serviceName string) ([]GetBizDirService
 				Type:        setting.HelmDeployType,
 			}
 
-			restConfig, err := kube.GetRESTConfig(env.ClusterID)
-			if err != nil {
-				log.Errorf("GetRESTConfig error: %s", err)
-				return nil, fmt.Errorf("failed to get k8s rest config, err: %s", err)
-			}
-			helmClient, err := helmtool.NewClientFromRestConf(restConfig, env.Namespace)
+			helmClient, err := helmtool.NewClientFromNamespace(env.ClusterID, env.Namespace)
 			if err != nil {
 				log.Errorf("[%s][%s] NewClientFromRestConf error: %s", env.EnvName, projectName, err)
 				return nil, fmt.Errorf("failed to init helm client, err: %s", err)

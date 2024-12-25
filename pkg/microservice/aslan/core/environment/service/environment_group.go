@@ -21,22 +21,20 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/repository"
 	"github.com/koderover/zadig/v2/pkg/setting"
-	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
 	"github.com/koderover/zadig/v2/pkg/shared/kube/wrapper"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/getter"
-	"github.com/koderover/zadig/v2/pkg/tool/kube/informer"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/types"
 	"github.com/koderover/zadig/v2/pkg/util"
@@ -66,12 +64,7 @@ func CalculateNonK8sProductStatus(productInfo *commonmodels.Product, log *zap.Su
 
 func CalculateK8sProductStatus(productInfo *commonmodels.Product, log *zap.SugaredLogger) (string, error) {
 	envName, productName := productInfo.EnvName, productInfo.ProductName
-	cls, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), productInfo.ClusterID)
-	if err != nil {
-		log.Errorf("[%s][%s] error: %v", envName, productName, err)
-		return setting.PodUnstable, e.ErrListGroups.AddDesc(err.Error())
-	}
-	inf, err := informer.NewInformer(productInfo.ClusterID, productInfo.Namespace, cls)
+	inf, err := clientmanager.NewKubeClientManager().GetInformer(productInfo.ClusterID, productInfo.Namespace)
 	if err != nil {
 		log.Errorf("[%s][%s] error: %v", envName, productName, err)
 		return setting.PodUnstable, e.ErrListGroups.AddDesc(err.Error())
@@ -127,17 +120,13 @@ func ListGroups(serviceName, envName, productName string, perPage, page int, pro
 		svc.DeployStrategy = productInfo.ServiceDeployStrategy[svc.ServiceName]
 	}
 
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), productInfo.ClusterID)
+	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(productInfo.ClusterID)
 	if err != nil {
 		log.Errorf("[%s][%s] failed to get kubeclient error: %v", envName, productName, err)
 		return resp, count, e.ErrListGroups.AddDesc(err.Error())
 	}
-	cls, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), productInfo.ClusterID)
-	if err != nil {
-		log.Errorf("[%s][%s] error: %v", envName, productName, err)
-		return resp, count, e.ErrListGroups.AddDesc(err.Error())
-	}
-	inf, err := informer.NewInformer(productInfo.ClusterID, productInfo.Namespace, cls)
+
+	inf, err := clientmanager.NewKubeClientManager().GetInformer(productInfo.ClusterID, productInfo.Namespace)
 	if err != nil {
 		log.Errorf("[%s][%s] error: %v", envName, productName, err)
 		return resp, count, e.ErrListGroups.AddDesc(err.Error())

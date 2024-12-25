@@ -28,7 +28,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/hubagent/server/rest"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/shared/client/aslan"
-	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
+	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	registrytool "github.com/koderover/zadig/v2/pkg/tool/registries"
 )
@@ -112,12 +112,12 @@ func initResource() {
 			regList = append(regList, regItem)
 		}
 
-		dynamicClient, err := kubeclient.GetDynamicKubeClient(config2.AslanBaseAddr(), setting.LocalClusterID)
+		clientSet, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(setting.LocalClusterID)
 		if err != nil {
 			log.Fatalf("failed to create dynamic kubernetes clientset for clusterID: %s, the error is: %s", setting.LocalClusterID, err)
 		}
 
-		err = registrytool.PrepareDinD(dynamicClient, "koderover-agent", regList)
+		err = registrytool.PrepareDinD(clientSet, "koderover-agent", regList)
 		if err != nil {
 			log.Fatalf("failed to update dind, the error is: %s", err)
 		}

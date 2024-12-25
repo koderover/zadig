@@ -21,6 +21,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -29,12 +30,10 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/setting"
-	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
@@ -270,7 +269,7 @@ func GetProductAndFilterNs(namespace, workloadName, svcName string) (*models.Pro
 
 	for _, product := range products {
 		if !product.IsExisted {
-			clientset, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), product.ClusterID)
+			clientset, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(product.ClusterID)
 			if err != nil {
 				log.Errorf("failed to create kubernetes clientset for clusterID: %s, the error is: %s", product.ClusterID, err)
 				return nil, false
@@ -353,7 +352,7 @@ func StartClusterInformer() {
 				DeleteClusterInformer(cluster.ID.Hex())
 				continue
 			}
-			clientset, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), cluster.ID.Hex())
+			clientset, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(cluster.ID.Hex())
 			if err != nil {
 				log.Errorf("failed to create kubernetes clientset for clusterID: %s, the error is: %s", cluster.ID.Hex(), err)
 				continue

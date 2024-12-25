@@ -747,22 +747,6 @@ func GenerateAgentAccessCmds(vm *commonmodels.PrivateKey) (*AgentAccessCmds, err
 	return resp, nil
 }
 
-func getAslanVersion() (string, error) {
-	ns := commonconfig.Namespace()
-	kubeClient := krkubeclient.Client()
-	configMap, found, err := getter.GetConfigMap(ns, "aslan-config", kubeClient)
-	if err != nil || !found {
-		return "", fmt.Errorf("failed to get aslan configmap, error: %s", err)
-	}
-	if found {
-		version := configMap.Data["CHART_VERSION"]
-		if version != "" {
-			return version, nil
-		}
-	}
-	return "", fmt.Errorf("aslan version not found")
-}
-
 func getZadigAgentVersion() (string, error) {
 	ns := commonconfig.Namespace()
 	kubeClient := krkubeclient.Client()

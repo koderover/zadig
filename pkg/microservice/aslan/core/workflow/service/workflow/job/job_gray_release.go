@@ -21,7 +21,7 @@ import (
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
-	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
+	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
@@ -235,7 +235,7 @@ func (j *GrayReleaseJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		if j.spec.GrayScale >= 100 {
 			return resp, fmt.Errorf("the first release job: %s cannot be released in full", j.job.Name)
 		}
-		kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), j.spec.ClusterID)
+		kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(j.spec.ClusterID)
 		if err != nil {
 			return resp, fmt.Errorf("failed to get kube client, err: %v", err)
 		}

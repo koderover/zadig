@@ -82,10 +82,6 @@ func MongoDatabase() string {
 	return configbase.MongoDatabase()
 }
 
-func HubServerAddress() string {
-	return configbase.HubServerServiceAddress()
-}
-
 func HubAgentImage() string {
 	return viper.GetString(setting.ENVHubAgentImage)
 }
