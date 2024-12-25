@@ -97,10 +97,11 @@ func (w *WorkflowV4) CalculateHash() [md5.Size]byte {
 type ParameterSettingType string
 
 const (
-	StringType ParameterSettingType = "string"
-	ChoiceType ParameterSettingType = "choice"
-	ImageType  ParameterSettingType = "image"
-	Script     ParameterSettingType = "script"
+	StringType      ParameterSettingType = "string"
+	ChoiceType      ParameterSettingType = "choice"
+	MultiSelectType ParameterSettingType = "multi-select"
+	ImageType       ParameterSettingType = "image"
+	Script          ParameterSettingType = "script"
 	// Deprecated
 	ExternalType ParameterSettingType = "external"
 )
@@ -484,6 +485,7 @@ type ServiceKeyVal struct {
 	Value        interface{}          `bson:"value"                     json:"value"                       yaml:"value"`
 	Type         ParameterSettingType `bson:"type,omitempty"            json:"type,omitempty"              yaml:"type"`
 	ChoiceOption []string             `bson:"choice_option,omitempty"   json:"choice_option,omitempty"     yaml:"choice_option,omitempty"`
+	ChoiceValue  []string             `bson:"choice_value,omitempty"    json:"choice_value,omitempty"      yaml:"choice_value,omitempty"`
 	IsCredential bool                 `bson:"is_credential"             json:"is_credential"               yaml:"is_credential"`
 }
 
@@ -1392,6 +1394,7 @@ type Param struct {
 	Value        string                 `bson:"value"                     json:"value"                       yaml:"value,omitempty"`
 	Repo         *types.Repository      `bson:"repo"                     json:"repo"                         yaml:"repo,omitempty"`
 	ChoiceOption []string               `bson:"choice_option,omitempty"   json:"choice_option,omitempty"     yaml:"choice_option,omitempty"`
+	ChoiceValue  []string               `bson:"choice_value,omitempty"    json:"choice_value,omitempty"      yaml:"choice_value,omitempty"`
 	Default      string                 `bson:"default"                   json:"default"                     yaml:"default"`
 	IsCredential bool                   `bson:"is_credential"             json:"is_credential"               yaml:"is_credential"`
 	Source       config.ParamSourceType `bson:"source,omitempty" json:"source,omitempty" yaml:"source,omitempty"`

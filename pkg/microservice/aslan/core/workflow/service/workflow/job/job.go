@@ -625,6 +625,9 @@ func RenderWorkflowParams(workflow *commonmodels.WorkflowV4, taskID int64, creat
 
 func renderString(value, template string, inputs []*commonmodels.Param) string {
 	for _, input := range inputs {
+		if input.ParamsType == string(commonmodels.MultiSelectType) {
+			input.Value = strings.Join(input.ChoiceValue, ",")
+		}
 		value = strings.ReplaceAll(value, fmt.Sprintf(template, input.Name), input.Value)
 	}
 	return value
@@ -632,7 +635,13 @@ func renderString(value, template string, inputs []*commonmodels.Param) string {
 
 func renderMultiLineString(value, template string, inputs []*commonmodels.Param) string {
 	for _, input := range inputs {
-		inputValue := strings.ReplaceAll(input.Value, "\n", "\\n")
+		var inputValue string
+		if input.ParamsType == string(commonmodels.MultiSelectType) {
+			inputValue = strings.Join(input.ChoiceValue, ",")
+		} else {
+			inputValue = input.Value
+		}
+		inputValue = strings.ReplaceAll(inputValue, "\n", "\\n")
 		value = strings.ReplaceAll(value, fmt.Sprintf(template, input.Name), inputValue)
 	}
 	return value
@@ -648,7 +657,11 @@ func getWorkflowDefaultParams(workflow *commonmodels.WorkflowV4, taskID int64, c
 	resp = append(resp, &commonmodels.Param{Name: "workflow.task.timestamp", Value: fmt.Sprintf("%d", time.Now().Unix()), ParamsType: "string", IsCredential: false})
 	for _, param := range workflow.Params {
 		paramsKey := strings.Join([]string{"workflow", "params", param.Name}, ".")
-		resp = append(resp, &commonmodels.Param{Name: paramsKey, Value: param.Value, ParamsType: "string", IsCredential: false})
+		newParam := &commonmodels.Param{Name: paramsKey, Value: param.Value, ParamsType: "string", IsCredential: false}
+		if param.ParamsType == string(commonmodels.MultiSelectType) {
+			newParam.Value = strings.Join(param.ChoiceValue, ",")
+		}
+		resp = append(resp, newParam)
 	}
 	return resp, nil
 }
