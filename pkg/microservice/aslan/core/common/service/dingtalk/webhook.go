@@ -139,7 +139,6 @@ func EventHandler(appKey string, body []byte, signature, ts, nonce string) (*Eve
 	eventType := gjson.Get(data, "EventType").String()
 	log.Infof("receive dingtalk event type: %s instanceID: %s", eventType,
 		gjson.Get(data, "processInstanceId").String())
-	log.Debugf("receive dingtalk event data: %s", data)
 
 	switch eventType {
 	case EventTaskChange:

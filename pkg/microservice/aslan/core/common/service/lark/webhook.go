@@ -117,6 +117,7 @@ func EventHandler(appID, sign, ts, nonce, body string) (*EventHandlerResponse, e
 		log.Infof("get unknown callback event type %s, ignored", eventType)
 		return nil, nil
 	}
+	log.Debugf("event data: %s", string(callback.Event))
 	event := ApprovalTaskEvent{}
 	err = json.Unmarshal(callback.Event, &event)
 	if err != nil {

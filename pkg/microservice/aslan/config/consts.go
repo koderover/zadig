@@ -299,11 +299,14 @@ const (
 	SAEBatchReleaseTypeManual = "manual"
 )
 
-type ApproveOrReject string
+type ApprovalStatus string
 
 const (
-	Approve ApproveOrReject = "approve"
-	Reject  ApproveOrReject = "reject"
+	ApprovalStatusPending  ApprovalStatus = ""
+	ApprovalStatusApprove  ApprovalStatus = "approve"
+	ApprovalStatusReject   ApprovalStatus = "reject"
+	ApprovalStatusRedirect ApprovalStatus = "redirect"
+	ApprovalStatusDone     ApprovalStatus = "done"
 )
 
 type DeploySourceType string

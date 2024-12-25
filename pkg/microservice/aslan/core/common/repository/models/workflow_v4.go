@@ -137,11 +137,11 @@ type Approval struct {
 }
 
 type NativeApproval struct {
-	Timeout           int                    `bson:"timeout"                     yaml:"timeout"                    json:"timeout"`
-	ApproveUsers      []*User                `bson:"approve_users"               yaml:"approve_users"              json:"approve_users"`
-	FloatApproveUsers []*User                `bson:"-"                           yaml:"flat_approve_users"          json:"flat_approve_users"`
-	NeededApprovers   int                    `bson:"needed_approvers"            yaml:"needed_approvers"           json:"needed_approvers"`
-	RejectOrApprove   config.ApproveOrReject `bson:"reject_or_approve"           yaml:"-"                          json:"reject_or_approve"`
+	Timeout           int                   `bson:"timeout"                     yaml:"timeout"                    json:"timeout"`
+	ApproveUsers      []*User               `bson:"approve_users"               yaml:"approve_users"              json:"approve_users"`
+	FloatApproveUsers []*User               `bson:"-"                           yaml:"flat_approve_users"          json:"flat_approve_users"`
+	NeededApprovers   int                   `bson:"needed_approvers"            yaml:"needed_approvers"           json:"needed_approvers"`
+	RejectOrApprove   config.ApprovalStatus `bson:"reject_or_approve"           yaml:"-"                          json:"reject_or_approve"`
 	// InstanceCode: native approval instance code, save for working after restart aslan
 	InstanceCode string `bson:"instance_code"               yaml:"instance_code"              json:"instance_code"`
 }
@@ -160,16 +160,16 @@ type DingTalkApproval struct {
 type DingTalkApprovalNode struct {
 	ApproveUsers    []*DingTalkApprovalUser `bson:"approve_users"               yaml:"approve_users"              json:"approve_users"`
 	Type            dingtalk.ApprovalAction `bson:"type"                        yaml:"type"                       json:"type"`
-	RejectOrApprove config.ApproveOrReject  `bson:"reject_or_approve"           yaml:"-"                          json:"reject_or_approve"`
+	RejectOrApprove config.ApprovalStatus   `bson:"reject_or_approve"           yaml:"-"                          json:"reject_or_approve"`
 }
 
 type DingTalkApprovalUser struct {
-	ID              string                 `bson:"id"                          yaml:"id"                         json:"id"`
-	Name            string                 `bson:"name"                        yaml:"name"                       json:"name"`
-	Avatar          string                 `bson:"avatar"                      yaml:"avatar"                     json:"avatar"`
-	RejectOrApprove config.ApproveOrReject `bson:"reject_or_approve,omitempty"           yaml:"-"                          json:"reject_or_approve,omitempty"`
-	Comment         string                 `bson:"comment,omitempty"                     yaml:"-"                          json:"comment,omitempty"`
-	OperationTime   int64                  `bson:"operation_time,omitempty"              yaml:"-"                          json:"operation_time,omitempty"`
+	ID              string                `bson:"id"                          yaml:"id"                         json:"id"`
+	Name            string                `bson:"name"                        yaml:"name"                       json:"name"`
+	Avatar          string                `bson:"avatar"                      yaml:"avatar"                     json:"avatar"`
+	RejectOrApprove config.ApprovalStatus `bson:"reject_or_approve,omitempty"           yaml:"-"                          json:"reject_or_approve,omitempty"`
+	Comment         string                `bson:"comment,omitempty"                     yaml:"-"                          json:"comment,omitempty"`
+	OperationTime   int64                 `bson:"operation_time,omitempty"              yaml:"-"                          json:"operation_time,omitempty"`
 }
 
 type LarkApproval struct {
@@ -211,16 +211,16 @@ func (l LarkApproval) GetLarkApprovalNode() (resp []*lark.ApprovalNode) {
 }
 
 type LarkApprovalNode struct {
-	ApproveUsers    []*LarkApprovalUser    `bson:"approve_users"               yaml:"approve_users"              json:"approve_users"`
-	Type            lark.ApproveType       `bson:"type"                        yaml:"type"                       json:"type"`
-	RejectOrApprove config.ApproveOrReject `bson:"reject_or_approve"           yaml:"-"                          json:"reject_or_approve"`
+	ApproveUsers    []*LarkApprovalUser   `bson:"approve_users"               yaml:"approve_users"              json:"approve_users"`
+	Type            lark.ApproveType      `bson:"type"                        yaml:"type"                       json:"type"`
+	RejectOrApprove config.ApprovalStatus `bson:"reject_or_approve"           yaml:"-"                          json:"reject_or_approve"`
 }
 
 type LarkApprovalUser struct {
 	lark.UserInfo   `bson:",inline"  yaml:",inline"  json:",inline"`
-	RejectOrApprove config.ApproveOrReject `bson:"reject_or_approve,omitempty"           yaml:"-"                          json:"reject_or_approve,omitempty"`
-	Comment         string                 `bson:"comment,omitempty"                     yaml:"-"                          json:"comment,omitempty"`
-	OperationTime   int64                  `bson:"operation_time,omitempty"              yaml:"-"                          json:"operation_time,omitempty"`
+	RejectOrApprove config.ApprovalStatus `bson:"reject_or_approve,omitempty"           yaml:"-"                          json:"reject_or_approve,omitempty"`
+	Comment         string                `bson:"comment,omitempty"                     yaml:"-"                          json:"comment,omitempty"`
+	OperationTime   int64                 `bson:"operation_time,omitempty"              yaml:"-"                          json:"operation_time,omitempty"`
 }
 
 type WorkWXApproval struct {
@@ -235,14 +235,14 @@ type WorkWXApproval struct {
 }
 
 type User struct {
-	Type            string                 `bson:"type"                        yaml:"type"                       json:"type"`
-	UserID          string                 `bson:"user_id,omitempty"           yaml:"user_id,omitempty"          json:"user_id,omitempty"`
-	UserName        string                 `bson:"user_name,omitempty"         yaml:"user_name,omitempty"        json:"user_name,omitempty"`
-	GroupID         string                 `bson:"group_id,omitempty"          yaml:"group_id,omitempty"         json:"group_id,omitempty"`
-	GroupName       string                 `bson:"group_name,omitempty"        yaml:"group_name,omitempty"       json:"group_name,omitempty"`
-	RejectOrApprove config.ApproveOrReject `bson:"reject_or_approve,omitempty" yaml:"-"                          json:"reject_or_approve,omitempty"`
-	Comment         string                 `bson:"comment,omitempty"           yaml:"-"                          json:"comment,omitempty"`
-	OperationTime   int64                  `bson:"operation_time,omitempty"    yaml:"-"                          json:"operation_time,omitempty"`
+	Type            string                `bson:"type"                        yaml:"type"                       json:"type"`
+	UserID          string                `bson:"user_id,omitempty"           yaml:"user_id,omitempty"          json:"user_id,omitempty"`
+	UserName        string                `bson:"user_name,omitempty"         yaml:"user_name,omitempty"        json:"user_name,omitempty"`
+	GroupID         string                `bson:"group_id,omitempty"          yaml:"group_id,omitempty"         json:"group_id,omitempty"`
+	GroupName       string                `bson:"group_name,omitempty"        yaml:"group_name,omitempty"       json:"group_name,omitempty"`
+	RejectOrApprove config.ApprovalStatus `bson:"reject_or_approve,omitempty" yaml:"-"                          json:"reject_or_approve,omitempty"`
+	Comment         string                `bson:"comment,omitempty"           yaml:"-"                          json:"comment,omitempty"`
+	OperationTime   int64                 `bson:"operation_time,omitempty"    yaml:"-"                          json:"operation_time,omitempty"`
 }
 
 type Job struct {

@@ -39,11 +39,13 @@ const (
 	// ApprovalStatusNotFound not defined by lark open api, it just means not found in local manager.
 	ApprovalStatusNotFound = "NOTFOUND"
 
-	ApprovalStatusPending  = "PENDING"
-	ApprovalStatusApproved = "APPROVED"
-	ApprovalStatusRejected = "REJECTED"
-	ApprovalStatusCanceled = "CANCELED"
-	ApprovalStatusDeleted  = "DELETED"
+	ApprovalStatusPending     = "PENDING"
+	ApprovalStatusApproved    = "APPROVED"
+	ApprovalStatusRejected    = "REJECTED"
+	ApprovalStatusTransferred = "TRANSFERRED"
+	ApprovalStatusDone        = "DONE"
+	ApprovalStatusCanceled    = "CANCELED"
+	ApprovalStatusDeleted     = "DELETED"
 )
 
 type DepartmentInfo struct {
@@ -292,7 +294,7 @@ type ApprovalManager struct {
 
 type UserApprovalResult struct {
 	Result          string
-	ApproveOrReject config.ApproveOrReject
+	ApproveOrReject config.ApprovalStatus
 	OperationTime   int64
 }
 
@@ -341,6 +343,20 @@ func GetNodeUserApprovalResults(instanceID, nodeID string) map[string]*UserAppro
 	return approvalManager.getNodeUserApprovalResults(nodeID)
 }
 
+func GetUserApprovalResults(instanceID string) NodeUserApprovalResult {
+	approvalManager := GetLarkApprovalInstanceManager(instanceID)
+	copy := make(NodeUserApprovalResult)
+	for k, v := range approvalManager.NodeMap {
+		for k1, v1 := range v {
+			if _, ok := copy[k]; !ok {
+				copy[k] = make(map[string]*UserApprovalResult)
+			}
+			copy[k][k1] = v1
+		}
+	}
+	return approvalManager.NodeMap
+}
+
 func UpdateNodeUserApprovalResult(instanceID, nodeKey, nodeID, userID string, result *UserApprovalResult) {
 	writeKey := fmt.Sprint("lark-approval-lock-write-", instanceID)
 	writeMutex := cache.NewRedisLock(writeKey)
@@ -374,19 +390,24 @@ func (l *ApprovalManager) updateNodeUserApprovalResult(nodeID, userID string, re
 	if _, ok := l.NodeMap[nodeID]; !ok {
 		l.NodeMap[nodeID] = make(map[string]*UserApprovalResult)
 	}
-	if _, ok := l.NodeMap[nodeID][userID]; !ok && result != nil {
-		switch result.Result {
-		case ApprovalStatusApproved:
-			l.NodeMap[nodeID][userID] = result
-			result.ApproveOrReject = config.Approve
-		case ApprovalStatusRejected:
-			l.NodeMap[nodeID][userID] = result
-			result.ApproveOrReject = config.Reject
-		}
+	switch result.Result {
+	case ApprovalStatusApproved:
+		l.NodeMap[nodeID][userID] = result
+		result.ApproveOrReject = config.ApprovalStatusApprove
+	case ApprovalStatusRejected:
+		l.NodeMap[nodeID][userID] = result
+		result.ApproveOrReject = config.ApprovalStatusReject
+	case ApprovalStatusTransferred:
+		l.NodeMap[nodeID][userID] = result
+		result.ApproveOrReject = config.ApprovalStatusRedirect
+	case ApprovalStatusDone:
+		l.NodeMap[nodeID][userID] = result
+		result.ApproveOrReject = config.ApprovalStatusDone
 	}
 	return
 }
 
+// Node Custom Key => Node Key
 func (l *ApprovalManager) GetNodeKeyMap() map[string]string {
 	m := make(map[string]string)
 	for k, v := range l.NodeKeyMap {
