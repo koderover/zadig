@@ -1326,21 +1326,24 @@ func ListServiceLabels(c *gin.Context) {
 	}
 
 	if !ctx.Resources.IsSystemAdmin {
-		if _, ok := ctx.Resources.ProjectAuthInfo[req.ProjectKey]; !ok {
-			ctx.UnAuthorized = true
-			return
-		}
-		if boolptr.IsTrue(production) {
-			if !ctx.Resources.ProjectAuthInfo[req.ProjectKey].IsProjectAdmin &&
-				!ctx.Resources.ProjectAuthInfo[req.ProjectKey].ProductionService.View {
+		if !ctx.Resources.SystemActions.BusinessDirectory.View {
+			if _, ok := ctx.Resources.ProjectAuthInfo[req.ProjectKey]; !ok {
 				ctx.UnAuthorized = true
 				return
 			}
-		} else {
-			if !ctx.Resources.ProjectAuthInfo[req.ProjectKey].IsProjectAdmin &&
-				!ctx.Resources.ProjectAuthInfo[req.ProjectKey].Service.View {
-				ctx.UnAuthorized = true
-				return
+
+			if boolptr.IsTrue(production) {
+				if !ctx.Resources.ProjectAuthInfo[req.ProjectKey].IsProjectAdmin &&
+					!ctx.Resources.ProjectAuthInfo[req.ProjectKey].ProductionService.View {
+					ctx.UnAuthorized = true
+					return
+				}
+			} else {
+				if !ctx.Resources.ProjectAuthInfo[req.ProjectKey].IsProjectAdmin &&
+					!ctx.Resources.ProjectAuthInfo[req.ProjectKey].Service.View {
+					ctx.UnAuthorized = true
+					return
+				}
 			}
 		}
 	}
