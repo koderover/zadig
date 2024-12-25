@@ -467,6 +467,10 @@ func (cm *KubeClientManager) getControllerRuntimeCluster(clusterID string) (cont
 		return nil, fmt.Errorf("cluster %s not found", clusterID)
 	}
 
+	if clusterInfo.Status != setting.Normal {
+		return nil, fmt.Errorf("cluster %s status: %s, cannot create client", clusterID, clusterInfo.Status)
+	}
+
 	var cfg *rest.Config
 
 	switch clusterInfo.Type {
