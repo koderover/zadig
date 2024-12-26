@@ -33,7 +33,7 @@ type KVInput []*KeyValue
 // e.g. the key "a.b" will not be parse as a nested value
 // this is different from the behavior of our normal service KV parsing.
 // How we handle the KV should be decided after further discussion.
-type KeyValue struct {
+type utilKeyValue struct {
 	Key   string      `json:"key"`
 	Value interface{} `json:"value"`
 }

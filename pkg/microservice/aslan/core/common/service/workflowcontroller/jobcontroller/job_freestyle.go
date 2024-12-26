@@ -203,7 +203,17 @@ func (c *FreestyleJobCtl) run(ctx context.Context) error {
 
 	c.jobTaskSpec.Properties.Registries = getMatchedRegistries(jobImage, c.jobTaskSpec.Properties.Registries)
 	//Resource request default value is LOW
-	job, err := buildJob(c.job.JobType, jobImage, c.job.K8sJobName, c.jobTaskSpec.Properties.ClusterID, c.jobTaskSpec.Properties.Namespace, c.jobTaskSpec.Properties.ResourceRequest, c.jobTaskSpec.Properties.ResReqSpec, c.job, c.jobTaskSpec, c.workflowCtx)
+	customAnnotation := make(map[string]string)
+	customLabel := make(map[string]string)
+
+	for _, lb := range c.jobTaskSpec.Properties.CustomLabels {
+		customLabel[lb.Key] = lb.Value.(string)
+	}
+	for _, annotate := range c.jobTaskSpec.Properties.CustomAnnotations {
+		customAnnotation[annotate.Key] = annotate.Value.(string)
+	}
+
+	job, err := buildJob(c.job.JobType, jobImage, c.job.K8sJobName, c.jobTaskSpec.Properties.ClusterID, c.jobTaskSpec.Properties.Namespace, c.jobTaskSpec.Properties.ResourceRequest, c.jobTaskSpec.Properties.ResReqSpec, c.job, c.jobTaskSpec, c.workflowCtx, customLabel, customAnnotation)
 	if err != nil {
 		msg := fmt.Sprintf("create job context error: %v", err)
 		logError(c.job, msg, c.logger)

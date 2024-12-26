@@ -23,8 +23,6 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/koderover/zadig/v2/pkg/tool/blueking"
-	"github.com/koderover/zadig/v2/pkg/tool/workwx"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"gopkg.in/yaml.v3"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -32,10 +30,13 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commontypes "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/types"
 	"github.com/koderover/zadig/v2/pkg/setting"
+	"github.com/koderover/zadig/v2/pkg/tool/blueking"
 	"github.com/koderover/zadig/v2/pkg/tool/dingtalk"
 	"github.com/koderover/zadig/v2/pkg/tool/guanceyun"
 	"github.com/koderover/zadig/v2/pkg/tool/lark"
+	"github.com/koderover/zadig/v2/pkg/tool/workwx"
 	"github.com/koderover/zadig/v2/pkg/types"
+	"github.com/koderover/zadig/v2/pkg/util"
 )
 
 type WorkflowV4 struct {
@@ -518,6 +519,9 @@ type ZadigDistributeImageJobSpec struct {
 	StrategyID               string `bson:"strategy_id"                    json:"strategy_id"                   yaml:"strategy_id"`
 	EnableTargetImageTagRule bool   `bson:"enable_target_image_tag_rule" json:"enable_target_image_tag_rule" yaml:"enable_target_image_tag_rule"`
 	TargetImageTagRule       string `bson:"target_image_tag_rule"        json:"target_image_tag_rule"        yaml:"target_image_tag_rule"`
+
+	CustomAnnotations []*util.KeyValue `bson:"custom_annotations" json:"custom_annotations" yaml:"custom_annotations"`
+	CustomLabels      []*util.KeyValue `bson:"custom_labels"      json:"custom_labels"      yaml:"custom_labels"`
 }
 
 type DistributeTarget struct {
@@ -1304,6 +1308,9 @@ type JobProperties struct {
 	UseHostDockerDaemon bool                 `bson:"use_host_docker_daemon,omitempty" json:"use_host_docker_daemon,omitempty" yaml:"use_host_docker_daemon"`
 	// for VM deploy to get service name to save
 	ServiceName string `bson:"service_name" json:"service_name" yaml:"service_name"`
+
+	CustomAnnotations []*util.KeyValue `bson:"custom_annotations" json:"custom_annotations" yaml:"custom_annotations"`
+	CustomLabels      []*util.KeyValue `bson:"custom_labels"      json:"custom_labels"      yaml:"custom_labels"`
 }
 
 func (j *JobProperties) DeepCopyEnvs() []*KeyVal {

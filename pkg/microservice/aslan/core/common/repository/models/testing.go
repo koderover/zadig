@@ -17,6 +17,7 @@ limitations under the License.
 package models
 
 import (
+	"github.com/koderover/zadig/v2/pkg/util"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/koderover/zadig/v2/pkg/setting"
@@ -107,6 +108,9 @@ type PreTest struct {
 	ConcurrencyLimit int    `bson:"concurrency_limit"      json:"concurrency_limit"`
 	// TODO: Deprecated.
 	Namespace string `bson:"namespace"              json:"namespace"`
+
+	CustomAnnotations []*util.KeyValue `bson:"custom_annotations"        json:"custom_annotations"`
+	CustomLabels      []*util.KeyValue `bson:"custom_labels"             json:"custom_labels"`
 }
 
 type PostTest struct {
