@@ -794,7 +794,7 @@ func RetryWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredL
 				return errors.Errorf("job %s toJobs error: %s", job.Name, err)
 			}
 			for _, jobTask := range jobTasks {
-				jobTaskMap[jobTask.Key] = jobTask
+				jobTaskMap[jobTask.Name] = jobTask
 			}
 		}
 	}
@@ -816,7 +816,7 @@ func RetryWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredL
 			jobTask.StartTime = 0
 			jobTask.EndTime = 0
 			jobTask.Error = ""
-			if t, ok := jobTaskMap[jobTask.Key]; ok {
+			if t, ok := jobTaskMap[jobTask.Name]; ok {
 				jobTask.Spec = t.Spec
 			} else {
 				return errors.Errorf("failed to get jobTask %s origin spec", jobTask.Name)
