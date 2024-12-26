@@ -28,6 +28,7 @@ RUN if [ "$TARGETPLATFORM" = "linux/amd64" ]; then \
     wget -qO - https://package.perforce.com/perforce.pubkey | gpg --dearmor | sudo tee /usr/share/keyrings/perforce.gpg && \
     echo deb [signed-by=/usr/share/keyrings/perforce.gpg] https://package.perforce.com/apt/ubuntu focal release > /etc/apt/sources.list.d/perforce.list && \
     apt-get update && apt-get install -y helix-p4d; \
+    curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" && \
     fi
 
 # install docker client
