@@ -27,11 +27,11 @@ import (
 	"k8s.io/apimachinery/pkg/util/rand"
 
 	configbase "github.com/koderover/zadig/v2/pkg/config"
-	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
+	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	codehostrepo "github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/codehost/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
@@ -482,6 +482,8 @@ func (j *TestingJob) toJobtask(jobSubTaskID int, testing *commonmodels.TestModul
 		ImageFrom:           testingInfo.PreTest.ImageFrom,
 		Registries:          registries,
 		ShareStorageDetails: getShareStorageDetail(j.workflow.ShareStorages, testing.ShareStorageInfo, j.workflow.Name, taskID),
+		CustomLabels:        testingInfo.PreTest.CustomLabels,
+		CustomAnnotations:   testingInfo.PreTest.CustomAnnotations,
 	}
 
 	cacheS3 := &commonmodels.S3Storage{}

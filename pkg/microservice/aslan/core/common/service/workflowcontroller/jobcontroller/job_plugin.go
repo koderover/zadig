@@ -106,7 +106,18 @@ func (c *PluginJobCtl) run(ctx context.Context) error {
 		JobName: c.job.K8sJobName,
 	}
 	c.jobTaskSpec.Properties.Registries = getMatchedRegistries(c.jobTaskSpec.Plugin.Image, c.jobTaskSpec.Properties.Registries)
-	job, err := buildPlainJob(c.job.K8sJobName, c.jobTaskSpec.Properties.ResourceRequest, c.jobTaskSpec.Properties.ResReqSpec, c.job, c.jobTaskSpec, c.workflowCtx)
+
+	customAnnotation := make(map[string]string)
+	customLabel := make(map[string]string)
+
+	for _, lb := range c.jobTaskSpec.Properties.CustomLabels {
+		customLabel[lb.Key] = lb.Value.(string)
+	}
+	for _, annotate := range c.jobTaskSpec.Properties.CustomAnnotations {
+		customAnnotation[annotate.Key] = annotate.Value.(string)
+	}
+
+	job, err := buildPlainJob(c.job.K8sJobName, c.jobTaskSpec.Properties.ResourceRequest, c.jobTaskSpec.Properties.ResReqSpec, c.job, c.jobTaskSpec, c.workflowCtx, customLabel, customAnnotation)
 	if err != nil {
 		msg := fmt.Sprintf("create job context error: %v", err)
 		logError(c.job, msg, c.logger)

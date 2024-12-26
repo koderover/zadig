@@ -32,8 +32,8 @@ import (
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
-	codehostrepo "github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/codehost/repository/mongodb"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
+	codehostrepo "github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/codehost/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/types"
 )
@@ -555,6 +555,8 @@ func (j *ScanningJob) toJobTask(jobSubTaskID int, scanning *commonmodels.Scannin
 		Envs:                append(envs, renderKeyVals(scanning.KeyVals, scanningInfo.Envs)...),
 		Registries:          registries,
 		ShareStorageDetails: getShareStorageDetail(j.workflow.ShareStorages, scanning.ShareStorageInfo, j.workflow.Name, taskID),
+		CustomAnnotations:   scanningInfo.AdvancedSetting.CustomAnnotations,
+		CustomLabels:        scanningInfo.AdvancedSetting.CustomLabels,
 	}
 
 	if scanningType == string(config.ServiceScanningType) {

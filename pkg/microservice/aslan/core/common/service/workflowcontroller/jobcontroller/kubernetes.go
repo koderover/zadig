@@ -118,6 +118,21 @@ func ensureDeleteJob(namespace string, jobLabel *JobLabel, kubeClient crClient.C
 	return updater.DeleteJobsAndWait(namespace, labels.Set(ls).AsSelector(), kubeClient)
 }
 
+func getJobLabelsWithCustomizeData(jobLabel *JobLabel, customizedData map[string]string) map[string]string {
+	retMap := getJobLabels(jobLabel)
+
+	// customized data does not override system data
+	for k, v := range customizedData {
+		if _, ok := retMap[k]; ok {
+			continue
+		} else {
+			retMap[k] = v
+		}
+	}
+
+	return retMap
+}
+
 // getJobLabels get labels k-v map from JobLabel struct
 func getJobLabels(jobLabel *JobLabel) map[string]string {
 	retMap := map[string]string{
@@ -182,7 +197,7 @@ func getBaseImage(buildOS, imageFrom string) string {
 	return jobImage
 }
 
-func buildPlainJob(jobName string, resReq setting.Request, resReqSpec setting.RequestSpec, jobTask *commonmodels.JobTask, jobTaskSpec *commonmodels.JobTaskPluginSpec, workflowCtx *commonmodels.WorkflowTaskCtx) (*batchv1.Job, error) {
+func buildPlainJob(jobName string, resReq setting.Request, resReqSpec setting.RequestSpec, jobTask *commonmodels.JobTask, jobTaskSpec *commonmodels.JobTaskPluginSpec, workflowCtx *commonmodels.WorkflowTaskCtx, customLabels, customAnnotations map[string]string) (*batchv1.Job, error) {
 	collectJobOutput := `OLD_IFS=$IFS
 export IFS=","
 files='%s'
@@ -209,10 +224,10 @@ echo $result > %s
 	}
 	collectJobOutputCommand := fmt.Sprintf(collectJobOutput, strings.Join(files, ","), strings.Join(outputs, ","), job.JobTerminationFile)
 
-	labels := getJobLabels(&JobLabel{
+	labels := getJobLabelsWithCustomizeData(&JobLabel{
 		JobType: string(jobTask.JobType),
 		JobName: jobTask.K8sJobName,
-	})
+	}, customLabels)
 
 	ImagePullSecrets, err := getImagePullSecrets(jobTaskSpec.Properties.Registries)
 	if err != nil {
@@ -236,8 +251,9 @@ echo $result > %s
 
 	job := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:   jobName,
-			Labels: labels,
+			Name:        jobName,
+			Labels:      labels,
+			Annotations: customAnnotations,
 		},
 		Spec: batchv1.JobSpec{
 			Completions:  int32Ptr(1),
@@ -249,7 +265,8 @@ echo $result > %s
 			ActiveDeadlineSeconds: int64Ptr(jobTaskSpec.Properties.Timeout*60 + 3600),
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels: labels,
+					Labels:      labels,
+					Annotations: customAnnotations,
 				},
 				Spec: corev1.PodSpec{
 					RestartPolicy:    corev1.RestartPolicyNever,
@@ -310,7 +327,7 @@ echo $result > %s
 	return job, nil
 }
 
-func buildJob(jobType, jobImage, jobName, clusterID, currentNamespace string, resReq setting.Request, resReqSpec setting.RequestSpec, jobTask *commonmodels.JobTask, jobTaskSpec *commonmodels.JobTaskFreestyleSpec, workflowCtx *commonmodels.WorkflowTaskCtx) (*batchv1.Job, error) {
+func buildJob(jobType, jobImage, jobName, clusterID, currentNamespace string, resReq setting.Request, resReqSpec setting.RequestSpec, jobTask *commonmodels.JobTask, jobTaskSpec *commonmodels.JobTaskFreestyleSpec, workflowCtx *commonmodels.WorkflowTaskCtx, customLabels, customAnnotations map[string]string) (*batchv1.Job, error) {
 	var (
 		jobExecutorBootingScript string
 		jobExecutorBinaryFile    = JobExecutorFile
@@ -334,10 +351,10 @@ func buildJob(jobType, jobImage, jobName, clusterID, currentNamespace string, re
 	}
 	jobExecutorBootingScript += jobExecutorBinaryFile
 
-	labels := getJobLabels(&JobLabel{
+	labels := getJobLabelsWithCustomizeData(&JobLabel{
 		JobType: jobType,
 		JobName: jobTask.K8sJobName,
-	})
+	}, customLabels)
 
 	ImagePullSecrets, err := getImagePullSecrets(jobTaskSpec.Properties.Registries)
 	if err != nil {
@@ -346,8 +363,9 @@ func buildJob(jobType, jobImage, jobName, clusterID, currentNamespace string, re
 
 	job := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:   jobName,
-			Labels: labels,
+			Name:        jobName,
+			Labels:      labels,
+			Annotations: customAnnotations,
 		},
 		Spec: batchv1.JobSpec{
 			Completions:  int32Ptr(1),
@@ -359,7 +377,8 @@ func buildJob(jobType, jobImage, jobName, clusterID, currentNamespace string, re
 			ActiveDeadlineSeconds: int64Ptr(jobTaskSpec.Properties.Timeout*60 + 3600),
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels: labels,
+					Labels:      labels,
+					Annotations: customAnnotations,
 				},
 				Spec: corev1.PodSpec{
 					RestartPolicy:      corev1.RestartPolicyNever,

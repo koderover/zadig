@@ -17,6 +17,7 @@ limitations under the License.
 package models
 
 import (
+	"github.com/koderover/zadig/v2/pkg/util"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/koderover/zadig/v2/pkg/setting"
@@ -92,6 +93,9 @@ type PreBuild struct {
 	StrategyID string `bson:"strategy_id"                     json:"strategy_id"`
 	// UseHostDockerDaemon determines is dockerDaemon on host node is used in pod
 	UseHostDockerDaemon bool `bson:"use_host_docker_daemon" json:"use_host_docker_daemon"`
+
+	CustomAnnotations []*util.KeyValue `bson:"custom_annotations" json:"custom_annotations" yaml:"custom_annotations"`
+	CustomLabels      []*util.KeyValue `bson:"custom_labels"      json:"custom_labels"      yaml:"custom_labels"`
 
 	// TODO: Deprecated.
 	Namespace string `bson:"namespace"                       json:"namespace"`

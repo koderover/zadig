@@ -312,12 +312,14 @@ func (j *ImageDistributeJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, erro
 
 	jobTaskSpec := &commonmodels.JobTaskFreestyleSpec{
 		Properties: commonmodels.JobProperties{
-			Timeout:         j.spec.Timeout,
-			ResourceRequest: setting.MinRequest,
-			ClusterID:       j.spec.ClusterID,
-			StrategyID:      j.spec.StrategyID,
-			BuildOS:         "focal",
-			ImageFrom:       commonmodels.ImageFromKoderover,
+			Timeout:           j.spec.Timeout,
+			ResourceRequest:   setting.MinRequest,
+			ClusterID:         j.spec.ClusterID,
+			StrategyID:        j.spec.StrategyID,
+			BuildOS:           "focal",
+			ImageFrom:         commonmodels.ImageFromKoderover,
+			CustomAnnotations: j.spec.CustomAnnotations,
+			CustomLabels:      j.spec.CustomLabels,
 		},
 		Steps: []*commonmodels.StepTask{
 			{

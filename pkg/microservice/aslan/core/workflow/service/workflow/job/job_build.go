@@ -32,8 +32,8 @@ import (
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/repository"
 	templ "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/template"
-	codehostrepo "github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/codehost/repository/mongodb"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
+	codehostrepo "github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/codehost/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
@@ -479,6 +479,8 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			ImageFrom:           buildInfo.PreBuild.ImageFrom,
 			Registries:          registries,
 			ShareStorageDetails: getShareStorageDetail(j.workflow.ShareStorages, build.ShareStorageInfo, j.workflow.Name, taskID),
+			CustomLabels:        buildInfo.PreBuild.CustomLabels,
+			CustomAnnotations:   buildInfo.PreBuild.CustomAnnotations,
 		}
 
 		jobTaskSpec.Properties.Envs = append(jobTaskSpec.Properties.CustomEnvs, getBuildJobVariables(build, taskID, j.workflow.Project, j.workflow.Name, j.workflow.DisplayName, image, pkgFile, jobTask.Infrastructure, registry, logger)...)
