@@ -44,6 +44,7 @@ func GetContainerLogsSSE(c *gin.Context) {
 	if err != nil {
 		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
+		internalhandler.JSONResponse(c, ctx)
 		return
 	}
 
@@ -59,13 +60,15 @@ func GetContainerLogsSSE(c *gin.Context) {
 	if !ctx.Resources.IsSystemAdmin {
 		if _, ok := ctx.Resources.ProjectAuthInfo[productName]; !ok {
 			ctx.UnAuthorized = true
+			internalhandler.JSONResponse(c, ctx)
 			return
 		}
-		if !(ctx.Resources.ProjectAuthInfo[productName].Env.View ||
-			ctx.Resources.ProjectAuthInfo[productName].IsProjectAdmin) {
+		if !ctx.Resources.ProjectAuthInfo[productName].Env.View &&
+			!ctx.Resources.ProjectAuthInfo[productName].IsProjectAdmin {
 			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, productName, types.ResourceTypeEnvironment, envName, types.EnvActionView)
 			if err != nil || !permitted {
 				ctx.UnAuthorized = true
+				internalhandler.JSONResponse(c, ctx)
 				return
 			}
 		}
@@ -82,6 +85,7 @@ func GetProductionEnvContainerLogsSSE(c *gin.Context) {
 	if err != nil {
 		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
+		internalhandler.JSONResponse(c, ctx)
 		return
 	}
 
@@ -97,17 +101,17 @@ func GetProductionEnvContainerLogsSSE(c *gin.Context) {
 	if !ctx.Resources.IsSystemAdmin {
 		if _, ok := ctx.Resources.ProjectAuthInfo[productName]; !ok {
 			ctx.UnAuthorized = true
+			internalhandler.JSONResponse(c, ctx)
 			return
 		}
-		if !(ctx.Resources.ProjectAuthInfo[productName].ProductionEnv.View ||
-			ctx.Resources.ProjectAuthInfo[productName].IsProjectAdmin) {
+		if !ctx.Resources.ProjectAuthInfo[productName].ProductionEnv.View &&
+			!ctx.Resources.ProjectAuthInfo[productName].IsProjectAdmin {
 			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, productName, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionView)
 			if err != nil || !permitted {
 				ctx.UnAuthorized = true
+				internalhandler.JSONResponse(c, ctx)
 				return
 			}
-			ctx.UnAuthorized = true
-			return
 		}
 	}
 
@@ -153,18 +157,21 @@ func GetScanningContainerLogsSSE(c *gin.Context) {
 	id := c.Param("id")
 	if id == "" {
 		ctx.RespErr = fmt.Errorf("id must be provided")
+		internalhandler.JSONResponse(c, ctx)
 		return
 	}
 
 	taskIDStr := c.Param("scan_id")
 	if taskIDStr == "" {
 		ctx.RespErr = fmt.Errorf("scan_id must be provided")
+		internalhandler.JSONResponse(c, ctx)
 		return
 	}
 
 	taskID, err := strconv.ParseInt(taskIDStr, 10, 64)
 	if err != nil {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid task id")
+		internalhandler.JSONResponse(c, ctx)
 		return
 	}
 
@@ -176,6 +183,7 @@ func GetScanningContainerLogsSSE(c *gin.Context) {
 	resp, err := service.GetScanningModuleByID(id, ctx.Logger)
 	if err != nil {
 		ctx.RespErr = fmt.Errorf("failed to get scanning module by id: %s, err: %v", id, err)
+		internalhandler.JSONResponse(c, ctx)
 		return
 	}
 
@@ -190,17 +198,20 @@ func GetScanningContainerLogsSSE(c *gin.Context) {
 	if err != nil {
 		ctx.Logger.Errorf("failed to find workflow task for scanning: %s, err: %s", workflowName, err)
 		ctx.RespErr = err
+		internalhandler.JSONResponse(c, ctx)
 		return
 	}
 	if len(workflowTask.Stages) != 1 {
 		log.Printf("Invalid stage length: stage length for scanning should be 1")
 		ctx.RespErr = fmt.Errorf("invalid stage length")
+		internalhandler.JSONResponse(c, ctx)
 		return
 	}
 
 	if len(workflowTask.Stages[0].Jobs) != 1 {
 		log.Printf("Invalid Job length: job length for scanning should be 1")
 		ctx.RespErr = fmt.Errorf("invalid job length")
+		internalhandler.JSONResponse(c, ctx)
 		return
 	}
 
@@ -228,18 +239,21 @@ func GetTestingContainerLogsSSE(c *gin.Context) {
 	testName := c.Param("test_name")
 	if testName == "" {
 		ctx.RespErr = fmt.Errorf("testName must be provided")
+		internalhandler.JSONResponse(c, ctx)
 		return
 	}
 
 	taskIDStr := c.Param("task_id")
 	if taskIDStr == "" {
 		ctx.RespErr = fmt.Errorf("task_id must be provided")
+		internalhandler.JSONResponse(c, ctx)
 		return
 	}
 
 	taskID, err := strconv.ParseInt(taskIDStr, 10, 64)
 	if err != nil {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid task id")
+		internalhandler.JSONResponse(c, ctx)
 		return
 	}
 
@@ -253,18 +267,21 @@ func GetTestingContainerLogsSSE(c *gin.Context) {
 	if err != nil {
 		ctx.Logger.Errorf("failed to find workflow task for testing: %s, err: %s", testName, err)
 		ctx.RespErr = err
+		internalhandler.JSONResponse(c, ctx)
 		return
 	}
 
 	if len(workflowTask.Stages) != 1 {
 		ctx.Logger.Errorf("Invalid stage length: stage length for testing should be 1")
 		ctx.RespErr = fmt.Errorf("invalid stage length")
+		internalhandler.JSONResponse(c, ctx)
 		return
 	}
 
 	if len(workflowTask.Stages[0].Jobs) != 1 {
 		ctx.Logger.Errorf("Invalid Job length: job length for testing should be 1")
 		ctx.RespErr = fmt.Errorf("invalid job length")
+		internalhandler.JSONResponse(c, ctx)
 		return
 	}
 
