@@ -318,26 +318,6 @@ type FreeStyleServiceInfo struct {
 	KeyVals           []*KeyVal           `bson:"key_vals"                  yaml:"key_vals"              json:"key_vals"`
 }
 
-func (j *FreeStyleServiceInfo) DeepCopyKeyVals() []*KeyVal {
-	envs := make([]*KeyVal, 0)
-
-	for _, env := range j.KeyVals {
-		choiceOption := make([]string, 0)
-		for _, choice := range env.ChoiceOption {
-			choiceOption = append(choiceOption, choice)
-		}
-		envs = append(envs, &KeyVal{
-			Key:          env.Key,
-			Value:        env.Value,
-			Type:         env.Type,
-			RegistryID:   env.RegistryID,
-			ChoiceOption: choiceOption,
-			IsCredential: env.IsCredential,
-		})
-	}
-	return envs
-}
-
 func (i *FreeStyleServiceInfo) GetKey() string {
 	if i == nil {
 		return ""
