@@ -428,7 +428,7 @@ func (j *FreeStyleJob) toJob(taskID int64, jobSubTaskID int, registries []*commo
 	}
 
 	if service != nil {
-		renderedEnvs, err := renderServiceVariables(j.workflow, jobTaskSpec.Properties.Envs, service.ServiceName, service.ServiceModule)
+		renderedEnvs, err := renderServiceVariables(j.workflow, service.KeyVals, service.ServiceName, service.ServiceModule)
 		if err != nil {
 			return nil, fmt.Errorf("failed to render service variables, error: %v", err)
 		}
