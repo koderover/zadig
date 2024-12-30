@@ -927,7 +927,7 @@ func findMatchedRepoFromParams(params []*commonmodels.Param, paramName string) (
 func renderServiceVariables(workflow *commonmodels.WorkflowV4, envs []*commonmodels.KeyVal, serviceName string, serviceModule string) ([]*commonmodels.KeyVal, error) {
 	duplicatedEnvs := make([]*commonmodels.KeyVal, 0)
 
-	err := util.DeepCopy(duplicatedEnvs, envs)
+	err := util.DeepCopy(&duplicatedEnvs, &envs)
 	if err != nil {
 		return nil, err
 	}
