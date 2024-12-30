@@ -442,7 +442,7 @@ func (j *TestingJob) toJobtask(jobSubTaskID int, testing *commonmodels.TestModul
 	customEnvs := renderKeyVals(testing.KeyVals, testingInfo.PreTest.Envs)
 	if testType == string(config.ServiceTestType) {
 		jobDisplayName = genJobDisplayName(j.job.Name, serviceName, serviceModule)
-		jobKey = genJobKey(j.job.Name, serviceName, serviceModule)
+		jobKey = genJobKey(j.job.Name, testing.Name, serviceName, serviceModule)
 		jobInfo = map[string]string{
 			JobNameKey:       j.job.Name,
 			"test_type":      testType,

@@ -1081,21 +1081,13 @@ func (j *BuildJob) getOriginReferedJobTargets(jobName string) ([]*commonmodels.S
 		return nil, fmt.Errorf("get services map error: %v", err)
 	}
 
-	buildSvc := commonservice.NewBuildService()
 	for _, build := range j.spec.ServiceAndBuilds {
-		buildInfo, err := buildSvc.GetBuild(build.BuildName, build.ServiceName, build.ServiceModule)
-		if err != nil {
-			err = fmt.Errorf("get build %s failed, err: %s", build.BuildName, err)
-			log.Error(err)
-			return nil, err
-		}
-
 		target := &commonmodels.ServiceAndBuild{
 			ServiceName:   build.ServiceName,
 			ServiceModule: build.ServiceModule,
 			BuildName:     build.BuildName,
 			ImageName:     build.ImageName,
-			KeyVals:       buildInfo.PreBuild.Envs,
+			KeyVals:       build.KeyVals,
 			Repos:         build.Repos,
 		}
 
