@@ -588,6 +588,7 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 	workflowTask.Remark = workflow.Remark
 	// set workflow params repo info, like commitid, branch etc.
 	setZadigParamRepos(workflow, log)
+
 	for _, stage := range workflow.Stages {
 		stageTask := &commonmodels.StageTask{
 			Name:       stage.Name,
