@@ -25,6 +25,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/koderover/zadig/v2/pkg/util"
 	"github.com/mozillazg/go-pinyin"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -922,23 +923,31 @@ func findMatchedRepoFromParams(params []*commonmodels.Param, paramName string) (
 	return nil, fmt.Errorf("not found repo from params")
 }
 
-func renderServiceVariables(workflow *commonmodels.WorkflowV4, envs []*commonmodels.KeyVal, serviceName string, serviceModule string) error {
+func renderServiceVariables(workflow *commonmodels.WorkflowV4, envs []*commonmodels.KeyVal, serviceName string, serviceModule string) ([]*commonmodels.KeyVal, error) {
+	duplicatedEnvs := make([]*commonmodels.KeyVal, 0)
+
+	err := util.DeepCopy(&duplicatedEnvs, &envs)
+	if err != nil {
+		return nil, err
+	}
+
 	if serviceName == "" || serviceModule == "" {
-		return nil
+		return duplicatedEnvs, nil
 	}
 
 	params, err := getWorkflowStageParams(workflow)
 	if err != nil {
 		err = fmt.Errorf("failed to get workflow stage parameters, error: %s", err)
-		return err
+		return nil, err
 
 	}
-	for _, env := range envs {
+
+	for _, env := range duplicatedEnvs {
 		if strings.HasPrefix(env.Value, "{{.") && strings.HasSuffix(env.Value, "}}") {
 			env.Value = strings.ReplaceAll(env.Value, "<SERVICE>", serviceName)
 			env.Value = strings.ReplaceAll(env.Value, "<MODULE>", serviceModule)
 			env.Value = renderString(env.Value, setting.RenderValueTemplate, params)
 		}
 	}
-	return nil
+	return duplicatedEnvs, nil
 }
