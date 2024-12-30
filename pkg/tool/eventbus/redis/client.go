@@ -34,6 +34,7 @@ type RedisEventBus struct {
 }
 
 var redisClient *redis.Client
+var handleFuncMap map[string][]func(message string)
 
 func New(db int) *RedisEventBus {
 	if redisClient == nil {
@@ -50,7 +51,12 @@ func New(db int) *RedisEventBus {
 		}
 		redisClient = redis.NewClient(redisConfig)
 	}
-	return &RedisEventBus{redisClient: redisClient}
+
+	if handleFuncMap == nil {
+		handleFuncMap = make(map[string][]func(message string))
+	}
+
+	return &RedisEventBus{redisClient: redisClient, handleFuncs: handleFuncMap}
 }
 
 func (eb *RedisEventBus) RegisterHandleFunc(channel string, handleFunc func(message string)) {
