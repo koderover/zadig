@@ -359,6 +359,7 @@ func (j *FreeStyleJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		}
 
 		for jobSubTaskID, service := range j.spec.Services {
+			log.Infof(">>>>>>>>>>>>>>>>>>>>> generating job for service: %s, module: %s", service.ServiceName, service.ServiceModule)
 			task, err := j.toJob(taskID, jobSubTaskID, registries, service, logger)
 			if err != nil {
 				return nil, err
