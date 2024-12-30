@@ -93,14 +93,15 @@ func (c *EnvInfoColl) Create(ctx *internalhandler.Context, args *models.EnvInfo)
 }
 
 type ListEnvInfoOption struct {
-	PageNum     int
-	PageSize    int
-	ProjectName string
-	EnvName     string
-	ServiceName string
-	StartTime   int64
-	EndTime     int64
-	Operation   config.EnvOperation
+	PageNum      int
+	PageSize     int
+	ProjectName  string
+	ProjectNames []string
+	EnvName      string
+	ServiceName  string
+	StartTime    int64
+	EndTime      int64
+	Operation    config.EnvOperation
 }
 
 func (c *EnvInfoColl) List(ctx context.Context, opt *ListEnvInfoOption) ([]*models.EnvInfo, int64, error) {
@@ -111,6 +112,9 @@ func (c *EnvInfoColl) List(ctx context.Context, opt *ListEnvInfoOption) ([]*mode
 	findOption := bson.M{}
 	if len(opt.ProjectName) > 0 {
 		findOption["project_name"] = opt.ProjectName
+	}
+	if len(opt.ProjectNames) > 0 {
+		findOption["project_name"] = bson.M{"$in": opt.ProjectNames}
 	}
 	if len(opt.EnvName) > 0 {
 		findOption["env_name"] = opt.EnvName
