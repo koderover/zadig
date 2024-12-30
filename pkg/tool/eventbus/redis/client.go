@@ -82,6 +82,8 @@ func (eb *RedisEventBus) Subscribe(ctx context.Context, channel string) {
 			case <-ctx.Done():
 				return
 			case msg := <-pubsub.Channel():
+				log.Debugf("MESSAGE IN: %s", msg.Payload)
+
 				eb.mu.RLock()
 				handlers := eb.handleFuncs[channel]
 				eb.mu.RUnlock()
