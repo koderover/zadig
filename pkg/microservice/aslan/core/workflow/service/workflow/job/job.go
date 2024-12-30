@@ -25,6 +25,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/util"
 	"github.com/mozillazg/go-pinyin"
 	"github.com/pkg/errors"
@@ -943,6 +944,7 @@ func renderServiceVariables(workflow *commonmodels.WorkflowV4, envs []*commonmod
 	}
 
 	for _, env := range duplicatedEnvs {
+		log.Infof(">>>>>>>>>>>>>>>>>>>> rendering parameter: %s for service: %s, module: %s", env.Value, serviceName, serviceModule)
 		if strings.HasPrefix(env.Value, "{{.") && strings.HasSuffix(env.Value, "}}") {
 			env.Value = strings.ReplaceAll(env.Value, "<SERVICE>", serviceName)
 			env.Value = strings.ReplaceAll(env.Value, "<MODULE>", serviceModule)
