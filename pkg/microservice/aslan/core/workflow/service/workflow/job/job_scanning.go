@@ -558,10 +558,12 @@ func (j *ScanningJob) toJobTask(jobSubTaskID int, scanning *commonmodels.Scannin
 	}
 
 	if scanningType == string(config.ServiceScanningType) {
-		err = renderServiceVariables(j.workflow, jobTaskSpec.Properties.Envs, serviceName, serviceModule)
+		renderedEnv, err := renderServiceVariables(j.workflow, jobTaskSpec.Properties.Envs, serviceName, serviceModule)
 		if err != nil {
 			return nil, fmt.Errorf("failed to render service variables, error: %v", err)
 		}
+
+		jobTaskSpec.Properties.Envs = renderedEnv
 	}
 
 	cacheS3 := &commonmodels.S3Storage{}
