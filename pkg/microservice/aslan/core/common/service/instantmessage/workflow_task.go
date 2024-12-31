@@ -35,6 +35,7 @@ import (
 	configbase "github.com/koderover/zadig/v2/pkg/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
+	templaterepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	larkservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/lark"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/webhooknotify"
 	"github.com/koderover/zadig/v2/pkg/setting"
@@ -260,18 +261,26 @@ func (w *Service) SendWorkflowTaskNotifications(task *models.WorkflowTask) error
 	return nil
 }
 func (w *Service) getApproveNotificationContent(notify *models.NotifyCtl, task *models.WorkflowTask) (string, string, *LarkCard, *webhooknotify.WorkflowNotify, error) {
+	project, err := templaterepo.NewProductColl().Find(task.ProjectName)
+	if err != nil {
+		return "", "", nil, nil, fmt.Errorf("failed to find project %s, error: %v", task.ProjectName, err)
+	}
+
 	workflowNotification := &workflowTaskNotification{
 		Task:               task,
+		ProjectDisplayName: project.ProjectName,
 		EncodedDisplayName: url.PathEscape(task.WorkflowDisplayName),
 		BaseURI:            configbase.SystemAddress(),
 		WebHookType:        notify.WebHookType,
 		TotalTime:          time.Now().Unix() - task.StartTime,
 	}
+
 	webhookNotify := &webhooknotify.WorkflowNotify{
 		TaskID:              task.TaskID,
 		WorkflowName:        task.WorkflowName,
 		WorkflowDisplayName: task.WorkflowDisplayName,
 		ProjectName:         task.ProjectName,
+		ProjectDisplayName:  project.ProjectName,
 		Status:              task.Status,
 		Remark:              task.Remark,
 		Error:               task.Error,
@@ -288,13 +297,13 @@ func (w *Service) getApproveNotificationContent(notify *models.NotifyCtl, task *
 	mailTplTitle := "{{getIcon .Task.Status }}工作流 {{.Task.WorkflowDisplayName}} #{{.Task.TaskID}} 等待审批\n"
 
 	tplBaseInfo := []string{"{{if eq .WebHookType \"dingding\"}}##### {{end}}**执行用户**：{{.Task.TaskCreator}} \n",
-		"{{if eq .WebHookType \"dingding\"}}##### {{end}}**项目名称**：{{.Task.ProjectName}} \n",
+		"{{if eq .WebHookType \"dingding\"}}##### {{end}}**项目名称**：{{.ProjectDisplayName}} \n",
 		"{{if eq .WebHookType \"dingding\"}}##### {{end}}**开始时间**：{{ getStartTime .Task.StartTime}} \n",
 		"{{if eq .WebHookType \"dingding\"}}##### {{end}}**持续时间**：{{ getDuration .TotalTime}} \n",
 		"{{if eq .WebHookType \"dingding\"}}##### {{end}}**备注**：{{.Task.Remark}} \n",
 	}
 	mailTplBaseInfo := []string{"执行用户：{{.Task.TaskCreator}} \n",
-		"项目名称：{{.Task.ProjectName}} \n",
+		"项目名称：{{.ProjectDisplayName}} \n",
 		"开始时间：{{ getStartTime .Task.StartTime}} \n",
 		"持续时间：{{ getDuration .TotalTime}} \n",
 		"备注：{{ .Task.Remark}} \n\n",
@@ -377,8 +386,14 @@ func (w *Service) getApproveNotificationContent(notify *models.NotifyCtl, task *
 
 // @note custom workflow task v4 notification
 func (w *Service) getNotificationContent(notify *models.NotifyCtl, task *models.WorkflowTask) (string, string, *LarkCard, *webhooknotify.WorkflowNotify, error) {
+	project, err := templaterepo.NewProductColl().Find(task.ProjectName)
+	if err != nil {
+		return "", "", nil, nil, fmt.Errorf("failed to find project %s, error: %v", task.ProjectName, err)
+	}
+
 	workflowNotification := &workflowTaskNotification{
 		Task:               task,
+		ProjectDisplayName: project.ProjectName,
 		EncodedDisplayName: url.PathEscape(task.WorkflowDisplayName),
 		BaseURI:            configbase.SystemAddress(),
 		WebHookType:        notify.WebHookType,
@@ -395,6 +410,7 @@ func (w *Service) getNotificationContent(notify *models.NotifyCtl, task *models.
 		WorkflowName:        task.WorkflowName,
 		WorkflowDisplayName: task.WorkflowDisplayName,
 		ProjectName:         task.ProjectName,
+		ProjectDisplayName:  project.ProjectName,
 		Status:              task.Status,
 		Remark:              task.Remark,
 		Error:               task.Error,
@@ -412,13 +428,13 @@ func (w *Service) getNotificationContent(notify *models.NotifyCtl, task *models.
 	mailTplTitle := "{{getIcon .Task.Status }} {{getTaskType .Task.Type}} {{.Task.WorkflowDisplayName}}#{{.Task.TaskID}} {{ taskStatus .Task.Status }}"
 
 	tplBaseInfo := []string{"{{if eq .WebHookType \"dingding\"}}##### {{end}}**执行用户**：{{.Task.TaskCreator}} \n",
-		"{{if eq .WebHookType \"dingding\"}}##### {{end}}**项目名称**：{{.Task.ProjectName}} \n",
+		"{{if eq .WebHookType \"dingding\"}}##### {{end}}**项目名称**：{{.ProjectDisplayName}} \n",
 		"{{if eq .WebHookType \"dingding\"}}##### {{end}}**开始时间**：{{ getStartTime .Task.StartTime}} \n",
 		"{{if eq .WebHookType \"dingding\"}}##### {{end}}**持续时间**：{{ getDuration .TotalTime}} \n",
 		"{{if eq .WebHookType \"dingding\"}}##### {{end}}**备注**：{{.Task.Remark}} \n",
 	}
 	mailTplBaseInfo := []string{"执行用户：{{.Task.TaskCreator}} \n",
-		"项目名称：{{.Task.ProjectName}} \n",
+		"项目名称：{{.ProjectDisplayName}} \n",
 		"开始时间：{{ getStartTime .Task.StartTime}} \n",
 		"持续时间：{{ getDuration .TotalTime}} \n",
 		"备注：{{ .Task.Remark}} \n",
@@ -737,6 +753,7 @@ func (w *Service) getNotificationContent(notify *models.NotifyCtl, task *models.
 
 type workflowTaskNotification struct {
 	Task               *models.WorkflowTask      `json:"task"`
+	ProjectDisplayName string                    `json:"project_display_name"`
 	EncodedDisplayName string                    `json:"encoded_display_name"`
 	BaseURI            string                    `json:"base_uri"`
 	WebHookType        setting.NotifyWebHookType `json:"web_hook_type"`

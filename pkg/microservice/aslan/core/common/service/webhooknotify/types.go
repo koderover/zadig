@@ -51,6 +51,7 @@ type WebHookNotify struct {
 type WorkflowNotify struct {
 	TaskID              int64                         `json:"task_id"`
 	ProjectName         string                        `json:"project_name"`
+	ProjectDisplayName  string                        `json:"project_display_name"`
 	WorkflowName        string                        `json:"workflow_name"`
 	WorkflowDisplayName string                        `json:"workflow_display_name"`
 	Status              config.Status                 `json:"status"`
