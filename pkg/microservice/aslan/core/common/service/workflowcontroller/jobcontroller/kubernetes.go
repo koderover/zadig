@@ -65,16 +65,18 @@ import (
 )
 
 const (
-	BusyBoxImage               = "koderover.tencentcloudcr.com/koderover-public/busybox:latest"
-	ZadigContextDir            = "/zadig/"
-	ZadigLogFile               = ZadigContextDir + "zadig.log"
-	ZadigLifeCycleFile         = ZadigContextDir + "lifecycle"
-	ExecutorResourceVolumeName = "executor-resource"
-	ExecutorVolumePath         = "/executor"
-	JobExecutorFile            = ExecutorVolumePath + "/jobexecutor"
-	defaultSecretEmail         = "bot@koderover.com"
-	registrySecretSuffix       = "-registry-secret"
-	workflowConfigMapRoleSA    = "workflow-cm-sa"
+	BusyBoxImage                 = "koderover.tencentcloudcr.com/koderover-public/busybox:latest"
+	ZadigContextDir              = "/zadig/"
+	ZadigLogFile                 = ZadigContextDir + "zadig.log"
+	ZadigLifeCycleFile           = ZadigContextDir + "lifecycle"
+	ExecutorResourceVolumeName   = "executor-resource"
+	ExecutorKubeConfigVolume     = "executor-kubeconfig"
+	ExecutorVolumePath           = "/executor"
+	ExecutorKubeConfigVolumePath = "/root/.kube"
+	JobExecutorFile              = ExecutorVolumePath + "/jobexecutor"
+	defaultSecretEmail           = "bot@koderover.com"
+	registrySecretSuffix         = "-registry-secret"
+	workflowConfigMapRoleSA      = "workflow-cm-sa"
 
 	defaultRetryCount    = 3
 	defaultRetryInterval = time.Second * 3
@@ -361,6 +363,38 @@ func buildJob(jobType, jobImage, jobName, clusterID, currentNamespace string, re
 		return nil, err
 	}
 
+	var commands []string
+	var serviceAccountName string
+
+	if targetCluster.Type == setting.AgentClusterType {
+		commands = []string{"/bin/sh", "-c", fmt.Sprintf("cp /app/* %s", ExecutorVolumePath)}
+
+		if clusterID != setting.LocalClusterID {
+			serviceAccountName = config.AgentTypeZadigDefaultServiceAccountName
+		} else {
+			controllerRuntimeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(clusterID)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create client for target cluster %s, err: %s", clusterID, err)
+			}
+			deploy, deployExists, err := getter.GetDeployment(config.Namespace(), "aslan", controllerRuntimeClient)
+			if err != nil || !deployExists {
+				return nil, fmt.Errorf("failed to find aslan deployment to determine the correct service account, error: %s", err)
+			}
+
+			serviceAccountName = deploy.Spec.Template.Spec.ServiceAccountName
+		}
+
+	} else {
+		commands = []string{"/bin/sh", "-c", fmt.Sprintf(
+			`cp /app/* %s &&
+cat <<EOF > /root/.kube/config
+%s
+EOF`,
+			ExecutorVolumePath,
+			targetCluster.KubeConfig)}
+		serviceAccountName = workflowConfigMapRoleSA
+	}
+
 	job := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        jobName,
@@ -383,7 +417,7 @@ func buildJob(jobType, jobImage, jobName, clusterID, currentNamespace string, re
 				Spec: corev1.PodSpec{
 					RestartPolicy:      corev1.RestartPolicyNever,
 					ImagePullSecrets:   ImagePullSecrets,
-					ServiceAccountName: workflowConfigMapRoleSA,
+					ServiceAccountName: serviceAccountName,
 					InitContainers: []corev1.Container{
 						{
 							ImagePullPolicy: corev1.PullIfNotPresent,
@@ -394,8 +428,12 @@ func buildJob(jobType, jobImage, jobName, clusterID, currentNamespace string, re
 									Name:      ExecutorResourceVolumeName,
 									MountPath: ExecutorVolumePath,
 								},
+								{
+									Name:      ExecutorKubeConfigVolume,
+									MountPath: ExecutorKubeConfigVolumePath,
+								},
 							},
-							Command: []string{"/bin/sh", "-c", fmt.Sprintf("cp /app/* %s", ExecutorVolumePath)},
+							Command: commands,
 						},
 					},
 					Containers: []corev1.Container{
@@ -612,6 +650,10 @@ func getVolumeMounts(configMapMountDir string, userHostDockerDaemon bool) []core
 		Name:      ExecutorResourceVolumeName,
 		MountPath: ExecutorVolumePath,
 	})
+	resp = append(resp, corev1.VolumeMount{
+		Name:      ExecutorKubeConfigVolume,
+		MountPath: ExecutorKubeConfigVolumePath,
+	})
 	if userHostDockerDaemon {
 		resp = append(resp, corev1.VolumeMount{
 			Name:      "docker-sock",
@@ -641,6 +683,12 @@ func getVolumes(jobName string, userHostDockerDaemon bool) []corev1.Volume {
 	})
 	resp = append(resp, corev1.Volume{
 		Name: ExecutorResourceVolumeName,
+		VolumeSource: corev1.VolumeSource{
+			EmptyDir: &corev1.EmptyDirVolumeSource{},
+		},
+	})
+	resp = append(resp, corev1.Volume{
+		Name: ExecutorKubeConfigVolume,
 		VolumeSource: corev1.VolumeSource{
 			EmptyDir: &corev1.EmptyDirVolumeSource{},
 		},

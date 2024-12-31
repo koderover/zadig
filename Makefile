@@ -37,7 +37,7 @@ debugtools: prereq $(DEBUG_TOOLS_TARGETS:=.push)
 %.dev:
 	@docker buildx build -t ${MAKE_IMAGE_TAG} --platform linux/amd64 -f docker/$*.Dockerfile --push .
 
-%.buildbase: MAKE_IMAGE_TAG ?= ${IMAGE_REPOSITORY}/build-base:$*
+%.buildbase: MAKE_IMAGE_TAG ?= ${IMAGE_REPOSITORY}/build-base:$*-with-kubectl
 %.buildbase:
 	@docker buildx build -t ${MAKE_IMAGE_TAG} --no-cache --platform linux/amd64,linux/arm64 -f docker/$*-base.Dockerfile --push .
 

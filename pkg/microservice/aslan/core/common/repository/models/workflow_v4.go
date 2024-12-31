@@ -276,6 +276,7 @@ func (s *WorkflowServiceModule) GetKey() string {
 type CustomDeployJobSpec struct {
 	Namespace          string `bson:"namespace"              json:"namespace"             yaml:"namespace"`
 	ClusterID          string `bson:"cluster_id"             json:"cluster_id"            yaml:"cluster_id"`
+	ClusterSource      string `bson:"cluster_source"         json:"cluster_source"        yaml:"cluster_source"`
 	DockerRegistryID   string `bson:"docker_registry_id"     json:"docker_registry_id"    yaml:"docker_registry_id"`
 	SkipCheckRunStatus bool   `bson:"skip_check_run_status"  json:"skip_check_run_status" yaml:"skip_check_run_status"`
 	// support two sources, runtime/fixed.
@@ -496,6 +497,7 @@ type ZadigDistributeImageJobSpec struct {
 	// unit is minute.
 	Timeout                  int64  `bson:"timeout"                        json:"timeout"                       yaml:"timeout"`
 	ClusterID                string `bson:"cluster_id"                     json:"cluster_id"                    yaml:"cluster_id"`
+	ClusterSource            string `bson:"cluster_source"                 json:"cluster_source"                yaml:"cluster_source"`
 	StrategyID               string `bson:"strategy_id"                    json:"strategy_id"                   yaml:"strategy_id"`
 	EnableTargetImageTagRule bool   `bson:"enable_target_image_tag_rule" json:"enable_target_image_tag_rule" yaml:"enable_target_image_tag_rule"`
 	TargetImageTagRule       string `bson:"target_image_tag_rule"        json:"target_image_tag_rule"        yaml:"target_image_tag_rule"`
@@ -660,6 +662,7 @@ type BlueGreenTarget struct {
 
 type CanaryDeployJobSpec struct {
 	ClusterID        string          `bson:"cluster_id"             json:"cluster_id"            yaml:"cluster_id"`
+	ClusterSource    string          `bson:"cluster_source"         json:"cluster_source"        yaml:"cluster_source"`
 	Namespace        string          `bson:"namespace"              json:"namespace"             yaml:"namespace"`
 	DockerRegistryID string          `bson:"docker_registry_id"     json:"docker_registry_id"    yaml:"docker_registry_id"`
 	Targets          []*CanaryTarget `bson:"targets"                json:"targets"               yaml:"targets"`
@@ -685,6 +688,7 @@ type CanaryTarget struct {
 
 type GrayReleaseJobSpec struct {
 	ClusterID        string `bson:"cluster_id"             json:"cluster_id"            yaml:"cluster_id"`
+	ClusterSource    string `bson:"cluster_source"         json:"cluster_source"        yaml:"cluster_source"`
 	Namespace        string `bson:"namespace"              json:"namespace"             yaml:"namespace"`
 	DockerRegistryID string `bson:"docker_registry_id"     json:"docker_registry_id"    yaml:"docker_registry_id"`
 	FromJob          string `bson:"from_job"               json:"from_job"              yaml:"from_job"`
@@ -705,6 +709,7 @@ type GrayReleaseTarget struct {
 
 type K8sPatchJobSpec struct {
 	ClusterID        string       `bson:"cluster_id"             json:"cluster_id"            yaml:"cluster_id"`
+	ClusterSource    string       `bson:"cluster_source"         json:"cluster_source"        yaml:"cluster_source"`
 	Namespace        string       `bson:"namespace"              json:"namespace"             yaml:"namespace"`
 	PatchItems       []*PatchItem `bson:"patch_items"            json:"patch_items"           yaml:"patch_items"`
 	PatchItemOptions []*PatchItem `bson:"-"                      json:"patch_item_options"    yaml:"patch_item_options"`
@@ -760,8 +765,9 @@ type PatchItem struct {
 }
 
 type GrayRollbackJobSpec struct {
-	ClusterID string `bson:"cluster_id"             json:"cluster_id"            yaml:"cluster_id"`
-	Namespace string `bson:"namespace"              json:"namespace"             yaml:"namespace"`
+	ClusterID     string `bson:"cluster_id"             json:"cluster_id"            yaml:"cluster_id"`
+	ClusterSource string `bson:"cluster_source"         json:"cluster_source"        yaml:"cluster_source"`
+	Namespace     string `bson:"namespace"              json:"namespace"             yaml:"namespace"`
 	// unit is minute.
 	RollbackTimeout int64                 `bson:"rollback_timeout"       json:"rollback_timeout"      yaml:"rollback_timeout"`
 	Targets         []*GrayRollbackTarget `bson:"targets"                json:"targets"               yaml:"targets"`
@@ -794,6 +800,7 @@ type JiraJobSpec struct {
 type IstioJobSpec struct {
 	First             bool              `bson:"first"              json:"first"              yaml:"first"`
 	ClusterID         string            `bson:"cluster_id"         json:"cluster_id"         yaml:"cluster_id"`
+	ClusterSource     string            `bson:"cluster_source"     json:"cluster_source"     yaml:"cluster_source"`
 	FromJob           string            `bson:"from_job"           json:"from_job"           yaml:"from_job"`
 	RegistryID        string            `bson:"registry_id"        json:"registry_id"        yaml:"registry_id"`
 	Namespace         string            `bson:"namespace"          json:"namespace"          yaml:"namespace"`
@@ -805,11 +812,12 @@ type IstioJobSpec struct {
 }
 
 type IstioRollBackJobSpec struct {
-	ClusterID     string            `bson:"cluster_id"  json:"cluster_id"     yaml:"cluster_id"`
-	Namespace     string            `bson:"namespace"   json:"namespace"      yaml:"namespace"`
-	Timeout       int64             `bson:"timeout"     json:"timeout"        yaml:"timeout"`
-	Targets       []*IstioJobTarget `bson:"targets"     json:"targets"        yaml:"targets"`
-	TargetOptions []*IstioJobTarget `bson:"-"           json:"target_options" yaml:"target_options"`
+	ClusterID     string            `bson:"cluster_id"     json:"cluster_id"        yaml:"cluster_id"`
+	ClusterSource string            `bson:"cluster_source" json:"cluster_source"    yaml:"cluster_source"`
+	Namespace     string            `bson:"namespace"      json:"namespace"         yaml:"namespace"`
+	Timeout       int64             `bson:"timeout"        json:"timeout"           yaml:"timeout"`
+	Targets       []*IstioJobTarget `bson:"targets"        json:"targets"           yaml:"targets"`
+	TargetOptions []*IstioJobTarget `bson:"-"              json:"target_options"    yaml:"target_options"`
 }
 
 type UpdateEnvIstioConfigJobSpec struct {
@@ -1266,6 +1274,7 @@ type JobProperties struct {
 	Infrastructure  string              `bson:"infrastructure"         json:"infrastructure"        yaml:"infrastructure"`
 	VMLabels        []string            `bson:"vm_labels"              json:"vm_labels"             yaml:"vm_labels"`
 	ClusterID       string              `bson:"cluster_id"             json:"cluster_id"            yaml:"cluster_id"`
+	ClusterSource   string              `bson:"cluster_source"         json:"cluster_source"        yaml:"cluster_source"`
 	StrategyID      string              `bson:"strategy_id"            json:"strategy_id"           yaml:"strategy_id"`
 	BuildOS         string              `bson:"build_os"               json:"build_os"              yaml:"build_os,omitempty"`
 	ImageFrom       string              `bson:"image_from"             json:"image_from"            yaml:"image_from,omitempty"`

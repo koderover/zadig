@@ -113,12 +113,18 @@ func (j *FreeStyleJob) SetPreset() error {
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return err
 	}
-	j.job.Spec = j.spec
+
 	if j.spec.Source == config.SourceFromJob {
 		j.spec.OriginJobName = j.spec.JobName
 	} else if j.spec.Source == config.SourceRuntime {
 		//
 	}
+
+	if j.spec.Properties.ClusterSource == "" {
+		j.spec.Properties.ClusterSource = "fixed"
+	}
+
+	j.job.Spec = j.spec
 	return nil
 }
 
