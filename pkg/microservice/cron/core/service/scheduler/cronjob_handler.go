@@ -156,6 +156,7 @@ func (h *CronjobHandler) updateCronjob(name, productName, jobType string, jobLis
 	}
 	// 根据job内容来在scheduler中新增cronjob
 	for _, job := range jobList {
+		log.Debugf("job: %+v", job)
 		var cron string
 		if job.Type == setting.FixedGapCronjob || job.Type == setting.FixedDayTimeCronjob {
 			cronString, err := convertFixedTimeToCron(job)
@@ -193,6 +194,7 @@ func (h *CronjobHandler) updateCronjob(name, productName, jobType string, jobLis
 				return err
 			}
 		case setting.ReleasePlanCronjob:
+			log.Debugf("registering release plan job, name: %v, cron: %v, jobID: %v", name, cron, job.ID)
 			err := h.registerReleasePlanJob(name, cron, job)
 			if err != nil {
 				return err
