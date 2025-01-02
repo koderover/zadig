@@ -104,6 +104,7 @@ func ListUsersByNameAndRole(page int, perPage int, name string, roles []string, 
 	err = db.Where("name LIKE ? AND role.name IN ?", "%"+name+"%", roles).
 		Joins("INNER JOIN role_binding on role_binding.uid = user.uid").
 		Joins("INNER JOIN role on role_binding.role_id = role.id").Order("account ASC").Offset((page-1)*perPage).
+		Group("user.uid").
 		Having("COUNT(DISTINCT role.name) = ?", len(roles)).
 		Limit(perPage).
 		Find(&users).
