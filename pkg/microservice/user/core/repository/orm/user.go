@@ -94,6 +94,28 @@ func ListUsers(page int, perPage int, name string, db *gorm.DB) ([]models.User, 
 	return users, nil
 }
 
+// ListUsersByNameAndRole gets a list of users based on paging constraints, the name of the user, and the roles of the user
+func ListUsersByNameAndRole(page int, perPage int, name string, roles []string, db *gorm.DB) ([]models.User, error) {
+	var (
+		users []models.User
+		err   error
+	)
+
+	err = db.Where("name LIKE ? AND role.name IN ?", "%"+name+"%", roles).
+		Joins("INNER JOIN role_binding on role_binding.uid = user.uid").
+		Joins("INNER JOIN role on role_binding.role_id = role.id").Order("account ASC").Offset((page-1)*perPage).
+		Having("COUNT(DISTINCT role.name) = ?", len(roles)).
+		Limit(perPage).
+		Find(&users).
+		Error
+
+	if err != nil && err != gorm.ErrRecordNotFound {
+		return nil, err
+	}
+
+	return users, nil
+}
+
 func ListUsersByGroup(groupID string, db *gorm.DB) ([]*models.User, error) {
 	resp := make([]*models.User, 0)
 

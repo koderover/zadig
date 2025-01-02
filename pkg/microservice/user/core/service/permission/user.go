@@ -74,7 +74,8 @@ type QueryArgs struct {
 	IdentityType string   `json:"identity_type,omitempty"`
 	UIDs         []string `json:"uids,omitempty"`
 	PerPage      int      `json:"per_page,omitempty" form:"perPage"`
-	Page         int      `json:"page,omitempty" form:"page"`
+	Page         int      `json:"page,omitempty"  form:"page"`
+	Roles        []string `json:"roles,omitempty" form:"roles"`
 }
 
 type Password struct {
@@ -302,11 +303,21 @@ func SearchUsers(args *QueryArgs, logger *zap.SugaredLogger) (*types.UsersResp, 
 		}, nil
 	}
 
-	users, err := orm.ListUsers(args.Page, args.PerPage, args.Name, repository.DB)
-	if err != nil {
-		logger.Errorf("SeachUsers SeachUsers By name:%s error, error msg:%s", args.Name, err.Error())
-		return nil, err
+	var users []models.User
+	if len(args.Roles) == 0 {
+		users, err = orm.ListUsers(args.Page, args.PerPage, args.Name, repository.DB)
+		if err != nil {
+			logger.Errorf("SeachUsers SeachUsers By name:%s error, error msg:%s", args.Name, err.Error())
+			return nil, err
+		}
+	} else {
+		users, err = orm.ListUsersByNameAndRole(args.Page, args.PerPage, args.Name, args.Roles, repository.DB)
+		if err != nil {
+			logger.Errorf("SeachUsers SeachUsers By name:%s error, error msg:%s", args.Name, err.Error())
+			return nil, err
+		}
 	}
+
 	var uids []string
 	for _, user := range users {
 		uids = append(uids, user.UID)
