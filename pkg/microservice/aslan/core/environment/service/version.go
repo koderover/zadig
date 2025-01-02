@@ -317,6 +317,7 @@ func RollbackEnvServiceVersion(ctx *internalhandler.Context, projectName, envNam
 		}
 	} else if envSvcVersion.Service.Type == setting.HelmDeployType || envSvcVersion.Service.Type == setting.HelmChartDeployType {
 		var svcTmpl *commonmodels.Service
+		imageKVS := make([]*helmtool.KV, 0)
 		if envSvcVersion.Service.Type == setting.HelmDeployType {
 			svcTmpl, err = mongodb.NewServiceColl().Find(&mongodb.ServiceFindOption{
 				ProductName: envSvcVersion.ProductName,
@@ -327,9 +328,28 @@ func RollbackEnvServiceVersion(ctx *internalhandler.Context, projectName, envNam
 			if err != nil {
 				return e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to find service temlate %s/%s/%d, error: %v", envSvcVersion.EnvName, envSvcVersion.Service.ServiceName, envSvcVersion.Service.Revision, err))
 			}
+
+			imageValuesMaps := make([]map[string]interface{}, 0)
+			for _, targetContainer := range envSvcVersion.Service.Containers {
+				// prepare image replace info
+				replaceValuesMap, err := commonutil.AssignImageData(targetContainer.Image, commonutil.GetValidMatchData(targetContainer.ImagePath))
+				if err != nil {
+					return fmt.Errorf("failed to pase image uri %s/%s, err %s", envSvcVersion.ProductName, serviceName, err.Error())
+				}
+				imageValuesMaps = append(imageValuesMaps, replaceValuesMap)
+			}
+
+			for _, imageSecs := range imageValuesMaps {
+				for key, value := range imageSecs {
+					imageKVS = append(imageKVS, &helmtool.KV{
+						Key:   key,
+						Value: value,
+					})
+				}
+			}
 		}
 
-		mergedValues, err := helmtool.MergeOverrideValues("", envSvcVersion.DefaultValues, envSvcVersion.Service.GetServiceRender().GetOverrideYaml(), envSvcVersion.Service.GetServiceRender().OverrideValues, nil)
+		mergedValues, err := helmtool.MergeOverrideValues("", envSvcVersion.DefaultValues, envSvcVersion.Service.GetServiceRender().GetOverrideYaml(), envSvcVersion.Service.GetServiceRender().OverrideValues, imageKVS)
 		if err != nil {
 			return e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to merge service %s's override yaml %s and values %s, err: %s", envSvcVersion.Service.ServiceName, envSvcVersion.Service.GetServiceRender().GetOverrideYaml(), envSvcVersion.Service.GetServiceRender().OverrideValues, err))
 		}
