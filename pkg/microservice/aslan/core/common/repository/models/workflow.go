@@ -121,6 +121,7 @@ type Schedule struct {
 	ID              primitive.ObjectID  `bson:"_id,omitempty"                 json:"id,omitempty"`
 	Number          uint64              `bson:"number"                        json:"number"`
 	Frequency       string              `bson:"frequency"                     json:"frequency"`
+	Unixstamp       int64               `bson:"unixstamp"                     json:"unixstamp"`
 	Time            string              `bson:"time"                          json:"time"`
 	MaxFailures     int                 `bson:"max_failures,omitempty"        json:"max_failures,omitempty"`
 	TaskArgs        *TaskArgs           `bson:"task_args,omitempty"           json:"task_args,omitempty"`

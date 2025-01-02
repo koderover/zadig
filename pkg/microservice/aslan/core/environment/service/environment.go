@@ -3791,6 +3791,7 @@ func cronJobToSchedule(input *commonmodels.Cronjob) *commonmodels.Schedule {
 	return &commonmodels.Schedule{
 		ID:              input.ID,
 		Number:          input.Number,
+		Unixstamp:       input.UnixStamp,
 		Frequency:       input.Frequency,
 		Time:            input.Time,
 		MaxFailures:     input.MaxFailure,

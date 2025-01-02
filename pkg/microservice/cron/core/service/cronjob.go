@@ -17,12 +17,13 @@ limitations under the License.
 package service
 
 type CronjobPayload struct {
-	Name        string      `json:"name"`
-	ProductName string      `json:"product_name"`
-	Action      string      `json:"action"`
-	JobType     string      `json:"job_type"`
-	DeleteList  []string    `json:"delete_list,omitempty"`
-	JobList     []*Schedule `json:"job_list,omitempty"`
+	Name         string      `json:"name"`
+	ProductName  string      `json:"product_name"`
+	Action       string      `json:"action"`
+	JobType      string      `json:"job_type"`
+	ScheduleType string      `json:"schedule_type"`
+	DeleteList   []string    `json:"delete_list,omitempty"`
+	JobList      []*Schedule `json:"job_list,omitempty"`
 }
 
 type Cronjob struct {
@@ -31,6 +32,7 @@ type Cronjob struct {
 	Type            string            `json:"type"`
 	Number          uint64            `json:"number"`
 	Frequency       string            `json:"frequency"`
+	Unixstamp       int64             `json:"unixstamp"`
 	Time            string            `json:"time"`
 	Cron            string            `json:"cron"`
 	ProductName     string            `json:"product_name,omitempty"`

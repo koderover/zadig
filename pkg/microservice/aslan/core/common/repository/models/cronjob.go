@@ -25,6 +25,7 @@ type Cronjob struct {
 	Name            string             `bson:"name"                                json:"name"`
 	Type            string             `bson:"type"                                json:"type"`
 	Number          uint64             `bson:"number"                              json:"number"`
+	UnixStamp       int64              `bson:"unix_stamp"                          json:"unix_stamp"`
 	Frequency       string             `bson:"frequency"                           json:"frequency"`
 	Time            string             `bson:"time"                                json:"time"`
 	Cron            string             `bson:"cron"                                json:"cron"`
