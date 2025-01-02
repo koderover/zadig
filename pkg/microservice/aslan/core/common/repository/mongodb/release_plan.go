@@ -131,6 +131,8 @@ type ListReleasePlanOption struct {
 	Manager          string
 	SuccessTimeStart int64
 	SuccessTimeEnd   int64
+	UpdateTimeStart  int64
+	UpdateTimeEnd    int64
 	IsSort           bool
 	ExcludedFields   []string
 	Status           config.ReleasePlanStatus
@@ -161,6 +163,9 @@ func (c *ReleasePlanColl) ListByOptions(opt *ListReleasePlanOption) ([]*models.R
 	}
 	if opt.SuccessTimeStart > 0 && opt.SuccessTimeEnd > 0 {
 		query["success_time"] = bson.M{"$gte": opt.SuccessTimeStart, "$lte": opt.SuccessTimeEnd}
+	}
+	if opt.UpdateTimeStart > 0 && opt.UpdateTimeEnd > 0 {
+		query["update_time"] = bson.M{"$gte": opt.UpdateTimeStart, "$lte": opt.UpdateTimeEnd}
 	}
 	if opt.Status != "" {
 		query["status"] = opt.Status
