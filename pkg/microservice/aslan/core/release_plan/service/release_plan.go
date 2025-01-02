@@ -183,11 +183,15 @@ func upsertReleasePlanCron(id, name string, index int64, ScheduleExecuteTime int
 			return nil
 		}
 	} else {
+		if !enable {
+			return nil
+		}
+
 		input := &commonmodels.Cronjob{
 			Name: releasePlanCronName,
 			Type: setting.ReleasePlanCronjob,
 		}
-		input.Enabled = true
+		input.Enabled = enable
 		input.Cron = util.UnixStampToCronExpr(ScheduleExecuteTime)
 		input.ReleasePlanArgs = &commonmodels.ReleasePlanArgs{
 			ID:    id,

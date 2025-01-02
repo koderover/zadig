@@ -32,7 +32,7 @@ require (
 	github.com/docker/go-connections v0.4.0
 	github.com/envoyproxy/go-control-plane v0.10.3
 	github.com/gin-gonic/gin v1.9.1
-	github.com/go-co-op/gocron v1.17.0
+	github.com/go-co-op/gocron/v2 v2.14.0
 	github.com/go-ldap/ldap/v3 v3.3.0
 	github.com/go-redsync/redsync/v4 v4.11.0
 	github.com/go-resty/resty/v2 v2.7.0
@@ -81,7 +81,7 @@ require (
 	github.com/shirou/gopsutil/v3 v3.22.8
 	github.com/spf13/cobra v1.8.0
 	github.com/spf13/viper v1.8.1
-	github.com/stretchr/testify v1.9.0
+	github.com/stretchr/testify v1.10.0
 	github.com/swaggo/files v0.0.0-20220728132757-551d4a08d97a
 	github.com/swaggo/gin-swagger v1.5.3
 	github.com/swaggo/swag v1.16.3
@@ -90,16 +90,17 @@ require (
 	github.com/xanzy/go-gitlab v0.73.1
 	go.mongodb.org/mongo-driver v1.10.2
 	go.uber.org/zap v1.25.0
-	golang.org/x/crypto v0.23.0
-	golang.org/x/exp v0.0.0-20230905200255-921286631fa9
-	golang.org/x/net v0.25.0
+	golang.org/x/crypto v0.24.0
+	golang.org/x/exp v0.0.0-20240613232115-7f521ea00fb8
+	golang.org/x/net v0.26.0
 	golang.org/x/oauth2 v0.5.0
-	golang.org/x/sync v0.6.0
-	golang.org/x/text v0.15.0
+	golang.org/x/sync v0.7.0
+	golang.org/x/text v0.16.0
 	google.golang.org/genproto v0.0.0-20230306155012-7f2fa6fef1f4
 	google.golang.org/grpc v1.53.0
 	google.golang.org/protobuf v1.30.0
 	gopkg.in/gomail.v2 v2.0.0-20160411212932-81ebce5c23df
+	gopkg.in/ini.v1 v1.67.0
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
@@ -213,7 +214,7 @@ require (
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/btree v1.0.1 // indirect
 	github.com/google/flatbuffers v1.12.1 // indirect
-	github.com/google/go-cmp v0.5.9 // indirect
+	github.com/google/go-cmp v0.6.0 // indirect
 	github.com/google/go-github/v29 v29.0.2 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
@@ -232,6 +233,7 @@ require (
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/jmoiron/sqlx v1.3.5 // indirect
+	github.com/jonboulle/clockwork v0.4.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/kennygrant/sanitize v1.2.4 // indirect
@@ -319,17 +321,16 @@ require (
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/arch v0.3.0 // indirect
 	golang.org/x/image v0.0.0-20190802002840-cff245a6509b // indirect
-	golang.org/x/mod v0.16.0 // indirect
-	golang.org/x/sys v0.20.0 // indirect
-	golang.org/x/term v0.20.0 // indirect
+	golang.org/x/mod v0.18.0 // indirect
+	golang.org/x/sys v0.21.0 // indirect
+	golang.org/x/term v0.21.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
-	golang.org/x/tools v0.19.0 // indirect
+	golang.org/x/tools v0.22.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.3.0 // indirect
 	google.golang.org/api v0.110.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	gopkg.in/alexcesaro/quotedprintable.v3 v3.0.0-20150716171945-2caba252f4dc // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
-	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/square/go-jose.v2 v2.6.0 // indirect
 	k8s.io/apiserver v0.27.7 // indirect
 	k8s.io/component-base v0.27.7 // indirect

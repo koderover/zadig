@@ -17,8 +17,14 @@
 package migrate
 
 import (
+	"time"
+
 	"github.com/koderover/zadig/v2/pkg/cli/upgradeassistant/internal/upgradepath"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
+	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
+	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/shared/handler"
+	"go.mongodb.org/mongo-driver/bson"
 )
 
 func init() {
@@ -34,5 +40,51 @@ func V320ToV321() error {
 }
 
 func V321ToV320() error {
+	return nil
+}
+
+func fixReleasePlanCron(ctx *handler.Context) error {
+	// disable all release plan cronjob first
+	updateResult, err := commonrepo.NewCronjobColl().UpdateMany(ctx,
+		// bson.M{"cron": "0 8 1 1", "type": "release_plan", "enabled": true},
+		bson.M{"type": "release_plan", "enabled": true},
+		bson.M{"$set": bson.M{"enabled": false}})
+	if err != nil {
+		return err
+	}
+	if updateResult.ModifiedCount > 0 {
+		ctx.Logger.Infof("update %d release plan cronjob", updateResult.ModifiedCount)
+	}
+
+	releasePlans, _, err := commonrepo.NewReleasePlanColl().ListByOptions(&commonrepo.ListReleasePlanOption{})
+	if err != nil {
+		return err
+	}
+
+	// create new cronjob for release plan if schedule time is after now
+	for _, releasePlan := range releasePlans {
+		if releasePlan.ScheduleExecuteTime != 0 {
+			if time.Unix(releasePlan.ScheduleExecuteTime, 0).After(time.Now()) {
+				cronjob := &commonmodels.Cronjob{
+					Enabled:   true,
+					Name:      releasePlan.Name,
+					Type:      "release_plan",
+					JobType:   string(config.UnixstampSchedule),
+					UnixStamp: releasePlan.ScheduleExecuteTime,
+					ReleasePlanArgs: &commonmodels.ReleasePlanArgs{
+						ID:    releasePlan.ID.Hex(),
+						Name:  releasePlan.Name,
+						Index: releasePlan.Index,
+					},
+				}
+				if err := commonrepo.NewCronjobColl().Upsert(cronjob); err != nil {
+					return err
+				}
+			}
+		}
+	}
+
+	// sync to cron service
+
 	return nil
 }
