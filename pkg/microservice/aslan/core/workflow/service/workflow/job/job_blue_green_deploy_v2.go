@@ -77,7 +77,7 @@ func (j *BlueGreenDeployV2Job) SetPreset() error {
 		envName = strings.ReplaceAll(j.spec.Env, setting.FixedValueMark, "")
 	}
 
-	serviceInfo, _, err := generateBlueGreenEnvDeployServiceInfo(envName, j.workflow.Project, j.spec.Services)
+	serviceInfo, _, err := generateBlueGreenEnvDeployServiceInfo(envName, j.spec.Production, j.workflow.Project, j.spec.Services)
 	if err != nil {
 		log.Errorf("failed to generate blue-green deploy info for env: %s, error: %s", envName, err)
 		return err
@@ -129,7 +129,7 @@ func (j *BlueGreenDeployV2Job) SetOptions(approvalTicket *commonmodels.ApprovalT
 			// if the env is fixed, we put the env in the option
 			envName := strings.ReplaceAll(originalSpec.Env, setting.FixedValueMark, "")
 
-			serviceInfo, registryID, err := generateBlueGreenEnvDeployServiceInfo(envName, j.workflow.Project, originalSpec.Services)
+			serviceInfo, registryID, err := generateBlueGreenEnvDeployServiceInfo(envName, originalSpec.Production, j.workflow.Project, originalSpec.Services)
 			if err != nil {
 				log.Errorf("failed to generate blue-green deploy info for env: %s, error: %s", envName, err)
 				return err
@@ -155,7 +155,7 @@ func (j *BlueGreenDeployV2Job) SetOptions(approvalTicket *commonmodels.ApprovalT
 				continue
 			}
 
-			serviceInfo, registryID, err := generateBlueGreenEnvDeployServiceInfo(env.EnvName, j.workflow.Project, originalSpec.Services)
+			serviceInfo, registryID, err := generateBlueGreenEnvDeployServiceInfo(env.EnvName, originalSpec.Production, j.workflow.Project, originalSpec.Services)
 			if err != nil {
 				log.Errorf("failed to generate blue-green deploy info for env: %s, error: %s", env.EnvName, err)
 				continue
@@ -233,7 +233,7 @@ func (j *BlueGreenDeployV2Job) UpdateWithLatestSetting() error {
 	j.spec.Env = latestSpec.Env
 
 	// Determine service list and its corresponding kvs
-	deployableService, _, err := generateBlueGreenEnvDeployServiceInfo(latestSpec.Env, j.workflow.Project, latestSpec.Services)
+	deployableService, _, err := generateBlueGreenEnvDeployServiceInfo(latestSpec.Env, latestSpec.Production, j.workflow.Project, latestSpec.Services)
 	if err != nil {
 		log.Errorf("failed to generate deployable service from latest workflow spec, err: %s", err)
 		return err
@@ -269,11 +269,11 @@ func (j *BlueGreenDeployV2Job) UpdateWithLatestSetting() error {
 }
 
 // TODO: This function now can only be used for production environments
-func generateBlueGreenEnvDeployServiceInfo(env, project string, services []*commonmodels.BlueGreenDeployV2Service) ([]*commonmodels.BlueGreenDeployV2Service, string, error) {
+func generateBlueGreenEnvDeployServiceInfo(env string, production bool, project string, services []*commonmodels.BlueGreenDeployV2Service) ([]*commonmodels.BlueGreenDeployV2Service, string, error) {
 	targetEnv, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
 		EnvName:    env,
 		Name:       project,
-		Production: util.GetBoolPointer(true),
+		Production: util.GetBoolPointer(production),
 	})
 
 	configuredServiceMap := make(map[string]*commonmodels.BlueGreenDeployV2Service)
@@ -285,7 +285,7 @@ func generateBlueGreenEnvDeployServiceInfo(env, project string, services []*comm
 		return nil, "", fmt.Errorf("failed to find product %s, env %s, err: %s", project, env, err)
 	}
 
-	latestSvcList, err := repository.ListMaxRevisionsServices(project, true)
+	latestSvcList, err := repository.ListMaxRevisionsServices(project, production)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to list services with max revisions in project: %s, error: %s")
 	}
