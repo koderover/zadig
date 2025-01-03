@@ -101,6 +101,7 @@ func GetProductionEnvContainerLogsSSE(c *gin.Context) {
 	if !ctx.Resources.IsSystemAdmin {
 		if _, ok := ctx.Resources.ProjectAuthInfo[productName]; !ok {
 			ctx.UnAuthorized = true
+			logger.Infof("1111111111")
 			internalhandler.JSONResponse(c, ctx)
 			return
 		}
@@ -109,6 +110,7 @@ func GetProductionEnvContainerLogsSSE(c *gin.Context) {
 			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, productName, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionView)
 			if err != nil || !permitted {
 				ctx.UnAuthorized = true
+				logger.Infof("222222222222222222222")
 				internalhandler.JSONResponse(c, ctx)
 				return
 			}
