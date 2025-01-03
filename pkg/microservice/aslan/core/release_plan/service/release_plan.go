@@ -183,11 +183,15 @@ func upsertReleasePlanCron(id, name string, index int64, ScheduleExecuteTime int
 			return nil
 		}
 	} else {
+		if !enable {
+			return nil
+		}
+
 		input := &commonmodels.Cronjob{
 			Name: releasePlanCronName,
 			Type: setting.ReleasePlanCronjob,
 		}
-		input.Enabled = true
+		input.Enabled = enable
 		input.Cron = util.UnixStampToCronExpr(ScheduleExecuteTime)
 		input.ReleasePlanArgs = &commonmodels.ReleasePlanArgs{
 			ID:    id,
@@ -891,6 +895,7 @@ const (
 	ListReleasePlanTypeName        ListReleasePlanType = "name"
 	ListReleasePlanTypeManager     ListReleasePlanType = "manager"
 	ListReleasePlanTypeSuccessTime ListReleasePlanType = "success_time"
+	ListReleasePlanTypeUpdateTime  ListReleasePlanType = "update_time"
 	ListReleasePlanTypeStatus      ListReleasePlanType = "status"
 )
 
@@ -953,6 +958,31 @@ func ListReleasePlans(opt *ListReleasePlanOption) (*ListReleasePlanResp, error) 
 			PageNum:          opt.PageNum,
 			PageSize:         opt.PageSize,
 			ExcludedFields:   []string{"jobs", "logs"},
+		})
+	case ListReleasePlanTypeUpdateTime:
+		timeArr := strings.Split(opt.Keyword, "-")
+		if len(timeArr) != 2 {
+			return nil, errors.New("invalid update time range")
+		}
+
+		timeStart := int64(0)
+		timeEnd := int64(0)
+		timeStart, err = strconv.ParseInt(timeArr[0], 10, 64)
+		if err != nil {
+			return nil, errors.Wrap(err, "invalid update time start")
+		}
+		timeEnd, err = strconv.ParseInt(timeArr[1], 10, 64)
+		if err != nil {
+			return nil, errors.Wrap(err, "invalid update time end")
+		}
+
+		list, total, err = mongodb.NewReleasePlanColl().ListByOptions(&mongodb.ListReleasePlanOption{
+			UpdateTimeStart: timeStart,
+			UpdateTimeEnd:   timeEnd,
+			IsSort:          true,
+			PageNum:         opt.PageNum,
+			PageSize:        opt.PageSize,
+			ExcludedFields:  []string{"jobs", "logs"},
 		})
 	case ListReleasePlanTypeStatus:
 		list, total, err = mongodb.NewReleasePlanColl().ListByOptions(&mongodb.ListReleasePlanOption{

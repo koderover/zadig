@@ -37,6 +37,8 @@ const (
 	TimingSchedule ScheduleType = "timing"
 	// GapSchedule 间隔循环
 	GapSchedule ScheduleType = "gap"
+	// UnixstampSchedule 时间戳定时
+	UnixstampSchedule ScheduleType = "unixstamp"
 )
 
 type PipelineResource struct {
