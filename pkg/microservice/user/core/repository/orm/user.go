@@ -212,7 +212,6 @@ func GetUsersCountByRoles(name string, roles []string) (int64, error) {
 		Joins("INNER JOIN role_binding on role_binding.uid = user.uid").
 		Joins("INNER JOIN role on role_binding.role_id = role.id").
 		Group("user.uid").
-		Having("COUNT(DISTINCT role.name) = ?", len(roles)).
 		Find(&users).
 		Count(&count).
 		Error
