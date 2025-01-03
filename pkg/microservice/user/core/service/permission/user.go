@@ -292,11 +292,22 @@ func SearchUserByAccount(args *QueryArgs, logger *zap.SugaredLogger) (*types.Use
 }
 
 func SearchUsers(args *QueryArgs, logger *zap.SugaredLogger) (*types.UsersResp, error) {
-	count, err := orm.GetUsersCount(args.Name)
-	if err != nil {
-		logger.Errorf("SeachUsers GetUsersCount By name:%s error, error msg:%s", args.Name, err.Error())
-		return nil, err
+	var count int64
+	var err error
+	if len(args.Roles) == 0 {
+		count, err = orm.GetUsersCount(args.Name)
+		if err != nil {
+			logger.Errorf("SeachUsers GetUsersCount By name:%s error, error msg:%s", args.Name, err.Error())
+			return nil, err
+		}
+	} else {
+		count, err = orm.GetUsersCountByRoles(args.Name, args.Roles)
+		if err != nil {
+			logger.Errorf("SeachUsers GetUsersCount By name:%s error, error msg:%s", args.Name, err.Error())
+			return nil, err
+		}
 	}
+
 	if count == 0 {
 		return &types.UsersResp{
 			TotalCount: 0,
