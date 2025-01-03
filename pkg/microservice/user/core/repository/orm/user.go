@@ -203,6 +203,7 @@ func GetUsersCount(name string) (int64, error) {
 // GetUsersCount gets user count
 func GetUsersCountByRoles(name string, roles []string) (int64, error) {
 	var (
+		users []models.User
 		err   error
 		count int64
 	)
@@ -212,6 +213,7 @@ func GetUsersCountByRoles(name string, roles []string) (int64, error) {
 		Joins("INNER JOIN role on role_binding.role_id = role.id").
 		Group("user.uid").
 		Having("COUNT(DISTINCT role.name) = ?", len(roles)).
+		Find(&users).
 		Count(&count).
 		Error
 
