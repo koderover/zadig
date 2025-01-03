@@ -33,12 +33,19 @@ const (
 	// ApprovalStatusNotFound not defined by lark open api, it just means not found in local manager.
 	ApprovalStatusNotFound = "NOTFOUND"
 
-	ApprovalStatusPending  = "PENDING"
-	ApprovalStatusApproved = "APPROVED"
-	ApprovalStatusRejected = "REJECTED"
-	ApprovalStatusCanceled = "CANCELED"
-	ApprovalStatusDeleted  = "DELETED"
+	ApprovalStatusPending     = "PENDING"
+	ApprovalStatusApproved    = "APPROVED"
+	ApprovalStatusRejected    = "REJECTED"
+	ApprovalStatusTransferred = "TRANSFERRED"
+	ApprovalStatusCanceled    = "CANCELED"
+	ApprovalStatusDeleted     = "DELETED"
 )
+
+var approvalStatusMap = map[string]config.ApprovalStatus{
+	ApprovalStatusApproved:    config.ApprovalStatusApprove,
+	ApprovalStatusRejected:    config.ApprovalStatusReject,
+	ApprovalStatusTransferred: config.ApprovalStatusRedirect,
+}
 
 type CreateApprovalDefinitionArgs struct {
 	Name        string
@@ -232,7 +239,14 @@ type UserApprovalComment struct {
 type ApprovalInstanceInfo struct {
 	// key1 is node id, key2 is user open id
 	ApproverInfoWithNode map[string]map[string]*UserApprovalComment
-	ApproveOrReject      config.ApproveOrReject
+	ApproverTaskWithNode map[string]map[string]*ApprovalTask
+	ApproveOrReject      config.ApprovalStatus
+}
+
+type ApprovalTask struct {
+	UserID string
+	Status config.ApprovalStatus
+	NodeID string
 }
 
 func (client *Client) GetApprovalInstance(args *GetApprovalInstanceArgs) (*ApprovalInstanceInfo, error) {
@@ -249,11 +263,28 @@ func (client *Client) GetApprovalInstance(args *GetApprovalInstanceArgs) (*Appro
 		return nil, resp.CodeError
 	}
 
+	taskMap := make(map[string]map[string]*ApprovalTask)
+	for _, task := range resp.Data.TaskList {
+		customNodeKey, openID := getStringFromPointer(task.CustomNodeId), getStringFromPointer(task.OpenId)
+		if customNodeKey == "" {
+			log.Warn("custom node key is empty")
+			continue
+		}
+
+		if taskMap[customNodeKey] == nil {
+			taskMap[customNodeKey] = make(map[string]*ApprovalTask)
+		}
+		taskMap[customNodeKey][openID] = &ApprovalTask{
+			UserID: openID,
+			Status: approvalStatusMap[getStringFromPointer(task.Status)],
+		}
+	}
+
 	userCommentMap := make(map[string]map[string]*UserApprovalComment)
 	for _, timeline := range resp.Data.Timeline {
 		status := getStringFromPointer(timeline.Type)
-		if status == "PASS" || status == "REJECT" {
-			nodeKey, userID := getStringFromPointer(timeline.NodeKey), getStringFromPointer(timeline.OpenId)
+		if status == "PASS" || status == "REJECT" || status == "TRANSFER" || status == "ADD_APPROVER_AFTER" {
+			nodeKey, openID := getStringFromPointer(timeline.NodeKey), getStringFromPointer(timeline.OpenId)
 			if nodeKey == "" {
 				log.Warn("node key is empty")
 				continue
@@ -261,16 +292,15 @@ func (client *Client) GetApprovalInstance(args *GetApprovalInstanceArgs) (*Appro
 			if userCommentMap[nodeKey] == nil {
 				userCommentMap[nodeKey] = make(map[string]*UserApprovalComment)
 			}
-			userCommentMap[nodeKey][userID] = &UserApprovalComment{
+			userCommentMap[nodeKey][openID] = &UserApprovalComment{
 				Comment: getStringFromPointer(timeline.Comment),
 			}
 		}
 	}
 	return &ApprovalInstanceInfo{
 		ApproverInfoWithNode: userCommentMap,
-		ApproveOrReject: map[string]config.ApproveOrReject{
-			ApprovalStatusApproved: config.Approve,
-			ApprovalStatusRejected: config.Reject}[getStringFromPointer(resp.Data.Status)],
+		ApproverTaskWithNode: taskMap,
+		ApproveOrReject:      approvalStatusMap[getStringFromPointer(resp.Data.Status)],
 	}, nil
 }
 

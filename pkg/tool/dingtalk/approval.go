@@ -182,6 +182,7 @@ type ApprovalInstanceInfo struct {
 	Title            string                  `json:"title"`
 	Status           string                  `json:"status"`
 	Result           string                  `json:"result"`
+	ApproverUserIds  []string                `json:"approverUserIds"`
 	OperationRecords []*OperationRecord      `json:"operationRecords"`
 	Tasks            []*ApprovalInstanceTask `json:"tasks"`
 }
