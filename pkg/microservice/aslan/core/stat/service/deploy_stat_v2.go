@@ -17,6 +17,7 @@ limitations under the License.
 package service
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -269,12 +270,14 @@ func GetDeployMonthlyTrend(startTime, endTime int64, projects []string, producti
 	}
 
 	var (
-		testSuccess       = 0
-		testFailed        = 0
-		testTimeout       = 0
-		productionSuccess = 0
-		productionFailed  = 0
-		productionTimeout = 0
+		testSuccess        = 0
+		testRollback       = 0
+		testFailed         = 0
+		testTimeout        = 0
+		productionSuccess  = 0
+		productionRollback = 0
+		productionFailed   = 0
+		productionTimeout  = 0
 	)
 
 	// count the data for both production job
@@ -300,6 +303,26 @@ func GetDeployMonthlyTrend(startTime, endTime int64, projects []string, producti
 		}
 	}
 
+	envInfos, _, err := commonrepo.NewEnvInfoColl().List(context.Background(), &commonrepo.ListEnvInfoOption{
+		ProjectNames: projects,
+		Operation:    config.EnvOperationRollback,
+		StartTime:    startTime,
+		EndTime:      endTime,
+	})
+	if err != nil {
+		err = fmt.Errorf("failed to list env info for projects: %v, error: %s", projects, err)
+		log.Error(err)
+		return nil, err
+	}
+
+	for _, envInfo := range envInfos {
+		if !envInfo.Production {
+			testRollback++
+		} else {
+			productionRollback++
+		}
+	}
+
 	date := time.Unix(firstDayOfMonth, 0).Format(config.Date)
 
 	switch production {
@@ -307,6 +330,7 @@ func GetDeployMonthlyTrend(startTime, endTime int64, projects []string, producti
 		monthlystats = append(monthlystats, &models.WeeklyDeployStat{
 			Production: true,
 			Success:    productionSuccess,
+			Rollback:   productionRollback,
 			Failed:     productionFailed,
 			Timeout:    productionTimeout,
 			Date:       date,
@@ -315,6 +339,7 @@ func GetDeployMonthlyTrend(startTime, endTime int64, projects []string, producti
 		monthlystats = append(monthlystats, &models.WeeklyDeployStat{
 			Production: false,
 			Success:    testSuccess,
+			Rollback:   testRollback,
 			Failed:     testFailed,
 			Timeout:    testTimeout,
 			Date:       date,
@@ -323,6 +348,7 @@ func GetDeployMonthlyTrend(startTime, endTime int64, projects []string, producti
 		monthlystats = append(monthlystats, &models.WeeklyDeployStat{
 			Production: true,
 			Success:    productionSuccess,
+			Rollback:   productionRollback,
 			Failed:     productionFailed,
 			Timeout:    productionTimeout,
 			Date:       date,
@@ -330,6 +356,7 @@ func GetDeployMonthlyTrend(startTime, endTime int64, projects []string, producti
 		monthlystats = append(monthlystats, &models.WeeklyDeployStat{
 			Production: false,
 			Success:    testSuccess,
+			Rollback:   testRollback,
 			Failed:     testFailed,
 			Timeout:    testTimeout,
 			Date:       date,
@@ -491,7 +518,6 @@ func generateMonthlyDeployStatByProduct(projectKey string, log *zap.SugaredLogge
 	}
 
 	date := startTime.Format(config.Date)
-
 	testDeployStat = &models.WeeklyDeployStat{
 		ProjectKey: projectKey,
 		Production: false,

@@ -20,6 +20,7 @@ type WeeklyDeployStat struct {
 	ProjectKey string `bson:"project_key"                       json:"project_key,omitempty"`
 	Production bool   `bson:"production"                        json:"production"`
 	Success    int    `bson:"success"                           json:"success"`
+	Rollback   int    `bson:"rollback"                          json:"rollback"`
 	Failed     int    `bson:"failed"                            json:"failed"`
 	Timeout    int    `bson:"timeout"                           json:"timeout"`
 	Date       string `bson:"date"                              json:"date"`
