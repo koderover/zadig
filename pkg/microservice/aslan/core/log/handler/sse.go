@@ -55,71 +55,54 @@ func GetContainerLogsSSE(c *gin.Context) {
 
 	envName := c.Query("envName")
 	productName := c.Query("projectName")
+	isProduction := c.Query("production") == "true"
 
-	// authorization checks
-	if !ctx.Resources.IsSystemAdmin {
-		if _, ok := ctx.Resources.ProjectAuthInfo[productName]; !ok {
-			ctx.UnAuthorized = true
-			internalhandler.JSONResponse(c, ctx)
-			return
-		}
-		if !ctx.Resources.ProjectAuthInfo[productName].Env.View &&
-			!ctx.Resources.ProjectAuthInfo[productName].IsProjectAdmin {
-			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, productName, types.ResourceTypeEnvironment, envName, types.EnvActionView)
-			if err != nil || !permitted {
+	if !isProduction {
+		// authorization checks
+		if !ctx.Resources.IsSystemAdmin {
+			if _, ok := ctx.Resources.ProjectAuthInfo[productName]; !ok {
 				ctx.UnAuthorized = true
 				internalhandler.JSONResponse(c, ctx)
 				return
 			}
+			if !ctx.Resources.ProjectAuthInfo[productName].Env.View &&
+				!ctx.Resources.ProjectAuthInfo[productName].IsProjectAdmin {
+				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, productName, types.ResourceTypeEnvironment, envName, types.EnvActionView)
+				if err != nil || !permitted {
+					ctx.UnAuthorized = true
+					internalhandler.JSONResponse(c, ctx)
+					return
+				}
+			}
 		}
-	}
 
-	internalhandler.Stream(c, func(ctx context.Context, streamChan chan interface{}) {
-		logservice.ContainerLogStream(ctx, streamChan, envName, productName, c.Param("podName"), c.Param("containerName"), true, tails, logger)
-	}, logger)
-}
-
-func GetProductionEnvContainerLogsSSE(c *gin.Context) {
-	logger := ginzap.WithContext(c).Sugar()
-	ctx, err := internalhandler.NewContextWithAuthorization(c)
-	if err != nil {
-		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
-		ctx.UnAuthorized = true
-		internalhandler.JSONResponse(c, ctx)
-		return
-	}
-
-	tails, err := strconv.ParseInt(c.Query("tails"), 10, 64)
-	if err != nil {
-		tails = int64(10)
-	}
-
-	envName := c.Query("envName")
-	productName := c.Query("projectName")
-
-	// authorization checks
-	if !ctx.Resources.IsSystemAdmin {
-		if _, ok := ctx.Resources.ProjectAuthInfo[productName]; !ok {
-			ctx.UnAuthorized = true
-			logger.Infof("1111111111")
-			internalhandler.JSONResponse(c, ctx)
-			return
-		}
-		if !ctx.Resources.ProjectAuthInfo[productName].ProductionEnv.View &&
-			!ctx.Resources.ProjectAuthInfo[productName].IsProjectAdmin {
-			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, productName, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionView)
-			if err != nil || !permitted {
+		internalhandler.Stream(c, func(ctx context.Context, streamChan chan interface{}) {
+			logservice.ContainerLogStream(ctx, streamChan, envName, productName, c.Param("podName"), c.Param("containerName"), true, tails, logger)
+		}, logger)
+	} else {
+		// authorization checks
+		if !ctx.Resources.IsSystemAdmin {
+			if _, ok := ctx.Resources.ProjectAuthInfo[productName]; !ok {
 				ctx.UnAuthorized = true
-				logger.Infof("222222222222222222222")
 				internalhandler.JSONResponse(c, ctx)
 				return
 			}
+			if !ctx.Resources.ProjectAuthInfo[productName].ProductionEnv.View &&
+				!ctx.Resources.ProjectAuthInfo[productName].IsProjectAdmin {
+				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, productName, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionView)
+				if err != nil || !permitted {
+					ctx.UnAuthorized = true
+					internalhandler.JSONResponse(c, ctx)
+					return
+				}
+			}
 		}
+
+		internalhandler.Stream(c, func(ctx context.Context, streamChan chan interface{}) {
+			logservice.ContainerLogStream(ctx, streamChan, envName, productName, c.Param("podName"), c.Param("containerName"), true, tails, logger)
+		}, logger)
 	}
 
-	internalhandler.Stream(c, func(ctx context.Context, streamChan chan interface{}) {
-		logservice.ContainerLogStream(ctx, streamChan, envName, productName, c.Param("podName"), c.Param("containerName"), true, tails, logger)
-	}, logger)
 }
 
 func GetWorkflowJobContainerLogsSSE(c *gin.Context) {
