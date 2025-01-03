@@ -315,7 +315,7 @@ func getProjectsWithEnvs(opts *ProjectListOptions) (sets.String, map[string][]st
 
 	for _, nameWithEnv := range saeNameWithEnvs {
 		nameSet.Insert(nameWithEnv.ProjectName)
-		nameMap[nameWithEnv.ProjectName] = nameWithEnv.Envs
+		nameMap[nameWithEnv.ProjectName] = append(nameMap[nameWithEnv.ProjectName], nameWithEnv.Envs...)
 	}
 
 	return nameSet, nameMap, nil
