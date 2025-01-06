@@ -316,7 +316,7 @@ func OpenAPIListBuildModules(projectName string, pageNum, pageSize int64, logger
 	return resp, nil
 }
 
-func OpenAPIGetBuildModule(name, projectName string, logger *zap.SugaredLogger) (*OpenAPIBuildDetailResp, error) {
+func OpenAPIGetBuildModule(name, serviceName, serviceModule, projectName string, logger *zap.SugaredLogger) (*OpenAPIBuildDetailResp, error) {
 	opt := &commonrepo.BuildFindOption{
 		Name:        name,
 		ProductName: projectName,
@@ -348,18 +348,39 @@ func OpenAPIGetBuildModule(name, projectName string, logger *zap.SugaredLogger) 
 	}
 
 	resp.Repos = make([]*OpenAPIRepo, 0)
-	for _, rp := range build.Repos {
-		repo := &OpenAPIRepo{
-			RepoName:     rp.RepoName,
-			Branch:       rp.Branch,
-			Source:       rp.Source,
-			RepoOwner:    rp.RepoOwner,
-			RemoteName:   rp.RemoteName,
-			CheckoutPath: rp.CheckoutPath,
-			Submodules:   rp.SubModules,
-			Hidden:       rp.Hidden,
+	if build.TemplateID == "" {
+		for _, rp := range build.Repos {
+			repo := &OpenAPIRepo{
+				RepoName:     rp.RepoName,
+				Branch:       rp.Branch,
+				Source:       rp.Source,
+				RepoOwner:    rp.RepoOwner,
+				RemoteName:   rp.RemoteName,
+				CheckoutPath: rp.CheckoutPath,
+				Submodules:   rp.SubModules,
+				Hidden:       rp.Hidden,
+			}
+			resp.Repos = append(resp.Repos, repo)
 		}
-		resp.Repos = append(resp.Repos, repo)
+	} else {
+		for _, svcBuild := range build.Targets {
+			if svcBuild.ServiceName == serviceName && svcBuild.ServiceModule == serviceModule {
+				for _, rp := range svcBuild.Repos {
+					repo := &OpenAPIRepo{
+						RepoName:     rp.RepoName,
+						Branch:       rp.Branch,
+						Source:       rp.Source,
+						RepoOwner:    rp.RepoOwner,
+						RemoteName:   rp.RemoteName,
+						CheckoutPath: rp.CheckoutPath,
+						Submodules:   rp.SubModules,
+						Hidden:       rp.Hidden,
+					}
+					resp.Repos = append(resp.Repos, repo)
+				}
+				break
+			}
+		}
 	}
 
 	resp.TargetServices = make([]*commonmodels.ServiceWithModule, 0)

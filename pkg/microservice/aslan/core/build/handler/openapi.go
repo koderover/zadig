@@ -217,6 +217,18 @@ func OpenAPIGetBuildModule(c *gin.Context) {
 		return
 	}
 
+	serviceName := c.Query("serviceName")
+	if serviceName == "" {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("empty serviceName.")
+		return
+	}
+
+	serviceModule := c.Query("serviceModule")
+	if serviceModule == "" {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("empty serviceModule.")
+		return
+	}
+
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
 		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
@@ -230,5 +242,5 @@ func OpenAPIGetBuildModule(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.RespErr = buildservice.OpenAPIGetBuildModule(name, projectKey, ctx.Logger)
+	ctx.Resp, ctx.RespErr = buildservice.OpenAPIGetBuildModule(name, serviceName, serviceModule, projectKey, ctx.Logger)
 }
