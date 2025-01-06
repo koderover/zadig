@@ -343,7 +343,7 @@ func OpenAPIGetBuildModule(name, serviceName, serviceModule, projectName string,
 	}
 
 	resp.Repos = make([]*OpenAPIRepo, 0)
-	if build.TemplateID == "" {
+	if serviceName == "" || serviceModule == "" || build.TemplateID == "" {
 		for _, rp := range build.Repos {
 			repo := &OpenAPIRepo{
 				RepoName:     rp.RepoName,

@@ -218,16 +218,7 @@ func OpenAPIGetBuildModule(c *gin.Context) {
 	}
 
 	serviceName := c.Query("serviceName")
-	if serviceName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("empty serviceName.")
-		return
-	}
-
 	serviceModule := c.Query("serviceModule")
-	if serviceModule == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("empty serviceModule.")
-		return
-	}
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
