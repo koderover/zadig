@@ -573,7 +573,6 @@ func (c *workflowCtl) updateWorkflowTask() {
 	}
 
 	c.workflowTaskMutex.Lock()
-	c.workflowTask.Remark = ""
 	if err := commonrepo.NewworkflowTaskv4Coll().Update(c.workflowTask.ID.Hex(), c.workflowTask); err != nil {
 		c.workflowTaskMutex.Unlock()
 		c.logger.Errorf("update workflow task v4 failed,error: %v", err)
