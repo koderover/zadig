@@ -217,6 +217,9 @@ func OpenAPIGetBuildModule(c *gin.Context) {
 		return
 	}
 
+	serviceName := c.Query("serviceName")
+	serviceModule := c.Query("serviceModule")
+
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
 		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
@@ -230,5 +233,5 @@ func OpenAPIGetBuildModule(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.RespErr = buildservice.OpenAPIGetBuildModule(name, projectKey, ctx.Logger)
+	ctx.Resp, ctx.RespErr = buildservice.OpenAPIGetBuildModule(name, serviceName, serviceModule, projectKey, ctx.Logger)
 }
