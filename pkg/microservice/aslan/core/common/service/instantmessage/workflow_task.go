@@ -550,7 +550,7 @@ func (w *Service) getNotificationContent(notify *models.NotifyCtl, task *models.
 						}
 					}
 				}
-				if image != "" {
+				if image != "" && !strings.HasPrefix(image, "{{.") && !strings.Contains(image, "}}") {
 					jobTplcontent += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**镜像信息**：%s \n", image)
 					mailJobTplcontent += fmt.Sprintf("镜像信息：%s \n", image)
 					workflowNotifyJobTaskSpec.Image = image
