@@ -152,7 +152,7 @@ func (c *Client) ListProjects(opt client.ListOpt) ([]*client.Project, error) {
 	for _, project := range projects {
 		res = append(res, &client.Project{
 			ID:            project.ID,
-			Name:          project.Name,
+			Name:          project.Path,
 			DefaultBranch: project.DefaultBranch,
 		})
 	}
