@@ -153,7 +153,7 @@ func upsertReleasePlanCron(id, name string, index int64, status config.ReleasePl
 				IDList: []string{releasePlanCron.ID.Hex()},
 			})
 			if err != nil {
-				fmtErr := fmt.Errorf("Failed to delete cron job %s, error: %w", releasePlanCron.ID.Hex(), err)
+				fmtErr := fmt.Errorf("Failed to delete release plan schedule job %s, error: %w", releasePlanCron.ID.Hex(), err)
 				log.Error(fmtErr)
 			}
 
@@ -161,7 +161,7 @@ func upsertReleasePlanCron(id, name string, index int64, status config.ReleasePl
 				Name:         releasePlanCronName,
 				JobType:      setting.ReleasePlanCronjob,
 				Action:       setting.TypeEnableCronjob,
-				ScheduleType: setting.UnixstampSchedule,
+				ScheduleType: setting.UnixStampSchedule,
 				DeleteList:   []string{releasePlanCron.ID.Hex()},
 			}
 		}
@@ -175,7 +175,7 @@ func upsertReleasePlanCron(id, name string, index int64, status config.ReleasePl
 				Name:  name,
 				Index: index,
 			}
-			releasePlanCron.JobType = setting.UnixstampSchedule
+			releasePlanCron.JobType = setting.UnixStampSchedule
 			releasePlanCron.UnixStamp = ScheduleExecuteTime
 
 			if origEnabled && !enable {
@@ -192,7 +192,7 @@ func upsertReleasePlanCron(id, name string, index int64, status config.ReleasePl
 					Name:         releasePlanCronName,
 					JobType:      setting.ReleasePlanCronjob,
 					Action:       setting.TypeEnableCronjob,
-					ScheduleType: setting.UnixstampSchedule,
+					ScheduleType: setting.UnixStampSchedule,
 					DeleteList:   []string{releasePlanCron.ID.Hex()},
 				}
 			} else if !origEnabled && enable || origEnabled && enable {
@@ -207,7 +207,7 @@ func upsertReleasePlanCron(id, name string, index int64, status config.ReleasePl
 					Name:         releasePlanCronName,
 					JobType:      setting.ReleasePlanCronjob,
 					Action:       setting.TypeEnableCronjob,
-					ScheduleType: setting.UnixstampSchedule,
+					ScheduleType: setting.UnixStampSchedule,
 					JobList:      []*commonmodels.Schedule{cronJobToSchedule(releasePlanCron)},
 				}
 			} else {
@@ -220,16 +220,16 @@ func upsertReleasePlanCron(id, name string, index int64, status config.ReleasePl
 			}
 
 			input := &commonmodels.Cronjob{
-				Name:    releasePlanCronName,
-				Type:    setting.ReleasePlanCronjob,
-				JobType: setting.UnixstampSchedule,
-			}
-			input.Enabled = enable
-			input.UnixStamp = ScheduleExecuteTime
-			input.ReleasePlanArgs = &commonmodels.ReleasePlanArgs{
-				ID:    id,
-				Name:  name,
-				Index: index,
+				Enabled:   enable,
+				Name:      releasePlanCronName,
+				Type:      setting.ReleasePlanCronjob,
+				JobType:   setting.UnixStampSchedule,
+				UnixStamp: ScheduleExecuteTime,
+				ReleasePlanArgs: &commonmodels.ReleasePlanArgs{
+					ID:    id,
+					Name:  name,
+					Index: index,
+				},
 			}
 
 			err = commonrepo.NewCronjobColl().Upsert(input)
@@ -242,7 +242,7 @@ func upsertReleasePlanCron(id, name string, index int64, status config.ReleasePl
 				Name:         releasePlanCronName,
 				JobType:      setting.ReleasePlanCronjob,
 				Action:       setting.TypeEnableCronjob,
-				ScheduleType: setting.UnixstampSchedule,
+				ScheduleType: setting.UnixStampSchedule,
 				JobList:      []*commonmodels.Schedule{cronJobToSchedule(input)},
 			}
 		}
@@ -347,7 +347,7 @@ func DeleteReleasePlan(c *gin.Context, username, id string) error {
 			IDList: []string{releasePlanCron.ID.Hex()},
 		})
 		if err != nil {
-			fmtErr := fmt.Errorf("Failed to delete release plan schdule job %s, error: %w", releasePlanCron.ID.Hex(), err)
+			fmtErr := fmt.Errorf("Failed to delete release plan schedule job %s, error: %w", releasePlanCron.ID.Hex(), err)
 			log.Error(fmtErr)
 		}
 	}
@@ -938,7 +938,7 @@ func cronJobToSchedule(input *commonmodels.Cronjob) *commonmodels.Schedule {
 	return &commonmodels.Schedule{
 		ID:              input.ID,
 		Number:          input.Number,
-		Unixstamp:       input.UnixStamp,
+		UnixStamp:       input.UnixStamp,
 		Frequency:       input.Frequency,
 		Time:            input.Time,
 		MaxFailures:     input.MaxFailure,

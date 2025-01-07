@@ -82,7 +82,7 @@ func migrateReleasePlanCron(ctx *handler.Context) error {
 					},
 				}
 				if err := commonrepo.NewCronjobColl().Upsert(cronjob); err != nil {
-					return fmt.Errorf("failed to create new release plan schdule, error: %w", err)
+					return fmt.Errorf("failed to create new release plan schedule job, error: %w", err)
 				}
 			}
 		}

@@ -149,7 +149,7 @@ const (
 )
 
 // NewCronClient ...
-// 服务初始化
+// 注意初始化失败会panic
 func NewCronClient() *CronClient {
 	aslanCli := client.NewAslanClient(fmt.Sprintf("%s/api", configbase.AslanServiceAddress()))
 

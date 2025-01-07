@@ -32,7 +32,7 @@ type Cronjob struct {
 	Type            string            `json:"type"`
 	Number          uint64            `json:"number"`
 	Frequency       string            `json:"frequency"`
-	Unixstamp       int64             `json:"unixstamp"`
+	UnixStamp       int64             `json:"unix_stamp"`
 	Time            string            `json:"time"`
 	Cron            string            `json:"cron"`
 	ProductName     string            `json:"product_name,omitempty"`
