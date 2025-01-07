@@ -17,6 +17,7 @@
 package migrate
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/koderover/zadig/v2/pkg/cli/upgradeassistant/internal/upgradepath"
@@ -35,10 +36,12 @@ func init() {
 func V320ToV321() error {
 	ctx := handler.NewBackgroupContext()
 
-	ctx.Logger.Infof("start migrate release plan cronjob")
+	ctx.Logger.Infof("-------- start migrate release plan cronjob --------")
 	err := migrateReleasePlanCron(ctx)
 	if err != nil {
-		ctx.Logger.Errorf("failed to migrate release plan cronjob, error: %s", err)
+		err = fmt.Errorf("failed to migrate release plan cronjob, error: %w", err)
+		ctx.Logger.Error(err)
+		return err
 	}
 
 	return nil
@@ -54,15 +57,15 @@ func migrateReleasePlanCron(ctx *handler.Context) error {
 		bson.M{"type": "release_plan", "enabled": true},
 	)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to delete release plan cronjobs, error: %w", err)
 	}
 
 	releasePlans, _, err := commonrepo.NewReleasePlanColl().ListByOptions(&commonrepo.ListReleasePlanOption{})
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to list release plans, error: %w", err)
 	}
 
-	// create new cronjob for release plan if schedule time is after now
+	// create new cronjob for release plan if schedule time is after now and status is executing
 	for _, releasePlan := range releasePlans {
 		if releasePlan.ScheduleExecuteTime != 0 && releasePlan.Status == config.StatusExecuting {
 			if time.Unix(releasePlan.ScheduleExecuteTime, 0).After(time.Now()) {
@@ -79,7 +82,7 @@ func migrateReleasePlanCron(ctx *handler.Context) error {
 					},
 				}
 				if err := commonrepo.NewCronjobColl().Upsert(cronjob); err != nil {
-					return err
+					return fmt.Errorf("failed to create new release plan schdule, error: %w", err)
 				}
 			}
 		}

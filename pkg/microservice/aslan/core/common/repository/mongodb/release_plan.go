@@ -71,6 +71,10 @@ func (c *ReleasePlanColl) EnsureIndex(ctx context.Context) error {
 			Keys:    bson.M{"success_time": 1},
 			Options: options.Index().SetUnique(false),
 		},
+		{
+			Keys:    bson.M{"update_time": 1},
+			Options: options.Index().SetUnique(false),
+		},
 	}
 
 	_, err := c.Indexes().CreateMany(ctx, mod)
@@ -124,6 +128,13 @@ func (c *ReleasePlanColl) DeleteByID(ctx context.Context, idString string) error
 	return err
 }
 
+type SortReleasePlanBy string
+
+const (
+	SortReleasePlanByIndex      SortReleasePlanBy = "index"
+	SortReleasePlanByUpdateTime SortReleasePlanBy = "update_time"
+)
+
 type ListReleasePlanOption struct {
 	PageNum          int64
 	PageSize         int64
@@ -134,6 +145,7 @@ type ListReleasePlanOption struct {
 	UpdateTimeStart  int64
 	UpdateTimeEnd    int64
 	IsSort           bool
+	SortBy           SortReleasePlanBy
 	ExcludedFields   []string
 	Status           config.ReleasePlanStatus
 }
@@ -149,8 +161,15 @@ func (c *ReleasePlanColl) ListByOptions(opt *ListReleasePlanOption) ([]*models.R
 	ctx := context.Background()
 	opts := options.Find()
 	if opt.IsSort {
-		opts.SetSort(bson.D{{"index", -1}})
+		if opt.SortBy == SortReleasePlanByIndex {
+			opts.SetSort(bson.D{{"index", -1}})
+		} else if opt.SortBy == SortReleasePlanByUpdateTime {
+			opts.SetSort(bson.D{{"update_time", -1}})
+		} else {
+			opts.SetSort(bson.D{{"index", -1}})
+		}
 	}
+
 	if opt.PageNum > 0 && opt.PageSize > 0 {
 		opts.SetSkip((opt.PageNum - 1) * opt.PageSize)
 		opts.SetLimit(opt.PageSize)
