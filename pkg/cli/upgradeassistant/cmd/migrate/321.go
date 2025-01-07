@@ -34,7 +34,12 @@ func init() {
 
 func V320ToV321() error {
 	ctx := handler.NewBackgroupContext()
-	ctx.Logger.Infof("-------- start 321 ua --------")
+
+	ctx.Logger.Infof("start migrate release plan cronjob")
+	err := migrateReleasePlanCron(ctx)
+	if err != nil {
+		ctx.Logger.Errorf("failed to migrate release plan cronjob, error: %s", err)
+	}
 
 	return nil
 }
@@ -43,17 +48,13 @@ func V321ToV320() error {
 	return nil
 }
 
-func fixReleasePlanCron(ctx *handler.Context) error {
-	// disable all release plan cronjob first
-	updateResult, err := commonrepo.NewCronjobColl().UpdateMany(ctx,
-		// bson.M{"cron": "0 8 1 1", "type": "release_plan", "enabled": true},
+func migrateReleasePlanCron(ctx *handler.Context) error {
+	// delete all release plan cronjob first
+	_, err := commonrepo.NewCronjobColl().DeleteMany(ctx,
 		bson.M{"type": "release_plan", "enabled": true},
-		bson.M{"$set": bson.M{"enabled": false}})
+	)
 	if err != nil {
 		return err
-	}
-	if updateResult.ModifiedCount > 0 {
-		ctx.Logger.Infof("update %d release plan cronjob", updateResult.ModifiedCount)
 	}
 
 	releasePlans, _, err := commonrepo.NewReleasePlanColl().ListByOptions(&commonrepo.ListReleasePlanOption{})
@@ -63,7 +64,7 @@ func fixReleasePlanCron(ctx *handler.Context) error {
 
 	// create new cronjob for release plan if schedule time is after now
 	for _, releasePlan := range releasePlans {
-		if releasePlan.ScheduleExecuteTime != 0 {
+		if releasePlan.ScheduleExecuteTime != 0 && releasePlan.Status == config.StatusExecuting {
 			if time.Unix(releasePlan.ScheduleExecuteTime, 0).After(time.Now()) {
 				cronjob := &commonmodels.Cronjob{
 					Enabled:   true,
@@ -83,8 +84,6 @@ func fixReleasePlanCron(ctx *handler.Context) error {
 			}
 		}
 	}
-
-	// sync to cron service
 
 	return nil
 }
