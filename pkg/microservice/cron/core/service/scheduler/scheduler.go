@@ -23,11 +23,10 @@ import (
 	"sync"
 	"time"
 
+	newgoCron "github.com/go-co-op/gocron/v2"
 	"github.com/jasonlvhit/gocron"
 	"github.com/rfyiamcool/cronlib"
 	"go.uber.org/zap"
-
-	newgoCron "github.com/go-co-op/gocron"
 
 	configbase "github.com/koderover/zadig/v2/pkg/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
@@ -66,13 +65,17 @@ type CronClient struct {
 }
 
 type CronV3Client struct {
-	Scheduler *newgoCron.Scheduler
+	Scheduler newgoCron.Scheduler
 	AslanCli  *aslan.Client
 }
 
 func NewCronV3() *CronV3Client {
+	scheduler, err := newgoCron.NewScheduler()
+	if err != nil {
+		log.Fatalf("failed to create scheduler: %v", err)
+	}
 	return &CronV3Client{
-		Scheduler: newgoCron.NewScheduler(time.Local),
+		Scheduler: scheduler,
 		AslanCli:  aslan.New(configbase.AslanServiceAddress()),
 	}
 }
@@ -80,7 +83,7 @@ func NewCronV3() *CronV3Client {
 func (c *CronV3Client) Start() {
 	var lastConfig *aslan.CleanConfig
 
-	c.Scheduler.Every(5).Seconds().Do(func() {
+	c.Scheduler.NewJob(newgoCron.DurationJob(5*time.Second), newgoCron.NewTask(func() {
 		// get the docker clean config
 		config, err := c.AslanCli.GetDockerCleanConfig()
 		if err != nil {
@@ -92,26 +95,26 @@ func (c *CronV3Client) Start() {
 			lastConfig = config
 			log.Infof("config changed to %v", config)
 			if config.CronEnabled {
-				c.Scheduler.RemoveByTag(string(types.CleanDockerTag))
-				_, err = c.Scheduler.Cron(config.Cron).Tag(string(types.CleanDockerTag)).Do(func() {
+				c.Scheduler.RemoveByTags(string(types.CleanDockerTag))
+
+				_, err := c.Scheduler.NewJob(newgoCron.CronJob(config.Cron, false), newgoCron.NewTask(func() {
 					log.Infof("trigger aslan docker clean,reg: %v", config.Cron)
 					// call docker clean
 					if err := c.AslanCli.DockerClean(); err != nil {
 						log.Errorf("fail to clean docker cache , err:%s", err)
 					}
-				})
+				}))
 				if err != nil {
 					log.Errorf("fail to add docker_cache clean cron job:reg: %v,err:%s", config.Cron, err)
 				}
 			} else {
 				log.Infof("remove docker_cache clean job , job tag: %v", types.CleanDockerTag)
-				c.Scheduler.RemoveByTag(string(types.CleanDockerTag))
-
+				c.Scheduler.RemoveByTags(string(types.CleanDockerTag))
 			}
 		}
-	})
+	}))
 
-	c.Scheduler.StartAsync()
+	c.Scheduler.Start()
 }
 
 const (
@@ -146,14 +149,19 @@ const (
 )
 
 // NewCronClient ...
-// 服务初始化
+// 注意初始化失败会panic
 func NewCronClient() *CronClient {
 	aslanCli := client.NewAslanClient(fmt.Sprintf("%s/api", configbase.AslanServiceAddress()))
 
 	cronjobScheduler := cronlib.New()
 	cronjobScheduler.Start()
+	newgoCronSchedule, err := newgoCron.NewScheduler()
+	if err != nil {
+		log.Fatalf("failed to create scheduler: %v", err)
+	}
+	newgoCronSchedule.Start()
 
-	cronjobHandler := NewCronjobHandler(aslanCli, cronjobScheduler)
+	cronjobHandler := NewCronjobHandler(aslanCli, cronjobScheduler, newgoCronSchedule)
 
 	go func() {
 		for {

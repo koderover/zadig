@@ -91,7 +91,7 @@ func (c *CronClient) UpsertEnvServiceScheduler(log *zap.SugaredLogger) {
 					}
 				}
 				c.lastSchedulersRWMutex.Unlock()
-				log.Infof("[vm] [%s] deleted service scheduler..", key)
+				// log.Infof("[vm] [%s] deleted service scheduler..", key)
 				continue
 			}
 
@@ -136,7 +136,7 @@ func (c *CronClient) UpsertEnvServiceScheduler(log *zap.SugaredLogger) {
 					c.SchedulerController[key] = c.Schedulers[key].Start()
 					c.SchedulerControllerRWMutex.Unlock()
 
-					log.Infof("[vm] [%s] added service scheduler..", key)
+					// log.Infof("[vm] [%s] added service scheduler..", key)
 				}
 			}
 			break
