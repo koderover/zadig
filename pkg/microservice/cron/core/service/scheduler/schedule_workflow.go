@@ -93,66 +93,6 @@ func (c *CronClient) UpsertWorkflowScheduler(log *zap.SugaredLogger) {
 		c.SchedulerControllerRWMutex.Unlock()
 	}
 
-	pipelines, err := c.AslanCli.ListPipelines(log)
-	if err != nil {
-		log.Error(err)
-		return
-	}
-
-	log.Info("start init pipeline scheduler..")
-	for _, pipeline := range pipelines {
-		key := "pipeline-" + pipeline.Name
-		taskMap[key] = true
-
-		c.enabledMapRWMutex.Lock()
-		c.lastSchedulersRWMutex.Lock()
-		if _, ok := c.lastSchedulers[key]; ok && reflect.DeepEqual(pipeline.Schedules.Items, c.lastSchedulers[key]) {
-			// 增加判断：enabled的值未被更新时才能跳过
-			if enabled, ok := c.enabledMap[key]; ok && enabled == pipeline.Schedules.Enabled {
-				c.lastSchedulersRWMutex.Unlock()
-				c.enabledMapRWMutex.Unlock()
-				continue
-			}
-		}
-		c.enabledMap[key] = pipeline.Schedules.Enabled
-		c.lastSchedulers[key] = pipeline.Schedules.Items
-		c.lastSchedulersRWMutex.Unlock()
-		c.enabledMapRWMutex.Unlock()
-
-		newScheduler := gocron.NewScheduler()
-		for _, schedule := range pipeline.Schedules.Items {
-			if schedule != nil {
-				if err := schedule.Validate(); err != nil {
-					log.Errorf("[%s] invalid schedule: %v", key, err)
-					continue
-				}
-				BuildScheduledPipelineJob(newScheduler, schedule).Do(c.RunScheduledPipelineTask, pipeline, schedule.TaskArgs, log)
-			}
-		}
-		// 所有scheduler总开关
-		if !pipeline.Schedules.Enabled {
-			newScheduler.Clear()
-		}
-
-		c.SchedulersRWMutex.Lock()
-		c.Schedulers[key] = newScheduler
-		c.SchedulersRWMutex.Unlock()
-
-		log.Infof("[%s] building schedulers..", key)
-		// 停掉旧的scheduler
-		c.SchedulerControllerRWMutex.Lock()
-		sc, ok := c.SchedulerController[key]
-		c.SchedulerControllerRWMutex.Unlock()
-		if ok {
-			sc <- true
-		}
-
-		log.Infof("[%s]lens of scheduler: %d", key, c.Schedulers[key].Len())
-		c.SchedulerControllerRWMutex.Lock()
-		c.SchedulerController[key] = c.Schedulers[key].Start()
-		c.SchedulerControllerRWMutex.Unlock()
-	}
-
 	ScheduleNames := sets.NewString(
 		CleanJobScheduler, UpsertWorkflowScheduler, UpsertTestScheduler,
 		InitStatScheduler, InitOperationStatScheduler,

@@ -559,6 +559,7 @@ const (
 	FixedDayTimeCronjob = "timing"
 	FixedGapCronjob     = "gap"
 	CrontabCronjob      = "crontab"
+	UnixStampSchedule   = "unix_stamp"
 
 	// 定时器的所属job类型
 	WorkflowCronjob    = "workflow"
