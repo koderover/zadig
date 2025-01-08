@@ -104,17 +104,36 @@ func GetLink(baseURI, projectKey, workflowName, workflowDisplayName string, task
 	return fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/custom/%s/%d?display_name=%s", baseURI, projectKey, workflowName, taskID, url.QueryEscape(workflowDisplayName))
 }
 
+func repoNameToRepoIndex(repoName string) string {
+	words := map[rune]string{
+		'0': "A", '1': "B", '2': "C", '3': "D", '4': "E",
+		'5': "F", '6': "G", '7': "H", '8': "I", '9': "J",
+	}
+	result := ""
+	for i, digit := range repoName {
+		if word, ok := words[digit]; ok {
+			result += word
+		} else {
+			result += repoName[i:]
+			break
+		}
+	}
+
+	result = strings.Replace(result, "-", "_", -1)
+	result = strings.Replace(result, ".", "_", -1)
+
+	return result
+}
+
 func getReposVariables(repos []*types.Repository) []*commonmodels.KeyVal {
 	ret := make([]*commonmodels.KeyVal, 0)
 	for index, repo := range repos {
 		repoNameIndex := fmt.Sprintf("REPONAME_%d", index)
-		ret = append(ret, &commonmodels.KeyVal{Key: fmt.Sprintf(repoNameIndex), Value: repo.RepoName, IsCredential: false})
-
-		repoName := strings.Replace(repo.RepoName, "-", "_", -1)
-		repoName = strings.Replace(repoName, ".", "_", -1)
+		ret = append(ret, &commonmodels.KeyVal{Key: repoNameIndex, Value: repo.RepoName, IsCredential: false})
 
 		repoIndex := fmt.Sprintf("REPO_%d", index)
-		ret = append(ret, &commonmodels.KeyVal{Key: fmt.Sprintf(repoIndex), Value: repoName, IsCredential: false})
+		repoName := repoNameToRepoIndex(repo.RepoName)
+		ret = append(ret, &commonmodels.KeyVal{Key: repoIndex, Value: repoName, IsCredential: false})
 
 		if len(repo.Branch) > 0 {
 			ret = append(ret, &commonmodels.KeyVal{Key: fmt.Sprintf("%s_BRANCH", repoName), Value: repo.Branch, IsCredential: false})
