@@ -64,6 +64,7 @@ type cronjobResp struct {
 	Name            string                         `json:"name"`
 	Type            string                         `json:"type"`
 	Number          uint64                         `json:"number"`
+	UnixStamp       int64                          `json:"unix_stamp"`
 	Frequency       string                         `json:"frequency"`
 	Time            string                         `json:"time"`
 	Cron            string                         `json:"cron"`
@@ -92,6 +93,7 @@ func ListActiveCronjobFailsafe(c *gin.Context) {
 			Name:            cronjob.Name,
 			Type:            cronjob.Type,
 			Number:          cronjob.Number,
+			UnixStamp:       cronjob.UnixStamp,
 			Frequency:       cronjob.Frequency,
 			Time:            cronjob.Time,
 			Cron:            cronjob.Cron,
@@ -124,6 +126,7 @@ func ListActiveCronjob(c *gin.Context) {
 			Name:            cronjob.Name,
 			Type:            cronjob.Type,
 			Number:          cronjob.Number,
+			UnixStamp:       cronjob.UnixStamp,
 			Frequency:       cronjob.Frequency,
 			Time:            cronjob.Time,
 			Cron:            cronjob.Cron,

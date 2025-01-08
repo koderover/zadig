@@ -23,7 +23,7 @@ import (
 	"sync"
 	"time"
 
-	newgoCron "github.com/go-co-op/gocron"
+	newgoCron "github.com/go-co-op/gocron/v2"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/hashicorp/go-multierror"
 	corev1 "k8s.io/api/core/v1"
@@ -156,9 +156,13 @@ func Stop(ctx context.Context) {
 var Scheduler *newgoCron.Scheduler
 
 func initCron() {
-	Scheduler = newgoCron.NewScheduler(time.Local)
+	Scheduler, err := newgoCron.NewScheduler()
+	if err != nil {
+		log.Fatalf("failed to create scheduler: %v", err)
+		return
+	}
 
-	Scheduler.Every(5).Minutes().Do(func() {
+	Scheduler.NewJob(newgoCron.DurationJob(5*time.Minute), newgoCron.NewTask(func() {
 		log.Infof("[CRONJOB] updating tokens for gitlab....")
 		codehostList, err := mongodb2.NewCodehostColl().List(&mongodb2.ListArgs{
 			Source: "gitlab",
@@ -175,9 +179,9 @@ func initCron() {
 			}
 		}
 		log.Infof("[CRONJOB] gitlab token updated....")
-	})
+	}))
 
-	Scheduler.StartAsync()
+	Scheduler.Start()
 }
 
 func initService() {
