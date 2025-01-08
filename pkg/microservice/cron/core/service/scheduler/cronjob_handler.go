@@ -143,7 +143,7 @@ func (h *CronjobHandler) HandleMessage(msgs []*service.CronjobPayload) error {
 				return err
 			}
 		default:
-			log.Errorf("unsupported cronjob action: NOT RECONSUMING")
+			log.Errorf("unsupported cronjob action: %+v", msg)
 		}
 	}
 
@@ -415,26 +415,42 @@ func registerCronjob(job *service.Cronjob, client *client.Client, scheduler *cro
 					log.Errorf("[%s] RunScheduledTask err: %v", job.Name, err)
 				}
 
-				log.Infof("schedule executed release plan, jobID: %v, unixstamp: %v; release plan ID: %v, index: %v, name: %v", job.ID, job.UnixStamp, job.ReleasePlanArgs.ID, job.ReleasePlanArgs.Index, job.ReleasePlanArgs.Name)
+				log.Infof("schedule executed release plan, jobID: %v, schdule time: %v; release plan ID: %v, index: %v, name: %v", job.ID, time.Unix(job.UnixStamp, 0), job.ReleasePlanArgs.ID, job.ReleasePlanArgs.Index, job.ReleasePlanArgs.Name)
 			}
 
+			// delete old schedule job first
 			tag := job.ID
 			newScheduler.RemoveByTags(tag)
 
 			scheduleTime := time.Unix(job.UnixStamp, 0)
-			if scheduleTime.Before(time.Now()) {
-				log.Errorf("release plan schedule time is before now, jobID: %v, unixstamp: %v; release plan ID: %v, index: %v, name: %v", job.ID, job.UnixStamp, job.ReleasePlanArgs.ID, job.ReleasePlanArgs.Index, job.ReleasePlanArgs.Name)
-				return nil
-			}
-
 			jobName := fmt.Sprintf("release_plan:%s:%d:%s", job.ReleasePlanArgs.Name, job.ReleasePlanArgs.Index, scheduleTime)
-			_, err := newScheduler.NewJob(newgoCron.OneTimeJob(newgoCron.OneTimeJobStartDateTime(scheduleTime)), newgoCron.NewTask(executeReleasePlanFunc), newgoCron.WithTags(tag), newgoCron.WithName(jobName))
-			if err != nil {
-				log.Errorf("Failed to create jobID: %s, jobName: %v, unixstamp: %v; release plan ID: %v, index: %v, name: %v, error: %v", job.ID, job.Name, job.UnixStamp, job.ReleasePlanArgs.ID, job.ReleasePlanArgs.Index, job.ReleasePlanArgs.Name, err)
-				return err
+			if scheduleTime.Before(time.Now()) {
+				if time.Now().Sub(scheduleTime) <= time.Second*30 {
+					// now - schedule time <= 30s
+					// maybe missed the schedule time because of cron service restart
+					// so start this immediately
+					log.Infof("found an release plan outdated <= 30s, start it immediately, jobID: %v, schedule time: %v; release plan ID: %v, index: %v, name: %v", job.ID, scheduleTime, job.ReleasePlanArgs.ID, job.ReleasePlanArgs.Index, job.ReleasePlanArgs.Name)
+					_, err := newScheduler.NewJob(newgoCron.OneTimeJob(newgoCron.OneTimeJobStartImmediately()), newgoCron.NewTask(executeReleasePlanFunc), newgoCron.WithTags(tag), newgoCron.WithName(jobName))
+					if err != nil {
+						log.Errorf("Failed to create jobID: %s, jobName: %v, schedule time: %v; release plan ID: %v, index: %v, name: %v, error: %v", job.ID, job.Name, scheduleTime, job.ReleasePlanArgs.ID, job.ReleasePlanArgs.Index, job.ReleasePlanArgs.Name, err)
+						return err
+					}
+				} else {
+					// now - schedule time > 30s
+					// schedule time is too old
+					log.Errorf("found an release plan outdate > 30s, drop it, jobID: %v, schedule time: %v; release plan ID: %v, index: %v, name: %v", job.ID, scheduleTime, job.ReleasePlanArgs.ID, job.ReleasePlanArgs.Index, job.ReleasePlanArgs.Name)
+					return nil
+				}
+			} else {
+				// schedule time correct
+				_, err := newScheduler.NewJob(newgoCron.OneTimeJob(newgoCron.OneTimeJobStartDateTime(scheduleTime)), newgoCron.NewTask(executeReleasePlanFunc), newgoCron.WithTags(tag), newgoCron.WithName(jobName))
+				if err != nil {
+					log.Errorf("Failed to create jobID: %s, jobName: %v, schedule time: %v; release plan ID: %v, index: %v, name: %v, error: %v", job.ID, job.Name, scheduleTime, job.ReleasePlanArgs.ID, job.ReleasePlanArgs.Index, job.ReleasePlanArgs.Name, err)
+					return err
+				}
 			}
 
-			log.Infof("registering jobID: %s with name: %v, unixstamp: %v; release plan ID: %v, index: %v, name: %v", job.ID, job.Name, job.UnixStamp, job.ReleasePlanArgs.ID, job.ReleasePlanArgs.Index, job.ReleasePlanArgs.Name)
+			log.Infof("registering jobID: %s with name: %v, schedule time: %v; release plan ID: %v, index: %v, name: %v", job.ID, job.Name, scheduleTime, job.ReleasePlanArgs.ID, job.ReleasePlanArgs.Index, job.ReleasePlanArgs.Name)
 			return nil
 		}
 	} else {
@@ -654,25 +670,26 @@ func (h *CronjobHandler) registerReleasePlanJob(name string, job *service.Schedu
 			log.Errorf("[%s]RunScheduledTask err: %v", name, err)
 		}
 
-		log.Infof("schedule executed release plan, jobID: %v, unixstamp: %v; release plan ID: %v, index: %v, name: %v", job.ID.Hex(), job.UnixStamp, job.ReleasePlanArgs.ID, job.ReleasePlanArgs.Index, job.ReleasePlanArgs.Name)
+		log.Infof("schedule executed release plan, jobID: %v, schedule time: %v; release plan ID: %v, index: %v, name: %v", job.ID.Hex(), time.Unix(job.UnixStamp, 0), job.ReleasePlanArgs.ID, job.ReleasePlanArgs.Index, job.ReleasePlanArgs.Name)
 	}
 
+	// delete old schedule job first
 	tag := job.ID.Hex()
 	h.NewScheduler.RemoveByTags(tag)
 
 	scheduleTime := time.Unix(job.UnixStamp, 0)
 	if scheduleTime.Before(time.Now()) {
-		log.Errorf("release plan schedule time is before now, jobID: %v, unixstamp: %v; release plan ID: %v, index: %v, name: %v", job.ID, job.UnixStamp, job.ReleasePlanArgs.ID, job.ReleasePlanArgs.Index, job.ReleasePlanArgs.Name)
+		log.Errorf("release plan schedule time is before now, jobID: %v, schedule time: %v; release plan ID: %v, index: %v, name: %v", job.ID, scheduleTime, job.ReleasePlanArgs.ID, job.ReleasePlanArgs.Index, job.ReleasePlanArgs.Name)
 		return nil
 	}
 
 	jobName := fmt.Sprintf("release_plan:%s:%d:%s", job.ReleasePlanArgs.Name, job.ReleasePlanArgs.Index, scheduleTime)
 	_, err := h.NewScheduler.NewJob(newgoCron.OneTimeJob(newgoCron.OneTimeJobStartDateTime(scheduleTime)), newgoCron.NewTask(executeReleasePlanFunc), newgoCron.WithTags(tag), newgoCron.WithName(jobName))
 	if err != nil {
-		log.Errorf("Failed to create jobID: %s, jobName: %v, unixstamp: %v; release plan ID: %v, index: %v, name: %v, error: %v", job.ID.Hex(), name, job.UnixStamp, job.ReleasePlanArgs.ID, job.ReleasePlanArgs.Index, job.ReleasePlanArgs.Name, err)
+		log.Errorf("Failed to create jobID: %s, jobName: %v, schedule time: %v; release plan ID: %v, index: %v, name: %v, error: %v", job.ID.Hex(), name, scheduleTime, job.ReleasePlanArgs.ID, job.ReleasePlanArgs.Index, job.ReleasePlanArgs.Name, err)
 		return err
 	}
 
-	log.Infof("registering jobID: %s with name: %v, unixstamp: %v; release plan ID: %v, index: %v, name: %v", job.ID.Hex(), name, job.UnixStamp, job.ReleasePlanArgs.ID, job.ReleasePlanArgs.Index, job.ReleasePlanArgs.Name)
+	log.Infof("registering jobID: %s with name: %v, schedule time: %v; release plan ID: %v, index: %v, name: %v", job.ID.Hex(), name, scheduleTime, job.ReleasePlanArgs.ID, job.ReleasePlanArgs.Index, job.ReleasePlanArgs.Name)
 	return nil
 }

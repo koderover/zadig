@@ -54,7 +54,7 @@ func V321ToV320() error {
 func migrateReleasePlanCron(ctx *handler.Context) error {
 	// delete all release plan cronjob first
 	_, err := commonrepo.NewCronjobColl().DeleteMany(ctx,
-		bson.M{"type": "release_plan", "enabled": true},
+		bson.M{"type": "release_plan"},
 	)
 	if err != nil {
 		return fmt.Errorf("failed to delete release plan cronjobs, error: %w", err)

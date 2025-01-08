@@ -83,7 +83,7 @@ func NewCronV3() *CronV3Client {
 func (c *CronV3Client) Start() {
 	var lastConfig *aslan.CleanConfig
 
-	c.Scheduler.NewJob(newgoCron.DurationJob(5*time.Minute), newgoCron.NewTask(func() {
+	c.Scheduler.NewJob(newgoCron.DurationJob(5*time.Second), newgoCron.NewTask(func() {
 		// get the docker clean config
 		config, err := c.AslanCli.GetDockerCleanConfig()
 		if err != nil {

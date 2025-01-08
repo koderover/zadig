@@ -28,6 +28,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/samber/lo"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
@@ -246,6 +247,10 @@ func upsertReleasePlanCron(id, name string, index int64, status config.ReleasePl
 				JobList:      []*commonmodels.Schedule{cronJobToSchedule(input)},
 			}
 		}
+	}
+
+	if payload == nil {
+		return nil
 	}
 
 	pl, _ := json.Marshal(payload)
@@ -496,7 +501,26 @@ func ScheduleExecuteReleasePlan(c *handler.Context, planID, jobID string) error 
 	approveLock.Lock()
 	defer approveLock.Unlock()
 
-	err := commonrepo.NewCronjobColl().Delete(&commonrepo.CronjobDeleteOption{
+	// check if the job is already executed
+	jobObjectID, err := primitive.ObjectIDFromHex(jobID)
+	if err != nil {
+		return errors.Wrap(err, "invalid job ID")
+	}
+	_, err = commonrepo.NewCronjobColl().GetByID(jobObjectID)
+	if err != nil {
+		if !mongodb.IsErrNoDocuments(err) {
+			err = fmt.Errorf("Failed to get release job schedule job %s, error: %v", jobID, err)
+			log.Error(err)
+			return err
+		} else {
+			err = fmt.Errorf("Release job schedule job %s not found", jobID)
+			log.Error(err)
+			return err
+		}
+	}
+
+	// delete the schedule job after executed
+	err = commonrepo.NewCronjobColl().Delete(&commonrepo.CronjobDeleteOption{
 		IDList: []string{jobID},
 	})
 	if err != nil {
