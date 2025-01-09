@@ -123,7 +123,7 @@ func ReplaceWorkloadImages(rawYaml string, images []*commonmodels.Container) (st
 		imageMap[image.Name] = image
 	}
 
-	customKVRegExp := regexp.MustCompile(`{{\.(\w+)}}`)
+	customKVRegExp := regexp.MustCompile(`{{(\.(\w+))+}}`)
 	restoreRegExp := regexp.MustCompile(`TEMP_PLACEHOLDER_(\w+)`)
 
 	splitYams := util.SplitYaml(rawYaml)
