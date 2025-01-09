@@ -25,6 +25,7 @@ import (
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/shared/handler"
+	"github.com/koderover/zadig/v2/pkg/util"
 	"go.mongodb.org/mongo-driver/bson"
 )
 
@@ -69,9 +70,10 @@ func migrateReleasePlanCron(ctx *handler.Context) error {
 	for _, releasePlan := range releasePlans {
 		if releasePlan.ScheduleExecuteTime != 0 && releasePlan.Status == config.StatusExecuting {
 			if time.Unix(releasePlan.ScheduleExecuteTime, 0).After(time.Now()) {
+				releasePlanCronName := util.GetReleasePlanCronName(releasePlan.ID.Hex(), releasePlan.Name, releasePlan.Index)
 				cronjob := &commonmodels.Cronjob{
 					Enabled:   true,
-					Name:      releasePlan.Name,
+					Name:      releasePlanCronName,
 					Type:      "release_plan",
 					JobType:   string(config.UnixstampSchedule),
 					UnixStamp: releasePlan.ScheduleExecuteTime,

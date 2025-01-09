@@ -455,6 +455,8 @@ func registerCronjob(job *service.Cronjob, client *client.Client, scheduler *cro
 		}
 	} else {
 		switch job.Type {
+		case setting.WorkflowCronjob:
+			return nil
 		case setting.WorkflowV4Cronjob:
 			if job.WorkflowV4Args == nil {
 				return fmt.Errorf("workflow args is nil")
