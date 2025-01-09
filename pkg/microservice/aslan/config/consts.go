@@ -59,7 +59,7 @@ const (
 	// GapSchedule 间隔循环
 	GapSchedule ScheduleType = "gap"
 	// UnixstampSchedule 时间戳
-	UnixstampSchedule ScheduleType = "unixstamp"
+	UnixstampSchedule ScheduleType = "unix_stamp"
 )
 
 type SlackNotifyType string
