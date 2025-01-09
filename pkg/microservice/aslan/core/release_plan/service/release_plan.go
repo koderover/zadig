@@ -569,6 +569,21 @@ func ScheduleExecuteReleasePlan(c *handler.Context, planID, jobID string) error 
 				Name: job.Name,
 				Type: string(job.Type),
 			}
+
+			go func() {
+				if err := mongodb.NewReleasePlanLogColl().Create(&models.ReleasePlanLog{
+					PlanID:     planID,
+					Username:   "系统",
+					Account:    "",
+					Verb:       VerbExecute,
+					TargetName: args.Name,
+					TargetType: TargetTypeReleaseJob,
+					CreatedAt:  time.Now().Unix(),
+				}); err != nil {
+					log.Errorf("create release plan log error: %v", err)
+				}
+			}()
+
 			executor, err := NewReleaseJobExecutor(&ExecuteReleaseJobContext{
 				AuthResources: c.Resources,
 				UserID:        c.UserID,
@@ -602,20 +617,6 @@ func ScheduleExecuteReleasePlan(c *handler.Context, planID, jobID string) error 
 				log.Error(err)
 				return err
 			}
-
-			go func() {
-				if err := mongodb.NewReleasePlanLogColl().Create(&models.ReleasePlanLog{
-					PlanID:     planID,
-					Username:   "系统",
-					Account:    "",
-					Verb:       VerbExecute,
-					TargetName: args.Name,
-					TargetType: TargetTypeReleaseJob,
-					CreatedAt:  time.Now().Unix(),
-				}); err != nil {
-					log.Errorf("create release plan log error: %v", err)
-				}
-			}()
 		}
 	}
 
