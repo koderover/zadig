@@ -121,10 +121,6 @@ func (grc *GitRepoConfig) GetNamespace() string {
 }
 
 type CustomYaml struct {
-	// helm:
-	// - in service: user override's values in advance setting
-	// - in env: user input's override yaml
-	// k8s: variable yaml
 	YamlContent       string                          `bson:"yaml_content"                      json:"yaml_content"`
 	RenderVariableKVs []*commontypes.RenderVariableKV `bson:"render_variable_kvs"               json:"render_variable_kvs"`
 	Source            string                          `bson:"source"                            json:"source"`
@@ -143,11 +139,12 @@ type ServiceRender struct {
 	ChartRepo      string `bson:"chart_repo,omitempty"   json:"chart_repo,omitempty"`
 	ChartName      string `bson:"chart_name,omitempty"   json:"chart_name,omitempty"`
 	ChartVersion   string `bson:"chart_version,omitempty"   json:"chart_version,omitempty"`
-	ValuesYaml     string `bson:"values_yaml,omitempty"     json:"values_yaml,omitempty"`       // full helm service values yaml, only record, not actually used in calculation
+	ValuesYaml     string `bson:"values_yaml,omitempty"     json:"values_yaml,omitempty"`
 	OverrideValues string `bson:"override_values,omitempty"   json:"override_values,omitempty"` // used for helm services, json-encoded string of kv value
 	// ---- for helm services end ----
 
 	// OverrideYaml will be used in both helm and k8s projects
+	// In k8s this is variable_yaml
 	OverrideYaml *CustomYaml `bson:"override_yaml,omitempty"   json:"override_yaml,omitempty"`
 }
 

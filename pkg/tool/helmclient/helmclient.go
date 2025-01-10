@@ -173,7 +173,6 @@ type KV struct {
 	Value interface{} `json:"value"`
 }
 
-// @note when should set valuesYaml? for return all values of the chart?
 // MergeOverrideValues merge override yaml and override kvs
 // defaultValues overrideYaml used for -f option
 // overrideValues used for --set option
@@ -200,7 +199,7 @@ func MergeOverrideValues(valuesYaml, defaultValues, overrideYaml, overrideValues
 		}
 	}
 
-	valuesMap, err := yamlutil.MergeAndUnmarshal([][]byte{[]byte(valuesYaml), []byte(defaultValues), []byte(overrideYaml), imageRelatedValues})
+	valuesMap, err := yamlutil.MergeAndUnmarshal([][]byte{imageRelatedValues, []byte(valuesYaml), []byte(defaultValues), []byte(overrideYaml)})
 	if err != nil {
 		return "", err
 	}
