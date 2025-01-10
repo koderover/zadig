@@ -145,7 +145,7 @@ spec:
             - /workspace/service1
           ports:
             - protocol: TCP
-              containerPort: TEMP_PLACEHOLDER_project
+              containerPort: 20211
 `
 
 // ReplaceWorkloadImages  replace images in yaml with new images
