@@ -169,7 +169,7 @@ func ReplaceWorkloadImages(rawYaml string, images []*commonmodels.Container) (st
 		log.Infof(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>> modified yaml is: \n%s \n ===================================================", string(modifiedOrigYamlStr))
 
 		var obj unstructured.Unstructured
-		err := yaml.Unmarshal(modifiedYamlStr, &obj.Object)
+		err := yaml.Unmarshal(modifiedOrigYamlStr, &obj.Object)
 		if err != nil {
 			return "", nil, fmt.Errorf("decode yaml error: %s", err)
 		}
@@ -190,7 +190,7 @@ func ReplaceWorkloadImages(rawYaml string, images []*commonmodels.Container) (st
 			}
 
 			for i, c := range containers {
-				container := c.(map[interface{}]interface{})
+				container := c.(map[string]interface{})
 				containerName := container["name"].(string)
 				if image, ok := imageMap[containerName]; ok {
 					container["image"] = image.Image
