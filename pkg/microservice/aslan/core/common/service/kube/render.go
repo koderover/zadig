@@ -23,11 +23,11 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
-	"gopkg.in/yaml.v3"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/cli-runtime/pkg/printers"
 	"k8s.io/helm/pkg/releaseutil"
+	yaml "sigs.k8s.io/yaml/goyaml.v3"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
@@ -116,38 +116,6 @@ func resourceToYaml(obj runtime.Object) (string, error) {
 	return writer.String(), nil
 }
 
-const myStuff = `
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: service1
-  labels:
-    app.kubernetes.io/name: yaml
-    app.kubernetes.io/instance: service1
-    t: abc
-spec:
-  selector:
-    matchLabels:
-      app.kubernetes.io/name: yaml
-      app.kubernetes.io/instance: service1
-  replicas: 2
-  template:
-    metadata:
-      labels:
-        app.kubernetes.io/name: yaml
-        app.kubernetes.io/instance: service1
-    spec:
-      containers:
-        - name: service1
-          image: koderover.tencentcloudcr.com/koderover-demo/service1:latest
-          imagePullPolicy: Always
-          command:
-            - /workspace/service1
-          ports:
-            - protocol: TCP
-              containerPort: 20211
-`
-
 // ReplaceWorkloadImages  replace images in yaml with new images
 func ReplaceWorkloadImages(rawYaml string, images []*commonmodels.Container) (string, []*WorkloadResource, error) {
 	imageMap := make(map[string]*commonmodels.Container)
@@ -162,17 +130,18 @@ func ReplaceWorkloadImages(rawYaml string, images []*commonmodels.Container) (st
 	yamlStrs := make([]string, 0)
 	workloadRes := make([]*WorkloadResource, 0)
 	for _, yamlStr := range splitYams {
-		modifiedYamlStr := customKVRegExp.ReplaceAll([]byte(myStuff), []byte("TEMP_PLACEHOLDER_$1"))
-		modifiedOrigYamlStr := customKVRegExp.ReplaceAll([]byte(yamlStr), []byte("TEMP_PLACEHOLDER_$1"))
+		modifiedYamlStr := customKVRegExp.ReplaceAll([]byte(yamlStr), []byte("TEMP_PLACEHOLDER_$1"))
 
-		log.Infof(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>> debug yaml is: \n%s \n ===================================================", string(modifiedYamlStr))
-		log.Infof(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>> modified yaml is: \n%s \n ===================================================", string(modifiedOrigYamlStr))
-
-		var obj unstructured.Unstructured
-		err := yaml.Unmarshal(modifiedYamlStr, &obj.Object)
+		var rawData map[string]interface{}
+		err := yaml.Unmarshal(modifiedYamlStr, &rawData)
 		if err != nil {
 			return "", nil, fmt.Errorf("decode yaml error: %s", err)
 		}
+
+		cleanedData := util.ConvertIntsToInt64(rawData).(map[string]interface{})
+
+		var obj unstructured.Unstructured
+		obj.Object = cleanedData
 
 		resourceName := obj.GetName()
 		resourceKind := obj.GetKind()
