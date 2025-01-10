@@ -116,6 +116,38 @@ func resourceToYaml(obj runtime.Object) (string, error) {
 	return writer.String(), nil
 }
 
+const myStuff = `
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: service1
+  labels:
+    app.kubernetes.io/name: yaml
+    app.kubernetes.io/instance: service1
+    t: abc
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: yaml
+      app.kubernetes.io/instance: service1
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: yaml
+        app.kubernetes.io/instance: service1
+    spec:
+      containers:
+        - name: service1
+          image: koderover.tencentcloudcr.com/koderover-demo/service1:latest
+          imagePullPolicy: Always
+          command:
+            - /workspace/service1
+          ports:
+            - protocol: TCP
+              containerPort: TEMP_PLACEHOLDER_project
+`
+
 // ReplaceWorkloadImages  replace images in yaml with new images
 func ReplaceWorkloadImages(rawYaml string, images []*commonmodels.Container) (string, []*WorkloadResource, error) {
 	imageMap := make(map[string]*commonmodels.Container)
@@ -130,9 +162,11 @@ func ReplaceWorkloadImages(rawYaml string, images []*commonmodels.Container) (st
 	yamlStrs := make([]string, 0)
 	workloadRes := make([]*WorkloadResource, 0)
 	for _, yamlStr := range splitYams {
-		modifiedYamlStr := customKVRegExp.ReplaceAll([]byte(yamlStr), []byte("TEMP_PLACEHOLDER_$1"))
+		modifiedYamlStr := customKVRegExp.ReplaceAll([]byte(myStuff), []byte("TEMP_PLACEHOLDER_$1"))
+		modifiedOrigYamlStr := customKVRegExp.ReplaceAll([]byte(yamlStr), []byte("TEMP_PLACEHOLDER_$1"))
 
-		log.Infof(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>> modified yaml is: \n %s \n ===================================================", string(modifiedYamlStr))
+		log.Infof(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>> debug yaml is: \n%s \n ===================================================", string(modifiedYamlStr))
+		log.Infof(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>> modified yaml is: \n%s \n ===================================================", string(modifiedOrigYamlStr))
 
 		var obj unstructured.Unstructured
 		err := yaml.Unmarshal(modifiedYamlStr, &obj.Object)
