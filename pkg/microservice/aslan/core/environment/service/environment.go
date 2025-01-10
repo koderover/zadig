@@ -1498,7 +1498,7 @@ func GetAffectedServices(productName, envName string, arg *K8sRendersetArg, log 
 func GeneEstimatedValues(productName, envName, serviceOrReleaseName, scene, format string, arg *EstimateValuesArg, isHelmChartDeploy bool, log *zap.SugaredLogger) (interface{}, error) {
 	var (
 		productSvc  *commonmodels.ProductService
-		tmplSvc     *commonmodels.Service
+		latestSvc   *commonmodels.Service
 		productInfo *commonmodels.Product
 		err         error
 	)
@@ -1506,9 +1506,9 @@ func GeneEstimatedValues(productName, envName, serviceOrReleaseName, scene, form
 	switch scene {
 	case usageScenarioCreateEnv:
 		productInfo = &commonmodels.Product{}
-		productSvc, tmplSvc, err = prepareEstimateDataForEnvCreation(productName, serviceOrReleaseName, arg.Production, isHelmChartDeploy, log)
+		productSvc, latestSvc, err = prepareEstimateDataForEnvCreation(productName, serviceOrReleaseName, arg.Production, isHelmChartDeploy, log)
 	default:
-		productSvc, tmplSvc, productInfo, err = prepareEstimateDataForEnvUpdate(productName, envName, serviceOrReleaseName, scene, arg.Production, isHelmChartDeploy, log)
+		productSvc, latestSvc, productInfo, err = prepareEstimateDataForEnvUpdate(productName, envName, serviceOrReleaseName, scene, arg.Production, isHelmChartDeploy, log)
 	}
 
 	if err != nil {
@@ -1525,6 +1525,15 @@ func GeneEstimatedValues(productName, envName, serviceOrReleaseName, scene, form
 	targetChart.OverrideValues = tempArg.ToOverrideValueString()
 
 	images := make([]string, 0)
+
+	curUsedSvc, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
+		ServiceName: productSvc.ServiceName,
+		Revision:    productSvc.Revision,
+		ProductName: productSvc.ProductName,
+	}, arg.Production)
+	if err != nil {
+		curUsedSvc = nil
+	}
 
 	mergedValues := ""
 	if isHelmChartDeploy {
@@ -1548,7 +1557,7 @@ func GeneEstimatedValues(productName, envName, serviceOrReleaseName, scene, form
 			return nil, e.ErrUpdateRenderSet.AddDesc(fmt.Sprintf("failed to merge override values, err %s", err))
 		}
 	} else {
-		containers := kube.CalculateContainer(productSvc, tmplSvc, tmplSvc.Containers, productInfo)
+		containers := kube.CalculateContainer(productSvc, curUsedSvc, latestSvc.Containers, productInfo)
 		for _, container := range containers {
 			images = append(images, container.Image)
 		}

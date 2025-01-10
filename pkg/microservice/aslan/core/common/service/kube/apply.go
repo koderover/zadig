@@ -790,9 +790,6 @@ func PrepareHelmServiceData(applyParam *ResourceApplyParam) (*commonmodels.Produ
 			OverrideYaml: &template.CustomYaml{},
 		}
 		productService.Render = targetChart
-	} else {
-		productService.GetServiceRender().ValuesYaml = svcTemplate.HelmChart.ValuesYaml
-		productService.GetServiceRender().ChartVersion = svcTemplate.HelmChart.Version
 	}
 
 	if applyParam.UpdateServiceRevision && productService.Revision != svcTemplate.Revision {
@@ -808,18 +805,18 @@ func PrepareHelmServiceData(applyParam *ResourceApplyParam) (*commonmodels.Produ
 			}
 		}
 
-		imageValuesMaps := make([]map[string]interface{}, 0)
+		replaceValuesMaps := make([]map[string]interface{}, 0)
 		for _, targetContainer := range productService.Containers {
 			// prepare image replace info
 			replaceValuesMap, err := commonutil.AssignImageData(targetContainer.Image, commonutil.GetValidMatchData(targetContainer.ImagePath))
 			if err != nil {
 				return nil, nil, fmt.Errorf("failed to pase image uri %s/%s, err %s", productInfo.ProductName, applyParam.ServiceName, err.Error())
 			}
-			imageValuesMaps = append(imageValuesMaps, replaceValuesMap)
+			replaceValuesMaps = append(replaceValuesMaps, replaceValuesMap)
 		}
 
 		// replace image into service's values.yaml
-		replacedValuesYaml, err := commonutil.ReplaceImage(svcTemplate.HelmChart.ValuesYaml, imageValuesMaps...)
+		replacedValuesYaml, err := commonutil.ReplaceImage(svcTemplate.HelmChart.ValuesYaml, replaceValuesMaps...)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to replace image uri %s/%s, err %s", productInfo.ProductName, applyParam.ServiceName, err.Error())
 

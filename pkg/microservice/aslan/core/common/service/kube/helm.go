@@ -144,11 +144,7 @@ func InstallOrUpgradeHelmChartWithValues(param *ReleaseInstallParam, isRetry boo
 }
 
 // GeneMergedValues generate values.yaml used to install or upgrade helm chart, like param in after option -f
-// productSvc: contains current images info
-// svcRender: contains env values info, including service's values and env's override values
-// defaultValues: global values yaml
-// images: images to be replaced
-// fullValues: If fullValues is set to true, full values yaml content will be returned, this case is used to preview values when running workflows
+// If fullValues is set to true, full values yaml content will be returned, this case is used to preview values when running workflows
 func GeneMergedValues(productSvc *commonmodels.ProductService, svcRender *templatemodels.ServiceRender, defaultValues string, images []string, fullValues bool) (string, error) {
 	serviceName := productSvc.ServiceName
 	var targetContainers []*commonmodels.Container
@@ -168,18 +164,18 @@ func GeneMergedValues(productSvc *commonmodels.ProductService, svcRender *templa
 
 	targetChart := svcRender
 
-	imageValuesMaps := make([]map[string]interface{}, 0)
+	replaceValuesMaps := make([]map[string]interface{}, 0)
 	for _, targetContainer := range targetContainers {
 		// prepare image replace info
 		replaceValuesMap, err := commonutil.AssignImageData(targetContainer.Image, commonutil.GetValidMatchData(targetContainer.ImagePath))
 		if err != nil {
 			return "", fmt.Errorf("failed to pase image uri %s/%s, err %s", productSvc.ProductName, serviceName, err.Error())
 		}
-		imageValuesMaps = append(imageValuesMaps, replaceValuesMap)
+		replaceValuesMaps = append(replaceValuesMaps, replaceValuesMap)
 	}
 
 	imageKVS := make([]*helmtool.KV, 0)
-	for _, imageSecs := range imageValuesMaps {
+	for _, imageSecs := range replaceValuesMaps {
 		for key, value := range imageSecs {
 			imageKVS = append(imageKVS, &helmtool.KV{
 				Key:   key,
@@ -189,7 +185,7 @@ func GeneMergedValues(productSvc *commonmodels.ProductService, svcRender *templa
 	}
 
 	// replace image into service's values.yaml
-	replacedValuesYaml, err := commonutil.ReplaceImage(targetChart.ValuesYaml, imageValuesMaps...)
+	replacedValuesYaml, err := commonutil.ReplaceImage(targetChart.ValuesYaml, replaceValuesMaps...)
 	if err != nil {
 		return "", fmt.Errorf("failed to replace image uri %s/%s, err %s", productSvc.ProductName, serviceName, err.Error())
 
