@@ -17,11 +17,13 @@
 package migrate
 
 import (
+	"context"
 	"fmt"
 	"time"
 
 	"github.com/koderover/zadig/v2/pkg/cli/upgradeassistant/internal/upgradepath"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/shared/handler"
@@ -61,13 +63,16 @@ func migrateReleasePlanCron(ctx *handler.Context) error {
 		return fmt.Errorf("failed to delete release plan cronjobs, error: %w", err)
 	}
 
-	releasePlans, _, err := commonrepo.NewReleasePlanColl().ListByOptions(&commonrepo.ListReleasePlanOption{})
+	cursor, err := commonrepo.NewReleasePlanColl().ListByCursor()
 	if err != nil {
 		return fmt.Errorf("failed to list release plans, error: %w", err)
 	}
+	for cursor.Next(context.Background()) {
+		var releasePlan models.ReleasePlan
+		if err := cursor.Decode(&releasePlan); err != nil {
+			return err
+		}
 
-	// create new cronjob for release plan if schedule time is after now and status is executing
-	for _, releasePlan := range releasePlans {
 		if releasePlan.ScheduleExecuteTime != 0 && releasePlan.Status == config.StatusExecuting {
 			if time.Unix(releasePlan.ScheduleExecuteTime, 0).After(time.Now()) {
 				releasePlanCronName := util.GetReleasePlanCronName(releasePlan.ID.Hex(), releasePlan.Name, releasePlan.Index)

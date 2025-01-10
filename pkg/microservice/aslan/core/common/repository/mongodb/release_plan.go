@@ -254,3 +254,8 @@ func (c *ReleasePlanColl) ListFinishedReleasePlan(startTime, endTime int64) ([]*
 
 	return resp, nil
 }
+
+func (c *ReleasePlanColl) ListByCursor() (*mongo.Cursor, error) {
+	query := bson.M{}
+	return c.Collection.Find(context.TODO(), query)
+}
