@@ -205,22 +205,22 @@ func updateDingTalkApproval(ctx context.Context, approvalInfo *models.Approval) 
 	}
 	client := dingtalk.NewClient(data.DingTalkAppKey, data.DingTalkAppSecret)
 
-	resultMap := map[string]config.ApproveOrReject{
-		"agree":  config.Approve,
-		"refuse": config.Reject,
+	resultMap := map[string]config.ApprovalStatus{
+		"agree":  config.ApprovalStatusApprove,
+		"refuse": config.ApprovalStatusReject,
 	}
 
-	checkNodeStatus := func(node *models.DingTalkApprovalNode) (config.ApproveOrReject, error) {
+	checkNodeStatus := func(node *models.DingTalkApprovalNode) (config.ApprovalStatus, error) {
 		users := node.ApproveUsers
 		switch node.Type {
 		case "AND":
-			result := config.Approve
+			result := config.ApprovalStatusApprove
 			for _, user := range users {
 				if user.RejectOrApprove == "" {
 					result = ""
 				}
-				if user.RejectOrApprove == config.Reject {
-					return config.Reject, nil
+				if user.RejectOrApprove == config.ApprovalStatusReject {
+					return config.ApprovalStatusReject, nil
 				}
 			}
 			return result, nil
@@ -253,14 +253,14 @@ func updateDingTalkApproval(ctx context.Context, approvalInfo *models.Approval) 
 			return errors.Wrap(err, "check node")
 		}
 		switch node.RejectOrApprove {
-		case config.Approve:
-		case config.Reject:
+		case config.ApprovalStatusApprove:
+		case config.ApprovalStatusReject:
 			approvalInfo.Status = config.StatusReject
 			return nil
 		}
 		break
 	}
-	if approval.ApprovalNodes[len(approval.ApprovalNodes)-1].RejectOrApprove == config.Approve {
+	if approval.ApprovalNodes[len(approval.ApprovalNodes)-1].RejectOrApprove == config.ApprovalStatusApprove {
 		instanceInfo, err := client.GetApprovalInstance(instanceID)
 		if err != nil {
 			return errors.Wrap(err, "get instance final info")
@@ -516,16 +516,16 @@ func updateLarkApproval(ctx context.Context, approval *models.Approval) error {
 	}
 	client := lark.NewClient(data.AppID, data.AppSecret)
 
-	checkNodeStatus := func(node *models.LarkApprovalNode) (config.ApproveOrReject, error) {
+	checkNodeStatus := func(node *models.LarkApprovalNode) (config.ApprovalStatus, error) {
 		switch node.Type {
 		case "AND":
-			result := config.Approve
+			result := config.ApprovalStatusApprove
 			for _, user := range node.ApproveUsers {
 				if user.RejectOrApprove == "" {
 					result = ""
 				}
-				if user.RejectOrApprove == config.Reject {
-					return config.Reject, nil
+				if user.RejectOrApprove == config.ApprovalStatusReject {
+					return config.ApprovalStatusReject, nil
 				}
 			}
 			return result, nil
@@ -575,10 +575,10 @@ func updateLarkApproval(ctx context.Context, approval *models.Approval) error {
 			if err != nil {
 				return false, false, err
 			}
-			if node.RejectOrApprove == config.Approve {
+			if node.RejectOrApprove == config.ApprovalStatusApprove {
 				break
 			}
-			if node.RejectOrApprove == config.Reject {
+			if node.RejectOrApprove == config.ApprovalStatusReject {
 				return true, false, nil
 			}
 			if userUpdated {
@@ -587,7 +587,7 @@ func updateLarkApproval(ctx context.Context, approval *models.Approval) error {
 		}
 
 		finalResult := larkApproval.ApprovalNodes[len(larkApproval.ApprovalNodes)-1].RejectOrApprove
-		return finalResult != "", finalResult == config.Approve, nil
+		return finalResult != "", finalResult == config.ApprovalStatusApprove, nil
 	}
 
 	done, isApprove, err := approvalUpdate(larkApproval)
@@ -599,11 +599,11 @@ func updateLarkApproval(ctx context.Context, approval *models.Approval) error {
 		if err != nil {
 			return errors.Wrap(err, "get larkApproval final instance")
 		}
-		if finalInstance.ApproveOrReject == config.Approve && isApprove {
+		if finalInstance.ApproveOrReject == config.ApprovalStatusApprove && isApprove {
 			approval.Status = config.StatusPassed
 			return nil
 		}
-		if finalInstance.ApproveOrReject == config.Reject && !isApprove {
+		if finalInstance.ApproveOrReject == config.ApprovalStatusReject && !isApprove {
 			approval.Status = config.StatusReject
 			return nil
 		}

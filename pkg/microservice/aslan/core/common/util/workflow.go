@@ -21,7 +21,6 @@ import (
 
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/setting"
-	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
 func CalcWorkflowTaskRunningTime(task *commonmodels.WorkflowTask) int64 {
@@ -31,7 +30,7 @@ func CalcWorkflowTaskRunningTime(task *commonmodels.WorkflowTask) int64 {
 			runningTime += 0
 		} else if task.EndTime == 0 {
 			runningTime += 0
-			log.Errorf("workflow task %s/%d stage %s end time is 0", task.WorkflowName, task.TaskID, stage.Name)
+			// log.Errorf("workflow task %s/%d stage %s end time is 0", task.WorkflowName, task.TaskID, stage.Name)
 		} else {
 			runningTime += stage.EndTime - stage.StartTime
 		}

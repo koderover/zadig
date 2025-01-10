@@ -516,10 +516,10 @@ type Approval struct {
 }
 
 type NativeApproval struct {
-	Timeout         int                    `bson:"timeout"                     yaml:"timeout"                    json:"timeout"`
-	ApproveUsers    []*User                `bson:"approve_users"               yaml:"approve_users"              json:"approve_users"`
-	NeededApprovers int                    `bson:"needed_approvers"            yaml:"needed_approvers"           json:"needed_approvers"`
-	RejectOrApprove config.ApproveOrReject `bson:"reject_or_approve"           yaml:"-"                          json:"reject_or_approve"`
+	Timeout         int                   `bson:"timeout"                     yaml:"timeout"                    json:"timeout"`
+	ApproveUsers    []*User               `bson:"approve_users"               yaml:"approve_users"              json:"approve_users"`
+	NeededApprovers int                   `bson:"needed_approvers"            yaml:"needed_approvers"           json:"needed_approvers"`
+	RejectOrApprove config.ApprovalStatus `bson:"reject_or_approve"           yaml:"-"                          json:"reject_or_approve"`
 }
 
 type LarkApproval struct {
@@ -529,11 +529,11 @@ type LarkApproval struct {
 }
 
 type User struct {
-	UserID          string                 `bson:"user_id"                     yaml:"user_id"                    json:"user_id"`
-	UserName        string                 `bson:"user_name"                   yaml:"user_name"                  json:"user_name"`
-	RejectOrApprove config.ApproveOrReject `bson:"reject_or_approve"           yaml:"-"                          json:"reject_or_approve"`
-	Comment         string                 `bson:"comment"                     yaml:"-"                          json:"comment"`
-	OperationTime   int64                  `bson:"operation_time"              yaml:"-"                          json:"operation_time"`
+	UserID          string                `bson:"user_id"                     yaml:"user_id"                    json:"user_id"`
+	UserName        string                `bson:"user_name"                   yaml:"user_name"                  json:"user_name"`
+	RejectOrApprove config.ApprovalStatus `bson:"reject_or_approve"           yaml:"-"                          json:"reject_or_approve"`
+	Comment         string                `bson:"comment"                     yaml:"-"                          json:"comment"`
+	OperationTime   int64                 `bson:"operation_time"              yaml:"-"                          json:"operation_time"`
 }
 
 type Job struct {
