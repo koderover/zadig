@@ -38,7 +38,6 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	sse := router.Group("sse")
 	{
 		sse.GET("/pods/:podName/containers/:containerName", GetContainerLogsSSE)
-		sse.GET("/production/pods/:podName/containers/:containerName", GetProductionEnvContainerLogsSSE)
 		sse.GET("/testing/:test_name/tasks/:task_id", GetTestingContainerLogsSSE)
 		sse.GET("/scanning/:id/task/:scan_id", GetScanningContainerLogsSSE)
 		sse.GET("/v4/workflow/:workflowName/:taskID/:jobName/:lines", GetWorkflowJobContainerLogsSSE)

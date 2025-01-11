@@ -21,10 +21,11 @@ import (
 )
 
 type CronjobPayload struct {
-	Name        string             `json:"name"`
-	ProductName string             `json:"product_name"`
-	Action      string             `json:"action"`
-	JobType     string             `json:"job_type"`
-	DeleteList  []string           `json:"delete_list,omitempty"`
-	JobList     []*models.Schedule `json:"job_list,omitempty"`
+	Name         string             `json:"name"`
+	ProductName  string             `json:"product_name"`
+	Action       string             `json:"action"`
+	JobType      string             `json:"job_type"`
+	ScheduleType string             `json:"schedule_type"`
+	DeleteList   []string           `json:"delete_list,omitempty"`
+	JobList      []*models.Schedule `json:"job_list,omitempty"`
 }

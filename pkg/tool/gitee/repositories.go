@@ -32,6 +32,7 @@ import (
 type Project struct {
 	ID            int            `json:"id"`
 	Name          string         `json:"name"`
+	Path          string         `json:"path"`
 	DefaultBranch string         `json:"default_branch,omitempty"`
 	Namespace     *NamespaceInfo `json:"namespace,omitempty"`
 }

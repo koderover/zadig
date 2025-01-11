@@ -1493,7 +1493,7 @@ func GetAffectedServices(productName, envName string, arg *K8sRendersetArg, log 
 func GeneEstimatedValues(productName, envName, serviceOrReleaseName, scene, format string, arg *EstimateValuesArg, isHelmChartDeploy bool, log *zap.SugaredLogger) (interface{}, error) {
 	var (
 		productSvc  *commonmodels.ProductService
-		tmplSvc   *commonmodels.Service
+		tmplSvc     *commonmodels.Service
 		productInfo *commonmodels.Product
 		err         error
 	)
@@ -3791,6 +3791,7 @@ func cronJobToSchedule(input *commonmodels.Cronjob) *commonmodels.Schedule {
 	return &commonmodels.Schedule{
 		ID:              input.ID,
 		Number:          input.Number,
+		UnixStamp:       input.UnixStamp,
 		Frequency:       input.Frequency,
 		Time:            input.Time,
 		MaxFailures:     input.MaxFailure,

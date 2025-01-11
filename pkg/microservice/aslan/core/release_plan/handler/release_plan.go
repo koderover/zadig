@@ -204,7 +204,7 @@ func ScheduleExecuteReleasePlan(c *gin.Context) {
 		return
 	}
 
-	ctx.RespErr = service.ScheduleExecuteReleasePlan(ctx, c.Param("id"))
+	ctx.RespErr = service.ScheduleExecuteReleasePlan(ctx, c.Param("id"), c.Query("jobID"))
 }
 
 func SkipReleaseJob(c *gin.Context) {
