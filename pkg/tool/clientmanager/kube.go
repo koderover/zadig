@@ -19,6 +19,7 @@ package clientmanager
 import (
 	"context"
 	"fmt"
+	kruise "github.com/openkruise/kruise-api/apps/v1alpha1"
 	"net/http"
 	"net/url"
 	"os"
@@ -599,6 +600,7 @@ func createControllerRuntimeCluster(restConfig *rest.Config) (controllerRuntimeC
 	// add all known types
 	// if you want to support custom types, call _ = yourCustomAPIGroup.AddToScheme(scheme)
 	_ = clientgoscheme.AddToScheme(scheme)
+	_ = kruise.AddToScheme(scheme)
 
 	c, err := controllerRuntimeCluster.New(restConfig, func(clusterOptions *controllerRuntimeCluster.Options) {
 		clusterOptions.Scheme = scheme

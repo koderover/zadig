@@ -1,9 +1,11 @@
 package updater
 
 import (
+	"context"
 	"fmt"
 	"github.com/openkruise/kruise-api/apps/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -13,10 +15,10 @@ func ScaleCloneSet(ns, name string, replicas int, cl client.Client) error {
 }
 
 func PatchCloneSet(ns, name string, patchBytes []byte, cl client.Client) error {
-	return patchObject(&v1alpha1.CloneSet{
+	return cl.Patch(context.TODO(), &v1alpha1.CloneSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: ns,
 			Name:      name,
 		},
-	}, patchBytes, cl)
+	}, client.RawPatch(types.MergePatchType, patchBytes))
 }
