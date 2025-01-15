@@ -534,8 +534,9 @@ func (j *ScanningJob) toJobTask(jobSubTaskID int, scanning *commonmodels.Scannin
 		VMLabels:       scanningInfo.VMLabels,
 		ErrorPolicy:    j.job.ErrorPolicy,
 	}
-	envs := getScanningJobVariables(scanning.Repos, taskID, j.workflow.Project, j.workflow.Name, j.workflow.DisplayName, jobTask.Infrastructure, scanningType, serviceName, serviceModule, scanning.Name)
-	envs = append(envs, scanningInfo.Envs...)
+
+	paramEnvs := generateKeyValsFromWorkflowParam(j.workflow.Params)
+	envs := mergeKeyVals(renderKeyVals(scanning.KeyVals, scanningInfo.Envs), paramEnvs)
 
 	scanningImage := basicImage.Value
 	if scanningImage == "sonarsource/sonar-scanner-cli" {
@@ -552,7 +553,7 @@ func (j *ScanningJob) toJobTask(jobSubTaskID int, scanning *commonmodels.Scannin
 		StrategyID:          scanningInfo.AdvancedSetting.StrategyID,
 		BuildOS:             scanningImage,
 		ImageFrom:           setting.ImageFromCustom,
-		Envs:                append(envs, renderKeyVals(scanning.KeyVals, scanningInfo.Envs)...),
+		Envs:                append(envs, getScanningJobVariables(scanning.Repos, taskID, j.workflow.Project, j.workflow.Name, j.workflow.DisplayName, jobTask.Infrastructure, scanningType, serviceName, serviceModule, scanning.Name)...),
 		Registries:          registries,
 		ShareStorageDetails: getShareStorageDetail(j.workflow.ShareStorages, scanning.ShareStorageInfo, j.workflow.Name, taskID),
 		CustomAnnotations:   scanningInfo.AdvancedSetting.CustomAnnotations,

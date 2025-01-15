@@ -442,8 +442,11 @@ func (j *FreeStyleJob) toJob(taskID int64, jobSubTaskID int, registries []*commo
 		jobTaskSpec.Properties.Envs = renderedEnvs
 	}
 
+	paramEnvs := generateKeyValsFromWorkflowParam(j.workflow.Params)
+	envs := mergeKeyVals(jobTaskSpec.Properties.Envs, paramEnvs)
+
 	jobTaskSpec.Properties.CustomEnvs = jobTaskSpec.Properties.Envs
-	jobTaskSpec.Properties.Envs = append(jobTaskSpec.Properties.Envs, getfreestyleJobVariables(jobTaskSpec.Steps, taskID, j.workflow.Project, j.workflow.Name, j.workflow.DisplayName, jobTask.Infrastructure, service, registries)...)
+	jobTaskSpec.Properties.Envs = append(envs, getfreestyleJobVariables(jobTaskSpec.Steps, taskID, j.workflow.Project, j.workflow.Name, j.workflow.DisplayName, jobTask.Infrastructure, service, registries)...)
 	return jobTask, nil
 }
 

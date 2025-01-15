@@ -483,7 +483,10 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			CustomAnnotations:   buildInfo.PreBuild.CustomAnnotations,
 		}
 
-		jobTaskSpec.Properties.Envs = append(jobTaskSpec.Properties.CustomEnvs, getBuildJobVariables(build, taskID, j.workflow.Project, j.workflow.Name, j.workflow.DisplayName, image, pkgFile, jobTask.Infrastructure, registry, logger)...)
+		paramEnvs := generateKeyValsFromWorkflowParam(j.workflow.Params)
+		envs := mergeKeyVals(jobTaskSpec.Properties.CustomEnvs, paramEnvs)
+
+		jobTaskSpec.Properties.Envs = append(envs, getBuildJobVariables(build, taskID, j.workflow.Project, j.workflow.Name, j.workflow.DisplayName, image, pkgFile, jobTask.Infrastructure, registry, logger)...)
 		jobTaskSpec.Properties.UseHostDockerDaemon = buildInfo.PreBuild.UseHostDockerDaemon
 
 		cacheS3 := &commonmodels.S3Storage{}
@@ -800,6 +803,81 @@ func renderKeyVals(input, origin []*commonmodels.KeyVal) []*commonmodels.KeyVal 
 		}
 		resp = append(resp, item)
 	}
+	return resp
+}
+
+// mergeKeyVals merges kv pairs from source1 and source2, and if the key collides, use source 1's value
+func mergeKeyVals(source1, source2 []*commonmodels.KeyVal) []*commonmodels.KeyVal {
+	resp := make([]*commonmodels.KeyVal, 0)
+	existingKVMap := make(map[string]*commonmodels.KeyVal)
+
+	for _, src1KV := range source1 {
+		if _, ok := existingKVMap[src1KV.Key]; ok {
+			continue
+		}
+		item := &commonmodels.KeyVal{
+			Key:               src1KV.Key,
+			Value:             src1KV.Value,
+			Type:              src1KV.Type,
+			IsCredential:      src1KV.IsCredential,
+			ChoiceValue:       src1KV.ChoiceValue,
+			ChoiceOption:      src1KV.ChoiceOption,
+			Description:       src1KV.Description,
+			FunctionReference: src1KV.FunctionReference,
+			CallFunction:      src1KV.CallFunction,
+			Script:            src1KV.Script,
+		}
+		existingKVMap[src1KV.Key] = src1KV
+		resp = append(resp, item)
+	}
+
+	for _, src2KV := range source2 {
+		if _, ok := existingKVMap[src2KV.Key]; ok {
+			continue
+		}
+
+		item := &commonmodels.KeyVal{
+			Key:               src2KV.Key,
+			Value:             src2KV.Value,
+			Type:              src2KV.Type,
+			IsCredential:      src2KV.IsCredential,
+			ChoiceValue:       src2KV.ChoiceValue,
+			ChoiceOption:      src2KV.ChoiceOption,
+			Description:       src2KV.Description,
+			FunctionReference: src2KV.FunctionReference,
+			CallFunction:      src2KV.CallFunction,
+			Script:            src2KV.Script,
+		}
+		existingKVMap[src2KV.Key] = src2KV
+		resp = append(resp, item)
+	}
+	return resp
+}
+
+// generateKeyValsFromWorkflowParam generates kv from workflow parameters, ditching all parameters of repo type
+func generateKeyValsFromWorkflowParam(params []*commonmodels.Param) []*commonmodels.KeyVal {
+	resp := make([]*commonmodels.KeyVal, 0)
+
+	for _, param := range params {
+		if param.ParamsType == "repo" {
+			continue
+		}
+
+		resp = append(resp, &commonmodels.KeyVal{
+			Key:               param.Name,
+			Value:             param.Value,
+			Type:              commonmodels.ParameterSettingType(param.ParamsType),
+			RegistryID:        "",
+			ChoiceOption:      param.ChoiceOption,
+			ChoiceValue:       param.ChoiceValue,
+			Script:            "",
+			CallFunction:      "",
+			FunctionReference: nil,
+			IsCredential:      param.IsCredential,
+			Description:       param.Description,
+		})
+	}
+
 	return resp
 }
 

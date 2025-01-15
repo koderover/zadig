@@ -525,7 +525,10 @@ func (j *TestingJob) toJobtask(jobSubTaskID int, testing *commonmodels.TestModul
 		}
 	}
 
-	jobTaskSpec.Properties.Envs = append(jobTaskSpec.Properties.CustomEnvs, getTestingJobVariables(testing.Repos, taskID, j.workflow.Project, j.workflow.Name, j.workflow.DisplayName, testing.ProjectName, testing.Name, testType, serviceName, serviceModule, jobTask.Infrastructure, logger)...)
+	paramEnvs := generateKeyValsFromWorkflowParam(j.workflow.Params)
+	envs := mergeKeyVals(jobTaskSpec.Properties.CustomEnvs, paramEnvs)
+
+	jobTaskSpec.Properties.Envs = append(envs, getTestingJobVariables(testing.Repos, taskID, j.workflow.Project, j.workflow.Name, j.workflow.DisplayName, testing.ProjectName, testing.Name, testType, serviceName, serviceModule, jobTask.Infrastructure, logger)...)
 
 	// init tools install step
 	tools := []*step.Tool{}
