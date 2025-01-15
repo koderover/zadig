@@ -18,6 +18,7 @@ package jobcontroller
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/url"
@@ -239,23 +240,40 @@ func waitForLarkApprove(ctx context.Context, spec *commonmodels.JobTaskApprovalS
 		}
 	}
 
-	checkNodeStatus := func(node *commonmodels.LarkApprovalNode) (config.ApproveOrReject, error) {
+	checkNodeStatus := func(node *commonmodels.LarkApprovalNode) (config.ApprovalStatus, error) {
 		switch node.Type {
 		case "AND":
-			result := config.Approve
+			totalCount := 0
+			doneCount := 0
+			redirectCount := 0
+			approveCount := 0
 			for _, user := range node.ApproveUsers {
-				if user.RejectOrApprove == "" {
-					result = ""
+				totalCount++
+				if user.RejectOrApprove == config.ApprovalStatusDone {
+					doneCount++
 				}
-				if user.RejectOrApprove == config.Reject {
-					return config.Reject, nil
+				if user.RejectOrApprove == config.ApprovalStatusApprove {
+					approveCount++
+				}
+				if user.RejectOrApprove == config.ApprovalStatusRedirect {
+					redirectCount++
+				}
+				if user.RejectOrApprove == config.ApprovalStatusReject {
+					return config.ApprovalStatusReject, nil
 				}
 			}
-			return result, nil
+
+			if doneCount == totalCount {
+				return config.ApprovalStatusDone, nil
+			}
+			if approveCount+doneCount+redirectCount == totalCount {
+				return config.ApprovalStatusApprove, nil
+			}
+			return config.ApprovalStatusPending, nil
 		case "OR":
 			for _, user := range node.ApproveUsers {
-				if user.RejectOrApprove != "" {
-					return user.RejectOrApprove, nil
+				if user.RejectOrApprove == config.ApprovalStatusApprove {
+					return config.ApprovalStatusApprove, nil
 				}
 			}
 			return "", nil
@@ -264,25 +282,57 @@ func waitForLarkApprove(ctx context.Context, spec *commonmodels.JobTaskApprovalS
 		}
 	}
 
+	checkApprovalFinished := func(nodes []*commonmodels.LarkApprovalNode) bool {
+		count := len(nodes)
+		finishedNode := 0
+		for _, node := range nodes {
+			if node.RejectOrApprove == config.ApprovalStatusApprove || node.RejectOrApprove == config.ApprovalStatusReject || node.RejectOrApprove == config.ApprovalStatusRedirect || node.RejectOrApprove == config.ApprovalStatusDone {
+				finishedNode++
+			}
+		}
+
+		if finishedNode == count {
+			return true
+		}
+
+		return false
+	}
+
 	// approvalUpdate is used to update the approval status
-	approvalUpdate := func(larkApproval *commonmodels.LarkApproval) (done, isApprove bool, err error) {
+	approvalUpdate := func(larkApproval *commonmodels.LarkApproval) (done bool, err error) {
+		approvalUserMap := map[string]*commonmodels.LarkApprovalUser{}
+		for _, node := range approval.ApprovalNodes {
+			for _, approveUser := range node.ApproveUsers {
+				approvalUserMap[approveUser.ID] = approveUser
+			}
+		}
+
 		// userUpdated represents whether the user status has been updated
 		userUpdated := false
+		allResultMap := larkservice.GetUserApprovalResults(instance)
+		nodeKeyMap := larkservice.GetLarkApprovalInstanceManager(instance).GetNodeKeyMap()
 		for i, node := range larkApproval.ApprovalNodes {
-			if node.RejectOrApprove != "" {
+			resultMap, ok := allResultMap[lark.ApprovalNodeIDKey(i)]
+			if !ok {
 				continue
 			}
-			resultMap := larkservice.GetNodeUserApprovalResults(instance, lark.ApprovalNodeIDKey(i))
+
+			if node.RejectOrApprove == config.ApprovalStatusReject || node.RejectOrApprove == config.ApprovalStatusApprove {
+				for _, user := range node.ApproveUsers {
+					delete(resultMap, user.ID)
+				}
+				continue
+			}
+
 			for _, user := range node.ApproveUsers {
-				if result, ok := resultMap[user.ID]; ok && user.RejectOrApprove == "" {
+				if result, ok := resultMap[user.ID]; ok && (user.RejectOrApprove == "" || user.RejectOrApprove == config.ApprovalStatusDone) {
 					instanceData, err := client.GetApprovalInstance(&lark.GetApprovalInstanceArgs{InstanceID: instance})
 					if err != nil {
-						return false, false, fmt.Errorf("failed to get approval instance, error: %s", err)
+						return false, fmt.Errorf("failed to get approval instance, error: %s", err)
 					}
 
 					comment := ""
 					// nodeKeyMap is used to get the node key from the custom node key
-					nodeKeyMap := larkservice.GetLarkApprovalInstanceManager(instance).GetNodeKeyMap()
 					if nodeData, ok := instanceData.ApproverInfoWithNode[nodeKeyMap[lark.ApprovalNodeIDKey(i)]]; ok {
 						if userData, ok := nodeData[user.ID]; ok {
 							comment = userData.Comment
@@ -292,18 +342,48 @@ func waitForLarkApprove(ctx context.Context, spec *commonmodels.JobTaskApprovalS
 					user.RejectOrApprove = result.ApproveOrReject
 					user.OperationTime = result.OperationTime
 					userUpdated = true
+
+					if user.RejectOrApprove == config.ApprovalStatusRedirect {
+						for customNodeKey, taskMap := range instanceData.ApproverTaskWithNode {
+							if customNodeKey == lark.ApprovalNodeIDKey(i) {
+								for userID, task := range taskMap {
+									if approvalUserMap[userID] == nil {
+										userInfo, err := client.GetUserInfoByID(userID, setting.LarkUserOpenID)
+										if err != nil {
+											return false, fmt.Errorf("get user info %s failed, error: %s", userID, err)
+										}
+
+										redirectedUser := &commonmodels.LarkApprovalUser{
+											UserInfo: lark.UserInfo{
+												ID:     task.UserID,
+												Name:   userInfo.Name,
+												Avatar: userInfo.Avatar,
+											},
+											RejectOrApprove: task.Status,
+										}
+										node.ApproveUsers = append(node.ApproveUsers, redirectedUser)
+
+										userUpdated = true
+									}
+								}
+							}
+						}
+					}
 				}
+
+				delete(resultMap, user.ID)
 			}
+
 			node.RejectOrApprove, err = checkNodeStatus(node)
 			if err != nil {
-				return false, false, err
+				return false, err
 			}
-			if node.RejectOrApprove == config.Approve {
+			if node.RejectOrApprove == config.ApprovalStatusApprove {
 				ack()
 				break
 			}
-			if node.RejectOrApprove == config.Reject {
-				return true, false, nil
+			if node.RejectOrApprove == config.ApprovalStatusReject {
+				return true, nil
 			}
 			if userUpdated {
 				ack()
@@ -311,8 +391,75 @@ func waitForLarkApprove(ctx context.Context, spec *commonmodels.JobTaskApprovalS
 			}
 		}
 
-		finalResult := larkApproval.ApprovalNodes[len(larkApproval.ApprovalNodes)-1].RejectOrApprove
-		return finalResult != "", finalResult == config.Approve, nil
+		nodeKeyUserMapBytes, _ := json.Marshal(approval.ApprovalNodes)
+		log.Debugf("nodeKeyUserMap: %s", string(nodeKeyUserMapBytes))
+		allResultMapBytes, _ := json.Marshal(allResultMap)
+		log.Debugf("allResultMap: %s", string(allResultMapBytes))
+
+		newNodeKeyUserMap := map[string]map[string]*commonmodels.LarkApprovalUser{}
+		for nodeKey, resultMap := range allResultMap {
+			for userID, result := range resultMap {
+				if newNodeKeyUserMap[nodeKey] == nil {
+					newNodeKeyUserMap[nodeKey] = map[string]*commonmodels.LarkApprovalUser{}
+				}
+				user := &commonmodels.LarkApprovalUser{}
+				newNodeKeyUserMap[nodeKey][userID] = user
+
+				userInfo, err := client.GetUserInfoByID(userID, setting.LarkUserOpenID)
+				if err != nil {
+					return false, fmt.Errorf("get user info %s failed, error: %s", userID, err)
+				}
+
+				user.UserInfo = lark.UserInfo{
+					ID:     userInfo.ID,
+					Name:   userInfo.Name,
+					Avatar: userInfo.Avatar,
+				}
+
+				user.RejectOrApprove = result.ApproveOrReject
+				user.OperationTime = result.OperationTime
+
+				instanceData, err := client.GetApprovalInstance(&lark.GetApprovalInstanceArgs{InstanceID: instance})
+				if err != nil {
+					return false, fmt.Errorf("failed to get approval instance, error: %s", err)
+				}
+				comment := ""
+				// nodeKeyMap is used to get the node key from the custom node key
+				if nodeData, ok := instanceData.ApproverInfoWithNode[nodeKeyMap[nodeKey]]; ok {
+					if userData, ok := nodeData[user.ID]; ok {
+						comment = userData.Comment
+					}
+				}
+				user.Comment = comment
+			}
+		}
+		if len(newNodeKeyUserMap) > 0 {
+			for nodeKey, userMap := range newNodeKeyUserMap {
+				foundNode := false
+				for i, node := range larkApproval.ApprovalNodes {
+					if nodeKey == lark.ApprovalNodeIDKey(i) {
+						foundNode = true
+						for _, user := range userMap {
+							node.ApproveUsers = append(node.ApproveUsers, user)
+						}
+					}
+				}
+
+				if !foundNode {
+					newNode := &commonmodels.LarkApprovalNode{
+						ApproveUsers: []*commonmodels.LarkApprovalUser{},
+					}
+					for _, user := range userMap {
+						newNode.ApproveUsers = append(newNode.ApproveUsers, user)
+					}
+					larkApproval.ApprovalNodes = append(larkApproval.ApprovalNodes, newNode)
+				}
+			}
+			ack()
+		}
+
+		finished := checkApprovalFinished(larkApproval.ApprovalNodes)
+		return finished, nil
 	}
 
 	defer func() {
@@ -330,7 +477,7 @@ func waitForLarkApprove(ctx context.Context, spec *commonmodels.JobTaskApprovalS
 			cancelApproval()
 			return config.StatusTimeout, fmt.Errorf("workflow timeout")
 		default:
-			done, isApprove, err := approvalUpdate(approval)
+			done, err := approvalUpdate(approval)
 			if err != nil {
 				cancelApproval()
 				return config.StatusFailed, fmt.Errorf("failed to check approval status, error: %s", err)
@@ -341,13 +488,13 @@ func waitForLarkApprove(ctx context.Context, spec *commonmodels.JobTaskApprovalS
 				if err != nil {
 					return config.StatusFailed, fmt.Errorf("get approval final instance, error: %s", err)
 				}
-				if finalInstance.ApproveOrReject == config.Approve && isApprove {
+
+				if finalInstance.ApproveOrReject == config.ApprovalStatusApprove {
 					return config.StatusPassed, nil
 				}
-				if finalInstance.ApproveOrReject == config.Reject && !isApprove {
+				if finalInstance.ApproveOrReject == config.ApprovalStatusReject {
 					return config.StatusReject, nil
 				}
-				return config.StatusFailed, errors.New("check final approval status failed")
 			}
 		}
 	}
@@ -431,22 +578,23 @@ func waitForDingTalkApprove(ctx context.Context, spec *commonmodels.JobTaskAppro
 		dingservice.RemoveDingTalkApprovalManager(instanceID)
 	}()
 
-	resultMap := map[string]config.ApproveOrReject{
-		"agree":  config.Approve,
-		"refuse": config.Reject,
+	resultMap := map[string]config.ApprovalStatus{
+		"agree":    config.ApprovalStatusApprove,
+		"refuse":   config.ApprovalStatusReject,
+		"redirect": config.ApprovalStatusRedirect,
 	}
 
-	checkNodeStatus := func(node *commonmodels.DingTalkApprovalNode) (config.ApproveOrReject, error) {
+	checkNodeStatus := func(node *commonmodels.DingTalkApprovalNode) (config.ApprovalStatus, error) {
 		users := node.ApproveUsers
 		switch node.Type {
 		case "AND":
-			result := config.Approve
+			result := config.ApprovalStatusApprove
 			for _, user := range users {
 				if user.RejectOrApprove == "" {
 					result = ""
 				}
-				if user.RejectOrApprove == config.Reject {
-					return config.Reject, nil
+				if user.RejectOrApprove == config.ApprovalStatusReject {
+					return config.ApprovalStatusReject, nil
 				}
 			}
 			return result, nil
@@ -462,6 +610,22 @@ func waitForDingTalkApprove(ctx context.Context, spec *commonmodels.JobTaskAppro
 		}
 	}
 
+	checkApprovalFinished := func(nodes []*commonmodels.DingTalkApprovalNode) bool {
+		count := len(nodes)
+		finishedNode := 0
+		for _, node := range nodes {
+			if node.RejectOrApprove == config.ApprovalStatusApprove || node.RejectOrApprove == config.ApprovalStatusRedirect {
+				finishedNode++
+			}
+		}
+
+		if finishedNode == count {
+			return true
+		}
+
+		return false
+	}
+
 	timeoutChan := time.After(time.Duration(timeout) * time.Minute)
 	for {
 		time.Sleep(1 * time.Second)
@@ -471,29 +635,120 @@ func waitForDingTalkApprove(ctx context.Context, spec *commonmodels.JobTaskAppro
 		case <-timeoutChan:
 			return config.StatusTimeout, fmt.Errorf("workflow timeout")
 		default:
-			userApprovalResult := dingservice.GetAllUserApprovalResults(instanceID)
 			userUpdated := false
+			userApprovalResult := dingservice.GetAllUserApprovalResults(instanceID)
+
+			approvalUserMap := map[string]*commonmodels.DingTalkApprovalUser{}
+			for _, node := range approval.ApprovalNodes {
+				for _, approveUser := range node.ApproveUsers {
+					approvalUserMap[approveUser.ID] = approveUser
+				}
+			}
+
 			for _, node := range approval.ApprovalNodes {
 				if node.RejectOrApprove != "" {
 					continue
 				}
+
+				isRedirected := false
 				for _, user := range node.ApproveUsers {
-					if result := userApprovalResult[user.ID]; result != nil && user.RejectOrApprove == "" {
+					if result := userApprovalResult[user.ID]; result != nil {
+						if user.RejectOrApprove == resultMap[result.Result] &&
+							user.Comment == result.Remark &&
+							user.OperationTime == result.OperationTime {
+							continue
+						}
+
 						user.RejectOrApprove = resultMap[result.Result]
 						user.Comment = result.Remark
 						user.OperationTime = result.OperationTime
 						userUpdated = true
+
+						if user.RejectOrApprove == config.ApprovalStatusRedirect {
+							isRedirected = true
+						}
 					}
 				}
+
+				if isRedirected {
+					instanceInfo, err := client.GetApprovalInstance(instanceID)
+					if err != nil {
+						log.Errorf("get instance final info failed: %v", err)
+						return config.StatusFailed, fmt.Errorf("get instance final info error: %s", err)
+					}
+
+					timeLayout := "2006-01-02T15:04Z"
+					operationRecordMap := map[string]*dingtalk.OperationRecord{}
+					for _, record := range instanceInfo.OperationRecords {
+						oldRecord, ok := operationRecordMap[record.UserID]
+						if !ok {
+							operationRecordMap[record.UserID] = record
+						} else {
+							oldTime, err := time.Parse(timeLayout, oldRecord.Date)
+							if err != nil {
+								return config.StatusFailed, fmt.Errorf("parse operation time failed: %s", err)
+							}
+							newTime, err := time.Parse(timeLayout, record.Date)
+							if err != nil {
+								return config.StatusFailed, fmt.Errorf("parse operation time failed: %s", err)
+							}
+
+							if newTime.After(oldTime) {
+								operationRecordMap[record.UserID] = record
+							}
+						}
+					}
+
+					for _, task := range instanceInfo.Tasks {
+						if _, ok := approvalUserMap[task.UserID]; !ok {
+							operationTime := int64(0)
+							record, ok := operationRecordMap[task.UserID]
+							if !ok {
+								record = &dingtalk.OperationRecord{
+									UserID: task.UserID,
+									Result: task.Result,
+								}
+							} else {
+								t, err := time.Parse(timeLayout, record.Date)
+								if err != nil {
+									return config.StatusFailed, fmt.Errorf("parse operation time failed: %s", err)
+								}
+								operationTime = t.Unix()
+							}
+
+							userInfo, err := client.GetUserInfo(task.UserID)
+							if err != nil {
+								err = fmt.Errorf("get user info %s failed: %s", task.UserID, err)
+								log.Error(err)
+								return config.StatusFailed, err
+							}
+
+							redirectedUser := &commonmodels.DingTalkApprovalUser{
+								ID:              task.UserID,
+								Name:            userInfo.Name,
+								RejectOrApprove: resultMap[task.Result],
+								Comment:         record.Remark,
+								OperationTime:   operationTime,
+							}
+							node.ApproveUsers = append(node.ApproveUsers, redirectedUser)
+
+							userUpdated = true
+						}
+					}
+				}
+
 				node.RejectOrApprove, err = checkNodeStatus(node)
 				if err != nil {
 					log.Errorf("check node failed: %v", err)
 					return config.StatusFailed, fmt.Errorf("check node failed, error: %s", err)
 				}
+
 				switch node.RejectOrApprove {
-				case config.Approve:
+				case config.ApprovalStatusApprove:
 					ack()
-				case config.Reject:
+				case config.ApprovalStatusRedirect:
+					ack()
+				case config.ApprovalStatusReject:
 					return config.StatusReject, fmt.Errorf("Approval has been rejected")
 				default:
 					if userUpdated {
@@ -502,7 +757,8 @@ func waitForDingTalkApprove(ctx context.Context, spec *commonmodels.JobTaskAppro
 				}
 				break
 			}
-			if approval.ApprovalNodes[len(approval.ApprovalNodes)-1].RejectOrApprove == config.Approve {
+
+			if checkApprovalFinished(approval.ApprovalNodes) {
 				instanceInfo, err := client.GetApprovalInstance(instanceID)
 				if err != nil {
 					log.Errorf("get instance final info failed: %v", err)
@@ -511,8 +767,9 @@ func waitForDingTalkApprove(ctx context.Context, spec *commonmodels.JobTaskAppro
 				if instanceInfo.Status == "COMPLETED" && instanceInfo.Result == "agree" {
 					return config.StatusPassed, nil
 				} else {
-					log.Errorf("Unexpect instance final status is %s, result is %s", instanceInfo.Status, instanceInfo.Result)
-					return config.StatusFailed, fmt.Errorf("get unexpected instance final info, error: %s", err)
+					err = fmt.Errorf("Unexpect instance final status is %s, result is %s", instanceInfo.Status, instanceInfo.Result)
+					log.Error(err)
+					return config.StatusFailed, err
 				}
 			}
 		}

@@ -94,11 +94,11 @@ func (c *GlobalApproveManager) DoApproval(key, userName, userID, comment string,
 		user.Comment = comment
 		user.OperationTime = time.Now().Unix()
 		if approve {
-			user.RejectOrApprove = config.Approve
+			user.RejectOrApprove = config.ApprovalStatusApprove
 			meetUser = true
 			break
 		} else {
-			user.RejectOrApprove = config.Reject
+			user.RejectOrApprove = config.ApprovalStatusReject
 			meetUser = true
 			break
 		}
@@ -120,16 +120,16 @@ func (c *GlobalApproveManager) IsApproval(key string) (bool, bool, *commonmodels
 
 	ApproveCount := 0
 	for _, user := range approval.ApproveUsers {
-		if user.RejectOrApprove == config.Reject {
-			approval.RejectOrApprove = config.Reject
+		if user.RejectOrApprove == config.ApprovalStatusReject {
+			approval.RejectOrApprove = config.ApprovalStatusReject
 			return false, true, approval, nil
 		}
-		if user.RejectOrApprove == config.Approve {
+		if user.RejectOrApprove == config.ApprovalStatusApprove {
 			ApproveCount++
 		}
 	}
 	if ApproveCount >= approval.NeededApprovers {
-		approval.RejectOrApprove = config.Approve
+		approval.RejectOrApprove = config.ApprovalStatusApprove
 		return true, false, approval, nil
 	}
 	return false, false, approval, nil
