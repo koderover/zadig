@@ -380,7 +380,6 @@ func OpenAPIGetBuildModule(name, serviceName, serviceModule, projectName string,
 						Value:        kv.Value,
 						Type:         kv.Type,
 						ChoiceOption: kv.ChoiceOption,
-						ChoiceValue:  kv.ChoiceValue,
 						IsCredential: kv.IsCredential,
 					}
 
