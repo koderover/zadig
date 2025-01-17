@@ -373,6 +373,19 @@ func OpenAPIGetBuildModule(name, serviceName, serviceModule, projectName string,
 					}
 					resp.Repos = append(resp.Repos, repo)
 				}
+
+				for _, kv := range svcBuild.Envs {
+					newKV := &commonmodels.ServiceKeyVal{
+						Key:          kv.Key,
+						Value:        kv.Value,
+						Type:         kv.Type,
+						ChoiceOption: kv.ChoiceOption,
+						ChoiceValue:  kv.ChoiceValue,
+						IsCredential: kv.IsCredential,
+					}
+
+					resp.Parameters = append(resp.Parameters, newKV)
+				}
 				break
 			}
 		}
