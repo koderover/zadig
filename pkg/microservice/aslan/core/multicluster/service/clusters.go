@@ -1270,6 +1270,8 @@ func UpgradeDind(kclient client.Client, cluster *commonmodels.K8SCluster, ns str
 			return err
 		}
 
+		dindSts.ResourceVersion = ""
+
 		err = kclient.Create(ctx, dindSts)
 		if err != nil {
 			err = fmt.Errorf("failed to recreate StatefulSet `dind`: %s", err)
