@@ -348,8 +348,8 @@ func NewHelmDeployService() *HelmDeployService {
 // GeneMergedValues generate values.yaml used to install or upgrade helm chart, like param in after option -f
 // defaultValues: global values yaml
 // productSvc: environment service, contains service's values yaml, override kvs and zadig recorded containers. And productSvc will be updated with correct image and values yaml in this function
-// images: ovrride images, used in workflow and replace image in environment
-func (s *HelmDeployService) NewGeneMergedValues(productSvc *commonmodels.ProductService, defaultValues string, images []string) (string, error) {
+// images: ovrride images, used to deploy image feature in workflow and update container image feature in environment
+func (s *HelmDeployService) GenMergedValues(productSvc *commonmodels.ProductService, defaultValues string, images []string) (string, error) {
 	envValuesYaml := productSvc.GetServiceRender().GetOverrideYaml()
 	overrideKVs := productSvc.GetServiceRender().OverrideValues
 
@@ -402,7 +402,6 @@ func (s *HelmDeployService) NewGeneMergedValues(productSvc *commonmodels.Product
 		} else {
 			// not found corresponding image in values
 			// add container image into values
-			log.Debugf("not found service module %s's image in values, add it", container.ImageName)
 			mergedContainers = append(mergedContainers, container)
 		}
 	}
@@ -411,7 +410,6 @@ func (s *HelmDeployService) NewGeneMergedValues(productSvc *commonmodels.Product
 	serviceName := productSvc.ServiceName
 	imageValuesMaps := make([]map[string]interface{}, 0)
 	for _, mergedContainer := range mergedContainers {
-		// log.Debugf("merged container: %+v", mergedContainer)
 		// prepare image replace info
 		replaceValuesMap, err := commonutil.AssignImageData(mergedContainer.Image, commonutil.GetValidMatchData(mergedContainer.ImagePath))
 		if err != nil {
@@ -420,7 +418,6 @@ func (s *HelmDeployService) NewGeneMergedValues(productSvc *commonmodels.Product
 		imageValuesMaps = append(imageValuesMaps, replaceValuesMap)
 	}
 
-	// log.Debugf("imageValuesMaps: %+v", imageValuesMaps)
 	replacedEnvValuesYaml, err := commonutil.ReplaceImage(envValuesYaml, imageValuesMaps...)
 	if err != nil {
 		return "", fmt.Errorf("failed to replace image uri %s/%s, err %s", productSvc.ProductName, serviceName, err.Error())
@@ -436,8 +433,6 @@ func (s *HelmDeployService) NewGeneMergedValues(productSvc *commonmodels.Product
 	if err != nil {
 		return "", fmt.Errorf("failed to merge override values, err: %s", err)
 	}
-	// log.Debugf("replacedEnvValuesYaml: %s", replacedEnvValuesYaml)
-	// log.Debugf("finalValuesYaml: %s", finalValuesYaml)
 
 	// 4. update container image in productSvc
 	valuesMap = make(map[string]interface{})
@@ -466,7 +461,6 @@ func (s *HelmDeployService) NewGeneMergedValues(productSvc *commonmodels.Product
 		if err != nil {
 			return "", fmt.Errorf("failed to get image url for container:%s", container.Image)
 		}
-		log.Debugf("final image url: %s", imageUrl)
 		container.Image = imageUrl
 	}
 
@@ -484,7 +478,7 @@ func (s *HelmDeployService) GeneFullValues(serviceValuesYaml, envValuesYaml stri
 
 // Generate new environment service base on updateServiceRevision
 // Will merge template service's containers into environment service if updateServiceRevision is true
-// And get template service's values yaml
+// return new environment service and template service
 func (s *HelmDeployService) GenNewEnvService(prod *commonmodels.Product, serviceName string, updateServiceRevision bool) (*commonmodels.ProductService, *commonmodels.Service, error) {
 	var err error
 	tmplSvc := &commonmodels.Service{}
@@ -503,8 +497,6 @@ func (s *HelmDeployService) GenNewEnvService(prod *commonmodels.Product, service
 		if err != nil {
 			return nil, nil, errors.Wrapf(err, "failed to find service %s/%d in product %s", serviceName, svcFindOption.Revision, prod.ProductName)
 		}
-
-		prodSvc.ValuesYaml = tmplSvc.HelmChart.ValuesYaml
 	} else {
 		svcFindOption := &commonrepo.ServiceFindOption{
 			ProductName: prod.ProductName,
@@ -518,10 +510,11 @@ func (s *HelmDeployService) GenNewEnvService(prod *commonmodels.Product, service
 		if prodSvc == nil {
 			prodSvc = &commonmodels.ProductService{
 				ServiceName: serviceName,
+				ReleaseName: serviceName,
+				ProductName: prod.ProductName,
 				Type:        tmplSvc.Type,
 				Revision:    tmplSvc.Revision,
 				Containers:  tmplSvc.Containers,
-				ValuesYaml:  tmplSvc.HelmChart.ValuesYaml,
 			}
 		} else {
 			containerMap := make(map[string]*commonmodels.Container)
@@ -541,40 +534,6 @@ func (s *HelmDeployService) GenNewEnvService(prod *commonmodels.Product, service
 	}
 	return prodSvc, tmplSvc, nil
 }
-
-// func (s *HelmDeployService) MergedContainerImage(prodSvc *commonmodels.ProductService, images []string) (*commonmodels.ProductService, error) {
-// 	imageMap := make(map[string]string)
-// 	mergedContainers := []*commonmodels.Container{}
-// 	for _, image := range images {
-// 		imageMap[commonutil.ExtractImageName(image)] = image
-// 	}
-// 	for _, container := range prodSvc.Containers {
-// 		overrideImage, ok := imageMap[container.ImageName]
-// 		if ok {
-// 			container.Image = overrideImage
-// 			mergedContainers = append(mergedContainers, container)
-// 		}
-// 	}
-
-// 	imageValuesMaps := make([]map[string]interface{}, 0)
-// 	for _, targetContainer := range mergedContainers {
-// 		// prepare image replace info
-// 		replaceValuesMap, err := commonutil.AssignImageData(targetContainer.Image, commonutil.GetValidMatchData(targetContainer.ImagePath))
-// 		if err != nil {
-// 			return nil, fmt.Errorf("failed to pase image uri %s/%s, err %s", prodSvc.ProductName, prodSvc.ServiceName, err.Error())
-// 		}
-// 		imageValuesMaps = append(imageValuesMaps, replaceValuesMap)
-// 	}
-
-// 	// replace image into service's values.yaml
-// 	mergedValuesYaml, err := commonutil.ReplaceImage(prodSvc.GetServiceRender().GetOverrideYaml(), imageValuesMaps...)
-// 	if err != nil {
-// 		return nil, fmt.Errorf("failed to replace image uri %s/%s, err %s", prodSvc.ProductName, prodSvc.ServiceName, err.Error())
-// 	}
-// 	prodSvc.Render.SetOverrideYaml(mergedValuesYaml)
-
-// 	return prodSvc, nil
-// }
 
 func (s *HelmDeployService) CheckReleaseInstalledByOtherEnv(releaseNames sets.String, productInfo *commonmodels.Product) error {
 	sharedNSEnvList := make(map[string]*commonmodels.Product)

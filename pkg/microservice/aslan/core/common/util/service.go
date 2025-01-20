@@ -388,7 +388,6 @@ func ParseImagesByRules(nested map[string]interface{}, matchRules []*templatemod
 		}
 		patterns = append(patterns, rule.GetSearchingPattern())
 	}
-	log.Debugf("nested: %v\n, patterns: %v", nested, patterns)
 	return parseImagesByPattern(nested, patterns)
 }
 

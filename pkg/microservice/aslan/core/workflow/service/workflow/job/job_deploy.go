@@ -534,7 +534,7 @@ func (j *DeployJob) UpdateWithLatestSetting() error {
 			//	}
 			//}
 
-			// @todo 处理合并helm变量，需要合并values和kvs
+			// @todo 可以优化，不暴露底层函数helmtool.MergeOverrideValues
 			mergedValues, err := helmtool.MergeOverrideValues("", service.VariableYaml, userSvc.VariableYaml, "", make([]*helmtool.KV, 0))
 			if err != nil {
 				return fmt.Errorf("failed to merge helm values, error: %s", err)

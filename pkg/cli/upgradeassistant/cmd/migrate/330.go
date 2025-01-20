@@ -27,8 +27,9 @@ import (
 )
 
 func init() {
-	upgradepath.RegisterHandler("3.2.0", "3.2.1", V320ToV321)
-	upgradepath.RegisterHandler("3.2.1", "3.2.0", V321ToV320)
+	upgradepath.RegisterHandler("3.2.0", "3.3.0", V321ToV330)
+	upgradepath.RegisterHandler("3.2.1", "3.3.0", V321ToV330)
+	upgradepath.RegisterHandler("3.3.0", "3.2.1", V321ToV320)
 }
 
 func V321ToV330() error {

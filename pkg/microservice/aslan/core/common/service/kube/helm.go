@@ -562,7 +562,7 @@ func DeploySingleHelmRelease(product *commonmodels.Product, productSvc *commonmo
 
 	if productSvc.FromZadig() {
 		releaseName = util.GeneReleaseName(svcTemp.GetReleaseNaming(), svcTemp.ProductName, product.Namespace, product.EnvName, svcTemp.ServiceName)
-		replacedMergedValuesYaml, err = helmservice.NewHelmDeployService().NewGeneMergedValues(productSvc, product.DefaultValues, images)
+		replacedMergedValuesYaml, err = helmservice.NewHelmDeployService().GenMergedValues(productSvc, product.DefaultValues, images)
 		if err != nil {
 			return fmt.Errorf("failed to gene merged values, err: %s", err)
 		}
@@ -578,7 +578,7 @@ func DeploySingleHelmRelease(product *commonmodels.Product, productSvc *commonmo
 			},
 		}
 
-		replacedMergedValuesYaml, err = helmservice.NewHelmDeployService().NewGeneMergedValues(productSvc, product.DefaultValues, nil)
+		replacedMergedValuesYaml, err = helmservice.NewHelmDeployService().GenMergedValues(productSvc, product.DefaultValues, nil)
 		if err != nil {
 			return fmt.Errorf("failed to gene merged values, err: %s", err)
 		}
@@ -811,7 +811,7 @@ func BuildInstallParam(defaultValues string, productInfo *commonmodels.Product, 
 	}
 
 	helmDeploySvc := helmservice.NewHelmDeployService()
-	finalValues, err := helmDeploySvc.NewGeneMergedValues(productSvc, defaultValues, nil)
+	finalValues, err := helmDeploySvc.GenMergedValues(productSvc, defaultValues, nil)
 	if err != nil {
 		return ret, err
 	}

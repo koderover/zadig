@@ -112,7 +112,7 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 
 	finalValuesYaml := ""
 	if len(c.jobTaskSpec.DeployContents) == 1 && slices.Contains(c.jobTaskSpec.DeployContents, config.DeployImage) {
-		finalValuesYaml, err = helmDeploySvc.NewGeneMergedValues(newEnvService, productInfo.DefaultValues, c.jobTaskSpec.GetDeployImages())
+		finalValuesYaml, err = helmDeploySvc.GenMergedValues(newEnvService, productInfo.DefaultValues, c.jobTaskSpec.GetDeployImages())
 		if err != nil {
 			msg := fmt.Sprintf("failed to generate merged values yaml, err: %s", err)
 			logError(c.job, msg, c.logger)
@@ -120,7 +120,7 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 		}
 	} else if len(c.jobTaskSpec.DeployContents) == 1 && slices.Contains(c.jobTaskSpec.DeployContents, config.DeployConfig) {
 		// only deploy config
-		finalValuesYaml, err = helmDeploySvc.NewGeneMergedValues(newEnvService, productInfo.DefaultValues, nil)
+		finalValuesYaml, err = helmDeploySvc.GenMergedValues(newEnvService, productInfo.DefaultValues, nil)
 		if err != nil {
 			msg := fmt.Sprintf("failed to generate merged values yaml, err: %s", err)
 			logError(c.job, msg, c.logger)
@@ -133,7 +133,7 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 		}
 
 		newEnvService.GetServiceRender().SetOverrideYaml(c.jobTaskSpec.VariableYaml)
-		finalValuesYaml, err = helmDeploySvc.NewGeneMergedValues(newEnvService, productInfo.DefaultValues, images)
+		finalValuesYaml, err = helmDeploySvc.GenMergedValues(newEnvService, productInfo.DefaultValues, images)
 		if err != nil {
 			msg := fmt.Sprintf("failed to generate merged values yaml, err: %s", err)
 			logError(c.job, msg, c.logger)

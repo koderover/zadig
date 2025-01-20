@@ -1339,34 +1339,6 @@ func genImageFromYaml(c *commonmodels.Container, serviceValuesYaml, defaultValue
 	return image, nil
 }
 
-// func genImageFromYaml2(prodSvc *commonmodels.ProductService, c *commonmodels.Container, valuesYaml, defaultValues string) (string, error) {
-// 	helmDeploySvc := helmservice.NewHelmDeployService()
-// 	// newEnvSvc, tmplSvc, err := helmDeploySvc.GenNewEnvService(env, serviceName, true)
-// 	// if err != nil {
-// 	// 	return "", fmt.Errorf("failed to generate new env service, error: %v", err)
-// 	// }
-// 	mergedValues, err := helmDeploySvc.NewGeneMergedValues(prodSvc, defaultValues, nil)
-// 	if err != nil {
-// 		return "", fmt.Errorf("failed to generate merged values, error: %v", err)
-// 	}
-// 	helmDeploySvc.GeneFullValues()
-// 	mergedValuesYamlFlattenMap, err := converter.YamlToFlatMap([]byte(mergeYaml))
-// 	if err != nil {
-// 		return "", err
-// 	}
-// 	imageRule := templatemodels.ImageSearchingRule{
-// 		Repo:      c.ImagePath.Repo,
-// 		Namespace: c.ImagePath.Namespace,
-// 		Image:     c.ImagePath.Image,
-// 		Tag:       c.ImagePath.Tag,
-// 	}
-// 	image, err := commonutil.GeneImageURI(imageRule.GetSearchingPattern(), mergedValuesYamlFlattenMap)
-// 	if err != nil {
-// 		return "", err
-// 	}
-// 	return image, nil
-// }
-
 func prepareEstimateDataForEnvCreation(productName, serviceName string, production bool, isHelmChartDeploy bool, log *zap.SugaredLogger) (*commonmodels.ProductService, *commonmodels.Service, error) {
 	if isHelmChartDeploy {
 		prodSvc := &commonmodels.ProductService{
@@ -1563,7 +1535,7 @@ func GeneEstimatedValues(productName, envName, serviceOrReleaseName, scene, form
 		}
 
 		helmDeploySvc := helmservice.NewHelmDeployService()
-		mergedValues, err = helmDeploySvc.NewGeneMergedValues(productSvc, productInfo.DefaultValues, nil)
+		mergedValues, err = helmDeploySvc.GenMergedValues(productSvc, productInfo.DefaultValues, nil)
 		if err != nil {
 			return nil, e.ErrUpdateRenderSet.AddDesc(fmt.Sprintf("failed to merge values, err %s", err))
 		}
@@ -1573,7 +1545,7 @@ func GeneEstimatedValues(productName, envName, serviceOrReleaseName, scene, form
 		}
 	} else {
 		helmDeploySvc := helmservice.NewHelmDeployService()
-		mergedValues, err = helmDeploySvc.NewGeneMergedValues(productSvc, productInfo.DefaultValues, nil)
+		mergedValues, err = helmDeploySvc.GenMergedValues(productSvc, productInfo.DefaultValues, nil)
 		if err != nil {
 			return nil, e.ErrUpdateRenderSet.AddDesc(fmt.Sprintf("failed to merge values, err %s", err))
 		}
@@ -2859,13 +2831,6 @@ func updateHelmProductGroup(username, productName, envName string, productResp *
 	if err = commonrepo.NewProductColl().UpdateDeployStrategy(productResp.EnvName, productResp.ProductName, productResp.ServiceDeployStrategy); err != nil {
 		log.Errorf("Failed to update env, err: %s", err)
 		return err
-	}
-
-	log.Debugf("before DeployMultiHelmRelease")
-	for _, svcGroup := range productResp.Services {
-		for _, svc := range svcGroup {
-			log.Debugf("service: %s, envValuesYaml: %s", svc.ServiceName, svc.GetServiceRender().GetOverrideYaml())
-		}
 	}
 
 	err = kube.DeployMultiHelmRelease(productResp, helmClient, filter, username, log)

@@ -72,7 +72,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/shared/client/user"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
-	helmtool "github.com/koderover/zadig/v2/pkg/tool/helmclient"
 	"github.com/koderover/zadig/v2/pkg/tool/jenkins"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/serializer"
@@ -2340,14 +2339,16 @@ func CompareHelmServiceYamlInEnv(serviceName, variableYaml, envName, projectName
 	if isHelmChartDeploy {
 		currentYaml := ""
 		latestYaml := ""
-		chartInfo := prod.GetChartDeployRenderMap()[serviceName]
-		if chartInfo != nil {
-			currentYaml, err = helmtool.MergeOverrideValues("", "", chartInfo.GetOverrideYaml(), chartInfo.OverrideValues, nil)
+		prodSvc := prod.GetChartServiceMap()[serviceName]
+		if prodSvc != nil {
+			helmDeploySvc := helmservice.NewHelmDeployService()
+			currentYaml, err = helmDeploySvc.GenMergedValues(prodSvc, prod.DefaultValues, nil)
 			if err != nil {
 				return nil, fmt.Errorf("failed to merge override values, err: %s", err)
 			}
 
-			latestYaml, err = helmtool.MergeOverrideValues("", "", variableYaml, chartInfo.OverrideValues, nil)
+			prodSvc.GetServiceRender().SetOverrideYaml(variableYaml)
+			latestYaml, err = helmDeploySvc.GenMergedValues(prodSvc, prod.DefaultValues, nil)
 			if err != nil {
 				return nil, fmt.Errorf("failed to merge override values, err: %s", err)
 			}
@@ -2373,18 +2374,18 @@ func CompareHelmServiceYamlInEnv(serviceName, variableYaml, envName, projectName
 	// generate the new yaml content
 
 	helmDeploySvc := helmservice.NewHelmDeployService()
-	productService, _, err := helmDeploySvc.GenNewEnvService(prod, serviceName, updateServiceRevision)
+	productService, tmplSvc, err := helmDeploySvc.GenNewEnvService(prod, serviceName, updateServiceRevision)
 	if err != nil {
 		return nil, err
 	}
 	productService.GetServiceRender().SetOverrideYaml(variableYaml)
 
-	yamlContent, err := helmDeploySvc.NewGeneMergedValues(productService, prod.DefaultValues, nil)
+	yamlContent, err := helmDeploySvc.GenMergedValues(productService, prod.DefaultValues, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate merged values yaml, err: %s", err)
 	}
 
-	fullValuesYaml, err := helmDeploySvc.GeneFullValues(productService.ValuesYaml, yamlContent)
+	fullValuesYaml, err := helmDeploySvc.GeneFullValues(tmplSvc.HelmChart.ValuesYaml, yamlContent)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate full values yaml, err: %s", err)
 	}

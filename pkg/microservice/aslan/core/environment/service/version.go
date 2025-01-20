@@ -35,6 +35,7 @@ import (
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	mongotool "github.com/koderover/zadig/v2/pkg/tool/mongo"
+	yamlutil "github.com/koderover/zadig/v2/pkg/util/yaml"
 )
 
 type ListEnvServiceVersionsResponse struct {
@@ -98,7 +99,7 @@ func GetEnvServiceVersionYaml(ctx *internalhandler.Context, projectName, envName
 		resp.Yaml = parsedYaml
 		resp.VariableYaml = envSvcRevision.Service.Render.GetOverrideYaml()
 	} else if envSvcRevision.Service.Type == setting.HelmDeployType {
-		resp.VariableYaml, err = helmservice.NewHelmDeployService().NewGeneMergedValues(envSvcRevision.Service, envSvcRevision.DefaultValues, nil)
+		resp.VariableYaml, err = helmservice.NewHelmDeployService().GenMergedValues(envSvcRevision.Service, envSvcRevision.DefaultValues, nil)
 		if err != nil {
 			return resp, e.ErrDiffEnvServiceVersions.AddErr(fmt.Errorf("failed to merged values for %s/%s/%s service for version %d, isProduction %v, error: %v", projectName, envName, serviceName, revision, isProduction, err))
 		}
@@ -123,7 +124,7 @@ func GetEnvServiceVersionYaml(ctx *internalhandler.Context, projectName, envName
 		}
 
 		helmDeploySvc := helmservice.NewHelmDeployService()
-		mergedValues, err := helmDeploySvc.NewGeneMergedValues(envSvcRevision.Service, envSvcRevision.DefaultValues, nil)
+		mergedValues, err := helmDeploySvc.GenMergedValues(envSvcRevision.Service, envSvcRevision.DefaultValues, nil)
 		if err != nil {
 			return resp, e.ErrUpdateRenderSet.AddDesc(fmt.Sprintf("failed to merge values, err %s", err))
 		}
@@ -335,13 +336,14 @@ func RollbackEnvServiceVersion(ctx *internalhandler.Context, projectName, envNam
 			}
 		}
 
-		finalValuesYaml, err := helmservice.NewHelmDeployService().NewGeneMergedValues(preProdSvc, envSvcVersion.DefaultValues, nil)
+		mergedValuesYaml, err := yamlutil.Merge([][]byte{[]byte(envSvcVersion.DefaultValues), []byte(envSvcVersion.Service.GetServiceRender().GetOverrideYaml())})
 		if err != nil {
-			return e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to generate merged values yaml, err: %s", err))
+			return e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to merge values yaml, err: %s", err))
 		}
-		envSvcVersion.Service.GetServiceRender().SetOverrideYaml(finalValuesYaml)
 
 		env.DefaultValues = ""
+		envSvcVersion.Service.GetServiceRender().SetOverrideYaml(string(mergedValuesYaml))
+
 		err = kube.DeploySingleHelmRelease(env, envSvcVersion.Service, svcTmpl, nil, 0, ctx.UserName)
 		if err != nil {
 			return e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to upgrade helm release for env %s, service %s, revision %d, error: %v", envSvcVersion.EnvName, envSvcVersion.Service.ServiceName, envSvcVersion.Service.Revision, err))
