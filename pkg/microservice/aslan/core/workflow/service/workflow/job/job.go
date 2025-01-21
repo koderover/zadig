@@ -26,7 +26,6 @@ import (
 	"time"
 
 	"github.com/koderover/zadig/v2/pkg/util"
-	"github.com/mozillazg/go-pinyin"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
@@ -567,35 +566,35 @@ func JobSkiped(job *commonmodels.Job) bool {
 }
 
 // use service name and service module hash to generate job name
-func jobNameFormat(jobName string) string {
-	if len(jobName) <= 63 {
-		jobName = strings.Trim(jobName, "-")
-		jobName = strings.ToLower(jobName)
-		return jobName
-	}
+// func jobNameFormat(jobName string) string {
+// 	if len(jobName) <= 63 {
+// 		jobName = strings.Trim(jobName, "-")
+// 		jobName = strings.ToLower(jobName)
+// 		return jobName
+// 	}
 
-	pyArgs := pinyin.NewArgs()
-	pyArgs.Fallback = func(r rune, a pinyin.Args) []string {
-		return []string{string(r)}
-	}
+// 	pyArgs := pinyin.NewArgs()
+// 	pyArgs.Fallback = func(r rune, a pinyin.Args) []string {
+// 		return []string{string(r)}
+// 	}
 
-	res := pinyin.Pinyin(jobName, pyArgs)
+// 	res := pinyin.Pinyin(jobName, pyArgs)
 
-	pinyins := make([]string, 0)
-	for _, py := range res {
-		pinyins = append(pinyins, strings.Join(py, ""))
-	}
+// 	pinyins := make([]string, 0)
+// 	for _, py := range res {
+// 		pinyins = append(pinyins, strings.Join(py, ""))
+// 	}
 
-	resp := strings.Join(pinyins, "")
-	if len(resp) > 63 {
-		resp = strings.TrimSuffix(resp[:63], "-")
-		resp = strings.ToLower(resp)
-		return resp
-	}
-	resp = strings.TrimSuffix(resp, "-")
-	resp = strings.ToLower(resp)
-	return resp
-}
+// 	resp := strings.Join(pinyins, "")
+// 	if len(resp) > 63 {
+// 		resp = strings.TrimSuffix(resp[:63], "-")
+// 		resp = strings.ToLower(resp)
+// 		return resp
+// 	}
+// 	resp = strings.TrimSuffix(resp, "-")
+// 	resp = strings.ToLower(resp)
+// 	return resp
+// }
 
 // before workflowflow task was created, we need to remove the fixed mark from variables.
 func RemoveFixedValueMarks(workflow *commonmodels.WorkflowV4) error {
