@@ -18,6 +18,7 @@ package step
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/helper/log"
@@ -47,6 +48,11 @@ type Step interface {
 func RunStep(ctx context.Context, jobCtx *jobctl.JobContext, step *commonmodels.StepTask, dirs *types.AgentWorkDirs, envs, secretEnvs []string, logger *log.JobLogger) error {
 	var stepInstance Step
 	var err error
+
+	if step == nil {
+		log.Errorf("step is nil")
+		return errors.New("step is nil")
+	}
 
 	switch step.StepType {
 	case "batch_file":
