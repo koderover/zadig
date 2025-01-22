@@ -75,7 +75,6 @@ func ListNacosConfig(nacosID, namespaceID string, log *zap.SugaredLogger) ([]*ty
 		item.NamespaceID = namespaceID
 		item.NamespaceName = namespaceName
 		item.OriginalContent = item.Content
-		_, err = client.GetConfigHistory(item.DataID, item.Group, item.NamespaceID)
 	}
 	return resp, nil
 }

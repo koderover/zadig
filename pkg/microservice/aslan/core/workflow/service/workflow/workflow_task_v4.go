@@ -1127,6 +1127,31 @@ func RevertWorkflowTaskV4Job(workflowName, jobName string, taskID int64, input i
 						log.Errorf("failed to update nacos job revert information, error: %s", err)
 					}
 
+					inputData := make([]*commonmodels.NacosData, 0)
+					client, err := nacos.NewNacosClient(jobTaskSpec.NacosAddr, jobTaskSpec.UserName, jobTaskSpec.Password)
+					if err != nil {
+						return err
+					}
+
+					for _, in := range inputSpec {
+						originalConfig, err := client.GetConfig(in.DataID, in.Group, in.NamespaceID)
+						if err != nil {
+							log.Errorf("failed to find current config for data: %s in namespace: %s, error: %s", in.DataID, in.NamespaceID, err)
+							return fmt.Errorf("failed to find current config for data: %s in namespace: %s, error: %s", in.DataID, in.NamespaceID, err)
+						}
+						inputData = append(inputData, &commonmodels.NacosData{
+							NacosConfig: types.NacosConfig{
+								DataID:          in.DataID,
+								Group:           in.Group,
+								Format:          in.Format,
+								Content:         in.Content,
+								OriginalContent: originalConfig.Content,
+								NamespaceID:     in.NamespaceID,
+								NamespaceName:   in.NamespaceName,
+							},
+						})
+					}
+
 					revertTaskSpec := &commonmodels.JobTaskNacosSpec{
 						NacosID:       jobTaskSpec.NacosID,
 						NamespaceID:   jobTaskSpec.NamespaceID,
@@ -1134,6 +1159,7 @@ func RevertWorkflowTaskV4Job(workflowName, jobName string, taskID int64, input i
 						NacosAddr:     jobTaskSpec.NacosAddr,
 						UserName:      jobTaskSpec.UserName,
 						Password:      jobTaskSpec.Password,
+						NacosDatas:    inputData,
 					}
 
 					_, err = commonrepo.NewWorkflowTaskRevertColl().Create(&commonmodels.WorkflowTaskRevert{
