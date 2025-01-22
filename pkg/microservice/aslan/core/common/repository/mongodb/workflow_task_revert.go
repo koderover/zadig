@@ -81,3 +81,35 @@ func (c *WorkflowTasKRevertColl) Create(obj *models.WorkflowTaskRevert) (string,
 	}
 	return ID.Hex(), err
 }
+
+type ListWorkflowRevertOption struct {
+	TaskID       int64
+	WorkflowName string
+	JobName      string
+}
+
+func (c *WorkflowTasKRevertColl) List(opt *ListWorkflowRevertOption) ([]*models.WorkflowTaskRevert, error) {
+	resp := make([]*models.WorkflowTaskRevert, 0)
+
+	query := bson.M{}
+	if opt.WorkflowName != "" {
+		query["workflow_name"] = opt.WorkflowName
+	}
+	if opt.TaskID != 0 {
+		query["task_id"] = opt.TaskID
+	}
+	if opt.JobName != "" {
+		query["job_name"] = opt.JobName
+	}
+
+	findOption := options.Find()
+	cursor, err := c.Collection.Find(context.TODO(), query, findOption)
+	if err != nil {
+		return nil, err
+	}
+	err = cursor.All(context.TODO(), &resp)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}

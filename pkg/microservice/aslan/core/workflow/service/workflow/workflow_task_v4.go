@@ -1157,6 +1157,20 @@ func RevertWorkflowTaskV4Job(workflowName, jobName string, taskID int64, input i
 	return fmt.Errorf("failed to revert job: %s, job not found")
 }
 
+func GetWorkflowTaskV4JobRevert(workflowName, jobName string, taskID int64, logger *zap.SugaredLogger) (interface{}, error) {
+	revertInfo, err := commonrepo.NewWorkflowTaskRevertColl().List(&commonrepo.ListWorkflowRevertOption{
+		TaskID:       taskID,
+		WorkflowName: workflowName,
+		JobName:      jobName,
+	})
+	if err != nil {
+		logger.Errorf("failed to list job revert info for job: %s in workflow: %s(%d), error: %s", jobName, workflowName, taskID, err)
+		return nil, fmt.Errorf("failed to list job revert info for job: %s in workflow: %s(%d), error: %s", jobName, workflowName, taskID, err)
+	}
+
+	return revertInfo, nil
+}
+
 func revertNacosJob(jobspec *commonmodels.JobTaskNacosSpec, input []*commonmodels.NacosData) error {
 	client, err := nacos.NewNacosClient(jobspec.NacosAddr, jobspec.UserName, jobspec.Password)
 	if err != nil {

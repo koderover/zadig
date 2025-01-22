@@ -213,6 +213,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		taskV4.POST("/debug/:workflowName/task/:taskID", EnableDebugWorkflowTaskV4)
 		taskV4.DELETE("/debug/:workflowName/:jobName/task/:taskID/:position", StopDebugWorkflowTaskJobV4)
 		taskV4.POST("/revert/:workflowName/:jobName/task/:taskID", RevertWorkflowTaskV4Job)
+		taskV4.GET("/revert/:workflowName/:jobName/task/:taskID", GetWorkflowTaskV4JobRevert)
 		taskV4.POST("/approve", ApproveStage)
 		taskV4.POST("/handle/error", HandleJobError)
 		taskV4.GET("/workflow/:workflowName/taskId/:taskId/job/:jobName", GetWorkflowV4ArtifactFileContent)
