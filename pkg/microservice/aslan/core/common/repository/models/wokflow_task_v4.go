@@ -39,6 +39,7 @@ type WorkflowTask struct {
 	GlobalContext       map[string]string             `bson:"global_context"            json:"global_context"`
 	ClusterIDMap        map[string]bool               `bson:"cluster_id_map"            json:"cluster_id_map"`
 	Status              config.Status                 `bson:"status"                    json:"status,omitempty"`
+	Reverted            bool                          `bson:"reverted"                  json:"reverted"`
 	Remark              string                        `bson:"remark,omitempty"          json:"remark"`
 	TaskCreator         string                        `bson:"task_creator"              json:"task_creator,omitempty"`
 	TaskCreatorID       string                        `bson:"task_creator_id"           json:"task_creator_id,omitempty"`
@@ -117,7 +118,8 @@ type JobTask struct {
 	ErrorHandlerUserID   string `bson:"error_handler_user_id"  yaml:"error_handler_user_id" json:"error_handler_user_id"`
 	ErrorHandlerUserName string `bson:"error_handler_username"  yaml:"error_handler_username" json:"error_handler_username"`
 
-	RetryCount int `bson:"retry_count" json:"retry_count" yaml:"retry_count"`
+	RetryCount int  `bson:"retry_count" json:"retry_count" yaml:"retry_count"`
+	Reverted   bool `bson:"reverted"    json:"reverted"    yaml:"reverted"`
 }
 
 type TaskJobInfo struct {
@@ -137,6 +139,7 @@ type WorkflowTaskPreview struct {
 	WorkflowDisplayName string          `bson:"workflow_display_name" json:"workflow_display_name"`
 	Remark              string          `bson:"remark"                json:"remark"`
 	Status              config.Status   `bson:"status"                json:"status"`
+	Reverted            bool            `bson:"reverted"              json:"reverted"`
 	CreateTime          int64           `bson:"create_time"           json:"create_time,omitempty"`
 	StartTime           int64           `bson:"start_time"            json:"start_time,omitempty"`
 	EndTime             int64           `bson:"end_time"              json:"end_time,omitempty"`

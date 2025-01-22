@@ -17,6 +17,7 @@ limitations under the License.
 package nacos
 
 import (
+	"fmt"
 	"net/url"
 	"strconv"
 	"strings"
@@ -152,8 +153,10 @@ func (c *Client) ListConfigs(namespaceID string) ([]*types.NacosConfig, error) {
 			"tenant":      namespaceID,
 			"accessToken": c.token,
 		})
-		if _, err := c.Client.Get(url, params, httpclient.SetResult(res)); err != nil {
+		if resp, err := c.Client.Get(url, params, httpclient.SetResult(res)); err != nil {
 			return nil, errors.Wrap(err, "list nacos config failed")
+		} else {
+			fmt.Println(resp.Body())
 		}
 		for _, conf := range res.PageItems {
 			resp = append(resp, &types.NacosConfig{
