@@ -35,3 +35,19 @@ type NacosConfig struct {
 	Diff        interface{} `bson:"diff,omitempty" json:"diff,omitempty" yaml:"diff,omitempty"`
 	Persistence interface{} `bson:"persistence,omitempty" json:"persistence,omitempty" yaml:"persistence,omitempty"`
 }
+
+type NacosConfigHistory struct {
+	ID               string `json:"id"`
+	LastID           int    `json:"lastId"`
+	DataID           string `json:"dataId"`
+	Group            string `json:"group"`
+	Tenant           string `json:"tenant"`
+	AppName          string `json:"appName"`
+	MD5              string `json:"md5"`
+	Content          string `json:"content"`
+	SrcIP            string `json:"srcIp"`
+	SrcUser          string `json:"srcUser"`
+	OpType           string `json:"opType"`
+	CreatedTime      string `json:"createdTime"`
+	LastModifiedTime string `json:"lastModifiedTime"`
+}
