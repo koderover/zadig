@@ -76,6 +76,7 @@ type WorkflowTaskPreview struct {
 	WorkflowDisplayName string                `bson:"workflow_display_name"     json:"workflow_name"`
 	Params              []*commonmodels.Param `bson:"params"                    json:"params"`
 	Status              config.Status         `bson:"status"                    json:"status,omitempty"`
+	Reverted            bool                  `bson:"reverted"                  json:"reverted"`
 	Remark              string                `bson:"remark"                    json:"remark"`
 	TaskCreator         string                `bson:"task_creator"              json:"task_creator,omitempty"`
 	TaskRevoker         string                `bson:"task_revoker,omitempty"    json:"task_revoker,omitempty"`
@@ -109,6 +110,7 @@ type JobTaskPreview struct {
 	OriginName           string                       `bson:"origin_name"    json:"origin_name"`
 	JobType              string                       `bson:"type"           json:"type"`
 	Status               config.Status                `bson:"status"         json:"status"`
+	Reverted             bool                         `bson:"reverted"       json:"reverted"`
 	StartTime            int64                        `bson:"start_time"     json:"start_time,omitempty"`
 	EndTime              int64                        `bson:"end_time"       json:"end_time,omitempty"`
 	CostSeconds          int64                        `bson:"cost_seconds"   json:"cost_seconds"`
@@ -1463,6 +1465,7 @@ func GetWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredLog
 		ProjectName:         task.ProjectName,
 		Remark:              task.Remark,
 		Status:              task.Status,
+		Reverted:            task.Reverted,
 		Params:              task.Params,
 		TaskCreator:         task.TaskCreator,
 		TaskRevoker:         task.TaskRevoker,
@@ -1587,6 +1590,7 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, 
 		jobPreview := &JobTaskPreview{
 			Name:                 job.Name,
 			Key:                  job.Key,
+			Reverted:             job.Reverted,
 			OriginName:           job.OriginName,
 			DisplayName:          job.DisplayName,
 			Status:               job.Status,
