@@ -156,7 +156,7 @@ func (c *Client) ListConfigs(namespaceID string) ([]*types.NacosConfig, error) {
 		if resp, err := c.Client.Get(url, params, httpclient.SetResult(res)); err != nil {
 			return nil, errors.Wrap(err, "list nacos config failed")
 		} else {
-			fmt.Println(resp.Body())
+			fmt.Println(string(resp.Body()))
 		}
 		for _, conf := range res.PageItems {
 			resp = append(resp, &types.NacosConfig{
