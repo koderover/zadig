@@ -1124,6 +1124,7 @@ func RevertWorkflowTaskV4Job(workflowName, jobName string, taskID int64, input i
 					}
 
 					job.Reverted = true
+					task.Reverted = true
 					err = commonrepo.NewworkflowTaskv4Coll().Update(task.ID.Hex(), task)
 					if err != nil {
 						log.Errorf("failed to update nacos job revert information, error: %s", err)
