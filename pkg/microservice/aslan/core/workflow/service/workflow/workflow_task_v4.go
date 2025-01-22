@@ -1110,7 +1110,15 @@ func RevertWorkflowTaskV4Job(workflowName, jobName string, taskID int64, input i
 						logger.Error(err)
 						return fmt.Errorf("failed to decode nacos job spec, error: %s", err)
 					}
-					inputSpec := input.([]*commonmodels.NacosData)
+					inputSpec := make([]*commonmodels.NacosData, 0)
+					for _, stuff := range input.([]interface{}) {
+						updateData := new(commonmodels.NacosData)
+						err = commonmodels.IToi(stuff, updateData)
+						if err != nil {
+							return fmt.Errorf("failed to decode nacos job spec, error: %s", err)
+						}
+						inputSpec = append(inputSpec, updateData)
+					}
 
 					err = revertNacosJob(jobTaskSpec, inputSpec)
 					if err != nil {
