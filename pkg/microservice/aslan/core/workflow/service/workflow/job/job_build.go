@@ -795,6 +795,8 @@ func renderKeyVals(input, origin []*commonmodels.KeyVal) []*commonmodels.KeyVal 
 					item.ChoiceValue = inputKV.ChoiceValue
 					if !strings.HasPrefix(inputKV.Value, "{{.") {
 						item.Value = strings.Join(item.ChoiceValue, ",")
+					} else {
+						item.Value = inputKV.Value
 					}
 				} else {
 					// always use origin credential config.
