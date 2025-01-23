@@ -797,7 +797,7 @@ func renderKeyVals(input, origin []*commonmodels.KeyVal) []*commonmodels.KeyVal 
 			if originKV.Key == inputKV.Key {
 				if originKV.Type == commonmodels.MultiSelectType {
 					item.ChoiceValue = inputKV.ChoiceValue
-					if !strings.HasPrefix(inputKV.Value, "{{.") {
+					if inputKV.Value == "" {
 						item.Value = strings.Join(item.ChoiceValue, ",")
 					} else {
 						item.Value = inputKV.Value
