@@ -84,7 +84,7 @@ func UpdateUserGroup(groupID, name, description string, db *gorm.DB) error {
 	}
 	usergroup.UpdatedAt = time.Now().Unix()
 
-	if err := db.Model(&models.UserGroup{}).Where("group_id = ?", groupID).Updates(usergroup).Error; err != nil {
+	if err := db.Model(&models.UserGroup{}).Where("group_id = ?", groupID).Save(usergroup).Error; err != nil {
 		return err
 	}
 	return nil
