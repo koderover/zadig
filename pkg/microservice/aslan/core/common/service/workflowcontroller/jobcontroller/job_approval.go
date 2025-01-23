@@ -208,7 +208,7 @@ func waitForLarkApprove(ctx context.Context, spec *commonmodels.JobTaskApprovalS
 		userID = util.GetStringFromPointer(userInfo.UserId)
 	} else {
 		userID = approval.DefaultApprovalInitiator.ID
-		formContent = fmt.Sprintf("审批发起人: %s\n%s", workflowCtx.WorkflowTaskCreatorUsername, formContent)
+		formContent = fmt.Sprintf("工作流执行人: %s\n%s", workflowCtx.WorkflowTaskCreatorUsername, formContent)
 	}
 	log.Infof("waitForLarkApprove: ApproveNodes num %d", len(approval.ApprovalNodes))
 	instance, err := client.CreateApprovalInstance(&lark.CreateApprovalInstanceArgs{
@@ -542,7 +542,7 @@ func waitForDingTalkApprove(ctx context.Context, spec *commonmodels.JobTaskAppro
 		userID = userIDResp.UserID
 	} else {
 		userID = approval.DefaultApprovalInitiator.ID
-		formContent = fmt.Sprintf("审批发起人: %s\n%s", workflowCtx.WorkflowTaskCreatorUsername, formContent)
+		formContent = fmt.Sprintf("工作流执行人: %s\n%s", workflowCtx.WorkflowTaskCreatorUsername, formContent)
 	}
 
 	log.Infof("waitForDingTalkApprove: ApproveNode num %d", len(approval.ApprovalNodes))
