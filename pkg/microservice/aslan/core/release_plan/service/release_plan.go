@@ -319,6 +319,8 @@ func GetReleasePlan(id string) (*models.ReleasePlan, error) {
 				}
 			}
 
+			originalWorkflow.Remark = spec.Workflow.Remark
+
 			spec.Workflow = originalWorkflow
 			releasePlanJob.Spec = spec
 		}
