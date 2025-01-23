@@ -796,6 +796,7 @@ func renderKeyVals(input, origin []*commonmodels.KeyVal) []*commonmodels.KeyVal 
 					if !strings.HasPrefix(inputKV.Value, "{{.") {
 						item.Value = strings.Join(item.ChoiceValue, ",")
 					} else {
+						fmt.Printf(">>>>>>>>>>>> input kv: [%s]=%s\n", item.Key, inputKV.Value)
 						item.Value = inputKV.Value
 					}
 				} else {
