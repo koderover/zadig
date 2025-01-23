@@ -342,6 +342,7 @@ func RollbackEnvServiceVersion(ctx *internalhandler.Context, projectName, envNam
 		}
 
 		env.DefaultValues = ""
+		envSvcVersion.Service.DeployStrategy = setting.ServiceDeployStrategyDeploy
 		envSvcVersion.Service.GetServiceRender().SetOverrideYaml(string(mergedValuesYaml))
 
 		err = kube.DeploySingleHelmRelease(env, envSvcVersion.Service, svcTmpl, nil, 0, ctx.UserName)

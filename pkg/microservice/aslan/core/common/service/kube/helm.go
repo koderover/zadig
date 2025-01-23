@@ -725,6 +725,14 @@ func DeployMultiHelmRelease(productResp *commonmodels.Product, helmClient *helmt
 				continue
 			}
 			if !commonutil.ChartDeployed(chartInfo, productResp.ServiceDeployStrategy) {
+				// update import services' images in container and values yaml
+				_, err = helmservice.NewHelmDeployService().GenMergedValues(prodSvc, productResp.DefaultValues, nil)
+				if err != nil {
+					err = fmt.Errorf("failed to gene merged values, err: %s", err)
+					mongotool.AbortTransaction(session)
+					log.Error(err)
+					return err
+				}
 				continue
 			}
 

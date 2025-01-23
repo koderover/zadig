@@ -105,10 +105,7 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 		logError(c.job, msg, c.logger)
 		return
 	}
-
-	if slices.Contains(c.jobTaskSpec.DeployContents, config.DeployConfig) {
-		newEnvService.DeployStrategy = setting.ServiceDeployStrategyDeploy
-	}
+	newEnvService.DeployStrategy = setting.ServiceDeployStrategyDeploy
 
 	finalValuesYaml := ""
 	if len(c.jobTaskSpec.DeployContents) == 1 && slices.Contains(c.jobTaskSpec.DeployContents, config.DeployImage) {
