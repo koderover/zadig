@@ -262,6 +262,10 @@ func GetDeployMonthlyTrend(startTime, endTime int64, projects []string, producti
 
 	// then calculate the start time of this week, append it to the end of the array
 	firstDayOfMonth := util.GetFirstOfMonthDay(time.Now())
+	firstDayOfEndTimeMonth := util.GetFirstOfMonthDay(time.Unix(endTime, 0))
+	if firstDayOfEndTimeMonth == firstDayOfMonth {
+		return monthlystats, nil
+	}
 
 	allDeployJobs, err := commonrepo.NewJobInfoColl().GetDeployJobs(firstDayOfMonth, time.Now().Unix(), projects, production)
 	if err != nil {

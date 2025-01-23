@@ -135,6 +135,11 @@ func (c *MonthlyDeployStatColl) CalculateStat(startTime, endTime int64, projects
 			"timeout":    "$total_timeout",
 		},
 	})
+	pipeline = append(pipeline, bson.M{
+		"$sort": bson.M{
+			"date": -1,
+		},
+	})
 
 	cursor, err := c.Aggregate(context.TODO(), pipeline)
 	if err != nil {
