@@ -78,13 +78,13 @@ func GetUserGroupByName(name string, db *gorm.DB) (*models.UserGroup, error) {
 }
 
 func UpdateUserGroup(groupID, name, description string, db *gorm.DB) error {
-	usergroup := &models.UserGroup{
-		GroupName:   name,
-		Description: description,
+	usergroup := map[string]interface{}{
+		"group_name":  name,
+		"description": description,
+		"updated_at":  time.Now().Unix(),
 	}
-	usergroup.UpdatedAt = time.Now().Unix()
 
-	if err := db.Model(&models.UserGroup{}).Where("group_id = ?", groupID).Save(usergroup).Error; err != nil {
+	if err := db.Model(&models.UserGroup{}).Where("group_id = ?", groupID).Updates(usergroup).Error; err != nil {
 		return err
 	}
 	return nil
