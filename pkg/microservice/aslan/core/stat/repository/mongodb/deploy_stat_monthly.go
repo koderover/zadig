@@ -137,7 +137,7 @@ func (c *MonthlyDeployStatColl) CalculateStat(startTime, endTime int64, projects
 	})
 	pipeline = append(pipeline, bson.M{
 		"$sort": bson.M{
-			"date": -1,
+			"date": 1,
 		},
 	})
 
