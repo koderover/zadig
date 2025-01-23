@@ -27,12 +27,30 @@ import (
 )
 
 func init() {
-	upgradepath.RegisterHandler("3.2.0", "3.3.0", V321ToV330)
+	// 3.2.0 to 3.3.0
+	upgradepath.RegisterHandler("3.2.0", "3.3.0", V320ToV330)
+	upgradepath.RegisterHandler("3.3.0", "3.2.0", V321ToV320)
+
+	// 3.2.1 to 3.3.0
 	upgradepath.RegisterHandler("3.2.1", "3.3.0", V321ToV330)
 	upgradepath.RegisterHandler("3.3.0", "3.2.1", V321ToV320)
 }
 
 func V321ToV330() error {
+	ctx := handler.NewBackgroupContext()
+
+	ctx.Logger.Infof("-------- start migrate helm projects environment values auto sync --------")
+	err := migrateHelmEnvValuesAutoSync(ctx)
+	if err != nil {
+		err = fmt.Errorf("failed to migrate helm projects environment values auto sync, error: %w", err)
+		ctx.Logger.Error(err)
+		return err
+	}
+
+	return nil
+}
+
+func V320ToV330() error {
 	ctx := handler.NewBackgroupContext()
 
 	ctx.Logger.Infof("-------- start migrate release plan cronjob --------")
