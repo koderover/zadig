@@ -489,10 +489,6 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		jobTaskSpec.Properties.Envs = append(envs, getBuildJobVariables(build, taskID, j.workflow.Project, j.workflow.Name, j.workflow.DisplayName, image, pkgFile, jobTask.Infrastructure, registry, logger)...)
 		jobTaskSpec.Properties.UseHostDockerDaemon = buildInfo.PreBuild.UseHostDockerDaemon
 
-		for _, env := range jobTaskSpec.Properties.Envs {
-			log.Infof(">>>>>>>>>>>>>>>>>>>>> [%s]: %s ------- %v", env.Key, env.Value, env.ChoiceValue)
-		}
-
 		cacheS3 := &commonmodels.S3Storage{}
 		if jobTask.Infrastructure == setting.JobVMInfrastructure {
 			jobTaskSpec.Properties.CacheEnable = buildInfo.CacheEnable
