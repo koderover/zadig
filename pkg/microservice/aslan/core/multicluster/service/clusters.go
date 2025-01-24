@@ -1636,9 +1636,9 @@ func volumeClaimTemplateChanged(existing, desired []corev1.PersistentVolumeClaim
 			return true
 		}
 
-		if !reflect.DeepEqual(existing[i].Spec.AccessModes, desired[i].Spec.AccessModes) {
-			return true
-		}
+		//if !reflect.DeepEqual(existing[i].Spec.AccessModes, desired[i].Spec.AccessModes) {
+		//	return true
+		//}
 	}
 
 	return false
