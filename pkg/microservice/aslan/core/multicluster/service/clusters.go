@@ -18,11 +18,11 @@ package service
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"reflect"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 
@@ -1602,16 +1602,49 @@ func GetClusterIRSAInfo(clusterID string, logger *zap.SugaredLogger) (*GetCluste
 }
 
 func stsHasImmutableFieldChanged(existing, desired *appsv1.StatefulSet) bool {
-	a, _ := json.Marshal(existing)
-	log.Infof("existing: \n %s \n ========================", string(a))
-	b, _ := json.Marshal(desired)
-	log.Infof("existing: \n %s \n ========================", string(b))
+	fmt.Println(">>>>>>>>>>>>>>>>>>>>>>>>>> identical:", volumeClaimTemplateChanged(existing.Spec.VolumeClaimTemplates, desired.Spec.VolumeClaimTemplates))
 
-	log.Infof("%v", reflect.DeepEqual(existing.Spec.VolumeClaimTemplates, desired.Spec.VolumeClaimTemplates))
-	log.Infof("%v", reflect.DeepEqual(existing.Spec.ServiceName, desired.Spec.ServiceName))
-	log.Infof("%v", reflect.DeepEqual(existing.Spec.Selector, desired.Spec.Selector))
 	// Example check for `volumeClaimTemplates`
-	return !reflect.DeepEqual(existing.Spec.VolumeClaimTemplates, desired.Spec.VolumeClaimTemplates) || !reflect.DeepEqual(existing.Spec.ServiceName, desired.Spec.ServiceName) || !reflect.DeepEqual(existing.Spec.Selector, desired.Spec.Selector)
+	return volumeClaimTemplateChanged(existing.Spec.VolumeClaimTemplates, desired.Spec.VolumeClaimTemplates) || !reflect.DeepEqual(existing.Spec.ServiceName, desired.Spec.ServiceName) || !reflect.DeepEqual(existing.Spec.Selector, desired.Spec.Selector)
+}
+
+func volumeClaimTemplateChanged(existing, desired []corev1.PersistentVolumeClaim) bool {
+	if len(existing) != len(desired) {
+		return true
+	}
+
+	sort.Slice(existing, func(i, j int) bool {
+		return existing[i].Name < existing[j].Name
+	})
+
+	sort.Slice(desired, func(i, j int) bool {
+		return existing[i].Name < existing[j].Name
+	})
+
+	// list of field to be compared:
+	// metadata.name
+	// spec.accessModes
+	// spec.resources.requests.storage
+	// spec.storageClassName
+	for i := range existing {
+		if existing[i].ObjectMeta.Name != desired[i].ObjectMeta.Name {
+			return true
+		}
+
+		if existing[i].Spec.Resources.Requests.Storage().Value() != desired[i].Spec.Resources.Requests.Storage().Value() {
+			return true
+		}
+
+		if existing[i].Spec.StorageClassName != desired[i].Spec.StorageClassName {
+			return true
+		}
+
+		if !reflect.DeepEqual(existing[i].Spec.AccessModes, desired[i].Spec.AccessModes) {
+			return true
+		}
+	}
+
+	return false
 }
 
 func K8SClusterArgsToModel(args *K8SCluster) (*commonmodels.K8SCluster, error) {
