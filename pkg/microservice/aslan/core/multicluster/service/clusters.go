@@ -1225,36 +1225,35 @@ func UpgradeDind(kclient client.Client, cluster *commonmodels.K8SCluster, ns str
 				dindSts.Spec.Template.Spec.Containers[i] = container
 			}
 
-			var dockerStorageExists bool
+			newVolumeClaimTemplates := make([]corev1.PersistentVolumeClaim, 0)
 			for _, volumeClaimTemplate := range dindSts.Spec.VolumeClaimTemplates {
-				if volumeClaimTemplate.Name == types.DindMountName {
-					dockerStorageExists = true
-					break
+				if volumeClaimTemplate.Name != types.DindMountName {
+					newVolumeClaimTemplates = append(newVolumeClaimTemplates, volumeClaimTemplate)
 				}
 			}
 
-			if !dockerStorageExists {
-				storageSize := fmt.Sprintf("%dGi", cluster.DindCfg.Storage.StorageSizeInGiB)
-				storageQuantity, err := resource.ParseQuantity(storageSize)
-				if err != nil {
-					return fmt.Errorf("failed to parse quantity %q: %s", storageSize, err)
-				}
+			storageSize := fmt.Sprintf("%dGi", cluster.DindCfg.Storage.StorageSizeInGiB)
+			storageQuantity, err := resource.ParseQuantity(storageSize)
+			if err != nil {
+				return fmt.Errorf("failed to parse quantity %q: %s", storageSize, err)
+			}
 
-				dindSts.Spec.VolumeClaimTemplates = append(dindSts.Spec.VolumeClaimTemplates, corev1.PersistentVolumeClaim{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: types.DindMountName,
-					},
-					Spec: corev1.PersistentVolumeClaimSpec{
-						AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
-						StorageClassName: util.GetStrPointer(cluster.DindCfg.Storage.StorageClass),
-						Resources: corev1.ResourceRequirements{
-							Requests: corev1.ResourceList{
-								corev1.ResourceStorage: storageQuantity,
-							},
+			newVolumeClaimTemplates = append(newVolumeClaimTemplates, corev1.PersistentVolumeClaim{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: types.DindMountName,
+				},
+				Spec: corev1.PersistentVolumeClaimSpec{
+					AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+					StorageClassName: util.GetStrPointer(cluster.DindCfg.Storage.StorageClass),
+					Resources: corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{
+							corev1.ResourceStorage: storageQuantity,
 						},
 					},
-				})
-			}
+				},
+			})
+
+			dindSts.Spec.VolumeClaimTemplates = newVolumeClaimTemplates
 		}
 	}
 
