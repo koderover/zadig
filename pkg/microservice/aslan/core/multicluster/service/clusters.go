@@ -1263,11 +1263,30 @@ func UpgradeDind(kclient client.Client, cluster *commonmodels.K8SCluster, ns str
 	}
 
 	if stsHasImmutableFieldChanged(originalSts, dindSts) {
+		log.Infof("dind has immutable field changed, recreating dind.")
 		err = kclient.Delete(ctx, dindSts)
 		if err != nil {
 			err = fmt.Errorf("failed to delete StatefulSet `dind`: %s", err)
 			log.Error(err)
 			return err
+		}
+
+		pvcList := &corev1.PersistentVolumeClaimList{}
+		err = kclient.List(context.TODO(), pvcList, client.InNamespace(ns))
+		if err != nil {
+			log.Errorf("Failed to list PVCs: %v", err)
+			return fmt.Errorf("failed to list PVCs to update dind statefulset, error: %s", err)
+		}
+
+		for _, pvc := range pvcList.Items {
+			expectedPrefix := fmt.Sprintf("%s-%s-", types.DindMountName, types.DindStatefulSetName)
+			if strings.HasPrefix(pvc.Name, expectedPrefix) {
+				err := kclient.Delete(context.TODO(), &pvc)
+				// TODO: should we block the whole update when the deletion process failed?
+				if err != nil {
+					log.Errorf("failed to delete pvc: %s, error: %s", pvc.Name, err)
+				}
+			}
 		}
 
 		dindSts.ResourceVersion = ""
