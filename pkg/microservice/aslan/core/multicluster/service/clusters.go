@@ -18,6 +18,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"reflect"
@@ -1602,6 +1603,10 @@ func GetClusterIRSAInfo(clusterID string, logger *zap.SugaredLogger) (*GetCluste
 }
 
 func stsHasImmutableFieldChanged(existing, desired *appsv1.StatefulSet) bool {
+	a, _ := json.Marshal(existing)
+	log.Infof("existing: \n %s \n ========================", string(a))
+	b, _ := json.Marshal(desired)
+	log.Infof("existing: \n %s \n ========================", string(b))
 	// Example check for `volumeClaimTemplates`
 	return !reflect.DeepEqual(existing.Spec.VolumeClaimTemplates, desired.Spec.VolumeClaimTemplates) || !reflect.DeepEqual(existing.Spec.ServiceName, desired.Spec.ServiceName) || !reflect.DeepEqual(existing.Spec.Selector, desired.Spec.Selector)
 }
