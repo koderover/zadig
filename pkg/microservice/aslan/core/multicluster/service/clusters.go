@@ -1625,20 +1625,24 @@ func volumeClaimTemplateChanged(existing, desired []corev1.PersistentVolumeClaim
 	// spec.storageClassName
 	for i := range existing {
 		if existing[i].ObjectMeta.Name != desired[i].ObjectMeta.Name {
+			log.Infof("111111111111111111111111111111111111111")
 			return true
 		}
 
 		if existing[i].Spec.Resources.Requests.Storage().Value() != desired[i].Spec.Resources.Requests.Storage().Value() {
+			log.Infof("22222222222222222222222222")
 			return true
 		}
 
 		if existing[i].Spec.StorageClassName != desired[i].Spec.StorageClassName {
+			log.Infof("3333333333333333333333333333333")
 			return true
 		}
 
-		//if !reflect.DeepEqual(existing[i].Spec.AccessModes, desired[i].Spec.AccessModes) {
-		//	return true
-		//}
+		if !reflect.DeepEqual(existing[i].Spec.AccessModes, desired[i].Spec.AccessModes) {
+			log.Infof("444444444444444444444444444444444444")
+			return true
+		}
 	}
 
 	return false
