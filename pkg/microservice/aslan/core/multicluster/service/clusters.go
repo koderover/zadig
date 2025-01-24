@@ -1635,6 +1635,8 @@ func volumeClaimTemplateChanged(existing, desired []corev1.PersistentVolumeClaim
 		}
 
 		if existing[i].Spec.StorageClassName != desired[i].Spec.StorageClassName {
+			log.Infof("%s", existing[i].Spec.StorageClassName)
+			log.Infof("%s", desired[i].Spec.StorageClassName)
 			log.Infof("3333333333333333333333333333333")
 			return true
 		}
