@@ -1602,7 +1602,6 @@ func GetClusterIRSAInfo(clusterID string, logger *zap.SugaredLogger) (*GetCluste
 }
 
 func stsHasImmutableFieldChanged(existing, desired *appsv1.StatefulSet) bool {
-	// Example check for `volumeClaimTemplates`
 	return volumeClaimTemplateChanged(existing.Spec.VolumeClaimTemplates, desired.Spec.VolumeClaimTemplates) || !reflect.DeepEqual(existing.Spec.ServiceName, desired.Spec.ServiceName) || !reflect.DeepEqual(existing.Spec.Selector, desired.Spec.Selector)
 }
 
