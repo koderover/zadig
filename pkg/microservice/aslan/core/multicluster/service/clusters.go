@@ -1607,6 +1607,10 @@ func stsHasImmutableFieldChanged(existing, desired *appsv1.StatefulSet) bool {
 	log.Infof("existing: \n %s \n ========================", string(a))
 	b, _ := json.Marshal(desired)
 	log.Infof("existing: \n %s \n ========================", string(b))
+
+	log.Infof("%v", reflect.DeepEqual(existing.Spec.VolumeClaimTemplates, desired.Spec.VolumeClaimTemplates))
+	log.Infof("%v", reflect.DeepEqual(existing.Spec.ServiceName, desired.Spec.ServiceName))
+	log.Infof("%v", reflect.DeepEqual(existing.Spec.Selector, desired.Spec.Selector))
 	// Example check for `volumeClaimTemplates`
 	return !reflect.DeepEqual(existing.Spec.VolumeClaimTemplates, desired.Spec.VolumeClaimTemplates) || !reflect.DeepEqual(existing.Spec.ServiceName, desired.Spec.ServiceName) || !reflect.DeepEqual(existing.Spec.Selector, desired.Spec.Selector)
 }
