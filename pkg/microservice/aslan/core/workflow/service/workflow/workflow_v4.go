@@ -2329,7 +2329,7 @@ func GetFilteredEnvServices(workflowName, jobName, envName string, serviceNames 
 	return resp, nil
 }
 
-func CompareHelmServiceYamlInEnv(serviceName, variableYaml, envName, projectName string, images []string, isProduction, updateServiceRevision, isHelmChartDeploy bool, log *zap.SugaredLogger) (*GetHelmValuesDifferenceResp, error) {
+func CompareHelmServiceYamlInEnv(projectName, envName, serviceName, variableYaml string, isProduction, updateServiceRevision, isHelmChartDeploy bool, log *zap.SugaredLogger) (*GetHelmValuesDifferenceResp, error) {
 	opt := &commonrepo.ProductFindOptions{Name: projectName, EnvName: envName}
 	prod, err := commonrepo.NewProductColl().Find(opt)
 	if err != nil {
@@ -2341,13 +2341,16 @@ func CompareHelmServiceYamlInEnv(serviceName, variableYaml, envName, projectName
 		latestYaml := ""
 		prodSvc := prod.GetChartServiceMap()[serviceName]
 		if prodSvc != nil {
-			helmDeploySvc := helmservice.NewHelmDeployService()
-			currentYaml, err = helmDeploySvc.GenMergedValues(prodSvc, prod.DefaultValues, nil)
+			resp, err := commonservice.GetChartValues(projectName, envName, serviceName, true, isProduction, true)
 			if err != nil {
-				return nil, fmt.Errorf("failed to merge override values, err: %s", err)
+				log.Infof("failed to get the current service[%s] values from project: %s, env: %s", serviceName, projectName, envName)
+				currentYaml = ""
+			} else {
+				currentYaml = resp.ValuesYaml
 			}
 
 			prodSvc.GetServiceRender().SetOverrideYaml(variableYaml)
+			helmDeploySvc := helmservice.NewHelmDeployService()
 			latestYaml, err = helmDeploySvc.GenMergedValues(prodSvc, prod.DefaultValues, nil)
 			if err != nil {
 				return nil, fmt.Errorf("failed to merge override values, err: %s", err)

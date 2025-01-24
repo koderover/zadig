@@ -129,6 +129,9 @@ func (j *OfflineServiceJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error
 		DisplayName: genJobDisplayName(j.job.Name),
 		OriginName:  j.job.Name,
 		JobType:     string(config.JobOfflineService),
+		JobInfo: map[string]string{
+			JobNameKey: j.job.Name,
+		},
 		Spec: &commonmodels.JobTaskOfflineServiceSpec{
 			EnvType: j.spec.EnvType,
 			EnvName: j.spec.EnvName,

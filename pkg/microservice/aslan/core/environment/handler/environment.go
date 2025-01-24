@@ -681,6 +681,22 @@ func AffectedServices(c *gin.Context) {
 	ctx.Resp, ctx.RespErr = service.GetAffectedServices(projectName, envName, arg, ctx.Logger)
 }
 
+// @summary 预览Helm服务环境变量
+// @description
+// @tags 	environment
+// @accept 	json
+// @produce json
+// @Param 	projectName				query		string									true	"项目标识"
+// @Param 	name					path		string									true	"环境名称"
+// @Param 	serviceName				query		string									true	"服务名称或release名称"
+// @Param 	scene					query		service.EstimateValuesScene     		true	"使用场景"
+// @Param 	format					query		service.EstimateValuesResponseFormat    true	"返回格式"
+// @Param 	isHelmChartDeploy		query		bool									true	"是否是helm实例化部署"
+// @Param 	updateServiceRevision 	query		bool									true	"是否更新服务配置"
+// @Param 	production 				query		bool									true	"是否为生产环境"
+// @Param 	body 					body 		service.EstimateValuesArg       		true 	"body"
+// @Success 200 					{object} 	service.GetHelmValuesDifferenceResp
+// @router /api/aslan/environment/environments/{name}/estimated-values [post]
 func EstimatedValues(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -698,18 +714,14 @@ func EstimatedValues(c *gin.Context) {
 		return
 	}
 
-	isHelmChartDeploy := c.Query("isHelmChartDeploy")
-	if isHelmChartDeploy == "" {
-		ctx.RespErr = e.ErrInvalidParam.AddDesc("isHelmChartDeploy can't be empty!")
-		return
-	}
-
 	arg := new(service.EstimateValuesArg)
 	if err := c.ShouldBind(arg); err != nil {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 
+	isHelmChartDeploy := c.Query("isHelmChartDeploy")
+	updateServiceRevision := c.Query("updateServiceRevision")
 	production := c.Query("production") == "true"
 	arg.Production = production
 	if production {
@@ -720,7 +732,7 @@ func EstimatedValues(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.RespErr = service.GeneEstimatedValues(projectName, envName, serviceName, c.Query("scene"), c.Query("format"), arg, isHelmChartDeploy == "true", ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GenEstimatedValues(projectName, envName, serviceName, service.EstimateValuesScene(c.Query("scene")), service.EstimateValuesResponseFormat(c.Query("format")), arg, updateServiceRevision == "true", production, isHelmChartDeploy == "true", ctx.Logger)
 }
 func SyncHelmProductRenderset(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)

@@ -53,13 +53,12 @@ type filterDeployServiceVarsQuery struct {
 }
 
 type getHelmValuesDifferenceReq struct {
-	ServiceName           string            `json:"service_name"`
-	VariableYaml          string            `json:"variable_yaml"`
-	EnvName               string            `json:"env_name"`
-	IsProduction          bool              `json:"production"`
-	IsHelmChartDeploy     bool              `json:"is_helm_chart_deploy"`
-	UpdateServiceRevision bool              `json:"update_service_revision"`
-	ServiceModules        []*ModuleAndImage `json:"service_modules"`
+	ServiceName           string `json:"service_name"`
+	VariableYaml          string `json:"variable_yaml"`
+	EnvName               string `json:"env_name"`
+	IsProduction          bool   `json:"production"`
+	IsHelmChartDeploy     bool   `json:"is_helm_chart_deploy"`
+	UpdateServiceRevision bool   `json:"update_service_revision"`
 }
 
 type ModuleAndImage struct {
@@ -1303,12 +1302,7 @@ func CompareHelmServiceYamlInEnv(c *gin.Context) {
 		return
 	}
 	projectName := c.Query("projectName")
-
-	images := make([]string, 0)
-	for _, imageInfos := range req.ServiceModules {
-		images = append(images, imageInfos.Image)
-	}
-	ctx.Resp, ctx.RespErr = workflow.CompareHelmServiceYamlInEnv(req.ServiceName, req.VariableYaml, req.EnvName, projectName, images, req.IsProduction, req.UpdateServiceRevision, req.IsHelmChartDeploy, ctx.Logger)
+	ctx.Resp, ctx.RespErr = workflow.CompareHelmServiceYamlInEnv(projectName, req.EnvName, req.ServiceName, req.VariableYaml, req.IsProduction, req.UpdateServiceRevision, req.IsHelmChartDeploy, ctx.Logger)
 }
 
 type YamlResponse struct {

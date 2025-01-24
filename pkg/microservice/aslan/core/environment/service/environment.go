@@ -1339,12 +1339,12 @@ func genImageFromYaml(c *commonmodels.Container, serviceValuesYaml, defaultValue
 	return image, nil
 }
 
-func prepareEstimateDataForEnvCreation(productName, serviceName string, production bool, isHelmChartDeploy bool, log *zap.SugaredLogger) (*commonmodels.ProductService, *commonmodels.Service, error) {
+func prepareEstimateDataForEnvCreation(projectName, serviceName string, production bool, isHelmChartDeploy bool, log *zap.SugaredLogger) (*commonmodels.ProductService, *commonmodels.Service, error) {
 	if isHelmChartDeploy {
 		prodSvc := &commonmodels.ProductService{
 			ServiceName: serviceName,
 			ReleaseName: serviceName,
-			ProductName: productName,
+			ProductName: projectName,
 			Type:        setting.HelmChartDeployType,
 			Render: &templatemodels.ServiceRender{
 				ServiceName:       serviceName,
@@ -1358,7 +1358,7 @@ func prepareEstimateDataForEnvCreation(productName, serviceName string, producti
 	} else {
 		templateService, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
 			ServiceName: serviceName,
-			ProductName: productName,
+			ProductName: projectName,
 			Type:        setting.HelmDeployType,
 		}, production)
 		if err != nil {
@@ -1367,11 +1367,10 @@ func prepareEstimateDataForEnvCreation(productName, serviceName string, producti
 		}
 
 		prodSvc := &commonmodels.ProductService{
-			ServiceName:  serviceName,
-			ProductName:  productName,
-			Revision:     templateService.Revision,
-			Containers:   templateService.Containers,
-			VariableYaml: templateService.VariableYaml,
+			ServiceName: serviceName,
+			ProductName: projectName,
+			Revision:    templateService.Revision,
+			Containers:  templateService.Containers,
 			Render: &templatemodels.ServiceRender{
 				ServiceName:  serviceName,
 				OverrideYaml: &templatemodels.CustomYaml{},
@@ -1383,7 +1382,7 @@ func prepareEstimateDataForEnvCreation(productName, serviceName string, producti
 	}
 }
 
-func prepareEstimateDataForEnvUpdate(productName, envName, serviceOrReleaseName, scene string, production bool, isHelmChartDeploy bool, log *zap.SugaredLogger) (
+func prepareEstimateDataForEnvUpdate(productName, envName, serviceOrReleaseName string, scene EstimateValuesScene, updateServiceRevision, production bool, isHelmChartDeploy bool, log *zap.SugaredLogger) (
 	*commonmodels.ProductService, *commonmodels.Service, *commonmodels.Product, error) {
 	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
 		Name:       productName,
@@ -1416,7 +1415,7 @@ func prepareEstimateDataForEnvUpdate(productName, envName, serviceOrReleaseName,
 	} else {
 		targetSvcTmplRevision := int64(0)
 		prodSvc = productInfo.GetServiceMap()[serviceOrReleaseName]
-		if scene == usageScenarioUpdateRenderSet {
+		if scene == EstimateValuesSceneUpdateService && !updateServiceRevision {
 			if prodSvc == nil {
 				return nil, nil, nil, fmt.Errorf("can't find service in env: %s, name %s", productInfo.EnvName, serviceOrReleaseName)
 			}
@@ -1488,101 +1487,163 @@ func GetAffectedServices(productName, envName string, arg *K8sRendersetArg, log 
 	return ret, nil
 }
 
-func GeneEstimatedValues(productName, envName, serviceOrReleaseName, scene, format string, arg *EstimateValuesArg, isHelmChartDeploy bool, log *zap.SugaredLogger) (interface{}, error) {
+type EstimateValuesScene string
+
+const (
+	EstimateValuesSceneCreateEnv     EstimateValuesScene = "create_env"
+	EstimateValuesSceneCreateService EstimateValuesScene = "create_service"
+	EstimateValuesSceneUpdateService EstimateValuesScene = "update_service"
+)
+
+type EstimateValuesResponseFormat string
+
+const (
+	EstimateValuesResponseFormatYaml    EstimateValuesResponseFormat = "yaml"
+	EstimateValuesResponseFormatFlatMap EstimateValuesResponseFormat = "flat_map"
+)
+
+type GetHelmValuesDifferenceResp struct {
+	Current       string                 `json:"current"`
+	Latest        string                 `json:"latest"`
+	LatestFlatMap map[string]interface{} `json:"latest_flat_map"`
+}
+
+func GenEstimatedValues(projectName, envName, serviceOrReleaseName string, scene EstimateValuesScene, format EstimateValuesResponseFormat, arg *EstimateValuesArg, updateServiceRevision, isProduction, isHelmChartDeploy bool, log *zap.SugaredLogger) (*GetHelmValuesDifferenceResp, error) {
 	var (
-		productSvc  *commonmodels.ProductService
-		tmplSvc     *commonmodels.Service
-		productInfo *commonmodels.Product
-		err         error
+		prodSvc *commonmodels.ProductService
+		tmplSvc *commonmodels.Service
+		prod    *commonmodels.Product
+		err     error
 	)
 
 	switch scene {
-	case usageScenarioCreateEnv:
-		productInfo = &commonmodels.Product{}
-		productSvc, tmplSvc, err = prepareEstimateDataForEnvCreation(productName, serviceOrReleaseName, arg.Production, isHelmChartDeploy, log)
+	case EstimateValuesSceneCreateEnv:
+		prod = &commonmodels.Product{}
+		prod.DefaultValues = arg.DefaultValues
+		prodSvc, tmplSvc, err = prepareEstimateDataForEnvCreation(projectName, serviceOrReleaseName, arg.Production, isHelmChartDeploy, log)
+		if err != nil {
+			return nil, fmt.Errorf("failed to prepare estimate data for env creation, err: %s", err)
+		}
+	case EstimateValuesSceneCreateService, EstimateValuesSceneUpdateService:
+		prodSvc, tmplSvc, prod, err = prepareEstimateDataForEnvUpdate(projectName, envName, serviceOrReleaseName, scene, updateServiceRevision, arg.Production, isHelmChartDeploy, log)
+		if err != nil {
+			return nil, fmt.Errorf("failed to prepare estimate data for env update, err: %s", err)
+		}
 	default:
-		productSvc, tmplSvc, productInfo, err = prepareEstimateDataForEnvUpdate(productName, envName, serviceOrReleaseName, scene, arg.Production, isHelmChartDeploy, log)
+		return nil, fmt.Errorf("invalid scene: %s", scene)
 	}
 
-	if err != nil {
-		return nil, fmt.Errorf("failed to prepare estimated value data, err %s", err)
+	currentYaml := ""
+	latestYaml := ""
+	if scene == EstimateValuesSceneCreateEnv || scene == EstimateValuesSceneCreateService {
+		// service already exists in the current environment, create it
+		currentYaml = ""
+	} else if scene == EstimateValuesSceneUpdateService {
+		// service exists in the current environment, update it
+		//
+		// get current values yaml
+		resp, err := commonservice.GetChartValues(projectName, envName, serviceOrReleaseName, isHelmChartDeploy, isProduction, true)
+		if err != nil {
+			err = fmt.Errorf("failed to get the current service[%s] values from project: %s, env: %s", serviceOrReleaseName, projectName, envName)
+			log.Error(err)
+			return nil, err
+		} else {
+			currentYaml = resp.ValuesYaml
+		}
 	}
 
-	targetChart := productSvc.Render
-
-	tempArg := &commonservice.HelmSvcRenderArg{OverrideValues: arg.OverrideValues}
-	if targetChart.OverrideYaml == nil {
-		targetChart.OverrideYaml = &templatemodels.CustomYaml{}
-	}
-	targetChart.OverrideYaml.YamlContent = arg.OverrideYaml
-	targetChart.OverrideValues = tempArg.ToOverrideValueString()
-
-	mergedValues := ""
+	// generate the new yaml content
 	if isHelmChartDeploy {
 		chartRepo, err := commonrepo.NewHelmRepoColl().Find(&commonrepo.HelmRepoFindOption{RepoName: arg.ChartRepo})
 		if err != nil {
 			return nil, fmt.Errorf("failed to query chart-repo info, repoName: %s", arg.ChartRepo)
 		}
-
 		client, err := commonutil.NewHelmClient(chartRepo)
 		if err != nil {
 			return nil, fmt.Errorf("failed to new helm client, err %s", err)
 		}
 
-		valuesYaml, err := client.GetChartValues(commonutil.GeneHelmRepo(chartRepo), productName, serviceOrReleaseName, arg.ChartRepo, arg.ChartName, arg.ChartVersion, arg.Production)
+		latestChartValuesYaml, err := client.GetChartValues(commonutil.GeneHelmRepo(chartRepo), projectName, serviceOrReleaseName, arg.ChartRepo, arg.ChartName, arg.ChartVersion, arg.Production)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get chart values, chartRepo: %s, chartName: %s, chartVersion: %s, err %s", arg.ChartRepo, arg.ChartName, arg.ChartVersion, err)
 		}
 
+		tempArg := &commonservice.HelmSvcRenderArg{OverrideValues: arg.OverrideValues}
+		prodSvc.GetServiceRender().SetOverrideYaml(arg.OverrideYaml)
+		prodSvc.GetServiceRender().OverrideValues = tempArg.ToOverrideValueString()
+
 		helmDeploySvc := helmservice.NewHelmDeployService()
-		mergedValues, err = helmDeploySvc.GenMergedValues(productSvc, productInfo.DefaultValues, nil)
+		mergedYaml, err := helmDeploySvc.GenMergedValues(prodSvc, prod.DefaultValues, nil)
 		if err != nil {
-			return nil, e.ErrUpdateRenderSet.AddDesc(fmt.Sprintf("failed to merge values, err %s", err))
+			return nil, fmt.Errorf("failed to merge override values, err: %s", err)
 		}
-		mergedValues, err = helmDeploySvc.GeneFullValues(valuesYaml, mergedValues)
+
+		latestYaml, err = helmDeploySvc.GeneFullValues(latestChartValuesYaml, mergedYaml)
 		if err != nil {
-			return nil, e.ErrUpdateRenderSet.AddDesc(fmt.Sprintf("failed to generate full values, err %s", err))
+			return nil, fmt.Errorf("failed to generate full values, err: %s", err)
 		}
+
+		currentYaml = strings.TrimSuffix(currentYaml, "\n")
+		latestYaml = strings.TrimSuffix(latestYaml, "\n")
 	} else {
+		tempArg := &commonservice.HelmSvcRenderArg{OverrideValues: arg.OverrideValues}
+		prodSvc.GetServiceRender().SetOverrideYaml(arg.OverrideYaml)
+		prodSvc.GetServiceRender().OverrideValues = tempArg.ToOverrideValueString()
+
 		helmDeploySvc := helmservice.NewHelmDeployService()
-		mergedValues, err = helmDeploySvc.GenMergedValues(productSvc, productInfo.DefaultValues, nil)
+		yamlContent, err := helmDeploySvc.GenMergedValues(prodSvc, prod.DefaultValues, nil)
 		if err != nil {
-			return nil, e.ErrUpdateRenderSet.AddDesc(fmt.Sprintf("failed to merge values, err %s", err))
+			return nil, fmt.Errorf("failed to generate merged values yaml, err: %s", err)
 		}
-		mergedValues, err = helmDeploySvc.GeneFullValues(tmplSvc.HelmChart.ValuesYaml, mergedValues)
+
+		latestYaml, err = helmDeploySvc.GeneFullValues(tmplSvc.HelmChart.ValuesYaml, yamlContent)
 		if err != nil {
-			return nil, e.ErrUpdateRenderSet.AddDesc(fmt.Sprintf("failed to generate full values, err %s", err))
+			return nil, fmt.Errorf("failed to generate full values yaml, err: %s", err)
 		}
 	}
 
-	switch format {
-	case "flatMap":
-		mapData, err := converter.YamlToFlatMap([]byte(mergedValues))
+	// re-marshal it into string to make sure indentation is right
+	currentYaml, err = formatYamlIndent(currentYaml, log)
+	if err != nil {
+		return nil, fmt.Errorf("failed to format yaml content, err: %s", err)
+	}
+	latestYaml, err = formatYamlIndent(latestYaml, log)
+	if err != nil {
+		return nil, fmt.Errorf("failed to format yaml content, err: %s", err)
+	}
+
+	resp := &GetHelmValuesDifferenceResp{
+		Current: currentYaml,
+		Latest:  latestYaml,
+	}
+
+	if format == EstimateValuesResponseFormatFlatMap {
+		mapData, err := converter.YamlToFlatMap([]byte(latestYaml))
 		if err != nil {
 			return nil, e.ErrUpdateRenderSet.AddDesc(fmt.Sprintf("failed to generate flat map , err %s", err))
 		}
-		return mapData, nil
-	default:
-		return &RawYamlResp{YamlContent: mergedValues}, nil
+		resp.LatestFlatMap = mapData
 	}
+
+	return resp, nil
 }
 
-// check if override values or yaml content changes
-// return [need-Redeploy] and [need-SaveToDB]
-func checkOverrideValuesChange(source *templatemodels.ServiceRender, args *commonservice.HelmSvcRenderArg) (bool, bool) {
-	sourceArg := &commonservice.HelmSvcRenderArg{}
-	sourceArg.LoadFromRenderChartModel(source)
-
-	same := sourceArg.DiffValues(args)
-	switch same {
-	case commonservice.Different:
-		return true, true
-	case commonservice.LogicSame:
-		return false, true
-	case commonservice.Same:
-		return false, false
+func formatYamlIndent(valuesYaml string, log *zap.SugaredLogger) (string, error) {
+	tmp := make(map[string]interface{})
+	if err := yaml.Unmarshal([]byte(valuesYaml), &tmp); err != nil {
+		log.Errorf("failed to unmarshal latest yaml content, err: %s", err)
+		return "", err
 	}
-	return false, false
+	valuesYamlBytes, err := yaml.Marshal(tmp)
+	if err != nil {
+		log.Errorf("failed to marshal latest yaml content, err: %s", err)
+		return "", err
+	}
+	valuesYaml = string(valuesYamlBytes)
+	if valuesYaml == "{}\n" {
+		valuesYaml = ""
+	}
+	return valuesYaml, nil
 }
 
 func validateArgs(args *commonservice.ValuesDataArgs) error {
