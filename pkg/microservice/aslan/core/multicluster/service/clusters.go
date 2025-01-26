@@ -22,6 +22,7 @@ import (
 	"net/http"
 	"reflect"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 
@@ -1224,36 +1225,35 @@ func UpgradeDind(kclient client.Client, cluster *commonmodels.K8SCluster, ns str
 				dindSts.Spec.Template.Spec.Containers[i] = container
 			}
 
-			var dockerStorageExists bool
+			newVolumeClaimTemplates := make([]corev1.PersistentVolumeClaim, 0)
 			for _, volumeClaimTemplate := range dindSts.Spec.VolumeClaimTemplates {
-				if volumeClaimTemplate.Name == types.DindMountName {
-					dockerStorageExists = true
-					break
+				if volumeClaimTemplate.Name != types.DindMountName {
+					newVolumeClaimTemplates = append(newVolumeClaimTemplates, volumeClaimTemplate)
 				}
 			}
 
-			if !dockerStorageExists {
-				storageSize := fmt.Sprintf("%dGi", cluster.DindCfg.Storage.StorageSizeInGiB)
-				storageQuantity, err := resource.ParseQuantity(storageSize)
-				if err != nil {
-					return fmt.Errorf("failed to parse quantity %q: %s", storageSize, err)
-				}
+			storageSize := fmt.Sprintf("%dGi", cluster.DindCfg.Storage.StorageSizeInGiB)
+			storageQuantity, err := resource.ParseQuantity(storageSize)
+			if err != nil {
+				return fmt.Errorf("failed to parse quantity %q: %s", storageSize, err)
+			}
 
-				dindSts.Spec.VolumeClaimTemplates = append(dindSts.Spec.VolumeClaimTemplates, corev1.PersistentVolumeClaim{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: types.DindMountName,
-					},
-					Spec: corev1.PersistentVolumeClaimSpec{
-						AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
-						StorageClassName: util.GetStrPointer(cluster.DindCfg.Storage.StorageClass),
-						Resources: corev1.ResourceRequirements{
-							Requests: corev1.ResourceList{
-								corev1.ResourceStorage: storageQuantity,
-							},
+			newVolumeClaimTemplates = append(newVolumeClaimTemplates, corev1.PersistentVolumeClaim{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: types.DindMountName,
+				},
+				Spec: corev1.PersistentVolumeClaimSpec{
+					AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+					StorageClassName: util.GetStrPointer(cluster.DindCfg.Storage.StorageClass),
+					Resources: corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{
+							corev1.ResourceStorage: storageQuantity,
 						},
 					},
-				})
-			}
+				},
+			})
+
+			dindSts.Spec.VolumeClaimTemplates = newVolumeClaimTemplates
 		}
 	}
 
@@ -1263,11 +1263,30 @@ func UpgradeDind(kclient client.Client, cluster *commonmodels.K8SCluster, ns str
 	}
 
 	if stsHasImmutableFieldChanged(originalSts, dindSts) {
+		log.Infof("dind has immutable field changed, recreating dind.")
 		err = kclient.Delete(ctx, dindSts)
 		if err != nil {
 			err = fmt.Errorf("failed to delete StatefulSet `dind`: %s", err)
 			log.Error(err)
 			return err
+		}
+
+		pvcList := &corev1.PersistentVolumeClaimList{}
+		err = kclient.List(context.TODO(), pvcList, client.InNamespace(ns))
+		if err != nil {
+			log.Errorf("Failed to list PVCs: %v", err)
+			return fmt.Errorf("failed to list PVCs to update dind statefulset, error: %s", err)
+		}
+
+		for _, pvc := range pvcList.Items {
+			expectedPrefix := fmt.Sprintf("%s-%s-", types.DindMountName, types.DindStatefulSetName)
+			if strings.HasPrefix(pvc.Name, expectedPrefix) {
+				err := kclient.Delete(context.TODO(), &pvc)
+				// TODO: should we block the whole update when the deletion process failed?
+				if err != nil {
+					log.Errorf("failed to delete pvc: %s, error: %s", pvc.Name, err)
+				}
+			}
 		}
 
 		dindSts.ResourceVersion = ""
@@ -1583,8 +1602,46 @@ func GetClusterIRSAInfo(clusterID string, logger *zap.SugaredLogger) (*GetCluste
 }
 
 func stsHasImmutableFieldChanged(existing, desired *appsv1.StatefulSet) bool {
-	// Example check for `volumeClaimTemplates`
-	return !reflect.DeepEqual(existing.Spec.VolumeClaimTemplates, desired.Spec.VolumeClaimTemplates) || !reflect.DeepEqual(existing.Spec.ServiceName, desired.Spec.ServiceName) || !reflect.DeepEqual(existing.Spec.Selector, desired.Spec.Selector)
+	return volumeClaimTemplateChanged(existing.Spec.VolumeClaimTemplates, desired.Spec.VolumeClaimTemplates) || !reflect.DeepEqual(existing.Spec.ServiceName, desired.Spec.ServiceName) || !reflect.DeepEqual(existing.Spec.Selector, desired.Spec.Selector)
+}
+
+func volumeClaimTemplateChanged(existing, desired []corev1.PersistentVolumeClaim) bool {
+	if len(existing) != len(desired) {
+		return true
+	}
+
+	sort.Slice(existing, func(i, j int) bool {
+		return existing[i].Name < existing[j].Name
+	})
+
+	sort.Slice(desired, func(i, j int) bool {
+		return existing[i].Name < existing[j].Name
+	})
+
+	// list of field to be compared:
+	// metadata.name
+	// spec.accessModes
+	// spec.resources.requests.storage
+	// spec.storageClassName
+	for i := range existing {
+		if existing[i].ObjectMeta.Name != desired[i].ObjectMeta.Name {
+			return true
+		}
+
+		if existing[i].Spec.Resources.Requests.Storage().Value() != desired[i].Spec.Resources.Requests.Storage().Value() {
+			return true
+		}
+
+		if util.GetStringFromPointer(existing[i].Spec.StorageClassName) != util.GetStringFromPointer(desired[i].Spec.StorageClassName) {
+			return true
+		}
+
+		if !reflect.DeepEqual(existing[i].Spec.AccessModes, desired[i].Spec.AccessModes) {
+			return true
+		}
+	}
+
+	return false
 }
 
 func K8SClusterArgsToModel(args *K8SCluster) (*commonmodels.K8SCluster, error) {
