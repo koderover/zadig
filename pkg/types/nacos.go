@@ -22,16 +22,33 @@ type NacosNamespace struct {
 }
 
 type NacosConfig struct {
-	DataID          string `bson:"data_id"                 json:"data_id"                 yaml:"data_id"`
-	Group           string `bson:"group"                   json:"group"                   yaml:"group"`
-	Desc            string `bson:"description,omitempty"   json:"description,omitempty"   yaml:"description,omitempty"`
-	Format          string `bson:"format,omitempty"        json:"format,omitempty"        yaml:"format,omitempty"`
-	Content         string `bson:"content,omitempty"       json:"content,omitempty"       yaml:"content,omitempty"`
-	OriginalContent string `bson:"original_content,omitempty" json:"original_content,omitempty" yaml:"original_content,omitempty"`
-	NamespaceID     string `bson:"namespace_id"               json:"namespace_id"               yaml:"namespace_id"`
-	NamespaceName   string `bson:"namespace_name"             json:"namespace_name"             yaml:"namespace_name"`
+	DataID                    string `bson:"data_id"                                json:"data_id"                                yaml:"data_id"`
+	Group                     string `bson:"group"                                  json:"group"                                  yaml:"group"`
+	Desc                      string `bson:"description,omitempty"                  json:"description,omitempty"                  yaml:"description,omitempty"`
+	Format                    string `bson:"format,omitempty"                       json:"format,omitempty"                       yaml:"format,omitempty"`
+	Content                   string `bson:"content,omitempty"                      json:"content,omitempty"                      yaml:"content,omitempty"`
+	OriginalContent           string `bson:"original_content,omitempty"             json:"original_content,omitempty"             yaml:"original_content,omitempty"`
+	OriginalContentUpdateTime string `bson:"original_content_update_time,omitempty" json:"original_content_update_time,omitempty" yaml:"original_content_update_time,omitempty"`
+	NamespaceID               string `bson:"namespace_id"                           json:"namespace_id"                           yaml:"namespace_id"`
+	NamespaceName             string `bson:"namespace_name"                         json:"namespace_name"                         yaml:"namespace_name"`
 
 	// for frontend
 	Diff        interface{} `bson:"diff,omitempty" json:"diff,omitempty" yaml:"diff,omitempty"`
 	Persistence interface{} `bson:"persistence,omitempty" json:"persistence,omitempty" yaml:"persistence,omitempty"`
+}
+
+type NacosConfigHistory struct {
+	ID               string `json:"id"`
+	LastID           int    `json:"lastId"`
+	DataID           string `json:"dataId"`
+	Group            string `json:"group"`
+	Tenant           string `json:"tenant"`
+	AppName          string `json:"appName"`
+	MD5              string `json:"md5"`
+	Content          string `json:"content"`
+	SrcIP            string `json:"srcIp"`
+	SrcUser          string `json:"srcUser"`
+	OpType           string `json:"opType"`
+	CreatedTime      string `json:"createdTime"`
+	LastModifiedTime string `json:"lastModifiedTime"`
 }

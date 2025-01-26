@@ -50,6 +50,7 @@ import (
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	larktool "github.com/koderover/zadig/v2/pkg/tool/lark"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
+	"github.com/koderover/zadig/v2/pkg/tool/nacos"
 	s3tool "github.com/koderover/zadig/v2/pkg/tool/s3"
 	"github.com/koderover/zadig/v2/pkg/tool/sonar"
 	workflowtool "github.com/koderover/zadig/v2/pkg/tool/workflow"
@@ -75,6 +76,7 @@ type WorkflowTaskPreview struct {
 	WorkflowDisplayName string                `bson:"workflow_display_name"     json:"workflow_name"`
 	Params              []*commonmodels.Param `bson:"params"                    json:"params"`
 	Status              config.Status         `bson:"status"                    json:"status,omitempty"`
+	Reverted            bool                  `bson:"reverted"                  json:"reverted"`
 	Remark              string                `bson:"remark"                    json:"remark"`
 	TaskCreator         string                `bson:"task_creator"              json:"task_creator,omitempty"`
 	TaskRevoker         string                `bson:"task_revoker,omitempty"    json:"task_revoker,omitempty"`
@@ -108,6 +110,7 @@ type JobTaskPreview struct {
 	OriginName           string                       `bson:"origin_name"    json:"origin_name"`
 	JobType              string                       `bson:"type"           json:"type"`
 	Status               config.Status                `bson:"status"         json:"status"`
+	Reverted             bool                         `bson:"reverted"       json:"reverted"`
 	StartTime            int64                        `bson:"start_time"     json:"start_time,omitempty"`
 	EndTime              int64                        `bson:"end_time"       json:"end_time,omitempty"`
 	CostSeconds          int64                        `bson:"cost_seconds"   json:"cost_seconds"`
@@ -1099,6 +1102,131 @@ func StopDebugWorkflowTaskJobV4(workflowName, jobName string, taskID int64, posi
 	return nil
 }
 
+func RevertWorkflowTaskV4Job(workflowName, jobName string, taskID int64, input interface{}, userName, userID string, logger *zap.SugaredLogger) error {
+	task, err := commonrepo.NewworkflowTaskv4Coll().Find(workflowName, taskID)
+	if err != nil {
+		logger.Errorf("find workflowTaskV4 error: %s", err)
+		return e.ErrGetTask.AddErr(err)
+	}
+
+	for _, stage := range task.Stages {
+		for _, job := range stage.Jobs {
+			if job.Name == jobName {
+				switch job.JobType {
+				case string(config.JobNacos):
+					jobTaskSpec := &commonmodels.JobTaskNacosSpec{}
+					if err := commonmodels.IToi(job.Spec, jobTaskSpec); err != nil {
+						logger.Error(err)
+						return fmt.Errorf("failed to decode nacos job spec, error: %s", err)
+					}
+					inputSpec := make([]*commonmodels.NacosData, 0)
+					for _, stuff := range input.([]interface{}) {
+						updateData := new(commonmodels.NacosData)
+						err = commonmodels.IToi(stuff, updateData)
+						if err != nil {
+							return fmt.Errorf("failed to decode nacos job spec, error: %s", err)
+						}
+						inputSpec = append(inputSpec, updateData)
+					}
+
+					err = revertNacosJob(jobTaskSpec, inputSpec)
+					if err != nil {
+						log.Errorf("failed to revert nacos job %s, error: %s", job.Name, err)
+						return fmt.Errorf("failed to revert nacos job: %s, error: %s", job.Name, err)
+					}
+
+					job.Reverted = true
+					task.Reverted = true
+					err = commonrepo.NewworkflowTaskv4Coll().Update(task.ID.Hex(), task)
+					if err != nil {
+						log.Errorf("failed to update nacos job revert information, error: %s", err)
+					}
+
+					inputData := make([]*commonmodels.NacosData, 0)
+					client, err := nacos.NewNacosClient(jobTaskSpec.NacosAddr, jobTaskSpec.UserName, jobTaskSpec.Password)
+					if err != nil {
+						return err
+					}
+
+					for _, in := range inputSpec {
+						originalConfig, err := client.GetConfig(in.DataID, in.Group, in.NamespaceID)
+						if err != nil {
+							log.Errorf("failed to find current config for data: %s in namespace: %s, error: %s", in.DataID, in.NamespaceID, err)
+							return fmt.Errorf("failed to find current config for data: %s in namespace: %s, error: %s", in.DataID, in.NamespaceID, err)
+						}
+						inputData = append(inputData, &commonmodels.NacosData{
+							NacosConfig: types.NacosConfig{
+								DataID:          in.DataID,
+								Group:           in.Group,
+								Format:          in.Format,
+								Content:         in.Content,
+								OriginalContent: originalConfig.Content,
+								NamespaceID:     in.NamespaceID,
+								NamespaceName:   in.NamespaceName,
+							},
+						})
+					}
+
+					revertTaskSpec := &commonmodels.JobTaskNacosSpec{
+						NacosID:       jobTaskSpec.NacosID,
+						NamespaceID:   jobTaskSpec.NamespaceID,
+						NamespaceName: jobTaskSpec.NamespaceName,
+						NacosAddr:     jobTaskSpec.NacosAddr,
+						UserName:      jobTaskSpec.UserName,
+						Password:      jobTaskSpec.Password,
+						NacosDatas:    inputData,
+					}
+
+					_, err = commonrepo.NewWorkflowTaskRevertColl().Create(&commonmodels.WorkflowTaskRevert{
+						TaskID:        taskID,
+						WorkflowName:  workflowName,
+						JobName:       jobName,
+						RevertSpec:    revertTaskSpec,
+						CreateTime:    time.Now().Unix(),
+						TaskCreator:   userName,
+						TaskCreatorID: userID,
+						Status:        config.StatusPassed,
+					})
+					return nil
+				default:
+					return fmt.Errorf("job of type: %s does not support reverting yet")
+				}
+			}
+		}
+	}
+
+	return fmt.Errorf("failed to revert job: %s, job not found")
+}
+
+func GetWorkflowTaskV4JobRevert(workflowName, jobName string, taskID int64, logger *zap.SugaredLogger) (interface{}, error) {
+	revertInfo, err := commonrepo.NewWorkflowTaskRevertColl().List(&commonrepo.ListWorkflowRevertOption{
+		TaskID:       taskID,
+		WorkflowName: workflowName,
+		JobName:      jobName,
+	})
+	if err != nil {
+		logger.Errorf("failed to list job revert info for job: %s in workflow: %s(%d), error: %s", jobName, workflowName, taskID, err)
+		return nil, fmt.Errorf("failed to list job revert info for job: %s in workflow: %s(%d), error: %s", jobName, workflowName, taskID, err)
+	}
+
+	return revertInfo, nil
+}
+
+func revertNacosJob(jobspec *commonmodels.JobTaskNacosSpec, input []*commonmodels.NacosData) error {
+	client, err := nacos.NewNacosClient(jobspec.NacosAddr, jobspec.UserName, jobspec.Password)
+	if err != nil {
+		return err
+	}
+
+	for _, data := range input {
+		if err := client.UpdateConfig(data.DataID, data.Group, jobspec.NamespaceID, data.Content, data.Format); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 type TaskHistoryFilter struct {
 	PageSize     int64  `json:"page_size"    form:"page_size,default=20"`
 	PageNum      int64  `json:"page_num"     form:"page_num,default=1"`
@@ -1160,6 +1288,7 @@ func ListWorkflowTaskV4ByFilter(filter *TaskHistoryFilter, filterList []string, 
 			WorkflowDisplayName: task.WorkflowDisplayName,
 			Remark:              task.Remark,
 			Status:              task.Status,
+			Reverted:            task.Reverted,
 			CreateTime:          task.CreateTime,
 			StartTime:           task.StartTime,
 			EndTime:             task.EndTime,
@@ -1349,6 +1478,7 @@ func GetWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredLog
 		ProjectName:         task.ProjectName,
 		Remark:              task.Remark,
 		Status:              task.Status,
+		Reverted:            task.Reverted,
 		Params:              task.Params,
 		TaskCreator:         task.TaskCreator,
 		TaskRevoker:         task.TaskRevoker,
@@ -1485,6 +1615,7 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, 
 		jobPreview := &JobTaskPreview{
 			Name:                 job.Name,
 			Key:                  job.Key,
+			Reverted:             job.Reverted,
 			OriginName:           job.OriginName,
 			DisplayName:          job.DisplayName,
 			Status:               job.Status,

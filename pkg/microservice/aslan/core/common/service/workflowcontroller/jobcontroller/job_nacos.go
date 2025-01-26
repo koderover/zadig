@@ -62,6 +62,17 @@ func (c *NacosJobCtl) Run(ctx context.Context) {
 		return
 	}
 	for _, data := range c.jobTaskSpec.NacosDatas {
+		configHistory, err := client.GetConfigHistory(data.DataID, data.Group, c.jobTaskSpec.NamespaceID)
+		if err != nil {
+			logError(c.job, err.Error(), c.logger)
+			return
+		}
+		if len(configHistory) == 0 {
+			logError(c.job, "config history is empty", c.logger)
+			return
+		}
+		data.OriginalContentUpdateTime = configHistory[0].CreatedTime
+
 		if err := client.UpdateConfig(data.DataID, data.Group, c.jobTaskSpec.NamespaceID, data.Content, data.Format); err != nil {
 			data.Error = err.Error()
 			logError(c.job, err.Error(), c.logger)

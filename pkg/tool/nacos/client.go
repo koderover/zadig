@@ -53,6 +53,10 @@ type configResp struct {
 	PageItems []*config `json:"pageItems"`
 }
 
+type configHistoryResp struct {
+	PageItems []*types.NacosConfigHistory `json:"pageItems"`
+}
+
 type namespace struct {
 	NamespaceID   string `json:"namespace"`
 	NamespaceName string `json:"namespaceShowName"`
@@ -191,6 +195,26 @@ func (c *Client) GetConfig(dataID, group, namespaceID string) (*types.NacosConfi
 		Format:  getFormat(res.Format),
 		Content: res.Content,
 	}, nil
+}
+
+func (c *Client) GetConfigHistory(dataID, group, namespaceID string) ([]*types.NacosConfigHistory, error) {
+	namespaceID = getNamespaceID(namespaceID)
+	url := "/v1/cs/history"
+
+	params := httpclient.SetQueryParams(map[string]string{
+		"dataId":      dataID,
+		"group":       group,
+		"tenant":      namespaceID,
+		"search":      "accurate",
+		"accessToken": c.token,
+	})
+
+	res := &configHistoryResp{}
+	if _, err := c.Client.Get(url, params, httpclient.SetResult(res)); err != nil {
+		return nil, errors.Wrap(err, "list nacos config history failed")
+	}
+
+	return res.PageItems, nil
 }
 
 func (c *Client) UpdateConfig(dataID, group, namespaceID, content, format string) error {
