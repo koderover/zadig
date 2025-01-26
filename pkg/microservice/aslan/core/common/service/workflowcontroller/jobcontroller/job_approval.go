@@ -201,6 +201,9 @@ func waitForLarkApprove(ctx context.Context, spec *commonmodels.JobTaskApprovalS
 
 	var userID string
 	if approval.DefaultApprovalInitiator == nil {
+		if workflowCtx.WorkflowTaskCreatorMobile == "" {
+			return config.StatusFailed, errors.New("审批发起人手机号码未找到，请正确配置您的手机号码")
+		}
 		userInfo, err := client.GetUserIDByEmailOrMobile(lark.QueryTypeMobile, workflowCtx.WorkflowTaskCreatorMobile, setting.LarkUserOpenID)
 		if err != nil {
 			return config.StatusFailed, fmt.Errorf("get user lark id by mobile-%s, error: %s", workflowCtx.WorkflowTaskCreatorMobile, err)
@@ -208,7 +211,7 @@ func waitForLarkApprove(ctx context.Context, spec *commonmodels.JobTaskApprovalS
 		userID = util.GetStringFromPointer(userInfo.UserId)
 	} else {
 		userID = approval.DefaultApprovalInitiator.ID
-		formContent = fmt.Sprintf("审批发起人: %s\n%s", workflowCtx.WorkflowTaskCreatorUsername, formContent)
+		formContent = fmt.Sprintf("工作流执行人: %s\n%s", workflowCtx.WorkflowTaskCreatorUsername, formContent)
 	}
 	log.Infof("waitForLarkApprove: ApproveNodes num %d", len(approval.ApprovalNodes))
 	instance, err := client.CreateApprovalInstance(&lark.CreateApprovalInstanceArgs{
@@ -535,6 +538,9 @@ func waitForDingTalkApprove(ctx context.Context, spec *commonmodels.JobTaskAppro
 
 	var userID string
 	if approval.DefaultApprovalInitiator == nil {
+		if workflowCtx.WorkflowTaskCreatorMobile == "" {
+			return config.StatusFailed, errors.New("审批发起人手机号码未找到，请正确配置您的手机号码")
+		}
 		userIDResp, err := client.GetUserIDByMobile(workflowCtx.WorkflowTaskCreatorMobile)
 		if err != nil {
 			return config.StatusFailed, fmt.Errorf("get user dingtalk id by mobile-%s error: %s", workflowCtx.WorkflowTaskCreatorMobile, err)
@@ -542,7 +548,7 @@ func waitForDingTalkApprove(ctx context.Context, spec *commonmodels.JobTaskAppro
 		userID = userIDResp.UserID
 	} else {
 		userID = approval.DefaultApprovalInitiator.ID
-		formContent = fmt.Sprintf("审批发起人: %s\n%s", workflowCtx.WorkflowTaskCreatorUsername, formContent)
+		formContent = fmt.Sprintf("工作流执行人: %s\n%s", workflowCtx.WorkflowTaskCreatorUsername, formContent)
 	}
 
 	log.Infof("waitForDingTalkApprove: ApproveNode num %d", len(approval.ApprovalNodes))

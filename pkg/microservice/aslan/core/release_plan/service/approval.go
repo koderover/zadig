@@ -121,6 +121,9 @@ func createDingTalkApproval(approval *models.DingTalkApproval, manager, phone, c
 
 	var userID string
 	if approval.DefaultApprovalInitiator == nil {
+		if phone == "" {
+			return errors.New("审批发起人手机号码未找到，请正确配置您的手机号码")
+		}
 		userIDResp, err := client.GetUserIDByMobile(phone)
 		if err != nil {
 			return errors.Wrapf(err, "get user dingtalk id by mobile-%s", phone)
@@ -414,6 +417,10 @@ func createWorkWXApproval(approval *models.WorkWXApproval, manager, phone, conte
 	if approval.CreatorUser != nil {
 		applicant = approval.CreatorUser.ID
 	} else {
+		if phone == "" {
+			return errors.New("审批发起人手机号码未找到，请正确配置您的手机号码")
+		}
+
 		content = fmt.Sprintf("审批发起人: %s\n%s", manager, content)
 		phoneInt, err := strconv.Atoi(phone)
 		if err != nil {
@@ -477,6 +484,9 @@ func createLarkApproval(approval *models.LarkApproval, manager, phone, content s
 
 	var userID string
 	if approval.DefaultApprovalInitiator == nil {
+		if phone == "" {
+			return errors.New("审批发起人手机号码未找到，请正确配置您的手机号码")
+		}
 		userInfo, err := client.GetUserIDByEmailOrMobile(lark.QueryTypeMobile, phone, setting.LarkUserOpenID)
 		if err != nil {
 			return errors.Wrapf(err, "get user lark id by mobile-%s", phone)
