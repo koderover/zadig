@@ -793,7 +793,11 @@ func renderKeyVals(input, origin []*commonmodels.KeyVal) []*commonmodels.KeyVal 
 			if originKV.Key == inputKV.Key {
 				if originKV.Type == commonmodels.MultiSelectType {
 					item.ChoiceValue = inputKV.ChoiceValue
-					item.Value = strings.Join(item.ChoiceValue, ",")
+					if inputKV.Value == "" {
+						item.Value = strings.Join(item.ChoiceValue, ",")
+					} else {
+						item.Value = inputKV.Value
+					}
 				} else {
 					// always use origin credential config.
 					item.Value = inputKV.Value
