@@ -162,6 +162,8 @@ func (e *WorkflowReleaseJobExecutor) Execute(plan *models.ReleasePlan) error {
 			}
 		}
 
+		originalWorkflow.Remark = spec.Workflow.Remark
+
 		ctx := e.Ctx
 		result, err := workflow.CreateWorkflowTaskV4(&workflow.CreateWorkflowTaskV4Args{
 			Name:    ctx.UserName,
