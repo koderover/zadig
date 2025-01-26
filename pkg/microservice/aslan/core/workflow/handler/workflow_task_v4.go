@@ -616,8 +616,6 @@ func RevertWorkflowTaskV4Job(c *gin.Context) {
 
 	args := new(revertWorkflowTaskV4JobReq)
 	data := getBody(c)
-	fmt.Println(">>>>>>>>>>>>>")
-	fmt.Println(data)
 	if err := json.Unmarshal([]byte(data), args); err != nil {
 		log.Errorf("CreateWorkflowTaskv4 json.Unmarshal err : %s", err)
 		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
