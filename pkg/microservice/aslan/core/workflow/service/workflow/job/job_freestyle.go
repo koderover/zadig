@@ -585,13 +585,7 @@ func (j *FreeStyleJob) stepsToStepTasks(step []*commonmodels.Step, service *comm
 			if err := commonmodels.IToi(stepTask.Spec, stepTaskSpec); err != nil {
 				continue
 			}
-			dockerLoginCmds := []string{}
-			for _, reregistry := range registries {
-				dockerLoginCmds = append(dockerLoginCmds, fmt.Sprintf(`docker login -u "$%s_REGISTRY_AK" -p "$%s_REGISTRY_SK" "$%s_REGISTRY_HOST" &> /dev/null`, reregistry.Namespace, reregistry.Namespace, reregistry.Namespace))
-			}
-
 			stepTaskSpec.Scripts = append(strings.Split(replaceWrapLine(stepTaskSpec.Script), "\n"), outputScript(j.spec.Outputs, j.spec.Properties.Infrastructure)...)
-			stepTaskSpec.Scripts = append(dockerLoginCmds, stepTaskSpec.Scripts...)
 			stepTask.Spec = stepTaskSpec
 			// add debug step before shell step
 			debugBeforeStep := &commonmodels.StepTask{
