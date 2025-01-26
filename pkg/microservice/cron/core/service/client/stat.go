@@ -55,7 +55,7 @@ func (c *Client) InitStatData(log *zap.SugaredLogger) error {
 
 	// if it is the first day of a month, do the monthly deploy stats
 	if time.Now().Day() == 1 {
-		url = fmt.Sprintf("%s/api/stat/v2/quality/deploy/weekly", configbase.AslanServiceAddress())
+		url = fmt.Sprintf("%s/api/stat/v2/quality/deploy/monthly", configbase.AslanServiceAddress())
 		log.Info("start creating monthly deploy stats..")
 		_, err = c.sendPostRequest(url, nil, log)
 		if err != nil {
