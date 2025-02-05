@@ -27,12 +27,7 @@ import (
 const separator = "\n---\n"
 
 func CombineManifests(yamls []string) string {
-	var builder strings.Builder
-	for _, y := range yamls {
-		builder.WriteString(separator + y)
-	}
-
-	return builder.String()
+	return strings.Join(yamls, separator)
 }
 
 func SplitManifests(content string) []string {

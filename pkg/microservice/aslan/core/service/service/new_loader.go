@@ -131,9 +131,6 @@ func loadService(username string, ch *systemconfig.CodeHost, owner, namespace, r
 					logger.Errorf("Failed to get yamls under path %s, err: %s", f.FullPath, err)
 					return e.ErrLoadServiceTemplate.AddDesc(err.Error())
 				}
-				for _, stuff := range res {
-					logger.Infof(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> %s", stuff)
-				}
 				yamls = append(yamls, res...)
 			}
 
