@@ -132,7 +132,7 @@ func ReplaceWorkloadImages(rawYaml string, images []*commonmodels.Container) (st
 	for _, yamlStr := range splitYams {
 		modifiedYamlStr := customKVRegExp.ReplaceAll([]byte(yamlStr), []byte("TEMP_PLACEHOLDER_$1"))
 
-		fmt.Println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>", modifiedYamlStr)
+		fmt.Println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>", string(modifiedYamlStr))
 
 		var rawData map[string]interface{}
 		err := yaml.Unmarshal(modifiedYamlStr, &rawData)
