@@ -33,7 +33,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		codehost.GET("/:codehostId/prs", CodeHostGetPRList)
 		codehost.GET("/:codehostId/commits", CodeHostGetCommits)
 		codehost.PUT("/infos", ListRepoInfos)
-		codehost.GET("/:codehostId/branches/regular/check", MatchBranchesList)
+		codehost.POST("/:codehostId/branches/regular/check", MatchBranchesList)
 	}
 
 	// ---------------------------------------------------------------------------------------
