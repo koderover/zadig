@@ -773,6 +773,8 @@ func CloneWorkflowTaskV4(workflowName string, taskID int64, isView bool, logger 
 			}
 		}
 	}
+
+	task.OriginWorkflowArgs.NotifyCtls = originalWorkflow.NotifyCtls
 	return task.OriginWorkflowArgs, nil
 }
 
