@@ -33,7 +33,6 @@ func GetReleasePlan(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -137,6 +136,30 @@ func UpdateReleasePlan(c *gin.Context) {
 		return
 	}
 	ctx.RespErr = service.UpdateReleasePlan(ctx, c.Param("id"), req)
+}
+
+func GetReleasePlanJobDetail(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.ReleasePlan.View {
+		ctx.UnAuthorized = true
+		return
+	}
+
+	err = commonutil.CheckZadigEnterpriseLicense()
+	if err != nil {
+		ctx.RespErr = err
+		return
+	}
+
+	ctx.Resp, ctx.RespErr = service.GetReleasePlanJobDetail(c.Param("id"), c.Param("jobID"))
 }
 
 func DeleteReleasePlan(c *gin.Context) {
