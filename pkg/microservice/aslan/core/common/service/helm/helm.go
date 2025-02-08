@@ -517,6 +517,8 @@ func (s *HelmDeployService) GenNewEnvService(prod *commonmodels.Product, service
 				Containers:  tmplSvc.Containers,
 			}
 		} else {
+			prodSvc.Revision = tmplSvc.Revision
+
 			containerMap := make(map[string]*commonmodels.Container)
 			for _, container := range prodSvc.Containers {
 				containerMap[container.Name] = container
