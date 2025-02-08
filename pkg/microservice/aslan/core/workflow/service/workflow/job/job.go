@@ -395,32 +395,44 @@ func GetWorkflowOutputs(workflow *commonmodels.WorkflowV4, currentJobName string
 	jobRankMap := getJobRankMap(workflow.Stages)
 	for _, stage := range workflow.Stages {
 		for _, job := range stage.Jobs {
-			// we only need to get the outputs from job runs before the current job
-			if jobRankMap[job.Name] >= jobRankMap[currentJobName] {
+			filter := func(outputs []string) []string {
+				// we only need to get the outputs from job runs before the current job
+				resp := []string{}
+				if jobRankMap[job.Name] >= jobRankMap[currentJobName] {
+					for _, output := range outputs {
+						if !strings.Contains(output, ".output.") {
+							resp = append(resp, output)
+						}
+					}
+				} else {
+					resp = outputs
+				}
+
 				return resp
 			}
+
 			switch job.JobType {
 			case config.JobZadigBuild:
 				jobCtl := &BuildJob{job: job, workflow: workflow}
-				resp = append(resp, jobCtl.GetOutPuts(log)...)
+				resp = append(resp, filter(jobCtl.GetOutPuts(log))...)
 			case config.JobFreestyle:
 				jobCtl := &FreeStyleJob{job: job, workflow: workflow}
-				resp = append(resp, jobCtl.GetOutPuts(log)...)
+				resp = append(resp, filter(jobCtl.GetOutPuts(log))...)
 			case config.JobZadigTesting:
 				jobCtl := &TestingJob{job: job, workflow: workflow}
-				resp = append(resp, jobCtl.GetOutPuts(log)...)
+				resp = append(resp, filter(jobCtl.GetOutPuts(log))...)
 			case config.JobZadigScanning:
 				jobCtl := &ScanningJob{job: job, workflow: workflow}
-				resp = append(resp, jobCtl.GetOutPuts(log)...)
+				resp = append(resp, filter(jobCtl.GetOutPuts(log))...)
 			case config.JobZadigDistributeImage:
 				jobCtl := &ImageDistributeJob{job: job, workflow: workflow}
-				resp = append(resp, jobCtl.GetOutPuts(log)...)
+				resp = append(resp, filter(jobCtl.GetOutPuts(log))...)
 			case config.JobPlugin:
 				jobCtl := &PluginJob{job: job, workflow: workflow}
-				resp = append(resp, jobCtl.GetOutPuts(log)...)
+				resp = append(resp, filter(jobCtl.GetOutPuts(log))...)
 			case config.JobZadigDeploy:
 				jobCtl := &DeployJob{job: job, workflow: workflow}
-				resp = append(resp, jobCtl.GetOutPuts(log)...)
+				resp = append(resp, filter(jobCtl.GetOutPuts(log))...)
 			}
 		}
 	}
@@ -938,7 +950,6 @@ func renderServiceVariables(workflow *commonmodels.WorkflowV4, envs []*commonmod
 	if err != nil {
 		err = fmt.Errorf("failed to get workflow stage parameters, error: %s", err)
 		return nil, err
-
 	}
 
 	for _, env := range duplicatedEnvs {
