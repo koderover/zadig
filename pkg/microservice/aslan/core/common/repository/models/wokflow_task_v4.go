@@ -641,6 +641,7 @@ type JobTaskNotificationSpec struct {
 	LarkPersonNotificationConfig *LarkPersonNotificationConfig `bson:"lark_person_notification_config,omitempty" yaml:"lark_person_notification_config,omitempty" json:"lark_person_notification_config,omitempty"`
 	WechatNotificationConfig     *WechatNotificationConfig     `bson:"wechat_notification_config,omitempty"      yaml:"wechat_notification_config,omitempty"      json:"wechat_notification_config,omitempty"`
 	DingDingNotificationConfig   *DingDingNotificationConfig   `bson:"dingding_notification_config,omitempty"    yaml:"dingding_notification_config,omitempty"    json:"dingding_notification_config,omitempty"`
+	MSTeamsNotificationConfig    *MSTeamsNotificationConfig    `bson:"msteams_notification_config,omitempty"     yaml:"msteams_notification_config,omitempty"     json:"msteams_notification_config,omitempty"`
 	MailNotificationConfig       *MailNotificationConfig       `bson:"mail_notification_config,omitempty"        yaml:"mail_notification_config,omitempty"        json:"mail_notification_config,omitempty"`
 	WebhookNotificationConfig    *WebhookNotificationConfig    `bson:"webhook_notification_config,omitempty"     yaml:"webhook_notification_config,omitempty"     json:"webhook_notification_config,omitempty"`
 
