@@ -17,6 +17,7 @@ limitations under the License.
 package workflow
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -1104,6 +1105,10 @@ func StopDebugWorkflowTaskJobV4(workflowName, jobName string, taskID int64, posi
 	return nil
 }
 
+type SQLRevertInput struct {
+	SQL string `json:"sql"`
+}
+
 func RevertWorkflowTaskV4Job(workflowName, jobName string, taskID int64, input interface{}, userName, userID string, logger *zap.SugaredLogger) error {
 	task, err := commonrepo.NewworkflowTaskv4Coll().Find(workflowName, taskID)
 	if err != nil {
@@ -1189,6 +1194,111 @@ func RevertWorkflowTaskV4Job(workflowName, jobName string, taskID int64, input i
 						TaskCreatorID: userID,
 						Status:        config.StatusPassed,
 					})
+
+					if err != nil {
+						log.Warnf("failed to insert revert task logs, error: %s", err)
+					}
+
+					return nil
+				case string(config.JobSQL):
+					jobTaskSpec := &commonmodels.JobTaskSQLSpec{}
+					if err := commonmodels.IToi(job.Spec, jobTaskSpec); err != nil {
+						logger.Error(err)
+						return fmt.Errorf("failed to decode nacos job spec, error: %s", err)
+					}
+					inputSpec := new(SQLRevertInput)
+					err = commonmodels.IToi(input, inputSpec)
+					if err != nil {
+						return fmt.Errorf("failed to decode sql revert job spec, error: %s", err)
+					}
+
+					info, err := mongodb.NewDBInstanceColl().Find(&mongodb.DBInstanceCollFindOption{Id: jobTaskSpec.ID})
+					if err != nil {
+						return fmt.Errorf("failed to find database info to run the rollback sql, error: %s", err)
+					}
+
+					job.Reverted = true
+					task.Reverted = true
+
+					err = commonrepo.NewworkflowTaskv4Coll().Update(task.ID.Hex(), task)
+					if err != nil {
+						log.Errorf("failed to update sql job revert information, error: %s", err)
+					}
+
+					revertTaskSpec := &commonmodels.JobTaskSQLSpec{
+						ID:      jobTaskSpec.ID,
+						Type:    jobTaskSpec.Type,
+						SQL:     inputSpec.SQL,
+						Results: make([]*commonmodels.SQLExecResult, 0),
+					}
+
+					db, err := sql.Open("mysql", fmt.Sprintf("%s:%s@tcp(%s:%s)/?charset=utf8&multiStatements=true", info.Username, info.Password, info.Host, info.Port))
+					if err != nil {
+						return errors.Errorf("failed to run rollback sql, connect db error: %v", err)
+					}
+					defer db.Close()
+
+					sqls := strings.SplitAfter(inputSpec.SQL, ";")
+					for _, sql := range sqls {
+						if sql == "" {
+							continue
+						}
+
+						execResult := &commonmodels.SQLExecResult{}
+
+						execResult.SQL = strings.TrimSpace(sql)
+						execResult.Status = setting.SQLExecStatusNotExec
+
+						revertTaskSpec.Results = append(revertTaskSpec.Results, execResult)
+					}
+
+					for _, execResult := range revertTaskSpec.Results {
+						now := time.Now()
+						result, err := db.Exec(execResult.SQL)
+						if err != nil {
+							execResult.Status = setting.SQLExecStatusFailed
+							_, err = commonrepo.NewWorkflowTaskRevertColl().Create(&commonmodels.WorkflowTaskRevert{
+								TaskID:        taskID,
+								WorkflowName:  workflowName,
+								JobName:       jobName,
+								RevertSpec:    revertTaskSpec,
+								CreateTime:    time.Now().Unix(),
+								TaskCreator:   userName,
+								TaskCreatorID: userID,
+								Status:        config.StatusFailed,
+							})
+
+							if err != nil {
+								log.Warnf("failed to insert revert task logs, error: %s", err)
+							}
+
+							return fmt.Errorf("exec SQL \"%s\" error: %v", execResult.SQL, err)
+						}
+						execResult.Status = setting.SQLExecStatusSuccess
+						execResult.ElapsedTime = time.Now().Sub(now).Milliseconds()
+
+						rowsAffected, err := result.RowsAffected()
+						if err != nil {
+							return fmt.Errorf("get affect rows error: %v", err)
+						}
+						execResult.RowsAffected = rowsAffected
+					}
+
+					_, err = commonrepo.NewWorkflowTaskRevertColl().Create(&commonmodels.WorkflowTaskRevert{
+						TaskID:        taskID,
+						WorkflowName:  workflowName,
+						JobName:       jobName,
+						RevertSpec:    revertTaskSpec,
+						CreateTime:    time.Now().Unix(),
+						TaskCreator:   userName,
+						TaskCreatorID: userID,
+						Status:        config.StatusPassed,
+					})
+
+					if err != nil {
+						log.Warnf("failed to insert revert task logs, error: %s", err)
+					}
+
 					return nil
 				default:
 					return fmt.Errorf("job of type: %s does not support reverting yet")
