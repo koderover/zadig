@@ -92,6 +92,7 @@ func (w *WorkflowV4) CalculateHash() [md5.Size]byte {
 	}
 
 	jsonBytes, _ := json.Marshal(fieldList)
+	fmt.Println(">>>>>>>>>>>>>>>>>>>>", string(jsonBytes))
 	return md5.Sum(jsonBytes)
 }
 
