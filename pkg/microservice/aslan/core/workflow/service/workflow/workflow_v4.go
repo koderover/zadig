@@ -110,7 +110,7 @@ func CreateWorkflowV4(user string, workflow *commonmodels.WorkflowV4, logger *za
 		return e.ErrUpsertWorkflow.AddErr(err)
 	}
 
-	savedWorkflow, err := commonrepo.NewWorkflowV4Coll().Find(workflow.Name)
+	savedWorkflow, err := FindWorkflowV4("", workflow.Name, logger)
 	if err != nil {
 		logger.Errorf("Failed to find WorkflowV4: %s, the error is: %v", workflow.Name, err)
 		return e.ErrUpsertWorkflow.AddErr(err)
