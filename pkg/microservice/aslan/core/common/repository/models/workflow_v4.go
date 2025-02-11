@@ -78,7 +78,7 @@ func (w *WorkflowV4) UpdateHash() {
 
 func (w *WorkflowV4) CalculateHash() [md5.Size]byte {
 	fieldList := make(map[string]interface{})
-	ignoringFieldList := []string{"CreatedBy", "CreateTime", "UpdatedBy", "UpdateTime", "Description", "Hash", "DisplayName", "HookCtls", "JiraHookCtls", "MeegoHookCtls", "GeneralHookCtls", "ConcurrencyLimit", "ShareStorages", "NotifyCtls"}
+	ignoringFieldList := []string{"CreatedBy", "CreateTime", "UpdatedBy", "UpdateTime", "Description", "Hash", "DisplayName", "HookCtls", "JiraHookCtls", "MeegoHookCtls", "GeneralHookCtls", "ConcurrencyLimit", "ShareStorages", "NotifyCtls", "ID"}
 	ignoringFields := sets.NewString(ignoringFieldList...)
 
 	val := reflect.ValueOf(*w)
