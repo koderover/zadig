@@ -72,8 +72,31 @@ type WorkflowV4 struct {
 	EnableApprovalTicket bool         `bson:"enable_approval_ticket" yaml:"enable_approval_ticket" json:"enable_approval_ticket"`
 }
 
+// UpdateHash will do 2 things:
+// 1. normalize the workflowV4 struct, replacing all nil slices with empty slices
+// 2. calculate hash with it
 func (w *WorkflowV4) UpdateHash() {
+	normalizeNilSlices(w)
+
 	w.Hash = fmt.Sprintf("%x", w.CalculateHash())
+}
+
+func normalizeNilSlices(v interface{}) {
+	val := reflect.ValueOf(v).Elem() // Get the actual struct
+
+	for i := 0; i < val.NumField(); i++ {
+		field := val.Field(i)
+
+		// Check if the field is a slice and nil
+		if field.Kind() == reflect.Slice && field.IsNil() {
+			field.Set(reflect.MakeSlice(field.Type(), 0, 0)) // Replace nil with an empty slice
+		}
+
+		// If the field is a struct, recursively do a normalization in the struct
+		if field.Kind() == reflect.Struct {
+			normalizeNilSlices(field.Addr().Interface())
+		}
+	}
 }
 
 func (w *WorkflowV4) CalculateHash() [md5.Size]byte {
@@ -92,7 +115,6 @@ func (w *WorkflowV4) CalculateHash() [md5.Size]byte {
 	}
 
 	jsonBytes, _ := json.Marshal(fieldList)
-	fmt.Println(">>>>>>>>>>>>>>>>>>>>", string(jsonBytes))
 	return md5.Sum(jsonBytes)
 }
 
