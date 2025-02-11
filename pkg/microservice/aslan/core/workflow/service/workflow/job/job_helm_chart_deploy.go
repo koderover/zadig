@@ -69,6 +69,7 @@ func (j *HelmChartDeployJob) SetPreset() error {
 			ChartName:    renderChart.ChartName,
 			ChartVersion: renderChart.ChartVersion,
 			ValuesYaml:   renderChart.GetOverrideYaml(),
+			OverrideKVs:  renderChart.OverrideValues,
 		}
 		deploys = append(deploys, deploy)
 	}
@@ -237,6 +238,7 @@ func generateEnvHelmChartInfo(env, project string) ([]*commonmodels.DeployHelmCh
 			ChartName:    renderChart.ChartName,
 			ChartVersion: renderChart.ChartVersion,
 			ValuesYaml:   renderChart.GetOverrideYaml(),
+			OverrideKVs:  renderChart.OverrideValues,
 		}
 		deploys = append(deploys, deploy)
 	}
