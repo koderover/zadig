@@ -18,6 +18,8 @@ package github
 
 import (
 	"context"
+	"fmt"
+	"regexp"
 
 	github2 "github.com/google/go-github/v35/github"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
@@ -57,10 +59,13 @@ func (c *Client) ListBranches(opt client.ListOpt) ([]*client.Branch, error) {
 	}
 	var res []*client.Branch
 	for _, o := range bList {
-		res = append(res, &client.Branch{
-			Name:      o.GetName(),
-			Protected: o.GetProtected(),
-		})
+		matched, _ := regexp.MatchString(fmt.Sprintf(`%s`, opt.Key), o.GetName())
+		if matched {
+			res = append(res, &client.Branch{
+				Name:      o.GetName(),
+				Protected: o.GetProtected(),
+			})
+		}
 	}
 	return res, nil
 }
@@ -72,11 +77,14 @@ func (c *Client) ListTags(opt client.ListOpt) ([]*client.Tag, error) {
 	}
 	var res []*client.Tag
 	for _, o := range tags {
-		res = append(res, &client.Tag{
-			Name:       o.GetName(),
-			ZipballURL: o.GetZipballURL(),
-			TarballURL: o.GetTarballURL(),
-		})
+		matched, _ := regexp.MatchString(fmt.Sprintf(`%s`, opt.Key), o.GetName())
+		if matched {
+			res = append(res, &client.Tag{
+				Name:       o.GetName(),
+				ZipballURL: o.GetZipballURL(),
+				TarballURL: o.GetTarballURL(),
+			})
+		}
 	}
 	return res, nil
 }
