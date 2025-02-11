@@ -72,16 +72,13 @@ type WorkflowV4 struct {
 	EnableApprovalTicket bool         `bson:"enable_approval_ticket" yaml:"enable_approval_ticket" json:"enable_approval_ticket"`
 }
 
-// UpdateHash will do 2 things:
-// 1. normalize the workflowV4 struct, replacing all nil slices with empty slices
-// 2. calculate hash with it
 func (w *WorkflowV4) UpdateHash() {
 	w.Hash = fmt.Sprintf("%x", w.CalculateHash())
 }
 
 func (w *WorkflowV4) CalculateHash() [md5.Size]byte {
 	fieldList := make(map[string]interface{})
-	ignoringFieldList := []string{"CreatedBy", "CreateTime", "UpdatedBy", "UpdateTime", "Description", "Hash", "DisplayName", "HookCtls", "JiraHookCtls", "MeegoHookCtls", "GeneralHookCtls", "ConcurrencyLimit", "ShareStorages", "NotifyCtls", "ID"}
+	ignoringFieldList := []string{"CreatedBy", "CreateTime", "UpdatedBy", "UpdateTime", "Description", "Hash", "DisplayName", "HookCtls", "JiraHookCtls", "MeegoHookCtls", "GeneralHookCtls", "ConcurrencyLimit", "ShareStorages", "NotifyCtls"}
 	ignoringFields := sets.NewString(ignoringFieldList...)
 
 	val := reflect.ValueOf(*w)
