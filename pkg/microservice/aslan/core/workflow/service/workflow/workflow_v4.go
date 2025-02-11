@@ -116,10 +116,8 @@ func CreateWorkflowV4(user string, workflow *commonmodels.WorkflowV4, logger *za
 		return e.ErrUpsertWorkflow.AddErr(err)
 	}
 
-	if err := commonrepo.NewWorkflowV4Coll().Update(
-		workflow.ID.Hex(),
-		savedWorkflow,
-	); err != nil {
+	err = UpdateWorkflowV4(savedWorkflow.Name, user, savedWorkflow, logger)
+	if err != nil {
 		logger.Errorf("update workflowV4 error: %s", err)
 		return e.ErrUpsertWorkflow.AddErr(err)
 	}
