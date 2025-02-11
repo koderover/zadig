@@ -102,7 +102,7 @@ func (c *WorkflowTasKRevertColl) List(opt *ListWorkflowRevertOption) ([]*models.
 		query["job_name"] = opt.JobName
 	}
 
-	findOption := options.Find()
+	findOption := options.Find().SetSort(bson.M{"create_time": -1})
 	cursor, err := c.Collection.Find(context.TODO(), query, findOption)
 	if err != nil {
 		return nil, err
