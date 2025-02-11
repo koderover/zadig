@@ -355,7 +355,7 @@ func parseImagesByPattern(nested map[string]interface{}, patterns []map[string]s
 	ret := make([]*commonmodels.Container, 0)
 	usedImagePath := sets.NewString()
 	for _, searchResult := range matchedPath {
-		uniquePath := generateUniquePath(searchResult)
+		uniquePath := GenerateUniquePath(searchResult)
 		if usedImagePath.Has(uniquePath) {
 			continue
 		}
@@ -411,7 +411,7 @@ func GetPresetRules() []*templatemodels.ImageSearchingRule {
 	return ret
 }
 
-func generateUniquePath(pathData map[string]string) string {
+func GenerateUniquePath(pathData map[string]string) string {
 	keys := []string{setting.PathSearchComponentRepo, setting.PathSearchComponentNamespace, setting.PathSearchComponentImage, setting.PathSearchComponentTag}
 	values := make([]string, 0)
 	for _, key := range keys {

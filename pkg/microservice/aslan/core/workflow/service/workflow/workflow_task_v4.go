@@ -161,12 +161,13 @@ type ZadigScanningJobSpec struct {
 }
 
 type ZadigDeployJobPreviewSpec struct {
-	Env                string             `bson:"env"                          json:"env"`
-	EnvAlias           string             `bson:"-"                            json:"env_alias"`
-	Production         bool               `bson:"-"                            json:"production"`
-	SkipCheckRunStatus bool               `bson:"skip_check_run_status"        json:"skip_check_run_status"`
-	ServiceAndImages   []*ServiceAndImage `bson:"service_and_images"           json:"service_and_images"`
-	YamlContent        string             `bson:"yaml_content"                 json:"yaml_content"`
+	Env                string                 `bson:"env"                          json:"env"`
+	EnvAlias           string                 `bson:"-"                            json:"env_alias"`
+	Production         bool                   `bson:"-"                            json:"production"`
+	DeployContents     []config.DeployContent `bson:"deploy_contents"              json:"deploy_contents"`
+	SkipCheckRunStatus bool                   `bson:"skip_check_run_status"        json:"skip_check_run_status"`
+	ServiceAndImages   []*ServiceAndImage     `bson:"service_and_images"           json:"service_and_images"`
+	YamlContent        string                 `bson:"yaml_content"                 json:"yaml_content"`
 	// UserSuppliedValue added since 1.18, the values that users gives.
 	UserSuppliedValue string `bson:"user_supplied_value" json:"user_supplied_value" yaml:"user_supplied_value"`
 	// VariableConfigs new since 1.18, only used for k8s
@@ -1872,6 +1873,7 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, 
 			spec.Env = taskJobSpec.Env
 			spec.Production = getEnvProduction(getEnv(taskJobSpec.Env))
 			spec.EnvAlias = getEnvAlias(getEnv(taskJobSpec.Env))
+			spec.DeployContents = taskJobSpec.DeployContents
 			spec.VariableConfigs = taskJobSpec.VariableConfigs
 			spec.VariableKVs = taskJobSpec.VariableKVs
 			spec.YamlContent = taskJobSpec.YamlContent
@@ -1904,6 +1906,7 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, 
 			spec.Env = taskJobSpec.Env
 			spec.Production = getEnvProduction(getEnv(taskJobSpec.Env))
 			spec.EnvAlias = getEnvAlias(getEnv(taskJobSpec.Env))
+			spec.DeployContents = taskJobSpec.DeployContents
 			spec.YamlContent = taskJobSpec.YamlContent
 			spec.UserSuppliedValue = taskJobSpec.UserSuppliedValue
 			spec.SkipCheckRunStatus = taskJobSpec.SkipCheckRunStatus

@@ -34,8 +34,8 @@ import (
 	"github.com/koderover/zadig/v2/pkg/setting"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
-	helmtool "github.com/koderover/zadig/v2/pkg/tool/helmclient"
 	mongotool "github.com/koderover/zadig/v2/pkg/tool/mongo"
+	yamlutil "github.com/koderover/zadig/v2/pkg/util/yaml"
 )
 
 type ListEnvServiceVersionsResponse struct {
@@ -73,6 +73,7 @@ type GetEnvServiceVersionYamlResponse struct {
 	Type         string `json:"type"`
 	Yaml         string `json:"yaml"`
 	VariableYaml string `json:"variable_yaml"`
+	OverrideKVs  string `json:"override_kvs"`
 }
 
 func GetEnvServiceVersionYaml(ctx *internalhandler.Context, projectName, envName, serviceName string, revision int64, isHelmChart, isProduction bool, log *zap.SugaredLogger) (GetEnvServiceVersionYamlResponse, error) {
@@ -98,10 +99,11 @@ func GetEnvServiceVersionYaml(ctx *internalhandler.Context, projectName, envName
 		resp.Yaml = parsedYaml
 		resp.VariableYaml = envSvcRevision.Service.Render.GetOverrideYaml()
 	} else if envSvcRevision.Service.Type == setting.HelmDeployType {
-		resp.VariableYaml, err = kube.GeneMergedValues(envSvcRevision.Service, envSvcRevision.Service.GetServiceRender(), envSvcRevision.DefaultValues, nil, true)
+		resp.VariableYaml, err = helmservice.NewHelmDeployService().GenMergedValues(envSvcRevision.Service, envSvcRevision.DefaultValues, nil)
 		if err != nil {
 			return resp, e.ErrDiffEnvServiceVersions.AddErr(fmt.Errorf("failed to merged values for %s/%s/%s service for version %d, isProduction %v, error: %v", projectName, envName, serviceName, revision, isProduction, err))
 		}
+		resp.OverrideKVs = envSvcRevision.Service.GetServiceRender().OverrideValues
 	} else if envSvcRevision.Service.Type == setting.HelmChartDeployType {
 		chartRepoName := envSvcRevision.Service.GetServiceRender().ChartRepo
 		chartName := envSvcRevision.Service.GetServiceRender().ChartName
@@ -121,9 +123,14 @@ func GetEnvServiceVersionYaml(ctx *internalhandler.Context, projectName, envName
 			return resp, e.ErrDiffEnvServiceVersions.AddErr(fmt.Errorf("failed to get chart values, chartRepo: %s, chartName: %s, chartVersion: %s, err %s", chartRepoName, chartName, chartVersion, err))
 		}
 
-		mergedValues, err := helmtool.MergeOverrideValues(valuesYaml, envSvcRevision.DefaultValues, envSvcRevision.Service.GetServiceRender().GetOverrideYaml(), envSvcRevision.Service.GetServiceRender().OverrideValues, nil)
+		helmDeploySvc := helmservice.NewHelmDeployService()
+		mergedValues, err := helmDeploySvc.GenMergedValues(envSvcRevision.Service, envSvcRevision.DefaultValues, nil)
 		if err != nil {
-			return resp, e.ErrDiffEnvServiceVersions.AddErr(fmt.Errorf("failed to merge override values, err %s", err))
+			return resp, e.ErrUpdateRenderSet.AddDesc(fmt.Sprintf("failed to merge values, err %s", err))
+		}
+		mergedValues, err = helmDeploySvc.GeneFullValues(valuesYaml, mergedValues)
+		if err != nil {
+			return resp, e.ErrUpdateRenderSet.AddDesc(fmt.Sprintf("failed to generate full values, err %s", err))
 		}
 		resp.VariableYaml = mergedValues
 	}
@@ -317,7 +324,6 @@ func RollbackEnvServiceVersion(ctx *internalhandler.Context, projectName, envNam
 		}
 	} else if envSvcVersion.Service.Type == setting.HelmDeployType || envSvcVersion.Service.Type == setting.HelmChartDeployType {
 		var svcTmpl *commonmodels.Service
-		imageKVS := make([]*helmtool.KV, 0)
 		if envSvcVersion.Service.Type == setting.HelmDeployType {
 			svcTmpl, err = mongodb.NewServiceColl().Find(&mongodb.ServiceFindOption{
 				ProductName: envSvcVersion.ProductName,
@@ -328,37 +334,18 @@ func RollbackEnvServiceVersion(ctx *internalhandler.Context, projectName, envNam
 			if err != nil {
 				return e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to find service temlate %s/%s/%d, error: %v", envSvcVersion.EnvName, envSvcVersion.Service.ServiceName, envSvcVersion.Service.Revision, err))
 			}
-
-			imageValuesMaps := make([]map[string]interface{}, 0)
-			for _, targetContainer := range envSvcVersion.Service.Containers {
-				// prepare image replace info
-				replaceValuesMap, err := commonutil.AssignImageData(targetContainer.Image, commonutil.GetValidMatchData(targetContainer.ImagePath))
-				if err != nil {
-					return fmt.Errorf("failed to pase image uri %s/%s, err %s", envSvcVersion.ProductName, serviceName, err.Error())
-				}
-				imageValuesMaps = append(imageValuesMaps, replaceValuesMap)
-			}
-
-			for _, imageSecs := range imageValuesMaps {
-				for key, value := range imageSecs {
-					imageKVS = append(imageKVS, &helmtool.KV{
-						Key:   key,
-						Value: value,
-					})
-				}
-			}
 		}
 
-		mergedValues, err := helmtool.MergeOverrideValues("", envSvcVersion.DefaultValues, envSvcVersion.Service.GetServiceRender().GetOverrideYaml(), envSvcVersion.Service.GetServiceRender().OverrideValues, imageKVS)
+		mergedValuesYaml, err := yamlutil.Merge([][]byte{[]byte(envSvcVersion.DefaultValues), []byte(envSvcVersion.Service.GetServiceRender().GetOverrideYaml())})
 		if err != nil {
-			return e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to merge service %s's override yaml %s and values %s, err: %s", envSvcVersion.Service.ServiceName, envSvcVersion.Service.GetServiceRender().GetOverrideYaml(), envSvcVersion.Service.GetServiceRender().OverrideValues, err))
+			return e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to merge values yaml, err: %s", err))
 		}
 
-		envSvcVersion.Service.GetServiceRender().OverrideYaml.YamlContent = mergedValues
-		envSvcVersion.Service.GetServiceRender().OverrideValues = ""
 		env.DefaultValues = ""
+		envSvcVersion.Service.DeployStrategy = setting.ServiceDeployStrategyDeploy
+		envSvcVersion.Service.GetServiceRender().SetOverrideYaml(string(mergedValuesYaml))
 
-		err = kube.UpgradeHelmRelease(env, envSvcVersion.Service, svcTmpl, nil, 0, ctx.UserName)
+		err = kube.DeploySingleHelmRelease(env, envSvcVersion.Service, svcTmpl, nil, 0, ctx.UserName)
 		if err != nil {
 			return e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to upgrade helm release for env %s, service %s, revision %d, error: %v", envSvcVersion.EnvName, envSvcVersion.Service.ServiceName, envSvcVersion.Service.Revision, err))
 		}
