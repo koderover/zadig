@@ -60,7 +60,7 @@ const (
 
 func (w *Service) sendDingDingMessage(uri, title, content, actionURL string, atMobiles []string, isAtAll bool) error {
 	// reference: https://open.dingtalk.com/document/orgapp/message-link-description
-	dingtalkRedirectURL := fmt.Sprintf("dingtalk://dingtalkclient/page/link?url=%s&pc_slide=true",
+	dingtalkRedirectURL := fmt.Sprintf("dingtalk://dingtalkclient/page/link?url=%s&pc_slide=false",
 		url.QueryEscape(actionURL),
 	)
 
