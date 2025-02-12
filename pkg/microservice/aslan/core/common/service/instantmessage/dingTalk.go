@@ -84,6 +84,6 @@ func (w *Service) sendDingDingMessage(uri, title, content, actionURL string, atM
 		IsAtAll:   isAtAll,
 	}
 
-	resp, err := w.SendMessageRequest(uri, message)
+	_, err := w.SendMessageRequest(uri, message)
 	return err
 }
