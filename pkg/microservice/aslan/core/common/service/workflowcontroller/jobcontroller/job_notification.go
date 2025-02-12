@@ -268,6 +268,11 @@ func sendDingDingMessage(productName, workflowName, workflowDisplayName string, 
 		url.PathEscape(workflowDisplayName),
 	)
 
+	// reference: https://open.dingtalk.com/document/orgapp/message-link-description
+	dingtalkRedirectURL := fmt.Sprintf("dingtalk://dingtalkclient/page/link?url=%s&pc_slide=true",
+		url.QueryEscape(actionURL),
+	)
+
 	messageReq := instantmessage.DingDingMessage{
 		MsgType: instantmessage.DingDingMsgType,
 		ActionCard: &instantmessage.DingDingActionCard{
@@ -278,7 +283,7 @@ func sendDingDingMessage(productName, workflowName, workflowDisplayName string, 
 			Buttons: []*instantmessage.DingDingButton{
 				{
 					Title:     "点击查看更多信息",
-					ActionURL: actionURL,
+					ActionURL: dingtalkRedirectURL,
 				},
 			},
 		},
