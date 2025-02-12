@@ -64,6 +64,8 @@ func (w *Service) sendDingDingMessage(uri, title, content, actionURL string, atM
 		url.QueryEscape(actionURL),
 	)
 
+	fmt.Println(">>>>>>>>>>>>>>>>>>>>>> redirectURL: ", dingtalkRedirectURL)
+
 	message := &DingDingMessage{
 		MsgType: DingDingMsgType,
 		ActionCard: &DingDingActionCard{
@@ -84,6 +86,8 @@ func (w *Service) sendDingDingMessage(uri, title, content, actionURL string, atM
 		IsAtAll:   isAtAll,
 	}
 
-	_, err := w.SendMessageRequest(uri, message)
+	resp, err := w.SendMessageRequest(uri, message)
+	fmt.Println(">>>>>>>>>>>>>>>>>>>>>>>>>>>> resp:", string(resp))
+
 	return err
 }
