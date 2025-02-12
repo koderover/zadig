@@ -419,6 +419,7 @@ type DeployHelmChart struct {
 	ChartName    string `bson:"chart_name"            yaml:"chart_name"               json:"chart_name"`
 	ChartVersion string `bson:"chart_version"         yaml:"chart_version"            json:"chart_version"`
 	ValuesYaml   string `bson:"values_yaml"           yaml:"values_yaml"              json:"values_yaml"`
+	OverrideKVs  string `bson:"override_kvs"          yaml:"override_kvs"             json:"override_kvs"` // used for helm services, json-encoded string of kv value
 }
 
 type DeployService struct {

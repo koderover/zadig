@@ -958,6 +958,9 @@ func (hClient *HelmClient) GetChartValues(repoEntry *repo.Entry, projectName, re
 	lock.Lock()
 	defer lock.Unlock()
 
+	mutex := cache.NewRedisLockWithExpiry(fmt.Sprintf("helm_chart_download:%s", localPath), time.Minute*1)
+	mutex.Lock()
+	defer mutex.Unlock()
 	// remove local file to untar
 	_ = os.RemoveAll(localPath)
 
@@ -965,6 +968,7 @@ func (hClient *HelmClient) GetChartValues(repoEntry *repo.Entry, projectName, re
 	if err != nil {
 		return "", fmt.Errorf("failed to download chart, chartName: %s, chartRepo: %+v, err: %s", chartName, repoEntry.Name, err)
 	}
+	mutex.Unlock()
 
 	fsTree := os.DirFS(localPath)
 	valuesYAML, err := util.ReadValuesYAML(fsTree, chartName, log.SugaredLogger())

@@ -590,6 +590,10 @@ func DeploySingleHelmRelease(product *commonmodels.Product, productSvc *commonmo
 
 		chartRef := fmt.Sprintf("%s/%s", chartInfo.ChartRepo, chartInfo.ChartName)
 		localPath := config.LocalServicePathWithRevision(product.ProductName, releaseName, chartInfo.ChartVersion, product.Production)
+
+		mutex := cache.NewRedisLockWithExpiry(fmt.Sprintf("helm_chart_download:%s", localPath), time.Minute*1)
+		mutex.Lock()
+		defer mutex.Unlock()
 		// remove local file to untar
 		_ = os.RemoveAll(localPath)
 
@@ -601,6 +605,7 @@ func DeploySingleHelmRelease(product *commonmodels.Product, productSvc *commonmo
 		if err != nil {
 			return fmt.Errorf("failed to download chart, chartName: %s, chartRepo: %+v, err: %s", chartInfo.ChartName, chartRepo.RepoName, err)
 		}
+		mutex.Unlock()
 	}
 
 	helmClient, err := helmtool.NewClientFromNamespace(product.ClusterID, product.Namespace)
@@ -690,6 +695,11 @@ func DeployMultiHelmRelease(productResp *commonmodels.Product, helmClient *helmt
 
 			chartRef := fmt.Sprintf("%s/%s", param.RenderChart.ChartRepo, param.RenderChart.ChartName)
 			localPath := config.LocalServicePathWithRevision(param.ProductName, param.ReleaseName, param.RenderChart.ChartVersion, param.Production)
+
+			mutex := cache.NewRedisLockWithExpiry(fmt.Sprintf("helm_chart_download:%s", localPath), time.Minute*1)
+			mutex.Lock()
+			defer mutex.Unlock()
+
 			// remove local file to untar
 			_ = os.RemoveAll(localPath)
 
@@ -702,6 +712,7 @@ func DeployMultiHelmRelease(productResp *commonmodels.Product, helmClient *helmt
 			if err != nil {
 				return fmt.Errorf("failed to download chart, chartName: %s, chartRepo: %+v, err: %s", param.RenderChart.ChartName, chartRepo.RepoName, err)
 			}
+			mutex.Unlock()
 		}
 
 		errInstall := InstallOrUpgradeHelmChartWithValues(param, isRetry, helmClient)
