@@ -16,6 +16,11 @@ limitations under the License.
 
 package instantmessage
 
+import (
+	"fmt"
+	"net/url"
+)
+
 type DingDingMessage struct {
 	MsgType    string              `json:"msgtype"`
 	MarkDown   *DingDingMarkDown   `json:"markdown"`
@@ -54,6 +59,11 @@ const (
 )
 
 func (w *Service) sendDingDingMessage(uri, title, content, actionURL string, atMobiles []string, isAtAll bool) error {
+	// reference: https://open.dingtalk.com/document/orgapp/message-link-description
+	dingtalkRedirectURL := fmt.Sprintf("dingtalk://dingtalkclient/page/link?url=%s&pc_slide=false",
+		url.QueryEscape(actionURL),
+	)
+
 	message := &DingDingMessage{
 		MsgType: DingDingMsgType,
 		ActionCard: &DingDingActionCard{
@@ -64,7 +74,7 @@ func (w *Service) sendDingDingMessage(uri, title, content, actionURL string, atM
 			Buttons: []*DingDingButton{
 				{
 					Title:     "点击查看更多信息",
-					ActionURL: actionURL,
+					ActionURL: dingtalkRedirectURL,
 				},
 			},
 		},
