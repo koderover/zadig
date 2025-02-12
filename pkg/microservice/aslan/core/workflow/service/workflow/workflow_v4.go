@@ -109,6 +109,19 @@ func CreateWorkflowV4(user string, workflow *commonmodels.WorkflowV4, logger *za
 		logger.Errorf("Failed to create workflow v4, the error is: %s", err)
 		return e.ErrUpsertWorkflow.AddErr(err)
 	}
+
+	savedWorkflow, err := FindWorkflowV4("", workflow.Name, logger)
+	if err != nil {
+		logger.Errorf("Failed to find WorkflowV4: %s, the error is: %v", workflow.Name, err)
+		return e.ErrUpsertWorkflow.AddErr(err)
+	}
+
+	err = UpdateWorkflowV4(savedWorkflow.Name, user, savedWorkflow, logger)
+	if err != nil {
+		logger.Errorf("update workflowV4 error: %s", err)
+		return e.ErrUpsertWorkflow.AddErr(err)
+	}
+
 	return nil
 }
 
