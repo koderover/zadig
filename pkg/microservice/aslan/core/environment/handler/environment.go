@@ -2211,12 +2211,6 @@ func RunAnalysis(c *gin.Context) {
 					return
 				}
 			}
-
-			err = commonutil.CheckZadigProfessionalLicense()
-			if err != nil {
-				ctx.RespErr = err
-				return
-			}
 		} else {
 			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
 				!ctx.Resources.ProjectAuthInfo[projectKey].Env.View {
@@ -2277,11 +2271,6 @@ func UpsertEnvAnalysisCron(c *gin.Context) {
 					ctx.UnAuthorized = true
 					return
 				}
-			}
-
-			if err := commonutil.CheckZadigProfessionalLicense(); err != nil {
-				ctx.RespErr = err
-				return
 			}
 		} else {
 			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
@@ -2357,11 +2346,6 @@ func GetEnvAnalysisCron(c *gin.Context) {
 					return
 				}
 			}
-
-			if err := commonutil.CheckZadigProfessionalLicense(); err != nil {
-				ctx.RespErr = err
-				return
-			}
 		} else {
 			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
 				!ctx.Resources.ProjectAuthInfo[projectKey].Env.View {
@@ -2424,11 +2408,6 @@ func GetEnvAnalysisHistory(c *gin.Context) {
 					ctx.UnAuthorized = true
 					return
 				}
-			}
-
-			if err := commonutil.CheckZadigProfessionalLicense(); err != nil {
-				ctx.RespErr = err
-				return
 			}
 		} else {
 			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
