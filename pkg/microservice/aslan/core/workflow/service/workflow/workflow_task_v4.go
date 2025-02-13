@@ -1494,15 +1494,13 @@ func ListWorkflowTaskV4ByFilter(filter *TaskHistoryFilter, filterList []string, 
 
 					for _, testResult := range testResultList {
 						testModules = append(testModules, &commonmodels.WorkflowTestModule{
-							RunningJobName: job.Name,
+							RunningJobName: jobctl.GenJobName(task.WorkflowArgs,job.Name,0),
 							Type:           "function",
 							TestName:       testResult.ZadigTestName,
 							TestCaseNum:    testResult.TestCaseNum,
 							SuccessCaseNum: testResult.SuccessCaseNum,
 							TestTime:       testResult.TestTime,
 						})
-						fmt.Printf("Test Result: %+v\n", testModules)
-						fmt.Print("JobName: %+v\n",jobctl.GenJobName(task.WorkflowArgs,job.Name,0))
 					}
 					jobPreview.TestModules = testModules
 				case config.JobZadigDistributeImage:
