@@ -173,7 +173,8 @@ type JobPreview struct {
 }
 
 type WorkflowTestModule struct {
-	RunningJobName string  `json:"running_job_name"`
+	JobName        string  `json:"job_name"`
+	JobTaskName    string  `json:"job_task_name"`
 	Type           string  `json:"type"`
 	TestName       string  `json:"name"`
 	TestCaseNum    int     `json:"total_case_num"`
