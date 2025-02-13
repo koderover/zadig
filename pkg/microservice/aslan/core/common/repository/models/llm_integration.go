@@ -27,6 +27,7 @@ type LLMIntegration struct {
 	ProviderName llm.Provider       `bson:"provider_name"  json:"provider_name"`
 	Token        string             `bson:"token"          json:"token"`
 	BaseURL      string             `bson:"base_url"       json:"base_url"`
+	Model        string             `bson:"model"          json:"model"`
 	EnableProxy  bool               `bson:"enable_proxy"   json:"enable_proxy"`
 	IsDefault    bool               `bson:"is_default"     json:"is_default"`
 	UpdatedBy    string             `bson:"updated_by"     json:"updated_by"`

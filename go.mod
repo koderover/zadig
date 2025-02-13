@@ -48,7 +48,7 @@ require (
 	github.com/gregjones/httpcache v0.0.0-20190611155906-901d90724c79
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/huaweicloud/huaweicloud-sdk-go-v3 v0.1.2
-	github.com/hupe1980/go-tiktoken v0.0.9
+	github.com/hupe1980/go-tiktoken v0.0.10
 	github.com/iancoleman/strcase v0.3.0
 	github.com/imroc/req/v3 v3.42.0
 	github.com/jasonlvhit/gocron v0.0.1
@@ -77,7 +77,7 @@ require (
 	github.com/rfyiamcool/cronlib v1.2.1
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/samber/lo v1.37.0
-	github.com/sashabaranov/go-openai v1.24.0
+	github.com/sashabaranov/go-openai v1.37.0
 	github.com/segmentio/encoding v0.4.1
 	github.com/shirou/gopsutil v3.21.11+incompatible
 	github.com/shirou/gopsutil/v3 v3.22.8
@@ -168,7 +168,7 @@ require (
 	github.com/dgraph-io/ristretto v0.1.0 // indirect
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
-	github.com/dlclark/regexp2 v1.11.0 // indirect
+	github.com/dlclark/regexp2 v1.11.5 // indirect
 	github.com/docker/cli v23.0.1+incompatible // indirect
 	github.com/docker/docker-credential-helpers v0.7.0 // indirect
 	github.com/docker/go-metrics v0.0.1 // indirect

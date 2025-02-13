@@ -22,6 +22,8 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
+	"time"
 
 	"github.com/hupe1980/go-tiktoken"
 	"github.com/sashabaranov/go-openai"
@@ -31,7 +33,7 @@ import (
 )
 
 const (
-	DefaultOpenAIModel           = openai.GPT4o
+	DefaultOpenAIModel           = openai.O120241217
 	DefaultOpenAIModelTokenLimit = "128000"
 )
 
@@ -54,11 +56,19 @@ func (c *OpenAIClient) Configure(config LLMConfig) error {
 			c.apiType = string(openai.APITypeAzureAD)
 			defaultConfig.APIType = openai.APITypeAzureAD
 		}
+	} else if config.GetProviderName() == ProviderDeepSeek {
+		c.apiType = string(openai.APITypeOpenAI)
+		defaultConfig = openai.DefaultConfig(token)
+		baseURL := config.GetBaseURL()
+		defaultConfig.BaseURL = baseURL
 	} else {
 		c.apiType = string(openai.APITypeOpenAI)
 		defaultConfig = openai.DefaultConfig(token)
 	}
 
+	httpClient := &http.Client{
+		Timeout: 5 * time.Minute,
+	}
 	if config.GetProxy() != "" {
 		proxyUrl, err := url.Parse(config.GetProxy())
 		if err != nil {
@@ -67,10 +77,9 @@ func (c *OpenAIClient) Configure(config LLMConfig) error {
 		transport := &http.Transport{
 			Proxy: http.ProxyURL(proxyUrl),
 		}
-		defaultConfig.HTTPClient = &http.Client{
-			Transport: transport,
-		}
+		httpClient.Transport = transport
 	}
+	defaultConfig.HTTPClient = httpClient
 
 	client := openai.NewClientWithConfig(defaultConfig)
 	if client == nil {
@@ -109,6 +118,7 @@ func (c *OpenAIClient) GetCompletion(ctx context.Context, prompt string, options
 
 	var resp openai.ChatCompletionResponse
 	var err error
+	now := time.Now()
 	if opts.MaxTokens == 0 {
 		resp, err = c.client.CreateChatCompletion(ctx, openai.ChatCompletionRequest{
 			Model:       model,
@@ -127,12 +137,35 @@ func (c *OpenAIClient) GetCompletion(ctx context.Context, prompt string, options
 			LogitBias:   opts.LogitBias,
 		})
 	}
-
 	if err != nil {
+		log.Debugf("ai completion took: %v, err: %v", time.Since(now), err)
 		return "", fmt.Errorf("create chat completion failed: %v", err)
 	}
+	log.Debugf("ai completion took: %v", time.Since(now))
 
-	return resp.Choices[0].Message.Content, nil
+	if len(resp.Choices) == 0 {
+		return "", errors.New("no completion choices")
+	}
+
+	thinkStartTag := "<think>"
+	thinkEndTag := "</think>"
+	message := resp.Choices[0].Message.Content
+	for {
+		thinkStartIndex := strings.Index(message, thinkStartTag)
+		thinkEndIndex := strings.Index(message, thinkEndTag)
+		if thinkStartIndex == -1 {
+			break
+		}
+		if thinkEndIndex == -1 {
+			break
+		}
+		message = message[:thinkStartIndex] + message[thinkEndIndex+len(thinkEndTag):]
+		message = strings.TrimSpace(message)
+	}
+
+	log.Debugf("ai completion result: %s", message)
+
+	return message, nil
 }
 
 func (a *OpenAIClient) Parse(ctx context.Context, prompt string, cache cache.ICache, options ...ParamOption) (string, error) {
@@ -160,11 +193,12 @@ func (a *OpenAIClient) Parse(ctx context.Context, prompt string, cache cache.ICa
 		return "", err
 	}
 
-	err = cache.Store(cacheKey, base64.StdEncoding.EncodeToString([]byte(response)))
-
-	if err != nil {
-		log.Errorf("error storing value to cache: %v", err)
-		return "", nil
+	if !cache.IsCacheDisabled() {
+		err = cache.Store(cacheKey, base64.StdEncoding.EncodeToString([]byte(response)))
+		if err != nil {
+			log.Errorf("error storing value to cache: %v", err)
+			return "", nil
+		}
 	}
 
 	return response, nil
@@ -178,6 +212,10 @@ func (a *OpenAIClient) GetName() string {
 		return string(ProviderOpenAI)
 	}
 	return a.name
+}
+
+func (a *OpenAIClient) GetModel() string {
+	return a.model
 }
 
 func NumTokensFromMessages(messages []openai.ChatCompletionMessage, model string) (num_tokens int, err error) {
@@ -198,7 +236,6 @@ func NumTokensFromMessages(messages []openai.ChatCompletionMessage, model string
 	} else {
 		tokens_per_message = 3
 		tokens_per_name = 1
-		log.Warnf("Warning: model not found. Using cl100k_base encoding.")
 	}
 
 	calcTokens := func(message string) (int, error) {

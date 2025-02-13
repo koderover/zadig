@@ -22,7 +22,6 @@ import (
 	"github.com/gin-gonic/gin"
 
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
-	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/service"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
@@ -33,6 +32,7 @@ type CreateLLMIntegrationRequest struct {
 	ProviderName llm.Provider `json:"provider_name"`
 	Token        string       `json:"token"`
 	BaseURL      string       `json:"base_url"`
+	Model        string       `json:"model"`
 	EnableProxy  bool         `json:"enable_proxy"`
 }
 
@@ -51,12 +51,6 @@ func CreateLLMIntegration(c *gin.Context) {
 	args := new(CreateLLMIntegrationRequest)
 	if err := c.BindJSON(args); err != nil {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid create llm Integration json args")
-		return
-	}
-
-	err := commonutil.CheckZadigProfessionalLicense()
-	if err != nil {
-		ctx.RespErr = err
 		return
 	}
 
@@ -151,12 +145,6 @@ func UpdateLLMIntegration(c *gin.Context) {
 		return
 	}
 
-	err := commonutil.CheckZadigProfessionalLicense()
-	if err != nil {
-		ctx.RespErr = err
-		return
-	}
-
 	llmProvider := convertLLMArgToModel(args)
 	llmProvider.UpdatedBy = ctx.UserName
 	ctx.RespErr = service.UpdateLLMIntegration(context.TODO(), c.Param("id"), llmProvider)
@@ -189,6 +177,7 @@ func convertLLMArgToModel(args *CreateLLMIntegrationRequest) *commonmodels.LLMIn
 		Token:        args.Token,
 		BaseURL:      args.BaseURL,
 		EnableProxy:  args.EnableProxy,
+		Model:        args.Model,
 		IsDefault:    true,
 	}
 }

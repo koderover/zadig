@@ -51,7 +51,12 @@ const (
 	StateProblemDetected AnalysisStatus = "ProblemDetected"
 
 	analysisPrompt = `Simplify the following Kubernetes error message delimited by triple dashes written in --- %s --- language; --- %s ---.
-	Provide the most possible solution in a step by step style in no more than 280 characters. Write the output in the following format:
+	Provide the most possible solution in a step by step style in no more than 280 characters. Write the output in the following format, and do not output thinking process:
+	错误: {Explain error here}
+	解决方案: {Step by step solution here}
+	`
+	analysisChinesePrompt = `简化以下用 --- %s --- 语言编写的以三重破折号分隔的 Kubernetes 错误消息； --- %s ---。
+	以不超过 280 个字符的方式，一步一步地提供最可能的解决方案。按以下格式写出输出，不要输出思考过程：
 	错误: {Explain error here}
 	解决方案: {Step by step solution here}
 	`
@@ -212,7 +217,8 @@ func (a *Analysis) GetAIResults(anonymize bool) error {
 			texts = append(texts, failure.Text)
 		}
 		prompt := fmt.Sprintf(analysisPrompt, "Chinese", strings.Join(texts, " "))
-		parsedText, err := a.AIClient.Parse(a.Context, prompt, a.Cache, llm.WithTemperature(0.3))
+		options := []llm.ParamOption{llm.WithTemperature(0.3), llm.WithModel(a.AIClient.GetModel())}
+		parsedText, err := a.AIClient.Parse(a.Context, prompt, a.Cache, options...)
 		if err != nil {
 			// Check for exhaustion
 			if strings.Contains(err.Error(), "status code: 429") {
