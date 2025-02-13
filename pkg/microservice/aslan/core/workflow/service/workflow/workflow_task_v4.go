@@ -63,7 +63,6 @@ import (
 	"go.uber.org/zap"
 	"gorm.io/gorm/utils"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 )
 
 type CreateTaskV4Resp struct {
@@ -1503,7 +1502,7 @@ func ListWorkflowTaskV4ByFilter(filter *TaskHistoryFilter, filterList []string, 
 							TestTime:       testResult.TestTime,
 						})
 						fmt.Printf("Test Result: %+v\n", testModules)
-						fmt.Print("JobName: %+v\n",GenJobName(task.WorkflowArgs,job.Name))
+						fmt.Print("JobName: %+v\n",jobctl.GenJobName(task.WorkflowArgs,job.Name))
 					}
 					jobPreview.TestModules = testModules
 				case config.JobZadigDistributeImage:
