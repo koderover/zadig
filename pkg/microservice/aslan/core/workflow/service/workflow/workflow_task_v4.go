@@ -1494,7 +1494,8 @@ func ListWorkflowTaskV4ByFilter(filter *TaskHistoryFilter, filterList []string, 
 
 					for _, testResult := range testResultList {
 						testModules = append(testModules, &commonmodels.WorkflowTestModule{
-							RunningJobName: job.Name,
+							JobName:        job.Name,
+							JobTaskName:    testResult.JobTaskName,
 							Type:           "function",
 							TestName:       testResult.ZadigTestName,
 							TestCaseNum:    testResult.TestCaseNum,
