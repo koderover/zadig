@@ -1502,7 +1502,7 @@ func ListWorkflowTaskV4ByFilter(filter *TaskHistoryFilter, filterList []string, 
 							TestTime:       testResult.TestTime,
 						})
 						fmt.Printf("Test Result: %+v\n", testModules)
-						fmt.Print("JobName: %+v\n",jobctl.GenJobName(task.WorkflowArgs,job.Name))
+						fmt.Print("JobName: %+v\n",jobctl.GenJobName(task.WorkflowArgs,job.Name,0))
 					}
 					jobPreview.TestModules = testModules
 				case config.JobZadigDistributeImage:
