@@ -1493,6 +1493,8 @@ func ListWorkflowTaskV4ByFilter(filter *TaskHistoryFilter, filterList []string, 
 					}
 
 					for _, testResult := range testResultList {
+						fmt.Printf("Job: %+v\n", job)
+						fmt.Printf("Test Result: %+v\n", testResult)
 						testModules = append(testModules, &commonmodels.WorkflowTestModule{
 							RunningJobName: job.Name,
 							Type:           "function",
