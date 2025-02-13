@@ -20,6 +20,7 @@ type StepJunitReportSpec struct {
 	SourceWorkflow string `bson:"source_workflow"           json:"source_workflow"                   yaml:"source_workflow"`
 	// no stage name is recorded since the job name is unique, for now (version 2.1.0)
 	SourceJobKey  string `bson:"source_job_key"             json:"source_job_key"                    yaml:"source_job_key"`
+	JobTaskName   string `bson:"job_task_name"              json:"job_task_name"                     yaml:"job_task_name"`
 	TaskID        int64  `bson:"task_id"                    json:"task_id"                           yaml:"task_id"`
 	ServiceName   string `bson:"service_name"               json:"service_name"                      yaml:"service_name"`
 	ServiceModule string `bson:"service_module"             json:"service_module"                    yaml:"service_module"`

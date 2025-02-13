@@ -689,6 +689,7 @@ func (j *TestingJob) toJobtask(jobSubTaskID int, testing *commonmodels.TestModul
 			Spec: &step.StepJunitReportSpec{
 				SourceWorkflow: j.workflow.Name,
 				SourceJobKey:   j.job.Name,
+				JobTaskName:    jobName,
 				TaskID:         taskID,
 				ReportDir:      testingInfo.TestResultPath,
 				S3DestDir:      path.Join(j.workflow.Name, fmt.Sprint(taskID), jobTask.Name, "junit"),

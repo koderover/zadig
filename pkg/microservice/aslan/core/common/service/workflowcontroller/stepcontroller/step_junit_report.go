@@ -136,6 +136,7 @@ func (s *junitReportCtl) AfterRun(ctx context.Context) error {
 	err = commonrepo.NewCustomWorkflowTestReportColl().Create(&commonmodels.CustomWorkflowTestReport{
 		WorkflowName:     s.junitReportSpec.SourceWorkflow,
 		JobName:          s.junitReportSpec.SourceJobKey,
+		JobTaskName:      s.junitReportSpec.JobTaskName,
 		TaskID:           s.junitReportSpec.TaskID,
 		ServiceName:      s.junitReportSpec.ServiceName,
 		ServiceModule:    s.junitReportSpec.ServiceModule,

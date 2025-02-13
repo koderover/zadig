@@ -22,6 +22,7 @@ type CustomWorkflowTestReport struct {
 	ID               primitive.ObjectID `bson:"_id,omitempty"`
 	WorkflowName     string             `bson:"workflow_name"`
 	JobName          string             `bson:"job_name"`
+	JobTaskName      string             `bson:"job_task_name"`
 	TaskID           int64              `bson:"task_id"`
 	ServiceName      string             `bson:"service_name"`
 	ServiceModule    string             `bson:"service_module"`
