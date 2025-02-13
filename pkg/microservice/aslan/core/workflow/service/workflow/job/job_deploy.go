@@ -685,6 +685,7 @@ func generateEnvDeployServiceInfo(env, project string, spec *commonmodels.ZadigD
 
 	/*
 	   1. Throw everything in the envs into the response
+	   2. Comparing the service list in the envs with the service list in service definition to find extra (if not found just do nothing)
 	   2. Do a scan for the services that is newly created in the service list
 
 	   Additional logics:
@@ -694,13 +695,28 @@ func generateEnvDeployServiceInfo(env, project string, spec *commonmodels.ZadigD
 
 	for _, service := range envServiceMap {
 		modules := make([]*commonmodels.DeployModuleInfo, 0)
+		modulesMap := make(map[string]string)
 		for _, module := range service.Containers {
+			modulesMap[module.Name] = module.Image
 			if isAllowedService(service.ServiceName, module.Name, allowedServices) {
 				modules = append(modules, &commonmodels.DeployModuleInfo{
 					ServiceModule: module.Name,
 					Image:         module.Image,
 					ImageName:     commonutil.ExtractImageName(module.Image),
 				})
+			}
+		}
+
+		if serviceDef, ok := serviceDefinitionMap[service.ServiceName]; ok {
+			for _, module := range serviceDef.Containers {
+				// if a container is newly created in the service, add it to the module list
+				if _, ok := modulesMap[module.Name]; !ok {
+					modules = append(modules, &commonmodels.DeployModuleInfo{
+						ServiceModule: module.Name,
+						Image:         module.Image,
+						ImageName:     commonutil.ExtractImageName(module.Image),
+					})
+				}
 			}
 		}
 
