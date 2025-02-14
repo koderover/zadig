@@ -178,7 +178,7 @@ func ReplaceWorkloadImages(rawYaml string, images []*commonmodels.Container) (st
 			}
 
 			for i, c := range initContainers {
-				container := c.(map[interface{}]interface{})
+				container := c.(map[string]interface{})
 				containerName := container["name"].(string)
 				if image, ok := imageMap[containerName]; ok {
 					container["image"] = image.Image
@@ -198,7 +198,7 @@ func ReplaceWorkloadImages(rawYaml string, images []*commonmodels.Container) (st
 			}
 
 			for i, c := range containers {
-				container := c.(map[interface{}]interface{})
+				container := c.(map[string]interface{})
 				containerName := container["name"].(string)
 				if image, ok := imageMap[containerName]; ok {
 					container["image"] = image.Image
@@ -217,7 +217,7 @@ func ReplaceWorkloadImages(rawYaml string, images []*commonmodels.Container) (st
 			}
 
 			for i, c := range initContainers {
-				container := c.(map[interface{}]interface{})
+				container := c.(map[string]interface{})
 				containerName := container["name"].(string)
 				if image, ok := imageMap[containerName]; ok {
 					container["image"] = image.Image
