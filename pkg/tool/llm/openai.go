@@ -163,8 +163,6 @@ func (c *OpenAIClient) GetCompletion(ctx context.Context, prompt string, options
 		message = strings.TrimSpace(message)
 	}
 
-	log.Debugf("ai completion result: %s", message)
-
 	return message, nil
 }
 
