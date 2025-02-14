@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -200,6 +201,10 @@ func GetWorkflowV4LocalTestSuite(workflowName, jobName string, taskID int64, log
 		}()
 		if err != nil {
 			log.Errorf("GetLocalTestSuite GenerateTmpFile err:%v", err)
+		}
+
+		if len(stepSpec.S3Storage.Subfolder) > 0 {
+			stepSpec.S3DestDir = strings.TrimLeft(path.Join(stepSpec.S3Storage.Subfolder, stepSpec.S3DestDir), "/")
 		}
 		objectKey := filepath.Join(stepSpec.S3DestDir, stepSpec.FileName)
 		client, err := s3tool.NewClient(s3Storage.Endpoint, s3Storage.Ak, s3Storage.Sk, s3Storage.Region, s3Storage.Insecure, s3Storage.Provider)
