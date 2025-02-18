@@ -430,7 +430,6 @@ func GetReleasePlanJobDetail(planID, jobID string) (*commonmodels.ReleaseJob, er
 				originalWorkflow.Remark = spec.Workflow.Remark
 
 				spec.Workflow = originalWorkflow
-				a, _ := json.Marshal(spec)
 				releasePlanJob.Spec = spec
 			}
 
