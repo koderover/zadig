@@ -433,10 +433,14 @@ func ExecuteReleaseJob(c *handler.Context, planID string, args *ExecuteReleaseJo
 
 	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
 	defer cancel()
+	dbStartTime := time.Now().Unix()
+	log.Infof(">>>>>>>>>>>>>>> [execute release plan] db query for plan started: time: %d <<<<<<<<<<<<<<<<", dbStartTime)
 	plan, err := mongodb.NewReleasePlanColl().GetByID(ctx, planID)
 	if err != nil {
 		return errors.Wrap(err, "get plan")
 	}
+	log.Infof(">>>>>>>>>>>>>>> [execute release plan] db query for plan ended: time: %d <<<<<<<<<<<<<<<<", time.Now().Unix())
+	log.Infof(">>>>>>>>>>>>>>> [execute release plan] db query for plan time used: %d <<<<<<<<<<<<<<<<", time.Now().Unix()-dbStartTime)
 
 	if plan.Status != config.StatusExecuting {
 		return errors.Errorf("plan status is %s, can not execute", plan.Status)
@@ -475,9 +479,13 @@ func ExecuteReleaseJob(c *handler.Context, planID string, args *ExecuteReleaseJo
 		plan.Status = config.StatusSuccess
 	}
 
+	dbStartTime = time.Now().Unix()
+	log.Infof(">>>>>>>>>>>>>>> [execute release plan] db query for updating plan started: time: %d <<<<<<<<<<<<<<<<", dbStartTime)
 	if err = mongodb.NewReleasePlanColl().UpdateByID(ctx, planID, plan); err != nil {
 		return errors.Wrap(err, "update plan")
 	}
+	log.Infof(">>>>>>>>>>>>>>> [execute release plan] db query for updating plan ended: time: %d <<<<<<<<<<<<<<<<", time.Now().Unix())
+	log.Infof(">>>>>>>>>>>>>>> [execute release plan] db query for updating plan time used: %d <<<<<<<<<<<<<<<<", time.Now().Unix()-dbStartTime)
 
 	go func() {
 		if err := mongodb.NewReleasePlanLogColl().Create(&models.ReleasePlanLog{

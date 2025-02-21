@@ -131,12 +131,18 @@ func (e *WorkflowReleaseJobExecutor) Execute(plan *models.ReleasePlan) error {
 			return errors.Errorf("job %s status %s can't execute", job.Name, job.Status)
 		}
 
+		dbStartTime := time.Now().Unix()
+		log.Infof(">>>>>>>>>>>>>>> [execute release plan] db query for original workflow started: time: %d <<<<<<<<<<<<<<<<", dbStartTime)
 		originalWorkflow, err := mongodb.NewWorkflowV4Coll().Find(spec.Workflow.Name)
 		if err != nil {
 			log.Errorf("Failed to find WorkflowV4: %s, the error is: %v", spec.Workflow.Name, err)
 			return fmt.Errorf("failed to find WorkflowV4: %s, the error is: %v", spec.Workflow.Name, err)
 		}
+		log.Infof(">>>>>>>>>>>>>>> [execute release plan] db query for original workflow ended: time: %d <<<<<<<<<<<<<<<<", time.Now().Unix())
+		log.Infof(">>>>>>>>>>>>>>> [execute release plan] db query for original workflow time used: %d <<<<<<<<<<<<<<<<", time.Now().Unix()-dbStartTime)
 
+		processStartTime := time.Now().Unix()
+		log.Infof(">>>>>>>>>>>>>>> [execute release plan] processing workflow execution parameter started: time: %d <<<<<<<<<<<<<<<<", processStartTime)
 		if err := jobctl.MergeArgs(originalWorkflow, spec.Workflow); err != nil {
 			errMsg := fmt.Sprintf("merge workflow args error: %v", err)
 			log.Error(errMsg)
@@ -161,6 +167,9 @@ func (e *WorkflowReleaseJobExecutor) Execute(plan *models.ReleasePlan) error {
 				}
 			}
 		}
+
+		log.Infof(">>>>>>>>>>>>>>> [execute release plan] processing workflow execution parameter ended: time: %d <<<<<<<<<<<<<<<<", time.Now().Unix())
+		log.Infof(">>>>>>>>>>>>>>> [execute release plan] processing workflow execution parameter time used: %d <<<<<<<<<<<<<<<<", time.Now().Unix()-processStartTime)
 
 		ctx := e.Ctx
 		result, err := workflow.CreateWorkflowTaskV4(&workflow.CreateWorkflowTaskV4Args{
