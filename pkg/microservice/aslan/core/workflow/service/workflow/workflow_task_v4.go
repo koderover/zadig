@@ -1058,12 +1058,18 @@ func ListWorkflowTaskV4ByFilter(filter *TaskHistoryFilter, filterList []string, 
 			ProjectName:  filter.ProjectName,
 		}
 	}
+	dbStartTime := time.Now().Unix()
+	logger.Infof(">>>>>>>>>>>>>>> [list v4 workflow task] db query started: time: %d <<<<<<<<<<<<<<<<", dbStartTime)
 	tasks, total, err := commonrepo.NewworkflowTaskv4Coll().ListByFilter(listTaskOpt, filter.PageNum, filter.PageSize)
 	if err != nil {
 		logger.Errorf("list workflowTaskV4 error: %s", err)
 		return nil, total, err
 	}
+	logger.Infof(">>>>>>>>>>>>>>> [list v4 workflow task] db query ended: time: %d <<<<<<<<<<<<<<<<", time.Now().Unix())
+	logger.Infof(">>>>>>>>>>>>>>> [list v4 workflow task] db query time used: %d <<<<<<<<<<<<<<<<", time.Now().Unix()-dbStartTime)
 
+	processStartTime := time.Now().Unix()
+	logger.Infof(">>>>>>>>>>>>>>> [list v4 workflow task] data processing started: time: %d <<<<<<<<<<<<<<<<", processStartTime)
 	taskPreviews := make([]*commonmodels.WorkflowTaskPreview, 0)
 	for _, task := range tasks {
 		preview := &commonmodels.WorkflowTaskPreview{
@@ -1207,6 +1213,8 @@ func ListWorkflowTaskV4ByFilter(filter *TaskHistoryFilter, filterList []string, 
 		taskPreviews = append(taskPreviews, preview)
 	}
 	cleanWorkflowV4TasksPreviews(taskPreviews)
+	logger.Infof(">>>>>>>>>>>>>>> [list v4 workflow task] data processing ended: time: %d <<<<<<<<<<<<<<<<", time.Now().Unix())
+	logger.Infof(">>>>>>>>>>>>>>> [list v4 workflow task] data processing time used: %d <<<<<<<<<<<<<<<<", time.Now().Unix()-processStartTime)
 	return taskPreviews, total, nil
 }
 
