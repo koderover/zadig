@@ -27,18 +27,20 @@ import (
 type Provider string
 
 const (
-	ProviderOpenAI   Provider = "openai"
-	ProviderDeepSeek Provider = "deepseek"
-	ProviderAzure    Provider = "azure_openai"
-	ProviderAzureAD  Provider = "azure_ad_openai"
+	ProviderOpenAI               Provider = "openai"
+	ProviderDeepSeek             Provider = "deepseek"
+	ProviderDeepSeekSiliconCloud Provider = "deepseek_siliconcloud"
+	ProviderAzure                Provider = "azure_openai"
+	ProviderAzureAD              Provider = "azure_ad_openai"
 )
 
 var (
 	clients = map[Provider]ILLM{
-		ProviderOpenAI:   &OpenAIClient{},
-		ProviderDeepSeek: &OpenAIClient{},
-		ProviderAzure:    &OpenAIClient{},
-		ProviderAzureAD:  &OpenAIClient{},
+		ProviderOpenAI:               &OpenAIClient{},
+		ProviderDeepSeek:             &OpenAIClient{},
+		ProviderDeepSeekSiliconCloud: &OpenAIClient{},
+		ProviderAzure:                &OpenAIClient{},
+		ProviderAzureAD:              &OpenAIClient{},
 	}
 )
 
