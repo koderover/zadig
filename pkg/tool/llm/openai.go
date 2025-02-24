@@ -56,7 +56,7 @@ func (c *OpenAIClient) Configure(config LLMConfig) error {
 			c.apiType = string(openai.APITypeAzureAD)
 			defaultConfig.APIType = openai.APITypeAzureAD
 		}
-	} else if config.GetProviderName() == ProviderDeepSeek {
+	} else if strings.HasPrefix(string(config.GetProviderName()), string(ProviderDeepSeek)) {
 		c.apiType = string(openai.APITypeOpenAI)
 		defaultConfig = openai.DefaultConfig(token)
 		baseURL := config.GetBaseURL()
