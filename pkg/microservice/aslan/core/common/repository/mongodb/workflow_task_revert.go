@@ -82,6 +82,41 @@ func (c *WorkflowTasKRevertColl) Create(obj *models.WorkflowTaskRevert) (string,
 	return ID.Hex(), err
 }
 
+func (c *WorkflowTasKRevertColl) UpateStatusByID(revertID string, status config.Status) error {
+	id, err := primitive.ObjectIDFromHex(revertID)
+	if err != nil {
+		return fmt.Errorf("invalid object id %s", revertID)
+	}
+	query := bson.M{"_id": id}
+	update := bson.M{"$set": bson.M{"status": status}}
+	_, err = c.Collection.UpdateOne(context.TODO(), query, update)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (c *WorkflowTasKRevertColl) UpateStatus(workflowName string, taskID int64, jobName string, status config.Status) error {
+	query := bson.M{}
+	if workflowName != "" {
+		query["workflow_name"] = workflowName
+	}
+	if taskID != 0 {
+		query["task_id"] = taskID
+	}
+	if jobName != "" {
+		query["job_name"] = jobName
+	}
+	update := bson.M{"$set": bson.M{"status": status}}
+	_, err := c.Collection.UpdateOne(context.TODO(), query, update)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 type ListWorkflowRevertOption struct {
 	TaskID       int64
 	WorkflowName string

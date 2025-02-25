@@ -697,7 +697,7 @@ func RevertWorkflowTaskV4Job(c *gin.Context) {
 		return
 	}
 
-	ctx.RespErr = workflow.RevertWorkflowTaskV4Job(workflowName, c.Param("jobName"), taskID, args.Input, ctx.UserName, ctx.UserID, ctx.Logger)
+	ctx.RespErr = workflow.RevertWorkflowTaskV4Job(ctx, workflowName, c.Param("jobName"), taskID, args.Input, ctx.UserName, ctx.UserID, ctx.Logger)
 }
 
 func GetWorkflowTaskV4JobRevert(c *gin.Context) {

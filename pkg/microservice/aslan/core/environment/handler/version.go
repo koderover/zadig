@@ -20,11 +20,12 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/gin-gonic/gin"
+
 	"github.com/koderover/zadig/v2/pkg/types"
 
-	"github.com/gin-gonic/gin"
+	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/environment/service"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
@@ -105,7 +106,7 @@ func ListEnvServiceVersions(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.RespErr = service.ListEnvServiceVersions(ctx, projectKey, envName, serviceName, isHelmChart, production, ctx.Logger)
+	ctx.Resp, ctx.RespErr = commonservice.ListEnvServiceVersions(ctx, projectKey, envName, serviceName, isHelmChart, production, ctx.Logger)
 }
 
 // @Summary Get Environment Service Version Yaml
@@ -191,7 +192,7 @@ func GetEnvServiceVersionYaml(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.RespErr = service.GetEnvServiceVersionYaml(ctx, projectKey, envName, serviceName, revision, isHelmChart, production, ctx.Logger)
+	ctx.Resp, ctx.RespErr = commonservice.GetEnvServiceVersionYaml(ctx, projectKey, envName, serviceName, revision, isHelmChart, production, ctx.Logger)
 }
 
 // @Summary Diff Environment Service Versions
@@ -235,9 +236,10 @@ func DiffEnvServiceVersions(c *gin.Context) {
 
 		if production {
 			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-				!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.View {
-				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionView)
-				if err != nil || !permitted {
+				!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.View || !ctx.Resources.ProjectAuthInfo[projectKey].Workflow.Execute {
+				envPermitted, envErr := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionView)
+				workflowPermitted, workflowErr := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeWorkflow, envName, types.WorkflowActionRun)
+				if envErr != nil || workflowErr != nil || !envPermitted || !workflowPermitted {
 					ctx.UnAuthorized = true
 					return
 				}
@@ -250,9 +252,10 @@ func DiffEnvServiceVersions(c *gin.Context) {
 			}
 		} else {
 			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-				!ctx.Resources.ProjectAuthInfo[projectKey].Env.View {
-				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionView)
-				if err != nil || !permitted {
+				!ctx.Resources.ProjectAuthInfo[projectKey].Env.View || !ctx.Resources.ProjectAuthInfo[projectKey].Workflow.Execute {
+				envPermitted, envErr := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionView)
+				workflowPermitted, workflowErr := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeWorkflow, envName, types.WorkflowActionRun)
+				if envErr != nil || workflowErr != nil || !envPermitted || !workflowPermitted {
 					ctx.UnAuthorized = true
 					return
 				}
@@ -283,7 +286,7 @@ func DiffEnvServiceVersions(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.RespErr = service.DiffEnvServiceVersions(ctx, projectKey, envName, serviceName, revisionA, revisionB, isHelmChart, production, ctx.Logger)
+	ctx.Resp, ctx.RespErr = commonservice.DiffEnvServiceVersions(ctx, projectKey, envName, serviceName, revisionA, revisionB, isHelmChart, production, ctx.Logger)
 }
 
 // @Summary Rollback Environment Service Version
@@ -369,5 +372,5 @@ func RollbackEnvServiceVersion(c *gin.Context) {
 
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "回滚", "环境-服务", fmt.Sprintf("环境: %s, 服务: %s, 版本: %d", envName, serviceName, revision), "", ctx.Logger, envName)
 
-	ctx.RespErr = service.RollbackEnvServiceVersion(ctx, projectKey, envName, serviceName, revision, isHelmChart, production, ctx.Logger)
+	_, ctx.RespErr = commonservice.RollbackEnvServiceVersion(ctx, projectKey, envName, serviceName, revision, isHelmChart, production, ctx.Logger)
 }

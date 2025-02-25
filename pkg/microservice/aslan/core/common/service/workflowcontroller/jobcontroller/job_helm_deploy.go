@@ -141,6 +141,15 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 	c.jobTaskSpec.YamlContent = finalValuesYaml
 	c.jobTaskSpec.UserSuppliedValue = newEnvService.GetServiceRender().GetOverrideYaml()
 
+	latestRevision, err := commonrepo.NewEnvServiceVersionColl().GetLatestRevision(productInfo.ProductName, productInfo.EnvName, c.jobTaskSpec.ServiceName, false, productInfo.Production)
+	if err != nil {
+		msg := fmt.Sprintf("get service revision error: %v", err)
+		logError(c.job, msg, c.logger)
+		return
+	}
+
+	c.jobTaskSpec.OriginRevision = latestRevision
+
 	c.ack()
 
 	c.logger.Infof("start helm deploy, productName %s serviceName %s namespace %s, values %s, overrideKVs: %s updateServiceRevision %v, revision %d",

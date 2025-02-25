@@ -18,6 +18,7 @@ package jobcontroller
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"sort"
 	"strings"
@@ -210,6 +211,16 @@ func (c *DeployJobCtl) run(ctx context.Context) error {
 		logError(c.job, msg, c.logger)
 		return errors.New(msg)
 	}
+
+	latestRevision, err := commonrepo.NewEnvServiceVersionColl().GetLatestRevision(env.ProductName, env.EnvName, c.jobTaskSpec.ServiceName, false, env.Production)
+	if err != nil {
+		msg := fmt.Sprintf("get service revision error: %v", err)
+		logError(c.job, msg, c.logger)
+		return errors.New(msg)
+	}
+
+	c.jobTaskSpec.OriginRevision = latestRevision
+	c.ack()
 
 	// if not only deploy image, we will redeploy service
 	if !onlyDeployImage(c.jobTaskSpec.DeployContents) {
@@ -538,10 +549,10 @@ func workLoadDeployStat(kubeClient client.Client, namespace string, labelMaps []
 	return nil
 }
 
-func (c *DeployJobCtl) getResourcesPodOwnerUIDImpl(strict bool) ([]commonmodels.Resource, error) {
+func getResourcesPodOwnerUIDImpl(kubeClient client.Client, namespace string, serviceAndImages []*commonmodels.DeployServiceModule, deployContents []config.DeployContent, replaceResources []commonmodels.Resource, strict bool) ([]commonmodels.Resource, error) {
 	containerMap := make(map[string]*commonmodels.Container)
-	if strict && slices.Contains(c.jobTaskSpec.DeployContents, config.DeployImage) {
-		for _, serviceImage := range c.jobTaskSpec.ServiceAndImages {
+	if strict && slices.Contains(deployContents, config.DeployImage) {
+		for _, serviceImage := range serviceAndImages {
 			containerMap[serviceImage.ServiceModule] = &commonmodels.Container{
 				Name:      serviceImage.ServiceModule,
 				Image:     serviceImage.Image,
@@ -550,16 +561,16 @@ func (c *DeployJobCtl) getResourcesPodOwnerUIDImpl(strict bool) ([]commonmodels.
 		}
 	}
 	newResources := []commonmodels.Resource{}
-	for _, resource := range c.jobTaskSpec.ReplaceResources {
+	for _, resource := range replaceResources {
 		switch resource.Kind {
 		case setting.StatefulSet:
-			sts, _, err := getter.GetStatefulSet(c.namespace, resource.Name, c.kubeClient)
+			sts, _, err := getter.GetStatefulSet(namespace, resource.Name, kubeClient)
 			if err != nil {
 				return newResources, err
 			}
 			resource.PodOwnerUID = string(sts.ObjectMeta.UID)
 		case setting.Deployment:
-			deployment, _, err := getter.GetDeployment(c.namespace, resource.Name, c.kubeClient)
+			deployment, _, err := getter.GetDeployment(namespace, resource.Name, kubeClient)
 			if err != nil {
 				return newResources, err
 			}
@@ -568,7 +579,7 @@ func (c *DeployJobCtl) getResourcesPodOwnerUIDImpl(strict bool) ([]commonmodels.
 				return nil, err
 			}
 			// ensure latest replicaset to be created
-			replicaSets, err := getter.ListReplicaSets(c.namespace, selector, c.kubeClient)
+			replicaSets, err := getter.ListReplicaSets(namespace, selector, kubeClient)
 			if err != nil {
 				return newResources, err
 			}
@@ -605,7 +616,7 @@ func (c *DeployJobCtl) getResourcesPodOwnerUIDImpl(strict bool) ([]commonmodels.
 	return newResources, nil
 }
 
-func (c *DeployJobCtl) getResourcesPodOwnerUID() ([]commonmodels.Resource, error) {
+func GetResourcesPodOwnerUID(kubeClient client.Client, namespace string, serviceAndImages []*commonmodels.DeployServiceModule, deployContents []config.DeployContent, replaceResources []commonmodels.Resource) ([]commonmodels.Resource, error) {
 	timeout := time.After(time.Second * 20)
 
 	var newResources []commonmodels.Resource
@@ -617,11 +628,11 @@ func (c *DeployJobCtl) getResourcesPodOwnerUID() ([]commonmodels.Resource, error
 		}
 		select {
 		case <-timeout:
-			newResources, err = c.getResourcesPodOwnerUIDImpl(false)
+			newResources, err = getResourcesPodOwnerUIDImpl(kubeClient, namespace, serviceAndImages, deployContents, replaceResources, false)
 			break
 		default:
 			time.Sleep(2 * time.Second)
-			newResources, err = c.getResourcesPodOwnerUIDImpl(true)
+			newResources, err = getResourcesPodOwnerUIDImpl(kubeClient, namespace, serviceAndImages, deployContents, replaceResources, true)
 			break
 		}
 	}
@@ -630,28 +641,38 @@ func (c *DeployJobCtl) getResourcesPodOwnerUID() ([]commonmodels.Resource, error
 
 func (c *DeployJobCtl) wait(ctx context.Context) {
 	timeout := time.After(time.Duration(c.timeout()) * time.Second)
-	resources, err := c.getResourcesPodOwnerUID()
+	resources, err := GetResourcesPodOwnerUID(c.kubeClient, c.namespace, c.jobTaskSpec.ServiceAndImages, c.jobTaskSpec.DeployContents, c.jobTaskSpec.ReplaceResources)
 	if err != nil {
 		msg := fmt.Sprintf("get resource owner info error: %v", err)
 		logError(c.job, msg, c.logger)
 		return
 	}
 	c.jobTaskSpec.ReplaceResources = resources
+	status, err := CheckDeployStatus(ctx, c.kubeClient, c.namespace, c.jobTaskSpec, timeout, c.logger)
+	if err != nil {
+		logError(c.job, err.Error(), c.logger)
+		return
+	}
+	c.job.Status = status
+}
+
+func CheckDeployStatus(ctx context.Context, kubeClient crClient.Client, namespace string, jobTaskSpec *commonmodels.JobTaskDeploySpec, timeout <-chan time.Time, logger *zap.SugaredLogger) (config.Status, error) {
+	podLabelsBytes, _ := json.Marshal(jobTaskSpec.RelatedPodLabels)
+	replaceResourcesBytes, _ := json.Marshal(jobTaskSpec.ReplaceResources)
+	log.Debugf("related pod labels: %v", string(podLabelsBytes))
+	log.Debugf("replace resources: %v", string(replaceResourcesBytes))
 	for {
 		select {
 		case <-ctx.Done():
-			c.job.Status = config.StatusCancelled
-			return
-
+			return config.StatusCancelled, nil
 		case <-timeout:
 			var msg []string
-			for _, label := range c.jobTaskSpec.RelatedPodLabels {
+			for _, label := range jobTaskSpec.RelatedPodLabels {
 				selector := labels.Set(label).AsSelector()
-				pods, err := getter.ListPods(c.namespace, selector, c.kubeClient)
+				pods, err := getter.ListPods(namespace, selector, kubeClient)
 				if err != nil {
 					msg := fmt.Sprintf("list pods error: %v", err)
-					logError(c.job, msg, c.logger)
-					return
+					return config.StatusFailed, errors.New(msg)
 				}
 				for _, pod := range pods {
 					podResource := wrapper.Pod(pod).Resource()
@@ -668,32 +689,29 @@ func (c *DeployJobCtl) wait(ctx context.Context) {
 
 			if len(msg) != 0 {
 				err := errors.New(strings.Join(msg, "\n"))
-				logError(c.job, err.Error(), c.logger)
-				return
+				return config.StatusFailed, err
 			}
-			c.job.Status = config.StatusTimeout
-			return
+			return config.StatusTimeout, nil
 
 		default:
 			time.Sleep(time.Second * 2)
 			ready := true
 			var err error
 		L:
-			for _, resource := range c.jobTaskSpec.ReplaceResources {
-				if err := workLoadDeployStat(c.kubeClient, c.namespace, c.jobTaskSpec.RelatedPodLabels, resource.PodOwnerUID); err != nil {
-					logError(c.job, err.Error(), c.logger)
-					return
+			for _, resource := range jobTaskSpec.ReplaceResources {
+				if err := workLoadDeployStat(kubeClient, namespace, jobTaskSpec.RelatedPodLabels, resource.PodOwnerUID); err != nil {
+					return config.StatusFailed, err
 				}
 				switch resource.Kind {
 				case setting.Deployment:
-					d, found, e := getter.GetDeployment(c.namespace, resource.Name, c.kubeClient)
+					d, found, e := getter.GetDeployment(namespace, resource.Name, kubeClient)
 					if e != nil {
 						err = e
 					}
 					if e != nil || !found {
-						c.logger.Errorf(
+						logger.Errorf(
 							"failed to check deployment ready status %s/%s/%s - %v",
-							c.namespace,
+							namespace,
 							resource.Kind,
 							resource.Name,
 							e,
@@ -707,14 +725,14 @@ func (c *DeployJobCtl) wait(ctx context.Context) {
 						break L
 					}
 				case setting.StatefulSet:
-					st, found, e := getter.GetStatefulSet(c.namespace, resource.Name, c.kubeClient)
+					st, found, e := getter.GetStatefulSet(namespace, resource.Name, kubeClient)
 					if e != nil {
 						err = e
 					}
 					if err != nil || !found {
-						c.logger.Errorf(
+						logger.Errorf(
 							"failed to check statefulSet ready status %s/%s/%s",
-							c.namespace,
+							namespace,
 							resource.Kind,
 							resource.Name,
 							e,
@@ -731,8 +749,7 @@ func (c *DeployJobCtl) wait(ctx context.Context) {
 			}
 
 			if ready {
-				c.job.Status = config.StatusPassed
-				return
+				return config.StatusPassed, nil
 			}
 		}
 	}

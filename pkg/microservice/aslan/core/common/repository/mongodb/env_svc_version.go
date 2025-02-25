@@ -105,7 +105,7 @@ func (c *EnvVersionColl) Find(productName, envName, serviceName string, isHelmCh
 	return res, err
 }
 
-func (c *EnvVersionColl) GetCountAndMaxRevision(productName, envName, serviceName string, isHelmChart, production bool) (int64, int64, error) {
+func (c *EnvVersionColl) GetLatestRevision(productName, envName, serviceName string, isHelmChart, production bool) (int64, error) {
 	match := bson.M{
 		"product_name":         productName,
 		"env_name":             envName,
@@ -124,31 +124,29 @@ func (c *EnvVersionColl) GetCountAndMaxRevision(productName, envName, serviceNam
 		},
 		{
 			"$group": bson.M{
-				"_id":          nil,
-				"count":        bson.M{"$sum": 1},
-				"max_revision": bson.M{"$max": "$revision"},
+				"_id":             nil,
+				"latest_revision": bson.M{"$max": "$revision"},
 			},
 		},
 	}
 
 	var result struct {
-		Count       int64 `bson:"count"`
-		MaxRevision int64 `bson:"max_revision"`
+		LatestRevision int64 `bson:"latest_revision"`
 	}
 
 	cursor, err := c.Aggregate(context.TODO(), pipeline)
 	if err != nil {
-		return 0, 0, err
+		return 0, err
 	}
 	defer cursor.Close(context.TODO())
 
 	if cursor.Next(context.TODO()) {
 		if err := cursor.Decode(&result); err != nil {
-			return 0, 0, err
+			return 0, err
 		}
 	}
 
-	return result.Count, result.MaxRevision, nil
+	return result.LatestRevision, nil
 }
 
 func (c *EnvVersionColl) ListServiceVersions(productName, envName, serviceName string, isHelmChart, production bool) ([]*models.EnvServiceVersion, error) {

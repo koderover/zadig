@@ -221,6 +221,20 @@ type JobTaskDeploySpec struct {
 	// for compatibility
 	ServiceModule string `bson:"service_module"                   json:"service_module"                      yaml:"-"`
 	Image         string `bson:"image"                            json:"image"                               yaml:"-"`
+	// for revert
+	OriginRevision int64 `bson:"origin_revision"                   json:"origin_revision"                      yaml:"origin_revision"`
+}
+
+type JobTaskDeployRevertSpec struct {
+	Env                string `bson:"env"                              json:"env"                                 yaml:"env"`
+	ServiceName        string `bson:"service_name"                     json:"service_name"                        yaml:"service_name"`
+	Production         bool   `bson:"production"                       json:"production"                          yaml:"production"`
+	ServiceType        string `bson:"service_type"                     json:"service_type"                        yaml:"service_type"`
+	Yaml               string `bson:"yaml"                             json:"yaml"                                yaml:"yaml"`
+	VariableYaml       string `bson:"variable_yaml"                    json:"variable_yaml"                       yaml:"variable_yaml"`
+	OverrideKVs        string `bson:"override_kvs"                     json:"override_kvs"                        yaml:"override_kvs"`
+	Revision           int64  `bson:"revision"                         json:"revision"                            yaml:"revision"`
+	RevisionCreateTime int64  `bson:"revision_create_time"             json:"revision_create_time"                yaml:"revision_create_time"`
 }
 
 type DeployServiceModule struct {
@@ -258,6 +272,7 @@ type JobTaskHelmDeploySpec struct {
 	ReleaseName        string                   `bson:"release_name"                     json:"release_name"                        yaml:"release_name"`
 	Timeout            int                      `bson:"timeout"                          json:"timeout"                             yaml:"timeout"`
 	ReplaceResources   []Resource               `bson:"replace_resources"                json:"replace_resources"                   yaml:"replace_resources"`
+	OriginRevision     int64                    `bson:"origin_revision"                  json:"origin_revision"                     yaml:"origin_revision"`
 }
 
 func (j *JobTaskHelmDeploySpec) GetDeployImages() []string {
