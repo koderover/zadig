@@ -352,6 +352,6 @@ replace github.com/Sirupsen/logrus => github.com/sirupsen/logrus v1.9.0
 
 replace github.com/docker/libnetwork => github.com/docker/libnetwork v0.8.0-dev.2.0.20220716072657-0dde5c895075
 
-replace github.com/google/gnostic => github.com/google/gnostic v0.6.9
-
-replace github.com/google/gnostic-models => github.com/google/gnostic-models v0.6.9
+//replace github.com/google/gnostic => github.com/google/gnostic v0.6.9
+//
+//replace github.com/google/gnostic-models => github.com/google/gnostic-models v0.6.9
