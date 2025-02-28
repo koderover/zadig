@@ -142,7 +142,6 @@ const (
 	PersistentVolumeClaim = "PersistentVolumeClaim"
 	Service               = "Service"
 	Deployment            = "Deployment"
-	CloneSet              = "CloneSet"
 	StatefulSet           = "StatefulSet"
 	Pod                   = "Pod"
 	ReplicaSet            = "ReplicaSet"

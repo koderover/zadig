@@ -155,10 +155,7 @@ func SetCurrentContainerImages(args *commonmodels.Service) error {
 				return errors.New("nil Resource Kind")
 			}
 
-			if resKind.Kind == setting.Deployment ||
-				resKind.Kind == setting.StatefulSet ||
-				resKind.Kind == setting.Job ||
-				resKind.Kind == setting.CloneSet {
+			if resKind.Kind == setting.Deployment || resKind.Kind == setting.StatefulSet || resKind.Kind == setting.Job {
 				containers, err := getContainers(yamlData)
 				if err != nil {
 					return fmt.Errorf("GetContainers error: %v", err)

@@ -20,7 +20,6 @@ import (
 	"context"
 	"sync"
 
-	kruise "github.com/openkruise/kruise-api/apps/v1alpha1"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -93,7 +92,6 @@ func initCluster(restConfig *rest.Config) (cluster.Cluster, error) {
 	// add all known types
 	// if you want to support custom types, call _ = yourCustomAPIGroup.AddToScheme(scheme)
 	_ = clientgoscheme.AddToScheme(scheme)
-	_ = kruise.AddToScheme(scheme)
 
 	c, err := cluster.New(restConfig, func(clusterOptions *cluster.Options) {
 		clusterOptions.Scheme = scheme
