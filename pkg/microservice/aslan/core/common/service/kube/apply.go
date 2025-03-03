@@ -155,11 +155,10 @@ func ApplySystemImagePullSecretsForDeployment(resource *unstructured.Unstructure
 		return err
 	}
 	if !exist {
-		secretList := []interface{}{
-			corev1.LocalObjectReference{
-				Name: setting.DefaultImagePullSecret,
-			},
-		}
+		secretList := make([]interface{}, 0)
+		secretList = append(secretList, corev1.ObjectReference{
+			Name: setting.DefaultImagePullSecret,
+		})
 		return unstructured.SetNestedSlice(resource.Object, secretList, "spec", "imagePullSecrets")
 	}
 
