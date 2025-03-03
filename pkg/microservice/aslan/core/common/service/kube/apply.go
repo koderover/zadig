@@ -27,8 +27,6 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	versionedclient "istio.io/client-go/pkg/clientset/versioned"
-	appsv1 "k8s.io/api/apps/v1"
-	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -136,16 +134,112 @@ func ApplyUpdatedAnnotations(annotations map[string]string) map[string]string {
 	return annotations
 }
 
-func ApplySystemImagePullSecrets(podSpec *corev1.PodSpec) {
-	for _, secret := range podSpec.ImagePullSecrets {
-		if secret.Name == setting.DefaultImagePullSecret {
-			return
+func ApplySystemImagePullSecrets(resource *unstructured.Unstructured) error {
+	switch resource.GetKind() {
+	case setting.Deployment:
+		return ApplySystemImagePullSecretsForDeployment(resource)
+	case setting.StatefulSet:
+		return ApplySystemImagePullSecretsForDeployment(resource)
+	case setting.Job:
+		return ApplySystemImagePullSecretsForJob(resource)
+	case setting.CronJob:
+		return ApplySystemImagePullSecretsForCronjob(resource)
+	default:
+		return fmt.Errorf("unsupported workload kind: %s", resource.GetKind())
+	}
+}
+
+func ApplySystemImagePullSecretsForDeployment(resource *unstructured.Unstructured) error {
+	imagePullSecrets, exist, err := unstructured.NestedSlice(resource.Object, "spec", "imagePullSecrets")
+	if err != nil {
+		return err
+	}
+	if !exist {
+		secretList := []interface{}{
+			corev1.LocalObjectReference{
+				Name: setting.DefaultImagePullSecret,
+			},
+		}
+		return unstructured.SetNestedSlice(resource.Object, secretList, "spec", "imagePullSecrets")
+	}
+
+	for _, pullSecret := range imagePullSecrets {
+		if secret, ok := pullSecret.(corev1.LocalObjectReference); ok {
+			if secret.Name == setting.DefaultImagePullSecret {
+				return nil
+			}
+		} else {
+			return fmt.Errorf("failed to decode image pull secret: %v", pullSecret)
 		}
 	}
-	podSpec.ImagePullSecrets = append(podSpec.ImagePullSecrets,
-		corev1.LocalObjectReference{
-			Name: setting.DefaultImagePullSecret,
-		})
+
+	imagePullSecrets = append(imagePullSecrets, corev1.LocalObjectReference{
+		Name: setting.DefaultImagePullSecret,
+	})
+
+	return unstructured.SetNestedSlice(resource.Object, imagePullSecrets, "spec", "imagePullSecrets")
+}
+
+func ApplySystemImagePullSecretsForJob(resource *unstructured.Unstructured) error {
+	imagePullSecrets, exist, err := unstructured.NestedSlice(resource.Object, "spec", "template", "spec", "imagePullSecrets")
+	if err != nil {
+		return err
+	}
+	if !exist {
+		secretList := []interface{}{
+			corev1.LocalObjectReference{
+				Name: setting.DefaultImagePullSecret,
+			},
+		}
+		return unstructured.SetNestedSlice(resource.Object, secretList, "spec", "template", "spec", "imagePullSecrets")
+	}
+
+	for _, pullSecret := range imagePullSecrets {
+		if secret, ok := pullSecret.(corev1.LocalObjectReference); ok {
+			if secret.Name == setting.DefaultImagePullSecret {
+				return nil
+			}
+		} else {
+			return fmt.Errorf("failed to decode image pull secret: %v", pullSecret)
+		}
+	}
+
+	imagePullSecrets = append(imagePullSecrets, corev1.LocalObjectReference{
+		Name: setting.DefaultImagePullSecret,
+	})
+
+	return unstructured.SetNestedSlice(resource.Object, imagePullSecrets, "spec", "template", "spec", "imagePullSecrets")
+}
+
+func ApplySystemImagePullSecretsForCronjob(resource *unstructured.Unstructured) error {
+	imagePullSecrets, exist, err := unstructured.NestedSlice(resource.Object, "spec", "jobTemplate", "spec", "template", "spec", "imagePullSecrets")
+	if err != nil {
+		return err
+	}
+	if !exist {
+		secretList := []interface{}{
+			corev1.LocalObjectReference{
+				Name: setting.DefaultImagePullSecret,
+			},
+		}
+		return unstructured.SetNestedSlice(resource.Object, secretList, "spec", "jobTemplate", "spec", "template", "spec", "imagePullSecrets")
+	}
+
+	for _, pullSecret := range imagePullSecrets {
+		if secret, ok := pullSecret.(corev1.LocalObjectReference); ok {
+			if secret.Name == setting.DefaultImagePullSecret {
+				return nil
+			}
+		} else {
+			return fmt.Errorf("failed to decode image pull secret: %v", pullSecret)
+		}
+	}
+
+	imagePullSecrets = append(imagePullSecrets, corev1.LocalObjectReference{
+		Name: setting.DefaultImagePullSecret,
+	})
+
+	return unstructured.SetNestedSlice(resource.Object, imagePullSecrets, "spec", "jobTemplate", "spec", "template", "spec", "imagePullSecrets")
 }
 
 func SetFieldValueIsNotExist(obj map[string]interface{}, value interface{}, fields ...string) map[string]interface{} {
@@ -579,139 +673,98 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 				}
 			}
 
-			jsonData, err := u.MarshalJSON()
-			if err != nil {
-				log.Errorf("Failed to marshal JSON, manifest is\n%v\n, error: %v", u, err)
-				errList = multierror.Append(errList, err)
-				continue
-			}
-			obj, err := serializer.NewDecoder().JSONToRuntimeObject(jsonData)
-			if err != nil {
-				log.Errorf("Failed to convert JSON to Object, manifest is\n%v\n, error: %v", u, err)
-				errList = multierror.Append(errList, err)
-				continue
-			}
-
-			switch res := obj.(type) {
-			case *appsv1.Deployment:
-				// Inject imagePullSecrets if qn-registry-secret is not set
-				if applyParam.InjectSecrets {
-					ApplySystemImagePullSecrets(&res.Spec.Template.Spec)
-				}
-
-				err = updater.CreateOrPatchDeployment(res, kubeClient)
+			if applyParam.InjectSecrets {
+				err = ApplySystemImagePullSecrets(u)
 				if err != nil {
-					log.Errorf("Failed to create or update %s, manifest is\n%v\n, error: %v", u.GetKind(), res, err)
-					errList = multierror.Append(errList, err)
+					log.Errorf("Failed to apply system image pull secrets to deployment/sts, error: %s", err)
+					errList = multierror.Append(errList, fmt.Errorf("failed to apply system image pull secrets to deployment/sts, error: %s", err))
 					continue
 				}
-			case *appsv1.StatefulSet:
-				// Inject imagePullSecrets if qn-registry-secret is not set
-				if applyParam.InjectSecrets {
-					ApplySystemImagePullSecrets(&res.Spec.Template.Spec)
-				}
-
-				err = updater.CreateOrPatchStatefulSet(res, kubeClient)
-				if err != nil {
-					log.Errorf("Failed to create or update %s, manifest is\n%v\n, error: %v", u.GetKind(), res, err)
-					errList = multierror.Append(errList, errors.Wrapf(err, "failed to create or update %s/%s", u.GetKind(), u.GetName()))
-					continue
-				}
-			default:
-				errList = multierror.Append(errList, fmt.Errorf("object is not a appsv1.Deployment or appsv1.StatefulSet"))
-				continue
 			}
 
+			err = updater.CreateOrPatchUnstructured(u, kubeClient)
+			if err != nil {
+				log.Errorf("Failed to create or update %s, manifest is\n%v\n, error: %v", u.GetKind(), u, err)
+				errList = multierror.Append(errList, errors.Wrapf(err, "failed to create or update %s/%s", u.GetKind(), u.GetName()))
+				continue
+			}
 		case setting.Job:
-			jsonData, err := u.MarshalJSON()
-			if err != nil {
-				log.Errorf("Failed to marshal JSON, manifest is\n%v\n, error: %v", u, err)
-				errList = multierror.Append(errList, err)
-				continue
-			}
-			obj, err := serializer.NewDecoder().JSONToJob(jsonData)
-			if err != nil {
-				log.Errorf("Failed to convert JSON to Job, manifest is\n%v\n, error: %v", u, err)
-				errList = multierror.Append(errList, err)
-				continue
-			}
+			u.SetNamespace(namespace)
+			u.SetLabels(MergeLabels(labels, u.GetLabels()))
 
-			obj.Namespace = namespace
-			obj.ObjectMeta.Labels = MergeLabels(labels, obj.ObjectMeta.Labels)
-			obj.Spec.Template.ObjectMeta.Labels = MergeLabels(labels, obj.Spec.Template.ObjectMeta.Labels)
+			podLabels, _, err := unstructured.NestedStringMap(u.Object, "spec", "template", "metadata", "labels")
+			if err != nil {
+				log.Errorf("get pod labels failed err: %v", err)
+				podLabels = nil
+			}
+			err = unstructured.SetNestedStringMap(u.Object, MergeLabels(labels, podLabels), "spec", "template", "metadata", "labels")
+			if err != nil {
+				log.Errorf("merge label failed err:%s", err)
+				u.Object = SetFieldValueIsNotExist(u.Object, MergeLabels(labels, podLabels), "spec", "template", "metadata", "labels")
+			}
 
 			// Inject imagePullSecrets if qn-registry-secret is not set
 			if applyParam.InjectSecrets {
-				ApplySystemImagePullSecrets(&obj.Spec.Template.Spec)
+				err = ApplySystemImagePullSecrets(u)
+				if err != nil {
+					log.Errorf("Failed to apply system image pull secrets to job, error: %s", err)
+					errList = multierror.Append(errList, fmt.Errorf("failed to apply system image pull secrets to job, error: %s", err))
+					continue
+				}
 			}
 
-			if err := updater.DeleteJobAndWait(namespace, obj.Name, kubeClient); err != nil {
+			if err := updater.DeleteJobAndWait(namespace, u.GetName(), kubeClient); err != nil {
 				log.Errorf("Failed to delete Job, error: %v", err)
 				errList = multierror.Append(errList, errors.Wrapf(err, "failed to create or update %s/%s", u.GetKind(), u.GetName()))
 				continue
 			}
 
-			if err := updater.CreateJob(obj, kubeClient); err != nil {
-				log.Errorf("Failed to create or update %s, manifest is\n%v\n, error: %v", u.GetKind(), obj, err)
+			if err := updater.CreateOrPatchUnstructured(u, kubeClient); err != nil {
+				log.Errorf("Failed to create or update %s, manifest is\n%v\n, error: %v", u.GetKind(), u, err)
 				errList = multierror.Append(errList, errors.Wrapf(err, "failed to create or update %s/%s", u.GetKind(), u.GetName()))
 				continue
 			}
 
 		case setting.CronJob:
-			jsonData, err := u.MarshalJSON()
+			u.SetNamespace(namespace)
+			u.SetLabels(MergeLabels(labels, u.GetLabels()))
+
+			jobLabels, _, err := unstructured.NestedStringMap(u.Object, "spec", "jobTemplate", "metadata", "labels")
 			if err != nil {
-				log.Errorf("Failed to marshal JSON, manifest is\n%v\n, error: %v", u, err)
+				log.Errorf("get job labels failed err: %v", err)
+				jobLabels = nil
+			}
+			err = unstructured.SetNestedStringMap(u.Object, MergeLabels(labels, jobLabels), "spec", "jobTemplate", "metadata", "labels")
+			if err != nil {
+				log.Errorf("merge label failed err:%s", err)
+				u.Object = SetFieldValueIsNotExist(u.Object, MergeLabels(labels, jobLabels), "spec", "jobTemplate", "metadata", "labels")
+			}
+
+			jobPodLabels, _, err := unstructured.NestedStringMap(u.Object, "spec", "jobTemplate", "spec", "template", "metadata", "labels")
+			if err != nil {
+				log.Errorf("get job pod labels failed err: %v", err)
+				jobLabels = nil
+			}
+			err = unstructured.SetNestedStringMap(u.Object, MergeLabels(labels, jobPodLabels), "spec", "jobTemplate", "spec", "template", "metadata", "labels")
+			if err != nil {
+				log.Errorf("merge label failed err:%s", err)
+				u.Object = SetFieldValueIsNotExist(u.Object, MergeLabels(labels, jobPodLabels), "spec", "jobTemplate", "spec", "template", "metadata", "labels")
+			}
+
+			if applyParam.InjectSecrets {
+				err = ApplySystemImagePullSecrets(u)
+				if err != nil {
+					log.Errorf("Failed to apply system image pull secrets to job, error: %s", err)
+					errList = multierror.Append(errList, fmt.Errorf("failed to apply system image pull secrets to job, error: %s", err))
+					continue
+				}
+			}
+
+			err = updater.CreateOrPatchUnstructured(u, kubeClient)
+			if err != nil {
+				log.Errorf("Failed to create or update %s, manifest is\n%v\n, error: %v", u.GetKind(), u, err)
 				errList = multierror.Append(errList, errors.Wrapf(err, "failed to create or update %s/%s", u.GetKind(), u.GetName()))
 				continue
-			}
-			if u.GetAPIVersion() == batchv1.SchemeGroupVersion.String() {
-				obj, err := serializer.NewDecoder().JSONToCronJob(jsonData)
-				if err != nil {
-					log.Errorf("Failed to convert JSON to CronJob, manifest is\n%v\n, error: %v", u, err)
-					errList = multierror.Append(errList, errors.Wrapf(err, "failed to create or update %s/%s", u.GetKind(), u.GetName()))
-					continue
-				}
-
-				obj.Namespace = namespace
-				obj.ObjectMeta.Labels = MergeLabels(labels, obj.ObjectMeta.Labels)
-				obj.Spec.JobTemplate.ObjectMeta.Labels = MergeLabels(labels, obj.Spec.JobTemplate.ObjectMeta.Labels)
-				obj.Spec.JobTemplate.Spec.Template.ObjectMeta.Labels = MergeLabels(labels, obj.Spec.JobTemplate.Spec.Template.ObjectMeta.Labels)
-
-				// Inject imagePullSecrets if qn-registry-secret is not set
-				if applyParam.InjectSecrets {
-					ApplySystemImagePullSecrets(&obj.Spec.JobTemplate.Spec.Template.Spec)
-				}
-
-				err = updater.CreateOrPatchCronJob(obj, kubeClient)
-				if err != nil {
-					log.Errorf("Failed to create or update %s, manifest is\n%v\n, error: %v", u.GetKind(), obj, err)
-					errList = multierror.Append(errList, errors.Wrapf(err, "failed to create or update %s/%s", u.GetKind(), u.GetName()))
-					continue
-				}
-			} else {
-				obj, err := serializer.NewDecoder().JSONToCronJobBeta(jsonData)
-				if err != nil {
-					log.Errorf("Failed to convert JSON to CronJobBeta, manifest is\n%v\n, error: %v", u, err)
-					errList = multierror.Append(errList, errors.Wrapf(err, "failed to create or update %s/%s", u.GetKind(), u.GetName()))
-					continue
-				}
-
-				obj.Namespace = namespace
-				obj.ObjectMeta.Labels = MergeLabels(labels, obj.ObjectMeta.Labels)
-				obj.Spec.JobTemplate.ObjectMeta.Labels = MergeLabels(labels, obj.Spec.JobTemplate.ObjectMeta.Labels)
-				obj.Spec.JobTemplate.Spec.Template.ObjectMeta.Labels = MergeLabels(labels, obj.Spec.JobTemplate.Spec.Template.ObjectMeta.Labels)
-
-				// Inject imagePullSecrets if qn-registry-secret is not set
-				if applyParam.InjectSecrets {
-					ApplySystemImagePullSecrets(&obj.Spec.JobTemplate.Spec.Template.Spec)
-				}
-
-				err = updater.CreateOrPatchCronJob(obj, kubeClient)
-				if err != nil {
-					log.Errorf("Failed to create or update %s, manifest is\n%v\n, error: %v", u.GetKind(), obj, err)
-					errList = multierror.Append(errList, errors.Wrapf(err, "failed to create or update %s/%s", u.GetKind(), u.GetName()))
-					continue
-				}
 			}
 
 		case setting.ClusterRole, setting.ClusterRoleBinding:
