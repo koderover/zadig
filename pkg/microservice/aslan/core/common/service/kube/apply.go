@@ -156,8 +156,8 @@ func ApplySystemImagePullSecretsForDeployment(resource *unstructured.Unstructure
 	}
 	if !exist {
 		secretList := make([]interface{}, 0)
-		secretList = append(secretList, corev1.ObjectReference{
-			Name: setting.DefaultImagePullSecret,
+		secretList = append(secretList, map[string]interface{}{
+			"name": setting.DefaultImagePullSecret,
 		})
 		return unstructured.SetNestedSlice(resource.Object, secretList, "spec", "imagePullSecrets")
 	}
@@ -172,8 +172,8 @@ func ApplySystemImagePullSecretsForDeployment(resource *unstructured.Unstructure
 		}
 	}
 
-	imagePullSecrets = append(imagePullSecrets, corev1.LocalObjectReference{
-		Name: setting.DefaultImagePullSecret,
+	imagePullSecrets = append(imagePullSecrets, map[string]interface{}{
+		"name": setting.DefaultImagePullSecret,
 	})
 
 	return unstructured.SetNestedSlice(resource.Object, imagePullSecrets, "spec", "imagePullSecrets")
@@ -186,8 +186,8 @@ func ApplySystemImagePullSecretsForJob(resource *unstructured.Unstructured) erro
 	}
 	if !exist {
 		secretList := []interface{}{
-			corev1.LocalObjectReference{
-				Name: setting.DefaultImagePullSecret,
+			map[string]interface{}{
+				"name": setting.DefaultImagePullSecret,
 			},
 		}
 		return unstructured.SetNestedSlice(resource.Object, secretList, "spec", "template", "spec", "imagePullSecrets")
@@ -203,8 +203,8 @@ func ApplySystemImagePullSecretsForJob(resource *unstructured.Unstructured) erro
 		}
 	}
 
-	imagePullSecrets = append(imagePullSecrets, corev1.LocalObjectReference{
-		Name: setting.DefaultImagePullSecret,
+	imagePullSecrets = append(imagePullSecrets, map[string]interface{}{
+		"name": setting.DefaultImagePullSecret,
 	})
 
 	return unstructured.SetNestedSlice(resource.Object, imagePullSecrets, "spec", "template", "spec", "imagePullSecrets")
@@ -217,8 +217,8 @@ func ApplySystemImagePullSecretsForCronjob(resource *unstructured.Unstructured) 
 	}
 	if !exist {
 		secretList := []interface{}{
-			corev1.LocalObjectReference{
-				Name: setting.DefaultImagePullSecret,
+			map[string]interface{}{
+				"name": setting.DefaultImagePullSecret,
 			},
 		}
 		return unstructured.SetNestedSlice(resource.Object, secretList, "spec", "jobTemplate", "spec", "template", "spec", "imagePullSecrets")
@@ -234,8 +234,8 @@ func ApplySystemImagePullSecretsForCronjob(resource *unstructured.Unstructured) 
 		}
 	}
 
-	imagePullSecrets = append(imagePullSecrets, corev1.LocalObjectReference{
-		Name: setting.DefaultImagePullSecret,
+	imagePullSecrets = append(imagePullSecrets, map[string]interface{}{
+		"name": setting.DefaultImagePullSecret,
 	})
 
 	return unstructured.SetNestedSlice(resource.Object, imagePullSecrets, "spec", "jobTemplate", "spec", "template", "spec", "imagePullSecrets")
