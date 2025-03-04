@@ -134,7 +134,7 @@ func ReplaceWorkloadImages(rawYaml string, images []*commonmodels.Container) (st
 
 		fmt.Printf(">>>>>>>>>>>>>>>>>>>>>>>>>> yaml after replacing is: \n %s \n <<<<<<<<<<<<<<<<<<<<<<<<", string(modifiedYamlStr))
 
-		var rawData map[string]interface{}
+		var rawData map[interface{}]interface{}
 		err := yaml.Unmarshal(modifiedYamlStr, &rawData)
 		if err != nil {
 			return "", nil, fmt.Errorf("decode yaml error: %s", err)
