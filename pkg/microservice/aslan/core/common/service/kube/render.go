@@ -19,7 +19,6 @@ package kube
 import (
 	"bytes"
 	"fmt"
-	"regexp"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -124,7 +123,7 @@ func ReplaceWorkloadImages(rawYaml string, images []*commonmodels.Container) (st
 	}
 
 	//customKVRegExp := regexp.MustCompile(`{{\.([\p{L}\d]+(\.[\p{L}\d]+)*)}}`)
-	restoreRegExp := regexp.MustCompile(`TEMP_PLACEHOLDER_([\p{L}\d]+(\.[\p{L}\d]+)*)`)
+	//restoreRegExp := regexp.MustCompile(`TEMP_PLACEHOLDER_([\p{L}\d]+(\.[\p{L}\d]+)*)`)
 
 	splitYams := util.SplitYaml(rawYaml)
 	yamlStrs := make([]string, 0)
