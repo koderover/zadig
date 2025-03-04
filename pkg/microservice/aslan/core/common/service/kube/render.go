@@ -19,7 +19,6 @@ package kube
 import (
 	"bytes"
 	"fmt"
-	"regexp"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -125,17 +124,17 @@ func ReplaceWorkloadImages(rawYaml string, images []*commonmodels.Container) (st
 		imageMap[image.Name] = image
 	}
 
-	customKVRegExp := regexp.MustCompile(`{{\.([\p{L}\d]+(\.[\p{L}\d]+)*)}}`)
-	restoreRegExp := regexp.MustCompile(`TEMP_PLACEHOLDER_([\p{L}\d]+(\.[\p{L}\d]+)*)`)
+	//customKVRegExp := regexp.MustCompile(`{{\.([\p{L}\d]+(\.[\p{L}\d]+)*)}}`)
+	//restoreRegExp := regexp.MustCompile(`TEMP_PLACEHOLDER_([\p{L}\d]+(\.[\p{L}\d]+)*)`)
 
 	splitYams := util.SplitYaml(rawYaml)
 	yamlStrs := make([]string, 0)
 	workloadRes := make([]*WorkloadResource, 0)
 	for _, yamlStr := range splitYams {
-		modifiedYamlStr := customKVRegExp.ReplaceAll([]byte(yamlStr), []byte("TEMP_PLACEHOLDER_$1"))
+		//modifiedYamlStr := customKVRegExp.ReplaceAll([]byte(yamlStr), []byte("TEMP_PLACEHOLDER_$1"))
 
 		var rawData map[string]interface{}
-		err := yaml.Unmarshal(modifiedYamlStr, &rawData)
+		err := yaml.Unmarshal([]byte(yamlStr), &rawData)
 		if err != nil {
 			return "", nil, fmt.Errorf("decode yaml error: %s", err)
 		}
@@ -274,8 +273,8 @@ func ReplaceWorkloadImages(rawYaml string, images []*commonmodels.Container) (st
 			return "", nil, fmt.Errorf("updated resource cannot be marshaled into a YAML, error: %s", err)
 		}
 
-		finalYaml := restoreRegExp.ReplaceAll(updatedYaml, []byte("{{.$1}}"))
-		yamlStrs = append(yamlStrs, string(finalYaml))
+		//finalYaml := restoreRegExp.ReplaceAll(updatedYaml, []byte("{{.$1}}"))
+		yamlStrs = append(yamlStrs, string(updatedYaml))
 	}
 
 	return util.JoinYamls(yamlStrs), workloadRes, nil
