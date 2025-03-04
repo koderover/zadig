@@ -25,6 +25,7 @@ import (
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	yamlutil "k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/cli-runtime/pkg/printers"
 	"k8s.io/helm/pkg/releaseutil"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
@@ -151,6 +152,8 @@ func ReplaceWorkloadImages(rawYaml string, images []*commonmodels.Container) (st
 			Type: resourceKind,
 		})
 
+		yamlutil.NewYAMLOrJSONDecoder()
+
 		switch obj.GetKind() {
 		case setting.Deployment, setting.StatefulSet, setting.Job:
 			containers, _, err := unstructured.NestedSlice(obj.Object, "spec", "template", "spec", "containers")
@@ -231,12 +234,13 @@ func ReplaceWorkloadImages(rawYaml string, images []*commonmodels.Container) (st
 			}
 		}
 
-		updatedYaml, err := yaml.Marshal(obj.Object)
+		updatedYaml, err := resourceToYaml(obj.DeepCopyObject())
+		//updatedYaml, err := yaml.Marshal(obj.Object)
 		if err != nil {
 			return "", nil, fmt.Errorf("updated resource cannot be marshaled into a YAML, error: %s", err)
 		}
 
-		finalYaml := restoreRegExp.ReplaceAll(updatedYaml, []byte("{{.$1}}"))
+		finalYaml := restoreRegExp.ReplaceAll([]byte(updatedYaml), []byte("{{.$1}}"))
 		yamlStrs = append(yamlStrs, string(finalYaml))
 	}
 
