@@ -136,7 +136,6 @@ func ReplaceWorkloadImages(rawYaml string, images []*commonmodels.Container) (st
 	workloadRes := make([]*WorkloadResource, 0)
 	for _, yamlStr := range splitYams {
 		modifiedYamlStr := customKVRegExp.ReplaceAll([]byte(yamlStr), []byte("TEMP_PLACEHOLDER_$1"))
-		fmt.Printf(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>> original yaml string is: \n %s \n <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n", string(modifiedYamlStr))
 		resKind := new(types.KubeResourceKind)
 		if err := yaml.Unmarshal([]byte(modifiedYamlStr), &resKind); err != nil {
 			return "", nil, fmt.Errorf("unmarshal ResourceKind error: %v", err)
@@ -275,7 +274,6 @@ func ReplaceWorkloadImages(rawYaml string, images []*commonmodels.Container) (st
 
 		}
 		finalYaml := restoreRegExp.ReplaceAll([]byte(yamlStr), []byte("{{.$1}}"))
-		fmt.Printf(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>> modified yaml string is: \n %s \n <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n", string(finalYaml))
 		yamlStrs = append(yamlStrs, string(finalYaml))
 	}
 
