@@ -121,6 +121,7 @@ func resourceToYaml(obj runtime.Object) (string, error) {
 
 // ReplaceWorkloadImages  replace images in yaml with new images
 func ReplaceWorkloadImages(rawYaml string, images []*commonmodels.Container) (string, []*WorkloadResource, error) {
+	fmt.Printf(">>>>>>>>>>>>>>>> raw yaml is: \n %s \n <<<<<<<<<<<<<<<<<<\n", rawYaml)
 	imageMap := make(map[string]*commonmodels.Container)
 	for _, image := range images {
 		imageMap[image.Name] = image
