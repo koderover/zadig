@@ -269,13 +269,12 @@ func ReplaceWorkloadImages(rawYaml string, images []*commonmodels.Container) (st
 			}
 		}
 
-		updatedYaml, err := resourceToYaml(obj.DeepCopyObject())
-		//updatedYaml, err := yaml.Marshal(obj.Object)
+		updatedYaml, err := yaml.Marshal(obj.Object)
 		if err != nil {
 			return "", nil, fmt.Errorf("updated resource cannot be marshaled into a YAML, error: %s", err)
 		}
 
-		finalYaml := restoreRegExp.ReplaceAll([]byte(updatedYaml), []byte("{{.$1}}"))
+		finalYaml := restoreRegExp.ReplaceAll(updatedYaml, []byte("{{.$1}}"))
 		yamlStrs = append(yamlStrs, string(finalYaml))
 	}
 
