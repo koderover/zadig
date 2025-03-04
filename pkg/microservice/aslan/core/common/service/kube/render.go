@@ -130,6 +130,7 @@ func ReplaceWorkloadImages(rawYaml string, images []*commonmodels.Container) (st
 	yamlStrs := make([]string, 0)
 	workloadRes := make([]*WorkloadResource, 0)
 	for _, yamlStr := range splitYams {
+		fmt.Printf(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>> original yaml string is: \n %s \n <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n", yamlStr)
 		modifiedYamlStr := customKVRegExp.ReplaceAll([]byte(yamlStr), []byte("TEMP_PLACEHOLDER_$1"))
 
 		var rawData map[string]interface{}
@@ -236,7 +237,11 @@ func ReplaceWorkloadImages(rawYaml string, images []*commonmodels.Container) (st
 			return "", nil, fmt.Errorf("updated resource cannot be marshaled into a YAML, error: %s", err)
 		}
 
+		fmt.Printf(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>> modified yaml string is: \n %s \n <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n", string(updatedYaml))
+
 		finalYaml := restoreRegExp.ReplaceAll(updatedYaml, []byte("{{.$1}}"))
+
+		fmt.Printf(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>> final yaml string is: \n %s \n <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n", string(finalYaml))
 		yamlStrs = append(yamlStrs, string(finalYaml))
 	}
 
