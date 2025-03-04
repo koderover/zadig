@@ -24,8 +24,10 @@ import (
 
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v2"
+	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	yamlutil "k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/cli-runtime/pkg/printers"
 	"k8s.io/helm/pkg/releaseutil"
 
@@ -153,43 +155,79 @@ func ReplaceWorkloadImages(rawYaml string, images []*commonmodels.Container) (st
 
 		switch obj.GetKind() {
 		case setting.Deployment, setting.StatefulSet, setting.Job:
-			containers, _, err := unstructured.NestedSlice(obj.Object, "spec", "template", "spec", "containers")
-			if err != nil {
-				return "", nil, fmt.Errorf("failed to find containers in deployment, sts or job, error: %s", err)
-			}
+			decoder := yamlutil.NewYAMLOrJSONDecoder(bytes.NewReader([]byte(yamlStr)), 5*1024*1024)
 
-			for i, c := range containers {
-				container := c.(map[string]interface{})
-				containerName := container["name"].(string)
+			deployment := &appsv1.Deployment{}
+			if err := decoder.Decode(deployment); err != nil {
+				return "", nil, fmt.Errorf("unmarshal Deployment error: %v", err)
+			}
+			workloadRes = append(workloadRes, &WorkloadResource{
+				Name: obj.GetName(),
+				Type: obj.GetKind(),
+			})
+			for i, container := range deployment.Spec.Template.Spec.Containers {
+				containerName := container.Name
 				if image, ok := imageMap[containerName]; ok {
-					container["image"] = image.Image
-					containers[i] = container
+					deployment.Spec.Template.Spec.Containers[i].Image = image.Image
+				}
+			}
+			for i, container := range deployment.Spec.Template.Spec.InitContainers {
+				containerName := container.Name
+				if image, ok := imageMap[containerName]; ok {
+					deployment.Spec.Template.Spec.InitContainers[i].Image = image.Image
 				}
 			}
 
-			err = unstructured.SetNestedSlice(obj.Object, containers, "spec", "template", "spec", "containers")
+			yamlStr, err = resourceToYaml(deployment)
 			if err != nil {
-				return "", nil, fmt.Errorf("failed to set containers in deployment, sts or job, error: %s", err)
+				return "", nil, err
 			}
 
-			initContainers, _, err := unstructured.NestedSlice(obj.Object, "spec", "template", "spec", "initContainers")
+			var updatedData map[string]interface{}
+			err = yaml.Unmarshal([]byte(yamlStr), &updatedData)
 			if err != nil {
-				return "", nil, fmt.Errorf("failed to find init containers in deployment, sts or job, error: %s", err)
+				return "", nil, fmt.Errorf("decode yaml error: %s", err)
 			}
 
-			for i, c := range initContainers {
-				container := c.(map[string]interface{})
-				containerName := container["name"].(string)
-				if image, ok := imageMap[containerName]; ok {
-					container["image"] = image.Image
-					initContainers[i] = container
-				}
-			}
+			obj.Object = updatedData
 
-			err = unstructured.SetNestedSlice(obj.Object, initContainers, "spec", "template", "spec", "initContainers")
-			if err != nil {
-				return "", nil, fmt.Errorf("failed to set init containers in deployment, sts or job, error: %s", err)
-			}
+			//containers, _, err := unstructured.NestedSlice(obj.Object, "spec", "template", "spec", "containers")
+			//if err != nil {
+			//	return "", nil, fmt.Errorf("failed to find containers in deployment, sts or job, error: %s", err)
+			//}
+			//
+			//for i, c := range containers {
+			//	container := c.(map[string]interface{})
+			//	containerName := container["name"].(string)
+			//	if image, ok := imageMap[containerName]; ok {
+			//		container["image"] = image.Image
+			//		containers[i] = container
+			//	}
+			//}
+			//
+			//err = unstructured.SetNestedSlice(obj.Object, containers, "spec", "template", "spec", "containers")
+			//if err != nil {
+			//	return "", nil, fmt.Errorf("failed to set containers in deployment, sts or job, error: %s", err)
+			//}
+			//
+			//initContainers, _, err := unstructured.NestedSlice(obj.Object, "spec", "template", "spec", "initContainers")
+			//if err != nil {
+			//	return "", nil, fmt.Errorf("failed to find init containers in deployment, sts or job, error: %s", err)
+			//}
+			//
+			//for i, c := range initContainers {
+			//	container := c.(map[string]interface{})
+			//	containerName := container["name"].(string)
+			//	if image, ok := imageMap[containerName]; ok {
+			//		container["image"] = image.Image
+			//		initContainers[i] = container
+			//	}
+			//}
+			//
+			//err = unstructured.SetNestedSlice(obj.Object, initContainers, "spec", "template", "spec", "initContainers")
+			//if err != nil {
+			//	return "", nil, fmt.Errorf("failed to set init containers in deployment, sts or job, error: %s", err)
+			//}
 
 		case setting.CronJob:
 			containers, _, err := unstructured.NestedSlice(obj.Object, "spec", "jobTemplate", "spec", "template", "spec", "containers")
