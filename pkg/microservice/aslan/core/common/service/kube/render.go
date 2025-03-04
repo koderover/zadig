@@ -25,7 +25,6 @@ import (
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	yamlutil "k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/cli-runtime/pkg/printers"
 	"k8s.io/helm/pkg/releaseutil"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
@@ -151,8 +150,6 @@ func ReplaceWorkloadImages(rawYaml string, images []*commonmodels.Container) (st
 			Name: resourceName,
 			Type: resourceKind,
 		})
-
-		yamlutil.NewYAMLOrJSONDecoder()
 
 		switch obj.GetKind() {
 		case setting.Deployment, setting.StatefulSet, setting.Job:
