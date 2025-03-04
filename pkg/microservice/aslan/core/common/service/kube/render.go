@@ -19,6 +19,7 @@ package kube
 import (
 	"bytes"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/koderover/zadig/v2/pkg/types"
@@ -126,17 +127,21 @@ func ReplaceWorkloadImages(rawYaml string, images []*commonmodels.Container) (st
 		imageMap[image.Name] = image
 	}
 
+	customKVRegExp := regexp.MustCompile(`{{\.(\w+(\.\w+)*)}}`)
+	restoreRegExp := regexp.MustCompile(`TEMP_PLACEHOLDER_(\w+(\.\w+)*)`)
+
 	splitYams := util.SplitYaml(rawYaml)
 	yamlStrs := make([]string, 0)
 	var err error
 	workloadRes := make([]*WorkloadResource, 0)
 	for _, yamlStr := range splitYams {
-		fmt.Printf(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>> original yaml string is: \n %s \n <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n", string(yamlStr))
+		modifiedYamlStr := customKVRegExp.ReplaceAll([]byte(yamlStr), []byte("TEMP_PLACEHOLDER_$1"))
+		fmt.Printf(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>> original yaml string is: \n %s \n <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n", string(modifiedYamlStr))
 		resKind := new(types.KubeResourceKind)
-		if err := yaml.Unmarshal([]byte(yamlStr), &resKind); err != nil {
+		if err := yaml.Unmarshal([]byte(modifiedYamlStr), &resKind); err != nil {
 			return "", nil, fmt.Errorf("unmarshal ResourceKind error: %v", err)
 		}
-		decoder := yamlutil.NewYAMLOrJSONDecoder(bytes.NewReader([]byte(yamlStr)), 5*1024*1024)
+		decoder := yamlutil.NewYAMLOrJSONDecoder(bytes.NewReader([]byte(modifiedYamlStr)), 5*1024*1024)
 
 		switch resKind.Kind {
 		case setting.Deployment:
@@ -269,8 +274,9 @@ func ReplaceWorkloadImages(rawYaml string, images []*commonmodels.Container) (st
 			}
 
 		}
-		fmt.Printf(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>> modified yaml string is: \n %s \n <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n", string(yamlStr))
-		yamlStrs = append(yamlStrs, yamlStr)
+		finalYaml := restoreRegExp.ReplaceAll([]byte(yamlStr), []byte("{{.$1}}"))
+		fmt.Printf(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>> modified yaml string is: \n %s \n <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n", string(finalYaml))
+		yamlStrs = append(yamlStrs, string(finalYaml))
 	}
 
 	return util.JoinYamls(yamlStrs), workloadRes, nil
