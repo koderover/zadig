@@ -19,14 +19,13 @@ package kube
 import (
 	"bytes"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v2"
-	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	yamlutil "k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/cli-runtime/pkg/printers"
 	"k8s.io/helm/pkg/releaseutil"
 
@@ -125,7 +124,7 @@ func ReplaceWorkloadImages(rawYaml string, images []*commonmodels.Container) (st
 	}
 
 	//customKVRegExp := regexp.MustCompile(`{{\.([\p{L}\d]+(\.[\p{L}\d]+)*)}}`)
-	//restoreRegExp := regexp.MustCompile(`TEMP_PLACEHOLDER_([\p{L}\d]+(\.[\p{L}\d]+)*)`)
+	restoreRegExp := regexp.MustCompile(`TEMP_PLACEHOLDER_([\p{L}\d]+(\.[\p{L}\d]+)*)`)
 
 	splitYams := util.SplitYaml(rawYaml)
 	yamlStrs := make([]string, 0)
@@ -154,79 +153,43 @@ func ReplaceWorkloadImages(rawYaml string, images []*commonmodels.Container) (st
 
 		switch obj.GetKind() {
 		case setting.Deployment, setting.StatefulSet, setting.Job:
-			decoder := yamlutil.NewYAMLOrJSONDecoder(bytes.NewReader([]byte(yamlStr)), 5*1024*1024)
+			containers, _, err := unstructured.NestedSlice(obj.Object, "spec", "template", "spec", "containers")
+			if err != nil {
+				return "", nil, fmt.Errorf("failed to find containers in deployment, sts or job, error: %s", err)
+			}
 
-			deployment := &appsv1.Deployment{}
-			if err := decoder.Decode(deployment); err != nil {
-				return "", nil, fmt.Errorf("unmarshal Deployment error: %v", err)
-			}
-			workloadRes = append(workloadRes, &WorkloadResource{
-				Name: obj.GetName(),
-				Type: obj.GetKind(),
-			})
-			for i, container := range deployment.Spec.Template.Spec.Containers {
-				containerName := container.Name
+			for i, c := range containers {
+				container := c.(map[string]interface{})
+				containerName := container["name"].(string)
 				if image, ok := imageMap[containerName]; ok {
-					deployment.Spec.Template.Spec.Containers[i].Image = image.Image
-				}
-			}
-			for i, container := range deployment.Spec.Template.Spec.InitContainers {
-				containerName := container.Name
-				if image, ok := imageMap[containerName]; ok {
-					deployment.Spec.Template.Spec.InitContainers[i].Image = image.Image
+					container["image"] = image.Image
+					containers[i] = container
 				}
 			}
 
-			yamlStr, err = resourceToYaml(deployment)
+			err = unstructured.SetNestedSlice(obj.Object, containers, "spec", "template", "spec", "containers")
 			if err != nil {
-				return "", nil, err
+				return "", nil, fmt.Errorf("failed to set containers in deployment, sts or job, error: %s", err)
 			}
 
-			var updatedData map[string]interface{}
-			err = yaml.Unmarshal([]byte(yamlStr), &updatedData)
+			initContainers, _, err := unstructured.NestedSlice(obj.Object, "spec", "template", "spec", "initContainers")
 			if err != nil {
-				return "", nil, fmt.Errorf("decode yaml error: %s", err)
+				return "", nil, fmt.Errorf("failed to find init containers in deployment, sts or job, error: %s", err)
 			}
 
-			obj.Object = updatedData
+			for i, c := range initContainers {
+				container := c.(map[string]interface{})
+				containerName := container["name"].(string)
+				if image, ok := imageMap[containerName]; ok {
+					container["image"] = image.Image
+					initContainers[i] = container
+				}
+			}
 
-			//containers, _, err := unstructured.NestedSlice(obj.Object, "spec", "template", "spec", "containers")
-			//if err != nil {
-			//	return "", nil, fmt.Errorf("failed to find containers in deployment, sts or job, error: %s", err)
-			//}
-			//
-			//for i, c := range containers {
-			//	container := c.(map[string]interface{})
-			//	containerName := container["name"].(string)
-			//	if image, ok := imageMap[containerName]; ok {
-			//		container["image"] = image.Image
-			//		containers[i] = container
-			//	}
-			//}
-			//
-			//err = unstructured.SetNestedSlice(obj.Object, containers, "spec", "template", "spec", "containers")
-			//if err != nil {
-			//	return "", nil, fmt.Errorf("failed to set containers in deployment, sts or job, error: %s", err)
-			//}
-			//
-			//initContainers, _, err := unstructured.NestedSlice(obj.Object, "spec", "template", "spec", "initContainers")
-			//if err != nil {
-			//	return "", nil, fmt.Errorf("failed to find init containers in deployment, sts or job, error: %s", err)
-			//}
-			//
-			//for i, c := range initContainers {
-			//	container := c.(map[string]interface{})
-			//	containerName := container["name"].(string)
-			//	if image, ok := imageMap[containerName]; ok {
-			//		container["image"] = image.Image
-			//		initContainers[i] = container
-			//	}
-			//}
-			//
-			//err = unstructured.SetNestedSlice(obj.Object, initContainers, "spec", "template", "spec", "initContainers")
-			//if err != nil {
-			//	return "", nil, fmt.Errorf("failed to set init containers in deployment, sts or job, error: %s", err)
-			//}
+			err = unstructured.SetNestedSlice(obj.Object, initContainers, "spec", "template", "spec", "initContainers")
+			if err != nil {
+				return "", nil, fmt.Errorf("failed to set init containers in deployment, sts or job, error: %s", err)
+			}
 
 		case setting.CronJob:
 			containers, _, err := unstructured.NestedSlice(obj.Object, "spec", "jobTemplate", "spec", "template", "spec", "containers")
@@ -273,7 +236,7 @@ func ReplaceWorkloadImages(rawYaml string, images []*commonmodels.Container) (st
 			return "", nil, fmt.Errorf("updated resource cannot be marshaled into a YAML, error: %s", err)
 		}
 
-		//finalYaml := restoreRegExp.ReplaceAll(updatedYaml, []byte("{{.$1}}"))
+		//finalYaml := restoreRegExp.ReplaceAll([]byte(updatedYaml), []byte("{{.$1}}"))
 		yamlStrs = append(yamlStrs, string(updatedYaml))
 	}
 
