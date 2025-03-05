@@ -30,6 +30,7 @@ import (
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	helmservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/helm"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/kube"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/repository"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
@@ -325,14 +326,14 @@ func RollbackEnvServiceVersion(ctx *internalhandler.Context, projectName, envNam
 	} else if envSvcVersion.Service.Type == setting.HelmDeployType || envSvcVersion.Service.Type == setting.HelmChartDeployType {
 		var svcTmpl *commonmodels.Service
 		if envSvcVersion.Service.Type == setting.HelmDeployType {
-			svcTmpl, err = mongodb.NewServiceColl().Find(&mongodb.ServiceFindOption{
+			svcTmpl, err = repository.QueryTemplateService(&commonrepo.ServiceFindOption{
 				ProductName: envSvcVersion.ProductName,
 				ServiceName: envSvcVersion.Service.ServiceName,
 				Type:        envSvcVersion.Service.Type,
 				Revision:    envSvcVersion.Service.Revision,
-			})
+			}, env.Production)
 			if err != nil {
-				return e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to find service temlate %s/%s/%d, error: %v", envSvcVersion.EnvName, envSvcVersion.Service.ServiceName, envSvcVersion.Service.Revision, err))
+				return e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to find service temlate %s/%s/%d, production %v, error: %v", envSvcVersion.ProductName, envSvcVersion.Service.ServiceName, envSvcVersion.Service.Revision, env.Production, err))
 			}
 		}
 
