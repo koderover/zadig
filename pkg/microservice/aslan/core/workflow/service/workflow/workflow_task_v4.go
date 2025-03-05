@@ -2079,7 +2079,8 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, 
 				}
 
 			}
-			if job.Status == config.StatusPassed || job.Status == config.StatusFailed {
+			if job.Status == config.StatusPassed || job.Status == config.StatusFailed ||
+				job.Status == config.StatusUnstable || job.Status == config.StatusManualApproval {
 				for _, step := range taskJobSpec.Steps {
 					if step.Name == config.TestJobArchiveResultStepName {
 						spec.Archive = true
