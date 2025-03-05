@@ -105,11 +105,27 @@ func GetEnvServiceVersionYaml(ctx *internalhandler.Context, projectName, envName
 		resp.Yaml = parsedYaml
 		resp.VariableYaml = envSvcRevision.Service.Render.GetOverrideYaml()
 	} else if envSvcRevision.Service.Type == setting.HelmDeployType {
-		resp.VariableYaml, err = helmservice.NewHelmDeployService().GenMergedValues(envSvcRevision.Service, envSvcRevision.DefaultValues, nil)
+		tmplSvc, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
+			ServiceName: serviceName,
+			ProductName: projectName,
+			Type:        setting.HelmDeployType,
+			Revision:    envSvcRevision.Service.Revision,
+		}, isProduction)
+		if err != nil {
+			return resp, fmt.Errorf("failed to find %s/%s/%s service for version %d, isProduction %v, error: %v", projectName, envName, serviceName, revision, isProduction, err)
+		}
+
+		helmDeploySvc := helmservice.NewHelmDeployService()
+		resp.VariableYaml, err = helmDeploySvc.GenMergedValues(envSvcRevision.Service, envSvcRevision.DefaultValues, nil)
 		if err != nil {
 			return resp, fmt.Errorf("failed to merged values for %s/%s/%s service for version %d, isProduction %v, error: %v", projectName, envName, serviceName, revision, isProduction, err)
 		}
 		resp.OverrideKVs = envSvcRevision.Service.GetServiceRender().OverrideValues
+
+		resp.Yaml, err = helmDeploySvc.GeneFullValues(tmplSvc.HelmChart.ValuesYaml, resp.VariableYaml)
+		if err != nil {
+			return resp, fmt.Errorf("failed to generate full values for %s/%s/%s service for version %d, isProduction %v, error: %v", projectName, envName, serviceName, revision, isProduction, err)
+		}
 	} else if envSvcRevision.Service.Type == setting.HelmChartDeployType {
 		chartRepoName := envSvcRevision.Service.GetServiceRender().ChartRepo
 		chartName := envSvcRevision.Service.GetServiceRender().ChartName
