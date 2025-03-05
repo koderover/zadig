@@ -17,6 +17,7 @@ limitations under the License.
 package workflow
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -27,27 +28,37 @@ import (
 	"strings"
 	"time"
 
+	"github.com/pkg/errors"
+	"go.uber.org/zap"
+	"gorm.io/gorm/utils"
+	"k8s.io/apimachinery/pkg/util/sets"
+	controllerRuntimeClient "sigs.k8s.io/controller-runtime/pkg/client"
+
 	config2 "github.com/koderover/zadig/v2/pkg/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
+	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/dingtalk"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/instantmessage"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/lark"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/s3"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/scmnotify"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/workflowcontroller"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/workflowcontroller/jobcontroller"
 	workwxservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/workwx"
 	commontypes "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/types"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
+	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/job"
 	jobctl "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/job"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/shared/client/user"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	"github.com/koderover/zadig/v2/pkg/tool/cache"
+	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	larktool "github.com/koderover/zadig/v2/pkg/tool/lark"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
@@ -59,10 +70,6 @@ import (
 	jobspec "github.com/koderover/zadig/v2/pkg/types/job"
 	"github.com/koderover/zadig/v2/pkg/types/step"
 	stepspec "github.com/koderover/zadig/v2/pkg/types/step"
-	"github.com/pkg/errors"
-	"go.uber.org/zap"
-	"gorm.io/gorm/utils"
-	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 type CreateTaskV4Resp struct {
@@ -165,6 +172,7 @@ type ZadigDeployJobPreviewSpec struct {
 	Env                string                 `bson:"env"                          json:"env"`
 	EnvAlias           string                 `bson:"-"                            json:"env_alias"`
 	Production         bool                   `bson:"-"                            json:"production"`
+	ServiceType        string                 `bson:"service_type"                 json:"service_type"`
 	DeployContents     []config.DeployContent `bson:"deploy_contents"              json:"deploy_contents"`
 	SkipCheckRunStatus bool                   `bson:"skip_check_run_status"        json:"skip_check_run_status"`
 	ServiceAndImages   []*ServiceAndImage     `bson:"service_and_images"           json:"service_and_images"`
@@ -174,7 +182,8 @@ type ZadigDeployJobPreviewSpec struct {
 	// VariableConfigs new since 1.18, only used for k8s
 	VariableConfigs []*commonmodels.DeployVariableConfig `bson:"variable_configs"                 json:"variable_configs"                    yaml:"variable_configs"`
 	// VariableKVs new since 1.18, only used for k8s
-	VariableKVs []*commontypes.RenderVariableKV `bson:"variable_kvs"                 json:"variable_kvs"                    yaml:"variable_kvs"`
+	VariableKVs    []*commontypes.RenderVariableKV `bson:"variable_kvs"                 json:"variable_kvs"                    yaml:"variable_kvs"`
+	OriginRevision int64                           `bson:"origin_revision"              json:"origin_revision" yaml:"origin_revision"`
 }
 
 type CustomDeployJobSpec struct {
@@ -1110,7 +1119,7 @@ type SQLRevertInput struct {
 	SQL string `json:"sql"`
 }
 
-func RevertWorkflowTaskV4Job(workflowName, jobName string, taskID int64, input interface{}, userName, userID string, logger *zap.SugaredLogger) error {
+func RevertWorkflowTaskV4Job(ctx *internalhandler.Context, workflowName, jobName string, taskID int64, input interface{}, userName, userID string, logger *zap.SugaredLogger) error {
 	task, err := commonrepo.NewworkflowTaskv4Coll().Find(workflowName, taskID)
 	if err != nil {
 		logger.Errorf("find workflowTaskV4 error: %s", err)
@@ -1121,6 +1130,207 @@ func RevertWorkflowTaskV4Job(workflowName, jobName string, taskID int64, input i
 		for _, job := range stage.Jobs {
 			if job.Name == jobName {
 				switch job.JobType {
+				case string(config.JobZadigDeploy):
+					err = commonutil.CheckZadigProfessionalLicense()
+					if err != nil {
+						return err
+					}
+
+					jobTaskSpec := &commonmodels.JobTaskDeploySpec{}
+					if err := commonmodels.IToi(job.Spec, jobTaskSpec); err != nil {
+						logger.Error(err)
+						return fmt.Errorf("failed to decode nacos job spec, error: %s", err)
+					}
+
+					job.Reverted = true
+					task.Reverted = true
+					err = commonrepo.NewworkflowTaskv4Coll().Update(task.ID.Hex(), task)
+					if err != nil {
+						err = fmt.Errorf("failed to update nacos job revert information, error: %s", err)
+						log.Error(err)
+						return err
+					}
+
+					envSvcVersionYaml, err := commonservice.GetEnvServiceVersionYaml(ctx, task.ProjectName, jobTaskSpec.Env, jobTaskSpec.ServiceName, jobTaskSpec.OriginRevision, false, jobTaskSpec.Production, logger)
+					if err != nil {
+						err = fmt.Errorf("failed to get env service version yaml, error: %s", err)
+						log.Error(err)
+						return err
+					}
+					revertSpec := &commonmodels.JobTaskDeployRevertSpec{
+						Env:                jobTaskSpec.Env,
+						ServiceName:        jobTaskSpec.ServiceName,
+						ServiceType:        jobTaskSpec.ServiceType,
+						Production:         jobTaskSpec.Production,
+						Yaml:               envSvcVersionYaml.Yaml,
+						VariableYaml:       envSvcVersionYaml.VariableYaml,
+						OverrideKVs:        envSvcVersionYaml.OverrideKVs,
+						Revision:           jobTaskSpec.OriginRevision,
+						RevisionCreateTime: envSvcVersionYaml.CreateTime,
+					}
+
+					rollbackStatus, err := commonservice.RollbackEnvServiceVersion(ctx, task.ProjectName, jobTaskSpec.Env, jobTaskSpec.ServiceName, jobTaskSpec.OriginRevision, false, jobTaskSpec.Production, logger)
+					if err != nil {
+						log.Errorf("failed to rollback env service version, error: %s", err)
+						return err
+					}
+
+					revert := &commonmodels.WorkflowTaskRevert{
+						TaskID:        taskID,
+						WorkflowName:  workflowName,
+						JobName:       jobName,
+						RevertSpec:    revertSpec,
+						CreateTime:    time.Now().Unix(),
+						TaskCreator:   userName,
+						TaskCreatorID: userID,
+						Status:        config.StatusRunning,
+					}
+					revertID, err := commonrepo.NewWorkflowTaskRevertColl().Create(revert)
+					if err != nil {
+						log.Warnf("failed to insert revert task logs, error: %s", err)
+					}
+
+					if jobTaskSpec.Timeout == 0 {
+						jobTaskSpec.Timeout = setting.DeployTimeout
+					}
+
+					go func() {
+						var (
+							err        error
+							env        *commonmodels.Product
+							kubeClient controllerRuntimeClient.Client
+							status     = config.StatusFailed
+						)
+						defer func() {
+							err = commonrepo.NewWorkflowTaskRevertColl().UpateStatusByID(revertID, status)
+							if err != nil {
+								log.Errorf("failed to update revert task status, error: %s", err)
+							}
+						}()
+
+						if jobTaskSpec.ServiceType == setting.K8SDeployType {
+							jobTaskSpec.RelatedPodLabels = rollbackStatus.RelatedPodLabels
+							jobTaskSpec.ReplaceResources = rollbackStatus.ReplaceResources
+
+							env, err = commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+								Name:    task.ProjectName,
+								EnvName: jobTaskSpec.Env,
+							})
+							if err != nil {
+								log.Errorf("find project error: %v", err)
+								return
+							}
+
+							kubeClient, err = clientmanager.NewKubeClientManager().GetControllerRuntimeClient(env.ClusterID)
+							if err != nil {
+								log.Errorf("can't init k8s client: %v", err)
+								return
+							}
+
+							timeout := time.After(time.Duration(jobTaskSpec.Timeout) * time.Second)
+							jobTaskSpec.ReplaceResources, err = jobcontroller.GetResourcesPodOwnerUID(kubeClient, env.Namespace, nil, nil, jobTaskSpec.ReplaceResources)
+							if err != nil {
+								log.Errorf("failed to get resources pod owner uid, error: %s", err)
+								return
+							}
+							status, err = jobcontroller.CheckDeployStatus(context.TODO(), kubeClient, env.Namespace, jobTaskSpec, timeout, logger)
+							if err != nil {
+								log.Errorf("failed to check deploy status, error: %s", err)
+							}
+						}
+					}()
+
+					return nil
+				case string(config.JobZadigHelmDeploy):
+					err = commonutil.CheckZadigProfessionalLicense()
+					if err != nil {
+						return err
+					}
+
+					jobTaskSpec := &commonmodels.JobTaskHelmDeploySpec{}
+					if err := commonmodels.IToi(job.Spec, jobTaskSpec); err != nil {
+						logger.Error(err)
+						return fmt.Errorf("failed to decode nacos job spec, error: %s", err)
+					}
+
+					job.Reverted = true
+					task.Reverted = true
+					err = commonrepo.NewworkflowTaskv4Coll().Update(task.ID.Hex(), task)
+					if err != nil {
+						err = fmt.Errorf("failed to update nacos job revert information, error: %s", err)
+						log.Error(err)
+						return err
+					}
+
+					envSvcVersionYaml, err := commonservice.GetEnvServiceVersionYaml(ctx, task.ProjectName, jobTaskSpec.Env, jobTaskSpec.ServiceName, jobTaskSpec.OriginRevision, false, jobTaskSpec.IsProduction, logger)
+					if err != nil {
+						err = fmt.Errorf("failed to get env service version yaml, error: %s", err)
+						log.Error(err)
+						return err
+					}
+					revertSpec := &commonmodels.JobTaskDeployRevertSpec{
+						Env:                jobTaskSpec.Env,
+						ServiceName:        jobTaskSpec.ServiceName,
+						ServiceType:        jobTaskSpec.ServiceType,
+						Production:         jobTaskSpec.IsProduction,
+						Yaml:               envSvcVersionYaml.Yaml,
+						VariableYaml:       envSvcVersionYaml.VariableYaml,
+						OverrideKVs:        envSvcVersionYaml.OverrideKVs,
+						Revision:           jobTaskSpec.OriginRevision,
+						RevisionCreateTime: envSvcVersionYaml.CreateTime,
+					}
+
+					rollbackStatus, err := commonservice.RollbackEnvServiceVersion(ctx, task.ProjectName, jobTaskSpec.Env, jobTaskSpec.ServiceName, jobTaskSpec.OriginRevision, false, jobTaskSpec.IsProduction, logger)
+					if err != nil {
+						log.Errorf("failed to rollback env service version, error: %s", err)
+						return err
+					}
+
+					revert := &commonmodels.WorkflowTaskRevert{
+						TaskID:        taskID,
+						WorkflowName:  workflowName,
+						JobName:       jobName,
+						RevertSpec:    revertSpec,
+						CreateTime:    time.Now().Unix(),
+						TaskCreator:   userName,
+						TaskCreatorID: userID,
+						Status:        config.StatusRunning,
+					}
+					revertID, err := commonrepo.NewWorkflowTaskRevertColl().Create(revert)
+					if err != nil {
+						log.Warnf("failed to insert revert task logs, error: %s", err)
+					}
+
+					if jobTaskSpec.Timeout == 0 {
+						jobTaskSpec.Timeout = setting.DeployTimeout
+					}
+
+					go func() {
+						var (
+							err    error
+							status = config.StatusFailed
+						)
+						defer func() {
+							err = commonrepo.NewWorkflowTaskRevertColl().UpateStatusByID(revertID, status)
+							if err != nil {
+								log.Errorf("failed to update revert task status, error: %s", err)
+							}
+						}()
+
+						select {
+						case result := <-rollbackStatus.HelmDeployStatusChan:
+							if !result {
+								status = config.StatusFailed
+							}
+							status = config.StatusPassed
+							break
+						case <-time.After(time.Second*time.Duration(jobTaskSpec.Timeout) + time.Minute):
+							log.Errorf("failed to upgrade relase for service: %s, timeout", jobTaskSpec.ServiceName)
+							status = config.StatusTimeout
+						}
+					}()
+
+					return nil
 				case string(config.JobNacos):
 					jobTaskSpec := &commonmodels.JobTaskNacosSpec{}
 					if err := commonmodels.IToi(job.Spec, jobTaskSpec); err != nil {
@@ -1982,11 +2192,13 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, 
 			spec.Env = taskJobSpec.Env
 			spec.Production = getEnvProduction(getEnv(taskJobSpec.Env))
 			spec.EnvAlias = getEnvAlias(getEnv(taskJobSpec.Env))
+			spec.ServiceType = taskJobSpec.ServiceType
 			spec.DeployContents = taskJobSpec.DeployContents
 			spec.VariableConfigs = taskJobSpec.VariableConfigs
 			spec.VariableKVs = taskJobSpec.VariableKVs
 			spec.YamlContent = taskJobSpec.YamlContent
 			spec.SkipCheckRunStatus = taskJobSpec.SkipCheckRunStatus
+			spec.OriginRevision = taskJobSpec.OriginRevision
 			// for compatibility
 			if taskJobSpec.ServiceModule != "" {
 				spec.ServiceAndImages = append(spec.ServiceAndImages, &ServiceAndImage{
@@ -2015,10 +2227,12 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, 
 			spec.Env = taskJobSpec.Env
 			spec.Production = getEnvProduction(getEnv(taskJobSpec.Env))
 			spec.EnvAlias = getEnvAlias(getEnv(taskJobSpec.Env))
+			spec.ServiceType = taskJobSpec.ServiceType
 			spec.DeployContents = taskJobSpec.DeployContents
 			spec.YamlContent = taskJobSpec.YamlContent
 			spec.UserSuppliedValue = taskJobSpec.UserSuppliedValue
 			spec.SkipCheckRunStatus = taskJobSpec.SkipCheckRunStatus
+			spec.OriginRevision = taskJobSpec.OriginRevision
 			for _, imageAndmodule := range taskJobSpec.ImageAndModules {
 				spec.ServiceAndImages = append(spec.ServiceAndImages, &ServiceAndImage{
 					ServiceName:   taskJobSpec.ServiceName,
