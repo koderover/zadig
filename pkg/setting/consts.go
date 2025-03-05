@@ -946,6 +946,7 @@ const (
 	NotifyWebHookTypeFeishuPerson NotifyWebHookType = "feishu_person"
 	NotifyWebhookTypeFeishuApp    NotifyWebHookType = "feishu_app"
 	NotifyWebHookTypeWechatWork   NotifyWebHookType = "wechat"
+	NotifyWebHookTypeMSTeam       NotifyWebHookType = "msteams"
 	NotifyWebHookTypeMail         NotifyWebHookType = "mail"
 	NotifyWebHookTypeWebook       NotifyWebHookType = "webhook"
 )

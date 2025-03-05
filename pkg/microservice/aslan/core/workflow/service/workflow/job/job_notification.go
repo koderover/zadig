@@ -111,6 +111,7 @@ func (j *NotificationJob) UpdateWithLatestSetting() error {
 	j.spec.LarkPersonNotificationConfig = latestSpec.LarkPersonNotificationConfig
 	j.spec.WechatNotificationConfig = latestSpec.WechatNotificationConfig
 	j.spec.DingDingNotificationConfig = latestSpec.DingDingNotificationConfig
+	j.spec.MSTeamsNotificationConfig = latestSpec.MSTeamsNotificationConfig
 	j.spec.MailNotificationConfig = latestSpec.MailNotificationConfig
 	j.spec.WebhookNotificationConfig = latestSpec.WebhookNotificationConfig
 
@@ -175,6 +176,7 @@ func generateNotificationJobSpec(spec *commonmodels.NotificationJobSpec) (*commo
 	resp.LarkPersonNotificationConfig = spec.LarkPersonNotificationConfig
 	resp.LarkGroupNotificationConfig = spec.LarkGroupNotificationConfig
 	resp.DingDingNotificationConfig = spec.DingDingNotificationConfig
+	resp.MSTeamsNotificationConfig = spec.MSTeamsNotificationConfig
 	resp.WebhookNotificationConfig = spec.WebhookNotificationConfig
 
 	return resp, nil
