@@ -317,3 +317,34 @@ func OpenAPIGetContainerLogsSSE(c *gin.Context) {
 		logservice.ContainerLogStream(ctx, streamChan, envName, productName, c.Param("podName"), c.Param("containerName"), true, tails, logger)
 	}, logger)
 }
+
+func OpenAPIGetWorkflowJobContainerLogsSSE(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+
+	taskID, err := strconv.ParseInt(c.Param("taskID"), 10, 64)
+	if err != nil {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid task id")
+		internalhandler.JSONResponse(c, ctx)
+		return
+	}
+
+	tails, err := strconv.ParseInt(c.Param("lines"), 10, 64)
+	if err != nil {
+		tails = int64(10)
+	}
+
+	jobName := c.Param("jobName")
+
+	internalhandler.Stream(c, func(ctx1 context.Context, streamChan chan interface{}) {
+		logservice.WorkflowTaskV4ContainerLogStream(
+			ctx1, streamChan,
+			&logservice.GetContainerOptions{
+				Namespace:    config.Namespace(),
+				PipelineName: c.Param("workflowName"),
+				SubTask:      jobcontroller.GetJobContainerName(jobName),
+				TaskID:       taskID,
+				TailLines:    tails,
+			},
+			ctx.Logger)
+	}, ctx.Logger)
+}

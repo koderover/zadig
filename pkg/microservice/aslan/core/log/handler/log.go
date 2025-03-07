@@ -120,3 +120,16 @@ func GetTestingContainerLogs(c *gin.Context) {
 
 	ctx.Resp, ctx.RespErr = logservice.GetTestingContainerLogs(testName, taskID, ctx.Logger)
 }
+
+func OpenAPIGetWorkflowV4JobContainerLogs(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	taskID, err := strconv.ParseInt(c.Param("taskID"), 10, 64)
+	if err != nil {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid task id")
+		return
+	}
+	// Use all lowercase job names to avoid subdomain errors
+	ctx.Resp, ctx.RespErr = logservice.GetWorkflowV4JobContainerLogs(strings.ToLower(c.Param("workflowName")), c.Param("jobName"), taskID, ctx.Logger)
+}
