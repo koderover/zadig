@@ -44,7 +44,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/shared/client/plutusvendor"
 	"github.com/koderover/zadig/v2/pkg/shared/client/systemconfig"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
-	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/tool/mail"
 	"github.com/koderover/zadig/v2/pkg/types"
 )
@@ -64,11 +63,12 @@ type UpdateUserInfo struct {
 }
 
 type OpenAPIQueryArgs struct {
-	PageNum  int      `json:"page_num,omitempty" form:"pageNum"`
-	PageSize int      `json:"page_size,omitempty" form:"pageSize"`
-	Account  string   `json:"account,omitempty" form:"account"`
-	Name     string   `json:"name,omitempty" form:"name"`
-	Roles    []string `json:"roles,omitempty" form:"roles"`
+	PageNum      int      `json:"page_num,omitempty" form:"pageNum"`
+	PageSize     int      `json:"page_size,omitempty" form:"pageSize"`
+	Account      string   `json:"account,omitempty" form:"account"`
+	IdentityType string   `json:"identity_type,omitempty" form:"identity_type"`
+	Name         string   `json:"name,omitempty" form:"name"`
+	Roles        []string `json:"roles,omitempty" form:"roles"`
 }
 
 type QueryArgs struct {
@@ -295,7 +295,6 @@ func SearchUserByAccount(args *QueryArgs, logger *zap.SugaredLogger) (*types.Use
 }
 
 func SearchUsers(args *QueryArgs, logger *zap.SugaredLogger) (*types.UsersResp, error) {
-	log.Debugf("SearchUsers args:%+v", args)
 	var count int64
 	var err error
 	if len(args.Roles) == 0 {
