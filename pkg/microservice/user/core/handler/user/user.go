@@ -17,7 +17,6 @@ limitations under the License.
 package user
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"github.com/gin-gonic/gin"
@@ -28,7 +27,6 @@ import (
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
-	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
 // Deprecated
@@ -277,11 +275,12 @@ func OpenAPIListUsersBrief(c *gin.Context) {
 	}
 
 	tarnsArg := &permission.QueryArgs{
-		Page:    args.PageNum,
-		PerPage: args.PageSize,
-		Account: args.Account,
-		Name:    args.Name,
-		Roles:   args.Roles,
+		Page:         args.PageNum,
+		PerPage:      args.PageSize,
+		Account:      args.Account,
+		Name:         args.Name,
+		Roles:        args.Roles,
+		IdentityType: args.IdentityType,
 	}
 
 	var resp *types.UsersResp
@@ -298,9 +297,6 @@ func OpenAPIListUsersBrief(c *gin.Context) {
 		ctx.RespErr = err
 		return
 	}
-
-	respBytes, _ := json.Marshal(resp)
-	log.Debugf("OpenAPIListUsersBrief resp: %s", string(respBytes))
 
 	briefUserList := make([]*types.UserBriefInfo, 0)
 	for _, userInfo := range resp.Users {
