@@ -146,7 +146,7 @@ func (w *Service) SendWorkflowTaskApproveNotifications(workflowName string, task
 			}
 		}
 
-		if err := w.sendNotification(title, content, notify, larkCard, webhookNotify); err != nil {
+		if err := w.sendNotification(title, content, notify, larkCard, webhookNotify, task.Status); err != nil {
 			log.Errorf("failed to send notification, err: %s", err)
 		}
 	}
@@ -253,7 +253,7 @@ func (w *Service) SendWorkflowTaskNotifications(task *models.WorkflowTask) error
 				}
 			}
 
-			if err := w.sendNotification(title, content, notify, larkCard, webhookNotify); err != nil {
+			if err := w.sendNotification(title, content, notify, larkCard, webhookNotify, task.Status); err != nil {
 				log.Errorf("failed to send notification, err: %s", err)
 			}
 		}
@@ -296,11 +296,11 @@ func (w *Service) getApproveNotificationContent(notify *models.NotifyCtl, task *
 	tplTitle := "{{if and (ne .WebHookType \"feishu\") (ne .WebHookType \"feishu_app\") (ne .WebHookType \"feishu_person\")}}### {{end}}{{if eq .WebHookType \"dingding\"}}<font color=#3270e3>**{{end}}{{getIcon .Task.Status }}工作流 {{.Task.WorkflowDisplayName}} #{{.Task.TaskID}} 等待审批{{if eq .WebHookType \"dingding\"}}**</font>{{end}} \n"
 	mailTplTitle := "{{getIcon .Task.Status }}工作流 {{.Task.WorkflowDisplayName}} #{{.Task.TaskID}} 等待审批\n"
 
-	tplBaseInfo := []string{"{{if eq .WebHookType \"dingding\"}}##### {{end}}**执行用户**：{{.Task.TaskCreator}} \n",
-		"{{if eq .WebHookType \"dingding\"}}##### {{end}}**项目名称**：{{.ProjectDisplayName}} \n",
-		"{{if eq .WebHookType \"dingding\"}}##### {{end}}**开始时间**：{{ getStartTime .Task.StartTime}} \n",
-		"{{if eq .WebHookType \"dingding\"}}##### {{end}}**持续时间**：{{ getDuration .TotalTime}} \n",
-		"{{if eq .WebHookType \"dingding\"}}##### {{end}}**备注**：{{.Task.Remark}} \n",
+	tplBaseInfo := []string{"{{if eq .WebHookType \"dingding\"}}##### {{end}}**执行用户**：{{.Task.TaskCreator}}  \n",
+		"{{if eq .WebHookType \"dingding\"}}##### {{end}}**项目名称**：{{.ProjectDisplayName}}  \n",
+		"{{if eq .WebHookType \"dingding\"}}##### {{end}}**开始时间**：{{ getStartTime .Task.StartTime}}  \n",
+		"{{if eq .WebHookType \"dingding\"}}##### {{end}}**持续时间**：{{ getDuration .TotalTime}}  \n",
+		"{{if eq .WebHookType \"dingding\"}}##### {{end}}**备注**：{{.Task.Remark}}  \n",
 	}
 	mailTplBaseInfo := []string{"执行用户：{{.Task.TaskCreator}} \n",
 		"项目名称：{{.ProjectDisplayName}} \n",
@@ -427,10 +427,10 @@ func (w *Service) getNotificationContent(notify *models.NotifyCtl, task *models.
 	tplTitle := "{{if and (ne .WebHookType \"feishu\") (ne .WebHookType \"feishu_app\") (ne .WebHookType \"feishu_person\")}}### {{end}}{{if eq .WebHookType \"dingding\"}}<font color=\"{{ getColor .Task.Status }}\"><b>{{end}}{{getIcon .Task.Status }}{{getTaskType .Task.Type}} {{.Task.WorkflowDisplayName}} #{{.Task.TaskID}} {{ taskStatus .Task.Status }}{{if eq .WebHookType \"dingding\"}}</b></font>{{end}} \n"
 	mailTplTitle := "{{getIcon .Task.Status }} {{getTaskType .Task.Type}} {{.Task.WorkflowDisplayName}}#{{.Task.TaskID}} {{ taskStatus .Task.Status }}"
 
-	tplBaseInfo := []string{"{{if eq .WebHookType \"dingding\"}}##### {{end}}**执行用户**：{{.Task.TaskCreator}} \n",
-		"{{if eq .WebHookType \"dingding\"}}##### {{end}}**项目名称**：{{.ProjectDisplayName}} \n",
-		"{{if eq .WebHookType \"dingding\"}}##### {{end}}**开始时间**：{{ getStartTime .Task.StartTime}} \n",
-		"{{if eq .WebHookType \"dingding\"}}##### {{end}}**持续时间**：{{ getDuration .TotalTime}} \n",
+	tplBaseInfo := []string{"{{if eq .WebHookType \"dingding\"}}##### {{end}}**执行用户**：{{.Task.TaskCreator}}  \n",
+		"{{if eq .WebHookType \"dingding\"}}##### {{end}}**项目名称**：{{.ProjectDisplayName}}  \n",
+		"{{if eq .WebHookType \"dingding\"}}##### {{end}}**开始时间**：{{ getStartTime .Task.StartTime}}  \n",
+		"{{if eq .WebHookType \"dingding\"}}##### {{end}}**持续时间**：{{ getDuration .TotalTime}}  \n",
 		"{{if eq .WebHookType \"dingding\"}}##### {{end}}**备注**：{{.Task.Remark}} \n",
 	}
 	mailTplBaseInfo := []string{"执行用户：{{.Task.TaskCreator}} \n",
@@ -462,7 +462,7 @@ func (w *Service) getNotificationContent(notify *models.NotifyCtl, task *models.
 				Error:       job.Error,
 			}
 
-			jobTplcontent := "{{if and (ne .WebHookType \"feishu\") (ne .WebHookType \"feishu_app\") (ne .WebHookType \"feishu_person\")}}\n\n{{end}}{{if eq .WebHookType \"dingding\"}}---\n\n##### {{end}}**{{jobType .Job.JobType }}**: {{.Job.DisplayName}}    **状态**: {{taskStatus .Job.Status }} \n"
+			jobTplcontent := "{{if and (ne .WebHookType \"feishu\") (ne .WebHookType \"feishu_app\") (ne .WebHookType \"feishu_person\")}}\n\n{{end}}{{if eq .WebHookType \"dingding\"}}---\n\n##### {{end}}**{{jobType .Job.JobType }}**: {{.Job.DisplayName}}    **状态**: {{taskStatus .Job.Status }}  \n"
 			mailJobTplcontent := "{{jobType .Job.JobType }}：{{.Job.DisplayName}}    状态：{{taskStatus .Job.Status }} \n"
 			switch job.JobType {
 			case string(config.JobZadigBuild):
@@ -554,7 +554,7 @@ func (w *Service) getNotificationContent(notify *models.NotifyCtl, task *models.
 					}
 				}
 				if len(commitID) > 0 {
-					jobTplcontent += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**代码信息**：%s %s[%s](%s) \n", branchTag, prInfo, commitID, gitCommitURL)
+					jobTplcontent += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**代码信息**：%s %s[%s](%s)  \n", branchTag, prInfo, commitID, gitCommitURL)
 					jobTplcontent += "{{if eq .WebHookType \"dingding\"}}##### {{end}}**提交信息**："
 					mailJobTplcontent += fmt.Sprintf("代码信息：%s %s[%s]( %s )\n", branchTag, prInfo, commitID, gitCommitURL)
 					if len(commitMsgs) == 1 {
@@ -567,7 +567,7 @@ func (w *Service) getNotificationContent(notify *models.NotifyCtl, task *models.
 					}
 				}
 				if image != "" && !strings.HasPrefix(image, "{{.") && !strings.Contains(image, "}}") {
-					jobTplcontent += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**镜像信息**：%s \n", image)
+					jobTplcontent += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**镜像信息**：%s  \n", image)
 					mailJobTplcontent += fmt.Sprintf("镜像信息：%s \n", image)
 					workflowNotifyJobTaskSpec.Image = image
 				}
@@ -576,7 +576,7 @@ func (w *Service) getNotificationContent(notify *models.NotifyCtl, task *models.
 			case string(config.JobZadigDeploy):
 				jobSpec := &models.JobTaskDeploySpec{}
 				models.IToi(job.Spec, jobSpec)
-				jobTplcontent += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**环境**：%s \n", jobSpec.Env)
+				jobTplcontent += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**环境**：%s  \n", jobSpec.Env)
 				mailJobTplcontent += fmt.Sprintf("环境：%s \n", jobSpec.Env)
 
 				serviceModules := []*webhooknotify.WorkflowNotifyDeployServiceModule{}
@@ -597,7 +597,7 @@ func (w *Service) getNotificationContent(notify *models.NotifyCtl, task *models.
 			case string(config.JobZadigHelmDeploy):
 				jobSpec := &models.JobTaskHelmDeploySpec{}
 				models.IToi(job.Spec, jobSpec)
-				jobTplcontent += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**环境**：%s \n", jobSpec.Env)
+				jobTplcontent += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**环境**：%s  \n", jobSpec.Env)
 				mailJobTplcontent += fmt.Sprintf("环境：%s \n", jobSpec.Env)
 
 				serviceModules := []*webhooknotify.WorkflowNotifyDeployServiceModule{}
@@ -906,9 +906,9 @@ func getJobTaskTplExec(tplcontent string, args *jobTaskNotification) (string, er
 	return buffer.String(), nil
 }
 
-func (w *Service) sendNotification(title, content string, notify *models.NotifyCtl, card *LarkCard, webhookNotify *webhooknotify.WorkflowNotify) error {
+func (w *Service) sendNotification(title, content string, notify *models.NotifyCtl, card *LarkCard, webhookNotify *webhooknotify.WorkflowNotify, taskStatus config.Status) error {
 	link := ""
-	if notify.WebHookType == setting.NotifyWebHookTypeDingDing || notify.WebHookType == setting.NotifyWebHookTypeWechatWork {
+	if notify.WebHookType == setting.NotifyWebHookTypeDingDing || notify.WebHookType == setting.NotifyWebHookTypeWechatWork || notify.WebHookType == setting.NotifyWebHookTypeMSTeam {
 		switch webhookNotify.TaskType {
 		case config.WorkflowTaskTypeWorkflow:
 			link = fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/custom/%s/%d?display_name=%s", configbase.SystemAddress(), webhookNotify.ProjectName, webhookNotify.WorkflowName, webhookNotify.TaskID, url.PathEscape(webhookNotify.WorkflowDisplayName))
@@ -923,6 +923,10 @@ func (w *Service) sendNotification(title, content string, notify *models.NotifyC
 	}
 
 	switch notify.WebHookType {
+	case setting.NotifyWebHookTypeMSTeam:
+		if err := w.sendMSTeamsMessage(notify.MSTeamsNotificationConfig.HookAddress, title, content, link, notify.MSTeamsNotificationConfig.AtEmails, taskStatus); err != nil {
+			return err
+		}
 	case setting.NotifyWebHookTypeDingDing:
 		if err := w.sendDingDingMessage(notify.DingDingNotificationConfig.HookAddress, title, content, link, notify.DingDingNotificationConfig.AtMobiles, notify.DingDingNotificationConfig.IsAtAll); err != nil {
 			return err
