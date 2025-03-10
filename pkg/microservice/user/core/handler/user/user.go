@@ -219,9 +219,12 @@ func OpenAPIListUsersBrief(c *gin.Context) {
 	}
 
 	tarnsArg := &permission.QueryArgs{
-		Page:    args.PageNum,
-		PerPage: args.PageSize,
-		Account: args.Account,
+		Page:         args.PageNum,
+		PerPage:      args.PageSize,
+		Account:      args.Account,
+		Name:         args.Name,
+		Roles:        args.Roles,
+		IdentityType: args.IdentityType,
 	}
 
 	var resp *types.UsersResp

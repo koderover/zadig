@@ -51,5 +51,11 @@ func (*OpenAPIRouter) Inject(router *gin.RouterGroup) {
 	sse := router.Group("sse")
 	{
 		sse.GET("/pods/:podName/containers/:containerName", OpenAPIGetContainerLogsSSE)
+		sse.GET("/v4/workflow/:workflowName/:taskID/:jobName/:lines", OpenAPIGetWorkflowJobContainerLogsSSE)
+	}
+
+	log := router.Group("log")
+	{
+		log.GET("/v4/workflow/:workflowName/:taskID/:jobName", OpenAPIGetWorkflowV4JobContainerLogs)
 	}
 }
