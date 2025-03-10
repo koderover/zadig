@@ -217,7 +217,7 @@ func OpenAPIGetWorkflowTaskV4(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	args := new(getworkflowTaskReq)
-	err := c.BindQuery(args)
+	err := c.BindJSON(args)
 	if err != nil {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
