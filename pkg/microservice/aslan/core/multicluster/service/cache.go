@@ -43,17 +43,8 @@ func ListStorageClasses(ctx context.Context, clusterID string, scType types.Stor
 		return nil, fmt.Errorf("failed to get kube client: %s", err)
 	}
 
-	var namespace string
-	switch clusterID {
-	case setting.LocalClusterID:
-		// For cluster-level resources, we need to explicitly configure the namespace to be empty.
-		namespace = ""
-	default:
-		namespace = setting.AttachedClusterNamespace
-	}
-
 	scList := &storagev1.StorageClassList{}
-	err = kclient.List(ctx, scList, client.InNamespace(namespace))
+	err = kclient.List(ctx, scList)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list storageclasses: %s", err)
 	}
