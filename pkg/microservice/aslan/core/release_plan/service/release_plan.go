@@ -26,7 +26,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/job"
 	"github.com/pkg/errors"
 	"github.com/samber/lo"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -75,6 +74,19 @@ func CreateReleasePlan(c *handler.Context, args *models.ReleasePlan) error {
 		if err := lintReleaseJob(job.Type, job.Spec); err != nil {
 			return errors.Errorf("lintReleaseJob %s error: %v", job.Name, err)
 		}
+
+		if job.Type == config.JobWorkflow {
+			spec := new(models.WorkflowReleaseJobSpec)
+			if err := models.IToi(job.Spec, spec); err != nil {
+				return fmt.Errorf("invalid spec for job: %s. decode error: %s", job.Name, err)
+			}
+			if spec.Workflow == nil {
+				return fmt.Errorf("workflow is nil")
+			}
+
+			job.Hash = spec.Workflow.Hash
+		}
+
 		job.ReleaseJobRuntime = models.ReleaseJobRuntime{}
 		job.ID = uuid.New().String()
 	}
@@ -280,7 +292,21 @@ func GetReleasePlan(id string) (*models.ReleasePlan, error) {
 
 	for _, releasePlanJob := range releasePlan.Jobs {
 		if releasePlanJob.Type == config.JobWorkflow {
-			releasePlanJob.Spec = nil
+			spec := new(models.WorkflowReleaseJobSpec)
+			if err := models.IToi(releasePlanJob.Spec, spec); err != nil {
+				return nil, fmt.Errorf("invalid spec for job: %s. decode error: %s", releasePlanJob.Name, err)
+			}
+			if spec.Workflow == nil {
+				return nil, fmt.Errorf("workflow is nil")
+			}
+
+			originalWorkflow, err := mongodb.NewWorkflowV4Coll().Find(spec.Workflow.Name)
+			if err != nil {
+				log.Errorf("Failed to find WorkflowV4: %s, the error is: %v", spec.Workflow.Name, err)
+				return nil, fmt.Errorf("failed to find WorkflowV4: %s, the error is: %v", spec.Workflow.Name, err)
+			}
+
+			releasePlanJob.LatestHash = originalWorkflow.Hash
 		}
 	}
 
@@ -387,52 +413,6 @@ func GetReleasePlanJobDetail(planID, jobID string) (*commonmodels.ReleaseJob, er
 
 	for _, releasePlanJob := range releasePlan.Jobs {
 		if releasePlanJob.ID == jobID {
-			if releasePlanJob.Type == config.JobWorkflow {
-				spec := new(models.WorkflowReleaseJobSpec)
-				if err := models.IToi(releasePlanJob.Spec, spec); err != nil {
-					return nil, fmt.Errorf("invalid spec for job: %s. decode error: %s", releasePlanJob.Name, err)
-				}
-				if spec.Workflow == nil {
-					return nil, fmt.Errorf("workflow is nil")
-				}
-
-				originalWorkflow, err := mongodb.NewWorkflowV4Coll().Find(spec.Workflow.Name)
-				if err != nil {
-					log.Errorf("Failed to find WorkflowV4: %s, the error is: %v", spec.Workflow.Name, err)
-					return nil, fmt.Errorf("failed to find WorkflowV4: %s, the error is: %v", spec.Workflow.Name, err)
-				}
-
-				if err := job.MergeArgs(originalWorkflow, spec.Workflow); err != nil {
-					errMsg := fmt.Sprintf("merge workflow args error: %v", err)
-					log.Error(errMsg)
-					return nil, fmt.Errorf(errMsg)
-				}
-
-				for _, stage := range originalWorkflow.Stages {
-					for _, item := range stage.Jobs {
-						err := job.SetOptions(item, originalWorkflow, nil)
-						if err != nil {
-							errMsg := fmt.Sprintf("merge workflow args set options error: %v", err)
-							log.Error(errMsg)
-							return nil, fmt.Errorf(errMsg)
-						}
-
-						// additionally we need to update the user-defined args with the latest workflow configuration
-						err = job.UpdateWithLatestSetting(item, originalWorkflow)
-						if err != nil {
-							errMsg := fmt.Sprintf("failed to merge user-defined workflow args with latest workflow configuration, error: %s", err)
-							log.Error(errMsg)
-							return nil, fmt.Errorf(errMsg)
-						}
-					}
-				}
-
-				originalWorkflow.Remark = spec.Workflow.Remark
-
-				spec.Workflow = originalWorkflow
-				releasePlanJob.Spec = spec
-			}
-
 			return releasePlanJob, nil
 		}
 	}

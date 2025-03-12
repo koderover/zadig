@@ -74,6 +74,9 @@ type ReleaseJob struct {
 	Type config.ReleasePlanJobType `bson:"type"       yaml:"type"                   json:"type"`
 	Spec interface{}               `bson:"spec"       yaml:"spec"                   json:"spec"`
 
+	Hash       string `bson:"hash,omitempty" yaml:"hash,omitempty"        json:"hash,omitempty"`
+	LatestHash string `bson:"-"              yaml:"latest_hash,omitempty" json:"latest_hash,omitempty"`
+
 	ReleaseJobRuntime `bson:",inline" yaml:",inline" json:",inline"`
 }
 
