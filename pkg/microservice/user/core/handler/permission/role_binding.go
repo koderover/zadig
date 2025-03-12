@@ -404,7 +404,6 @@ func UpdateRoleBindingForGroup(c *gin.Context) {
 }
 
 func UpdateRoleBindingForGroupImpl(c *gin.Context, ctx *internalhandler.Context) {
-
 	data, err := c.GetRawData()
 	if err != nil {
 		log.Errorf("CreateSystemRoleBinding c.GetRawData() err : %v", err)
