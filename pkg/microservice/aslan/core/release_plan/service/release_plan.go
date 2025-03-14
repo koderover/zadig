@@ -26,6 +26,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/job"
 	"github.com/pkg/errors"
 	"github.com/samber/lo"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -413,6 +414,25 @@ func GetReleasePlanJobDetail(planID, jobID string) (*commonmodels.ReleaseJob, er
 
 	for _, releasePlanJob := range releasePlan.Jobs {
 		if releasePlanJob.ID == jobID {
+			if releasePlanJob.Type != config.JobWorkflow {
+				spec := new(models.WorkflowReleaseJobSpec)
+				if err := models.IToi(releasePlanJob.Spec, spec); err != nil {
+					return nil, fmt.Errorf("invalid spec for job: %s. decode error: %s", releasePlanJob.Name, err)
+				}
+				if spec.Workflow == nil {
+					return nil, fmt.Errorf("workflow is nil")
+				}
+
+				for _, stage := range spec.Workflow.Stages {
+					for _, wfJob := range stage.Jobs {
+						if err := job.SetOptions(wfJob, spec.Workflow, nil); err != nil {
+							errMsg := fmt.Sprintf("merge workflow args error: %v", err)
+							log.Error(errMsg)
+							return nil, fmt.Errorf(errMsg)
+						}
+					}
+				}
+			}
 			return releasePlanJob, nil
 		}
 	}
