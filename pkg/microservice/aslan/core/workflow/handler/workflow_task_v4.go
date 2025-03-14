@@ -486,7 +486,7 @@ func ManualExecWorkflowTaskV4(c *gin.Context) {
 		}
 	}
 
-	ctx.RespErr = workflow.ManualExecWorkflowTaskV4(workflowName, taskID, stageName, args.Jobs, ctx.UserID, ctx.UserName, ctx.Resources.IsSystemAdmin, ctx.Logger)
+	ctx.RespErr = workflow.ManualExecWorkflowTaskV4(workflowName, taskID, stageName, args.Jobs, ctx.UserID, ctx.Account, ctx.UserName, ctx.Resources.IsSystemAdmin, ctx.Logger)
 }
 
 func SetWorkflowTaskV4Breakpoint(c *gin.Context) {
