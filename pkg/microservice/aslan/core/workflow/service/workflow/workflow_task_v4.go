@@ -589,6 +589,7 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 
 	workflowTask.TaskID = nextTaskID
 	workflowTask.TaskCreator = args.Name
+	workflowTask.TaskCreatorAccount = args.Account
 	workflowTask.TaskCreatorID = args.UserID
 	workflowTask.TaskRevoker = args.Name
 	workflowTask.TaskRevokerID = args.UserID
@@ -641,7 +642,7 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 			}
 		}
 
-		if err := jobctl.RenderWorkflowParams(workflow, nextTaskID, args.Name, args.Account); err != nil {
+		if err := jobctl.RenderWorkflowParams(workflow, nextTaskID, args.Name, args.Account, args.UserID); err != nil {
 			log.Errorf("RenderGlobalVariables error: %v", err)
 			return resp, e.ErrCreateTask.AddDesc(err.Error())
 		}
@@ -859,7 +860,7 @@ type ManualExecWorkflowTaskV4Request struct {
 	Jobs []*commonmodels.Job `json:"jobs"`
 }
 
-func ManualExecWorkflowTaskV4(workflowName string, taskID int64, stageName string, jobs []*commonmodels.Job, executorID, executorName string, isSystemAdmin bool, logger *zap.SugaredLogger) error {
+func ManualExecWorkflowTaskV4(workflowName string, taskID int64, stageName string, jobs []*commonmodels.Job, executorID, executorAccount, executorName string, isSystemAdmin bool, logger *zap.SugaredLogger) error {
 	task, err := commonrepo.NewworkflowTaskv4Coll().Find(workflowName, taskID)
 	if err != nil {
 		logger.Errorf("find workflowTaskV4 error: %s", err)
@@ -932,7 +933,7 @@ func ManualExecWorkflowTaskV4(workflowName string, taskID int64, stageName strin
 		return e.ErrCreateTask.AddDesc(err.Error())
 	}
 
-	if err := jobctl.RenderWorkflowParams(task.WorkflowArgs, task.TaskID, task.TaskCreator, task.TaskCreatorID); err != nil {
+	if err := jobctl.RenderWorkflowParams(task.WorkflowArgs, task.TaskID, task.TaskCreator, task.TaskCreatorAccount, task.TaskCreatorID); err != nil {
 		log.Errorf("RenderGlobalVariables error: %v", err)
 		return e.ErrCreateTask.AddDesc(err.Error())
 	}

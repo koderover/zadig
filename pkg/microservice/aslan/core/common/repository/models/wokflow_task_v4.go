@@ -42,6 +42,7 @@ type WorkflowTask struct {
 	Reverted            bool                          `bson:"reverted"                  json:"reverted"`
 	Remark              string                        `bson:"remark,omitempty"          json:"remark"`
 	TaskCreator         string                        `bson:"task_creator"              json:"task_creator,omitempty"`
+	TaskCreatorAccount  string                        `bson:"task_creator_account"      json:"task_creator_account,omitempty"`
 	TaskCreatorID       string                        `bson:"task_creator_id"           json:"task_creator_id,omitempty"`
 	TaskCreatorPhone    string                        `bson:"task_creator_phone"        json:"task_creator_phone"`
 	TaskCreatorEmail    string                        `bson:"task_creator_email"        json:"task_creator_email"`

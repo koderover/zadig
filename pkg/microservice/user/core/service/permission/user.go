@@ -219,6 +219,7 @@ func GetUser(uid string, logger *zap.SugaredLogger) (*types.UserInfo, error) {
 			return nil, err
 		}
 	}
+
 	return userInfoRes, nil
 }
 
