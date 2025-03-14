@@ -2151,11 +2151,6 @@ func DeleteProduct(username, envName, productName, requestID string, isDelete bo
 		return fmt.Errorf("this is a base environment, collaborations:%v is related", cmSets.List())
 	}
 
-	istioClient, err := clientmanager.NewKubeClientManager().GetIstioClientSet(productInfo.ClusterID)
-	if err != nil {
-		return e.ErrDeleteEnv.AddErr(err)
-	}
-
 	err = commonrepo.NewProductColl().UpdateStatus(envName, productName, setting.ProductStatusDeleting)
 	if err != nil {
 		log.Errorf("[%s][%s] update product status error: %v", username, productInfo.Namespace, err)
@@ -2173,12 +2168,6 @@ func DeleteProduct(username, envName, productName, requestID string, isDelete bo
 	ctx := context.TODO()
 	switch productInfo.Source {
 	case setting.SourceFromHelm:
-		// Handles environment sharing related operations.
-		err = EnsureDeleteShareEnvConfig(ctx, productInfo, istioClient)
-		if err != nil {
-			log.Errorf("Failed to delete share env config for env %s of product %s: %s", productInfo.EnvName, productInfo.ProductName, err)
-		}
-
 		err = commonrepo.NewProductColl().Delete(envName, productName)
 		if err != nil {
 			log.Errorf("Product.Delete error: %v", err)
@@ -2202,6 +2191,18 @@ func DeleteProduct(username, envName, productName, requestID string, isDelete bo
 				return
 			}
 			if isDelete {
+				istioClient, err := clientmanager.NewKubeClientManager().GetIstioClientSet(productInfo.ClusterID)
+				if err != nil {
+					log.Errorf("failed to get istioClient, err: %s", err)
+				}
+
+				// Handles environment sharing related operations.
+				err = EnsureDeleteShareEnvConfig(ctx, productInfo, istioClient)
+				if err != nil {
+					log.Errorf("Failed to delete share env config for env %s of product %s: %s", productInfo.EnvName, productInfo.ProductName, err)
+					return
+				}
+
 				if hc, errHelmClient := helmtool.NewClientFromNamespace(productInfo.ClusterID, productInfo.Namespace); errHelmClient == nil {
 					for _, service := range productInfo.GetServiceMap() {
 						if !commonutil.ServiceDeployed(service.ServiceName, productInfo.ServiceDeployStrategy) {
@@ -2281,6 +2282,13 @@ func DeleteProduct(username, envName, productName, requestID string, isDelete bo
 				err = DeleteProductServices("", requestID, envName, productName, svcNames, false, log)
 				if err != nil {
 					log.Warnf("DeleteProductServices error: %v", err)
+				}
+
+				istioClient, err := clientmanager.NewKubeClientManager().GetIstioClientSet(productInfo.ClusterID)
+				if err != nil {
+					log.Errorf("failed to get istioClient, err: %s", err)
+					err = e.ErrDeleteProduct.AddErr(fmt.Errorf("failed to get istioClient, err: %s", err))
+					return
 				}
 
 				// Handles environment sharing related operations.
