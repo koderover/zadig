@@ -82,8 +82,8 @@ func (c *ProductionServiceColl) Create(args *models.Service) error {
 
 func (c *ProductionServiceColl) Delete(serviceName, serviceType, productName, status string, revision int64) error {
 	query := bson.M{}
-	query["service_name"] = serviceName
 	query["product_name"] = productName
+	query["service_name"] = serviceName
 	query["revision"] = revision
 	if serviceType != "" {
 		query["type"] = serviceType
@@ -122,14 +122,14 @@ type ProductionServiceDeleteOption struct {
 
 func (c *ProductionServiceColl) DeleteByOptions(opts ProductionServiceDeleteOption) error {
 	query := bson.M{}
-	if opts.ServiceName != "" {
-		query["service_name"] = opts.ServiceName
-	}
 	if opts.Type != "" {
 		query["type"] = opts.Type
 	}
 	if opts.ProductName != "" {
 		query["product_name"] = opts.ProductName
+	}
+	if opts.ServiceName != "" {
+		query["service_name"] = opts.ServiceName
 	}
 	if opts.Revision != 0 {
 		query["revision"] = opts.Revision
@@ -161,8 +161,8 @@ func (c *ProductionServiceColl) Find(opt *ServiceFindOption) (*models.Service, e
 	}
 
 	query := bson.M{}
-	query["service_name"] = opt.ServiceName
 	query["product_name"] = opt.ProductName
+	query["service_name"] = opt.ServiceName
 
 	service := new(models.Service)
 	if opt.Type != "" {
@@ -372,7 +372,7 @@ func (c *ProductionServiceColl) UpdateStatus(serviceName, productName, status st
 		return fmt.Errorf("productName is empty")
 	}
 
-	query := bson.M{"service_name": serviceName, "product_name": productName}
+	query := bson.M{"product_name": productName, "service_name": serviceName}
 	change := bson.M{"$set": bson.M{
 		"status": status,
 	}}

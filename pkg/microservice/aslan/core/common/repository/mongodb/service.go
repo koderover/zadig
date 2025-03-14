@@ -119,6 +119,21 @@ func (c *ServiceColl) EnsureIndex(ctx context.Context) error {
 			Options: options.Index().SetUnique(false),
 		},
 		{
+			Keys: bson.D{
+				bson.E{Key: "product_name", Value: 1},
+				bson.E{Key: "service_name", Value: 1},
+				bson.E{Key: "revision", Value: 1},
+			},
+			Options: options.Index().SetUnique(true),
+		},
+		{
+			Keys: bson.D{
+				bson.E{Key: "product_name", Value: 1},
+				bson.E{Key: "service_name", Value: 1},
+			},
+			Options: options.Index().SetUnique(false),
+		},
+		{
 			Keys:    bson.M{"revision": 1},
 			Options: options.Index().SetUnique(false),
 		},
