@@ -968,6 +968,7 @@ type NotificationJobSpec struct {
 	//LarkHookNotificationConfig   *LarkHookNotificationConfig   `bson:"lark_hook_notification_config,omitempty"   yaml:"lark_hook_notification_config,omitempty"   json:"lark_hook_notification_config,omitempty"`
 	WechatNotificationConfig   *WechatNotificationConfig   `bson:"wechat_notification_config,omitempty"      yaml:"wechat_notification_config,omitempty"      json:"wechat_notification_config,omitempty"`
 	DingDingNotificationConfig *DingDingNotificationConfig `bson:"dingding_notification_config,omitempty"    yaml:"dingding_notification_config,omitempty"    json:"dingding_notification_config,omitempty"`
+	MSTeamsNotificationConfig  *MSTeamsNotificationConfig  `bson:"msteams_notification_config,omitempty"     yaml:"msteams_notification_config,omitempty"     json:"msteams_notification_config,omitempty"`
 	MailNotificationConfig     *MailNotificationConfig     `bson:"mail_notification_config,omitempty"        yaml:"mail_notification_config,omitempty"        json:"mail_notification_config,omitempty"`
 	WebhookNotificationConfig  *WebhookNotificationConfig  `bson:"webhook_notification_config,omitempty"     yaml:"webhook_notification_config,omitempty"     json:"webhook_notification_config,omitempty"`
 
@@ -1090,6 +1091,11 @@ type DingDingNotificationConfig struct {
 	HookAddress string   `bson:"hook_address" json:"hook_address" yaml:"hook_address"`
 	AtMobiles   []string `bson:"at_mobiles"   json:"at_mobiles"   yaml:"at_mobiles"`
 	IsAtAll     bool     `bson:"is_at_all"    json:"is_at_all"    yaml:"is_at_all"`
+}
+
+type MSTeamsNotificationConfig struct {
+	HookAddress string   `bson:"hook_address" json:"hook_address" yaml:"hook_address"`
+	AtEmails    []string `bson:"at_emails"    json:"at_emails"    yaml:"at_emails"`
 }
 
 type MailNotificationConfig struct {
