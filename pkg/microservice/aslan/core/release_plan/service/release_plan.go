@@ -432,6 +432,7 @@ func GetReleasePlanJobDetail(planID, jobID string) (*commonmodels.ReleaseJob, er
 						}
 					}
 				}
+				releasePlanJob.Spec = spec
 			}
 			return releasePlanJob, nil
 		}
