@@ -94,6 +94,68 @@ func GetUser(c *gin.Context) {
 	ctx.Resp, ctx.RespErr = permission.GetUser(c.Param("uid"), ctx.Logger)
 }
 
+type OpenAPIGetUserResponse struct {
+	LastLoginTime int64    `json:"last_login_time"`
+	Uid           string   `json:"uid"`
+	Name          string   `json:"name"`
+	IdentityType  string   `json:"identity_type"`
+	Email         string   `json:"email"`
+	Phone         string   `json:"phone"`
+	Account       string   `json:"account"`
+	Roles         []string `json:"roles"`
+	APIToken      string   `json:"token"`
+	Admin         bool     `json:"admin"`
+}
+
+func OpenAPIGetUser(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	// this is local, so we simply generate user auth info from service
+	err := GenerateUserAuthInfo(ctx)
+	if err != nil {
+		ctx.UnAuthorized = true
+		ctx.RespErr = fmt.Errorf("failed to generate user authorization info, error: %s", err)
+		return
+	}
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if ctx.UserID != c.Param("uid") {
+			ctx.UnAuthorized = true
+			ctx.RespErr = fmt.Errorf("failed to generate user authorization info, error: %s", err)
+			return
+		}
+	}
+
+	userInfo, err := permission.GetUser(c.Param("uid"), ctx.Logger)
+	if err != nil {
+		ctx.Resp = err
+		return
+	}
+
+	roles := make([]string, 0)
+	for _, role := range userInfo.SystemRoleBindings {
+		roles = append(roles, role.Role)
+	}
+
+	resp := &OpenAPIGetUserResponse{
+		LastLoginTime: userInfo.LastLoginTime,
+		Uid:           userInfo.Uid,
+		Name:          userInfo.Name,
+		IdentityType:  userInfo.IdentityType,
+		Email:         userInfo.Email,
+		Phone:         userInfo.Phone,
+		Account:       userInfo.Account,
+		APIToken:      userInfo.APIToken,
+		Admin:         userInfo.Admin,
+		Roles:         roles,
+	}
+
+	ctx.Resp = resp
+	return
+}
+
 func DeleteUser(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

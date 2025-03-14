@@ -219,6 +219,24 @@ func GetUser(uid string, logger *zap.SugaredLogger) (*types.UserInfo, error) {
 			return nil, err
 		}
 	}
+
+	roles, err := ListRolesByNamespaceAndUserID("*", userInfoRes.Uid, logger)
+	if err != nil {
+		logger.Errorf("failed to get user role info for user: %s[%s], error: %s", userInfoRes.Name, userInfoRes.Account, err)
+		return nil, err
+	}
+	rolebindings := make([]*types.RoleBinding, 0)
+	for _, role := range roles {
+		rolebindings = append(rolebindings, &types.RoleBinding{
+			UID:  userInfoRes.Uid,
+			Role: role.Name,
+		})
+		if role.Name == string(setting.SystemAdmin) {
+			userInfoRes.Admin = true
+		}
+	}
+	userInfoRes.SystemRoleBindings = rolebindings
+
 	return userInfoRes, nil
 }
 

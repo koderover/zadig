@@ -618,12 +618,12 @@ func RemoveFixedValueMarks(workflow *commonmodels.WorkflowV4) error {
 	return json.Unmarshal([]byte(replacedString), &workflow)
 }
 
-func RenderWorkflowParams(workflow *commonmodels.WorkflowV4, taskID int64, creator, account string) error {
+func RenderWorkflowParams(workflow *commonmodels.WorkflowV4, taskID int64, creator, account, uid string) error {
 	b, err := json.Marshal(workflow)
 	if err != nil {
 		return fmt.Errorf("marshal workflow error: %v", err)
 	}
-	globalParams, err := getWorkflowDefaultParams(workflow, taskID, creator, account)
+	globalParams, err := getWorkflowDefaultParams(workflow, taskID, creator, account, uid)
 	if err != nil {
 		return fmt.Errorf("get workflow default params error: %v", err)
 	}
@@ -659,13 +659,14 @@ func renderMultiLineString(value, template string, inputs []*commonmodels.Param)
 	return value
 }
 
-func getWorkflowDefaultParams(workflow *commonmodels.WorkflowV4, taskID int64, creator, account string) ([]*commonmodels.Param, error) {
+func getWorkflowDefaultParams(workflow *commonmodels.WorkflowV4, taskID int64, creator, account, uid string) ([]*commonmodels.Param, error) {
 	resp := []*commonmodels.Param{}
 	resp = append(resp, &commonmodels.Param{Name: "project", Value: workflow.Project, ParamsType: "string", IsCredential: false})
 	resp = append(resp, &commonmodels.Param{Name: "workflow.name", Value: workflow.Name, ParamsType: "string", IsCredential: false})
 	resp = append(resp, &commonmodels.Param{Name: "workflow.task.id", Value: fmt.Sprintf("%d", taskID), ParamsType: "string", IsCredential: false})
 	resp = append(resp, &commonmodels.Param{Name: "workflow.task.creator", Value: creator, ParamsType: "string", IsCredential: false})
 	resp = append(resp, &commonmodels.Param{Name: "workflow.task.creator.id", Value: account, ParamsType: "string", IsCredential: false})
+	resp = append(resp, &commonmodels.Param{Name: "workflow.task.creator.userId", Value: uid, ParamsType: "string", IsCredential: false})
 	resp = append(resp, &commonmodels.Param{Name: "workflow.task.timestamp", Value: fmt.Sprintf("%d", time.Now().Unix()), ParamsType: "string", IsCredential: false})
 	for _, param := range workflow.Params {
 		paramsKey := strings.Join([]string{"workflow", "params", param.Name}, ".")
