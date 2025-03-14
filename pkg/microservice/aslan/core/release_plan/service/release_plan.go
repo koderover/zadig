@@ -414,7 +414,7 @@ func GetReleasePlanJobDetail(planID, jobID string) (*commonmodels.ReleaseJob, er
 
 	for _, releasePlanJob := range releasePlan.Jobs {
 		if releasePlanJob.ID == jobID {
-			if releasePlanJob.Type != config.JobWorkflow {
+			if releasePlanJob.Type == config.JobWorkflow {
 				spec := new(models.WorkflowReleaseJobSpec)
 				if err := models.IToi(releasePlanJob.Spec, spec); err != nil {
 					return nil, fmt.Errorf("invalid spec for job: %s. decode error: %s", releasePlanJob.Name, err)
