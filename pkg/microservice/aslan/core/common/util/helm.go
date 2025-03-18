@@ -223,7 +223,7 @@ func preLoadServiceManifestsFromSource(svc *commonmodels.Service, isProductionSe
 }
 
 // parse image url to map: repo=>xxx/xx/xx image=>xx tag=>xxx
-func resolveImageUrl(imageUrl string) map[string]string {
+func ResolveImageUrl(imageUrl string) map[string]string {
 	subMatchAll := imageParseRegex.FindStringSubmatch(imageUrl)
 	result := make(map[string]string)
 	exNames := imageParseRegex.SubexpNames()
@@ -248,7 +248,7 @@ func AssignImageData(imageUrl string, matchData map[string]string) (map[string]i
 		return ret, nil
 	}
 
-	resolvedImageUrl := resolveImageUrl(imageUrl)
+	resolvedImageUrl := ResolveImageUrl(imageUrl)
 
 	// image url assigned into repo/namespace/image+tag
 	if len(matchData) == 4 {

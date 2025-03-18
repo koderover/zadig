@@ -231,7 +231,7 @@ echo $result > %s
 		JobName: jobTask.K8sJobName,
 	}, customLabels)
 
-	ImagePullSecrets, err := getImagePullSecrets(jobTaskSpec.Properties.Registries)
+	ImagePullSecrets, err := getImagePullSecrets(jobTaskSpec.Properties.Registries, jobTaskSpec.Plugin.Image)
 	if err != nil {
 		return nil, err
 	}
@@ -358,7 +358,7 @@ func buildJob(jobType, jobImage, jobName, clusterID, currentNamespace string, re
 		JobName: jobTask.K8sJobName,
 	}, customLabels)
 
-	ImagePullSecrets, err := getImagePullSecrets(jobTaskSpec.Properties.Registries)
+	ImagePullSecrets, err := getImagePullSecrets(jobTaskSpec.Properties.Registries, jobImage)
 	if err != nil {
 		return nil, err
 	}
@@ -594,16 +594,33 @@ func ensureVolumeMounts(job *batchv1.Job) {
 	}
 }
 
-func getImagePullSecrets(registries []*commonmodels.RegistryNamespace) ([]corev1.LocalObjectReference, error) {
+func getImagePullSecrets(registries []*commonmodels.RegistryNamespace, image string) ([]corev1.LocalObjectReference, error) {
 	ImagePullSecrets := []corev1.LocalObjectReference{
 		{
 			Name: setting.DefaultImagePullSecret,
 		},
 	}
+
+	resolvedImage := commonutil.ResolveImageUrl(image)
 	for _, reg := range registries {
+		addr := strings.Split(reg.RegAddr, "//")
+		if len(addr) != 2 {
+			continue
+		}
+
+		regAddr := strings.Join([]string{addr[1], reg.Namespace}, "/")
+		imageRepoAddr := strings.TrimSuffix(resolvedImage["repo"], "/")
+		if regAddr != imageRepoAddr {
+			continue
+		}
+
 		secretName, err := kube.GenRegistrySecretName(reg)
 		if err != nil {
 			return ImagePullSecrets, fmt.Errorf("failed to generate registry secret name: %s", err)
+		}
+
+		if secretName == setting.DefaultImagePullSecret {
+			continue
 		}
 
 		secret := corev1.LocalObjectReference{
