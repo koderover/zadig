@@ -402,6 +402,10 @@ func (s *HelmDeployService) GenMergedValues(productSvc *commonmodels.ProductServ
 		} else {
 			// not found corresponding image in values
 			// add container image into values
+			if imageMap[container.ImageName] != "" {
+				// if found image in images, and the images are from build job, we should override it
+				container.Image = imageMap[container.ImageName]
+			}
 			mergedContainers = append(mergedContainers, container)
 		}
 	}
