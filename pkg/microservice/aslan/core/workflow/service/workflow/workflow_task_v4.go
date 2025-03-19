@@ -875,6 +875,12 @@ func ManualExecWorkflowTaskV4(workflowName string, taskID int64, stageName strin
 		return errors.New("工作流任务数据异常, 无法手动执行")
 	}
 
+	originJobs := []*commonmodels.Job{}
+	if err := commonmodels.IToi(&jobs, &originJobs); err != nil {
+		log.Errorf("save original jobs error: %v", err)
+		return e.ErrCreateTask.AddErr(fmt.Errorf("save original jobs error: %v", err))
+	}
+
 	for _, stage := range task.WorkflowArgs.Stages {
 		if stage.Name == stageName {
 			for _, job := range stage.Jobs {
@@ -917,7 +923,7 @@ func ManualExecWorkflowTaskV4(workflowName string, taskID int64, stageName strin
 	}
 	for _, stage := range task.OriginWorkflowArgs.Stages {
 		if stage.Name == stageName {
-			stage.Jobs = jobs
+			stage.Jobs = originJobs
 		}
 	}
 
