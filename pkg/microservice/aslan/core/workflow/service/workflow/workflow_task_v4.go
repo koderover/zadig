@@ -931,12 +931,12 @@ func ManualExecWorkflowTaskV4(workflowName string, taskID int64, stageName strin
 		}
 	}
 
-	if err := jobctl.RemoveFixedValueMarks(task.OriginWorkflowArgs); err != nil {
+	if err := jobctl.RemoveFixedValueMarks(task.WorkflowArgs); err != nil {
 		log.Errorf("RemoveFixedValueMarks error: %v", err)
 		return e.ErrCreateTask.AddDesc(err.Error())
 	}
 
-	if err := jobctl.RenderWorkflowParams(task.OriginWorkflowArgs, task.TaskID, task.TaskCreator, task.TaskCreatorAccount, task.TaskCreatorID); err != nil {
+	if err := jobctl.RenderWorkflowParams(task.WorkflowArgs, task.TaskID, task.TaskCreator, task.TaskCreatorAccount, task.TaskCreatorID); err != nil {
 		log.Errorf("RenderGlobalVariables error: %v", err)
 		return e.ErrCreateTask.AddDesc(err.Error())
 	}
