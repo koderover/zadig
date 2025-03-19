@@ -44,7 +44,7 @@ func CodeHostListTags(codeHostID int, projectName string, namespace string, key 
 		ProjectName: projectName,
 		Key:         key,
 		Page:        page,
-		PerPage:     page,
+		PerPage:     perPage,
 	})
 	if err != nil {
 		log.Errorf("list tags err:%s", err)
