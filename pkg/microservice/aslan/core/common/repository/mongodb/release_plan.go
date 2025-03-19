@@ -68,6 +68,10 @@ func (c *ReleasePlanColl) EnsureIndex(ctx context.Context) error {
 			Options: options.Index().SetUnique(false),
 		},
 		{
+			Keys:    bson.M{"executing_time": 1},
+			Options: options.Index().SetUnique(false),
+		},
+		{
 			Keys:    bson.M{"success_time": 1},
 			Options: options.Index().SetUnique(false),
 		},
