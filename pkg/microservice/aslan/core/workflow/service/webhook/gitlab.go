@@ -90,7 +90,7 @@ func ProcessGitlabHook(payload []byte, req *http.Request, requestID string, log 
 		}
 		pathWithNamespace := pushEvent.Project.PathWithNamespace
 		// trigger service template to re-sync from remote repo
-		if err = updateServiceTemplateByPushEvent(changeFiles, pathWithNamespace, log); err != nil {
+		if err = updateServiceTemplateByPushEvent(pushEvent.Ref, changeFiles, pathWithNamespace, log); err != nil {
 			errorList = multierror.Append(errorList, err)
 		}
 	case *gitlab.MergeEvent:
@@ -260,7 +260,7 @@ type RepositoryInfo struct {
 	VisibilityLevel int    `json:"visibility_level"`
 }
 
-func updateServiceTemplateByPushEvent(diffs []string, pathWithNamespace string, log *zap.SugaredLogger) error {
+func updateServiceTemplateByPushEvent(ref string, diffs []string, pathWithNamespace string, log *zap.SugaredLogger) error {
 	log.Infof("EVENT: GITLAB WEBHOOK UPDATING SERVICE TEMPLATE")
 
 	svcTmplsMap := map[bool][]*commonmodels.Service{}
@@ -280,7 +280,14 @@ func updateServiceTemplateByPushEvent(diffs []string, pathWithNamespace string, 
 	errs := &multierror.Error{}
 	for production, serviceTmpls := range svcTmplsMap {
 		for _, service := range serviceTmpls {
+			if service.Source != setting.SourceFromGitlab {
+				continue
+			}
 			if service.GetRepoNamespace()+"/"+service.RepoName != pathWithNamespace {
+				continue
+			}
+
+			if !checkBranchMatch(service, production, ref, log) {
 				continue
 			}
 
@@ -297,7 +304,7 @@ func updateServiceTemplateByPushEvent(diffs []string, pathWithNamespace string, 
 				}
 			}
 			if affected {
-				log.Infof("Started to sync service template %s from gitlab %s", service.ServiceName, service.SrcPath)
+				log.Infof("Started to sync service template %s from gitlab %s, production: %v", service.ServiceName, service.SrcPath, production)
 				//TODO: 异步处理
 				service.CreateBy = "system"
 				service.Production = production
