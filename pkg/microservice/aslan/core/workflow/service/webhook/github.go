@@ -616,6 +616,14 @@ func updateServiceTemplateByGithubPush(pushEvent *github.PushEvent, log *zap.Sug
 	errs := &multierror.Error{}
 	for production, serviceTmpls := range svcTmplsMap {
 		for _, service := range serviceTmpls {
+			if service.GetRepoNamespace()+"/"+service.RepoName != pushEvent.GetRepo().GetFullName() {
+				continue
+			}
+
+			if !checkBranchMatch(service, production, pushEvent.GetRef(), log) {
+				continue
+			}
+
 			path, err := getServiceSrcPath(service)
 			if err != nil {
 				errs = multierror.Append(errs, err)
