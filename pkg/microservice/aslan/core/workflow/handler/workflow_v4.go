@@ -1285,26 +1285,6 @@ func GetFilteredEnvServices(c *gin.Context) {
 	ctx.Resp, ctx.RespErr = workflow.GetFilteredEnvServices(req.WorkflowName, req.JobName, req.EnvName, req.ServiceNames, ctx.Logger)
 }
 
-// @Summary Compare Helm Service Yaml In Env
-// @Description Compare Helm Service Yaml In Env
-// @Tags 	workflow
-// @Accept 	json
-// @Produce json
-// @Param 	body 		body 		getHelmValuesDifferenceReq	 	true 	"body"
-// @Success 200 		{object} 	workflow.GetHelmValuesDifferenceResp
-// @Router /api/aslan/workflow/v4/yamlComparison [post]
-func CompareHelmServiceYamlInEnv(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	req := new(getHelmValuesDifferenceReq)
-	if err := c.ShouldBindJSON(req); err != nil {
-		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
-		return
-	}
-	projectName := c.Query("projectName")
-	ctx.Resp, ctx.RespErr = workflow.CompareHelmServiceYamlInEnv(projectName, req.EnvName, req.ServiceName, req.VariableYaml, req.IsProduction, req.UpdateServiceRevision, req.IsHelmChartDeploy, ctx.Logger)
-}
-
 type YamlResponse struct {
 	Yaml string `json:"yaml"`
 }

@@ -35,7 +35,6 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
-	"gopkg.in/yaml.v3"
 	"gorm.io/gorm/utils"
 	"helm.sh/helm/v3/pkg/releaseutil"
 	v1 "k8s.io/api/apps/v1"
@@ -2340,87 +2339,6 @@ func GetFilteredEnvServices(workflowName, jobName, envName string, serviceNames 
 		resp = append(resp, service)
 	}
 	return resp, nil
-}
-
-func CompareHelmServiceYamlInEnv(projectName, envName, serviceName, variableYaml string, isProduction, updateServiceRevision, isHelmChartDeploy bool, log *zap.SugaredLogger) (*GetHelmValuesDifferenceResp, error) {
-	opt := &commonrepo.ProductFindOptions{Name: projectName, EnvName: envName}
-	prod, err := commonrepo.NewProductColl().Find(opt)
-	if err != nil {
-		return nil, fmt.Errorf("failed to find project: %s, err: %s", projectName, err)
-	}
-
-	if isHelmChartDeploy {
-		currentYaml := ""
-		latestYaml := ""
-		prodSvc := prod.GetChartServiceMap()[serviceName]
-		if prodSvc != nil {
-			resp, err := commonservice.GetChartValues(projectName, envName, serviceName, true, isProduction, true)
-			if err != nil {
-				log.Infof("failed to get the current service[%s] values from project: %s, env: %s", serviceName, projectName, envName)
-				currentYaml = ""
-			} else {
-				currentYaml = resp.ValuesYaml
-			}
-
-			prodSvc.GetServiceRender().SetOverrideYaml(variableYaml)
-			helmDeploySvc := helmservice.NewHelmDeployService()
-			latestYaml, err = helmDeploySvc.GenMergedValues(prodSvc, prod.DefaultValues, nil)
-			if err != nil {
-				return nil, fmt.Errorf("failed to merge override values, err: %s", err)
-			}
-		}
-		currentYaml = strings.TrimSuffix(currentYaml, "\n")
-		latestYaml = strings.TrimSuffix(latestYaml, "\n")
-		return &GetHelmValuesDifferenceResp{
-			Current: currentYaml,
-			Latest:  latestYaml,
-		}, nil
-	}
-
-	// first we get the current yaml in the current environment
-	currentYaml := ""
-	resp, err := commonservice.GetChartValues(projectName, envName, serviceName, false, isProduction, true)
-	if err != nil {
-		log.Infof("failed to get the current service[%s] values from project: %s, env: %s", serviceName, projectName, envName)
-		currentYaml = ""
-	} else {
-		currentYaml = resp.ValuesYaml
-	}
-
-	// generate the new yaml content
-
-	helmDeploySvc := helmservice.NewHelmDeployService()
-	productService, tmplSvc, err := helmDeploySvc.GenNewEnvService(prod, serviceName, updateServiceRevision)
-	if err != nil {
-		return nil, err
-	}
-	productService.GetServiceRender().SetOverrideYaml(variableYaml)
-
-	yamlContent, err := helmDeploySvc.GenMergedValues(productService, prod.DefaultValues, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate merged values yaml, err: %s", err)
-	}
-
-	fullValuesYaml, err := helmDeploySvc.GeneFullValues(tmplSvc.HelmChart.ValuesYaml, yamlContent)
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate full values yaml, err: %s", err)
-	}
-
-	// re-marshal it into string to make sure indentation is right
-	tmp := make(map[string]interface{})
-	if err := yaml.Unmarshal([]byte(fullValuesYaml), &tmp); err != nil {
-		log.Errorf("failed to unmarshal latest yaml content, err: %s", err)
-		return nil, err
-	}
-	latestYamlContent, err := yaml.Marshal(tmp)
-	if err != nil {
-		log.Errorf("failed to marshal latest yaml content, err: %s", err)
-		return nil, err
-	}
-	return &GetHelmValuesDifferenceResp{
-		Current: currentYaml,
-		Latest:  string(latestYamlContent),
-	}, nil
 }
 
 type HelmDeployJobMergeImageResponse struct {
