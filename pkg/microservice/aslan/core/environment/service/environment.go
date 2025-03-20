@@ -1540,15 +1540,43 @@ func GenEstimatedValues(projectName, envName, serviceOrReleaseName string, scene
 		currentYaml = ""
 	} else if scene == EstimateValuesSceneUpdateService {
 		// service exists in the current environment, update it
-		//
-		// get current values yaml
-		resp, err := commonservice.GetChartValues(projectName, envName, serviceOrReleaseName, isHelmChartDeploy, isProduction, true)
-		if err != nil {
-			err = fmt.Errorf("failed to get the current service[%s] values from project: %s, env: %s", serviceOrReleaseName, projectName, envName)
-			log.Error(err)
-			return nil, err
+		if isHelmChartDeploy {
+			render := prodSvc.GetServiceRender()
+			chartRepo, err := commonrepo.NewHelmRepoColl().Find(&commonrepo.HelmRepoFindOption{RepoName: render.ChartRepo})
+			if err != nil {
+				return nil, fmt.Errorf("failed to query chart-repo info, repoName: %s", render.ChartRepo)
+			}
+			client, err := commonutil.NewHelmClient(chartRepo)
+			if err != nil {
+				return nil, fmt.Errorf("failed to new helm client, err %s", err)
+			}
+
+			currentChartValuesYaml, err := client.GetChartValues(commonutil.GeneHelmRepo(chartRepo), projectName, serviceOrReleaseName, render.ChartRepo, render.ChartName, render.ChartVersion, arg.Production)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get chart values, chartRepo: %s, chartName: %s, chartVersion: %s, err %s", arg.ChartRepo, arg.ChartName, arg.ChartVersion, err)
+			}
+
+			helmDeploySvc := helmservice.NewHelmDeployService()
+			mergedYaml, err := helmDeploySvc.GenMergedValues(prodSvc, prod.DefaultValues, nil)
+			if err != nil {
+				return nil, fmt.Errorf("failed to merge override values, err: %s", err)
+			}
+
+			currentYaml, err = helmDeploySvc.GeneFullValues(currentChartValuesYaml, mergedYaml)
+			if err != nil {
+				return nil, fmt.Errorf("failed to generate full values, err: %s", err)
+			}
 		} else {
-			currentYaml = resp.ValuesYaml
+			helmDeploySvc := helmservice.NewHelmDeployService()
+			yamlContent, err := helmDeploySvc.GenMergedValues(prodSvc, prod.DefaultValues, nil)
+			if err != nil {
+				return nil, fmt.Errorf("failed to generate merged values yaml, err: %s", err)
+			}
+
+			currentYaml, err = helmDeploySvc.GeneFullValues(tmplSvc.HelmChart.ValuesYaml, yamlContent)
+			if err != nil {
+				return nil, fmt.Errorf("failed to generate full values yaml, err: %s", err)
+			}
 		}
 	}
 
