@@ -50,14 +50,22 @@ func (c *VMJobColl) GetCollectionName() string {
 }
 
 func (c *VMJobColl) EnsureIndex(ctx context.Context) error {
-	mod := mongo.IndexModel{
-		Keys: bson.D{
-			bson.E{Key: "name", Value: 1},
+	indexes := []mongo.IndexModel{
+		{
+			Keys: bson.D{
+				bson.E{Key: "name", Value: 1},
+			},
+			Options: options.Index().SetUnique(false),
 		},
-		Options: options.Index().SetUnique(false),
+		{
+			Keys: bson.D{
+				bson.E{Key: "status", Value: 1},
+			},
+			Options: options.Index().SetUnique(false),
+		},
 	}
 
-	_, err := c.Indexes().CreateOne(ctx, mod)
+	_, err := c.Indexes().CreateMany(ctx, indexes)
 
 	return err
 }
