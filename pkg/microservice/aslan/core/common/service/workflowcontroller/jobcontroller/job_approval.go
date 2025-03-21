@@ -18,7 +18,6 @@ package jobcontroller
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/url"
@@ -393,11 +392,6 @@ func waitForLarkApprove(ctx context.Context, spec *commonmodels.JobTaskApprovalS
 				break
 			}
 		}
-
-		nodeKeyUserMapBytes, _ := json.Marshal(approval.ApprovalNodes)
-		log.Debugf("nodeKeyUserMap: %s", string(nodeKeyUserMapBytes))
-		allResultMapBytes, _ := json.Marshal(allResultMap)
-		log.Debugf("allResultMap: %s", string(allResultMapBytes))
 
 		newNodeKeyUserMap := map[string]map[string]*commonmodels.LarkApprovalUser{}
 		for nodeKey, resultMap := range allResultMap {

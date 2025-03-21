@@ -27,6 +27,7 @@ import (
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	models2 "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/repository/models"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 	mongotool "github.com/koderover/zadig/v2/pkg/tool/mongo"
 )
 
@@ -62,15 +63,35 @@ func (c *OperationLogColl) GetCollectionName() string {
 }
 
 func (c *OperationLogColl) EnsureIndex(ctx context.Context) error {
-	mod := mongo.IndexModel{
-		Keys: bson.D{
-			bson.E{Key: "created_at", Value: -1},
+	indexes := []mongo.IndexModel{
+		{
+			Keys: bson.D{
+				{Key: "product_name", Value: 1},
+				{Key: "scene", Value: 1},
+				{Key: "targets", Value: 1},
+			},
+			Options: options.Index().SetUnique(false),
 		},
-		Options: options.Index().SetUnique(false),
+		{
+			Keys:    bson.D{{Key: "username", Value: 1}},
+			Options: options.Index().SetUnique(false),
+		},
+		{
+			Keys:    bson.D{{Key: "function", Value: 1}},
+			Options: options.Index().SetUnique(false),
+		},
+		{
+			Keys:    bson.D{{Key: "status", Value: 1}},
+			Options: options.Index().SetUnique(false),
+		},
+		{
+			Keys:    bson.D{{Key: "created_at", Value: -1}}, // Sorting index
+			Options: options.Index().SetUnique(false),
+		},
 	}
 
-	_, err := c.Indexes().CreateOne(ctx, mod)
-
+	// Create all indexes
+	_, err := c.Indexes().CreateMany(ctx, indexes)
 	return err
 }
 
@@ -142,6 +163,7 @@ func (c *OperationLogColl) Find(args *OperationLogArgs) ([]*models2.OperationLog
 	if args.Page > 0 && args.PerPage > 0 {
 		opts.SetSkip(int64(args.PerPage * (args.Page - 1))).SetLimit(int64(args.PerPage))
 	}
+	log.Debugf("query: %+v, opts: %+v", query, opts)
 	cursor, err := c.Collection.Find(context.TODO(), query, opts)
 	if err != nil {
 		return nil, 0, err
