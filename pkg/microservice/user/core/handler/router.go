@@ -142,6 +142,7 @@ func (*OpenAPIRouter) Inject(router *gin.RouterGroup) {
 	users := router.Group("users")
 	{
 		users.GET("", user.OpenAPIListUsersBrief)
+		users.GET("/:uid", user.OpenAPIGetUser)
 	}
 
 	usergroups := router.Group("user-groups")

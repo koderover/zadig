@@ -63,9 +63,12 @@ type UpdateUserInfo struct {
 }
 
 type OpenAPIQueryArgs struct {
-	PageNum  int    `json:"page_num,omitempty" form:"pageNum"`
-	PageSize int    `json:"page_size,omitempty" form:"pageSize"`
-	Account  string `json:"account,omitempty" form:"account"`
+	PageNum      int      `json:"page_num,omitempty" form:"pageNum"`
+	PageSize     int      `json:"page_size,omitempty" form:"pageSize"`
+	Account      string   `json:"account,omitempty" form:"account"`
+	IdentityType string   `json:"identity_type,omitempty" form:"identity_type"`
+	Name         string   `json:"name,omitempty" form:"name"`
+	Roles        []string `json:"roles,omitempty" form:"roles"`
 }
 
 type QueryArgs struct {
@@ -219,6 +222,7 @@ func GetUser(uid string, logger *zap.SugaredLogger) (*types.UserInfo, error) {
 			return nil, err
 		}
 	}
+
 	return userInfoRes, nil
 }
 

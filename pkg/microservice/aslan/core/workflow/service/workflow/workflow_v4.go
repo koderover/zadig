@@ -2141,6 +2141,7 @@ func getDefaultVars(workflow *commonmodels.WorkflowV4, currentJobName string) []
 	vars = append(vars, fmt.Sprintf(setting.RenderValueTemplate, "workflow.name"))
 	vars = append(vars, fmt.Sprintf(setting.RenderValueTemplate, "workflow.task.creator"))
 	vars = append(vars, fmt.Sprintf(setting.RenderValueTemplate, "workflow.task.creator.id"))
+	vars = append(vars, fmt.Sprintf(setting.RenderValueTemplate, "workflow.task.creator.userId"))
 	vars = append(vars, fmt.Sprintf(setting.RenderValueTemplate, "workflow.task.timestamp"))
 	vars = append(vars, fmt.Sprintf(setting.RenderValueTemplate, "workflow.task.id"))
 	for _, param := range workflow.Params {
