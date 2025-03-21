@@ -777,8 +777,8 @@ func GetClusterDeletionInfo(clusterID string, logger *zap.SugaredLogger) (*Clust
 	for _, env := range envs {
 		projectInfo, err := templaterepo.NewProductColl().Find(env.ProductName)
 		if err != nil {
-			log.Errorf("failed to find project info for env: %s, error: %s", env.EnvName, err)
-			return nil, fmt.Errorf("failed to find project info for env: %s, error: %s", env.EnvName, err)
+			log.Errorf("failed to find project info for %s/%s, error: %s", env.ProductName, env.EnvName, err)
+			continue
 		}
 		envList = append(envList, &EnvInfo{
 			Name:        env.EnvName,
