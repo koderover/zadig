@@ -67,10 +67,6 @@ func IsPublicURL(reqPath, method string) bool {
 		return true
 	}
 
-	if realPath == "/api/aslan/system/registry/project" && method == http.MethodGet {
-		return true
-	}
-
 	if realPath == "/api/aslan/system/initialization/user" && method == http.MethodPost {
 		return true
 	}

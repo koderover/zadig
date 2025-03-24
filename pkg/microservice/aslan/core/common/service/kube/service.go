@@ -19,6 +19,7 @@ package kube
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"fmt"
 	"net/url"
 	"strconv"
@@ -347,6 +348,7 @@ func (s *Service) GetYaml(id, agentImage, aslanURL, hubURI string, useDeployment
 			EnableIRSA:           cluster.AdvancedConfig.EnableIRSA,
 			IRSARoleARN:          cluster.AdvancedConfig.IRSARoleARM,
 			ImagePullPolicy:      configbase.ImagePullPolicy(),
+			SecretKey:            base64.StdEncoding.EncodeToString([]byte(configbase.SecretKey())),
 		})
 	} else {
 		err = YamlTemplateForNamespace.Execute(buffer, TemplateSchema{
@@ -366,6 +368,7 @@ func (s *Service) GetYaml(id, agentImage, aslanURL, hubURI string, useDeployment
 			EnableIRSA:           cluster.AdvancedConfig.EnableIRSA,
 			IRSARoleARN:          cluster.AdvancedConfig.IRSARoleARM,
 			ImagePullPolicy:      configbase.ImagePullPolicy(),
+			SecretKey:            base64.StdEncoding.EncodeToString([]byte(configbase.SecretKey())),
 		})
 	}
 
@@ -659,6 +662,7 @@ type TemplateSchema struct {
 	EnableIRSA           bool
 	IRSARoleARN          string
 	ImagePullPolicy      string
+	SecretKey            string
 }
 
 const (
@@ -678,6 +682,17 @@ apiVersion: v1
 kind: Namespace
 metadata:
   name: koderover-agent
+
+---
+
+apiVersion: v1
+data:
+  aesKey: {{.SecretKey}}
+kind: Secret
+metadata:
+  name: zadig-aes-key
+  namespace: koderover-agent
+type: Opaque
 
 ---
 
@@ -764,6 +779,11 @@ spec:
         image: {{.HubAgentImage}}
         imagePullPolicy: {{.ImagePullPolicy}}
         env:
+        - name: SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              key: aesKey
+              name: zadig-aes-key
         - name: AGENT_NODE_NAME
           valueFrom:
             fieldRef:
@@ -802,6 +822,16 @@ metadata:
 
 ---
 
+apiVersion: v1
+data:
+  aesKey: {{.SecretKey}}
+kind: Secret
+metadata:
+  name: zadig-aes-key
+  namespace: {{.Namespace}}
+type: Opaque
+
+---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
@@ -931,6 +961,11 @@ spec:
         image: {{.HubAgentImage}}
         imagePullPolicy: {{.ImagePullPolicy}}
         env:
+        - name: SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              key: aesKey
+              name: zadig-aes-key
         - name: AGENT_NODE_NAME
           valueFrom:
             fieldRef:

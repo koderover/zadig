@@ -26,6 +26,7 @@ import (
 	config2 "github.com/koderover/zadig/v2/pkg/microservice/hubagent/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/hubagent/core/service"
 	"github.com/koderover/zadig/v2/pkg/microservice/hubagent/server/rest"
+	"github.com/koderover/zadig/v2/pkg/microservice/user/core/service/login"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/shared/client/aslan"
 	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
@@ -92,9 +93,15 @@ func initResource() {
 	}
 
 	if schedule {
-		ls, err := client.ListRegistries()
+		token, err := login.GetInternalToken("hub-agent")
 		if err != nil {
-			log.Fatalf("failed to get information from zadig server to set DinD, err: %s", err)
+			log.Fatalf("failed to get internal token, err: %s", err)
+		}
+		log.Infof("token: %s", token)
+
+		ls, err := client.ListRegistries(token)
+		if err != nil {
+			log.Fatalf("failed to list registries from zadig server, error: %w", err)
 		}
 
 		regList := make([]*registrytool.RegistryInfoForDinDUpdate, 0)
