@@ -28,7 +28,6 @@ import (
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
-	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
 // Deprecated
@@ -474,7 +473,6 @@ func SignUp(c *gin.Context) {
 		ctx.RespErr = e.ErrCreateUser.AddErr(fmt.Errorf("failed to get feature flag RegisterTrigger, error: %v", err))
 		return
 	}
-	log.Infof("RegisterTrigger feature flag is %v", enabled)
 	if !enabled {
 		ctx.RespErr = e.ErrCreateUser.AddDesc("用户注册已禁用")
 		return
