@@ -32,7 +32,7 @@ import (
 
 const (
 	UserAgent      = "Zadig"
-	TimeoutSeconds = 10
+	TimeoutSeconds = 60
 )
 
 type Client struct {
