@@ -370,7 +370,7 @@ func RollbackEnvServiceVersion(c *gin.Context) {
 		return
 	}
 
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "回滚", "环境-服务", fmt.Sprintf("环境: %s, 服务: %s, 版本: %d", envName, serviceName, revision), "", ctx.Logger, envName)
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "回滚", "环境-服务", fmt.Sprintf("环境: %s, 服务: %s, 版本: %d", envName, serviceName, revision), "", types.RequestBodyTypeJSON, ctx.Logger, envName)
 
 	_, ctx.RespErr = commonservice.RollbackEnvServiceVersion(ctx, projectKey, envName, serviceName, revision, isHelmChart, production, ctx.Logger)
 }

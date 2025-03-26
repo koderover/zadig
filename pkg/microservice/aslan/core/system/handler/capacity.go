@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	"github.com/gin-gonic/gin"
+	"github.com/koderover/zadig/v2/pkg/types"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/service"
@@ -61,7 +62,7 @@ func UpdateStrategy(c *gin.Context) {
 	}
 
 	bs, _ := json.Marshal(args)
-	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "任务配置", "", string(bs), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "任务配置", "", string(bs), types.RequestBodyTypeJSON, ctx.Logger)
 
 	if err := service.UpdateSysCapStrategy(args); err != nil {
 		ctx.RespErr = err

@@ -76,7 +76,7 @@ func CreateWorkflowTaskV4(c *gin.Context) {
 
 	ticketID := c.Query("approval_ticket_id")
 
-	internalhandler.InsertOperationLog(c, ctx.UserName, args.Project, "新建", "自定义工作流任务", args.Name, data, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, args.Project, "新建", "自定义工作流任务", args.Name, data, types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization check
 	if !ctx.Resources.IsSystemAdmin {
@@ -118,7 +118,7 @@ func CreateWorkflowTaskV4ByBuildInTrigger(c *gin.Context) {
 	if triggerName == "" {
 		triggerName = setting.DefaultTaskRevoker
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, args.Project, "新建", "自定义工作流任务", args.Name, getBody(c), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, args.Project, "新建", "自定义工作流任务", args.Name, getBody(c), types.RequestBodyTypeJSON, ctx.Logger)
 	ctx.Resp, ctx.RespErr = workflow.CreateWorkflowTaskV4ByBuildInTrigger(triggerName, args, ctx.Logger)
 }
 
@@ -241,7 +241,7 @@ func CancelWorkflowTaskV4(c *gin.Context) {
 	if c.Query("username") != "" {
 		username = c.Query("username")
 	}
-	internalhandler.InsertOperationLog(c, username, projectKey, "取消", "自定义工作流任务", c.Param("workflowName"), "", ctx.Logger)
+	internalhandler.InsertOperationLog(c, username, projectKey, "取消", "自定义工作流任务", c.Param("workflowName"), "", types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization check
 	if !ctx.Resources.IsSystemAdmin {
@@ -282,7 +282,7 @@ func CloneWorkflowTaskV4(c *gin.Context) {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid task id")
 		return
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "克隆", "自定义工作流任务", c.Param("workflowName"), "", ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "克隆", "自定义工作流任务", c.Param("workflowName"), "", types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization check
 	if !ctx.Resources.IsSystemAdmin {
@@ -404,7 +404,7 @@ func RetryWorkflowTaskV4(c *gin.Context) {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid task id")
 		return
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "重试", "自定义工作流任务", c.Param("workflowName"), "", ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "重试", "自定义工作流任务", c.Param("workflowName"), "", types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization check
 	if !ctx.Resources.IsSystemAdmin {
@@ -466,7 +466,7 @@ func ManualExecWorkflowTaskV4(c *gin.Context) {
 		return
 	}
 
-	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "手动执行", "自定义工作流任务", c.Param("workflowName"), string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "手动执行", "自定义工作流任务", c.Param("workflowName"), string(data), types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization check
 	if !ctx.Resources.IsSystemAdmin {
@@ -671,7 +671,7 @@ func RevertWorkflowTaskV4Job(c *gin.Context) {
 		return
 	}
 
-	internalhandler.InsertOperationLog(c, ctx.UserName, w.Project, "回滚", "自定义工作流任务", w.Name, data, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, w.Project, "回滚", "自定义工作流任务", w.Name, data, types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization check
 	if !ctx.Resources.IsSystemAdmin {
@@ -936,7 +936,7 @@ func UpdateWorkflowV4TaskRemark(c *gin.Context) {
 		return
 	}
 
-	internalhandler.InsertOperationLog(c, ctx.UserName, w.Project, "更新", "自定义工作流任务", workflowName, data, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, w.Project, "更新", "自定义工作流任务", workflowName, data, types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization check
 	if !ctx.Resources.IsSystemAdmin {

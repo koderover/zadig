@@ -27,6 +27,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/job"
+	"github.com/koderover/zadig/v2/pkg/types"
 	"github.com/pkg/errors"
 	"github.com/samber/lo"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -299,7 +300,7 @@ func DeleteReleasePlan(c *gin.Context, username, id string) error {
 	if err != nil {
 		return errors.Wrap(err, "get plan")
 	}
-	internalhandler.InsertOperationLog(c, username, "", "删除", "发布计划", info.Name, "", log.SugaredLogger())
+	internalhandler.InsertOperationLog(c, username, "", "删除", "发布计划", info.Name, "", types.RequestBodyTypeJSON, log.SugaredLogger())
 
 	releasePlanCronName := util.GetReleasePlanCronName(id, info.Name, info.Index)
 	releasePlanCron, err := commonrepo.NewCronjobColl().GetByName(releasePlanCronName, setting.ReleasePlanCronjob)

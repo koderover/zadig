@@ -22,6 +22,7 @@ import (
 	"fmt"
 
 	"github.com/gin-gonic/gin"
+	"github.com/koderover/zadig/v2/pkg/types"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/service"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
@@ -47,7 +48,7 @@ func CreateOrUpdateSecuritySettings(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("upsert security settings Unmarshal err : %s", err)
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "安全与隐私", fmt.Sprintf("token expiration: %d \n improvement plan: %v", args.TokenExpirationTime, args.ImprovementPlan), string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "安全与隐私", fmt.Sprintf("token expiration: %d \n improvement plan: %v", args.TokenExpirationTime, args.ImprovementPlan), string(data), types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {

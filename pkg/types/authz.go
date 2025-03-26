@@ -55,6 +55,13 @@ const (
 	DeliveryActionView = "get_delivery"
 )
 
+type RequestBodyType string
+
+const (
+	RequestBodyTypeJSON RequestBodyType = "json"
+	RequestBodyTypeYAML RequestBodyType = "yaml"
+)
+
 type CheckCollaborationModePermissionReq struct {
 	UID          string `json:"uid" form:"uid"`
 	ProjectKey   string `json:"project_key" form:"project_key"`

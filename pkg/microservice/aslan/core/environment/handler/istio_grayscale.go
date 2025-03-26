@@ -55,7 +55,7 @@ func EnableIstioGrayscale(c *gin.Context) {
 		ctx.RespErr = fmt.Errorf("testing environment not support")
 	}
 
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "开启Istio灰度", "环境", envName, "", ctx.Logger, envName)
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "开启Istio灰度", "环境", envName, "", types.RequestBodyTypeJSON, ctx.Logger, envName)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -108,7 +108,7 @@ func DisableIstioGrayscale(c *gin.Context) {
 
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv,
 		"关闭Istio灰度", "环境", envName,
-		"", ctx.Logger, envName)
+		"", types.RequestBodyTypeJSON, ctx.Logger, envName)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -249,7 +249,7 @@ func SetIstioGrayscaleConfig(c *gin.Context) {
 
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv,
 		"设置Istio灰度配置", "环境", envName,
-		"", ctx.Logger, envName)
+		"", types.RequestBodyTypeJSON, ctx.Logger, envName)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {

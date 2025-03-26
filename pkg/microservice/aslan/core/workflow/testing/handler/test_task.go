@@ -29,6 +29,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
+	"github.com/koderover/zadig/v2/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
@@ -63,7 +64,7 @@ func CreateTestTask(c *gin.Context) {
 		log.Errorf("CreateTestTask json.Unmarshal err : %v", err)
 	}
 	projectKey := args.ProductName
-	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "新增", "测试-task", fmt.Sprintf("%s-%s", args.TestName, "job"), string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "新增", "测试-task", fmt.Sprintf("%s-%s", args.TestName, "job"), string(data), types.RequestBodyTypeJSON, ctx.Logger)
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	// authorization check
@@ -163,7 +164,7 @@ func CancelTestTaskV3(c *gin.Context) {
 	testName := c.Query("testName")
 	taskIDStr := c.Query("taskID")
 
-	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "取消", "测试任务", c.Param("name"), "", ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "取消", "测试任务", c.Param("name"), "", types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization check
 	if !ctx.Resources.IsSystemAdmin {
@@ -344,7 +345,7 @@ func RestartTestTaskV2(c *gin.Context) {
 	testName := c.Query("testName")
 	taskIDStr := c.Query("taskID")
 
-	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "重启", "测试任务", c.Param("name"), "", ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "重启", "测试任务", c.Param("name"), "", types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization check
 	if !ctx.Resources.IsSystemAdmin {

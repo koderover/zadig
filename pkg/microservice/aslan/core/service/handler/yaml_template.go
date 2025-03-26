@@ -24,6 +24,7 @@ import (
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	svcservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/service/service"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
+	"github.com/koderover/zadig/v2/pkg/types"
 )
 
 // @Summary Load service from yaml template
@@ -59,7 +60,7 @@ func LoadServiceFromYamlTemplate(c *gin.Context) {
 	}
 
 	bs, _ := json.Marshal(req)
-	internalhandler.InsertOperationLog(c, ctx.UserName, req.ProjectName, "新增", detail, fmt.Sprintf("服务名称:%s", req.ServiceName), string(bs), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, req.ProjectName, "新增", detail, fmt.Sprintf("服务名称:%s", req.ServiceName), string(bs), types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -124,7 +125,7 @@ func ReloadServiceFromYamlTemplate(c *gin.Context) {
 	}
 
 	bs, _ := json.Marshal(req)
-	internalhandler.InsertOperationLog(c, ctx.UserName, req.ProjectName, "更新", detail, fmt.Sprintf("服务名称:%s", req.ServiceName), string(bs), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, req.ProjectName, "更新", detail, fmt.Sprintf("服务名称:%s", req.ServiceName), string(bs), types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {

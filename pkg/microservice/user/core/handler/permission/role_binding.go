@@ -177,7 +177,7 @@ func CreateRoleBindingImpl(c *gin.Context, ctx *internalhandler.Context) {
 		}
 	}
 	detail += "角色名称：" + req.Role + "\n"
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneProject, "创建", "角色绑定", detail, string(data), ctx.Logger, "")
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneProject, "创建", "角色绑定", detail, string(data), types.RequestBodyTypeJSON, ctx.Logger, "")
 
 	if !ctx.Resources.IsSystemAdmin {
 		if projectName == "*" {
@@ -272,7 +272,7 @@ func UpdateRoleBindingForUserImpl(c *gin.Context, ctx *internalhandler.Context) 
 	}
 	detail = strings.Trim(detail, "，")
 
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneProject, "更新", "角色绑定", detail, string(data), ctx.Logger, "")
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneProject, "更新", "角色绑定", detail, string(data), types.RequestBodyTypeJSON, ctx.Logger, "")
 
 	if !ctx.Resources.IsSystemAdmin {
 		if projectName == "*" {
@@ -354,7 +354,7 @@ func DeleteRoleBindingForUserImpl(c *gin.Context, ctx *internalhandler.Context) 
 	}
 	detail := "用户：" + username
 
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneProject, "删除", "角色绑定", detail, string(data), ctx.Logger, "")
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneProject, "删除", "角色绑定", detail, string(data), types.RequestBodyTypeJSON, ctx.Logger, "")
 
 	if !ctx.Resources.IsSystemAdmin {
 		if projectName == "*" {
@@ -444,7 +444,7 @@ func UpdateRoleBindingForGroupImpl(c *gin.Context, ctx *internalhandler.Context)
 	}
 	detail = strings.Trim(detail, "，")
 
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneProject, "更新", "角色绑定", detail, string(data), ctx.Logger, "")
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneProject, "更新", "角色绑定", detail, string(data), types.RequestBodyTypeJSON, ctx.Logger, "")
 
 	if !ctx.Resources.IsSystemAdmin {
 		if projectName == "*" {
@@ -524,7 +524,7 @@ func DeleteRoleBindingForGroupImpl(c *gin.Context, ctx *internalhandler.Context)
 	}
 	detail := "用户组：" + groupName
 
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneProject, "删除", "角色绑定", detail, string(data), ctx.Logger, "")
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneProject, "删除", "角色绑定", detail, string(data), types.RequestBodyTypeJSON, ctx.Logger, "")
 
 	if !ctx.Resources.IsSystemAdmin {
 		if projectName == "*" {
