@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	"github.com/gin-gonic/gin"
+	"github.com/koderover/zadig/v2/pkg/types"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
@@ -114,7 +115,7 @@ func CreateSprintTemplate(c *gin.Context) {
 		return
 	}
 
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneSprintManagement, "创建", "迭代管理-流程", req.Name, string(data), ctx.Logger, "")
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneSprintManagement, "创建", "迭代管理-流程", req.Name, string(data), types.RequestBodyTypeJSON, ctx.Logger, "")
 
 	err = commonutil.CheckZadigEnterpriseLicense()
 	if err != nil {
@@ -163,7 +164,7 @@ func DeleteSprintTemplate(c *gin.Context) {
 		return
 	}
 
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneSprintManagement, "删除", "迭代管理-流程", "流程ID: "+c.Param("id"), "", ctx.Logger, "")
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneSprintManagement, "删除", "迭代管理-流程", "流程ID: "+c.Param("id"), "", types.RequestBodyTypeJSON, ctx.Logger, "")
 
 	ctx.RespErr = service.DeleteSprintTemplate(ctx, ctx.UserName, c.Param("id"))
 }
@@ -295,7 +296,7 @@ func AddSprintTemplateStage(c *gin.Context) {
 		return
 	}
 
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneSprintManagement, "更新", "迭代管理-流程添加阶段", "阶段: "+c.Query("stageName"), "", ctx.Logger, "")
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneSprintManagement, "更新", "迭代管理-流程添加阶段", "阶段: "+c.Query("stageName"), "", types.RequestBodyTypeJSON, ctx.Logger, "")
 
 	ctx.RespErr = service.AddSprintTemplateStage(ctx, c.Param("id"), c.Query("stageName"))
 }
@@ -339,7 +340,7 @@ func DeleteSprintTemplateStage(c *gin.Context) {
 		return
 	}
 
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneSprintManagement, "更新", "迭代管理-流程删除阶段", "阶段ID: "+c.Param("stageID"), "", ctx.Logger, "")
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneSprintManagement, "更新", "迭代管理-流程删除阶段", "阶段ID: "+c.Param("stageID"), "", types.RequestBodyTypeJSON, ctx.Logger, "")
 
 	ctx.RespErr = service.DeleteSprintTemplateStage(ctx, c.Param("id"), c.Param("stageID"))
 }
@@ -385,7 +386,7 @@ func UpdateSprintTemplateStageName(c *gin.Context) {
 		return
 	}
 
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneSprintManagement, "更新", "迭代管理-流程阶段名称", "阶段: "+c.Query("stageName"), "", ctx.Logger, "")
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneSprintManagement, "更新", "迭代管理-流程阶段名称", "阶段: "+c.Query("stageName"), "", types.RequestBodyTypeJSON, ctx.Logger, "")
 
 	ctx.RespErr = service.UpdateSprintTemplateStageName(ctx, c.Param("id"), c.Param("stageID"), c.Query("stageName"))
 }
@@ -447,7 +448,7 @@ func UpdateSprintTemplateStageWorkflows(c *gin.Context) {
 		return
 	}
 
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneSprintManagement, "更新", "迭代管理-流程阶段工作流", "阶段ID: "+c.Param("stageID"), string(data), ctx.Logger, "")
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneSprintManagement, "更新", "迭代管理-流程阶段工作流", "阶段ID: "+c.Param("stageID"), string(data), types.RequestBodyTypeJSON, ctx.Logger, "")
 
 	ctx.RespErr = service.UpdateSprintTemplateStageWorkflows(ctx, c.Param("id"), c.Param("stageID"), req.Workflows, req.UpdateTime)
 }

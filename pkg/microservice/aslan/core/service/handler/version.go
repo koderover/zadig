@@ -26,6 +26,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/setting"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
+	"github.com/koderover/zadig/v2/pkg/types"
 )
 
 // @Summary List Service Versions
@@ -278,7 +279,7 @@ func RollbackServiceVersion(c *gin.Context) {
 	if production {
 		detail = "生产服务"
 	}
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneService, "回滚", detail, fmt.Sprintf("服务: %s, 版本: %d", serviceName, revision), "", ctx.Logger)
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneService, "回滚", detail, fmt.Sprintf("服务: %s, 版本: %d", serviceName, revision), "", types.RequestBodyTypeJSON, ctx.Logger)
 
 	ctx.RespErr = service.RollbackServiceVersion(ctx, projectKey, serviceName, revision, production, ctx.Logger)
 }

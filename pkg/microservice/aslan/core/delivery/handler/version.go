@@ -24,6 +24,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/koderover/zadig/v2/pkg/types"
 
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
@@ -231,7 +232,7 @@ func CreateK8SDeliveryVersion(c *gin.Context) {
 	}
 
 	bs, _ := json.Marshal(args)
-	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductName, "新建", "版本交付", fmt.Sprintf("%s-%s", args.EnvName, args.Version), string(bs), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductName, "新建", "版本交付", fmt.Sprintf("%s-%s", args.EnvName, args.Version), string(bs), types.RequestBodyTypeJSON, ctx.Logger)
 
 	ctx.RespErr = deliveryservice.CreateK8SDeliveryVersion(args, ctx.Logger)
 }
@@ -269,7 +270,7 @@ func CreateHelmDeliveryVersion(c *gin.Context) {
 	}
 
 	bs, _ := json.Marshal(args)
-	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductName, "新建", "版本交付", fmt.Sprintf("%s-%s", args.EnvName, args.Version), string(bs), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductName, "新建", "版本交付", fmt.Sprintf("%s-%s", args.EnvName, args.Version), string(bs), types.RequestBodyTypeJSON, ctx.Logger)
 
 	ctx.RespErr = deliveryservice.CreateHelmDeliveryVersion(args, ctx.Logger)
 }
@@ -286,7 +287,7 @@ func DeleteDeliveryVersion(c *gin.Context) {
 
 	projectKey := c.GetString("productName")
 
-	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "删除", "版本交付", c.Param("id"), "", ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "删除", "版本交付", c.Param("id"), "", types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {

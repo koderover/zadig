@@ -22,6 +22,7 @@ import (
 	"io"
 
 	"github.com/gin-gonic/gin"
+	"github.com/koderover/zadig/v2/pkg/types"
 
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
@@ -55,7 +56,7 @@ func DeleteFavoritePipeline(c *gin.Context) {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc("productName or name or type can't be empty!")
 		return
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, productName, "删除", "收藏工作流", workflowName, "", ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, productName, "删除", "收藏工作流", workflowName, "", types.RequestBodyTypeJSON, ctx.Logger)
 	ctx.RespErr = workflow.DeleteFavoritePipeline(&commonrepo.FavoriteArgs{UserID: ctx.UserID, ProductName: productName, Type: workflowType, Name: workflowName})
 }
 
@@ -71,7 +72,7 @@ func CreateFavoritePipeline(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("CreateFavoritePipeline json.Unmarshal err : %v", err)
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductName, "新增", "收藏工作流", args.Name, string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductName, "新增", "收藏工作流", args.Name, string(data), types.RequestBodyTypeJSON, ctx.Logger)
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.BindJSON(args); err != nil {

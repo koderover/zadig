@@ -55,7 +55,7 @@ func DeleteCommonEnvCfg(c *gin.Context) {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc("param envName or projectName or objectName is invalid")
 		return
 	}
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "删除", "环境配置", fmt.Sprintf("%s:%s:%s", envName, commonEnvCfgType, objectName), "", ctx.Logger, envName)
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "删除", "环境配置", fmt.Sprintf("%s:%s:%s", envName, commonEnvCfgType, objectName), "", types.RequestBodyTypeJSON, ctx.Logger, envName)
 
 	production := c.Query("production") == "true"
 
@@ -121,7 +121,7 @@ func CreateCommonEnvCfg(c *gin.Context) {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, c.Query("projectName"), setting.OperationSceneEnv, "新建", "环境配置", fmt.Sprintf("%s:%s", args.EnvName, args.CommonEnvCfgType), string(data), ctx.Logger, c.Param("name"))
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, c.Query("projectName"), setting.OperationSceneEnv, "新建", "环境配置", fmt.Sprintf("%s:%s", args.EnvName, args.CommonEnvCfgType), string(data), types.RequestBodyTypeJSON, ctx.Logger, c.Param("name"))
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	production := c.Query("production") == "true"
@@ -196,7 +196,7 @@ func UpdateCommonEnvCfg(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("UpdateCommonEnvCfg json.Unmarshal err : %v", err)
 	}
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, c.Query("projectName"), setting.OperationSceneEnv, "更新", "环境配置", fmt.Sprintf("%s:%s:%s", args.EnvName, args.CommonEnvCfgType, args.Name), string(data), ctx.Logger, c.Param("name"))
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, c.Query("projectName"), setting.OperationSceneEnv, "更新", "环境配置", fmt.Sprintf("%s:%s:%s", args.EnvName, args.CommonEnvCfgType, args.Name), string(data), types.RequestBodyTypeJSON, ctx.Logger, c.Param("name"))
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	production := c.Query("production") == "true"

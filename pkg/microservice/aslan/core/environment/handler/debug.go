@@ -46,7 +46,7 @@ func PatchDebugContainer(c *gin.Context) {
 		debugImage = types.DebugImage
 	}
 
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "启动调试容器", "环境", envName, "", ctx.Logger, envName)
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "启动调试容器", "环境", envName, "", types.RequestBodyTypeJSON, ctx.Logger, envName)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {

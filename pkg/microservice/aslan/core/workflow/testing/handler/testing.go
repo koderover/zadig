@@ -71,7 +71,7 @@ func CreateTestModule(c *gin.Context) {
 		log.Errorf("CreateTestModule json.Unmarshal err : %v", err)
 	}
 	projectKey := args.ProductName
-	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "新增", "项目管理-测试", args.Name, string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "新增", "项目管理-测试", args.Name, string(data), types.RequestBodyTypeJSON, ctx.Logger)
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	// authorization check
@@ -116,7 +116,7 @@ func UpdateTestModule(c *gin.Context) {
 		log.Errorf("UpdateTestModule json.Unmarshal err : %v", err)
 	}
 	projectKey := args.ProductName
-	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "更新", "项目管理-测试", args.Name, string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "更新", "项目管理-测试", args.Name, string(data), types.RequestBodyTypeJSON, ctx.Logger)
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	// authorization check
@@ -251,7 +251,7 @@ func DeleteTestModule(c *gin.Context) {
 
 	projectKey := c.Query("projectName")
 
-	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "删除", "项目管理-测试", c.Param("name"), "", ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "删除", "项目管理-测试", c.Param("name"), "", types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization check
 	if !ctx.Resources.IsSystemAdmin {

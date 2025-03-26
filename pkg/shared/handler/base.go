@@ -277,7 +277,7 @@ func GetRawData(c *gin.Context) ([]byte, error) {
 }
 
 // InsertOperationLog 插入操作日志
-func InsertOperationLog(c *gin.Context, username, productName, method, function, detail, requestBody string, logger *zap.SugaredLogger) {
+func InsertOperationLog(c *gin.Context, username, productName, method, function, detail, requestBody string, bodyType types.RequestBodyType, logger *zap.SugaredLogger) {
 	req := &systemmodels.OperationLog{
 		Username:    username,
 		ProductName: productName,
@@ -285,6 +285,7 @@ func InsertOperationLog(c *gin.Context, username, productName, method, function,
 		Function:    function,
 		Name:        detail,
 		RequestBody: requestBody,
+		BodyType:    bodyType,
 		Status:      0,
 		CreatedAt:   time.Now().Unix(),
 	}
@@ -295,7 +296,7 @@ func InsertOperationLog(c *gin.Context, username, productName, method, function,
 	c.Set("operationLogID", req.ID.Hex())
 }
 
-func InsertDetailedOperationLog(c *gin.Context, username, productName, scene, method, function, detail, requestBody string, logger *zap.SugaredLogger, targets ...string) {
+func InsertDetailedOperationLog(c *gin.Context, username, productName, scene, method, function, detail, requestBody string, bodyType types.RequestBodyType, logger *zap.SugaredLogger, targets ...string) {
 	req := &systemmodels.OperationLog{
 		Username:    username,
 		ProductName: productName,
@@ -303,6 +304,7 @@ func InsertDetailedOperationLog(c *gin.Context, username, productName, scene, me
 		Function:    function,
 		Name:        detail,
 		RequestBody: requestBody,
+		BodyType:    bodyType,
 		Scene:       scene,
 		Targets:     targets,
 		Status:      0,

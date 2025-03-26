@@ -82,7 +82,7 @@ func CreateWorkflowTask(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("CreateWorkflowTask json.Unmarshal err : %v", err)
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductTmplName, "新增", "工作流-task", args.WorkflowName, string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductTmplName, "新增", "工作流-task", args.WorkflowName, string(data), types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization check
 	if !ctx.Resources.IsSystemAdmin {
@@ -140,7 +140,7 @@ func CreateArtifactWorkflowTask(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("CreateArtifactWorkflowTask json.Unmarshal err : %v", err)
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductTmplName, "新增", "工作流-task", args.WorkflowName, string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductTmplName, "新增", "工作流-task", args.WorkflowName, string(data), types.RequestBodyTypeJSON, ctx.Logger)
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	// authorization check
@@ -366,7 +366,7 @@ func RestartWorkflowTask(c *gin.Context) {
 	projectKey := c.Query("projectName")
 	workflowName := c.Param("name")
 
-	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "重启", "工作流-task", workflowName, "", ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "重启", "工作流-task", workflowName, "", types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization check
 	if !ctx.Resources.IsSystemAdmin {
@@ -409,7 +409,7 @@ func CancelWorkflowTaskV2(c *gin.Context) {
 	projectKey := c.Query("projectName")
 	workflowName := c.Param("name")
 
-	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "取消", "工作流-task", workflowName, "", ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "取消", "工作流-task", workflowName, "", types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization check
 	if !ctx.Resources.IsSystemAdmin {

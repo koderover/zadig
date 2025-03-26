@@ -24,6 +24,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
+	"github.com/koderover/zadig/v2/pkg/types"
 
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/service"
@@ -51,7 +52,7 @@ func CreateInstall(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("CreateInstall json.Unmarshal err : %v", err)
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, "", "新增", "系统设置-应用设置", fmt.Sprintf("应用名称:%s,应用版本:%s", args.Name, args.Version), string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "新增", "系统设置-应用设置", fmt.Sprintf("应用名称:%s,应用版本:%s", args.Name, args.Version), string(data), types.RequestBodyTypeJSON, ctx.Logger)
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	// authorization checks
@@ -88,7 +89,7 @@ func UpdateInstall(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("UpdateInstall json.Unmarshal err : %v", err)
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "系统设置-应用设置", fmt.Sprintf("应用名称:%s,应用版本:%s", args.Name, args.Version), string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "系统设置-应用设置", fmt.Sprintf("应用名称:%s,应用版本:%s", args.Name, args.Version), string(data), types.RequestBodyTypeJSON, ctx.Logger)
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	// authorization checks
@@ -149,7 +150,7 @@ func DeleteInstall(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("DeleteInstall json.Unmarshal err : %v", err)
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, "", "删除", "系统设置-应用设置", fmt.Sprintf("应用名称:%s,应用版本:%s", args.Name, args.Version), string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "删除", "系统设置-应用设置", fmt.Sprintf("应用名称:%s,应用版本:%s", args.Name, args.Version), string(data), types.RequestBodyTypeJSON, ctx.Logger)
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	// authorization checks
