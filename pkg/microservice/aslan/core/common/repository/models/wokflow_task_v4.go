@@ -265,15 +265,16 @@ type JobTaskHelmDeploySpec struct {
 	IsProduction bool   `bson:"is_production" yaml:"is_production" json:"is_production"`
 	YamlContent  string `bson:"yaml_content"                     json:"yaml_content"                        yaml:"yaml_content"`
 	// UserSuppliedValue added since 1.18, the values that users gives.
-	UserSuppliedValue  string                   `bson:"user_supplied_value" json:"user_supplied_value" yaml:"user_supplied_value"`
-	UpdateConfig       bool                     `bson:"update_config"                    json:"update_config"                       yaml:"update_config"`
-	SkipCheckRunStatus bool                     `bson:"skip_check_run_status"            json:"skip_check_run_status"               yaml:"skip_check_run_status"`
-	ImageAndModules    []*ImageAndServiceModule `bson:"image_and_service_modules"        json:"image_and_service_modules"           yaml:"image_and_service_modules"`
-	ClusterID          string                   `bson:"cluster_id"                       json:"cluster_id"                          yaml:"cluster_id"`
-	ReleaseName        string                   `bson:"release_name"                     json:"release_name"                        yaml:"release_name"`
-	Timeout            int                      `bson:"timeout"                          json:"timeout"                             yaml:"timeout"`
-	ReplaceResources   []Resource               `bson:"replace_resources"                json:"replace_resources"                   yaml:"replace_resources"`
-	OriginRevision     int64                    `bson:"origin_revision"                  json:"origin_revision"                     yaml:"origin_revision"`
+	UserSuppliedValue            string                   `bson:"user_supplied_value" json:"user_supplied_value" yaml:"user_supplied_value"`
+	UpdateConfig                 bool                     `bson:"update_config"                    json:"update_config"                       yaml:"update_config"`
+	SkipCheckRunStatus           bool                     `bson:"skip_check_run_status"            json:"skip_check_run_status"               yaml:"skip_check_run_status"`
+	SkipCheckHelmWorkfloadStatus bool                     `bson:"skip_check_helm_workload_status"  json:"skip_check_helm_workload_status"     yaml:"skip_check_helm_workload_status"`
+	ImageAndModules              []*ImageAndServiceModule `bson:"image_and_service_modules"        json:"image_and_service_modules"           yaml:"image_and_service_modules"`
+	ClusterID                    string                   `bson:"cluster_id"                       json:"cluster_id"                          yaml:"cluster_id"`
+	ReleaseName                  string                   `bson:"release_name"                     json:"release_name"                        yaml:"release_name"`
+	Timeout                      int                      `bson:"timeout"                          json:"timeout"                             yaml:"timeout"`
+	ReplaceResources             []Resource               `bson:"replace_resources"                json:"replace_resources"                   yaml:"replace_resources"`
+	OriginRevision               int64                    `bson:"origin_revision"                  json:"origin_revision"                     yaml:"origin_revision"`
 }
 
 func (j *JobTaskHelmDeploySpec) GetDeployImages() []string {

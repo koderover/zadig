@@ -18,7 +18,6 @@ package jobcontroller
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"sort"
 	"strings"
@@ -648,7 +647,7 @@ func (c *DeployJobCtl) wait(ctx context.Context) {
 		return
 	}
 	c.jobTaskSpec.ReplaceResources = resources
-	status, err := CheckDeployStatus(ctx, c.kubeClient, c.namespace, c.jobTaskSpec, timeout, c.logger)
+	status, err := CheckDeployStatus(ctx, c.kubeClient, c.namespace, c.jobTaskSpec.RelatedPodLabels, c.jobTaskSpec.ReplaceResources, timeout, c.logger)
 	if err != nil {
 		logError(c.job, err.Error(), c.logger)
 		return
@@ -656,18 +655,14 @@ func (c *DeployJobCtl) wait(ctx context.Context) {
 	c.job.Status = status
 }
 
-func CheckDeployStatus(ctx context.Context, kubeClient crClient.Client, namespace string, jobTaskSpec *commonmodels.JobTaskDeploySpec, timeout <-chan time.Time, logger *zap.SugaredLogger) (config.Status, error) {
-	podLabelsBytes, _ := json.Marshal(jobTaskSpec.RelatedPodLabels)
-	replaceResourcesBytes, _ := json.Marshal(jobTaskSpec.ReplaceResources)
-	log.Debugf("related pod labels: %v", string(podLabelsBytes))
-	log.Debugf("replace resources: %v", string(replaceResourcesBytes))
+func CheckDeployStatus(ctx context.Context, kubeClient crClient.Client, namespace string, relatedPodLabels []map[string]string, replaceResources []commonmodels.Resource, timeout <-chan time.Time, logger *zap.SugaredLogger) (config.Status, error) {
 	for {
 		select {
 		case <-ctx.Done():
 			return config.StatusCancelled, nil
 		case <-timeout:
 			var msg []string
-			for _, label := range jobTaskSpec.RelatedPodLabels {
+			for _, label := range relatedPodLabels {
 				selector := labels.Set(label).AsSelector()
 				pods, err := getter.ListPods(namespace, selector, kubeClient)
 				if err != nil {
@@ -698,8 +693,8 @@ func CheckDeployStatus(ctx context.Context, kubeClient crClient.Client, namespac
 			ready := true
 			var err error
 		L:
-			for _, resource := range jobTaskSpec.ReplaceResources {
-				if err := workLoadDeployStat(kubeClient, namespace, jobTaskSpec.RelatedPodLabels, resource.PodOwnerUID); err != nil {
+			for _, resource := range replaceResources {
+				if err := workLoadDeployStat(kubeClient, namespace, relatedPodLabels, resource.PodOwnerUID); err != nil {
 					return config.StatusFailed, err
 				}
 				switch resource.Kind {
@@ -731,7 +726,7 @@ func CheckDeployStatus(ctx context.Context, kubeClient crClient.Client, namespac
 					}
 					if err != nil || !found {
 						logger.Errorf(
-							"failed to check statefulSet ready status %s/%s/%s",
+							"failed to check statefulSet ready status %s/%s/%s - %v",
 							namespace,
 							resource.Kind,
 							resource.Name,
