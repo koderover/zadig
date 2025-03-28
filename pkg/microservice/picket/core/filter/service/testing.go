@@ -28,6 +28,5 @@ import (
 // TODO: remove this, all the logic has been moved back to aslan
 
 func ListTestings(header http.Header, qs url.Values, logger *zap.SugaredLogger) ([]byte, error) {
-	qs.Add("testType", "function")
 	return aslan.New().ListTestings(header, qs)
 }
