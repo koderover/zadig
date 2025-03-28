@@ -226,6 +226,7 @@ func ListTestingOpt(productNames []string, testType string, log *zap.SugaredLogg
 	return testingOpts, nil
 }
 
+// @fixme this function has performance issue, need to support get multiple test tasks at once
 func GetTestTask(testName string) (*commonmodels.TestTaskStat, error) {
 	testCustomWorkflowName := commonutil.GenTestingWorkflowName(testName)
 	testTasks, err := commonrepo.NewJobInfoColl().GetTestJobsByWorkflow(testCustomWorkflowName)
