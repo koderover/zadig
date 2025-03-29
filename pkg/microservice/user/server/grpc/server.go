@@ -122,6 +122,16 @@ func (s *AuthServer) Check(ctx context.Context, request *ext_authz_v3.CheckReque
 				return resp, nil
 			}
 
+			// validate if internal token
+			if claims.ExpiresAt == 0 &&
+				(claims.Name == "aslan" && claims.PreferredUsername == "aslan" && claims.FederatedClaims.UserId == "aslan" && claims.Email == "aslan@koderover.com" ||
+					claims.Name == "user" && claims.PreferredUsername == "user" && claims.FederatedClaims.UserId == "user" && claims.Email == "user@koderover.com" ||
+					claims.Name == "cron" && claims.PreferredUsername == "cron" && claims.FederatedClaims.UserId == "cron" && claims.Email == "cron@koderover.com" ||
+					claims.Name == "hub-agent" && claims.PreferredUsername == "hub-agent" && claims.FederatedClaims.UserId == "hub-agent" && claims.Email == "hub-agent@koderover.com" ||
+					claims.Name == "hub-server" && claims.PreferredUsername == "hub-server" && claims.FederatedClaims.UserId == "hub-server" && claims.Email == "hub-server@koderover.com") {
+				goto allowed
+			}
+
 			// if the expiration time is so huge that it is not possible, it is a constant api token, we don't check for the redis.
 			if claims.ExpiresAt-time.Now().Unix() < 8760*60*60 {
 				// check if the given token is removed from the cache
@@ -158,6 +168,7 @@ func (s *AuthServer) Check(ctx context.Context, request *ext_authz_v3.CheckReque
 		}
 	}
 
+allowed:
 	resp.Status = &rpc_status.Status{Code: int32(code.Code_OK)}
 	resp.HttpResponse = &ext_authz_v3.CheckResponse_OkResponse{OkResponse: &ext_authz_v3.OkHttpResponse{}}
 	logger.Info("Request Allowed",

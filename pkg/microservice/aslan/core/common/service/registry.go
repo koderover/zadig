@@ -80,7 +80,8 @@ func ListRegistryNamespaces(encryptedKey string, getRealCredential bool, log *za
 	if len(encryptedKey) > 0 {
 		aesKey, err = commonutil.GetAesKeyFromEncryptedKey(encryptedKey, log)
 		if err != nil {
-			log.Errorf("RegistryNamespace.List GetAesKeyFromEncryptedKey error: %s", err)
+			err = fmt.Errorf("RegistryNamespace.List GetAesKeyFromEncryptedKey error: %w", err)
+			log.Error(err)
 			return nil, err
 		}
 	}
@@ -89,7 +90,8 @@ func ListRegistryNamespaces(encryptedKey string, getRealCredential bool, log *za
 			for _, reg := range resp {
 				reg.SecretKey, err = crypto.AesEncryptByKey(reg.SecretKey, aesKey.PlainText)
 				if err != nil {
-					log.Errorf("RegistryNamespace.List AesEncryptByKey error: %s", err)
+					err = fmt.Errorf("RegistryNamespace.List AesEncryptByKey error: %w", err)
+					log.Error(err)
 					return nil, err
 				}
 			}
@@ -105,7 +107,8 @@ func ListRegistryNamespaces(encryptedKey string, getRealCredential bool, log *za
 		case config.RegistryTypeAWS:
 			realAK, realSK, err := commonutil.GetAWSRegistryCredential(reg.ID.Hex(), reg.AccessKey, reg.SecretKey, reg.Region)
 			if err != nil {
-				log.Errorf("Failed to get keypair from aws, the error is: %s", err)
+				err = fmt.Errorf("Failed to get keypair from aws registry credential, error: %w", err)
+				log.Error(err)
 				return nil, err
 			}
 			reg.AccessKey = realAK
@@ -116,7 +119,8 @@ func ListRegistryNamespaces(encryptedKey string, getRealCredential bool, log *za
 		}
 		reg.SecretKey, err = crypto.AesEncryptByKey(reg.SecretKey, aesKey.PlainText)
 		if err != nil {
-			log.Errorf("RegistryNamespace.List AesEncryptByKey error: %s", err)
+			err = fmt.Errorf("RegistryNamespace.List AesEncryptByKey error: %w", err)
+			log.Error(err)
 			return nil, err
 		}
 	}
