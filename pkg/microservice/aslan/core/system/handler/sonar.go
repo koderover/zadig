@@ -23,6 +23,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/koderover/zadig/v2/pkg/tool/crypto"
+	"github.com/koderover/zadig/v2/pkg/types"
 
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/service"
@@ -53,7 +54,7 @@ func CreateSonarIntegration(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("Create sonar integration Unmarshal err : %s", err)
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, "", "新增", "系统配置-Sonar集成", fmt.Sprintf("server: %s, token: %s", args.ServerAddress, args.Token), string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "新增", "系统配置-Sonar集成", fmt.Sprintf("server: %s, token: %s", args.ServerAddress, args.Token), string(data), types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -93,7 +94,7 @@ func UpdateSonarIntegration(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("Update sonar integration Unmarshal err : %s", err)
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "系统配置-Sonar集成", fmt.Sprintf("server: %s, token: %s", args.ServerAddress, args.Token), string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "系统配置-Sonar集成", fmt.Sprintf("server: %s, token: %s", args.ServerAddress, args.Token), string(data), types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -219,7 +220,7 @@ func DeleteSonarIntegration(c *gin.Context) {
 		return
 	}
 
-	internalhandler.InsertOperationLog(c, ctx.UserName, "", "删除", "系统配置-Sonar集成", fmt.Sprintf("id:%s", c.Param("id")), "", ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "删除", "系统配置-Sonar集成", fmt.Sprintf("id:%s", c.Param("id")), "", types.RequestBodyTypeJSON, ctx.Logger)
 	ctx.RespErr = service.DeleteSonarIntegration(c.Param("id"), ctx.Logger)
 }
 

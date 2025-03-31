@@ -25,6 +25,7 @@ import (
 	testingservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/testing/service"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
+	"github.com/koderover/zadig/v2/pkg/types"
 )
 
 func OpenAPICreateScanningModule(c *gin.Context) {
@@ -92,7 +93,7 @@ func OpenAPICreateScanningTask(c *gin.Context) {
 	if err != nil {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProjectName, "OpenAPI"+"新增", "代码扫描任务", args.ScanName, string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProjectName, "OpenAPI"+"新增", "代码扫描任务", args.ScanName, string(data), types.RequestBodyTypeJSON, ctx.Logger)
 
 	if !ctx.Resources.IsSystemAdmin {
 		if _, ok := ctx.Resources.ProjectAuthInfo[args.ProjectName]; !ok {
@@ -158,7 +159,7 @@ func OpenAPICreateTestTask(c *gin.Context) {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProjectName, "新增", "OpenAPI"+"测试-task", fmt.Sprintf("%s-%s", args.TestName, "job"), string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProjectName, "新增", "OpenAPI"+"测试-task", fmt.Sprintf("%s-%s", args.TestName, "job"), string(data), types.RequestBodyTypeJSON, ctx.Logger)
 
 	if !ctx.Resources.IsSystemAdmin {
 		if _, ok := ctx.Resources.ProjectAuthInfo[args.ProjectName]; !ok {

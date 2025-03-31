@@ -24,6 +24,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
+	"github.com/koderover/zadig/v2/pkg/types"
 
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/service"
@@ -78,7 +79,7 @@ func CreateBasicImage(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("CreateBasicImage json.Unmarshal err : %v", err)
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, "", "新增", "基础镜像", fmt.Sprintf("label:%s", args.Label), string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "新增", "基础镜像", fmt.Sprintf("label:%s", args.Label), string(data), types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -116,7 +117,7 @@ func UpdateBasicImage(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("UpdateBasicImage json.Unmarshal err : %v", err)
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "基础镜像", fmt.Sprintf("id:%s", args.ID), string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "基础镜像", fmt.Sprintf("id:%s", args.ID), string(data), types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -146,7 +147,7 @@ func DeleteBasicImage(c *gin.Context) {
 		return
 	}
 
-	internalhandler.InsertOperationLog(c, ctx.UserName, "", "删除", "基础镜像", fmt.Sprintf("id:%s", c.Param("id")), "", ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "删除", "基础镜像", fmt.Sprintf("id:%s", c.Param("id")), "", types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {

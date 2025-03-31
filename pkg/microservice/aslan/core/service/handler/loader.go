@@ -22,6 +22,7 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"github.com/koderover/zadig/v2/pkg/types"
 
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	svcservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/service/service"
@@ -107,7 +108,7 @@ func LoadServiceTemplate(c *gin.Context) {
 
 	// Note we can't get the service name from handler layer since it parsed from files on git repo
 	bs, _ := json.Marshal(args)
-	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductName, "新增", detail, "", string(bs), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductName, "新增", detail, "", string(bs), types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -188,7 +189,7 @@ func SyncServiceTemplate(c *gin.Context) {
 
 	// Note we can't get the service name from handler layer since it parsed from files on git repo
 	bs, _ := json.Marshal(args)
-	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductName, "更新", detail, "", string(bs), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductName, "更新", detail, "", string(bs), types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {

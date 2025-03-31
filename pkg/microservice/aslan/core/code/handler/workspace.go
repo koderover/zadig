@@ -20,6 +20,7 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"github.com/koderover/zadig/v2/pkg/types"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/code/service"
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
@@ -42,7 +43,7 @@ func GetProductNameByWorkspacePipeline(c *gin.Context) {
 func CleanWorkspace(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	internalhandler.InsertOperationLog(c, ctx.UserName, c.GetString("productName"), "清理", "单服务工作流-工作目录", c.Query("pipelineName"), "", ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, c.GetString("productName"), "清理", "单服务工作流-工作目录", c.Query("pipelineName"), "", types.RequestBodyTypeJSON, ctx.Logger)
 	name := c.Query("pipelineName")
 	if name == "" {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc("empty pipeline name")

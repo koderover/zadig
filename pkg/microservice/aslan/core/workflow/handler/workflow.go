@@ -128,7 +128,7 @@ func CreateWorkflow(c *gin.Context) {
 	projectKey := args.ProductTmplName
 	workflowName := args.Name
 
-	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "新增", "工作流", workflowName, string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "新增", "工作流", workflowName, string(data), types.RequestBodyTypeJSON, ctx.Logger)
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	// authorization check
@@ -191,7 +191,7 @@ func UpdateWorkflow(c *gin.Context) {
 	projectKey := args.ProductTmplName
 	workflowName := args.Name
 
-	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "更新", "工作流", workflowName, string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "更新", "工作流", workflowName, string(data), types.RequestBodyTypeYAML, ctx.Logger)
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	// authorization check
@@ -320,7 +320,7 @@ func DeleteWorkflow(c *gin.Context) {
 		}
 	}
 
-	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "删除", "工作流", workflowName, "", ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "删除", "工作流", workflowName, "", types.RequestBodyTypeJSON, ctx.Logger)
 	ctx.RespErr = commonservice.DeleteWorkflow(workflowName, ctx.RequestID, false, ctx.Logger)
 }
 

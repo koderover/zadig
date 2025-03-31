@@ -212,7 +212,7 @@ func RestartService(c *gin.Context) {
 
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv,
 		"重启", "环境-服务", fmt.Sprintf("环境名称:%s,服务名称:%s", c.Param("name"), c.Param("serviceName")),
-		"", ctx.Logger, args.EnvName)
+		"", types.RequestBodyTypeJSON, ctx.Logger, args.EnvName)
 	ctx.RespErr = service.RestartService(args.EnvName, args, production, ctx.Logger)
 }
 
@@ -365,7 +365,7 @@ func UpdateService(c *gin.Context) {
 	production := c.Query("production") == "true"
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv,
 		"更新", "环境-单服务", fmt.Sprintf("环境名称:%s,服务名称:%s", envName, c.Param("serviceName")),
-		"", ctx.Logger, envName)
+		"", types.RequestBodyTypeJSON, ctx.Logger, envName)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -458,7 +458,7 @@ func RestartWorkload(c *gin.Context) {
 		fmt.Sprintf(
 			"环境名称:%s,服务名称:%s,%s:%s", args.EnvName, args.ServiceName, args.Type, args.Name,
 		),
-		"", ctx.Logger, args.EnvName,
+		"", types.RequestBodyTypeJSON, ctx.Logger, args.EnvName,
 	)
 
 	// authorization checks
@@ -557,7 +557,7 @@ func ScaleNewService(c *gin.Context) {
 		"伸缩",
 		"环境-服务",
 		fmt.Sprintf("环境名称:%s,%s:%s", envName, resourceType, name),
-		"", ctx.Logger, envName)
+		"", types.RequestBodyTypeJSON, ctx.Logger, envName)
 
 	number, err := strconv.Atoi(c.Query("number"))
 	if err != nil {

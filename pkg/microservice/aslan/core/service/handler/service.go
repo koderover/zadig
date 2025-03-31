@@ -315,7 +315,7 @@ func CreateServiceTemplate(c *gin.Context) {
 	}
 
 	// insert operation logs
-	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductName, "新增", detail, fmt.Sprintf("服务名称:%s", args.ServiceName), string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductName, "新增", detail, fmt.Sprintf("服务名称:%s", args.ServiceName), string(data), types.RequestBodyTypeJSON, ctx.Logger)
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	// authorization checks
@@ -393,7 +393,7 @@ func UpdateServiceTemplate(c *gin.Context) {
 		return
 	}
 	if args.Username != "system" {
-		internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductName, "更新", "项目管理-服务", fmt.Sprintf("服务名称:%s,版本号:%d", args.ServiceName, args.Revision), "", ctx.Logger)
+		internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductName, "更新", "项目管理-服务", fmt.Sprintf("服务名称:%s,版本号:%d", args.ServiceName, args.Revision), "", types.RequestBodyTypeJSON, ctx.Logger)
 	}
 
 	// authorization checks
@@ -492,7 +492,7 @@ func UpdateServiceVariable(c *gin.Context) {
 	servceTmplObjectargs.VariableYaml = req.VariableYaml
 	servceTmplObjectargs.ServiceVariableKVs = req.ServiceVariableKVs
 
-	internalhandler.InsertOperationLog(c, ctx.UserName, servceTmplObjectargs.ProductName, "更新", detail, fmt.Sprintf("服务名称:%s", servceTmplObjectargs.ServiceName), "", ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, servceTmplObjectargs.ProductName, "更新", detail, fmt.Sprintf("服务名称:%s", servceTmplObjectargs.ServiceName), "", types.RequestBodyTypeJSON, ctx.Logger)
 
 	ctx.RespErr = svcservice.UpdateServiceVariables(servceTmplObjectargs, production)
 }
@@ -529,7 +529,7 @@ func UpdateServiceHealthCheckStatus(c *gin.Context) {
 	//}
 
 	if args.Username != "system" {
-		internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductName, "更新", "项目管理-服务", fmt.Sprintf("服务名称:%s,版本号:%d", args.ServiceName, args.Revision), "", ctx.Logger)
+		internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductName, "更新", "项目管理-服务", fmt.Sprintf("服务名称:%s,版本号:%d", args.ServiceName, args.Revision), "", types.RequestBodyTypeJSON, ctx.Logger)
 	}
 	args.Username = ctx.UserName
 	ctx.RespErr = svcservice.UpdateServiceHealthCheckStatus(args)
@@ -616,7 +616,7 @@ func HelmReleaseNaming(c *gin.Context) {
 	}
 
 	bs, _ := json.Marshal(args)
-	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "修改", detail, args.ServiceName, string(bs), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "修改", detail, args.ServiceName, string(bs), types.RequestBodyTypeJSON, ctx.Logger)
 
 	ctx.RespErr = svcservice.UpdateReleaseNamingRule(ctx.UserName, ctx.RequestID, projectName, args, production, ctx.Logger)
 }
@@ -667,7 +667,7 @@ func DeleteServiceTemplate(c *gin.Context) {
 		}
 	}
 
-	internalhandler.InsertOperationLog(c, ctx.UserName, c.Query("projectName"), "删除", detail, c.Param("name"), "", ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, c.Query("projectName"), "删除", detail, c.Param("name"), "", types.RequestBodyTypeJSON, ctx.Logger)
 
 	ctx.RespErr = svcservice.DeleteServiceTemplate(c.Param("name"), c.Param("type"), projectName, production, ctx.Logger)
 }
@@ -704,7 +704,7 @@ func UpdateWorkloads(c *gin.Context) {
 	}
 
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, c.Query("projectName"), setting.OperationSceneEnv, "配置", "环境", c.Query("env"), string(data), ctx.Logger, c.Query("env"))
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, c.Query("projectName"), setting.OperationSceneEnv, "配置", "环境", c.Query("env"), string(data), types.RequestBodyTypeJSON, ctx.Logger, c.Query("env"))
 
 	err = c.ShouldBindJSON(args)
 	if err != nil {
@@ -788,7 +788,7 @@ func CreateK8sWorkloads(c *gin.Context) {
 
 	projectName := c.Query("projectName")
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "新增", "环境", args.EnvName, string(data), ctx.Logger, args.EnvName)
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "新增", "环境", args.EnvName, string(data), types.RequestBodyTypeJSON, ctx.Logger, args.EnvName)
 
 	production := c.Query("production") == "true"
 	// authorization checks
@@ -882,7 +882,7 @@ func CreatePMService(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("CreatePMService json.Unmarshal err : %v", err)
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "新增", "项目管理-主机服务", fmt.Sprintf("服务名称:%s,版本号:%d", args.ServiceTmplObject.ServiceName, args.ServiceTmplObject.Revision), string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "新增", "项目管理-主机服务", fmt.Sprintf("服务名称:%s,版本号:%d", args.ServiceTmplObject.ServiceName, args.ServiceTmplObject.Revision), string(data), types.RequestBodyTypeJSON, ctx.Logger)
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	// authorization checks
@@ -955,7 +955,7 @@ func UpdatePmServiceTemplate(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("UpdatePmServiceTemplate json.Unmarshal err : %v", err)
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "更新", "项目管理-主机服务", fmt.Sprintf("服务名称:%s,版本号:%d", args.ServiceTmplObject.ServiceName, args.ServiceTmplObject.Revision), string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "更新", "项目管理-主机服务", fmt.Sprintf("服务名称:%s,版本号:%d", args.ServiceTmplObject.ServiceName, args.ServiceTmplObject.Revision), string(data), types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -1100,7 +1100,7 @@ func AddServiceLabel(c *gin.Context) {
 		return
 	}
 
-	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "新建", detail, fmt.Sprintf("服务名称:%s", req.ServiceName), string(requestByte), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "新建", detail, fmt.Sprintf("服务名称:%s", req.ServiceName), string(requestByte), types.RequestBodyTypeJSON, ctx.Logger)
 
 	ctx.RespErr = svcservice.AddServiceLabel(req.LabelID, projectName, req.ServiceName, production, req.Value, ctx.Logger)
 }
@@ -1197,7 +1197,7 @@ func UpdateServiceLabel(c *gin.Context) {
 		return
 	}
 
-	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "更新", detail, fmt.Sprintf("服务名称:%s", serviceName), string(requestByte), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "更新", detail, fmt.Sprintf("服务名称:%s", serviceName), string(requestByte), types.RequestBodyTypeJSON, ctx.Logger)
 
 	ctx.RespErr = svcservice.UpdateServiceLabel(labelBindingID, req.Value, ctx.Logger)
 }
@@ -1278,7 +1278,7 @@ func DeleteServiceLabel(c *gin.Context) {
 
 	labelBindingID := c.Param("id")
 
-	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "删除", detail, fmt.Sprintf("服务名称:%s", serviceName), "", ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "删除", detail, fmt.Sprintf("服务名称:%s", serviceName), "", types.RequestBodyTypeJSON, ctx.Logger)
 
 	ctx.RespErr = svcservice.DeleteServiceLabel(labelBindingID, ctx.Logger)
 }

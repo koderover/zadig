@@ -98,7 +98,7 @@ func CreateWorkflowV4(c *gin.Context) {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, args.Project, "新增", "自定义工作流", args.Name, data, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, args.Project, "新增", "自定义工作流", args.Name, data, types.RequestBodyTypeYAML, ctx.Logger)
 
 	// authorization check
 	if !ctx.Resources.IsSystemAdmin {
@@ -312,7 +312,7 @@ func UpdateWorkflowV4(c *gin.Context) {
 		return
 	}
 
-	internalhandler.InsertOperationLog(c, ctx.UserName, args.Project, "更新", "自定义工作流", args.Name, string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, args.Project, "更新", "自定义工作流", args.Name, string(data), types.RequestBodyTypeYAML, ctx.Logger)
 
 	// authorization check
 	if !ctx.Resources.IsSystemAdmin {
@@ -351,7 +351,7 @@ func DeleteWorkflowV4(c *gin.Context) {
 		ctx.RespErr = e.ErrDeleteWorkflow.AddErr(err)
 		return
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, w.Project, "(OpenAPI)"+"删除", "自定义工作流", c.Param("name"), "", ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, w.Project, "(OpenAPI)"+"删除", "自定义工作流", c.Param("name"), "", types.RequestBodyTypeYAML, ctx.Logger)
 
 	// authorization check
 	if !ctx.Resources.IsSystemAdmin {
@@ -513,7 +513,7 @@ func CreateWebhookForWorkflowV4(c *gin.Context) {
 		ctx.RespErr = e.ErrCreateWebhook.AddErr(err)
 		return
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, w.Project, "新建", "自定义工作流-webhook", w.Name, getBody(c), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, w.Project, "新建", "自定义工作流-webhook", w.Name, getBody(c), types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization check
 	if !ctx.Resources.IsSystemAdmin {
@@ -557,7 +557,7 @@ func UpdateWebhookForWorkflowV4(c *gin.Context) {
 		ctx.RespErr = e.ErrUpdateWebhook.AddErr(err)
 		return
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, w.Project, "更新", "自定义工作流-webhook", w.Name, getBody(c), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, w.Project, "更新", "自定义工作流-webhook", w.Name, getBody(c), types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization check
 	if !ctx.Resources.IsSystemAdmin {
@@ -585,7 +585,6 @@ func DeleteWebhookForWorkflowV4(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -597,7 +596,7 @@ func DeleteWebhookForWorkflowV4(c *gin.Context) {
 		ctx.RespErr = e.ErrDeleteWebhook.AddErr(err)
 		return
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, w.Project, "删除", "自定义工作流-webhook", w.Name, "", ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, w.Project, "删除", "自定义工作流-webhook", w.Name, "", types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization check
 	if !ctx.Resources.IsSystemAdmin {
@@ -641,7 +640,7 @@ func CreateJiraHookForWorkflowV4(c *gin.Context) {
 		ctx.RespErr = e.ErrCreateJiraHook.AddErr(err)
 		return
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, w.Project, "新建", "自定义工作流-jirahook", w.Name, getBody(c), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, w.Project, "新建", "自定义工作流-jirahook", w.Name, getBody(c), types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization check
 	if !ctx.Resources.IsSystemAdmin {
@@ -704,7 +703,7 @@ func UpdateJiraHookForWorkflowV4(c *gin.Context) {
 		ctx.RespErr = e.ErrUpdateJiraHook.AddErr(err)
 		return
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, w.Project, "更新", "自定义工作流-jirahook", w.Name, getBody(c), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, w.Project, "更新", "自定义工作流-jirahook", w.Name, getBody(c), types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization check
 	if !ctx.Resources.IsSystemAdmin {
@@ -750,7 +749,7 @@ func DeleteJiraHookForWorkflowV4(c *gin.Context) {
 		ctx.RespErr = e.ErrDeleteJiraHook.AddErr(err)
 		return
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, w.Project, "删除", "自定义工作流-jirahook", w.Name, "", ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, w.Project, "删除", "自定义工作流-jirahook", w.Name, "", types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization check
 	if !ctx.Resources.IsSystemAdmin {
@@ -794,7 +793,7 @@ func CreateMeegoHookForWorkflowV4(c *gin.Context) {
 		ctx.RespErr = e.ErrCreateMeegoHook.AddErr(err)
 		return
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, w.Project, "新建", "自定义工作流-meegohook", w.Name, getBody(c), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, w.Project, "新建", "自定义工作流-meegohook", w.Name, getBody(c), types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization check
 	if !ctx.Resources.IsSystemAdmin {
@@ -857,7 +856,7 @@ func UpdateMeegoHookForWorkflowV4(c *gin.Context) {
 		ctx.RespErr = e.ErrUpdateMeegoHook.AddErr(err)
 		return
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, w.Project, "更新", "自定义工作流-meegohook", w.Name, getBody(c), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, w.Project, "更新", "自定义工作流-meegohook", w.Name, getBody(c), types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization check
 	if !ctx.Resources.IsSystemAdmin {
@@ -904,7 +903,7 @@ func DeleteMeegoHookForWorkflowV4(c *gin.Context) {
 		ctx.RespErr = e.ErrDeleteMeegoHook.AddErr(err)
 		return
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, w.Project, "删除", "自定义工作流-meegohook", w.Name, "", ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, w.Project, "删除", "自定义工作流-meegohook", w.Name, "", types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization check
 	if !ctx.Resources.IsSystemAdmin {
@@ -949,7 +948,7 @@ func CreateGeneralHookForWorkflowV4(c *gin.Context) {
 		ctx.RespErr = e.ErrCreateGeneralHook.AddErr(err)
 		return
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, w.Project, "新建", "自定义工作流-generalhook", w.Name, getBody(c), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, w.Project, "新建", "自定义工作流-generalhook", w.Name, getBody(c), types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization check
 	if !ctx.Resources.IsSystemAdmin {
@@ -1006,7 +1005,7 @@ func UpdateGeneralHookForWorkflowV4(c *gin.Context) {
 		ctx.RespErr = e.ErrUpdateGeneralHook.AddErr(err)
 		return
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, w.Project, "更新", "自定义工作流-generalhook", w.Name, getBody(c), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, w.Project, "更新", "自定义工作流-generalhook", w.Name, getBody(c), types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization check
 	if !ctx.Resources.IsSystemAdmin {
@@ -1046,7 +1045,7 @@ func DeleteGeneralHookForWorkflowV4(c *gin.Context) {
 		ctx.RespErr = e.ErrDeleteGeneralHook.AddErr(err)
 		return
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, w.Project, "删除", "自定义工作流-generalhook", w.Name, "", ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, w.Project, "删除", "自定义工作流-generalhook", w.Name, "", types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization check
 	if !ctx.Resources.IsSystemAdmin {
@@ -1111,7 +1110,7 @@ func CreateCronForWorkflowV4(c *gin.Context) {
 		ctx.RespErr = e.ErrUpsertCronjob.AddErr(err)
 		return
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, w.Project, "新建", "自定义工作流-cron", w.Name, getBody(c), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, w.Project, "新建", "自定义工作流-cron", w.Name, getBody(c), types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization check
 	if !ctx.Resources.IsSystemAdmin {
@@ -1150,7 +1149,7 @@ func UpdateCronForWorkflowV4(c *gin.Context) {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, req.WorkflowV4Args.Project, "更新", "自定义工作流-cron", req.WorkflowV4Args.Name, getBody(c), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, req.WorkflowV4Args.Project, "更新", "自定义工作流-cron", req.WorkflowV4Args.Name, getBody(c), types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization check
 	if !ctx.Resources.IsSystemAdmin {
@@ -1190,7 +1189,7 @@ func DeleteCronForWorkflowV4(c *gin.Context) {
 		ctx.RespErr = e.ErrUpsertCronjob.AddErr(err)
 		return
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, w.Project, "删除", "自定义工作流-cron", w.Name, "", ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, w.Project, "删除", "自定义工作流-cron", w.Name, "", types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization check
 	if !ctx.Resources.IsSystemAdmin {

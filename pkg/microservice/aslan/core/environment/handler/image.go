@@ -62,7 +62,7 @@ func UpdateStatefulSetContainerImage(c *gin.Context) {
 		c, ctx.UserName, args.ProductName, setting.OperationSceneEnv,
 		"更新", "环境-服务镜像",
 		fmt.Sprintf("环境名称:%s,服务名称:%s,StatefulSet:%s", args.EnvName, args.ServiceName, args.Name),
-		string(data), ctx.Logger, args.EnvName)
+		string(data), types.RequestBodyTypeJSON, ctx.Logger, args.EnvName)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -133,7 +133,7 @@ func UpdateDeploymentContainerImage(c *gin.Context) {
 		c, ctx.UserName, args.ProductName, setting.OperationSceneEnv,
 		"更新", "环境-服务镜像",
 		fmt.Sprintf("环境名称:%s,服务名称:%s,Deployment:%s", args.EnvName, args.ServiceName, args.Name),
-		string(data), ctx.Logger, args.EnvName)
+		string(data), types.RequestBodyTypeJSON, ctx.Logger, args.EnvName)
 
 	production := c.Query("production") == "true"
 	args.Production = production
@@ -229,7 +229,7 @@ func UpdateCronJobContainerImage(c *gin.Context) {
 		c, ctx.UserName, args.ProductName, setting.OperationSceneEnv,
 		"更新", "环境-服务镜像",
 		fmt.Sprintf("环境名称:%s,服务名称:%s,CronJob:%s", args.EnvName, args.ServiceName, args.Name),
-		string(data), ctx.Logger, args.EnvName)
+		string(data), types.RequestBodyTypeJSON, ctx.Logger, args.EnvName)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -310,7 +310,7 @@ func OpenAPIUpdateDeploymentContainerImage(c *gin.Context) {
 		c, ctx.UserName, args.ProductName, setting.OperationSceneEnv,
 		"更新", "OpenAPI-环境-服务镜像",
 		fmt.Sprintf("环境名称:%s,服务名称:%s,Deployment:%s", args.EnvName, args.ServiceName, args.Name),
-		string(data), ctx.Logger, args.EnvName)
+		string(data), types.RequestBodyTypeJSON, ctx.Logger, args.EnvName)
 
 	// authorization checks
 	permitted := false
@@ -388,7 +388,7 @@ func OpenAPIUpdateStatefulSetContainerImage(c *gin.Context) {
 		c, ctx.UserName, args.ProductName, setting.OperationSceneEnv,
 		"更新", "OpenAPI-环境-服务镜像",
 		fmt.Sprintf("环境名称:%s,服务名称:%s,StatefulSet:%s", args.EnvName, args.ServiceName, args.Name),
-		string(data), ctx.Logger, args.EnvName)
+		string(data), types.RequestBodyTypeJSON, ctx.Logger, args.EnvName)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -451,7 +451,7 @@ func OpenAPIUpdateCronJobContainerImage(c *gin.Context) {
 		c, ctx.UserName, args.ProductName, setting.OperationSceneEnv,
 		"更新", "OpenAPI-环境-服务镜像",
 		fmt.Sprintf("环境名称:%s,服务名称:%s,CronJob:%s", args.EnvName, args.ServiceName, args.Name),
-		string(data), ctx.Logger, args.EnvName)
+		string(data), types.RequestBodyTypeJSON, ctx.Logger, args.EnvName)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {

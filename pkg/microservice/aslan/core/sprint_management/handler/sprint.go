@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	"github.com/gin-gonic/gin"
+	"github.com/koderover/zadig/v2/pkg/types"
 
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/sprint_management/service"
@@ -108,7 +109,7 @@ func CreateSprint(c *gin.Context) {
 		return
 	}
 
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneSprintManagement, "创建", "迭代管理-迭代", fmt.Sprintf("流程ID: %s, 迭代名称: %s", c.Query("templateID"), c.Query("name")), "", ctx.Logger, "")
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneSprintManagement, "创建", "迭代管理-迭代", fmt.Sprintf("流程ID: %s, 迭代名称: %s", c.Query("templateID"), c.Query("name")), "", types.RequestBodyTypeJSON, ctx.Logger, "")
 
 	ctx.Resp, ctx.RespErr = service.CreateSprint(ctx, projectName, c.Query("templateID"), c.Query("name"))
 }
@@ -152,7 +153,7 @@ func UpdateSprintName(c *gin.Context) {
 		return
 	}
 
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneSprintManagement, "更新", "迭代管理-迭代", fmt.Sprintf("迭代ID: %s, 迭代名称: %s", c.Param("id"), c.Query("name")), "", ctx.Logger, "")
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneSprintManagement, "更新", "迭代管理-迭代", fmt.Sprintf("迭代ID: %s, 迭代名称: %s", c.Param("id"), c.Query("name")), "", types.RequestBodyTypeJSON, ctx.Logger, "")
 
 	ctx.RespErr = service.UpdateSprintName(ctx, c.Param("id"), c.Query("name"))
 }
@@ -195,7 +196,7 @@ func DeleteSprint(c *gin.Context) {
 		return
 	}
 
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneSprintManagement, "删除", "迭代管理-迭代", fmt.Sprintf("迭代ID: %s", c.Param("id")), "", ctx.Logger, "")
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneSprintManagement, "删除", "迭代管理-迭代", fmt.Sprintf("迭代ID: %s", c.Param("id")), "", types.RequestBodyTypeJSON, ctx.Logger, "")
 
 	ctx.RespErr = service.DeleteSprint(ctx, c.Param("id"))
 }
@@ -238,7 +239,7 @@ func ArchiveSprint(c *gin.Context) {
 		return
 	}
 
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneSprintManagement, "更新", "迭代管理-迭代", fmt.Sprintf("归档迭代ID: %s", c.Param("id")), "", ctx.Logger, "")
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneSprintManagement, "更新", "迭代管理-迭代", fmt.Sprintf("归档迭代ID: %s", c.Param("id")), "", types.RequestBodyTypeJSON, ctx.Logger, "")
 
 	ctx.RespErr = service.ArchiveSprint(ctx, c.Param("id"))
 }
@@ -281,7 +282,7 @@ func ActivateArchivedSprint(c *gin.Context) {
 		return
 	}
 
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneSprintManagement, "更新", "迭代管理-迭代", fmt.Sprintf("激活已归档迭代ID: %s", c.Param("id")), "", ctx.Logger, "")
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneSprintManagement, "更新", "迭代管理-迭代", fmt.Sprintf("激活已归档迭代ID: %s", c.Param("id")), "", types.RequestBodyTypeJSON, ctx.Logger, "")
 
 	ctx.RespErr = service.ActivateArchivedSprint(ctx, c.Param("id"))
 }

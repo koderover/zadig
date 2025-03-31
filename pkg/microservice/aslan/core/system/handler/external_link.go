@@ -23,6 +23,7 @@ import (
 	"io"
 
 	"github.com/gin-gonic/gin"
+	"github.com/koderover/zadig/v2/pkg/types"
 
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/service"
@@ -57,7 +58,7 @@ func CreateExternalLink(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("CreateExternalLink json.Unmarshal err : %s", err)
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, "", "新增", "系统配置-快捷链接", fmt.Sprintf("name:%s url:%s", args.Name, args.URL), string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "新增", "系统配置-快捷链接", fmt.Sprintf("name:%s url:%s", args.Name, args.URL), string(data), types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -95,7 +96,7 @@ func UpdateExternalLink(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("UpdateExternal json.Unmarshal err : %s", err)
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "系统配置-快捷链接", fmt.Sprintf("name:%s url:%s", args.Name, args.URL), string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "系统配置-快捷链接", fmt.Sprintf("name:%s url:%s", args.Name, args.URL), string(data), types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -125,7 +126,7 @@ func DeleteExternalLink(c *gin.Context) {
 		return
 	}
 
-	internalhandler.InsertOperationLog(c, ctx.UserName, "", "删除", "系统配置-快捷链接", fmt.Sprintf("id:%s", c.Param("id")), "", ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "删除", "系统配置-快捷链接", fmt.Sprintf("id:%s", c.Param("id")), "", types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
