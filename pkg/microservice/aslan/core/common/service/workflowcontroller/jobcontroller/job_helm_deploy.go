@@ -25,6 +25,8 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"golang.org/x/exp/slices"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
 	crClient "sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -34,7 +36,10 @@ import (
 	helmservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/helm"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/v2/pkg/setting"
+	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
+	helmtool "github.com/koderover/zadig/v2/pkg/tool/helmclient"
 	"github.com/koderover/zadig/v2/pkg/types/job"
+	"github.com/koderover/zadig/v2/pkg/util"
 )
 
 type HelmDeployJobCtl struct {
@@ -158,7 +163,7 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 	timeOut := c.timeout()
 
 	done := make(chan bool)
-	go func(chan bool) {
+	util.Go(func() {
 		if err = kube.DeploySingleHelmRelease(productInfo, newEnvService, tmplSvc, nil, c.jobTaskSpec.Timeout, c.workflowCtx.WorkflowTaskCreatorUsername); err != nil {
 			err = errors.WithMessagef(err,
 				"failed to upgrade helm chart %s/%s",
@@ -167,25 +172,97 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 		} else {
 			done <- true
 		}
-	}(done)
+	})
 
-	// we add timeout check here in case helm stuck in pending status
-	select {
-	case result := <-done:
-		if !result {
+	timeout := time.After(time.Second*time.Duration(timeOut) + time.Minute)
+	if !c.jobTaskSpec.SkipCheckRunStatus {
+		// we add timeout check here in case helm stuck in pending status
+		select {
+		case result := <-done:
+			if !result {
+				logError(c.job, err.Error(), c.logger)
+				return
+			}
+
+			if !c.jobTaskSpec.SkipCheckHelmWorkfloadStatus {
+				c.job.Status, err = c.checkWorkloadStatus(ctx, productInfo, newEnvService, tmplSvc, timeout)
+				if err != nil {
+					logError(c.job, err.Error(), c.logger)
+					return
+				}
+			}
+			break
+		case <-timeout:
+			logError(c.job, fmt.Sprintf("failed to upgrade helm chart %s/%s, timeout", c.namespace, c.jobTaskSpec.ServiceName), c.logger)
+			c.job.Status = config.StatusTimeout
+			return
+		}
+		if err != nil {
 			logError(c.job, err.Error(), c.logger)
 			return
 		}
-		break
-	case <-time.After(time.Second*time.Duration(timeOut) + time.Minute):
-		err = fmt.Errorf("failed to upgrade relase for service: %s, timeout", c.jobTaskSpec.ServiceName)
-	}
-	if err != nil {
-		logError(c.job, err.Error(), c.logger)
-		return
 	}
 
 	c.job.Status = config.StatusPassed
+}
+
+type DeployResource struct {
+	PodOwnerUID      types.UID
+	Unstructured     *unstructured.Unstructured
+	RelatedPodLabels []map[string]string
+}
+
+func (c *HelmDeployJobCtl) checkWorkloadStatus(ctx context.Context, productInfo *commonmodels.Product, newEnvService *commonmodels.ProductService, tmplSvc *commonmodels.Service, timeout <-chan time.Time) (config.Status, error) {
+	var err error
+	releaseName := newEnvService.ReleaseName
+	if newEnvService.FromZadig() {
+		releaseName = util.GeneReleaseName(tmplSvc.GetReleaseNaming(), tmplSvc.ProductName, productInfo.Namespace, productInfo.EnvName, tmplSvc.ServiceName)
+	}
+
+	c.kubeClient, err = clientmanager.NewKubeClientManager().GetControllerRuntimeClient(c.jobTaskSpec.ClusterID)
+	if err != nil {
+		return config.StatusFailed, fmt.Errorf("can't init k8s client: %v", err)
+	}
+
+	helmClient, err := helmtool.NewClientFromNamespace(productInfo.ClusterID, productInfo.Namespace)
+	if err != nil {
+		return config.StatusFailed, err
+	}
+
+	release, err := helmClient.GetRelease(releaseName)
+	if err != nil {
+		return config.StatusFailed, fmt.Errorf("failed to get release %s, err: %v", releaseName, err)
+	}
+
+	unstructuredList, _, err := kube.ManifestToUnstructured(release.Manifest)
+	if err != nil {
+		return config.StatusFailed, fmt.Errorf("failed to convert manifest to unstructured, err: %v", err)
+	}
+
+	relatedPodLabels := make([]map[string]string, 0)
+	resources := []commonmodels.Resource{}
+
+	for _, u := range unstructuredList {
+		switch u.GetKind() {
+		case setting.Deployment, setting.StatefulSet:
+			resources = append(resources, commonmodels.Resource{
+				Kind: u.GetKind(),
+				Name: u.GetName(),
+			})
+			relatedPodLabels = append(relatedPodLabels, u.GetLabels())
+		}
+	}
+
+	resources, err = GetResourcesPodOwnerUID(c.kubeClient, c.namespace, nil, c.jobTaskSpec.DeployContents, resources)
+	if err != nil {
+		return config.StatusFailed, fmt.Errorf("failed to get resources pod owner uid, err: %v", err)
+	}
+
+	status, err := CheckDeployStatus(ctx, c.kubeClient, c.namespace, relatedPodLabels, resources, timeout, c.logger)
+	if err != nil {
+		return status, fmt.Errorf("failed to check workload status, err: %v", err)
+	}
+	return config.StatusPassed, nil
 }
 
 func (c *HelmDeployJobCtl) timeout() int {

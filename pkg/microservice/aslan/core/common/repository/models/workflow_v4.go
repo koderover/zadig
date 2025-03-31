@@ -358,11 +358,12 @@ func (i *ServiceAndBuild) GetKey() string {
 }
 
 type ZadigDeployJobSpec struct {
-	Env                string                       `bson:"env"                      yaml:"env"                         json:"env"`
-	EnvOptions         []*ZadigDeployEnvInformation `bson:"-"                        yaml:"env_options"                 json:"env_options"`
-	Production         bool                         `bson:"production"               yaml:"production"                  json:"production"`
-	DeployType         string                       `bson:"deploy_type"              yaml:"deploy_type,omitempty"       json:"deploy_type"`
-	SkipCheckRunStatus bool                         `bson:"skip_check_run_status"    yaml:"skip_check_run_status"       json:"skip_check_run_status"`
+	Env                         string                       `bson:"env"                      yaml:"env"                         json:"env"`
+	EnvOptions                  []*ZadigDeployEnvInformation `bson:"-"                        yaml:"env_options"                 json:"env_options"`
+	Production                  bool                         `bson:"production"               yaml:"production"                  json:"production"`
+	DeployType                  string                       `bson:"deploy_type"              yaml:"deploy_type,omitempty"       json:"deploy_type"`
+	SkipCheckRunStatus          bool                         `bson:"skip_check_run_status"    yaml:"skip_check_run_status"       json:"skip_check_run_status"`
+	SkipCheckHelmWorkloadStatus bool                         `bson:"skip_check_helm_workload_status" yaml:"skip_check_helm_workload_status" json:"skip_check_helm_workload_status"`
 	// fromjob/runtime, runtime 表示运行时输入，fromjob 表示从上游构建任务中获取
 	Source         config.DeploySourceType `bson:"source"     yaml:"source"     json:"source"`
 	DeployContents []config.DeployContent  `bson:"deploy_contents"     yaml:"deploy_contents"     json:"deploy_contents"`

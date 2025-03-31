@@ -493,6 +493,7 @@ func (j *DeployJob) UpdateWithLatestSetting() error {
 		j.spec.DeployType = project.ProductFeature.DeployType
 	}
 	j.spec.SkipCheckRunStatus = latestSpec.SkipCheckRunStatus
+	j.spec.SkipCheckHelmWorkloadStatus = latestSpec.SkipCheckHelmWorkloadStatus
 	j.spec.DeployContents = latestSpec.DeployContents
 
 	// source is a bit tricky: if the saved args has a source of fromjob, but it has been change to runtime in the config
@@ -1062,16 +1063,17 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			releaseName := util.GeneReleaseName(revisionSvc.GetReleaseNaming(), product.ProductName, product.Namespace, product.EnvName, svc.ServiceName)
 
 			jobTaskSpec := &commonmodels.JobTaskHelmDeploySpec{
-				Env:                envName,
-				Source:             j.spec.Source,
-				ServiceName:        svc.ServiceName,
-				DeployContents:     j.spec.DeployContents,
-				SkipCheckRunStatus: j.spec.SkipCheckRunStatus,
-				ServiceType:        setting.HelmDeployType,
-				ClusterID:          product.ClusterID,
-				ReleaseName:        releaseName,
-				Timeout:            timeout,
-				IsProduction:       j.spec.Production,
+				Env:                          envName,
+				Source:                       j.spec.Source,
+				ServiceName:                  svc.ServiceName,
+				DeployContents:               j.spec.DeployContents,
+				SkipCheckRunStatus:           j.spec.SkipCheckRunStatus,
+				SkipCheckHelmWorkfloadStatus: j.spec.SkipCheckHelmWorkloadStatus,
+				ServiceType:                  setting.HelmDeployType,
+				ClusterID:                    product.ClusterID,
+				ReleaseName:                  releaseName,
+				Timeout:                      timeout,
+				IsProduction:                 j.spec.Production,
 			}
 
 			for _, module := range svc.Modules {

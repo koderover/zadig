@@ -1240,7 +1240,7 @@ func RevertWorkflowTaskV4Job(ctx *internalhandler.Context, workflowName, jobName
 								log.Errorf("failed to get resources pod owner uid, error: %s", err)
 								return
 							}
-							status, err = jobcontroller.CheckDeployStatus(context.TODO(), kubeClient, env.Namespace, jobTaskSpec, timeout, logger)
+							status, err = jobcontroller.CheckDeployStatus(context.TODO(), kubeClient, env.Namespace, jobTaskSpec.RelatedPodLabels, jobTaskSpec.ReplaceResources, timeout, logger)
 							if err != nil {
 								log.Errorf("failed to check deploy status, error: %s", err)
 							}
