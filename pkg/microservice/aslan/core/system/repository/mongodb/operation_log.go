@@ -62,15 +62,34 @@ func (c *OperationLogColl) GetCollectionName() string {
 }
 
 func (c *OperationLogColl) EnsureIndex(ctx context.Context) error {
-	mod := mongo.IndexModel{
-		Keys: bson.D{
-			bson.E{Key: "created_at", Value: -1},
+	indexes := []mongo.IndexModel{
+		{
+			Keys: bson.D{
+				{Key: "product_name", Value: 1},
+				{Key: "scene", Value: 1},
+				{Key: "targets", Value: 1},
+			},
+			Options: options.Index().SetUnique(false),
 		},
-		Options: options.Index().SetUnique(false),
+		{
+			Keys:    bson.D{{Key: "username", Value: 1}},
+			Options: options.Index().SetUnique(false),
+		},
+		{
+			Keys:    bson.D{{Key: "function", Value: 1}},
+			Options: options.Index().SetUnique(false),
+		},
+		{
+			Keys:    bson.D{{Key: "status", Value: 1}},
+			Options: options.Index().SetUnique(false),
+		},
+		{
+			Keys:    bson.D{{Key: "created_at", Value: -1}}, // Sorting index
+			Options: options.Index().SetUnique(false),
+		},
 	}
 
-	_, err := c.Indexes().CreateOne(ctx, mod)
-
+	_, err := c.Indexes().CreateMany(ctx, indexes)
 	return err
 }
 
