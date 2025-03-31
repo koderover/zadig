@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	"github.com/gin-gonic/gin"
+	"github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/features/service"
 	"github.com/koderover/zadig/v2/pkg/microservice/user/core/service/permission"
 	"github.com/koderover/zadig/v2/pkg/types"
 
@@ -466,6 +467,17 @@ func SignUp(c *gin.Context) {
 		ctx.RespErr = err
 		return
 	}
+
+	enabled, err := service.FeatureEnabled("RegisterTrigger", ctx.Logger)
+	if err != nil {
+		ctx.RespErr = e.ErrCreateUser.AddErr(fmt.Errorf("failed to get feature flag RegisterTrigger, error: %v", err))
+		return
+	}
+	if !enabled {
+		ctx.RespErr = e.ErrCreateUser.AddDesc("用户注册已禁用")
+		return
+	}
+
 	ctx.Resp, ctx.RespErr = permission.CreateUser(args, ctx.Logger)
 }
 
