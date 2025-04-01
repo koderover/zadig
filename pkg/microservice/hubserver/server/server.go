@@ -68,6 +68,12 @@ func Serve(ctx context.Context) error {
 		service.Reset()
 	}()
 
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		service.CheckPodStatus(ctx)
+	}()
+
 	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Errorf("Failed to start http server, error: %s\n", err)
 		return err

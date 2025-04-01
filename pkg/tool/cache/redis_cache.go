@@ -95,6 +95,14 @@ func (c *RedisCache) HGetString(key, field string) (string, error) {
 	return c.redisClient.HGet(context.TODO(), key, field).Result()
 }
 
+func (c *RedisCache) HEXISTS(key, field string) (bool, error) {
+	exists, err := c.redisClient.HExists(context.TODO(), key, field).Result()
+	if err != nil {
+		return false, err
+	}
+	return exists, nil
+}
+
 func (c *RedisCache) HGetAllString(key string) (map[string]string, error) {
 	return c.redisClient.HGetAll(context.Background(), key).Result()
 }

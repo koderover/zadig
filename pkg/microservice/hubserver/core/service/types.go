@@ -26,6 +26,7 @@ type ClusterInfo struct {
 	ClusterID string    `json:"_"`
 	Joined    time.Time `json:"_"`
 
+	PodIP   string `json:"podIP"`
 	Address string `json:"address"`
 	Token   string `json:"token"`
 	CACert  string `json:"caCert"`
