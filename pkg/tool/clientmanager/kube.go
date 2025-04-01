@@ -19,12 +19,13 @@ package clientmanager
 import (
 	"context"
 	"fmt"
-	kruise "github.com/openkruise/kruise-api/apps/v1alpha1"
 	"net/http"
 	"net/url"
 	"os"
 	"sync"
 	"time"
+
+	kruise "github.com/openkruise/kruise-api/apps/v1alpha1"
 
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/pkg/errors"
