@@ -98,6 +98,7 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 	c.namespace = productInfo.Namespace
 	c.jobTaskSpec.ClusterID = productInfo.ClusterID
 
+	// calc update service revision
 	updateServiceRevision := false
 	if slices.Contains(c.jobTaskSpec.DeployContents, config.DeployConfig) && c.jobTaskSpec.UpdateConfig {
 		updateServiceRevision = true
@@ -112,8 +113,10 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 	}
 	newEnvService.DeployStrategy = setting.ServiceDeployStrategyDeploy
 
+	// calc final values yaml
 	finalValuesYaml := ""
 	if len(c.jobTaskSpec.DeployContents) == 1 && slices.Contains(c.jobTaskSpec.DeployContents, config.DeployImage) {
+		// only deploy image
 		finalValuesYaml, err = helmDeploySvc.GenMergedValues(newEnvService, productInfo.DefaultValues, c.jobTaskSpec.GetDeployImages())
 		if err != nil {
 			msg := fmt.Sprintf("failed to generate merged values yaml, err: %s", err)
@@ -130,11 +133,13 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 		}
 	} else {
 		images := []string{}
-		if c.jobTaskSpec.Source == config.SourceFromJob {
+		if slices.Contains(c.jobTaskSpec.DeployContents, config.DeployImage) {
 			images = c.jobTaskSpec.GetDeployImages()
 		}
+		if slices.Contains(c.jobTaskSpec.DeployContents, config.DeployVars) {
+			newEnvService.GetServiceRender().SetOverrideYaml(c.jobTaskSpec.VariableYaml)
+		}
 
-		newEnvService.GetServiceRender().SetOverrideYaml(c.jobTaskSpec.VariableYaml)
 		finalValuesYaml, err = helmDeploySvc.GenMergedValues(newEnvService, productInfo.DefaultValues, images)
 		if err != nil {
 			msg := fmt.Sprintf("failed to generate merged values yaml, err: %s", err)
@@ -162,6 +167,7 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 
 	timeOut := c.timeout()
 
+	// deploy helm chart
 	done := make(chan bool)
 	util.Go(func() {
 		if err = kube.DeploySingleHelmRelease(productInfo, newEnvService, tmplSvc, nil, c.jobTaskSpec.Timeout, c.workflowCtx.WorkflowTaskCreatorUsername); err != nil {
