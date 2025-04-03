@@ -40,6 +40,8 @@ import (
 	"github.com/koderover/zadig/v2/pkg/tool/remotedialer"
 )
 
+var Ready = false
+
 type engine struct {
 	*mux.Router
 }
@@ -51,6 +53,11 @@ func NewEngine(handler *remotedialer.Server) *engine {
 
 	s.Router.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path == "/health" {
+				next.ServeHTTP(w, r)
+				return
+			}
+
 			vars := mux.Vars(r)
 			clientKey := vars["id"]
 			if clientKey == "" {
@@ -149,6 +156,14 @@ func (s *engine) injectRouters(handler *remotedialer.Server) {
 
 	r.HandleFunc("/kube/{id}{path:.*}", func(rw http.ResponseWriter, req *http.Request) {
 		h.Forward(handler, rw, req)
+	})
+
+	r.HandleFunc("/health", func(rw http.ResponseWriter, req *http.Request) {
+		if Ready {
+			rw.WriteHeader(http.StatusOK)
+		} else {
+			rw.WriteHeader(http.StatusServiceUnavailable)
+		}
 	})
 
 	s.Router = r
