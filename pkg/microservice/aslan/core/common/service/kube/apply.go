@@ -208,7 +208,7 @@ func removeResources(currentItems, newItems []*unstructured.Unstructured, namesp
 			LabelSelector: labelSelector,
 			FieldSelector: "",
 		}
-		ctx, cancel := context.WithTimeout(context.Background(), 1000*time.Millisecond)
+		ctx, cancel := context.WithTimeout(context.Background(), 5000*time.Millisecond)
 		defer cancel()
 
 		var watcher watch.Interface

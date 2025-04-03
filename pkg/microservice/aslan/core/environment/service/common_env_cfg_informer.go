@@ -361,6 +361,7 @@ func StartClusterInformer() {
 			_, err = NewClusterInformerFactory(cluster.ID.Hex(), clientset)
 			if err != nil {
 				log.Errorf("failed to NewClusterInformerFactory clusterID: %s, the error is: %s", cluster.ID.Hex(), err)
+				continue
 			}
 		}
 
@@ -374,7 +375,5 @@ func StartClusterInformer() {
 			return true
 		}
 		ClusterInformersMap.Range(deleteClustInf)
-
-		time.Sleep(5 * time.Second)
 	}
 }

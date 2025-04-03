@@ -20,11 +20,16 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/base64"
+	"encoding/json"
+	"fmt"
 	"net/http"
 	"sync"
 	"time"
 
+	"github.com/buraksezer/consistent"
 	"github.com/gorilla/websocket"
+	"github.com/koderover/zadig/v2/pkg/config"
+	"github.com/koderover/zadig/v2/pkg/tool/cache"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/pkg/errors"
 )
@@ -45,6 +50,22 @@ func DefaultErrorWriter(rw http.ResponseWriter, req *http.Request, code int, err
 	}
 }
 
+type ConnectRequestInfo struct {
+	Method      string              `json:"method"`
+	URL         string              `json:"url"`
+	RemoteAddr  string              `json:"remoteAddr"`
+	ClientKey   string              `json:"clientKey"`
+	Timestamp   time.Time           `json:"timestamp"`
+	Host        string              `json:"host"`
+	UserAgent   string              `json:"userAgent"`
+	Referer     string              `json:"referer"`
+	Protocol    string              `json:"protocol"`
+	Peer        bool                `json:"peer"`
+	Header      map[string][]string `json:"headerKeys"`
+	ContentType string              `json:"contentType"`
+	ContentLen  int64               `json:"contentLen"`
+}
+
 type Server struct {
 	PeerID                  string
 	PeerToken               string
@@ -54,6 +75,7 @@ type Server struct {
 	sessions                *sessionManager
 	peers                   map[string]peer
 	peerLock                sync.Mutex
+	redisCache              *cache.RedisCache
 
 	caCert        string
 	httpTransport *http.Transport
@@ -67,6 +89,7 @@ func New(auth Authorizer, errorWriter ErrorWriter) *Server {
 		authorizer:  auth,
 		errorWriter: errorWriter,
 		sessions:    newSessionManager(),
+		redisCache:  cache.NewRedisCache(config.RedisCommonCacheTokenDB()),
 	}
 }
 
@@ -78,6 +101,13 @@ func (s *Server) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	}
 	if !authed {
 		s.errorWriter(rw, req, 401, errFailedAuth)
+		return
+	}
+
+	// 保存请求信息到 Redis
+	err = s.saveConnectRequest(clientKey, req)
+	if err != nil {
+		s.errorWriter(rw, req, 400, err)
 		return
 	}
 
@@ -104,6 +134,45 @@ func (s *Server) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 		// Hijacked so we can't write to the client
 		log.Infof("error in remotedialer server [%d]: %v", code, err)
 	}
+}
+
+func (s *Server) saveConnectRequest(clientKey string, req *http.Request) error {
+	key := fmt.Sprintf("remotedialer:req:%s:%s", clientKey, time.Now().Format("20060102150405"))
+
+	// 获取所有 header keys
+	headerKeys := make([]string, 0, len(req.Header))
+	for k := range req.Header {
+		headerKeys = append(headerKeys, k)
+	}
+
+	// 创建请求信息结构体
+	reqInfo := ConnectRequestInfo{
+		Method:      req.Method,
+		URL:         req.URL.String(),
+		RemoteAddr:  req.RemoteAddr,
+		ClientKey:   clientKey,
+		Timestamp:   time.Now(),
+		Host:        req.Host,
+		UserAgent:   req.UserAgent(),
+		Referer:     req.Referer(),
+		Protocol:    req.Proto,
+		Header:      req.Header,
+		ContentType: req.Header.Get("Content-Type"),
+		ContentLen:  req.ContentLength,
+	}
+
+	// 将结构体序列化为 JSON
+	jsonData, err := json.Marshal(reqInfo)
+	if err != nil {
+		return fmt.Errorf("Failed to marshal request info to JSON: %v", err)
+	}
+
+	// 保存到 Redis
+	err = s.redisCache.Write(key, string(jsonData), 0)
+	if err != nil {
+		return fmt.Errorf("Failed to save request info to Redis: %v", err)
+	}
+	return nil
 }
 
 func (s *Server) auth(req *http.Request) (clientKey string, authed, peer bool, err error) {
@@ -159,5 +228,22 @@ func (r *Server) GetTransport(clusterCaCert string, clientKey string) (http.Roun
 func (s *Server) Disconnect(clientKey string) {
 	for _, session := range s.sessions.clients[clientKey] {
 		session.CloseImmediately()
+	}
+}
+
+func (s *Server) CleanSessions(old, new *consistent.Consistent) {
+	if old == nil {
+		return
+	}
+
+	s.peerLock.Lock()
+	defer s.peerLock.Unlock()
+	for _, peer := range s.peers {
+		oldMember := old.LocateKey([]byte(peer.id))
+		newMember := new.LocateKey([]byte(peer.id))
+		if oldMember.String() != newMember.String() {
+			log.Debugf("Disconnect peer %s due to consistent hash change", peer.id)
+			s.Disconnect(peer.id)
+		}
 	}
 }
