@@ -26,6 +26,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/buraksezer/consistent"
 	"github.com/gorilla/websocket"
 	"github.com/koderover/zadig/v2/pkg/config"
 	"github.com/koderover/zadig/v2/pkg/tool/cache"
@@ -227,5 +228,22 @@ func (r *Server) GetTransport(clusterCaCert string, clientKey string) (http.Roun
 func (s *Server) Disconnect(clientKey string) {
 	for _, session := range s.sessions.clients[clientKey] {
 		session.CloseImmediately()
+	}
+}
+
+func (s *Server) CleanSessions(old, new *consistent.Consistent) {
+	if old == nil {
+		return
+	}
+
+	s.peerLock.Lock()
+	defer s.peerLock.Unlock()
+	for _, peer := range s.peers {
+		oldMember := old.LocateKey([]byte(peer.id))
+		newMember := new.LocateKey([]byte(peer.id))
+		if oldMember.String() != newMember.String() {
+			log.Debugf("Disconnect peer %s due to consistent hash change", peer.id)
+			s.Disconnect(peer.id)
+		}
 	}
 }

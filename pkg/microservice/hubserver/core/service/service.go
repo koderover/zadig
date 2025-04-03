@@ -21,7 +21,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -32,6 +31,7 @@ import (
 	"github.com/cespare/xxhash"
 	"github.com/gorilla/mux"
 	"github.com/redis/go-redis/v9"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/proxy"
 
 	"github.com/koderover/zadig/v2/pkg/config"
@@ -39,8 +39,11 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/hubserver/core/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/hubserver/core/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/setting"
+	"github.com/koderover/zadig/v2/pkg/shared/kube/wrapper"
 	"github.com/koderover/zadig/v2/pkg/tool/cache"
+	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	"github.com/koderover/zadig/v2/pkg/tool/crypto"
+	"github.com/koderover/zadig/v2/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/tool/remotedialer"
 )
@@ -65,15 +68,16 @@ var (
 	consistentHash *consistent.Consistent
 	hashMutex      sync.RWMutex
 	redisCache     *cache.RedisCache
-)
 
-func init() {
-	cfg := consistent.Config{
-		PartitionCount:    271,
+	cfg = consistent.Config{
+		PartitionCount:    7,
 		ReplicationFactor: 20,
 		Load:              1.25,
 		Hasher:            hasher{},
 	}
+)
+
+func init() {
 	consistentHash = consistent.New(nil, cfg)
 	redisCache = cache.NewRedisCache(config.RedisCommonCacheTokenDB())
 }
@@ -385,17 +389,31 @@ func HasSession(handler *remotedialer.Server, w http.ResponseWriter, r *http.Req
 	w.WriteHeader(http.StatusNotFound)
 }
 
-func CheckPodStatus(ctx context.Context) error {
+func CheckReplicas(ctx context.Context, handler *remotedialer.Server) error {
 	for {
 		select {
 		case <-ctx.Done():
 			return nil
 		default:
-			// lookup hub-server dns
-			ips, err := net.LookupIP(setting.Services[setting.HubServer].Name)
+			kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(setting.LocalClusterID)
 			if err != nil {
-				log.Errorf("failed to lookup hub-server dns: %v", err)
-				return fmt.Errorf("failed to lookup hub-server dns: %v", err)
+				return err
+			}
+
+			selector := labels.SelectorFromSet(labels.Set{
+				"app.kubernetes.io/component": "hub-server",
+				"app.kubernetes.io/name":      "zadig",
+			})
+			pods, err := getter.ListPods(os.Getenv("NAMESPACE"), selector, kubeClient)
+			if err != nil {
+				return err
+			}
+
+			ips := make([]string, 0)
+			for _, pod := range pods {
+				if wrapper.Pod(pod).Ready() {
+					ips = append(ips, wrapper.Pod(pod).Status.PodIP)
+				}
 			}
 
 			// 获取当前一致性哈希中的节点
@@ -409,8 +427,8 @@ func CheckPodStatus(ctx context.Context) error {
 			hasChange := false
 			newIPs := make(map[string]struct{})
 			for _, ip := range ips {
-				newIPs[ip.String()] = struct{}{}
-				if _, exists := currentMembers[ip.String()]; !exists {
+				newIPs[ip] = struct{}{}
+				if _, exists := currentMembers[ip]; !exists {
 					hasChange = true
 				}
 			}
@@ -426,21 +444,26 @@ func CheckPodStatus(ctx context.Context) error {
 			// 只在有变化时更新一致性哈希
 			if hasChange {
 				hashMutex.Lock()
+				old := &consistent.Consistent{}
+				if len(consistentHash.GetMembers()) > 0 {
+					old = consistent.New(consistentHash.GetMembers(), cfg)
+				}
+
 				// 清空现有节点
 				for _, member := range consistentHash.GetMembers() {
 					consistentHash.Remove(member.String())
 				}
 				// 添加新节点
 				for _, ip := range ips {
-					consistentHash.Add(Member(ip.String()))
+					consistentHash.Add(Member(ip))
 				}
 				hashMutex.Unlock()
 				log.Infof("Updated consistent hash ring with new IPs: %v", ips)
 
-				time.Sleep(5 * time.Second)
-			} else {
-				time.Sleep(1 * time.Second)
+				handler.CleanSessions(old, consistentHash)
 			}
+
+			time.Sleep(1 * time.Second)
 		}
 	}
 }
