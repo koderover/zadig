@@ -2414,11 +2414,15 @@ func getImageSourceRegistry(imageData *ImageData, registryMap map[string]*common
 	} else {
 		return nil, fmt.Errorf("invalid image: %s", imageData.Image)
 	}
-	sourceRegistry, ok := registryMap[registryURL]
-	if !ok {
-		return nil, fmt.Errorf("can't find source registry for image: %s", imageData.Image)
+
+	log.Debugf("registryURL: %s", registryURL)
+	for url, registry := range registryMap {
+		log.Debugf("url: %s", url)
+		if strings.HasPrefix(registryURL, url) {
+			return registry, nil
+		}
 	}
-	return sourceRegistry, nil
+	return nil, fmt.Errorf("can't find source registry for image: %s", imageData.Image)
 }
 
 func generateDeliveryWorkflowName(productName string) string {
