@@ -18,6 +18,7 @@ package rest
 
 import (
 	"crypto/tls"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -197,6 +198,23 @@ func shouldHandleAsStream(r *http.Request) bool {
 func handleWebSocketProxy(w http.ResponseWriter, r *http.Request, targetIP string) {
 	log := log.SugaredLogger()
 
+	// 升级客户端连接到 WebSocket
+	upgrader := websocket.Upgrader{
+		ReadBufferSize:  1024,
+		WriteBufferSize: 1024,
+		CheckOrigin: func(r *http.Request) bool {
+			return true // 允许所有源
+		},
+	}
+
+	clientConn, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		log.Errorf("Failed to upgrade client connection: %v", err)
+		http.Error(w, "Failed to upgrade to WebSocket protocol", http.StatusInternalServerError)
+		return
+	}
+	defer clientConn.Close()
+
 	// 目标 WebSocket URL
 	targetURL := url.URL{
 		Scheme:   "ws",
@@ -205,10 +223,14 @@ func handleWebSocketProxy(w http.ResponseWriter, r *http.Request, targetIP strin
 		RawQuery: r.URL.RawQuery,
 	}
 
-	skipHeaders := []string{"Connection", "Upgrade", "Sec-WebSocket-Key", "Sec-WebSocket-Version", "Sec-WebSocket-Extensions", "Sec-WebSocket-Protocol"}
-
 	// 创建到目标服务器的 WebSocket 连接
+	// 不使用原始请求的WebSocket特定头，而是让websocket包自己生成新的头
 	targetHeaders := make(http.Header)
+
+	// 只复制非WebSocket特定的头
+	skipHeaders := []string{"Connection", "Upgrade", "Sec-WebSocket-Key",
+		"Sec-WebSocket-Version", "Sec-WebSocket-Extensions", "Sec-WebSocket-Protocol"}
+
 	for k, vs := range r.Header {
 		if !slices.Contains(skipHeaders, k) {
 			for _, v := range vs {
@@ -230,31 +252,15 @@ func handleWebSocketProxy(w http.ResponseWriter, r *http.Request, targetIP strin
 			body, _ := io.ReadAll(resp.Body)
 			log.Errorf("Target response: %d %s %s", resp.StatusCode, resp.Status, string(body))
 
-			// 返回相同的错误状态给客户端
-			w.WriteHeader(resp.StatusCode)
-			w.Write(body)
-		} else {
-			http.Error(w, "Could not connect to WebSocket backend", http.StatusBadGateway)
+			// 通过WebSocket协议发送错误信息给客户端
+			clientConn.WriteMessage(websocket.TextMessage,
+				[]byte(fmt.Sprintf("Backend connection error: %v", err)))
+			clientConn.WriteMessage(websocket.CloseMessage,
+				websocket.FormatCloseMessage(websocket.CloseInternalServerErr, "Backend connection failed"))
 		}
 		return
 	}
 	defer targetConn.Close()
-
-	// 升级客户端连接到 WebSocket
-	upgrader := websocket.Upgrader{
-		ReadBufferSize:  1024,
-		WriteBufferSize: 1024,
-		CheckOrigin: func(r *http.Request) bool {
-			return true // 允许所有源
-		},
-	}
-
-	clientConn, err := upgrader.Upgrade(w, r, nil)
-	if err != nil {
-		log.Errorf("Failed to upgrade client connection: %v", err)
-		return
-	}
-	defer clientConn.Close()
 
 	errChan := make(chan error, 2)
 
