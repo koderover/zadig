@@ -532,6 +532,8 @@ var (
 	ErrFilterWorkflowVars = NewHTTPError(6544, "过滤workflow服务变量失败")
 	// ErrFindWorkflow ...
 	ErrPresetWorkflow = NewHTTPError(6545, "预配置workflow失败")
+	// ErrLintWorkflow ...
+	ErrLintWorkflow = NewHTTPError(6545, "校验workflow失败")
 
 	//-----------------------------------------------------------------------------------------------
 	// Directory APIs Range: 6550 - 6560

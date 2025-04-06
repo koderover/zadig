@@ -467,14 +467,15 @@ func GetWorkflowV4Preset(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.RespErr = workflow.GetWorkflowv4Preset(c.Query("encryptedKey"), c.Param("name"), ctx.UserID, ctx.UserName, c.Query("approval_ticket_id"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = workflow.GetWorkflowV4Preset(c.Query("encryptedKey"), c.Param("name"), ctx.UserID, ctx.UserName, c.Query("approval_ticket_id"), ctx.Logger)
 }
 
+// TODO: Added parameter: query: approval_ticket_id
 func GetWebhookForWorkflowV4Preset(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.RespErr = workflow.GetWebhookForWorkflowV4Preset(c.Query("workflowName"), c.Query("triggerName"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = workflow.GetWebhookForWorkflowV4Preset(c.Query("workflowName"), c.Query("triggerName"), c.Query("approval_ticket_id"), ctx.Logger)
 }
 
 func CheckWorkflowV4Approval(c *gin.Context) {
@@ -496,7 +497,6 @@ func CreateWebhookForWorkflowV4(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -670,10 +670,11 @@ func CreateJiraHookForWorkflowV4(c *gin.Context) {
 	ctx.RespErr = workflow.CreateJiraHookForWorkflowV4(c.Param("workflowName"), jira, ctx.Logger)
 }
 
+// TODO: Added parameter: query: approval_ticket_id
 func GetJiraHookForWorkflowV4Preset(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	ctx.Resp, ctx.RespErr = workflow.GetJiraHookForWorkflowV4Preset(c.Query("workflowName"), c.Query("hookName"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = workflow.GetJiraHookForWorkflowV4Preset(c.Query("workflowName"), c.Query("hookName"), c.Query("approval_ticket_id"), ctx.Logger)
 }
 
 func ListJiraHookForWorkflowV4(c *gin.Context) {
@@ -826,7 +827,7 @@ func CreateMeegoHookForWorkflowV4(c *gin.Context) {
 func GetMeegoHookForWorkflowV4Preset(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	ctx.Resp, ctx.RespErr = workflow.GetMeegoHookForWorkflowV4Preset(c.Query("workflowName"), c.Query("hookName"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = workflow.GetMeegoHookForWorkflowV4Preset(c.Query("workflowName"), c.Query("hookName"), c.Query("approval_ticket_id"), ctx.Logger)
 }
 
 func ListMeegoHookForWorkflowV4(c *gin.Context) {
@@ -971,10 +972,11 @@ func CreateGeneralHookForWorkflowV4(c *gin.Context) {
 	ctx.RespErr = workflow.CreateGeneralHookForWorkflowV4(c.Param("workflowName"), hook, ctx.Logger)
 }
 
+// TODO: Added parameter: query: approval_ticket_id
 func GetGeneralHookForWorkflowV4Preset(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	ctx.Resp, ctx.RespErr = workflow.GetGeneralHookForWorkflowV4Preset(c.Query("workflowName"), c.Query("hookName"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = workflow.GetGeneralHookForWorkflowV4Preset(c.Query("workflowName"), c.Query("hookName"), c.Query("approval_ticket_id"), ctx.Logger)
 }
 
 func ListGeneralHookForWorkflowV4(c *gin.Context) {
@@ -988,7 +990,6 @@ func UpdateGeneralHookForWorkflowV4(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -1078,7 +1079,7 @@ func GetCronForWorkflowV4Preset(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.RespErr = workflow.GetCronForWorkflowV4Preset(c.Query("workflowName"), c.Query("cronID"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = workflow.GetCronForWorkflowV4Preset(c.Query("workflowName"), c.Query("cronID"), c.Query("approval_ticket_id"), ctx.Logger)
 }
 
 func ListCronForWorkflowV4(c *gin.Context) {

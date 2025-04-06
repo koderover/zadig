@@ -17,8 +17,8 @@ limitations under the License.
 package webhook
 
 import (
-	"encoding/json"
 	"fmt"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/controller"
 	"regexp"
 	"strconv"
 
@@ -30,7 +30,6 @@ import (
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/scmnotify"
 	workflowservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow"
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/job"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/tool/gitee"
 	"github.com/koderover/zadig/v2/pkg/types"
@@ -229,13 +228,6 @@ func TriggerWorkflowV4ByGiteeEvent(event interface{}, baseURI, requestID string,
 				continue
 			}
 
-			// do a deep copy by do a serialization and de-serialization
-			workflowBytes, err := json.Marshal(workflow)
-			if err != nil {
-				log.Errorf("failed to do workflow serialization for workflow: %s, error: %s", workflow.Name, err)
-				continue
-			}
-
 			matcher := createGiteeEventMatcherForWorkflowV4(event, diffSrv, workflow, log)
 			if matcher == nil {
 				errMsg := fmt.Sprintf("merge webhook repo info to workflowargs error: %v", err)
@@ -252,13 +244,6 @@ func TriggerWorkflowV4ByGiteeEvent(event interface{}, baseURI, requestID string,
 			}
 
 			log.Infof("event match hook %v of %s", item.MainRepo, workflow.Name)
-
-			duplicatedWorkflow := new(commonmodels.WorkflowV4)
-			err = json.Unmarshal(workflowBytes, &duplicatedWorkflow)
-			if err != nil {
-				log.Errorf("failed to clone workflow: %s, error: %s", workflow.Name, err)
-				continue
-			}
 
 			eventRepo := matcher.GetHookRepo(item.MainRepo)
 
@@ -329,25 +314,26 @@ func TriggerWorkflowV4ByGiteeEvent(event interface{}, baseURI, requestID string,
 					}
 				}
 			}
-			if err := job.MergeArgs(duplicatedWorkflow, item.WorkflowArg); err != nil {
+			workflowController := controller.CreateWorkflowController(item.WorkflowArg)
+			if err := workflowController.UpdateWithLatestWorkflow(nil); err != nil {
 				errMsg := fmt.Sprintf("merge workflow args error: %v", err)
 				log.Error(errMsg)
 				mErr = multierror.Append(mErr, fmt.Errorf(errMsg))
 				continue
 			}
-			if err := job.MergeWebhookRepo(duplicatedWorkflow, eventRepo); err != nil {
+			if err := workflowController.SetRepo(eventRepo); err != nil {
 				errMsg := fmt.Sprintf("merge webhook repo info to workflowargs error: %v", err)
 				log.Error(errMsg)
 				mErr = multierror.Append(mErr, fmt.Errorf(errMsg))
 				continue
 			}
 			if notification != nil {
-				duplicatedWorkflow.NotificationID = notification.ID.Hex()
+				workflowController.NotificationID = notification.ID.Hex()
 			}
-			workflow.HookPayload = hookPayload
+			workflowController.HookPayload = hookPayload
 			if resp, err := workflowservice.CreateWorkflowTaskV4(&workflowservice.CreateWorkflowTaskV4Args{
 				Name: setting.WebhookTaskCreator,
-			}, duplicatedWorkflow, log); err != nil {
+			}, workflowController.WorkflowV4, log); err != nil {
 				errMsg := fmt.Sprintf("failed to create workflow task when receive push event due to %v ", err)
 				log.Error(errMsg)
 				mErr = multierror.Append(mErr, fmt.Errorf(errMsg))

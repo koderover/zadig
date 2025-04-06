@@ -162,39 +162,6 @@ func InstantiateWorkflow(workflow *commonmodels.WorkflowV4) error {
 	return nil
 }
 
-func Instantiate(job *commonmodels.Job, workflow *commonmodels.WorkflowV4) error {
-	ctl, err := InitJobCtl(job, workflow)
-	if err != nil {
-		return warpJobError(job.Name, err)
-	}
-	return ctl.Instantiate()
-}
-
-func SetPreset(job *commonmodels.Job, workflow *commonmodels.WorkflowV4) error {
-	jobCtl, err := InitJobCtl(job, workflow)
-	if err != nil {
-		return warpJobError(job.Name, err)
-	}
-	JobPresetSkiped(job)
-	return jobCtl.SetPreset()
-}
-
-func ClearSelectionField(job *commonmodels.Job, workflow *commonmodels.WorkflowV4) error {
-	jobCtl, err := InitJobCtl(job, workflow)
-	if err != nil {
-		return warpJobError(job.Name, err)
-	}
-	return jobCtl.ClearSelectionField()
-}
-
-func SetOptions(job *commonmodels.Job, workflow *commonmodels.WorkflowV4, approvalTicket *commonmodels.ApprovalTicket) error {
-	jobCtl, err := InitJobCtl(job, workflow)
-	if err != nil {
-		return warpJobError(job.Name, err)
-	}
-	return jobCtl.SetOptions(approvalTicket)
-}
-
 func ClearOptions(job *commonmodels.Job, workflow *commonmodels.WorkflowV4) error {
 	jobCtl, err := InitJobCtl(job, workflow)
 	if err != nil {
@@ -203,72 +170,12 @@ func ClearOptions(job *commonmodels.Job, workflow *commonmodels.WorkflowV4) erro
 	return jobCtl.ClearOptions()
 }
 
-func UpdateWithLatestSetting(job *commonmodels.Job, workflow *commonmodels.WorkflowV4) error {
-	jobCtl, err := InitJobCtl(job, workflow)
-	if err != nil {
-		return warpJobError(job.Name, err)
-	}
-	return jobCtl.UpdateWithLatestSetting()
-}
-
-func JobPresetSkiped(job *commonmodels.Job) {
-	if job.RunPolicy == config.ForceRun {
-		job.Skipped = false
-		return
-	}
-	if job.RunPolicy == config.DefaultNotRun {
-		job.Skipped = true
-		return
-	}
-	job.Skipped = false
-}
-
 func ToJobs(job *commonmodels.Job, workflow *commonmodels.WorkflowV4, taskID int64) ([]*commonmodels.JobTask, error) {
 	jobCtl, err := InitJobCtl(job, workflow)
 	if err != nil {
 		return []*commonmodels.JobTask{}, warpJobError(job.Name, err)
 	}
 	return jobCtl.ToJobs(taskID)
-}
-
-func LintJob(job *commonmodels.Job, workflow *commonmodels.WorkflowV4) error {
-	jobCtl, err := InitJobCtl(job, workflow)
-	if err != nil {
-		return warpJobError(job.Name, err)
-	}
-	return jobCtl.LintJob()
-}
-
-func MergeWebhookRepo(workflow *commonmodels.WorkflowV4, repo *types.Repository) error {
-	for _, stage := range workflow.Stages {
-		for _, job := range stage.Jobs {
-			if job.JobType == config.JobZadigBuild {
-				jobCtl := &BuildJob{job: job, workflow: workflow}
-				if err := jobCtl.MergeWebhookRepo(repo); err != nil {
-					return warpJobError(job.Name, err)
-				}
-			}
-			if job.JobType == config.JobFreestyle {
-				jobCtl := &FreeStyleJob{job: job, workflow: workflow}
-				if err := jobCtl.MergeWebhookRepo(repo); err != nil {
-					return warpJobError(job.Name, err)
-				}
-			}
-			if job.JobType == config.JobZadigTesting {
-				jobCtl := &TestingJob{job: job, workflow: workflow}
-				if err := jobCtl.MergeWebhookRepo(repo); err != nil {
-					return warpJobError(job.Name, err)
-				}
-			}
-			if job.JobType == config.JobZadigScanning {
-				jobCtl := &ScanningJob{job: job, workflow: workflow}
-				if err := jobCtl.MergeWebhookRepo(repo); err != nil {
-					return warpJobError(job.Name, err)
-				}
-			}
-		}
-	}
-	return nil
 }
 
 func GetRenderWorkflowVariables(ctx *internalhandler.Context, workflow *commonmodels.WorkflowV4, jobName, serviceName, moduleName string, getAvaiableVars bool) ([]*commonmodels.KeyVal, error) {

@@ -20,13 +20,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/controller"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/job"
 	"github.com/koderover/zadig/v2/pkg/types"
 	"github.com/pkg/errors"
 	"github.com/samber/lo"
@@ -397,40 +397,13 @@ func GetReleasePlanJobDetail(planID, jobID string) (*commonmodels.ReleaseJob, er
 					return nil, fmt.Errorf("workflow is nil")
 				}
 
-				originalWorkflow, err := mongodb.NewWorkflowV4Coll().Find(spec.Workflow.Name)
-				if err != nil {
-					log.Errorf("Failed to find WorkflowV4: %s, the error is: %v", spec.Workflow.Name, err)
-					return nil, fmt.Errorf("failed to find WorkflowV4: %s, the error is: %v", spec.Workflow.Name, err)
+				workflowController := controller.CreateWorkflowController(spec.Workflow)
+				if err := workflowController.UpdateWithLatestWorkflow(nil); err != nil {
+					log.Errorf("cannot merge workflow %s's input with the latest workflow settings, the error is: %v", spec.Workflow.Name, err)
+					return nil, e.ErrPresetWorkflow.AddDesc(err.Error())
 				}
 
-				if err := job.MergeArgs(originalWorkflow, spec.Workflow); err != nil {
-					errMsg := fmt.Sprintf("merge workflow args error: %v", err)
-					log.Error(errMsg)
-					return nil, fmt.Errorf(errMsg)
-				}
-
-				for _, stage := range originalWorkflow.Stages {
-					for _, item := range stage.Jobs {
-						err := job.SetOptions(item, originalWorkflow, nil)
-						if err != nil {
-							errMsg := fmt.Sprintf("merge workflow args set options error: %v", err)
-							log.Error(errMsg)
-							return nil, fmt.Errorf(errMsg)
-						}
-
-						// additionally we need to update the user-defined args with the latest workflow configuration
-						err = job.UpdateWithLatestSetting(item, originalWorkflow)
-						if err != nil {
-							errMsg := fmt.Sprintf("failed to merge user-defined workflow args with latest workflow configuration, error: %s", err)
-							log.Error(errMsg)
-							return nil, fmt.Errorf(errMsg)
-						}
-					}
-				}
-
-				originalWorkflow.Remark = spec.Workflow.Remark
-
-				spec.Workflow = originalWorkflow
+				spec.Workflow = workflowController.WorkflowV4
 				releasePlanJob.Spec = spec
 			}
 

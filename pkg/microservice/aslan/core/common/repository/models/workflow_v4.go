@@ -95,6 +95,17 @@ func (w *WorkflowV4) CalculateHash() [md5.Size]byte {
 	return md5.Sum(jsonBytes)
 }
 
+func (w *WorkflowV4) FindJob(jobName string, jobType config.JobType) (*Job, error) {
+	for _, stage := range w.Stages {
+		for _, job := range stage.Jobs {
+			if job.Name == jobName && job.JobType == jobType {
+				return job, nil
+			}
+		}
+	}
+	return nil, fmt.Errorf("job [%s] of type [%s] not found in stages", jobName, jobType)
+}
+
 type ParameterSettingType string
 
 const (

@@ -52,6 +52,7 @@ import (
 	commontypes "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/types"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/controller"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/job"
 	jobctl "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/job"
 	"github.com/koderover/zadig/v2/pkg/setting"
@@ -243,7 +244,7 @@ type DistributeImageJobSpec struct {
 	DistributeTarget []*step.DistributeTaskTarget `bson:"distribute_target"            json:"distribute_target"`
 }
 
-func GetWorkflowv4Preset(encryptedKey, workflowName, uid, username, ticketID string, log *zap.SugaredLogger) (*commonmodels.WorkflowV4, error) {
+func GetWorkflowV4Preset(encryptedKey, workflowName, uid, username, ticketID string, log *zap.SugaredLogger) (*commonmodels.WorkflowV4, error) {
 	workflow, err := commonrepo.NewWorkflowV4Coll().Find(workflowName)
 	if err != nil {
 		log.Errorf("cannot find workflow %s, the error is: %v", workflowName, err)
@@ -258,32 +259,11 @@ func GetWorkflowv4Preset(encryptedKey, workflowName, uid, username, ticketID str
 		}
 	}
 
-	for _, stage := range workflow.Stages {
-		for _, job := range stage.Jobs {
-			if err := jobctl.SetOptions(job, workflow, approvalTicket); err != nil {
-				log.Errorf("cannot get workflow %s options for job %s, the error is: %v", workflowName, job.Name, err)
-				return nil, e.ErrPresetWorkflow.AddDesc(err.Error())
-			}
-			if err := jobctl.SetPreset(job, workflow); err != nil {
-				log.Errorf("cannot get workflow %s preset for job %s, the error is: %v", workflowName, job.Name, err)
-				return nil, e.ErrPresetWorkflow.AddDesc(err.Error())
-			}
+	workflowController := controller.CreateWorkflowController(workflow)
 
-			// for some job we need to clear its selection field
-			if job.JobType == config.JobZadigBuild ||
-				job.JobType == config.JobIstioRelease ||
-				job.JobType == config.JobIstioRollback ||
-				job.JobType == config.JobZadigHelmChartDeploy ||
-				job.JobType == config.JobK8sBlueGreenDeploy ||
-				job.JobType == config.JobApollo ||
-				job.JobType == config.JobK8sCanaryDeploy ||
-				job.JobType == config.JobK8sGrayRelease {
-				if err := jobctl.ClearSelectionField(job, workflow); err != nil {
-					log.Errorf("cannot clear workflow %s selection for job %s, the error is: %v", workflowName, job.Name, err)
-					return nil, e.ErrPresetWorkflow.AddDesc(err.Error())
-				}
-			}
-		}
+	if err := workflowController.SetPreset(approvalTicket); err != nil {
+		log.Errorf("cannot clear workflow %s selection for job %s, the error is: %v", workflowName, job.Name, err)
+		return nil, e.ErrPresetWorkflow.AddDesc(err.Error())
 	}
 
 	if err := ensureWorkflowV4Resp(encryptedKey, workflow, log); err != nil {
@@ -749,13 +729,11 @@ func GetManualExecWorkflowTaskV4Info(workflowName string, taskID int64, logger *
 		}
 	}
 
-	for _, stage := range task.OriginWorkflowArgs.Stages {
-		for _, job := range stage.Jobs {
-			if err := jobctl.SetOptions(job, task.WorkflowArgs, approvalTicket); err != nil {
-				log.Errorf("cannot get workflow %s options for job %s, the error is: %v", workflowName, job.Name, err)
-				return nil, e.ErrPresetWorkflow.AddDesc(err.Error())
-			}
-		}
+	workflowController := controller.CreateWorkflowController(task.OriginWorkflowArgs)
+	err = workflowController.UpdateWithLatestWorkflow(approvalTicket)
+	if err != nil {
+		log.Errorf("cannot get workflow %s options for job %s, the error is: %v", workflowName, job.Name, err)
+		return nil, e.ErrPresetWorkflow.AddDesc(err.Error())
 	}
 	return task.OriginWorkflowArgs, nil
 }
@@ -777,13 +755,11 @@ func CloneWorkflowTaskV4(workflowName string, taskID int64, isView bool, logger 
 		return nil, e.ErrGetTask.AddErr(err)
 	}
 
-	for _, stage := range task.OriginWorkflowArgs.Stages {
-		for _, job := range stage.Jobs {
-			if err := jobctl.SetOptions(job, task.OriginWorkflowArgs, nil); err != nil {
-				log.Errorf("cannot get workflow %s options for job %s, the error is: %v", workflowName, job.Name, err)
-				return nil, e.ErrPresetWorkflow.AddDesc(err.Error())
-			}
-		}
+	workflowController := controller.CreateWorkflowController(task.OriginWorkflowArgs)
+	err = workflowController.UpdateWithLatestWorkflow(nil)
+	if err != nil {
+		log.Errorf("cannot get workflow %s options for job %s, the error is: %v", workflowName, job.Name, err)
+		return nil, e.ErrPresetWorkflow.AddDesc(err.Error())
 	}
 
 	task.OriginWorkflowArgs.NotifyCtls = originalWorkflow.NotifyCtls
