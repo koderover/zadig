@@ -20,6 +20,7 @@ RUN apt-get install -y \
   python \
   librrd-dev \
   sudo
+ RUN apt-get remove -y libapparmor1
 
 # timezone modification
 RUN ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
