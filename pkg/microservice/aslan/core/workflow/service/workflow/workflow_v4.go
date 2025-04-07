@@ -940,7 +940,7 @@ func LintWorkflowV4(workflow *commonmodels.WorkflowV4, logger *zap.SugaredLogger
 func createLarkApprovalDefinition(workflow *commonmodels.WorkflowV4) error {
 	for _, stage := range workflow.Stages {
 		for _, job := range stage.Jobs {
-			if jobctl.JobSkiped(job) {
+			if job.Skipped {
 				continue
 			}
 

@@ -444,46 +444,6 @@ func GetRepos(workflow *commonmodels.WorkflowV4) ([]*types.Repository, error) {
 	return newRepos, nil
 }
 
-func MergeArgs(workflow, workflowArgs *commonmodels.WorkflowV4) error {
-	argsMap := make(map[string]*commonmodels.Job)
-	if workflowArgs != nil {
-		for _, stage := range workflowArgs.Stages {
-			for _, job := range stage.Jobs {
-				jobKey := strings.Join([]string{job.Name, string(job.JobType)}, "-")
-				argsMap[jobKey] = job
-			}
-		}
-		workflow.Params = renderParams(workflowArgs.Params, workflow.Params)
-	}
-	for _, stage := range workflow.Stages {
-		for _, job := range stage.Jobs {
-			if err := SetPreset(job, workflow); err != nil {
-				return warpJobError(job.Name, err)
-			}
-			jobKey := strings.Join([]string{job.Name, string(job.JobType)}, "-")
-			if jobArgs, ok := argsMap[jobKey]; ok {
-				job.Skipped = JobSkiped(jobArgs)
-				jobCtl, err := InitJobCtl(job, workflow)
-				if err != nil {
-					return warpJobError(job.Name, err)
-				}
-				if err := jobCtl.MergeArgs(jobArgs); err != nil {
-					return warpJobError(job.Name, err)
-				}
-				continue
-			}
-		}
-	}
-	return nil
-}
-
-func JobSkiped(job *commonmodels.Job) bool {
-	if job.RunPolicy == config.ForceRun {
-		return false
-	}
-	return job.Skipped
-}
-
 // use service name and service module hash to generate job name
 // func jobNameFormat(jobName string) string {
 // 	if len(jobName) <= 63 {
@@ -515,33 +475,6 @@ func JobSkiped(job *commonmodels.Job) bool {
 // 	return resp
 // }
 
-// before workflowflow task was created, we need to remove the fixed mark from variables.
-func RemoveFixedValueMarks(workflow *commonmodels.WorkflowV4) error {
-	bf := bytes.NewBuffer([]byte{})
-	jsonEncoder := json.NewEncoder(bf)
-	jsonEncoder.SetEscapeHTML(false)
-	jsonEncoder.Encode(workflow)
-	replacedString := strings.ReplaceAll(bf.String(), setting.FixedValueMark, "")
-	return json.Unmarshal([]byte(replacedString), &workflow)
-}
-
-func RenderWorkflowParams(workflow *commonmodels.WorkflowV4, taskID int64, creator, account, uid string) error {
-	b, err := json.Marshal(workflow)
-	if err != nil {
-		return fmt.Errorf("marshal workflow error: %v", err)
-	}
-	globalParams, err := getWorkflowDefaultParams(workflow, taskID, creator, account, uid)
-	if err != nil {
-		return fmt.Errorf("get workflow default params error: %v", err)
-	}
-	stageParams, err := getWorkflowStageParams(workflow)
-	if err != nil {
-		return fmt.Errorf("get workflow stage params error: %v", err)
-	}
-	replacedString := renderMultiLineString(string(b), setting.RenderValueTemplate, append(globalParams, stageParams...))
-	return json.Unmarshal([]byte(replacedString), &workflow)
-}
-
 func renderString(value, template string, inputs []*commonmodels.Param) string {
 	for _, input := range inputs {
 		if input.ParamsType == string(commonmodels.MultiSelectType) {
@@ -550,40 +483,6 @@ func renderString(value, template string, inputs []*commonmodels.Param) string {
 		value = strings.ReplaceAll(value, fmt.Sprintf(template, input.Name), input.Value)
 	}
 	return value
-}
-
-func renderMultiLineString(value, template string, inputs []*commonmodels.Param) string {
-	for _, input := range inputs {
-		var inputValue string
-		if input.ParamsType == string(commonmodels.MultiSelectType) {
-			inputValue = strings.Join(input.ChoiceValue, ",")
-		} else {
-			inputValue = input.Value
-		}
-		inputValue = strings.ReplaceAll(inputValue, "\n", "\\n")
-		value = strings.ReplaceAll(value, fmt.Sprintf(template, input.Name), inputValue)
-	}
-	return value
-}
-
-func getWorkflowDefaultParams(workflow *commonmodels.WorkflowV4, taskID int64, creator, account, uid string) ([]*commonmodels.Param, error) {
-	resp := []*commonmodels.Param{}
-	resp = append(resp, &commonmodels.Param{Name: "project", Value: workflow.Project, ParamsType: "string", IsCredential: false})
-	resp = append(resp, &commonmodels.Param{Name: "workflow.name", Value: workflow.Name, ParamsType: "string", IsCredential: false})
-	resp = append(resp, &commonmodels.Param{Name: "workflow.task.id", Value: fmt.Sprintf("%d", taskID), ParamsType: "string", IsCredential: false})
-	resp = append(resp, &commonmodels.Param{Name: "workflow.task.creator", Value: creator, ParamsType: "string", IsCredential: false})
-	resp = append(resp, &commonmodels.Param{Name: "workflow.task.creator.id", Value: account, ParamsType: "string", IsCredential: false})
-	resp = append(resp, &commonmodels.Param{Name: "workflow.task.creator.userId", Value: uid, ParamsType: "string", IsCredential: false})
-	resp = append(resp, &commonmodels.Param{Name: "workflow.task.timestamp", Value: fmt.Sprintf("%d", time.Now().Unix()), ParamsType: "string", IsCredential: false})
-	for _, param := range workflow.Params {
-		paramsKey := strings.Join([]string{"workflow", "params", param.Name}, ".")
-		newParam := &commonmodels.Param{Name: paramsKey, Value: param.Value, ParamsType: "string", IsCredential: false}
-		if param.ParamsType == string(commonmodels.MultiSelectType) {
-			newParam.Value = strings.Join(param.ChoiceValue, ",")
-		}
-		resp = append(resp, newParam)
-	}
-	return resp, nil
 }
 
 func getWorkflowStageParams(workflow *commonmodels.WorkflowV4) ([]*commonmodels.Param, error) {
@@ -650,35 +549,6 @@ func getWorkflowStageParams(workflow *commonmodels.WorkflowV4) ([]*commonmodels.
 		}
 	}
 	return resp, nil
-}
-
-func renderParams(input, origin []*commonmodels.Param) []*commonmodels.Param {
-	resp := make([]*commonmodels.Param, 0)
-	for _, originParam := range origin {
-		found := false
-		for _, inputParam := range input {
-			if originParam.Name == inputParam.Name {
-				// always use origin credential config.
-				resp = append(resp, &commonmodels.Param{
-					Name:         originParam.Name,
-					Description:  originParam.Description,
-					ParamsType:   originParam.ParamsType,
-					Value:        inputParam.Value,
-					Repo:         inputParam.Repo,
-					ChoiceOption: originParam.ChoiceOption,
-					Default:      originParam.Default,
-					IsCredential: originParam.IsCredential,
-					Source:       originParam.Source,
-				})
-				found = true
-				break
-			}
-		}
-		if !found {
-			resp = append(resp, originParam)
-		}
-	}
-	return resp
 }
 
 func getJobRankMap(stages []*commonmodels.WorkflowStage) map[string]int {

@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/controller/job"
 	"regexp"
 	"sort"
 	"sync"
@@ -315,17 +316,17 @@ func setBuildInfo(build *types.Repository, buildArgs []*types.Repository, log *z
 	build.Address = codeHostInfo.Address
 	if codeHostInfo.Type == systemconfig.GitLabProvider || codeHostInfo.Type == systemconfig.GerritProvider {
 		if build.CommitID == "" {
-			var commit *RepoCommit
-			var pr *PRCommit
+			var commit *job.RepoCommit
+			var pr *job.PRCommit
 			var err error
 			if build.Tag != "" {
-				commit, err = QueryByTag(build.CodehostID, build.GetRepoNamespace(), build.RepoName, build.Tag, log)
+				commit, err = job.QueryByTag(build.CodehostID, build.GetRepoNamespace(), build.RepoName, build.Tag, log)
 			} else if build.Branch != "" && len(build.PRs) == 0 {
-				commit, err = QueryByBranch(build.CodehostID, build.GetRepoNamespace(), build.RepoName, build.Branch, log)
+				commit, err = job.QueryByBranch(build.CodehostID, build.GetRepoNamespace(), build.RepoName, build.Branch, log)
 			} else if len(build.PRs) > 0 {
-				pr, err = GetLatestPrCommit(build.CodehostID, getlatestPrNum(build), build.GetRepoNamespace(), build.RepoName, log)
+				pr, err = job.GetLatestPrCommit(build.CodehostID, getlatestPrNum(build), build.GetRepoNamespace(), build.RepoName, log)
 				if err == nil && pr != nil {
-					commit = &RepoCommit{
+					commit = &job.RepoCommit{
 						ID:         pr.ID,
 						Message:    pr.Title,
 						AuthorName: pr.AuthorName,

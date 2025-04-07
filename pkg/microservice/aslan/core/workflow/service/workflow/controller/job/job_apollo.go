@@ -225,3 +225,7 @@ func (j ApolloJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, erro
 func (j ApolloJobController) SetRepo(repo *types.Repository) error {
 	return nil
 }
+
+func (j ApolloJobController) SetRepoCommitInfo() error {
+	return nil
+}

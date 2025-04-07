@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package workflow
+package job
 
 import (
 	"errors"
@@ -24,10 +24,9 @@ import (
 	"sort"
 	"time"
 
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"github.com/xanzy/go-gitlab"
-	"go.uber.org/zap"
 
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/shared/client/systemconfig"
 	"github.com/koderover/zadig/v2/pkg/tool/gerrit"
@@ -42,7 +41,7 @@ type RepoCommit struct {
 	Message    string     `json:"message"`
 }
 
-func QueryByBranch(id int, owner, name, branch string, log *zap.SugaredLogger) (*RepoCommit, error) {
+func QueryByBranch(id int, owner, name, branch string) (*RepoCommit, error) {
 	ch, err := systemconfig.New().GetCodeHost(id)
 	if err != nil {
 		return nil, err
@@ -97,7 +96,7 @@ func QueryByBranch(id int, owner, name, branch string, log *zap.SugaredLogger) (
 	return nil, errors.New(ch.Type + "is not supported yet")
 }
 
-func QueryByTag(id int, owner, name, tag string, log *zap.SugaredLogger) (*RepoCommit, error) {
+func QueryByTag(id int, owner, name, tag string) (*RepoCommit, error) {
 	ch, err := systemconfig.New().GetCodeHost(id)
 	if err != nil {
 		return nil, err
@@ -150,7 +149,7 @@ type PRCommit struct {
 	CheckoutRef string     `json:"checkout_ref"`
 }
 
-func GetLatestPrCommit(codehostID, pr int, namespace, projectName string, log *zap.SugaredLogger) (*PRCommit, error) {
+func GetLatestPrCommit(codehostID, pr int, namespace, projectName string) (*PRCommit, error) {
 	projectID := fmt.Sprintf("%s/%s", namespace, projectName)
 
 	ch, err := systemconfig.New().GetCodeHost(codehostID)

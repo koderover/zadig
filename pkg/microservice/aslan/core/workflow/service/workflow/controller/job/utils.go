@@ -18,7 +18,10 @@ package job
 
 import (
 	"fmt"
+	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/v2/pkg/types"
 	"strings"
+	"sync"
 
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 )
@@ -51,4 +54,19 @@ func GenJobName(workflow *commonmodels.WorkflowV4, jobName string, subTaskID int
 	_ = stageName
 
 	return fmt.Sprintf("job-%d-%d-%d-%s", stageIndex, jobIndex, subTaskID, jobName)
+}
+
+// setRepoInfo
+func setRepoInfo(repos []*types.Repository) error {
+	var wg sync.WaitGroup
+	for _, repo := range repos {
+		wg.Add(1)
+		go func(repo *types.Repository) {
+			defer wg.Done()
+			_ = commonservice.FillRepositoryInfo(repo)
+		}(repo)
+	}
+
+	wg.Wait()
+	return nil
 }

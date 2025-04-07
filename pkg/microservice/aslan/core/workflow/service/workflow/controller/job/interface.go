@@ -50,6 +50,8 @@ type Job interface {
 	ToTask(taskID int64) ([]*commonmodels.JobTask, error)
 	// SetRepo sets the given repo info to the spec (if applicable)
 	SetRepo(repo *types.Repository) error
+	// SetRepoCommitInfo ..
+	SetRepoCommitInfo() error
 }
 
 type BasicInfo struct {

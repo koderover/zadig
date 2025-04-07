@@ -17,19 +17,25 @@ limitations under the License.
 package controller
 
 import (
+	"encoding/json"
 	"fmt"
-	"github.com/koderover/zadig/v2/pkg/types"
 	"regexp"
+	"strings"
+	"time"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
+	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	jobctrl "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/controller/job"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/shared/client/plutusvendor"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
+	"github.com/koderover/zadig/v2/pkg/types"
+	"github.com/pkg/errors"
 )
 
 type Workflow struct {
@@ -76,8 +82,33 @@ func (w *Workflow) SetPreset(ticket *commonmodels.ApprovalTicket) error {
 	return nil
 }
 
-func (w *Workflow) ToJobTasks(taskID int64) ([]*commonmodels.StageTask, error) {
+func (w *Workflow) ToJobTasks(taskID int64, creator, account, uid string) ([]*commonmodels.StageTask, error) {
 	resp := make([]*commonmodels.StageTask, 0)
+
+	// first we need to set the commit info to jobs so the built-in parameters can be rendered
+	for _, stage := range w.Stages {
+		for _, job := range stage.Jobs {
+			ctrl, err := jobctrl.CreateJobController(job, w.WorkflowV4)
+			if err != nil {
+				return nil, err
+			}
+
+			err = ctrl.SetRepoCommitInfo()
+			if err != nil {
+				return nil, err
+			}
+
+			ctrl.ClearOptions()
+
+			job.Spec = ctrl.GetSpec()
+		}
+	}
+
+	// then we render the workflow with the built-in & user-defined parameter
+	err := w.RenderParams(taskID, creator, account, uid)
+	if err != nil {
+		return nil, err
+	}
 
 	for _, stage := range w.Stages {
 		stageTask := &commonmodels.StageTask{
@@ -126,6 +157,19 @@ func (w *Workflow) ToJobTasks(taskID int64) ([]*commonmodels.StageTask, error) {
 	return resp, nil
 }
 
+func (w *Workflow) SetParameterRepoCommitInfo() {
+	for _, param := range w.Params {
+		if param.ParamsType != "repo" {
+			continue
+		}
+		err := commonservice.FillRepositoryInfo(param.Repo)
+		// TODO: possibly fix this logic. This is a compatibility code for old version. we should not skip it.
+		if err != nil {
+			log.Errorf("failed to fill repository info for workflow: %s, param key: %s, error: %s", w.Name, param.Name, err)
+		}
+	}
+}
+
 // UpdateWithLatestWorkflow use the current workflow as input and update the fields to the latest workflow's setting
 func (w *Workflow) UpdateWithLatestWorkflow(ticket *commonmodels.ApprovalTicket) error {
 	latestWorkflowSettings, err := commonrepo.NewWorkflowV4Coll().Find(w.Name)
@@ -157,6 +201,125 @@ func (w *Workflow) UpdateWithLatestWorkflow(ticket *commonmodels.ApprovalTicket)
 	}
 
 	return nil
+}
+
+func (w *Workflow) ClearOptions() error {
+	for _, stage := range w.Stages {
+		for _, job := range stage.Jobs {
+			ctrl, err := jobctrl.CreateJobController(job, w.WorkflowV4)
+			if err != nil {
+				return err
+			}
+
+			ctrl.ClearOptions()
+
+			job.Spec = ctrl.GetSpec()
+		}
+	}
+	return nil
+}
+
+func (w *Workflow) RenderParams(taskID int64, creator, account, uid string) error {
+	b, err := json.Marshal(w.WorkflowV4)
+	if err != nil {
+		return fmt.Errorf("marshal workflow error: %v", err)
+	}
+	globalParams, err := w.getWorkflowDefaultParams(taskID, creator, account, uid)
+	if err != nil {
+		return fmt.Errorf("get workflow default params error: %v", err)
+	}
+	stageParams, err := w.getWorkflowStageParams()
+	if err != nil {
+		return fmt.Errorf("get workflow stage params error: %v", err)
+	}
+	replacedString := renderMultiLineString(string(b), append(globalParams, stageParams...))
+	return json.Unmarshal([]byte(replacedString), &w.WorkflowV4)
+}
+
+func (w *Workflow) getWorkflowDefaultParams(taskID int64, creator, account, uid string) ([]*commonmodels.Param, error) {
+	resp := []*commonmodels.Param{}
+	resp = append(resp, &commonmodels.Param{Name: "project", Value: w.Project, ParamsType: "string", IsCredential: false})
+	resp = append(resp, &commonmodels.Param{Name: "workflow.name", Value: w.Name, ParamsType: "string", IsCredential: false})
+	resp = append(resp, &commonmodels.Param{Name: "workflow.task.id", Value: fmt.Sprintf("%d", taskID), ParamsType: "string", IsCredential: false})
+	resp = append(resp, &commonmodels.Param{Name: "workflow.task.creator", Value: creator, ParamsType: "string", IsCredential: false})
+	resp = append(resp, &commonmodels.Param{Name: "workflow.task.creator.id", Value: account, ParamsType: "string", IsCredential: false})
+	resp = append(resp, &commonmodels.Param{Name: "workflow.task.creator.userId", Value: uid, ParamsType: "string", IsCredential: false})
+	resp = append(resp, &commonmodels.Param{Name: "workflow.task.timestamp", Value: fmt.Sprintf("%d", time.Now().Unix()), ParamsType: "string", IsCredential: false})
+	for _, param := range w.Params {
+		paramsKey := strings.Join([]string{"workflow", "params", param.Name}, ".")
+		newParam := &commonmodels.Param{Name: paramsKey, Value: param.Value, ParamsType: "string", IsCredential: false}
+		if param.ParamsType == string(commonmodels.MultiSelectType) {
+			newParam.Value = strings.Join(param.ChoiceValue, ",")
+		}
+		resp = append(resp, newParam)
+	}
+	return resp, nil
+}
+
+func (w *Workflow) getWorkflowStageParams() ([]*commonmodels.Param, error) {
+	resp := []*commonmodels.Param{}
+	for _, stage := range w.Stages {
+		for _, job := range stage.Jobs {
+			switch job.JobType {
+			case config.JobZadigBuild:
+				build := new(commonmodels.ZadigBuildJobSpec)
+				if err := commonmodels.IToi(job.Spec, build); err != nil {
+					return nil, errors.Wrap(err, "Itoi")
+				}
+				var serviceAndModuleName, branchList, gitURLs []string
+				for _, serviceAndBuild := range build.ServiceAndBuilds {
+					serviceAndModuleName = append(serviceAndModuleName, serviceAndBuild.ServiceModule+"/"+serviceAndBuild.ServiceName)
+					branch, commitID, gitURL := "", "", ""
+					if len(serviceAndBuild.Repos) > 0 {
+						branch = serviceAndBuild.Repos[0].Branch
+						commitID = serviceAndBuild.Repos[0].CommitID
+						if serviceAndBuild.Repos[0].AuthType == types.SSHAuthType {
+							gitURL = fmt.Sprintf("%s:%s/%s", serviceAndBuild.Repos[0].Address, serviceAndBuild.Repos[0].RepoOwner, serviceAndBuild.Repos[0].RepoName)
+						} else {
+							gitURL = fmt.Sprintf("%s/%s/%s", serviceAndBuild.Repos[0].Address, serviceAndBuild.Repos[0].RepoOwner, serviceAndBuild.Repos[0].RepoName)
+						}
+					}
+					branchList = append(branchList, branch)
+					gitURLs = append(gitURLs, gitURL)
+					resp = append(resp, &commonmodels.Param{Name: fmt.Sprintf("job.%s.%s.%s.BRANCH",
+						job.Name, serviceAndBuild.ServiceName, serviceAndBuild.ServiceModule),
+						Value: branch, ParamsType: "string", IsCredential: false})
+					resp = append(resp, &commonmodels.Param{Name: fmt.Sprintf("job.%s.%s.%s.COMMITID",
+						job.Name, serviceAndBuild.ServiceName, serviceAndBuild.ServiceModule),
+						Value: commitID, ParamsType: "string", IsCredential: false})
+					resp = append(resp, &commonmodels.Param{Name: fmt.Sprintf("job.%s.%s.%s.GITURL",
+						job.Name, serviceAndBuild.ServiceName, serviceAndBuild.ServiceModule),
+						Value: gitURL, ParamsType: "string", IsCredential: false})
+				}
+				resp = append(resp, &commonmodels.Param{Name: fmt.Sprintf("job.%s.SERVICES", job.Name), Value: strings.Join(serviceAndModuleName, ","), ParamsType: "string", IsCredential: false})
+				resp = append(resp, &commonmodels.Param{Name: fmt.Sprintf("job.%s.BRANCHES", job.Name), Value: strings.Join(branchList, ","), ParamsType: "string", IsCredential: false})
+				resp = append(resp, &commonmodels.Param{Name: fmt.Sprintf("job.%s.GITURLS", job.Name), Value: strings.Join(gitURLs, ","), ParamsType: "string", IsCredential: false})
+			case config.JobZadigDeploy:
+				deploy := new(commonmodels.ZadigDeployJobSpec)
+				if err := commonmodels.IToi(job.Spec, deploy); err != nil {
+					return nil, errors.Wrap(err, "Itoi")
+				}
+				resp = append(resp, &commonmodels.Param{Name: fmt.Sprintf("job.%s.envName", job.Name), Value: deploy.Env, ParamsType: "string", IsCredential: false})
+
+				services := []string{}
+				for _, service := range deploy.Services {
+					for _, module := range service.Modules {
+						services = append(services, module.ServiceModule+"/"+service.ServiceName)
+					}
+				}
+				resp = append(resp, &commonmodels.Param{Name: fmt.Sprintf("job.%s.SERVICES", job.Name), Value: strings.Join(services, ","), ParamsType: "string", IsCredential: false})
+
+				images := []string{}
+				for _, service := range deploy.Services {
+					for _, module := range service.Modules {
+						images = append(images, module.Image)
+					}
+				}
+				resp = append(resp, &commonmodels.Param{Name: fmt.Sprintf("job.%s.IMAGES", job.Name), Value: strings.Join(images, ","), ParamsType: "string", IsCredential: false})
+			}
+		}
+	}
+	return resp, nil
 }
 
 func (w *Workflow) Validate(isExecution bool) error {
