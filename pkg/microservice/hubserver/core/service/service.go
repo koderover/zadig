@@ -190,13 +190,13 @@ func Restore(w http.ResponseWriter, r *http.Request) {
 }
 
 var (
-	er = &errorResponder{}
+	er = &ErrorResponder{}
 )
 
-type errorResponder struct {
+type ErrorResponder struct {
 }
 
-func (e *errorResponder) Error(w http.ResponseWriter, req *http.Request, err error) {
+func (e *ErrorResponder) Error(w http.ResponseWriter, req *http.Request, err error) {
 	w.WriteHeader(http.StatusInternalServerError)
 	_, _ = w.Write([]byte(err.Error()))
 }
@@ -222,22 +222,13 @@ func Forward(server *remotedialer.Server, w http.ResponseWriter, r *http.Request
 		}
 	}()
 
-	clusterInfoStr, err := redisCache.HGetString(clustersKey, clientKey)
+	cluster, found, err := GetClusterInfo(clientKey)
 	if err != nil {
-		if err == redis.Nil {
-			// key不存在，跳过当前循环
-			errHandled = true
-			logger.Infof("waiting for cluster %s to connect", clientKey)
-			w.WriteHeader(http.StatusNotFound)
-			return
-		}
-		log.Errorf("Failed to get cluster info: %v", err)
+		log.Errorf("failed to get cluster info: %v", err)
 		return
 	}
 
-	var cluster ClusterInfo
-	err = json.Unmarshal([]byte(clusterInfoStr), &cluster)
-	if err != nil {
+	if !found {
 		errHandled = true
 		logger.Infof("waiting for cluster %s to connect", clientKey)
 		w.WriteHeader(http.StatusNotFound)
@@ -264,6 +255,23 @@ func Forward(server *remotedialer.Server, w http.ResponseWriter, r *http.Request
 
 	proxy := proxy.NewUpgradeAwareHandler(endpoint, transport, false, false, er)
 	proxy.ServeHTTP(w, r)
+}
+
+func GetClusterInfo(clientKey string) (ClusterInfo, bool, error) {
+	clusterInfoStr, err := redisCache.HGetString(clustersKey, clientKey)
+	if err != nil {
+		if err == redis.Nil {
+			return ClusterInfo{}, false, nil
+		}
+		return ClusterInfo{}, false, fmt.Errorf("failed to get cluster info: %v", err)
+	}
+
+	var cluster ClusterInfo
+	err = json.Unmarshal([]byte(clusterInfoStr), &cluster)
+	if err != nil {
+		return ClusterInfo{}, false, fmt.Errorf("failed to unmarshal cluster info: %v", err)
+	}
+	return cluster, true, nil
 }
 
 func Reset() {
@@ -457,6 +465,7 @@ func CheckReplicas(ctx context.Context, handler *remotedialer.Server) error {
 				for _, ip := range ips {
 					consistentHash.Add(Member(ip))
 				}
+
 				hashMutex.Unlock()
 				log.Infof("Updated consistent hash ring with new IPs: %v", ips)
 

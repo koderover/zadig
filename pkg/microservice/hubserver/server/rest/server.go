@@ -30,6 +30,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
+	"k8s.io/apimachinery/pkg/util/proxy"
 
 	h "github.com/koderover/zadig/v2/pkg/microservice/hubserver/core/handler"
 	"github.com/koderover/zadig/v2/pkg/microservice/hubserver/core/repository/mongodb"
@@ -72,62 +73,56 @@ func NewEngine(handler *remotedialer.Server) *engine {
 				clientKey = clusterID
 			}
 
+			if clientKey == "" {
+				log.Errorf("clientKey is empty")
+				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+				return
+			}
+
 			if _, err := mongodb.NewK8sClusterColl().Get(clientKey); err != nil {
 				log.Errorf("unknown cluster, cluster id:%s, err:%v", clientKey, err)
 				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 				return
 			}
 
-			if clientKey != "" {
-				// 使用一致性哈希选择目标 pod
-				targetIP := service.GetNodeByKey(clientKey)
-				if targetIP != "" {
-					// 获取当前 pod 的 IP
-					currentIP := os.Getenv("POD_IP")
-					if currentIP == "" {
-						log.Errorf("Failed to get pod IP from POD_IP env")
-						http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-						return
-					}
+			// 使用一致性哈希选择目标 pod
+			targetIP := service.GetNodeByKey(clientKey)
+			if targetIP == "" {
+				next.ServeHTTP(w, r)
+				return
+			}
 
-					// 检查目标 IP 是否与当前服务 IP 相同
-					if targetIP == currentIP {
-						next.ServeHTTP(w, r)
-						return
-					}
-
-					log.Debugf("url: %+v, clientKey: %+v", r.URL.String(), clientKey)
-					log.Debugf("targetIP: %s, currentIP: %s, forwarding to %s", targetIP, currentIP, targetIP)
-
-					// 使用switch语句处理不同类型的请求，更加清晰
-					switch {
-					case isWebSocketRequest(r):
-						// 处理WebSocket请求
-						log.Infof("WebSocket request detected, handling proxy for WebSocket")
-						handleWebSocketProxy(w, r, targetIP)
-
-					case isSSERequest(r):
-						// 处理Server-Sent Events请求
-						log.Infof("SSE request detected, handling proxy for SSE")
-						handleSSEProxy(w, r, targetIP)
-
-					case shouldHandleAsStream(r):
-						// 处理其他流式请求
-						log.Infof("Generic streaming request detected, handling as stream")
-						handleStreamingProxy(w, r, targetIP)
-
-					default:
-						// 处理普通HTTP请求
-						log.Infof("handleRegularHTTPProxy")
-						handleRegularHTTPProxy(w, r, targetIP)
-					}
-					return
-				}
-			} else {
-				log.Errorf("clientKey is empty")
+			// 获取当前 pod 的 IP
+			currentIP := os.Getenv("POD_IP")
+			if currentIP == "" {
+				log.Errorf("Failed to get pod IP from POD_IP env")
 				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 				return
 			}
+
+			log.Debugf("currentIP: %s, forwarding to %s, url: %s", currentIP, targetIP, r.URL.String())
+			// 检查目标 IP 是否与当前服务 IP 相同
+			if targetIP == currentIP {
+				next.ServeHTTP(w, r)
+				return
+			}
+
+			if r.URL.Path == "/connect" ||
+				strings.HasPrefix(r.URL.Path, "/disconnect/") ||
+				strings.HasPrefix(r.URL.Path, "/restore/") ||
+				strings.HasPrefix(r.URL.Path, "/hasSession/") {
+				handleRequestProxy(r, w, targetIP)
+				return
+			}
+
+			if strings.HasPrefix(r.URL.Path, "/kube/") {
+				r.URL.Host = targetIP + ":26000"
+				er := &service.ErrorResponder{}
+				proxy := proxy.NewUpgradeAwareHandler(r.URL, nil, false, false, er)
+				proxy.ServeHTTP(w, r)
+				return
+			}
+
 			next.ServeHTTP(w, r)
 		})
 	})
@@ -135,6 +130,20 @@ func NewEngine(handler *remotedialer.Server) *engine {
 	s.injectRouters(handler)
 
 	return s
+}
+
+func handleRequestProxy(r *http.Request, w http.ResponseWriter, targetIP string) {
+	switch {
+	case isWebSocketRequest(r):
+		handleWebSocketProxy(w, r, targetIP)
+	case isSSERequest(r):
+		handleSSEProxy(w, r, targetIP)
+	case shouldHandleAsStream(r):
+		handleStreamingProxy(w, r, targetIP)
+	default:
+		handleRegularHTTPProxy(w, r, targetIP)
+	}
+	return
 }
 
 func (s *engine) injectRouters(handler *remotedialer.Server) {
@@ -243,8 +252,8 @@ func handleWebSocketProxy(w http.ResponseWriter, r *http.Request, targetIP strin
 	targetHeaders := make(http.Header)
 
 	// 只复制非WebSocket特定的头
-	skipHeaders := []string{"Connection", "Upgrade", "Sec-WebSocket-Key",
-		"Sec-WebSocket-Version", "Sec-WebSocket-Extensions", "Sec-WebSocket-Protocol"}
+	skipHeaders := []string{"Connection", "Upgrade", "Sec-Websocket-Key",
+		"Sec-Websocket-Version", "Sec-Websocket-Extensions", "Sec-Websocket-Protocol"}
 
 	for k, vs := range r.Header {
 		if !slices.Contains(skipHeaders, k) {

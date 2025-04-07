@@ -236,14 +236,23 @@ func (s *Server) CleanSessions(old, new *consistent.Consistent) {
 		return
 	}
 
-	s.peerLock.Lock()
-	defer s.peerLock.Unlock()
-	for _, peer := range s.peers {
-		oldMember := old.LocateKey([]byte(peer.id))
-		newMember := new.LocateKey([]byte(peer.id))
+	s.sessions.Lock()
+	defer s.sessions.Unlock()
+
+	for clientID := range s.sessions.peers {
+		oldMember := old.LocateKey([]byte(clientID))
+		newMember := new.LocateKey([]byte(clientID))
 		if oldMember.String() != newMember.String() {
-			log.Debugf("Disconnect peer %s due to consistent hash change", peer.id)
-			s.Disconnect(peer.id)
+			log.Debugf("Disconnect peer %s due to consistent hash change", clientID)
+			s.Disconnect(clientID)
+		}
+	}
+	for clientID := range s.sessions.clients {
+		oldMember := old.LocateKey([]byte(clientID))
+		newMember := new.LocateKey([]byte(clientID))
+		if oldMember.String() != newMember.String() {
+			log.Infof("Disconnect client %s due to consistent hash change", clientID)
+			s.Disconnect(clientID)
 		}
 	}
 }
