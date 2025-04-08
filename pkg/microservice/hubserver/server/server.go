@@ -30,8 +30,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/tool/remotedialer"
 )
 
-var Ready = false
-
 func Serve(ctx context.Context) error {
 	log.Init(&log.Config{
 		Level:       commonconfig.LogLevel(),
@@ -76,7 +74,7 @@ func Serve(ctx context.Context) error {
 		service.CheckReplicas(ctx, handler)
 	}()
 
-	rest.Ready = true
+	rest.SetReady(true)
 	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Errorf("Failed to start http server, error: %s\n", err)
 		return err

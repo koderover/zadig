@@ -23,7 +23,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"os"
 	"sync"
 	"time"
 
@@ -122,18 +121,11 @@ func Authorize(req *http.Request) (clientKey string, authed bool, err error) {
 
 	input.Cluster.ClusterID = cluster.ID.Hex()
 	input.Cluster.Joined = time.Now()
-	input.Cluster.PodIP = os.Getenv("POD_IP")
+	input.Cluster.PodIP = config.PodIP()
 
-	bytes, err = json.Marshal(input.Cluster)
+	cluster, err = SetClusterInfo(input.Cluster, cluster)
 	if err != nil {
-		log.Errorf("Failed to marshal cluster info: %v", err)
-		return
-	}
-
-	err = redisCache.HWrite(clustersKey, cluster.ID.Hex(), string(bytes), 0)
-	if err != nil {
-		log.Errorf("Failed to write cluster info to Redis: %v", err)
-		return
+		return "", false, err
 	}
 
 	cluster.Status = "normal"
@@ -208,7 +200,7 @@ func Forward(server *remotedialer.Server, w http.ResponseWriter, r *http.Request
 	clientKey := vars["id"]
 	path := vars["path"]
 
-	logger.Debugf("got forward request %s %s", clientKey, path)
+	// logger.Debugf("got forward request %s %s", clientKey, path)
 
 	var (
 		err        error
@@ -255,6 +247,19 @@ func Forward(server *remotedialer.Server, w http.ResponseWriter, r *http.Request
 
 	proxy := proxy.NewUpgradeAwareHandler(endpoint, transport, false, false, er)
 	proxy.ServeHTTP(w, r)
+}
+
+func SetClusterInfo(clusterInfo *ClusterInfo, cluster *models.K8SCluster) (*models.K8SCluster, error) {
+	bytes, err := json.Marshal(clusterInfo)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to marshal cluster info: %v", err)
+	}
+
+	err = redisCache.HWrite(clustersKey, cluster.ID.Hex(), string(bytes), 0)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to write cluster info to Redis: %v", err)
+	}
+	return cluster, nil
 }
 
 func GetClusterInfo(clientKey string) (ClusterInfo, bool, error) {
@@ -335,7 +340,7 @@ func Sync(server *remotedialer.Server, stopCh <-chan struct{}) {
 					}
 
 					// 检查 Pod IP 是否与当前 IP 匹配
-					if clusterInfo.PodIP == os.Getenv("POD_IP") {
+					if clusterInfo.PodIP == config.PodIP() {
 						exists, err := redisCache.HEXISTS(clustersKey, cluster.ID.Hex())
 						if err != nil {
 							log.Errorf("Failed to check cluster existence: %v", err)
@@ -403,18 +408,18 @@ func CheckReplicas(ctx context.Context, handler *remotedialer.Server) error {
 		case <-ctx.Done():
 			return nil
 		default:
-			kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(setting.LocalClusterID)
+			informer, err := clientmanager.NewKubeClientManager().GetInformer(setting.LocalClusterID, config.Namespace())
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to get informer: %v", err)
 			}
 
 			selector := labels.SelectorFromSet(labels.Set{
 				"app.kubernetes.io/component": "hub-server",
 				"app.kubernetes.io/name":      "zadig",
 			})
-			pods, err := getter.ListPods(os.Getenv("NAMESPACE"), selector, kubeClient)
+			pods, err := getter.ListPodsWithCache(selector, informer)
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to list pods: %v", err)
 			}
 
 			ips := make([]string, 0)

@@ -23,15 +23,16 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"os"
 	"slices"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
 	"k8s.io/apimachinery/pkg/util/proxy"
 
+	"github.com/koderover/zadig/v2/pkg/config"
 	h "github.com/koderover/zadig/v2/pkg/microservice/hubserver/core/handler"
 	"github.com/koderover/zadig/v2/pkg/microservice/hubserver/core/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/microservice/hubserver/core/service"
@@ -41,7 +42,19 @@ import (
 	"github.com/koderover/zadig/v2/pkg/tool/remotedialer"
 )
 
-var Ready = false
+var ready atomic.Value
+
+func init() {
+	ready.Store(false)
+}
+
+func IsReady() bool {
+	return ready.Load().(bool)
+}
+
+func SetReady(status bool) {
+	ready.Store(status)
+}
 
 type engine struct {
 	*mux.Router
@@ -93,14 +106,14 @@ func NewEngine(handler *remotedialer.Server) *engine {
 			}
 
 			// 获取当前 pod 的 IP
-			currentIP := os.Getenv("POD_IP")
+			currentIP := config.PodIP()
 			if currentIP == "" {
 				log.Errorf("Failed to get pod IP from POD_IP env")
 				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 				return
 			}
 
-			log.Debugf("currentIP: %s, forwarding to %s, url: %s", currentIP, targetIP, r.URL.String())
+			// log.Debugf("currentIP: %s, forwarding to %s, url: %s", currentIP, targetIP, r.URL.String())
 			// 检查目标 IP 是否与当前服务 IP 相同
 			if targetIP == currentIP {
 				next.ServeHTTP(w, r)
@@ -168,7 +181,7 @@ func (s *engine) injectRouters(handler *remotedialer.Server) {
 	})
 
 	r.HandleFunc("/health", func(rw http.ResponseWriter, req *http.Request) {
-		if Ready {
+		if IsReady() {
 			rw.WriteHeader(http.StatusOK)
 		} else {
 			rw.WriteHeader(http.StatusServiceUnavailable)

@@ -375,5 +375,7 @@ func StartClusterInformer() {
 			return true
 		}
 		ClusterInformersMap.Range(deleteClustInf)
+
+		time.Sleep(5 * time.Second)
 	}
 }

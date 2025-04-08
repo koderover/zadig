@@ -20,8 +20,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/base64"
-	"encoding/json"
-	"fmt"
 	"net/http"
 	"sync"
 	"time"
@@ -104,13 +102,6 @@ func (s *Server) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	// 保存请求信息到 Redis
-	err = s.saveConnectRequest(clientKey, req)
-	if err != nil {
-		s.errorWriter(rw, req, 400, err)
-		return
-	}
-
 	log.Infof("Handling backend connection request [%s]", clientKey)
 
 	upgrader := websocket.Upgrader{
@@ -132,47 +123,8 @@ func (s *Server) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	code, err := session.Serve(req.Context())
 	if err != nil {
 		// Hijacked so we can't write to the client
-		log.Infof("error in remotedialer server [%d]: %v", code, err)
+		log.Errorf("error in remotedialer server [%d]: %v", code, err)
 	}
-}
-
-func (s *Server) saveConnectRequest(clientKey string, req *http.Request) error {
-	key := fmt.Sprintf("remotedialer:req:%s:%s", clientKey, time.Now().Format("20060102150405"))
-
-	// 获取所有 header keys
-	headerKeys := make([]string, 0, len(req.Header))
-	for k := range req.Header {
-		headerKeys = append(headerKeys, k)
-	}
-
-	// 创建请求信息结构体
-	reqInfo := ConnectRequestInfo{
-		Method:      req.Method,
-		URL:         req.URL.String(),
-		RemoteAddr:  req.RemoteAddr,
-		ClientKey:   clientKey,
-		Timestamp:   time.Now(),
-		Host:        req.Host,
-		UserAgent:   req.UserAgent(),
-		Referer:     req.Referer(),
-		Protocol:    req.Proto,
-		Header:      req.Header,
-		ContentType: req.Header.Get("Content-Type"),
-		ContentLen:  req.ContentLength,
-	}
-
-	// 将结构体序列化为 JSON
-	jsonData, err := json.Marshal(reqInfo)
-	if err != nil {
-		return fmt.Errorf("Failed to marshal request info to JSON: %v", err)
-	}
-
-	// 保存到 Redis
-	err = s.redisCache.Write(key, string(jsonData), 0)
-	if err != nil {
-		return fmt.Errorf("Failed to save request info to Redis: %v", err)
-	}
-	return nil
 }
 
 func (s *Server) auth(req *http.Request) (clientKey string, authed, peer bool, err error) {
