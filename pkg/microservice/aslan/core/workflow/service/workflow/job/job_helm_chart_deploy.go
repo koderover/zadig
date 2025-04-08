@@ -112,7 +112,7 @@ func (j *HelmChartDeployJob) SetOptions(approvalTicket *commonmodels.ApprovalTic
 	envOptions := make([]*commonmodels.ZadigHelmDeployEnvInformation, 0)
 
 	if latestSpec.EnvSource == "fixed" {
-		if approvalTicket == nil || isAllowedEnv(latestSpec.Env, approvalTicket.Envs) {
+		if approvalTicket.IsAllowedEnv(j.workflow.Project, latestSpec.Env) {
 			chartInfo, err := generateEnvHelmChartInfo(latestSpec.Env, j.workflow.Project)
 			if err != nil {
 				log.Errorf("failed to generate helm chart deploy info for env: %s, error: %s", latestSpec.Env, err)
@@ -134,7 +134,7 @@ func (j *HelmChartDeployJob) SetOptions(approvalTicket *commonmodels.ApprovalTic
 		}
 
 		for _, env := range productList {
-			if approvalTicket != nil && !isAllowedEnv(env.EnvName, approvalTicket.Envs) {
+			if approvalTicket.IsAllowedEnv(j.workflow.Project, env.EnvName) {
 				continue
 			}
 

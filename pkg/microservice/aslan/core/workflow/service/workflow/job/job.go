@@ -17,13 +17,10 @@ limitations under the License.
 package job
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
 	"path"
 	"regexp"
 	"strings"
-	"time"
 
 	"github.com/koderover/zadig/v2/pkg/util"
 	"github.com/pkg/errors"
@@ -160,22 +157,6 @@ func InstantiateWorkflow(workflow *commonmodels.WorkflowV4) error {
 		}
 	}
 	return nil
-}
-
-func ClearOptions(job *commonmodels.Job, workflow *commonmodels.WorkflowV4) error {
-	jobCtl, err := InitJobCtl(job, workflow)
-	if err != nil {
-		return warpJobError(job.Name, err)
-	}
-	return jobCtl.ClearOptions()
-}
-
-func ToJobs(job *commonmodels.Job, workflow *commonmodels.WorkflowV4, taskID int64) ([]*commonmodels.JobTask, error) {
-	jobCtl, err := InitJobCtl(job, workflow)
-	if err != nil {
-		return []*commonmodels.JobTask{}, warpJobError(job.Name, err)
-	}
-	return jobCtl.ToJobs(taskID)
 }
 
 func GetRenderWorkflowVariables(ctx *internalhandler.Context, workflow *commonmodels.WorkflowV4, jobName, serviceName, moduleName string, getAvaiableVars bool) ([]*commonmodels.KeyVal, error) {

@@ -39,6 +39,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/util"
 )
 
+// TODO: change note: add approval ticket ID
 type WorkflowV4 struct {
 	ID              primitive.ObjectID       `bson:"_id,omitempty"       yaml:"-"                   json:"id"`
 	Name            string                   `bson:"name"                yaml:"name"                json:"name"`
@@ -70,6 +71,7 @@ type WorkflowV4 struct {
 	ConcurrencyLimit     int          `bson:"concurrency_limit"      yaml:"concurrency_limit"      json:"concurrency_limit"`
 	CustomField          *CustomField `bson:"custom_field"           yaml:"-"                      json:"custom_field"`
 	EnableApprovalTicket bool         `bson:"enable_approval_ticket" yaml:"enable_approval_ticket" json:"enable_approval_ticket"`
+	ApprovalTicketID     string       `bson:"approval_ticket_id"     yaml:"approval_ticket_id"     json:"approval_ticket_id"`
 }
 
 func (w *WorkflowV4) UpdateHash() {
@@ -377,6 +379,7 @@ type ZadigDeployJobSpec struct {
 	SkipCheckHelmWorkloadStatus bool                         `bson:"skip_check_helm_workload_status" yaml:"skip_check_helm_workload_status" json:"skip_check_helm_workload_status"`
 	// fromjob/runtime, runtime 表示运行时输入，fromjob 表示从上游构建任务中获取
 	Source         config.DeploySourceType `bson:"source"     yaml:"source"     json:"source"`
+	EnvSource      config.DeploySourceType `bson:"env_source" yaml:"env_source" json:"env_source"`
 	DeployContents []config.DeployContent  `bson:"deploy_contents"     yaml:"deploy_contents"     json:"deploy_contents"`
 	// 当 source 为 fromjob 时需要，指定部署镜像来源是上游哪一个构建任务
 	JobName string `bson:"job_name"             yaml:"job_name"             json:"job_name"`

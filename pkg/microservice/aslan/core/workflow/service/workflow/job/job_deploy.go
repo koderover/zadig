@@ -370,7 +370,7 @@ func (j *DeployJob) SetOptions(approvalTicket *commonmodels.ApprovalTicket) erro
 		// if the env is fixed, we put the env in the option
 		envName := strings.ReplaceAll(latestSpec.Env, setting.FixedValueMark, "")
 
-		if approvalTicket == nil || isAllowedEnv(envName, approvalTicket.Envs) {
+		if approvalTicket.IsAllowedEnv(j.workflow.Project, envName) {
 			serviceInfo, envInfo, err := generateEnvDeployServiceInfo(envName, j.workflow.Project, latestSpec, allowedServices)
 			if err != nil {
 				log.Errorf("failed to generate service deployment info for env: %s, error: %s", envName, err)
@@ -403,7 +403,7 @@ func (j *DeployJob) SetOptions(approvalTicket *commonmodels.ApprovalTicket) erro
 				continue
 			}
 
-			if approvalTicket != nil && !isAllowedEnv(env.EnvName, approvalTicket.Envs) {
+			if approvalTicket.IsAllowedEnv(j.workflow.Project, env.EnvName) {
 				continue
 			}
 
@@ -1119,17 +1119,6 @@ func checkServiceExsistsInEnv(serviceMap map[string]*commonmodels.ProductService
 		return fmt.Errorf("service %s not exists in env %s", serviceName, env)
 	}
 	return nil
-}
-
-// isAllowedEnv calculate if the env is allowed by the allowedEnv restriction.
-// note that if allowedEnv is empty, it will be seen as no restrictions
-func isAllowedEnv(env string, allowedEnv []string) bool {
-	if allowedEnv == nil || len(allowedEnv) == 0 {
-		return true
-	}
-
-	allowedSets := sets.NewString(allowedEnv...)
-	return allowedSets.Has(env)
 }
 
 func isAllowedService(serviceName, serviceModule string, allowedServices []*commonmodels.ServiceWithModule) bool {

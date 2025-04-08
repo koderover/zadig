@@ -21,13 +21,14 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	jobctrl "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/controller/job"
 	"io/ioutil"
 	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
+
+	jobctrl "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/controller/job"
 
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -573,10 +574,14 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 	workflowTask.ShareStorages = workflow.ShareStorages
 	workflowTask.IsDebug = workflow.Debug
 	workflowTask.Remark = workflow.Remark
-	// set workflow params repo info, like commitid, branch etc.
-	setZadigParamRepos(workflow, log)
 
 	workflowController := controller.CreateWorkflowController(workflow)
+	err = workflowController.Validate(true)
+	if err != nil {
+		log.Errorf("failed to validate workflow task args, error: %s", err)
+		return nil, e.ErrCreateTask.AddErr(err)
+	}
+	workflowController.SetParameterRepoCommitInfo()
 	stageTasks, err := workflowController.ToJobTasks(nextTaskID, args.Name, args.Account, args.UserID)
 	if err != nil {
 		log.Errorf("failed to generate workflow tasks from input, error: %s", err)
@@ -2257,15 +2262,6 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, 
 		resp = append(resp, jobPreview)
 	}
 	return resp
-}
-
-func setZadigParamRepos(workflow *commonmodels.WorkflowV4, logger *zap.SugaredLogger) {
-	for _, param := range workflow.Params {
-		if param.ParamsType != "repo" {
-			continue
-		}
-		setBuildInfo(param.Repo, []*types.Repository{param.Repo}, logger)
-	}
 }
 
 func workflowTaskLint(workflowTask *commonmodels.WorkflowTask, logger *zap.SugaredLogger) error {

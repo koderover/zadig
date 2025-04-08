@@ -364,6 +364,15 @@ func (w *Workflow) Validate(isExecution bool) error {
 	if err != nil {
 		return e.ErrLintWorkflow.AddErr(err)
 	}
+
+	var latestWorkflowSettings *commonmodels.WorkflowV4
+	if isExecution {
+		latestWorkflowSettings, err = commonrepo.NewWorkflowV4Coll().Find(w.Name)
+		if err != nil {
+			return e.ErrFindWorkflow.AddDesc(fmt.Sprintf("cannot find workflow [%s]'s latest setting, error: %s", w.Name, err))
+		}
+	}
+
 	for _, stage := range w.Stages {
 		if !commonutil.ValidateZadigProfessionalLicense(licenseStatus) {
 			if stage.ManualExec != nil && stage.ManualExec.Enabled {
@@ -388,6 +397,10 @@ func (w *Workflow) Validate(isExecution bool) error {
 			ctrl, err := jobctrl.CreateJobController(job, w.WorkflowV4)
 			if err != nil {
 				return e.ErrLintWorkflow.AddErr(err)
+			}
+
+			if isExecution {
+				ctrl.SetWorkflow(latestWorkflowSettings)
 			}
 
 			if err := ctrl.Validate(isExecution); err != nil {

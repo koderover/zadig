@@ -18,6 +18,7 @@ package job
 
 import (
 	"fmt"
+
 	"github.com/koderover/zadig/v2/pkg/types"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
@@ -66,6 +67,8 @@ func CreateJobController(job *commonmodels.Job, workflow *commonmodels.WorkflowV
 	switch job.JobType {
 	case config.JobApollo:
 		return CreateApolloJobController(job, workflow)
+	case config.JobZadigBuild:
+		return CreateBuildJobController(job, workflow)
 	default:
 		return nil, fmt.Errorf("job type not supported")
 	}

@@ -272,7 +272,7 @@ func generateSAEEnvOption(projectKey string, approvalTicket *commonmodels.Approv
 	}
 
 	for _, env := range envs {
-		if approvalTicket != nil && !isAllowedEnv(env.EnvName, approvalTicket.Envs) {
+		if approvalTicket.IsAllowedEnv(projectKey, env.EnvName) {
 			continue
 		}
 
