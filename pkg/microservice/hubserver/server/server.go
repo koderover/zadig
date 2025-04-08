@@ -41,8 +41,8 @@ func Serve(ctx context.Context) error {
 	log.Info("hub server start...")
 	service.Init()
 
-	handler := remotedialer.New(service.Authorize, remotedialer.DefaultErrorWriter)
-	engine := rest.NewEngine(handler)
+	handler := remotedialer.New(service.Authorize, remotedialer.DefaultErrorWriter, service.DeleteClusterInfo)
+	engine := rest.NewEngine(ctx, handler)
 	server := &http.Server{Addr: ":26000", Handler: engine}
 
 	var wg sync.WaitGroup
@@ -53,11 +53,27 @@ func Serve(ctx context.Context) error {
 
 		<-ctx.Done()
 
+		clusters, err := service.GetClustersByPodIP(commonconfig.PodIP())
+		if err != nil {
+			log.Errorf("Failed to get clusters for pod IP %s: %v", commonconfig.PodIP(), err)
+			return
+		}
+
+		for _, cluster := range clusters {
+			if err := service.DeleteClusterInfo(cluster.ID.Hex()); err != nil {
+				log.Errorf("Failed to delete cluster info for cluster %s: %v", cluster.ID.Hex(), err)
+			} else {
+				log.Infof("Successfully deleted cluster info for cluster %s", cluster.ID.Hex())
+			}
+		}
+
 		ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
 		defer cancel()
 
 		if err := server.Shutdown(ctx); err != nil {
-			log.Errorf("Failed to stop server, error: %s\n", err)
+			log.Errorf("Failed to shutdown server, error: %s", err)
+		} else {
+			log.Infof("Shutdown server successfully")
 		}
 	}()
 

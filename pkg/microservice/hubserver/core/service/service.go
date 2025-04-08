@@ -153,6 +153,7 @@ func Disconnect(server *remotedialer.Server, w http.ResponseWriter, r *http.Requ
 	}()
 
 	if err = mongodb.NewK8sClusterColl().UpdateConnectState(clientKey, true); err != nil {
+		log.Errorf("failed to update connect state %s %v", clientKey, err)
 		return
 	}
 
@@ -189,6 +190,7 @@ type ErrorResponder struct {
 }
 
 func (e *ErrorResponder) Error(w http.ResponseWriter, req *http.Request, err error) {
+	// log.Errorf("respond error: %v", err)
 	w.WriteHeader(http.StatusInternalServerError)
 	_, _ = w.Write([]byte(err.Error()))
 }
@@ -247,36 +249,6 @@ func Forward(server *remotedialer.Server, w http.ResponseWriter, r *http.Request
 
 	proxy := proxy.NewUpgradeAwareHandler(endpoint, transport, false, false, er)
 	proxy.ServeHTTP(w, r)
-}
-
-func SetClusterInfo(clusterInfo *ClusterInfo, cluster *models.K8SCluster) (*models.K8SCluster, error) {
-	bytes, err := json.Marshal(clusterInfo)
-	if err != nil {
-		return nil, fmt.Errorf("Failed to marshal cluster info: %v", err)
-	}
-
-	err = redisCache.HWrite(clustersKey, cluster.ID.Hex(), string(bytes), 0)
-	if err != nil {
-		return nil, fmt.Errorf("Failed to write cluster info to Redis: %v", err)
-	}
-	return cluster, nil
-}
-
-func GetClusterInfo(clientKey string) (ClusterInfo, bool, error) {
-	clusterInfoStr, err := redisCache.HGetString(clustersKey, clientKey)
-	if err != nil {
-		if err == redis.Nil {
-			return ClusterInfo{}, false, nil
-		}
-		return ClusterInfo{}, false, fmt.Errorf("failed to get cluster info: %v", err)
-	}
-
-	var cluster ClusterInfo
-	err = json.Unmarshal([]byte(clusterInfoStr), &cluster)
-	if err != nil {
-		return ClusterInfo{}, false, fmt.Errorf("failed to unmarshal cluster info: %v", err)
-	}
-	return cluster, true, nil
 }
 
 func Reset() {
@@ -457,6 +429,7 @@ func CheckReplicas(ctx context.Context, handler *remotedialer.Server) error {
 			// 只在有变化时更新一致性哈希
 			if hasChange {
 				hashMutex.Lock()
+
 				old := &consistent.Consistent{}
 				if len(consistentHash.GetMembers()) > 0 {
 					old = consistent.New(consistentHash.GetMembers(), cfg)
@@ -471,10 +444,14 @@ func CheckReplicas(ctx context.Context, handler *remotedialer.Server) error {
 					consistentHash.Add(Member(ip))
 				}
 
-				hashMutex.Unlock()
 				log.Infof("Updated consistent hash ring with new IPs: %v", ips)
 
-				handler.CleanSessions(old, consistentHash)
+				disconnectClusters := handler.CleanSessions(old, consistentHash)
+				for _, cluster := range disconnectClusters {
+					DeleteClusterInfo(cluster)
+				}
+
+				hashMutex.Unlock()
 			}
 
 			time.Sleep(1 * time.Second)

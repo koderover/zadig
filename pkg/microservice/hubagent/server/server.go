@@ -20,6 +20,7 @@ import (
 	"context"
 	"net/http"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/koderover/zadig/v2/pkg/config"
@@ -52,7 +53,12 @@ func Serve(ctx context.Context) error {
 	// need to get cluster config to init k8s resource
 	initResource()
 
+	var wg sync.WaitGroup
+
+	wg.Add(1)
 	go func() {
+		defer wg.Done()
+
 		<-ctx.Done()
 
 		ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
@@ -63,7 +69,10 @@ func Serve(ctx context.Context) error {
 		}
 	}()
 
+	wg.Add(1)
 	go func() {
+		defer wg.Done()
+
 		err := server.ListenAndServe()
 		if err != nil && err != http.ErrServerClosed {
 			log.Errorf("Failed to start http server, error: %s", err)
@@ -71,9 +80,17 @@ func Serve(ctx context.Context) error {
 		}
 	}()
 
-	if err := service.Init(); err != nil {
-		return err
-	}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+
+		if err := service.Init(ctx); err != nil {
+			log.Errorf("Failed to init service, error: %s", err)
+			return
+		}
+	}()
+
+	wg.Wait()
 
 	return nil
 }

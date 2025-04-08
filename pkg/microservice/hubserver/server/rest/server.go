@@ -17,6 +17,7 @@ limitations under the License.
 package rest
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
 	"io"
@@ -60,7 +61,7 @@ type engine struct {
 	*mux.Router
 }
 
-func NewEngine(handler *remotedialer.Server) *engine {
+func NewEngine(ctx context.Context, handler *remotedialer.Server) *engine {
 	s := &engine{}
 	s.Router = mux.NewRouter()
 	s.Router.UseEncodedPath()
@@ -124,7 +125,7 @@ func NewEngine(handler *remotedialer.Server) *engine {
 				strings.HasPrefix(r.URL.Path, "/disconnect/") ||
 				strings.HasPrefix(r.URL.Path, "/restore/") ||
 				strings.HasPrefix(r.URL.Path, "/hasSession/") {
-				handleRequestProxy(r, w, targetIP)
+				handleRequestProxy(ctx, r, w, targetIP)
 				return
 			}
 
@@ -145,16 +146,16 @@ func NewEngine(handler *remotedialer.Server) *engine {
 	return s
 }
 
-func handleRequestProxy(r *http.Request, w http.ResponseWriter, targetIP string) {
+func handleRequestProxy(ctx context.Context, r *http.Request, w http.ResponseWriter, targetIP string) {
 	switch {
 	case isWebSocketRequest(r):
-		handleWebSocketProxy(w, r, targetIP)
+		handleWebSocketProxy(ctx, w, r, targetIP)
 	case isSSERequest(r):
-		handleSSEProxy(w, r, targetIP)
+		handleSSEProxy(ctx, w, r, targetIP)
 	case shouldHandleAsStream(r):
-		handleStreamingProxy(w, r, targetIP)
+		handleStreamingProxy(ctx, w, r, targetIP)
 	default:
-		handleRegularHTTPProxy(w, r, targetIP)
+		handleRegularHTTPProxy(ctx, w, r, targetIP)
 	}
 	return
 }
@@ -232,13 +233,13 @@ func shouldHandleAsStream(r *http.Request) bool {
 }
 
 // handleWebSocketProxy 处理WebSocket连接的代理转发
-func handleWebSocketProxy(w http.ResponseWriter, r *http.Request, targetIP string) {
+func handleWebSocketProxy(ctx context.Context, w http.ResponseWriter, r *http.Request, targetIP string) {
 	log := log.SugaredLogger()
 
 	// 升级客户端连接到 WebSocket
 	upgrader := websocket.Upgrader{
-		ReadBufferSize:  1024,
-		WriteBufferSize: 1024,
+		ReadBufferSize:  4096,
+		WriteBufferSize: 4096,
 		CheckOrigin: func(r *http.Request) bool {
 			return true // 允许所有源
 		},
@@ -261,10 +262,7 @@ func handleWebSocketProxy(w http.ResponseWriter, r *http.Request, targetIP strin
 	}
 
 	// 创建到目标服务器的 WebSocket 连接
-	// 不使用原始请求的WebSocket特定头，而是让websocket包自己生成新的头
 	targetHeaders := make(http.Header)
-
-	// 只复制非WebSocket特定的头
 	skipHeaders := []string{"Connection", "Upgrade", "Sec-Websocket-Key",
 		"Sec-Websocket-Version", "Sec-Websocket-Extensions", "Sec-Websocket-Protocol"}
 
@@ -278,8 +276,10 @@ func handleWebSocketProxy(w http.ResponseWriter, r *http.Request, targetIP strin
 
 	dialer := &websocket.Dialer{
 		Proxy:            http.ProxyFromEnvironment,
-		HandshakeTimeout: 30 * time.Second,
+		HandshakeTimeout: 60 * time.Second,
 		TLSClientConfig:  &tls.Config{InsecureSkipVerify: true},
+		ReadBufferSize:   4096,
+		WriteBufferSize:  4096,
 	}
 
 	targetConn, resp, err := dialer.Dial(targetURL.String(), targetHeaders)
@@ -288,18 +288,39 @@ func handleWebSocketProxy(w http.ResponseWriter, r *http.Request, targetIP strin
 		if resp != nil {
 			body, _ := io.ReadAll(resp.Body)
 			log.Errorf("Target response: %d %s %s", resp.StatusCode, resp.Status, string(body))
-
-			// 通过WebSocket协议发送错误信息给客户端
 			clientConn.WriteMessage(websocket.TextMessage,
 				[]byte(fmt.Sprintf("Backend connection error: %v", err)))
-			clientConn.WriteMessage(websocket.CloseMessage,
-				websocket.FormatCloseMessage(websocket.CloseInternalServerErr, "Backend connection failed"))
 		}
+		clientConn.WriteMessage(websocket.CloseMessage,
+			websocket.FormatCloseMessage(websocket.CloseInternalServerErr, "Backend connection failed"))
 		return
 	}
 	defer targetConn.Close()
 
 	errChan := make(chan error, 2)
+	done := make(chan struct{})
+
+	// 启动心跳机制
+	go func() {
+		ticker := time.NewTicker(5 * time.Second)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ticker.C:
+				if err := clientConn.WriteMessage(websocket.PingMessage, nil); err != nil {
+					errChan <- err
+					return
+				}
+				if err := targetConn.WriteMessage(websocket.PingMessage, nil); err != nil {
+					errChan <- err
+					return
+				}
+			case <-done:
+				return
+			}
+		}
+	}()
 
 	// 从客户端到目标
 	go func() {
@@ -335,15 +356,28 @@ func handleWebSocketProxy(w http.ResponseWriter, r *http.Request, targetIP strin
 		}
 	}()
 
-	// 等待任一方向出错
-	err = <-errChan
-	if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-		log.Warnf("WebSocket error: %v", err)
+	select {
+	case err := <-errChan:
+		close(done) // 停止心跳
+		// 记录错误并发送关闭消息
+		if err != nil {
+			log.Errorf("[handleWebSocketProxy] WebSocket error: %v", err)
+			closeMsg := websocket.FormatCloseMessage(websocket.CloseNormalClosure, "")
+			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+				closeMsg = websocket.FormatCloseMessage(websocket.CloseInternalServerErr, err.Error())
+			}
+			clientConn.WriteMessage(websocket.CloseMessage, closeMsg)
+		}
+		return
+	case <-ctx.Done():
+		log.Infof("[handleWebSocketProxy] Context done")
+		return
 	}
+
 }
 
 // handleSSEProxy 处理SSE连接的代理转发
-func handleSSEProxy(w http.ResponseWriter, r *http.Request, targetIP string) {
+func handleSSEProxy(ctx context.Context, w http.ResponseWriter, r *http.Request, targetIP string) {
 	log := log.SugaredLogger()
 
 	// 创建转发请求
@@ -444,7 +478,7 @@ func handleSSEProxy(w http.ResponseWriter, r *http.Request, targetIP string) {
 }
 
 // handleStreamingProxy 处理通用流式传输的代理转发
-func handleStreamingProxy(w http.ResponseWriter, r *http.Request, targetIP string) {
+func handleStreamingProxy(ctx context.Context, w http.ResponseWriter, r *http.Request, targetIP string) {
 	log := log.SugaredLogger()
 
 	// 创建转发请求
@@ -611,7 +645,7 @@ func handleStreamResponse(w http.ResponseWriter, resp *http.Response) {
 }
 
 // handleRegularHTTPProxy 处理普通的HTTP请求转发
-func handleRegularHTTPProxy(w http.ResponseWriter, r *http.Request, targetIP string) {
+func handleRegularHTTPProxy(ctx context.Context, w http.ResponseWriter, r *http.Request, targetIP string) {
 	log := log.SugaredLogger()
 
 	// 创建转发请求
