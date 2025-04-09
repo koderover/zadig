@@ -17,6 +17,7 @@ limitations under the License.
 package models
 
 import (
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/v2/pkg/util"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
@@ -82,7 +83,7 @@ type PreBuild struct {
 	// Installs defines apps to be installed for build
 	Installs []*Item `bson:"installs,omitempty"           json:"installs"`
 	// Envs stores user defined env key val for build
-	Envs []*KeyVal `bson:"envs,omitempty"              json:"envs"`
+	Envs KeyValList `bson:"envs,omitempty"              json:"envs"`
 	// EnableProxy
 	EnableProxy bool `bson:"enable_proxy,omitempty"        json:"enable_proxy"`
 	// Parameters
@@ -206,6 +207,35 @@ type KeyVal struct {
 	FunctionReference []string             `bson:"function_reference,omitempty" json:"function_reference,omitempty" yaml:"function_reference,omitempty"`
 	IsCredential      bool                 `bson:"is_credential"                json:"is_credential"                yaml:"is_credential"`
 	Description       string               `bson:"description"                  json:"description"                  yaml:"description"`
+}
+
+type KeyValList []*KeyVal
+
+func (list KeyValList) ToRuntimeList() []*RuntimeKeyVal {
+	resp := make([]*RuntimeKeyVal, 0)
+	for _, kv := range list {
+		resp = append(resp, &RuntimeKeyVal{
+			KeyVal: kv,
+			Source: config.ParamSourceRuntime,
+		})
+	}
+	return resp
+}
+
+type RuntimeKeyVal struct {
+	*KeyVal
+
+	Source config.ParamSourceType `bson:"source" json:"source" yaml:"source"`
+}
+
+type RuntimeKeyValList []*RuntimeKeyVal
+
+func (list RuntimeKeyValList) ToKVList() []*KeyVal {
+	resp := make([]*KeyVal, 0)
+	for _, kv := range list {
+		resp = append(resp, kv.KeyVal)
+	}
+	return resp
 }
 
 type Item struct {

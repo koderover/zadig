@@ -21,6 +21,7 @@ import (
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
+	templaterepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	aslanUtil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 )
@@ -89,8 +90,27 @@ func (j DeployJobController) Update(useUserInput bool) error {
 		return err
 	}
 
-	currJobSpec := new(commonmodels.ZadigDeployJobSpec)
-	if err := commonmodels.IToi(latestJob.Spec, currJobSpec); err != nil {
+	latestSpec := new(commonmodels.ZadigDeployJobSpec)
+	if err := commonmodels.IToi(latestJob.Spec, latestSpec); err != nil {
 		return fmt.Errorf("failed to decode apollo job spec, error: %s", err)
+	}
+
+	j.jobSpec.Production = latestSpec.Production
+	project, err := templaterepo.NewProductColl().Find(j.workflow.Project)
+	if err != nil {
+		return fmt.Errorf("failed to find project %s, err: %v", j.workflow.Project, err)
+	}
+	if project.ProductFeature != nil {
+		j.jobSpec.DeployType = project.ProductFeature.DeployType
+	}
+	j.jobSpec.SkipCheckRunStatus = latestSpec.SkipCheckRunStatus
+	j.jobSpec.SkipCheckHelmWorkloadStatus = latestSpec.SkipCheckHelmWorkloadStatus
+	j.jobSpec.DeployContents = latestSpec.DeployContents
+	j.jobSpec.ServiceVariableConfig = latestSpec.ServiceVariableConfig
+
+	// source is a bit tricky: if the saved args has a source of fromjob, but it has been change to runtime in the config
+	// we need to not only update its source but also set services to empty slice.
+	if j.jobSpec.Source == config.SourceFromJob && latestSpec.Source == config.SourceRuntime {
+		j.jobSpec.Services = make([]*commonmodels.DeployServiceInfo, 0)
 	}
 }

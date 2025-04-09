@@ -82,16 +82,16 @@ func GenJobName(workflow *commonmodels.WorkflowV4, jobName string, subTaskID int
 	return fmt.Sprintf("job-%d-%d-%d-%s", stageIndex, jobIndex, subTaskID, jobName)
 }
 
-func applyKeyVals(base, input []*commonmodels.KeyVal) []*commonmodels.KeyVal {
-	resp := make([]*commonmodels.KeyVal, 0)
+func applyKeyVals(base, input commonmodels.RuntimeKeyValList, useInputKVSource bool) commonmodels.RuntimeKeyValList {
+	resp := make([]*commonmodels.RuntimeKeyVal, 0)
 
-	inputMap := make(map[string]*commonmodels.KeyVal)
+	inputMap := make(map[string]*commonmodels.RuntimeKeyVal)
 	for _, inputKV := range input {
 		inputMap[inputKV.Key] = inputKV
 	}
 
 	for _, baseKV := range base {
-		item := &commonmodels.KeyVal{
+		newKV := &commonmodels.KeyVal{
 			Key:               baseKV.Key,
 			Value:             baseKV.Value,
 			Type:              baseKV.Type,
@@ -101,6 +101,10 @@ func applyKeyVals(base, input []*commonmodels.KeyVal) []*commonmodels.KeyVal {
 			FunctionReference: baseKV.FunctionReference,
 			CallFunction:      baseKV.CallFunction,
 			Script:            baseKV.Script,
+		}
+		item := &commonmodels.RuntimeKeyVal{
+			KeyVal: newKV,
+			Fixed:  baseKV.Fixed,
 		}
 
 		if inputKV, ok := inputMap[baseKV.Key]; ok {
@@ -115,6 +119,10 @@ func applyKeyVals(base, input []*commonmodels.KeyVal) []*commonmodels.KeyVal {
 			} else {
 				// always use origin credential config.
 				item.Value = inputKV.Value
+			}
+
+			if useInputKVSource {
+				item.Fixed = inputKV.Fixed
 			}
 		}
 

@@ -687,7 +687,7 @@ func generateEnvDeployServiceInfo(env, project string, spec *commonmodels.ZadigD
 	/*
 	   1. Throw everything in the envs into the response
 	   2. Comparing the service list in the envs with the service list in service definition to find extra (if not found just do nothing)
-	   2. Do a scan for the services that is newly created in the service list
+	   3. Do a scan for the services that is newly created in the service list
 
 	   Additional logics:
 	   1. VariableConfig is the field user used to limit the range of kvs workflow user can see, it should not be returned.

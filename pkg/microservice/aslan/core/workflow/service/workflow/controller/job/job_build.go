@@ -193,7 +193,7 @@ func (j BuildJobController) Update(useUserInput bool) error {
 			Package:          configuredBuild.Package,
 			ImageName:        configuredBuild.ImageName,
 			ShareStorageInfo: configuredBuild.ShareStorageInfo,
-			KeyVals:          applyKeyVals(buildInfo.PreBuild.Envs, configuredBuild.KeyVals),
+			KeyVals:          applyKeyVals(buildInfo.PreBuild.Envs.ToRuntimeList(), configuredBuild.KeyVals, true),
 			Repos:            applyRepos(buildInfo.Repos, configuredBuild.Repos),
 		}
 
@@ -217,7 +217,10 @@ func (j BuildJobController) Update(useUserInput bool) error {
 			continue
 		}
 
-		newDefault = append(newDefault, configuredDefault)
+		key := fmt.Sprintf(buildKeyTemplate, configuredDefault.ServiceName, configuredDefault.ServiceModule)
+		option, ok := newOptionMap[key]
+
+		newDefault = append(newDefault, option)
 	}
 
 	// for the ServiceAndBuildField, if we use user's input, check if it is allowed by the calculated options, if it is,
@@ -245,7 +248,7 @@ func (j BuildJobController) Update(useUserInput bool) error {
 				Package:          configuredSelection.Package,
 				ImageName:        configuredSelection.ImageName,
 				ShareStorageInfo: configuredSelection.ShareStorageInfo,
-				KeyVals:          applyKeyVals(newOptionMap[key].KeyVals, configuredSelection.KeyVals),
+				KeyVals:          applyKeyVals(newOptionMap[key].KeyVals, configuredSelection.KeyVals, false),
 				Repos:            applyRepos(newOptionMap[key].Repos, configuredSelection.Repos),
 			}
 
@@ -375,7 +378,7 @@ func (j BuildJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, error
 			Timeout:             int64(buildInfo.Timeout),
 			ResourceRequest:     buildInfo.PreBuild.ResReq,
 			ResReqSpec:          buildInfo.PreBuild.ResReqSpec,
-			CustomEnvs:          applyKeyVals(buildInfo.PreBuild.Envs, build.KeyVals),
+			CustomEnvs:          applyKeyVals(buildInfo.PreBuild.Envs.ToRuntimeList(), build.KeyVals, true).ToKVList(),
 			ClusterID:           buildInfo.PreBuild.ClusterID,
 			StrategyID:          buildInfo.PreBuild.StrategyID,
 			BuildOS:             basicImage.Value,

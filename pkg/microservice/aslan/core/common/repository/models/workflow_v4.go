@@ -341,14 +341,15 @@ func (i *FreeStyleServiceInfo) GetKey() string {
 }
 
 type ZadigBuildJobSpec struct {
-	Source                  config.DeploySourceType `bson:"source"                 yaml:"source"                      json:"source"`
-	JobName                 string                  `bson:"job_name"               yaml:"job_name"                    json:"job_name"`
-	OriginJobName           string                  `bson:"origin_job_name"        yaml:"origin_job_name"             json:"origin_job_name"`
-	RefRepos                bool                    `bson:"ref_repos"              yaml:"ref_repos"                   json:"ref_repos"`
-	DockerRegistryID        string                  `bson:"docker_registry_id"     yaml:"docker_registry_id"          json:"docker_registry_id"`
-	DefaultServiceAndBuilds []*ServiceAndBuild      `bson:"default_service_and_builds"     yaml:"default_service_and_builds"         json:"default_service_and_builds"`
-	ServiceAndBuilds        []*ServiceAndBuild      `bson:"service_and_builds"     yaml:"service_and_builds"         json:"service_and_builds"`
-	ServiceAndBuildsOptions []*ServiceAndBuild      `bson:"-"                      yaml:"service_and_builds_options" json:"service_and_builds_options"`
+	Source                  config.DeploySourceType `bson:"source"                     yaml:"source"                      json:"source"`
+	JobName                 string                  `bson:"job_name"                   yaml:"job_name"                    json:"job_name"`
+	OriginJobName           string                  `bson:"origin_job_name"            yaml:"origin_job_name"             json:"origin_job_name"`
+	RefRepos                bool                    `bson:"ref_repos"                  yaml:"ref_repos"                   json:"ref_repos"`
+	DockerRegistryID        string                  `bson:"docker_registry_id"         yaml:"docker_registry_id"          json:"docker_registry_id"`
+	DefaultServiceAndBuilds []*ServiceAndBuild      `bson:"default_service_and_builds" yaml:"default_service_and_builds"  json:"default_service_and_builds"`
+	ServiceAndBuilds        []*ServiceAndBuild      `bson:"service_and_builds"         yaml:"service_and_builds"          json:"service_and_builds"`
+	ServiceAndBuildsOptions []*ServiceAndBuild      `bson:"-"                          yaml:"service_and_builds_options"  json:"service_and_builds_options"`
+	ServiceWithModule
 }
 
 type ServiceAndBuild struct {
@@ -358,7 +359,7 @@ type ServiceAndBuild struct {
 	Image            string              `bson:"image"               yaml:"-"                    json:"image"`
 	Package          string              `bson:"package"             yaml:"-"                    json:"package"`
 	ImageName        string              `bson:"image_name"          yaml:"image_name"           json:"image_name"`
-	KeyVals          []*KeyVal           `bson:"key_vals"            yaml:"key_vals"             json:"key_vals"`
+	KeyVals          RuntimeKeyValList   `bson:"key_vals"            yaml:"key_vals"             json:"key_vals"`
 	Repos            []*types.Repository `bson:"repos"               yaml:"repos"                json:"repos"`
 	ShareStorageInfo *ShareStorageInfo   `bson:"share_storage_info"  yaml:"share_storage_info"   json:"share_storage_info"`
 }
@@ -379,13 +380,14 @@ type ZadigDeployJobSpec struct {
 	SkipCheckHelmWorkloadStatus bool                         `bson:"skip_check_helm_workload_status" yaml:"skip_check_helm_workload_status" json:"skip_check_helm_workload_status"`
 	// fromjob/runtime, runtime 表示运行时输入，fromjob 表示从上游构建任务中获取
 	Source         config.DeploySourceType `bson:"source"     yaml:"source"     json:"source"`
-	EnvSource      config.DeploySourceType `bson:"env_source" yaml:"env_source" json:"env_source"`
+	EnvSource      config.ParamSourceType  `bson:"env_source" yaml:"env_source" json:"env_source"`
 	DeployContents []config.DeployContent  `bson:"deploy_contents"     yaml:"deploy_contents"     json:"deploy_contents"`
 	// 当 source 为 fromjob 时需要，指定部署镜像来源是上游哪一个构建任务
 	JobName string `bson:"job_name"             yaml:"job_name"             json:"job_name"`
 	// save the origin quoted job name
-	OriginJobName string               `bson:"origin_job_name"      yaml:"origin_job_name"      json:"origin_job_name"`
-	Services      []*DeployServiceInfo `bson:"services"             yaml:"services"             json:"services"`
+	OriginJobName         string               `bson:"origin_job_name"      yaml:"origin_job_name"      json:"origin_job_name"`
+	Services              []*DeployServiceInfo `bson:"services"             yaml:"services"             json:"services"`
+	ServiceVariableConfig []*DeployServiceInfo `bson:"service_variable_config"             yaml:"service_variable_config"             json:"service_variable_config"`
 	// TODO: Deprecated in 2.3.0, this field is now used for saving the default service module info for deployment.
 	ServiceAndImages []*ServiceAndImage `bson:"service_and_images" yaml:"service_and_images" json:"service_and_images"`
 }
@@ -456,7 +458,8 @@ type DeployService struct {
 }
 
 type DeployServiceInfo struct {
-	ServiceName string `bson:"service_name"                     yaml:"service_name"                        json:"service_name"`
+	ServiceName           string `bson:"service_name"                     yaml:"service_name"                        json:"service_name"`
+	ServiceTemplateConfig string `bson:"service_template_config" yaml:"service_template_config"   json:"service_template_config"`
 	// VariableConfigs used to determine if a variable is visible to the workflow user.
 	VariableConfigs []*DeployVariableConfig         `bson:"variable_configs"                 yaml:"variable_configs,omitempty"          json:"variable_configs,omitempty"`
 	VariableKVs     []*commontypes.RenderVariableKV `bson:"variable_kvs"                     yaml:"variable_kvs"                        json:"variable_kvs"`
@@ -741,7 +744,7 @@ type K8sPatchJobSpec struct {
 
 type ZadigDeployEnvInformation struct {
 	Env        string               `json:"env"         yaml:"env"`
-	EnvAlias   string               `json:"env_alias"       yaml:"env_alias"`
+	EnvAlias   string               `json:"env_alias"   yaml:"env_alias"`
 	Production bool                 `json:"production"  yaml:"production"`
 	RegistryID string               `json:"registry_id" yaml:"registry_id"`
 	Services   []*DeployServiceInfo `json:"services"    yaml:"services"`
@@ -1258,12 +1261,13 @@ type MseGrayOfflineJobSpec struct {
 }
 
 type NacosJobSpec struct {
-	NacosID           string               `bson:"nacos_id"            json:"nacos_id"            yaml:"nacos_id"`
-	NamespaceID       string               `bson:"namespace_id"        json:"namespace_id"        yaml:"namespace_id"`
-	NacosDatas        []*types.NacosConfig `bson:"nacos_datas"         json:"nacos_datas"         yaml:"nacos_datas"`
-	NacosFilteredData []*types.NacosConfig `bson:"nacos_filtered_data" json:"nacos_filtered_data" yaml:"nacos_filtered_data"`
-	NacosDataRange    []string             `bson:"nacos_data_range"    json:"nacos_data_range"    yaml:"nacos_data_range"`
-	DataFixed         bool                 `bson:"data_fixed"          json:"data_fixed"          yaml:"data_fixed"`
+	NacosID           string                 `bson:"nacos_id"            json:"nacos_id"            yaml:"nacos_id"`
+	NamespaceID       string                 `bson:"namespace_id"        json:"namespace_id"        yaml:"namespace_id"`
+	Source            config.ParamSourceType `bson:"source"              json:"source"              yaml:"source"`
+	NacosDatas        []*types.NacosConfig   `bson:"nacos_datas"         json:"nacos_datas"         yaml:"nacos_datas"`
+	NacosFilteredData []*types.NacosConfig   `bson:"nacos_filtered_data" json:"nacos_filtered_data" yaml:"nacos_filtered_data"`
+	NacosDataRange    []string               `bson:"nacos_data_range"    json:"nacos_data_range"    yaml:"nacos_data_range"`
+	DataFixed         bool                   `bson:"data_fixed"          json:"data_fixed"          yaml:"data_fixed"`
 }
 
 type WorkflowTriggerJobSpec struct {
@@ -1425,7 +1429,7 @@ type Param struct {
 	ChoiceValue  []string               `bson:"choice_value,omitempty"    json:"choice_value,omitempty"      yaml:"choice_value,omitempty"`
 	Default      string                 `bson:"default"                   json:"default"                     yaml:"default"`
 	IsCredential bool                   `bson:"is_credential"             json:"is_credential"               yaml:"is_credential"`
-	Source       config.ParamSourceType `bson:"source,omitempty" json:"source,omitempty" yaml:"source,omitempty"`
+	Source       config.ParamSourceType `bson:"source,omitempty"          json:"source,omitempty"            yaml:"source,omitempty"`
 }
 
 type ShareStorage struct {
