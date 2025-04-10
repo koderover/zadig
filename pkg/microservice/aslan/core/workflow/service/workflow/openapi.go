@@ -454,6 +454,10 @@ func getInputUpdater(job *commonmodels.Job, input interface{}) (CustomJobInput, 
 		updater := new(ZadigVMDeployJobInput)
 		err := commonmodels.IToi(input, updater)
 		return updater, err
+	case config.JobSQL:
+		updater := new(SQLJobInput)
+		err := commonmodels.IToi(input, updater)
+		return updater, err
 	default:
 		return nil, errors.New("undefined job type of type:" + string(job.JobType))
 	}

@@ -745,6 +745,22 @@ func (p *ZadigVMDeployJobInput) UpdateJobSpec(job *commonmodels.Job) (*commonmod
 	return job, nil
 }
 
+type SQLJobInput struct {
+	EnvName     string                 `json:"env_name"` // required
+	ServiceList []*VMServiceDeployArgs `json:"service_list"`
+}
+
+func (p *SQLJobInput) UpdateJobSpec(job *commonmodels.Job) (*commonmodels.Job, error) {
+	newSpec := new(commonmodels.SQLJobSpec)
+	if err := commonmodels.IToi(job.Spec, newSpec); err != nil {
+		return nil, errors.New("unable to cast job.Spec into commonmodels.ZadigVMDeployJobSpec")
+	}
+
+	job.Spec = newSpec
+
+	return job, nil
+}
+
 type GetHelmValuesDifferenceResp struct {
 	Current string `json:"current"`
 	Latest  string `json:"latest"`
