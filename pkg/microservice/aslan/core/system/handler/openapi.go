@@ -401,8 +401,46 @@ const (
 )
 
 type OpenAPIGetOperationLogsResponse struct {
-	OperationLogs []*systemmodels.OperationLog `json:"operation_logs"`
-	Total         int                          `json:"total"`
+	OperationLogs []*OpenAPIOperationLog `json:"operation_logs"`
+	Total         int                    `json:"total"`
+}
+
+type OpenAPIOperationLog struct {
+	Username    string                `json:"username"`
+	ProjectKey  string                `json:"project_key"`
+	Method      string                `json:"method"`
+	Function    string                `json:"function"`
+	Scene       string                `json:"scene"`
+	Targets     []string              `json:"targets"`
+	Detail      string                `json:"detail"`
+	RequestBody string                `json:"request_body"`
+	BodyType    types.RequestBodyType `json:"body_type"`
+	Status      int                   `json:"status"`
+	CreatedAt   int64                 `json:"created_at"`
+}
+
+func convertOperationLogsToOpenAPISpec(operationLogs []*systemmodels.OperationLog) []*OpenAPIOperationLog {
+	openAPIOperationLogs := make([]*OpenAPIOperationLog, 0)
+	for _, operationLog := range operationLogs {
+		openAPIOperationLogs = append(openAPIOperationLogs, convertOperationLogToOpenAPISpec(operationLog))
+	}
+	return openAPIOperationLogs
+}
+
+func convertOperationLogToOpenAPISpec(operationLog *systemmodels.OperationLog) *OpenAPIOperationLog {
+	return &OpenAPIOperationLog{
+		Username:    operationLog.Username,
+		ProjectKey:  operationLog.ProductName,
+		Method:      operationLog.Method,
+		Function:    operationLog.Function,
+		Scene:       operationLog.Scene,
+		Targets:     operationLog.Targets,
+		Detail:      operationLog.Name,
+		RequestBody: operationLog.RequestBody,
+		BodyType:    operationLog.BodyType,
+		Status:      operationLog.Status,
+		CreatedAt:   operationLog.CreatedAt,
+	}
 }
 
 // @Summary 获取系统操作日志
@@ -483,7 +521,7 @@ func OpenAPIGetOperationLogs(c *gin.Context) {
 
 	resp, count, err := service.FindOperation(args, ctx.Logger)
 	ctx.Resp = OpenAPIGetOperationLogsResponse{
-		OperationLogs: resp,
+		OperationLogs: convertOperationLogsToOpenAPISpec(resp),
 		Total:         count,
 	}
 	ctx.RespErr = err
@@ -572,7 +610,7 @@ func OpenAPIGetEnvOperationLogs(c *gin.Context) {
 
 	resp, count, err := service.FindOperation(args, ctx.Logger)
 	ctx.Resp = OpenAPIGetOperationLogsResponse{
-		OperationLogs: resp,
+		OperationLogs: convertOperationLogsToOpenAPISpec(resp),
 		Total:         count,
 	}
 	ctx.RespErr = err
