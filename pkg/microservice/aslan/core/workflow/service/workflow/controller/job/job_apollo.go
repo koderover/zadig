@@ -19,6 +19,7 @@ package job
 import (
 	"context"
 	"fmt"
+
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/v2/pkg/types"
 
@@ -118,7 +119,7 @@ func (j ApolloJobController) Validate(isExecution bool) error {
 // Update does 2 things:
 // 1. ALWAYS use the configured apollo system and options.
 // 2. if there is a given selection and the configured system changed, clear it.
-func (j ApolloJobController) Update(useUserInput bool) error {
+func (j ApolloJobController) Update(useUserInput bool, ticket *commonmodels.ApprovalTicket) error {
 	currJob, err := j.workflow.FindJob(j.name, j.jobType)
 	if err != nil {
 		return err

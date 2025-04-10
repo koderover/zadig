@@ -104,7 +104,7 @@ func applyKeyVals(base, input commonmodels.RuntimeKeyValList, useInputKVSource b
 		}
 		item := &commonmodels.RuntimeKeyVal{
 			KeyVal: newKV,
-			Fixed:  baseKV.Fixed,
+			Source: baseKV.Source,
 		}
 
 		if inputKV, ok := inputMap[baseKV.Key]; ok {
@@ -122,7 +122,7 @@ func applyKeyVals(base, input commonmodels.RuntimeKeyValList, useInputKVSource b
 			}
 
 			if useInputKVSource {
-				item.Fixed = inputKV.Fixed
+				item.Source = inputKV.Source
 			}
 		}
 

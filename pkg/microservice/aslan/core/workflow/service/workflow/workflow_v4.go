@@ -21,12 +21,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/controller"
 	"net/http"
 	"sort"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/controller"
 
 	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	"github.com/pingcap/tidb/parser"
@@ -2132,71 +2133,6 @@ func GetLatestTaskInfo(workflowInfo *Workflow) (startTime int64, creator, status
 		}
 		return taskInfo.StartTime, taskInfo.TaskCreator, string(taskInfo.Status)
 	}
-}
-
-func GetFilteredEnvServices(workflowName, jobName, envName string, serviceNames []string, log *zap.SugaredLogger) ([]*commonmodels.DeployServiceInfo, error) {
-	resp := []*commonmodels.DeployServiceInfo{}
-	workflow, err := commonrepo.NewWorkflowV4Coll().Find(workflowName)
-	if err != nil {
-		msg := fmt.Sprintf("Failed to find WorkflowV4: %s, the error is: %v", workflowName, err)
-		log.Error(msg)
-		return resp, e.ErrFilterWorkflowVars.AddDesc(msg)
-	}
-	jobSpec := &commonmodels.ZadigDeployJobSpec{}
-	found := false
-	svcKVsMap := map[string][]*commonmodels.ServiceKeyVal{}
-	for _, stage := range workflow.Stages {
-		for _, job := range stage.Jobs {
-			if job.Name != jobName {
-				continue
-			}
-			if job.JobType != config.JobZadigDeploy {
-				msg := fmt.Sprintf("job: %s is not a deploy job", jobName)
-				log.Error(msg)
-				return resp, e.ErrFilterWorkflowVars.AddDesc(msg)
-			}
-			if err := commonmodels.IToiYaml(job.Spec, jobSpec); err != nil {
-				msg := fmt.Sprintf("unmarshal deploy job spec error: %v", err)
-				log.Error(msg)
-				return resp, e.ErrFilterWorkflowVars.AddDesc(msg)
-			}
-
-			for _, svc := range jobSpec.Services {
-				svcKVsMap[svc.ServiceName] = svc.KeyVals
-			}
-
-			found = true
-			break
-		}
-	}
-	if !found {
-		msg := fmt.Sprintf("job: %s not found", jobName)
-		log.Error(msg)
-		return resp, e.ErrFilterWorkflowVars.AddDesc(msg)
-	}
-	services, err := commonservice.ListServicesInEnv(envName, workflow.Project, svcKVsMap, log)
-	if err != nil {
-		return resp, e.ErrFilterWorkflowVars.AddErr(err)
-	}
-
-	serviceMap := map[string]*commonservice.EnvService{}
-	for _, service := range services.Services {
-		serviceMap[service.ServiceName] = service
-	}
-	deployServiceMap := map[string]*commonmodels.DeployServiceInfo{}
-	for _, service := range jobSpec.Services {
-		deployServiceMap[service.ServiceName] = service
-	}
-
-	for _, serviceName := range serviceNames {
-		service, err := job.FilterServiceVars(serviceName, jobSpec.DeployContents, deployServiceMap[serviceName], serviceMap[serviceName])
-		if err != nil {
-			log.Error(err)
-			return resp, e.ErrFilterWorkflowVars.AddErr(err)
-		}
-		resp = append(resp, service)
-	}
-	return resp, nil
 }
 
 type HelmDeployJobMergeImageResponse struct {

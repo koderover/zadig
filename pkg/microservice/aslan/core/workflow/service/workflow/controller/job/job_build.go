@@ -131,7 +131,7 @@ func (j BuildJobController) Validate(isExecution bool) error {
 	return nil
 }
 
-func (j BuildJobController) Update(useUserInput bool) error {
+func (j BuildJobController) Update(useUserInput bool, ticket *commonmodels.ApprovalTicket) error {
 	latestJob, err := j.workflow.FindJob(j.name, j.jobType)
 	if err != nil {
 		return fmt.Errorf("failed to find job: %s in workflow %s's latest config, error: %s", j.name, j.workflow.Name, err)

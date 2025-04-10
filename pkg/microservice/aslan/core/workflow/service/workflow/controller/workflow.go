@@ -54,7 +54,7 @@ func (w *Workflow) SetPreset(ticket *commonmodels.ApprovalTicket) error {
 				return err
 			}
 
-			err = ctrl.Update(true)
+			err = ctrl.Update(true, ticket)
 			if err != nil {
 				return err
 			}
@@ -186,7 +186,7 @@ func (w *Workflow) UpdateWithLatestWorkflow(ticket *commonmodels.ApprovalTicket)
 				return err
 			}
 
-			err = ctrl.Update(true)
+			err = ctrl.Update(true, ticket)
 			if err != nil {
 				return err
 			}

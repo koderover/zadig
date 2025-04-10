@@ -274,10 +274,10 @@ func GetWorkflowV4Preset(encryptedKey, workflowName, uid, username, ticketID str
 	return workflow, nil
 }
 
-func GetWorkflowV4DynamicVariableAvailable(ctx *internalhandler.Context, workflow *commonmodels.WorkflowV4, jobName string) ([]string, error) {
+func GetAvailableWorkflowV4DynamicVariable(ctx *internalhandler.Context, workflow *commonmodels.WorkflowV4, jobName string) ([]string, error) {
 	resp := make([]string, 0)
 
-	variables, err := jobctl.GetRenderWorkflowVariables(ctx, workflow, jobName, "", "", true)
+	variables, err := GetRenderWorkflowVariables(ctx, workflow, jobName, "", "", true)
 	if err != nil {
 		err = fmt.Errorf("Failed to get render workflow variables, error: %v", err)
 		ctx.Logger.Error(err)
@@ -294,7 +294,7 @@ func GetWorkflowV4DynamicVariableAvailable(ctx *internalhandler.Context, workflo
 func RenderWorkflowV4Variables(ctx *internalhandler.Context, workflow *commonmodels.WorkflowV4, jobName, serviceName, moduleName, key string) ([]string, error) {
 	resp := make([]string, 0)
 
-	variables, err := jobctl.GetRenderWorkflowVariables(ctx, workflow, jobName, serviceName, moduleName, false)
+	variables, err := GetRenderWorkflowVariables(ctx, workflow, jobName, serviceName, moduleName, false)
 	if err != nil {
 		err = fmt.Errorf("Failed to get render workflow variables, error: %v", err)
 		ctx.Logger.Error(err)
@@ -2601,4 +2601,95 @@ func ListWorkflowFilterInfo(project, workflow, typeName string, jobName string, 
 	default:
 		return nil, fmt.Errorf("queryType parameter is invalid")
 	}
+}
+
+func GetRenderWorkflowVariables(ctx *internalhandler.Context, workflow *commonmodels.WorkflowV4, jobName, serviceName, moduleName string, getAvailableVars bool) ([]*commonmodels.KeyVal, error) {
+	resp := []*commonmodels.KeyVal{}
+
+	key := "project"
+	if getAvailableVars {
+		key = "{{.project}}"
+	}
+	resp = append(resp, &commonmodels.KeyVal{
+		Key:          key,
+		Value:        workflow.Project,
+		Type:         "string",
+		IsCredential: false,
+	})
+
+	key = "workflow_name"
+	if getAvailableVars {
+		key = "{{.workflow.name}}"
+	}
+	resp = append(resp, &commonmodels.KeyVal{
+		Key:          key,
+		Value:        workflow.Name,
+		Type:         "string",
+		IsCredential: false,
+	})
+
+	for _, param := range workflow.Params {
+		key := "workflow_params_" + param.Name
+		if getAvailableVars {
+			key = "{{.workflow.params." + param.Name + "}}"
+		}
+		resp = append(resp, &commonmodels.KeyVal{
+			Key:   key,
+			Value: param.Value,
+		})
+	}
+
+	for _, stage := range workflow.Stages {
+		for _, job := range stage.Jobs {
+			switch job.JobType {
+			case config.JobZadigBuild:
+				jobCtl := &BuildJob{job: job, workflow: workflow}
+				vars, err := jobCtl.GetRenderVariables(ctx, jobName, serviceName, moduleName, getAvailableVars)
+				if err != nil {
+					err = errors.Wrapf(err, "failed to get render variables for build job %s", job.Name)
+					ctx.Logger.Error(err)
+					return resp, err
+				}
+				resp = append(resp, vars...)
+			case config.JobFreestyle:
+				jobCtl := &FreeStyleJob{job: job, workflow: workflow}
+				vars, err := jobCtl.GetRenderVariables(ctx, jobName, serviceName, moduleName, getAvailableVars)
+				if err != nil {
+					err = errors.Wrapf(err, "failed to get render variables for freestyle job %s", job.Name)
+					ctx.Logger.Error(err)
+					return resp, err
+				}
+				resp = append(resp, vars...)
+			case config.JobZadigTesting:
+				jobCtl := &TestingJob{job: job, workflow: workflow}
+				vars, err := jobCtl.GetRenderVariables(ctx, jobName, serviceName, moduleName, getAvailableVars)
+				if err != nil {
+					err = errors.Wrapf(err, "failed to get render variables for testing job %s", job.Name)
+					ctx.Logger.Error(err)
+					return resp, err
+				}
+				resp = append(resp, vars...)
+			case config.JobZadigScanning:
+				jobCtl := &ScanningJob{job: job, workflow: workflow}
+				vars, err := jobCtl.GetRenderVariables(ctx, jobName, serviceName, moduleName, getAvailableVars)
+				if err != nil {
+					err = errors.Wrapf(err, "failed to get render variables for scanning job %s", job.Name)
+					ctx.Logger.Error(err)
+					return resp, err
+				}
+				resp = append(resp, vars...)
+			case config.JobZadigDeploy:
+				jobCtl := &DeployJob{job: job, workflow: workflow}
+				vars, err := jobCtl.GetRenderVariables(ctx, jobName, serviceName, moduleName, getAvailableVars)
+				if err != nil {
+					err = errors.Wrapf(err, "failed to get render variables for deploy job %s", job.Name)
+					ctx.Logger.Error(err)
+					return resp, err
+				}
+				resp = append(resp, vars...)
+			}
+		}
+	}
+
+	return resp, nil
 }

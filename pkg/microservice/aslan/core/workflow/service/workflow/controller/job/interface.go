@@ -40,7 +40,7 @@ type Job interface {
 	Validate(isExecution bool) error
 	// Update function merge the given spec with the JobControllers workflow, giving an error if the merge is not possible
 	// @param useUserInput will use some of the field in the spec over the workflow's spec
-	Update(useUserInput bool) error
+	Update(useUserInput bool, ticket *commonmodels.ApprovalTicket) error
 	// SetOptions sets all option field to the spec, giving the frontend options to display
 	SetOptions(ticket *commonmodels.ApprovalTicket) error
 	// ClearOptions clears the options field, mainly for db
@@ -69,6 +69,8 @@ func CreateJobController(job *commonmodels.Job, workflow *commonmodels.WorkflowV
 		return CreateApolloJobController(job, workflow)
 	case config.JobZadigBuild:
 		return CreateBuildJobController(job, workflow)
+	case config.JobZadigDeploy:
+		return CreateDeployJobController(job, workflow)
 	default:
 		return nil, fmt.Errorf("job type not supported")
 	}

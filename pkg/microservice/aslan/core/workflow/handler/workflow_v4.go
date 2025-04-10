@@ -447,7 +447,7 @@ func RenderWorkflowV4DynamicVariables(c *gin.Context) {
 // @Param 	body 			body 		commonmodels.WorkflowV4		  			true 	"body"
 // @Success 200 			{array} 	string
 // @Router /api/aslan/workflow/v4/dynamicVariable/available [post]
-func GetWorkflowV4DynamicVariableAvailable(c *gin.Context) {
+func GetAvailableWorkflowV4DynamicVariable(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
@@ -460,7 +460,7 @@ func GetWorkflowV4DynamicVariableAvailable(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.RespErr = workflow.GetWorkflowV4DynamicVariableAvailable(ctx, args, c.Query("jobName"))
+	ctx.Resp, ctx.RespErr = workflow.GetAvailableWorkflowV4DynamicVariable(ctx, args, c.Query("jobName"))
 }
 
 func GetWorkflowV4Preset(c *gin.Context) {
@@ -1263,26 +1263,6 @@ func ListAllAvailableWorkflows(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	ctx.Resp, ctx.RespErr = workflow.ListAllAvailableWorkflows(c.QueryArray("projects"), ctx.Logger)
-}
-
-// @Summary Get filtered env services
-// @Description Get filtered env services
-// @Tags 	workflow
-// @Accept 	json
-// @Produce json
-// @Param 	body 		body 		filterDeployServiceVarsQuery	 	true 	"body"
-// @Success 200 		{array} 	commonmodels.DeployService
-// @Router /api/aslan/workflow/v4/filterEnv [post]
-func GetFilteredEnvServices(c *gin.Context) {
-	// TODO: fix the authorization problem for this.
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	req := new(filterDeployServiceVarsQuery)
-	if err := c.ShouldBindJSON(req); err != nil {
-		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
-		return
-	}
-	ctx.Resp, ctx.RespErr = workflow.GetFilteredEnvServices(req.WorkflowName, req.JobName, req.EnvName, req.ServiceNames, ctx.Logger)
 }
 
 type YamlResponse struct {

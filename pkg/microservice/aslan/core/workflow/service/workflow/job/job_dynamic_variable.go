@@ -19,7 +19,6 @@ package job
 import (
 	"bytes"
 	"fmt"
-	"os/exec"
 	"regexp"
 	"strings"
 	"text/template"
@@ -28,16 +27,16 @@ import (
 	"github.com/koderover/zadig/v2/pkg/util"
 )
 
-func getJobVariableKey(currentJobName, targetJobName, serviceName, moduleName, key string, getAvaiableVars bool) string {
+func getJobVariableKey(currentJobName, targetJobName, serviceName, moduleName, key string, getAvailableVars bool) string {
 	resp := ""
 	if serviceName == "" && moduleName == "" {
-		if getAvaiableVars {
+		if getAvailableVars {
 			resp = fmt.Sprintf("{{.job.%s.%s}}", currentJobName, key)
 		} else {
 			resp = fmt.Sprintf("job_%s_%s", currentJobName, key)
 		}
 	} else {
-		if getAvaiableVars {
+		if getAvailableVars {
 			resp = fmt.Sprintf("{{.job.%s.%s.%s.%s}}", currentJobName, serviceName, moduleName, key)
 		} else {
 			resp = fmt.Sprintf("job_%s_%s_%s_%s", currentJobName, serviceName, moduleName, key)
@@ -105,32 +104,4 @@ func renderScriptedVariableOptions(ctx *internalhandler.Context, serviceName, mo
 	}
 
 	return resp, nil
-}
-
-func renderCallFuncWithVariables(ctx *internalhandler.Context, callFunction string, variableMap map[string]string) (string, error) {
-	var scriptBuilder strings.Builder
-	scriptBuilder.WriteString("#!/bin/bash\n")
-	for key, value := range variableMap {
-		if strings.HasPrefix(value, "$") {
-			scriptBuilder.WriteString(fmt.Sprintf("%s=\"%s\"\n", key, value))
-		}
-	}
-	scriptBuilder.WriteString(fmt.Sprintf("TEXT='%s'\n", callFunction))
-	scriptBuilder.WriteString("RENDERED_TEXT=$(eval echo \"'$TEXT'\")\n")
-	scriptBuilder.WriteString("echo \"$RENDERED_TEXT\"")
-
-	script := scriptBuilder.String()
-	cmd := exec.Command("bash", "-c", script)
-	var out bytes.Buffer
-	var stderr bytes.Buffer
-	cmd.Stdout = &out
-	cmd.Stderr = &stderr
-	err := cmd.Run()
-	if err != nil {
-		err = fmt.Errorf("error executing script: %v, stderr: %s", err, stderr.String())
-		ctx.Logger.Error(err)
-		return "", err
-	}
-
-	return out.String(), nil
 }
