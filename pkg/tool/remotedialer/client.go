@@ -42,7 +42,7 @@ func ClientConnect(ctx context.Context, wsURL string, headers http.Header, diale
 
 // ConnectToProxy connect to websocket server
 func ConnectToProxy(rootCtx context.Context, proxyURL string, headers http.Header, auth ConnectAuthorizer, dialer *websocket.Dialer, onConnect func(context.Context, *Session) error) error {
-	log.Infof("Connecting to proxy: %s", proxyURL)
+	// log.Infof("Connecting to proxy: %s", proxyURL)
 
 	if dialer == nil {
 		dialer = &websocket.Dialer{Proxy: http.ProxyFromEnvironment, HandshakeTimeout: HandshakeTimeOut}
@@ -83,6 +83,8 @@ func ConnectToProxy(rootCtx context.Context, proxyURL string, headers http.Heade
 		_, err = session.Serve(ctx)
 		result <- err
 	}()
+
+	log.Infof("Connected to proxy %s", proxyURL)
 
 	select {
 	case <-ctx.Done():

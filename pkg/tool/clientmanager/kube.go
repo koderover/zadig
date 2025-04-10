@@ -19,7 +19,6 @@ package clientmanager
 import (
 	"context"
 	"fmt"
-	kruise "github.com/openkruise/kruise-api/apps/v1alpha1"
 	"net/http"
 	"net/url"
 	"os"
@@ -27,6 +26,7 @@ import (
 	"time"
 
 	"github.com/koderover/zadig/v2/pkg/tool/log"
+	kruise "github.com/openkruise/kruise-api/apps/v1alpha1"
 	"github.com/pkg/errors"
 	istioClient "istio.io/client-go/pkg/clientset/versioned"
 	"k8s.io/apimachinery/pkg/runtime"

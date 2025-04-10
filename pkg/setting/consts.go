@@ -42,10 +42,11 @@ const (
 	ENVRedisUserTokenDB        = "REDIS_USER_TOKEN_DB"
 	ENVRedisCommonCacheDB      = "REDIS_COMMON_CACHE_DB"
 	ENVChartVersion            = "CHART_VERSION"
+	ENVPodName                 = "BE_POD_NAME"
+	ENVPodIP                   = "BE_POD_IP"
+	ENVNamespace               = "BE_POD_NAMESPACE"
 
 	// Aslan
-	ENVPodName              = "BE_POD_NAME"
-	ENVNamespace            = "BE_POD_NAMESPACE"
 	ENVLogLevel             = "LOG_LEVEL"
 	ENVExecutorLogLevel     = "EXECUTOR_LOG_LEVEL"
 	ENVServiceStartTimeout  = "SERVICE_START_TIMEOUT"

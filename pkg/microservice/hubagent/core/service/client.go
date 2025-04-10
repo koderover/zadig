@@ -96,7 +96,7 @@ func (c *Client) getParams() (*input, error) {
 	}, nil
 }
 
-func Init() error {
+func Init(ctx context.Context) error {
 	token := config.HubAgentToken()
 	if token == "" {
 		return fmt.Errorf("token must be configured")
@@ -128,10 +128,10 @@ func Init() error {
 		},
 	)
 
-	return app.Start()
+	return app.Start(ctx)
 }
 
-func (c *Client) Start() error {
+func (c *Client) Start(ctx context.Context) error {
 	params, err := c.getParams()
 	if err != nil {
 		return err
@@ -148,7 +148,7 @@ func (c *Client) Start() error {
 	}
 
 	connectURL := fmt.Sprintf("%s/connect", c.Server)
-	c.logger.Infof("connect to %s with token %s", connectURL, c.Token)
+	c.logger.Infof("Connect to %s with token %s", connectURL, c.Token)
 
 	bo := backoff.NewExponentialBackOff()
 
@@ -158,37 +158,48 @@ func (c *Client) Start() error {
 	retries := 0
 	timeout := 10 * time.Second
 
-	return backoff.Retry(func() error {
-		if retries > 0 {
-			c.logger.Infof("retrying to connect to %s", connectURL)
-		}
+	errChan := make(chan error, 1)
+	go func() {
+		errChan <- backoff.Retry(func() error {
+			if retries > 0 {
+				c.logger.Infof("Retrying to connect to %s", connectURL)
+			}
 
-		tm := time.Now()
+			tm := time.Now()
 
-		remotedialer.ClientConnect(
-			context.Background(),
-			connectURL,
-			headers,
-			&websocket.Dialer{
-				HandshakeTimeout: timeout,
-				Proxy:            http.ProxyFromEnvironment,
-			},
-			func(proto, address string) bool {
-				switch proto {
-				case "tcp":
-					return true
-				case "unix":
-					return address == "/var/run/docker.sock"
-				}
-				return false
-			}, nil)
+			remotedialer.ClientConnect(
+				context.Background(),
+				connectURL,
+				headers,
+				&websocket.Dialer{
+					HandshakeTimeout: timeout,
+					Proxy:            http.ProxyFromEnvironment,
+				},
+				func(proto, address string) bool {
+					switch proto {
+					case "tcp":
+						return true
+					case "unix":
+						return address == "/var/run/docker.sock"
+					}
+					return false
+				}, nil)
 
-		// 如果连接时间超过2倍的超时时间, 则认为已经成功连接，需要立即重连
-		if time.Since(tm) > 2*timeout {
-			bo.Reset()
-		}
+			// 如果连接时间超过2倍的超时时间, 则认为已经成功连接，需要立即重连
+			if time.Since(tm) > 2*timeout {
+				c.logger.Errorf("Connection timeout")
+				bo.Reset()
+			}
 
-		retries++
-		return errors.New("retry")
-	}, bo)
+			retries++
+			return errors.New("retry")
+		}, bo)
+	}()
+
+	select {
+	case <-ctx.Done():
+		return nil
+	case err := <-errChan:
+		return err
+	}
 }
