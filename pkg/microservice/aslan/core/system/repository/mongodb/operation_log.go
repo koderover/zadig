@@ -170,9 +170,18 @@ func (c *OperationLogColl) Find(args *OperationLogArgs) ([]*models2.OperationLog
 		return nil, 0, err
 	}
 
-	count, err := c.CountDocuments(context.TODO(), query)
-	if err != nil {
-		return nil, 0, err
+	var count int64
+	if len(query) == 0 {
+		count, err = c.EstimatedDocumentCount(context.TODO())
+		if err != nil {
+			return nil, 0, err
+		}
+	} else {
+		count, err = c.CountDocuments(context.TODO(), query)
+		if err != nil {
+			return nil, 0, err
+		}
+
 	}
 
 	return res, int(count), err
