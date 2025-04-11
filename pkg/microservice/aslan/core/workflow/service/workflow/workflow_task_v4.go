@@ -1703,7 +1703,7 @@ func ListWorkflowTaskV4ByFilter(filter *TaskHistoryFilter, filterList []string, 
 
 					// get test report
 					testModules := make([]*commonmodels.WorkflowTestModule, 0)
-					testResultList, err := commonrepo.NewCustomWorkflowTestReportColl().ListByWorkflow(filter.WorkflowName, job.Name, task.TaskID)
+					testResultList, err := commonrepo.NewCustomWorkflowTestReportColl().ListByWorkflowJobName(filter.WorkflowName, job.Name, task.TaskID)
 					if err != nil {
 						log.Errorf("failed to list junit test report for workflow: %s, error: %s", filter.WorkflowName, err)
 						return nil, 0, fmt.Errorf("failed to list junit test report for workflow: %s, error: %s", filter.WorkflowName, err)
