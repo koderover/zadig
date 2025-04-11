@@ -490,4 +490,10 @@ func (*OpenAPIRouter) Inject(router *gin.RouterGroup) {
 		cluster.PUT("/:id", OpenAPIUpdateCluster)
 		cluster.DELETE("/:id", OpenAPIDeleteCluster)
 	}
+
+	operation := router.Group("operation")
+	{
+		operation.GET("", OpenAPIGetOperationLogs)
+		operation.GET("/env", OpenAPIGetEnvOperationLogs)
+	}
 }
