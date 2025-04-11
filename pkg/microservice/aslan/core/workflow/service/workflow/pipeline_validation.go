@@ -20,13 +20,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/controller/job"
 	"regexp"
 	"sort"
 	"sync"
 
 	"github.com/google/go-github/v35/github"
-	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	"go.uber.org/zap"
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -42,6 +40,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/shared/client/systemconfig"
 	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
+	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/gerrit"
 	"github.com/koderover/zadig/v2/pkg/tool/gitee"
@@ -316,17 +315,17 @@ func setBuildInfo(build *types.Repository, buildArgs []*types.Repository, log *z
 	build.Address = codeHostInfo.Address
 	if codeHostInfo.Type == systemconfig.GitLabProvider || codeHostInfo.Type == systemconfig.GerritProvider {
 		if build.CommitID == "" {
-			var commit *job.RepoCommit
-			var pr *job.PRCommit
+			var commit *commonservice.RepoCommit
+			var pr *commonservice.PRCommit
 			var err error
 			if build.Tag != "" {
-				commit, err = job.QueryByTag(build.CodehostID, build.GetRepoNamespace(), build.RepoName, build.Tag, log)
+				commit, err = commonservice.QueryByTag(build.CodehostID, build.GetRepoNamespace(), build.RepoName, build.Tag)
 			} else if build.Branch != "" && len(build.PRs) == 0 {
-				commit, err = job.QueryByBranch(build.CodehostID, build.GetRepoNamespace(), build.RepoName, build.Branch, log)
+				commit, err = commonservice.QueryByBranch(build.CodehostID, build.GetRepoNamespace(), build.RepoName, build.Branch)
 			} else if len(build.PRs) > 0 {
-				pr, err = job.GetLatestPrCommit(build.CodehostID, getlatestPrNum(build), build.GetRepoNamespace(), build.RepoName, log)
+				pr, err = commonservice.GetLatestPrCommit(build.CodehostID, getlatestPrNum(build), build.GetRepoNamespace(), build.RepoName)
 				if err == nil && pr != nil {
-					commit = &job.RepoCommit{
+					commit = &commonservice.RepoCommit{
 						ID:         pr.ID,
 						Message:    pr.Title,
 						AuthorName: pr.AuthorName,

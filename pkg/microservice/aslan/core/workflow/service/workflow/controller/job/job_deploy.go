@@ -18,6 +18,7 @@ package job
 
 import (
 	"fmt"
+	"strings"
 
 	"golang.org/x/exp/slices"
 
@@ -88,7 +89,7 @@ func (j DeployJobController) Validate(isExecution bool) error {
 	if j.jobSpec.Source != config.SourceFromJob {
 		return nil
 	}
-	jobRankMap := getJobRankMap(j.workflow.Stages)
+	jobRankMap := GetJobRankMap(j.workflow.Stages)
 	buildJobRank, ok := jobRankMap[j.jobSpec.JobName]
 	if !ok || buildJobRank >= jobRankMap[j.name] {
 		return fmt.Errorf("can not quote job %s in job %s", j.jobSpec.JobName, j.name)
@@ -586,6 +587,68 @@ func (j DeployJobController) SetRepo(repo *types.Repository) error {
 
 func (j DeployJobController) SetRepoCommitInfo() error {
 	return nil
+}
+
+func (j DeployJobController) GetVariableList(jobName string, getAggregatedVariables, getRuntimeVariables, getPlaceHolderVariables, getServiceSpecificVariables, getReferredKeyValVariables bool) ([]*commonmodels.KeyVal, error) {
+	resp := make([]*commonmodels.KeyVal, 0)
+	if getAggregatedVariables {
+		resp = append(resp, &commonmodels.KeyVal{
+			Key:          strings.Join([]string{"job", j.name, "envName"}, "."),
+			Value:        j.jobSpec.Env,
+			Type:         "string",
+			IsCredential: false,
+		})
+
+		resp = append(resp, &commonmodels.KeyVal{
+			Key:          strings.Join([]string{"job", j.name, "IMAGES"}, "."),
+			Value:        j.jobSpec.Env,
+			Type:         "string",
+			IsCredential: false,
+		})
+
+		resp = append(resp, &commonmodels.KeyVal{
+			Key:          strings.Join([]string{"job", j.name, "SERVICES"}, "."),
+			Value:        j.jobSpec.Env,
+			Type:         "string",
+			IsCredential: false,
+		})
+	}
+
+	if getRuntimeVariables {
+		for _, target := range j.jobSpec.Services {
+			for _, targetModule := range target.Modules {
+				targetKey := strings.Join([]string{j.name, target.ServiceName, targetModule.ServiceModule}, ".")
+				resp = append(resp, &commonmodels.KeyVal{
+					Key:          job.GetJobOutputKey(targetKey, "IMAGE"),
+					Value:        "",
+					Type:         "string",
+					IsCredential: false,
+				})
+			}
+		}
+
+		resp = append(resp, &commonmodels.KeyVal{
+			Key:          job.GetJobOutputKey(j.name, "envName"),
+			Value:        "",
+			Type:         "string",
+			IsCredential: false,
+		})
+	}
+
+	if getPlaceHolderVariables {
+		resp = append(resp, &commonmodels.KeyVal{
+			Key:          job.GetJobOutputKey(fmt.Sprintf("%s.%s.%s", j.name, "<SERVICE>", "<MODULE>"), "IMAGE"),
+			Value:        "",
+			Type:         "string",
+			IsCredential: false,
+		})
+	}
+
+	return resp, nil
+}
+
+func (j DeployJobController) GetUsedRepos() ([]*types.Repository, error) {
+	return make([]*types.Repository, 0), nil
 }
 
 func (j DeployJobController) getReferredJobOrder(serviceReferredJob, imageReferredJob string) ([]*commonmodels.ServiceWithModuleAndImage, error) {

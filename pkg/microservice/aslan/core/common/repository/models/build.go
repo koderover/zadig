@@ -17,6 +17,8 @@ limitations under the License.
 package models
 
 import (
+	"strings"
+
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/v2/pkg/util"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -207,6 +209,13 @@ type KeyVal struct {
 	FunctionReference []string             `bson:"function_reference,omitempty" json:"function_reference,omitempty" yaml:"function_reference,omitempty"`
 	IsCredential      bool                 `bson:"is_credential"                json:"is_credential"                yaml:"is_credential"`
 	Description       string               `bson:"description"                  json:"description"                  yaml:"description"`
+}
+
+func (kv *KeyVal) GetValue() string {
+	if kv.Type == MultiSelectType {
+		return strings.Join(kv.ChoiceValue, ",")
+	}
+	return kv.Value
 }
 
 type KeyValList []*KeyVal

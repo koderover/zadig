@@ -1438,6 +1438,13 @@ type Param struct {
 	Source       config.ParamSourceType `bson:"source,omitempty"          json:"source,omitempty"            yaml:"source,omitempty"`
 }
 
+func (p *Param) GetValue() string {
+	if p.ParamsType == "multi-select" {
+		return strings.Join(p.ChoiceValue, ",")
+	}
+	return p.Value
+}
+
 type ShareStorage struct {
 	Name string `bson:"name"             json:"name"             yaml:"name"`
 	Path string `bson:"path"             json:"path"             yaml:"path"`

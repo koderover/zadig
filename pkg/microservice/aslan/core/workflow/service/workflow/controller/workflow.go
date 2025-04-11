@@ -430,6 +430,154 @@ func (w *Workflow) SetRepo(repo *types.Repository) error {
 	return nil
 }
 
+func (w *Workflow) GetDynamicVariableValues(jobName, serviceName, moduleName, key string, buildInVarMap map[string]string) ([]string, error) {
+	return nil, nil
+}
+
+type GetWorkflowVariablesOption struct {
+	// GetAggregatedVariables gets the job's aggregated information, such as job.<name>.SERVICES in build job/ job.<name>.IMAGES in deploy job
+	GetAggregatedVariables bool
+	// GetRuntimeVariables gets the variables that can only be rendered in the workflow runtime. There are several examples:
+	// 1. workflow level variables: workflow.task.creator
+	// 2. outputs defined in each separate job
+	GetRuntimeVariables bool
+	// GetPlaceHolderVariables gets the variables with service/module placeholders, such as
+	// job.jobName.<service>.<module>.xxxx
+	GetPlaceHolderVariables bool
+	// GetServiceSpecificVariables gets the variables with service/module placeholders, such as
+	// job.jobName.service1.module1.xxxx
+	// NOTE that there is a special case to this flag: job.jobName.service1.module1.BRANCH/COMMITID/GITURL in the build job.
+	// these 3 variable is controlled by GetRuntimeVariables
+	GetServiceSpecificVariables bool
+	// GetReferredKeyValVariables gets the referred build/scan/testing job's key value as variables
+	GetReferredKeyValVariables bool
+}
+
+// GetReferableVariables gets all the variable that can be used by dynamic variables/other job to refer.
+// 1. the key in the response is returned in the a.b.c format, there will be no {{.}} format or replacing . with _ logic
+// caller will need to process that by themselves.
+// 2. Note that runtime variables will not have values in the response, use the value in the response with care.
+// 3. the rendered KV will only have type string since it is mainly used for dynamic variable rendering, change this if required
+func (w *Workflow) GetReferableVariables(currentJobName string, option GetWorkflowVariablesOption) ([]*commonmodels.KeyVal, error) {
+	resp := make([]*commonmodels.KeyVal, 0)
+
+	resp = append(resp, &commonmodels.KeyVal{
+		Key:          "project",
+		Value:        w.Project,
+		Type:         "string",
+		IsCredential: false,
+	})
+
+	resp = append(resp, &commonmodels.KeyVal{
+		Key:          "workflow.name",
+		Value:        w.Name,
+		Type:         "string",
+		IsCredential: false,
+	})
+
+	if option.GetRuntimeVariables {
+		resp = append(resp, &commonmodels.KeyVal{
+			Key:          "workflow.task.creator",
+			Value:        "",
+			Type:         "string",
+			IsCredential: false,
+		})
+
+		resp = append(resp, &commonmodels.KeyVal{
+			Key:          "workflow.task.creator.id",
+			Value:        "",
+			Type:         "string",
+			IsCredential: false,
+		})
+
+		resp = append(resp, &commonmodels.KeyVal{
+			Key:          "workflow.task.creator.userId",
+			Value:        "",
+			Type:         "string",
+			IsCredential: false,
+		})
+
+		resp = append(resp, &commonmodels.KeyVal{
+			Key:          "workflow.task.timestamp",
+			Value:        "",
+			Type:         "string",
+			IsCredential: false,
+		})
+
+		resp = append(resp, &commonmodels.KeyVal{
+			Key:          "workflow.task.id",
+			Value:        "",
+			Type:         "string",
+			IsCredential: false,
+		})
+	}
+
+	for _, param := range w.Params {
+		if param.ParamsType == "repo" {
+			continue
+		}
+
+		resp = append(resp, &commonmodels.KeyVal{
+			Key:          strings.Join([]string{"workflow", "params", param.Name}, "."),
+			Value:        param.GetValue(),
+			Type:         "string",
+			IsCredential: false,
+		})
+	}
+
+	jobRankMap := jobctrl.GetJobRankMap(w.Stages)
+
+	for _, stage := range w.Stages {
+		for _, j := range stage.Jobs {
+			getRuntimeVariableFlag := option.GetRuntimeVariables
+			if currentJobName != "" && jobRankMap[currentJobName] < jobRankMap[j.Name] {
+				// you cant get a job's output if the current job is runs before given job
+				getRuntimeVariableFlag = false
+			}
+
+			ctrl, err := jobctrl.CreateJobController(j, w.WorkflowV4)
+			if err != nil {
+				return nil, err
+			}
+
+			kv, err := ctrl.GetVariableList(j.Name,
+				option.GetAggregatedVariables,
+				getRuntimeVariableFlag,
+				option.GetPlaceHolderVariables,
+				option.GetServiceSpecificVariables,
+				option.GetReferredKeyValVariables,
+			)
+
+			if err != nil {
+				return nil, err
+			}
+
+			resp = append(resp, kv...)
+		}
+	}
+
+	return resp, nil
+}
+
+func (w *Workflow) GetUsedRepos() ([]*types.Repository, error) {
+	resp := make([]*types.Repository, 0)
+	for _, stage := range w.Stages {
+		for _, j := range stage.Jobs {
+			ctrl, err := jobctrl.CreateJobController(j, w.WorkflowV4)
+			if err != nil {
+				return nil, err
+			}
+
+			usedRepos, err := ctrl.GetUsedRepos()
+			if err != nil {
+				return nil, err
+			}
+			resp = append(resp, usedRepos...)
+		}
+	}
+	return resp, nil
+}
+
 func renderParams(origin, input []*commonmodels.Param) []*commonmodels.Param {
 	resp := make([]*commonmodels.Param, 0)
 	for _, originParam := range origin {

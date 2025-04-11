@@ -23,6 +23,7 @@ import (
 	"strings"
 
 	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	configbase "github.com/koderover/zadig/v2/pkg/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
@@ -354,7 +355,7 @@ func (j BuildJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, error
 		if err != nil {
 			return nil, err
 		}
-		outputs := ensureBuildInOutputs(buildInfo.Outputs)
+		outputs := ensureBuiltInBuildOutputs(buildInfo.Outputs)
 		jobTaskSpec := &commonmodels.JobTaskFreestyleSpec{}
 		jobTask := &commonmodels.JobTask{
 			JobInfo: map[string]string{
@@ -700,6 +701,210 @@ func (j BuildJobController) SetRepoCommitInfo() error {
 	return nil
 }
 
+func (j BuildJobController) GetVariableList(jobName string, getAggregatedVariables, getRuntimeVariables, getPlaceHolderVariables, getServiceSpecificVariables, getReferredKeyValVariables bool) ([]*commonmodels.KeyVal, error) {
+	resp := make([]*commonmodels.KeyVal, 0)
+
+	if getAggregatedVariables {
+		resp = append(resp, &commonmodels.KeyVal{
+			Key:          strings.Join([]string{"job", j.name, "SERVICES"}, "."),
+			Value:        "",
+			Type:         "string",
+			IsCredential: false,
+		})
+
+		resp = append(resp, &commonmodels.KeyVal{
+			Key:          strings.Join([]string{"job", j.name, "BRANCHES"}, "."),
+			Value:        "",
+			Type:         "string",
+			IsCredential: false,
+		})
+
+		resp = append(resp, &commonmodels.KeyVal{
+			Key:          strings.Join([]string{"job", j.name, "IMAGES"}, "."),
+			Value:        "",
+			Type:         "string",
+			IsCredential: false,
+		})
+
+		resp = append(resp, &commonmodels.KeyVal{
+			Key:          strings.Join([]string{"job", j.name, "GITURLS"}, "."),
+			Value:        "",
+			Type:         "string",
+			IsCredential: false,
+		})
+	}
+
+	if getRuntimeVariables {
+		outputKeys := sets.NewString()
+		buildSvc := commonservice.NewBuildService()
+		for _, build := range j.jobSpec.ServiceAndBuildsOptions {
+			jobKey := strings.Join([]string{j.name, build.ServiceName, build.ServiceModule}, ".")
+			buildInfo, err := buildSvc.GetBuild(build.BuildName, build.ServiceName, build.ServiceModule)
+			if err != nil {
+				return nil, err
+			}
+			for _, output := range ensureBuiltInBuildOutputs(buildInfo.Outputs) {
+				if getServiceSpecificVariables {
+					resp = append(resp, &commonmodels.KeyVal{
+						Key:          job.GetJobOutputKey(jobKey, output.Name),
+						Value:        "",
+						Type:         "string",
+						IsCredential: false,
+					})
+				}
+				outputKeys = outputKeys.Insert(output.Name)
+			}
+		}
+		if getPlaceHolderVariables {
+			jobKey := strings.Join([]string{j.name, "<SERVICE>", "<MODULE>"}, ".")
+			for _, key := range outputKeys.List() {
+				resp = append(resp, &commonmodels.KeyVal{
+					Key:          job.GetJobOutputKey(jobKey, key),
+					Value:        "",
+					Type:         "string",
+					IsCredential: false,
+				})
+			}
+		}
+	}
+
+	if getPlaceHolderVariables {
+		jobKey := strings.Join([]string{j.name, "<SERVICE>", "<MODULE>"}, ".")
+		resp = append(resp, &commonmodels.KeyVal{
+			Key:          job.GetJobOutputKey(jobKey, GITURLKEY),
+			Value:        "",
+			Type:         "string",
+			IsCredential: false,
+		})
+
+		resp = append(resp, &commonmodels.KeyVal{
+			Key:          job.GetJobOutputKey(jobKey, BRANCHKEY),
+			Value:        "",
+			Type:         "string",
+			IsCredential: false,
+		})
+
+		resp = append(resp, &commonmodels.KeyVal{
+			Key:          job.GetJobOutputKey(jobKey, COMMITIDKEY),
+			Value:        "",
+			Type:         "string",
+			IsCredential: false,
+		})
+
+		resp = append(resp, &commonmodels.KeyVal{
+			Key:          job.GetJobOutputKey(jobKey, REPONAMEKEY),
+			Value:        "",
+			Type:         "string",
+			IsCredential: false,
+		})
+
+		resp = append(resp, &commonmodels.KeyVal{
+			Key:          job.GetJobOutputKey(jobKey, "SERVICE_NAME"),
+			Value:        "",
+			Type:         "string",
+			IsCredential: false,
+		})
+
+		resp = append(resp, &commonmodels.KeyVal{
+			Key:          job.GetJobOutputKey(jobKey, "SERVICE_MODULE"),
+			Value:        "",
+			Type:         "string",
+			IsCredential: false,
+		})
+
+		if getReferredKeyValVariables {
+			keySet := sets.NewString()
+			for _, service := range j.jobSpec.ServiceAndBuildsOptions {
+				for _, keyVal := range service.KeyVals {
+					keySet = keySet.Insert(keyVal.Key)
+				}
+			}
+
+			for _, key := range keySet.List() {
+				resp = append(resp, &commonmodels.KeyVal{
+					Key:          job.GetJobOutputKey(jobKey, key),
+					Value:        "",
+					Type:         "string",
+					IsCredential: false,
+				})
+			}
+		}
+	}
+
+	if getServiceSpecificVariables {
+		for _, service := range j.jobSpec.ServiceAndBuildsOptions {
+			jobKey := strings.Join([]string{j.name, service.ServiceName, service.ServiceModule}, ".")
+			for _, keyVal := range service.KeyVals {
+				resp = append(resp, &commonmodels.KeyVal{
+					Key:          job.GetJobOutputKey(jobKey, keyVal.Key),
+					Value:        keyVal.GetValue(),
+					Type:         "string",
+					IsCredential: false,
+				})
+			}
+
+			for _, repo := range service.Repos {
+				resp = append(resp, &commonmodels.KeyVal{
+					Key:          job.GetJobOutputKey(jobKey, BRANCHKEY),
+					Value:        repo.Branch,
+					Type:         "string",
+					IsCredential: false,
+				})
+
+				resp = append(resp, &commonmodels.KeyVal{
+					Key:          job.GetJobOutputKey(jobKey, COMMITIDKEY),
+					Value:        repo.CommitID,
+					Type:         "string",
+					IsCredential: false,
+				})
+
+				resp = append(resp, &commonmodels.KeyVal{
+					Key:          job.GetJobOutputKey(jobKey, REPONAMEKEY),
+					Value:        repo.RepoName,
+					Type:         "string",
+					IsCredential: false,
+				})
+				break
+			}
+
+			resp = append(resp, &commonmodels.KeyVal{
+				Key:          job.GetJobOutputKey(jobKey, "SERVICE_NAME"),
+				Value:        service.ServiceName,
+				Type:         "string",
+				IsCredential: false,
+			})
+
+			resp = append(resp, &commonmodels.KeyVal{
+				Key:          job.GetJobOutputKey(jobKey, "SERVICE_MODULE"),
+				Value:        service.ServiceModule,
+				Type:         "string",
+				IsCredential: false,
+			})
+		}
+	}
+
+	return resp, nil
+}
+
+func (j BuildJobController) GetUsedRepos() ([]*types.Repository, error) {
+	resp := make([]*types.Repository, 0)
+	buildSvc := commonservice.NewBuildService()
+	for _, build := range j.jobSpec.ServiceAndBuildsOptions {
+		buildInfo, err := buildSvc.GetBuild(build.BuildName, build.ServiceName, build.ServiceModule)
+		if err != nil {
+			log.Errorf("find build: %s error: %v", build.BuildName, err)
+			continue
+		}
+		for _, target := range buildInfo.Targets {
+			if target.ServiceName == build.ServiceName && target.ServiceModule == build.ServiceModule {
+				resp = append(resp, applyRepos(buildInfo.Repos, build.Repos)...)
+				break
+			}
+		}
+	}
+	return resp, nil
+}
+
 func (j BuildJobController) getOriginReferredJobTargets(jobName string) ([]*commonmodels.ServiceAndBuild, error) {
 	servicetargets := []*commonmodels.ServiceAndBuild{}
 	originTargetMap := make(map[string]*commonmodels.ServiceAndBuild)
@@ -893,29 +1098,6 @@ func (j BuildJobController) getOriginReferredJobTargets(jobName string) ([]*comm
 	return nil, fmt.Errorf("BuilJob: refered job %s not found", jobName)
 }
 
-func ensureBuildInOutputs(outputs []*commonmodels.Output) []*commonmodels.Output {
-	keyMap := map[string]struct{}{}
-	for _, output := range outputs {
-		keyMap[output.Name] = struct{}{}
-	}
-	if _, ok := keyMap[IMAGEKEY]; !ok {
-		outputs = append(outputs, &commonmodels.Output{
-			Name: IMAGEKEY,
-		})
-	}
-	if _, ok := keyMap[IMAGETAGKEY]; !ok {
-		outputs = append(outputs, &commonmodels.Output{
-			Name: IMAGETAGKEY,
-		})
-	}
-	if _, ok := keyMap[PKGFILEKEY]; !ok {
-		outputs = append(outputs, &commonmodels.Output{
-			Name: PKGFILEKEY,
-		})
-	}
-	return outputs
-}
-
 func getBuildJobCacheObjectPath(workflowName, serviceName, serviceModule string) string {
 	return fmt.Sprintf("%s/cache/%s/%s", workflowName, serviceName, serviceModule)
 }
@@ -940,4 +1122,27 @@ func getBuildJobVariables(build *commonmodels.ServiceAndBuild, taskID int64, pro
 	ret = append(ret, &commonmodels.KeyVal{Key: "BUILD_URL", Value: buildURL, IsCredential: false})
 	ret = append(ret, &commonmodels.KeyVal{Key: "PKG_FILE", Value: pkgFile, IsCredential: false})
 	return ret
+}
+
+func ensureBuiltInBuildOutputs(outputs []*commonmodels.Output) []*commonmodels.Output {
+	keyMap := map[string]struct{}{}
+	for _, output := range outputs {
+		keyMap[output.Name] = struct{}{}
+	}
+	if _, ok := keyMap[IMAGEKEY]; !ok {
+		outputs = append(outputs, &commonmodels.Output{
+			Name: IMAGEKEY,
+		})
+	}
+	if _, ok := keyMap[IMAGETAGKEY]; !ok {
+		outputs = append(outputs, &commonmodels.Output{
+			Name: IMAGETAGKEY,
+		})
+	}
+	if _, ok := keyMap[PKGFILEKEY]; !ok {
+		outputs = append(outputs, &commonmodels.Output{
+			Name: PKGFILEKEY,
+		})
+	}
+	return outputs
 }

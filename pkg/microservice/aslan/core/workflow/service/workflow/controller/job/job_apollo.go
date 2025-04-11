@@ -230,3 +230,11 @@ func (j ApolloJobController) SetRepo(repo *types.Repository) error {
 func (j ApolloJobController) SetRepoCommitInfo() error {
 	return nil
 }
+
+func (j ApolloJobController) GetVariableList(jobName string, getAggregatedVariables, getRuntimeVariables, getPlaceHolderVariables, getServiceSpecificVariables, getReferredKeyValVariables bool) ([]*commonmodels.KeyVal, error) {
+	return make([]*commonmodels.KeyVal, 0), nil
+}
+
+func (j ApolloJobController) GetUsedRepos() ([]*types.Repository, error) {
+	return make([]*types.Repository, 0), nil
+}

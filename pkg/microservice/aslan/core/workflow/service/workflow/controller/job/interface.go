@@ -53,6 +53,10 @@ type Job interface {
 	SetRepo(repo *types.Repository) error
 	// SetRepoCommitInfo ..
 	SetRepoCommitInfo() error
+	// GetVariableList gets the variable list by the given flags, note that most of the runtime variables will not have values so use this function with care
+	GetVariableList(jobName string, getAggregatedVariables, getRuntimeVariables, getPlaceHolderVariables, getServiceSpecificVariables, getReferredKeyValVariables bool) ([]*commonmodels.KeyVal, error)
+	// GetUsedRepos returns the all the repos a job used
+	GetUsedRepos() ([]*types.Repository, error)
 }
 
 type BasicInfo struct {

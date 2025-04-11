@@ -23,15 +23,15 @@ import (
 	"os"
 	"strings"
 
-	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	"go.uber.org/zap"
 
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	s3service "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/s3"
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/workflowcontroller/jobcontroller"
+	runtimeJobController "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/workflowcontroller/jobcontroller"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
-	jobctl "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/job"
+	jobcontroller "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/controller/job"
+	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/containerlog"
 	s3tool "github.com/koderover/zadig/v2/pkg/tool/s3"
 	"github.com/koderover/zadig/v2/pkg/util"
@@ -133,7 +133,7 @@ func GetScanningContainerLogs(scanID string, taskID int64, log *zap.SugaredLogge
 	}
 
 	job := workflowTask.Stages[0].Jobs[0]
-	jobName := jobctl.GenJobName(workflowTask.WorkflowArgs, job.OriginName, 0)
+	jobName := jobcontroller.GenJobName(workflowTask.WorkflowArgs, job.OriginName, 0)
 	if job.OriginName == "" {
 		// compatible with old data
 		scanning, err := commonrepo.NewScanningColl().GetByID(scanID)
@@ -150,7 +150,7 @@ func GetScanningContainerLogs(scanID string, taskID int64, log *zap.SugaredLogge
 		jobName = fmt.Sprintf("%s-%s", scanning.Name, name)
 	}
 
-	scanningLog, err := getContainerLogFromS3(workflowName, jobcontroller.GetJobContainerName(jobName), taskID, log)
+	scanningLog, err := getContainerLogFromS3(workflowName, runtimeJobController.GetJobContainerName(jobName), taskID, log)
 	if err != nil {
 		return "", err
 	}
@@ -178,7 +178,7 @@ func GetTestingContainerLogs(testName string, taskID int64, log *zap.SugaredLogg
 	}
 
 	job := workflowTask.Stages[0].Jobs[0]
-	jobName := jobctl.GenJobName(workflowTask.WorkflowArgs, job.OriginName, 0)
+	jobName := jobcontroller.GenJobName(workflowTask.WorkflowArgs, job.OriginName, 0)
 	if job.OriginName == "" {
 		// compatible with old data
 		jobInfo := new(commonmodels.TaskJobInfo)
@@ -188,7 +188,7 @@ func GetTestingContainerLogs(testName string, taskID int64, log *zap.SugaredLogg
 		jobName = strings.ToLower(fmt.Sprintf("%s-%s-%s", jobInfo.JobName, jobInfo.TestingName, jobInfo.RandStr))
 	}
 
-	testingLog, err := getContainerLogFromS3(workflowName, jobcontroller.GetJobContainerName(jobName), taskID, log)
+	testingLog, err := getContainerLogFromS3(workflowName, runtimeJobController.GetJobContainerName(jobName), taskID, log)
 	if err != nil {
 		return "", err
 	}

@@ -422,7 +422,7 @@ func FindWorkflowV4(c *gin.Context) {
 // @Param 	body 			body 		commonmodels.WorkflowV4		  			true 	"body"
 // @Success 200 			{array} 	string
 // @Router /api/aslan/workflow/v4/dynamicVariable/render [post]
-func RenderWorkflowV4DynamicVariables(c *gin.Context) {
+func GetWorkflowV4DynamicVariableValues(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
@@ -435,7 +435,7 @@ func RenderWorkflowV4DynamicVariables(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.RespErr = workflow.RenderWorkflowV4Variables(ctx, args, c.Query("jobName"), c.Query("serviceName"), c.Query("moduleName"), c.Query("key"))
+	ctx.Resp, ctx.RespErr = workflow.GetWorkflowV4DynamicVariableValues(ctx, args, c.Query("jobName"), c.Query("serviceName"), c.Query("moduleName"), c.Query("key"))
 }
 
 // @Summary Get Workflow V4 Dynamic Variable's Available Variables
@@ -1235,7 +1235,7 @@ func GetWorkflowGlobalVars(c *gin.Context) {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
-	ctx.Resp = workflow.GetWorkflowGlabalVars(args, c.Param("jobName"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = workflow.GetWorkflowGlobalVars(args, c.Param("jobName"), ctx.Logger)
 }
 
 func GetWorkflowRepoIndex(c *gin.Context) {

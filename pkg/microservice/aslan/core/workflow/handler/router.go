@@ -155,7 +155,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		workflowV4.DELETE("/:name", DeleteWorkflowV4)
 		workflowV4.GET("/preset/:name", GetWorkflowV4Preset)
 		workflowV4.POST("/dynamicVariable/available", GetAvailableWorkflowV4DynamicVariable)
-		workflowV4.POST("/dynamicVariable/render", RenderWorkflowV4DynamicVariables)
+		workflowV4.POST("/dynamicVariable/render", GetWorkflowV4DynamicVariableValues)
 		workflowV4.GET("/webhook/preset", GetWebhookForWorkflowV4Preset)
 		workflowV4.GET("/webhook", ListWebhookForWorkflowV4)
 		workflowV4.POST("/webhook/:workflowName", CreateWebhookForWorkflowV4)

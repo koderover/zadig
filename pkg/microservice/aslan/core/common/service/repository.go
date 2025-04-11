@@ -49,17 +49,17 @@ func FillRepositoryInfo(repo *types.Repository) error {
 	repo.Address = codeHostInfo.Address
 	if codeHostInfo.Type == systemconfig.GitLabProvider || codeHostInfo.Type == systemconfig.GerritProvider {
 		if repo.CommitID == "" {
-			var commit *repoCommit
-			var pr *prCommit
+			var commit *RepoCommit
+			var pr *PRCommit
 			var err error
 			if repo.Tag != "" {
-				commit, err = queryByTag(repo.CodehostID, repo.GetRepoNamespace(), repo.RepoName, repo.Tag)
+				commit, err = QueryByTag(repo.CodehostID, repo.GetRepoNamespace(), repo.RepoName, repo.Tag)
 			} else if repo.Branch != "" && len(repo.PRs) == 0 {
-				commit, err = queryByBranch(repo.CodehostID, repo.GetRepoNamespace(), repo.RepoName, repo.Branch)
+				commit, err = QueryByBranch(repo.CodehostID, repo.GetRepoNamespace(), repo.RepoName, repo.Branch)
 			} else if len(repo.PRs) > 0 {
-				pr, err = getLatestPrCommit(repo.CodehostID, getLatestPrNum(repo), repo.GetRepoNamespace(), repo.RepoName)
+				pr, err = GetLatestPrCommit(repo.CodehostID, getLatestPrNum(repo), repo.GetRepoNamespace(), repo.RepoName)
 				if err == nil && pr != nil {
-					commit = &repoCommit{
+					commit = &RepoCommit{
 						ID:         pr.ID,
 						Message:    pr.Title,
 						AuthorName: pr.AuthorName,
@@ -197,7 +197,7 @@ func FillRepositoryInfo(repo *types.Repository) error {
 }
 
 // RepoCommit : Repository commit struct
-type repoCommit struct {
+type RepoCommit struct {
 	ID         string     `json:"id"`
 	Title      string     `json:"title"`
 	AuthorName string     `json:"author_name"`
@@ -205,7 +205,7 @@ type repoCommit struct {
 	Message    string     `json:"message"`
 }
 
-func queryByBranch(id int, owner, name, branch string) (*repoCommit, error) {
+func QueryByBranch(id int, owner, name, branch string) (*RepoCommit, error) {
 	ch, err := systemconfig.New().GetCodeHost(id)
 	if err != nil {
 		return nil, err
@@ -234,7 +234,7 @@ func queryByBranch(id int, owner, name, branch string) (*repoCommit, error) {
 			return nil, err
 		}
 
-		return &repoCommit{
+		return &RepoCommit{
 			ID:         br.Commit.ID,
 			Title:      br.Commit.Title,
 			AuthorName: br.Commit.AuthorName,
@@ -248,7 +248,7 @@ func queryByBranch(id int, owner, name, branch string) (*repoCommit, error) {
 			return nil, err
 		}
 
-		return &repoCommit{
+		return &RepoCommit{
 			ID:         commit.Commit,
 			Title:      commit.Subject,
 			AuthorName: commit.Author.Name,
@@ -260,7 +260,7 @@ func queryByBranch(id int, owner, name, branch string) (*repoCommit, error) {
 	return nil, fmt.Errorf("%s is not supported yet", ch.Type)
 }
 
-func queryByTag(id int, owner, name, tag string) (*repoCommit, error) {
+func QueryByTag(id int, owner, name, tag string) (*RepoCommit, error) {
 	ch, err := systemconfig.New().GetCodeHost(id)
 	if err != nil {
 		return nil, err
@@ -279,7 +279,7 @@ func queryByTag(id int, owner, name, tag string) (*repoCommit, error) {
 			return nil, err
 		}
 
-		return &repoCommit{
+		return &RepoCommit{
 			ID:         br.Commit.ID,
 			Title:      br.Commit.Title,
 			AuthorName: br.Commit.AuthorName,
@@ -293,7 +293,7 @@ func queryByTag(id int, owner, name, tag string) (*repoCommit, error) {
 			return nil, err
 		}
 
-		return &repoCommit{
+		return &RepoCommit{
 			ID:         commit.Commit,
 			Title:      commit.Subject,
 			AuthorName: commit.Author.Name,
@@ -305,7 +305,7 @@ func queryByTag(id int, owner, name, tag string) (*repoCommit, error) {
 	return nil, fmt.Errorf("%s is not supported yet", ch.Type)
 }
 
-type prCommit struct {
+type PRCommit struct {
 	ID          string     `json:"id"`
 	Title       string     `json:"title"`
 	AuthorName  string     `json:"author_name"`
@@ -313,7 +313,7 @@ type prCommit struct {
 	CheckoutRef string     `json:"checkout_ref"`
 }
 
-func getLatestPrCommit(codehostID, pr int, namespace, projectName string) (*prCommit, error) {
+func GetLatestPrCommit(codehostID, pr int, namespace, projectName string) (*PRCommit, error) {
 	projectID := fmt.Sprintf("%s/%s", namespace, projectName)
 
 	ch, err := systemconfig.New().GetCodeHost(codehostID)
@@ -340,7 +340,7 @@ func getLatestPrCommit(codehostID, pr int, namespace, projectName string) (*prCo
 		}
 
 		tm := change.Revisions[change.CurrentRevision].Created.Time
-		return &prCommit{
+		return &PRCommit{
 			ID:          change.CurrentRevision,
 			Title:       change.Subject,
 			AuthorName:  change.Revisions[change.CurrentRevision].Uploader.Name,
@@ -351,25 +351,25 @@ func getLatestPrCommit(codehostID, pr int, namespace, projectName string) (*prCo
 	return getLatestPRCommitList(cli, projectID, pr)
 }
 
-func getLatestPRCommitList(cli *gitlab.Client, projectID string, pr int) (*prCommit, error) {
+func getLatestPRCommitList(cli *gitlab.Client, projectID string, pr int) (*PRCommit, error) {
 	opts := &gitlab.GetMergeRequestCommitsOptions{
 		Page:    1,
 		PerPage: 10,
 	}
 
-	respMRs := make([]*prCommit, 0)
+	respMRs := make([]*PRCommit, 0)
 
 	prCommits, _, err := cli.MergeRequests.GetMergeRequestCommits(projectID, pr, opts)
 	if err != nil {
 		return nil, err
 	}
 
-	for _, PRCommit := range prCommits {
-		prReq := &prCommit{
-			ID:         PRCommit.ID,
-			Title:      PRCommit.Title,
-			AuthorName: PRCommit.AuthorName,
-			CreatedAt:  PRCommit.CreatedAt,
+	for _, prCommit := range prCommits {
+		prReq := &PRCommit{
+			ID:         prCommit.ID,
+			Title:      prCommit.Title,
+			AuthorName: prCommit.AuthorName,
+			CreatedAt:  prCommit.CreatedAt,
 		}
 		respMRs = append(respMRs, prReq)
 	}

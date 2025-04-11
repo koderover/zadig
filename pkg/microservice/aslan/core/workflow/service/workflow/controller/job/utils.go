@@ -37,7 +37,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/util"
 )
 
-func getJobRankMap(stages []*commonmodels.WorkflowStage) map[string]int {
+func GetJobRankMap(stages []*commonmodels.WorkflowStage) map[string]int {
 	resp := make(map[string]int, 0)
 	index := 0
 	for _, stage := range stages {
@@ -463,6 +463,7 @@ func getEnvFromCommitMsg(commitMsg string) []*commonmodels.KeyVal {
 	return resp
 }
 
+// prepareDefaultWorkflowTaskEnvs System level default environment variables (every workflow type will have it)
 func prepareDefaultWorkflowTaskEnvs(projectKey, workflowName, workflowDisplayName, infrastructure string, taskID int64) []*commonmodels.KeyVal {
 	envs := make([]*commonmodels.KeyVal, 0)
 

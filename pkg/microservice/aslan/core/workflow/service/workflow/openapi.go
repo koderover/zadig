@@ -19,6 +19,7 @@ package workflow
 import (
 	"errors"
 	"fmt"
+
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/controller"
 
 	"go.mongodb.org/mongo-driver/mongo"
@@ -286,7 +287,9 @@ func fillWorkflowV4(workflow *commonmodels.WorkflowV4, logger *zap.SugaredLogger
 						// if build template update any keyvals, merge it.
 						kvs = commonservice.MergeBuildEnvs(templateEnvs, kvs)
 					}
-					build.KeyVals = commonservice.MergeBuildEnvs(kvs, build.KeyVals)
+					var mergedKVs commonmodels.KeyValList
+					mergedKVs = commonservice.MergeBuildEnvs(kvs, build.KeyVals.ToKVList())
+					build.KeyVals = mergedKVs.ToRuntimeList()
 				}
 				job.Spec = spec
 			}
