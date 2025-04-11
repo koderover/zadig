@@ -46,14 +46,14 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/lark"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/s3"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/scmnotify"
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/workflowcontroller"
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/workflowcontroller/jobcontroller"
+	runtimeWorkflowController "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/workflowcontroller"
+	runtimeJobController "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/workflowcontroller/jobcontroller"
 	workwxservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/workwx"
 	commontypes "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/types"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/job"
-	jobctl "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/job"
+	workflowController "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/controller"
+	jobController "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/controller/job"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/shared/client/user"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
@@ -179,8 +179,6 @@ type ZadigDeployJobPreviewSpec struct {
 	YamlContent        string                 `bson:"yaml_content"                 json:"yaml_content"`
 	// UserSuppliedValue added since 1.18, the values that users gives.
 	UserSuppliedValue string `bson:"user_supplied_value" json:"user_supplied_value" yaml:"user_supplied_value"`
-	// VariableConfigs new since 1.18, only used for k8s
-	VariableConfigs []*commonmodels.DeployVariableConfig `bson:"variable_configs"                 json:"variable_configs"                    yaml:"variable_configs"`
 	// VariableKVs new since 1.18, only used for k8s
 	VariableKVs    []*commontypes.RenderVariableKV `bson:"variable_kvs"                 json:"variable_kvs"                    yaml:"variable_kvs"`
 	OriginRevision int64                           `bson:"origin_revision"              json:"origin_revision" yaml:"origin_revision"`
@@ -243,7 +241,7 @@ type DistributeImageJobSpec struct {
 	DistributeTarget []*step.DistributeTaskTarget `bson:"distribute_target"            json:"distribute_target"`
 }
 
-func GetWorkflowv4Preset(encryptedKey, workflowName, uid, username, ticketID string, log *zap.SugaredLogger) (*commonmodels.WorkflowV4, error) {
+func GetWorkflowV4Preset(encryptedKey, workflowName, uid, username, ticketID string, log *zap.SugaredLogger) (*commonmodels.WorkflowV4, error) {
 	workflow, err := commonrepo.NewWorkflowV4Coll().Find(workflowName)
 	if err != nil {
 		log.Errorf("cannot find workflow %s, the error is: %v", workflowName, err)
@@ -258,32 +256,11 @@ func GetWorkflowv4Preset(encryptedKey, workflowName, uid, username, ticketID str
 		}
 	}
 
-	for _, stage := range workflow.Stages {
-		for _, job := range stage.Jobs {
-			if err := jobctl.SetOptions(job, workflow, approvalTicket); err != nil {
-				log.Errorf("cannot get workflow %s options for job %s, the error is: %v", workflowName, job.Name, err)
-				return nil, e.ErrPresetWorkflow.AddDesc(err.Error())
-			}
-			if err := jobctl.SetPreset(job, workflow); err != nil {
-				log.Errorf("cannot get workflow %s preset for job %s, the error is: %v", workflowName, job.Name, err)
-				return nil, e.ErrPresetWorkflow.AddDesc(err.Error())
-			}
+	workflowCtrl := workflowController.CreateWorkflowController(workflow)
 
-			// for some job we need to clear its selection field
-			if job.JobType == config.JobZadigBuild ||
-				job.JobType == config.JobIstioRelease ||
-				job.JobType == config.JobIstioRollback ||
-				job.JobType == config.JobZadigHelmChartDeploy ||
-				job.JobType == config.JobK8sBlueGreenDeploy ||
-				job.JobType == config.JobApollo ||
-				job.JobType == config.JobK8sCanaryDeploy ||
-				job.JobType == config.JobK8sGrayRelease {
-				if err := jobctl.ClearSelectionField(job, workflow); err != nil {
-					log.Errorf("cannot clear workflow %s selection for job %s, the error is: %v", workflowName, job.Name, err)
-					return nil, e.ErrPresetWorkflow.AddDesc(err.Error())
-				}
-			}
-		}
+	if err := workflowCtrl.SetPreset(approvalTicket); err != nil {
+		log.Errorf("failed to set preset for workflow: %s, the error is: %v", workflowName, err)
+		return nil, e.ErrPresetWorkflow.AddDesc(err.Error())
 	}
 
 	if err := ensureWorkflowV4Resp(encryptedKey, workflow, log); err != nil {
@@ -293,12 +270,19 @@ func GetWorkflowv4Preset(encryptedKey, workflowName, uid, username, ticketID str
 	return workflow, nil
 }
 
-func GetWorkflowV4DynamicVariableAvailable(ctx *internalhandler.Context, workflow *commonmodels.WorkflowV4, jobName string) ([]string, error) {
+func GetAvailableWorkflowV4DynamicVariable(ctx *internalhandler.Context, workflow *commonmodels.WorkflowV4, jobName string) ([]string, error) {
 	resp := make([]string, 0)
 
-	variables, err := jobctl.GetRenderWorkflowVariables(ctx, workflow, jobName, "", "", true)
+	workflowCtrl := workflowController.CreateWorkflowController(workflow)
+	variables, err := workflowCtrl.GetReferableVariables(jobName, workflowController.GetWorkflowVariablesOption{
+		GetAggregatedVariables:      false,
+		GetRuntimeVariables:         false,
+		GetPlaceHolderVariables:     true,
+		GetServiceSpecificVariables: false,
+		GetReferredKeyValVariables:  true,
+	})
 	if err != nil {
-		err = fmt.Errorf("Failed to get render workflow variables, error: %v", err)
+		err = fmt.Errorf("failed to get render workflow variables, error: %v", err)
 		ctx.Logger.Error(err)
 		return nil, err
 	}
@@ -310,12 +294,19 @@ func GetWorkflowV4DynamicVariableAvailable(ctx *internalhandler.Context, workflo
 	return resp, nil
 }
 
-func RenderWorkflowV4Variables(ctx *internalhandler.Context, workflow *commonmodels.WorkflowV4, jobName, serviceName, moduleName, key string) ([]string, error) {
+func GetWorkflowV4DynamicVariableValues(ctx *internalhandler.Context, workflow *commonmodels.WorkflowV4, jobName, serviceName, moduleName, key string) ([]string, error) {
 	resp := make([]string, 0)
 
-	variables, err := jobctl.GetRenderWorkflowVariables(ctx, workflow, jobName, serviceName, moduleName, false)
+	workflowCtrl := workflowController.CreateWorkflowController(workflow)
+	variables, err := workflowCtrl.GetReferableVariables(jobName, workflowController.GetWorkflowVariablesOption{
+		GetAggregatedVariables:      false,
+		GetRuntimeVariables:         false,
+		GetPlaceHolderVariables:     false,
+		GetServiceSpecificVariables: true,
+		GetReferredKeyValVariables:  true,
+	})
 	if err != nil {
-		err = fmt.Errorf("Failed to get render workflow variables, error: %v", err)
+		err = fmt.Errorf("failed to get render workflow variables, error: %v", err)
 		ctx.Logger.Error(err)
 		return nil, err
 	}
@@ -326,9 +317,9 @@ func RenderWorkflowV4Variables(ctx *internalhandler.Context, workflow *commonmod
 		buildInVarMap[kv.Key] = kv.Value
 	}
 
-	resp, err = jobctl.RenderWorkflowVariables(ctx, workflow, jobName, serviceName, moduleName, key, buildInVarMap)
+	resp, err = workflowCtrl.GetDynamicVariableValues(jobName, serviceName, moduleName, key, buildInVarMap)
 	if err != nil {
-		err = fmt.Errorf("Failed to render workflow variables, error: %v", err)
+		err = fmt.Errorf("failed to render workflow variables, error: %v", err)
 		ctx.Logger.Error(err)
 		return nil, err
 	}
@@ -460,18 +451,14 @@ func CreateWorkflowTaskV4ByBuildInTrigger(triggerName string, args *commonmodels
 		ProjectName:  args.Project,
 		WorkflowName: args.Name,
 	}
-	workflow, err := mongodb.NewWorkflowV4Coll().Find(args.Name)
-	if err != nil {
-		errMsg := fmt.Sprintf("cannot find workflow %s, the error is: %v", args.Name, err)
-		log.Error(errMsg)
-		return resp, e.ErrCreateTask.AddDesc(errMsg)
+
+	workflowCtrl := workflowController.CreateWorkflowController(args)
+	if err := workflowCtrl.UpdateWithLatestWorkflow(nil); err != nil {
+		log.Errorf("cannot merge workflow %s's input with the latest workflow settings, the error is: %v", args.Name, err)
+		return resp, e.ErrCreateTask.AddDesc(fmt.Sprintf("cannot merge workflow %s's input with the latest workflow settings, the error is: %v", args.Name, err))
 	}
-	if err := job.MergeArgs(workflow, args); err != nil {
-		errMsg := fmt.Sprintf("merge workflow args error: %v", err)
-		log.Error(errMsg)
-		return resp, e.ErrCreateTask.AddDesc(errMsg)
-	}
-	return CreateWorkflowTaskV4(&CreateWorkflowTaskV4Args{Name: triggerName}, workflow, log)
+
+	return CreateWorkflowTaskV4(&CreateWorkflowTaskV4Args{Name: triggerName}, workflowCtrl.WorkflowV4, log)
 }
 
 func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels.WorkflowV4, log *zap.SugaredLogger) (*CreateTaskV4Resp, error) {
@@ -558,43 +545,30 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 		args.Account = args.Name
 	}
 
-	if err := jobctl.InstantiateWorkflow(workflow); err != nil {
-		log.Errorf("instantiate workflow error: %s", err)
-		return resp, e.ErrCreateTask.AddErr(err)
-	}
-
-	for _, stage := range workflow.Stages {
-		for _, job := range stage.Jobs {
-			err := jobctl.ClearOptions(job, workflow)
-			if err != nil {
-				log.Errorf("failed to remove the job options in the workflow parameters for job %s, stage: %s, error: %s", job.Name, stage.Name, err)
-				return resp, fmt.Errorf("failed to remove the job options in the workflow parameters for job %s, stage: %s, error: %s", job.Name, stage.Name, err)
-			}
-		}
-	}
-
 	// save workflow original workflow task args.
 	originTaskArgs := &commonmodels.WorkflowV4{}
 	if err := commonmodels.IToi(workflow, originTaskArgs); err != nil {
 		log.Errorf("save original workflow args error: %v", err)
 		return resp, e.ErrCreateTask.AddDesc(err.Error())
 	}
+
+	workflowInputArgsController := workflowController.CreateWorkflowController(originTaskArgs)
+	err = workflowInputArgsController.ClearOptions()
+	if err != nil {
+		log.Errorf("failed to remove the job options in the workflow parameters, error: %s", err)
+		return resp, fmt.Errorf("failed to remove the job options in the workflow parameters, error: %s", err)
+	}
 	originTaskArgs.HookCtls = nil
 	originTaskArgs.MeegoHookCtls = nil
 	originTaskArgs.JiraHookCtls = nil
 	originTaskArgs.GeneralHookCtls = nil
-	workflowTask.OriginWorkflowArgs = originTaskArgs
+	workflowTask.OriginWorkflowArgs = workflowInputArgsController.WorkflowV4
 	nextTaskID, err := commonrepo.NewCounterColl().GetNextSeq(fmt.Sprintf(setting.WorkflowTaskV4Fmt, workflow.Name))
 	if err != nil {
 		log.Errorf("Counter.GetNextSeq error: %v", err)
 		return resp, e.ErrGetCounter.AddDesc(err.Error())
 	}
 	resp.TaskID = nextTaskID
-
-	if err := jobctl.RemoveFixedValueMarks(workflow); err != nil {
-		log.Errorf("RemoveFixedValueMarks error: %v", err)
-		return resp, e.ErrCreateTask.AddDesc(err.Error())
-	}
 
 	workflowTask.TaskID = nextTaskID
 	workflowTask.TaskCreator = args.Name
@@ -610,77 +584,21 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 	workflowTask.ShareStorages = workflow.ShareStorages
 	workflowTask.IsDebug = workflow.Debug
 	workflowTask.Remark = workflow.Remark
-	// set workflow params repo info, like commitid, branch etc.
-	setZadigParamRepos(workflow, log)
 
-	for _, stage := range workflow.Stages {
-		stageTask := &commonmodels.StageTask{
-			Name:       stage.Name,
-			Parallel:   stage.Parallel,
-			ManualExec: stage.ManualExec,
-		}
-		for _, job := range stage.Jobs {
-			if jobctl.JobSkiped(job) {
-				continue
-			}
-			// TODO: move this logic to job controller
-			if job.JobType == config.JobZadigBuild {
-				if err := setZadigBuildRepos(job, log); err != nil {
-					log.Errorf("zadig build job set build info error: %v", err)
-					return resp, e.ErrCreateTask.AddDesc(err.Error())
-				}
-			}
-			if job.JobType == config.JobFreestyle {
-				if err := setFreeStyleRepos(job, log); err != nil {
-					log.Errorf("freestyle job set build info error: %v", err)
-					return resp, e.ErrCreateTask.AddDesc(err.Error())
-				}
-			}
-			if job.JobType == config.JobZadigTesting {
-				if err := setZadigTestingRepos(job, log); err != nil {
-					log.Errorf("testing job set build info error: %v", err)
-					return resp, e.ErrCreateTask.AddDesc(err.Error())
-				}
-			}
-
-			if job.JobType == config.JobZadigScanning {
-				if err := setZadigScanningRepos(job, log); err != nil {
-					log.Errorf("scanning job set build info error: %v", err)
-					return resp, e.ErrCreateTask.AddDesc(err.Error())
-				}
-			}
-		}
-
-		if err := jobctl.RenderWorkflowParams(workflow, nextTaskID, args.Name, args.Account, args.UserID); err != nil {
-			log.Errorf("RenderGlobalVariables error: %v", err)
-			return resp, e.ErrCreateTask.AddDesc(err.Error())
-		}
-
-		for _, job := range stage.Jobs {
-			if jobctl.JobSkiped(job) {
-				continue
-			}
-			jobs, err := jobctl.ToJobs(job, workflow, nextTaskID)
-			if err != nil {
-				log.Errorf("cannot create workflow %s, the error is: %v", workflow.Name, err)
-				return resp, e.ErrCreateTask.AddDesc(err.Error())
-			}
-			// add breakpoint_before when workflowTask is debug mode
-			for _, jobTask := range jobs {
-				switch config.JobType(jobTask.JobType) {
-				case config.JobFreestyle, config.JobZadigTesting, config.JobZadigBuild, config.JobZadigScanning:
-					if workflowTask.IsDebug {
-						jobTask.BreakpointBefore = true
-					}
-				}
-			}
-
-			stageTask.Jobs = append(stageTask.Jobs, jobs...)
-		}
-		if len(stageTask.Jobs) > 0 {
-			workflowTask.Stages = append(workflowTask.Stages, stageTask)
-		}
+	workflowCtrl := workflowController.CreateWorkflowController(workflow)
+	err = workflowCtrl.Validate(true)
+	if err != nil {
+		log.Errorf("failed to validate workflow task args, error: %s", err)
+		return nil, e.ErrCreateTask.AddErr(err)
 	}
+	workflowCtrl.SetParameterRepoCommitInfo()
+	stageTasks, err := workflowCtrl.ToJobTasks(nextTaskID, args.Name, args.Account, args.UserID)
+	if err != nil {
+		log.Errorf("failed to generate workflow tasks from input, error: %s", err)
+		return nil, e.ErrCreateTask.AddErr(err)
+	}
+
+	workflowTask.Stages = stageTasks
 
 	if err := workflowTaskLint(workflowTask, log); err != nil {
 		return resp, err
@@ -712,7 +630,7 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 		log.Errorf("send workflow task notification failed, error: %v", err)
 	}
 
-	if err := workflowcontroller.CreateTask(workflowTask); err != nil {
+	if err := runtimeWorkflowController.CreateTask(workflowTask); err != nil {
 		log.Errorf("create workflow task error: %v", err)
 		return resp, e.ErrCreateTask.AddDesc(err.Error())
 	}
@@ -749,13 +667,11 @@ func GetManualExecWorkflowTaskV4Info(workflowName string, taskID int64, logger *
 		}
 	}
 
-	for _, stage := range task.OriginWorkflowArgs.Stages {
-		for _, job := range stage.Jobs {
-			if err := jobctl.SetOptions(job, task.WorkflowArgs, approvalTicket); err != nil {
-				log.Errorf("cannot get workflow %s options for job %s, the error is: %v", workflowName, job.Name, err)
-				return nil, e.ErrPresetWorkflow.AddDesc(err.Error())
-			}
-		}
+	workflowCtrl := workflowController.CreateWorkflowController(task.OriginWorkflowArgs)
+	err = workflowCtrl.UpdateWithLatestWorkflow(approvalTicket)
+	if err != nil {
+		log.Errorf("failed to set preset for workflow: %s, the error is: %v", workflowName, err)
+		return nil, e.ErrPresetWorkflow.AddDesc(err.Error())
 	}
 	return task.OriginWorkflowArgs, nil
 }
@@ -777,13 +693,11 @@ func CloneWorkflowTaskV4(workflowName string, taskID int64, isView bool, logger 
 		return nil, e.ErrGetTask.AddErr(err)
 	}
 
-	for _, stage := range task.OriginWorkflowArgs.Stages {
-		for _, job := range stage.Jobs {
-			if err := jobctl.SetOptions(job, task.OriginWorkflowArgs, nil); err != nil {
-				log.Errorf("cannot get workflow %s options for job %s, the error is: %v", workflowName, job.Name, err)
-				return nil, e.ErrPresetWorkflow.AddDesc(err.Error())
-			}
-		}
+	workflowCtrl := workflowController.CreateWorkflowController(task.OriginWorkflowArgs)
+	err = workflowCtrl.UpdateWithLatestWorkflow(nil)
+	if err != nil {
+		log.Errorf("failed to set preset for workflow: %s, the error is: %v", workflowName, err)
+		return nil, e.ErrPresetWorkflow.AddDesc(err.Error())
 	}
 
 	task.OriginWorkflowArgs.NotifyCtls = originalWorkflow.NotifyCtls
@@ -812,11 +726,11 @@ func RetryWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredL
 			if job.Skipped {
 				continue
 			}
-			jobCtl, err := jobctl.InitJobCtl(job, task.WorkflowArgs)
+			ctrl, err := jobController.CreateJobController(job, task.WorkflowArgs)
 			if err != nil {
-				return errors.Errorf("init jobCtl %s error: %s", job.Name, err)
+				return errors.Errorf("init job controller %s error: %s", job.Name, err)
 			}
-			jobTasks, err := jobCtl.ToJobs(taskID)
+			jobTasks, err := ctrl.ToTask(taskID)
 			if err != nil {
 				return errors.Errorf("job %s toJobs error: %s", job.Name, err)
 			}
@@ -857,7 +771,7 @@ func RetryWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredL
 		log.Errorf("send workflow task notification failed, error: %v", err)
 	}
 
-	if err := workflowcontroller.UpdateTask(task); err != nil {
+	if err := runtimeWorkflowController.UpdateTask(task); err != nil {
 		log.Errorf("retry workflow task error: %v", err)
 		return e.ErrCreateTask.AddDesc(fmt.Sprintf("重试工作流任务失败: %s", err.Error()))
 	}
@@ -894,38 +808,21 @@ func ManualExecWorkflowTaskV4(workflowName string, taskID int64, stageName strin
 	for _, stage := range task.WorkflowArgs.Stages {
 		if stage.Name == stageName {
 			for _, job := range stage.Jobs {
-				err := jobctl.ClearOptions(job, task.WorkflowArgs)
+				ctrl, err := jobController.CreateJobController(job, task.WorkflowArgs)
 				if err != nil {
 					log.Errorf("failed to remove the job options in the workflow parameters for job %s, stage: %s, error: %s", job.Name, stage.Name, err)
 					return fmt.Errorf("failed to remove the job options in the workflow parameters for job %s, stage: %s, error: %s", job.Name, stage.Name, err)
 				}
 
-				// TODO: move this logic to job controller
-				if job.JobType == config.JobZadigBuild {
-					if err := setZadigBuildRepos(job, logger); err != nil {
-						log.Errorf("zadig build job set build info error: %v", err)
-						return e.ErrCreateTask.AddDesc(err.Error())
-					}
-				}
-				if job.JobType == config.JobFreestyle {
-					if err := setFreeStyleRepos(job, logger); err != nil {
-						log.Errorf("freestyle job set build info error: %v", err)
-						return e.ErrCreateTask.AddDesc(err.Error())
-					}
-				}
-				if job.JobType == config.JobZadigTesting {
-					if err := setZadigTestingRepos(job, logger); err != nil {
-						log.Errorf("testing job set build info error: %v", err)
-						return e.ErrCreateTask.AddDesc(err.Error())
-					}
+				ctrl.ClearOptions()
+
+				err = ctrl.SetRepoCommitInfo()
+				if err != nil {
+					log.Errorf("failed to set repo commit info for job: %s in workflow:%s, error: %v", job.Name, task.WorkflowArgs.Name, err)
+					return e.ErrCreateTask.AddDesc(err.Error())
 				}
 
-				if job.JobType == config.JobZadigScanning {
-					if err := setZadigScanningRepos(job, logger); err != nil {
-						log.Errorf("scanning job set build info error: %v", err)
-						return e.ErrCreateTask.AddDesc(err.Error())
-					}
-				}
+				job.Spec = ctrl.GetSpec()
 			}
 
 			stage.Jobs = jobs
@@ -937,18 +834,14 @@ func ManualExecWorkflowTaskV4(workflowName string, taskID int64, stageName strin
 		}
 	}
 
-	if err := jobctl.RemoveFixedValueMarks(task.WorkflowArgs); err != nil {
-		log.Errorf("RemoveFixedValueMarks error: %v", err)
-		return e.ErrCreateTask.AddDesc(err.Error())
-	}
-
-	if err := jobctl.RenderWorkflowParams(task.WorkflowArgs, task.TaskID, task.TaskCreator, task.TaskCreatorAccount, task.TaskCreatorID); err != nil {
+	workflowCtrl := workflowController.CreateWorkflowController(task.WorkflowArgs)
+	if err := workflowCtrl.RenderParams(task.TaskID, task.TaskCreator, task.TaskCreatorAccount, task.TaskCreatorID); err != nil {
 		log.Errorf("RenderGlobalVariables error: %v", err)
 		return e.ErrCreateTask.AddDesc(err.Error())
 	}
 
 	// set workflow params repo info, like commitid, branch etc.
-	setZadigParamRepos(task.WorkflowArgs, logger)
+	workflowCtrl.SetParameterRepoCommitInfo()
 
 	foundStage := false
 	newStageNameJobTasksMap := make(map[string][]*commonmodels.JobTask, 0)
@@ -966,11 +859,12 @@ func ManualExecWorkflowTaskV4(workflowName string, taskID int64, stageName strin
 					continue
 				}
 
-				jobCtl, err := jobctl.InitJobCtl(job, task.WorkflowArgs)
+				ctrl, err := jobController.CreateJobController(job, task.WorkflowArgs)
 				if err != nil {
-					return errors.Errorf("init jobCtl %s error: %s", job.Name, err)
+					return errors.Errorf("init job controller %s error: %s", job.Name, err)
 				}
-				jobTasks, err := jobCtl.ToJobs(taskID)
+
+				jobTasks, err := ctrl.ToTask(taskID)
 				if err != nil {
 					return errors.Errorf("job %s toJobs error: %s", job.Name, err)
 				}
@@ -1070,7 +964,7 @@ func ManualExecWorkflowTaskV4(workflowName string, taskID int64, stageName strin
 		log.Errorf("send workflow task notification failed, error: %v", err)
 	}
 
-	if err := workflowcontroller.UpdateTask(task); err != nil {
+	if err := runtimeWorkflowController.UpdateTask(task); err != nil {
 		log.Errorf("manual execute workflow task error: %v", err)
 		return e.ErrCreateTask.AddDesc(fmt.Sprintf("手动执行工作流任务失败: %s", err.Error()))
 	}
@@ -1079,15 +973,15 @@ func ManualExecWorkflowTaskV4(workflowName string, taskID int64, stageName strin
 }
 
 func SetWorkflowTaskV4Breakpoint(workflowName, jobName string, taskID int64, set bool, position string, logger *zap.SugaredLogger) error {
-	event := &workflowcontroller.WorkflowDebugEvent{
-		EventType: workflowcontroller.WorkflowDebugEventSetBreakPoint,
+	event := &runtimeWorkflowController.WorkflowDebugEvent{
+		EventType: runtimeWorkflowController.WorkflowDebugEventSetBreakPoint,
 		JobName:   jobName,
 		TaskID:    taskID,
 		Set:       set,
 		Position:  position,
 	}
 	bytes, _ := json.Marshal(event)
-	err := cache.NewRedisCache(config2.RedisCommonCacheTokenDB()).Publish(workflowcontroller.WorkflowDebugChanKey(workflowName, taskID), string(bytes))
+	err := cache.NewRedisCache(config2.RedisCommonCacheTokenDB()).Publish(runtimeWorkflowController.WorkflowDebugChanKey(workflowName, taskID), string(bytes))
 	if err != nil {
 		return e.ErrStopDebugShell.AddDesc(fmt.Sprintf("failed to set workflow breakpoint, err: %s", err))
 	}
@@ -1095,12 +989,12 @@ func SetWorkflowTaskV4Breakpoint(workflowName, jobName string, taskID int64, set
 }
 
 func EnableDebugWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredLogger) error {
-	event := &workflowcontroller.WorkflowDebugEvent{
-		EventType: workflowcontroller.WorkflowDebugEventSetBreakPoint,
+	event := &runtimeWorkflowController.WorkflowDebugEvent{
+		EventType: runtimeWorkflowController.WorkflowDebugEventSetBreakPoint,
 		TaskID:    taskID,
 	}
 	bytes, _ := json.Marshal(event)
-	err := cache.NewRedisCache(config2.RedisCommonCacheTokenDB()).Publish(workflowcontroller.WorkflowDebugChanKey(workflowName, taskID), string(bytes))
+	err := cache.NewRedisCache(config2.RedisCommonCacheTokenDB()).Publish(runtimeWorkflowController.WorkflowDebugChanKey(workflowName, taskID), string(bytes))
 	if err != nil {
 		return e.ErrEnableDebug.AddDesc(fmt.Sprintf("failed to set workflow breakpoint, err: %s", err))
 	}
@@ -1108,14 +1002,14 @@ func EnableDebugWorkflowTaskV4(workflowName string, taskID int64, logger *zap.Su
 }
 
 func StopDebugWorkflowTaskJobV4(workflowName, jobName string, taskID int64, position string, logger *zap.SugaredLogger) error {
-	event := &workflowcontroller.WorkflowDebugEvent{
-		EventType: workflowcontroller.WorkflowDebugEventDeleteDebug,
+	event := &runtimeWorkflowController.WorkflowDebugEvent{
+		EventType: runtimeWorkflowController.WorkflowDebugEventDeleteDebug,
 		JobName:   jobName,
 		Position:  position,
 		TaskID:    taskID,
 	}
 	bytes, _ := json.Marshal(event)
-	err := cache.NewRedisCache(config2.RedisCommonCacheTokenDB()).Publish(workflowcontroller.WorkflowDebugChanKey(workflowName, taskID), string(bytes))
+	err := cache.NewRedisCache(config2.RedisCommonCacheTokenDB()).Publish(runtimeWorkflowController.WorkflowDebugChanKey(workflowName, taskID), string(bytes))
 	if err != nil {
 		return e.ErrEnableDebug.AddDesc(fmt.Sprintf("failed to set workflow breakpoint, err: %s", err))
 	}
@@ -1235,12 +1129,12 @@ func RevertWorkflowTaskV4Job(ctx *internalhandler.Context, workflowName, jobName
 							}
 
 							timeout := time.After(time.Duration(jobTaskSpec.Timeout) * time.Second)
-							jobTaskSpec.ReplaceResources, err = jobcontroller.GetResourcesPodOwnerUID(kubeClient, env.Namespace, nil, nil, jobTaskSpec.ReplaceResources)
+							jobTaskSpec.ReplaceResources, err = runtimeJobController.GetResourcesPodOwnerUID(kubeClient, env.Namespace, nil, nil, jobTaskSpec.ReplaceResources)
 							if err != nil {
 								log.Errorf("failed to get resources pod owner uid, error: %s", err)
 								return
 							}
-							status, err = jobcontroller.CheckDeployStatus(context.TODO(), kubeClient, env.Namespace, jobTaskSpec.RelatedPodLabels, jobTaskSpec.ReplaceResources, timeout, logger)
+							status, err = runtimeJobController.CheckDeployStatus(context.TODO(), kubeClient, env.Namespace, jobTaskSpec.RelatedPodLabels, jobTaskSpec.ReplaceResources, timeout, logger)
 							if err != nil {
 								log.Errorf("failed to check deploy status, error: %s", err)
 							}
@@ -1789,7 +1683,7 @@ func getLatestWorkflowTaskV4(workflowName string) (*commonmodels.WorkflowTask, e
 }
 
 func CancelWorkflowTaskV4(userName, workflowName string, taskID int64, logger *zap.SugaredLogger) error {
-	if err := workflowcontroller.CancelWorkflowTask(userName, workflowName, taskID, logger); err != nil {
+	if err := runtimeWorkflowController.CancelWorkflowTask(userName, workflowName, taskID, logger); err != nil {
 		logger.Errorf("cancel workflowTaskV4 error: %s", err)
 		return e.ErrCancelTask.AddErr(err)
 	}
@@ -1844,7 +1738,7 @@ func ApproveStage(workflowName, jobName, userName, userID, comment string, taskI
 		logger.Error(errMsg)
 		return e.ErrApproveTask.AddDesc(errMsg)
 	}
-	if err := workflowcontroller.ApproveStage(workflowName, jobName, userName, userID, comment, taskID, approve); err != nil {
+	if err := runtimeWorkflowController.ApproveStage(workflowName, jobName, userName, userID, comment, taskID, approve); err != nil {
 		logger.Error(err)
 		return e.ErrApproveTask.AddErr(err)
 	}
@@ -1984,7 +1878,7 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, 
 			}
 
 			// get from global context
-			imageContextKey := workflowcontroller.GetContextKey(jobspec.GetJobOutputKey(job.Key, "IMAGE"))
+			imageContextKey := runtimeWorkflowController.GetContextKey(jobspec.GetJobOutputKey(job.Key, "IMAGE"))
 			if context != nil {
 				spec.Image = context[imageContextKey]
 			}
@@ -2169,14 +2063,14 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, 
 			if sonarURL != "" {
 				projectKey := ""
 				projectScanningOutputKey := jobspec.GetJobOutputKey(job.Key, setting.WorkflowScanningJobOutputKeyProject)
-				projectScanningOutputKey = workflowcontroller.GetContextKey(projectScanningOutputKey)
+				projectScanningOutputKey = runtimeWorkflowController.GetContextKey(projectScanningOutputKey)
 				if context[projectScanningOutputKey] != "" {
 					projectKey = context[projectScanningOutputKey]
 				}
 
 				branch := ""
 				branchScanningOutputKey := jobspec.GetJobOutputKey(job.Key, setting.WorkflowScanningJobOutputKeyBranch)
-				branchScanningOutputKey = workflowcontroller.GetContextKey(branchScanningOutputKey)
+				branchScanningOutputKey = runtimeWorkflowController.GetContextKey(branchScanningOutputKey)
 				if context[branchScanningOutputKey] != "" {
 					branch = context[branchScanningOutputKey]
 				}
@@ -2202,7 +2096,6 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, 
 			spec.EnvAlias = getEnvAlias(getEnv(taskJobSpec.Env))
 			spec.ServiceType = taskJobSpec.ServiceType
 			spec.DeployContents = taskJobSpec.DeployContents
-			spec.VariableConfigs = taskJobSpec.VariableConfigs
 			spec.VariableKVs = taskJobSpec.VariableKVs
 			spec.YamlContent = taskJobSpec.YamlContent
 			spec.SkipCheckRunStatus = taskJobSpec.SkipCheckRunStatus
@@ -2378,104 +2271,6 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, 
 		resp = append(resp, jobPreview)
 	}
 	return resp
-}
-
-func setZadigParamRepos(workflow *commonmodels.WorkflowV4, logger *zap.SugaredLogger) {
-	for _, param := range workflow.Params {
-		if param.ParamsType != "repo" {
-			continue
-		}
-		setBuildInfo(param.Repo, []*types.Repository{param.Repo}, logger)
-	}
-}
-
-func setZadigBuildRepos(job *commonmodels.Job, logger *zap.SugaredLogger) error {
-	spec := &commonmodels.ZadigBuildJobSpec{}
-	if err := commonmodels.IToi(job.Spec, spec); err != nil {
-		return err
-	}
-	for _, build := range spec.ServiceAndBuilds {
-		if err := setManunalBuilds(build.Repos, build.Repos, logger); err != nil {
-			return err
-		}
-	}
-	job.Spec = spec
-	return nil
-}
-
-func setZadigTestingRepos(job *commonmodels.Job, logger *zap.SugaredLogger) error {
-	spec := &commonmodels.ZadigTestingJobSpec{}
-	if err := commonmodels.IToi(job.Spec, spec); err != nil {
-		return err
-	}
-	for _, build := range spec.TestModules {
-		if err := setManunalBuilds(build.Repos, build.Repos, logger); err != nil {
-			return err
-		}
-	}
-	for _, build := range spec.ServiceAndTests {
-		if err := setManunalBuilds(build.Repos, build.Repos, logger); err != nil {
-			return err
-		}
-	}
-	job.Spec = spec
-	return nil
-}
-
-func setZadigScanningRepos(job *commonmodels.Job, logger *zap.SugaredLogger) error {
-	spec := &commonmodels.ZadigScanningJobSpec{}
-	if err := commonmodels.IToi(job.Spec, spec); err != nil {
-		return err
-	}
-	for _, build := range spec.Scannings {
-		if err := setManunalBuilds(build.Repos, build.Repos, logger); err != nil {
-			return err
-		}
-	}
-	for _, build := range spec.ServiceAndScannings {
-		if err := setManunalBuilds(build.Repos, build.Repos, logger); err != nil {
-			return err
-		}
-	}
-	job.Spec = spec
-	return nil
-}
-
-func setFreeStyleRepos(job *commonmodels.Job, logger *zap.SugaredLogger) error {
-	spec := &commonmodels.FreestyleJobSpec{}
-	if err := commonmodels.IToi(job.Spec, spec); err != nil {
-		return err
-	}
-	for _, build := range spec.Services {
-		if err := setManunalBuilds(build.Repos, build.Repos, logger); err != nil {
-			return err
-		}
-	}
-	for _, step := range spec.Steps {
-		if step.StepType == config.StepGit {
-			stepSpec := &stepspec.StepGitSpec{}
-			if err := commonmodels.IToi(step.Spec, stepSpec); err != nil {
-				return err
-			}
-			if err := setManunalBuilds(stepSpec.Repos, stepSpec.Repos, logger); err != nil {
-				return err
-			}
-			step.Spec = stepSpec
-		} else if step.StepType == config.StepPerforce {
-			stepSpec := &stepspec.StepP4Spec{}
-			if err := commonmodels.IToi(step.Spec, stepSpec); err != nil {
-				return err
-			}
-			if err := setManunalBuilds(stepSpec.Repos, stepSpec.Repos, logger); err != nil {
-				return err
-			}
-			step.Spec = stepSpec
-		} else {
-			continue
-		}
-	}
-	job.Spec = spec
-	return nil
 }
 
 func workflowTaskLint(workflowTask *commonmodels.WorkflowTask, logger *zap.SugaredLogger) error {

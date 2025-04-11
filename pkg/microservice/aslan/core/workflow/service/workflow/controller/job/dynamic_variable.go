@@ -1,5 +1,5 @@
 /*
-Copyright 2024 The KodeRover Authors.
+Copyright 2025 The KodeRover Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -27,7 +27,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/util"
 )
 
-func getJobVariableKey(currentJobName, targetJobName, serviceName, moduleName, key string, getAvailableVars bool) string {
+func getJobVariableKey(currentJobName, serviceName, moduleName, key string, getAvailableVars bool) string {
 	resp := ""
 	if serviceName == "" && moduleName == "" {
 		if getAvailableVars {
@@ -44,30 +44,6 @@ func getJobVariableKey(currentJobName, targetJobName, serviceName, moduleName, k
 	}
 
 	return resp
-}
-
-func replaceJobVariables(input string) string {
-	// 定义正则表达式来匹配 {{.job*}}
-	re := regexp.MustCompile(util.GoTemplateKeyRegExp)
-
-	// 使用正则表达式查找所有匹配项
-	matches := re.FindAllString(input, -1)
-
-	// 遍历所有匹配项并替换 . 为 _
-	for _, match := range matches {
-		trimmed := strings.TrimPrefix(match, "{{.")
-		trimmed = strings.TrimSuffix(trimmed, "}}")
-
-		replaced := strings.Replace(trimmed, ".", "_", -1)
-		replaced = strings.Replace(replaced, "-", "_", -1)
-
-		replaced = "{{." + replaced + "}}"
-
-		// 替换原始字符串中的匹配项
-		input = strings.Replace(input, match, replaced, -1)
-	}
-
-	return input
 }
 
 func renderScriptedVariableOptions(ctx *internalhandler.Context, serviceName, moduleName, script, callFunction string, userInput map[string]string) ([]string, error) {
@@ -104,4 +80,28 @@ func renderScriptedVariableOptions(ctx *internalhandler.Context, serviceName, mo
 	}
 
 	return resp, nil
+}
+
+func replaceJobVariables(input string) string {
+	// 定义正则表达式来匹配 {{.job*}}
+	re := regexp.MustCompile(util.GoTemplateKeyRegExp)
+
+	// 使用正则表达式查找所有匹配项
+	matches := re.FindAllString(input, -1)
+
+	// 遍历所有匹配项并替换 . 为 _
+	for _, match := range matches {
+		trimmed := strings.TrimPrefix(match, "{{.")
+		trimmed = strings.TrimSuffix(trimmed, "}}")
+
+		replaced := strings.Replace(trimmed, ".", "_", -1)
+		replaced = strings.Replace(replaced, "-", "_", -1)
+
+		replaced = "{{." + replaced + "}}"
+
+		// 替换原始字符串中的匹配项
+		input = strings.Replace(input, match, replaced, -1)
+	}
+
+	return input
 }

@@ -508,9 +508,9 @@ const (
 type ParamSourceType string
 
 const (
-	ParamSourceRuntime = "runtime"
-	ParamSourceFixed   = "fixed"
-	ParamSourceGlobal  = "global"
+	ParamSourceRuntime   = "runtime"
+	ParamSourceFixed     = "fixed"
+	ParamSourceReference = "reference"
 )
 
 type RegistryProvider string

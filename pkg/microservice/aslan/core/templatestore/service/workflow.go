@@ -27,7 +27,7 @@ import (
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	systemservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/service"
-	jobctl "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/job"
+	jobcontroller "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/controller/job"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
@@ -52,8 +52,13 @@ func CreateWorkflowTemplate(userName string, template *commonmodels.WorkflowV4Te
 
 	for _, stage := range template.Stages {
 		for _, job := range stage.Jobs {
-			if err := jobctl.Instantiate(job, workflow); err != nil {
-				logger.Errorf("Failed to instantiate workflow v4 template, error: %v", err)
+			jobCtrl, err := jobcontroller.CreateJobController(job, workflow)
+			if err != nil {
+				logger.Errorf("Failed to create job controller for job [%s], error: %v", job.Name, err)
+				return e.ErrCreateWorkflowTemplate.AddErr(err)
+			}
+			if err := jobCtrl.Validate(false); err != nil {
+				logger.Errorf("Failed to validate job [%s], error: %v", job.Name, err)
 				return e.ErrCreateWorkflowTemplate.AddErr(err)
 			}
 		}
@@ -83,9 +88,14 @@ func UpdateWorkflowTemplate(userName string, template *commonmodels.WorkflowV4Te
 
 	for _, stage := range template.Stages {
 		for _, job := range stage.Jobs {
-			if err := jobctl.Instantiate(job, workflow); err != nil {
-				logger.Errorf("Failed to instantiate workflow v4 template, error: %v", err)
-				return e.ErrUpdateWorkflowTemplate.AddErr(err)
+			jobCtrl, err := jobcontroller.CreateJobController(job, workflow)
+			if err != nil {
+				logger.Errorf("Failed to create job controller for job [%s], error: %v", job.Name, err)
+				return e.ErrCreateWorkflowTemplate.AddErr(err)
+			}
+			if err := jobCtrl.Validate(false); err != nil {
+				logger.Errorf("Failed to validate job [%s], error: %v", job.Name, err)
+				return e.ErrCreateWorkflowTemplate.AddErr(err)
 			}
 		}
 	}

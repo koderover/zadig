@@ -125,7 +125,7 @@ func (j *BlueGreenDeployV2Job) SetOptions(approvalTicket *commonmodels.ApprovalT
 	envOptions := make([]*commonmodels.ZadigBlueGreenDeployEnvInformation, 0)
 
 	if strings.HasPrefix(originalSpec.Env, setting.FixedValueMark) {
-		if approvalTicket == nil || isAllowedEnv(originalSpec.Env, approvalTicket.Envs) {
+		if approvalTicket.IsAllowedEnv(j.workflow.Project, originalSpec.Env) {
 			// if the env is fixed, we put the env in the option
 			envName := strings.ReplaceAll(originalSpec.Env, setting.FixedValueMark, "")
 
@@ -151,7 +151,7 @@ func (j *BlueGreenDeployV2Job) SetOptions(approvalTicket *commonmodels.ApprovalT
 			return fmt.Errorf("can't list envs in project %s, error: %w", j.workflow.Project, err)
 		}
 		for _, env := range products {
-			if approvalTicket != nil && !isAllowedEnv(env.EnvName, approvalTicket.Envs) {
+			if approvalTicket.IsAllowedEnv(j.workflow.Project, env.EnvName) {
 				continue
 			}
 

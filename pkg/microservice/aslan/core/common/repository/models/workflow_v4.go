@@ -39,6 +39,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/util"
 )
 
+// TODO: change note: add approval ticket ID
 type WorkflowV4 struct {
 	ID              primitive.ObjectID       `bson:"_id,omitempty"       yaml:"-"                   json:"id"`
 	Name            string                   `bson:"name"                yaml:"name"                json:"name"`
@@ -70,6 +71,7 @@ type WorkflowV4 struct {
 	ConcurrencyLimit     int          `bson:"concurrency_limit"      yaml:"concurrency_limit"      json:"concurrency_limit"`
 	CustomField          *CustomField `bson:"custom_field"           yaml:"-"                      json:"custom_field"`
 	EnableApprovalTicket bool         `bson:"enable_approval_ticket" yaml:"enable_approval_ticket" json:"enable_approval_ticket"`
+	ApprovalTicketID     string       `bson:"approval_ticket_id"     yaml:"approval_ticket_id"     json:"approval_ticket_id"`
 }
 
 func (w *WorkflowV4) UpdateHash() {
@@ -93,6 +95,17 @@ func (w *WorkflowV4) CalculateHash() [md5.Size]byte {
 
 	jsonBytes, _ := json.Marshal(fieldList)
 	return md5.Sum(jsonBytes)
+}
+
+func (w *WorkflowV4) FindJob(jobName string, jobType config.JobType) (*Job, error) {
+	for _, stage := range w.Stages {
+		for _, job := range stage.Jobs {
+			if job.Name == jobName && job.JobType == jobType {
+				return job, nil
+			}
+		}
+	}
+	return nil, fmt.Errorf("job [%s] of type [%s] not found in stages", jobName, jobType)
 }
 
 type ParameterSettingType string
@@ -328,14 +341,15 @@ func (i *FreeStyleServiceInfo) GetKey() string {
 }
 
 type ZadigBuildJobSpec struct {
-	Source                  config.DeploySourceType `bson:"source"                 yaml:"source"                      json:"source"`
-	JobName                 string                  `bson:"job_name"               yaml:"job_name"                    json:"job_name"`
-	OriginJobName           string                  `bson:"origin_job_name"        yaml:"origin_job_name"             json:"origin_job_name"`
-	RefRepos                bool                    `bson:"ref_repos"              yaml:"ref_repos"                   json:"ref_repos"`
-	DockerRegistryID        string                  `bson:"docker_registry_id"     yaml:"docker_registry_id"          json:"docker_registry_id"`
-	DefaultServiceAndBuilds []*ServiceAndBuild      `bson:"default_service_and_builds"     yaml:"default_service_and_builds"         json:"default_service_and_builds"`
-	ServiceAndBuilds        []*ServiceAndBuild      `bson:"service_and_builds"     yaml:"service_and_builds"         json:"service_and_builds"`
-	ServiceAndBuildsOptions []*ServiceAndBuild      `bson:"-"                      yaml:"service_and_builds_options" json:"service_and_builds_options"`
+	Source                  config.DeploySourceType `bson:"source"                     yaml:"source"                      json:"source"`
+	JobName                 string                  `bson:"job_name"                   yaml:"job_name"                    json:"job_name"`
+	OriginJobName           string                  `bson:"origin_job_name"            yaml:"origin_job_name"             json:"origin_job_name"`
+	RefRepos                bool                    `bson:"ref_repos"                  yaml:"ref_repos"                   json:"ref_repos"`
+	DockerRegistryID        string                  `bson:"docker_registry_id"         yaml:"docker_registry_id"          json:"docker_registry_id"`
+	DefaultServiceAndBuilds []*ServiceAndBuild      `bson:"default_service_and_builds" yaml:"default_service_and_builds"  json:"default_service_and_builds"`
+	ServiceAndBuilds        []*ServiceAndBuild      `bson:"service_and_builds"         yaml:"service_and_builds"          json:"service_and_builds"`
+	ServiceAndBuildsOptions []*ServiceAndBuild      `bson:"-"                          yaml:"service_and_builds_options"  json:"service_and_builds_options"`
+	ServiceWithModule
 }
 
 type ServiceAndBuild struct {
@@ -345,7 +359,7 @@ type ServiceAndBuild struct {
 	Image            string              `bson:"image"               yaml:"-"                    json:"image"`
 	Package          string              `bson:"package"             yaml:"-"                    json:"package"`
 	ImageName        string              `bson:"image_name"          yaml:"image_name"           json:"image_name"`
-	KeyVals          []*KeyVal           `bson:"key_vals"            yaml:"key_vals"             json:"key_vals"`
+	KeyVals          RuntimeKeyValList   `bson:"key_vals"            yaml:"key_vals"             json:"key_vals"`
 	Repos            []*types.Repository `bson:"repos"               yaml:"repos"                json:"repos"`
 	ShareStorageInfo *ShareStorageInfo   `bson:"share_storage_info"  yaml:"share_storage_info"   json:"share_storage_info"`
 }
@@ -366,14 +380,21 @@ type ZadigDeployJobSpec struct {
 	SkipCheckHelmWorkloadStatus bool                         `bson:"skip_check_helm_workload_status" yaml:"skip_check_helm_workload_status" json:"skip_check_helm_workload_status"`
 	// fromjob/runtime, runtime 表示运行时输入，fromjob 表示从上游构建任务中获取
 	Source         config.DeploySourceType `bson:"source"     yaml:"source"     json:"source"`
+	EnvSource      config.ParamSourceType  `bson:"env_source" yaml:"env_source" json:"env_source"`
 	DeployContents []config.DeployContent  `bson:"deploy_contents"     yaml:"deploy_contents"     json:"deploy_contents"`
 	// 当 source 为 fromjob 时需要，指定部署镜像来源是上游哪一个构建任务
 	JobName string `bson:"job_name"             yaml:"job_name"             json:"job_name"`
 	// save the origin quoted job name
 	OriginJobName string               `bson:"origin_job_name"      yaml:"origin_job_name"      json:"origin_job_name"`
 	Services      []*DeployServiceInfo `bson:"services"             yaml:"services"             json:"services"`
+	// k8s type service only configuration, this is the field to save variable config for each service. The logic is:
+	// 1. if the service is not in the config, use the variable info in the env/service definition
+	// 2. if the service is in the config, but the VariableConfigs field is empty, still use everything in the env/service
+	// 3. if the VariableConfigs is not empty, only show the variables defined in the DeployServiceVariableConfig field
+	ServiceVariableConfig DeployServiceVariableConfigList `bson:"service_variable_config"             yaml:"service_variable_config"             json:"service_variable_config"`
+
 	// TODO: Deprecated in 2.3.0, this field is now used for saving the default service module info for deployment.
-	ServiceAndImages []*ServiceAndImage `bson:"service_and_images" yaml:"service_and_images" json:"service_and_images"`
+	DefaultServices []*ServiceAndImage `bson:"service_and_images" yaml:"service_and_images" json:"service_and_images"`
 }
 
 type ServiceAndVMDeploy struct {
@@ -423,41 +444,43 @@ type DeployHelmChart struct {
 	OverrideKVs  string `bson:"override_kvs"          yaml:"override_kvs"             json:"override_kvs"` // used for helm services, json-encoded string of kv value
 }
 
-type DeployService struct {
-	ServiceName string `bson:"service_name"        yaml:"service_name"     json:"service_name"`
-	// VariableConfigs added since 1.18
-	VariableConfigs []*DeployVariableConfig `bson:"variable_configs"                 json:"variable_configs"                    yaml:"variable_configs"`
-	// VariableKVs added since 1.18
-	VariableKVs []*commontypes.RenderVariableKV `bson:"variable_kvs"       yaml:"variable_kvs"    json:"variable_kvs"`
-	// LatestVariableKVs added since 1.18
-	LatestVariableKVs []*commontypes.RenderVariableKV `bson:"latest_variable_kvs"       yaml:"latest_variable_kvs"    json:"latest_variable_kvs"`
-	// VariableYaml added since 1.18, used for helm production environments
-	VariableYaml string `bson:"variable_yaml" yaml:"variable_yaml" json:"variable_yaml"`
-	// KeyVals Deprecated since 1.18
-	KeyVals []*ServiceKeyVal `bson:"key_vals"            yaml:"key_vals"         json:"key_vals"`
-	// LatestKeyVals Deprecated since 1.18
-	LatestKeyVals []*ServiceKeyVal `bson:"latest_key_vals"     yaml:"latest_key_vals"  json:"latest_key_vals"`
-	UpdateConfig  bool             `bson:"update_config"       yaml:"update_config"    json:"update_config"`
-	Updatable     bool             `bson:"updatable"           yaml:"updatable"        json:"updatable"`
+type DeployBasicInfo struct {
+	ServiceName  string              `bson:"service_name"                     yaml:"service_name"                        json:"service_name"`
+	Modules      []*DeployModuleInfo `bson:"modules"                          yaml:"modules"                             json:"modules"`
+	Deployed     bool                `bson:"-"                                yaml:"deployed"                            json:"deployed"`
+	AutoSync     bool                `bson:"-"                                yaml:"auto_sync"                           json:"auto_sync"`
+	UpdateConfig bool                `bson:"update_config"                    yaml:"update_config"                       json:"update_config"`
+	Updatable    bool                `bson:"-"                                yaml:"updatable"                           json:"updatable"`
+}
+
+type DeployOptionInfo struct {
+	DeployBasicInfo `bson:",inline"  yaml:",inline"  json:",inline"`
+
+	EnvVariable     *DeployVariableInfo `bson:"env_variable"            yaml:"env_variable"              json:"env_variable"`
+	ServiceVariable *DeployVariableInfo `bson:"service_variable"        yaml:"service_variable"          json:"service_variable"`
 }
 
 type DeployServiceInfo struct {
-	ServiceName string `bson:"service_name"                     yaml:"service_name"                        json:"service_name"`
+	DeployBasicInfo `bson:",inline"  yaml:",inline"  json:",inline"`
+
+	DeployVariableInfo `bson:",inline"  yaml:",inline"  json:",inline"`
+}
+
+type DeployServiceVariableConfig struct {
+	DeployBasicInfo `bson:",inline"  yaml:",inline"  json:",inline"`
+
 	// VariableConfigs used to determine if a variable is visible to the workflow user.
-	VariableConfigs []*DeployVariableConfig         `bson:"variable_configs"                 yaml:"variable_configs,omitempty"          json:"variable_configs,omitempty"`
-	VariableKVs     []*commontypes.RenderVariableKV `bson:"variable_kvs"                     yaml:"variable_kvs"                        json:"variable_kvs"`
-	//LatestVariableKVs []*commontypes.RenderVariableKV `bson:"latest_variable_kvs"              yaml:"latest_variable_kvs"                 json:"latest_variable_kvs"`
-	// helm 和 k8s 部署均使用该字段作为yaml格式的变量
-	VariableYaml string              `bson:"variable_yaml"                    yaml:"variable_yaml"                       json:"variable_yaml"`
-	OverrideKVs  string              `bson:"override_kvs"                     yaml:"override_kvs"              json:"override_kvs"` // used for helm services, json-encoded string of kv value
-	UpdateConfig bool                `bson:"update_config"                    yaml:"update_config"                       json:"update_config"`
-	Updatable    bool                `bson:"-"                                yaml:"updatable"                           json:"updatable"`
-	AutoSync     bool                `bson:"-"                                yaml:"auto_sync"                           json:"auto_sync"`
-	Deployed     bool                `bson:"-"                                yaml:"deployed"                            json:"deployed"`
-	Modules      []*DeployModuleInfo `bson:"modules"                          yaml:"modules"                             json:"modules"`
-	// Deprecated since 1.18
-	KeyVals       []*ServiceKeyVal `bson:"key_vals"            yaml:"key_vals"         json:"key_vals"`
-	LatestKeyVals []*ServiceKeyVal `bson:"latest_key_vals"     yaml:"latest_key_vals"  json:"latest_key_vals"`
+	VariableConfigs []*DeployVariableConfig `bson:"variable_configs"                 yaml:"variable_configs,omitempty"          json:"variable_configs,omitempty"`
+}
+
+type DeployServiceVariableConfigList []*DeployServiceVariableConfig
+
+type DeployVariableInfo struct {
+	VariableKVs []*commontypes.RenderVariableKV `bson:"variable_kvs"                     yaml:"variable_kvs"                        json:"variable_kvs"`
+	OverrideKVs string                          `bson:"override_kvs"                     yaml:"override_kvs"              json:"override_kvs"` // used for helm services, json-encoded string of kv value
+
+	// final yaml for both helm and k8s service to deploy
+	VariableYaml string `bson:"variable_yaml"                    yaml:"variable_yaml"                       json:"variable_yaml"`
 }
 
 type DeployModuleInfo struct {
@@ -726,11 +749,11 @@ type K8sPatchJobSpec struct {
 }
 
 type ZadigDeployEnvInformation struct {
-	Env        string               `json:"env"         yaml:"env"`
-	EnvAlias   string               `json:"env_alias"       yaml:"env_alias"`
-	Production bool                 `json:"production"  yaml:"production"`
-	RegistryID string               `json:"registry_id" yaml:"registry_id"`
-	Services   []*DeployServiceInfo `json:"services"    yaml:"services"`
+	Env        string              `json:"env"         yaml:"env"`
+	EnvAlias   string              `json:"env_alias"   yaml:"env_alias"`
+	Production bool                `json:"production"  yaml:"production"`
+	RegistryID string              `json:"registry_id" yaml:"registry_id"`
+	Services   []*DeployOptionInfo `json:"services"    yaml:"services"`
 }
 
 type ZadigHelmDeployEnvInformation struct {
@@ -1244,12 +1267,13 @@ type MseGrayOfflineJobSpec struct {
 }
 
 type NacosJobSpec struct {
-	NacosID           string               `bson:"nacos_id"            json:"nacos_id"            yaml:"nacos_id"`
-	NamespaceID       string               `bson:"namespace_id"        json:"namespace_id"        yaml:"namespace_id"`
-	NacosDatas        []*types.NacosConfig `bson:"nacos_datas"         json:"nacos_datas"         yaml:"nacos_datas"`
-	NacosFilteredData []*types.NacosConfig `bson:"nacos_filtered_data" json:"nacos_filtered_data" yaml:"nacos_filtered_data"`
-	NacosDataRange    []string             `bson:"nacos_data_range"    json:"nacos_data_range"    yaml:"nacos_data_range"`
-	DataFixed         bool                 `bson:"data_fixed"          json:"data_fixed"          yaml:"data_fixed"`
+	NacosID           string                 `bson:"nacos_id"            json:"nacos_id"            yaml:"nacos_id"`
+	NamespaceID       string                 `bson:"namespace_id"        json:"namespace_id"        yaml:"namespace_id"`
+	Source            config.ParamSourceType `bson:"source"              json:"source"              yaml:"source"`
+	NacosDatas        []*types.NacosConfig   `bson:"nacos_datas"         json:"nacos_datas"         yaml:"nacos_datas"`
+	NacosFilteredData []*types.NacosConfig   `bson:"nacos_filtered_data" json:"nacos_filtered_data" yaml:"nacos_filtered_data"`
+	NacosDataRange    []string               `bson:"nacos_data_range"    json:"nacos_data_range"    yaml:"nacos_data_range"`
+	DataFixed         bool                   `bson:"data_fixed"          json:"data_fixed"          yaml:"data_fixed"`
 }
 
 type WorkflowTriggerJobSpec struct {
@@ -1411,7 +1435,14 @@ type Param struct {
 	ChoiceValue  []string               `bson:"choice_value,omitempty"    json:"choice_value,omitempty"      yaml:"choice_value,omitempty"`
 	Default      string                 `bson:"default"                   json:"default"                     yaml:"default"`
 	IsCredential bool                   `bson:"is_credential"             json:"is_credential"               yaml:"is_credential"`
-	Source       config.ParamSourceType `bson:"source,omitempty" json:"source,omitempty" yaml:"source,omitempty"`
+	Source       config.ParamSourceType `bson:"source,omitempty"          json:"source,omitempty"            yaml:"source,omitempty"`
+}
+
+func (p *Param) GetValue() string {
+	if p.ParamsType == "multi-select" {
+		return strings.Join(p.ChoiceValue, ",")
+	}
+	return p.Value
 }
 
 type ShareStorage struct {

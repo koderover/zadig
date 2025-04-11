@@ -370,7 +370,7 @@ func (j *DeployJob) SetOptions(approvalTicket *commonmodels.ApprovalTicket) erro
 		// if the env is fixed, we put the env in the option
 		envName := strings.ReplaceAll(latestSpec.Env, setting.FixedValueMark, "")
 
-		if approvalTicket == nil || isAllowedEnv(envName, approvalTicket.Envs) {
+		if approvalTicket.IsAllowedEnv(j.workflow.Project, envName) {
 			serviceInfo, envInfo, err := generateEnvDeployServiceInfo(envName, j.workflow.Project, latestSpec, allowedServices)
 			if err != nil {
 				log.Errorf("failed to generate service deployment info for env: %s, error: %s", envName, err)
@@ -403,7 +403,7 @@ func (j *DeployJob) SetOptions(approvalTicket *commonmodels.ApprovalTicket) erro
 				continue
 			}
 
-			if approvalTicket != nil && !isAllowedEnv(env.EnvName, approvalTicket.Envs) {
+			if approvalTicket.IsAllowedEnv(j.workflow.Project, env.EnvName) {
 				continue
 			}
 
@@ -687,7 +687,7 @@ func generateEnvDeployServiceInfo(env, project string, spec *commonmodels.ZadigD
 	/*
 	   1. Throw everything in the envs into the response
 	   2. Comparing the service list in the envs with the service list in service definition to find extra (if not found just do nothing)
-	   2. Do a scan for the services that is newly created in the service list
+	   3. Do a scan for the services that is newly created in the service list
 
 	   Additional logics:
 	   1. VariableConfig is the field user used to limit the range of kvs workflow user can see, it should not be returned.
@@ -1119,17 +1119,6 @@ func checkServiceExsistsInEnv(serviceMap map[string]*commonmodels.ProductService
 		return fmt.Errorf("service %s not exists in env %s", serviceName, env)
 	}
 	return nil
-}
-
-// isAllowedEnv calculate if the env is allowed by the allowedEnv restriction.
-// note that if allowedEnv is empty, it will be seen as no restrictions
-func isAllowedEnv(env string, allowedEnv []string) bool {
-	if allowedEnv == nil || len(allowedEnv) == 0 {
-		return true
-	}
-
-	allowedSets := sets.NewString(allowedEnv...)
-	return allowedSets.Has(env)
 }
 
 func isAllowedService(serviceName, serviceModule string, allowedServices []*commonmodels.ServiceWithModule) bool {
