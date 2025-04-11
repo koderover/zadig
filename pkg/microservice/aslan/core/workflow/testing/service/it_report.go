@@ -39,7 +39,7 @@ func GetTestLocalTestSuite(testName string, log *zap.SugaredLogger) (*commonmode
 	}
 
 	// get latest test result to determine how many cases are there
-	testResults, err := commonrepo.NewCustomWorkflowTestReportColl().ListByWorkflow(testCustomWorkflowName, testName, testTasks[0].TaskID)
+	testResults, err := commonrepo.NewCustomWorkflowTestReportColl().ListByWorkflowJobName(testCustomWorkflowName, testName, testTasks[0].TaskID)
 	if err != nil {
 		log.Errorf("failed to get test report info for test: %s, error: %s", err)
 		return nil, err

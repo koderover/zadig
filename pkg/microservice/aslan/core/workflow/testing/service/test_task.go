@@ -201,7 +201,7 @@ func ListTestTask(testName, projectKey string, pageNum, pageSize int, log *zap.S
 	for _, testTask := range workflowTasks {
 		testResultMap := make(map[string]interface{})
 
-		testResultList, err := commonrepo.NewCustomWorkflowTestReportColl().ListByWorkflow(workflowName, testName, testTask.TaskID)
+		testResultList, err := commonrepo.NewCustomWorkflowTestReportColl().ListByWorkflowJobName(workflowName, testName, testTask.TaskID)
 		if err != nil {
 			log.Errorf("failed to list junit test report for workflow: %s, error: %s", workflowName, err)
 			return nil, fmt.Errorf("failed to list junit test report for workflow: %s, error: %s", workflowName, err)
@@ -252,7 +252,7 @@ func GetTestTaskDetail(projectKey, testName string, taskID int64, log *zap.Sugar
 
 	testResultMap := make(map[string]interface{})
 
-	testResultList, err := commonrepo.NewCustomWorkflowTestReportColl().ListByWorkflow(workflowName, testName, taskID)
+	testResultList, err := commonrepo.NewCustomWorkflowTestReportColl().ListByWorkflowJobName(workflowName, testName, taskID)
 	if err != nil {
 		log.Errorf("failed to list junit test report for workflow: %s, error: %s", workflowName, err)
 		return nil, fmt.Errorf("failed to list junit test report for workflow: %s, error: %s", workflowName, err)
@@ -383,7 +383,7 @@ func GetTestTaskReportDetail(projectKey, testName string, taskID int64, log *zap
 	workflowName := util.GenTestingWorkflowName(testName)
 	testResults := make([]*commonmodels.TestSuite, 0)
 
-	testResultList, err := commonrepo.NewCustomWorkflowTestReportColl().ListByWorkflow(workflowName, testName, taskID)
+	testResultList, err := commonrepo.NewCustomWorkflowTestReportColl().ListByWorkflowJobName(workflowName, testName, taskID)
 	if err != nil {
 		log.Errorf("failed to list junit test report for workflow: %s, error: %s", workflowName, err)
 		return nil, fmt.Errorf("failed to list junit test report for workflow: %s, error: %s", workflowName, err)
