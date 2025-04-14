@@ -252,7 +252,7 @@ func UpdateWorkflowV4(name, user string, inputWorkflow *commonmodels.WorkflowV4,
 		}
 	}
 
-	workflowController := controller.CreateWorkflowController(workflow)
+	workflowController := controller.CreateWorkflowController(inputWorkflow)
 	if err := workflowController.Validate(false); err != nil {
 		return err
 	}
