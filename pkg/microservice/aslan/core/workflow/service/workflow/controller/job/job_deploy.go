@@ -17,7 +17,6 @@ limitations under the License.
 package job
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -219,9 +218,6 @@ func (j DeployJobController) Update(useUserInput bool, ticket *commonmodels.Appr
 
 				newUserKV := make([]*commontypes.RenderVariableKV, 0)
 
-				serviceBytes, _ := json.Marshal(service)
-				log.Infof("calculated service is: \n %s \n", string(serviceBytes))
-
 				var variableInfo *commonmodels.DeployVariableInfo
 				if userSvc.UpdateConfig {
 					variableInfo = service.ServiceVariable
@@ -229,26 +225,29 @@ func (j DeployJobController) Update(useUserInput bool, ticket *commonmodels.Appr
 					variableInfo = service.EnvVariable
 				}
 
-				for _, kv := range variableInfo.VariableKVs {
-					updatedKV := &commontypes.RenderVariableKV{
-						ServiceVariableKV: kv.ServiceVariableKV,
-						UseGlobalVariable: kv.UseGlobalVariable,
-					}
-					if userKV, ok := userKVMap[kv.Key]; ok {
-						if !kv.UseGlobalVariable {
-							updatedKV.Value = userKV.Value
+				// there is a case where the service is not yet deployed into the env
+				if variableInfo != nil {
+					for _, kv := range variableInfo.VariableKVs {
+						updatedKV := &commontypes.RenderVariableKV{
+							ServiceVariableKV: kv.ServiceVariableKV,
+							UseGlobalVariable: kv.UseGlobalVariable,
 						}
+						if userKV, ok := userKVMap[kv.Key]; ok {
+							if !kv.UseGlobalVariable {
+								updatedKV.Value = userKV.Value
+							}
+						}
+						newUserKV = append(newUserKV, updatedKV)
 					}
-					newUserKV = append(newUserKV, updatedKV)
-				}
 
-				mergedValues, err := helmtool.MergeOverrideValues("", variableInfo.VariableYaml, userSvc.VariableYaml, "", make([]*helmtool.KV, 0))
-				if err != nil {
-					return fmt.Errorf("failed to merge helm values, error: %s", err)
-				}
+					mergedValues, err := helmtool.MergeOverrideValues("", variableInfo.VariableYaml, userSvc.VariableYaml, "", make([]*helmtool.KV, 0))
+					if err != nil {
+						return fmt.Errorf("failed to merge helm values, error: %s", err)
+					}
 
-				userSvc.VariableYaml = mergedValues
-				userSvc.VariableKVs = newUserKV
+					userSvc.VariableYaml = mergedValues
+					userSvc.VariableKVs = newUserKV
+				}
 			}
 			mergedService = append(mergedService, userSvc)
 		}
@@ -927,12 +926,6 @@ func generateDeployInfoForEnv(env, project string, production bool, configuredSe
 			OverrideKVs:  serviceGeneralInfoMap[service.ServiceName].OverrideKVs,
 			VariableYaml: serviceGeneralInfoMap[service.ServiceName].VariableYaml,
 		}
-
-		serviceVariableInfoBytes, _ := json.Marshal(serviceVariableInfo)
-		envVariableInfoBytes, _ := json.Marshal(envVariableInfo)
-
-		log.Infof("service variable info for env [%s] is \n %s \n\n", env, string(serviceVariableInfoBytes))
-		log.Infof("env variable info for env [%s] is \n %s \n\n", env, string(envVariableInfoBytes))
 
 		serviceOption = append(serviceOption, &commonmodels.DeployOptionInfo{
 			DeployBasicInfo: svcBasicInfo,
