@@ -17,6 +17,7 @@ limitations under the License.
 package job
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -924,8 +925,11 @@ func generateDeployInfoForEnv(env, project string, production bool, configuredSe
 			VariableYaml: serviceGeneralInfoMap[service.ServiceName].VariableYaml,
 		}
 
-		log.Infof("service variable info for env [%s] is \n %v \n\n", env, serviceVariableInfo)
-		log.Infof("env variable info for env [%s] is \n %v \n\n", env, envVariableInfo)
+		serviceVariableInfoBytes, _ := json.Marshal(serviceVariableInfo)
+		envVariableInfoBytes, _ := json.Marshal(envVariableInfo)
+
+		log.Infof("service variable info for env [%s] is \n %s \n\n", env, string(serviceVariableInfoBytes))
+		log.Infof("env variable info for env [%s] is \n %s \n\n", env, string(envVariableInfoBytes))
 
 		serviceOption = append(serviceOption, &commonmodels.DeployOptionInfo{
 			DeployBasicInfo: svcBasicInfo,
