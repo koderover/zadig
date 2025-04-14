@@ -19,9 +19,7 @@ package job
 import (
 	"fmt"
 
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
-	templaterepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/types"
@@ -74,17 +72,17 @@ func (j BlueKingJobController) Validate(isExecution bool) error {
 	if err := commonmodels.IToi(currJob.Spec, currJobSpec); err != nil {
 		return fmt.Errorf("failed to decode apollo job spec, error: %s", err)
 	}
-
-	if isExecution {
-		if j.jobSpec.FromJob != currJobSpec.FromJob {
-			return fmt.Errorf("from job [%s] is different from configuration in the workflow: [%s]", j.jobSpec.FromJob, currJobSpec.FromJob)
-		}
-	}
-
-	_, err = j.workflow.FindJob(j.jobSpec.FromJob, config.JobK8sBlueGreenDeploy)
-	if err != nil {
-		return fmt.Errorf("failed to find referred job: %s, error: %s", j.jobSpec.FromJob, err)
-	}
+	//
+	//if isExecution {
+	//	if j.jobSpec.FromJob != currJobSpec.FromJob {
+	//		return fmt.Errorf("from job [%s] is different from configuration in the workflow: [%s]", j.jobSpec.FromJob, currJobSpec.FromJob)
+	//	}
+	//}
+	//
+	//_, err = j.workflow.FindJob(j.jobSpec.FromJob, config.JobK8sBlueGreenDeploy)
+	//if err != nil {
+	//	return fmt.Errorf("failed to find referred job: %s, error: %s", j.jobSpec.FromJob, err)
+	//}
 
 	return nil
 }
@@ -100,7 +98,7 @@ func (j BlueKingJobController) Update(useUserInput bool, ticket *commonmodels.Ap
 		return fmt.Errorf("failed to decode apollo job spec, error: %s", err)
 	}
 
-	j.jobSpec.FromJob = currJobSpec.FromJob
+	//j.jobSpec.FromJob = currJobSpec.FromJob
 
 	return nil
 }
@@ -126,44 +124,44 @@ func (j BlueKingJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, er
 	}
 
 	resp := make([]*commonmodels.JobTask, 0)
-
-	deployJob, err := j.workflow.FindJob(j.jobSpec.FromJob, config.JobK8sBlueGreenDeploy)
-	if err != nil {
-		return nil, err
-	}
-
-	deployJobSpec := &commonmodels.BlueGreenDeployV2JobSpec{}
-	if err := commonmodels.IToi(deployJob.Spec, deployJobSpec); err != nil {
-		return resp, err
-	}
-
-	templateProduct, err := templaterepo.NewProductColl().Find(j.workflow.Project)
-	if err != nil {
-		return resp, fmt.Errorf("cannot find product %s: %w", j.workflow.Project, err)
-	}
-	timeout := templateProduct.Timeout * 60
-
-	for jobSubTaskID, target := range deployJobSpec.Services {
-		task := &commonmodels.JobTask{
-			Name:        GenJobName(j.workflow, j.name, jobSubTaskID),
-			Key:         genJobKey(j.name, target.ServiceName),
-			DisplayName: genJobDisplayName(j.name, target.ServiceName),
-			OriginName:  j.name,
-			JobInfo: map[string]string{
-				JobNameKey:     j.name,
-				"service_name": target.ServiceName,
-			},
-			JobType: string(config.JobK8sBlueGreenRelease),
-			Spec: &commonmodels.JobTaskBlueGreenReleaseV2Spec{
-				Production:    deployJobSpec.Production,
-				Env:           deployJobSpec.Env,
-				Service:       target,
-				DeployTimeout: timeout,
-			},
-			ErrorPolicy: j.errorPolicy,
-		}
-		resp = append(resp, task)
-	}
+	//
+	//deployJob, err := j.workflow.FindJob(j.jobSpec.FromJob, config.JobK8sBlueGreenDeploy)
+	//if err != nil {
+	//	return nil, err
+	//}
+	//
+	//deployJobSpec := &commonmodels.BlueGreenDeployV2JobSpec{}
+	//if err := commonmodels.IToi(deployJob.Spec, deployJobSpec); err != nil {
+	//	return resp, err
+	//}
+	//
+	//templateProduct, err := templaterepo.NewProductColl().Find(j.workflow.Project)
+	//if err != nil {
+	//	return resp, fmt.Errorf("cannot find product %s: %w", j.workflow.Project, err)
+	//}
+	//timeout := templateProduct.Timeout * 60
+	//
+	//for jobSubTaskID, target := range deployJobSpec.Services {
+	//	task := &commonmodels.JobTask{
+	//		Name:        GenJobName(j.workflow, j.name, jobSubTaskID),
+	//		Key:         genJobKey(j.name, target.ServiceName),
+	//		DisplayName: genJobDisplayName(j.name, target.ServiceName),
+	//		OriginName:  j.name,
+	//		JobInfo: map[string]string{
+	//			JobNameKey:     j.name,
+	//			"service_name": target.ServiceName,
+	//		},
+	//		JobType: string(config.JobK8sBlueGreenRelease),
+	//		Spec: &commonmodels.JobTaskBlueGreenReleaseV2Spec{
+	//			Production:    deployJobSpec.Production,
+	//			Env:           deployJobSpec.Env,
+	//			Service:       target,
+	//			DeployTimeout: timeout,
+	//		},
+	//		ErrorPolicy: j.errorPolicy,
+	//	}
+	//	resp = append(resp, task)
+	//}
 
 	return resp, nil
 }
