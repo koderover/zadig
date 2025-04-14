@@ -924,6 +924,9 @@ func generateDeployInfoForEnv(env, project string, production bool, configuredSe
 			VariableYaml: serviceGeneralInfoMap[service.ServiceName].VariableYaml,
 		}
 
+		log.Infof("service variable info for env [%s] is \n %v \n\n", env, serviceVariableInfo)
+		log.Infof("env variable info for env [%s] is \n %v \n\n", env, envVariableInfo)
+
 		serviceOption = append(serviceOption, &commonmodels.DeployOptionInfo{
 			DeployBasicInfo: svcBasicInfo,
 
