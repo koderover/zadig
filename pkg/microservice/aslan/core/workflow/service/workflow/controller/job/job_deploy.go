@@ -219,6 +219,9 @@ func (j DeployJobController) Update(useUserInput bool, ticket *commonmodels.Appr
 
 				newUserKV := make([]*commontypes.RenderVariableKV, 0)
 
+				serviceBytes, _ := json.Marshal(service)
+				log.Infof("calculated service is: \n %s \n", string(serviceBytes))
+
 				var variableInfo *commonmodels.DeployVariableInfo
 				if userSvc.UpdateConfig {
 					variableInfo = service.ServiceVariable
