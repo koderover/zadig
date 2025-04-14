@@ -232,7 +232,7 @@ func (list KeyValList) ToRuntimeList() []*RuntimeKeyVal {
 }
 
 type RuntimeKeyVal struct {
-	*KeyVal
+	*KeyVal `bson:",inline" json:",inline" yaml:",inline"`
 
 	Source config.ParamSourceType `bson:"source" json:"source" yaml:"source"`
 }

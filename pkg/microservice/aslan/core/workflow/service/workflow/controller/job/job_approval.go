@@ -19,9 +19,13 @@ package job
 import (
 	"fmt"
 
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
+	"github.com/koderover/zadig/v2/pkg/types"
+	"github.com/samber/lo"
+	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 type ApprovalJobController struct {
@@ -90,18 +94,224 @@ func (j ApprovalJobController) Update(useUserInput bool, ticket *commonmodels.Ap
 		return fmt.Errorf("failed to decode approval job spec, error: %s", err)
 	}
 
-	if latestJobSpec.NativeApproval != nil && j.jobSpec.NativeApproval != nil {
-		latestJobSpec.NativeApproval.ApproveUsers = j.jobSpec.NativeApproval.ApproveUsers
-	}
-	if latestJobSpec.LarkApproval != nil && j.jobSpec.LarkApproval != nil {
-		latestJobSpec.LarkApproval.ApprovalNodes = j.jobSpec.LarkApproval.ApprovalNodes
-	}
-	if latestJobSpec.DingTalkApproval != nil && j.jobSpec.DingTalkApproval != nil {
-		latestJobSpec.DingTalkApproval.ApprovalNodes = j.jobSpec.DingTalkApproval.ApprovalNodes
-	}
-	if latestJobSpec.WorkWXApproval != nil && j.jobSpec.WorkWXApproval != nil {
-		latestJobSpec.WorkWXApproval.ApprovalNodes = j.jobSpec.WorkWXApproval.ApprovalNodes
+	if useUserInput {
+		if latestJobSpec.NativeApproval != nil && j.jobSpec.NativeApproval != nil {
+			latestJobSpec.NativeApproval.ApproveUsers = j.jobSpec.NativeApproval.ApproveUsers
+		}
+		if latestJobSpec.LarkApproval != nil && j.jobSpec.LarkApproval != nil {
+			latestJobSpec.LarkApproval.ApprovalNodes = j.jobSpec.LarkApproval.ApprovalNodes
+		}
+		if latestJobSpec.DingTalkApproval != nil && j.jobSpec.DingTalkApproval != nil {
+			latestJobSpec.DingTalkApproval.ApprovalNodes = j.jobSpec.DingTalkApproval.ApprovalNodes
+		}
+		if latestJobSpec.WorkWXApproval != nil && j.jobSpec.WorkWXApproval != nil {
+			latestJobSpec.WorkWXApproval.ApprovalNodes = j.jobSpec.WorkWXApproval.ApprovalNodes
+		}
 	}
 
+	j.jobSpec = latestJobSpec
+
 	return nil
+}
+
+func (j ApprovalJobController) ClearOptions() {
+	return
+}
+
+func (j ApprovalJobController) ClearSelection() {
+	return
+}
+
+func (j ApprovalJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, error) {
+	if err := j.Validate(true); err != nil {
+		return nil, err
+	}
+
+	nativeApproval := j.jobSpec.NativeApproval
+	if nativeApproval != nil && j.jobSpec.Source != config.SourceFromJob {
+		approvalUser, _ := util.GeneFlatUsers(nativeApproval.ApproveUsers)
+		nativeApproval.ApproveUsers = approvalUser
+	}
+
+	jobSpec := &commonmodels.JobTaskApprovalSpec{
+		Timeout:          j.jobSpec.Timeout,
+		Type:             j.jobSpec.Type,
+		Description:      j.jobSpec.Description,
+		NativeApproval:   nativeApproval,
+		LarkApproval:     j.jobSpec.LarkApproval,
+		DingTalkApproval: j.jobSpec.DingTalkApproval,
+		WorkWXApproval:   j.jobSpec.WorkWXApproval,
+	}
+	jobTask := &commonmodels.JobTask{
+		Name:        GenJobName(j.workflow, j.name, 0),
+		Key:         genJobKey(j.name),
+		DisplayName: genJobDisplayName(j.name),
+		OriginName:  j.name,
+		JobInfo: map[string]string{
+			JobNameKey: j.name,
+		},
+		JobType:     string(config.JobApproval),
+		Spec:        jobSpec,
+		Timeout:     j.jobSpec.Timeout,
+		ErrorPolicy: j.errorPolicy,
+	}
+
+	if j.jobSpec.Source == config.SourceFromJob {
+		// adapt to the front end, use the direct quoted job name
+		if j.jobSpec.OriginJobName != "" {
+			j.jobSpec.JobName = j.jobSpec.OriginJobName
+		}
+
+		serviceReferredJob := getOriginJobName(j.workflow, j.jobSpec.JobName)
+		originJobSpec, err := j.getOriginReferredJobSpec(serviceReferredJob)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get origin refered job: %s", err)
+		}
+
+		if originJobSpec.Type != jobSpec.Type {
+			return nil, fmt.Errorf("origin refered %s's job type %s is different from current %s's job type %s", serviceReferredJob, originJobSpec.Type, j.jobSpec.JobName, j.jobSpec.Type)
+		}
+
+		switch originJobSpec.Type {
+		case config.NativeApproval:
+			approvalUser, _ := util.GeneFlatUsers(originJobSpec.NativeApproval.ApproveUsers)
+			jobSpec.NativeApproval.ApproveUsers = approvalUser
+		case config.LarkApproval:
+			if originJobSpec.LarkApproval == nil {
+				return nil, fmt.Errorf("%s lark approval not found", serviceReferredJob)
+			}
+
+			if originJobSpec.LarkApproval.ID != jobSpec.LarkApproval.ID {
+				return nil, fmt.Errorf("origin refered %s's lark id is different from current %s's lark id", serviceReferredJob, j.jobSpec.JobName)
+			}
+
+			jobSpec.LarkApproval.ApprovalNodes = originJobSpec.LarkApproval.ApprovalNodes
+		case config.DingTalkApproval:
+			if originJobSpec.DingTalkApproval == nil {
+				return nil, fmt.Errorf("%s's dingtalk approval not found", serviceReferredJob)
+			}
+
+			if originJobSpec.DingTalkApproval.ID != jobSpec.DingTalkApproval.ID {
+				return nil, fmt.Errorf("origin refered %s's dingtalk id is different from current %s's dingtalk id", serviceReferredJob, j.jobSpec.JobName)
+			}
+
+			jobSpec.DingTalkApproval.ApprovalNodes = originJobSpec.DingTalkApproval.ApprovalNodes
+		case config.WorkWXApproval:
+			if originJobSpec.WorkWXApproval == nil {
+				return nil, fmt.Errorf("%s's workwx approval not found", serviceReferredJob)
+			}
+
+			if originJobSpec.WorkWXApproval.ID != jobSpec.WorkWXApproval.ID {
+				return nil, fmt.Errorf("origin refered %s's workwx id is different from current %s's workwx id", serviceReferredJob, j.jobSpec.JobName)
+			}
+
+			jobSpec.WorkWXApproval.ApprovalNodes = originJobSpec.WorkWXApproval.ApprovalNodes
+		default:
+			return nil, fmt.Errorf("%s's invalid approval type %s's", originJobSpec.Type, serviceReferredJob)
+		}
+	}
+
+	// check if the approval job is valid
+	switch jobSpec.Type {
+	case config.NativeApproval:
+		if jobSpec.NativeApproval == nil {
+			return nil, fmt.Errorf("native approval not found")
+		}
+		if len(jobSpec.NativeApproval.ApproveUsers) == 0 {
+			return nil, fmt.Errorf("num of approve-users is 0")
+		}
+		if len(jobSpec.NativeApproval.ApproveUsers) < jobSpec.NativeApproval.NeededApprovers {
+			return nil, fmt.Errorf("all approve users should not less than needed approvers")
+		}
+	case config.DingTalkApproval:
+		if jobSpec.DingTalkApproval == nil {
+			return nil, fmt.Errorf("dingtalk approval not found")
+		}
+		if len(jobSpec.DingTalkApproval.ApprovalNodes) == 0 {
+			return nil, fmt.Errorf("num of approval-node is 0")
+		}
+
+		userIDSets := sets.NewString()
+		for i, node := range jobSpec.DingTalkApproval.ApprovalNodes {
+			if len(node.ApproveUsers) == 0 {
+				return nil, fmt.Errorf("num of approval-node %d approver is 0", i)
+			}
+			for _, user := range node.ApproveUsers {
+				if userIDSets.Has(user.ID) {
+					return nil, fmt.Errorf("duplicate approvers %s should not appear in a complete approval process", user.Name)
+				}
+				userIDSets.Insert(user.ID)
+			}
+			if !lo.Contains([]string{"AND", "OR"}, string(node.Type)) {
+				return nil, fmt.Errorf("approval-node %d type should be AND or OR", i)
+			}
+		}
+	case config.LarkApproval:
+		if jobSpec.LarkApproval == nil {
+			return nil, fmt.Errorf("lark approval not found")
+		}
+		if len(jobSpec.LarkApproval.ApprovalNodes) == 0 {
+			return nil, fmt.Errorf("num of approval-node is 0")
+		}
+		for i, node := range jobSpec.LarkApproval.ApprovalNodes {
+			if len(node.ApproveUsers) == 0 {
+				return nil, fmt.Errorf("num of approval-node %d approver is 0", i)
+			}
+			if !lo.Contains([]string{"AND", "OR"}, string(node.Type)) {
+				return nil, fmt.Errorf("approval-node %d type should be AND or OR", i)
+			}
+		}
+	case config.WorkWXApproval:
+		if jobSpec.WorkWXApproval == nil {
+			return nil, fmt.Errorf("workwx approval not found")
+		}
+		// if len(jobSpec.WorkWXApproval.ApprovalNodes) == 0 {
+		// 	return nil, fmt.Errorf("num of approval-node is 0")
+		// }
+	default:
+		return nil, fmt.Errorf("invalid approval type %s", jobSpec.Type)
+	}
+
+	resp := make([]*commonmodels.JobTask, 0)
+	resp = append(resp, jobTask)
+
+	return resp, nil
+}
+
+func (j ApprovalJobController) SetRepo(repo *types.Repository) error {
+	return nil
+}
+
+func (j ApprovalJobController) SetRepoCommitInfo() error {
+	return nil
+}
+
+func (j *ApprovalJobController) getOriginReferredJobSpec(jobName string) (*commonmodels.ApprovalJobSpec, error) {
+	var err error
+	resp := &commonmodels.ApprovalJobSpec{}
+
+	for _, stage := range j.workflow.Stages {
+		for _, job := range stage.Jobs {
+			if job.Name != jobName {
+				continue
+			}
+			if job.JobType != config.JobApproval {
+				continue
+			}
+
+			approvalSpec := &commonmodels.ApprovalJobSpec{}
+			if err = commonmodels.IToi(job.Spec, approvalSpec); err != nil {
+				return resp, err
+			}
+
+			if approvalSpec.Source == config.SourceFromJob {
+				return nil, fmt.Errorf("origin refered %s's source is also from job", jobName)
+			}
+
+			resp = approvalSpec
+			return resp, nil
+		}
+	}
+
+	return nil, fmt.Errorf("approval job %s not found", jobName)
 }
