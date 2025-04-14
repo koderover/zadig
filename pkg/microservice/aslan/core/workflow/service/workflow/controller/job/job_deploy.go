@@ -289,7 +289,7 @@ func (j DeployJobController) SetOptions(ticket *commonmodels.ApprovalTicket) err
 				continue
 			}
 
-			envInfo, err := generateDeployInfoForEnv(j.jobSpec.Env, j.workflow.Project, j.jobSpec.Production, j.jobSpec.ServiceVariableConfig, ticket)
+			envInfo, err := generateDeployInfoForEnv(env.EnvName, j.workflow.Project, j.jobSpec.Production, j.jobSpec.ServiceVariableConfig, ticket)
 			if err != nil {
 				log.Errorf("failed to generate service deployment info for env: %s, error: %s", j.jobSpec.Env, err)
 				return err

@@ -35,7 +35,7 @@ type ApprovalJobController struct {
 	jobSpec *commonmodels.ApprovalJobSpec
 }
 
-func CreateApprovalJobController(job *commonmodels.Job, workflow *commonmodels.WorkflowV4) (*ApprovalJobController, error) {
+func CreateApprovalJobController(job *commonmodels.Job, workflow *commonmodels.WorkflowV4) (Job, error) {
 	spec := new(commonmodels.ApprovalJobSpec)
 	if err := commonmodels.IToi(job.Spec, spec); err != nil {
 		return nil, fmt.Errorf("failed to create apollo job controller, error: %s", err)
@@ -48,7 +48,7 @@ func CreateApprovalJobController(job *commonmodels.Job, workflow *commonmodels.W
 		workflow:    workflow,
 	}
 
-	return &ApprovalJobController{
+	return ApprovalJobController{
 		BasicInfo: basicInfo,
 		jobSpec:   spec,
 	}, nil
@@ -112,6 +112,10 @@ func (j ApprovalJobController) Update(useUserInput bool, ticket *commonmodels.Ap
 
 	j.jobSpec = latestJobSpec
 
+	return nil
+}
+
+func (j ApprovalJobController) SetOptions(ticket *commonmodels.ApprovalTicket) error {
 	return nil
 }
 
