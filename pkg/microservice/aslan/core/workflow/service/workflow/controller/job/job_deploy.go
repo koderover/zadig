@@ -285,7 +285,7 @@ func (j DeployJobController) SetOptions(ticket *commonmodels.ApprovalTicket) err
 				continue
 			}
 
-			if ticket.IsAllowedEnv(j.workflow.Project, env.EnvName) {
+			if !ticket.IsAllowedEnv(j.workflow.Project, env.EnvName) {
 				continue
 			}
 
