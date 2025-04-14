@@ -68,9 +68,9 @@ func (j BlueKingJobController) Validate(isExecution bool) error {
 		return err
 	}
 
-	currJobSpec := new(commonmodels.BlueGreenReleaseV2JobSpec)
+	currJobSpec := new(commonmodels.BlueKingJobSpec)
 	if err := commonmodels.IToi(currJob.Spec, currJobSpec); err != nil {
-		return fmt.Errorf("failed to decode apollo job spec, error: %s", err)
+		return fmt.Errorf("failed to decode blue king job spec, error: %s", err)
 	}
 	//
 	//if isExecution {
@@ -93,9 +93,9 @@ func (j BlueKingJobController) Update(useUserInput bool, ticket *commonmodels.Ap
 		return err
 	}
 
-	currJobSpec := new(commonmodels.BlueGreenReleaseV2JobSpec)
+	currJobSpec := new(commonmodels.BlueKingJobSpec)
 	if err := commonmodels.IToi(currJob.Spec, currJobSpec); err != nil {
-		return fmt.Errorf("failed to decode apollo job spec, error: %s", err)
+		return fmt.Errorf("failed to decode blue king job spec, error: %s", err)
 	}
 
 	//j.jobSpec.FromJob = currJobSpec.FromJob

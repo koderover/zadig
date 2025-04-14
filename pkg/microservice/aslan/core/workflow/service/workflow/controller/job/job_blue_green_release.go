@@ -120,10 +120,6 @@ func (j BlueGreenReleaseJobController) ClearSelection() {
 }
 
 func (j BlueGreenReleaseJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, error) {
-	if err := j.Validate(true); err != nil {
-		return nil, err
-	}
-
 	resp := make([]*commonmodels.JobTask, 0)
 
 	deployJob, err := j.workflow.FindJob(j.jobSpec.FromJob, config.JobK8sBlueGreenDeploy)

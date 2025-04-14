@@ -192,10 +192,6 @@ func (j ApolloJobController) ClearSelection() {
 }
 
 func (j ApolloJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, error) {
-	if err := j.Validate(true); err != nil {
-		return nil, err
-	}
-
 	jobTask := &commonmodels.JobTask{
 		Name:        GenJobName(j.workflow, j.name, 0),
 		Key:         genJobKey(j.name),

@@ -128,10 +128,6 @@ func (j ApprovalJobController) ClearSelection() {
 }
 
 func (j ApprovalJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, error) {
-	if err := j.Validate(true); err != nil {
-		return nil, err
-	}
-
 	nativeApproval := j.jobSpec.NativeApproval
 	if nativeApproval != nil && j.jobSpec.Source != config.SourceFromJob {
 		approvalUser, _ := util.GeneFlatUsers(nativeApproval.ApproveUsers)
