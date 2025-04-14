@@ -21,20 +21,19 @@ import (
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
-	templaterepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/types"
 )
 
-type BlueGreenReleaseJobController struct {
+type CanaryReleaseJobController struct {
 	*BasicInfo
 
-	jobSpec *commonmodels.BlueGreenReleaseV2JobSpec
+	jobSpec *commonmodels.CanaryReleaseJobSpec
 }
 
-func CreateBlueGreenReleaseJobController(job *commonmodels.Job, workflow *commonmodels.WorkflowV4) (Job, error) {
-	spec := new(commonmodels.BlueGreenReleaseV2JobSpec)
+func CreateCanaryReleaseJobController(job *commonmodels.Job, workflow *commonmodels.WorkflowV4) (Job, error) {
+	spec := new(commonmodels.CanaryReleaseJobSpec)
 	if err := commonmodels.IToi(job.Spec, spec); err != nil {
 		return nil, fmt.Errorf("failed to create apollo job controller, error: %s", err)
 	}
@@ -46,21 +45,21 @@ func CreateBlueGreenReleaseJobController(job *commonmodels.Job, workflow *common
 		workflow:    workflow,
 	}
 
-	return BlueGreenReleaseJobController{
+	return CanaryReleaseJobController{
 		BasicInfo: basicInfo,
 		jobSpec:   spec,
 	}, nil
 }
 
-func (j BlueGreenReleaseJobController) SetWorkflow(wf *commonmodels.WorkflowV4) {
+func (j CanaryReleaseJobController) SetWorkflow(wf *commonmodels.WorkflowV4) {
 	j.workflow = wf
 }
 
-func (j BlueGreenReleaseJobController) GetSpec() interface{} {
+func (j CanaryReleaseJobController) GetSpec() interface{} {
 	return j.jobSpec
 }
 
-func (j BlueGreenReleaseJobController) Validate(isExecution bool) error {
+func (j CanaryReleaseJobController) Validate(isExecution bool) error {
 	if err := util.CheckZadigProfessionalLicense(); err != nil {
 		return e.ErrLicenseInvalid.AddDesc("")
 	}
@@ -70,7 +69,7 @@ func (j BlueGreenReleaseJobController) Validate(isExecution bool) error {
 		return err
 	}
 
-	currJobSpec := new(commonmodels.BlueGreenReleaseV2JobSpec)
+	currJobSpec := new(commonmodels.CanaryReleaseJobSpec)
 	if err := commonmodels.IToi(currJob.Spec, currJobSpec); err != nil {
 		return fmt.Errorf("failed to decode apollo job spec, error: %s", err)
 	}
@@ -81,7 +80,7 @@ func (j BlueGreenReleaseJobController) Validate(isExecution bool) error {
 		}
 	}
 
-	_, err = j.workflow.FindJob(j.jobSpec.FromJob, config.JobK8sBlueGreenDeploy)
+	_, err = j.workflow.FindJob(j.jobSpec.FromJob, config.JobK8sCanaryDeploy)
 	if err != nil {
 		return fmt.Errorf("failed to find referred job: %s, error: %s", j.jobSpec.FromJob, err)
 	}
@@ -89,69 +88,71 @@ func (j BlueGreenReleaseJobController) Validate(isExecution bool) error {
 	return nil
 }
 
-func (j BlueGreenReleaseJobController) Update(useUserInput bool, ticket *commonmodels.ApprovalTicket) error {
+func (j CanaryReleaseJobController) Update(useUserInput bool, ticket *commonmodels.ApprovalTicket) error {
 	currJob, err := j.workflow.FindJob(j.name, j.jobType)
 	if err != nil {
 		return err
 	}
 
-	currJobSpec := new(commonmodels.BlueGreenReleaseV2JobSpec)
+	currJobSpec := new(commonmodels.CanaryReleaseJobSpec)
 	if err := commonmodels.IToi(currJob.Spec, currJobSpec); err != nil {
 		return fmt.Errorf("failed to decode apollo job spec, error: %s", err)
 	}
 
 	j.jobSpec.FromJob = currJobSpec.FromJob
+	j.jobSpec.ReleaseTimeout = currJobSpec.ReleaseTimeout
 
 	return nil
 }
 
-func (j BlueGreenReleaseJobController) SetOptions(ticket *commonmodels.ApprovalTicket) error {
+func (j CanaryReleaseJobController) SetOptions(ticket *commonmodels.ApprovalTicket) error {
 	return nil
 }
 
-func (j BlueGreenReleaseJobController) ClearOptions() {
+func (j CanaryReleaseJobController) ClearOptions() {
 	return
 }
 
-func (j BlueGreenReleaseJobController) ClearSelection() {
+func (j CanaryReleaseJobController) ClearSelection() {
 	return
 }
 
-func (j BlueGreenReleaseJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, error) {
+func (j CanaryReleaseJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, error) {
 	resp := make([]*commonmodels.JobTask, 0)
 
-	deployJob, err := j.workflow.FindJob(j.jobSpec.FromJob, config.JobK8sBlueGreenDeploy)
+	deployJob, err := j.workflow.FindJob(j.jobSpec.FromJob, config.JobK8sCanaryDeploy)
 	if err != nil {
 		return nil, err
 	}
 
-	deployJobSpec := &commonmodels.BlueGreenDeployV2JobSpec{}
+	deployJobSpec := &commonmodels.CanaryDeployJobSpec{}
 	if err := commonmodels.IToi(deployJob.Spec, deployJobSpec); err != nil {
 		return resp, err
 	}
 
-	templateProduct, err := templaterepo.NewProductColl().Find(j.workflow.Project)
-	if err != nil {
-		return resp, fmt.Errorf("cannot find product %s: %w", j.workflow.Project, err)
-	}
-	timeout := templateProduct.Timeout * 60
-
-	for jobSubTaskID, target := range deployJobSpec.Services {
+	for jobSubTaskID, target := range deployJobSpec.Targets {
+		if target.WorkloadName == "" {
+			continue
+		}
 		task := &commonmodels.JobTask{
 			Name:        GenJobName(j.workflow, j.name, jobSubTaskID),
-			Key:         genJobKey(j.name, target.ServiceName),
-			DisplayName: genJobDisplayName(j.name, target.ServiceName),
+			Key:         genJobKey(j.name, target.K8sServiceName),
+			DisplayName: genJobDisplayName(j.name, target.K8sServiceName),
 			OriginName:  j.name,
 			JobInfo: map[string]string{
-				JobNameKey:     j.name,
-				"service_name": target.ServiceName,
+				JobNameKey:         j.name,
+				"k8s_service_name": target.K8sServiceName,
 			},
-			JobType: string(config.JobK8sBlueGreenRelease),
-			Spec: &commonmodels.JobTaskBlueGreenReleaseV2Spec{
-				Production:    deployJobSpec.Production,
-				Env:           deployJobSpec.Env,
-				Service:       target,
-				DeployTimeout: timeout,
+			JobType: string(config.JobK8sCanaryRelease),
+			Spec: &commonmodels.JobTaskCanaryReleaseSpec{
+				Namespace:      deployJobSpec.Namespace,
+				ClusterID:      deployJobSpec.ClusterID,
+				ReleaseTimeout: j.jobSpec.ReleaseTimeout,
+				K8sServiceName: target.K8sServiceName,
+				WorkloadType:   target.WorkloadType,
+				WorkloadName:   target.WorkloadName,
+				ContainerName:  target.ContainerName,
+				Image:          target.Image,
 			},
 			ErrorPolicy: j.errorPolicy,
 		}
@@ -161,18 +162,18 @@ func (j BlueGreenReleaseJobController) ToTask(taskID int64) ([]*commonmodels.Job
 	return resp, nil
 }
 
-func (j BlueGreenReleaseJobController) SetRepo(repo *types.Repository) error {
+func (j CanaryReleaseJobController) SetRepo(repo *types.Repository) error {
 	return nil
 }
 
-func (j BlueGreenReleaseJobController) SetRepoCommitInfo() error {
+func (j CanaryReleaseJobController) SetRepoCommitInfo() error {
 	return nil
 }
 
-func (j BlueGreenReleaseJobController) GetVariableList(jobName string, getAggregatedVariables, getRuntimeVariables, getPlaceHolderVariables, getServiceSpecificVariables, getReferredKeyValVariables bool) ([]*commonmodels.KeyVal, error) {
+func (j CanaryReleaseJobController) GetVariableList(jobName string, getAggregatedVariables, getRuntimeVariables, getPlaceHolderVariables, getServiceSpecificVariables, getReferredKeyValVariables bool) ([]*commonmodels.KeyVal, error) {
 	return make([]*commonmodels.KeyVal, 0), nil
 }
 
-func (j BlueGreenReleaseJobController) GetUsedRepos() ([]*types.Repository, error) {
+func (j CanaryReleaseJobController) GetUsedRepos() ([]*types.Repository, error) {
 	return make([]*types.Repository, 0), nil
 }
