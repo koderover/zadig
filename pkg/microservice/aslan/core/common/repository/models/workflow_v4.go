@@ -348,7 +348,7 @@ type ZadigBuildJobSpec struct {
 	DockerRegistryID        string                  `bson:"docker_registry_id"         yaml:"docker_registry_id"          json:"docker_registry_id"`
 	DefaultServiceAndBuilds []*ServiceAndBuild      `bson:"default_service_and_builds" yaml:"default_service_and_builds"  json:"default_service_and_builds"`
 	ServiceAndBuilds        []*ServiceAndBuild      `bson:"service_and_builds"         yaml:"service_and_builds"          json:"service_and_builds"`
-	ServiceAndBuildsOptions []*ServiceAndBuild      `bson:"-"                          yaml:"service_and_builds_options"  json:"service_and_builds_options"`
+	ServiceAndBuildsOptions []*ServiceAndBuild      `bson:"service_and_builds_options" yaml:"service_and_builds_options"  json:"service_and_builds_options"`
 	ServiceWithModule
 }
 
