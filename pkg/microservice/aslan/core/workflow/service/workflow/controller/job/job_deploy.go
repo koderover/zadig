@@ -95,6 +95,9 @@ func (j DeployJobController) Validate(isExecution bool) error {
 		return fmt.Errorf("can not quote job %s in job %s", j.jobSpec.JobName, j.name)
 	}
 
+	// TODO: if execution we need to check if the user choose to deploy a service with update config set to false
+	// if it is this should not be allowed.
+
 	return nil
 }
 

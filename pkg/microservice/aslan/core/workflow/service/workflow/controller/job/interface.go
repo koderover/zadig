@@ -77,6 +77,8 @@ func CreateJobController(job *commonmodels.Job, workflow *commonmodels.WorkflowV
 		return CreateBlueGreenDeployJobController(job, workflow)
 	case config.JobK8sBlueGreenRelease:
 		return CreateBlueGreenReleaseJobController(job, workflow)
+	case config.JobBlueKing:
+		return CreateBlueKingJobController(job, workflow)
 	case config.JobZadigBuild:
 		return CreateBuildJobController(job, workflow)
 	case config.JobZadigDeploy:
