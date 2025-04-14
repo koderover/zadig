@@ -308,6 +308,10 @@ func (j BuildJobController) ClearSelection() {
 }
 
 func (j BuildJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, error) {
+	if err := j.Validate(true); err != nil {
+		return nil, err
+	}
+
 	logger := log.SugaredLogger()
 	resp := make([]*commonmodels.JobTask, 0)
 	registry, err := commonservice.FindRegistryById(j.jobSpec.DockerRegistryID, true, logger)

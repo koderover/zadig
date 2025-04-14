@@ -22,15 +22,21 @@ import (
 
 	"github.com/pkg/errors"
 	"helm.sh/helm/v3/pkg/releaseutil"
+	v1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/cli-runtime/pkg/printers"
+	"k8s.io/client-go/kubernetes/scheme"
 
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/helper/log"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	templaterepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/repository"
@@ -38,6 +44,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/setting"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	serializer2 "github.com/koderover/zadig/v2/pkg/tool/kube/serializer"
+	"github.com/koderover/zadig/v2/pkg/types"
 	"github.com/koderover/zadig/v2/pkg/util"
 )
 
@@ -48,24 +55,22 @@ type BlueGreenDeployJobController struct {
 }
 
 func CreateBlueGreenDeployJobController(job *commonmodels.Job, workflow *commonmodels.WorkflowV4) (Job, error) {
-	//spec := new(commonmodels.BlueGreenDeployV2JobSpec)
-	//if err := commonmodels.IToi(job.Spec, spec); err != nil {
-	//	return nil, fmt.Errorf("failed to create apollo job controller, error: %s", err)
-	//}
-	//
-	//basicInfo := &BasicInfo{
-	//	name:        job.Name,
-	//	jobType:     job.JobType,
-	//	errorPolicy: job.ErrorPolicy,
-	//	workflow:    workflow,
-	//}
+	spec := new(commonmodels.BlueGreenDeployV2JobSpec)
+	if err := commonmodels.IToi(job.Spec, spec); err != nil {
+		return nil, fmt.Errorf("failed to create apollo job controller, error: %s", err)
+	}
 
-	return nil, nil
+	basicInfo := &BasicInfo{
+		name:        job.Name,
+		jobType:     job.JobType,
+		errorPolicy: job.ErrorPolicy,
+		workflow:    workflow,
+	}
 
-	//return BlueGreenDeployJobController{
-	//	BasicInfo: basicInfo,
-	//	jobSpec:   spec,
-	//}, nil
+	return BlueGreenDeployJobController{
+		BasicInfo: basicInfo,
+		jobSpec:   spec,
+	}, nil
 }
 
 func (j BlueGreenDeployJobController) SetWorkflow(wf *commonmodels.WorkflowV4) {
@@ -175,6 +180,249 @@ func (j BlueGreenDeployJobController) Update(useUserInput bool, ticket *commonmo
 
 	j.jobSpec.Services = mergedService
 	return nil
+}
+
+func (j BlueGreenDeployJobController) SetOptions(ticket *commonmodels.ApprovalTicket) error {
+	envOptions := make([]*commonmodels.ZadigBlueGreenDeployEnvInformation, 0)
+
+	if j.jobSpec.Source == "fixed" {
+		if ticket.IsAllowedEnv(j.workflow.Project, j.jobSpec.Env) {
+			serviceInfo, registryID, err := generateBlueGreenEnvDeployServiceInfo(j.jobSpec.Env, j.jobSpec.Production, j.workflow.Project, j.jobSpec.Services)
+			if err != nil {
+				log.Errorf("failed to generate blue-green deploy info for env: %s, error: %s", j.jobSpec.Env, err)
+				return err
+			}
+
+			envOptions = append(envOptions, &commonmodels.ZadigBlueGreenDeployEnvInformation{
+				Env:        j.jobSpec.Env,
+				RegistryID: registryID,
+				Services:   serviceInfo,
+			})
+		}
+	} else {
+		// otherwise list all the envs in this project
+		products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
+			Name:       j.workflow.Project,
+			Production: util.GetBoolPointer(j.jobSpec.Production),
+		})
+		if err != nil {
+			return fmt.Errorf("can't list envs in project %s, error: %w", j.workflow.Project, err)
+		}
+		for _, env := range products {
+			if ticket.IsAllowedEnv(j.workflow.Project, env.EnvName) {
+				continue
+			}
+
+			serviceInfo, registryID, err := generateBlueGreenEnvDeployServiceInfo(env.EnvName, j.jobSpec.Production, j.workflow.Project, j.jobSpec.Services)
+			if err != nil {
+				log.Errorf("failed to generate blue-green deploy info for env: %s, error: %s", env.EnvName, err)
+				continue
+			}
+
+			envOptions = append(envOptions, &commonmodels.ZadigBlueGreenDeployEnvInformation{
+				Env:        env.EnvName,
+				RegistryID: registryID,
+				Services:   serviceInfo,
+			})
+		}
+	}
+
+	j.jobSpec.EnvOptions = envOptions
+	return nil
+}
+
+func (j BlueGreenDeployJobController) ClearOptions() {
+	return
+}
+
+func (j BlueGreenDeployJobController) ClearSelection() {
+	j.jobSpec.Services = make([]*commonmodels.BlueGreenDeployV2Service, 0)
+}
+
+func (j BlueGreenDeployJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, error) {
+	if err := j.Validate(true); err != nil {
+		return nil, err
+	}
+
+	resp := make([]*commonmodels.JobTask, 0)
+
+	templateProduct, err := templaterepo.NewProductColl().Find(j.workflow.Project)
+	if err != nil {
+		return resp, fmt.Errorf("cannot find product %s: %w", j.workflow.Project, err)
+	}
+	timeout := templateProduct.Timeout * 60
+
+	if len(j.jobSpec.Services) == 0 {
+		return nil, errors.Errorf("target services is empty")
+	}
+
+	for jobSubTaskID, target := range j.jobSpec.Services {
+		var (
+			deployment              *v1.Deployment
+			deploymentYaml          string
+			greenDeploymentSelector map[string]string
+			service                 *corev1.Service
+			greenService            *corev1.Service
+			serviceYaml             string
+			greenDeploymentName     string
+		)
+		if target.BlueServiceYaml != "" {
+			service = &corev1.Service{}
+			decoder := serializer.NewCodecFactory(scheme.Scheme).UniversalDecoder()
+			err := runtime.DecodeInto(decoder, []byte(target.BlueServiceYaml), service)
+			if err != nil {
+				return resp, errors.Errorf("failed to decode %s k8s service yaml, err: %s", target.ServiceName, err)
+			}
+			serviceYaml = target.BlueServiceYaml
+		} else {
+			return resp, errors.Errorf("service %s blue service yaml is empty", target.ServiceName)
+		}
+
+		yamlContent, _, err := kube.FetchCurrentAppliedYaml(&kube.GeneSvcYamlOption{
+			ProductName: j.workflow.Project,
+			EnvName:     j.jobSpec.Env,
+			ServiceName: target.ServiceName,
+		})
+		if err != nil {
+			return resp, errors.Errorf("failed to fetch %s current applied yaml, err: %s", target.ServiceName, err)
+		}
+		resources := make([]*unstructured.Unstructured, 0)
+		manifests := releaseutil.SplitManifests(yamlContent)
+		for _, item := range manifests {
+			u, err := serializer2.NewDecoder().YamlToUnstructured([]byte(item))
+			if err != nil {
+				return nil, errors.Errorf("failed to decode service %s yaml to unstructured: %v", target.ServiceName, err)
+			}
+			resources = append(resources, u)
+		}
+
+		for _, resource := range resources {
+			switch resource.GetKind() {
+			case setting.Deployment:
+				if deployment != nil {
+					return nil, errors.Errorf("service %s has more than one deployment", target.ServiceName)
+				}
+				deployment = &v1.Deployment{}
+				err := runtime.DefaultUnstructuredConverter.FromUnstructured(resource.Object, deployment)
+				if err != nil {
+					return nil, errors.Errorf("failed to convert service %s deployment to deployment object: %v", target.ServiceName, err)
+				}
+				greenDeploymentName = deployment.Name
+				if deployment.Spec.Selector == nil {
+					return nil, errors.Errorf("service %s deployment selector is empty", target.ServiceName)
+				}
+				greenDeploymentSelector = deployment.Spec.Selector.MatchLabels
+				deployment.Name = deployment.Name + "-blue"
+				deployment.Labels = addLabels(deployment.Labels, map[string]string{
+					types.ZadigReleaseTypeLabelKey:        types.ZadigReleaseTypeBlueGreen,
+					types.ZadigReleaseServiceNameLabelKey: target.ServiceName,
+				})
+				deployment.Spec.Selector.MatchLabels = addLabels(deployment.Spec.Selector.MatchLabels, map[string]string{
+					config.BlueGreenVersionLabelName: config.BlueVersion,
+				})
+				deployment.Spec.Template.Labels = addLabels(deployment.Spec.Template.Labels, map[string]string{
+					config.BlueGreenVersionLabelName: config.BlueVersion,
+				})
+				deploymentYaml, err = toYaml(deployment)
+				if err != nil {
+					return resp, errors.Errorf("failed to marshal service %s deployment object: %v", target.ServiceName, err)
+				}
+				var newImages []*commonmodels.Container
+				for _, image := range target.ServiceAndImage {
+					newImages = append(newImages, &commonmodels.Container{
+						Name:  image.ServiceModule,
+						Image: image.Image,
+					})
+				}
+				deploymentYaml, _, err = kube.ReplaceWorkloadImages(deploymentYaml, newImages)
+				if err != nil {
+					return resp, errors.Errorf("failed to replace service %s deployment image: %v", target.ServiceName, err)
+				}
+			case setting.Service:
+				greenService = &corev1.Service{}
+				err := runtime.DefaultUnstructuredConverter.FromUnstructured(resource.Object, greenService)
+				if err != nil {
+					return resp, errors.Errorf("failed to convert service %s service to service object: %v", target.ServiceName, err)
+				}
+				target.GreenServiceName = greenService.Name
+			}
+		}
+		if deployment == nil || service == nil {
+			return resp, errors.Errorf("service %s has no deployment or service", target.ServiceName)
+		}
+		if service.Spec.Selector == nil || deployment.Spec.Template.Labels == nil {
+			return resp, errors.Errorf("service %s has no service selector or deployment has no labels", target.ServiceName)
+		}
+		selector, err := metav1.LabelSelectorAsSelector(metav1.SetAsLabelSelector(service.Spec.Selector))
+		if err != nil {
+			return resp, errors.Errorf("service %s k8s service convert to selector err: %v", target.ServiceName, err)
+		}
+		if !selector.Matches(labels.Set(deployment.Spec.Template.Labels)) {
+			return resp, errors.Errorf("service %s k8s service selector not match deployment.spec.template labels", target.ServiceName)
+		}
+		if greenService == nil {
+			return resp, errors.Errorf("service %s has no k8s service", target.ServiceName)
+		}
+		greenSelector, err := metav1.LabelSelectorAsSelector(metav1.SetAsLabelSelector(greenService.Spec.Selector))
+		if err != nil {
+			return resp, errors.Errorf("service %s k8s green service convert to selector err: %v", target.ServiceName, err)
+		}
+		if !greenSelector.Matches(labels.Set(greenDeploymentSelector)) {
+			return resp, errors.Errorf("service %s k8s green service selector not match deployment.spec.template labels", target.ServiceName)
+		}
+
+		// set target value for blue_green_release ToJobs get these
+		target.BlueDeploymentName = deployment.Name
+		target.BlueServiceName = service.Name
+		target.GreenDeploymentName = greenDeploymentName
+
+		task := &commonmodels.JobTask{
+			Name:        GenJobName(j.workflow, j.name, jobSubTaskID),
+			Key:         genJobKey(j.name),
+			DisplayName: genJobDisplayName(j.name),
+			OriginName:  j.name,
+			JobInfo: map[string]string{
+				JobNameKey:     j.name,
+				"service_name": target.ServiceName,
+			},
+			JobType: string(config.JobK8sBlueGreenDeploy),
+			Spec: &commonmodels.JobTaskBlueGreenDeployV2Spec{
+				Production: j.jobSpec.Production,
+				Env:        j.jobSpec.Env,
+				Service: &commonmodels.BlueGreenDeployV2Service{
+					ServiceName:         target.ServiceName,
+					BlueServiceYaml:     serviceYaml,
+					BlueServiceName:     service.Name,
+					BlueDeploymentYaml:  deploymentYaml,
+					BlueDeploymentName:  deployment.Name,
+					GreenServiceName:    target.GreenServiceName,
+					GreenDeploymentName: greenDeploymentName,
+					ServiceAndImage:     target.ServiceAndImage,
+				},
+				DeployTimeout: timeout,
+			},
+			ErrorPolicy: j.errorPolicy,
+		}
+		resp = append(resp, task)
+	}
+
+	return resp, nil
+}
+
+func (j BlueGreenDeployJobController) SetRepo(repo *types.Repository) error {
+	return nil
+}
+
+func (j BlueGreenDeployJobController) SetRepoCommitInfo() error {
+	return nil
+}
+
+func (j BlueGreenDeployJobController) GetVariableList(jobName string, getAggregatedVariables, getRuntimeVariables, getPlaceHolderVariables, getServiceSpecificVariables, getReferredKeyValVariables bool) ([]*commonmodels.KeyVal, error) {
+	return make([]*commonmodels.KeyVal, 0), nil
+}
+
+func (j BlueGreenDeployJobController) GetUsedRepos() ([]*types.Repository, error) {
+	return make([]*types.Repository, 0), nil
 }
 
 func generateBlueGreenEnvDeployServiceInfo(env string, production bool, project string, services []*commonmodels.BlueGreenDeployV2Service) ([]*commonmodels.BlueGreenDeployV2Service, string, error) {
@@ -303,4 +551,14 @@ func toYaml(obj runtime.Object) (string, error) {
 		return "", errors.Wrapf(err, "failed to marshal object to yaml")
 	}
 	return writer.String(), nil
+}
+
+func addLabels(labels, newLabels map[string]string) map[string]string {
+	if labels == nil {
+		labels = make(map[string]string)
+	}
+	for k, v := range newLabels {
+		labels[k] = v
+	}
+	return labels
 }
