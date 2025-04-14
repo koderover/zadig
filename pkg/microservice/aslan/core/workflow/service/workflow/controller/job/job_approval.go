@@ -19,13 +19,14 @@ package job
 import (
 	"fmt"
 
+	"github.com/samber/lo"
+	"k8s.io/apimachinery/pkg/util/sets"
+
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/types"
-	"github.com/samber/lo"
-	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 type ApprovalJobController struct {
@@ -286,7 +287,15 @@ func (j ApprovalJobController) SetRepoCommitInfo() error {
 	return nil
 }
 
-func (j *ApprovalJobController) getOriginReferredJobSpec(jobName string) (*commonmodels.ApprovalJobSpec, error) {
+func (j ApprovalJobController) GetVariableList(jobName string, getAggregatedVariables, getRuntimeVariables, getPlaceHolderVariables, getServiceSpecificVariables, getReferredKeyValVariables bool) ([]*commonmodels.KeyVal, error) {
+	return make([]*commonmodels.KeyVal, 0), nil
+}
+
+func (j ApprovalJobController) GetUsedRepos() ([]*types.Repository, error) {
+	return make([]*types.Repository, 0), nil
+}
+
+func (j ApprovalJobController) getOriginReferredJobSpec(jobName string) (*commonmodels.ApprovalJobSpec, error) {
 	var err error
 	resp := &commonmodels.ApprovalJobSpec{}
 
