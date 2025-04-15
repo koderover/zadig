@@ -19,11 +19,7 @@ package job
 import (
 	"fmt"
 
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
-	templaterepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
-	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/types"
 )
 
@@ -61,46 +57,10 @@ func (j DistributeImageJobController) GetSpec() interface{} {
 }
 
 func (j DistributeImageJobController) Validate(isExecution bool) error {
-	if err := util.CheckZadigProfessionalLicense(); err != nil {
-		return e.ErrLicenseInvalid.AddDesc("")
-	}
-
-	currJob, err := j.workflow.FindJob(j.name, j.jobType)
-	if err != nil {
-		return err
-	}
-
-	currJobSpec := new(commonmodels.ZadigDistributeImageJobSpec)
-	if err := commonmodels.IToi(currJob.Spec, currJobSpec); err != nil {
-		return fmt.Errorf("failed to decode apollo job spec, error: %s", err)
-	}
-
-	if isExecution {
-		if j.jobSpec.FromJob != currJobSpec.FromJob {
-			return fmt.Errorf("from job [%s] is different from configuration in the workflow: [%s]", j.jobSpec.FromJob, currJobSpec.FromJob)
-		}
-	}
-
-	_, err = j.workflow.FindJob(j.jobSpec.FromJob, config.JobK8sBlueGreenDeploy)
-	if err != nil {
-		return fmt.Errorf("failed to find referred job: %s, error: %s", j.jobSpec.FromJob, err)
-	}
-
 	return nil
 }
 
 func (j DistributeImageJobController) Update(useUserInput bool, ticket *commonmodels.ApprovalTicket) error {
-	currJob, err := j.workflow.FindJob(j.name, j.jobType)
-	if err != nil {
-		return err
-	}
-
-	currJobSpec := new(commonmodels.ZadigDistributeImageJobSpec)
-	if err := commonmodels.IToi(currJob.Spec, currJobSpec); err != nil {
-		return fmt.Errorf("failed to decode apollo job spec, error: %s", err)
-	}
-
-	j.jobSpec.FromJob = currJobSpec.FromJob
 
 	return nil
 }
@@ -118,47 +78,8 @@ func (j DistributeImageJobController) ClearSelection() {
 }
 
 func (j DistributeImageJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, error) {
-	resp := make([]*commonmodels.JobTask, 0)
 
-	deployJob, err := j.workflow.FindJob(j.jobSpec.FromJob, config.JobK8sBlueGreenDeploy)
-	if err != nil {
-		return nil, err
-	}
-
-	deployJobSpec := &commonmodels.ZadigDistributeImageJobSpec{}
-	if err := commonmodels.IToi(deployJob.Spec, deployJobSpec); err != nil {
-		return resp, err
-	}
-
-	templateProduct, err := templaterepo.NewProductColl().Find(j.workflow.Project)
-	if err != nil {
-		return resp, fmt.Errorf("cannot find product %s: %w", j.workflow.Project, err)
-	}
-	timeout := templateProduct.Timeout * 60
-
-	for jobSubTaskID, target := range deployJobSpec.Services {
-		task := &commonmodels.JobTask{
-			Name:        GenJobName(j.workflow, j.name, jobSubTaskID),
-			Key:         genJobKey(j.name, target.ServiceName),
-			DisplayName: genJobDisplayName(j.name, target.ServiceName),
-			OriginName:  j.name,
-			JobInfo: map[string]string{
-				JobNameKey:     j.name,
-				"service_name": target.ServiceName,
-			},
-			JobType: string(config.JobK8sBlueGreenRelease),
-			Spec: &commonmodels.JobTaskBlueGreenReleaseV2Spec{
-				Production:    deployJobSpec.Production,
-				Env:           deployJobSpec.Env,
-				Service:       target,
-				DeployTimeout: timeout,
-			},
-			ErrorPolicy: j.errorPolicy,
-		}
-		resp = append(resp, task)
-	}
-
-	return resp, nil
+	return make([]*commonmodels.JobTask, 0), nil
 }
 
 func (j DistributeImageJobController) SetRepo(repo *types.Repository) error {

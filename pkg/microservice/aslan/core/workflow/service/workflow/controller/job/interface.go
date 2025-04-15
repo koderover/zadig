@@ -89,6 +89,8 @@ func CreateJobController(job *commonmodels.Job, workflow *commonmodels.WorkflowV
 		return CreateCustomDeployJobController(job, workflow)
 	case config.JobZadigDeploy:
 		return CreateDeployJobController(job, workflow)
+	case config.JobZadigDistributeImage:
+		return CreateDistributeImageJobController(job, workflow)
 	case config.JobFreestyle:
 		return CreateFreestyleJobController(job, workflow)
 	default:
