@@ -121,7 +121,7 @@ func (c *FreestyleJobCtl) prepare(ctx context.Context) error {
 		c.jobTaskSpec.Properties.ClusterID = setting.LocalClusterID
 	}
 	// init step configration.
-	if err := stepcontroller.PrepareSteps(ctx, c.workflowCtx, nil, c.job.Key, c.jobTaskSpec.Steps, c.logger); err != nil {
+	if err := stepcontroller.PrepareSteps(ctx, c.workflowCtx, &c.jobTaskSpec.Properties.Paths, c.job.Key, c.jobTaskSpec.Steps, c.logger); err != nil {
 		logError(c.job, err.Error(), c.logger)
 		return err
 	}
@@ -174,7 +174,7 @@ func (c *FreestyleJobCtl) run(ctx context.Context) error {
 
 	c.jobTaskSpec.Properties.DockerHost = dockerHost
 
-	jobCtxBytes, err := yaml.Marshal(BuildJobExcutorContext(c.jobTaskSpec, c.job, c.workflowCtx, c.logger))
+	jobCtxBytes, err := yaml.Marshal(BuildJobExecutorContext(c.jobTaskSpec, c.job, c.workflowCtx, c.logger))
 	if err != nil {
 		msg := fmt.Sprintf("cannot Jobexcutor.Context data: %v", err)
 		logError(c.job, msg, c.logger)
@@ -251,7 +251,7 @@ func (c *FreestyleJobCtl) run(ctx context.Context) error {
 }
 
 func (c *FreestyleJobCtl) runVMJob(ctx context.Context) (string, error) {
-	jobCtxBytes, err := yaml.Marshal(BuildJobExcutorContext(c.jobTaskSpec, c.job, c.workflowCtx, c.logger))
+	jobCtxBytes, err := yaml.Marshal(BuildJobExecutorContext(c.jobTaskSpec, c.job, c.workflowCtx, c.logger))
 	if err != nil {
 
 		msg := fmt.Sprintf("cannot Jobexcutor.Context data: %v", err)
@@ -366,7 +366,7 @@ func (c *FreestyleJobCtl) complete(ctx context.Context) {
 		}
 		return
 	}
-	if err := stepcontroller.SummarizeSteps(ctx, c.workflowCtx, nil, c.job.Key, c.jobTaskSpec.Steps, c.logger); err != nil {
+	if err := stepcontroller.SummarizeSteps(ctx, c.workflowCtx, &c.jobTaskSpec.Properties.Paths, c.job.Key, c.jobTaskSpec.Steps, c.logger); err != nil {
 		c.logger.Error(err)
 		c.job.Error = err.Error()
 		return
@@ -389,7 +389,7 @@ func (c *FreestyleJobCtl) vmComplete(ctx context.Context, jobID string) {
 	}
 
 	// summarize steps
-	if err := stepcontroller.SummarizeSteps(ctx, c.workflowCtx, nil, c.job.Key, c.jobTaskSpec.Steps, c.logger); err != nil {
+	if err := stepcontroller.SummarizeSteps(ctx, c.workflowCtx, &c.jobTaskSpec.Properties.Paths, c.job.Key, c.jobTaskSpec.Steps, c.logger); err != nil {
 		c.logger.Error(err)
 		c.job.Error = err.Error()
 		return
@@ -410,7 +410,7 @@ func getVMJobOutputFromJobDB(jobID, jobName string, job *commonmodels.JobTask, w
 	return nil
 }
 
-func BuildJobExcutorContext(jobTaskSpec *commonmodels.JobTaskFreestyleSpec, job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, logger *zap.SugaredLogger) *JobContext {
+func BuildJobExecutorContext(jobTaskSpec *commonmodels.JobTaskFreestyleSpec, job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, logger *zap.SugaredLogger) *JobContext {
 	var envVars, secretEnvVars []string
 	for _, env := range jobTaskSpec.Properties.Envs {
 		if env.IsCredential {
@@ -436,6 +436,7 @@ func BuildJobExcutorContext(jobTaskSpec *commonmodels.JobTaskFreestyleSpec, job 
 		Workspace:     workflowCtx.Workspace,
 		TaskID:        workflowCtx.TaskID,
 		Outputs:       outputs,
+		Paths:         jobTaskSpec.Properties.Paths,
 		Steps:         jobTaskSpec.Steps,
 		ConfigMapName: job.K8sJobName,
 	}
