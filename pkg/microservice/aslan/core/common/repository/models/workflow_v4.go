@@ -1394,9 +1394,6 @@ type JobProperties struct {
 
 	CustomAnnotations []*util.KeyValue `bson:"custom_annotations" json:"custom_annotations" yaml:"custom_annotations"`
 	CustomLabels      []*util.KeyValue `bson:"custom_labels"      json:"custom_labels"      yaml:"custom_labels"`
-
-	// TODO: ???
-	Paths string `bson:"-" json:"-" yaml:"-"`
 }
 
 func (j *JobProperties) DeepCopyEnvs() []*KeyVal {
