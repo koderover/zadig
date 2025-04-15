@@ -868,7 +868,7 @@ func ensureWorkflowV4JobResp(job *commonmodels.Job, logger *zap.SugaredLogger, b
 			logger.Errorf(err.Error())
 			return e.ErrFindWorkflow.AddErr(err)
 		}
-		if err := commonservice.EncryptKeyVals(encryptedKey, spec.Properties.Envs, logger); err != nil {
+		if err := commonservice.EncryptKeyVals(encryptedKey, spec.Envs, logger); err != nil {
 			logger.Errorf(err.Error())
 			return e.ErrFindWorkflow.AddErr(err)
 		}
