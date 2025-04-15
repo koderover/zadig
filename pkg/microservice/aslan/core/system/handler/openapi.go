@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -31,7 +32,9 @@ import (
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	clusterservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/multicluster/service"
+	systemmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/service"
+	"github.com/koderover/zadig/v2/pkg/setting"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
@@ -384,4 +387,231 @@ func OpenAPIDeleteCluster(c *gin.Context) {
 
 	internalhandler.InsertOperationLog(c, ctx.UserName+"(openAPI)", "", "删除", "资源配置-集群", c.Param("id"), "", types.RequestBodyTypeJSON, ctx.Logger)
 	ctx.RespErr = service.OpenAPIDeleteCluster(ctx.UserName, c.Param("id"), ctx.Logger)
+}
+
+type OperationLogSearchType string
+
+const (
+	OperationLogSearchTypeAll      OperationLogSearchType = "all"
+	OperationLogSearchTypeUser     OperationLogSearchType = "user"
+	OperationLogSearchTypeProject  OperationLogSearchType = "project"
+	OperationLogSearchTypeFunction OperationLogSearchType = "function"
+	OperationLogSearchTypeStatus   OperationLogSearchType = "status"
+	OperationLogSearchTypeDetail   OperationLogSearchType = "detail"
+)
+
+type OpenAPIGetOperationLogsResponse struct {
+	OperationLogs []*OpenAPIOperationLog `json:"operation_logs"`
+	Total         int                    `json:"total"`
+}
+
+type OpenAPIOperationLog struct {
+	Username    string                `json:"username"`
+	ProjectKey  string                `json:"project_key"`
+	Method      string                `json:"method"`
+	Function    string                `json:"function"`
+	Scene       string                `json:"scene"`
+	Targets     []string              `json:"targets"`
+	Detail      string                `json:"detail"`
+	RequestBody string                `json:"request_body"`
+	BodyType    types.RequestBodyType `json:"body_type"`
+	Status      int                   `json:"status"`
+	CreatedAt   int64                 `json:"created_at"`
+}
+
+func convertOperationLogsToOpenAPISpec(operationLogs []*systemmodels.OperationLog) []*OpenAPIOperationLog {
+	openAPIOperationLogs := make([]*OpenAPIOperationLog, 0)
+	for _, operationLog := range operationLogs {
+		openAPIOperationLogs = append(openAPIOperationLogs, convertOperationLogToOpenAPISpec(operationLog))
+	}
+	return openAPIOperationLogs
+}
+
+func convertOperationLogToOpenAPISpec(operationLog *systemmodels.OperationLog) *OpenAPIOperationLog {
+	return &OpenAPIOperationLog{
+		Username:    operationLog.Username,
+		ProjectKey:  operationLog.ProductName,
+		Method:      operationLog.Method,
+		Function:    operationLog.Function,
+		Scene:       operationLog.Scene,
+		Targets:     operationLog.Targets,
+		Detail:      operationLog.Name,
+		RequestBody: operationLog.RequestBody,
+		BodyType:    operationLog.BodyType,
+		Status:      operationLog.Status,
+		CreatedAt:   operationLog.CreatedAt,
+	}
+}
+
+// @Summary 获取系统操作日志
+// @Description 获取系统操作日志
+// @Tags 	OpenAPI
+// @Accept 	json
+// @Produce json
+// @Param 	searchType		query		OperationLogSearchType				true	"搜索类型"
+// @Param 	projectKey		query		string								false	"项目标识"
+// @Param 	username		query		string								false	"用户名"
+// @Param 	function		query		string								false	"功能"
+// @Param 	status			query		int									false	"状态码"
+// @Param 	perPage			query		int									true	"每页数量"
+// @Param 	page			query		int									true	"页码"
+// @Success 200 			{object} 	OpenAPIGetOperationLogsResponse
+// @Router /openapi/system/operation [get]
+func OpenAPIGetOperationLogs(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		ctx.UnAuthorized = true
+		return
+	}
+
+	perPage, err := strconv.Atoi(c.Query("perPage"))
+	if err != nil {
+		ctx.RespErr = e.ErrFindOperationLog.AddErr(err)
+		return
+	}
+
+	page, err := strconv.Atoi(c.Query("page"))
+	if err != nil {
+		ctx.RespErr = e.ErrFindOperationLog.AddErr(err)
+		return
+	}
+
+	if perPage == 0 {
+		perPage = 50
+	}
+
+	if page == 0 {
+		page = 1
+	}
+
+	args := &service.OperationLogArgs{
+		PerPage: perPage,
+		Page:    page,
+	}
+
+	switch OperationLogSearchType(c.Query("searchType")) {
+	case OperationLogSearchTypeAll:
+		// do nothing
+	case OperationLogSearchTypeProject:
+		args.ProductName = c.Query("projectKey")
+	case OperationLogSearchTypeUser:
+		args.Username = c.Query("username")
+	case OperationLogSearchTypeFunction:
+		args.Function = c.Query("function")
+	case OperationLogSearchTypeStatus:
+		status, err := strconv.Atoi(c.Query("status"))
+		if err != nil {
+			ctx.RespErr = e.ErrFindOperationLog.AddErr(err)
+			return
+		}
+		args.Status = status
+	default:
+		ctx.RespErr = e.ErrFindOperationLog.AddErr(fmt.Errorf("invalid search type: %s", c.Query("searchType")))
+		return
+	}
+
+	resp, count, err := service.FindOperation(args, ctx.Logger)
+	ctx.Resp = OpenAPIGetOperationLogsResponse{
+		OperationLogs: convertOperationLogsToOpenAPISpec(resp),
+		Total:         count,
+	}
+	ctx.RespErr = err
+}
+
+// @Summary 获取环境操作日志
+// @Description 获取环境操作日志
+// @Tags 	OpenAPI
+// @Accept 	json
+// @Produce json
+// @Param 	searchType		query		OperationLogSearchType			true	"搜索类型"
+// @Param 	projectKey		query		string							true	"项目标识"
+// @Param 	envName			query		string							true	"环境名称"
+// @Param 	username		query		string							false	"用户名"
+// @Param 	function		query		string							false	"功能"
+// @Param 	status			query		int								false	"状态码"
+// @Param 	detail			query		string							false	"详情"
+// @Param 	perPage			query		int								true	"每页数量"
+// @Param 	page			query		int								true	"页码"
+// @Success 200 			{object} 	OpenAPIGetOperationLogsResponse
+// @Router /openapi/system/operation/env [get]
+func OpenAPIGetEnvOperationLogs(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		ctx.UnAuthorized = true
+		return
+	}
+
+	perPage, err := strconv.Atoi(c.Query("perPage"))
+	if err != nil {
+		ctx.RespErr = e.ErrFindOperationLog.AddErr(err)
+		return
+	}
+
+	page, err := strconv.Atoi(c.Query("page"))
+	if err != nil {
+		ctx.RespErr = e.ErrFindOperationLog.AddErr(err)
+		return
+	}
+
+	if perPage == 0 {
+		perPage = 50
+	}
+
+	if page == 0 {
+		page = 1
+	}
+
+	args := &service.OperationLogArgs{
+		ExactProduct: c.Query("projectKey"),
+		TargetID:     c.Query("envName"),
+		Scene:        setting.OperationSceneEnv,
+		PerPage:      perPage,
+		Page:         page,
+	}
+
+	switch OperationLogSearchType(c.Query("searchType")) {
+	case OperationLogSearchTypeAll:
+		// do nothing
+	case OperationLogSearchTypeUser:
+		args.Username = c.Query("username")
+	case OperationLogSearchTypeFunction:
+		args.Function = c.Query("function")
+	case OperationLogSearchTypeStatus:
+		status, err := strconv.Atoi(c.Query("status"))
+		if err != nil {
+			ctx.RespErr = e.ErrFindOperationLog.AddErr(err)
+			return
+		}
+		args.Status = status
+	case OperationLogSearchTypeDetail:
+		args.Detail = c.Query("detail")
+	default:
+		ctx.RespErr = e.ErrFindOperationLog.AddErr(fmt.Errorf("invalid search type: %s", c.Query("searchType")))
+		return
+	}
+
+	resp, count, err := service.FindOperation(args, ctx.Logger)
+	ctx.Resp = OpenAPIGetOperationLogsResponse{
+		OperationLogs: convertOperationLogsToOpenAPISpec(resp),
+		Total:         count,
+	}
+	ctx.RespErr = err
 }
