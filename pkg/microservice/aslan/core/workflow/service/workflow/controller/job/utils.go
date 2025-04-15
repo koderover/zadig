@@ -35,6 +35,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/types/job"
 	"github.com/koderover/zadig/v2/pkg/types/step"
 	"github.com/koderover/zadig/v2/pkg/util"
+	"github.com/pkg/errors"
 )
 
 func GetJobRankMap(stages []*commonmodels.WorkflowStage) map[string]int {
@@ -503,4 +504,113 @@ func setRepoInfo(repos []*types.Repository) error {
 
 	wg.Wait()
 	return nil
+}
+
+var (
+	outputNameRegex = regexp.MustCompile("^[a-zA-Z0-9_]{1,64}$")
+)
+
+func checkOutputNames(outputs []*commonmodels.Output) error {
+	for _, output := range outputs {
+		if match := outputNameRegex.MatchString(output.Name); !match {
+			return fmt.Errorf("output name must match %s", "^[a-zA-Z0-9_]{1,64}$")
+		}
+	}
+	return nil
+}
+
+// TODO: FIX THIS FUNCTION
+func renderServiceVariables(workflow *commonmodels.WorkflowV4, envs []*commonmodels.KeyVal, serviceName string, serviceModule string) ([]*commonmodels.KeyVal, error) {
+	duplicatedEnvs := make([]*commonmodels.KeyVal, 0)
+
+	err := util.DeepCopy(&duplicatedEnvs, &envs)
+	if err != nil {
+		return nil, err
+	}
+
+	if serviceName == "" || serviceModule == "" {
+		return duplicatedEnvs, nil
+	}
+
+	param := make([]*commonmodels.Param, 0)
+	for _, stage := range workflow.Stages {
+		for _, job := range stage.Jobs {
+			switch job.JobType {
+			case config.JobZadigBuild:
+				build := new(commonmodels.ZadigBuildJobSpec)
+				if err := commonmodels.IToi(job.Spec, build); err != nil {
+					return nil, errors.Wrap(err, "Itoi")
+				}
+				var serviceAndModuleName, branchList, gitURLs []string
+				for _, serviceAndBuild := range build.ServiceAndBuilds {
+					serviceAndModuleName = append(serviceAndModuleName, serviceAndBuild.ServiceModule+"/"+serviceAndBuild.ServiceName)
+					branch, commitID, gitURL := "", "", ""
+					if len(serviceAndBuild.Repos) > 0 {
+						branch = serviceAndBuild.Repos[0].Branch
+						commitID = serviceAndBuild.Repos[0].CommitID
+						if serviceAndBuild.Repos[0].AuthType == types.SSHAuthType {
+							gitURL = fmt.Sprintf("%s:%s/%s", serviceAndBuild.Repos[0].Address, serviceAndBuild.Repos[0].RepoOwner, serviceAndBuild.Repos[0].RepoName)
+						} else {
+							gitURL = fmt.Sprintf("%s/%s/%s", serviceAndBuild.Repos[0].Address, serviceAndBuild.Repos[0].RepoOwner, serviceAndBuild.Repos[0].RepoName)
+						}
+					}
+					branchList = append(branchList, branch)
+					gitURLs = append(gitURLs, gitURL)
+					param = append(param, &commonmodels.Param{Name: fmt.Sprintf("job.%s.%s.%s.BRANCH",
+						job.Name, serviceAndBuild.ServiceName, serviceAndBuild.ServiceModule),
+						Value: branch, ParamsType: "string", IsCredential: false})
+					param = append(param, &commonmodels.Param{Name: fmt.Sprintf("job.%s.%s.%s.COMMITID",
+						job.Name, serviceAndBuild.ServiceName, serviceAndBuild.ServiceModule),
+						Value: commitID, ParamsType: "string", IsCredential: false})
+					param = append(param, &commonmodels.Param{Name: fmt.Sprintf("job.%s.%s.%s.GITURL",
+						job.Name, serviceAndBuild.ServiceName, serviceAndBuild.ServiceModule),
+						Value: gitURL, ParamsType: "string", IsCredential: false})
+				}
+				param = append(param, &commonmodels.Param{Name: fmt.Sprintf("job.%s.SERVICES", job.Name), Value: strings.Join(serviceAndModuleName, ","), ParamsType: "string", IsCredential: false})
+				param = append(param, &commonmodels.Param{Name: fmt.Sprintf("job.%s.BRANCHES", job.Name), Value: strings.Join(branchList, ","), ParamsType: "string", IsCredential: false})
+				param = append(param, &commonmodels.Param{Name: fmt.Sprintf("job.%s.GITURLS", job.Name), Value: strings.Join(gitURLs, ","), ParamsType: "string", IsCredential: false})
+			case config.JobZadigDeploy:
+				deploy := new(commonmodels.ZadigDeployJobSpec)
+				if err := commonmodels.IToi(job.Spec, deploy); err != nil {
+					return nil, errors.Wrap(err, "Itoi")
+				}
+				param = append(param, &commonmodels.Param{Name: fmt.Sprintf("job.%s.envName", job.Name), Value: deploy.Env, ParamsType: "string", IsCredential: false})
+
+				services := []string{}
+				for _, service := range deploy.Services {
+					for _, module := range service.Modules {
+						services = append(services, module.ServiceModule+"/"+service.ServiceName)
+					}
+				}
+				param = append(param, &commonmodels.Param{Name: fmt.Sprintf("job.%s.SERVICES", job.Name), Value: strings.Join(services, ","), ParamsType: "string", IsCredential: false})
+
+				images := []string{}
+				for _, service := range deploy.Services {
+					for _, module := range service.Modules {
+						images = append(images, module.Image)
+					}
+				}
+				param = append(param, &commonmodels.Param{Name: fmt.Sprintf("job.%s.IMAGES", job.Name), Value: strings.Join(images, ","), ParamsType: "string", IsCredential: false})
+			}
+		}
+	}
+
+	for _, env := range duplicatedEnvs {
+		if strings.HasPrefix(env.Value, "{{.") && strings.HasSuffix(env.Value, "}}") {
+			env.Value = strings.ReplaceAll(env.Value, "<SERVICE>", serviceName)
+			env.Value = strings.ReplaceAll(env.Value, "<MODULE>", serviceModule)
+			env.Value = renderString(env.Value, setting.RenderValueTemplate, param)
+		}
+	}
+	return duplicatedEnvs, nil
+}
+
+func renderString(value, template string, inputs []*commonmodels.Param) string {
+	for _, input := range inputs {
+		if input.ParamsType == string(commonmodels.MultiSelectType) {
+			input.Value = strings.Join(input.ChoiceValue, ",")
+		}
+		value = strings.ReplaceAll(value, fmt.Sprintf(template, input.Name), input.Value)
+	}
+	return value
 }

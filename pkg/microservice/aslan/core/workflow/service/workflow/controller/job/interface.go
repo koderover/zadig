@@ -85,8 +85,12 @@ func CreateJobController(job *commonmodels.Job, workflow *commonmodels.WorkflowV
 		return CreateCanaryReleaseJobController(job, workflow)
 	case config.JobZadigBuild:
 		return CreateBuildJobController(job, workflow)
+	case config.JobCustomDeploy:
+		return CreateCustomDeployJobController(job, workflow)
 	case config.JobZadigDeploy:
 		return CreateDeployJobController(job, workflow)
+	case config.JobFreestyle:
+		return CreateFreestyleJobController(job, workflow)
 	default:
 		return nil, fmt.Errorf("job type not supported")
 	}

@@ -297,7 +297,7 @@ type CustomDeployJobSpec struct {
 	// unit is minute.
 	Timeout       int64            `bson:"timeout"                json:"timeout"               yaml:"timeout"`
 	Targets       []*DeployTargets `bson:"targets"                json:"targets"               yaml:"targets"`
-	TargetOptions []*DeployTargets `bson:"-"                      json:"target_options"        yaml:"target_options"`
+	TargetOptions []*DeployTargets `bson:"target_options"                      json:"target_options"        yaml:"target_options"`
 }
 
 type DeployTargets struct {
@@ -314,23 +314,57 @@ type PluginJobSpec struct {
 
 type FreestyleJobSpec struct {
 	FreestyleJobType config.FreeStyleJobType `bson:"freestyle_type"       yaml:"freestyle_type"      json:"freestyle_type"`
-	// fromjob/runtime, runtime 表示运行时输入，fromjob 表示从上游构建任务中获取
-	Source config.DeploySourceType `bson:"source"     yaml:"source"     json:"source"`
-	// 当 source 为 fromjob 时需要，指定部署镜像来源是上游哪一个构建任务
-	JobName  string `bson:"job_name"             yaml:"job_name"             json:"job_name"`
-	RefRepos bool   `bson:"ref_repos"            yaml:"ref_repos"            json:"ref_repos"`
+	ServiceSource    config.DeploySourceType `bson:"source"               yaml:"source"              json:"source"`
+	// 当 ServiceSource 为 fromjob 时需要，指定部署镜像来源是上游哪一个构建任务
+	JobName string `bson:"job_name"             yaml:"job_name"             json:"job_name"`
+	// 代码信息
+	RefRepos bool                `bson:"ref_repos"            yaml:"ref_repos"           json:"ref_repos"`
+	Repos    []*types.Repository `bson:"repos"                yaml:"repos"               json:"repos"`
+	// 自定义变量
+	Envs KeyValList `bson:"envs"                   json:"envs"                  yaml:"envs"`
+	// 脚本
+	Script     string           `bson:"script"         yaml:"script"       json:"script"`
+	ScriptType types.ScriptType `bson:"script_type"    yaml:"script_type"  json:"script_type"`
+	// 文件存储
+	ObjectStorageUpload *ObjectStorageUpload `bson:"object_storage_upload"  json:"object_storage_upload"`
+
+	DefaultServices []*ServiceWithModule    `bson:"default_services"     yaml:"default_services"    json:"default_services"`
+	Services        []*FreeStyleServiceInfo `bson:"services"             yaml:"services"            json:"services"`
 	// save the origin quoted job name
-	OriginJobName string                  `bson:"origin_job_name"      yaml:"origin_job_name"     json:"origin_job_name"`
-	Properties    *JobProperties          `bson:"properties"           yaml:"properties"          json:"properties"`
-	Services      []*FreeStyleServiceInfo `bson:"services"             yaml:"services"            json:"services"`
-	Steps         []*Step                 `bson:"steps"                yaml:"steps"               json:"steps"`
-	Outputs       []*Output               `bson:"outputs"              yaml:"outputs"             json:"outputs"`
+	OriginJobName string `bson:"origin_job_name"      yaml:"origin_job_name"     json:"origin_job_name"`
+
+	Runtime         *RuntimeInfo                  `bson:"runtime"              yaml:"runtime"             json:"runtime"`
+	AdvancedSetting *FreestyleJobAdvancedSettings `bson:"advanced_setting"     yaml:"advanced_setting"    json:"advanced_setting"`
+
+	// Deprecated
+	Steps []*Step `bson:"steps"                yaml:"steps"               json:"steps"`
+	// Deprecated
+	Properties *JobProperties `bson:"properties"           yaml:"properties"          json:"properties"`
+}
+
+type RuntimeInfo struct {
+	// 基础设施
+	Infrastructure string `bson:"infrastructure"         json:"infrastructure"        yaml:"infrastructure"`
+	// 操作系统 （基础设施为集群时）
+	BuildOS   string `bson:"build_os"               json:"build_os"              yaml:"build_os,omitempty"`
+	ImageFrom string `bson:"image_from"             json:"image_from"            yaml:"image_from,omitempty"`
+	ImageID   string `bson:"image_id"               json:"image_id"              yaml:"image_id,omitempty"`
+	// 依赖的软件包
+	Installs []*Item `bson:"installs" json:"installs" yaml:"installs"`
+	// 执行主机
+	VMLabels []string `bson:"vm_labels" json:"vm_labels" yaml:"vm_labels"`
+}
+
+type FreestyleJobAdvancedSettings struct {
+	*JobAdvancedSettings `bson:",inline" json:",inline" yaml:",inline"`
+
+	Outputs []*Output `bson:"outputs" yaml:"outputs" json:"outputs"`
 }
 
 type FreeStyleServiceInfo struct {
 	ServiceWithModule `bson:",inline"                   yaml:",inline"               json:",inline"`
 	Repos             []*types.Repository `bson:"repos"                     yaml:"repos"                 json:"repos"`
-	KeyVals           []*KeyVal           `bson:"key_vals"                  yaml:"key_vals"              json:"key_vals"`
+	KeyVals           KeyValList          `bson:"key_vals"                  yaml:"key_vals"              json:"key_vals"`
 }
 
 func (i *FreeStyleServiceInfo) GetKey() string {
@@ -1308,6 +1342,27 @@ type OfflineServiceJobSpec struct {
 	Services []string       `bson:"services" json:"services" yaml:"services"`
 }
 
+type JobAdvancedSettings struct {
+	// 超时时间
+	Timeout int64 `bson:"timeout"                json:"timeout"               yaml:"timeout"`
+	// 集群选择
+	ClusterID     string `bson:"cluster_id"             json:"cluster_id"            yaml:"cluster_id"`
+	ClusterSource string `bson:"cluster_source"         json:"cluster_source"        yaml:"cluster_source"`
+	// 操作系统规格
+	ResourceRequest setting.Request     `bson:"res_req"                json:"res_req"               yaml:"res_req"`
+	ResReqSpec      setting.RequestSpec `bson:"res_req_spec"           json:"res_req_spec"          yaml:"res_req_spec"`
+	// 调度策略
+	StrategyID string `bson:"strategy_id"            json:"strategy_id"           yaml:"strategy_id"`
+	// 使用宿主机 docker daemon
+	UseHostDockerDaemon bool `bson:"use_host_docker_daemon,omitempty" json:"use_host_docker_daemon,omitempty" yaml:"use_host_docker_daemon"`
+	// 任务标签
+	CustomAnnotations []*util.KeyValue `bson:"custom_annotations" json:"custom_annotations" yaml:"custom_annotations"`
+	// 任务注解
+	CustomLabels []*util.KeyValue `bson:"custom_labels"      json:"custom_labels"      yaml:"custom_labels"`
+	// 共享存储配置
+	ShareStorageInfo *ShareStorageInfo `bson:"share_storage_info"     json:"share_storage_info"    yaml:"share_storage_info"`
+}
+
 type JobProperties struct {
 	Timeout         int64               `bson:"timeout"                json:"timeout"               yaml:"timeout"`
 	ResourceRequest setting.Request     `bson:"res_req"                json:"res_req"               yaml:"res_req"`
@@ -1325,7 +1380,6 @@ type JobProperties struct {
 	// log user-defined variables, shows in workflow task detail.
 	CustomEnvs          []*KeyVal            `bson:"custom_envs"            json:"custom_envs"           yaml:"custom_envs,omitempty"`
 	Params              []*Param             `bson:"params"                 json:"params"                yaml:"params"`
-	Paths               string               `bson:"-"                      json:"-"                     yaml:"-"`
 	LogFileName         string               `bson:"log_file_name"          json:"log_file_name"         yaml:"log_file_name"`
 	DockerHost          string               `bson:"-"                      json:"docker_host,omitempty" yaml:"docker_host,omitempty"`
 	Registries          []*RegistryNamespace `bson:"registries"             json:"registries"            yaml:"registries"`
@@ -1333,7 +1387,6 @@ type JobProperties struct {
 	CacheEnable         bool                 `bson:"cache_enable"           json:"cache_enable"          yaml:"cache_enable"`
 	CacheDirType        types.CacheDirType   `bson:"cache_dir_type"         json:"cache_dir_type"        yaml:"cache_dir_type"`
 	CacheUserDir        string               `bson:"cache_user_dir"         json:"cache_user_dir"        yaml:"cache_user_dir"`
-	ShareStorageInfo    *ShareStorageInfo    `bson:"share_storage_info"     json:"share_storage_info"    yaml:"share_storage_info"`
 	ShareStorageDetails []*StorageDetail     `bson:"share_storage_details"  json:"share_storage_details" yaml:"-"`
 	UseHostDockerDaemon bool                 `bson:"use_host_docker_daemon,omitempty" json:"use_host_docker_daemon,omitempty" yaml:"use_host_docker_daemon"`
 	// for VM deploy to get service name to save

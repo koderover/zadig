@@ -2,6 +2,15 @@ package job
 
 import commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 
+const (
+	stepNameInstallDeps = "tools"
+	stepNameGit         = "git"
+	stepNamePerforce    = "perforce"
+	stepNameShell       = "shell"
+	stepNameBatchFile   = "batchfile"
+	stepNamePowershell  = "powershell"
+)
+
 type keyValMap struct {
 	keyValMap map[string]*commonmodels.KeyVal
 }

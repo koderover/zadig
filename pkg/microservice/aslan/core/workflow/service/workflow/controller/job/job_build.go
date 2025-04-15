@@ -322,7 +322,7 @@ func (j BuildJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, error
 
 	if j.jobSpec.Source == config.SourceFromJob {
 		referredJob := getOriginJobName(j.workflow, j.jobSpec.JobName)
-		targets, err := j.getOriginReferredJobTargets(referredJob)
+		targets, err := j.getReferredJobTargets(referredJob)
 		if err != nil {
 			return nil, fmt.Errorf("build job %s, get origin refered job: %s targets failed, err: %v", j.jobSpec.JobName, referredJob, err)
 		}
@@ -771,42 +771,42 @@ func (j BuildJobController) GetVariableList(jobName string, getAggregatedVariabl
 	if getPlaceHolderVariables {
 		jobKey := strings.Join([]string{j.name, "<SERVICE>", "<MODULE>"}, ".")
 		resp = append(resp, &commonmodels.KeyVal{
-			Key:          job.GetJobOutputKey(jobKey, GITURLKEY),
+			Key:          fmt.Sprintf("%s.%s", jobKey, GITURLKEY),
 			Value:        "",
 			Type:         "string",
 			IsCredential: false,
 		})
 
 		resp = append(resp, &commonmodels.KeyVal{
-			Key:          job.GetJobOutputKey(jobKey, BRANCHKEY),
+			Key:          fmt.Sprintf("%s.%s", jobKey, BRANCHKEY),
 			Value:        "",
 			Type:         "string",
 			IsCredential: false,
 		})
 
 		resp = append(resp, &commonmodels.KeyVal{
-			Key:          job.GetJobOutputKey(jobKey, COMMITIDKEY),
+			Key:          fmt.Sprintf("%s.%s", jobKey, COMMITIDKEY),
 			Value:        "",
 			Type:         "string",
 			IsCredential: false,
 		})
 
 		resp = append(resp, &commonmodels.KeyVal{
-			Key:          job.GetJobOutputKey(jobKey, REPONAMEKEY),
+			Key:          fmt.Sprintf("%s.%s", jobKey, REPONAMEKEY),
 			Value:        "",
 			Type:         "string",
 			IsCredential: false,
 		})
 
 		resp = append(resp, &commonmodels.KeyVal{
-			Key:          job.GetJobOutputKey(jobKey, "SERVICE_NAME"),
+			Key:          fmt.Sprintf("%s.%s", jobKey, "SERVICE_NAME"),
 			Value:        "",
 			Type:         "string",
 			IsCredential: false,
 		})
 
 		resp = append(resp, &commonmodels.KeyVal{
-			Key:          job.GetJobOutputKey(jobKey, "SERVICE_MODULE"),
+			Key:          fmt.Sprintf("%s.%s", jobKey, "SERVICE_MODULE"),
 			Value:        "",
 			Type:         "string",
 			IsCredential: false,
@@ -822,7 +822,7 @@ func (j BuildJobController) GetVariableList(jobName string, getAggregatedVariabl
 
 			for _, key := range keySet.List() {
 				resp = append(resp, &commonmodels.KeyVal{
-					Key:          job.GetJobOutputKey(jobKey, key),
+					Key:          fmt.Sprintf("%s.%s", jobKey, key),
 					Value:        "",
 					Type:         "string",
 					IsCredential: false,
@@ -836,7 +836,7 @@ func (j BuildJobController) GetVariableList(jobName string, getAggregatedVariabl
 			jobKey := strings.Join([]string{j.name, service.ServiceName, service.ServiceModule}, ".")
 			for _, keyVal := range service.KeyVals {
 				resp = append(resp, &commonmodels.KeyVal{
-					Key:          job.GetJobOutputKey(jobKey, keyVal.Key),
+					Key:          fmt.Sprintf("%s.%s", jobKey, keyVal.Key),
 					Value:        keyVal.GetValue(),
 					Type:         "string",
 					IsCredential: false,
@@ -845,21 +845,21 @@ func (j BuildJobController) GetVariableList(jobName string, getAggregatedVariabl
 
 			for _, repo := range service.Repos {
 				resp = append(resp, &commonmodels.KeyVal{
-					Key:          job.GetJobOutputKey(jobKey, BRANCHKEY),
+					Key:          fmt.Sprintf("%s.%s", jobKey, BRANCHKEY),
 					Value:        repo.Branch,
 					Type:         "string",
 					IsCredential: false,
 				})
 
 				resp = append(resp, &commonmodels.KeyVal{
-					Key:          job.GetJobOutputKey(jobKey, COMMITIDKEY),
+					Key:          fmt.Sprintf("%s.%s", jobKey, COMMITIDKEY),
 					Value:        repo.CommitID,
 					Type:         "string",
 					IsCredential: false,
 				})
 
 				resp = append(resp, &commonmodels.KeyVal{
-					Key:          job.GetJobOutputKey(jobKey, REPONAMEKEY),
+					Key:          fmt.Sprintf("%s.%s", jobKey, REPONAMEKEY),
 					Value:        repo.RepoName,
 					Type:         "string",
 					IsCredential: false,
@@ -868,14 +868,14 @@ func (j BuildJobController) GetVariableList(jobName string, getAggregatedVariabl
 			}
 
 			resp = append(resp, &commonmodels.KeyVal{
-				Key:          job.GetJobOutputKey(jobKey, "SERVICE_NAME"),
+				Key:          fmt.Sprintf("%s.%s", jobKey, "SERVICE_NAME"),
 				Value:        service.ServiceName,
 				Type:         "string",
 				IsCredential: false,
 			})
 
 			resp = append(resp, &commonmodels.KeyVal{
-				Key:          job.GetJobOutputKey(jobKey, "SERVICE_MODULE"),
+				Key:          fmt.Sprintf("%s.%s", jobKey, "SERVICE_MODULE"),
 				Value:        service.ServiceModule,
 				Type:         "string",
 				IsCredential: false,
@@ -905,7 +905,7 @@ func (j BuildJobController) GetUsedRepos() ([]*types.Repository, error) {
 	return resp, nil
 }
 
-func (j BuildJobController) getOriginReferredJobTargets(jobName string) ([]*commonmodels.ServiceAndBuild, error) {
+func (j BuildJobController) getReferredJobTargets(jobName string) ([]*commonmodels.ServiceAndBuild, error) {
 	servicetargets := []*commonmodels.ServiceAndBuild{}
 	originTargetMap := make(map[string]*commonmodels.ServiceAndBuild)
 
