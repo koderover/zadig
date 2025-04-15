@@ -326,7 +326,7 @@ type FreestyleJobSpec struct {
 	Script     string           `bson:"script"         yaml:"script"       json:"script"`
 	ScriptType types.ScriptType `bson:"script_type"    yaml:"script_type"  json:"script_type"`
 	// 文件存储
-	ObjectStorageUpload *ObjectStorageUpload `bson:"object_storage_upload"  json:"object_storage_upload"`
+	ObjectStorageUpload *ObjectStorageUpload `bson:"object_storage_upload"  yaml:"object_storage_upload" json:"object_storage_upload"`
 
 	DefaultServices []*ServiceWithModule    `bson:"default_services"     yaml:"default_services"    json:"default_services"`
 	Services        []*FreeStyleServiceInfo `bson:"services"             yaml:"services"            json:"services"`

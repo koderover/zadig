@@ -135,9 +135,9 @@ type FileArchive struct {
 }
 
 type ObjectStorageUpload struct {
-	Enabled         bool                             `bson:"enabled"           json:"enabled"`
-	ObjectStorageID string                           `bson:"object_storage_id" json:"object_storage_id"`
-	UploadDetail    []*types.ObjectStoragePathDetail `bson:"upload_detail"     json:"upload_detail"`
+	Enabled         bool                             `bson:"enabled"           json:"enabled" yaml:"enabled"`
+	ObjectStorageID string                           `bson:"object_storage_id" json:"object_storage_id" yaml:"object_storage_id"`
+	UploadDetail    []*types.ObjectStoragePathDetail `bson:"upload_detail"     json:"upload_detail" yaml:"upload_detail"`
 }
 
 type DockerBuild struct {
