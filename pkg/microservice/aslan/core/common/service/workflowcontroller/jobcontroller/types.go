@@ -40,7 +40,7 @@ type JobContext struct {
 	// TaskID
 	TaskID int64 `yaml:"task_id"`
 	// Paths 执行脚本Path
-	// Paths string `yaml:"paths"`
+	Paths string `yaml:"paths"`
 	// ConfigMapName save the name of the configmap in which the jobContext resides
 	ConfigMapName string `yaml:"config_map_name"`
 

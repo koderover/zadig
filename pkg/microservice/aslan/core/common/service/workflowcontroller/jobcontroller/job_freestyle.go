@@ -121,7 +121,7 @@ func (c *FreestyleJobCtl) prepare(ctx context.Context) error {
 		c.jobTaskSpec.Properties.ClusterID = setting.LocalClusterID
 	}
 	// init step configration.
-	if err := stepcontroller.PrepareSteps(ctx, c.workflowCtx, nil, c.job.Key, c.jobTaskSpec.Steps, c.logger); err != nil {
+	if err := stepcontroller.PrepareSteps(ctx, c.workflowCtx, &c.jobTaskSpec.Properties.Paths, c.job.Key, c.jobTaskSpec.Steps, c.logger); err != nil {
 		logError(c.job, err.Error(), c.logger)
 		return err
 	}
@@ -366,7 +366,7 @@ func (c *FreestyleJobCtl) complete(ctx context.Context) {
 		}
 		return
 	}
-	if err := stepcontroller.SummarizeSteps(ctx, c.workflowCtx, nil, c.job.Key, c.jobTaskSpec.Steps, c.logger); err != nil {
+	if err := stepcontroller.SummarizeSteps(ctx, c.workflowCtx, &c.jobTaskSpec.Properties.Paths, c.job.Key, c.jobTaskSpec.Steps, c.logger); err != nil {
 		c.logger.Error(err)
 		c.job.Error = err.Error()
 		return
@@ -389,7 +389,7 @@ func (c *FreestyleJobCtl) vmComplete(ctx context.Context, jobID string) {
 	}
 
 	// summarize steps
-	if err := stepcontroller.SummarizeSteps(ctx, c.workflowCtx, nil, c.job.Key, c.jobTaskSpec.Steps, c.logger); err != nil {
+	if err := stepcontroller.SummarizeSteps(ctx, c.workflowCtx, &c.jobTaskSpec.Properties.Paths, c.job.Key, c.jobTaskSpec.Steps, c.logger); err != nil {
 		c.logger.Error(err)
 		c.job.Error = err.Error()
 		return
