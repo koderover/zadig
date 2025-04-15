@@ -250,6 +250,8 @@ func (j DeployJobController) Update(useUserInput bool, ticket *commonmodels.Appr
 
 					userSvc.VariableYaml = mergedValues
 					userSvc.VariableKVs = newUserKV
+					variableInfo.VariableYaml = mergedValues
+					variableInfo.VariableKVs = newUserKV
 				}
 			}
 			mergedService = append(mergedService, userSvc)

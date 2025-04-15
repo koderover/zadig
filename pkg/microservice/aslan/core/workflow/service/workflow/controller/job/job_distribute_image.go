@@ -19,6 +19,7 @@ package job
 import (
 	"fmt"
 
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/types"
 )
@@ -57,6 +58,15 @@ func (j DistributeImageJobController) GetSpec() interface{} {
 }
 
 func (j DistributeImageJobController) Validate(isExecution bool) error {
+	if j.jobSpec.Source != config.SourceFromJob {
+		return nil
+	}
+	jobRankMap := GetJobRankMap(j.workflow.Stages)
+	buildJobRank, ok := jobRankMap[j.jobSpec.JobName]
+	if !ok || buildJobRank >= jobRankMap[j.name] {
+		return fmt.Errorf("can not quote job %s in job %s", j.jobSpec.JobName, j.name)
+	}
+	
 	return nil
 }
 
