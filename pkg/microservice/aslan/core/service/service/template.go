@@ -30,6 +30,7 @@ import (
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/notify"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/repository"
 	commontypes "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/types"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/setting"
@@ -93,10 +94,10 @@ func LoadServiceFromYamlTemplate(username string, req *LoadServiceFromYamlTempla
 
 func ReloadServiceFromYamlTemplate(username string, req *LoadServiceFromYamlTemplateReq, production bool, logger *zap.SugaredLogger) error {
 	projectName, serviceName, templateID, autoSync := req.ProjectName, req.ServiceName, req.TemplateID, req.AutoSync
-	service, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
+	service, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
 		ServiceName: serviceName,
 		ProductName: projectName,
-	})
+	}, production)
 	if err != nil {
 		logger.Errorf("Cannot find service of name [%s] from project [%s], the error is: %s", serviceName, projectName, err)
 		return err
