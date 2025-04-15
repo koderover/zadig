@@ -93,6 +93,8 @@ func CreateJobController(job *commonmodels.Job, workflow *commonmodels.WorkflowV
 		return CreateDistributeImageJobController(job, workflow)
 	case config.JobFreestyle:
 		return CreateFreestyleJobController(job, workflow)
+	case config.JobGrafana:
+		return CreateGrafanaJobJobController(job, workflow)
 	default:
 		return nil, fmt.Errorf("job type not supported")
 	}
