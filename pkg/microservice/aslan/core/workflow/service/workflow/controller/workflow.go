@@ -218,8 +218,8 @@ func (w *Workflow) UpdateWithLatestWorkflow(ticket *commonmodels.ApprovalTicket)
 				return err
 			}
 
-			job.Spec = ctrl.GetSpec()
-			jobList = append(jobList, job)
+			originJobMap[job.Name].Spec = ctrl.GetSpec()
+			jobList = append(jobList, originJobMap[job.Name])
 		}
 		stage.Jobs = jobList
 	}
