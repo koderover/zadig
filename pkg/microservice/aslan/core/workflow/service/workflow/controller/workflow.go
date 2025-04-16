@@ -35,6 +35,7 @@ import (
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/types"
+	"github.com/koderover/zadig/v2/pkg/util"
 	"github.com/pkg/errors"
 )
 
@@ -179,8 +180,28 @@ func (w *Workflow) UpdateWithLatestWorkflow(ticket *commonmodels.ApprovalTicket)
 
 	w.Params = renderParams(w.Params, latestWorkflowSettings.Params)
 
+	newStage := make([]*commonmodels.WorkflowStage, 0)
+	err = util.DeepCopy(newStage, latestWorkflowSettings.Stages)
+
+	originJobMap := make(map[string]*commonmodels.Job)
 	for _, stage := range w.Stages {
 		for _, job := range stage.Jobs {
+			originJobMap[job.Name] = job
+		}
+	}
+
+	for _, stage := range newStage {
+		jobList := make([]*commonmodels.Job, 0)
+		for _, job := range stage.Jobs {
+			if originJob, ok := originJobMap[job.Name]; !ok || originJob.JobType != job.JobType {
+				// if we didn't find the job in the workflow to be merged, simply add the new job to the list
+				jobList = append(jobList, job)
+			}
+
+			// otherwise we do a merge
+			if _, err := w.FindJob(job.Name, job.JobType); err != nil {
+				continue
+			}
 			ctrl, err := jobctrl.CreateJobController(job, latestWorkflowSettings)
 			if err != nil {
 				return err
@@ -197,9 +218,12 @@ func (w *Workflow) UpdateWithLatestWorkflow(ticket *commonmodels.ApprovalTicket)
 			}
 
 			job.Spec = ctrl.GetSpec()
+			jobList = append(jobList, job)
 		}
+		stage.Jobs = jobList
 	}
 
+	w.Stages = newStage
 	return nil
 }
 
