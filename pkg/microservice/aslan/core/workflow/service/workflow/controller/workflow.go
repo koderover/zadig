@@ -182,6 +182,9 @@ func (w *Workflow) UpdateWithLatestWorkflow(ticket *commonmodels.ApprovalTicket)
 
 	newStage := make([]*commonmodels.WorkflowStage, 0)
 	err = util.DeepCopy(newStage, latestWorkflowSettings.Stages)
+	if err != nil {
+		return err
+	}
 
 	originJobMap := make(map[string]*commonmodels.Job)
 	for _, stage := range w.Stages {
