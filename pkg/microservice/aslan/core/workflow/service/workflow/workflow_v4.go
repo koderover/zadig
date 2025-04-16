@@ -899,7 +899,7 @@ func ensureWorkflowV4JobResp(job *commonmodels.Job, logger *zap.SugaredLogger, b
 				logger.Errorf("find testing: %s error: %s", testing.Name, err)
 				continue
 			}
-			testing.KeyVals = commonservice.MergeBuildEnvs(testingInfo.PreTest.Envs, testing.KeyVals)
+			testing.KeyVals = commonservice.MergeBuildEnvs(testingInfo.PreTest.Envs, testing.KeyVals.ToKVList()).ToRuntimeList()
 		}
 		for _, testing := range spec.TestModules {
 			testingInfo, err := commonrepo.NewTestingColl().Find(testing.Name, "")
@@ -907,7 +907,7 @@ func ensureWorkflowV4JobResp(job *commonmodels.Job, logger *zap.SugaredLogger, b
 				logger.Errorf("find testing: %s error: %s", testing.Name, err)
 				continue
 			}
-			testing.KeyVals = commonservice.MergeBuildEnvs(testingInfo.PreTest.Envs, testing.KeyVals)
+			testing.KeyVals = commonservice.MergeBuildEnvs(testingInfo.PreTest.Envs, testing.KeyVals.ToKVList()).ToRuntimeList()
 		}
 	}
 	if job.JobType == config.JobNotification {
