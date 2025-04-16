@@ -614,3 +614,21 @@ func renderString(value, template string, inputs []*commonmodels.Param) string {
 	}
 	return value
 }
+
+func modelS3toS3(modelS3 *commonmodels.S3Storage) *step.S3 {
+	resp := &step.S3{
+		Ak:        modelS3.Ak,
+		Sk:        modelS3.Sk,
+		Endpoint:  modelS3.Endpoint,
+		Bucket:    modelS3.Bucket,
+		Subfolder: modelS3.Subfolder,
+		Insecure:  modelS3.Insecure,
+		Provider:  modelS3.Provider,
+		Region:    modelS3.Region,
+		Protocol:  "https",
+	}
+	if modelS3.Insecure {
+		resp.Protocol = "http"
+	}
+	return resp
+}
