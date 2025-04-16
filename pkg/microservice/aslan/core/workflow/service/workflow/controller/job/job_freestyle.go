@@ -531,13 +531,11 @@ func (j FreestyleJobController) generateSubTask(taskID int64, jobSubTaskID int, 
 		jobKey = genJobKey(j.name, service.ServiceName, service.ServiceModule)
 		jobInfo["service_name"] = service.ServiceName
 		jobInfo["service_module"] = service.ServiceModule
+		renderRepos(service.Repos, applyKeyVals(j.jobSpec.Envs.ToRuntimeList(), service.KeyVals.ToRuntimeList(), false).ToKVList())
+	} else {
+		renderRepos(j.jobSpec.Repos, envs)
 	}
 
-	var serviceKV commonmodels.KeyValList
-	if service != nil {
-		serviceKV = service.KeyVals
-	}
-	renderRepos(service.Repos, applyKeyVals(j.jobSpec.Envs.ToRuntimeList(), serviceKV.ToRuntimeList(), false).ToKVList())
 	envs = append(envs, getFreestyleJobVariables(taskID, j.workflow.Project, j.workflow.Name, j.workflow.DisplayName, j.jobSpec.Runtime.Infrastructure, service, registries, j.jobSpec.Repos)...)
 
 	for _, env := range taskRunProperties.Envs {

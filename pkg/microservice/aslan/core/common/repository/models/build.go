@@ -222,9 +222,6 @@ type KeyValList []*KeyVal
 
 func (list KeyValList) ToRuntimeList() []*RuntimeKeyVal {
 	resp := make([]*RuntimeKeyVal, 0)
-	if list == nil {
-		return resp
-	}
 	for _, kv := range list {
 		resp = append(resp, &RuntimeKeyVal{
 			KeyVal: kv,
@@ -244,9 +241,6 @@ type RuntimeKeyValList []*RuntimeKeyVal
 
 func (list RuntimeKeyValList) ToKVList() []*KeyVal {
 	resp := make([]*KeyVal, 0)
-	if list == nil {
-		return resp
-	}
 	for _, kv := range list {
 		resp = append(resp, kv.KeyVal)
 	}
