@@ -202,10 +202,7 @@ func (w *Workflow) UpdateWithLatestWorkflow(ticket *commonmodels.ApprovalTicket)
 			}
 
 			// otherwise we do a merge
-			if _, err := w.FindJob(job.Name, job.JobType); err != nil {
-				continue
-			}
-			ctrl, err := jobctrl.CreateJobController(job, latestWorkflowSettings)
+			ctrl, err := jobctrl.CreateJobController(originJobMap[job.Name], latestWorkflowSettings)
 			if err != nil {
 				return err
 			}
