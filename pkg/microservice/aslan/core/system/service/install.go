@@ -219,18 +219,6 @@ func InitInstallMap() map[string]*commonmodels.Install {
 		UpdateBy:     setting.SystemUser,
 	}
 
-	installInfoPreset["java-17"] = &commonmodels.Install{
-		ObjectIDHex:  "63722795351717b8ad70dd10",
-		Name:         "java",
-		Version:      "17",
-		DownloadPath: "https://download.oracle.com/java/17/latest/jdk-17_linux-x64_bin.tar.gz",
-		Scripts:      "mkdir -p $HOME/jdk\ntar -C $HOME/jdk -xzf ${FILEPATH} --strip-components=1",
-		Envs:         []string{},
-		BinPath:      "$HOME/jdk/bin",
-		Enabled:      true,
-		UpdateBy:     setting.SystemUser,
-	}
-
 	installInfoPreset["java-19"] = &commonmodels.Install{
 		ObjectIDHex:  "63722795351717b8ad70dd11",
 		Name:         "java",
