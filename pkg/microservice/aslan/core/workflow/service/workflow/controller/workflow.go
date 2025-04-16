@@ -181,7 +181,7 @@ func (w *Workflow) UpdateWithLatestWorkflow(ticket *commonmodels.ApprovalTicket)
 	w.Params = renderParams(w.Params, latestWorkflowSettings.Params)
 
 	newStage := make([]*commonmodels.WorkflowStage, 0)
-	err = util.DeepCopy(newStage, latestWorkflowSettings.Stages)
+	err = util.DeepCopy(&newStage, &latestWorkflowSettings.Stages)
 	if err != nil {
 		return err
 	}
