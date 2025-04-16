@@ -754,7 +754,6 @@ type CanaryTarget struct {
 
 type GrayReleaseJobSpec struct {
 	ClusterID        string `bson:"cluster_id"             json:"cluster_id"            yaml:"cluster_id"`
-	ClusterSource    string `bson:"cluster_source"         json:"cluster_source"        yaml:"cluster_source"`
 	Namespace        string `bson:"namespace"              json:"namespace"             yaml:"namespace"`
 	DockerRegistryID string `bson:"docker_registry_id"     json:"docker_registry_id"    yaml:"docker_registry_id"`
 	FromJob          string `bson:"from_job"               json:"from_job"              yaml:"from_job"`
@@ -762,7 +761,7 @@ type GrayReleaseJobSpec struct {
 	DeployTimeout int64                `bson:"deploy_timeout"         json:"deploy_timeout"        yaml:"deploy_timeout"`
 	GrayScale     int                  `bson:"gray_scale"             json:"gray_scale"            yaml:"gray_scale"`
 	Targets       []*GrayReleaseTarget `bson:"targets"                json:"targets"               yaml:"targets"`
-	TargetOptions []*GrayReleaseTarget `bson:"-"                      json:"target_options"        yaml:"target_options"`
+	TargetOptions []*GrayReleaseTarget `bson:"target_options"         json:"target_options"        yaml:"target_options"`
 }
 
 type GrayReleaseTarget struct {

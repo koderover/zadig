@@ -15,14 +15,19 @@ package job
 
 import (
 	"fmt"
+	"math"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
-	templaterepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
+	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
+	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
+	"github.com/koderover/zadig/v2/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/v2/pkg/types"
 )
+
+// TODO: target -> target_options
 
 type GrayReleaseJobController struct {
 	*BasicInfo
@@ -57,30 +62,66 @@ func (j GrayReleaseJobController) GetSpec() interface{} {
 	return j.jobSpec
 }
 
+type validateGrayReleaseJob struct {
+	jobName   string
+	GrayScale int
+}
+
 func (j GrayReleaseJobController) Validate(isExecution bool) error {
 	if err := util.CheckZadigProfessionalLicense(); err != nil {
 		return e.ErrLicenseInvalid.AddDesc("")
 	}
 
-	currJob, err := j.workflow.FindJob(j.name, j.jobType)
-	if err != nil {
-		return err
+	jobRankMap := GetJobRankMap(j.workflow.Stages)
+	releaseJobs := make([]*validateGrayReleaseJob, 0)
+	for _, stage := range j.workflow.Stages {
+		for _, job := range stage.Jobs {
+			if job.JobType != config.JobK8sGrayRelease {
+				continue
+			}
+			jobSpec := &commonmodels.GrayReleaseJobSpec{}
+			if err := commonmodels.IToiYaml(job.Spec, jobSpec); err != nil {
+				return err
+			}
+			if jobSpec.FromJob != j.name {
+				continue
+			}
+			releaseJobs = append(releaseJobs, &validateGrayReleaseJob{jobName: job.Name, GrayScale: jobSpec.GrayScale})
+		}
 	}
-
-	currJobSpec := new(commonmodels.BlueGreenReleaseV2JobSpec)
-	if err := commonmodels.IToi(currJob.Spec, currJobSpec); err != nil {
-		return fmt.Errorf("failed to decode apollo job spec, error: %s", err)
+	if len(releaseJobs) == 0 {
+		return fmt.Errorf("no release job found for job [%s]", j.name)
 	}
-
-	if isExecution {
-		if j.jobSpec.FromJob != currJobSpec.FromJob {
-			return fmt.Errorf("from job [%s] is different from configuration in the workflow: [%s]", j.jobSpec.FromJob, currJobSpec.FromJob)
+	for i, releaseJob := range releaseJobs {
+		if jobRankMap[j.name] >= jobRankMap[releaseJob.jobName] {
+			return fmt.Errorf("release job: [%s] must be run before [%s]", j.name, releaseJob.jobName)
+		}
+		if i < len(releaseJobs)-1 && releaseJob.GrayScale >= 100 {
+			return fmt.Errorf("release job: [%s] cannot full release in the middle", releaseJob.jobName)
+		}
+		if i == len(releaseJobs)-1 && releaseJob.GrayScale != 100 {
+			return fmt.Errorf("last release job: [%s] must be full released", releaseJob.jobName)
 		}
 	}
 
-	_, err = j.workflow.FindJob(j.jobSpec.FromJob, config.JobK8sBlueGreenDeploy)
-	if err != nil {
-		return fmt.Errorf("failed to find referred job: %s, error: %s", j.jobSpec.FromJob, err)
+	var quoteJobSpec *commonmodels.GrayReleaseJobSpec
+	for _, stage := range j.workflow.Stages {
+		for _, job := range stage.Jobs {
+			if job.JobType != config.JobK8sGrayRelease || job.Name != j.jobSpec.FromJob {
+				continue
+			}
+			quoteJobSpec = &commonmodels.GrayReleaseJobSpec{}
+			if err := commonmodels.IToiYaml(job.Spec, quoteJobSpec); err != nil {
+				return err
+			}
+			break
+		}
+	}
+	if quoteJobSpec == nil {
+		return fmt.Errorf("[%s] quote release job: [%s] not found", j.name, j.jobSpec.FromJob)
+	}
+	if quoteJobSpec.FromJob != "" {
+		return fmt.Errorf("[%s] cannot quote a non-first-release job [%s]", j.name, j.jobSpec.FromJob)
 	}
 
 	return nil
@@ -92,7 +133,7 @@ func (j GrayReleaseJobController) Update(useUserInput bool, ticket *commonmodels
 		return err
 	}
 
-	currJobSpec := new(commonmodels.BlueGreenReleaseV2JobSpec)
+	currJobSpec := new(commonmodels.GrayReleaseJobSpec)
 	if err := commonmodels.IToi(currJob.Spec, currJobSpec); err != nil {
 		return fmt.Errorf("failed to decode apollo job spec, error: %s", err)
 	}
@@ -111,50 +152,91 @@ func (j GrayReleaseJobController) ClearOptions() {
 }
 
 func (j GrayReleaseJobController) ClearSelection() {
+	j.jobSpec.Targets = make([]*commonmodels.GrayReleaseTarget, 0)
 	return
 }
 
 func (j GrayReleaseJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, error) {
 	resp := make([]*commonmodels.JobTask, 0)
+	firstJob := false
+	if j.jobSpec.FromJob != "" {
+		if j.jobSpec.GrayScale > 100 {
+			return resp, fmt.Errorf("release job: %s release percentage cannot largger than 100", j.name)
+		}
+		found := false
+		for _, stage := range j.workflow.Stages {
+			for _, job := range stage.Jobs {
+				if job.Name != j.jobSpec.FromJob || job.JobType != config.JobK8sGrayRelease {
+					continue
+				}
+				found = true
+				fromJobSpec := &commonmodels.GrayReleaseJobSpec{}
+				if err := commonmodels.IToi(job.Spec, fromJobSpec); err != nil {
+					return resp, err
+				}
+				j.jobSpec.ClusterID = fromJobSpec.ClusterID
+				j.jobSpec.Namespace = fromJobSpec.Namespace
+				j.jobSpec.DockerRegistryID = fromJobSpec.DockerRegistryID
+				j.jobSpec.Targets = fromJobSpec.Targets
+			}
+		}
+		if !found {
+			return resp, fmt.Errorf("gray release job: %s not found", j.jobSpec.FromJob)
+		}
+	} else {
+		firstJob = true
+		if j.jobSpec.GrayScale >= 100 {
+			return resp, fmt.Errorf("the first release job: %s cannot be released in full", j.name)
+		}
+		kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(j.jobSpec.ClusterID)
+		if err != nil {
+			return resp, fmt.Errorf("failed to get kube client, err: %v", err)
+		}
+		for _, target := range j.jobSpec.Targets {
+			deployment, found, err := getter.GetDeployment(j.jobSpec.Namespace, target.WorkloadName, kubeClient)
+			if err != nil || !found {
+				return resp, fmt.Errorf("deployment %s not found in namespace: %s", target.WorkloadName, j.jobSpec.Namespace)
+			}
+			target.Replica = int(*deployment.Spec.Replicas)
+		}
+	}
 
-	deployJob, err := j.workflow.FindJob(j.jobSpec.FromJob, config.JobK8sBlueGreenDeploy)
+	cluster, err := commonrepo.NewK8SClusterColl().Get(j.jobSpec.ClusterID)
 	if err != nil {
-		return nil, err
+		return resp, fmt.Errorf("cluster id: %s not found", j.jobSpec.ClusterID)
 	}
 
-	deployJobSpec := &commonmodels.BlueGreenDeployV2JobSpec{}
-	if err := commonmodels.IToi(deployJob.Spec, deployJobSpec); err != nil {
-		return resp, err
-	}
-
-	templateProduct, err := templaterepo.NewProductColl().Find(j.workflow.Project)
-	if err != nil {
-		return resp, fmt.Errorf("cannot find product %s: %w", j.workflow.Project, err)
-	}
-	timeout := templateProduct.Timeout * 60
-
-	for jobSubTaskID, target := range deployJobSpec.Services {
-		task := &commonmodels.JobTask{
-			Name:        GenJobName(j.workflow, j.name, jobSubTaskID),
-			Key:         genJobKey(j.name, target.ServiceName),
-			DisplayName: genJobDisplayName(j.name, target.ServiceName),
+	for _, target := range j.jobSpec.Targets {
+		grayReplica := math.Ceil(float64(*&target.Replica) * (float64(j.jobSpec.GrayScale) / 100))
+		jobTask := &commonmodels.JobTask{
+			Name:        GenJobName(j.workflow, j.name, 0),
+			Key:         genJobKey(j.name, target.WorkloadName),
+			DisplayName: genJobDisplayName(j.name, target.WorkloadName),
 			OriginName:  j.name,
 			JobInfo: map[string]string{
-				JobNameKey:     j.name,
-				"service_name": target.ServiceName,
+				JobNameKey:      j.name,
+				"workload_name": target.WorkloadName,
 			},
-			JobType: string(config.JobK8sBlueGreenRelease),
-			Spec: &commonmodels.JobTaskBlueGreenReleaseV2Spec{
-				Production:    deployJobSpec.Production,
-				Env:           deployJobSpec.Env,
-				Service:       target,
-				DeployTimeout: timeout,
+			JobType: string(config.JobK8sGrayRelease),
+			Spec: &commonmodels.JobTaskGrayReleaseSpec{
+				ClusterID:        j.jobSpec.ClusterID,
+				ClusterName:      cluster.Name,
+				Namespace:        j.jobSpec.Namespace,
+				WorkloadType:     target.WorkloadType,
+				WorkloadName:     target.WorkloadName,
+				ContainerName:    target.ContainerName,
+				FirstJob:         firstJob,
+				GrayWorkloadName: target.WorkloadName + config.GrayDeploymentSuffix,
+				Image:            target.Image,
+				DeployTimeout:    j.jobSpec.DeployTimeout,
+				GrayScale:        j.jobSpec.GrayScale,
+				TotalReplica:     target.Replica,
+				GrayReplica:      int(grayReplica),
 			},
 			ErrorPolicy: j.errorPolicy,
 		}
-		resp = append(resp, task)
+		resp = append(resp, jobTask)
 	}
-
 	return resp, nil
 }
 

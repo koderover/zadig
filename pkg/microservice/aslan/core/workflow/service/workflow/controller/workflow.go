@@ -199,6 +199,7 @@ func (w *Workflow) UpdateWithLatestWorkflow(ticket *commonmodels.ApprovalTicket)
 			if originJob, ok := originJobMap[job.Name]; !ok || originJob.JobType != job.JobType {
 				// if we didn't find the job in the workflow to be merged, simply add the new job to the list
 				jobList = append(jobList, job)
+				continue
 			}
 
 			// otherwise we do a merge
