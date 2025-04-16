@@ -95,6 +95,8 @@ func CreateJobController(job *commonmodels.Job, workflow *commonmodels.WorkflowV
 		return CreateFreestyleJobController(job, workflow)
 	case config.JobGrafana:
 		return CreateGrafanaJobJobController(job, workflow)
+	case config.JobK8sGrayRelease:
+		return CreateGrayReleaseJobController(job, workflow)
 	default:
 		return nil, fmt.Errorf("job type not supported")
 	}

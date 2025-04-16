@@ -225,9 +225,6 @@ func (w *Workflow) UpdateWithLatestWorkflow(ticket *commonmodels.ApprovalTicket)
 	}
 
 	w.Stages = newStage
-	wfBytes, _ := json.Marshal(w)
-	fmt.Println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>> updated workflow:")
-	fmt.Println(string(wfBytes))
 	return nil
 }
 

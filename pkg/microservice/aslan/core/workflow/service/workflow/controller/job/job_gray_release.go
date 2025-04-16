@@ -138,8 +138,13 @@ func (j GrayReleaseJobController) Update(useUserInput bool, ticket *commonmodels
 		return fmt.Errorf("failed to decode apollo job spec, error: %s", err)
 	}
 
+	j.jobSpec.ClusterID = currJobSpec.ClusterID
+	j.jobSpec.Namespace = currJobSpec.Namespace
+	j.jobSpec.DockerRegistryID = currJobSpec.DockerRegistryID
 	j.jobSpec.FromJob = currJobSpec.FromJob
-
+	j.jobSpec.DeployTimeout = currJobSpec.DeployTimeout
+	j.jobSpec.GrayScale = currJobSpec.GrayScale
+	j.jobSpec.TargetOptions = currJobSpec.TargetOptions
 	return nil
 }
 
