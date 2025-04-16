@@ -553,7 +553,12 @@ func (j FreestyleJobController) generateSubTask(taskID int64, jobSubTaskID int, 
 		taskRunProperties.Envs = renderedEnvs
 	}
 
-	steps, err := j.generateStepTask(jobName, service.Repos)
+	repos := j.jobSpec.Repos
+	if service != nil {
+		repos = service.Repos
+	}
+
+	steps, err := j.generateStepTask(jobName, repos)
 	if err != nil {
 		return nil, err
 	}
