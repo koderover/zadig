@@ -163,7 +163,7 @@ func (j VMDeployJobController) SetOptions(ticket *commonmodels.ApprovalTicket) e
 	envOptions := make([]*commonmodels.ZadigVMDeployEnvInformation, 0)
 
 	for _, env := range envs {
-		if ticket.IsAllowedEnv(j.workflow.Project, env.EnvName) {
+		if !ticket.IsAllowedEnv(j.workflow.Project, env.EnvName) {
 			continue
 		}
 
