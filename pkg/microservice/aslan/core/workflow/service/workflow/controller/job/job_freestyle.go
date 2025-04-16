@@ -537,6 +537,7 @@ func (j FreestyleJobController) generateSubTask(taskID int64, jobSubTaskID int, 
 	}
 
 	envs = append(envs, getFreestyleJobVariables(taskID, j.workflow.Project, j.workflow.Name, j.workflow.DisplayName, j.jobSpec.Runtime.Infrastructure, service, registries, j.jobSpec.Repos)...)
+	taskRunProperties.Envs = envs
 
 	for _, env := range taskRunProperties.Envs {
 		if env.Type == commonmodels.MultiSelectType {
