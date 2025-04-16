@@ -203,7 +203,7 @@ func (j BlueGreenDeployJobController) SetOptions(ticket *commonmodels.ApprovalTi
 			return fmt.Errorf("can't list envs in project %s, error: %w", j.workflow.Project, err)
 		}
 		for _, env := range products {
-			if ticket.IsAllowedEnv(j.workflow.Project, env.EnvName) {
+			if !ticket.IsAllowedEnv(j.workflow.Project, env.EnvName) {
 				continue
 			}
 

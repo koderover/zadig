@@ -116,7 +116,7 @@ func (j TestingJobController) SetOptions(ticket *commonmodels.ApprovalTicket) er
 }
 
 func (j TestingJobController) ClearOptions() {
-	j.jobSpec.ServiceAndTests = make([]*commonmodels.ServiceAndTest, 0)
+	return
 }
 
 func (j TestingJobController) ClearSelection() {

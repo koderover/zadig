@@ -97,6 +97,8 @@ func CreateJobController(job *commonmodels.Job, workflow *commonmodels.WorkflowV
 		return CreateGrafanaJobJobController(job, workflow)
 	case config.JobK8sGrayRelease:
 		return CreateGrayReleaseJobController(job, workflow)
+	case config.JobZadigScanning:
+		return CreateScanningJobController(job, workflow)
 	case config.JobZadigTesting:
 		return CreateTestingJobController(job, workflow)
 	case config.JobZadigVMDeploy:
