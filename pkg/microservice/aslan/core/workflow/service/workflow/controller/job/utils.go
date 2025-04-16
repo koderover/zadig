@@ -520,7 +520,7 @@ func checkOutputNames(outputs []*commonmodels.Output) error {
 }
 
 // TODO: FIX THIS FUNCTION
-func renderServiceVariables(workflow *commonmodels.WorkflowV4, envs []*commonmodels.KeyVal, serviceName string, serviceModule string) ([]*commonmodels.KeyVal, error) {
+func renderServiceVariables(workflow *commonmodels.WorkflowV4, envs commonmodels.KeyValList, serviceName string, serviceModule string) (commonmodels.KeyValList, error) {
 	duplicatedEnvs := make([]*commonmodels.KeyVal, 0)
 
 	err := util.DeepCopy(&duplicatedEnvs, &envs)
