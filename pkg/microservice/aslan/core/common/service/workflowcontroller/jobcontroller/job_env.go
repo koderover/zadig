@@ -24,6 +24,7 @@ import (
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
@@ -174,7 +175,7 @@ func UpdateProductServiceDeployInfo(deployInfo *ProductServiceDeployInfo) error 
 			productInfo.ServiceDeployStrategy = commonutil.SetServiceDeployStrategyDepoly(productInfo.ServiceDeployStrategy, deployInfo.ServiceName)
 		}
 
-		err = commonutil.CreateEnvServiceVersion(productInfo, productInfo.GetServiceMap()[deployInfo.ServiceName], deployInfo.UserName, session, log.SugaredLogger())
+		err = commonutil.CreateEnvServiceVersion(productInfo, productInfo.GetServiceMap()[deployInfo.ServiceName], deployInfo.UserName, config.EnvOperationDefault, "", session, log.SugaredLogger())
 		if err != nil {
 			log.Errorf("CreateK8SEnvServiceVersion error: %v", err)
 		}

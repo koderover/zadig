@@ -181,7 +181,7 @@ func UpdateContainerImage(requestID, username string, args *UpdateContainerImage
 			return e.ErrUpdateConainterImage.AddDesc("更新环境信息失败")
 		}
 
-		err = commonutil.CreateEnvServiceVersion(product, prodSvc, username, session, log)
+		err = commonutil.CreateEnvServiceVersion(product, prodSvc, username, config.EnvOperationDefault, "", session, log)
 		if err != nil {
 			log.Errorf("create env service version for %s/%s error: %v", product.EnvName, prodSvc.ServiceName, err)
 		}

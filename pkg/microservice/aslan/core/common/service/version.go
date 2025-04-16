@@ -45,6 +45,8 @@ type ListEnvServiceVersionsResponse struct {
 	ServiceName string                    `json:"service_name"`
 	Revision    int64                     `json:"revision"`
 	Containers  []*commonmodels.Container `json:"containers"`
+	Operation   config.EnvOperation       `json:"operation"`
+	Detail      string                    `json:"detail"`
 	CreateTime  int64                     `json:"create_time"`
 	CreateBy    string                    `json:"create_by"`
 }
@@ -65,6 +67,8 @@ func ListEnvServiceVersions(ctx *internalhandler.Context, projectName, envName, 
 			ServiceName: name,
 			Revision:    revision.Revision,
 			Containers:  revision.Service.Containers,
+			Operation:   revision.Operation,
+			Detail:      revision.Detail,
 			CreateTime:  revision.CreateTime,
 			CreateBy:    revision.CreateBy,
 		})
@@ -73,12 +77,14 @@ func ListEnvServiceVersions(ctx *internalhandler.Context, projectName, envName, 
 }
 
 type GetEnvServiceVersionYamlResponse struct {
-	Type         string `json:"type"`
-	Yaml         string `json:"yaml"`
-	VariableYaml string `json:"variable_yaml"`
-	OverrideKVs  string `json:"override_kvs"`
-	CreateTime   int64  `json:"create_time"`
-	CreateBy     string `json:"create_by"`
+	Type         string              `json:"type"`
+	Yaml         string              `json:"yaml"`
+	VariableYaml string              `json:"variable_yaml"`
+	OverrideKVs  string              `json:"override_kvs"`
+	Operation    config.EnvOperation `json:"operation"`
+	Detail       string              `json:"detail"`
+	CreateTime   int64               `json:"create_time"`
+	CreateBy     string              `json:"create_by"`
 }
 
 func GetEnvServiceVersionYaml(ctx *internalhandler.Context, projectName, envName, serviceName string, revision int64, isHelmChart, isProduction bool, log *zap.SugaredLogger) (GetEnvServiceVersionYamlResponse, error) {
@@ -89,6 +95,8 @@ func GetEnvServiceVersionYaml(ctx *internalhandler.Context, projectName, envName
 		return resp, fmt.Errorf("failed to find %s/%s/%s service for revision %d, isHelmChart %v isProduction %v, error: %v", projectName, envName, serviceName, revision, isHelmChart, isProduction, err)
 	}
 	resp.Type = envSvcRevision.Service.Type
+	resp.Operation = envSvcRevision.Operation
+	resp.Detail = envSvcRevision.Detail
 	resp.CreateTime = envSvcRevision.CreateTime
 	resp.CreateBy = envSvcRevision.CreateBy
 	if envSvcRevision.Service.Type == setting.K8SDeployType {
@@ -217,7 +225,7 @@ type RollbackEnvServiceVersionData struct {
 	HelmDeployStatusChan chan bool
 }
 
-func RollbackEnvServiceVersion(ctx *internalhandler.Context, projectName, envName, serviceName string, revision int64, isHelmChart, isProduction bool, log *zap.SugaredLogger) (*RollbackEnvServiceVersionData, error) {
+func RollbackEnvServiceVersion(ctx *internalhandler.Context, projectName, envName, serviceName string, revision int64, isHelmChart, isProduction bool, detail string, log *zap.SugaredLogger) (*RollbackEnvServiceVersionData, error) {
 	envSvcVersion, err := mongodb.NewEnvServiceVersionColl().Find(projectName, envName, serviceName, isHelmChart, isProduction, revision)
 	if err != nil {
 		return nil, e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to find %s/%s/%s service for revision %d, isProduction %v, error: %v", projectName, envName, serviceName, revision, isProduction, err))
@@ -348,7 +356,7 @@ func RollbackEnvServiceVersion(ctx *internalhandler.Context, projectName, envNam
 		}
 
 		env.Services[groupIndex][svcIndex] = envSvcVersion.Service
-		err = helmservice.UpdateServiceInEnv(env, envSvcVersion.Service, ctx.UserName)
+		err = helmservice.UpdateServiceInEnv(env, envSvcVersion.Service, ctx.UserName, config.EnvOperationRollback, detail)
 		if err != nil {
 			return nil, e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to update service %s in env %s/%s, isProudction %v", envSvcVersion.Service.ServiceName, envSvcVersion.ProductName, envSvcVersion.EnvName, envSvcVersion.Production))
 		}
@@ -363,6 +371,7 @@ func RollbackEnvServiceVersion(ctx *internalhandler.Context, projectName, envNam
 			OperationType: config.EnvOperationTypeZadig,
 			ServiceName:   serviceName,
 			ServiceType:   envSvcVersion.Service.GetServiceType(),
+			Detail:        detail,
 			OriginService: preProdSvc,
 			UpdateService: envSvcVersion.Service,
 		}
