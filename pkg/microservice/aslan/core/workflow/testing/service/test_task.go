@@ -463,7 +463,7 @@ func generateCustomWorkflowFromTestingModule(testInfo *commonmodels.Testing, arg
 				{
 					Name:        testInfo.Name,
 					ProjectName: testInfo.ProductName,
-					KeyVals:     testInfo.PreTest.Envs,
+					KeyVals:     testInfo.PreTest.Envs.ToRuntimeList(),
 					Repos:       testInfo.Repos,
 				},
 			},
