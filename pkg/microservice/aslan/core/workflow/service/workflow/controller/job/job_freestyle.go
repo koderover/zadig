@@ -515,6 +515,8 @@ func (j FreestyleJobController) generateSubTask(taskID int64, jobSubTaskID int, 
 		}
 
 		taskRunProperties.CustomEnvs = customEnv
+	} else {
+		taskRunProperties.CustomEnvs = j.jobSpec.Envs
 	}
 
 	paramEnvs := generateKeyValsFromWorkflowParam(j.workflow.Params)
