@@ -905,6 +905,10 @@ func (j BuildJobController) GetUsedRepos() ([]*types.Repository, error) {
 	return resp, nil
 }
 
+func (j BuildJobController) RenderDynamicVariableOptions(key string, option *RenderDynamicVariableValue) ([]string, error) {
+	return nil, fmt.Errorf("invalid job type: %s to render dynamic variable", j.name)
+}
+
 func (j BuildJobController) getReferredJobTargets(jobName string) ([]*commonmodels.ServiceAndBuild, error) {
 	servicetargets := []*commonmodels.ServiceAndBuild{}
 	originTargetMap := make(map[string]*commonmodels.ServiceAndBuild)

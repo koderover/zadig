@@ -196,6 +196,10 @@ func (j TestingJobController) GetUsedRepos() ([]*types.Repository, error) {
 	return make([]*types.Repository, 0), nil
 }
 
+func (j TestingJobController) RenderDynamicVariableOptions(key string, option *RenderDynamicVariableValue) ([]string, error) {
+	return nil, fmt.Errorf("invalid job type: %s to render dynamic variable", j.name)
+}
+
 func (j TestingJobController) getReferredJobTargets(jobName string) ([]*commonmodels.ServiceTestTarget, error) {
 	servicetargets := make([]*commonmodels.ServiceTestTarget, 0)
 	for _, stage := range j.workflow.Stages {

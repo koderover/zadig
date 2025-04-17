@@ -57,6 +57,8 @@ type Job interface {
 	GetVariableList(jobName string, getAggregatedVariables, getRuntimeVariables, getPlaceHolderVariables, getServiceSpecificVariables, getReferredKeyValVariables bool) ([]*commonmodels.KeyVal, error)
 	// GetUsedRepos returns the all the repos a job used
 	GetUsedRepos() ([]*types.Repository, error)
+	// RenderDynamicVariableOptions renders a key's value option based on given values (and parameters)
+	RenderDynamicVariableOptions(key string, option *RenderDynamicVariableValue) ([]string, error)
 }
 
 type BasicInfo struct {

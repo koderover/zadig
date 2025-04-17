@@ -158,3 +158,7 @@ func (j GrafanaJobController) GetVariableList(jobName string, getAggregatedVaria
 func (j GrafanaJobController) GetUsedRepos() ([]*types.Repository, error) {
 	return make([]*types.Repository, 0), nil
 }
+
+func (j GrafanaJobController) RenderDynamicVariableOptions(key string, option *RenderDynamicVariableValue) ([]string, error) {
+	return nil, fmt.Errorf("invalid job type: %s to render dynamic variable", j.name)
+}

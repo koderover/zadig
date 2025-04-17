@@ -442,6 +442,10 @@ func (j VMDeployJobController) GetUsedRepos() ([]*types.Repository, error) {
 	return make([]*types.Repository, 0), nil
 }
 
+func (j VMDeployJobController) RenderDynamicVariableOptions(key string, option *RenderDynamicVariableValue) ([]string, error) {
+	return nil, fmt.Errorf("invalid job type: %s to render dynamic variable", j.name)
+}
+
 func (j VMDeployJobController) getReferredJobTargets(jobName string, taskID int) ([]*commonmodels.ServiceAndVMDeploy, error) {
 	serviceAndVMDeploys := make([]*commonmodels.ServiceAndVMDeploy, 0)
 	for _, stage := range j.workflow.Stages {

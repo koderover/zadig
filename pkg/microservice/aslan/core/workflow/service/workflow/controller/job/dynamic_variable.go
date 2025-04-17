@@ -23,7 +23,7 @@ import (
 	"strings"
 	"text/template"
 
-	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/util"
 )
 
@@ -46,17 +46,17 @@ func getJobVariableKey(currentJobName, serviceName, moduleName, key string, getA
 	return resp
 }
 
-func renderScriptedVariableOptions(ctx *internalhandler.Context, serviceName, moduleName, script, callFunction string, userInput map[string]string) ([]string, error) {
+func renderScriptedVariableOptions(serviceName, moduleName, script, callFunction string, userInput map[string]string) ([]string, error) {
 	if script == "" || callFunction == "" {
 		return []string{}, nil
 	}
-	ctx.Logger.Debugf("user input: %+v", userInput)
+	log.Debugf("user input: %+v", userInput)
 
 	callFunction = strings.ReplaceAll(callFunction, "<SERVICE>", serviceName)
 	callFunction = strings.ReplaceAll(callFunction, "<MODULE>", moduleName)
 	callFunction = replaceJobVariables(callFunction)
 
-	ctx.Logger.Debugf("call function: %s", callFunction)
+	log.Debugf("call function: %s", callFunction)
 
 	t, err := template.New("scriptRender").Parse(callFunction)
 	if err != nil {

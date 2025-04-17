@@ -190,6 +190,10 @@ func (j ScanningJobController) GetUsedRepos() ([]*types.Repository, error) {
 	return make([]*types.Repository, 0), nil
 }
 
+func (j ScanningJobController) RenderDynamicVariableOptions(key string, option *RenderDynamicVariableValue) ([]string, error) {
+	return nil, fmt.Errorf("invalid job type: %s to render dynamic variable", j.name)
+}
+
 func (j ScanningJobController) toJobTask(jobSubTaskID int, scanning *commonmodels.ScanningModule, taskID int64, scanningType, serviceName, serviceModule string, logger *zap.SugaredLogger) (*commonmodels.JobTask, error) {
 	scanningInfo, err := commonrepo.NewScanningColl().Find(j.workflow.Project, scanning.Name)
 	if err != nil {

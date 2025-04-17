@@ -659,6 +659,10 @@ func (j DeployJobController) GetUsedRepos() ([]*types.Repository, error) {
 	return make([]*types.Repository, 0), nil
 }
 
+func (j DeployJobController) RenderDynamicVariableOptions(key string, option *RenderDynamicVariableValue) ([]string, error) {
+	return nil, fmt.Errorf("invalid job type: %s to render dynamic variable", j.name)
+}
+
 func (j DeployJobController) getReferredJobOrder(serviceReferredJob, imageReferredJob string) ([]*commonmodels.ServiceWithModuleAndImage, error) {
 	resp := make([]*commonmodels.ServiceWithModuleAndImage, 0)
 	found := false

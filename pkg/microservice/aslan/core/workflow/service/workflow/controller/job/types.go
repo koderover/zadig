@@ -2,6 +2,12 @@ package job
 
 import commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 
+type RenderDynamicVariableValue struct {
+	ServiceName   string
+	ServiceModule string
+	Values        map[string]string
+}
+
 const (
 	stepNameInstallDeps = "tools"
 	stepNameGit         = "git"

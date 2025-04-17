@@ -456,7 +456,27 @@ func (w *Workflow) SetRepo(repo *types.Repository) error {
 }
 
 func (w *Workflow) GetDynamicVariableValues(jobName, serviceName, moduleName, key string, buildInVarMap map[string]string) ([]string, error) {
-	return nil, nil
+	job, err := w.FindJob(jobName, "")
+	if err != nil {
+		return nil, err
+	}
+
+	ctrl, err := jobctrl.CreateJobController(job, w.WorkflowV4)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := ctrl.RenderDynamicVariableOptions(key, &jobctrl.RenderDynamicVariableValue{
+		ServiceName:   serviceName,
+		ServiceModule: moduleName,
+		Values:        buildInVarMap,
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
 }
 
 type GetWorkflowVariablesOption struct {

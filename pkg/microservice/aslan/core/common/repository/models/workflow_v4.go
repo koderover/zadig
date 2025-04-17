@@ -97,10 +97,12 @@ func (w *WorkflowV4) CalculateHash() [md5.Size]byte {
 	return md5.Sum(jsonBytes)
 }
 
+// FindJob finds a job in a workflow, note that jobType is an optional parameter, simply pass empty string if you don't need to filter by type
 func (w *WorkflowV4) FindJob(jobName string, jobType config.JobType) (*Job, error) {
 	for _, stage := range w.Stages {
 		for _, job := range stage.Jobs {
-			if job.Name == jobName && job.JobType == jobType {
+			// jobType == "" is how we make jobType parameter optional in this function
+			if job.Name == jobName && (job.JobType == jobType || jobType == "") {
 				return job, nil
 			}
 		}

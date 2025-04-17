@@ -326,3 +326,7 @@ func (j ApprovalJobController) getOriginReferredJobSpec(jobName string) (*common
 
 	return nil, fmt.Errorf("approval job %s not found", jobName)
 }
+
+func (j ApprovalJobController) RenderDynamicVariableOptions(key string, option *RenderDynamicVariableValue) ([]string, error) {
+	return nil, fmt.Errorf("invalid job type: %s to render dynamic variable", j.name)
+}
