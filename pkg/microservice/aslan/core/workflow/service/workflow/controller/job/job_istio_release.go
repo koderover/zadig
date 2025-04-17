@@ -15,14 +15,19 @@ package job
 
 import (
 	"fmt"
+	"math"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
-	templaterepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
+	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
+	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
+	"github.com/koderover/zadig/v2/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/v2/pkg/types"
 )
+
+// TODO: target => target_options
 
 type IstioReleaseJobController struct {
 	*BasicInfo
@@ -136,12 +141,24 @@ func (j IstioReleaseJobController) Update(useUserInput bool, ticket *commonmodel
 		return err
 	}
 
-	currJobSpec := new(commonmodels.BlueGreenReleaseV2JobSpec)
+	currJobSpec := new(commonmodels.IstioJobSpec)
 	if err := commonmodels.IToi(currJob.Spec, currJobSpec); err != nil {
 		return fmt.Errorf("failed to decode apollo job spec, error: %s", err)
 	}
 
+	j.jobSpec.ClusterID = currJobSpec.ClusterID
+	j.jobSpec.ClusterSource = currJobSpec.ClusterSource
 	j.jobSpec.FromJob = currJobSpec.FromJob
+	j.jobSpec.RegistryID = currJobSpec.RegistryID
+	j.jobSpec.Namespace = currJobSpec.Namespace
+	j.jobSpec.Timeout = currJobSpec.Timeout
+	j.jobSpec.ReplicaPercentage = currJobSpec.ReplicaPercentage
+	j.jobSpec.Weight = currJobSpec.Weight
+	j.jobSpec.TargetOptions = currJobSpec.TargetOptions
+
+	if useUserInput {
+		j.jobSpec.Targets = currJobSpec.Targets
+	}
 
 	return nil
 }
@@ -161,42 +178,81 @@ func (j IstioReleaseJobController) ClearSelection() {
 func (j IstioReleaseJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, error) {
 	resp := make([]*commonmodels.JobTask, 0)
 
-	deployJob, err := j.workflow.FindJob(j.jobSpec.FromJob, config.JobK8sBlueGreenDeploy)
+	// if from job is empty, it was the first deploy Job.
+	firstJob := false
+	if j.jobSpec.FromJob != "" {
+		if j.jobSpec.Weight > 100 {
+			return resp, fmt.Errorf("istio release job: %s release percentage cannot largger than 100", j.name)
+		}
+		found := false
+		for _, stage := range j.workflow.Stages {
+			for _, job := range stage.Jobs {
+				if job.Name != j.jobSpec.FromJob || job.JobType != config.JobIstioRelease {
+					continue
+				}
+				found = true
+				fromJobSpec := &commonmodels.IstioJobSpec{}
+				if err := commonmodels.IToi(job.Spec, fromJobSpec); err != nil {
+					return resp, err
+				}
+				j.jobSpec.ClusterID = fromJobSpec.ClusterID
+				j.jobSpec.Namespace = fromJobSpec.Namespace
+				j.jobSpec.RegistryID = fromJobSpec.RegistryID
+				j.jobSpec.Targets = fromJobSpec.Targets
+			}
+		}
+		if !found {
+			return resp, fmt.Errorf("gray release job: %s not found", j.jobSpec.FromJob)
+		}
+	} else {
+		firstJob = true
+		if j.jobSpec.Weight >= 100 {
+			return resp, fmt.Errorf("the first istio release job: %s cannot be released in full", j.name)
+		}
+	}
+	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(j.jobSpec.ClusterID)
 	if err != nil {
-		return nil, err
+		return resp, fmt.Errorf("failed to get kube client, err: %v", err)
+	}
+	for _, target := range j.jobSpec.Targets {
+		deployment, found, err := getter.GetDeployment(j.jobSpec.Namespace, target.WorkloadName, kubeClient)
+		if err != nil || !found {
+			return resp, fmt.Errorf("deployment %s not found in namespace: %s", target.WorkloadName, j.jobSpec.Namespace)
+		}
+		target.CurrentReplica = int(*deployment.Spec.Replicas)
 	}
 
-	deployJobSpec := &commonmodels.BlueGreenDeployV2JobSpec{}
-	if err := commonmodels.IToi(deployJob.Spec, deployJobSpec); err != nil {
-		return resp, err
-	}
-
-	templateProduct, err := templaterepo.NewProductColl().Find(j.workflow.Project)
+	cluster, err := commonrepo.NewK8SClusterColl().Get(j.jobSpec.ClusterID)
 	if err != nil {
-		return resp, fmt.Errorf("cannot find product %s: %w", j.workflow.Project, err)
+		return resp, fmt.Errorf("cluster id: %s not found", j.jobSpec.ClusterID)
 	}
-	timeout := templateProduct.Timeout * 60
 
-	for jobSubTaskID, target := range deployJobSpec.Services {
-		task := &commonmodels.JobTask{
-			Name:        GenJobName(j.workflow, j.name, jobSubTaskID),
-			Key:         genJobKey(j.name, target.ServiceName),
-			DisplayName: genJobDisplayName(j.name, target.ServiceName),
+	for _, target := range j.jobSpec.Targets {
+		newReplicaCount := math.Ceil(float64(target.CurrentReplica) * (float64(j.jobSpec.ReplicaPercentage) / 100))
+		jobTask := &commonmodels.JobTask{
+			Name:        GenJobName(j.workflow, j.name, 0),
+			Key:         genJobKey(j.name, target.WorkloadName),
+			DisplayName: genJobDisplayName(j.name, target.WorkloadName),
 			OriginName:  j.name,
 			JobInfo: map[string]string{
-				JobNameKey:     j.name,
-				"service_name": target.ServiceName,
+				JobNameKey:      j.name,
+				"workload_name": target.WorkloadName,
 			},
-			JobType: string(config.JobK8sBlueGreenRelease),
-			Spec: &commonmodels.JobTaskBlueGreenReleaseV2Spec{
-				Production:    deployJobSpec.Production,
-				Env:           deployJobSpec.Env,
-				Service:       target,
-				DeployTimeout: timeout,
+			JobType: string(config.JobIstioRelease),
+			Spec: &commonmodels.JobIstioReleaseSpec{
+				FirstJob:          firstJob,
+				ClusterID:         j.jobSpec.ClusterID,
+				ClusterName:       cluster.Name,
+				Namespace:         j.jobSpec.Namespace,
+				Weight:            j.jobSpec.Weight,
+				Timeout:           j.jobSpec.Timeout,
+				ReplicaPercentage: j.jobSpec.ReplicaPercentage,
+				Replicas:          int64(newReplicaCount),
+				Targets:           target,
 			},
 			ErrorPolicy: j.errorPolicy,
 		}
-		resp = append(resp, task)
+		resp = append(resp, jobTask)
 	}
 
 	return resp, nil

@@ -989,8 +989,9 @@ type GuanceyunMonitor struct {
 }
 
 type JenkinsJobSpec struct {
-	ID   string            `bson:"id" json:"id" yaml:"id"`
-	Jobs []*JenkinsJobInfo `bson:"jobs" json:"jobs" yaml:"jobs"`
+	ID         string            `bson:"id"          json:"id"          yaml:"id"`
+	Jobs       []*JenkinsJobInfo `bson:"jobs"        json:"jobs"        yaml:"jobs"`
+	JobOptions []*JenkinsJobInfo `bson:"job_options" json:"job_options" yaml:"job_options"`
 }
 
 type BlueKingJobSpec struct {
