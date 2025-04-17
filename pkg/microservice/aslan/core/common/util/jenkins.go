@@ -19,5 +19,26 @@ package util
 import commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 
 func ApplyJenkinsParameter(origin, input []*commonmodels.JenkinsJobParameter) []*commonmodels.JenkinsJobParameter {
+	resp := make([]*commonmodels.JenkinsJobParameter)
+	inputMap := make(map[string]*commonmodels.JenkinsJobParameter)
+	for _, kv := range input {
+		inputMap[kv.Name] = kv
+	}
 
+	for _, kv := range origin {
+		item := &commonmodels.JenkinsJobParameter{
+			Name:    kv.Name,
+			Value:   kv.Value,
+			Type:    kv.Type,
+			Choices: kv.Choices,
+			Source:  kv.Source,
+		}
+
+		if i, ok := inputMap[kv.Name]; ok {
+			item.Value = i.Value
+		}
+
+		resp = append(resp, item)
+	}
+	return resp
 }
