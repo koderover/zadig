@@ -414,10 +414,10 @@ func BuildJobExecutorContext(jobTaskSpec *commonmodels.JobTaskFreestyleSpec, job
 	var envVars, secretEnvVars []string
 	for _, env := range jobTaskSpec.Properties.Envs {
 		if env.IsCredential {
-			secretEnvVars = append(secretEnvVars, strings.Join([]string{env.Key, env.Value}, "="))
+			secretEnvVars = append(secretEnvVars, strings.Join([]string{env.Key, env.GetValue()}, "="))
 			continue
 		}
-		envVars = append(envVars, strings.Join([]string{env.Key, env.Value}, "="))
+		envVars = append(envVars, strings.Join([]string{env.Key, env.GetValue()}, "="))
 	}
 
 	outputs := []string{}
