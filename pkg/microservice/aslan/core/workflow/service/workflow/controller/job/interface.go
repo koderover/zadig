@@ -99,6 +99,14 @@ func CreateJobController(job *commonmodels.Job, workflow *commonmodels.WorkflowV
 		return CreateGrafanaJobJobController(job, workflow)
 	case config.JobK8sGrayRelease:
 		return CreateGrayReleaseJobController(job, workflow)
+	case config.JobK8sGrayRollback:
+		return CreateGrayRollbackJobController(job, workflow)
+	case config.JobGuanceyunCheck:
+		return CreateGuanceyunCheckJobController(job, workflow)
+	case config.JobZadigHelmChartDeploy:
+		return CreateHelmChartDeployJobController(job, workflow)
+	case config.JobIstioRelease:
+		return CreateIstioReleaseJobController(job, workflow)
 	case config.JobZadigScanning:
 		return CreateScanningJobController(job, workflow)
 	case config.JobZadigTesting:

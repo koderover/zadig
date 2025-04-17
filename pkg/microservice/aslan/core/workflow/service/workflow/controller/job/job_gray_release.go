@@ -72,36 +72,41 @@ func (j GrayReleaseJobController) Validate(isExecution bool) error {
 		return e.ErrLicenseInvalid.AddDesc("")
 	}
 
-	jobRankMap := GetJobRankMap(j.workflow.Stages)
-	releaseJobs := make([]*validateGrayReleaseJob, 0)
-	for _, stage := range j.workflow.Stages {
-		for _, job := range stage.Jobs {
-			if job.JobType != config.JobK8sGrayRelease {
-				continue
+	// lint the first release job
+	if j.jobSpec.FromJob == "" {
+		jobRankMap := GetJobRankMap(j.workflow.Stages)
+		releaseJobs := make([]*validateGrayReleaseJob, 0)
+		for _, stage := range j.workflow.Stages {
+			for _, job := range stage.Jobs {
+				if job.JobType != config.JobK8sGrayRelease {
+					continue
+				}
+				jobSpec := &commonmodels.GrayReleaseJobSpec{}
+				if err := commonmodels.IToiYaml(job.Spec, jobSpec); err != nil {
+					return err
+				}
+				if jobSpec.FromJob != j.name {
+					continue
+				}
+				releaseJobs = append(releaseJobs, &validateGrayReleaseJob{jobName: job.Name, GrayScale: jobSpec.GrayScale})
 			}
-			jobSpec := &commonmodels.GrayReleaseJobSpec{}
-			if err := commonmodels.IToiYaml(job.Spec, jobSpec); err != nil {
-				return err
+		}
+		if len(releaseJobs) == 0 {
+			return fmt.Errorf("no release job found for job [%s]", j.name)
+		}
+		for i, releaseJob := range releaseJobs {
+			if jobRankMap[j.name] >= jobRankMap[releaseJob.jobName] {
+				return fmt.Errorf("release job: [%s] must be run before [%s]", j.name, releaseJob.jobName)
 			}
-			if jobSpec.FromJob != j.name {
-				continue
+			if i < len(releaseJobs)-1 && releaseJob.GrayScale >= 100 {
+				return fmt.Errorf("release job: [%s] cannot full release in the middle", releaseJob.jobName)
 			}
-			releaseJobs = append(releaseJobs, &validateGrayReleaseJob{jobName: job.Name, GrayScale: jobSpec.GrayScale})
+			if i == len(releaseJobs)-1 && releaseJob.GrayScale != 100 {
+				return fmt.Errorf("last release job: [%s] must be full released", releaseJob.jobName)
+			}
 		}
-	}
-	if len(releaseJobs) == 0 {
-		return fmt.Errorf("no release job found for job [%s]", j.name)
-	}
-	for i, releaseJob := range releaseJobs {
-		if jobRankMap[j.name] >= jobRankMap[releaseJob.jobName] {
-			return fmt.Errorf("release job: [%s] must be run before [%s]", j.name, releaseJob.jobName)
-		}
-		if i < len(releaseJobs)-1 && releaseJob.GrayScale >= 100 {
-			return fmt.Errorf("release job: [%s] cannot full release in the middle", releaseJob.jobName)
-		}
-		if i == len(releaseJobs)-1 && releaseJob.GrayScale != 100 {
-			return fmt.Errorf("last release job: [%s] must be full released", releaseJob.jobName)
-		}
+
+		return nil
 	}
 
 	var quoteJobSpec *commonmodels.GrayReleaseJobSpec
