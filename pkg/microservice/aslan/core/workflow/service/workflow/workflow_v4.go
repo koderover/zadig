@@ -816,10 +816,10 @@ func ensureWorkflowV4JobResp(job *commonmodels.Job, logger *zap.SugaredLogger, b
 				kvs := commonservice.MergeBuildEnvs(templateEnvs, scanningInfo.Envs)
 
 				// if build template update any keyvals, merge it.
-				scanning.KeyVals = commonservice.MergeBuildEnvs(kvs, scanning.KeyVals)
+				scanning.KeyVals = commonservice.MergeBuildEnvs(kvs, scanning.KeyVals.ToKVList()).ToRuntimeList()
 			} else {
 				// otherwise just merge the envs in the
-				scanning.KeyVals = commonservice.MergeBuildEnvs(scanningInfo.Envs, scanning.KeyVals)
+				scanning.KeyVals = commonservice.MergeBuildEnvs(scanningInfo.Envs, scanning.KeyVals.ToKVList()).ToRuntimeList()
 			}
 		}
 		job.Spec = spec
