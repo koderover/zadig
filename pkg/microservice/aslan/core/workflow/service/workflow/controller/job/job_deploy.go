@@ -202,30 +202,30 @@ func (j DeployJobController) Update(useUserInput bool, ticket *commonmodels.Appr
 		return err
 	}
 
-	userConfiguredService := make(map[string]*commonmodels.DeployServiceInfo)
-	for _, service := range j.jobSpec.Services {
-		userConfiguredService[service.ServiceName] = service
+	envDeployableServiceMap := make(map[string]*commonmodels.DeployOptionInfo)
+	for _, service := range envDeployInfo.Services {
+		envDeployableServiceMap[service.ServiceName] = service
 	}
 
 	mergedService := make([]*commonmodels.DeployServiceInfo, 0)
 
-	for _, service := range envDeployInfo.Services {
-		if userSvc, ok := userConfiguredService[service.ServiceName]; ok {
+	for _, service := range j.jobSpec.Services {
+		if envSvc, ok := envDeployableServiceMap[service.ServiceName]; ok {
 			// if the user wants to update config/variables do the merge variables logic, otherwise do nothing just add it to the user's selection
 			if !(slices.Contains(j.jobSpec.DeployContents, config.DeployImage) && len(j.jobSpec.DeployContents) == 1) {
 				// merge the kv based on user's selection weather config should be updated
 				userKVMap := make(map[string]*commontypes.RenderVariableKV)
-				for _, userKV := range userSvc.VariableKVs {
+				for _, userKV := range service.VariableKVs {
 					userKVMap[userKV.Key] = userKV
 				}
 
 				newUserKV := make([]*commontypes.RenderVariableKV, 0)
 
 				var variableInfo *commonmodels.DeployVariableInfo
-				if userSvc.UpdateConfig {
-					variableInfo = service.ServiceVariable
+				if service.UpdateConfig {
+					variableInfo = envSvc.ServiceVariable
 				} else {
-					variableInfo = service.EnvVariable
+					variableInfo = envSvc.EnvVariable
 				}
 
 				// there is a case where the service is not yet deployed into the env
@@ -248,13 +248,13 @@ func (j DeployJobController) Update(useUserInput bool, ticket *commonmodels.Appr
 						return fmt.Errorf("failed to merge helm values, error: %s", err)
 					}
 
-					userSvc.VariableYaml = mergedValues
-					userSvc.VariableKVs = newUserKV
+					service.VariableYaml = mergedValues
+					service.VariableKVs = newUserKV
 					variableInfo.VariableYaml = mergedValues
 					variableInfo.VariableKVs = newUserKV
 				}
 			}
-			mergedService = append(mergedService, userSvc)
+			mergedService = append(mergedService, service)
 		}
 	}
 	j.jobSpec.Services = mergedService

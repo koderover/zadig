@@ -358,22 +358,11 @@ func (j VMDeployJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, er
 
 		jobTaskSpec.Steps = append(jobTaskSpec.Steps, p4Step)
 
-		objectPath := ""
-		if vmDeployInfo.WorkflowType == config.WorkflowType {
-			if s3Storage.Subfolder != "" {
-				objectPath = fmt.Sprintf("%s/%s/%d/%s", s3Storage.Subfolder, vmDeployInfo.WorkflowName, vmDeployInfo.TaskID, "file")
-			} else {
-				objectPath = fmt.Sprintf("%s/%d/%s", vmDeployInfo.WorkflowName, vmDeployInfo.TaskID, "file")
-			}
-		} else if vmDeployInfo.WorkflowType == config.WorkflowTypeV4 {
-			if s3Storage.Subfolder != "" {
-				objectPath = fmt.Sprintf("%s/%s/%d/%s/%s", s3Storage.Subfolder, vmDeployInfo.WorkflowName, vmDeployInfo.TaskID, vmDeployInfo.JobTaskName, "archive")
-			} else {
-				objectPath = fmt.Sprintf("%s/%d/%s/%s", vmDeployInfo.WorkflowName, vmDeployInfo.TaskID, vmDeployInfo.JobTaskName, "archive")
-			}
-		} else {
-			return resp, fmt.Errorf("unknown workflow type %s", vmDeployInfo.WorkflowType)
+		paths := make([]string, 0)
+		if s3Storage.Subfolder != "" {
+			paths = append(paths, s3Storage.Subfolder)
 		}
+		paths = append(paths, []string{vmDeployInfo.WorkflowName, strconv.Itoa(vmDeployInfo.TaskID), vmDeployInfo.JobTaskName, "archive"}...)
 
 		if buildInfo.PostBuild.FileArchive != nil {
 			// init download artifact step
@@ -384,7 +373,7 @@ func (j VMDeployJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, er
 				Spec: step.StepDownloadArchiveSpec{
 					FileName:   vmDeployInfo.FileName,
 					DestDir:    "artifact",
-					ObjectPath: objectPath,
+					ObjectPath: strings.Join(paths, "/"),
 					S3:         modelS3toS3(s3Storage),
 				},
 			}
