@@ -1278,10 +1278,13 @@ func RevertWorkflowTaskV4Job(ctx *internalhandler.Context, workflowName, jobName
 							log.Errorf("failed to find current config for data: %s in namespace: %s, error: %s", in.DataID, in.NamespaceID, err)
 							return fmt.Errorf("failed to find current config for data: %s in namespace: %s, error: %s", in.DataID, in.NamespaceID, err)
 						}
+						nacosID := types.NacosDataID{
+							DataID: in.DataID,
+							Group:  in.Group,
+						}
 						inputData = append(inputData, &commonmodels.NacosData{
 							NacosConfig: types.NacosConfig{
-								DataID:          in.DataID,
-								Group:           in.Group,
+								NacosDataID:     nacosID,
 								Format:          in.Format,
 								Content:         in.Content,
 								OriginalContent: originalConfig.Content,
