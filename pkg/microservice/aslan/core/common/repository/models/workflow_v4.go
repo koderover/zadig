@@ -779,7 +779,7 @@ type K8sPatchJobSpec struct {
 	ClusterSource    string       `bson:"cluster_source"         json:"cluster_source"        yaml:"cluster_source"`
 	Namespace        string       `bson:"namespace"              json:"namespace"             yaml:"namespace"`
 	PatchItems       []*PatchItem `bson:"patch_items"            json:"patch_items"           yaml:"patch_items"`
-	PatchItemOptions []*PatchItem `bson:"-"                      json:"patch_item_options"    yaml:"patch_item_options"`
+	PatchItemOptions []*PatchItem `bson:"patch_item_options"     json:"patch_item_options"    yaml:"patch_item_options"`
 }
 
 type ZadigDeployEnvInformation struct {
@@ -1305,8 +1305,9 @@ type NacosJobSpec struct {
 	NacosID           string                 `bson:"nacos_id"            json:"nacos_id"            yaml:"nacos_id"`
 	NamespaceID       string                 `bson:"namespace_id"        json:"namespace_id"        yaml:"namespace_id"`
 	Source            config.ParamSourceType `bson:"source"              json:"source"              yaml:"source"`
+	DefaultNacosDatas []*types.NacosDataID   `bson:"default_nacos_datas" json:"default_nacos_datas" yaml:"default_nacos_datas"`
 	NacosDatas        []*types.NacosConfig   `bson:"nacos_datas"         json:"nacos_datas"         yaml:"nacos_datas"`
-	NacosFilteredData []*types.NacosConfig   `bson:"nacos_filtered_data" json:"nacos_filtered_data" yaml:"nacos_filtered_data"`
+	NacosDataOptions  []*types.NacosConfig   `bson:"nacos_filtered_data" json:"nacos_filtered_data" yaml:"nacos_filtered_data"`
 	NacosDataRange    []string               `bson:"nacos_data_range"    json:"nacos_data_range"    yaml:"nacos_data_range"`
 	DataFixed         bool                   `bson:"data_fixed"          json:"data_fixed"          yaml:"data_fixed"`
 }

@@ -21,9 +21,13 @@ type NacosNamespace struct {
 	NamespacedName string `json:"namespace_name"`
 }
 
+type NacosDataID struct {
+	DataID string `bson:"data_id"                                json:"data_id"                                yaml:"data_id"`
+	Group  string `bson:"group"                                  json:"group"                                  yaml:"group"`
+}
+
 type NacosConfig struct {
-	DataID                    string `bson:"data_id"                                json:"data_id"                                yaml:"data_id"`
-	Group                     string `bson:"group"                                  json:"group"                                  yaml:"group"`
+	NacosDataID               `bson:",inline" json:",inline" yaml:",inline"`
 	Desc                      string `bson:"description,omitempty"                  json:"description,omitempty"                  yaml:"description,omitempty"`
 	Format                    string `bson:"format,omitempty"                       json:"format,omitempty"                       yaml:"format,omitempty"`
 	Content                   string `bson:"content,omitempty"                      json:"content,omitempty"                      yaml:"content,omitempty"`
