@@ -383,7 +383,7 @@ func generateSAEEnvOption(projectKey string, approvalTicket *commonmodels.Approv
 	return envOptions, nil
 }
 
-func generateSAEDefaultSelectedService(projectKey, envName string, defaultServices []*commonmodels.ServiceNameAndModule) (selectedServiceList []*commonmodels.SAEDeployServiceInfo, err error) {
+func generateSAEDefaultSelectedService(projectKey, envName string, defaultServices []*commonmodels.ServiceWithModule) (selectedServiceList []*commonmodels.SAEDeployServiceInfo, err error) {
 	saeModel, err := commonrepo.NewSAEColl().FindDefault()
 	if err != nil {
 		err = fmt.Errorf("failed to find default sae, err: %s", err)

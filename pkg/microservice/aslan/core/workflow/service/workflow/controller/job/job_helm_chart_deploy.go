@@ -156,7 +156,8 @@ func (j HelmChartDeployJobController) SetOptions(ticket *commonmodels.ApprovalTi
 		}
 	} else {
 		productList, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
-			Name: j.workflow.Project,
+			Name:       j.workflow.Project,
+			Production: &j.jobSpec.Production,
 		})
 		if err != nil {
 			return fmt.Errorf("failed to list env with project: %s, error: %s", j.workflow.Project, err)

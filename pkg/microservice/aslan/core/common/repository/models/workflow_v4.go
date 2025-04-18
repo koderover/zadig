@@ -310,8 +310,10 @@ type DeployTargets struct {
 }
 
 type PluginJobSpec struct {
-	Properties *JobProperties  `bson:"properties"               yaml:"properties"              json:"properties"`
-	Plugin     *PluginTemplate `bson:"plugin"                   yaml:"plugin"                  json:"plugin"`
+	Plugin          *PluginTemplate               `bson:"plugin"                   yaml:"plugin"                  json:"plugin"`
+	AdvancedSetting *FreestyleJobAdvancedSettings `bson:"advanced_setting"     yaml:"advanced_setting"    json:"advanced_setting"`
+	// Deprecated
+	Properties *JobProperties `bson:"properties"               yaml:"properties"              json:"properties"`
 }
 
 type FreestyleJobSpec struct {
@@ -463,8 +465,8 @@ type ZadigVMDeployJobSpec struct {
 
 type ZadigHelmChartDeployJobSpec struct {
 	Env                string                           `bson:"env"                      yaml:"env"                         json:"env"`
-	Production         bool                             `bson:"-"                        yaml:"-"                  json:"production"`
-	EnvAlias           string                           `bson:"-"                        yaml:"-"                         json:"env_alias"`
+	Production         bool                             `bson:"production"               yaml:"production"                  json:"production"`
+	EnvAlias           string                           `bson:"-"                        yaml:"-"                           json:"env_alias"`
 	EnvOptions         []*ZadigHelmDeployEnvInformation `bson:"-"                        yaml:"env_options"                 json:"env_options"`
 	EnvSource          string                           `bson:"env_source"               yaml:"env_source"                  json:"env_source"`
 	SkipCheckRunStatus bool                             `bson:"skip_check_run_status"    yaml:"skip_check_run_status"       json:"skip_check_run_status"`
@@ -1189,7 +1191,7 @@ type SAEDeployServiceConfig struct {
 	// supported value: runtime/fromjob
 	Source          config.DeploySourceType `bson:"source"            json:"source"            yaml:"source"`
 	Services        []*SAEDeployServiceInfo `bson:"services"          json:"services"          yaml:"services"`
-	DefaultServices []*ServiceNameAndModule `bson:"default_services"  json:"default_services"  yaml:"default_services"`
+	DefaultServices []*ServiceWithModule    `bson:"default_services"  json:"default_services"  yaml:"default_services"`
 }
 
 type SAEEnvInfo struct {
@@ -1322,12 +1324,7 @@ type WorkflowTriggerJobSpec struct {
 	ServiceTriggerWorkflow []*ServiceTriggerWorkflowInfo    `bson:"service_trigger_workflow" json:"service_trigger_workflow" yaml:"service_trigger_workflow"`
 	Source                 config.TriggerWorkflowSourceType `bson:"source" json:"source" yaml:"source"`
 	SourceJobName          string                           `bson:"source_job_name" json:"source_job_name" yaml:"source_job_name"`
-	SourceService          []*ServiceNameAndModule          `bson:"source_service" json:"source_service" yaml:"source_service"`
-}
-
-type ServiceNameAndModule struct {
-	ServiceName   string `bson:"service_name" json:"service_name" yaml:"service_name"`
-	ServiceModule string `bson:"service_module" json:"service_module" yaml:"service_module"`
+	SourceService          []*ServiceWithModule             `bson:"source_service" json:"source_service" yaml:"source_service"`
 }
 
 type ServiceTriggerWorkflowInfo struct {

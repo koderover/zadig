@@ -125,12 +125,20 @@ func CreateJobController(job *commonmodels.Job, workflow *commonmodels.WorkflowV
 		return CreateNotificationJobController(job, workflow)
 	case config.JobOfflineService:
 		return CreateOfflineServiceJobController(job, workflow)
+	case config.JobSAEDeploy:
+		return CreateSAEDeployJobController(job, workflow)
 	case config.JobZadigScanning:
 		return CreateScanningJobController(job, workflow)
+	case config.JobSQL:
+		return CreateSQLJobController(job, workflow)
 	case config.JobZadigTesting:
 		return CreateTestingJobController(job, workflow)
+	case config.JobUpdateEnvIstioConfig:
+		return CreateUpdateEnvIstioConfigJobController(job, workflow)
 	case config.JobZadigVMDeploy:
 		return CreateVMDeployJobController(job, workflow)
+	case config.JobWorkflowTrigger:
+		return CreateWorkflowTriggerJobController(job, workflow)
 	default:
 		return nil, fmt.Errorf("job type not supported")
 	}
