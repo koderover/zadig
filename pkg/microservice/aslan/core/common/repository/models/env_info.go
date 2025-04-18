@@ -36,6 +36,7 @@ type EnvInfo struct {
 	UpdateService *ProductService         `bson:"update_service"    json:"update_service"`
 	OriginSaeApp  *SAEApplication         `bson:"origin_sae_app"    json:"origin_sae_app"`
 	UpdateSaeApp  *SAEApplication         `bson:"update_sae_app"    json:"update_sae_app"`
+	Detail        string                  `bson:"detail"            json:"detail"`
 	CreatedBy     types.UserBriefInfo     `bson:"created_by"        json:"created_by"`
 	CreatTime     int64                   `bson:"create_time"       json:"create_time"`
 }

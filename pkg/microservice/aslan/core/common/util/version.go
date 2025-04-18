@@ -6,6 +6,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
@@ -19,7 +20,7 @@ func GenerateEnvServiceNextRevision(projectName, envName, serviceName string, is
 	return commonrepo.NewCounterCollWithSession(session).GetNextSeq(counterName)
 }
 
-func CreateEnvServiceVersion(env *models.Product, prodSvc *models.ProductService, createBy string, session mongo.Session, log *zap.SugaredLogger) error {
+func CreateEnvServiceVersion(env *models.Product, prodSvc *models.ProductService, createBy string, operation config.EnvOperation, detail string, session mongo.Session, log *zap.SugaredLogger) error {
 	name := prodSvc.ServiceName
 	isHelmChart := !prodSvc.FromZadig()
 	if isHelmChart {
@@ -51,6 +52,8 @@ func CreateEnvServiceVersion(env *models.Product, prodSvc *models.ProductService
 		Production:      env.Production,
 		Revision:        revision,
 		Service:         prodSvc,
+		Operation:       operation,
+		Detail:          detail,
 		GlobalVariables: env.GlobalVariables,
 		DefaultValues:   env.DefaultValues,
 		YamlData:        env.YamlData,

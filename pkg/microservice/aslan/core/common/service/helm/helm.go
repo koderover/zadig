@@ -117,7 +117,7 @@ func CopyAndUploadService(projectName, serviceName, currentChartPath string, cop
 }
 
 // Update Service and ServiceDeployStrategy for a single service in environment
-func UpdateServiceInEnv(product *commonmodels.Product, productSvc *commonmodels.ProductService, user string) error {
+func UpdateServiceInEnv(product *commonmodels.Product, productSvc *commonmodels.ProductService, user string, operation config.EnvOperation, detail string) error {
 	session := mongo.Session()
 	defer session.EndSession(context.TODO())
 
@@ -127,7 +127,7 @@ func UpdateServiceInEnv(product *commonmodels.Product, productSvc *commonmodels.
 	}
 
 	product.LintServices()
-	err = commonutil.CreateEnvServiceVersion(product, productSvc, user, session, log.SugaredLogger())
+	err = commonutil.CreateEnvServiceVersion(product, productSvc, user, operation, detail, session, log.SugaredLogger())
 	if err != nil {
 		log.Errorf("failed to create helm service version, err: %v", err)
 	}

@@ -1176,7 +1176,7 @@ func RevertWorkflowTaskV4Job(ctx *internalhandler.Context, workflowName, jobName
 						RevisionCreateTime: envSvcVersionYaml.CreateTime,
 					}
 
-					rollbackStatus, err := commonservice.RollbackEnvServiceVersion(ctx, task.ProjectName, jobTaskSpec.Env, jobTaskSpec.ServiceName, jobTaskSpec.OriginRevision, false, jobTaskSpec.Production, logger)
+					rollbackStatus, err := commonservice.RollbackEnvServiceVersion(ctx, task.ProjectName, jobTaskSpec.Env, jobTaskSpec.ServiceName, jobTaskSpec.OriginRevision, false, jobTaskSpec.Production, "", logger)
 					if err != nil {
 						log.Errorf("failed to rollback env service version, error: %s", err)
 						return err
@@ -1287,7 +1287,7 @@ func RevertWorkflowTaskV4Job(ctx *internalhandler.Context, workflowName, jobName
 						RevisionCreateTime: envSvcVersionYaml.CreateTime,
 					}
 
-					rollbackStatus, err := commonservice.RollbackEnvServiceVersion(ctx, task.ProjectName, jobTaskSpec.Env, jobTaskSpec.ServiceName, jobTaskSpec.OriginRevision, false, jobTaskSpec.IsProduction, logger)
+					rollbackStatus, err := commonservice.RollbackEnvServiceVersion(ctx, task.ProjectName, jobTaskSpec.Env, jobTaskSpec.ServiceName, jobTaskSpec.OriginRevision, false, jobTaskSpec.IsProduction, "", logger)
 					if err != nil {
 						log.Errorf("failed to rollback env service version, error: %s", err)
 						return err

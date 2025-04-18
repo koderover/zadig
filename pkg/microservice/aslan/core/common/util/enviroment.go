@@ -20,10 +20,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/repository"
@@ -202,7 +204,7 @@ func UpdateProductImage(envName, productName, serviceName string, targets map[st
 
 	service := prod.GetServiceMap()[serviceName]
 	if service != nil {
-		err = CreateEnvServiceVersion(prod, service, userName, session, log.SugaredLogger())
+		err = CreateEnvServiceVersion(prod, service, userName, config.EnvOperationDefault, "", session, log.SugaredLogger())
 		if err != nil {
 			log.Errorf("CreateK8SEnvServiceVersion error: %v", err)
 		}
