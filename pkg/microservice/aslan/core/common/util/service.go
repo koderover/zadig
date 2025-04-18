@@ -351,14 +351,17 @@ func parseImagesByPattern(nested map[string]interface{}, patterns []map[string]s
 	if err != nil {
 		return nil, err
 	}
+	log.Debugf("flatMap: %+v", flatMap)
 	matchedPath, err := yamlutil.SearchByPattern(flatMap, patterns)
 	if err != nil {
 		return nil, err
 	}
 	ret := make([]*commonmodels.Container, 0)
 	usedImagePath := sets.NewString()
+	log.Debugf("matchedPath: %+v", matchedPath)
 	for _, searchResult := range matchedPath {
 		uniquePath := GenerateUniquePath(searchResult)
+		log.Debugf("uniquePath: %+v", uniquePath)
 		if usedImagePath.Has(uniquePath) {
 			continue
 		}
@@ -367,6 +370,7 @@ func parseImagesByPattern(nested map[string]interface{}, patterns []map[string]s
 		if err != nil {
 			return nil, err
 		}
+		log.Debugf("imageUrl: %+v", imageUrl)
 		name := ExtractImageName(imageUrl)
 		ret = append(ret, &commonmodels.Container{
 			Name:      name,
@@ -436,6 +440,7 @@ func GenerateUniquePath(pathData map[string]string) string {
 func GeneImageURI(pathData map[string]string, flatMap map[string]interface{}) (string, error) {
 	valuesMap := getValuesByPath(pathData, flatMap)
 	ret := ""
+	log.Debugf("valuesMap: %+v", valuesMap)
 	// if repo value is set, use as repo
 	if repo, ok := valuesMap[setting.PathSearchComponentRepo]; ok {
 		ret = fmt.Sprintf("%v", repo)
