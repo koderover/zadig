@@ -156,7 +156,7 @@ func (j IstioReleaseJobController) Update(useUserInput bool, ticket *commonmodel
 	j.jobSpec.Weight = currJobSpec.Weight
 	j.jobSpec.TargetOptions = currJobSpec.TargetOptions
 
-	if useUserInput {
+	if !useUserInput {
 		j.jobSpec.Targets = currJobSpec.Targets
 	}
 

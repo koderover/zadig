@@ -27,6 +27,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/getter"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/types"
 )
 
@@ -120,6 +121,29 @@ func (j GrayRollbackJobController) Update(useUserInput bool, ticket *commonmodel
 }
 
 func (j GrayRollbackJobController) SetOptions(ticket *commonmodels.ApprovalTicket) error {
+	kubeClient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(j.jobSpec.ClusterID)
+	if err != nil {
+		return fmt.Errorf("failed to get kube client, err: %v", err)
+	}
+	newTargets := make([]*commonmodels.GrayRollbackTarget, 0)
+	for _, target := range j.jobSpec.Targets {
+		deployment, found, err := getter.GetDeployment(j.jobSpec.Namespace, target.WorkloadName, kubeClient)
+		if err != nil || !found {
+			log.Warnf("deployment %s not found in namespace: %s", target.WorkloadName, j.jobSpec.Namespace)
+			continue
+		}
+		rollbackInfo, err := getGrayRollbackInfoFromAnnotations(deployment.GetAnnotations())
+		if err != nil {
+			log.Warnf("deployment %s get gray rollback info failed: %v", target.WorkloadName, err)
+			continue
+		}
+		target.OriginImage = rollbackInfo.image
+		target.OriginReplica = rollbackInfo.replica
+		newTargets = append(newTargets, target)
+	}
+
+	j.jobSpec.TargetOptions = newTargets
+
 	return nil
 }
 
