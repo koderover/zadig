@@ -104,7 +104,7 @@ func (j *WorkflowTriggerJob) ClearSelectionField() error {
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return err
 	}
-	j.spec.SourceService = make([]*commonmodels.ServiceNameAndModule, 0)
+	j.spec.SourceService = make([]*commonmodels.ServiceWithModule, 0)
 	j.job.Spec = j.spec
 	return nil
 }
@@ -141,9 +141,9 @@ func (j *WorkflowTriggerJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, erro
 	var workflowTriggerEvents []*commonmodels.WorkflowTriggerEvent
 	switch j.spec.TriggerType {
 	case config.WorkflowTriggerTypeCommon:
-		m := make(map[commonmodels.ServiceNameAndModule]*commonmodels.ServiceTriggerWorkflowInfo)
+		m := make(map[commonmodels.ServiceWithModule]*commonmodels.ServiceTriggerWorkflowInfo)
 		for _, info := range j.spec.ServiceTriggerWorkflow {
-			m[commonmodels.ServiceNameAndModule{
+			m[commonmodels.ServiceWithModule{
 				ServiceName:   info.ServiceName,
 				ServiceModule: info.ServiceModule,
 			}] = info
@@ -152,7 +152,7 @@ func (j *WorkflowTriggerJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, erro
 		case config.TriggerWorkflowSourceRuntime:
 			for _, service := range j.spec.SourceService {
 				// Every SourceService must exist in ServiceTriggerWorkflow
-				if info, ok := m[commonmodels.ServiceNameAndModule{
+				if info, ok := m[commonmodels.ServiceWithModule{
 					ServiceName:   service.ServiceName,
 					ServiceModule: service.ServiceModule,
 				}]; ok {
@@ -243,7 +243,7 @@ func (j *WorkflowTriggerJob) getRepoFromJob(param *commonmodels.Param) {
 	}
 }
 
-func (j *WorkflowTriggerJob) getSourceJobTargets(jobName string, m map[commonmodels.ServiceNameAndModule]*commonmodels.ServiceTriggerWorkflowInfo) (resp []*commonmodels.WorkflowTriggerEvent, err error) {
+func (j *WorkflowTriggerJob) getSourceJobTargets(jobName string, m map[commonmodels.ServiceWithModule]*commonmodels.ServiceTriggerWorkflowInfo) (resp []*commonmodels.WorkflowTriggerEvent, err error) {
 	for _, stage := range j.workflow.Stages {
 		for _, job := range stage.Jobs {
 			if j.spec.SourceJobName != job.Name {
@@ -256,7 +256,7 @@ func (j *WorkflowTriggerJob) getSourceJobTargets(jobName string, m map[commonmod
 					return nil, err
 				}
 				for _, build := range buildSpec.ServiceAndBuilds {
-					if info, ok := m[commonmodels.ServiceNameAndModule{
+					if info, ok := m[commonmodels.ServiceWithModule{
 						ServiceName:   build.ServiceName,
 						ServiceModule: build.ServiceModule,
 					}]; ok {
@@ -276,7 +276,7 @@ func (j *WorkflowTriggerJob) getSourceJobTargets(jobName string, m map[commonmod
 					return nil, err
 				}
 				for _, distribute := range distributeSpec.Targets {
-					if info, ok := m[commonmodels.ServiceNameAndModule{
+					if info, ok := m[commonmodels.ServiceWithModule{
 						ServiceName:   distribute.ServiceName,
 						ServiceModule: distribute.ServiceModule,
 					}]; ok {
@@ -296,7 +296,7 @@ func (j *WorkflowTriggerJob) getSourceJobTargets(jobName string, m map[commonmod
 				}
 				for _, svc := range deploySpec.Services {
 					for _, module := range svc.Modules {
-						if info, ok := m[commonmodels.ServiceNameAndModule{
+						if info, ok := m[commonmodels.ServiceWithModule{
 							ServiceName:   svc.ServiceName,
 							ServiceModule: module.ServiceModule,
 						}]; ok {

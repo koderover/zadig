@@ -127,7 +127,6 @@ func (j *IstioRollBackJob) SetOptions(approvalTicket *commonmodels.ApprovalTicke
 			}
 			newTargets = append(newTargets, target)
 		}
-
 	}
 
 	j.spec.TargetOptions = newTargets

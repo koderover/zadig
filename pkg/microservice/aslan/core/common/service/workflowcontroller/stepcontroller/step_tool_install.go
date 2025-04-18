@@ -79,10 +79,10 @@ func (s *toolInstallCtl) PreRun(ctx context.Context) error {
 			Envs:     install.Envs,
 			Scripts:  strings.Split(replaceWrapLine(install.Scripts), "\n"),
 		})
-		if *s.jobPath != "" {
+		if s.jobPath != nil {
 			*s.jobPath = strings.Join([]string{*s.jobPath, install.BinPath}, ":")
 		} else {
-			*s.jobPath = install.BinPath
+			s.jobPath = &install.BinPath
 		}
 	}
 

@@ -43,7 +43,7 @@ type Scanning struct {
 	// Parameter is for sonarQube type only
 	Parameter string `bson:"parameter" json:"parameter"`
 	// Envs is the user defined key/values
-	Envs []*KeyVal `bson:"envs" json:"envs"`
+	Envs KeyValList `bson:"envs" json:"envs"`
 	// Script is for other type only
 	ScriptType       types.ScriptType         `bson:"script_type"           json:"script_type"`
 	Script           string                   `bson:"script"                json:"script"`

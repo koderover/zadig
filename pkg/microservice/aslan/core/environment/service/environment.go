@@ -414,8 +414,8 @@ func generateHostCustomWorkflow(arg *models.Product, enableBuildStage bool) (*mo
 			Name:    buildJobName,
 			JobType: config.JobZadigBuild,
 			Spec: &commonmodels.ZadigBuildJobSpec{
-				DockerRegistryID: arg.RegistryID,
-				ServiceAndBuilds: serviceAndBuilds,
+				DockerRegistryID:        arg.RegistryID,
+				ServiceAndBuildsOptions: serviceAndBuilds,
 			},
 		}
 		stage := &commonmodels.WorkflowStage{

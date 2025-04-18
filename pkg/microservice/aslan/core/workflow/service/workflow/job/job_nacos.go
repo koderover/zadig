@@ -222,9 +222,12 @@ func (j *NacosJob) UpdateWithLatestSetting() error {
 
 		for _, data := range newFilterDatas {
 			if userConfiguredData, ok := userConfiguredDatas[data.DataID]; ok {
+				nacosID := types.NacosDataID{
+					DataID: data.DataID,
+					Group:  data.Group,
+				}
 				newDatas = append(newDatas, &types.NacosConfig{
-					DataID:          data.DataID,
-					Group:           data.Group,
+					NacosDataID:     nacosID,
 					Desc:            data.Desc,
 					Format:          data.Format,
 					Content:         userConfiguredData.Content,

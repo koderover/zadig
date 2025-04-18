@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 type ApprovalTicket struct {
@@ -61,4 +62,43 @@ func (ticket *ApprovalTicket) Validate() (bool, error) {
 	}
 
 	return true, nil
+}
+
+func (ticket *ApprovalTicket) IsAllowedEnv(projectName, envName string) bool {
+	if ticket == nil {
+		return true
+	}
+
+	if len(ticket.Envs) == 0 {
+		return true
+	}
+
+	if len(ticket.ProjectKey) != 0 && ticket.ProjectKey != projectName {
+		return false
+	}
+
+	allowedSets := sets.NewString(ticket.Envs...)
+	return allowedSets.Has(envName)
+}
+
+func (ticket *ApprovalTicket) IsAllowedService(projectName, serviceName, serviceModule string) bool {
+	if ticket == nil {
+		return true
+	}
+
+	if len(ticket.Services) == 0 {
+		return true
+	}
+
+	if len(ticket.ProjectKey) != 0 && ticket.ProjectKey != projectName {
+		return false
+	}
+
+	svcSets := sets.NewString()
+	for _, allowedSvc := range ticket.Services {
+		key := fmt.Sprintf("%s++%s", allowedSvc.ServiceName, allowedSvc.ServiceModule)
+		svcSets.Insert(key)
+	}
+
+	return svcSets.Has(fmt.Sprintf("%s++%s", serviceName, serviceModule))
 }

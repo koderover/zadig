@@ -18,15 +18,14 @@ package service
 
 import (
 	"fmt"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/controller"
 	"time"
 
 	"github.com/pkg/errors"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow"
-	jobctl "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/job"
 	"github.com/koderover/zadig/v2/pkg/shared/client/user"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
@@ -131,45 +130,18 @@ func (e *WorkflowReleaseJobExecutor) Execute(plan *models.ReleasePlan) error {
 			return errors.Errorf("job %s status %s can't execute", job.Name, job.Status)
 		}
 
-		originalWorkflow, err := mongodb.NewWorkflowV4Coll().Find(spec.Workflow.Name)
-		if err != nil {
-			log.Errorf("Failed to find WorkflowV4: %s, the error is: %v", spec.Workflow.Name, err)
-			return fmt.Errorf("failed to find WorkflowV4: %s, the error is: %v", spec.Workflow.Name, err)
+		workflowController := controller.CreateWorkflowController(spec.Workflow)
+		if err := workflowController.UpdateWithLatestWorkflow(nil); err != nil {
+			log.Errorf("cannot merge workflow %s's input with the latest workflow settings, the error is: %v", spec.Workflow.Name, err)
+			return fmt.Errorf("cannot merge workflow %s's input with the latest workflow settings, the error is: %v", spec.Workflow.Name, err)
 		}
-
-		if err := jobctl.MergeArgs(originalWorkflow, spec.Workflow); err != nil {
-			errMsg := fmt.Sprintf("merge workflow args error: %v", err)
-			log.Error(errMsg)
-			return fmt.Errorf(errMsg)
-		}
-
-		for _, stage := range originalWorkflow.Stages {
-			for _, item := range stage.Jobs {
-				//err := jobctl.SetOptions(item, originalWorkflow)
-				//if err != nil {
-				//	errMsg := fmt.Sprintf("merge workflow args set options error: %v", err)
-				//	log.Error(errMsg)
-				//	return fmt.Errorf(errMsg)
-				//}
-
-				// additionally we need to update the user-defined args with the latest workflow configuration
-				err = jobctl.UpdateWithLatestSetting(item, originalWorkflow)
-				if err != nil {
-					errMsg := fmt.Sprintf("failed to merge user-defined workflow args with latest workflow configuration, error: %s", err)
-					log.Error(errMsg)
-					return fmt.Errorf(errMsg)
-				}
-			}
-		}
-
-		originalWorkflow.Remark = spec.Workflow.Remark
 
 		ctx := e.Ctx
 		result, err := workflow.CreateWorkflowTaskV4(&workflow.CreateWorkflowTaskV4Args{
 			Name:    ctx.UserName,
 			Account: ctx.Account,
 			UserID:  ctx.UserID,
-		}, originalWorkflow, log.SugaredLogger().With("source", "release plan"))
+		}, workflowController.WorkflowV4, log.SugaredLogger().With("source", "release plan"))
 		if err != nil {
 			return errors.Wrapf(err, "failed to create workflow task %s", spec.Workflow.Name)
 		}

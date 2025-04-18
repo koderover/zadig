@@ -160,11 +160,14 @@ func (c *Client) ListConfigs(namespaceID string) ([]*types.NacosConfig, error) {
 			return nil, errors.Wrap(err, "list nacos config failed")
 		}
 		for _, conf := range res.PageItems {
+			nacosID := types.NacosDataID{
+				DataID: conf.DataID,
+				Group:  conf.Group,
+			}
 			resp = append(resp, &types.NacosConfig{
-				DataID:  conf.DataID,
-				Group:   conf.Group,
-				Format:  getFormat(conf.Format),
-				Content: conf.Content,
+				NacosDataID: nacosID,
+				Format:      getFormat(conf.Format),
+				Content:     conf.Content,
 			})
 		}
 		pageNum++
@@ -189,11 +192,14 @@ func (c *Client) GetConfig(dataID, group, namespaceID string) (*types.NacosConfi
 	if _, err := c.Client.Get(url, params, httpclient.SetResult(res)); err != nil {
 		return nil, errors.Wrap(err, "get nacos config failed")
 	}
+	nacosID := types.NacosDataID{
+		DataID: res.DataID,
+		Group:  res.Group,
+	}
 	return &types.NacosConfig{
-		DataID:  res.DataID,
-		Group:   res.Group,
-		Format:  getFormat(res.Format),
-		Content: res.Content,
+		NacosDataID: nacosID,
+		Format:      getFormat(res.Format),
+		Content:     res.Content,
 	}, nil
 }
 

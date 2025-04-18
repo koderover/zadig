@@ -135,7 +135,7 @@ func (j *VMDeployJob) SetOptions(approvalTicket *commonmodels.ApprovalTicket) er
 	}
 
 	for _, env := range envs {
-		if approvalTicket != nil && !isAllowedEnv(env.EnvName, approvalTicket.Envs) {
+		if approvalTicket.IsAllowedEnv(j.workflow.Project, env.EnvName) {
 			continue
 		}
 

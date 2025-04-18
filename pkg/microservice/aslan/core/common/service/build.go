@@ -191,7 +191,7 @@ func FindReposByTarget(projectName, serviceName, serviceModule string, build *co
 	return build.SafeRepos()
 }
 
-func MergeBuildEnvs(templateEnvs []*commonmodels.KeyVal, customEnvs []*commonmodels.KeyVal) []*commonmodels.KeyVal {
+func MergeBuildEnvs(templateEnvs []*commonmodels.KeyVal, customEnvs []*commonmodels.KeyVal) commonmodels.KeyValList {
 	customEnvMap := make(map[string]*commonmodels.KeyVal)
 	for _, v := range customEnvs {
 		customEnvMap[v.Key] = v
