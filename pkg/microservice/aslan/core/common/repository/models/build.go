@@ -239,7 +239,7 @@ type RuntimeKeyVal struct {
 
 type RuntimeKeyValList []*RuntimeKeyVal
 
-func (list RuntimeKeyValList) ToKVList() []*KeyVal {
+func (list RuntimeKeyValList) ToKVList() KeyValList {
 	resp := make([]*KeyVal, 0)
 	for _, kv := range list {
 		resp = append(resp, kv.KeyVal)

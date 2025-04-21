@@ -325,7 +325,7 @@ type FreestyleJobSpec struct {
 	RefRepos bool                `bson:"ref_repos"            yaml:"ref_repos"           json:"ref_repos"`
 	Repos    []*types.Repository `bson:"repos"                yaml:"repos"               json:"repos"`
 	// 自定义变量
-	Envs KeyValList `bson:"envs"                   json:"envs"                  yaml:"envs"`
+	Envs RuntimeKeyValList `bson:"envs"                   json:"envs"                  yaml:"envs"`
 	// 脚本
 	Script     string           `bson:"script"         yaml:"script"       json:"script"`
 	ScriptType types.ScriptType `bson:"script_type"    yaml:"script_type"  json:"script_type"`

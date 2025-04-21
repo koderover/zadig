@@ -113,7 +113,7 @@ func (j FreestyleJobController) Update(useUserInput bool, ticket *commonmodels.A
 	j.jobSpec.DefaultServices = currJobSpec.DefaultServices
 	if useUserInput {
 		j.jobSpec.Repos = applyRepos(currJobSpec.Repos, j.jobSpec.Repos)
-		j.jobSpec.Envs = applyKeyVals(currJobSpec.Envs.ToRuntimeList(), j.jobSpec.Envs.ToRuntimeList(), false).ToKVList()
+		j.jobSpec.Envs = applyKeyVals(currJobSpec.Envs, j.jobSpec.Envs, false)
 	} else {
 		j.jobSpec.Repos = currJobSpec.Repos
 		j.jobSpec.Envs = currJobSpec.Envs
@@ -523,18 +523,19 @@ func (j FreestyleJobController) generateSubTask(taskID int64, jobSubTaskID int, 
 	}
 
 	if service != nil {
-		customEnv, err = renderServiceVariables(j.workflow, service.KeyVals, service.ServiceName, service.ServiceModule)
+		customEnvs, err := renderServiceVariables(j.workflow, service.KeyVals, service.ServiceName, service.ServiceModule)
 		if err != nil {
 			return nil, fmt.Errorf("failed to render service variables, error: %v", err)
 		}
+		customEnv = customEnvs.ToRuntimeList()
 
-		taskRunProperties.CustomEnvs = customEnv
+		taskRunProperties.CustomEnvs = customEnv.ToKVList()
 	} else {
-		taskRunProperties.CustomEnvs = j.jobSpec.Envs
+		taskRunProperties.CustomEnvs = j.jobSpec.Envs.ToKVList()
 	}
 
 	paramEnvs := generateKeyValsFromWorkflowParam(j.workflow.Params)
-	envs := mergeKeyVals(j.jobSpec.Envs, paramEnvs)
+	envs := mergeKeyVals(j.jobSpec.Envs.ToKVList(), paramEnvs)
 
 	jobDisplayName := genJobDisplayName(j.name)
 	jobKey := genJobKey(j.name)
@@ -547,7 +548,7 @@ func (j FreestyleJobController) generateSubTask(taskID int64, jobSubTaskID int, 
 		jobKey = genJobKey(j.name, service.ServiceName, service.ServiceModule)
 		jobInfo["service_name"] = service.ServiceName
 		jobInfo["service_module"] = service.ServiceModule
-		renderRepos(service.Repos, applyKeyVals(j.jobSpec.Envs.ToRuntimeList(), service.KeyVals.ToRuntimeList(), false).ToKVList())
+		renderRepos(service.Repos, applyKeyVals(j.jobSpec.Envs, service.KeyVals.ToRuntimeList(), false).ToKVList())
 	} else {
 		renderRepos(j.jobSpec.Repos, envs)
 	}
