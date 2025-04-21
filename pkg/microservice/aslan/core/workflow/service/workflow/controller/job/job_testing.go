@@ -111,10 +111,10 @@ func (j TestingJobController) Update(useUserInput bool, ticket *commonmodels.App
 	// merge the input with the configuration
 	switch j.jobSpec.TestType {
 	case config.ServiceTestType:
-		configuredServiceScanningMap := make(map[string]commonmodels.TestModule)
+		configuredServiceScanningMap := make(map[string]*commonmodels.TestModule)
 		for _, configuredSvcTesting := range j.jobSpec.ServiceTestOptions {
 			key := fmt.Sprintf("%s++%s", configuredSvcTesting.ServiceName, configuredSvcTesting.ServiceModule)
-			testInfo, err := testSvc.GetByName(j.workflow.Project, configuredSvcTesting.Name)
+			testInfo, err := testSvc.GetByName("", configuredSvcTesting.Name)
 			if err != nil {
 				return err
 			}
@@ -137,7 +137,7 @@ func (j TestingJobController) Update(useUserInput bool, ticket *commonmodels.App
 	default:
 		configuredTestMap := make(map[string]*commonmodels.TestModule)
 		for _, configuredTesting := range j.jobSpec.TestModuleOptions {
-			testInfo, err := testSvc.GetByName(j.workflow.Project, configuredTesting.Name)
+			testInfo, err := testSvc.GetByName("", configuredTesting.Name)
 			if err != nil {
 				return err
 			}
@@ -234,7 +234,7 @@ func (j TestingJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, err
 				}
 			}
 
-			jobTask, err := j.toJobTask(jobSubTaskID, &testing.TestModule, defaultS3, taskID, string(j.jobSpec.TestType), testing.ServiceName, testing.ServiceModule, logger)
+			jobTask, err := j.toJobTask(jobSubTaskID, testing.TestModule, defaultS3, taskID, string(j.jobSpec.TestType), testing.ServiceName, testing.ServiceModule, logger)
 			if err != nil {
 				return resp, err
 			}

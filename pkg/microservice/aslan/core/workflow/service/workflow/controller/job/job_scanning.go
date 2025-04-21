@@ -110,7 +110,7 @@ func (j ScanningJobController) Update(useUserInput bool, ticket *commonmodels.Ap
 	// merge the input with the configuration
 	switch j.jobSpec.ScanningType {
 	case config.ServiceScanningType:
-		configuredServiceScanningMap := make(map[string]commonmodels.ScanningModule)
+		configuredServiceScanningMap := make(map[string]*commonmodels.ScanningModule)
 		for _, configuredSvcScanning := range j.jobSpec.ServiceScanningOptions {
 			key := fmt.Sprintf("%s++%s", configuredSvcScanning.ServiceName, configuredSvcScanning.ServiceModule)
 			scanInfo, err := scanSvc.GetByName(j.workflow.Project, configuredSvcScanning.Name)
@@ -225,7 +225,7 @@ func (j ScanningJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, er
 					continue
 				}
 			}
-			jobTask, err := j.toJobTask(jobSubTaskID, &scanning.ScanningModule, taskID, string(j.jobSpec.ScanningType), scanning.ServiceName, scanning.ServiceModule, logger)
+			jobTask, err := j.toJobTask(jobSubTaskID, scanning.ScanningModule, taskID, string(j.jobSpec.ScanningType), scanning.ServiceName, scanning.ServiceModule, logger)
 			if err != nil {
 				return resp, err
 			}
