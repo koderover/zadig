@@ -838,6 +838,11 @@ func ManualExecWorkflowTaskV4(workflowName string, taskID int64, stageName strin
 			stage.Jobs = originJobs
 		}
 	}
+	for _, stage := range task.WorkflowArgs.Stages {
+		if stage.Name == stageName {
+			stage.Jobs = originJobs
+		}
+	}
 
 	workflowCtrl := workflowController.CreateWorkflowController(task.WorkflowArgs)
 	if err := workflowCtrl.RenderParams(task.TaskID, task.TaskCreator, task.TaskCreatorAccount, task.TaskCreatorID); err != nil {
