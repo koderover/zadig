@@ -334,7 +334,14 @@ func (j TestingJobController) getReferredJobTargets(jobName string) ([]*commonmo
 				if err := commonmodels.IToi(job.Spec, testingSpec); err != nil {
 					return servicetargets, err
 				}
-				servicetargets = testingSpec.TargetServices
+				testTargets := make([]*commonmodels.ServiceTestTarget, 0)
+				for _, svc := range testingSpec.ServiceAndTests {
+					testTargets = append(testTargets, &commonmodels.ServiceTestTarget{
+						ServiceName:   svc.ServiceName,
+						ServiceModule: svc.ServiceModule,
+					})
+				}
+				servicetargets = testTargets
 				return servicetargets, nil
 			}
 			if job.JobType == config.JobFreestyle {
