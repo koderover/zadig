@@ -423,7 +423,7 @@ func (j FreestyleJobController) getReferredJobTargets(jobName string) ([]*common
 				if err := commonmodels.IToi(job.Spec, scanningSpec); err != nil {
 					return nil, err
 				}
-				for _, svc := range scanningSpec.TargetServices {
+				for _, svc := range scanningSpec.ServiceAndScannings {
 					target := &commonmodels.FreeStyleServiceInfo{
 						ServiceWithModule: commonmodels.ServiceWithModule{
 							ServiceName:   svc.ServiceName,

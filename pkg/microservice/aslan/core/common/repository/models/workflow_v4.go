@@ -643,11 +643,13 @@ type ZadigScanningJobSpec struct {
 	OriginJobName string                    `bson:"origin_job_name"  yaml:"origin_job_name"  json:"origin_job_name"`
 	RefRepos      bool                      `bson:"ref_repos"        yaml:"ref_repos"        json:"ref_repos"`
 	// Scannings used only for normal scanning. for service scanning we use
-	Scannings []*ScanningModule `bson:"scannings"        yaml:"scannings"        json:"scannings"`
+	Scannings       []*ScanningModule `bson:"scannings"        yaml:"scannings"        json:"scannings"`
+	ScanningOptions []*ScanningModule `bson:"scanning_options" yaml:"scanning_options" json:"scanning_options"`
 	// ServiceAndScannings is the configured field for this job. It includes all the services along with its configured scanning.
-	ServiceAndScannings []*ServiceAndScannings `bson:"service_and_scannings" yaml:"service_and_scannings" json:"service_and_scannings"`
+	ServiceAndScannings    []*ServiceAndScannings `bson:"service_and_scannings"    yaml:"service_and_scannings"    json:"service_and_scannings"`
+	ServiceScanningOptions []*ServiceAndScannings `bson:"service_scanning_options" yaml:"service_scanning_options" json:"service_scanning_options"`
 	// selected service in service scanning
-	TargetServices []*ServiceTestTarget `bson:"target_services"   yaml:"target_services"   json:"target_services"`
+	DefaultServices []*ServiceTestTarget `bson:"target_services"   yaml:"target_services"   json:"target_services"`
 }
 
 type ServiceAndScannings struct {

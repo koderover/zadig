@@ -37,6 +37,9 @@ import (
 	"github.com/koderover/zadig/v2/pkg/types/step"
 )
 
+// TODO: scanning => scanning_options in configuration
+// TODO: service_and_scannings => service_scanning_options in configuration
+
 type ScanningJobController struct {
 	*BasicInfo
 
@@ -99,6 +102,60 @@ func (j ScanningJobController) Update(useUserInput bool, ticket *commonmodels.Ap
 	j.jobSpec.JobName = currJobSpec.JobName
 	j.jobSpec.OriginJobName = currJobSpec.OriginJobName
 	j.jobSpec.RefRepos = currJobSpec.RefRepos
+	j.jobSpec.ScanningOptions = currJobSpec.ScanningOptions
+	j.jobSpec.ServiceScanningOptions = currJobSpec.ServiceScanningOptions
+
+	scanSvc := commonservice.NewScanningService()
+
+	// merge the input with the configuration
+	switch j.jobSpec.ScanningType {
+	case config.ServiceScanningType:
+		configuredServiceScanningMap := make(map[string]commonmodels.ScanningModule)
+		for _, configuredSvcScanning := range j.jobSpec.ServiceScanningOptions {
+			key := fmt.Sprintf("%s++%s", configuredSvcScanning.ServiceName, configuredSvcScanning.ServiceModule)
+			scanInfo, err := scanSvc.GetByName(j.workflow.Project, configuredSvcScanning.Name)
+			if err != nil {
+				return err
+			}
+			configuredSvcScanning.ScanningModule.KeyVals = applyKeyVals(scanInfo.Envs.ToRuntimeList(), configuredSvcScanning.KeyVals, true)
+			configuredSvcScanning.ScanningModule.Repos = applyRepos(scanInfo.Repos, configuredSvcScanning.Repos)
+			configuredServiceScanningMap[key] = configuredSvcScanning.ScanningModule
+		}
+
+		newSelectedService := make([]*commonmodels.ServiceAndScannings, 0)
+		for _, svc := range j.jobSpec.ServiceAndScannings {
+			key := fmt.Sprintf("%s++%s", svc.ServiceName, svc.ServiceModule)
+			if _, ok := configuredServiceScanningMap[key]; !ok {
+				continue
+			}
+			svc.KeyVals = applyKeyVals(configuredServiceScanningMap[key].KeyVals, svc.KeyVals, false)
+			svc.Repos = applyRepos(configuredServiceScanningMap[key].Repos, svc.Repos)
+			newSelectedService = append(newSelectedService, svc)
+		}
+		j.jobSpec.ServiceAndScannings = newSelectedService
+	default:
+		configuredScanningMap := make(map[string]*commonmodels.ScanningModule)
+		for _, configuredScanning := range j.jobSpec.ScanningOptions {
+			scanInfo, err := scanSvc.GetByName(j.workflow.Project, configuredScanning.Name)
+			if err != nil {
+				return err
+			}
+			configuredScanning.KeyVals = applyKeyVals(scanInfo.Envs.ToRuntimeList(), configuredScanning.KeyVals, true)
+			configuredScanning.Repos = applyRepos(scanInfo.Repos, configuredScanning.Repos)
+			configuredScanningMap[configuredScanning.Name] = configuredScanning
+		}
+
+		newSelectedScanning := make([]*commonmodels.ScanningModule, 0)
+		for _, scanning := range j.jobSpec.Scannings {
+			if _, ok := configuredScanningMap[scanning.Name]; !ok {
+				continue
+			}
+			scanning.KeyVals = applyKeyVals(configuredScanningMap[scanning.Name].KeyVals, scanning.KeyVals, false)
+			scanning.Repos = applyRepos(configuredScanningMap[scanning.Name].Repos, scanning.Repos)
+			newSelectedScanning = append(newSelectedScanning, scanning)
+		}
+		j.jobSpec.Scannings = newSelectedScanning
+	}
 
 	return nil
 }
@@ -120,8 +177,8 @@ func (j ScanningJobController) ClearOptions() {
 }
 
 func (j ScanningJobController) ClearSelection() {
-	j.jobSpec.TargetServices = make([]*commonmodels.ServiceTestTarget, 0)
 	j.jobSpec.Scannings = make([]*commonmodels.ScanningModule, 0)
+	j.jobSpec.ServiceAndScannings = make([]*commonmodels.ServiceAndScannings, 0)
 }
 
 func (j ScanningJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, error) {
@@ -144,30 +201,36 @@ func (j ScanningJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, er
 		if j.jobSpec.OriginJobName != "" {
 			j.jobSpec.JobName = j.jobSpec.OriginJobName
 		}
-
-		referredJob := getOriginJobName(j.workflow, j.jobSpec.JobName)
-		targets, err := j.getReferredJobTargets(referredJob)
-		if err != nil {
-			return resp, fmt.Errorf("get origin refered job: %s targets failed, err: %v", referredJob, err)
-		}
-		// clear service and image list to prevent old data from remaining
-		j.jobSpec.TargetServices = targets
 	}
 
 	if j.jobSpec.ScanningType == config.ServiceScanningType {
 		jobSubTaskID := 0
-		for _, target := range j.jobSpec.TargetServices {
-			for _, scanning := range j.jobSpec.ServiceAndScannings {
-				if scanning.ServiceName != target.ServiceName || scanning.ServiceModule != target.ServiceModule {
+		targetsMap := make(map[string]*commonmodels.ServiceTestTarget)
+		if j.jobSpec.Source == config.SourceFromJob {
+			referredJob := getOriginJobName(j.workflow, j.jobSpec.JobName)
+			targets, err := j.getReferredJobTargets(referredJob)
+			if err != nil {
+				return resp, fmt.Errorf("get origin refered job: %s targets failed, err: %v", referredJob, err)
+			}
+			for _, target := range targets {
+				key := fmt.Sprintf("%s++%s", target.ServiceName, target.ServiceModule)
+				targetsMap[key] = target
+			}
+		}
+		for _, scanning := range j.jobSpec.ServiceAndScannings {
+			if j.jobSpec.Source == config.SourceFromJob {
+				key := fmt.Sprintf("%s++%s", scanning.ServiceName, scanning.ServiceModule)
+				if _, ok := targetsMap[key]; !ok {
+					// if a service is not referred but passed in, ignore it
 					continue
 				}
-				jobTask, err := j.toJobTask(jobSubTaskID, &scanning.ScanningModule, taskID, string(j.jobSpec.ScanningType), scanning.ServiceName, scanning.ServiceModule, logger)
-				if err != nil {
-					return resp, err
-				}
-				jobSubTaskID++
-				resp = append(resp, jobTask)
 			}
+			jobTask, err := j.toJobTask(jobSubTaskID, &scanning.ScanningModule, taskID, string(j.jobSpec.ScanningType), scanning.ServiceName, scanning.ServiceModule, logger)
+			if err != nil {
+				return resp, err
+			}
+			jobSubTaskID++
+			resp = append(resp, jobTask)
 		}
 	}
 
@@ -363,7 +426,7 @@ func (j ScanningJobController) toJobTask(jobSubTaskID int, scanning *commonmodel
 		jobTaskSpec.Steps = append(jobTaskSpec.Steps, downloadArchiveStep)
 	}
 
-	repos := applyRepos(scanning.Repos, scanningInfo.Repos)
+	repos := applyRepos(scanningInfo.Repos, scanning.Repos)
 	renderRepos(repos, jobTaskSpec.Properties.Envs)
 	gitRepos, p4Repos := splitReposByType(repos)
 
@@ -698,7 +761,14 @@ func (j ScanningJobController) getReferredJobTargets(jobName string) ([]*commonm
 				if err := commonmodels.IToi(job.Spec, scanningSpec); err != nil {
 					return servicetargets, err
 				}
-				servicetargets = scanningSpec.TargetServices
+				scanTargets := make([]*commonmodels.ServiceTestTarget, 0)
+				for _, svc := range scanningSpec.ServiceAndScannings {
+					scanTargets = append(scanTargets, &commonmodels.ServiceTestTarget{
+						ServiceName:   svc.ServiceName,
+						ServiceModule: svc.ServiceModule,
+					})
+				}
+				servicetargets = scanTargets
 				return servicetargets, nil
 			}
 			if job.JobType == config.JobZadigTesting {

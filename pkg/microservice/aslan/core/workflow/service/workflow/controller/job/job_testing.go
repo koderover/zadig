@@ -253,7 +253,14 @@ func (j TestingJobController) getReferredJobTargets(jobName string) ([]*commonmo
 				if err := commonmodels.IToi(job.Spec, scanningSpec); err != nil {
 					return servicetargets, err
 				}
-				servicetargets = scanningSpec.TargetServices
+				scanTargets := make([]*commonmodels.ServiceTestTarget, 0)
+				for _, svc := range scanningSpec.ServiceAndScannings {
+					scanTargets = append(scanTargets, &commonmodels.ServiceTestTarget{
+						ServiceName:   svc.ServiceName,
+						ServiceModule: svc.ServiceModule,
+					})
+				}
+				servicetargets = scanTargets
 				return servicetargets, nil
 			}
 			if job.JobType == config.JobZadigTesting {

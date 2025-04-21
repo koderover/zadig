@@ -1027,7 +1027,7 @@ func (j BuildJobController) getReferredJobTargets(jobName string) ([]*commonmode
 				if err := commonmodels.IToi(job.Spec, testingSpec); err != nil {
 					return servicetargets, err
 				}
-				for _, svc := range testingSpec.TargetServices {
+				for _, svc := range testingSpec.ServiceAndTests {
 					target := &commonmodels.ServiceAndBuild{
 						ServiceName:   svc.ServiceName,
 						ServiceModule: svc.ServiceModule,
@@ -1051,7 +1051,7 @@ func (j BuildJobController) getReferredJobTargets(jobName string) ([]*commonmode
 				if err := commonmodels.IToi(job.Spec, scanningSpec); err != nil {
 					return servicetargets, err
 				}
-				for _, svc := range scanningSpec.TargetServices {
+				for _, svc := range scanningSpec.ServiceAndScannings {
 					target := &commonmodels.ServiceAndBuild{
 						ServiceName:   svc.ServiceName,
 						ServiceModule: svc.ServiceModule,
