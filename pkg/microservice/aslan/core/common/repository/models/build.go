@@ -220,7 +220,7 @@ func (kv *KeyVal) GetValue() string {
 
 type KeyValList []*KeyVal
 
-func (list KeyValList) ToRuntimeList() []*RuntimeKeyVal {
+func (list KeyValList) ToRuntimeList() RuntimeKeyValList {
 	resp := make([]*RuntimeKeyVal, 0)
 	for _, kv := range list {
 		resp = append(resp, &RuntimeKeyVal{

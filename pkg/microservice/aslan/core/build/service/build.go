@@ -251,13 +251,14 @@ func ListBuildModulesByServiceModule(encryptedKey, productName, envName string, 
 					build.Infrastructure = buildTemplate.Infrastructure
 					build.PreBuild.Envs = commonservice.MergeBuildEnvs(templateEnvs, build.PreBuild.Envs)
 				}
-				if err := commonservice.EncryptKeyVals(encryptedKey, build.PreBuild.Envs, log); err != nil {
+				configuredKV := build.PreBuild.Envs.ToRuntimeList()
+				if err := commonservice.EncryptKeyVals(encryptedKey, configuredKV, log); err != nil {
 					return serviceModuleAndBuildResp, err
 				}
 				resp = append(resp, &BuildResp{
 					ID:             build.ID.Hex(),
 					Name:           build.Name,
-					KeyVals:        build.PreBuild.Envs,
+					KeyVals:        configuredKV.ToKVList(),
 					Repos:          build.Repos,
 					ClusterID:      build.PreBuild.ClusterID,
 					Infrastructure: build.Infrastructure,

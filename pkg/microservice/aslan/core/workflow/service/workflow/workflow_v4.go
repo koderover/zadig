@@ -775,7 +775,7 @@ func ensureWorkflowV4JobResp(job *commonmodels.Job, logger *zap.SugaredLogger, b
 			var kvList commonmodels.KeyValList
 			kvList = commonservice.MergeBuildEnvs(kvs, build.KeyVals.ToKVList())
 			build.KeyVals = kvList.ToRuntimeList()
-			if err := commonservice.EncryptKeyVals(encryptedKey, build.KeyVals.ToKVList(), logger); err != nil {
+			if err := commonservice.EncryptKeyVals(encryptedKey, build.KeyVals, logger); err != nil {
 				logger.Errorf(err.Error())
 				return e.ErrFindWorkflow.AddErr(err)
 			}
@@ -868,12 +868,10 @@ func ensureWorkflowV4JobResp(job *commonmodels.Job, logger *zap.SugaredLogger, b
 			logger.Errorf(err.Error())
 			return e.ErrFindWorkflow.AddErr(err)
 		}
-		encryptedKVs := spec.Envs.ToKVList()
-		if err := commonservice.EncryptKeyVals(encryptedKey, encryptedKVs, logger); err != nil {
+		if err := commonservice.EncryptKeyVals(encryptedKey, spec.Envs, logger); err != nil {
 			logger.Errorf(err.Error())
 			return e.ErrFindWorkflow.AddErr(err)
 		}
-		spec.Envs = encryptedKVs.ToRuntimeList()
 		job.Spec = spec
 	}
 	if job.JobType == config.JobPlugin {

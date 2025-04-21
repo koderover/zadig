@@ -37,6 +37,7 @@ import (
 )
 
 // TODO: jobSpec restructured, for configuration services => default_services
+// TODO: add source in envs
 
 type FreestyleJobController struct {
 	*BasicInfo
