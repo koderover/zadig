@@ -716,7 +716,7 @@ func ensureWorkflowV4JobResp(job *commonmodels.Job, logger *zap.SugaredLogger, b
 			logger.Errorf(err.Error())
 			return e.ErrFindWorkflow.AddErr(err)
 		}
-		for _, build := range spec.ServiceAndBuilds {
+		for _, build := range spec.ServiceAndBuildsOptions {
 			var buildInfo *commonmodels.Build
 			var err error
 			buildMapValue, ok := buildMap.Load(build.BuildName)
