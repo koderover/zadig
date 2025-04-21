@@ -23,6 +23,9 @@ import (
 	"path/filepath"
 	"strings"
 
+	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/util/rand"
+
 	configbase "github.com/koderover/zadig/v2/pkg/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
@@ -34,8 +37,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/types"
 	"github.com/koderover/zadig/v2/pkg/types/step"
-	"go.uber.org/zap"
-	"k8s.io/apimachinery/pkg/util/rand"
 )
 
 type TestingJobController struct {

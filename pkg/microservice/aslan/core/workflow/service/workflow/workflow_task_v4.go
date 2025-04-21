@@ -466,9 +466,9 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 		ProjectName:  workflow.Project,
 		WorkflowName: workflow.Name,
 	}
-	if err := LintWorkflowV4(workflow, log); err != nil {
-		return resp, err
-	}
+	// if err := LintWorkflowV4(workflow, log); err != nil {
+	// 	return resp, err
+	// }
 
 	var userInfo *types.UserInfo
 	var err error
