@@ -125,6 +125,7 @@ func (j DeployJobController) Update(useUserInput bool, ticket *commonmodels.Appr
 	j.jobSpec.DeployContents = latestSpec.DeployContents
 	j.jobSpec.ServiceVariableConfig = latestSpec.ServiceVariableConfig
 	j.jobSpec.DefaultServices = latestSpec.DefaultServices
+	j.jobSpec.EnvSource = latestSpec.EnvSource
 
 	// source is a bit tricky: if the saved args has a source of fromjob, but it has been change to runtime in the config
 	// we need to not only update its source but also set services to empty slice.
