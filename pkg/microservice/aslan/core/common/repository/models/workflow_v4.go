@@ -596,11 +596,13 @@ type ZadigTestingJobSpec struct {
 	OriginJobName string                  `bson:"origin_job_name"   yaml:"origin_job_name"   json:"origin_job_name"`
 	RefRepos      bool                    `bson:"ref_repos"         yaml:"ref_repos"         json:"ref_repos"`
 	// selected service in service testing
-	TargetServices []*ServiceTestTarget `bson:"target_services"   yaml:"target_services"   json:"target_services"`
+	DefaultServices []*ServiceTestTarget `bson:"target_services"   yaml:"target_services"   json:"target_services"`
 	// field for non-service tests.
-	TestModules []*TestModule `bson:"test_modules"      yaml:"test_modules"      json:"test_modules"`
+	TestModules       []*TestModule `bson:"test_modules"        yaml:"test_modules"        json:"test_modules"`
+	TestModuleOptions []*TestModule `bson:"test_module_options" yaml:"test_module_options" json:"test_module_options"`
 	// in config: this is the test infos for all the services
-	ServiceAndTests []*ServiceAndTest `bson:"service_and_tests" yaml:"service_and_tests" json:"service_and_tests"`
+	ServiceAndTests    []*ServiceAndTest `bson:"service_and_tests"    yaml:"service_and_tests"    json:"service_and_tests"`
+	ServiceTestOptions []*ServiceAndTest `bson:"service_test_options" yaml:"service_test_options" json:"service_test_options"`
 }
 
 type ServiceAndTest struct {

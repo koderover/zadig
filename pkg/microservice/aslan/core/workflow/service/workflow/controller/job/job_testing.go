@@ -39,6 +39,9 @@ import (
 	"github.com/koderover/zadig/v2/pkg/types/step"
 )
 
+// TODO: test_modules => test_module_options in configuration
+// TODO: service_and_tests => service_test_options in configuration
+
 type TestingJobController struct {
 	*BasicInfo
 
@@ -100,6 +103,60 @@ func (j TestingJobController) Update(useUserInput bool, ticket *commonmodels.App
 	j.jobSpec.JobName = currJobSpec.JobName
 	j.jobSpec.OriginJobName = currJobSpec.OriginJobName
 	j.jobSpec.RefRepos = currJobSpec.RefRepos
+	j.jobSpec.TestModuleOptions = currJobSpec.TestModuleOptions
+	j.jobSpec.ServiceTestOptions = currJobSpec.ServiceTestOptions
+
+	testSvc := commonservice.NewTestingService()
+
+	// merge the input with the configuration
+	switch j.jobSpec.TestType {
+	case config.ServiceTestType:
+		configuredServiceScanningMap := make(map[string]commonmodels.TestModule)
+		for _, configuredSvcTesting := range j.jobSpec.ServiceTestOptions {
+			key := fmt.Sprintf("%s++%s", configuredSvcTesting.ServiceName, configuredSvcTesting.ServiceModule)
+			testInfo, err := testSvc.GetByName(j.workflow.Project, configuredSvcTesting.Name)
+			if err != nil {
+				return err
+			}
+			configuredSvcTesting.TestModule.KeyVals = applyKeyVals(testInfo.PreTest.Envs.ToRuntimeList(), configuredSvcTesting.KeyVals, true)
+			configuredSvcTesting.TestModule.Repos = applyRepos(testInfo.Repos, configuredSvcTesting.Repos)
+			configuredServiceScanningMap[key] = configuredSvcTesting.TestModule
+		}
+
+		newSelectedService := make([]*commonmodels.ServiceAndTest, 0)
+		for _, svc := range j.jobSpec.ServiceAndTests {
+			key := fmt.Sprintf("%s++%s", svc.ServiceName, svc.ServiceModule)
+			if _, ok := configuredServiceScanningMap[key]; !ok {
+				continue
+			}
+			svc.KeyVals = applyKeyVals(configuredServiceScanningMap[key].KeyVals, svc.KeyVals, false)
+			svc.Repos = applyRepos(configuredServiceScanningMap[key].Repos, svc.Repos)
+			newSelectedService = append(newSelectedService, svc)
+		}
+		j.jobSpec.ServiceAndTests = newSelectedService
+	default:
+		configuredTestMap := make(map[string]*commonmodels.TestModule)
+		for _, configuredTesting := range j.jobSpec.TestModuleOptions {
+			testInfo, err := testSvc.GetByName(j.workflow.Project, configuredTesting.Name)
+			if err != nil {
+				return err
+			}
+			configuredTesting.KeyVals = applyKeyVals(testInfo.PreTest.Envs.ToRuntimeList(), configuredTesting.KeyVals, true)
+			configuredTesting.Repos = applyRepos(testInfo.Repos, configuredTesting.Repos)
+			configuredTestMap[configuredTesting.Name] = configuredTesting
+		}
+
+		newSelectedTest := make([]*commonmodels.TestModule, 0)
+		for _, scanning := range j.jobSpec.TestModules {
+			if _, ok := configuredTestMap[scanning.Name]; !ok {
+				continue
+			}
+			scanning.KeyVals = applyKeyVals(configuredTestMap[scanning.Name].KeyVals, scanning.KeyVals, false)
+			scanning.Repos = applyRepos(configuredTestMap[scanning.Name].Repos, scanning.Repos)
+			newSelectedTest = append(newSelectedTest, scanning)
+		}
+		j.jobSpec.TestModules = newSelectedTest
+	}
 
 	return nil
 }
@@ -121,8 +178,8 @@ func (j TestingJobController) ClearOptions() {
 }
 
 func (j TestingJobController) ClearSelection() {
-	j.jobSpec.TargetServices = make([]*commonmodels.ServiceTestTarget, 0)
 	j.jobSpec.TestModules = make([]*commonmodels.TestModule, 0)
+	j.jobSpec.ServiceAndTests = make([]*commonmodels.ServiceAndTest, 0)
 	return
 }
 
@@ -151,30 +208,38 @@ func (j TestingJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, err
 		if j.jobSpec.OriginJobName != "" {
 			j.jobSpec.JobName = j.jobSpec.OriginJobName
 		}
-
-		referredJob := getOriginJobName(j.workflow, j.jobSpec.JobName)
-		targets, err := j.getReferredJobTargets(referredJob)
-		if err != nil {
-			return resp, fmt.Errorf("get origin refered job: %s targets failed, err: %v", referredJob, err)
-		}
-		// clear service and image list to prevent old data from remaining
-		j.jobSpec.TargetServices = targets
 	}
 
 	if j.jobSpec.TestType == config.ServiceTestType {
 		jobSubTaskID := 0
-		for _, target := range j.jobSpec.TargetServices {
-			for _, testing := range j.jobSpec.ServiceAndTests {
-				if testing.ServiceName != target.ServiceName || testing.ServiceModule != target.ServiceModule {
+		targetsMap := make(map[string]*commonmodels.ServiceTestTarget)
+		if j.jobSpec.Source == config.SourceFromJob {
+			referredJob := getOriginJobName(j.workflow, j.jobSpec.JobName)
+			targets, err := j.getReferredJobTargets(referredJob)
+			if err != nil {
+				return resp, fmt.Errorf("get origin refered job: %s targets failed, err: %v", referredJob, err)
+			}
+			for _, target := range targets {
+				key := fmt.Sprintf("%s++%s", target.ServiceName, target.ServiceModule)
+				targetsMap[key] = target
+			}
+		}
+
+		for _, testing := range j.jobSpec.ServiceAndTests {
+			if j.jobSpec.Source == config.SourceFromJob {
+				key := fmt.Sprintf("%s++%s", testing.ServiceName, testing.ServiceModule)
+				if _, ok := targetsMap[key]; !ok {
+					// if a service is not referred but passed in, ignore it
 					continue
 				}
-				jobTask, err := j.toJobTask(jobSubTaskID, &testing.TestModule, defaultS3, taskID, string(j.jobSpec.TestType), testing.ServiceName, testing.ServiceModule, logger)
-				if err != nil {
-					return resp, err
-				}
-				jobSubTaskID++
-				resp = append(resp, jobTask)
 			}
+
+			jobTask, err := j.toJobTask(jobSubTaskID, &testing.TestModule, defaultS3, taskID, string(j.jobSpec.TestType), testing.ServiceName, testing.ServiceModule, logger)
+			if err != nil {
+				return resp, err
+			}
+			jobSubTaskID++
+			resp = append(resp, jobTask)
 		}
 	}
 
