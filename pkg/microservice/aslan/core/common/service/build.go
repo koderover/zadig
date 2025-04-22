@@ -200,7 +200,6 @@ func MergeBuildEnvs(templateEnvs, customEnvs commonmodels.RuntimeKeyValList) com
 	for _, v := range templateEnvs {
 		if cv, ok := customEnvMap[v.Key]; ok {
 			cv.ChoiceOption = v.ChoiceOption
-			cv.ChoiceValue = v.ChoiceValue
 			cv.Description = v.Description
 			cv.Script = v.Script
 			cv.FunctionReference = v.FunctionReference

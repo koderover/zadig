@@ -586,10 +586,12 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 	workflowTask.Remark = workflow.Remark
 
 	workflowCtrl := workflowController.CreateWorkflowController(workflow)
-	err = workflowCtrl.UpdateWithLatestWorkflow(nil)
-	if err != nil {
-		log.Errorf("failed to update workflow task args with latest workflow settings, error: %s", err)
-		return nil, e.ErrCreateTask.AddErr(err)
+	if args.Type == config.WorkflowTaskTypeWorkflow || args.Type == "" {
+		err = workflowCtrl.UpdateWithLatestWorkflow(nil)
+		if err != nil {
+			log.Errorf("failed to update workflow task args with latest workflow settings, error: %s", err)
+			return nil, e.ErrCreateTask.AddErr(err)
+		}
 	}
 	err = workflowCtrl.Validate(true)
 	if err != nil {
