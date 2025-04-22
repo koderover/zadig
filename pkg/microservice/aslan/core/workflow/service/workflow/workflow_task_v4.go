@@ -592,12 +592,13 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 			log.Errorf("failed to update workflow task args with latest workflow settings, error: %s", err)
 			return nil, e.ErrCreateTask.AddErr(err)
 		}
+		err = workflowCtrl.Validate(true)
+		if err != nil {
+			log.Errorf("failed to validate workflow task args, error: %s", err)
+			return nil, e.ErrCreateTask.AddErr(err)
+		}
 	}
-	err = workflowCtrl.Validate(true)
-	if err != nil {
-		log.Errorf("failed to validate workflow task args, error: %s", err)
-		return nil, e.ErrCreateTask.AddErr(err)
-	}
+
 	workflowCtrl.SetParameterRepoCommitInfo()
 	stageTasks, err := workflowCtrl.ToJobTasks(nextTaskID, args.Name, args.Account, args.UserID)
 	if err != nil {
