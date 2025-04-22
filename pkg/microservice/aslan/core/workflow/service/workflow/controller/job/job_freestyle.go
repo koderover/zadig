@@ -122,6 +122,7 @@ func (j FreestyleJobController) Update(useUserInput bool, ticket *commonmodels.A
 
 	if useUserInput {
 		for _, svc := range j.jobSpec.Services {
+			svc.KeyVals = applyKeyVals(j.jobSpec.Envs, svc.KeyVals.ToRuntimeList(), false).ToKVList()
 			svc.Repos = applyRepos(j.jobSpec.Repos, svc.Repos)
 		}
 	}
@@ -165,6 +166,8 @@ func (j FreestyleJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, e
 
 	if j.jobSpec.FreestyleJobType == config.ServiceFreeStyleJobType {
 		for subTaskID, svc := range j.jobSpec.Services {
+			envs := applyKeyVals(j.jobSpec.Envs, svc.KeyVals.ToRuntimeList(), false).ToKVList()
+			svc.KeyVals = envs
 			task, err := j.generateSubTask(taskID, subTaskID, registries, svc)
 			if err != nil {
 				return nil, err

@@ -390,7 +390,7 @@ func (j TestingJobController) toJobTask(jobSubTaskID int, testing *commonmodels.
 		"rand_str":     randStr,
 	}
 
-	customEnvs := applyKeyVals(testing.KeyVals, testingInfo.PreTest.Envs.ToRuntimeList(), false).ToKVList()
+	customEnvs := applyKeyVals(testingInfo.PreTest.Envs.ToRuntimeList(), testing.KeyVals, true).ToKVList()
 	if testType == string(config.ServiceTestType) {
 		jobDisplayName = genJobDisplayName(j.name, serviceName, serviceModule)
 		jobKey = genJobKey(j.name, testing.Name, serviceName, serviceModule)

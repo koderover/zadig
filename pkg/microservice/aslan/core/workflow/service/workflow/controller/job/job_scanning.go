@@ -316,7 +316,7 @@ func (j ScanningJobController) toJobTask(jobSubTaskID int, scanning *commonmodel
 	}
 
 	paramEnvs := generateKeyValsFromWorkflowParam(j.workflow.Params)
-	envs := mergeKeyVals(applyKeyVals(scanning.KeyVals, scanningInfo.Envs.ToRuntimeList(), false).ToKVList(), paramEnvs)
+	envs := mergeKeyVals(applyKeyVals(scanningInfo.Envs.ToRuntimeList(), scanning.KeyVals, true).ToKVList(), paramEnvs)
 
 	scanningImage := basicImage.Value
 	if scanningImage == "sonarsource/sonar-scanner-cli" {
