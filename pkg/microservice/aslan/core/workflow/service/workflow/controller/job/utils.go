@@ -98,6 +98,7 @@ func applyKeyVals(base, input commonmodels.RuntimeKeyValList, useInputKVSource b
 			Type:              baseKV.Type,
 			IsCredential:      baseKV.IsCredential,
 			ChoiceOption:      baseKV.ChoiceOption,
+			ChoiceValue:       baseKV.ChoiceValue,
 			Description:       baseKV.Description,
 			FunctionReference: baseKV.FunctionReference,
 			CallFunction:      baseKV.CallFunction,
