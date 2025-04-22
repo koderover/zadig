@@ -113,6 +113,7 @@ func applyKeyVals(base, input commonmodels.RuntimeKeyValList, useInputKVSource b
 				item.Source = inputKV.Source
 			}
 
+			// if the final source of the item is fix or reference, the input is irrelevant, just use the origin stuff
 			if item.Source == config.ParamSourceFixed || item.Source == config.ParamSourceReference {
 				continue
 			}
