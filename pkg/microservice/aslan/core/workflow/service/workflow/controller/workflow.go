@@ -630,17 +630,23 @@ func renderParams(origin, input []*commonmodels.Param) []*commonmodels.Param {
 		for _, inputParam := range input {
 			if originParam.Name == inputParam.Name {
 				// always use origin credential config.
-				resp = append(resp, &commonmodels.Param{
+				newParam := &commonmodels.Param{
 					Name:         originParam.Name,
 					Description:  originParam.Description,
 					ParamsType:   originParam.ParamsType,
-					Value:        inputParam.Value,
-					Repo:         inputParam.Repo,
+					Value:        originParam.Value,
+					Repo:         originParam.Repo,
 					ChoiceOption: originParam.ChoiceOption,
+					ChoiceValue:  originParam.ChoiceValue,
 					Default:      originParam.Default,
 					IsCredential: originParam.IsCredential,
 					Source:       originParam.Source,
-				})
+				}
+				if originParam.Source != config.ParamSourceFixed {
+					newParam.Value = inputParam.Value
+					newParam.Repo = inputParam.Repo
+					newParam.ChoiceValue = inputParam.ChoiceValue
+				}
 				found = true
 				break
 			}
