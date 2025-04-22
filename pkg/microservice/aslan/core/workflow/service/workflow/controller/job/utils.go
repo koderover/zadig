@@ -109,6 +109,14 @@ func applyKeyVals(base, input commonmodels.RuntimeKeyValList, useInputKVSource b
 		}
 
 		if inputKV, ok := inputMap[baseKV.Key]; ok {
+			if useInputKVSource {
+				item.Source = inputKV.Source
+			}
+
+			if item.Source == config.ParamSourceFixed || item.Source == config.ParamSourceReference {
+				continue
+			}
+
 			if item.Type == commonmodels.MultiSelectType {
 				item.ChoiceValue = inputKV.ChoiceValue
 				// TODO: move this logic to somewhere else
@@ -120,10 +128,6 @@ func applyKeyVals(base, input commonmodels.RuntimeKeyValList, useInputKVSource b
 			} else {
 				// always use origin credential config.
 				item.Value = inputKV.Value
-			}
-
-			if useInputKVSource {
-				item.Source = inputKV.Source
 			}
 		}
 
