@@ -624,16 +624,6 @@ func (w *Workflow) GetUsedRepos() ([]*types.Repository, error) {
 }
 
 func renderParams(origin, input []*commonmodels.Param) []*commonmodels.Param {
-	originStr, _ := json.Marshal(origin)
-	fmt.Println("=================================================")
-	fmt.Println("altered str:")
-	fmt.Println(string(originStr))
-	fmt.Println("=================================================")
-	inputStr, _ := json.Marshal(input)
-	fmt.Println("=================================================")
-	fmt.Println("input str:")
-	fmt.Println(string(inputStr))
-	fmt.Println("=================================================")
 	resp := make([]*commonmodels.Param, 0)
 	for _, originParam := range origin {
 		found := false
@@ -657,6 +647,7 @@ func renderParams(origin, input []*commonmodels.Param) []*commonmodels.Param {
 					newParam.Repo = inputParam.Repo
 					newParam.ChoiceValue = inputParam.ChoiceValue
 				}
+				resp = append(resp, newParam)
 				found = true
 				break
 			}
@@ -665,11 +656,6 @@ func renderParams(origin, input []*commonmodels.Param) []*commonmodels.Param {
 			resp = append(resp, originParam)
 		}
 	}
-
-	respStr, _ := json.Marshal(resp)
-	fmt.Println("=================================================")
-	fmt.Println("altered str:")
-	fmt.Println(string(respStr))
-	fmt.Println("=================================================")
+	
 	return resp
 }
