@@ -114,21 +114,19 @@ func applyKeyVals(base, input commonmodels.RuntimeKeyValList, useInputKVSource b
 			}
 
 			// if the final source of the item is fix or reference, the input is irrelevant, just use the origin stuff
-			if item.Source == config.ParamSourceFixed || item.Source == config.ParamSourceReference {
-				continue
-			}
-
-			if item.Type == commonmodels.MultiSelectType {
-				item.ChoiceValue = inputKV.ChoiceValue
-				// TODO: move this logic to somewhere else
-				if inputKV.Value == "" {
-					item.Value = strings.Join(item.ChoiceValue, ",")
+			if item.Source != config.ParamSourceFixed && item.Source != config.ParamSourceReference {
+				if item.Type == commonmodels.MultiSelectType {
+					item.ChoiceValue = inputKV.ChoiceValue
+					// TODO: move this logic to somewhere else
+					if inputKV.Value == "" {
+						item.Value = strings.Join(item.ChoiceValue, ",")
+					} else {
+						item.Value = inputKV.Value
+					}
 				} else {
+					// always use origin credential config.
 					item.Value = inputKV.Value
 				}
-			} else {
-				// always use origin credential config.
-				item.Value = inputKV.Value
 			}
 		}
 
