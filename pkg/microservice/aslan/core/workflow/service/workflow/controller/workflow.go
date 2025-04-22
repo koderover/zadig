@@ -655,5 +655,11 @@ func renderParams(origin, input []*commonmodels.Param) []*commonmodels.Param {
 			resp = append(resp, originParam)
 		}
 	}
+
+	respStr, _ := json.Marshal(resp)
+	fmt.Println("=================================================")
+	fmt.Println("altered str:")
+	fmt.Println(string(respStr))
+	fmt.Println("=================================================")
 	return resp
 }
