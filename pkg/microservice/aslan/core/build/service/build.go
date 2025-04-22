@@ -230,7 +230,7 @@ func ListBuildModulesByServiceModule(encryptedKey, productName, envName string, 
 				}
 				// get build env vars when it's a template build
 				if build.TemplateID != "" {
-					templateEnvs := []*commonmodels.KeyVal{}
+					var templateEnvs commonmodels.KeyValList
 					buildTemplate, err := commonrepo.NewBuildTemplateColl().Find(&commonrepo.BuildTemplateQueryOption{
 						ID: build.TemplateID,
 					})
@@ -249,7 +249,7 @@ func ListBuildModulesByServiceModule(encryptedKey, productName, envName string, 
 					}
 					build.PreBuild.ClusterID = buildTemplate.PreBuild.ClusterID
 					build.Infrastructure = buildTemplate.Infrastructure
-					build.PreBuild.Envs = commonservice.MergeBuildEnvs(templateEnvs, build.PreBuild.Envs)
+					build.PreBuild.Envs = commonservice.MergeBuildEnvs(templateEnvs.ToRuntimeList(), build.PreBuild.Envs.ToRuntimeList()).ToKVList()
 				}
 				configuredKV := build.PreBuild.Envs.ToRuntimeList()
 				if err := commonservice.EncryptKeyVals(encryptedKey, configuredKV, log); err != nil {
@@ -296,7 +296,7 @@ func fillBuildTargetData(build *commonmodels.Build) error {
 				ServiceModule: target.Service.ServiceModule,
 			},
 			Repos: target.Repos,
-			Envs:  commonservice.MergeBuildEnvs(buildTemplate.PreBuild.Envs, target.Envs),
+			Envs:  commonservice.MergeBuildEnvs(buildTemplate.PreBuild.Envs.ToRuntimeList(), target.Envs.ToRuntimeList()).ToKVList(),
 		})
 	}
 	return nil

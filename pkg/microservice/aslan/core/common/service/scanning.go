@@ -125,7 +125,7 @@ func FillScanningDetail(moduleScanning *commonmodels.Scanning, cacheMap *sync.Ma
 	moduleScanning.SonarID = templateInfo.SonarID
 	moduleScanning.Installs = templateInfo.Installs
 	moduleScanning.Parameter = templateInfo.Parameter
-	moduleScanning.Envs = MergeBuildEnvs(templateInfo.Envs, moduleScanning.Envs)
+	moduleScanning.Envs = MergeBuildEnvs(templateInfo.Envs.ToRuntimeList(), moduleScanning.Envs.ToRuntimeList()).ToKVList()
 	moduleScanning.ScriptType = templateInfo.ScriptType
 	moduleScanning.Script = templateInfo.Script
 	moduleScanning.AdvancedSetting = templateInfo.AdvancedSetting

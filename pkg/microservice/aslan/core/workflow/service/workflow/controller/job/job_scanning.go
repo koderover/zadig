@@ -827,7 +827,7 @@ func fillScanningDetail(moduleScanning *commonmodels.Scanning) error {
 	moduleScanning.SonarID = templateInfo.SonarID
 	moduleScanning.Installs = templateInfo.Installs
 	moduleScanning.Parameter = templateInfo.Parameter
-	moduleScanning.Envs = commonservice.MergeBuildEnvs(templateInfo.Envs, moduleScanning.Envs)
+	moduleScanning.Envs = commonservice.MergeBuildEnvs(templateInfo.Envs.ToRuntimeList(), moduleScanning.Envs.ToRuntimeList()).ToKVList()
 	moduleScanning.ScriptType = templateInfo.ScriptType
 	moduleScanning.Script = templateInfo.Script
 	moduleScanning.AdvancedSetting = templateInfo.AdvancedSetting

@@ -268,7 +268,7 @@ func fillWorkflowV4(workflow *commonmodels.WorkflowV4, logger *zap.SugaredLogger
 					}
 					kvs := buildInfo.PreBuild.Envs
 					if buildInfo.TemplateID != "" {
-						templateEnvs := []*commonmodels.KeyVal{}
+						var templateEnvs commonmodels.KeyValList
 						buildTemplate, err := commonrepo.NewBuildTemplateColl().Find(&commonrepo.BuildTemplateQueryOption{
 							ID: buildInfo.TemplateID,
 						})
@@ -285,11 +285,9 @@ func fillWorkflowV4(workflow *commonmodels.WorkflowV4, logger *zap.SugaredLogger
 							}
 						}
 						// if build template update any keyvals, merge it.
-						kvs = commonservice.MergeBuildEnvs(templateEnvs, kvs)
+						kvs = commonservice.MergeBuildEnvs(templateEnvs.ToRuntimeList(), kvs.ToRuntimeList()).ToKVList()
 					}
-					var mergedKVs commonmodels.KeyValList
-					mergedKVs = commonservice.MergeBuildEnvs(kvs, build.KeyVals.ToKVList())
-					build.KeyVals = mergedKVs.ToRuntimeList()
+					build.KeyVals = commonservice.MergeBuildEnvs(kvs.ToRuntimeList(), build.KeyVals)
 				}
 				job.Spec = spec
 			}

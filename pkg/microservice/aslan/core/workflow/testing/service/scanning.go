@@ -759,7 +759,7 @@ func generateCustomWorkflowFromScanningModule(scanInfo *commonmodels.Scanning, a
 			return nil, err
 		}
 
-		kvs = commonservice.MergeBuildEnvs(template.Envs, scanInfo.Envs)
+		kvs = commonservice.MergeBuildEnvs(template.Envs.ToRuntimeList(), scanInfo.Envs.ToRuntimeList()).ToKVList()
 	}
 
 	scan := &commonmodels.ScanningModule{

@@ -738,7 +738,7 @@ func ensureWorkflowV4JobResp(job *commonmodels.Job, logger *zap.SugaredLogger, b
 
 			kvs := buildInfo.PreBuild.Envs
 			if buildInfo.TemplateID != "" {
-				templateEnvs := []*commonmodels.KeyVal{}
+				var templateEnvs commonmodels.KeyValList
 
 				// if template not found, envs are empty, but do not block user.
 				var buildTemplate *commonmodels.BuildTemplate
@@ -770,11 +770,9 @@ func ensureWorkflowV4JobResp(job *commonmodels.Job, logger *zap.SugaredLogger, b
 				}
 
 				// if build template update any keyvals, merge it.
-				kvs = commonservice.MergeBuildEnvs(templateEnvs, kvs)
+				kvs = commonservice.MergeBuildEnvs(templateEnvs.ToRuntimeList(), kvs.ToRuntimeList()).ToKVList()
 			}
-			var kvList commonmodels.KeyValList
-			kvList = commonservice.MergeBuildEnvs(kvs, build.KeyVals.ToKVList())
-			build.KeyVals = kvList.ToRuntimeList()
+			build.KeyVals = commonservice.MergeBuildEnvs(kvs.ToRuntimeList(), build.KeyVals)
 			if err := commonservice.EncryptKeyVals(encryptedKey, build.KeyVals, logger); err != nil {
 				logger.Errorf(err.Error())
 				return e.ErrFindWorkflow.AddErr(err)
@@ -801,7 +799,7 @@ func ensureWorkflowV4JobResp(job *commonmodels.Job, logger *zap.SugaredLogger, b
 			}
 
 			if scanningInfo.TemplateID != "" {
-				templateEnvs := []*commonmodels.KeyVal{}
+				var templateEnvs commonmodels.KeyValList
 				scanningTemplate, err := commonrepo.NewScanningTemplateColl().Find(&commonrepo.ScanningTemplateQueryOption{
 					ID: scanningInfo.TemplateID,
 				})
@@ -813,13 +811,13 @@ func ensureWorkflowV4JobResp(job *commonmodels.Job, logger *zap.SugaredLogger, b
 					templateEnvs = scanningTemplate.Envs
 				}
 
-				kvs := commonservice.MergeBuildEnvs(templateEnvs, scanningInfo.Envs)
+				kvs := commonservice.MergeBuildEnvs(templateEnvs.ToRuntimeList(), scanningInfo.Envs.ToRuntimeList())
 
 				// if build template update any keyvals, merge it.
-				scanning.KeyVals = commonservice.MergeBuildEnvs(kvs, scanning.KeyVals.ToKVList()).ToRuntimeList()
+				scanning.KeyVals = commonservice.MergeBuildEnvs(kvs, scanning.KeyVals)
 			} else {
 				// otherwise just merge the envs in the
-				scanning.KeyVals = commonservice.MergeBuildEnvs(scanningInfo.Envs, scanning.KeyVals.ToKVList()).ToRuntimeList()
+				scanning.KeyVals = commonservice.MergeBuildEnvs(scanningInfo.Envs.ToRuntimeList(), scanning.KeyVals)
 			}
 		}
 		job.Spec = spec
@@ -899,7 +897,7 @@ func ensureWorkflowV4JobResp(job *commonmodels.Job, logger *zap.SugaredLogger, b
 				logger.Errorf("find testing: %s error: %s", testing.Name, err)
 				continue
 			}
-			testing.KeyVals = commonservice.MergeBuildEnvs(testingInfo.PreTest.Envs, testing.KeyVals.ToKVList()).ToRuntimeList()
+			testing.KeyVals = commonservice.MergeBuildEnvs(testingInfo.PreTest.Envs.ToRuntimeList(), testing.KeyVals)
 		}
 		for _, testing := range spec.TestModules {
 			testingInfo, err := commonrepo.NewTestingColl().Find(testing.Name, "")
@@ -907,7 +905,7 @@ func ensureWorkflowV4JobResp(job *commonmodels.Job, logger *zap.SugaredLogger, b
 				logger.Errorf("find testing: %s error: %s", testing.Name, err)
 				continue
 			}
-			testing.KeyVals = commonservice.MergeBuildEnvs(testingInfo.PreTest.Envs, testing.KeyVals.ToKVList()).ToRuntimeList()
+			testing.KeyVals = commonservice.MergeBuildEnvs(testingInfo.PreTest.Envs.ToRuntimeList(), testing.KeyVals)
 		}
 	}
 	if job.JobType == config.JobNotification {
