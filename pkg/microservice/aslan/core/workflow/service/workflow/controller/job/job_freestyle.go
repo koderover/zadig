@@ -317,7 +317,7 @@ func (j FreestyleJobController) GetVariableList(jobName string, getAggregatedVar
 		}
 	}
 
-	return make([]*commonmodels.KeyVal, 0), nil
+	return resp, nil
 }
 
 func (j FreestyleJobController) GetUsedRepos() ([]*types.Repository, error) {
