@@ -678,7 +678,7 @@ func GetManualExecWorkflowTaskV4Info(workflowName string, taskID int64, logger *
 		log.Errorf("failed to set preset for workflow: %s, the error is: %v", workflowName, err)
 		return nil, e.ErrPresetWorkflow.AddDesc(err.Error())
 	}
-	return task.OriginWorkflowArgs, nil
+	return workflowCtrl.WorkflowV4, nil
 }
 
 func CloneWorkflowTaskV4(workflowName string, taskID int64, isView bool, logger *zap.SugaredLogger) (*commonmodels.WorkflowV4, error) {
