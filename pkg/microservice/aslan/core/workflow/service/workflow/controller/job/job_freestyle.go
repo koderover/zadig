@@ -31,7 +31,6 @@ import (
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/types"
-	"github.com/koderover/zadig/v2/pkg/types/job"
 	steptypes "github.com/koderover/zadig/v2/pkg/types/step"
 	util2 "github.com/koderover/zadig/v2/pkg/util"
 )
