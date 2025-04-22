@@ -503,7 +503,7 @@ type GetWorkflowVariablesOption struct {
 // caller will need to process that by themselves.
 // 2. Note that runtime variables will not have values in the response, use the value in the response with care.
 // 3. the rendered KV will only have type string since it is mainly used for dynamic variable rendering, change this if required
-func (w *Workflow) GetReferableVariables(currentJobName string, option GetWorkflowVariablesOption) ([]*commonmodels.KeyVal, error) {
+func (w *Workflow) GetReferableVariables(currentJobName string, option GetWorkflowVariablesOption, skipCurrentJob bool) ([]*commonmodels.KeyVal, error) {
 	resp := make([]*commonmodels.KeyVal, 0)
 
 	resp = append(resp, &commonmodels.KeyVal{
@@ -574,6 +574,9 @@ func (w *Workflow) GetReferableVariables(currentJobName string, option GetWorkfl
 
 	for _, stage := range w.Stages {
 		for _, j := range stage.Jobs {
+			if skipCurrentJob && j.Name == currentJobName {
+				continue
+			}
 			getRuntimeVariableFlag := option.GetRuntimeVariables
 			if currentJobName != "" && jobRankMap[currentJobName] < jobRankMap[j.Name] {
 				// you cant get a job's output if the current job is runs before given job
@@ -656,6 +659,6 @@ func renderParams(origin, input []*commonmodels.Param) []*commonmodels.Param {
 			resp = append(resp, originParam)
 		}
 	}
-	
+
 	return resp
 }

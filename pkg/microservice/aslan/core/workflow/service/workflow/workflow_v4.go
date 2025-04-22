@@ -2006,7 +2006,7 @@ func GetWorkflowGlobalVars(workflow *commonmodels.WorkflowV4, currentJobName str
 		GetPlaceHolderVariables:     true,
 		GetServiceSpecificVariables: true,
 		GetReferredKeyValVariables:  false,
-	})
+	}, true)
 
 	if err != nil {
 		log.Errorf("failed to get referable variable in workflow, error: %s", err)
