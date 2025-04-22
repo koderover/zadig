@@ -222,7 +222,7 @@ func (j FreestyleJobController) GetVariableList(jobName string, getAggregatedVar
 		if j.jobSpec.FreestyleJobType == config.NormalFreeStyleJobType {
 			for _, output := range j.jobSpec.AdvancedSetting.Outputs {
 				resp = append(resp, &commonmodels.KeyVal{
-					Key:          strings.Join([]string{"job", j.name, "output", output.Name}, "."), 
+					Key:          strings.Join([]string{"job", j.name, "output", output.Name}, "."),
 					Value:        "",
 					Type:         "string",
 					IsCredential: false,

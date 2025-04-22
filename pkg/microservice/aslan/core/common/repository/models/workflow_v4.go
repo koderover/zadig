@@ -608,7 +608,7 @@ type ZadigTestingJobSpec struct {
 type ServiceAndTest struct {
 	ServiceName   string `bson:"service_name"        yaml:"service_name"     json:"service_name"`
 	ServiceModule string `bson:"service_module"      yaml:"service_module"   json:"service_module"`
-	*TestModule    `bson:",inline"  yaml:",inline"  json:",inline"`
+	*TestModule   `bson:",inline"  yaml:",inline"  json:",inline"`
 }
 
 func (s *ServiceAndTest) GetKey() string {
@@ -655,8 +655,8 @@ type ZadigScanningJobSpec struct {
 }
 
 type ServiceAndScannings struct {
-	ServiceName    string `bson:"service_name"        yaml:"service_name"     json:"service_name"`
-	ServiceModule  string `bson:"service_module"      yaml:"service_module"   json:"service_module"`
+	ServiceName     string `bson:"service_name"        yaml:"service_name"     json:"service_name"`
+	ServiceModule   string `bson:"service_module"      yaml:"service_module"   json:"service_module"`
 	*ScanningModule `bson:",inline"  yaml:",inline"  json:",inline"`
 }
 
@@ -964,9 +964,10 @@ type GrafanaJobSpec struct {
 	ID   string `bson:"id" json:"id" yaml:"id"`
 	Name string `bson:"name" json:"name" yaml:"name"`
 	// CheckTime minute
-	CheckTime int64           `bson:"check_time" json:"check_time" yaml:"check_time"`
-	CheckMode string          `bson:"check_mode" json:"check_mode" yaml:"check_mode"`
-	Alerts    []*GrafanaAlert `bson:"alerts" json:"alerts" yaml:"alerts"`
+	CheckTime    int64           `bson:"check_time"    json:"check_time"    yaml:"check_time"`
+	CheckMode    string          `bson:"check_mode"    json:"check_mode"    yaml:"check_mode"`
+	Alerts       []*GrafanaAlert `bson:"alerts"        json:"alerts"        yaml:"alerts"`
+	AlertOptions []*GrafanaAlert `bson:"alert_options" json:"alert_options" yaml:"alert_options"`
 }
 
 type GrafanaAlert struct {

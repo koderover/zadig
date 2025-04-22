@@ -26,6 +26,8 @@ import (
 	"github.com/koderover/zadig/v2/pkg/types"
 )
 
+// TODO: alerts => alert_options
+
 type GrafanaJobController struct {
 	*BasicInfo
 
@@ -64,6 +66,27 @@ func (j GrafanaJobController) Validate(isExecution bool) error {
 		return e.ErrLicenseInvalid.AddDesc("")
 	}
 
+	latestJob, err := j.workflow.FindJob(j.name, j.jobType)
+	if err != nil {
+		return fmt.Errorf("failed to find job: %s in workflow %s's latest config, error: %s", j.name, j.workflow.Name, err)
+	}
+
+	currJobSpec := new(commonmodels.GrafanaJobSpec)
+	if err := commonmodels.IToi(latestJob.Spec, currJobSpec); err != nil {
+		return fmt.Errorf("failed to decode grafana job spec, error: %s", err)
+	}
+
+	availableOptions := make(map[string]*commonmodels.GrafanaAlert)
+	for _, availableOption := range currJobSpec.AlertOptions {
+		availableOptions[availableOption.ID] = availableOption
+	}
+
+	for _, selection := range j.jobSpec.Alerts {
+		if _, ok := availableOptions[selection.ID]; !ok {
+			return fmt.Errorf("unconfigured grafana rules: %s in the input", selection.Name)
+		}
+	}
+
 	return nil
 }
 
@@ -82,17 +105,7 @@ func (j GrafanaJobController) Update(useUserInput bool, ticket *commonmodels.App
 	j.jobSpec.Name = currJobSpec.Name
 	j.jobSpec.CheckTime = currJobSpec.CheckTime
 	j.jobSpec.CheckMode = currJobSpec.CheckMode
-	userConfiguredAlerts := make(map[string]*commonmodels.GrafanaAlert)
-	for _, userAlert := range j.jobSpec.Alerts {
-		userConfiguredAlerts[userAlert.ID] = userAlert
-	}
-	mergedAlerts := make([]*commonmodels.GrafanaAlert, 0)
-	for _, alert := range currJobSpec.Alerts {
-		if userConfiguredAlert, ok := userConfiguredAlerts[alert.ID]; ok {
-			mergedAlerts = append(mergedAlerts, userConfiguredAlert)
-		}
-	}
-	j.jobSpec.Alerts = mergedAlerts
+	j.jobSpec.AlertOptions = currJobSpec.AlertOptions
 
 	return nil
 }
