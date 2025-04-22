@@ -87,6 +87,7 @@ func (j UpdateEnvIstioConfigJobController) Update(useUserInput bool, ticket *com
 	j.jobSpec.Production = currJobSpec.Production
 	j.jobSpec.BaseEnv = currJobSpec.BaseEnv
 	j.jobSpec.Source = currJobSpec.Source
+	j.jobSpec.GrayscaleStrategy = currJobSpec.GrayscaleStrategy
 	if currJobSpec.Source == "fixed" {
 		j.jobSpec.WeightConfigs = currJobSpec.WeightConfigs
 		j.jobSpec.HeaderMatchConfigs = currJobSpec.HeaderMatchConfigs
