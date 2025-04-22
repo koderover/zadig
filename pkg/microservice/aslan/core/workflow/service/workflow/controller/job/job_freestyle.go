@@ -223,7 +223,7 @@ func (j FreestyleJobController) GetVariableList(jobName string, getAggregatedVar
 		if j.jobSpec.FreestyleJobType == config.NormalFreeStyleJobType {
 			for _, output := range j.jobSpec.AdvancedSetting.Outputs {
 				resp = append(resp, &commonmodels.KeyVal{
-					Key:          job.GetJobOutputKey(j.name, output.Name),
+					Key:          strings.Join([]string{"job", j.name, "output", output.Name}, "."), 
 					Value:        "",
 					Type:         "string",
 					IsCredential: false,
@@ -235,7 +235,7 @@ func (j FreestyleJobController) GetVariableList(jobName string, getAggregatedVar
 					if getServiceSpecificVariables {
 						jobKey := strings.Join([]string{j.name, svc.ServiceName, svc.ServiceModule}, ".")
 						resp = append(resp, &commonmodels.KeyVal{
-							Key:          job.GetJobOutputKey(jobKey, output.Name),
+							Key:          strings.Join([]string{"job", jobKey, "output", output.Name}, "."),
 							Value:        "",
 							Type:         "string",
 							IsCredential: false,
@@ -244,7 +244,7 @@ func (j FreestyleJobController) GetVariableList(jobName string, getAggregatedVar
 					if getPlaceHolderVariables {
 						jobKey := strings.Join([]string{j.name, "<SERVICE", "<MODULE>"}, ".")
 						resp = append(resp, &commonmodels.KeyVal{
-							Key:          job.GetJobOutputKey(jobKey, output.Name),
+							Key:          strings.Join([]string{"job", jobKey, "output", output.Name}, "."),
 							Value:        "",
 							Type:         "string",
 							IsCredential: false,
@@ -258,7 +258,7 @@ func (j FreestyleJobController) GetVariableList(jobName string, getAggregatedVar
 	}
 
 	if getPlaceHolderVariables {
-		jobKey := strings.Join([]string{j.name, "<SERVICE>", "<MODULE>"}, ".")
+		jobKey := strings.Join([]string{"job", j.name, "<SERVICE>", "<MODULE>"}, ".")
 
 		resp = append(resp, &commonmodels.KeyVal{
 			Key:          fmt.Sprintf("%s.%s", jobKey, "SERVICE_NAME"),
@@ -288,7 +288,7 @@ func (j FreestyleJobController) GetVariableList(jobName string, getAggregatedVar
 
 	if getServiceSpecificVariables {
 		for _, svc := range j.jobSpec.Services {
-			jobKey := strings.Join([]string{j.name, svc.ServiceName, svc.ServiceModule}, ".")
+			jobKey := strings.Join([]string{"job", j.name, svc.ServiceName, svc.ServiceModule}, ".")
 
 			resp = append(resp, &commonmodels.KeyVal{
 				Key:          fmt.Sprintf("%s.%s", jobKey, "SERVICE_NAME"),

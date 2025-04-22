@@ -746,7 +746,7 @@ func (j BuildJobController) GetVariableList(jobName string, getAggregatedVariabl
 			for _, output := range ensureBuiltInBuildOutputs(buildInfo.Outputs) {
 				if getServiceSpecificVariables {
 					resp = append(resp, &commonmodels.KeyVal{
-						Key:          job.GetJobOutputKey(jobKey, output.Name),
+						Key:          strings.Join([]string{"job", jobKey, "output", output.Name}, "."),
 						Value:        "",
 						Type:         "string",
 						IsCredential: false,
@@ -759,7 +759,7 @@ func (j BuildJobController) GetVariableList(jobName string, getAggregatedVariabl
 			jobKey := strings.Join([]string{j.name, "<SERVICE>", "<MODULE>"}, ".")
 			for _, key := range outputKeys.List() {
 				resp = append(resp, &commonmodels.KeyVal{
-					Key:          job.GetJobOutputKey(jobKey, key),
+					Key:          strings.Join([]string{"job", jobKey, "output", key}, "."),
 					Value:        "",
 					Type:         "string",
 					IsCredential: false,
@@ -822,7 +822,7 @@ func (j BuildJobController) GetVariableList(jobName string, getAggregatedVariabl
 
 			for _, key := range keySet.List() {
 				resp = append(resp, &commonmodels.KeyVal{
-					Key:          job.GetJobOutputKey(jobKey, key),
+					Key:          strings.Join([]string{jobKey, "output", key}, "."),
 					Value:        "",
 					Type:         "string",
 					IsCredential: false,
