@@ -167,7 +167,7 @@ func OpenAPIGetTestTaskResult(taskID int64, productName, testName string, logger
 	}
 
 	if workflowTask.Status == config.StatusPassed {
-		testResultList, err := commonrepo.NewCustomWorkflowTestReportColl().ListByWorkflow(workflowName, testName, taskID)
+		testResultList, err := commonrepo.NewCustomWorkflowTestReportColl().ListByWorkflowJobName(workflowName, testName, taskID)
 		if err != nil {
 			logger.Errorf("failed to list junit test report for workflow: %s, error: %s", workflowName, err)
 			return nil, fmt.Errorf("failed to list junit test report for workflow: %s, error: %s", workflowName, err)

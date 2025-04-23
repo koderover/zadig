@@ -35,6 +35,7 @@ import (
 	configbase "github.com/koderover/zadig/v2/pkg/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
+	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	larkservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/lark"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/webhooknotify"
@@ -615,6 +616,15 @@ func (w *Service) getNotificationContent(notify *models.NotifyCtl, task *models.
 					ServiceModules: serviceModules,
 				}
 				workflowNotifyJob.Spec = workflowNotifyJobTaskSpec
+			case string(config.JobZadigTesting):
+				testResult, err := genTestResultText(task.WorkflowName, job.Name, task.TaskID)
+				if err != nil {
+					log.Errorf("genTestResultText err:%s", err)
+					return "", "", nil, nil, fmt.Errorf("genTestResultText err:%s", err)
+				}
+
+				jobTplcontent += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**测试结果**：\n%s  \n", testResult)
+				mailJobTplcontent += fmt.Sprintf("测试结果：%s \n", testResult)
 			}
 			jobNotifaication := &jobTaskNotification{
 				Job:         job,
@@ -904,6 +914,23 @@ func getJobTaskTplExec(tplcontent string, args *jobTaskNotification) (string, er
 
 	}
 	return buffer.String(), nil
+}
+
+func genTestResultText(workflowName, jobTaskName string, taskID int64) (string, error) {
+	testResultList, err := commonrepo.NewCustomWorkflowTestReportColl().ListByWorkflowJobTaskName(workflowName, jobTaskName, taskID)
+	if err != nil {
+		log.Errorf("failed to list junit test report for workflow: %s, error: %s", workflowName, err)
+		return "", fmt.Errorf("failed to list junit test report for workflow: %s, error: %s", workflowName, err)
+	}
+
+	result := ""
+	for _, report := range testResultList {
+		totalNum := report.TestCaseNum
+		failedNum := report.FailedCaseNum
+		successNum := report.SuccessCaseNum
+		result += fmt.Sprintf("%d(成功)%d(失败)%d(总数) \n", successNum, failedNum, totalNum)
+	}
+	return result, nil
 }
 
 func (w *Service) sendNotification(title, content string, notify *models.NotifyCtl, card *LarkCard, webhookNotify *webhooknotify.WorkflowNotify, taskStatus config.Status) error {

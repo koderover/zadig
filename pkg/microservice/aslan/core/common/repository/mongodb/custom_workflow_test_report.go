@@ -74,13 +74,31 @@ func (c *CustomWorkflowTestReportColl) Create(args *models.CustomWorkflowTestRep
 	return err
 }
 
-func (c *CustomWorkflowTestReportColl) ListByWorkflow(workflowName, jobName string, taskID int64) ([]*models.CustomWorkflowTestReport, error) {
+func (c *CustomWorkflowTestReportColl) ListByWorkflowJobName(workflowName, jobName string, taskID int64) ([]*models.CustomWorkflowTestReport, error) {
 	resp := make([]*models.CustomWorkflowTestReport, 0)
 	jobName = strings.ToLower(jobName)
 
 	query := bson.M{
 		"workflow_name": workflowName,
 		"job_name":      jobName,
+		"task_id":       taskID,
+	}
+
+	cursor, err := c.Collection.Find(context.TODO(), query)
+	if err != nil {
+		return nil, err
+	}
+	err = cursor.All(context.TODO(), &resp)
+	return resp, err
+}
+
+func (c *CustomWorkflowTestReportColl) ListByWorkflowJobTaskName(workflowName, jobTaskName string, taskID int64) ([]*models.CustomWorkflowTestReport, error) {
+	resp := make([]*models.CustomWorkflowTestReport, 0)
+	jobTaskName = strings.ToLower(jobTaskName)
+
+	query := bson.M{
+		"workflow_name": workflowName,
+		"job_task_name": jobTaskName,
 		"task_id":       taskID,
 	}
 
