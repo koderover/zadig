@@ -19,7 +19,7 @@ require (
 	github.com/aws/aws-sdk-go v1.44.99
 	github.com/blang/semver/v4 v4.0.0
 	github.com/bradleyfalzon/ghinstallation v1.1.1
-	github.com/buraksezer/consistent v0.9.0
+	github.com/buraksezer/consistent v0.10.0
 	github.com/cenkalti/backoff/v4 v4.2.1
 	github.com/cespare/xxhash v1.1.0
 	github.com/chartmuseum/helm-push v0.10.2

@@ -17,6 +17,7 @@ limitations under the License.
 package service
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -25,20 +26,60 @@ import (
 	"sync"
 	"time"
 
+	"github.com/buraksezer/consistent"
+	"github.com/cespare/xxhash"
 	"github.com/gorilla/mux"
+	"github.com/redis/go-redis/v9"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/proxy"
-	"k8s.io/apimachinery/pkg/util/wait"
 
-	"github.com/koderover/zadig/v2/pkg/microservice/hubserver/config"
+	"github.com/koderover/zadig/v2/pkg/config"
+	hubconfig "github.com/koderover/zadig/v2/pkg/microservice/hubserver/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/hubserver/core/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/hubserver/core/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/setting"
+	"github.com/koderover/zadig/v2/pkg/shared/kube/wrapper"
+	"github.com/koderover/zadig/v2/pkg/tool/cache"
+	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	"github.com/koderover/zadig/v2/pkg/tool/crypto"
+	"github.com/koderover/zadig/v2/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/tool/remotedialer"
 )
 
-var clusters sync.Map
+const (
+	clustersKey = "hubserver_clusters"
+)
+
+type Member string
+
+func (m Member) String() string {
+	return string(m)
+}
+
+type hasher struct{}
+
+func (h hasher) Sum64(data []byte) uint64 {
+	return xxhash.Sum64(data)
+}
+
+var (
+	consistentHash *consistent.Consistent
+	hashMutex      sync.RWMutex
+	redisCache     *cache.RedisCache
+
+	cfg = consistent.Config{
+		PartitionCount:    7,
+		ReplicationFactor: 20,
+		Load:              1.25,
+		Hasher:            hasher{},
+	}
+)
+
+func init() {
+	consistentHash = consistent.New(nil, cfg)
+	redisCache = cache.NewRedisCache(config.RedisCommonCacheTokenDB())
+}
 
 func Authorize(req *http.Request) (clientKey string, authed bool, err error) {
 	log := log.SugaredLogger()
@@ -80,8 +121,12 @@ func Authorize(req *http.Request) (clientKey string, authed bool, err error) {
 
 	input.Cluster.ClusterID = cluster.ID.Hex()
 	input.Cluster.Joined = time.Now()
+	input.Cluster.PodIP = config.PodIP()
 
-	clusters.Store(cluster.ID.Hex(), input.Cluster)
+	cluster, err = SetClusterInfo(input.Cluster, cluster)
+	if err != nil {
+		return "", false, err
+	}
 
 	cluster.Status = "normal"
 	cluster.LastConnectionTime = time.Now().Unix()
@@ -108,6 +153,7 @@ func Disconnect(server *remotedialer.Server, w http.ResponseWriter, r *http.Requ
 	}()
 
 	if err = mongodb.NewK8sClusterColl().UpdateConnectState(clientKey, true); err != nil {
+		log.Errorf("failed to update connect state %s %v", clientKey, err)
 		return
 	}
 
@@ -137,13 +183,14 @@ func Restore(w http.ResponseWriter, r *http.Request) {
 }
 
 var (
-	er = &errorResponder{}
+	er = &ErrorResponder{}
 )
 
-type errorResponder struct {
+type ErrorResponder struct {
 }
 
-func (e *errorResponder) Error(w http.ResponseWriter, req *http.Request, err error) {
+func (e *ErrorResponder) Error(w http.ResponseWriter, req *http.Request, err error) {
+	// log.Errorf("respond error: %v", err)
 	w.WriteHeader(http.StatusInternalServerError)
 	_, _ = w.Write([]byte(err.Error()))
 }
@@ -155,7 +202,7 @@ func Forward(server *remotedialer.Server, w http.ResponseWriter, r *http.Request
 	clientKey := vars["id"]
 	path := vars["path"]
 
-	logger.Debugf("got forward request %s %s", clientKey, path)
+	// logger.Debugf("got forward request %s %s", clientKey, path)
 
 	var (
 		err        error
@@ -169,33 +216,13 @@ func Forward(server *remotedialer.Server, w http.ResponseWriter, r *http.Request
 		}
 	}()
 
-	//_, err = mongodb.NewK8sClusterColl().Get(clientKey)
-	//if err != nil {
-	//	return
-	//}
-
-	clusterInfo, exists := clusters.Load(clientKey)
-	if !server.HasSession(clientKey) || !exists {
-		for i := 0; i < 4; i++ {
-			log.Infof("stuck waiting for connection index:%d", i)
-			if server.HasSession(clientKey) && exists {
-				log.Infof("succeeded waiting for connection index:%d", i)
-				break
-			}
-			time.Sleep(wait.Jitter(3*time.Second, 2))
-			clusterInfo, exists = clusters.Load(clientKey)
-		}
-	}
-
-	if !server.HasSession(clientKey) || !exists {
-		errHandled = true
-		logger.Infof("waiting for cluster %s to connect", clientKey)
-		w.WriteHeader(http.StatusNotFound)
+	cluster, found, err := GetClusterInfo(clientKey)
+	if err != nil {
+		log.Errorf("failed to get cluster info: %v", err)
 		return
 	}
 
-	cluster, ok := clusterInfo.(*ClusterInfo)
-	if !ok {
+	if !found {
 		errHandled = true
 		logger.Infof("waiting for cluster %s to connect", clientKey)
 		w.WriteHeader(http.StatusNotFound)
@@ -220,8 +247,8 @@ func Forward(server *remotedialer.Server, w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	httpProxy := proxy.NewUpgradeAwareHandler(endpoint, transport, true, false, er)
-	httpProxy.ServeHTTP(w, r)
+	proxy := proxy.NewUpgradeAwareHandler(endpoint, transport, false, false, er)
+	proxy.ServeHTTP(w, r)
 }
 
 func Reset() {
@@ -237,8 +264,8 @@ func Reset() {
 		if cluster.Type == setting.KubeConfigClusterType {
 			continue
 		}
-		if cluster.Status == config.Normal && !cluster.Local {
-			cluster.Status = config.Abnormal
+		if cluster.Status == hubconfig.Normal && !cluster.Local {
+			cluster.Status = hubconfig.Abnormal
 			err := mongodb.NewK8sClusterColl().UpdateStatus(cluster)
 			if err != nil {
 				log.Errorf("failed to update clusters status %s %v", cluster.Name, err)
@@ -257,7 +284,7 @@ func Sync(server *remotedialer.Server, stopCh <-chan struct{}) {
 			func() {
 				clusterInfos, err := mongodb.NewK8sClusterColl().FindConnectedClusters()
 				if err != nil {
-					log.Errorf("failed to list clusters %v", clusters)
+					log.Errorf("failed to list clusters, err %v", err)
 					return
 				}
 
@@ -266,26 +293,53 @@ func Sync(server *remotedialer.Server, stopCh <-chan struct{}) {
 						continue
 					}
 					statusChanged := false
-					if _, ok := clusters.Load(cluster.ID.Hex()); ok && server.HasSession(cluster.ID.Hex()) {
-						if cluster.Status != config.Normal {
-							log.Infof(
-								"cluster %s connected changed %s => %s",
-								cluster.Name, cluster.Status, config.Normal,
-							)
-							cluster.LastConnectionTime = time.Now().Unix()
-							cluster.Status = config.Normal
-							statusChanged = true
+
+					// 获取集群信息
+					clusterInfoStr, err := redisCache.HGetString(clustersKey, cluster.ID.Hex())
+					if err != nil {
+						if err == redis.Nil {
+							continue
 						}
-					} else {
-						if cluster.Status == config.Normal && !cluster.Local {
-							log.Infof(
-								"cluster %s disconnected changed %s => %s",
-								cluster.Name, cluster.Status, config.Abnormal,
-							)
-							cluster.Status = config.Abnormal
-							statusChanged = true
+						log.Errorf("Failed to get cluster info: %v", err)
+						continue
+					}
+
+					var clusterInfo ClusterInfo
+					err = json.Unmarshal([]byte(clusterInfoStr), &clusterInfo)
+					if err != nil {
+						log.Errorf("Failed to unmarshal cluster info: %v", err)
+						continue
+					}
+
+					// 检查 Pod IP 是否与当前 IP 匹配
+					if clusterInfo.PodIP == config.PodIP() {
+						exists, err := redisCache.HEXISTS(clustersKey, cluster.ID.Hex())
+						if err != nil {
+							log.Errorf("Failed to check cluster existence: %v", err)
+							continue
+						}
+						if exists && server.HasSession(cluster.ID.Hex()) {
+							if cluster.Status != hubconfig.Normal {
+								log.Infof(
+									"cluster %s connected changed %s => %s",
+									cluster.Name, cluster.Status, hubconfig.Normal,
+								)
+								cluster.LastConnectionTime = time.Now().Unix()
+								cluster.Status = hubconfig.Normal
+								statusChanged = true
+							}
+						} else {
+							if cluster.Status == hubconfig.Normal && !cluster.Local {
+								log.Infof(
+									"cluster %s disconnected changed %s => %s",
+									cluster.Name, cluster.Status, hubconfig.Abnormal,
+								)
+								cluster.Status = hubconfig.Abnormal
+								statusChanged = true
+							}
 						}
 					}
+
 					if statusChanged {
 						err := mongodb.NewK8sClusterColl().UpdateStatus(cluster)
 						if err != nil {
@@ -305,11 +359,112 @@ func HasSession(handler *remotedialer.Server, w http.ResponseWriter, r *http.Req
 	clientKey := vars["id"]
 
 	if handler.HasSession(clientKey) {
-		if _, ok := clusters.Load(clientKey); ok {
+		exists, err := redisCache.HEXISTS(clustersKey, clientKey)
+		if err != nil {
+			log.Errorf("Failed to check cluster existence: %v", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		if exists {
 			w.WriteHeader(http.StatusOK)
 			return
 		}
 	}
 
 	w.WriteHeader(http.StatusNotFound)
+}
+
+func CheckReplicas(ctx context.Context, handler *remotedialer.Server) error {
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		default:
+			informer, err := clientmanager.NewKubeClientManager().GetInformer(setting.LocalClusterID, config.Namespace())
+			if err != nil {
+				return fmt.Errorf("failed to get informer: %v", err)
+			}
+
+			selector := labels.SelectorFromSet(labels.Set{
+				"app.kubernetes.io/component": "hub-server",
+				"app.kubernetes.io/name":      "zadig",
+			})
+			pods, err := getter.ListPodsWithCache(selector, informer)
+			if err != nil {
+				return fmt.Errorf("failed to list pods: %v", err)
+			}
+
+			ips := make([]string, 0)
+			for _, pod := range pods {
+				if wrapper.Pod(pod).Ready() {
+					ips = append(ips, wrapper.Pod(pod).Status.PodIP)
+				}
+			}
+
+			// 获取当前一致性哈希中的节点
+			hashMutex.RLock()
+			currentMembers := make(map[string]struct{})
+			for _, member := range consistentHash.GetMembers() {
+				currentMembers[member.String()] = struct{}{}
+			}
+
+			// 检查是否有变化
+			hasChange := false
+			newIPs := make(map[string]struct{})
+			for _, ip := range ips {
+				newIPs[ip] = struct{}{}
+				if _, exists := currentMembers[ip]; !exists {
+					hasChange = true
+				}
+			}
+
+			// 检查是否有节点被删除
+			for member := range currentMembers {
+				if _, exists := newIPs[member]; !exists {
+					hasChange = true
+				}
+			}
+			hashMutex.RUnlock()
+
+			// 只在有变化时更新一致性哈希
+			if hasChange {
+				hashMutex.Lock()
+
+				old := &consistent.Consistent{}
+				if len(consistentHash.GetMembers()) > 0 {
+					old = consistent.New(consistentHash.GetMembers(), cfg)
+				}
+
+				// 清空现有节点
+				for _, member := range consistentHash.GetMembers() {
+					consistentHash.Remove(member.String())
+				}
+				// 添加新节点
+				for _, ip := range ips {
+					consistentHash.Add(Member(ip))
+				}
+
+				log.Infof("Updated consistent hash ring with new IPs: %v", ips)
+
+				disconnectClusters := handler.CleanSessions(old, consistentHash)
+				for _, cluster := range disconnectClusters {
+					DeleteClusterInfo(cluster)
+				}
+
+				hashMutex.Unlock()
+			}
+
+			time.Sleep(1 * time.Second)
+		}
+	}
+}
+
+func GetNodeByKey(key string) string {
+	hashMutex.RLock()
+	defer hashMutex.RUnlock()
+	member := consistentHash.LocateKey([]byte(key))
+	if member == nil {
+		return ""
+	}
+	return member.String()
 }

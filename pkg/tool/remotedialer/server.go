@@ -24,6 +24,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/buraksezer/consistent"
 	"github.com/gorilla/websocket"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/pkg/errors"
@@ -45,6 +46,22 @@ func DefaultErrorWriter(rw http.ResponseWriter, req *http.Request, code int, err
 	}
 }
 
+type ConnectRequestInfo struct {
+	Method      string              `json:"method"`
+	URL         string              `json:"url"`
+	RemoteAddr  string              `json:"remoteAddr"`
+	ClientKey   string              `json:"clientKey"`
+	Timestamp   time.Time           `json:"timestamp"`
+	Host        string              `json:"host"`
+	UserAgent   string              `json:"userAgent"`
+	Referer     string              `json:"referer"`
+	Protocol    string              `json:"protocol"`
+	Peer        bool                `json:"peer"`
+	Header      map[string][]string `json:"headerKeys"`
+	ContentType string              `json:"contentType"`
+	ContentLen  int64               `json:"contentLen"`
+}
+
 type Server struct {
 	PeerID                  string
 	PeerToken               string
@@ -58,15 +75,18 @@ type Server struct {
 	caCert        string
 	httpTransport *http.Transport
 
+	cleanFunc func(clientKey string) error
+
 	sync.Mutex
 }
 
-func New(auth Authorizer, errorWriter ErrorWriter) *Server {
+func New(auth Authorizer, errorWriter ErrorWriter, cleanFunc func(clientKey string) error) *Server {
 	return &Server{
 		peers:       map[string]peer{},
 		authorizer:  auth,
 		errorWriter: errorWriter,
 		sessions:    newSessionManager(),
+		cleanFunc:   cleanFunc,
 	}
 }
 
@@ -102,8 +122,20 @@ func (s *Server) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	code, err := session.Serve(req.Context())
 	if err != nil {
 		// Hijacked so we can't write to the client
-		log.Infof("error in remotedialer server [%d]: %v", code, err)
+		log.Errorf("error in remotedialer server [%d]: %v", code, err)
 	}
+
+	// if s.cleanFunc != nil {
+	// 	err := s.cleanFunc(clientKey)
+	// 	if err != nil {
+	// 		log.Errorf("Failed to clean session for client %s: %v", clientKey, err)
+	// 	} else {
+	// 		log.Infof("Successfully cleaned session for client %s", clientKey)
+	// 	}
+	// }
+
+	session.CloseImmediately()
+	log.Debugf("Close session %s", clientKey)
 }
 
 func (s *Server) auth(req *http.Request) (clientKey string, authed, peer bool, err error) {
@@ -125,7 +157,6 @@ func (s *Server) auth(req *http.Request) (clientKey string, authed, peer bool, e
 }
 
 func (r *Server) GetTransport(clusterCaCert string, clientKey string) (http.RoundTripper, error) {
-
 	r.Lock()
 	defer r.Unlock()
 
@@ -157,7 +188,46 @@ func (r *Server) GetTransport(clusterCaCert string, clientKey string) (http.Roun
 }
 
 func (s *Server) Disconnect(clientKey string) {
+	log.Debugf("Disconnect session %s", clientKey)
+
 	for _, session := range s.sessions.clients[clientKey] {
 		session.CloseImmediately()
+		// s.sessions.remove(session)
 	}
+}
+
+func (s *Server) CleanSessions(old, new *consistent.Consistent) []string {
+	disconnectClusters := []string{}
+
+	if old == nil {
+		return disconnectClusters
+	}
+
+	s.sessions.Lock()
+	defer s.sessions.Unlock()
+
+	// for clientID, sessions := range s.sessions.peers {
+	// 	oldMember := old.LocateKey([]byte(clientID))
+	// 	newMember := new.LocateKey([]byte(clientID))
+	// 	if oldMember.String() != newMember.String() {
+	// 		for _, session := range sessions {
+	// 			s.sessions.remove(session)
+	// 		}
+
+	// 		log.Infof("Disconnect peer %s due to consistent hash change", clientID)
+	// 		disconnectClusters = append(disconnectClusters, clientID)
+	// 	}
+	// }
+	for clientID := range s.sessions.clients {
+		oldMember := old.LocateKey([]byte(clientID))
+		newMember := new.LocateKey([]byte(clientID))
+
+		if oldMember.String() != newMember.String() {
+			log.Infof("Disconnect client %s due to consistent hash change", clientID)
+			s.Disconnect(clientID)
+			disconnectClusters = append(disconnectClusters, clientID)
+		}
+	}
+
+	return disconnectClusters
 }
