@@ -253,6 +253,20 @@ func (j ScanningJobController) GetVariableList(jobName string, getAggregatedVari
 		// No aggregated variables
 	}
 
+	if j.jobSpec.ScanningType == config.NormalScanningType || j.jobSpec.ScanningType == "" {
+		for _, scan := range j.jobSpec.ScanningOptions {
+			jobKey := strings.Join([]string{j.name, scan.Name}, ".")
+			for _, kv := range scan.KeyVals {
+				resp = append(resp, &commonmodels.KeyVal{
+					Key:          strings.Join([]string{"job", jobKey, kv.Key}, "."),
+					Value:        kv.GetValue(),
+					Type:         "string",
+					IsCredential: false,
+				})
+			}
+		}
+	}
+
 	if getRuntimeVariables {
 		scanningNames := []string{}
 		if j.jobSpec.ScanningType == config.NormalScanningType {
@@ -309,7 +323,6 @@ func (j ScanningJobController) GetVariableList(jobName string, getAggregatedVari
 					})
 				}
 			}
-	
 		}
 	}
 
