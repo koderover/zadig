@@ -135,7 +135,6 @@ func (j ScanningJobController) Update(useUserInput bool, ticket *commonmodels.Ap
 		}
 		j.jobSpec.ServiceAndScannings = newSelectedService
 	default:
-		configuredScanningMap := make(map[string]*commonmodels.ScanningModule)
 		for _, configuredScanning := range j.jobSpec.ScanningOptions {
 			scanInfo, err := scanSvc.GetByName(j.workflow.Project, configuredScanning.Name)
 			if err != nil {
@@ -143,17 +142,27 @@ func (j ScanningJobController) Update(useUserInput bool, ticket *commonmodels.Ap
 			}
 			configuredScanning.KeyVals = applyKeyVals(scanInfo.Envs.ToRuntimeList(), configuredScanning.KeyVals, true)
 			configuredScanning.Repos = applyRepos(scanInfo.Repos, configuredScanning.Repos)
-			configuredScanningMap[configuredScanning.Name] = configuredScanning
 		}
 
+		userInputMap := make(map[string]*commonmodels.ScanningModule)
 		newSelectedScanning := make([]*commonmodels.ScanningModule, 0)
 		for _, scanning := range j.jobSpec.Scannings {
-			if _, ok := configuredScanningMap[scanning.Name]; !ok {
-				continue
+			userInputMap[scanning.Name] = scanning
+		}
+		
+		for _, option := range j.jobSpec.ScanningOptions {
+			item := &commonmodels.ScanningModule{
+				Name: option.Name,
+				ProjectName: option.ProjectName,
+				ShareStorageInfo: option.ShareStorageInfo,
+				KeyVals: option.KeyVals,
+				Repos: option.Repos,
 			}
-			scanning.KeyVals = applyKeyVals(configuredScanningMap[scanning.Name].KeyVals, scanning.KeyVals, false)
-			scanning.Repos = applyRepos(configuredScanningMap[scanning.Name].Repos, scanning.Repos)
-			newSelectedScanning = append(newSelectedScanning, scanning)
+			if input, ok := userInputMap[option.Name]; ok {
+				item.KeyVals = applyKeyVals(item.KeyVals, input.KeyVals, false)
+				item.Repos = applyRepos(item.Repos, input.Repos)
+			}
+			newSelectedScanning = append(newSelectedScanning, item)
 		}
 		j.jobSpec.Scannings = newSelectedScanning
 	}
@@ -239,10 +248,26 @@ func (j ScanningJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, er
 }
 
 func (j ScanningJobController) SetRepo(repo *types.Repository) error {
+	for _, scanning := range j.jobSpec.Scannings {
+		scanning.Repos = applyRepos(scanning.Repos, []*types.Repository{repo})
+	}
+	for _, serviceAndScaning := range j.jobSpec.ServiceAndScannings {
+		serviceAndScaning.Repos = applyRepos(serviceAndScaning.Repos, []*types.Repository{repo})
+	}
 	return nil
 }
 
 func (j ScanningJobController) SetRepoCommitInfo() error {
+	for _, scanning := range j.jobSpec.Scannings {
+		if err := setRepoInfo(scanning.Repos); err != nil {
+			return err
+		}
+	}
+	for _, serviceAndScaning := range j.jobSpec.ServiceAndScannings {
+		if err := setRepoInfo(serviceAndScaning.Repos); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -328,24 +353,23 @@ func (j ScanningJobController) GetVariableList(jobName string, getAggregatedVari
 
 	if getPlaceHolderVariables {
 		jobKey := strings.Join([]string{"job", j.name, "<SERVICE>", "<MODULE>"}, ".")
-		resp = append(resp, &commonmodels.KeyVal{
-			Key:          fmt.Sprintf("%s.%s", jobKey, "SERVICE_NAME"),
-			Value:        "",
-			Type:         "string",
-			IsCredential: false,
-		})
-
-		resp = append(resp, &commonmodels.KeyVal{
-			Key:          fmt.Sprintf("%s.%s", jobKey, "SERVICE_MODULE"),
-			Value:        "",
-			Type:         "string",
-			IsCredential: false,
-		})
-
 		if j.jobSpec.ScanningType == config.ServiceScanningType {
-			keySet := sets.NewString()
+			resp = append(resp, &commonmodels.KeyVal{
+				Key:          fmt.Sprintf("%s.%s", jobKey, "SERVICE_NAME"),
+				Value:        "",
+				Type:         "string",
+				IsCredential: false,
+			})
 
-			for _, service := range j.jobSpec.ServiceAndScannings {
+			resp = append(resp, &commonmodels.KeyVal{
+				Key:          fmt.Sprintf("%s.%s", jobKey, "SERVICE_MODULE"),
+				Value:        "",
+				Type:         "string",
+				IsCredential: false,
+			})
+
+			keySet := sets.NewString()
+			for _, service := range j.jobSpec.ServiceScanningOptions {
 				for _, keyVal := range service.KeyVals {
 					keySet.Insert(keyVal.Key)
 				}
@@ -395,7 +419,28 @@ func (j ScanningJobController) GetVariableList(jobName string, getAggregatedVari
 }
 
 func (j ScanningJobController) GetUsedRepos() ([]*types.Repository, error) {
-	return make([]*types.Repository, 0), nil
+	resp := make([]*types.Repository, 0)
+	if j.jobSpec.ScanningType == config.NormalScanningType || j.jobSpec.ScanningType == "" {
+		for _, scanning := range j.jobSpec.ScanningOptions {
+			scanningInfo, err := commonrepo.NewScanningColl().Find(j.workflow.Project, scanning.Name)
+			if err != nil {
+				log.Errorf("find scanning: %s error: %v", scanning.Name, err)
+				continue
+			}
+			resp = append(resp, applyRepos(scanningInfo.Repos, scanning.Repos)...)
+		}
+	} else if j.jobSpec.ScanningType == config.ServiceScanningType {
+		for _, scanning := range j.jobSpec.ServiceScanningOptions {
+			scanningInfo, err := commonrepo.NewScanningColl().Find(j.workflow.Project, scanning.Name)
+			if err != nil {
+				log.Errorf("find scanning: %s error: %v", scanning.Name, err)
+				continue
+			}
+			resp = append(resp, applyRepos(scanningInfo.Repos, scanning.Repos)...)
+		}
+	}
+	
+	return resp, nil
 }
 
 func (j ScanningJobController) RenderDynamicVariableOptions(key string, option *RenderDynamicVariableValue) ([]string, error) {

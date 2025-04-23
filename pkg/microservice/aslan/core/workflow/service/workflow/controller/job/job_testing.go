@@ -25,6 +25,7 @@ import (
 
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/rand"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	configbase "github.com/koderover/zadig/v2/pkg/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
@@ -135,7 +136,6 @@ func (j TestingJobController) Update(useUserInput bool, ticket *commonmodels.App
 		}
 		j.jobSpec.ServiceAndTests = newSelectedService
 	default:
-		configuredTestMap := make(map[string]*commonmodels.TestModule)
 		for _, configuredTesting := range j.jobSpec.TestModuleOptions {
 			testInfo, err := testSvc.GetByName("", configuredTesting.Name)
 			if err != nil {
@@ -143,17 +143,27 @@ func (j TestingJobController) Update(useUserInput bool, ticket *commonmodels.App
 			}
 			configuredTesting.KeyVals = applyKeyVals(testInfo.PreTest.Envs.ToRuntimeList(), configuredTesting.KeyVals, true)
 			configuredTesting.Repos = applyRepos(testInfo.Repos, configuredTesting.Repos)
-			configuredTestMap[configuredTesting.Name] = configuredTesting
 		}
 
+		userInputMap := make(map[string]*commonmodels.TestModule)
 		newSelectedTest := make([]*commonmodels.TestModule, 0)
 		for _, scanning := range j.jobSpec.TestModules {
-			if _, ok := configuredTestMap[scanning.Name]; !ok {
-				continue
+			userInputMap[scanning.Name] = scanning
+		}
+
+		for _, option := range j.jobSpec.TestModuleOptions {
+			item := &commonmodels.TestModule{
+				Name: option.Name,
+				ProjectName: option.ProjectName,
+				ShareStorageInfo: option.ShareStorageInfo,
+				KeyVals: option.KeyVals,
+				Repos: option.Repos,
 			}
-			scanning.KeyVals = applyKeyVals(configuredTestMap[scanning.Name].KeyVals, scanning.KeyVals, false)
-			scanning.Repos = applyRepos(configuredTestMap[scanning.Name].Repos, scanning.Repos)
-			newSelectedTest = append(newSelectedTest, scanning)
+			if input, ok := userInputMap[option.Name]; ok {
+				item.KeyVals = applyKeyVals(item.KeyVals, input.KeyVals, false)
+				item.Repos = applyRepos(item.Repos, input.Repos)
+			}
+			newSelectedTest = append(newSelectedTest, item)
 		}
 		j.jobSpec.TestModules = newSelectedTest
 	}
@@ -247,19 +257,198 @@ func (j TestingJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, err
 }
 
 func (j TestingJobController) SetRepo(repo *types.Repository) error {
+	for _, testing := range j.jobSpec.TestModules {
+		testing.Repos = applyRepos(testing.Repos, []*types.Repository{repo})
+	}
+	for _, serviceAndTest := range j.jobSpec.ServiceAndTests {
+		serviceAndTest.Repos = applyRepos(serviceAndTest.Repos, []*types.Repository{repo})
+	}
 	return nil
 }
 
 func (j TestingJobController) SetRepoCommitInfo() error {
+	for _, test := range j.jobSpec.TestModules {
+		if err := setRepoInfo(test.Repos); err != nil {
+			return err
+		}
+	}
+	for _, serviceAndTest := range j.jobSpec.ServiceAndTests {
+		if err := setRepoInfo(serviceAndTest.Repos); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
 func (j TestingJobController) GetVariableList(jobName string, getAggregatedVariables, getRuntimeVariables, getPlaceHolderVariables, getServiceSpecificVariables, getReferredKeyValVariables bool) ([]*commonmodels.KeyVal, error) {
-	return make([]*commonmodels.KeyVal, 0), nil
+	resp := make([]*commonmodels.KeyVal, 0)
+
+	if getAggregatedVariables {
+		// No aggregated variables
+	}
+
+	if j.jobSpec.TestType == config.ProductTestType || j.jobSpec.TestType == "" {
+		for _, test := range j.jobSpec.TestModuleOptions {
+			jobKey := strings.Join([]string{j.name, test.Name}, ".")
+			for _, kv := range test.KeyVals {
+				resp = append(resp, &commonmodels.KeyVal{
+					Key:          strings.Join([]string{"job", jobKey, kv.Key}, "."),
+					Value:        kv.GetValue(),
+					Type:         "string",
+					IsCredential: false,
+				})
+			}
+		}
+	}
+
+	if getRuntimeVariables {
+		testNames := make([]string, 0)
+		if j.jobSpec.TestType == config.ProductTestType {
+			for _, scanning := range j.jobSpec.TestModuleOptions {
+				testNames = append(testNames, scanning.Name)
+			}
+		} else if j.jobSpec.TestType == config.ServiceTestType {
+			for _, scanning := range j.jobSpec.ServiceTestOptions {
+				testNames = append(testNames, scanning.Name)
+			}
+		}
+		testingInfos, err := commonrepo.NewTestingColl().List(&commonrepo.ListTestOption{TestNames: testNames})
+		if err != nil {
+			log.Errorf("list testinfos error: %v", err)
+			return nil, err
+		}
+		for _, testInfo := range testingInfos {
+			if j.jobSpec.TestType == config.ServiceTestType {
+				if getPlaceHolderVariables {
+					jobKey := strings.Join([]string{j.name, testInfo.Name, "<SERVICE>", "<MODULE>"}, ".")
+					for _, output := range testInfo.Outputs {
+						resp = append(resp,  &commonmodels.KeyVal{
+							Key:          strings.Join([]string{"job", jobKey, "output", output.Name}, "."),
+							Value:        "",
+							Type:         "string",
+							IsCredential: false,
+						})
+					}
+				}
+				if getServiceSpecificVariables {
+					for _, test := range j.jobSpec.ServiceTestOptions {
+						if testInfo.Name != test.Name {
+							continue
+						}
+						jobKey := strings.Join([]string{j.name, testInfo.Name, test.ServiceName, test.ServiceModule}, ".")
+						for _, output := range testInfo.Outputs {
+							resp = append(resp,  &commonmodels.KeyVal{
+								Key:          strings.Join([]string{"job", jobKey, "output", output.Name}, "."),
+								Value:        "",
+								Type:         "string",
+								IsCredential: false,
+							})
+						}
+					}
+				}
+			} else {
+				jobKey := strings.Join([]string{j.name, testInfo.Name}, ".")
+				for _, output := range testInfo.Outputs {
+					resp = append(resp, &commonmodels.KeyVal{
+						Key:          strings.Join([]string{"job", jobKey, "output", output.Name}, "."),
+						Value:        "",
+						Type:         "string",
+						IsCredential: false,
+					})
+				}
+			}
+		}
+	}
+
+	if getPlaceHolderVariables {
+		jobKey := strings.Join([]string{"job", j.name, "<SERVICE>", "<MODULE>"}, ".")
+		if j.jobSpec.TestType == config.ServiceTestType {
+			resp = append(resp, &commonmodels.KeyVal{
+				Key:          fmt.Sprintf("%s.%s", jobKey, "SERVICE_NAME"),
+				Value:        "",
+				Type:         "string",
+				IsCredential: false,
+			})
+
+			resp = append(resp, &commonmodels.KeyVal{
+				Key:          fmt.Sprintf("%s.%s", jobKey, "SERVICE_MODULE"),
+				Value:        "",
+				Type:         "string",
+				IsCredential: false,
+			})
+
+			keySet := sets.NewString()
+			for _, service := range j.jobSpec.ServiceTestOptions {
+				for _, keyVal := range service.KeyVals {
+					keySet.Insert(keyVal.Key)
+				}
+			}
+
+			for _, key := range keySet.List() {
+				resp = append(resp, &commonmodels.KeyVal{
+					Key:          strings.Join([]string{jobKey, key}, "."),
+					Value:        "",
+					Type:         "string",
+					IsCredential: false,
+				})
+			}
+		}
+	}
+
+	if getServiceSpecificVariables {
+		for _, service := range j.jobSpec.ServiceTestOptions {
+			jobKey := strings.Join([]string{"job", j.name, service.ServiceName, service.ServiceModule}, ".")
+			for _, keyVal := range service.KeyVals {
+				resp = append(resp, &commonmodels.KeyVal{
+					Key:          fmt.Sprintf("%s.%s", jobKey, keyVal.Key),
+					Value:        keyVal.GetValue(),
+					Type:         "string",
+					IsCredential: false,
+				})
+			}
+
+			resp = append(resp, &commonmodels.KeyVal{
+				Key:          fmt.Sprintf("%s.%s", jobKey, "SERVICE_NAME"),
+				Value:        service.ServiceName,
+				Type:         "string",
+				IsCredential: false,
+			})
+
+			resp = append(resp, &commonmodels.KeyVal{
+				Key:          fmt.Sprintf("%s.%s", jobKey, "SERVICE_MODULE"),
+				Value:        service.ServiceModule,
+				Type:         "string",
+				IsCredential: false,
+			})
+		}
+	}
+
+	return resp, nil
 }
 
 func (j TestingJobController) GetUsedRepos() ([]*types.Repository, error) {
-	return make([]*types.Repository, 0), nil
+	resp := make([]*types.Repository, 0)
+	if j.jobSpec.TestType == config.ProductTestType || j.jobSpec.TestType == "" {
+		for _, test := range j.jobSpec.TestModuleOptions {
+			testingInfo, err := commonrepo.NewTestingColl().Find(test.Name, "")
+			if err != nil {
+				log.Errorf("find testing: %s error: %v", test.Name, err)
+				continue
+			}
+			resp = append(resp, applyRepos(testingInfo.Repos, test.Repos)...)
+		}
+	} else if j.jobSpec.TestType == config.ServiceTestType {
+		for _, test := range j.jobSpec.ServiceTestOptions {
+			testingInfo, err := commonrepo.NewTestingColl().Find(test.Name, "")
+			if err != nil {
+				log.Errorf("find testing: %s error: %v", test.Name, err)
+				continue
+			}
+			resp = append(resp, applyRepos(testingInfo.Repos, test.Repos)...)
+		}
+	}
+	
+	return resp, nil
 }
 
 func (j TestingJobController) RenderDynamicVariableOptions(key string, option *RenderDynamicVariableValue) ([]string, error) {

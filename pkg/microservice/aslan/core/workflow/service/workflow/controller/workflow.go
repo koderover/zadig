@@ -50,6 +50,10 @@ func CreateWorkflowController(wf *commonmodels.WorkflowV4) *Workflow {
 func (w *Workflow) SetPreset(ticket *commonmodels.ApprovalTicket) error {
 	for _, stage := range w.Stages {
 		for _, job := range stage.Jobs {
+			if job.RunPolicy == config.DefaultNotRun {
+				job.Skipped = true
+			}
+			
 			ctrl, err := jobctrl.CreateJobController(job, w.WorkflowV4)
 			if err != nil {
 				return err
