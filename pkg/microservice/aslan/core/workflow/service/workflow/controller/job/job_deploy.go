@@ -200,7 +200,14 @@ func (j DeployJobController) Update(useUserInput bool, ticket *commonmodels.Appr
 	envDeployInfo, err := generateDeployInfoForEnv(j.jobSpec.Env, j.workflow.Project, j.jobSpec.Production, j.jobSpec.ServiceVariableConfig, ticket)
 	if err != nil {
 		log.Errorf("failed to generate service deployment info for env: %s, error: %s", j.jobSpec.Env, err)
-		return err
+		if latestSpec.EnvSource == config.ParamSourceFixed {
+			return err
+		} else {
+			// if the source is not fixed, then we don't return error if we can't find env information for deployment, just remove the configured default env.
+			j.jobSpec.Env = ""
+			j.jobSpec.Services = make([]*commonmodels.DeployServiceInfo, 0)
+			return nil
+		}
 	}
 
 	envDeployableServiceMap := make(map[string]*commonmodels.DeployOptionInfo)
@@ -260,6 +267,8 @@ func (j DeployJobController) Update(useUserInput bool, ticket *commonmodels.Appr
 	return nil
 }
 
+// SetOptions sets options for all the possible envs, there is a special case:
+// it will update the env's option/ service's option based on the user's setting on whether they update the config
 func (j DeployJobController) SetOptions(ticket *commonmodels.ApprovalTicket) error {
 	envOptions := make([]*commonmodels.ZadigDeployEnvInformation, 0)
 
@@ -300,6 +309,65 @@ func (j DeployJobController) SetOptions(ticket *commonmodels.ApprovalTicket) err
 			}
 
 			envOptions = append(envOptions, envInfo)
+		}
+	}
+
+	for _, env := range envOptions {
+		if env.Env == j.jobSpec.Env {
+			userConfiguredSvc := make(map[string]*commonmodels.DeployServiceInfo)
+			for _, svc := range j.jobSpec.Services {
+				userConfiguredSvc[svc.ServiceName] = svc
+			}
+
+			for _, svc := range env.Services {
+				if inputSvc, ok :=  userConfiguredSvc[svc.ServiceName]; ok {
+					// if the user wants to update config/variables do the merge variables logic, otherwise do nothing just add it to the user's selection
+					if !(slices.Contains(j.jobSpec.DeployContents, config.DeployImage) && len(j.jobSpec.DeployContents) == 1) {
+						// merge the kv based on user's selection weather config should be updated
+						userKVMap := make(map[string]*commontypes.RenderVariableKV)
+						for _, userKV := range inputSvc.VariableKVs {
+							userKVMap[userKV.Key] = userKV
+						}
+						newUserKV := make([]*commontypes.RenderVariableKV, 0)
+
+						var variableInfo *commonmodels.DeployVariableInfo
+						if inputSvc.UpdateConfig {
+							variableInfo = svc.ServiceVariable
+						} else {
+							variableInfo = svc.EnvVariable
+						}
+
+						// there is a case where the service is not yet deployed into the env
+						if variableInfo != nil {
+							for _, kv := range variableInfo.VariableKVs {
+								updatedKV := &commontypes.RenderVariableKV{
+									ServiceVariableKV: kv.ServiceVariableKV,
+									UseGlobalVariable: kv.UseGlobalVariable,
+								}
+								if userKV, ok := userKVMap[kv.Key]; ok {
+									if !kv.UseGlobalVariable {
+										updatedKV.Value = userKV.Value
+									}
+								}
+								newUserKV = append(newUserKV, updatedKV)
+							}
+
+							mergedValues, err := helmtool.MergeOverrideValues("", variableInfo.VariableYaml, inputSvc.VariableYaml, "", make([]*helmtool.KV, 0))
+							if err != nil {
+								return fmt.Errorf("failed to merge helm values, error: %s", err)
+							}
+
+							if inputSvc.UpdateConfig {
+								svc.ServiceVariable.VariableKVs = newUserKV
+								svc.ServiceVariable.VariableYaml = mergedValues
+							} else {
+								svc.EnvVariable.VariableKVs = newUserKV
+								svc.EnvVariable.VariableYaml = mergedValues
+							}
+						}
+					}
+				}
+			}
 		}
 	}
 
@@ -598,7 +666,7 @@ func (j DeployJobController) SetRepoCommitInfo() error {
 
 func (j DeployJobController) GetVariableList(jobName string, getAggregatedVariables, getRuntimeVariables, getPlaceHolderVariables, getServiceSpecificVariables, getReferredKeyValVariables bool) ([]*commonmodels.KeyVal, error) {
 	resp := make([]*commonmodels.KeyVal, 0)
-	
+
 	resp = append(resp, &commonmodels.KeyVal{
 		Key:          job.GetJobOutputKey(j.name, "envName"),
 		Value:        "",
