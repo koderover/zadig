@@ -745,6 +745,36 @@ func (p *ZadigVMDeployJobInput) UpdateJobSpec(job *commonmodels.Job) (*commonmod
 	return job, nil
 }
 
+type SQLJobInput struct {
+	DatabaseName string `json:"database_name"`
+	SQL          string `json:"sql"`
+}
+
+func (p *SQLJobInput) UpdateJobSpec(job *commonmodels.Job) (*commonmodels.Job, error) {
+	newSpec := new(commonmodels.SQLJobSpec)
+	if err := commonmodels.IToi(job.Spec, newSpec); err != nil {
+		return nil, fmt.Errorf("failed to convert job.Spec to commonmodels.SQLJobSpec, err: %w", err)
+	}
+
+	if newSpec.Source == string(config.SourceRuntime) {
+		dbInstance, err := commonrepo.NewDBInstanceColl().Find(&commonrepo.DBInstanceCollFindOption{
+			Name: p.DatabaseName,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to find database instance %s, error: %w", p.DatabaseName, err)
+		}
+
+		newSpec.ID = dbInstance.ID.Hex()
+		newSpec.Type = dbInstance.Type
+	}
+
+	newSpec.SQL = p.SQL
+
+	job.Spec = newSpec
+
+	return job, nil
+}
+
 type GetHelmValuesDifferenceResp struct {
 	Current string `json:"current"`
 	Latest  string `json:"latest"`
