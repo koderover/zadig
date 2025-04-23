@@ -299,7 +299,7 @@ type CustomDeployJobSpec struct {
 	// unit is minute.
 	Timeout       int64            `bson:"timeout"                json:"timeout"               yaml:"timeout"`
 	Targets       []*DeployTargets `bson:"targets"                json:"targets"               yaml:"targets"`
-	TargetOptions []*DeployTargets `bson:"target_options"                      json:"target_options"        yaml:"target_options"`
+	TargetOptions []*DeployTargets `bson:"target_options"         json:"target_options"        yaml:"target_options"`
 }
 
 type DeployTargets struct {

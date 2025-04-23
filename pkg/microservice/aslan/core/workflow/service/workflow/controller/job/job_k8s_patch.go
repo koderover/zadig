@@ -27,6 +27,8 @@ import (
 	"github.com/koderover/zadig/v2/pkg/types"
 )
 
+// TODO: patch_items => patch_item_options
+
 type K8sPatchJobController struct {
 	*BasicInfo
 

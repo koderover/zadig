@@ -812,22 +812,20 @@ func (j BuildJobController) GetVariableList(jobName string, getAggregatedVariabl
 			IsCredential: false,
 		})
 
-		if getReferredKeyValVariables {
-			keySet := sets.NewString()
-			for _, service := range j.jobSpec.ServiceAndBuildsOptions {
-				for _, keyVal := range service.KeyVals {
-					keySet = keySet.Insert(keyVal.Key)
-				}
+		keySet := sets.NewString()
+		for _, service := range j.jobSpec.ServiceAndBuildsOptions {
+			for _, keyVal := range service.KeyVals {
+				keySet = keySet.Insert(keyVal.Key)
 			}
+		}
 
-			for _, key := range keySet.List() {
-				resp = append(resp, &commonmodels.KeyVal{
-					Key:          strings.Join([]string{jobKey, "output", key}, "."),
-					Value:        "",
-					Type:         "string",
-					IsCredential: false,
-				})
-			}
+		for _, key := range keySet.List() {
+			resp = append(resp, &commonmodels.KeyVal{
+				Key:          strings.Join([]string{jobKey, key}, "."),
+				Value:        "",
+				Type:         "string",
+				IsCredential: false,
+			})
 		}
 	}
 

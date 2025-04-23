@@ -26,6 +26,8 @@ import (
 	"github.com/koderover/zadig/v2/pkg/types"
 )
 
+// TODO: Targets => TargetOptions
+
 type CustomDeployJobController struct {
 	*BasicInfo
 

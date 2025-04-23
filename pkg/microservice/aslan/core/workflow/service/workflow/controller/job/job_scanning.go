@@ -23,6 +23,7 @@ import (
 	"strings"
 
 	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
@@ -246,7 +247,138 @@ func (j ScanningJobController) SetRepoCommitInfo() error {
 }
 
 func (j ScanningJobController) GetVariableList(jobName string, getAggregatedVariables, getRuntimeVariables, getPlaceHolderVariables, getServiceSpecificVariables, getReferredKeyValVariables bool) ([]*commonmodels.KeyVal, error) {
-	return make([]*commonmodels.KeyVal, 0), nil
+	resp := make([]*commonmodels.KeyVal, 0)
+
+	if getAggregatedVariables {
+		// No aggregated variables
+	}
+
+	if getRuntimeVariables {
+		scanningNames := []string{}
+		if j.jobSpec.ScanningType == config.NormalScanningType {
+			for _, scanning := range j.jobSpec.ScanningOptions {
+				scanningNames = append(scanningNames, scanning.Name)
+			}
+		} else if j.jobSpec.ScanningType == config.ServiceScanningType {
+			for _, scanning := range j.jobSpec.ServiceScanningOptions {
+				scanningNames = append(scanningNames, scanning.Name)
+			}
+		}
+		scanningInfos, _, err := commonrepo.NewScanningColl().List(&commonrepo.ScanningListOption{ScanningNames: scanningNames, ProjectName: j.workflow.Project}, 0, 0)
+		if err != nil {
+			log.Errorf("list scanning info failed: %v", err)
+			return nil, err
+		}
+		for _, scanningInfo := range scanningInfos {
+			if j.jobSpec.ScanningType == config.ServiceScanningType {
+				if getPlaceHolderVariables {
+					jobKey := strings.Join([]string{j.name, scanningInfo.Name, "<SERVICE>", "<MODULE>"}, ".")
+					for _, output := range scanningInfo.Outputs {
+						resp = append(resp,  &commonmodels.KeyVal{
+							Key:          strings.Join([]string{"job", jobKey, "output", output.Name}, "."),
+							Value:        "",
+							Type:         "string",
+							IsCredential: false,
+						})
+					}
+				}
+				if getServiceSpecificVariables {
+					for _, scanning := range j.jobSpec.ServiceScanningOptions {
+						if scanningInfo.Name != scanning.Name {
+							continue
+						}
+						jobKey := strings.Join([]string{j.name, scanningInfo.Name, scanning.ServiceName, scanning.ServiceModule}, ".")
+						for _, output := range scanningInfo.Outputs {
+							resp = append(resp,  &commonmodels.KeyVal{
+								Key:          strings.Join([]string{"job", jobKey, "output", output.Name}, "."),
+								Value:        "",
+								Type:         "string",
+								IsCredential: false,
+							})
+						}
+					}
+				}
+			} else {
+				jobKey := strings.Join([]string{j.name, scanningInfo.Name}, ".")
+				for _, output := range scanningInfo.Outputs {
+					resp = append(resp, &commonmodels.KeyVal{
+						Key:          strings.Join([]string{"job", jobKey, "output", output.Name}, "."),
+						Value:        "",
+						Type:         "string",
+						IsCredential: false,
+					})
+				}
+			}
+	
+		}
+	}
+
+	if getPlaceHolderVariables {
+		jobKey := strings.Join([]string{"job", j.name, "<SERVICE>", "<MODULE>"}, ".")
+		resp = append(resp, &commonmodels.KeyVal{
+			Key:          fmt.Sprintf("%s.%s", jobKey, "SERVICE_NAME"),
+			Value:        "",
+			Type:         "string",
+			IsCredential: false,
+		})
+
+		resp = append(resp, &commonmodels.KeyVal{
+			Key:          fmt.Sprintf("%s.%s", jobKey, "SERVICE_MODULE"),
+			Value:        "",
+			Type:         "string",
+			IsCredential: false,
+		})
+
+		if j.jobSpec.ScanningType == config.ServiceScanningType {
+			keySet := sets.NewString()
+
+			for _, service := range j.jobSpec.ServiceAndScannings {
+				for _, keyVal := range service.KeyVals {
+					keySet.Insert(keyVal.Key)
+				}
+			}
+
+			for _, key := range keySet.List() {
+				resp = append(resp, &commonmodels.KeyVal{
+					Key:          strings.Join([]string{jobKey, key}, "."),
+					Value:        "",
+					Type:         "string",
+					IsCredential: false,
+				})
+			}
+		}
+	}
+
+	if getServiceSpecificVariables {
+		for _, service := range j.jobSpec.ServiceScanningOptions {
+			jobKey := strings.Join([]string{"job", j.name, service.ServiceName, service.ServiceModule}, ".")
+			for _, keyVal := range service.KeyVals {
+				resp = append(resp, &commonmodels.KeyVal{
+					Key:          fmt.Sprintf("%s.%s", jobKey, keyVal.Key),
+					Value:        keyVal.GetValue(),
+					Type:         "string",
+					IsCredential: false,
+				})
+			}
+
+			resp = append(resp, &commonmodels.KeyVal{
+				Key:          fmt.Sprintf("%s.%s", jobKey, "SERVICE_NAME"),
+				Value:        service.ServiceName,
+				Type:         "string",
+				IsCredential: false,
+			})
+
+			resp = append(resp, &commonmodels.KeyVal{
+				Key:          fmt.Sprintf("%s.%s", jobKey, "SERVICE_MODULE"),
+				Value:        service.ServiceModule,
+				Type:         "string",
+				IsCredential: false,
+			})
+		}
+	}
+
+	
+	return resp, nil
 }
 
 func (j ScanningJobController) GetUsedRepos() ([]*types.Repository, error) {

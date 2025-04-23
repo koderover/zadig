@@ -598,24 +598,25 @@ func (j DeployJobController) SetRepoCommitInfo() error {
 
 func (j DeployJobController) GetVariableList(jobName string, getAggregatedVariables, getRuntimeVariables, getPlaceHolderVariables, getServiceSpecificVariables, getReferredKeyValVariables bool) ([]*commonmodels.KeyVal, error) {
 	resp := make([]*commonmodels.KeyVal, 0)
+	
+	resp = append(resp, &commonmodels.KeyVal{
+		Key:          job.GetJobOutputKey(j.name, "envName"),
+		Value:        "",
+		Type:         "string",
+		IsCredential: false,
+	})
+
 	if getAggregatedVariables {
 		resp = append(resp, &commonmodels.KeyVal{
-			Key:          strings.Join([]string{"job", j.name, "envName"}, "."),
-			Value:        j.jobSpec.Env,
-			Type:         "string",
-			IsCredential: false,
-		})
-
-		resp = append(resp, &commonmodels.KeyVal{
 			Key:          strings.Join([]string{"job", j.name, "IMAGES"}, "."),
-			Value:        j.jobSpec.Env,
+			Value:        "",
 			Type:         "string",
 			IsCredential: false,
 		})
 
 		resp = append(resp, &commonmodels.KeyVal{
 			Key:          strings.Join([]string{"job", j.name, "SERVICES"}, "."),
-			Value:        j.jobSpec.Env,
+			Value:        "",
 			Type:         "string",
 			IsCredential: false,
 		})
@@ -633,13 +634,6 @@ func (j DeployJobController) GetVariableList(jobName string, getAggregatedVariab
 				})
 			}
 		}
-
-		resp = append(resp, &commonmodels.KeyVal{
-			Key:          job.GetJobOutputKey(j.name, "envName"),
-			Value:        "",
-			Type:         "string",
-			IsCredential: false,
-		})
 	}
 
 	if getPlaceHolderVariables {

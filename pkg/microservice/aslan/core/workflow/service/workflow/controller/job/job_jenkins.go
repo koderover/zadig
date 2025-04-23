@@ -16,6 +16,8 @@ limitations under the License.
 
 package job
 
+// TODO: jobs => job_options
+
 import (
 	"fmt"
 
