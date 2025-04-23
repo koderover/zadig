@@ -207,7 +207,7 @@ func (j DeployJobController) Update(useUserInput bool, ticket *commonmodels.Appr
 		return fmt.Errorf("update workflow spec is denied: approvalTicket: [%s] does not allow deploying to env [%s]", ticket.ApprovalID, j.jobSpec.Env)
 	}
 
-	if j.jobSpec.Env != latestSpec.Env {
+	if j.jobSpec.Env != latestSpec.Env && latestSpec.EnvSource == config.ParamSourceFixed {
 		j.jobSpec.Env = latestSpec.Env
 		j.jobSpec.Services = make([]*commonmodels.DeployServiceInfo, 0)
 		return nil
