@@ -336,6 +336,7 @@ const (
 type EnvOperation string
 
 const (
+	EnvOperationDefault  EnvOperation = "default"
 	EnvOperationRollback EnvOperation = "rollback"
 )
 

@@ -800,7 +800,7 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]st
 					}
 					service.Resources = kube.UnstructuredToResources(items)
 
-					err = commonutil.CreateEnvServiceVersion(updateProd, service, user, session, log)
+					err = commonutil.CreateEnvServiceVersion(updateProd, service, user, config.EnvOperationDefault, "", session, log)
 					if err != nil {
 						log.Errorf("CreateK8SEnvServiceVersion error: %v", err)
 					}
