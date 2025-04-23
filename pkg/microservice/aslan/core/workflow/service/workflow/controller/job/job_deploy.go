@@ -97,7 +97,21 @@ func (j DeployJobController) Validate(isExecution bool) error {
 
 	// TODO: if execution we need to check if the user choose to deploy a service with update config set to false
 	// if it is this should not be allowed.
+	if isExecution {
+		latestJob, err := j.workflow.FindJob(j.name, j.jobType)
+		if err != nil {
+			return fmt.Errorf("failed to find job: %s in workflow %s's latest config, error: %s", j.name, j.workflow.Name, err)
+		}
 
+		currJobSpec := new(commonmodels.ZadigDeployJobSpec)
+		if err := commonmodels.IToi(latestJob.Spec, currJobSpec); err != nil {
+			return fmt.Errorf("failed to decode apollo job spec, error: %s", err)
+		}
+
+		if j.jobSpec.Env != currJobSpec.Env && currJobSpec.EnvSource == config.ParamSourceFixed {
+			return fmt.Errorf("job %s cannot deploy to env: %s, configured env is fixed to %s", j.name, j.jobSpec.Env, currJobSpec.Env)
+		}
+	}
 	return nil
 }
 
