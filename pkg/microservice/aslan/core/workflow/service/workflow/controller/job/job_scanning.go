@@ -311,7 +311,7 @@ func (j ScanningJobController) GetVariableList(jobName string, getAggregatedVari
 		for _, scanningInfo := range scanningInfos {
 			if j.jobSpec.ScanningType == config.ServiceScanningType {
 				if getPlaceHolderVariables {
-					jobKey := strings.Join([]string{j.name, scanningInfo.Name, "<SERVICE>", "<MODULE>"}, ".")
+					jobKey := strings.Join([]string{j.name, "<SERVICE>", "<MODULE>"}, ".")
 					for _, output := range scanningInfo.Outputs {
 						resp = append(resp,  &commonmodels.KeyVal{
 							Key:          strings.Join([]string{"job", jobKey, "output", output.Name}, "."),
@@ -326,7 +326,7 @@ func (j ScanningJobController) GetVariableList(jobName string, getAggregatedVari
 						if scanningInfo.Name != scanning.Name {
 							continue
 						}
-						jobKey := strings.Join([]string{j.name, scanningInfo.Name, scanning.ServiceName, scanning.ServiceModule}, ".")
+						jobKey := strings.Join([]string{j.name, scanning.ServiceName, scanning.ServiceModule}, ".")
 						for _, output := range scanningInfo.Outputs {
 							resp = append(resp,  &commonmodels.KeyVal{
 								Key:          strings.Join([]string{"job", jobKey, "output", output.Name}, "."),

@@ -320,7 +320,7 @@ func (j TestingJobController) GetVariableList(jobName string, getAggregatedVaria
 		for _, testInfo := range testingInfos {
 			if j.jobSpec.TestType == config.ServiceTestType {
 				if getPlaceHolderVariables {
-					jobKey := strings.Join([]string{j.name, testInfo.Name, "<SERVICE>", "<MODULE>"}, ".")
+					jobKey := strings.Join([]string{j.name, "<SERVICE>", "<MODULE>"}, ".")
 					for _, output := range testInfo.Outputs {
 						resp = append(resp,  &commonmodels.KeyVal{
 							Key:          strings.Join([]string{"job", jobKey, "output", output.Name}, "."),
@@ -335,7 +335,7 @@ func (j TestingJobController) GetVariableList(jobName string, getAggregatedVaria
 						if testInfo.Name != test.Name {
 							continue
 						}
-						jobKey := strings.Join([]string{j.name, testInfo.Name, test.ServiceName, test.ServiceModule}, ".")
+						jobKey := strings.Join([]string{j.name, test.ServiceName, test.ServiceModule}, ".")
 						for _, output := range testInfo.Outputs {
 							resp = append(resp,  &commonmodels.KeyVal{
 								Key:          strings.Join([]string{"job", jobKey, "output", output.Name}, "."),
