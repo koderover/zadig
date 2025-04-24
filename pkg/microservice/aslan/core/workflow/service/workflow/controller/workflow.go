@@ -577,6 +577,17 @@ func (w *Workflow) GetReferableVariables(currentJobName string, option GetWorkfl
 		})
 	}
 
+	currJob, err := w.FindJob(currentJobName, "")
+	if err != nil {
+		return nil, fmt.Errorf("failed to find job: %s, error: %s", currentJobName, err)
+	}
+
+	currJobCtrl, err := jobctrl.CreateJobController(currJob, w.WorkflowV4)
+	if err != nil {
+		return nil, err
+	}
+
+
 	jobRankMap := jobctrl.GetJobRankMap(w.Stages)
 
 	for _, stage := range w.Stages {
@@ -599,7 +610,7 @@ func (w *Workflow) GetReferableVariables(currentJobName string, option GetWorkfl
 				return nil, err
 			}
 
-			if !ctrl.IsServiceTypeJob() {
+			if !currJobCtrl.IsServiceTypeJob() {
 				getServiceSpecificVariables = false
 				getPlaceHolderVariables = false
 			}
