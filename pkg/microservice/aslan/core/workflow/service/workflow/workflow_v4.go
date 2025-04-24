@@ -518,7 +518,16 @@ LOOP:
 		for _, stage := range workflowV4.Stages {
 			for _, job := range stage.Jobs {
 				switch job.JobType {
-				case config.JobFreestyle, config.JobPlugin, config.JobWorkflowTrigger:
+				case config.JobFreestyle:
+					spec := new(commonmodels.FreestyleJobSpec)
+					err = models.IToi(stage.Jobs[0].Spec, spec)
+					if err != nil {
+						return nil, fmt.Errorf("faield to decode spec for freestyle job %s in workflow %s, error: %s", job.Name, workflowV4.Name, err)
+					}
+					if spec.FreestyleJobType == config.ServiceFreeStyleJobType {
+						continue LOOP
+					}
+				case config.JobPlugin, config.JobWorkflowTrigger:
 				default:
 					continue LOOP
 				}
