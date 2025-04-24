@@ -1009,8 +1009,8 @@ func generateDeployInfoForEnv(env, project string, production bool, configuredSe
 
 		serviceVariableInfo := &commonmodels.DeployVariableInfo{
 			VariableKVs:  filterKVsByConfig(service.ServiceName, serviceGeneralInfoMap[service.ServiceName].LatestVariableKVs, configuredServiceVariableList),
-			OverrideKVs:  envServiceMap[service.ServiceName].GetServiceRender().OverrideValues,
-			VariableYaml: envServiceMap[service.ServiceName].GetServiceRender().OverrideYaml.YamlContent,
+			OverrideKVs:  serviceGeneralInfoMap[service.ServiceName].OverrideKVs,
+			VariableYaml: serviceGeneralInfoMap[service.ServiceName].VariableYaml,
 		}
 
 		envVariableInfo := &commonmodels.DeployVariableInfo{
