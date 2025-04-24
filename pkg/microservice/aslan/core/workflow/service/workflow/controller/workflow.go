@@ -141,6 +141,9 @@ func (w *Workflow) ToJobTasks(taskID int64, creator, account, uid string) ([]*co
 				return nil, err
 			}
 
+			// Update the spec, since sometimes we update the calculated field
+			job.Spec = ctrl.GetSpec()
+
 			switch job.JobType {
 			case config.JobFreestyle, config.JobZadigTesting, config.JobZadigBuild, config.JobZadigScanning:
 				if w.Debug {
