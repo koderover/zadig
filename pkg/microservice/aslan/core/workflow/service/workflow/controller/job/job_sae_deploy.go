@@ -17,6 +17,7 @@ limitations under the License.
 package job
 
 import (
+	"encoding/json"
 	"fmt"
 
 	sae "github.com/alibabacloud-go/sae-20190506/client"
@@ -124,6 +125,9 @@ func (j SAEDeployJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, e
 		}
 
 	}
+
+	bytes, _ := json.Marshal(j.jobSpec)
+	fmt.Println(string(bytes))
 
 	envInfo, err := commonrepo.NewSAEEnvColl().Find(&commonrepo.SAEEnvFindOptions{
 		ProjectName:       j.workflow.Project,
