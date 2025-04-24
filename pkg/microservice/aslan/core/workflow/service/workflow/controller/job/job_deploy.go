@@ -952,11 +952,6 @@ func generateDeployInfoForEnv(env, project string, production bool, configuredSe
 	serviceGeneralInfoMap := make(map[string]*commonservice.EnvService)
 	for _, service := range serviceGeneralInfo.Services {
 		serviceGeneralInfoMap[service.ServiceName] = service
-		
-		bytes, _ := json.Marshal(service)
-		fmt.Println("======================== service: ", service.ServiceName , "===========================")
-		fmt.Println(string(bytes))
-		fmt.Println("=======================================================================================")
 	}
 
 	/*
