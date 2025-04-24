@@ -585,9 +585,11 @@ func (w *Workflow) GetReferableVariables(currentJobName string, option GetWorkfl
 				continue
 			}
 			getRuntimeVariableFlag := option.GetRuntimeVariables
+			getAggregatedVariableFlag := option.GetAggregatedVariables
 			if currentJobName != "" && jobRankMap[currentJobName] < jobRankMap[j.Name] {
 				// you cant get a job's output if the current job is runs before given job
 				getRuntimeVariableFlag = false
+				getAggregatedVariableFlag = false
 			}
 
 			ctrl, err := jobctrl.CreateJobController(j, w.WorkflowV4)
@@ -596,7 +598,7 @@ func (w *Workflow) GetReferableVariables(currentJobName string, option GetWorkfl
 			}
 
 			kv, err := ctrl.GetVariableList(j.Name,
-				option.GetAggregatedVariables,
+				getAggregatedVariableFlag,
 				getRuntimeVariableFlag,
 				option.GetPlaceHolderVariables,
 				option.GetServiceSpecificVariables,
