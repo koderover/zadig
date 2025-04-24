@@ -796,38 +796,30 @@ func ensureWorkflowV4JobResp(job *commonmodels.Job, logger *zap.SugaredLogger, b
 			return e.ErrFindWorkflow.AddErr(err)
 		}
 
+		scanSvc := commonservice.NewScanningService()
 		for _, scanning := range spec.ScanningOptions {
 			projectName := scanning.ProjectName
 			if projectName == "" {
 				projectName = workflowProjectName
 			}
-			scanningInfo, err := commonrepo.NewScanningColl().Find(projectName, scanning.Name)
+			scanningInfo, err := scanSvc.GetByName(projectName, scanning.Name)
 			if err != nil {
 				logger.Errorf(err.Error())
 				return e.ErrFindWorkflow.AddErr(err)
 			}
-
-			if scanningInfo.TemplateID != "" {
-				var templateEnvs commonmodels.KeyValList
-				scanningTemplate, err := commonrepo.NewScanningTemplateColl().Find(&commonrepo.ScanningTemplateQueryOption{
-					ID: scanningInfo.TemplateID,
-				})
-
-				// if template not found, envs are empty, but do not block user.
-				if err != nil {
-					logger.Error("scanning job: %s, template not found", scanningInfo.Name)
-				} else {
-					templateEnvs = scanningTemplate.Envs
-				}
-
-				kvs := commonservice.MergeBuildEnvs(templateEnvs.ToRuntimeList(), scanningInfo.Envs.ToRuntimeList())
-
-				// if build template update any keyvals, merge it.
-				scanning.KeyVals = commonservice.MergeBuildEnvs(kvs, scanning.KeyVals)
-			} else {
-				// otherwise just merge the envs in the
-				scanning.KeyVals = commonservice.MergeBuildEnvs(scanningInfo.Envs.ToRuntimeList(), scanning.KeyVals)
+			scanning.KeyVals = commonservice.MergeBuildEnvs(scanningInfo.Envs.ToRuntimeList(), scanning.KeyVals)
+		}
+		for _, scanning := range spec.ServiceScanningOptions {
+			projectName := scanning.ProjectName
+			if projectName == "" {
+				projectName = workflowProjectName
 			}
+			scanningInfo, err := scanSvc.GetByName(projectName, scanning.Name)
+			if err != nil {
+				logger.Errorf(err.Error())
+				return e.ErrFindWorkflow.AddErr(err)
+			}
+			scanning.KeyVals = commonservice.MergeBuildEnvs(scanningInfo.Envs.ToRuntimeList(), scanning.KeyVals)
 		}
 		job.Spec = spec
 	}
