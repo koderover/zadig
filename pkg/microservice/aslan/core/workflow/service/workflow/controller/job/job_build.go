@@ -829,10 +829,19 @@ func (j BuildJobController) GetVariableList(jobName string, getAggregatedVariabl
 		}
 	}
 
+	buildSvc := commonservice.NewBuildService()
+
 	if getServiceSpecificVariables {
 		for _, service := range j.jobSpec.ServiceAndBuildsOptions {
+			build, err :=buildSvc.GetBuild(service.BuildName, service.ServiceName, service.ServiceModule)
+			if err != nil {
+				return nil, err
+			}
+
+			kvs := applyKeyVals(build.PreBuild.Envs.ToRuntimeList(), service.KeyVals, true)
+
 			jobKey := strings.Join([]string{"job", j.name, service.ServiceName, service.ServiceModule}, ".")
-			for _, keyVal := range service.KeyVals {
+			for _, keyVal := range kvs {
 				resp = append(resp, &commonmodels.KeyVal{
 					Key:          fmt.Sprintf("%s.%s", jobKey, keyVal.Key),
 					Value:        keyVal.GetValue(),
@@ -841,7 +850,9 @@ func (j BuildJobController) GetVariableList(jobName string, getAggregatedVariabl
 				})
 			}
 
-			for _, repo := range service.Repos {
+			repos := applyRepos(build.Repos, service.Repos)
+
+			for _, repo := range repos {
 				resp = append(resp, &commonmodels.KeyVal{
 					Key:          fmt.Sprintf("%s.%s", jobKey, BRANCHKEY),
 					Value:        repo.Branch,
