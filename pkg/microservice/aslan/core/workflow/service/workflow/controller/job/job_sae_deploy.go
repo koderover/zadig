@@ -17,7 +17,6 @@ limitations under the License.
 package job
 
 import (
-	"encoding/json"
 	"fmt"
 
 	sae "github.com/alibabacloud-go/sae-20190506/client"
