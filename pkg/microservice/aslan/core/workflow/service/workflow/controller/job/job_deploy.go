@@ -336,7 +336,7 @@ func (j DeployJobController) SetOptions(ticket *commonmodels.ApprovalTicket) err
 			}
 
 			for _, svc := range env.Services {
-				if inputSvc, ok :=  userConfiguredSvc[svc.ServiceName]; ok {
+				if inputSvc, ok := userConfiguredSvc[svc.ServiceName]; ok {
 					// if the user wants to update config/variables do the merge variables logic, otherwise do nothing just add it to the user's selection
 					if !(slices.Contains(j.jobSpec.DeployContents, config.DeployImage) && len(j.jobSpec.DeployContents) == 1) {
 						// merge the kv based on user's selection weather config should be updated
@@ -684,8 +684,8 @@ func (j DeployJobController) GetVariableList(jobName string, getAggregatedVariab
 	resp := make([]*commonmodels.KeyVal, 0)
 
 	resp = append(resp, &commonmodels.KeyVal{
-		Key:          job.GetJobOutputKey(j.name, "envName"),
-		Value:        "",
+		Key:          strings.Join([]string{"job", j.name, "envName"}, "."),
+		Value:        j.jobSpec.Env,
 		Type:         "string",
 		IsCredential: false,
 	})
@@ -711,8 +711,8 @@ func (j DeployJobController) GetVariableList(jobName string, getAggregatedVariab
 			for _, targetModule := range target.Modules {
 				targetKey := strings.Join([]string{j.name, target.ServiceName, targetModule.ServiceModule}, ".")
 				resp = append(resp, &commonmodels.KeyVal{
-					Key:          job.GetJobOutputKey(targetKey, "IMAGE"),
-					Value:        "",
+					Key:          strings.Join([]string{"job", targetKey, "IMAGE"}, "."),
+					Value:        targetModule.Image,
 					Type:         "string",
 					IsCredential: false,
 				})
@@ -722,7 +722,7 @@ func (j DeployJobController) GetVariableList(jobName string, getAggregatedVariab
 
 	if getPlaceHolderVariables {
 		resp = append(resp, &commonmodels.KeyVal{
-			Key:          job.GetJobOutputKey(fmt.Sprintf("%s.%s.%s", j.name, "<SERVICE>", "<MODULE>"), "IMAGE"),
+			Key:          strings.Join([]string{"job", j.name, "<SERVICE>", "<MODULE>", "IMAGE"}, "."),
 			Value:        "",
 			Type:         "string",
 			IsCredential: false,
