@@ -87,20 +87,8 @@ func (j GrayRollbackJobController) Update(useUserInput bool, ticket *commonmodel
 
 	j.jobSpec.ClusterID = currJobSpec.ClusterID
 	j.jobSpec.Namespace = currJobSpec.Namespace
-
-	// if cluster is changed, remove all settings
-	if j.jobSpec.ClusterID != currJobSpec.ClusterID {
-		j.jobSpec.ClusterID = currJobSpec.ClusterID
-		j.jobSpec.Namespace = ""
-		j.jobSpec.RollbackTimeout = 0
-		j.jobSpec.Targets = make([]*commonmodels.GrayRollbackTarget, 0)
-	} else if j.jobSpec.Namespace != currJobSpec.Namespace {
-		j.jobSpec.Namespace = currJobSpec.Namespace
-		j.jobSpec.RollbackTimeout = 0
-		j.jobSpec.Targets = make([]*commonmodels.GrayRollbackTarget, 0)
-	} else {
-		j.jobSpec.RollbackTimeout = currJobSpec.RollbackTimeout
-	}
+	j.jobSpec.Targets = currJobSpec.Targets
+	j.jobSpec.RollbackTimeout = currJobSpec.RollbackTimeout
 
 	userConfiguredService := make(map[string]*commonmodels.GrayRollbackTarget)
 	for _, svc := range j.jobSpec.Targets {
