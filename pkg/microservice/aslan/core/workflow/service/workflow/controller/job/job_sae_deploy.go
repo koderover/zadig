@@ -109,7 +109,7 @@ func (j SAEDeployJobController) SetOptions(ticket *commonmodels.ApprovalTicket) 
 }
 
 func (j SAEDeployJobController) ClearOptions() {
-	j.jobSpec.EnvConfig = nil
+	j.jobSpec.EnvOptions = make([]*commonmodels.SAEEnvInfo, 0)
 }
 
 func (j SAEDeployJobController) ClearSelection() {
@@ -125,9 +125,6 @@ func (j SAEDeployJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, e
 		}
 
 	}
-
-	bytes, _ := json.Marshal(j.jobSpec)
-	fmt.Println(string(bytes))
 
 	envInfo, err := commonrepo.NewSAEEnvColl().Find(&commonrepo.SAEEnvFindOptions{
 		ProjectName:       j.workflow.Project,
