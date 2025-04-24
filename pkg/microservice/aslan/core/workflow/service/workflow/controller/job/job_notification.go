@@ -78,6 +78,9 @@ func (j NotificationJobController) Update(useUserInput bool, ticket *commonmodel
 		return fmt.Errorf("failed to decode apollo job spec, error: %s", err)
 	}
 
+	j.jobSpec.WebHookType = currJobSpec.WebHookType
+	j.jobSpec.Source = currJobSpec.Source
+
 	// use the latest webhook settings, except for title and content
 	j.jobSpec.LarkGroupNotificationConfig = currJobSpec.LarkGroupNotificationConfig
 	j.jobSpec.LarkPersonNotificationConfig = currJobSpec.LarkPersonNotificationConfig
