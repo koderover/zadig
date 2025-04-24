@@ -247,30 +247,32 @@ func (j FreestyleJobController) GetVariableList(jobName string, getAggregatedVar
 	}
 
 	if getPlaceHolderVariables {
-		jobKey := strings.Join([]string{"job", j.name, "<SERVICE>", "<MODULE>"}, ".")
+		if j.jobSpec.FreestyleJobType == config.ServiceFreeStyleJobType {
+			jobKey := strings.Join([]string{"job", j.name, "<SERVICE>", "<MODULE>"}, ".")
 
-		resp = append(resp, &commonmodels.KeyVal{
-			Key:          fmt.Sprintf("%s.%s", jobKey, "SERVICE_NAME"),
-			Value:        "",
-			Type:         "string",
-			IsCredential: false,
-		})
-
-		resp = append(resp, &commonmodels.KeyVal{
-			Key:          fmt.Sprintf("%s.%s", jobKey, "SERVICE_MODULE"),
-			Value:        "",
-			Type:         "string",
-			IsCredential: false,
-		})
-
-
-		for _, kv := range j.jobSpec.Envs {
 			resp = append(resp, &commonmodels.KeyVal{
-				Key:          fmt.Sprintf("%s.%s", jobKey, kv.Key),
+				Key:          fmt.Sprintf("%s.%s", jobKey, "SERVICE_NAME"),
 				Value:        "",
 				Type:         "string",
 				IsCredential: false,
 			})
+	
+			resp = append(resp, &commonmodels.KeyVal{
+				Key:          fmt.Sprintf("%s.%s", jobKey, "SERVICE_MODULE"),
+				Value:        "",
+				Type:         "string",
+				IsCredential: false,
+			})
+	
+	
+			for _, kv := range j.jobSpec.Envs {
+				resp = append(resp, &commonmodels.KeyVal{
+					Key:          fmt.Sprintf("%s.%s", jobKey, kv.Key),
+					Value:        "",
+					Type:         "string",
+					IsCredential: false,
+				})
+			}
 		}
 	}
 
