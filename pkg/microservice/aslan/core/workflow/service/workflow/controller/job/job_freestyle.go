@@ -218,6 +218,18 @@ func (j FreestyleJobController) GetVariableList(jobName string, getAggregatedVar
 		// no aggregated variables
 	}
 
+	if j.jobSpec.FreestyleJobType == config.NormalFreeStyleJobType {
+		for _, kv := range j.jobSpec.Envs {
+			jobKey := strings.Join([]string{"job", j.name}, ".")
+			resp = append(resp, &commonmodels.KeyVal{
+				Key:          fmt.Sprintf("%s.%s", jobKey, kv.Key),
+				Value:        kv.GetValue(),
+				Type:         "string",
+				IsCredential: false,
+			})
+		}
+	}
+
 	if getRuntimeVariables {
 		if j.jobSpec.FreestyleJobType == config.NormalFreeStyleJobType {
 			for _, output := range j.jobSpec.AdvancedSetting.Outputs {
@@ -297,7 +309,7 @@ func (j FreestyleJobController) GetVariableList(jobName string, getAggregatedVar
 			for _, kv := range j.jobSpec.Envs {
 				resp = append(resp, &commonmodels.KeyVal{
 					Key:          fmt.Sprintf("%s.%s", jobKey, kv.Key),
-					Value:        kv.Value,
+					Value:        kv.GetValue(),
 					Type:         "string",
 					IsCredential: false,
 				})
