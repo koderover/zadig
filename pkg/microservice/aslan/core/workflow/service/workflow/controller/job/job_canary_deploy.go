@@ -145,17 +145,9 @@ func (j CanaryDeployJobController) Update(useUserInput bool, ticket *commonmodel
 		return fmt.Errorf("failed to decode apollo job spec, error: %s", err)
 	}
 
-	if useUserInput {
-		if j.jobSpec.DockerRegistryID != currJobSpec.DockerRegistryID {
-			return fmt.Errorf("docker registry has been changed, the new registry id in the config is: %s", currJobSpec.DockerRegistryID)
-		}
-		if j.jobSpec.Namespace != currJobSpec.Namespace {
-			return fmt.Errorf("namespace has been changed, the new namespace in the config is: %s", currJobSpec.Namespace)
-		}
-		if j.jobSpec.ClusterID != currJobSpec.ClusterID {
-			return fmt.Errorf("cluster has been changed, the new cluster in the config is: %s", currJobSpec.ClusterID)
-		}
-	}
+	j.jobSpec.DockerRegistryID = currJobSpec.DockerRegistryID
+	j.jobSpec.Namespace = currJobSpec.Namespace
+	j.jobSpec.ClusterID = currJobSpec.ClusterID 
 
 	// TODO: recalculate the resources in the namespace, for now we just use the configured options
 	j.jobSpec.TargetOptions = currJobSpec.TargetOptions
