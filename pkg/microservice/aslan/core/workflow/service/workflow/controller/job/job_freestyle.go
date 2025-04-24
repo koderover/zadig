@@ -326,6 +326,10 @@ func (j FreestyleJobController) RenderDynamicVariableOptions(key string, option 
 	return nil, fmt.Errorf("key: %s not found in job: %s", key, j.name)
 }
 
+func (j FreestyleJobController) IsServiceTypeJob() bool {
+	return j.jobSpec.FreestyleJobType == config.ServiceFreeStyleJobType
+}
+
 func (j FreestyleJobController) getReferredJobTargets(jobName string) ([]*commonmodels.FreeStyleServiceInfo, error) {
 	serviceTargets := make([]*commonmodels.FreeStyleServiceInfo, 0)
 	originTargetMap := make(map[string]*commonmodels.FreeStyleServiceInfo)

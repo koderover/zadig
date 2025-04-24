@@ -423,6 +423,10 @@ func (j BlueGreenDeployJobController) RenderDynamicVariableOptions(key string, o
 	return nil, fmt.Errorf("invalid job type: %s to render dynamic variable", j.name)
 }
 
+func (j BlueGreenDeployJobController) IsServiceTypeJob() bool {
+	return false
+}
+
 func generateBlueGreenEnvDeployServiceInfo(env string, production bool, project string, services []*commonmodels.BlueGreenDeployV2Service) ([]*commonmodels.BlueGreenDeployV2Service, string, error) {
 	targetEnv, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
 		EnvName:    env,

@@ -168,3 +168,7 @@ func (j JenkinsJobController) GetUsedRepos() ([]*types.Repository, error) {
 func (j JenkinsJobController) RenderDynamicVariableOptions(key string, option *RenderDynamicVariableValue) ([]string, error) {
 	return nil, fmt.Errorf("invalid job type: %s to render dynamic variable", j.name)
 }
+
+func (j JenkinsJobController) IsServiceTypeJob() bool {
+	return false
+}

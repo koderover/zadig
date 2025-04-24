@@ -796,7 +796,7 @@ func ensureWorkflowV4JobResp(job *commonmodels.Job, logger *zap.SugaredLogger, b
 			return e.ErrFindWorkflow.AddErr(err)
 		}
 
-		for _, scanning := range spec.Scannings {
+		for _, scanning := range spec.ScanningOptions {
 			projectName := scanning.ProjectName
 			if projectName == "" {
 				projectName = workflowProjectName
@@ -900,7 +900,7 @@ func ensureWorkflowV4JobResp(job *commonmodels.Job, logger *zap.SugaredLogger, b
 			return e.ErrFindWorkflow.AddErr(err)
 		}
 		job.Spec = spec
-		for _, testing := range spec.ServiceAndTests {
+		for _, testing := range spec.ServiceTestOptions {
 			testingInfo, err := commonrepo.NewTestingColl().Find(testing.Name, "")
 			if err != nil {
 				logger.Errorf("find testing: %s error: %s", testing.Name, err)
@@ -908,7 +908,7 @@ func ensureWorkflowV4JobResp(job *commonmodels.Job, logger *zap.SugaredLogger, b
 			}
 			testing.KeyVals = commonservice.MergeBuildEnvs(testingInfo.PreTest.Envs.ToRuntimeList(), testing.KeyVals)
 		}
-		for _, testing := range spec.TestModules {
+		for _, testing := range spec.TestModuleOptions {
 			testingInfo, err := commonrepo.NewTestingColl().Find(testing.Name, "")
 			if err != nil {
 				logger.Errorf("find testing: %s error: %s", testing.Name, err)

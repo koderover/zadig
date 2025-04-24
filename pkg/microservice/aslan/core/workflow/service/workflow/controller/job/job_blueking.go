@@ -166,3 +166,7 @@ func (j BlueKingJobController) GetUsedRepos() ([]*types.Repository, error) {
 func (j BlueKingJobController) RenderDynamicVariableOptions(key string, option *RenderDynamicVariableValue) ([]string, error) {
 	return nil, fmt.Errorf("invalid job type: %s to render dynamic variable", j.name)
 }
+
+func (j BlueKingJobController) IsServiceTypeJob() bool {
+	return false
+}

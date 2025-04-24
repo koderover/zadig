@@ -214,6 +214,10 @@ func (j GrayRollbackJobController) RenderDynamicVariableOptions(key string, opti
 	return nil, fmt.Errorf("invalid job type: %s to render dynamic variable", j.name)
 }
 
+func (j GrayRollbackJobController) IsServiceTypeJob() bool {
+	return false
+}
+
 type grayRollbackInfo struct {
 	image         string
 	replica       int

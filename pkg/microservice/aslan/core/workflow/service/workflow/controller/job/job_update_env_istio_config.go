@@ -219,3 +219,7 @@ func (j UpdateEnvIstioConfigJobController) GetUsedRepos() ([]*types.Repository, 
 func (j UpdateEnvIstioConfigJobController) RenderDynamicVariableOptions(key string, option *RenderDynamicVariableValue) ([]string, error) {
 	return nil, fmt.Errorf("invalid job type: %s to render dynamic variable", j.name)
 }
+
+func (j UpdateEnvIstioConfigJobController) IsServiceTypeJob() bool {
+	return false
+}

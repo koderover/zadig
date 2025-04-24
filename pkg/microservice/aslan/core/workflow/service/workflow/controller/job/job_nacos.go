@@ -284,6 +284,10 @@ func (j NacosJobController) RenderDynamicVariableOptions(key string, option *Ren
 	return nil, fmt.Errorf("invalid job type: %s to render dynamic variable", j.name)
 }
 
+func (j NacosJobController) IsServiceTypeJob() bool {
+	return false
+}
+
 func transNacosDatas(confs []*types.NacosConfig) []*commonmodels.NacosData {
 	resp := make([]*commonmodels.NacosData, 0)
 	for _, conf := range confs {

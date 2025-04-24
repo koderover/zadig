@@ -181,3 +181,7 @@ func (j CanaryReleaseJobController) GetUsedRepos() ([]*types.Repository, error) 
 func (j CanaryReleaseJobController) RenderDynamicVariableOptions(key string, option *RenderDynamicVariableValue) ([]string, error) {
 	return nil, fmt.Errorf("invalid job type: %s to render dynamic variable", j.name)
 }
+
+func (j CanaryReleaseJobController) IsServiceTypeJob() bool {
+	return false
+}

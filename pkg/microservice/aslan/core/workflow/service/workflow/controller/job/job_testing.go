@@ -455,6 +455,10 @@ func (j TestingJobController) RenderDynamicVariableOptions(key string, option *R
 	return nil, fmt.Errorf("invalid job type: %s to render dynamic variable", j.name)
 }
 
+func (j TestingJobController) IsServiceTypeJob() bool {
+	return j.jobSpec.TestType == config.ServiceTestType
+}
+
 func (j TestingJobController) getReferredJobTargets(jobName string) ([]*commonmodels.ServiceTestTarget, error) {
 	servicetargets := make([]*commonmodels.ServiceTestTarget, 0)
 	for _, stage := range j.workflow.Stages {

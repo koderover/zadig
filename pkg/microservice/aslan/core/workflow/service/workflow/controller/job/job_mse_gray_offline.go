@@ -141,3 +141,7 @@ func (j MseGrayOfflineJobController) GetUsedRepos() ([]*types.Repository, error)
 func (j MseGrayOfflineJobController) RenderDynamicVariableOptions(key string, option *RenderDynamicVariableValue) ([]string, error) {
 	return nil, fmt.Errorf("invalid job type: %s to render dynamic variable", j.name)
 }
+
+func (j MseGrayOfflineJobController) IsServiceTypeJob() bool {
+	return false
+}

@@ -198,6 +198,10 @@ func (j SAEDeployJobController) RenderDynamicVariableOptions(key string, option 
 	return nil, fmt.Errorf("invalid job type: %s to render dynamic variable", j.name)
 }
 
+func (j SAEDeployJobController) IsServiceTypeJob() bool {
+	return false
+}
+
 func generateSAEEnvOption(projectKey string, approvalTicket *commonmodels.ApprovalTicket) (envOptions []*commonmodels.SAEEnvInfo, err error) {
 	saeModel, err := commonrepo.NewSAEColl().FindDefault()
 	if err != nil {

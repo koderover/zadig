@@ -214,6 +214,10 @@ func (j MseGrayReleaseJobController) RenderDynamicVariableOptions(key string, op
 	return nil, fmt.Errorf("invalid job type: %s to render dynamic variable", j.name)
 }
 
+func (j MseGrayReleaseJobController) IsServiceTypeJob() bool {
+	return false
+}
+
 func checkMapKeyExist(m map[string]string, keys ...string) (bool, string) {
 	if m == nil {
 		return false, ""

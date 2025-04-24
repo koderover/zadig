@@ -242,6 +242,10 @@ func (j WorkflowTriggerJobController) RenderDynamicVariableOptions(key string, o
 	return nil, fmt.Errorf("invalid job type: %s to render dynamic variable", j.name)
 }
 
+func (j WorkflowTriggerJobController) IsServiceTypeJob() bool {
+	return false
+}
+
 func checkWorkflowTriggerLoop(workflow *commonmodels.WorkflowV4, workflowSet sets.String) error {
 	// every workflow only need check loop once
 	checkedWorkflow := sets.NewString()

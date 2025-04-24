@@ -318,6 +318,10 @@ func (j DistributeImageJobController) RenderDynamicVariableOptions(key string, o
 	return nil, fmt.Errorf("invalid job type: %s to render dynamic variable", j.name)
 }
 
+func (j DistributeImageJobController) IsServiceTypeJob() bool {
+	return true
+}
+
 func (j DistributeImageJobController) getReferredJobTargets(serviceReferredJob, imageReferredJob string) ([]*commonmodels.DistributeTarget, string, error) {
 	serviceTargets := make([]*commonmodels.DistributeTarget, 0)
 	var sourceRegistryID string

@@ -277,3 +277,7 @@ func (j IstioReleaseJobController) GetUsedRepos() ([]*types.Repository, error) {
 func (j IstioReleaseJobController) RenderDynamicVariableOptions(key string, option *RenderDynamicVariableValue) ([]string, error) {
 	return nil, fmt.Errorf("invalid job type: %s to render dynamic variable", j.name)
 }
+
+func (j IstioReleaseJobController) IsServiceTypeJob() bool {
+	return false
+}

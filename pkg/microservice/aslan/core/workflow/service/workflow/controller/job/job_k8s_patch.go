@@ -156,3 +156,7 @@ func (j K8sPatchJobController) GetUsedRepos() ([]*types.Repository, error) {
 func (j K8sPatchJobController) RenderDynamicVariableOptions(key string, option *RenderDynamicVariableValue) ([]string, error) {
 	return nil, fmt.Errorf("invalid job type: %s to render dynamic variable", j.name)
 }
+
+func (j K8sPatchJobController) IsServiceTypeJob() bool {
+	return false
+}

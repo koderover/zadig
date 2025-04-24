@@ -259,6 +259,10 @@ func (j HelmChartDeployJobController) RenderDynamicVariableOptions(key string, o
 	return nil, fmt.Errorf("invalid job type: %s to render dynamic variable", j.name)
 }
 
+func (j HelmChartDeployJobController) IsServiceTypeJob() bool {
+	return false
+}
+
 func generateEnvHelmChartInfo(env, project string) ([]*commonmodels.DeployHelmChart, error) {
 	product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: project, EnvName: env})
 	if err != nil {

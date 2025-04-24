@@ -269,3 +269,7 @@ func (j GrayReleaseJobController) GetUsedRepos() ([]*types.Repository, error) {
 func (j GrayReleaseJobController) RenderDynamicVariableOptions(key string, option *RenderDynamicVariableValue) ([]string, error) {
 	return nil, fmt.Errorf("invalid job type: %s to render dynamic variable", j.name)
 }
+
+func (j GrayReleaseJobController) IsServiceTypeJob() bool {
+	return false
+}

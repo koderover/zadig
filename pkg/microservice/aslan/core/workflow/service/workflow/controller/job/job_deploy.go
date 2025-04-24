@@ -740,6 +740,10 @@ func (j DeployJobController) RenderDynamicVariableOptions(key string, option *Re
 	return nil, fmt.Errorf("invalid job type: %s to render dynamic variable", j.name)
 }
 
+func (j DeployJobController) IsServiceTypeJob() bool {
+	return true
+}
+
 func (j DeployJobController) getReferredJobOrder(serviceReferredJob, imageReferredJob string) ([]*commonmodels.ServiceWithModuleAndImage, error) {
 	resp := make([]*commonmodels.ServiceWithModuleAndImage, 0)
 	found := false

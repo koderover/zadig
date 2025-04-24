@@ -164,6 +164,10 @@ func (j NotificationJobController) RenderDynamicVariableOptions(key string, opti
 	return nil, fmt.Errorf("invalid job type: %s to render dynamic variable", j.name)
 }
 
+func (j NotificationJobController) IsServiceTypeJob() bool {
+	return false
+}
+
 func generateNotificationJobSpec(spec *commonmodels.NotificationJobSpec) (*commonmodels.JobTaskNotificationSpec, error) {
 	resp := &commonmodels.JobTaskNotificationSpec{
 		WebHookType: spec.WebHookType,

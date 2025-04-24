@@ -584,6 +584,8 @@ func (w *Workflow) GetReferableVariables(currentJobName string, option GetWorkfl
 			if skipCurrentJob && j.Name == currentJobName {
 				continue
 			}
+			getServiceSpecificVariables := option.GetServiceSpecificVariables
+			getPlaceHolderVariables := option.GetPlaceHolderVariables
 			getRuntimeVariableFlag := option.GetRuntimeVariables
 			getAggregatedVariableFlag := option.GetAggregatedVariables
 			if currentJobName != "" && jobRankMap[currentJobName] < jobRankMap[j.Name] {
@@ -597,11 +599,16 @@ func (w *Workflow) GetReferableVariables(currentJobName string, option GetWorkfl
 				return nil, err
 			}
 
+			if !ctrl.IsServiceTypeJob() {
+				getServiceSpecificVariables = false
+				getPlaceHolderVariables = false
+			}
+
 			kv, err := ctrl.GetVariableList(j.Name,
 				getAggregatedVariableFlag,
 				getRuntimeVariableFlag,
-				option.GetPlaceHolderVariables,
-				option.GetServiceSpecificVariables,
+				getPlaceHolderVariables,
+				getServiceSpecificVariables,
 				option.GetReferredKeyValVariables,
 			)
 

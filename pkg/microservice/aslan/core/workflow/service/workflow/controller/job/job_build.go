@@ -918,6 +918,10 @@ func (j BuildJobController) RenderDynamicVariableOptions(key string, option *Ren
 	return nil, fmt.Errorf("invalid job type: %s to render dynamic variable", j.name)
 }
 
+func (j BuildJobController) IsServiceTypeJob() bool {
+	return true
+}
+
 func (j BuildJobController) getReferredJobTargets(jobName string) ([]*commonmodels.ServiceAndBuild, error) {
 	servicetargets := []*commonmodels.ServiceAndBuild{}
 	originTargetMap := make(map[string]*commonmodels.ServiceAndBuild)

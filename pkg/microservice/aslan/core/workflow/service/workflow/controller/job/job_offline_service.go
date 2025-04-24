@@ -153,3 +153,7 @@ func (j OfflineServiceJobController) GetUsedRepos() ([]*types.Repository, error)
 func (j OfflineServiceJobController) RenderDynamicVariableOptions(key string, option *RenderDynamicVariableValue) ([]string, error) {
 	return nil, fmt.Errorf("invalid job type: %s to render dynamic variable", j.name)
 }
+
+func (j OfflineServiceJobController) IsServiceTypeJob() bool {
+	return false
+}

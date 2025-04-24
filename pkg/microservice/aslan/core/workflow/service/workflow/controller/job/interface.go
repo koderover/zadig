@@ -59,6 +59,8 @@ type Job interface {
 	GetUsedRepos() ([]*types.Repository, error)
 	// RenderDynamicVariableOptions renders a key's value option based on given values (and parameters)
 	RenderDynamicVariableOptions(key string, option *RenderDynamicVariableValue) ([]string, error)
+	// IsServiceTypeJob returns if the job will be split into several service level job
+	IsServiceTypeJob() bool
 }
 
 type BasicInfo struct {
