@@ -287,21 +287,27 @@ func (j DistributeImageJobController) GetVariableList(jobName string, getAggrega
 
 	if getAggregatedVariables {
 		// no aggregated variable list
+		resp = append(resp, &commonmodels.KeyVal{
+			Key:          strings.Join([]string{"job", j.name, "IMAGES"}, "."),
+			Value:        "",
+			Type:         "string",
+			IsCredential: false,
+		})
 	}
 
 	if getRuntimeVariables {
 		for _, target := range j.jobSpec.Targets {
 			targetKey := strings.Join([]string{j.name, target.ServiceName, target.ServiceModule}, ".")
 			resp = append(resp, &commonmodels.KeyVal{
-				Key:          job.GetJobOutputKey(targetKey, "IMAGE"),
-				Value:        "",
+				Key:          strings.Join([]string{"job", targetKey, "IMAGE"}, "."),
+				Value:        target.TargetImage,
 				Type:         "string",
 				IsCredential: false,
 			})
 
 			placeholderTargetKey := strings.Join([]string{j.name, "<SERVICE>", "<MODULE>"}, ".")
 			resp = append(resp, &commonmodels.KeyVal{
-				Key:          job.GetJobOutputKey(placeholderTargetKey, "IMAGE"),
+				Key:          strings.Join([]string{"job", placeholderTargetKey, "output", "IMAGE"}, "."),
 				Value:        "",
 				Type:         "string",
 				IsCredential: false,
