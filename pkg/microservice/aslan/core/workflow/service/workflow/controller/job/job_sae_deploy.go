@@ -137,7 +137,7 @@ func (j SAEDeployJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, e
 
 	for jobSubTaskID, svc := range j.jobSpec.ServiceConfig.Services {
 		if j.jobSpec.ServiceConfig.Source == config.SourceFromJob {
-			svc.Image = job.GetJobOutputKey(fmt.Sprintf("%s.%s.%s", j.jobSpec.OriginJobName, svc.ServiceName, svc.ServiceModule), IMAGEKEY)
+			svc.Image = job.GetJobOutputKey(fmt.Sprintf("%s.%s.%s", j.jobSpec.JobName, svc.ServiceName, svc.ServiceModule), IMAGEKEY)
 		}
 
 		jobTaskSpec := &commonmodels.JobTaskSAEDeploySpec{
