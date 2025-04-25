@@ -154,7 +154,7 @@ func (j BlueGreenDeployJobController) Update(useUserInput bool, ticket *commonmo
 	mergedService := make([]*commonmodels.BlueGreenDeployV2Service, 0)
 	userConfiguredService := make(map[string]*commonmodels.BlueGreenDeployV2Service)
 
-	for _, service := range currJobSpec.ServiceOptions {
+	for _, service := range j.jobSpec.Services {
 		userConfiguredService[service.ServiceName] = service
 	}
 
@@ -163,7 +163,7 @@ func (j BlueGreenDeployJobController) Update(useUserInput bool, ticket *commonmo
 			mergedService = append(mergedService, &commonmodels.BlueGreenDeployV2Service{
 				ServiceName:         service.ServiceName,
 				BlueServiceYaml:     userSvc.BlueServiceYaml,
-				BlueServiceName:     service.BlueServiceYaml,
+				BlueServiceName:     service.BlueServiceName,
 				BlueDeploymentYaml:  service.BlueDeploymentYaml,
 				BlueDeploymentName:  service.BlueDeploymentName,
 				GreenDeploymentName: service.GreenDeploymentName,
