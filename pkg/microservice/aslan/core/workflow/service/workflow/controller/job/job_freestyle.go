@@ -246,7 +246,7 @@ func (j FreestyleJobController) GetVariableList(jobName string, getAggregatedVar
 					// TODO: ADD LOGIC, This thing is not allowed for now
 				}
 				if getPlaceHolderVariables {
-					jobKey := strings.Join([]string{j.name, "<SERVICE", "<MODULE>"}, ".")
+					jobKey := strings.Join([]string{j.name, "<SERVICE>", "<MODULE>"}, ".")
 					resp = append(resp, &commonmodels.KeyVal{
 						Key:          strings.Join([]string{"job", jobKey, "output", output.Name}, "."),
 						Value:        "",
@@ -268,15 +268,14 @@ func (j FreestyleJobController) GetVariableList(jobName string, getAggregatedVar
 				Type:         "string",
 				IsCredential: false,
 			})
-	
+
 			resp = append(resp, &commonmodels.KeyVal{
 				Key:          fmt.Sprintf("%s.%s", jobKey, "SERVICE_MODULE"),
 				Value:        "",
 				Type:         "string",
 				IsCredential: false,
 			})
-	
-	
+
 			for _, kv := range j.jobSpec.Envs {
 				resp = append(resp, &commonmodels.KeyVal{
 					Key:          fmt.Sprintf("%s.%s", jobKey, kv.Key),
