@@ -46,6 +46,8 @@ import (
 	"github.com/koderover/zadig/v2/pkg/util"
 )
 
+// TODO: services => service_options
+
 type BlueGreenDeployJobController struct {
 	*BasicInfo
 
@@ -181,7 +183,7 @@ func (j BlueGreenDeployJobController) SetOptions(ticket *commonmodels.ApprovalTi
 
 	if j.jobSpec.Source == "fixed" {
 		if ticket.IsAllowedEnv(j.workflow.Project, j.jobSpec.Env) {
-			serviceInfo, registryID, err := generateBlueGreenEnvDeployServiceInfo(j.jobSpec.Env, j.jobSpec.Production, j.workflow.Project, j.jobSpec.Services)
+			serviceInfo, registryID, err := generateBlueGreenEnvDeployServiceInfo(j.jobSpec.Env, j.jobSpec.Production, j.workflow.Project, j.jobSpec.ServiceOptions)
 			if err != nil {
 				log.Errorf("failed to generate blue-green deploy info for env: %s, error: %s", j.jobSpec.Env, err)
 				return err
@@ -207,7 +209,7 @@ func (j BlueGreenDeployJobController) SetOptions(ticket *commonmodels.ApprovalTi
 				continue
 			}
 
-			serviceInfo, registryID, err := generateBlueGreenEnvDeployServiceInfo(env.EnvName, j.jobSpec.Production, j.workflow.Project, j.jobSpec.Services)
+			serviceInfo, registryID, err := generateBlueGreenEnvDeployServiceInfo(env.EnvName, j.jobSpec.Production, j.workflow.Project, j.jobSpec.ServiceOptions)
 			if err != nil {
 				log.Errorf("failed to generate blue-green deploy info for env: %s, error: %s", env.EnvName, err)
 				continue
@@ -226,7 +228,7 @@ func (j BlueGreenDeployJobController) SetOptions(ticket *commonmodels.ApprovalTi
 }
 
 func (j BlueGreenDeployJobController) ClearOptions() {
-	return
+	j.jobSpec.EnvOptions = nil
 }
 
 func (j BlueGreenDeployJobController) ClearSelection() {
@@ -528,7 +530,9 @@ func generateBlueGreenEnvDeployServiceInfo(env string, production bool, project 
 					return nil, "", fmt.Errorf("service %s has no service", envService.ServiceName)
 				}
 			}
-		} 
+		} else {
+			continue
+		}
 
 		resp = append(resp, appendService)
 	}

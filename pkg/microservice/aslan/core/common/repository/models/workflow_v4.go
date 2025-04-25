@@ -683,12 +683,13 @@ type BlueGreenDeployJobSpec struct {
 }
 
 type BlueGreenDeployV2JobSpec struct {
-	Version    string                                `bson:"version"               json:"version"              yaml:"version"`
-	Production bool                                  `bson:"production"            json:"production"           yaml:"production"`
-	Env        string                                `bson:"env"                   json:"env"                  yaml:"env"`
-	EnvOptions []*ZadigBlueGreenDeployEnvInformation `bson:"-"                     json:"env_options"          yaml:"env_options"`
-	Source     string                                `bson:"source"                json:"source"               yaml:"source"`
-	Services   []*BlueGreenDeployV2Service           `bson:"services"              json:"services"             yaml:"services"`
+	Version        string                                `bson:"version"               json:"version"              yaml:"version"`
+	Production     bool                                  `bson:"production"            json:"production"           yaml:"production"`
+	Env            string                                `bson:"env"                   json:"env"                  yaml:"env"`
+	EnvOptions     []*ZadigBlueGreenDeployEnvInformation `bson:"-"                     json:"env_options"          yaml:"env_options"`
+	Source         string                                `bson:"source"                json:"source"               yaml:"source"`
+	Services       []*BlueGreenDeployV2Service           `bson:"services"              json:"services"             yaml:"services"`
+	ServiceOptions []*BlueGreenDeployV2Service           `bson:"service_options"       json:"service_options"      yaml:"service_options"`
 }
 
 type BlueGreenDeployV2ServiceModuleAndImage struct {
