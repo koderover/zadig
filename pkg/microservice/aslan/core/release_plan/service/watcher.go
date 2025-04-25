@@ -81,6 +81,7 @@ func updatePlanWorkflowReleaseJob(plan *models.ReleasePlan, log *zap.SugaredLogg
 	if plan.Status != config.StatusExecuting {
 		return
 	}
+	changed := false
 	for _, job := range plan.Jobs {
 		if job.Status == config.ReleasePlanJobStatusRunning && job.Type == config.JobWorkflow {
 			spec := new(models.WorkflowReleaseJobSpec)
@@ -96,19 +97,30 @@ func updatePlanWorkflowReleaseJob(plan *models.ReleasePlan, log *zap.SugaredLogg
 			spec.Status = task.Status
 			if lo.Contains(config.FailedStatus(), task.Status) {
 				job.Status = config.ReleasePlanJobStatusFailed
+				changed = true
 			}
 			if task.Status == config.StatusPassed {
 				job.Status = config.ReleasePlanJobStatusDone
+				changed = true
 			}
 			if checkReleasePlanJobsAllDone(plan) {
 				//plan.ExecutingTime = time.Now().Unix()
 				plan.SuccessTime = time.Now().Unix()
 				plan.Status = config.StatusSuccess
+				changed = true
 			}
 		}
 	}
-	if err := mongodb.NewReleasePlanColl().UpdateByID(ctx, plan.ID.Hex(), plan); err != nil {
-		log.Errorf("update plan %s error: %v", plan.ID.Hex(), err)
+
+	if time.Now().Unix() > plan.EndTime && plan.EndTime != 0 {
+		plan.Status = config.StatusTimeoutForWindow
+		changed = true
+	}
+
+	if changed {
+		if err := mongodb.NewReleasePlanColl().UpdateByID(ctx, plan.ID.Hex(), plan); err != nil {
+			log.Errorf("update plan %s error: %v", plan.ID.Hex(), err)
+		}
 	}
 	return
 }
@@ -212,6 +224,8 @@ func updatePlanApproval(plan *models.ReleasePlan) error {
 			Detail:    "审批被拒绝",
 			CreatedAt: time.Now().Unix(),
 		}
+		plan.Status = config.StatusApprovalDenied
+		plan.ApprovalTime = time.Now().Unix()
 	}
 
 	if err := mongodb.NewReleasePlanColl().UpdateByID(ctx, plan.ID.Hex(), plan); err != nil {

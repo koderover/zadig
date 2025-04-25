@@ -629,11 +629,13 @@ const (
 type ReleasePlanStatus string
 
 const (
-	StatusPlanning       ReleasePlanStatus = "planning"
-	StatusWaitForApprove ReleasePlanStatus = "wait_for_approval"
-	StatusExecuting      ReleasePlanStatus = "executing"
-	StatusSuccess        ReleasePlanStatus = "success"
-	StatusCancel         ReleasePlanStatus = "cancel"
+	StatusPlanning         ReleasePlanStatus = "planning"
+	StatusWaitForApprove   ReleasePlanStatus = "wait_for_approval"
+	StatusExecuting        ReleasePlanStatus = "executing"
+	StatusApprovalDenied   ReleasePlanStatus = "denied"
+	StatusTimeoutForWindow ReleasePlanStatus = "timeout"
+	StatusSuccess          ReleasePlanStatus = "success"
+	StatusCancel           ReleasePlanStatus = "cancel"
 )
 
 // ReleasePlanStatusMap is a map of status and its available next status

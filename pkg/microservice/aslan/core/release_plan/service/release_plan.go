@@ -440,6 +440,12 @@ func ExecuteReleaseJob(c *handler.Context, planID string, args *ExecuteReleaseJo
 	if !(plan.StartTime == 0 && plan.EndTime == 0) {
 		now := time.Now().Unix()
 		if now < plan.StartTime || now > plan.EndTime {
+			if now > plan.EndTime {
+				plan.Status = config.StatusTimeoutForWindow
+				if err = mongodb.NewReleasePlanColl().UpdateByID(ctx, planID, plan); err != nil {
+					return errors.Wrap(err, "update plan")
+				}
+			}
 			return errors.Errorf("plan is not in the release time range")
 		}
 	}
@@ -935,7 +941,7 @@ func clearApprovalData(approval *models.Approval) error {
 
 func checkReleasePlanJobsAllDone(plan *models.ReleasePlan) bool {
 	for _, job := range plan.Jobs {
-		if job.Status != config.ReleasePlanJobStatusDone && job.Status != config.ReleasePlanJobStatusSkipped {
+		if job.Status != config.ReleasePlanJobStatusDone && job.Status != config.ReleasePlanJobStatusSkipped && job.Status != config.ReleasePlanJobStatusFailed {
 			return false
 		}
 	}
