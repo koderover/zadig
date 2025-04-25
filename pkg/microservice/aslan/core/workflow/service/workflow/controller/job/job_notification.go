@@ -81,6 +81,30 @@ func (j NotificationJobController) Update(useUserInput bool, ticket *commonmodel
 	j.jobSpec.WebHookType = currJobSpec.WebHookType
 	j.jobSpec.Source = currJobSpec.Source
 
+	if currJobSpec.Source == "runtime" {
+		if currJobSpec.LarkGroupNotificationConfig != nil && j.jobSpec.LarkGroupNotificationConfig != nil {
+			currJobSpec.LarkGroupNotificationConfig.AtUsers = j.jobSpec.LarkGroupNotificationConfig.AtUsers
+			currJobSpec.LarkGroupNotificationConfig.IsAtAll = j.jobSpec.LarkGroupNotificationConfig.IsAtAll
+		}
+		if currJobSpec.LarkPersonNotificationConfig != nil && j.jobSpec.LarkPersonNotificationConfig != nil {
+			currJobSpec.LarkPersonNotificationConfig.TargetUsers = j.jobSpec.LarkPersonNotificationConfig.TargetUsers
+		}
+		if currJobSpec.WechatNotificationConfig != nil && j.jobSpec.WechatNotificationConfig != nil {
+			currJobSpec.WechatNotificationConfig.AtUsers = j.jobSpec.WechatNotificationConfig.AtUsers
+			currJobSpec.WechatNotificationConfig.IsAtAll = j.jobSpec.WechatNotificationConfig.IsAtAll
+		}
+		if currJobSpec.DingDingNotificationConfig != nil && j.jobSpec.DingDingNotificationConfig != nil {
+			currJobSpec.DingDingNotificationConfig.AtMobiles = j.jobSpec.DingDingNotificationConfig.AtMobiles
+			currJobSpec.DingDingNotificationConfig.IsAtAll = j.jobSpec.DingDingNotificationConfig.IsAtAll
+		}
+		if currJobSpec.MSTeamsNotificationConfig != nil && j.jobSpec.MSTeamsNotificationConfig != nil {
+			currJobSpec.MSTeamsNotificationConfig.AtEmails = j.jobSpec.MSTeamsNotificationConfig.AtEmails
+		}
+		if currJobSpec.MailNotificationConfig != nil && j.jobSpec.MailNotificationConfig != nil {
+			currJobSpec.MailNotificationConfig.TargetUsers = j.jobSpec.MailNotificationConfig.TargetUsers
+		}
+	}
+
 	// use the latest webhook settings, except for title and content
 	j.jobSpec.LarkGroupNotificationConfig = currJobSpec.LarkGroupNotificationConfig
 	j.jobSpec.LarkPersonNotificationConfig = currJobSpec.LarkPersonNotificationConfig
