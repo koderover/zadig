@@ -640,9 +640,10 @@ const (
 
 // ReleasePlanStatusMap is a map of status and its available next status
 var ReleasePlanStatusMap = map[ReleasePlanStatus][]ReleasePlanStatus{
-	StatusPlanning:       {StatusWaitForApprove, StatusExecuting},
-	StatusWaitForApprove: {StatusPlanning, StatusExecuting},
-	StatusExecuting:      {StatusPlanning, StatusSuccess, StatusCancel},
+	StatusPlanning:         {StatusWaitForApprove, StatusExecuting},
+	StatusWaitForApprove:   {StatusPlanning, StatusExecuting},
+	StatusExecuting:        {StatusPlanning, StatusSuccess, StatusCancel},
+	StatusTimeoutForWindow: {StatusPlanning},
 }
 
 type ReleasePlanJobType string
