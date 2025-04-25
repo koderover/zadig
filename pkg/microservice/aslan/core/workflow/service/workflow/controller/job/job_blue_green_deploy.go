@@ -153,7 +153,7 @@ func (j BlueGreenDeployJobController) Update(useUserInput bool, ticket *commonmo
 	mergedService := make([]*commonmodels.BlueGreenDeployV2Service, 0)
 	userConfiguredService := make(map[string]*commonmodels.BlueGreenDeployV2Service)
 
-	for _, service := range j.jobSpec.Services {
+	for _, service := range currJobSpec.ServiceOptions {
 		userConfiguredService[service.ServiceName] = service
 	}
 
