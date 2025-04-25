@@ -328,6 +328,27 @@ func UpdateServicesGroupInEnv(productName, envName string, index int, group []*m
 		newGroup = append(newGroup, service)
 	}
 
+	newProductInfo, err := productColl.Find(&commonrepo.ProductFindOptions{
+		Name:       productName,
+		EnvName:    envName,
+		Production: &production,
+	})
+	if err != nil {
+		mongo.AbortTransaction(session)
+		return errors.Wrapf(err, "failed to find environment %s/%s", productName, envName)
+	}
+
+	envSvcMap := newProductInfo.GetServiceMap()
+	for i, svc := range newGroup {
+		envSvc := envSvcMap[svc.ServiceName]
+		if envSvc != nil {
+			if envSvc.UpdateTime > svc.UpdateTime {
+				newGroup[i] = envSvc
+				log.Warnf("service %s in environment %s/%s is newer than the service in update request, ignore the update", svc.ServiceName, productName, envName)
+			}
+		}
+	}
+
 	if err = productColl.UpdateServicesGroup(productName, envName, index, newGroup); err != nil {
 		err = fmt.Errorf("failed to update %s/%s product services, err %s", productName, envName, err)
 		mongo.AbortTransaction(session)
