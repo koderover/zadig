@@ -480,6 +480,10 @@ func generateBlueGreenEnvDeployServiceInfo(env string, production bool, project 
 		if configuredService, ok := configuredServiceMap[envService.ServiceName]; ok && len(configuredService.BlueServiceYaml) != 0 {
 			appendService.BlueServiceYaml = configuredService.BlueServiceYaml
 		} else {
+			if !ok {
+				continue
+			}
+			
 			yamlContent, _, err := kube.FetchCurrentAppliedYaml(&kube.GeneSvcYamlOption{
 				ProductName: project,
 				EnvName:     env,
