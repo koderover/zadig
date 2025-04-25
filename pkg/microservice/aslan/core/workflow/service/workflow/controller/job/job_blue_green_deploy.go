@@ -477,60 +477,58 @@ func generateBlueGreenEnvDeployServiceInfo(env string, production bool, project 
 		appendService.ServiceAndImage = modules
 
 		// if a yaml is pre-configured, use it. Otherwise, just get it from the environment and do some render.
-		if configuredService, ok := configuredServiceMap[envService.ServiceName]; ok && len(configuredService.BlueServiceYaml) != 0 {
-			appendService.BlueServiceYaml = configuredService.BlueServiceYaml
-		} else {
-			if !ok {
-				continue
-			}
-			
-			yamlContent, _, err := kube.FetchCurrentAppliedYaml(&kube.GeneSvcYamlOption{
-				ProductName: project,
-				EnvName:     env,
-				ServiceName: envService.ServiceName,
-			})
-			if err != nil {
-				return nil, "", fmt.Errorf("failed to fetch %s current applied yaml, err: %s", envService.ServiceName, err)
-			}
-
-			resources := make([]*unstructured.Unstructured, 0)
-			manifests := releaseutil.SplitManifests(yamlContent)
-			for _, item := range manifests {
-				u, err := serializer2.NewDecoder().YamlToUnstructured([]byte(item))
+		if configuredService, ok := configuredServiceMap[envService.ServiceName]; ok {
+			if len(configuredService.BlueServiceYaml) != 0 {
+				appendService.BlueServiceYaml = configuredService.BlueServiceYaml
+			} else {
+				yamlContent, _, err := kube.FetchCurrentAppliedYaml(&kube.GeneSvcYamlOption{
+					ProductName: project,
+					EnvName:     env,
+					ServiceName: envService.ServiceName,
+				})
 				if err != nil {
-					return nil, "", fmt.Errorf("failed to decode service %s yaml to unstructured: %v", envService.ServiceName, err)
+					return nil, "", fmt.Errorf("failed to fetch %s current applied yaml, err: %s", envService.ServiceName, err)
 				}
-				resources = append(resources, u)
-			}
-
-			serviceNum := 0
-			for _, resource := range resources {
-				switch resource.GetKind() {
-				case setting.Service:
-					if serviceNum > 0 {
-						return nil, "", fmt.Errorf("service %s has more than one service", envService.ServiceName)
-					}
-					serviceNum++
-					service := &corev1.Service{}
-					err := runtime.DefaultUnstructuredConverter.FromUnstructured(resource.Object, service)
+	
+				resources := make([]*unstructured.Unstructured, 0)
+				manifests := releaseutil.SplitManifests(yamlContent)
+				for _, item := range manifests {
+					u, err := serializer2.NewDecoder().YamlToUnstructured([]byte(item))
 					if err != nil {
-						return nil, "", fmt.Errorf("failed to convert service %s service to service object: %v", envService.ServiceName, err)
+						return nil, "", fmt.Errorf("failed to decode service %s yaml to unstructured: %v", envService.ServiceName, err)
 					}
-					service.Name = service.Name + "-blue"
-					if service.Spec.Selector == nil {
-						service.Spec.Selector = make(map[string]string)
-					}
-					service.Spec.Selector[config.BlueGreenVersionLabelName] = config.BlueVersion
-					appendService.BlueServiceYaml, err = toYaml(service)
-					if err != nil {
-						return nil, "", fmt.Errorf("failed to marshal service %s service object: %v", envService.ServiceName, err)
+					resources = append(resources, u)
+				}
+	
+				serviceNum := 0
+				for _, resource := range resources {
+					switch resource.GetKind() {
+					case setting.Service:
+						if serviceNum > 0 {
+							return nil, "", fmt.Errorf("service %s has more than one service", envService.ServiceName)
+						}
+						serviceNum++
+						service := &corev1.Service{}
+						err := runtime.DefaultUnstructuredConverter.FromUnstructured(resource.Object, service)
+						if err != nil {
+							return nil, "", fmt.Errorf("failed to convert service %s service to service object: %v", envService.ServiceName, err)
+						}
+						service.Name = service.Name + "-blue"
+						if service.Spec.Selector == nil {
+							service.Spec.Selector = make(map[string]string)
+						}
+						service.Spec.Selector[config.BlueGreenVersionLabelName] = config.BlueVersion
+						appendService.BlueServiceYaml, err = toYaml(service)
+						if err != nil {
+							return nil, "", fmt.Errorf("failed to marshal service %s service object: %v", envService.ServiceName, err)
+						}
 					}
 				}
+				if serviceNum == 0 {
+					return nil, "", fmt.Errorf("service %s has no service", envService.ServiceName)
+				}
 			}
-			if serviceNum == 0 {
-				return nil, "", fmt.Errorf("service %s has no service", envService.ServiceName)
-			}
-		}
+		} 
 
 		resp = append(resp, appendService)
 	}
