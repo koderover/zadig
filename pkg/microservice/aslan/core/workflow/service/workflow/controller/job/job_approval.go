@@ -95,18 +95,20 @@ func (j ApprovalJobController) Update(useUserInput bool, ticket *commonmodels.Ap
 		return fmt.Errorf("failed to decode approval job spec, error: %s", err)
 	}
 
-	if latestJobSpec.Source != config.SourceFixed {
-		if latestJobSpec.NativeApproval != nil && j.jobSpec.NativeApproval != nil {
-			latestJobSpec.NativeApproval.ApproveUsers = j.jobSpec.NativeApproval.ApproveUsers
-		}
-		if latestJobSpec.LarkApproval != nil && j.jobSpec.LarkApproval != nil {
-			latestJobSpec.LarkApproval.ApprovalNodes = j.jobSpec.LarkApproval.ApprovalNodes
-		}
-		if latestJobSpec.DingTalkApproval != nil && j.jobSpec.DingTalkApproval != nil {
-			latestJobSpec.DingTalkApproval.ApprovalNodes = j.jobSpec.DingTalkApproval.ApprovalNodes
-		}
-		if latestJobSpec.WorkWXApproval != nil && j.jobSpec.WorkWXApproval != nil {
-			latestJobSpec.WorkWXApproval.ApprovalNodes = j.jobSpec.WorkWXApproval.ApprovalNodes
+	if useUserInput {
+		if latestJobSpec.Source != config.SourceFixed {
+			if latestJobSpec.NativeApproval != nil && j.jobSpec.NativeApproval != nil {
+				latestJobSpec.NativeApproval.ApproveUsers = j.jobSpec.NativeApproval.ApproveUsers
+			}
+			if latestJobSpec.LarkApproval != nil && j.jobSpec.LarkApproval != nil {
+				latestJobSpec.LarkApproval.ApprovalNodes = j.jobSpec.LarkApproval.ApprovalNodes
+			}
+			if latestJobSpec.DingTalkApproval != nil && j.jobSpec.DingTalkApproval != nil {
+				latestJobSpec.DingTalkApproval.ApprovalNodes = j.jobSpec.DingTalkApproval.ApprovalNodes
+			}
+			if latestJobSpec.WorkWXApproval != nil && j.jobSpec.WorkWXApproval != nil {
+				latestJobSpec.WorkWXApproval.ApprovalNodes = j.jobSpec.WorkWXApproval.ApprovalNodes
+			}
 		}
 	}
 
