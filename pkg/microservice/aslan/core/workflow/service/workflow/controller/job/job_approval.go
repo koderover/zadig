@@ -95,25 +95,32 @@ func (j ApprovalJobController) Update(useUserInput bool, ticket *commonmodels.Ap
 		return fmt.Errorf("failed to decode approval job spec, error: %s", err)
 	}
 
-	if useUserInput {
-		if latestJobSpec.Source != config.SourceFixed {
-			if latestJobSpec.NativeApproval != nil && j.jobSpec.NativeApproval != nil {
-				latestJobSpec.NativeApproval.ApproveUsers = j.jobSpec.NativeApproval.ApproveUsers
-			}
-			if latestJobSpec.LarkApproval != nil && j.jobSpec.LarkApproval != nil {
-				latestJobSpec.LarkApproval.ApprovalNodes = j.jobSpec.LarkApproval.ApprovalNodes
-			}
-			if latestJobSpec.DingTalkApproval != nil && j.jobSpec.DingTalkApproval != nil {
-				latestJobSpec.DingTalkApproval.ApprovalNodes = j.jobSpec.DingTalkApproval.ApprovalNodes
-			}
-			if latestJobSpec.WorkWXApproval != nil && j.jobSpec.WorkWXApproval != nil {
-				latestJobSpec.WorkWXApproval.ApprovalNodes = j.jobSpec.WorkWXApproval.ApprovalNodes
-			}
+	j.jobSpec.JobName = latestJobSpec.JobName
+	j.jobSpec.Type = latestJobSpec.Type
+	j.jobSpec.Timeout = latestJobSpec.Timeout
+	j.jobSpec.OriginJobName = latestJobSpec.OriginJobName
+	j.jobSpec.Source = latestJobSpec.Source
+	j.jobSpec.Description = latestJobSpec.Description
+
+	if latestJobSpec.Source != config.SourceFixed {
+		if latestJobSpec.NativeApproval != nil && j.jobSpec.NativeApproval != nil {
+			latestJobSpec.NativeApproval.ApproveUsers = j.jobSpec.NativeApproval.ApproveUsers
+		}
+		if latestJobSpec.LarkApproval != nil && j.jobSpec.LarkApproval != nil {
+			latestJobSpec.LarkApproval.ApprovalNodes = j.jobSpec.LarkApproval.ApprovalNodes
+		}
+		if latestJobSpec.DingTalkApproval != nil && j.jobSpec.DingTalkApproval != nil {
+			latestJobSpec.DingTalkApproval.ApprovalNodes = j.jobSpec.DingTalkApproval.ApprovalNodes
+		}
+		if latestJobSpec.WorkWXApproval != nil && j.jobSpec.WorkWXApproval != nil {
+			latestJobSpec.WorkWXApproval.ApprovalNodes = j.jobSpec.WorkWXApproval.ApprovalNodes
 		}
 	}
 
-	j.jobSpec = latestJobSpec
-
+	j.jobSpec.NativeApproval = latestJobSpec.NativeApproval
+	j.jobSpec.LarkApproval = latestJobSpec.LarkApproval
+	j.jobSpec.DingTalkApproval = latestJobSpec.DingTalkApproval
+	j.jobSpec.WorkWXApproval = latestJobSpec.WorkWXApproval
 	return nil
 }
 
