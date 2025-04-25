@@ -142,9 +142,10 @@ func (j BlueGreenDeployJobController) Update(useUserInput bool, ticket *commonmo
 	}
 	j.jobSpec.Env = currJobSpec.Env
 	j.jobSpec.Production = currJobSpec.Production
+	j.jobSpec.ServiceOptions = currJobSpec.ServiceOptions
 
 	// Determine service list and its corresponding kvs
-	deployableService, _, err := generateBlueGreenEnvDeployServiceInfo(j.jobSpec.Env, j.jobSpec.Production, j.workflow.Project, currJobSpec.Services)
+	deployableService, _, err := generateBlueGreenEnvDeployServiceInfo(j.jobSpec.Env, j.jobSpec.Production, j.workflow.Project, currJobSpec.ServiceOptions)
 	if err != nil {
 		log.Errorf("failed to generate deployable service from latest workflow spec, err: %s", err)
 		return err
