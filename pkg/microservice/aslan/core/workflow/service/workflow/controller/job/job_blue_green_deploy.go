@@ -135,11 +135,6 @@ func (j BlueGreenDeployJobController) Update(useUserInput bool, ticket *commonmo
 		return fmt.Errorf("failed to decode apollo job spec, error: %s", err)
 	}
 
-	if useUserInput {
-		if j.jobSpec.Env != currJobSpec.Env {
-			return fmt.Errorf("given env: %s does not match job definition: %s", j.jobSpec.Env, currJobSpec.Env)
-		}
-	}
 	j.jobSpec.Env = currJobSpec.Env
 	j.jobSpec.Production = currJobSpec.Production
 	j.jobSpec.ServiceOptions = currJobSpec.ServiceOptions
