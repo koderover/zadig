@@ -17,6 +17,7 @@ limitations under the License.
 package job
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -593,6 +594,8 @@ func (j DeployJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, erro
 					VariableKVs:           varKVs,
 					Containers:            containers,
 				}
+				optionBytes, _ := json.Marshal(option)
+				fmt.Println("=======================================\n", string(optionBytes), "\n=======================================")
 				updatedYaml, _, _, err := kube.GenerateRenderedYaml(option)
 				if err != nil {
 					return nil, fmt.Errorf("generate service yaml error: %v", err)
