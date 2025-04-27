@@ -123,6 +123,7 @@ func (w *Workflow) ToJobTasks(taskID int64, creator, account, uid string) ([]*co
 			for _, kv := range kvs {
 				if kv.GetValue() != "" {
 					globalKeyMap[kv.Key] = kv.GetValue()
+					log.Infof("insert key %s with value", kv.Key, kv.GetValue())
 				} else {
 					log.Warnf("key %s skipped due to no value", kv.Key)
 				}
@@ -179,6 +180,7 @@ func (w *Workflow) ToJobTasks(taskID int64, creator, account, uid string) ([]*co
 				taskString := string(taskBytes)
 				for k, v := range globalKeyMap {
 					taskString = strings.ReplaceAll(taskString, fmt.Sprintf("{{.%s}}", k), v)
+					log.Infof("replacing key %s with value: %s", fmt.Sprintf("{{.%s}}", k), v)
 				}
 				err := json.Unmarshal([]byte(taskString), &task)
 				if err != nil {

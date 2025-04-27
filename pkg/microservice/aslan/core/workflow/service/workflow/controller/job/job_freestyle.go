@@ -293,14 +293,14 @@ func (j FreestyleJobController) GetVariableList(jobName string, getAggregatedVar
 
 			resp = append(resp, &commonmodels.KeyVal{
 				Key:          fmt.Sprintf("%s.%s", jobKey, "SERVICE_NAME"),
-				Value:        "",
+				Value:        svc.ServiceName,
 				Type:         "string",
 				IsCredential: false,
 			})
 
 			resp = append(resp, &commonmodels.KeyVal{
 				Key:          fmt.Sprintf("%s.%s", jobKey, "SERVICE_MODULE"),
-				Value:        "",
+				Value:        svc.ServiceModule,
 				Type:         "string",
 				IsCredential: false,
 			})
