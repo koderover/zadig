@@ -114,7 +114,7 @@ func (w *Workflow) ToJobTasks(taskID int64, creator, account, uid string) ([]*co
 				false,
 				false,
 				true,
-				false,
+				true,
 			)
 			if err != nil {
 				return nil, err
