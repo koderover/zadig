@@ -305,7 +305,7 @@ func (j FreestyleJobController) GetVariableList(jobName string, getAggregatedVar
 				IsCredential: false,
 			})
 
-			for _, kv := range j.jobSpec.Envs {
+			for _, kv := range svc.KeyVals {
 				resp = append(resp, &commonmodels.KeyVal{
 					Key:          fmt.Sprintf("%s.%s", jobKey, kv.Key),
 					Value:        kv.GetValue(),
