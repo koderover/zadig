@@ -705,16 +705,31 @@ func (j BuildJobController) GetVariableList(jobName string, getAggregatedVariabl
 	resp := make([]*commonmodels.KeyVal, 0)
 
 	if getAggregatedVariables {
+		var serviceAndModuleName, branchList, gitURLs []string
+		for _, serviceAndBuild := range j.jobSpec.ServiceAndBuilds {
+			serviceAndModuleName = append(serviceAndModuleName, serviceAndBuild.ServiceModule+"/"+serviceAndBuild.ServiceName)
+			branch, gitURL := "", ""
+			if len(serviceAndBuild.Repos) > 0 {
+				branch = serviceAndBuild.Repos[0].Branch
+				if serviceAndBuild.Repos[0].AuthType == types.SSHAuthType {
+					gitURL = fmt.Sprintf("%s:%s/%s", serviceAndBuild.Repos[0].Address, serviceAndBuild.Repos[0].RepoOwner, serviceAndBuild.Repos[0].RepoName)
+				} else {
+					gitURL = fmt.Sprintf("%s/%s/%s", serviceAndBuild.Repos[0].Address, serviceAndBuild.Repos[0].RepoOwner, serviceAndBuild.Repos[0].RepoName)
+				}
+			}
+			branchList = append(branchList, branch)
+			gitURLs = append(gitURLs, gitURL)
+		}
 		resp = append(resp, &commonmodels.KeyVal{
 			Key:          strings.Join([]string{"job", j.name, "SERVICES"}, "."),
-			Value:        "",
+			Value:        strings.Join(serviceAndModuleName, ","),
 			Type:         "string",
 			IsCredential: false,
 		})
 
 		resp = append(resp, &commonmodels.KeyVal{
 			Key:          strings.Join([]string{"job", j.name, "BRANCHES"}, "."),
-			Value:        "",
+			Value:        strings.Join(branchList, ","),
 			Type:         "string",
 			IsCredential: false,
 		})
@@ -728,7 +743,7 @@ func (j BuildJobController) GetVariableList(jobName string, getAggregatedVariabl
 
 		resp = append(resp, &commonmodels.KeyVal{
 			Key:          strings.Join([]string{"job", j.name, "GITURLS"}, "."),
-			Value:        "",
+			Value:        strings.Join(gitURLs, ","),
 			Type:         "string",
 			IsCredential: false,
 		})
@@ -875,6 +890,20 @@ func (j BuildJobController) GetVariableList(jobName string, getAggregatedVariabl
 				resp = append(resp, &commonmodels.KeyVal{
 					Key:          fmt.Sprintf("%s.%s", jobKey, REPONAMEKEY),
 					Value:        repo.RepoName,
+					Type:         "string",
+					IsCredential: false,
+				})
+				
+				var gitURL string
+				if repo.AuthType == types.SSHAuthType {
+					gitURL = fmt.Sprintf("%s:%s/%s", repo.Address, repo.RepoOwner, repo.RepoName)
+				} else {
+					gitURL = fmt.Sprintf("%s/%s/%s", repo.Address, repo.RepoOwner, repo.RepoName)
+				}
+
+				resp = append(resp, &commonmodels.KeyVal{
+					Key:          fmt.Sprintf("%s.%s", jobKey, GITURLKEY),
+					Value:        gitURL,
 					Type:         "string",
 					IsCredential: false,
 				})

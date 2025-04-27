@@ -646,7 +646,7 @@ func (w *Workflow) GetReferableVariables(currentJobName string, option GetWorkfl
 			}
 
 			if !currJobCtrl.IsServiceTypeJob() {
-				getServiceSpecificVariables = false
+				getServiceSpecificVariables = true
 				getPlaceHolderVariables = false
 			}
 
