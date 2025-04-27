@@ -535,7 +535,7 @@ type GetWorkflowVariablesOption struct {
 	// these 3 variable is controlled by GetRuntimeVariables
 	GetServiceSpecificVariables bool
 	// GetReferredKeyValVariables gets the referred build/scan/testing job's key value as variables
-	GetReferredKeyValVariables bool
+	UseUserInput bool
 }
 
 // GetReferableVariables gets all the variable that can be used by dynamic variables/other job to refer.
@@ -653,7 +653,7 @@ func (w *Workflow) GetReferableVariables(currentJobName string, option GetWorkfl
 				getRuntimeVariableFlag,
 				getPlaceHolderVariables,
 				getServiceSpecificVariables,
-				option.GetReferredKeyValVariables,
+				option.UseUserInput,
 			)
 
 			if err != nil {

@@ -2004,7 +2004,7 @@ func GetWorkflowGlobalVars(workflow *commonmodels.WorkflowV4, currentJobName str
 		GetRuntimeVariables:         true,
 		GetPlaceHolderVariables:     true,
 		GetServiceSpecificVariables: true,
-		GetReferredKeyValVariables:  false,
+		UseUserInput:                false,
 	}, true)
 
 	if err != nil {

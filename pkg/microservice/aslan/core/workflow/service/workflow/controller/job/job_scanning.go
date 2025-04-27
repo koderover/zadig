@@ -271,7 +271,7 @@ func (j ScanningJobController) SetRepoCommitInfo() error {
 	return nil
 }
 
-func (j ScanningJobController) GetVariableList(jobName string, getAggregatedVariables, getRuntimeVariables, getPlaceHolderVariables, getServiceSpecificVariables, getReferredKeyValVariables bool) ([]*commonmodels.KeyVal, error) {
+func (j ScanningJobController) GetVariableList(jobName string, getAggregatedVariables, getRuntimeVariables, getPlaceHolderVariables, getServiceSpecificVariables, useUserInputValue bool) ([]*commonmodels.KeyVal, error) {
 	resp := make([]*commonmodels.KeyVal, 0)
 
 	if getAggregatedVariables {
@@ -387,7 +387,11 @@ func (j ScanningJobController) GetVariableList(jobName string, getAggregatedVari
 	}
 
 	if getServiceSpecificVariables {
-		for _, service := range j.jobSpec.ServiceScanningOptions {
+		targets := j.jobSpec.ServiceScanningOptions
+		if useUserInputValue {
+			targets = j.jobSpec.ServiceAndScannings
+		}
+		for _, service := range targets {
 			jobKey := strings.Join([]string{"job", j.name, service.ServiceName, service.ServiceModule}, ".")
 			for _, keyVal := range service.KeyVals {
 				resp = append(resp, &commonmodels.KeyVal{

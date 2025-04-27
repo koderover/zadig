@@ -247,7 +247,7 @@ func (j HelmChartDeployJobController) SetRepoCommitInfo() error {
 	return nil
 }
 
-func (j HelmChartDeployJobController) GetVariableList(jobName string, getAggregatedVariables, getRuntimeVariables, getPlaceHolderVariables, getServiceSpecificVariables, getReferredKeyValVariables bool) ([]*commonmodels.KeyVal, error) {
+func (j HelmChartDeployJobController) GetVariableList(jobName string, getAggregatedVariables, getRuntimeVariables, getPlaceHolderVariables, getServiceSpecificVariables, useUserInputValue bool) ([]*commonmodels.KeyVal, error) {
 	return make([]*commonmodels.KeyVal, 0), nil
 }
 

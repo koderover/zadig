@@ -683,7 +683,7 @@ func (j DeployJobController) SetRepoCommitInfo() error {
 	return nil
 }
 
-func (j DeployJobController) GetVariableList(jobName string, getAggregatedVariables, getRuntimeVariables, getPlaceHolderVariables, getServiceSpecificVariables, getReferredKeyValVariables bool) ([]*commonmodels.KeyVal, error) {
+func (j DeployJobController) GetVariableList(jobName string, getAggregatedVariables, getRuntimeVariables, getPlaceHolderVariables, getServiceSpecificVariables, useUserInputValue bool) ([]*commonmodels.KeyVal, error) {
 	resp := make([]*commonmodels.KeyVal, 0)
 
 	resp = append(resp, &commonmodels.KeyVal{

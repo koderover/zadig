@@ -202,7 +202,7 @@ func (j MseGrayReleaseJobController) SetRepoCommitInfo() error {
 	return nil
 }
 
-func (j MseGrayReleaseJobController) GetVariableList(jobName string, getAggregatedVariables, getRuntimeVariables, getPlaceHolderVariables, getServiceSpecificVariables, getReferredKeyValVariables bool) ([]*commonmodels.KeyVal, error) {
+func (j MseGrayReleaseJobController) GetVariableList(jobName string, getAggregatedVariables, getRuntimeVariables, getPlaceHolderVariables, getServiceSpecificVariables, useUserInputValue bool) ([]*commonmodels.KeyVal, error) {
 	return make([]*commonmodels.KeyVal, 0), nil
 }
 

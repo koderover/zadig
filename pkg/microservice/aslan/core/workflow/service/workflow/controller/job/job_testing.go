@@ -280,7 +280,7 @@ func (j TestingJobController) SetRepoCommitInfo() error {
 	return nil
 }
 
-func (j TestingJobController) GetVariableList(jobName string, getAggregatedVariables, getRuntimeVariables, getPlaceHolderVariables, getServiceSpecificVariables, getReferredKeyValVariables bool) ([]*commonmodels.KeyVal, error) {
+func (j TestingJobController) GetVariableList(jobName string, getAggregatedVariables, getRuntimeVariables, getPlaceHolderVariables, getServiceSpecificVariables, useUserInputValue bool) ([]*commonmodels.KeyVal, error) {
 	resp := make([]*commonmodels.KeyVal, 0)
 
 	if getAggregatedVariables {
@@ -396,7 +396,11 @@ func (j TestingJobController) GetVariableList(jobName string, getAggregatedVaria
 	}
 
 	if getServiceSpecificVariables {
-		for _, service := range j.jobSpec.ServiceTestOptions {
+		targets := j.jobSpec.ServiceTestOptions
+		if useUserInputValue {
+			targets = j.jobSpec.ServiceAndTests
+		}
+		for _, service := range targets {
 			jobKey := strings.Join([]string{"job", j.name, service.ServiceName, service.ServiceModule}, ".")
 			for _, keyVal := range service.KeyVals {
 				resp = append(resp, &commonmodels.KeyVal{

@@ -701,7 +701,7 @@ func (j BuildJobController) SetRepoCommitInfo() error {
 	return nil
 }
 
-func (j BuildJobController) GetVariableList(jobName string, getAggregatedVariables, getRuntimeVariables, getPlaceHolderVariables, getServiceSpecificVariables, getReferredKeyValVariables bool) ([]*commonmodels.KeyVal, error) {
+func (j BuildJobController) GetVariableList(jobName string, getAggregatedVariables, getRuntimeVariables, getPlaceHolderVariables, getServiceSpecificVariables, useUserInputValue bool) ([]*commonmodels.KeyVal, error) {
 	resp := make([]*commonmodels.KeyVal, 0)
 
 	if getAggregatedVariables {
@@ -832,7 +832,12 @@ func (j BuildJobController) GetVariableList(jobName string, getAggregatedVariabl
 	buildSvc := commonservice.NewBuildService()
 
 	if getServiceSpecificVariables {
-		for _, service := range j.jobSpec.ServiceAndBuildsOptions {
+		target := j.jobSpec.ServiceAndBuildsOptions
+		if useUserInputValue {
+			target = j.jobSpec.ServiceAndBuilds
+		}
+
+		for _, service := range target {
 			build, err :=buildSvc.GetBuild(service.BuildName, service.ServiceName, service.ServiceModule)
 			if err != nil {
 				return nil, err

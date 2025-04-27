@@ -145,7 +145,7 @@ func (j K8sPatchJobController) SetRepoCommitInfo() error {
 	return nil
 }
 
-func (j K8sPatchJobController) GetVariableList(jobName string, getAggregatedVariables, getRuntimeVariables, getPlaceHolderVariables, getServiceSpecificVariables, getReferredKeyValVariables bool) ([]*commonmodels.KeyVal, error) {
+func (j K8sPatchJobController) GetVariableList(jobName string, getAggregatedVariables, getRuntimeVariables, getPlaceHolderVariables, getServiceSpecificVariables, useUserInputValue bool) ([]*commonmodels.KeyVal, error) {
 	return make([]*commonmodels.KeyVal, 0), nil
 }
 
