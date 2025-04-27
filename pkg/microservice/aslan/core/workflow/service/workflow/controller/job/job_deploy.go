@@ -709,17 +709,16 @@ func (j DeployJobController) GetVariableList(jobName string, getAggregatedVariab
 		})
 	}
 
-	if getRuntimeVariables {
-		for _, target := range j.jobSpec.Services {
-			for _, targetModule := range target.Modules {
-				targetKey := strings.Join([]string{j.name, target.ServiceName, targetModule.ServiceModule}, ".")
-				resp = append(resp, &commonmodels.KeyVal{
-					Key:          strings.Join([]string{"job", targetKey, "IMAGE"}, "."),
-					Value:        targetModule.Image,
-					Type:         "string",
-					IsCredential: false,
-				})
-			}
+	// 2025/04/27 PM says it is ok even if the image refers to an output parameter, making it renderred as empty.
+	for _, target := range j.jobSpec.Services {
+		for _, targetModule := range target.Modules {
+			targetKey := strings.Join([]string{j.name, target.ServiceName, targetModule.ServiceModule}, ".")
+			resp = append(resp, &commonmodels.KeyVal{
+				Key:          strings.Join([]string{"job", targetKey, "IMAGE"}, "."),
+				Value:        targetModule.Image,
+				Type:         "string",
+				IsCredential: false,
+			})
 		}
 	}
 
