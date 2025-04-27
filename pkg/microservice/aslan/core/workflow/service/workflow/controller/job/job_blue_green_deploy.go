@@ -136,6 +136,7 @@ func (j BlueGreenDeployJobController) Update(useUserInput bool, ticket *commonmo
 	}
 
 	j.jobSpec.Env = currJobSpec.Env
+	j.jobSpec.Source = currJobSpec.Source
 	j.jobSpec.Production = currJobSpec.Production
 	j.jobSpec.ServiceOptions = currJobSpec.ServiceOptions
 
