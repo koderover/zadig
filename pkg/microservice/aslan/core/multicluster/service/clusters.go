@@ -652,8 +652,8 @@ func UpdateClusterStorage(ctx *handler.Context, id string, shareStorage *types.S
 
 	// If the user chooses to use dynamically generated storage resources, the system automatically creates the PVC.
 	// TODO: If the PVC is not successfully bound to the PV, it is necessary to consider how to expose this abnormal information.
-	if shareStorage.MediumType == types.NFSMedium && shareStorage.NFSProperties.ProvisionType == types.DynamicProvision {
-		if err := createDynamicPVC(id, "share-storage", &shareStorage.NFSProperties, ctx.Logger); err != nil {
+	if cluster.ShareStorage.MediumType == types.NFSMedium && cluster.ShareStorage.NFSProperties.ProvisionType == types.DynamicProvision {
+		if err := createDynamicPVC(id, "share-storage", &cluster.ShareStorage.NFSProperties, ctx.Logger); err != nil {
 			return nil, err
 		}
 	}
