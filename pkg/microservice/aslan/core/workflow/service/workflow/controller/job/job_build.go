@@ -375,11 +375,17 @@ func (j BuildJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, error
 			VMLabels:       buildInfo.VMLabels,
 			ErrorPolicy:    j.errorPolicy,
 		}
+		customEnvs := applyKeyVals(buildInfo.PreBuild.Envs.ToRuntimeList(), build.KeyVals, true).ToKVList()
+		renderedCustomEnv, err := replaceServiceAndModules(customEnvs, build.ServiceName, build.ServiceModule)
+		if err != nil {
+			return nil, fmt.Errorf("failed to render service variables, error: %v", err)
+		}
+
 		jobTaskSpec.Properties = commonmodels.JobProperties{
 			Timeout:             int64(buildInfo.Timeout),
 			ResourceRequest:     buildInfo.PreBuild.ResReq,
 			ResReqSpec:          buildInfo.PreBuild.ResReqSpec,
-			CustomEnvs:          applyKeyVals(buildInfo.PreBuild.Envs.ToRuntimeList(), build.KeyVals, true).ToKVList(),
+			CustomEnvs:          renderedCustomEnv,
 			ClusterID:           buildInfo.PreBuild.ClusterID,
 			StrategyID:          buildInfo.PreBuild.StrategyID,
 			BuildOS:             basicImage.Value,
@@ -392,8 +398,12 @@ func (j BuildJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, error
 
 		paramEnvs := generateKeyValsFromWorkflowParam(j.workflow.Params)
 		envs := mergeKeyVals(jobTaskSpec.Properties.CustomEnvs, paramEnvs)
+		renderedEnv, err := replaceServiceAndModules(envs, build.ServiceName, build.ServiceModule)
+		if err != nil {
+			return nil, fmt.Errorf("failed to render service variables, error: %v", err)
+		}
 
-		jobTaskSpec.Properties.Envs = append(envs, getBuildJobVariables(build, taskID, j.workflow.Project, j.workflow.Name, j.workflow.DisplayName, image, pkgFile, jobTask.Infrastructure, registry, logger)...)
+		jobTaskSpec.Properties.Envs = append(renderedEnv, getBuildJobVariables(build, taskID, j.workflow.Project, j.workflow.Name, j.workflow.DisplayName, image, pkgFile, jobTask.Infrastructure, registry, logger)...)
 		jobTaskSpec.Properties.UseHostDockerDaemon = buildInfo.PreBuild.UseHostDockerDaemon
 
 		cacheS3 := &commonmodels.S3Storage{}

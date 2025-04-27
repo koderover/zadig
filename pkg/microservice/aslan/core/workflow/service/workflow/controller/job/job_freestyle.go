@@ -530,7 +530,7 @@ func (j FreestyleJobController) generateSubTask(taskID int64, jobSubTaskID int, 
 	}
 
 	if service != nil {
-		customEnvs, err := renderServiceVariables(j.workflow, service.KeyVals, service.ServiceName, service.ServiceModule)
+		customEnvs, err := replaceServiceAndModules(service.KeyVals, service.ServiceName, service.ServiceModule)
 		if err != nil {
 			return nil, fmt.Errorf("failed to render service variables, error: %v", err)
 		}
@@ -570,7 +570,7 @@ func (j FreestyleJobController) generateSubTask(taskID int64, jobSubTaskID int, 
 	}
 
 	if service != nil {
-		renderedEnvs, err := renderServiceVariables(j.workflow, service.KeyVals, service.ServiceName, service.ServiceModule)
+		renderedEnvs, err := replaceServiceAndModules(envs, service.ServiceName, service.ServiceModule)
 		if err != nil {
 			return nil, fmt.Errorf("failed to render service variables, error: %v", err)
 		}

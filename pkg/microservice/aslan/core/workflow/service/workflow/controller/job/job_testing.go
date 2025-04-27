@@ -602,7 +602,7 @@ func (j TestingJobController) toJobTask(jobSubTaskID int, testing *commonmodels.
 			"service_module": serviceModule,
 		}
 
-		customEnvs, err = renderServiceVariables(j.workflow, customEnvs, serviceName, serviceModule)
+		customEnvs, err = replaceServiceAndModules(customEnvs, serviceName, serviceModule)
 		if err != nil {
 			return nil, fmt.Errorf("failed to render service variables, error: %v", err)
 		}

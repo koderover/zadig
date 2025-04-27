@@ -543,7 +543,7 @@ func (j ScanningJobController) toJobTask(jobSubTaskID int, scanning *commonmodel
 	}
 
 	if scanningType == string(config.ServiceScanningType) {
-		renderedEnv, err := renderServiceVariables(j.workflow, jobTaskSpec.Properties.Envs, serviceName, serviceModule)
+		renderedEnv, err := replaceServiceAndModules(jobTaskSpec.Properties.Envs, serviceName, serviceModule)
 		if err != nil {
 			return nil, fmt.Errorf("failed to render service variables, error: %v", err)
 		}
