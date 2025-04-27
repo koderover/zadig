@@ -507,8 +507,6 @@ func (j FreestyleJobController) generateSubTask(taskID int64, jobSubTaskID int, 
 		return nil, fmt.Errorf("failed to find base image: %s,error :%v", j.jobSpec.Runtime.ImageID, err)
 	}
 
-	customEnv := j.jobSpec.Envs
-
 	taskRunProperties := &commonmodels.JobProperties{
 		Timeout:             j.jobSpec.AdvancedSetting.Timeout,
 		ResourceRequest:     j.jobSpec.AdvancedSetting.ResourceRequest,
@@ -534,15 +532,14 @@ func (j FreestyleJobController) generateSubTask(taskID int64, jobSubTaskID int, 
 		if err != nil {
 			return nil, fmt.Errorf("failed to render service variables, error: %v", err)
 		}
-		customEnv = customEnvs.ToRuntimeList()
 
-		taskRunProperties.CustomEnvs = customEnv.ToKVList()
+		taskRunProperties.CustomEnvs = customEnvs
 	} else {
 		taskRunProperties.CustomEnvs = j.jobSpec.Envs.ToKVList()
 	}
 
 	paramEnvs := generateKeyValsFromWorkflowParam(j.workflow.Params)
-	envs := mergeKeyVals(j.jobSpec.Envs.ToKVList(), paramEnvs)
+	envs := mergeKeyVals(taskRunProperties.CustomEnvs, paramEnvs)
 
 	jobDisplayName := genJobDisplayName(j.name)
 	jobKey := genJobKey(j.name)
