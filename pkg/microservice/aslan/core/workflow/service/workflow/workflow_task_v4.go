@@ -288,7 +288,7 @@ func GetAvailableWorkflowV4DynamicVariable(ctx *internalhandler.Context, workflo
 	}
 
 	for _, kv := range variables {
-		resp = append(resp, kv.Key)
+		resp = append(resp, fmt.Sprintf("{{.%s}}", kv.Key))
 	}
 
 	return resp, nil
