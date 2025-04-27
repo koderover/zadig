@@ -121,7 +121,7 @@ func (w *Workflow) ToJobTasks(taskID int64, creator, account, uid string) ([]*co
 			}
 
 			for _, kv := range kvs {
-				if kv.GetValue() != "" {
+				if kv.GetValue() != "" && strings.HasPrefix(kv.GetValue(), "{{.") {
 					globalKeyMap[kv.Key] = kv.GetValue()
 					log.Infof("insert key %s with value", kv.Key, kv.GetValue())
 				} else {
