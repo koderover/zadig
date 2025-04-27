@@ -314,6 +314,7 @@ func GetWorkflowV4DynamicVariableValues(ctx *internalhandler.Context, workflow *
 	buildInVarMap := make(map[string]string)
 	for _, kv := range variables {
 		kv.Key = strings.ReplaceAll(kv.Key, "-", "_")
+		kv.Key = strings.ReplaceAll(kv.Key, ".", "_")
 		buildInVarMap[kv.Key] = kv.Value
 	}
 
