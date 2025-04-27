@@ -90,6 +90,8 @@ func (w *Workflow) SetPreset(ticket *commonmodels.ApprovalTicket) error {
 func (w *Workflow) ToJobTasks(taskID int64, creator, account, uid string) ([]*commonmodels.StageTask, error) {
 	resp := make([]*commonmodels.StageTask, 0)
 
+	globalKeyMap := make(map[string]string)
+
 	// first we need to set the commit info to jobs so the built-in parameters can be rendered
 	for _, stage := range w.Stages {
 		for _, job := range stage.Jobs {
@@ -106,6 +108,25 @@ func (w *Workflow) ToJobTasks(taskID int64, creator, account, uid string) ([]*co
 			ctrl.ClearOptions()
 
 			job.Spec = ctrl.GetSpec()
+
+			kvs, err := ctrl.GetVariableList(job.Name,
+				false,
+				false,
+				false,
+				true,
+				false,
+			)
+			if err != nil {
+				return nil, err
+			}
+
+			for _, kv := range kvs {
+				if kv.GetValue() != "" {
+					globalKeyMap[kv.Key] = kv.GetValue()
+				} else {
+					log.Warnf("key %s skipped due to no value", kv.Key)
+				}
+			}
 		}
 	}
 
@@ -153,6 +174,18 @@ func (w *Workflow) ToJobTasks(taskID int64, creator, account, uid string) ([]*co
 				}
 			}
 
+			for _, task := range tasks {
+				taskBytes, _ := json.Marshal(task)
+				taskString := string(taskBytes)
+				for k, v := range globalKeyMap {
+					taskString = strings.ReplaceAll(taskString, fmt.Sprintf("{{.%s}}", k), v)
+				}
+				err := json.Unmarshal([]byte(taskString), &task)
+				if err != nil {
+					return nil, fmt.Errorf("failed to replace input variable for task: %s, error: %s", task.Name, err)
+				}
+			}
+		
 			jobTasks = append(jobTasks, tasks...)
 		}
 
