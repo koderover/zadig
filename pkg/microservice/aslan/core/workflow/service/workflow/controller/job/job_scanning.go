@@ -279,9 +279,6 @@ func (j ScanningJobController) GetVariableList(jobName string, getAggregatedVari
 		// No aggregated variables
 	}
 
-	bytes, _ := json.Marshal(j.jobSpec)
-	fmt.Println(string(bytes))
-
 	if j.jobSpec.ScanningType == config.NormalScanningType || j.jobSpec.ScanningType == "" {
 		targets := j.jobSpec.ScanningOptions
 		if useUserInputValue {
