@@ -288,7 +288,11 @@ func (j TestingJobController) GetVariableList(jobName string, getAggregatedVaria
 	}
 
 	if j.jobSpec.TestType == config.ProductTestType || j.jobSpec.TestType == "" {
-		for _, test := range j.jobSpec.TestModuleOptions {
+		targets := j.jobSpec.TestModuleOptions
+		if useUserInputValue {
+			targets = j.jobSpec.TestModules
+		}
+		for _, test := range targets {
 			jobKey := strings.Join([]string{j.name, test.Name}, ".")
 			for _, kv := range test.KeyVals {
 				resp = append(resp, &commonmodels.KeyVal{

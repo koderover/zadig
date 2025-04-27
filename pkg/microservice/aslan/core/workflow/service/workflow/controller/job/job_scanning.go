@@ -279,7 +279,11 @@ func (j ScanningJobController) GetVariableList(jobName string, getAggregatedVari
 	}
 
 	if j.jobSpec.ScanningType == config.NormalScanningType || j.jobSpec.ScanningType == "" {
-		for _, scan := range j.jobSpec.ScanningOptions {
+		targets := j.jobSpec.ScanningOptions
+		if useUserInputValue {
+			targets = j.jobSpec.Scannings
+		}
+		for _, scan := range targets {
 			jobKey := strings.Join([]string{j.name, scan.Name}, ".")
 			for _, kv := range scan.KeyVals {
 				resp = append(resp, &commonmodels.KeyVal{
