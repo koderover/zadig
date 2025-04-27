@@ -18,6 +18,7 @@ package job
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"path"
 	"strings"
@@ -277,6 +278,9 @@ func (j ScanningJobController) GetVariableList(jobName string, getAggregatedVari
 	if getAggregatedVariables {
 		// No aggregated variables
 	}
+
+	bytes, _ := json.Marshal(j.jobSpec)
+	fmt.Println(string(bytes))
 
 	if j.jobSpec.ScanningType == config.NormalScanningType || j.jobSpec.ScanningType == "" {
 		targets := j.jobSpec.ScanningOptions
