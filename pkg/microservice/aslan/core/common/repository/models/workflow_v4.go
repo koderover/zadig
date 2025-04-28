@@ -872,7 +872,6 @@ type JiraJobSpec struct {
 	IssueType    string     `bson:"issue_type"  json:"issue_type"  yaml:"issue_type"`
 	Issues       []*IssueID `bson:"issues" json:"issues" yaml:"issues"`
 	TargetStatus string     `bson:"target_status" json:"target_status" yaml:"target_status"`
-	Source       string     `bson:"source" json:"source" yaml:"source"`
 }
 
 type IstioJobSpec struct {
