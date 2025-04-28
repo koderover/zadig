@@ -570,3 +570,41 @@ func modelS3toS3(modelS3 *commonmodels.S3Storage) *step.S3 {
 	}
 	return resp
 }
+
+// renderParams merge the origin with the input, it will prioritize using inputs kv. if no kv is provided in the input, use the origin's kv
+func renderParams(origin, input []*commonmodels.Param) []*commonmodels.Param {
+	resp := make([]*commonmodels.Param, 0)
+	for _, originParam := range origin {
+		found := false
+		for _, inputParam := range input {
+			if originParam.Name == inputParam.Name {
+				// always use origin credential config.
+				newParam := &commonmodels.Param{
+					Name:         originParam.Name,
+					Description:  originParam.Description,
+					ParamsType:   originParam.ParamsType,
+					Value:        originParam.Value,
+					Repo:         originParam.Repo,
+					ChoiceOption: originParam.ChoiceOption,
+					ChoiceValue:  originParam.ChoiceValue,
+					Default:      originParam.Default,
+					IsCredential: originParam.IsCredential,
+					Source:       originParam.Source,
+				}
+				if originParam.Source != config.ParamSourceFixed {
+					newParam.Value = inputParam.Value
+					newParam.Repo = inputParam.Repo
+					newParam.ChoiceValue = inputParam.ChoiceValue
+				}
+				resp = append(resp, newParam)
+				found = true
+				break
+			}
+		}
+		if !found {
+			resp = append(resp, originParam)
+		}
+	}
+
+	return resp
+}

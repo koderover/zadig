@@ -127,6 +127,8 @@ func CreateJobController(job *commonmodels.Job, workflow *commonmodels.WorkflowV
 		return CreateNotificationJobController(job, workflow)
 	case config.JobOfflineService:
 		return CreateOfflineServiceJobController(job, workflow)
+	case config.JobPlugin:
+		return CreatePluginJobController(job, workflow)
 	case config.JobSAEDeploy:
 		return CreateSAEDeployJobController(job, workflow)
 	case config.JobZadigScanning:

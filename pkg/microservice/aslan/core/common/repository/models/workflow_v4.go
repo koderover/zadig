@@ -310,8 +310,8 @@ type DeployTargets struct {
 }
 
 type PluginJobSpec struct {
-	Plugin          *PluginTemplate               `bson:"plugin"                   yaml:"plugin"                  json:"plugin"`
-	AdvancedSetting *FreestyleJobAdvancedSettings `bson:"advanced_setting"     yaml:"advanced_setting"    json:"advanced_setting"`
+	Plugin          *PluginTemplate      `bson:"plugin"                   yaml:"plugin"                  json:"plugin"`
+	AdvancedSetting *JobAdvancedSettings `bson:"advanced_setting"         yaml:"advanced_setting"        json:"advanced_setting"`
 	// Deprecated
 	Properties *JobProperties `bson:"properties"               yaml:"properties"              json:"properties"`
 }

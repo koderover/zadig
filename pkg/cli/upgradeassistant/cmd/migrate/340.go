@@ -211,6 +211,25 @@ func updateWorkflowJobTaskSpec(stages []*commonmodels.WorkflowStage) error {
 					newSpec.Source = config.ParamSourceRuntime
 				}
 				job.Spec = newSpec
+			case config.JobPlugin:
+				newSpec := new(commonmodels.PluginJobSpec)
+				if err := commonmodels.IToi(job.Spec, newSpec); err != nil {
+					return fmt.Errorf("failed to decode zadig build job, error: %s", err)
+				}
+				advancedSetting := &commonmodels.JobAdvancedSettings{
+					Timeout:             newSpec.Properties.Timeout,
+					ClusterID:           newSpec.Properties.ClusterID,
+					ClusterSource:       newSpec.Properties.ClusterSource,
+					ResourceRequest:     newSpec.Properties.ResourceRequest,
+					ResReqSpec:          newSpec.Properties.ResReqSpec,
+					StrategyID:          newSpec.Properties.StrategyID,
+					UseHostDockerDaemon: newSpec.Properties.UseHostDockerDaemon,
+					CustomAnnotations:   newSpec.Properties.CustomAnnotations,
+					CustomLabels:        newSpec.Properties.CustomLabels,
+					ShareStorageInfo:    newSpec.Properties.ShareStorageInfo,
+				}
+				newSpec.AdvancedSetting = advancedSetting
+				job.Spec = newSpec
 			case config.JobZadigScanning:
 				newSpec := new(commonmodels.ZadigScanningJobSpec)
 				if err := commonmodels.IToi(job.Spec, newSpec); err != nil {
