@@ -644,6 +644,7 @@ var ReleasePlanStatusMap = map[ReleasePlanStatus][]ReleasePlanStatus{
 	StatusWaitForApprove:   {StatusPlanning, StatusExecuting},
 	StatusExecuting:        {StatusPlanning, StatusSuccess, StatusCancel},
 	StatusTimeoutForWindow: {StatusPlanning},
+	StatusApprovalDenied:   {StatusPlanning},
 }
 
 type ReleasePlanJobType string
