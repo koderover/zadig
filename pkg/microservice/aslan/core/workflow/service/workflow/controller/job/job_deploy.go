@@ -1110,12 +1110,11 @@ func filterKVsByConfig(serviceName string, originKVs []*commontypes.RenderVariab
 		if kvCfg, ok := kvCfgMap[originKV.Key]; ok {
 			newKV := &commontypes.RenderVariableKV{
 				ServiceVariableKV: originKV.ServiceVariableKV,
-				UseGlobalVariable: false,
+				UseGlobalVariable: originKV.UseGlobalVariable,
 			}
 
 			if kvCfg.Source == "other" {
 				newKV.Value = kvCfg.Value
-				newKV.UseGlobalVariable = true
 			}
 
 			resp = append(resp, newKV)

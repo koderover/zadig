@@ -44,7 +44,8 @@ type ServiceVariableKV struct {
 
 type RenderVariableKV struct {
 	ServiceVariableKV `bson:",inline" yaml:",inline" json:",inline"`
-	UseGlobalVariable bool `bson:"use_global_variable"     yaml:"use_global_variable"    json:"use_global_variable"`
+	UseGlobalVariable   bool `bson:"use_global_variable"   yaml:"use_global_variable"    json:"use_global_variable"`
+	IsReferenceVariable bool `bson:"is_reference_variable" yaml:"is_reference_variable"  json:"is_reference_variable"`
 }
 
 type GlobalVariableKV struct {

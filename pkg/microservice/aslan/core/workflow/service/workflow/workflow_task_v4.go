@@ -729,6 +729,7 @@ func RetryWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredL
 		return errors.New("工作流任务数据异常, 无法重试")
 	}
 
+	globalKeyMap := make(map[string]string)
 	jobTaskMap := make(map[string]*commonmodels.JobTask)
 	for _, stage := range task.WorkflowArgs.Stages {
 		for _, job := range stage.Jobs {
@@ -739,6 +740,26 @@ func RetryWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredL
 			if err != nil {
 				return errors.Errorf("init job controller %s error: %s", job.Name, err)
 			}
+			kvs, err := ctrl.GetVariableList(job.Name,
+				false,
+				false,
+				false,
+				true,
+				true,
+			)
+			if err != nil {
+				return  err
+			}
+
+			for _, kv := range kvs {
+				if kv.GetValue() != "" && !strings.HasPrefix(kv.GetValue(), "{{.") {
+					globalKeyMap[kv.Key] = kv.GetValue()
+					log.Infof("insert key %s with value %s", kv.Key, kv.GetValue())
+				} else {
+					log.Warnf("key %s skipped due to no value or reference value: %s", kv.Key, kv.GetValue())
+				}
+			}
+
 			jobTasks, err := ctrl.ToTask(taskID)
 			if err != nil {
 				return errors.Errorf("job %s toJobs error: %s", job.Name, err)
@@ -767,6 +788,16 @@ func RetryWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredL
 			jobTask.EndTime = 0
 			jobTask.Error = ""
 			if t, ok := jobTaskMap[jobTask.Name]; ok {
+				taskBytes, _ := json.Marshal(t)
+				taskString := string(taskBytes)
+				for k, v := range globalKeyMap {
+					taskString = strings.ReplaceAll(taskString, fmt.Sprintf("{{.%s}}", k), v)
+					log.Infof("replacing key %s with value: %s", fmt.Sprintf("{{.%s}}", k), v)
+				}
+				err := json.Unmarshal([]byte(taskString), &t)
+				if err != nil {
+					return fmt.Errorf("failed to replace input variable for task: %s, error: %s", t.Name, err)
+				}
 				jobTask.Spec = t.Spec
 			} else {
 				return errors.Errorf("failed to get jobTask %s origin spec", jobTask.Name)
@@ -814,6 +845,7 @@ func ManualExecWorkflowTaskV4(workflowName string, taskID int64, stageName strin
 		return e.ErrCreateTask.AddErr(fmt.Errorf("save original jobs error: %v", err))
 	}
 
+	globalKeyMap := make(map[string]string)
 	for _, stage := range task.WorkflowArgs.Stages {
 		if stage.Name == stageName {
 			for _, job := range stage.Jobs {
@@ -832,6 +864,26 @@ func ManualExecWorkflowTaskV4(workflowName string, taskID int64, stageName strin
 				}
 
 				job.Spec = ctrl.GetSpec()
+
+				kvs, err := ctrl.GetVariableList(job.Name,
+					false,
+					false,
+					false,
+					true,
+					true,
+				)
+				if err != nil {
+					return  err
+				}
+	
+				for _, kv := range kvs {
+					if kv.GetValue() != "" && !strings.HasPrefix(kv.GetValue(), "{{.") {
+						globalKeyMap[kv.Key] = kv.GetValue()
+						log.Infof("insert key %s with value %s", kv.Key, kv.GetValue())
+					} else {
+						log.Warnf("key %s skipped due to no value or reference value: %s", kv.Key, kv.GetValue())
+					}
+				}
 			}
 
 			stage.Jobs = jobs
@@ -882,6 +934,21 @@ func ManualExecWorkflowTaskV4(workflowName string, taskID int64, stageName strin
 				if err != nil {
 					return errors.Errorf("job %s toJobs error: %s", job.Name, err)
 				}
+
+				job.Spec = ctrl.GetSpec()
+				for _, task := range jobTasks {
+					taskBytes, _ := json.Marshal(task)
+					taskString := string(taskBytes)
+					for k, v := range globalKeyMap {
+						taskString = strings.ReplaceAll(taskString, fmt.Sprintf("{{.%s}}", k), v)
+						log.Infof("replacing key %s with value: %s", fmt.Sprintf("{{.%s}}", k), v)
+					}
+					err := json.Unmarshal([]byte(taskString), &task)
+					if err != nil {
+						return fmt.Errorf("failed to replace input variable for task: %s, error: %s", task.Name, err)
+					}
+				}
+
 				for _, jobTask := range jobTasks {
 					jobTask.Status = ""
 					jobTask.StartTime = 0
