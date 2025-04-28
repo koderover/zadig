@@ -498,7 +498,7 @@ func (j ScanningJobController) toJobTask(jobSubTaskID int, scanning *commonmodel
 	jobKey := genJobKey(j.name, scanning.Name)
 	jobDisplayName := genJobDisplayName(j.name, scanning.Name)
 	if scanningType == string(config.ServiceScanningType) {
-		jobKey = genJobKey(j.name, scanning.Name, serviceName, serviceModule)
+		jobKey = genJobKey(j.name, serviceName, serviceModule)
 		jobDisplayName = genJobDisplayName(j.name, serviceName, serviceModule)
 	}
 
