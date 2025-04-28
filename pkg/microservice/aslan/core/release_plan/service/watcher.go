@@ -211,8 +211,6 @@ func updatePlanApproval(plan *models.ReleasePlan) error {
 		}
 		plan.Status = config.StatusExecuting
 		plan.ApprovalTime = time.Now().Unix()
-		log.Infof("=========================== chaning status to executing")
-
 		if err := upsertReleasePlanCron(plan.ID.Hex(), plan.Name, plan.Index, plan.Status, plan.ScheduleExecuteTime); err != nil {
 			err = errors.Wrap(err, "upsert release plan cron")
 			log.Error(err)
@@ -225,7 +223,6 @@ func updatePlanApproval(plan *models.ReleasePlan) error {
 			Detail:    "审批被拒绝",
 			CreatedAt: time.Now().Unix(),
 		}
-		log.Infof("=========================== chaning status to denied")
 		plan.Status = config.StatusApprovalDenied
 		plan.ApprovalTime = time.Now().Unix()
 	}

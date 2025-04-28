@@ -874,6 +874,9 @@ func ApproveReleasePlan(c *handler.Context, planID string, req *ApproveRequest) 
 			Detail:    "审批被拒绝",
 			CreatedAt: time.Now().Unix(),
 		}
+
+		plan.Status = config.StatusApprovalDenied
+		plan.ApprovalTime = time.Now().Unix()
 	}
 	if err = mongodb.NewReleasePlanColl().UpdateByID(ctx, planID, plan); err != nil {
 		return errors.Wrap(err, "update plan")
