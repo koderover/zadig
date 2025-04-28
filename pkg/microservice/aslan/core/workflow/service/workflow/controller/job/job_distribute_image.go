@@ -228,11 +228,15 @@ func (j DistributeImageJobController) ToTask(taskID int64) ([]*commonmodels.JobT
 		targetKey := strings.Join([]string{j.name, target.ServiceName, target.ServiceModule}, ".")
 		target.TargetImage = job.GetJobOutputKey(targetKey, "IMAGE")
 
+		targetTag := target.TargetTag
+		targetTag = strings.ReplaceAll(targetTag, "<SERVICE>", target.ServiceName)
+		targetTag = strings.ReplaceAll(targetTag, "<MODULE>", target.ServiceModule)
+
 		stepSpec.DistributeTarget = append(stepSpec.DistributeTarget, &step.DistributeTaskTarget{
 			SourceImage:   target.SourceImage,
 			ServiceName:   target.ServiceName,
 			ServiceModule: target.ServiceModule,
-			TargetTag:     target.TargetTag,
+			TargetTag:     targetTag,
 			UpdateTag:     target.UpdateTag,
 		})
 	}
