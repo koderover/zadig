@@ -772,7 +772,6 @@ spec:
             podAffinityTerm:
               topologyKey: kubernetes.io/hostname
 {{- end }}
-      hostNetwork: true
       serviceAccountName: koderover-agent
       containers:
       - name: agent
@@ -954,7 +953,6 @@ spec:
             podAffinityTerm:
               topologyKey: kubernetes.io/hostname
 {{- end }}
-      hostNetwork: true
       serviceAccountName: koderover-agent-sa
       containers:
       - name: agent
