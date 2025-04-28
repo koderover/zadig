@@ -1226,7 +1226,6 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 							Name:    "jira-update",
 							JobType: config.JobJira,
 							Spec: commonmodels.JiraJobSpec{
-								Source: setting.VariableSourceRuntime,
 							},
 						},
 					},
