@@ -132,6 +132,7 @@ func InstallOrUpgradeHelmChartWithValues(param *ReleaseInstallParam, isRetry boo
 		return fmt.Errorf("failed to clone helm client: %s", err)
 	}
 
+	log.Debugf("valuesYaml: %s", valuesYaml)
 	var release *release.Release
 	release, err = helmClient.InstallOrUpgradeChart(ctx, chartSpec, nil)
 	if err != nil {
