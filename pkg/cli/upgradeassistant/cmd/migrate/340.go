@@ -25,7 +25,9 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/types"
+	steptype "github.com/koderover/zadig/v2/pkg/types/step"
 )
 
 func init() {
@@ -42,16 +44,52 @@ func V330ToV340() error {
 	for workflowCursor.Next(context.Background()) {
 		workflow := new(commonmodels.WorkflowV4)
 		if err := workflowCursor.Decode(workflow); err != nil {
-			return err
+			// continue converting to have maximum converage
+			log.Warnf(err.Error())
 		}
 
+		err = updateWorkflowJobTaskSpec(workflow.Stages)
+		if err != nil {
+			// continue converting to have maximum converage
+			log.Warnf(err.Error())
+		}
+
+		err = commonrepo.NewWorkflowV4Coll().Update(
+			workflow.ID.Hex(),
+			workflow,
+		)
+		if err != nil {
+			log.Warnf("failed to update workflow: %s in project %s, error: %s", workflow.Name, workflow.Project, err)
+		}
+	}
+
+	templateCursor, err := commonrepo.NewWorkflowV4TemplateColl().ListByCursor(&commonrepo.ListWorkflowV4TemplateOption{})
+	for templateCursor.Next((context.Background())) {
+		workflowTemplate := new(commonmodels.WorkflowV4Template)
+		if err := workflowCursor.Decode(workflowTemplate); err != nil {
+			// continue converting to have maximum converage
+			log.Warnf(err.Error())
+		}
+		
+		err = updateWorkflowJobTaskSpec(workflowTemplate.Stages)
+		if err != nil {
+			// continue converting to have maximum converage
+			log.Warnf(err.Error())
+		}
+
+		err = commonrepo.NewWorkflowV4TemplateColl().Update(
+			workflowTemplate,
+		)
+		if err != nil {
+			log.Warnf("failed to update workflow template: %s, error: %s", workflowTemplate.TemplateName, err)
+		}
 	}
 
 	return nil
 }
 
-func updateWorkflowJobTaskSpec(workflow *commonmodels.WorkflowV4) error {
-	for _, stage := range workflow.Stages {
+func updateWorkflowJobTaskSpec(stages []*commonmodels.WorkflowStage) error {
+	for _, stage := range stages {
 		for _, job := range stage.Jobs {
 			switch job.JobType {
 			case config.JobApollo:
@@ -111,6 +149,15 @@ func updateWorkflowJobTaskSpec(workflow *commonmodels.WorkflowV4) error {
 				job.Spec = newSpec
 			case config.JobFreestyle:
 				// TODO: Add freestyle job ua logic
+				newSpec := new(commonmodels.FreestyleJobSpec)
+				if err := commonmodels.IToi(job.Spec, newSpec); err != nil {
+					return fmt.Errorf("failed to decode zadig build job, error: %s", err)
+				}
+				convertedSpec, err := converOldFreestyleJobSpec(newSpec)
+				if err != nil {
+					return err
+				}
+				job.Spec = convertedSpec
 			case config.JobGrafana:
 				newSpec := new(commonmodels.GrafanaJobSpec)
 				if err := commonmodels.IToi(job.Spec, newSpec); err != nil {
@@ -206,6 +253,10 @@ func updateWorkflowJobTaskSpec(workflow *commonmodels.WorkflowV4) error {
 	return nil
 }
 
+func V340ToV330() error {
+	return nil
+}
+
 func updateKeyVal(kvs commonmodels.RuntimeKeyValList) {
 	for _, kv := range kvs {
 		if strings.HasPrefix(kv.Value, "<+fixed>") {
@@ -219,6 +270,134 @@ func updateKeyVal(kvs commonmodels.RuntimeKeyValList) {
 	}
 }
 
-func V340ToV330() error {
-	return nil
+func converOldFreestyleJobSpec(spec *commonmodels.FreestyleJobSpec) (*commonmodels.FreestyleJobSpec, error) {
+	newSpec := &commonmodels.FreestyleJobSpec{
+		FreestyleJobType: spec.FreestyleJobType,
+		ServiceSource:    spec.ServiceSource,
+		JobName:          spec.JobName,
+		OriginJobName:    spec.OriginJobName,
+		RefRepos:         spec.RefRepos,
+	}
+	installs := make([]*commonmodels.Item, 0)
+	repos := make([]*types.Repository, 0)
+	for _, step := range spec.Steps {
+		if step.StepType == config.StepTools {
+			stepSpec := new(steptype.StepToolInstallSpec)
+			if err := commonmodels.IToi(step.Spec, stepSpec); err != nil {
+				return nil, fmt.Errorf("failed to decode zadig tool step, error: %s", err)
+			}
+			for _, install := range stepSpec.Installs {
+				installs = append(installs, &commonmodels.Item{
+					Name:    install.Name,
+					Version: install.Version,
+				})
+			}
+			continue
+		}
+		if step.StepType == config.StepGit {
+			stepSpec := new(steptype.StepGitSpec)
+			if err := commonmodels.IToi(step.Spec, stepSpec); err != nil {
+				return nil, fmt.Errorf("failed to decode zadig git step, error: %s", err)
+			}
+			for _, repo := range stepSpec.Repos {
+				repos = append(repos, repo)
+			}
+			continue
+		}
+		if step.StepType == config.StepPerforce {
+			stepSpec := new(steptype.StepP4Spec)
+			if err := commonmodels.IToi(step.Spec, stepSpec); err != nil {
+				return nil, fmt.Errorf("failed to decode zadig p4 step, error: %s", err)
+			}
+			for _, repo := range stepSpec.Repos {
+				repos = append(repos, repo)
+			}
+			continue
+		}
+		if step.StepType == config.StepShell {
+			stepSpec := new(steptype.StepShellSpec)
+			if err := commonmodels.IToi(step.Spec, stepSpec); err != nil {
+				return nil, fmt.Errorf("failed to decode zadig shell step, error: %s", err)
+			}
+			newSpec.Script = stepSpec.Script
+			newSpec.ScriptType = types.ScriptTypeShell
+			continue
+		}
+		if step.StepType == config.StepBatchFile {
+			stepSpec := new(steptype.StepBatchFileSpec)
+			if err := commonmodels.IToi(step.Spec, stepSpec); err != nil {
+				return nil, fmt.Errorf("failed to decode zadig batch file step, error: %s", err)
+			}
+			newSpec.Script = stepSpec.Script
+			newSpec.ScriptType = types.ScriptTypeBatchFile
+			continue
+		}
+		if step.StepType == config.StepPowerShell {
+			stepSpec := new(steptype.StepPowerShellSpec)
+			if err := commonmodels.IToi(step.Spec, stepSpec); err != nil {
+				return nil, fmt.Errorf("failed to decode zadig powershell step, error: %s", err)
+			}
+			newSpec.Script = stepSpec.Script
+			newSpec.ScriptType = types.ScriptTypePowerShell
+			continue
+		}
+		if step.StepType == config.StepArchive {
+			stepSpec := new(steptype.StepArchiveSpec)
+			if err := commonmodels.IToi(step.Spec, stepSpec); err != nil {
+				return nil, fmt.Errorf("failed to decode zadig archive step, error: %s", err)
+			}
+			uploads := make([]*types.ObjectStoragePathDetail, 0)
+			for _, upload := range stepSpec.UploadDetail {
+				uploads = append(uploads, &types.ObjectStoragePathDetail{
+					FilePath:        upload.FilePath,
+					DestinationPath: upload.DestinationPath,
+					AbsFilePath:     upload.AbsFilePath,
+				})
+			}
+			newSpec.ObjectStorageUpload = &commonmodels.ObjectStorageUpload{
+				Enabled:         true,
+				ObjectStorageID: stepSpec.ObjectStorageID,
+				UploadDetail:    uploads,
+			}
+			continue
+		}
+	}
+	defaultServices := make([]*commonmodels.ServiceWithModule, 0)
+	for _, svc := range spec.Services {
+		defaultServices = append(defaultServices, &commonmodels.ServiceWithModule{
+			ServiceName:   svc.ServiceName,
+			ServiceModule: svc.ServiceModule,
+		})
+	}
+	newSpec.Repos = repos
+	newSpec.Envs = spec.Properties.Envs.ToRuntimeList()
+	newSpec.DefaultServices = defaultServices
+
+	runtimeInfo := &commonmodels.RuntimeInfo{
+		Infrastructure: spec.Properties.Infrastructure,
+		BuildOS:        spec.Properties.BuildOS,
+		ImageFrom:      spec.Properties.ImageFrom,
+		ImageID:        spec.Properties.ImageID,
+		Installs:       installs,
+	}
+	newSpec.Runtime = runtimeInfo
+
+	commonAdvancedSetting := &commonmodels.JobAdvancedSettings{
+		Timeout:             spec.Properties.Timeout,
+		ClusterID:           spec.Properties.ClusterID,
+		ClusterSource:       spec.Properties.ClusterSource,
+		ResourceRequest:     spec.Properties.ResourceRequest,
+		ResReqSpec:          spec.Properties.ResReqSpec,
+		StrategyID:          spec.Properties.StrategyID,
+		UseHostDockerDaemon: spec.Properties.UseHostDockerDaemon,
+		CustomAnnotations:   spec.Properties.CustomAnnotations,
+		CustomLabels:        spec.Properties.CustomLabels,
+		ShareStorageInfo:    spec.Properties.ShareStorageInfo,
+	}
+	advancedSetting := &commonmodels.FreestyleJobAdvancedSettings{
+		JobAdvancedSettings: commonAdvancedSetting,
+		Outputs:             spec.Outputs,
+	}
+	newSpec.AdvancedSetting = advancedSetting
+	return newSpec, nil
 }

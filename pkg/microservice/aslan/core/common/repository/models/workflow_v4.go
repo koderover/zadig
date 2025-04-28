@@ -344,6 +344,8 @@ type FreestyleJobSpec struct {
 	Steps []*Step `bson:"steps"                yaml:"steps"               json:"steps"`
 	// Deprecated
 	Properties *JobProperties `bson:"properties"           yaml:"properties"          json:"properties"`
+	// Deprecated
+	Outputs []*Output `bson:"outputs"              yaml:"outputs"             json:"outputs"`
 }
 
 type RuntimeInfo struct {
@@ -1382,7 +1384,7 @@ type JobProperties struct {
 	ImageFrom       string              `bson:"image_from"             json:"image_from"            yaml:"image_from,omitempty"`
 	ImageID         string              `bson:"image_id"               json:"image_id"              yaml:"image_id,omitempty"`
 	Namespace       string              `bson:"namespace"              json:"namespace"             yaml:"namespace"`
-	Envs            []*KeyVal           `bson:"envs"                   json:"envs"                  yaml:"envs"`
+	Envs            KeyValList          `bson:"envs"                   json:"envs"                  yaml:"envs"`
 	// log user-defined variables, shows in workflow task detail.
 	CustomEnvs          []*KeyVal            `bson:"custom_envs"            json:"custom_envs"           yaml:"custom_envs,omitempty"`
 	Params              []*Param             `bson:"params"                 json:"params"                yaml:"params"`
@@ -1403,6 +1405,8 @@ type JobProperties struct {
 
 	// TODO: ???
 	Paths string `bson:"-" json:"-" yaml:"-"`
+	// Deprecated
+	ShareStorageInfo *ShareStorageInfo `bson:"share_storage_info"     json:"share_storage_info"    yaml:"share_storage_info"`
 }
 
 func (j *JobProperties) DeepCopyEnvs() []*KeyVal {
