@@ -224,6 +224,7 @@ func updatePlanApproval(plan *models.ReleasePlan) error {
 			Detail:    "审批被拒绝",
 			CreatedAt: time.Now().Unix(),
 		}
+		log.Infof("chaning status to denied")
 		plan.Status = config.StatusApprovalDenied
 		plan.ApprovalTime = time.Now().Unix()
 	}
