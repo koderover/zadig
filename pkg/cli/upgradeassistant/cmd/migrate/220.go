@@ -144,7 +144,7 @@ func migrateProductWorkflowToCustomWorkflow() error {
 		}
 
 		if wf.HookCtl != nil && len(wf.HookCtl.Items) > 0 {
-			presetInfo, err := workflow.GetWebhookForWorkflowV4Preset(newWorkflow.Name, "", logger)
+			presetInfo, err := workflow.GetWebhookForWorkflowV4Preset(newWorkflow.Name, "", "", logger)
 			if err != nil {
 				logger.Errorf("failed to generate workflow preset for custom workflow: %s, error: %s", newWorkflow.Name, err)
 				return err
@@ -242,7 +242,7 @@ func migrateProductWorkflowToCustomWorkflow() error {
 			}
 			for i, cron := range crons {
 				logger.Infof("creating cron for workflow: %s", wf.Name)
-				cronJobPreset, err := workflow.GetCronForWorkflowV4Preset(newWorkflow.Name, "", logger)
+				cronJobPreset, err := workflow.GetCronForWorkflowV4Preset(newWorkflow.Name, "", "", logger)
 				if err != nil {
 					logger.Errorf("failed to generate workflow preset for custom workflow %s, error: %s")
 					return err
@@ -461,7 +461,7 @@ func generateCustomWorkflowFromProductWorkflow(productWorkflow *models.Workflow)
 					ServiceModule: module.Target.ServiceModule,
 					BuildName:     module.Target.BuildName,
 					ImageName:     module.Target.ServiceModule,
-					KeyVals:       module.Target.Envs,
+					KeyVals:       module.Target.Envs.ToRuntimeList(),
 					Repos:         repos,
 				})
 			}
@@ -611,8 +611,8 @@ func generateCustomWorkflowFromProductWorkflow(productWorkflow *models.Workflow)
 				DeployContents: []config.DeployContent{
 					config.DeployImage,
 				},
-				ServiceAndImages: serviceAndImages,
-				DeployType:       project.ProductFeature.DeployType,
+				DefaultServices: serviceAndImages,
+				DeployType:      project.ProductFeature.DeployType,
 			}
 
 			if spec.Env == "" {
@@ -684,7 +684,7 @@ func generateCustomWorkflowFromProductWorkflow(productWorkflow *models.Workflow)
 			testModules = append(testModules, &models.TestModule{
 				Name:        test.Name,
 				ProjectName: test.Project,
-				KeyVals:     test.Envs,
+				KeyVals:     test.Envs.ToRuntimeList(),
 			})
 		}
 		spec := &models.ZadigTestingJobSpec{
