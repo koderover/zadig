@@ -65,12 +65,6 @@ func (j JiraJobController) Validate(isExecution bool) error {
 		return err
 	}
 
-	switch j.jobSpec.Source {
-	case setting.VariableSourceRuntime, setting.VariableSourceOther:
-	default:
-		return fmt.Errorf("invalid source")
-	}
-
 	return nil
 }
 
@@ -93,7 +87,6 @@ func (j JiraJobController) Update(useUserInput bool, ticket *commonmodels.Approv
 	j.jobSpec.JQL = currJobSpec.JQL
 	j.jobSpec.IssueType = currJobSpec.IssueType
 	j.jobSpec.TargetStatus = currJobSpec.TargetStatus
-	j.jobSpec.Source = currJobSpec.Source
 
 	if !useUserInput {
 		j.jobSpec.Issues = currJobSpec.Issues
