@@ -238,7 +238,7 @@ func (j BuildJobController) Update(useUserInput bool, ticket *commonmodels.Appro
 			key := fmt.Sprintf(buildKeyTemplate, configuredSelection.ServiceName, configuredSelection.ServiceModule)
 			// if the input is not allowed in the option, return error
 			if _, ok := newOptionMap[key]; !ok {
-				return fmt.Errorf("%s/%s is not allowed by the build job", configuredSelection.ServiceName, configuredSelection.ServiceModule)
+				continue
 			}
 
 			item := &commonmodels.ServiceAndBuild{
