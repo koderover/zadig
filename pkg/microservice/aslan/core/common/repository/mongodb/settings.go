@@ -119,7 +119,7 @@ func (c *SystemSettingColl) InitSystemSettings() error {
 					ThemeBackgroundColor:     "#eeeeff",
 					ThemeLightColor:          "#66bbff",
 					BackgroundColor:          "#e5e5e5",
-					GlobalBackgroundColor:    "#f6f6f6",
+					GlobalBackgroundColor:    "#ffffff",
 					Success:                  "#67c23a",
 					Danger:                   "#f56c6c",
 					Warning:                  "#e6a23c",
