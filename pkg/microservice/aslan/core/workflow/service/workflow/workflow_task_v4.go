@@ -608,7 +608,7 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 	}
 
 	taskBytes, _ := json.Marshal(stageTasks)
-	fmt.Println("=============================================\n", taskBytes, "\n=================================================")
+	fmt.Println("=============================================\n", string(taskBytes), "\n=================================================")
 
 	workflowTask.Stages = stageTasks
 
