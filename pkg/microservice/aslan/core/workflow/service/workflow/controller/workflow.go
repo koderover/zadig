@@ -186,21 +186,6 @@ func (w *Workflow) ToJobTasks(taskID int64, creator, account, uid string) ([]*co
 					taskString = strings.ReplaceAll(taskString, fmt.Sprintf("{{.%s}}", k), v)
 					log.Debugf("replacing key %s with value: %s", fmt.Sprintf("{{.%s}}", k), v)
 				}
-				// after this rendering, we remove all the remaining input key except for those with .output.xxx suffix
-				variableRegexp := regexp.MustCompile(config.VariableRegEx)
-				outputRegExp := regexp.MustCompile(config.VariableOutputRegEx)
-				indexes := variableRegexp.FindAllStringIndex(taskString, -1)
-				for _, index := range indexes {
-					start, end := index[0], index[1]
-        			matchedStr := taskString[start:end]
-					// if the parameter ends with 
-					if matched := outputRegExp.MatchString(matchedStr); matched {
-						continue
-					}
-
-					taskString = strings.ReplaceAll(taskString, matchedStr, "")
-					log.Debugf("replacing key %s with empty value", matchedStr)
-				}
 
 				err := json.Unmarshal([]byte(taskString), &task)
 				if err != nil {
