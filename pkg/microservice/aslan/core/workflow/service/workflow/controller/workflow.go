@@ -98,7 +98,7 @@ func (w *Workflow) ToJobTasks(taskID int64, creator, account, uid string) ([]*co
 			if job.Skipped {
 				continue
 			}
-			
+
 			ctrl, err := jobctrl.CreateJobController(job, w.WorkflowV4)
 			if err != nil {
 				return nil, err
@@ -127,9 +127,9 @@ func (w *Workflow) ToJobTasks(taskID int64, creator, account, uid string) ([]*co
 			for _, kv := range kvs {
 				if kv.GetValue() != "" && !strings.HasPrefix(kv.GetValue(), "{{.") {
 					globalKeyMap[kv.Key] = kv.GetValue()
-					log.Infof("insert key %s with value %s", kv.Key, kv.GetValue())
+					log.Debugf("insert key %s with value %s", kv.Key, kv.GetValue())
 				} else {
-					log.Warnf("key %s skipped due to no value or reference value: %s", kv.Key, kv.GetValue())
+					log.Warnf("key %s skipped due to no value or reference value: [%s]", kv.Key, kv.GetValue())
 				}
 			}
 		}
@@ -184,8 +184,24 @@ func (w *Workflow) ToJobTasks(taskID int64, creator, account, uid string) ([]*co
 				taskString := string(taskBytes)
 				for k, v := range globalKeyMap {
 					taskString = strings.ReplaceAll(taskString, fmt.Sprintf("{{.%s}}", k), v)
-					log.Infof("replacing key %s with value: %s", fmt.Sprintf("{{.%s}}", k), v)
+					log.Debugf("replacing key %s with value: %s", fmt.Sprintf("{{.%s}}", k), v)
 				}
+				// after this rendering, we remove all the remaining input key except for those with .output.xxx suffix
+				variableRegexp := regexp.MustCompile(config.VariableRegEx)
+				outputRegExp := regexp.MustCompile(config.VariableOutputRegEx)
+				indexes := variableRegexp.FindAllStringIndex(taskString, -1)
+				for _, index := range indexes {
+					start, end := index[0], index[1]
+        			matchedStr := taskString[start:end]
+					// if the parameter ends with 
+					if matched := outputRegExp.MatchString(matchedStr); matched {
+						continue
+					}
+
+					taskString = strings.ReplaceAll(taskString, matchedStr, "")
+					log.Debugf("replacing key %s with empty value", matchedStr)
+				}
+
 				err := json.Unmarshal([]byte(taskString), &task)
 				if err != nil {
 					return nil, fmt.Errorf("failed to replace input variable for task: %s, error: %s", task.Name, err)

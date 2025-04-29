@@ -33,6 +33,7 @@ import (
 	"k8s.io/helm/pkg/releaseutil"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models/template"
@@ -127,8 +128,8 @@ func ReplaceWorkloadImages(rawYaml string, images []*commonmodels.Container) (st
 		imageMap[image.Name] = image
 	}
 
-	customKVRegExp := regexp.MustCompile(`{{\.([\p{L}\d-]+(\.[\p{L}\d-]+)*)}}`)
-	restoreRegExp := regexp.MustCompile(`TEMP_PLACEHOLDER_([\p{L}\d-]+(\.[\p{L}\d-]+)*)`)
+	customKVRegExp := regexp.MustCompile(config.VariableRegEx)
+	restoreRegExp := regexp.MustCompile(config.ReplacedTempVariableRegEx)
 
 	splitYams := util.SplitYaml(rawYaml)
 	yamlStrs := make([]string, 0)
