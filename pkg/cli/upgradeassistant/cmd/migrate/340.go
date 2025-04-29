@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/koderover/zadig/v2/pkg/cli/upgradeassistant/internal/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/cli/upgradeassistant/internal/upgradepath"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
@@ -37,55 +38,72 @@ func init() {
 }
 
 func V330ToV340() error {
-	workflowCursor, err := commonrepo.NewWorkflowV4Coll().ListByCursor(&commonrepo.ListWorkflowV4Option{})
+	migrationInfo, err := getMigrationInfo()
 	if err != nil {
-		return fmt.Errorf("failed to list all custom workflow to update, error: %s", err)
-	}
-	for workflowCursor.Next(context.Background()) {
-		workflow := new(commonmodels.WorkflowV4)
-		if err := workflowCursor.Decode(workflow); err != nil {
-			// continue converting to have maximum converage
-			log.Warnf(err.Error())
-		}
-
-		log.Infof("migrating workflow: %s in project: %s ......", workflow.Name, workflow.Project)
-
-		err = updateWorkflowJobTaskSpec(workflow.Stages)
-		if err != nil {
-			// continue converting to have maximum converage
-			log.Warnf(err.Error())
-		}
-
-		err = commonrepo.NewWorkflowV4Coll().Update(
-			workflow.ID.Hex(),
-			workflow,
-		)
-		if err != nil {
-			log.Warnf("failed to update workflow: %s in project %s, error: %s", workflow.Name, workflow.Project, err)
-		}
-		log.Infof("workflow: %s migration done ......", workflow.Name)
+		return fmt.Errorf("failed to get migration info from db, err: %s", err)
 	}
 
-	templateCursor, err := commonrepo.NewWorkflowV4TemplateColl().ListByCursor(&commonrepo.ListWorkflowV4TemplateOption{})
-	for templateCursor.Next((context.Background())) {
-		workflowTemplate := new(commonmodels.WorkflowV4Template)
-		if err := workflowCursor.Decode(workflowTemplate); err != nil {
-			// continue converting to have maximum converage
-			log.Warnf(err.Error())
-		}
-		
-		err = updateWorkflowJobTaskSpec(workflowTemplate.Stages)
+	if !migrationInfo.UpdateWorkflow340JobSpec {
+		workflowCursor, err := commonrepo.NewWorkflowV4Coll().ListByCursor(&commonrepo.ListWorkflowV4Option{})
 		if err != nil {
-			// continue converting to have maximum converage
-			log.Warnf(err.Error())
+			return fmt.Errorf("failed to list all custom workflow to update, error: %s", err)
+		}
+		for workflowCursor.Next(context.Background()) {
+			workflow := new(commonmodels.WorkflowV4)
+			if err := workflowCursor.Decode(workflow); err != nil {
+				// continue converting to have maximum converage
+				log.Warnf(err.Error())
+			}
+
+			log.Infof("migrating workflow: %s in project: %s ......", workflow.Name, workflow.Project)
+
+			err = updateWorkflowJobTaskSpec(workflow.Stages)
+			if err != nil {
+				// continue converting to have maximum converage
+				log.Warnf(err.Error())
+			}
+
+			err = commonrepo.NewWorkflowV4Coll().Update(
+				workflow.ID.Hex(),
+				workflow,
+			)
+			if err != nil {
+				log.Warnf("failed to update workflow: %s in project %s, error: %s", workflow.Name, workflow.Project, err)
+			}
+			log.Infof("workflow: %s migration done ......", workflow.Name)
 		}
 
-		err = commonrepo.NewWorkflowV4TemplateColl().Update(
-			workflowTemplate,
-		)
-		if err != nil {
-			log.Warnf("failed to update workflow template: %s, error: %s", workflowTemplate.TemplateName, err)
+		_ = mongodb.NewMigrationColl().UpdateMigrationStatus(migrationInfo.ID, map[string]interface{}{
+			"update_workflow_340_job_spec": true,
+		})
+	}
+
+	if !migrationInfo.UpdateWorkflow340JobTemplateSpec {
+		templateCursor, err := commonrepo.NewWorkflowV4TemplateColl().ListByCursor(&commonrepo.ListWorkflowV4TemplateOption{})
+		for templateCursor.Next((context.Background())) {
+			workflowTemplate := new(commonmodels.WorkflowV4Template)
+			if err := templateCursor.Decode(workflowTemplate); err != nil {
+				// continue converting to have maximum converage
+				log.Warnf(err.Error())
+			}
+
+			err = updateWorkflowJobTaskSpec(workflowTemplate.Stages)
+			if err != nil {
+				// continue converting to have maximum converage
+				log.Warnf(err.Error())
+			}
+
+			err = commonrepo.NewWorkflowV4TemplateColl().Update(
+				workflowTemplate,
+			)
+			if err != nil {
+				log.Warnf("failed to update workflow template: %s, error: %s", workflowTemplate.TemplateName, err)
+			}
 		}
+
+		_ = mongodb.NewMigrationColl().UpdateMigrationStatus(migrationInfo.ID, map[string]interface{}{
+			"update_workflow_340_job_template_spec": true,
+		})
 	}
 
 	return nil

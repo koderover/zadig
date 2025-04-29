@@ -21,8 +21,10 @@ import (
 )
 
 type Migration struct {
-	ID             primitive.ObjectID `bson:"_id,omitempty"`
-	SonarMigration bool               `bson:"sonar_migration"`
+	ID                               primitive.ObjectID `bson:"_id,omitempty"`
+	SonarMigration                   bool               `bson:"sonar_migration"`
+	UpdateWorkflow340JobSpec         bool               `bson:"update_workflow_340_job_spec"`
+	UpdateWorkflow340JobTemplateSpec bool               `bson:"update_workflow_340_job_template_spec"`
 }
 
 func (Migration) TableName() string {
