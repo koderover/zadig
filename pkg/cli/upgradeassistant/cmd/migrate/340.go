@@ -48,6 +48,8 @@ func V330ToV340() error {
 			log.Warnf(err.Error())
 		}
 
+		log.Infof("migrating workflow: %s in project: %s ......", workflow.Name, workflow.Project)
+
 		err = updateWorkflowJobTaskSpec(workflow.Stages)
 		if err != nil {
 			// continue converting to have maximum converage
@@ -61,6 +63,7 @@ func V330ToV340() error {
 		if err != nil {
 			log.Warnf("failed to update workflow: %s in project %s, error: %s", workflow.Name, workflow.Project, err)
 		}
+		log.Infof("workflow: %s migration done ......", workflow.Name)
 	}
 
 	templateCursor, err := commonrepo.NewWorkflowV4TemplateColl().ListByCursor(&commonrepo.ListWorkflowV4TemplateOption{})
