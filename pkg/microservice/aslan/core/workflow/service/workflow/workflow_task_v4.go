@@ -607,6 +607,9 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 		return nil, e.ErrCreateTask.AddErr(err)
 	}
 
+	taskBytes, _ := json.Marshal(stageTasks)
+	fmt.Println("=============================================\n", taskBytes, "\n=================================================")
+
 	workflowTask.Stages = stageTasks
 
 	if err := workflowTaskLint(workflowTask, log); err != nil {
