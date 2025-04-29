@@ -95,6 +95,10 @@ func (w *Workflow) ToJobTasks(taskID int64, creator, account, uid string) ([]*co
 	// first we need to set the commit info to jobs so the built-in parameters can be rendered
 	for _, stage := range w.Stages {
 		for _, job := range stage.Jobs {
+			if job.Skipped {
+				continue
+			}
+			
 			ctrl, err := jobctrl.CreateJobController(job, w.WorkflowV4)
 			if err != nil {
 				return nil, err
@@ -630,8 +634,8 @@ func (w *Workflow) GetReferableVariables(currentJobName string, option GetWorkfl
 			if skipCurrentJob && j.Name == currentJobName {
 				continue
 			}
-			getServiceSpecificVariables := option.GetServiceSpecificVariables
-			getPlaceHolderVariables := option.GetPlaceHolderVariables
+			getServiceSpecificVariablesFlag := option.GetServiceSpecificVariables
+			getPlaceHolderVariablesFlag := option.GetPlaceHolderVariables
 			getRuntimeVariableFlag := option.GetRuntimeVariables
 			getAggregatedVariableFlag := option.GetAggregatedVariables
 			if currentJobName != "" && jobRankMap[currentJobName] < jobRankMap[j.Name] {
@@ -640,21 +644,26 @@ func (w *Workflow) GetReferableVariables(currentJobName string, option GetWorkfl
 				getAggregatedVariableFlag = false
 			}
 
+			// service_module cannot be determined in 
+			if currJob.JobType == config.JobZadigDeploy {
+				getPlaceHolderVariablesFlag = false
+			}
+
 			ctrl, err := jobctrl.CreateJobController(j, w.WorkflowV4)
 			if err != nil {
 				return nil, err
 			}
 
 			if !currJobCtrl.IsServiceTypeJob() {
-				getServiceSpecificVariables = true
-				getPlaceHolderVariables = false
+				getServiceSpecificVariablesFlag = true
+				getPlaceHolderVariablesFlag = false
 			}
 
 			kv, err := ctrl.GetVariableList(j.Name,
 				getAggregatedVariableFlag,
 				getRuntimeVariableFlag,
-				getPlaceHolderVariables,
-				getServiceSpecificVariables,
+				getPlaceHolderVariablesFlag,
+				getServiceSpecificVariablesFlag,
 				option.UseUserInput,
 			)
 
