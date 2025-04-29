@@ -607,9 +607,6 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 		return nil, e.ErrCreateTask.AddErr(err)
 	}
 
-	taskBytes, _ := json.Marshal(stageTasks)
-	fmt.Println("=============================================\n", string(taskBytes), "\n=================================================")
-
 	workflowTask.Stages = stageTasks
 
 	if err := workflowTaskLint(workflowTask, log); err != nil {
@@ -904,7 +901,7 @@ func ManualExecWorkflowTaskV4(workflowName string, taskID int64, stageName strin
 	}
 
 	workflowCtrl := workflowController.CreateWorkflowController(task.WorkflowArgs)
-	if err := workflowCtrl.RenderParams(task.TaskID, task.TaskCreator, task.TaskCreatorAccount, task.TaskCreatorID); err != nil {
+	if err := workflowCtrl.RenderWorkflowDefaultParams(task.TaskID, task.TaskCreator, task.TaskCreatorAccount, task.TaskCreatorID); err != nil {
 		log.Errorf("RenderGlobalVariables error: %v", err)
 		return e.ErrCreateTask.AddDesc(err.Error())
 	}
