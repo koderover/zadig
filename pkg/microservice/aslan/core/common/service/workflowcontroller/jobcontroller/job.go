@@ -145,8 +145,10 @@ func runJob(ctx context.Context, job *commonmodels.JobTask, workflowCtx *commonm
 	replacedJob := variableRegexp.ReplaceAll(b, []byte(""))
 	if err := json.Unmarshal([]byte(replacedJob), &job); err != nil {
 		logger.Errorf("unmarshal job error: %v", err)
+		job.Status = config.StatusFailed
+		job.Error = err.Error()
+		return
 	}
-
 
 	job.Status = config.StatusPrepare
 	job.StartTime = time.Now().Unix()
