@@ -370,7 +370,7 @@ type FreestyleJobAdvancedSettings struct {
 type FreeStyleServiceInfo struct {
 	ServiceWithModule `bson:",inline"                   yaml:",inline"               json:",inline"`
 	Repos             []*types.Repository `bson:"repos"                     yaml:"repos"                 json:"repos"`
-	KeyVals           KeyValList          `bson:"key_vals"                  yaml:"key_vals"              json:"key_vals"`
+	KeyVals           RuntimeKeyValList          `bson:"key_vals"                  yaml:"key_vals"              json:"key_vals"`
 }
 
 func (i *FreeStyleServiceInfo) GetKey() string {

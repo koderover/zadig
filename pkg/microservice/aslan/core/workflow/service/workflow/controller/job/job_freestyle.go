@@ -121,7 +121,7 @@ func (j FreestyleJobController) Update(useUserInput bool, ticket *commonmodels.A
 
 	if useUserInput {
 		for _, svc := range j.jobSpec.Services {
-			svc.KeyVals = applyKeyVals(j.jobSpec.Envs, svc.KeyVals.ToRuntimeList(), false).ToKVList()
+			svc.KeyVals = applyKeyVals(j.jobSpec.Envs, svc.KeyVals, false)
 			svc.Repos = applyRepos(j.jobSpec.Repos, svc.Repos)
 		}
 	}
@@ -165,8 +165,7 @@ func (j FreestyleJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, e
 
 	if j.jobSpec.FreestyleJobType == config.ServiceFreeStyleJobType {
 		for subTaskID, svc := range j.jobSpec.Services {
-			envs := applyKeyVals(j.jobSpec.Envs, svc.KeyVals.ToRuntimeList(), false).ToKVList()
-			svc.KeyVals = envs
+			svc.KeyVals = applyKeyVals(j.jobSpec.Envs, svc.KeyVals, false)
 			task, err := j.generateSubTask(taskID, subTaskID, registries, svc)
 			if err != nil {
 				return nil, err
@@ -528,7 +527,7 @@ func (j FreestyleJobController) generateSubTask(taskID int64, jobSubTaskID int, 
 	}
 
 	if service != nil {
-		customEnvs, err := replaceServiceAndModules(service.KeyVals, service.ServiceName, service.ServiceModule)
+		customEnvs, err := replaceServiceAndModules(service.KeyVals.ToKVList(), service.ServiceName, service.ServiceModule)
 		if err != nil {
 			return nil, fmt.Errorf("failed to render service variables, error: %v", err)
 		}
@@ -552,7 +551,7 @@ func (j FreestyleJobController) generateSubTask(taskID int64, jobSubTaskID int, 
 		jobKey = genJobKey(j.name, service.ServiceName, service.ServiceModule)
 		jobInfo["service_name"] = service.ServiceName
 		jobInfo["service_module"] = service.ServiceModule
-		renderRepos(service.Repos, applyKeyVals(j.jobSpec.Envs, service.KeyVals.ToRuntimeList(), false).ToKVList())
+		renderRepos(service.Repos, applyKeyVals(j.jobSpec.Envs, service.KeyVals, false).ToKVList())
 	} else {
 		renderRepos(j.jobSpec.Repos, envs)
 	}
