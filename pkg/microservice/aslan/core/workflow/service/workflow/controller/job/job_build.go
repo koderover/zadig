@@ -35,6 +35,7 @@ import (
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	codehostrepo "github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/codehost/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/setting"
+	"github.com/koderover/zadig/v2/pkg/shared/client/systemconfig"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/types"
 	"github.com/koderover/zadig/v2/pkg/types/job"
@@ -863,7 +864,7 @@ func (j BuildJobController) GetVariableList(jobName string, getAggregatedVariabl
 		}
 
 		for _, service := range target {
-			build, err :=buildSvc.GetBuild(service.BuildName, service.ServiceName, service.ServiceModule)
+			build, err := buildSvc.GetBuild(service.BuildName, service.ServiceName, service.ServiceModule)
 			if err != nil {
 				return nil, err
 			}
@@ -883,6 +884,11 @@ func (j BuildJobController) GetVariableList(jobName string, getAggregatedVariabl
 			repos := applyRepos(build.Repos, service.Repos)
 
 			for _, repo := range repos {
+				repoInfo, err := systemconfig.New().GetCodeHost(repo.CodehostID)
+				if err != nil {
+					return nil, err
+				}
+				
 				resp = append(resp, &commonmodels.KeyVal{
 					Key:          fmt.Sprintf("%s.%s", jobKey, BRANCHKEY),
 					Value:        repo.Branch,
@@ -903,12 +909,12 @@ func (j BuildJobController) GetVariableList(jobName string, getAggregatedVariabl
 					Type:         "string",
 					IsCredential: false,
 				})
-				
+
 				var gitURL string
 				if repo.AuthType == types.SSHAuthType {
-					gitURL = fmt.Sprintf("%s:%s/%s", repo.Address, repo.RepoOwner, repo.RepoName)
+					gitURL = fmt.Sprintf("%s:%s/%s", repoInfo.Address, repo.RepoOwner, repo.RepoName)
 				} else {
-					gitURL = fmt.Sprintf("%s/%s/%s", repo.Address, repo.RepoOwner, repo.RepoName)
+					gitURL = fmt.Sprintf("%s/%s/%s", repoInfo.Address, repo.RepoOwner, repo.RepoName)
 				}
 
 				resp = append(resp, &commonmodels.KeyVal{
