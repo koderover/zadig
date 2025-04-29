@@ -36,7 +36,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/types"
 	"github.com/koderover/zadig/v2/pkg/util"
-	"github.com/pkg/errors"
 )
 
 type Workflow struct {
@@ -53,7 +52,7 @@ func (w *Workflow) SetPreset(ticket *commonmodels.ApprovalTicket) error {
 			if job.RunPolicy == config.DefaultNotRun {
 				job.Skipped = true
 			}
-			
+
 			ctrl, err := jobctrl.CreateJobController(job, w.WorkflowV4)
 			if err != nil {
 				return err
@@ -136,7 +135,7 @@ func (w *Workflow) ToJobTasks(taskID int64, creator, account, uid string) ([]*co
 	}
 
 	// then we render the workflow with the built-in & user-defined parameter
-	err := w.RenderParams(taskID, creator, account, uid)
+	err := w.RenderWorkflowDefaultParams(taskID, creator, account, uid)
 	if err != nil {
 		return nil, err
 	}
@@ -192,7 +191,7 @@ func (w *Workflow) ToJobTasks(taskID int64, creator, account, uid string) ([]*co
 					return nil, fmt.Errorf("failed to replace input variable for task: %s, error: %s", task.Name, err)
 				}
 			}
-		
+
 			jobTasks = append(jobTasks, tasks...)
 		}
 
@@ -291,7 +290,7 @@ func (w *Workflow) ClearOptions() error {
 	return nil
 }
 
-func (w *Workflow) RenderParams(taskID int64, creator, account, uid string) error {
+func (w *Workflow) RenderWorkflowDefaultParams(taskID int64, creator, account, uid string) error {
 	b, err := json.Marshal(w.WorkflowV4)
 	if err != nil {
 		return fmt.Errorf("marshal workflow error: %v", err)
@@ -300,11 +299,7 @@ func (w *Workflow) RenderParams(taskID int64, creator, account, uid string) erro
 	if err != nil {
 		return fmt.Errorf("get workflow default params error: %v", err)
 	}
-	stageParams, err := w.getWorkflowStageParams()
-	if err != nil {
-		return fmt.Errorf("get workflow stage params error: %v", err)
-	}
-	replacedString := renderMultiLineString(string(b), append(globalParams, stageParams...))
+	replacedString := renderMultiLineString(string(b), globalParams)
 	return json.Unmarshal([]byte(replacedString), &w.WorkflowV4)
 }
 
@@ -324,72 +319,6 @@ func (w *Workflow) getWorkflowDefaultParams(taskID int64, creator, account, uid 
 			newParam.Value = strings.Join(param.ChoiceValue, ",")
 		}
 		resp = append(resp, newParam)
-	}
-	return resp, nil
-}
-
-func (w *Workflow) getWorkflowStageParams() ([]*commonmodels.Param, error) {
-	resp := []*commonmodels.Param{}
-	for _, stage := range w.Stages {
-		for _, job := range stage.Jobs {
-			switch job.JobType {
-			case config.JobZadigBuild:
-				build := new(commonmodels.ZadigBuildJobSpec)
-				if err := commonmodels.IToi(job.Spec, build); err != nil {
-					return nil, errors.Wrap(err, "Itoi")
-				}
-				var serviceAndModuleName, branchList, gitURLs []string
-				for _, serviceAndBuild := range build.ServiceAndBuilds {
-					serviceAndModuleName = append(serviceAndModuleName, serviceAndBuild.ServiceModule+"/"+serviceAndBuild.ServiceName)
-					branch, commitID, gitURL := "", "", ""
-					if len(serviceAndBuild.Repos) > 0 {
-						branch = serviceAndBuild.Repos[0].Branch
-						commitID = serviceAndBuild.Repos[0].CommitID
-						if serviceAndBuild.Repos[0].AuthType == types.SSHAuthType {
-							gitURL = fmt.Sprintf("%s:%s/%s", serviceAndBuild.Repos[0].Address, serviceAndBuild.Repos[0].RepoOwner, serviceAndBuild.Repos[0].RepoName)
-						} else {
-							gitURL = fmt.Sprintf("%s/%s/%s", serviceAndBuild.Repos[0].Address, serviceAndBuild.Repos[0].RepoOwner, serviceAndBuild.Repos[0].RepoName)
-						}
-					}
-					branchList = append(branchList, branch)
-					gitURLs = append(gitURLs, gitURL)
-					resp = append(resp, &commonmodels.Param{Name: fmt.Sprintf("job.%s.%s.%s.BRANCH",
-						job.Name, serviceAndBuild.ServiceName, serviceAndBuild.ServiceModule),
-						Value: branch, ParamsType: "string", IsCredential: false})
-					resp = append(resp, &commonmodels.Param{Name: fmt.Sprintf("job.%s.%s.%s.COMMITID",
-						job.Name, serviceAndBuild.ServiceName, serviceAndBuild.ServiceModule),
-						Value: commitID, ParamsType: "string", IsCredential: false})
-					resp = append(resp, &commonmodels.Param{Name: fmt.Sprintf("job.%s.%s.%s.GITURL",
-						job.Name, serviceAndBuild.ServiceName, serviceAndBuild.ServiceModule),
-						Value: gitURL, ParamsType: "string", IsCredential: false})
-				}
-				resp = append(resp, &commonmodels.Param{Name: fmt.Sprintf("job.%s.SERVICES", job.Name), Value: strings.Join(serviceAndModuleName, ","), ParamsType: "string", IsCredential: false})
-				resp = append(resp, &commonmodels.Param{Name: fmt.Sprintf("job.%s.BRANCHES", job.Name), Value: strings.Join(branchList, ","), ParamsType: "string", IsCredential: false})
-				resp = append(resp, &commonmodels.Param{Name: fmt.Sprintf("job.%s.GITURLS", job.Name), Value: strings.Join(gitURLs, ","), ParamsType: "string", IsCredential: false})
-			case config.JobZadigDeploy:
-				deploy := new(commonmodels.ZadigDeployJobSpec)
-				if err := commonmodels.IToi(job.Spec, deploy); err != nil {
-					return nil, errors.Wrap(err, "Itoi")
-				}
-				resp = append(resp, &commonmodels.Param{Name: fmt.Sprintf("job.%s.envName", job.Name), Value: deploy.Env, ParamsType: "string", IsCredential: false})
-
-				services := []string{}
-				for _, service := range deploy.Services {
-					for _, module := range service.Modules {
-						services = append(services, module.ServiceModule+"/"+service.ServiceName)
-					}
-				}
-				resp = append(resp, &commonmodels.Param{Name: fmt.Sprintf("job.%s.SERVICES", job.Name), Value: strings.Join(services, ","), ParamsType: "string", IsCredential: false})
-
-				images := []string{}
-				for _, service := range deploy.Services {
-					for _, module := range service.Modules {
-						images = append(images, module.Image)
-					}
-				}
-				resp = append(resp, &commonmodels.Param{Name: fmt.Sprintf("job.%s.IMAGES", job.Name), Value: strings.Join(images, ","), ParamsType: "string", IsCredential: false})
-			}
-		}
 	}
 	return resp, nil
 }
@@ -627,7 +556,6 @@ func (w *Workflow) GetReferableVariables(currentJobName string, option GetWorkfl
 		return nil, err
 	}
 
-
 	jobRankMap := jobctrl.GetJobRankMap(w.Stages)
 
 	for _, stage := range w.Stages {
@@ -645,7 +573,7 @@ func (w *Workflow) GetReferableVariables(currentJobName string, option GetWorkfl
 				getAggregatedVariableFlag = false
 			}
 
-			// service_module cannot be determined in 
+			// service_module cannot be determined in
 			if currJob.JobType == config.JobZadigDeploy {
 				getPlaceHolderVariablesFlag = false
 			}
