@@ -250,6 +250,14 @@ func updateWorkflowJobTaskSpec(stages []*commonmodels.WorkflowStage) error {
 					ShareStorageInfo:    newSpec.Properties.ShareStorageInfo,
 				}
 				newSpec.AdvancedSetting = advancedSetting
+				for _, kv := range newSpec.Plugin.Inputs {
+					if strings.HasPrefix(kv.Value, "<+fixed>") {
+						kv.Value = strings.TrimPrefix(kv.Value, "<+fixed>")
+						kv.Source = config.ParamSourceFixed
+					} else if strings.HasPrefix(kv.Value, "{{.") {
+						kv.Source = config.ParamSourceReference
+					}
+				}
 				job.Spec = newSpec
 			case config.JobZadigScanning:
 				newSpec := new(commonmodels.ZadigScanningJobSpec)

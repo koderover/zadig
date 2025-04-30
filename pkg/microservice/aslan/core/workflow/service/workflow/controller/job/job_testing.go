@@ -77,14 +77,6 @@ func (j TestingJobController) GetSpec() interface{} {
 }
 
 func (j TestingJobController) Validate(isExecution bool) error {
-	if j.jobSpec.Source != config.SourceFromJob {
-		return nil
-	}
-	jobRankMap := GetJobRankMap(j.workflow.Stages)
-	buildJobRank, ok := jobRankMap[j.jobSpec.JobName]
-	if !ok || buildJobRank >= jobRankMap[j.name] {
-		return fmt.Errorf("can not quote job %s in job %s", j.jobSpec.JobName, j.name)
-	}
 	return nil
 }
 
