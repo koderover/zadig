@@ -129,7 +129,7 @@ func updateWorkflowJobTaskSpec(stages []*commonmodels.WorkflowStage) error {
 				newSpec.ServiceOptions = newSpec.Services
 				newSpec.Services = make([]*commonmodels.BlueGreenDeployV2Service, 0)
 				job.Spec = newSpec
-			case config.JobBuild:
+			case config.JobZadigBuild:
 				newSpec := new(commonmodels.ZadigBuildJobSpec)
 				if err := commonmodels.IToi(job.Spec, newSpec); err != nil {
 					return fmt.Errorf("failed to decode zadig build job, error: %s", err)
@@ -195,6 +195,13 @@ func updateWorkflowJobTaskSpec(stages []*commonmodels.WorkflowStage) error {
 				newSpec.TargetOptions = newSpec.Targets
 				newSpec.Targets = make([]*commonmodels.GrayReleaseTarget, 0)
 				job.Spec = newSpec
+			case config.JobZadigHelmChartDeploy:
+				newSpec := new(commonmodels.ZadigHelmChartDeployJobSpec)
+				if err := commonmodels.IToi(job.Spec, newSpec); err != nil {
+					return fmt.Errorf("failed to decode zadig build job, error: %s", err)
+				}
+				newSpec.Production = true
+				job.Spec = newSpec
 			case config.JobJenkins:
 				newSpec := new(commonmodels.JenkinsJobSpec)
 				if err := commonmodels.IToi(job.Spec, newSpec); err != nil {
@@ -250,6 +257,14 @@ func updateWorkflowJobTaskSpec(stages []*commonmodels.WorkflowStage) error {
 					ShareStorageInfo:    newSpec.Properties.ShareStorageInfo,
 				}
 				newSpec.AdvancedSetting = advancedSetting
+				for _, kv := range newSpec.Plugin.Inputs {
+					if strings.HasPrefix(kv.Value, "<+fixed>") {
+						kv.Value = strings.TrimPrefix(kv.Value, "<+fixed>")
+						kv.Source = config.ParamSourceFixed
+					} else if strings.HasPrefix(kv.Value, "{{.") {
+						kv.Source = config.ParamSourceReference
+					}
+				}
 				job.Spec = newSpec
 			case config.JobZadigScanning:
 				newSpec := new(commonmodels.ZadigScanningJobSpec)
@@ -411,6 +426,11 @@ func converOldFreestyleJobSpec(spec *commonmodels.FreestyleJobSpec) (*commonmode
 	}
 	newSpec.Repos = repos
 	newSpec.Envs = spec.Properties.Envs.ToRuntimeList()
+	for _, env := range newSpec.Envs {
+		if strings.HasPrefix(env.Value, "{{.") {
+			env.Source = config.ParamSourceReference
+		}
+	}
 	newSpec.DefaultServices = defaultServices
 
 	runtimeInfo := &commonmodels.RuntimeInfo{
