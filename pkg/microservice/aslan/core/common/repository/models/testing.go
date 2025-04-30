@@ -100,7 +100,7 @@ type PreTest struct {
 	// Installs defines apps to be installed for build
 	Installs []*Item `bson:"installs,omitempty"    json:"installs"`
 	// Envs stores user defined env key val for build
-	Envs []*KeyVal `bson:"envs,omitempty"              json:"envs"`
+	Envs KeyValList `bson:"envs,omitempty"              json:"envs"`
 	// EnableProxy
 	EnableProxy      bool   `bson:"enable_proxy"           json:"enable_proxy"`
 	ClusterID        string `bson:"cluster_id"             json:"cluster_id"`

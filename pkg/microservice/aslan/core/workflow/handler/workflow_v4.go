@@ -422,7 +422,7 @@ func FindWorkflowV4(c *gin.Context) {
 // @Param 	body 			body 		commonmodels.WorkflowV4		  			true 	"body"
 // @Success 200 			{array} 	string
 // @Router /api/aslan/workflow/v4/dynamicVariable/render [post]
-func RenderWorkflowV4DynamicVariables(c *gin.Context) {
+func GetWorkflowV4DynamicVariableValues(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
@@ -435,7 +435,7 @@ func RenderWorkflowV4DynamicVariables(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.RespErr = workflow.RenderWorkflowV4Variables(ctx, args, c.Query("jobName"), c.Query("serviceName"), c.Query("moduleName"), c.Query("key"))
+	ctx.Resp, ctx.RespErr = workflow.GetWorkflowV4DynamicVariableValues(ctx, args, c.Query("jobName"), c.Query("serviceName"), c.Query("moduleName"), c.Query("key"))
 }
 
 // @Summary Get Workflow V4 Dynamic Variable's Available Variables
@@ -447,7 +447,7 @@ func RenderWorkflowV4DynamicVariables(c *gin.Context) {
 // @Param 	body 			body 		commonmodels.WorkflowV4		  			true 	"body"
 // @Success 200 			{array} 	string
 // @Router /api/aslan/workflow/v4/dynamicVariable/available [post]
-func GetWorkflowV4DynamicVariableAvailable(c *gin.Context) {
+func GetAvailableWorkflowV4DynamicVariable(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
@@ -460,21 +460,22 @@ func GetWorkflowV4DynamicVariableAvailable(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.RespErr = workflow.GetWorkflowV4DynamicVariableAvailable(ctx, args, c.Query("jobName"))
+	ctx.Resp, ctx.RespErr = workflow.GetAvailableWorkflowV4DynamicVariable(ctx, args, c.Query("jobName"))
 }
 
 func GetWorkflowV4Preset(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.RespErr = workflow.GetWorkflowv4Preset(c.Query("encryptedKey"), c.Param("name"), ctx.UserID, ctx.UserName, c.Query("approval_ticket_id"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = workflow.GetWorkflowV4Preset(c.Query("encryptedKey"), c.Param("name"), ctx.UserID, ctx.UserName, c.Query("approval_ticket_id"), ctx.Logger)
 }
 
+// TODO: Added parameter: query: approval_ticket_id
 func GetWebhookForWorkflowV4Preset(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.RespErr = workflow.GetWebhookForWorkflowV4Preset(c.Query("workflowName"), c.Query("triggerName"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = workflow.GetWebhookForWorkflowV4Preset(c.Query("workflowName"), c.Query("triggerName"), c.Query("approval_ticket_id"), ctx.Logger)
 }
 
 func CheckWorkflowV4Approval(c *gin.Context) {
@@ -496,7 +497,6 @@ func CreateWebhookForWorkflowV4(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -670,10 +670,11 @@ func CreateJiraHookForWorkflowV4(c *gin.Context) {
 	ctx.RespErr = workflow.CreateJiraHookForWorkflowV4(c.Param("workflowName"), jira, ctx.Logger)
 }
 
+// TODO: Added parameter: query: approval_ticket_id
 func GetJiraHookForWorkflowV4Preset(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	ctx.Resp, ctx.RespErr = workflow.GetJiraHookForWorkflowV4Preset(c.Query("workflowName"), c.Query("hookName"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = workflow.GetJiraHookForWorkflowV4Preset(c.Query("workflowName"), c.Query("hookName"), c.Query("approval_ticket_id"), ctx.Logger)
 }
 
 func ListJiraHookForWorkflowV4(c *gin.Context) {
@@ -826,7 +827,7 @@ func CreateMeegoHookForWorkflowV4(c *gin.Context) {
 func GetMeegoHookForWorkflowV4Preset(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	ctx.Resp, ctx.RespErr = workflow.GetMeegoHookForWorkflowV4Preset(c.Query("workflowName"), c.Query("hookName"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = workflow.GetMeegoHookForWorkflowV4Preset(c.Query("workflowName"), c.Query("hookName"), c.Query("approval_ticket_id"), ctx.Logger)
 }
 
 func ListMeegoHookForWorkflowV4(c *gin.Context) {
@@ -971,10 +972,11 @@ func CreateGeneralHookForWorkflowV4(c *gin.Context) {
 	ctx.RespErr = workflow.CreateGeneralHookForWorkflowV4(c.Param("workflowName"), hook, ctx.Logger)
 }
 
+// TODO: Added parameter: query: approval_ticket_id
 func GetGeneralHookForWorkflowV4Preset(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	ctx.Resp, ctx.RespErr = workflow.GetGeneralHookForWorkflowV4Preset(c.Query("workflowName"), c.Query("hookName"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = workflow.GetGeneralHookForWorkflowV4Preset(c.Query("workflowName"), c.Query("hookName"), c.Query("approval_ticket_id"), ctx.Logger)
 }
 
 func ListGeneralHookForWorkflowV4(c *gin.Context) {
@@ -988,7 +990,6 @@ func UpdateGeneralHookForWorkflowV4(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -1078,7 +1079,7 @@ func GetCronForWorkflowV4Preset(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.RespErr = workflow.GetCronForWorkflowV4Preset(c.Query("workflowName"), c.Query("cronID"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = workflow.GetCronForWorkflowV4Preset(c.Query("workflowName"), c.Query("cronID"), c.Query("approval_ticket_id"), ctx.Logger)
 }
 
 func ListCronForWorkflowV4(c *gin.Context) {
@@ -1234,7 +1235,7 @@ func GetWorkflowGlobalVars(c *gin.Context) {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
-	ctx.Resp = workflow.GetWorkflowGlabalVars(args, c.Param("jobName"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = workflow.GetWorkflowGlobalVars(args, c.Param("jobName"), ctx.Logger)
 }
 
 func GetWorkflowRepoIndex(c *gin.Context) {
@@ -1262,26 +1263,6 @@ func ListAllAvailableWorkflows(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	ctx.Resp, ctx.RespErr = workflow.ListAllAvailableWorkflows(c.QueryArray("projects"), ctx.Logger)
-}
-
-// @Summary Get filtered env services
-// @Description Get filtered env services
-// @Tags 	workflow
-// @Accept 	json
-// @Produce json
-// @Param 	body 		body 		filterDeployServiceVarsQuery	 	true 	"body"
-// @Success 200 		{array} 	commonmodels.DeployService
-// @Router /api/aslan/workflow/v4/filterEnv [post]
-func GetFilteredEnvServices(c *gin.Context) {
-	// TODO: fix the authorization problem for this.
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	req := new(filterDeployServiceVarsQuery)
-	if err := c.ShouldBindJSON(req); err != nil {
-		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
-		return
-	}
-	ctx.Resp, ctx.RespErr = workflow.GetFilteredEnvServices(req.WorkflowName, req.JobName, req.EnvName, req.ServiceNames, ctx.Logger)
 }
 
 type YamlResponse struct {

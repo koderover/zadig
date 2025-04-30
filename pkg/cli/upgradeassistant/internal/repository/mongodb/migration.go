@@ -52,7 +52,9 @@ func (c *MigrationColl) UpdateMigrationStatus(id primitive.ObjectID, kvs map[str
 
 func (c *MigrationColl) InitializeMigrationInfo() error {
 	resp := &models.Migration{
-		SonarMigration: false,
+		SonarMigration:                   false,
+		UpdateWorkflow340JobSpec:         false,
+		UpdateWorkflow340JobTemplateSpec: false,
 	}
 	_, err := c.InsertOne(context.TODO(), resp, options.InsertOne())
 

@@ -253,8 +253,8 @@ func AutoCreateWorkflow(productName string, log *zap.SugaredLogger) *EnvStatus {
 					Name:    buildJobName,
 					JobType: config.JobZadigBuild,
 					Spec: &commonmodels.ZadigBuildJobSpec{
-						DockerRegistryID: workflowArg.dockerRegistryID,
-						ServiceAndBuilds: serviceAndBuilds,
+						DockerRegistryID:        workflowArg.dockerRegistryID,
+						ServiceAndBuildsOptions: serviceAndBuilds,
 					},
 				}
 				stage := &commonmodels.WorkflowStage{

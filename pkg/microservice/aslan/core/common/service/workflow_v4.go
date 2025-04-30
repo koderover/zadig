@@ -109,7 +109,7 @@ func DeleteWorkflowV4(name string, logger *zap.SugaredLogger) error {
 	return nil
 }
 
-func EncryptKeyVals(encryptedKey string, kvs []*commonmodels.KeyVal, logger *zap.SugaredLogger) error {
+func EncryptKeyVals(encryptedKey string, kvs commonmodels.RuntimeKeyValList, logger *zap.SugaredLogger) error {
 	if encryptedKey == "" {
 		return nil
 	}

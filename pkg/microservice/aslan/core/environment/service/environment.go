@@ -74,7 +74,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	mongotool "github.com/koderover/zadig/v2/pkg/tool/mongo"
 	"github.com/koderover/zadig/v2/pkg/types"
-	"github.com/koderover/zadig/v2/pkg/types/step"
 	"github.com/koderover/zadig/v2/pkg/util"
 	"github.com/koderover/zadig/v2/pkg/util/boolptr"
 	"github.com/koderover/zadig/v2/pkg/util/converter"
@@ -414,8 +413,8 @@ func generateHostCustomWorkflow(arg *models.Product, enableBuildStage bool) (*mo
 			Name:    buildJobName,
 			JobType: config.JobZadigBuild,
 			Spec: &commonmodels.ZadigBuildJobSpec{
-				DockerRegistryID: arg.RegistryID,
-				ServiceAndBuilds: serviceAndBuilds,
+				DockerRegistryID:        arg.RegistryID,
+				ServiceAndBuildsOptions: serviceAndBuilds,
 			},
 		}
 		stage := &commonmodels.WorkflowStage{
@@ -465,55 +464,36 @@ func generateMobileCustomWorkflow(projectName, workflowName string, focalBasicIm
 		stageName = "打包并上架"
 		freestyleJobName = "打包并上架"
 	}
+	commonAdvancedSetting := &commonmodels.JobAdvancedSettings{
+		Timeout:             60,
+		ClusterID:           setting.LocalClusterID,
+		ResourceRequest:     setting.LowRequest,
+		ResReqSpec:          setting.LowRequestSpec,
+		StrategyID:          "",
+		UseHostDockerDaemon: false,
+		CustomAnnotations:   []*util.KeyValue{},
+		CustomLabels:        []*util.KeyValue{},
+		ShareStorageInfo:    &commonmodels.ShareStorageInfo{},
+	}
+	runtime := &commonmodels.RuntimeInfo{
+		Infrastructure: "kubernetes",
+		BuildOS:        focalBasicImage.Value,
+		ImageFrom:      focalBasicImage.ImageFrom,
+		ImageID:        focalBasicImage.ID.Hex(),
+		Installs:       make([]*commonmodels.Item, 0),
+		VMLabels:       []string{"VM_LABEL_ANY_ONE"},
+	}
 	freestyleJob := &commonmodels.Job{
 		Name:    freestyleJobName,
 		JobType: config.JobFreestyle,
 		Spec: &commonmodels.FreestyleJobSpec{
-			Properties: &commonmodels.JobProperties{
-				Timeout:         60,
-				ResourceRequest: setting.LowRequest,
-				ResReqSpec:      setting.LowRequestSpec,
-				BuildOS:         focalBasicImage.Value,
-				ImageID:         focalBasicImage.ID.Hex(),
-				ImageFrom:       focalBasicImage.ImageFrom,
-				CacheEnable:     true,
-				CacheDirType:    "workspace",
-				Infrastructure:  "kubernetes",
-				VMLabels:        []string{"VM_LABEL_ANY_ONE"},
+			AdvancedSetting: &commonmodels.FreestyleJobAdvancedSettings{
+				JobAdvancedSettings: commonAdvancedSetting,
+				Outputs:             make([]*commonmodels.Output, 0),
 			},
-			Steps: []*commonmodels.Step{
-				{
-					Name:     "tools",
-					StepType: config.StepTools,
-					Spec: &step.StepToolInstallSpec{
-						Installs:  []*step.Tool{},
-						S3Storage: nil,
-					},
-				},
-				{
-					Name:     "git",
-					StepType: config.StepGit,
-					Spec: &step.StepGitSpec{
-						Proxy: nil,
-						Repos: []*types.Repository{},
-					},
-				},
-				{
-					Name:     "perforce",
-					StepType: config.StepPerforce,
-					Spec: &step.StepP4Spec{
-						Repos: []*types.Repository{},
-					},
-				},
-				{
-					Name:     "shell",
-					StepType: config.StepShell,
-					Spec: &step.StepShellSpec{
-						Scripts: []string{},
-						Script:  "#!/bin/bash\nset -e",
-					},
-				},
-			},
+			Script:     "#!/bin/bash\nset -e",
+			ScriptType: types.ScriptTypeShell,
+			Runtime:    runtime,
 		},
 	}
 	stage := &commonmodels.WorkflowStage{

@@ -18,10 +18,12 @@ package service
 
 import (
 	"fmt"
+	"sync"
 
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
+	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/webhook"
@@ -87,4 +89,38 @@ func Delete(name, productName string, log *zap.SugaredLogger) error {
 	}
 
 	return nil
+}
+
+type TestService struct {
+	TestMap         sync.Map
+	TestTemplateMap sync.Map
+}
+
+func NewTestingService() *TestService {
+	return &TestService{
+		TestMap:         sync.Map{},
+		TestTemplateMap: sync.Map{},
+	}
+}
+
+func (c *TestService) GetByName(projectName, name string) (*commonmodels.Testing, error) {
+	var err error
+	testInfo := new(commonmodels.Testing)
+	key := fmt.Sprintf("%s++%s", projectName, name)
+	buildMapValue, ok := c.TestMap.Load(key)
+	if !ok {
+		testInfo, err = commonrepo.NewTestingColl().Find(name, projectName)
+		if err != nil {
+			c.TestMap.Store(key, nil)
+			return nil, fmt.Errorf("find scan: %s error: %v", key, err)
+		}
+		c.TestMap.Store(key, testInfo)
+	} else {
+		if buildMapValue == nil {
+			return nil, fmt.Errorf("failed to find scanning: %s", key)
+		}
+		testInfo = buildMapValue.(*commonmodels.Testing)
+	}
+
+	return testInfo, nil
 }

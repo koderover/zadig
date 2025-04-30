@@ -20,6 +20,8 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/controller"
+
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 	"gorm.io/gorm/utils"
@@ -30,7 +32,6 @@ import (
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/base"
-	jobctl "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/job"
 	"github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/codehost/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
@@ -52,13 +53,11 @@ func CreateCustomWorkflowTask(username string, args *OpenAPICreateCustomWorkflow
 		return nil, e.ErrCreateTask.AddDesc("workflow need approval ticket to run, which is not supported by openAPI right now.")
 	}
 
-	for _, stage := range workflow.Stages {
-		for _, job := range stage.Jobs {
-			if err := jobctl.SetPreset(job, workflow); err != nil {
-				log.Errorf("cannot get workflow %s preset, the error is: %v", args.WorkflowName, err)
-				return nil, e.ErrFindWorkflow.AddDesc(err.Error())
-			}
-		}
+	workflowController := controller.CreateWorkflowController(workflow)
+
+	if err := workflowController.SetPreset(nil); err != nil {
+		log.Errorf("cannot get workflow %s preset, the error is: %v", args.WorkflowName, err)
+		return nil, e.ErrPresetWorkflow.AddDesc(err.Error())
 	}
 
 	if err := fillWorkflowV4(workflow, log); err != nil {
@@ -269,7 +268,7 @@ func fillWorkflowV4(workflow *commonmodels.WorkflowV4, logger *zap.SugaredLogger
 					}
 					kvs := buildInfo.PreBuild.Envs
 					if buildInfo.TemplateID != "" {
-						templateEnvs := []*commonmodels.KeyVal{}
+						var templateEnvs commonmodels.KeyValList
 						buildTemplate, err := commonrepo.NewBuildTemplateColl().Find(&commonrepo.BuildTemplateQueryOption{
 							ID: buildInfo.TemplateID,
 						})
@@ -286,9 +285,9 @@ func fillWorkflowV4(workflow *commonmodels.WorkflowV4, logger *zap.SugaredLogger
 							}
 						}
 						// if build template update any keyvals, merge it.
-						kvs = commonservice.MergeBuildEnvs(templateEnvs, kvs)
+						kvs = commonservice.MergeBuildEnvs(templateEnvs.ToRuntimeList(), kvs.ToRuntimeList()).ToKVList()
 					}
-					build.KeyVals = commonservice.MergeBuildEnvs(kvs, build.KeyVals)
+					build.KeyVals = commonservice.MergeBuildEnvs(kvs.ToRuntimeList(), build.KeyVals)
 				}
 				job.Spec = spec
 			}

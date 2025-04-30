@@ -454,16 +454,16 @@ func generateCustomWorkflowFromTestingModule(testInfo *commonmodels.Testing, arg
 		JobType: config.JobZadigTesting,
 		Skipped: false,
 		Spec: &commonmodels.ZadigTestingJobSpec{
-			TestType:       "",
-			Source:         config.SourceRuntime,
-			JobName:        "",
-			OriginJobName:  "",
-			TargetServices: nil,
+			TestType:        "",
+			Source:          config.SourceRuntime,
+			JobName:         "",
+			OriginJobName:   "",
+			DefaultServices: nil,
 			TestModules: []*commonmodels.TestModule{
 				{
 					Name:        testInfo.Name,
 					ProjectName: testInfo.ProductName,
-					KeyVals:     testInfo.PreTest.Envs,
+					KeyVals:     testInfo.PreTest.Envs.ToRuntimeList(),
 					Repos:       testInfo.Repos,
 				},
 			},

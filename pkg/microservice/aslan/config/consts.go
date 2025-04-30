@@ -509,9 +509,9 @@ const (
 type ParamSourceType string
 
 const (
-	ParamSourceRuntime = "runtime"
-	ParamSourceFixed   = "fixed"
-	ParamSourceGlobal  = "global"
+	ParamSourceRuntime   = "runtime"
+	ParamSourceFixed     = "fixed"
+	ParamSourceReference = "reference"
 )
 
 type RegistryProvider string
@@ -630,18 +630,22 @@ const (
 type ReleasePlanStatus string
 
 const (
-	StatusPlanning       ReleasePlanStatus = "planning"
-	StatusWaitForApprove ReleasePlanStatus = "wait_for_approval"
-	StatusExecuting      ReleasePlanStatus = "executing"
-	StatusSuccess        ReleasePlanStatus = "success"
-	StatusCancel         ReleasePlanStatus = "cancel"
+	StatusPlanning         ReleasePlanStatus = "planning"
+	StatusWaitForApprove   ReleasePlanStatus = "wait_for_approval"
+	StatusExecuting        ReleasePlanStatus = "executing"
+	StatusApprovalDenied   ReleasePlanStatus = "denied"
+	StatusTimeoutForWindow ReleasePlanStatus = "timeout"
+	StatusSuccess          ReleasePlanStatus = "success"
+	StatusCancel           ReleasePlanStatus = "cancel"
 )
 
 // ReleasePlanStatusMap is a map of status and its available next status
 var ReleasePlanStatusMap = map[ReleasePlanStatus][]ReleasePlanStatus{
-	StatusPlanning:       {StatusWaitForApprove, StatusExecuting},
-	StatusWaitForApprove: {StatusPlanning, StatusExecuting},
-	StatusExecuting:      {StatusPlanning, StatusSuccess, StatusCancel},
+	StatusPlanning:         {StatusWaitForApprove, StatusExecuting},
+	StatusWaitForApprove:   {StatusPlanning, StatusExecuting},
+	StatusExecuting:        {StatusPlanning, StatusSuccess, StatusCancel},
+	StatusTimeoutForWindow: {StatusPlanning},
+	StatusApprovalDenied:   {StatusPlanning},
 }
 
 type ReleasePlanJobType string
@@ -685,4 +689,10 @@ const (
 const (
 	AgentTypeZadigDefaultServiceAccountName      = "koderover-agent"
 	KubeConfigTypeZadigDefaultServiceAccountName = "zadig-workflow-sa"
+)
+
+const (
+	VariableRegEx             = `{{\.([\p{L}\d-]+(\.[\p{L}\d-]+)*.)}}`
+	VariableOutputRegEx       = `{{\.([\p{L}\d-]+(\.[\p{L}\d-]+)*).output.[\p{L}\d-]+}}`
+	ReplacedTempVariableRegEx = `TEMP_PLACEHOLDER_([\p{L}\d-]+(\.[\p{L}\d-]+)*)`
 )

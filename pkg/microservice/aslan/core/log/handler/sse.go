@@ -26,10 +26,10 @@ import (
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/workflowcontroller/jobcontroller"
+	runtimeJobController "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/workflowcontroller/jobcontroller"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	logservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/log/service"
-	jobctl "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/job"
+	jobcontroller "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/controller/job"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/testing/service"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
@@ -128,7 +128,7 @@ func GetWorkflowJobContainerLogsSSE(c *gin.Context) {
 			&logservice.GetContainerOptions{
 				Namespace:    config.Namespace(),
 				PipelineName: c.Param("workflowName"),
-				SubTask:      jobcontroller.GetJobContainerName(jobName),
+				SubTask:      runtimeJobController.GetJobContainerName(jobName),
 				TaskID:       taskID,
 				TailLines:    tails,
 			},
@@ -201,7 +201,7 @@ func GetScanningContainerLogsSSE(c *gin.Context) {
 	}
 
 	job := workflowTask.Stages[0].Jobs[0]
-	jobName := jobctl.GenJobName(workflowTask.WorkflowArgs, job.OriginName, 0)
+	jobName := jobcontroller.GenJobName(workflowTask.WorkflowArgs, job.OriginName, 0)
 
 	internalhandler.Stream(c, func(ctx1 context.Context, streamChan chan interface{}) {
 		logservice.WorkflowTaskV4ContainerLogStream(
@@ -209,7 +209,7 @@ func GetScanningContainerLogsSSE(c *gin.Context) {
 			&logservice.GetContainerOptions{
 				Namespace:    namespace,
 				PipelineName: commonutil.GenScanningWorkflowName(id),
-				SubTask:      jobcontroller.GetJobContainerName(jobName),
+				SubTask:      runtimeJobController.GetJobContainerName(jobName),
 				TaskID:       taskID,
 				TailLines:    tails,
 				ClusterID:    clusterId,
@@ -271,7 +271,7 @@ func GetTestingContainerLogsSSE(c *gin.Context) {
 	}
 
 	job := workflowTask.Stages[0].Jobs[0]
-	jobName := jobctl.GenJobName(workflowTask.WorkflowArgs, job.OriginName, 0)
+	jobName := jobcontroller.GenJobName(workflowTask.WorkflowArgs, job.OriginName, 0)
 
 	internalhandler.Stream(c, func(ctx1 context.Context, streamChan chan interface{}) {
 		logservice.WorkflowTaskV4ContainerLogStream(
@@ -279,7 +279,7 @@ func GetTestingContainerLogsSSE(c *gin.Context) {
 			&logservice.GetContainerOptions{
 				Namespace:    config.Namespace(),
 				PipelineName: commonutil.GenTestingWorkflowName(testName),
-				SubTask:      jobcontroller.GetJobContainerName(jobName),
+				SubTask:      runtimeJobController.GetJobContainerName(jobName),
 				TaskID:       taskID,
 				TailLines:    tails,
 			},
@@ -341,7 +341,7 @@ func OpenAPIGetWorkflowJobContainerLogsSSE(c *gin.Context) {
 			&logservice.GetContainerOptions{
 				Namespace:    config.Namespace(),
 				PipelineName: c.Param("workflowName"),
-				SubTask:      jobcontroller.GetJobContainerName(jobName),
+				SubTask:      runtimeJobController.GetJobContainerName(jobName),
 				TaskID:       taskID,
 				TailLines:    tails,
 			},

@@ -759,14 +759,14 @@ func generateCustomWorkflowFromScanningModule(scanInfo *commonmodels.Scanning, a
 			return nil, err
 		}
 
-		kvs = commonservice.MergeBuildEnvs(template.Envs, scanInfo.Envs)
+		kvs = commonservice.MergeBuildEnvs(template.Envs.ToRuntimeList(), scanInfo.Envs.ToRuntimeList()).ToKVList()
 	}
 
 	scan := &commonmodels.ScanningModule{
 		Name:        scanInfo.Name,
 		ProjectName: scanInfo.ProjectName,
 		Repos:       repos,
-		KeyVals:     renderKeyVals(args.KeyVals, kvs),
+		KeyVals:     renderKeyVals(args.KeyVals, kvs).ToRuntimeList(),
 	}
 
 	job := make([]*commonmodels.Job, 0)
@@ -794,7 +794,7 @@ func generateCustomWorkflowFromScanningModule(scanInfo *commonmodels.Scanning, a
 	return resp, nil
 }
 
-func renderKeyVals(input, origin []*commonmodels.KeyVal) []*commonmodels.KeyVal {
+func renderKeyVals(input, origin commonmodels.KeyValList) commonmodels.KeyValList {
 	for i, originKV := range origin {
 		for _, inputKV := range input {
 			if originKV.Key == inputKV.Key {

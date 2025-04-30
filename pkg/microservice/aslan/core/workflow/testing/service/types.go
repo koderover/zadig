@@ -129,7 +129,7 @@ type ListScanningRespItem struct {
 }
 
 type CreateScanningTaskReq struct {
-	KeyVals     []*commonmodels.KeyVal    `json:"key_vals"`
+	KeyVals     commonmodels.KeyValList   `json:"key_vals"`
 	Repos       []*ScanningRepoInfo       `json:"repos"`
 	HookPayload *commonmodels.HookPayload `json:"hook_payload"`
 }

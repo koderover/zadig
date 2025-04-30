@@ -161,7 +161,7 @@ func EnsureResp(build *commonmodels.Build) {
 			}
 			envs := target.Envs
 			if buildTemplate != nil {
-				envs = MergeBuildEnvs(buildTemplate.PreBuild.Envs, envs)
+				envs = MergeBuildEnvs(buildTemplate.PreBuild.Envs.ToRuntimeList(), envs.ToRuntimeList()).ToKVList()
 			}
 			targetRepo := &commonmodels.TargetRepo{
 				Service: &commonmodels.ServiceModuleTargetBase{
@@ -191,12 +191,12 @@ func FindReposByTarget(projectName, serviceName, serviceModule string, build *co
 	return build.SafeRepos()
 }
 
-func MergeBuildEnvs(templateEnvs []*commonmodels.KeyVal, customEnvs []*commonmodels.KeyVal) []*commonmodels.KeyVal {
-	customEnvMap := make(map[string]*commonmodels.KeyVal)
+func MergeBuildEnvs(templateEnvs, customEnvs commonmodels.RuntimeKeyValList) commonmodels.RuntimeKeyValList {
+	customEnvMap := make(map[string]*commonmodels.RuntimeKeyVal)
 	for _, v := range customEnvs {
 		customEnvMap[v.Key] = v
 	}
-	retEnvs := make([]*commonmodels.KeyVal, 0)
+	retEnvs := make([]*commonmodels.RuntimeKeyVal, 0)
 	for _, v := range templateEnvs {
 		if cv, ok := customEnvMap[v.Key]; ok {
 			cv.ChoiceOption = v.ChoiceOption
@@ -317,7 +317,7 @@ func FillBuildDetail(moduleBuild *commonmodels.Build, serviceName, serviceModule
 			if moduleBuild.PreBuild == nil {
 				moduleBuild.PreBuild = &commonmodels.PreBuild{}
 			}
-			moduleBuild.PreBuild.Envs = MergeBuildEnvs(moduleBuild.PreBuild.Envs, serviceConfig.Envs)
+			moduleBuild.PreBuild.Envs = MergeBuildEnvs(moduleBuild.PreBuild.Envs.ToRuntimeList(), serviceConfig.Envs.ToRuntimeList()).ToKVList()
 			break
 		}
 	}
