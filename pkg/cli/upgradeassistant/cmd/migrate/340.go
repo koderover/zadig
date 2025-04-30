@@ -129,7 +129,7 @@ func updateWorkflowJobTaskSpec(stages []*commonmodels.WorkflowStage) error {
 				newSpec.ServiceOptions = newSpec.Services
 				newSpec.Services = make([]*commonmodels.BlueGreenDeployV2Service, 0)
 				job.Spec = newSpec
-			case config.JobBuild:
+			case config.JobZadigBuild:
 				newSpec := new(commonmodels.ZadigBuildJobSpec)
 				if err := commonmodels.IToi(job.Spec, newSpec); err != nil {
 					return fmt.Errorf("failed to decode zadig build job, error: %s", err)
