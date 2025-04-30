@@ -113,7 +113,7 @@ func (w *Workflow) ToJobTasks(taskID int64, creator, account, uid string) ([]*co
 			job.Spec = ctrl.GetSpec()
 
 			kvs, err := ctrl.GetVariableList(job.Name,
-				false,
+				true,
 				false,
 				false,
 				true,
