@@ -235,6 +235,7 @@ type JobTaskDeployRevertSpec struct {
 	OverrideKVs        string `bson:"override_kvs"                     json:"override_kvs"                        yaml:"override_kvs"`
 	Revision           int64  `bson:"revision"                         json:"revision"                            yaml:"revision"`
 	RevisionCreateTime int64  `bson:"revision_create_time"             json:"revision_create_time"                yaml:"revision_create_time"`
+	Detail             string `bson:"detail"                           json:"detail"                              yaml:"detail"`
 }
 
 type DeployServiceModule struct {

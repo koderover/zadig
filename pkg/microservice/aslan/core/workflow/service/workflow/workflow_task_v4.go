@@ -748,7 +748,7 @@ func RetryWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredL
 				true,
 			)
 			if err != nil {
-				return  err
+				return err
 			}
 
 			for _, kv := range kvs {
@@ -873,9 +873,9 @@ func ManualExecWorkflowTaskV4(workflowName string, taskID int64, stageName strin
 					true,
 				)
 				if err != nil {
-					return  err
+					return err
 				}
-	
+
 				for _, kv := range kvs {
 					if kv.GetValue() != "" && !strings.HasPrefix(kv.GetValue(), "{{.") {
 						globalKeyMap[kv.Key] = kv.GetValue()
@@ -1101,6 +1101,10 @@ type SQLRevertInput struct {
 	SQL string `json:"sql"`
 }
 
+type DeployRevertInput struct {
+	Detail string `json:"detail"`
+}
+
 func RevertWorkflowTaskV4Job(ctx *internalhandler.Context, workflowName, jobName string, taskID int64, input interface{}, userName, userID string, logger *zap.SugaredLogger) error {
 	task, err := commonrepo.NewworkflowTaskv4Coll().Find(workflowName, taskID)
 	if err != nil {
@@ -1116,6 +1120,12 @@ func RevertWorkflowTaskV4Job(ctx *internalhandler.Context, workflowName, jobName
 					err = commonutil.CheckZadigProfessionalLicense()
 					if err != nil {
 						return err
+					}
+
+					inputSpec := new(DeployRevertInput)
+					err = commonmodels.IToi(input, inputSpec)
+					if err != nil {
+						return fmt.Errorf("failed to decode deploy revert job spec, error: %s", err)
 					}
 
 					jobTaskSpec := &commonmodels.JobTaskDeploySpec{}
@@ -1149,9 +1159,10 @@ func RevertWorkflowTaskV4Job(ctx *internalhandler.Context, workflowName, jobName
 						OverrideKVs:        envSvcVersionYaml.OverrideKVs,
 						Revision:           jobTaskSpec.OriginRevision,
 						RevisionCreateTime: envSvcVersionYaml.CreateTime,
+						Detail:             inputSpec.Detail,
 					}
 
-					rollbackStatus, err := commonservice.RollbackEnvServiceVersion(ctx, task.ProjectName, jobTaskSpec.Env, jobTaskSpec.ServiceName, jobTaskSpec.OriginRevision, false, jobTaskSpec.Production, "", logger)
+					rollbackStatus, err := commonservice.RollbackEnvServiceVersion(ctx, task.ProjectName, jobTaskSpec.Env, jobTaskSpec.ServiceName, jobTaskSpec.OriginRevision, false, jobTaskSpec.Production, inputSpec.Detail, logger)
 					if err != nil {
 						log.Errorf("failed to rollback env service version, error: %s", err)
 						return err
@@ -1229,6 +1240,12 @@ func RevertWorkflowTaskV4Job(ctx *internalhandler.Context, workflowName, jobName
 						return err
 					}
 
+					inputSpec := new(DeployRevertInput)
+					err = commonmodels.IToi(input, inputSpec)
+					if err != nil {
+						return fmt.Errorf("failed to decode deploy revert job spec, error: %s", err)
+					}
+
 					jobTaskSpec := &commonmodels.JobTaskHelmDeploySpec{}
 					if err := commonmodels.IToi(job.Spec, jobTaskSpec); err != nil {
 						logger.Error(err)
@@ -1260,9 +1277,10 @@ func RevertWorkflowTaskV4Job(ctx *internalhandler.Context, workflowName, jobName
 						OverrideKVs:        envSvcVersionYaml.OverrideKVs,
 						Revision:           jobTaskSpec.OriginRevision,
 						RevisionCreateTime: envSvcVersionYaml.CreateTime,
+						Detail:             inputSpec.Detail,
 					}
 
-					rollbackStatus, err := commonservice.RollbackEnvServiceVersion(ctx, task.ProjectName, jobTaskSpec.Env, jobTaskSpec.ServiceName, jobTaskSpec.OriginRevision, false, jobTaskSpec.IsProduction, "", logger)
+					rollbackStatus, err := commonservice.RollbackEnvServiceVersion(ctx, task.ProjectName, jobTaskSpec.Env, jobTaskSpec.ServiceName, jobTaskSpec.OriginRevision, false, jobTaskSpec.IsProduction, inputSpec.Detail, logger)
 					if err != nil {
 						log.Errorf("failed to rollback env service version, error: %s", err)
 						return err
