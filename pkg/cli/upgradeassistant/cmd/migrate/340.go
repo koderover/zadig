@@ -195,6 +195,13 @@ func updateWorkflowJobTaskSpec(stages []*commonmodels.WorkflowStage) error {
 				newSpec.TargetOptions = newSpec.Targets
 				newSpec.Targets = make([]*commonmodels.GrayReleaseTarget, 0)
 				job.Spec = newSpec
+			case config.JobZadigHelmChartDeploy:
+				newSpec := new(commonmodels.ZadigHelmChartDeployJobSpec)
+				if err := commonmodels.IToi(job.Spec, newSpec); err != nil {
+					return fmt.Errorf("failed to decode zadig build job, error: %s", err)
+				}
+				newSpec.Production = true
+				job.Spec = newSpec
 			case config.JobJenkins:
 				newSpec := new(commonmodels.JenkinsJobSpec)
 				if err := commonmodels.IToi(job.Spec, newSpec); err != nil {
