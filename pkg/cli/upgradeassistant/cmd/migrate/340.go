@@ -411,6 +411,11 @@ func converOldFreestyleJobSpec(spec *commonmodels.FreestyleJobSpec) (*commonmode
 	}
 	newSpec.Repos = repos
 	newSpec.Envs = spec.Properties.Envs.ToRuntimeList()
+	for _, env := range newSpec.Envs {
+		if strings.HasPrefix(env.Value, "{{.") {
+			env.Source = config.ParamSourceReference
+		}
+	}
 	newSpec.DefaultServices = defaultServices
 
 	runtimeInfo := &commonmodels.RuntimeInfo{
