@@ -692,16 +692,25 @@ func (j DeployJobController) GetVariableList(jobName string, getAggregatedVariab
 	})
 
 	if getAggregatedVariables {
+		images := make([]string, 0)
+		svcs := make([]string, 0)
+		for _, svc := range j.jobSpec.Services {
+			svcs = append(svcs, svc.ServiceName)
+			for _, module := range svc.Modules {
+				images = append(images, module.Image)
+			}
+		}
+
 		resp = append(resp, &commonmodels.KeyVal{
 			Key:          strings.Join([]string{"job", j.name, "IMAGES"}, "."),
-			Value:        "",
+			Value:        strings.Join(images, ","),
 			Type:         "string",
 			IsCredential: false,
 		})
 
 		resp = append(resp, &commonmodels.KeyVal{
 			Key:          strings.Join([]string{"job", j.name, "SERVICES"}, "."),
-			Value:        "",
+			Value:        strings.Join(svcs, ","),
 			Type:         "string",
 			IsCredential: false,
 		})
