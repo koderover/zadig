@@ -63,6 +63,15 @@ func V330ToV340() error {
 				log.Warnf(err.Error())
 			}
 
+			for _, param := range workflow.Params {
+				if strings.HasPrefix(param.Value, "<+fixed>") {
+					param.Value = strings.TrimPrefix(param.Value, "<+fixed>")
+					param.Source = config.ParamSourceFixed
+				} else if strings.HasPrefix(param.Value, "{{.") {
+					param.Source = config.ParamSourceReference
+				}
+			}
+
 			err = commonrepo.NewWorkflowV4Coll().Update(
 				workflow.ID.Hex(),
 				workflow,
@@ -438,6 +447,7 @@ func converOldFreestyleJobSpec(spec *commonmodels.FreestyleJobSpec) (*commonmode
 		BuildOS:        spec.Properties.BuildOS,
 		ImageFrom:      spec.Properties.ImageFrom,
 		ImageID:        spec.Properties.ImageID,
+		VMLabels:       spec.Properties.VMLabels,
 		Installs:       installs,
 	}
 	newSpec.Runtime = runtimeInfo
