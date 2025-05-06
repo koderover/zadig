@@ -226,16 +226,16 @@ type JobTaskDeploySpec struct {
 }
 
 type JobTaskDeployRevertSpec struct {
-	Env                string `bson:"env"                              json:"env"                                 yaml:"env"`
-	ServiceName        string `bson:"service_name"                     json:"service_name"                        yaml:"service_name"`
-	Production         bool   `bson:"production"                       json:"production"                          yaml:"production"`
-	ServiceType        string `bson:"service_type"                     json:"service_type"                        yaml:"service_type"`
-	Yaml               string `bson:"yaml"                             json:"yaml"                                yaml:"yaml"`
-	VariableYaml       string `bson:"variable_yaml"                    json:"variable_yaml"                       yaml:"variable_yaml"`
-	OverrideKVs        string `bson:"override_kvs"                     json:"override_kvs"                        yaml:"override_kvs"`
-	Revision           int64  `bson:"revision"                         json:"revision"                            yaml:"revision"`
-	RevisionCreateTime int64  `bson:"revision_create_time"             json:"revision_create_time"                yaml:"revision_create_time"`
-	Detail             string `bson:"detail"                           json:"detail"                              yaml:"detail"`
+	JobTaskCommonRevertSpec `bson:",inline"          json:",inline"          yaml:",inline"`
+	Env                     string `bson:"env"                              json:"env"                                 yaml:"env"`
+	ServiceName             string `bson:"service_name"                     json:"service_name"                        yaml:"service_name"`
+	Production              bool   `bson:"production"                       json:"production"                          yaml:"production"`
+	ServiceType             string `bson:"service_type"                     json:"service_type"                        yaml:"service_type"`
+	Yaml                    string `bson:"yaml"                             json:"yaml"                                yaml:"yaml"`
+	VariableYaml            string `bson:"variable_yaml"                    json:"variable_yaml"                       yaml:"variable_yaml"`
+	OverrideKVs             string `bson:"override_kvs"                     json:"override_kvs"                        yaml:"override_kvs"`
+	Revision                int64  `bson:"revision"                         json:"revision"                            yaml:"revision"`
+	RevisionCreateTime      int64  `bson:"revision_create_time"             json:"revision_create_time"                yaml:"revision_create_time"`
 }
 
 type DeployServiceModule struct {
@@ -478,14 +478,18 @@ type JobTaskJiraSpec struct {
 	TargetStatus string     `bson:"target_status" json:"target_status" yaml:"target_status"`
 }
 
+type JobTaskCommonRevertSpec struct {
+	Detail string `bson:"detail"           json:"detail"           yaml:"detail"`
+}
 type JobTaskNacosSpec struct {
-	NacosID       string       `bson:"nacos_id"         json:"nacos_id"         yaml:"nacos_id"`
-	NamespaceID   string       `bson:"namespace_id"     json:"namespace_id"     yaml:"namespace_id"`
-	NamespaceName string       `bson:"namespace_name"   json:"namespace_name"   yaml:"namespace_name"`
-	NacosAddr     string       `bson:"nacos_addr"       json:"nacos_addr"       yaml:"nacos_addr"`
-	UserName      string       `bson:"user_name"        json:"user_name"        yaml:"user_name"`
-	Password      string       `bson:"password"         json:"password"         yaml:"password"`
-	NacosDatas    []*NacosData `bson:"nacos_datas"      json:"nacos_datas"      yaml:"nacos_datas"`
+	JobTaskCommonRevertSpec `bson:",inline"          json:",inline"          yaml:",inline"`
+	NacosID                 string       `bson:"nacos_id"         json:"nacos_id"         yaml:"nacos_id"`
+	NamespaceID             string       `bson:"namespace_id"     json:"namespace_id"     yaml:"namespace_id"`
+	NamespaceName           string       `bson:"namespace_name"   json:"namespace_name"   yaml:"namespace_name"`
+	NacosAddr               string       `bson:"nacos_addr"       json:"nacos_addr"       yaml:"nacos_addr"`
+	UserName                string       `bson:"user_name"        json:"user_name"        yaml:"user_name"`
+	Password                string       `bson:"password"         json:"password"         yaml:"password"`
+	NacosDatas              []*NacosData `bson:"nacos_datas"      json:"nacos_datas"      yaml:"nacos_datas"`
 }
 
 type NacosData struct {
@@ -494,10 +498,11 @@ type NacosData struct {
 }
 
 type JobTaskSQLSpec struct {
-	ID      string                `bson:"id" json:"id" yaml:"id"`
-	Type    config.DBInstanceType `bson:"type" json:"type" yaml:"type"`
-	SQL     string                `bson:"sql" json:"sql" yaml:"sql"`
-	Results []*SQLExecResult      `bson:"results" json:"results" yaml:"results"`
+	JobTaskCommonRevertSpec `bson:",inline"          json:",inline"          yaml:",inline"`
+	ID                      string                `bson:"id" json:"id" yaml:"id"`
+	Type                    config.DBInstanceType `bson:"type" json:"type" yaml:"type"`
+	SQL                     string                `bson:"sql" json:"sql" yaml:"sql"`
+	Results                 []*SQLExecResult      `bson:"results" json:"results" yaml:"results"`
 }
 
 type SQLExecResult struct {
