@@ -163,7 +163,7 @@ func (j WorkflowTriggerJobController) Update(useUserInput bool, ticket *commonmo
 			if userInput, ok := userInput[key]; ok {
 				newItem.Params = renderParams(wf.Params, userInput.Params)
 			}
-			newFixedWorkflowList = append(newFixedWorkflowList, newItem)
+			newServiceWorkflowList = append(newServiceWorkflowList, newItem)
 		}
 	}
 
