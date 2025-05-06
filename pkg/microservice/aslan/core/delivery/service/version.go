@@ -1176,8 +1176,14 @@ func buildDeliveryImages(productInfo *commonmodels.Product, targetRegistry *comm
 				if err != nil {
 					return fmt.Errorf("failed to get registry address, err: %s", err)
 				}
-				image := fmt.Sprintf("%s/%s/%s:%s", regAddr, targetRegistry.Namespace, imageData.ImageName, imageData.ImageTag)
-				deliveryDeploy.Image = image
+
+				if targetRegistry.RegProvider == config.RegistryProviderECR {
+					image := fmt.Sprintf("%s/%s:%s", regAddr, imageData.ImageName, imageData.ImageTag)
+					deliveryDeploy.Image = image
+				} else {
+					image := fmt.Sprintf("%s/%s/%s:%s", regAddr, targetRegistry.Namespace, imageData.ImageName, imageData.ImageTag)
+					deliveryDeploy.Image = image
+				}
 			}
 
 			deliveryDeploy.YamlContents = []string{yamlData.YamlContent}
