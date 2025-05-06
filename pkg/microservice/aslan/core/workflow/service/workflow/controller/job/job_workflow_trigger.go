@@ -122,11 +122,55 @@ func (j WorkflowTriggerJobController) Update(useUserInput bool, ticket *commonmo
 
 	j.jobSpec.IsEnableCheck = currJobSpec.IsEnableCheck
 	j.jobSpec.TriggerType = currJobSpec.TriggerType
-	j.jobSpec.FixedWorkflowList = currJobSpec.FixedWorkflowList
-	j.jobSpec.ServiceTriggerWorkflow = currJobSpec.ServiceTriggerWorkflow
 	j.jobSpec.Source = currJobSpec.Source
 	j.jobSpec.SourceJobName = currJobSpec.SourceJobName
 	j.jobSpec.SourceService = currJobSpec.SourceService
+
+	newFixedWorkflowList := make([]*commonmodels.ServiceTriggerWorkflowInfo, 0)
+	newServiceWorkflowList := make([]*commonmodels.ServiceTriggerWorkflowInfo, 0)
+
+	if j.jobSpec.TriggerType == config.WorkflowTriggerTypeFixed {
+		fixedWorkflowMap := make(map[string]*commonmodels.ServiceTriggerWorkflowInfo)
+		for _, wf := range j.jobSpec.FixedWorkflowList {
+			fixedWorkflowMap[wf.WorkflowName] = wf
+		}
+
+		for _, wf := range currJobSpec.FixedWorkflowList {
+			newItem := &commonmodels.ServiceTriggerWorkflowInfo{
+				WorkflowName: wf.WorkflowName,
+				ProjectName:  wf.ProjectName,
+				Params:       wf.Params,
+			}
+			if userInput, ok := fixedWorkflowMap[wf.WorkflowName]; ok {
+				newItem.Params = renderParams(wf.Params, userInput.Params)
+			}
+			newFixedWorkflowList = append(newFixedWorkflowList, newItem)
+		}
+	} else if j.jobSpec.TriggerType == config.WorkflowTriggerTypeCommon {
+		userInput := make(map[string]*commonmodels.ServiceTriggerWorkflowInfo)
+		for _, svcInput := range j.jobSpec.ServiceTriggerWorkflow {
+			key := fmt.Sprintf("%s++%s++%s", svcInput.ServiceName, svcInput.ServiceModule, svcInput.WorkflowName)
+			userInput[key] = svcInput
+		}
+
+		for _, wf := range currJobSpec.ServiceTriggerWorkflow {
+			newItem := &commonmodels.ServiceTriggerWorkflowInfo{
+				ServiceName:   wf.ServiceName,
+				ServiceModule: wf.ServiceModule,
+				WorkflowName:  wf.WorkflowName,
+				ProjectName:   wf.ProjectName,
+				Params:        wf.Params,
+			}
+			key := fmt.Sprintf("%s++%s++%s", wf.ServiceName, wf.ServiceModule, wf.WorkflowName)
+			if userInput, ok := userInput[key]; ok {
+				newItem.Params = renderParams(wf.Params, userInput.Params)
+			}
+			newServiceWorkflowList = append(newServiceWorkflowList, newItem)
+		}
+	}
+
+	j.jobSpec.FixedWorkflowList = newFixedWorkflowList
+	j.jobSpec.ServiceTriggerWorkflow = newServiceWorkflowList
 
 	return nil
 }
