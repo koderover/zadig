@@ -155,9 +155,11 @@ func (j WorkflowTriggerJobController) Update(useUserInput bool, ticket *commonmo
 
 		for _, wf := range currJobSpec.ServiceTriggerWorkflow {
 			newItem := &commonmodels.ServiceTriggerWorkflowInfo{
-				WorkflowName: wf.WorkflowName,
-				ProjectName:  wf.ProjectName,
-				Params:       wf.Params,
+				ServiceName:   wf.ServiceName,
+				ServiceModule: wf.ServiceModule,
+				WorkflowName:  wf.WorkflowName,
+				ProjectName:   wf.ProjectName,
+				Params:        wf.Params,
 			}
 			key := fmt.Sprintf("%s++%s++%s", wf.ServiceName, wf.ServiceModule, wf.WorkflowName)
 			if userInput, ok := userInput[key]; ok {
