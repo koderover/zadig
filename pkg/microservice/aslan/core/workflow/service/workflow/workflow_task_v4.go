@@ -1097,12 +1097,18 @@ func StopDebugWorkflowTaskJobV4(workflowName, jobName string, taskID int64, posi
 	return nil
 }
 
-type SQLRevertInput struct {
-	SQL string `json:"sql"`
+type CommonRevertInput struct {
+	Detail string `json:"detail"`
 }
 
-type DeployRevertInput struct {
-	Detail string `json:"detail"`
+type SQLRevertInput struct {
+	CommonRevertInput `json:",inline"`
+	SQL               string `json:"sql"`
+}
+
+type NacosRevertInput struct {
+	CommonRevertInput `json:",inline"`
+	NacosDatas        []*commonmodels.NacosData `json:"nacos_datas"`
 }
 
 func RevertWorkflowTaskV4Job(ctx *internalhandler.Context, workflowName, jobName string, taskID int64, input interface{}, userName, userID string, logger *zap.SugaredLogger) error {
@@ -1122,7 +1128,7 @@ func RevertWorkflowTaskV4Job(ctx *internalhandler.Context, workflowName, jobName
 						return err
 					}
 
-					inputSpec := new(DeployRevertInput)
+					inputSpec := new(CommonRevertInput)
 					err = commonmodels.IToi(input, inputSpec)
 					if err != nil {
 						return fmt.Errorf("failed to decode deploy revert job spec, error: %s", err)
@@ -1159,7 +1165,9 @@ func RevertWorkflowTaskV4Job(ctx *internalhandler.Context, workflowName, jobName
 						OverrideKVs:        envSvcVersionYaml.OverrideKVs,
 						Revision:           jobTaskSpec.OriginRevision,
 						RevisionCreateTime: envSvcVersionYaml.CreateTime,
-						Detail:             inputSpec.Detail,
+						JobTaskCommonRevertSpec: commonmodels.JobTaskCommonRevertSpec{
+							Detail: inputSpec.Detail,
+						},
 					}
 
 					rollbackStatus, err := commonservice.RollbackEnvServiceVersion(ctx, task.ProjectName, jobTaskSpec.Env, jobTaskSpec.ServiceName, jobTaskSpec.OriginRevision, false, jobTaskSpec.Production, inputSpec.Detail, logger)
@@ -1240,7 +1248,7 @@ func RevertWorkflowTaskV4Job(ctx *internalhandler.Context, workflowName, jobName
 						return err
 					}
 
-					inputSpec := new(DeployRevertInput)
+					inputSpec := new(CommonRevertInput)
 					err = commonmodels.IToi(input, inputSpec)
 					if err != nil {
 						return fmt.Errorf("failed to decode deploy revert job spec, error: %s", err)
@@ -1277,7 +1285,9 @@ func RevertWorkflowTaskV4Job(ctx *internalhandler.Context, workflowName, jobName
 						OverrideKVs:        envSvcVersionYaml.OverrideKVs,
 						Revision:           jobTaskSpec.OriginRevision,
 						RevisionCreateTime: envSvcVersionYaml.CreateTime,
-						Detail:             inputSpec.Detail,
+						JobTaskCommonRevertSpec: commonmodels.JobTaskCommonRevertSpec{
+							Detail: inputSpec.Detail,
+						},
 					}
 
 					rollbackStatus, err := commonservice.RollbackEnvServiceVersion(ctx, task.ProjectName, jobTaskSpec.Env, jobTaskSpec.ServiceName, jobTaskSpec.OriginRevision, false, jobTaskSpec.IsProduction, inputSpec.Detail, logger)
@@ -1337,17 +1347,14 @@ func RevertWorkflowTaskV4Job(ctx *internalhandler.Context, workflowName, jobName
 						logger.Error(err)
 						return fmt.Errorf("failed to decode nacos job spec, error: %s", err)
 					}
-					inputSpec := make([]*commonmodels.NacosData, 0)
-					for _, stuff := range input.([]interface{}) {
-						updateData := new(commonmodels.NacosData)
-						err = commonmodels.IToi(stuff, updateData)
-						if err != nil {
-							return fmt.Errorf("failed to decode nacos job spec, error: %s", err)
-						}
-						inputSpec = append(inputSpec, updateData)
+
+					inputSpec := new(NacosRevertInput)
+					err = commonmodels.IToi(input, inputSpec)
+					if err != nil {
+						return fmt.Errorf("failed to decode nacos job spec, error: %s", err)
 					}
 
-					err = revertNacosJob(jobTaskSpec, inputSpec)
+					err = revertNacosJob(jobTaskSpec, inputSpec.NacosDatas)
 					if err != nil {
 						log.Errorf("failed to revert nacos job %s, error: %s", job.Name, err)
 						return fmt.Errorf("failed to revert nacos job: %s, error: %s", job.Name, err)
@@ -1366,7 +1373,7 @@ func RevertWorkflowTaskV4Job(ctx *internalhandler.Context, workflowName, jobName
 						return err
 					}
 
-					for _, in := range inputSpec {
+					for _, in := range inputSpec.NacosDatas {
 						originalConfig, err := client.GetConfig(in.DataID, in.Group, in.NamespaceID)
 						if err != nil {
 							log.Errorf("failed to find current config for data: %s in namespace: %s, error: %s", in.DataID, in.NamespaceID, err)
@@ -1396,6 +1403,9 @@ func RevertWorkflowTaskV4Job(ctx *internalhandler.Context, workflowName, jobName
 						UserName:      jobTaskSpec.UserName,
 						Password:      jobTaskSpec.Password,
 						NacosDatas:    inputData,
+						JobTaskCommonRevertSpec: commonmodels.JobTaskCommonRevertSpec{
+							Detail: inputSpec.Detail,
+						},
 					}
 
 					_, err = commonrepo.NewWorkflowTaskRevertColl().Create(&commonmodels.WorkflowTaskRevert{
@@ -1444,6 +1454,9 @@ func RevertWorkflowTaskV4Job(ctx *internalhandler.Context, workflowName, jobName
 						Type:    jobTaskSpec.Type,
 						SQL:     inputSpec.SQL,
 						Results: make([]*commonmodels.SQLExecResult, 0),
+						JobTaskCommonRevertSpec: commonmodels.JobTaskCommonRevertSpec{
+							Detail: inputSpec.Detail,
+						},
 					}
 
 					db, err := sql.Open("mysql", fmt.Sprintf("%s:%s@tcp(%s:%s)/?charset=utf8&multiStatements=true", info.Username, info.Password, info.Host, info.Port))
