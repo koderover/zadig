@@ -58,11 +58,11 @@ func GetLarkDepartment(approvalID, openID, userIDType string) (*DepartmentInfo, 
 	if err != nil {
 		return nil, errors.Wrap(err, "get client")
 	}
-	userList, err := cli.ListUserFromDepartment(openID, userIDType)
+	userList, err := cli.ListUserFromDepartment(openID, setting.LarkDepartmentOpenID, userIDType)
 	if err != nil {
 		return nil, errors.Wrap(err, "get user list")
 	}
-	departmentList, err := cli.ListSubDepartmentsInfo(openID, userIDType)
+	departmentList, err := cli.ListSubDepartmentsInfo(openID, setting.LarkDepartmentOpenID, userIDType, false)
 	if err != nil {
 		return nil, errors.Wrap(err, "get sub-department list")
 	}
@@ -273,6 +273,159 @@ func GetLarkUserID(approvalID, queryType, queryValue, userIDType string) (string
 		return "", err
 	}
 	return util.GetStringFromPointer(userInfo.UserId), nil
+}
+
+type LarkUserGroup struct {
+	GroupID               string `json:"group_id"`
+	GroupName             string `json:"group_name"`
+	MemberUserCount       int    `json:"member_user_count"`
+	MemberDepartmentCount int    `json:"member_department_count"`
+	Description           string `json:"description"`
+}
+
+func GetLarkUserGroup(approvalID, groupID string) (*LarkUserGroup, error) {
+	cli, err := GetLarkClientByIMAppID(approvalID)
+	if err != nil {
+		return nil, errors.Wrap(err, "get client")
+	}
+	userGroup, err := cli.GetUserGroup(groupID)
+	if err != nil {
+		return nil, fmt.Errorf("get user group error: %s", err)
+	}
+
+	return &LarkUserGroup{
+		GroupID:               util.GetStringFromPointer(userGroup.Id),
+		GroupName:             util.GetStringFromPointer(userGroup.Name),
+		MemberUserCount:       util.GetIntFromPointer(userGroup.MemberUserCount),
+		MemberDepartmentCount: util.GetIntFromPointer(userGroup.MemberDepartmentCount),
+		Description:           util.GetStringFromPointer(userGroup.Description),
+	}, nil
+}
+
+func GetLarkUserGroups(approvalID, queryType, pageToken string) ([]*LarkUserGroup, string, bool, error) {
+	userGroupType := 0
+	switch queryType {
+	case "user_group":
+		userGroupType = 1
+	case "user_dynamic_group":
+		userGroupType = 2
+	default:
+		return nil, "", false, errors.New("invalid query type")
+	}
+
+	cli, err := GetLarkClientByIMAppID(approvalID)
+	if err != nil {
+		return nil, "", false, errors.Wrap(err, "get client")
+	}
+	userGroups, pageToken, hasMore, err := cli.GetUserGroups(userGroupType, pageToken)
+	if err != nil {
+		return nil, "", false, fmt.Errorf("get user groups error: %s", err)
+	}
+
+	userGroupList := make([]*LarkUserGroup, 0)
+	for _, userGroup := range userGroups {
+		userGroupList = append(userGroupList, &LarkUserGroup{
+			GroupID:               util.GetStringFromPointer(userGroup.Id),
+			GroupName:             util.GetStringFromPointer(userGroup.Name),
+			MemberUserCount:       util.GetIntFromPointer(userGroup.MemberUserCount),
+			MemberDepartmentCount: util.GetIntFromPointer(userGroup.MemberDepartmentCount),
+			Description:           util.GetStringFromPointer(userGroup.Description),
+		})
+	}
+	return userGroupList, pageToken, hasMore, nil
+}
+
+func GetLarkUserGroupMembersInfo(approvalID, userGroupID, memberType, memberIDType, pageToken string) ([]*lark.UserInfo, error) {
+	cli, err := GetLarkClientByIMAppID(approvalID)
+	if err != nil {
+		return nil, errors.Wrap(err, "get client")
+	}
+	members, _, _, err := cli.GetUserGroupMembers(userGroupID, memberType, memberIDType, pageToken)
+	if err != nil {
+		return nil, fmt.Errorf("get user group members error: %s", err)
+	}
+
+	userGroupMembers := make([]string, 0)
+	for _, member := range members {
+		userGroupMembers = append(userGroupMembers, util.GetStringFromPointer(member.MemberId))
+	}
+
+	if memberIDType == setting.LarkDepartmentID {
+		departmentsUserInfos, err := GetLarkDepartmentUserInfos(approvalID, userGroupMembers)
+		if err != nil {
+			return nil, err
+		}
+
+		return departmentsUserInfos, nil
+	} else {
+		userInfos, err := GetLarkUserInfos(approvalID, setting.LarkUserOpenID, userGroupMembers)
+		if err != nil {
+			return nil, err
+		}
+
+		return userInfos, nil
+	}
+}
+
+func GetLarkUserGroupMembers(approvalID, userGroupID, memberType, memberIDType, pageToken string) ([]string, string, bool, error) {
+	cli, err := GetLarkClientByIMAppID(approvalID)
+	if err != nil {
+		return nil, "", false, errors.Wrap(err, "get client")
+	}
+	members, pageToken, hasMore, err := cli.GetUserGroupMembers(userGroupID, memberType, memberIDType, pageToken)
+	if err != nil {
+		return nil, "", false, fmt.Errorf("get user group members error: %s", err)
+	}
+
+	userGroupMembers := make([]string, 0)
+	for _, member := range members {
+		userGroupMembers = append(userGroupMembers, util.GetStringFromPointer(member.MemberId))
+	}
+	return userGroupMembers, pageToken, hasMore, nil
+}
+
+func GetLarkUserInfos(approvalID, userIDType string, userIDs []string) ([]*lark.UserInfo, error) {
+	cli, err := GetLarkClientByIMAppID(approvalID)
+	if err != nil {
+		return nil, errors.Wrap(err, "get client")
+	}
+
+	userList, err := getLarkUserInfoConcurrently(cli, userIDs, userIDType, 10)
+	if err != nil {
+		return nil, errors.Wrap(err, "get user info")
+	}
+
+	return userList, nil
+}
+
+func GetLarkDepartmentUserInfos(approvalID string, departmentIDs []string) ([]*lark.UserInfo, error) {
+	cli, err := GetLarkClientByIMAppID(approvalID)
+	if err != nil {
+		return nil, errors.Wrap(err, "get client")
+	}
+
+	finalDepartmentIDList := departmentIDs
+	for _, departmentID := range departmentIDs {
+		departmentList, err := cli.ListSubDepartmentsInfo(departmentID, setting.LarkDepartmentID, setting.LarkUserOpenID, true)
+		if err != nil {
+			return nil, errors.Wrap(err, "get sub-department info")
+		}
+
+		for _, department := range departmentList {
+			finalDepartmentIDList = append(finalDepartmentIDList, department.DepartmentID)
+		}
+	}
+
+	resp := make([]*lark.UserInfo, 0)
+	for _, departmentID := range finalDepartmentIDList {
+		userList, err := cli.ListUserFromDepartment(departmentID, setting.LarkDepartmentID, setting.LarkUserOpenID)
+		if err != nil {
+			return nil, errors.Wrap(err, "get user from department")
+		}
+		resp = append(resp, userList...)
+	}
+
+	return resp, nil
 }
 
 var (

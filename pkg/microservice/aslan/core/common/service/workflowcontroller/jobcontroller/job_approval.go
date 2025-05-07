@@ -277,6 +277,9 @@ func waitForLarkApprove(ctx context.Context, spec *commonmodels.JobTaskApprovalS
 				if user.RejectOrApprove == config.ApprovalStatusApprove {
 					return config.ApprovalStatusApprove, nil
 				}
+				if user.RejectOrApprove == config.ApprovalStatusReject {
+					return config.ApprovalStatusReject, nil
+				}
 			}
 			return "", nil
 		default:
@@ -288,6 +291,10 @@ func waitForLarkApprove(ctx context.Context, spec *commonmodels.JobTaskApprovalS
 		count := len(nodes)
 		finishedNode := 0
 		for _, node := range nodes {
+			if node.RejectOrApprove == config.ApprovalStatusReject {
+				return true
+			}
+
 			if node.RejectOrApprove == config.ApprovalStatusApprove || node.RejectOrApprove == config.ApprovalStatusReject || node.RejectOrApprove == config.ApprovalStatusRedirect || node.RejectOrApprove == config.ApprovalStatusDone {
 				finishedNode++
 			}
