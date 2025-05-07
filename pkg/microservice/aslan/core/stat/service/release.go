@@ -148,7 +148,10 @@ func CreateMonthlyReleaseStat(log *zap.SugaredLogger) error {
 		var approvalDuration int64
 
 		for _, releasePlan := range releasePlans {
-			executionDuration += releasePlan.SuccessTime - releasePlan.ExecutingTime
+			// compatibility code, some executing time is 0 due to fixed bug
+			if releasePlan.ExecutingTime != 0 {
+				executionDuration += releasePlan.SuccessTime - releasePlan.ExecutingTime
+			}
 			if releasePlan.ApprovalTime != 0 {
 				approvalDuration += releasePlan.ExecutingTime - releasePlan.ApprovalTime
 			}
