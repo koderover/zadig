@@ -172,7 +172,31 @@ func renderRepos(base []*types.Repository, kvs []*commonmodels.KeyVal) {
 			repo.RemoteName = "origin"
 		}
 	}
-	return
+}
+
+func renderReferredRepo(repos []*types.Repository, params []*commonmodels.Param) ([]*types.Repository, error) {
+	resp := make([]*types.Repository, 0)
+	repoParamMap := make(map[string]*types.Repository)
+	for _, param := range params {
+		if param.ParamsType == "repo" {
+			repoParamMap[param.Name] = param.Repo
+		}
+	}
+
+	for _, repo := range repos {
+		if repo.SourceFrom != "param" {
+			resp = append(resp, repo)
+		} else {
+			// if a repo has a source from parameter, we find the parameter. if not found return an error
+			if paramRepo, ok := repoParamMap[repo.GlobalParamName]; ok {
+				resp = append(resp, paramRepo)
+			} else {
+				return nil, fmt.Errorf("failed to find repo referring to parameter: %s", repo.GlobalParamName)
+			}
+		}
+	}
+
+	return resp, nil
 }
 
 func getOriginJobName(workflow *commonmodels.WorkflowV4, jobName string) (serviceReferredJob string) {
@@ -522,7 +546,7 @@ func checkOutputNames(outputs []*commonmodels.Output) error {
 	return nil
 }
 
-// replaceServiceAndModules replaces all the <SERVICE> and <MODULE> placeholders with the 
+// replaceServiceAndModules replaces all the <SERVICE> and <MODULE> placeholders with the
 func replaceServiceAndModules(envs commonmodels.KeyValList, serviceName string, serviceModule string) (commonmodels.KeyValList, error) {
 	duplicatedEnvs := make([]*commonmodels.KeyVal, 0)
 
