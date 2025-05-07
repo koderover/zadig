@@ -104,11 +104,11 @@ func (client *Client) listAppContactRangeWithPage(userIDType, pageToken string, 
 	}, getPageInfo(resp.Data.HasMore, resp.Data.PageToken), nil
 }
 
-func (client *Client) ListSubDepartmentsInfo(departmentID, userIDType string) ([]*DepartmentInfo, error) {
+func (client *Client) ListSubDepartmentsInfo(departmentID, departmentIDType, userIDType string, fetchChild bool) ([]*DepartmentInfo, error) {
 	var list []*DepartmentInfo
 	pageToken := ""
 	for {
-		resp, page, err := client.listSubDepartmentsInfoWithPage(departmentID, userIDType, pageToken, defaultPageSize)
+		resp, page, err := client.listSubDepartmentsInfoWithPage(departmentID, departmentIDType, userIDType, pageToken, defaultPageSize, fetchChild)
 		if err != nil {
 			return nil, err
 		}
@@ -122,12 +122,12 @@ func (client *Client) ListSubDepartmentsInfo(departmentID, userIDType string) ([
 	return list, nil
 }
 
-func (client *Client) listSubDepartmentsInfoWithPage(departmentID, userIDType, pageToken string, size int) ([]*DepartmentInfo, *pageInfo, error) {
+func (client *Client) listSubDepartmentsInfoWithPage(departmentID, departmentIDType, userIDType, pageToken string, size int, fetchChild bool) ([]*DepartmentInfo, *pageInfo, error) {
 	req := larkcontact.NewChildrenDepartmentReqBuilder().
 		DepartmentId(departmentID).
 		UserIdType(userIDType).
-		DepartmentIdType(setting.LarkDepartmentOpenID).
-		FetchChild(false).
+		DepartmentIdType(departmentIDType).
+		FetchChild(fetchChild).
 		PageSize(size).
 		PageToken(pageToken).
 		Build()
@@ -144,18 +144,19 @@ func (client *Client) listSubDepartmentsInfoWithPage(departmentID, userIDType, p
 	var list []*DepartmentInfo
 	for _, item := range resp.Data.Items {
 		list = append(list, &DepartmentInfo{
-			ID:   getStringFromPointer(item.OpenDepartmentId),
-			Name: getStringFromPointer(item.Name),
+			ID:           getStringFromPointer(item.OpenDepartmentId),
+			DepartmentID: getStringFromPointer(item.DepartmentId),
+			Name:         getStringFromPointer(item.Name),
 		})
 	}
 	return list, getPageInfo(resp.Data.HasMore, resp.Data.PageToken), nil
 }
 
-func (client *Client) ListUserFromDepartment(departmentID, userIDType string) ([]*UserInfo, error) {
+func (client *Client) ListUserFromDepartment(departmentID, departmentIDType, userIDType string) ([]*UserInfo, error) {
 	var list []*UserInfo
 	pageToken := ""
 	for {
-		resp, page, err := client.listUserFromDepartmentWithPage(departmentID, userIDType, pageToken, defaultPageSize)
+		resp, page, err := client.listUserFromDepartmentWithPage(departmentID, departmentIDType, userIDType, pageToken, defaultPageSize)
 		if err != nil {
 			return nil, err
 		}
@@ -169,10 +170,10 @@ func (client *Client) ListUserFromDepartment(departmentID, userIDType string) ([
 	return list, nil
 }
 
-func (client *Client) listUserFromDepartmentWithPage(departmentID, userIDType, pageToken string, size int) ([]*UserInfo, *pageInfo, error) {
+func (client *Client) listUserFromDepartmentWithPage(departmentID, departmentIDType, userIDType, pageToken string, size int) ([]*UserInfo, *pageInfo, error) {
 	req := larkcontact.NewFindByDepartmentUserReqBuilder().
 		UserIdType(userIDType).
-		DepartmentIdType(setting.LarkDepartmentOpenID).
+		DepartmentIdType(departmentIDType).
 		DepartmentId(departmentID).
 		PageSize(size).
 		PageToken(pageToken).
@@ -250,4 +251,43 @@ func (client *Client) GetDepartmentInfoByID(id, userIDType string) (*DepartmentI
 		ID:   id,
 		Name: getStringFromPointer(resp.Data.Department.Name),
 	}, nil
+}
+
+func (client *Client) GetUserGroup(groupID string) (*larkcontact.Group, error) {
+	req := larkcontact.NewGetGroupReqBuilder().GroupId(groupID).Build()
+	resp, err := client.Contact.Group.Get(context.Background(), req)
+	if err != nil {
+		return nil, err
+	}
+	if !resp.Success() {
+		return nil, resp.CodeError
+	}
+
+	return resp.Data.Group, nil
+}
+
+func (client *Client) GetUserGroups(_type int, pageToken string) ([]*larkcontact.Group, string, bool, error) {
+	req := larkcontact.NewSimplelistGroupReqBuilder().Type(_type).PageSize(100).PageToken(pageToken).Build()
+	resp, err := client.Contact.Group.Simplelist(context.Background(), req)
+	if err != nil {
+		return nil, "", false, err
+	}
+	if !resp.Success() {
+		return nil, "", false, resp.CodeError
+	}
+
+	return resp.Data.Grouplist, *resp.Data.PageToken, *resp.Data.HasMore, nil
+}
+
+func (client *Client) GetUserGroupMembers(groupID, memberType, memberIDType, pageToken string) ([]*larkcontact.Memberlist, string, bool, error) {
+	req := larkcontact.NewSimplelistGroupMemberReqBuilder().GroupId(groupID).MemberType(memberType).MemberIdType(memberIDType).PageSize(100).PageToken(pageToken).Build()
+	resp, err := client.Contact.GroupMember.Simplelist(context.Background(), req)
+	if err != nil {
+		return nil, "", false, err
+	}
+	if !resp.Success() {
+		return nil, "", false, resp.CodeError
+	}
+
+	return resp.Data.Memberlist, *resp.Data.PageToken, *resp.Data.HasMore, nil
 }

@@ -193,12 +193,12 @@ type LarkApproval struct {
 	// ID: lark im app mongodb id
 	ID string `bson:"approval_id"                 yaml:"approval_id"                json:"approval_id"`
 	// DefaultApprovalInitiator if not set, use workflow task creator as approval initiator
-	DefaultApprovalInitiator *LarkApprovalUser `bson:"default_approval_initiator" yaml:"default_approval_initiator" json:"default_approval_initiator"`
-	// Deprecated: use ApprovalNodes instead
-	ApproveUsers  []*LarkApprovalUser `bson:"approve_users"               yaml:"approve_users"              json:"approve_users"`
-	ApprovalNodes []*LarkApprovalNode `bson:"approval_nodes"               yaml:"approval_nodes"              json:"approval_nodes"`
+	DefaultApprovalInitiator *LarkApprovalUser   `bson:"default_approval_initiator" yaml:"default_approval_initiator" json:"default_approval_initiator"`
+	ApprovalNodes            []*LarkApprovalNode `bson:"approval_nodes"               yaml:"approval_nodes"              json:"approval_nodes"`
 	// InstanceCode: lark approval instance code
 	InstanceCode string `bson:"instance_code"               yaml:"instance_code"              json:"instance_code"`
+	// Deprecated: use ApprovalNodes instead
+	ApproveUsers []*LarkApprovalUser `bson:"approve_users"               yaml:"approve_users"              json:"approve_users"`
 }
 
 // GetNodeTypeKey get node type key for deduplication
@@ -227,8 +227,10 @@ func (l LarkApproval) GetLarkApprovalNode() (resp []*lark.ApprovalNode) {
 }
 
 type LarkApprovalNode struct {
-	ApproveUsers    []*LarkApprovalUser   `bson:"approve_users"               yaml:"approve_users"              json:"approve_users"`
 	Type            lark.ApproveType      `bson:"type"                        yaml:"type"                       json:"type"`
+	ApproveNodeType lark.ApproveNodeType  `bson:"approve_node_type"           yaml:"approve_node_type"          json:"approve_node_type"`
+	ApproveUsers    []*LarkApprovalUser   `bson:"approve_users"               yaml:"approve_users"              json:"approve_users"`
+	ApproveGroups   []*LarkApprovalGroup  `bson:"approve_groups"              yaml:"approve_groups"             json:"approve_groups"`
 	RejectOrApprove config.ApprovalStatus `bson:"reject_or_approve"           yaml:"-"                          json:"reject_or_approve"`
 }
 
@@ -237,6 +239,11 @@ type LarkApprovalUser struct {
 	RejectOrApprove config.ApprovalStatus `bson:"reject_or_approve,omitempty"           yaml:"-"                          json:"reject_or_approve,omitempty"`
 	Comment         string                `bson:"comment,omitempty"                     yaml:"-"                          json:"comment,omitempty"`
 	OperationTime   int64                 `bson:"operation_time,omitempty"              yaml:"-"                          json:"operation_time,omitempty"`
+}
+
+type LarkApprovalGroup struct {
+	GroupID   string `bson:"group_id"           yaml:"group_id"          json:"group_id"`
+	GroupName string `bson:"group_name"         yaml:"group_name"        json:"group_name"`
 }
 
 type WorkWXApproval struct {
@@ -370,7 +377,7 @@ type FreestyleJobAdvancedSettings struct {
 type FreeStyleServiceInfo struct {
 	ServiceWithModule `bson:",inline"                   yaml:",inline"               json:",inline"`
 	Repos             []*types.Repository `bson:"repos"                     yaml:"repos"                 json:"repos"`
-	KeyVals           RuntimeKeyValList          `bson:"key_vals"                  yaml:"key_vals"              json:"key_vals"`
+	KeyVals           RuntimeKeyValList   `bson:"key_vals"                  yaml:"key_vals"              json:"key_vals"`
 }
 
 func (i *FreeStyleServiceInfo) GetKey() string {
@@ -389,7 +396,7 @@ type ZadigBuildJobSpec struct {
 	DefaultServiceAndBuilds []*ServiceAndBuild      `bson:"default_service_and_builds" yaml:"default_service_and_builds"  json:"default_service_and_builds"`
 	ServiceAndBuilds        []*ServiceAndBuild      `bson:"service_and_builds"         yaml:"service_and_builds"          json:"service_and_builds"`
 	ServiceAndBuildsOptions []*ServiceAndBuild      `bson:"service_and_builds_options" yaml:"service_and_builds_options"  json:"service_and_builds_options"`
-	ServiceWithModule                               `bson:",inline"                    yaml:",inline"                     json:",inline"`
+	ServiceWithModule       `bson:",inline"                    yaml:",inline"                     json:",inline"`
 }
 
 type ServiceAndBuild struct {
