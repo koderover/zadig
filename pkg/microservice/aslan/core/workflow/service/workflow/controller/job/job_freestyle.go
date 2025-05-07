@@ -632,7 +632,12 @@ func (j FreestyleJobController) generateStepTask(jobName string, repos []*types.
 	}
 
 	repos = applyRepos(j.jobSpec.Repos, repos)
-	gitRepos, p4Repos := splitReposByType(repos)
+	renderredRepo, err := renderReferredRepo(repos, j.workflow.Params)
+	if err != nil {
+		return nil, err
+	}
+
+	gitRepos, p4Repos := splitReposByType(renderredRepo)
 
 	resp = append(resp, &commonmodels.StepTask{
 		Name:     stepNameGit,
