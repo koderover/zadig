@@ -861,6 +861,7 @@ func ApproveReleasePlan(c *handler.Context, planID string, req *ApproveRequest) 
 		}
 		plan.Status = config.StatusExecuting
 		plan.ApprovalTime = time.Now().Unix()
+		plan.ExecutingTime = time.Now().Unix()
 
 		if err := upsertReleasePlanCron(plan.ID.Hex(), plan.Name, plan.Index, plan.Status, plan.ScheduleExecuteTime); err != nil {
 			err = errors.Wrap(err, "upsert release plan cron")
