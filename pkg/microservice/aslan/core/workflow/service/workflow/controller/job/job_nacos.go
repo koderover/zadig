@@ -31,8 +31,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
-// TODO: nacos_datas => default_nacos_datas in configuration stage
-
 type NacosJobController struct {
 	*BasicInfo
 

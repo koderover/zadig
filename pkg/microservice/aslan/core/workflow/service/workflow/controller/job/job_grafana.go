@@ -26,8 +26,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/types"
 )
 
-// TODO: alerts => alert_options
-
 type GrafanaJobController struct {
 	*BasicInfo
 
