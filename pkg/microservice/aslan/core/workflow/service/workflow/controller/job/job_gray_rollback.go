@@ -31,8 +31,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/types"
 )
 
-// TODO: check logic here
-
 type GrayRollbackJobController struct {
 	*BasicInfo
 

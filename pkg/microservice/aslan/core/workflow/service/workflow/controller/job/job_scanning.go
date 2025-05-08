@@ -38,9 +38,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/types/step"
 )
 
-// TODO: scanning => scanning_options in configuration
-// TODO: service_and_scannings => service_scanning_options in configuration
-
 type ScanningJobController struct {
 	*BasicInfo
 

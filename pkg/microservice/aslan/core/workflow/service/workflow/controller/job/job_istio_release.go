@@ -27,8 +27,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/types"
 )
 
-// TODO: target => target_options
-
 type IstioReleaseJobController struct {
 	*BasicInfo
 
