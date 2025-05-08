@@ -517,8 +517,14 @@ func Retrieve(account string, logger *zap.SugaredLogger) (*RetrieveResp, error) 
 		logger.Errorf("Retrieve GetEmailHost error, error msg:%s", err)
 		return nil, fmt.Errorf("Retrieve GetEmailHost error, error msg:%s ", err)
 	}
+
+	emailSvc, err := systemConfigClient.GetEmailService()
+	if err != nil {
+		logger.Errorf("Retrieve GetEmailService error, error msg:%s", err)
+		return nil, fmt.Errorf("Retrieve GetEmailService error, error msg:%s ", err)
+	}
 	err = mail.SendEmail(&mail.EmailParams{
-		From:     email.UserName,
+		From:     emailSvc.Address,
 		To:       user.Email,
 		Subject:  "重置密码",
 		Host:     email.Name,

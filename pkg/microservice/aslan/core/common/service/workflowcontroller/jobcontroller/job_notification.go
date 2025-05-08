@@ -368,6 +368,11 @@ func sendMailMessage(title, message string, users []*commonmodels.User, callerID
 		return err
 	}
 
+	emailSvc, err := systemconfig.New().GetEmailService()
+	if err != nil {
+		return err
+	}
+
 	users, userMap := util.GeneFlatUsersWithCaller(users, callerID)
 	for _, u := range users {
 		log.Infof("Sending Mail to user: %s", u.UserName)
@@ -385,7 +390,7 @@ func sendMailMessage(title, message string, users []*commonmodels.User, callerID
 			continue
 		}
 		err = mail.SendEmail(&mail.EmailParams{
-			From:     email.UserName,
+			From:     emailSvc.Address,
 			To:       info.Email,
 			Subject:  title,
 			Host:     email.Name,
