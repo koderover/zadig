@@ -32,8 +32,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/types"
 )
 
-// TODO: Targets => target_options in configuration
-
 type CanaryDeployJobController struct {
 	*BasicInfo
 

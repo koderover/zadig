@@ -31,9 +31,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
-// TODO: Change note: Namespacelist field use to be the option field for the configuration, it has been
-// moved to NamespaceListOption field
-
 type ApolloJobController struct {
 	*BasicInfo
 
