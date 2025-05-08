@@ -315,6 +315,8 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		lark.GET("/:id/department/:department_id", GetLarkDepartment)
 		lark.GET("/:id/user", GetLarkUserID)
 		lark.POST("/:id/webhook", LarkEventHandler)
+		lark.GET("/:id/user_group", GetLarkUserGroups)
+		lark.GET("/:id/user_group/members", GetLarkUserGroupMembers)
 
 		lark.GET("/:id/chat", ListAvailableLarkChat)
 		lark.GET("/:id/chat/search", SearchLarkChat)

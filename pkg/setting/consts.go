@@ -819,6 +819,7 @@ const (
 const (
 	LarkUserID           = "user_id"
 	LarkUserOpenID       = "open_id"
+	LarkDepartmentID     = "department_id"
 	LarkDepartmentOpenID = "open_department_id"
 )
 

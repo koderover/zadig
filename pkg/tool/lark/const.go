@@ -18,10 +18,16 @@ package lark
 
 type ApproveType string
 
+type ApproveNodeType string
+
 const (
 	ApproveTypeAnd        ApproveType = "AND"
 	ApproveTypeOr         ApproveType = "OR"
 	ApproveTypeSequential ApproveType = "SEQUENTIAL"
+
+	ApproveNodeTypeUser             ApproveNodeType = ""
+	ApproveNodeTypeUserGroup        ApproveNodeType = "user_group"
+	ApproveNodeTypeUserDynamicGroup ApproveNodeType = "user_dynamic_group"
 
 	QueryTypeEmail  = "email"
 	QueryTypeMobile = "mobile"

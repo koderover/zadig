@@ -28,6 +28,10 @@ func GetStrPointer(data string) *string {
 	return &data
 }
 
+func GetIntPointer(data int) *int {
+	return &data
+}
+
 func GetInt32Pointer(data int32) *int32 {
 	return &data
 }
@@ -46,6 +50,27 @@ func GetBoolFromPointer(source *bool) bool {
 func GetStringFromPointer(source *string) string {
 	if source == nil {
 		return ""
+	}
+	return *source
+}
+
+func GetIntFromPointer(source *int) int {
+	if source == nil {
+		return 0
+	}
+	return *source
+}
+
+func GetInt32FromPointer(source *int32) int32 {
+	if source == nil {
+		return 0
+	}
+	return *source
+}
+
+func GetInt64FromPointer(source *int64) int64 {
+	if source == nil {
+		return 0
 	}
 	return *source
 }
