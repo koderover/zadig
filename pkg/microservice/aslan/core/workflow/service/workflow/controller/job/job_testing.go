@@ -40,9 +40,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/types/step"
 )
 
-// TODO: test_modules => test_module_options in configuration
-// TODO: service_and_tests => service_test_options in configuration
-
 type TestingJobController struct {
 	*BasicInfo
 
