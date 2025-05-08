@@ -127,7 +127,8 @@ func CreateCustomWorkflowTask(username string, args *OpenAPICreateCustomWorkflow
 	}
 
 	return CreateWorkflowTaskV4(&CreateWorkflowTaskV4Args{
-		Name: username,
+		Name:               username,
+		SkipWorkflowUpdate: true,
 	}, workflow, log)
 }
 
