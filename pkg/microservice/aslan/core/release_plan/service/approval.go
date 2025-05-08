@@ -297,11 +297,18 @@ func createNativeApproval(plan *models.ReleasePlan, url string) error {
 		var err error
 		mailNotifyInfo := ""
 		var email *systemconfig.Email
+		var emailSvc *systemconfig.EmailService
 
 		for {
 			email, err = systemconfig.New().GetEmailHost()
 			if err != nil {
 				log.Errorf("CreateNativeApproval GetEmailHost error, error msg:%s", err)
+				break
+			}
+
+			emailSvc, err = systemconfig.New().GetEmailService()
+			if err != nil {
+				log.Errorf("CreateNativeApproval GetEmailService error, error msg:%s", err)
 				break
 			}
 
@@ -375,7 +382,7 @@ func createNativeApproval(plan *models.ReleasePlan, url string) error {
 				continue
 			}
 			err = mail.SendEmail(&mail.EmailParams{
-				From:     email.UserName,
+				From:     emailSvc.Address,
 				To:       info.Email,
 				Subject:  fmt.Sprintf("发布计划 %s 待审批", plan.Name),
 				Host:     email.Name,
