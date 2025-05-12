@@ -158,6 +158,8 @@ func applyRepos(base, input []*types.Repository) []*types.Repository {
 			item.PR = cv.PR
 			item.PRs = cv.PRs
 			item.FilterRegexp = cv.FilterRegexp
+			item.SSHKey = cv.SSHKey
+			item.PrivateAccessToken = cv.PrivateAccessToken
 		}
 
 		resp = append(resp, item)
