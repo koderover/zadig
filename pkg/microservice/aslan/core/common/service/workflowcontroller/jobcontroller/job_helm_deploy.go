@@ -170,7 +170,8 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 	// deploy helm chart
 	done := make(chan bool)
 	util.Go(func() {
-		if err = kube.DeploySingleHelmRelease(productInfo, newEnvService, tmplSvc, nil, c.jobTaskSpec.Timeout, c.workflowCtx.WorkflowTaskCreatorUsername); err != nil {
+		reuseValue := (c.jobTaskSpec.ValueMergeStrategy == config.ValueMergeStrategyReuseValue)
+		if err = kube.DeploySingleHelmRelease(productInfo, newEnvService, tmplSvc, nil, c.jobTaskSpec.Timeout, reuseValue, c.workflowCtx.WorkflowTaskCreatorUsername); err != nil {
 			err = errors.WithMessagef(err,
 				"failed to upgrade helm chart %s/%s",
 				c.namespace, c.jobTaskSpec.ServiceName)

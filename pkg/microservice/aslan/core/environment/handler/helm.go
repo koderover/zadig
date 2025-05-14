@@ -95,8 +95,6 @@ func GetChartValues(c *gin.Context) {
 
 	envName := c.Param("name")
 	projectKey := c.Query("projectName")
-	serviceName := c.Query("serviceName")
-	isHelmChartDeploy := c.Query("isHelmChartDeploy")
 	releaseName := c.Query("releaseName")
 	production := c.Query("production") == "true"
 
@@ -133,11 +131,7 @@ func GetChartValues(c *gin.Context) {
 		}
 	}
 
-	if isHelmChartDeploy == "false" {
-		ctx.Resp, ctx.RespErr = commonservice.GetChartValues(projectKey, envName, serviceName, false, production, true)
-	} else {
-		ctx.Resp, ctx.RespErr = commonservice.GetChartValues(projectKey, envName, releaseName, true, production, true)
-	}
+	ctx.Resp, ctx.RespErr = commonservice.GetChartValues(projectKey, envName, production, releaseName, true)
 }
 
 func GetChartInfos(c *gin.Context) {

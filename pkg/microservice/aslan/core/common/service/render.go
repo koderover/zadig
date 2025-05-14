@@ -18,14 +18,19 @@ package service
 
 import (
 	"encoding/json"
+	"fmt"
 	"reflect"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	templatemodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models/template"
+	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	commontypes "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/types"
 	"github.com/koderover/zadig/v2/pkg/setting"
+	helmtool "github.com/koderover/zadig/v2/pkg/tool/helmclient"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
+	"github.com/koderover/zadig/v2/pkg/util"
 	yamlutil "github.com/koderover/zadig/v2/pkg/util/yaml"
+	"gopkg.in/yaml.v3"
 )
 
 type RepoConfig struct {
@@ -152,7 +157,7 @@ func (args *HelmSvcRenderArg) FillRenderChartModel(chart *templatemodels.Service
 }
 
 // LoadFromRenderChartModel load from render chart model
-func (args *HelmSvcRenderArg) LoadFromRenderChartModel(chart *templatemodels.ServiceRender) {
+func (args *HelmSvcRenderArg) LoadFromRenderChartModel(chart *templatemodels.ServiceRender, projectName string) error {
 	args.ServiceName = chart.ServiceName
 	args.ChartName = chart.ChartName
 	args.ChartRepo = chart.ChartRepo
@@ -160,7 +165,33 @@ func (args *HelmSvcRenderArg) LoadFromRenderChartModel(chart *templatemodels.Ser
 	args.ReleaseName = chart.ReleaseName
 	args.IsChartDeploy = chart.IsHelmChartDeploy
 	args.fromOverrideValueString(chart.OverrideValues)
-	args.fromCustomValueYaml(chart.OverrideYaml)
+	// 3.4.0 update: now the override yaml shows the user provided values, but remove the kvs in the OverrideValues field
+	opt := &commonrepo.ProductFindOptions{Name: projectName, EnvName: args.EnvName}
+	env, err := commonrepo.NewProductColl().Find(opt)
+	if err != nil {
+		return fmt.Errorf("failed to find env: %s, err: %s", projectName, err)
+	}
+
+	helmClient, err := helmtool.NewClientFromNamespace(env.ClusterID, env.Namespace)
+	if err != nil {
+		log.Errorf("[%s][%s] NewClientFromRestConf error: %s", args.EnvName, projectName, err)
+		return fmt.Errorf("failed to init helm client, err: %s", err)
+	}
+
+
+	valuesMap, err := helmClient.GetReleaseValues(args.ReleaseName, false)
+	if err != nil {
+		log.Errorf("failed to get values map data, err: %s", err)
+		return err
+	}
+
+	currentValuesYaml, err := yaml.Marshal(valuesMap)
+	if err != nil {
+		return err
+	}
+
+	args.OverrideYaml = string(currentValuesYaml)
+	return nil
 }
 
 func (args *HelmSvcRenderArg) GetUniqueKvMap() map[string]interface{} {

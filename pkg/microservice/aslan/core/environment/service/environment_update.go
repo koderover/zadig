@@ -226,17 +226,37 @@ func updateHelmSvcInAllEnvs(userName, productName string, templateSvcs []*common
 
 			renderChart := product.GetSvcRender(templateSvc.ServiceName)
 
+			revisionSvc, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
+				ServiceName: templateSvc.ServiceName,
+				Revision:    product.Revision,
+				ProductName: product.ProductName,
+			}, product.Production)
+
+			if err != nil {
+				return err
+			}
+	
+			renderChart.ReleaseName = util.GeneReleaseName(revisionSvc.GetReleaseNaming(), productName, product.Namespace, product.EnvName, templateSvc.ServiceName)
+
 			chartArg := &commonservice.HelmSvcRenderArg{
 				EnvName:     product.EnvName,
 				ServiceName: templateSvc.ServiceName,
 			}
-			chartArg.LoadFromRenderChartModel(renderChart)
+			err = chartArg.LoadFromRenderChartModel(renderChart, productName)
+			if err != nil {
+				retErr = multierror.Append(retErr, fmt.Errorf("failed to override values/kvs info, err: %s", err))
+				continue
+			}
 			updateArgs.ChartValues = append(updateArgs.ChartValues, chartArg)
 			envAffected = true
 		}
 		if envAffected {
 			updateArgs.EnvNames = append(updateArgs.EnvNames, product.EnvName)
 		}
+	}
+
+	if retErr.ErrorOrNil() != nil {
+		return retErr.ErrorOrNil()
 	}
 
 	_, err = UpdateMultipleHelmEnv("", userName, updateArgs, false, log.SugaredLogger())

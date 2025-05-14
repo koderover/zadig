@@ -370,7 +370,7 @@ type FreestyleJobAdvancedSettings struct {
 type FreeStyleServiceInfo struct {
 	ServiceWithModule `bson:",inline"                   yaml:",inline"               json:",inline"`
 	Repos             []*types.Repository `bson:"repos"                     yaml:"repos"                 json:"repos"`
-	KeyVals           RuntimeKeyValList          `bson:"key_vals"                  yaml:"key_vals"              json:"key_vals"`
+	KeyVals           RuntimeKeyValList   `bson:"key_vals"                  yaml:"key_vals"              json:"key_vals"`
 }
 
 func (i *FreeStyleServiceInfo) GetKey() string {
@@ -389,7 +389,7 @@ type ZadigBuildJobSpec struct {
 	DefaultServiceAndBuilds []*ServiceAndBuild      `bson:"default_service_and_builds" yaml:"default_service_and_builds"  json:"default_service_and_builds"`
 	ServiceAndBuilds        []*ServiceAndBuild      `bson:"service_and_builds"         yaml:"service_and_builds"          json:"service_and_builds"`
 	ServiceAndBuildsOptions []*ServiceAndBuild      `bson:"service_and_builds_options" yaml:"service_and_builds_options"  json:"service_and_builds_options"`
-	ServiceWithModule                               `bson:",inline"                    yaml:",inline"                     json:",inline"`
+	ServiceWithModule       `bson:",inline"                    yaml:",inline"                     json:",inline"`
 }
 
 type ServiceAndBuild struct {
@@ -432,6 +432,10 @@ type ZadigDeployJobSpec struct {
 	// 2. if the service is in the config, but the VariableConfigs field is empty, still use everything in the env/service
 	// 3. if the VariableConfigs is not empty, only show the variables defined in the DeployServiceVariableConfig field
 	ServiceVariableConfig DeployServiceVariableConfigList `bson:"service_variable_config"             yaml:"service_variable_config"             json:"service_variable_config"`
+
+	// helm only field
+	ValueMergeStrategy  config.ValueMergeStrategy `bson:"value_merge_strategy"             json:"value_merge_strategy"                yaml:"value_merge_strategy"`
+	MergeStrategySource config.ParamSourceType    `bson:"merge_strategy_source"            json:"merge_strategy_source"               yaml:"merge_strategy_source"`
 
 	// TODO: Deprecated in 2.3.0, this field is now used for saving the default service module info for deployment.
 	DefaultServices []*ServiceAndImage `bson:"service_and_images" yaml:"service_and_images" json:"service_and_images"`
@@ -516,8 +520,10 @@ type DeployServiceVariableConfig struct {
 type DeployServiceVariableConfigList []*DeployServiceVariableConfig
 
 type DeployVariableInfo struct {
-	VariableKVs []*commontypes.RenderVariableKV `bson:"variable_kvs"                     yaml:"variable_kvs"                        json:"variable_kvs"`
-	OverrideKVs string                          `bson:"override_kvs"                     yaml:"override_kvs"              json:"override_kvs"` // used for helm services, json-encoded string of kv value
+	ValueMergeStrategy config.ValueMergeStrategy `bson:"value_merge_strategy,omitempty"  json:"value_merge_strategy,omitempty" yaml:"value_merge_strategy,omitempty"`
+
+	VariableKVs []*commontypes.RenderVariableKV `bson:"variable_kvs"                     yaml:"variable_kvs"                   json:"variable_kvs"`
+	OverrideKVs string                          `bson:"override_kvs"                     yaml:"override_kvs"                   json:"override_kvs"` // used for helm services, json-encoded string of kv value
 
 	// final yaml for both helm and k8s service to deploy
 	VariableYaml string `bson:"variable_yaml"                    yaml:"variable_yaml"                       json:"variable_yaml"`
