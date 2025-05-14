@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"reflect"
 
+	"gopkg.in/yaml.v3"
+
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	templatemodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
@@ -28,9 +30,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/setting"
 	helmtool "github.com/koderover/zadig/v2/pkg/tool/helmclient"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
-	"github.com/koderover/zadig/v2/pkg/util"
 	yamlutil "github.com/koderover/zadig/v2/pkg/util/yaml"
-	"gopkg.in/yaml.v3"
 )
 
 type RepoConfig struct {
@@ -177,7 +177,6 @@ func (args *HelmSvcRenderArg) LoadFromRenderChartModel(chart *templatemodels.Ser
 		log.Errorf("[%s][%s] NewClientFromRestConf error: %s", args.EnvName, projectName, err)
 		return fmt.Errorf("failed to init helm client, err: %s", err)
 	}
-
 
 	valuesMap, err := helmClient.GetReleaseValues(args.ReleaseName, false)
 	if err != nil {
