@@ -962,8 +962,10 @@ func waitJobEndByCheckingConfigMap(ctx context.Context, taskTimeout <-chan time.
 				switch commontypes.JobStatus(status) {
 				case commontypes.JobFail:
 					return config.StatusFailed, ""
-				default:
+				case commontypes.JobSuccess:
 					return config.StatusPassed, ""
+				default:
+					return config.StatusFailed, ""
 				}
 			}
 		}
