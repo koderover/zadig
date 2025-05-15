@@ -65,6 +65,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/types"
 	"github.com/koderover/zadig/v2/pkg/util"
+	helmtool "github.com/koderover/zadig/v2/pkg/tool/helmclient"
 )
 
 const (
@@ -1191,8 +1192,46 @@ func BuildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*co
 				return nil, errors.Wrapf(err, "failed to get variables for service %s", serviceName)
 			}
 		} else if deployType == setting.HelmDeployType {
-			svc.VariableYaml = productInfo.GetSvcRender(serviceName).OverrideYaml.YamlContent
+			// svc.VariableYaml = productInfo.GetSvcRender(serviceName).OverrideYaml.YamlContent
 			svc.OverrideKVs = productInfo.GetSvcRender(serviceName).OverrideValues
+
+			kvs := make([]*KVPair, 0)
+			err := json.Unmarshal([]byte(productInfo.GetSvcRender(serviceName).OverrideValues), &kvs)
+			if err != nil {
+				log.Errorf("decode override value fail, err: %s", err)
+			}
+			overrideKeys := make([]string, 0)
+			for _, overrideKV := range kvs {
+				overrideKeys = append(overrideKeys, overrideKV.Key)
+			}
+			// 3.4.0 update: now the override yaml shows the user provided values, but remove the kvs in the OverrideValues field
+			opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
+			env, err := commonrepo.NewProductColl().Find(opt)
+			if err != nil {
+				return nil, fmt.Errorf("failed to find env: %s, err: %s", productName, err)
+			}
+
+			helmClient, err := helmtool.NewClientFromNamespace(env.ClusterID, env.Namespace)
+			if err != nil {
+				log.Errorf("[%s][%s] NewClientFromRestConf error: %s", envName, productName, err)
+				return nil, fmt.Errorf("failed to init helm client, err: %s", err)
+			}
+
+			releaseName := util.GeneReleaseName(templateSvcMap[svc.ServiceName].GetReleaseNaming(), productName, productInfo.Namespace, productInfo.EnvName, svc.ServiceName)
+			valuesMap, err := helmClient.GetReleaseValues(releaseName, false)
+			if err != nil {
+				log.Errorf("failed to get values map data, err: %s", err)
+				return nil, err
+			}
+
+			cleanedValues := RemoveKeysFromValues(valuesMap, overrideKeys)
+
+			currentValuesYaml, err := yaml.Marshal(cleanedValues)
+			if err != nil {
+				return nil, err
+			}
+
+			svc.VariableYaml = string(currentValuesYaml)
 		}
 
 		ret.Services = append(ret.Services, svc)
