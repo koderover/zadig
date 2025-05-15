@@ -443,6 +443,30 @@ func (j VMDeployJobController) GetVariableList(jobName string, getAggregatedVari
 		IsCredential: false,
 	})
 
+	if getAggregatedVariables {
+		services := make([]string, 0)
+		pkgs := make([]string, 0)
+		for _, svc := range j.jobSpec.ServiceAndVMDeploys {
+			services = append(services, svc.ServiceName)
+			pkgs = append(pkgs, svc.FileName)
+		}
+
+
+		resp = append(resp, &commonmodels.KeyVal{
+			Key:          strings.Join([]string{"job", j.name, "PKG_FILES"}, "."),
+			Value:        strings.Join(pkgs, ","),
+			Type:         "string",
+			IsCredential: false,
+		})
+
+		resp = append(resp, &commonmodels.KeyVal{
+			Key:          strings.Join([]string{"job", j.name, "SERVICES"}, "."),
+			Value:        strings.Join(services, ","),
+			Type:         "string",
+			IsCredential: false,
+		})
+	}
+
 	return resp, nil
 }
 

@@ -1488,9 +1488,8 @@ type GetHelmValuesDifferenceResp struct {
 	LatestFlatMap map[string]interface{} `json:"latest_flat_map"`
 }
 
-func GenEstimatedValues(projectName, envName, serviceOrReleaseName string, scene EstimateValuesScene, format EstimateValuesResponseFormat, arg *EstimateValuesArg, updateServiceRevision, isProduction, isHelmChartDeploy bool, log *zap.SugaredLogger) (*GetHelmValuesDifferenceResp, error) {
+func GenEstimatedValues(projectName, envName, serviceOrReleaseName string, scene EstimateValuesScene, format EstimateValuesResponseFormat, arg *EstimateValuesArg, updateServiceRevision, isProduction, isHelmChartDeploy bool, valueMergeStrategy config.ValueMergeStrategy, log *zap.SugaredLogger) (*GetHelmValuesDifferenceResp, error) {
 	var (
-		prodSvc *commonmodels.ProductService
 		tmplSvc *commonmodels.Service
 		prod    *commonmodels.Product
 		err     error
@@ -1500,17 +1499,29 @@ func GenEstimatedValues(projectName, envName, serviceOrReleaseName string, scene
 	case EstimateValuesSceneCreateEnv:
 		prod = &commonmodels.Product{}
 		prod.DefaultValues = arg.DefaultValues
-		prodSvc, tmplSvc, err = prepareEstimateDataForEnvCreation(projectName, serviceOrReleaseName, arg.Production, isHelmChartDeploy, log)
+		_, tmplSvc, err = prepareEstimateDataForEnvCreation(projectName, serviceOrReleaseName, arg.Production, isHelmChartDeploy, log)
 		if err != nil {
 			return nil, fmt.Errorf("failed to prepare estimate data for env creation, err: %s", err)
 		}
 	case EstimateValuesSceneCreateService, EstimateValuesSceneUpdateService:
-		prodSvc, tmplSvc, prod, err = prepareEstimateDataForEnvUpdate(projectName, envName, serviceOrReleaseName, scene, updateServiceRevision, arg.Production, isHelmChartDeploy, log)
+		_, tmplSvc, prod, err = prepareEstimateDataForEnvUpdate(projectName, envName, serviceOrReleaseName, scene, updateServiceRevision, arg.Production, isHelmChartDeploy, log)
 		if err != nil {
 			return nil, fmt.Errorf("failed to prepare estimate data for env update, err: %s", err)
 		}
 	default:
 		return nil, fmt.Errorf("invalid scene: %s", scene)
+	}
+
+	opt := &commonrepo.ProductFindOptions{Name: projectName, EnvName: envName}
+	env, err := commonrepo.NewProductColl().Find(opt)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find env: %s, err: %s", projectName, err)
+	}
+
+	helmClient, err := helmtool.NewClientFromNamespace(env.ClusterID, env.Namespace)
+	if err != nil {
+		log.Errorf("[%s][%s] NewClientFromRestConf error: %s", env, projectName, err)
+		return nil, fmt.Errorf("failed to init helm client, err: %s", err)
 	}
 
 	currentYaml := ""
@@ -1521,42 +1532,33 @@ func GenEstimatedValues(projectName, envName, serviceOrReleaseName string, scene
 	} else if scene == EstimateValuesSceneUpdateService {
 		// service exists in the current environment, update it
 		if isHelmChartDeploy {
-			render := prodSvc.GetServiceRender()
-			chartRepo, err := commonrepo.NewHelmRepoColl().Find(&commonrepo.HelmRepoFindOption{RepoName: render.ChartRepo})
+			fullValuesMap, err := helmClient.GetReleaseValues(serviceOrReleaseName, true)
 			if err != nil {
-				return nil, fmt.Errorf("failed to query chart-repo info, repoName: %s", render.ChartRepo)
-			}
-			client, err := commonutil.NewHelmClient(chartRepo)
-			if err != nil {
-				return nil, fmt.Errorf("failed to new helm client, err %s", err)
+				log.Errorf("failed to get values map data, err: %s", err)
+				return nil, err
 			}
 
-			currentChartValuesYaml, err := client.GetChartValues(commonutil.GeneHelmRepo(chartRepo), projectName, serviceOrReleaseName, render.ChartRepo, render.ChartName, render.ChartVersion, arg.Production)
+			currentValuesYaml, err := yaml.Marshal(fullValuesMap)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get chart values, chartRepo: %s, chartName: %s, chartVersion: %s, err %s", arg.ChartRepo, arg.ChartName, arg.ChartVersion, err)
+				return nil, err
 			}
 
-			helmDeploySvc := helmservice.NewHelmDeployService()
-			mergedYaml, err := helmDeploySvc.GenMergedValues(prodSvc, prod.DefaultValues, nil)
-			if err != nil {
-				return nil, fmt.Errorf("failed to merge override values, err: %s", err)
-			}
-
-			currentYaml, err = helmDeploySvc.GeneFullValues(currentChartValuesYaml, mergedYaml)
-			if err != nil {
-				return nil, fmt.Errorf("failed to generate full values, err: %s", err)
-			}
+			currentYaml = string(currentValuesYaml)
 		} else {
-			helmDeploySvc := helmservice.NewHelmDeployService()
-			yamlContent, err := helmDeploySvc.GenMergedValues(prodSvc, prod.DefaultValues, nil)
+			releaseName := util.GeneReleaseName(tmplSvc.GetReleaseNaming(), projectName, env.Namespace, env.EnvName, serviceOrReleaseName)
+
+			fullValuesMap, err := helmClient.GetReleaseValues(releaseName, true)
 			if err != nil {
-				return nil, fmt.Errorf("failed to generate merged values yaml, err: %s", err)
+				log.Errorf("failed to get values map data, err: %s", err)
+				return nil, err
 			}
 
-			currentYaml, err = helmDeploySvc.GeneFullValues(tmplSvc.HelmChart.ValuesYaml, yamlContent)
+			currentValuesYaml, err := yaml.Marshal(fullValuesMap)
 			if err != nil {
-				return nil, fmt.Errorf("failed to generate full values yaml, err: %s", err)
+				return nil, err
 			}
+
+			currentYaml = string(currentValuesYaml)
 		}
 	}
 
@@ -1571,43 +1573,81 @@ func GenEstimatedValues(projectName, envName, serviceOrReleaseName string, scene
 			return nil, fmt.Errorf("failed to new helm client, err %s", err)
 		}
 
-		latestChartValuesYaml, err := client.GetChartValues(commonutil.GeneHelmRepo(chartRepo), projectName, serviceOrReleaseName, arg.ChartRepo, arg.ChartName, arg.ChartVersion, arg.Production)
+		latestChartValues, err := client.GetChartValuesMap(commonutil.GeneHelmRepo(chartRepo), projectName, serviceOrReleaseName, arg.ChartRepo, arg.ChartName, arg.ChartVersion, arg.Production)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get chart values, chartRepo: %s, chartName: %s, chartVersion: %s, err %s", arg.ChartRepo, arg.ChartName, arg.ChartVersion, err)
 		}
 
-		tempArg := &commonservice.HelmSvcRenderArg{OverrideValues: arg.OverrideValues}
-		prodSvc.GetServiceRender().SetOverrideYaml(arg.OverrideYaml)
-		prodSvc.GetServiceRender().OverrideValues = tempArg.ToOverrideValueString()
-
-		helmDeploySvc := helmservice.NewHelmDeployService()
-		mergedYaml, err := helmDeploySvc.GenMergedValues(prodSvc, prod.DefaultValues, nil)
+		userSuppliedValues := make(map[string]interface{})
+		err = yaml.Unmarshal([]byte(arg.OverrideYaml), &userSuppliedValues)
 		if err != nil {
-			return nil, fmt.Errorf("failed to merge override values, err: %s", err)
+			return nil, fmt.Errorf("failed to create user values map, error: %s", err)
 		}
 
-		latestYaml, err = helmDeploySvc.GeneFullValues(latestChartValuesYaml, mergedYaml)
+		currentValues := make(map[string]interface{})
+		err = yaml.Unmarshal([]byte(currentYaml), &userSuppliedValues)
 		if err != nil {
-			return nil, fmt.Errorf("failed to generate full values, err: %s", err)
+			return nil, fmt.Errorf("failed to create user values map, error: %s", err)
+		}
+
+		setValues, err := commonservice.ParseSetArgs(arg.OverrideValues)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse user-supplied set values, error: %s", err)
+		}
+
+		finalUserSuppliedValues := userSuppliedValues
+		if valueMergeStrategy == config.ValueMergeStrategyReuseValue {
+			finalUserSuppliedValues = commonservice.MergeHelmValues(currentValues, userSuppliedValues)
+		}
+
+		finalUserSuppliedValues = commonservice.MergeHelmValues(finalUserSuppliedValues, setValues)
+
+		finalUpdatedYaml := commonservice.MergeHelmValues(latestChartValues, finalUserSuppliedValues)
+		latestYamlBytes, err := yaml.Marshal(finalUpdatedYaml)
+		if err != nil {
+			return nil, err
 		}
 
 		currentYaml = strings.TrimSuffix(currentYaml, "\n")
-		latestYaml = strings.TrimSuffix(latestYaml, "\n")
+		latestYaml = strings.TrimSuffix(string(latestYamlBytes), "\n")
 	} else {
-		tempArg := &commonservice.HelmSvcRenderArg{OverrideValues: arg.OverrideValues}
-		prodSvc.GetServiceRender().SetOverrideYaml(arg.OverrideYaml)
-		prodSvc.GetServiceRender().OverrideValues = tempArg.ToOverrideValueString()
-
-		helmDeploySvc := helmservice.NewHelmDeployService()
-		yamlContent, err := helmDeploySvc.GenMergedValues(prodSvc, prod.DefaultValues, nil)
+		latestChartValues := make(map[string]interface{})
+		err = yaml.Unmarshal([]byte(tmplSvc.HelmChart.ValuesYaml), &latestChartValues)
 		if err != nil {
-			return nil, fmt.Errorf("failed to generate merged values yaml, err: %s", err)
+			return nil, fmt.Errorf("failed to create user values map, error: %s", err)
 		}
 
-		latestYaml, err = helmDeploySvc.GeneFullValues(tmplSvc.HelmChart.ValuesYaml, yamlContent)
+		userSuppliedValues := make(map[string]interface{})
+		err = yaml.Unmarshal([]byte(arg.OverrideYaml), &userSuppliedValues)
 		if err != nil {
-			return nil, fmt.Errorf("failed to generate full values yaml, err: %s", err)
+			return nil, fmt.Errorf("failed to create user values map, error: %s", err)
 		}
+
+		currentValues := make(map[string]interface{})
+		err = yaml.Unmarshal([]byte(currentYaml), &userSuppliedValues)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create user values map, error: %s", err)
+		}
+
+		setValues, err := commonservice.ParseSetArgs(arg.OverrideValues)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse user-supplied set values, error: %s", err)
+		}
+
+		finalUserSuppliedValues := userSuppliedValues
+		if valueMergeStrategy == config.ValueMergeStrategyReuseValue {
+			finalUserSuppliedValues = commonservice.MergeHelmValues(currentValues, userSuppliedValues)
+		}
+
+		finalUserSuppliedValues = commonservice.MergeHelmValues(finalUserSuppliedValues, setValues)
+
+		finalUpdatedYaml := commonservice.MergeHelmValues(latestChartValues, finalUserSuppliedValues)
+		latestYamlBytes, err := yaml.Marshal(finalUpdatedYaml)
+		if err != nil {
+			return nil, err
+		}
+
+		latestYaml = string(latestYamlBytes)
 	}
 
 	// re-marshal it into string to make sure indentation is right

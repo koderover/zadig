@@ -23,6 +23,7 @@ import (
 	"strings"
 
 	"gopkg.in/yaml.v3"
+	"helm.sh/helm/v3/pkg/strvals"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	templatemodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models/template"
@@ -237,6 +238,38 @@ func RemoveKeysFromValues(data map[string]interface{}, keys []string) map[string
 		removeNestedKey(data, parts)
 	}
 	return data
+}
+
+func MergeHelmValues(oldVals, newVals map[string]interface{}) map[string]interface{} {
+	result := make(map[string]interface{})
+
+	for k, v := range oldVals {
+		result[k] = v
+	}
+
+	for k, newVal := range newVals {
+		if existingVal, exists := result[k]; exists {
+			if existingMap, ok := existingVal.(map[string]interface{}); ok {
+				if newMap, ok := newVal.(map[string]interface{}); ok {
+					result[k] = MergeHelmValues(existingMap, newMap)
+					continue
+				}
+			}
+		}
+		result[k] = newVal
+	}
+	return result
+}
+
+func ParseSetArgs(setArgs []*KVPair) (map[string]interface{}, error) {
+	base := make(map[string]interface{})
+	for _, s := range setArgs {
+		setStr := fmt.Sprintf("%s=%s", s.Key, s.Value)
+		if err := strvals.ParseInto(setStr, base); err != nil {
+			return nil, fmt.Errorf("failed to parst set string for [%s], error: %s", setStr, err)
+		}
+	}
+	return base, nil
 }
 
 func removeNestedKey(data map[string]interface{}, parts []string) {
