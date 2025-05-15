@@ -1585,7 +1585,7 @@ func GenEstimatedValues(projectName, envName, serviceOrReleaseName string, scene
 		}
 
 		currentValues := make(map[string]interface{})
-		err = yaml.Unmarshal([]byte(currentYaml), &userSuppliedValues)
+		err = yaml.Unmarshal([]byte(currentYaml), &currentValues)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create user values map, error: %s", err)
 		}
@@ -1624,7 +1624,7 @@ func GenEstimatedValues(projectName, envName, serviceOrReleaseName string, scene
 		}
 
 		currentValues := make(map[string]interface{})
-		err = yaml.Unmarshal([]byte(currentYaml), &userSuppliedValues)
+		err = yaml.Unmarshal([]byte(currentYaml), &currentValues)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create user values map, error: %s", err)
 		}
