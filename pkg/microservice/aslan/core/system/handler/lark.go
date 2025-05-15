@@ -57,6 +57,70 @@ func GetLarkUserID(c *gin.Context) {
 	ctx.Resp = map[string]string{"id": id}
 }
 
+type GetLarkUserGroupsResp struct {
+	UserGroups []*lark.LarkUserGroup `json:"user_groups"`
+	PageToken  string                `json:"page_token"`
+	HasMore    bool                  `json:"has_more"`
+}
+
+// @Summary 获取飞书用户组
+// @Description
+// @Tags 	system
+// @Accept 	json
+// @Produce json
+// @Param 	id			    path		string							true	"飞书应用 ID"
+// @Param 	type			query		string							true	"用户组类型"
+// @Param 	page_token		query		string							false	"分页 token"
+// @Success 200 			{object} 	GetLarkUserGroupsResp
+// @Router /api/aslan/system/lark/{id}/user_group [get]
+func GetLarkUserGroups(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	userGroups, pageToken, hasMore, err := lark.GetLarkUserGroups(c.Param("id"), c.Query("type"), c.Query("page_token"))
+	if err != nil {
+		ctx.RespErr = err
+		return
+	}
+
+	ctx.Resp = GetLarkUserGroupsResp{
+		UserGroups: userGroups,
+		PageToken:  pageToken,
+		HasMore:    hasMore,
+	}
+}
+
+type GetLarkUserGroupMembersResp struct {
+	Members   []*larktool.UserInfo `json:"members"`
+	PageToken string               `json:"page_token"`
+	HasMore   bool                 `json:"has_more"`
+}
+
+// @Summary 获取飞书用户组成员
+// @Description
+// @Tags 	system
+// @Accept 	json
+// @Produce json
+// @Param 	id			    path		string							true	"飞书应用 ID"
+// @Param 	user_group_id	query		string							true	"用户组 ID"
+// @Param 	member_type		query		string							true	"成员类型"
+// @Param 	member_id_type	query		string							true	"成员 ID 类型"
+// @Param 	page_token		query		string							true	"分页 token"
+// @Success 200 			{object} 	GetLarkUserGroupMembersResp
+// @Router /api/aslan/system/lark/{id}/user_group/members [get]
+func GetLarkUserGroupMembers(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	members, err := lark.GetLarkUserGroupMembersInfo(c.Param("id"), c.Query("user_group_id"), c.Query("member_type"), c.Query("member_id_type"), c.Query("page_token"))
+	if err != nil {
+		ctx.RespErr = err
+		return
+	}
+
+	ctx.Resp = GetLarkUserGroupMembersResp{Members: members}
+}
+
 func LarkEventHandler(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
