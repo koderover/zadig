@@ -181,8 +181,6 @@ func (s *GitStep) runGitCmds() error {
 			fmt.Printf("%s   %s\n", time.Now().Format(setting.WorkflowTimeFormat), strings.Join(c.Cmd.Args, " "))
 		}
 
-		log.Debugf("[cmd dir]: %s", c.Cmd.Dir)
-		log.Debugf("[run git cmd]: %s", strings.Join(c.Cmd.Args, " "))
 		if err := c.Run(); err != nil {
 			return err
 		}
