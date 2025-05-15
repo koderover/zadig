@@ -140,6 +140,8 @@ func (j DeployJobController) Update(useUserInput bool, ticket *commonmodels.Appr
 	j.jobSpec.ServiceVariableConfig = latestSpec.ServiceVariableConfig
 	j.jobSpec.DefaultServices = latestSpec.DefaultServices
 	j.jobSpec.EnvSource = latestSpec.EnvSource
+	j.jobSpec.ValueMergeStrategy = latestSpec.ValueMergeStrategy
+	j.jobSpec.MergeStrategySource = latestSpec.MergeStrategySource
 
 	// source is a bit tricky: if the saved args has a source of fromjob, but it has been change to runtime in the config
 	// we need to not only update its source but also set services to empty slice.
@@ -234,6 +236,10 @@ func (j DeployJobController) Update(useUserInput bool, ticket *commonmodels.Appr
 	mergedService := make([]*commonmodels.DeployServiceInfo, 0)
 
 	for _, service := range j.jobSpec.Services {
+		if j.jobSpec.MergeStrategySource == config.ParamSourceFixed {
+			service.ValueMergeStrategy = j.jobSpec.ValueMergeStrategy
+		}
+		
 		if envSvc, ok := envDeployableServiceMap[service.ServiceName]; ok {
 			// if the user wants to update config/variables do the merge variables logic, otherwise do nothing just add it to the user's selection
 			if !(slices.Contains(j.jobSpec.DeployContents, config.DeployImage) && len(j.jobSpec.DeployContents) == 1) {

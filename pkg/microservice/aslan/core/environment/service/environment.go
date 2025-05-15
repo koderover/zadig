@@ -1512,12 +1512,6 @@ func GenEstimatedValues(projectName, envName, serviceOrReleaseName string, scene
 		return nil, fmt.Errorf("invalid scene: %s", scene)
 	}
 
-	helmClient, err := helmtool.NewClientFromNamespace(env.ClusterID, env.Namespace)
-	if err != nil {
-		log.Errorf("[%s][%s] NewClientFromRestConf error: %s", env, projectName, err)
-		return nil, fmt.Errorf("failed to init helm client, err: %s", err)
-	}
-
 	currentYaml := ""
 	latestYaml := ""
 	if scene == EstimateValuesSceneCreateEnv || scene == EstimateValuesSceneCreateService {
@@ -1529,7 +1523,13 @@ func GenEstimatedValues(projectName, envName, serviceOrReleaseName string, scene
 		if err != nil {
 			return nil, fmt.Errorf("failed to find env: %s, err: %s", projectName, err)
 		}
-		
+
+		helmClient, err := helmtool.NewClientFromNamespace(env.ClusterID, env.Namespace)
+		if err != nil {
+			log.Errorf("[%s][%s] NewClientFromRestConf error: %s", env, projectName, err)
+			return nil, fmt.Errorf("failed to init helm client, err: %s", err)
+		}
+
 		// service exists in the current environment, update it
 		if isHelmChartDeploy {
 			fullValuesMap, err := helmClient.GetReleaseValues(serviceOrReleaseName, true)
