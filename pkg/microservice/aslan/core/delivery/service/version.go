@@ -1166,7 +1166,7 @@ func buildDeliveryImages(productInfo *commonmodels.Product, targetRegistry *comm
 			deliveryDeploy.StartTime = time.Now().Unix()
 			deliveryDeploy.EndTime = time.Now().Unix()
 			deliveryDeploy.ServiceName = yamlData.ServiceName
-			deliveryDeploy.ContainerName = imageData.ImageName
+			deliveryDeploy.ContainerName = imageData.ContainerName
 			deliveryDeploy.RegistryID = args.ImageRegistryID
 
 			if targetRegistry == nil {
