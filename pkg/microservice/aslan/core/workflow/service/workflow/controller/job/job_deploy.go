@@ -267,12 +267,6 @@ func (j DeployJobController) Update(useUserInput bool, ticket *commonmodels.Appr
 						newUserKV = append(newUserKV, updatedKV)
 					}
 
-					mergedValues, err := helmtool.MergeOverrideValues("", variableInfo.VariableYaml, service.VariableYaml, "", make([]*helmtool.KV, 0))
-					if err != nil {
-						return fmt.Errorf("failed to merge helm values, error: %s", err)
-					}
-
-					service.VariableYaml = mergedValues
 					service.VariableKVs = newUserKV
 				}
 			}
