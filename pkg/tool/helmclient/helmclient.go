@@ -979,6 +979,34 @@ func (hClient *HelmClient) GetChartValues(repoEntry *repo.Entry, projectName, re
 	return string(valuesYAML), nil
 }
 
+func (hClient *HelmClient) GetChartValuesMap(repoEntry *repo.Entry, projectName, releaseName, chartRepo, chartName, chartVersion string, isProduction bool) (map[string]interface{}, error) {
+	chartRef := fmt.Sprintf("%s/%s", chartRepo, chartName)
+	localPath := config.LocalServicePathWithRevision(projectName, releaseName, chartVersion, isProduction)
+
+	lock := cache.NewRedisLock(fmt.Sprintf("download-chart-%s", localPath))
+	lock.Lock()
+	defer lock.Unlock()
+
+	mutex := cache.NewRedisLockWithExpiry(fmt.Sprintf("helm_chart_download:%s", localPath), time.Minute*1)
+	mutex.Lock()
+	defer mutex.Unlock()
+	// remove local file to untar
+	_ = os.RemoveAll(localPath)
+
+	err := hClient.DownloadChart(repoEntry, chartRef, chartVersion, localPath, true)
+	if err != nil {
+		return nil, fmt.Errorf("failed to download chart, chartName: %s, chartRepo: %+v, err: %s", chartName, repoEntry.Name, err)
+	}
+	mutex.Unlock()
+
+	ch, err := loader.Load(localPath)
+    if err != nil {
+        return nil, err
+    }
+
+	return ch.Values, nil
+}
+
 // NOTE: When using this method, pay attention to whether restConfig is present in the original client.
 func (hClient *HelmClient) Clone() (*HelmClient, error) {
 	ret, err := NewClientFromRestConf(hClient.RestConfig, hClient.Namespace)

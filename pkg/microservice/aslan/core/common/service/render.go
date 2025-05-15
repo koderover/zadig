@@ -18,12 +18,19 @@ package service
 
 import (
 	"encoding/json"
+	"fmt"
 	"reflect"
+	"strings"
+
+	"gopkg.in/yaml.v3"
+	"helm.sh/helm/v3/pkg/strvals"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	templatemodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models/template"
+	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	commontypes "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/types"
 	"github.com/koderover/zadig/v2/pkg/setting"
+	helmtool "github.com/koderover/zadig/v2/pkg/tool/helmclient"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	yamlutil "github.com/koderover/zadig/v2/pkg/util/yaml"
 )
@@ -152,7 +159,7 @@ func (args *HelmSvcRenderArg) FillRenderChartModel(chart *templatemodels.Service
 }
 
 // LoadFromRenderChartModel load from render chart model
-func (args *HelmSvcRenderArg) LoadFromRenderChartModel(chart *templatemodels.ServiceRender) {
+func (args *HelmSvcRenderArg) LoadFromRenderChartModel(chart *templatemodels.ServiceRender, projectName string) error {
 	args.ServiceName = chart.ServiceName
 	args.ChartName = chart.ChartName
 	args.ChartRepo = chart.ChartRepo
@@ -160,7 +167,38 @@ func (args *HelmSvcRenderArg) LoadFromRenderChartModel(chart *templatemodels.Ser
 	args.ReleaseName = chart.ReleaseName
 	args.IsChartDeploy = chart.IsHelmChartDeploy
 	args.fromOverrideValueString(chart.OverrideValues)
-	args.fromCustomValueYaml(chart.OverrideYaml)
+	overrideKeys := make([]string, 0)
+	for _, overrideKV := range args.OverrideValues {
+		overrideKeys = append(overrideKeys, overrideKV.Key)
+	}
+	// 3.4.0 update: now the override yaml shows the user provided values, but remove the kvs in the OverrideValues field
+	opt := &commonrepo.ProductFindOptions{Name: projectName, EnvName: args.EnvName}
+	env, err := commonrepo.NewProductColl().Find(opt)
+	if err != nil {
+		return fmt.Errorf("failed to find env: %s, err: %s", projectName, err)
+	}
+
+	helmClient, err := helmtool.NewClientFromNamespace(env.ClusterID, env.Namespace)
+	if err != nil {
+		log.Errorf("[%s][%s] NewClientFromRestConf error: %s", args.EnvName, projectName, err)
+		return fmt.Errorf("failed to init helm client, err: %s", err)
+	}
+
+	valuesMap, err := helmClient.GetReleaseValues(args.ReleaseName, false)
+	if err != nil {
+		log.Errorf("failed to get values map data, err: %s", err)
+		return err
+	}
+
+	cleanedValues := RemoveKeysFromValues(valuesMap, overrideKeys)
+
+	currentValuesYaml, err := yaml.Marshal(cleanedValues)
+	if err != nil {
+		return err
+	}
+
+	args.OverrideYaml = string(currentValuesYaml)
+	return nil
 }
 
 func (args *HelmSvcRenderArg) GetUniqueKvMap() map[string]interface{} {
@@ -191,4 +229,73 @@ func (args *HelmSvcRenderArg) DiffValues(target *HelmSvcRenderArg) RenderChartDi
 		return LogicSame
 	}
 	return Different
+}
+
+// RemoveKeysFromValues removes the kv from the values
+func RemoveKeysFromValues(data map[string]interface{}, keys []string) map[string]interface{} {
+	for _, key := range keys {
+		parts := strings.Split(key, ".")
+		removeNestedKey(data, parts)
+	}
+	return data
+}
+
+func MergeHelmValues(oldVals, newVals map[string]interface{}) map[string]interface{} {
+	result := make(map[string]interface{})
+
+	for k, v := range oldVals {
+		result[k] = v
+	}
+
+	for k, newVal := range newVals {
+		if existingVal, exists := result[k]; exists {
+			if existingMap, ok := existingVal.(map[string]interface{}); ok {
+				if newMap, ok := newVal.(map[string]interface{}); ok {
+					result[k] = MergeHelmValues(existingMap, newMap)
+					continue
+				}
+			}
+		}
+		result[k] = newVal
+	}
+	return result
+}
+
+func ParseSetArgs(setArgs []*KVPair) (map[string]interface{}, error) {
+	base := make(map[string]interface{})
+	for _, s := range setArgs {
+		setStr := fmt.Sprintf("%s=%s", s.Key, s.Value)
+		if err := strvals.ParseInto(setStr, base); err != nil {
+			return nil, fmt.Errorf("failed to parst set string for [%s], error: %s", setStr, err)
+		}
+	}
+	return base, nil
+}
+
+func removeNestedKey(data map[string]interface{}, parts []string) {
+	if len(parts) == 0 {
+		return
+	}
+
+	currentPart := parts[0]
+	if len(parts) == 1 {
+		delete(data, currentPart)
+		return
+	}
+
+	val, exists := data[currentPart]
+	if !exists {
+		return
+	}
+
+	childMap, ok := val.(map[string]interface{})
+	if !ok {
+		return
+	}
+
+	removeNestedKey(childMap, parts[1:])
+
+	if len(childMap) == 0 {
+		delete(data, currentPart)
+	}
 }

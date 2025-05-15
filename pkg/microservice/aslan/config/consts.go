@@ -696,3 +696,10 @@ const (
 	VariableOutputRegEx       = `{{\.([\p{L}\d-]+(\.[\p{L}\d-]+)*).output.[\p{L}\d-]+}}`
 	ReplacedTempVariableRegEx = `TEMP_PLACEHOLDER_([\p{L}\d-]+(\.[\p{L}\d-]+)*)`
 )
+
+type ValueMergeStrategy string
+
+const (
+	ValueMergeStrategyReuseValue = "reuse-values"
+	ValueMergeStrategyOverride   = "override"
+)

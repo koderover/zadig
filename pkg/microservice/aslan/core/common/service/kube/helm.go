@@ -74,6 +74,7 @@ type ReleaseInstallParam struct {
 	Timeout        int
 	DryRun         bool
 	Production     bool
+	ReuseValues    bool
 }
 
 func InstallOrUpgradeHelmChartWithValues(param *ReleaseInstallParam, isRetry bool, helmClient *helmtool.HelmClient) error {
@@ -112,6 +113,7 @@ func InstallOrUpgradeHelmChartWithValues(param *ReleaseInstallParam, isRetry boo
 		UpgradeCRDs:   true,
 		CleanupOnFail: true,
 		MaxHistory:    10,
+		ReuseValues:   param.ReuseValues,
 	}
 	if isRetry {
 		chartSpec.Replace = true
@@ -541,7 +543,7 @@ func EnsureDeleteZadigServiceBySvcName(ctx context.Context, env *commonmodels.Pr
 }
 
 func DeploySingleHelmRelease(product *commonmodels.Product, productSvc *commonmodels.ProductService,
-	svcTemp *commonmodels.Service, images []string, timeout int, user string) error {
+	svcTemp *commonmodels.Service, images []string, timeout int, reuseValues bool, user string) error {
 	chartInfo := productSvc.GetServiceRender()
 
 	var (
@@ -622,6 +624,7 @@ func DeploySingleHelmRelease(product *commonmodels.Product, productSvc *commonmo
 		ServiceObj:   svcTemp,
 		Timeout:      timeout,
 		Production:   product.Production,
+		ReuseValues:  reuseValues,
 	}
 	if !productSvc.FromZadig() {
 		param.IsChartInstall = true

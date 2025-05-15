@@ -297,7 +297,7 @@ type ValuesResp struct {
 	ValuesYaml string `json:"valuesYaml"`
 }
 
-func GetChartValues(projectName, envName, serviceName string, isHelmChartDeploy bool, production bool, allValues bool) (*ValuesResp, error) {
+func GetChartValues(projectName, envName string, production bool, releaseName string, allValues bool) (*ValuesResp, error) {
 	opt := &commonrepo.ProductFindOptions{Name: projectName, EnvName: envName, Production: util.GetBoolPointer(production)}
 	prod, err := commonrepo.NewProductColl().Find(opt)
 	if err != nil {
@@ -310,25 +310,6 @@ func GetChartValues(projectName, envName, serviceName string, isHelmChartDeploy 
 		return nil, fmt.Errorf("failed to init helm client, err: %s", err)
 	}
 
-	releaseName := serviceName
-	if !isHelmChartDeploy {
-		serviceMap := prod.GetServiceMap()
-		prodSvc, ok := serviceMap[serviceName]
-		if !ok {
-			return nil, fmt.Errorf("failed to find service: %s in env: %s", serviceName, envName)
-		}
-
-		revisionSvc, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
-			ServiceName: serviceName,
-			Revision:    prodSvc.Revision,
-			ProductName: prodSvc.ProductName,
-		}, production)
-		if err != nil {
-			return nil, err
-		}
-
-		releaseName = util.GeneReleaseName(revisionSvc.GetReleaseNaming(), prodSvc.ProductName, prod.Namespace, prod.EnvName, prodSvc.ServiceName)
-	}
 	valuesMap, err := helmClient.GetReleaseValues(releaseName, allValues)
 	if err != nil {
 		log.Errorf("failed to get values map data, err: %s", err)
@@ -392,6 +373,17 @@ func GetSvcRenderArgs(productName, envName string, getSvcRendersArgs []*GetSvcRe
 				}
 			} else {
 				if svcRenderArgSet.Has(singleChart.ServiceName) {
+					revisionSvc, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
+						ServiceName: singleChart.ServiceName,
+						Revision:    productInfo.Revision,
+						ProductName: productInfo.ProductName,
+					}, productInfo.Production)
+
+					if err != nil {
+						return nil, nil, err
+					}
+			
+					singleChart.ReleaseName = util.GeneReleaseName(revisionSvc.GetReleaseNaming(), productName, productInfo.Namespace, productInfo.EnvName, singleChart.ServiceName)
 					matchedRenderChartModels = append(matchedRenderChartModels, singleChart)
 				}
 			}
@@ -400,8 +392,13 @@ func GetSvcRenderArgs(productName, envName string, getSvcRendersArgs []*GetSvcRe
 
 	for _, singleChart := range matchedRenderChartModels {
 		rcaObj := &HelmSvcRenderArg{}
-		rcaObj.LoadFromRenderChartModel(singleChart)
 		rcaObj.EnvName = envName
+		err = rcaObj.LoadFromRenderChartModel(singleChart, productName)
+		if err != nil {
+			// Note, since user can always reselect the git info, error should not block normal logic
+			log.Errorf("failed to override values/kvs info, err: %s", err)
+			return nil, nil, err
+		}
 		err = FillGitNamespace(productInfo.YamlData)
 		if err != nil {
 			// Note, since user can always reselect the git info, error should not block normal logic

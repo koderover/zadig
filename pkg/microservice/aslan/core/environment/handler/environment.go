@@ -30,6 +30,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models/ai"
@@ -721,6 +722,7 @@ func EstimatedValues(c *gin.Context) {
 	}
 
 	isHelmChartDeploy := c.Query("isHelmChartDeploy")
+	valueMergeStrategy := c.Query("valueMergeStrategy")
 	updateServiceRevision := c.Query("updateServiceRevision")
 	production := c.Query("production") == "true"
 	arg.Production = production
@@ -732,7 +734,7 @@ func EstimatedValues(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.RespErr = service.GenEstimatedValues(projectName, envName, serviceName, service.EstimateValuesScene(c.Query("scene")), service.EstimateValuesResponseFormat(c.Query("format")), arg, updateServiceRevision == "true", production, isHelmChartDeploy == "true", ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.GenEstimatedValues(projectName, envName, serviceName, service.EstimateValuesScene(c.Query("scene")), service.EstimateValuesResponseFormat(c.Query("format")), arg, updateServiceRevision == "true", production, isHelmChartDeploy == "true", config.ValueMergeStrategy(valueMergeStrategy), ctx.Logger)
 }
 func SyncHelmProductRenderset(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
