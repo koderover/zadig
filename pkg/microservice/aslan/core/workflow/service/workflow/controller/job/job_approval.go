@@ -24,8 +24,11 @@ import (
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
+	larkservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/lark"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
+	"github.com/koderover/zadig/v2/pkg/setting"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
+	"github.com/koderover/zadig/v2/pkg/tool/lark"
 	"github.com/koderover/zadig/v2/pkg/types"
 )
 
@@ -260,12 +263,63 @@ func (j ApprovalJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, er
 		if jobSpec.LarkApproval == nil {
 			return nil, fmt.Errorf("lark approval not found")
 		}
+
 		if len(jobSpec.LarkApproval.ApprovalNodes) == 0 {
 			return nil, fmt.Errorf("num of approval-node is 0")
 		}
+
 		for i, node := range jobSpec.LarkApproval.ApprovalNodes {
-			if len(node.ApproveUsers) == 0 {
-				return nil, fmt.Errorf("num of approval-node %d approver is 0", i)
+			if node.ApproveNodeType == lark.ApproveNodeTypeUser {
+				if len(node.ApproveUsers) == 0 {
+					return nil, fmt.Errorf("num of approval-node %d approver is 0", i)
+				}
+			} else if node.ApproveNodeType == lark.ApproveNodeTypeUserGroup {
+				if len(node.ApproveGroups) == 0 {
+					return nil, fmt.Errorf("num of approval-node %d approver is 0", i)
+				}
+
+				approvalUserSet := sets.NewString()
+				approvalUsers := make([]*commonmodels.LarkApprovalUser, 0)
+				for _, group := range node.ApproveGroups {
+					userGroup, err := larkservice.GetLarkUserGroup(j.jobSpec.LarkApproval.ID, group.GroupID)
+					if err != nil {
+						return nil, fmt.Errorf("failed to get lark user group: %s", err)
+					}
+
+					if userGroup.MemberUserCount > 0 {
+						userInfos, err := larkservice.GetLarkUserGroupMembersInfo(j.jobSpec.LarkApproval.ID, group.GroupID, "user", setting.LarkUserOpenID, "")
+						if err != nil {
+							return nil, fmt.Errorf("failed to get lark department user infos: %s", err)
+						}
+
+						for _, user := range userInfos {
+							if !approvalUserSet.Has(user.ID) {
+								approvalUsers = append(approvalUsers, &commonmodels.LarkApprovalUser{
+									UserInfo: *user,
+								})
+								approvalUserSet.Insert(user.ID)
+							}
+						}
+					}
+
+					if userGroup.MemberDepartmentCount > 0 {
+						userInfos, err := larkservice.GetLarkUserGroupMembersInfo(j.jobSpec.LarkApproval.ID, group.GroupID, "department", setting.LarkDepartmentID, "")
+						if err != nil {
+							return nil, fmt.Errorf("failed to get lark department user infos: %s", err)
+						}
+
+						for _, user := range userInfos {
+							if !approvalUserSet.Has(user.ID) {
+								approvalUsers = append(approvalUsers, &commonmodels.LarkApprovalUser{
+									UserInfo: *user,
+								})
+								approvalUserSet.Insert(user.ID)
+							}
+						}
+					}
+				}
+				node.ApproveUsers = approvalUsers
+				jobSpec.LarkApproval.ApprovalNodes[i] = node
 			}
 			if !lo.Contains([]string{"AND", "OR"}, string(node.Type)) {
 				return nil, fmt.Errorf("approval-node %d type should be AND or OR", i)

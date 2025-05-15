@@ -26,8 +26,9 @@ type UserInfo struct {
 }
 
 type DepartmentInfo struct {
-	ID   string `json:"id" yaml:"id" bson:"id"`
-	Name string `json:"name" yaml:"name" bson:"name"`
+	ID           string `json:"id" yaml:"id" bson:"id"`
+	DepartmentID string `json:"department_id" yaml:"department_id" bson:"department_id"`
+	Name         string `json:"name" yaml:"name" bson:"name"`
 }
 
 type ContactRange struct {
