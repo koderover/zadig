@@ -434,7 +434,16 @@ func (j VMDeployJobController) SetRepoCommitInfo() error {
 }
 
 func (j VMDeployJobController) GetVariableList(jobName string, getAggregatedVariables, getRuntimeVariables, getPlaceHolderVariables, getServiceSpecificVariables, useUserInputValue bool) ([]*commonmodels.KeyVal, error) {
-	return make([]*commonmodels.KeyVal, 0), nil
+	resp := make([]*commonmodels.KeyVal, 0)
+
+	resp = append(resp, &commonmodels.KeyVal{
+		Key:          strings.Join([]string{"job", j.name, "envName"}, "."),
+		Value:        j.jobSpec.Env,
+		Type:         "string",
+		IsCredential: false,
+	})
+
+	return resp, nil
 }
 
 func (j VMDeployJobController) GetUsedRepos() ([]*types.Repository, error) {

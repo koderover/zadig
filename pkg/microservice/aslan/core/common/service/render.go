@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 
@@ -165,6 +166,10 @@ func (args *HelmSvcRenderArg) LoadFromRenderChartModel(chart *templatemodels.Ser
 	args.ReleaseName = chart.ReleaseName
 	args.IsChartDeploy = chart.IsHelmChartDeploy
 	args.fromOverrideValueString(chart.OverrideValues)
+	overrideKeys := make([]string, 0)
+	for _, overrideKV := range args.OverrideValues {
+		overrideKeys = append(overrideKeys, overrideKV.Key)
+	}
 	// 3.4.0 update: now the override yaml shows the user provided values, but remove the kvs in the OverrideValues field
 	opt := &commonrepo.ProductFindOptions{Name: projectName, EnvName: args.EnvName}
 	env, err := commonrepo.NewProductColl().Find(opt)
@@ -184,7 +189,9 @@ func (args *HelmSvcRenderArg) LoadFromRenderChartModel(chart *templatemodels.Ser
 		return err
 	}
 
-	currentValuesYaml, err := yaml.Marshal(valuesMap)
+	cleanedValues := RemoveKeysFromValues(valuesMap, overrideKeys)
+
+	currentValuesYaml, err := yaml.Marshal(cleanedValues)
 	if err != nil {
 		return err
 	}
@@ -221,4 +228,41 @@ func (args *HelmSvcRenderArg) DiffValues(target *HelmSvcRenderArg) RenderChartDi
 		return LogicSame
 	}
 	return Different
+}
+
+// RemoveKeysFromValues removes the kv from the values
+func RemoveKeysFromValues(data map[string]interface{}, keys []string) map[string]interface{} {
+	for _, key := range keys {
+		parts := strings.Split(key, ".")
+		removeNestedKey(data, parts)
+	}
+	return data
+}
+
+func removeNestedKey(data map[string]interface{}, parts []string) {
+	if len(parts) == 0 {
+		return
+	}
+
+	currentPart := parts[0]
+	if len(parts) == 1 {
+		delete(data, currentPart)
+		return
+	}
+
+	val, exists := data[currentPart]
+	if !exists {
+		return
+	}
+
+	childMap, ok := val.(map[string]interface{})
+	if !ok {
+		return
+	}
+
+	removeNestedKey(childMap, parts[1:])
+
+	if len(childMap) == 0 {
+		delete(data, currentPart)
+	}
 }
