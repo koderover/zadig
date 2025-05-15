@@ -121,6 +121,9 @@ func CreateCustomWorkflowTask(username string, args *OpenAPICreateCustomWorkflow
 					return nil, fmt.Errorf("failed to update jobspec for job: %s, err: %w", job.Name, err)
 				}
 				jobList = append(jobList, newJob)
+			} else {
+				job.Skipped = true
+				jobList = append(jobList, job)
 			}
 		}
 		stage.Jobs = jobList
