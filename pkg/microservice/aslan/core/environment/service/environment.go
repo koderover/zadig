@@ -1512,12 +1512,6 @@ func GenEstimatedValues(projectName, envName, serviceOrReleaseName string, scene
 		return nil, fmt.Errorf("invalid scene: %s", scene)
 	}
 
-	opt := &commonrepo.ProductFindOptions{Name: projectName, EnvName: envName}
-	env, err := commonrepo.NewProductColl().Find(opt)
-	if err != nil {
-		return nil, fmt.Errorf("failed to find env: %s, err: %s", projectName, err)
-	}
-
 	helmClient, err := helmtool.NewClientFromNamespace(env.ClusterID, env.Namespace)
 	if err != nil {
 		log.Errorf("[%s][%s] NewClientFromRestConf error: %s", env, projectName, err)
@@ -1530,6 +1524,12 @@ func GenEstimatedValues(projectName, envName, serviceOrReleaseName string, scene
 		// service already exists in the current environment, create it
 		currentYaml = ""
 	} else if scene == EstimateValuesSceneUpdateService {
+		opt := &commonrepo.ProductFindOptions{Name: projectName, EnvName: envName}
+		env, err := commonrepo.NewProductColl().Find(opt)
+		if err != nil {
+			return nil, fmt.Errorf("failed to find env: %s, err: %s", projectName, err)
+		}
+		
 		// service exists in the current environment, update it
 		if isHelmChartDeploy {
 			fullValuesMap, err := helmClient.GetReleaseValues(serviceOrReleaseName, true)

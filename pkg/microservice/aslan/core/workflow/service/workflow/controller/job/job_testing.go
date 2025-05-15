@@ -74,6 +74,20 @@ func (j TestingJobController) GetSpec() interface{} {
 }
 
 func (j TestingJobController) Validate(isExecution bool) error {
+	for _, svcTesting := range j.jobSpec.ServiceTestOptions {
+		if svcTesting.Name == "" {
+			return fmt.Errorf("test name cannot be empty in service testing")
+		}
+	}
+
+	if isExecution {
+		for _, svcTesting := range j.jobSpec.ServiceAndTests {
+			if svcTesting.Name == "" {
+				return fmt.Errorf("scan name cannot be empty in service scanning")
+			}
+		}
+	}
+
 	return nil
 }
 
