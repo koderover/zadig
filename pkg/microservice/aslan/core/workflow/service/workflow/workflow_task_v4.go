@@ -440,11 +440,12 @@ func CheckWorkflowV4ApprovalInitiator(workflowName, uid string, log *zap.Sugared
 }
 
 type CreateWorkflowTaskV4Args struct {
-	Name             string
-	Account          string
-	UserID           string
-	Type             config.CustomWorkflowTaskType
-	ApprovalTicketID string
+	Name               string
+	Account            string
+	UserID             string
+	Type               config.CustomWorkflowTaskType
+	ApprovalTicketID   string
+	SkipWorkflowUpdate bool
 }
 
 func CreateWorkflowTaskV4ByBuildInTrigger(triggerName string, args *commonmodels.WorkflowV4, log *zap.SugaredLogger) (*CreateTaskV4Resp, error) {
@@ -587,12 +588,13 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 	workflowTask.Remark = workflow.Remark
 
 	workflowCtrl := workflowController.CreateWorkflowController(workflow)
-	if args.Type == config.WorkflowTaskTypeWorkflow || args.Type == "" {
+	if (args.Type == config.WorkflowTaskTypeWorkflow || args.Type == "") && !args.SkipWorkflowUpdate {
 		err = workflowCtrl.UpdateWithLatestWorkflow(nil)
 		if err != nil {
 			log.Errorf("failed to update workflow task args with latest workflow settings, error: %s", err)
 			return nil, e.ErrCreateTask.AddErr(err)
 		}
+
 		err = workflowCtrl.Validate(true)
 		if err != nil {
 			log.Errorf("failed to validate workflow task args, error: %s", err)
