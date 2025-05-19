@@ -200,7 +200,7 @@ func (h *TaskAckHandler) handle(pt *task.Task) error {
 		for _, deploy := range deploys {
 			if deploy.Enabled && !pt.ResetImage {
 				containerName := strings.TrimSuffix(deploy.ContainerName, "_"+deploy.ServiceName)
-				if err := commonutil.UpdateProductImage(deploy.EnvName, deploy.ProductName, deploy.ServiceName, map[string]string{containerName: deploy.Image}, pt.TaskCreator, h.log); err != nil {
+				if err := commonutil.UpdateProductImage(deploy.EnvName, deploy.ProductName, deploy.ServiceName, map[string]string{containerName: deploy.Image}, "", pt.TaskCreator, h.log); err != nil {
 					h.log.Errorf("updateProductImage %+v error: %v", deploy, err)
 					continue
 				} else {
