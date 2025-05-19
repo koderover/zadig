@@ -169,7 +169,7 @@ func GetServiceNameToReleaseNameMap(prod *models.Product) (map[string]string, er
 }
 
 // update product image info
-func UpdateProductImage(envName, productName, serviceName string, targets map[string]string, userName string, logger *zap.SugaredLogger) error {
+func UpdateProductImage(envName, productName, serviceName string, targets map[string]string, detail, userName string, logger *zap.SugaredLogger) error {
 	redisMutex := cache.NewRedisLock(fmt.Sprintf("UpdateProductImage:%s:%s", productName, envName))
 	redisMutex.Lock()
 	defer redisMutex.Unlock()
@@ -204,7 +204,7 @@ func UpdateProductImage(envName, productName, serviceName string, targets map[st
 
 	service := prod.GetServiceMap()[serviceName]
 	if service != nil {
-		err = CreateEnvServiceVersion(prod, service, userName, config.EnvOperationDefault, "", session, log.SugaredLogger())
+		err = CreateEnvServiceVersion(prod, service, userName, config.EnvOperationDefault, detail, session, log.SugaredLogger())
 		if err != nil {
 			log.Errorf("CreateK8SEnvServiceVersion error: %v", err)
 		}
