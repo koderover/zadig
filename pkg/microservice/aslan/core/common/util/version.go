@@ -10,6 +10,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	templaterepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/repository"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/util"
@@ -44,6 +45,11 @@ func CreateEnvServiceVersion(env *models.Product, prodSvc *models.ProductService
 		return fmt.Errorf("failed to generate service %s/%s/%s revision, error: %v", env.ProductName, env.EnvName, name, err)
 	}
 
+	tempProd, err := templaterepo.NewProductCollWithSess(session).Find(env.ProductName)
+	if err != nil {
+		return fmt.Errorf("failed to find template product %s, error: %v", env.ProductName, err)
+	}
+
 	svcVersionColl := mongodb.NewEnvServiceVersionCollWithSession(session)
 	version := &models.EnvServiceVersion{
 		ProductName:     env.ProductName,
@@ -54,6 +60,7 @@ func CreateEnvServiceVersion(env *models.Product, prodSvc *models.ProductService
 		Service:         prodSvc,
 		Operation:       operation,
 		Detail:          detail,
+		ProductFeature:  tempProd.ProductFeature,
 		GlobalVariables: env.GlobalVariables,
 		DefaultValues:   env.DefaultValues,
 		YamlData:        env.YamlData,

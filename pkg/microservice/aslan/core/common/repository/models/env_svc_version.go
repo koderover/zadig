@@ -25,15 +25,16 @@ import (
 )
 
 type EnvServiceVersion struct {
-	ID          primitive.ObjectID  `bson:"_id,omitempty"             json:"id,omitempty"`
-	ProductName string              `bson:"product_name"              json:"product_name"`
-	EnvName     string              `bson:"env_name"                  json:"env_name"`
-	Namespace   string              `bson:"namespace"                 json:"namespace"`
-	Production  bool                `bson:"production"                json:"production"`
-	Revision    int64               `bson:"revision"                  json:"revision"`
-	Operation   config.EnvOperation `bson:"operation"                 json:"operation"`
-	Detail      string              `bson:"detail"                    json:"detail"`
-	Service     *ProductService     `bson:"service"                   json:"service"`
+	ID             primitive.ObjectID             `bson:"_id,omitempty"             json:"id,omitempty"`
+	ProductName    string                         `bson:"product_name"              json:"product_name"`
+	EnvName        string                         `bson:"env_name"                  json:"env_name"`
+	Namespace      string                         `bson:"namespace"                 json:"namespace"`
+	Production     bool                           `bson:"production"                json:"production"`
+	Revision       int64                          `bson:"revision"                  json:"revision"`
+	Operation      config.EnvOperation            `bson:"operation"                 json:"operation"`
+	Detail         string                         `bson:"detail"                    json:"detail"`
+	ProductFeature *templatemodels.ProductFeature `bson:"product_feature" json:"product_feature"`
+	Service        *ProductService                `bson:"service"                   json:"service"`
 	// env global variables
 	// GlobalValues for helm projects
 	DefaultValues string                     `bson:"default_values,omitempty"       json:"default_values,omitempty"`
