@@ -363,7 +363,7 @@ func ListVMLabels(projectKey string, logger *zap.SugaredLogger) ([]string, error
 			continue
 		}
 
-		if vm.Agent != nil && vm.Type == setting.NewVMType && vm.Status == setting.VMNormal {
+		if vm.ScheduleWorkflow && vm.Agent != nil && vm.Type == setting.NewVMType && vm.Status == setting.VMNormal {
 			if vm.Label != "" && !labelSet.Has(vm.Label) {
 				labelSet.Insert(vm.Label)
 			}
