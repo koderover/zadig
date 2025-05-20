@@ -227,15 +227,16 @@ type JobTaskDeploySpec struct {
 
 type JobTaskDeployRevertSpec struct {
 	JobTaskCommonRevertSpec `bson:",inline"          json:",inline"          yaml:",inline"`
-	Env                     string `bson:"env"                              json:"env"                                 yaml:"env"`
-	ServiceName             string `bson:"service_name"                     json:"service_name"                        yaml:"service_name"`
-	Production              bool   `bson:"production"                       json:"production"                          yaml:"production"`
-	ServiceType             string `bson:"service_type"                     json:"service_type"                        yaml:"service_type"`
-	Yaml                    string `bson:"yaml"                             json:"yaml"                                yaml:"yaml"`
-	VariableYaml            string `bson:"variable_yaml"                    json:"variable_yaml"                       yaml:"variable_yaml"`
-	OverrideKVs             string `bson:"override_kvs"                     json:"override_kvs"                        yaml:"override_kvs"`
-	Revision                int64  `bson:"revision"                         json:"revision"                            yaml:"revision"`
-	RevisionCreateTime      int64  `bson:"revision_create_time"             json:"revision_create_time"                yaml:"revision_create_time"`
+	Env                     string       `bson:"env"                              json:"env"                                 yaml:"env"`
+	ServiceName             string       `bson:"service_name"                     json:"service_name"                        yaml:"service_name"`
+	Production              bool         `bson:"production"                       json:"production"                          yaml:"production"`
+	ServiceType             string       `bson:"service_type"                     json:"service_type"                        yaml:"service_type"`
+	Containers              []*Container `bson:"containers"                       json:"containers"                          yaml:"containers"`
+	Yaml                    string       `bson:"yaml"                             json:"yaml"                                yaml:"yaml"`
+	VariableYaml            string       `bson:"variable_yaml"                    json:"variable_yaml"                       yaml:"variable_yaml"`
+	OverrideKVs             string       `bson:"override_kvs"                     json:"override_kvs"                        yaml:"override_kvs"`
+	Revision                int64        `bson:"revision"                         json:"revision"                            yaml:"revision"`
+	RevisionCreateTime      int64        `bson:"revision_create_time"             json:"revision_create_time"                yaml:"revision_create_time"`
 }
 
 type DeployServiceModule struct {
