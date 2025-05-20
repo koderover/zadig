@@ -25,6 +25,7 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"golang.org/x/exp/slices"
+	"gopkg.in/yaml.v3"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
@@ -137,7 +138,35 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 			images = c.jobTaskSpec.GetDeployImages()
 		}
 		if slices.Contains(c.jobTaskSpec.DeployContents, config.DeployVars) {
-			newEnvService.GetServiceRender().SetOverrideYaml(c.jobTaskSpec.VariableYaml)
+			finalValuesYaml = c.jobTaskSpec.VariableYaml
+			// if the user sets the reuse values flag, we get information from the environment and merge the values with the user's input
+			if c.jobTaskSpec.ValueMergeStrategy == config.ValueMergeStrategyReuseValue {
+				currentSvc, ok := productInfo.GetServiceMap()[c.jobTaskSpec.ServiceName]
+				// if the user sets the reuse value flag to true but it is a deploy not an upgrade
+				if ok {
+					userSuppliedValueMap, err := helmservice.GetValuesMapFromString(c.jobTaskSpec.VariableYaml)
+					if err != nil {
+						msg := fmt.Sprintf("failed to generate user supplied values map, err: %s", err)
+						logError(c.job, msg, c.logger)
+						return
+					}
+					envValueMap, err := helmservice.GetValuesMapFromString(currentSvc.GetServiceRender().GetOverrideYaml())
+					if err != nil {
+						msg := fmt.Sprintf("failed to generate env values map, err: %s", err)
+						logError(c.job, msg, c.logger)
+						return
+					}
+					finalValuesMap := helmservice.MergeHelmValues(envValueMap, userSuppliedValueMap)
+					finalYamlBytes, err := yaml.Marshal(finalValuesMap)
+					if err != nil {
+						msg := fmt.Sprintf("failed to calculate final values string, err: %s", err)
+						logError(c.job, msg, c.logger)
+						return
+					}
+					finalValuesYaml = string(finalYamlBytes)
+				}
+			}
+			newEnvService.GetServiceRender().SetOverrideYaml(finalValuesYaml)
 		}
 
 		finalValuesYaml, err = helmDeploySvc.GenMergedValues(newEnvService, productInfo.DefaultValues, images)
