@@ -1488,7 +1488,7 @@ type GetHelmValuesDifferenceResp struct {
 	LatestFlatMap map[string]interface{} `json:"latest_flat_map"`
 }
 
-func GenEstimatedValues(projectName, envName, serviceOrReleaseName string, scene EstimateValuesScene, format EstimateValuesResponseFormat, arg *EstimateValuesArg, updateServiceRevision, isProduction, isHelmChartDeploy bool, log *zap.SugaredLogger) (*GetHelmValuesDifferenceResp, error) {
+func GenEstimatedValues(projectName, envName, serviceOrReleaseName string, scene EstimateValuesScene, format EstimateValuesResponseFormat, arg *EstimateValuesArg, updateServiceRevision, isProduction, isHelmChartDeploy bool, valueMergeStrategy config.ValueMergeStrategy, log *zap.SugaredLogger) (*GetHelmValuesDifferenceResp, error) {
 	var (
 		prodSvc *commonmodels.ProductService
 		tmplSvc *commonmodels.Service
@@ -1595,7 +1595,27 @@ func GenEstimatedValues(projectName, envName, serviceOrReleaseName string, scene
 		latestYaml = strings.TrimSuffix(latestYaml, "\n")
 	} else {
 		tempArg := &commonservice.HelmSvcRenderArg{OverrideValues: arg.OverrideValues}
-		prodSvc.GetServiceRender().SetOverrideYaml(arg.OverrideYaml)
+		overrideValue := arg.OverrideYaml
+		if valueMergeStrategy == config.ValueMergeStrategyReuseValue {
+			currentValuesMap, err := helmservice.GetValuesMapFromString(currentYaml)
+			if err != nil {
+				return nil, fmt.Errorf("failed to generate env values map, err: %s", err)
+			}
+
+			userSuppliedValueMap, err := helmservice.GetValuesMapFromString(arg.OverrideYaml)
+			if err != nil {
+				return nil, fmt.Errorf("failed to generate user supplied values map, err: %s", err)
+			}
+
+			finalValuesMap := helmservice.MergeHelmValues(currentValuesMap, userSuppliedValueMap)
+			finalYamlBytes, err := yaml.Marshal(finalValuesMap)
+			if err != nil {
+				return nil, fmt.Errorf("failed to calculate final values string, err: %s", err)
+			}
+			overrideValue = string(finalYamlBytes)
+		}
+
+		prodSvc.GetServiceRender().SetOverrideYaml(overrideValue)
 		prodSvc.GetServiceRender().OverrideValues = tempArg.ToOverrideValueString()
 
 		helmDeploySvc := helmservice.NewHelmDeployService()

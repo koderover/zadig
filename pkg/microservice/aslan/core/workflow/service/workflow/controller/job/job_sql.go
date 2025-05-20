@@ -63,6 +63,12 @@ func (j SQLJobController) Validate(isExecution bool) error {
 		return fmt.Errorf("not found db instance in mongo, err: %v", err)
 	}
 
+	if isExecution {
+		if j.jobSpec.ID == "" {
+			return fmt.Errorf("id cannot be empty")
+		}
+	}
+
 	return nil
 }
 

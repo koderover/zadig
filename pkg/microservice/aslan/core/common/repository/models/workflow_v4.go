@@ -440,6 +440,10 @@ type ZadigDeployJobSpec struct {
 	// 3. if the VariableConfigs is not empty, only show the variables defined in the DeployServiceVariableConfig field
 	ServiceVariableConfig DeployServiceVariableConfigList `bson:"service_variable_config"             yaml:"service_variable_config"             json:"service_variable_config"`
 
+	// helm only field
+	ValueMergeStrategy  config.ValueMergeStrategy `bson:"value_merge_strategy"             json:"value_merge_strategy"                yaml:"value_merge_strategy"`
+	MergeStrategySource config.ParamSourceType    `bson:"merge_strategy_source"            json:"merge_strategy_source"               yaml:"merge_strategy_source"`
+
 	// TODO: Deprecated in 2.3.0, this field is now used for saving the default service module info for deployment.
 	DefaultServices []*ServiceAndImage `bson:"service_and_images" yaml:"service_and_images" json:"service_and_images"`
 }
@@ -523,7 +527,9 @@ type DeployServiceVariableConfig struct {
 type DeployServiceVariableConfigList []*DeployServiceVariableConfig
 
 type DeployVariableInfo struct {
-	VariableKVs []*commontypes.RenderVariableKV `bson:"variable_kvs"                     yaml:"variable_kvs"                        json:"variable_kvs"`
+	ValueMergeStrategy config.ValueMergeStrategy `bson:"value_merge_strategy,omitempty" json:"value_merge_strategy,omitempty" yaml:"value_merge_strategy,omitempty"`
+
+	VariableKVs []*commontypes.RenderVariableKV `bson:"variable_kvs"                     yaml:"variable_kvs"              json:"variable_kvs"`
 	OverrideKVs string                          `bson:"override_kvs"                     yaml:"override_kvs"              json:"override_kvs"` // used for helm services, json-encoded string of kv value
 
 	// final yaml for both helm and k8s service to deploy
