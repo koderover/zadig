@@ -180,8 +180,9 @@ type ZadigDeployJobPreviewSpec struct {
 	// UserSuppliedValue added since 1.18, the values that users gives.
 	UserSuppliedValue string `bson:"user_supplied_value" json:"user_supplied_value" yaml:"user_supplied_value"`
 	// VariableKVs new since 1.18, only used for k8s
-	VariableKVs    []*commontypes.RenderVariableKV `bson:"variable_kvs"                 json:"variable_kvs"                    yaml:"variable_kvs"`
-	OriginRevision int64                           `bson:"origin_revision"              json:"origin_revision" yaml:"origin_revision"`
+	VariableKVs        []*commontypes.RenderVariableKV `bson:"variable_kvs"                 json:"variable_kvs"         yaml:"variable_kvs"`
+	OriginRevision     int64                           `bson:"origin_revision"              json:"origin_revision"      yaml:"origin_revision"`
+	ValueMergeStrategy config.ValueMergeStrategy       `bson:"value_merge_strategy"         json:"value_merge_strategy" yaml:"value_merge_strategy"`
 }
 
 type CustomDeployJobSpec struct {
@@ -2250,6 +2251,7 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, 
 			spec.YamlContent = taskJobSpec.YamlContent
 			spec.UserSuppliedValue = taskJobSpec.UserSuppliedValue
 			spec.SkipCheckRunStatus = taskJobSpec.SkipCheckRunStatus
+			spec.ValueMergeStrategy = taskJobSpec.ValueMergeStrategy
 			spec.OriginRevision = taskJobSpec.OriginRevision
 			for _, imageAndmodule := range taskJobSpec.ImageAndModules {
 				spec.ServiceAndImages = append(spec.ServiceAndImages, &ServiceAndImage{

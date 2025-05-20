@@ -176,6 +176,8 @@ func updateWorkflowJobTaskSpec(stages []*commonmodels.WorkflowStage) error {
 				} else {
 					newSpec.EnvSource = config.ParamSourceRuntime
 				}
+				newSpec.ValueMergeStrategy = config.ValueMergeStrategyOverride
+				newSpec.MergeStrategySource = config.ParamSourceFixed
 				job.Spec = newSpec
 			case config.JobFreestyle:
 				// TODO: Add freestyle job ua logic
