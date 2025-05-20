@@ -25,11 +25,11 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
-	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/pm"
+	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/tool/crypto"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
@@ -113,8 +113,9 @@ func CreatePrivateKey(args *commonmodels.PrivateKey, log *zap.SugaredLogger) (*C
 
 	if args.Agent == nil {
 		args.Agent = &commonmodels.VMAgent{}
+	} else {
+		args.Type = setting.NewVMType
 	}
-	args.Type = setting.NewVMType
 	args.Status = setting.VMCreated
 
 	if args.IP != "" && !util.IsValidIPv4(args.IP) {
