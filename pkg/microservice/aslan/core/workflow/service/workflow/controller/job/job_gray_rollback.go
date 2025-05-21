@@ -85,24 +85,8 @@ func (j GrayRollbackJobController) Update(useUserInput bool, ticket *commonmodel
 
 	j.jobSpec.ClusterID = currJobSpec.ClusterID
 	j.jobSpec.Namespace = currJobSpec.Namespace
-	j.jobSpec.Targets = currJobSpec.Targets
 	j.jobSpec.RollbackTimeout = currJobSpec.RollbackTimeout
 
-	userConfiguredService := make(map[string]*commonmodels.GrayRollbackTarget)
-	for _, svc := range j.jobSpec.Targets {
-		key := fmt.Sprintf("%s++%s", svc.WorkloadType, svc.WorkloadName)
-		userConfiguredService[key] = svc
-	}
-
-	mergedServices := make([]*commonmodels.GrayRollbackTarget, 0)
-	for _, svc := range currJobSpec.Targets {
-		key := fmt.Sprintf("%s++%s", svc.WorkloadType, svc.WorkloadName)
-		if userSvc, ok := userConfiguredService[key]; ok {
-			mergedServices = append(mergedServices, userSvc)
-		}
-	}
-
-	j.jobSpec.Targets = mergedServices
 	return nil
 }
 
@@ -112,19 +96,23 @@ func (j GrayRollbackJobController) SetOptions(ticket *commonmodels.ApprovalTicke
 		return fmt.Errorf("failed to get kube client, err: %v", err)
 	}
 	newTargets := make([]*commonmodels.GrayRollbackTarget, 0)
-	for _, target := range j.jobSpec.Targets {
-		deployment, found, err := getter.GetDeployment(j.jobSpec.Namespace, target.WorkloadName, kubeClient)
-		if err != nil || !found {
-			log.Warnf("deployment %s not found in namespace: %s", target.WorkloadName, j.jobSpec.Namespace)
-			continue
-		}
+	deployments, err := getter.ListDeployments(j.jobSpec.Namespace, nil, kubeClient)
+	if err != nil {
+		return err
+	}
+	for _, deployment := range deployments {
 		rollbackInfo, err := getGrayRollbackInfoFromAnnotations(deployment.GetAnnotations())
 		if err != nil {
-			log.Warnf("deployment %s get gray rollback info failed: %v", target.WorkloadName, err)
+			log.Warnf("deployment %s get gray rollback info failed: %v", deployment.Name, err)
 			continue
 		}
-		target.OriginImage = rollbackInfo.image
-		target.OriginReplica = rollbackInfo.replica
+		target := &commonmodels.GrayRollbackTarget{
+			WorkloadType:  "Deployment",
+			WorkloadName:  deployment.Name,
+			OriginImage:   rollbackInfo.image,
+			OriginReplica: rollbackInfo.replica,
+		}
+
 		newTargets = append(newTargets, target)
 	}
 
