@@ -96,19 +96,20 @@ func (j GrayRollbackJobController) SetOptions(ticket *commonmodels.ApprovalTicke
 		return fmt.Errorf("failed to get kube client, err: %v", err)
 	}
 	newTargets := make([]*commonmodels.GrayRollbackTarget, 0)
-	for _, target := range j.jobSpec.Targets {
-		deployment, found, err := getter.GetDeployment(j.jobSpec.Namespace, target.WorkloadName, kubeClient)
-		if err != nil || !found {
-			log.Warnf("deployment %s not found in namespace: %s", target.WorkloadName, j.jobSpec.Namespace)
-			continue
-		}
+	deployments, err := getter.ListDeployments(j.jobSpec.Namespace, nil, kubeClient)
+	for _, deployment := range deployments {
 		rollbackInfo, err := getGrayRollbackInfoFromAnnotations(deployment.GetAnnotations())
 		if err != nil {
-			log.Warnf("deployment %s get gray rollback info failed: %v", target.WorkloadName, err)
+			log.Warnf("deployment %s get gray rollback info failed: %v", deployment.Name, err)
 			continue
 		}
-		target.OriginImage = rollbackInfo.image
-		target.OriginReplica = rollbackInfo.replica
+		target := &commonmodels.GrayRollbackTarget{
+			WorkloadType:  "Deployment",
+			WorkloadName:  deployment.Name,
+			OriginImage:   rollbackInfo.image,
+			OriginReplica: rollbackInfo.replica,
+		}
+
 		newTargets = append(newTargets, target)
 	}
 
