@@ -77,6 +77,7 @@ type GetRepoImageDetailOption struct {
 }
 
 type Service interface {
+	ValidateRegistry(ep Endpoint, log *zap.SugaredLogger) error
 	ListRepoImages(option ListRepoImagesOption, log *zap.SugaredLogger) (*ReposResp, error)
 	GetImageInfo(option GetRepoImageDetailOption, log *zap.SugaredLogger) (*commonmodels.DeliveryImage, error)
 }
@@ -286,6 +287,15 @@ func (c *authClient) getImageInfo(repoName, tag string) (ci *containerInfo, err 
 	return
 }
 
+func (s *v2RegistryService) ValidateRegistry(ep Endpoint, log *zap.SugaredLogger) (err error) {
+	_, err = s.createClient(ep, log)
+	if err != nil {
+		return fmt.Errorf("validate registry error: %s", err)
+	}
+
+	return nil
+}
+
 func (s *v2RegistryService) GetImageInfo(option GetRepoImageDetailOption, log *zap.SugaredLogger) (di *commonmodels.DeliveryImage, err error) {
 	cli, err := s.createClient(option.Endpoint, log)
 	if err != nil {
@@ -399,6 +409,18 @@ func (s *swrService) createClient(ep Endpoint) (cli *swr.SwrClient) {
 	return client
 }
 
+func (s *swrService) ValidateRegistry(ep Endpoint, log *zap.SugaredLogger) (err error) {
+	svc := s.createClient(ep)
+
+	req := &model.ListNamespacesRequest{}
+	_, err = svc.ListNamespaces(req)
+	if err != nil {
+		return fmt.Errorf("list namespaces error: %s", err)
+	}
+
+	return nil
+}
+
 func (s *swrService) ListRepoImages(option ListRepoImagesOption, log *zap.SugaredLogger) (resp *ReposResp, err error) {
 	swrCli := s.createClient(option.Endpoint)
 
@@ -491,6 +513,21 @@ func (s *ecrService) getECRService(ep Endpoint, log *zap.SugaredLogger) (*ecr.EC
 		return nil, err
 	}
 	return ecr.New(sess), nil
+}
+
+func (s *ecrService) ValidateRegistry(ep Endpoint, log *zap.SugaredLogger) (err error) {
+	svc, err := s.getECRService(ep, log)
+	if err != nil {
+		return err
+	}
+
+	req := &ecr.DescribeRegistryInput{}
+	_, err = svc.DescribeRegistry(req)
+	if err != nil {
+		return fmt.Errorf("describe registry error: %s", err)
+	}
+
+	return nil
 }
 
 func (s *ecrService) ListRepoImages(option ListRepoImagesOption, log *zap.SugaredLogger) (resp *ReposResp, err error) {

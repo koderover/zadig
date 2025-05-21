@@ -62,6 +62,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		registry.GET("/namespaces/specific/:id", GetRegistryNamespace)
 		registry.GET("/namespaces", ListRegistryNamespaces)
 		registry.POST("/namespaces", CreateRegistryNamespace)
+		registry.POST("/validate", ValidateRegistryNamespace)
 		registry.PUT("/namespaces/:id", UpdateRegistryNamespace)
 
 		registry.DELETE("/namespaces/:id", DeleteRegistryNamespace)
@@ -74,6 +75,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	{
 		s3storage.GET("", ListS3Storage)
 		s3storage.POST("", CreateS3Storage)
+		s3storage.POST("/validate", ValidateS3Storage)
 		s3storage.GET("/:id", GetS3Storage)
 		s3storage.PUT("/:id", UpdateS3Storage)
 		s3storage.DELETE("/:id", DeleteS3Storage)
@@ -171,6 +173,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		integration.GET("project", ListHelmReposByProject)
 		integration.GET("/public", ListHelmReposPublic)
 		integration.POST("", CreateHelmRepo)
+		integration.POST("/validate", ValidateHelmRepo)
 		integration.PUT("/:id", UpdateHelmRepo)
 		integration.DELETE("/:id", DeleteHelmRepo)
 		integration.GET("/:name/index", ListCharts)
@@ -188,6 +191,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		privateKey.POST("", CreatePrivateKey)
 		privateKey.POST("/batch", BatchCreatePrivateKey)
 		privateKey.PUT("/:id", UpdatePrivateKey)
+		privateKey.POST("/validate", ValidatePrivateKey)
 		privateKey.DELETE("/:id", DeletePrivateKey)
 	}
 

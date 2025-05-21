@@ -449,6 +449,41 @@ func ReconnectCluster(c *gin.Context) {
 	ctx.RespErr = service.ReconnectCluster(ctx.UserName, c.Param("id"), ctx.Logger)
 }
 
+// @Summary 验证集群连接
+// @Description
+// @Tags 	cluster
+// @Accept 	json
+// @Produce json
+// @Param 	body 			body 		service.K8SCluster			true 	"body"
+// @Success 200
+// @Router /api/aslan/cluster/clusters/validate [post]
+func ValidateCluster(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	// authorization check
+	if !ctx.Resources.IsSystemAdmin {
+		if !ctx.Resources.SystemActions.ClusterManagement.Edit && !ctx.Resources.SystemActions.ClusterManagement.View && !ctx.Resources.SystemActions.ClusterManagement.Create {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	args := new(service.K8SCluster)
+	if err := c.BindJSON(args); err != nil {
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	ctx.RespErr = service.ValidateCluster(args, ctx.Logger)
+}
+
 func ClusterConnectFromAgent(c *gin.Context) {
 	c.Request.URL.Path = strings.TrimPrefix(c.Request.URL.Path, "/api/hub")
 	service.ProxyAgent(c.Writer, c.Request)
