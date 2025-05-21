@@ -85,24 +85,8 @@ func (j GrayRollbackJobController) Update(useUserInput bool, ticket *commonmodel
 
 	j.jobSpec.ClusterID = currJobSpec.ClusterID
 	j.jobSpec.Namespace = currJobSpec.Namespace
-	j.jobSpec.Targets = currJobSpec.Targets
 	j.jobSpec.RollbackTimeout = currJobSpec.RollbackTimeout
 
-	userConfiguredService := make(map[string]*commonmodels.GrayRollbackTarget)
-	for _, svc := range j.jobSpec.Targets {
-		key := fmt.Sprintf("%s++%s", svc.WorkloadType, svc.WorkloadName)
-		userConfiguredService[key] = svc
-	}
-
-	mergedServices := make([]*commonmodels.GrayRollbackTarget, 0)
-	for _, svc := range currJobSpec.Targets {
-		key := fmt.Sprintf("%s++%s", svc.WorkloadType, svc.WorkloadName)
-		if userSvc, ok := userConfiguredService[key]; ok {
-			mergedServices = append(mergedServices, userSvc)
-		}
-	}
-
-	j.jobSpec.Targets = mergedServices
 	return nil
 }
 
