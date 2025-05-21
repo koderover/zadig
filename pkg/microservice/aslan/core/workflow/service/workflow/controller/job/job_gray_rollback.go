@@ -97,6 +97,9 @@ func (j GrayRollbackJobController) SetOptions(ticket *commonmodels.ApprovalTicke
 	}
 	newTargets := make([]*commonmodels.GrayRollbackTarget, 0)
 	deployments, err := getter.ListDeployments(j.jobSpec.Namespace, nil, kubeClient)
+	if err != nil {
+		return nil, err
+	}
 	for _, deployment := range deployments {
 		rollbackInfo, err := getGrayRollbackInfoFromAnnotations(deployment.GetAnnotations())
 		if err != nil {
