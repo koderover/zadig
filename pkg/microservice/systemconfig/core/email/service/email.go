@@ -17,15 +17,18 @@ limitations under the License.
 package service
 
 import (
+	"fmt"
 	"time"
 
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
+	"gopkg.in/gomail.v2"
 
 	"github.com/koderover/zadig/v2/pkg/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/email/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/email/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/shared/client/aslan"
+	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	"github.com/koderover/zadig/v2/pkg/tool/crypto"
 )
 
@@ -77,6 +80,14 @@ func CreateEmailHost(emailHost *models.EmailHost, _ *zap.SugaredLogger) (*models
 	emailHost.CreatedAt = time.Now().Unix()
 	emailHost.UpdatedAt = time.Now().Unix()
 	return mongodb.NewEmailHostColl().Add(emailHost)
+}
+
+func ValidateEmailHost(ctx *internalhandler.Context, emailHost *models.EmailHost) error {
+	d := gomail.NewDialer(emailHost.Name, emailHost.Port, emailHost.Username, emailHost.Password)
+	if _, err := d.Dial(); err != nil {
+		return fmt.Errorf("验证失败，请检查邮箱配置, 错误: %s", err)
+	}
+	return nil
 }
 
 func UpdateEmailHost(emailHost *models.EmailHost, _ *zap.SugaredLogger) (*models.EmailHost, error) {

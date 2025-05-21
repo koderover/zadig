@@ -198,3 +198,24 @@ func UpdateSystemCodeHost(c *gin.Context) {
 
 	ctx.Resp, ctx.RespErr = service.UpdateCodeHost(req, ctx.Logger)
 }
+
+// @Summary 验证代码源连接
+// @Description
+// @Tags 	codehost
+// @Accept 	json
+// @Produce json
+// @Param 	codehost		body		models.CodeHost					true	"代码库信息"
+// @Success 200
+// @Router /api/v1/codehosts/validate [post]
+func ValidateCodeHost(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	req := new(models.CodeHost)
+	if err := c.ShouldBindJSON(req); err != nil {
+		ctx.RespErr = err
+		return
+	}
+
+	ctx.RespErr = service.ValidateCodeHost(ctx, req)
+}

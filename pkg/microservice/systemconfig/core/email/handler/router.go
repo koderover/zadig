@@ -27,6 +27,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	{
 		emails.GET("/host", GetEmailHost)
 		emails.POST("/host", CreateEmailHost)
+		emails.POST("/host/validate", ValidateEmailHost)
 		emails.PATCH("/host", UpdateEmailHost)
 		emails.DELETE("/host", DeleteEmailHost)
 

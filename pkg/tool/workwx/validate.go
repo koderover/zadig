@@ -25,7 +25,7 @@ import (
 
 func Validate(host, corpID string, agentID int, agentSecret string) error {
 	client := NewClient(host, corpID, agentID, agentSecret)
-	_, err := client.getAccessToken()
+	_, err := client.getAccessToken(true)
 	return err
 }
 

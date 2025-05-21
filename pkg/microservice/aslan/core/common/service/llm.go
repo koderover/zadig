@@ -16,7 +16,7 @@ func GetLLMClient(ctx context.Context, name string) (llm.ILLM, error) {
 		return nil, fmt.Errorf("failed to find the llm integration for %s, err: %w", name, err)
 	}
 
-	return newLLMClient(llmIntegration)
+	return NewLLMClient(llmIntegration)
 }
 
 func GetDefaultLLMClient(ctx context.Context) (llm.ILLM, error) {
@@ -25,10 +25,10 @@ func GetDefaultLLMClient(ctx context.Context) (llm.ILLM, error) {
 		return nil, fmt.Errorf("failed to find default llm integration, err: %w", err)
 	}
 
-	return newLLMClient(llmIntegration)
+	return NewLLMClient(llmIntegration)
 }
 
-func newLLMClient(llmIntegration *models.LLMIntegration) (llm.ILLM, error) {
+func NewLLMClient(llmIntegration *models.LLMIntegration) (llm.ILLM, error) {
 	llmConfig := llm.LLMConfig{
 		ProviderName: llmIntegration.ProviderName,
 		Token:        llmIntegration.Token,

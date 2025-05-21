@@ -26,7 +26,7 @@ import (
 func (c *Client) ListDepartment(departmentID int) (*ListDepartmentResp, error) {
 	url := fmt.Sprintf("%s/%s", c.Host, listDepartmentAPI)
 
-	accessToken, err := c.getAccessToken()
+	accessToken, err := c.getAccessToken(false)
 	if err != nil {
 		return nil, err
 	}

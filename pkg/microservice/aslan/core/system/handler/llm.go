@@ -59,6 +59,29 @@ func CreateLLMIntegration(c *gin.Context) {
 	ctx.RespErr = service.CreateLLMIntegration(context.TODO(), llmProvider)
 }
 
+// @Summary 验证 LLM 集成
+// @Description
+// @Tags 	system
+// @Accept 	json
+// @Produce json
+// @Param 	body 			body 		CreateLLMIntegrationRequest 			true 	"body"
+// @Success 200
+// @Router /api/aslan/system/llm/integration/validate [post]
+func ValidateLLMIntegration(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	args := new(CreateLLMIntegrationRequest)
+	if err := c.BindJSON(args); err != nil {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid validate llm Integration json args")
+		return
+	}
+
+	llmProvider := convertLLMArgToModel(args)
+	llmProvider.UpdatedBy = ctx.UserName
+	ctx.RespErr = service.ValidateLLMIntegration(context.TODO(), llmProvider)
+}
+
 type GetLLMIntegrationRespone struct {
 	Name    string `json:"name"`
 	Token   string `json:"token"`

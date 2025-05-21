@@ -194,6 +194,24 @@ func UpdateRegistryNamespace(username, id string, args *commonmodels.RegistryNam
 	return commonutil.SyncDinDForRegistries()
 }
 
+func ValidateRegistryNamespace(args *commonmodels.RegistryNamespace, log *zap.SugaredLogger) error {
+	regService := registry.NewV2Service(args.RegProvider, args.AdvancedSetting.TLSEnabled, args.AdvancedSetting.TLSCert)
+	endPoint := registry.Endpoint{
+		Addr:      args.RegAddr,
+		Ak:        args.AccessKey,
+		Sk:        args.SecretKey,
+		Namespace: args.Namespace,
+		Region:    args.Region,
+	}
+
+	err := regService.ValidateRegistry(endPoint, log)
+	if err != nil {
+		return fmt.Errorf("验证镜像仓库失败: %s", err)
+	}
+
+	return nil
+}
+
 func DeleteRegistryNamespace(id string, log *zap.SugaredLogger) error {
 	registries, err := commonrepo.NewRegistryNamespaceColl().FindAll(&commonrepo.FindRegOps{})
 	if err != nil {

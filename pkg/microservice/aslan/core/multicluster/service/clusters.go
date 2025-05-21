@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"os"
 	"reflect"
 	"regexp"
 	"sort"
@@ -40,6 +41,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	configbase "github.com/koderover/zadig/v2/pkg/config"
@@ -837,6 +840,46 @@ func ReconnectCluster(username string, clusterID string, logger *zap.SugaredLogg
 	s, _ := kube.NewService(configbase.HubServerServiceAddress())
 
 	return s.ReconnectCluster(username, clusterID, logger)
+}
+
+func ValidateCluster(args *K8SCluster, logger *zap.SugaredLogger) error {
+	cluster, err := K8SClusterArgsToModel(args)
+	if err != nil {
+		return fmt.Errorf("failed to convert K8SCluster to commonmodels.K8SCluster: %s", err)
+	}
+
+	if cluster.Type != setting.KubeConfigClusterType {
+		return fmt.Errorf("validate cluster only support kubeconfig type")
+	}
+
+	tmpFile, err := os.CreateTemp("", "")
+	if err != nil {
+		return fmt.Errorf("failed to create temp file: %s", err)
+	}
+	defer os.Remove(tmpFile.Name())
+
+	kubeConfigByte := []byte(cluster.KubeConfig)
+	err = os.WriteFile(tmpFile.Name(), kubeConfigByte, 0777)
+	if err != nil {
+		return fmt.Errorf("failed to write kubeconfig to temp file: %s", err)
+	}
+
+	config, err := clientcmd.BuildConfigFromFlags("", tmpFile.Name())
+	if err != nil {
+		return fmt.Errorf("failed to build config from flags: %s", err)
+	}
+
+	clientset, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		return fmt.Errorf("failed to create kubernetes client: %s", err)
+	}
+
+	_, err = clientset.CoreV1().Namespaces().List(context.Background(), metav1.ListOptions{Limit: 1})
+	if err != nil {
+		return fmt.Errorf("集群连接失败: 无法列出 namespace: %s", err)
+	}
+
+	return nil
 }
 
 func ProxyAgent(writer gin.ResponseWriter, request *http.Request) {

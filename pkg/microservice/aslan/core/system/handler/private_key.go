@@ -180,6 +180,41 @@ func UpdatePrivateKey(c *gin.Context) {
 	ctx.RespErr = service.UpdatePrivateKey(c.Param("id"), args, ctx.Logger)
 }
 
+// @Summary 验证主机 SSH 连接
+// @Description
+// @Tags 	system
+// @Accept 	json
+// @Produce json
+// @Param 	privateKey		body		models.PrivateKey					true	"私钥信息"
+// @Success 200
+// @Router /api/aslan/system/privateKey/validate [post]
+func ValidatePrivateKey(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if !ctx.Resources.SystemActions.VMManagement.Edit && !ctx.Resources.SystemActions.VMManagement.View && !ctx.Resources.SystemActions.VMManagement.Create {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	args := new(commonmodels.PrivateKey)
+	if err := c.BindJSON(&args); err != nil {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid PrivateKey args")
+		return
+	}
+
+	ctx.RespErr = service.ValidatePrivateKey(args, ctx.Logger)
+}
+
 func DeletePrivateKey(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

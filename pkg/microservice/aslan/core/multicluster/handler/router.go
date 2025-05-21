@@ -47,6 +47,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		Cluster.GET("/:id/strategy/references", GetClusterStrategyReferences)
 		Cluster.PUT("/:id/disconnect", DisconnectCluster)
 		Cluster.PUT("/:id/reconnect", ReconnectCluster)
+		Cluster.POST("/validate", ValidateCluster)
 
 		Cluster.GET("/irsa", GetIRSAInfo)
 	}

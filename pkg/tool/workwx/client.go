@@ -57,12 +57,12 @@ func NewClient(host, corpID string, agentID int, agentSecret string) *Client {
 	return client
 }
 
-func (c *Client) getAccessToken() (string, error) {
+func (c *Client) getAccessToken(skipCache bool) (string, error) {
 	redisCache := cache.NewRedisCache(config.RedisCommonCacheTokenDB())
 	// first try to get the access token from redis
 	accessTokenKey := fmt.Sprintf("workwx-%s-%s-%d-ak")
 	ak, err := redisCache.GetString(accessTokenKey)
-	if err == nil {
+	if err == nil && !skipCache {
 		return ak, nil
 	}
 

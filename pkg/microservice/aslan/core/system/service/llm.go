@@ -22,6 +22,7 @@ import (
 
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
@@ -79,6 +80,20 @@ func CreateLLMIntegration(ctx context.Context, args *commonmodels.LLMIntegration
 		log.Error(fmtErr)
 		return e.ErrCreateLLMIntegration.AddErr(fmtErr)
 	}
+	return nil
+}
+
+func ValidateLLMIntegration(ctx context.Context, args *commonmodels.LLMIntegration) error {
+	llmClient, err := commonservice.NewLLMClient(args)
+	if err != nil {
+		return fmt.Errorf("验证 LLM 集成失败: %s", err)
+	}
+
+	_, err = llmClient.GetCompletion(ctx, "Hello")
+	if err != nil {
+		return fmt.Errorf("验证 LLM 集成失败: %s", err)
+	}
+
 	return nil
 }
 
