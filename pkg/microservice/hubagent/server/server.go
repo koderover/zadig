@@ -118,7 +118,7 @@ func initResource() {
 
 		ls, err := client.ListRegistries(token)
 		if err != nil {
-			log.Fatalf("failed to list registries from zadig server, error: %w", err)
+			log.Fatalf("failed to list registries from zadig server, error: %s", err)
 		}
 
 		regList := make([]*registrytool.RegistryInfoForDinDUpdate, 0)
