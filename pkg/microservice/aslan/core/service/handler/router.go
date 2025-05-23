@@ -80,10 +80,9 @@ func (*Router) Inject(router *gin.RouterGroup) {
 
 	loader := router.Group("loader")
 	{
-		loader.GET("/preload/:codehostId", PreloadServiceTemplate)
+		loader.POST("/preload/:codehostId", PreloadServiceTemplate)
 		loader.POST("/load/:codehostId", LoadServiceTemplate)
 		loader.PUT("/load/:codehostId", SyncServiceTemplate)
-		loader.GET("/validateUpdate/:codehostId", ValidateServiceUpdate)
 	}
 
 	pm := router.Group("pm")
