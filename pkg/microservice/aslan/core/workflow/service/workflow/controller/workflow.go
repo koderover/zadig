@@ -401,6 +401,10 @@ func (w *Workflow) Validate(isExecution bool) error {
 			}
 
 			if isExecution {
+				if job.Skipped {
+					// skip validation if a job is skipped when executing
+					continue
+				}
 				ctrl.SetWorkflow(latestWorkflowSettings)
 			}
 
