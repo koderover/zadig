@@ -23,11 +23,11 @@ import (
 	"net/url"
 	"strings"
 
+	goteamsnotify "github.com/atc0005/go-teams-notify/v2"
+	"github.com/atc0005/go-teams-notify/v2/adaptivecard"
 	"github.com/hashicorp/go-multierror"
 	"github.com/samber/lo"
 	"go.uber.org/zap"
-	goteamsnotify "github.com/atc0005/go-teams-notify/v2"
-	"github.com/atc0005/go-teams-notify/v2/adaptivecard"
 
 	configbase "github.com/koderover/zadig/v2/pkg/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
@@ -455,14 +455,15 @@ func sendMailMessage(title, message string, users []*commonmodels.User, callerID
 			continue
 		}
 		err = mail.SendEmail(&mail.EmailParams{
-			From:     emailSvc.Address,
-			To:       info.Email,
-			Subject:  title,
-			Host:     email.Name,
-			UserName: email.UserName,
-			Password: email.Password,
-			Port:     email.Port,
-			Body:     message,
+			From:          emailSvc.Address,
+			To:            info.Email,
+			Subject:       title,
+			Host:          email.Name,
+			UserName:      email.UserName,
+			Password:      email.Password,
+			Port:          email.Port,
+			TlsSkipVerify: email.TlsSkipVerify,
+			Body:          message,
 		})
 		if err != nil {
 			log.Errorf("sendMailMessage SendEmail error, error msg:%s", err)

@@ -382,14 +382,15 @@ func createNativeApproval(plan *models.ReleasePlan, url string) error {
 				continue
 			}
 			err = mail.SendEmail(&mail.EmailParams{
-				From:     emailService.Address,
-				To:       info.Email,
-				Subject:  fmt.Sprintf("发布计划 %s 待审批", plan.Name),
-				Host:     email.Name,
-				UserName: email.UserName,
-				Password: email.Password,
-				Port:     email.Port,
-				Body:     mailNotifyInfo,
+				From:          emailService.Address,
+				To:            info.Email,
+				Subject:       fmt.Sprintf("发布计划 %s 待审批", plan.Name),
+				Host:          email.Name,
+				UserName:      email.UserName,
+				Password:      email.Password,
+				Port:          email.Port,
+				TlsSkipVerify: email.TlsSkipVerify,
+				Body:          mailNotifyInfo,
 			})
 			if err != nil {
 				log.Errorf("CreateNativeApproval SendEmail error, error msg:%s", err)

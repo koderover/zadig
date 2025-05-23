@@ -524,14 +524,15 @@ func Retrieve(account string, logger *zap.SugaredLogger) (*RetrieveResp, error) 
 	}
 
 	err = mail.SendEmail(&mail.EmailParams{
-		From:     emailSvc.Address,
-		To:       user.Email,
-		Subject:  "重置密码",
-		Host:     email.Name,
-		UserName: email.UserName,
-		Password: email.Password,
-		Port:     email.Port,
-		Body:     body,
+		From:          emailSvc.Address,
+		To:            user.Email,
+		Subject:       "重置密码",
+		Host:          email.Name,
+		UserName:      email.UserName,
+		Password:      email.Password,
+		TlsSkipVerify: email.TlsSkipVerify,
+		Port:          email.Port,
+		Body:          body,
 	})
 	if err != nil {
 		logger.Errorf("Retrieve SendEmail error, error msg:%s ", err)
