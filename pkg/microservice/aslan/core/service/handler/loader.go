@@ -30,35 +30,65 @@ import (
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 )
 
+type PreloadServiceTemplateReq struct {
+	RepoName   string                          `json:"repo_name"`
+	RepoUUID   string                          `json:"repo_uuid"`
+	BranchName string                          `json:"branch_name"`
+	RemoteName string                          `json:"remote_name"`
+	RepoOwner  string                          `json:"repo_owner"`
+	Paths      []svcservice.PreLoadServicePath `json:"paths"`
+}
+
+// @summary 从代码库预加载服务
+// @description
+// @tags 	service
+// @accept 	json
+// @produce json
+// @Param 	codehostId 		path 		int 							  true 	"codehostId"
+// @Param 	body 			body 		PreloadServiceTemplateReq         true 	"body"
+// @success 200             {array}     svcservice.LoadServicePath
+// @router /api/aslan/service/loader/preload/:codehostId [post]
 func PreloadServiceTemplate(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	codehostIDStr := c.Param("codehostId")
-
 	codehostID, err := strconv.Atoi(codehostIDStr)
 	if err != nil {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc("cannot convert codehost id to int")
 		return
 	}
 
-	repoName := c.Query("repoName")
-	repoUUID := c.Query("repoUUID")
-	if repoName == "" && repoUUID == "" {
+	var req PreloadServiceTemplateReq
+	if err := c.BindJSON(&req); err != nil {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid PreloadServiceTemplateReq json args")
+		return
+	}
+
+	if req.RepoName == "" && req.RepoUUID == "" {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc("repoName and repoUUID cannot be empty at the same time")
 		return
 	}
 
-	branchName := c.Query("branchName")
-
-	path := c.Query("path")
-	isDir := c.Query("isDir") == "true"
-	remoteName := c.Query("remoteName")
-	repoOwner := c.Query("repoOwner")
-
-	ctx.Resp, ctx.RespErr = svcservice.PreloadServiceFromCodeHost(codehostID, repoOwner, repoName, repoUUID, branchName, remoteName, path, isDir, ctx.Logger)
+	ctx.Resp, ctx.RespErr = svcservice.PreloadServiceFromCodeHost(codehostID, req.RepoOwner, req.RepoName, req.RepoUUID, req.BranchName, req.RemoteName, req.Paths, ctx.Logger)
 }
 
+// @summary 从代码库创建服务
+// @description
+// @tags 	service
+// @accept 	json
+// @produce json
+// @Param 	codehostId 		path 		int 							  true 	"codehostId"
+// @Param   repoName 		query 		string 							  true 	"repoName"
+// @Param   repoUUID 		query 		string 							  true 	"repoUUID"
+// @Param   branchName 		query 		string 							  true 	"branchName"
+// @Param   remoteName 		query 		string 							  true 	"remoteName"
+// @Param   repoOwner 		query 		string 							  true 	"repoOwner"
+// @Param   namespace 		query 		string 							  true 	"namespace"
+// @Param   production 		query 		bool 							  true 	"production"
+// @Param 	body 			body 		svcservice.LoadServiceReq         true 	"body"
+// @success 200
+// @router /api/aslan/service/loader/load/:codehostId [post]
 func LoadServiceTemplate(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -138,9 +168,25 @@ func LoadServiceTemplate(c *gin.Context) {
 		}
 	}
 
-	ctx.RespErr = svcservice.LoadServiceFromCodeHost(ctx.UserName, codehostID, repoOwner, namespace, repoName, repoUUID, branchName, remoteName, args, false, production, ctx.Logger)
+	ctx.RespErr = svcservice.LoadServiceFromCodeHost(ctx.UserName, codehostID, repoOwner, namespace, repoName, repoUUID, branchName, remoteName, args, false, false, production, ctx.Logger)
 }
 
+// @summary 从代码库更新服务
+// @description
+// @tags 	service
+// @accept 	json
+// @produce json
+// @Param 	codehostId 		path 		int 							  true 	"codehostId"
+// @Param   repoName 		query 		string 							  true 	"repoName"
+// @Param   repoUUID 		query 		string 							  true 	"repoUUID"
+// @Param   branchName 		query 		string 							  true 	"branchName"
+// @Param   remoteName 		query 		string 							  true 	"remoteName"
+// @Param   repoOwner 		query 		string 							  true 	"repoOwner"
+// @Param   namespace 		query 		string 							  true 	"namespace"
+// @Param   production 		query 		bool 							  true 	"production"
+// @Param 	body 			body 		svcservice.LoadServiceReq         true 	"body"
+// @success 200
+// @router /api/aslan/service/loader/:codehostId [put]
 func SyncServiceTemplate(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -171,6 +217,11 @@ func SyncServiceTemplate(c *gin.Context) {
 	args := new(svcservice.LoadServiceReq)
 	if err := c.BindJSON(args); err != nil {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid LoadServiceReq json args")
+		return
+	}
+
+	if len(args.ServicePaths) != 1 {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("servicePaths must contain only one path")
 		return
 	}
 
@@ -219,36 +270,5 @@ func SyncServiceTemplate(c *gin.Context) {
 		}
 	}
 
-	ctx.RespErr = svcservice.LoadServiceFromCodeHost(ctx.UserName, codehostID, repoOwner, namespace, repoName, repoUUID, branchName, remoteName, args, true, production, ctx.Logger)
-}
-
-// ValidateServiceUpdate seems to require no privilege
-func ValidateServiceUpdate(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	codehostIDStr := c.Param("codehostId")
-
-	codehostID, err := strconv.Atoi(codehostIDStr)
-	if err != nil {
-		ctx.RespErr = e.ErrInvalidParam.AddDesc("cannot convert codehost id to string")
-		return
-	}
-
-	repoName := c.Query("repoName")
-	repoUUID := c.Query("repoUUID")
-	if repoName == "" && repoUUID == "" {
-		ctx.RespErr = e.ErrInvalidParam.AddDesc("repoName and repoUUID cannot be empty at the same time")
-		return
-	}
-
-	branchName := c.Query("branchName")
-
-	path := c.Query("path")
-	isDir := c.Query("isDir") == "true"
-	remoteName := c.Query("remoteName")
-	repoOwner := c.Query("repoOwner")
-	serviceName := c.Query("serviceName")
-
-	ctx.RespErr = svcservice.ValidateServiceUpdate(codehostID, serviceName, repoOwner, repoName, repoUUID, branchName, remoteName, path, isDir, ctx.Logger)
+	ctx.RespErr = svcservice.LoadServiceFromCodeHost(ctx.UserName, codehostID, repoOwner, namespace, repoName, repoUUID, branchName, remoteName, args, true, true, production, ctx.Logger)
 }
