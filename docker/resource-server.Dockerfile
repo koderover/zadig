@@ -1,9 +1,9 @@
-FROM golang:1.21.1-alpine as build
+FROM golang:1.24.1-alpine as build
 
 WORKDIR /app
 
 ENV CGO_ENABLED=0 GOOS=linux
-# ENV GOPROXY=https://goproxy.cn,direct
+ENV GOPROXY=https://goproxy.cn,direct
 ENV GOCACHE=/gocache
 
 COPY go.mod go.sum ./
