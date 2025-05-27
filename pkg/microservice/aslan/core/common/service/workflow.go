@@ -359,7 +359,7 @@ func toHookSet(hooks interface{}) HookSet {
 				IsManual:   h.IsManual,
 			})
 		}
-	case []*models.WorkflowV4Hook:
+	case []*models.WorkflowV4GitHook:
 		// for custom workflow
 		for _, h := range hs {
 			res.Insert(hookItem{
