@@ -35,8 +35,14 @@ import (
 	"github.com/koderover/zadig/v2/pkg/util"
 )
 
-func preloadService(ch *systemconfig.CodeHost, owner, repo, branch, path string, isDir bool, logger *zap.SugaredLogger) ([]string, error) {
-	logger.Infof("Preloading service from %s with owner %s, repo %s, branch %s and path %s", ch.Type, owner, repo, branch, path)
+type LoadServicePath struct {
+	ServiceName string `json:"service_name"`
+	Path        string `json:"path"`
+	IsDir       bool   `json:"is_dir"`
+}
+
+func preloadService(ch *systemconfig.CodeHost, owner, repo, branch string, paths []PreLoadServicePath, logger *zap.SugaredLogger) ([]LoadServicePath, error) {
+	logger.Infof("Preloading service from %s with owner %s, repo %s, branch %s and path %s", ch.Type, owner, repo, branch, paths)
 
 	loader, err := getLoader(ch)
 	if err != nil {
@@ -44,58 +50,73 @@ func preloadService(ch *systemconfig.CodeHost, owner, repo, branch, path string,
 		return nil, e.ErrLoadServiceTemplate.AddDesc(err.Error())
 	}
 
-	var services []string
-	if !isDir {
-		if !isYaml(path) {
-			return nil, e.ErrPreloadServiceTemplate.AddDesc("File is not of type yaml or yml, select again")
-		}
+	resp := make([]LoadServicePath, 0)
+	for _, path := range paths {
+		if !path.IsDir {
+			if !isYaml(path.Path) {
+				return nil, e.ErrPreloadServiceTemplate.AddDesc("File is not of type yaml or yml, select again")
+			}
 
-		return []string{getFileName(path)}, nil
-	} else {
-		treeNodes, err := loader.GetTree(owner, repo, path, branch)
-		if err != nil {
-			logger.Errorf("Failed to get tree under path %s, err: %s", path, err)
-			return nil, e.ErrLoadServiceTemplate.AddDesc(err.Error())
-		}
+			resp = append(resp, LoadServicePath{
+				ServiceName: getFileName(path.Path),
+				Path:        path.Path,
+				IsDir:       path.IsDir,
+			})
+		} else {
+			treeNodes, err := loader.GetTree(owner, repo, path.Path, branch)
+			if err != nil {
+				logger.Errorf("Failed to get tree under path %s, err: %s", path.Path, err)
+				return nil, e.ErrLoadServiceTemplate.AddDesc(err.Error())
+			}
 
-		folders, files := getFoldersAndYAMLFiles(treeNodes)
-		// if load path is a directory, we will load services in following rules:
-		// 1. if there is any yaml files under this directory, collect them as a service and ignore other files and directories
-		// 2. if not, but there is some directories under this directory, load each of them as a service
-		if len(files) > 0 {
-			return []string{getFileName(path)}, nil
-		} else if len(folders) > 0 {
-			for _, f := range folders {
-				tns, err := loader.GetTree(owner, repo, f.FullPath, branch)
-				if err != nil {
-					logger.Errorf("Failed to get tree under path %s, err: %s", f.FullPath, err)
-					return nil, e.ErrLoadServiceTemplate.AddDesc(err.Error())
+			folders, files := getFoldersAndYAMLFiles(treeNodes)
+			// if load path is a directory, we will load services in following rules:
+			// 1. if there is any yaml files under this directory, collect them as a service and ignore other files and directories
+			// 2. if not, but there is some directories under this directory, load each of them as a service
+			if len(files) > 0 {
+				resp = append(resp, LoadServicePath{
+					ServiceName: getFileName(path.Path),
+					Path:        path.Path,
+					IsDir:       path.IsDir,
+				})
+			} else if len(folders) > 0 {
+				for _, f := range folders {
+					tns, err := loader.GetTree(owner, repo, f.FullPath, branch)
+					if err != nil {
+						logger.Errorf("Failed to get tree under path %s, err: %s", f.FullPath, err)
+						return nil, e.ErrLoadServiceTemplate.AddDesc(err.Error())
+					}
+
+					if hasYAMLFiles(tns) {
+						resp = append(resp, LoadServicePath{
+							ServiceName: getFileName(f.FullPath),
+							Path:        f.FullPath,
+							IsDir:       f.IsDir,
+						})
+					}
+
 				}
-
-				if hasYAMLFiles(tns) {
-					services = append(services, getFileName(f.FullPath))
-				}
-
 			}
 		}
 	}
 
-	if len(services) == 0 {
-		log.Errorf("no valid service is found under path %s", path)
-		return nil, e.ErrPreloadServiceTemplate.AddDesc("所选路径下没有yaml，请重新选择")
+	if len(resp) == 0 {
+		log.Errorf("no valid service is found under paths %s", paths)
+		return nil, e.ErrPreloadServiceTemplate.AddDesc("所选路径下没有yaml文件，请重新选择")
 	}
 
-	return services, nil
+	return resp, nil
 }
 
 type serviceInfo struct {
 	path  string
+	name  string
 	isDir bool
 	yamls []string
 }
 
 func loadService(username string, ch *systemconfig.CodeHost, owner, namespace, repo, branch string, args *LoadServiceReq, force, production bool, logger *zap.SugaredLogger) error {
-	logger.Infof("Loading service from %s with owner %s, namespace %s, repo %s, branch %s and path %s", ch.Type, owner, namespace, repo, branch, args.LoadPath)
+	logger.Infof("Loading service from %s with owner %s, namespace %s, repo %s, branch %s and path %v", ch.Type, owner, namespace, repo, branch, args.ServicePaths)
 
 	loader, err := getLoader(ch)
 	if err != nil {
@@ -104,46 +125,51 @@ func loadService(username string, ch *systemconfig.CodeHost, owner, namespace, r
 	}
 
 	var services []serviceInfo
-	if !args.LoadFromDir {
-		yamls, err := loader.GetYAMLContents(namespace, repo, args.LoadPath, branch, false, true)
-		if err != nil {
-			logger.Errorf("Failed to get yamls under path %s, err: %s", args.LoadPath, err)
-			return e.ErrLoadServiceTemplate.AddDesc(err.Error())
-		}
-
-		services = []serviceInfo{{path: args.LoadPath, isDir: false, yamls: yamls}}
-	} else {
-		treeNodes, err := loader.GetTree(namespace, repo, args.LoadPath, branch)
-		if err != nil {
-			logger.Errorf("Failed to get tree under path %s, err: %s", args.LoadPath, err)
-			return e.ErrLoadServiceTemplate.AddDesc(err.Error())
-		}
-
-		folders, files := getFoldersAndYAMLFiles(treeNodes)
-		// if load path is a directory, we will load services in following rules:
-		// 1. if there is any yaml files under this directory, collect them as a service and ignore other files and directories
-		// 2. if not, but there is some directories under this directory, load each of them as a service
-		if len(files) > 0 {
-			var yamls []string
-			for _, f := range files {
-				res, err := loader.GetYAMLContents(namespace, repo, f.FullPath, branch, false, true)
-				if err != nil {
-					logger.Errorf("Failed to get yamls under path %s, err: %s", f.FullPath, err)
-					return e.ErrLoadServiceTemplate.AddDesc(err.Error())
-				}
-				yamls = append(yamls, res...)
+	for _, loadPath := range args.ServicePaths {
+		if !loadPath.IsDir {
+			yamls, err := loader.GetYAMLContents(namespace, repo, loadPath.Path, branch, false, true)
+			if err != nil {
+				logger.Errorf("Failed to get yamls under path %s, err: %s", loadPath.Path, err)
+				return e.ErrLoadServiceTemplate.AddDesc(err.Error())
 			}
 
-			services = []serviceInfo{{path: args.LoadPath, isDir: true, yamls: yamls}}
-		} else if len(folders) > 0 {
-			for _, f := range folders {
-				res, err := loader.GetYAMLContents(namespace, repo, f.FullPath, branch, true, true)
-				if err != nil {
-					logger.Errorf("Failed to get yamls under path %s, err: %s", f.FullPath, err)
-					return e.ErrLoadServiceTemplate.AddDesc(err.Error())
-				}
-				services = append(services, serviceInfo{path: f.FullPath, isDir: true, yamls: res})
+			services = append(services, serviceInfo{path: loadPath.Path, name: loadPath.ServiceName, isDir: false, yamls: yamls})
+		} else {
+			treeNodes, err := loader.GetTree(namespace, repo, loadPath.Path, branch)
+			if err != nil {
+				logger.Errorf("Failed to get tree under path %s, err: %s", loadPath.Path, err)
+				return e.ErrLoadServiceTemplate.AddDesc(err.Error())
 			}
+
+			_, files := getFoldersAndYAMLFiles(treeNodes)
+			// if load path is a directory, we will load services in following rules:
+			// 1. if there is any yaml files under this directory, collect them as a service and ignore other files and directories
+			// 2. if not, but there is some directories under this directory, load each of them as a service
+			if len(files) > 0 {
+				var yamls []string
+				for _, f := range files {
+					res, err := loader.GetYAMLContents(namespace, repo, f.FullPath, branch, false, true)
+					if err != nil {
+						logger.Errorf("Failed to get yamls under path %s, err: %s", f.FullPath, err)
+						return e.ErrLoadServiceTemplate.AddDesc(err.Error())
+					}
+					yamls = append(yamls, res...)
+				}
+
+				services = append(services, serviceInfo{path: loadPath.Path, name: loadPath.ServiceName, isDir: true, yamls: yamls})
+			} else {
+				return e.ErrLoadServiceTemplate.AddDesc(fmt.Sprintf("%s 路径下没有yaml文件，请重新选择", loadPath.Path))
+			}
+
+			// } else if len(folders) > 0 {
+			// for _, f := range folders {
+			// 	res, err := loader.GetYAMLContents(namespace, repo, f.FullPath, branch, true, true)
+			// 	if err != nil {
+			// 		logger.Errorf("Failed to get yamls under path %s, err: %s", f.FullPath, err)
+			// 		return e.ErrLoadServiceTemplate.AddDesc(err.Error())
+			// 	}
+			// 	services = append(services, serviceInfo{path: f.FullPath, name: loadPath.ServiceName, isDir: true, yamls: res})
+			// }
 		}
 	}
 
@@ -151,8 +177,6 @@ func loadService(username string, ch *systemconfig.CodeHost, owner, namespace, r
 		if len(info.yamls) == 0 {
 			continue
 		}
-
-		serviceName := getFileName(info.path)
 
 		commit, err := loader.GetLatestRepositoryCommit(namespace, repo, info.path, branch)
 		if err != nil {
@@ -175,13 +199,12 @@ func loadService(username string, ch *systemconfig.CodeHost, owner, namespace, r
 			KubeYamls:     info.yamls,
 			SrcPath:       fmt.Sprintf("%s/%s/%s/%s/%s/%s", ch.Address, namespace, repo, pathType, branch, info.path),
 			CreateBy:      username,
-			ServiceName:   serviceName,
+			ServiceName:   info.name,
 			Type:          args.Type,
 			ProductName:   args.ProductName,
 			Source:        ch.Type,
 			Yaml:          util.CombineManifests(info.yamls),
 			Commit:        &models.Commit{SHA: commit.SHA, Message: commit.Message},
-			Visibility:    args.Visibility,
 		}
 		_, err = CreateServiceTemplate(username, createSvcArgs, force, production, logger)
 		if err != nil {
