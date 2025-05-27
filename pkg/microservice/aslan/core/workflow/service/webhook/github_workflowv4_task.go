@@ -25,6 +25,7 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"go.uber.org/zap"
 
+	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
@@ -229,11 +230,16 @@ func TriggerWorkflowV4ByGithubEvent(event interface{}, baseURI, deliveryID, requ
 	hookPayload := &commonmodels.HookPayload{}
 
 	for _, workflow := range workflows {
-		if workflow.HookCtls == nil {
+		gitHooks, err := commonrepo.NewWorkflowV4GitHookColl().List(internalhandler.NewBackgroupContext(), workflow.Name)
+		if err != nil {
+			log.Errorf("list workflow v4 git hook error: %v", err)
+			continue
+		}
+		if len(gitHooks) == 0 {
 			continue
 		}
 
-		for _, item := range workflow.HookCtls {
+		for _, item := range gitHooks {
 			if !item.Enabled {
 				continue
 			}

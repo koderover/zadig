@@ -19,7 +19,6 @@ package webhook
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/controller"
 	"regexp"
 	"strconv"
 	"strings"
@@ -33,8 +32,10 @@ import (
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/scmnotify"
 	workflowservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/controller"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/shared/client/systemconfig"
+	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	"github.com/koderover/zadig/v2/pkg/tool/gerrit"
 	"github.com/koderover/zadig/v2/pkg/types"
 )
@@ -46,7 +47,7 @@ type gerritEventMatcherForWorkflowV4 interface {
 
 type gerritChangeMergedEventMatcherForWorkflowV4 struct {
 	Log      *zap.SugaredLogger
-	Item     *commonmodels.WorkflowV4Hook
+	Item     *commonmodels.WorkflowV4GitHook
 	Workflow *commonmodels.WorkflowV4
 	Event    *changeMergedEvent
 }
@@ -96,7 +97,7 @@ func (gruem *gerritChangeMergedEventMatcherForWorkflowV4) GetHookRepo(hookRepo *
 
 type gerritPatchsetCreatedEventMatcherForWorkflowV4 struct {
 	Log      *zap.SugaredLogger
-	Item     *commonmodels.WorkflowV4Hook
+	Item     *commonmodels.WorkflowV4GitHook
 	Workflow *commonmodels.WorkflowV4
 	Event    *patchsetCreatedEvent
 }
@@ -145,7 +146,7 @@ func (gpcem *gerritPatchsetCreatedEventMatcherForWorkflowV4) GetHookRepo(hookRep
 	}
 }
 
-func createGerritEventMatcherForWorkflowV4(event *gerritTypeEvent, body []byte, item *commonmodels.WorkflowV4Hook, workflow *commonmodels.WorkflowV4, log *zap.SugaredLogger) gerritEventMatcherForWorkflowV4 {
+func createGerritEventMatcherForWorkflowV4(event *gerritTypeEvent, body []byte, item *commonmodels.WorkflowV4GitHook, workflow *commonmodels.WorkflowV4, log *zap.SugaredLogger) gerritEventMatcherForWorkflowV4 {
 	switch event.Type {
 	case changeMergedEventType:
 		changeMergedEvent := new(changeMergedEvent)
@@ -187,9 +188,15 @@ func TriggerWorkflowV4ByGerritEvent(event *gerritTypeEvent, body []byte, uri, ba
 	var hookPayload *commonmodels.HookPayload
 	var notification *commonmodels.Notification
 	for _, workflow := range workflows {
-		if workflow.HookCtls == nil {
+		gitHooks, err := commonrepo.NewWorkflowV4GitHookColl().List(internalhandler.NewBackgroupContext(), workflow.Name)
+		if err != nil {
+			log.Errorf("list workflow v4 git hook error: %v", err)
+			return fmt.Errorf("list workflow v4 git hook error: %v", err)
+		}
+		if len(gitHooks) == 0 {
 			continue
 		}
+
 		if strings.Contains(uri, "?") {
 			if !strings.Contains(uri, workflow.Name) {
 				continue
@@ -200,7 +207,7 @@ func TriggerWorkflowV4ByGerritEvent(event *gerritTypeEvent, body []byte, uri, ba
 			log.Warnf("this event has already trigger task, workflowName:%s, event:%v", workflow.Name, event)
 			continue
 		}
-		for _, item := range workflow.HookCtls {
+		for _, item := range gitHooks {
 			if !item.Enabled {
 				continue
 			}

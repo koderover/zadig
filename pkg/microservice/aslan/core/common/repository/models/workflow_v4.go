@@ -41,37 +41,39 @@ import (
 
 // TODO: change note: add approval ticket ID
 type WorkflowV4 struct {
-	ID              primitive.ObjectID       `bson:"_id,omitempty"       yaml:"-"                   json:"id"`
-	Name            string                   `bson:"name"                yaml:"name"                json:"name"`
-	DisplayName     string                   `bson:"display_name"        yaml:"display_name"        json:"display_name"`
-	Disabled        bool                     `bson:"disabled"            yaml:"disabled"            json:"disabled"`
-	Category        setting.WorkflowCategory `bson:"category"            yaml:"category"            json:"category"`
-	Params          []*Param                 `bson:"params"              yaml:"params"              json:"params"`
-	Stages          []*WorkflowStage         `bson:"stages"              yaml:"stages"              json:"stages"`
-	Project         string                   `bson:"project"             yaml:"project"             json:"project"`
-	Description     string                   `bson:"description"         yaml:"description"         json:"description"`
-	CreatedBy       string                   `bson:"created_by"          yaml:"created_by"          json:"created_by"`
-	CreateTime      int64                    `bson:"create_time"         yaml:"create_time"         json:"create_time"`
-	UpdatedBy       string                   `bson:"updated_by"          yaml:"updated_by"          json:"updated_by"`
-	UpdateTime      int64                    `bson:"update_time"         yaml:"update_time"         json:"update_time"`
-	NotifyCtls      []*NotifyCtl             `bson:"notify_ctls"         yaml:"notify_ctls"         json:"notify_ctls"`
-	Debug           bool                     `bson:"debug"               yaml:"-"                   json:"debug"`
-	HookCtls        []*WorkflowV4Hook        `bson:"hook_ctl"            yaml:"-"                   json:"hook_ctl"`
-	JiraHookCtls    []*JiraHook              `bson:"jira_hook_ctls"      yaml:"-"                   json:"jira_hook_ctls"`
-	MeegoHookCtls   []*MeegoHook             `bson:"meego_hook_ctls"     yaml:"-"                   json:"meego_hook_ctls"`
-	GeneralHookCtls []*GeneralHook           `bson:"general_hook_ctls"   yaml:"-"                   json:"general_hook_ctls"`
-	NotificationID  string                   `bson:"notification_id"     yaml:"-"                   json:"notification_id"`
-	HookPayload     *HookPayload             `bson:"hook_payload"        yaml:"-"                   json:"hook_payload,omitempty"`
-	BaseName        string                   `bson:"base_name"           yaml:"-"                   json:"base_name"`
-	Remark          string                   `bson:"remark"              yaml:"-"                   json:"remark"`
-	ShareStorages   []*ShareStorage          `bson:"share_storages"      yaml:"share_storages"      json:"share_storages"`
-	Hash            string                   `bson:"hash"                yaml:"hash"                json:"hash"`
+	ID             primitive.ObjectID       `bson:"_id,omitempty"       yaml:"-"                   json:"id"`
+	Name           string                   `bson:"name"                yaml:"name"                json:"name"`
+	DisplayName    string                   `bson:"display_name"        yaml:"display_name"        json:"display_name"`
+	Disabled       bool                     `bson:"disabled"            yaml:"disabled"            json:"disabled"`
+	Category       setting.WorkflowCategory `bson:"category"            yaml:"category"            json:"category"`
+	Params         []*Param                 `bson:"params"              yaml:"params"              json:"params"`
+	Stages         []*WorkflowStage         `bson:"stages"              yaml:"stages"              json:"stages"`
+	Project        string                   `bson:"project"             yaml:"project"             json:"project"`
+	Description    string                   `bson:"description"         yaml:"description"         json:"description"`
+	CreatedBy      string                   `bson:"created_by"          yaml:"created_by"          json:"created_by"`
+	CreateTime     int64                    `bson:"create_time"         yaml:"create_time"         json:"create_time"`
+	UpdatedBy      string                   `bson:"updated_by"          yaml:"updated_by"          json:"updated_by"`
+	UpdateTime     int64                    `bson:"update_time"         yaml:"update_time"         json:"update_time"`
+	NotifyCtls     []*NotifyCtl             `bson:"notify_ctls"         yaml:"notify_ctls"         json:"notify_ctls"`
+	Debug          bool                     `bson:"debug"               yaml:"-"                   json:"debug"`
+	NotificationID string                   `bson:"notification_id"     yaml:"-"                   json:"notification_id"`
+	HookPayload    *HookPayload             `bson:"hook_payload"        yaml:"-"                   json:"hook_payload,omitempty"`
+	BaseName       string                   `bson:"base_name"           yaml:"-"                   json:"base_name"`
+	Remark         string                   `bson:"remark"              yaml:"-"                   json:"remark"`
+	ShareStorages  []*ShareStorage          `bson:"share_storages"      yaml:"share_storages"      json:"share_storages"`
+	Hash           string                   `bson:"hash"                yaml:"hash"                json:"hash"`
 	// ConcurrencyLimit is the max number of concurrent runs of this workflow
 	// -1 means no limit
 	ConcurrencyLimit     int          `bson:"concurrency_limit"      yaml:"concurrency_limit"      json:"concurrency_limit"`
 	CustomField          *CustomField `bson:"custom_field"           yaml:"-"                      json:"custom_field"`
 	EnableApprovalTicket bool         `bson:"enable_approval_ticket" yaml:"enable_approval_ticket" json:"enable_approval_ticket"`
 	ApprovalTicketID     string       `bson:"approval_ticket_id"     yaml:"approval_ticket_id"     json:"approval_ticket_id"`
+
+	// all hookCtls are deprecated
+	HookCtls        []*WorkflowV4Hook `bson:"hook_ctl"            yaml:"-"                   json:"hook_ctl"`
+	JiraHookCtls    []*JiraHook       `bson:"jira_hook_ctls"      yaml:"-"                   json:"jira_hook_ctls"`
+	MeegoHookCtls   []*MeegoHook      `bson:"meego_hook_ctls"     yaml:"-"                   json:"meego_hook_ctls"`
+	GeneralHookCtls []*GeneralHook    `bson:"general_hook_ctls"   yaml:"-"                   json:"general_hook_ctls"`
 }
 
 func (w *WorkflowV4) UpdateHash() {

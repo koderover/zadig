@@ -109,7 +109,7 @@ func (s *JunitReportStep) Run(ctx context.Context) error {
 			return err
 		}
 	}
-	log.Infof("Finish archive %s to %s.", s.spec.FileName)
+	log.Infof("Finish archive to %s.", s.spec.FileName)
 	if results.Failures > 0 || results.Errors > 0 {
 		return fmt.Errorf("%d case(s) failed, %d case(s) error", results.Failures, results.Errors)
 	}

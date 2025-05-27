@@ -27,8 +27,6 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 
-	"github.com/koderover/zadig/v2/pkg/tool/meego"
-
 	config2 "github.com/koderover/zadig/v2/pkg/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
@@ -36,9 +34,11 @@ import (
 	jira2 "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/jira"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/v2/pkg/setting"
+	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/jira"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
+	"github.com/koderover/zadig/v2/pkg/tool/meego"
 )
 
 func ListProjectManagement(log *zap.SugaredLogger) ([]*models.ProjectManagement, error) {
@@ -390,24 +390,20 @@ func HandleJiraHookEvent(workflowName, hookName string, event *jira.Event, logge
 		logger.Errorf("HandleJiraHookEvent: nil issue or issue key, skip")
 		return nil
 	}
-	workflowInfo, err := mongodb.NewWorkflowV4Coll().Find(workflowName)
+	_, err := mongodb.NewWorkflowV4Coll().Find(workflowName)
 	if err != nil {
 		errMsg := fmt.Sprintf("Failed to find WorkflowV4: %s, the error is: %v", workflowName, err)
 		logger.Error(errMsg)
 		return errors.New(errMsg)
 	}
-	var jiraHook *models.JiraHook
-	for _, hook := range workflowInfo.JiraHookCtls {
-		if hook.Name == hookName {
-			jiraHook = hook
-			break
-		}
-	}
-	if jiraHook == nil {
+
+	jiraHook, err := mongodb.NewWorkflowV4JiraHookColl().Get(internalhandler.NewBackgroupContext(), workflowName, hookName)
+	if err != nil {
 		errMsg := fmt.Sprintf("Failed to find Jira hook %s", hookName)
 		logger.Error(errMsg)
 		return errors.New(errMsg)
 	}
+
 	if !jiraHook.Enabled {
 		errMsg := fmt.Sprintf("Not enabled Jira hook %s", hookName)
 		logger.Error(errMsg)
@@ -501,26 +497,21 @@ func HandleJiraHookEvent(workflowName, hookName string, event *jira.Event, logge
 }
 
 func HandleMeegoHookEvent(workflowName, hookName string, event *meego.GeneralWebhookRequest, logger *zap.SugaredLogger) error {
-	workflowInfo, err := mongodb.NewWorkflowV4Coll().Find(workflowName)
+	_, err := mongodb.NewWorkflowV4Coll().Find(workflowName)
 	if err != nil {
 		errMsg := fmt.Sprintf("Failed to find WorkflowV4: %s, the error is: %v", workflowName, err)
 		logger.Error(errMsg)
 		return errors.New(errMsg)
 	}
-	var meegoHook *models.MeegoHook
-	for _, hook := range workflowInfo.MeegoHookCtls {
-		if hook.Name == hookName {
-			meegoHook = hook
-			break
-		}
-	}
-	if meegoHook == nil {
-		errMsg := fmt.Sprintf("Failed to find Jira hook %s", hookName)
+
+	meegoHook, err := mongodb.NewWorkflowV4MeegoHookColl().Get(internalhandler.NewBackgroupContext(), workflowName, hookName)
+	if err != nil {
+		errMsg := fmt.Sprintf("Failed to find Meego hook %s", hookName)
 		logger.Error(errMsg)
 		return errors.New(errMsg)
 	}
 	if !meegoHook.Enabled {
-		errMsg := fmt.Sprintf("Not enabled Jira hook %s", hookName)
+		errMsg := fmt.Sprintf("Not enabled Meego hook %s", hookName)
 		logger.Error(errMsg)
 		return errors.New(errMsg)
 	}

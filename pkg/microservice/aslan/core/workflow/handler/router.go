@@ -28,7 +28,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	// ---------------------------------------------------------------------------------------
 	webhook := router.Group("webhook")
 	{
-		webhook.POST("", ProcessWebHook)
+		webhook.POST("", ProcessGitWebHook)
 	}
 
 	build := router.Group("build")
@@ -157,10 +157,10 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		workflowV4.POST("/dynamicVariable/available", GetAvailableWorkflowV4DynamicVariable)
 		workflowV4.POST("/dynamicVariable/render", GetWorkflowV4DynamicVariableValues)
 		workflowV4.GET("/webhook/preset", GetWebhookForWorkflowV4Preset)
-		workflowV4.GET("/webhook", ListWebhookForWorkflowV4)
-		workflowV4.POST("/webhook/:workflowName", CreateWebhookForWorkflowV4)
-		workflowV4.PUT("/webhook/:workflowName", UpdateWebhookForWorkflowV4)
-		workflowV4.DELETE("/webhook/:workflowName/trigger/:triggerName", DeleteWebhookForWorkflowV4)
+		workflowV4.GET("/webhook", ListGithookForWorkflowV4)
+		workflowV4.POST("/webhook/:workflowName", CreateGithookForWorkflowV4)
+		workflowV4.PUT("/webhook/:workflowName", UpdateGithookForWorkflowV4)
+		workflowV4.DELETE("/webhook/:workflowName/trigger/:triggerName", DeleteGithookForWorkflowV4)
 		workflowV4.GET("/jirahook/preset", GetJiraHookForWorkflowV4Preset)
 		workflowV4.GET("/jirahook/:workflowName", ListJiraHookForWorkflowV4)
 		workflowV4.POST("/jirahook/:workflowName", CreateJiraHookForWorkflowV4)
