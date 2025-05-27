@@ -18,20 +18,22 @@ package mail
 
 import (
 	"bytes"
+	"crypto/tls"
 	"html/template"
 
 	"gopkg.in/gomail.v2"
 )
 
 type EmailParams struct {
-	From     string
-	To       string
-	Subject  string
-	Body     string
-	Host     string
-	Port     int
-	UserName string
-	Password string
+	From          string
+	To            string
+	Subject       string
+	Body          string
+	Host          string
+	Port          int
+	UserName      string
+	Password      string
+	TlsSkipVerify bool
 }
 
 func SendEmail(param *EmailParams) error {
@@ -42,6 +44,10 @@ func SendEmail(param *EmailParams) error {
 	m.SetBody("text/html", param.Body)
 
 	d := gomail.NewDialer(param.Host, param.Port, param.UserName, param.Password)
+
+	if param.TlsSkipVerify {
+		d.TLSConfig = &tls.Config{InsecureSkipVerify: true}
+	}
 
 	if err := d.DialAndSend(m); err != nil {
 		return err
