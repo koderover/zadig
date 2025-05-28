@@ -515,8 +515,9 @@ type SQLExecResult struct {
 }
 
 type JobTaskApolloSpec struct {
-	ApolloID      string                    `bson:"apolloID" json:"apolloID" yaml:"apolloID"`
-	NamespaceList []*JobTaskApolloNamespace `bson:"namespaceList" json:"namespaceList" yaml:"namespaceList"`
+	JobTaskCommonRevertSpec `bson:",inline"          json:",inline"          yaml:",inline"`
+	ApolloID                string                    `bson:"apolloID" json:"apolloID" yaml:"apolloID"`
+	NamespaceList           []*JobTaskApolloNamespace `bson:"namespaceList" json:"namespaceList" yaml:"namespaceList"`
 }
 
 type JobTaskApolloNamespace struct {
