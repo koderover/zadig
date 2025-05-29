@@ -39,7 +39,6 @@ import (
 	templaterepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	larkservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/lark"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/webhooknotify"
-	runtimeWorkflowController "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/workflowcontroller"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	userclient "github.com/koderover/zadig/v2/pkg/shared/client/user"
 	"github.com/koderover/zadig/v2/pkg/tool/lark"
@@ -551,7 +550,7 @@ func (w *Service) getNotificationContent(notify *models.NotifyCtl, task *models.
 					prInfo = strings.Join(prInfoList, " ") + " "
 				}
 				image := ""
-				imageContextKey := runtimeWorkflowController.GetContextKey(jobspec.GetJobOutputKey(job.Key, "IMAGE"))
+				imageContextKey := strings.Join(strings.Split(jobspec.GetJobOutputKey(job.Key, "IMAGE"), "."), "@?")
 				if task.GlobalContext != nil {
 					image = task.GlobalContext[imageContextKey]
 				}
@@ -568,7 +567,7 @@ func (w *Service) getNotificationContent(notify *models.NotifyCtl, task *models.
 						}
 					}
 				}
-				if image != "" && !strings.HasPrefix(image, "{{.") && !strings.Contains(image, "}}") {
+				if job.Status == config.StatusPassed && image != "" && !strings.HasPrefix(image, "{{.") && !strings.Contains(image, "}}") {
 					jobTplcontent += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**镜像信息**：%s  \n", image)
 					mailJobTplcontent += fmt.Sprintf("镜像信息：%s \n", image)
 					workflowNotifyJobTaskSpec.Image = image
