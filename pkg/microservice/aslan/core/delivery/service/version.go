@@ -2362,6 +2362,8 @@ func generateCustomWorkflowFromDeliveryVersion(productInfo *commonmodels.Product
 				sourceTag := "latest"
 				if len(sourceTagStr) == 2 {
 					sourceTag = sourceTagStr[1]
+				} else if len(sourceTagStr) == 3 {
+					sourceTag = sourceTagStr[2]
 				}
 
 				targets := []*commonmodels.DistributeTarget{}
