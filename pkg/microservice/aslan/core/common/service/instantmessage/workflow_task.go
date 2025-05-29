@@ -1020,5 +1020,7 @@ func (w *Service) sendNotification(title, content string, notify *models.NotifyC
 			return err
 		}
 	}
+
+	log.Infof("Send %s notification %s success", notify.WebHookType, title)
 	return nil
 }
