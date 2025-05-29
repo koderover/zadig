@@ -122,20 +122,40 @@ func Start(ctx context.Context) {
 		Development: commonconfig.Mode() != setting.ReleaseMode,
 	})
 
+	start := time.Now().UnixMilli()
 	initDatabaseConnection()
+	log.Infof("init database connection took %s milli seconds", time.Now().UnixMilli()-start)
+	start = time.Now().UnixMilli()
 	initKlock()
+	log.Infof("init klock took %s milli seconds", time.Now().UnixMilli()-start)
+	start = time.Now().UnixMilli()
 	initReleasePlanWatcher()
+	log.Infof("init release plan watcher took %s milli seconds", time.Now().UnixMilli()-start)
+	start = time.Now().UnixMilli()
+
 	initSprintManagementWatcher()
+	log.Infof("init sprint management watcher took %s milli seconds", time.Now().UnixMilli()-start)
+	start = time.Now().UnixMilli()
 
 	initService()
+	log.Infof("init service took %s milli seconds", time.Now().UnixMilli()-start)
+	start = time.Now().UnixMilli()
 	initDinD()
+	log.Infof("init dind took %s milli seconds", time.Now().UnixMilli()-start)
+	start = time.Now().UnixMilli()
 	initResourcesForExternalClusters()
+	log.Infof("init external clusters took %s milli seconds", time.Now().UnixMilli()-start)
+	start = time.Now().UnixMilli()
 
 	systemservice.SetProxyConfig()
+	log.Infof("SetProxyConfig took %s milli seconds", time.Now().UnixMilli()-start)
+	start = time.Now().UnixMilli()
 
 	//workflowservice.InitPipelineController()
 
 	workflowcontroller.InitWorkflowController()
+	log.Infof("InitWorkflowController took %s milli seconds", time.Now().UnixMilli()-start)
+	start = time.Now().UnixMilli()
 
 	//Parse the workload dependencies configMap, PVC, ingress, secret
 	go environmentservice.StartClusterInformer()
@@ -146,9 +166,17 @@ func Start(ctx context.Context) {
 
 	initRsaKey()
 
+	log.Infof("initRsaKey took %s milli seconds", time.Now().UnixMilli()-start)
+	start = time.Now().UnixMilli()
+
 	initCron()
 
+	log.Infof("initCron took %s milli seconds", time.Now().UnixMilli()-start)
+	start = time.Now().UnixMilli()
+
 	initEventBusSubscription()
+	log.Infof("initEventBusSubscription took %s milli seconds", time.Now().UnixMilli()-start)
+	log.Infof("Startup done.")
 }
 
 func Stop(ctx context.Context) {

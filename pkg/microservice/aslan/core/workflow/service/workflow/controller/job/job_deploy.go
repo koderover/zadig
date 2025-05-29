@@ -696,8 +696,8 @@ func (j DeployJobController) GetVariableList(jobName string, getAggregatedVariab
 		images := make([]string, 0)
 		svcs := make([]string, 0)
 		for _, svc := range j.jobSpec.Services {
-			svcs = append(svcs, svc.ServiceName)
 			for _, module := range svc.Modules {
+				svcs = append(svcs, fmt.Sprintf("%s/%s", module.ServiceModule, svc.ServiceName))
 				images = append(images, module.Image)
 			}
 		}
