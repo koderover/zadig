@@ -39,11 +39,13 @@ import (
 	templaterepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	larkservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/lark"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/webhooknotify"
+	runtimeWorkflowController "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/workflowcontroller"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	userclient "github.com/koderover/zadig/v2/pkg/shared/client/user"
 	"github.com/koderover/zadig/v2/pkg/tool/lark"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/types"
+	jobspec "github.com/koderover/zadig/v2/pkg/types/job"
 	"github.com/koderover/zadig/v2/pkg/types/step"
 	"github.com/koderover/zadig/v2/pkg/util"
 )
@@ -549,10 +551,9 @@ func (w *Service) getNotificationContent(notify *models.NotifyCtl, task *models.
 					prInfo = strings.Join(prInfoList, " ") + " "
 				}
 				image := ""
-				for _, env := range jobSpec.Properties.Envs {
-					if env.Key == "IMAGE" {
-						image = env.Value
-					}
+				imageContextKey := runtimeWorkflowController.GetContextKey(jobspec.GetJobOutputKey(job.Key, "IMAGE"))
+				if task.GlobalContext != nil {
+					image = task.GlobalContext[imageContextKey]
 				}
 				if len(commitID) > 0 {
 					jobTplcontent += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**代码信息**：%s %s[%s](%s)  \n", branchTag, prInfo, commitID, gitCommitURL)
