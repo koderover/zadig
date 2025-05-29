@@ -571,25 +571,38 @@ func subElem(parent, sub string) bool {
 }
 
 func checkBranchMatch(service *commonmodels.Service, production bool, ref string, log *zap.SugaredLogger) bool {
-	createFrom := &commonmodels.CreateFromRepo{}
-	err := commonmodels.IToi(service.CreateFrom, createFrom)
-	if err != nil {
-		log.Errorf("cannot convert service.CreateFrom to commonmodels.CreateFromRepo, service name: %s, production: %v, err: %v", service.ServiceName, production, err)
-		return false
-	}
-	if createFrom.GitRepoConfig == nil {
-		log.Errorf("service %s, production %v, git repo config is nil", service.ServiceName, production)
-		return false
-	}
-	if !strings.HasPrefix(ref, "refs/heads/") {
-		log.Errorf("ref %s is not a branch", ref)
-		return false
+	if service.Type == setting.K8SDeployType {
+		if !strings.HasPrefix(ref, "refs/heads/") {
+			log.Errorf("ref %s is not a branch", ref)
+			return false
+		}
+
+		ref = strings.TrimPrefix(ref, "refs/heads/")
+		if service.BranchName != ref {
+			return false
+		}
+	} else if service.Type == setting.HelmDeployType {
+		createFrom := &commonmodels.CreateFromRepo{}
+		err := commonmodels.IToi(service.CreateFrom, createFrom)
+		if err != nil {
+			log.Errorf("cannot convert service.CreateFrom to commonmodels.CreateFromRepo, service name: %s, production: %v, err: %v", service.ServiceName, production, err)
+			return false
+		}
+		if createFrom.GitRepoConfig == nil {
+			log.Errorf("service %s, production %v, git repo config is nil", service.ServiceName, production)
+			return false
+		}
+		if !strings.HasPrefix(ref, "refs/heads/") {
+			log.Errorf("ref %s is not a branch", ref)
+			return false
+		}
+
+		ref = strings.TrimPrefix(ref, "refs/heads/")
+		if createFrom.GitRepoConfig.Branch != ref {
+			// log.Errorf("service %s, production %v, branch %s is not the same as ref %s", service.ServiceName, production, createFrom.GitRepoConfig.Branch, ref)
+			return false
+		}
 	}
 
-	ref = strings.TrimPrefix(ref, "refs/heads/")
-	if createFrom.GitRepoConfig.Branch != ref {
-		// log.Errorf("service %s, production %v, branch %s is not the same as ref %s", service.ServiceName, production, createFrom.GitRepoConfig.Branch, ref)
-		return false
-	}
 	return true
 }
