@@ -33,5 +33,6 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		codehost.PATCH("/:id", UpdateSystemCodeHost)
 		codehost.GET("/:id", GetSystemCodeHost)
 		codehost.GET("/:id/auth", AuthCodeHost)
+		codehost.POST("/validate", ValidateCodeHost)
 	}
 }

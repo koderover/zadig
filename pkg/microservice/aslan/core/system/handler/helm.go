@@ -131,6 +131,46 @@ func CreateHelmRepo(c *gin.Context) {
 	ctx.RespErr = service.CreateHelmRepo(args, ctx.Logger)
 }
 
+// @Summary 验证 Helm 仓库连接
+// @Description
+// @Tags 	system
+// @Accept 	json
+// @Produce json
+// @Param 	helmRepo		body		commonmodels.HelmRepo					true	"Helm 仓库信息"
+// @Success 200
+// @Router /api/aslan/system/helm/validate [post]
+func ValidateHelmRepo(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	args := new(commonmodels.HelmRepo)
+	if err := c.BindJSON(args); err != nil {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid helmRepo json args")
+		return
+	}
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if !ctx.Resources.SystemActions.HelmRepoManagement.Create && !ctx.Resources.SystemActions.HelmRepoManagement.Edit && !ctx.Resources.SystemActions.HelmRepoManagement.Delete {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	if _, err := url.Parse(args.URL); err != nil {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid url")
+		return
+	}
+
+	ctx.RespErr = service.ValidateHelmRepo(args, ctx.Logger)
+}
+
 func UpdateHelmRepo(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

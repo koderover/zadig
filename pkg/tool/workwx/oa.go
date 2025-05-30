@@ -30,7 +30,7 @@ type createApprovalTemplateReq struct {
 func (c *Client) CreateApprovalTemplate(templateName []*GeneralText, controls []*ApprovalControl) (string, error) {
 	url := fmt.Sprintf("%s/%s", c.Host, createApprovalTemplateDetailAPI)
 
-	accessToken, err := c.getAccessToken()
+	accessToken, err := c.getAccessToken(false)
 	if err != nil {
 		return "", err
 	}
@@ -76,7 +76,7 @@ func (c *Client) CreateApprovalInstance(templateID, applicant string, useTemplat
 
 	url := fmt.Sprintf("%s/%s", c.Host, createApprovalInstanceAPI)
 
-	accessToken, err := c.getAccessToken()
+	accessToken, err := c.getAccessToken(false)
 	if err != nil {
 		return "", err
 	}

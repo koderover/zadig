@@ -100,6 +100,38 @@ func CreateEmailHost(c *gin.Context) {
 	ctx.Resp, ctx.RespErr = service.CreateEmailHost(req, ctx.Logger)
 }
 
+// @Summary 验证邮箱连接
+// @Description
+// @Tags 	system
+// @Accept 	json
+// @Produce json
+// @Param 	emailHost		body		models.EmailHost					true	"邮箱信息"
+// @Success 200
+// @Router /api/aslan/system/email/host/validate [post]
+func ValidateEmailHost(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	if !ctx.Resources.IsSystemAdmin {
+		ctx.UnAuthorized = true
+		return
+	}
+
+	req := new(models.EmailHost)
+	if err := c.ShouldBindJSON(req); err != nil {
+		ctx.RespErr = err
+		return
+	}
+
+	ctx.RespErr = service.ValidateEmailHost(ctx, req)
+}
+
 func UpdateEmailHost(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

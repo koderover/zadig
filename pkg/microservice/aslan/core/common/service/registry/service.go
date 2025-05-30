@@ -37,6 +37,7 @@ import (
 	"github.com/docker/distribution"
 	"github.com/docker/distribution/manifest/schema2"
 	"github.com/docker/distribution/reference"
+	regstryapiv2 "github.com/docker/distribution/registry/api/v2"
 	"github.com/docker/distribution/registry/client"
 	"github.com/docker/distribution/registry/client/auth"
 	"github.com/docker/distribution/registry/client/auth/challenge"
@@ -77,6 +78,7 @@ type GetRepoImageDetailOption struct {
 }
 
 type Service interface {
+	ValidateRegistry(ep Endpoint, log *zap.SugaredLogger) error
 	ListRepoImages(option ListRepoImagesOption, log *zap.SugaredLogger) (*ReposResp, error)
 	GetImageInfo(option GetRepoImageDetailOption, log *zap.SugaredLogger) (*commonmodels.DeliveryImage, error)
 }
@@ -286,6 +288,38 @@ func (c *authClient) getImageInfo(repoName, tag string) (ci *containerInfo, err 
 	return
 }
 
+func (c *authClient) validateRegistry(repoName string) (err error) {
+	repo, err := c.getRepository(repoName + "/test")
+	if err != nil {
+		return
+	}
+
+	// Try to list tags to verify repository access
+	_, err = repo.Tags(c.ctx).All(c.ctx)
+	if err != nil {
+		if strings.Contains(err.Error(), regstryapiv2.ErrorCodeNameUnknown.Message()) {
+			return nil
+		}
+		return errors.Wrap(err, "验证镜像仓库失败")
+	}
+
+	return nil
+}
+
+func (s *v2RegistryService) ValidateRegistry(ep Endpoint, log *zap.SugaredLogger) (err error) {
+	c, err := s.createClient(ep, log)
+	if err != nil {
+		return
+	}
+
+	err = c.validateRegistry(ep.Namespace)
+	if err != nil {
+		return
+	}
+
+	return
+}
+
 func (s *v2RegistryService) GetImageInfo(option GetRepoImageDetailOption, log *zap.SugaredLogger) (di *commonmodels.DeliveryImage, err error) {
 	cli, err := s.createClient(option.Endpoint, log)
 	if err != nil {
@@ -399,6 +433,18 @@ func (s *swrService) createClient(ep Endpoint) (cli *swr.SwrClient) {
 	return client
 }
 
+func (s *swrService) ValidateRegistry(ep Endpoint, log *zap.SugaredLogger) (err error) {
+	svc := s.createClient(ep)
+
+	req := &model.ListNamespacesRequest{}
+	_, err = svc.ListNamespaces(req)
+	if err != nil {
+		return fmt.Errorf("list namespaces error: %s", err)
+	}
+
+	return nil
+}
+
 func (s *swrService) ListRepoImages(option ListRepoImagesOption, log *zap.SugaredLogger) (resp *ReposResp, err error) {
 	swrCli := s.createClient(option.Endpoint)
 
@@ -491,6 +537,21 @@ func (s *ecrService) getECRService(ep Endpoint, log *zap.SugaredLogger) (*ecr.EC
 		return nil, err
 	}
 	return ecr.New(sess), nil
+}
+
+func (s *ecrService) ValidateRegistry(ep Endpoint, log *zap.SugaredLogger) (err error) {
+	svc, err := s.getECRService(ep, log)
+	if err != nil {
+		return err
+	}
+
+	req := &ecr.DescribeRegistryInput{}
+	_, err = svc.DescribeRegistry(req)
+	if err != nil {
+		return fmt.Errorf("describe registry error: %s", err)
+	}
+
+	return nil
 }
 
 func (s *ecrService) ListRepoImages(option ListRepoImagesOption, log *zap.SugaredLogger) (resp *ReposResp, err error) {

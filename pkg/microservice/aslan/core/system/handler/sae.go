@@ -233,8 +233,8 @@ func DeleteSAE(c *gin.Context) {
 	ctx.RespErr = sae.DeleteSAE(id)
 }
 
-// @Summary Validate SAE
-// @Description Validate SAE
+// @Summary 验证 SAE 连接
+// @Description
 // @Tags 	system
 // @Accept 	json
 // @Produce json

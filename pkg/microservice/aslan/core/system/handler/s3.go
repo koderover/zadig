@@ -154,6 +154,49 @@ func CreateS3Storage(c *gin.Context) {
 	ctx.RespErr = service.CreateS3Storage(ctx.UserName, args, ctx.Logger)
 }
 
+// @Summary 验证对象存储连接
+// @Description
+// @Tags 	system
+// @Accept 	json
+// @Produce json
+// @Param 	s3Storage		body		commonmodels.S3Storage					true	"对象存储信息"
+// @Success 200
+// @Router /api/aslan/system/s3storage/validate [post]
+func ValidateS3Storage(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if !ctx.Resources.SystemActions.S3StorageManagement.Create && !ctx.Resources.SystemActions.S3StorageManagement.Edit && !ctx.Resources.SystemActions.S3StorageManagement.View {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	args := new(commonmodels.S3Storage)
+	if err := c.BindJSON(args); err != nil {
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	storage := &s3.S3{
+		S3Storage: args,
+	}
+	if err := storage.Validate(); err != nil {
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	ctx.RespErr = service.ValidateS3Storage(args, ctx.Logger)
+}
+
 func GetS3Storage(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

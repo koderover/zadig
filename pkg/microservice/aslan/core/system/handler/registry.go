@@ -272,6 +272,46 @@ func UpdateRegistryNamespace(c *gin.Context) {
 	ctx.RespErr = service.UpdateRegistryNamespace(ctx.UserName, c.Param("id"), args, ctx.Logger)
 }
 
+// @Summary 验证镜像仓库连接
+// @Description
+// @Tags 	registry
+// @Accept 	json
+// @Produce json
+// @Param 	registry		body		commonmodels.RegistryNamespace					true	"镜像仓库信息"
+// @Success 200
+// @Router /api/aslan/system/registry/validate [post]
+func ValidateRegistryNamespace(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if !ctx.Resources.SystemActions.RegistryManagement.Create && !ctx.Resources.SystemActions.RegistryManagement.Edit && !ctx.Resources.SystemActions.RegistryManagement.View {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	args := new(commonmodels.RegistryNamespace)
+	if err := c.BindJSON(args); err != nil {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
+		return
+	}
+
+	if err := args.Validate(); err != nil {
+		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	ctx.RespErr = service.ValidateRegistryNamespace(args, ctx.Logger)
+}
+
 func DeleteRegistryNamespace(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

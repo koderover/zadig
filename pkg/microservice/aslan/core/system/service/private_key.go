@@ -17,11 +17,13 @@ limitations under the License.
 package service
 
 import (
+	"encoding/base64"
 	"fmt"
 	"strings"
+	"time"
 
-	"github.com/koderover/zadig/v2/pkg/util"
 	"go.uber.org/zap"
+	gossh "golang.org/x/crypto/ssh"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
@@ -34,6 +36,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/tool/crypto"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/types"
+	"github.com/koderover/zadig/v2/pkg/util"
 )
 
 func ListPrivateKeys(encryptedKey, projectName, keyword string, systemOnly bool, log *zap.SugaredLogger) ([]*commonmodels.PrivateKey, error) {
@@ -155,6 +158,51 @@ func UpdatePrivateKey(id string, args *commonmodels.PrivateKey, log *zap.Sugared
 		log.Errorf("failed to update privateKey, error: %s", err)
 		return e.ErrUpdatePrivateKey.AddErr(err)
 	}
+	return nil
+}
+
+func ValidatePrivateKey(args *commonmodels.PrivateKey, log *zap.SugaredLogger) error {
+	if args.ScheduleWorkflow {
+		return fmt.Errorf("validate only support ssh type")
+	}
+
+	privateKey, err := base64.StdEncoding.DecodeString(args.PrivateKey)
+	if err != nil {
+		return fmt.Errorf("SSH密钥格式错误: %v", err)
+	}
+
+	signer, err := gossh.ParsePrivateKey(privateKey)
+	if err != nil {
+		return fmt.Errorf("SSH密钥格式错误: %v", err)
+	}
+
+	config := &gossh.ClientConfig{
+		User: args.UserName,
+		Auth: []gossh.AuthMethod{
+			gossh.PublicKeys(signer),
+		},
+		HostKeyCallback: gossh.InsecureIgnoreHostKey(),
+		Timeout:         5 * time.Second,
+	}
+
+	// 尝试建立 SSH 连接
+	addr := fmt.Sprintf("%s:%d", args.IP, args.Port)
+	client, err := gossh.Dial("tcp", addr, config)
+	if err != nil {
+		if strings.Contains(err.Error(), "ssh: handshake failed") {
+			return fmt.Errorf("SSH连接失败，请确认：\n1. SSH密钥是否正确\n2. 服务器是否允许SSH连接")
+		}
+		return fmt.Errorf("SSH连接失败: %v", err)
+	}
+	defer client.Close()
+
+	// 如果能成功建立连接并创建会话，说明 SSH 密钥是有效的
+	session, err := client.NewSession()
+	if err != nil {
+		return fmt.Errorf("SSH连接验证失败: %v", err)
+	}
+	session.Close()
+
 	return nil
 }
 

@@ -17,23 +17,29 @@ limitations under the License.
 package service
 
 import (
+	"crypto/tls"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
+	"strconv"
+	"strings"
 	"time"
 
 	"go.uber.org/zap"
+	gossh "golang.org/x/crypto/ssh"
 	"golang.org/x/oauth2"
 
-	"github.com/koderover/zadig/v2/pkg/config"
+	zadigconfig "github.com/koderover/zadig/v2/pkg/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/codehost/internal/oauth"
 	"github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/codehost/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/codehost/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/shared/client/aslan"
+	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	"github.com/koderover/zadig/v2/pkg/tool/crypto"
 	"github.com/koderover/zadig/v2/pkg/types"
 )
@@ -70,7 +76,7 @@ func CreateSystemCodeHost(codehost *models.CodeHost, _ *zap.SugaredLogger) (*mod
 }
 
 func EncypteCodeHost(encryptedKey string, codeHosts []*models.CodeHost, log *zap.SugaredLogger) ([]*models.CodeHost, error) {
-	aesKey, err := aslan.New(config.AslanServiceAddress()).GetTextFromEncryptedKey(encryptedKey)
+	aesKey, err := aslan.New(zadigconfig.AslanServiceAddress()).GetTextFromEncryptedKey(encryptedKey)
 	if err != nil {
 		log.Errorf("ListCodeHost GetTextFromEncryptedKey error:%s", err)
 		return nil, err
@@ -277,4 +283,150 @@ func handle(url *url.URL, err error) (string, error) {
 		url.Query().Add("success", "true")
 	}
 	return url.String(), nil
+}
+
+func ValidateCodeHost(ctx *internalhandler.Context, codeHost *models.CodeHost) error {
+	if codeHost.AuthType == types.SSHAuthType {
+		// 检查仓库地址格式
+		if !strings.HasPrefix(codeHost.Address, "git@") && !strings.HasPrefix(codeHost.Address, "ssh://") {
+			return fmt.Errorf("仓库地址格式错误，SSH地址应以 git@ 或 ssh:// 开头")
+		}
+
+		// 解析主机地址
+		host := getHost(codeHost.Address)
+		if host == "" {
+			return fmt.Errorf("无效的SSH地址: %s", codeHost.Address)
+		}
+
+		// 解析端口
+		port := 22
+		if strings.Contains(codeHost.Address, ":") {
+			parts := strings.Split(codeHost.Address, ":")
+			if len(parts) > 1 {
+				portStr := strings.Split(parts[1], "/")[0]
+				var err error
+				port, err = strconv.Atoi(portStr)
+				if err != nil {
+					return fmt.Errorf("无效的端口号: %s", portStr)
+				}
+			}
+		}
+
+		// 创建 SSH 客户端配置
+		signer, err := gossh.ParsePrivateKey([]byte(codeHost.SSHKey))
+		if err != nil {
+			return fmt.Errorf("SSH密钥格式错误: %v", err)
+		}
+
+		config := &gossh.ClientConfig{
+			User: "git",
+			Auth: []gossh.AuthMethod{
+				gossh.PublicKeys(signer),
+			},
+			HostKeyCallback: gossh.InsecureIgnoreHostKey(),
+			Timeout:         5 * time.Second,
+		}
+
+		// 尝试建立 SSH 连接
+		addr := fmt.Sprintf("%s:%d", host, port)
+		client, err := gossh.Dial("tcp", addr, config)
+		if err != nil {
+			if strings.Contains(err.Error(), "ssh: handshake failed") {
+				return fmt.Errorf("SSH连接失败，请确认：\n1. SSH密钥是否正确\n2. 服务器是否允许SSH连接")
+			}
+			return fmt.Errorf("SSH连接失败: %v", err)
+		}
+		defer client.Close()
+
+		// 如果能成功建立连接并创建会话，说明 SSH 密钥是有效的
+		session, err := client.NewSession()
+		if err != nil {
+			return fmt.Errorf("SSH连接验证失败: %v", err)
+		}
+		session.Close()
+
+		return nil
+	} else if codeHost.AuthType == types.PrivateAccessTokenAuthType {
+		if codeHost.PrivateAccessToken == "" {
+			return fmt.Errorf("private access token is empty")
+		}
+
+		// 尝试访问平台根目录
+		req, err := http.NewRequest("GET", codeHost.Address, nil)
+		if err != nil {
+			return fmt.Errorf("创建请求失败: %v", err)
+		}
+
+		// 设置认证头，同时尝试两种常见的认证方式
+		req.Header.Set("Authorization", fmt.Sprintf("token %s", codeHost.PrivateAccessToken))
+		req.Header.Set("PRIVATE-TOKEN", codeHost.PrivateAccessToken)
+
+		// 发送请求
+		client := &http.Client{
+			Timeout: 10 * time.Second,
+			// 允许自签名证书
+			Transport: &http.Transport{
+				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+			},
+		}
+		resp, err := client.Do(req)
+		if err != nil {
+			if strings.Contains(err.Error(), "connection refused") {
+				return fmt.Errorf("无法连接到代码托管平台，请确认：\n1. 网络连接是否正常\n2. 平台地址是否正确")
+			}
+			return fmt.Errorf("请求失败: %v", err)
+		}
+
+		if resp.StatusCode != http.StatusOK {
+			switch resp.StatusCode {
+			case http.StatusUnauthorized:
+				return fmt.Errorf("Token 无效或已过期，请重新生成 Token")
+			case http.StatusForbidden:
+				return fmt.Errorf("Token 权限不足，请确认 Token 是否有足够的权限")
+			case http.StatusNotFound:
+				return fmt.Errorf("无法访问代码托管平台，请确认：\n1. 平台地址是否正确\n2. Token 是否有权限访问该平台")
+			default:
+				body, err := io.ReadAll(resp.Body)
+				if err != nil {
+					return fmt.Errorf("读取响应失败: %v", err)
+				}
+
+				return fmt.Errorf("验证失败 (HTTP %d): %s", resp.StatusCode, string(body))
+			}
+		}
+
+		return nil
+	} else {
+		return fmt.Errorf("illegal auth type: %s", codeHost.AuthType)
+	}
+}
+
+func getHost(address string) string {
+	// 处理 ssh:// 协议
+	if strings.HasPrefix(address, "ssh://") {
+		// 移除 ssh:// 前缀
+		address = strings.TrimPrefix(address, "ssh://")
+		// 如果地址中包含 @，取 @ 后面的部分
+		if idx := strings.Index(address, "@"); idx != -1 {
+			address = address[idx+1:]
+		}
+		// 如果地址中包含 :，取 : 前面的部分
+		if idx := strings.Index(address, ":"); idx != -1 {
+			address = address[:idx]
+		}
+		return address
+	}
+
+	// 处理 git@ 格式
+	parts := strings.Split(address, "@")
+	if len(parts) > 1 {
+		// 如果地址中包含 :，取 : 前面的部分
+		host := parts[1]
+		if idx := strings.Index(host, ":"); idx != -1 {
+			host = host[:idx]
+		}
+		return host
+	}
+
+	return ""
 }

@@ -26,7 +26,7 @@ import (
 func (c *Client) ListDepartmentUsers(departmentID int) (*ListDepartmentUserResp, error) {
 	url := fmt.Sprintf("%s/%s", c.Host, listDepartmentUserAPI)
 
-	accessToken, err := c.getAccessToken()
+	accessToken, err := c.getAccessToken(false)
 	if err != nil {
 		return nil, err
 	}
@@ -61,7 +61,7 @@ func (c *Client) FindUserByPhone(phone int) (*FindUserByPhoneResp, error) {
 	}
 	url := fmt.Sprintf("%s/%s", c.Host, getUserIDByPhoneAPI)
 
-	accessToken, err := c.getAccessToken()
+	accessToken, err := c.getAccessToken(false)
 	if err != nil {
 		return nil, err
 	}
