@@ -44,6 +44,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/tool/lark"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/types"
+	jobspec "github.com/koderover/zadig/v2/pkg/types/job"
 	"github.com/koderover/zadig/v2/pkg/types/step"
 	"github.com/koderover/zadig/v2/pkg/util"
 )
@@ -549,10 +550,9 @@ func (w *Service) getNotificationContent(notify *models.NotifyCtl, task *models.
 					prInfo = strings.Join(prInfoList, " ") + " "
 				}
 				image := ""
-				for _, env := range jobSpec.Properties.Envs {
-					if env.Key == "IMAGE" {
-						image = env.Value
-					}
+				imageContextKey := strings.Join(strings.Split(jobspec.GetJobOutputKey(job.Key, "IMAGE"), "."), "@?")
+				if task.GlobalContext != nil {
+					image = task.GlobalContext[imageContextKey]
 				}
 				if len(commitID) > 0 {
 					jobTplcontent += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**代码信息**：%s %s[%s](%s)  \n", branchTag, prInfo, commitID, gitCommitURL)
@@ -567,7 +567,7 @@ func (w *Service) getNotificationContent(notify *models.NotifyCtl, task *models.
 						}
 					}
 				}
-				if image != "" && !strings.HasPrefix(image, "{{.") && !strings.Contains(image, "}}") {
+				if job.Status == config.StatusPassed && image != "" && !strings.HasPrefix(image, "{{.") && !strings.Contains(image, "}}") {
 					jobTplcontent += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**镜像信息**：%s  \n", image)
 					mailJobTplcontent += fmt.Sprintf("镜像信息：%s \n", image)
 					workflowNotifyJobTaskSpec.Image = image
