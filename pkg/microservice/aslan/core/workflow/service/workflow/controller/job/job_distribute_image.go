@@ -300,12 +300,14 @@ func (j DistributeImageJobController) GetVariableList(jobName string, getAggrega
 	}
 
 	if getRuntimeVariables {
-		resp = append(resp, &commonmodels.KeyVal{
-			Key:          strings.Join([]string{"job", j.name, "<SERVICE>", "<MODULE>", "output", "IMAGE"}, "."),
-			Value:        "",
-			Type:         "string",
-			IsCredential: false,
-		})
+		if getPlaceHolderVariables {
+			resp = append(resp, &commonmodels.KeyVal{
+				Key:          strings.Join([]string{"job", j.name, "<SERVICE>", "<MODULE>", "output", "IMAGE"}, "."),
+				Value:        "",
+				Type:         "string",
+				IsCredential: false,
+			})
+		}
 	}
 
 	if getPlaceHolderVariables {
