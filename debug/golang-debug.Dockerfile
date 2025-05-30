@@ -1,9 +1,9 @@
-FROM golang:1.21.1-alpine
+FROM golang:1.24.1-alpine
 
 WORKDIR /app
 
 ENV CGO_ENABLED=0 GOOS=linux GOARCH=amd64
-# ENV GOPROXY=https://goproxy.cn,direct
+ENV GOPROXY=https://goproxy.cn,direct
 ENV GOCACHE=/gocache
 ENV VERSION=1.4.0
 
