@@ -485,11 +485,11 @@ func CheckWorkflowV4Approval(c *gin.Context) {
 	ctx.RespErr = workflow.CheckWorkflowV4ApprovalInitiator(c.Param("name"), ctx.UserID, ctx.Logger)
 }
 
-func ListWebhookForWorkflowV4(c *gin.Context) {
+func ListGithookForWorkflowV4(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.RespErr = workflow.ListWebhookForWorkflowV4(c.Query("workflowName"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = workflow.ListGithookForWorkflowV4(ctx, c.Query("workflowName"))
 }
 
 func CreateWebhookForWorkflowV4(c *gin.Context) {
@@ -502,7 +502,7 @@ func CreateWebhookForWorkflowV4(c *gin.Context) {
 		return
 	}
 
-	req := new(commonmodels.WorkflowV4Hook)
+	req := new(commonmodels.WorkflowV4GitHook)
 	if err := c.ShouldBindJSON(req); err != nil {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
@@ -533,7 +533,7 @@ func CreateWebhookForWorkflowV4(c *gin.Context) {
 		}
 	}
 
-	ctx.RespErr = workflow.CreateWebhookForWorkflowV4(c.Param("workflowName"), req, ctx.Logger)
+	ctx.RespErr = workflow.CreateGithookForWorkflowV4(ctx, c.Param("workflowName"), req)
 }
 
 func UpdateWebhookForWorkflowV4(c *gin.Context) {
@@ -546,7 +546,7 @@ func UpdateWebhookForWorkflowV4(c *gin.Context) {
 		return
 	}
 
-	req := new(commonmodels.WorkflowV4Hook)
+	req := new(commonmodels.WorkflowV4GitHook)
 	if err := c.ShouldBindJSON(req); err != nil {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
@@ -577,7 +577,7 @@ func UpdateWebhookForWorkflowV4(c *gin.Context) {
 		}
 	}
 
-	ctx.RespErr = workflow.UpdateWebhookForWorkflowV4(c.Param("workflowName"), req, ctx.Logger)
+	ctx.RespErr = workflow.UpdateWebhookForWorkflowV4(ctx, c.Param("workflowName"), req)
 }
 
 func DeleteWebhookForWorkflowV4(c *gin.Context) {
@@ -616,7 +616,7 @@ func DeleteWebhookForWorkflowV4(c *gin.Context) {
 		}
 	}
 
-	ctx.RespErr = workflow.DeleteWebhookForWorkflowV4(c.Param("workflowName"), c.Param("triggerName"), ctx.Logger)
+	ctx.RespErr = workflow.DeleteWebhookForWorkflowV4(ctx, c.Param("workflowName"), c.Param("triggerName"))
 }
 
 func CreateJiraHookForWorkflowV4(c *gin.Context) {
