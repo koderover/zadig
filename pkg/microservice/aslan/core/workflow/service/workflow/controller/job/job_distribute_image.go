@@ -300,7 +300,20 @@ func (j DistributeImageJobController) GetVariableList(jobName string, getAggrega
 	}
 
 	if getRuntimeVariables {
-		// no output
+		services, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(j.workflow.Project)
+		if err != nil {
+			return nil, fmt.Errorf("failed to list services, error: %s", err)
+		}
+		for _, svcTemplate := range services {
+			for _, container := range svcTemplate.Containers {
+				resp = append(resp, &commonmodels.KeyVal{
+					Key:          strings.Join([]string{"job", j.name, svcTemplate.ServiceName, container.Name, "output", "IMAGE"}, "."),
+					Value:        "",
+					Type:         "string",
+					IsCredential: false,
+				})
+			}
+		}
 	}
 
 	if getPlaceHolderVariables {
