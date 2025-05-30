@@ -130,10 +130,9 @@ func PrepareDinD(client *kubernetes.Clientset, namespace string, regList []*Regi
 }
 
 func ensureCertificateSecret(client *kubernetes.Clientset, secretName, namespace, cert string) error {
-	certify := make([]byte, 0)
-	base64.StdEncoding.Encode(certify, []byte(cert))
+	certify := base64.StdEncoding.EncodeToString([]byte(cert))
 	datamap := map[string][]byte{
-		"ca.crt": certify,
+		"ca.crt": []byte(certify),
 	}
 
 	secret, err := client.CoreV1().Secrets(namespace).Get(context.TODO(), secretName, metav1.GetOptions{})
