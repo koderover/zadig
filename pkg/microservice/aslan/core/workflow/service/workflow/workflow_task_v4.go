@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"net/url"
 	"path"
 	"path/filepath"
 	"strconv"
@@ -57,6 +58,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/shared/client/user"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
+	"github.com/koderover/zadig/v2/pkg/tool/apollo"
 	"github.com/koderover/zadig/v2/pkg/tool/cache"
 	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
@@ -1114,6 +1116,11 @@ type NacosRevertInput struct {
 	NacosDatas        []*commonmodels.NacosData `json:"nacos_datas"`
 }
 
+type ApolloRevertInput struct {
+	CommonRevertInput `json:",inline"`
+	ApolloDatas       []*commonmodels.ApolloNamespace `json:"apollo_datas"`
+}
+
 func RevertWorkflowTaskV4Job(ctx *internalhandler.Context, workflowName, jobName string, taskID int64, input interface{}, userName, userID string, logger *zap.SugaredLogger) error {
 	task, err := commonrepo.NewworkflowTaskv4Coll().Find(workflowName, taskID)
 	if err != nil {
@@ -1346,6 +1353,103 @@ func RevertWorkflowTaskV4Job(ctx *internalhandler.Context, workflowName, jobName
 					}()
 
 					return nil
+				case string(config.JobApollo):
+					jobTaskSpec := &commonmodels.JobTaskApolloSpec{}
+					if err := commonmodels.IToi(job.Spec, jobTaskSpec); err != nil {
+						logger.Error(err)
+						return fmt.Errorf("failed to decode apollo job spec, error: %s", err)
+					}
+
+					inputSpec := new(ApolloRevertInput)
+					err = commonmodels.IToi(input, inputSpec)
+					if err != nil {
+						return fmt.Errorf("failed to decode apollo job spec, error: %s", err)
+					}
+
+					info, err := mongodb.NewConfigurationManagementColl().GetApolloByID(context.Background(), jobTaskSpec.ApolloID)
+					if err != nil {
+						return fmt.Errorf("failed to get apollo info, error: %s", err)
+					}
+
+					link := fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/custom/%s/%d?display_name=%s",
+						config2.SystemAddress(),
+						task.ProjectName,
+						task.WorkflowName,
+						task.TaskID,
+						url.QueryEscape(task.WorkflowDisplayName))
+
+					var fail bool
+					revertDatas := make([]*commonmodels.JobTaskApolloNamespace, 0)
+
+					client := apollo.NewClient(info.ServerAddress, info.Token)
+					for _, namespace := range inputSpec.ApolloDatas {
+						revertData := &commonmodels.JobTaskApolloNamespace{
+							ApolloNamespace: commonmodels.ApolloNamespace{
+								AppID:      namespace.AppID,
+								Env:        namespace.Env,
+								ClusterID:  namespace.ClusterID,
+								Namespace:  namespace.Namespace,
+								Type:       namespace.Type,
+								KeyValList: namespace.KeyValList,
+							},
+						}
+						revertDatas = append(revertDatas, revertData)
+
+						for _, kv := range namespace.KeyValList {
+							err := client.UpdateKeyVal(namespace.AppID, namespace.Env, namespace.ClusterID, namespace.Namespace, kv.Key, kv.Val, info.ApolloAuthConfig.User)
+							if err != nil {
+								fail = true
+								revertData.Error = fmt.Sprintf("update error: %v", err)
+								continue
+							}
+
+						}
+						err := client.Release(namespace.AppID, namespace.Env, namespace.ClusterID, namespace.Namespace,
+							&apollo.ReleaseArgs{
+								ReleaseTitle:   time.Now().Format("20060102150405") + "-zadig",
+								ReleaseComment: fmt.Sprintf("工作流 %s 回滚\n详情: %s", task.WorkflowDisplayName, link),
+								ReleasedBy:     info.ApolloAuthConfig.User,
+							})
+						if err != nil {
+							fail = true
+							revertData.Error = fmt.Sprintf("release error: %v", err)
+						}
+					}
+
+					if fail {
+						return fmt.Errorf("some errors occurred in revert apollo job")
+					}
+
+					job.Reverted = true
+					task.Reverted = true
+					err = commonrepo.NewworkflowTaskv4Coll().Update(task.ID.Hex(), task)
+					if err != nil {
+						log.Errorf("failed to update apollo job revert information, error: %s", err)
+					}
+
+					revertTaskSpec := &commonmodels.JobTaskApolloSpec{
+						ApolloID:      jobTaskSpec.ApolloID,
+						NamespaceList: revertDatas,
+						JobTaskCommonRevertSpec: commonmodels.JobTaskCommonRevertSpec{
+							Detail: inputSpec.Detail,
+						},
+					}
+
+					_, err = commonrepo.NewWorkflowTaskRevertColl().Create(&commonmodels.WorkflowTaskRevert{
+						TaskID:        taskID,
+						WorkflowName:  workflowName,
+						JobName:       jobName,
+						RevertSpec:    revertTaskSpec,
+						CreateTime:    time.Now().Unix(),
+						TaskCreator:   userName,
+						TaskCreatorID: userID,
+						Status:        config.StatusPassed,
+					})
+					if err != nil {
+						log.Warnf("failed to insert revert task logs, error: %s", err)
+					}
+
+					return nil
 				case string(config.JobNacos):
 					jobTaskSpec := &commonmodels.JobTaskNacosSpec{}
 					if err := commonmodels.IToi(job.Spec, jobTaskSpec); err != nil {
@@ -1533,13 +1637,13 @@ func RevertWorkflowTaskV4Job(ctx *internalhandler.Context, workflowName, jobName
 
 					return nil
 				default:
-					return fmt.Errorf("job of type: %s does not support reverting yet")
+					return fmt.Errorf("job of type: %s does not support reverting yet", job.JobType)
 				}
 			}
 		}
 	}
 
-	return fmt.Errorf("failed to revert job: %s, job not found")
+	return fmt.Errorf("failed to revert job: %s, job not found", jobName)
 }
 
 func GetWorkflowTaskV4JobRevert(workflowName, jobName string, taskID int64, logger *zap.SugaredLogger) (interface{}, error) {
