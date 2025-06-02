@@ -538,6 +538,8 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 			workflowTask.ApprovalID = approvalTicket.ApprovalID
 		}
 
+		// Always use the latest workflow's notification settings
+		workflow.NotifyCtls = originalWorkflow.NotifyCtls
 		workflowTask.Hash = originalWorkflow.Hash
 	} else {
 		if workflow.Disabled {
