@@ -28,7 +28,6 @@ import (
 	"time"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/controller"
-	"gopkg.in/yaml.v3"
 
 	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	"github.com/pingcap/tidb/parser"
@@ -926,7 +925,7 @@ func ensureWorkflowV4JobResp(job *commonmodels.Job, logger *zap.SugaredLogger, b
 
 		job.Spec = spec
 	}
-	if job.JobType == config.JobApproval { 
+	if job.JobType == config.JobApproval {
 		// to a type assertion to make sure some field goes through
 		spec := &commonmodels.ApprovalJobSpec{}
 		if err := commonmodels.IToi(job.Spec, spec); err != nil {
