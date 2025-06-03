@@ -28,6 +28,7 @@ import (
 	"time"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/controller"
+	"gopkg.in/yaml.v3"
 
 	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	"github.com/pingcap/tidb/parser"
@@ -283,9 +284,15 @@ func FindWorkflowV4(encryptedKey, name string, logger *zap.SugaredLogger) (*comm
 		return workflow, e.ErrFindWorkflow.AddErr(err)
 	}
 
+	bytes, _ := yaml.Marshal(workflow)
+	logger.Debugf("workflow we get is: ==================\n%s", string(bytes))
+
 	if err := ensureWorkflowV4Resp(encryptedKey, workflow, logger); err != nil {
 		return workflow, err
 	}
+
+	bytes2, _ := yaml.Marshal(workflow)
+	logger.Debugf("workflow we get is: ==================\n%s", string(bytes2))
 	return workflow, err
 }
 
