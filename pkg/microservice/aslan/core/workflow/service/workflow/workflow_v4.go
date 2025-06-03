@@ -284,15 +284,10 @@ func FindWorkflowV4(encryptedKey, name string, logger *zap.SugaredLogger) (*comm
 		return workflow, e.ErrFindWorkflow.AddErr(err)
 	}
 
-	bytes, _ := yaml.Marshal(workflow)
-	logger.Debugf("workflow we get is: ==================\n%s", string(bytes))
-
 	if err := ensureWorkflowV4Resp(encryptedKey, workflow, logger); err != nil {
 		return workflow, err
 	}
 
-	bytes2, _ := yaml.Marshal(workflow)
-	logger.Debugf("workflow we get is: ==================\n%s", string(bytes2))
 	return workflow, err
 }
 
@@ -925,6 +920,16 @@ func ensureWorkflowV4JobResp(job *commonmodels.Job, logger *zap.SugaredLogger, b
 
 		err := spec.GenerateNewNotifyConfigWithOldData()
 		if err != nil {
+			logger.Errorf(err.Error())
+			return e.ErrFindWorkflow.AddErr(err)
+		}
+
+		job.Spec = spec
+	}
+	if job.JobType == config.JobApproval { 
+		// to a type assertion to make sure some field goes through
+		spec := &commonmodels.ApprovalJobSpec{}
+		if err := commonmodels.IToi(job.Spec, spec); err != nil {
 			logger.Errorf(err.Error())
 			return e.ErrFindWorkflow.AddErr(err)
 		}
