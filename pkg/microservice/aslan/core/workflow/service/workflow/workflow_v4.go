@@ -286,6 +286,7 @@ func FindWorkflowV4(encryptedKey, name string, logger *zap.SugaredLogger) (*comm
 	if err := ensureWorkflowV4Resp(encryptedKey, workflow, logger); err != nil {
 		return workflow, err
 	}
+
 	return workflow, err
 }
 
@@ -918,6 +919,16 @@ func ensureWorkflowV4JobResp(job *commonmodels.Job, logger *zap.SugaredLogger, b
 
 		err := spec.GenerateNewNotifyConfigWithOldData()
 		if err != nil {
+			logger.Errorf(err.Error())
+			return e.ErrFindWorkflow.AddErr(err)
+		}
+
+		job.Spec = spec
+	}
+	if job.JobType == config.JobApproval {
+		// to a type assertion to make sure some field goes through
+		spec := &commonmodels.ApprovalJobSpec{}
+		if err := commonmodels.IToi(job.Spec, spec); err != nil {
 			logger.Errorf(err.Error())
 			return e.ErrFindWorkflow.AddErr(err)
 		}
