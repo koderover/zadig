@@ -21,6 +21,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"sync"
@@ -190,7 +191,7 @@ type ErrorResponder struct {
 }
 
 func (e *ErrorResponder) Error(w http.ResponseWriter, req *http.Request, err error) {
-	// log.Errorf("respond error: %v", err)
+	log.Errorf("respond error: %v", err)
 	w.WriteHeader(http.StatusInternalServerError)
 	_, _ = w.Write([]byte(err.Error()))
 }
@@ -456,6 +457,95 @@ func CheckReplicas(ctx context.Context, handler *remotedialer.Server) error {
 
 			time.Sleep(1 * time.Second)
 		}
+	}
+}
+
+func CheckConnectionStatus(ctx context.Context, handler *remotedialer.Server) {
+	for {
+		time.Sleep(10 * time.Second)
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			checkConnectionStatus(handler)
+		}
+	}
+}
+
+type responseRecorder struct {
+	statusCode int
+	body       io.ReadCloser
+	header     http.Header
+}
+
+func (r *responseRecorder) Header() http.Header {
+	if r.header == nil {
+		r.header = make(http.Header)
+	}
+	return r.header
+}
+
+func (r *responseRecorder) Write(data []byte) (int, error) {
+	return len(data), nil
+}
+
+func (r *responseRecorder) WriteHeader(statusCode int) {
+	r.statusCode = statusCode
+}
+
+func (r *responseRecorder) Flush() {
+}
+
+func (r *responseRecorder) CloseNotify() <-chan bool {
+	return make(<-chan bool)
+}
+
+func checkConnectionStatus(server *remotedialer.Server) {
+	logger := log.SugaredLogger()
+	for clusterID := range allClusterMap {
+		cluster, found, err := GetClusterInfo(clusterID)
+		if err != nil {
+			log.Errorf("failed to get cluster info in connection health check, error: %v", err)
+		}
+
+		if !found {
+			logger.Debugf("cluster %s not found in clusterInfo but found in map registry, removing map entry", clusterID)
+			delete(allClusterMap, clusterID)
+		}
+
+		var endpoint *url.URL
+
+		endpoint, err = url.Parse(cluster.Address)
+		if err != nil {
+			return
+		}
+
+		endpoint.Path = "/api/v1/namespaces/default"
+		req, err := http.NewRequest("GET", endpoint.String(), nil)
+		if err != nil {
+			log.Fatalf("Failed to create request: %v", err)
+		}
+		req.Header.Set("authorization", "Bearer "+cluster.Token)
+
+		transport, err := server.GetTransport(cluster.CACert, clusterID)
+		if err != nil {
+			log.Errorf(fmt.Sprintf("failed to get transport, err %s", err))
+			return
+		}
+
+		recorder := &responseRecorder{}
+
+		proxy := proxy.NewUpgradeAwareHandler(endpoint, transport, false, false, er)
+		proxy.ServeHTTP(recorder, req)
+
+		if recorder.statusCode >= 400 {
+			// TODO: unavailable status, remove the connection from hubserver
+			fmt.Printf("Connection check failed, status code: %d\n", recorder.statusCode)
+		} else {
+			fmt.Printf("Connection successful, status code: %d\n", recorder.statusCode)
+		}
+		body, _ := io.ReadAll(recorder.body)
+		fmt.Printf("Response body: %s\n", string(body))
 	}
 }
 

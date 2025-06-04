@@ -90,6 +90,10 @@ func Serve(ctx context.Context) error {
 		service.CheckReplicas(ctx, handler)
 	}()
 
+	go func() {
+		service.CheckConnectionStatus(ctx, handler)
+	}()
+
 	rest.SetReady(true)
 	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Errorf("Failed to start http server, error: %s\n", err)
