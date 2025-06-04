@@ -473,16 +473,16 @@ func CheckConnectionStatus(ctx context.Context, handler *remotedialer.Server) {
 }
 
 type responseRecorder struct {
-	statusCode int
-	body       io.ReadCloser
-	header     http.Header
+	StatusCode int
+	Body       io.ReadCloser
+	Headers    http.Header
 }
 
 func (r *responseRecorder) Header() http.Header {
-	if r.header == nil {
-		r.header = make(http.Header)
+	if r.Headers == nil {
+		r.Headers = make(http.Header)
 	}
-	return r.header
+	return r.Headers
 }
 
 func (r *responseRecorder) Write(data []byte) (int, error) {
@@ -490,7 +490,7 @@ func (r *responseRecorder) Write(data []byte) (int, error) {
 }
 
 func (r *responseRecorder) WriteHeader(statusCode int) {
-	r.statusCode = statusCode
+	r.StatusCode = statusCode
 }
 
 func (r *responseRecorder) Flush() {
