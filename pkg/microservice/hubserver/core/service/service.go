@@ -568,10 +568,7 @@ func checkConnectionStatus(server *remotedialer.Server) {
 				logger.Errorf("failed to clear cluster connection info, error: %s", err)
 				continue
 			}
-			if err = mongodb.NewK8sClusterColl().UpdateConnectState(clusterID, true); err != nil {
-				logger.Errorf("failed to disconnect cluster %s %v", clusterID, err)
-				continue
-			}
+			
 			delete(allClusterMap, clusterID)
 			server.Disconnect(clusterID)
 		} else {
