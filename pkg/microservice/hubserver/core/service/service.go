@@ -129,6 +129,7 @@ func Authorize(req *http.Request) (clientKey string, authed bool, err error) {
 	if err != nil {
 		return "", false, err
 	}
+	allClusterMap[clusterID] = cluster
 
 	cluster.Status = "normal"
 	cluster.LastConnectionTime = time.Now().Unix()
@@ -144,7 +145,7 @@ func Authorize(req *http.Request) (clientKey string, authed bool, err error) {
 
 func Disconnect(server *remotedialer.Server, w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	clientKey := vars["id"]
+	clusterID := vars["id"]
 	var err error
 
 	defer func() {
@@ -154,19 +155,21 @@ func Disconnect(server *remotedialer.Server, w http.ResponseWriter, r *http.Requ
 		}
 	}()
 
-	if err = mongodb.NewK8sClusterColl().UpdateConnectState(clientKey, true); err != nil {
-		log.Errorf("failed to update connect state %s %v", clientKey, err)
+	if err = mongodb.NewK8sClusterColl().UpdateConnectState(clusterID, true); err != nil {
+		log.Errorf("failed to update connect state %s %v", clusterID, err)
 		return
 	}
 
-	server.Disconnect(clientKey)
+	delete(allClusterMap, clusterID)
+
+	server.Disconnect(clusterID)
 	w.WriteHeader(http.StatusOK)
 }
 
 func Restore(w http.ResponseWriter, r *http.Request) {
 	log := log.SugaredLogger()
 	vars := mux.Vars(r)
-	clientKey := vars["id"]
+	clusterID := vars["id"]
 	var err error
 
 	defer func() {
@@ -176,11 +179,11 @@ func Restore(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
-	if err = mongodb.NewK8sClusterColl().UpdateConnectState(clientKey, false); err != nil {
+	if err = mongodb.NewK8sClusterColl().UpdateConnectState(clusterID, false); err != nil {
 		return
 	}
 
-	log.Infof("cluster %s is restored", clientKey)
+	log.Infof("cluster %s is restored", clusterID)
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -201,7 +204,7 @@ func Forward(server *remotedialer.Server, w http.ResponseWriter, r *http.Request
 	logger := log.SugaredLogger()
 
 	vars := mux.Vars(r)
-	clientKey := vars["id"]
+	clusterID := vars["id"]
 	path := vars["path"]
 
 	// logger.Debugf("got forward request %s %s", clientKey, path)
@@ -218,7 +221,7 @@ func Forward(server *remotedialer.Server, w http.ResponseWriter, r *http.Request
 		}
 	}()
 
-	cluster, found, err := GetClusterInfo(clientKey)
+	cluster, found, err := GetClusterInfo(clusterID)
 	if err != nil {
 		log.Errorf("failed to get cluster info: %v", err)
 		return
@@ -226,7 +229,7 @@ func Forward(server *remotedialer.Server, w http.ResponseWriter, r *http.Request
 
 	if !found {
 		errHandled = true
-		logger.Infof("waiting for cluster %s to connect", clientKey)
+		logger.Infof("waiting for cluster %s to connect", clusterID)
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
@@ -243,7 +246,7 @@ func Forward(server *remotedialer.Server, w http.ResponseWriter, r *http.Request
 	r.URL.Host = r.Host
 	r.Header.Set("authorization", "Bearer "+cluster.Token)
 
-	transport, err := server.GetTransport(cluster.CACert, clientKey)
+	transport, err := server.GetTransport(cluster.CACert, clusterID)
 	if err != nil {
 		log.Errorf(fmt.Sprintf("failed to get transport, err %s", err))
 		return
@@ -511,6 +514,11 @@ func (r *responseRecorder) CloseNotify() <-chan bool {
 func checkConnectionStatus(server *remotedialer.Server) {
 	logger := log.SugaredLogger()
 	for clusterID := range allClusterMap {
+		if len(clusterID) == 0 {
+			logger.Infof("some how empty cluster id is in, skipping it.")
+			continue
+		}
+
 		cluster, found, err := GetClusterInfo(clusterID)
 		if err != nil {
 			log.Errorf("failed to get cluster info in connection health check, error: %v", err)
