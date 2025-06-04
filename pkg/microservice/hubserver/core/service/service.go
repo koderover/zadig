@@ -129,6 +129,9 @@ func Authorize(req *http.Request) (clientKey string, authed bool, err error) {
 	if err != nil {
 		return "", false, err
 	}
+	if allClusterMap == nil {
+		allClusterMap = make(map[string]*models.K8SCluster)
+	}
 	allClusterMap[clusterID] = cluster
 
 	cluster.Status = "normal"
