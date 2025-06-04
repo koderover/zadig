@@ -579,6 +579,7 @@ func checkConnectionStatus(server *remotedialer.Server) {
 			// Debug code, remove later
 			logger.Infof("changing the cluster info so that we can make it bad")
 			cluster.Token = "abc"
+			cluster.ClusterID = clusterID
 			SetClusterInfo(&cluster, nil)
 		}
 		body, _ := io.ReadAll(recorder.Body)
