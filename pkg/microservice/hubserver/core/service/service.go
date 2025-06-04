@@ -17,6 +17,7 @@ limitations under the License.
 package service
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -486,7 +487,14 @@ func (r *responseRecorder) Header() http.Header {
 }
 
 func (r *responseRecorder) Write(data []byte) (int, error) {
-	return len(data), nil
+	if r.Body == nil {
+		buf := &bytes.Buffer{}
+        r.Body = io.NopCloser(buf)
+	}
+	if buf, ok := r.Body.(io.ReadWriteCloser); ok {
+        return buf.Write(data)
+    }
+	return 0, fmt.Errorf("body is not writable")
 }
 
 func (r *responseRecorder) WriteHeader(statusCode int) {
