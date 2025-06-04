@@ -52,6 +52,9 @@ func SetClusterInfo(clusterInfo *ClusterInfo, cluster *models.K8SCluster) (*mode
 	if err != nil {
 		return nil, fmt.Errorf("Failed to write cluster info to Redis: %v", err)
 	}
+	if allClusterMap == nil {
+		allClusterMap = make(map[string]*models.K8SCluster)
+	}
 	allClusterMap[cluster.ID.Hex()] = cluster
 	return cluster, nil
 }
