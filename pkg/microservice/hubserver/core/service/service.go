@@ -538,13 +538,13 @@ func checkConnectionStatus(server *remotedialer.Server) {
 		proxy := proxy.NewUpgradeAwareHandler(endpoint, transport, false, false, er)
 		proxy.ServeHTTP(recorder, req)
 
-		if recorder.statusCode >= 400 {
+		if recorder.StatusCode >= 400 {
 			// TODO: unavailable status, remove the connection from hubserver
-			fmt.Printf("Connection check failed, status code: %d\n", recorder.statusCode)
+			fmt.Printf("Connection check failed, status code: %d\n", recorder.StatusCode)
 		} else {
-			fmt.Printf("Connection successful, status code: %d\n", recorder.statusCode)
+			fmt.Printf("Connection successful, status code: %d\n", recorder.StatusCode)
 		}
-		body, _ := io.ReadAll(recorder.body)
+		body, _ := io.ReadAll(recorder.Body)
 		fmt.Printf("Response body: %s\n", string(body))
 	}
 }
