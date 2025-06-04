@@ -549,8 +549,23 @@ func checkConnectionStatus(server *remotedialer.Server) {
 		if recorder.StatusCode >= 400 {
 			// TODO: unavailable status, remove the connection from hubserver
 			fmt.Printf("Connection check failed, status code: %d\n", recorder.StatusCode)
+			err := DeleteClusterInfo(clusterID)
+			if err != nil {
+				logger.Errorf("failed to clear cluster connection info, error: %s", err)
+				continue
+			}
+			if err = mongodb.NewK8sClusterColl().UpdateConnectState(clusterID, true); err != nil {
+				logger.Errorf("failed to disconnect cluster %s %v", clusterID, err)
+				continue
+			}
+			delete(allClusterMap, clusterID)
+			server.Disconnect(clusterID)
 		} else {
 			fmt.Printf("Connection successful, status code: %d\n", recorder.StatusCode)
+			// Debug code, remove later
+			logger.Infof("changing the cluster info so that we can make it bad")
+			cluster.Token = "abc"
+			SetClusterInfo(&cluster, nil)
 		}
 		body, _ := io.ReadAll(recorder.Body)
 		fmt.Printf("Response body: %s\n", string(body))

@@ -48,14 +48,14 @@ func SetClusterInfo(clusterInfo *ClusterInfo, cluster *models.K8SCluster) (*mode
 		return nil, fmt.Errorf("Failed to marshal cluster info: %v", err)
 	}
 
-	err = redisCache.HWrite(clustersKey, cluster.ID.Hex(), string(bytes), 0)
+	err = redisCache.HWrite(clustersKey, clusterInfo.ClusterID, string(bytes), 0)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to write cluster info to Redis: %v", err)
 	}
 	if allClusterMap == nil {
 		allClusterMap = make(map[string]*models.K8SCluster)
 	}
-	allClusterMap[cluster.ID.Hex()] = cluster
+	allClusterMap[clusterInfo.ClusterID] = cluster
 	return cluster, nil
 }
 
