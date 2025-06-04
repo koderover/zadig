@@ -517,18 +517,10 @@ func (r *responseRecorder) CloseNotify() <-chan bool {
 func checkConnectionStatus(server *remotedialer.Server) {
 	logger := log.SugaredLogger()
 	for clusterID := range allClusterMap {
-		if len(clusterID) == 0 {
-			logger.Infof("some how empty cluster id is in, skipping it.")
-			continue
-		}
-
 		cluster, found, err := GetClusterInfo(clusterID)
 		if err != nil {
 			log.Errorf("failed to get cluster info in connection health check, error: %v", err)
 		}
-
-		clusterBytes, _ := json.Marshal(cluster)
-		logger.Infof("cluster we got: =========================\n %s", string(clusterBytes))
 
 		if !found {
 			logger.Debugf("cluster %s not found in clusterInfo but found in map registry, removing map entry", clusterID)
@@ -562,25 +554,18 @@ func checkConnectionStatus(server *remotedialer.Server) {
 
 		if recorder.StatusCode >= 400 {
 			// TODO: unavailable status, remove the connection from hubserver
-			fmt.Printf("Connection check failed, status code: %d\n", recorder.StatusCode)
+			logger.Errorf("Connection check failed, status code: %d\n", recorder.StatusCode)
 			err := DeleteClusterInfo(clusterID)
 			if err != nil {
 				logger.Errorf("failed to clear cluster connection info, error: %s", err)
 				continue
 			}
-			
 			delete(allClusterMap, clusterID)
 			server.Disconnect(clusterID)
-		} else {
-			fmt.Printf("Connection successful, status code: %d\n", recorder.StatusCode)
-			// Debug code, remove later
-			logger.Infof("changing the cluster info so that we can make it bad")
-			cluster.Token = "abc"
-			cluster.ClusterID = clusterID
-			SetClusterInfo(&cluster, nil)
-		}
-		body, _ := io.ReadAll(recorder.Body)
-		fmt.Printf("Response body: %s\n", string(body))
+		} 
+		// ↓ print body if required
+		// body, _ := io.ReadAll(recorder.Body)
+		// fmt.Printf("Response body: %s\n", string(body))
 	}
 }
 
