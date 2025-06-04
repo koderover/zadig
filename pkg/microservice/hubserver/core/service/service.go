@@ -527,6 +527,9 @@ func checkConnectionStatus(server *remotedialer.Server) {
 			log.Errorf("failed to get cluster info in connection health check, error: %v", err)
 		}
 
+		clusterBytes, _ := json.Marshal(cluster)
+		logger.Infof("cluster we got: =========================\n %s", string(clusterBytes))
+
 		if !found {
 			logger.Debugf("cluster %s not found in clusterInfo but found in map registry, removing map entry", clusterID)
 			delete(allClusterMap, clusterID)
