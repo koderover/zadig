@@ -101,8 +101,27 @@ func PrepareDinD(client *kubernetes.Clientset, namespace string, regList []*Regi
 			Name:      "cert-mount",
 		}
 
+		newVolumeMounts := make([]corev1.VolumeMount, 0)
+		found := false
+		for _, volMount := range dindSts.Spec.Template.Spec.Containers[0].VolumeMounts {
+			if volMount.Name == "cert-mount" {
+				if found {
+					// remove duplicate
+					continue
+				} else {
+					newVolumeMounts = append(newVolumeMounts, volMount)
+					found = true
+				}
+			} else {
+				newVolumeMounts = append(newVolumeMounts, volMount)
+			}
+		}
+		if !found {
+			newVolumeMounts = append(newVolumeMounts, volumeMount)
+		}
+
 		// update spec.template.spec.containers[0].volumeMounts
-		dindSts.Spec.Template.Spec.Containers[0].VolumeMounts = append(dindSts.Spec.Template.Spec.Containers[0].VolumeMounts, volumeMount)
+		dindSts.Spec.Template.Spec.Containers[0].VolumeMounts = newVolumeMounts
 
 		volume := corev1.Volume{
 			Name: "cert-mount",
@@ -113,8 +132,27 @@ func PrepareDinD(client *kubernetes.Clientset, namespace string, regList []*Regi
 			},
 		}
 
+		newVolumes := make([]corev1.Volume, 0)
+		found = false
+		for _, vol := range dindSts.Spec.Template.Spec.Volumes {
+			if vol.Name == "cert-mount" {
+				if found {
+					// remove duplicate
+					continue
+				} else {
+					newVolumes = append(newVolumes, vol)
+					found = true
+				}
+			} else {
+				newVolumes = append(newVolumes, vol)
+			}
+		}
+		if !found {
+			newVolumes = append(newVolumes, volume)
+		}
+
 		// update spec.template.spec.volumes
-		dindSts.Spec.Template.Spec.Volumes = append(dindSts.Spec.Template.Spec.Volumes, volume)
+		dindSts.Spec.Template.Spec.Volumes = newVolumes
 	}
 
 	if insecureFlag {
