@@ -24,10 +24,11 @@ import (
 )
 
 type Email struct {
-	Name     string `json:"name"`
-	Port     int    `json:"port"`
-	UserName string `json:"username"`
-	Password string `json:"password"`
+	Name          string `json:"name"`
+	Port          int    `json:"port"`
+	UserName      string `json:"username"`
+	Password      string `json:"password"`
+	TlsSkipVerify bool   `json:"tls_skip_verify"`
 }
 
 func (c *Client) GetEmailHost() (*Email, error) {
@@ -39,10 +40,11 @@ func (c *Client) GetEmailHost() (*Email, error) {
 		return nil, fmt.Errorf("failed to find email host config")
 	}
 	res := &Email{
-		Name:     resp.Name,
-		Port:     resp.Port,
-		UserName: resp.Username,
-		Password: resp.Password,
+		Name:          resp.Name,
+		Port:          resp.Port,
+		UserName:      resp.Username,
+		Password:      resp.Password,
+		TlsSkipVerify: !resp.IsTLS,
 	}
 
 	return res, err
