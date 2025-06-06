@@ -110,7 +110,7 @@ func (j VMDeployJobController) Update(useUserInput bool, ticket *commonmodels.Ap
 		j.jobSpec.OriginJobName = currJobSpec.OriginJobName
 	}
 
-	deployableService, err := generateVMDeployServiceInfo(j.workflow.Project, currJobSpec.Env, ticket)
+	deployableService, err := generateVMDeployServiceInfo(j.workflow.Project, currJobSpec.Env, j.jobSpec.ServiceAndVMDeploys, ticket)
 	if err != nil {
 		log.Errorf("failed to generate deployable vm service for env: %s, project: %s, error: %s", currJobSpec.Env, j.workflow.Project, err)
 		return err
@@ -166,7 +166,7 @@ func (j VMDeployJobController) SetOptions(ticket *commonmodels.ApprovalTicket) e
 			continue
 		}
 
-		info, err := generateVMDeployServiceInfo(j.workflow.Project, env.EnvName, ticket)
+		info, err := generateVMDeployServiceInfo(j.workflow.Project, env.EnvName, j.jobSpec.ServiceAndVMDeploys, ticket)
 		if err != nil {
 			log.Errorf("failed to generate service deploy info for project: %s, error: %s", j.workflow.Project, err)
 			return err
@@ -250,6 +250,11 @@ func (j VMDeployJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, er
 		originS3StorageSubfolder = s3Storage.Subfolder
 	}
 
+	registry, err := commonservice.FindRegistryById(j.jobSpec.DockerRegistryID, true, log.SugaredLogger())
+	if err != nil {
+		return resp, fmt.Errorf("find registry: %s error: %v", j.jobSpec.DockerRegistryID, err)
+	}
+
 	buildSvc := commonservice.NewBuildService()
 	for jobSubTaskID, vmDeployInfo := range j.jobSpec.ServiceAndVMDeploys {
 		s3Storage.Subfolder = originS3StorageSubfolder
@@ -265,6 +270,19 @@ func (j VMDeployJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, er
 		basicImage, err := commonrepo.NewBasicImageColl().Find(buildInfo.PreDeploy.ImageID)
 		if err != nil {
 			return resp, fmt.Errorf("find base image: %s error: %v", buildInfo.PreBuild.ImageID, err)
+		}
+
+		customEnvs := applyKeyVals(buildInfo.PreDeploy.Envs.ToRuntimeList(), vmDeployInfo.KeyVals, true).ToKVList()
+		renderedCustomEnv, err := replaceServiceAndModules(customEnvs, vmDeployInfo.ServiceName, vmDeployInfo.ServiceModule)
+		if err != nil {
+			return nil, fmt.Errorf("failed to render service variables, error: %v", err)
+		}
+
+		paramEnvs := generateKeyValsFromWorkflowParam(j.workflow.Params)
+		envs := mergeKeyVals(renderedCustomEnv, paramEnvs)
+		renderedEnv, err := replaceServiceAndModules(envs, vmDeployInfo.ServiceName, vmDeployInfo.ServiceModule)
+		if err != nil {
+			return nil, fmt.Errorf("failed to render service variables, error: %v", err)
 		}
 
 		jobTaskSpec := &commonmodels.JobTaskFreestyleSpec{}
@@ -289,7 +307,7 @@ func (j VMDeployJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, er
 			Timeout:         int64(timeout),
 			ResourceRequest: buildInfo.PreBuild.ResReq,
 			ResReqSpec:      buildInfo.PreBuild.ResReqSpec,
-			CustomEnvs:      buildInfo.PreBuild.Envs,
+			CustomEnvs:      renderedCustomEnv,
 			ClusterID:       buildInfo.PreBuild.ClusterID,
 			StrategyID:      buildInfo.PreBuild.StrategyID,
 			BuildOS:         basicImage.Value,
@@ -299,7 +317,7 @@ func (j VMDeployJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, er
 
 		initShellScripts := []string{}
 		vmDeployVars := []*commonmodels.KeyVal{}
-		tmpVmDeployVars := getVMDeployJobVariables(vmDeployInfo, buildInfo, taskID, j.jobSpec.Env, j.workflow.Project, j.workflow.Name, j.workflow.DisplayName, jobTask.Infrastructure, vms, services, log.SugaredLogger())
+		tmpVmDeployVars := getVMDeployJobVariables(vmDeployInfo, buildInfo, taskID, j.jobSpec.Env, j.workflow.Project, j.workflow.Name, j.workflow.DisplayName, jobTask.Infrastructure, vms, services, registry, log.SugaredLogger())
 		for _, kv := range tmpVmDeployVars {
 			if strings.HasSuffix(kv.Key, "_PK_CONTENT") {
 				name := strings.TrimSuffix(kv.Key, "_PK_CONTENT")
@@ -312,7 +330,7 @@ func (j VMDeployJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, er
 			}
 		}
 
-		jobTaskSpec.Properties.Envs = append(jobTaskSpec.Properties.CustomEnvs, vmDeployVars...)
+		jobTaskSpec.Properties.Envs = append(renderedEnv, vmDeployVars...)
 		jobTaskSpec.Properties.UseHostDockerDaemon = buildInfo.PreBuild.UseHostDockerDaemon
 		jobTaskSpec.Properties.CacheEnable = false
 
@@ -332,7 +350,8 @@ func (j VMDeployJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, er
 		}
 		jobTaskSpec.Steps = append(jobTaskSpec.Steps, toolInstallStep)
 		// init git clone step
-		repos := vmRenderRepos(buildInfo.DeployRepos, jobTaskSpec.Properties.Envs)
+		repos := applyRepos(buildInfo.DeployRepos, vmDeployInfo.Repos)
+		renderRepos(repos, jobTaskSpec.Properties.Envs)
 		gitRepos, p4Repos := splitReposByType(repos)
 
 		codehosts, err := codehostrepo.NewCodehostColl().AvailableCodeHost(j.workflow.Project)
@@ -470,7 +489,22 @@ func (j VMDeployJobController) GetVariableList(jobName string, getAggregatedVari
 }
 
 func (j VMDeployJobController) GetUsedRepos() ([]*types.Repository, error) {
-	return make([]*types.Repository, 0), nil
+	resp := make([]*types.Repository, 0)
+	buildSvc := commonservice.NewBuildService()
+	for _, vmDeploy := range j.jobSpec.ServiceAndVMDeploys {
+		buildInfo, err := buildSvc.GetBuild(vmDeploy.DeployName, vmDeploy.ServiceName, vmDeploy.ServiceModule)
+		if err != nil {
+			log.Errorf("find vm deploy: %s error: %v", vmDeploy.DeployName, err)
+			continue
+		}
+		for _, target := range buildInfo.Targets {
+			if target.ServiceName == vmDeploy.ServiceName && target.ServiceModule == vmDeploy.ServiceModule {
+				resp = append(resp, applyRepos(buildInfo.DeployRepos, vmDeploy.Repos)...)
+				break
+			}
+		}
+	}
+	return resp, nil
 }
 
 func (j VMDeployJobController) RenderDynamicVariableOptions(key string, option *RenderDynamicVariableValue) ([]string, error) {
@@ -516,7 +550,7 @@ func (j VMDeployJobController) getReferredJobTargets(jobName string, taskID int)
 
 // generateVMDeployServiceInfo generated all deployable service and its corresponding data.
 // currently it ignores the env service info, just gives all the service defined in the template.
-func generateVMDeployServiceInfo(project, env string, ticket *commonmodels.ApprovalTicket) ([]*commonmodels.ServiceAndVMDeploy, error) {
+func generateVMDeployServiceInfo(project, env string, serviceAndVMDeploys []*commonmodels.ServiceAndVMDeploy, ticket *commonmodels.ApprovalTicket) ([]*commonmodels.ServiceAndVMDeploy, error) {
 	resp := make([]*commonmodels.ServiceAndVMDeploy, 0)
 
 	environmentInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
@@ -527,9 +561,20 @@ func generateVMDeployServiceInfo(project, env string, ticket *commonmodels.Appro
 		return nil, fmt.Errorf("failed to find env: %s in project: %s, error: %s", env, project, err)
 	}
 
+	svcAndVMDeployMap := map[string]*commonmodels.ServiceAndVMDeploy{}
+	for _, serviceAndVMDeploy := range serviceAndVMDeploys {
+		svcAndVMDeployMap[serviceAndVMDeploy.ServiceName] = serviceAndVMDeploy
+	}
+
 	svcs := environmentInfo.GetServiceMap()
 
 	for _, svc := range svcs {
+		if len(svcAndVMDeployMap) > 0 {
+			if _, ok := svcAndVMDeployMap[svc.ServiceName]; !ok {
+				continue
+			}
+		}
+
 		templateSvc, err := commonrepo.NewServiceColl().Find(
 			&commonrepo.ServiceFindOption{
 				ServiceName: svc.ServiceName,
@@ -557,6 +602,8 @@ func generateVMDeployServiceInfo(project, env string, ticket *commonmodels.Appro
 
 		resp = append(resp, &commonmodels.ServiceAndVMDeploy{
 			Repos:         build.DeployRepos,
+			KeyVals:       build.PreBuild.Envs.ToRuntimeList(),
+			DeployType:    build.DeployType,
 			ServiceName:   templateSvc.ServiceName,
 			ServiceModule: templateSvc.ServiceName,
 		})
@@ -567,13 +614,18 @@ func generateVMDeployServiceInfo(project, env string, ticket *commonmodels.Appro
 
 // TODO: maybe use the get variables function
 // this is for internal use only
-func getVMDeployJobVariables(vmDeploy *commonmodels.ServiceAndVMDeploy, buildInfo *commonmodels.Build, taskID int64, envName, project, workflowName, workflowDisplayName, infrastructure string, vms []*commonmodels.PrivateKey, services []*commonmodels.Service, log *zap.SugaredLogger) []*commonmodels.KeyVal {
+func getVMDeployJobVariables(vmDeploy *commonmodels.ServiceAndVMDeploy, buildInfo *commonmodels.Build, taskID int64, envName, project, workflowName, workflowDisplayName, infrastructure string, vms []*commonmodels.PrivateKey, services []*commonmodels.Service, registry *commonmodels.RegistryNamespace, log *zap.SugaredLogger) []*commonmodels.KeyVal {
 	ret := make([]*commonmodels.KeyVal, 0)
 	// basic envs
 	ret = append(ret, prepareDefaultWorkflowTaskEnvs(project, workflowName, workflowDisplayName, infrastructure, taskID)...)
 
+	// registry envs
+	ret = append(ret, &commonmodels.KeyVal{Key: "REGISTRY_ADDRESS", Value: registry.RegAddr, IsCredential: false})
+	ret = append(ret, &commonmodels.KeyVal{Key: "REGISTRY_USERNAME", Value: registry.AccessKey, IsCredential: false})
+	ret = append(ret, &commonmodels.KeyVal{Key: "REGISTRY_PASSWORD", Value: registry.SecretKey, IsCredential: true})
+
 	// repo envs
-	ret = append(ret, getReposVariables(buildInfo.Repos)...)
+	ret = append(ret, getReposVariables(buildInfo.DeployRepos)...)
 
 	// vm deploy specific envs
 	ret = append(ret, &commonmodels.KeyVal{Key: "ENV_NAME", Value: envName, IsCredential: false})

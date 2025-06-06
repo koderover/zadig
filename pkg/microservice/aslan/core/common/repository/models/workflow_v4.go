@@ -452,9 +452,12 @@ type ServiceAndVMDeploy struct {
 	Repos         []*types.Repository `bson:"repos"               yaml:"repos"            json:"repos"`
 	ServiceName   string              `bson:"service_name"        yaml:"service_name"     json:"service_name"`
 	ServiceModule string              `bson:"service_module"      yaml:"service_module"   json:"service_module"`
+	DeployName    string              `bson:"deploy_name"         yaml:"deploy_name"      json:"deploy_name"`
+	DeployType    types.VMDeployType  `bson:"deploy_type"         yaml:"deploy_type"      json:"deploy_type"`
 	ArtifactURL   string              `bson:"artifact_url"        yaml:"artifact_url"     json:"artifact_url"`
 	FileName      string              `bson:"file_name"           yaml:"file_name"        json:"file_name"`
 	Image         string              `bson:"image"               yaml:"image"            json:"image"`
+	KeyVals       RuntimeKeyValList   `bson:"key_vals"            yaml:"key_vals"         json:"key_vals"`
 	TaskID        int                 `bson:"task_id"             yaml:"task_id"          json:"task_id"`
 	WorkflowType  config.PipelineType `bson:"workflow_type"       yaml:"workflow_type"    json:"workflow_type"`
 	WorkflowName  string              `bson:"workflow_name"       yaml:"workflow_name"    json:"workflow_name"`
@@ -467,6 +470,7 @@ type ZadigVMDeployJobSpec struct {
 	EnvAlias            string                         `bson:"-"                      yaml:"-"                         json:"env_alias"`
 	EnvOptions          []*ZadigVMDeployEnvInformation `bson:"-"                      yaml:"env_options"            json:"env_options"`
 	S3StorageID         string                         `bson:"s3_storage_id"          yaml:"s3_storage_id"          json:"s3_storage_id"`
+	DockerRegistryID    string                         `bson:"docker_registry_id"     yaml:"docker_registry_id"          json:"docker_registry_id"`
 	ServiceAndVMDeploys []*ServiceAndVMDeploy          `bson:"service_and_vm_deploys" yaml:"service_and_vm_deploys" json:"service_and_vm_deploys"`
 	// fromjob/runtime, runtime 表示运行时输入，fromjob 表示从上游构建任务中获取
 	Source config.DeploySourceType `bson:"source"     yaml:"source"     json:"source"`

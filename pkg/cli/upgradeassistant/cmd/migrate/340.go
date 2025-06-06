@@ -26,6 +26,8 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	templaterepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
+	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/types"
 	steptype "github.com/koderover/zadig/v2/pkg/types/step"
@@ -472,4 +474,38 @@ func converOldFreestyleJobSpec(spec *commonmodels.FreestyleJobSpec) (*commonmode
 	}
 	newSpec.AdvancedSetting = advancedSetting
 	return newSpec, nil
+}
+
+func migrateVMDeploy() error {
+	vmProjects, err := templaterepo.NewProductColl().ListWithOption(&templaterepo.ProductListOpt{
+		BasicFacility: setting.BasicFacilityCVM,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to list all vm projects to migrate, error: %s", err)
+	}
+
+	for _, vmProject := range vmProjects {
+		builds, err := commonrepo.NewBuildColl().List(&commonrepo.BuildListOption{
+			Name: vmProject.ProductName,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to list all builds to migrate, error: %s", err)
+		}
+
+		for _, build := range builds {
+			build.DeployArtifactType = types.VMDeployArtifactTypeFile
+
+			if len(build.SSHs) > 0 {
+				build.DeployType = types.VMDeployTypeLocal
+			} else {
+				build.DeployType = types.VMDeployTypeSSHAgent
+			}
+
+			err = commonrepo.NewBuildColl().Update(build)
+			if err != nil {
+				return fmt.Errorf("failed to update build: %s, project: %s, error: %s", build.Name, vmProject.ProductName, err)
+			}
+		}
+	}
+	return nil
 }
