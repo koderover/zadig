@@ -42,6 +42,7 @@ type CodeHost struct {
 	UpdatedAt          int64                    `bson:"updated_at"                      json:"updated_at"                         yaml:"updated_at"`
 	DeletedAt          int64                    `bson:"deleted_at"                      json:"deleted_at"                         yaml:"deleted_at"`
 	EnableProxy        bool                     `bson:"enable_proxy"                    json:"enable_proxy"                       yaml:"enable_proxy"`
+	DisableSSL         bool                     `bson:"disable_ssl"                     json:"disable_ssl"                        yaml:"disable_ssl"`
 	// perforce Type parameters
 	P4Host string `bson:"perforce_host"                   json:"perforce_host"          yaml:"perforce_host"`
 	P4Port int    `bson:"perforce_port"                   json:"perforce_port"          yaml:"perforce_port"`
