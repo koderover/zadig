@@ -17,10 +17,12 @@ limitations under the License.
 package service
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"sync"
@@ -127,6 +129,10 @@ func Authorize(req *http.Request) (clientKey string, authed bool, err error) {
 	if err != nil {
 		return "", false, err
 	}
+	if allClusterMap == nil {
+		allClusterMap = make(map[string]*models.K8SCluster)
+	}
+	allClusterMap[clusterID] = cluster
 
 	cluster.Status = "normal"
 	cluster.LastConnectionTime = time.Now().Unix()
@@ -142,7 +148,7 @@ func Authorize(req *http.Request) (clientKey string, authed bool, err error) {
 
 func Disconnect(server *remotedialer.Server, w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	clientKey := vars["id"]
+	clusterID := vars["id"]
 	var err error
 
 	defer func() {
@@ -152,19 +158,21 @@ func Disconnect(server *remotedialer.Server, w http.ResponseWriter, r *http.Requ
 		}
 	}()
 
-	if err = mongodb.NewK8sClusterColl().UpdateConnectState(clientKey, true); err != nil {
-		log.Errorf("failed to update connect state %s %v", clientKey, err)
+	if err = mongodb.NewK8sClusterColl().UpdateConnectState(clusterID, true); err != nil {
+		log.Errorf("failed to update connect state %s %v", clusterID, err)
 		return
 	}
 
-	server.Disconnect(clientKey)
+	delete(allClusterMap, clusterID)
+
+	server.Disconnect(clusterID)
 	w.WriteHeader(http.StatusOK)
 }
 
 func Restore(w http.ResponseWriter, r *http.Request) {
 	log := log.SugaredLogger()
 	vars := mux.Vars(r)
-	clientKey := vars["id"]
+	clusterID := vars["id"]
 	var err error
 
 	defer func() {
@@ -174,11 +182,11 @@ func Restore(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
-	if err = mongodb.NewK8sClusterColl().UpdateConnectState(clientKey, false); err != nil {
+	if err = mongodb.NewK8sClusterColl().UpdateConnectState(clusterID, false); err != nil {
 		return
 	}
 
-	log.Infof("cluster %s is restored", clientKey)
+	log.Infof("cluster %s is restored", clusterID)
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -190,7 +198,7 @@ type ErrorResponder struct {
 }
 
 func (e *ErrorResponder) Error(w http.ResponseWriter, req *http.Request, err error) {
-	// log.Errorf("respond error: %v", err)
+	log.Errorf("respond error: %v", err)
 	w.WriteHeader(http.StatusInternalServerError)
 	_, _ = w.Write([]byte(err.Error()))
 }
@@ -199,7 +207,7 @@ func Forward(server *remotedialer.Server, w http.ResponseWriter, r *http.Request
 	logger := log.SugaredLogger()
 
 	vars := mux.Vars(r)
-	clientKey := vars["id"]
+	clusterID := vars["id"]
 	path := vars["path"]
 
 	// logger.Debugf("got forward request %s %s", clientKey, path)
@@ -216,7 +224,7 @@ func Forward(server *remotedialer.Server, w http.ResponseWriter, r *http.Request
 		}
 	}()
 
-	cluster, found, err := GetClusterInfo(clientKey)
+	cluster, found, err := GetClusterInfo(clusterID)
 	if err != nil {
 		log.Errorf("failed to get cluster info: %v", err)
 		return
@@ -224,7 +232,7 @@ func Forward(server *remotedialer.Server, w http.ResponseWriter, r *http.Request
 
 	if !found {
 		errHandled = true
-		logger.Infof("waiting for cluster %s to connect", clientKey)
+		logger.Infof("waiting for cluster %s to connect", clusterID)
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
@@ -241,7 +249,7 @@ func Forward(server *remotedialer.Server, w http.ResponseWriter, r *http.Request
 	r.URL.Host = r.Host
 	r.Header.Set("authorization", "Bearer "+cluster.Token)
 
-	transport, err := server.GetTransport(cluster.CACert, clientKey)
+	transport, err := server.GetTransport(cluster.CACert, clusterID)
 	if err != nil {
 		log.Errorf(fmt.Sprintf("failed to get transport, err %s", err))
 		return
@@ -456,6 +464,108 @@ func CheckReplicas(ctx context.Context, handler *remotedialer.Server) error {
 
 			time.Sleep(1 * time.Second)
 		}
+	}
+}
+
+func CheckConnectionStatus(ctx context.Context, handler *remotedialer.Server) {
+	for {
+		time.Sleep(10 * time.Second)
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			checkConnectionStatus(handler)
+		}
+	}
+}
+
+type responseRecorder struct {
+	StatusCode int
+	Body       io.ReadCloser
+	Headers    http.Header
+}
+
+func (r *responseRecorder) Header() http.Header {
+	if r.Headers == nil {
+		r.Headers = make(http.Header)
+	}
+	return r.Headers
+}
+
+func (r *responseRecorder) Write(data []byte) (int, error) {
+	if r.Body == nil {
+		buf := &bytes.Buffer{}
+        r.Body = io.NopCloser(buf)
+	}
+	if buf, ok := r.Body.(io.ReadWriteCloser); ok {
+        return buf.Write(data)
+    }
+	return 0, fmt.Errorf("body is not writable")
+}
+
+func (r *responseRecorder) WriteHeader(statusCode int) {
+	r.StatusCode = statusCode
+}
+
+func (r *responseRecorder) Flush() {
+}
+
+func (r *responseRecorder) CloseNotify() <-chan bool {
+	return make(<-chan bool)
+}
+
+func checkConnectionStatus(server *remotedialer.Server) {
+	logger := log.SugaredLogger()
+	for clusterID := range allClusterMap {
+		cluster, found, err := GetClusterInfo(clusterID)
+		if err != nil {
+			log.Errorf("failed to get cluster info in connection health check, error: %v", err)
+		}
+
+		if !found {
+			logger.Debugf("cluster %s not found in clusterInfo but found in map registry, removing map entry", clusterID)
+			delete(allClusterMap, clusterID)
+		}
+
+		var endpoint *url.URL
+
+		endpoint, err = url.Parse(cluster.Address)
+		if err != nil {
+			return
+		}
+
+		endpoint.Path = "/api/v1/namespaces/default"
+		req, err := http.NewRequest("GET", endpoint.String(), nil)
+		if err != nil {
+			log.Fatalf("Failed to create request: %v", err)
+		}
+		req.Header.Set("authorization", "Bearer "+cluster.Token)
+
+		transport, err := server.GetTransport(cluster.CACert, clusterID)
+		if err != nil {
+			log.Errorf(fmt.Sprintf("failed to get transport, err %s", err))
+			return
+		}
+
+		recorder := &responseRecorder{}
+
+		proxy := proxy.NewUpgradeAwareHandler(endpoint, transport, false, false, er)
+		proxy.ServeHTTP(recorder, req)
+
+		if recorder.StatusCode >= 400 {
+			// TODO: unavailable status, remove the connection from hubserver
+			logger.Errorf("Connection check failed, status code: %d\n", recorder.StatusCode)
+			err := DeleteClusterInfo(clusterID)
+			if err != nil {
+				logger.Errorf("failed to clear cluster connection info, error: %s", err)
+				continue
+			}
+			delete(allClusterMap, clusterID)
+			server.Disconnect(clusterID)
+		} 
+		// ↓ print body if required
+		// body, _ := io.ReadAll(recorder.Body)
+		// fmt.Printf("Response body: %s\n", string(body))
 	}
 }
 

@@ -10,6 +10,8 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
+var allClusterMap map[string]*models.K8SCluster
+
 func GetClustersByPodIP(podIP string) ([]*models.K8SCluster, error) {
 	clusters, err := mongodb.NewK8sClusterColl().FindConnectedClusters()
 	if err != nil {
@@ -36,6 +38,7 @@ func DeleteClusterInfo(clientKey string) error {
 	if err != nil {
 		return fmt.Errorf("failed to delete cluster info: %v", err)
 	}
+	delete(allClusterMap, clientKey)
 	return nil
 }
 
@@ -45,7 +48,7 @@ func SetClusterInfo(clusterInfo *ClusterInfo, cluster *models.K8SCluster) (*mode
 		return nil, fmt.Errorf("Failed to marshal cluster info: %v", err)
 	}
 
-	err = redisCache.HWrite(clustersKey, cluster.ID.Hex(), string(bytes), 0)
+	err = redisCache.HWrite(clustersKey, clusterInfo.ClusterID, string(bytes), 0)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to write cluster info to Redis: %v", err)
 	}
