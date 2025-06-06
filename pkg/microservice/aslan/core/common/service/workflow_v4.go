@@ -32,6 +32,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/workflowcontroller"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/setting"
+	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	"github.com/koderover/zadig/v2/pkg/tool/crypto"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
@@ -75,7 +76,14 @@ func DeleteWorkflowV4(name string, logger *zap.SugaredLogger) error {
 		logger.Errorf("Failed to delete WorkflowV4: %s, the error is: %v", name, err)
 		return e.ErrDeleteWorkflow.AddErr(err)
 	}
-	err = ProcessWebhook(nil, workflow.HookCtls, webhook.WorkflowV4Prefix+workflow.Name, logger)
+
+	gitHooks, err := mongodb.NewWorkflowV4GitHookColl().List(internalhandler.NewBackgroupContext(), workflow.Name)
+	if err != nil {
+		logger.Errorf("Failed to delete WorkflowV4: %s, the error is: %v", name, err)
+		return e.ErrDeleteWorkflow.AddErr(err)
+	}
+
+	err = ProcessWebhook(nil, gitHooks, webhook.WorkflowV4Prefix+workflow.Name, logger)
 	if err != nil {
 		log.Errorf("Failed to process webhook, err: %s", err)
 	}
@@ -85,7 +93,7 @@ func DeleteWorkflowV4(name string, logger *zap.SugaredLogger) error {
 		log.Errorf("Failed to stop cronjob for workflowv4: %s, error: %s", workflow.Name, err)
 	}
 
-	go gerrit.DeleteGerritWebhookForWorkflowV4(workflow, logger)
+	go gerrit.DeleteGerritWebhookForWorkflowV4(gitHooks, logger)
 
 	err = mongodb.NewCronjobColl().Delete(&mongodb.CronjobDeleteOption{
 		ParentName: name,

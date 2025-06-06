@@ -484,14 +484,14 @@ func CheckWorkflowV4Approval(c *gin.Context) {
 	ctx.RespErr = workflow.CheckWorkflowV4ApprovalInitiator(c.Param("name"), ctx.UserID, ctx.Logger)
 }
 
-func ListWebhookForWorkflowV4(c *gin.Context) {
+func ListGithookForWorkflowV4(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.RespErr = workflow.ListWebhookForWorkflowV4(c.Query("workflowName"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = workflow.ListGithookForWorkflowV4(ctx, c.Query("workflowName"))
 }
 
-func CreateWebhookForWorkflowV4(c *gin.Context) {
+func CreateGithookForWorkflowV4(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
@@ -501,7 +501,7 @@ func CreateWebhookForWorkflowV4(c *gin.Context) {
 		return
 	}
 
-	req := new(commonmodels.WorkflowV4Hook)
+	req := new(commonmodels.WorkflowV4GitHook)
 	if err := c.ShouldBindJSON(req); err != nil {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
@@ -532,10 +532,10 @@ func CreateWebhookForWorkflowV4(c *gin.Context) {
 		}
 	}
 
-	ctx.RespErr = workflow.CreateWebhookForWorkflowV4(c.Param("workflowName"), req, ctx.Logger)
+	ctx.RespErr = workflow.CreateGithookForWorkflowV4(ctx, c.Param("workflowName"), req)
 }
 
-func UpdateWebhookForWorkflowV4(c *gin.Context) {
+func UpdateGithookForWorkflowV4(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
@@ -545,7 +545,7 @@ func UpdateWebhookForWorkflowV4(c *gin.Context) {
 		return
 	}
 
-	req := new(commonmodels.WorkflowV4Hook)
+	req := new(commonmodels.WorkflowV4GitHook)
 	if err := c.ShouldBindJSON(req); err != nil {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
@@ -576,10 +576,10 @@ func UpdateWebhookForWorkflowV4(c *gin.Context) {
 		}
 	}
 
-	ctx.RespErr = workflow.UpdateWebhookForWorkflowV4(c.Param("workflowName"), req, ctx.Logger)
+	ctx.RespErr = workflow.UpdateGithookForWorkflowV4(ctx, c.Param("workflowName"), req)
 }
 
-func DeleteWebhookForWorkflowV4(c *gin.Context) {
+func DeleteGithookForWorkflowV4(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
@@ -615,7 +615,7 @@ func DeleteWebhookForWorkflowV4(c *gin.Context) {
 		}
 	}
 
-	ctx.RespErr = workflow.DeleteWebhookForWorkflowV4(c.Param("workflowName"), c.Param("triggerName"), ctx.Logger)
+	ctx.RespErr = workflow.DeleteGithookForWorkflowV4(ctx, c.Param("workflowName"), c.Param("triggerName"))
 }
 
 func CreateJiraHookForWorkflowV4(c *gin.Context) {
@@ -628,7 +628,7 @@ func CreateJiraHookForWorkflowV4(c *gin.Context) {
 		return
 	}
 
-	jira := new(commonmodels.JiraHook)
+	jira := new(commonmodels.WorkflowV4JiraHook)
 	if err := c.ShouldBindJSON(jira); err != nil {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
@@ -692,7 +692,7 @@ func UpdateJiraHookForWorkflowV4(c *gin.Context) {
 		return
 	}
 
-	jira := new(commonmodels.JiraHook)
+	jira := new(commonmodels.WorkflowV4JiraHook)
 	if err := c.ShouldBindJSON(jira); err != nil {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
@@ -782,8 +782,8 @@ func CreateMeegoHookForWorkflowV4(c *gin.Context) {
 		return
 	}
 
-	jira := new(commonmodels.MeegoHook)
-	if err := c.ShouldBindJSON(jira); err != nil {
+	meego := new(commonmodels.WorkflowV4MeegoHook)
+	if err := c.ShouldBindJSON(meego); err != nil {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
@@ -820,7 +820,7 @@ func CreateMeegoHookForWorkflowV4(c *gin.Context) {
 		return
 	}
 
-	ctx.RespErr = workflow.CreateMeegoHookForWorkflowV4(c.Param("workflowName"), jira, ctx.Logger)
+	ctx.RespErr = workflow.CreateMeegoHookForWorkflowV4(c.Param("workflowName"), meego, ctx.Logger)
 }
 
 func GetMeegoHookForWorkflowV4Preset(c *gin.Context) {
@@ -845,8 +845,8 @@ func UpdateMeegoHookForWorkflowV4(c *gin.Context) {
 		return
 	}
 
-	jira := new(commonmodels.MeegoHook)
-	if err := c.ShouldBindJSON(jira); err != nil {
+	meego := new(commonmodels.WorkflowV4MeegoHook)
+	if err := c.ShouldBindJSON(meego); err != nil {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
@@ -883,7 +883,7 @@ func UpdateMeegoHookForWorkflowV4(c *gin.Context) {
 		return
 	}
 
-	ctx.RespErr = workflow.UpdateMeegoHookForWorkflowV4(c.Param("workflowName"), jira, ctx.Logger)
+	ctx.RespErr = workflow.UpdateMeegoHookForWorkflowV4(c.Param("workflowName"), meego, ctx.Logger)
 }
 
 func DeleteMeegoHookForWorkflowV4(c *gin.Context) {
@@ -937,7 +937,7 @@ func CreateGeneralHookForWorkflowV4(c *gin.Context) {
 		return
 	}
 
-	hook := new(commonmodels.GeneralHook)
+	hook := new(commonmodels.WorkflowV4GeneralHook)
 	if err := c.ShouldBindJSON(hook); err != nil {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
@@ -994,7 +994,7 @@ func UpdateGeneralHookForWorkflowV4(c *gin.Context) {
 		return
 	}
 
-	hook := new(commonmodels.GeneralHook)
+	hook := new(commonmodels.WorkflowV4GeneralHook)
 	if err := c.ShouldBindJSON(hook); err != nil {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
@@ -1033,7 +1033,6 @@ func DeleteGeneralHookForWorkflowV4(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
