@@ -303,6 +303,7 @@ func (c *CodehostColl) updateCodeHost(query bson.M, host *models.CodeHost) (*mod
 		"enable_proxy":   host.EnableProxy,
 		"alias":          host.Alias,
 		"updated_at":     time.Now().Unix(),
+		"disable_ssl":    host.DisableSSL,
 	}
 	if host.Type == setting.SourceFromGerrit {
 		modifyValue["access_token"] = host.AccessToken

@@ -254,7 +254,7 @@ func getLoader(ch *systemconfig.CodeHost) (yamlLoader, error) {
 	case setting.SourceFromGithub:
 		return githubservice.NewClient(ch.AccessToken, config.ProxyHTTPSAddr(), ch.EnableProxy), nil
 	case setting.SourceFromGitlab:
-		return gitlabservice.NewClient(ch.ID, ch.Address, ch.AccessToken, config.ProxyHTTPSAddr(), ch.EnableProxy)
+		return gitlabservice.NewClient(ch.ID, ch.Address, ch.AccessToken, config.ProxyHTTPSAddr(), ch.EnableProxy, ch.DisableSSL)
 	default:
 		// should not have happened here
 		log.DPanicf("invalid source: %s", ch.Type)

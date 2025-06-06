@@ -47,7 +47,7 @@ type task struct {
 	ID                                                          int
 	owner, namespace, repo, address, token, ref, ak, sk, region string
 	from                                                        string
-	add, enableProxy, isManual                                  bool
+	add, enableProxy, isManual, disbaleSSL                      bool
 	err                                                         error
 	doneCh                                                      chan struct{}
 }
@@ -67,6 +67,7 @@ type TaskOption struct {
 	Region      string
 	IsManual    bool
 	EnableProxy bool
+	DisableSSL  bool
 }
 
 func (c *client) AddWebHook(taskOption *TaskOption) error {
@@ -85,6 +86,7 @@ func (c *client) AddWebHook(taskOption *TaskOption) error {
 		from:        taskOption.From,
 		add:         true,
 		enableProxy: taskOption.EnableProxy,
+		disbaleSSL:  taskOption.DisableSSL,
 		ak:          taskOption.AK,
 		sk:          taskOption.SK,
 		region:      taskOption.Region,
@@ -123,6 +125,7 @@ func (c *client) RemoveWebHook(taskOption *TaskOption) error {
 		from:        taskOption.From,
 		add:         false,
 		enableProxy: taskOption.EnableProxy,
+		disbaleSSL:  taskOption.DisableSSL,
 		ak:          taskOption.AK,
 		sk:          taskOption.SK,
 		region:      taskOption.Region,

@@ -126,7 +126,7 @@ func GetTreeGetter(codeHostID int) (TreeGetter, error) {
 	case setting.SourceFromGithub:
 		return githubservice.NewClient(ch.AccessToken, config.ProxyHTTPSAddr(), ch.EnableProxy), nil
 	case setting.SourceFromGitlab:
-		return gitlabservice.NewClient(ch.ID, ch.Address, ch.AccessToken, config.ProxyHTTPSAddr(), ch.EnableProxy)
+		return gitlabservice.NewClient(ch.ID, ch.Address, ch.AccessToken, config.ProxyHTTPSAddr(), ch.EnableProxy, ch.DisableSSL)
 	default:
 		log.Errorf("GetTreeGetter invalid source: %s", ch.Type)
 		return nil, fmt.Errorf("invalid source: %s", ch.Type)

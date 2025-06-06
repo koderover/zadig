@@ -24,8 +24,8 @@ type Client struct {
 	*gitlab.Client
 }
 
-func NewClient(id int, address, accessToken, proxyAddr string, enableProxy bool) (*Client, error) {
-	c, err := gitlab.NewClient(id, address, accessToken, proxyAddr, enableProxy)
+func NewClient(id int, address, accessToken, proxyAddr string, enableProxy bool, disableSSL bool) (*Client, error) {
+	c, err := gitlab.NewClient(id, address, accessToken, proxyAddr, enableProxy, disableSSL)
 	if err != nil {
 		return nil, err
 	}
