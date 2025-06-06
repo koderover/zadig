@@ -127,7 +127,6 @@ func generateScript(spec *StepShellSpec, dirs *types.AgentWorkDirs, jobOutput []
 	}
 	scripts := []string{}
 	scripts = append(scripts, spec.Scripts...)
-	scripts = util.ReplaceEnvArrWithValue(scripts, envmaps)
 
 	// add job output to script
 	if len(jobOutput) > 0 {
