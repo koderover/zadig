@@ -236,7 +236,7 @@ func DiffEnvServiceVersions(c *gin.Context) {
 
 		if production {
 			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-				!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.View || !ctx.Resources.ProjectAuthInfo[projectKey].Workflow.Execute {
+				!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.View && !ctx.Resources.ProjectAuthInfo[projectKey].Workflow.Execute {
 				envPermitted, envErr := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionView)
 				workflowPermitted, workflowErr := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeWorkflow, envName, types.WorkflowActionRun)
 				if envErr != nil || workflowErr != nil || !envPermitted || !workflowPermitted {
@@ -252,7 +252,7 @@ func DiffEnvServiceVersions(c *gin.Context) {
 			}
 		} else {
 			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-				!ctx.Resources.ProjectAuthInfo[projectKey].Env.View || !ctx.Resources.ProjectAuthInfo[projectKey].Workflow.Execute {
+				!ctx.Resources.ProjectAuthInfo[projectKey].Env.View && !ctx.Resources.ProjectAuthInfo[projectKey].Workflow.Execute {
 				envPermitted, envErr := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionView)
 				workflowPermitted, workflowErr := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeWorkflow, envName, types.WorkflowActionRun)
 				if envErr != nil || workflowErr != nil || !envPermitted || !workflowPermitted {
