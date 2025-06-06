@@ -45,6 +45,8 @@ type BuildResp struct {
 	Name           string                              `json:"name"`
 	Targets        []*commonmodels.ServiceModuleTarget `json:"targets"`
 	KeyVals        []*commonmodels.KeyVal              `json:"key_vals"`
+	DeployType     types.VMDeployType                  `json:"deploy_type"`
+	DeployKeyVals  []*commonmodels.KeyVal              `json:"deploy_key_vals"`
 	Repos          []*types.Repository                 `json:"repos"`
 	UpdateTime     int64                               `json:"update_time"`
 	UpdateBy       string                              `json:"update_by"`
@@ -199,6 +201,8 @@ func ListBuildModulesByServiceModule(encryptedKey, productName, envName string, 
 				ID:             buildModule.ID.Hex(),
 				Name:           buildModule.Name,
 				KeyVals:        buildModule.PreBuild.Envs,
+				DeployType:     buildModule.DeployType,
+				DeployKeyVals:  buildModule.PreDeploy.Envs,
 				Repos:          buildModule.Repos,
 				ClusterID:      buildModule.PreBuild.ClusterID,
 				Infrastructure: buildModule.Infrastructure,
