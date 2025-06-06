@@ -188,7 +188,7 @@ func (gpem *gitlabPushEventMatcherForWorkflowV4) Match(hookRepo *commonmodels.Ma
 		return false, err
 	}
 
-	client, err := gitlabtool.NewClient(detail.ID, detail.Address, detail.AccessToken, config.ProxyHTTPSAddr(), detail.EnableProxy)
+	client, err := gitlabtool.NewClient(detail.ID, detail.Address, detail.AccessToken, config.ProxyHTTPSAddr(), detail.EnableProxy, detail.DisableSSL)
 	if err != nil {
 		gpem.log.Errorf("NewClient error: %s", err)
 		return false, err

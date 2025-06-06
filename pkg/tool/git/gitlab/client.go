@@ -17,6 +17,7 @@ limitations under the License.
 package gitlab
 
 import (
+	"crypto/tls"
 	"fmt"
 	"io"
 	"net/http"
@@ -47,17 +48,18 @@ type Client struct {
 	*gitlab.Client
 }
 
-func NewClient(id int, address, accessToken, proxyAddr string, enableProxy bool) (*Client, error) {
+func NewClient(id int, address, accessToken, proxyAddr string, enableProxy bool, skipTLS bool) (*Client, error) {
 	var client *http.Client
 	if enableProxy {
 		proxyURL, err := url.Parse(proxyAddr)
 		if err != nil {
 			return nil, err
 		}
-		transport := &http.Transport{Proxy: http.ProxyURL(proxyURL)}
+		transport := &http.Transport{Proxy: http.ProxyURL(proxyURL), TLSClientConfig: &tls.Config{InsecureSkipVerify: skipTLS}}
 		client = &http.Client{Transport: transport}
 	} else {
 		client = http.DefaultClient
+		client.Transport = &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: skipTLS}}
 	}
 
 	token, err := UpdateGitlabToken(id, accessToken)

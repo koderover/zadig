@@ -32,6 +32,7 @@ type Config struct {
 	AccessToken string `json:"access_token"`
 	// the field determine whether the proxy is enabled
 	EnableProxy bool `json:"enable_proxy"`
+	DisableSSL  bool `json:"disable_ssl"`
 }
 
 type Client struct {
@@ -40,7 +41,7 @@ type Client struct {
 
 func (c *Config) Open(id int, logger *zap.SugaredLogger) (client.CodeHostClient, error) {
 
-	client, err := gitlab.NewClient(id, c.Address, c.AccessToken, config.ProxyHTTPSAddr(), c.EnableProxy)
+	client, err := gitlab.NewClient(id, c.Address, c.AccessToken, config.ProxyHTTPSAddr(), c.EnableProxy, c.DisableSSL)
 	if err != nil {
 		return nil, err
 	}

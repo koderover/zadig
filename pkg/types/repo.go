@@ -76,6 +76,8 @@ type Repository struct {
 	ServiceModule   string     `bson:"service_module" json:"service_module" yaml:"service_module"`
 	JobRepoIndex    int        `bson:"repo_index" json:"repo_index" yaml:"repo_index"`
 	SubmissionID    string     `bson:"submission_id" json:"submission_id" yaml:"submission_id"`
+	// SSL settings, only used for gitlab now
+	DisableSSL      bool       `bson:"disable_ssl"   json:"disable_ssl"   yaml:"disable_ssl"`
 	// perforce settings
 	DepotType string `bson:"depot_type,omitempty"    json:"depot_type,omitempty"    yaml:"depot_type,omitempty"`
 	// Stream is used for stream type depot

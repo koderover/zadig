@@ -158,7 +158,7 @@ func removeWebhook(t *task, logger *zap.Logger) {
 	case setting.SourceFromGithub:
 		cl = github.NewClient(t.token, config.ProxyHTTPSAddr(), t.enableProxy)
 	case setting.SourceFromGitlab:
-		cl, err = gitlab.NewClient(t.ID, t.address, t.token, config.ProxyHTTPSAddr(), t.enableProxy)
+		cl, err = gitlab.NewClient(t.ID, t.address, t.token, config.ProxyHTTPSAddr(), t.enableProxy, t.disbaleSSL)
 		if err != nil {
 			t.err = err
 			t.doneCh <- struct{}{}
@@ -236,7 +236,7 @@ func addWebhook(t *task, logger *zap.Logger) {
 	case setting.SourceFromGithub:
 		cl = github.NewClient(t.token, config.ProxyHTTPSAddr(), t.enableProxy)
 	case setting.SourceFromGitlab:
-		cl, err = gitlab.NewClient(t.ID, t.address, t.token, config.ProxyHTTPSAddr(), t.enableProxy)
+		cl, err = gitlab.NewClient(t.ID, t.address, t.token, config.ProxyHTTPSAddr(), t.enableProxy, t.disbaleSSL)
 		if err != nil {
 			t.err = err
 			t.doneCh <- struct{}{}
