@@ -38,7 +38,7 @@ type AccessToken struct {
 
 const TokenExpirationThreshold int64 = 7000
 
-func UpdateGitlabToken(id int, accessToken string) (string, error) {
+func UpdateGitlabToken(id int, accessToken string, disableTLS bool) (string, error) {
 	// if accessToken is empty, then it is either of ssh token type or username/password, we return empty
 	if accessToken == "" {
 		return "", nil
@@ -66,7 +66,7 @@ func UpdateGitlabToken(id int, accessToken string) (string, error) {
 
 	log.Infof("Starting to refresh gitlab token, old token issued time: %d", ch.UpdatedAt)
 
-	token, err := refreshAccessToken(ch.Address, ch.AccessKey, ch.SecretKey, ch.RefreshToken, ch.DisableSSL)
+	token, err := refreshAccessToken(ch.Address, ch.AccessKey, ch.SecretKey, ch.RefreshToken, disableTLS)
 	if err != nil {
 		return "", err
 	}

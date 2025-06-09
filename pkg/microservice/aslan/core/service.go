@@ -204,7 +204,7 @@ func initCron() {
 			return
 		}
 		for _, codehost := range codehostList {
-			_, err := gitlab.UpdateGitlabToken(codehost.ID, codehost.AccessToken)
+			_, err := gitlab.UpdateGitlabToken(codehost.ID, codehost.AccessToken, codehost.DisableSSL)
 			if err != nil {
 				log.Errorf("failed to update gitlab token for host: %d, error: %s", codehost.ID, err)
 			}
