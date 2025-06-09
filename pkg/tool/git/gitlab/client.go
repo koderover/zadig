@@ -62,6 +62,8 @@ func NewClient(id int, address, accessToken, proxyAddr string, enableProxy bool,
 		client.Transport = &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: skipTLS}}
 	}
 
+	fmt.Println("============= generating client with insecureskipverify set to: %v", skipTLS)
+
 	token, err := UpdateGitlabToken(id, accessToken)
 	if err != nil {
 		return nil, fmt.Errorf("failed to refresh gitlab token, err: %s", err)
