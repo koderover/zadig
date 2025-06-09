@@ -17,7 +17,9 @@ limitations under the License.
 package gitlab
 
 import (
+	"crypto/tls"
 	"fmt"
+	"net/http"
 	"time"
 
 	"github.com/koderover/zadig/v2/pkg/shared/client/systemconfig"
@@ -65,7 +67,7 @@ func UpdateGitlabToken(id int, accessToken string) (string, error) {
 
 	log.Infof("Starting to refresh gitlab token, old token issued time: %d", ch.UpdatedAt)
 
-	token, err := refreshAccessToken(ch.Address, ch.AccessKey, ch.SecretKey, ch.RefreshToken)
+	token, err := refreshAccessToken(ch.Address, ch.AccessKey, ch.SecretKey, ch.RefreshToken, ch.DisableSSL)
 	if err != nil {
 		return "", err
 	}
@@ -104,9 +106,10 @@ func UpdateGitlabToken(id int, accessToken string) (string, error) {
 	return token.AccessToken, nil
 }
 
-func refreshAccessToken(address, clientID, clientSecret, refreshToken string) (*AccessToken, error) {
+func refreshAccessToken(address, clientID, clientSecret, refreshToken string, disableSSL bool) (*AccessToken, error) {
 	httpClient := httpclient.New(
 		httpclient.SetHostURL(address),
+		httpclient.SetTLSClientConfig(&tls.Config{InsecureSkipVerify: disableSSL}),
 	)
 	url := "/oauth/token"
 	queryParams := make(map[string]string)
