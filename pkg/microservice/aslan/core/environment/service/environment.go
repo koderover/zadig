@@ -2307,7 +2307,7 @@ func DeleteProduct(username, envName, productName, requestID string, isDelete bo
 				}
 
 				// @todo fix env already deleted issue, may cause service not really deleted in k8s
-				err = DeleteProductServices("", requestID, envName, productName, svcNames, false, log)
+				err = DeleteProductServices("", requestID, envName, productName, svcNames, false, isDelete, log)
 				if err != nil {
 					log.Warnf("DeleteProductServices error: %v", err)
 				}
@@ -2350,7 +2350,7 @@ func DeleteProduct(username, envName, productName, requestID string, isDelete bo
 	return nil
 }
 
-func DeleteProductServices(userName, requestID, envName, productName string, serviceNames []string, production bool, log *zap.SugaredLogger) (err error) {
+func DeleteProductServices(userName, requestID, envName, productName string, serviceNames []string, production, isDelete bool, log *zap.SugaredLogger) (err error) {
 	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: productName, EnvName: envName, Production: util.GetBoolPointer(production)})
 	if err != nil {
 		err = fmt.Errorf("failed to find product, productName: %s, envName: %s, production: %v, error: %v", productName, envName, production, err)
@@ -2358,28 +2358,28 @@ func DeleteProductServices(userName, requestID, envName, productName string, ser
 		return err
 	}
 	if getProjectType(productName) == setting.HelmDeployType {
-		return deleteHelmProductServices(userName, requestID, productInfo, serviceNames, log)
+		return deleteHelmProductServices(userName, requestID, productInfo, serviceNames, isDelete, log)
 	}
-	return deleteK8sProductServices(productInfo, serviceNames, log)
+	return deleteK8sProductServices(productInfo, serviceNames, isDelete, log)
 }
 
-func DeleteProductHelmReleases(userName, requestID, envName, productName string, releases []string, production bool, log *zap.SugaredLogger) (err error) {
+func DeleteProductHelmReleases(userName, requestID, envName, productName string, releases []string, production, isDelete bool, log *zap.SugaredLogger) (err error) {
 	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: productName, EnvName: envName, Production: util.GetBoolPointer(production)})
 	if err != nil {
 		log.Errorf("find product error: %v", err)
 		return err
 	}
-	return kube.DeleteHelmReleaseFromEnv(userName, requestID, productInfo, releases, log)
+	return kube.DeleteHelmReleaseFromEnv(userName, requestID, productInfo, releases, isDelete, log)
 }
 
-func deleteHelmProductServices(userName, requestID string, productInfo *commonmodels.Product, serviceNames []string, log *zap.SugaredLogger) error {
-	return kube.DeleteHelmServiceFromEnv(userName, requestID, productInfo, serviceNames, log)
+func deleteHelmProductServices(userName, requestID string, productInfo *commonmodels.Product, serviceNames []string, isDelete bool, log *zap.SugaredLogger) error {
+	return kube.DeleteHelmServiceFromEnv(userName, requestID, productInfo, serviceNames, isDelete, log)
 }
 
-func deleteK8sProductServices(productInfo *commonmodels.Product, serviceNames []string, log *zap.SugaredLogger) error {
+func deleteK8sProductServices(productInfo *commonmodels.Product, serviceNames []string, isDelete bool, log *zap.SugaredLogger) error {
 	serviceRelatedYaml := make(map[string]string)
 	for _, service := range productInfo.GetServiceMap() {
-		if !commonutil.ServiceDeployed(service.ServiceName, productInfo.ServiceDeployStrategy) {
+		if !commonutil.ServiceDeployed(service.ServiceName, productInfo.ServiceDeployStrategy) || !isDelete {
 			continue
 		}
 		if util.InStringArray(service.ServiceName, serviceNames) {
@@ -2436,7 +2436,7 @@ func deleteK8sProductServices(productInfo *commonmodels.Product, serviceNames []
 	}
 
 	for _, name := range serviceNames {
-		if !commonutil.ServiceDeployed(name, productInfo.ServiceDeployStrategy) {
+		if !commonutil.ServiceDeployed(name, productInfo.ServiceDeployStrategy) || !isDelete {
 			continue
 		}
 

@@ -1662,6 +1662,7 @@ func DeleteProductServices(c *gin.Context) {
 	projectKey := c.Query("projectName")
 	envName := c.Param("name")
 	production := c.Query("production") == "true"
+	isDelete := c.Query("is_delete") == "true"
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -1717,7 +1718,7 @@ func DeleteProductServices(c *gin.Context) {
 	}
 
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "删除", "环境的服务", fmt.Sprintf("%s:[%s]", envName, strings.Join(args.ServiceNames, ",")), "", types.RequestBodyTypeJSON, ctx.Logger, envName)
-	ctx.RespErr = service.DeleteProductServices(ctx.UserName, ctx.RequestID, envName, projectKey, args.ServiceNames, production, ctx.Logger)
+	ctx.RespErr = service.DeleteProductServices(ctx.UserName, ctx.RequestID, envName, projectKey, args.ServiceNames, production, isDelete, ctx.Logger)
 }
 
 // @Summary Delete helm release from envrionment
@@ -1746,6 +1747,7 @@ func DeleteHelmReleases(c *gin.Context) {
 	envName := c.Param("name")
 	releaseNameArr := strings.Split(releaseNames, ",")
 	production := c.Query("production") == "true"
+	isDelete := c.Query("is_delete") == "true"
 
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "删除", "环境的helm release", fmt.Sprintf("%s:[%s]", envName, releaseNames), "", types.RequestBodyTypeJSON, ctx.Logger, envName)
 
@@ -1787,7 +1789,7 @@ func DeleteHelmReleases(c *gin.Context) {
 		return
 	}
 
-	ctx.RespErr = service.DeleteProductHelmReleases(ctx.UserName, ctx.RequestID, envName, projectKey, releaseNameArr, production, ctx.Logger)
+	ctx.RespErr = service.DeleteProductHelmReleases(ctx.UserName, ctx.RequestID, envName, projectKey, releaseNameArr, production, isDelete, ctx.Logger)
 }
 
 func ListGroups(c *gin.Context) {

@@ -300,8 +300,9 @@ func (req *OpenAPIApplyYamlServiceReq) Validate() error {
 }
 
 type OpenAPIDeleteYamlServiceFromEnvReq struct {
-	EnvName      string   `json:"env_key"`
-	ServiceNames []string `json:"service_names"`
+	EnvName           string   `json:"env_key"`
+	ServiceNames      []string `json:"service_names"`
+	NotDeleteResource bool     `json:"not_delete_resource"`
 }
 
 func (req *OpenAPIDeleteYamlServiceFromEnvReq) Validate() error {
