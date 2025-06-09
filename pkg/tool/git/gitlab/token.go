@@ -19,7 +19,6 @@ package gitlab
 import (
 	"crypto/tls"
 	"fmt"
-	"net/http"
 	"time"
 
 	"github.com/koderover/zadig/v2/pkg/shared/client/systemconfig"
