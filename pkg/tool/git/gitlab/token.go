@@ -88,6 +88,7 @@ func UpdateGitlabToken(id int, accessToken string) (string, error) {
 		AuthType:           ch.AuthType,
 		SSHKey:             ch.SSHKey,
 		PrivateAccessToken: ch.PrivateAccessToken,
+		DisableSSL:         ch.DisableSSL,
 	}
 
 	log.Infof("the update time of the codehost is: %d", newCodehost.UpdatedAt)

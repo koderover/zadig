@@ -178,6 +178,7 @@ func (c *Client) UpdateCodeHost(id int, codehost *CodeHost) error {
 		PrivateAccessToken: codehost.PrivateAccessToken,
 		EnableProxy:        codehost.EnableProxy,
 		UpdatedAt:          codehost.UpdatedAt,
+		DisableSSL:         codehost.DisableSSL,
 	}
 
 	_, err := codehostservice.UpdateCodeHost(arg, log.SugaredLogger())
