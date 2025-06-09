@@ -87,6 +87,7 @@ func (c *Client) GetCodeHost(id int) (*CodeHost, error) {
 		SecretKey:          resp.ClientSecret,
 		Username:           resp.Username,
 		Password:           resp.Password,
+		DisableSSL:         resp.DisableSSL,
 		EnableProxy:        resp.EnableProxy,
 		UpdatedAt:          resp.UpdatedAt,
 		Alias:              resp.Alias,
