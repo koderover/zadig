@@ -124,6 +124,7 @@ func (c *Client) GetRawCodeHost(id int) (*CodeHost, error) {
 		AuthType:           resp.AuthType,
 		SSHKey:             resp.SSHKey,
 		PrivateAccessToken: resp.PrivateAccessToken,
+		DisableSSL:         resp.DisableSSL,
 	}
 
 	return res, nil
