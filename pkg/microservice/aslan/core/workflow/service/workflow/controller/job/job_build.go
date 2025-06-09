@@ -1188,6 +1188,9 @@ func getBuildJobVariables(build *commonmodels.ServiceAndBuild, taskID int64, pro
 	buildURL := fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/custom/%s/%d?display_name=%s", configbase.SystemAddress(), project, workflowName, taskID, url.QueryEscape(workflowDisplayName))
 	ret = append(ret, &commonmodels.KeyVal{Key: "BUILD_URL", Value: buildURL, IsCredential: false})
 	ret = append(ret, &commonmodels.KeyVal{Key: "PKG_FILE", Value: pkgFile, IsCredential: false})
+
+	// TODO: remove it
+	ret = append(ret, &commonmodels.KeyVal{Key: "GIT_SSL_NO_VERIFY", Value: "true", IsCredential: false})
 	return ret
 }
 

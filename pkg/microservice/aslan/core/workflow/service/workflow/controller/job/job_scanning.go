@@ -1053,6 +1053,8 @@ func getScanningJobVariables(repos []*types.Repository, taskID int64, project, w
 	ret = append(ret, &commonmodels.KeyVal{Key: "SERVICE_MODULE", Value: serviceModule, IsCredential: false})
 	ret = append(ret, &commonmodels.KeyVal{Key: "SCANNING_NAME", Value: scanningName, IsCredential: false})
 
+	// TODO: remove it
+	ret = append(ret, &commonmodels.KeyVal{Key: "GIT_SSL_NO_VERIFY", Value: "true", IsCredential: false})
 	return ret
 }
 
