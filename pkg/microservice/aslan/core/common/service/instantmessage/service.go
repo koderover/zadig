@@ -300,6 +300,7 @@ func (w *Service) sendMessage(task *task.Task, notifyCtl *models.NotifyCtl, test
 			if task.Type == config.SingleType {
 				title = "工作流状态"
 			}
+			content = fmt.Sprintf("%s\n%s", content, getNotifyAtContent(notifyCtl))
 			workflowDetailURL := fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/multi/%s/%d?display_name=%s", configbase.SystemAddress(), task.ProductName, task.PipelineName, task.TaskID, url.PathEscape(task.PipelineDisplayName))
 			err := w.sendDingDingMessage(uri, title, content, workflowDetailURL, atMobiles, isAtAll)
 			if err != nil {
