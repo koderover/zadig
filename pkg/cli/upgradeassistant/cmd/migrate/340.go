@@ -180,7 +180,6 @@ func updateWorkflowJobTaskSpec(stages []*commonmodels.WorkflowStage) error {
 				newSpec.MergeStrategySource = config.ParamSourceFixed
 				job.Spec = newSpec
 			case config.JobFreestyle:
-				// TODO: Add freestyle job ua logic
 				newSpec := new(commonmodels.FreestyleJobSpec)
 				if err := commonmodels.IToi(job.Spec, newSpec); err != nil {
 					return fmt.Errorf("failed to decode zadig build job, error: %s", err)
