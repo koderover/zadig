@@ -209,9 +209,12 @@ func (s *GitStep) buildGitCommands(repo *types.Repository, hostNames sets.String
 		cmds = append(cmds, &common.Command{Cmd: gitcmd.RemoteAdd(repo.RemoteName, HTTPSCloneURL(repo.Source, repo.OauthToken, repo.RepoOwner, repo.RepoName, repo.Address)), DisableTrace: true})
 	} else if repo.Source == types.ProviderOther {
 		if repo.AuthType == types.SSHAuthType {
+			sshKeyPath := ""
 			host := getHost(repo.Address)
 			if !hostNames.Has(host) {
-				if err := writeSSHFile(repo.SSHKey, host); err != nil {
+				var err error
+				sshKeyPath, err = writeSSHFile(repo.SSHKey, host)
+				if err != nil {
 					s.Logger.Errorf("failed to write ssh file, err: %v", err)
 				}
 				hostNames.Insert(host)
@@ -221,6 +224,14 @@ func (s *GitStep) buildGitCommands(repo *types.Repository, hostNames sets.String
 			if strings.Contains(repo.Address, ":") {
 				remoteName = fmt.Sprintf("%s/%s/%s.git", repo.Address, repo.RepoOwner, repo.RepoName)
 			}
+
+			if sshKeyPath != "" {
+				cmds = append(cmds, &common.Command{
+					Cmd:          gitcmd.SetConfig("core.sshCommand", fmt.Sprintf("ssh -i %s", sshKeyPath)),
+					DisableTrace: true,
+				})
+			}
+
 			cmds = append(cmds, &common.Command{
 				Cmd:          gitcmd.RemoteAdd(repo.RemoteName, remoteName),
 				DisableTrace: true,
@@ -293,34 +304,20 @@ func (s *GitStep) GetWorkDir(repo *types.Repository) string {
 	return workDir
 }
 
-func writeSSHFile(sshKey, hostName string) error {
+func writeSSHFile(sshKey, hostName string) (string, error) {
 	if sshKey == "" {
-		return fmt.Errorf("ssh cannot be empty")
+		return "", fmt.Errorf("ssh cannot be empty")
 	}
 
 	if hostName == "" {
-		return fmt.Errorf("hostName cannot be empty")
+		return "", fmt.Errorf("hostName cannot be empty")
 	}
 
 	hostName = strings.Replace(hostName, ".", "", -1)
 	hostName = strings.Replace(hostName, ":", "", -1)
 	pathName := fmt.Sprintf("/.ssh/id_rsa.%s", hostName)
 	file := filepath.Join(config.Home(), pathName)
-	return ioutil.WriteFile(file, []byte(sshKey), 0400)
-}
-
-func writeSSHConfigFile(hostNames sets.String, proxy *step.Proxy) error {
-	out := "\nHOST *\nStrictHostKeyChecking=no\nUserKnownHostsFile=/dev/null\n"
-	for _, hostName := range hostNames.List() {
-		name := strings.Replace(hostName, ".", "", -1)
-		name = strings.Replace(name, ":", "", -1)
-		out += fmt.Sprintf("\nHost %s\nIdentityFile ~/.ssh/id_rsa.%s\n", hostName, name)
-		if proxy.EnableRepoProxy && proxy.Type == "socks5" {
-			out = out + fmt.Sprintf("ProxyCommand nc -x %s %%h %%p\n", proxy.GetProxyURL())
-		}
-	}
-	file := filepath.Join(config.Home(), "/.ssh/config")
-	return ioutil.WriteFile(file, []byte(out), 0600)
+	return file, ioutil.WriteFile(file, []byte(sshKey), 0400)
 }
 
 // git@github.com or git@github.com:2000
