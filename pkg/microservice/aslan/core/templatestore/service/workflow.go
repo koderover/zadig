@@ -31,7 +31,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/setting"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
-	steptypes "github.com/koderover/zadig/v2/pkg/types/step"
+	"github.com/koderover/zadig/v2/pkg/types"
 )
 
 func CreateWorkflowTemplate(userName string, template *commonmodels.WorkflowV4Template, logger *zap.SugaredLogger) error {
@@ -547,41 +547,26 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 							Name:    "code-analyse",
 							JobType: config.JobFreestyle,
 							Spec: commonmodels.FreestyleJobSpec{
-								Properties: &commonmodels.JobProperties{
-									Timeout:         60,
-									ResourceRequest: "low",
-									ResReqSpec:      setting.LowRequestSpec,
-									BuildOS:         buildOS,
-									ImageFrom:       imageFrom,
-									ImageID:         imageID,
-									CacheEnable:     true,
-									CacheDirType:    "workspace",
-									Infrastructure:  setting.JobK8sInfrastructure,
+								Repos:      make([]*types.Repository, 0),
+								Script:     "#!/bin/bash\nset -e",
+								ScriptType: types.ScriptTypeShell,
+								Runtime: &commonmodels.RuntimeInfo{
+									Infrastructure: setting.JobK8sInfrastructure,
+									BuildOS:        buildOS,
+									ImageFrom:      imageFrom,
+									ImageID:        imageID,
 								},
-								Steps: []*commonmodels.Step{
-									{
-										Name:     "tools",
-										StepType: config.StepTools,
-										Spec:     &steptypes.StepToolInstallSpec{},
-									},
-									{
-										Name:     "git",
-										StepType: config.StepGit,
-										Spec:     &steptypes.StepGitSpec{},
-									},
-									{
-										Name:     "perforce",
-										StepType: config.StepPerforce,
-										Spec:     &steptypes.StepP4Spec{},
-									},
-									{
-										Name:     "shell",
-										StepType: config.StepShell,
-										Spec: &steptypes.StepShellSpec{
-											Script: "#!/bin/bash\nset -e",
-										},
+								AdvancedSetting: &commonmodels.FreestyleJobAdvancedSettings{
+									JobAdvancedSettings: &commonmodels.JobAdvancedSettings{
+										Timeout:         60,
+										ResourceRequest: "low",
+										ResReqSpec:      setting.LowRequestSpec,
 									},
 								},
+								ObjectStorageUpload: &commonmodels.ObjectStorageUpload{
+									Enabled: false,
+								},
+								Envs: make(commonmodels.RuntimeKeyValList, 0),
 							},
 						},
 					},
@@ -814,41 +799,26 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 							Name:    "check",
 							JobType: config.JobFreestyle,
 							Spec: commonmodels.FreestyleJobSpec{
-								Properties: &commonmodels.JobProperties{
-									Timeout:         60,
-									ResourceRequest: "low",
-									ResReqSpec:      setting.LowRequestSpec,
-									BuildOS:         buildOS,
-									ImageFrom:       imageFrom,
-									ImageID:         imageID,
-									CacheEnable:     true,
-									CacheDirType:    "workspace",
-									Infrastructure:  setting.JobK8sInfrastructure,
+								Repos:      make([]*types.Repository, 0),
+								Script:     "#!/bin/bash\nset -e",
+								ScriptType: types.ScriptTypeShell,
+								Runtime: &commonmodels.RuntimeInfo{
+									Infrastructure: setting.JobK8sInfrastructure,
+									BuildOS:        buildOS,
+									ImageFrom:      imageFrom,
+									ImageID:        imageID,
 								},
-								Steps: []*commonmodels.Step{
-									{
-										Name:     "tools",
-										StepType: config.StepTools,
-										Spec:     &steptypes.StepToolInstallSpec{},
-									},
-									{
-										Name:     "git",
-										StepType: config.StepGit,
-										Spec:     &steptypes.StepGitSpec{},
-									},
-									{
-										Name:     "perforce",
-										StepType: config.StepPerforce,
-										Spec:     &steptypes.StepP4Spec{},
-									},
-									{
-										Name:     "shell",
-										StepType: config.StepShell,
-										Spec: &steptypes.StepShellSpec{
-											Script: "#!/bin/bash\nset -e",
-										},
+								AdvancedSetting: &commonmodels.FreestyleJobAdvancedSettings{
+									JobAdvancedSettings: &commonmodels.JobAdvancedSettings{
+										Timeout:         60,
+										ResourceRequest: "low",
+										ResReqSpec:      setting.LowRequestSpec,
 									},
 								},
+								ObjectStorageUpload: &commonmodels.ObjectStorageUpload{
+									Enabled: false,
+								},
+								Envs: make(commonmodels.RuntimeKeyValList, 0),
 							},
 						},
 					},
@@ -912,41 +882,26 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 							Name:    "check",
 							JobType: config.JobFreestyle,
 							Spec: commonmodels.FreestyleJobSpec{
-								Properties: &commonmodels.JobProperties{
-									Timeout:         60,
-									ResourceRequest: "low",
-									ResReqSpec:      setting.LowRequestSpec,
-									BuildOS:         buildOS,
-									ImageFrom:       imageFrom,
-									ImageID:         imageID,
-									CacheEnable:     true,
-									CacheDirType:    "workspace",
-									Infrastructure:  setting.JobK8sInfrastructure,
+								Repos:      make([]*types.Repository, 0),
+								Script:     "#!/bin/bash\nset -e",
+								ScriptType: types.ScriptTypeShell,
+								Runtime: &commonmodels.RuntimeInfo{
+									Infrastructure: setting.JobK8sInfrastructure,
+									BuildOS:        buildOS,
+									ImageFrom:      imageFrom,
+									ImageID:        imageID,
 								},
-								Steps: []*commonmodels.Step{
-									{
-										Name:     "tools",
-										StepType: config.StepTools,
-										Spec:     &steptypes.StepToolInstallSpec{},
-									},
-									{
-										Name:     "git",
-										StepType: config.StepGit,
-										Spec:     &steptypes.StepGitSpec{},
-									},
-									{
-										Name:     "perforce",
-										StepType: config.StepPerforce,
-										Spec:     &steptypes.StepP4Spec{},
-									},
-									{
-										Name:     "shell",
-										StepType: config.StepShell,
-										Spec: &steptypes.StepShellSpec{
-											Script: "#!/bin/bash\nset -e",
-										},
+								AdvancedSetting: &commonmodels.FreestyleJobAdvancedSettings{
+									JobAdvancedSettings: &commonmodels.JobAdvancedSettings{
+										Timeout:         60,
+										ResourceRequest: "low",
+										ResReqSpec:      setting.LowRequestSpec,
 									},
 								},
+								ObjectStorageUpload: &commonmodels.ObjectStorageUpload{
+									Enabled: false,
+								},
+								Envs: make(commonmodels.RuntimeKeyValList, 0),
 							},
 						},
 					},
@@ -1129,41 +1084,26 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 							Name:    "check",
 							JobType: config.JobFreestyle,
 							Spec: commonmodels.FreestyleJobSpec{
-								Properties: &commonmodels.JobProperties{
-									Timeout:         60,
-									ResourceRequest: "low",
-									ResReqSpec:      setting.LowRequestSpec,
-									BuildOS:         buildOS,
-									ImageFrom:       imageFrom,
-									ImageID:         imageID,
-									CacheEnable:     true,
-									CacheDirType:    "workspace",
-									Infrastructure:  setting.JobK8sInfrastructure,
+								Repos:      make([]*types.Repository, 0),
+								Script:     "#!/bin/bash\nset -e",
+								ScriptType: types.ScriptTypeShell,
+								Runtime: &commonmodels.RuntimeInfo{
+									Infrastructure: setting.JobK8sInfrastructure,
+									BuildOS:        buildOS,
+									ImageFrom:      imageFrom,
+									ImageID:        imageID,
 								},
-								Steps: []*commonmodels.Step{
-									{
-										Name:     "tools",
-										StepType: config.StepTools,
-										Spec:     &steptypes.StepToolInstallSpec{},
-									},
-									{
-										Name:     "git",
-										StepType: config.StepGit,
-										Spec:     &steptypes.StepGitSpec{},
-									},
-									{
-										Name:     "perforce",
-										StepType: config.StepPerforce,
-										Spec:     &steptypes.StepP4Spec{},
-									},
-									{
-										Name:     "shell",
-										StepType: config.StepShell,
-										Spec: &steptypes.StepShellSpec{
-											Script: "#!/bin/bash\nset -e",
-										},
+								AdvancedSetting: &commonmodels.FreestyleJobAdvancedSettings{
+									JobAdvancedSettings: &commonmodels.JobAdvancedSettings{
+										Timeout:         60,
+										ResourceRequest: "low",
+										ResReqSpec:      setting.LowRequestSpec,
 									},
 								},
+								ObjectStorageUpload: &commonmodels.ObjectStorageUpload{
+									Enabled: false,
+								},
+								Envs: make(commonmodels.RuntimeKeyValList, 0),
 							},
 						},
 					},
@@ -1225,8 +1165,7 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 						{
 							Name:    "jira-update",
 							JobType: config.JobJira,
-							Spec: commonmodels.JiraJobSpec{
-							},
+							Spec:    commonmodels.JiraJobSpec{},
 						},
 					},
 				},
