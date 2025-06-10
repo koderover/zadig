@@ -619,7 +619,7 @@ func renderParams(origin, input []*commonmodels.Param) []*commonmodels.Param {
 					IsCredential: originParam.IsCredential,
 					Source:       originParam.Source,
 				}
-				if originParam.Source != config.ParamSourceFixed {
+				if originParam.Source != config.ParamSourceFixed && originParam.Source != config.ParamSourceReference {
 					newParam.Value = inputParam.Value
 					newParam.Repo = inputParam.Repo
 					newParam.ChoiceValue = inputParam.ChoiceValue
