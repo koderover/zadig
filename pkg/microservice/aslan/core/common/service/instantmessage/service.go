@@ -300,7 +300,6 @@ func (w *Service) sendMessage(task *task.Task, notifyCtl *models.NotifyCtl, test
 			if task.Type == config.SingleType {
 				title = "工作流状态"
 			}
-			content = fmt.Sprintf("%s\n%s", content, getNotifyAtContent(notifyCtl))
 			workflowDetailURL := fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/multi/%s/%d?display_name=%s", configbase.SystemAddress(), task.ProductName, task.PipelineName, task.TaskID, url.PathEscape(task.PipelineDisplayName))
 			err := w.sendDingDingMessage(uri, title, content, workflowDetailURL, atMobiles, isAtAll)
 			if err != nil {
@@ -798,14 +797,14 @@ func getNotifyAtContent(notify *models.NotifyCtl) string {
 	resp := ""
 	if notify.WebHookType == setting.NotifyWebHookTypeDingDing {
 		notify.DingDingNotificationConfig.AtMobiles = lo.Filter(notify.DingDingNotificationConfig.AtMobiles, func(s string, _ int) bool { return s != "All" })
-		if len(notify.AtMobiles) > 0 {
+		if len(notify.DingDingNotificationConfig.AtMobiles) > 0 {
 			resp = fmt.Sprintf("##### **相关人员**: @%s \n", strings.Join(notify.DingDingNotificationConfig.AtMobiles, "@"))
 		}
 	}
 	if notify.WebHookType == setting.NotifyWebHookTypeWechatWork && len(notify.WechatUserIDs) > 0 {
 		atUserList := []string{}
 		notify.WechatNotificationConfig.AtUsers = lo.Filter(notify.WechatNotificationConfig.AtUsers, func(s string, _ int) bool { return s != "All" })
-		for _, userID := range notify.WechatUserIDs {
+		for _, userID := range notify.WechatNotificationConfig.AtUsers {
 			atUserList = append(atUserList, fmt.Sprintf("<@%s>", userID))
 		}
 		resp = fmt.Sprintf("##### **相关人员**: %s \n", strings.Join(atUserList, " "))
@@ -813,7 +812,7 @@ func getNotifyAtContent(notify *models.NotifyCtl) string {
 	if notify.WebHookType == setting.NotifyWebHookTypeFeishu {
 		atUserList := []string{}
 		notify.LarkHookNotificationConfig.AtUsers = lo.Filter(notify.LarkHookNotificationConfig.AtUsers, func(s string, _ int) bool { return s != "All" })
-		for _, userID := range notify.LarkUserIDs {
+		for _, userID := range notify.LarkHookNotificationConfig.AtUsers {
 			atUserList = append(atUserList, fmt.Sprintf("<at user_id=\"%s\"></at>", userID))
 		}
 		resp = strings.Join(atUserList, " ")
