@@ -307,6 +307,19 @@ func ManifestToUnstructured(manifest string) ([]*unstructured.Unstructured, map[
 	resources := []*unstructured.Unstructured{}
 	resourceMap := make(map[string]*Resource)
 	for _, item := range manifests {
+		isEmpty := true
+		for _, line := range strings.Split(strings.TrimSpace(item), "\n") {
+			trimmedLine := strings.TrimSpace(line)
+			if trimmedLine != "" && !strings.HasPrefix(trimmedLine, "#") {
+				isEmpty = false
+				break
+			}
+		}
+
+		if isEmpty {
+			continue
+		}
+
 		u, err := serializer.NewDecoder().YamlToUnstructured([]byte(item))
 		if err != nil {
 			errList = multierror.Append(errList, err)
