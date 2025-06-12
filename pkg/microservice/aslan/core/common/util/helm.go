@@ -17,8 +17,10 @@ limitations under the License.
 package util
 
 import (
+	"crypto/tls"
 	"fmt"
 	"io/fs"
+	"net/http"
 	"os"
 	"path"
 	"regexp"
@@ -352,6 +354,13 @@ func NewHelmClient(chartRepo *commonmodels.HelmRepo) (*helmtool.HelmClient, erro
 	}
 
 	if !chartRepo.EnableProxy {
+		transport := &http.Transport{
+			DisableCompression: true,
+			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: true,
+			},
+		}
+		client.Transport = transport
 		return client, nil
 	} else {
 		proxy, err := commonrepo.NewProxyColl().List(&commonrepo.ProxyArgs{})
@@ -363,7 +372,7 @@ func NewHelmClient(chartRepo *commonmodels.HelmRepo) (*helmtool.HelmClient, erro
 			return nil, fmt.Errorf("enabled proxy for helm client, but no proxy found")
 		}
 
-		transport, err := util.NewTransport(chartRepo.URL, "", "", "", false, proxy[0].GetProxyURL())
+		transport, err := util.NewTransport(chartRepo.URL, "", "", "", true, proxy[0].GetProxyURL())
 		if err != nil {
 			return nil, fmt.Errorf("failed to new transport, err: %s", err)
 		}

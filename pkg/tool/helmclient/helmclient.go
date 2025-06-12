@@ -1042,7 +1042,7 @@ func newHelmChartMuseumClient(proxy *Proxy, opts ...cm.Option) (*cm.Client, erro
 		return &client, nil
 	}
 
-	transport, err := util.NewTransport(proxy.URL, "", "", "", false, proxy.ProxyURL)
+	transport, err := util.NewTransport(proxy.URL, "", "", "", true, proxy.ProxyURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to new transport, err: %s", err)
 	}
