@@ -31,3 +31,18 @@ const (
 	Str    JenkinsParamType = "string"
 	Choice JenkinsParamType = "choice"
 )
+
+type VMDeployType string
+
+const (
+	VMDeployTypeLocal    VMDeployType = "local"
+	VMDeployTypeSSHAgent VMDeployType = "ssh_agent"
+)
+
+type VMDeployArtifactType string
+
+const (
+	VMDeployArtifactTypeFile  VMDeployArtifactType = "file"
+	VMDeployArtifactTypeImage VMDeployArtifactType = "image"
+	VMDeployArtifactTypeOther VMDeployArtifactType = "other"
+)
