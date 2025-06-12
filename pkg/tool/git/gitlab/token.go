@@ -17,6 +17,7 @@ limitations under the License.
 package gitlab
 
 import (
+	"crypto/tls"
 	"fmt"
 	"time"
 
@@ -37,7 +38,7 @@ type AccessToken struct {
 
 const TokenExpirationThreshold int64 = 7000
 
-func UpdateGitlabToken(id int, accessToken string) (string, error) {
+func UpdateGitlabToken(id int, accessToken string, disableTLS bool) (string, error) {
 	// if accessToken is empty, then it is either of ssh token type or username/password, we return empty
 	if accessToken == "" {
 		return "", nil
@@ -65,7 +66,7 @@ func UpdateGitlabToken(id int, accessToken string) (string, error) {
 
 	log.Infof("Starting to refresh gitlab token, old token issued time: %d", ch.UpdatedAt)
 
-	token, err := refreshAccessToken(ch.Address, ch.AccessKey, ch.SecretKey, ch.RefreshToken)
+	token, err := refreshAccessToken(ch.Address, ch.AccessKey, ch.SecretKey, ch.RefreshToken, disableTLS)
 	if err != nil {
 		return "", err
 	}
@@ -88,6 +89,7 @@ func UpdateGitlabToken(id int, accessToken string) (string, error) {
 		AuthType:           ch.AuthType,
 		SSHKey:             ch.SSHKey,
 		PrivateAccessToken: ch.PrivateAccessToken,
+		DisableSSL:         ch.DisableSSL,
 	}
 
 	log.Infof("the update time of the codehost is: %d", newCodehost.UpdatedAt)
@@ -103,9 +105,10 @@ func UpdateGitlabToken(id int, accessToken string) (string, error) {
 	return token.AccessToken, nil
 }
 
-func refreshAccessToken(address, clientID, clientSecret, refreshToken string) (*AccessToken, error) {
+func refreshAccessToken(address, clientID, clientSecret, refreshToken string, disableSSL bool) (*AccessToken, error) {
 	httpClient := httpclient.New(
 		httpclient.SetHostURL(address),
+		httpclient.SetTLSClientConfig(&tls.Config{InsecureSkipVerify: disableSSL}),
 	)
 	url := "/oauth/token"
 	queryParams := make(map[string]string)

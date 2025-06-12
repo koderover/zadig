@@ -87,6 +87,7 @@ func (c *Client) GetCodeHost(id int) (*CodeHost, error) {
 		SecretKey:          resp.ClientSecret,
 		Username:           resp.Username,
 		Password:           resp.Password,
+		DisableSSL:         resp.DisableSSL,
 		EnableProxy:        resp.EnableProxy,
 		UpdatedAt:          resp.UpdatedAt,
 		Alias:              resp.Alias,
@@ -123,6 +124,7 @@ func (c *Client) GetRawCodeHost(id int) (*CodeHost, error) {
 		AuthType:           resp.AuthType,
 		SSHKey:             resp.SSHKey,
 		PrivateAccessToken: resp.PrivateAccessToken,
+		DisableSSL:         resp.DisableSSL,
 	}
 
 	return res, nil
@@ -178,6 +180,7 @@ func (c *Client) UpdateCodeHost(id int, codehost *CodeHost) error {
 		PrivateAccessToken: codehost.PrivateAccessToken,
 		EnableProxy:        codehost.EnableProxy,
 		UpdatedAt:          codehost.UpdatedAt,
+		DisableSSL:         codehost.DisableSSL,
 	}
 
 	_, err := codehostservice.UpdateCodeHost(arg, log.SugaredLogger())

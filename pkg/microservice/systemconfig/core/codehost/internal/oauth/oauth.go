@@ -18,6 +18,7 @@ package oauth
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -78,10 +79,13 @@ func (o *OAuth) HandleCallback(r *http.Request, c *models.CodeHost) (*oauth2.Tok
 		proxyUrl, err2 := url.Parse(proxyRawUrl)
 		if err2 == nil {
 			httpClient.Transport = &http.Transport{
-				Proxy: http.ProxyURL(proxyUrl),
+				Proxy:           http.ProxyURL(proxyUrl),
+				TLSClientConfig: &tls.Config{InsecureSkipVerify: c.DisableSSL},
 			}
 		}
 
+	} else {
+		httpClient.Transport = &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: c.DisableSSL}}
 	}
 
 	ctx := context.Background()
