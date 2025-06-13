@@ -18,9 +18,10 @@ package webhook
 
 import (
 	"fmt"
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/controller"
 	"regexp"
 	"strconv"
+
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/controller"
 
 	"github.com/hashicorp/go-multierror"
 	"go.uber.org/zap"
@@ -31,6 +32,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/scmnotify"
 	workflowservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/v2/pkg/setting"
+	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	"github.com/koderover/zadig/v2/pkg/tool/gitee"
 	"github.com/koderover/zadig/v2/pkg/types"
 )
@@ -220,10 +222,15 @@ func TriggerWorkflowV4ByGiteeEvent(event interface{}, baseURI, requestID string,
 	var notification *commonmodels.Notification
 
 	for _, workflow := range workflows {
-		if workflow.HookCtls == nil {
+		gitHooks, err := commonrepo.NewWorkflowV4GitHookColl().List(internalhandler.NewBackgroupContext(), workflow.Name)
+		if err != nil {
+			log.Errorf("list workflow v4 git hook error: %v", err)
+			return fmt.Errorf("list workflow v4 git hook error: %v", err)
+		}
+		if len(gitHooks) == 0 {
 			continue
 		}
-		for _, item := range workflow.HookCtls {
+		for _, item := range gitHooks {
 			if !item.Enabled {
 				continue
 			}

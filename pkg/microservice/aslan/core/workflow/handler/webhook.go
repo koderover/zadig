@@ -30,7 +30,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/tool/gitee"
 )
 
-func ProcessWebHook(c *gin.Context) {
+func ProcessGitWebHook(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
@@ -62,14 +62,14 @@ func processGithub(payload []byte, req *http.Request, requestID string, log *zap
 	//}
 
 	// trigger workflow
-	err := webhook.ProcessGithubWebHook(payload, req, requestID, log)
+	// err := webhook.ProcessGithubWebHook(payload, req, requestID, log)
 
-	if err != nil {
-		log.Errorf("error happens to trigger workflow %v", err)
-		errs = multierror.Append(errs, err)
-	}
+	// if err != nil {
+	// 	log.Errorf("error happens to trigger workflow %v", err)
+	// 	errs = multierror.Append(errs, err)
+	// }
 	//测试管理webhook
-	err = webhook.ProcessGithubWebHookForTest(payload, req, requestID, log)
+	err := webhook.ProcessGithubWebHookForTest(payload, req, requestID, log)
 	if err != nil {
 		log.Errorf("error happens to trigger ProcessGithubWebHookForTest %v", err)
 		errs = multierror.Append(errs, err)

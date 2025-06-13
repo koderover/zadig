@@ -703,6 +703,7 @@ func UpdateWorkflow(workflow *commonmodels.Workflow, log *zap.SugaredLogger) err
 	return nil
 }
 
+// Deprecated
 func validateWorkflowHookNames(w *commonmodels.Workflow) error {
 	if w == nil || w.HookCtl == nil {
 		return nil

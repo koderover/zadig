@@ -18,10 +18,11 @@ package webhook
 
 import (
 	"fmt"
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/controller"
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/controller"
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/xanzy/go-gitlab"
@@ -34,6 +35,7 @@ import (
 	workflowservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/shared/client/systemconfig"
+	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	gitlabtool "github.com/koderover/zadig/v2/pkg/tool/git/gitlab"
 	"github.com/koderover/zadig/v2/pkg/types"
 )
@@ -289,11 +291,16 @@ func TriggerWorkflowV4ByGitlabEvent(event interface{}, baseURI, requestID string
 	var hookPayload *commonmodels.HookPayload
 
 	for _, workflow := range workflows {
-		if workflow.HookCtls == nil {
+		gitHooks, err := commonrepo.NewWorkflowV4GitHookColl().List(internalhandler.NewBackgroupContext(), workflow.Name)
+		if err != nil {
+			log.Errorf("list workflow v4 git hook error: %v", err)
+			continue
+		}
+		if len(gitHooks) == 0 {
 			continue
 		}
 
-		for _, item := range workflow.HookCtls {
+		for _, item := range gitHooks {
 			if !item.Enabled {
 				continue
 			}
