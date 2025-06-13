@@ -1,6 +1,6 @@
 <p><a href="https://github.com/koderover/zadig-doc" target="_blank" rel="noopener noreferrer"><img height="50" src="https://docs.koderover.com/zadig/img/zadig.png" alt="Zadig logo"></a></p>
 
-<h3 align="left">Developer-oriented,  self-service, cloud-native DevOps platform</h3>
+<h3 align="left">AI-powered, cloud-native, distributed DevOps platform designed for developers</h3>
 
 <span align="left">
 
@@ -25,19 +25,18 @@
 
 ## Table of Contents
 
-- [Zadig](#zadig)
-  - [Table of Contents](#table-of-contents)
-  - [What is Zadig](#what-is-zadig)
-  - [Quick start](#quick-start)
-    - [How to use?](#how-to-use)
-    - [How to make contribution?](#how-to-make-contribution)
-  - [Getting help](#getting-help)
-  - [More resources](#more-resources)
-  - [License](#license)
+- [Table of Contents](#table-of-contents)
+- [What is Zadig](#what-is-zadig)
+- [Quick start](#quick-start)
+  - [How to use?](#how-to-use)
+  - [Bootcamps](#bootcamps)
+  - [How to make contribution?](#how-to-make-contribution)
+- [Getting help](#getting-help)
+- [License](#license)
 
 ## What is Zadig
 
-Zadig is a self-service, cloud-native DevOps platform based on Kubernetes developed by KodeRover. Zadig is available in Basic and Professional editions, and offers flexible and scalable workflow support, multiple release policy orchestration, and one-click security auditing. The platform also supports customized enterprise XOps agile performance dashboards, deep integration with multiple enterprise platforms, and rapid batch access through project templating to achieve one-click governance of thousands of services.
+Zadig is a self-service cloud-native DevOps platform developed by KodeRover based on Kubernetes. Zadig provides flexible and scalable workflow support, multiple release strategy orchestrations, and one-click security audits, and continuously optimizes the R&D process through intelligent capabilities such as AI environment inspections, AI performance diagnosis, and AI Pilot. The platform also supports customized enterprise-level XOps agile performance dashboards, deeply integrates multiple enterprise-level platforms, and quickly accesses thousands of services in batches through project templates, achieving one-click management and governance of thousands of services.
 
 Its main goal is to help enterprises realize the digital transformation of production and research, enable engineers to become innovation engines, and provide support for the unlimited value links of the digital economy.
 
@@ -93,8 +92,10 @@ The Highlighted Features:
   </details>
 
 <details>
-  <summary><b>Convenient Development CLI/IDE Plugin</b></summary>
-  Zadig also provides a convenient toolkit with development commandline interface which allows compiling, building and deploying the changes to dev environment with one command. It enables collaborated debugging and testing with minimum manual toil, reduces cognitive load and allows teams to focus more on business.
+  <summary><b>AI-Driven Efficiency Diagnosis · Environment Inspection · Pilot Assistant</b></summary>
+  Deeply integrated with AI capabilities, it delivers three core functions: AI Efficiency Analysis, AI Environment Inspection, and Zadig Pilot. By intelligently analyzing data from pipelines, builds, tests and other workflow stages, it precisely identifies efficiency bottlenecks and provides actionable improvement suggestions. The system performs regular comprehensive inspections of Kubernetes environments to detect and warn about potential issues, ensuring environmental stability.
+
+  With enterprise-level round-the-clock technical support for instant response - spanning technical consultation to fault resolution - it serves as an essential AI assistant for development teams.
   </details>
 
 
