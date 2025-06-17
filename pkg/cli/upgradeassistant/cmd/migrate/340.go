@@ -26,6 +26,8 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	templaterepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
+	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/types"
 	steptype "github.com/koderover/zadig/v2/pkg/types/step"
@@ -471,4 +473,93 @@ func converOldFreestyleJobSpec(spec *commonmodels.FreestyleJobSpec) (*commonmode
 	}
 	newSpec.AdvancedSetting = advancedSetting
 	return newSpec, nil
+}
+
+func migrateVMDeploy() error {
+	migrationInfo, err := getMigrationInfo()
+	if err != nil {
+		return fmt.Errorf("failed to get migration info from db, err: %s", err)
+	}
+
+	if migrationInfo.Migration350VMDeploy {
+		return nil
+	}
+
+	vmProjects, err := templaterepo.NewProductColl().ListWithOption(&templaterepo.ProductListOpt{
+		BasicFacility: setting.BasicFacilityCVM,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to list all vm projects to migrate, error: %s", err)
+	}
+
+	for _, vmProject := range vmProjects {
+		// migrate vm build
+		builds, err := commonrepo.NewBuildColl().List(&commonrepo.BuildListOption{
+			Name: vmProject.ProductName,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to list all builds to migrate, error: %s", err)
+		}
+
+		for _, build := range builds {
+			build.DeployArtifactType = types.VMDeployArtifactTypeFile
+
+			if len(build.SSHs) > 0 {
+				build.DeployType = types.VMDeployTypeLocal
+			} else {
+				build.DeployType = types.VMDeployTypeSSHAgent
+			}
+
+			err = commonrepo.NewBuildColl().Update(build)
+			if err != nil {
+				return fmt.Errorf("failed to update build: %s, project: %s, error: %s", build.Name, vmProject.ProductName, err)
+			}
+		}
+
+		// migrate vm deploy job
+		workflowCursor, err := commonrepo.NewWorkflowV4Coll().ListByCursor(&commonrepo.ListWorkflowV4Option{ProjectName: vmProject.ProductName})
+		if err != nil {
+			return fmt.Errorf("failed to list all custom workflow to update, error: %s", err)
+		}
+		for workflowCursor.Next(context.Background()) {
+			workflow := new(commonmodels.WorkflowV4)
+			if err := workflowCursor.Decode(workflow); err != nil {
+				// continue converting to have maximum converage
+				log.Warnf(err.Error())
+			}
+
+			for _, stage := range workflow.Stages {
+				for _, job := range stage.Jobs {
+					if job.JobType == config.JobZadigVMDeploy {
+						newSpec := new(commonmodels.ZadigVMDeployJobSpec)
+						if err := commonmodels.IToi(job.Spec, newSpec); err != nil {
+							return fmt.Errorf("failed to decode zadig vm deploy job, error: %s", err)
+						}
+
+						newSpec.DefaultServiceAndVMDeploys = make([]*commonmodels.ServiceAndVMDeploy, 0)
+						for _, svc := range newSpec.ServiceAndVMDeploys {
+							newSpec.DefaultServiceAndVMDeploys = append(newSpec.DefaultServiceAndVMDeploys, svc)
+						}
+						newSpec.ServiceAndVMDeploys = make([]*commonmodels.ServiceAndVMDeploy, 0)
+						job.Spec = newSpec
+					}
+				}
+			}
+
+			err = commonrepo.NewWorkflowV4Coll().Update(
+				workflow.ID.Hex(),
+				workflow,
+			)
+			if err != nil {
+				log.Warnf("failed to update workflow: %s in project %s, error: %s", workflow.Name, workflow.Project, err)
+			}
+			log.Infof("workflow: %s migration done ......", workflow.Name)
+		}
+	}
+
+	_ = mongodb.NewMigrationColl().UpdateMigrationStatus(migrationInfo.ID, map[string]interface{}{
+		"migration_350_vm_deploy": true,
+	})
+
+	return nil
 }

@@ -2392,6 +2392,8 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, 
 
 			serviceModule := ""
 			serviceName := ""
+			image := ""
+			deployType := ""
 			for _, arg := range taskJobSpec.Properties.Envs {
 				if arg.Key == "ENV_NAME" {
 					spec.Env = arg.Value
@@ -2403,32 +2405,58 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, 
 				if arg.Key == "SERVICE_NAME" {
 					serviceName = arg.Value
 				}
+				if arg.Key == "IMAGE" {
+					image = arg.Value
+				}
+				if arg.Key == "DEPLOY_TYPE" {
+					deployType = arg.Value
+				}
 			}
+
 			spec.Production = getEnvProduction(getEnv(spec.Env))
 			spec.EnvAlias = getEnvAlias(getEnv(spec.Env))
 
-			serviceAndVMDeploy := []*commonmodels.ServiceAndVMDeploy{}
+			serviceAndVMDeploy := &commonmodels.ServiceAndVMDeploy{
+				ServiceName:   serviceName,
+				ServiceModule: serviceModule,
+				Image:         image,
+				DeployType:    types.VMDeployType(deployType),
+				Repos:         []*types.Repository{},
+			}
+
 			for _, step := range taskJobSpec.Steps {
+				if step.StepType == config.StepGit {
+					stepSpec := &stepspec.StepGitSpec{}
+					commonmodels.IToi(step.Spec, &stepSpec)
+					serviceAndVMDeploy.Repos = append(serviceAndVMDeploy.Repos, stepSpec.Repos...)
+					continue
+				} else if step.StepType == config.StepPerforce {
+					stepSpec := &stepspec.StepP4Spec{}
+					commonmodels.IToi(step.Spec, &stepSpec)
+					serviceAndVMDeploy.Repos = append(serviceAndVMDeploy.Repos, stepSpec.Repos...)
+					continue
+				}
+
 				if step.StepType == config.StepDownloadArchive {
 					stepSpec := &stepspec.StepDownloadArchiveSpec{}
 					if err := commonmodels.IToi(step.Spec, &stepSpec); err != nil {
 						continue
 					}
 
-					url := stepSpec.S3.Endpoint + "/" + stepSpec.S3.Bucket + "/"
+					url := path.Join(stepSpec.S3.Endpoint, stepSpec.S3.Bucket)
 					if len(stepSpec.S3.Subfolder) > 0 {
-						url += strings.TrimLeft(stepSpec.S3.Subfolder, "/")
+						url = path.Join(url, strings.TrimLeft(stepSpec.S3.Subfolder, "/"))
 					}
-					url += "/" + stepSpec.FileName
-					serviceAndVMDeploy = append(serviceAndVMDeploy, &commonmodels.ServiceAndVMDeploy{
-						ServiceName:   serviceName,
-						ServiceModule: serviceModule,
-						ArtifactURL:   url,
-					})
+					url = path.Join(url, stepSpec.ObjectPath, stepSpec.FileName)
+					serviceAndVMDeploy.ArtifactURL = url
 				}
 			}
-			spec.ServiceAndVMDeploys = serviceAndVMDeploy
 
+			serviceAndVMDeploys := []*commonmodels.ServiceAndVMDeploy{
+				serviceAndVMDeploy,
+			}
+
+			spec.ServiceAndVMDeploys = serviceAndVMDeploys
 			jobPreview.Spec = spec
 		case string(config.JobPlugin):
 			taskJobSpec := &commonmodels.JobTaskPluginSpec{}
