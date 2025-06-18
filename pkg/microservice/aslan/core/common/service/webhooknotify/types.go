@@ -113,6 +113,7 @@ type WorkflowNotifyRepository struct {
 	Branch        string `json:"branch"`
 	PRs           []int  `json:"prs"`
 	Tag           string `json:"tag"`
+	AuthorName    string `json:"author_name"`
 	CommitID      string `json:"commit_id"`
 	CommitURL     string `json:"commit_url"`
 	CommitMessage string `json:"commit_message"`
