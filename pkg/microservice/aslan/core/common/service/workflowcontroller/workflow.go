@@ -192,8 +192,11 @@ func (c *workflowCtl) Run(ctx context.Context, concurrency int) {
 		c.workflowTask.EndTime = time.Now().Unix()
 		c.logger.Infof("finish workflow: %s,status: %s", c.workflowTask.WorkflowName, c.workflowTask.Status)
 		c.ack()
-		// clean share storage after workflow finished
-		go c.CleanShareStorage()
+
+		if c.workflowTask.Status == config.StatusPassed {
+			// clean share storage after workflow finished
+			go c.CleanShareStorage()
+		}
 	}()
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
