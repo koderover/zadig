@@ -851,6 +851,7 @@ func ManualExecWorkflowTaskV4(workflowName string, taskID int64, stageName strin
 	}
 
 	globalKeyMap := make(map[string]string)
+
 	for _, stage := range task.WorkflowArgs.Stages {
 		if stage.Name == stageName {
 			for _, job := range stage.Jobs {
@@ -869,31 +870,48 @@ func ManualExecWorkflowTaskV4(workflowName string, taskID int64, stageName strin
 				}
 
 				job.Spec = ctrl.GetSpec()
-
-				kvs, err := ctrl.GetVariableList(job.Name,
-					false,
-					false,
-					false,
-					true,
-					true,
-				)
-				if err != nil {
-					return err
-				}
-
-				for _, kv := range kvs {
-					if kv.GetValue() != "" && !strings.HasPrefix(kv.GetValue(), "{{.") {
-						globalKeyMap[kv.Key] = kv.GetValue()
-						log.Infof("insert key %s with value %s", kv.Key, kv.GetValue())
-					} else {
-						log.Warnf("key %s skipped due to no value or reference value: %s", kv.Key, kv.GetValue())
-					}
-				}
 			}
 
 			stage.Jobs = jobs
 		}
 	}
+
+	for _, stage := range task.OriginWorkflowArgs.Stages {
+		for _, job := range stage.Jobs {
+			ctrl, err := jobController.CreateJobController(job, task.WorkflowArgs)
+			if err != nil {
+				log.Errorf("failed to remove the job options in the workflow parameters for job %s, stage: %s, error: %s", job.Name, stage.Name, err)
+				return fmt.Errorf("failed to remove the job options in the workflow parameters for job %s, stage: %s, error: %s", job.Name, stage.Name, err)
+			}
+
+			err = ctrl.SetRepoCommitInfo()
+			if err != nil {
+				log.Errorf("failed to set repo commit info for job: %s in workflow:%s, error: %v", job.Name, task.WorkflowArgs.Name, err)
+				return e.ErrCreateTask.AddDesc(err.Error())
+			}
+
+			kvs, err := ctrl.GetVariableList(job.Name,
+				false,
+				false,
+				false,
+				true,
+				true,
+			)
+			if err != nil {
+				return err
+			}
+
+			for _, kv := range kvs {
+				if kv.GetValue() != "" && !strings.HasPrefix(kv.GetValue(), "{{.") {
+					globalKeyMap[kv.Key] = kv.GetValue()
+					log.Infof("insert key %s with value %s", kv.Key, kv.GetValue())
+				} else {
+					log.Warnf("key %s skipped due to no value or reference value: %s", kv.Key, kv.GetValue())
+				}
+			}
+		}
+	}
+
 	for _, stage := range task.OriginWorkflowArgs.Stages {
 		if stage.Name == stageName {
 			stage.Jobs = originJobs
