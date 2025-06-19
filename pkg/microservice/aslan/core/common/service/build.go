@@ -306,6 +306,7 @@ func FillBuildDetail(moduleBuild *commonmodels.Build, serviceName, serviceModule
 	moduleBuild.CacheDirType = buildTemplate.CacheDirType
 	moduleBuild.CacheUserDir = buildTemplate.CacheUserDir
 	moduleBuild.AdvancedSettingsModified = buildTemplate.AdvancedSettingsModified
+	moduleBuild.EnablePrivilegedMode = buildTemplate.EnablePrivilegedMode
 	moduleBuild.Outputs = buildTemplate.Outputs
 	moduleBuild.Infrastructure = buildTemplate.Infrastructure
 	moduleBuild.VMLabels = buildTemplate.VmLabels

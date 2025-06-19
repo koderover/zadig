@@ -299,6 +299,9 @@ echo $result > %s
 								},
 							},
 							Resources: getResourceRequirements(resReq, resReqSpec),
+							SecurityContext: &corev1.SecurityContext{
+								Privileged: &jobTaskSpec.Properties.EnablePrivileged,
+							},
 
 							TerminationMessagePolicy: corev1.TerminationMessageReadFile,
 							TerminationMessagePath:   job.JobTerminationFile,
@@ -446,6 +449,9 @@ EOF`,
 							Env:             getEnvs(workflowCtx.ConfigMapMountDir, jobTaskSpec),
 							VolumeMounts:    getVolumeMounts(workflowCtx.ConfigMapMountDir, jobTaskSpec.Properties.UseHostDockerDaemon),
 							Resources:       getResourceRequirements(resReq, resReqSpec),
+							SecurityContext: &corev1.SecurityContext{
+								Privileged: &jobTaskSpec.Properties.EnablePrivileged,
+							},
 
 							TerminationMessagePolicy: corev1.TerminationMessageReadFile,
 							TerminationMessagePath:   job.JobTerminationFile,
