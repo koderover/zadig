@@ -395,6 +395,7 @@ func (j BuildJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, error
 			ShareStorageDetails: getShareStorageDetail(j.workflow.ShareStorages, build.ShareStorageInfo, j.workflow.Name, taskID),
 			CustomLabels:        buildInfo.PreBuild.CustomLabels,
 			CustomAnnotations:   buildInfo.PreBuild.CustomAnnotations,
+			EnablePrivileged:    buildInfo.EnablePrivilegedMode,
 		}
 
 		paramEnvs := generateKeyValsFromWorkflowParam(j.workflow.Params)
@@ -888,7 +889,7 @@ func (j BuildJobController) GetVariableList(jobName string, getAggregatedVariabl
 				if err != nil {
 					return nil, err
 				}
-				
+
 				resp = append(resp, &commonmodels.KeyVal{
 					Key:          fmt.Sprintf("%s.%s", jobKey, BRANCHKEY),
 					Value:        repo.Branch,

@@ -1408,6 +1408,7 @@ type JobProperties struct {
 	CacheDirType        types.CacheDirType   `bson:"cache_dir_type"         json:"cache_dir_type"        yaml:"cache_dir_type"`
 	CacheUserDir        string               `bson:"cache_user_dir"         json:"cache_user_dir"        yaml:"cache_user_dir"`
 	ShareStorageDetails []*StorageDetail     `bson:"share_storage_details"  json:"share_storage_details" yaml:"-"`
+	EnablePrivileged    bool                 `bson:"enable_privileged,omitempty" json:"enable_privileged,omitempty" yaml:"enable_privileged,omitempty"`
 	UseHostDockerDaemon bool                 `bson:"use_host_docker_daemon,omitempty" json:"use_host_docker_daemon,omitempty" yaml:"use_host_docker_daemon"`
 	// for VM deploy to get service name to save
 	ServiceName string `bson:"service_name" json:"service_name" yaml:"service_name"`

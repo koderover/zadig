@@ -32,7 +32,7 @@ type BuildTemplate struct {
 	UpdateBy                 string             `bson:"update_by"                     json:"update_by"`
 	PreBuild                 *PreBuild          `bson:"pre_build"                     json:"pre_build"`
 	JenkinsBuild             *JenkinsBuild      `bson:"jenkins_build,omitempty"       json:"jenkins_build,omitempty"`
-	ScriptType               types.ScriptType         `bson:"script_type"                   json:"script_type"`
+	ScriptType               types.ScriptType   `bson:"script_type"                   json:"script_type"`
 	Scripts                  string             `bson:"scripts"                       json:"scripts"`
 	PostBuild                *PostBuild         `bson:"post_build,omitempty"          json:"post_build"`
 	SSHs                     []string           `bson:"sshs"                          json:"sshs"`
@@ -41,6 +41,7 @@ type BuildTemplate struct {
 	CacheDirType             types.CacheDirType `bson:"cache_dir_type"                json:"cache_dir_type"`
 	CacheUserDir             string             `bson:"cache_user_dir"                json:"cache_user_dir"`
 	AdvancedSettingsModified bool               `bson:"advanced_setting_modified"     json:"advanced_setting_modified"`
+	EnablePrivilegedMode     bool               `bson:"enable_privileged_mode"        json:"enable_privileged_mode"`
 	Outputs                  []*Output          `bson:"outputs"                       json:"outputs"`
 	Infrastructure           string             `bson:"infrastructure"                json:"infrastructure"`
 	VmLabels                 []string           `bson:"vm_labels"                     json:"vm_labels"`
