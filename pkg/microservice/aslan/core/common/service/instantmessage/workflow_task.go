@@ -52,19 +52,23 @@ import (
 //go:embed notification.html
 var notificationHTML []byte
 
-func (w *Service) SendWorkflowTaskApproveNotifications(workflowName string, taskID int64) error {
+func (w *Service) SendWorkflowTaskApproveNotifications(workflowName string, taskID int64, task *models.WorkflowTask) error {
 	resp, err := w.workflowV4Coll.Find(workflowName)
 	if err != nil {
 		errMsg := fmt.Sprintf("failed to find workflowv4, err: %s", err)
 		log.Error(errMsg)
 		return errors.New(errMsg)
 	}
-	task, err := w.workflowTaskV4Coll.Find(workflowName, taskID)
-	if err != nil {
-		errMsg := fmt.Sprintf("failed to find workflowv4 task, err: %s", err)
-		log.Error(errMsg)
-		return errors.New(errMsg)
+
+	if task == nil {
+		task, err = w.workflowTaskV4Coll.Find(workflowName, taskID)
+		if err != nil {
+			errMsg := fmt.Sprintf("failed to find workflowv4 task, err: %s", err)
+			log.Error(errMsg)
+			return errors.New(errMsg)
+		}
 	}
+
 	for _, notify := range resp.NotifyCtls {
 		statusSets := sets.NewString(notify.NotifyTypes...)
 		if !statusSets.Has(string(config.StatusWaitingApprove)) {
@@ -311,6 +315,48 @@ func (w *Service) getApproveNotificationContent(notify *models.NotifyCtl, task *
 		"备注：{{ .Task.Remark}} \n\n",
 	}
 
+	jobContents := []string{}
+	for _, stage := range task.Stages {
+		for _, job := range stage.Jobs {
+			if job.JobType == string(config.JobZadigDeploy) || job.JobType == string(config.JobZadigHelmDeploy) {
+				jobTplcontent := "{{if and (ne .WebHookType \"feishu\") (ne .WebHookType \"feishu_app\") (ne .WebHookType \"feishu_person\")}}\n\n{{end}}{{if eq .WebHookType \"dingding\"}}---\n\n##### {{end}}**{{jobType .Job.JobType }}**: {{.Job.DisplayName}}  \n"
+				mailJobTplcontent := "{{jobType .Job.JobType }}：{{.Job.DisplayName}}  \n"
+
+				switch job.JobType {
+				case string(config.JobZadigDeploy):
+					jobSpec := &models.JobTaskDeploySpec{}
+					models.IToi(job.Spec, jobSpec)
+					jobTplcontent += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**环境**：%s  \n", jobSpec.Env)
+					mailJobTplcontent += fmt.Sprintf("环境：%s \n", jobSpec.Env)
+				case string(config.JobZadigHelmDeploy):
+					jobSpec := &models.JobTaskHelmDeploySpec{}
+					models.IToi(job.Spec, jobSpec)
+					jobTplcontent += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**环境**：%s  \n", jobSpec.Env)
+					mailJobTplcontent += fmt.Sprintf("环境：%s \n", jobSpec.Env)
+				}
+
+				jobNotifaication := &jobTaskNotification{
+					Job:         job,
+					WebHookType: notify.WebHookType,
+				}
+
+				if notify.WebHookType == setting.NotifyWebHookTypeMail {
+					jobContent, err := getJobTaskTplExec(mailJobTplcontent, jobNotifaication)
+					if err != nil {
+						return "", "", nil, nil, err
+					}
+					jobContents = append(jobContents, jobContent)
+				} else {
+					jobContent, err := getJobTaskTplExec(jobTplcontent, jobNotifaication)
+					if err != nil {
+						return "", "", nil, nil, err
+					}
+					jobContents = append(jobContents, jobContent)
+				}
+			}
+		}
+	}
+
 	title, err := getWorkflowTaskTplExec(tplTitle, workflowNotification)
 	if err != nil {
 		return "", "", nil, nil, err
@@ -326,6 +372,7 @@ func (w *Service) getApproveNotificationContent(notify *models.NotifyCtl, task *
 		}
 
 		tplcontent := strings.Join(mailTplBaseInfo, "")
+		tplcontent += strings.Join(jobContents, "")
 		content, err := getWorkflowTaskTplExec(tplcontent, workflowNotification)
 		if err != nil {
 			return "", "", nil, nil, err
@@ -362,6 +409,7 @@ func (w *Service) getApproveNotificationContent(notify *models.NotifyCtl, task *
 		return "", "", nil, webhookNotify, nil
 	} else if notify.WebHookType != setting.NotifyWebHookTypeFeishu && notify.WebHookType != setting.NotifyWebhookTypeFeishuApp && notify.WebHookType != setting.NotifyWebHookTypeFeishuPerson {
 		tplcontent := strings.Join(tplBaseInfo, "")
+		tplcontent += strings.Join(jobContents, "")
 		tplcontent = tplcontent + getNotifyAtContent(notify)
 		tplcontent = fmt.Sprintf("%s%s", title, tplcontent)
 		if notify.WebHookType == setting.NotifyWebHookTypeWechatWork {
@@ -380,6 +428,12 @@ func (w *Service) getApproveNotificationContent(notify *models.NotifyCtl, task *
 	for idx, feildContent := range tplBaseInfo {
 		feildExecContent, _ := getWorkflowTaskTplExec(feildContent, workflowNotification)
 		lc.AddI18NElementsZhcnFeild(feildExecContent, idx == 0)
+	}
+
+	log.Debugf("jobContents: %+v", jobContents)
+	for _, feildContent := range jobContents {
+		feildExecContent, _ := getWorkflowTaskTplExec(feildContent, workflowNotification)
+		lc.AddI18NElementsZhcnFeild(feildExecContent, true)
 	}
 	workflowDetailURL, _ = getWorkflowTaskTplExec(workflowDetailURL, workflowNotification)
 	lc.AddI18NElementsZhcnAction(buttonContent, workflowDetailURL)
@@ -495,6 +549,7 @@ func (w *Service) getNotificationContent(notify *models.NotifyCtl, task *models.
 						RepoName:      buildRepo.RepoName,
 						Branch:        buildRepo.Branch,
 						Tag:           buildRepo.Tag,
+						AuthorName:    buildRepo.AuthorName,
 						CommitID:      buildRepo.CommitID,
 						CommitMessage: buildRepo.CommitMessage,
 					}
@@ -555,9 +610,9 @@ func (w *Service) getNotificationContent(notify *models.NotifyCtl, task *models.
 					image = task.GlobalContext[imageContextKey]
 				}
 				if len(commitID) > 0 {
-					jobTplcontent += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**代码信息**：%s %s[%s](%s)  \n", branchTag, prInfo, commitID, gitCommitURL)
+					jobTplcontent += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**代码信息**：%s %s[%s](%s)  ", branchTag, prInfo, commitID, gitCommitURL)
 					jobTplcontent += "{{if eq .WebHookType \"dingding\"}}##### {{end}}**提交信息**："
-					mailJobTplcontent += fmt.Sprintf("代码信息：%s %s[%s]( %s )\n", branchTag, prInfo, commitID, gitCommitURL)
+					mailJobTplcontent += fmt.Sprintf("代码信息：%s %s[%s]( %s )  ", branchTag, prInfo, commitID, gitCommitURL)
 					if len(commitMsgs) == 1 {
 						jobTplcontent += fmt.Sprintf("%s \n", commitMsgs[0])
 					} else {
@@ -580,8 +635,18 @@ func (w *Service) getNotificationContent(notify *models.NotifyCtl, task *models.
 				jobTplcontent += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**环境**：%s  \n", jobSpec.Env)
 				mailJobTplcontent += fmt.Sprintf("环境：%s \n", jobSpec.Env)
 
+				if job.Status == config.StatusPassed && len(jobSpec.ServiceAndImages) > 0 {
+					jobTplcontent += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**镜像信息**：  \n")
+					mailJobTplcontent += fmt.Sprintf("镜像信息：  \n")
+				}
+
 				serviceModules := []*webhooknotify.WorkflowNotifyDeployServiceModule{}
 				for _, serviceAndImage := range jobSpec.ServiceAndImages {
+					if job.Status == config.StatusPassed && !strings.HasPrefix(serviceAndImage.Image, "{{.") && !strings.Contains(serviceAndImage.Image, "}}") {
+						jobTplcontent += fmt.Sprintf("%s  \n", serviceAndImage.Image)
+						mailJobTplcontent += fmt.Sprintf("%s  \n", serviceAndImage.Image)
+					}
+
 					serviceModule := &webhooknotify.WorkflowNotifyDeployServiceModule{
 						ServiceModule: serviceAndImage.ServiceModule,
 						Image:         serviceAndImage.Image,
@@ -601,8 +666,18 @@ func (w *Service) getNotificationContent(notify *models.NotifyCtl, task *models.
 				jobTplcontent += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**环境**：%s  \n", jobSpec.Env)
 				mailJobTplcontent += fmt.Sprintf("环境：%s \n", jobSpec.Env)
 
+				if job.Status == config.StatusPassed && len(jobSpec.ImageAndModules) > 0 {
+					jobTplcontent += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**镜像信息**：  \n")
+					mailJobTplcontent += fmt.Sprintf("镜像信息：  \n")
+				}
+
 				serviceModules := []*webhooknotify.WorkflowNotifyDeployServiceModule{}
 				for _, serviceAndImage := range jobSpec.ImageAndModules {
+					if !strings.HasPrefix(serviceAndImage.Image, "{{.") && !strings.Contains(serviceAndImage.Image, "}}") {
+						jobTplcontent += fmt.Sprintf("%s  \n", serviceAndImage.Image)
+						mailJobTplcontent += fmt.Sprintf("%s  \n", serviceAndImage.Image)
+					}
+
 					serviceModule := &webhooknotify.WorkflowNotifyDeployServiceModule{
 						ServiceModule: serviceAndImage.ServiceModule,
 						Image:         serviceAndImage.Image,
