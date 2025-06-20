@@ -777,7 +777,7 @@ func RemoveHelmResource(applyParam *ResourceApplyParam, log *zap.SugaredLogger) 
 		if len(targetServices) == 0 {
 			targetServices = []string{applyParam.ServiceName}
 		}
-		return DeleteHelmReleaseFromEnv("workflow", "", productInfo, targetServices, log)
+		return DeleteHelmReleaseFromEnv("workflow", "", productInfo, targetServices, true, log)
 	}
 	return nil
 }

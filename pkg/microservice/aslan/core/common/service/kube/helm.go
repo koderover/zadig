@@ -197,7 +197,7 @@ func UninstallRelease(helmClient helmclient.Client, env *commonmodels.Product, r
 
 // 1. Uninstall related resources
 // 2. Delete service info from database
-func DeleteHelmReleaseFromEnv(userName, requestID string, productInfo *commonmodels.Product, releaseNames []string, log *zap.SugaredLogger) error {
+func DeleteHelmReleaseFromEnv(userName, requestID string, productInfo *commonmodels.Product, releaseNames []string, isDelete bool, log *zap.SugaredLogger) error {
 
 	helmSvcOfflineLock := cache.NewRedisLock(fmt.Sprintf("product_svc_offline:%s:%s", productInfo.ProductName, productInfo.EnvName))
 
@@ -293,7 +293,7 @@ func DeleteHelmReleaseFromEnv(userName, requestID string, productInfo *commonmod
 		wg := sync.WaitGroup{}
 
 		for _, prodSvc := range serviceNameToProdSvcMap {
-			if !commonutil.ServiceDeployed(prodSvc.ServiceName, productInfo.ServiceDeployStrategy) {
+			if !commonutil.ServiceDeployed(prodSvc.ServiceName, productInfo.ServiceDeployStrategy) || !isDelete {
 				continue
 			}
 			wg.Add(1)
@@ -312,7 +312,7 @@ func DeleteHelmReleaseFromEnv(userName, requestID string, productInfo *commonmod
 			}(productInfo, prodSvc)
 		}
 		for releaseName, prodSvc := range releaseNameToChartProdSvcMap {
-			if !commonutil.ReleaseDeployed(prodSvc.ReleaseName, productInfo.ServiceDeployStrategy) {
+			if !commonutil.ReleaseDeployed(prodSvc.ReleaseName, productInfo.ServiceDeployStrategy) || !isDelete {
 				continue
 			}
 			wg.Add(1)
@@ -355,8 +355,7 @@ func DeleteHelmReleaseFromEnv(userName, requestID string, productInfo *commonmod
 // DeleteHelmServiceFromEnv deletes the service from the environment
 // 1. Uninstall related resources
 // 2. Delete service info from database
-func DeleteHelmServiceFromEnv(userName, requestID string, productInfo *commonmodels.Product, serviceNames []string, log *zap.SugaredLogger) error {
-
+func DeleteHelmServiceFromEnv(userName, requestID string, productInfo *commonmodels.Product, serviceNames []string, isDelete bool, log *zap.SugaredLogger) error {
 	helmSvcOfflineLock := cache.NewRedisLock(fmt.Sprintf("product_svc_offline:%s:%s", productInfo.ProductName, productInfo.EnvName))
 
 	helmSvcOfflineLock.Lock()
@@ -424,7 +423,7 @@ func DeleteHelmServiceFromEnv(userName, requestID string, productInfo *commonmod
 		failedServices := sync.Map{}
 		wg := sync.WaitGroup{}
 		for service, revision := range deletedSvcRevision {
-			if !deployedSvcs.Has(service) {
+			if !deployedSvcs.Has(service) || !isDelete {
 				continue
 			}
 			wg.Add(1)

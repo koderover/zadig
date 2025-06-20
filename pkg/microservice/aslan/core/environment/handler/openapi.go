@@ -191,7 +191,6 @@ func OpenAPIDeleteYamlServiceFromEnv(c *gin.Context) {
 	}
 
 	req := new(service.OpenAPIDeleteYamlServiceFromEnvReq)
-
 	if err := c.BindJSON(req); err != nil {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid request body")
 		return
@@ -205,7 +204,6 @@ func OpenAPIDeleteYamlServiceFromEnv(c *gin.Context) {
 	}
 
 	projectKey := c.Query("projectKey")
-
 	if projectKey == "" {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc("projectKey cannot be empty")
 		return
@@ -245,7 +243,7 @@ func OpenAPIDeleteYamlServiceFromEnv(c *gin.Context) {
 		}
 	}
 
-	ctx.RespErr = service.DeleteProductServices(ctx.UserName, ctx.RequestID, req.EnvName, projectKey, req.ServiceNames, false, ctx.Logger)
+	ctx.RespErr = service.DeleteProductServices(ctx.UserName, ctx.RequestID, req.EnvName, projectKey, req.ServiceNames, false, !req.NotDeleteResource, ctx.Logger)
 }
 
 func OpenAPIDeleteProductionYamlServiceFromEnv(c *gin.Context) {
@@ -300,7 +298,7 @@ func OpenAPIDeleteProductionYamlServiceFromEnv(c *gin.Context) {
 		return
 	}
 
-	ctx.RespErr = service.DeleteProductServices(ctx.UserName, ctx.RequestID, req.EnvName, projectKey, req.ServiceNames, true, ctx.Logger)
+	ctx.RespErr = service.DeleteProductServices(ctx.UserName, ctx.RequestID, req.EnvName, projectKey, req.ServiceNames, true, !req.NotDeleteResource, ctx.Logger)
 }
 
 func OpenAPIApplyProductionYamlService(c *gin.Context) {
