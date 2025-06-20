@@ -369,7 +369,7 @@ func buildJob(jobType, jobImage, jobName, clusterID, currentNamespace string, re
 	var commands []string
 	var serviceAccountName string
 
-	if targetCluster.Type == setting.AgentClusterType {
+	if targetCluster.Type == setting.AgentClusterType || targetCluster.Type == "" {
 		commands = []string{"/bin/sh", "-c", fmt.Sprintf("cp /app/* %s", ExecutorVolumePath)}
 
 		if clusterID != setting.LocalClusterID {
