@@ -694,10 +694,8 @@ func (j DeployJobController) GetVariableList(jobName string, getAggregatedVariab
 
 	if getAggregatedVariables {
 		images := make([]string, 0)
-		svcs := make([]string, 0)
 		for _, svc := range j.jobSpec.Services {
 			for _, module := range svc.Modules {
-				svcs = append(svcs, fmt.Sprintf("%s/%s", module.ServiceModule, svc.ServiceName))
 				images = append(images, module.Image)
 			}
 		}
@@ -708,18 +706,14 @@ func (j DeployJobController) GetVariableList(jobName string, getAggregatedVariab
 			Type:         "string",
 			IsCredential: false,
 		})
-
-		resp = append(resp, &commonmodels.KeyVal{
-			Key:          strings.Join([]string{"job", j.name, "SERVICES"}, "."),
-			Value:        strings.Join(svcs, ","),
-			Type:         "string",
-			IsCredential: false,
-		})
 	}
 
 	// 2025/04/27 PM says it is ok even if the image refers to an output parameter, making it renderred as empty.
+	svcs := make([]string, 0)
 	for _, target := range j.jobSpec.Services {
 		for _, targetModule := range target.Modules {
+			svcs = append(svcs, fmt.Sprintf("%s/%s", targetModule.ServiceModule, target.ServiceName))
+
 			targetKey := strings.Join([]string{j.name, target.ServiceName, targetModule.ServiceModule}, ".")
 			resp = append(resp, &commonmodels.KeyVal{
 				Key:          strings.Join([]string{"job", targetKey, "IMAGE"}, "."),
@@ -729,6 +723,13 @@ func (j DeployJobController) GetVariableList(jobName string, getAggregatedVariab
 			})
 		}
 	}
+
+	resp = append(resp, &commonmodels.KeyVal{
+		Key:          strings.Join([]string{"job", j.name, "SERVICES"}, "."),
+		Value:        strings.Join(svcs, ","),
+		Type:         "string",
+		IsCredential: false,
+	})
 
 	if getPlaceHolderVariables {
 		resp = append(resp, &commonmodels.KeyVal{
