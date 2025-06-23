@@ -34,7 +34,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/types"
 )
 
-func CreateUserGroup(groupName, desc string, uids []string, logger *zap.SugaredLogger) error {
+func CreateUserGroup(groupName, desc string, uids []string, logger *zap.SugaredLogger) (*models.UserGroup, error) {
 	tx := repository.DB.Begin()
 	defer func() {
 		if r := recover(); r != nil {
@@ -44,41 +44,46 @@ func CreateUserGroup(groupName, desc string, uids []string, logger *zap.SugaredL
 
 	gid, _ := uuid.NewUUID()
 
-	err := orm.CreateUserGroup(&models.UserGroup{
+	userGroup := &models.UserGroup{
 		GroupID:     gid.String(),
 		GroupName:   groupName,
 		Description: desc,
 		Type:        int64(setting.RoleTypeCustom),
-	}, tx)
+	}
+
+	err := orm.CreateUserGroup(userGroup, tx)
 	if err != nil {
 		tx.Rollback()
 		logger.Errorf("failed to create usergroup: %s, error: %s", groupName, err)
-		return err
+		return nil, err
 	}
 
 	err = orm.BulkCreateGroupBindings(gid.String(), uids, tx)
 	if err != nil {
 		tx.Rollback()
 		logger.Errorf("failed to create group binding for user group: %s, error: %s", gid.String(), err)
-		return err
+		return nil, err
 	}
 
 	tx.Commit()
 
-	return nil
+	return userGroup, nil
 }
 
 type UserGroupResp struct {
-	ID          string `json:"id"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Type        string `json:"type"`
-	UserTotal   int64  `json:"user_total"`
+	ID              string   `json:"id"`
+	Name            string   `json:"name"`
+	SystemRoleNames []string `json:"system_role_names"`
+	Description     string   `json:"description"`
+	Type            string   `json:"type"`
+	UserTotal       int64    `json:"user_total"`
 }
 
 func ListUserGroupsByUid(uid string, logger *zap.SugaredLogger) ([]*UserGroupResp, int64, error) {
-	groups, err := orm.ListUserGroupByUID(uid, repository.DB)
+	tx := repository.DB.Begin()
+	groups, err := orm.ListUserGroupByUID(uid, tx)
 	if err != nil {
+		tx.Rollback()
 		logger.Errorf("failed to list user groups by uid: %s, error: %s", uid, err)
 		return nil, 0, err
 	}
@@ -90,6 +95,18 @@ func ListUserGroupsByUid(uid string, logger *zap.SugaredLogger) ([]*UserGroupRes
 			Name:        group.GroupName,
 			Description: group.Description,
 		}
+
+		roleList, err := orm.ListSystemRoleByGroupID(group.GroupID, tx)
+		if err != nil {
+			tx.Rollback()
+			logger.Errorf("failed to list role for user group: %s, error: %s", group.GroupName, err)
+			return nil, 0, err
+		}
+
+		for _, role := range roleList {
+			respItem.SystemRoleNames = append(respItem.SystemRoleNames, role.Name)
+		}
+
 		if group.Type == int64(setting.RoleTypeSystem) {
 			respItem.Type = string(setting.ResourceTypeSystem)
 		} else {
@@ -98,6 +115,7 @@ func ListUserGroupsByUid(uid string, logger *zap.SugaredLogger) ([]*UserGroupRes
 		resp = append(resp, respItem)
 	}
 
+	tx.Commit()
 	return resp, int64(len(resp)), nil
 }
 
@@ -118,6 +136,18 @@ func ListUserGroups(queryName string, pageNum, pageSize int, logger *zap.Sugared
 			Name:        group.GroupName,
 			Description: group.Description,
 		}
+
+		roleList, err := orm.ListSystemRoleByGroupID(group.GroupID, tx)
+		if err != nil {
+			tx.Rollback()
+			logger.Errorf("failed to list role for user group: %s, error: %s", group.GroupName, err)
+			return nil, 0, err
+		}
+
+		for _, role := range roleList {
+			respItem.SystemRoleNames = append(respItem.SystemRoleNames, role.Name)
+		}
+
 		if group.Type == int64(setting.RoleTypeSystem) {
 			respItem.Type = string(setting.ResourceTypeSystem)
 		} else {
