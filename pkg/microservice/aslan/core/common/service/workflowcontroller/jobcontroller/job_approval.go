@@ -29,6 +29,7 @@ import (
 
 	configbase "github.com/koderover/zadig/v2/pkg/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	approvalservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/approval"
@@ -115,7 +116,7 @@ func waitForNativeApprove(ctx context.Context, spec *commonmodels.JobTaskApprova
 	defer func() {
 		approvalservice.GlobalApproveMap.DeleteApproval(approveKey)
 	}()
-	if err := instantmessage.NewWeChatClient().SendWorkflowTaskApproveNotifications(workflowName, taskID); err != nil {
+	if err := instantmessage.NewWeChatClient().SendWorkflowTaskApproveNotifications(workflowName, taskID, nil); err != nil {
 		log.Errorf("send approve notification failed, error: %v", err)
 	}
 
@@ -195,8 +196,13 @@ func waitForLarkApprove(ctx context.Context, spec *commonmodels.JobTaskApprovalS
 		descForm = fmt.Sprintf("\n描述: %s", spec.Description)
 	}
 
-	formContent := fmt.Sprintf("项目名称: %s\n工作流名称: %s\n任务名称: %s%s\n备注: %s\n\n更多详见: %s",
-		workflowCtx.ProjectName, workflowCtx.WorkflowDisplayName, jobDisplayName, descForm, workflowCtx.Remark, detailURL)
+	task, deployFormContent, err := generateDeployFormContent(workflowCtx.WorkflowName, workflowCtx.TaskID)
+	if err != nil {
+		log.Errorf("generate deploy env failed: %v", err)
+		return config.StatusFailed, fmt.Errorf("generate deploy env failed, error: %s", err)
+	}
+	formContent := fmt.Sprintf("项目名称: %s\n工作流名称: %s\n任务名称: %s%s\n%s\n备注: %s\n\n更多详见: %s",
+		workflowCtx.ProjectName, workflowCtx.WorkflowDisplayName, jobDisplayName, descForm, deployFormContent, workflowCtx.Remark, detailURL)
 
 	var userID string
 	if approval.DefaultApprovalInitiator == nil {
@@ -227,7 +233,7 @@ func waitForLarkApprove(ctx context.Context, spec *commonmodels.JobTaskApprovalS
 
 	log.Infof("waitForLarkApprove: create instance success, id %s", instance)
 
-	if err := instantmessage.NewWeChatClient().SendWorkflowTaskApproveNotifications(workflowCtx.WorkflowName, workflowCtx.TaskID); err != nil {
+	if err := instantmessage.NewWeChatClient().SendWorkflowTaskApproveNotifications(workflowCtx.WorkflowName, workflowCtx.TaskID, task); err != nil {
 		log.Errorf("send approve notification failed, error: %v", err)
 	}
 
@@ -534,8 +540,14 @@ func waitForDingTalkApprove(ctx context.Context, spec *commonmodels.JobTaskAppro
 	if spec.Description != "" {
 		descForm = fmt.Sprintf("\n描述: %s", spec.Description)
 	}
-	formContent := fmt.Sprintf("项目名称: %s\n工作流名称: %s\n任务名称: %s%s\n\n备注: %s\n\n更多详见: %s",
-		workflowCtx.ProjectName, workflowCtx.WorkflowDisplayName, jobDisplayName, descForm, workflowCtx.Remark, detailURL)
+
+	task, deployFormContent, err := generateDeployFormContent(workflowCtx.WorkflowName, workflowCtx.TaskID)
+	if err != nil {
+		log.Errorf("generate deploy env failed: %v", err)
+		return config.StatusFailed, fmt.Errorf("generate deploy env failed, error: %s", err)
+	}
+	formContent := fmt.Sprintf("项目名称: %s\n工作流名称: %s\n任务名称: %s%s\n%s\n\n备注: %s\n\n更多详见: %s",
+		workflowCtx.ProjectName, workflowCtx.WorkflowDisplayName, jobDisplayName, descForm, deployFormContent, workflowCtx.Remark, detailURL)
 
 	var userID string
 	if approval.DefaultApprovalInitiator == nil {
@@ -578,7 +590,7 @@ func waitForDingTalkApprove(ctx context.Context, spec *commonmodels.JobTaskAppro
 	instanceID := instanceResp.InstanceID
 	log.Infof("waitForDingTalkApprove: create instance success, id %s", instanceID)
 
-	if err := instantmessage.NewWeChatClient().SendWorkflowTaskApproveNotifications(workflowCtx.WorkflowName, workflowCtx.TaskID); err != nil {
+	if err := instantmessage.NewWeChatClient().SendWorkflowTaskApproveNotifications(workflowCtx.WorkflowName, workflowCtx.TaskID, task); err != nil {
 		log.Errorf("send approve notification failed, error: %v", err)
 	}
 	defer func() {
@@ -815,8 +827,14 @@ func waitForWorkWXApprove(ctx context.Context, spec *commonmodels.JobTaskApprova
 		descForm = fmt.Sprintf("\n描述: %s", spec.Description)
 	}
 
-	formContent := fmt.Sprintf("项目名称: %s\n\n工作流名称: %s\n\n任务名称: %s%s\n备注: %s\n\n更多详见: %s",
-		workflowCtx.ProjectName, workflowCtx.WorkflowDisplayName, jobDisplayName, descForm, workflowCtx.Remark, detailURL)
+	task, deployFormContent, err := generateDeployFormContent(workflowCtx.WorkflowName, workflowCtx.TaskID)
+	if err != nil {
+		log.Errorf("generate deploy env failed: %v", err)
+		return config.StatusFailed, fmt.Errorf("generate deploy env failed, error: %s", err)
+	}
+
+	formContent := fmt.Sprintf("项目名称: %s\n\n工作流名称: %s\n\n任务名称: %s%s\n%s\n备注: %s\n\n更多详见: %s",
+		workflowCtx.ProjectName, workflowCtx.WorkflowDisplayName, jobDisplayName, descForm, deployFormContent, workflowCtx.Remark, detailURL)
 
 	var applicant string
 	if approval.CreatorUser != nil {
@@ -867,6 +885,10 @@ func waitForWorkWXApprove(ctx context.Context, spec *commonmodels.JobTaskApprova
 	ack()
 	log.Infof("waitForWorkWXApprove: create instance success, id %s", instanceID)
 
+	if err := instantmessage.NewWeChatClient().SendWorkflowTaskApproveNotifications(workflowCtx.WorkflowName, workflowCtx.TaskID, task); err != nil {
+		log.Errorf("send approve notification failed, error: %v", err)
+	}
+
 	defer func() {
 		workwxservice.RemoveWorkWXApprovalManager(instanceID)
 	}()
@@ -901,6 +923,35 @@ func waitForWorkWXApprove(ctx context.Context, spec *commonmodels.JobTaskApprova
 			}
 		}
 	}
+}
+
+func generateDeployFormContent(workflowName string, taskID int64) (*commonmodels.WorkflowTask, string, error) {
+	task, err := mongodb.NewworkflowTaskv4Coll().Find(workflowName, taskID)
+	if err != nil {
+		errMsg := fmt.Sprintf("failed to find workflowv4 task, err: %s", err)
+		log.Error(errMsg)
+		return nil, "", errors.New(errMsg)
+	}
+
+	deployFormContent := ""
+
+	for _, stage := range task.OriginWorkflowArgs.Stages {
+		for _, job := range stage.Jobs {
+			if job.Skipped {
+				continue
+			}
+
+			switch job.JobType {
+			case config.JobZadigDeploy:
+				jobSpec := &models.ZadigDeployJobSpec{}
+				models.IToi(job.Spec, jobSpec)
+
+				deployFormContent += fmt.Sprintf("%s 部署环境: %s\n", job.Name, jobSpec.Env)
+			}
+		}
+	}
+
+	return task, deployFormContent, nil
 }
 
 func (c *ApprovalJobCtl) SaveInfo(ctx context.Context) error {
