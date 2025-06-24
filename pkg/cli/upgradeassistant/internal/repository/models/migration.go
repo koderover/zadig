@@ -25,6 +25,7 @@ type Migration struct {
 	SonarMigration                   bool               `bson:"sonar_migration"`
 	UpdateWorkflow340JobSpec         bool               `bson:"update_workflow_340_job_spec"`
 	UpdateWorkflow340JobTemplateSpec bool               `bson:"update_workflow_340_job_template_spec"`
+	Migration350VMDeploy             bool               `bson:"migration_350_vm_deploy"`
 }
 
 func (Migration) TableName() string {

@@ -52,15 +52,17 @@ type Build struct {
 	PostBuild      *PostBuild             `bson:"post_build,omitempty"          json:"post_build"`
 
 	// TODO: Deprecated.
-	Caches               []string            `bson:"caches"                        json:"caches"`
-	ProductName          string              `bson:"product_name"                  json:"product_name"`
-	SSHs                 []string            `bson:"sshs"                          json:"sshs"`
-	PreDeploy            *PreDeploy          `bson:"pre_deploy"                    json:"pre_deploy"`
-	DeployInfrastructure string              `bson:"deploy_infrastructure"         json:"deploy_infrastructure"`
-	DeployVMLabels       []string            `bson:"deploy_vm_labels"              json:"deploy_vm_labels"`
-	DeployRepos          []*types.Repository `bson:"deploy_repos"                  json:"deploy_repos"`
-	PMDeployScriptType   types.ScriptType    `bson:"pm_deploy_script_type"         json:"pm_deploy_script_type"`
-	PMDeployScripts      string              `bson:"pm_deploy_scripts"             json:"pm_deploy_scripts"`
+	Caches               []string                   `bson:"caches"                        json:"caches"`
+	ProductName          string                     `bson:"product_name"                  json:"product_name"`
+	SSHs                 []string                   `bson:"sshs"                          json:"sshs"`
+	PreDeploy            *PreDeploy                 `bson:"pre_deploy"                    json:"pre_deploy"`
+	DeployInfrastructure string                     `bson:"deploy_infrastructure"         json:"deploy_infrastructure"`
+	DeployVMLabels       []string                   `bson:"deploy_vm_labels"              json:"deploy_vm_labels"`
+	DeployRepos          []*types.Repository        `bson:"deploy_repos"                  json:"deploy_repos"`
+	DeployType           types.VMDeployType         `bson:"deploy_type"                   json:"deploy_type"`
+	DeployArtifactType   types.VMDeployArtifactType `bson:"deploy_artifact_type"          json:"deploy_artifact_type"`
+	PMDeployScriptType   types.ScriptType           `bson:"pm_deploy_script_type"         json:"pm_deploy_script_type"`
+	PMDeployScripts      string                     `bson:"pm_deploy_scripts"             json:"pm_deploy_scripts"`
 
 	// New since V1.10.0.
 	CacheEnable  bool               `bson:"cache_enable"   json:"cache_enable"`
@@ -107,10 +109,11 @@ type PreBuild struct {
 }
 
 type PreDeploy struct {
-	BuildOS   string  `bson:"build_os"              json:"build_os"`
-	ImageFrom string  `bson:"image_from"            json:"image_from"`
-	ImageID   string  `bson:"image_id"              json:"image_id"`
-	Installs  []*Item `bson:"installs,omitempty"    json:"installs"`
+	BuildOS   string     `bson:"build_os"              json:"build_os"`
+	ImageFrom string     `bson:"image_from"            json:"image_from"`
+	ImageID   string     `bson:"image_id"              json:"image_id"`
+	Installs  []*Item    `bson:"installs,omitempty"    json:"installs"`
+	Envs      KeyValList `bson:"envs,omitempty"        json:"envs"`
 }
 
 type BuildObj struct {

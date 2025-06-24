@@ -910,6 +910,78 @@ func ensureWorkflowV4JobResp(job *commonmodels.Job, logger *zap.SugaredLogger, b
 			testing.KeyVals = commonservice.MergeBuildEnvs(testingInfo.PreTest.Envs.ToRuntimeList(), testing.KeyVals)
 		}
 	}
+
+	if job.JobType == config.JobZadigVMDeploy {
+		spec := &commonmodels.ZadigVMDeployJobSpec{}
+		if err := commonmodels.IToi(job.Spec, spec); err != nil {
+			logger.Errorf(err.Error())
+			return e.ErrFindWorkflow.AddErr(err)
+		}
+		for _, vmDeploy := range spec.ServiceAndVMDeploysOptions {
+			var buildInfo *commonmodels.Build
+			var err error
+			buildMapValue, ok := buildMap.Load(vmDeploy.DeployName)
+			if !ok {
+				buildInfo, err = commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: vmDeploy.DeployName})
+				if err != nil {
+					logger.Errorf("find build: %s error: %v", vmDeploy.DeployName, err)
+					buildMap.Store(vmDeploy.DeployName, nil)
+					continue
+				}
+				buildMap.Store(vmDeploy.DeployName, buildInfo)
+			} else {
+				if buildMapValue == nil {
+					logger.Errorf("find build: %s error: %v", vmDeploy.DeployName, err)
+					continue
+				}
+				buildInfo = buildMapValue.(*commonmodels.Build)
+			}
+
+			kvs := buildInfo.PreDeploy.Envs
+			// if buildInfo.TemplateID != "" {
+			// 	var templateEnvs commonmodels.KeyValList
+
+			// 	// if template not found, envs are empty, but do not block user.
+			// 	var buildTemplate *commonmodels.BuildTemplate
+			// 	buildTemplateMapValue, ok := buildTemplateMap.Load(buildInfo.TemplateID)
+			// 	if !ok {
+			// 		buildTemplate, err = commonrepo.NewBuildTemplateColl().Find(&commonrepo.BuildTemplateQueryOption{
+			// 			ID: buildInfo.TemplateID,
+			// 		})
+			// 		if err != nil {
+			// 			logger.Errorf("failed to find build template with id: %s, err: %s", buildInfo.TemplateID, err)
+			// 			buildTemplateMap.Store(buildInfo.TemplateID, nil)
+			// 		} else {
+			// 			templateEnvs = buildTemplate.PreBuild.Envs
+			// 			buildTemplateMap.Store(buildInfo.TemplateID, buildTemplate)
+			// 		}
+			// 	} else {
+			// 		if buildTemplateMapValue == nil {
+			// 			logger.Errorf("failed to find build template with id: %s, err: %s", buildInfo.TemplateID, err)
+			// 		} else {
+			// 			buildTemplate = buildTemplateMapValue.(*commonmodels.BuildTemplate)
+			// 			templateEnvs = buildTemplate.PreBuild.Envs
+			// 		}
+			// 	}
+
+			// 	for _, target := range buildInfo.Targets {
+			// 		if target.ServiceName == vmDeploy.ServiceName && target.ServiceModule == vmDeploy.ServiceModule {
+			// 			kvs = target.Envs
+			// 		}
+			// 	}
+
+			// 	// if build template update any keyvals, merge it.
+			// 	kvs = commonservice.MergeBuildEnvs(templateEnvs.ToRuntimeList(), kvs.ToRuntimeList()).ToKVList()
+			// }
+			vmDeploy.KeyVals = commonservice.MergeBuildEnvs(kvs.ToRuntimeList(), vmDeploy.KeyVals)
+			if err := commonservice.EncryptKeyVals(encryptedKey, vmDeploy.KeyVals, logger); err != nil {
+				logger.Errorf(err.Error())
+				return e.ErrFindWorkflow.AddErr(err)
+			}
+		}
+		job.Spec = spec
+	}
+
 	if job.JobType == config.JobNotification {
 		spec := &commonmodels.NotificationJobSpec{}
 		if err := commonmodels.IToi(job.Spec, spec); err != nil {

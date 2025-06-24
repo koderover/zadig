@@ -316,6 +316,11 @@ func (j BuildJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, error
 		return nil, fmt.Errorf("find docker registry: %s error: %v", j.jobSpec.DockerRegistryID, err)
 	}
 
+	registries, err := commonservice.ListRegistryNamespaces("", true, logger)
+	if err != nil {
+		return nil, err
+	}
+
 	defaultS3, err := commonrepo.NewS3StorageColl().FindDefault()
 	if err != nil {
 		return nil, fmt.Errorf("find default s3 storage error: %v", err)
@@ -351,10 +356,6 @@ func (j BuildJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, error
 		basicImage, err := commonrepo.NewBasicImageColl().Find(buildInfo.PreBuild.ImageID)
 		if err != nil {
 			return nil, fmt.Errorf("find base image: %s error: %v", buildInfo.PreBuild.ImageID, err)
-		}
-		registries, err := commonservice.ListRegistryNamespaces("", true, logger)
-		if err != nil {
-			return nil, err
 		}
 		outputs := ensureBuiltInBuildOutputs(buildInfo.Outputs)
 		jobTaskSpec := &commonmodels.JobTaskFreestyleSpec{}
