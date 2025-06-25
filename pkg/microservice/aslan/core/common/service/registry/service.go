@@ -559,6 +559,7 @@ func (s *ecrService) ListRepoImages(option ListRepoImagesOption, log *zap.Sugare
 	if err != nil {
 		return nil, err
 	}
+	log.Debugf("option: %+v", option)
 
 	var wg wait.Group
 	var mutex sync.RWMutex

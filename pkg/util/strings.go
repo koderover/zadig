@@ -52,8 +52,7 @@ func ExtractImageName(image string) string {
 		return imageNameStr
 	}
 	if named, ok := reference.(ref.Named); ok {
-		imageNameArr := strings.Split(named.Name(), "/")
-		imageNameStr = imageNameArr[len(imageNameArr)-1]
+		imageNameStr = named.Name()
 	}
 
 	return imageNameStr

@@ -509,7 +509,7 @@ func parseContainer(val map[string]interface{}, containerType setting.ContainerT
 		Name:      nameStr,
 		Type:      containerType,
 		Image:     imageStr,
-		ImageName: ExtractImageName(imageStr),
+		ImageName: util.ExtractImageName(imageStr),
 	}
 	return container, nil
 }
