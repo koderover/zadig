@@ -689,7 +689,6 @@ func UpdateWorkloads(c *gin.Context) {
 	args := new(svcservice.UpdateWorkloadsArgs)
 
 	if err != nil {
-
 		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
