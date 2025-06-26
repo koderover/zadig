@@ -31,6 +31,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	mongotool "github.com/koderover/zadig/v2/pkg/tool/mongo"
+	"github.com/koderover/zadig/v2/pkg/tool/nacos"
 )
 
 type ConfigurationManagementColl struct {
@@ -80,6 +81,17 @@ func (c *ConfigurationManagementColl) List(ctx context.Context, _type string) ([
 	return resp, cursor.All(ctx, &resp)
 }
 
+func (c *ConfigurationManagementColl) ListNacos(ctx context.Context) ([]*models.ConfigurationManagement, error) {
+	resp := make([]*models.ConfigurationManagement, 0)
+	query := bson.M{"type": bson.M{"$in": bson.A{setting.SourceFromNacos, setting.SourceFromNacosEEMSE}}}
+	cursor, err := c.Collection.Find(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, cursor.All(ctx, &resp)
+}
+
 func (c *ConfigurationManagementColl) GetByID(ctx context.Context, idString string) (*models.ConfigurationManagement, error) {
 	id, err := primitive.ObjectIDFromHex(idString)
 	if err != nil {
@@ -119,22 +131,31 @@ func (c *ConfigurationManagementColl) GetApolloByID(ctx context.Context, idStrin
 	}, nil
 }
 
-func (c *ConfigurationManagementColl) GetNacosByID(ctx context.Context, idString string) (*models.NacosConfig, error) {
+func (c *ConfigurationManagementColl) GetNacosByID(ctx context.Context, idString string) (*nacos.NacosConfig, error) {
 	info, err := c.GetByID(ctx, idString)
 	if err != nil {
 		return nil, err
 	}
-	if info.Type != setting.SourceFromNacos {
+	if info.Type != setting.SourceFromNacos && info.Type != setting.SourceFromNacos3DotX && info.Type != setting.SourceFromNacosEEMSE {
 		return nil, errors.Errorf("unexpected nacos config type %s", info.Type)
 	}
-	nacos := &models.NacosAuthConfig{}
-	err = models.IToi(info.AuthConfig, nacos)
+	var nacosConfig interface{}
+	switch info.Type {
+	case setting.SourceFromNacos:
+		nacosConfig = &nacos.NacosAuthConfig{}
+	case setting.SourceFromNacos3DotX:
+		nacosConfig = &nacos.NacosAuthConfig{}
+	case setting.SourceFromNacosEEMSE:
+		nacosConfig = &nacos.NacosEEMSEAuthConfig{}
+	}
+	err = models.IToi(info.AuthConfig, nacosConfig)
 	if err != nil {
 		return nil, errors.Wrap(err, "IToi")
 	}
-	return &models.NacosConfig{
+	return &nacos.NacosConfig{
+		Type:            info.Type,
 		ServerAddress:   info.ServerAddress,
-		NacosAuthConfig: nacos,
+		NacosAuthConfig: nacosConfig,
 	}, nil
 }
 

@@ -20,16 +20,27 @@ import (
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/tool/apollo"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
+	"github.com/koderover/zadig/v2/pkg/tool/nacos"
 )
 
 func ListConfigurationManagement(_type string, log *zap.SugaredLogger) ([]*commonmodels.ConfigurationManagement, error) {
-	resp, err := mongodb.NewConfigurationManagementColl().List(context.Background(), _type)
-	if err != nil {
-		log.Errorf("list configuration management error: %v", err)
-		return nil, e.ErrListConfigurationManagement
+	if _type == "nacos" {
+		resp, err := mongodb.NewConfigurationManagementColl().ListNacos(context.Background())
+		if err != nil {
+			log.Errorf("list nacos configuration management error: %v", err)
+			return nil, e.ErrListConfigurationManagement
+		}
+		return resp, nil
+	} else {
+		resp, err := mongodb.NewConfigurationManagementColl().List(context.Background(), _type)
+		if err != nil {
+			log.Errorf("list configuration management error: %v", err)
+			return nil, e.ErrListConfigurationManagement
+		}
+
+		return resp, nil
 	}
 
-	return resp, nil
 }
 
 func CreateConfigurationManagement(args *commonmodels.ConfigurationManagement, log *zap.SugaredLogger) error {
@@ -104,6 +115,8 @@ func ValidateConfigurationManagement(rawData string, log *zap.SugaredLogger) err
 		return validateApolloAuthConfig(getApolloConfigFromRaw(rawData))
 	case setting.SourceFromNacos:
 		return validateNacosAuthConfig(getNacosConfigFromRaw(rawData))
+	case setting.SourceFromNacosEEMSE:
+		return validateNacosEEMSEAuthConfig(getNacosEEMSEAuthConfigFromRaw(rawData))
 	default:
 		return e.ErrInvalidParam.AddDesc("invalid type")
 	}
@@ -129,25 +142,39 @@ func validateApolloAuthConfig(config *commonmodels.ApolloConfig) error {
 	return nil
 }
 
-func validateNacosAuthConfig(config *commonmodels.NacosConfig) error {
-	u, err := url.Parse(config.ServerAddress)
-	if err != nil {
-		return e.ErrInvalidParam.AddErr(err)
+func validateNacosAuthConfig(config *nacos.NacosConfig) error {
+	if config.Type != setting.SourceFromNacos {
+		return fmt.Errorf("nacos type is not nacos 2.x")
 	}
-	if u.Path == "" {
-		u.Path = "/nacos"
-	}
-	u = u.JoinPath("v1/auth/login")
 
-	resp, err := req.R().AddQueryParam("username", config.UserName).
-		AddQueryParam("password", config.Password).
-		Post(u.String())
+	client, err := nacos.NewNacosClient(config.Type, config.ServerAddress, config.NacosAuthConfig)
 	if err != nil {
 		return e.ErrValidateConfigurationManagement.AddErr(err)
 	}
-	if resp.StatusCode != http.StatusOK {
-		return e.ErrValidateConfigurationManagement.AddDesc(fmt.Sprintf("unexpected HTTP status code %d when connecting to nacos", resp.StatusCode))
+
+	err = client.Validate()
+	if err != nil {
+		return e.ErrValidateConfigurationManagement.AddErr(err)
 	}
+
+	return nil
+}
+
+func validateNacosEEMSEAuthConfig(config *nacos.NacosConfig) error {
+	if config.Type != setting.SourceFromNacosEEMSE {
+		return fmt.Errorf("nacos type is not nacos ee mse")
+	}
+
+	client, err := nacos.NewNacosClient(config.Type, config.ServerAddress, config.NacosAuthConfig)
+	if err != nil {
+		return e.ErrValidateConfigurationManagement.AddErr(err)
+	}
+
+	err = client.Validate()
+	if err != nil {
+		return e.ErrValidateConfigurationManagement.AddErr(err)
+	}
+
 	return nil
 }
 
@@ -160,12 +187,25 @@ func getApolloConfigFromRaw(raw string) *commonmodels.ApolloConfig {
 	}
 }
 
-func getNacosConfigFromRaw(raw string) *commonmodels.NacosConfig {
-	return &commonmodels.NacosConfig{
+func getNacosConfigFromRaw(raw string) *nacos.NacosConfig {
+	return &nacos.NacosConfig{
+		Type:          setting.SourceFromNacos,
 		ServerAddress: gjson.Get(raw, "server_address").String(),
-		NacosAuthConfig: &commonmodels.NacosAuthConfig{
+		NacosAuthConfig: &nacos.NacosAuthConfig{
 			UserName: gjson.Get(raw, "auth_config.user_name").String(),
 			Password: gjson.Get(raw, "auth_config.password").String(),
+		},
+	}
+}
+
+func getNacosEEMSEAuthConfigFromRaw(raw string) *nacos.NacosConfig {
+	return &nacos.NacosConfig{
+		Type:          setting.SourceFromNacosEEMSE,
+		ServerAddress: gjson.Get(raw, "server_address").String(),
+		NacosAuthConfig: &nacos.NacosEEMSEAuthConfig{
+			InstanceId:      gjson.Get(raw, "auth_config.instance_id").String(),
+			AccessKeyId:     gjson.Get(raw, "auth_config.access_key_id").String(),
+			AccessKeySecret: gjson.Get(raw, "auth_config.access_key_secret").String(),
 		},
 	}
 }
@@ -184,9 +224,15 @@ func marshalConfigurationManagementAuthConfig(management *commonmodels.Configura
 			User:  gjson.Get(rawJson, "user").String(),
 		}
 	case setting.SourceFromNacos:
-		management.AuthConfig = &commonmodels.NacosAuthConfig{
+		management.AuthConfig = &nacos.NacosAuthConfig{
 			UserName: gjson.Get(rawJson, "user_name").String(),
 			Password: gjson.Get(rawJson, "password").String(),
+		}
+	case setting.SourceFromNacosEEMSE:
+		management.AuthConfig = &nacos.NacosEEMSEAuthConfig{
+			InstanceId:      gjson.Get(rawJson, "instance_id").String(),
+			AccessKeyId:     gjson.Get(rawJson, "access_key_id").String(),
+			AccessKeySecret: gjson.Get(rawJson, "access_key_secret").String(),
 		}
 	default:
 		return errors.New("marshal auth config: invalid type")
@@ -195,7 +241,7 @@ func marshalConfigurationManagementAuthConfig(management *commonmodels.Configura
 }
 
 func validateConfigurationManagementType(management *commonmodels.ConfigurationManagement) error {
-	if management.Type != setting.SourceFromApollo && management.Type != setting.SourceFromNacos {
+	if management.Type != setting.SourceFromApollo && management.Type != setting.SourceFromNacos && management.Type != setting.SourceFromNacosEEMSE {
 		return errors.New("invalid type")
 	}
 	return nil

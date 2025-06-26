@@ -1497,7 +1497,7 @@ func RevertWorkflowTaskV4Job(ctx *internalhandler.Context, workflowName, jobName
 					}
 
 					inputData := make([]*commonmodels.NacosData, 0)
-					client, err := nacos.NewNacosClient(jobTaskSpec.NacosAddr, jobTaskSpec.UserName, jobTaskSpec.Password)
+					client, err := nacos.NewNacosClient(jobTaskSpec.Type, jobTaskSpec.NacosAddr, jobTaskSpec.AuthConfig)
 					if err != nil {
 						return err
 					}
@@ -1529,8 +1529,8 @@ func RevertWorkflowTaskV4Job(ctx *internalhandler.Context, workflowName, jobName
 						NamespaceID:   jobTaskSpec.NamespaceID,
 						NamespaceName: jobTaskSpec.NamespaceName,
 						NacosAddr:     jobTaskSpec.NacosAddr,
-						UserName:      jobTaskSpec.UserName,
-						Password:      jobTaskSpec.Password,
+						Type:          jobTaskSpec.Type,
+						AuthConfig:    jobTaskSpec.AuthConfig,
 						NacosDatas:    inputData,
 						JobTaskCommonRevertSpec: commonmodels.JobTaskCommonRevertSpec{
 							Detail: inputSpec.Detail,
@@ -1681,7 +1681,7 @@ func GetWorkflowTaskV4JobRevert(workflowName, jobName string, taskID int64, logg
 }
 
 func revertNacosJob(jobspec *commonmodels.JobTaskNacosSpec, input []*commonmodels.NacosData) error {
-	client, err := nacos.NewNacosClient(jobspec.NacosAddr, jobspec.UserName, jobspec.Password)
+	client, err := nacos.NewNacosClient(jobspec.Type, jobspec.NacosAddr, jobspec.AuthConfig)
 	if err != nil {
 		return err
 	}

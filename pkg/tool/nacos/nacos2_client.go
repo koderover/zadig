@@ -70,7 +70,7 @@ const (
 	defaultNamespaceID = "123456abcdefg"
 )
 
-func NewNacosClient(serverAddr, userName, password string) (*Client, error) {
+func NewNacos2Client(serverAddr, userName, password string) (*Client, error) {
 	host, err := url.Parse(serverAddr)
 	if err != nil {
 		return nil, errors.Wrap(err, "parse nacos server address failed")
@@ -237,6 +237,10 @@ func (c *Client) UpdateConfig(dataID, group, namespaceID, content, format string
 	if _, err := c.Client.Post(path, httpclient.SetFormData(formValues)); err != nil {
 		return errors.Wrap(err, "update nacos config failed")
 	}
+	return nil
+}
+
+func (c *Client) Validate() error {
 	return nil
 }
 

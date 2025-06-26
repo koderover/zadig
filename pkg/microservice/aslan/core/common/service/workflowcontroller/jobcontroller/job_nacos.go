@@ -56,7 +56,7 @@ func (c *NacosJobCtl) Run(ctx context.Context) {
 	c.job.Status = config.StatusRunning
 	c.ack()
 
-	client, err := nacos.NewNacosClient(c.jobTaskSpec.NacosAddr, c.jobTaskSpec.UserName, c.jobTaskSpec.Password)
+	client, err := nacos.NewNacosClient(c.jobTaskSpec.Type, c.jobTaskSpec.NacosAddr, c.jobTaskSpec.AuthConfig)
 	if err != nil {
 		logError(c.job, err.Error(), c.logger)
 		return
