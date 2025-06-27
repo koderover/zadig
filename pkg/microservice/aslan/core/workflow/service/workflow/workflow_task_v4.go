@@ -2817,65 +2817,12 @@ func ListWorkflowFilterInfo(project, workflow, typeName string, jobName string, 
 		}
 		return names, nil
 	case "serviceName":
-		workflow, err := commonrepo.NewWorkflowV4Coll().Find(workflow)
-		if err != nil {
-			logger.Errorf("failed to find workflow %s: %v", workflow, err)
-			return nil, err
-		}
 		services := make([]string, 0)
-		for _, stage := range workflow.Stages {
-			for _, job := range stage.Jobs {
-				if job.Name == jobName {
-					if job.JobType == config.JobZadigDeploy {
-						deploy := new(commonmodels.ZadigDeployJobSpec)
-						if err := commonmodels.IToi(job.Spec, deploy); err != nil {
-							return nil, err
-						}
-						if deploy.Source == config.SourceFromJob {
-							for _, st := range workflow.Stages {
-								for _, j := range st.Jobs {
-									if j.Name == deploy.JobName && j.JobType == config.JobZadigBuild {
-										build := new(commonmodels.ZadigBuildJobSpec)
-										if err := commonmodels.IToi(j.Spec, build); err != nil {
-											return nil, err
-										}
-										for _, s := range build.ServiceAndBuilds {
-											if !utils.Contains(services, s.ServiceModule) {
-												services = append(services, s.ServiceModule)
-											}
-										}
-										return services, nil
-									}
-								}
-							}
-						}
-						if deploy.Source == config.SourceRuntime {
-							serviceInEnv, err := service.ListServicesInEnv(deploy.Env, project, nil, logger)
-							if err != nil {
-								return nil, err
-							}
-							for _, s := range serviceInEnv.Services {
-								for _, serviceModule := range s.ServiceModules {
-									if !utils.Contains(services, serviceModule.Name) {
-										services = append(services, serviceModule.Name)
-									}
-								}
-							}
-						}
-						return services, nil
-					}
-					if job.JobType == config.JobZadigBuild {
-						build := new(commonmodels.ZadigBuildJobSpec)
-						if err := commonmodels.IToi(job.Spec, build); err != nil {
-							return nil, err
-						}
-						for _, s := range build.ServiceAndBuilds {
-							if !utils.Contains(services, s.ServiceModule) {
-								services = append(services, s.ServiceModule)
-							}
-						}
-						return services, nil
-					}
+		serviceList, _ := commonrepo.NewServiceColl().ListMaxRevisions(&commonrepo.ServiceListOption{ProductName: project})
+		for _, service := range serviceList {
+			for _, container := range service.Containers {
+				if !utils.Contains(services, container.Name) {
+					services = append(services, container.Name)
 				}
 			}
 		}
