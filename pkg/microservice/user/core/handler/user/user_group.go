@@ -38,7 +38,7 @@ type createUserGroupReq struct {
 // @Accept 	json
 // @Produce json
 // @Param 	body 			body 		createUserGroupReq 	true 	"body"
-// @Success 200
+// @Success 200             {object} models.UserGroup
 // @Router /api/v1/user-group [post]
 func CreateUserGroup(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
@@ -71,7 +71,7 @@ func CreateUserGroup(c *gin.Context) {
 		return
 	}
 
-	ctx.RespErr = permission.CreateUserGroup(req.Name, req.Description, req.UIDs, ctx.Logger)
+	ctx.Resp, ctx.RespErr = permission.CreateUserGroup(req.Name, req.Description, req.UIDs, ctx.Logger)
 }
 
 type listUserGroupsReq struct {

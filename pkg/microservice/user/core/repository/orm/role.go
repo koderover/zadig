@@ -210,6 +210,22 @@ func ListRoleByGroupIDsAndNamespace(groupIDs []string, namespace string, db *gor
 	return resp, nil
 }
 
+func ListSystemRoleByGroupID(groupID string, db *gorm.DB) ([]*models.NewRole, error) {
+	resp := make([]*models.NewRole, 0)
+
+	err := db.Joins("INNER JOIN group_role_binding ON role.id = group_role_binding.role_id").
+		Where("role.namespace = ?", "*").
+		Where("group_role_binding.group_id = ?", groupID).
+		Find(&resp).
+		Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
+}
+
 func ListRoleByGroupIDs(groupIDs []string, db *gorm.DB) ([]*models.NewRole, error) {
 	resp := make([]*models.NewRole, 0)
 

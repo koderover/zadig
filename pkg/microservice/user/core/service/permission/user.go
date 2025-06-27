@@ -191,6 +191,39 @@ func GetUser(uid string, logger *zap.SugaredLogger) (*types.UserInfo, error) {
 	userInfo := mergeUserLogin([]models.User{*user}, []models.UserLogin{*userLogin}, logger)
 	userInfoRes := userInfo[0]
 	userInfoRes.APIToken = user.APIToken
+
+	userGroups, err := orm.ListUserGroupByUID(uid, repository.DB)
+	if err != nil {
+		logger.Errorf("GetUser GetUserGroup:%s error, error msg:%s", uid, err.Error())
+		return nil, err
+	}
+
+	allUserGroup, err := orm.GetAllUserGroup(repository.DB)
+	if err != nil {
+		logger.Errorf("GetUser GetAllUserGroup:%s error, error msg:%s", uid, err.Error())
+		return nil, err
+	}
+	userGroups = append(userGroups, allUserGroup)
+
+	userGroupList := make([]*types.UserGroup, 0)
+	for _, userGroup := range userGroups {
+		userGroupItem := &types.UserGroup{
+			Name: userGroup.GroupName,
+		}
+		roleList, err := orm.ListSystemRoleByGroupID(userGroup.GroupID, repository.DB)
+		if err != nil {
+			logger.Errorf("GetUser GetRoleList:%s error, error msg:%s", userGroup.GroupID, err.Error())
+			return nil, err
+		}
+
+		for _, role := range roleList {
+			userGroupItem.SystemRoleNames = append(userGroupItem.SystemRoleNames, role.Name)
+		}
+
+		userGroupList = append(userGroupList, userGroupItem)
+	}
+	userInfoRes.UserGroups = userGroupList
+
 	//TODO Create a permanent OpenAPI token
 	if user.APIToken == "" {
 		token, err := login.CreateToken(&login.Claims{

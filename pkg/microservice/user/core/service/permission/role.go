@@ -583,11 +583,32 @@ func GetRole(ns, name string, log *zap.SugaredLogger) (*types.DetailedRole, erro
 }
 
 func DeleteRole(name string, projectName string, log *zap.SugaredLogger) error {
-	err := orm.DeleteRoleByName(name, projectName, repository.DB)
+	role, err := orm.GetRole(name, projectName, repository.DB)
+	if err != nil {
+		log.Errorf("failed to get role: %s under namespace %s, error: %s", name, projectName, err)
+		return fmt.Errorf("failed to get role: %s under namespace %s, error: %s", name, projectName, err)
+	}
+
+	err = orm.DeleteRoleByName(name, projectName, repository.DB)
 	if err != nil {
 		log.Errorf("failed to delete role: %s under namespace %s, error: %s", name, projectName, err)
 		return fmt.Errorf("failed to delete role: %s under namespace %s, error: %s", name, projectName, err)
 	}
+
+	roleActionKey := fmt.Sprintf(RoleActionKeyFormat, role.ID)
+	actionCache := cache.NewRedisCache(config.RedisCommonCacheTokenDB())
+
+	// check if the cache has been set
+	err = actionCache.Delete(roleActionKey)
+	if err != nil {
+		log.Warnf("failed to flush actions from role-action cache, error: %s", err)
+	}
+
+	go func(key string, redisCache *cache.RedisCache) {
+		time.Sleep(2 * time.Second)
+		redisCache.Delete(key)
+	}(roleActionKey, actionCache)
+
 	return nil
 }
 
