@@ -278,7 +278,7 @@ type MatchBranchesListRequest struct {
 	Regular   string `json:"regular"`
 }
 
-func MatchBranchesList(c *gin.Context) {
+func MatchRegularList(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
@@ -297,7 +297,7 @@ func MatchBranchesList(c *gin.Context) {
 	}
 
 	chID, _ := strconv.Atoi(codehostID)
-	ctx.Resp, ctx.RespErr = service.MatchBranchesList(
+	ctx.Resp, ctx.RespErr = service.MatchRegularList(
 		chID,
 		req.RepoName,
 		strings.Replace(req.RepoOwner, "%2F", "/", -1),
