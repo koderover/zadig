@@ -649,6 +649,7 @@ func (c *DeployJobCtl) wait(ctx context.Context) {
 		logError(c.job, msg, c.logger)
 		return
 	}
+
 	c.jobTaskSpec.ReplaceResources = resources
 	status, err := CheckDeployStatus(ctx, c.kubeClient, c.namespace, c.jobTaskSpec.RelatedPodLabels, c.jobTaskSpec.ReplaceResources, timeout, c.logger)
 	if err != nil {
@@ -659,6 +660,8 @@ func (c *DeployJobCtl) wait(ctx context.Context) {
 }
 
 func CheckDeployStatus(ctx context.Context, kubeClient crClient.Client, namespace string, relatedPodLabels []map[string]string, replaceResources []commonmodels.Resource, timeout <-chan time.Time, logger *zap.SugaredLogger) (config.Status, error) {
+	resourceReplicasMap := make(map[string]int32)
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -737,7 +740,14 @@ func CheckDeployStatus(ctx context.Context, kubeClient crClient.Client, namespac
 						)
 						ready = false
 					} else {
-						ready = wrapper.StatefulSet(st).Ready()
+						resourceKey := fmt.Sprintf("%s/%s/%s", namespace, resource.Kind, resource.Name)
+						replicas, ok := resourceReplicasMap[resourceKey]
+						if !ok {
+							replicas = st.Status.Replicas
+							resourceReplicasMap[resourceKey] = replicas
+						}
+
+						ready = replicas == st.Status.AvailableReplicas
 					}
 
 					if !ready {
