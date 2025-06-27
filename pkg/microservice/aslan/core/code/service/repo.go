@@ -181,20 +181,29 @@ func ListRepoInfos(infos []*GitRepoInfo, log *zap.SugaredLogger) ([]*GitRepoInfo
 	return infos, nil
 }
 
-func MatchBranchesList(codeHostID int, projectName, namespace, key string, page, perPage int, regular string, log *zap.SugaredLogger) ([]*client.Branch, error) {
+type MatchBranchesListResponse struct {
+	Branches []*client.Branch `json:"branches"`
+	Tags     []*client.Tag    `json:"tags"`
+}
+
+func MatchRegularList(codeHostID int, projectName, namespace, key string, page, perPage int, regular string, log *zap.SugaredLogger) (*MatchBranchesListResponse, error) {
 	ch, err := systemconfig.New().GetCodeHost(codeHostID)
 	if err != nil {
 		log.Errorf("get code host info err:%s", err)
 		return nil, err
 	}
 	if ch.Type == setting.SourceFromOther {
-		return []*client.Branch{}, nil
+		return &MatchBranchesListResponse{
+			Branches: []*client.Branch{},
+			Tags:     []*client.Tag{},
+		}, nil
 	}
 	cli, err := open.OpenClient(ch, log)
 	if err != nil {
 		log.Errorf("open client err:%s", err)
 		return nil, err
 	}
+
 	branches, err := cli.ListBranches(client.ListOpt{Namespace: namespace, ProjectName: projectName, Key: key, Page: page, PerPage: perPage, MatchBranches: true})
 	if err != nil {
 		log.Errorf("list branch err:%s", err)
@@ -207,5 +216,22 @@ func MatchBranchesList(codeHostID int, projectName, namespace, key string, page,
 			matchBranches = append(matchBranches, branch)
 		}
 	}
-	return matchBranches, nil
+
+	tags, err := cli.ListTags(client.ListOpt{Namespace: namespace, ProjectName: projectName, Key: key, Page: page, PerPage: perPage, MatchBranches: true})
+	if err != nil {
+		log.Errorf("list tag err:%s", err)
+		return nil, err
+	}
+
+	matchTags := make([]*client.Tag, 0)
+	for _, tag := range tags {
+		if matched, _ := regexp.MatchString(regular, tag.Name); matched {
+			matchTags = append(matchTags, tag)
+		}
+	}
+
+	return &MatchBranchesListResponse{
+		Branches: matchBranches,
+		Tags:     matchTags,
+	}, nil
 }
