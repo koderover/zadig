@@ -18,12 +18,12 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"strconv"
 
-	larkcore "github.com/larksuite/oapi-sdk-go/v3/core"
 	larkevent "github.com/larksuite/oapi-sdk-go/v3/event"
 	"github.com/larksuite/oapi-sdk-go/v3/event/dispatcher"
-	// larkim "github.com/larksuite/oapi-sdk-go/v3/service/im/v1"
 	larkws "github.com/larksuite/oapi-sdk-go/v3/ws"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -31,11 +31,14 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	larkservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/lark"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/tool/dingtalk"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/lark"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/tool/workwx"
+	"github.com/koderover/zadig/v2/pkg/util"
 )
 
 func ListIMApp(_type string, log *zap.SugaredLogger) ([]*commonmodels.IMApp, error) {
@@ -108,6 +111,10 @@ func createLarkIMApp(args *commonmodels.IMApp, log *zap.SugaredLogger) error {
 	}
 
 	err = CreateLarkSSEConnection(args)
+		if err != nil {
+		log.Errorf("create lark IM SSEConnection error: %v", err)
+		return e.ErrCreateIMApp.AddErr(err)
+	}
 	return nil
 }
 
@@ -188,6 +195,12 @@ func updateLarkIMApp(id string, args *commonmodels.IMApp, log *zap.SugaredLogger
 		log.Errorf("update lark IM error: %v", err)
 		return e.ErrCreateIMApp.AddErr(err)
 	}
+
+	err = CreateLarkSSEConnection(args)
+	if err != nil {
+		log.Errorf("create lark IM SSEConnection error: %v", err)
+		return e.ErrCreateIMApp.AddErr(err)
+	}
 	return nil
 }
 
@@ -263,20 +276,58 @@ func CreateLarkSSEConnection(arg *commonmodels.IMApp) error {
 	}
 
 	eventHandler := dispatcher.NewEventDispatcher("", "").
-		OnCustomizedEvent("approval_task", func(ctx context.Context, event *larkevent.EventReq) error {
-                        fmt.Printf("[ OnCustomizedEvent access ], type: message, data: %s\n", string(event.Body))
-                        return nil
-                })
+		OnCustomizedEvent("approval_task", larkSSEHandler)
 
-	// 创建Client
 	cli := larkws.NewClient(arg.AppID, arg.AppSecret,
 		larkws.WithEventHandler(eventHandler),
-		larkws.WithLogLevel(larkcore.LogLevelDebug),
 	)
-	// 启动客户端
-	err := cli.Start(context.Background())
+
+	util.Go(
+		func() {
+			cli.Start(context.Background())
+		},
+	)
+
+	return nil
+}
+
+func larkSSEHandler(ctx context.Context, event *larkevent.EventReq) error {
+	callback := &larkservice.CallbackData{}
+	err := json.Unmarshal([]byte(event.Body), callback)
 	if err != nil {
-		return err
+		log.Errorf("unmarshal callback data failed: %v", err)
+		return errors.Wrap(err, "unmarshal")
 	}
+
+	log.Debugf("[LARK SSE EVENT IN, data: =====\n%s\n=====", string(callback.Event))
+
+	eventBody := larkservice.ApprovalTaskEvent{}
+	err = json.Unmarshal(callback.Event, &event)
+	if err != nil {
+		log.Errorf("unmarshal callback event failed: %v", err)
+		return errors.Wrap(err, "unmarshal")
+	}
+	log.Infof("LarkEventHandler: new request approval ID %s, request UUID %s, ts: %s", eventBody.AppID, callback.UUID, callback.Ts)
+	manager := larkservice.GetLarkApprovalInstanceManager(eventBody.InstanceCode)
+	if !manager.CheckAndUpdateUUID(callback.UUID) {
+		log.Infof("check existed request uuid %s, ignored", callback.UUID)
+		return nil
+	}
+	t, err := strconv.ParseInt(eventBody.OperateTime, 10, 64)
+	if err != nil {
+		log.Warnf("parse operate time %s failed: %v", eventBody.OperateTime, err)
+	}
+	larkservice.UpdateNodeUserApprovalResult(eventBody.InstanceCode, eventBody.DefKey, eventBody.CustomKey, eventBody.OpenID, &larkservice.UserApprovalResult{
+		Result:        eventBody.Status,
+		OperationTime: t / 1000,
+	})
+	log.Infof("update lark app info id: %s, instance code: %s, nodeKey: %s, userID: %s status: %s",
+		eventBody.AppID, 
+		eventBody.InstanceCode, 
+		eventBody.CustomKey, 
+		eventBody.OpenID, 
+		eventBody.Status,
+	)
+
 	return nil
 }
