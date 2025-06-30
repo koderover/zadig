@@ -111,7 +111,7 @@ func createLarkIMApp(args *commonmodels.IMApp, log *zap.SugaredLogger) error {
 	}
 
 	err = CreateLarkSSEConnection(args)
-		if err != nil {
+	if err != nil {
 		log.Errorf("create lark IM SSEConnection error: %v", err)
 		return e.ErrCreateIMApp.AddErr(err)
 	}
@@ -302,7 +302,7 @@ func larkSSEHandler(ctx context.Context, event *larkevent.EventReq) error {
 	log.Debugf("[LARK SSE EVENT IN, data: =====\n%s\n=====", string(callback.Event))
 
 	eventBody := larkservice.ApprovalTaskEvent{}
-	err = json.Unmarshal(callback.Event, &event)
+	err = json.Unmarshal(callback.Event, &eventBody)
 	if err != nil {
 		log.Errorf("unmarshal callback event failed: %v", err)
 		return errors.Wrap(err, "unmarshal")
@@ -322,10 +322,10 @@ func larkSSEHandler(ctx context.Context, event *larkevent.EventReq) error {
 		OperationTime: t / 1000,
 	})
 	log.Infof("update lark app info id: %s, instance code: %s, nodeKey: %s, userID: %s status: %s",
-		eventBody.AppID, 
-		eventBody.InstanceCode, 
-		eventBody.CustomKey, 
-		eventBody.OpenID, 
+		eventBody.AppID,
+		eventBody.InstanceCode,
+		eventBody.CustomKey,
+		eventBody.OpenID,
 		eventBody.Status,
 	)
 
