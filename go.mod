@@ -46,7 +46,7 @@ require (
 	github.com/google/go-github/v35 v35.3.0
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/mux v1.8.0
-	github.com/gorilla/websocket v1.4.2
+	github.com/gorilla/websocket v1.5.0
 	github.com/gregjones/httpcache v0.0.0-20190611155906-901d90724c79
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/huaweicloud/huaweicloud-sdk-go-v3 v0.1.2
@@ -59,7 +59,7 @@ require (
 	github.com/juju/ratelimit v1.0.2
 	github.com/koderover/gojenkins v1.5.3
 	github.com/koderover/obelisk v0.0.0-20240925085229-2ba7bc02bc7f
-	github.com/larksuite/oapi-sdk-go/v3 v3.0.10
+	github.com/larksuite/oapi-sdk-go/v3 v3.4.20
 	github.com/magiconair/properties v1.8.5
 	github.com/mholt/archiver v3.1.1+incompatible
 	github.com/mittwald/go-helm-client v0.11.3

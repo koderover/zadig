@@ -20,17 +20,22 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
-	"github.com/koderover/zadig/v2/pkg/tool/workwx"
+	larkcore "github.com/larksuite/oapi-sdk-go/v3/core"
+	larkevent "github.com/larksuite/oapi-sdk-go/v3/event"
+	"github.com/larksuite/oapi-sdk-go/v3/event/dispatcher"
+	larkim "github.com/larksuite/oapi-sdk-go/v3/service/im/v1"
+	larkws "github.com/larksuite/oapi-sdk-go/v3/ws"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/tool/dingtalk"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/lark"
+	"github.com/koderover/zadig/v2/pkg/tool/workwx"
 )
 
 func ListIMApp(_type string, log *zap.SugaredLogger) ([]*commonmodels.IMApp, error) {
@@ -101,6 +106,8 @@ func createLarkIMApp(args *commonmodels.IMApp, log *zap.SugaredLogger) error {
 		log.Errorf("create lark IM error: %v", err)
 		return e.ErrCreateIMApp.AddErr(err)
 	}
+
+	err = createLarkSSEConnection(args)
 	return nil
 }
 
@@ -243,4 +250,33 @@ func generateWorkWXDefaultApprovalTemplate(name string) ([]*workwx.GeneralText, 
 	}})
 
 	return templateName, controls
+}
+
+func CreateLarkSSEConnection(arg *commonmodels.IMApp) error {
+	if arg.Type != setting.IMLark {
+		return fmt.Errorf("invalid type: %s to create lark sse connection", arg.Type)
+	}
+
+	// nothing to create
+	if arg.LarkEventType != setting.LarkEventTypeSSE {
+		return nil
+	}
+
+	eventHandler := dispatcher.NewEventDispatcher("", "").
+		OnCustomizedEvent("approval_task", func(ctx context.Context, event *larkevent.EventReq) error {
+                        fmt.Printf("[ OnCustomizedEvent access ], type: message, data: %s\n", string(event.Body))
+                        return nil
+                })
+
+	// 创建Client
+	cli := larkws.NewClient(arg.AppID, arg.AppSecret,
+		larkws.WithEventHandler(eventHandler),
+		larkws.WithLogLevel(larkcore.LogLevelDebug),
+	)
+	// 启动客户端
+	err := cli.Start(context.Background())
+	if err != nil {
+		return err
+	}
+	return nil
 }
