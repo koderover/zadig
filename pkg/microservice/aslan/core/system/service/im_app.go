@@ -33,6 +33,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	larkservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/lark"
 	"github.com/koderover/zadig/v2/pkg/setting"
+	"github.com/koderover/zadig/v2/pkg/tool/cache"
 	"github.com/koderover/zadig/v2/pkg/tool/dingtalk"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/lark"
@@ -40,6 +41,27 @@ import (
 	"github.com/koderover/zadig/v2/pkg/tool/workwx"
 	"github.com/koderover/zadig/v2/pkg/util"
 )
+
+// TODO: update this logic to support dynamic connection handling for multiple instances
+func InitSSEConnections() error {
+	resp, err := mongodb.NewIMAppColl().List(context.Background(), "")
+	if err != nil {
+		log.Errorf("list external approval error: %v", err)
+		return e.ErrListIMApp.AddErr(err)
+	}
+
+	for _, imApp := range resp {
+		if imApp.Type == setting.IMLark {
+			err := CreateLarkSSEConnection(imApp)
+			if err != nil {
+				log.Errorf("failed to creates sse connection for lark, error: %s")
+				return err
+			}
+		}
+	}
+
+	return nil
+}
 
 func ListIMApp(_type string, log *zap.SugaredLogger) ([]*commonmodels.IMApp, error) {
 	resp, err := mongodb.NewIMAppColl().List(context.Background(), _type)
@@ -265,6 +287,10 @@ func generateWorkWXDefaultApprovalTemplate(name string) ([]*workwx.GeneralText, 
 	return templateName, controls
 }
 
+const (
+	larkSSELockFormat = "LARK_SSE_LOCK_%s"
+)
+
 func CreateLarkSSEConnection(arg *commonmodels.IMApp) error {
 	if arg.Type != setting.IMLark {
 		return fmt.Errorf("invalid type: %s to create lark sse connection", arg.Type)
@@ -273,6 +299,12 @@ func CreateLarkSSEConnection(arg *commonmodels.IMApp) error {
 	// nothing to create
 	if arg.LarkEventType != setting.LarkEventTypeSSE {
 		return nil
+	}
+
+	lock := cache.NewRedisLock(fmt.Sprintf(larkSSELockFormat, arg.ID.Hex()))
+	err := lock.TryLock()
+	if err != nil {
+		return fmt.Errorf("Lark sse lock for %s is occupied by another instance: err: %s", arg.Name, err)
 	}
 
 	eventHandler := dispatcher.NewEventDispatcher("", "").
