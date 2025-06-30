@@ -23,7 +23,7 @@ import (
 	larkcore "github.com/larksuite/oapi-sdk-go/v3/core"
 	larkevent "github.com/larksuite/oapi-sdk-go/v3/event"
 	"github.com/larksuite/oapi-sdk-go/v3/event/dispatcher"
-	larkim "github.com/larksuite/oapi-sdk-go/v3/service/im/v1"
+	// larkim "github.com/larksuite/oapi-sdk-go/v3/service/im/v1"
 	larkws "github.com/larksuite/oapi-sdk-go/v3/ws"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -107,7 +107,7 @@ func createLarkIMApp(args *commonmodels.IMApp, log *zap.SugaredLogger) error {
 		return e.ErrCreateIMApp.AddErr(err)
 	}
 
-	err = createLarkSSEConnection(args)
+	err = CreateLarkSSEConnection(args)
 	return nil
 }
 
