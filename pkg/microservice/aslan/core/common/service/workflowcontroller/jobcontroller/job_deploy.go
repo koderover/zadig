@@ -740,13 +740,6 @@ func CheckDeployStatus(ctx context.Context, kubeClient crClient.Client, namespac
 						)
 						ready = false
 					} else {
-						resourceKey := fmt.Sprintf("%s/%s/%s", namespace, resource.Kind, resource.Name)
-						replicas, ok := resourceReplicasMap[resourceKey]
-						if !ok {
-							replicas = sts.Status.Replicas
-							resourceReplicasMap[resourceKey] = replicas
-						}
-
 						ready = sts.Status.ObservedGeneration >= sts.ObjectMeta.Generation &&
 							sts.Status.UpdatedReplicas == *sts.Spec.Replicas &&
 							sts.Status.ReadyReplicas == *sts.Spec.Replicas &&
