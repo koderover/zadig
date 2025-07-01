@@ -16,7 +16,10 @@
 
 package models
 
-import "go.mongodb.org/mongo-driver/bson/primitive"
+import (
+	"github.com/koderover/zadig/v2/pkg/setting"
+	"go.mongodb.org/mongo-driver/bson/primitive"
+)
 
 type IMApp struct {
 	ID         primitive.ObjectID `json:"id" bson:"_id,omitempty"`
@@ -34,7 +37,8 @@ type IMApp struct {
 	LarkApprovalCodeList map[string]string `json:"-" bson:"lark_approval_code_list"`
 	// LarkApprovalCodeListCommon is used for any source approval
 	// because LarkApprovalCodeList title is fixed "Zadig 工作流", so we need a common approval code list
-	LarkApprovalCodeListCommon map[string]string `json:"-" bson:"lark_approval_code_list_common"`
+	LarkApprovalCodeListCommon map[string]string     `json:"-" bson:"lark_approval_code_list_common"`
+	LarkEventType              setting.LarkEventType `json:"lark_event_type" bson:"lark_event_type"`
 
 	// DingTalk fields
 	DingTalkAppKey                  string `json:"dingtalk_app_key" bson:"dingtalk_app_key"`

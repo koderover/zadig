@@ -983,3 +983,10 @@ const (
 const (
 	EventBusChannelClusterUpdate = "cluster_update"
 )
+
+type LarkEventType string
+
+const (
+	LarkEventTypeSSE      = "sse"
+	LarkEventTypeCallback = "callback"
+)
