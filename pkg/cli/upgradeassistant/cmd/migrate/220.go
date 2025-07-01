@@ -21,19 +21,20 @@ import (
 	"fmt"
 	"strings"
 
-	internalmongodb "github.com/koderover/zadig/v2/pkg/cli/upgradeassistant/internal/repository/mongodb"
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/environment/service"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/util/boolptr"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 
+	internalmongodb "github.com/koderover/zadig/v2/pkg/cli/upgradeassistant/internal/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/cli/upgradeassistant/internal/upgradepath"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/environment/service"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow"
+	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/types"
 )
@@ -213,7 +214,7 @@ func migrateProductWorkflowToCustomWorkflow() error {
 					}
 				}
 
-				newWebhook := &models.WorkflowV4Hook{
+				newWebhook := &models.WorkflowV4GitHook{
 					Name:        fmt.Sprintf("hook-%d", i),
 					AutoCancel:  hook.AutoCancel,
 					Enabled:     wf.HookCtl.Enabled,
@@ -223,7 +224,7 @@ func migrateProductWorkflowToCustomWorkflow() error {
 					WorkflowArg: presetInfo.WorkflowArg,
 				}
 
-				err = workflow.CreateWebhookForWorkflowV4(newWorkflow.Name, newWebhook, logger)
+				err = workflow.CreateGithookForWorkflowV4(internalhandler.NewBackgroupContext(), newWorkflow.Name, newWebhook)
 				if err != nil {
 					logger.Errorf("failed to create workflow for workflow: %s, error: %s", newWorkflow.Name, err)
 					return err
