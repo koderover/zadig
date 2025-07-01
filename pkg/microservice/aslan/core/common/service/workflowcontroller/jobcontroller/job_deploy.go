@@ -660,8 +660,6 @@ func (c *DeployJobCtl) wait(ctx context.Context) {
 }
 
 func CheckDeployStatus(ctx context.Context, kubeClient crClient.Client, namespace string, relatedPodLabels []map[string]string, replaceResources []commonmodels.Resource, timeout <-chan time.Time, logger *zap.SugaredLogger) (config.Status, error) {
-	resourceReplicasMap := make(map[string]int32)
-
 	for {
 		select {
 		case <-ctx.Done():
