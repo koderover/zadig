@@ -263,12 +263,6 @@ func (client *Client) GetApprovalInstance(args *GetApprovalInstanceArgs) (*Appro
 		return nil, resp.CodeError
 	}
 
-	respByte, err := json.Marshal(resp.Data)
-	if err != nil {
-		return nil, err
-	}
-	log.Debugf("approval instance resp: ===========================\n %s \n", string(respByte))
-
 	taskMap := make(map[string]map[string]*ApprovalTask)
 	for _, task := range resp.Data.TaskList {
 		customNodeKey, openID := getStringFromPointer(task.CustomNodeId), getStringFromPointer(task.OpenId)
