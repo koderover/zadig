@@ -660,8 +660,6 @@ func (c *DeployJobCtl) wait(ctx context.Context) {
 }
 
 func CheckDeployStatus(ctx context.Context, kubeClient crClient.Client, namespace string, relatedPodLabels []map[string]string, replaceResources []commonmodels.Resource, timeout <-chan time.Time, logger *zap.SugaredLogger) (config.Status, error) {
-	resourceReplicasMap := make(map[string]int32)
-
 	for {
 		select {
 		case <-ctx.Done():
@@ -726,7 +724,7 @@ func CheckDeployStatus(ctx context.Context, kubeClient crClient.Client, namespac
 						break L
 					}
 				case setting.StatefulSet:
-					st, found, e := getter.GetStatefulSet(namespace, resource.Name, kubeClient)
+					sts, found, e := getter.GetStatefulSet(namespace, resource.Name, kubeClient)
 					if e != nil {
 						err = e
 					}
@@ -740,14 +738,10 @@ func CheckDeployStatus(ctx context.Context, kubeClient crClient.Client, namespac
 						)
 						ready = false
 					} else {
-						resourceKey := fmt.Sprintf("%s/%s/%s", namespace, resource.Kind, resource.Name)
-						replicas, ok := resourceReplicasMap[resourceKey]
-						if !ok {
-							replicas = st.Status.Replicas
-							resourceReplicasMap[resourceKey] = replicas
-						}
-
-						ready = replicas == st.Status.AvailableReplicas
+						ready = sts.Status.ObservedGeneration >= sts.ObjectMeta.Generation &&
+							sts.Status.UpdatedReplicas == *sts.Spec.Replicas &&
+							sts.Status.ReadyReplicas == *sts.Spec.Replicas &&
+							sts.Status.CurrentRevision == sts.Status.UpdateRevision
 					}
 
 					if !ready {
