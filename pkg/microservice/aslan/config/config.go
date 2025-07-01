@@ -158,56 +158,12 @@ func ProxyHTTPAddr() string {
 	return viper.GetString(setting.ProxyHTTPAddr)
 }
 
-func KubeServerAddr() string {
-	return viper.GetString(setting.ENVKubeServerAddr)
-}
-
-func GithubSSHKey() string {
-	return viper.GetString(setting.ENVGithubSSHKey)
-}
-
-func GithubKnownHost() string {
-	return viper.GetString(setting.ENVGithubKnownHost)
-}
-
-func ReaperImage() string {
-	return viper.GetString(setting.ENVReaperImage)
-}
-
-func ReaperBinaryFile() string {
-	return viper.GetString(setting.ENVReaperBinaryFile)
-}
-
-func PredatorImage() string {
-	return viper.GetString(setting.ENVPredatorImage)
-}
-
-func PackagerImage() string {
-	return viper.GetString(setting.EnvPackagerImage)
-}
-
-func DockerHosts() []string {
-	return strings.Split(viper.GetString(setting.ENVDockerHosts), ",")
-}
-
-func UseClassicBuild() bool {
-	return viper.GetString(setting.ENVUseClassicBuild) == "true"
-}
-
-func CustomDNSNotSupported() bool {
-	return !(viper.GetString(setting.ENVCustomDNSNotSupported) == "true")
-}
-
-func OldEnvSupported() bool {
-	return viper.GetString(setting.ENVOldEnvSupported) == "true"
+func BuildBaseImage() string {
+	return viper.GetString(setting.ENVBuildBaseImage)
 }
 
 func ProxySocks5Addr() string {
 	return viper.GetString(setting.ProxySocks5Addr)
-}
-
-func JenkinsImage() string {
-	return viper.GetString(setting.JenkinsBuildImage)
 }
 
 func WebHookURL() string {

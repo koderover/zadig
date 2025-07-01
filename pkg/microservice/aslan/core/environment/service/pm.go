@@ -33,7 +33,6 @@ import (
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/pm"
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
@@ -252,19 +251,6 @@ func (p *PMService) createGroup(username string, product *commonmodels.Product, 
 				log.Errorf("[%s][%s] Product.Update error: %v", envName, productName, err)
 				errList = multierror.Append(errList, err)
 			}
-		}
-		if _, err = workflow.CreateServiceTask(&commonmodels.ServiceTaskArgs{
-			ProductName:        productName,
-			ServiceName:        productService.ServiceName,
-			Revision:           latestRevision,
-			EnvNames:           []string{envName},
-			ServiceTaskCreator: username,
-		}, p.log); err != nil {
-			_, messageMap := e.ErrorMessage(err)
-			if description, ok := messageMap["description"]; ok {
-				log.Errorf("description :%s", description)
-			}
-			errList = multierror.Append(errList, err)
 		}
 	}
 	return errList.ErrorOrNil()

@@ -76,38 +76,6 @@ func deleteGerritWebhook(mainRepo *commonmodels.MainHookRepo, workflowName strin
 	return nil
 }
 
-// UpdateGerritWebhook 更新gerrit webhook
-func UpdateGerritWebhook(currentWorkflow *commonmodels.Workflow, log *zap.SugaredLogger) error {
-	oldWorkflow, err := FindWorkflow(currentWorkflow.Name, log)
-	if err != nil {
-		log.Errorf("UpdateGerritWebhook get workflow err:%v", err)
-		return err
-	}
-
-	if oldWorkflow != nil && oldWorkflow.HookCtl != nil {
-		for _, oldWorkflowWebhook := range oldWorkflow.HookCtl.Items {
-			if oldWorkflowWebhook == nil || oldWorkflowWebhook.IsManual {
-				continue
-			}
-			if err := deleteGerritWebhook(oldWorkflowWebhook.MainRepo, oldWorkflow.Name); err != nil {
-				log.Errorf("UpdateGerritWebhook delete webhook err:%v", err)
-			}
-		}
-	}
-	if currentWorkflow != nil && currentWorkflow.HookCtl != nil && currentWorkflow.HookCtl.Enabled {
-		for _, workflowWebhook := range currentWorkflow.HookCtl.Items {
-			if workflowWebhook == nil || workflowWebhook.IsManual {
-				continue
-			}
-			if err := createGerritWebhook(workflowWebhook.MainRepo, currentWorkflow.Name); err != nil {
-				log.Errorf("UpdateGerritWebhook addGerritWebhook err: %v", err)
-				return err
-			}
-		}
-	}
-	return nil
-}
-
 // DeleteGerritWebhook 删除gerrit webhook
 func DeleteGerritWebhook(workflow *commonmodels.Workflow, log *zap.SugaredLogger) error {
 	if workflow != nil && workflow.HookCtl != nil {

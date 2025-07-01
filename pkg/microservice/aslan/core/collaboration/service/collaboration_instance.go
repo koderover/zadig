@@ -447,7 +447,6 @@ func syncNewResource(products *SyncCollaborationInstanceArgs, updateResp *GetCol
 	if newResp.Workflow == nil && newResp.Product == nil {
 		return nil
 	}
-	var newWorkflows []workflowservice.WorkflowCopyItem
 	var newCommonWorkflows []workflowservice.WorkflowCopyItem
 	for _, workflow := range newResp.Workflow {
 		if workflow.CollaborationType == config.CollaborationNew {
@@ -459,29 +458,12 @@ func syncNewResource(products *SyncCollaborationInstanceArgs, updateResp *GetCol
 					NewDisplayName: workflow.DisplayName,
 					BaseName:       workflow.BaseName,
 				})
-			} else {
-				newWorkflows = append(newWorkflows, workflowservice.WorkflowCopyItem{
-					ProjectName:    projectName,
-					Old:            workflow.BaseName,
-					New:            workflow.Name,
-					NewDisplayName: workflow.DisplayName,
-					BaseName:       workflow.BaseName,
-				})
 			}
-
-		}
-	}
-	if len(newWorkflows) > 0 {
-		err = workflowservice.BulkCopyWorkflow(workflowservice.BulkCopyWorkflowArgs{
-			Items: newWorkflows,
-		}, userName, logger)
-		if err != nil {
-			return err
 		}
 	}
 
 	if len(newCommonWorkflows) > 0 {
-		logger.Infof("start bulkcopyworkflowv4:%s", newWorkflows)
+		logger.Infof("start bulkcopyworkflowv4:%s", newCommonWorkflows)
 		err = workflowservice.BulkCopyWorkflowV4(workflowservice.BulkCopyWorkflowArgs{
 			Items: newCommonWorkflows,
 		}, userName, logger)

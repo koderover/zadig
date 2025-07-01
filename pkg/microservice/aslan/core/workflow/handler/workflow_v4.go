@@ -131,6 +131,49 @@ func CreateWorkflowV4(c *gin.Context) {
 	}
 }
 
+func AutoCreateWorkflow(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	// TODO: Authorization leak
+	// this API is sometimes used in edit/create workflow scenario, thus giving the edit/create workflow permission
+	// authorization check
+	permitted := false
+	projectKey := c.Query("projectName")
+
+	if ctx.Resources.IsSystemAdmin {
+		permitted = true
+	} else if projectAuthInfo, ok := ctx.Resources.ProjectAuthInfo[projectKey]; ok {
+		// first check if the user is projectAdmin
+		if projectAuthInfo.IsProjectAdmin {
+			permitted = true
+		} else if projectAuthInfo.Workflow.Create ||
+			projectAuthInfo.Env.EditConfig {
+			// then check if user has edit workflow permission
+			permitted = true
+		} else {
+			// finally check if the permission is given by collaboration mode
+			collaborationAuthorizedEdit, err := internalhandler.CheckPermissionGivenByCollaborationMode(ctx.UserID, projectKey, types.ResourceTypeEnvironment, types.EnvActionEditConfig)
+			if err == nil && collaborationAuthorizedEdit {
+				permitted = true
+			}
+		}
+	}
+
+	if !permitted {
+		ctx.UnAuthorized = true
+		return
+	}
+
+	ctx.Resp = workflow.AutoCreateWorkflow(projectKey, ctx.Logger)
+}
+
 func SetWorkflowTasksCustomFields(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

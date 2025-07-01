@@ -527,7 +527,7 @@ func (j ScanningJobController) toJobTask(jobSubTaskID int, scanning *commonmodel
 		scanningImage += ":5.0.1"
 	}
 	if basicImage.ImageFrom == commonmodels.ImageFromKoderover {
-		scanningImage = strings.ReplaceAll(config.ReaperImage(), "${BuildOS}", basicImage.Value)
+		scanningImage = strings.ReplaceAll(config.BuildBaseImage(), "${BuildOS}", basicImage.Value)
 	}
 	jobTaskSpec.Properties = commonmodels.JobProperties{
 		Timeout:             timeout,

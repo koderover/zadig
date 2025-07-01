@@ -22,9 +22,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
-	"time"
 
 	"github.com/google/go-github/v35/github"
 	"github.com/hashicorp/go-multierror"
@@ -34,7 +32,6 @@ import (
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	gitservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/git"
-	workflowservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/shared/client/systemconfig"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
@@ -47,109 +44,6 @@ const (
 	signatureHeader  = "X-Hub-Signature"
 	payloadFormParam = "payload"
 )
-
-func ProcessGithubHook(payload []byte, req *http.Request, requestID string, log *zap.SugaredLogger) (string, error) {
-	hookType := github.WebHookType(req)
-	if hookType == "integration_installation" || hookType == "installation" || hookType == "ping" {
-		return fmt.Sprintf("event %s received", hookType), nil
-	}
-
-	hookSecret := gitservice.GetHookSecret()
-	if hookSecret == "" {
-		var headers []string
-		for header := range req.Header {
-			headers = append(headers, fmt.Sprintf("%s: %s", header, req.Header.Get(header)))
-		}
-		log.Infof("[Webhook] hook headers: \n  %s", strings.Join(headers, "\n  "))
-	}
-
-	err := validateSecret(payload, []byte(hookSecret), req)
-	if err != nil {
-		log.Errorf("Failed to validate secret, err: %s", err)
-		return "", err
-	}
-
-	event, err := github.ParseWebHook(github.WebHookType(req), payload)
-	if err != nil {
-		log.Errorf("Failed to parse webhook, err: %s", err)
-		return "", err
-	}
-
-	deliveryID := github.DeliveryID(req)
-
-	log.Infof("[Webhook] event: %s delivery id: %s received", hookType, deliveryID)
-
-	var tasks []*commonmodels.TaskArgs
-	switch et := event.(type) {
-	case *github.PullRequestEvent:
-		if *et.Action != "opened" && *et.Action != "synchronize" && *et.Action != "reopened" {
-			return fmt.Sprintf("action %s is skipped", *et.Action), nil
-		}
-
-		tasks, err = prEventToPipelineTasks(et, requestID, log)
-		if err != nil {
-			log.Errorf("prEventToPipelineTasks error: %v", err)
-			return "", e.ErrGithubWebHook.AddErr(err)
-		}
-
-	case *github.PushEvent:
-		//add webhook user
-		if et.Pusher != nil {
-			webhookUser := &commonmodels.WebHookUser{
-				Domain:    req.Header.Get("X-Forwarded-Host"),
-				UserName:  *et.Pusher.Name,
-				Email:     *et.Pusher.Email,
-				Source:    setting.SourceFromGithub,
-				CreatedAt: time.Now().Unix(),
-			}
-			commonrepo.NewWebHookUserColl().Upsert(webhookUser)
-		}
-
-		tasks, err = pushEventToPipelineTasks(et, requestID, log)
-		if err != nil {
-			log.Errorf("pushEventToPipelineTasks error: %v", err)
-			return "", e.ErrGithubWebHook.AddErr(err)
-		}
-	case *github.CheckRunEvent:
-		// The action performed. Can be "created", "updated", "rerequested" or "requested_action".
-		if *et.Action != "rerequested" {
-			return fmt.Sprintf("action %s is skipped", *et.Action), nil
-		}
-
-		id := et.CheckRun.GetExternalID()
-		items := strings.Split(id, "/")
-		if len(items) != 2 {
-			return "", fmt.Errorf("invalid CheckRun ExternalID %s", id)
-		}
-
-		pipeName := items[0]
-		var taskID int64
-		taskID, err = strconv.ParseInt(items[1], 10, 64)
-		if err != nil {
-			return "", fmt.Errorf("invalid taskID in CheckRun ExternalID %s", id)
-		}
-
-		if err = workflowservice.RestartPipelineTaskV2("CheckRun", taskID, pipeName, config.SingleType, log); err != nil {
-			return "", e.ErrGithubWebHook.AddErr(err)
-		}
-
-	default:
-		return fmt.Sprintf("event %s not support", hookType), nil
-	}
-
-	for _, task := range tasks {
-		task.HookPayload.DeliveryID = deliveryID
-		// 暂时不 block webhook 请求
-		resp, err1 := workflowservice.CreatePipelineTask(task, log)
-		if err1 != nil {
-			log.Errorf("[Webhook] %s triggered task %s error: %v", deliveryID, task.PipelineName, err)
-			continue
-		}
-		log.Infof("[Webhook] %s triggered task %s:%d", deliveryID, task.PipelineName, resp.TaskID)
-	}
-
-	return "", nil
-}
 
 func validateSecret(payload, secretKey []byte, r *http.Request) error {
 	sig := r.Header.Get(signatureHeader)
@@ -441,73 +335,6 @@ func ProcessGithubWebhookForScanning(payload []byte, req *http.Request, requestI
 	default:
 		log.Warn("Unsupported event type")
 		return nil
-	}
-	return nil
-}
-
-func ProcessGithubWebHook(payload []byte, req *http.Request, requestID string, log *zap.SugaredLogger) error {
-	forwardedProto := req.Header.Get("X-Forwarded-Proto")
-	forwardedHost := req.Header.Get("X-Forwarded-Host")
-	baseURI := fmt.Sprintf("%s://%s", forwardedProto, forwardedHost)
-
-	hookType := github.WebHookType(req)
-	if hookType == "integration_installation" || hookType == "installation" || hookType == "ping" {
-		return nil
-	}
-
-	err := validateSecret(payload, []byte(gitservice.GetHookSecret()), req)
-	if err != nil {
-		return err
-	}
-
-	event, err := github.ParseWebHook(github.WebHookType(req), payload)
-	if err != nil {
-		return err
-	}
-
-	deliveryID := github.DeliveryID(req)
-	log.Infof("[Webhook] event: %s delivery id: %s received", hookType, deliveryID)
-
-	switch et := event.(type) {
-	case *github.PullRequestEvent:
-		if *et.Action != "opened" && *et.Action != "synchronize" {
-			return nil
-		}
-
-		err = TriggerWorkflowByGithubEvent(et, baseURI, deliveryID, requestID, log)
-		if err != nil {
-			log.Errorf("prEventToPipelineTasks error: %v", err)
-			return e.ErrGithubWebHook.AddErr(err)
-		}
-
-	case *github.PushEvent:
-		// sync service template
-		if err = updateServiceTemplateByGithubPush(et, log); err != nil {
-			log.Errorf("updateServiceTemplateByGithubPush failed, error:%v", err)
-		}
-
-		//add webhook user
-		if et.Pusher != nil {
-			webhookUser := &commonmodels.WebHookUser{
-				Domain:    req.Header.Get("X-Forwarded-Host"),
-				UserName:  *et.Pusher.Name,
-				Email:     *et.Pusher.Email,
-				Source:    setting.SourceFromGithub,
-				CreatedAt: time.Now().Unix(),
-			}
-			commonrepo.NewWebHookUserColl().Upsert(webhookUser)
-		}
-		err = TriggerWorkflowByGithubEvent(et, baseURI, deliveryID, requestID, log)
-		if err != nil {
-			log.Infof("pushEventToPipelineTasks error: %v", err)
-			return e.ErrGithubWebHook.AddErr(err)
-		}
-	case *github.CreateEvent:
-		err = TriggerWorkflowByGithubEvent(et, baseURI, deliveryID, requestID, log)
-		if err != nil {
-			log.Errorf("tagEventToPipelineTasks error: %s", err)
-			return e.ErrGithubWebHook.AddErr(err)
-		}
 	}
 	return nil
 }

@@ -19,19 +19,13 @@ package webhook
 import (
 	"fmt"
 	"regexp"
-	"strconv"
-	"strings"
 
-	"github.com/hashicorp/go-multierror"
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/v2/pkg/types"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
-	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/scmnotify"
-	workflowservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/shared/client/systemconfig"
 	"github.com/koderover/zadig/v2/pkg/tool/gitee"
@@ -220,138 +214,6 @@ func createGiteeEventMatcher(
 	}
 
 	return nil
-}
-
-func TriggerWorkflowByGiteeEvent(event interface{}, baseURI, requestID string, log *zap.SugaredLogger) error {
-	workflowList, err := commonrepo.NewWorkflowColl().List(&commonrepo.ListWorkflowOption{})
-	if err != nil {
-		log.Errorf("failed to list workflow %v", err)
-		return err
-	}
-
-	mErr := &multierror.Error{}
-	diffSrv := func(pullRequestEvent *gitee.PullRequestEvent, codehostId int) ([]string, error) {
-		return findChangedFilesOfPullRequestEvent(pullRequestEvent, codehostId)
-	}
-
-	var notification *commonmodels.Notification
-	for _, workflow := range workflowList {
-		if workflow.HookCtl != nil && workflow.HookCtl.Enabled {
-			log.Debugf("find %d hooks in workflow %s", len(workflow.HookCtl.Items), workflow.Name)
-			for _, item := range workflow.HookCtl.Items {
-				if item.WorkflowArgs == nil {
-					continue
-				}
-
-				matcher := createGiteeEventMatcher(event, diffSrv, workflow, log)
-				if matcher == nil {
-					continue
-				}
-
-				if matches, err := matcher.Match(item.MainRepo); err != nil {
-					mErr = multierror.Append(mErr, err)
-				} else if matches {
-					log.Infof("event match hook %v of %s", item.MainRepo, workflow.Name)
-					namespace := strings.Split(item.WorkflowArgs.Namespace, ",")[0]
-					opt := &commonrepo.ProductFindOptions{Name: workflow.ProductTmplName, EnvName: namespace}
-					var prod *commonmodels.Product
-					if prod, err = commonrepo.NewProductColl().Find(opt); err != nil {
-						log.Warnf("can't find environment %s-%s", item.WorkflowArgs.Namespace, workflow.ProductTmplName)
-						continue
-					}
-
-					var mergeRequestID, commitID, ref, eventType string
-					var prID int
-					var hookPayload *commonmodels.HookPayload
-					autoCancelOpt := &AutoCancelOpt{
-						TaskType:     config.WorkflowType,
-						MainRepo:     item.MainRepo,
-						WorkflowArgs: item.WorkflowArgs,
-					}
-					switch ev := event.(type) {
-					case *gitee.PullRequestEvent:
-						eventType = EventTypePR
-						if ev.PullRequest != nil && ev.PullRequest.Number != 0 && ev.PullRequest.Head != nil && ev.PullRequest.Head.Sha != "" {
-							mergeRequestID = strconv.Itoa(ev.PullRequest.Number)
-							commitID = ev.PullRequest.Head.Sha
-							autoCancelOpt.MergeRequestID = mergeRequestID
-							autoCancelOpt.CommitID = commitID
-							autoCancelOpt.Type = eventType
-							prID = ev.PullRequest.Number
-						}
-						hookPayload = &commonmodels.HookPayload{
-							Owner:  ev.Repository.Owner.Login,
-							Repo:   ev.Repository.Name,
-							Branch: ev.PullRequest.Base.Ref,
-							Ref:    ev.PullRequest.Head.Sha,
-							IsPr:   true,
-						}
-					case *gitee.PushEvent:
-						eventType = EventTypePush
-						ref = ev.Ref
-						commitID = ev.After
-						autoCancelOpt.Ref = ref
-						autoCancelOpt.CommitID = commitID
-						autoCancelOpt.Type = eventType
-						hookPayload = &commonmodels.HookPayload{
-							Owner:  ev.Repository.Owner.Login,
-							Repo:   ev.Repository.Name,
-							Branch: ref,
-							Ref:    commitID,
-							IsPr:   true,
-						}
-					case *gitee.TagPushEvent:
-						eventType = EventTypeTag
-					}
-					if autoCancelOpt.Type != "" {
-						err := AutoCancelTask(autoCancelOpt, log)
-						if err != nil {
-							log.Errorf("failed to auto cancel workflow task when receive event due to %v ", err)
-							mErr = multierror.Append(mErr, err)
-						}
-
-						if autoCancelOpt.Type == EventTypePR && notification == nil {
-							notification, err = scmnotify.NewService().SendInitWebhookComment(
-								item.MainRepo, prID, baseURI, false, false, false, false, log,
-							)
-							if err != nil {
-								log.Errorf("failed to init webhook comment due to %s", err)
-								mErr = multierror.Append(mErr, err)
-							}
-						}
-					}
-
-					if notification != nil {
-						item.WorkflowArgs.NotificationID = notification.ID.Hex()
-					}
-
-					args := matcher.UpdateTaskArgs(prod, item.WorkflowArgs, item.MainRepo, requestID)
-					args.MergeRequestID = mergeRequestID
-					args.Ref = ref
-					args.EventType = eventType
-					args.CommitID = commitID
-					args.Source = setting.SourceFromGitee
-					args.CodehostID = item.MainRepo.CodehostID
-					args.RepoOwner = item.MainRepo.RepoOwner
-					args.RepoName = item.MainRepo.RepoName
-					args.Committer = item.MainRepo.Committer
-					args.HookPayload = hookPayload
-
-					// 3. create task with args
-					if resp, err := workflowservice.CreateWorkflowTask(args, setting.WebhookTaskCreator, log); err != nil {
-						log.Errorf("failed to create workflow task when receive push event due to %v ", err)
-						mErr = multierror.Append(mErr, err)
-					} else {
-						log.Infof("succeed to create task %v", resp)
-					}
-				} else {
-					log.Debugf("event not matches %v", item.MainRepo)
-				}
-			}
-		}
-	}
-
-	return mErr.ErrorOrNil()
 }
 
 func findChangedFilesOfPullRequestEvent(event *gitee.PullRequestEvent, codehostID int) ([]string, error) {

@@ -31,58 +31,21 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		webhook.POST("", ProcessGitWebHook)
 	}
 
-	build := router.Group("build")
-	{
-		build.GET("/:name/:version/to/subtasks", BuildModuleToSubTasks)
-	}
-
 	// ---------------------------------------------------------------------------------------
 	// Server Sent Events 接口
 	// ---------------------------------------------------------------------------------------
 	sse := router.Group("sse")
 	{
-		sse.GET("/workflows/id/:id/pipelines/:name", GetWorkflowTaskSSE)
-		//sse.GET("/tasks/running", RunningPipelineTasksSSE)
-		//sse.GET("/tasks/pending", PendingPipelineTasksSSE)
 		sse.GET("/workflowTasks/running", RunningWorkflowTasksSSE)
 		sse.GET("/workflowTasks/pending", PendingWorkflowTasksSSE)
-		sse.GET("/tasks/id/:id/pipelines/:name", GetPipelineTaskSSE)
 	}
-
-	// ---------------------------------------------------------------------------------------
-	// Pipeline 管理接口
-	// ---------------------------------------------------------------------------------------
-	//pipeline := router.Group("v2/pipelines")
-	//{
-	//	pipeline.GET("", ListPipelines)
-	//	pipeline.GET("/:name", GetPipeline)
-	//	pipeline.POST("", GetPipelineProductName, UpsertPipeline)
-	//	pipeline.POST("/old/:old/new/:new", GetProductNameByPipeline, CopyPipeline)
-	//	pipeline.PUT("/rename/:old/:new", GetProductNameByPipeline, RenamePipeline)
-	//	pipeline.DELETE("/:name", GetProductNameByPipeline, DeletePipeline)
-	//}
-
-	// ---------------------------------------------------------------------------------------
-	// Pipeline 状态接口
-	// ---------------------------------------------------------------------------------------
-	//statusV2 := router.Group("v2/status")
-	//{
-	//	statusV2.GET("/preview", ListPipelinesPreview)
-	//	statusV2.GET("/task/info", FindTasks)
-	//}
 
 	// ---------------------------------------------------------------------------------------
 	// Pipeline 任务管理接口
 	// ---------------------------------------------------------------------------------------
 	taskV2 := router.Group("v2/tasks")
 	{
-		//	taskV2.POST("", GetProductNameByPipelineTask, CreatePipelineTask)
-		//	taskV2.GET("/max/:max/start/:start/pipelines/:name", ListPipelineTasksResult)
-		//	taskV2.GET("/id/:id/pipelines/:name", GetPipelineTask)
-		//	taskV2.POST("/id/:id/pipelines/:name/restart", GetProductNameByPipeline, RestartPipelineTask)
-		//	taskV2.DELETE("/id/:id/pipelines/:name", GetProductNameByPipeline, CancelTaskV2)
-		//	taskV2.GET("/pipelines/:name/products", ListPipelineUpdatableProductNames)
-		//	taskV2.GET("/file", GetPackageFile)
+		// TODO: MOVE ME TO ANOTHER PLACE
 		taskV2.GET("/workflow/:pipelineName/taskId/:taskId", GetArtifactFile)
 	}
 
@@ -94,45 +57,6 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		favorite.POST("", CreateFavoritePipeline)
 		favorite.DELETE("/:productName/:name/:type", DeleteFavoritePipeline)
 		favorite.GET("", ListFavoritePipelines)
-	}
-
-	// ---------------------------------------------------------------------------------------
-	// 产品工作流模块接口
-	// ---------------------------------------------------------------------------------------
-	workflow := router.Group("workflow")
-	{
-		workflow.POST("", GetWorkflowProductName, CreateWorkflow)
-		workflow.PUT("/:workflowName", GetWorkflowProductName, UpdateWorkflow)
-		workflow.GET("", ListWorkflows)
-		workflow.GET("/testName/:testName", ListTestWorkflows)
-		workflow.GET("/find/:name", FindWorkflow)
-		workflow.DELETE("/:name", GetProductNameByWorkflow, DeleteWorkflow)
-		workflow.GET("/preset/:productName", PreSetWorkflow)
-
-		workflow.PUT("/old/:old/new/:new/:newDisplay", CopyWorkflow)
-	}
-
-	// ---------------------------------------------------------------------------------------
-	// 产品工作流任务接口
-	// ---------------------------------------------------------------------------------------
-	workflowtask := router.Group("workflowtask")
-	{
-		//todo 修改权限的uuid
-		workflowtask.POST("/targets/:productName/:namespace", GetWorkflowArgs)
-		workflowtask.GET("/preset/:namespace/:workflowName", PresetWorkflowArgs)
-		workflowtask.POST("/:id", CreateWorkflowTask)
-		workflowtask.PUT("/:id", CreateArtifactWorkflowTask)
-		workflowtask.GET("/max/:max/start/:start/pipelines/:name", ListWorkflowTasksResult)
-		workflowtask.GET("/filters/pipelines/:name", GetFiltersPipeline)
-		workflowtask.GET("/id/:id/pipelines/:name", GetWorkflowTask)
-		workflowtask.POST("/id/:id/pipelines/:name/restart", RestartWorkflowTask)
-		workflowtask.DELETE("/id/:id/pipelines/:name", CancelWorkflowTaskV2)
-		workflowtask.GET("/callback/id/:id/name/:name", GetWorkflowTaskCallback)
-	}
-
-	serviceTask := router.Group("servicetask")
-	{
-		serviceTask.GET("/workflows/:productName/:envName/:serviceName/:serviceType", ListServiceWorkflows)
 	}
 
 	// ---------------------------------------------------------------------------------------
@@ -276,13 +200,5 @@ func (*OpenAPIRouter) Inject(router *gin.RouterGroup) {
 		view.GET("", OpenAPIGetWorkflowViews)
 		view.PUT("/:name", OpenAPIUpdateWorkflowView)
 		view.DELETE("/:name", OpenAPIDeleteWorkflowView)
-	}
-
-	product := router.Group("product")
-	{
-		product.POST("/task", OpenAPICreateProductWorkflowTask)
-		product.DELETE("", OpenAPIDeleteProductWorkflowV4)
-		product.GET("/:name/tasks", OpenAPIGetProductWorkflowTasksV4)
-		product.GET("/:name/task/:taskID", OpenAPIGetProductWorkflowTaskV4)
 	}
 }

@@ -21,12 +21,16 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
+	"os"
+	"path"
 	"sort"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/hashicorp/go-multierror"
 	"github.com/pingcap/tidb/parser"
 	_ "github.com/pingcap/tidb/parser/test_driver"
 	"github.com/pkg/errors"
@@ -50,11 +54,13 @@ import (
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models/msg_queue"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/collaboration"
 	helmservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/helm"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/kube"
 	larkservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/lark"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/s3"
 	commomtemplate "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/template"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/webhook"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
@@ -64,6 +70,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/shared/client/user"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
+	"github.com/koderover/zadig/v2/pkg/tool/cache"
 	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/jenkins"
@@ -71,7 +78,9 @@ import (
 	"github.com/koderover/zadig/v2/pkg/tool/kube/serializer"
 	"github.com/koderover/zadig/v2/pkg/tool/lark"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
+	s3tool "github.com/koderover/zadig/v2/pkg/tool/s3"
 	"github.com/koderover/zadig/v2/pkg/types"
+	generalutil "github.com/koderover/zadig/v2/pkg/util"
 )
 
 func CreateWorkflowV4(user string, workflow *commonmodels.WorkflowV4, logger *zap.SugaredLogger) error {
@@ -353,14 +362,6 @@ func ListWorkflowV4(projectName, viewName, userID string, names, v4Names []strin
 
 	workflow := []*Workflow{}
 
-	// distribute center only surpport custom workflow.
-	//if !ignoreWorkflow && projectName != setting.EnterpriseProject {
-	//	workflow, err = ListWorkflows([]string{projectName}, userID, names, logger)
-	//	if err != nil {
-	//		return resp, err
-	//	}
-	//}
-
 	workflowList := []string{}
 	for _, wV4 := range workflowV4List {
 		workflowList = append(workflowList, wV4.Name)
@@ -543,6 +544,293 @@ LOOP:
 		})
 	}
 	return result, nil
+}
+
+func AutoCreateWorkflow(productName string, log *zap.SugaredLogger) *EnvStatus {
+	productTmpl, err := template.NewProductColl().Find(productName)
+	if err != nil {
+		errMsg := fmt.Sprintf("[ProductTmpl.Find] %s error: %v", productName, err)
+		log.Error(errMsg)
+		return &EnvStatus{Status: setting.ProductStatusFailed, ErrMessage: errMsg}
+	}
+	errList := new(multierror.Error)
+
+	mut := cache.NewRedisLock(fmt.Sprintf("auto_create_product:%s", productName))
+
+	mut.Lock()
+	defer func() {
+		mut.Unlock()
+	}()
+
+	createArgs := &workflowCreateArgs{
+		productName: productName,
+		argsMap:     make(map[string]*workflowCreateArg),
+	}
+	createArgs.initDefaultWorkflows()
+
+	s3storageID := ""
+	s3storage, err := commonrepo.NewS3StorageColl().FindDefault()
+	if err != nil {
+		log.Errorf("S3Storage.FindDefault error: %v", err)
+	} else {
+		projectSet := sets.NewString(s3storage.Projects...)
+		if projectSet.Has(productName) || projectSet.Has(setting.AllProjects) {
+			s3storageID = s3storage.ID.Hex()
+		}
+	}
+
+	productList, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
+		Name:       productName,
+		Production: generalutil.GetBoolPointer(false),
+	})
+	if err != nil {
+		log.Errorf("fialed to list products, projectName %s, err %s", productName, err)
+	}
+
+	createArgs.clear()
+	for _, product := range productList {
+		createArgs.addWorkflowArg(product.EnvName, product.RegistryID, true)
+	}
+	if !productTmpl.IsHostProduct() {
+		createArgs.addWorkflowArg("", "", false)
+	}
+
+	workflowSet := sets.NewString()
+	for workflowName := range createArgs.argsMap {
+		_, err := FindWorkflowV4Raw(workflowName, log)
+		if err == nil {
+			workflowSet.Insert(workflowName)
+		}
+	}
+
+	if len(workflowSet) < len(createArgs.argsMap) {
+		services, err := commonrepo.NewServiceColl().ListMaxRevisionsForServices(productTmpl.AllTestServiceInfos(), "")
+		if err != nil {
+			log.Errorf("ServiceTmpl.ListMaxRevisionsByProject error: %v", err)
+			errList = multierror.Append(errList, err)
+		}
+		buildList, err := commonrepo.NewBuildColl().List(&commonrepo.BuildListOption{
+			ProductName: productName,
+		})
+		if err != nil {
+			log.Errorf("[Build.List] error: %v", err)
+			errList = multierror.Append(errList, err)
+		}
+		buildMap := map[string]*commonmodels.Build{}
+		for _, build := range buildList {
+			for _, target := range build.Targets {
+				buildMap[target.ServiceName] = build
+			}
+		}
+
+		for workflowName, workflowArg := range createArgs.argsMap {
+			if workflowSet.Has(workflowName) {
+				continue
+			}
+			if dupWorkflow, err := commonrepo.NewWorkflowV4Coll().Find(workflowName); err == nil {
+				errList = multierror.Append(errList, fmt.Errorf("workflow [%s] 在项目 [%s] 中已经存在", workflowName, dupWorkflow.Project))
+			}
+			workflow := new(commonmodels.WorkflowV4)
+			workflow.Project = productName
+			workflow.Name = workflowName
+			workflow.DisplayName = workflowName
+			workflow.CreatedBy = setting.SystemUser
+			workflow.UpdatedBy = setting.SystemUser
+			workflow.CreateTime = time.Now().Unix()
+			workflow.UpdateTime = time.Now().Unix()
+			workflow.ConcurrencyLimit = 1
+
+			buildJobName := ""
+			if workflowArg.buildStageEnabled {
+				buildTargetSet := sets.NewString()
+				serviceAndBuilds := []*commonmodels.ServiceAndBuild{}
+				for _, serviceTmpl := range services {
+					if build, ok := buildMap[serviceTmpl.ServiceName]; ok {
+						for _, target := range build.Targets {
+							key := fmt.Sprintf("%s-%s", target.ServiceName, target.ServiceModule)
+							if buildTargetSet.Has(key) {
+								continue
+							}
+							buildTargetSet.Insert(key)
+
+							serviceAndBuild := &commonmodels.ServiceAndBuild{
+								ServiceName:   target.ServiceName,
+								ServiceModule: target.ServiceModule,
+								BuildName:     build.Name,
+							}
+							serviceAndBuilds = append(serviceAndBuilds, serviceAndBuild)
+						}
+					}
+				}
+				buildJobName = "构建"
+				buildJob := &commonmodels.Job{
+					Name:    buildJobName,
+					JobType: config.JobZadigBuild,
+					Spec: &commonmodels.ZadigBuildJobSpec{
+						DockerRegistryID:        workflowArg.dockerRegistryID,
+						ServiceAndBuildsOptions: serviceAndBuilds,
+					},
+				}
+				stage := &commonmodels.WorkflowStage{
+					Name:     "构建",
+					Parallel: true,
+					Jobs:     []*commonmodels.Job{buildJob},
+				}
+				workflow.Stages = append(workflow.Stages, stage)
+			}
+
+			if productTmpl.IsCVMProduct() {
+				spec := &commonmodels.ZadigVMDeployJobSpec{
+					Env:         workflowArg.envName,
+					Source:      config.SourceRuntime,
+					S3StorageID: s3storageID,
+				}
+				if workflowArg.buildStageEnabled {
+					spec.Source = config.SourceFromJob
+					spec.JobName = buildJobName
+				}
+				deployJob := &commonmodels.Job{
+					Name:    "主机部署",
+					JobType: config.JobZadigVMDeploy,
+					Spec:    spec,
+				}
+				stage := &commonmodels.WorkflowStage{
+					Name:     "主机部署",
+					Parallel: true,
+					Jobs:     []*commonmodels.Job{deployJob},
+				}
+				workflow.Stages = append(workflow.Stages, stage)
+			} else {
+				spec := &commonmodels.ZadigDeployJobSpec{
+					Env: workflowArg.envName,
+					DeployContents: []config.DeployContent{
+						config.DeployImage,
+					},
+					Source:     config.SourceRuntime,
+					Production: true,
+				}
+				if workflowArg.buildStageEnabled {
+					spec.Source = config.SourceFromJob
+					spec.JobName = buildJobName
+					spec.Production = false
+				}
+				deployJob := &commonmodels.Job{
+					Name:    "部署",
+					JobType: config.JobZadigDeploy,
+					Spec:    spec,
+				}
+				stage := &commonmodels.WorkflowStage{
+					Name:     "部署",
+					Parallel: true,
+					Jobs:     []*commonmodels.Job{deployJob},
+				}
+				workflow.Stages = append(workflow.Stages, stage)
+			}
+
+			if _, err := commonrepo.NewWorkflowV4Coll().Create(workflow); err != nil {
+				errList = multierror.Append(errList, err)
+			}
+		}
+		if err = errList.ErrorOrNil(); err != nil {
+			return &EnvStatus{Status: setting.ProductStatusFailed, ErrMessage: err.Error()}
+		}
+		return &EnvStatus{Status: setting.ProductStatusCreating}
+	} else if len(workflowSet) == len(createArgs.argsMap) {
+		return &EnvStatus{Status: setting.ProductStatusSuccess}
+	}
+	return nil
+}
+
+func GetArtifactFileContent(pipelineName string, taskID int64, notHistoryFileFlag bool, log *zap.SugaredLogger) ([]byte, error) {
+	s3Storage, client, artifactFiles, artifactResultOutByts, err := getArtifactAndS3Info(pipelineName, "", taskID, notHistoryFileFlag, log)
+	if err != nil {
+		return nil, fmt.Errorf("download artifact err: %s", err)
+	}
+	if notHistoryFileFlag {
+		return artifactResultOutByts, nil
+	}
+	tempDir, _ := ioutil.TempDir("", "")
+	sourcePath := path.Join(tempDir, "artifact")
+	if _, err := os.Stat(sourcePath); os.IsNotExist(err) {
+		_ = os.MkdirAll(sourcePath, 0777)
+	}
+
+	for _, artifactFile := range artifactFiles {
+		artifactFileArr := strings.Split(artifactFile, "/")
+		if len(artifactFileArr) > 1 {
+			artifactFileName := artifactFileArr[len(artifactFileArr)-1]
+			file, err := os.Create(path.Join(sourcePath, artifactFileName))
+			if err != nil {
+				return nil, fmt.Errorf("failed to create file %s %v", artifactFileName, err)
+			}
+			defer func() {
+				_ = file.Close()
+			}()
+
+			err = client.Download(s3Storage.Bucket, artifactFile, file.Name())
+			if err != nil {
+				return nil, fmt.Errorf("failed to download %s %v", artifactFile, err)
+			}
+		}
+	}
+	//将该目录压缩
+	goCacheManager := new(GoCacheManager)
+	artifactTarFileName := path.Join(sourcePath, "artifact.tar.gz")
+	err = goCacheManager.Archive(sourcePath, artifactTarFileName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to Archive %s %v", sourcePath, err)
+	}
+	defer func() {
+		_ = os.Remove(artifactTarFileName)
+		_ = os.Remove(tempDir)
+	}()
+
+	fileBytes, err := ioutil.ReadFile(path.Join(sourcePath, "artifact.tar.gz"))
+	return fileBytes, err
+}
+
+func getArtifactAndS3Info(pipelineName, dir string, taskID int64, notHistoryFileFlag bool, log *zap.SugaredLogger) (*s3.S3, *s3tool.Client, []string, []byte, error) {
+	fis := make([]string, 0)
+
+	storage, err := s3.FindDefaultS3()
+	if err != nil {
+		log.Errorf("GetTestArtifactInfo FindDefaultS3 err:%v", err)
+		return nil, nil, fis, nil, err
+	}
+
+	if storage.Subfolder != "" {
+		storage.Subfolder = fmt.Sprintf("%s/%s/%d/%s", storage.Subfolder, pipelineName, taskID, "artifact")
+	} else {
+		storage.Subfolder = fmt.Sprintf("%s/%d/%s", pipelineName, taskID, "artifact")
+	}
+	client, err := s3tool.NewClient(storage.Endpoint, storage.Ak, storage.Sk, storage.Region, storage.Insecure, storage.Provider)
+	if err != nil {
+		log.Errorf("GetTestArtifactInfo Create S3 client err:%+v", err)
+		return nil, nil, fis, nil, err
+	}
+
+	if notHistoryFileFlag {
+		objectKey := storage.GetObjectPath(fmt.Sprintf("%s/%s/%s", dir, "workspace", setting.ArtifactResultOut))
+		object, err := client.GetFile(storage.Bucket, objectKey, &s3tool.DownloadOption{RetryNum: 2})
+		if err != nil {
+			log.Errorf("GetTestArtifactInfo GetFile err:%s", err)
+			return nil, nil, fis, nil, err
+		}
+		fileByts, err := ioutil.ReadAll(object.Body)
+		if err != nil {
+			log.Errorf("GetTestArtifactInfo ioutil.ReadAll err:%s", err)
+			return nil, nil, fis, nil, err
+		}
+		return storage, client, fis, fileByts, nil
+	}
+
+	prefix := storage.GetObjectPath(dir)
+	files, err := client.ListFiles(storage.Bucket, prefix, true)
+	if err != nil || len(files) <= 0 {
+		log.Errorf("GetTestArtifactInfo ListFiles err:%v", err)
+		return nil, nil, fis, nil, err
+	}
+	return storage, client, files, nil, nil
 }
 
 func getAuthorizedCustomWorkflowFromCollaborationMode(ctx *internalhandler.Context, projectKey string) ([]*models.WorkflowV4, error) {
@@ -2204,12 +2492,8 @@ func GetLatestTaskInfo(workflowInfo *Workflow) (startTime int64, creator, status
 		}
 		return taskInfo.StartTime, taskInfo.TaskCreator, string(taskInfo.Status)
 	} else {
-		// otherwise it is a product workflow
-		taskInfo, err := getLatestWorkflowTask(workflowInfo.Name)
-		if err != nil {
-			return 0, "", ""
-		}
-		return taskInfo.StartTime, taskInfo.TaskCreator, string(taskInfo.Status)
+		// otherwise it is a product workflow, WHICH IS DELETED
+		return 0, "", ""
 	}
 }
 
@@ -2762,4 +3046,27 @@ func ValidateMySQL(sql string) error {
 		return errors.Errorf("parse sql statement error: %v", err)
 	}
 	return nil
+}
+
+func getWorkflowStatMap(workflowNames []string, workflowType config.PipelineType) map[string]*commonmodels.WorkflowStat {
+	workflowStats, err := commonrepo.NewWorkflowStatColl().FindWorkflowStat(&commonrepo.WorkflowStatArgs{Names: workflowNames, Type: string(workflowType)})
+	if err != nil {
+		log.Warnf("Failed to list workflow stats, err: %s", err)
+	}
+	workflowStatMap := make(map[string]*commonmodels.WorkflowStat)
+	for _, s := range workflowStats {
+		workflowStatMap[s.Name] = s
+	}
+	return workflowStatMap
+}
+
+func setWorkflowStat(workflow *Workflow, statMap map[string]*commonmodels.WorkflowStat) {
+	if s, ok := statMap[workflow.Name]; ok {
+		total := float64(s.TotalSuccess + s.TotalFailure)
+		successful := float64(s.TotalSuccess)
+		totalDuration := float64(s.TotalDuration)
+
+		workflow.AverageExecutionTime = totalDuration / total
+		workflow.SuccessRate = successful / total
+	}
 }

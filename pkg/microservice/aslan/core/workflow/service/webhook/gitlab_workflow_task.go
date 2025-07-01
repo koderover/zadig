@@ -20,11 +20,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"regexp"
-	"strconv"
 	"strings"
 	"time"
 
-	"github.com/hashicorp/go-multierror"
 	"github.com/xanzy/go-gitlab"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
@@ -35,15 +33,12 @@ import (
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/scmnotify"
 	environmentservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/environment/service"
-	workflowservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/shared/client/systemconfig"
-	cache2 "github.com/koderover/zadig/v2/pkg/tool/cache"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	gitlabtool "github.com/koderover/zadig/v2/pkg/tool/git/gitlab"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/types"
-	"github.com/koderover/zadig/v2/pkg/util"
 )
 
 type gitlabMergeRequestDiffFunc func(event *gitlab.MergeEvent, id int) ([]string, error)
@@ -494,189 +489,6 @@ func UpdateWorkflowTaskArgs(triggerYaml *TriggerYaml, workflow *commonmodels.Wor
 	return nil
 }
 
-func TriggerWorkflowByGitlabEvent(event interface{}, baseURI, requestID string, log *zap.SugaredLogger) error {
-	// TODO: cache workflow
-	// 1. find configured workflow
-	workflowList, err := commonrepo.NewWorkflowColl().List(&commonrepo.ListWorkflowOption{})
-	if err != nil {
-		log.Errorf("failed to list workflow %v", err)
-		return err
-	}
-
-	mErr := &multierror.Error{}
-	diffSrv := func(mergeEvent *gitlab.MergeEvent, codehostId int) ([]string, error) {
-		return findChangedFilesOfMergeRequest(mergeEvent, codehostId)
-	}
-
-	var notification *commonmodels.Notification
-
-	for _, workflow := range workflowList {
-		if workflow.HookCtl == nil || !workflow.HookCtl.Enabled {
-			continue
-		}
-
-		log.Debugf("find %d hooks in workflow %s", len(workflow.HookCtl.Items), workflow.Name)
-		for _, item := range workflow.HookCtl.Items {
-			if item.WorkflowArgs == nil && !item.IsYaml {
-				continue
-			}
-			triggerYaml := &TriggerYaml{}
-			workFlowArgs := &commonmodels.WorkflowTaskArgs{}
-			var pushEvent *gitlab.PushEvent
-			var mergeEvent *gitlab.MergeEvent
-			var tagEvent *gitlab.TagEvent
-			prID := 0
-			branref := ""
-			switch evt := event.(type) {
-			case *gitlab.PushEvent:
-				pushEvent = evt
-				if !checkRepoNamespaceMatch(item.MainRepo, pushEvent.Project.PathWithNamespace) {
-					log.Debugf("event not matches repo: %v", item.MainRepo)
-					continue
-				}
-				branref = pushEvent.Ref
-			case *gitlab.MergeEvent:
-				mergeEvent = evt
-				if !checkRepoNamespaceMatch(item.MainRepo, mergeEvent.ObjectAttributes.Target.PathWithNamespace) {
-					log.Debugf("event not matches repo: %v", item.MainRepo)
-					continue
-				}
-				if mergeEvent.ObjectAttributes.Source.PathWithNamespace != mergeEvent.ObjectAttributes.Target.PathWithNamespace {
-					branref = mergeEvent.ObjectAttributes.TargetBranch
-				} else {
-					branref = mergeEvent.ObjectAttributes.SourceBranch
-				}
-				prID = evt.ObjectAttributes.IID
-			case *gitlab.TagEvent:
-				tagEvent = evt
-				if !checkRepoNamespaceMatch(item.MainRepo, tagEvent.Project.PathWithNamespace) {
-					log.Debugf("event not matches repo: %v", item.MainRepo)
-					continue
-				}
-				branref = tagEvent.Ref
-			}
-
-			if item.IsYaml {
-				err := UpdateWorkflowTaskArgs(triggerYaml, workflow, workFlowArgs, item, branref, prID)
-				if err != nil {
-					log.Warnf("UpdateWorkflowTaskArgs %s", err)
-					mErr = multierror.Append(mErr, err)
-					continue
-				}
-				item.WorkflowArgs = workFlowArgs
-			} else {
-				workFlowArgs = item.WorkflowArgs
-			}
-			// 2. match webhook
-			matcher := createGitlabEventMatcher(event, diffSrv, workflow, item.IsYaml, triggerYaml, log)
-			if matcher == nil {
-				continue
-			}
-
-			matches, err := matcher.Match(item.MainRepo)
-			if err != nil {
-				mErr = multierror.Append(mErr, err)
-				continue
-			}
-
-			if !matches {
-				log.Debugf("event not matches %v", item.MainRepo)
-				continue
-			}
-			log.Infof("event match hook %v of %s", item.MainRepo, workflow.Name)
-			namespace := strings.Split(item.WorkflowArgs.Namespace, ",")[0]
-			opt := &commonrepo.ProductFindOptions{Name: workflow.ProductTmplName, EnvName: namespace}
-			var prod *commonmodels.Product
-			if prod, err = commonrepo.NewProductColl().Find(opt); err != nil {
-				log.Warnf("can't find environment %s-%s", item.WorkflowArgs.Namespace, workflow.ProductTmplName)
-				continue
-			}
-
-			isMergeRequest := false
-			var mergeRequestID, commitID, ref, eventType string
-			autoCancelOpt := &AutoCancelOpt{
-				TaskType:     config.WorkflowType,
-				MainRepo:     item.MainRepo,
-				WorkflowArgs: workFlowArgs,
-				IsYaml:       item.IsYaml,
-				AutoCancel:   item.AutoCancel,
-				YamlHookPath: item.YamlPath,
-			}
-			switch ev := event.(type) {
-			case *gitlab.MergeEvent:
-				isMergeRequest = true
-				eventType = EventTypePR
-				mergeRequestID = strconv.Itoa(ev.ObjectAttributes.IID)
-				commitID = ev.ObjectAttributes.LastCommit.ID
-				autoCancelOpt.MergeRequestID = mergeRequestID
-				autoCancelOpt.CommitID = commitID
-				autoCancelOpt.Type = eventType
-			case *gitlab.PushEvent:
-				eventType = EventTypePush
-				ref = ev.Ref
-				commitID = ev.After
-				autoCancelOpt.Ref = ref
-				autoCancelOpt.CommitID = commitID
-				autoCancelOpt.Type = eventType
-			case *gitlab.TagEvent:
-				eventType = EventTypeTag
-			}
-			if autoCancelOpt.Type != "" {
-				err := AutoCancelTask(autoCancelOpt, log)
-				if err != nil {
-					log.Errorf("failed to auto cancel workflow task when receive event %v due to %v ", event, err)
-					mErr = multierror.Append(mErr, err)
-				}
-				if autoCancelOpt.Type == EventTypePR && notification == nil {
-					notification, _ = scmnotify.NewService().SendInitWebhookComment(
-						item.MainRepo, prID, baseURI, false, false, false, false, log,
-					)
-				}
-			}
-
-			if notification != nil {
-				workFlowArgs.NotificationID = notification.ID.Hex()
-			}
-
-			args := matcher.UpdateTaskArgs(prod, workFlowArgs, item.MainRepo, requestID)
-			args.MergeRequestID = mergeRequestID
-			args.Ref = ref
-			args.EventType = eventType
-			args.CommitID = commitID
-			args.Source = setting.SourceFromGitlab
-			args.CodehostID = item.MainRepo.CodehostID
-			args.RepoOwner = item.MainRepo.RepoOwner
-			args.RepoNamespace = item.MainRepo.GetRepoNamespace()
-			args.RepoName = item.MainRepo.RepoName
-			args.Committer = item.MainRepo.Committer
-			// 3. create task with args
-			if item.WorkflowArgs.BaseNamespace == "" {
-				if resp, err := workflowservice.CreateWorkflowTask(args, setting.WebhookTaskCreator, log); err != nil {
-					log.Errorf("failed to create workflow task when receive push event %v due to %v ", event, err)
-					mErr = multierror.Append(mErr, err)
-					// 单独创建一条通知，展示任务创建失败的错误信息
-					_, err2 := scmnotify.NewService().SendErrWebhookComment(
-						item.MainRepo, workflow, err, prID, baseURI, false, false, log,
-					)
-					if err2 != nil {
-						log.Errorf("SendErrWebhookComment failed, product:%s, workflow:%s, err:%v", workflow.ProductTmplName, workflow.Name, err2)
-					}
-				} else {
-					log.Infof("succeed to create task %v", resp)
-				}
-			} else if item.WorkflowArgs.BaseNamespace != "" && isMergeRequest {
-				if err = CreateEnvAndTaskByPR(args, prID, requestID, log); err != nil {
-					log.Infof("CreateRandomEnv err:%v", err)
-				}
-			} else {
-				log.Warnf("It's not a PR event,BaseNamespace:%s", item.WorkflowArgs.BaseNamespace)
-			}
-		}
-	}
-
-	return mErr.ErrorOrNil()
-}
-
 func findChangedFilesOfMergeRequest(event *gitlab.MergeEvent, codehostID int) ([]string, error) {
 	detail, err := systemconfig.New().GetCodeHost(codehostID)
 	if err != nil {
@@ -690,78 +502,6 @@ func findChangedFilesOfMergeRequest(event *gitlab.MergeEvent, codehostID int) ([
 	}
 
 	return client.ListChangedFiles(event)
-}
-
-// CreateEnvAndTaskByPR 根据pr触发创建环境、使用工作流更新该创建的环境、根据环境删除策略删除环境
-func CreateEnvAndTaskByPR(workflowArgs *commonmodels.WorkflowTaskArgs, prID int, requestID string, log *zap.SugaredLogger) error {
-	//获取基准环境的详细信息
-	opt := &commonrepo.ProductFindOptions{Name: workflowArgs.ProductTmplName, EnvName: workflowArgs.BaseNamespace}
-	baseProduct, err := commonrepo.NewProductColl().Find(opt)
-	if err != nil {
-		return fmt.Errorf("CreateEnvAndTaskByPR Product Find err:%v", err)
-	}
-
-	mutex := cache2.NewRedisLock(fmt.Sprintf("pr_create_env:%s:%d", workflowArgs.ProductTmplName, prID))
-
-	mutex.Lock()
-	defer func() {
-		mutex.Unlock()
-	}()
-
-	envName := fmt.Sprintf("%s-%d-%s%s", "pr", prID, util.GetRandomNumString(3), util.GetRandomString(3))
-	util.Clear(&baseProduct.ID)
-	baseProduct.Namespace = commonservice.GetProductEnvNamespace(envName, workflowArgs.ProductTmplName, "")
-	baseProduct.UpdateBy = setting.SystemUser
-	baseProduct.EnvName = envName
-
-	// set renderset info
-	err = environmentservice.CreateProduct(setting.SystemUser, requestID, &environmentservice.ProductCreateArg{baseProduct, nil}, log)
-	if err != nil {
-		return fmt.Errorf("CreateEnvAndTaskByPR CreateProduct err:%v", err)
-	}
-
-	timeoutSeconds := config.ServiceStartTimeout()
-	//等待环境创建
-	if err = WaitEnvCreate(timeoutSeconds, envName, workflowArgs, log); err != nil {
-		return err
-	}
-
-	workflowArgs.Namespace = envName
-	taskResp, err := workflowservice.CreateWorkflowTask(workflowArgs, setting.WebhookTaskCreator, log)
-	if err != nil {
-		return fmt.Errorf("CreateEnvAndTaskByPR CreateWorkflowTask err：%v ", err)
-	}
-
-	taskStatus := ""
-	for {
-		taskInfo, err := commonrepo.NewTaskColl().Find(taskResp.TaskID, taskResp.PipelineName, config.WorkflowType)
-		if err != nil {
-			log.Errorf("CreateEnvAndTaskByPR PipelineTask find err:%v ", err)
-			time.Sleep(time.Second)
-			continue
-		}
-
-		if taskInfo.Status == config.StatusFailed || taskInfo.Status == config.StatusPassed || taskInfo.Status == config.StatusTimeout || taskInfo.Status == config.StatusCancelled {
-			taskStatus = string(taskInfo.Status)
-			break
-		} else {
-			time.Sleep(time.Second)
-		}
-	}
-	//按照用户设置的环境回收策略进行环境回收
-	if workflowArgs.EnvRecyclePolicy == setting.EnvRecyclePolicyAlways || (workflowArgs.EnvRecyclePolicy == setting.EnvRecyclePolicyTaskStatus && taskStatus == string(config.StatusPassed)) {
-		err = environmentservice.DeleteProduct(setting.SystemUser, envName, workflowArgs.ProductTmplName, requestID, true, log)
-		if err != nil {
-			log.Errorf("CreateEnvAndTaskByPR DeleteProduct err:%v ", err)
-			return err
-		}
-		//等待环境删除
-		if err = WaitEnvDelete(timeoutSeconds, envName, workflowArgs, log); err != nil {
-			return err
-		}
-	}
-
-	return nil
 }
 
 func WaitEnvCreate(timeoutSeconds int, envName string, workflowArgs *commonmodels.WorkflowTaskArgs, log *zap.SugaredLogger) error {

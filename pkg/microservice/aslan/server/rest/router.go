@@ -45,7 +45,6 @@ import (
 	tickethandler "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/ticket/handler"
 	vmhandler "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/vm/handler"
 	workflowhandler "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/handler"
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow"
 	testinghandler "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/testing/handler"
 	evaluationhandler "github.com/koderover/zadig/v2/pkg/microservice/picket/core/evaluation/handler"
 	filterhandler "github.com/koderover/zadig/v2/pkg/microservice/picket/core/filter/handler"
@@ -188,13 +187,11 @@ func (s *engine) injectRouterGroup(router *gin.RouterGroup) {
 	handlefunc := func(c *gin.Context) {
 		metrics.UpdatePodMetrics()
 
-		runningQueue := workflow.RunningTasks()
-		pendingQueue := workflow.PendingTasks()
 		runningCustomQueue := workflowcontroller.RunningTasks()
 		pendingCustomQueue := workflowcontroller.PendingTasks()
 
-		metrics.SetRunningWorkflows(int64(len(runningQueue) + len(runningCustomQueue)))
-		metrics.SetPendingWorkflows(int64(len(pendingQueue) + len(pendingCustomQueue)))
+		metrics.SetRunningWorkflows(int64(len(runningCustomQueue)))
+		metrics.SetPendingWorkflows(int64(len(pendingCustomQueue)))
 
 		metrics.Cluster.Reset()
 		clusterStatusMap := clusterservice.GetClusterStatus()
