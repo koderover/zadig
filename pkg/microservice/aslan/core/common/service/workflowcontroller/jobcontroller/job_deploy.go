@@ -726,7 +726,7 @@ func CheckDeployStatus(ctx context.Context, kubeClient crClient.Client, namespac
 						break L
 					}
 				case setting.StatefulSet:
-					st, found, e := getter.GetStatefulSet(namespace, resource.Name, kubeClient)
+					sts, found, e := getter.GetStatefulSet(namespace, resource.Name, kubeClient)
 					if e != nil {
 						err = e
 					}
@@ -743,11 +743,14 @@ func CheckDeployStatus(ctx context.Context, kubeClient crClient.Client, namespac
 						resourceKey := fmt.Sprintf("%s/%s/%s", namespace, resource.Kind, resource.Name)
 						replicas, ok := resourceReplicasMap[resourceKey]
 						if !ok {
-							replicas = st.Status.Replicas
+							replicas = sts.Status.Replicas
 							resourceReplicasMap[resourceKey] = replicas
 						}
 
-						ready = replicas == st.Status.AvailableReplicas
+						ready = sts.Status.ObservedGeneration >= sts.ObjectMeta.Generation &&
+							sts.Status.UpdatedReplicas == *sts.Spec.Replicas &&
+							sts.Status.ReadyReplicas == *sts.Spec.Replicas &&
+							sts.Status.CurrentRevision == sts.Status.UpdateRevision
 					}
 
 					if !ready {
