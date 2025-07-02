@@ -202,7 +202,7 @@ func waitForLarkApprove(ctx context.Context, spec *commonmodels.JobTaskApprovalS
 		return config.StatusFailed, fmt.Errorf("generate deploy env failed, error: %s", err)
 	}
 	formContent := fmt.Sprintf("项目名称: %s\n工作流名称: %s\n任务名称: %s%s\n%s\n备注: %s\n\n更多详见: %s",
-		workflowCtx.ProjectName, workflowCtx.WorkflowDisplayName, jobDisplayName, descForm, deployFormContent, workflowCtx.Remark, detailURL)
+		workflowCtx.ProjectName, workflowCtx.WorkflowDisplayName, jobDisplayName, descForm, deployFormContent, task.Remark, detailURL)
 
 	var userID string
 	if approval.DefaultApprovalInitiator == nil {
@@ -547,7 +547,7 @@ func waitForDingTalkApprove(ctx context.Context, spec *commonmodels.JobTaskAppro
 		return config.StatusFailed, fmt.Errorf("generate deploy env failed, error: %s", err)
 	}
 	formContent := fmt.Sprintf("项目名称: %s\n工作流名称: %s\n任务名称: %s%s\n%s\n\n备注: %s\n\n更多详见: %s",
-		workflowCtx.ProjectName, workflowCtx.WorkflowDisplayName, jobDisplayName, descForm, deployFormContent, workflowCtx.Remark, detailURL)
+		workflowCtx.ProjectName, workflowCtx.WorkflowDisplayName, jobDisplayName, descForm, deployFormContent, task.Remark, detailURL)
 
 	var userID string
 	if approval.DefaultApprovalInitiator == nil {
@@ -834,7 +834,7 @@ func waitForWorkWXApprove(ctx context.Context, spec *commonmodels.JobTaskApprova
 	}
 
 	formContent := fmt.Sprintf("项目名称: %s\n\n工作流名称: %s\n\n任务名称: %s%s\n%s\n备注: %s\n\n更多详见: %s",
-		workflowCtx.ProjectName, workflowCtx.WorkflowDisplayName, jobDisplayName, descForm, deployFormContent, workflowCtx.Remark, detailURL)
+		workflowCtx.ProjectName, workflowCtx.WorkflowDisplayName, jobDisplayName, descForm, deployFormContent, task.Remark, detailURL)
 
 	var applicant string
 	if approval.CreatorUser != nil {
