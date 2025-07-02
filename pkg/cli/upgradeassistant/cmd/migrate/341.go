@@ -34,8 +34,8 @@ import (
 )
 
 func init() {
-	upgradepath.RegisterHandler("3.4.0", "3.4.1", V330ToV340)
-	upgradepath.RegisterHandler("3.4.1", "3.4.0", V340ToV330)
+	upgradepath.RegisterHandler("3.4.0", "3.4.1", V340ToV341)
+	upgradepath.RegisterHandler("3.4.1", "3.4.0", V341ToV340)
 }
 
 func V340ToV341() error {
@@ -75,6 +75,10 @@ func V340ToV341() error {
 		return fmt.Errorf("failed to migrate vm deploy for 3.4.1")
 	}
 
+	return nil
+}
+
+func V341ToV340() error {
 	return nil
 }
 
