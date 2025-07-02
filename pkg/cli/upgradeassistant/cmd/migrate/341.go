@@ -330,6 +330,7 @@ func migrate341VMDeploy(ctx *internalhandler.Context, migrationInfo *internalmod
 								svc.ServiceModule = svc.ServiceName
 								svc.DeployName = build.Name
 								svc.DeployArtifactType = build.DeployArtifactType
+								svc.Repos = build.DeployRepos
 							}
 							newSpec.DefaultServiceAndVMDeploys = append(newSpec.DefaultServiceAndVMDeploys, svc)
 						}
