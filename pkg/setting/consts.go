@@ -289,7 +289,9 @@ const (
 	// SourceFromApollo is the configuration_management type of apollo
 	SourceFromApollo = "apollo"
 	// SourceFromNacos is the configuration_management type of nacos
-	SourceFromNacos = "nacos"
+	SourceFromNacos      = "nacos"
+	SourceFromNacos3DotX = "nacos_3.x"
+	SourceFromNacosEEMSE = "nacos_ee_mse"
 
 	ProdENV = "prod"
 	TestENV = "test"

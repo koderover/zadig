@@ -79,10 +79,10 @@ func ListNacosConfig(nacosID, namespaceID string, log *zap.SugaredLogger) ([]*ty
 	return resp, nil
 }
 
-func GetNacosClient(nacosID string) (*nacos.Client, error) {
+func GetNacosClient(nacosID string) (nacos.IClient, error) {
 	info, err := mongodb.NewConfigurationManagementColl().GetNacosByID(context.Background(), nacosID)
 	if err != nil {
 		return nil, errors.Wrap(err, "get nacos info")
 	}
-	return nacos.NewNacosClient(info.ServerAddress, info.UserName, info.Password)
+	return nacos.NewNacosClient(info.Type, info.ServerAddress, info.NacosAuthConfig)
 }

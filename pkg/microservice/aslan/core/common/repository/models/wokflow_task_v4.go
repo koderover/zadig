@@ -489,8 +489,8 @@ type JobTaskNacosSpec struct {
 	NamespaceID             string       `bson:"namespace_id"     json:"namespace_id"     yaml:"namespace_id"`
 	NamespaceName           string       `bson:"namespace_name"   json:"namespace_name"   yaml:"namespace_name"`
 	NacosAddr               string       `bson:"nacos_addr"       json:"nacos_addr"       yaml:"nacos_addr"`
-	UserName                string       `bson:"user_name"        json:"user_name"        yaml:"user_name"`
-	Password                string       `bson:"password"         json:"password"         yaml:"password"`
+	Type                    string       `bson:"type"             json:"type"             yaml:"type"`
+	AuthConfig              interface{}  `bson:"auth_config"      json:"auth_config"      yaml:"auth_config"`
 	NacosDatas              []*NacosData `bson:"nacos_datas"      json:"nacos_datas"      yaml:"nacos_datas"`
 }
 
