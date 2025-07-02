@@ -22,7 +22,7 @@ import (
 	"go.uber.org/zap"
 
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
-	workflowservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/workflowcontroller"
 )
 
 func GetWorkflowConcurrency() (*WorkflowConcurrencySettings, error) {
@@ -38,7 +38,7 @@ func GetWorkflowConcurrency() (*WorkflowConcurrencySettings, error) {
 
 func UpdateWorkflowConcurrency(workflowConcurrency, buildConcurrency int64, log *zap.SugaredLogger) error {
 	// check if there are running tasks
-	tasks := workflowservice.RunningPipelineTasks()
+	tasks := workflowcontroller.RunningTasks()
 	if len(tasks) > 0 {
 		return errors.New("workflow settings must be set when NO task is running")
 	}

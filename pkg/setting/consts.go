@@ -53,28 +53,13 @@ const (
 	ENVDefaultEnvRecycleDay = "DEFAULT_ENV_RECYCLE_DAY"
 	ENVDefaultIngressClass  = "DEFAULT_INGRESS_CLASS"
 
-	ENVGithubSSHKey    = "GITHUB_SSH_KEY"
-	ENVGithubKnownHost = "GITHUB_KNOWN_HOST"
-
-	ENVReaperImage      = "REAPER_IMAGE"
-	ENVReaperBinaryFile = "REAPER_BINARY_FILE"
-	ENVPredatorImage    = "PREDATOR_IMAGE"
-	EnvPackagerImage    = "PACKAGER_IMAGE"
-
-	ENVDockerHosts = "DOCKER_HOSTS"
-
-	ENVUseClassicBuild       = "USE_CLASSIC_BUILD"
-	ENVCustomDNSNotSupported = "CUSTOM_DNS_NOT_SUPPORTED"
-
-	ENVOldEnvSupported = "OLD_ENV_SUPPORTED"
+	ENVBuildBaseImage      = "BUILD_BASE_IMAGE"
 
 	ENVS3StorageAK       = "S3STORAGE_AK"
 	ENVS3StorageSK       = "S3STORAGE_SK"
 	ENVS3StorageEndpoint = "S3STORAGE_ENDPOINT"
 	ENVS3StorageBucket   = "S3STORAGE_BUCKET"
 	ENVS3StorageProtocol = "S3STORAGE_PROTOCOL"
-	ENVS3StoragePath     = "S3STORAGE_PATH"
-	ENVKubeServerAddr    = "KUBE_SERVER_ADDR"
 
 	// cron
 	ENVRootToken = "ROOT_TOKEN"
@@ -105,9 +90,6 @@ const (
 	DockerHost      = "DOCKER_HOST"
 	BuildURL        = "BUILD_URL"
 	DefaultDockSock = "/var/run/docker.sock"
-
-	// jenkins
-	JenkinsBuildImage = "JENKINS_BUILD_IMAGE"
 
 	// dind
 	DindImage = "DIND_IMAGE"

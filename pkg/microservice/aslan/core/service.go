@@ -25,7 +25,6 @@ import (
 
 	newgoCron "github.com/go-co-op/gocron/v2"
 	_ "github.com/go-sql-driver/mysql"
-	"github.com/hashicorp/go-multierror"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -44,7 +43,6 @@ import (
 	releaseplanservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/release_plan/service"
 	sprintservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/sprint_management/service"
 	systemservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/service"
-	workflowservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow"
 	hubserverconfig "github.com/koderover/zadig/v2/pkg/microservice/hubserver/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/hubserver/core/repository/mongodb"
 	mongodb2 "github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/codehost/repository/mongodb"
@@ -139,10 +137,6 @@ func Start(ctx context.Context) {
 	initSprintManagementWatcher()
 	log.Debugf("init sprint management watcher took %s milli seconds", time.Now().UnixMilli()-start)
 	start = time.Now().UnixMilli()
-
-	initService()
-	log.Debugf("init service took %s milli seconds", time.Now().UnixMilli()-start)
-	start = time.Now().UnixMilli()
 	initDinD()
 	log.Debugf("init dind took %s milli seconds", time.Now().UnixMilli()-start)
 	start = time.Now().UnixMilli()
@@ -218,21 +212,6 @@ func initCron() {
 	Scheduler.NewJob(newgoCron.DailyJob(1, newgoCron.NewAtTimes(newgoCron.NewAtTime(4, 0, 0))), newgoCron.NewTask(cleanCacheFiles))
 
 	Scheduler.Start()
-}
-
-func initService() {
-	errors := new(multierror.Error)
-
-	defer func() {
-		if err := errors.ErrorOrNil(); err != nil {
-			errMsg := fmt.Sprintf("New Aslan Service error: %v", err)
-			log.Fatal(errMsg)
-		}
-	}()
-
-	if err := workflowservice.InitMongodbMsgQueueHandler(); err != nil {
-		errors = multierror.Append(errors, err)
-	}
 }
 
 // initResourcesForExternalClusters create role, serviceAccount and roleBinding for custom workflow

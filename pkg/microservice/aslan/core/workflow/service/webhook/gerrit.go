@@ -77,14 +77,6 @@ func ProcessGerritHook(payload []byte, req *http.Request, requestID string, log 
 	var wg sync.WaitGroup
 	var errorList = &multierror.Error{}
 
-	//wg.Add(1)
-	//go func() {
-	//	defer wg.Done()
-	//	if err := TriggerWorkflowByGerritEvent(gerritTypeEventObj, payload, req.RequestURI, baseURI, req.Header.Get("X-Forwarded-Host"), requestID, log); err != nil {
-	//		errorList = multierror.Append(errorList, err)
-	//	}
-	//}()
-
 	wg.Add(1)
 	go func() {
 		defer wg.Done()

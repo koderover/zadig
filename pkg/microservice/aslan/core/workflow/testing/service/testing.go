@@ -361,9 +361,33 @@ func GetTesting(name, productName string, log *zap.SugaredLogger) (*commonmodels
 		}
 	}
 
-	workflowservice.EnsureTestingResp(resp)
+	ensureTestingResp(resp)
 
 	return resp, nil
+}
+
+func ensureTestingResp(mt *commonmodels.Testing) {
+	if len(mt.Repos) == 0 {
+		mt.Repos = make([]*types.Repository, 0)
+	}
+	for _, repo := range mt.Repos {
+		repo.RepoNamespace = repo.GetRepoNamespace()
+	}
+
+	if mt.PreTest != nil {
+		if len(mt.PreTest.Installs) == 0 {
+			mt.PreTest.Installs = make([]*commonmodels.Item, 0)
+		}
+		if len(mt.PreTest.Envs) == 0 {
+			mt.PreTest.Envs = make([]*commonmodels.KeyVal, 0)
+		}
+		// 隐藏用户设置的敏感信息
+		for k := range mt.PreTest.Envs {
+			if mt.PreTest.Envs[k].IsCredential {
+				mt.PreTest.Envs[k].Value = setting.MaskValue
+			}
+		}
+	}
 }
 
 // GetRaw find the testing module with secret env not masked

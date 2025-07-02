@@ -20,19 +20,15 @@ import (
 	"context"
 	"fmt"
 	"regexp"
-	"strconv"
 	"strings"
 
 	"github.com/google/go-github/v35/github"
-	"github.com/hashicorp/go-multierror"
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
-	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	git "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/github"
-	workflowservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/shared/client/systemconfig"
 	"github.com/koderover/zadig/v2/pkg/types"
@@ -313,132 +309,6 @@ func createGithubEventMatcher(
 	}
 
 	return nil
-}
-
-func TriggerWorkflowByGithubEvent(event interface{}, baseURI, deliveryID, requestID string, log *zap.SugaredLogger) error {
-	workflowList, err := commonrepo.NewWorkflowColl().List(&commonrepo.ListWorkflowOption{})
-	if err != nil {
-		log.Errorf("failed to list workflow %v", err)
-		return err
-	}
-
-	mErr := &multierror.Error{}
-	diffSrv := func(pullRequestEvent *github.PullRequestEvent, codehostId int) ([]string, error) {
-		return findChangedFilesOfPullRequest(pullRequestEvent, codehostId)
-	}
-
-	for _, workflow := range workflowList {
-		if workflow.HookCtl != nil && workflow.HookCtl.Enabled {
-			log.Debugf("find %d hooks in workflow %s", len(workflow.HookCtl.Items), workflow.Name)
-			for _, item := range workflow.HookCtl.Items {
-				if item.WorkflowArgs == nil {
-					continue
-				}
-
-				matcher := createGithubEventMatcher(event, diffSrv, workflow, log)
-				if matcher == nil {
-					continue
-				}
-
-				if matches, err := matcher.Match(item.MainRepo); err != nil {
-					mErr = multierror.Append(mErr, err)
-				} else if matches {
-					log.Infof("event match hook %v of %s", item.MainRepo, workflow.Name)
-					namespace := strings.Split(item.WorkflowArgs.Namespace, ",")[0]
-					opt := &commonrepo.ProductFindOptions{Name: workflow.ProductTmplName, EnvName: namespace}
-					var prod *commonmodels.Product
-					if prod, err = commonrepo.NewProductColl().Find(opt); err != nil {
-						log.Warnf("can't find environment %s-%s", item.WorkflowArgs.Namespace, workflow.ProductTmplName)
-						continue
-					}
-
-					var mergeRequestID, commitID, ref, eventType string
-					var hookPayload *commonmodels.HookPayload
-					autoCancelOpt := &AutoCancelOpt{
-						TaskType:     config.WorkflowType,
-						MainRepo:     item.MainRepo,
-						WorkflowArgs: item.WorkflowArgs,
-					}
-					switch ev := event.(type) {
-					case *github.PullRequestEvent:
-						eventType = EventTypePR
-						// 如果是merge request，且该webhook触发器配置了自动取消，
-						// 则需要确认该merge request在本次commit之前的commit触发的任务是否处理完，没有处理完则取消掉。
-						if ev.PullRequest != nil && ev.PullRequest.Number != nil && ev.PullRequest.Head != nil && ev.PullRequest.Head.SHA != nil {
-							mergeRequestID = strconv.Itoa(*ev.PullRequest.Number)
-							commitID = *ev.PullRequest.Head.SHA
-							autoCancelOpt.MergeRequestID = mergeRequestID
-							autoCancelOpt.Type = eventType
-						}
-						hookPayload = &commonmodels.HookPayload{
-							Owner:      *ev.Repo.Owner.Login,
-							Repo:       *ev.Repo.Name,
-							Branch:     *ev.PullRequest.Base.Ref,
-							Ref:        *ev.PullRequest.Head.SHA,
-							IsPr:       true,
-							DeliveryID: deliveryID,
-							EventType:  eventType,
-						}
-					case *github.PushEvent:
-						// if event type is push，and this webhook trigger enabled auto cancel
-						// should cancel tasks triggered by the same git branch push event.
-						if ev.GetRef() != "" && ev.GetHeadCommit().GetID() != "" {
-							eventType = EventTypePush
-							ref = ev.GetRef()
-							commitID = ev.GetHeadCommit().GetID()
-							autoCancelOpt.Ref = ref
-							autoCancelOpt.CommitID = commitID
-							autoCancelOpt.Type = eventType
-							hookPayload = &commonmodels.HookPayload{
-								Owner:      *ev.Repo.Owner.Login,
-								Repo:       *ev.Repo.Name,
-								Branch:     ref,
-								Ref:        commitID,
-								IsPr:       false,
-								DeliveryID: deliveryID,
-								EventType:  eventType,
-							}
-						}
-					case *github.CreateEvent:
-						eventType = EventTypeTag
-					}
-					// if event type is not PR or push, skip
-					if autoCancelOpt.Type != "" {
-						err := AutoCancelTask(autoCancelOpt, log)
-						if err != nil {
-							log.Errorf("failed to auto cancel workflow task when receive event due to %v ", err)
-							mErr = multierror.Append(mErr, err)
-						}
-					}
-
-					args := matcher.UpdateTaskArgs(prod, item.WorkflowArgs, item.MainRepo, requestID)
-					args.MergeRequestID = mergeRequestID
-					args.Ref = ref
-					args.EventType = eventType
-					args.CommitID = commitID
-					args.Source = setting.SourceFromGithub
-					args.CodehostID = item.MainRepo.CodehostID
-					args.RepoOwner = item.MainRepo.RepoOwner
-					args.RepoNamespace = item.MainRepo.GetRepoNamespace()
-					args.RepoName = item.MainRepo.RepoName
-					args.Committer = item.MainRepo.Committer
-					args.HookPayload = hookPayload
-
-					// 3. create task with args
-					if resp, err := workflowservice.CreateWorkflowTask(args, setting.WebhookTaskCreator, log); err != nil {
-						log.Errorf("failed to create workflow task when receive push event due to %v ", err)
-						mErr = multierror.Append(mErr, err)
-					} else {
-						log.Infof("succeed to create task %v", resp)
-					}
-				} else {
-					log.Debugf("event not matches %v", item.MainRepo)
-				}
-			}
-		}
-	}
-
-	return mErr.ErrorOrNil()
 }
 
 func findChangedFilesOfPullRequest(event *github.PullRequestEvent, codehostID int) ([]string, error) {

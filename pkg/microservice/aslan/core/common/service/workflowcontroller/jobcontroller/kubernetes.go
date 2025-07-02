@@ -191,7 +191,7 @@ func getBaseImage(buildOS, imageFrom string) string {
 	// for built-in image, reaperImage and buildOs can generate a complete image
 	// reaperImage: koderover.tencentcloudcr.com/koderover-public/build-base:${BuildOS}-amd64
 	// buildOS: focal xenial bionic
-	jobImage := strings.ReplaceAll(config.ReaperImage(), "${BuildOS}", buildOS)
+	jobImage := strings.ReplaceAll(config.BuildBaseImage(), "${BuildOS}", buildOS)
 	// for custom image, buildOS represents the exact custom image
 	if imageFrom == setting.ImageFromCustom {
 		jobImage = buildOS
@@ -496,7 +496,7 @@ EOF`,
 func BuildCleanJob(jobName, clusterID, workflowName string, taskID int64) (*batchv1.Job, error) {
 	workspace := "/workspace"
 	shareStorageDir := commontypes.GetShareStorageSubPathPrefix(workflowName, taskID)
-	image := strings.ReplaceAll(config.ReaperImage(), "${BuildOS}", "focal")
+	image := strings.ReplaceAll(config.BuildBaseImage(), "${BuildOS}", "focal")
 	targetCluster, err := service.GetCluster(clusterID, log.SugaredLogger())
 	if err != nil {
 		return nil, fmt.Errorf("failed to find target cluster %s, err: %s", clusterID, err)

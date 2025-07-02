@@ -23,6 +23,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/coocood/freecache"
 	"github.com/hashicorp/go-multierror"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -43,6 +44,87 @@ import (
 type gerritEventMatcherForWorkflowV4 interface {
 	Match(*commonmodels.MainHookRepo) (bool, error)
 	GetHookRepo(hookRepo *commonmodels.MainHookRepo) *types.Repository
+}
+
+type patchsetCreatedEvent struct {
+	Uploader       UploaderInfo  `json:"uploader"`
+	PatchSet       PatchSetInfo  `json:"patchSet"`
+	Change         ChangeInfo    `json:"change"`
+	Project        ProjectInfo   `json:"project"`
+	RefName        string        `json:"refName"`
+	ChangeKey      ChangeKeyInfo `json:"changeKey"`
+	Type           string        `json:"type"`
+	EventCreatedOn int           `json:"eventCreatedOn"`
+}
+
+type PatchSetInfo struct {
+	Number         int          `json:"number"`
+	Revision       string       `json:"revision"`
+	Parents        []string     `json:"parents"`
+	Ref            string       `json:"ref"`
+	Uploader       UploaderInfo `json:"uploader"`
+	CreatedOn      int          `json:"createdOn"`
+	Author         AuthorInfo   `json:"author"`
+	Kind           string       `json:"kind"`
+	SizeInsertions int          `json:"sizeInsertions"`
+	SizeDeletions  int          `json:"sizeDeletions"`
+}
+
+type ChangeInfo struct {
+	Project       string    `json:"project"`
+	Branch        string    `json:"branch"`
+	ID            string    `json:"id"`
+	Number        int       `json:"number"`
+	Subject       string    `json:"subject"`
+	Owner         OwnerInfo `json:"owner"`
+	URL           string    `json:"url"`
+	CommitMessage string    `json:"commitMessage"`
+	CreatedOn     int       `json:"createdOn"`
+	Status        string    `json:"status"`
+}
+
+type UploaderInfo struct {
+	Name     string `json:"name"`
+	Email    string `json:"email"`
+	Username string `json:"username"`
+}
+
+type AuthorInfo struct {
+	Name     string `json:"name"`
+	Email    string `json:"email"`
+	Username string `json:"username"`
+}
+
+type OwnerInfo struct {
+	Name     string `json:"name"`
+	Email    string `json:"email"`
+	Username string `json:"username"`
+}
+
+type ProjectInfo struct {
+	Name string `json:"name"`
+}
+
+type ChangeKeyInfo struct {
+	ID string `json:"id"`
+}
+
+type changeMergedEvent struct {
+	Submitter      SubmitterInfo `json:"submitter"`
+	NewRev         string        `json:"newRev"`
+	PatchSet       PatchSetInfo  `json:"patchSet"`
+	Change         ChangeInfo    `json:"change"`
+	Project        ProjectInfo   `json:"project"`
+	RefName        string        `json:"refName"`
+	ChangeKey      ChangeKeyInfo `json:"changeKey"`
+	Type           string        `json:"type"`
+	EventCreatedOn int           `json:"eventCreatedOn"`
+}
+
+type SubmitterInfo struct {
+	Name     string `json:"name"`
+	Email    string `json:"email"`
+	Username string `json:"username"`
 }
 
 type gerritChangeMergedEventMatcherForWorkflowV4 struct {
@@ -242,10 +324,7 @@ func TriggerWorkflowV4ByGerritEvent(event *gerritTypeEvent, body []byte, uri, ba
 			if m, ok := matcher.(*gerritPatchsetCreatedEventMatcherForWorkflowV4); ok {
 				if item.CheckPatchSetChange {
 					// for different patch sets under the same pr, if the updated contents of the two patch sets are exactly the same, and the task triggered by the previous patch set is executed successfully, the new patch set will no longer trigger the task.
-					if checkLatestTaskStaus(workflow.Name, mergeRequestID, commitID, detail, log) {
-						log.Infof("last patchset has already triggered task, workflowName:%s, mergeRequestID:%s, PatchSetID:%s", workflow.Name, mergeRequestID, commitID)
-						continue
-					}
+					// TODO THE OLD IMPLEMENTATION DOES NOT WORK FOR A LONG TIME, SO I DELETED THEM. REWITE IT WHEN NECESSARY.
 				}
 
 				mergeRequestID = strconv.Itoa(m.Event.Change.Number)
@@ -314,4 +393,39 @@ func TriggerWorkflowV4ByGerritEvent(event *gerritTypeEvent, body []byte, uri, ba
 		}
 	}
 	return errorList.ErrorOrNil()
+}
+
+var cache = freecache.NewCache(1024 * 1024 * 10)
+
+func dealMultiTrigger(event *gerritTypeEvent, body []byte, workflowName string, log *zap.SugaredLogger) bool {
+	if event.Type != patchsetCreatedEventType {
+		return false
+	}
+
+	var ev patchsetCreatedEvent
+	if err := json.Unmarshal(body, &ev); err != nil {
+		log.Errorf("createGerritEventMatcher json.Unmarshal err : %v", err)
+	}
+	mergeRequestID := strconv.Itoa(ev.Change.Number)
+	commitID := strconv.Itoa(ev.PatchSet.Number)
+	if mergeRequestID == "" || commitID == "" || workflowName == "" {
+		log.Warnf("patchsetCreatedEvent param cannot be empty, mergeRequestID:%s, commitID:%s,workflowName:%s", mergeRequestID, commitID, workflowName)
+		return true
+	}
+
+	keyStr := fmt.Sprintf("%s+%s+%s+%s", setting.SourceFromGerrit, mergeRequestID, commitID, workflowName)
+	key := []byte(keyStr)
+	_, err := cache.Get(key)
+	if err != nil {
+		// 找不到则插入新key
+		log.Infof("find key in freecache failed, err:%v\n", err)
+		val := []byte("true")
+		expire := 180 // expire in 180 seconds
+		err = cache.Set(key, val, expire)
+		if err != nil {
+			return false
+		}
+		return false
+	}
+	return true
 }

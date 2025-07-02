@@ -53,7 +53,6 @@ import (
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/base"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/repository"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
@@ -392,42 +391,6 @@ func buildDetailedRelease(deliveryVersion *commonmodels.DeliveryVersion, filterO
 		return nil, err
 	}
 	releaseInfo.TestInfo = deliveryTests
-
-	//securityStatsInfo
-	deliverySecurityStatss := make([]*DeliverySecurityStats, 0)
-	if pipelineTask, err := workflowservice.GetPipelineTaskV2(int64(deliveryVersion.TaskID), deliveryVersion.WorkflowName, config.WorkflowType, logger); err == nil {
-		for _, subStage := range pipelineTask.Stages {
-			if subStage.TaskType == config.TaskSecurity {
-				subSecurityTaskMap := subStage.SubTasks
-				for _, subTask := range subSecurityTaskMap {
-					securityInfo, _ := base.ToSecurityTask(subTask)
-
-					deliverySecurityStats := new(DeliverySecurityStats)
-					deliverySecurityStats.ImageName = securityInfo.ImageName
-					deliverySecurityStats.ImageID = securityInfo.ImageID
-					deliverySecurityStatsMap, err := FindDeliverySecurityStatistics(securityInfo.ImageID, logger)
-					if err != nil {
-						return nil, err
-					}
-					var transErr error
-					b, err := json.Marshal(deliverySecurityStatsMap)
-					if err != nil {
-						transErr = fmt.Errorf("marshal task error: %v", err)
-					}
-					if err := json.Unmarshal(b, &deliverySecurityStats.DeliverySecurityStatsInfo); err != nil {
-						transErr = fmt.Errorf("unmarshal task error: %v", err)
-					}
-					if transErr != nil {
-						return nil, transErr
-					}
-
-					deliverySecurityStatss = append(deliverySecurityStatss, deliverySecurityStats)
-				}
-				break
-			}
-		}
-		releaseInfo.SecurityInfo = deliverySecurityStatss
-	}
 
 	//distributeInfo
 	deliveryDistributeArgs := new(commonrepo.DeliveryDistributeArgs)

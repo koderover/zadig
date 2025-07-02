@@ -28,27 +28,98 @@ import (
 	"github.com/koderover/zadig/v2/pkg/types"
 )
 
-type WorkflowV3 struct {
-	ID          string                    `json:"id"`
-	Name        string                    `json:"name"`
-	ProjectName string                    `json:"project_name"`
-	Description string                    `json:"description"`
-	Parameters  []*types.ParameterSetting `json:"parameters"`
-	SubTasks    []map[string]interface{}  `json:"sub_tasks"`
+type Workflow struct {
+	Name                 string                     `json:"name"`
+	DisplayName          string                     `json:"display_name"`
+	ProjectName          string                     `json:"projectName"`
+	Disabled             bool                       `json:"disabled"`
+	UpdateTime           int64                      `json:"updateTime"`
+	CreateTime           int64                      `json:"createTime"`
+	UpdateBy             string                     `json:"updateBy,omitempty"`
+	Schedules            *commonmodels.ScheduleCtrl `json:"schedules,omitempty"`
+	SchedulerEnabled     bool                       `json:"schedulerEnabled"`
+	EnabledStages        []string                   `json:"enabledStages"`
+	IsFavorite           bool                       `json:"isFavorite"`
+	WorkflowType         string                     `json:"workflow_type"`
+	RecentTask           *TaskInfo                  `json:"recentTask"`
+	RecentTasks          []*TaskInfo                `json:"recentTasks"`
+	RecentSuccessfulTask *TaskInfo                  `json:"recentSuccessfulTask"`
+	RecentFailedTask     *TaskInfo                  `json:"recentFailedTask"`
+	AverageExecutionTime float64                    `json:"averageExecutionTime"`
+	SuccessRate          float64                    `json:"successRate"`
+	Description          string                     `json:"description,omitempty"`
+	BaseName             string                     `json:"base_name"`
+	BaseRefs             []string                   `json:"base_refs"`
+	NeverRun             bool                       `json:"never_run"`
+	EnableApprovalTicket bool                       `json:"enable_approval_ticket"`
 }
 
-type WorkflowV3Brief struct {
-	ID          string `json:"id"`
-	Name        string `json:"name"`
-	ProjectName string `json:"project_name"`
+type TaskInfo struct {
+	TaskID       int64  `json:"taskID"`
+	PipelineName string `json:"pipelineName,omitempty"`
+	Status       string `json:"status"`
+	TaskCreator  string `json:"task_creator"`
+	CreateTime   int64  `json:"create_time"`
+	RunningTime  int64  `json:"running_time,omitempty"`
+	StartTime    int64  `json:"start_time,omitempty"`
+	EndTime      int64  `json:"end_time,omitempty"`
 }
 
-type WorkflowV3TaskArgs struct {
-	Type    string                   `json:"type"`
-	Key     string                   `json:"key,omitempty"`
-	Value   string                   `json:"value,omitempty"`
-	Choice  []string                 `json:"choice,omitempty"`
-	Options []map[string]interface{} `json:"options,omitempty"`
+type EnvStatus struct {
+	EnvName    string `json:"env_name,omitempty"`
+	Status     string `json:"status"`
+	ErrMessage string `json:"err_message"`
+}
+
+type WorkflowCopyItem struct {
+	ProjectName    string `json:"project_name"`
+	Old            string `json:"old"`
+	New            string `json:"new"`
+	NewDisplayName string `json:"new_display_name"`
+	BaseName       string `json:"base_name"`
+}
+
+type BulkCopyWorkflowArgs struct {
+	Items []WorkflowCopyItem `json:"items"`
+}
+
+type workflowCreateArg struct {
+	name              string
+	envName           string
+	buildStageEnabled bool
+	dockerRegistryID  string
+}
+
+type workflowCreateArgs struct {
+	productName string
+	argsMap     map[string]*workflowCreateArg
+}
+
+func (args *workflowCreateArgs) addWorkflowArg(envName, dockerRegistryID string, buildStageEnabled bool) {
+	wName := fmt.Sprintf("%s-workflow-%s", args.productName, envName)
+	// The hosting env workflow name is not bound to the environment
+	if envName == "" {
+		wName = fmt.Sprintf("%s-workflow", args.productName)
+	}
+	if !buildStageEnabled {
+		wName = fmt.Sprintf("%s-%s-workflow", args.productName, "ops")
+	}
+	args.argsMap[wName] = &workflowCreateArg{
+		name:              wName,
+		envName:           envName,
+		buildStageEnabled: buildStageEnabled,
+		dockerRegistryID:  dockerRegistryID,
+	}
+}
+
+func (args *workflowCreateArgs) initDefaultWorkflows() {
+	args.addWorkflowArg("dev", "", true)
+	args.addWorkflowArg("qa", "", true)
+	args.addWorkflowArg("", "", false)
+}
+
+func (args *workflowCreateArgs) clear() {
+	args.argsMap = make(map[string]*workflowCreateArg)
 }
 
 type OpenAPICreateCustomWorkflowTaskArgs struct {
