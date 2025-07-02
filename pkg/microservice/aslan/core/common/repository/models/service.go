@@ -17,6 +17,8 @@ limitations under the License.
 package models
 
 import (
+	"fmt"
+
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	templatemodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models/template"
@@ -87,6 +89,7 @@ type Service struct {
 
 type CreateFromRepo struct {
 	GitRepoConfig *templatemodels.GitRepoConfig `bson:"git_repo_config,omitempty"      json:"git_repo_config,omitempty"`
+	Commit        *Commit                       `bson:"commit,omitempty"               json:"commit,omitempty"`
 	LoadPath      string                        `bson:"load_path,omitempty"            json:"load_path,omitempty"`
 }
 
@@ -307,4 +310,63 @@ func (svc *Service) GetReleaseNaming() string {
 
 func (Service) TableName() string {
 	return "template_service"
+}
+
+func (svc *Service) GetHelmCreateFrom() (*CreateFromChartTemplate, error) {
+	if svc.CreateFrom == nil {
+		return nil, fmt.Errorf("service %s, create_from is nil", svc.ServiceName)
+	}
+
+	createFrom := &CreateFromChartTemplate{}
+	err := IToi(svc.CreateFrom, createFrom)
+	if err != nil {
+		return nil, fmt.Errorf("service %s, create_from is invalid", svc.ServiceName)
+	}
+
+	return createFrom, nil
+}
+
+func (c *CreateFromChartTemplate) GetSourceDetail() (*CreateFromRepo, error) {
+	if c.YamlData == nil {
+		return nil, fmt.Errorf("service %s, create_from's yaml_data is nil", c.ServiceName)
+	}
+
+	if c.YamlData.SourceDetail == nil {
+		return nil, fmt.Errorf("service %s, create_from's yaml_data's source_detail is nil", c.ServiceName)
+	}
+
+	sourceRepo := &CreateFromRepo{}
+	err := IToi(c.YamlData.SourceDetail, sourceRepo)
+	if err != nil {
+		return nil, fmt.Errorf("service %s, source_detail is invalid", c.ServiceName)
+	}
+
+	return sourceRepo, nil
+}
+
+func (svc *Service) GetHelmValuesSourceRepo() (*CreateFromRepo, error) {
+	createFrom, err := svc.GetHelmCreateFrom()
+	if err != nil {
+		return nil, fmt.Errorf("service %s, get helm create from failed, error: %v", svc.ServiceName, err)
+	}
+
+	sourceRepo, err := createFrom.GetSourceDetail()
+	if err != nil {
+		return nil, fmt.Errorf("service %s, get source detail failed, error: %v", svc.ServiceName, err)
+	}
+
+	return sourceRepo, nil
+}
+
+func (svc *Service) GetHelmTemplateServiceValues() (string, error) {
+	createFrom, err := svc.GetHelmCreateFrom()
+	if err != nil {
+		return "", fmt.Errorf("service %s, get helm create from failed, error: %v", svc.ServiceName, err)
+	}
+
+	if createFrom.YamlData == nil {
+		return "", fmt.Errorf("service %s, create_from's yaml_data is nil", svc.ServiceName)
+	}
+
+	return createFrom.YamlData.YamlContent, nil
 }
