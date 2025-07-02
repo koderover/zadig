@@ -2411,7 +2411,7 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, 
 			serviceModule := ""
 			serviceName := ""
 			image := ""
-			deployType := ""
+			deployArtifactType := ""
 			for _, arg := range taskJobSpec.Properties.Envs {
 				if arg.Key == "ENV_NAME" {
 					spec.Env = arg.Value
@@ -2426,8 +2426,8 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, 
 				if arg.Key == "IMAGE" {
 					image = arg.Value
 				}
-				if arg.Key == "DEPLOY_TYPE" {
-					deployType = arg.Value
+				if arg.Key == "DEPLOY_ARTIFACT_TYPE" {
+					deployArtifactType = arg.Value
 				}
 			}
 
@@ -2435,11 +2435,11 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, 
 			spec.EnvAlias = getEnvAlias(getEnv(spec.Env))
 
 			serviceAndVMDeploy := &commonmodels.ServiceAndVMDeploy{
-				ServiceName:   serviceName,
-				ServiceModule: serviceModule,
-				Image:         image,
-				DeployType:    types.VMDeployType(deployType),
-				Repos:         []*types.Repository{},
+				ServiceName:        serviceName,
+				ServiceModule:      serviceModule,
+				Image:              image,
+				DeployArtifactType: types.VMDeployArtifactType(deployArtifactType),
+				Repos:              []*types.Repository{},
 			}
 
 			for _, step := range taskJobSpec.Steps {

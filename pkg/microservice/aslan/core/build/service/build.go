@@ -41,19 +41,19 @@ import (
 )
 
 type BuildResp struct {
-	ID             string                              `json:"id"`
-	Name           string                              `json:"name"`
-	Targets        []*commonmodels.ServiceModuleTarget `json:"targets"`
-	KeyVals        []*commonmodels.KeyVal              `json:"key_vals"`
-	DeployType     types.VMDeployType                  `json:"deploy_type"`
-	DeployKeyVals  []*commonmodels.KeyVal              `json:"deploy_key_vals"`
-	Repos          []*types.Repository                 `json:"repos"`
-	UpdateTime     int64                               `json:"update_time"`
-	UpdateBy       string                              `json:"update_by"`
-	Pipelines      []string                            `json:"pipelines"`
-	ProductName    string                              `json:"productName"`
-	ClusterID      string                              `json:"cluster_id"`
-	Infrastructure string                              `json:"infrastructure"`
+	ID                 string                              `json:"id"`
+	Name               string                              `json:"name"`
+	Targets            []*commonmodels.ServiceModuleTarget `json:"targets"`
+	KeyVals            []*commonmodels.KeyVal              `json:"key_vals"`
+	DeployArtifactType types.VMDeployArtifactType          `json:"deploy_artifact_type"`
+	DeployKeyVals      []*commonmodels.KeyVal              `json:"deploy_key_vals"`
+	Repos              []*types.Repository                 `json:"repos"`
+	UpdateTime         int64                               `json:"update_time"`
+	UpdateBy           string                              `json:"update_by"`
+	Pipelines          []string                            `json:"pipelines"`
+	ProductName        string                              `json:"productName"`
+	ClusterID          string                              `json:"cluster_id"`
+	Infrastructure     string                              `json:"infrastructure"`
 }
 
 type ServiceModuleAndBuildResp struct {
@@ -198,14 +198,14 @@ func ListBuildModulesByServiceModule(encryptedKey, productName, envName string, 
 				continue
 			}
 			build := &BuildResp{
-				ID:             buildModule.ID.Hex(),
-				Name:           buildModule.Name,
-				KeyVals:        buildModule.PreBuild.Envs,
-				DeployType:     buildModule.DeployType,
-				DeployKeyVals:  buildModule.PreDeploy.Envs,
-				Repos:          buildModule.Repos,
-				ClusterID:      buildModule.PreBuild.ClusterID,
-				Infrastructure: buildModule.Infrastructure,
+				ID:                 buildModule.ID.Hex(),
+				Name:               buildModule.Name,
+				KeyVals:            buildModule.PreBuild.Envs,
+				DeployArtifactType: buildModule.DeployArtifactType,
+				DeployKeyVals:      buildModule.PreDeploy.Envs,
+				Repos:              buildModule.Repos,
+				ClusterID:          buildModule.PreBuild.ClusterID,
+				Infrastructure:     buildModule.Infrastructure,
 			}
 			serviceModuleAndBuildResp = append(serviceModuleAndBuildResp, &ServiceModuleAndBuildResp{
 				ServiceWithModule: commonmodels.ServiceWithModule{

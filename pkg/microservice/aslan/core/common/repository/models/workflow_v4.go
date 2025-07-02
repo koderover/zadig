@@ -451,19 +451,19 @@ type ZadigDeployJobSpec struct {
 }
 
 type ServiceAndVMDeploy struct {
-	Repos         []*types.Repository `bson:"repos"               yaml:"repos"            json:"repos"`
-	ServiceName   string              `bson:"service_name"        yaml:"service_name"     json:"service_name"`
-	ServiceModule string              `bson:"service_module"      yaml:"service_module"   json:"service_module"`
-	DeployName    string              `bson:"deploy_name"         yaml:"deploy_name"      json:"deploy_name"`
-	DeployType    types.VMDeployType  `bson:"deploy_type"         yaml:"deploy_type"      json:"deploy_type"`
-	ArtifactURL   string              `bson:"artifact_url"        yaml:"artifact_url"     json:"artifact_url"`
-	FileName      string              `bson:"file_name"           yaml:"file_name"        json:"file_name"`
-	Image         string              `bson:"image"               yaml:"image"            json:"image"`
-	KeyVals       RuntimeKeyValList   `bson:"key_vals"            yaml:"key_vals"         json:"key_vals"`
-	TaskID        int                 `bson:"task_id"             yaml:"task_id"          json:"task_id"`
-	WorkflowType  config.PipelineType `bson:"workflow_type"       yaml:"workflow_type"    json:"workflow_type"`
-	WorkflowName  string              `bson:"workflow_name"       yaml:"workflow_name"    json:"workflow_name"`
-	JobTaskName   string              `bson:"job_task_name"       yaml:"job_task_name"    json:"job_task_name"`
+	Repos              []*types.Repository        `bson:"repos"                 yaml:"repos"                     json:"repos"`
+	ServiceName        string                     `bson:"service_name"          yaml:"service_name"              json:"service_name"`
+	ServiceModule      string                     `bson:"service_module"        yaml:"service_module"            json:"service_module"`
+	DeployName         string                     `bson:"deploy_name"           yaml:"deploy_name"               json:"deploy_name"`
+	DeployArtifactType types.VMDeployArtifactType `bson:"deploy_artifact_type"  yaml:"deploy_artifact_type"      json:"deploy_artifact_type"`
+	ArtifactURL        string                     `bson:"artifact_url"          yaml:"artifact_url"              json:"artifact_url"`
+	FileName           string                     `bson:"file_name"             yaml:"file_name"                 json:"file_name"`
+	Image              string                     `bson:"image"                 yaml:"image"                     json:"image"`
+	KeyVals            RuntimeKeyValList          `bson:"key_vals"              yaml:"key_vals"                  json:"key_vals"`
+	TaskID             int                        `bson:"task_id"               yaml:"task_id"                   json:"task_id"`
+	WorkflowType       config.PipelineType        `bson:"workflow_type"         yaml:"workflow_type"             json:"workflow_type"`
+	WorkflowName       string                     `bson:"workflow_name"         yaml:"workflow_name"             json:"workflow_name"`
+	JobTaskName        string                     `bson:"job_task_name"         yaml:"job_task_name"             json:"job_task_name"`
 }
 
 type ZadigVMDeployJobSpec struct {
