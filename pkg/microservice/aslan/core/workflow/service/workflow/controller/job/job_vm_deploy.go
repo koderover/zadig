@@ -129,18 +129,18 @@ func (j VMDeployJobController) Update(useUserInput bool, ticket *commonmodels.Ap
 			}
 
 			newSelection = append(newSelection, &commonmodels.ServiceAndVMDeploy{
-				KeyVals:       applyKeyVals(newOptionMap[configuredSelection.ServiceName].KeyVals, configuredSelection.KeyVals, true),
-				Repos:         applyRepos(newOptionMap[configuredSelection.ServiceName].Repos, configuredSelection.Repos),
-				DeployType:    configuredSelection.DeployType,
-				ServiceName:   configuredSelection.ServiceName,
-				ServiceModule: configuredSelection.ServiceModule,
-				ArtifactURL:   configuredSelection.ArtifactURL,
-				FileName:      configuredSelection.FileName,
-				Image:         configuredSelection.Image,
-				TaskID:        configuredSelection.TaskID,
-				WorkflowType:  configuredSelection.WorkflowType,
-				WorkflowName:  configuredSelection.WorkflowName,
-				JobTaskName:   configuredSelection.JobTaskName,
+				KeyVals:            applyKeyVals(newOptionMap[configuredSelection.ServiceName].KeyVals, configuredSelection.KeyVals, true),
+				Repos:              applyRepos(newOptionMap[configuredSelection.ServiceName].Repos, configuredSelection.Repos),
+				DeployArtifactType: configuredSelection.DeployArtifactType,
+				ServiceName:        configuredSelection.ServiceName,
+				ServiceModule:      configuredSelection.ServiceModule,
+				ArtifactURL:        configuredSelection.ArtifactURL,
+				FileName:           configuredSelection.FileName,
+				Image:              configuredSelection.Image,
+				TaskID:             configuredSelection.TaskID,
+				WorkflowType:       configuredSelection.WorkflowType,
+				WorkflowName:       configuredSelection.WorkflowName,
+				JobTaskName:        configuredSelection.JobTaskName,
 			})
 		}
 	}
@@ -562,7 +562,7 @@ func (j VMDeployJobController) getReferredJobTargets(jobName string, taskID int,
 
 					if serviceAndVMDeployMap[build.ServiceName] != nil {
 						serviceAndVMDeploy.DeployName = serviceAndVMDeployMap[build.ServiceName].DeployName
-						serviceAndVMDeploy.DeployType = serviceAndVMDeployMap[build.ServiceName].DeployType
+						serviceAndVMDeploy.DeployArtifactType = serviceAndVMDeployMap[build.ServiceName].DeployArtifactType
 						serviceAndVMDeploy.Repos = applyRepos(serviceAndVMDeployMap[build.ServiceName].Repos, build.Repos)
 						serviceAndVMDeploy.KeyVals = serviceAndVMDeployMap[build.ServiceName].KeyVals
 					}
@@ -639,11 +639,12 @@ func generateVMDeployServiceInfo(project, env string, serviceAndVMDeploys []*com
 		}
 
 		resp = append(resp, &commonmodels.ServiceAndVMDeploy{
-			Repos:         repos,
-			KeyVals:       keyVals,
-			DeployType:    build.DeployType,
-			ServiceName:   templateSvc.ServiceName,
-			ServiceModule: templateSvc.ServiceName,
+			Repos:              repos,
+			KeyVals:            keyVals,
+			DeployName:         build.Name,
+			DeployArtifactType: build.DeployArtifactType,
+			ServiceName:        templateSvc.ServiceName,
+			ServiceModule:      templateSvc.ServiceName,
 		})
 	}
 
@@ -798,7 +799,7 @@ func getVMDeployJobVariables(vmDeploy *commonmodels.ServiceAndVMDeploy, buildInf
 	}
 	ret = append(ret, &commonmodels.KeyVal{Key: "PKG_FILE", Value: vmDeploy.FileName, IsCredential: false})
 	ret = append(ret, &commonmodels.KeyVal{Key: "IMAGE", Value: vmDeploy.Image, IsCredential: false})
-	ret = append(ret, &commonmodels.KeyVal{Key: "DEPLOY_TYPE", Value: string(vmDeploy.DeployType), IsCredential: false})
+	ret = append(ret, &commonmodels.KeyVal{Key: "DEPLOY_ARTIFACT_TYPE", Value: string(vmDeploy.DeployArtifactType), IsCredential: false})
 	return ret
 }
 

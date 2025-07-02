@@ -276,10 +276,17 @@ func migrate341VMDeploy(ctx *internalhandler.Context, migrationInfo *internalmod
 	for _, vmProject := range vmProjects {
 		// migrate vm build
 		builds, err := commonrepo.NewBuildColl().List(&commonrepo.BuildListOption{
-			Name: vmProject.ProductName,
+			ProductName: vmProject.ProductName,
 		})
 		if err != nil {
 			return fmt.Errorf("failed to list all builds to migrate, error: %s", err)
+		}
+
+		buildMap := make(map[string]*commonmodels.Build)
+		for _, build := range builds {
+			for _, target := range build.Targets {
+				buildMap[target.ServiceName] = build
+			}
 		}
 
 		for _, build := range builds {
@@ -319,8 +326,14 @@ func migrate341VMDeploy(ctx *internalhandler.Context, migrationInfo *internalmod
 
 						newSpec.DefaultServiceAndVMDeploys = make([]*commonmodels.ServiceAndVMDeploy, 0)
 						for _, svc := range newSpec.ServiceAndVMDeploys {
+							if build, ok := buildMap[svc.ServiceName]; ok {
+								svc.ServiceModule = svc.ServiceName
+								svc.DeployName = build.Name
+								svc.DeployArtifactType = build.DeployArtifactType
+							}
 							newSpec.DefaultServiceAndVMDeploys = append(newSpec.DefaultServiceAndVMDeploys, svc)
 						}
+						newSpec.ServiceAndVMDeploysOptions = newSpec.DefaultServiceAndVMDeploys
 						newSpec.ServiceAndVMDeploys = make([]*commonmodels.ServiceAndVMDeploy, 0)
 						job.Spec = newSpec
 					}
