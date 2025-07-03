@@ -153,6 +153,10 @@ func (j VMDeployJobController) Update(useUserInput bool, ticket *commonmodels.Ap
 			continue
 		}
 
+		configuredDefault.KeyVals = newOptionMap[configuredDefault.ServiceName].KeyVals
+		configuredDefault.DeployName = newOptionMap[configuredDefault.ServiceName].DeployName
+		configuredDefault.DeployArtifactType = newOptionMap[configuredDefault.ServiceName].DeployArtifactType
+		configuredDefault.Repos = newOptionMap[configuredDefault.ServiceName].Repos
 		newDefault = append(newDefault, configuredDefault)
 	}
 
@@ -635,7 +639,7 @@ func generateVMDeployServiceInfo(project, env string, serviceAndVMDeploys []*com
 		keyVals := build.PreDeploy.Envs.ToRuntimeList()
 		if svcAndVMDeployMap[svc.ServiceName] != nil {
 			repos = applyRepos(build.DeployRepos, svcAndVMDeployMap[svc.ServiceName].Repos)
-			keyVals = applyKeyVals(build.PreDeploy.Envs.ToRuntimeList(), svcAndVMDeployMap[svc.ServiceName].KeyVals, true)
+			keyVals = applyKeyVals(build.PreDeploy.Envs.ToRuntimeList(), svcAndVMDeployMap[svc.ServiceName].KeyVals, false)
 		}
 
 		resp = append(resp, &commonmodels.ServiceAndVMDeploy{

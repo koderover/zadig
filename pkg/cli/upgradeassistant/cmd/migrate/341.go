@@ -293,9 +293,9 @@ func migrate341VMDeploy(ctx *internalhandler.Context, migrationInfo *internalmod
 			build.DeployArtifactType = types.VMDeployArtifactTypeFile
 
 			if len(build.SSHs) > 0 {
-				build.DeployType = types.VMDeployTypeLocal
-			} else {
 				build.DeployType = types.VMDeployTypeSSHAgent
+			} else {
+				build.DeployType = types.VMDeployTypeLocal
 			}
 
 			err = commonrepo.NewBuildColl().Update(build)
@@ -326,12 +326,7 @@ func migrate341VMDeploy(ctx *internalhandler.Context, migrationInfo *internalmod
 
 						newSpec.DefaultServiceAndVMDeploys = make([]*commonmodels.ServiceAndVMDeploy, 0)
 						for _, svc := range newSpec.ServiceAndVMDeploys {
-							if build, ok := buildMap[svc.ServiceName]; ok {
-								svc.ServiceModule = svc.ServiceName
-								svc.DeployName = build.Name
-								svc.DeployArtifactType = build.DeployArtifactType
-								svc.Repos = build.DeployRepos
-							}
+							svc.ServiceModule = svc.ServiceName
 							newSpec.DefaultServiceAndVMDeploys = append(newSpec.DefaultServiceAndVMDeploys, svc)
 						}
 						newSpec.ServiceAndVMDeploysOptions = newSpec.DefaultServiceAndVMDeploys
