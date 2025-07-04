@@ -311,6 +311,7 @@ func (w *Workflow) getWorkflowDefaultParams(taskID int64, creator, account, uid 
 	if err != nil {
 		return nil, fmt.Errorf("failed to find project info for project %s, error: %s", w.Project, err)
 	}
+	resp = append(resp, &commonmodels.Param{Name: "project", Value: w.Project, ParamsType: "string", IsCredential: false})
 	resp = append(resp, &commonmodels.Param{Name: "project.id", Value: w.Project, ParamsType: "string", IsCredential: false})
 	resp = append(resp, &commonmodels.Param{Name: "project.name", Value: projectInfo.ProjectName, ParamsType: "string", IsCredential: false})
 	resp = append(resp, &commonmodels.Param{Name: "workflow.id", Value: w.Name, ParamsType: "string", IsCredential: false})
