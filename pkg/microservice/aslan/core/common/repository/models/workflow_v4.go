@@ -1047,6 +1047,7 @@ type ApprovalJobSpec struct {
 	LarkApproval     *LarkApproval           `bson:"lark_approval"               yaml:"lark_approval,omitempty"       json:"lark_approval,omitempty"`
 	DingTalkApproval *DingTalkApproval       `bson:"dingtalk_approval"           yaml:"dingtalk_approval,omitempty"   json:"dingtalk_approval,omitempty"`
 	WorkWXApproval   *WorkWXApproval         `bson:"workwx_approval"             yaml:"workwx_approval,omitempty"     json:"workwx_approval,omitempty"`
+	ApprovalMessage  string                  `bson:"approval_message"            yaml:"approval_message,omitempty"    json:"approval_message,omitempty"`
 }
 
 type NotificationJobSpec struct {
