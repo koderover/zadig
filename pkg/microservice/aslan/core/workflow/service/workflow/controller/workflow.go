@@ -307,7 +307,12 @@ func (w *Workflow) RenderWorkflowDefaultParams(taskID int64, creator, account, u
 
 func (w *Workflow) getWorkflowDefaultParams(taskID int64, creator, account, uid string) ([]*commonmodels.Param, error) {
 	resp := []*commonmodels.Param{}
-	resp = append(resp, &commonmodels.Param{Name: "project", Value: w.Project, ParamsType: "string", IsCredential: false})
+	projectInfo, err := templaterepo.NewProductColl().Find(w.Project)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find project info for project %s, error: %s", w.Project, err)
+	}
+	resp = append(resp, &commonmodels.Param{Name: "project.id", Value: w.Project, ParamsType: "string", IsCredential: false})
+	resp = append(resp, &commonmodels.Param{Name: "project.name", Value: projectInfo.ProjectName, ParamsType: "string", IsCredential: false})
 	resp = append(resp, &commonmodels.Param{Name: "workflow.id", Value: w.Name, ParamsType: "string", IsCredential: false})
 	resp = append(resp, &commonmodels.Param{Name: "workflow.name", Value: w.DisplayName, ParamsType: "string", IsCredential: false})
 	resp = append(resp, &commonmodels.Param{Name: "workflow.task.id", Value: fmt.Sprintf("%d", taskID), ParamsType: "string", IsCredential: false})
