@@ -218,6 +218,11 @@ func waitForLarkApprove(ctx context.Context, spec *commonmodels.JobTaskApprovalS
 		userID = approval.DefaultApprovalInitiator.ID
 		formContent = fmt.Sprintf("工作流执行人: %s\n%s", workflowCtx.WorkflowTaskCreatorUsername, formContent)
 	}
+
+	// if the user explicitly set their message format, use it.
+	if spec.ApprovalMessage != "" {
+		formContent = spec.ApprovalMessage
+	}
 	log.Infof("waitForLarkApprove: ApproveNodes num %d", len(approval.ApprovalNodes))
 	instance, err := client.CreateApprovalInstance(&lark.CreateApprovalInstanceArgs{
 		ApprovalCode: approvalCode,
@@ -564,6 +569,11 @@ func waitForDingTalkApprove(ctx context.Context, spec *commonmodels.JobTaskAppro
 		formContent = fmt.Sprintf("工作流执行人: %s\n%s", workflowCtx.WorkflowTaskCreatorUsername, formContent)
 	}
 
+	// if the user explicitly set their message format, use it.
+	if spec.ApprovalMessage != "" {
+		formContent = spec.ApprovalMessage
+	}
+
 	log.Infof("waitForDingTalkApprove: ApproveNode num %d", len(approval.ApprovalNodes))
 	instanceResp, err := client.CreateApprovalInstance(&dingtalk.CreateApprovalInstanceArgs{
 		ProcessCode:      data.DingTalkDefaultApprovalFormCode,
@@ -850,6 +860,11 @@ func waitForWorkWXApprove(ctx context.Context, spec *commonmodels.JobTaskApprova
 		}
 
 		applicant = resp.UserID
+	}
+
+	// if the user explicitly set their message format, use it.
+	if spec.ApprovalMessage != "" {
+		formContent = spec.ApprovalMessage
 	}
 
 	log.Infof("waitforWorkWXApprove: ApproveNode num %d", len(approval.ApprovalNodes))

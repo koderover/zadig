@@ -120,6 +120,10 @@ func (j ApprovalJobController) Update(useUserInput bool, ticket *commonmodels.Ap
 		}
 	}
 
+	if latestJobSpec.ApprovalMessageSource == config.SourceFixed {
+		j.jobSpec.ApprovalMessage = latestJobSpec.ApprovalMessage
+	}
+
 	j.jobSpec.NativeApproval = latestJobSpec.NativeApproval
 	j.jobSpec.LarkApproval = latestJobSpec.LarkApproval
 	j.jobSpec.DingTalkApproval = latestJobSpec.DingTalkApproval
@@ -154,6 +158,7 @@ func (j ApprovalJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, er
 		LarkApproval:     j.jobSpec.LarkApproval,
 		DingTalkApproval: j.jobSpec.DingTalkApproval,
 		WorkWXApproval:   j.jobSpec.WorkWXApproval,
+		ApprovalMessage:  j.jobSpec.ApprovalMessage,
 	}
 	jobTask := &commonmodels.JobTask{
 		Name:        GenJobName(j.workflow, j.name, 0),
