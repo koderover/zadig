@@ -154,6 +154,7 @@ func (j ApprovalJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, er
 		LarkApproval:     j.jobSpec.LarkApproval,
 		DingTalkApproval: j.jobSpec.DingTalkApproval,
 		WorkWXApproval:   j.jobSpec.WorkWXApproval,
+		ApprovalMessage:  j.jobSpec.ApprovalMessage,
 	}
 	jobTask := &commonmodels.JobTask{
 		Name:        GenJobName(j.workflow, j.name, 0),
