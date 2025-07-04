@@ -512,6 +512,27 @@ func (w *Workflow) GetReferableVariables(currentJobName string, option GetWorkfl
 	})
 
 	resp = append(resp, &commonmodels.KeyVal{
+		Key:          "project.id",
+		Value:        w.Project,
+		Type:         "string",
+		IsCredential: false,
+	})
+
+	resp = append(resp, &commonmodels.KeyVal{
+		Key:          "project.name",
+		Value:        w.Project,
+		Type:         "string",
+		IsCredential: false,
+	})
+
+	resp = append(resp, &commonmodels.KeyVal{
+		Key:          "workflow.id",
+		Value:        w.Name,
+		Type:         "string",
+		IsCredential: false,
+	})
+
+	resp = append(resp, &commonmodels.KeyVal{
 		Key:          "workflow.name",
 		Value:        w.Name,
 		Type:         "string",
@@ -550,6 +571,13 @@ func (w *Workflow) GetReferableVariables(currentJobName string, option GetWorkfl
 		resp = append(resp, &commonmodels.KeyVal{
 			Key:          "workflow.task.id",
 			Value:        "",
+			Type:         "string",
+			IsCredential: false,
+		})
+
+		resp = append(resp, &commonmodels.KeyVal{
+			Key:          "workflow.task.url",
+			Value:        w.Name,
 			Type:         "string",
 			IsCredential: false,
 		})
