@@ -1596,6 +1596,16 @@ func createOrUpdateHelmService(fsTree fs.FS, args *helmServiceCreationArgs, forc
 			log.Errorf("Failed to create gerrit webhook, err: %s", err)
 			return nil, err
 		}
+	case setting.SourceFromChartTemplate:
+		valuesSourceRepo, err := serviceObj.GetHelmValuesSourceRepo()
+		if err != nil {
+			log.Errorf("Failed to get helm values source repo, err: %s", err)
+			return nil, err
+		}
+		if valuesSourceRepo.GitRepoConfig != nil {
+			commonservice.ProcessServiceWebhook(serviceObj, currentSvcTmpl, args.ServiceName, args.Production, logger)
+		}
+
 	case setting.SourceFromOther:
 		// no webhook is required
 		break

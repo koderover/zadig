@@ -21,15 +21,16 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
-	"github.com/openkruise/kruise-api/apps/v1alpha1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
 	templ "text/template"
 	"time"
+
+	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
+	"github.com/openkruise/kruise-api/apps/v1alpha1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -55,6 +56,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/webhook"
 	commontypes "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/types"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
+	"github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/codehost/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
 	internalresource "github.com/koderover/zadig/v2/pkg/shared/kube/resource"
@@ -740,8 +742,7 @@ func DeleteServiceWebhookByName(serviceName, productName string, production bool
 
 func needProcessWebhook(source string) bool {
 	if source == setting.ServiceSourceTemplate || source == setting.SourceFromZadig || source == setting.SourceFromGerrit ||
-		source == "" || source == setting.SourceFromExternal || source == setting.SourceFromChartTemplate ||
-		source == setting.SourceFromChartRepo || source == setting.SourceFromCustomEdit {
+		source == "" || source == setting.SourceFromExternal || source == setting.SourceFromChartRepo || source == setting.SourceFromCustomEdit {
 		return false
 	}
 	return true
@@ -755,46 +756,97 @@ func ProcessServiceWebhook(updated, current *commonmodels.Service, serviceName s
 		if !needProcessWebhook(updated.Source) {
 			return
 		}
+
 		action = "add"
-		address, err := GetGitlabAddress(updated.SrcPath)
-		if err != nil {
-			log.Errorf("failed to parse codehost address, err: %s", err)
-			return
+		if updated.Source == setting.SourceFromChartTemplate {
+			valuesSourceRepo, err := updated.GetHelmValuesSourceRepo()
+			if err != nil {
+				log.Errorf("failed to get helm values source repo, err: %s", err)
+				return
+			}
+			if valuesSourceRepo.GitRepoConfig != nil {
+				ch, err := mongodb.NewCodehostColl().GetCodeHostByID(valuesSourceRepo.GitRepoConfig.CodehostID, true)
+				if err != nil {
+					log.Errorf("failed to get codehost by id %d, err: %s", valuesSourceRepo.GitRepoConfig.CodehostID, err)
+					return
+				}
+
+				updatedHooks = append(updatedHooks, &webhook.WebHook{
+					Owner:      valuesSourceRepo.GitRepoConfig.Owner,
+					Namespace:  valuesSourceRepo.GitRepoConfig.GetNamespace(),
+					Repo:       valuesSourceRepo.GitRepoConfig.Repo,
+					Address:    ch.Address,
+					Name:       "trigger",
+					CodeHostID: valuesSourceRepo.GitRepoConfig.CodehostID,
+				})
+			}
+		} else {
+			address, err := GetGitlabAddress(updated.SrcPath)
+			if err != nil {
+				log.Errorf("failed to parse codehost address, err: %s", err)
+				return
+			}
+			if address == "" {
+				return
+			}
+			updatedHooks = append(updatedHooks, &webhook.WebHook{
+				Owner:      updated.RepoOwner,
+				Namespace:  updated.GetRepoNamespace(),
+				Repo:       updated.RepoName,
+				Address:    address,
+				Name:       "trigger",
+				CodeHostID: updated.CodehostID,
+			})
 		}
-		if address == "" {
-			return
-		}
-		updatedHooks = append(updatedHooks, &webhook.WebHook{
-			Owner:      updated.RepoOwner,
-			Namespace:  updated.GetRepoNamespace(),
-			Repo:       updated.RepoName,
-			Address:    address,
-			Name:       "trigger",
-			CodeHostID: updated.CodehostID,
-		})
 	}
 	if current != nil {
 		if !needProcessWebhook(current.Source) {
 			return
 		}
+
 		action = "remove"
-		address, err := GetGitlabAddress(current.SrcPath)
-		if err != nil {
-			log.Errorf("failed to parse codehost address, err: %s", err)
-			return
+		if current.Source == setting.SourceFromChartTemplate {
+			valuesSourceRepo, err := current.GetHelmValuesSourceRepo()
+			if err != nil {
+				log.Errorf("failed to get helm values source repo, err: %s", err)
+				return
+			}
+			if valuesSourceRepo.GitRepoConfig != nil {
+				ch, err := mongodb.NewCodehostColl().GetCodeHostByID(valuesSourceRepo.GitRepoConfig.CodehostID, true)
+				if err != nil {
+					log.Errorf("failed to get codehost by id %d, err: %s", valuesSourceRepo.GitRepoConfig.CodehostID, err)
+					return
+				}
+
+				updatedHooks = append(updatedHooks, &webhook.WebHook{
+					Owner:      valuesSourceRepo.GitRepoConfig.Owner,
+					Namespace:  valuesSourceRepo.GitRepoConfig.GetNamespace(),
+					Repo:       valuesSourceRepo.GitRepoConfig.Repo,
+					Address:    ch.Address,
+					Name:       "trigger",
+					CodeHostID: valuesSourceRepo.GitRepoConfig.CodehostID,
+				})
+			}
+
+		} else {
+			address, err := GetGitlabAddress(current.SrcPath)
+			if err != nil {
+				log.Errorf("failed to parse codehost address, err: %s", err)
+				return
+			}
+			//address := getAddressFromPath(current.SrcPath, current.GetRepoNamespace(), current.RepoName, logger.Desugar())
+			if address == "" {
+				return
+			}
+			currentHooks = append(currentHooks, &webhook.WebHook{
+				Owner:      current.RepoOwner,
+				Namespace:  current.GetRepoNamespace(),
+				Repo:       current.RepoName,
+				Address:    address,
+				Name:       "trigger",
+				CodeHostID: current.CodehostID,
+			})
 		}
-		//address := getAddressFromPath(current.SrcPath, current.GetRepoNamespace(), current.RepoName, logger.Desugar())
-		if address == "" {
-			return
-		}
-		currentHooks = append(currentHooks, &webhook.WebHook{
-			Owner:      current.RepoOwner,
-			Namespace:  current.GetRepoNamespace(),
-			Repo:       current.RepoName,
-			Address:    address,
-			Name:       "trigger",
-			CodeHostID: current.CodehostID,
-		})
 	}
 	if updated != nil && current != nil {
 		action = "update"

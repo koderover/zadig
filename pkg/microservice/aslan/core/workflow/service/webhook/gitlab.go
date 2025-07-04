@@ -93,6 +93,9 @@ func ProcessGitlabHook(payload []byte, req *http.Request, requestID string, log 
 		if err = updateServiceTemplateByPushEvent(pushEvent.Ref, changeFiles, pathWithNamespace, log); err != nil {
 			errorList = multierror.Append(errorList, err)
 		}
+		if err = updateServiceTemplateValuesByPushEvent(pushEvent.Ref, changeFiles, pathWithNamespace, log); err != nil {
+			errorList = multierror.Append(errorList, err)
+		}
 	case *gitlab.MergeEvent:
 		mergeEvent = event
 	case *gitlab.TagEvent:
@@ -295,6 +298,7 @@ func updateServiceTemplateByPushEvent(ref string, diffs []string, pathWithNamesp
 			if err != nil {
 				errs = multierror.Append(errs, err)
 			}
+
 			// 判断PushEvent的Diffs中是否包含该服务模板的src_path
 			affected := false
 			for _, diff := range diffs {
@@ -336,6 +340,22 @@ func GetGitlabProductionServiceTemplates() ([]*commonmodels.Service, error) {
 	return commonrepo.NewProductionServiceColl().ListMaxRevisions(opt)
 }
 
+func GetHelmChartTemplateServiceTemplates() ([]*commonmodels.Service, error) {
+	opt := &commonrepo.ServiceListOption{
+		Type:   setting.HelmDeployType,
+		Source: setting.SourceFromChartTemplate,
+	}
+	return commonrepo.NewServiceColl().ListMaxRevisions(opt)
+}
+
+func GetHelmChartTemplateProductionServiceTemplates() ([]*commonmodels.Service, error) {
+	opt := &commonrepo.ServiceListOption{
+		Type:   setting.HelmDeployType,
+		Source: setting.SourceFromChartRepo,
+	}
+	return commonrepo.NewProductionServiceColl().ListMaxRevisions(opt)
+}
+
 // SyncServiceTemplateFromGitlab Force to sync Service Template to latest commit and content,
 // Notes: if remains the same, quit sync; if updates, revision +1
 func SyncServiceTemplateFromGitlab(service *commonmodels.Service, log *zap.SugaredLogger) error {
@@ -368,4 +388,120 @@ func SyncServiceTemplateFromGitlab(service *commonmodels.Service, log *zap.Sugar
 	}
 	log.Infof("End of sync service template %s from gitlab path %s", service.ServiceName, service.SrcPath)
 	return nil
+}
+
+// SyncServiceTemplateValuesFromGitlab Force to sync Service Template Values to latest commit and content,
+// Notes: if remains the same, quit sync; if updates, revision +1
+func SyncServiceTemplateValuesFromGitlab(service *commonmodels.Service, log *zap.SugaredLogger) error {
+	sourceFrom, err := service.GetHelmValuesSourceRepo()
+	if err != nil {
+		return fmt.Errorf("service %s's helm values create_from is invalid", service.ServiceName)
+	}
+
+	err = checkCodeHostIsGitlab(sourceFrom.GitRepoConfig.CodehostID)
+	if err != nil {
+		return err
+	}
+
+	// 获取当前Commit的SHA
+	var before string
+	if sourceFrom.Commit != nil {
+		before = sourceFrom.Commit.SHA
+	}
+	// Sync最新的Commit的SHA
+	var after string
+	err = syncValuesLatestCommit(sourceFrom)
+	if err != nil {
+		return err
+	}
+	after = sourceFrom.Commit.SHA
+	// 判断一下是否需要Sync内容
+	if before == after {
+		log.Infof("Before and after SHA: %s remains the same, no need to sync", before)
+		// 无需更新
+		return nil
+	}
+	// 在Ensure过程中会检查source，如果source为gitlab，则同步gitlab内容到service中
+	if err := fillServiceTmplValues(setting.WebhookTaskCreator, service, log); err != nil {
+		log.Errorf("fillServiceTmpl error: %+v", err)
+		return e.ErrValidateTemplate.AddDesc(err.Error())
+	}
+	log.Infof("End of sync service template %s's values from gitlab path %s", service.ServiceName, sourceFrom.LoadPath)
+	return nil
+}
+
+func updateServiceTemplateValuesByPushEvent(ref string, diffs []string, pathWithNamespace string, log *zap.SugaredLogger) error {
+	log.Infof("EVENT: GITLAB WEBHOOK UPDATING SERVICE TEMPLATE VALUES")
+
+	svcTmplsMap := map[bool][]*commonmodels.Service{}
+	serviceTmpls, err := GetHelmChartTemplateServiceTemplates()
+	if err != nil {
+		log.Errorf("Failed to get gitlab testing service templates, error: %v", err)
+		return err
+	}
+	svcTmplsMap[false] = serviceTmpls
+	productionServiceTmpls, err := GetHelmChartTemplateProductionServiceTemplates()
+	if err != nil {
+		log.Errorf("Failed to get gitlab production service templates, error: %v", err)
+		return err
+	}
+	svcTmplsMap[true] = productionServiceTmpls
+
+	errs := &multierror.Error{}
+	for production, serviceTmpls := range svcTmplsMap {
+		for _, service := range serviceTmpls {
+			if service.CreateFrom == nil {
+				continue
+			}
+
+			createFrom, err := service.GetHelmCreateFrom()
+			if err != nil {
+				log.Errorf("Failed to get helm create from, error: %v", err)
+				continue
+			}
+
+			sourceRepo, err := createFrom.GetSourceDetail()
+			if err != nil {
+				log.Errorf("Failed to get source detail, error: %v", err)
+				continue
+			}
+
+			if sourceRepo.GitRepoConfig == nil {
+				continue
+			}
+
+			if sourceRepo.GitRepoConfig.GetNamespace()+"/"+sourceRepo.GitRepoConfig.Repo != pathWithNamespace {
+				continue
+			}
+
+			if !checkBranchMatch(service, production, ref, log) {
+				continue
+			}
+
+			// 判断PushEvent的Diffs中是否包含该服务模板的LoadPath
+			affected := false
+			path := sourceRepo.LoadPath
+			for _, diff := range diffs {
+				if subElem(path, diff) {
+					affected = true
+					break
+				}
+			}
+			if affected {
+				log.Infof("Started to sync service template %s's values from gitlab %s, production: %v", service.ServiceName, sourceRepo.LoadPath, production)
+				//TODO: 异步处理
+				service.CreateBy = "system"
+				service.Production = production
+				err := SyncServiceTemplateValuesFromGitlab(service, log)
+				if err != nil {
+					log.Errorf("SyncServiceTemplateValuesFromGitlab failed, error: %v", err)
+					errs = multierror.Append(errs, err)
+				}
+			} else {
+				log.Infof("Service template %s's values from gitlab %s is not affected, no sync", service.ServiceName, sourceRepo.LoadPath)
+			}
+		}
+	}
+
+	return errs.ErrorOrNil()
 }

@@ -34,6 +34,8 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	templaterepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
+	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
+	fsservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/fs"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/service/service"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/shared/client/systemconfig"
@@ -42,6 +44,7 @@ import (
 	gitlabtool "github.com/koderover/zadig/v2/pkg/tool/git/gitlab"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/util"
+	yamlutil "github.com/koderover/zadig/v2/pkg/util/yaml"
 )
 
 func reloadServiceTmplFromGit(svc *commonmodels.Service, log *zap.SugaredLogger) error {
@@ -60,6 +63,79 @@ func reloadServiceTmplFromGit(svc *commonmodels.Service, log *zap.SugaredLogger)
 		},
 		Production: svc.Production,
 	}, true, log)
+	return err
+}
+
+func reloadServiceTmplHelmValuesFromGit(svc *commonmodels.Service, log *zap.SugaredLogger) error {
+	sourceRepo, err := svc.GetHelmValuesSourceRepo()
+	if err != nil {
+		return fmt.Errorf("service %s's helm values create_from is invalid", svc.ServiceName)
+	}
+
+	valuesYAML, err := fsservice.DownloadFileFromSource(&fsservice.DownloadFromSourceArgs{
+		CodehostID: sourceRepo.GitRepoConfig.CodehostID,
+		Namespace:  sourceRepo.GitRepoConfig.Namespace,
+		Owner:      sourceRepo.GitRepoConfig.Owner,
+		Repo:       sourceRepo.GitRepoConfig.Repo,
+		Path:       sourceRepo.LoadPath,
+		Branch:     sourceRepo.GitRepoConfig.Branch,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to download helm values from git, error: %s", err)
+	}
+
+	originValue, err := svc.GetHelmTemplateServiceValues()
+	if err != nil {
+		return fmt.Errorf("service %s's helm values is invalid", svc.ServiceName)
+	}
+
+	equal, err := yamlutil.Equal(string(valuesYAML), originValue)
+	if err != nil || equal {
+		return err
+	}
+
+	createFrom, err := svc.GetHelmCreateFrom()
+	if err != nil {
+		return fmt.Errorf("service %s's helm create_from is invalid", svc.ServiceName)
+	}
+
+	if createFrom.YamlData == nil {
+		return fmt.Errorf("service %s's helm create_from's yaml_data is nil", svc.ServiceName)
+	}
+
+	variables := make([]*service.Variable, 0)
+	for _, v := range createFrom.Variables {
+		variables = append(variables, &service.Variable{
+			Key:   v.Key,
+			Value: v.Value,
+		})
+	}
+
+	_, err = service.CreateOrUpdateHelmServiceFromChartTemplate(svc.ProductName, &service.HelmServiceCreationArgs{
+		Name:       svc.ServiceName,
+		CreatedBy:  svc.CreateBy,
+		Production: svc.Production,
+		AutoSync:   svc.AutoSync,
+		CreateFrom: &service.CreateFromChartTemplate{
+			TemplateName: createFrom.TemplateName,
+			ValuesYAML:   string(valuesYAML),
+			Variables:    variables,
+		},
+		ValuesData: &commonservice.ValuesDataArgs{
+			YamlSource: setting.SourceFromGitRepo,
+			SourceID:   fmt.Sprintf("%d", sourceRepo.GitRepoConfig.CodehostID),
+			AutoSync:   svc.AutoSync,
+			GitRepoConfig: &commonservice.RepoConfig{
+				CodehostID:  sourceRepo.GitRepoConfig.CodehostID,
+				Owner:       sourceRepo.GitRepoConfig.Owner,
+				Namespace:   sourceRepo.GitRepoConfig.Namespace,
+				Repo:        sourceRepo.GitRepoConfig.Repo,
+				Branch:      sourceRepo.GitRepoConfig.Branch,
+				ValuesPaths: []string{sourceRepo.LoadPath},
+			},
+		},
+	}, true, log)
+
 	return err
 }
 
@@ -133,6 +209,26 @@ func fillServiceTmpl(userName string, args *commonmodels.Service, log *zap.Sugar
 	return nil
 }
 
+func fillServiceTmplValues(userName string, args *commonmodels.Service, log *zap.SugaredLogger) error {
+	if args == nil {
+		return errors.New("service template arg is null")
+	}
+	if len(args.ServiceName) == 0 {
+		return errors.New("service name is empty")
+	}
+	if !config.ServiceNameRegex.MatchString(args.ServiceName) {
+		return fmt.Errorf("service name must match %s", config.ServiceNameRegexString)
+	}
+	if args.Type == setting.HelmDeployType {
+		if err := reloadServiceTmplHelmValuesFromGit(args, log); err != nil {
+			log.Errorf("Sync content from github failed, error: %s", err)
+			return err
+		}
+	}
+
+	return nil
+}
+
 func syncLatestCommit(service *commonmodels.Service) error {
 	if service.SrcPath == "" {
 		return fmt.Errorf("url不能是空的")
@@ -176,12 +272,34 @@ func syncLatestCommit(service *commonmodels.Service) error {
 	return nil
 }
 
+func syncValuesLatestCommit(createFrom *commonmodels.CreateFromRepo) error {
+	client, err := getGitlabClientByCodehostId(createFrom.GitRepoConfig.CodehostID)
+	if err != nil {
+		return err
+	}
+
+	commit, err := GitlabGetLatestCommit(client, createFrom.GitRepoConfig.Namespace, createFrom.GitRepoConfig.Repo, createFrom.GitRepoConfig.Branch, createFrom.LoadPath)
+	if err != nil {
+		return err
+	}
+
+	if commit != nil {
+		createFrom.Commit = &commonmodels.Commit{
+			SHA:     commit.ID,
+			Message: commit.Message,
+		}
+	}
+
+	return nil
+}
+
 func getGitlabClientByCodehostId(codehostId int) (*gitlabtool.Client, error) {
 	codehost, err := systemconfig.New().GetCodeHost(codehostId)
 	if err != nil {
 		log.Error(err)
 		return nil, e.ErrCodehostListProjects.AddDesc(fmt.Sprintf("failed to get codehost:%d, err: %s", codehost, err))
 	}
+
 	client, err := gitlabtool.NewClient(codehost.ID, codehost.Address, codehost.AccessToken, config.ProxyHTTPSAddr(), codehost.EnableProxy, codehost.DisableSSL)
 	if err != nil {
 		log.Error(err)
@@ -570,6 +688,28 @@ func subElem(parent, sub string) bool {
 	return false
 }
 
+func checkCodeHostIsGitlab(codehostID int) error {
+	codehost, err := systemconfig.New().GetCodeHost(codehostID)
+	if err != nil {
+		return err
+	}
+	if codehost.Type != setting.SourceFromGitlab {
+		return fmt.Errorf("codehost type is not gitlab, codehost id: %d, type: %s", codehost.ID, codehost.Type)
+	}
+	return nil
+}
+
+func checkCodeHostIsGithub(codehostID int) error {
+	codehost, err := systemconfig.New().GetCodeHost(codehostID)
+	if err != nil {
+		return err
+	}
+	if codehost.Type != setting.SourceFromGithub {
+		return fmt.Errorf("codehost type is not github, codehost id: %d, type: %s", codehost.ID, codehost.Type)
+	}
+	return nil
+}
+
 func checkBranchMatch(service *commonmodels.Service, production bool, ref string, log *zap.SugaredLogger) bool {
 	if service.Type == setting.K8SDeployType {
 		if !strings.HasPrefix(ref, "refs/heads/") {
@@ -582,24 +722,52 @@ func checkBranchMatch(service *commonmodels.Service, production bool, ref string
 			return false
 		}
 	} else if service.Type == setting.HelmDeployType {
-		createFrom := &commonmodels.CreateFromRepo{}
-		err := commonmodels.IToi(service.CreateFrom, createFrom)
-		if err != nil {
-			log.Errorf("cannot convert service.CreateFrom to commonmodels.CreateFromRepo, service name: %s, production: %v, err: %v", service.ServiceName, production, err)
-			return false
-		}
-		if createFrom.GitRepoConfig == nil {
-			log.Errorf("service %s, production %v, git repo config is nil", service.ServiceName, production)
-			return false
-		}
-		if !strings.HasPrefix(ref, "refs/heads/") {
-			log.Errorf("ref %s is not a branch", ref)
-			return false
-		}
+		if service.Source == setting.SourceFromChartTemplate {
+			createFrom := &commonmodels.CreateFromChartTemplate{}
+			err := commonmodels.IToi(service.CreateFrom, createFrom)
+			if err != nil {
+				log.Errorf("cannot convert service.CreateFrom to commonmodels.CreateFromChartTemplate, service name: %s, production: %v, err: %v", service.ServiceName, production, err)
+				return false
+			}
+			sourceDetail, err := createFrom.GetSourceDetail()
+			if err != nil {
+				log.Errorf("cannot get source detail, service name: %s, production: %v, err: %v", service.ServiceName, production, err)
+				return false
+			}
+			if sourceDetail.GitRepoConfig == nil {
+				log.Errorf("service %s, production %v, git repo config is nil", service.ServiceName, production)
+				return false
+			}
 
-		ref = strings.TrimPrefix(ref, "refs/heads/")
-		if createFrom.GitRepoConfig.Branch != ref {
-			return false
+			if !strings.HasPrefix(ref, "refs/heads/") {
+				log.Errorf("ref %s is not a branch", ref)
+				return false
+			}
+
+			ref = strings.TrimPrefix(ref, "refs/heads/")
+			if sourceDetail.GitRepoConfig.Branch != ref {
+				return false
+			}
+		} else {
+			createFrom := &commonmodels.CreateFromRepo{}
+			err := commonmodels.IToi(service.CreateFrom, createFrom)
+			if err != nil {
+				log.Errorf("cannot convert service.CreateFrom to commonmodels.CreateFromRepo, service name: %s, production: %v, err: %v", service.ServiceName, production, err)
+				return false
+			}
+			if createFrom.GitRepoConfig == nil {
+				log.Errorf("service %s, production %v, git repo config is nil", service.ServiceName, production)
+				return false
+			}
+			if !strings.HasPrefix(ref, "refs/heads/") {
+				log.Errorf("ref %s is not a branch", ref)
+				return false
+			}
+
+			ref = strings.TrimPrefix(ref, "refs/heads/")
+			if createFrom.GitRepoConfig.Branch != ref {
+				return false
+			}
 		}
 	}
 	return true
