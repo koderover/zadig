@@ -120,6 +120,10 @@ func (j ApprovalJobController) Update(useUserInput bool, ticket *commonmodels.Ap
 		}
 	}
 
+	if latestJobSpec.ApprovalMessageSource == config.SourceFixed {
+		j.jobSpec.ApprovalMessage = latestJobSpec.ApprovalMessage
+	}
+
 	j.jobSpec.NativeApproval = latestJobSpec.NativeApproval
 	j.jobSpec.LarkApproval = latestJobSpec.LarkApproval
 	j.jobSpec.DingTalkApproval = latestJobSpec.DingTalkApproval

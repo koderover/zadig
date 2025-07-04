@@ -1037,17 +1037,18 @@ type BlueKingJobSpec struct {
 }
 
 type ApprovalJobSpec struct {
-	Timeout          int64                   `bson:"timeout"                     yaml:"timeout"                       json:"timeout"`
-	Type             config.ApprovalType     `bson:"type"                        yaml:"type"                          json:"type"`
-	JobName          string                  `bson:"job_name"                    yaml:"job_name"                      json:"job_name"`
-	OriginJobName    string                  `bson:"origin_job_name"             yaml:"origin_job_name"               json:"origin_job_name"`
-	Source           config.DeploySourceType `bson:"source"                      yaml:"source"                        json:"source"`
-	Description      string                  `bson:"description"                 yaml:"description"                   json:"description"`
-	NativeApproval   *NativeApproval         `bson:"native_approval"             yaml:"native_approval,omitempty"     json:"native_approval,omitempty"`
-	LarkApproval     *LarkApproval           `bson:"lark_approval"               yaml:"lark_approval,omitempty"       json:"lark_approval,omitempty"`
-	DingTalkApproval *DingTalkApproval       `bson:"dingtalk_approval"           yaml:"dingtalk_approval,omitempty"   json:"dingtalk_approval,omitempty"`
-	WorkWXApproval   *WorkWXApproval         `bson:"workwx_approval"             yaml:"workwx_approval,omitempty"     json:"workwx_approval,omitempty"`
-	ApprovalMessage  string                  `bson:"approval_message"            yaml:"approval_message,omitempty"    json:"approval_message,omitempty"`
+	Timeout               int64                   `bson:"timeout"                     yaml:"timeout"                           json:"timeout"`
+	Type                  config.ApprovalType     `bson:"type"                        yaml:"type"                              json:"type"`
+	JobName               string                  `bson:"job_name"                    yaml:"job_name"                          json:"job_name"`
+	OriginJobName         string                  `bson:"origin_job_name"             yaml:"origin_job_name"                   json:"origin_job_name"`
+	Source                config.DeploySourceType `bson:"source"                      yaml:"source"                            json:"source"`
+	Description           string                  `bson:"description"                 yaml:"description"                       json:"description"`
+	NativeApproval        *NativeApproval         `bson:"native_approval"             yaml:"native_approval,omitempty"         json:"native_approval,omitempty"`
+	LarkApproval          *LarkApproval           `bson:"lark_approval"               yaml:"lark_approval,omitempty"           json:"lark_approval,omitempty"`
+	DingTalkApproval      *DingTalkApproval       `bson:"dingtalk_approval"           yaml:"dingtalk_approval,omitempty"       json:"dingtalk_approval,omitempty"`
+	WorkWXApproval        *WorkWXApproval         `bson:"workwx_approval"             yaml:"workwx_approval,omitempty"         json:"workwx_approval,omitempty"`
+	ApprovalMessage       string                  `bson:"approval_message"            yaml:"approval_message,omitempty"        json:"approval_message,omitempty"`
+	ApprovalMessageSource config.DeploySourceType `bson:"approval_message_source"     yaml:"approval_message_source,omitempty" json:"approval_message_source,omitempty"`
 }
 
 type NotificationJobSpec struct {
