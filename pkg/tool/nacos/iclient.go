@@ -27,7 +27,15 @@ func NewNacosClient(nacosType string, serverAddr string, AuthConfig interface{})
 			return nil, err
 		}
 
-		return NewNacos2Client(serverAddr, nacosConfig.UserName, nacosConfig.Password)
+		return NewNacos1Client(serverAddr, nacosConfig.UserName, nacosConfig.Password)
+	case setting.SourceFromNacos3:
+		nacosConfig := &NacosAuthConfig{}
+		err := IToi(AuthConfig, nacosConfig)
+		if err != nil {
+			return nil, err
+		}
+
+		return NewNacos3Client(serverAddr, nacosConfig.UserName, nacosConfig.Password)
 	case setting.SourceFromNacosEEMSE:
 		nacosConfig := &NacosEEMSEAuthConfig{}
 		err := IToi(AuthConfig, nacosConfig)
