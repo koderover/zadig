@@ -26,10 +26,10 @@ import (
 	"github.com/koderover/zadig/v2/pkg/shared/client/user"
 )
 
-func ListTesting(uid string, log *zap.SugaredLogger) ([]*TestingOpt, error) {
+func ListTesting(uid string, pageNum, pageSize int, query string, log *zap.SugaredLogger) ([]*TestingOpt, error) {
 	testingResp := make([]*TestingOpt, 0)
 	allTestings := make([]*commonmodels.Testing, 0)
-	testings, err := commonrepo.NewTestingColl().List(&commonrepo.ListTestOption{TestType: "function"})
+	testings, err := commonrepo.NewTestingColl().List(&commonrepo.ListTestOption{TestType: "function", PageNum: pageNum, PageSize: pageSize, NameQuery: query})
 	if err != nil {
 		log.Errorf("[Testing.List] error: %v", err)
 		return nil, fmt.Errorf("list testing error: %v", err)
