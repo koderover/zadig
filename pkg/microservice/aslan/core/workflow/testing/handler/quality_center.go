@@ -70,5 +70,5 @@ func ListTestingWithStat(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.RespErr = service.ListTesting(ctx.UserID, pageNum, pageSize, query, ctx.Logger)
+	ctx.Resp, ctx.RespErr = service.ListTesting(ctx.UserID, pageNum, pageSize, c.Query("search"), ctx.Logger)
 }
