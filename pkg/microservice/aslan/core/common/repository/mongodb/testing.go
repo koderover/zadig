@@ -204,3 +204,15 @@ func (c *TestingColl) ListByCursor() (*mongo.Cursor, error) {
 
 	return c.Collection.Find(context.TODO(), query)
 }
+
+func (c *TestingColl) GetEstimatedCount(search string) (int64, error) {
+	query := bson.M{}
+
+	if len(search) != 0 {
+		query["name"] = bson.M{
+			"$regex": search, "$options": "i",
+		}
+	}
+
+	return c.CountDocuments(context.TODO(), query)
+}

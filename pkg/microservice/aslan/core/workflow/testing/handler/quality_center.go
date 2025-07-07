@@ -27,6 +27,11 @@ import (
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 )
 
+type ListTestingWithStatResp struct {
+	Tests []*service.TestingOpt `json:"tests"`
+	Total int64                 `json:"total"`
+}
+
 func ListTestingWithStat(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -70,5 +75,15 @@ func ListTestingWithStat(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.RespErr = service.ListTesting(ctx.UserID, pageNum, pageSize, c.Query("search"), ctx.Logger)
+	resp, total, err := service.ListTesting(ctx.UserID, pageNum, pageSize, c.Query("search"), ctx.Logger)
+
+	if err != nil {
+		ctx.RespErr = err
+		return
+	}
+
+	ctx.Resp = &ListTestingWithStatResp{
+		Tests: resp,
+		Total: total,
+	}
 }
