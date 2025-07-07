@@ -18,11 +18,13 @@ package handler
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/testing/service"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
+	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 )
 
 func ListTestingWithStat(c *gin.Context) {
@@ -43,5 +45,30 @@ func ListTestingWithStat(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.RespErr = service.ListTesting(ctx.UserID, ctx.Logger)
+	pageSizeStr := c.Query("pageSize")
+	pageNumStr := c.Query("pageNum")
+
+	var pageSize, pageNum int
+
+	if pageSizeStr == "" {
+		pageSize = 50
+	} else {
+		pageSize, err = strconv.Atoi(pageSizeStr)
+		if err != nil {
+			ctx.RespErr = e.ErrInvalidParam.AddDesc(fmt.Sprintf("pageSize args err :%s", err))
+			return
+		}
+	}
+
+	if pageNumStr == "" {
+		pageNum = 1
+	} else {
+		pageNum, err = strconv.Atoi(pageNumStr)
+		if err != nil {
+			ctx.RespErr = e.ErrInvalidParam.AddDesc(fmt.Sprintf("page args err :%s", err))
+			return
+		}
+	}
+
+	ctx.Resp, ctx.RespErr = service.ListTesting(ctx.UserID, pageNum, pageSize, query, ctx.Logger)
 }
