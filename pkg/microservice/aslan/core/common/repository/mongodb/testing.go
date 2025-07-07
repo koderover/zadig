@@ -40,6 +40,10 @@ type ListTestOption struct {
 	IsSort       bool
 	BuildOS      string
 	BasicImageID string
+
+	PageNum   int
+	PageSize  int
+	NameQuery string
 }
 
 type TestingColl struct {
@@ -89,12 +93,21 @@ func (c *TestingColl) List(opt *ListTestOption) ([]*models.Testing, error) {
 	if len(opt.BasicImageID) != 0 {
 		query["pre_test.image_id"] = opt.BasicImageID
 	}
+	if len(opt.NameQuery) != 0 {
+		query["name"] = bson.M{
+			"$regex": opt.NameQuery, "$options": "i",
+		}
+	}
 
 	var resp []*models.Testing
 	ctx := context.Background()
 	opts := options.Find()
 	if opt.IsSort {
 		opts.SetSort(bson.D{{"update_time", -1}})
+	}
+	if opt.PageNum != 0 {
+		opts.SetSkip(int64((opt.PageNum - 1) * opt.PageSize))
+		opts.SetLimit(int64(opt.PageSize))
 	}
 	cursor, err := c.Collection.Find(ctx, query, opts)
 	if err != nil {
