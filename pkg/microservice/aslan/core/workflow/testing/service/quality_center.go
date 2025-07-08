@@ -26,13 +26,13 @@ import (
 	"github.com/koderover/zadig/v2/pkg/shared/client/user"
 )
 
-func ListTesting(uid string, log *zap.SugaredLogger) ([]*TestingOpt, error) {
+func ListTesting(uid string, pageNum, pageSize int, query string, log *zap.SugaredLogger) ([]*TestingOpt, int64, error) {
 	testingResp := make([]*TestingOpt, 0)
 	allTestings := make([]*commonmodels.Testing, 0)
-	testings, err := commonrepo.NewTestingColl().List(&commonrepo.ListTestOption{TestType: "function"})
+	testings, err := commonrepo.NewTestingColl().List(&commonrepo.ListTestOption{TestType: "function", PageNum: pageNum, PageSize: pageSize, NameQuery: query})
 	if err != nil {
 		log.Errorf("[Testing.List] error: %v", err)
-		return nil, fmt.Errorf("list testing error: %v", err)
+		return nil, 0, fmt.Errorf("list testing error: %v", err)
 	}
 
 	for _, testing := range testings {
@@ -75,7 +75,7 @@ func ListTesting(uid string, log *zap.SugaredLogger) ([]*TestingOpt, error) {
 	allPermissionInfo, err := user.New().GetUserAuthInfo(uid)
 	if err != nil {
 		log.Errorf("failed to get user permission info, error:%s", err)
-		return testingResp, err
+		return testingResp, 0, err
 	}
 	respMap := make(map[string]*TestingOpt)
 	testingProjectMap := make(map[string][]*TestingOpt)
@@ -112,7 +112,15 @@ func ListTesting(uid string, log *zap.SugaredLogger) ([]*TestingOpt, error) {
 		testingResp = append(testingResp, testing)
 	}
 
-	return testingResp, nil
+	var total int64
+	if pageNum > 0 {
+		total, err = commonrepo.NewTestingColl().GetEstimatedCount(query)
+		if err != nil {
+			return nil, 0, err
+		}
+	}
+
+	return testingResp, total, nil
 }
 
 func setVerbToTestings(workflowsNameMap map[string]*TestingOpt, testings []*TestingOpt, verbs []string) {
