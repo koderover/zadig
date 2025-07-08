@@ -34,6 +34,7 @@ type CollaborationInstanceFindOptions struct {
 	ProjectName string
 	Name        string
 	UserUID     []string
+	IsDeleted   bool
 }
 
 type CollaborationInstanceListOptions struct {
@@ -61,10 +62,13 @@ func (c *CollaborationInstanceColl) EnsureIndex(ctx context.Context) error {
 				bson.E{Key: "project_name", Value: 1},
 				bson.E{Key: "collaboration_name", Value: 1},
 				bson.E{Key: "user_uid", Value: 1},
+				bson.E{Key: "is_deleted", Value: 1},
 			},
-			Options: options.Index().SetUnique(true),
+			Options: options.Index().SetUnique(true).SetName("idx_collaboration_instance_1"),
 		},
 	}
+
+	_, _ = c.Indexes().DropOne(ctx, "project_name_1_collaboration_name_1_user_uid_1")
 
 	_, err := c.Indexes().CreateMany(ctx, mod)
 
@@ -80,6 +84,12 @@ func (c *CollaborationInstanceColl) Find(opt *CollaborationInstanceFindOptions) 
 	if opt.ProjectName != "" {
 		query["project_name"] = opt.ProjectName
 	}
+	if opt.IsDeleted {
+		query["is_deleted"] = opt.IsDeleted
+	} else {
+		query["is_deleted"] = false
+	}
+
 	err := c.FindOne(context.TODO(), query).Decode(res)
 	return res, err
 }
@@ -104,7 +114,7 @@ func (c *CollaborationInstanceColl) Update(uid string, args *models.Collaboratio
 		return errors.New("nil CollaborationInstance")
 	}
 
-	query := bson.M{"collaboration_name": args.CollaborationName, "project_name": args.ProjectName, "user_uid": uid}
+	query := bson.M{"collaboration_name": args.CollaborationName, "project_name": args.ProjectName, "user_uid": uid, "is_deleted": false}
 	change := bson.M{"$set": bson.M{
 		"update_time":     time.Now().Unix(),
 		"last_visit_time": args.LastVisitTime,
@@ -123,7 +133,7 @@ func (c *CollaborationInstanceColl) ResetRevision(modeName, projectName string) 
 		return errors.New("nil modeName or projectName")
 	}
 
-	query := bson.M{"collaboration_name": modeName, "project_name": projectName}
+	query := bson.M{"collaboration_name": modeName, "project_name": projectName, "is_deleted": false}
 	change := bson.M{"$set": bson.M{
 		"update_time": time.Now().Unix(),
 		"revision":    0,
@@ -185,6 +195,12 @@ func (c *CollaborationInstanceColl) List(opt *CollaborationInstanceFindOptions) 
 	if opt.ProjectName != "" {
 		query["project_name"] = opt.ProjectName
 	}
+	if opt.IsDeleted {
+		query["is_deleted"] = opt.IsDeleted
+	} else {
+		query["is_deleted"] = false
+	}
+
 	ctx := context.Background()
 	opts := options.Find()
 	opts.SetSort(bson.D{{"create_time", -1}})
@@ -199,4 +215,11 @@ func (c *CollaborationInstanceColl) List(opt *CollaborationInstanceFindOptions) 
 	}
 
 	return ret, nil
+}
+
+func (c *CollaborationInstanceColl) LogicDeleteByUserID(userUID string) error {
+	query := bson.M{}
+	query["user_uid"] = userUID
+	_, err := c.UpdateMany(context.TODO(), query, bson.M{"$set": bson.M{"is_deleted": true}})
+	return err
 }
