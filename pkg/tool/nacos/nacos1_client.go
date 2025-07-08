@@ -17,6 +17,7 @@ limitations under the License.
 package nacos
 
 import (
+	"fmt"
 	"net/url"
 	"strconv"
 	"strings"
@@ -27,7 +28,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-type Client struct {
+type NacosClient struct {
 	*httpclient.Client
 	serverAddr string
 	UserName   string
@@ -35,13 +36,13 @@ type Client struct {
 	token      string
 }
 
-type loginResp struct {
+type nacosLoginResp struct {
 	AccessToken string `json:"accessToken"`
 	TokenTtl    int64  `json:"tokenTtl"`
 	GlobalAdmin bool   `json:"globalAdmin"`
 }
 
-type config struct {
+type nacosConfig struct {
 	ID      string `json:"id"`
 	DataID  string `json:"dataId"`
 	Group   string `json:"group"`
@@ -49,20 +50,20 @@ type config struct {
 	Format  string `json:"type"`
 }
 
-type configResp struct {
-	PageItems []*config `json:"pageItems"`
+type nacosConfigResp struct {
+	PageItems []*nacosConfig `json:"pageItems"`
 }
 
-type configHistoryResp struct {
+type nacosConfigHistoryResp struct {
 	PageItems []*types.NacosConfigHistory `json:"pageItems"`
 }
 
-type namespace struct {
+type nacosNamespace struct {
 	NamespaceID   string `json:"namespace"`
 	NamespaceName string `json:"namespaceShowName"`
 }
-type namespaceResp struct {
-	Data []*namespace `json:"data"`
+type nacosNamespaceResp struct {
+	Data []*nacosNamespace `json:"data"`
 }
 
 const (
@@ -70,7 +71,7 @@ const (
 	defaultNamespaceID = "123456abcdefg"
 )
 
-func NewNacos2Client(serverAddr, userName, password string) (*Client, error) {
+func NewNacos1Client(serverAddr, userName, password string) (*NacosClient, error) {
 	host, err := url.Parse(serverAddr)
 	if err != nil {
 		return nil, errors.Wrap(err, "parse nacos server address failed")
@@ -80,7 +81,7 @@ func NewNacos2Client(serverAddr, userName, password string) (*Client, error) {
 		serverAddr, _ = url.JoinPath(serverAddr, "nacos")
 	}
 	loginURL, _ := url.JoinPath(serverAddr, "v1/auth/login")
-	var result loginResp
+	var result nacosLoginResp
 	resp, err := req.R().AddQueryParam("username", userName).
 		AddQueryParam("password", password).
 		SetResult(&result).
@@ -89,7 +90,7 @@ func NewNacos2Client(serverAddr, userName, password string) (*Client, error) {
 		return nil, errors.Wrap(err, "login nacos failed")
 	}
 	if !resp.IsSuccess() {
-		return nil, errors.New("login nacos failed")
+		return nil, fmt.Errorf("login nacos failed: %s", resp.String())
 	}
 
 	c := httpclient.New(
@@ -97,7 +98,7 @@ func NewNacos2Client(serverAddr, userName, password string) (*Client, error) {
 		httpclient.SetHostURL(serverAddr),
 	)
 
-	return &Client{
+	return &NacosClient{
 		Client:     c,
 		serverAddr: serverAddr,
 		token:      result.AccessToken,
@@ -120,9 +121,9 @@ func getNamespaceID(namespaceID string) string {
 	return namespaceID
 }
 
-func (c *Client) ListNamespaces() ([]*types.NacosNamespace, error) {
+func (c *NacosClient) ListNamespaces() ([]*types.NacosNamespace, error) {
 	url := "/v1/console/namespaces"
-	res := &namespaceResp{}
+	res := &nacosNamespaceResp{}
 	if _, err := c.Client.Get(url, httpclient.SetResult(res)); err != nil {
 		return nil, errors.Wrap(err, "list nacos namespace failed")
 	}
@@ -136,7 +137,7 @@ func (c *Client) ListNamespaces() ([]*types.NacosNamespace, error) {
 	return resp, nil
 }
 
-func (c *Client) ListConfigs(namespaceID string) ([]*types.NacosConfig, error) {
+func (c *NacosClient) ListConfigs(namespaceID string) ([]*types.NacosConfig, error) {
 	namespaceID = getNamespaceID(namespaceID)
 	url := "/v1/cs/configs"
 	resp := []*types.NacosConfig{}
@@ -144,7 +145,7 @@ func (c *Client) ListConfigs(namespaceID string) ([]*types.NacosConfig, error) {
 	pageSize := 500
 	end := false
 	for !end {
-		res := &configResp{}
+		res := &nacosConfigResp{}
 		numString := strconv.Itoa(pageNum)
 		sizeString := strconv.Itoa(pageSize)
 		params := httpclient.SetQueryParams(map[string]string{
@@ -178,10 +179,10 @@ func (c *Client) ListConfigs(namespaceID string) ([]*types.NacosConfig, error) {
 	return resp, nil
 }
 
-func (c *Client) GetConfig(dataID, group, namespaceID string) (*types.NacosConfig, error) {
+func (c *NacosClient) GetConfig(dataID, group, namespaceID string) (*types.NacosConfig, error) {
 	namespaceID = getNamespaceID(namespaceID)
 	url := "/v1/cs/configs"
-	res := &config{}
+	res := &nacosConfig{}
 	params := httpclient.SetQueryParams(map[string]string{
 		"dataId":      dataID,
 		"group":       group,
@@ -203,7 +204,7 @@ func (c *Client) GetConfig(dataID, group, namespaceID string) (*types.NacosConfi
 	}, nil
 }
 
-func (c *Client) GetConfigHistory(dataID, group, namespaceID string) ([]*types.NacosConfigHistory, error) {
+func (c *NacosClient) GetConfigHistory(dataID, group, namespaceID string) ([]*types.NacosConfigHistory, error) {
 	namespaceID = getNamespaceID(namespaceID)
 	url := "/v1/cs/history"
 
@@ -215,7 +216,7 @@ func (c *Client) GetConfigHistory(dataID, group, namespaceID string) ([]*types.N
 		"accessToken": c.token,
 	})
 
-	res := &configHistoryResp{}
+	res := &nacosConfigHistoryResp{}
 	if _, err := c.Client.Get(url, params, httpclient.SetResult(res)); err != nil {
 		return nil, errors.Wrap(err, "list nacos config history failed")
 	}
@@ -223,7 +224,7 @@ func (c *Client) GetConfigHistory(dataID, group, namespaceID string) ([]*types.N
 	return res.PageItems, nil
 }
 
-func (c *Client) UpdateConfig(dataID, group, namespaceID, content, format string) error {
+func (c *NacosClient) UpdateConfig(dataID, group, namespaceID, content, format string) error {
 	namespaceID = getNamespaceID(namespaceID)
 	path := "/v1/cs/configs"
 	formValues := map[string]string{
@@ -240,7 +241,7 @@ func (c *Client) UpdateConfig(dataID, group, namespaceID, content, format string
 	return nil
 }
 
-func (c *Client) Validate() error {
+func (c *NacosClient) Validate() error {
 	return nil
 }
 
