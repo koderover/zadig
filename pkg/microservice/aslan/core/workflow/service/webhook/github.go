@@ -23,6 +23,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/google/go-github/v35/github"
 	"github.com/hashicorp/go-multierror"
@@ -276,6 +277,61 @@ func pushEventCommitsFiles(e *github.PushEvent) []string {
 	return files
 }
 
+func ProcessGithubWebHook(payload []byte, req *http.Request, requestID string, log *zap.SugaredLogger) error {
+	// forwardedProto := req.Header.Get("X-Forwarded-Proto")
+	// forwardedHost := req.Header.Get("X-Forwarded-Host")
+	// baseURI := fmt.Sprintf("%s://%s", forwardedProto, forwardedHost)
+
+	hookType := github.WebHookType(req)
+	if hookType == "integration_installation" || hookType == "installation" || hookType == "ping" {
+		return nil
+	}
+
+	err := validateSecret(payload, []byte(gitservice.GetHookSecret()), req)
+	if err != nil {
+		return err
+	}
+
+	event, err := github.ParseWebHook(github.WebHookType(req), payload)
+	if err != nil {
+		return err
+	}
+
+	deliveryID := github.DeliveryID(req)
+	log.Infof("[Webhook] event: %s delivery id: %s received", hookType, deliveryID)
+
+	switch et := event.(type) {
+	case *github.PullRequestEvent:
+		if *et.Action != "opened" && *et.Action != "synchronize" {
+			return nil
+		}
+	case *github.PushEvent:
+		// sync service template
+		if err = updateServiceTemplateByGithubPush(et, log); err != nil {
+			log.Errorf("updateServiceTemplateByGithubPush failed, error:%v", err)
+		}
+
+		// sync service template helm values
+		if err = updateServiceTemplateHelmValuesByGithubPush(et, log); err != nil {
+			log.Errorf("updateServiceTemplateHelmValuesByGithubPush failed, error:%v", err)
+		}
+
+		//add webhook user
+		if et.Pusher != nil {
+			webhookUser := &commonmodels.WebHookUser{
+				Domain:    req.Header.Get("X-Forwarded-Host"),
+				UserName:  *et.Pusher.Name,
+				Email:     *et.Pusher.Email,
+				Source:    setting.SourceFromGithub,
+				CreatedAt: time.Now().Unix(),
+			}
+			commonrepo.NewWebHookUserColl().Upsert(webhookUser)
+		}
+	case *github.CreateEvent:
+	}
+	return nil
+}
+
 func ProcessGithubWebHookForTest(payload []byte, req *http.Request, requestID string, log *zap.SugaredLogger) error {
 	hookType := github.WebHookType(req)
 	if hookType == "integration_installation" || hookType == "installation" || hookType == "ping" {
@@ -482,6 +538,96 @@ func updateServiceTemplateByGithubPush(pushEvent *github.PushEvent, log *zap.Sug
 	return errs.ErrorOrNil()
 }
 
+func updateServiceTemplateHelmValuesByGithubPush(pushEvent *github.PushEvent, log *zap.SugaredLogger) error {
+	changeFiles := make([]string, 0)
+	for _, commit := range pushEvent.Commits {
+		changeFiles = append(changeFiles, commit.Added...)
+		changeFiles = append(changeFiles, commit.Removed...)
+		changeFiles = append(changeFiles, commit.Modified...)
+	}
+
+	latestCommitID := *pushEvent.After
+	latestCommitMessage := ""
+	for _, commit := range pushEvent.Commits {
+		if *commit.ID == latestCommitID {
+			latestCommitMessage = *commit.Message
+			break
+		}
+	}
+
+	svcTmplsMap := map[bool][]*commonmodels.Service{}
+	serviceTmpls, err := GetHelmChartTemplateServiceTemplates()
+	if err != nil {
+		log.Errorf("Failed to get github testing service templates, error: %v", err)
+		return err
+	}
+	svcTmplsMap[false] = serviceTmpls
+	productionServiceTmpls, err := GetHelmChartTemplateProductionServiceTemplates()
+	if err != nil {
+		log.Errorf("Failed to get github proudction service templates, error: %v", err)
+		return err
+	}
+	svcTmplsMap[true] = productionServiceTmpls
+
+	errs := &multierror.Error{}
+	for production, serviceTmpls := range svcTmplsMap {
+		for _, service := range serviceTmpls {
+			if service.CreateFrom == nil {
+				continue
+			}
+
+			createFrom, err := service.GetHelmCreateFrom()
+			if err != nil {
+				log.Errorf("Failed to get helm create from, error: %v", err)
+				continue
+			}
+
+			sourceRepo, err := createFrom.GetSourceDetail()
+			if err != nil {
+				log.Errorf("Failed to get source detail, error: %v", err)
+				continue
+			}
+
+			if sourceRepo.GitRepoConfig == nil {
+				continue
+			}
+
+			if sourceRepo.GitRepoConfig.GetNamespace()+"/"+sourceRepo.GitRepoConfig.Repo != pushEvent.GetRepo().GetFullName() {
+				continue
+			}
+
+			if !checkBranchMatch(service, production, pushEvent.GetRef(), log) {
+				continue
+			}
+
+			// 判断PushEvent的Diffs中是否包含该服务模板的src_path
+			affected := false
+			path := sourceRepo.LoadPath
+			for _, changeFile := range changeFiles {
+				if subElem(path, changeFile) {
+					affected = true
+					break
+				}
+			}
+			if affected {
+				log.Infof("Started to sync service template %s's helm values from github %s", service.ServiceName, sourceRepo.LoadPath)
+				//TODO: 异步处理
+				service.CreateBy = "system"
+				service.Production = production
+				err := SyncServiceTemplateHelmValuesFromGithub(service, latestCommitID, latestCommitMessage, log)
+				if err != nil {
+					log.Errorf("SyncServiceTemplateHelmValuesFromGithub failed, error: %v", err)
+					errs = multierror.Append(errs, err)
+				}
+			} else {
+				log.Infof("Service template %s's helm values from github %s is not affected, no sync", service.ServiceName, sourceRepo.LoadPath)
+			}
+		}
+	}
+
+	return errs.ErrorOrNil()
+}
+
 func GetGithubTestingServiceTemplates() ([]*commonmodels.Service, error) {
 	opt := &commonrepo.ServiceListOption{
 		Source: setting.SourceFromGithub,
@@ -573,5 +719,42 @@ func SyncServiceTemplateFromGithub(service *commonmodels.Service, latestCommitID
 	}
 
 	log.Infof("End of sync service template %s from github path %s", service.ServiceName, service.SrcPath)
+	return nil
+}
+
+func SyncServiceTemplateHelmValuesFromGithub(service *commonmodels.Service, latestCommitID, latestCommitMessage string, log *zap.SugaredLogger) error {
+	sourceFrom, err := service.GetHelmValuesSourceRepo()
+	if err != nil {
+		return fmt.Errorf("service %s's helm values create_from is invalid", service.ServiceName)
+	}
+	err = checkCodeHostIsGithub(sourceFrom.GitRepoConfig.CodehostID)
+	if err != nil {
+		return err
+	}
+
+	// 获取当前Commit的SHA
+	var before string
+	if service.Commit != nil {
+		before = service.Commit.SHA
+	}
+
+	// 更新commit信息
+	service.Commit = &commonmodels.Commit{
+		SHA:     latestCommitID,
+		Message: latestCommitMessage,
+	}
+
+	if before == latestCommitID {
+		log.Infof("Before and after SHA: %s remains the same, no need to sync, source:%s", before, service.Source)
+		// 无需更新
+		return nil
+	}
+	// 在Ensure过程中会检查source，如果source为github，则同步github内容到service中
+	if err := fillServiceTmplValues(setting.WebhookTaskCreator, service, log); err != nil {
+		log.Errorf("ensure github serviceTmpl failed, error: %+v", err)
+		return e.ErrValidateTemplate.AddDesc(err.Error())
+	}
+
+	log.Infof("End of sync service template %s's helm values from github path %s", service.ServiceName, sourceFrom.LoadPath)
 	return nil
 }
