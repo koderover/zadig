@@ -47,6 +47,7 @@ func (c *CollaborationInstanceColl) FindInstance(uid, projectKey string) ([]*mod
 	query := bson.M{}
 	query["project_name"] = projectKey
 	query["user_uid"] = uid
+	query["is_deleted"] = false
 
 	cursor, err := c.Find(context.TODO(), query)
 	if err != nil {

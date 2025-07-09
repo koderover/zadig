@@ -33,6 +33,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	configbase "github.com/koderover/zadig/v2/pkg/config"
+	aslanmongodb "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/collaboration/repository/mongodb"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/user/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/user/core/repository"
@@ -499,7 +500,28 @@ func DeleteUserByUID(uid string, logger *zap.SugaredLogger) error {
 		logger.Errorf("DeleteUserByUID DeleteUserSettingByUid:%s error, error msg:%s", uid, err.Error())
 		return err
 	}
+	err = DeleteCollaborationModeByUid(uid)
+	if err != nil {
+		tx.Rollback()
+		logger.Errorf("DeleteUserByUID DeleteCollaborationModeByUid:%s error, error msg:%s", uid, err.Error())
+		return err
+	}
 	return tx.Commit().Error
+}
+
+func DeleteCollaborationModeByUid(uid string) error {
+	// cleanup collaboration resources
+	err := aslanmongodb.NewCollaborationInstanceColl().LogicDeleteByUserID(uid)
+	if err != nil {
+		return fmt.Errorf("failed to delete collaboration instance for user: %s, error: %w", uid, err)
+	}
+
+	err = aslanmongodb.NewCollaborationModeColl().DeleteUser(uid)
+	if err != nil {
+		return fmt.Errorf("failed to delete collaboration mode for user: %s, error: %w", uid, err)
+	}
+
+	return nil
 }
 
 //go:embed retrieve.html

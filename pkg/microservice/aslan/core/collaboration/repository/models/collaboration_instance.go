@@ -33,6 +33,7 @@ type CollaborationInstance struct {
 	Revision          int64              `bson:"revision"                 json:"revision"`
 	UserUID           string             `bson:"user_uid"                 json:"user_uid"`
 	PolicyName        string             `bson:"policy_name"              json:"policy_name"`
+	IsDeleted         bool               `bson:"is_deleted"               json:"is_deleted"`
 	Workflows         []WorkflowCIItem   `bson:"workflows"                json:"workflows"`
 	Products          []ProductCIItem    `bson:"products"                 json:"products"`
 }
