@@ -78,7 +78,7 @@ func syncYamlFromGit(yamlData *templatemodels.CustomYaml, curValue string, origi
 	}
 	equal, err := yamlutil.Equal(string(valuesYAML), originValue)
 	if err != nil || equal {
-		return false, "", err
+		return false, string(valuesYAML), err
 	}
 	return true, string(valuesYAML), nil
 }
