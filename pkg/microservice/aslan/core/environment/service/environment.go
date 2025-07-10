@@ -1879,7 +1879,7 @@ func SyncHelmProductEnvironment(productName, envName, requestID string, log *zap
 
 	updatedRCMap := make(map[string]*templatemodels.ServiceRender)
 
-	changed, defaultValues, err := SyncYamlFromSource(product.YamlData, product.DefaultValues, product.DefaultValues)
+	changed, defaultValues, err := commonservice.SyncYamlFromSource(product.YamlData, product.DefaultValues, product.DefaultValues)
 	if err != nil {
 		log.Errorf("failed to update default values of env %s:%s", product.ProductName, product.EnvName)
 		return err
@@ -1894,7 +1894,7 @@ func SyncHelmProductEnvironment(productName, envName, requestID string, log *zap
 		if chartInfo.OverrideYaml == nil {
 			continue
 		}
-		changed, values, err := SyncYamlFromSource(chartInfo.OverrideYaml, chartInfo.OverrideYaml.YamlContent, chartInfo.OverrideYaml.AutoSyncYaml)
+		changed, values, err := commonservice.SyncYamlFromSource(chartInfo.OverrideYaml, chartInfo.OverrideYaml.YamlContent, chartInfo.OverrideYaml.AutoSyncYaml)
 		if err != nil {
 			return err
 		}
