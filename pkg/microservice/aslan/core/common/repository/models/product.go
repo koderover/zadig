@@ -54,6 +54,7 @@ type Product struct {
 	IsOpenSource   bool                            `bson:"is_opensource"             json:"is_opensource"`
 	RegistryID     string                          `bson:"registry_id"               json:"registry_id"`
 	BaseName       string                          `bson:"base_name"                 json:"base_name"`
+	Alias          string                          `bson:"alias"                     json:"alias"`
 	// IsExisted is true if this environment is created from an existing one
 	IsExisted bool `bson:"is_existed"                json:"is_existed"`
 	// TODO: Deprecated: temp flag
@@ -86,8 +87,7 @@ type Product struct {
 	IstioGrayscale IstioGrayscale `bson:"istio_grayscale" json:"istio_grayscale"`
 
 	// For production environment
-	Production bool   `json:"production" bson:"production"`
-	Alias      string `json:"alias" bson:"alias"`
+	Production bool `json:"production" bson:"production"`
 }
 
 type NotificationEvent string

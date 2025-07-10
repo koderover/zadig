@@ -41,6 +41,7 @@ import (
 
 type DeployableEnv struct {
 	EnvName           string                          `json:"env_name"`
+	Alias             string                          `json:"alias"`
 	Namespace         string                          `json:"namespace"`
 	ClusterID         string                          `json:"cluster_id"`
 	Services          []*types.ServiceWithVariable    `json:"services"`
@@ -361,6 +362,7 @@ func getAllGeneralEnvs(templateProduct *template.Product, production bool) ([]*D
 		envNames[i] = env.EnvName
 		ret[i] = &DeployableEnv{
 			EnvName:           env.EnvName,
+			Alias:             env.Alias,
 			Namespace:         env.Namespace,
 			ClusterID:         env.ClusterID,
 			GlobalVariableKVs: env.GlobalVariables,
@@ -389,6 +391,7 @@ func getDeployableShareEnvs(svcName string, templateProduct *template.Product, p
 
 			ret = append(ret, &DeployableEnv{
 				EnvName:           baseEnv.EnvName,
+				Alias:             baseEnv.Alias,
 				Namespace:         baseEnv.Namespace,
 				ClusterID:         baseEnv.ClusterID,
 				GlobalVariableKVs: baseEnv.GlobalVariables,
@@ -424,6 +427,7 @@ func getDeployableShareEnvs(svcName string, templateProduct *template.Product, p
 
 			ret = append(ret, &DeployableEnv{
 				EnvName:           baseEnv.EnvName,
+				Alias:             baseEnv.Alias,
 				Namespace:         baseEnv.Namespace,
 				ClusterID:         baseEnv.ClusterID,
 				GlobalVariableKVs: baseEnv.GlobalVariables,
@@ -463,6 +467,7 @@ func getSubEnvs(baseEnvName string, templateProduct *template.Product) ([]*Deplo
 	for i, env := range envs {
 		ret[i] = &DeployableEnv{
 			EnvName:           env.EnvName,
+			Alias:             env.Alias,
 			Namespace:         env.Namespace,
 			ClusterID:         env.ClusterID,
 			GlobalVariableKVs: env.GlobalVariables,
@@ -484,6 +489,7 @@ func getGrayEnvs(baseEnvName, clusterID string, templateProduct *template.Produc
 	for i, env := range envs {
 		ret[i] = &DeployableEnv{
 			EnvName:           env.EnvName,
+			Alias:             env.Alias,
 			Namespace:         env.Namespace,
 			ClusterID:         env.ClusterID,
 			GlobalVariableKVs: env.GlobalVariables,

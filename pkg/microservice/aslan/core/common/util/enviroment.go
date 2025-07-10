@@ -27,6 +27,7 @@ import (
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
+	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/repository"
 	"github.com/koderover/zadig/v2/pkg/tool/cache"
@@ -224,4 +225,38 @@ func UpdateProductImage(envName, productName, serviceName string, targets map[st
 
 func GenIstioGatewayName(serviceName string) string {
 	return fmt.Sprintf("%s-gateway-%s", "zadig", serviceName)
+}
+
+func GetEnvInfo(projectName, envName string, envMap map[string]*commonmodels.Product) (*commonmodels.Product, error) {
+	if env, ok := envMap[envName]; ok {
+		return env, nil
+	}
+	envInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: projectName, EnvName: envName})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get env info %s/%s, error : %v", projectName, envName, err)
+	}
+	envMap[envName] = envInfo
+	return envInfo, nil
+}
+
+func GetEnvInfoNoErr(projectName, envName string, envMap map[string]*commonmodels.Product) *commonmodels.Product {
+	env, err := GetEnvInfo(projectName, envName, envMap)
+	if err != nil {
+		return nil
+	}
+	return env
+}
+
+func GetEnvProduction(env *commonmodels.Product) bool {
+	if env == nil {
+		return false
+	}
+	return env.Production
+}
+
+func GetEnvAlias(env *commonmodels.Product) string {
+	if env == nil {
+		return ""
+	}
+	return env.Alias
 }
