@@ -623,6 +623,8 @@ func (j DeployJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, erro
 				}
 			}
 
+			log.Infof("================================= autosync flag is: %+v", autoSyncFlag)
+
 			revisionSvc, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
 				ServiceName: svc.ServiceName,
 				Revision:    serviceRevision,
@@ -672,6 +674,7 @@ func (j DeployJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, erro
 				jobTaskSpec.UpdateConfig = svc.UpdateConfig
 				jobTaskSpec.VariableYaml = values
 				jobTaskSpec.UserSuppliedValue = values
+				log.Infof("================================= synced values is: %s", values)
 			}
 
 			jobTask := &commonmodels.JobTask{
