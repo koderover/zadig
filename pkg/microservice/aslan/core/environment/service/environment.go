@@ -1513,6 +1513,13 @@ func GenEstimatedValues(projectName, envName, serviceOrReleaseName string, scene
 		return nil, fmt.Errorf("invalid scene: %s", scene)
 	}
 
+	envTemplateServiceRevision, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
+		ServiceName: serviceOrReleaseName,
+		ProductName: envName,
+		Type:        setting.HelmDeployType,
+		Revision:    prodSvc.Revision,
+	}, arg.Production)
+
 	currentYaml := ""
 	latestYaml := ""
 	if scene == EstimateValuesSceneCreateEnv || scene == EstimateValuesSceneCreateService {
@@ -1553,7 +1560,7 @@ func GenEstimatedValues(projectName, envName, serviceOrReleaseName string, scene
 				return nil, fmt.Errorf("failed to generate merged values yaml, err: %s", err)
 			}
 
-			currentYaml, err = helmDeploySvc.GeneFullValues(tmplSvc.HelmChart.ValuesYaml, yamlContent)
+			currentYaml, err = helmDeploySvc.GeneFullValues(envTemplateServiceRevision.HelmChart.ValuesYaml, yamlContent)
 			if err != nil {
 				return nil, fmt.Errorf("failed to generate full values yaml, err: %s", err)
 			}
@@ -1594,7 +1601,7 @@ func GenEstimatedValues(projectName, envName, serviceOrReleaseName string, scene
 		currentYaml = strings.TrimSuffix(currentYaml, "\n")
 		latestYaml = strings.TrimSuffix(latestYaml, "\n")
 	} else {
-		// tempArg := &commonservice.HelmSvcRenderArg{OverrideValues: arg.OverrideValues}
+		tempArg := &commonservice.HelmSvcRenderArg{OverrideValues: arg.OverrideValues}
 		overrideValue := arg.OverrideYaml
 		if valueMergeStrategy == config.ValueMergeStrategyReuseValue {
 			currentValuesMap, err := helmservice.GetValuesMapFromString(currentYaml)
@@ -1615,16 +1622,16 @@ func GenEstimatedValues(projectName, envName, serviceOrReleaseName string, scene
 			overrideValue = string(finalYamlBytes)
 		}
 
-		// prodSvc.GetServiceRender().SetOverrideYaml(overrideValue)
-		// prodSvc.GetServiceRender().OverrideValues = tempArg.ToOverrideValueString()
+		prodSvc.GetServiceRender().SetOverrideYaml(overrideValue)
+		prodSvc.GetServiceRender().OverrideValues = tempArg.ToOverrideValueString()
 
 		helmDeploySvc := helmservice.NewHelmDeployService()
-		// yamlContent, err := helmDeploySvc.GenMergedValues(prodSvc, prod.DefaultValues, nil)
-		// if err != nil {
-		// 	return nil, fmt.Errorf("failed to generate merged values yaml, err: %s", err)
-		// }
+		yamlContent, err := helmDeploySvc.GenMergedValues(prodSvc, prod.DefaultValues, nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to generate merged values yaml, err: %s", err)
+		}
 
-		latestYaml, err = helmDeploySvc.GeneFullValues(tmplSvc.HelmChart.ValuesYaml, overrideValue)
+		latestYaml, err = helmDeploySvc.GeneFullValues(tmplSvc.HelmChart.ValuesYaml, yamlContent)
 		if err != nil {
 			return nil, fmt.Errorf("failed to generate full values yaml, err: %s", err)
 		}
