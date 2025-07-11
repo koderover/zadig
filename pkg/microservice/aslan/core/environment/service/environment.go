@@ -1515,7 +1515,7 @@ func GenEstimatedValues(projectName, envName, serviceOrReleaseName string, scene
 
 	envTemplateServiceRevision, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
 		ServiceName: serviceOrReleaseName,
-		ProductName: envName,
+		ProductName: projectName,
 		Type:        setting.HelmDeployType,
 		Revision:    prodSvc.Revision,
 	}, arg.Production)
