@@ -1513,6 +1513,16 @@ func GenEstimatedValues(projectName, envName, serviceOrReleaseName string, scene
 		return nil, fmt.Errorf("invalid scene: %s", scene)
 	}
 
+	envTemplateServiceRevision, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
+		ServiceName: serviceOrReleaseName,
+		ProductName: projectName,
+		Type:        setting.HelmDeployType,
+		Revision:    prodSvc.Revision,
+	}, arg.Production)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find template service of revision: %d, error: %s", prodSvc.Revision, err)
+	}
+
 	currentYaml := ""
 	latestYaml := ""
 	if scene == EstimateValuesSceneCreateEnv || scene == EstimateValuesSceneCreateService {
@@ -1553,7 +1563,7 @@ func GenEstimatedValues(projectName, envName, serviceOrReleaseName string, scene
 				return nil, fmt.Errorf("failed to generate merged values yaml, err: %s", err)
 			}
 
-			currentYaml, err = helmDeploySvc.GeneFullValues(tmplSvc.HelmChart.ValuesYaml, yamlContent)
+			currentYaml, err = helmDeploySvc.GeneFullValues(envTemplateServiceRevision.HelmChart.ValuesYaml, yamlContent)
 			if err != nil {
 				return nil, fmt.Errorf("failed to generate full values yaml, err: %s", err)
 			}
