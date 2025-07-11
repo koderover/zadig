@@ -1597,15 +1597,22 @@ func createOrUpdateHelmService(fsTree fs.FS, args *helmServiceCreationArgs, forc
 			return nil, err
 		}
 	case setting.SourceFromChartTemplate:
-		valuesSourceRepo, err := serviceObj.GetHelmValuesSourceRepo()
+		createFrom, err := serviceObj.GetHelmCreateFrom()
 		if err != nil {
-			log.Errorf("Failed to get helm values source repo, err: %s", err)
+			log.Errorf("Failed to get helm create from, err: %s", err)
 			return nil, err
 		}
-		if valuesSourceRepo.GitRepoConfig != nil {
-			commonservice.ProcessServiceWebhook(serviceObj, currentSvcTmpl, args.ServiceName, args.Production, logger)
-		}
 
+		if createFrom.YamlData != nil && createFrom.YamlData.SourceDetail != nil {
+			valuesSourceRepo, err := createFrom.GetSourceDetail()
+			if err != nil {
+				log.Errorf("Failed to get helm values source repo, err: %s", err)
+				return nil, err
+			}
+			if valuesSourceRepo.GitRepoConfig != nil {
+				commonservice.ProcessServiceWebhook(serviceObj, currentSvcTmpl, args.ServiceName, args.Production, logger)
+			}
+		}
 	case setting.SourceFromOther:
 		// no webhook is required
 		break
