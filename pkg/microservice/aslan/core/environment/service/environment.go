@@ -1519,6 +1519,9 @@ func GenEstimatedValues(projectName, envName, serviceOrReleaseName string, scene
 		Type:        setting.HelmDeployType,
 		Revision:    prodSvc.Revision,
 	}, arg.Production)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find template service of revision: %d, error: %s", prodSvc.Revision, err)
+	}
 
 	currentYaml := ""
 	latestYaml := ""
