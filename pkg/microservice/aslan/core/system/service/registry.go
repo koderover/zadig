@@ -315,6 +315,7 @@ func ListReposTags(registryInfo *commonmodels.RegistryNamespace, names []string,
 		Namespace: registryInfo.Namespace,
 		Region:    registryInfo.Region,
 	}
+
 	repos, err := regService.ListRepoImages(registry.ListRepoImagesOption{
 		Endpoint: endPoint,
 		Repos:    names,
