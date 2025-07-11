@@ -612,8 +612,15 @@ func (j DeployJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, erro
 	if j.jobSpec.DeployType == setting.HelmDeployType {
 		for jobSubTaskID, svc := range j.jobSpec.Services {
 			var serviceRevision int64
-			if pSvc, ok := productServiceMap[svc.ServiceName]; ok {
+			var autoSyncFlag bool
+			pSvc, ok := productServiceMap[svc.ServiceName]
+			if ok {
 				serviceRevision = pSvc.Revision
+				// if the service is deployed in the env, and the variable is set to auto sync, ignore user input.
+				// sync the values from codehost and set the value merge strategy to override
+				if pSvc.GetServiceRender().OverrideYaml.AutoSync {
+					autoSyncFlag = true
+				}
 			}
 
 			revisionSvc, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
@@ -644,9 +651,11 @@ func (j DeployJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, erro
 			for _, module := range svc.Modules {
 				service := serviceMap[svc.ServiceName]
 				if service != nil {
-					jobTaskSpec.UpdateConfig = service.UpdateConfig
-					jobTaskSpec.VariableYaml = service.VariableYaml
-					jobTaskSpec.UserSuppliedValue = jobTaskSpec.VariableYaml
+					if !autoSyncFlag {
+						jobTaskSpec.UpdateConfig = service.UpdateConfig
+						jobTaskSpec.VariableYaml = service.VariableYaml
+						jobTaskSpec.UserSuppliedValue = jobTaskSpec.VariableYaml
+					}
 				}
 
 				jobTaskSpec.ImageAndModules = append(jobTaskSpec.ImageAndModules, &commonmodels.ImageAndServiceModule{
@@ -654,6 +663,17 @@ func (j DeployJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, erro
 					Image:         module.Image,
 				})
 			}
+
+			if autoSyncFlag {
+				_, values, err := commonservice.SyncYamlFromSource(pSvc.GetServiceRender().OverrideYaml, pSvc.GetServiceRender().OverrideYaml.YamlContent, pSvc.GetServiceRender().OverrideYaml.AutoSyncYaml)
+				if err != nil {
+					return nil, fmt.Errorf("failed to sync values for service: %s, error: %s", svc.ServiceName, err)
+				}
+				jobTaskSpec.UpdateConfig = svc.UpdateConfig
+				jobTaskSpec.VariableYaml = values
+				jobTaskSpec.UserSuppliedValue = values
+			}
+
 			jobTask := &commonmodels.JobTask{
 				Key:         genJobKey(j.name, svc.ServiceName),
 				Name:        GenJobName(j.workflow, j.name, jobSubTaskID),
