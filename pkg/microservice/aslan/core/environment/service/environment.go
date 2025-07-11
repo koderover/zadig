@@ -1615,16 +1615,16 @@ func GenEstimatedValues(projectName, envName, serviceOrReleaseName string, scene
 			overrideValue = string(finalYamlBytes)
 		}
 
-		prodSvc.GetServiceRender().SetOverrideYaml(overrideValue)
-		prodSvc.GetServiceRender().OverrideValues = tempArg.ToOverrideValueString()
+		// prodSvc.GetServiceRender().SetOverrideYaml(overrideValue)
+		// prodSvc.GetServiceRender().OverrideValues = tempArg.ToOverrideValueString()
 
 		helmDeploySvc := helmservice.NewHelmDeployService()
-		yamlContent, err := helmDeploySvc.GenMergedValues(prodSvc, prod.DefaultValues, nil)
-		if err != nil {
-			return nil, fmt.Errorf("failed to generate merged values yaml, err: %s", err)
-		}
+		// yamlContent, err := helmDeploySvc.GenMergedValues(prodSvc, prod.DefaultValues, nil)
+		// if err != nil {
+		// 	return nil, fmt.Errorf("failed to generate merged values yaml, err: %s", err)
+		// }
 
-		latestYaml, err = helmDeploySvc.GeneFullValues(tmplSvc.HelmChart.ValuesYaml, yamlContent)
+		latestYaml, err = helmDeploySvc.GeneFullValues(tmplSvc.HelmChart.ValuesYaml, overrideValue)
 		if err != nil {
 			return nil, fmt.Errorf("failed to generate full values yaml, err: %s", err)
 		}
