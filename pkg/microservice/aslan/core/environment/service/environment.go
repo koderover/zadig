@@ -1594,7 +1594,7 @@ func GenEstimatedValues(projectName, envName, serviceOrReleaseName string, scene
 		currentYaml = strings.TrimSuffix(currentYaml, "\n")
 		latestYaml = strings.TrimSuffix(latestYaml, "\n")
 	} else {
-		tempArg := &commonservice.HelmSvcRenderArg{OverrideValues: arg.OverrideValues}
+		// tempArg := &commonservice.HelmSvcRenderArg{OverrideValues: arg.OverrideValues}
 		overrideValue := arg.OverrideYaml
 		if valueMergeStrategy == config.ValueMergeStrategyReuseValue {
 			currentValuesMap, err := helmservice.GetValuesMapFromString(currentYaml)
