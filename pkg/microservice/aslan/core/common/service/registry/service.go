@@ -560,6 +560,21 @@ func (s *ecrService) ListRepoImages(option ListRepoImagesOption, log *zap.Sugare
 		return nil, err
 	}
 
+	praseNamespace := func(endpoint string) (string, error) {
+		endpoint = strings.TrimPrefix(endpoint, "http://")
+		endpoint = strings.TrimPrefix(endpoint, "https://")
+		parts := strings.Split(endpoint, "/")
+		if len(parts) == 2 {
+			return parts[1], nil
+		}
+		return "", fmt.Errorf("endpoint %s has no namespace", endpoint)
+	}
+
+	namespace, err := praseNamespace(option.Endpoint.Addr)
+	if err != nil {
+		return nil, err
+	}
+
 	var wg wait.Group
 	var mutex sync.RWMutex
 	resp = &ReposResp{Total: len(option.Repos)}
@@ -570,7 +585,7 @@ func (s *ecrService) ListRepoImages(option ListRepoImagesOption, log *zap.Sugare
 		name := repo
 		wg.Start(func() {
 			input := &ecr.ListImagesInput{
-				RepositoryName: aws.String(name),
+				RepositoryName: aws.String(fmt.Sprintf("%s/%s", namespace, name)),
 			}
 			result, err := svc.ListImages(input)
 			if err != nil {
