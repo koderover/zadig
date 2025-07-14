@@ -162,6 +162,10 @@ func BuildBaseImage() string {
 	return viper.GetString(setting.ENVBuildBaseImage)
 }
 
+func BuildKitImage() string {
+	return viper.GetString(setting.ENVBuildKitImage)
+}
+
 func ProxySocks5Addr() string {
 	return viper.GetString(setting.ProxySocks5Addr)
 }

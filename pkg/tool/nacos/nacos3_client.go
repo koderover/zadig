@@ -88,7 +88,7 @@ type nacos3ConfigHistory struct {
 	Content      string `json:"content"`
 	AppName      string `json:"appName"`
 	OpType       string `json:"opType"`
-	PublishType  string `publishType`
+	PublishType  string `json:"publishType"`
 	SrcIP        string `json:"srcIp"`
 	SrcUser      string `json:"srcUser"`
 	CreatedTime  int64  `json:"createdTime"`

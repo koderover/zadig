@@ -585,6 +585,9 @@ func (j BuildJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, error
 					ImageReleaseTag:       imageTag,
 					BuildArgs:             buildInfo.PostBuild.DockerBuild.BuildArgs,
 					DockerTemplateContent: dockefileContent,
+					EnableBuildkit:        buildInfo.PostBuild.DockerBuild.EnableBuildkit,
+					Platform:              buildInfo.PostBuild.DockerBuild.Platform,
+					BuildKitImage:         config.BuildKitImage(),
 					DockerRegistry: &step.DockerRegistry{
 						DockerRegistryID: j.jobSpec.DockerRegistryID,
 						Host:             registry.RegAddr,

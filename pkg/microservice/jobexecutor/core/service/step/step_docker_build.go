@@ -179,23 +179,48 @@ func (s *DockerBuildStep) dockerCommands() []*exec.Cmd {
 		s.spec.WorkDir = "."
 	}
 
-	cmds = append(
-		cmds,
-		dockerBuildCmd(
-			s.spec.GetDockerFile(),
-			s.spec.ImageName,
-			s.spec.WorkDir,
-			s.spec.BuildArgs,
-			s.spec.IgnoreCache,
-		),
-		dockerPush(s.spec.ImageName),
+	buildCmd := dockerBuildCmd(
+		s.spec.GetDockerFile(),
+		s.spec.ImageName,
+		s.spec.WorkDir,
+		s.spec.BuildArgs,
+		s.spec.IgnoreCache,
+		s.spec.EnableBuildkit,
+		s.spec.Platform,
 	)
+
+	if s.spec.EnableBuildkit {
+		initBuildxCmd := dockerInitBuildxCmd(s.spec.Platform, s.spec.BuildKitImage)
+		cmds = append(
+			cmds,
+			initBuildxCmd,
+			buildCmd,
+		)
+	} else {
+		pushCmd := dockerPush(s.spec.ImageName)
+
+		cmds = append(
+			cmds,
+			buildCmd,
+			pushCmd,
+		)
+	}
 	return cmds
 }
 
-func dockerBuildCmd(dockerfile, fullImage, ctx, buildArgs string, ignoreCache bool) *exec.Cmd {
+func dockerInitBuildxCmd(platform string, buildKitImage string) *exec.Cmd {
+	args := []string{"-c"}
+	dockerInitBuildxCommand := fmt.Sprintf("docker buildx create --node=multiarch --use --platform %s --driver-opt=image=%s", platform, buildKitImage)
+	args = append(args, dockerInitBuildxCommand)
+	return exec.Command("sh", args...)
+}
+
+func dockerBuildCmd(dockerfile, fullImage, ctx, buildArgs string, ignoreCache, enableBuildkit bool, platform string) *exec.Cmd {
 	args := []string{"-c"}
 	dockerCommand := "docker build --rm=true"
+	if enableBuildkit {
+		dockerCommand = "docker buildx build --rm=true --push --platform " + platform
+	}
 	if ignoreCache {
 		dockerCommand += " --no-cache"
 	}

@@ -27,6 +27,9 @@ type StepDockerBuildSpec struct {
 	Source                string              `bson:"source"                              json:"source"                                 yaml:"source"`
 	WorkDir               string              `bson:"work_dir"                            json:"work_dir"                               yaml:"work_dir"`
 	RegistryHost          string              `bson:"registry_host"                       json:"registry_host"                          yaml:"registry_host"`
+	EnableBuildkit        bool                `bson:"enable_buildkit"                     json:"enable_buildkit"                        yaml:"enable_buildkit"`
+	Platform              string              `bson:"platform"                            json:"platform"                               yaml:"platform"`
+	BuildKitImage         string              `bson:"build_kit_image"                     json:"build_kit_image"                        yaml:"build_kit_image"`
 	DockerFile            string              `bson:"docker_file"                         json:"docker_file"                            yaml:"docker_file"`
 	ImageName             string              `bson:"image_name"                          json:"image_name"                             yaml:"image_name"`
 	BuildArgs             string              `bson:"build_args"                          json:"build_args"                             yaml:"build_args"`
