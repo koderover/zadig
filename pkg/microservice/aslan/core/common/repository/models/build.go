@@ -157,6 +157,10 @@ type DockerBuild struct {
 	TemplateID string `bson:"template_id"            json:"template_id"`
 	// TemplateName is the name of the template dockerfile
 	TemplateName string `bson:"template_name"        json:"template_name"`
+	// EnableBuildkit enable docker buildkit
+	EnableBuildkit bool `bson:"enable_buildkit" json:"enable_buildkit"`
+	// Platform is the platform of the docker build
+	Platform string `bson:"platform" json:"platform"`
 }
 
 type JenkinsBuild struct {
