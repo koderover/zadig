@@ -36,16 +36,17 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	{
 		deliveryRelease.GET("/:id", GetDeliveryVersion)
 		deliveryRelease.GET("", ListDeliveryVersion)
-		deliveryRelease.DELETE("/:id", GetProductNameByDelivery, DeleteDeliveryVersion)
-		deliveryRelease.POST("/k8s", CreateK8SDeliveryVersion)
-		deliveryRelease.POST("/helm", CreateHelmDeliveryVersion)
+		deliveryRelease.DELETE("/:id", DeleteDeliveryVersion)
+		deliveryRelease.POST("/k8s", CreateK8SDeliveryVersionV2)
+		deliveryRelease.POST("/helm", CreateHelmDeliveryVersionV2)
+		deliveryRelease.POST("/retry", RetryDeliveryVersion)
 		deliveryRelease.GET("/check", CheckDeliveryVersion)
 		deliveryRelease.POST("/helm/global-variables", ApplyDeliveryGlobalVariables)
 		deliveryRelease.GET("/helm/charts", DownloadDeliveryChart)
 		deliveryRelease.GET("/helm/charts/version", GetChartVersionFromRepo)
-		deliveryRelease.GET("/helm/charts/preview", PreviewGetDeliveryChart)
-		deliveryRelease.GET("/helm/charts/filePath", GetDeliveryChartFilePath)
-		deliveryRelease.GET("/helm/charts/fileContent", GetDeliveryChartFileContent)
+		// deliveryRelease.GET("/helm/charts/preview", PreviewGetDeliveryChart)
+		// deliveryRelease.GET("/helm/charts/filePath", GetDeliveryChartFilePath)
+		// deliveryRelease.GET("/helm/charts/fileContent", GetDeliveryChartFileContent)
 	}
 }
 

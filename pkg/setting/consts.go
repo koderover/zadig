@@ -306,10 +306,11 @@ const (
 	TestingOSSCacheFileName  = "zadig-testing-cache.tar.gz"
 )
 
+type DeliveryVersionType string
+
 const (
-	DeliveryVersionTypeYaml        = "K8SYaml"
-	DeliveryVersionTypeChart       = "HelmChart"
-	DeliveryVersionTypeK8SWorkflow = "K8SWorkflow"
+	DeliveryVersionTypeYaml  DeliveryVersionType = "K8SYaml"
+	DeliveryVersionTypeChart DeliveryVersionType = "HelmChart"
 )
 
 const (
@@ -378,11 +379,14 @@ const (
 )
 
 // DeliveryVersion status
+
+type DeliveryVersionStatus string
+
 const (
-	DeliveryVersionStatusSuccess  = "success"
-	DeliveryVersionStatusFailed   = "failed"
-	DeliveryVersionStatusCreating = "creating"
-	DeliveryVersionStatusRetrying = "retrying"
+	DeliveryVersionStatusSuccess  DeliveryVersionStatus = "success"
+	DeliveryVersionStatusFailed   DeliveryVersionStatus = "failed"
+	DeliveryVersionStatusCreating DeliveryVersionStatus = "creating"
+	DeliveryVersionStatusRetrying DeliveryVersionStatus = "retrying"
 )
 
 const (
@@ -973,4 +977,12 @@ type LarkEventType string
 const (
 	LarkEventTypeSSE      = "sse"
 	LarkEventTypeCallback = "callback"
+)
+
+type DeliveryVersionSource string
+
+const (
+	DeliveryVersionSourceManual      DeliveryVersionSource = "manual"
+	DeliveryVersionSourceFromEnv     DeliveryVersionSource = "from_env"
+	DeliveryVersionSourceFromVersion DeliveryVersionSource = "from_version"
 )

@@ -18,16 +18,11 @@ package service
 
 import (
 	"fmt"
-	"strings"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
-	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/kube"
-	"github.com/koderover/zadig/v2/pkg/setting"
-	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
@@ -56,13 +51,13 @@ type OpenAPIDeliveryVersionProgress struct {
 }
 
 func OpenAPIListDeliveryVersion(projectName string, pageNum, pageSize int) (*OpenAPIListDeliveryVersionResp, error) {
-	args := new(ListDeliveryVersionArgs)
+	args := new(ListDeliveryVersionV2Args)
 	args.ProjectName = projectName
 	args.Page = pageNum
 	args.PerPage = pageSize
 	args.Verbosity = VerbosityBrief
 
-	versions, total, err := ListDeliveryVersion(args, log.SugaredLogger())
+	versions, total, err := ListDeliveryVersionV2(args, log.SugaredLogger())
 	if err != nil {
 		return nil, fmt.Errorf("failed to list delivery version, error: %v", err)
 	}
@@ -70,13 +65,13 @@ func OpenAPIListDeliveryVersion(projectName string, pageNum, pageSize int) (*Ope
 	resp := make([]*OpenAPIDeliveryVersionInfo, 0)
 	for _, version := range versions {
 		resp = append(resp, &OpenAPIDeliveryVersionInfo{
-			ID:          version.VersionInfo.ID,
-			VersionName: version.VersionInfo.Version,
-			Type:        version.VersionInfo.Type,
-			Status:      version.VersionInfo.Status,
-			Description: version.VersionInfo.Desc,
-			CreatedBy:   version.VersionInfo.CreatedBy,
-			CreateTime:  version.VersionInfo.CreatedAt,
+			ID: version.ID,
+			// VersionName: version.VersionInfo.Version,
+			// Type:        version.VersionInfo.Type,
+			// Status:      version.VersionInfo.Status,
+			// Description: version.VersionInfo.Desc,
+			// CreatedBy:   version.VersionInfo.CreatedBy,
+			// CreateTime:  version.VersionInfo.CreatedAt,
 		})
 	}
 	return &OpenAPIListDeliveryVersionResp{
@@ -128,112 +123,91 @@ type OpenAPIDeliveryDeployInfo struct {
 func OpenAPIGetDeliveryVersion(ID string) (*OpenAPIGetDeliveryVersionResp, error) {
 	version := new(commonrepo.DeliveryVersionArgs)
 	version.ID = ID
-	data, err := GetDetailReleaseData(version, log.SugaredLogger())
-	if err != nil {
-		return nil, fmt.Errorf("failed to get delivery version, ID: %s, error: %v", ID, err)
-	}
+	// data, err := GetDetailReleaseData(version, log.SugaredLogger())
+	// if err != nil {
+	// 	return nil, fmt.Errorf("failed to get delivery version, ID: %s, error: %v", ID, err)
+	// }
 
 	resp := new(OpenAPIGetDeliveryVersionResp)
-	resp.VersionInfo = &OpenAPIDeliveryVersionInfo{
-		ID:          data.VersionInfo.ID,
-		VersionName: data.VersionInfo.Version,
-		Type:        data.VersionInfo.Type,
-		Status:      data.VersionInfo.Status,
-		Labels:      data.VersionInfo.Labels,
-		Description: data.VersionInfo.Desc,
-		Progress: &OpenAPIDeliveryVersionProgress{
-			SuccessCount: data.VersionInfo.Progress.SuccessCount,
-			TotalCount:   data.VersionInfo.Progress.TotalCount,
-			UploadStatus: data.VersionInfo.Progress.UploadStatus,
-			Error:        data.VersionInfo.Progress.Error,
-		},
-		CreatedBy:  data.VersionInfo.CreatedBy,
-		CreateTime: data.VersionInfo.CreatedAt,
-	}
-	resp.DeployInfos = make([]*OpenAPIDeliveryDeployInfo, 0)
-	resp.DistributeInfos = make([]*OpenAPIDeliveryDistributeInfo, 0)
+	// resp.VersionInfo = &OpenAPIDeliveryVersionInfo{
+	// 	ID:          data.VersionInfo.ID,
+	// 	VersionName: data.VersionInfo.Version,
+	// 	Type:        data.VersionInfo.Type,
+	// 	Status:      data.VersionInfo.Status,
+	// 	Labels:      data.VersionInfo.Labels,
+	// 	Description: data.VersionInfo.Desc,
+	// 	Progress: &OpenAPIDeliveryVersionProgress{
+	// 		SuccessCount: data.VersionInfo.Progress.SuccessCount,
+	// 		TotalCount:   data.VersionInfo.Progress.TotalCount,
+	// 		UploadStatus: data.VersionInfo.Progress.UploadStatus,
+	// 		Error:        data.VersionInfo.Progress.Error,
+	// 	},
+	// 	CreatedBy:  data.VersionInfo.CreatedBy,
+	// 	CreateTime: data.VersionInfo.CreatedAt,
+	// }
+	// resp.DeployInfos = make([]*OpenAPIDeliveryDeployInfo, 0)
+	// resp.DistributeInfos = make([]*OpenAPIDeliveryDistributeInfo, 0)
 
-	if resp.VersionInfo.Type == setting.DeliveryVersionTypeYaml {
-		for _, info := range data.DeployInfo {
-			openAPIInfo := &OpenAPIDeliveryDeployInfo{
-				ID:         info.ID,
-				CreateTime: info.CreatedAt,
-			}
-			openAPIInfo.ServiceName = info.RealServiceName
-			openAPIInfo.Image = info.Image
-			openAPIInfo.ImageName = info.ImageName
-			openAPIInfo.ServiceModule = info.ServiceModule
-			openAPIInfo.RegistryID = info.RegistryID
-			resp.DeployInfos = append(resp.DeployInfos, openAPIInfo)
-		}
-	} else if resp.VersionInfo.Type == setting.DeliveryVersionTypeChart {
-		setDistributeInfo := func(info *commonmodels.DeliveryDistribute) *OpenAPIDeliveryDistributeInfo {
-			openAPIInfo := &OpenAPIDeliveryDistributeInfo{
-				ID:             info.ID,
-				DistributeType: info.DistributeType,
-				CreateTime:     info.CreatedAt,
-				SubDistributes: make([]*OpenAPIDeliveryDistributeInfo, 0),
-			}
-			if info.DistributeType == config.Chart {
-				openAPIInfo.ServiceName = info.ChartName
-				openAPIInfo.ChartName = info.ChartName
-				openAPIInfo.ChartRepoName = info.ChartRepoName
-				openAPIInfo.ChartVersion = info.ChartVersion
-			} else if info.DistributeType == config.Image {
-				openAPIInfo.ServiceName = info.ChartName
-				openAPIInfo.Image = info.Image
-				openAPIInfo.ImageName = info.ImageName
-				openAPIInfo.ServiceModule = info.ImageName
-				openAPIInfo.Namespace = info.Namespace
-			}
-			return openAPIInfo
-		}
+	// if resp.VersionInfo.Type == setting.DeliveryVersionTypeYaml {
+	// 	for _, info := range data.DeployInfo {
+	// 		openAPIInfo := &OpenAPIDeliveryDeployInfo{
+	// 			ID:         info.ID,
+	// 			CreateTime: info.CreatedAt,
+	// 		}
+	// 		openAPIInfo.ServiceName = info.RealServiceName
+	// 		openAPIInfo.Image = info.Image
+	// 		openAPIInfo.ImageName = info.ImageName
+	// 		openAPIInfo.ServiceModule = info.ServiceModule
+	// 		openAPIInfo.RegistryID = info.RegistryID
+	// 		resp.DeployInfos = append(resp.DeployInfos, openAPIInfo)
+	// 	}
+	// } else if resp.VersionInfo.Type == setting.DeliveryVersionTypeChart {
+	// 	setDistributeInfo := func(info *commonmodels.DeliveryDistribute) *OpenAPIDeliveryDistributeInfo {
+	// 		openAPIInfo := &OpenAPIDeliveryDistributeInfo{
+	// 			ID:             info.ID,
+	// 			DistributeType: info.DistributeType,
+	// 			CreateTime:     info.CreatedAt,
+	// 			SubDistributes: make([]*OpenAPIDeliveryDistributeInfo, 0),
+	// 		}
+	// 		if info.DistributeType == config.Chart {
+	// 			openAPIInfo.ServiceName = info.ChartName
+	// 			openAPIInfo.ChartName = info.ChartName
+	// 			openAPIInfo.ChartRepoName = info.ChartRepoName
+	// 			openAPIInfo.ChartVersion = info.ChartVersion
+	// 		} else if info.DistributeType == config.Image {
+	// 			openAPIInfo.ServiceName = info.ChartName
+	// 			openAPIInfo.Image = info.Image
+	// 			openAPIInfo.ImageName = info.ImageName
+	// 			openAPIInfo.ServiceModule = info.ImageName
+	// 			openAPIInfo.Namespace = info.Namespace
+	// 		}
+	// 		return openAPIInfo
+	// 	}
 
-		for _, info := range data.DistributeInfo {
-			openAPIInfo := setDistributeInfo(info)
-			if len(info.SubDistributes) > 0 {
-				for _, subInfo := range info.SubDistributes {
-					subOpenAPIInfo := setDistributeInfo(subInfo)
-					openAPIInfo.SubDistributes = append(openAPIInfo.SubDistributes, subOpenAPIInfo)
-				}
-			}
-			resp.DistributeInfos = append(resp.DistributeInfos, openAPIInfo)
-		}
-	}
+	// 	for _, info := range data.DistributeInfo {
+	// 		openAPIInfo := setDistributeInfo(info)
+	// 		if len(info.SubDistributes) > 0 {
+	// 			for _, subInfo := range info.SubDistributes {
+	// 				subOpenAPIInfo := setDistributeInfo(subInfo)
+	// 				openAPIInfo.SubDistributes = append(openAPIInfo.SubDistributes, subOpenAPIInfo)
+	// 			}
+	// 		}
+	// 		resp.DistributeInfos = append(resp.DistributeInfos, openAPIInfo)
+	// 	}
+	// }
 
 	return resp, nil
 }
 
 func OpenAPIDeleteDeliveryVersion(ID string) error {
 	logger := log.SugaredLogger()
-	version := new(commonrepo.DeliveryVersionArgs)
+	version := new(commonrepo.DeliveryVersionV2Args)
 	version.ID = ID
-	ctxErr := DeleteDeliveryVersion(version, logger)
+	ctxErr := DeleteDeliveryVersionV2(version, logger)
 	if ctxErr != nil {
 		return fmt.Errorf("failed to delete delivery version, ID: %s, error: %v", ID, ctxErr)
 	}
 
-	errs := make([]string, 0)
-	err := DeleteDeliveryBuild(&commonrepo.DeliveryBuildArgs{ReleaseID: ID}, logger)
-	if err != nil {
-		errs = append(errs, err.Error())
-	}
-	err = DeleteDeliveryDeploy(&commonrepo.DeliveryDeployArgs{ReleaseID: ID}, logger)
-	if err != nil {
-		errs = append(errs, err.Error())
-	}
-	err = DeleteDeliveryTest(&commonrepo.DeliveryTestArgs{ReleaseID: ID}, logger)
-	if err != nil {
-		errs = append(errs, err.Error())
-	}
-	err = DeleteDeliveryDistribute(&commonrepo.DeliveryDistributeArgs{ReleaseID: ID}, logger)
-	if err != nil {
-		errs = append(errs, err.Error())
-	}
-
-	if len(errs) != 0 {
-		ctxErr = e.NewHTTPError(500, strings.Join(errs, ","))
-	}
 	return ctxErr
 }
 
@@ -264,75 +238,75 @@ type OpenAPIDeliveryVersionImageData struct {
 }
 
 func OpenAPICreateK8SDeliveryVersion(openAPIReq *OpenAPICreateK8SDeliveryVersionRequest) error {
-	env, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
-		Name:       openAPIReq.ProjectKey,
-		EnvName:    openAPIReq.EnvName,
-		Production: &openAPIReq.Production,
-	})
-	if err != nil {
-		return fmt.Errorf("failed to find product, product name: %s, env name: %s, error: %v", openAPIReq.ProjectKey, openAPIReq.EnvName, err)
-	}
-	prodSvcMap := env.GetServiceMap()
+	// env, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+	// 	Name:       openAPIReq.ProjectKey,
+	// 	EnvName:    openAPIReq.EnvName,
+	// 	Production: &openAPIReq.Production,
+	// })
+	// if err != nil {
+	// 	return fmt.Errorf("failed to find product, product name: %s, env name: %s, error: %v", openAPIReq.ProjectKey, openAPIReq.EnvName, err)
+	// }
+	// prodSvcMap := env.GetServiceMap()
 
-	yamlDatas := make([]*CreateK8SDeliveryVersionYamlData, 0)
-	for _, openAPIYamlData := range openAPIReq.YamlDatas {
-		prodSvc := prodSvcMap[openAPIYamlData.ServiceName]
-		if prodSvc == nil {
-			return fmt.Errorf("product service not found, service name: %s", openAPIYamlData.ServiceName)
-		}
-		containerImageMap := prodSvc.GetContainerImageMap()
+	// yamlDatas := make([]*CreateK8SDeliveryVersionYamlData, 0)
+	// for _, openAPIYamlData := range openAPIReq.YamlDatas {
+	// 	prodSvc := prodSvcMap[openAPIYamlData.ServiceName]
+	// 	if prodSvc == nil {
+	// 		return fmt.Errorf("product service not found, service name: %s", openAPIYamlData.ServiceName)
+	// 	}
+	// 	containerImageMap := prodSvc.GetContainerImageMap()
 
-		imageDatas := make([]*ImageData, 0)
-		for _, openAPIImageData := range openAPIYamlData.ImageDatas {
-			image := containerImageMap[openAPIImageData.ContainerName]
-			if image == "" {
-				return fmt.Errorf("container image not found, product name: %s, env name: %s, service name: %s, container name: %s", openAPIReq.ProjectKey, openAPIReq.EnvName, openAPIYamlData.ServiceName, openAPIImageData.ContainerName)
-			}
+	// 	imageDatas := make([]*ImageData, 0)
+	// 	for _, openAPIImageData := range openAPIYamlData.ImageDatas {
+	// 		image := containerImageMap[openAPIImageData.ContainerName]
+	// 		if image == "" {
+	// 			return fmt.Errorf("container image not found, product name: %s, env name: %s, service name: %s, container name: %s", openAPIReq.ProjectKey, openAPIReq.EnvName, openAPIYamlData.ServiceName, openAPIImageData.ContainerName)
+	// 		}
 
-			imageDatas = append(imageDatas, &ImageData{
-				ContainerName: openAPIImageData.ContainerName,
-				Image:         image,
-				ImageName:     openAPIImageData.ImageName,
-				ImageTag:      openAPIImageData.ImageTag,
-				Selected:      !openAPIImageData.DisableImageDist,
-			})
-		}
+	// 		imageDatas = append(imageDatas, &ImageData{
+	// 			ContainerName: openAPIImageData.ContainerName,
+	// 			Image:         image,
+	// 			ImageName:     openAPIImageData.ImageName,
+	// 			ImageTag:      openAPIImageData.ImageTag,
+	// 			Selected:      !openAPIImageData.DisableImageDist,
+	// 		})
+	// 	}
 
-		yamlContent, _, err := kube.FetchCurrentAppliedYaml(&kube.GeneSvcYamlOption{
-			ProductName: openAPIReq.ProjectKey,
-			EnvName:     openAPIReq.EnvName,
-			ServiceName: openAPIYamlData.ServiceName,
-		})
-		if err != nil {
-			return fmt.Errorf("failed to fetch current applied yaml, env: %s/%s, service: %s, error: %v", openAPIReq.ProjectKey, openAPIReq.EnvName, openAPIYamlData.ServiceName, err)
-		}
+	// 	yamlContent, _, err := kube.FetchCurrentAppliedYaml(&kube.GeneSvcYamlOption{
+	// 		ProductName: openAPIReq.ProjectKey,
+	// 		EnvName:     openAPIReq.EnvName,
+	// 		ServiceName: openAPIYamlData.ServiceName,
+	// 	})
+	// 	if err != nil {
+	// 		return fmt.Errorf("failed to fetch current applied yaml, env: %s/%s, service: %s, error: %v", openAPIReq.ProjectKey, openAPIReq.EnvName, openAPIYamlData.ServiceName, err)
+	// 	}
 
-		yamlDatas = append(yamlDatas, &CreateK8SDeliveryVersionYamlData{
-			ServiceName: openAPIYamlData.ServiceName,
-			YamlContent: yamlContent,
-			ImageDatas:  imageDatas,
-		})
-	}
+	// 	yamlDatas = append(yamlDatas, &CreateK8SDeliveryVersionYamlData{
+	// 		ServiceName: openAPIYamlData.ServiceName,
+	// 		YamlContent: yamlContent,
+	// 		ImageDatas:  imageDatas,
+	// 	})
+	// }
 
-	args := &CreateK8SDeliveryVersionArgs{
-		ProductName: openAPIReq.ProjectKey,
-		Retry:       openAPIReq.Retry,
-		CreateBy:    openAPIReq.CreateBy,
-		Version:     openAPIReq.VersionName,
-		Desc:        openAPIReq.Desc,
-		EnvName:     openAPIReq.EnvName,
-		Production:  openAPIReq.Production,
-		Labels:      openAPIReq.Labels,
-		DeliveryVersionYamlData: &DeliveryVersionYamlData{
-			ImageRegistryID: openAPIReq.ImageRegistryID,
-			YamlDatas:       yamlDatas,
-		},
-	}
-	err = CreateK8SDeliveryVersion(args, log.SugaredLogger())
-	if err != nil {
-		return fmt.Errorf("failed to create k8s delivery version, project name: %s, version name %s, retry: %v, error: %v",
-			args.ProductName, args.Version, args.Retry, err)
-	}
+	// args := &CreateK8SDeliveryVersionArgs{
+	// 	ProductName: openAPIReq.ProjectKey,
+	// 	Retry:       openAPIReq.Retry,
+	// 	CreateBy:    openAPIReq.CreateBy,
+	// 	Version:     openAPIReq.VersionName,
+	// 	Desc:        openAPIReq.Desc,
+	// 	EnvName:     openAPIReq.EnvName,
+	// 	Production:  openAPIReq.Production,
+	// 	Labels:      openAPIReq.Labels,
+	// 	DeliveryVersionYamlData: &DeliveryVersionYamlData{
+	// 		ImageRegistryID: openAPIReq.ImageRegistryID,
+	// 		YamlDatas:       yamlDatas,
+	// 	},
+	// }
+	// err = CreateK8SDeliveryVersion(args, log.SugaredLogger())
+	// if err != nil {
+	// 	return fmt.Errorf("failed to create k8s delivery version, project name: %s, version name %s, retry: %v, error: %v",
+	// 		args.ProductName, args.Version, args.Retry, err)
+	// }
 
 	return nil
 }
@@ -358,45 +332,45 @@ type OpenAPICreateHelmDeliveryVersionChartData struct {
 }
 
 func OpenAPICreateHelmDeliveryVersion(openAPIReq *OpenAPICreateHelmDeliveryVersionRequest) error {
-	chartDatas := make([]*CreateHelmDeliveryVersionChartData, 0)
-	for _, openAPIChartData := range openAPIReq.ChartDatas {
-		imageDatas := make([]*ImageData, 0)
-		for _, openAPIImageData := range openAPIChartData.ImageDatas {
-			imageDatas = append(imageDatas, &ImageData{
-				ContainerName: openAPIImageData.ContainerName,
-				ImageName:     openAPIImageData.ImageName,
-				ImageTag:      openAPIImageData.ImageTag,
-				Selected:      !openAPIImageData.DisableImageDist,
-			})
-		}
+	// chartDatas := make([]*CreateHelmDeliveryVersionChartData, 0)
+	// for _, openAPIChartData := range openAPIReq.ChartDatas {
+	// 	imageDatas := make([]*ImageData, 0)
+	// 	for _, openAPIImageData := range openAPIChartData.ImageDatas {
+	// 		imageDatas = append(imageDatas, &ImageData{
+	// 			ContainerName: openAPIImageData.ContainerName,
+	// 			ImageName:     openAPIImageData.ImageName,
+	// 			ImageTag:      openAPIImageData.ImageTag,
+	// 			Selected:      !openAPIImageData.DisableImageDist,
+	// 		})
+	// 	}
 
-		chartDatas = append(chartDatas, &CreateHelmDeliveryVersionChartData{
-			ServiceName: openAPIChartData.ServiceName,
-			Version:     openAPIChartData.Version,
-			ImageData:   imageDatas,
-		})
-	}
+	// 	chartDatas = append(chartDatas, &CreateHelmDeliveryVersionChartData{
+	// 		ServiceName: openAPIChartData.ServiceName,
+	// 		Version:     openAPIChartData.Version,
+	// 		ImageData:   imageDatas,
+	// 	})
+	// }
 
-	args := &CreateHelmDeliveryVersionArgs{
-		ProductName: openAPIReq.ProjectKey,
-		Retry:       openAPIReq.Retry,
-		CreateBy:    openAPIReq.CreateBy,
-		Version:     openAPIReq.VersionName,
-		Desc:        openAPIReq.Desc,
-		EnvName:     openAPIReq.EnvName,
-		Production:  openAPIReq.Production,
-		Labels:      openAPIReq.Labels,
-		DeliveryVersionChartData: &DeliveryVersionChartData{
-			ChartRepoName:   openAPIReq.ChartRepoName,
-			ImageRegistryID: openAPIReq.ImageRegistryID,
-			ChartDatas:      chartDatas,
-		},
-	}
-	err := CreateHelmDeliveryVersion(args, log.SugaredLogger())
-	if err != nil {
-		return fmt.Errorf("failed to create k8s delivery version, project name: %s, version name %s, retry: %v, error: %v",
-			args.ProductName, args.Version, args.Retry, err)
-	}
+	// args := &CreateHelmDeliveryVersionArgs{
+	// 	ProductName: openAPIReq.ProjectKey,
+	// 	Retry:       openAPIReq.Retry,
+	// 	CreateBy:    openAPIReq.CreateBy,
+	// 	Version:     openAPIReq.VersionName,
+	// 	Desc:        openAPIReq.Desc,
+	// 	EnvName:     openAPIReq.EnvName,
+	// 	Production:  openAPIReq.Production,
+	// 	Labels:      openAPIReq.Labels,
+	// 	DeliveryVersionChartData: &DeliveryVersionChartData{
+	// 		ChartRepoName:   openAPIReq.ChartRepoName,
+	// 		ImageRegistryID: openAPIReq.ImageRegistryID,
+	// 		ChartDatas:      chartDatas,
+	// 	},
+	// }
+	// err := CreateHelmDeliveryVersion(args, log.SugaredLogger())
+	// if err != nil {
+	// 	return fmt.Errorf("failed to create k8s delivery version, project name: %s, version name %s, retry: %v, error: %v",
+	// 		args.ProductName, args.Version, args.Retry, err)
+	// }
 
 	return nil
 }
