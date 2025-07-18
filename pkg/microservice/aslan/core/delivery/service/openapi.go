@@ -18,385 +18,304 @@ package service
 
 import (
 	"fmt"
-	"strings"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/v2/pkg/setting"
-	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
-type OpenAPIListDeliveryVersionResp struct {
-	List  []*OpenAPIDeliveryVersionInfo `json:"list"`
-	Total int                           `json:"total"`
+type OpenAPIListDeliveryVersionV2Resp struct {
+	List  []*OpenAPIDeliveryVersionInfoV2 `json:"list"`
+	Total int                             `json:"total"`
 }
 
-type OpenAPIDeliveryVersionInfo struct {
-	ID          primitive.ObjectID              `json:"id"`
-	VersionName string                          `json:"version_name"`
-	Type        string                          `json:"type"`
-	Status      string                          `json:"status"`
-	Labels      []string                        `json:"labels"`
-	Description string                          `json:"description"`
-	Progress    *OpenAPIDeliveryVersionProgress `json:"progress"`
-	CreatedBy   string                          `json:"created_by"`
-	CreateTime  int64                           `json:"create_time"`
+type OpenAPIDeliveryVersionInfoV2 struct {
+	ID          primitive.ObjectID            `json:"id"`
+	VersionName string                        `json:"version_name"`
+	Type        setting.DeliveryVersionType   `json:"type"`
+	Source      setting.DeliveryVersionSource `json:"source"`
+	Status      setting.DeliveryVersionStatus `json:"status"`
+	Labels      []string                      `json:"labels"`
+	Description string                        `json:"description"`
+	CreatedBy   string                        `json:"created_by"`
+	CreateTime  int64                         `json:"create_time"`
 }
 
-type OpenAPIDeliveryVersionProgress struct {
-	SuccessCount int    `json:"success_count"`
-	TotalCount   int    `json:"total_count"`
-	UploadStatus string `json:"upload_status"`
-	Error        string `json:"error"`
-}
-
-func OpenAPIListDeliveryVersion(projectName string, pageNum, pageSize int) (*OpenAPIListDeliveryVersionResp, error) {
-	args := new(ListDeliveryVersionArgs)
+func OpenAPIListDeliveryVersion(projectName string, pageNum, pageSize int) (*OpenAPIListDeliveryVersionV2Resp, error) {
+	args := new(ListDeliveryVersionV2Args)
 	args.ProjectName = projectName
 	args.Page = pageNum
 	args.PerPage = pageSize
 	args.Verbosity = VerbosityBrief
 
-	versions, total, err := ListDeliveryVersion(args, log.SugaredLogger())
+	versions, total, err := ListDeliveryVersionV2(args, log.SugaredLogger())
 	if err != nil {
 		return nil, fmt.Errorf("failed to list delivery version, error: %v", err)
 	}
 
-	resp := make([]*OpenAPIDeliveryVersionInfo, 0)
+	resp := make([]*OpenAPIDeliveryVersionInfoV2, 0)
 	for _, version := range versions {
-		resp = append(resp, &OpenAPIDeliveryVersionInfo{
-			ID:          version.VersionInfo.ID,
-			VersionName: version.VersionInfo.Version,
-			Type:        version.VersionInfo.Type,
-			Status:      version.VersionInfo.Status,
-			Description: version.VersionInfo.Desc,
-			CreatedBy:   version.VersionInfo.CreatedBy,
-			CreateTime:  version.VersionInfo.CreatedAt,
+		resp = append(resp, &OpenAPIDeliveryVersionInfoV2{
+			ID:          version.ID,
+			VersionName: version.Version,
+			Type:        version.Type,
+			Status:      version.Status,
+			Labels:      version.Labels,
+			Source:      version.Source,
+			Description: version.Desc,
+			CreatedBy:   version.CreatedBy,
+			CreateTime:  version.CreatedAt,
 		})
 	}
-	return &OpenAPIListDeliveryVersionResp{
+	return &OpenAPIListDeliveryVersionV2Resp{
 		List:  resp,
 		Total: total,
 	}, nil
 }
 
-type OpenAPIGetDeliveryVersionResp struct {
-	VersionInfo     *OpenAPIDeliveryVersionInfo      `json:"version_info"`
-	DeployInfos     []*OpenAPIDeliveryDeployInfo     `json:"deploy_infos"`
-	DistributeInfos []*OpenAPIDeliveryDistributeInfo `json:"distribute_infos"`
+type OpenAPIDeliveryVersionService struct {
+	ServiceName          string                         `json:"service_name"`
+	ChartName            string                         `json:"chart_name"`
+	OriginalChartVersion string                         `json:"original_chart_version"`
+	ChartVersion         string                         `json:"chart_version"`
+	ChartStatus          config.Status                  `json:"chart_status"`
+	YamlContent          string                         `json:"yaml_content"`
+	Images               []*OpenAPIDeliveryVersionImage `json:"images"`
+	Error                string                         `json:"error"`
 }
 
-// only used for helm chart and image
-// ServiceName = ChartName
-// ServiceModule = ImageName
-type OpenAPIDeliveryDistributeInfo struct {
-	ID             primitive.ObjectID    `json:"id"`
-	ServiceName    string                `json:"service_name"`
-	DistributeType config.DistributeType `json:"distribute_type"`
-
-	// for helm chart
-	ChartName     string `json:"chart_name"`
-	ChartRepoName string `json:"chart_repo_name"`
-	ChartVersion  string `json:"chart_version"`
-	// for image
-	ServiceModule string `json:"service_module"`
-	Image         string `json:"image"`
-	ImageName     string `json:"image_name"`
-	Namespace     string `json:"namespace"`
-
-	CreateTime     int64                            `json:"create_time"`
-	SubDistributes []*OpenAPIDeliveryDistributeInfo `json:"sub_distributes"`
+type OpenAPIDeliveryVersionImage struct {
+	ContainerName  string                      `json:"container_name"`
+	ImageName      string                      `json:"image_name"`
+	SourceImage    string                      `json:"source_image"`
+	SourceImageTag string                      `json:"source_image_tag"`
+	TargetImage    string                      `json:"target_image"`
+	TargetImageTag string                      `json:"target_image_tag"`
+	ImagePath      *commonmodels.ImagePathSpec `json:"image_path"`
+	PushImage      bool                        `json:"push_image"`
+	Status         config.Status               `json:"status"`
+	Error          string                      `json:"error"`
 }
 
-// only used for k8s
-type OpenAPIDeliveryDeployInfo struct {
-	ID            primitive.ObjectID `json:"id"`
-	ServiceName   string             `json:"service_name"`
-	ServiceModule string             `json:"service_module"`
-	Image         string             `json:"image"`
-	ImageName     string             `json:"image_name"`
-	RegistryID    string             `json:"registry_id"`
-
-	CreateTime int64 `json:"create_time"`
+type OpenAPIGetDeliveryVersionV2Resp struct {
+	Version         string                           `bson:"version"                 json:"version"`
+	ProjectName     string                           `bson:"project_name"            json:"project_name"`
+	EnvName         string                           `bson:"env_name"                json:"env_name"`
+	Production      bool                             `bson:"production"              json:"production"`
+	Type            setting.DeliveryVersionType      `bson:"type"                    json:"type"`
+	Source          setting.DeliveryVersionSource    `bson:"source"                  json:"source"`
+	Desc            string                           `bson:"desc"                    json:"desc"`
+	Labels          []string                         `bson:"labels"                  json:"labels"`
+	ImageRegistryID string                           `bson:"image_registry_id"       json:"image_registry_id"`
+	ChartRepoName   string                           `bson:"chart_repo_name"         json:"chart_repo_name"`
+	Services        []*OpenAPIDeliveryVersionService `bson:"services"                json:"services"`
+	Status          setting.DeliveryVersionStatus    `bson:"status"                  json:"status"`
+	Error           string                           `bson:"error"                   json:"error"`
+	CreatedBy       string                           `bson:"created_by"              json:"created_by"`
+	CreatedAt       int64                            `bson:"created_at"              json:"created_at"`
+	DeletedAt       int64                            `bson:"deleted_at"              json:"deleted_at"`
 }
 
-func OpenAPIGetDeliveryVersion(ID string) (*OpenAPIGetDeliveryVersionResp, error) {
-	version := new(commonrepo.DeliveryVersionArgs)
-	version.ID = ID
-	data, err := GetDetailReleaseData(version, log.SugaredLogger())
+func OpenAPIGetDeliveryVersion(projectName, versionName string) (*OpenAPIGetDeliveryVersionV2Resp, error) {
+	version, err := commonrepo.NewDeliveryVersionV2Coll().Get(&commonrepo.DeliveryVersionV2Args{
+		ProjectName: projectName,
+		Version:     versionName,
+	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to get delivery version, ID: %s, error: %v", ID, err)
+		return nil, fmt.Errorf("failed to get delivery version, projectName: %s, versionName: %s error: %v", projectName, versionName, err)
 	}
 
-	resp := new(OpenAPIGetDeliveryVersionResp)
-	resp.VersionInfo = &OpenAPIDeliveryVersionInfo{
-		ID:          data.VersionInfo.ID,
-		VersionName: data.VersionInfo.Version,
-		Type:        data.VersionInfo.Type,
-		Status:      data.VersionInfo.Status,
-		Labels:      data.VersionInfo.Labels,
-		Description: data.VersionInfo.Desc,
-		Progress: &OpenAPIDeliveryVersionProgress{
-			SuccessCount: data.VersionInfo.Progress.SuccessCount,
-			TotalCount:   data.VersionInfo.Progress.TotalCount,
-			UploadStatus: data.VersionInfo.Progress.UploadStatus,
-			Error:        data.VersionInfo.Progress.Error,
-		},
-		CreatedBy:  data.VersionInfo.CreatedBy,
-		CreateTime: data.VersionInfo.CreatedAt,
+	resp := &OpenAPIGetDeliveryVersionV2Resp{
+		Version:         version.Version,
+		ProjectName:     version.ProjectName,
+		EnvName:         version.EnvName,
+		Production:      version.Production,
+		Type:            version.Type,
+		Source:          version.Source,
+		Status:          version.Status,
+		Desc:            version.Desc,
+		Labels:          version.Labels,
+		ImageRegistryID: version.ImageRegistryID,
+		ChartRepoName:   version.ChartRepoName,
+		Error:           version.Error,
+		CreatedBy:       version.CreatedBy,
+		CreatedAt:       version.CreatedAt,
+		DeletedAt:       version.DeletedAt,
 	}
-	resp.DeployInfos = make([]*OpenAPIDeliveryDeployInfo, 0)
-	resp.DistributeInfos = make([]*OpenAPIDeliveryDistributeInfo, 0)
 
-	if resp.VersionInfo.Type == setting.DeliveryVersionTypeYaml {
-		for _, info := range data.DeployInfo {
-			openAPIInfo := &OpenAPIDeliveryDeployInfo{
-				ID:         info.ID,
-				CreateTime: info.CreatedAt,
-			}
-			openAPIInfo.ServiceName = info.RealServiceName
-			openAPIInfo.Image = info.Image
-			openAPIInfo.ImageName = info.ImageName
-			openAPIInfo.ServiceModule = info.ServiceModule
-			openAPIInfo.RegistryID = info.RegistryID
-			resp.DeployInfos = append(resp.DeployInfos, openAPIInfo)
-		}
-	} else if resp.VersionInfo.Type == setting.DeliveryVersionTypeChart {
-		setDistributeInfo := func(info *commonmodels.DeliveryDistribute) *OpenAPIDeliveryDistributeInfo {
-			openAPIInfo := &OpenAPIDeliveryDistributeInfo{
-				ID:             info.ID,
-				DistributeType: info.DistributeType,
-				CreateTime:     info.CreatedAt,
-				SubDistributes: make([]*OpenAPIDeliveryDistributeInfo, 0),
-			}
-			if info.DistributeType == config.Chart {
-				openAPIInfo.ServiceName = info.ChartName
-				openAPIInfo.ChartName = info.ChartName
-				openAPIInfo.ChartRepoName = info.ChartRepoName
-				openAPIInfo.ChartVersion = info.ChartVersion
-			} else if info.DistributeType == config.Image {
-				openAPIInfo.ServiceName = info.ChartName
-				openAPIInfo.Image = info.Image
-				openAPIInfo.ImageName = info.ImageName
-				openAPIInfo.ServiceModule = info.ImageName
-				openAPIInfo.Namespace = info.Namespace
-			}
-			return openAPIInfo
+	openapiServices := make([]*OpenAPIDeliveryVersionService, 0)
+	for _, service := range version.Services {
+		openapiService := &OpenAPIDeliveryVersionService{
+			ServiceName:  service.ServiceName,
+			ChartName:    service.ChartName,
+			ChartVersion: service.ChartVersion,
+			ChartStatus:  service.ChartStatus,
+			YamlContent:  service.YamlContent,
+			Error:        service.Error,
 		}
 
-		for _, info := range data.DistributeInfo {
-			openAPIInfo := setDistributeInfo(info)
-			if len(info.SubDistributes) > 0 {
-				for _, subInfo := range info.SubDistributes {
-					subOpenAPIInfo := setDistributeInfo(subInfo)
-					openAPIInfo.SubDistributes = append(openAPIInfo.SubDistributes, subOpenAPIInfo)
-				}
-			}
-			resp.DistributeInfos = append(resp.DistributeInfos, openAPIInfo)
+		images := make([]*OpenAPIDeliveryVersionImage, 0)
+		for _, image := range service.Images {
+			images = append(images, &OpenAPIDeliveryVersionImage{
+				ContainerName:  image.ContainerName,
+				ImageName:      image.ImageName,
+				SourceImage:    image.SourceImage,
+				SourceImageTag: image.SourceImageTag,
+				TargetImage:    image.TargetImage,
+				TargetImageTag: image.TargetImageTag,
+				PushImage:      image.PushImage,
+				ImagePath:      image.ImagePath,
+				Status:         image.Status,
+				Error:          image.Error,
+			})
 		}
+
+		openapiService.Images = images
+
+		openapiServices = append(openapiServices, openapiService)
 	}
+	resp.Services = openapiServices
 
 	return resp, nil
 }
 
 func OpenAPIDeleteDeliveryVersion(ID string) error {
 	logger := log.SugaredLogger()
-	version := new(commonrepo.DeliveryVersionArgs)
+	version := new(commonrepo.DeliveryVersionV2Args)
 	version.ID = ID
-	ctxErr := DeleteDeliveryVersion(version, logger)
+	ctxErr := DeleteDeliveryVersionV2(version, logger)
 	if ctxErr != nil {
 		return fmt.Errorf("failed to delete delivery version, ID: %s, error: %v", ID, ctxErr)
 	}
 
-	errs := make([]string, 0)
-	err := DeleteDeliveryBuild(&commonrepo.DeliveryBuildArgs{ReleaseID: ID}, logger)
-	if err != nil {
-		errs = append(errs, err.Error())
-	}
-	err = DeleteDeliveryDeploy(&commonrepo.DeliveryDeployArgs{ReleaseID: ID}, logger)
-	if err != nil {
-		errs = append(errs, err.Error())
-	}
-	err = DeleteDeliveryTest(&commonrepo.DeliveryTestArgs{ReleaseID: ID}, logger)
-	if err != nil {
-		errs = append(errs, err.Error())
-	}
-	err = DeleteDeliveryDistribute(&commonrepo.DeliveryDistributeArgs{ReleaseID: ID}, logger)
-	if err != nil {
-		errs = append(errs, err.Error())
-	}
-
-	if len(errs) != 0 {
-		ctxErr = e.NewHTTPError(500, strings.Join(errs, ","))
-	}
 	return ctxErr
 }
 
-type OpenAPICreateK8SDeliveryVersionRequest struct {
-	ProjectKey      string                                     `json:"project_key"`
-	VersionName     string                                     `json:"version_name"`
-	Retry           bool                                       `json:"retry"`
-	EnvName         string                                     `json:"env_name"`
-	Production      bool                                       `json:"production"`
-	Desc            string                                     `json:"desc"`
-	Labels          []string                                   `json:"labels"`
-	ImageRegistryID string                                     `json:"image_registry_id"`
-	YamlDatas       []*OpenAPICreateK8SDeliveryVersionYamlData `json:"yaml_datas"`
-	CreateBy        string                                     `json:"-"`
+type OpenAPICreateK8SDeliveryVersionV2Request struct {
+	ProjectKey      string                           `json:"project_key"`
+	VersionName     string                           `json:"version_name"`
+	Source          setting.DeliveryVersionSource    `json:"source"`
+	EnvName         string                           `json:"env_name"`
+	Production      bool                             `json:"production"`
+	Desc            string                           `json:"desc"`
+	Labels          []string                         `json:"labels"`
+	ImageRegistryID string                           `json:"image_registry_id"`
+	Services        []*OpenAPIDeliveryVersionService `json:"services"`
+	CreateBy        string                           `json:"-"`
 }
 
-type OpenAPICreateK8SDeliveryVersionYamlData struct {
-	ServiceName string                             `json:"service_name"`
-	YamlContent string                             `json:"-"`
-	ImageDatas  []*OpenAPIDeliveryVersionImageData `json:"image_datas"`
-}
-
-type OpenAPIDeliveryVersionImageData struct {
-	ContainerName    string `json:"container_name"`
-	ImageName        string `json:"image_name"`
-	ImageTag         string `json:"image_tag"`
-	DisableImageDist bool   `json:"disable_image_dist"`
-}
-
-func OpenAPICreateK8SDeliveryVersion(openAPIReq *OpenAPICreateK8SDeliveryVersionRequest) error {
-	env, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
-		Name:       openAPIReq.ProjectKey,
-		EnvName:    openAPIReq.EnvName,
-		Production: &openAPIReq.Production,
-	})
-	if err != nil {
-		return fmt.Errorf("failed to find product, product name: %s, env name: %s, error: %v", openAPIReq.ProjectKey, openAPIReq.EnvName, err)
-	}
-	prodSvcMap := env.GetServiceMap()
-
-	yamlDatas := make([]*CreateK8SDeliveryVersionYamlData, 0)
-	for _, openAPIYamlData := range openAPIReq.YamlDatas {
-		prodSvc := prodSvcMap[openAPIYamlData.ServiceName]
-		if prodSvc == nil {
-			return fmt.Errorf("product service not found, service name: %s", openAPIYamlData.ServiceName)
-		}
-		containerImageMap := prodSvc.GetContainerImageMap()
-
-		imageDatas := make([]*ImageData, 0)
-		for _, openAPIImageData := range openAPIYamlData.ImageDatas {
-			image := containerImageMap[openAPIImageData.ContainerName]
-			if image == "" {
-				return fmt.Errorf("container image not found, product name: %s, env name: %s, service name: %s, container name: %s", openAPIReq.ProjectKey, openAPIReq.EnvName, openAPIYamlData.ServiceName, openAPIImageData.ContainerName)
-			}
-
-			imageDatas = append(imageDatas, &ImageData{
-				ContainerName: openAPIImageData.ContainerName,
-				Image:         image,
-				ImageName:     openAPIImageData.ImageName,
-				ImageTag:      openAPIImageData.ImageTag,
-				Selected:      !openAPIImageData.DisableImageDist,
+func OpenAPICreateK8SDeliveryVersion(openAPIReq *OpenAPICreateK8SDeliveryVersionV2Request) error {
+	services := make([]*commonmodels.DeliveryVersionService, 0)
+	for _, service := range openAPIReq.Services {
+		images := make([]*commonmodels.DeliveryVersionImage, 0)
+		for _, image := range service.Images {
+			images = append(images, &commonmodels.DeliveryVersionImage{
+				ContainerName:  image.ContainerName,
+				ImageName:      image.ImageName,
+				SourceImage:    image.SourceImage,
+				SourceImageTag: image.SourceImageTag,
+				TargetImage:    image.TargetImage,
+				TargetImageTag: image.TargetImageTag,
+				PushImage:      image.PushImage,
 			})
 		}
 
-		yamlContent, _, err := kube.FetchCurrentAppliedYaml(&kube.GeneSvcYamlOption{
-			ProductName: openAPIReq.ProjectKey,
-			EnvName:     openAPIReq.EnvName,
-			ServiceName: openAPIYamlData.ServiceName,
-		})
-		if err != nil {
-			return fmt.Errorf("failed to fetch current applied yaml, env: %s/%s, service: %s, error: %v", openAPIReq.ProjectKey, openAPIReq.EnvName, openAPIYamlData.ServiceName, err)
+		service := &commonmodels.DeliveryVersionService{
+			ServiceName: service.ServiceName,
+			YamlContent: service.YamlContent,
+			Images:      images,
 		}
 
-		yamlDatas = append(yamlDatas, &CreateK8SDeliveryVersionYamlData{
-			ServiceName: openAPIYamlData.ServiceName,
-			YamlContent: yamlContent,
-			ImageDatas:  imageDatas,
-		})
+		services = append(services, service)
 	}
 
-	args := &CreateK8SDeliveryVersionArgs{
-		ProductName: openAPIReq.ProjectKey,
-		Retry:       openAPIReq.Retry,
-		CreateBy:    openAPIReq.CreateBy,
-		Version:     openAPIReq.VersionName,
-		Desc:        openAPIReq.Desc,
-		EnvName:     openAPIReq.EnvName,
-		Production:  openAPIReq.Production,
-		Labels:      openAPIReq.Labels,
-		DeliveryVersionYamlData: &DeliveryVersionYamlData{
-			ImageRegistryID: openAPIReq.ImageRegistryID,
-			YamlDatas:       yamlDatas,
-		},
+	createDeliveryVersionRequest := &CreateDeliveryVersionRequest{
+		Version:         openAPIReq.VersionName,
+		ProjectName:     openAPIReq.ProjectKey,
+		EnvName:         openAPIReq.EnvName,
+		Production:      openAPIReq.Production,
+		Source:          openAPIReq.Source,
+		Labels:          openAPIReq.Labels,
+		Desc:            openAPIReq.Desc,
+		CreateBy:        openAPIReq.CreateBy,
+		Services:        services,
+		ImageRegistryID: openAPIReq.ImageRegistryID,
 	}
-	err = CreateK8SDeliveryVersion(args, log.SugaredLogger())
-	if err != nil {
-		return fmt.Errorf("failed to create k8s delivery version, project name: %s, version name %s, retry: %v, error: %v",
-			args.ProductName, args.Version, args.Retry, err)
-	}
-
-	return nil
+	return CreateK8SDeliveryVersionV2(createDeliveryVersionRequest, log.SugaredLogger())
 }
 
-type OpenAPICreateHelmDeliveryVersionRequest struct {
-	ProjectKey      string                                       `json:"project_key"`
-	VersionName     string                                       `json:"version_name"`
-	Retry           bool                                         `json:"retry"`
-	EnvName         string                                       `json:"env_name"`
-	Production      bool                                         `json:"production"`
-	Desc            string                                       `json:"desc"`
-	Labels          []string                                     `json:"labels"`
-	ImageRegistryID string                                       `json:"image_registry_id"`
-	ChartRepoName   string                                       `json:"chart_repo_name"`
-	ChartDatas      []*OpenAPICreateHelmDeliveryVersionChartData `json:"chart_datas"`
-	CreateBy        string                                       `json:"-"`
+type OpenAPICreateHelmDeliveryVersionV2Request struct {
+	ProjectKey            string                           `json:"project_key"`
+	VersionName           string                           `json:"version_name"`
+	EnvName               string                           `json:"env_name"`
+	Production            bool                             `json:"production"`
+	Source                setting.DeliveryVersionSource    `json:"source"`
+	Desc                  string                           `json:"desc"`
+	Labels                []string                         `json:"labels"`
+	ImageRegistryID       string                           `json:"image_registry_id"`
+	ChartRepoName         string                           `json:"chart_repo_name"`
+	OriginalChartRepoName string                           `json:"original_chart_repo_name"`
+	Services              []*OpenAPIDeliveryVersionService `json:"services"`
+	CreateBy              string                           `json:"-"`
 }
 
-type OpenAPICreateHelmDeliveryVersionChartData struct {
-	ServiceName string                             `json:"service_name"`
-	Version     string                             `json:"version"`
-	ImageDatas  []*OpenAPIDeliveryVersionImageData `json:"image_datas"`
-}
-
-func OpenAPICreateHelmDeliveryVersion(openAPIReq *OpenAPICreateHelmDeliveryVersionRequest) error {
-	chartDatas := make([]*CreateHelmDeliveryVersionChartData, 0)
-	for _, openAPIChartData := range openAPIReq.ChartDatas {
-		imageDatas := make([]*ImageData, 0)
-		for _, openAPIImageData := range openAPIChartData.ImageDatas {
-			imageDatas = append(imageDatas, &ImageData{
-				ContainerName: openAPIImageData.ContainerName,
-				ImageName:     openAPIImageData.ImageName,
-				ImageTag:      openAPIImageData.ImageTag,
-				Selected:      !openAPIImageData.DisableImageDist,
+func OpenAPICreateHelmDeliveryVersion(openAPIReq *OpenAPICreateHelmDeliveryVersionV2Request) error {
+	services := make([]*commonmodels.DeliveryVersionService, 0)
+	for _, service := range openAPIReq.Services {
+		images := make([]*commonmodels.DeliveryVersionImage, 0)
+		for _, image := range service.Images {
+			images = append(images, &commonmodels.DeliveryVersionImage{
+				ContainerName:  image.ContainerName,
+				ImageName:      image.ImageName,
+				SourceImage:    image.SourceImage,
+				SourceImageTag: image.SourceImageTag,
+				TargetImage:    image.TargetImage,
+				TargetImageTag: image.TargetImageTag,
+				ImagePath:      image.ImagePath,
+				PushImage:      image.PushImage,
 			})
 		}
 
-		chartDatas = append(chartDatas, &CreateHelmDeliveryVersionChartData{
-			ServiceName: openAPIChartData.ServiceName,
-			Version:     openAPIChartData.Version,
-			ImageData:   imageDatas,
-		})
+		service := &commonmodels.DeliveryVersionService{
+			ServiceName:          service.ServiceName,
+			YamlContent:          service.YamlContent,
+			OriginalChartVersion: service.OriginalChartVersion,
+			ChartVersion:         service.ChartVersion,
+			Images:               images,
+		}
+
+		services = append(services, service)
 	}
 
-	args := &CreateHelmDeliveryVersionArgs{
-		ProductName: openAPIReq.ProjectKey,
-		Retry:       openAPIReq.Retry,
-		CreateBy:    openAPIReq.CreateBy,
-		Version:     openAPIReq.VersionName,
-		Desc:        openAPIReq.Desc,
-		EnvName:     openAPIReq.EnvName,
-		Production:  openAPIReq.Production,
-		Labels:      openAPIReq.Labels,
-		DeliveryVersionChartData: &DeliveryVersionChartData{
-			ChartRepoName:   openAPIReq.ChartRepoName,
-			ImageRegistryID: openAPIReq.ImageRegistryID,
-			ChartDatas:      chartDatas,
-		},
-	}
-	err := CreateHelmDeliveryVersion(args, log.SugaredLogger())
-	if err != nil {
-		return fmt.Errorf("failed to create k8s delivery version, project name: %s, version name %s, retry: %v, error: %v",
-			args.ProductName, args.Version, args.Retry, err)
+	createDeliveryVersionRequest := &CreateDeliveryVersionRequest{
+		Version:               openAPIReq.VersionName,
+		ProjectName:           openAPIReq.ProjectKey,
+		EnvName:               openAPIReq.EnvName,
+		Production:            openAPIReq.Production,
+		Source:                openAPIReq.Source,
+		Labels:                openAPIReq.Labels,
+		Desc:                  openAPIReq.Desc,
+		ImageRegistryID:       openAPIReq.ImageRegistryID,
+		ChartRepoName:         openAPIReq.ChartRepoName,
+		OriginalChartRepoName: openAPIReq.OriginalChartRepoName,
+		Services:              services,
+		CreateBy:              openAPIReq.CreateBy,
 	}
 
-	return nil
+	return CreateHelmDeliveryVersionV2(createDeliveryVersionRequest, log.SugaredLogger())
+}
+
+func OpenAPIRetryCreateDeliveryVersion(id string) error {
+	logger := log.SugaredLogger()
+
+	ctxErr := RetryDeliveryVersionV2(id, logger)
+	if ctxErr != nil {
+		return fmt.Errorf("failed to retry create delivery version, id: %s, error: %v", id, ctxErr)
+	}
+
+	return ctxErr
 }

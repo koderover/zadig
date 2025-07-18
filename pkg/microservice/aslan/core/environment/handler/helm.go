@@ -84,6 +84,19 @@ func ListReleases(c *gin.Context) {
 	ctx.Resp, ctx.RespErr = service.ListReleases(args, envName, production, ctx.Logger)
 }
 
+// @Summary 获取Helm服务Chart Values
+// @Description 获取Helm服务Chart Values
+// @Tags 	environment
+// @Accept 	json
+// @Produce json
+// @Param 	projectName			query		string								true	"project name"
+// @Param 	name				path		string								true	"env name"
+// @Param 	serviceName			path		string								true	"service name"
+// @Param 	isHelmChartDeploy	query		string								true	"isHelmChartDeploy"
+// @Param 	releaseName			query		string								true	"release name"
+// @Param 	production			query		string								true	"production"
+// @Success 200 				{object}    commonservice.ValuesResp
+// @Router /api/aslan/environment/environments/{name}/helm/values [get]
 func GetChartValues(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

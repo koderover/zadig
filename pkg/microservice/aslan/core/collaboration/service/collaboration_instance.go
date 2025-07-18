@@ -421,13 +421,6 @@ func syncDeleteResource(updateResp *GetCollaborationUpdateResp, username, projec
 			return err
 		}
 	}
-	for _, workflow := range deleteResp.Workflows {
-		err := commonservice.DeleteWorkflow(workflow, requestID, false, log)
-		if err != nil && err != mongo.ErrNoDocuments {
-			log.Errorf("delete workflow err:%v", err)
-			return err
-		}
-	}
 	for _, workflow := range deleteResp.CommonWorkflows {
 		err := commonservice.DeleteWorkflowV4(workflow, log)
 		if err != nil && err != mongo.ErrNoDocuments {

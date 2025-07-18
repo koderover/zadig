@@ -24,6 +24,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	logservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/log/service"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
@@ -132,4 +133,59 @@ func OpenAPIGetWorkflowV4JobContainerLogs(c *gin.Context) {
 	}
 	// Use all lowercase job names to avoid subdomain errors
 	ctx.Resp, ctx.RespErr = logservice.GetWorkflowV4JobContainerLogs(strings.ToLower(c.Param("workflowName")), c.Param("jobName"), taskID, ctx.Logger)
+}
+
+// @Summary Get Delivery Version logs
+// @Description Get Delivery Version logs
+// @Tags 	logs
+// @Accept 	json
+// @Produce json
+// @Param 	projectName 		query 		string							true	"项目标识"
+// @Param 	version 			query 		string							true	"版本名称"
+// @Param 	serviceName 		query 		string							true	"服务名"
+// @Param 	serviceModule 		query 		string							true	"服务组件"
+// @Success 200     			{string} 	string
+// @Router /api/aslan/logs/log/delivery [get]
+func GetDeliveryVersionLogs(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	projectName := c.Query("projectName")
+	if projectName == "" {
+		ctx.RespErr = fmt.Errorf("projectName must be provided")
+		return
+	}
+
+	versionName := c.Query("version")
+	if versionName == "" {
+		ctx.RespErr = fmt.Errorf("version must be provided")
+		return
+	}
+
+	serviceName := c.Query("serviceName")
+	if serviceName == "" {
+		ctx.RespErr = fmt.Errorf("serviceName must be provided")
+		return
+	}
+
+	serviceModule := c.Query("serviceModule")
+	if serviceModule == "" {
+		ctx.RespErr = fmt.Errorf("serviceModule must be provided")
+		return
+	}
+
+	version, err := commonrepo.NewDeliveryVersionV2Coll().Find(projectName, versionName)
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("failed to find delivery version: %s", err)
+		return
+	}
+
+	jobName, err := findDeliveryVersionJobName(ctx, version.WorkflowName, version.TaskID, serviceName, serviceModule)
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("failed to find job name: %s", err)
+		return
+	}
+
+	// Use all lowercase job names to avoid subdomain errors
+	ctx.Resp, ctx.RespErr = logservice.GetWorkflowV4JobContainerLogs(strings.ToLower(version.WorkflowName), jobName, version.TaskID, ctx.Logger)
 }

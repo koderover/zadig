@@ -32,6 +32,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		log.GET("/testing/:test_name/tasks/:task_id", GetTestingContainerLogs)
 		log.GET("/scanning/:id/task/:scan_id", GetScanningContainerLogs)
 		log.GET("/v4/workflow/:workflowName/tasks/:taskID/jobs/:jobName", GetWorkflowV4JobContainerLogs)
+		log.GET("/delivery", GetDeliveryVersionLogs)
 		log.POST("/ai/workflow/:workflowName/tasks/:taskID/jobs/:jobName", AIAnalyzeBuildLog)
 	}
 
@@ -40,6 +41,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		sse.GET("/pods/:podName/containers/:containerName", GetContainerLogsSSE)
 		sse.GET("/testing/:test_name/tasks/:task_id", GetTestingContainerLogsSSE)
 		sse.GET("/scanning/:id/task/:scan_id", GetScanningContainerLogsSSE)
+		sse.GET("/delivery/:lines", GetDeliveryVersionLogsSSE)
 		sse.GET("/v4/workflow/:workflowName/:taskID/:jobName/:lines", GetWorkflowJobContainerLogsSSE)
 		sse.GET("/jenkins/:id/:jobName/:jobID", GetJenkinsJobContainerLogsSSE)
 	}
