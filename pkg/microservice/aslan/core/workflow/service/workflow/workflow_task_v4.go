@@ -1746,6 +1746,7 @@ func ListWorkflowTaskV4ByFilter(filter *TaskHistoryFilter, filterList []string, 
 		return nil, total, err
 	}
 
+	envMap := make(map[string]*commonmodels.Product)
 	taskPreviews := make([]*commonmodels.WorkflowTaskPreview, 0)
 	for _, task := range tasks {
 		preview := &commonmodels.WorkflowTaskPreview{
@@ -1817,6 +1818,7 @@ func ListWorkflowTaskV4ByFilter(filter *TaskHistoryFilter, filterList []string, 
 					jobPreview.Envs = &commonmodels.WorkflowEnv{
 						EnvName:    deploy.Env,
 						Production: deploy.Production,
+						EnvAlias:   commonutil.GetEnvAlias(commonutil.GetEnvInfoNoErr(filter.ProjectName, deploy.Env, envMap)),
 					}
 				case config.JobZadigTesting:
 					test := new(commonmodels.ZadigTestingJobSpec)
@@ -2045,33 +2047,8 @@ func HandleJobError(workflowName, jobName, userID, username string, taskID int64
 }
 
 func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, now int64, projectName string) []*JobTaskPreview {
-	resp := []*JobTaskPreview{}
-
 	envMap := make(map[string]*commonmodels.Product)
-	getEnv := func(envName string) *commonmodels.Product {
-		if env, ok := envMap[envName]; ok {
-			return env
-		}
-		envInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: projectName, EnvName: envName})
-		if err != nil {
-			log.Errorf("failed to get env production %s/%s, error : %v", projectName, envName, err)
-			return nil
-		}
-		envMap[envName] = envInfo
-		return envInfo
-	}
-	getEnvProduction := func(env *commonmodels.Product) bool {
-		if env == nil {
-			return false
-		}
-		return env.Production
-	}
-	getEnvAlias := func(env *commonmodels.Product) string {
-		if env == nil {
-			return ""
-		}
-		return env.Alias
-	}
+	resp := []*JobTaskPreview{}
 
 	for _, job := range jobs {
 		costSeconds := int64(0)
@@ -2336,8 +2313,8 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, 
 				continue
 			}
 			spec.Env = taskJobSpec.Env
-			spec.Production = getEnvProduction(getEnv(taskJobSpec.Env))
-			spec.EnvAlias = getEnvAlias(getEnv(taskJobSpec.Env))
+			spec.Production = commonutil.GetEnvProduction(commonutil.GetEnvInfoNoErr(projectName, taskJobSpec.Env, envMap))
+			spec.EnvAlias = commonutil.GetEnvAlias(commonutil.GetEnvInfoNoErr(projectName, taskJobSpec.Env, envMap))
 			spec.ServiceType = taskJobSpec.ServiceType
 			spec.DeployContents = taskJobSpec.DeployContents
 			spec.VariableKVs = taskJobSpec.VariableKVs
@@ -2370,8 +2347,8 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, 
 				continue
 			}
 			spec.Env = taskJobSpec.Env
-			spec.Production = getEnvProduction(getEnv(taskJobSpec.Env))
-			spec.EnvAlias = getEnvAlias(getEnv(taskJobSpec.Env))
+			spec.Production = commonutil.GetEnvProduction(commonutil.GetEnvInfoNoErr(projectName, taskJobSpec.Env, envMap))
+			spec.EnvAlias = commonutil.GetEnvAlias(commonutil.GetEnvInfoNoErr(projectName, taskJobSpec.Env, envMap))
 			spec.ServiceType = taskJobSpec.ServiceType
 			spec.DeployContents = taskJobSpec.DeployContents
 			spec.YamlContent = taskJobSpec.YamlContent
@@ -2396,8 +2373,8 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, 
 				continue
 			}
 			spec.Env = taskJobSpec.Env
-			spec.Production = getEnvProduction(getEnv(taskJobSpec.Env))
-			spec.EnvAlias = getEnvAlias(getEnv(taskJobSpec.Env))
+			spec.Production = commonutil.GetEnvProduction(commonutil.GetEnvInfoNoErr(projectName, taskJobSpec.Env, envMap))
+			spec.EnvAlias = commonutil.GetEnvAlias(commonutil.GetEnvInfoNoErr(projectName, taskJobSpec.Env, envMap))
 			spec.SkipCheckRunStatus = taskJobSpec.SkipCheckRunStatus
 			spec.DeployHelmCharts = append(spec.DeployHelmCharts, taskJobSpec.DeployHelmChart)
 			jobPreview.Spec = spec
@@ -2431,8 +2408,8 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, 
 				}
 			}
 
-			spec.Production = getEnvProduction(getEnv(spec.Env))
-			spec.EnvAlias = getEnvAlias(getEnv(spec.Env))
+			spec.Production = commonutil.GetEnvProduction(commonutil.GetEnvInfoNoErr(projectName, spec.Env, envMap))
+			spec.EnvAlias = commonutil.GetEnvAlias(commonutil.GetEnvInfoNoErr(projectName, spec.Env, envMap))
 
 			serviceAndVMDeploy := &commonmodels.ServiceAndVMDeploy{
 				ServiceName:        serviceName,
@@ -2766,27 +2743,42 @@ func UpdateWorkflowV4TaskRemark(workflowName string, taskID int64, remark string
 	return commonrepo.NewworkflowTaskv4Coll().Update(workflowTask.ID.Hex(), workflowTask)
 }
 
-func ListWorkflowFilterInfo(project, workflow, typeName string, jobName string, logger *zap.SugaredLogger) ([]string, error) {
+type ListWorkflowFilterInfoResponse struct {
+	Key  string `json:"key"`
+	Name string `json:"name"`
+}
+
+func ListWorkflowFilterInfo(project, workflow, typeName string, jobName string, logger *zap.SugaredLogger) ([]*ListWorkflowFilterInfoResponse, error) {
 	if project == "" || workflow == "" || typeName == "" {
-		return []string{}, fmt.Errorf("paramerter is empty")
+		return []*ListWorkflowFilterInfoResponse{}, fmt.Errorf("paramerter is empty")
 	}
+
+	envMap := make(map[string]*commonmodels.Product)
 
 	switch typeName {
 	case "creator":
-		resp, err := commonrepo.NewworkflowTaskv4Coll().ListCreator(project, workflow)
+		creators, err := commonrepo.NewworkflowTaskv4Coll().ListCreator(project, workflow)
 		if err != nil {
 			logger.Errorf("ListWorkflowTaskCreator ListCreator err:%v", err)
-			return []string{}, fmt.Errorf("ListCreator err: %v", err)
+			return []*ListWorkflowFilterInfoResponse{}, fmt.Errorf("ListCreator err: %v", err)
+		}
+
+		resp := make([]*ListWorkflowFilterInfoResponse, 0)
+		for _, creator := range creators {
+			resp = append(resp, &ListWorkflowFilterInfoResponse{
+				Key:  creator,
+				Name: creator,
+			})
 		}
 		return resp, nil
 	case "envName":
 		workflow, err := commonrepo.NewWorkflowV4Coll().Find(workflow)
 		if err != nil {
 			logger.Errorf("failed to find workflow %s: %v", workflow, err)
-			return nil, err
+			return []*ListWorkflowFilterInfoResponse{}, fmt.Errorf("failed to find workflow %s: %v", workflow, err)
 		}
 
-		names := make([]string, 0)
+		resp := make([]*ListWorkflowFilterInfoResponse, 0)
 		for _, stage := range workflow.Stages {
 			for _, job := range stage.Jobs {
 				if job.Name == jobName && job.JobType == config.JobZadigDeploy {
@@ -2794,28 +2786,24 @@ func ListWorkflowFilterInfo(project, workflow, typeName string, jobName string, 
 					if err := commonmodels.IToi(job.Spec, deploy); err != nil {
 						return nil, err
 					}
-					env, isFixed := CheckFixedMarkReturnNoFixedEnv(deploy.Env)
-					if isFixed && !utils.Contains(names, env) {
-						names = append(names, env)
-					} else {
-						envs, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
-							Name:       project,
-							Production: &deploy.Production,
-						})
+
+					env, _ := CheckFixedMarkReturnNoFixedEnv(deploy.Env)
+					if envMap[env] == nil {
+						envInfo, err := commonutil.GetEnvInfo(project, env, envMap)
 						if err != nil {
 							return nil, err
 						}
-						for _, env := range envs {
-							if !utils.Contains(names, env.EnvName) {
-								names = append(names, env.EnvName)
-							}
-						}
+
+						resp = append(resp, &ListWorkflowFilterInfoResponse{
+							Key:  envInfo.EnvName,
+							Name: envInfo.Alias,
+						})
 					}
-					return names, nil
+					return resp, nil
 				}
 			}
 		}
-		return names, nil
+		return resp, nil
 	case "serviceName":
 		services := make([]string, 0)
 		serviceList, _ := commonrepo.NewServiceColl().ListMaxRevisions(&commonrepo.ServiceListOption{ProductName: project})
@@ -2826,7 +2814,15 @@ func ListWorkflowFilterInfo(project, workflow, typeName string, jobName string, 
 				}
 			}
 		}
-		return services, nil
+
+		resp := make([]*ListWorkflowFilterInfoResponse, 0)
+		for _, service := range services {
+			resp = append(resp, &ListWorkflowFilterInfoResponse{
+				Key:  service,
+				Name: service,
+			})
+		}
+		return resp, nil
 	default:
 		return nil, fmt.Errorf("queryType parameter is invalid")
 	}

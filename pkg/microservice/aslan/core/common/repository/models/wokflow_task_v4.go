@@ -187,6 +187,7 @@ type WorkflowTestModule struct {
 type WorkflowEnv struct {
 	EnvName    string `json:"env_name"`
 	Production bool   `json:"production"`
+	EnvAlias   string `json:"env_alias"`
 }
 
 type JobTaskCustomDeploySpec struct {
