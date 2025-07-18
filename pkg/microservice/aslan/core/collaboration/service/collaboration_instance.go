@@ -777,13 +777,22 @@ func CleanCIResources(userName, requestID string, logger *zap.SugaredLogger) err
 	if err != nil {
 		return err
 	}
+
 	var fileterdInstances []*models.CollaborationInstance
 	for _, ci := range cis {
-
 		if ci.RecycleDay != 0 && ((time.Now().Unix()-ci.LastVisitTime)/60 > ci.RecycleDay*24*60) {
 			fileterdInstances = append(fileterdInstances, ci)
 		}
 	}
+
+	deletedCis, err := mongodb.NewCollaborationInstanceColl().List(&mongodb.CollaborationInstanceFindOptions{
+		IsDeleted: true,
+	})
+	if err != nil {
+		return err
+	}
+	fileterdInstances = append(fileterdInstances, deletedCis...)
+
 	return DeleteCIResources(userName, requestID, fileterdInstances, logger)
 }
 
@@ -814,8 +823,9 @@ func DeleteCIResources(userName, requestID string, cis []*models.CollaborationIn
 	for _, ci := range cis {
 		for _, workflow := range ci.Workflows {
 			if workflow.CollaborationType == config.CollaborationNew {
-				err = commonservice.DeleteWorkflow(workflow.Name, requestID, false, logger)
+				err = commonservice.DeleteWorkflowV4(workflow.Name, logger)
 				if err != nil {
+					logger.Errorf("DeleteCIResources: delete workflow %s error: %s", workflow.Name, err)
 					return err
 				}
 			}
@@ -824,6 +834,7 @@ func DeleteCIResources(userName, requestID string, cis []*models.CollaborationIn
 			if product.CollaborationType == config.CollaborationNew {
 				err = service2.DeleteProduct(userName, product.Name, ci.ProjectName, requestID, true, logger)
 				if err != nil {
+					logger.Errorf("DeleteCIResources: delete product %s error: %s", product.Name, err)
 					return err
 				}
 			}

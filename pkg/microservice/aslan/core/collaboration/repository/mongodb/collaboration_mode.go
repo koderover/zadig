@@ -19,6 +19,7 @@ package mongodb
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -28,6 +29,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/collaboration/repository/models"
 	mongotool "github.com/koderover/zadig/v2/pkg/tool/mongo"
+	"github.com/koderover/zadig/v2/pkg/types"
 )
 
 type CollaborationModeFindOptions struct {
@@ -210,4 +212,51 @@ func (c *CollaborationModeColl) List(opt *CollaborationModeListOptions) ([]*mode
 	}
 
 	return ret, nil
+}
+
+func (c *CollaborationModeColl) DeleteUser(userUID string) error {
+	collaborationModes, err := c.List(&CollaborationModeListOptions{
+		Members:   []string{userUID},
+		IsDeleted: false,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to get collaboration modes for user: %s, error: %w", userUID, err)
+	}
+
+	var updates []mongo.WriteModel
+	for _, collaborationMode := range collaborationModes {
+		update := false
+		newMembers := []string{}
+		for _, member := range collaborationMode.Members {
+			if member == userUID {
+				update = true
+			} else {
+				newMembers = append(newMembers, member)
+			}
+		}
+
+		newMemberInfos := []*types.Identity{}
+		for _, memberInfo := range collaborationMode.MemberInfo {
+			if memberInfo.UID == userUID && memberInfo.IdentityType == "user" {
+				update = true
+			} else {
+				newMemberInfos = append(newMemberInfos, memberInfo)
+			}
+		}
+
+		if update {
+			collaborationMode.Members = newMembers
+			collaborationMode.MemberInfo = newMemberInfos
+			updates = append(updates, mongo.NewUpdateOneModel().
+				SetFilter(bson.M{"_id": collaborationMode.ID}).
+				SetUpdate(bson.M{"$set": collaborationMode}),
+			)
+		}
+	}
+
+	if len(updates) > 0 {
+		_, err = c.BulkWrite(context.TODO(), updates)
+	}
+
+	return err
 }
