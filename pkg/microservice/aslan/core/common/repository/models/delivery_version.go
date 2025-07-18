@@ -20,6 +20,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models/template"
 )
 
 type DeliveryVersionWorkflowStatus struct {
@@ -56,6 +57,47 @@ type DeliveryVersion struct {
 	CreatedBy           string                   `bson:"created_by"              json:"createdBy"`
 	CreatedAt           int64                    `bson:"created_at"              json:"created_at"`
 	DeletedAt           int64                    `bson:"deleted_at"              json:"deleted_at"`
+}
+
+type DeliveryVersionYamlData struct {
+	ImageRegistryID string                              `json:"imageRegistryID"`
+	YamlDatas       []*CreateK8SDeliveryVersionYamlData `json:"yamlDatas"`
+}
+
+type DeliveryVersionChartData struct {
+	GlobalVariables string                                `json:"globalVariables"`
+	ChartRepoName   string                                `json:"chartRepoName"`
+	ImageRegistryID string                                `json:"imageRegistryID"`
+	ChartDatas      []*CreateHelmDeliveryVersionChartData `json:"chartDatas"`
+}
+
+type DeliveryChartData struct {
+	ChartData      *CreateHelmDeliveryVersionChartData
+	ServiceObj     *Service
+	ProductService *ProductService
+	RenderChart    *template.ServiceRender
+	ValuesInEnv    map[string]interface{}
+}
+
+type CreateK8SDeliveryVersionYamlData struct {
+	ServiceName string                      `json:"serviceName"`
+	YamlContent string                      `json:"yamlContent"`
+	ImageDatas  []*DeliveryVersionImageData `json:"imageDatas"`
+}
+
+type CreateHelmDeliveryVersionChartData struct {
+	ServiceName       string                      `json:"serviceName"`
+	Version           string                      `json:"version,omitempty"`
+	ValuesYamlContent string                      `json:"valuesYamlContent"`
+	ImageData         []*DeliveryVersionImageData `json:"imageData"`
+}
+
+type DeliveryVersionImageData struct {
+	ContainerName string `json:"containerName"`
+	Image         string `json:"image"`
+	ImageName     string `json:"imageName"`
+	ImageTag      string `json:"imageTag"`
+	Selected      bool   `json:"selected"`
 }
 
 func (DeliveryVersion) TableName() string {
