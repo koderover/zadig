@@ -63,54 +63,15 @@ func (c *MSENacosClient) ListConfigs(namespaceID string) ([]*types.NacosConfig, 
 	}
 
 	configs := []*types.NacosConfig{}
-	configMap := make(map[string]*types.NacosConfig)
-	var mu sync.Mutex
-
-	g, ctx := errgroup.WithContext(context.Background())
 	for _, config := range resp.Body.Configurations {
-		config := config // 闭包变量
-		nacosID := types.NacosDataID{
-			DataID: tea.StringValue(config.DataId),
-			Group:  tea.StringValue(config.Group),
-		}
-
-		g.Go(func() error {
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			default:
-			}
-
-			getNacosConfigRequest := &mse20190531.GetNacosConfigRequest{
-				InstanceId:  tea.String(c.InstanceID),
-				NamespaceId: tea.String(namespaceID),
-				DataId:      tea.String(tea.StringValue(config.DataId)),
-				Group:       tea.String(tea.StringValue(config.Group)),
-			}
-			configResp, err := c.GetNacosConfigWithOptions(getNacosConfigRequest, runtime)
-			if err != nil {
-				return handleMSEError(err)
-			}
-
-			mu.Lock()
-			configMap[tea.StringValue(config.DataId)] = &types.NacosConfig{
-				NacosDataID: nacosID,
-				Format:      getFormat(tea.StringValue(configResp.Body.Configuration.Type)),
-				Content:     tea.StringValue(configResp.Body.Configuration.Content),
-			}
-			mu.Unlock()
-			return nil
+		configs = append(configs, &types.NacosConfig{
+			NacosDataID: types.NacosDataID{
+				DataID: tea.StringValue(config.DataId),
+				Group:  tea.StringValue(config.Group),
+			},
+			NamespaceID: namespaceID,
 		})
 	}
-
-	if err := g.Wait(); err != nil {
-		return nil, err
-	}
-
-	for _, config := range configMap {
-		configs = append(configs, config)
-	}
-
 	return configs, nil
 }
 

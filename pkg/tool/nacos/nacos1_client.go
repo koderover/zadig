@@ -167,8 +167,6 @@ func (c *NacosClient) ListConfigs(namespaceID string) ([]*types.NacosConfig, err
 			}
 			resp = append(resp, &types.NacosConfig{
 				NacosDataID: nacosID,
-				Format:      getFormat(conf.Format),
-				Content:     conf.Content,
 			})
 		}
 		pageNum++
