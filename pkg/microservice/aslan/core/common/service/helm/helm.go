@@ -407,6 +407,7 @@ func (s *HelmDeployService) GenMergedValues(productSvc *commonmodels.ProductServ
 		}
 		pattern := imageSearchRule.GetSearchingPattern()
 		imageUrl, err := commonutil.GeneImageURI(pattern, flatValuesMap)
+		fmt.Printf("====================\nimage url is: %s\n===================\n", imageUrl)
 		if err != nil {
 			return "", fmt.Errorf("failed to get image url for container:%s", container.Image)
 		}
