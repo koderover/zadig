@@ -133,7 +133,6 @@ func (j NacosJobController) Update(useUserInput bool, ticket *commonmodels.Appro
 		for _, config := range nacosConfigs {
 			config.NamespaceID = j.jobSpec.NamespaceID
 			config.NamespaceName = namespaceName
-			config.OriginalContent = config.Content
 
 			nacosConfigsMap[getNacosConfigKey(config.Group, config.DataID)] = config
 		}

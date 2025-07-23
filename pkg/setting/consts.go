@@ -53,7 +53,7 @@ const (
 	ENVDefaultEnvRecycleDay = "DEFAULT_ENV_RECYCLE_DAY"
 	ENVDefaultIngressClass  = "DEFAULT_INGRESS_CLASS"
 
-	ENVBuildBaseImage      = "BUILD_BASE_IMAGE"
+	ENVBuildBaseImage = "BUILD_BASE_IMAGE"
 
 	ENVS3StorageAK       = "S3STORAGE_AK"
 	ENVS3StorageSK       = "S3STORAGE_SK"
@@ -272,7 +272,7 @@ const (
 	SourceFromApollo = "apollo"
 	// SourceFromNacos is the configuration_management type of nacos
 	SourceFromNacos      = "nacos"
-	SourceFromNacos3DotX = "nacos_3.x"
+	SourceFromNacos3     = "nacos_3"
 	SourceFromNacosEEMSE = "nacos_ee_mse"
 
 	ProdENV = "prod"
