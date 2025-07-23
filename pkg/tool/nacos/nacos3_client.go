@@ -183,63 +183,14 @@ func (c *Nacos3Client) ListConfigs(namespaceID string) ([]*types.NacosConfig, er
 	}
 
 	configs := []*types.NacosConfig{}
-	configMap := make(map[string]*types.NacosConfig)
-	var mu sync.Mutex
-
-	g, ctx := errgroup.WithContext(context.Background())
 	for _, config := range res {
-		config := config // 闭包变量
-		nacosID := types.NacosDataID{
-			DataID: config.DataID,
-			Group:  config.GroupName,
-		}
-
-		g.Go(func() error {
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			default:
-			}
-
-			url := "/v3/console/cs/config"
-			params := httpclient.SetQueryParams(map[string]string{
-				"dataId":      config.DataID,
-				"groupName":   config.GroupName,
-				"namespaceId": namespaceID,
-				"accessToken": c.token,
-			})
-
-			nacosResp := &nacos3Resp{}
-			if _, err := c.Client.Get(url, params, httpclient.SetResult(nacosResp)); err != nil {
-				return errors.Wrap(err, "get nacos config failed")
-			}
-
-			if err := nacosResp.handleError(); err != nil {
-				return errors.Wrap(err, "get nacos config failed")
-			}
-
-			res := &nacos3Config{}
-			if err := IToi(nacosResp.Data, res); err != nil {
-				return errors.Wrap(err, "unmarshal nacos config response failed")
-			}
-
-			mu.Lock()
-			configMap[config.DataID] = &types.NacosConfig{
-				NacosDataID: nacosID,
-				Format:      getFormat(res.Type),
-				Content:     res.Content,
-			}
-			mu.Unlock()
-			return nil
+		configs = append(configs, &types.NacosConfig{
+			NacosDataID: types.NacosDataID{
+				DataID: config.DataID,
+				Group:  config.GroupName,
+			},
+			NamespaceID: namespaceID,
 		})
-	}
-
-	if err := g.Wait(); err != nil {
-		return nil, err
-	}
-
-	for _, config := range configMap {
-		configs = append(configs, config)
 	}
 
 	return configs, nil
