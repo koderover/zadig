@@ -448,6 +448,8 @@ func (s *HelmDeployService) GenMergedValues(productSvc *commonmodels.ProductServ
 		return "", fmt.Errorf("failed to replace image uri %s/%s, err %s", productSvc.ProductName, serviceName, err.Error())
 
 	}
+
+	fmt.Printf("==============================\n replacedEnvValuesYaml is: %s\n ======================", replacedEnvValuesYaml)
 	if replacedEnvValuesYaml == "" {
 		return "", fmt.Errorf("failed to set new image uri into service's values.yaml %s/%s", productSvc.ProductName, serviceName)
 	}
