@@ -1623,8 +1623,6 @@ func GenEstimatedValues(projectName, envName, serviceOrReleaseName string, scene
 			return nil, fmt.Errorf("failed to generate merged values yaml, err: %s", err)
 		}
 
-		fmt.Printf("=====================\n rendered values is: %s \n =================", string(yamlContent))
-
 		latestYaml, err = helmDeploySvc.GeneFullValues(tmplSvc.HelmChart.ValuesYaml, yamlContent)
 		if err != nil {
 			return nil, fmt.Errorf("failed to generate full values yaml, err: %s", err)

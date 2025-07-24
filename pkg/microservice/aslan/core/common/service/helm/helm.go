@@ -371,8 +371,13 @@ func NewHelmDeployService() *HelmDeployService {
 // productSvc: environment service, contains service's values yaml, override kvs and zadig recorded containers. And productSvc will be updated with correct image and values yaml in this function
 // images: ovrride images, used to deploy image feature in workflow and update container image feature in environment
 func (s *HelmDeployService) GenMergedValues(productSvc *commonmodels.ProductService, defaultValues string, images []string) (string, error) {
-	envValuesYaml := productSvc.GetServiceRender().GetOverrideYaml()
+	overrideYaml := productSvc.GetServiceRender().GetOverrideYaml()
 	overrideKVs := productSvc.GetServiceRender().OverrideValues
+
+	calculatedFullValues, err := helmtool.MergeOverrideValues("", defaultValues, overrideYaml, overrideKVs, nil)
+	if err != nil {
+		return "", fmt.Errorf("failed to merge override values, err: %s", err)
+	}
 
 	imageMap := make(map[string]string)
 	for _, image := range images {
@@ -380,13 +385,13 @@ func (s *HelmDeployService) GenMergedValues(productSvc *commonmodels.ProductServ
 		imageMap[name] = image
 	}
 
-	valuesMap := make(map[string]interface{})
-	err := yaml.Unmarshal([]byte(envValuesYaml), &valuesMap)
+	overrideYamlMap := make(map[string]interface{})
+	err = yaml.Unmarshal([]byte(calculatedFullValues), &overrideYamlMap)
 	if err != nil {
 		return "", fmt.Errorf("Failed to unmarshall yaml, err %s", err)
 	}
 
-	flatValuesMap, err := converter.Flatten(valuesMap)
+	flatValuesMap, err := converter.Flatten(overrideYamlMap)
 	if err != nil {
 		return "", fmt.Errorf("failed to flatten values map, err: %s", err)
 	}
@@ -407,7 +412,6 @@ func (s *HelmDeployService) GenMergedValues(productSvc *commonmodels.ProductServ
 		}
 		pattern := imageSearchRule.GetSearchingPattern()
 		imageUrl, err := commonutil.GeneImageURI(pattern, flatValuesMap)
-		fmt.Printf("====================\nimage url is: %s\n===================\n", imageUrl)
 		if err != nil {
 			return "", fmt.Errorf("failed to get image url for container:%s", container.Image)
 		}
@@ -444,32 +448,30 @@ func (s *HelmDeployService) GenMergedValues(productSvc *commonmodels.ProductServ
 		imageValuesMaps = append(imageValuesMaps, replaceValuesMap)
 	}
 
-	replacedEnvValuesYaml, err := commonutil.ReplaceImage(envValuesYaml, imageValuesMaps...)
+	overrideYamlWithImage, err := commonutil.ReplaceImage(overrideYaml, imageValuesMaps...)
 	if err != nil {
 		return "", fmt.Errorf("failed to replace image uri %s/%s, err %s", productSvc.ProductName, serviceName, err.Error())
-
 	}
 
-	fmt.Printf("==============================\n replacedEnvValuesYaml is: %s\n ======================", replacedEnvValuesYaml)
-	if replacedEnvValuesYaml == "" {
+	if overrideYamlWithImage == "" {
 		return "", fmt.Errorf("failed to set new image uri into service's values.yaml %s/%s", productSvc.ProductName, serviceName)
 	}
-	productSvc.GetServiceRender().SetOverrideYaml(replacedEnvValuesYaml)
+	productSvc.GetServiceRender().SetOverrideYaml(overrideYamlWithImage)
 
 	// 3. merge override values and kvs into values yaml
-	finalValuesYaml, err := helmtool.MergeOverrideValues("", defaultValues, replacedEnvValuesYaml, overrideKVs, nil)
-	if err != nil {
-		return "", fmt.Errorf("failed to merge override values, err: %s", err)
-	}
+	// finalValuesYaml, err := helmtool.MergeOverrideValues("", defaultValues, overrideYamlWithImage, overrideKVs, nil)
+	// if err != nil {
+	// 	return "", fmt.Errorf("failed to merge override values, err: %s", err)
+	// }
 
 	// 4. update container image in productSvc
-	valuesMap = make(map[string]interface{})
-	err = yaml.Unmarshal([]byte(finalValuesYaml), &valuesMap)
+	overrideYamlMap = make(map[string]interface{})
+	err = yaml.Unmarshal([]byte(overrideYamlWithImage), &overrideYamlMap)
 	if err != nil {
 		return "", fmt.Errorf("Failed to unmarshall yaml, err %s", err)
 	}
 
-	flatValuesMap, err = converter.Flatten(valuesMap)
+	flatValuesMap, err = converter.Flatten(overrideYamlMap)
 	if err != nil {
 		return "", fmt.Errorf("failed to flatten values map, err: %s", err)
 	}
@@ -492,7 +494,7 @@ func (s *HelmDeployService) GenMergedValues(productSvc *commonmodels.ProductServ
 		container.Image = imageUrl
 	}
 
-	return finalValuesYaml, nil
+	return overrideYamlWithImage, nil
 }
 
 func (s *HelmDeployService) GeneFullValues(serviceValuesYaml, envValuesYaml string) (string, error) {
