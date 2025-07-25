@@ -707,11 +707,6 @@ func DeleteProductTemplate(userName, productName, requestID string, isDelete boo
 		return err
 	}
 
-	if err = commonservice.DeleteWorkflows(productName, requestID, log); err != nil {
-		log.Errorf("DeleteProductTemplate Delete productName %s workflow err: %s", productName, err)
-		return err
-	}
-
 	if err = commonservice.DeleteWorkflowV4sByProjectName(productName, log); err != nil {
 		log.Errorf("DeleteProductTemplate Delete productName %s workflowV4 err: %s", productName, err)
 		return err

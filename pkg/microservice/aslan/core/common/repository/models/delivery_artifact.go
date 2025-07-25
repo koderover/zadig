@@ -47,6 +47,31 @@ type Descriptor struct {
 	URLs      []string `bson:"urls" json:"urls,omitempty"`
 }
 
+type DeliveryImage struct {
+	RepoName      string `bson:"repo_name"       json:"repoName"`
+	TagName       string `bson:"tag_name"        json:"tagName"`
+	ImageSize     int64  `bson:"image_size"      json:"imageSize"`
+	ImageDigest   string `bson:"image_digest"    json:"imageDigest"`
+	Author        string `bson:"author"          json:"author"`
+	Architecture  string `bson:"architecture"    json:"architecture"`
+	DockerVersion string `bson:"docker_version"  json:"dockerVersion"`
+	Os            string `bson:"os"              json:"os"`
+	CreationTime  string `bson:"creation_time"   json:"creationTime"`
+	UpdateTime    string `bson:"update_time"     json:"updateTime"`
+}
+
+type JiraIssue struct {
+	ID          string `bson:"id,omitempty"                    json:"id,omitempty"`
+	Key         string `bson:"key,omitempty"                   json:"key,omitempty"`
+	URL         string `bson:"url,omitempty"                   json:"url,omitempty"`
+	Summary     string `bson:"summary"                         json:"summary"`
+	Description string `bson:"description,omitempty"           json:"description,omitempty"`
+	Priority    string `bson:"priority,omitempty"              json:"priority,omitempty"`
+	Creator     string `bson:"creator,omitempty"               json:"creator,omitempty"`
+	Assignee    string `bson:"assignee,omitempty"              json:"assignee,omitempty"`
+	Reporter    string `bson:"reporter,omitempty"              json:"reporter,omitempty"`
+}
+
 func (DeliveryArtifact) TableName() string {
 	return "artifact"
 }

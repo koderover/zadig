@@ -50,6 +50,13 @@ func (c *MigrationColl) UpdateMigrationStatus(id primitive.ObjectID, kvs map[str
 	return err
 }
 
+func (c *MigrationColl) UpdateMigrationError(id primitive.ObjectID, error string) error {
+	query := bson.M{"_id": id}
+	change := bson.M{"$set": bson.M{"error": error}}
+	_, err := c.Collection.UpdateOne(context.TODO(), query, change)
+	return err
+}
+
 func (c *MigrationColl) InitializeMigrationInfo() error {
 	resp := &models.Migration{
 		SonarMigration:                   false,

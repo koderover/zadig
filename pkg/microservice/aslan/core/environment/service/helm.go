@@ -67,6 +67,7 @@ type HelmReleaseResp struct {
 	Revision          int           `json:"revision"`
 	ChartRepo         string        `json:"chartRepo"`
 	Chart             string        `json:"chart"`
+	ChartVersion      string        `json:"chartVersion"`
 	AppVersion        string        `json:"appVersion"`
 	OverrideValues    string        `json:"overrideValues"`
 	OverrideYaml      string        `json:"overrideYaml"`
@@ -286,6 +287,7 @@ func ListReleases(args *HelmReleaseQueryArgs, envName string, production bool, l
 			respObj.ReleaseName = svcDataSet.SvcRelease.Name
 			respObj.Revision = svcDataSet.SvcRelease.Version
 			respObj.Chart = svcDataSet.SvcRelease.Chart.Name()
+			respObj.ChartVersion = svcDataSet.SvcRelease.Chart.Metadata.Version
 			respObj.AppVersion = svcDataSet.SvcRelease.Chart.AppVersion()
 			respObj.Status = getReleaseStatus(svcDataSet.SvcRelease)
 		} else if svcDataSet.TmplSvc != nil {
@@ -293,6 +295,7 @@ func ListReleases(args *HelmReleaseQueryArgs, envName string, production bool, l
 			respObj.ReleaseName = util.GeneReleaseName(svcDataSet.TmplSvc.GetReleaseNaming(), svcDataSet.TmplSvc.ProductName, prod.Namespace, prod.EnvName, svcDataSet.TmplSvc.ServiceName)
 			respObj.ChartRepo = svcDataSet.TmplSvc.HelmChart.Repo
 			respObj.Chart = svcDataSet.TmplSvc.HelmChart.Name
+			respObj.ChartVersion = svcDataSet.TmplSvc.HelmChart.Version
 			respObj.AppVersion = svcDataSet.TmplSvc.HelmChart.Version
 		} else if svcDataSet.ProdSvc != nil {
 			// chart deploy
