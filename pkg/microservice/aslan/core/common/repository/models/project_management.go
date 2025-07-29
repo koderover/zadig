@@ -37,7 +37,10 @@ type ProjectManagement struct {
 	MeegoPluginID           string `bson:"meego_plugin_id"     json:"meego_plugin_id"`
 	MeegoPluginSecret       string `bson:"meego_plugin_secret" json:"meego_plugin_secret"`
 	MeegoUserKey            string `bson:"meego_user_key"      json:"meego_user_key"`
-	UpdatedAt               int64  `bson:"updated_at"          json:"updated_at"`
+	PingCodeAddress         string `bson:"ping_code_address"         json:"ping_code_address"`
+	PingCodeClientID        string `bson:"ping_code_client_id"       json:"ping_code_client_id"`
+	PingCodeClientSecret    string `bson:"ping_code_client_secret"   json:"ping_code_client_secret"`
+	UpdatedAt               int64  `bson:"updated_at"                json:"updated_at"`
 }
 
 func (ProjectManagement) TableName() string {

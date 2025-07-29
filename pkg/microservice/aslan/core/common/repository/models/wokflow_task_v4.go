@@ -25,6 +25,7 @@ import (
 	commontypes "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/types"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/tool/blueking"
+	"github.com/koderover/zadig/v2/pkg/tool/pingcode"
 	"github.com/koderover/zadig/v2/pkg/types"
 )
 
@@ -499,6 +500,25 @@ type JobTaskNacosSpec struct {
 
 type NacosData struct {
 	types.NacosConfig `bson:",inline" json:",inline" yaml:",inline"`
+	Error             string `bson:"error"      json:"error"      yaml:"error"`
+}
+
+type JobTaskPingCodeSpec struct {
+	JobTaskCommonRevertSpec `bson:",inline"          json:",inline"          yaml:",inline"`
+	PingCodeAddress         string              `bson:"pingcode_address"        json:"pingcode_address"        yaml:"pingcode_address"`
+	PingCodeClientID        string              `bson:"pingcode_client_id"      json:"pingcode_client_id"      yaml:"pingcode_client_id"`
+	PingCodeClientSecret    string              `bson:"pingcode_client_secret"  json:"pingcode_client_secret"  yaml:"pingcode_client_secret"`
+	ProjectID               string              `bson:"project_id"              json:"project_id"              yaml:"project_id"`
+	ProjectName             string              `bson:"project_name"            json:"project_name"            yaml:"project_name"`
+	BoardID                 string              `bson:"board_id"                json:"board_id"                yaml:"board_id"`
+	SprintID                string              `bson:"sprint_id"               json:"sprint_id"               yaml:"sprint_id"`
+	WorkItemTypeID          string              `bson:"workitem_type_id"        json:"workitem_type_id"        yaml:"workitem_type_id"`
+	WorkItemStateIDs        []string            `bson:"workitem_state_ids"      json:"workitem_state_ids"      yaml:"workitem_state_ids"`
+	WorkItems               []*PingCodeWorkItem `bson:"workitems"               json:"workitems"               yaml:"workitems"`
+}
+
+type PingCodeWorkItem struct {
+	pingcode.WorkItem `bson:",inline"          json:",inline"          yaml:",inline"`
 	Error             string `bson:"error"      json:"error"      yaml:"error"`
 }
 

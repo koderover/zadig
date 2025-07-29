@@ -39,6 +39,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/tool/jira"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/tool/meego"
+	"github.com/koderover/zadig/v2/pkg/tool/pingcode"
 )
 
 func ListProjectManagement(log *zap.SugaredLogger) ([]*models.ProjectManagement, error) {
@@ -119,6 +120,22 @@ func ValidateMeego(info *models.ProjectManagement) error {
 	_, err = client.GetProjectList()
 	if err != nil {
 		return e.ErrValidateProjectManagement.AddDesc("failed to validate meego")
+	}
+	return nil
+}
+
+func ValidatePingCode(info *models.ProjectManagement) error {
+	client, err := pingcode.NewClient(info.PingCodeAddress, info.PingCodeClientID, info.PingCodeClientSecret)
+	if err != nil {
+		fmtErr := fmt.Sprintf("failed to new pingcode client, err: %v", err)
+		log.Errorf(fmtErr)
+		return e.ErrValidateProjectManagement.AddDesc(fmtErr)
+	}
+	_, err = client.ListProjects()
+	if err != nil {
+		fmtErr := fmt.Sprintf("failed to list projects, err: %v", err)
+		log.Errorf(fmtErr)
+		return e.ErrValidateProjectManagement.AddDesc(fmtErr)
 	}
 	return nil
 }
@@ -579,7 +596,7 @@ func HandleMeegoHookEvent(workflowName, hookName string, event *meego.GeneralWeb
 
 func checkType(_type string) error {
 	switch _type {
-	case setting.PMJira, setting.PMMeego, setting.PMLark:
+	case setting.PMJira, setting.PMMeego, setting.PMPingCode:
 	default:
 		return errors.New("invalid pm type")
 	}

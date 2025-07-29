@@ -82,6 +82,8 @@ func initJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTas
 		jobCtl = NewJiraJobCtl(job, workflowCtx, ack, logger)
 	case string(config.JobNacos):
 		jobCtl = NewNacosJobCtl(job, workflowCtx, ack, logger)
+	case string(config.JobPingCode):
+		jobCtl = NewPingCodeJobCtl(job, workflowCtx, ack, logger)
 	case string(config.JobApollo):
 		jobCtl = NewApolloJobCtl(job, workflowCtx, ack, logger)
 	case string(config.JobMeegoTransition):
