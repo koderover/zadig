@@ -108,3 +108,16 @@ func JsonEscapeString(str string) (string, error) {
 	escapedStr := string(escapedBytes)
 	return escapedStr[1 : len(escapedStr)-1], nil
 }
+
+func IToi(before interface{}, after interface{}) error {
+	b, err := json.Marshal(before)
+	if err != nil {
+		return fmt.Errorf("marshal task error: %v", err)
+	}
+
+	if err := json.Unmarshal(b, &after); err != nil {
+		return fmt.Errorf("unmarshal task error: %v", err)
+	}
+
+	return nil
+}

@@ -243,6 +243,7 @@ const (
 	JobJira                 JobType = "jira"
 	JobNacos                JobType = "nacos"
 	JobApollo               JobType = "apollo"
+	JobPingCode             JobType = "pingcode"
 	JobSQL                  JobType = "sql"
 	JobJenkins              JobType = "jenkins"
 	JobMeegoTransition      JobType = "meego-transition"

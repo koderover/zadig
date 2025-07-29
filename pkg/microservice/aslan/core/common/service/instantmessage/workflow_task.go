@@ -972,6 +972,8 @@ func getJobTaskTplExec(tplcontent string, args *jobTaskNotification) (string, er
 				return "jira 问题状态变更"
 			case string(config.JobNacos):
 				return "Nacos 配置变更"
+			case string(config.JobPingCode):
+				return "PingCode 工作项状态变更"
 			case string(config.JobApollo):
 				return "Apollo 配置变更"
 			case string(config.JobMeegoTransition):

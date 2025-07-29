@@ -193,6 +193,8 @@ func Validate(c *gin.Context) {
 		ctx.RespErr = service.ValidateJira(req)
 	case setting.PMMeego:
 		ctx.RespErr = service.ValidateMeego(req)
+	case setting.PMPingCode:
+		ctx.RespErr = service.ValidatePingCode(req)
 	default:
 		ctx.RespErr = e.ErrValidateProjectManagement.AddDesc("invalid type")
 	}
