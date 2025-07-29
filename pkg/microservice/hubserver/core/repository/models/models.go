@@ -62,6 +62,8 @@ type AdvancedConfig struct {
 	ScheduleWorkflow  bool     `json:"schedule_workflow"        bson:"schedule_workflow"`
 	EnableIRSA        bool     `json:"enable_irsa"              bson:"enable_irsa"`
 	IRSARoleARM       string   `json:"irsa_role_arn"            bson:"irsa_role_arn"`
+	// TLS configuration for Kubernetes API connections
+	InsecureSkipTLSVerify bool `json:"insecure_skip_tls_verify" bson:"insecure_skip_tls_verify"`
 }
 
 func (K8SCluster) TableName() string {

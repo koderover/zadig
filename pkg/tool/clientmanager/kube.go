@@ -141,6 +141,8 @@ func (cm *KubeClientManager) GetKubernetesClientSet(clusterID string) (*kubernet
 		if err != nil {
 			return nil, err
 		}
+		// Apply cluster-specific TLS configuration
+		applyTLSConfigForCluster(cfg, clusterID)
 	default:
 		return nil, fmt.Errorf("failed to create kubeclient: unknown cluster type: %s", clusterInfo.Type)
 	}
@@ -194,6 +196,8 @@ func (cm *KubeClientManager) GetKruiseClient(clusterID string) (kruiseclientset.
 		if err != nil {
 			return nil, err
 		}
+		// Apply cluster-specific TLS configuration
+		applyTLSConfigForCluster(cfg, clusterID)
 	default:
 		return nil, fmt.Errorf("failed to create kruise client: unknown cluster type: %s", clusterInfo.Type)
 	}
@@ -248,6 +252,8 @@ func (cm *KubeClientManager) GetKubernetesMetricsClient(clusterID string) (*metr
 		if err != nil {
 			return nil, err
 		}
+		// Apply cluster-specific TLS configuration
+		applyTLSConfigForCluster(cfg, clusterID)
 	default:
 		return nil, fmt.Errorf("failed to create kubeclient: unknown cluster type: %s", clusterInfo.Type)
 	}
@@ -302,6 +308,8 @@ func (cm *KubeClientManager) GetIstioClientSet(clusterID string) (*istioClient.C
 		if err != nil {
 			return nil, err
 		}
+		// Apply cluster-specific TLS configuration
+		applyTLSConfigForCluster(cfg, clusterID)
 	default:
 		return nil, fmt.Errorf("failed to create kubeclient: unknown cluster type: %s", clusterInfo.Type)
 	}
@@ -419,6 +427,8 @@ func (cm *KubeClientManager) GetSPDYExecutor(clusterID string, URL *url.URL) (re
 			if err != nil {
 				return nil, err
 			}
+			// Apply cluster-specific TLS configuration
+			applyTLSConfigForCluster(cfg, clusterID)
 		default:
 			return nil, fmt.Errorf("failed to create kubeclient: unknown cluster type: %s", clusterInfo.Type)
 		}
@@ -457,6 +467,8 @@ func (cm *KubeClientManager) GetRestConfig(clusterID string) (*rest.Config, erro
 		if err != nil {
 			return nil, err
 		}
+		// Apply cluster-specific TLS configuration
+		applyTLSConfigForCluster(cfg, clusterID)
 	default:
 		return nil, fmt.Errorf("failed to create kubeclient: unknown cluster type: %s", clusterInfo.Type)
 	}
@@ -540,6 +552,8 @@ func (cm *KubeClientManager) getControllerRuntimeCluster(clusterID string) (cont
 		if err != nil {
 			return nil, err
 		}
+		// Apply cluster-specific TLS configuration
+		applyTLSConfigForCluster(cfg, clusterID)
 	default:
 		return nil, fmt.Errorf("failed to create kubeclient: unknown cluster type: %s", clusterInfo.Type)
 	}
@@ -614,4 +628,46 @@ func createControllerRuntimeCluster(restConfig *rest.Config) (controllerRuntimeC
 
 func generateInformerKey(clusterID, namespace string) string {
 	return fmt.Sprintf(setting.InformerNamingConvention, clusterID, namespace)
+}
+
+// shouldSkipTLSVerify checks if TLS verification should be skipped
+// This can be controlled via environment variable ZADIG_KUBE_INSECURE_SKIP_TLS_VERIFY
+func shouldSkipTLSVerify() bool {
+	return os.Getenv("ZADIG_KUBE_INSECURE_SKIP_TLS_VERIFY") == "true"
+}
+
+// shouldSkipTLSVerifyForCluster checks if TLS verification should be skipped for a specific cluster
+// This checks both the cluster's advanced configuration and environment variable as fallback
+func shouldSkipTLSVerifyForCluster(clusterID string) bool {
+	// First check environment variable for global override
+	if shouldSkipTLSVerify() {
+		return true
+	}
+
+	// For local cluster, only use environment variable
+	if clusterID == setting.LocalClusterID {
+		return false
+	}
+
+	// For remote clusters, try to get configuration from database
+	clusterInfo, err := aslanClient.New(config.AslanServiceAddress()).GetClusterInfo(clusterID)
+	if err != nil {
+		// If we can't get cluster info, fall back to environment variable
+		return false
+	}
+
+	if clusterInfo == nil || clusterInfo.AdvancedConfig == nil {
+		return false
+	}
+
+	return clusterInfo.AdvancedConfig.InsecureSkipTLSVerify
+}
+
+// applyTLSConfigForCluster applies TLS configuration to a rest.Config for a specific cluster
+func applyTLSConfigForCluster(cfg *rest.Config, clusterID string) {
+	if shouldSkipTLSVerifyForCluster(clusterID) {
+		cfg.TLSClientConfig = rest.TLSClientConfig{
+			Insecure: true,
+		}
+	}
 }
