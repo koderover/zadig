@@ -32,6 +32,9 @@ const (
 	ProviderDeepSeekSiliconCloud Provider = "deepseek_siliconcloud"
 	ProviderAzure                Provider = "azure_openai"
 	ProviderAzureAD              Provider = "azure_ad_openai"
+	ProviderAliyunBailian        Provider = "bailian"
+	ProviderVolcengineArk        Provider = "ark"
+	ProviderHuaweiMaas           Provider = "maas"
 )
 
 var (
@@ -41,6 +44,9 @@ var (
 		ProviderDeepSeekSiliconCloud: &OpenAIClient{},
 		ProviderAzure:                &OpenAIClient{},
 		ProviderAzureAD:              &OpenAIClient{},
+		ProviderAliyunBailian:        &OpenAIClient{},
+		ProviderVolcengineArk:        &OpenAIClient{},
+		ProviderHuaweiMaas:           &OpenAIClient{},
 	}
 )
 

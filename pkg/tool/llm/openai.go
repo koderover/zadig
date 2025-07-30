@@ -61,6 +61,13 @@ func (c *OpenAIClient) Configure(config LLMConfig) error {
 		defaultConfig = openai.DefaultConfig(token)
 		baseURL := config.GetBaseURL()
 		defaultConfig.BaseURL = baseURL
+	} else if strings.HasPrefix(string(config.GetProviderName()), string(ProviderAliyunBailian)) ||
+		strings.HasPrefix(string(config.GetProviderName()), string(ProviderVolcengineArk)) ||
+		strings.HasPrefix(string(config.GetProviderName()), string(ProviderHuaweiMaas)) {
+		c.apiType = string(openai.APITypeOpenAI)
+		defaultConfig = openai.DefaultConfig(token)
+		baseURL := config.GetBaseURL()
+		defaultConfig.BaseURL = baseURL
 	} else {
 		c.apiType = string(openai.APITypeOpenAI)
 		defaultConfig = openai.DefaultConfig(token)
