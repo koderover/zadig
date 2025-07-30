@@ -34,6 +34,7 @@ const (
 	ProviderAzureAD              Provider = "azure_ad_openai"
 	ProviderAliyunBailian        Provider = "bailian"
 	ProviderVolcengineArk        Provider = "ark"
+	ProviderHuaweiMaas           Provider = "maas"
 )
 
 var (
@@ -45,6 +46,7 @@ var (
 		ProviderAzureAD:              &OpenAIClient{},
 		ProviderAliyunBailian:        &OpenAIClient{},
 		ProviderVolcengineArk:        &OpenAIClient{},
+		ProviderHuaweiMaas:           &OpenAIClient{},
 	}
 )
 
