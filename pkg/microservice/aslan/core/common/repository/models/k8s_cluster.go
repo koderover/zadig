@@ -72,12 +72,15 @@ type AdvancedConfig struct {
 	Strategy          string                     `json:"strategy,omitempty"       bson:"strategy,omitempty"`
 	NodeLabels        []*NodeSelectorRequirement `json:"node_labels,omitempty"    bson:"node_labels,omitempty"`
 	ProjectNames      []string                   `json:"-"                        bson:"-"`
-	Tolerations       string                     `json:"tolerations"              bson:"tolerations"`
 	ClusterAccessYaml string                     `json:"cluster_access_yaml"      bson:"cluster_access_yaml"`
 	ScheduleWorkflow  bool                       `json:"schedule_workflow"        bson:"schedule_workflow"`
 	ScheduleStrategy  []*ScheduleStrategy        `json:"schedule_strategy"        bson:"schedule_strategy"`
 	EnableIRSA        bool                       `json:"enable_irsa"              bson:"enable_irsa"`
 	IRSARoleARM       string                     `json:"irsa_role_arn"            bson:"irsa_role_arn"`
+
+	AgentNodeSelector string `json:"agent_node_selector"            bson:"agent_node_selector"`
+	AgentToleration   string `json:"agent_toleration"               bson:"agent_toleration"`
+	AgentAffinity     string `json:"agent_affinity"                 bson:"agent_affinity"`
 }
 
 type ScheduleStrategy struct {
