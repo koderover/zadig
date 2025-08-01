@@ -17,7 +17,7 @@ limitations under the License.
 package types
 
 const (
-	AllUserGroupName = "所有用户"
+	AllUserGroupName = "all-users"
 )
 
 type DetailedUserGroupResp struct {

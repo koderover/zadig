@@ -62,3 +62,19 @@ func UpdateUserDBTables(action DbEditAction) error {
 	_, err = db.Exec(mysql)
 	return err
 }
+
+//go:embed alter_all_user.sql
+var alterAllUserSQL []byte
+
+func UpdateAllUserGroup() error {
+	db, err := sql.Open("mysql", fmt.Sprintf(
+		"%s:%s@tcp(%s)/?charset=utf8&multiStatements=true",
+		config.MysqlUser(), config.MysqlPassword(), config.MysqlHost(),
+	))
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+	_, err = db.Exec(fmt.Sprintf(string(alterAllUserSQL), config.MysqlUserDB()))
+	return err
+}

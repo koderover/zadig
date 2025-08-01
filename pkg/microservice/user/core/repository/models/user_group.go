@@ -18,6 +18,7 @@ package models
 
 import (
 	"github.com/koderover/zadig/v2/pkg/setting"
+	"github.com/koderover/zadig/v2/pkg/types"
 )
 
 type UserGroup struct {
@@ -38,7 +39,7 @@ func (UserGroup) TableName() string {
 }
 
 func (ug *UserGroup) IsAllUserGroup() bool {
-	if ug.GroupName == "所有用户" && ug.Type == int64(setting.RoleTypeSystem) {
+	if ug.GroupName == types.AllUserGroupName && ug.Type == int64(setting.RoleTypeSystem) {
 		return true
 	}
 	return false

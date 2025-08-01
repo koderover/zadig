@@ -22,6 +22,7 @@ import (
 
 	internalmodels "github.com/koderover/zadig/v2/pkg/cli/upgradeassistant/internal/repository/models"
 	"github.com/koderover/zadig/v2/pkg/cli/upgradeassistant/internal/repository/mongodb"
+	"github.com/koderover/zadig/v2/pkg/cli/upgradeassistant/internal/repository/orm"
 	"github.com/koderover/zadig/v2/pkg/cli/upgradeassistant/internal/upgradepath"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
@@ -33,11 +34,11 @@ import (
 )
 
 func init() {
-	upgradepath.RegisterHandler("3.4.1", "3.5.0", V341ToV350)
-	upgradepath.RegisterHandler("3.5.0", "3.4.1", V350ToV341)
+	upgradepath.RegisterHandler("3.4.1", "4.0.0", V341ToV400)
+	upgradepath.RegisterHandler("4.0.0", "3.4.1", V400ToV341)
 }
 
-func V341ToV350() error {
+func V341ToV400() error {
 	ctx := internalhandler.NewBackgroupContext()
 
 	migrationInfo, err := getMigrationInfo()
@@ -53,6 +54,12 @@ func V341ToV350() error {
 	if err != nil {
 		return err
 	}
+
+	err = migrateUserGroup(ctx, migrationInfo)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -195,7 +202,7 @@ func migrateDeliveryVersionV2(ctx *internalhandler.Context, migrationInfo *inter
 							}
 						}
 
-						EndLoop:
+					EndLoop:
 						image.ImagePath = imagePath
 
 						service.Images = append(service.Images, image)
@@ -233,6 +240,21 @@ func migrateDeliveryVersionV2(ctx *internalhandler.Context, migrationInfo *inter
 	return nil
 }
 
-func V350ToV341() error {
+func migrateUserGroup(ctx *internalhandler.Context, migrationInfo *internalmodels.Migration) error {
+	if !migrationInfo.Migration400AllUserGroup {
+		err := orm.UpdateAllUserGroup()
+		if err != nil {
+			return fmt.Errorf("failed to update all user group, err: %s", err)
+		}
+	}
+
+	_ = mongodb.NewMigrationColl().UpdateMigrationStatus(migrationInfo.ID, map[string]interface{}{
+		getMigrationFieldBsonTag(migrationInfo, &migrationInfo.Migration400AllUserGroup): true,
+	})
+
+	return nil
+}
+
+func V400ToV341() error {
 	return nil
 }
