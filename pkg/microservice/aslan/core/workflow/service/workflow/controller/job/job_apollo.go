@@ -145,36 +145,56 @@ func (j ApolloJobController) SetOptions(ticket *commonmodels.ApprovalTicket) err
 	}
 
 	client := apollo.NewClient(info.ServerAddress, info.Token)
+	newNamespaces := []*commonmodels.ApolloNamespace{}
 	for _, namespace := range j.jobSpec.NamespaceListOption {
-		result, err := client.GetNamespace(namespace.AppID, namespace.Env, namespace.ClusterID, namespace.Namespace)
-		if err != nil {
-			log.Warnf("ApolloJob: get namespace %s-%s-%s-%s error: %v", namespace.AppID, namespace.Env, namespace.ClusterID, namespace.Namespace, err)
-			continue
-		}
-		for _, item := range result.Items {
-			if item.Key == "" {
+		if namespace.Namespace == "*" {
+			namespaces, err := client.ListAppNamespace(namespace.AppID, namespace.Env, namespace.ClusterID)
+			if err != nil {
+				log.Warnf("ApolloJob: list namespace %s-%s-%s error: %v", namespace.AppID, namespace.Env, namespace.ClusterID, err)
 				continue
 			}
-			namespace.OriginalConfig = append(namespace.OriginalConfig, &commonmodels.ApolloKV{
-				Key: item.Key,
-				Val: item.Value,
-			})
-			namespace.KeyValList = append(namespace.KeyValList, &commonmodels.ApolloKV{
-				Key: item.Key,
-				Val: item.Value,
-			})
+			for _, ns := range namespaces {
+				newNamespaces = append(newNamespaces, &commonmodels.ApolloNamespace{
+					AppID:     namespace.AppID,
+					Env:       namespace.Env,
+					ClusterID: namespace.ClusterID,
+					Namespace: ns.NamespaceName,
+				})
+			}
+		} else {
+			newNamespaces = append(newNamespaces, namespace)
 		}
-		if result.Format != "properties" && len(result.Items) == 0 {
-			namespace.OriginalConfig = append(namespace.OriginalConfig, &commonmodels.ApolloKV{
-				Key: "content",
-				Val: "",
-			})
-			namespace.KeyValList = append(namespace.KeyValList, &commonmodels.ApolloKV{
-				Key: "content",
-				Val: "",
-			})
-		}
+
+		// result, err := client.GetNamespace(namespace.AppID, namespace.Env, namespace.ClusterID, namespace.Namespace)
+		// if err != nil {
+		// 	log.Warnf("ApolloJob: get namespace %s-%s-%s-%s error: %v", namespace.AppID, namespace.Env, namespace.ClusterID, namespace.Namespace, err)
+		// 	continue
+		// }
+		// for _, item := range result.Items {
+		// 	if item.Key == "" {
+		// 		continue
+		// 	}
+		// 	namespace.OriginalConfig = append(namespace.OriginalConfig, &commonmodels.ApolloKV{
+		// 		Key: item.Key,
+		// 		Val: item.Value,
+		// 	})
+		// 	namespace.KeyValList = append(namespace.KeyValList, &commonmodels.ApolloKV{
+		// 		Key: item.Key,
+		// 		Val: item.Value,
+		// 	})
+		// }
+		// if result.Format != "properties" && len(result.Items) == 0 {
+		// 	namespace.OriginalConfig = append(namespace.OriginalConfig, &commonmodels.ApolloKV{
+		// 		Key: "content",
+		// 		Val: "",
+		// 	})
+		// 	namespace.KeyValList = append(namespace.KeyValList, &commonmodels.ApolloKV{
+		// 		Key: "content",
+		// 		Val: "",
+		// 	})
+		// }
 	}
+	j.jobSpec.NamespaceListOption = newNamespaces
 
 	return nil
 }
