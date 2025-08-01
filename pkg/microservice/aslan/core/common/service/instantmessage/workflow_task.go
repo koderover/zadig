@@ -1177,6 +1177,9 @@ func getJobTaskTplExec(tplcontent string, args *jobTaskNotification, language st
 				return string(jobType)
 			}
 		},
+		"getText": func(key string) string {
+			return getText(key, language)
+		},
 	}).Parse(tplcontent))
 
 	buffer := bytes.NewBufferString("")
