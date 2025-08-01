@@ -144,7 +144,6 @@ func OpenAPIGetDeliveryVersion(projectName, versionName string) (*OpenAPIGetDeli
 		Error:           version.Error,
 		CreatedBy:       version.CreatedBy,
 		CreatedAt:       version.CreatedAt,
-		DeletedAt:       version.DeletedAt,
 	}
 
 	openapiServices := make([]*OpenAPIDeliveryVersionService, 0)

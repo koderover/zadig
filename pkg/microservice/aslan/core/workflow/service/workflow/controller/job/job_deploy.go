@@ -482,6 +482,7 @@ func (j DeployJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, erro
 				CreateEnvType:      project.ProductFeature.CreateEnvType,
 				ClusterID:          product.ClusterID,
 				Production:         j.jobSpec.Production,
+				VersionName:        j.jobSpec.VersionName,
 				DeployContents:     j.jobSpec.DeployContents,
 				Timeout:            timeout,
 			}
@@ -643,6 +644,7 @@ func (j DeployJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, erro
 				ServiceType:                  setting.HelmDeployType,
 				ClusterID:                    product.ClusterID,
 				ReleaseName:                  releaseName,
+				VersionName:                  j.jobSpec.VersionName,
 				Timeout:                      timeout,
 				IsProduction:                 j.jobSpec.Production,
 				ValueMergeStrategy:           svc.ValueMergeStrategy,
@@ -743,6 +745,13 @@ func (j DeployJobController) GetVariableList(jobName string, getAggregatedVariab
 			})
 		}
 	}
+
+	resp = append(resp, &commonmodels.KeyVal{
+		Key:          strings.Join([]string{"job", j.name, "VERSION_NAME"}, "."),
+		Value:        j.jobSpec.VersionName,
+		Type:         "string",
+		IsCredential: false,
+	})
 
 	resp = append(resp, &commonmodels.KeyVal{
 		Key:          strings.Join([]string{"job", j.name, "SERVICES"}, "."),

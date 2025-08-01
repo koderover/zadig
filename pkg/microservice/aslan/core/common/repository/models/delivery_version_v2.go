@@ -43,7 +43,6 @@ type DeliveryVersionV2 struct {
 	Error                 string                        `bson:"error"                    json:"error"`
 	CreatedBy             string                        `bson:"created_by"               json:"created_by"`
 	CreatedAt             int64                         `bson:"created_at"               json:"created_at"`
-	DeletedAt             int64                         `bson:"deleted_at"               json:"deleted_at"`
 }
 
 type DeliveryVersionService struct {
