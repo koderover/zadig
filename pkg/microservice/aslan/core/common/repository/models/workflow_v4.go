@@ -435,6 +435,7 @@ type ZadigDeployJobSpec struct {
 	JobName string `bson:"job_name"             yaml:"job_name"             json:"job_name"`
 	// save the origin quoted job name
 	OriginJobName string               `bson:"origin_job_name"      yaml:"origin_job_name"      json:"origin_job_name"`
+	VersionName   string               `bson:"version_name"         yaml:"version_name"         json:"version_name"`
 	Services      []*DeployServiceInfo `bson:"services"             yaml:"services"             json:"services"`
 	// k8s type service only configuration, this is the field to save variable config for each service. The logic is:
 	// 1. if the service is not in the config, use the variable info in the env/service definition

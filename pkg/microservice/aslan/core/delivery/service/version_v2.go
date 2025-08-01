@@ -111,7 +111,6 @@ func CreateK8SDeliveryVersionV2(args *CreateDeliveryVersionRequest, logger *zap.
 		Services:        args.Services,
 		CreatedBy:       args.CreateBy,
 		CreatedAt:       time.Now().Unix(),
-		DeletedAt:       0,
 	}
 
 	err = commonrepo.NewDeliveryVersionV2Coll().Create(versionObj)
@@ -655,19 +654,6 @@ func RetryCreateHelmDeliveryVersionV2(deliveryVersion *commonmodels.DeliveryVers
 		return fmt.Errorf("can't reCreate version with status:%s", deliveryVersion.Status)
 	}
 
-	// for charts has been successfully handled, download charts directly
-	// for _, service := range deliveryVersion.Services {
-	// 	if service.ChartStatus != config.StatusPassed {
-	// 		return fmt.Errorf("service %s has not been successfully handled", service.ServiceName)
-	// 	}
-
-	// 	_, err := downloadChartV2(deliveryVersion, service)
-	// 	if err != nil {
-	// 		log.Errorf("failed to download chart from chart repo, chartName: %s, err: %s", service.ServiceName, err)
-	// 		return err
-	// 	}
-	// }
-
 	registry, err := commonrepo.NewRegistryNamespaceColl().Find(&commonrepo.FindRegOps{
 		ID: deliveryVersion.ImageRegistryID,
 	})
@@ -723,7 +709,6 @@ func CreateHelmDeliveryVersionV2(args *CreateDeliveryVersionRequest, logger *zap
 		Production:      args.Production,
 		CreatedBy:       args.CreateBy,
 		CreatedAt:       time.Now().Unix(),
-		DeletedAt:       0,
 	}
 
 	err = commonrepo.NewDeliveryVersionV2Coll().Create(versionObj)
@@ -1368,6 +1353,24 @@ func ListDeliveryVersionV2(args *ListDeliveryVersionV2Args, logger *zap.SugaredL
 	}
 
 	return deliveryVersions, total, nil
+}
+
+func ListDeliveryVersionV2Labels(projectName string) ([]string, error) {
+	labels, err := commonrepo.NewDeliveryVersionV2Coll().ListLabels(projectName)
+	if err != nil {
+		return nil, err
+	}
+
+	return labels, nil
+}
+
+func GetDeliveryVersionV2LabelLatestVersion(projectName, label string) (*commonmodels.DeliveryVersionV2, error) {
+	version, err := commonrepo.NewDeliveryVersionV2Coll().GetLabelLatestVersion(projectName, label)
+	if err != nil {
+		return nil, err
+	}
+
+	return version, nil
 }
 
 func generateDeliveryWorkflowName(projectName, version string) string {

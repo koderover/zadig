@@ -84,6 +84,7 @@ const (
 	// build job outputs key
 	IMAGEKEY    = "IMAGE"
 	IMAGETAGKEY = "imageTag"
+	VERSIONNAMEKEY = "versionName"
 )
 
 func GetK8sClients(hubServerAddr, clusterID string) (crClient.Client, kubernetes.Interface, crClient.Reader, error) {

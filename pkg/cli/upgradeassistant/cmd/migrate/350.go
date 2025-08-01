@@ -83,7 +83,6 @@ func migrateDeliveryVersionV2(ctx *internalhandler.Context, migrationInfo *inter
 				TaskID:       int64(versionV1.TaskID),
 				CreatedAt:    versionV1.CreatedAt,
 				CreatedBy:    versionV1.CreatedBy,
-				DeletedAt:    versionV1.DeletedAt,
 			}
 
 			if versionV1.ProductEnvInfo != nil {
