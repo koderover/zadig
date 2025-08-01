@@ -324,7 +324,19 @@ func (s *Service) GetYaml(id, agentImage, aslanURL, hubURI string, useDeployment
 		yaml = fmt.Sprintf("%s\n---\n%s", yaml, WorkflowResourceYaml)
 	}
 
-	var YamlTemplate = template.Must(template.New("agentYaml").Parse(yaml))
+	var YamlTemplate = template.Must(template.New("agentYaml").Funcs(
+		template.FuncMap{
+			"indent": func(spaces int, text string) string {
+				prefix := strings.Repeat(" ", spaces)
+				lines := strings.Split(text, "\n")
+				for i, line := range lines {
+					if line != "" {
+						lines[i] = prefix + line
+					}
+				}
+				return strings.Join(lines, "\n")
+			},
+		}).Parse(yaml))
 	scheduleWorkflow := true
 	if cluster.AdvancedConfig != nil && cluster.AdvancedConfig.ClusterAccessYaml != "" {
 		scheduleWorkflow = cluster.AdvancedConfig.ScheduleWorkflow
