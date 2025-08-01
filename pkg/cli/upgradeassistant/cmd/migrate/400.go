@@ -64,7 +64,7 @@ func V341ToV400() error {
 }
 
 func migrateDeliveryVersionV2(ctx *internalhandler.Context, migrationInfo *internalmodels.Migration) error {
-	if !migrationInfo.Migration350DeliveryVersionV2 {
+	if !migrationInfo.Migration400DeliveryVersionV2 {
 		cursor, err := commonrepo.NewDeliveryVersionColl().ListByCursor()
 		if err != nil {
 			return fmt.Errorf("failed to list delivery versions, err: %s", err)
