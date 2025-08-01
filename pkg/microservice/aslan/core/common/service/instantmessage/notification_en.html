@@ -1,0 +1,41 @@
+<head>
+    <meta charset="UTF-8">
+</head>
+<div>
+    <div>
+        <table style="width:100%; max-width: 1024px;">
+            <tbody>
+                <tr>
+                    <td style="font-weight: 300; font-size: 18px; text-align:left; border-bottom: 1px solid #f0f0f0;">Hello
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div>
+    <div style="margin-bottom: 5px; ">
+        <h3 style="font-size:18px;font-weight: 300;text-align:left; ">{{getTaskType .TaskType}} [{{.WorkflowName}}#{{.WorkflowTaskID}}]
+            Execution information:
+        </h3>
+    </div>
+    <div class="card-body">
+        <table style="width:100%; max-width: 1024px;">
+            <tbody>
+                <tr>
+                    <td style="font-weight: 300; font-size: 14px; text-align:left; "><a href="{{.Url}}"
+                            target="_blank">Click for more information</a></td>
+                </tr>
+                <pre>
+{{.Content}}
+                </pre>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div style="margin: 20px auto;font-size:90%">
+    <p style="text-align: left">This email is automatically sent by the Zadig system. Please do not reply directly.</p>
+    <p style="text-align: left">Made By Zadig Team ♥ Happy Coding.</p>
+</div> 

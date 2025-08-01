@@ -703,3 +703,10 @@ const (
 	ValueMergeStrategyReuseValue = "reuse-values"
 	ValueMergeStrategyOverride   = "override"
 )
+
+type SystemLanguage string
+
+const (
+	SystemLanguageZhCN SystemLanguage = "zh-cn"
+	SystemLanguageEnUS SystemLanguage = "en-us"
+)

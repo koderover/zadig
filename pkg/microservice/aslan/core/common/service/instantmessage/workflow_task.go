@@ -49,8 +49,151 @@ import (
 	"github.com/koderover/zadig/v2/pkg/util"
 )
 
+var (
+	zhTextMap = map[string]string{
+		"taskTypeWorkflow": "工作流",
+		"taskTypeScanning": "代码扫描",
+		"taskTypeTesting":  "测试",
+
+		"taskStatusSuccess":          "执行成功",
+		"taskStatusFailed":           "执行失败",
+		"taskStatusCancelled":        "执行取消",
+		"taskStatusTimeout":          "执行超时",
+		"taskStatusRejected":         "执行被拒绝",
+		"taskStatusExecutionStarted": "开始执行",
+		"taskStatusManualApproval":   "待确认",
+
+		"jobTypeBuild":            "构建",
+		"jobTypeDeploy":           "容器服务部署",
+		"jobTypeVmDeploy":         "主机服务部署",
+		"jobTypeFreestyle":        "通用任务",
+		"jobTypeNacos":            "Nacos 配置变更",
+		"jobTypePlugin":           "插件",
+		"jobTypeTest":             "测试",
+		"jobTypeScan":             "代码扫描",
+		"jobTypeApproval":         "人工审批",
+		"jobTypeDistribute":       "镜像分发",
+		"jobTypeCustomDeploy":     "Kubernetes 部署",
+		"jobTypeCanaryDeploy":     "金丝雀部署",
+		"jobTypeCanaryRelease":    "金丝雀发布",
+		"jobTypeMseGrayRelease":   "MSE 灰度发布",
+		"jobTypeMseGrayOffline":   "下线 MSE 灰度服务",
+		"jobTypeBlueGreenDeploy":  "部署蓝绿环境",
+		"jobTypeBlueGreenRelease": "蓝绿发布",
+		"jobTypeK8sResourcePatch": "更新 K8s YAML 任务",
+		"jobTypeK8sGrayRollback":  "灰度回滚",
+		"jobTypeGrayDeploy":       "灰度发布",
+		"jobTypeIstioRelease":     "Istio 发布",
+		"jobTypeIstioRollback":    "Istio 回滚",
+		"jobTypeIstioStrategy":    "更新 Istio 灰度策略",
+		"jobTypeJira":             "JIRA 问题状态变更",
+		"jobTypeApollo":           "Apollo 配置变更",
+		"jobTypeLark":             "飞书工作项状态变更",
+		"jobTypeWorkflowTrigger":  "触发 Zadig 工作流",
+		"jobTypeOfflineService":   "下线服务",
+		"jobTypeHelmChartDeploy":  "Helm Chart 部署",
+		"jobTypeGrafana":          "Grafana 监测",
+		"jobTypeJenkinsJob":       "执行 Jenkins job",
+		"jobTypeBlueKingJob":      "执行蓝鲸作业",
+		"jobTypeSql":              "SQL 数据变更",
+		"jobTypeNotification":     "通知",
+		"jobTypeSaeDeploy":        "SAE 应用部署",
+
+		"testStatusSuccess": "成功",
+		"testStatusFailed":  "失败",
+		"testTotal":         "总数",
+
+		"notificationTextWorkflow":           "工作流",
+		"notificationTextWaitingForApproval": "等待审批",
+		"notificationTextExecutor":           "执行用户",
+		"notificationTextProjectName":        "项目名称",
+		"notificationTextStartTime":          "开始时间",
+		"notificationTextDuration":           "持续时间",
+		"notificationTextRemark":             "备注",
+		"notificationTextEnvironment":        "环境",
+		"notificationTextClickForMore":       "点击查看更多信息",
+		"notificationTextStatus":             "状态",
+		"notificationTextCommitMessage":      "提交信息",
+		"notificationTextRepositoryInfo":     "代码信息",
+		"notificationTextImageInfo":          "镜像信息",
+		"notificationTextTestResult":         "测试结果",
+	}
+
+	enTextMap = map[string]string{
+		"taskTypeWorkflow": "workflow",
+		"taskTypeScanning": "scanning",
+		"taskTypeTesting":  "testing",
+
+		"taskStatusSuccess":          "Passed",
+		"taskStatusFailed":           "Failed",
+		"taskStatusCancelled":        "Cancelled",
+		"taskStatusTimeout":          "Timeout",
+		"taskStatusRejected":         "Rejected",
+		"taskStatusExecutionStarted": "Created",
+		"taskStatusManualApproval":   "Waiting for confirmation",
+
+		"jobTypeBuild":            "Build",
+		"jobTypeDeploy":           "Deploy",
+		"jobTypeVmDeploy":         "Deploy to Host",
+		"jobTypeFreestyle":        "Common",
+		"jobTypeNacos":            "Nacos Configuration Changes",
+		"jobTypePlugin":           "Plugin",
+		"jobTypeTest":             "Test",
+		"jobTypeScan":             "Scan",
+		"jobTypeApproval":         "Approval",
+		"jobTypeDistribute":       "Image Distribute",
+		"jobTypeCustomDeploy":     "Kubernetes Deploy",
+		"jobTypeCanaryDeploy":     "Canary Deploy",
+		"jobTypeCanaryRelease":    "Canary Release",
+		"jobTypeMseGrayRelease":   "MSE Gray Deploy",
+		"jobTypeMseGrayOffline":   "Offline MSE Gray Service",
+		"jobTypeBlueGreenDeploy":  "Blue-Green Deploy",
+		"jobTypeBlueGreenRelease": "Blue-Green Release",
+		"jobTypeK8sResourcePatch": "Kubernetes Resource Patch",
+		"jobTypeK8sGrayRollback":  "Gray Rollback",
+		"jobTypeGrayDeploy":       "Gray Release",
+		"jobTypeIstioRelease":     "Istio Release",
+		"jobTypeIstioRollback":    "Istio Rollback",
+		"jobTypeIstioStrategy":    "Istio Strategy",
+		"jobTypeJira":             "JIRA Issue Status Change",
+		"jobTypeApollo":           "Apollo Configs",
+		"jobTypeLark":             "Status change of Lark work item",
+		"jobTypeWorkflowTrigger":  "Trigger other workflows",
+		"jobTypeOfflineService":   "Service Offline",
+		"jobTypeHelmChartDeploy":  "Helm Chart Deploy",
+		"jobTypeGrafana":          "Grafana Monitor",
+		"jobTypeJenkinsJob":       "Execute Jenkins job",
+		"jobTypeBlueKingJob":      "Execute BlueKing job",
+		"jobTypeSql":              "SQL Changes",
+		"jobTypeNotification":     "Notification",
+		"jobTypeSaeDeploy":        "SAE Deploy",
+
+		"testStatusSuccess": "Success",
+		"testStatusFailed":  "Failed",
+		"testTotal":         "Total",
+
+		"notificationTextWorkflow":           "Workflow",
+		"notificationTextWaitingForApproval": "waiting for approval",
+		"notificationTextExecutor":           "Executor",
+		"notificationTextProjectName":        "Project Name",
+		"notificationTextStartTime":          "Start Time",
+		"notificationTextDuration":           "Duration",
+		"notificationTextRemark":             "Remark",
+		"notificationTextEnvironment":        "Environment",
+		"notificationTextClickForMore":       "Click for More Information",
+		"notificationTextStatus":             "Status",
+		"notificationTextCommitMessage":      "Commit Message",
+		"notificationTextRepositoryInfo":     "Repository Information",
+		"notificationTextImageInfo":          "Image Information",
+		"notificationTextTestResult":         "Test Result",
+	}
+)
+
 //go:embed notification.html
 var notificationHTML []byte
+
+//go:embed notification_en.html
+var notificationENHTML []byte
 
 func (w *Service) SendWorkflowTaskApproveNotifications(workflowName string, taskID int64, task *models.WorkflowTask) error {
 	resp, err := w.workflowV4Coll.Find(workflowName)
@@ -272,6 +415,13 @@ func (w *Service) getApproveNotificationContent(notify *models.NotifyCtl, task *
 		return "", "", nil, nil, fmt.Errorf("failed to find project %s, error: %v", task.ProjectName, err)
 	}
 
+	systemSetting, err := commonrepo.NewSystemSettingColl().Get()
+	if err != nil {
+		log.Errorf("getSystemLanguage err:%s", err)
+		return "", "", nil, nil, fmt.Errorf("getSystemLanguage err:%s", err)
+	}
+	language := systemSetting.Language
+
 	workflowNotification := &workflowTaskNotification{
 		Task:               task,
 		ProjectDisplayName: project.ProjectName,
@@ -299,20 +449,20 @@ func (w *Service) getApproveNotificationContent(notify *models.NotifyCtl, task *
 		TaskCreatorEmail:    task.TaskCreatorEmail,
 	}
 
-	tplTitle := "{{if and (ne .WebHookType \"feishu\") (ne .WebHookType \"feishu_app\") (ne .WebHookType \"feishu_person\")}}### {{end}}{{if eq .WebHookType \"dingding\"}}<font color=#3270e3>**{{end}}{{getIcon .Task.Status }}工作流 {{.Task.WorkflowDisplayName}} #{{.Task.TaskID}} 等待审批{{if eq .WebHookType \"dingding\"}}**</font>{{end}} \n"
-	mailTplTitle := "{{getIcon .Task.Status }}工作流 {{.Task.WorkflowDisplayName}} #{{.Task.TaskID}} 等待审批\n"
+	tplTitle := "{{if and (ne .WebHookType \"feishu\") (ne .WebHookType \"feishu_app\") (ne .WebHookType \"feishu_person\")}}### {{end}}{{if eq .WebHookType \"dingding\"}}<font color=#3270e3>**{{end}}{{getIcon .Task.Status }}{{getText \"notificationTextWorkflow\"}} {{.Task.WorkflowDisplayName}} #{{.Task.TaskID}} {{getText \"notificationTextWaitingForApproval\"}}{{if eq .WebHookType \"dingding\"}}**</font>{{end}} \n"
+	mailTplTitle := "{{getIcon .Task.Status }}{{getText \"notificationTextWorkflow\"}} {{.Task.WorkflowDisplayName}} #{{.Task.TaskID}} {{getText \"notificationTextWaitingForApproval\"}}\n"
 
-	tplBaseInfo := []string{"{{if eq .WebHookType \"dingding\"}}##### {{end}}**执行用户**：{{.Task.TaskCreator}}  \n",
-		"{{if eq .WebHookType \"dingding\"}}##### {{end}}**项目名称**：{{.ProjectDisplayName}}  \n",
-		"{{if eq .WebHookType \"dingding\"}}##### {{end}}**开始时间**：{{ getStartTime .Task.StartTime}}  \n",
-		"{{if eq .WebHookType \"dingding\"}}##### {{end}}**持续时间**：{{ getDuration .TotalTime}}  \n",
-		"{{if eq .WebHookType \"dingding\"}}##### {{end}}**备注**：{{.Task.Remark}}  \n",
+	tplBaseInfo := []string{"{{if eq .WebHookType \"dingding\"}}##### {{end}}**{{getText \"notificationTextExecutor\"}}**：{{.Task.TaskCreator}}  \n",
+		"{{if eq .WebHookType \"dingding\"}}##### {{end}}**{{getText \"notificationTextProjectName\"}}**：{{.ProjectDisplayName}}  \n",
+		"{{if eq .WebHookType \"dingding\"}}##### {{end}}**{{getText \"notificationTextStartTime\"}}**：{{ getStartTime .Task.StartTime}}  \n",
+		"{{if eq .WebHookType \"dingding\"}}##### {{end}}**{{getText \"notificationTextDuration\"}}**：{{ getDuration .TotalTime}}  \n",
+		"{{if eq .WebHookType \"dingding\"}}##### {{end}}**{{getText \"notificationTextRemark\"}}**：{{.Task.Remark}}  \n",
 	}
-	mailTplBaseInfo := []string{"执行用户：{{.Task.TaskCreator}} \n",
-		"项目名称：{{.ProjectDisplayName}} \n",
-		"开始时间：{{ getStartTime .Task.StartTime}} \n",
-		"持续时间：{{ getDuration .TotalTime}} \n",
-		"备注：{{ .Task.Remark}} \n\n",
+	mailTplBaseInfo := []string{"{{getText \"notificationTextExecutor\"}}：{{.Task.TaskCreator}} \n",
+		"{{getText \"notificationTextProjectName\"}}：{{.ProjectDisplayName}} \n",
+		"{{getText \"notificationTextStartTime\"}}：{{ getStartTime .Task.StartTime}} \n",
+		"{{getText \"notificationTextDuration\"}}：{{ getDuration .TotalTime}} \n",
+		"{{getText \"notificationTextRemark\"}}：{{ .Task.Remark}} \n\n",
 	}
 
 	jobContents := []string{}
@@ -326,13 +476,13 @@ func (w *Service) getApproveNotificationContent(notify *models.NotifyCtl, task *
 				case string(config.JobZadigDeploy):
 					jobSpec := &models.JobTaskDeploySpec{}
 					models.IToi(job.Spec, jobSpec)
-					jobTplcontent += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**环境**：%s  \n", jobSpec.Env)
-					mailJobTplcontent += fmt.Sprintf("环境：%s \n", jobSpec.Env)
+					jobTplcontent += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**{{getText \"notificationTextEnvironment\"}}**：%s  \n", jobSpec.Env)
+					mailJobTplcontent += fmt.Sprintf("{{getText \"notificationTextEnvironment\"}}：%s \n", jobSpec.Env)
 				case string(config.JobZadigHelmDeploy):
 					jobSpec := &models.JobTaskHelmDeploySpec{}
 					models.IToi(job.Spec, jobSpec)
-					jobTplcontent += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**环境**：%s  \n", jobSpec.Env)
-					mailJobTplcontent += fmt.Sprintf("环境：%s \n", jobSpec.Env)
+					jobTplcontent += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**{{getText \"notificationTextEnvironment\"}}**：%s  \n", jobSpec.Env)
+					mailJobTplcontent += fmt.Sprintf("{{getText \"notificationTextEnvironment\"}}：%s \n", jobSpec.Env)
 				}
 
 				jobNotifaication := &jobTaskNotification{
@@ -341,13 +491,13 @@ func (w *Service) getApproveNotificationContent(notify *models.NotifyCtl, task *
 				}
 
 				if notify.WebHookType == setting.NotifyWebHookTypeMail {
-					jobContent, err := getJobTaskTplExec(mailJobTplcontent, jobNotifaication)
+					jobContent, err := getJobTaskTplExec(mailJobTplcontent, jobNotifaication, language)
 					if err != nil {
 						return "", "", nil, nil, err
 					}
 					jobContents = append(jobContents, jobContent)
 				} else {
-					jobContent, err := getJobTaskTplExec(jobTplcontent, jobNotifaication)
+					jobContent, err := getJobTaskTplExec(jobTplcontent, jobNotifaication, language)
 					if err != nil {
 						return "", "", nil, nil, err
 					}
@@ -362,7 +512,7 @@ func (w *Service) getApproveNotificationContent(notify *models.NotifyCtl, task *
 		return "", "", nil, nil, err
 	}
 
-	buttonContent := "点击查看更多信息"
+	buttonContent := getText("notificationTextClickForMore", language)
 	workflowDetailURL := "{{.BaseURI}}/v1/projects/detail/{{.Task.ProjectName}}/pipelines/custom/{{.Task.WorkflowName}}/{{.Task.TaskID}}?display_name={{.EncodedDisplayName}}"
 	moreInformation := fmt.Sprintf("[%s](%s)", buttonContent, workflowDetailURL)
 	if notify.WebHookType == setting.NotifyWebHookTypeMail {
@@ -379,7 +529,7 @@ func (w *Service) getApproveNotificationContent(notify *models.NotifyCtl, task *
 		}
 		content = strings.TrimSpace(content)
 
-		t, err := template.New("workflow_notification").Parse(string(notificationHTML))
+		t, err := template.New("workflow_notification").Parse(getMailTemplate(language))
 		if err != nil {
 			err = fmt.Errorf("workflow notification template parse error, error msg:%s", err)
 			return "", "", nil, nil, err
@@ -447,6 +597,13 @@ func (w *Service) getNotificationContent(notify *models.NotifyCtl, task *models.
 		return "", "", nil, nil, fmt.Errorf("failed to find project %s, error: %v", task.ProjectName, err)
 	}
 
+	systemSetting, err := commonrepo.NewSystemSettingColl().Get()
+	if err != nil {
+		log.Errorf("getSystemLanguage err:%s", err)
+		return "", "", nil, nil, fmt.Errorf("getSystemLanguage err:%s", err)
+	}
+	language := systemSetting.Language
+
 	workflowNotification := &workflowTaskNotification{
 		Task:               task,
 		ProjectDisplayName: project.ProjectName,
@@ -483,17 +640,17 @@ func (w *Service) getNotificationContent(notify *models.NotifyCtl, task *models.
 	tplTitle := "{{if and (ne .WebHookType \"feishu\") (ne .WebHookType \"feishu_app\") (ne .WebHookType \"feishu_person\")}}### {{end}}{{if eq .WebHookType \"dingding\"}}<font color=\"{{ getColor .Task.Status }}\"><b>{{end}}{{getIcon .Task.Status }}{{getTaskType .Task.Type}} {{.Task.WorkflowDisplayName}} #{{.Task.TaskID}} {{ taskStatus .Task.Status }}{{if eq .WebHookType \"dingding\"}}</b></font>{{end}} \n"
 	mailTplTitle := "{{getIcon .Task.Status }} {{getTaskType .Task.Type}} {{.Task.WorkflowDisplayName}}#{{.Task.TaskID}} {{ taskStatus .Task.Status }}"
 
-	tplBaseInfo := []string{"{{if eq .WebHookType \"dingding\"}}##### {{end}}**执行用户**：{{.Task.TaskCreator}}  \n",
-		"{{if eq .WebHookType \"dingding\"}}##### {{end}}**项目名称**：{{.ProjectDisplayName}}  \n",
-		"{{if eq .WebHookType \"dingding\"}}##### {{end}}**开始时间**：{{ getStartTime .Task.StartTime}}  \n",
-		"{{if eq .WebHookType \"dingding\"}}##### {{end}}**持续时间**：{{ getDuration .TotalTime}}  \n",
-		"{{if eq .WebHookType \"dingding\"}}##### {{end}}**备注**：{{.Task.Remark}} \n",
+	tplBaseInfo := []string{"{{if eq .WebHookType \"dingding\"}}##### {{end}}**{{getText \"notificationTextExecutor\"}}**：{{.Task.TaskCreator}}  \n",
+		"{{if eq .WebHookType \"dingding\"}}##### {{end}}**{{getText \"notificationTextProjectName\"}}**：{{.ProjectDisplayName}}  \n",
+		"{{if eq .WebHookType \"dingding\"}}##### {{end}}**{{getText \"notificationTextStartTime\"}}**：{{ getStartTime .Task.StartTime}}  \n",
+		"{{if eq .WebHookType \"dingding\"}}##### {{end}}**{{getText \"notificationTextDuration\"}}**：{{ getDuration .TotalTime}}  \n",
+		"{{if eq .WebHookType \"dingding\"}}##### {{end}}**{{getText \"notificationTextRemark\"}}**：{{.Task.Remark}} \n",
 	}
-	mailTplBaseInfo := []string{"执行用户：{{.Task.TaskCreator}} \n",
-		"项目名称：{{.ProjectDisplayName}} \n",
-		"开始时间：{{ getStartTime .Task.StartTime}} \n",
-		"持续时间：{{ getDuration .TotalTime}} \n",
-		"备注：{{ .Task.Remark}} \n",
+	mailTplBaseInfo := []string{"{{getText \"notificationTextExecutor\"}}：{{.Task.TaskCreator}} \n",
+		"{{getText \"notificationTextProjectName\"}}：{{.ProjectDisplayName}} \n",
+		"{{getText \"notificationTextStartTime\"}}：{{ getStartTime .Task.StartTime}} \n",
+		"{{getText \"notificationTextDuration\"}}：{{ getDuration .TotalTime}} \n",
+		"{{getText \"notificationTextRemark\"}}：{{ .Task.Remark}} \n",
 	}
 
 	jobContents := []string{}
@@ -518,8 +675,8 @@ func (w *Service) getNotificationContent(notify *models.NotifyCtl, task *models.
 				Error:       job.Error,
 			}
 
-			jobTplcontent := "{{if and (ne .WebHookType \"feishu\") (ne .WebHookType \"feishu_app\") (ne .WebHookType \"feishu_person\")}}\n\n{{end}}{{if eq .WebHookType \"dingding\"}}---\n\n##### {{end}}**{{jobType .Job.JobType }}**: {{.Job.DisplayName}}    **状态**: {{taskStatus .Job.Status }}  \n"
-			mailJobTplcontent := "{{jobType .Job.JobType }}：{{.Job.DisplayName}}    状态：{{taskStatus .Job.Status }} \n"
+			jobTplcontent := "{{if and (ne .WebHookType \"feishu\") (ne .WebHookType \"feishu_app\") (ne .WebHookType \"feishu_person\")}}\n\n{{end}}{{if eq .WebHookType \"dingding\"}}---\n\n##### {{end}}**{{jobType .Job.JobType }}**: {{.Job.DisplayName}}    **{{getText \"notificationTextStatus\"}}**: {{taskStatus .Job.Status }}  \n"
+			mailJobTplcontent := "{{jobType .Job.JobType }}：{{.Job.DisplayName}}    {{getText \"notificationTextStatus\"}}：{{taskStatus .Job.Status }} \n"
 			switch job.JobType {
 			case string(config.JobZadigBuild):
 				fallthrough
@@ -610,9 +767,9 @@ func (w *Service) getNotificationContent(notify *models.NotifyCtl, task *models.
 					image = task.GlobalContext[imageContextKey]
 				}
 				if len(commitID) > 0 {
-					jobTplcontent += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**代码信息**：%s %s[%s](%s)  ", branchTag, prInfo, commitID, gitCommitURL)
-					jobTplcontent += "{{if eq .WebHookType \"dingding\"}}##### {{end}}**提交信息**："
-					mailJobTplcontent += fmt.Sprintf("代码信息：%s %s[%s]( %s )  ", branchTag, prInfo, commitID, gitCommitURL)
+					jobTplcontent += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**{{getText \"notificationTextRepositoryInfo\"}}**：%s %s[%s](%s)  ", branchTag, prInfo, commitID, gitCommitURL)
+					jobTplcontent += "{{if eq .WebHookType \"dingding\"}}##### {{end}}**{{getText \"notificationTextCommitMessage\"}}**："
+					mailJobTplcontent += fmt.Sprintf("{{getText \"notificationTextRepositoryInfo\"}}：%s %s[%s]( %s )  ", branchTag, prInfo, commitID, gitCommitURL)
 					if len(commitMsgs) == 1 {
 						jobTplcontent += fmt.Sprintf("%s \n", commitMsgs[0])
 					} else {
@@ -623,8 +780,8 @@ func (w *Service) getNotificationContent(notify *models.NotifyCtl, task *models.
 					}
 				}
 				if job.Status == config.StatusPassed && image != "" && !strings.HasPrefix(image, "{{.") && !strings.Contains(image, "}}") {
-					jobTplcontent += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**镜像信息**：%s  \n", image)
-					mailJobTplcontent += fmt.Sprintf("镜像信息：%s \n", image)
+					jobTplcontent += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**{{getText \"notificationTextImageInfo\"}}**：%s  \n", image)
+					mailJobTplcontent += fmt.Sprintf("{{getText \"notificationTextImageInfo\"}}：%s \n", image)
 					workflowNotifyJobTaskSpec.Image = image
 				}
 
@@ -632,12 +789,12 @@ func (w *Service) getNotificationContent(notify *models.NotifyCtl, task *models.
 			case string(config.JobZadigDeploy):
 				jobSpec := &models.JobTaskDeploySpec{}
 				models.IToi(job.Spec, jobSpec)
-				jobTplcontent += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**环境**：%s  \n", jobSpec.Env)
-				mailJobTplcontent += fmt.Sprintf("环境：%s \n", jobSpec.Env)
+				jobTplcontent += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**{{getText \"notificationTextEnvironment\"}}**：%s  \n", jobSpec.Env)
+				mailJobTplcontent += fmt.Sprintf("{{getText \"notificationTextEnvironment\"}}：%s \n", jobSpec.Env)
 
 				if job.Status == config.StatusPassed && len(jobSpec.ServiceAndImages) > 0 {
-					jobTplcontent += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**镜像信息**：  \n")
-					mailJobTplcontent += fmt.Sprintf("镜像信息：  \n")
+					jobTplcontent += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**{{getText \"notificationTextImageInfo\"}}**：  \n")
+					mailJobTplcontent += fmt.Sprintf("{{getText \"notificationTextImageInfo\"}}：  \n")
 				}
 
 				serviceModules := []*webhooknotify.WorkflowNotifyDeployServiceModule{}
@@ -663,12 +820,12 @@ func (w *Service) getNotificationContent(notify *models.NotifyCtl, task *models.
 			case string(config.JobZadigHelmDeploy):
 				jobSpec := &models.JobTaskHelmDeploySpec{}
 				models.IToi(job.Spec, jobSpec)
-				jobTplcontent += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**环境**：%s  \n", jobSpec.Env)
-				mailJobTplcontent += fmt.Sprintf("环境：%s \n", jobSpec.Env)
+				jobTplcontent += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**{{getText \"notificationTextEnvironment\"}}**：%s  \n", jobSpec.Env)
+				mailJobTplcontent += fmt.Sprintf("{{getText \"notificationTextEnvironment\"}}：%s \n", jobSpec.Env)
 
 				if job.Status == config.StatusPassed && len(jobSpec.ImageAndModules) > 0 {
-					jobTplcontent += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**镜像信息**：  \n")
-					mailJobTplcontent += fmt.Sprintf("镜像信息：  \n")
+					jobTplcontent += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**{{getText \"notificationTextImageInfo\"}}**：  \n")
+					mailJobTplcontent += fmt.Sprintf("{{getText \"notificationTextImageInfo\"}}：  \n")
 				}
 
 				serviceModules := []*webhooknotify.WorkflowNotifyDeployServiceModule{}
@@ -692,14 +849,14 @@ func (w *Service) getNotificationContent(notify *models.NotifyCtl, task *models.
 				}
 				workflowNotifyJob.Spec = workflowNotifyJobTaskSpec
 			case string(config.JobZadigTesting):
-				testResult, err := genTestResultText(task.WorkflowName, job.Name, task.TaskID)
+				testResult, err := genTestResultText(task.WorkflowName, job.Name, task.TaskID, language)
 				if err != nil {
 					log.Errorf("genTestResultText err:%s", err)
 					return "", "", nil, nil, fmt.Errorf("genTestResultText err:%s", err)
 				}
 
-				jobTplcontent += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**测试结果**：\n%s  \n", testResult)
-				mailJobTplcontent += fmt.Sprintf("测试结果：%s \n", testResult)
+				jobTplcontent += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**{{getText \"notificationTextTestResult\"}}**：\n%s  \n", testResult)
+				mailJobTplcontent += fmt.Sprintf("{{getText \"notificationTextTestResult\"}}：%s \n", testResult)
 			}
 			jobNotifaication := &jobTaskNotification{
 				Job:         job,
@@ -707,13 +864,13 @@ func (w *Service) getNotificationContent(notify *models.NotifyCtl, task *models.
 			}
 
 			if notify.WebHookType == setting.NotifyWebHookTypeMail {
-				jobContent, err := getJobTaskTplExec(mailJobTplcontent, jobNotifaication)
+				jobContent, err := getJobTaskTplExec(mailJobTplcontent, jobNotifaication, language)
 				if err != nil {
 					return "", "", nil, nil, err
 				}
 				jobContents = append(jobContents, jobContent)
 			} else {
-				jobContent, err := getJobTaskTplExec(jobTplcontent, jobNotifaication)
+				jobContent, err := getJobTaskTplExec(jobTplcontent, jobNotifaication, language)
 				if err != nil {
 					return "", "", nil, nil, err
 				}
@@ -730,7 +887,7 @@ func (w *Service) getNotificationContent(notify *models.NotifyCtl, task *models.
 	if err != nil {
 		return "", "", nil, nil, err
 	}
-	buttonContent := "点击查看更多信息"
+	buttonContent := getText("notificationTextClickForMore", language)
 	workflowDetailURLTpl := ""
 	workflowDetailURL := ""
 	switch task.Type {
@@ -766,15 +923,15 @@ func (w *Service) getNotificationContent(notify *models.NotifyCtl, task *models.
 		t, err := template.New("workflow_notification").Funcs(template.FuncMap{
 			"getTaskType": func(taskType config.CustomWorkflowTaskType) string {
 				if taskType == config.WorkflowTaskTypeWorkflow {
-					return "工作流"
+					return getText("taskTypeWorkflow", language)
 				} else if taskType == config.WorkflowTaskTypeScanning {
-					return "代码扫描"
+					return getText("taskTypeScanning", language)
 				} else if taskType == config.WorkflowTaskTypeTesting {
-					return "测试"
+					return getText("taskTypeTesting", language)
 				}
-				return "工作流"
+				return getText("taskTypeWorkflow", language)
 			},
-		}).Parse(string(notificationHTML))
+		}).Parse(getMailTemplate(language))
 		if err != nil {
 			err = fmt.Errorf("workflow notification template parse error, error msg:%s", err)
 			return "", "", nil, nil, err
@@ -847,16 +1004,23 @@ type workflowTaskNotification struct {
 }
 
 func getWorkflowTaskTplExec(tplcontent string, args *workflowTaskNotification) (string, error) {
+	systemSetting, err := commonrepo.NewSystemSettingColl().Get()
+	if err != nil {
+		log.Errorf("getSystemLanguage err:%s", err)
+		return "", fmt.Errorf("getSystemLanguage err:%s", err)
+	}
+
+	language := systemSetting.Language
 	tmpl := template.Must(template.New("notify").Funcs(template.FuncMap{
 		"getTaskType": func(taskType config.CustomWorkflowTaskType) string {
 			if taskType == config.WorkflowTaskTypeWorkflow {
-				return "工作流"
+				return getText("taskTypeWorkflow", language)
 			} else if taskType == config.WorkflowTaskTypeScanning {
-				return "代码扫描"
+				return getText("taskTypeScanning", language)
 			} else if taskType == config.WorkflowTaskTypeTesting {
-				return "测试"
+				return getText("taskTypeTesting", language)
 			}
-			return "工作流"
+			return getText("taskTypeWorkflow", language)
 		},
 		"getColor": func(status config.Status) string {
 			if status == config.StatusPassed || status == config.StatusCreated {
@@ -867,17 +1031,19 @@ func getWorkflowTaskTplExec(tplcontent string, args *workflowTaskNotification) (
 		},
 		"taskStatus": func(status config.Status) string {
 			if status == config.StatusPassed {
-				return "执行成功"
+				return getText("taskStatusSuccess", language)
 			} else if status == config.StatusCancelled {
-				return "执行取消"
+				return getText("taskStatusCancelled", language)
 			} else if status == config.StatusTimeout {
-				return "执行超时"
+				return getText("taskStatusTimeout", language)
 			} else if status == config.StatusReject {
-				return "执行被拒绝"
+				return getText("taskStatusRejected", language)
 			} else if status == config.StatusCreated {
-				return "开始执行"
+				return getText("taskStatusExecutionStarted", language)
+			} else if status == config.StatusManualApproval {
+				return getText("taskStatusManualApproval", language)
 			}
-			return "执行失败"
+			return getText("taskStatusFailed", language)
 		},
 		"getIcon": func(status config.Status) string {
 			if status == config.StatusPassed || status == config.StatusCreated {
@@ -898,6 +1064,9 @@ func getWorkflowTaskTplExec(tplcontent string, args *workflowTaskNotification) (
 			}
 			return duration.String()
 		},
+		"getText": func(key string) string {
+			return getText(key, language)
+		},
 	}).Parse(tplcontent))
 
 	buffer := bytes.NewBufferString("")
@@ -914,68 +1083,96 @@ type jobTaskNotification struct {
 	WebHookType setting.NotifyWebHookType `json:"web_hook_type"`
 }
 
-func getJobTaskTplExec(tplcontent string, args *jobTaskNotification) (string, error) {
+func getJobTaskTplExec(tplcontent string, args *jobTaskNotification, language string) (string, error) {
 	tmpl := template.Must(template.New("notify").Funcs(template.FuncMap{
 		"taskStatus": func(status config.Status) string {
 			if status == config.StatusPassed {
-				return "执行成功"
+				return getText("taskStatusSuccess", language)
 			} else if status == config.StatusCancelled {
-				return "执行取消"
+				return getText("taskStatusCancelled", language)
 			} else if status == config.StatusTimeout {
-				return "执行超时"
+				return getText("taskStatusTimeout", language)
 			} else if status == config.StatusReject {
-				return "执行被拒绝"
-			} else if status == "" {
-				return "未执行"
+				return getText("taskStatusRejected", language)
+			} else if status == config.StatusCreated {
+				return getText("taskStatusExecutionStarted", language)
+			} else if status == config.StatusManualApproval {
+				return getText("taskStatusManualApproval", language)
 			}
-			return "执行失败"
+			return getText("taskStatusFailed", language)
 		},
 		"jobType": func(jobType string) string {
 			switch jobType {
 			case string(config.JobZadigBuild):
-				return "构建"
+				return getText("jobTypeBuild", language)
 			case string(config.JobZadigDeploy):
-				return "部署"
-			case string(config.JobZadigHelmDeploy):
-				return "helm部署"
-			case string(config.JobCustomDeploy):
-				return "自定义部署"
+				return getText("jobTypeDeploy", language)
+			case string(config.JobZadigVMDeploy):
+				return getText("jobTypeVmDeploy", language)
 			case string(config.JobFreestyle):
-				return "通用任务"
-			case string(config.JobPlugin):
-				return "自定义任务"
-			case string(config.JobZadigTesting):
-				return "测试"
-			case string(config.JobZadigScanning):
-				return "代码扫描"
-			case string(config.JobZadigDistributeImage):
-				return "镜像分发"
-			case string(config.JobK8sBlueGreenDeploy):
-				return "蓝绿部署"
-			case string(config.JobK8sBlueGreenRelease):
-				return "蓝绿发布"
-			case string(config.JobK8sCanaryDeploy):
-				return "金丝雀部署"
-			case string(config.JobK8sCanaryRelease):
-				return "金丝雀发布"
-			case string(config.JobK8sGrayRelease):
-				return "灰度发布"
-			case string(config.JobK8sGrayRollback):
-				return "灰度回滚"
-			case string(config.JobK8sPatch):
-				return "更新 k8s YAML"
-			case string(config.JobIstioRelease):
-				return "istio 发布"
-			case string(config.JobIstioRollback):
-				return "istio 回滚"
-			case string(config.JobJira):
-				return "jira 问题状态变更"
+				return getText("jobTypeFreestyle", language)
 			case string(config.JobNacos):
-				return "Nacos 配置变更"
+				return getText("jobTypeNacos", language)
+			case string(config.JobPlugin):
+				return getText("jobTypePlugin", language)
+			case string(config.JobZadigTesting):
+				return getText("jobTypeTest", language)
+			case string(config.JobZadigScanning):
+				return getText("jobTypeScan", language)
+			case string(config.JobApproval):
+				return getText("jobTypeApproval", language)
+			case string(config.JobZadigDistributeImage):
+				return getText("jobTypeDistribute", language)
+			case string(config.JobCustomDeploy):
+				return getText("jobTypeCustomDeploy", language)
+			case string(config.JobK8sCanaryDeploy):
+				return getText("jobTypeCanaryDeploy", language)
+			case string(config.JobK8sCanaryRelease):
+				return getText("jobTypeCanaryRelease", language)
+			case string(config.JobMseGrayRelease):
+				return getText("jobTypeMseGrayRelease", language)
+			case string(config.JobMseGrayOffline):
+				return getText("jobTypeMseGrayOffline", language)
+			case string(config.JobK8sBlueGreenDeploy):
+				return getText("jobTypeBlueGreenDeploy", language)
+			case string(config.JobK8sBlueGreenRelease):
+				return getText("jobTypeBlueGreenRelease", language)
+			case string(config.JobK8sPatch):
+				return getText("jobTypeK8sResourcePatch", language)
+			case string(config.JobK8sGrayRollback):
+				return getText("jobTypeK8sGrayRollback", language)
+			case string(config.JobK8sGrayRelease):
+				return getText("jobTypeGrayDeploy", language)
+			case string(config.JobIstioRelease):
+				return getText("jobTypeIstioRelease", language)
+			case string(config.JobIstioRollback):
+				return getText("jobTypeIstioRollback", language)
+			case string(config.JobUpdateEnvIstioConfig):
+				return getText("jobTypeIstioStrategy", language)
+			case string(config.JobJira):
+				return getText("jobTypeJira", language)
 			case string(config.JobApollo):
-				return "Apollo 配置变更"
+				return getText("jobTypeApollo", language)
 			case string(config.JobMeegoTransition):
-				return "飞书工作项状态变更"
+				return getText("jobTypeLark", language)
+			case string(config.JobWorkflowTrigger):
+				return getText("jobTypeWorkflowTrigger", language)
+			case string(config.JobOfflineService):
+				return getText("jobTypeOfflineService", language)
+			case string(config.JobZadigHelmChartDeploy):
+				return getText("jobTypeHelmChartDeploy", language)
+			case string(config.JobGrafana):
+				return getText("jobTypeGrafana", language)
+			case string(config.JobJenkins):
+				return getText("jobTypeJenkinsJob", language)
+			case string(config.JobBlueKing):
+				return getText("jobTypeBlueKingJob", language)
+			case string(config.JobSQL):
+				return getText("jobTypeSql", language)
+			case string(config.JobNotification):
+				return getText("jobTypeNotification", language)
+			case string(config.JobSAEDeploy):
+				return getText("jobTypeSaeDeploy", language)
 			default:
 				return string(jobType)
 			}
@@ -991,7 +1188,14 @@ func getJobTaskTplExec(tplcontent string, args *jobTaskNotification) (string, er
 	return buffer.String(), nil
 }
 
-func genTestResultText(workflowName, jobTaskName string, taskID int64) (string, error) {
+func getMailTemplate(language string) string {
+	if language == string(config.SystemLanguageEnUS) {
+		return string(notificationENHTML)
+	}
+	return string(notificationHTML)
+}
+
+func genTestResultText(workflowName, jobTaskName string, taskID int64, language string) (string, error) {
 	testResultList, err := commonrepo.NewCustomWorkflowTestReportColl().ListByWorkflowJobTaskName(workflowName, jobTaskName, taskID)
 	if err != nil {
 		log.Errorf("failed to list junit test report for workflow: %s, error: %s", workflowName, err)
@@ -1003,7 +1207,7 @@ func genTestResultText(workflowName, jobTaskName string, taskID int64) (string, 
 		totalNum := report.TestCaseNum
 		failedNum := report.FailedCaseNum
 		successNum := report.SuccessCaseNum
-		result += fmt.Sprintf("%d(成功)%d(失败)%d(总数) \n", successNum, failedNum, totalNum)
+		result += fmt.Sprintf("%d(%s)%d(%s)%d(%s) \n", successNum, getText("testStatusSuccess", language), failedNum, getText("testStatusFailed", language), totalNum, getText("testTotal", language))
 	}
 	return result, nil
 }
@@ -1096,4 +1300,19 @@ func (w *Service) sendNotification(title, content string, notify *models.NotifyC
 		}
 	}
 	return nil
+}
+
+func getText(key, language string) string {
+	var textMap map[string]string
+	switch language {
+	case string(config.SystemLanguageEnUS):
+		textMap = enTextMap
+	default:
+		textMap = zhTextMap
+	}
+
+	if text, exists := textMap[key]; exists {
+		return text
+	}
+	return key
 }

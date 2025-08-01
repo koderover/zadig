@@ -249,6 +249,15 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	}
 
 	// ---------------------------------------------------------------------------------------
+	// system language settings
+	// ---------------------------------------------------------------------------------------
+	language := router.Group("language")
+	{
+		language.GET("", GetSystemLanguage)
+		language.PUT("", SetSystemLanguage)
+	}
+
+	// ---------------------------------------------------------------------------------------
 	// external system API
 	// ---------------------------------------------------------------------------------------
 	externalSystem := router.Group("external")
