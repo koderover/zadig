@@ -24,7 +24,6 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 
 	"github.com/koderover/zadig/v2/pkg/config"
-	"github.com/koderover/zadig/v2/pkg/microservice/user/core/repository"
 )
 
 type DbEditAction string
@@ -68,6 +67,14 @@ func UpdateUserDBTables(action DbEditAction) error {
 var alterAllUserSQL []byte
 
 func UpdateAllUserGroup() error {
-	err := repository.DB.Exec(fmt.Sprintf(string(alterAllUserSQL), config.MysqlUserDB()))
-	return err.Error
+	db, err := sql.Open("mysql", fmt.Sprintf(
+		"%s:%s@tcp(%s)/?charset=utf8&multiStatements=true",
+		config.MysqlUser(), config.MysqlPassword(), config.MysqlHost(),
+	))
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+	_, err = db.Exec(fmt.Sprintf(string(alterAllUserSQL), config.MysqlUserDB()))
+	return err
 }
