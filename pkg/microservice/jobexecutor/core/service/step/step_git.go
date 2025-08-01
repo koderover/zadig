@@ -254,7 +254,7 @@ func (s *GitStep) buildGitCommands(repo *types.Repository, hostNames sets.String
 		})
 	} else if repo.Source == types.ProviderGitee || repo.Source == types.ProviderGiteeEE {
 		// gitee
-		cmds = append(cmds, &c.Command{Cmd: c.GitRemoteAdd(repo.RemoteName, HTTPSCloneURL(repo.Source, repo.OauthToken, repo.RepoOwner, repo.RepoName, repo.Address)), DisableTrace: true})
+		cmds = append(cmds, &c.Command{Cmd: c.GitRemoteAdd(repo.RemoteName, HTTPSCloneURL(repo.Source, repo.OauthToken, owner, repo.RepoName, repo.Address)), DisableTrace: true})
 	} else if repo.Source == types.ProviderOther {
 		// other
 		if repo.AuthType == types.SSHAuthType {
