@@ -324,7 +324,19 @@ func (s *Service) GetYaml(id, agentImage, aslanURL, hubURI string, useDeployment
 		yaml = fmt.Sprintf("%s\n---\n%s", yaml, WorkflowResourceYaml)
 	}
 
-	var YamlTemplate = template.Must(template.New("agentYaml").Parse(yaml))
+	var YamlTemplate = template.Must(template.New("agentYaml").Funcs(
+		template.FuncMap{
+			"indent": func(spaces int, text string) string {
+				prefix := strings.Repeat(" ", spaces)
+				lines := strings.Split(text, "\n")
+				for i, line := range lines {
+					if line != "" {
+						lines[i] = prefix + line
+					}
+				}
+				return strings.Join(lines, "\n")
+			},
+		}).Parse(yaml))
 	scheduleWorkflow := true
 	if cluster.AdvancedConfig != nil && cluster.AdvancedConfig.ClusterAccessYaml != "" {
 		scheduleWorkflow = cluster.AdvancedConfig.ScheduleWorkflow
@@ -347,6 +359,9 @@ func (s *Service) GetYaml(id, agentImage, aslanURL, hubURI string, useDeployment
 			ScheduleWorkflow:     scheduleWorkflow,
 			EnableIRSA:           cluster.AdvancedConfig.EnableIRSA,
 			IRSARoleARN:          cluster.AdvancedConfig.IRSARoleARM,
+			NodeSelector:         cluster.AdvancedConfig.AgentNodeSelector,
+			Toleration:           cluster.AdvancedConfig.AgentToleration,
+			Affinity:             cluster.AdvancedConfig.AgentAffinity,
 			ImagePullPolicy:      configbase.ImagePullPolicy(),
 			SecretKey:            base64.StdEncoding.EncodeToString([]byte(configbase.SecretKey())),
 		})
@@ -366,6 +381,9 @@ func (s *Service) GetYaml(id, agentImage, aslanURL, hubURI string, useDeployment
 			DindStorageClassName: dindSCName,
 			DindStorageSizeInGiB: dindStorageSizeInGiB,
 			EnableIRSA:           cluster.AdvancedConfig.EnableIRSA,
+			NodeSelector:         cluster.AdvancedConfig.AgentNodeSelector,
+			Toleration:           cluster.AdvancedConfig.AgentToleration,
+			Affinity:             cluster.AdvancedConfig.AgentAffinity,
 			IRSARoleARN:          cluster.AdvancedConfig.IRSARoleARM,
 			ImagePullPolicy:      configbase.ImagePullPolicy(),
 			SecretKey:            base64.StdEncoding.EncodeToString([]byte(configbase.SecretKey())),
@@ -663,6 +681,9 @@ type TemplateSchema struct {
 	IRSARoleARN          string
 	ImagePullPolicy      string
 	SecretKey            string
+	NodeSelector         string
+	Toleration           string
+	Affinity             string
 }
 
 const (
@@ -756,22 +777,18 @@ spec:
       labels:
         app: koderover-agent-agent
     spec:
+      {{- if .NodeSelector }}
+      nodeSelector:
+{{indent 4 .NodeSelector}}
+      {{- end }}
+	  {{- if .Toleration }}
+      tolerations:
+{{indent 4 .Toleration}}
+      {{- end }}
+      {{- if .Affinity }}
       affinity:
-        nodeAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            nodeSelectorTerms:
-              - matchExpressions:
-                - key: beta.kubernetes.io/os
-                  operator: NotIn
-                  values:
-                    - windows
-{{- if .UseDeployment }}
-        podAntiAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-          - weight: 100
-            podAffinityTerm:
-              topologyKey: kubernetes.io/hostname
-{{- end }}
+{{indent 4 .Affinity}}
+      {{- end }}
       hostNetwork: true
       serviceAccountName: koderover-agent
       containers:
@@ -811,7 +828,19 @@ spec:
 {{- end }}
 `
 
-var YamlTemplateForNamespace = template.Must(template.New("agentYaml").Parse(`
+var YamlTemplateForNamespace = template.Must(template.New("agentYaml").Funcs(
+	template.FuncMap{
+		"indent": func(spaces int, text string) string {
+			prefix := strings.Repeat(" ", spaces)
+			lines := strings.Split(text, "\n")
+			for i, line := range lines {
+				if line != "" {
+					lines[i] = prefix + line
+				}
+			}
+			return strings.Join(lines, "\n")
+		},
+	}).Parse(`
 ---
 
 apiVersion: v1
@@ -938,22 +967,18 @@ spec:
       labels:
         app: koderover-agent-agent
     spec:
+      {{- if .NodeSelector }}
+      nodeSelector:
+{{indent 4 .NodeSelector}}
+      {{- end }}
+	  {{- if .Toleration }}
+      tolerations:
+{{indent 4 .Toleration}}
+      {{- end }}
+      {{- if .Affinity }}
       affinity:
-        nodeAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            nodeSelectorTerms:
-              - matchExpressions:
-                - key: beta.kubernetes.io/os
-                  operator: NotIn
-                  values:
-                    - windows
-{{- if .UseDeployment }}
-        podAntiAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-          - weight: 100
-            podAffinityTerm:
-              topologyKey: kubernetes.io/hostname
-{{- end }}
+{{indent 4 .Affinity}}
+      {{- end }}
       hostNetwork: true
       serviceAccountName: koderover-agent-sa
       containers:
