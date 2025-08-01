@@ -29,7 +29,7 @@ func GetSystemLanguage(log *zap.SugaredLogger) (string, error) {
 		return "", err
 	}
 
-	language := "zh-CN"
+	language := "zh-cn"
 	if setting.Language != "" {
 		language = setting.Language
 	}
