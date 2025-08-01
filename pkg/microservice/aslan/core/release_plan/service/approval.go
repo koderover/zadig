@@ -78,7 +78,7 @@ var (
 		"approvalTextReleasePlanName":   "Release Plan Name",
 		"approvalTextRequirements":      "Requirements",
 		"approvalTextReleaseManager":    "Manager",
-		"approvalTextReleaseWindow":     "Release Window",
+		"approvalTextReleaseWindow":     "Release Time",
 		"approvalTextTimer":             "Timer",
 		"approvalTextMoreDetails":       "More Details",
 	}
