@@ -99,6 +99,10 @@ type AdvancedConfig struct {
 	ScheduleStrategy  []*ScheduleStrategy `json:"schedule_strategy"         bson:"schedule_strategy"`
 	EnableIRSA        bool                `json:"enable_irsa"               bson:"enable_irsa"`
 	IRSARoleARM       string              `json:"irsa_role_arn"             bson:"irsa_role_arn"`
+
+	AgentNodeSelector string `json:"agent_node_selector"            bson:"agent_node_selector"`
+	AgentToleration   string `json:"agent_toleration"               bson:"agent_toleration"`
+	AgentAffinity     string `json:"agent_affinity"                 bson:"agent_affinity"`
 }
 
 type ScheduleStrategy struct {
@@ -228,7 +232,9 @@ func ListClusters(ids []string, projectName string, logger *zap.SugaredLogger) (
 				Strategy:          c.AdvancedConfig.Strategy,
 				NodeLabels:        convertToNodeLabels(c.AdvancedConfig.NodeLabels),
 				ProjectNames:      GetProjectNames(c.ID.Hex(), logger),
-				Tolerations:       c.AdvancedConfig.Tolerations,
+				AgentToleration:   c.AdvancedConfig.AgentToleration,
+				AgentNodeSelector: c.AdvancedConfig.AgentNodeSelector,
+				AgentAffinity:     c.AdvancedConfig.AgentAffinity,
 				ClusterAccessYaml: c.AdvancedConfig.ClusterAccessYaml,
 			}
 			if advancedConfig.ClusterAccessYaml != "" {
@@ -1084,9 +1090,9 @@ func setClusterDind(cluster *commonmodels.K8SCluster) error {
 
 func validateTolerations(cluster *commonmodels.K8SCluster) error {
 	if cluster.AdvancedConfig != nil {
-		if cluster.AdvancedConfig.Tolerations != "" {
+		if cluster.AdvancedConfig.AgentToleration != "" {
 			ts := make([]corev1.Toleration, 0)
-			err := yaml.Unmarshal([]byte(cluster.AdvancedConfig.Tolerations), &ts)
+			err := yaml.Unmarshal([]byte(cluster.AdvancedConfig.AgentToleration), &ts)
 			if err != nil {
 				return fmt.Errorf("tolerations is invalid, failed to unmarshal tolerations: %s", err)
 			}
@@ -1693,7 +1699,9 @@ func K8SClusterArgsToModel(args *K8SCluster) (*commonmodels.K8SCluster, error) {
 		advancedConfig.Strategy = args.AdvancedConfig.Strategy
 		advancedConfig.NodeLabels = convertToNodeSelectorRequirements(args.AdvancedConfig.NodeLabels)
 		advancedConfig.ProjectNames = args.AdvancedConfig.ProjectNames
-		advancedConfig.Tolerations = args.AdvancedConfig.Tolerations
+		advancedConfig.AgentToleration = args.AdvancedConfig.AgentToleration
+		advancedConfig.AgentNodeSelector = args.AdvancedConfig.AgentNodeSelector
+		advancedConfig.AgentAffinity = args.AdvancedConfig.AgentAffinity
 		advancedConfig.ClusterAccessYaml = args.AdvancedConfig.ClusterAccessYaml
 		advancedConfig.ScheduleWorkflow = args.AdvancedConfig.ScheduleWorkflow
 		advancedConfig.EnableIRSA = args.AdvancedConfig.EnableIRSA
