@@ -234,7 +234,7 @@ func migrateDeliveryVersionV2(ctx *internalhandler.Context, migrationInfo *inter
 	}
 
 	_ = mongodb.NewMigrationColl().UpdateMigrationStatus(migrationInfo.ID, map[string]interface{}{
-		getMigrationFieldBsonTag(migrationInfo, &migrationInfo.Migration350DeliveryVersionV2): true,
+		getMigrationFieldBsonTag(migrationInfo, &migrationInfo.Migration400DeliveryVersionV2): true,
 	})
 
 	return nil
