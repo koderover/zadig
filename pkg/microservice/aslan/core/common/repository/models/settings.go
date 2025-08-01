@@ -26,6 +26,7 @@ type SystemSetting struct {
 	Theme               *Theme             `bson:"theme" json:"theme"`
 	Security            *SecuritySettings  `bson:"security" json:"security"`
 	Privacy             *PrivacySettings   `bson:"privacy"  json:"privacy"`
+	Language            string             `bson:"language" json:"language"`
 	UpdateTime          int64              `bson:"update_time" json:"update_time"`
 }
 

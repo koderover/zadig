@@ -174,3 +174,14 @@ func (c *SystemSettingColl) UpdateTheme(theme *models.Theme) error {
 	_, err := c.UpdateOne(context.TODO(), query, change)
 	return err
 }
+
+func (c *SystemSettingColl) UpdateLanguage(language string) error {
+	id, _ := primitive.ObjectIDFromHex(setting.LocalClusterID)
+	query := bson.M{"_id": id}
+
+
+	change := bson.M{"$set": bson.M{"language": language}}
+
+	_, err := c.UpdateOne(context.TODO(), query, change)
+	return err
+}

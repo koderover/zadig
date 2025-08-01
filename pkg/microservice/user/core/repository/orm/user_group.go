@@ -22,6 +22,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/user/core/repository/models"
+	"github.com/koderover/zadig/v2/pkg/types"
 )
 
 func CreateUserGroup(userGroup *models.UserGroup, db *gorm.DB) error {
@@ -117,7 +118,7 @@ func ListUserGroupByUID(uid string, db *gorm.DB) ([]*models.UserGroup, error) {
 func GetAllUserGroup(db *gorm.DB) (*models.UserGroup, error) {
 	resp := new(models.UserGroup)
 
-	err := db.Where("group_name = ?", "所有用户").
+	err := db.Where("group_name = ?", types.AllUserGroupName).
 		Find(&resp).
 		Error
 

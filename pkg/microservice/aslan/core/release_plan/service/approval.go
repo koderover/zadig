@@ -55,7 +55,43 @@ import (
 //go:embed approval.html
 var approvalHTML []byte
 
+//go:embed approval_en.html
+var approvalENHTML []byte
+
+var (
+	zhTextMap = map[string]string{
+		"approvalTextReleasePlan":       "发布计划",
+		"approvalTextPendingApproval":   "待审批",
+		"approvalTextApprovalInitiator": "审批发起人",
+		"approvalTextReleasePlanName":   "发布计划名称",
+		"approvalTextRequirements":      "需求关联",
+		"approvalTextReleaseManager":    "发布负责人",
+		"approvalTextReleaseWindow":     "发布窗口期",
+		"approvalTextTimer":             "定时执行",
+		"approvalTextMoreDetails":       "更多详见",
+	}
+
+	enTextMap = map[string]string{
+		"approvalTextReleasePlan":       "release plan",
+		"approvalTextPendingApproval":   "waiting for approval",
+		"approvalTextApprovalInitiator": "Approval Initiator",
+		"approvalTextReleasePlanName":   "Release Plan Name",
+		"approvalTextRequirements":      "Requirements",
+		"approvalTextReleaseManager":    "Manager",
+		"approvalTextReleaseWindow":     "Release Time",
+		"approvalTextTimer":             "Timer",
+		"approvalTextMoreDetails":       "More Details",
+	}
+)
+
 func createApprovalInstance(plan *models.ReleasePlan, phone string) error {
+	systemSetting, err := mongodb.NewSystemSettingColl().Get()
+	if err != nil {
+		log.Errorf("CreateNativeApproval GetSystemSetting error, error msg:%s", err)
+		return err
+	}
+	language := systemSetting.Language
+
 	if plan.Approval == nil {
 		return errors.New("createApprovalInstance: approval data not found")
 	}
@@ -65,13 +101,13 @@ func createApprovalInstance(plan *models.ReleasePlan, phone string) error {
 		url.QueryEscape(plan.ID.Hex()),
 	)
 
-	formContent := fmt.Sprintf("发布计划名称: %s\n发布负责人: %s\n", plan.Name, plan.Manager)
+	formContent := fmt.Sprintf("%s: %s\n%s: %s\n", getText("approvalTextReleasePlanName", language), plan.Name, getText("approvalTextReleaseManager", language), plan.Manager)
 
 	if plan.StartTime != 0 && plan.EndTime != 0 {
-		formContent += fmt.Sprintf("发布窗口期: %s\n", time.Unix(plan.StartTime, 0).Format("2006-01-02 15:04:05")+"-"+time.Unix(plan.EndTime, 0).Format("2006-01-02 15:04:05"))
+		formContent += fmt.Sprintf("%s: %s\n", getText("approvalTextReleaseWindow", language), time.Unix(plan.StartTime, 0).Format("2006-01-02 15:04:05")+"-"+time.Unix(plan.EndTime, 0).Format("2006-01-02 15:04:05"))
 	}
 	if plan.ScheduleExecuteTime != 0 {
-		formContent += fmt.Sprintf("定时执行: %s\n", time.Unix(plan.ScheduleExecuteTime, 0).Format("2006-01-02 15:04"))
+		formContent += fmt.Sprintf("%s: %s\n", getText("approvalTextTimer", language), time.Unix(plan.ScheduleExecuteTime, 0).Format("2006-01-02 15:04"))
 	}
 	if plan.Description != "" {
 		if plan.Approval.Type != config.NativeApproval {
@@ -80,34 +116,34 @@ func createApprovalInstance(plan *models.ReleasePlan, phone string) error {
 			if err != nil {
 				log.Error("Error convert %s HTML to Markdown: %v", plan.Description, err)
 			} else {
-				formContent += fmt.Sprintf("需求关联: \n")
+				formContent += fmt.Sprintf("%s: \n", getText("approvalTextRequirements", language))
 				descArr := strings.Split(markdownDescription, "\n")
 				for _, desc := range descArr {
 					formContent += fmt.Sprintf("	%s\n", desc)
 				}
 			}
 		} else {
-			formContent += fmt.Sprintf("需求关联: %s\n", plan.Description)
+			formContent += fmt.Sprintf("%s: %s\n", getText("approvalTextRequirements", language), plan.Description)
 		}
 	}
 
-	formContent += fmt.Sprintf("\n更多详见: %s", detailURL)
+	formContent += fmt.Sprintf("\n%s: %s", getText("approvalTextMoreDetails", language), detailURL)
 
 	switch plan.Approval.Type {
 	case config.NativeApproval:
 		return createNativeApproval(plan, detailURL)
 	case config.LarkApproval:
-		return createLarkApproval(plan.Approval.LarkApproval, plan.Manager, phone, formContent)
+		return createLarkApproval(plan.Approval.LarkApproval, plan.Manager, phone, formContent, language)
 	case config.DingTalkApproval:
-		return createDingTalkApproval(plan.Approval.DingTalkApproval, plan.Manager, phone, formContent)
+		return createDingTalkApproval(plan.Approval.DingTalkApproval, plan.Manager, phone, formContent, language)
 	case config.WorkWXApproval:
-		return createWorkWXApproval(plan.Approval.WorkWXApproval, plan.Manager, phone, formContent)
+		return createWorkWXApproval(plan.Approval.WorkWXApproval, plan.Manager, phone, formContent, language)
 	default:
 		return errors.New("invalid approval type")
 	}
 }
 
-func createDingTalkApproval(approval *models.DingTalkApproval, manager, phone, content string) error {
+func createDingTalkApproval(approval *models.DingTalkApproval, manager, phone, content, language string) error {
 	if approval == nil {
 		return errors.New("waitForApprove: dingtalk approval data not found")
 	}
@@ -131,7 +167,7 @@ func createDingTalkApproval(approval *models.DingTalkApproval, manager, phone, c
 		userID = userIDResp.UserID
 	} else {
 		userID = approval.DefaultApprovalInitiator.ID
-		content = fmt.Sprintf("审批发起人: %s\n%s", manager, content)
+		content = fmt.Sprintf("%s: %s\n%s", getText("approvalTextApprovalInitiator", language), manager, content)
 	}
 
 	instanceResp, err := client.CreateApprovalInstance(&dingtalk.CreateApprovalInstanceArgs{
@@ -292,6 +328,13 @@ func createNativeApproval(plan *models.ReleasePlan, url string) error {
 
 	approvalUsers, userMap := geneFlatNativeApprovalUsers(approval)
 
+	systemSetting, err := mongodb.NewSystemSettingColl().Get()
+	if err != nil {
+		log.Errorf("CreateNativeApproval GetSystemSetting error, error msg:%s", err)
+		return err
+	}
+	language := systemSetting.Language
+
 	// send email to all approval users if necessary
 	go func() {
 		var err error
@@ -312,7 +355,7 @@ func createNativeApproval(plan *models.ReleasePlan, url string) error {
 				break
 			}
 
-			t, err := template.New("approval").Parse(string(approvalHTML))
+			t, err := template.New("approval").Parse(getApprovalMailTemplate(language))
 			if err != nil {
 				log.Errorf("CreateNativeApproval template parse error, error msg:%s", err)
 				break
@@ -384,7 +427,7 @@ func createNativeApproval(plan *models.ReleasePlan, url string) error {
 			err = mail.SendEmail(&mail.EmailParams{
 				From:          emailService.Address,
 				To:            info.Email,
-				Subject:       fmt.Sprintf("发布计划 %s 待审批", plan.Name),
+				Subject:       fmt.Sprintf("%s %s %s", getText("approvalTextReleasePlan", language), plan.Name, getText("approvalTextPendingApproval", language)),
 				Host:          email.Name,
 				UserName:      email.UserName,
 				Password:      email.Password,
@@ -410,7 +453,14 @@ func createNativeApproval(plan *models.ReleasePlan, url string) error {
 	return nil
 }
 
-func createWorkWXApproval(approval *models.WorkWXApproval, manager, phone, content string) error {
+func getApprovalMailTemplate(language string) string {
+	if language == string(config.SystemLanguageEnUS) {
+		return string(approvalENHTML)
+	}
+	return string(approvalHTML)
+}
+
+func createWorkWXApproval(approval *models.WorkWXApproval, manager, phone, content, language string) error {
 	if approval == nil {
 		return errors.New("waitForApprove: workwx approval data not found")
 	}
@@ -429,7 +479,7 @@ func createWorkWXApproval(approval *models.WorkWXApproval, manager, phone, conte
 			return errors.New("审批发起人手机号码未找到，请正确配置您的手机号码")
 		}
 
-		content = fmt.Sprintf("审批发起人: %s\n%s", manager, content)
+		content = fmt.Sprintf("%s: %s\n%s", getText("approvalTextApprovalInitiator", language), manager, content)
 		phoneInt, err := strconv.Atoi(phone)
 		if err != nil {
 			return errors.Wrap(err, "get applicant phone")
@@ -474,7 +524,7 @@ func createWorkWXApproval(approval *models.WorkWXApproval, manager, phone, conte
 	return nil
 }
 
-func createLarkApproval(approval *models.LarkApproval, manager, phone, content string) error {
+func createLarkApproval(approval *models.LarkApproval, manager, phone, content, language string) error {
 	if approval == nil {
 		return errors.New("waitForApprove: lark approval data not found")
 	}
@@ -502,7 +552,7 @@ func createLarkApproval(approval *models.LarkApproval, manager, phone, content s
 		userID = util2.GetStringFromPointer(userInfo.UserId)
 	} else {
 		userID = approval.DefaultApprovalInitiator.ID
-		content = fmt.Sprintf("审批发起人: %s\n%s", manager, content)
+		content = fmt.Sprintf("%s: %s\n%s", getText("approvalTextApprovalInitiator", language), manager, content)
 	}
 
 	instance, err := client.CreateApprovalInstance(&lark.CreateApprovalInstanceArgs{
@@ -628,4 +678,19 @@ func updateLarkApproval(ctx context.Context, approval *models.Approval) error {
 		return errors.New("check final larkApproval status failed")
 	}
 	return nil
+}
+
+func getText(key, language string) string {
+	var textMap map[string]string
+	switch language {
+	case string(config.SystemLanguageEnUS):
+		textMap = enTextMap
+	default:
+		textMap = zhTextMap
+	}
+
+	if text, exists := textMap[key]; exists {
+		return text
+	}
+	return key
 }
