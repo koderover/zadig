@@ -169,6 +169,21 @@ func (c *ProjectManagementColl) GetMeegoByID(idHex string) (*models.ProjectManag
 	return meego, nil
 }
 
+func (c *ProjectManagementColl) GetPingCodeByID(idHex string) (*models.ProjectManagement, error) {
+	id, err := primitive.ObjectIDFromHex(idHex)
+	if err != nil {
+		return nil, err
+	}
+	pingcode := &models.ProjectManagement{}
+	query := bson.M{"_id": id, "type": setting.PMPingCode}
+
+	err = c.Collection.FindOne(context.TODO(), query).Decode(pingcode)
+	if err != nil {
+		return nil, err
+	}
+	return pingcode, nil
+}
+
 func (c *ProjectManagementColl) GetBySystemIdentity(systemIdentity string) (*models.ProjectManagement, error) {
 	projectManagement := &models.ProjectManagement{}
 	query := bson.M{"system_identity": systemIdentity}

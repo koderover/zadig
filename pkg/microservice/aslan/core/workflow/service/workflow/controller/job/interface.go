@@ -123,6 +123,8 @@ func CreateJobController(job *commonmodels.Job, workflow *commonmodels.WorkflowV
 		return CreateMseGrayReleaseJobController(job, workflow)
 	case config.JobNacos:
 		return CreateNacosJobController(job, workflow)
+	case config.JobPingCode:
+		return CreatePingCodeJobController(job, workflow)
 	case config.JobNotification:
 		return CreateNotificationJobController(job, workflow)
 	case config.JobOfflineService:

@@ -814,9 +814,9 @@ const (
 
 // Project Management types
 const (
-	PMJira  = "jira"
-	PMLark  = "lark"
-	PMMeego = "meego"
+	PMJira     = "jira"
+	PMMeego    = "meego"
+	PMPingCode = "pingcode"
 )
 
 // Workflow variable source type
