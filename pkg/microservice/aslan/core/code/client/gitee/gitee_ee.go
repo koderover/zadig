@@ -158,6 +158,7 @@ func (c *EEClient) ListProjects(opt client.ListOpt) ([]*client.Project, error) {
 		res = append(res, &client.Project{
 			ID:            project.ID,
 			Name:          project.Name,
+			Namespace:     project.Path,
 			DefaultBranch: project.DefaultBranch,
 		})
 	}
