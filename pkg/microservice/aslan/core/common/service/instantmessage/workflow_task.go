@@ -62,6 +62,7 @@ var (
 		"taskStatusRejected":         "执行被拒绝",
 		"taskStatusExecutionStarted": "开始执行",
 		"taskStatusManualApproval":   "待确认",
+		"taskStatusPause":            "暂停",
 
 		"jobTypeBuild":            "构建",
 		"jobTypeDeploy":           "容器服务部署",
@@ -131,6 +132,7 @@ var (
 		"taskStatusRejected":         "Rejected",
 		"taskStatusExecutionStarted": "Created",
 		"taskStatusManualApproval":   "Waiting for confirmation",
+		"taskStatusPause":            "Pause",
 
 		"jobTypeBuild":            "Build",
 		"jobTypeDeploy":           "Deploy",
@@ -1042,6 +1044,8 @@ func getWorkflowTaskTplExec(tplcontent string, args *workflowTaskNotification) (
 				return getText("taskStatusExecutionStarted", language)
 			} else if status == config.StatusManualApproval {
 				return getText("taskStatusManualApproval", language)
+			} else if status == config.StatusPause {
+				return getText("taskStatusPause", language)
 			}
 			return getText("taskStatusFailed", language)
 		},
@@ -1098,6 +1102,8 @@ func getJobTaskTplExec(tplcontent string, args *jobTaskNotification, language st
 				return getText("taskStatusExecutionStarted", language)
 			} else if status == config.StatusManualApproval {
 				return getText("taskStatusManualApproval", language)
+			} else if status == config.StatusPause {
+				return getText("taskStatusPause", language)
 			}
 			return getText("taskStatusFailed", language)
 		},
