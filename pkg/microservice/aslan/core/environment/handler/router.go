@@ -289,6 +289,8 @@ func (*OpenAPIRouter) Inject(router *gin.RouterGroup) {
 		common.PUT("/:name", OpenAPIUpdateEnvBasicInfo)
 
 		common.POST("/scale", OpenAPIScaleWorkloads)
+		common.GET("/service/yaml", OpenAPIGetEnvServiceYaml)
+		common.GET("/service/values", OpenAPIGetEnvServiceValues)
 		common.POST("/service/yaml", OpenAPIApplyYamlService)
 		common.DELETE("/service/yaml", OpenAPIDeleteYamlServiceFromEnv)
 
@@ -322,6 +324,8 @@ func (*OpenAPIRouter) Inject(router *gin.RouterGroup) {
 		production.GET("/:name", OpenAPIGetProductionEnvDetail)
 		production.PUT("/:name", OpenAPIUpdateProductionEnvBasicInfo)
 
+		production.GET("/service/values", OpenAPIGetProductionEnvServiceValues)
+		production.GET("/service/yaml", OpenAPIGetProductionEnvServiceYaml)
 		production.POST("/service/yaml", OpenAPIApplyProductionYamlService)
 		production.DELETE("/service/yaml", OpenAPIDeleteProductionYamlServiceFromEnv)
 

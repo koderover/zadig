@@ -866,25 +866,30 @@ func (hClient *HelmClient) pushChartMuseum(repoEntry *repo.Entry, chartPath stri
 func (hClient *HelmClient) pushOCIRegistry(repoEntry *repo.Entry, chartPath string) error {
 	var err error
 
+	// From https://github.com/google/go-containerregistry/blob/31786c6cbb82d6ec4fb8eb79cd9387905130534e/pkg/v1/remote/options.go#L87
+	transport := &http.Transport{
+		DialContext: (&net.Dialer{
+			// By default we wrap the transport in retries, so reduce the
+			// default dial timeout to 5s to avoid 5x 30s of connection
+			// timeouts when doing the "ping" on certain http registries.
+			Timeout:   5 * time.Second,
+			KeepAlive: 30 * time.Second,
+		}).DialContext,
+		ForceAttemptHTTP2:     true,
+		MaxIdleConns:          100,
+		IdleConnTimeout:       90 * time.Second,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+	}
+
+	if hClient.Transport != nil {
+		transport.Proxy = hClient.Transport.Proxy
+		transport.TLSClientConfig = hClient.Transport.TLSClientConfig
+	}
+
 	// copy from helm.sh/helm/v3/pkg/registry
 	httpclient := &http.Client{
-		// From https://github.com/google/go-containerregistry/blob/31786c6cbb82d6ec4fb8eb79cd9387905130534e/pkg/v1/remote/options.go#L87
-		Transport: &http.Transport{
-			DialContext: (&net.Dialer{
-				// By default we wrap the transport in retries, so reduce the
-				// default dial timeout to 5s to avoid 5x 30s of connection
-				// timeouts when doing the "ping" on certain http registries.
-				Timeout:   5 * time.Second,
-				KeepAlive: 30 * time.Second,
-			}).DialContext,
-			ForceAttemptHTTP2:     true,
-			MaxIdleConns:          100,
-			IdleConnTimeout:       90 * time.Second,
-			TLSHandshakeTimeout:   10 * time.Second,
-			ExpectContinueTimeout: 1 * time.Second,
-			Proxy:                 hClient.Transport.Proxy,
-			TLSClientConfig:       hClient.Transport.TLSClientConfig,
-		},
+		Transport: transport,
 	}
 
 	pushConfig := &action.Configuration{}

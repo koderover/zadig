@@ -25,6 +25,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
+	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	runtimeJobController "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/workflowcontroller/jobcontroller"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
@@ -34,6 +35,7 @@ import (
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/types"
+	stepspec "github.com/koderover/zadig/v2/pkg/types/step"
 	"github.com/koderover/zadig/v2/pkg/util/ginzap"
 )
 
@@ -347,4 +349,116 @@ func OpenAPIGetWorkflowJobContainerLogsSSE(c *gin.Context) {
 			},
 			ctx.Logger)
 	}, ctx.Logger)
+}
+
+// @Summary Get Delivery Version sse logs
+// @Description Get Delivery Version sse logs
+// @Tags 	logs
+// @Accept 	json
+// @Produce json
+// @Param 	projectName 		query 		string							true	"项目标识"
+// @Param 	version 			query 		string							true	"版本名称"
+// @Param 	serviceName 		query 		string							true	"服务名"
+// @Param 	serviceModule 		query 		string							true	"服务组件"
+// @Param 	lines 				path 		string							true	"行数"
+// @Success 200     			{string} 	string
+// @Router /api/aslan/logs/sse/delivery/{lines} [get]
+func GetDeliveryVersionLogsSSE(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	projectName := c.Query("projectName")
+	if projectName == "" {
+		ctx.RespErr = fmt.Errorf("projectName must be provided")
+		return
+	}
+
+	versionName := c.Query("version")
+	if versionName == "" {
+		ctx.RespErr = fmt.Errorf("version must be provided")
+		return
+	}
+
+	serviceName := c.Query("serviceName")
+	if serviceName == "" {
+		ctx.RespErr = fmt.Errorf("serviceName must be provided")
+		return
+	}
+
+	serviceModule := c.Query("serviceModule")
+	if serviceModule == "" {
+		ctx.RespErr = fmt.Errorf("serviceModule must be provided")
+		return
+	}
+
+	version, err := commonrepo.NewDeliveryVersionV2Coll().Find(projectName, versionName)
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("failed to find delivery version: %s", err)
+		return
+	}
+
+	jobName, err := findDeliveryVersionJobName(ctx, version.WorkflowName, version.TaskID, serviceName, serviceModule)
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("failed to find job name: %s", err)
+		return
+	}
+
+	tails, err := strconv.ParseInt(c.Param("lines"), 10, 64)
+	if err != nil {
+		tails = int64(10)
+	}
+
+	internalhandler.Stream(c, func(ctx1 context.Context, streamChan chan interface{}) {
+		logservice.WorkflowTaskV4ContainerLogStream(
+			ctx1, streamChan,
+			&logservice.GetContainerOptions{
+				Namespace:    config.Namespace(),
+				PipelineName: version.WorkflowName,
+				SubTask:      runtimeJobController.GetJobContainerName(jobName),
+				TaskID:       version.TaskID,
+				TailLines:    tails,
+			},
+			ctx.Logger)
+	}, ctx.Logger)
+}
+
+func findDeliveryVersionJobName(ctx *internalhandler.Context, workflowName string, taskID int64, serviceName string, serviceModule string) (string, error) {
+	task, err := commonrepo.NewworkflowTaskv4Coll().Find(workflowName, taskID)
+	if err != nil {
+		return "", fmt.Errorf("failed to find workflow: %s", err)
+	}
+
+	jobName := ""
+	for _, stage := range task.Stages {
+		for _, job := range stage.Jobs {
+			if job.JobType == string(config.JobZadigDistributeImage) {
+				jobSpec := new(commonmodels.JobTaskFreestyleSpec)
+				if err := commonmodels.IToi(job.Spec, jobSpec); err != nil {
+					return "", fmt.Errorf("failed to decode job spec: %s", err)
+				}
+
+				for _, step := range jobSpec.Steps {
+					if string(step.StepType) == string(config.StepDistributeImage) {
+						distributeImageStep := new(stepspec.StepImageDistributeSpec)
+						if err := commonmodels.IToi(step.Spec, distributeImageStep); err != nil {
+							return "", fmt.Errorf("failed to decode distribute image step: %s", err)
+						}
+
+						for _, image := range distributeImageStep.DistributeTarget {
+							if image.ServiceName == serviceName && image.ServiceModule == serviceModule {
+								jobName = job.Name
+								goto FoundJobName
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+FoundJobName:
+	if jobName == "" {
+		return "", fmt.Errorf("failed to find job name")
+	}
+	return jobName, nil
 }

@@ -162,7 +162,7 @@ type Container struct {
 	Type      setting.ContainerType `bson:"type"                          json:"type"`
 	Image     string                `bson:"image"                         json:"image"`
 	ImageName string                `bson:"image_name,omitempty"          json:"image_name,omitempty"`
-	ImagePath *ImagePathSpec        `bson:"image_path,omitempty"          json:"imagePath,omitempty"`
+	ImagePath *ImagePathSpec        `bson:"image_path,omitempty"          json:"image_path,omitempty"`
 }
 
 // ServiceTmplPipeResp ...router

@@ -30,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/environment/service"
 	"github.com/koderover/zadig/v2/pkg/setting"
@@ -110,6 +111,246 @@ func OpenAPIScaleWorkloads(c *gin.Context) {
 	}
 
 	ctx.RespErr = service.OpenAPIScale(req, ctx.Logger)
+}
+
+// @Summary 获取测试环境中k8s服务yaml
+// @Description 获取测试环境中k8s服务yaml
+// @Tags 	OpenAPI
+// @Accept 	json
+// @Produce json
+// @Param 	projectKey		query		string								true	"project name"
+// @Param 	envName			query		string								true	"env name"
+// @Param 	serviceName		query		string								true	"service name"
+// @Success 200 			string      string
+// @Router /openapi/environments/service/yaml [get]
+func OpenAPIGetEnvServiceYaml(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectKey := c.Query("projectKey")
+	if projectKey == "" {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("projectKey cannot be empty")
+		return
+	}
+
+	envName := c.Query("envName")
+	if envName == "" {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("envName cannot be empty")
+		return
+	}
+
+	serviceName := c.Query("serviceName")
+	if serviceName == "" {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("serviceName cannot be empty")
+		return
+	}
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].Env.View {
+			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionView)
+			if err != nil || !permitted {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
+	}
+
+	ctx.Resp, ctx.RespErr = service.FetchServiceYaml(projectKey, envName, serviceName, ctx.Logger)
+}
+
+// @Summary 获取生产环境中k8s服务yaml
+// @Description 获取生产环境中k8s服务yaml
+// @Tags 	OpenAPI
+// @Accept 	json
+// @Produce json
+// @Param 	projectKey		query		string								true	"project name"
+// @Param 	envName			query		string								true	"env name"
+// @Param 	serviceName		query		string								true	"service name"
+// @Success 200 			string      string
+// @Router /openapi/environments/production/service/yaml [get]
+func OpenAPIGetProductionEnvServiceYaml(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectKey := c.Query("projectKey")
+	if projectKey == "" {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("projectKey cannot be empty")
+		return
+	}
+
+	envName := c.Query("envName")
+	if envName == "" {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("envName cannot be empty")
+		return
+	}
+
+	serviceName := c.Query("serviceName")
+	if serviceName == "" {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("serviceName cannot be empty")
+		return
+	}
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].Env.View {
+			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionView)
+			if err != nil || !permitted {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
+	}
+
+	ctx.Resp, ctx.RespErr = service.FetchServiceYaml(projectKey, envName, serviceName, ctx.Logger)
+}
+
+// @Summary 获取测试环境中helm服务values
+// @Description 获取测试环境中helm服务values
+// @Tags 	OpenAPI
+// @Accept 	json
+// @Produce json
+// @Param 	projectKey		query		string								true	"project name"
+// @Param 	envName			query		string								true	"env name"
+// @Param 	serviceName		query		string								true	"service name"
+// @Success 200 			string      string
+// @Router /openapi/environments/service/values [get]
+func OpenAPIGetEnvServiceValues(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectKey := c.Query("projectKey")
+	if projectKey == "" {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("projectKey cannot be empty")
+		return
+	}
+
+	envName := c.Query("envName")
+	if envName == "" {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("envName cannot be empty")
+		return
+	}
+
+	serviceName := c.Query("serviceName")
+	if serviceName == "" {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("serviceName cannot be empty")
+		return
+	}
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].Env.View {
+			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionView)
+			if err != nil || !permitted {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
+	}
+
+	resp, err := commonservice.GetChartValues(projectKey, envName, serviceName, false, false, true)
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("failed get chart values, projectKey: %s, envName: %s, serviceName: %s, err: %s", projectKey, envName, serviceName, err)
+		return
+	}
+
+	ctx.Resp = resp.ValuesYaml
+}
+
+// @Summary 获取生产环境中helm服务values
+// @Description 获取生产环境中helm服务values
+// @Tags 	OpenAPI
+// @Accept 	json
+// @Produce json
+// @Param 	projectKey		query		string								true	"project name"
+// @Param 	envName			query		string								true	"env name"
+// @Param 	serviceName		query		string								true	"service name"
+// @Success 200 			string      string
+// @Router /openapi/environments/production/service/values [get]
+func OpenAPIGetProductionEnvServiceValues(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectKey := c.Query("projectKey")
+	if projectKey == "" {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("projectKey cannot be empty")
+		return
+	}
+
+	envName := c.Query("envName")
+	if envName == "" {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("envName cannot be empty")
+		return
+	}
+
+	serviceName := c.Query("serviceName")
+	if serviceName == "" {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("serviceName cannot be empty")
+		return
+	}
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.View {
+			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionView)
+			if err != nil || !permitted {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
+	}
+
+	resp, err := commonservice.GetChartValues(projectKey, envName, serviceName, false, true, true)
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("failed get chart values, projectKey: %s, envName: %s, serviceName: %s, err: %s", projectKey, envName, serviceName, err)
+		return
+	}
+
+	ctx.Resp = resp.ValuesYaml
 }
 
 func OpenAPIApplyYamlService(c *gin.Context) {

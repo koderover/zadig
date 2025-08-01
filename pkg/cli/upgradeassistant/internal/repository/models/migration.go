@@ -28,6 +28,8 @@ type Migration struct {
 	WorkflowV4341HookMigration       bool               `bson:"workflow_v4_341_hook_migration"`
 	Migration341VMDeploy             bool               `bson:"migration_341_vm_deploy"`
 	UpdateLarkEventSetting           bool               `bson:"update_lark_event_setting"`
+	Migration350DeliveryVersionV2    bool               `bson:"migration_350_delivery_version_v2"`
+	Error                            string             `bson:"error"`
 }
 
 func (Migration) TableName() string {

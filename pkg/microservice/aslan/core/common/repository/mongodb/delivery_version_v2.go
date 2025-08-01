@@ -28,12 +28,13 @@ import (
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/v2/pkg/setting"
 	mongotool "github.com/koderover/zadig/v2/pkg/tool/mongo"
 )
 
-type DeliveryVersionArgs struct {
+type DeliveryVersionV2Args struct {
 	ID           string `json:"id"`
-	ProductName  string `json:"productName"`
+	ProjectName  string `json:"projectName"`
 	Version      string `json:"version"`
 	WorkflowName string `json:"workflowName"`
 	TaskID       int    `json:"taskId"`
@@ -41,43 +42,32 @@ type DeliveryVersionArgs struct {
 	Page         int    `json:"page"`
 }
 
-type DeliveryVersionColl struct {
+type DeliveryVersionV2Coll struct {
 	*mongo.Collection
 
 	coll string
 }
 
-func NewDeliveryVersionColl() *DeliveryVersionColl {
-	name := models.DeliveryVersion{}.TableName()
-	return &DeliveryVersionColl{
+func NewDeliveryVersionV2Coll() *DeliveryVersionV2Coll {
+	name := models.DeliveryVersionV2{}.TableName()
+	return &DeliveryVersionV2Coll{
 		Collection: mongotool.Database(config.MongoDatabase()).Collection(name),
 		coll:       name,
 	}
 }
 
-func (c *DeliveryVersionColl) GetCollectionName() string {
+func (c *DeliveryVersionV2Coll) GetCollectionName() string {
 	return c.coll
 }
 
-func (c *DeliveryVersionColl) EnsureIndex(ctx context.Context) error {
+func (c *DeliveryVersionV2Coll) EnsureIndex(ctx context.Context) error {
 	mod := []mongo.IndexModel{
 		{
 			Keys: bson.D{
-				bson.E{Key: "org_id", Value: 1},
-				bson.E{Key: "product_name", Value: 1},
-				bson.E{Key: "workflow_name", Value: 1},
+				bson.E{Key: "project_name", Value: 1},
 				bson.E{Key: "version", Value: 1},
-				bson.E{Key: "deleted_at", Value: 1},
 			},
 			Options: options.Index().SetUnique(true),
-		},
-		{
-			Keys: bson.D{
-				bson.E{Key: "org_id", Value: 1},
-				bson.E{Key: "task_id", Value: 1},
-				bson.E{Key: "deleted_at", Value: 1},
-			},
-			Options: options.Index().SetUnique(false),
 		},
 	}
 
@@ -86,14 +76,56 @@ func (c *DeliveryVersionColl) EnsureIndex(ctx context.Context) error {
 	return err
 }
 
-func (c *DeliveryVersionColl) Find(args *DeliveryVersionArgs) ([]*models.DeliveryVersion, int, error) {
+func (c *DeliveryVersionV2Coll) Find(projectName, version string) (*models.DeliveryVersionV2, error) {
+	if projectName == "" || version == "" {
+		return nil, errors.New("nil delivery_version args")
+	}
+
+	query := bson.M{"deleted_at": 0}
+	query["project_name"] = projectName
+	query["version"] = version
+
+	ctx := context.Background()
+	opts := options.FindOne()
+	resp := new(models.DeliveryVersionV2)
+	err := c.Collection.FindOne(ctx, query, opts).Decode(&resp)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
+}
+
+func (c *DeliveryVersionV2Coll) FindByID(id string) (*models.DeliveryVersionV2, error) {
+	if id == "" {
+		return nil, errors.New("nil delivery_version args")
+	}
+
+	oid, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return nil, err
+	}
+	query := bson.M{"_id": oid, "deleted_at": 0}
+
+	ctx := context.Background()
+	opts := options.FindOne()
+	resp := new(models.DeliveryVersionV2)
+	err = c.Collection.FindOne(ctx, query, opts).Decode(&resp)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
+}
+
+func (c *DeliveryVersionV2Coll) List(args *DeliveryVersionV2Args) ([]*models.DeliveryVersionV2, int, error) {
 	if args == nil {
 		return nil, 0, errors.New("nil delivery_version args")
 	}
 
 	query := bson.M{"deleted_at": 0}
-	if args.ProductName != "" {
-		query["product_name"] = args.ProductName
+	if args.ProjectName != "" {
+		query["project_name"] = args.ProjectName
 	}
 	if args.WorkflowName != "" {
 		query["workflow_name"] = args.WorkflowName
@@ -118,7 +150,7 @@ func (c *DeliveryVersionColl) Find(args *DeliveryVersionArgs) ([]*models.Deliver
 		return nil, 0, err
 	}
 
-	resp := make([]*models.DeliveryVersion, 0)
+	resp := make([]*models.DeliveryVersionV2, 0)
 	err = cursor.All(ctx, &resp)
 	if err != nil {
 		return nil, 0, err
@@ -127,26 +159,33 @@ func (c *DeliveryVersionColl) Find(args *DeliveryVersionArgs) ([]*models.Deliver
 	return resp, int(count), nil
 }
 
-func (c *DeliveryVersionColl) Delete(id string) error {
+func (c *DeliveryVersionV2Coll) Delete(id string) error {
 	oid, err := primitive.ObjectIDFromHex(id)
 	if err != nil {
 		return err
 	}
 	query := bson.M{"_id": oid, "deleted_at": 0}
 
+	_, err = c.DeleteOne(context.TODO(), query)
+	return err
+}
+
+func (c *DeliveryVersionV2Coll) DeleteByProjectName(projectName string) error {
+	query := bson.M{"project_name": projectName, "deleted_at": 0}
+
 	change := bson.M{"$set": bson.M{
 		"deleted_at": time.Now().Unix(),
 	}}
 
-	_, err = c.UpdateOne(context.TODO(), query, change)
+	_, err := c.UpdateMany(context.TODO(), query, change)
 	return err
 }
 
-func (c *DeliveryVersionColl) ListDeliveryVersions(productName string) ([]*models.DeliveryVersion, error) {
-	var resp []*models.DeliveryVersion
+func (c *DeliveryVersionV2Coll) ListDeliveryVersions(productName string) ([]*models.DeliveryVersionV2, error) {
+	var resp []*models.DeliveryVersionV2
 	query := bson.M{"deleted_at": 0}
 	if productName != "" {
-		query["product_name"] = productName
+		query["project_name"] = productName
 	}
 
 	ctx := context.Background()
@@ -163,18 +202,11 @@ func (c *DeliveryVersionColl) ListDeliveryVersions(productName string) ([]*model
 	return resp, err
 }
 
-func (c *DeliveryVersionColl) ListByCursor() (*mongo.Cursor, error) {
-	query := bson.M{
-		"deleted_at": 0,
-	}
-	return c.Collection.Find(context.TODO(), query)
-}
-
-func (c *DeliveryVersionColl) Get(args *DeliveryVersionArgs) (*models.DeliveryVersion, error) {
+func (c *DeliveryVersionV2Coll) Get(args *DeliveryVersionV2Args) (*models.DeliveryVersionV2, error) {
 	if args == nil {
 		return nil, errors.New("nil delivery_version args")
 	}
-	resp := new(models.DeliveryVersion)
+	resp := new(models.DeliveryVersionV2)
 	var query map[string]interface{}
 	if args.ID != "" {
 		oid, err := primitive.ObjectIDFromHex(args.ID)
@@ -183,16 +215,16 @@ func (c *DeliveryVersionColl) Get(args *DeliveryVersionArgs) (*models.DeliveryVe
 		}
 		query = bson.M{"_id": oid, "deleted_at": 0}
 	} else if len(args.Version) > 0 {
-		query = bson.M{"product_name": args.ProductName, "version": args.Version, "deleted_at": 0}
+		query = bson.M{"project_name": args.ProjectName, "version": args.Version, "deleted_at": 0}
 	} else {
-		query = bson.M{"product_name": args.ProductName, "workflow_name": args.WorkflowName, "task_id": args.TaskID, "deleted_at": 0}
+		query = bson.M{"project_name": args.ProjectName, "workflow_name": args.WorkflowName, "task_id": args.TaskID, "deleted_at": 0}
 	}
 
 	err := c.FindOne(context.TODO(), query).Decode(&resp)
 	return resp, err
 }
 
-func (c *DeliveryVersionColl) Insert(args *models.DeliveryVersion) error {
+func (c *DeliveryVersionV2Coll) Create(args *models.DeliveryVersionV2) error {
 	if args == nil {
 		return errors.New("nil delivery_version args")
 	}
@@ -209,10 +241,10 @@ func (c *DeliveryVersionColl) Insert(args *models.DeliveryVersion) error {
 	return nil
 }
 
-func (c *DeliveryVersionColl) UpdateStatusByName(versionName, projectName, status, errorStr string) error {
+func (c *DeliveryVersionV2Coll) UpdateStatusByName(versionName, projectName string, status setting.DeliveryVersionStatus, errorStr string) error {
 	query := bson.M{
 		"version":      versionName,
-		"product_name": projectName,
+		"project_name": projectName,
 		"deleted_at":   0,
 	}
 	change := bson.M{"$set": bson.M{
@@ -223,10 +255,10 @@ func (c *DeliveryVersionColl) UpdateStatusByName(versionName, projectName, statu
 	return err
 }
 
-func (c *DeliveryVersionColl) UpdateTaskID(versionName, projectName string, taskID int32) error {
+func (c *DeliveryVersionV2Coll) UpdateTaskID(versionName, projectName string, taskID int32) error {
 	query := bson.M{
 		"version":      versionName,
-		"product_name": projectName,
+		"project_name": projectName,
 		"deleted_at":   0,
 	}
 	change := bson.M{"$set": bson.M{
@@ -236,10 +268,10 @@ func (c *DeliveryVersionColl) UpdateTaskID(versionName, projectName string, task
 	return err
 }
 
-func (c *DeliveryVersionColl) UpdateWorkflowTask(versionName, projectName, workflowName string, taskID int32) error {
+func (c *DeliveryVersionV2Coll) UpdateWorkflowTask(versionName, projectName, workflowName string, taskID int32) error {
 	query := bson.M{
 		"version":      versionName,
-		"product_name": projectName,
+		"project_name": projectName,
 		"deleted_at":   0,
 	}
 	change := bson.M{"$set": bson.M{
@@ -250,24 +282,37 @@ func (c *DeliveryVersionColl) UpdateWorkflowTask(versionName, projectName, workf
 	return err
 }
 
-func (c *DeliveryVersionColl) Update(args *models.DeliveryVersion) error {
+func (c *DeliveryVersionV2Coll) Update(args *models.DeliveryVersionV2) error {
 	if args == nil {
 		return errors.New("nil delivery_version args")
 	}
-	query := bson.M{"_id": args.ID, "deleted_at": 0}
 
+	args.ID = primitive.NilObjectID
+	query := bson.M{"project_name": args.ProjectName, "version": args.Version}
+	change := bson.M{"$set": args}
+
+	_, err := c.UpdateOne(context.TODO(), query, change)
+	return err
+}
+
+func (c *DeliveryVersionV2Coll) UpdateServiceStatus(args *models.DeliveryVersionV2) error {
+	if args == nil {
+		return errors.New("nil delivery_version args")
+	}
+
+	query := bson.M{"project_name": args.ProjectName, "version": args.Version, "deleted_at": 0}
 	change := bson.M{"$set": bson.M{
-		"product_env_info": args.ProductEnvInfo,
+		"services": args.Services,
 	}}
 
 	_, err := c.UpdateOne(context.TODO(), query, change)
 	return err
 }
 
-func (c *DeliveryVersionColl) FindProducts() ([]string, error) {
+func (c *DeliveryVersionV2Coll) FindProducts() ([]string, error) {
 	resp := make([]string, 0)
 	query := bson.M{"deleted_at": 0}
-	ret, err := c.Distinct(context.TODO(), "product_name", query)
+	ret, err := c.Distinct(context.TODO(), "project_name", query)
 	if err != nil {
 		return nil, err
 	}

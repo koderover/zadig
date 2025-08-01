@@ -32,15 +32,15 @@ type OpenAPIListDeliveryVersionRequest struct {
 	PageSize   int    `form:"pageSize" binding:"required"`
 }
 
-// @Summary OpenAPI List Delivery Version
-// @Description OpenAPI List Delivery Version
+// @Summary 列出版本
+// @Description 列出版本
 // @Tags 	OpenAPI
 // @Accept 	json
 // @Produce json
 // @Param 	projectKey		query		string							true	"project key"
 // @Param 	pageNum 		query		int								true	"page num"
 // @Param 	pageSize 		query		int								true	"page size"
-// @Success 200
+// @Success 200             {object}    service.OpenAPIListDeliveryVersionV2Resp
 // @Router /openapi/delivery/releases [get]
 func OpenAPIListDeliveryVersion(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
@@ -96,14 +96,15 @@ func OpenAPIListDeliveryVersion(c *gin.Context) {
 	ctx.Resp, ctx.RespErr = service.OpenAPIListDeliveryVersion(req.ProjectKey, req.PageNum, req.PageSize)
 }
 
-// @Summary OpenAPI Get Delivery Version
-// @Description OpenAPI Get Delivery Version
+// @Summary 获取版本详情
+// @Description 获取版本详情
 // @Tags 	OpenAPI
 // @Accept 	json
 // @Produce json
-// @Param 	projectKey		query		string								true	"project key"
-// @Success 200
-// @Router /openapi/delivery/releases/{id} [get]
+// @Param 	projectKey		query		string								true	"项目标识"
+// @Param 	versionName		query		string								true	"版本名称"
+// @Success 200             {object}    service.OpenAPIGetDeliveryVersionV2Resp
+// @Router /openapi/delivery/releases/detail [get]
 func OpenAPIGetDeliveryVersion(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -116,9 +117,9 @@ func OpenAPIGetDeliveryVersion(c *gin.Context) {
 	}
 
 	//params validate
-	ID := c.Param("id")
-	if ID == "" {
-		ctx.RespErr = e.ErrInvalidParam.AddDesc("id can't be empty!")
+	versionName := c.Query("versionName")
+	if versionName == "" {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("versionName can't be empty!")
 		return
 	}
 	projectKey := c.Query("projectKey")
@@ -154,11 +155,11 @@ func OpenAPIGetDeliveryVersion(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.RespErr = service.OpenAPIGetDeliveryVersion(c.Param("id"))
+	ctx.Resp, ctx.RespErr = service.OpenAPIGetDeliveryVersion(projectKey, versionName)
 }
 
-// @Summary OpenAPI Delete Delivery Version
-// @Description OpenAPI Delete Delivery Version
+// @Summary 删除版本
+// @Description 删除版本
 // @Tags 	OpenAPI
 // @Accept 	json
 // @Produce json
@@ -214,13 +215,13 @@ func OpenAPIDeleteDeliveryVersion(c *gin.Context) {
 	ctx.RespErr = service.OpenAPIDeleteDeliveryVersion(c.Param("id"))
 }
 
-// @Summary OpenAPI Create K8S Delivery Version
-// @Description OpenAPI Create K8S Delivery Version
+// @Summary 创建K8S版本
+// @Description 创建K8S版本
 // @Tags 	OpenAPI
 // @Accept 	json
 // @Produce json
-// @Param 	body 			body 		service.OpenAPICreateK8SDeliveryVersionRequest  true 	"body"
-// @Success 200
+// @Param 	body 			body   service.OpenAPICreateK8SDeliveryVersionV2Request  true 	"body"
+// @Success 200             id     string
 // @Router /openapi/delivery/releases/k8s [post]
 func OpenAPICreateK8SDeliveryVersion(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
@@ -233,12 +234,12 @@ func OpenAPICreateK8SDeliveryVersion(c *gin.Context) {
 		return
 	}
 
-	req := new(service.OpenAPICreateK8SDeliveryVersionRequest)
+	req := new(service.OpenAPICreateK8SDeliveryVersionV2Request)
 	if err := c.ShouldBindJSON(&req); err != nil {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
-	req.CreateBy = ctx.UserName
+	req.CreateBy = ctx.UserName + "(OpenAPI)"
 
 	projectKey := req.ProjectKey
 	if !ctx.Resources.IsSystemAdmin {
@@ -263,12 +264,12 @@ func OpenAPICreateK8SDeliveryVersion(c *gin.Context) {
 	ctx.RespErr = service.OpenAPICreateK8SDeliveryVersion(req)
 }
 
-// @Summary OpenAPI Create Helm Delivery Version
-// @Description OpenAPI Create Helm Delivery Version
+// @Summary 创建Helm版本
+// @Description 创建Helm版本
 // @Tags 	OpenAPI
 // @Accept 	json
 // @Produce json
-// @Param 	body 			body 		service.OpenAPICreateHelmDeliveryVersionRequest true 	"body"
+// @Param 	body 			body 		service.OpenAPICreateHelmDeliveryVersionV2Request true 	"body"
 // @Success 200
 // @Router /openapi/delivery/releases/helm [post]
 func OpenAPICreateHelmDeliveryVersion(c *gin.Context) {
@@ -282,12 +283,12 @@ func OpenAPICreateHelmDeliveryVersion(c *gin.Context) {
 		return
 	}
 
-	req := new(service.OpenAPICreateHelmDeliveryVersionRequest)
+	req := new(service.OpenAPICreateHelmDeliveryVersionV2Request)
 	if err := c.ShouldBindJSON(&req); err != nil {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
-	req.CreateBy = ctx.UserName
+	req.CreateBy = ctx.UserName + "(OpenAPI)"
 
 	projectKey := req.ProjectKey
 	if !ctx.Resources.IsSystemAdmin {
@@ -310,4 +311,57 @@ func OpenAPICreateHelmDeliveryVersion(c *gin.Context) {
 	}
 
 	ctx.RespErr = service.OpenAPICreateHelmDeliveryVersion(req)
+}
+
+// @Summary 重试创建版本
+// @Description 重试创建版本
+// @Tags 	OpenAPI
+// @Accept 	json
+// @Produce json
+// @Param 	id			query		string							true	"id"
+// @Success 200
+// @Router /openapi/delivery/releases/retry [post]
+func OpenAPIRetryCreateDeliveryVersion(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	id := c.Query("id")
+	if id == "" {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("id can't be empty!")
+		return
+	}
+
+	projectKey := c.Query("projectKey")
+	if projectKey == "" {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("projectName can't be empty!")
+		return
+	}
+
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].Version.Create {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	err = commonutil.CheckZadigProfessionalLicense()
+	if err != nil {
+		ctx.RespErr = err
+		return
+	}
+
+	ctx.RespErr = service.OpenAPIRetryCreateDeliveryVersion(id)
 }
