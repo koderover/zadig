@@ -565,11 +565,12 @@ func (c *workflowCtl) updateWorkflowTask() {
 	}
 	c.workflowTaskMutex.Unlock()
 
-	if c.workflowTask.Status == config.StatusPassed || c.workflowTask.Status == config.StatusFailed || c.workflowTask.Status == config.StatusTimeout || c.workflowTask.Status == config.StatusCancelled || c.workflowTask.Status == config.StatusReject || c.workflowTask.Status == config.StatusPause || c.workflowTask.Status == config.StatusManualApproval {
+	if err := instantmessage.NewWeChatClient().SendWorkflowTaskNotifications(c.workflowTask); err != nil {
+		c.logger.Errorf("send workflow task notification failed, error: %v", err)
+	}
+
+	if c.workflowTask.Status == config.StatusPassed || c.workflowTask.Status == config.StatusFailed || c.workflowTask.Status == config.StatusTimeout || c.workflowTask.Status == config.StatusCancelled || c.workflowTask.Status == config.StatusReject {
 		c.logger.Infof("%s:%d:%v task done", c.workflowTask.WorkflowName, c.workflowTask.TaskID, c.workflowTask.Status)
-		if err := instantmessage.NewWeChatClient().SendWorkflowTaskNotifications(c.workflowTask); err != nil {
-			c.logger.Errorf("send workflow task notification failed, error: %v", err)
-		}
 		q := ConvertTaskToQueue(c.workflowTask)
 		if err := Remove(q); err != nil {
 			c.logger.Errorf("remove queue task: %s:%d error: %v", c.workflowTask.WorkflowName, c.workflowTask.TaskID, err)
