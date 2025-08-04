@@ -63,6 +63,7 @@ var (
 		"taskStatusExecutionStarted": "开始执行",
 		"taskStatusManualApproval":   "待确认",
 		"taskStatusPause":            "暂停",
+		"jobStatusUnstarted":         "未执行",
 
 		"jobTypeBuild":            "构建",
 		"jobTypeDeploy":           "容器服务部署",
@@ -133,6 +134,7 @@ var (
 		"taskStatusExecutionStarted": "Created",
 		"taskStatusManualApproval":   "Waiting for confirmation",
 		"taskStatusPause":            "Pause",
+		"jobStatusUnstarted":         "Unstarted",
 
 		"jobTypeBuild":            "Build",
 		"jobTypeDeploy":           "Deploy",
@@ -1104,6 +1106,8 @@ func getJobTaskTplExec(tplcontent string, args *jobTaskNotification, language st
 				return getText("taskStatusManualApproval", language)
 			} else if status == config.StatusPause {
 				return getText("taskStatusPause", language)
+			} else if status == "" {
+				return getText("jobStatusUnstarted", language)
 			}
 			return getText("taskStatusFailed", language)
 		},
