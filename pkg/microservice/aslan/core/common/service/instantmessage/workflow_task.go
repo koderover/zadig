@@ -55,15 +55,16 @@ var (
 		"taskTypeScanning": "代码扫描",
 		"taskTypeTesting":  "测试",
 
-		"taskStatusSuccess":          "执行成功",
-		"taskStatusFailed":           "执行失败",
-		"taskStatusCancelled":        "执行取消",
-		"taskStatusTimeout":          "执行超时",
-		"taskStatusRejected":         "执行被拒绝",
-		"taskStatusExecutionStarted": "开始执行",
-		"taskStatusManualApproval":   "待确认",
-		"taskStatusPause":            "暂停",
-		"jobStatusUnstarted":         "未执行",
+		"taskStatusSuccess":                "执行成功",
+		"taskStatusFailed":                 "执行失败",
+		"taskStatusCancelled":              "执行取消",
+		"taskStatusTimeout":                "执行超时",
+		"taskStatusRejected":               "执行被拒绝",
+		"taskStatusExecutionStarted":       "开始执行",
+		"taskStatusManualApproval":         "待确认",
+		"taskStatusPause":                  "暂停",
+		"jobStatusUnstarted":               "未执行",
+		"jobStatusWaitingForErrorHandling": "失败待确认",
 
 		"jobTypeBuild":            "构建",
 		"jobTypeDeploy":           "容器服务部署",
@@ -126,15 +127,16 @@ var (
 		"taskTypeScanning": "scanning",
 		"taskTypeTesting":  "testing",
 
-		"taskStatusSuccess":          "Passed",
-		"taskStatusFailed":           "Failed",
-		"taskStatusCancelled":        "Cancelled",
-		"taskStatusTimeout":          "Timeout",
-		"taskStatusRejected":         "Rejected",
-		"taskStatusExecutionStarted": "Created",
-		"taskStatusManualApproval":   "Waiting for confirmation",
-		"taskStatusPause":            "Pause",
-		"jobStatusUnstarted":         "Unstarted",
+		"taskStatusSuccess":                "Passed",
+		"taskStatusFailed":                 "Failed",
+		"taskStatusCancelled":              "Cancelled",
+		"taskStatusTimeout":                "Timeout",
+		"taskStatusRejected":               "Rejected",
+		"taskStatusExecutionStarted":       "Created",
+		"taskStatusManualApproval":         "Waiting for confirmation",
+		"taskStatusPause":                  "Pause",
+		"jobStatusUnstarted":               "Unstarted",
+		"jobStatusWaitingForErrorHandling": "Waiting for manual error handling",
 
 		"jobTypeBuild":            "Build",
 		"jobTypeDeploy":           "Deploy",
@@ -337,7 +339,7 @@ func (w *Service) SendWorkflowTaskNotifications(task *models.WorkflowTask) error
 		}
 
 		statusSets := sets.NewString(notify.NotifyTypes...)
-		if statusSets.Has(string(task.Status)) || (statusChanged && statusSets.Has(string(config.StatusChanged))) || (statusSets.Has(string(config.StatusManualApproval)) && task.Status == config.StatusManualApproval) {
+		if statusSets.Has(string(task.Status)) || (statusChanged && statusSets.Has(string(config.StatusChanged))) || (statusSets.Has(string(config.StatusManualApproval)) && task.Status == config.StatusRunning) {
 			title, content, larkCard, webhookNotify, err := w.getNotificationContent(notify, task)
 			if err != nil {
 				errMsg := fmt.Sprintf("failed to get notification content, err: %s", err)
@@ -1048,8 +1050,14 @@ func getWorkflowTaskTplExec(tplcontent string, args *workflowTaskNotification) (
 				return getText("taskStatusManualApproval", language)
 			} else if status == config.StatusPause {
 				return getText("taskStatusPause", language)
+			} else if status == config.StatusRunning {
+				// TODO: this code needed to be improved. currently the task's status is running when the task is waiting for error handling,
+				// leaving me no choice but to add this case.
+				return getText("jobStatusWaitingForErrorHandling", language)
+			} else {
+				return getText("taskStatusExecutionStarted", language)
 			}
-			return getText("taskStatusFailed", language)
+
 		},
 		"getIcon": func(status config.Status) string {
 			if status == config.StatusPassed || status == config.StatusCreated {
