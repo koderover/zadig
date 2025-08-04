@@ -337,7 +337,7 @@ func (w *Service) SendWorkflowTaskNotifications(task *models.WorkflowTask) error
 		}
 
 		statusSets := sets.NewString(notify.NotifyTypes...)
-		if statusSets.Has(string(task.Status)) || (statusChanged && statusSets.Has(string(config.StatusChanged))) {
+		if statusSets.Has(string(task.Status)) || (statusChanged && statusSets.Has(string(config.StatusChanged))) || (statusSets.Has(string(config.StatusManualApproval)) && task.Status == config.StatusManualApproval) {
 			title, content, larkCard, webhookNotify, err := w.getNotificationContent(notify, task)
 			if err != nil {
 				errMsg := fmt.Sprintf("failed to get notification content, err: %s", err)
