@@ -320,7 +320,7 @@ func (w *Service) SendWorkflowTaskNotifications(task *models.WorkflowTask) error
 		log.Error(errMsg)
 		statusChanged = true
 	}
-	if preTask != nil && task.Status != preTask.Status && task.Status != config.StatusRunning {
+	if preTask != nil && task.Status != preTask.Status && task.Status != config.StatusRunning && task.Status != config.StatusPause && task.Status != config.StatusManualApproval {
 		statusChanged = true
 	}
 	if task.Status == config.StatusCreated {
