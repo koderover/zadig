@@ -779,15 +779,15 @@ spec:
     spec:
       {{- if .NodeSelector }}
       nodeSelector:
-{{indent 4 .NodeSelector}}
+{{indent 8 .NodeSelector}}
       {{- end }}
 	  {{- if .Toleration }}
       tolerations:
-{{indent 4 .Toleration}}
+{{indent 8 .Toleration}}
       {{- end }}
       {{- if .Affinity }}
       affinity:
-{{indent 4 .Affinity}}
+{{indent 8 .Affinity}}
       {{- end }}
       hostNetwork: true
       serviceAccountName: koderover-agent
@@ -969,15 +969,15 @@ spec:
     spec:
       {{- if .NodeSelector }}
       nodeSelector:
-{{indent 4 .NodeSelector}}
+{{indent 8 .NodeSelector}}
       {{- end }}
 	  {{- if .Toleration }}
       tolerations:
-{{indent 4 .Toleration}}
+{{indent 8 .Toleration}}
       {{- end }}
       {{- if .Affinity }}
       affinity:
-{{indent 4 .Affinity}}
+{{indent 8 .Affinity}}
       {{- end }}
       hostNetwork: true
       serviceAccountName: koderover-agent-sa

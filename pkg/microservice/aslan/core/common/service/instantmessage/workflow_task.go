@@ -55,14 +55,15 @@ var (
 		"taskTypeScanning": "代码扫描",
 		"taskTypeTesting":  "测试",
 
-		"taskStatusSuccess":          "执行成功",
-		"taskStatusFailed":           "执行失败",
-		"taskStatusCancelled":        "执行取消",
-		"taskStatusTimeout":          "执行超时",
-		"taskStatusRejected":         "执行被拒绝",
-		"taskStatusExecutionStarted": "开始执行",
-		"taskStatusManualApproval":   "待确认",
-		"taskStatusPause":            "暂停",
+		"taskStatusSuccess":                "执行成功",
+		"taskStatusFailed":                 "执行失败",
+		"taskStatusCancelled":              "执行取消",
+		"taskStatusTimeout":                "执行超时",
+		"taskStatusRejected":               "执行被拒绝",
+		"taskStatusExecutionStarted":       "开始执行",
+		"taskStatusManualApproval":         "待确认",
+		"taskStatusPause":                  "暂停",
+		"jobStatusUnstarted":               "未执行",
 
 		"jobTypeBuild":            "构建",
 		"jobTypeDeploy":           "容器服务部署",
@@ -125,14 +126,15 @@ var (
 		"taskTypeScanning": "scanning",
 		"taskTypeTesting":  "testing",
 
-		"taskStatusSuccess":          "Passed",
-		"taskStatusFailed":           "Failed",
-		"taskStatusCancelled":        "Cancelled",
-		"taskStatusTimeout":          "Timeout",
-		"taskStatusRejected":         "Rejected",
-		"taskStatusExecutionStarted": "Created",
-		"taskStatusManualApproval":   "Waiting for confirmation",
-		"taskStatusPause":            "Pause",
+		"taskStatusSuccess":                "Passed",
+		"taskStatusFailed":                 "Failed",
+		"taskStatusCancelled":              "Cancelled",
+		"taskStatusTimeout":                "Timeout",
+		"taskStatusRejected":               "Rejected",
+		"taskStatusExecutionStarted":       "Created",
+		"taskStatusManualApproval":         "Waiting for confirmation",
+		"taskStatusPause":                  "Pause",
+		"jobStatusUnstarted":               "Unstarted",
 
 		"jobTypeBuild":            "Build",
 		"jobTypeDeploy":           "Deploy",
@@ -304,6 +306,8 @@ func (w *Service) SendWorkflowTaskApproveNotifications(workflowName string, task
 	return nil
 }
 
+// TODO: manual error handling is not supported in the SendWorkflowTaskNotifications function, mainly because the error handling is done in the lifetime of a job, where the 
+// controller cannot access the task's full information. We need to implement a method where the job controller can send notification.
 func (w *Service) SendWorkflowTaskNotifications(task *models.WorkflowTask) error {
 	if len(task.OriginWorkflowArgs.NotifyCtls) == 0 {
 		return nil
@@ -1046,8 +1050,10 @@ func getWorkflowTaskTplExec(tplcontent string, args *workflowTaskNotification) (
 				return getText("taskStatusManualApproval", language)
 			} else if status == config.StatusPause {
 				return getText("taskStatusPause", language)
+			} else {
+				return getText("taskStatusFailed", language)
 			}
-			return getText("taskStatusFailed", language)
+
 		},
 		"getIcon": func(status config.Status) string {
 			if status == config.StatusPassed || status == config.StatusCreated {
@@ -1104,6 +1110,8 @@ func getJobTaskTplExec(tplcontent string, args *jobTaskNotification, language st
 				return getText("taskStatusManualApproval", language)
 			} else if status == config.StatusPause {
 				return getText("taskStatusPause", language)
+			} else if status == "" {
+				return getText("jobStatusUnstarted", language)
 			}
 			return getText("taskStatusFailed", language)
 		},
