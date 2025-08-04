@@ -64,7 +64,6 @@ var (
 		"taskStatusManualApproval":         "待确认",
 		"taskStatusPause":                  "暂停",
 		"jobStatusUnstarted":               "未执行",
-		"jobStatusWaitingForErrorHandling": "失败待确认",
 
 		"jobTypeBuild":            "构建",
 		"jobTypeDeploy":           "容器服务部署",
@@ -136,7 +135,6 @@ var (
 		"taskStatusManualApproval":         "Waiting for confirmation",
 		"taskStatusPause":                  "Pause",
 		"jobStatusUnstarted":               "Unstarted",
-		"jobStatusWaitingForErrorHandling": "Waiting for manual error handling",
 
 		"jobTypeBuild":            "Build",
 		"jobTypeDeploy":           "Deploy",
@@ -308,6 +306,8 @@ func (w *Service) SendWorkflowTaskApproveNotifications(workflowName string, task
 	return nil
 }
 
+// TODO: manual error handling is not supported in the SendWorkflowTaskNotifications function, mainly because the error handling is done in the lifetime of a job, where the 
+// controller cannot access the task's full information. We need to implement a method where the job controller can send notification.
 func (w *Service) SendWorkflowTaskNotifications(task *models.WorkflowTask) error {
 	if len(task.OriginWorkflowArgs.NotifyCtls) == 0 {
 		return nil
@@ -322,7 +322,7 @@ func (w *Service) SendWorkflowTaskNotifications(task *models.WorkflowTask) error
 		log.Error(errMsg)
 		statusChanged = true
 	}
-	if preTask != nil && task.Status != preTask.Status && task.Status != config.StatusRunning && task.Status != config.StatusPause && task.Status != config.StatusManualApproval {
+	if preTask != nil && task.Status != preTask.Status && task.Status != config.StatusRunning {
 		statusChanged = true
 	}
 	if task.Status == config.StatusCreated {
@@ -339,7 +339,7 @@ func (w *Service) SendWorkflowTaskNotifications(task *models.WorkflowTask) error
 		}
 
 		statusSets := sets.NewString(notify.NotifyTypes...)
-		if statusSets.Has(string(task.Status)) || (statusChanged && statusSets.Has(string(config.StatusChanged))) || (statusSets.Has(string(config.StatusManualApproval)) && task.Status == config.StatusRunning) {
+		if statusSets.Has(string(task.Status)) || (statusChanged && statusSets.Has(string(config.StatusChanged))) {
 			title, content, larkCard, webhookNotify, err := w.getNotificationContent(notify, task)
 			if err != nil {
 				errMsg := fmt.Sprintf("failed to get notification content, err: %s", err)
@@ -1050,12 +1050,8 @@ func getWorkflowTaskTplExec(tplcontent string, args *workflowTaskNotification) (
 				return getText("taskStatusManualApproval", language)
 			} else if status == config.StatusPause {
 				return getText("taskStatusPause", language)
-			} else if status == config.StatusRunning {
-				// TODO: this code needed to be improved. currently the task's status is running when the task is waiting for error handling,
-				// leaving me no choice but to add this case.
-				return getText("jobStatusWaitingForErrorHandling", language)
 			} else {
-				return getText("taskStatusExecutionStarted", language)
+				return getText("taskStatusFailed", language)
 			}
 
 		},
