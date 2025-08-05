@@ -1338,6 +1338,7 @@ type ListDeliveryVersionV2Args struct {
 	Verbosity    string `form:"verbosity"`
 	ProjectName  string `form:"projectName"`
 	WorkflowName string `form:"workflowName"`
+	Label        string `form:"label"`
 }
 
 func ListDeliveryVersionV2(args *ListDeliveryVersionV2Args, logger *zap.SugaredLogger) ([]*commonmodels.DeliveryVersionV2, int, error) {
@@ -1347,6 +1348,7 @@ func ListDeliveryVersionV2(args *ListDeliveryVersionV2Args, logger *zap.SugaredL
 	versionListArgs.TaskID = args.TaskId
 	versionListArgs.PerPage = args.PerPage
 	versionListArgs.Page = args.Page
+	versionListArgs.Label = args.Label
 	deliveryVersions, total, err := commonrepo.NewDeliveryVersionV2Coll().List(versionListArgs)
 	if err != nil {
 		return nil, 0, err
@@ -1362,15 +1364,6 @@ func ListDeliveryVersionV2Labels(projectName string) ([]string, error) {
 	}
 
 	return labels, nil
-}
-
-func GetDeliveryVersionV2LabelLatestVersion(projectName, label string) (*commonmodels.DeliveryVersionV2, error) {
-	version, err := commonrepo.NewDeliveryVersionV2Coll().GetLabelLatestVersion(projectName, label)
-	if err != nil {
-		return nil, err
-	}
-
-	return version, nil
 }
 
 func generateDeliveryWorkflowName(projectName, version string) string {

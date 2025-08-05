@@ -35,6 +35,7 @@ type DeliveryVersionV2Args struct {
 	ID           string `json:"id"`
 	ProjectName  string `json:"projectName"`
 	Version      string `json:"version"`
+	Label        string `json:"label"`
 	WorkflowName string `json:"workflowName"`
 	TaskID       int    `json:"taskId"`
 	PerPage      int    `json:"perPage"`
@@ -65,6 +66,12 @@ func (c *DeliveryVersionV2Coll) EnsureIndex(ctx context.Context) error {
 			Keys: bson.D{
 				bson.E{Key: "project_name", Value: 1},
 				bson.E{Key: "version", Value: 1},
+			},
+			Options: options.Index().SetUnique(true),
+		},
+		{
+			Keys: bson.D{
+				bson.E{Key: "created_at", Value: -1},
 			},
 			Options: options.Index().SetUnique(true),
 		},
@@ -132,11 +139,14 @@ func (c *DeliveryVersionV2Coll) List(args *DeliveryVersionV2Args) ([]*models.Del
 	if args.TaskID != 0 {
 		query["task_id"] = args.TaskID
 	}
+	if args.Label != "" {
+		query["labels"] = args.Label
+	}
 
 	ctx := context.Background()
 	opts := options.Find()
+	opts.SetSort(bson.D{{"created_at", -1}})
 	if args.Page > 0 {
-		opts.SetSort(bson.D{{"created_at", -1}})
 		opts.SetSkip(int64(args.PerPage * (args.Page - 1)))
 		opts.SetLimit(int64(args.PerPage))
 	}
@@ -205,31 +215,6 @@ func (c *DeliveryVersionV2Coll) ListLabels(projectName string) ([]string, error)
 	}
 
 	return labels, nil
-}
-
-func (c *DeliveryVersionV2Coll) GetLabelLatestVersion(projectName, label string) (*models.DeliveryVersionV2, error) {
-	if projectName == "" || label == "" {
-		return nil, errors.New("project name and label cannot be empty")
-	}
-
-	query := bson.M{
-		"project_name": projectName,
-		"labels":       bson.M{"$in": []string{label}},
-	}
-
-	opts := options.FindOne().SetSort(bson.D{{"created_at", -1}})
-
-	ctx := context.Background()
-	resp := new(models.DeliveryVersionV2)
-	err := c.Collection.FindOne(ctx, query, opts).Decode(&resp)
-	if err != nil {
-		if err == mongo.ErrNoDocuments {
-			return nil, nil
-		}
-		return nil, err
-	}
-
-	return resp, nil
 }
 
 func (c *DeliveryVersionV2Coll) Delete(id string) error {
