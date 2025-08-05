@@ -150,6 +150,7 @@ func GetWorkflowTasksCustomFields(projectName, workflowName string, logger *zap.
 			Duration:               1,
 			Executor:               1,
 			Remark:                 0,
+			Branch:                 0,
 			BuildServiceComponent:  make(map[string]int),
 			BuildCodeMsg:           make(map[string]int),
 			DeployServiceComponent: make(map[string]int),
