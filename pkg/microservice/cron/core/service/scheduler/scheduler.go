@@ -212,8 +212,6 @@ func (c *CronClient) Init() {
 	c.InitCleanJobScheduler()
 	// 每天2点 根据系统配额策略 清理系统过期数据
 	c.InitSystemCapacityGCScheduler()
-	// 定时任务触发
-	c.InitJobScheduler()
 
 	// 定时清理环境
 	c.InitCleanProductScheduler()
@@ -256,15 +254,6 @@ func (c *CronClient) InitCleanCIResourcesScheduler() {
 	c.Schedulers[CleanCIResourcesScheduler].Every(5).Minutes().Do(c.AslanCli.TriggerCleanCIResources, c.log)
 
 	c.Schedulers[CleanCIResourcesScheduler].Start()
-}
-
-func (c *CronClient) InitJobScheduler() {
-
-	c.Schedulers[UpsertWorkflowScheduler] = gocron.NewScheduler()
-
-	c.Schedulers[UpsertWorkflowScheduler].Every(1).Minutes().Do(c.UpsertWorkflowScheduler, c.log)
-
-	c.Schedulers[UpsertWorkflowScheduler].Start()
 }
 
 func (c *CronClient) InitBuildStatScheduler() {
