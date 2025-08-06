@@ -88,6 +88,14 @@ func ListUserGroupsByUid(uid string, logger *zap.SugaredLogger) ([]*UserGroupRes
 		return nil, 0, err
 	}
 
+	allGroups, err := orm.GetAllUserGroup(tx)
+	if err != nil {
+		tx.Rollback()
+		logger.Errorf("failed to get all user groups by uid: %s, error: %s", uid, err)
+		return nil, 0, err
+	}
+	groups = append(groups, allGroups)
+
 	resp := make([]*UserGroupResp, 0)
 	for _, group := range groups {
 		respItem := &UserGroupResp{
