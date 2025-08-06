@@ -21,16 +21,19 @@ import (
 	"strings"
 
 	internalmodels "github.com/koderover/zadig/v2/pkg/cli/upgradeassistant/internal/repository/models"
-	"github.com/koderover/zadig/v2/pkg/cli/upgradeassistant/internal/repository/mongodb"
+	internalmongodb "github.com/koderover/zadig/v2/pkg/cli/upgradeassistant/internal/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/cli/upgradeassistant/internal/repository/orm"
 	"github.com/koderover/zadig/v2/pkg/cli/upgradeassistant/internal/upgradepath"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
+	collmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/collaboration/repository/models"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/collaboration/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	deliveryservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/delivery/service"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
+	"go.mongodb.org/mongo-driver/bson"
 )
 
 func init() {
@@ -56,6 +59,11 @@ func V341ToV400() error {
 	}
 
 	err = migrateUserGroup(ctx, migrationInfo)
+	if err != nil {
+		return err
+	}
+
+	err = migrateCollaborationInstance(ctx, migrationInfo)
 	if err != nil {
 		return err
 	}
@@ -233,7 +241,7 @@ func migrateDeliveryVersionV2(ctx *internalhandler.Context, migrationInfo *inter
 		}
 	}
 
-	_ = mongodb.NewMigrationColl().UpdateMigrationStatus(migrationInfo.ID, map[string]interface{}{
+	_ = internalmongodb.NewMigrationColl().UpdateMigrationStatus(migrationInfo.ID, map[string]interface{}{
 		getMigrationFieldBsonTag(migrationInfo, &migrationInfo.Migration400DeliveryVersionV2): true,
 	})
 
@@ -248,7 +256,7 @@ func migrateUserGroup(ctx *internalhandler.Context, migrationInfo *internalmodel
 		}
 	}
 
-	_ = mongodb.NewMigrationColl().UpdateMigrationStatus(migrationInfo.ID, map[string]interface{}{
+	_ = internalmongodb.NewMigrationColl().UpdateMigrationStatus(migrationInfo.ID, map[string]interface{}{
 		getMigrationFieldBsonTag(migrationInfo, &migrationInfo.Migration400AllUserGroup): true,
 	})
 
@@ -256,5 +264,37 @@ func migrateUserGroup(ctx *internalhandler.Context, migrationInfo *internalmodel
 }
 
 func V400ToV341() error {
+	return nil
+}
+
+func migrateCollaborationInstance(ctx *internalhandler.Context, migrationInfo *internalmodels.Migration) error {
+	if !migrationInfo.Migration400CollaborationInstance {
+		cursor, err := mongodb.NewCollaborationInstanceColl().ListByCursor()
+		if err != nil {
+			return fmt.Errorf("failed to list delivery versions, err: %s", err)
+		}
+
+		for cursor.Next(ctx) {
+			var instance collmodels.CollaborationInstance
+			err = cursor.Decode(&instance)
+			if err != nil {
+				return fmt.Errorf("failed to decode collaboration instance, err: %s", err)
+			}
+
+			if instance.IsDeleted {
+				continue
+			}
+
+			_, err = mongodb.NewCollaborationInstanceColl().UpdateOne(ctx, bson.M{"_id": instance.ID}, bson.M{"$set": bson.M{"is_deleted": false}})
+			if err != nil {
+				return fmt.Errorf("failed to update collaboration instance, err: %s", err)
+			}
+		}
+	}
+
+	_ = internalmongodb.NewMigrationColl().UpdateMigrationStatus(migrationInfo.ID, map[string]interface{}{
+		getMigrationFieldBsonTag(migrationInfo, &migrationInfo.Migration400CollaborationInstance): true,
+	})
+
 	return nil
 }

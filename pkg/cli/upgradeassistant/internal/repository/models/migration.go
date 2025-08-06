@@ -21,16 +21,17 @@ import (
 )
 
 type Migration struct {
-	ID                               primitive.ObjectID `bson:"_id,omitempty"`
-	SonarMigration                   bool               `bson:"sonar_migration"`
-	UpdateWorkflow340JobSpec         bool               `bson:"update_workflow_340_job_spec"`
-	UpdateWorkflow340JobTemplateSpec bool               `bson:"update_workflow_340_job_template_spec"`
-	WorkflowV4341HookMigration       bool               `bson:"workflow_v4_341_hook_migration"`
-	Migration341VMDeploy             bool               `bson:"migration_341_vm_deploy"`
-	UpdateLarkEventSetting           bool               `bson:"update_lark_event_setting"`
-	Migration400DeliveryVersionV2    bool               `bson:"migration_400_delivery_version_v2"`
-	Migration400AllUserGroup         bool               `bson:"migration_400_all_user_group"`
-	Error                            string             `bson:"error"`
+	ID                                primitive.ObjectID `bson:"_id,omitempty"`
+	SonarMigration                    bool               `bson:"sonar_migration"`
+	UpdateWorkflow340JobSpec          bool               `bson:"update_workflow_340_job_spec"`
+	UpdateWorkflow340JobTemplateSpec  bool               `bson:"update_workflow_340_job_template_spec"`
+	WorkflowV4341HookMigration        bool               `bson:"workflow_v4_341_hook_migration"`
+	Migration341VMDeploy              bool               `bson:"migration_341_vm_deploy"`
+	UpdateLarkEventSetting            bool               `bson:"update_lark_event_setting"`
+	Migration400DeliveryVersionV2     bool               `bson:"migration_400_delivery_version_v2"`
+	Migration400AllUserGroup          bool               `bson:"migration_400_all_user_group"`
+	Migration400CollaborationInstance bool               `bson:"migration_400_collaboration_instance"`
+	Error                             string             `bson:"error"`
 }
 
 func (Migration) TableName() string {

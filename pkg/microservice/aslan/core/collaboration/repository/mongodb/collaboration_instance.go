@@ -223,3 +223,9 @@ func (c *CollaborationInstanceColl) LogicDeleteByUserID(userUID string) error {
 	_, err := c.UpdateMany(context.TODO(), query, bson.M{"$set": bson.M{"is_deleted": true}})
 	return err
 }
+
+func (c *CollaborationInstanceColl) ListByCursor() (*mongo.Cursor, error) {
+	query := bson.M{}
+
+	return c.Collection.Find(context.TODO(), query)
+}
