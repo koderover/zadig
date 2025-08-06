@@ -100,6 +100,7 @@ var (
 		"jobTypeSql":              "SQL 数据变更",
 		"jobTypeNotification":     "通知",
 		"jobTypeSaeDeploy":        "SAE 应用部署",
+		"jobTypePingCode":         "PingCode 工作项状态变更",
 
 		"testStatusSuccess": "成功",
 		"testStatusFailed":  "失败",
@@ -171,7 +172,7 @@ var (
 		"jobTypeSql":              "SQL Changes",
 		"jobTypeNotification":     "Notification",
 		"jobTypeSaeDeploy":        "SAE Deploy",
-
+		"jobTypePingCode":         "PingCode Work Item Status Change",
 		"testStatusSuccess": "Success",
 		"testStatusFailed":  "Failed",
 		"testTotal":         "Total",
@@ -1165,6 +1166,8 @@ func getJobTaskTplExec(tplcontent string, args *jobTaskNotification, language st
 				return getText("jobTypeIstioStrategy", language)
 			case string(config.JobJira):
 				return getText("jobTypeJira", language)
+			case string(config.JobPingCode):
+				return getText("jobTypePingCode", language)
 			case string(config.JobApollo):
 				return getText("jobTypeApollo", language)
 			case string(config.JobMeegoTransition):

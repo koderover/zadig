@@ -408,6 +408,16 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		meego.GET("/:id/projects/:projectID/work_item/:workItemID/transitions", ListAvailableWorkItemTransitions)
 	}
 
+	pingcode := router.Group("pingcode")
+	{
+		pingcode.GET("/:id/projects", ListPingCodeProjects)
+		pingcode.GET("/:id/projects/:projectID/boards", ListPingCodeProjectBoards)
+		pingcode.GET("/:id/projects/:projectID/sprints", ListPingCodeProjectSprints)
+		pingcode.GET("/:id/projects/:projectID/workitem_types", ListPingCodeProjectWorkItemTypes)
+		pingcode.GET("/:id/projects/:projectID/workitems", ListPingCodeProjectWorkItems)
+		pingcode.GET("/:id/projects/:projectID/workitem/status", ListPingCodeProjectStatus)
+	}
+
 	// guanceyun api
 	guanceyun := router.Group("guanceyun")
 	{

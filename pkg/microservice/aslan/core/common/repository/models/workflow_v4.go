@@ -1346,6 +1346,19 @@ type NacosJobSpec struct {
 	DataFixed         bool                   `bson:"data_fixed"          json:"data_fixed"          yaml:"data_fixed"`
 }
 
+type PingCodeJobSpec struct {
+	PingCodeID       string                 `bson:"pingcode_id"         json:"pingcode_id"         yaml:"pingcode_id"`
+	Source           config.ParamSourceType `bson:"source"              json:"source"              yaml:"source"`
+	ProjectID        string                 `bson:"project_id"          json:"project_id"          yaml:"project_id"`
+	ProjectName      string                 `bson:"project_name"        json:"project_name"        yaml:"project_name"`
+	BoardID          string                 `bson:"board_id"            json:"board_id"            yaml:"board_id"`
+	SprintID         string                 `bson:"sprint_id"           json:"sprint_id"           yaml:"sprint_id"`
+	WorkItemTypeID   string                 `bson:"workitem_type_id"    json:"workitem_type_id"    yaml:"workitem_type_id"`
+	WorkItemStateIDs []string               `bson:"workitem_state_ids"  json:"workitem_state_ids"  yaml:"workitem_state_ids"`
+	WorkItems        []*PingCodeWorkItem    `bson:"workitems"           json:"workitems"           yaml:"workitems"`
+	DataFixed        bool                   `bson:"data_fixed"          json:"data_fixed"          yaml:"data_fixed"`
+}
+
 type WorkflowTriggerJobSpec struct {
 	IsEnableCheck bool                       `bson:"is_enable_check" json:"is_enable_check" yaml:"is_enable_check"`
 	TriggerType   config.WorkflowTriggerType `bson:"trigger_type" json:"trigger_type" yaml:"trigger_type"`
