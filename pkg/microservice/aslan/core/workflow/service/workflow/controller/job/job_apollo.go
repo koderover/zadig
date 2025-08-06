@@ -83,28 +83,27 @@ func (j ApolloJobController) Validate(isExecution bool) error {
 		return fmt.Errorf("given apollo job spec does not match current apollo job")
 	}
 
-	nsOptionMap := make(map[string]*commonmodels.ApolloNamespace)
-	for _, ns := range j.jobSpec.NamespaceListOption {
-		key := fmt.Sprintf("%s++%s++%s++%s", ns.ClusterID, ns.AppID, ns.Env, ns.Namespace)
-		if _, ok := nsOptionMap[key]; ok {
-			return fmt.Errorf("duplicate apollo namespace: %s", key)
-		}
-		nsOptionMap[key] = ns
-	}
-
-	nsMap := make(map[string]*commonmodels.ApolloNamespace)
-	for _, ns := range j.jobSpec.NamespaceList {
-		key := fmt.Sprintf("%s++%s++%s++%s", ns.ClusterID, ns.AppID, ns.Env, ns.Namespace)
-		if _, ok := nsMap[key]; ok {
-			return fmt.Errorf("duplicate apollo namespace: %s", key)
-		}
-		if _, ok := nsOptionMap[key]; !ok {
-			return fmt.Errorf("apollo namespace [%s] is not allowed to be changed", key)
-		}
-		nsMap[key] = ns
-	}
-
 	if isExecution {
+		envOptionMap := make(map[string]*commonmodels.ApolloNamespace)
+		for _, ns := range currJobSpec.NamespaceListOption {
+			key := fmt.Sprintf("%s++%s++%s", ns.ClusterID, ns.AppID, ns.Env)
+			envOptionMap[key] = ns
+		}
+
+		nsMap := make(map[string]*commonmodels.ApolloNamespace)
+		for _, ns := range j.jobSpec.NamespaceList {
+			nsKey := fmt.Sprintf("%s++%s++%s++%s", ns.ClusterID, ns.AppID, ns.Env, ns.Namespace)
+			if _, ok := nsMap[nsKey]; ok {
+				return fmt.Errorf("duplicate apollo namespace: %s", nsKey)
+			}
+
+			envKey := fmt.Sprintf("%s++%s++%s", ns.ClusterID, ns.AppID, ns.Env)
+			if _, ok := envOptionMap[envKey]; !ok {
+				return fmt.Errorf("apollo env [%s] is not allowed to be changed", envKey)
+			}
+			nsMap[nsKey] = ns
+		}
+
 		if len(j.jobSpec.NamespaceList) == 0 {
 			return fmt.Errorf("job namespace list is not allowed to be empty when executing workflow")
 		}
@@ -145,36 +144,28 @@ func (j ApolloJobController) SetOptions(ticket *commonmodels.ApprovalTicket) err
 	}
 
 	client := apollo.NewClient(info.ServerAddress, info.Token)
+	newNamespaces := []*commonmodels.ApolloNamespace{}
 	for _, namespace := range j.jobSpec.NamespaceListOption {
-		result, err := client.GetNamespace(namespace.AppID, namespace.Env, namespace.ClusterID, namespace.Namespace)
-		if err != nil {
-			log.Warnf("ApolloJob: get namespace %s-%s-%s-%s error: %v", namespace.AppID, namespace.Env, namespace.ClusterID, namespace.Namespace, err)
-			continue
-		}
-		for _, item := range result.Items {
-			if item.Key == "" {
+		if namespace.Namespace == "*" {
+			namespaces, err := client.ListAppNamespace(namespace.AppID, namespace.Env, namespace.ClusterID)
+			if err != nil {
+				log.Warnf("ApolloJob: list namespace %s-%s-%s error: %v", namespace.AppID, namespace.Env, namespace.ClusterID, err)
 				continue
 			}
-			namespace.OriginalConfig = append(namespace.OriginalConfig, &commonmodels.ApolloKV{
-				Key: item.Key,
-				Val: item.Value,
-			})
-			namespace.KeyValList = append(namespace.KeyValList, &commonmodels.ApolloKV{
-				Key: item.Key,
-				Val: item.Value,
-			})
-		}
-		if result.Format != "properties" && len(result.Items) == 0 {
-			namespace.OriginalConfig = append(namespace.OriginalConfig, &commonmodels.ApolloKV{
-				Key: "content",
-				Val: "",
-			})
-			namespace.KeyValList = append(namespace.KeyValList, &commonmodels.ApolloKV{
-				Key: "content",
-				Val: "",
-			})
+			for _, ns := range namespaces {
+				newNamespaces = append(newNamespaces, &commonmodels.ApolloNamespace{
+					AppID:     namespace.AppID,
+					Env:       namespace.Env,
+					ClusterID: namespace.ClusterID,
+					Namespace: ns.NamespaceName,
+					Type:      ns.Format,
+				})
+			}
+		} else {
+			newNamespaces = append(newNamespaces, namespace)
 		}
 	}
+	j.jobSpec.NamespaceListOption = newNamespaces
 
 	return nil
 }
