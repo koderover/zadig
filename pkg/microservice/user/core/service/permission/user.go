@@ -73,13 +73,15 @@ type OpenAPIQueryArgs struct {
 }
 
 type QueryArgs struct {
-	Name         string   `json:"name,omitempty"`
-	Account      string   `json:"account,omitempty" form:"account"`
-	IdentityType string   `json:"identity_type,omitempty"`
-	UIDs         []string `json:"uids,omitempty"`
-	PerPage      int      `json:"per_page,omitempty" form:"perPage"`
-	Page         int      `json:"page,omitempty"  form:"page"`
-	Roles        []string `json:"roles,omitempty" form:"roles"`
+	Name         string                  `json:"name,omitempty"`
+	Account      string                  `json:"account,omitempty" form:"account"`
+	IdentityType string                  `json:"identity_type,omitempty"`
+	UIDs         []string                `json:"uids,omitempty"`
+	PerPage      int                     `json:"per_page,omitempty" form:"perPage"`
+	Page         int                     `json:"page,omitempty"  form:"page"`
+	Roles        []string                `json:"roles,omitempty" form:"roles"`
+	OrderBy      setting.ListUserOrderBy `json:"order_by,omitempty" form:"order_by"`
+	Order        setting.ListUserOrder   `json:"order,omitempty" form:"order"`
 }
 
 type Password struct {
@@ -189,7 +191,7 @@ func GetUser(uid string, logger *zap.SugaredLogger) (*types.UserInfo, error) {
 		logger.Errorf("GetUser GetUserLogin:%s error, error msg:%s", uid, err.Error())
 		return nil, err
 	}
-	userInfo := mergeUserLogin([]models.User{*user}, []models.UserLogin{*userLogin}, logger)
+	userInfo := mergeUserLogin([]models.User{*user}, []models.UserLogin{*userLogin}, "", logger)
 	userInfoRes := userInfo[0]
 	userInfoRes.APIToken = user.APIToken
 
@@ -297,12 +299,12 @@ func SearchUserByAccount(args *QueryArgs, logger *zap.SugaredLogger) (*types.Use
 			TotalCount: 0,
 		}, nil
 	}
-	userLogins, err := orm.ListUserLogins([]string{user.UID}, repository.DB)
+	userLogins, err := orm.ListUserLogins([]string{user.UID}, args.OrderBy, args.Order, repository.DB)
 	if err != nil {
 		logger.Errorf("SearchUserByAccount ListUserLogins By uid:%s error, error msg:%s", user.UID, err.Error())
 		return nil, err
 	}
-	usersInfo := mergeUserLogin([]models.User{*user}, *userLogins, logger)
+	usersInfo := mergeUserLogin([]models.User{*user}, *userLogins, args.OrderBy, logger)
 
 	for _, uInfo := range usersInfo {
 		roles, err := ListRolesByNamespaceAndUserID("*", uInfo.Uid, logger)
@@ -371,12 +373,12 @@ func SearchUsers(args *QueryArgs, logger *zap.SugaredLogger) (*types.UsersResp, 
 	for _, user := range users {
 		uids = append(uids, user.UID)
 	}
-	userLogins, err := orm.ListUserLogins(uids, repository.DB)
+	userLogins, err := orm.ListUserLogins(uids, args.OrderBy, args.Order, repository.DB)
 	if err != nil {
 		logger.Errorf("SeachUsers ListUserLogins By uids:%s error, error msg:%s", uids, err.Error())
 		return nil, err
 	}
-	usersInfo := mergeUserLogin(users, *userLogins, logger)
+	usersInfo := mergeUserLogin(users, *userLogins, args.OrderBy, logger)
 
 	for _, uInfo := range usersInfo {
 		roles, err := ListRolesByNamespaceAndUserID("*", uInfo.Uid, logger)
@@ -403,42 +405,67 @@ func SearchUsers(args *QueryArgs, logger *zap.SugaredLogger) (*types.UsersResp, 
 	}, nil
 }
 
-func mergeUserLogin(users []models.User, userLogins []models.UserLogin, logger *zap.SugaredLogger) []*types.UserInfo {
+func mergeUserLogin(users []models.User, userLogins []models.UserLogin, orderBy setting.ListUserOrderBy, logger *zap.SugaredLogger) []*types.UserInfo {
+	var usersInfo []*types.UserInfo
+
 	userLoginMap := make(map[string]models.UserLogin)
 	for _, userLogin := range userLogins {
 		userLoginMap[userLogin.UID] = userLogin
 	}
-	var usersInfo []*types.UserInfo
+	userMap := make(map[string]models.User)
 	for _, user := range users {
-		if userLogin, ok := userLoginMap[user.UID]; ok {
-			usersInfo = append(usersInfo, &types.UserInfo{
-				LastLoginTime: userLogin.LastLoginTime,
-				Uid:           user.UID,
-				Phone:         user.Phone,
-				Name:          user.Name,
-				Email:         user.Email,
-				IdentityType:  user.IdentityType,
-				Account:       user.Account,
-			})
-		} else {
-			logger.Error("user:%s login info not exist")
+		userMap[user.UID] = user
+	}
+
+	if orderBy == setting.ListUserOrderByLoginTime {
+		for _, userLogin := range userLogins {
+			if user, ok := userMap[userLogin.UID]; ok {
+				usersInfo = append(usersInfo, &types.UserInfo{
+					LastLoginTime: userLogin.LastLoginTime,
+					Uid:           user.UID,
+					Phone:         user.Phone,
+					Name:          user.Name,
+					Email:         user.Email,
+					IdentityType:  user.IdentityType,
+					Account:       user.Account,
+				})
+			} else {
+				logger.Error("user:%s login info not exist")
+			}
+		}
+	} else {
+		for _, user := range users {
+			if userLogin, ok := userLoginMap[user.UID]; ok {
+				usersInfo = append(usersInfo, &types.UserInfo{
+					LastLoginTime: userLogin.LastLoginTime,
+					Uid:           user.UID,
+					Phone:         user.Phone,
+					Name:          user.Name,
+					Email:         user.Email,
+					IdentityType:  user.IdentityType,
+					Account:       user.Account,
+				})
+			} else {
+				logger.Error("user:%s login info not exist")
+			}
 		}
 	}
 	return usersInfo
 }
 
-func SearchUsersByUIDs(uids []string, logger *zap.SugaredLogger) (*types.UsersResp, error) {
+func SearchUsersByUIDs(args *QueryArgs, logger *zap.SugaredLogger) (*types.UsersResp, error) {
+	uids := args.UIDs
 	users, err := orm.ListUsersByUIDs(uids, repository.DB)
 	if err != nil {
 		logger.Errorf("SearchUsersByUIDs SeachUsers By uids:%s error, error msg:%s", uids, err.Error())
 		return nil, err
 	}
-	userLogins, err := orm.ListUserLogins(uids, repository.DB)
+	userLogins, err := orm.ListUserLogins(uids, args.OrderBy, args.Order, repository.DB)
 	if err != nil {
 		logger.Errorf("SearchUsersByUIDs ListUserLogins By uids:%s error, error msg:%s", uids, err.Error())
 		return nil, err
 	}
-	usersInfo := mergeUserLogin(users, *userLogins, logger)
+	usersInfo := mergeUserLogin(users, *userLogins, args.OrderBy, logger)
 
 	for _, uInfo := range usersInfo {
 		roles, err := ListRolesByNamespaceAndUserID("*", uInfo.Uid, logger)

@@ -17,10 +17,13 @@ limitations under the License.
 package orm
 
 import (
+	"fmt"
+
 	"gorm.io/gorm"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/user/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/user/core/repository/models"
+	"github.com/koderover/zadig/v2/pkg/setting"
 )
 
 // CreateUserLogin add a userLogin record
@@ -65,11 +68,22 @@ func DeleteUserLoginByUid(uid string, db *gorm.DB) error {
 }
 
 // ListUserLogins Get a userLogin based on uid list
-func ListUserLogins(uids []string, db *gorm.DB) (*[]models.UserLogin, error) {
+func ListUserLogins(uids []string, orderBy setting.ListUserOrderBy, order setting.ListUserOrder, db *gorm.DB) (*[]models.UserLogin, error) {
 	var userLogins []models.UserLogin
-	err := db.Find(&userLogins, "uid in ?", uids).Error
-	if err != nil {
-		return nil, err
+	if orderBy != "" {
+		if order == "" {
+			order = setting.ListUserOrderDesc
+		}
+
+		err := db.Where("uid in ?", uids).Order(fmt.Sprintf("%s %s", orderBy, order)).Find(&userLogins).Error
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		err := db.Find(&userLogins, "uid in ?", uids).Error
+		if err != nil {
+			return nil, err
+		}
 	}
 	return &userLogins, nil
 }
