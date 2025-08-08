@@ -108,7 +108,7 @@ func CreateCustomWorkflowTask(username string, args *OpenAPICreateCustomWorkflow
 		for _, job := range stage.Jobs {
 			// if a job is found, add it to the job creation list
 			if inputParam, ok := inputMap[job.Name]; ok {
-				updater, err := getInputUpdater(job, inputParam)
+				updater, err := GetInputUpdater(job, inputParam)
 				if err != nil {
 					return nil, err
 				}
@@ -312,7 +312,7 @@ func fillWorkflowV4(workflow *commonmodels.WorkflowV4, logger *zap.SugaredLogger
 	return nil
 }
 
-func getInputUpdater(job *commonmodels.Job, input interface{}) (CustomJobInput, error) {
+func GetInputUpdater(job *commonmodels.Job, input interface{}) (CustomJobInput, error) {
 	switch job.JobType {
 	case config.JobPlugin:
 		updater := new(PluginJobInput)

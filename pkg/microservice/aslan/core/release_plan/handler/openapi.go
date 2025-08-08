@@ -116,5 +116,44 @@ func OpenAPICreateReleasePlan(c *gin.Context) {
 		return
 	}
 
-	ctx.RespErr = service.OpenAPICreateReleasePlan(ctx, opt)
+	ctx.Resp, ctx.RespErr = service.OpenAPICreateReleasePlan(ctx, opt)
+}
+
+// @summary Update Release Plan
+// @description Update Release Plan
+// @tags 	Openapi
+// @accept 	json
+// @produce json
+// @Param 	body 			body 		service.OpenAPIUpdateReleasePlanWithJobsArgs 				true 	"body"
+// @success 200
+// @router /openapi/release_plan/v1/{id} [patch]
+func OpenAPIUpdateReleasePlanWithJobs(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.ReleasePlan.Edit {
+		ctx.UnAuthorized = true
+		return
+	}
+
+	opt := new(service.OpenAPIUpdateReleasePlanWithJobsArgs)
+	if err := c.ShouldBindJSON(&opt); err != nil {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
+		return
+	}
+
+	err = commonutil.CheckZadigEnterpriseLicense()
+	if err != nil {
+		ctx.RespErr = err
+		return
+	}
+
+	ctx.RespErr = service.OpenAPICreateReleasePlanWithJobs(ctx, c.Param("id"), opt)
 }
