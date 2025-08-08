@@ -184,7 +184,13 @@ func (w *Workflow) ToJobTasks(taskID int64, creator, account, uid string) ([]*co
 				taskBytes, _ := json.Marshal(task)
 				taskString := string(taskBytes)
 				for k, v := range globalKeyMap {
-					taskString = strings.ReplaceAll(taskString, fmt.Sprintf("{{.%s}}", k), v)
+					// Use json.Marshal to properly escape the value as it would appear in JSON
+					escapedValueBytes, _ := json.Marshal(v)
+					escapedValue := string(escapedValueBytes)
+					// Remove the surrounding quotes since we're replacing within a JSON string
+					escapedValue = strings.Trim(escapedValue, `"`)
+
+					taskString = strings.ReplaceAll(taskString, fmt.Sprintf("{{.%s}}", k), escapedValue)
 					log.Debugf("replacing key %s with value: %s", fmt.Sprintf("{{.%s}}", k), v)
 				}
 
