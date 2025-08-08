@@ -18,6 +18,7 @@ package orm
 
 import (
 	"github.com/koderover/zadig/v2/pkg/microservice/user/core/repository"
+	"github.com/koderover/zadig/v2/pkg/setting"
 	"gorm.io/gorm"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/user/core/repository/models"
@@ -86,6 +87,28 @@ func ListUsers(page int, perPage int, name string, db *gorm.DB) ([]models.User, 
 	)
 
 	err = db.Where("name LIKE ?", "%"+name+"%").Order("account ASC").Offset((page - 1) * perPage).Limit(perPage).Find(&users).Error
+
+	if err != nil && err != gorm.ErrRecordNotFound {
+		return nil, err
+	}
+
+	return users, nil
+}
+
+func ListUsersByLoginTime(page int, perPage int, name string, order setting.ListUserOrder, db *gorm.DB) ([]models.User, error) {
+	var (
+		users []models.User
+		err   error
+	)
+
+	err = db.Select("user.uid, user.name, user.account, user.identity_type, IFNULL(user_login.last_login_time, 0) as last_login_time").
+		Where("user.name LIKE ?", "%"+name+"%").
+		Joins("LEFT JOIN user_login on user_login.uid = user.uid").
+		Order("IFNULL(user_login.last_login_time, 0) " + string(order)).
+		Offset((page - 1) * perPage).
+		Limit(perPage).
+		Find(&users).
+		Error
 
 	if err != nil && err != gorm.ErrRecordNotFound {
 		return nil, err

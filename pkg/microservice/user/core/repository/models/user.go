@@ -18,13 +18,14 @@ package models
 
 type User struct {
 	Model
-	UID          string `gorm:"primary" json:"uid"`
-	Name         string `json:"name"`
-	IdentityType string `gorm:"default:'unknown'" json:"identity_type"`
-	Email        string `json:"email"`
-	Phone        string `json:"phone"`
-	Account      string `json:"account"`
-	APIToken     string `gorm:"api_token" json:"api_token"`
+	UID           string `gorm:"primary" json:"uid"`
+	Name          string `json:"name"`
+	IdentityType  string `gorm:"default:'unknown'" json:"identity_type"`
+	Email         string `json:"email"`
+	Phone         string `json:"phone"`
+	Account       string `json:"account"`
+	APIToken      string `gorm:"api_token" json:"api_token"`
+	LastLoginTime int64  `json:"last_login_time"`
 
 	// used to mention the foreign key relationship between user and groupBinding
 	// and specify the onDelete action.
