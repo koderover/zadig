@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -100,6 +101,7 @@ func GetDeliveryVersion(c *gin.Context) {
 // @Accept 	json
 // @Produce json
 // @Param 	projectName 		query 		string							true	"projectName"
+// @Param 	label 				query 		string							true	"label"
 // @Param 	page 				query 		int								true	"page"
 // @Param 	perPage 			query 		int								true	"perPage"
 // @Success 200     {array} 	models.DeliveryVersionV2
@@ -119,6 +121,15 @@ func ListDeliveryVersion(c *gin.Context) {
 	if err != nil {
 		ctx.RespErr = e.ErrInvalidParam.AddErr(err)
 		return
+	}
+
+	if args.Label != "" {
+		if decodedLabel, decodeErr := url.QueryUnescape(args.Label); decodeErr == nil && decodedLabel != "" {
+			args.Label = decodedLabel
+		} else {
+			ctx.RespErr = e.ErrInvalidParam.AddErr(decodeErr)
+			return
+		}
 	}
 
 	projectKey := args.ProjectName
@@ -142,12 +153,6 @@ func ListDeliveryVersion(c *gin.Context) {
 		}
 	}
 
-	if args.Page <= 0 {
-		args.Page = 1
-	}
-	if args.PerPage <= 0 {
-		args.PerPage = 20
-	}
 	if len(args.Verbosity) == 0 {
 		args.Verbosity = deliveryservice.VerbosityDetailed
 	}
@@ -209,56 +214,6 @@ func ListDeliveryVersionLabels(c *gin.Context) {
 	}
 
 	ctx.Resp, ctx.RespErr = deliveryservice.ListDeliveryVersionV2Labels(projectKey)
-}
-
-// @Summary Get Delivery Version Label Latest Version
-// @Description Get Delivery Version Label Latest Version
-// @Tags 	delivery
-// @Accept 	json
-// @Produce json
-// @Param 	projectName 		query 		string							true	"projectName"
-// @Param 	label 				path 		string							true	"label"
-// @Success 200     {array} 	string
-// @Router /api/aslan/delivery/releases/labels/{label} [get]
-func GetDeliveryVersionLabelLatestVersion(c *gin.Context) {
-	ctx, err := internalhandler.NewContextWithAuthorization(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	if err != nil {
-		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
-		ctx.UnAuthorized = true
-		return
-	}
-
-	projectKey := c.Query("projectName")
-	label := c.Param("label")
-	if !ctx.Resources.IsSystemAdmin {
-		if projectKey == "" {
-			if !ctx.Resources.SystemActions.DeliveryCenter.ViewVersion {
-				ctx.UnAuthorized = true
-				return
-			}
-		} else {
-			if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
-				ctx.UnAuthorized = true
-				return
-			}
-
-			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-				!ctx.Resources.ProjectAuthInfo[projectKey].Version.View {
-				ctx.UnAuthorized = true
-				return
-			}
-		}
-	}
-
-	err = commonutil.CheckZadigProfessionalLicense()
-	if err != nil {
-		ctx.RespErr = err
-		return
-	}
-
-	ctx.Resp, ctx.RespErr = deliveryservice.GetDeliveryVersionV2LabelLatestVersion(projectKey, label)
 }
 
 // @Summary Create K8S Delivery Version
