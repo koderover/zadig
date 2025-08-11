@@ -18,6 +18,7 @@ package webhooknotify
 
 import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 const (
@@ -33,19 +34,22 @@ const (
 type WebHookNotifyEvent string
 
 const (
-	WebHookNotifyEventWorkflow WebHookNotifyEvent = "workflow"
+	WebHookNotifyEventWorkflow    WebHookNotifyEvent = "workflow"
+	WebHookNotifyEventReleasePlan WebHookNotifyEvent = "release_plan"
 )
 
 type WebHookNotifyObjectKind string
 
 const (
-	WebHookNotifyObjectKindWorkflow WebHookNotifyObjectKind = "workflow"
+	WebHookNotifyObjectKindWorkflow    WebHookNotifyObjectKind = "workflow"
+	WebHookNotifyObjectKindReleasePlan WebHookNotifyObjectKind = "release_plan"
 )
 
 type WebHookNotify struct {
-	ObjectKind WebHookNotifyObjectKind `json:"object_kind"`
-	Event      WebHookNotifyEvent      `json:"event"`
-	Workflow   *WorkflowNotify         `json:"workflow"`
+	ObjectKind  WebHookNotifyObjectKind `json:"object_kind"`
+	Event       WebHookNotifyEvent      `json:"event"`
+	Workflow    *WorkflowNotify         `json:"workflow"`
+	ReleasePlan *ReleasePlanHookBody    `json:"release_plan"`
 }
 
 type WorkflowNotify struct {
@@ -117,4 +121,27 @@ type WorkflowNotifyRepository struct {
 	CommitID      string `json:"commit_id"`
 	CommitURL     string `json:"commit_url"`
 	CommitMessage string `json:"commit_message"`
+}
+
+type ReleasePlanHookBody struct {
+	ID                  primitive.ObjectID `json:"id"`
+	Index               int64              `json:"index"`
+	Name                string             `json:"name"`
+	Manager             string             `json:"manager"`
+	ManagerID           string             `json:"manager_id"`
+	StartTime           int64              `json:"start_time"`
+	EndTime             int64              `json:"end_time"`
+	ScheduleExecuteTime int64              `json:"schedule_execute_time"`
+	Description         string             `json:"description"`
+	CreatedBy           string             `json:"created_by"`
+	CreateTime          int64              `json:"create_time"`
+	UpdatedBy           string             `json:"updated_by"`
+	UpdateTime          int64              `json:"update_time"`
+
+	Status config.ReleasePlanStatus `json:"status"`
+
+	PlanningTime  int64 `json:"planning_time"`
+	ApprovalTime  int64 `json:"approval_time"`
+	ExecutingTime int64 `json:"executing_time"`
+	SuccessTime   int64 `json:"success_time"`
 }
