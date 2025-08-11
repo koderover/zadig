@@ -82,10 +82,10 @@ const (
 	// Sprint Template
 	VerbEditSprintTemplate = "edit_sprint_template"
 	// Sprint
-	VerbGetSprint     = "get_sprint"
-	VerbCreateSprint  = "create_sprint"
-	VerbEditSprint    = "edit_sprint"
-	VerbDeleteSprint  = "delete_sprint"
+	VerbGetSprint    = "get_sprint"
+	VerbCreateSprint = "create_sprint"
+	VerbEditSprint   = "edit_sprint"
+	VerbDeleteSprint = "delete_sprint"
 	// Sprint WorkItem
 	VerbCreateSprintWorkItem = "create_sprint_workitem"
 	VerbEditSprintWorkItem   = "edit_sprint_workitem"
@@ -114,10 +114,11 @@ const (
 	VerbGetDataCenterInsight        = "efficiency_over"
 	VerbEditDataCenterInsightConfig = "edit_dashboard_config"
 	// release plan
-	VerbGetReleasePlan    = "get_release_plan"
-	VerbCreateReleasePlan = "create_release_plan"
-	VerbEditReleasePlan   = "edit_release_plan"
-	VerbDeleteReleasePlan = "delete_release_plan"
+	VerbGetReleasePlan        = "get_release_plan"
+	VerbCreateReleasePlan     = "create_release_plan"
+	VerbEditReleasePlan       = "edit_release_plan"
+	VerbDeleteReleasePlan     = "delete_release_plan"
+	VerbEditConfigReleasePlan = "edit_config_release_plan"
 	// cluster management
 	VerbGetClusterManagement    = "get_cluster_management"
 	VerbCreateClusterManagement = "create_cluster_management"
@@ -277,10 +278,10 @@ type SprintTemplateActions struct {
 }
 
 type SprintActions struct {
-	Create  bool
-	View    bool
-	Edit    bool
-	Delete  bool
+	Create bool
+	View   bool
+	Edit   bool
+	Delete bool
 }
 
 type SprintWorkItemActions struct {
@@ -321,10 +322,11 @@ type DataCenterActions struct {
 }
 
 type ReleasePlanActions struct {
-	Create bool
-	View   bool
-	Edit   bool
-	Delete bool
+	Create     bool
+	View       bool
+	Edit       bool
+	Delete     bool
+	EditConfig bool
 }
 
 type BusinessDirectoryActions struct {

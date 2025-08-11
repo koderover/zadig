@@ -582,18 +582,18 @@ func generateDefaultProjectActions() *ProjectActions {
 			Delete: false,
 		},
 		SprintTemplate: &SprintTemplateActions{
-			Edit:    false,
+			Edit: false,
 		},
 		Sprint: &SprintActions{
-			View:    false,
-			Create:  false,
-			Edit:    false,
-			Delete:  false,
+			View:   false,
+			Create: false,
+			Edit:   false,
+			Delete: false,
 		},
 		SprintWorkItem: &SprintWorkItemActions{
-			Create:  false,
-			Edit:    false,
-			Delete:  false,
+			Create: false,
+			Edit:   false,
+			Delete: false,
 		},
 	}
 }
@@ -626,10 +626,11 @@ func generateDefaultSystemActions() *SystemActions {
 			EditInsightConfig: false,
 		},
 		ReleasePlan: &ReleasePlanActions{
-			Create: false,
-			View:   false,
-			Edit:   false,
-			Delete: false,
+			Create:     false,
+			View:       false,
+			Edit:       false,
+			Delete:     false,
+			EditConfig: false,
 		},
 		BusinessDirectory: &BusinessDirectoryActions{
 			View: false,
@@ -823,6 +824,8 @@ func modifySystemAction(systemActions *SystemActions, verb string) {
 		systemActions.ReleasePlan.Delete = true
 	case VerbGetReleasePlan:
 		systemActions.ReleasePlan.View = true
+	case VerbEditConfigReleasePlan:
+		systemActions.ReleasePlan.EditConfig = true
 	case VerbGetBusinessDirectory:
 		systemActions.BusinessDirectory.View = true
 	case VerbGetClusterManagement:

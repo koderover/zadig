@@ -633,22 +633,40 @@ const (
 type ReleasePlanStatus string
 
 const (
-	StatusPlanning         ReleasePlanStatus = "planning"
-	StatusWaitForApprove   ReleasePlanStatus = "wait_for_approval"
-	StatusExecuting        ReleasePlanStatus = "executing"
-	StatusApprovalDenied   ReleasePlanStatus = "denied"
-	StatusTimeoutForWindow ReleasePlanStatus = "timeout"
-	StatusSuccess          ReleasePlanStatus = "success"
-	StatusCancel           ReleasePlanStatus = "cancel"
+	ReleasePlanStatusPlanning                          ReleasePlanStatus = "planning"
+	ReleasePlanStatusWaitForApprove                    ReleasePlanStatus = "wait_for_approval"
+	ReleasePlanStatusExecuting                         ReleasePlanStatus = "executing"
+	ReleasePlanStatusApprovalDenied                    ReleasePlanStatus = "denied"
+	ReleasePlanStatusWaitForApproveExternalCheck       ReleasePlanStatus = "wait_for_approval_external_check"
+	ReleasePlanStatusWaitForExecuteExternalCheck       ReleasePlanStatus = "wait_for_execute_external_check"
+	ReleasePlanStatusWaitForAllDoneExternalCheck       ReleasePlanStatus = "wait_for_all_done_external_check"
+	ReleasePlanStatusTimeoutForWindow                  ReleasePlanStatus = "timeout"
+	ReleasePlanStatusSuccess                           ReleasePlanStatus = "success"
+	ReleasePlanStatusWaitForApproveExternalCheckFailed ReleasePlanStatus = "wait_for_approval_external_check_failed"
+	ReleasePlanStatusWaitForExecuteExternalCheckFailed ReleasePlanStatus = "wait_for_execute_external_check_failed"
+	ReleasePlanStatusWaitForAllDoneExternalCheckFailed ReleasePlanStatus = "wait_for_all_done_external_check_failed"
+	ReleasePlanStatusCancel                            ReleasePlanStatus = "cancel"
 )
 
 // ReleasePlanStatusMap is a map of status and its available next status
 var ReleasePlanStatusMap = map[ReleasePlanStatus][]ReleasePlanStatus{
-	StatusPlanning:         {StatusWaitForApprove, StatusExecuting},
-	StatusWaitForApprove:   {StatusPlanning, StatusExecuting},
-	StatusExecuting:        {StatusPlanning, StatusSuccess, StatusCancel},
-	StatusTimeoutForWindow: {StatusPlanning},
-	StatusApprovalDenied:   {StatusPlanning},
+	ReleasePlanStatusPlanning:                          {ReleasePlanStatusWaitForApprove, ReleasePlanStatusExecuting, ReleasePlanStatusWaitForApproveExternalCheck, ReleasePlanStatusWaitForExecuteExternalCheck, ReleasePlanStatusWaitForAllDoneExternalCheck},
+	ReleasePlanStatusWaitForApprove:                    {ReleasePlanStatusPlanning, ReleasePlanStatusExecuting, ReleasePlanStatusWaitForAllDoneExternalCheck, ReleasePlanStatusCancel},
+	ReleasePlanStatusExecuting:                         {ReleasePlanStatusPlanning, ReleasePlanStatusSuccess, ReleasePlanStatusCancel, ReleasePlanStatusWaitForExecuteExternalCheck},
+	ReleasePlanStatusTimeoutForWindow:                  {ReleasePlanStatusPlanning, ReleasePlanStatusCancel},
+	ReleasePlanStatusApprovalDenied:                    {ReleasePlanStatusPlanning, ReleasePlanStatusCancel},
+	ReleasePlanStatusWaitForApproveExternalCheck:       {ReleasePlanStatusWaitForApprove, ReleasePlanStatusWaitForApproveExternalCheckFailed, ReleasePlanStatusPlanning, ReleasePlanStatusCancel},
+	ReleasePlanStatusWaitForExecuteExternalCheck:       {ReleasePlanStatusExecuting, ReleasePlanStatusWaitForExecuteExternalCheckFailed, ReleasePlanStatusPlanning, ReleasePlanStatusCancel},
+	ReleasePlanStatusWaitForAllDoneExternalCheck:       {ReleasePlanStatusSuccess, ReleasePlanStatusWaitForAllDoneExternalCheckFailed, ReleasePlanStatusPlanning, ReleasePlanStatusCancel},
+	ReleasePlanStatusWaitForApproveExternalCheckFailed: {ReleasePlanStatusPlanning, ReleasePlanStatusCancel},
+	ReleasePlanStatusWaitForExecuteExternalCheckFailed: {ReleasePlanStatusPlanning, ReleasePlanStatusCancel},
+	ReleasePlanStatusWaitForAllDoneExternalCheckFailed: {ReleasePlanStatusPlanning, ReleasePlanStatusCancel},
+}
+
+var ReleasePlanExternalCheckNextStatusMap = map[ReleasePlanStatus]ReleasePlanStatus{
+	ReleasePlanStatusWaitForApproveExternalCheck: ReleasePlanStatusWaitForApprove,
+	ReleasePlanStatusWaitForExecuteExternalCheck: ReleasePlanStatusExecuting,
+	ReleasePlanStatusWaitForAllDoneExternalCheck: ReleasePlanStatusSuccess,
 }
 
 type ReleasePlanJobType string

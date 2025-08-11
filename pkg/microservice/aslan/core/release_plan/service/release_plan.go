@@ -42,6 +42,7 @@ import (
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	approvalservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/approval"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/webhooknotify"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/shared/client/user"
 	"github.com/koderover/zadig/v2/pkg/shared/handler"
@@ -102,7 +103,15 @@ func CreateReleasePlan(c *handler.Context, args *models.ReleasePlan) error {
 	args.UpdatedBy = c.UserName
 	args.CreateTime = time.Now().Unix()
 	args.UpdateTime = time.Now().Unix()
-	args.Status = config.StatusPlanning
+	args.Status = config.ReleasePlanStatusPlanning
+
+	hookSetting, err := mongodb.NewSystemSettingColl().GetReleasePlanHookSetting()
+	if err != nil {
+		fmtErr := fmt.Errorf("failed get release plan hook setting, err: %v", err)
+		log.Error(fmtErr)
+		return fmtErr
+	}
+	args.HookSettings = hookSetting.ToHookSettings()
 
 	planID, err := mongodb.NewReleasePlanColl().Create(args)
 	if err != nil {
@@ -149,7 +158,7 @@ func upsertReleasePlanCron(id, name string, index int64, status config.ReleasePl
 		found = true
 	}
 
-	if status != config.StatusExecuting {
+	if status != config.ReleasePlanStatusExecuting {
 		// delete cron job if status is not executing
 		if found {
 			err = commonrepo.NewCronjobColl().Delete(&commonrepo.CronjobDeleteOption{
@@ -339,7 +348,7 @@ func UpdateReleasePlan(c *handler.Context, planID string, args *UpdateReleasePla
 		return errors.Wrap(err, "get plan")
 	}
 
-	if plan.Status != config.StatusPlanning {
+	if plan.Status != config.ReleasePlanStatusPlanning {
 		return errors.Errorf("plan status is %s, can not update", plan.Status)
 	}
 
@@ -357,6 +366,14 @@ func UpdateReleasePlan(c *handler.Context, planID string, args *UpdateReleasePla
 
 	plan.UpdatedBy = c.UserName
 	plan.UpdateTime = time.Now().Unix()
+
+	hookSetting, err := mongodb.NewSystemSettingColl().GetReleasePlanHookSetting()
+	if err != nil {
+		fmtErr := fmt.Errorf("failed get release plan hook setting, err: %v", err)
+		log.Error(fmtErr)
+		return fmtErr
+	}
+	plan.HookSettings = hookSetting.ToHookSettings()
 
 	if err = mongodb.NewReleasePlanColl().UpdateByID(ctx, planID, plan); err != nil {
 		return errors.Wrap(err, "update plan")
@@ -434,7 +451,7 @@ func ExecuteReleaseJob(c *handler.Context, planID string, args *ExecuteReleaseJo
 		return errors.Wrap(err, "get plan")
 	}
 
-	if plan.Status != config.StatusExecuting {
+	if plan.Status != config.ReleasePlanStatusExecuting {
 		return errors.Errorf("plan status is %s, can not execute", plan.Status)
 	}
 
@@ -442,7 +459,7 @@ func ExecuteReleaseJob(c *handler.Context, planID string, args *ExecuteReleaseJo
 		now := time.Now().Unix()
 		if now < plan.StartTime || now > plan.EndTime {
 			if now > plan.EndTime {
-				plan.Status = config.StatusTimeoutForWindow
+				plan.Status = config.ReleasePlanStatusTimeoutForWindow
 				if err = mongodb.NewReleasePlanColl().UpdateByID(ctx, planID, plan); err != nil {
 					return errors.Wrap(err, "update plan")
 				}
@@ -472,9 +489,24 @@ func ExecuteReleaseJob(c *handler.Context, planID string, args *ExecuteReleaseJo
 	plan.UpdateTime = time.Now().Unix()
 
 	if checkReleasePlanJobsAllDone(plan) {
-		//plan.ExecutingTime = time.Now().Unix()
-		plan.SuccessTime = time.Now().Unix()
-		plan.Status = config.StatusSuccess
+		plan.Status = config.ReleasePlanStatusSuccess
+
+		hookSetting, err := mongodb.NewSystemSettingColl().GetReleasePlanHookSetting()
+		if err != nil {
+			fmtErr := fmt.Errorf("failed get release plan hook setting, err: %v", err)
+			log.Error(fmtErr)
+		}
+
+		nextStatus, shouldWait := waitForExternalCheck(plan, hookSetting)
+		if shouldWait {
+			plan.Status = *nextStatus
+		} else {
+			plan.SuccessTime = time.Now().Unix()
+		}
+
+		if err := sendReleasePlanHook(plan, hookSetting); err != nil {
+			log.Errorf("send release plan hook error: %v", err)
+		}
 	}
 
 	if err = mongodb.NewReleasePlanColl().UpdateByID(ctx, planID, plan); err != nil {
@@ -537,7 +569,7 @@ func ScheduleExecuteReleasePlan(c *handler.Context, planID, jobID string) error 
 		return err
 	}
 
-	if plan.Status != config.StatusExecuting {
+	if plan.Status != config.ReleasePlanStatusExecuting {
 		err = errors.Errorf("plan ID is %s, name is %s, index is %d, status is %s, can not execute", plan.ID.Hex(), plan.Name, plan.Index, plan.Status)
 		log.Error(err)
 		return err
@@ -607,9 +639,25 @@ func ScheduleExecuteReleasePlan(c *handler.Context, planID, jobID string) error 
 			plan.UpdateTime = time.Now().Unix()
 
 			if checkReleasePlanJobsAllDone(plan) {
-				//plan.ExecutingTime = time.Now().Unix()
 				plan.SuccessTime = time.Now().Unix()
-				plan.Status = config.StatusSuccess
+				plan.Status = config.ReleasePlanStatusSuccess
+
+				hookSetting, err := mongodb.NewSystemSettingColl().GetReleasePlanHookSetting()
+				if err != nil {
+					fmtErr := fmt.Errorf("failed get release plan hook setting, err: %v", err)
+					log.Error(fmtErr)
+				}
+
+				nextStatus, shouldWait := waitForExternalCheck(plan, hookSetting)
+				if shouldWait {
+					plan.Status = *nextStatus
+				} else {
+					plan.SuccessTime = time.Now().Unix()
+				}
+
+				if err := sendReleasePlanHook(plan, hookSetting); err != nil {
+					log.Errorf("send release plan hook error: %v", err)
+				}
 			}
 
 			log.Infof("schedule execute release job, plan ID: %s, name: %s, index: %d, job ID: %s, job name: %s", plan.ID.Hex(), plan.Name, plan.Index, job.ID, job.Name)
@@ -644,7 +692,7 @@ func SkipReleaseJob(c *handler.Context, planID string, args *SkipReleaseJobArgs,
 		return errors.Wrap(err, "get plan")
 	}
 
-	if plan.Status != config.StatusExecuting {
+	if plan.Status != config.ReleasePlanStatusExecuting {
 		return errors.Errorf("plan status is %s, can not skip", plan.Status)
 	}
 
@@ -676,9 +724,24 @@ func SkipReleaseJob(c *handler.Context, planID string, args *SkipReleaseJobArgs,
 	plan.UpdateTime = time.Now().Unix()
 
 	if checkReleasePlanJobsAllDone(plan) {
-		//plan.ExecutingTime = time.Now().Unix()
-		plan.SuccessTime = time.Now().Unix()
-		plan.Status = config.StatusSuccess
+		plan.Status = config.ReleasePlanStatusSuccess
+
+		hookSetting, err := mongodb.NewSystemSettingColl().GetReleasePlanHookSetting()
+		if err != nil {
+			fmtErr := fmt.Errorf("failed get release plan hook setting, err: %v", err)
+			log.Error(fmtErr)
+		}
+
+		nextStatus, shouldWait := waitForExternalCheck(plan, hookSetting)
+		if shouldWait {
+			plan.Status = *nextStatus
+		} else {
+			plan.SuccessTime = time.Now().Unix()
+		}
+
+		if err := sendReleasePlanHook(plan, hookSetting); err != nil {
+			log.Errorf("send release plan hook error: %v", err)
+		}
 	}
 
 	if err = mongodb.NewReleasePlanColl().UpdateByID(ctx, planID, plan); err != nil {
@@ -729,43 +792,79 @@ func UpdateReleasePlanStatus(c *handler.Context, planID, status string, isSystem
 
 	detail := ""
 
-	// target status check and update
-	switch config.ReleasePlanStatus(status) {
-	case config.StatusPlanning:
-		for _, job := range plan.Jobs {
-			job.LastStatus = job.Status
-			job.Status = config.ReleasePlanJobStatusTodo
-			job.Updated = false
-		}
-	case config.StatusExecuting:
-		if plan.Approval != nil && plan.Approval.Enabled == true && plan.Approval.Status != config.StatusPassed {
-			return errors.Errorf("approval status is %s, can not execute", plan.Approval.Status)
-		}
-
-		plan.ExecutingTime = time.Now().Unix()
-		setReleaseJobsForExecuting(plan)
-	case config.StatusWaitForApprove:
-		if err := clearApprovalData(plan.Approval); err != nil {
-			return errors.Wrap(err, "clear approval data")
-		}
-		if err := createApprovalInstance(plan, userInfo.Phone); err != nil {
-			return errors.Wrap(err, "create approval instance")
-		}
-	case config.StatusCancel:
-		// set executing status final time
-		// plan.ExecutingTime = time.Now().Unix()
+	hookSetting, err := mongodb.NewSystemSettingColl().GetReleasePlanHookSetting()
+	if err != nil {
+		fmtErr := fmt.Errorf("failed get release plan hook setting, err: %v", err)
+		log.Error(fmtErr)
+		return fmtErr
 	}
 
 	// original status check and update
 	switch plan.Status {
 	// other status will not be done by this function
-	case config.StatusPlanning:
+	case config.ReleasePlanStatusPlanning:
 		if len(plan.Jobs) == 0 {
 			return errors.Errorf("plan must not have no jobs")
 		}
 		plan.PlanningTime = time.Now().Unix()
 	}
 	plan.Status = config.ReleasePlanStatus(status)
+
+	// target status check and update
+	switch config.ReleasePlanStatus(status) {
+	case config.ReleasePlanStatusPlanning:
+		for _, job := range plan.Jobs {
+			job.LastStatus = job.Status
+			job.Status = config.ReleasePlanJobStatusTodo
+			job.Updated = false
+		}
+
+		plan.HookSettings = hookSetting.ToHookSettings()
+
+		plan.PlanningTime = time.Now().Unix()
+		plan.WaitForApproveExternalCheckTime = 0
+		plan.WaitForExecuteExternalCheckTime = 0
+		plan.WaitForAllDoneExternalCheckTime = 0
+		plan.ExternalCheckFailedReason = ""
+	case config.ReleasePlanStatusExecuting:
+		if plan.Approval != nil && plan.Approval.Enabled == true && plan.Approval.Status != config.StatusPassed {
+			return errors.Errorf("approval status is %s, can not execute", plan.Approval.Status)
+		}
+		nextStatus, shouldWait := waitForExternalCheck(plan, hookSetting)
+		if shouldWait {
+			plan.Status = *nextStatus
+		} else {
+			plan.ExecutingTime = time.Now().Unix()
+		}
+
+		if err := sendReleasePlanHook(plan, hookSetting); err != nil {
+			log.Errorf("send release plan hook error: %v", err)
+		}
+
+		setReleaseJobsForExecuting(plan)
+	case config.ReleasePlanStatusWaitForApprove:
+		nextStatus, shouldWait := waitForExternalCheck(plan, hookSetting)
+		if shouldWait {
+			plan.Status = *nextStatus
+			plan.ApproverID = c.UserID
+		} else {
+			if err := clearApprovalData(plan.Approval); err != nil {
+				return errors.Wrap(err, "clear approval data")
+			}
+			if err := createApprovalInstance(plan, userInfo.Phone); err != nil {
+				return errors.Wrap(err, "create approval instance")
+			}
+		}
+
+		if err := sendReleasePlanHook(plan, hookSetting); err != nil {
+			log.Errorf("send release plan hook error: %v", err)
+		}
+
+	case config.ReleasePlanStatusCancel:
+		// set executing status final time
+		// plan.ExecutingTime = time.Now().Unix()
+		break
+	}
 
 	if err = mongodb.NewReleasePlanColl().UpdateByID(ctx, planID, plan); err != nil {
 		return errors.Wrap(err, "update plan")
@@ -812,12 +911,19 @@ func ApproveReleasePlan(c *handler.Context, planID string, req *ApproveRequest) 
 		return errors.Wrap(err, "get plan")
 	}
 
-	if plan.Status != config.StatusWaitForApprove {
+	if plan.Status != config.ReleasePlanStatusWaitForApprove {
 		return errors.Errorf("plan status is %s, can not approve", plan.Status)
 	}
 
 	if plan.Approval == nil || plan.Approval.Type != config.NativeApproval || plan.Approval.NativeApproval == nil {
 		return errors.Errorf("plan approval is nil or not native approval")
+	}
+
+	hookSetting, err := mongodb.NewSystemSettingColl().GetReleasePlanHookSetting()
+	if err != nil {
+		fmtErr := fmt.Errorf("failed get release plan hook setting, err: %v", err)
+		log.Error(fmtErr)
+		return fmtErr
 	}
 
 	approvalKey := plan.Approval.NativeApproval.InstanceCode
@@ -857,16 +963,27 @@ func ApproveReleasePlan(c *handler.Context, planID string, req *ApproveRequest) 
 			TargetName: TargetTypeReleasePlanStatus,
 			TargetType: TargetTypeReleasePlanStatus,
 			Detail:     "审批通过",
-			After:      config.StatusExecuting,
+			After:      config.ReleasePlanStatusExecuting,
 			CreatedAt:  time.Now().Unix(),
 		}
-		plan.Status = config.StatusExecuting
+		plan.Status = config.ReleasePlanStatusExecuting
 		plan.ApprovalTime = time.Now().Unix()
 		plan.ExecutingTime = time.Now().Unix()
 
 		if err := upsertReleasePlanCron(plan.ID.Hex(), plan.Name, plan.Index, plan.Status, plan.ScheduleExecuteTime); err != nil {
 			err = errors.Wrap(err, "upsert release plan cron")
 			log.Error(err)
+		}
+
+		nextStatus, shouldWait := waitForExternalCheck(plan, hookSetting)
+		if shouldWait {
+			plan.Status = *nextStatus
+		} else {
+			plan.ExecutingTime = time.Now().Unix()
+		}
+
+		if err := sendReleasePlanHook(plan, hookSetting); err != nil {
+			log.Errorf("send release plan hook error: %v", err)
 		}
 
 		setReleaseJobsForExecuting(plan)
@@ -877,9 +994,10 @@ func ApproveReleasePlan(c *handler.Context, planID string, req *ApproveRequest) 
 			CreatedAt: time.Now().Unix(),
 		}
 
-		plan.Status = config.StatusApprovalDenied
+		plan.Status = config.ReleasePlanStatusApprovalDenied
 		plan.ApprovalTime = time.Now().Unix()
 	}
+
 	if err = mongodb.NewReleasePlanColl().UpdateByID(ctx, planID, plan); err != nil {
 		return errors.Wrap(err, "update plan")
 	}
@@ -888,6 +1006,7 @@ func ApproveReleasePlan(c *handler.Context, planID string, req *ApproveRequest) 
 		if planLog == nil {
 			return
 		}
+
 		if err := mongodb.NewReleasePlanLogColl().Create(planLog); err != nil {
 			log.Errorf("create release plan log error: %v", err)
 		}
@@ -1094,4 +1213,762 @@ func ListReleasePlans(opt *ListReleasePlanOption) (*ListReleasePlanResp, error) 
 		List:  list,
 		Total: total,
 	}, nil
+}
+
+func GetReleasePlanHookSetting(c *handler.Context) (*models.ReleasePlanHookSettings, error) {
+	hookSetting, err := mongodb.NewSystemSettingColl().GetReleasePlanHookSetting()
+	if err != nil {
+		return nil, errors.Wrap(err, "get release plan hook setting")
+	}
+
+	return hookSetting, nil
+}
+
+func UpdateReleasePlanHookSetting(c *handler.Context, req *models.ReleasePlanHookSettings) error {
+	if err := mongodb.NewSystemSettingColl().UpdateReleasePlanHookSetting(req); err != nil {
+		return errors.Wrap(err, "update release plan hook setting")
+	}
+
+	return nil
+}
+
+type ReleasePlanCallBackBody struct {
+	ReleasePlanID string                                `json:"release_plan_id"`
+	HookEvent     models.ReleasePlanHookEvent           `json:"hook_event"`
+	Result        setting.ReleasePlanCallBackResultType `json:"result"`
+	FailedReason  string                                `json:"failed_reason"`
+}
+
+func ReleasePlanHookCallback(c *handler.Context, callback *ReleasePlanCallBackBody) error {
+	log.Infof("release plan hook callback, id: %s, hook event: %s, result: %s, failed reason: %s", callback.ReleasePlanID, callback.HookEvent, callback.Result, callback.FailedReason)
+
+	hookSetting, err := mongodb.NewSystemSettingColl().GetReleasePlanHookSetting()
+	if err != nil {
+		fmtErr := fmt.Errorf("failed get release plan hook setting, err: %v", err)
+		log.Error(fmtErr)
+		return fmtErr
+	}
+
+	if !hookSetting.Enable || !hookSetting.EnableCallBack {
+		return nil
+	}
+
+	hookEventStatusMap := map[config.ReleasePlanStatus]bool{}
+	for _, event := range hookSetting.HookEvents {
+		if event != callback.HookEvent {
+			continue
+		}
+
+		switch event {
+		case models.ReleasePlanHookEventSubmitApproval:
+			hookEventStatusMap[config.ReleasePlanStatusWaitForApproveExternalCheck] = true
+		case models.ReleasePlanHookEventStartExecute:
+			hookEventStatusMap[config.ReleasePlanStatusWaitForExecuteExternalCheck] = true
+		case models.ReleasePlanHookEventAllJobDone:
+			hookEventStatusMap[config.ReleasePlanStatusWaitForAllDoneExternalCheck] = true
+		}
+	}
+
+	releasePlan, err := mongodb.NewReleasePlanColl().GetByID(c, callback.ReleasePlanID)
+	if err != nil {
+		fmtErr := fmt.Errorf("failed get release plan, id: %s, err: %v", callback.ReleasePlanID, err)
+		log.Error(fmtErr)
+		return fmtErr
+	}
+
+	if !hookEventStatusMap[releasePlan.Status] {
+		fmtErr := fmt.Errorf("release plan's status is not correct, status: %s", releasePlan.Status)
+		log.Error(fmtErr)
+		return fmtErr
+	}
+
+	if callback.Result == setting.ReleasePlanCallBackResultTypeSuccess {
+		// source status process
+		switch releasePlan.Status {
+		case config.ReleasePlanStatusWaitForApproveExternalCheck:
+			releasePlan.WaitForApproveExternalCheckTime = time.Now().Unix()
+		case config.ReleasePlanStatusWaitForExecuteExternalCheck:
+			releasePlan.WaitForExecuteExternalCheckTime = time.Now().Unix()
+		case config.ReleasePlanStatusWaitForAllDoneExternalCheck:
+			releasePlan.WaitForAllDoneExternalCheckTime = time.Now().Unix()
+		}
+
+		nextStatus, ok := config.ReleasePlanExternalCheckNextStatusMap[releasePlan.Status]
+		if !ok {
+			fmtErr := fmt.Errorf("release plan's status is not correct, cannot get next status, status: %s", releasePlan.Status)
+			log.Error(fmtErr)
+			return fmtErr
+		}
+		releasePlan.Status = nextStatus
+
+		// target status process
+		if releasePlan.Status == config.ReleasePlanStatusWaitForApprove {
+			userInfo, err := user.New().GetUserByID(releasePlan.ApproverID)
+			if err != nil {
+				fmtErr := fmt.Errorf("failed get user, id: %s, err: %v", releasePlan.ApproverID, err)
+				log.Error(fmtErr)
+				return fmtErr
+			}
+
+			if err := clearApprovalData(releasePlan.Approval); err != nil {
+				fmtErr := fmt.Errorf("failed clear approval data, err: %v", err)
+				log.Error(fmtErr)
+				return fmtErr
+			}
+			if err := createApprovalInstance(releasePlan, userInfo.Phone); err != nil {
+				fmtErr := fmt.Errorf("failed create approval instance, err: %v", err)
+				log.Error(fmtErr)
+				return fmtErr
+			}
+		} else if releasePlan.Status == config.ReleasePlanStatusExecuting {
+			if releasePlan.Approval != nil && releasePlan.Approval.Enabled == true && releasePlan.Approval.Status != config.StatusPassed {
+				fmtErr := fmt.Errorf("approval status is %s, can not execute", releasePlan.Approval.Status)
+				log.Error(fmtErr)
+				return fmtErr
+			}
+
+			releasePlan.ExecutingTime = time.Now().Unix()
+			setReleaseJobsForExecuting(releasePlan)
+		} else if releasePlan.Status == config.ReleasePlanStatusSuccess {
+			releasePlan.SuccessTime = time.Now().Unix()
+		}
+
+		if err := mongodb.NewReleasePlanColl().UpdateByID(c, releasePlan.ID.Hex(), releasePlan); err != nil {
+			fmtErr := fmt.Errorf("failed update release plan, id: %s, err: %v", releasePlan.ID.Hex(), err)
+			log.Error(fmtErr)
+			return fmtErr
+		}
+	} else if callback.Result == setting.ReleasePlanCallBackResultTypeFailed {
+		switch releasePlan.Status {
+		case config.ReleasePlanStatusWaitForApproveExternalCheck:
+			releasePlan.Status = config.ReleasePlanStatusWaitForApproveExternalCheckFailed
+			releasePlan.WaitForApproveExternalCheckTime = time.Now().Unix()
+		case config.ReleasePlanStatusWaitForExecuteExternalCheck:
+			releasePlan.Status = config.ReleasePlanStatusWaitForExecuteExternalCheckFailed
+			releasePlan.WaitForExecuteExternalCheckTime = time.Now().Unix()
+		case config.ReleasePlanStatusWaitForAllDoneExternalCheck:
+			releasePlan.Status = config.ReleasePlanStatusWaitForAllDoneExternalCheckFailed
+			releasePlan.WaitForAllDoneExternalCheckTime = time.Now().Unix()
+		}
+		releasePlan.ExternalCheckFailedReason = callback.FailedReason
+
+		if err := mongodb.NewReleasePlanColl().UpdateByID(c, releasePlan.ID.Hex(), releasePlan); err != nil {
+			fmtErr := fmt.Errorf("failed update release plan, id: %s, err: %v", releasePlan.ID.Hex(), err)
+			log.Error(fmtErr)
+			return fmtErr
+		}
+	} else {
+		err = fmt.Errorf("release plan callback result is not correct, result: %s", callback.Result)
+		log.Error(err)
+		return err
+	}
+
+	if err := upsertReleasePlanCron(releasePlan.ID.Hex(), releasePlan.Name, releasePlan.Index, releasePlan.Status, releasePlan.ScheduleExecuteTime); err != nil {
+		return errors.Wrap(err, "upsert release plan cron")
+	}
+
+	return nil
+}
+
+func sendReleasePlanHook(plan *models.ReleasePlan, systemHookSetting *commonmodels.ReleasePlanHookSettings) error {
+	hookSetting := plan.HookSettings
+	if plan.HookSettings == nil {
+		return nil
+	}
+
+	if !hookSetting.Enable {
+		return nil
+	}
+
+	hookEvent := commonmodels.ReleasePlanHookEvent("")
+	hookEventStatusMap := map[config.ReleasePlanStatus]bool{}
+	for _, event := range hookSetting.HookEvents {
+		switch event {
+		case models.ReleasePlanHookEventSubmitApproval:
+			hookEvent = models.ReleasePlanHookEventSubmitApproval
+			if hookSetting.EnableCallBack {
+				hookEventStatusMap[config.ReleasePlanStatusWaitForApproveExternalCheck] = true
+			} else {
+				hookEventStatusMap[config.ReleasePlanStatusWaitForApprove] = true
+			}
+		case models.ReleasePlanHookEventStartExecute:
+			hookEvent = models.ReleasePlanHookEventStartExecute
+			if hookSetting.EnableCallBack {
+				hookEventStatusMap[config.ReleasePlanStatusWaitForExecuteExternalCheck] = true
+			} else {
+				hookEventStatusMap[config.ReleasePlanStatusExecuting] = true
+			}
+		case models.ReleasePlanHookEventAllJobDone:
+			hookEvent = models.ReleasePlanHookEventAllJobDone
+			if hookSetting.EnableCallBack {
+				hookEventStatusMap[config.ReleasePlanStatusWaitForAllDoneExternalCheck] = true
+			} else {
+				hookEventStatusMap[config.ReleasePlanStatusSuccess] = true
+			}
+		}
+	}
+
+	if hookEventStatusMap[plan.Status] {
+		hookBody, err := convertReleasePlanToHookBody(plan, hookEvent)
+		if err != nil {
+			log.Errorf("failed convert release plan to hook body, plan: %+v, err: %v", plan, err)
+			return err
+		}
+
+		err = webhooknotify.NewClient(systemHookSetting.HookAddress, systemHookSetting.HookSecret).SendReleasePlanWebhook(hookBody)
+		if err != nil {
+			err = errors.Wrap(err, "send release plan hook")
+			log.Error(err)
+			return err
+		}
+	}
+
+	return nil
+}
+
+func convertReleasePlanToHookBody(plan *models.ReleasePlan, hookEvent commonmodels.ReleasePlanHookEvent) (*webhooknotify.ReleasePlanHookBody, error) {
+	hookBody := &webhooknotify.ReleasePlanHookBody{
+		ID:                  plan.ID,
+		Index:               plan.Index,
+		EventName:           hookEvent,
+		Name:                plan.Name,
+		Manager:             plan.Manager,
+		ManagerID:           plan.ManagerID,
+		StartTime:           plan.StartTime,
+		EndTime:             plan.EndTime,
+		ScheduleExecuteTime: plan.ScheduleExecuteTime,
+		Description:         plan.Description,
+		CreatedBy:           plan.CreatedBy,
+		CreateTime:          plan.CreateTime,
+		UpdatedBy:           plan.UpdatedBy,
+		UpdateTime:          plan.UpdateTime,
+		Status:              plan.Status,
+		PlanningTime:        plan.PlanningTime,
+		ApprovalTime:        plan.ApprovalTime,
+		ExecutingTime:       plan.ExecutingTime,
+		SuccessTime:         plan.SuccessTime,
+	}
+
+	jobs := []*webhooknotify.ReleasePlanHookJob{}
+	for _, job := range plan.Jobs {
+		hookJob := &webhooknotify.ReleasePlanHookJob{
+			ID:   job.ID,
+			Name: job.Name,
+			Type: job.Type,
+			ReleasePlanHookJobRuntime: webhooknotify.ReleasePlanHookJobRuntime{
+				Status:       job.Status,
+				ExecutedBy:   job.ExecutedBy,
+				ExecutedTime: job.ExecutedTime,
+			},
+		}
+
+		if job.Type == config.JobText {
+			spec := new(models.TextReleaseJobSpec)
+			err := models.IToi(job.Spec, spec)
+			if err != nil {
+				fmtErr := fmt.Errorf("failed convert job spec to text release job spec, job: %+v, err: %v", job, err)
+				log.Error(fmtErr)
+				return nil, fmtErr
+			}
+
+			hookJob.Spec = &webhooknotify.ReleasePlanHookTextJobSpec{
+				Content: spec.Content,
+				Remark:  spec.Remark,
+			}
+		} else if job.Type == config.JobWorkflow {
+			spec := new(models.WorkflowReleaseJobSpec)
+			err := models.IToi(job.Spec, spec)
+			if err != nil {
+				fmtErr := fmt.Errorf("failed convert job spec to workflow release job spec, job: %+v, err: %v", job, err)
+				log.Error(fmtErr)
+				return nil, fmtErr
+			}
+
+			hookWorkflow, err := convertWorkflowV4ToOpenAPIWorkflowV4(spec.Workflow)
+			if err != nil {
+				fmtErr := fmt.Errorf("failed convert workflow to openapi workflow, job: %+v, err: %v", job, err)
+				log.Error(fmtErr)
+				return nil, fmtErr
+			}
+
+			hookJob.Spec = &webhooknotify.ReleasePlanHookWorkflowJobSpec{
+				Workflow: hookWorkflow,
+				Status:   spec.Status,
+				TaskID:   spec.TaskID,
+			}
+		} else {
+			fmtErr := fmt.Errorf("job type is not text or workflow, job: %+v", job)
+			log.Error(fmtErr)
+			return nil, fmtErr
+		}
+
+		jobs = append(jobs, hookJob)
+	}
+
+	hookBody.Jobs = jobs
+
+	return hookBody, nil
+}
+
+func convertWorkflowV4ToOpenAPIWorkflowV4(workflow *commonmodels.WorkflowV4) (*webhooknotify.OpenAPIWorkflowV4, error) {
+	params := []*webhooknotify.OpenAPIWorkflowParam{}
+	for _, param := range workflow.Params {
+		hookParam := &webhooknotify.OpenAPIWorkflowParam{
+			Name:         param.Name,
+			Description:  param.Description,
+			ParamsType:   param.ParamsType,
+			Value:        param.Value,
+			ChoiceOption: param.ChoiceOption,
+			ChoiceValue:  param.ChoiceValue,
+			Default:      param.Default,
+			IsCredential: param.IsCredential,
+			Source:       param.Source,
+			Repo:         convertRepoToOpenAPIWorkflowRepository(param.Repo),
+		}
+
+		params = append(params, hookParam)
+	}
+
+	hookStages := []*webhooknotify.OpenAPIWorkflowStage{}
+	for _, stage := range workflow.Stages {
+		hookStage := &webhooknotify.OpenAPIWorkflowStage{
+			Name: stage.Name,
+		}
+
+		hookSpec := interface{}(nil)
+		for _, job := range stage.Jobs {
+			switch job.JobType {
+			case config.JobZadigBuild:
+				spec := new(commonmodels.ZadigBuildJobSpec)
+				err := models.IToi(job.Spec, spec)
+				if err != nil {
+					fmtErr := fmt.Errorf("failed convert job spec to zadig build job spec, job: %+v, err: %v", job, err)
+					log.Error(fmtErr)
+					return nil, fmtErr
+				}
+
+				serviceAndBuilds := []*webhooknotify.OpenAPIWorkflowServiceAndBuild{}
+				for _, serviceAndBuild := range spec.ServiceAndBuilds {
+					serviceAndBuilds = append(serviceAndBuilds, &webhooknotify.OpenAPIWorkflowServiceAndBuild{
+						ServiceName:   serviceAndBuild.ServiceName,
+						ServiceModule: serviceAndBuild.ServiceModule,
+						BuildName:     serviceAndBuild.BuildName,
+						Image:         serviceAndBuild.Image,
+						Package:       serviceAndBuild.Package,
+						ImageName:     serviceAndBuild.ImageName,
+						KeyVals:       serviceAndBuild.KeyVals,
+						Repos:         convertReposToOpenAPIWorkflowRepository(serviceAndBuild.Repos),
+					})
+				}
+
+				hookSpec = &webhooknotify.OpenAPIWorkflowBuildJobSpec{
+					Source:           spec.Source,
+					JobName:          spec.JobName,
+					RefRepos:         spec.RefRepos,
+					ServiceAndBuilds: serviceAndBuilds,
+				}
+			case config.JobZadigDeploy:
+				spec := new(commonmodels.ZadigDeployJobSpec)
+				err := models.IToi(job.Spec, spec)
+				if err != nil {
+					fmtErr := fmt.Errorf("failed convert job spec to zadig deploy job spec, job: %+v, err: %v", job, err)
+					log.Error(fmtErr)
+					return nil, fmtErr
+				}
+
+				services := []*webhooknotify.OpenAPIWorkflowDeployServiceInfo{}
+				for _, service := range spec.Services {
+					modules := []*webhooknotify.OpenAPIWorkflowDeployModuleInfo{}
+					for _, module := range service.Modules {
+						modules = append(modules, &webhooknotify.OpenAPIWorkflowDeployModuleInfo{
+							ServiceModule: module.ServiceModule,
+							Image:         module.Image,
+							ImageName:     module.ImageName,
+						})
+					}
+
+					services = append(services, &webhooknotify.OpenAPIWorkflowDeployServiceInfo{
+						OpenAPIWorkflowDeployBasicInfo: webhooknotify.OpenAPIWorkflowDeployBasicInfo{
+							ServiceName:  service.ServiceName,
+							Modules:      modules,
+							Deployed:     service.Deployed,
+							AutoSync:     service.AutoSync,
+							UpdateConfig: service.UpdateConfig,
+							Updatable:    service.Updatable,
+						},
+						OpenAPIWorkflowDeployVariableInfo: webhooknotify.OpenAPIWorkflowDeployVariableInfo{
+							ValueMergeStrategy: service.ValueMergeStrategy,
+							VariableKVs:        service.VariableKVs,
+							OverrideKVs:        service.OverrideKVs,
+							VariableYaml:       service.VariableYaml,
+						},
+					})
+				}
+
+				hookSpec = &webhooknotify.OpenAPIWorkflowDeployJobSpec{
+					Source:         spec.Source,
+					JobName:        spec.JobName,
+					Env:            spec.Env,
+					EnvSource:      spec.EnvSource,
+					Production:     spec.Production,
+					DeployType:     spec.DeployType,
+					DeployContents: spec.DeployContents,
+					VersionName:    spec.VersionName,
+					Services:       services,
+				}
+			case config.JobZadigVMDeploy:
+				spec := new(commonmodels.ZadigVMDeployJobSpec)
+				err := models.IToi(job.Spec, spec)
+				if err != nil {
+					fmtErr := fmt.Errorf("failed convert job spec to zadig vm deploy job spec, job: %+v, err: %v", job, err)
+					log.Error(fmtErr)
+					return nil, fmtErr
+				}
+
+				serviceAndVMDeploys := []*webhooknotify.OpenAPIWorkflowServiceAndVMDeploy{}
+				for _, serviceAndVMDeploy := range spec.ServiceAndVMDeploys {
+					serviceAndVMDeploy := &webhooknotify.OpenAPIWorkflowServiceAndVMDeploy{
+						ServiceName:        serviceAndVMDeploy.ServiceName,
+						ServiceModule:      serviceAndVMDeploy.ServiceModule,
+						DeployName:         serviceAndVMDeploy.DeployName,
+						DeployArtifactType: serviceAndVMDeploy.DeployArtifactType,
+						ArtifactURL:        serviceAndVMDeploy.ArtifactURL,
+						FileName:           serviceAndVMDeploy.FileName,
+						Image:              serviceAndVMDeploy.Image,
+						KeyVals:            serviceAndVMDeploy.KeyVals,
+						Repos:              convertReposToOpenAPIWorkflowRepository(serviceAndVMDeploy.Repos),
+					}
+
+					serviceAndVMDeploys = append(serviceAndVMDeploys, serviceAndVMDeploy)
+				}
+
+				hookSpec = &webhooknotify.OpenAPIWorkflowVMDeployJobSpec{
+					Source:              spec.Source,
+					JobName:             spec.JobName,
+					Env:                 spec.Env,
+					Production:          spec.Production,
+					EnvAlias:            spec.EnvAlias,
+					RefRepos:            spec.RefRepos,
+					ServiceAndVMDeploys: serviceAndVMDeploys,
+				}
+			case config.JobFreestyle:
+				spec := new(commonmodels.FreestyleJobSpec)
+				err := models.IToi(job.Spec, spec)
+				if err != nil {
+					fmtErr := fmt.Errorf("failed convert job spec to freestyle job spec, job: %+v, err: %v", job, err)
+					log.Error(fmtErr)
+					return nil, fmtErr
+				}
+
+				services := []*webhooknotify.OpenAPIWorkflowFreeStyleServiceInfo{}
+				for _, service := range spec.Services {
+					services = append(services, &webhooknotify.OpenAPIWorkflowFreeStyleServiceInfo{
+						OpenAPIWorkflowServiceWithModule: webhooknotify.OpenAPIWorkflowServiceWithModule{
+							ServiceName:   service.ServiceName,
+							ServiceModule: service.ServiceModule,
+						},
+						Repos:   convertReposToOpenAPIWorkflowRepository(service.Repos),
+						KeyVals: service.KeyVals,
+					})
+				}
+
+				hookSpec = &webhooknotify.OpenAPIWorkflowFreestyleJobSpec{
+					FreestyleJobType: spec.FreestyleJobType,
+					ServiceSource:    spec.ServiceSource,
+					JobName:          spec.JobName,
+					RefRepos:         spec.RefRepos,
+					Repos:            convertReposToOpenAPIWorkflowRepository(spec.Repos),
+					Services:         services,
+					Envs:             spec.Envs,
+				}
+			case config.JobZadigTesting:
+				spec := new(commonmodels.ZadigTestingJobSpec)
+				err := models.IToi(job.Spec, spec)
+				if err != nil {
+					fmtErr := fmt.Errorf("failed convert job spec to testing job spec, job: %+v, err: %v", job, err)
+					log.Error(fmtErr)
+					return nil, fmtErr
+				}
+
+				testModules := []*webhooknotify.OpenAPIWorkflowTestModule{}
+				for _, testModule := range spec.TestModules {
+					testModules = append(testModules, &webhooknotify.OpenAPIWorkflowTestModule{
+						Name:    testModule.Name,
+						KeyVals: testModule.KeyVals,
+						Repos:   convertReposToOpenAPIWorkflowRepository(testModule.Repos),
+					})
+				}
+
+				serviceAndTests := []*webhooknotify.OpenAPIWorkflowServiceAndTest{}
+				for _, serviceAndTest := range spec.ServiceAndTests {
+					serviceAndTests = append(serviceAndTests, &webhooknotify.OpenAPIWorkflowServiceAndTest{
+						ServiceName:   serviceAndTest.ServiceName,
+						ServiceModule: serviceAndTest.ServiceModule,
+						OpenAPIWorkflowTestModule: &webhooknotify.OpenAPIWorkflowTestModule{
+							Name:    serviceAndTest.Name,
+							KeyVals: serviceAndTest.KeyVals,
+							Repos:   convertReposToOpenAPIWorkflowRepository(serviceAndTest.Repos),
+						},
+					})
+				}
+
+				hookSpec = &webhooknotify.OpenAPIWorkflowTestingJobSpec{
+					TestType:        spec.TestType,
+					Source:          spec.Source,
+					JobName:         spec.JobName,
+					RefRepos:        spec.RefRepos,
+					TestModules:     testModules,
+					ServiceAndTests: serviceAndTests,
+				}
+			case config.JobZadigScanning:
+				spec := new(commonmodels.ZadigScanningJobSpec)
+				err := models.IToi(job.Spec, spec)
+				if err != nil {
+					fmtErr := fmt.Errorf("failed convert job spec to scanning job spec, job: %+v, err: %v", job, err)
+					log.Error(fmtErr)
+					return nil, fmtErr
+				}
+
+				scannings := []*webhooknotify.OpenAPIWorkflowScanningModule{}
+				for _, scanning := range spec.Scannings {
+					scannings = append(scannings, &webhooknotify.OpenAPIWorkflowScanningModule{
+						Name:    scanning.Name,
+						Repos:   convertReposToOpenAPIWorkflowRepository(scanning.Repos),
+						KeyVals: scanning.KeyVals,
+					})
+				}
+
+				serviceAndScannings := []*webhooknotify.OpenAPIWorkflowServiceAndScannings{}
+				for _, serviceAndScanning := range spec.ServiceAndScannings {
+					serviceAndScannings = append(serviceAndScannings, &webhooknotify.OpenAPIWorkflowServiceAndScannings{
+						ServiceName:   serviceAndScanning.ServiceName,
+						ServiceModule: serviceAndScanning.ServiceModule,
+						OpenAPIWorkflowScanningModule: &webhooknotify.OpenAPIWorkflowScanningModule{
+							Name:    serviceAndScanning.Name,
+							Repos:   convertReposToOpenAPIWorkflowRepository(serviceAndScanning.Repos),
+							KeyVals: serviceAndScanning.KeyVals,
+						},
+					})
+				}
+
+				hookSpec = &webhooknotify.OpenAPIWorkflowScanningJobSpec{
+					ScanningType:        spec.ScanningType,
+					Source:              spec.Source,
+					JobName:             spec.JobName,
+					RefRepos:            spec.RefRepos,
+					Scannings:           scannings,
+					ServiceAndScannings: serviceAndScannings,
+				}
+			case config.JobSQL:
+				spec := new(commonmodels.SQLJobSpec)
+				err := models.IToi(job.Spec, spec)
+				if err != nil {
+					fmtErr := fmt.Errorf("failed convert job spec to sql job spec, job: %+v, err: %v", job, err)
+					log.Error(fmtErr)
+					return nil, fmtErr
+				}
+
+				hookSpec = &webhooknotify.OpenAPIWorkflowSQLJobSpec{
+					ID:     spec.ID,
+					Type:   spec.Type,
+					SQL:    spec.SQL,
+					Source: spec.Source,
+				}
+			case config.JobApollo:
+				spec := new(commonmodels.ApolloJobSpec)
+				err := models.IToi(job.Spec, spec)
+				if err != nil {
+					fmtErr := fmt.Errorf("failed convert job spec to apollo job spec, job: %+v, err: %v", job, err)
+					log.Error(fmtErr)
+					return nil, fmtErr
+				}
+
+				namespaceList := []*webhooknotify.OpenAPIWorkflowApolloNamespace{}
+				for _, namespace := range spec.NamespaceList {
+					keyValList := []*webhooknotify.OpenAPIWorkflowApolloKV{}
+					for _, kv := range namespace.KeyValList {
+						keyValList = append(keyValList, &webhooknotify.OpenAPIWorkflowApolloKV{
+							Key: kv.Key,
+							Val: kv.Val,
+						})
+					}
+
+					originalConfig := []*webhooknotify.OpenAPIWorkflowApolloKV{}
+					for _, kv := range namespace.OriginalConfig {
+						originalConfig = append(originalConfig, &webhooknotify.OpenAPIWorkflowApolloKV{
+							Key: kv.Key,
+							Val: kv.Val,
+						})
+					}
+
+					namespaceList = append(namespaceList, &webhooknotify.OpenAPIWorkflowApolloNamespace{
+						AppID:          namespace.AppID,
+						ClusterID:      namespace.ClusterID,
+						Env:            namespace.Env,
+						Namespace:      namespace.Namespace,
+						Type:           namespace.Type,
+						OriginalConfig: originalConfig,
+						KeyValList:     keyValList,
+					})
+				}
+
+				hookSpec = &webhooknotify.OpenAPIWorkflowApolloJobSpec{
+					ApolloID:      spec.ApolloID,
+					NamespaceList: namespaceList,
+				}
+			case config.JobNacos:
+				spec := new(commonmodels.NacosJobSpec)
+				err := models.IToi(job.Spec, spec)
+				if err != nil {
+					fmtErr := fmt.Errorf("failed convert job spec to nacos job spec, job: %+v, err: %v", job, err)
+					log.Error(fmtErr)
+					return nil, fmtErr
+				}
+
+				hookSpec = &webhooknotify.OpenAPIWorkflowNacosJobSpec{
+					NacosID:     spec.NacosID,
+					NamespaceID: spec.NamespaceID,
+					Source:      spec.Source,
+					NacosDatas:  spec.NacosDatas,
+				}
+			case config.JobZadigDistributeImage:
+				spec := new(commonmodels.ZadigDistributeImageJobSpec)
+				err := models.IToi(job.Spec, spec)
+				if err != nil {
+					fmtErr := fmt.Errorf("failed convert job spec to distribute image job spec, job: %+v, err: %v", job, err)
+					log.Error(fmtErr)
+					return nil, fmtErr
+				}
+
+				targets := []*webhooknotify.OpenAPIWorkflowDistributeTarget{}
+				for _, target := range spec.Targets {
+					targets = append(targets, &webhooknotify.OpenAPIWorkflowDistributeTarget{
+						ServiceName:   target.ServiceName,
+						ServiceModule: target.ServiceModule,
+						SourceTag:     target.SourceTag,
+						TargetTag:     target.TargetTag,
+						ImageName:     target.ImageName,
+						SourceImage:   target.SourceImage,
+						TargetImage:   target.TargetImage,
+						UpdateTag:     target.UpdateTag,
+					})
+				}
+
+				hookSpec = &webhooknotify.OpenAPIWorkflowDistributeImageJobSpec{
+					Source:                   spec.Source,
+					JobName:                  spec.JobName,
+					DistributeMethod:         spec.DistributeMethod,
+					Targets:                  targets,
+					EnableTargetImageTagRule: spec.EnableTargetImageTagRule,
+					TargetImageTagRule:       spec.TargetImageTagRule,
+				}
+			}
+
+			hookStage.Jobs = append(hookStage.Jobs, &webhooknotify.OpenAPIWorkflowJob{
+				Name:      job.Name,
+				JobType:   job.JobType,
+				Spec:      hookSpec,
+				RunPolicy: job.RunPolicy,
+			})
+		}
+
+		hookStages = append(hookStages, hookStage)
+	}
+
+	return &webhooknotify.OpenAPIWorkflowV4{
+		Name:                 workflow.Name,
+		DisplayName:          workflow.DisplayName,
+		Disabled:             workflow.Disabled,
+		Params:               params,
+		Stages:               hookStages,
+		Project:              workflow.Project,
+		Description:          workflow.Description,
+		CreatedBy:            workflow.CreatedBy,
+		CreateTime:           workflow.CreateTime,
+		UpdatedBy:            workflow.UpdatedBy,
+		UpdateTime:           workflow.UpdateTime,
+		Remark:               workflow.Remark,
+		EnableApprovalTicket: workflow.EnableApprovalTicket,
+		ApprovalTicketID:     workflow.ApprovalTicketID,
+	}, nil
+}
+
+func convertReposToOpenAPIWorkflowRepository(repos []*types.Repository) []*webhooknotify.OpenAPIWorkflowRepository {
+	hookRepos := []*webhooknotify.OpenAPIWorkflowRepository{}
+	for _, repo := range repos {
+		hookRepos = append(hookRepos, convertRepoToOpenAPIWorkflowRepository(repo))
+	}
+
+	return hookRepos
+}
+
+func convertRepoToOpenAPIWorkflowRepository(repo *types.Repository) *webhooknotify.OpenAPIWorkflowRepository {
+	if repo == nil {
+		return nil
+	}
+
+	hookRepo := &webhooknotify.OpenAPIWorkflowRepository{
+		Source:        repo.Source,
+		RepoOwner:     repo.RepoOwner,
+		RepoNamespace: repo.RepoNamespace,
+		RepoName:      repo.RepoName,
+		RemoteName:    repo.RemoteName,
+		Branch:        repo.Branch,
+		PRs:           repo.PRs,
+		Tag:           repo.Tag,
+		CommitID:      repo.CommitID,
+		CommitMessage: repo.CommitMessage,
+		CheckoutPath:  repo.CheckoutPath,
+		CodehostID:    repo.CodehostID,
+		Address:       repo.Address,
+	}
+
+	return hookRepo
+}
+
+func waitForExternalCheck(plan *models.ReleasePlan, systemHookSetting *commonmodels.ReleasePlanHookSettings) (*config.ReleasePlanStatus, bool) {
+	if plan.HookSettings == nil {
+		return nil, false
+	}
+
+	hookSetting := plan.HookSettings
+	shouldWait := false
+	if !hookSetting.Enable {
+		return nil, shouldWait
+	}
+
+	nextStatus := plan.Status
+	hookEventStatusMap := map[config.ReleasePlanStatus]bool{}
+	for _, event := range hookSetting.HookEvents {
+		switch event {
+		case models.ReleasePlanHookEventSubmitApproval:
+			hookEventStatusMap[config.ReleasePlanStatusWaitForApprove] = true
+
+			if plan.Status == config.ReleasePlanStatusWaitForApprove {
+				nextStatus = config.ReleasePlanStatusWaitForApproveExternalCheck
+			}
+		case models.ReleasePlanHookEventStartExecute:
+			hookEventStatusMap[config.ReleasePlanStatusExecuting] = true
+
+			if plan.Status == config.ReleasePlanStatusExecuting {
+				nextStatus = config.ReleasePlanStatusWaitForExecuteExternalCheck
+			}
+		case models.ReleasePlanHookEventAllJobDone:
+			hookEventStatusMap[config.ReleasePlanStatusSuccess] = true
+
+			if plan.Status == config.ReleasePlanStatusSuccess {
+				nextStatus = config.ReleasePlanStatusWaitForAllDoneExternalCheck
+			}
+		default:
+			log.Errorf("release plan hook event is not correct, event: %s", event)
+		}
+	}
+
+	if hookEventStatusMap[plan.Status] {
+		if hookSetting.EnableCallBack {
+			shouldWait = true
+		}
+	}
+
+	return &nextStatus, shouldWait
 }
