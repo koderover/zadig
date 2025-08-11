@@ -633,22 +633,36 @@ const (
 type ReleasePlanStatus string
 
 const (
-	StatusPlanning         ReleasePlanStatus = "planning"
-	StatusWaitForApprove   ReleasePlanStatus = "wait_for_approval"
-	StatusExecuting        ReleasePlanStatus = "executing"
-	StatusApprovalDenied   ReleasePlanStatus = "denied"
-	StatusTimeoutForWindow ReleasePlanStatus = "timeout"
-	StatusSuccess          ReleasePlanStatus = "success"
-	StatusCancel           ReleasePlanStatus = "cancel"
+	ReleasePlanStatusPlanning                    ReleasePlanStatus = "planning"
+	ReleasePlanStatusWaitForApproveExternalCheck ReleasePlanStatus = "wait_for_approval_external_check"
+	ReleasePlanStatusWaitForApprove              ReleasePlanStatus = "wait_for_approval"
+	ReleasePlanStatusWaitForExecuteExternalCheck ReleasePlanStatus = "wait_for_execute_external_check"
+	ReleasePlanStatusExecuting                   ReleasePlanStatus = "executing"
+	ReleasePlanStatusApprovalDenied              ReleasePlanStatus = "denied"
+	ReleasePlanStatusTimeoutForWindow            ReleasePlanStatus = "timeout"
+	ReleasePlanStatusWaitForSuccessExternalCheck ReleasePlanStatus = "wait_for_success_external_check"
+	ReleasePlanStatusSuccess                     ReleasePlanStatus = "success"
+	ReleasePlanStatusFailed                      ReleasePlanStatus = "failed"
+	ReleasePlanStatusCancel                      ReleasePlanStatus = "cancel"
 )
 
 // ReleasePlanStatusMap is a map of status and its available next status
 var ReleasePlanStatusMap = map[ReleasePlanStatus][]ReleasePlanStatus{
-	StatusPlanning:         {StatusWaitForApprove, StatusExecuting},
-	StatusWaitForApprove:   {StatusPlanning, StatusExecuting},
-	StatusExecuting:        {StatusPlanning, StatusSuccess, StatusCancel},
-	StatusTimeoutForWindow: {StatusPlanning},
-	StatusApprovalDenied:   {StatusPlanning},
+	ReleasePlanStatusPlanning:                    {ReleasePlanStatusWaitForApprove, ReleasePlanStatusExecuting, ReleasePlanStatusWaitForApproveExternalCheck, ReleasePlanStatusWaitForExecuteExternalCheck, ReleasePlanStatusWaitForSuccessExternalCheck},
+	ReleasePlanStatusWaitForApprove:              {ReleasePlanStatusPlanning, ReleasePlanStatusExecuting, ReleasePlanStatusWaitForSuccessExternalCheck},
+	ReleasePlanStatusExecuting:                   {ReleasePlanStatusPlanning, ReleasePlanStatusSuccess, ReleasePlanStatusCancel, ReleasePlanStatusWaitForExecuteExternalCheck},
+	ReleasePlanStatusTimeoutForWindow:            {ReleasePlanStatusPlanning},
+	ReleasePlanStatusApprovalDenied:              {ReleasePlanStatusPlanning},
+	ReleasePlanStatusWaitForApproveExternalCheck: {ReleasePlanStatusWaitForApprove, ReleasePlanStatusFailed},
+	ReleasePlanStatusWaitForExecuteExternalCheck: {ReleasePlanStatusExecuting, ReleasePlanStatusFailed},
+	ReleasePlanStatusWaitForSuccessExternalCheck: {ReleasePlanStatusSuccess, ReleasePlanStatusFailed},
+	ReleasePlanStatusFailed:                      {ReleasePlanStatusPlanning},
+}
+
+var ReleasePlanExternalCheckNextStatusMap = map[ReleasePlanStatus]ReleasePlanStatus{
+	ReleasePlanStatusWaitForApproveExternalCheck: ReleasePlanStatusWaitForApprove,
+	ReleasePlanStatusWaitForExecuteExternalCheck: ReleasePlanStatusExecuting,
+	ReleasePlanStatusWaitForSuccessExternalCheck: ReleasePlanStatusSuccess,
 }
 
 type ReleasePlanJobType string

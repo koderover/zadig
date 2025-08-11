@@ -29,6 +29,7 @@ type ReleasePlan struct {
 	Manager string             `bson:"manager"       yaml:"manager"                   json:"manager"`
 	// ManagerID is the user id of the manager
 	ManagerID             string                            `bson:"manager_id"       yaml:"manager_id"                   json:"manager_id"`
+	ApproverID            string                            `bson:"approver_id"      yaml:"approver_id"                  json:"approver_id"`
 	StartTime             int64                             `bson:"start_time"       yaml:"start_time"                   json:"start_time"`
 	EndTime               int64                             `bson:"end_time"       yaml:"end_time"                   json:"end_time"`
 	ScheduleExecuteTime   int64                             `bson:"schedule_execute_time"       yaml:"schedule_execute_time"                   json:"schedule_execute_time"`
@@ -47,8 +48,12 @@ type ReleasePlan struct {
 
 	PlanningTime  int64 `bson:"planning_time"       yaml:"planning_time"                   json:"planning_time"`
 	ApprovalTime  int64 `bson:"approval_time"       yaml:"approval_time"                   json:"approval_time"`
-	ExecutingTime int64 `bson:"executing_time"       yaml:"executing_time"                   json:"executing_time"`
-	SuccessTime   int64 `bson:"success_time"       yaml:"success_time"                   json:"success_time"`
+	ExecutingTime int64 `bson:"executing_time"      yaml:"executing_time"                  json:"executing_time"`
+	SuccessTime   int64 `bson:"success_time"        yaml:"success_time"                    json:"success_time"`
+
+	WaitForApproveExternalCheckTime int64 `bson:"wait_for_approve_external_check_time"       yaml:"wait_for_approve_external_check_time"                   json:"wait_for_approve_external_check_time"`
+	WaitForExecuteExternalCheckTime int64 `bson:"wait_for_execute_external_check_time"       yaml:"wait_for_execute_external_check_time"                   json:"wait_for_execute_external_check_time"`
+	WaitForSuccessExternalCheckTime int64 `bson:"wait_for_success_external_check_time"       yaml:"wait_for_success_external_check_time"                   json:"wait_for_success_external_check_time"`
 }
 
 type ReleasePlanJiraSprintAssociation struct {

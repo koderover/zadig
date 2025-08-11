@@ -341,3 +341,92 @@ func ListReleasePlans(c *gin.Context) {
 
 	ctx.Resp, ctx.RespErr = service.ListReleasePlans(opt)
 }
+
+// @Summary Get Release Plan Hook Setting
+// @Description Get Release Plan Hook Setting
+// @Tags 	releasePlan
+// @Accept 	json
+// @Produce json
+// @Success 200 {object} service.GetReleasePlanHookSettingResp
+// @Router /api/aslan/release_plan/v1/hook/setting [get]
+func GetReleasePlanHookSetting(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	err = commonutil.CheckZadigEnterpriseLicense()
+	if err != nil {
+		ctx.RespErr = err
+		return
+	}
+
+	ctx.Resp, ctx.RespErr = service.GetReleasePlanHookSetting(ctx)
+}
+
+// @Summary Update Release Plan Hook Setting
+// @Description Update Release Plan Hook Setting
+// @Tags 	releasePlan
+// @Accept 	json
+// @Produce json
+// @Param 	body 	body		models.ReleasePlanHookSettings 	        true	"release plan hook setting"
+// @Success 200
+// @Router /api/aslan/release_plan/v1/hook/setting [put]
+func UpdateReleasePlanHookSetting(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	err = commonutil.CheckZadigEnterpriseLicense()
+	if err != nil {
+		ctx.RespErr = err
+		return
+	}
+
+	req := new(models.ReleasePlanHookSettings)
+	if err := c.ShouldBindJSON(req); err != nil {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
+		return
+	}
+
+	ctx.RespErr = service.UpdateReleasePlanHookSetting(ctx, req)
+}
+
+// @Summary Release Plan Hook Callback
+// @Description Release Plan Hook Callback
+// @Tags 	releasePlan
+// @Accept 	json
+// @Produce json
+// @Param 	body 	body		service.ReleasePlanCallBackBody 	        true	"release plan hook callback"
+// @Success 200
+// @Router /api/aslan/release_plan/v1/hook/callback [post]
+func ReleasePlanHookCallback(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	err = commonutil.CheckZadigEnterpriseLicense()
+	if err != nil {
+		ctx.RespErr = err
+		return
+	}
+
+	req := new(service.ReleasePlanCallBackBody)
+	if err := c.ShouldBindJSON(req); err != nil {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
+		return
+	}
+
+	ctx.RespErr = service.ReleasePlanHookCallback(ctx, req)
+}
