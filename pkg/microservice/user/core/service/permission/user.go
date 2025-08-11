@@ -73,13 +73,15 @@ type OpenAPIQueryArgs struct {
 }
 
 type QueryArgs struct {
-	Name         string   `json:"name,omitempty"`
-	Account      string   `json:"account,omitempty" form:"account"`
-	IdentityType string   `json:"identity_type,omitempty"`
-	UIDs         []string `json:"uids,omitempty"`
-	PerPage      int      `json:"per_page,omitempty" form:"perPage"`
-	Page         int      `json:"page,omitempty"  form:"page"`
-	Roles        []string `json:"roles,omitempty" form:"roles"`
+	Name         string                  `json:"name,omitempty"`
+	Account      string                  `json:"account,omitempty" form:"account"`
+	IdentityType string                  `json:"identity_type,omitempty"`
+	UIDs         []string                `json:"uids,omitempty"`
+	PerPage      int                     `json:"per_page,omitempty" form:"perPage"`
+	Page         int                     `json:"page,omitempty"  form:"page"`
+	Roles        []string                `json:"roles,omitempty" form:"roles"`
+	OrderBy      setting.ListUserOrderBy `json:"order_by,omitempty" form:"order_by"`
+	Order        setting.ListUserOrder   `json:"order,omitempty" form:"order"`
 }
 
 type Password struct {
@@ -354,7 +356,11 @@ func SearchUsers(args *QueryArgs, logger *zap.SugaredLogger) (*types.UsersResp, 
 
 	var users []models.User
 	if len(args.Roles) == 0 {
-		users, err = orm.ListUsers(args.Page, args.PerPage, args.Name, repository.DB)
+		if args.OrderBy == setting.ListUserOrderByLoginTime {
+			users, err = orm.ListUsersByLoginTime(args.Page, args.PerPage, args.Name, args.Order, repository.DB)
+		} else {
+			users, err = orm.ListUsers(args.Page, args.PerPage, args.Name, repository.DB)
+		}
 		if err != nil {
 			logger.Errorf("SeachUsers SeachUsers By name:%s error, error msg:%s", args.Name, err.Error())
 			return nil, err
@@ -371,12 +377,28 @@ func SearchUsers(args *QueryArgs, logger *zap.SugaredLogger) (*types.UsersResp, 
 	for _, user := range users {
 		uids = append(uids, user.UID)
 	}
-	userLogins, err := orm.ListUserLogins(uids, repository.DB)
-	if err != nil {
-		logger.Errorf("SeachUsers ListUserLogins By uids:%s error, error msg:%s", uids, err.Error())
-		return nil, err
+
+	var usersInfo []*types.UserInfo
+	if args.OrderBy == setting.ListUserOrderByLoginTime {
+		for _, user := range users {
+			usersInfo = append(usersInfo, &types.UserInfo{
+				LastLoginTime: user.LastLoginTime,
+				Uid:           user.UID,
+				Phone:         user.Phone,
+				Name:          user.Name,
+				Email:         user.Email,
+				IdentityType:  user.IdentityType,
+				Account:       user.Account,
+			})
+		}
+	} else {
+		userLogins, err := orm.ListUserLogins(uids, repository.DB)
+		if err != nil {
+			logger.Errorf("SeachUsers ListUserLogins By uids:%s error, error msg:%s", uids, err.Error())
+			return nil, err
+		}
+		usersInfo = mergeUserLogin(users, *userLogins, logger)
 	}
-	usersInfo := mergeUserLogin(users, *userLogins, logger)
 
 	for _, uInfo := range usersInfo {
 		roles, err := ListRolesByNamespaceAndUserID("*", uInfo.Uid, logger)

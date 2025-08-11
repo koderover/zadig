@@ -987,3 +987,16 @@ const (
 	DeliveryVersionSourceFromEnv     DeliveryVersionSource = "from_env"
 	DeliveryVersionSourceFromVersion DeliveryVersionSource = "from_version"
 )
+
+type ListUserOrderBy string
+
+const (
+	ListUserOrderByLoginTime ListUserOrderBy = "last_login_time"
+)
+
+type ListUserOrder string
+
+const (
+	ListUserOrderAsc  ListUserOrder = "ASC"
+	ListUserOrderDesc ListUserOrder = "DESC"
+)
