@@ -105,7 +105,7 @@ func (j MeegoTransitionJobController) ClearSelection() {
 func (j MeegoTransitionJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, error) {
 	resp := make([]*commonmodels.JobTask, 0)
 
-	meegoInfo, err := commonrepo.NewProjectManagementColl().GetMeegoByID(j.jobSpec.MeegoID)
+	spec, err := commonrepo.NewProjectManagementColl().GetMeegoSpec(j.jobSpec.MeegoID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find meego integration info")
 	}
@@ -119,8 +119,8 @@ func (j MeegoTransitionJobController) ToTask(taskID int64) ([]*commonmodels.JobT
 		},
 		JobType: string(config.JobMeegoTransition),
 		Spec: &commonmodels.MeegoTransitionSpec{
-			MeegoID:         meegoInfo.ID.Hex(),
-			Link:            meegoInfo.MeegoHost,
+			MeegoID:         j.jobSpec.MeegoID,
+			Link:            spec.MeegoHost,
 			Source:          j.jobSpec.Source,
 			ProjectKey:      j.jobSpec.ProjectKey,
 			ProjectName:     j.jobSpec.ProjectName,

@@ -61,7 +61,15 @@ func (c *MeegoTransitionJobCtl) Run(ctx context.Context) {
 		c.job.Status = config.StatusFailed
 		return
 	}
-	client, err := meego.NewClient(meegoInfo.MeegoHost, meegoInfo.MeegoPluginID, meegoInfo.MeegoPluginSecret, meegoInfo.MeegoUserKey)
+
+	spec := &commonmodels.ProjectManagementMeegoSpec{}
+	err = commonmodels.IToi(meegoInfo.Spec, spec)
+	if err != nil {
+		logError(c.job, fmt.Sprintf("failed to convert job spec to meego spec: %v", err), c.logger)
+		return
+	}
+
+	client, err := meego.NewClient(spec.MeegoHost, spec.MeegoPluginID, spec.MeegoPluginSecret, spec.MeegoUserKey)
 	if err != nil {
 		logError(c.job, err.Error(), c.logger)
 		c.job.Status = config.StatusFailed

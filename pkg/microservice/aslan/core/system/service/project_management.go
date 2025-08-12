@@ -24,7 +24,6 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/samber/lo"
-	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 
 	config2 "github.com/koderover/zadig/v2/pkg/config"
@@ -40,6 +39,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/tool/meego"
 	"github.com/koderover/zadig/v2/pkg/tool/pingcode"
+	"github.com/koderover/zadig/v2/pkg/tool/tapd"
 )
 
 func ListProjectManagement(log *zap.SugaredLogger) ([]*models.ProjectManagement, error) {
@@ -96,7 +96,13 @@ func DeleteProjectManagement(idHex string, log *zap.SugaredLogger) error {
 }
 
 func ValidateJira(info *models.ProjectManagement) error {
-	_, err := jira.NewJiraClientWithAuthType(info.JiraHost, info.JiraUser, info.JiraToken, info.JiraPersonalAccessToken, info.JiraAuthType).Project.ListProjects()
+	spec := &models.ProjectManagementJiraSpec{}
+	err := models.IToi(info.Spec, spec)
+	if err != nil {
+		return e.ErrValidateProjectManagement.AddDesc(fmt.Sprintf("failed to convert jira spec, err: %v", err))
+	}
+
+	_, err = jira.NewJiraClientWithAuthType(spec.JiraHost, spec.JiraUser, spec.JiraToken, spec.JiraPersonalAccessToken, spec.JiraAuthType).Project.ListProjects()
 	if err != nil {
 		log.Errorf("Validate jira error: %v", err)
 		return e.ErrValidateProjectManagement.AddDesc("failed to validate jira")
@@ -105,17 +111,23 @@ func ValidateJira(info *models.ProjectManagement) error {
 }
 
 func ValidateMeego(info *models.ProjectManagement) error {
-	token, _, err := meego.GetPluginToken(info.MeegoHost, info.MeegoPluginID, info.MeegoPluginSecret)
+	spec := &models.ProjectManagementMeegoSpec{}
+	err := models.IToi(info.Spec, spec)
+	if err != nil {
+		return e.ErrValidateProjectManagement.AddDesc(fmt.Sprintf("failed to convert meego spec, err: %v", err))
+	}
+
+	token, _, err := meego.GetPluginToken(spec.MeegoHost, spec.MeegoPluginID, spec.MeegoPluginSecret)
 	if err != nil {
 		log.Errorf("Failed to create meego client, error: %s", err)
 		return e.ErrValidateProjectManagement.AddDesc("failed to validate meego")
 	}
 	client := meego.Client{
-		Host:         info.MeegoHost,
-		PluginID:     info.MeegoPluginID,
-		PluginSecret: info.MeegoPluginSecret,
+		Host:         spec.MeegoHost,
+		PluginID:     spec.MeegoPluginID,
+		PluginSecret: spec.MeegoPluginSecret,
 		PluginToken:  token,
-		UserKey:      info.MeegoUserKey,
+		UserKey:      spec.MeegoUserKey,
 	}
 	_, err = client.GetProjectList()
 	if err != nil {
@@ -125,9 +137,37 @@ func ValidateMeego(info *models.ProjectManagement) error {
 }
 
 func ValidatePingCode(info *models.ProjectManagement) error {
-	client, err := pingcode.NewClient(info.PingCodeAddress, info.PingCodeClientID, info.PingCodeClientSecret)
+	spec := &models.ProjectManagementPingCodeSpec{}
+	err := models.IToi(info.Spec, spec)
+	if err != nil {
+		return e.ErrValidateProjectManagement.AddDesc(fmt.Sprintf("failed to convert pingcode spec, err: %v", err))
+	}
+
+	client, err := pingcode.NewClient(spec.PingCodeAddress, spec.PingCodeClientID, spec.PingCodeClientSecret)
 	if err != nil {
 		fmtErr := fmt.Sprintf("failed to new pingcode client, err: %v", err)
+		log.Errorf(fmtErr)
+		return e.ErrValidateProjectManagement.AddDesc(fmtErr)
+	}
+	_, err = client.ListProjects()
+	if err != nil {
+		fmtErr := fmt.Sprintf("failed to list projects, err: %v", err)
+		log.Errorf(fmtErr)
+		return e.ErrValidateProjectManagement.AddDesc(fmtErr)
+	}
+	return nil
+}
+
+func ValidateTapd(info *models.ProjectManagement) error {
+	spec := &models.ProjectManagementTapdSpec{}
+	err := models.IToi(info.Spec, spec)
+	if err != nil {
+		return e.ErrValidateProjectManagement.AddDesc(fmt.Sprintf("failed to convert tapd spec, err: %v", err))
+	}
+
+	client, err := tapd.NewClient(spec.TapdAddress, spec.TapdClientID, spec.TapdClientSecret, spec.TapdCompanyID)
+	if err != nil {
+		fmtErr := fmt.Sprintf("failed to new tapd client, err: %v", err)
 		log.Errorf(fmtErr)
 		return e.ErrValidateProjectManagement.AddDesc(fmtErr)
 	}
@@ -146,15 +186,12 @@ type JiraProjectResp struct {
 }
 
 func ListJiraProjects(id string) ([]JiraProjectResp, error) {
-	info, err := mongodb.NewProjectManagementColl().GetJiraByID(id)
+	spec, err := mongodb.NewProjectManagementColl().GetJiraSpec(id)
 	if err != nil {
-		if err == mongo.ErrNoDocuments {
-			return nil, nil
-		}
 		return nil, err
 	}
 
-	list, err := jira.NewJiraClientWithAuthType(info.JiraHost, info.JiraUser, info.JiraToken, info.JiraPersonalAccessToken, info.JiraAuthType).Project.ListProjects()
+	list, err := jira.NewJiraClientWithAuthType(spec.JiraHost, spec.JiraUser, spec.JiraToken, spec.JiraPersonalAccessToken, spec.JiraAuthType).Project.ListProjects()
 	if err != nil {
 		return nil, err
 	}
@@ -176,15 +213,12 @@ type JiraBoardResp struct {
 }
 
 func ListJiraBoards(id, projectKey string) ([]JiraBoardResp, error) {
-	info, err := mongodb.NewProjectManagementColl().GetJiraByID(id)
+	spec, err := mongodb.NewProjectManagementColl().GetJiraSpec(id)
 	if err != nil {
-		if err == mongo.ErrNoDocuments {
-			return nil, nil
-		}
 		return nil, err
 	}
 
-	boards, err := jira.NewJiraClientWithAuthType(info.JiraHost, info.JiraUser, info.JiraToken, info.JiraPersonalAccessToken, info.JiraAuthType).Board.ListBoards(projectKey, "scrum")
+	boards, err := jira.NewJiraClientWithAuthType(spec.JiraHost, spec.JiraUser, spec.JiraToken, spec.JiraPersonalAccessToken, spec.JiraAuthType).Board.ListBoards(projectKey, "scrum")
 	if err != nil {
 		return nil, err
 	}
@@ -211,15 +245,12 @@ type JiraSprintResp struct {
 }
 
 func ListJiraSprints(id string, boardID int) ([]JiraSprintResp, error) {
-	info, err := mongodb.NewProjectManagementColl().GetJiraByID(id)
+	spec, err := mongodb.NewProjectManagementColl().GetJiraSpec(id)
 	if err != nil {
-		if err == mongo.ErrNoDocuments {
-			return nil, nil
-		}
 		return nil, err
 	}
 
-	sprints, err := jira.NewJiraClientWithAuthType(info.JiraHost, info.JiraUser, info.JiraToken, info.JiraPersonalAccessToken, info.JiraAuthType).Sprint.ListSprints(boardID, "")
+	sprints, err := jira.NewJiraClientWithAuthType(spec.JiraHost, spec.JiraUser, spec.JiraToken, spec.JiraPersonalAccessToken, spec.JiraAuthType).Sprint.ListSprints(boardID, "")
 	if err != nil {
 		return nil, err
 	}
@@ -240,15 +271,12 @@ func ListJiraSprints(id string, boardID int) ([]JiraSprintResp, error) {
 }
 
 func GetJiraSprint(id string, sprintID int) (*JiraSprintResp, error) {
-	info, err := mongodb.NewProjectManagementColl().GetJiraByID(id)
+	spec, err := mongodb.NewProjectManagementColl().GetJiraSpec(id)
 	if err != nil {
-		if err == mongo.ErrNoDocuments {
-			return nil, nil
-		}
 		return nil, err
 	}
 
-	sprint, err := jira.NewJiraClientWithAuthType(info.JiraHost, info.JiraUser, info.JiraToken, info.JiraPersonalAccessToken, info.JiraAuthType).Sprint.GetSrpint(sprintID)
+	sprint, err := jira.NewJiraClientWithAuthType(spec.JiraHost, spec.JiraUser, spec.JiraToken, spec.JiraPersonalAccessToken, spec.JiraAuthType).Sprint.GetSrpint(sprintID)
 	if err != nil {
 		return nil, err
 	}
@@ -276,15 +304,12 @@ type JiraSprintIssuesResp struct {
 }
 
 func ListJiraSprintIssues(id string, sprintID int) (*JiraSprintIssuesResp, error) {
-	info, err := mongodb.NewProjectManagementColl().GetJiraByID(id)
+	spec, err := mongodb.NewProjectManagementColl().GetJiraSpec(id)
 	if err != nil {
-		if err == mongo.ErrNoDocuments {
-			return nil, nil
-		}
 		return nil, err
 	}
 
-	sprintSerivce := jira.NewJiraClientWithAuthType(info.JiraHost, info.JiraUser, info.JiraToken, info.JiraPersonalAccessToken, info.JiraAuthType).Sprint
+	sprintSerivce := jira.NewJiraClientWithAuthType(spec.JiraHost, spec.JiraUser, spec.JiraToken, spec.JiraPersonalAccessToken, spec.JiraAuthType).Sprint
 
 	resp := &JiraSprintIssuesResp{}
 	sprint, err := sprintSerivce.GetSrpint(sprintID)
@@ -326,46 +351,38 @@ func ListJiraSprintIssues(id string, sprintID int) (*JiraSprintIssuesResp, error
 }
 
 func GetJiraTypes(id, project string) ([]*jira.IssueTypeWithStatus, error) {
-	info, err := mongodb.NewProjectManagementColl().GetJiraByID(id)
+	spec, err := mongodb.NewProjectManagementColl().GetJiraSpec(id)
 	if err != nil {
-		if err == mongo.ErrNoDocuments {
-			return nil, nil
-		}
 		return nil, err
 	}
-	return jira.NewJiraClientWithAuthType(info.JiraHost, info.JiraUser, info.JiraToken, info.JiraPersonalAccessToken, info.JiraAuthType).Issue.GetTypes(project)
+
+	return jira.NewJiraClientWithAuthType(spec.JiraHost, spec.JiraUser, spec.JiraToken, spec.JiraPersonalAccessToken, spec.JiraAuthType).Issue.GetTypes(project)
 }
 
 func GetJiraProjectStatus(id, project string) ([]string, error) {
-	info, err := mongodb.NewProjectManagementColl().GetJiraByID(id)
+	spec, err := mongodb.NewProjectManagementColl().GetJiraSpec(id)
 	if err != nil {
-		if err == mongo.ErrNoDocuments {
-			return nil, nil
-		}
 		return nil, err
 	}
-	return jira.NewJiraClientWithAuthType(info.JiraHost, info.JiraUser, info.JiraToken, info.JiraPersonalAccessToken, info.JiraAuthType).Project.ListProjectStatues(project)
+
+	return jira.NewJiraClientWithAuthType(spec.JiraHost, spec.JiraUser, spec.JiraToken, spec.JiraPersonalAccessToken, spec.JiraAuthType).Project.ListProjectStatues(project)
 }
 
 func GetJiraAllStatus(id string) ([]*jira.Status, error) {
-	info, err := mongodb.NewProjectManagementColl().GetJiraByID(id)
+	spec, err := mongodb.NewProjectManagementColl().GetJiraSpec(id)
 	if err != nil {
-		if err == mongo.ErrNoDocuments {
-			return nil, nil
-		}
 		return nil, err
 	}
-	return jira.NewJiraClientWithAuthType(info.JiraHost, info.JiraUser, info.JiraToken, info.JiraPersonalAccessToken, info.JiraAuthType).Platform.ListAllStatues()
+
+	return jira.NewJiraClientWithAuthType(spec.JiraHost, spec.JiraUser, spec.JiraToken, spec.JiraPersonalAccessToken, spec.JiraAuthType).Platform.ListAllStatues()
 }
 
 func SearchJiraIssues(id, project, _type, status, summary string, ne bool) ([]*jira.Issue, error) {
-	info, err := mongodb.NewProjectManagementColl().GetJiraByID(id)
+	spec, err := mongodb.NewProjectManagementColl().GetJiraSpec(id)
 	if err != nil {
-		if err == mongo.ErrNoDocuments {
-			return nil, nil
-		}
 		return nil, err
 	}
+
 	var jql []string
 	if project != "" {
 		jql = append(jql, fmt.Sprintf(`project = "%s"`, project))
@@ -384,22 +401,20 @@ func SearchJiraIssues(id, project, _type, status, summary string, ne bool) ([]*j
 		}
 	}
 	// Search all results only if the summary query exist
-	return jira.NewJiraClientWithAuthType(info.JiraHost, info.JiraUser, info.JiraToken, info.JiraPersonalAccessToken, info.JiraAuthType).Issue.SearchByJQL(strings.Join(jql, " AND "), summary != "")
+	return jira.NewJiraClientWithAuthType(spec.JiraHost, spec.JiraUser, spec.JiraToken, spec.JiraPersonalAccessToken, spec.JiraAuthType).Issue.SearchByJQL(strings.Join(jql, " AND "), summary != "")
 }
 
 func SearchJiraProjectIssuesWithJQL(id, project, jql, summary string) ([]*jira.Issue, error) {
-	info, err := mongodb.NewProjectManagementColl().GetJiraByID(id)
+	spec, err := mongodb.NewProjectManagementColl().GetJiraSpec(id)
 	if err != nil {
-		if err == mongo.ErrNoDocuments {
-			return nil, nil
-		}
 		return nil, err
 	}
+
 	jql = fmt.Sprintf(`project = "%s" AND (%s)`, project, jql)
 	if summary != "" {
 		jql += fmt.Sprintf(` AND summary ~ "%s"`, summary)
 	}
-	return jira.NewJiraClientWithAuthType(info.JiraHost, info.JiraUser, info.JiraToken, info.JiraPersonalAccessToken, info.JiraAuthType).Issue.SearchByJQL(jql, true)
+	return jira.NewJiraClientWithAuthType(spec.JiraHost, spec.JiraUser, spec.JiraToken, spec.JiraPersonalAccessToken, spec.JiraAuthType).Issue.SearchByJQL(jql, true)
 }
 
 func HandleJiraHookEvent(workflowName, hookName string, event *jira.Event, logger *zap.SugaredLogger) error {
@@ -544,12 +559,13 @@ func HandleMeegoHookEvent(workflowName, hookName string, event *meego.GeneralWeb
 		"hook", hookName,
 	).Infof("HandleMeegoHookEvent: create workflow success")
 	go func() {
-		meegoInfo, err := mongodb.NewProjectManagementColl().GetMeegoByID(meegoHook.MeegoID)
+		spec, err := mongodb.NewProjectManagementColl().GetMeegoSpec(meegoHook.MeegoID)
 		if err != nil {
 			log.Errorf("failed to get meego info to create comment, error: %s", err)
 			return
 		}
-		meegoClient, err := meego.NewClient(meegoInfo.MeegoHost, meegoInfo.MeegoPluginID, meegoInfo.MeegoPluginSecret, meegoInfo.MeegoUserKey)
+
+		meegoClient, err := meego.NewClient(spec.MeegoHost, spec.MeegoPluginID, spec.MeegoPluginSecret, spec.MeegoUserKey)
 		if err != nil {
 			log.Errorf("failed to create meego client to create comment, error: %s", err)
 			return
@@ -594,9 +610,9 @@ func HandleMeegoHookEvent(workflowName, hookName string, event *meego.GeneralWeb
 	return nil
 }
 
-func checkType(_type string) error {
+func checkType(_type setting.ProjectManagementType) error {
 	switch _type {
-	case setting.PMJira, setting.PMMeego, setting.PMPingCode:
+	case setting.ProjectManagementTypeJira, setting.ProjectManagementTypeMeego, setting.ProjectManagementTypePingCode, setting.ProjectManagementTypeTapd:
 	default:
 		return errors.New("invalid pm type")
 	}

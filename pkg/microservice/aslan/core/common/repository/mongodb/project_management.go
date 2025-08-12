@@ -118,7 +118,7 @@ func (c *ProjectManagementColl) List() ([]*models.ProjectManagement, error) {
 // Deprecated since 1.19.0
 func (c *ProjectManagementColl) GetJira() (*models.ProjectManagement, error) {
 	jira := &models.ProjectManagement{}
-	query := bson.M{"type": setting.PMJira}
+	query := bson.M{"type": setting.ProjectManagementTypeJira}
 
 	err := c.Collection.FindOne(context.TODO(), query).Decode(jira)
 	if err != nil {
@@ -133,7 +133,7 @@ func (c *ProjectManagementColl) GetJiraByID(idHex string) (*models.ProjectManage
 		return nil, err
 	}
 	jira := &models.ProjectManagement{}
-	query := bson.M{"_id": id, "type": setting.PMJira}
+	query := bson.M{"_id": id, "type": setting.ProjectManagementTypeJira}
 
 	err = c.Collection.FindOne(context.TODO(), query).Decode(jira)
 	if err != nil {
@@ -145,7 +145,7 @@ func (c *ProjectManagementColl) GetJiraByID(idHex string) (*models.ProjectManage
 // Deprecated since 1.19.0
 func (c *ProjectManagementColl) GetMeego() (*models.ProjectManagement, error) {
 	meego := &models.ProjectManagement{}
-	query := bson.M{"type": setting.PMMeego}
+	query := bson.M{"type": setting.ProjectManagementTypeMeego}
 
 	err := c.Collection.FindOne(context.TODO(), query).Decode(meego)
 	if err != nil {
@@ -160,7 +160,7 @@ func (c *ProjectManagementColl) GetMeegoByID(idHex string) (*models.ProjectManag
 		return nil, err
 	}
 	meego := &models.ProjectManagement{}
-	query := bson.M{"_id": id, "type": setting.PMMeego}
+	query := bson.M{"_id": id, "type": setting.ProjectManagementTypeMeego}
 
 	err = c.Collection.FindOne(context.TODO(), query).Decode(meego)
 	if err != nil {
@@ -175,13 +175,28 @@ func (c *ProjectManagementColl) GetPingCodeByID(idHex string) (*models.ProjectMa
 		return nil, err
 	}
 	pingcode := &models.ProjectManagement{}
-	query := bson.M{"_id": id, "type": setting.PMPingCode}
+	query := bson.M{"_id": id, "type": setting.ProjectManagementTypePingCode}
 
 	err = c.Collection.FindOne(context.TODO(), query).Decode(pingcode)
 	if err != nil {
 		return nil, err
 	}
 	return pingcode, nil
+}
+
+func (c *ProjectManagementColl) GetTapdByID(idHex string) (*models.ProjectManagement, error) {
+	id, err := primitive.ObjectIDFromHex(idHex)
+	if err != nil {
+		return nil, err
+	}
+	tapd := &models.ProjectManagement{}
+	query := bson.M{"_id": id, "type": setting.ProjectManagementTypeTapd}
+
+	err = c.Collection.FindOne(context.TODO(), query).Decode(tapd)
+	if err != nil {
+		return nil, err
+	}
+	return tapd, nil
 }
 
 func (c *ProjectManagementColl) GetBySystemIdentity(systemIdentity string) (*models.ProjectManagement, error) {
@@ -191,4 +206,67 @@ func (c *ProjectManagementColl) GetBySystemIdentity(systemIdentity string) (*mod
 		return nil, err
 	}
 	return projectManagement, nil
+}
+
+func (c *ProjectManagementColl) GetJiraSpec(id string) (*models.ProjectManagementJiraSpec, error) {
+	info, err := c.GetJiraByID(id)
+	if err != nil {
+		return nil, err
+	}
+
+	spec := &models.ProjectManagementJiraSpec{}
+	err = models.IToi(info.Spec, spec)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert jira spec, err: %v", err)
+	}
+	return spec, nil
+}
+
+func (c *ProjectManagementColl) GetPingCodeSpec(id string) (*models.ProjectManagementPingCodeSpec, error) {
+	pingcodeInfo, err := c.GetPingCodeByID(id)
+	if err != nil {
+		fmtErr := fmt.Errorf("failed to get pingcode info, err: %s", err)
+		log.Error(fmtErr)
+		return nil, fmtErr
+	}
+
+	spec := &models.ProjectManagementPingCodeSpec{}
+	err = models.IToi(pingcodeInfo.Spec, spec)
+	if err != nil {
+		return nil, err
+	}
+
+	return spec, nil
+}
+
+func (c *ProjectManagementColl) GetMeegoSpec(id string) (*models.ProjectManagementMeegoSpec, error) {
+	meegoInfo, err := c.GetMeegoByID(id)
+	if err != nil {
+		return nil, err
+	}
+
+	spec := &models.ProjectManagementMeegoSpec{}
+	err = models.IToi(meegoInfo.Spec, spec)
+	if err != nil {
+		return nil, err
+	}
+
+	return spec, nil
+}
+
+func (c *ProjectManagementColl) GetTapdSpec(id string) (*models.ProjectManagementTapdSpec, error) {
+	pingcodeInfo, err := c.GetTapdByID(id)
+	if err != nil {
+		fmtErr := fmt.Errorf("failed to get pingcode info, err: %s", err)
+		log.Error(fmtErr)
+		return nil, fmtErr
+	}
+
+	spec := &models.ProjectManagementTapdSpec{}
+	err = models.IToi(pingcodeInfo.Spec, spec)
+	if err != nil {
+		return nil, err
+	}
+
+	return spec, nil
 }

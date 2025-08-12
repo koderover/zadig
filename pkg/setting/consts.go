@@ -812,13 +812,6 @@ const (
 	LarkDepartmentOpenID = "open_department_id"
 )
 
-// Project Management types
-const (
-	PMJira     = "jira"
-	PMMeego    = "meego"
-	PMPingCode = "pingcode"
-)
-
 // Workflow variable source type
 const (
 	VariableSourceRuntime = "runtime"
@@ -999,4 +992,13 @@ type ListUserOrder string
 const (
 	ListUserOrderAsc  ListUserOrder = "ASC"
 	ListUserOrderDesc ListUserOrder = "DESC"
+)
+
+type ProjectManagementType string
+
+const (
+	ProjectManagementTypeJira     ProjectManagementType = "jira"
+	ProjectManagementTypeMeego    ProjectManagementType = "meego"
+	ProjectManagementTypePingCode ProjectManagementType = "pingcode"
+	ProjectManagementTypeTapd     ProjectManagementType = "tapd"
 )

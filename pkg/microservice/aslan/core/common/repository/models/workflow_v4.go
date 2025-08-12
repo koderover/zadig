@@ -1359,6 +1359,16 @@ type PingCodeJobSpec struct {
 	DataFixed        bool                   `bson:"data_fixed"          json:"data_fixed"          yaml:"data_fixed"`
 }
 
+type TapdJobSpec struct {
+	TapdID      string                     `bson:"tapd_id"             json:"tapd_id"             yaml:"tapd_id"`
+	Source      config.ParamSourceType     `bson:"source"              json:"source"              yaml:"source"`
+	Type        string                     `bson:"type"                json:"type"                yaml:"type"`
+	ProjectID   string                     `bson:"project_id"          json:"project_id"          yaml:"project_id"`
+	ProjectName string                     `bson:"project_name"        json:"project_name"        yaml:"project_name"`
+	Status      config.TapdIterationStatus `bson:"status"              json:"status"              yaml:"status"`
+	Iterations  []*TapdIteration           `bson:"iterations"          json:"iterations"          yaml:"iterations"`
+}
+
 type WorkflowTriggerJobSpec struct {
 	IsEnableCheck bool                       `bson:"is_enable_check" json:"is_enable_check" yaml:"is_enable_check"`
 	TriggerType   config.WorkflowTriggerType `bson:"trigger_type" json:"trigger_type" yaml:"trigger_type"`

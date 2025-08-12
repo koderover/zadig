@@ -23,12 +23,13 @@ import (
 )
 
 func GetMeegoProjects(id string) (*MeegoProjectResp, error) {
-	meegoInfo, err := commonrepo.NewProjectManagementColl().GetMeegoByID(id)
+	spec, err := commonrepo.NewProjectManagementColl().GetMeegoSpec(id)
 	if err != nil {
 		log.Errorf("failed to get meego info, err: %s", err)
 		return nil, err
 	}
-	client, err := meego.NewClient(meegoInfo.MeegoHost, meegoInfo.MeegoPluginID, meegoInfo.MeegoPluginSecret, meegoInfo.MeegoUserKey)
+
+	client, err := meego.NewClient(spec.MeegoHost, spec.MeegoPluginID, spec.MeegoPluginSecret, spec.MeegoUserKey)
 	if err != nil {
 		return nil, err
 	}
@@ -49,12 +50,13 @@ func GetMeegoProjects(id string) (*MeegoProjectResp, error) {
 }
 
 func GetWorkItemTypeList(id, projectID string) (*MeegoWorkItemTypeResp, error) {
-	meegoInfo, err := commonrepo.NewProjectManagementColl().GetMeegoByID(id)
+	spec, err := commonrepo.NewProjectManagementColl().GetMeegoSpec(id)
 	if err != nil {
 		log.Errorf("failed to get meego info, err: %s", err)
 		return nil, err
 	}
-	client, err := meego.NewClient(meegoInfo.MeegoHost, meegoInfo.MeegoPluginID, meegoInfo.MeegoPluginSecret, meegoInfo.MeegoUserKey)
+
+	client, err := meego.NewClient(spec.MeegoHost, spec.MeegoPluginID, spec.MeegoPluginSecret, spec.MeegoUserKey)
 	if err != nil {
 		return nil, err
 	}
@@ -75,12 +77,13 @@ func GetWorkItemTypeList(id, projectID string) (*MeegoWorkItemTypeResp, error) {
 }
 
 func ListMeegoWorkItems(id, projectID, typeKey, nameQuery string, pageNum, pageSize int) (*MeegoWorkItemResp, error) {
-	meegoInfo, err := commonrepo.NewProjectManagementColl().GetMeegoByID(id)
+	spec, err := commonrepo.NewProjectManagementColl().GetMeegoSpec(id)
 	if err != nil {
 		log.Errorf("failed to get meego info, err: %s", err)
 		return nil, err
 	}
-	client, err := meego.NewClient(meegoInfo.MeegoHost, meegoInfo.MeegoPluginID, meegoInfo.MeegoPluginSecret, meegoInfo.MeegoUserKey)
+
+	client, err := meego.NewClient(spec.MeegoHost, spec.MeegoPluginID, spec.MeegoPluginSecret, spec.MeegoUserKey)
 	if err != nil {
 		return nil, err
 	}
@@ -103,12 +106,17 @@ func ListMeegoWorkItems(id, projectID, typeKey, nameQuery string, pageNum, pageS
 }
 
 func ListAvailableWorkItemTransitions(id, projectID, typeKey string, workItemID int) (*MeegoTransitionResp, error) {
-	meegoInfo, err := commonrepo.NewProjectManagementColl().GetMeegoByID(id)
+	spec, err := commonrepo.NewProjectManagementColl().GetMeegoSpec(id)
 	if err != nil {
 		log.Errorf("failed to get meego info, err: %s", err)
 		return nil, err
 	}
-	client, err := meego.NewClient(meegoInfo.MeegoHost, meegoInfo.MeegoPluginID, meegoInfo.MeegoPluginSecret, meegoInfo.MeegoUserKey)
+
+	if err != nil {
+		return nil, err
+	}
+
+	client, err := meego.NewClient(spec.MeegoHost, spec.MeegoPluginID, spec.MeegoPluginSecret, spec.MeegoUserKey)
 	if err != nil {
 		return nil, err
 	}

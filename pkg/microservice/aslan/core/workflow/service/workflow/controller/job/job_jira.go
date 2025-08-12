@@ -111,12 +111,13 @@ func (j JiraJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, error)
 	if len(j.jobSpec.Issues) == 0 {
 		return nil, fmt.Errorf("需要指定至少一个 Jira Issue")
 	}
-	info, err := mongodb.NewProjectManagementColl().GetJiraByID(j.jobSpec.JiraID)
+
+	spec, err := mongodb.NewProjectManagementColl().GetJiraSpec(j.jobSpec.JiraID)
 	if err != nil {
-		return nil, fmt.Errorf("get jira info error: %v", err)
+		return nil, fmt.Errorf("get jira spec error: %v", err)
 	}
 	for _, issue := range j.jobSpec.Issues {
-		issue.Link = fmt.Sprintf("%s/browse/%s", info.JiraHost, issue.Key)
+		issue.Link = fmt.Sprintf("%s/browse/%s", spec.JiraHost, issue.Key)
 	}
 	jobTask := &commonmodels.JobTask{
 		Name:        GenJobName(j.workflow, j.name, 0),

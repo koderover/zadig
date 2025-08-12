@@ -27,14 +27,14 @@ import (
 	"github.com/koderover/zadig/v2/pkg/types"
 )
 
-type PingCodeJobController struct {
+type TapdJobController struct {
 	*BasicInfo
 
-	jobSpec *commonmodels.PingCodeJobSpec
+	jobSpec *commonmodels.TapdJobSpec
 }
 
-func CreatePingCodeJobController(job *commonmodels.Job, workflow *commonmodels.WorkflowV4) (Job, error) {
-	spec := new(commonmodels.PingCodeJobSpec)
+func CreateTapdJobController(job *commonmodels.Job, workflow *commonmodels.WorkflowV4) (Job, error) {
+	spec := new(commonmodels.TapdJobSpec)
 	if err := commonmodels.IToi(job.Spec, spec); err != nil {
 		return nil, fmt.Errorf("failed to create apollo job controller, error: %s", err)
 	}
@@ -46,21 +46,21 @@ func CreatePingCodeJobController(job *commonmodels.Job, workflow *commonmodels.W
 		workflow:    workflow,
 	}
 
-	return PingCodeJobController{
+	return TapdJobController{
 		BasicInfo: basicInfo,
 		jobSpec:   spec,
 	}, nil
 }
 
-func (j PingCodeJobController) SetWorkflow(wf *commonmodels.WorkflowV4) {
+func (j TapdJobController) SetWorkflow(wf *commonmodels.WorkflowV4) {
 	j.workflow = wf
 }
 
-func (j PingCodeJobController) GetSpec() interface{} {
+func (j TapdJobController) GetSpec() interface{} {
 	return j.jobSpec
 }
 
-func (j PingCodeJobController) Validate(isExecution bool) error {
+func (j TapdJobController) Validate(isExecution bool) error {
 	if err := util.CheckZadigEnterpriseLicense(); err != nil {
 		return e.ErrLicenseInvalid.AddDesc("")
 	}
@@ -68,41 +68,37 @@ func (j PingCodeJobController) Validate(isExecution bool) error {
 	return nil
 }
 
-func (j PingCodeJobController) Update(useUserInput bool, ticket *commonmodels.ApprovalTicket) error {
+func (j TapdJobController) Update(useUserInput bool, ticket *commonmodels.ApprovalTicket) error {
 	currJob, err := j.workflow.FindJob(j.name, j.jobType)
 	if err != nil {
 		return err
 	}
 
-	currJobSpec := new(commonmodels.PingCodeJobSpec)
+	currJobSpec := new(commonmodels.TapdJobSpec)
 	if err := commonmodels.IToi(currJob.Spec, currJobSpec); err != nil {
 		return fmt.Errorf("failed to decode apollo job spec, error: %s", err)
 	}
 
-	j.jobSpec.PingCodeID = currJobSpec.PingCodeID
-	j.jobSpec.ProjectID = currJobSpec.ProjectID
-	j.jobSpec.BoardID = currJobSpec.BoardID
-	j.jobSpec.SprintID = currJobSpec.SprintID
-	j.jobSpec.WorkItemTypeID = currJobSpec.WorkItemTypeID
-	j.jobSpec.WorkItemStateIDs = currJobSpec.WorkItemStateIDs
+	j.jobSpec.TapdID = currJobSpec.TapdID
+	j.jobSpec.Type = currJobSpec.Type
 
 	return nil
 }
 
-func (j PingCodeJobController) SetOptions(ticket *commonmodels.ApprovalTicket) error {
+func (j TapdJobController) SetOptions(ticket *commonmodels.ApprovalTicket) error {
 	return nil
 }
 
-func (j PingCodeJobController) ClearOptions() {
+func (j TapdJobController) ClearOptions() {
 }
 
-func (j PingCodeJobController) ClearSelection() {
+func (j TapdJobController) ClearSelection() {
 }
 
-func (j PingCodeJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, error) {
+func (j TapdJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, error) {
 	resp := make([]*commonmodels.JobTask, 0)
 
-	spec, err := mongodb.NewProjectManagementColl().GetPingCodeSpec(j.jobSpec.PingCodeID)
+	spec, err := mongodb.NewProjectManagementColl().GetTapdSpec(j.jobSpec.TapdID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get pingcode info, error: %s", err)
 	}
@@ -115,18 +111,16 @@ func (j PingCodeJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, er
 		JobInfo: map[string]string{
 			JobNameKey: j.name,
 		},
-		JobType: string(config.JobPingCode),
-		Spec: commonmodels.JobTaskPingCodeSpec{
-			PingCodeAddress:      spec.PingCodeAddress,
-			PingCodeClientID:     spec.PingCodeClientID,
-			PingCodeClientSecret: spec.PingCodeClientSecret,
-			ProjectID:            j.jobSpec.ProjectID,
-			ProjectName:          j.jobSpec.ProjectName,
-			BoardID:              j.jobSpec.BoardID,
-			SprintID:             j.jobSpec.SprintID,
-			WorkItemTypeID:       j.jobSpec.WorkItemTypeID,
-			WorkItemStateIDs:     j.jobSpec.WorkItemStateIDs,
-			WorkItems:            j.jobSpec.WorkItems,
+		JobType: string(config.JobTapd),
+		Spec: commonmodels.JobTaskTapdSpec{
+			TapdAddress:      spec.TapdAddress,
+			TapdClientID:     spec.TapdClientID,
+			TapdClientSecret: spec.TapdClientSecret,
+			TapdCompanyID:    spec.TapdCompanyID,
+			ProjectID:        j.jobSpec.ProjectID,
+			ProjectName:      j.jobSpec.ProjectName,
+			Status:           j.jobSpec.Status,
+			Iterations:       j.jobSpec.Iterations,
 		},
 		ErrorPolicy: j.errorPolicy,
 	}
@@ -135,26 +129,26 @@ func (j PingCodeJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, er
 	return resp, nil
 }
 
-func (j PingCodeJobController) SetRepo(repo *types.Repository) error {
+func (j TapdJobController) SetRepo(repo *types.Repository) error {
 	return nil
 }
 
-func (j PingCodeJobController) SetRepoCommitInfo() error {
+func (j TapdJobController) SetRepoCommitInfo() error {
 	return nil
 }
 
-func (j PingCodeJobController) GetVariableList(jobName string, getAggregatedVariables, getRuntimeVariables, getPlaceHolderVariables, getServiceSpecificVariables, useUserInputValue bool) ([]*commonmodels.KeyVal, error) {
+func (j TapdJobController) GetVariableList(jobName string, getAggregatedVariables, getRuntimeVariables, getPlaceHolderVariables, getServiceSpecificVariables, useUserInputValue bool) ([]*commonmodels.KeyVal, error) {
 	return make([]*commonmodels.KeyVal, 0), nil
 }
 
-func (j PingCodeJobController) GetUsedRepos() ([]*types.Repository, error) {
+func (j TapdJobController) GetUsedRepos() ([]*types.Repository, error) {
 	return make([]*types.Repository, 0), nil
 }
 
-func (j PingCodeJobController) RenderDynamicVariableOptions(key string, option *RenderDynamicVariableValue) ([]string, error) {
+func (j TapdJobController) RenderDynamicVariableOptions(key string, option *RenderDynamicVariableValue) ([]string, error) {
 	return nil, fmt.Errorf("invalid job type: %s to render dynamic variable", j.name)
 }
 
-func (j PingCodeJobController) IsServiceTypeJob() bool {
+func (j TapdJobController) IsServiceTypeJob() bool {
 	return false
 }
