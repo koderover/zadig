@@ -95,9 +95,9 @@ func ListUsers(page int, perPage int, name string, db *gorm.DB) ([]models.User, 
 	return users, nil
 }
 
-func ListUsersByLoginTime(page int, perPage int, name string, order setting.ListUserOrder, db *gorm.DB) ([]models.User, error) {
+func ListUsersByLoginTime(page int, perPage int, name string, order setting.ListUserOrder, db *gorm.DB) ([]models.UserWithLoginTime, error) {
 	var (
-		users []models.User
+		users []models.UserWithLoginTime
 		err   error
 	)
 
