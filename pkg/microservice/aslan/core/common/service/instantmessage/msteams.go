@@ -87,6 +87,7 @@ func (w *Service) sendMSTeamsMessage(uri, title, content, actionURL string, atEm
 	}
 
 	mstClient := goteamsnotify.NewTeamsClient()
+	mstClient = mstClient.SkipWebhookURLValidationOnSend(true)
 	err = mstClient.Send(uri, msg)
 	if err != nil {
 		return fmt.Errorf("failed to send message to MSTeams: %v", err)
