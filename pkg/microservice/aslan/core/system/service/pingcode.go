@@ -17,18 +17,17 @@
 package service
 
 import (
-	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
-	"github.com/koderover/zadig/v2/pkg/tool/log"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/tool/pingcode"
 )
 
 func ListPingCodeProjects(id string) ([]*pingcode.ProjectInfo, error) {
-	pingcodeInfo, err := commonrepo.NewProjectManagementColl().GetPingCodeByID(id)
+	spec, err := mongodb.NewProjectManagementColl().GetPingCodeSpec(id)
 	if err != nil {
-		log.Errorf("failed to get pingcode info, err: %s", err)
 		return nil, err
 	}
-	client, err := pingcode.NewClient(pingcodeInfo.PingCodeAddress, pingcodeInfo.PingCodeClientID, pingcodeInfo.PingCodeClientSecret)
+
+	client, err := pingcode.NewClient(spec.PingCodeAddress, spec.PingCodeClientID, spec.PingCodeClientSecret)
 	if err != nil {
 		return nil, err
 	}
@@ -42,12 +41,12 @@ func ListPingCodeProjects(id string) ([]*pingcode.ProjectInfo, error) {
 }
 
 func ListPingCodeBoards(id, projectID string) ([]*pingcode.BoardInfo, error) {
-	pingcodeInfo, err := commonrepo.NewProjectManagementColl().GetPingCodeByID(id)
+	spec, err := mongodb.NewProjectManagementColl().GetPingCodeSpec(id)
 	if err != nil {
-		log.Errorf("failed to get pingcode info, err: %s", err)
 		return nil, err
 	}
-	client, err := pingcode.NewClient(pingcodeInfo.PingCodeAddress, pingcodeInfo.PingCodeClientID, pingcodeInfo.PingCodeClientSecret)
+
+	client, err := pingcode.NewClient(spec.PingCodeAddress, spec.PingCodeClientID, spec.PingCodeClientSecret)
 	if err != nil {
 		return nil, err
 	}
@@ -61,12 +60,12 @@ func ListPingCodeBoards(id, projectID string) ([]*pingcode.BoardInfo, error) {
 }
 
 func ListPingCodeSprints(id, projectID string) ([]*pingcode.SprintInfo, error) {
-	pingcodeInfo, err := commonrepo.NewProjectManagementColl().GetPingCodeByID(id)
+	spec, err := mongodb.NewProjectManagementColl().GetPingCodeSpec(id)
 	if err != nil {
-		log.Errorf("failed to get pingcode info, err: %s", err)
 		return nil, err
 	}
-	client, err := pingcode.NewClient(pingcodeInfo.PingCodeAddress, pingcodeInfo.PingCodeClientID, pingcodeInfo.PingCodeClientSecret)
+
+	client, err := pingcode.NewClient(spec.PingCodeAddress, spec.PingCodeClientID, spec.PingCodeClientSecret)
 	if err != nil {
 		return nil, err
 	}
@@ -80,12 +79,12 @@ func ListPingCodeSprints(id, projectID string) ([]*pingcode.SprintInfo, error) {
 }
 
 func ListPingCodeWorkItemTypes(id, projectID string) ([]*pingcode.WorkItemType, error) {
-	pingcodeInfo, err := commonrepo.NewProjectManagementColl().GetPingCodeByID(id)
+	spec, err := mongodb.NewProjectManagementColl().GetPingCodeSpec(id)
 	if err != nil {
-		log.Errorf("failed to get meego info, err: %s", err)
 		return nil, err
 	}
-	client, err := pingcode.NewClient(pingcodeInfo.PingCodeAddress, pingcodeInfo.PingCodeClientID, pingcodeInfo.PingCodeClientSecret)
+
+	client, err := pingcode.NewClient(spec.PingCodeAddress, spec.PingCodeClientID, spec.PingCodeClientSecret)
 	if err != nil {
 		return nil, err
 	}
@@ -99,12 +98,12 @@ func ListPingCodeWorkItemTypes(id, projectID string) ([]*pingcode.WorkItemType, 
 }
 
 func ListPingCodeWorkItems(id, projectID string, stateIDs, sprintIDs, boardIDs, typeIDs []string, keywords string) ([]*pingcode.WorkItem, error) {
-	pingcodeInfo, err := commonrepo.NewProjectManagementColl().GetPingCodeByID(id)
+	spec, err := mongodb.NewProjectManagementColl().GetPingCodeSpec(id)
 	if err != nil {
-		log.Errorf("failed to get meego info, err: %s", err)
 		return nil, err
 	}
-	client, err := pingcode.NewClient(pingcodeInfo.PingCodeAddress, pingcodeInfo.PingCodeClientID, pingcodeInfo.PingCodeClientSecret)
+
+	client, err := pingcode.NewClient(spec.PingCodeAddress, spec.PingCodeClientID, spec.PingCodeClientSecret)
 	if err != nil {
 		return nil, err
 	}
@@ -118,12 +117,12 @@ func ListPingCodeWorkItems(id, projectID string, stateIDs, sprintIDs, boardIDs, 
 }
 
 func ListPingCodeWorkItemStates(id, projectID, fromStateID string) ([]*pingcode.WorkItemState, error) {
-	pingcodeInfo, err := commonrepo.NewProjectManagementColl().GetPingCodeByID(id)
+	spec, err := mongodb.NewProjectManagementColl().GetPingCodeSpec(id)
 	if err != nil {
-		log.Errorf("failed to get pingcode info, err: %s", err)
 		return nil, err
 	}
-	client, err := pingcode.NewClient(pingcodeInfo.PingCodeAddress, pingcodeInfo.PingCodeClientID, pingcodeInfo.PingCodeClientSecret)
+
+	client, err := pingcode.NewClient(spec.PingCodeAddress, spec.PingCodeClientID, spec.PingCodeClientSecret)
 	if err != nil {
 		return nil, err
 	}

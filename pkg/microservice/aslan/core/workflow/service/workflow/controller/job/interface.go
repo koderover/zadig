@@ -125,6 +125,8 @@ func CreateJobController(job *commonmodels.Job, workflow *commonmodels.WorkflowV
 		return CreateNacosJobController(job, workflow)
 	case config.JobPingCode:
 		return CreatePingCodeJobController(job, workflow)
+	case config.JobTapd:
+		return CreateTapdJobController(job, workflow)
 	case config.JobNotification:
 		return CreateNotificationJobController(job, workflow)
 	case config.JobOfflineService:

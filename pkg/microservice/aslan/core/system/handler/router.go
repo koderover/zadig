@@ -418,6 +418,12 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		pingcode.GET("/:id/projects/:projectID/workitem/status", ListPingCodeProjectStatus)
 	}
 
+	tapd := router.Group("tapd")
+	{
+		tapd.GET("/:id/projects", ListTapdProjects)
+		tapd.GET("/:id/projects/:projectID/iterations", ListTapdProjectIterations)
+	}
+
 	// guanceyun api
 	guanceyun := router.Group("guanceyun")
 	{

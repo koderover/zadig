@@ -522,6 +522,26 @@ type PingCodeWorkItem struct {
 	Error             string `bson:"error"      json:"error"      yaml:"error"`
 }
 
+type JobTaskTapdSpec struct {
+	JobTaskCommonRevertSpec `bson:",inline"          json:",inline"          yaml:",inline"`
+	TapdAddress             string                     `bson:"tapd_address"            json:"tapd_address"            yaml:"tapd_address"`
+	TapdClientID            string                     `bson:"tapd_client_id"          json:"tapd_client_id"          yaml:"tapd_client_id"`
+	TapdClientSecret        string                     `bson:"tapd_client_secret"      json:"tapd_client_secret"      yaml:"tapd_client_secret"`
+	TapdCompanyID           string                     `bson:"tapd_company_id"         json:"tapd_company_id"         yaml:"tapd_company_id"`
+	ProjectID               string                     `bson:"project_id"              json:"project_id"              yaml:"project_id"`
+	ProjectName             string                     `bson:"project_name"            json:"project_name"            yaml:"project_name"`
+	Status                  config.TapdIterationStatus `bson:"status"                  json:"status"                  yaml:"status"`
+	Iterations              []*TapdIteration           `bson:"iterations"              json:"iterations"              yaml:"iterations"`
+}
+
+type TapdIteration struct {
+	IterationID   string `bson:"iteration_id"            json:"iteration_id"            yaml:"iteration_id"`
+	IterationName string `bson:"iteration_name"          json:"iteration_name"          yaml:"iteration_name"`
+	StartDate     string `bson:"start_date"              json:"start_date"              yaml:"start_date"`
+	EndDate       string `bson:"end_date"                json:"end_date"                yaml:"end_date"`
+	Error         string `bson:"error"                   json:"error"                   yaml:"error"`
+}
+
 type JobTaskSQLSpec struct {
 	JobTaskCommonRevertSpec `bson:",inline"          json:",inline"          yaml:",inline"`
 	ID                      string                `bson:"id" json:"id" yaml:"id"`

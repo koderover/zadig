@@ -31,6 +31,7 @@ type Migration struct {
 	Migration400DeliveryVersionV2     bool               `bson:"migration_400_delivery_version_v2"`
 	Migration400AllUserGroup          bool               `bson:"migration_400_all_user_group"`
 	Migration400CollaborationInstance bool               `bson:"migration_400_collaboration_instance"`
+	Migration400ProjectManagement     bool               `bson:"migration_400_project_management"`
 	Error                             string             `bson:"error"`
 }
 

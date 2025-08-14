@@ -55,15 +55,15 @@ var (
 		"taskTypeScanning": "代码扫描",
 		"taskTypeTesting":  "测试",
 
-		"taskStatusSuccess":                "执行成功",
-		"taskStatusFailed":                 "执行失败",
-		"taskStatusCancelled":              "执行取消",
-		"taskStatusTimeout":                "执行超时",
-		"taskStatusRejected":               "执行被拒绝",
-		"taskStatusExecutionStarted":       "开始执行",
-		"taskStatusManualApproval":         "待确认",
-		"taskStatusPause":                  "暂停",
-		"jobStatusUnstarted":               "未执行",
+		"taskStatusSuccess":          "执行成功",
+		"taskStatusFailed":           "执行失败",
+		"taskStatusCancelled":        "执行取消",
+		"taskStatusTimeout":          "执行超时",
+		"taskStatusRejected":         "执行被拒绝",
+		"taskStatusExecutionStarted": "开始执行",
+		"taskStatusManualApproval":   "待确认",
+		"taskStatusPause":            "暂停",
+		"jobStatusUnstarted":         "未执行",
 
 		"jobTypeBuild":            "构建",
 		"jobTypeDeploy":           "容器服务部署",
@@ -101,6 +101,7 @@ var (
 		"jobTypeNotification":     "通知",
 		"jobTypeSaeDeploy":        "SAE 应用部署",
 		"jobTypePingCode":         "PingCode 工作项状态变更",
+		"jobTypeTapd":             "Tapd 状态变更",
 
 		"testStatusSuccess": "成功",
 		"testStatusFailed":  "失败",
@@ -127,15 +128,15 @@ var (
 		"taskTypeScanning": "scanning",
 		"taskTypeTesting":  "testing",
 
-		"taskStatusSuccess":                "Passed",
-		"taskStatusFailed":                 "Failed",
-		"taskStatusCancelled":              "Cancelled",
-		"taskStatusTimeout":                "Timeout",
-		"taskStatusRejected":               "Rejected",
-		"taskStatusExecutionStarted":       "Created",
-		"taskStatusManualApproval":         "Waiting for confirmation",
-		"taskStatusPause":                  "Pause",
-		"jobStatusUnstarted":               "Unstarted",
+		"taskStatusSuccess":          "Passed",
+		"taskStatusFailed":           "Failed",
+		"taskStatusCancelled":        "Cancelled",
+		"taskStatusTimeout":          "Timeout",
+		"taskStatusRejected":         "Rejected",
+		"taskStatusExecutionStarted": "Created",
+		"taskStatusManualApproval":   "Waiting for confirmation",
+		"taskStatusPause":            "Pause",
+		"jobStatusUnstarted":         "Unstarted",
 
 		"jobTypeBuild":            "Build",
 		"jobTypeDeploy":           "Deploy",
@@ -173,9 +174,10 @@ var (
 		"jobTypeNotification":     "Notification",
 		"jobTypeSaeDeploy":        "SAE Deploy",
 		"jobTypePingCode":         "PingCode Work Item Status Change",
-		"testStatusSuccess": "Success",
-		"testStatusFailed":  "Failed",
-		"testTotal":         "Total",
+		"jobTypeTapd":             "Tapd Status Change",
+		"testStatusSuccess":       "Success",
+		"testStatusFailed":        "Failed",
+		"testTotal":               "Total",
 
 		"notificationTextWorkflow":           "Workflow",
 		"notificationTextWaitingForApproval": "waiting for approval",
@@ -307,7 +309,7 @@ func (w *Service) SendWorkflowTaskApproveNotifications(workflowName string, task
 	return nil
 }
 
-// TODO: manual error handling is not supported in the SendWorkflowTaskNotifications function, mainly because the error handling is done in the lifetime of a job, where the 
+// TODO: manual error handling is not supported in the SendWorkflowTaskNotifications function, mainly because the error handling is done in the lifetime of a job, where the
 // controller cannot access the task's full information. We need to implement a method where the job controller can send notification.
 func (w *Service) SendWorkflowTaskNotifications(task *models.WorkflowTask) error {
 	if len(task.OriginWorkflowArgs.NotifyCtls) == 0 {
@@ -1168,6 +1170,8 @@ func getJobTaskTplExec(tplcontent string, args *jobTaskNotification, language st
 				return getText("jobTypeJira", language)
 			case string(config.JobPingCode):
 				return getText("jobTypePingCode", language)
+			case string(config.JobTapd):
+				return getText("jobTypeTapd", language)
 			case string(config.JobApollo):
 				return getText("jobTypeApollo", language)
 			case string(config.JobMeegoTransition):

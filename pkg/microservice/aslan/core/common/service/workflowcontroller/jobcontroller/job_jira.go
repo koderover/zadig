@@ -66,7 +66,15 @@ func (c *JiraJobCtl) Run(ctx context.Context) {
 		logError(c.job, "issues not found in job spec", c.logger)
 		return
 	}
-	client := jira.NewJiraClientWithAuthType(info.JiraHost, info.JiraUser, info.JiraToken, info.JiraPersonalAccessToken, info.JiraAuthType)
+
+	spec := &commonmodels.ProjectManagementJiraSpec{}
+	err = commonmodels.IToi(info.Spec, spec)
+	if err != nil {
+		logError(c.job, fmt.Sprintf("failed to convert job spec to jira spec: %v", err), c.logger)
+		return
+	}
+
+	client := jira.NewJiraClientWithAuthType(spec.JiraHost, spec.JiraUser, spec.JiraToken, spec.JiraPersonalAccessToken, spec.JiraAuthType)
 	for _, issue := range c.jobTaskSpec.Issues {
 		list, err := client.Issue.GetTransitions(issue.Key)
 		if err != nil {

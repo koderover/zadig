@@ -22,9 +22,11 @@ import (
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
+	commonmongodb "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/codehost/repository/mongodb"
+	"github.com/koderover/zadig/v2/pkg/tool/tapd"
 	"github.com/koderover/zadig/v2/pkg/types"
 )
 
@@ -886,6 +888,72 @@ func (p *SQLJobInput) UpdateJobSpec(job *commonmodels.Job) (*commonmodels.Job, e
 	}
 
 	newSpec.SQL = p.SQL
+
+	job.Spec = newSpec
+
+	return job, nil
+}
+
+type TapdJobInput struct {
+	ProjectID    string                     `json:"project_id"`
+	ProjectName  string                     `json:"project_name"`
+	Status       config.TapdIterationStatus `json:"status"`
+	IterationIDs []string                   `json:"iteration_ids"`
+}
+
+type TapdJobIterationInput struct {
+	IterationID   string `json:"iteration_id"`
+	IterationName string `json:"iteration_name"`
+	StartDate     string `json:"start_date"`
+	EndDate       string `json:"end_date"`
+}
+
+func (p *TapdJobInput) UpdateJobSpec(job *commonmodels.Job) (*commonmodels.Job, error) {
+	newSpec := new(commonmodels.TapdJobSpec)
+	if err := commonmodels.IToi(job.Spec, newSpec); err != nil {
+		return nil, fmt.Errorf("failed to convert job.Spec to commonmodels.SQLJobSpec, err: %w", err)
+	}
+
+	spec, err := commonmongodb.NewProjectManagementColl().GetTapdSpec(newSpec.TapdID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get tapd info, error: %s", err)
+	}
+
+	client, err := tapd.NewClient(spec.TapdAddress, spec.TapdClientID, spec.TapdClientSecret, spec.TapdCompanyID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create tapd client, error: %s", err)
+	}
+
+	projectInfo, err := client.GetProject(p.ProjectID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get project info: %w", err)
+	}
+
+	iterations, err := client.GetIterations(p.ProjectID, p.IterationIDs)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get iterations: %w", err)
+	}
+	iterationMap := make(map[string]*tapd.Iteration)
+	for _, iteration := range iterations {
+		iterationMap[iteration.ID] = iteration
+	}
+
+	newSpec.ProjectID = p.ProjectID
+	newSpec.ProjectName = projectInfo.Name
+	newSpec.Status = p.Status
+	for _, iterationID := range p.IterationIDs {
+		iterationInfo, ok := iterationMap[iterationID]
+		if !ok {
+			return nil, fmt.Errorf("failed to get iteration %s info", iterationID)
+		}
+
+		newSpec.Iterations = append(newSpec.Iterations, &commonmodels.TapdIteration{
+			IterationID:   iterationID,
+			IterationName: iterationInfo.Name,
+			StartDate:     iterationInfo.StartDate,
+			EndDate:       iterationInfo.EndDate,
+		})
+	}
 
 	job.Spec = newSpec
 

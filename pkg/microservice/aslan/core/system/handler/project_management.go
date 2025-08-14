@@ -73,12 +73,53 @@ func ListProjectManagementForProject(c *gin.Context) {
 
 	pms, err := service.ListProjectManagement(ctx.Logger)
 	for _, pm := range pms {
-		pm.JiraToken = ""
-		pm.JiraUser = ""
-		pm.JiraAuthType = ""
-		pm.MeegoPluginID = ""
-		pm.MeegoPluginSecret = ""
-		pm.MeegoUserKey = ""
+		if pm.Type == setting.ProjectManagementTypeJira {
+			spec := &models.ProjectManagementJiraSpec{}
+			err = models.IToi(pm.Spec, spec)
+			if err != nil {
+				ctx.RespErr = err
+				return
+			}
+
+			spec.JiraToken = ""
+			spec.JiraUser = ""
+			spec.JiraAuthType = ""
+			pm.Spec = spec
+		} else if pm.Type == setting.ProjectManagementTypeMeego {
+			spec := &models.ProjectManagementMeegoSpec{}
+			err = models.IToi(pm.Spec, spec)
+			if err != nil {
+				ctx.RespErr = err
+				return
+			}
+
+			spec.MeegoPluginID = ""
+			spec.MeegoPluginSecret = ""
+			spec.MeegoUserKey = ""
+			pm.Spec = spec
+		} else if pm.Type == setting.ProjectManagementTypePingCode {
+			spec := &models.ProjectManagementPingCodeSpec{}
+			err = models.IToi(pm.Spec, spec)
+			if err != nil {
+				ctx.RespErr = err
+				return
+			}
+
+			spec.PingCodeClientID = ""
+			spec.PingCodeClientSecret = ""
+			pm.Spec = spec
+		} else if pm.Type == setting.ProjectManagementTypeTapd {
+			spec := &models.ProjectManagementTapdSpec{}
+			err = models.IToi(pm.Spec, spec)
+			if err != nil {
+				ctx.RespErr = err
+				return
+			}
+
+			spec.TapdClientID = ""
+			spec.TapdClientSecret = ""
+			pm.Spec = spec
+		}
 	}
 	ctx.RespErr = err
 	ctx.Resp = pms
@@ -189,12 +230,14 @@ func Validate(c *gin.Context) {
 		return
 	}
 	switch req.Type {
-	case setting.PMJira:
+	case setting.ProjectManagementTypeJira:
 		ctx.RespErr = service.ValidateJira(req)
-	case setting.PMMeego:
+	case setting.ProjectManagementTypeMeego:
 		ctx.RespErr = service.ValidateMeego(req)
-	case setting.PMPingCode:
+	case setting.ProjectManagementTypePingCode:
 		ctx.RespErr = service.ValidatePingCode(req)
+	case setting.ProjectManagementTypeTapd:
+		ctx.RespErr = service.ValidateTapd(req)
 	default:
 		ctx.RespErr = e.ErrValidateProjectManagement.AddDesc("invalid type")
 	}

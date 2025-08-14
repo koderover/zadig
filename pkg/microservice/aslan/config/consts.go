@@ -244,6 +244,7 @@ const (
 	JobNacos                JobType = "nacos"
 	JobApollo               JobType = "apollo"
 	JobPingCode             JobType = "pingcode"
+	JobTapd                 JobType = "tapd"
 	JobSQL                  JobType = "sql"
 	JobJenkins              JobType = "jenkins"
 	JobMeegoTransition      JobType = "meego-transition"
@@ -710,4 +711,11 @@ type SystemLanguage string
 const (
 	SystemLanguageZhCN SystemLanguage = "zh-cn"
 	SystemLanguageEnUS SystemLanguage = "en-us"
+)
+
+type TapdIterationStatus string
+
+const (
+	TapdIterationStatusOpen = "open"
+	TapdIterationStatusDone = "done"
 )

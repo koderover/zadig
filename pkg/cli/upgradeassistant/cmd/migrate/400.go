@@ -68,6 +68,11 @@ func V341ToV400() error {
 		return err
 	}
 
+	err = migrateProjectManagement(ctx, migrationInfo)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -294,6 +299,56 @@ func migrateCollaborationInstance(ctx *internalhandler.Context, migrationInfo *i
 
 	_ = internalmongodb.NewMigrationColl().UpdateMigrationStatus(migrationInfo.ID, map[string]interface{}{
 		getMigrationFieldBsonTag(migrationInfo, &migrationInfo.Migration400CollaborationInstance): true,
+	})
+
+	return nil
+}
+
+func migrateProjectManagement(ctx *internalhandler.Context, migrationInfo *internalmodels.Migration) error {
+	if !migrationInfo.Migration400ProjectManagement {
+		pms, err := commonrepo.NewProjectManagementColl().List()
+		if err != nil {
+			return fmt.Errorf("failed to list project management, err: %s", err)
+		}
+
+		for _, pm := range pms {
+			if pm.Type == setting.ProjectManagementTypeJira {
+				pm.Spec = &models.ProjectManagementJiraSpec{
+					JiraAuthType:            pm.JiraAuthType,
+					JiraHost:                pm.JiraHost,
+					JiraUser:                pm.JiraUser,
+					JiraToken:               pm.JiraToken,
+					JiraPersonalAccessToken: pm.JiraPersonalAccessToken,
+				}
+
+				pm.JiraAuthType = ""
+				pm.JiraHost = ""
+				pm.JiraUser = ""
+				pm.JiraToken = ""
+				pm.JiraPersonalAccessToken = ""
+			} else if pm.Type == setting.ProjectManagementTypeMeego {
+				pm.Spec = &models.ProjectManagementMeegoSpec{
+					MeegoHost:         pm.MeegoHost,
+					MeegoPluginID:     pm.MeegoPluginID,
+					MeegoPluginSecret: pm.MeegoPluginSecret,
+					MeegoUserKey:      pm.MeegoUserKey,
+				}
+
+				pm.MeegoHost = ""
+				pm.MeegoPluginID = ""
+				pm.MeegoPluginSecret = ""
+				pm.MeegoUserKey = ""
+			}
+
+			err = commonrepo.NewProjectManagementColl().UpdateByID(pm.ID.Hex(), pm)
+			if err != nil {
+				return fmt.Errorf("failed to update project management, err: %s", err)
+			}
+		}
+	}
+
+	_ = internalmongodb.NewMigrationColl().UpdateMigrationStatus(migrationInfo.ID, map[string]interface{}{
+		getMigrationFieldBsonTag(migrationInfo, &migrationInfo.Migration400ProjectManagement): true,
 	})
 
 	return nil

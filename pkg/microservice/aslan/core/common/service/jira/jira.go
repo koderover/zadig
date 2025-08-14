@@ -60,13 +60,20 @@ func GetJiraInfo() (*JiraInfo, error) {
 	}
 
 	for _, v := range list {
-		if v.Type == setting.PMJira {
+		if v.Type == setting.ProjectManagementTypeJira {
+			spec := new(commonmodels.ProjectManagementJiraSpec)
+			err = commonmodels.IToi(v.Spec, spec)
+			if err != nil {
+				log.Errorf("GetJiraInfo: unmarshal error %v", err)
+				return nil, errors.Wrap(err, "unmarshal")
+			}
+
 			return &JiraInfo{
-				Host:                v.JiraHost,
-				User:                v.JiraUser,
-				AuthType:            v.JiraAuthType,
-				AccessToken:         v.JiraToken,
-				PersonalAccessToken: v.JiraPersonalAccessToken,
+				Host:                spec.JiraHost,
+				User:                spec.JiraUser,
+				AuthType:            spec.JiraAuthType,
+				AccessToken:         spec.JiraToken,
+				PersonalAccessToken: spec.JiraPersonalAccessToken,
 				UpdatedAt:           v.UpdatedAt,
 			}, nil
 		}

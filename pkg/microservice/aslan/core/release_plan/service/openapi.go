@@ -224,6 +224,10 @@ func OpenAPICreateReleasePlanWithJobs(c *handler.Context, id string, rawArgs *Op
 		return errors.New("Required parameters are missing")
 	}
 
+	if plan.Status == config.StatusSuccess || plan.Status == config.StatusExecuting || plan.Status == config.StatusWaitForApprove {
+		return errors.New("release plan status is success, executing or wait for approve, can't update")
+	}
+
 	plan.Name = rawArgs.Name
 	plan.Manager = rawArgs.Manager
 	plan.StartTime = rawArgs.StartTime
