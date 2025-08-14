@@ -354,23 +354,26 @@ func SearchUsers(args *QueryArgs, logger *zap.SugaredLogger) (*types.UsersResp, 
 		}, nil
 	}
 
-	var users []models.User
+	var us []models.User
+	var users []models.UserWithLoginTime
 	if len(args.Roles) == 0 {
 		if args.OrderBy == setting.ListUserOrderByLoginTime {
 			users, err = orm.ListUsersByLoginTime(args.Page, args.PerPage, args.Name, args.Order, repository.DB)
 		} else {
-			users, err = orm.ListUsers(args.Page, args.PerPage, args.Name, repository.DB)
+			us, err = orm.ListUsers(args.Page, args.PerPage, args.Name, repository.DB)
+			users = models.UsersToUserWithLoginTimes(us)
 		}
 		if err != nil {
 			logger.Errorf("SeachUsers SeachUsers By name:%s error, error msg:%s", args.Name, err.Error())
 			return nil, err
 		}
 	} else {
-		users, err = orm.ListUsersByNameAndRole(args.Page, args.PerPage, args.Name, args.Roles, repository.DB)
+		us, err = orm.ListUsersByNameAndRole(args.Page, args.PerPage, args.Name, args.Roles, repository.DB)
 		if err != nil {
 			logger.Errorf("SeachUsers SeachUsers By name:%s error, error msg:%s", args.Name, err.Error())
 			return nil, err
 		}
+		users = models.UsersToUserWithLoginTimes(us)
 	}
 
 	var uids []string
@@ -397,7 +400,7 @@ func SearchUsers(args *QueryArgs, logger *zap.SugaredLogger) (*types.UsersResp, 
 			logger.Errorf("SeachUsers ListUserLogins By uids:%s error, error msg:%s", uids, err.Error())
 			return nil, err
 		}
-		usersInfo = mergeUserLogin(users, *userLogins, logger)
+		usersInfo = mergeUserLoginWithLoginTime(users, *userLogins, logger)
 	}
 
 	for _, uInfo := range usersInfo {
@@ -423,6 +426,30 @@ func SearchUsers(args *QueryArgs, logger *zap.SugaredLogger) (*types.UsersResp, 
 		Users:      usersInfo,
 		TotalCount: count,
 	}, nil
+}
+
+func mergeUserLoginWithLoginTime(users []models.UserWithLoginTime, userLogins []models.UserLogin, logger *zap.SugaredLogger) []*types.UserInfo {
+	userLoginMap := make(map[string]models.UserLogin)
+	for _, userLogin := range userLogins {
+		userLoginMap[userLogin.UID] = userLogin
+	}
+	var usersInfo []*types.UserInfo
+	for _, user := range users {
+		if userLogin, ok := userLoginMap[user.UID]; ok {
+			usersInfo = append(usersInfo, &types.UserInfo{
+				LastLoginTime: userLogin.LastLoginTime,
+				Uid:           user.UID,
+				Phone:         user.Phone,
+				Name:          user.Name,
+				Email:         user.Email,
+				IdentityType:  user.IdentityType,
+				Account:       user.Account,
+			})
+		} else {
+			logger.Error("user:%s login info not exist")
+		}
+	}
+	return usersInfo
 }
 
 func mergeUserLogin(users []models.User, userLogins []models.UserLogin, logger *zap.SugaredLogger) []*types.UserInfo {
