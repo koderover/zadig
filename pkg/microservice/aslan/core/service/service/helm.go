@@ -117,6 +117,7 @@ type helmServiceCreationArgs struct {
 	CreationDetail   interface{}
 	AutoSync         bool
 	Production       bool
+	LoadPath         string
 }
 
 type ChartTemplateData struct {
@@ -1170,7 +1171,7 @@ func CreateOrUpdateBulkHelmServiceFromTemplate(projectName string, args *BulkHel
 		wg.Add(1)
 		go func(repoConfig *commonservice.RepoConfig, path string) {
 			defer wg.Done()
-			renderChart, svcInfo, err := handleSingleService(projectName, repoConfig, path, from, args, templateChartData, force, logger)
+			renderChart, svcInfo, err := handleSingleService(projectName, repoConfig, path, from, args, templateChartData, force, singlePath, logger)
 			if err != nil {
 				failedServiceMap.Store(path, err.Error())
 			} else {
@@ -1215,8 +1216,9 @@ func CreateOrUpdateBulkHelmServiceFromTemplate(projectName string, args *BulkHel
 
 // @Min TODO: handleSingleService is used by helm services creation from template
 // so all the helper function will currently use 'false' in the 'isProd' parameter.
+// note that the valuesPath will be empty if the values is not loaded from a git repo, use carefully.
 func handleSingleService(projectName string, repoConfig *commonservice.RepoConfig, path, fromPath string, args *BulkHelmServiceCreationArgs,
-	templateChartData *ChartTemplateData, force bool, logger *zap.SugaredLogger) (*templatemodels.ServiceRender, *commonmodels.Service, error) {
+	templateChartData *ChartTemplateData, force bool, valuesPath string, logger *zap.SugaredLogger) (*templatemodels.ServiceRender, *commonmodels.Service, error) {
 	valuesYAML, err := fsservice.DownloadFileFromSource(&fsservice.DownloadFromSourceArgs{
 		CodehostID: repoConfig.CodehostID,
 		Owner:      repoConfig.Owner,
@@ -1322,6 +1324,7 @@ func handleSingleService(projectName string, repoConfig *commonservice.RepoConfi
 			AutoSync:         args.AutoSync,
 			ValuesSource:     args.ValuesData,
 			Production:       args.Production,
+			LoadPath:         valuesPath,
 		},
 		force,
 		logger,
@@ -1414,9 +1417,7 @@ func geneCreationDetail(args *helmServiceCreationArgs) interface{} {
 					Branch:     args.ValuesSource.GitRepoConfig.Branch,
 					Namespace:  args.ValuesSource.GitRepoConfig.Namespace,
 				},
-			}
-			if len(args.ValuesSource.GitRepoConfig.ValuesPaths) > 0 {
-				repoData.LoadPath = args.ValuesSource.GitRepoConfig.ValuesPaths[0]
+				LoadPath: args.LoadPath,
 			}
 			yamlData.SourceDetail = repoData
 		}
