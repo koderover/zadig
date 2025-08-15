@@ -671,7 +671,11 @@ func DeployMultiHelmRelease(productResp *commonmodels.Product, helmClient *helmt
 	}
 
 	handler := func(param *ReleaseInstallParam, isRetry bool, log *zap.SugaredLogger) (err error) {
+		start := time.Now()
 		defer func() {
+			cost := time.Since(start).Seconds()
+			log.Debugf("deploy helm service: %s, cost: %v", param.ServiceObj.ServiceName, cost)
+
 			if param.ProdService != nil {
 				if err != nil {
 					param.ProdService.Error = err.Error()
