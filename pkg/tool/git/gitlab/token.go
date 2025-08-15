@@ -44,14 +44,6 @@ func UpdateGitlabToken(id int, accessToken string, disableTLS bool) (string, err
 		return "", nil
 	}
 
-	mu := cache.NewRedisLockWithExpiry(fmt.Sprintf("gitlab_token_refresh:%d", id), time.Second*10)
-	err := mu.Lock()
-	if err != nil {
-		log.Errorf("failed to acquire gitlab token refresh lock, err: %s", err)
-		return "", fmt.Errorf("failed to update gitlab token, err: %s", err)
-	}
-	defer mu.Unlock()
-
 	ch, err := systemconfig.New().GetRawCodeHost(id)
 
 	if err != nil {
@@ -63,6 +55,14 @@ func UpdateGitlabToken(id int, accessToken string, disableTLS bool) (string, err
 	if time.Now().Unix()-ch.UpdatedAt <= TokenExpirationThreshold {
 		return ch.AccessToken, nil
 	}
+
+	mu := cache.NewRedisLockWithExpiry(fmt.Sprintf("gitlab_token_refresh:%d", id), time.Second*30)
+	err = mu.Lock()
+	if err != nil {
+		log.Errorf("failed to acquire gitlab token refresh lock, err: %s", err)
+		return "", fmt.Errorf("failed to update gitlab token, err: %s", err)
+	}
+	defer mu.Unlock()
 
 	log.Infof("Starting to refresh gitlab token, old token issued time: %d", ch.UpdatedAt)
 
