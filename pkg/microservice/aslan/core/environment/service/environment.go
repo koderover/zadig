@@ -80,6 +80,10 @@ import (
 	yamlutil "github.com/koderover/zadig/v2/pkg/util/yaml"
 )
 
+const (
+	SyncHelmEnvVariablesLockKey = "SyncHelmEnvVariables"
+)
+
 func GetProductDeployType(projectName string) (string, error) {
 	projectInfo, err := templaterepo.NewProductColl().Find(projectName)
 	if err != nil {
@@ -1867,6 +1871,14 @@ func geneYamlData(args *commonservice.ValuesDataArgs) *templatemodels.CustomYaml
 }
 
 func SyncHelmProductEnvironment(productName, envName, requestID string, log *zap.SugaredLogger) error {
+	syncLock := cache.NewRedisLock(fmt.Sprintf("%s:%s:%s", SyncHelmEnvVariablesLockKey, productName, envName))
+	err := syncLock.TryLock()
+	if err != nil {
+		log.Infof("sync helm env variables is processing, project: %s, env: %s", productName, envName)
+		return nil
+	}
+	defer syncLock.Unlock()
+
 	product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
 		Name:    productName,
 		EnvName: envName,
@@ -1876,6 +1888,7 @@ func SyncHelmProductEnvironment(productName, envName, requestID string, log *zap
 		return err
 	}
 
+	updatedRcMapLock := sync.Mutex{}
 	updatedRCMap := make(map[string]*templatemodels.ServiceRender)
 
 	changed, defaultValues, err := commonservice.SyncYamlFromSource(product.YamlData, product.DefaultValues, product.DefaultValues)
@@ -1889,30 +1902,47 @@ func SyncHelmProductEnvironment(productName, envName, requestID string, log *zap
 			updatedRCMap[curRenderChart.ServiceName] = curRenderChart
 		}
 	}
+
+	var wg sync.WaitGroup
 	for _, chartInfo := range product.GetChartRenderMap() {
 		if chartInfo.OverrideYaml == nil {
 			continue
 		}
-		changed, values, err := commonservice.SyncYamlFromSource(chartInfo.OverrideYaml, chartInfo.OverrideYaml.YamlContent, chartInfo.OverrideYaml.AutoSyncYaml)
-		if err != nil {
-			return err
-		}
-		if changed {
-			chartInfo.OverrideYaml.YamlContent = values
-			chartInfo.OverrideYaml.AutoSyncYaml = values
-			updatedRCMap[chartInfo.ServiceName] = chartInfo
-		}
+
+		wg.Add(1)
+		util.Go(func() {
+			defer wg.Done()
+
+			changed, values, err := commonservice.SyncYamlFromSource(chartInfo.OverrideYaml, chartInfo.OverrideYaml.YamlContent, chartInfo.OverrideYaml.AutoSyncYaml)
+			if err != nil {
+				log.Errorf("failed to sync yaml from source, serviceName: %s, err: %s", chartInfo.ServiceName, err)
+				return
+			}
+
+			if changed {
+				updatedRcMapLock.Lock()
+				chartInfo.OverrideYaml.YamlContent = values
+				chartInfo.OverrideYaml.AutoSyncYaml = values
+				updatedRCMap[chartInfo.ServiceName] = chartInfo
+				updatedRcMapLock.Unlock()
+			}
+		})
 	}
+	wg.Wait()
+
 	if len(updatedRCMap) == 0 {
 		return nil
 	}
 
+	svcNames := make([]string, 0)
 	// content of values.yaml changed, environment will be updated
 	updatedRcList := make([]*templatemodels.ServiceRender, 0)
 	for _, updatedRc := range updatedRCMap {
 		updatedRcList = append(updatedRcList, updatedRc)
+		svcNames = append(svcNames, updatedRc.ServiceName)
 	}
 
+	log.Infof("start to sync helm environment variables, project: %s, env: %s, service list: %v", productName, envName, svcNames)
 	err = UpdateProductVariable(productName, envName, "cron", requestID, updatedRcList, nil, product.DefaultValues, product.YamlData, log)
 	if err != nil {
 		return err
