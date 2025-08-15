@@ -46,6 +46,7 @@ type ValuesDataArgs struct {
 	YamlSource    string      `json:"yamlSource"`
 	SourceID      string      `json:"source_id"`
 	AutoSync      bool        `json:"autoSync"`
+	AutoSyncYaml  string      `json:"autoSyncYaml"`
 	GitRepoConfig *RepoConfig `json:"gitRepoConfig"`
 }
 
@@ -115,6 +116,8 @@ func (args *HelmSvcRenderArg) toCustomValuesYaml() *templatemodels.CustomYaml {
 	if args.ValuesData != nil {
 		ret.Source = args.ValuesData.YamlSource
 		ret.AutoSync = args.ValuesData.AutoSync
+		ret.AutoSyncYaml = args.ValuesData.AutoSyncYaml
+
 		if args.ValuesData.GitRepoConfig != nil {
 			repoData := &models.CreateFromRepo{
 				GitRepoConfig: &templatemodels.GitRepoConfig{
