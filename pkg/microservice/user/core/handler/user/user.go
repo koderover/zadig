@@ -151,6 +151,13 @@ func OpenAPIGetUser(c *gin.Context) {
 	return
 }
 
+func OpenAPIDeleteUser(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	ctx.RespErr = permission.DeleteUserByUID(c.Param("uid"), ctx.Logger)
+}
+
 func DeleteUser(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

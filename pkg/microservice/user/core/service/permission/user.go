@@ -44,6 +44,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/shared/client/plutusvendor"
 	"github.com/koderover/zadig/v2/pkg/shared/client/systemconfig"
+	zadigCache "github.com/koderover/zadig/v2/pkg/tool/cache"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/mail"
 	"github.com/koderover/zadig/v2/pkg/types"
@@ -555,7 +556,15 @@ func DeleteUserByUID(uid string, logger *zap.SugaredLogger) error {
 		logger.Errorf("DeleteUserByUID DeleteCollaborationModeByUid:%s error, error msg:%s", uid, err.Error())
 		return err
 	}
-	return tx.Commit().Error
+	if err := tx.Commit().Error; err != nil {
+		return err
+	}
+
+	if err := zadigCache.NewRedisCache(config.RedisUserTokenDB()).Delete(uid); err != nil {
+		logger.Warnf("failed to invalidate token for deleted user %s: %v", uid, err)
+	}
+
+	return nil
 }
 
 func DeleteCollaborationModeByUid(uid string) error {
