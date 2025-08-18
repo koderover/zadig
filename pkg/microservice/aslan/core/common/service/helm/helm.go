@@ -260,12 +260,14 @@ func UpdateAllServicesInEnv(productName, envName string, services [][]*models.Pr
 		for _, svc := range svcGroup {
 			// if svc exists in productSvcMap
 			if productSvcMap[svc] != nil {
+				productSvcMap[svc].UpdateTime = time.Now().Unix()
 				newServices[i] = append(newServices[i], productSvcMap[svc])
 			}
 		}
 	}
 	// append chart services to the last group
 	for _, service := range productChartSvcMap {
+		service.UpdateTime = time.Now().Unix()
 		newServices[len(newServices)-1] = append(newServices[len(newServices)-1], service)
 	}
 
@@ -319,12 +321,14 @@ func UpdateServicesGroupInEnv(productName, envName string, index int, group []*m
 		for _, svc := range svcGroup {
 			// if svc exists in productSvcMap
 			if productSvcMap[svc] != nil {
+				productSvcMap[svc].UpdateTime = time.Now().Unix()
 				newGroup = append(newGroup, productSvcMap[svc])
 			}
 		}
 	}
 	// append chart services to the last group
 	for _, service := range productChartSvcMap {
+		service.UpdateTime = time.Now().Unix()
 		newGroup = append(newGroup, service)
 	}
 
