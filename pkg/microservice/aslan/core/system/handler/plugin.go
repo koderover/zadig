@@ -75,7 +75,6 @@ func CreatePlugin(c *gin.Context) {
 	}
 	args.Type = c.PostForm("type")
 	args.Description = c.PostForm("description")
-	args.StorageID = c.PostForm("storage_id")
 
 	file, header, err := c.Request.FormFile("file")
 	if err != nil {
