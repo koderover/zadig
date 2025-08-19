@@ -168,7 +168,7 @@ func GetPluginFile(c *gin.Context) {
 		c.Abort()
 		return
 	}
-	absolutePath, fileName, err := service.GetPluginFilePath(id, ctx.Logger)
+	absolutePath, fileName, err := service.GetPluginFile(id, ctx.Logger)
 	if err != nil {
 		c.JSON(e.ErrorMessage(err))
 		c.Abort()
