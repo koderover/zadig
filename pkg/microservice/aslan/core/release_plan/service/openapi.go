@@ -141,7 +141,7 @@ func OpenAPICreateReleasePlan(c *handler.Context, rawArgs *OpenAPICreateReleaseP
 		if err := lintApproval(args.Approval); err != nil {
 			return nil, errors.Errorf("lintApproval error: %v", err)
 		}
-		if args.Approval.Type == config.LarkApproval {
+		if args.Approval.Type == config.LarkApproval || args.Approval.Type == config.LarkApprovalIntl {
 			if err := createLarkApprovalDefinition(args.Approval.LarkApproval); err != nil {
 				return nil, errors.Errorf("createLarkApprovalDefinition error: %v", err)
 			}
@@ -262,7 +262,7 @@ func OpenAPICreateReleasePlanWithJobs(c *handler.Context, id string, rawArgs *Op
 		if err := lintApproval(plan.Approval); err != nil {
 			return errors.Errorf("lintApproval error: %v", err)
 		}
-		if plan.Approval.Type == config.LarkApproval {
+		if plan.Approval.Type == config.LarkApproval || plan.Approval.Type == config.LarkApprovalIntl {
 			if err := createLarkApprovalDefinition(plan.Approval.LarkApproval); err != nil {
 				return errors.Errorf("createLarkApprovalDefinition error: %v", err)
 			}

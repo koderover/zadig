@@ -181,7 +181,7 @@ func updatePlanApproval(plan *models.ReleasePlan) error {
 	}
 
 	switch plan.Approval.Type {
-	case config.LarkApproval:
+	case config.LarkApproval, config.LarkApprovalIntl:
 		err = updateLarkApproval(ctx, plan.Approval)
 	case config.DingTalkApproval:
 		err = updateDingTalkApproval(ctx, plan.Approval)

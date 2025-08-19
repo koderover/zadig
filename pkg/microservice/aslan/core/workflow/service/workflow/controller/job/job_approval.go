@@ -194,7 +194,7 @@ func (j ApprovalJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, er
 		case config.NativeApproval:
 			approvalUser, _ := util.GeneFlatUsers(originJobSpec.NativeApproval.ApproveUsers)
 			jobSpec.NativeApproval.ApproveUsers = approvalUser
-		case config.LarkApproval:
+		case config.LarkApproval, config.LarkApprovalIntl:
 			if originJobSpec.LarkApproval == nil {
 				return nil, fmt.Errorf("%s lark approval not found", serviceReferredJob)
 			}
@@ -264,7 +264,7 @@ func (j ApprovalJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, er
 				return nil, fmt.Errorf("approval-node %d type should be AND or OR", i)
 			}
 		}
-	case config.LarkApproval:
+	case config.LarkApproval, config.LarkApprovalIntl:
 		if jobSpec.LarkApproval == nil {
 			return nil, fmt.Errorf("lark approval not found")
 		}

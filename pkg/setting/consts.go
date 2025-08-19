@@ -799,10 +799,10 @@ const (
 
 // Instant Message System types
 const (
-	IMLark         = "lark"
-	IMLarkOverseas = "lark_overseas"
-	IMDingTalk     = "dingtalk"
-	IMWorkWx       = "workwx"
+	IMLark     = "lark"
+	IMLarkIntl = "lark_intl"
+	IMDingTalk = "dingtalk"
+	IMWorkWx   = "workwx"
 )
 
 // lark app

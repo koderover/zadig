@@ -27,12 +27,13 @@ type Client struct {
 	*lark.Client
 }
 
-func NewClient(appID, secret string) *Client {
+func NewClient(appID, secret, larkType string) *Client {
 	return &Client{
 		Client: lark.NewClient(appID, secret,
 			lark.WithReqTimeout(3*time.Second),
 			lark.WithEnableTokenCache(true),
 			lark.WithHttpClient(&http.Client{}),
+			lark.WithOpenBaseUrl(GetLarkBaseUrl(larkType)),
 		),
 	}
 }

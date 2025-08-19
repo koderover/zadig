@@ -20,10 +20,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/controller"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/controller"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -84,7 +85,7 @@ func CreateReleasePlan(c *handler.Context, args *models.ReleasePlan) error {
 		if err := lintApproval(args.Approval); err != nil {
 			return errors.Errorf("lintApproval error: %v", err)
 		}
-		if args.Approval.Type == config.LarkApproval {
+		if args.Approval.Type == config.LarkApproval || args.Approval.Type == config.LarkApprovalIntl {
 			if err := createLarkApprovalDefinition(args.Approval.LarkApproval); err != nil {
 				return errors.Errorf("createLarkApprovalDefinition error: %v", err)
 			}
@@ -901,7 +902,7 @@ func clearApprovalData(approval *models.Approval) error {
 	}
 	approval.Status = ""
 	switch approval.Type {
-	case config.LarkApproval:
+	case config.LarkApproval, config.LarkApprovalIntl:
 		if approval.LarkApproval == nil {
 			return errors.New("nil lark approval")
 		}

@@ -94,7 +94,7 @@ func lintApproval(approval *models.Approval) error {
 		if len(allApproveUsers) < approval.NativeApproval.NeededApprovers {
 			return errors.New("all approve users should not less than needed approvers")
 		}
-	case config.LarkApproval:
+	case config.LarkApproval, config.LarkApprovalIntl:
 		if approval.LarkApproval == nil {
 			return errors.New("approval not found")
 		}

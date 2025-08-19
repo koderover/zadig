@@ -16,6 +16,11 @@
 
 package lark
 
+import (
+	"github.com/koderover/zadig/v2/pkg/setting"
+	lark "github.com/larksuite/oapi-sdk-go/v3"
+)
+
 func getStringFromPointer(p *string) string {
 	if p == nil {
 		return ""
@@ -35,4 +40,14 @@ func getPageInfo(hasMore *bool, token *string) *pageInfo {
 		token:   getStringFromPointer(token),
 		hasMore: getBoolFromPointer(hasMore),
 	}
+}
+
+func GetLarkBaseUrl(larkType string) string {
+	if larkType == setting.IMLark {
+		return lark.FeishuBaseUrl
+	} else if larkType == setting.IMLarkIntl {
+		return lark.LarkBaseUrl
+	}
+
+	return ""
 }

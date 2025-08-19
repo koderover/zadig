@@ -586,8 +586,8 @@ func GetLarkClientByIMAppID(id string) (*lark.Client, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "get external approval data")
 	}
-	if approval.Type != setting.IMLark {
+	if approval.Type != setting.IMLark && approval.Type != setting.IMLarkIntl {
 		return nil, errors.Errorf("unexpected approval type %s", approval.Type)
 	}
-	return lark.NewClient(approval.AppID, approval.AppSecret), nil
+	return lark.NewClient(approval.AppID, approval.AppSecret, approval.Type), nil
 }

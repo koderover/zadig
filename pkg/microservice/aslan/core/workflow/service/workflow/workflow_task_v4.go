@@ -357,7 +357,7 @@ func CheckWorkflowV4ApprovalInitiator(workflowName, uid string, log *zap.Sugared
 				}
 
 				switch spec.Type {
-				case config.LarkApproval:
+				case config.LarkApproval, config.LarkApprovalIntl:
 					if spec.LarkApproval == nil {
 						continue
 					}
