@@ -26,11 +26,12 @@ import (
 )
 
 // Validate check whether the lark app id and secret are correct
-func Validate(appID, secret string) error {
+func Validate(appID, secret string, larkType string) error {
+	baseUrl := GetLarkBaseUrl(larkType)
 	resp, err := req.C().R().SetBodyJsonMarshal(map[string]string{
 		"app_id":     appID,
 		"app_secret": secret,
-	}).Post("https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal")
+	}).Post(baseUrl + "/open-apis/auth/v3/tenant_access_token/internal")
 	if err != nil {
 		return err
 	}

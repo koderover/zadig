@@ -51,7 +51,7 @@ func InitSSEConnections() error {
 	}
 
 	for _, imApp := range resp {
-		if imApp.Type == setting.IMLark {
+		if imApp.Type == setting.IMLark || imApp.Type == setting.IMLarkIntl {
 			err := CreateLarkSSEConnection(imApp)
 			if err != nil {
 				log.Errorf("failed to creates sse connection for lark, error: %s")
@@ -77,7 +77,7 @@ func CreateIMApp(args *commonmodels.IMApp, log *zap.SugaredLogger) error {
 	switch args.Type {
 	case setting.IMDingTalk:
 		return createDingTalkIMApp(args, log)
-	case setting.IMLark:
+	case setting.IMLark, setting.IMLarkIntl:
 		return createLarkIMApp(args, log)
 	case setting.IMWorkWx:
 		return createWorkWxIMApp(args, log)
@@ -121,7 +121,7 @@ func createDingTalkIMApp(args *commonmodels.IMApp, log *zap.SugaredLogger) error
 }
 
 func createLarkIMApp(args *commonmodels.IMApp, log *zap.SugaredLogger) error {
-	err := lark.Validate(args.AppID, args.AppSecret)
+	err := lark.Validate(args.AppID, args.AppSecret, args.Type)
 	if err != nil {
 		return e.ErrCreateIMApp.AddErr(errors.Wrap(err, "validate"))
 	}
@@ -164,7 +164,7 @@ func UpdateIMApp(id string, args *commonmodels.IMApp, log *zap.SugaredLogger) er
 	switch args.Type {
 	case setting.IMDingTalk:
 		return updateDingTalkIMApp(id, args, log)
-	case setting.IMLark:
+	case setting.IMLark, setting.IMLarkIntl:
 		return updateLarkIMApp(id, args, log)
 	case setting.IMWorkWx:
 		return updateWorkWxIMApp(id, args, log)
@@ -207,7 +207,7 @@ func updateDingTalkIMApp(id string, args *commonmodels.IMApp, log *zap.SugaredLo
 }
 
 func updateLarkIMApp(id string, args *commonmodels.IMApp, log *zap.SugaredLogger) error {
-	err := lark.Validate(args.AppID, args.AppSecret)
+	err := lark.Validate(args.AppID, args.AppSecret, args.Type)
 	if err != nil {
 		return e.ErrCreateIMApp.AddErr(errors.Wrap(err, "validate"))
 	}
@@ -251,8 +251,8 @@ func DeleteIMApp(id string, log *zap.SugaredLogger) error {
 
 func ValidateIMApp(im *commonmodels.IMApp, log *zap.SugaredLogger) error {
 	switch im.Type {
-	case setting.IMLark:
-		return lark.Validate(im.AppID, im.AppSecret)
+	case setting.IMLark, setting.IMLarkIntl:
+		return lark.Validate(im.AppID, im.AppSecret, im.Type)
 	case setting.IMDingTalk:
 		return dingtalk.Validate(im.DingTalkAppKey, im.DingTalkAppSecret)
 	case setting.IMWorkWx:
@@ -292,7 +292,7 @@ const (
 )
 
 func CreateLarkSSEConnection(arg *commonmodels.IMApp) error {
-	if arg.Type != setting.IMLark {
+	if arg.Type != setting.IMLark && arg.Type != setting.IMLarkIntl {
 		return fmt.Errorf("invalid type: %s to create lark sse connection", arg.Type)
 	}
 
@@ -312,6 +312,7 @@ func CreateLarkSSEConnection(arg *commonmodels.IMApp) error {
 
 	cli := larkws.NewClient(arg.AppID, arg.AppSecret,
 		larkws.WithEventHandler(eventHandler),
+		larkws.WithDomain(lark.GetLarkBaseUrl(arg.Type)),
 	)
 
 	util.Go(

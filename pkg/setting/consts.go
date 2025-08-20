@@ -800,6 +800,7 @@ const (
 // Instant Message System types
 const (
 	IMLark     = "lark"
+	IMLarkIntl = "lark_intl"
 	IMDingTalk = "dingtalk"
 	IMWorkWx   = "workwx"
 )

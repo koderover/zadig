@@ -79,7 +79,7 @@ func (c *ApprovalJobCtl) Run(ctx context.Context) {
 	switch c.jobTaskSpec.Type {
 	case config.NativeApproval:
 		status, err = waitForNativeApprove(ctx, c.jobTaskSpec, c.workflowCtx.WorkflowName, c.job.Name, c.workflowCtx.TaskID, c.ack)
-	case config.LarkApproval:
+	case config.LarkApproval, config.LarkApprovalIntl:
 		status, err = waitForLarkApprove(ctx, c.jobTaskSpec, c.workflowCtx, c.job.DisplayName, c.ack)
 	case config.DingTalkApproval:
 		status, err = waitForDingTalkApprove(ctx, c.jobTaskSpec, c.workflowCtx, c.job.DisplayName, c.ack)
@@ -181,7 +181,7 @@ func waitForLarkApprove(ctx context.Context, spec *commonmodels.JobTaskApprovalS
 		return config.StatusFailed, fmt.Errorf("failed to find approval code for node type %s", approval.GetNodeTypeKey())
 	}
 
-	client := lark.NewClient(data.AppID, data.AppSecret)
+	client := lark.NewClient(data.AppID, data.AppSecret, data.Type)
 
 	detailURL := fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/custom/%s/%d?display_name=%s",
 		configbase.SystemAddress(),

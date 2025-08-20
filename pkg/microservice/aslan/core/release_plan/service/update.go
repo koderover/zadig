@@ -427,7 +427,7 @@ func (u *UpdateApprovalUpdater) Lint() error {
 	if err := lintApproval(u.Approval); err != nil {
 		return errors.Wrap(err, "lint")
 	}
-	if u.Approval.Type == config.LarkApproval {
+	if u.Approval.Type == config.LarkApproval || u.Approval.Type == config.LarkApprovalIntl {
 		if err := createLarkApprovalDefinition(u.Approval.LarkApproval); err != nil {
 			return errors.Wrap(err, "create lark approval definition")
 		}
@@ -484,7 +484,7 @@ func createLarkApprovalDefinition(approval *models.LarkApproval) error {
 	if err != nil {
 		return errors.Wrapf(err, "get lark app %s", approval.ID)
 	}
-	if larkInfo.Type != string(config.LarkApproval) {
+	if larkInfo.Type != string(config.LarkApproval) && larkInfo.Type != string(config.LarkApprovalIntl) {
 		return errors.Errorf("lark app %s is not lark approval", approval.ID)
 	}
 

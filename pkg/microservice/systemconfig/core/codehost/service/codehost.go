@@ -41,6 +41,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/shared/client/aslan"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	"github.com/koderover/zadig/v2/pkg/tool/crypto"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/types"
 )
 
@@ -287,16 +288,13 @@ func handle(url *url.URL, err error) (string, error) {
 
 func ValidateCodeHost(ctx *internalhandler.Context, codeHost *models.CodeHost) error {
 	if codeHost.AuthType == types.SSHAuthType {
-		// 检查仓库地址格式
-		if !strings.HasPrefix(codeHost.Address, "git@") && !strings.HasPrefix(codeHost.Address, "ssh://") {
-			return fmt.Errorf("仓库地址格式错误，SSH地址应以 git@ 或 ssh:// 开头")
-		}
-
 		// 解析主机地址
-		host := getHost(codeHost.Address)
+		user, host := getUserAndHost(codeHost.Address)
 		if host == "" {
 			return fmt.Errorf("无效的SSH地址: %s", codeHost.Address)
 		}
+
+		log.Debugf("user: %v, host: %v", user, host)
 
 		// 解析端口
 		port := 22
@@ -319,7 +317,7 @@ func ValidateCodeHost(ctx *internalhandler.Context, codeHost *models.CodeHost) e
 		}
 
 		config := &gossh.ClientConfig{
-			User: "git",
+			User: user,
 			Auth: []gossh.AuthMethod{
 				gossh.PublicKeys(signer),
 			},
@@ -401,32 +399,36 @@ func ValidateCodeHost(ctx *internalhandler.Context, codeHost *models.CodeHost) e
 	}
 }
 
-func getHost(address string) string {
+func getUserAndHost(address string) (string, string) {
+	user, host := "", ""
+
 	// 处理 ssh:// 协议
 	if strings.HasPrefix(address, "ssh://") {
 		// 移除 ssh:// 前缀
-		address = strings.TrimPrefix(address, "ssh://")
+		host = strings.TrimPrefix(address, "ssh://")
 		// 如果地址中包含 @，取 @ 后面的部分
-		if idx := strings.Index(address, "@"); idx != -1 {
-			address = address[idx+1:]
+		if idx := strings.Index(host, "@"); idx != -1 {
+			user = host[:idx]
+			host = host[idx+1:]
 		}
 		// 如果地址中包含 :，取 : 前面的部分
-		if idx := strings.Index(address, ":"); idx != -1 {
-			address = address[:idx]
+		if idx := strings.Index(host, ":"); idx != -1 {
+			host = host[:idx]
 		}
-		return address
+		return user, host
 	}
 
 	// 处理 git@ 格式
 	parts := strings.Split(address, "@")
 	if len(parts) > 1 {
 		// 如果地址中包含 :，取 : 前面的部分
+		user = parts[0]
 		host := parts[1]
 		if idx := strings.Index(host, ":"); idx != -1 {
 			host = host[:idx]
 		}
-		return host
+		return user, host
 	}
 
-	return ""
+	return "", ""
 }

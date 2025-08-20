@@ -132,7 +132,7 @@ func createApprovalInstance(plan *models.ReleasePlan, phone string) error {
 	switch plan.Approval.Type {
 	case config.NativeApproval:
 		return createNativeApproval(plan, detailURL)
-	case config.LarkApproval:
+	case config.LarkApproval, config.LarkApprovalIntl:
 		return createLarkApproval(plan.Approval.LarkApproval, plan.Manager, phone, formContent, language)
 	case config.DingTalkApproval:
 		return createDingTalkApproval(plan.Approval.DingTalkApproval, plan.Manager, phone, formContent, language)
@@ -538,7 +538,7 @@ func createLarkApproval(approval *models.LarkApproval, manager, phone, content, 
 		return errors.Errorf("failed to find approval code for node type %s", approval.GetNodeTypeKey())
 	}
 
-	client := lark.NewClient(data.AppID, data.AppSecret)
+	client := lark.NewClient(data.AppID, data.AppSecret, data.Type)
 
 	var userID string
 	if approval.DefaultApprovalInitiator == nil {
@@ -582,7 +582,7 @@ func updateLarkApproval(ctx context.Context, approval *models.Approval) error {
 	if err != nil {
 		return errors.Wrap(err, "get lark im app data")
 	}
-	client := lark.NewClient(data.AppID, data.AppSecret)
+	client := lark.NewClient(data.AppID, data.AppSecret, data.Type)
 
 	checkNodeStatus := func(node *models.LarkApprovalNode) (config.ApprovalStatus, error) {
 		switch node.Type {

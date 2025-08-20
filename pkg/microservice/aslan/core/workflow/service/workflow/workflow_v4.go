@@ -1323,7 +1323,7 @@ func createLarkApprovalDefinition(workflow *commonmodels.WorkflowV4) error {
 					if err != nil {
 						return errors.Wrapf(err, "get lark app %s", data.ID)
 					}
-					if larkInfo.Type != string(config.LarkApproval) {
+					if larkInfo.Type != string(config.LarkApproval) && larkInfo.Type != string(config.LarkApprovalIntl) {
 						return errors.Errorf("lark app %s is not lark approval", data.ID)
 					}
 

@@ -285,6 +285,7 @@ type ApprovalType string
 const (
 	NativeApproval   ApprovalType = "native"
 	LarkApproval     ApprovalType = "lark"
+	LarkApprovalIntl ApprovalType = "lark_intl"
 	DingTalkApproval ApprovalType = "dingtalk"
 	WorkWXApproval   ApprovalType = "workwx"
 )
