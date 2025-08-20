@@ -104,6 +104,8 @@ func (c *PluginColl) Update(id string, m *models.Plugin) error {
 		"file_size":   m.FileSize,
 		"file_hash":   m.FileHash,
 		"enabled":     m.Enabled,
+		"router":      m.Route,
+		"update_by":   m.UpdateBy,
 		"update_time": time.Now().Unix(),
 	}}
 	_, err = c.UpdateOne(context.Background(), bson.M{"_id": oid}, change)

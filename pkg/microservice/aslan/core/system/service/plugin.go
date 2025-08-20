@@ -53,7 +53,7 @@ func DeletePlugin(id string, log *zap.SugaredLogger) error {
 
 // CreatePluginWithFile uploads the given file, analyzes metadata, and persists the plugin.
 // NOTE: actual upload destination/path logic is left for you to implement below.
-func CreatePluginWithFile(m *commonmodels.Plugin, fileHeader *multipart.FileHeader, file multipart.File, log *zap.SugaredLogger) error {
+func CreatePluginWithFile(userName string, m *commonmodels.Plugin, fileHeader *multipart.FileHeader, file multipart.File, log *zap.SugaredLogger) error {
 	// Save to temp file to compute hash/size. You can stream if desired.
 	tempDir, err := os.MkdirTemp("", "plugin-upload-*")
 	if err != nil {
@@ -76,6 +76,8 @@ func CreatePluginWithFile(m *commonmodels.Plugin, fileHeader *multipart.FileHead
 	m.FileName = fileHeader.Filename
 	m.FileSize = size
 	m.FileHash = hex.EncodeToString(hasher.Sum(nil))
+	m.CreateBy = userName
+	m.UpdateBy = userName
 
 	store, err := s3service.FindDefaultS3()
 	if err != nil {
@@ -106,7 +108,7 @@ func CreatePluginWithFile(m *commonmodels.Plugin, fileHeader *multipart.FileHead
 
 // UpdatePluginWithFile handles updating plugin info and replacing the uploaded file (possibly new file name)
 // NOTE: actual upload destination/path logic is left for you to implement below.
-func UpdatePluginWithFile(id string, m *commonmodels.Plugin, fileHeader *multipart.FileHeader, file multipart.File, log *zap.SugaredLogger) error {
+func UpdatePluginWithFile(userName string, id string, m *commonmodels.Plugin, fileHeader *multipart.FileHeader, file multipart.File, log *zap.SugaredLogger) error {
 	// Save to temp file to compute hash/size
 	tempDir, err := os.MkdirTemp("", "plugin-upload-*")
 	if err != nil {
@@ -129,6 +131,7 @@ func UpdatePluginWithFile(id string, m *commonmodels.Plugin, fileHeader *multipa
 	m.FileName = fileHeader.Filename
 	m.FileSize = size
 	m.FileHash = hex.EncodeToString(hasher.Sum(nil))
+	m.UpdateBy = userName
 
 	store, err := s3service.FindDefaultS3()
 	if err != nil {

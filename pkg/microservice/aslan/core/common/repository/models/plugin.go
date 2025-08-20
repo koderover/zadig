@@ -24,6 +24,7 @@ type Plugin struct {
 	Index       int                `bson:"index"          json:"index"`
 	Type        string             `bson:"type"           json:"type"` // page or tab
 	Description string             `bson:"description"    json:"description"`
+	Route       string             `bson:"route"          json:"route"`
 	StorageID   string             `bson:"storage_id"     json:"storage_id"`
 	FilePath    string             `bson:"file_path"      json:"file_path"`
 	FileName    string             `bson:"file_name"      json:"file_name"`
@@ -31,8 +32,10 @@ type Plugin struct {
 	FileHash    string             `bson:"file_hash"      json:"file_hash"`
 	Enabled     bool               `bson:"enabled"        json:"enabled"`
 
-	CreateTime int64 `bson:"create_time"    json:"create_time"`
-	UpdateTime int64 `bson:"update_time"    json:"update_time"`
+	CreateTime int64  `bson:"create_time"    json:"create_time"`
+	UpdateTime int64  `bson:"update_time"    json:"update_time"`
+	CreateBy   string `bson:"create_by"      json:"create_by"`
+	UpdateBy   string `bson:"update_by"      json:"update_by"`
 }
 
 func (Plugin) TableName() string { return "plugin" }

@@ -75,6 +75,7 @@ func CreatePlugin(c *gin.Context) {
 	}
 	args.Type = c.PostForm("type")
 	args.Description = c.PostForm("description")
+	args.Route = c.PostForm("route")
 
 	file, header, err := c.Request.FormFile("file")
 	if err != nil {
@@ -84,7 +85,7 @@ func CreatePlugin(c *gin.Context) {
 	defer file.Close()
 
 	// Service will upload and analyze the file; and persist the plugin
-	ctx.RespErr = service.CreatePluginWithFile(args, header, file, ctx.Logger)
+	ctx.RespErr = service.CreatePluginWithFile(ctx.UserName, args, header, file, ctx.Logger)
 
 	meta := map[string]string{
 		"name":       args.Name,
@@ -124,12 +125,13 @@ func UpdatePlugin(c *gin.Context) {
 		}
 		args.Type = c.PostForm("type")
 		args.Description = c.PostForm("description")
-		args.StorageID = c.PostForm("storage_id")
+		args.Route = c.PostForm("route")
+
 		// try file
 		file, header, err := c.Request.FormFile("file")
 		if err == nil {
 			defer file.Close()
-			ctx.RespErr = service.UpdatePluginWithFile(c.Param("id"), args, header, file, ctx.Logger)
+			ctx.RespErr = service.UpdatePluginWithFile(ctx.UserName, c.Param("id"), args, header, file, ctx.Logger)
 		} else {
 			ctx.RespErr = fmt.Errorf("file is required")
 		}
