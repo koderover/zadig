@@ -76,6 +76,7 @@ func CreatePlugin(c *gin.Context) {
 	args.Type = c.PostForm("type")
 	args.Description = c.PostForm("description")
 	args.Route = c.PostForm("route")
+	args.Enabled = c.PostForm("enabled") == "true"
 
 	file, header, err := c.Request.FormFile("file")
 	if err != nil {
@@ -126,6 +127,7 @@ func UpdatePlugin(c *gin.Context) {
 		args.Type = c.PostForm("type")
 		args.Description = c.PostForm("description")
 		args.Route = c.PostForm("route")
+		args.Enabled = c.PostForm("enabled") == "true"
 
 		// try file
 		file, header, err := c.Request.FormFile("file")
