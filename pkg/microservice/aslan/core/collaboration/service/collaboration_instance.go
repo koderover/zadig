@@ -358,8 +358,9 @@ func GetCollaborationUpdate(projectName, uid, identityType, userName string, log
 	return resp, nil
 }
 
-func buildName(baseName, modeName, identityType, userName string) string {
-	return modeName + "-" + baseName + "-" + identityType + "-" + userName
+func buildName(baseName, modeName, identityType, user string) string {
+	name := modeName + "-" + baseName + "-" + identityType + "-" + user
+	return name
 }
 
 func syncInstance(updateResp *GetCollaborationUpdateResp, projectName, identityType, userName, uid string,
@@ -398,9 +399,9 @@ func syncInstance(updateResp *GetCollaborationUpdateResp, projectName, identityT
 	})
 }
 
-func syncResource(products *SyncCollaborationInstanceArgs, updateResp *GetCollaborationUpdateResp, projectName, identityType, userName, requestID string,
+func syncResource(products *SyncCollaborationInstanceArgs, updateResp *GetCollaborationUpdateResp, projectName, identityType, uid, userName, requestID string,
 	logger *zap.SugaredLogger) error {
-	err := syncNewResource(products, updateResp, projectName, identityType, userName, requestID, logger)
+	err := syncNewResource(products, updateResp, projectName, identityType, uid, userName, requestID, logger)
 	if err != nil {
 		return err
 	}
@@ -431,9 +432,9 @@ func syncDeleteResource(updateResp *GetCollaborationUpdateResp, username, projec
 	return nil
 }
 
-func syncNewResource(products *SyncCollaborationInstanceArgs, updateResp *GetCollaborationUpdateResp, projectName, identityType, userName, requestID string,
+func syncNewResource(products *SyncCollaborationInstanceArgs, updateResp *GetCollaborationUpdateResp, projectName, identityType, uid, userName, requestID string,
 	logger *zap.SugaredLogger) error {
-	newResp, err := getCollaborationNew(updateResp, projectName, identityType, userName, logger)
+	newResp, err := getCollaborationNew(updateResp, projectName, identityType, uid, userName, logger)
 	if err != nil {
 		return err
 	}
@@ -532,7 +533,7 @@ func SyncCollaborationInstance(products *SyncCollaborationInstanceArgs, projectN
 		logger.Errorf("syncInstance error, err msg:%s", err)
 		return err
 	}
-	err = syncResource(products, updateResp, projectName, identityType, userName, requestID, logger)
+	err = syncResource(products, updateResp, projectName, identityType, uid, userName, requestID, logger)
 	if err != nil {
 		logger.Errorf("syncResource error, err msg:%s", err)
 		return err
@@ -600,7 +601,7 @@ func getCollaborationDelete(updateResp *GetCollaborationUpdateResp) *GetCollabor
 	}
 }
 
-func getCollaborationNew(updateResp *GetCollaborationUpdateResp, projectName, identityType, userName string,
+func getCollaborationNew(updateResp *GetCollaborationUpdateResp, projectName, identityType, uid, userName string,
 	logger *zap.SugaredLogger) (*GetCollaborationNewResp, error) {
 	var newWorkflow []*Workflow
 	var newProduct []*Product
@@ -610,7 +611,7 @@ func getCollaborationNew(updateResp *GetCollaborationUpdateResp, projectName, id
 			name := workflow.Name
 			displayName := getWorkflowDisplayName(workflow.Name, workflow.WorkflowType)
 			if workflow.CollaborationType == config.CollaborationNew {
-				name = buildName(workflow.Name, mode.Name, identityType, userName)
+				name = buildName(workflow.Name, mode.Name, identityType, uid)
 				displayName = buildName(displayName, mode.Name, identityType, userName)
 			}
 			newWorkflow = append(newWorkflow, &Workflow{
@@ -642,7 +643,7 @@ func getCollaborationNew(updateResp *GetCollaborationUpdateResp, projectName, id
 			name := workflow.Name
 			displayName := getWorkflowDisplayName(workflow.Name, workflow.WorkflowType)
 			if workflow.CollaborationType == config.CollaborationNew {
-				name = buildName(workflow.Name, item.CollaborationMode, identityType, userName)
+				name = buildName(workflow.Name, item.CollaborationMode, identityType, uid)
 				displayName = buildName(displayName, item.CollaborationMode, identityType, userName)
 			}
 			newWorkflow = append(newWorkflow, &Workflow{
@@ -676,7 +677,7 @@ func getCollaborationNew(updateResp *GetCollaborationUpdateResp, projectName, id
 					CollaborationType: workflow.New.CollaborationType,
 					BaseName:          workflow.Old.BaseName,
 					CollaborationMode: item.CollaborationMode,
-					Name:              buildName(workflow.Old.BaseName, item.CollaborationMode, identityType, userName),
+					Name:              buildName(workflow.Old.BaseName, item.CollaborationMode, identityType, uid),
 					DisplayName:       buildName(displayName, item.CollaborationMode, identityType, userName),
 				})
 			}
@@ -846,7 +847,7 @@ func GetCollaborationNew(projectName, uid, identityType, userName string, logger
 	if updateResp == nil || (updateResp.Update == nil && updateResp.New == nil && updateResp.UpdateInstance == nil && updateResp.Delete == nil) {
 		return nil, nil
 	}
-	return getCollaborationNew(updateResp, projectName, identityType, userName, logger)
+	return getCollaborationNew(updateResp, projectName, identityType, uid, userName, logger)
 }
 
 func getWorkflowDisplayName(workflowName, workflowType string) string {
