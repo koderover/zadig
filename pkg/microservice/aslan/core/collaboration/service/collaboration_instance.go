@@ -215,7 +215,7 @@ func genCollaborationInstance(mode models.CollaborationMode, projectName, uid, i
 	for _, workflow := range mode.Workflows {
 		name := workflow.Name
 		if workflow.CollaborationType == config.CollaborationNew {
-			name = buildName(workflow.Name, mode.Name, identityType, userName)
+			name = buildName(workflow.Name, mode.Name, identityType, uid)
 		}
 		workflows = append(workflows, models.WorkflowCIItem{
 			Name:              name,
