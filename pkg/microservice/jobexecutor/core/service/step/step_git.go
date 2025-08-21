@@ -369,7 +369,10 @@ func writeSSHConfigFile(hostNames sets.String, proxy *step.Proxy) error {
 // return github.com
 func getHost(address string) string {
 	address = strings.TrimPrefix(address, "ssh://")
-	address = strings.TrimPrefix(address, "git@")
+	addressArr := strings.Split(address, "@")
+	if len(addressArr) == 2 {
+		address = addressArr[1]
+	}
 	hostArr := strings.Split(address, ":")
 	return hostArr[0]
 }
