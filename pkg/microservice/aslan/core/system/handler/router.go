@@ -466,6 +466,15 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	}
 
 	// ---------------------------------------------------------------------------------------
+	// custom navigation (system level)
+	// ---------------------------------------------------------------------------------------
+	navigation := router.Group("navigation")
+	{
+		navigation.GET("", GetSystemNavigation)
+		navigation.PUT("", UpdateSystemNavigation)
+	}
+
+	// ---------------------------------------------------------------------------------------
 	// database instance
 	// ---------------------------------------------------------------------------------------
 	dbs := router.Group("dbinstance")
