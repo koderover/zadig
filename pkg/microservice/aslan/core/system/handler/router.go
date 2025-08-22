@@ -492,6 +492,19 @@ func (*Router) Inject(router *gin.RouterGroup) {
 
 	}
 
+	// ---------------------------------------------------------------------------------------
+	// idp plugin management API
+	// ---------------------------------------------------------------------------------------
+	plugin := router.Group("plugin")
+	{
+		plugin.GET("", ListPlugins)
+		plugin.POST("", CreatePlugin)
+		plugin.PUT("/:id", UpdatePlugin)
+		plugin.DELETE("/:id", DeletePlugin)
+		// download plugin file by id
+		plugin.GET("/:id/file", GetPluginFile)
+	}
+
 	sae := router.Group("sae")
 	{
 		sae.POST("", CreateSAE)

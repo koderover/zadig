@@ -976,4 +976,12 @@ var (
 	//-----------------------------------------------------------------------------------------------
 	ErrCreateApprovalTicket = NewHTTPError(7100, "创建预审批单失败")
 	ErrListApprovalTicket   = NewHTTPError(7101, "列出预审批单失败")
+
+	//-----------------------------------------------------------------------------------------------
+	// idp plugin management releated errors: 7120 - 7139
+	//-----------------------------------------------------------------------------------------------
+	ErrCreateIDPPlugin = NewHTTPError(7120, "创建IDP插件失败")
+	ErrListIDPPlugin   = NewHTTPError(7121, "列出IDP插件单失败")
+	ErrUpdateIDPPlugin = NewHTTPError(7122, "更新IDP插件单失败")
+	ErrDeleteIDPPlugin = NewHTTPError(7123, "删除IDP插件单失败")
 )
