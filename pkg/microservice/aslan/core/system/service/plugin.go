@@ -139,6 +139,8 @@ func UpdatePluginWithFile(userName string, id string, m *commonmodels.Plugin, fi
 		return e.ErrUpdateIDPPlugin.AddErr(err)
 	}
 
+	m.StorageID = store.ID.Hex()
+
 	client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Region, store.Insecure, store.Provider)
 	if err != nil {
 		log.Errorf("failed to create s3 client, err: %v", err)
@@ -161,7 +163,6 @@ func UpdatePluginWithFile(userName string, id string, m *commonmodels.Plugin, fi
 // GetPluginFile downloads the file to a local cache and returns the local path and original file name.
 // It will re-download if file is missing or hash mismatches.
 func GetPluginFile(id string, log *zap.SugaredLogger) (string, string, error) {
-	log.Debugf("GetPluginFile id: %s", id)
 	p, err := commonrepo.NewPluginColl().Get(id)
 	if err != nil {
 		log.Errorf("failed to get plugin %s: %v", id, err)
