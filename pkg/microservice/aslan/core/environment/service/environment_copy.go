@@ -97,7 +97,7 @@ func BulkCopyHelmProduct(projectName, user, requestID string, arg CopyHelmProduc
 			args = append(args, &CreateSingleProductArg{
 				ProductName:   projectName,
 				EnvName:       item.NewName,
-				Namespace:     projectName + "-" + "env" + "-" + item.NewName,
+				Namespace:     projectName + "-" + "env" + "-" + util.SanitizeName(item.NewName),
 				ClusterID:     product.ClusterID,
 				DefaultValues: item.DefaultValues,
 				RegistryID:    product.RegistryID,
@@ -144,7 +144,7 @@ func BulkCopyYamlProduct(projectName, user, requestID string, arg CopyYamlProduc
 			newProduct := *product
 			newProduct.EnvName = item.NewName
 			//newProduct.Vars = item.Vars
-			newProduct.Namespace = projectName + "-env-" + newProduct.EnvName
+			newProduct.Namespace = projectName + "-env-" + util.SanitizeName(newProduct.EnvName)
 			util.Clear(&newProduct.ID)
 			newProduct.BaseName = item.BaseName
 			newProduct.GlobalVariables = item.GlobalVariables
