@@ -38,6 +38,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/shared/client/user"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/types"
+	"github.com/koderover/zadig/v2/pkg/util"
 )
 
 type GetCollaborationUpdateResp struct {
@@ -215,7 +216,7 @@ func genCollaborationInstance(mode models.CollaborationMode, projectName, uid, i
 	for _, workflow := range mode.Workflows {
 		name := workflow.Name
 		if workflow.CollaborationType == config.CollaborationNew {
-			name = buildName(workflow.Name, mode.Name, identityType, uid)
+			name = buildWorkflowName(workflow.Name, mode.Name, identityType, uid)
 		}
 		workflows = append(workflows, models.WorkflowCIItem{
 			Name:              name,
@@ -230,7 +231,7 @@ func genCollaborationInstance(mode models.CollaborationMode, projectName, uid, i
 	for _, product := range mode.Products {
 		name := product.Name
 		if product.CollaborationType == config.CollaborationNew {
-			name = buildName(product.Name, mode.Name, identityType, userName)
+			name = buildEnvName(product.Name, mode.Name, identityType, userName)
 		}
 		products = append(products, models.ProductCIItem{
 			Name:              name,
@@ -358,8 +359,21 @@ func GetCollaborationUpdate(projectName, uid, identityType, userName string, log
 	return resp, nil
 }
 
-func buildName(baseName, modeName, identityType, user string) string {
-	name := modeName + "-" + baseName + "-" + identityType + "-" + user
+func buildWorkflowName(baseName, modeName, identityType, user string) string {
+	modeNamePinyin, _ := util.GetPinyinFromChinese(modeName)
+	name := modeNamePinyin + "-" + baseName + "-" + identityType + "-" + user
+	return name
+}
+
+func buildWorkflowDisplayName(baseName, modeName, identityType, username string) string {
+	name := modeName + "-" + baseName + "-" + identityType + "-" + username
+	return name
+}
+
+func buildEnvName(baseName, modeName, identityType, user string) string {
+	modeNamePinyin, _ := util.GetPinyinFromChinese(modeName)
+	user = util.SanitizeName(user)
+	name := modeNamePinyin + "-" + baseName + "-" + identityType + "-" + user
 	return name
 }
 
@@ -611,8 +625,8 @@ func getCollaborationNew(updateResp *GetCollaborationUpdateResp, projectName, id
 			name := workflow.Name
 			displayName := getWorkflowDisplayName(workflow.Name, workflow.WorkflowType)
 			if workflow.CollaborationType == config.CollaborationNew {
-				name = buildName(workflow.Name, mode.Name, identityType, uid)
-				displayName = buildName(displayName, mode.Name, identityType, userName)
+				name = buildWorkflowName(workflow.Name, mode.Name, identityType, uid)
+				displayName = buildWorkflowDisplayName(displayName, mode.Name, identityType, userName)
 			}
 			newWorkflow = append(newWorkflow, &Workflow{
 				CollaborationType: workflow.CollaborationType,
@@ -626,7 +640,7 @@ func getCollaborationNew(updateResp *GetCollaborationUpdateResp, projectName, id
 		for _, product := range mode.Products {
 			name := product.Name
 			if product.CollaborationType == config.CollaborationNew {
-				name = buildName(product.Name, mode.Name, identityType, userName)
+				name = buildEnvName(product.Name, mode.Name, identityType, userName)
 			}
 			newProduct = append(newProduct, &Product{
 				CollaborationType: product.CollaborationType,
@@ -643,8 +657,8 @@ func getCollaborationNew(updateResp *GetCollaborationUpdateResp, projectName, id
 			name := workflow.Name
 			displayName := getWorkflowDisplayName(workflow.Name, workflow.WorkflowType)
 			if workflow.CollaborationType == config.CollaborationNew {
-				name = buildName(workflow.Name, item.CollaborationMode, identityType, uid)
-				displayName = buildName(displayName, item.CollaborationMode, identityType, userName)
+				name = buildWorkflowName(workflow.Name, item.CollaborationMode, identityType, uid)
+				displayName = buildWorkflowDisplayName(displayName, item.CollaborationMode, identityType, userName)
 			}
 			newWorkflow = append(newWorkflow, &Workflow{
 				WorkflowType:      workflow.WorkflowType,
@@ -658,7 +672,7 @@ func getCollaborationNew(updateResp *GetCollaborationUpdateResp, projectName, id
 		for _, product := range item.NewSpec.Products {
 			name := product.Name
 			if product.CollaborationType == config.CollaborationNew {
-				name = buildName(product.Name, item.CollaborationMode, identityType, userName)
+				name = buildEnvName(product.Name, item.CollaborationMode, identityType, userName)
 			}
 			newProduct = append(newProduct, &Product{
 				CollaborationType: product.CollaborationType,
@@ -677,8 +691,8 @@ func getCollaborationNew(updateResp *GetCollaborationUpdateResp, projectName, id
 					CollaborationType: workflow.New.CollaborationType,
 					BaseName:          workflow.Old.BaseName,
 					CollaborationMode: item.CollaborationMode,
-					Name:              buildName(workflow.Old.BaseName, item.CollaborationMode, identityType, uid),
-					DisplayName:       buildName(displayName, item.CollaborationMode, identityType, userName),
+					Name:              buildWorkflowName(workflow.Old.BaseName, item.CollaborationMode, identityType, uid),
+					DisplayName:       buildWorkflowDisplayName(displayName, item.CollaborationMode, identityType, userName),
 				})
 			}
 		}
@@ -689,7 +703,7 @@ func getCollaborationNew(updateResp *GetCollaborationUpdateResp, projectName, id
 					BaseName:          product.Old.BaseName,
 					CollaborationMode: item.CollaborationMode,
 					DeployType:        item.DeployType,
-					Name:              buildName(product.Old.BaseName, item.CollaborationMode, identityType, userName),
+					Name:              buildEnvName(product.Old.BaseName, item.CollaborationMode, identityType, userName),
 				})
 				newProductName.Insert(product.Old.BaseName)
 			}

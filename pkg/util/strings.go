@@ -89,7 +89,12 @@ func ContainsChinese(str string) bool {
 func GetPinyinFromChinese(han string) (string, string) {
 	firstLetter := ""
 	fullLetter := ""
+
 	a := pinyin.NewArgs()
+	a.Fallback = func(r rune, a pinyin.Args) []string {
+		return []string{string(r)}
+	}
+
 	pinyinArr := pinyin.Pinyin(han, a)
 	for _, pinyin := range pinyinArr {
 		for _, l := range pinyin {
@@ -131,4 +136,27 @@ func GetEnvSleepCronName(projectName, envName string, isEnable bool) string {
 
 func GetReleasePlanCronName(id, releasePlanName string, index int64) string {
 	return fmt.Sprintf("%s-%s-%d-%s", id, releasePlanName, index, setting.ReleasePlanCronjob)
+}
+
+func SanitizeName(input string) string {
+	// 转小写
+	s := strings.ToLower(input)
+
+	// 非法字符替换为 '-'
+	re := regexp.MustCompile(`[^a-z0-9-]`)
+	s = re.ReplaceAllString(s, "-")
+
+	// 合并多个连续的 '-' 为一个
+	reDash := regexp.MustCompile(`-+`)
+	s = reDash.ReplaceAllString(s, "-")
+
+	// 去掉开头和结尾的 '-'
+	s = strings.Trim(s, "-")
+
+	// 如果全被替换掉，至少给一个默认值
+	if s == "" {
+		s = "default"
+	}
+
+	return s
 }
