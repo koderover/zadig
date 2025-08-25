@@ -45,7 +45,7 @@ func WatchExecutingWorkflow() {
 
 		t := time.Now()
 		list, _, err := mongodb.NewReleasePlanColl().ListByOptions(&mongodb.ListReleasePlanOption{
-			Status: config.StatusExecuting,
+			Status: config.ReleasePlanStatusExecuting,
 		})
 		if err != nil {
 			log.Errorf("list executing workflow error: %v", err)
@@ -78,7 +78,7 @@ func updatePlanWorkflowReleaseJob(plan *models.ReleasePlan, log *zap.SugaredLogg
 		return
 	}
 	// plan status maybe changed during no lock time
-	if plan.Status != config.StatusExecuting {
+	if plan.Status != config.ReleasePlanStatusExecuting {
 		return
 	}
 	changed := false
@@ -106,18 +106,22 @@ func updatePlanWorkflowReleaseJob(plan *models.ReleasePlan, log *zap.SugaredLogg
 			if checkReleasePlanJobsAllDone(plan) {
 				//plan.ExecutingTime = time.Now().Unix()
 				plan.SuccessTime = time.Now().Unix()
-				plan.Status = config.StatusSuccess
+				plan.Status = config.ReleasePlanStatusSuccess
 				changed = true
 			}
 		}
 	}
 
 	if time.Now().Unix() > plan.EndTime && plan.EndTime != 0 {
-		plan.Status = config.StatusTimeoutForWindow
+		plan.Status = config.ReleasePlanStatusTimeoutForWindow
 		changed = true
 	}
 
 	if changed {
+		if err := sendReleasePlanHook(plan); err != nil {
+			log.Errorf("send release plan hook error: %v", err)
+		}
+
 		if err := mongodb.NewReleasePlanColl().UpdateByID(ctx, plan.ID.Hex(), plan); err != nil {
 			log.Errorf("update plan %s error: %v", plan.ID.Hex(), err)
 		}
@@ -137,7 +141,7 @@ func WatchApproval() {
 		time.Sleep(time.Second * 3)
 		t := time.Now()
 		list, _, err := mongodb.NewReleasePlanColl().ListByOptions(&mongodb.ListReleasePlanOption{
-			Status: config.StatusWaitForApprove,
+			Status: config.ReleasePlanStatusWaitForApprove,
 		})
 		if err != nil {
 			log.Errorf("list approval workflow error: %v", err)
@@ -171,7 +175,7 @@ func updatePlanApproval(plan *models.ReleasePlan) error {
 		return errors.Errorf("get plan %s error: %v", plan.ID.Hex(), err)
 	}
 	// plan status maybe changed during no lock time
-	if plan.Status != config.StatusWaitForApprove {
+	if plan.Status != config.ReleasePlanStatusWaitForApprove {
 		return nil
 	}
 
@@ -206,10 +210,10 @@ func updatePlanApproval(plan *models.ReleasePlan) error {
 			TargetName: TargetTypeReleasePlanStatus,
 			TargetType: TargetTypeReleasePlanStatus,
 			Detail:     "审批通过",
-			After:      config.StatusExecuting,
+			After:      config.ReleasePlanStatusExecuting,
 			CreatedAt:  time.Now().Unix(),
 		}
-		plan.Status = config.StatusExecuting
+		plan.Status = config.ReleasePlanStatusExecuting
 		plan.ApprovalTime = time.Now().Unix()
 		plan.ExecutingTime = time.Now().Unix()
 		if err := upsertReleasePlanCron(plan.ID.Hex(), plan.Name, plan.Index, plan.Status, plan.ScheduleExecuteTime); err != nil {
@@ -224,8 +228,12 @@ func updatePlanApproval(plan *models.ReleasePlan) error {
 			Detail:    "审批被拒绝",
 			CreatedAt: time.Now().Unix(),
 		}
-		plan.Status = config.StatusApprovalDenied
+		plan.Status = config.ReleasePlanStatusApprovalDenied
 		plan.ApprovalTime = time.Now().Unix()
+	}
+
+	if err := sendReleasePlanHook(plan); err != nil {
+		return errors.Wrap(err, "send release plan hook")
 	}
 
 	if err := mongodb.NewReleasePlanColl().UpdateByID(ctx, plan.ID.Hex(), plan); err != nil {
@@ -233,6 +241,7 @@ func updatePlanApproval(plan *models.ReleasePlan) error {
 	}
 
 	go func() {
+
 		if planLog == nil {
 			return
 		}

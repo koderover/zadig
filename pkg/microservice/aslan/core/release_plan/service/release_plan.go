@@ -42,6 +42,7 @@ import (
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	approvalservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/approval"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/webhooknotify"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/shared/client/user"
 	"github.com/koderover/zadig/v2/pkg/shared/handler"
@@ -102,7 +103,7 @@ func CreateReleasePlan(c *handler.Context, args *models.ReleasePlan) error {
 	args.UpdatedBy = c.UserName
 	args.CreateTime = time.Now().Unix()
 	args.UpdateTime = time.Now().Unix()
-	args.Status = config.StatusPlanning
+	args.Status = config.ReleasePlanStatusPlanning
 
 	planID, err := mongodb.NewReleasePlanColl().Create(args)
 	if err != nil {
@@ -149,7 +150,7 @@ func upsertReleasePlanCron(id, name string, index int64, status config.ReleasePl
 		found = true
 	}
 
-	if status != config.StatusExecuting {
+	if status != config.ReleasePlanStatusExecuting {
 		// delete cron job if status is not executing
 		if found {
 			err = commonrepo.NewCronjobColl().Delete(&commonrepo.CronjobDeleteOption{
@@ -339,7 +340,7 @@ func UpdateReleasePlan(c *handler.Context, planID string, args *UpdateReleasePla
 		return errors.Wrap(err, "get plan")
 	}
 
-	if plan.Status != config.StatusPlanning {
+	if plan.Status != config.ReleasePlanStatusPlanning {
 		return errors.Errorf("plan status is %s, can not update", plan.Status)
 	}
 
@@ -357,6 +358,10 @@ func UpdateReleasePlan(c *handler.Context, planID string, args *UpdateReleasePla
 
 	plan.UpdatedBy = c.UserName
 	plan.UpdateTime = time.Now().Unix()
+
+	if err := sendReleasePlanHook(plan); err != nil {
+		log.Errorf("send release plan hook error: %v", err)
+	}
 
 	if err = mongodb.NewReleasePlanColl().UpdateByID(ctx, planID, plan); err != nil {
 		return errors.Wrap(err, "update plan")
@@ -434,7 +439,7 @@ func ExecuteReleaseJob(c *handler.Context, planID string, args *ExecuteReleaseJo
 		return errors.Wrap(err, "get plan")
 	}
 
-	if plan.Status != config.StatusExecuting {
+	if plan.Status != config.ReleasePlanStatusExecuting {
 		return errors.Errorf("plan status is %s, can not execute", plan.Status)
 	}
 
@@ -442,7 +447,7 @@ func ExecuteReleaseJob(c *handler.Context, planID string, args *ExecuteReleaseJo
 		now := time.Now().Unix()
 		if now < plan.StartTime || now > plan.EndTime {
 			if now > plan.EndTime {
-				plan.Status = config.StatusTimeoutForWindow
+				plan.Status = config.ReleasePlanStatusTimeoutForWindow
 				if err = mongodb.NewReleasePlanColl().UpdateByID(ctx, planID, plan); err != nil {
 					return errors.Wrap(err, "update plan")
 				}
@@ -474,7 +479,11 @@ func ExecuteReleaseJob(c *handler.Context, planID string, args *ExecuteReleaseJo
 	if checkReleasePlanJobsAllDone(plan) {
 		//plan.ExecutingTime = time.Now().Unix()
 		plan.SuccessTime = time.Now().Unix()
-		plan.Status = config.StatusSuccess
+		plan.Status = config.ReleasePlanStatusSuccess
+	}
+
+	if err := sendReleasePlanHook(plan); err != nil {
+		log.Errorf("send release plan hook error: %v", err)
 	}
 
 	if err = mongodb.NewReleasePlanColl().UpdateByID(ctx, planID, plan); err != nil {
@@ -537,7 +546,7 @@ func ScheduleExecuteReleasePlan(c *handler.Context, planID, jobID string) error 
 		return err
 	}
 
-	if plan.Status != config.StatusExecuting {
+	if plan.Status != config.ReleasePlanStatusExecuting {
 		err = errors.Errorf("plan ID is %s, name is %s, index is %d, status is %s, can not execute", plan.ID.Hex(), plan.Name, plan.Index, plan.Status)
 		log.Error(err)
 		return err
@@ -609,7 +618,7 @@ func ScheduleExecuteReleasePlan(c *handler.Context, planID, jobID string) error 
 			if checkReleasePlanJobsAllDone(plan) {
 				//plan.ExecutingTime = time.Now().Unix()
 				plan.SuccessTime = time.Now().Unix()
-				plan.Status = config.StatusSuccess
+				plan.Status = config.ReleasePlanStatusSuccess
 			}
 
 			log.Infof("schedule execute release job, plan ID: %s, name: %s, index: %d, job ID: %s, job name: %s", plan.ID.Hex(), plan.Name, plan.Index, job.ID, job.Name)
@@ -620,6 +629,12 @@ func ScheduleExecuteReleasePlan(c *handler.Context, planID, jobID string) error 
 				return err
 			}
 		}
+	}
+
+	if err := sendReleasePlanHook(plan); err != nil {
+		err = errors.Wrap(err, "send release plan hook")
+		log.Error(err)
+		return err
 	}
 
 	return nil
@@ -644,7 +659,7 @@ func SkipReleaseJob(c *handler.Context, planID string, args *SkipReleaseJobArgs,
 		return errors.Wrap(err, "get plan")
 	}
 
-	if plan.Status != config.StatusExecuting {
+	if plan.Status != config.ReleasePlanStatusExecuting {
 		return errors.Errorf("plan status is %s, can not skip", plan.Status)
 	}
 
@@ -678,7 +693,11 @@ func SkipReleaseJob(c *handler.Context, planID string, args *SkipReleaseJobArgs,
 	if checkReleasePlanJobsAllDone(plan) {
 		//plan.ExecutingTime = time.Now().Unix()
 		plan.SuccessTime = time.Now().Unix()
-		plan.Status = config.StatusSuccess
+		plan.Status = config.ReleasePlanStatusSuccess
+	}
+
+	if err := sendReleasePlanHook(plan); err != nil {
+		return errors.Wrap(err, "send release plan hook")
 	}
 
 	if err = mongodb.NewReleasePlanColl().UpdateByID(ctx, planID, plan); err != nil {
@@ -731,27 +750,27 @@ func UpdateReleasePlanStatus(c *handler.Context, planID, status string, isSystem
 
 	// target status check and update
 	switch config.ReleasePlanStatus(status) {
-	case config.StatusPlanning:
+	case config.ReleasePlanStatusPlanning:
 		for _, job := range plan.Jobs {
 			job.LastStatus = job.Status
 			job.Status = config.ReleasePlanJobStatusTodo
 			job.Updated = false
 		}
-	case config.StatusExecuting:
+	case config.ReleasePlanStatusExecuting:
 		if plan.Approval != nil && plan.Approval.Enabled == true && plan.Approval.Status != config.StatusPassed {
 			return errors.Errorf("approval status is %s, can not execute", plan.Approval.Status)
 		}
 
 		plan.ExecutingTime = time.Now().Unix()
 		setReleaseJobsForExecuting(plan)
-	case config.StatusWaitForApprove:
+	case config.ReleasePlanStatusWaitForApprove:
 		if err := clearApprovalData(plan.Approval); err != nil {
 			return errors.Wrap(err, "clear approval data")
 		}
 		if err := createApprovalInstance(plan, userInfo.Phone); err != nil {
 			return errors.Wrap(err, "create approval instance")
 		}
-	case config.StatusCancel:
+	case config.ReleasePlanStatusCancel:
 		// set executing status final time
 		// plan.ExecutingTime = time.Now().Unix()
 	}
@@ -759,13 +778,17 @@ func UpdateReleasePlanStatus(c *handler.Context, planID, status string, isSystem
 	// original status check and update
 	switch plan.Status {
 	// other status will not be done by this function
-	case config.StatusPlanning:
+	case config.ReleasePlanStatusPlanning:
 		if len(plan.Jobs) == 0 {
 			return errors.Errorf("plan must not have no jobs")
 		}
 		plan.PlanningTime = time.Now().Unix()
 	}
 	plan.Status = config.ReleasePlanStatus(status)
+
+	if err := sendReleasePlanHook(plan); err != nil {
+		return errors.Wrap(err, "send release plan hook")
+	}
 
 	if err = mongodb.NewReleasePlanColl().UpdateByID(ctx, planID, plan); err != nil {
 		return errors.Wrap(err, "update plan")
@@ -812,7 +835,7 @@ func ApproveReleasePlan(c *handler.Context, planID string, req *ApproveRequest) 
 		return errors.Wrap(err, "get plan")
 	}
 
-	if plan.Status != config.StatusWaitForApprove {
+	if plan.Status != config.ReleasePlanStatusWaitForApprove {
 		return errors.Errorf("plan status is %s, can not approve", plan.Status)
 	}
 
@@ -857,10 +880,10 @@ func ApproveReleasePlan(c *handler.Context, planID string, req *ApproveRequest) 
 			TargetName: TargetTypeReleasePlanStatus,
 			TargetType: TargetTypeReleasePlanStatus,
 			Detail:     "审批通过",
-			After:      config.StatusExecuting,
+			After:      config.ReleasePlanStatusExecuting,
 			CreatedAt:  time.Now().Unix(),
 		}
-		plan.Status = config.StatusExecuting
+		plan.Status = config.ReleasePlanStatusExecuting
 		plan.ApprovalTime = time.Now().Unix()
 		plan.ExecutingTime = time.Now().Unix()
 
@@ -877,9 +900,14 @@ func ApproveReleasePlan(c *handler.Context, planID string, req *ApproveRequest) 
 			CreatedAt: time.Now().Unix(),
 		}
 
-		plan.Status = config.StatusApprovalDenied
+		plan.Status = config.ReleasePlanStatusApprovalDenied
 		plan.ApprovalTime = time.Now().Unix()
 	}
+
+	if err := sendReleasePlanHook(plan); err != nil {
+		return errors.Wrap(err, "send release plan hook")
+	}
+
 	if err = mongodb.NewReleasePlanColl().UpdateByID(ctx, planID, plan); err != nil {
 		return errors.Wrap(err, "update plan")
 	}
@@ -888,6 +916,7 @@ func ApproveReleasePlan(c *handler.Context, planID string, req *ApproveRequest) 
 		if planLog == nil {
 			return
 		}
+
 		if err := mongodb.NewReleasePlanLogColl().Create(planLog); err != nil {
 			log.Errorf("create release plan log error: %v", err)
 		}
@@ -1094,4 +1123,147 @@ func ListReleasePlans(opt *ListReleasePlanOption) (*ListReleasePlanResp, error) 
 		List:  list,
 		Total: total,
 	}, nil
+}
+
+func UpdateReleasePlanHookSetting(c *handler.Context, req *models.ReleasePlanHookSettings) error {
+	if err := mongodb.NewSystemSettingColl().UpdateReleasePlanHookSetting(req); err != nil {
+		return errors.Wrap(err, "update release plan hook setting")
+	}
+
+	return nil
+}
+
+type ReleasePlanCallBackBody struct {
+	ReleasePlanID string                                `json:"release_plan_id"`
+	HookEvent     models.ReleasePlanHookEvent           `json:"hook_event"`
+	Result        setting.ReleasePlanCallBackResultType `json:"result"`
+}
+
+func ReleasePlanHookCallback(c *handler.Context, callback *ReleasePlanCallBackBody) error {
+	log.Infof("release plan hook callback, id: %s, hook event: %s, result: %s", callback.ReleasePlanID, callback.HookEvent, callback.Result)
+
+	hookSetting, err := mongodb.NewSystemSettingColl().GetReleasePlanHookSetting()
+	if err != nil {
+		fmtErr := fmt.Errorf("failed get release plan hook setting, err: %v", err)
+		log.Error(fmtErr)
+		return fmtErr
+	}
+
+	if !hookSetting.Enable || !hookSetting.EnableCallBack {
+		return nil
+	}
+
+	hookEventStatusMap := map[config.ReleasePlanStatus]bool{}
+	for _, event := range hookSetting.HookEvents {
+		switch event {
+		case models.ReleasePlanHookEventSubmitApproval:
+			hookEventStatusMap[config.ReleasePlanStatusWaitForApproveExternalCheck] = true
+		case models.ReleasePlanHookEventStartExecute:
+			hookEventStatusMap[config.ReleasePlanStatusWaitForExecuteExternalCheck] = true
+		case models.ReleasePlanHookEventAllJobSuccess:
+			hookEventStatusMap[config.ReleasePlanStatusWaitForSuccessExternalCheck] = true
+		}
+	}
+
+	releasePlan, err := mongodb.NewReleasePlanColl().GetByID(c, callback.ReleasePlanID)
+	if err != nil {
+		fmtErr := fmt.Errorf("failed get release plan, id: %s, err: %v", callback.ReleasePlanID, err)
+		log.Error(fmtErr)
+		return fmtErr
+	}
+
+	if !hookEventStatusMap[releasePlan.Status] {
+		fmtErr := fmt.Errorf("release plan's status is not correct, status: %s", releasePlan.Status)
+		log.Error(fmtErr)
+		return fmtErr
+	}
+
+	if callback.Result == setting.ReleasePlanCallBackResultTypeSuccess {
+		nextStatus, ok := config.ReleasePlanExternalCheckNextStatusMap[releasePlan.Status]
+		if !ok {
+			fmtErr := fmt.Errorf("release plan's status is not correct, cannot get next status, status: %s", releasePlan.Status)
+			log.Error(fmtErr)
+			return fmtErr
+		}
+
+		releasePlan.Status = nextStatus
+
+		if err := mongodb.NewReleasePlanColl().UpdateByID(c, releasePlan.ID.Hex(), releasePlan); err != nil {
+			return errors.Wrap(err, "update release plan")
+		}
+	} else if callback.Result == setting.ReleasePlanCallBackResultTypeFailed {
+		releasePlan.Status = config.ReleasePlanStatusFailed
+
+		if err := mongodb.NewReleasePlanColl().UpdateByID(c, releasePlan.ID.Hex(), releasePlan); err != nil {
+			return errors.Wrap(err, "update release plan")
+		}
+	} else {
+		err = fmt.Errorf("release plan callback result is not correct, result: %s", callback.Result)
+		log.Error(err)
+		return err
+	}
+
+	return nil
+}
+
+func sendReleasePlanHook(plan *models.ReleasePlan) error {
+	hookSetting, err := mongodb.NewSystemSettingColl().GetReleasePlanHookSetting()
+	if err != nil {
+		return errors.Wrap(err, "get release plan hook setting")
+	}
+
+	if !hookSetting.Enable {
+		return nil
+	}
+
+	nextStatus := plan.Status
+	hookEventStatusMap := map[config.ReleasePlanStatus]bool{}
+	for _, event := range hookSetting.HookEvents {
+		switch event {
+		case models.ReleasePlanHookEventSubmitApproval:
+			nextStatus = config.ReleasePlanStatusWaitForApproveExternalCheck
+			hookEventStatusMap[config.ReleasePlanStatusWaitForApprove] = true
+		case models.ReleasePlanHookEventStartExecute:
+			nextStatus = config.ReleasePlanStatusWaitForExecuteExternalCheck
+			hookEventStatusMap[config.ReleasePlanStatusExecuting] = true
+		case models.ReleasePlanHookEventAllJobSuccess:
+			nextStatus = config.ReleasePlanStatusWaitForSuccessExternalCheck
+			hookEventStatusMap[config.ReleasePlanStatusSuccess] = true
+		}
+	}
+
+	if hookEventStatusMap[plan.Status] {
+		hookBody := &webhooknotify.ReleasePlanHookBody{
+			ID:                  plan.ID,
+			Index:               plan.Index,
+			Name:                plan.Name,
+			Manager:             plan.Manager,
+			ManagerID:           plan.ManagerID,
+			StartTime:           plan.StartTime,
+			EndTime:             plan.EndTime,
+			ScheduleExecuteTime: plan.ScheduleExecuteTime,
+			Description:         plan.Description,
+			CreatedBy:           plan.CreatedBy,
+			CreateTime:          plan.CreateTime,
+			UpdatedBy:           plan.UpdatedBy,
+			UpdateTime:          plan.UpdateTime,
+			Status:              plan.Status,
+			PlanningTime:        plan.PlanningTime,
+			ApprovalTime:        plan.ApprovalTime,
+			ExecutingTime:       plan.ExecutingTime,
+			SuccessTime:         plan.SuccessTime,
+		}
+		err := webhooknotify.NewClient(hookSetting.HookAddress, hookSetting.HookSecret).SendReleasePlanWebhook(hookBody)
+		if err != nil {
+			err = errors.Wrap(err, "send release plan hook")
+			log.Error(err)
+			return err
+		}
+
+		if hookSetting.EnableCallBack {
+			plan.Status = nextStatus
+		}
+	}
+
+	return nil
 }
