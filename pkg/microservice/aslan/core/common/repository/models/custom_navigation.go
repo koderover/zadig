@@ -31,7 +31,7 @@ type NavigationItem struct {
 	Icon     string            `bson:"icon"       json:"icon"`
 	PageType string            `bson:"page_type"  json:"page_type"`
 	URL      string            `bson:"url"        json:"url"`
-	Children []*NavigationItem `bson:"children"   json:"children,omitempty"`
+	Children []*NavigationItem `bson:"children"   json:"children"`
 }
 
 type CustomNavigation struct {
