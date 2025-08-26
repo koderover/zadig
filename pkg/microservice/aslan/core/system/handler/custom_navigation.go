@@ -25,17 +25,88 @@ import (
 	"github.com/gin-gonic/gin"
 
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
-	"github.com/koderover/zadig/v2/pkg/types"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/service"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
+	"github.com/koderover/zadig/v2/pkg/types"
 )
 
 func GetSystemNavigation(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	ctx.Resp, ctx.RespErr = service.GetSystemNavigation(ctx.Logger)
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	resp, err := service.GetSystemNavigation(ctx.Logger)
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("get system navigation failed: err %s", err)
+		return
+	}
+	filteredItems := filterNavigationItems(ctx, resp.Items)
+	resp.Items = filteredItems
+	ctx.Resp = resp
+}
+
+func filterNavigationItems(ctx *internalhandler.Context, items []*commonmodels.NavigationItem) []*commonmodels.NavigationItem {
+	if ctx.Resources.IsSystemAdmin {
+		return items
+	}
+	newItem := make([]*commonmodels.NavigationItem, 0)
+	for _, item := range items {
+		if item.Type == "folder" {
+			item.Children = filterNavigationItems(ctx, item.Children)
+		}
+		if item.Key == "releasePlan" {
+			if ctx.Resources.SystemActions.ReleasePlan.View {
+				newItem = append(newItem, item)
+			}
+		}
+		if item.Key == "bizCatalog" {
+			if ctx.Resources.SystemActions.BusinessDirectory.View {
+				newItem = append(newItem, item)
+			}
+		}
+		if item.Key == "templateLibrary" {
+			if ctx.Resources.SystemActions.Template.View {
+				newItem = append(newItem, item)
+			}
+		}
+		if item.Key == "qualityCenter" {
+			if ctx.Resources.SystemActions.TestCenter.View {
+				newItem = append(newItem, item)
+			}
+		}
+		if item.Key == "artifactManagement" {
+			if ctx.Resources.SystemActions.DeliveryCenter.ViewArtifact || ctx.Resources.SystemActions.DeliveryCenter.ViewVersion {
+				newItem = append(newItem, item)
+			}
+		}
+		if item.Key == "resourceConfiguration" {
+			if ctx.Resources.SystemActions.ClusterManagement.View ||
+				ctx.Resources.SystemActions.VMManagement.View ||
+				ctx.Resources.SystemActions.RegistryManagement.View ||
+				ctx.Resources.SystemActions.S3StorageManagement.View ||
+				ctx.Resources.SystemActions.HelmRepoManagement.View ||
+				ctx.Resources.SystemActions.DBInstanceManagement.View {
+				newItem = append(newItem, item)
+			}
+		}
+		if item.Key == "dataOverview" {
+			if ctx.Resources.SystemActions.DataCenter.ViewOverView  {
+				newItem = append(newItem, item)
+			}
+		}
+		if item.Key == "dataInsight" {
+			if ctx.Resources.SystemActions.DataCenter.ViewInsight {
+				newItem = append(newItem, item)
+			}
+		}
+	}
+	return newItem
 }
 
 func UpdateSystemNavigation(c *gin.Context) {
