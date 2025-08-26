@@ -90,13 +90,16 @@ func filterNavigationItems(ctx *internalhandler.Context, items []*commonmodels.N
 				newItem = append(newItem, item)
 			}
 		} else if item.Key == "dataOverview" {
-			if ctx.Resources.SystemActions.DataCenter.ViewOverView  {
+			if ctx.Resources.SystemActions.DataCenter.ViewOverView {
 				newItem = append(newItem, item)
 			}
 		} else if item.Key == "dataInsight" {
 			if ctx.Resources.SystemActions.DataCenter.ViewInsight {
 				newItem = append(newItem, item)
 			}
+		} else if item.Key == "customerDelivery" {
+			// if not admin then skip
+			continue
 		} else {
 			// no filter
 			newItem = append(newItem, item)
