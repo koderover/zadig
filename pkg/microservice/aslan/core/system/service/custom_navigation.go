@@ -29,7 +29,7 @@ func GetSystemNavigation(log *zap.SugaredLogger) (*commonmodels.CustomNavigation
 	if err == nil && res != nil {
 		return res, nil
 	}
-	return &commonmodels.CustomNavigation{Items: make([]*commonmodels.NavigationItem, 0)}, nil
+	return &commonmodels.CustomNavigation{Items: getDefaultSystemNavigation()}, nil
 }
 
 func UpdateSystemNavigation(updateBy string, items []*commonmodels.NavigationItem, log *zap.SugaredLogger) error {
