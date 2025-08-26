@@ -27,8 +27,10 @@ type NavigationItem struct {
 	Name     string            `bson:"name"       json:"name"`
 	Key      string            `bson:"key"        json:"key"`
 	Type     string            `bson:"type"       json:"type"`
-	PageType string            `bson:"page_type"  json:"pageType"`
-	PageRef  string            `bson:"page_ref"   json:"pageRef"`
+	IconType string            `bson:"icon_type"  json:"icon_type"`
+	Icon     string            `bson:"icon"       json:"icon"`
+	PageType string            `bson:"page_type"  json:"page_type"`
+	URL      string            `bson:"url"        json:"url"`
 	Children []*NavigationItem `bson:"children"   json:"children,omitempty"`
 }
 
@@ -79,12 +81,12 @@ func (n *CustomNavigation) Validate() error {
 				if it.PageType != "plugin" && it.PageType != "system" {
 					return fmt.Errorf("invalid pageType: %s", it.PageType)
 				}
-				if strings.TrimSpace(it.PageRef) == "" {
-					return fmt.Errorf("pageRef cannot be empty for page item")
+				if strings.TrimSpace(it.URL) == "" {
+					return fmt.Errorf("url cannot be empty for page item")
 				}
 			} else {
-				if strings.TrimSpace(it.PageType) != "" || strings.TrimSpace(it.PageRef) != "" {
-					return fmt.Errorf("folder item should not set pageType/pageRef")
+				if strings.TrimSpace(it.PageType) != "" || strings.TrimSpace(it.URL) != "" {
+					return fmt.Errorf("folder item should not set pageType/url")
 				}
 			}
 			if err := walk(it.Children, depth+1); err != nil {

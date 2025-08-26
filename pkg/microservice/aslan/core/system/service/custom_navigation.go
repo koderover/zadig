@@ -42,3 +42,143 @@ func UpdateSystemNavigation(updateBy string, items []*commonmodels.NavigationIte
 	}
 	return commonrepo.NewCustomNavigationColl().CreateOrUpdate(nav)
 }
+
+func getDefaultSystemNavigation() []*commonmodels.NavigationItem {
+	return []*commonmodels.NavigationItem{
+		{
+			Name:     "产品交付",
+			Key:      "productDelivery",
+			Type:     "folder",
+			IconType: "class",
+			Icon:     "iconfont iconcate",
+			Children: []*commonmodels.NavigationItem{
+				{
+					Name:     "运行状态",
+					Key:      "status",
+					Type:     "page",
+					PageType: "system",
+					IconType: "class",
+					Icon:     "iconfont iconyunhangzhuangtai",
+					URL:      "status",
+				},
+				{
+					Name:     "项目",
+					Key:      "projects",
+					Type:     "page",
+					PageType: "system",
+					IconType: "class",
+					Icon:     "iconfont iconxiangmuloading",
+					URL:      "projects",
+				},
+			},
+		},
+		{
+			Name:     "发布管理",
+			Key:      "releaseManagement",
+			Type:     "folder",
+			IconType: "class",
+			Icon:     "iconfont iconcate",
+			Children: []*commonmodels.NavigationItem{
+				{
+					Name:     "发布计划",
+					Key:      "releasePlan",
+					Type:     "page",
+					PageType: "system",
+					IconType: "class",
+					Icon:     "iconfont iconplan",
+					URL:      "releasePlan",
+				},
+				{
+					Name:     "客户交付",
+					Key:      "customerDelivery",
+					Type:     "page",
+					PageType: "system",
+					IconType: "class",
+					Icon:     "iconfont iconjiaofu",
+					URL:      "plutus",
+				},
+			},
+		},
+		{
+			Name:     "资产管理",
+			Key:      "assetManagement",
+			Type:     "folder",
+			IconType: "class",
+			Icon:     "iconfont iconcate",
+			Children: []*commonmodels.NavigationItem{
+				{
+					Name:     "业务目录",
+					Key:      "bizCatalog",
+					Type:     "page",
+					PageType: "system",
+					IconType: "class",
+					Icon:     "iconfont iconDirectorytree",
+					URL:      "directory",
+				},
+				{
+					Name:     "模板库",
+					Key:      "templateLibrary",
+					Type:     "page",
+					PageType: "system",
+					IconType: "class",
+					Icon:     "iconfont iconvery-template",
+					URL:      "template",
+				},
+				{
+					Name:     "质量中心",
+					Key:      "qualityCenter",
+					Type:     "page",
+					PageType: "system",
+					IconType: "class",
+					Icon:     "iconfont iconvery-testing",
+					URL:      "tests",
+				},
+				{
+					Name:     "制品管理",
+					Key:      "artifactManagement",
+					Type:     "page",
+					PageType: "system",
+					IconType: "class",
+					Icon:     "iconfont iconvery-deli",
+					URL:      "delivery",
+				},
+				{
+					Name:     "资源配置",
+					Key:      "resourceConfiguration",
+					Type:     "page",
+					PageType: "system",
+					IconType: "class",
+					Icon:     "iconfont iconresource-mgr",
+					URL:      "resource",
+				},
+			},
+		},
+		{
+			Name:     "数据视图",
+			Key:      "dataView",
+			Type:     "folder",
+			IconType: "class",
+			Icon:     "iconfont iconcate",
+			Children: []*commonmodels.NavigationItem{
+				{
+					Name:     "数据概览",
+					Key:      "dataOverview",
+					Type:     "page",
+					PageType: "system",
+					IconType: "class",
+					Icon:     "iconfont iconvery-dataov",
+					URL:      "statistics",
+				},
+				{
+					Name:     "效能洞察",
+					Key:      "dataInsight",
+					Type:     "page",
+					PageType: "system",
+					IconType: "class",
+					Icon:     "iconfont iconvery-datain",
+					URL:      "insight",
+				},
+			},
+		},
+	}
+}
