@@ -59,6 +59,7 @@ func filterNavigationItems(ctx *internalhandler.Context, items []*commonmodels.N
 	for _, item := range items {
 		if item.Type == "folder" {
 			item.Children = filterNavigationItems(ctx, item.Children)
+			newItem = append(newItem, item)
 		} else if item.Key == "releasePlan" {
 			if ctx.Resources.SystemActions.ReleasePlan.View {
 				newItem = append(newItem, item)
