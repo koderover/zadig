@@ -466,6 +466,15 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	}
 
 	// ---------------------------------------------------------------------------------------
+	// custom navigation (system level)
+	// ---------------------------------------------------------------------------------------
+	navigation := router.Group("navigation")
+	{
+		navigation.GET("", GetSystemNavigation)
+		navigation.PUT("", UpdateSystemNavigation)
+	}
+
+	// ---------------------------------------------------------------------------------------
 	// database instance
 	// ---------------------------------------------------------------------------------------
 	dbs := router.Group("dbinstance")
@@ -490,6 +499,19 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		labels.PUT("/:id", UpdateServiceLabelSetting)
 		labels.DELETE("/:id", DeleteServiceLabelSetting)
 
+	}
+
+	// ---------------------------------------------------------------------------------------
+	// idp plugin management API
+	// ---------------------------------------------------------------------------------------
+	plugin := router.Group("plugin")
+	{
+		plugin.GET("", ListPlugins)
+		plugin.POST("", CreatePlugin)
+		plugin.PUT("/:id", UpdatePlugin)
+		plugin.DELETE("/:id", DeletePlugin)
+		// download plugin file by id
+		plugin.GET("/:id/file", GetPluginFile)
 	}
 
 	sae := router.Group("sae")

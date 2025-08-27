@@ -720,3 +720,31 @@ const (
 	TapdIterationStatusOpen = "open"
 	TapdIterationStatusDone = "done"
 )
+
+type NavigationItemType string
+
+const (
+	NavigationItemTypeFolder NavigationItemType = "folder"
+	NavigationItemTypePage   NavigationItemType = "page"
+)
+
+type NavigationPageType string
+
+const (
+	NavigationPageTypePlugin NavigationPageType = "plugin"
+	NavigationPageTypeSystem NavigationPageType = "system"
+)
+
+type NavigationItemKey string
+
+const (
+	NavigationKeyReleasePlan           NavigationItemKey = "releasePlan"
+	NavigationKeyBizCatalog            NavigationItemKey = "bizCatalog"
+	NavigationKeyTemplateLibrary       NavigationItemKey = "templateLibrary"
+	NavigationKeyQualityCenter         NavigationItemKey = "qualityCenter"
+	NavigationKeyArtifactManagement    NavigationItemKey = "artifactManagement"
+	NavigationKeyResourceConfiguration NavigationItemKey = "resourceConfiguration"
+	NavigationKeyDataOverview          NavigationItemKey = "dataOverview"
+	NavigationKeyDataInsight           NavigationItemKey = "dataInsight"
+	NavigationKeyCustomerDelivery      NavigationItemKey = "customerDelivery"
+)
