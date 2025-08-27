@@ -719,3 +719,17 @@ const (
 	TapdIterationStatusOpen = "open"
 	TapdIterationStatusDone = "done"
 )
+
+// Navigation related constants
+const (
+	NavigationItemTypeFolder           = "folder"
+	NavigationKeyReleasePlan           = "releasePlan"
+	NavigationKeyBizCatalog            = "bizCatalog"
+	NavigationKeyTemplateLibrary       = "templateLibrary"
+	NavigationKeyQualityCenter         = "qualityCenter"
+	NavigationKeyArtifactManagement    = "artifactManagement"
+	NavigationKeyResourceConfiguration = "resourceConfiguration"
+	NavigationKeyDataOverview          = "dataOverview"
+	NavigationKeyDataInsight           = "dataInsight"
+	NavigationKeyCustomerDelivery      = "customerDelivery"
+)

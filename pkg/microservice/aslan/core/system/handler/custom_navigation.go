@@ -24,6 +24,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/service"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
@@ -57,30 +58,30 @@ func filterNavigationItems(ctx *internalhandler.Context, items []*commonmodels.N
 	}
 	newItem := make([]*commonmodels.NavigationItem, 0)
 	for _, item := range items {
-		if item.Type == "folder" {
+		if item.Type == config.NavigationItemTypeFolder {
 			item.Children = filterNavigationItems(ctx, item.Children)
 			newItem = append(newItem, item)
-		} else if item.Key == "releasePlan" {
+		} else if item.Key == config.NavigationKeyReleasePlan {
 			if ctx.Resources.SystemActions.ReleasePlan.View {
 				newItem = append(newItem, item)
 			}
-		} else if item.Key == "bizCatalog" {
+		} else if item.Key == config.NavigationKeyBizCatalog {
 			if ctx.Resources.SystemActions.BusinessDirectory.View {
 				newItem = append(newItem, item)
 			}
-		} else if item.Key == "templateLibrary" {
+		} else if item.Key == config.NavigationKeyTemplateLibrary {
 			if ctx.Resources.SystemActions.Template.View {
 				newItem = append(newItem, item)
 			}
-		} else if item.Key == "qualityCenter" {
+		} else if item.Key == config.NavigationKeyQualityCenter {
 			if ctx.Resources.SystemActions.TestCenter.View {
 				newItem = append(newItem, item)
 			}
-		} else if item.Key == "artifactManagement" {
+		} else if item.Key == config.NavigationKeyArtifactManagement {
 			if ctx.Resources.SystemActions.DeliveryCenter.ViewArtifact || ctx.Resources.SystemActions.DeliveryCenter.ViewVersion {
 				newItem = append(newItem, item)
 			}
-		} else if item.Key == "resourceConfiguration" {
+		} else if item.Key == config.NavigationKeyResourceConfiguration {
 			if ctx.Resources.SystemActions.ClusterManagement.View ||
 				ctx.Resources.SystemActions.VMManagement.View ||
 				ctx.Resources.SystemActions.RegistryManagement.View ||
@@ -89,15 +90,15 @@ func filterNavigationItems(ctx *internalhandler.Context, items []*commonmodels.N
 				ctx.Resources.SystemActions.DBInstanceManagement.View {
 				newItem = append(newItem, item)
 			}
-		} else if item.Key == "dataOverview" {
+		} else if item.Key == config.NavigationKeyDataOverview {
 			if ctx.Resources.SystemActions.DataCenter.ViewOverView {
 				newItem = append(newItem, item)
 			}
-		} else if item.Key == "dataInsight" {
+		} else if item.Key == config.NavigationKeyDataInsight {
 			if ctx.Resources.SystemActions.DataCenter.ViewInsight {
 				newItem = append(newItem, item)
 			}
-		} else if item.Key == "customerDelivery" {
+		} else if item.Key == config.NavigationKeyCustomerDelivery {
 			// if not admin then skip
 			continue
 		} else {
