@@ -41,7 +41,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/shared/client/aslan"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	"github.com/koderover/zadig/v2/pkg/tool/crypto"
-	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/types"
 )
 
@@ -293,8 +292,6 @@ func ValidateCodeHost(ctx *internalhandler.Context, codeHost *models.CodeHost) e
 		if host == "" {
 			return fmt.Errorf("无效的SSH地址: %s", codeHost.Address)
 		}
-
-		log.Debugf("user: %v, host: %v", user, host)
 
 		// 解析端口
 		port := 22
