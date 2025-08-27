@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
@@ -74,11 +75,11 @@ func (n *CustomNavigation) Validate() error {
 			if strings.TrimSpace(it.Key) == "" {
 				return fmt.Errorf("navigation item key cannot be empty")
 			}
-			if it.Type != "folder" && it.Type != "page" {
+			if it.Type != string(config.NavigationItemTypeFolder) && it.Type != string(config.NavigationItemTypePage) {
 				return fmt.Errorf("invalid item type: %s", it.Type)
 			}
-			if it.Type == "page" {
-				if it.PageType != "plugin" && it.PageType != "system" {
+			if it.Type == string(config.NavigationItemTypePage) {
+				if it.PageType != string(config.NavigationPageTypePlugin) && it.PageType != string(config.NavigationPageTypeSystem) {
 					return fmt.Errorf("invalid pageType: %s", it.PageType)
 				}
 				if strings.TrimSpace(it.URL) == "" {
