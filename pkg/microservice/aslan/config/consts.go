@@ -720,16 +720,30 @@ const (
 	TapdIterationStatusDone = "done"
 )
 
-// Navigation related constants
+type NavigationItemType string
+
 const (
-	NavigationItemTypeFolder           = "folder"
-	NavigationKeyReleasePlan           = "releasePlan"
-	NavigationKeyBizCatalog            = "bizCatalog"
-	NavigationKeyTemplateLibrary       = "templateLibrary"
-	NavigationKeyQualityCenter         = "qualityCenter"
-	NavigationKeyArtifactManagement    = "artifactManagement"
-	NavigationKeyResourceConfiguration = "resourceConfiguration"
-	NavigationKeyDataOverview          = "dataOverview"
-	NavigationKeyDataInsight           = "dataInsight"
-	NavigationKeyCustomerDelivery      = "customerDelivery"
+	NavigationItemTypeFolder NavigationItemType = "folder"
+	NavigationItemTypePage   NavigationItemType = "page"
+)
+
+type NavigationPageType string
+
+const (
+	NavigationPageTypePlugin NavigationPageType = "plugin"
+	NavigationPageTypeSystem NavigationPageType = "system"
+)
+
+type NavigationItemKey string
+
+const (
+	NavigationKeyReleasePlan           NavigationItemKey = "releasePlan"
+	NavigationKeyBizCatalog            NavigationItemKey = "bizCatalog"
+	NavigationKeyTemplateLibrary       NavigationItemKey = "templateLibrary"
+	NavigationKeyQualityCenter         NavigationItemKey = "qualityCenter"
+	NavigationKeyArtifactManagement    NavigationItemKey = "artifactManagement"
+	NavigationKeyResourceConfiguration NavigationItemKey = "resourceConfiguration"
+	NavigationKeyDataOverview          NavigationItemKey = "dataOverview"
+	NavigationKeyDataInsight           NavigationItemKey = "dataInsight"
+	NavigationKeyCustomerDelivery      NavigationItemKey = "customerDelivery"
 )
