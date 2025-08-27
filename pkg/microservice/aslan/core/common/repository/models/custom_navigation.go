@@ -86,7 +86,7 @@ func (n *CustomNavigation) Validate() error {
 					return fmt.Errorf("url cannot be empty for page item")
 				}
 			} else {
-				if strings.TrimSpace(it.PageType) != "" || strings.TrimSpace(it.URL) != "" {
+				if strings.TrimSpace(string(it.PageType)) != "" || strings.TrimSpace(it.URL) != "" {
 					return fmt.Errorf("folder item should not set pageType/url")
 				}
 			}
