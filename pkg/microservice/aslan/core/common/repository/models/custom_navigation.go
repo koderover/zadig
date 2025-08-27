@@ -25,14 +25,14 @@ import (
 )
 
 type NavigationItem struct {
-	Name     string            `bson:"name"       json:"name"`
-	Key      string            `bson:"key"        json:"key"`
-	Type     string            `bson:"type"       json:"type"`
-	IconType string            `bson:"icon_type"  json:"icon_type"`
-	Icon     string            `bson:"icon"       json:"icon"`
-	PageType string            `bson:"page_type"  json:"page_type"`
-	URL      string            `bson:"url"        json:"url"`
-	Children []*NavigationItem `bson:"children"   json:"children"`
+	Name     string                    `bson:"name"       json:"name"`
+	Key      config.NavigationItemKey  `bson:"key"        json:"key"`
+	Type     config.NavigationItemType `bson:"type"       json:"type"`
+	IconType string                    `bson:"icon_type"  json:"icon_type"`
+	Icon     string                    `bson:"icon"       json:"icon"`
+	PageType config.NavigationPageType `bson:"page_type"  json:"page_type"`
+	URL      string                    `bson:"url"        json:"url"`
+	Children []*NavigationItem         `bson:"children"   json:"children"`
 }
 
 type CustomNavigation struct {
@@ -72,21 +72,21 @@ func (n *CustomNavigation) Validate() error {
 			if strings.TrimSpace(it.Name) == "" {
 				return fmt.Errorf("navigation item name cannot be empty")
 			}
-			if strings.TrimSpace(it.Key) == "" {
+			if strings.TrimSpace(string(it.Key)) == "" {
 				return fmt.Errorf("navigation item key cannot be empty")
 			}
-			if it.Type != string(config.NavigationItemTypeFolder) && it.Type != string(config.NavigationItemTypePage) {
+			if it.Type != config.NavigationItemTypeFolder && it.Type != config.NavigationItemTypePage {
 				return fmt.Errorf("invalid item type: %s", it.Type)
 			}
-			if it.Type == string(config.NavigationItemTypePage) {
-				if it.PageType != string(config.NavigationPageTypePlugin) && it.PageType != string(config.NavigationPageTypeSystem) {
+			if it.Type == config.NavigationItemTypePage {
+				if it.PageType != config.NavigationPageTypePlugin && it.PageType != config.NavigationPageTypeSystem {
 					return fmt.Errorf("invalid pageType: %s", it.PageType)
 				}
 				if strings.TrimSpace(it.URL) == "" {
 					return fmt.Errorf("url cannot be empty for page item")
 				}
 			} else {
-				if strings.TrimSpace(it.PageType) != "" || strings.TrimSpace(it.URL) != "" {
+				if strings.TrimSpace(string(it.PageType)) != "" || strings.TrimSpace(it.URL) != "" {
 					return fmt.Errorf("folder item should not set pageType/url")
 				}
 			}
