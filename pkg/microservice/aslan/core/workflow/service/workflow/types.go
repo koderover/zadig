@@ -440,9 +440,10 @@ type ZadigDeployJobInput struct {
 }
 
 type ServiceDeployArgs struct {
-	ServiceModule string `json:"service_module"`
-	ServiceName   string `json:"service_name"`
-	ImageName     string `json:"image_name"`
+	ServiceModule      string                    `json:"service_module"`
+	ServiceName        string                    `json:"service_name"`
+	ImageName          string                    `json:"image_name"`
+	ValueMergeStrategy config.ValueMergeStrategy `json:"value_merge_strategy,omitempty"`
 }
 
 func (p *ZadigDeployJobInput) UpdateJobSpec(job *commonmodels.Job) (*commonmodels.Job, error) {
@@ -460,6 +461,7 @@ func (p *ZadigDeployJobInput) UpdateJobSpec(job *commonmodels.Job) (*commonmodel
 				Image:         inputSvc.ImageName,
 				ServiceModule: inputSvc.ServiceModule,
 			})
+			service.ValueMergeStrategy = inputSvc.ValueMergeStrategy
 		} else {
 			basicInfo := commonmodels.DeployBasicInfo{
 				ServiceName: inputSvc.ServiceName,
@@ -469,7 +471,10 @@ func (p *ZadigDeployJobInput) UpdateJobSpec(job *commonmodels.Job) (*commonmodel
 				}),
 			}
 			serviceMap[inputSvc.ServiceName] = &commonmodels.DeployServiceInfo{
-				DeployBasicInfo: basicInfo,
+				DeployBasicInfo:    basicInfo,
+				DeployVariableInfo: commonmodels.DeployVariableInfo{
+					ValueMergeStrategy: inputSvc.ValueMergeStrategy,
+				},
 			}
 			newSpec.Services = append(newSpec.Services, serviceMap[inputSvc.ServiceName])
 		}
