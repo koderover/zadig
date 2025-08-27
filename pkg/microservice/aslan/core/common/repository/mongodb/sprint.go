@@ -373,7 +373,9 @@ func (c *SprintColl) List(ctx *handler.Context, opt *ListSprintOption) ([]*model
 	} else {
 		pipeline = append(pipeline, bson.M{
 			"$facet": bson.M{
-				"data": []bson.M{},
+				"data": []bson.M{
+					{"$skip": 0},
+				},
 				"total": []bson.M{
 					{
 						"$count": "total",
