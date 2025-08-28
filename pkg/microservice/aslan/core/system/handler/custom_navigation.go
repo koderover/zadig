@@ -57,13 +57,17 @@ func filterNavigationItems(ctx *internalhandler.Context, items []*commonmodels.N
 	if ctx.Resources.IsSystemAdmin {
 		newItem := make([]*commonmodels.NavigationItem, 0)
 		for _, item := range items {
-			if item.Key == config.NavigationKeyCustomerDelivery {
+			if item.Type == config.NavigationItemTypeFolder {
+				item.Children = filterNavigationItems(ctx, item.Children)
+				newItem = append(newItem, item)
+			} else if item.Key == config.NavigationKeyCustomerDelivery {
 				// if not admin then skip
 				if err := util.CheckZadigLicenseFeatureDelivery(); err != nil {
 					continue
 				}
+			} else {
+				newItem = append(newItem, item)
 			}
-			newItem = append(newItem, item)
 		}
 		return newItem
 	}
