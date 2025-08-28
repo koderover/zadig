@@ -766,6 +766,8 @@ func createOrUpdateHelmServiceFromChartTemplate(templateArgs *CreateFromChartTem
 			CreationDetail:   args.CreationDetail,
 			AutoSync:         args.AutoSync,
 			Production:       args.Production,
+			// TODO: FIX valuePaths, it should be a single value in some situation
+			LoadPath:         args.ValuesData.GitRepoConfig.ValuesPaths[0],
 		}, force,
 		logger,
 	)
