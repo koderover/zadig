@@ -46,7 +46,7 @@ type CustomNavigation struct {
 func (CustomNavigation) TableName() string { return "custom_navigation" }
 
 const (
-	MaxNavigationDepth       = 10
+	MaxNavigationDepth       = 3
 	MaxNavigationTotalItems  = 1000
 	MaxNavigationChildrenPer = 200
 )
@@ -56,6 +56,7 @@ func (n *CustomNavigation) Validate() error {
 		return fmt.Errorf("navigation is nil")
 	}
 	var total int
+	seen := make(map[string]struct{})
 	var walk func(items []*NavigationItem, depth int) error
 	walk = func(items []*NavigationItem, depth int) error {
 		if depth > MaxNavigationDepth {
@@ -90,6 +91,11 @@ func (n *CustomNavigation) Validate() error {
 					return fmt.Errorf("folder item should not set pageType/url")
 				}
 			}
+			pair := string(it.Type) + "|" + string(it.Key)
+			if _, exists := seen[pair]; exists {
+				return fmt.Errorf("duplicate type/key combination: type=%s key=%s", it.Type, it.Key)
+			}
+			seen[pair] = struct{}{}
 			if err := walk(it.Children, depth+1); err != nil {
 				return err
 			}
