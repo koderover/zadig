@@ -110,3 +110,19 @@ func CheckZadigLicenseFeatureSae() error {
 	}
 	return e.ErrLicenseInvalid.AddDesc("")
 }
+
+func CheckZadigLicenseFeatureDelivery() error {
+	licenseStatus, err := plutusvendor.New().CheckZadigXLicenseStatus()
+	if err != nil {
+		return fmt.Errorf("failed to validate zadig license status, error: %s", err)
+	}
+	if !ValidateZadigProfessionalLicense(licenseStatus) {
+		return e.ErrLicenseInvalid.AddDesc("")
+	}
+	for _, feature := range licenseStatus.Features {
+		if feature == plutusvendor.ZadigLicenseFeatureDelivery {
+			return nil
+		}
+	}
+	return e.ErrLicenseInvalid.AddDesc("")
+}

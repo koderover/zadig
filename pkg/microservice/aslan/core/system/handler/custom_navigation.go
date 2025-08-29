@@ -26,6 +26,7 @@ import (
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/service"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
@@ -54,7 +55,21 @@ func GetSystemNavigation(c *gin.Context) {
 
 func filterNavigationItems(ctx *internalhandler.Context, items []*commonmodels.NavigationItem) []*commonmodels.NavigationItem {
 	if ctx.Resources.IsSystemAdmin {
-		return items
+		newItem := make([]*commonmodels.NavigationItem, 0)
+		for _, item := range items {
+			if item.Type == config.NavigationItemTypeFolder {
+				item.Children = filterNavigationItems(ctx, item.Children)
+				newItem = append(newItem, item)
+			} else if item.Key == config.NavigationKeyCustomerDelivery {
+				// if not admin then skip
+				if err := util.CheckZadigLicenseFeatureDelivery(); err != nil {
+					continue
+				}
+			} else {
+				newItem = append(newItem, item)
+			}
+		}
+		return newItem
 	}
 	newItem := make([]*commonmodels.NavigationItem, 0)
 	for _, item := range items {
