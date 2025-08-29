@@ -160,7 +160,9 @@ func (c *EnvInfoColl) List(ctx context.Context, opt *ListEnvInfoOption) ([]*mode
 	} else {
 		pipeline = append(pipeline, bson.M{
 			"$facet": bson.M{
-				"data": []bson.M{},
+				"data": []bson.M{
+					{"$skip": 0},
+				},
 				"total": []bson.M{
 					{
 						"$count": "total",
