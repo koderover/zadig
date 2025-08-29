@@ -324,7 +324,7 @@ func (c *FreestyleJobCtl) vmJobWait(ctx context.Context, jobID string) {
 		err := vmmongodb.NewVMJobColl().UpdateStatus(jobID, string(config.StatusCancelled))
 		if err != nil {
 			c.logger.Errorf("update vm job status error: %v", err)
-			c.job.Error = fmt.Errorf("update vm job status %s error: %v", string(config.StatusCancel), err).Error()
+			c.job.Error = fmt.Errorf("update vm job status %s error: %v", string(config.ReleasePlanStatusCancel), err).Error()
 		}
 	case config.StatusTimeout:
 		err := vmmongodb.NewVMJobColl().UpdateStatus(jobID, string(config.StatusTimeout))
