@@ -137,7 +137,7 @@ func (c *EEClient) ListProjects(opt client.ListOpt) ([]*client.Project, error) {
 	var err error
 	switch opt.NamespaceType {
 	case client.EnterpriseKind:
-		projects, err = c.Client.ListRepositoryForEnterprise(c.Address, c.AccessToken, opt.Namespace, opt.Page, opt.PerPage)
+		projects, err = c.Client.ListRepositoryForEnterprise(c.Address, c.AccessToken, opt.Namespace, opt.Key, opt.Page, opt.PerPage)
 		if err != nil {
 			return nil, err
 		}
