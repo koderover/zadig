@@ -607,8 +607,28 @@ func updateLarkApproval(ctx context.Context, approval *models.Approval) error {
 		}
 	}
 
+	checkApprovalFinished := func(nodes []*models.LarkApprovalNode) bool {
+		count := len(nodes)
+		finishedNode := 0
+		for _, node := range nodes {
+			if node.RejectOrApprove == config.ApprovalStatusReject {
+				return true
+			}
+
+			if node.RejectOrApprove == config.ApprovalStatusApprove || node.RejectOrApprove == config.ApprovalStatusReject || node.RejectOrApprove == config.ApprovalStatusRedirect || node.RejectOrApprove == config.ApprovalStatusDone {
+				finishedNode++
+			}
+		}
+
+		if finishedNode == count {
+			return true
+		}
+
+		return false
+	}
+
 	// approvalUpdate is used to update the larkApproval status
-	approvalUpdate := func(larkApproval *models.LarkApproval) (done, isApprove bool, err error) {
+	approvalUpdate := func(larkApproval *models.LarkApproval) (done bool, err error) {
 		// userUpdated represents whether the user status has been updated
 		userUpdated := false
 		for i, node := range larkApproval.ApprovalNodes {
@@ -620,7 +640,7 @@ func updateLarkApproval(ctx context.Context, approval *models.Approval) error {
 				if result, ok := resultMap[user.ID]; ok && user.RejectOrApprove == "" {
 					instanceData, err := client.GetApprovalInstance(&lark.GetApprovalInstanceArgs{InstanceID: instance})
 					if err != nil {
-						return false, false, errors.Wrap(err, "get larkApproval instance")
+						return false, errors.Wrap(err, "get larkApproval instance")
 					}
 
 					comment := ""
@@ -639,24 +659,24 @@ func updateLarkApproval(ctx context.Context, approval *models.Approval) error {
 			}
 			node.RejectOrApprove, err = checkNodeStatus(node)
 			if err != nil {
-				return false, false, err
+				return false, err
 			}
 			if node.RejectOrApprove == config.ApprovalStatusApprove {
 				break
 			}
 			if node.RejectOrApprove == config.ApprovalStatusReject {
-				return true, false, nil
+				return true, nil
 			}
 			if userUpdated {
 				break
 			}
 		}
 
-		finalResult := larkApproval.ApprovalNodes[len(larkApproval.ApprovalNodes)-1].RejectOrApprove
-		return finalResult != "", finalResult == config.ApprovalStatusApprove, nil
+		finished := checkApprovalFinished(larkApproval.ApprovalNodes)
+		return finished, nil
 	}
 
-	done, isApprove, err := approvalUpdate(larkApproval)
+	done, err := approvalUpdate(larkApproval)
 	if err != nil {
 		return errors.Wrap(err, "check larkApproval status")
 	}
@@ -665,11 +685,11 @@ func updateLarkApproval(ctx context.Context, approval *models.Approval) error {
 		if err != nil {
 			return errors.Wrap(err, "get larkApproval final instance")
 		}
-		if finalInstance.ApproveOrReject == config.ApprovalStatusApprove && isApprove {
+		if finalInstance.ApproveOrReject == config.ApprovalStatusApprove {
 			approval.Status = config.StatusPassed
 			return nil
 		}
-		if finalInstance.ApproveOrReject == config.ApprovalStatusReject && !isApprove {
+		if finalInstance.ApproveOrReject == config.ApprovalStatusReject {
 			approval.Status = config.StatusReject
 			return nil
 		}
