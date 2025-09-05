@@ -1360,13 +1360,14 @@ type PingCodeJobSpec struct {
 }
 
 type TapdJobSpec struct {
-	TapdID      string                     `bson:"tapd_id"             json:"tapd_id"             yaml:"tapd_id"`
-	Source      config.ParamSourceType     `bson:"source"              json:"source"              yaml:"source"`
-	Type        string                     `bson:"type"                json:"type"                yaml:"type"`
-	ProjectID   string                     `bson:"project_id"          json:"project_id"          yaml:"project_id"`
-	ProjectName string                     `bson:"project_name"        json:"project_name"        yaml:"project_name"`
-	Status      config.TapdIterationStatus `bson:"status"              json:"status"              yaml:"status"`
-	Iterations  []*TapdIteration           `bson:"iterations"          json:"iterations"          yaml:"iterations"`
+	TapdID       string                     `bson:"tapd_id"             json:"tapd_id"             yaml:"tapd_id"`
+	Source       config.ParamSourceType     `bson:"source"              json:"source"              yaml:"source"`
+	Type         string                     `bson:"type"                json:"type"                yaml:"type"`
+	ProjectID    string                     `bson:"project_id"          json:"project_id"          yaml:"project_id"`
+	ProjectName  string                     `bson:"project_name"        json:"project_name"        yaml:"project_name"`
+	SourceStatus config.TapdIterationStatus `bson:"source_status"       json:"source_status"       yaml:"source_status"`
+	Status       config.TapdIterationStatus `bson:"status"              json:"status"              yaml:"status"`
+	Iterations   []*TapdIteration           `bson:"iterations"          json:"iterations"          yaml:"iterations"`
 }
 
 type WorkflowTriggerJobSpec struct {

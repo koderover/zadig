@@ -189,7 +189,7 @@ func (c *TapdClient) GetIterationCount(projectID string) (int, error) {
 	return count.Count, nil
 }
 
-func (c *TapdClient) ListIterations(projectID string) ([]*Iteration, error) {
+func (c *TapdClient) ListIterations(projectID, status string) ([]*Iteration, error) {
 	count, err := c.GetIterationCount(projectID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get iteration count: %w", err)
@@ -209,6 +209,10 @@ func (c *TapdClient) ListIterations(projectID string) ([]*Iteration, error) {
 			"limit":        fmt.Sprintf("%d", limit),
 			"page":         fmt.Sprintf("%d", page),
 			"workspace_id": projectID,
+		}
+
+		if status != "" {
+			queryParams["status"] = status
 		}
 
 		result := &Response{}
