@@ -73,7 +73,7 @@ func migrateReleasePlanCron(ctx *handler.Context) error {
 			return err
 		}
 
-		if releasePlan.ScheduleExecuteTime != 0 && releasePlan.Status == config.StatusExecuting {
+		if releasePlan.ScheduleExecuteTime != 0 && releasePlan.Status == config.ReleasePlanStatusExecuting {
 			if time.Unix(releasePlan.ScheduleExecuteTime, 0).After(time.Now()) {
 				releasePlanCronName := util.GetReleasePlanCronName(releasePlan.ID.Hex(), releasePlan.Name, releasePlan.Index)
 				cronjob := &commonmodels.Cronjob{
