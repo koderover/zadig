@@ -54,5 +54,6 @@ func ListTapdProjectIterations(c *gin.Context) {
 
 	id := c.Param("id")
 	projectID := c.Param("projectID")
-	ctx.Resp, ctx.RespErr = service.ListTapdIterations(id, projectID)
+	status := c.Query("status")
+	ctx.Resp, ctx.RespErr = service.ListTapdIterations(id, projectID, status)
 }
