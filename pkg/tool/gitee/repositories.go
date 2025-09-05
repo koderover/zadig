@@ -81,7 +81,7 @@ func (c *Client) ListRepositoriesForAuthenticatedUser(hostURL, accessToken, keyw
 	return projects, nil
 }
 
-func (c *Client) ListRepositoryForEnterprise(hostURL, accessToken, enterprise string, page, perPage int) ([]Project, error) {
+func (c *Client) ListRepositoryForEnterprise(hostURL, accessToken, enterprise, keyword string, page, perPage int) ([]Project, error) {
 	apiHost := fmt.Sprintf("%s/%s", hostURL, "api")
 	httpClient := httpclient.New(
 		httpclient.SetHostURL(apiHost),
@@ -92,6 +92,7 @@ func (c *Client) ListRepositoryForEnterprise(hostURL, accessToken, enterprise st
 	queryParams := make(map[string]string)
 	queryParams["access_token"] = accessToken
 	queryParams["type"] = "all"
+	queryParams["search"] = keyword
 	queryParams["page"] = strconv.Itoa(page)
 	queryParams["per_page"] = strconv.Itoa(fixedPagination)
 	queryParams["direct"] = "false"
