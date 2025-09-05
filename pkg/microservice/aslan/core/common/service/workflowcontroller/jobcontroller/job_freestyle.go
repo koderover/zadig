@@ -37,6 +37,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	vmmongodb "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/vm"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/workflowcontroller/stepcontroller"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/multicluster/service"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/tool/dockerhost"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/updater"
@@ -199,6 +200,18 @@ func (c *FreestyleJobCtl) run(ctx context.Context) error {
 
 	c.logger.Infof("succeed to create cm for job %s", c.job.K8sJobName)
 
+	if c.jobTaskSpec.Properties.TemporaryStorage != nil {
+		err = service.CreateDynamicPVC(c.jobTaskSpec.Properties.ClusterID, getTemporaryStoragePVCName(c.job.K8sJobName), c.jobTaskSpec.Properties.TemporaryStorage, c.logger)
+		if err != nil {
+			msg := fmt.Sprintf("create dynamic PVC error: %v", err)
+			logError(c.job, msg, c.logger)
+			return errors.New(msg)
+
+		}
+
+		c.logger.Infof("succeed to create dynamic PVC for job %s", c.job.K8sJobName)
+	}
+
 	jobImage := getBaseImage(c.jobTaskSpec.Properties.BuildOS, c.jobTaskSpec.Properties.ImageFrom)
 
 	c.jobTaskSpec.Properties.Registries = getMatchedRegistries(jobImage, c.jobTaskSpec.Properties.Registries)
@@ -344,6 +357,11 @@ func (c *FreestyleJobCtl) complete(ctx context.Context) {
 	// 清理用户取消和超时的任务
 	defer func() {
 		go func() {
+			if c.jobTaskSpec.Properties.TemporaryStorage != nil {
+				if err := ensureDeletePVC(c.job.K8sJobName, c.jobTaskSpec.Properties.Namespace, c.jobTaskSpec.Properties.TemporaryStorage, c.kubeclient); err != nil {
+					c.logger.Error(err)
+				}
+			}
 			if err := ensureDeleteJob(c.jobTaskSpec.Properties.Namespace, jobLabel, c.kubeclient); err != nil {
 				c.logger.Error(err)
 			}

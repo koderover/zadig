@@ -399,6 +399,10 @@ func (j BuildJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, error
 			EnablePrivileged:    buildInfo.EnablePrivilegedMode,
 		}
 
+		if buildInfo.PreBuild != nil && buildInfo.PreBuild.TemporaryStorage != nil && buildInfo.PreBuild.TemporaryStorage.Enabled {
+			jobTaskSpec.Properties.TemporaryStorage = buildInfo.PreBuild.TemporaryStorage.NFSProperties
+		}
+
 		paramEnvs := generateKeyValsFromWorkflowParam(j.workflow.Params)
 		envs := mergeKeyVals(jobTaskSpec.Properties.CustomEnvs, paramEnvs)
 		renderedEnv, err := replaceServiceAndModules(envs, build.ServiceName, build.ServiceModule)
