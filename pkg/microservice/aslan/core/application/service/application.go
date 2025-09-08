@@ -494,7 +494,7 @@ type Filter struct {
 type SearchApplicationsRequest struct {
 	Page            int64    `json:"page"`
 	PageSize        int64    `json:"page_size"`
-	Q               string   `json:"q"`
+	Query           string   `json:"query"`
 	Filters         []Filter `json:"filters"`
 	SortBy          string   `json:"sort_by"`
 	SortOrder       string   `json:"sort_order"`
@@ -515,8 +515,8 @@ func SearchApplications(req *SearchApplicationsRequest, logger *zap.SugaredLogge
 	}
 	query := bson.M{}
 	ands := make([]bson.M, 0)
-	if strings.TrimSpace(req.Q) != "" {
-		ands = append(ands, bson.M{"$or": []bson.M{{"name": bson.M{"$regex": req.Q, "$options": "i"}}, {"key": bson.M{"$regex": req.Q, "$options": "i"}}}})
+	if strings.TrimSpace(req.Query) != "" {
+		ands = append(ands, bson.M{"$or": []bson.M{{"name": bson.M{"$regex": req.Query, "$options": "i"}}, {"key": bson.M{"$regex": req.Query, "$options": "i"}}}})
 	}
 	if len(req.Filters) > 0 {
 		exprs, err := buildFilterQuery(req.Filters, defMap)
