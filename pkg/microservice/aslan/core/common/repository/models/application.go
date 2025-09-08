@@ -56,6 +56,7 @@ type ApplicationFieldDefinition struct {
 	Key         string                            `bson:"key"               json:"key"`
 	Name        string                            `bson:"name"              json:"name"`
 	Type        config.ApplicationCustomFieldType `bson:"type"              json:"type"`
+	Default     interface{}                       `bson:"default"           json:"default"`
 	Options     []string                          `bson:"options,omitempty" json:"options,omitempty"`
 	Unique      bool                              `bson:"unique"            json:"unique"`
 	Required    bool                              `bson:"required"          json:"required"`
