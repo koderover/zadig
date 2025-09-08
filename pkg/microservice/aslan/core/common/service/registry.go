@@ -33,6 +33,9 @@ import (
 )
 
 func FindRegistryById(registryId string, getRealCredential bool, log *zap.SugaredLogger) (reg *models.RegistryNamespace, err error) {
+	if registryId == "" {
+		return nil, fmt.Errorf("registryId is empty")
+	}
 	return findRegisty(&mongodb.FindRegOps{ID: registryId}, getRealCredential, log)
 }
 

@@ -165,14 +165,9 @@ func (j DistributeImageJobController) ToTask(taskID int64) ([]*commonmodels.JobT
 	logger := log.SugaredLogger()
 	resp := make([]*commonmodels.JobTask, 0)
 
-	sourceReg, err := commonservice.FindRegistryById(j.jobSpec.SourceRegistryID, true, logger)
-	if err != nil {
-		return resp, fmt.Errorf("source image registry: %s not found: %v", j.jobSpec.SourceRegistryID, err)
-	}
-	targetReg, err := commonservice.FindRegistryById(j.jobSpec.TargetRegistryID, true, logger)
-	if err != nil {
-		return resp, fmt.Errorf("target image registry: %s not found: %v", j.jobSpec.TargetRegistryID, err)
-	}
+	var sourceReg *commonmodels.RegistryNamespace
+	var targetReg *commonmodels.RegistryNamespace
+	var err error
 
 	switch j.jobSpec.Source {
 	case config.SourceFromJob:
@@ -183,6 +178,11 @@ func (j DistributeImageJobController) ToTask(taskID int64) ([]*commonmodels.JobT
 		}
 
 		j.jobSpec.SourceRegistryID = registryID
+
+		sourceReg, err = commonservice.FindRegistryById(j.jobSpec.SourceRegistryID, true, logger)
+		if err != nil {
+			return resp, fmt.Errorf("source image registry: %s not found: %v", j.jobSpec.SourceRegistryID, err)
+		}
 
 		targetTagMap := map[string]commonmodels.DistributeTarget{}
 		for _, target := range j.jobSpec.Targets {
@@ -204,6 +204,11 @@ func (j DistributeImageJobController) ToTask(taskID int64) ([]*commonmodels.JobT
 
 		j.jobSpec.Targets = targets
 	case config.SourceRuntime:
+		sourceReg, err = commonservice.FindRegistryById(j.jobSpec.SourceRegistryID, true, logger)
+		if err != nil {
+			return resp, fmt.Errorf("source image registry: %s not found: %v", j.jobSpec.SourceRegistryID, err)
+		}
+
 		for _, target := range j.jobSpec.Targets {
 			if target.ImageName == "" {
 				target.SourceImage = getImage(target.ServiceModule, target.SourceTag, sourceReg)
@@ -216,6 +221,11 @@ func (j DistributeImageJobController) ToTask(taskID int64) ([]*commonmodels.JobT
 			}
 			target.UpdateTag = true
 		}
+	}
+
+	targetReg, err = commonservice.FindRegistryById(j.jobSpec.TargetRegistryID, true, logger)
+	if err != nil {
+		return resp, fmt.Errorf("target image registry: %s not found: %v", j.jobSpec.TargetRegistryID, err)
 	}
 
 	stepSpec := &step.StepImageDistributeSpec{
