@@ -607,7 +607,7 @@ func UpdateClusterCache(ctx *handler.Context, id string, cache *types.Cache) (*c
 		//	args.DindCfg = nil
 		//}
 
-		if err := createDynamicPVC(id, "cache", &cache.NFSProperties, ctx.Logger); err != nil {
+		if err := CreateDynamicPVC(id, "cache", &cache.NFSProperties, ctx.Logger); err != nil {
 			return nil, err
 		}
 	}
@@ -662,7 +662,7 @@ func UpdateClusterStorage(ctx *handler.Context, id string, shareStorage *types.S
 	// If the user chooses to use dynamically generated storage resources, the system automatically creates the PVC.
 	// TODO: If the PVC is not successfully bound to the PV, it is necessary to consider how to expose this abnormal information.
 	if cluster.ShareStorage.MediumType == types.NFSMedium && cluster.ShareStorage.NFSProperties.ProvisionType == types.DynamicProvision {
-		if err := createDynamicPVC(id, "share-storage", &cluster.ShareStorage.NFSProperties, ctx.Logger); err != nil {
+		if err := CreateDynamicPVC(id, "share-storage", &cluster.ShareStorage.NFSProperties, ctx.Logger); err != nil {
 			return nil, err
 		}
 	}
@@ -1365,7 +1365,11 @@ func UpgradeDind(kclient client.Client, cluster *commonmodels.K8SCluster, ns str
 	return nil
 }
 
-func createDynamicPVC(clusterID, prefix string, nfsProperties *types.NFSProperties, logger *zap.SugaredLogger) error {
+func GetPVCName(prefix string, nfsProperties *types.NFSProperties) string {
+	return fmt.Sprintf("%s-storage-%s-%d", prefix, nfsProperties.StorageClass, nfsProperties.StorageSizeInGiB)
+}
+
+func CreateDynamicPVC(clusterID, prefix string, nfsProperties *types.NFSProperties, logger *zap.SugaredLogger) error {
 	kclient, err := clientmanager.NewKubeClientManager().GetControllerRuntimeClient(clusterID)
 	if err != nil {
 		return fmt.Errorf("failed to get kube client: %s", err)
@@ -1379,7 +1383,7 @@ func createDynamicPVC(clusterID, prefix string, nfsProperties *types.NFSProperti
 		namespace = setting.AttachedClusterNamespace
 	}
 
-	pvcName := fmt.Sprintf("%s-%s-%d", prefix, nfsProperties.StorageClass, nfsProperties.StorageSizeInGiB)
+	pvcName := GetPVCName(prefix, nfsProperties)
 	pvc := &corev1.PersistentVolumeClaim{}
 	err = kclient.Get(context.TODO(), client.ObjectKey{
 		Name:      pvcName,
@@ -1403,10 +1407,8 @@ func createDynamicPVC(clusterID, prefix string, nfsProperties *types.NFSProperti
 			},
 			Spec: corev1.PersistentVolumeClaimSpec{
 				StorageClassName: &nfsProperties.StorageClass,
-				AccessModes: []corev1.PersistentVolumeAccessMode{
-					corev1.ReadWriteMany,
-				},
-				VolumeMode: &filesystemVolume,
+				AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteMany},
+				VolumeMode:       &filesystemVolume,
 				Resources: corev1.ResourceRequirements{
 					Requests: corev1.ResourceList{
 						corev1.ResourceStorage: storageQuantity,
