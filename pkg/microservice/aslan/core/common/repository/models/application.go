@@ -17,6 +17,9 @@ limitations under the License.
 package models
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
@@ -63,3 +66,42 @@ type ApplicationFieldDefinition struct {
 }
 
 func (ApplicationFieldDefinition) TableName() string { return "application_field_definition" }
+
+// Validate checks business rules for ApplicationFieldDefinition.
+func (d *ApplicationFieldDefinition) Validate() error {
+	if d == nil {
+		return fmt.Errorf("empty body")
+	}
+	if strings.TrimSpace(d.Key) == "" || strings.TrimSpace(d.Name) == "" || strings.TrimSpace(string(d.Type)) == "" {
+		return fmt.Errorf("key, name, type are required")
+	}
+
+	// validate supported types
+	switch d.Type {
+	case config.ApplicationCustomFieldTypeText,
+		config.ApplicationCustomFieldTypeNumber,
+		config.ApplicationCustomFieldTypeBool,
+		config.ApplicationCustomFieldTypeDatetime,
+		config.ApplicationCustomFieldTypeSingleSelect,
+		config.ApplicationCustomFieldTypeMultiSelect,
+		config.ApplicationCustomFieldTypeLink,
+		config.ApplicationCustomFieldTypeUser,
+		config.ApplicationCustomFieldTypeUserGroup,
+		config.ApplicationCustomFieldTypeProject:
+		// supported
+	default:
+		return fmt.Errorf("invalid type")
+	}
+
+	// options validation for select types
+	if (d.Type == config.ApplicationCustomFieldTypeSingleSelect || d.Type == config.ApplicationCustomFieldTypeMultiSelect) && len(d.Options) == 0 {
+		return fmt.Errorf("options required for select types")
+	}
+	if d.Type != config.ApplicationCustomFieldTypeSingleSelect && d.Type != config.ApplicationCustomFieldTypeMultiSelect && len(d.Options) > 0 {
+		return fmt.Errorf("options only allowed for select types")
+	}
+	if d.Type == config.ApplicationCustomFieldTypeMultiSelect && d.Unique {
+		return fmt.Errorf("multi_select cannot be unique")
+	}
+	return nil
+}

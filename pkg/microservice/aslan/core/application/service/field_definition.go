@@ -22,7 +22,6 @@ import (
 
 	"go.uber.org/zap"
 
-	config "github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
@@ -32,21 +31,10 @@ func CreateFieldDefinition(def *commonmodels.ApplicationFieldDefinition, logger 
 	if def == nil {
 		return nil, e.ErrInvalidParam.AddDesc("empty body")
 	}
-	if def.Key == "" || def.Name == "" || def.Type == "" {
-		return nil, e.ErrInvalidParam.AddDesc("key, name, type are required")
-	}
+	// normalize
 	def.Key = strings.TrimSpace(def.Key)
-	if def.Type != config.ApplicationCustomFieldTypeText && def.Type != config.ApplicationCustomFieldTypeNumber && def.Type != config.ApplicationCustomFieldTypeSingleSelect && def.Type != config.ApplicationCustomFieldTypeMultiSelect {
-		return nil, e.ErrInvalidParam.AddDesc("invalid type")
-	}
-	if (def.Type == config.ApplicationCustomFieldTypeSingleSelect || def.Type == config.ApplicationCustomFieldTypeMultiSelect) && len(def.Options) == 0 {
-		return nil, e.ErrInvalidParam.AddDesc("options required for select types")
-	}
-	if def.Type != config.ApplicationCustomFieldTypeSingleSelect && def.Type != config.ApplicationCustomFieldTypeMultiSelect && len(def.Options) > 0 {
-		return nil, e.ErrInvalidParam.AddDesc("options only allowed for select types")
-	}
-	if def.Type == config.ApplicationCustomFieldTypeMultiSelect && def.Unique {
-		return nil, e.ErrInvalidParam.AddDesc("multi_select cannot be unique")
+	if err := def.Validate(); err != nil {
+		return nil, e.ErrInvalidParam.AddDesc(err.Error())
 	}
 	oid, err := commonrepo.NewApplicationFieldDefinitionColl().Create(context.Background(), def)
 	if err != nil {
