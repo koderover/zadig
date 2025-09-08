@@ -48,20 +48,18 @@ func ListFieldDefinitions(logger *zap.SugaredLogger) ([]*commonmodels.Applicatio
 	return commonrepo.NewApplicationFieldDefinitionColl().List(context.Background())
 }
 
-func UpdateFieldDefinition(key string, def *commonmodels.ApplicationFieldDefinition, logger *zap.SugaredLogger) error {
+func UpdateFieldDefinition(id string, def *commonmodels.ApplicationFieldDefinition, logger *zap.SugaredLogger) error {
 	if def == nil {
 		return e.ErrInvalidParam.AddDesc("empty body")
 	}
-	if def.Key != "" && def.Key != key {
-		return e.ErrInvalidParam.AddDesc("key is immutable")
-	}
-	def.Key = key
+
 	if err := def.Validate(); err != nil {
 		return e.ErrInvalidParam.AddDesc(err.Error())
 	}
-	return commonrepo.NewApplicationFieldDefinitionColl().UpdateByKey(context.Background(), key, def)
+
+	return commonrepo.NewApplicationFieldDefinitionColl().UpdateByID(context.Background(), id, def)
 }
 
-func DeleteFieldDefinition(key string, logger *zap.SugaredLogger) error {
-	return commonrepo.NewApplicationFieldDefinitionColl().DeleteByKey(context.Background(), key)
+func DeleteFieldDefinition(id string, logger *zap.SugaredLogger) error {
+	return commonrepo.NewApplicationFieldDefinitionColl().DeleteByID(context.Background(), id)
 }

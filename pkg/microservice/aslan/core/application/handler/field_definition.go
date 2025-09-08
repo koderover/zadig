@@ -69,7 +69,7 @@ func UpdateFieldDefinition(c *gin.Context) {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid field definition args")
 		return
 	}
-	ctx.RespErr = service.UpdateFieldDefinition(c.Param("key"), args, ctx.Logger)
+	ctx.RespErr = service.UpdateFieldDefinition(c.Param("id"), args, ctx.Logger)
 }
 
 func DeleteFieldDefinition(c *gin.Context) {
@@ -80,5 +80,5 @@ func DeleteFieldDefinition(c *gin.Context) {
 		ctx.UnAuthorized = true
 		return
 	}
-	ctx.RespErr = service.DeleteFieldDefinition(c.Param("key"), ctx.Logger)
+	ctx.RespErr = service.DeleteFieldDefinition(c.Param("id"), ctx.Logger)
 }

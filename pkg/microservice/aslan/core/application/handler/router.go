@@ -37,7 +37,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	{
 		fields.POST("", CreateFieldDefinition)
 		fields.GET("", ListFieldDefinitions)
-		fields.PUT("/:key", UpdateFieldDefinition)
-		fields.DELETE("/:key", DeleteFieldDefinition)
+		fields.PUT("/:id", UpdateFieldDefinition)
+		fields.DELETE("/:id", DeleteFieldDefinition)
 	}
 }

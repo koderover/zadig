@@ -194,15 +194,25 @@ func (c *ApplicationFieldDefinitionColl) List(ctx context.Context) ([]*commonmod
 	}
 	return defs, nil
 }
-func (c *ApplicationFieldDefinitionColl) UpdateByKey(ctx context.Context, key string, def *commonmodels.ApplicationFieldDefinition) error {
+func (c *ApplicationFieldDefinitionColl) UpdateByID(ctx context.Context, id string, def *commonmodels.ApplicationFieldDefinition) error {
+	oid, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return err
+	}
+
 	if def == nil {
 		return errors.New("nil definition")
 	}
 	def.UpdateTime = time.Now().Unix()
-	_, err := c.UpdateOne(ctx, bson.M{"key": key}, bson.M{"$set": def})
+	_, err = c.UpdateOne(ctx, bson.M{"_id": oid}, bson.M{"$set": def})
 	return err
 }
-func (c *ApplicationFieldDefinitionColl) DeleteByKey(ctx context.Context, key string) error {
-	_, err := c.DeleteOne(ctx, bson.M{"key": key})
+
+func (c *ApplicationFieldDefinitionColl) DeleteByID(ctx context.Context, id string) error {
+	oid, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return err
+	}
+	_, err = c.DeleteOne(ctx, bson.M{"_id": oid})
 	return err
 }
