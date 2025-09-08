@@ -30,9 +30,11 @@ type Application struct {
 	CreateTime          int64                     `bson:"create_time"                     json:"create_time"`
 	UpdateTime          int64                     `bson:"update_time"                     json:"update_time"`
 	Description         string                    `bson:"description,omitempty"           json:"description,omitempty"`
-	TestingServiceID    *primitive.ObjectID       `bson:"testing_service_id,omitempty"    json:"testing_service_id,omitempty"`
-	ProductionServiceID *primitive.ObjectID       `bson:"production_service_id,omitempty" json:"production_service_id,omitempty"`
+	TestingServiceID    string                    `bson:"testing_service_id,omitempty"    json:"testing_service_id,omitempty"`
+	ProductionServiceID string                    `bson:"production_service_id,omitempty" json:"production_service_id,omitempty"`
 	CustomFields        map[string]interface{}    `bson:"custom_fields,omitempty"          json:"custom_fields,omitempty"`
+	// field used only for frontend, showing which plugin is activated on a specific application.
+	Plugins             []string                  `bson:"-"                                json:"plugins,omitempty"`
 }
 
 type ApplicationRepositoryRef struct {

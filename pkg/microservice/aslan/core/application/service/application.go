@@ -24,7 +24,6 @@ import (
 	"strings"
 
 	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
@@ -183,7 +182,273 @@ func CreateApplication(app *commonmodels.Application, logger *zap.SugaredLogger)
 }
 
 func GetApplication(id string, logger *zap.SugaredLogger) (*commonmodels.Application, error) {
-	return commonmongodb.NewApplicationColl().GetByID(context.Background(), id)
+	ctx := context.Background()
+	app, err := commonmongodb.NewApplicationColl().GetByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	plugins := make([]string, 0)
+	plist, err := commonmongodb.NewPluginColl().List()
+	if err != nil {
+		logger.Warnf("failed to list plugins: %v", err)
+		app.Plugins = plugins
+		return app, nil
+	}
+
+	defs, err := commonmongodb.NewApplicationFieldDefinitionColl().List(ctx)
+	if err != nil {
+		logger.Warnf("failed to list application field definitions: %v", err)
+		defs = nil
+	}
+	defMap := map[string]*commonmodels.ApplicationFieldDefinition{}
+	for _, d := range defs {
+		defMap[d.Key] = d
+	}
+
+	for _, p := range plist {
+		if p == nil || !p.Enabled || strings.ToLower(p.Type) != "tab" {
+			continue
+		}
+
+		if len(p.Filters) == 0 {
+			plugins = append(plugins, p.ID.Hex())
+			continue
+		}
+
+		if appMatchesFilters(app, p.Filters, defMap) {
+			plugins = append(plugins, p.ID.Hex())
+		}
+	}
+	app.Plugins = plugins
+	return app, nil
+}
+
+func appMatchesFilters(app *commonmodels.Application, filters []*commonmodels.PluginFilter, defs map[string]*commonmodels.ApplicationFieldDefinition) bool {
+	for _, f := range filters {
+		path, fType, err := resolveField(f.Field, defs)
+		if err != nil {
+			return false
+		}
+		if !matchFilterOnApp(app, path, fType, f) {
+			return false
+		}
+	}
+	return true
+}
+
+func matchFilterOnApp(app *commonmodels.Application, path, fType string, f *commonmodels.PluginFilter) bool {
+	verb := strings.ToLower(f.Verb)
+
+	val, ok := getAppFieldValue(app, path)
+	if !ok {
+		return false
+	}
+
+	switch fType {
+	case string(config.ApplicationFilterFieldTypeNumber):
+		fv, err := toFloat64(f.Value)
+		if err != nil {
+			return false
+		}
+		var cur float64
+		switch t := val.(type) {
+		case float64:
+			cur = t
+		case int64:
+			cur = float64(t)
+		case int:
+			cur = float64(t)
+		case json.Number:
+			cur, err = t.Float64()
+			if err != nil {
+				return false
+			}
+		case string:
+			cur, err = strconv.ParseFloat(t, 64)
+			if err != nil {
+				return false
+			}
+		default:
+			return false
+		}
+		switch verb {
+		case string(config.ApplicationFilterActionEq):
+			return cur == fv
+		case string(config.ApplicationFilterActionNe):
+			return cur != fv
+		case string(config.ApplicationFilterActionLt):
+			return cur < fv
+		case string(config.ApplicationFilterActionLte):
+			return cur <= fv
+		case string(config.ApplicationFilterActionGt):
+			return cur > fv
+		case string(config.ApplicationFilterActionGte):
+			return cur >= fv
+		default:
+			return false
+		}
+
+	case string(config.ApplicationFilterFieldTypeBool):
+		b, ok := f.Value.(bool)
+		if !ok {
+			return false
+		}
+		cur, ok := val.(bool)
+		if !ok {
+			return false
+		}
+		// only supports IS
+		return verb == string(config.ApplicationFilterActionIs) && cur == b
+
+	case string(config.ApplicationFilterFieldTypeArray):
+		arr := toStringArray(val)
+		if arr == nil {
+			return false
+		}
+		switch verb {
+		case string(config.ApplicationFilterActionHasAnyOf):
+			vals, err := toStringSlice(f.Value)
+			if err != nil {
+				return false
+			}
+			return containsAny(arr, vals)
+		case string(config.ApplicationFilterActionNotContains):
+			vals, err := toStringSlice(f.Value)
+			if err != nil {
+				return false
+			}
+			return containsNone(arr, vals)
+		case string(config.ApplicationFilterActionIsEmpty):
+			return len(arr) == 0
+		case string(config.ApplicationFilterActionIsNotEmpty):
+			return len(arr) > 0
+		default:
+			return false
+		}
+
+	case string(config.ApplicationFilterFieldTypeString):
+		s, err := toString(f.Value)
+		if err != nil {
+			return false
+		}
+		cur, ok := val.(string)
+		if !ok {
+			return false
+		}
+		// plugin filters: default case-insensitive
+		s = strings.ToLower(s)
+		cur = strings.ToLower(cur)
+		switch verb {
+		case string(config.ApplicationFilterActionEq):
+			return cur == s
+		case string(config.ApplicationFilterActionNe):
+			return cur != s
+		case string(config.ApplicationFilterActionBeginsWith):
+			return strings.HasPrefix(cur, s)
+		case string(config.ApplicationFilterActionNotBeginsWith):
+			return !strings.HasPrefix(cur, s)
+		case string(config.ApplicationFilterActionEndsWith):
+			return strings.HasSuffix(cur, s)
+		case string(config.ApplicationFilterActionNotEndsWith):
+			return !strings.HasSuffix(cur, s)
+		case string(config.ApplicationFilterActionHasAnyOf):
+			vals, err := toStringSlice(f.Value)
+			if err != nil {
+				return false
+			}
+			for i := range vals {
+				vals[i] = strings.ToLower(vals[i])
+			}
+			for _, v := range vals {
+				if cur == v {
+					return true
+				}
+			}
+			return false
+		default:
+			return false
+		}
+	default:
+		return false
+	}
+}
+
+func getAppFieldValue(app *commonmodels.Application, path string) (interface{}, bool) {
+	switch path {
+	case "name":
+		return app.Name, true
+	case "key":
+		return app.Key, true
+	case "project":
+		return app.Project, true
+	case "language":
+		return app.Language, true
+	case "description":
+		return app.Description, true
+	case "create_time":
+		return app.CreateTime, true
+	case "update_time":
+		return app.UpdateTime, true
+	case "repository.codehost_id":
+		if app.Repository == nil {
+			return nil, false
+		}
+		return app.Repository.CodehostID, true
+	default:
+		if strings.HasPrefix(path, "custom_fields.") {
+			key := strings.TrimPrefix(path, "custom_fields.")
+			if app.CustomFields == nil {
+				return nil, false
+			}
+			v, ok := app.CustomFields[key]
+			return v, ok
+		}
+		return nil, false
+	}
+}
+
+func toStringArray(v interface{}) []string {
+	switch t := v.(type) {
+	case []string:
+		return t
+	case []interface{}:
+		res := make([]string, 0, len(t))
+		for _, it := range t {
+			if s, ok := it.(string); ok {
+				res = append(res, s)
+			}
+		}
+		return res
+	default:
+		return nil
+	}
+}
+
+func containsAny(have []string, want []string) bool {
+	set := make(map[string]struct{}, len(have))
+	for _, s := range have {
+		set[s] = struct{}{}
+	}
+	for _, s := range want {
+		if _, ok := set[s]; ok {
+			return true
+		}
+	}
+	return false
+}
+
+func containsNone(have []string, want []string) bool {
+	set := make(map[string]struct{}, len(have))
+	for _, s := range have {
+		set[s] = struct{}{}
+	}
+	for _, s := range want {
+		if _, ok := set[s]; ok {
+			return false
+		}
+	}
+	return true
 }
 
 func UpdateApplication(id string, app *commonmodels.Application, logger *zap.SugaredLogger) error {
@@ -489,35 +754,19 @@ func filterToExpr(path, fType string, f Filter) (bson.M, error) {
 				if err != nil {
 					return nil, err
 				}
-				oid, err := primitive.ObjectIDFromHex(s)
-				if err != nil {
-					return nil, e.ErrInvalidParam.AddDesc("invalid object id")
-				}
-				return bson.M{path: oid}, nil
+				return bson.M{path: s}, nil
 			case string(config.ApplicationFilterActionNe):
 				s, err := toString(f.Value)
 				if err != nil {
 					return nil, err
 				}
-				oid, err := primitive.ObjectIDFromHex(s)
-				if err != nil {
-					return nil, e.ErrInvalidParam.AddDesc("invalid object id")
-				}
-				return wrapNeg(bson.M{"$ne": oid}), nil
+				return wrapNeg(bson.M{"$ne": s}), nil
 			case string(config.ApplicationFilterActionHasAnyOf):
 				arr, err := toStringSlice(f.Value)
 				if err != nil {
 					return nil, err
 				}
-				oids := make([]primitive.ObjectID, 0, len(arr))
-				for _, v := range arr {
-					oid, err := primitive.ObjectIDFromHex(v)
-					if err != nil {
-						return nil, e.ErrInvalidParam.AddDesc("invalid object id")
-					}
-					oids = append(oids, oid)
-				}
-				return bson.M{path: bson.M{"$in": oids}}, nil
+				return bson.M{path: bson.M{"$in": arr}}, nil
 			default:
 				return nil, e.ErrInvalidParam.AddDesc("unsupported object id verb: " + verb)
 			}

@@ -45,8 +45,7 @@ func (c *PluginColl) GetCollectionName() string { return c.coll }
 
 func (c *PluginColl) EnsureIndex(ctx context.Context) error {
 	mod := mongo.IndexModel{
-		Keys: bson.D{bson.E{Key: "name", Value: 1},
-	}, Options: options.Index().SetUnique(true)}
+		Keys: bson.D{bson.E{Key: "name", Value: 1}}, Options: options.Index().SetUnique(true)}
 	_, err := c.Indexes().CreateOne(ctx, mod)
 	return err
 }
@@ -98,13 +97,14 @@ func (c *PluginColl) Update(id string, m *models.Plugin) error {
 		"index":       m.Index,
 		"type":        m.Type,
 		"description": m.Description,
+		"filters":     m.Filters,
 		"storage_id":  m.StorageID,
 		"file_path":   m.FilePath,
 		"file_name":   m.FileName,
 		"file_size":   m.FileSize,
 		"file_hash":   m.FileHash,
 		"enabled":     m.Enabled,
-		"route":      m.Route,
+		"route":       m.Route,
 		"update_by":   m.UpdateBy,
 		"update_time": time.Now().Unix(),
 	}}
