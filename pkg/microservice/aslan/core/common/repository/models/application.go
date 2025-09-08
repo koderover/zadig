@@ -1,0 +1,62 @@
+/*
+Copyright 2025 The KodeRover Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package models
+
+import (
+	"go.mongodb.org/mongo-driver/bson/primitive"
+)
+
+type Application struct {
+	ID                  primitive.ObjectID        `bson:"_id,omitempty"                   json:"id"`
+	Name                string                    `bson:"name"                            json:"name"`
+	Key                 string                    `bson:"key"                             json:"key"`
+	Project             string                    `bson:"project"                         json:"project"`
+	Repository          *ApplicationRepositoryRef `bson:"repository,omitempty"            json:"repository,omitempty"`
+	Language            string                    `bson:"language,omitempty"              json:"language,omitempty"`
+	CreateTime          int64                     `bson:"create_time"                     json:"create_time"`
+	UpdateTime          int64                     `bson:"update_time"                     json:"update_time"`
+	Description         string                    `bson:"description,omitempty"           json:"description,omitempty"`
+	TestingServiceID    *primitive.ObjectID       `bson:"testing_service_id,omitempty"    json:"testing_service_id,omitempty"`
+	ProductionServiceID *primitive.ObjectID       `bson:"production_service_id,omitempty" json:"production_service_id,omitempty"`
+	CustomFields        map[string]interface{}    `bson:"custom_fields,omitempty"          json:"custom_fields,omitempty"`
+}
+
+type ApplicationRepositoryRef struct {
+	CodehostID    int    `bson:"codehost_id"                json:"codehost_id"`
+	RepoOwner     string `bson:"repo_owner,omitempty"       json:"repo_owner,omitempty"`
+	RepoNamespace string `bson:"repo_namespace,omitempty"   json:"repo_namespace,omitempty"`
+	RepoName      string `bson:"repo_name,omitempty"        json:"repo_name,omitempty"`
+	Branch        string `bson:"branch,omitempty"           json:"branch,omitempty"`
+}
+
+func (Application) TableName() string { return "application" }
+
+type ApplicationFieldDefinition struct {
+	ID          primitive.ObjectID `bson:"_id,omitempty"     json:"id"`
+	Key         string             `bson:"key"               json:"key"`
+	Name        string             `bson:"name"              json:"name"`
+	Type        string             `bson:"type"              json:"type"`
+	Options     []string           `bson:"options,omitempty" json:"options,omitempty"`
+	Unique      bool               `bson:"unique"            json:"unique"`
+	Required    bool               `bson:"required"          json:"required"`
+	ShowInList  bool               `bson:"show_in_list"      json:"show_in_list"`
+	Description string             `bson:"description,omitempty" json:"description,omitempty"`
+	CreateTime  int64              `bson:"create_time"       json:"create_time"`
+	UpdateTime  int64              `bson:"update_time"       json:"update_time"`
+}
+
+func (ApplicationFieldDefinition) TableName() string { return "application_field_definition" }
