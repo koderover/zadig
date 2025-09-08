@@ -748,3 +748,60 @@ const (
 	NavigationKeyDataInsight           NavigationItemKey = "dataInsight"
 	NavigationKeyCustomerDelivery      NavigationItemKey = "customerDelivery"
 )
+
+// Application custom field types
+type ApplicationCustomFieldType string
+
+const (
+	ApplicationCustomFieldTypeText         ApplicationCustomFieldType = "text"
+	ApplicationCustomFieldTypeNumber       ApplicationCustomFieldType = "number"
+	ApplicationCustomFieldTypeBool         ApplicationCustomFieldType = "bool"
+	ApplicationCustomFieldTypeDatetime     ApplicationCustomFieldType = "datetime"
+	ApplicationCustomFieldTypeSingleSelect ApplicationCustomFieldType = "single_select"
+	ApplicationCustomFieldTypeMultiSelect  ApplicationCustomFieldType = "multi_select"
+	ApplicationCustomFieldTypeLink         ApplicationCustomFieldType = "link"
+	ApplicationCustomFieldTypeUser         ApplicationCustomFieldType = "user"
+	ApplicationCustomFieldTypeUserGroup    ApplicationCustomFieldType = "user_group"
+	ApplicationCustomFieldTypeProject      ApplicationCustomFieldType = "project"
+)
+
+// Application filter field categories used by search filtering
+type ApplicationFilterFieldType string
+
+const (
+	ApplicationFilterFieldTypeString ApplicationFilterFieldType = "string"
+	ApplicationFilterFieldTypeNumber ApplicationFilterFieldType = "number"
+	ApplicationFilterFieldTypeBool   ApplicationFilterFieldType = "bool"
+	ApplicationFilterFieldTypeArray  ApplicationFilterFieldType = "array"
+)
+
+// Application filter actions (verbs) supported by search filtering
+type ApplicationFilterAction string
+
+const (
+	// common
+	ApplicationFilterActionEq       ApplicationFilterAction = "="
+	ApplicationFilterActionNe       ApplicationFilterAction = "!="
+	ApplicationFilterActionHasAnyOf ApplicationFilterAction = "has any of"
+
+	// string-like
+	ApplicationFilterActionBeginsWith    ApplicationFilterAction = "begins with"
+	ApplicationFilterActionNotBeginsWith ApplicationFilterAction = "not begins with"
+	ApplicationFilterActionEndsWith      ApplicationFilterAction = "ends with"
+	ApplicationFilterActionNotEndsWith   ApplicationFilterAction = "not ends with"
+
+	// number
+	ApplicationFilterActionLt  ApplicationFilterAction = "<"
+	ApplicationFilterActionLte ApplicationFilterAction = "<="
+	ApplicationFilterActionGt  ApplicationFilterAction = ">"
+	ApplicationFilterActionGte ApplicationFilterAction = ">="
+
+	// bool
+	ApplicationFilterActionIs ApplicationFilterAction = "is"
+
+	// array
+	ApplicationFilterActionContains    ApplicationFilterAction = "contains"
+	ApplicationFilterActionNotContains ApplicationFilterAction = "not contains"
+	ApplicationFilterActionIsEmpty     ApplicationFilterAction = "is empty"
+	ApplicationFilterActionIsNotEmpty  ApplicationFilterAction = "is not empty"
+)
