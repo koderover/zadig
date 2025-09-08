@@ -28,7 +28,7 @@ import (
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
-	commonmongodb "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 )
 
@@ -41,7 +41,7 @@ func validateApplicationBaseFields(app *commonmodels.Application) error {
 }
 
 func validateCustomFields(app *commonmodels.Application) error {
-	defs, err := commonmongodb.NewApplicationFieldDefinitionColl().List(context.Background())
+	defs, err := commonrepo.NewApplicationFieldDefinitionColl().List(context.Background())
 	if err != nil {
 		return err
 	}
@@ -73,22 +73,21 @@ func validateCustomFields(app *commonmodels.Application) error {
 			return e.ErrInvalidParam.AddDesc(fmt.Sprintf("unknown custom field: %s", key))
 		}
 		switch def.Type {
-		case string(config.ApplicationCustomFieldTypeText), string(config.ApplicationCustomFieldTypeSingleSelect), string(config.ApplicationCustomFieldTypeLink), string(config.ApplicationCustomFieldTypeUser), string(config.ApplicationCustomFieldTypeUserGroup), string(config.ApplicationCustomFieldTypeProject):
+		case config.ApplicationCustomFieldTypeText, config.ApplicationCustomFieldTypeSingleSelect, config.ApplicationCustomFieldTypeLink, config.ApplicationCustomFieldTypeUser, config.ApplicationCustomFieldTypeUserGroup, config.ApplicationCustomFieldTypeProject:
 			if _, ok := val.(string); !ok {
 				return e.ErrInvalidParam.AddDesc(fmt.Sprintf("custom field %s must be string", key))
 			}
-			if def.Type == string(config.ApplicationCustomFieldTypeSingleSelect) && len(def.Options) > 0 {
+			if def.Type == config.ApplicationCustomFieldTypeSingleSelect && len(def.Options) > 0 {
 				s := val.(string)
 				if !contains(def.Options, s) {
 					return e.ErrInvalidParam.AddDesc(fmt.Sprintf("custom field %s not in options", key))
 				}
 			}
-		case string(config.ApplicationCustomFieldTypeNumber):
+		case config.ApplicationCustomFieldTypeNumber:
 			if _, ok := val.(float64); !ok {
-				// allow numeric strings to be coerced later? For now enforce JSON number
 				return e.ErrInvalidParam.AddDesc(fmt.Sprintf("custom field %s must be number", key))
 			}
-		case string(config.ApplicationCustomFieldTypeMultiSelect):
+		case config.ApplicationCustomFieldTypeMultiSelect:
 			arr, ok := val.([]interface{})
 			if !ok {
 				return e.ErrInvalidParam.AddDesc(fmt.Sprintf("custom field %s must be array of strings", key))
@@ -102,7 +101,7 @@ func validateCustomFields(app *commonmodels.Application) error {
 					return e.ErrInvalidParam.AddDesc(fmt.Sprintf("custom field %s contains value not in options", key))
 				}
 			}
-		case string(config.ApplicationCustomFieldTypeBool):
+		case config.ApplicationCustomFieldTypeBool:
 			if _, ok := val.(bool); !ok {
 				return e.ErrInvalidParam.AddDesc(fmt.Sprintf("custom field %s must be bool", key))
 			}
@@ -119,22 +118,22 @@ func validateCustomFields(app *commonmodels.Application) error {
 }
 
 // isEmptyByType determines emptiness for required field validation, per field definition type.
-func isEmptyByType(defType string, v interface{}) bool {
+func isEmptyByType(defType config.ApplicationCustomFieldType, v interface{}) bool {
 	switch defType {
-	case string(config.ApplicationCustomFieldTypeText), string(config.ApplicationCustomFieldTypeSingleSelect), string(config.ApplicationCustomFieldTypeLink), string(config.ApplicationCustomFieldTypeUser), string(config.ApplicationCustomFieldTypeUserGroup), string(config.ApplicationCustomFieldTypeProject):
+	case config.ApplicationCustomFieldTypeText, config.ApplicationCustomFieldTypeSingleSelect, config.ApplicationCustomFieldTypeLink, config.ApplicationCustomFieldTypeUser, config.ApplicationCustomFieldTypeUserGroup, config.ApplicationCustomFieldTypeProject:
 		s, ok := v.(string)
 		return !ok || strings.TrimSpace(s) == ""
-	case string(config.ApplicationCustomFieldTypeNumber), string(config.ApplicationCustomFieldTypeDatetime):
+	case config.ApplicationCustomFieldTypeNumber, config.ApplicationCustomFieldTypeDatetime:
 		switch v.(type) {
 		case float64, int64:
 			return false
 		default:
 			return true
 		}
-	case string(config.ApplicationCustomFieldTypeBool):
+	case config.ApplicationCustomFieldTypeBool:
 		_, ok := v.(bool)
 		return !ok
-	case string(config.ApplicationCustomFieldTypeMultiSelect):
+	case config.ApplicationCustomFieldTypeMultiSelect:
 		arr, ok := v.([]interface{})
 		if !ok {
 			return true
@@ -173,7 +172,7 @@ func CreateApplication(app *commonmodels.Application, logger *zap.SugaredLogger)
 	if err := validateCustomFields(app); err != nil {
 		return nil, err
 	}
-	oid, err := commonmongodb.NewApplicationColl().Create(context.Background(), app)
+	oid, err := commonrepo.NewApplicationColl().Create(context.Background(), app)
 	if err != nil {
 		return nil, err
 	}
@@ -183,20 +182,20 @@ func CreateApplication(app *commonmodels.Application, logger *zap.SugaredLogger)
 
 func GetApplication(id string, logger *zap.SugaredLogger) (*commonmodels.Application, error) {
 	ctx := context.Background()
-	app, err := commonmongodb.NewApplicationColl().GetByID(ctx, id)
+	app, err := commonrepo.NewApplicationColl().GetByID(ctx, id)
 	if err != nil {
 		return nil, err
 	}
 
 	plugins := make([]string, 0)
-	plist, err := commonmongodb.NewPluginColl().List()
+	plist, err := commonrepo.NewPluginColl().List()
 	if err != nil {
 		logger.Warnf("failed to list plugins: %v", err)
 		app.Plugins = plugins
 		return app, nil
 	}
 
-	defs, err := commonmongodb.NewApplicationFieldDefinitionColl().List(ctx)
+	defs, err := commonrepo.NewApplicationFieldDefinitionColl().List(ctx)
 	if err != nil {
 		logger.Warnf("failed to list application field definitions: %v", err)
 		defs = nil
@@ -455,7 +454,7 @@ func UpdateApplication(id string, app *commonmodels.Application, logger *zap.Sug
 	if app == nil {
 		return e.ErrInvalidParam.AddDesc("empty body")
 	}
-	old, err := commonmongodb.NewApplicationColl().GetByID(context.Background(), id)
+	old, err := commonrepo.NewApplicationColl().GetByID(context.Background(), id)
 	if err != nil {
 		return err
 	}
@@ -472,14 +471,14 @@ func UpdateApplication(id string, app *commonmodels.Application, logger *zap.Sug
 	}
 
 	app.ID = old.ID
-	if err := commonmongodb.NewApplicationColl().UpdateByID(context.Background(), id, app); err != nil {
+	if err := commonrepo.NewApplicationColl().UpdateByID(context.Background(), id, app); err != nil {
 		return err
 	}
 	return nil
 }
 
 func DeleteApplication(id string, logger *zap.SugaredLogger) error {
-	return commonmongodb.NewApplicationColl().DeleteByID(context.Background(), id)
+	return commonrepo.NewApplicationColl().DeleteByID(context.Background(), id)
 }
 
 // Search with filter list model (re-used from earlier design), with validation unaffected.
@@ -492,13 +491,13 @@ type Filter struct {
 }
 
 type SearchApplicationsRequest struct {
-	Page            int64    `json:"page"`
-	PageSize        int64    `json:"page_size"`
-	Query           string   `json:"query"`
-	Filters         []Filter `json:"filters"`
-	SortBy          string   `json:"sort_by"`
-	SortOrder       string   `json:"sort_order"`
-	SortInsensitive bool     `json:"sort_insensitive"`
+	Page            int64     `json:"page"`
+	PageSize        int64     `json:"page_size"`
+	Query           string    `json:"query"`
+	Filters         []*Filter `json:"filters"`
+	SortBy          string    `json:"sort_by"`
+	SortOrder       string    `json:"sort_order"`
+	SortInsensitive bool      `json:"sort_insensitive"`
 }
 
 func SearchApplications(req *SearchApplicationsRequest, logger *zap.SugaredLogger) ([]*commonmodels.Application, int64, error) {
@@ -508,7 +507,7 @@ func SearchApplications(req *SearchApplicationsRequest, logger *zap.SugaredLogge
 	if req.PageSize <= 0 {
 		req.PageSize = 20
 	}
-	defs, _ := commonmongodb.NewApplicationFieldDefinitionColl().List(context.Background())
+	defs, _ := commonrepo.NewApplicationFieldDefinitionColl().List(context.Background())
 	defMap := map[string]*commonmodels.ApplicationFieldDefinition{}
 	for _, d := range defs {
 		defMap[d.Key] = d
@@ -537,14 +536,14 @@ func SearchApplications(req *SearchApplicationsRequest, logger *zap.SugaredLogge
 		sortBy = "update_time"
 	}
 	sort := bson.D{{Key: sortBy, Value: order}}
-	list, total, err := commonmongodb.NewApplicationColl().List(context.Background(), &commonmongodb.ApplicationListOptions{Query: query, Sort: sort, Page: req.Page, PageSize: req.PageSize})
+	list, total, err := commonrepo.NewApplicationColl().List(context.Background(), &commonrepo.ApplicationListOptions{Query: query, Sort: sort, Page: req.Page, PageSize: req.PageSize})
 	if err != nil {
 		return nil, 0, err
 	}
 	return list, total, nil
 }
 
-func buildFilterQuery(filters []Filter, defs map[string]*commonmodels.ApplicationFieldDefinition) ([]bson.M, error) {
+func buildFilterQuery(filters []*Filter, defs map[string]*commonmodels.ApplicationFieldDefinition) ([]bson.M, error) {
 	out := make([]bson.M, 0, len(filters))
 	for _, f := range filters {
 		path, fType, err := resolveField(f.Field, defs)
@@ -569,16 +568,16 @@ func resolveField(field string, defs map[string]*commonmodels.ApplicationFieldDe
 		}
 		var cat string
 		switch def.Type {
-		case string(config.ApplicationCustomFieldTypeText), string(config.ApplicationCustomFieldTypeSingleSelect), string(config.ApplicationCustomFieldTypeLink), string(config.ApplicationCustomFieldTypeUser), string(config.ApplicationCustomFieldTypeUserGroup), string(config.ApplicationCustomFieldTypeProject):
+		case config.ApplicationCustomFieldTypeText, config.ApplicationCustomFieldTypeSingleSelect, config.ApplicationCustomFieldTypeLink, config.ApplicationCustomFieldTypeUser, config.ApplicationCustomFieldTypeUserGroup, config.ApplicationCustomFieldTypeProject:
 			cat = string(config.ApplicationFilterFieldTypeString)
-		case string(config.ApplicationCustomFieldTypeNumber), string(config.ApplicationCustomFieldTypeDatetime):
+		case config.ApplicationCustomFieldTypeNumber, config.ApplicationCustomFieldTypeDatetime:
 			cat = string(config.ApplicationFilterFieldTypeNumber)
-		case string(config.ApplicationCustomFieldTypeBool):
+		case config.ApplicationCustomFieldTypeBool:
 			cat = string(config.ApplicationFilterFieldTypeBool)
-		case string(config.ApplicationCustomFieldTypeMultiSelect):
+		case config.ApplicationCustomFieldTypeMultiSelect:
 			cat = string(config.ApplicationFilterFieldTypeArray)
 		default:
-			return "", "", e.ErrInvalidParam.AddDesc("unsupported custom field type: " + def.Type)
+			return "", "", e.ErrInvalidParam.AddDesc("unsupported custom field type: " + string(def.Type))
 		}
 		return "custom_fields." + key, cat, nil
 	}
@@ -592,7 +591,7 @@ func resolveField(field string, defs map[string]*commonmodels.ApplicationFieldDe
 	}
 }
 
-func filterToExpr(path, fType string, f Filter) (bson.M, error) {
+func filterToExpr(path, fType string, f *Filter) (bson.M, error) {
 	verb := strings.ToLower(f.Verb)
 	ci := true
 	if f.CaseInsensitive != nil {

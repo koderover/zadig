@@ -22,8 +22,9 @@ import (
 
 	"go.uber.org/zap"
 
+	config "github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
-	commonmongodb "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 )
 
@@ -35,19 +36,19 @@ func CreateFieldDefinition(def *commonmodels.ApplicationFieldDefinition, logger 
 		return nil, e.ErrInvalidParam.AddDesc("key, name, type are required")
 	}
 	def.Key = strings.TrimSpace(def.Key)
-	if def.Type != "text" && def.Type != "number" && def.Type != "single_select" && def.Type != "multi_select" {
+	if def.Type != config.ApplicationCustomFieldTypeText && def.Type != config.ApplicationCustomFieldTypeNumber && def.Type != config.ApplicationCustomFieldTypeSingleSelect && def.Type != config.ApplicationCustomFieldTypeMultiSelect {
 		return nil, e.ErrInvalidParam.AddDesc("invalid type")
 	}
-	if (def.Type == "single_select" || def.Type == "multi_select") && len(def.Options) == 0 {
+	if (def.Type == config.ApplicationCustomFieldTypeSingleSelect || def.Type == config.ApplicationCustomFieldTypeMultiSelect) && len(def.Options) == 0 {
 		return nil, e.ErrInvalidParam.AddDesc("options required for select types")
 	}
-	if def.Type != "single_select" && def.Type != "multi_select" && len(def.Options) > 0 {
+	if def.Type != config.ApplicationCustomFieldTypeSingleSelect && def.Type != config.ApplicationCustomFieldTypeMultiSelect && len(def.Options) > 0 {
 		return nil, e.ErrInvalidParam.AddDesc("options only allowed for select types")
 	}
-	if def.Type == "multi_select" && def.Unique {
+	if def.Type == config.ApplicationCustomFieldTypeMultiSelect && def.Unique {
 		return nil, e.ErrInvalidParam.AddDesc("multi_select cannot be unique")
 	}
-	oid, err := commonmongodb.NewApplicationFieldDefinitionColl().Create(context.Background(), def)
+	oid, err := commonrepo.NewApplicationFieldDefinitionColl().Create(context.Background(), def)
 	if err != nil {
 		return nil, err
 	}
@@ -56,7 +57,7 @@ func CreateFieldDefinition(def *commonmodels.ApplicationFieldDefinition, logger 
 }
 
 func ListFieldDefinitions(logger *zap.SugaredLogger) ([]*commonmodels.ApplicationFieldDefinition, error) {
-	return commonmongodb.NewApplicationFieldDefinitionColl().List(context.Background())
+	return commonrepo.NewApplicationFieldDefinitionColl().List(context.Background())
 }
 
 func UpdateFieldDefinition(key string, def *commonmodels.ApplicationFieldDefinition, logger *zap.SugaredLogger) error {
@@ -67,9 +68,9 @@ func UpdateFieldDefinition(key string, def *commonmodels.ApplicationFieldDefinit
 		return e.ErrInvalidParam.AddDesc("key is immutable")
 	}
 	def.Key = key
-	return commonmongodb.NewApplicationFieldDefinitionColl().UpdateByKey(context.Background(), key, def)
+	return commonrepo.NewApplicationFieldDefinitionColl().UpdateByKey(context.Background(), key, def)
 }
 
 func DeleteFieldDefinition(key string, logger *zap.SugaredLogger) error {
-	return commonmongodb.NewApplicationFieldDefinitionColl().DeleteByKey(context.Background(), key)
+	return commonrepo.NewApplicationFieldDefinitionColl().DeleteByKey(context.Background(), key)
 }

@@ -17,6 +17,7 @@ limitations under the License.
 package models
 
 import (
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
@@ -34,7 +35,7 @@ type Application struct {
 	ProductionServiceID string                    `bson:"production_service_id,omitempty" json:"production_service_id,omitempty"`
 	CustomFields        map[string]interface{}    `bson:"custom_fields,omitempty"          json:"custom_fields,omitempty"`
 	// field used only for frontend, showing which plugin is activated on a specific application.
-	Plugins             []string                  `bson:"-"                                json:"plugins,omitempty"`
+	Plugins []string `bson:"-"                                json:"plugins,omitempty"`
 }
 
 type ApplicationRepositoryRef struct {
@@ -48,17 +49,17 @@ type ApplicationRepositoryRef struct {
 func (Application) TableName() string { return "application" }
 
 type ApplicationFieldDefinition struct {
-	ID          primitive.ObjectID `bson:"_id,omitempty"     json:"id"`
-	Key         string             `bson:"key"               json:"key"`
-	Name        string             `bson:"name"              json:"name"`
-	Type        string             `bson:"type"              json:"type"`
-	Options     []string           `bson:"options,omitempty" json:"options,omitempty"`
-	Unique      bool               `bson:"unique"            json:"unique"`
-	Required    bool               `bson:"required"          json:"required"`
-	ShowInList  bool               `bson:"show_in_list"      json:"show_in_list"`
-	Description string             `bson:"description,omitempty" json:"description,omitempty"`
-	CreateTime  int64              `bson:"create_time"       json:"create_time"`
-	UpdateTime  int64              `bson:"update_time"       json:"update_time"`
+	ID          primitive.ObjectID                `bson:"_id,omitempty"     json:"id"`
+	Key         string                            `bson:"key"               json:"key"`
+	Name        string                            `bson:"name"              json:"name"`
+	Type        config.ApplicationCustomFieldType `bson:"type"              json:"type"`
+	Options     []string                          `bson:"options,omitempty" json:"options,omitempty"`
+	Unique      bool                              `bson:"unique"            json:"unique"`
+	Required    bool                              `bson:"required"          json:"required"`
+	ShowInList  bool                              `bson:"show_in_list"      json:"show_in_list"`
+	Description string                            `bson:"description,omitempty" json:"description,omitempty"`
+	CreateTime  int64                             `bson:"create_time"       json:"create_time"`
+	UpdateTime  int64                             `bson:"update_time"       json:"update_time"`
 }
 
 func (ApplicationFieldDefinition) TableName() string { return "application_field_definition" }
