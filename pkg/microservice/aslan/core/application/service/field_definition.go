@@ -56,6 +56,9 @@ func UpdateFieldDefinition(key string, def *commonmodels.ApplicationFieldDefinit
 		return e.ErrInvalidParam.AddDesc("key is immutable")
 	}
 	def.Key = key
+	if err := def.Validate(); err != nil {
+		return e.ErrInvalidParam.AddDesc(err.Error())
+	}
 	return commonrepo.NewApplicationFieldDefinitionColl().UpdateByKey(context.Background(), key, def)
 }
 
