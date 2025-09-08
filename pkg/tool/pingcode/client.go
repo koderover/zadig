@@ -266,6 +266,9 @@ func (c *PingCodeClient) ListWorkItems(projectID string, stateIDs, sprintIDs, bo
 			"page_size":  fmt.Sprintf("%d", pageSize),
 			"page_index": fmt.Sprintf("%d", pageIndex),
 		}
+		if projectID != "" {
+			queryParams["project_ids"] = projectID
+		}
 		if len(stateIDs) > 20 || len(sprintIDs) > 20 || len(boardIDs) > 20 || len(typeIDs) > 20 {
 			return nil, fmt.Errorf("stateIDs or sprintIDs or boardIDs or typeIDs count large than 20")
 		}
