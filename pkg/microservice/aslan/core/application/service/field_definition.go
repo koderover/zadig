@@ -35,7 +35,7 @@ func CreateFieldDefinition(def *commonmodels.ApplicationFieldDefinition, logger 
 		return nil, e.ErrInvalidParam.AddDesc("key, name, type are required")
 	}
 	def.Key = strings.TrimSpace(def.Key)
-	if def.Type != "string" && def.Type != "number" && def.Type != "single_select" && def.Type != "multi_select" {
+	if def.Type != "text" && def.Type != "number" && def.Type != "single_select" && def.Type != "multi_select" {
 		return nil, e.ErrInvalidParam.AddDesc("invalid type")
 	}
 	if (def.Type == "single_select" || def.Type == "multi_select") && len(def.Options) == 0 {
