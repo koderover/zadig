@@ -33,7 +33,7 @@ import (
 // 1. Kubernetes service, and yaml+config is held in aslan: type == "k8s"; source == "spock"; yaml != ""
 // 2. Kubernetes service, and yaml+config is held in gitlab: type == "k8s"; source == "gitlab"; src_path != ""
 type Service struct {
-	ID                 primitive.ObjectID               `bson:"_id,omitempty"                  json:"_id,omitempty"`
+	ID                 primitive.ObjectID               `bson:"_id,omitempty"                  json:"id,omitempty"`
 	ServiceName        string                           `bson:"service_name"                   json:"service_name"`
 	Type               string                           `bson:"type"                           json:"type"`
 	Team               string                           `bson:"team,omitempty"                 json:"team,omitempty"`
