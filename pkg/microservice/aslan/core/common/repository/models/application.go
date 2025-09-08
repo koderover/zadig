@@ -25,19 +25,19 @@ import (
 )
 
 type Application struct {
-	ID                  primitive.ObjectID        `bson:"_id,omitempty"                   json:"id"`
-	Name                string                    `bson:"name"                            json:"name"`
-	Key                 string                    `bson:"key"                             json:"key"`
-	Project             string                    `bson:"project"                         json:"project"`
-	Repository          *ApplicationRepositoryRef `bson:"repository,omitempty"            json:"repository,omitempty"`
-	Type                string                    `bson:"type"                            json:"type"`
-	Language            string                    `bson:"language,omitempty"              json:"language,omitempty"`
-	CreateTime          int64                     `bson:"create_time"                     json:"create_time"`
-	UpdateTime          int64                     `bson:"update_time"                     json:"update_time"`
-	Description         string                    `bson:"description,omitempty"           json:"description,omitempty"`
-	TestingServiceID    string                    `bson:"testing_service_id,omitempty"    json:"testing_service_id,omitempty"`
-	ProductionServiceID string                    `bson:"production_service_id,omitempty" json:"production_service_id,omitempty"`
-	CustomFields        map[string]interface{}    `bson:"custom_fields,omitempty"          json:"custom_fields,omitempty"`
+	ID                    primitive.ObjectID        `bson:"_id,omitempty"                     json:"id"`
+	Name                  string                    `bson:"name"                              json:"name"`
+	Key                   string                    `bson:"key"                               json:"key"`
+	Project               string                    `bson:"project"                           json:"project"`
+	Repository            *ApplicationRepositoryRef `bson:"repository,omitempty"              json:"repository,omitempty"`
+	Type                  string                    `bson:"type"                              json:"type"`
+	Language              string                    `bson:"language,omitempty"                json:"language,omitempty"`
+	CreateTime            int64                     `bson:"create_time"                       json:"create_time"`
+	UpdateTime            int64                     `bson:"update_time"                       json:"update_time"`
+	Description           string                    `bson:"description,omitempty"             json:"description,omitempty"`
+	TestingServiceName    string                    `bson:"testing_service_name,omitempty"    json:"testing_service_name,omitempty"`
+	ProductionServiceName string                    `bson:"production_service_name,omitempty" json:"production_service_name,omitempty"`
+	CustomFields          map[string]interface{}    `bson:"custom_fields,omitempty"           json:"custom_fields,omitempty"`
 	// field used only for frontend, showing which plugin is activated on a specific application.
 	Plugins []string `bson:"-"                                json:"plugins,omitempty"`
 }
