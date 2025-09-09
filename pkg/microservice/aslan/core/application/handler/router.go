@@ -29,6 +29,9 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		application.GET("/:id", GetApplication)
 		application.PUT("/:id", UpdateApplication)
 		application.DELETE("/:id", DeleteApplication)
+		// this is a very wrong api, we shouldn't be able to search envs from applications. but for now we just have to live with it.
+		// TODO: remove this api
+		application.GET("/:id/envs", ListApplicationEnvs)
 
 		application.POST("/search", SearchApplications)
 	}

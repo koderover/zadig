@@ -98,3 +98,10 @@ func SearchApplications(c *gin.Context) {
 	}
 	ctx.Resp = gin.H{"items": items, "page": req.Page, "page_size": req.PageSize, "total": total}
 }
+
+
+func ListApplicationEnvs(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	ctx.Resp, ctx.RespErr = service.ListApplicationEnvs(c.Param("id"), ctx.Logger)
+}

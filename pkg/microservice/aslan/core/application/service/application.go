@@ -25,11 +25,23 @@ import (
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.uber.org/zap"
+	"helm.sh/helm/v3/pkg/action"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	templaterepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
+	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/pm"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/repository"
+	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
+	"github.com/koderover/zadig/v2/pkg/setting"
+	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
+	helmtool "github.com/koderover/zadig/v2/pkg/tool/helmclient"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
+	"github.com/koderover/zadig/v2/pkg/util"
 )
 
 // Validation helpers
@@ -40,7 +52,7 @@ func validateApplicationBaseFields(app *commonmodels.Application) error {
 	return nil
 }
 
-func validateCustomFields(app *commonmodels.Application) error {
+func validateAndPruneCustomFields(app *commonmodels.Application) error {
 	defs, err := commonrepo.NewApplicationFieldDefinitionColl().List(context.Background())
 	if err != nil {
 		return err
@@ -70,7 +82,11 @@ func validateCustomFields(app *commonmodels.Application) error {
 	for key, val := range values {
 		def, ok := defMap[key]
 		if !ok {
-			return e.ErrInvalidParam.AddDesc(fmt.Sprintf("unknown custom field: %s", key))
+			// prune undefined fields from customFields
+			if app.CustomFields != nil {
+				delete(app.CustomFields, key)
+			}
+			continue
 		}
 		switch def.Type {
 		case config.ApplicationCustomFieldTypeText, config.ApplicationCustomFieldTypeSingleSelect, config.ApplicationCustomFieldTypeLink, config.ApplicationCustomFieldTypeUser, config.ApplicationCustomFieldTypeUserGroup, config.ApplicationCustomFieldTypeProject:
@@ -166,7 +182,7 @@ func CreateApplication(app *commonmodels.Application, logger *zap.SugaredLogger)
 	if err := validateApplicationBaseFields(app); err != nil {
 		return nil, err
 	}
-	if err := validateCustomFields(app); err != nil {
+	if err := validateAndPruneCustomFields(app); err != nil {
 		return nil, err
 	}
 	oid, err := commonrepo.NewApplicationColl().Create(context.Background(), app)
@@ -463,7 +479,7 @@ func UpdateApplication(id string, app *commonmodels.Application, logger *zap.Sug
 	if err := validateApplicationBaseFields(app); err != nil {
 		return err
 	}
-	if err := validateCustomFields(app); err != nil {
+	if err := validateAndPruneCustomFields(app); err != nil {
 		return err
 	}
 
@@ -538,6 +554,372 @@ func SearchApplications(req *SearchApplicationsRequest, logger *zap.SugaredLogge
 		return nil, 0, err
 	}
 	return list, total, nil
+}
+
+type GetBizDirServiceDetailResponse struct {
+	ProjectName  string   `json:"project_name"`
+	EnvName      string   `json:"env_name"`
+	EnvAlias     string   `json:"env_alias"`
+	Production   bool     `json:"production"`
+	Name         string   `json:"name"`
+	Type         string   `json:"type"`
+	Status       string   `json:"status"`
+	Images       []string `json:"images"`
+	ChartVersion string   `json:"chart_version"`
+	UpdateTime   int64    `json:"update_time"`
+	Error        string   `json:"error"`
+}
+
+func ListApplicationEnvs(id string, logger *zap.SugaredLogger) ([]*GetBizDirServiceDetailResponse, error) {
+	resp := make([]*GetBizDirServiceDetailResponse, 0)
+
+	app, err := commonrepo.NewApplicationColl().GetByID(context.Background(), id)
+	if err != nil {
+		return nil, err
+	}
+
+	if app.Project == "" {
+		return nil, fmt.Errorf("project is required to find envs")
+	}
+
+	project, err := templaterepo.NewProductColl().Find(app.Project)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find project %s, error: %v", app.Project, err)
+	}
+
+	if app.TestingServiceName != "" {
+		envs, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
+			Name:       app.Project,
+			Production: util.GetBoolPointer(false),
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to list product %s, error: %v", app.Project, err)
+		}
+
+		for _, env := range envs {
+			prodSvc := env.GetServiceMap()[app.TestingServiceName]
+			if prodSvc == nil {
+				// not deployed in this env
+				continue
+			}
+
+			if project.IsK8sYamlProduct() || project.IsHostProduct() {
+				detail := &GetBizDirServiceDetailResponse{
+					ProjectName: env.ProductName,
+					EnvName:     env.EnvName,
+					EnvAlias:    env.Alias,
+					Production:  env.Production,
+					Name:        app.TestingServiceName,
+					Type:        setting.K8SDeployType,
+					UpdateTime:  prodSvc.UpdateTime,
+				}
+				serviceTmpl, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
+					ServiceName: prodSvc.ServiceName,
+					Revision:    prodSvc.Revision,
+					ProductName: prodSvc.ProductName,
+				}, env.Production)
+				if err != nil {
+					detail.Error = err.Error()
+					log.Warnf("failed to get service template for productName: %s, serviceName: %s, revision %d, error: %v",
+						prodSvc.ProductName, prodSvc.ServiceName, prodSvc.Revision, err)
+					resp = append(resp, detail)
+					continue
+				}
+
+				cls, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(env.ClusterID)
+				if err != nil {
+					detail.Error = err.Error()
+					log.Warnf("failed to get service status & image info due to kube client creation, err: %s", err)
+					resp = append(resp, detail)
+					continue
+				}
+				inf, err := clientmanager.NewKubeClientManager().GetInformer(env.ClusterID, env.Namespace)
+				if err != nil {
+					detail.Error = err.Error()
+					log.Warnf("failed to get service status & image info due to kube informer creation, err: %s", err)
+					resp = append(resp, detail)
+					continue
+				}
+
+				serviceStatus := commonservice.QueryPodsStatus(env, serviceTmpl, app.TestingServiceName, cls, inf, log.SugaredLogger())
+				detail.Status = serviceStatus.PodStatus
+				detail.Images = serviceStatus.Images
+
+				resp = append(resp, detail)
+			} else if project.IsHelmProduct() {
+				svcToReleaseNameMap, err := commonutil.GetServiceNameToReleaseNameMap(env)
+				if err != nil {
+					return nil, fmt.Errorf("failed to build release-service map: %s", err)
+				}
+				releaseName := svcToReleaseNameMap[app.TestingServiceName]
+				if releaseName == "" {
+					return nil, fmt.Errorf("release name not found for service %s", app.TestingServiceName)
+				}
+
+				detail := &GetBizDirServiceDetailResponse{
+					ProjectName: env.ProductName,
+					EnvName:     env.EnvName,
+					EnvAlias:    env.Alias,
+					Production:  env.Production,
+					Name:        fmt.Sprintf("%s(%s)", releaseName, app.TestingServiceName),
+					Type:        setting.HelmDeployType,
+				}
+
+				helmClient, err := helmtool.NewClientFromNamespace(env.ClusterID, env.Namespace)
+				if err != nil {
+					log.Errorf("[%s][%s] NewClientFromRestConf error: %s", env.EnvName, app.Project, err)
+					return nil, fmt.Errorf("failed to init helm client, err: %s", err)
+				}
+
+				listClient := action.NewList(helmClient.ActionConfig)
+				listClient.Filter = releaseName
+				releases, err := listClient.Run()
+				if err != nil {
+					return nil, e.ErrGetBizDirServiceDetail.AddErr(fmt.Errorf("failed to list helm releases by %s, error: %v", app.TestingServiceName, err))
+				}
+				if len(releases) == 0 {
+					resp = append(resp, detail)
+					continue
+				}
+				if len(releases) > 1 {
+					detail.Error = "helm release number is not equal to 1"
+					log.Warnf("helm release number is not equal to 1")
+					resp = append(resp, detail)
+					continue
+				}
+
+				detail.Status = string(releases[0].Info.Status)
+				detail.ChartVersion = releases[0].Chart.Metadata.Version
+				detail.UpdateTime = releases[0].Info.LastDeployed.Unix()
+
+				resp = append(resp, detail)
+			} else if project.IsCVMProduct() {
+				detail := &GetBizDirServiceDetailResponse{
+					ProjectName: env.ProductName,
+					EnvName:     env.EnvName,
+					EnvAlias:    env.Alias,
+					Production:  env.Production,
+					Name:        app.TestingServiceName,
+					Type:        project.ProductFeature.DeployType,
+					UpdateTime:  prodSvc.UpdateTime,
+				}
+
+				serviceTmpl, err := commonservice.GetServiceTemplate(
+					prodSvc.ServiceName, setting.PMDeployType, prodSvc.ProductName, "", prodSvc.Revision, false, log.SugaredLogger(),
+				)
+				if err != nil {
+					detail.Error = fmt.Sprintf("failed to get service template for productName: %s, serviceName: %s, revision %d, error: %v",
+						prodSvc.ProductName, prodSvc.ServiceName, prodSvc.Revision, err)
+					log.Warnf("failed to get service template for productName: %s, serviceName: %s, revision %d, error: %v",
+						prodSvc.ProductName, prodSvc.ServiceName, prodSvc.Revision, err)
+					resp = append(resp, detail)
+					continue
+				}
+
+				if len(serviceTmpl.EnvStatuses) > 0 {
+					envStatuses := make([]*commonmodels.EnvStatus, 0)
+					filterEnvStatuses, err := pm.GenerateEnvStatus(serviceTmpl.EnvConfigs, log.NopSugaredLogger())
+					if err != nil {
+						detail.Error = fmt.Sprintf("failed to generate env status for productName: %s, serviceName: %s, revision %d, error: %v", prodSvc.ProductName, prodSvc.ServiceName, prodSvc.Revision, err)
+						log.Warnf("failed to generate env status for productName: %s, serviceName: %s, revision %d, error: %v", prodSvc.ProductName, prodSvc.ServiceName, prodSvc.Revision, err)
+						resp = append(resp, detail)
+						continue
+					}
+					filterEnvStatusSet := sets.NewString()
+					for _, v := range filterEnvStatuses {
+						filterEnvStatusSet.Insert(v.Address)
+					}
+					for _, envStatus := range serviceTmpl.EnvStatuses {
+						if envStatus.EnvName == env.EnvName && filterEnvStatusSet.Has(envStatus.Address) {
+							envStatuses = append(envStatuses, envStatus)
+						}
+					}
+
+					if len(envStatuses) > 0 {
+						total := 0
+						running := 0
+						for _, envStatus := range envStatuses {
+							total++
+							if envStatus.Status == setting.PodRunning {
+								running++
+							}
+						}
+						detail.Status = fmt.Sprintf("%d/%d", running, total)
+					}
+				}
+
+				resp = append(resp, detail)
+			}
+		}
+	}
+
+	if app.ProductionServiceName != "" {
+		envs, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
+			Name:       app.Project,
+			Production: util.GetBoolPointer(true),
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to list product %s, error: %v", app.Project, err)
+		}
+
+		for _, env := range envs {
+			prodSvc := env.GetServiceMap()[app.ProductionServiceName]
+			if prodSvc == nil {
+				// not deployed in this env
+				continue
+			}
+
+			if project.IsK8sYamlProduct() || project.IsHostProduct() {
+				detail := &GetBizDirServiceDetailResponse{
+					ProjectName: env.ProductName,
+					EnvName:     env.EnvName,
+					EnvAlias:    env.Alias,
+					Production:  env.Production,
+					Name:        app.ProductionServiceName,
+					Type:        setting.K8SDeployType,
+					UpdateTime:  prodSvc.UpdateTime,
+				}
+				serviceTmpl, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
+					ServiceName: prodSvc.ServiceName,
+					Revision:    prodSvc.Revision,
+					ProductName: prodSvc.ProductName,
+				}, env.Production)
+				if err != nil {
+					detail.Error = err.Error()
+					log.Warnf("failed to get service template for productName: %s, serviceName: %s, revision %d, error: %v",
+						prodSvc.ProductName, prodSvc.ServiceName, prodSvc.Revision, err)
+					resp = append(resp, detail)
+					continue
+				}
+
+				cls, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(env.ClusterID)
+				if err != nil {
+					detail.Error = err.Error()
+					log.Warnf("failed to get service status & image info due to kube client creation, err: %s", err)
+					resp = append(resp, detail)
+					continue
+				}
+				inf, err := clientmanager.NewKubeClientManager().GetInformer(env.ClusterID, env.Namespace)
+				if err != nil {
+					detail.Error = err.Error()
+					log.Warnf("failed to get service status & image info due to kube informer creation, err: %s", err)
+					resp = append(resp, detail)
+					continue
+				}
+
+				serviceStatus := commonservice.QueryPodsStatus(env, serviceTmpl, app.ProductionServiceName, cls, inf, log.SugaredLogger())
+				detail.Status = serviceStatus.PodStatus
+				detail.Images = serviceStatus.Images
+
+				resp = append(resp, detail)
+			} else if project.IsHelmProduct() {
+				svcToReleaseNameMap, err := commonutil.GetServiceNameToReleaseNameMap(env)
+				if err != nil {
+					return nil, fmt.Errorf("failed to build release-service map: %s", err)
+				}
+				releaseName := svcToReleaseNameMap[app.ProductionServiceName]
+				if releaseName == "" {
+					return nil, fmt.Errorf("release name not found for service %s", app.ProductionServiceName)
+				}
+
+				detail := &GetBizDirServiceDetailResponse{
+					ProjectName: env.ProductName,
+					EnvName:     env.EnvName,
+					EnvAlias:    env.Alias,
+					Production:  env.Production,
+					Name:        fmt.Sprintf("%s(%s)", releaseName, app.TestingServiceName),
+					Type:        setting.HelmDeployType,
+				}
+
+				helmClient, err := helmtool.NewClientFromNamespace(env.ClusterID, env.Namespace)
+				if err != nil {
+					log.Errorf("[%s][%s] NewClientFromRestConf error: %s", env.EnvName, app.Project, err)
+					return nil, fmt.Errorf("failed to init helm client, err: %s", err)
+				}
+
+				listClient := action.NewList(helmClient.ActionConfig)
+				listClient.Filter = releaseName
+				releases, err := listClient.Run()
+				if err != nil {
+					return nil, e.ErrGetBizDirServiceDetail.AddErr(fmt.Errorf("failed to list helm releases by %s, error: %v", app.ProductionServiceName, err))
+				}
+				if len(releases) == 0 {
+					resp = append(resp, detail)
+					continue
+				}
+				if len(releases) > 1 {
+					detail.Error = "helm release number is not equal to 1"
+					log.Warnf("helm release number is not equal to 1")
+					resp = append(resp, detail)
+					continue
+				}
+
+				detail.Status = string(releases[0].Info.Status)
+				detail.ChartVersion = releases[0].Chart.Metadata.Version
+				detail.UpdateTime = releases[0].Info.LastDeployed.Unix()
+
+				resp = append(resp, detail)
+			} else if project.IsCVMProduct() {
+				detail := &GetBizDirServiceDetailResponse{
+					ProjectName: env.ProductName,
+					EnvName:     env.EnvName,
+					EnvAlias:    env.Alias,
+					Production:  env.Production,
+					Name:        app.ProductionServiceName,
+					Type:        project.ProductFeature.DeployType,
+					UpdateTime:  prodSvc.UpdateTime,
+				}
+
+				serviceTmpl, err := commonservice.GetServiceTemplate(
+					prodSvc.ServiceName, setting.PMDeployType, prodSvc.ProductName, "", prodSvc.Revision, false, log.SugaredLogger(),
+				)
+				if err != nil {
+					detail.Error = fmt.Sprintf("failed to get service template for productName: %s, serviceName: %s, revision %d, error: %v",
+						prodSvc.ProductName, prodSvc.ServiceName, prodSvc.Revision, err)
+					log.Warnf("failed to get service template for productName: %s, serviceName: %s, revision %d, error: %v",
+						prodSvc.ProductName, prodSvc.ServiceName, prodSvc.Revision, err)
+					resp = append(resp, detail)
+					continue
+				}
+
+				if len(serviceTmpl.EnvStatuses) > 0 {
+					envStatuses := make([]*commonmodels.EnvStatus, 0)
+					filterEnvStatuses, err := pm.GenerateEnvStatus(serviceTmpl.EnvConfigs, log.NopSugaredLogger())
+					if err != nil {
+						detail.Error = fmt.Sprintf("failed to generate env status for productName: %s, serviceName: %s, revision %d, error: %v", prodSvc.ProductName, prodSvc.ServiceName, prodSvc.Revision, err)
+						log.Warnf("failed to generate env status for productName: %s, serviceName: %s, revision %d, error: %v", prodSvc.ProductName, prodSvc.ServiceName, prodSvc.Revision, err)
+						resp = append(resp, detail)
+						continue
+					}
+					filterEnvStatusSet := sets.NewString()
+					for _, v := range filterEnvStatuses {
+						filterEnvStatusSet.Insert(v.Address)
+					}
+					for _, envStatus := range serviceTmpl.EnvStatuses {
+						if envStatus.EnvName == env.EnvName && filterEnvStatusSet.Has(envStatus.Address) {
+							envStatuses = append(envStatuses, envStatus)
+						}
+					}
+
+					if len(envStatuses) > 0 {
+						total := 0
+						running := 0
+						for _, envStatus := range envStatuses {
+							total++
+							if envStatus.Status == setting.PodRunning {
+								running++
+							}
+						}
+						detail.Status = fmt.Sprintf("%d/%d", running, total)
+					}
+				}
+
+				resp = append(resp, detail)
+			}
+		}
+	}
+
+	return resp, nil
 }
 
 func buildFilterQuery(filters []*Filter, defs map[string]*commonmodels.ApplicationFieldDefinition) ([]bson.M, error) {
