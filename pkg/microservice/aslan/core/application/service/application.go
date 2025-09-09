@@ -105,9 +105,6 @@ func validateCustomFields(app *commonmodels.Application) error {
 			if _, ok := val.(bool); !ok {
 				return e.ErrInvalidParam.AddDesc(fmt.Sprintf("custom field %s must be bool", key))
 			}
-			if _, ok := val.(int64); !ok {
-				return e.ErrInvalidParam.AddDesc(fmt.Sprintf("custom field %s must be unix timestamp (number)", key))
-			}
 
 		default:
 			return e.ErrInvalidParam.AddDesc(fmt.Sprintf("unsupported custom field type: %s", def.Type))
