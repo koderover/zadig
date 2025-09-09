@@ -1400,6 +1400,11 @@ func CreateDynamicPVC(clusterID, prefix string, nfsProperties *types.NFSProperti
 			return fmt.Errorf("failed to parse storage size: %d. err: %s", nfsProperties.StorageSizeInGiB, err)
 		}
 
+		accessMode := []corev1.PersistentVolumeAccessMode{corev1.ReadWriteMany}
+		if nfsProperties.AccessMode != "" {
+			accessMode = []corev1.PersistentVolumeAccessMode{corev1.PersistentVolumeAccessMode(nfsProperties.AccessMode)}
+		}
+
 		pvc = &corev1.PersistentVolumeClaim{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      pvcName,
@@ -1407,7 +1412,7 @@ func CreateDynamicPVC(clusterID, prefix string, nfsProperties *types.NFSProperti
 			},
 			Spec: corev1.PersistentVolumeClaimSpec{
 				StorageClassName: &nfsProperties.StorageClass,
-				AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteMany},
+				AccessModes:      accessMode,
 				VolumeMode:       &filesystemVolume,
 				Resources: corev1.ResourceRequirements{
 					Requests: corev1.ResourceList{

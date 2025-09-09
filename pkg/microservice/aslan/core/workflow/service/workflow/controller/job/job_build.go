@@ -23,6 +23,7 @@ import (
 	"strings"
 
 	"go.uber.org/zap"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	configbase "github.com/koderover/zadig/v2/pkg/config"
@@ -401,6 +402,7 @@ func (j BuildJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, error
 
 		if buildInfo.PreBuild != nil && buildInfo.PreBuild.TemporaryStorage != nil && buildInfo.PreBuild.TemporaryStorage.Enabled {
 			jobTaskSpec.Properties.TemporaryStorage = buildInfo.PreBuild.TemporaryStorage.NFSProperties
+			jobTaskSpec.Properties.TemporaryStorage.AccessMode = string(corev1.ReadWriteOnce)
 		}
 
 		paramEnvs := generateKeyValsFromWorkflowParam(j.workflow.Params)

@@ -45,6 +45,7 @@ type NFSProperties struct {
 	StorageSizeInGiB int64         `json:"storage_size_in_gib" bson:"storage_size_in_gib"    yaml:"storage_size_in_gib"`
 	PVC              string        `json:"pvc"                 bson:"pvc"                    yaml:"pvc"`
 	Subpath          string        `json:"subpath"             bson:"subpath"                yaml:"subpath"`
+	AccessMode       string        `json:"access_mode"         bson:"access_mode"            yaml:"access_mode"`
 }
 
 type Cache struct {
