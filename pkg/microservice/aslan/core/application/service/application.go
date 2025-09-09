@@ -83,7 +83,7 @@ func validateCustomFields(app *commonmodels.Application) error {
 					return e.ErrInvalidParam.AddDesc(fmt.Sprintf("custom field %s not in options", key))
 				}
 			}
-		case config.ApplicationCustomFieldTypeNumber:
+		case config.ApplicationCustomFieldTypeNumber, config.ApplicationCustomFieldTypeDatetime:
 			if _, ok := val.(float64); !ok {
 				return e.ErrInvalidParam.AddDesc(fmt.Sprintf("custom field %s must be number", key))
 			}
