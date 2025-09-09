@@ -111,6 +111,7 @@ func createOrUpdateMongodbIndex(ctx context.Context) {
 	for _, r := range []indexer{
 		// aslan related db index
 		template.NewProductColl(),
+		commonrepo.NewApplicationColl(),
 		commonrepo.NewBasicImageColl(),
 		commonrepo.NewBuildColl(),
 		commonrepo.NewCallbackRequestColl(),
