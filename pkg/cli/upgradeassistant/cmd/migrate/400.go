@@ -90,6 +90,7 @@ func migrateDeliveryVersionV2(ctx *internalhandler.Context, migrationInfo *inter
 				return fmt.Errorf("failed to decode delivery version, err: %s", err)
 			}
 
+			IsContinue := false
 			versionV2 := &models.DeliveryVersionV2{
 				ProjectName:  versionV1.ProductName,
 				Version:      versionV1.Version,
@@ -115,7 +116,9 @@ func migrateDeliveryVersionV2(ctx *internalhandler.Context, migrationInfo *inter
 				createArgument := &models.DeliveryVersionYamlData{}
 				err = models.IToi(versionV1.CreateArgument, createArgument)
 				if err != nil {
-					return fmt.Errorf("failed to convert create argument, err: %s", err)
+					log.Errorf("failed to convert create argument, versionName: %s, err: %s", versionV1.Version, err)
+					IsContinue = true
+					goto ContinueLabel
 				}
 				versionV2.ImageRegistryID = createArgument.ImageRegistryID
 
@@ -128,7 +131,9 @@ func migrateDeliveryVersionV2(ctx *internalhandler.Context, migrationInfo *inter
 					for _, imageData := range yamlData.ImageDatas {
 						tagArr := strings.Split(imageData.Image, ":")
 						if len(tagArr) == 1 {
-							return fmt.Errorf("invalid image format: %s", imageData.Image)
+							log.Errorf("invalid image format, versionName: %s, image: %s", versionV1.Version, imageData.Image)
+							IsContinue = true
+							goto ContinueLabel
 						}
 
 						tag := tagArr[len(tagArr)-1]
@@ -149,7 +154,9 @@ func migrateDeliveryVersionV2(ctx *internalhandler.Context, migrationInfo *inter
 				createArgument := &models.DeliveryVersionChartData{}
 				err = models.IToi(versionV1.CreateArgument, createArgument)
 				if err != nil {
-					return fmt.Errorf("failed to convert create argument, err: %s", err)
+					log.Errorf("failed to convert create argument, versionName: %s, err: %s", versionV1.Version, err)
+					IsContinue = true
+					goto ContinueLabel
 				}
 				versionV2.ImageRegistryID = createArgument.ImageRegistryID
 				versionV2.ChartRepoName = createArgument.ChartRepoName
@@ -159,7 +166,9 @@ func migrateDeliveryVersionV2(ctx *internalhandler.Context, migrationInfo *inter
 					DistributeType: config.Chart,
 				})
 				if err != nil {
-					return fmt.Errorf("failed to find delivery distribute, err: %s", err)
+					log.Errorf("failed to find delivery distribute, versionName: %s, err: %s", versionV1.Version, err)
+					IsContinue = true
+					goto ContinueLabel
 				}
 
 				successChartMap := make(map[string]bool)
@@ -185,7 +194,9 @@ func migrateDeliveryVersionV2(ctx *internalhandler.Context, migrationInfo *inter
 					for _, imageData := range chartData.ImageData {
 						tagArr := strings.Split(imageData.Image, ":")
 						if len(tagArr) == 1 {
-							return fmt.Errorf("invalid image format: %s", imageData.Image)
+							log.Errorf("invalid image format, versionName: %s, image: %s", versionV1.Version, imageData.Image)
+							IsContinue = true
+							goto ContinueLabel
 						}
 
 						tag := tagArr[len(tagArr)-1]
@@ -242,6 +253,11 @@ func migrateDeliveryVersionV2(ctx *internalhandler.Context, migrationInfo *inter
 			err = commonrepo.NewDeliveryVersionV2Coll().Create(versionV2)
 			if err != nil {
 				return fmt.Errorf("failed to create delivery version v2, projectName: %s, version: %s, err: %s", versionV2.ProjectName, versionV2.Version, err)
+			}
+
+		ContinueLabel:
+			if IsContinue {
+				continue
 			}
 		}
 	}
