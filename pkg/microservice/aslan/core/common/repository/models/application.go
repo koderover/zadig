@@ -31,6 +31,7 @@ type Application struct {
 	Project               string                    `bson:"project"                           json:"project"`
 	Repository            *ApplicationRepositoryRef `bson:"repository,omitempty"              json:"repository,omitempty"`
 	Type                  string                    `bson:"type"                              json:"type"`
+	Owner                 string                    `bson:"owner"                             json:"owner"`
 	Language              string                    `bson:"language,omitempty"                json:"language,omitempty"`
 	CreateTime            int64                     `bson:"create_time"                       json:"create_time"`
 	UpdateTime            int64                     `bson:"update_time"                       json:"update_time"`
