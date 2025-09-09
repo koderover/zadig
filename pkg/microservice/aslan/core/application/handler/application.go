@@ -103,5 +103,10 @@ func SearchApplications(c *gin.Context) {
 func ListApplicationEnvs(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	ctx.Resp, ctx.RespErr = service.ListApplicationEnvs(c.Param("id"), ctx.Logger)
+	resp, err := service.ListApplicationEnvs(c.Param("id"), ctx.Logger)
+	if err != nil {
+		ctx.RespErr = err
+		return
+	}
+	ctx.Resp = resp
 }
