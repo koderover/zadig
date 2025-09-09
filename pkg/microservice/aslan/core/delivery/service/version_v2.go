@@ -1367,7 +1367,7 @@ func ListDeliveryVersionV2Labels(projectName string) ([]string, error) {
 }
 
 func generateDeliveryWorkflowName(projectName, version string) string {
-	return fmt.Sprintf(deliveryVersionWorkflowV4NamingConvention, projectName, version)
+	return fmt.Sprintf(deliveryVersionWorkflowV4NamingConvention, projectName, util.SanitizeName(version))
 }
 
 func buildRegistryMap() (map[string]*commonmodels.RegistryNamespace, error) {
