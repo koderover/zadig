@@ -41,6 +41,11 @@ func CreateFieldDefinition(def *commonmodels.ApplicationFieldDefinition, logger 
 		return nil, err
 	}
 	def.ID = oid
+	if def.Unique {
+		if err := commonrepo.NewApplicationColl().CreateCustomFieldUniqueIndex(context.Background(), def.Key); err != nil {
+			logger.Warnf("failed to create unique index for custom field %s: %v", def.Key, err)
+		}
+	}
 	return def, nil
 }
 
@@ -61,5 +66,19 @@ func UpdateFieldDefinition(id string, def *commonmodels.ApplicationFieldDefiniti
 }
 
 func DeleteFieldDefinition(id string, logger *zap.SugaredLogger) error {
-	return commonrepo.NewApplicationFieldDefinitionColl().DeleteByID(context.Background(), id)
+	// best-effort drop unique index if exists
+	defColl := commonrepo.NewApplicationFieldDefinitionColl()
+	// we don't have a direct lookup by id; attempt listing and find by id
+	defs, _ := defColl.List(context.Background())
+	var key string
+	for _, d := range defs {
+		if d.ID.Hex() == id {
+			key = d.Key
+			break
+		}
+	}
+	if key != "" {
+		_ = commonrepo.NewApplicationColl().DropCustomFieldUniqueIndex(context.Background(), key)
+	}
+	return defColl.DeleteByID(context.Background(), id)
 }

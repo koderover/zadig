@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -53,6 +54,48 @@ func (c *ApplicationColl) EnsureIndex(ctx context.Context) error {
 		{Keys: bson.D{{Key: "repository.codehost_id", Value: 1}}},
 	}
 	_, err := c.Indexes().CreateMany(ctx, idxes)
+	return err
+}
+
+func (c *ApplicationColl) customFieldIndexName(key string) string {
+	// index name must not contain dots; keep simple by replacing non-alnum with underscore
+	sanitized := make([]rune, 0, len(key))
+	for _, r := range key {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '_' || r == '-' {
+			sanitized = append(sanitized, r)
+		} else {
+			sanitized = append(sanitized, '_')
+		}
+	}
+	return "udx_cf_" + string(sanitized)
+}
+
+// CreateCustomFieldUniqueIndex creates a unique index on custom_fields.<key> with a partial filter
+// so only documents having a non-null value are enforced.
+func (c *ApplicationColl) CreateCustomFieldUniqueIndex(ctx context.Context, key string) error {
+	fieldPath := "custom_fields." + key
+	name := c.customFieldIndexName(key)
+	idx := mongo.IndexModel{
+		Keys: bson.D{{Key: fieldPath, Value: 1}},
+		Options: options.Index().
+			SetName(name).
+			SetUnique(true).
+			SetPartialFilterExpression(bson.M{fieldPath: bson.M{"$exists": true, "$ne": nil}}),
+	}
+	_, err := c.Indexes().CreateOne(ctx, idx)
+	// If an index with the same definition/name exists, CreateOne is idempotent; return err as-is otherwise
+	return err
+}
+
+func (c *ApplicationColl) DropCustomFieldUniqueIndex(ctx context.Context, key string) error {
+	name := c.customFieldIndexName(key)
+	_, err := c.Indexes().DropOne(ctx, name)
+	if err != nil {
+		// if index not found, ignore
+		if strings.Contains(strings.ToLower(err.Error()), "index not found") {
+			return nil
+		}
+	}
 	return err
 }
 func (c *ApplicationColl) Create(ctx context.Context, app *commonmodels.Application) (primitive.ObjectID, error) {
