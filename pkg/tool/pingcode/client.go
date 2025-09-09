@@ -448,11 +448,11 @@ func (c *PingCodeClient) UpdateWorkItemState(workItemID, stateID string) error {
 		httpclient.SetBody(body),
 	)
 	if err != nil {
-		return fmt.Errorf("failed to update work item state: %w", err)
+		return fmt.Errorf("更新工作项状态失败: %w", err)
 	}
 
 	if resp.StatusCode() != http.StatusOK {
-		return fmt.Errorf("failed to update work item state, status code %d, err: %s", resp.StatusCode(), resp.String())
+		return fmt.Errorf("更新工作项状态失败, status code %d, err: %s", resp.StatusCode(), resp.String())
 	}
 
 	return nil
