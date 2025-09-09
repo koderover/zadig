@@ -780,9 +780,11 @@ type ApplicationFilterAction string
 
 const (
 	// common
-	ApplicationFilterActionEq       ApplicationFilterAction = "="
-	ApplicationFilterActionNe       ApplicationFilterAction = "!="
-	ApplicationFilterActionHasAnyOf ApplicationFilterAction = "has_any_of"
+	ApplicationFilterActionEq          ApplicationFilterAction = "="
+	ApplicationFilterActionNe          ApplicationFilterAction = "!="
+	ApplicationFilterActionHasAnyOf    ApplicationFilterAction = "has_any_of"
+	ApplicationFilterActionContains    ApplicationFilterAction = "contains"
+	ApplicationFilterActionNotContains ApplicationFilterAction = "not_contains"
 
 	// string-like
 	ApplicationFilterActionBeginsWith    ApplicationFilterAction = "begins_with"
@@ -800,8 +802,6 @@ const (
 	ApplicationFilterActionIs ApplicationFilterAction = "is"
 
 	// array
-	ApplicationFilterActionContains    ApplicationFilterAction = "contains"
-	ApplicationFilterActionNotContains ApplicationFilterAction = "not_contains"
-	ApplicationFilterActionIsEmpty     ApplicationFilterAction = "is_empty"
-	ApplicationFilterActionIsNotEmpty  ApplicationFilterAction = "is_not_empty"
+	ApplicationFilterActionIsEmpty    ApplicationFilterAction = "is_empty"
+	ApplicationFilterActionIsNotEmpty ApplicationFilterAction = "is_not_empty"
 )

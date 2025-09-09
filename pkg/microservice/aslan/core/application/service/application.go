@@ -325,12 +325,28 @@ func matchFilterOnApp(app *commonmodels.Application, path, fType string, f *comm
 				return false
 			}
 			return containsAny(arr, vals)
-		case string(config.ApplicationFilterActionNotContains):
-			vals, err := toStringSlice(f.Value)
+		case string(config.ApplicationFilterActionContains):
+			s, err := toString(f.Value)
 			if err != nil {
 				return false
 			}
-			return containsNone(arr, vals)
+			for _, it := range arr {
+				if it == s {
+					return true
+				}
+			}
+			return false
+		case string(config.ApplicationFilterActionNotContains):
+			s, err := toString(f.Value)
+			if err != nil {
+				return false
+			}
+			for _, it := range arr {
+				if it == s {
+					return false
+				}
+			}
+			return true
 		case string(config.ApplicationFilterActionIsEmpty):
 			return len(arr) == 0
 		case string(config.ApplicationFilterActionIsNotEmpty):
@@ -364,6 +380,10 @@ func matchFilterOnApp(app *commonmodels.Application, path, fType string, f *comm
 			return strings.HasSuffix(cur, s)
 		case string(config.ApplicationFilterActionNotEndsWith):
 			return !strings.HasSuffix(cur, s)
+		case string(config.ApplicationFilterActionContains):
+			return strings.Contains(cur, s)
+		case string(config.ApplicationFilterActionNotContains):
+			return !strings.Contains(cur, s)
 		case string(config.ApplicationFilterActionHasAnyOf):
 			vals, err := toStringSlice(f.Value)
 			if err != nil {
@@ -457,6 +477,22 @@ func containsNone(have []string, want []string) bool {
 	}
 	for _, s := range want {
 		if _, ok := set[s]; ok {
+			return false
+		}
+	}
+	return true
+}
+
+func containsAll(have []string, want []string) bool {
+	if len(want) == 0 {
+		return true
+	}
+	set := make(map[string]struct{}, len(have))
+	for _, s := range have {
+		set[s] = struct{}{}
+	}
+	for _, s := range want {
+		if _, ok := set[s]; !ok {
 			return false
 		}
 	}
@@ -1031,17 +1067,19 @@ func filterToExpr(path, fType string, f *Filter) (bson.M, error) {
 	case string(config.ApplicationFilterFieldTypeArray):
 		switch verb {
 		case string(config.ApplicationFilterActionContains):
-			vals, err := toStringSlice(f.Value)
+			s, err := toString(f.Value)
 			if err != nil {
 				return nil, err
 			}
-			return bson.M{path: bson.M{"$all": vals}}, nil
+			// match if the array contains the element equal to s (MongoDB allows equality to match array elements)
+			return bson.M{path: s}, nil
 		case string(config.ApplicationFilterActionNotContains):
-			vals, err := toStringSlice(f.Value)
+			s, err := toString(f.Value)
 			if err != nil {
 				return nil, err
 			}
-			return wrapNeg(bson.M{"$not": bson.M{"$elemMatch": bson.M{"$in": vals}}}), nil
+			// exclude arrays that contain the element equal to s; respect excludeNulls via wrapNeg
+			return wrapNeg(bson.M{"$nin": bson.A{s}}), nil
 		case string(config.ApplicationFilterActionHasAnyOf):
 			vals, err := toStringSlice(f.Value)
 			if err != nil {
@@ -1051,7 +1089,8 @@ func filterToExpr(path, fType string, f *Filter) (bson.M, error) {
 		case string(config.ApplicationFilterActionIsEmpty):
 			return bson.M{path: bson.M{"$size": 0}}, nil
 		case string(config.ApplicationFilterActionIsNotEmpty):
-			return bson.M{path: bson.M{"$not": bson.M{"$size": 0}}}, nil
+			// use exists and not equal to empty array to represent non-empty array
+			return bson.M{path: bson.M{"$exists": true, "$ne": bson.A{}}}, nil
 		default:
 			return nil, e.ErrInvalidParam.AddDesc("unsupported array verb: " + verb)
 		}
@@ -1108,6 +1147,19 @@ func filterToExpr(path, fType string, f *Filter) (bson.M, error) {
 				return nil, err
 			}
 			return wrapNeg(bson.M{"$not": bson.M{"$regex": escapeRegex(s) + "$", "$options": ciOpt(ci)}}), nil
+		case string(config.ApplicationFilterActionContains):
+			s, err := toString(f.Value)
+			if err != nil {
+				return nil, err
+			}
+			// substring match
+			return bson.M{path: bson.M{"$regex": escapeRegex(s), "$options": ciOpt(ci)}}, nil
+		case string(config.ApplicationFilterActionNotContains):
+			s, err := toString(f.Value)
+			if err != nil {
+				return nil, err
+			}
+			return wrapNeg(bson.M{"$not": bson.M{"$regex": escapeRegex(s), "$options": ciOpt(ci)}}), nil
 		case string(config.ApplicationFilterActionHasAnyOf):
 			vals, err := toStringSlice(f.Value)
 			if err != nil {
@@ -1125,31 +1177,7 @@ func filterToExpr(path, fType string, f *Filter) (bson.M, error) {
 			return nil, e.ErrInvalidParam.AddDesc("unsupported string verb: " + verb)
 		}
 	default:
-		if path == "testing_service_id" || path == "production_service_id" {
-			switch verb {
-			case string(config.ApplicationFilterActionEq):
-				s, err := toString(f.Value)
-				if err != nil {
-					return nil, err
-				}
-				return bson.M{path: s}, nil
-			case string(config.ApplicationFilterActionNe):
-				s, err := toString(f.Value)
-				if err != nil {
-					return nil, err
-				}
-				return wrapNeg(bson.M{"$ne": s}), nil
-			case string(config.ApplicationFilterActionHasAnyOf):
-				arr, err := toStringSlice(f.Value)
-				if err != nil {
-					return nil, err
-				}
-				return bson.M{path: bson.M{"$in": arr}}, nil
-			default:
-				return nil, e.ErrInvalidParam.AddDesc("unsupported object id verb: " + verb)
-			}
-		}
-		return nil, e.ErrInvalidParam.AddDesc("unsupported field type")
+		return nil, e.ErrInvalidParam.AddDesc("unsupported field type: " + fType)
 	}
 }
 
