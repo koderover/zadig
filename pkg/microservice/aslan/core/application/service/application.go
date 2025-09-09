@@ -961,9 +961,9 @@ func resolveField(field string, defs map[string]*commonmodels.ApplicationFieldDe
 		return "custom_fields." + key, cat, nil
 	}
 	switch field {
-	case "name", "key", "project", "language", "description", "create_time", "update_time", "testing_service_id", "production_service_id":
+	case "name", "key", "project", "description", "testing_service_id", "production_service_id", "owner", "type":
 		return field, string(config.ApplicationFilterFieldTypeString), nil
-	case "repository.codehost_id":
+	case "repository.codehost_id", "create_time", "update_time":
 		return field, string(config.ApplicationFilterFieldTypeNumber), nil
 	default:
 		return "", "", e.ErrInvalidParam.AddDesc("unknown field: " + field)
