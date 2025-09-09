@@ -33,7 +33,7 @@ type Application struct {
 	Type                  string                    `bson:"type"                              json:"type"`
 	Owner                 string                    `bson:"owner"                             json:"owner"`
 	Language              string                    `bson:"language,omitempty"                json:"language,omitempty"`
-	CreateTime            int64                     `bson:"create_time"                       json:"create_time"`
+	CreateTime            int64                     `bson:"create_time,omitempty"             json:"create_time"`
 	UpdateTime            int64                     `bson:"update_time"                       json:"update_time"`
 	Description           string                    `bson:"description,omitempty"             json:"description,omitempty"`
 	TestingServiceName    string                    `bson:"testing_service_name,omitempty"    json:"testing_service_name,omitempty"`
