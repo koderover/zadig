@@ -26,6 +26,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	application := router.Group("applications")
 	{
 		application.POST("", CreateApplication)
+		application.POST("/bulk", BulkCreateApplications)
 		application.GET("/:id", GetApplication)
 		application.PUT("/:id", UpdateApplication)
 		application.DELETE("/:id", DeleteApplication)

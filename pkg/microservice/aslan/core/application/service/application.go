@@ -24,6 +24,7 @@ import (
 	"strings"
 
 	"go.mongodb.org/mongo-driver/bson"
+
 	"go.uber.org/zap"
 	"helm.sh/helm/v3/pkg/action"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -191,6 +192,30 @@ func CreateApplication(app *commonmodels.Application, logger *zap.SugaredLogger)
 	}
 	app.ID = oid
 	return app, nil
+}
+
+func BulkCreateApplications(apps []*commonmodels.Application, logger *zap.SugaredLogger) error {
+	if len(apps) == 0 {
+		return nil
+	}
+	// validate first to fail-fast before transaction
+	for _, app := range apps {
+		if app == nil {
+			return e.ErrInvalidParam.AddDesc("empty body in list")
+		}
+		if err := validateApplicationBaseFields(app); err != nil {
+			return err
+		}
+		if err := validateAndPruneCustomFields(app); err != nil {
+			return err
+		}
+	}
+
+	_, err := commonrepo.NewApplicationColl().BulkCreate(context.TODO(), apps)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func GetApplication(id string, logger *zap.SugaredLogger) (*commonmodels.Application, error) {

@@ -49,6 +49,30 @@ func CreateApplication(c *gin.Context) {
 	ctx.Resp, ctx.RespErr = service.CreateApplication(args, ctx.Logger)
 }
 
+func BulkCreateApplications(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	var args []*commonmodels.Application
+	data, _ := c.GetRawData()
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
+	if err := c.ShouldBindWith(&args, binding.JSON); err != nil {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid application args")
+		return
+	}
+
+	err = service.BulkCreateApplications(args, ctx.Logger)
+	if err != nil {
+		ctx.RespErr = err
+		return
+	}
+}
+
 func GetApplication(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -98,7 +122,6 @@ func SearchApplications(c *gin.Context) {
 	}
 	ctx.Resp = gin.H{"items": items, "page": req.Page, "page_size": req.PageSize, "total": total}
 }
-
 
 func ListApplicationEnvs(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)

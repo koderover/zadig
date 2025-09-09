@@ -75,6 +75,38 @@ func (c *ApplicationColl) Create(ctx context.Context, app *commonmodels.Applicat
 	return oid, nil
 }
 
+func (c *ApplicationColl) BulkCreate(ctx context.Context, apps []*commonmodels.Application) ([]primitive.ObjectID, error) {
+	if len(apps) == 0 {
+		return nil, nil
+	}
+	now := time.Now().Unix()
+	ois := make([]interface{}, 0, len(apps))
+	for _, app := range apps {
+		if app == nil {
+			return nil, errors.New("nil application in list")
+		}
+		if app.CreateTime == 0 {
+			app.CreateTime = now
+		}
+		app.UpdateTime = now
+		ois = append(ois, app)
+	}
+	opts := options.InsertMany().SetOrdered(true)
+	res, err := c.InsertMany(ctx, ois, opts)
+	if err != nil {
+		return nil, err
+	}
+	ids := make([]primitive.ObjectID, 0, len(res.InsertedIDs))
+	for _, id := range res.InsertedIDs {
+		oid, ok := id.(primitive.ObjectID)
+		if !ok {
+			return nil, fmt.Errorf("unexpected inserted id type")
+		}
+		ids = append(ids, oid)
+	}
+	return ids, nil
+}
+
 func (c *ApplicationColl) GetByID(ctx context.Context, id string) (*commonmodels.Application, error) {
 	oid, err := primitive.ObjectIDFromHex(id)
 	if err != nil {
