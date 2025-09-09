@@ -34,8 +34,8 @@ import (
 
 // Validation helpers
 func validateApplicationBaseFields(app *commonmodels.Application) error {
-	if app.Name == "" || app.Key == "" || app.Project == "" || app.Type == "" {
-		return e.ErrInvalidParam.AddDesc("name, key, project and types are required")
+	if app.Name == "" || app.Key == "" || app.Project == "" {
+		return e.ErrInvalidParam.AddDesc("name, key, project are required")
 	}
 	return nil
 }
