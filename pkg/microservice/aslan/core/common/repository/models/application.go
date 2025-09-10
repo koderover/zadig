@@ -37,7 +37,7 @@ type Application struct {
 	Description           string                    `bson:"description,omitempty"             json:"description,omitempty"`
 	TestingServiceName    string                    `bson:"testing_service_name,omitempty"    json:"testing_service_name,omitempty"`
 	ProductionServiceName string                    `bson:"production_service_name,omitempty" json:"production_service_name,omitempty"`
-	CustomFields          map[string]interface{}    `bson:"custom_fields,omitempty"           json:"custom_fields,omitempty"`
+	CustomFields          map[string]interface{}    `bson:"custom_fields,omitempty"           json:"custom_fields"`
 	// field used only for frontend, showing which plugin is activated on a specific application.
 	Plugins []string `bson:"-"                                json:"plugins,omitempty"`
 }
