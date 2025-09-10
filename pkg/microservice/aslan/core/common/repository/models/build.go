@@ -99,8 +99,8 @@ type PreBuild struct {
 	ClusterSource string `bson:"cluster_source"                  json:"cluster_source"`
 	StrategyID    string `bson:"strategy_id"                     json:"strategy_id"`
 	// UseHostDockerDaemon determines is dockerDaemon on host node is used in pod
-	UseHostDockerDaemon bool              `bson:"use_host_docker_daemon" json:"use_host_docker_daemon"`
-	TemporaryStorage    *TemporaryStorage `bson:"temporary_storage"      json:"temporary_storage"`
+	UseHostDockerDaemon bool      `bson:"use_host_docker_daemon" json:"use_host_docker_daemon"`
+	Storages            *Storages `bson:"storages"      json:"storages"`
 
 	CustomAnnotations []*util.KeyValue `bson:"custom_annotations" json:"custom_annotations" yaml:"custom_annotations"`
 	CustomLabels      []*util.KeyValue `bson:"custom_labels"      json:"custom_labels"      yaml:"custom_labels"`
@@ -109,9 +109,9 @@ type PreBuild struct {
 	Namespace string `bson:"namespace"                       json:"namespace"`
 }
 
-type TemporaryStorage struct {
-	Enabled              bool `bson:"enabled"           json:"enabled"`
-	*types.NFSProperties `bson:",inline"                json:",inline"`
+type Storages struct {
+	Enabled            bool                   `bson:"enabled"                  json:"enabled"              yaml:"enabled"`
+	StoragesProperties []*types.NFSProperties `bson:"storages_properties"      json:"storages_properties"  yaml:"storages_properties"`
 }
 
 type PreDeploy struct {

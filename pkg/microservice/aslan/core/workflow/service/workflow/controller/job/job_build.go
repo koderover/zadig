@@ -23,7 +23,6 @@ import (
 	"strings"
 
 	"go.uber.org/zap"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	configbase "github.com/koderover/zadig/v2/pkg/config"
@@ -41,6 +40,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/types"
 	"github.com/koderover/zadig/v2/pkg/types/job"
 	"github.com/koderover/zadig/v2/pkg/types/step"
+	pkgutil "github.com/koderover/zadig/v2/pkg/util"
 )
 
 // TODO: Change note: ServiceAndBuilds field use to be the option field for the configuration, it has been
@@ -400,11 +400,6 @@ func (j BuildJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, error
 			EnablePrivileged:    buildInfo.EnablePrivilegedMode,
 		}
 
-		if buildInfo.PreBuild != nil && buildInfo.PreBuild.TemporaryStorage != nil && buildInfo.PreBuild.TemporaryStorage.Enabled {
-			jobTaskSpec.Properties.TemporaryStorage = buildInfo.PreBuild.TemporaryStorage.NFSProperties
-			jobTaskSpec.Properties.TemporaryStorage.AccessMode = string(corev1.ReadWriteOnce)
-		}
-
 		paramEnvs := generateKeyValsFromWorkflowParam(j.workflow.Params)
 		envs := mergeKeyVals(jobTaskSpec.Properties.CustomEnvs, paramEnvs)
 		renderedEnv, err := replaceServiceAndModules(envs, build.ServiceName, build.ServiceModule)
@@ -414,6 +409,25 @@ func (j BuildJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, error
 
 		jobTaskSpec.Properties.Envs = append(renderedEnv, getBuildJobVariables(build, taskID, j.workflow.Project, j.workflow.Name, j.workflow.DisplayName, image, pkgFile, jobTask.Infrastructure, registry, logger)...)
 		jobTaskSpec.Properties.UseHostDockerDaemon = buildInfo.PreBuild.UseHostDockerDaemon
+
+		if buildInfo.PreBuild != nil && buildInfo.PreBuild.Storages != nil && buildInfo.PreBuild.Storages.Enabled {
+			if len(buildInfo.PreBuild.Storages.StoragesProperties) > 0 {
+				newStorages := make([]*types.NFSProperties, 0)
+				for _, storage := range buildInfo.PreBuild.Storages.StoragesProperties {
+					newStorage := &types.NFSProperties{}
+					err = pkgutil.DeepCopy(newStorage, storage)
+					if err != nil {
+						return nil, fmt.Errorf("failed to deep copy storage: %v", err)
+					}
+
+					newStorage.MountPath = commonutil.RenderEnv(storage.MountPath, jobTaskSpec.Properties.Envs)
+					newStorage.Subpath = commonutil.RenderEnv(storage.Subpath, jobTaskSpec.Properties.Envs)
+					newStorages = append(newStorages, newStorage)
+				}
+
+				jobTaskSpec.Properties.Storages = newStorages
+			}
+		}
 
 		cacheS3 := &commonmodels.S3Storage{}
 		if jobTask.Infrastructure == setting.JobVMInfrastructure {

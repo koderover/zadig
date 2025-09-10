@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
+	"github.com/koderover/zadig/v2/pkg/types"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
@@ -200,16 +201,20 @@ func (c *FreestyleJobCtl) run(ctx context.Context) error {
 
 	c.logger.Infof("succeed to create cm for job %s", c.job.K8sJobName)
 
-	if c.jobTaskSpec.Properties.TemporaryStorage != nil {
-		err = service.CreateDynamicPVC(c.jobTaskSpec.Properties.ClusterID, getTemporaryStoragePVCName(c.job.K8sJobName), c.jobTaskSpec.Properties.TemporaryStorage, c.logger)
-		if err != nil {
-			msg := fmt.Sprintf("create dynamic PVC error: %v", err)
-			logError(c.job, msg, c.logger)
-			return errors.New(msg)
+	if len(c.jobTaskSpec.Properties.Storages) > 0 {
+		for i, storage := range c.jobTaskSpec.Properties.Storages {
+			if storage.ProvisionType == types.DynamicProvision {
+				err = service.CreateDynamicPVC(c.jobTaskSpec.Properties.ClusterID, getStoragePVCName(c.job.K8sJobName, i), storage, c.logger)
+				if err != nil {
+					msg := fmt.Sprintf("create dynamic PVC error: %v", err)
+					logError(c.job, msg, c.logger)
+					return errors.New(msg)
 
+				}
+
+				c.logger.Infof("succeed to create dynamic PVC for job %s", c.job.K8sJobName)
+			}
 		}
-
-		c.logger.Infof("succeed to create dynamic PVC for job %s", c.job.K8sJobName)
 	}
 
 	jobImage := getBaseImage(c.jobTaskSpec.Properties.BuildOS, c.jobTaskSpec.Properties.ImageFrom)
@@ -357,9 +362,13 @@ func (c *FreestyleJobCtl) complete(ctx context.Context) {
 	// 清理用户取消和超时的任务
 	defer func() {
 		go func() {
-			if c.jobTaskSpec.Properties.TemporaryStorage != nil {
-				if err := ensureDeletePVC(c.job.K8sJobName, c.jobTaskSpec.Properties.Namespace, c.jobTaskSpec.Properties.TemporaryStorage, c.kubeclient); err != nil {
-					c.logger.Error(err)
+			if len(c.jobTaskSpec.Properties.Storages) > 0 {
+				for _, storage := range c.jobTaskSpec.Properties.Storages {
+					if storage.IsTemporary {
+						if err := ensureDeletePVC(storage.PVC, c.jobTaskSpec.Properties.Namespace, storage, c.kubeclient); err != nil {
+							c.logger.Error(err)
+						}
+					}
 				}
 			}
 			if err := ensureDeleteJob(c.jobTaskSpec.Properties.Namespace, jobLabel, c.kubeclient); err != nil {
