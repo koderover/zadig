@@ -1000,8 +1000,8 @@ func buildFilterQuery(filters []*Filter, defs map[string]*commonmodels.Applicati
 }
 
 func resolveField(field string, defs map[string]*commonmodels.ApplicationFieldDefinition) (string, string, error) {
-	if strings.HasPrefix(field, "field.") {
-		key := strings.TrimPrefix(field, "field.")
+	if strings.HasPrefix(field, "custom_fields.") {
+		key := strings.TrimPrefix(field, "custom_fields.")
 		def, ok := defs[key]
 		if !ok {
 			return "", "", e.ErrInvalidParam.AddDesc("unknown custom field: " + key)
@@ -1019,7 +1019,7 @@ func resolveField(field string, defs map[string]*commonmodels.ApplicationFieldDe
 		default:
 			return "", "", e.ErrInvalidParam.AddDesc("unsupported custom field type: " + string(def.Type))
 		}
-		return "custom_fields." + key, cat, nil
+		return field, cat, nil
 	}
 	switch field {
 	case "name", "key", "project", "description", "testing_service_id", "production_service_id", "owner", "type":
