@@ -22,6 +22,7 @@ import (
 
 	"go.uber.org/zap"
 
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
@@ -36,6 +37,8 @@ func CreateFieldDefinition(def *commonmodels.ApplicationFieldDefinition, logger 
 	if err := def.Validate(); err != nil {
 		return nil, e.ErrInvalidParam.AddDesc(err.Error())
 	}
+	// fields from create API is always custom
+	def.Source = config.ApplicationFieldSourceCustom
 	oid, err := commonrepo.NewApplicationFieldDefinitionColl().Create(context.Background(), def)
 	if err != nil {
 		return nil, err
@@ -57,6 +60,10 @@ func UpdateFieldDefinition(id string, def *commonmodels.ApplicationFieldDefiniti
 	if def == nil {
 		return e.ErrInvalidParam.AddDesc("empty body")
 	}
+	
+	// fields from update API is always custom (at least if its not an attack)
+	// TODO: make this logic go away.
+	def.Source = config.ApplicationFieldSourceCustom
 
 	if err := def.Validate(); err != nil {
 		return e.ErrInvalidParam.AddDesc(err.Error())

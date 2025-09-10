@@ -439,8 +439,10 @@ func getAppFieldValue(app *commonmodels.Application, path string) (interface{}, 
 		return app.Key, true
 	case "project":
 		return app.Project, true
-	case "language":
-		return app.Language, true
+	case "type":
+		return app.Type, true
+	case "owner":
+		return app.Owner, true
 	case "description":
 		return app.Description, true
 	case "create_time":

@@ -291,18 +291,17 @@ func createBuiltinApplicationFieldDefinitions() error {
 
 	// Define built-in fields. Ignore _id and plugins; treat repository as a special type without inner-field visibility.
 	builtin := []commonmodels.ApplicationFieldDefinition{
-		{Key: "name", Name: "Name", Type: aslanconfig.ApplicationCustomFieldTypeText, Required: true, ShowInList: true, Source: aslanconfig.ApplicationFieldSourceBuiltin},
-		{Key: "key", Name: "Key", Type: aslanconfig.ApplicationCustomFieldTypeText, Required: true, ShowInList: true, Source: aslanconfig.ApplicationFieldSourceBuiltin},
-		{Key: "project", Name: "Project", Type: aslanconfig.ApplicationCustomFieldTypeText, Required: true, ShowInList: true, Source: aslanconfig.ApplicationFieldSourceBuiltin},
-		{Key: "type", Name: "Type", Type: aslanconfig.ApplicationCustomFieldTypeText, ShowInList: true, Source: aslanconfig.ApplicationFieldSourceBuiltin},
-		{Key: "owner", Name: "Owner", Type: aslanconfig.ApplicationCustomFieldTypeText, ShowInList: true, Source: aslanconfig.ApplicationFieldSourceBuiltin},
-		{Key: "language", Name: "Language", Type: aslanconfig.ApplicationCustomFieldTypeText, ShowInList: true, Source: aslanconfig.ApplicationFieldSourceBuiltin},
-		{Key: "create_time", Name: "Create Time", Type: aslanconfig.ApplicationCustomFieldTypeNumber, ShowInList: false, Source: aslanconfig.ApplicationFieldSourceBuiltin},
-		{Key: "update_time", Name: "Update Time", Type: aslanconfig.ApplicationCustomFieldTypeNumber, ShowInList: true, Source: aslanconfig.ApplicationFieldSourceBuiltin},
-		{Key: "description", Name: "Description", Type: aslanconfig.ApplicationCustomFieldTypeText, ShowInList: false, Source: aslanconfig.ApplicationFieldSourceBuiltin},
-		{Key: "testing_service_name", Name: "Testing Service", Type: aslanconfig.ApplicationCustomFieldTypeText, ShowInList: false, Source: aslanconfig.ApplicationFieldSourceBuiltin},
-		{Key: "production_service_name", Name: "Production Service", Type: aslanconfig.ApplicationCustomFieldTypeText, ShowInList: false, Source: aslanconfig.ApplicationFieldSourceBuiltin},
-		{Key: "repository", Name: "Repository", Type: aslanconfig.ApplicationCustomFieldTypeRepository, ShowInList: false, Source: aslanconfig.ApplicationFieldSourceBuiltin},
+		{Key: "name", Name: "名称", Type: aslanconfig.ApplicationCustomFieldTypeText, Required: true, ShowInList: true, Source: aslanconfig.ApplicationFieldSourceBuiltin, Description: "业务服务的名称"},
+		{Key: "key", Name: "标识", Type: aslanconfig.ApplicationCustomFieldTypeText, Required: true, ShowInList: true, Source: aslanconfig.ApplicationFieldSourceBuiltin, Description: "业务服务的唯一标识符"},
+		{Key: "project", Name: "项目归属", Type: aslanconfig.ApplicationCustomFieldTypeProject, Required: true, ShowInList: true, Source: aslanconfig.ApplicationFieldSourceBuiltin, Description: "业务服务所属的项目"},
+		{Key: "type", Name: "类型", Type: aslanconfig.ApplicationCustomFieldTypeSingleSelect, ShowInList: true, Source: aslanconfig.ApplicationFieldSourceBuiltin, Description: "业务服务的类型", Options: []string{"服务", "组件", "应用"}},
+		{Key: "owner", Name: "负责人", Type: aslanconfig.ApplicationCustomFieldTypeUser, ShowInList: true, Source: aslanconfig.ApplicationFieldSourceBuiltin, Description: "业务服务的负责人"},
+		{Key: "repository", Name: "代码库", Type: aslanconfig.ApplicationCustomFieldTypeRepository, ShowInList: true, Source: aslanconfig.ApplicationFieldSourceBuiltin, Description: "代码仓库"},
+		{Key: "description", Name: "描述", Type: aslanconfig.ApplicationCustomFieldTypeText, ShowInList: true, Source: aslanconfig.ApplicationFieldSourceBuiltin, Description: "业务服务的详细描述"},
+		{Key: "testing_service_name", Name: "测试配置", Type: aslanconfig.ApplicationCustomFieldTypeServiceConfig, ShowInList: true, Source: aslanconfig.ApplicationFieldSourceBuiltin, Description: "测试环境的配置"},
+		{Key: "production_service_name", Name: "生产配置", Type: aslanconfig.ApplicationCustomFieldTypeServiceConfig, ShowInList: true, Source: aslanconfig.ApplicationFieldSourceBuiltin, Description: "生产环境的配置"},
+		{Key: "create_time", Name: "创建时间", Type: aslanconfig.ApplicationCustomFieldTypeDatetime, ShowInList: true, Source: aslanconfig.ApplicationFieldSourceBuiltin, Description: "业务服务的创建时间"},
+		{Key: "update_time", Name: "更新时间", Type: aslanconfig.ApplicationCustomFieldTypeDatetime, ShowInList: true, Source: aslanconfig.ApplicationFieldSourceBuiltin, Description: "业务服务的更新时间"},
 	}
 
 	// Upsert per key to be idempotent. Keep user-changed attributes for custom fields; for built-ins we only enforce Source="builtin" and Type.
@@ -320,7 +319,7 @@ func createBuiltinApplicationFieldDefinitions() error {
 			}
 			return err
 		}
-		// Already exists: only update Source and Type if they differ; preserve other settings (e.g., ShowInList) to avoid surprising overrides.
+		// Already exists: only update Source, Type, Name, Description, Required if they differ; preserve other settings (e.g., ShowInList) to avoid surprising overrides.
 		needUpdate := false
 		if existing.Source != aslanconfig.ApplicationFieldSourceBuiltin {
 			existing.Source = aslanconfig.ApplicationFieldSourceBuiltin
@@ -328,6 +327,18 @@ func createBuiltinApplicationFieldDefinitions() error {
 		}
 		if existing.Type != b.Type {
 			existing.Type = b.Type
+			needUpdate = true
+		}
+		if existing.Name != b.Name {
+			existing.Name = b.Name
+			needUpdate = true
+		}
+		if existing.Description != b.Description {
+			existing.Description = b.Description
+			needUpdate = true
+		}
+		if existing.Required != b.Required {
+			existing.Required = b.Required
 			needUpdate = true
 		}
 		if needUpdate {

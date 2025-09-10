@@ -753,18 +753,19 @@ const (
 type ApplicationCustomFieldType string
 
 const (
-	ApplicationCustomFieldTypeText         ApplicationCustomFieldType = "text"
-	ApplicationCustomFieldTypeNumber       ApplicationCustomFieldType = "number"
-	ApplicationCustomFieldTypeBool         ApplicationCustomFieldType = "bool"
-	ApplicationCustomFieldTypeDatetime     ApplicationCustomFieldType = "datetime"
-	ApplicationCustomFieldTypeSingleSelect ApplicationCustomFieldType = "single_select"
-	ApplicationCustomFieldTypeMultiSelect  ApplicationCustomFieldType = "multi_select"
-	ApplicationCustomFieldTypeLink         ApplicationCustomFieldType = "link"
-	ApplicationCustomFieldTypeUser         ApplicationCustomFieldType = "user"
-	ApplicationCustomFieldTypeUserGroup    ApplicationCustomFieldType = "user_group"
-	ApplicationCustomFieldTypeProject      ApplicationCustomFieldType = "project"
-	// Repository is a special built-in type for the Application.Repository field
-	ApplicationCustomFieldTypeRepository ApplicationCustomFieldType = "repository"
+	ApplicationCustomFieldTypeText        ApplicationCustomFieldType = "text"
+	ApplicationCustomFieldTypeNumber      ApplicationCustomFieldType = "number"
+	ApplicationCustomFieldTypeBool        ApplicationCustomFieldType = "bool"
+	ApplicationCustomFieldTypeDatetime    ApplicationCustomFieldType = "datetime"
+	ApplicationCustomFieldTypeMultiSelect ApplicationCustomFieldType = "multi_select"
+	// below is the custom field types that are only supported by the frontend, but has no real meaning in the backend
+	ApplicationCustomFieldTypeLink          ApplicationCustomFieldType = "link"
+	ApplicationCustomFieldTypeUser          ApplicationCustomFieldType = "user"
+	ApplicationCustomFieldTypeUserGroup     ApplicationCustomFieldType = "user_group"
+	ApplicationCustomFieldTypeRepository    ApplicationCustomFieldType = "repository"
+	ApplicationCustomFieldTypeProject       ApplicationCustomFieldType = "project"
+	ApplicationCustomFieldTypeSingleSelect  ApplicationCustomFieldType = "single_select"
+	ApplicationCustomFieldTypeServiceConfig ApplicationCustomFieldType = "service_config"
 )
 
 // Application field source types (definition origin)
