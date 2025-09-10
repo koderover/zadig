@@ -60,10 +60,6 @@ func UpdateFieldDefinition(id string, def *commonmodels.ApplicationFieldDefiniti
 	if def == nil {
 		return e.ErrInvalidParam.AddDesc("empty body")
 	}
-	
-	// fields from update API is always custom (at least if its not an attack)
-	// TODO: make this logic go away.
-	def.Source = config.ApplicationFieldSourceCustom
 
 	if err := def.Validate(); err != nil {
 		return e.ErrInvalidParam.AddDesc(err.Error())
@@ -86,6 +82,8 @@ func DeleteFieldDefinition(id string, logger *zap.SugaredLogger) error {
 	}
 	if key != "" {
 		_ = commonrepo.NewApplicationColl().DropCustomFieldUniqueIndex(context.Background(), key)
+		// also remove the field from all application documents
+		_ = commonrepo.NewApplicationColl().UnsetCustomFieldForAll(context.Background(), key)
 	}
 	return defColl.DeleteByID(context.Background(), id)
 }

@@ -93,7 +93,8 @@ func (d *ApplicationFieldDefinition) Validate() error {
 		config.ApplicationCustomFieldTypeUser,
 		config.ApplicationCustomFieldTypeUserGroup,
 		config.ApplicationCustomFieldTypeProject,
-		config.ApplicationCustomFieldTypeRepository:
+		config.ApplicationCustomFieldTypeRepository,
+		config.ApplicationCustomFieldTypeServiceConfig:
 		// supported
 	default:
 		return fmt.Errorf("invalid type")

@@ -98,6 +98,21 @@ func (c *ApplicationColl) DropCustomFieldUniqueIndex(ctx context.Context, key st
 	}
 	return err
 }
+
+// UnsetCustomFieldForAll removes the given custom field from all application documents.
+func (c *ApplicationColl) UnsetCustomFieldForAll(ctx context.Context, key string) error {
+	if strings.TrimSpace(key) == "" {
+		return fmt.Errorf("empty key")
+	}
+	fieldPath := "custom_fields." + key
+	filter := bson.M{fieldPath: bson.M{"$exists": true}}
+	update := bson.M{
+		"$unset": bson.M{fieldPath: ""},
+	}
+	_, err := c.UpdateMany(ctx, filter, update)
+	return err
+}
+
 func (c *ApplicationColl) Create(ctx context.Context, app *commonmodels.Application) (primitive.ObjectID, error) {
 	if app == nil {
 		return primitive.NilObjectID, errors.New("nil application")
