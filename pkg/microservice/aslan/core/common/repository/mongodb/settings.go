@@ -179,9 +179,36 @@ func (c *SystemSettingColl) UpdateLanguage(language string) error {
 	id, _ := primitive.ObjectIDFromHex(setting.LocalClusterID)
 	query := bson.M{"_id": id}
 
-
 	change := bson.M{"$set": bson.M{"language": language}}
 
 	_, err := c.UpdateOne(context.TODO(), query, change)
 	return err
+}
+
+func (c *SystemSettingColl) UpdateReleasePlanHookSetting(hookSetting *models.ReleasePlanHookSettings) error {
+	id, _ := primitive.ObjectIDFromHex(setting.LocalClusterID)
+	query := bson.M{"_id": id}
+
+	change := bson.M{"$set": bson.M{"release_plan_hook": hookSetting}}
+
+	_, err := c.UpdateOne(context.TODO(), query, change)
+	return err
+}
+
+func (c *SystemSettingColl) GetReleasePlanHookSetting() (*models.ReleasePlanHookSettings, error) {
+	query := bson.M{}
+	resp := &models.SystemSetting{}
+
+	err := c.FindOne(context.TODO(), query).Decode(resp)
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.ReleasePlanHook == nil {
+		return &models.ReleasePlanHookSettings{
+			Enable: false,
+		}, nil
+	}
+
+	return resp.ReleasePlanHook, nil
 }

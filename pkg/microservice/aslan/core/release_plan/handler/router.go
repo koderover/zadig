@@ -36,6 +36,12 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		v1.POST("/:id/skip", SkipReleaseJob)
 		v1.POST("/:id/status/:status", UpdateReleaseJobStatus)
 		v1.POST("/:id/approve", ApproveReleasePlan)
+
+		v1.GET("/hook/setting", GetReleasePlanHookSetting)
+		v1.PUT("/hook/setting", UpdateReleasePlanHookSetting)
+		v1.POST("/hook/callback", ReleasePlanHookCallback)
+
+		v1.GET("/swag/placeholder", ReleasePlanSwagPlaceholder)
 	}
 }
 

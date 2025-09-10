@@ -156,10 +156,11 @@ type DataCenterActions struct {
 }
 
 type ReleasePlanActions struct {
-	Create bool
-	View   bool
-	Edit   bool
-	Delete bool
+	Create     bool
+	View       bool
+	Edit       bool
+	Delete     bool
+	EditConfig bool
 }
 
 type BusinessDirectoryActions struct {
@@ -219,10 +220,10 @@ type SprintTemplateActions struct {
 }
 
 type SprintActions struct {
-	Create  bool
-	View    bool
-	Edit    bool
-	Delete  bool
+	Create bool
+	View   bool
+	Edit   bool
+	Delete bool
 }
 
 type SprintWorkItemActions struct {

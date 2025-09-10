@@ -1003,3 +1003,10 @@ const (
 	ProjectManagementTypePingCode ProjectManagementType = "pingcode"
 	ProjectManagementTypeTapd     ProjectManagementType = "tapd"
 )
+
+type ReleasePlanCallBackResultType string
+
+const (
+	ReleasePlanCallBackResultTypeSuccess ReleasePlanCallBackResultType = "success"
+	ReleasePlanCallBackResultTypeFailed  ReleasePlanCallBackResultType = "failed"
+)

@@ -62,6 +62,7 @@ VALUES
     ("新建", "create_release_plan", "ReleasePlan", 2),
     ("编辑", "edit_release_plan", "ReleasePlan", 2),
     ("删除", "delete_release_plan", "ReleasePlan", 2),
+    ("配置", "edit_config_release_plan", "ReleasePlan", 2),
     ("查看", "get_business_directory", "BusinessDirectory", 2),
     ("查看", "get_cluster_management", "ClusterManagement", 2),
     ("新建", "create_cluster_management", "ClusterManagement", 2),

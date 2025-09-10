@@ -97,6 +97,7 @@ func (s *engine) injectRouterGroup(router *gin.RouterGroup) {
 		})
 		public.GET("/health", commonhandler.Health)
 		public.POST("/callback", commonhandler.HandleCallback)
+		public.POST("/callback/release_plan", releaseplanhandler.ReleasePlanHookCallback)
 	}
 
 	for name, r := range map[string]injector{

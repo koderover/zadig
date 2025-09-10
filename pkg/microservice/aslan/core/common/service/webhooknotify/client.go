@@ -45,6 +45,15 @@ func (c *webhookNotifyclient) SendWorkflowWebhook(webhookNotify *WorkflowNotify)
 	return c.sendWebhook(notify)
 }
 
+func (c *webhookNotifyclient) SendReleasePlanWebhook(webhookNotify *ReleasePlanHookBody) error {
+	notify := &WebHookNotify{
+		ObjectKind:  WebHookNotifyObjectKindReleasePlan,
+		Event:       WebHookNotifyEventReleasePlan,
+		ReleasePlan: webhookNotify,
+	}
+	return c.sendWebhook(notify)
+}
+
 func (c *webhookNotifyclient) sendWebhook(notify *WebHookNotify) error {
 	resp, err := httpclient.Post(
 		c.Address,

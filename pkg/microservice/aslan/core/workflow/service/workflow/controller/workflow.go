@@ -251,12 +251,24 @@ func (w *Workflow) UpdateWithLatestWorkflow(ticket *commonmodels.ApprovalTicket)
 		jobList := make([]*commonmodels.Job, 0)
 		for _, job := range stage.Jobs {
 			if originJob, ok := originJobMap[job.Name]; !ok || originJob.JobType != job.JobType {
-				// if we didn't find the job in the workflow to be merged, simply add the new job to the list
+				// if we didn't find the job in the workflow to be merged, simply merge the new job with the latest workflow
+				ctrl, err := jobctrl.CreateJobController(job, latestWorkflowSettings)
+				if err != nil {
+					return err
+				}
+
+				err = ctrl.SetOptions(ticket)
+				if err != nil {
+					return err
+				}
+
+				job.Spec = ctrl.GetSpec()
 				jobList = append(jobList, job)
+
 				continue
 			}
 
-			// otherwise we do a merge
+			// otherwise we do a merge of the origin job with the latest workflow
 			ctrl, err := jobctrl.CreateJobController(originJobMap[job.Name], latestWorkflowSettings)
 			if err != nil {
 				return err

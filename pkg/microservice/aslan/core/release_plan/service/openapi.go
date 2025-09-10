@@ -158,7 +158,7 @@ func OpenAPICreateReleasePlan(c *handler.Context, rawArgs *OpenAPICreateReleaseP
 	args.UpdatedBy = c.UserName
 	args.CreateTime = time.Now().Unix()
 	args.UpdateTime = time.Now().Unix()
-	args.Status = config.StatusPlanning
+	args.Status = config.ReleasePlanStatusPlanning
 
 	planID, err := mongodb.NewReleasePlanColl().Create(args)
 	if err != nil {
@@ -224,7 +224,7 @@ func OpenAPICreateReleasePlanWithJobs(c *handler.Context, id string, rawArgs *Op
 		return errors.New("Required parameters are missing")
 	}
 
-	if plan.Status == config.StatusSuccess || plan.Status == config.StatusExecuting || plan.Status == config.StatusWaitForApprove {
+	if plan.Status == config.ReleasePlanStatusSuccess || plan.Status == config.ReleasePlanStatusExecuting || plan.Status == config.ReleasePlanStatusWaitForApprove {
 		return errors.New("release plan status is success, executing or wait for approve, can't update")
 	}
 
@@ -271,7 +271,7 @@ func OpenAPICreateReleasePlanWithJobs(c *handler.Context, id string, rawArgs *Op
 
 	plan.UpdatedBy = c.UserName
 	plan.UpdateTime = time.Now().Unix()
-	plan.Status = config.StatusPlanning
+	plan.Status = config.ReleasePlanStatusPlanning
 
 	newJobs := make([]*models.ReleaseJob, 0)
 	for _, job := range rawArgs.Jobs {
