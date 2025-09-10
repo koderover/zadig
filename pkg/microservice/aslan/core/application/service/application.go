@@ -69,6 +69,10 @@ func validateAndPruneCustomFields(app *commonmodels.Application) error {
 	}
 
 	for key, def := range defMap {
+		if def.Source == config.ApplicationFieldSourceBuiltin {
+			continue
+		}
+		
 		if def.Required {
 			v, ok := values[key]
 			if !ok {
@@ -495,35 +499,6 @@ func containsAny(have []string, want []string) bool {
 		}
 	}
 	return false
-}
-
-func containsNone(have []string, want []string) bool {
-	set := make(map[string]struct{}, len(have))
-	for _, s := range have {
-		set[s] = struct{}{}
-	}
-	for _, s := range want {
-		if _, ok := set[s]; ok {
-			return false
-		}
-	}
-	return true
-}
-
-func containsAll(have []string, want []string) bool {
-	if len(want) == 0 {
-		return true
-	}
-	set := make(map[string]struct{}, len(have))
-	for _, s := range have {
-		set[s] = struct{}{}
-	}
-	for _, s := range want {
-		if _, ok := set[s]; !ok {
-			return false
-		}
-	}
-	return true
 }
 
 func UpdateApplication(id string, app *commonmodels.Application, logger *zap.SugaredLogger) error {
