@@ -127,7 +127,7 @@ func (c *HelmChartDeployJobCtl) Run(ctx context.Context) {
 	chartInfo.OverrideYaml.YamlContent = valuesYaml
 	c.ack()
 
-	c.logger.Infof("start helm chart deploy, productName %s, releaseName %s, namespace %s, valuesYaml %s, overrideValues: %s",
+	c.logger.Debugf("start helm chart deploy, productName %s, releaseName %s, namespace %s, valuesYaml %s, overrideValues: %s",
 		c.workflowCtx.ProjectName, deploy.ReleaseName, c.namespace, valuesYaml, chartInfo.OverrideValues)
 
 	timeOut := c.timeout()

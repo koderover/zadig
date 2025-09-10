@@ -199,7 +199,7 @@ func (d *dockerhosts) Sync() {
 			currentMembers := d.getDockerHostsSvc(clusterID)
 			oldMembers := consistentHash.GetMembers()
 
-			d.logger.Infof("Cluster: %q. Current Members: %d. Old Members: %d", clusterID, len(currentMembers), len(oldMembers))
+			d.logger.Debugf("Cluster: %q. Current Members: %d. Old Members: %d", clusterID, len(currentMembers), len(oldMembers))
 
 			addedMembers, deletedMembers := d.diffMembers(oldMembers, currentMembers)
 			for _, member := range addedMembers {

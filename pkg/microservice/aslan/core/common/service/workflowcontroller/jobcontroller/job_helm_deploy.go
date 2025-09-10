@@ -191,7 +191,7 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 
 	c.ack()
 
-	c.logger.Infof("start helm deploy, productName %s serviceName %s namespace %s, values %s, overrideKVs: %s updateServiceRevision %v, revision %d",
+	c.logger.Debugf("start helm deploy, productName %s serviceName %s namespace %s, values %s, overrideKVs: %s updateServiceRevision %v, revision %d",
 		c.workflowCtx.ProjectName, c.jobTaskSpec.ServiceName, c.namespace, finalValuesYaml, newEnvService.GetServiceRender().OverrideValues, updateServiceRevision, newEnvService.Revision)
 
 	timeOut := c.timeout()

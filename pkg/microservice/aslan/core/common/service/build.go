@@ -245,6 +245,7 @@ func (c *BuildService) GetBuild(buildName, serviceName, serviceModule string) (*
 	buildInfo := &commonmodels.Build{}
 	buildMapValue, ok := c.BuildMap.Load(buildName)
 	if !ok {
+		// TODO: add project name
 		buildInfo, err = commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: buildName})
 		if err != nil {
 			c.BuildMap.Store(buildName, nil)

@@ -799,7 +799,7 @@ func RetryWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredL
 				taskString := string(taskBytes)
 				for k, v := range globalKeyMap {
 					taskString = strings.ReplaceAll(taskString, fmt.Sprintf("{{.%s}}", k), v)
-					log.Infof("replacing key %s with value: %s", fmt.Sprintf("{{.%s}}", k), v)
+					log.Debugf("replacing key %s with value: %s", fmt.Sprintf("{{.%s}}", k), v)
 				}
 				err := json.Unmarshal([]byte(taskString), &t)
 				if err != nil {
@@ -966,7 +966,7 @@ func ManualExecWorkflowTaskV4(workflowName string, taskID int64, stageName strin
 					taskString := string(taskBytes)
 					for k, v := range globalKeyMap {
 						taskString = strings.ReplaceAll(taskString, fmt.Sprintf("{{.%s}}", k), v)
-						log.Infof("replacing key %s with value: %s", fmt.Sprintf("{{.%s}}", k), v)
+						log.Debugf("replacing key %s with value: %s", fmt.Sprintf("{{.%s}}", k), v)
 					}
 					err := json.Unmarshal([]byte(taskString), &task)
 					if err != nil {

@@ -87,7 +87,7 @@ func CleanProductCronJob(requestID string, log *zap.SugaredLogger) {
 				}
 			}
 
-			log.Warnf("[%s] product %s deleted", product.EnvName, product.ProductName)
+			log.Infof("[%s] product %s deleted", product.EnvName, product.ProductName)
 		}
 	}
 }
