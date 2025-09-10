@@ -763,6 +763,16 @@ const (
 	ApplicationCustomFieldTypeUser         ApplicationCustomFieldType = "user"
 	ApplicationCustomFieldTypeUserGroup    ApplicationCustomFieldType = "user_group"
 	ApplicationCustomFieldTypeProject      ApplicationCustomFieldType = "project"
+	// Repository is a special built-in type for the Application.Repository field
+	ApplicationCustomFieldTypeRepository ApplicationCustomFieldType = "repository"
+)
+
+// Application field source types (definition origin)
+type ApplicationFieldSourceType string
+
+const (
+	ApplicationFieldSourceBuiltin ApplicationFieldSourceType = "builtin"
+	ApplicationFieldSourceCustom  ApplicationFieldSourceType = "custom"
 )
 
 // Application filter field categories used by search filtering

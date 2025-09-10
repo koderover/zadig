@@ -42,6 +42,13 @@ import (
 	gormtool "github.com/koderover/zadig/v2/pkg/tool/gorm"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	mongotool "github.com/koderover/zadig/v2/pkg/tool/mongo"
+
+	aslanconfig "github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
+	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
+
+	"errors"
+
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 func init() {
@@ -112,6 +119,7 @@ func createOrUpdateMongodbIndex(ctx context.Context) {
 		// aslan related db index
 		template.NewProductColl(),
 		commonrepo.NewApplicationColl(),
+		commonrepo.NewApplicationFieldDefinitionColl(),
 		commonrepo.NewBasicImageColl(),
 		commonrepo.NewBuildColl(),
 		commonrepo.NewCallbackRequestColl(),
@@ -253,6 +261,12 @@ func initSystemData() error {
 		return err
 	}
 
+	// Seed built-in application field definitions (idempotent)
+	if err := createBuiltinApplicationFieldDefinitions(); err != nil {
+		log.Errorf("failed to create builtin application field definitions: %s", err)
+		return err
+	}
+
 	if err := createLocalCluster(); err != nil {
 		log.Errorf("createLocalCluster err:%s", err)
 		return err
@@ -265,6 +279,62 @@ func initSystemData() error {
 
 	if err := clearSharedStorage(); err != nil {
 		log.Errorf("failed to clear aslan shared storage, error: %s", err)
+	}
+	return nil
+}
+
+// createBuiltinApplicationFieldDefinitions creates built-in Application fields into the
+// application_field_definition collection.
+func createBuiltinApplicationFieldDefinitions() error {
+	coll := commonrepo.NewApplicationFieldDefinitionColl()
+	ctx := context.Background()
+
+	// Define built-in fields. Ignore _id and plugins; treat repository as a special type without inner-field visibility.
+	builtin := []commonmodels.ApplicationFieldDefinition{
+		{Key: "name", Name: "Name", Type: aslanconfig.ApplicationCustomFieldTypeText, Required: true, ShowInList: true, Source: aslanconfig.ApplicationFieldSourceBuiltin},
+		{Key: "key", Name: "Key", Type: aslanconfig.ApplicationCustomFieldTypeText, Required: true, ShowInList: true, Source: aslanconfig.ApplicationFieldSourceBuiltin},
+		{Key: "project", Name: "Project", Type: aslanconfig.ApplicationCustomFieldTypeText, Required: true, ShowInList: true, Source: aslanconfig.ApplicationFieldSourceBuiltin},
+		{Key: "type", Name: "Type", Type: aslanconfig.ApplicationCustomFieldTypeText, ShowInList: true, Source: aslanconfig.ApplicationFieldSourceBuiltin},
+		{Key: "owner", Name: "Owner", Type: aslanconfig.ApplicationCustomFieldTypeText, ShowInList: true, Source: aslanconfig.ApplicationFieldSourceBuiltin},
+		{Key: "language", Name: "Language", Type: aslanconfig.ApplicationCustomFieldTypeText, ShowInList: true, Source: aslanconfig.ApplicationFieldSourceBuiltin},
+		{Key: "create_time", Name: "Create Time", Type: aslanconfig.ApplicationCustomFieldTypeNumber, ShowInList: false, Source: aslanconfig.ApplicationFieldSourceBuiltin},
+		{Key: "update_time", Name: "Update Time", Type: aslanconfig.ApplicationCustomFieldTypeNumber, ShowInList: true, Source: aslanconfig.ApplicationFieldSourceBuiltin},
+		{Key: "description", Name: "Description", Type: aslanconfig.ApplicationCustomFieldTypeText, ShowInList: false, Source: aslanconfig.ApplicationFieldSourceBuiltin},
+		{Key: "testing_service_name", Name: "Testing Service", Type: aslanconfig.ApplicationCustomFieldTypeText, ShowInList: false, Source: aslanconfig.ApplicationFieldSourceBuiltin},
+		{Key: "production_service_name", Name: "Production Service", Type: aslanconfig.ApplicationCustomFieldTypeText, ShowInList: false, Source: aslanconfig.ApplicationFieldSourceBuiltin},
+		{Key: "repository", Name: "Repository", Type: aslanconfig.ApplicationCustomFieldTypeRepository, ShowInList: false, Source: aslanconfig.ApplicationFieldSourceBuiltin},
+	}
+
+	// Upsert per key to be idempotent. Keep user-changed attributes for custom fields; for built-ins we only enforce Source="builtin" and Type.
+	for i := range builtin {
+		b := builtin[i]
+		existing, err := coll.GetByKey(ctx, b.Key)
+		if err != nil {
+			// if not found, create
+			if errors.Is(err, mongo.ErrNoDocuments) {
+				// set timestamps via Create
+				if _, cerr := coll.Create(ctx, &b); cerr != nil {
+					return cerr
+				}
+				continue
+			}
+			return err
+		}
+		// Already exists: only update Source and Type if they differ; preserve other settings (e.g., ShowInList) to avoid surprising overrides.
+		needUpdate := false
+		if existing.Source != aslanconfig.ApplicationFieldSourceBuiltin {
+			existing.Source = aslanconfig.ApplicationFieldSourceBuiltin
+			needUpdate = true
+		}
+		if existing.Type != b.Type {
+			existing.Type = b.Type
+			needUpdate = true
+		}
+		if needUpdate {
+			if err := coll.UpdateByID(ctx, existing.ID.Hex(), existing); err != nil {
+				return err
+			}
+		}
 	}
 	return nil
 }

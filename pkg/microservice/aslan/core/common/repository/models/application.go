@@ -64,8 +64,11 @@ type ApplicationFieldDefinition struct {
 	Required    bool                              `bson:"required"          json:"required"`
 	ShowInList  bool                              `bson:"show_in_list"      json:"show_in_list"`
 	Description string                            `bson:"description,omitempty" json:"description,omitempty"`
-	CreateTime  int64                             `bson:"create_time"       json:"create_time"`
-	UpdateTime  int64                             `bson:"update_time"       json:"update_time"`
+	// Source indicates where the field comes from.
+	Source config.ApplicationFieldSourceType `bson:"source,omitempty"   json:"source,omitempty"`
+
+	CreateTime int64 `bson:"create_time"       json:"create_time"`
+	UpdateTime int64 `bson:"update_time"       json:"update_time"`
 }
 
 func (ApplicationFieldDefinition) TableName() string { return "application_field_definition" }
@@ -90,7 +93,8 @@ func (d *ApplicationFieldDefinition) Validate() error {
 		config.ApplicationCustomFieldTypeLink,
 		config.ApplicationCustomFieldTypeUser,
 		config.ApplicationCustomFieldTypeUserGroup,
-		config.ApplicationCustomFieldTypeProject:
+		config.ApplicationCustomFieldTypeProject,
+		config.ApplicationCustomFieldTypeRepository:
 		// supported
 	default:
 		return fmt.Errorf("invalid type")
