@@ -81,9 +81,8 @@ func DeleteFieldDefinition(id string, logger *zap.SugaredLogger) error {
 		}
 	}
 	if key != "" {
-		_ = commonrepo.NewApplicationColl().DropCustomFieldUniqueIndex(context.Background(), key)
-		// also remove the field from all application documents
 		_ = commonrepo.NewApplicationColl().UnsetCustomFieldForAll(context.Background(), key)
+		_ = commonrepo.NewApplicationColl().DropCustomFieldUniqueIndex(context.Background(), key)
 	}
 	return defColl.DeleteByID(context.Background(), id)
 }
