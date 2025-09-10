@@ -149,7 +149,7 @@ func (c *ApplicationColl) BulkCreate(ctx context.Context, apps []*commonmodels.A
 		app.UpdateTime = now
 		ois = append(ois, app)
 	}
-	opts := options.InsertMany().SetOrdered(true)
+	opts := options.InsertMany().SetOrdered(false)
 	res, err := c.InsertMany(ctx, ois, opts)
 	if err != nil {
 		return nil, err
