@@ -40,7 +40,7 @@ func ListTapdProjects(id string) ([]*tapd.Workspace, error) {
 	return projectList, nil
 }
 
-func ListTapdIterations(id, projectID string) ([]*tapd.Iteration, error) {
+func ListTapdIterations(id, projectID, status string) ([]*tapd.Iteration, error) {
 	spec, err := mongodb.NewProjectManagementColl().GetTapdSpec(id)
 	if err != nil {
 		return nil, err
@@ -51,7 +51,7 @@ func ListTapdIterations(id, projectID string) ([]*tapd.Iteration, error) {
 		return nil, err
 	}
 
-	iterations, err := client.ListIterations(projectID)
+	iterations, err := client.ListIterations(projectID, status)
 	if err != nil {
 		return nil, err
 	}
