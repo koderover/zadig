@@ -25,6 +25,7 @@ type Plugin struct {
 	Type        string             `bson:"type"           json:"type"` // page or tab
 	Description string             `bson:"description"    json:"description"`
 	Route       string             `bson:"route"          json:"route"`
+	Filters     []*PluginFilter    `bson:"filters,omitempty" json:"filters,omitempty"`
 	StorageID   string             `bson:"storage_id"     json:"storage_id"`
 	FilePath    string             `bson:"file_path"      json:"file_path"`
 	FileName    string             `bson:"file_name"      json:"file_name"`
@@ -39,3 +40,9 @@ type Plugin struct {
 }
 
 func (Plugin) TableName() string { return "plugin" }
+
+type PluginFilter struct {
+	Field string      `bson:"field"  json:"field"`
+	Verb  string      `bson:"verb"   json:"verb"`
+	Value interface{} `bson:"value"  json:"value"`
+}

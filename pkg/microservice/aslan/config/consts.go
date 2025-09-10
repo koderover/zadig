@@ -766,3 +766,71 @@ const (
 	NavigationKeyDataInsight           NavigationItemKey = "dataInsight"
 	NavigationKeyCustomerDelivery      NavigationItemKey = "customerDelivery"
 )
+
+// Application custom field types
+type ApplicationCustomFieldType string
+
+const (
+	ApplicationCustomFieldTypeText        ApplicationCustomFieldType = "text"
+	ApplicationCustomFieldTypeNumber      ApplicationCustomFieldType = "number"
+	ApplicationCustomFieldTypeBool        ApplicationCustomFieldType = "bool"
+	ApplicationCustomFieldTypeDatetime    ApplicationCustomFieldType = "datetime"
+	ApplicationCustomFieldTypeMultiSelect ApplicationCustomFieldType = "multi_select"
+	// below is the custom field types that are only supported by the frontend, but has no real meaning in the backend
+	ApplicationCustomFieldTypeLink          ApplicationCustomFieldType = "link"
+	ApplicationCustomFieldTypeUser          ApplicationCustomFieldType = "user"
+	ApplicationCustomFieldTypeUserGroup     ApplicationCustomFieldType = "user_group"
+	ApplicationCustomFieldTypeRepository    ApplicationCustomFieldType = "repository"
+	ApplicationCustomFieldTypeProject       ApplicationCustomFieldType = "project"
+	ApplicationCustomFieldTypeSingleSelect  ApplicationCustomFieldType = "single_select"
+	ApplicationCustomFieldTypeServiceConfig ApplicationCustomFieldType = "service_config"
+)
+
+// Application field source types (definition origin)
+type ApplicationFieldSourceType string
+
+const (
+	ApplicationFieldSourceBuiltin ApplicationFieldSourceType = "builtin"
+	ApplicationFieldSourceCustom  ApplicationFieldSourceType = "custom"
+)
+
+// Application filter field categories used by search filtering
+type ApplicationFilterFieldType string
+
+const (
+	ApplicationFilterFieldTypeString ApplicationFilterFieldType = "string"
+	ApplicationFilterFieldTypeNumber ApplicationFilterFieldType = "number"
+	ApplicationFilterFieldTypeBool   ApplicationFilterFieldType = "bool"
+	ApplicationFilterFieldTypeArray  ApplicationFilterFieldType = "array"
+)
+
+// Application filter actions (verbs) supported by search filtering
+type ApplicationFilterAction string
+
+const (
+	// common
+	ApplicationFilterActionEq          ApplicationFilterAction = "="
+	ApplicationFilterActionNe          ApplicationFilterAction = "!="
+	ApplicationFilterActionHasAnyOf    ApplicationFilterAction = "has_any_of"
+	ApplicationFilterActionContains    ApplicationFilterAction = "contains"
+	ApplicationFilterActionNotContains ApplicationFilterAction = "not_contains"
+
+	// string-like
+	ApplicationFilterActionBeginsWith    ApplicationFilterAction = "begins_with"
+	ApplicationFilterActionNotBeginsWith ApplicationFilterAction = "not_begins_with"
+	ApplicationFilterActionEndsWith      ApplicationFilterAction = "ends_with"
+	ApplicationFilterActionNotEndsWith   ApplicationFilterAction = "not_ends_with"
+
+	// number
+	ApplicationFilterActionLt  ApplicationFilterAction = "<"
+	ApplicationFilterActionLte ApplicationFilterAction = "<="
+	ApplicationFilterActionGt  ApplicationFilterAction = ">"
+	ApplicationFilterActionGte ApplicationFilterAction = ">="
+
+	// bool
+	ApplicationFilterActionIs ApplicationFilterAction = "is"
+
+	// array
+	ApplicationFilterActionIsEmpty    ApplicationFilterAction = "is_empty"
+	ApplicationFilterActionIsNotEmpty ApplicationFilterAction = "is_not_empty"
+)
