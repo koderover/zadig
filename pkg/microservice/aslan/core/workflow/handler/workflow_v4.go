@@ -272,7 +272,7 @@ func ListWorkflowV4(c *gin.Context) {
 		enableFilter = false
 		authorizedWorkflow = make([]string, 0)
 		authorizedWorkflowV4 = make([]string, 0)
-		ctx.Logger.Infof("user is admin, disabling filter")
+		ctx.Logger.Debugf("user is admin, disabling filter")
 	} else if projectAuth, ok := ctx.Resources.ProjectAuthInfo[args.Project]; ok {
 		if projectAuth.IsProjectAdmin || projectAuth.Workflow.View {
 			enableFilter = false
