@@ -61,14 +61,27 @@ func (c *PingCodeJobCtl) Run(ctx context.Context) {
 		logError(c.job, err.Error(), c.logger)
 		return
 	}
+
+	failedCount := 0
 	for _, data := range c.jobTaskSpec.WorkItems {
 		if err := client.UpdateWorkItemState(data.ID, data.State.ID); err != nil {
+			failedCount++
+
 			data.Error = err.Error()
+			data.Status = string(config.StatusFailed)
+
 			logError(c.job, err.Error(), c.logger)
-			return
+		} else {
+			data.Status = string(config.StatusPassed)
 		}
 	}
-	c.job.Status = config.StatusPassed
+	if failedCount == 0 {
+		c.job.Status = config.StatusPassed
+	} else if failedCount == len(c.jobTaskSpec.WorkItems) {
+		c.job.Status = config.StatusFailed
+	} else {
+		c.job.Status = config.StatusUnstable
+	}
 }
 
 func (c *PingCodeJobCtl) SaveInfo(ctx context.Context) error {

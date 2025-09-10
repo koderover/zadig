@@ -520,6 +520,7 @@ type JobTaskPingCodeSpec struct {
 type PingCodeWorkItem struct {
 	pingcode.WorkItem `bson:",inline"          json:",inline"          yaml:",inline"`
 	Error             string `bson:"error"      json:"error"      yaml:"error"`
+	Status            string `bson:"status"     json:"status"     yaml:"status"`
 }
 
 type JobTaskTapdSpec struct {
