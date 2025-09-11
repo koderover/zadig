@@ -32,6 +32,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/types"
 	steptypes "github.com/koderover/zadig/v2/pkg/types/step"
+	pkgutil "github.com/koderover/zadig/v2/pkg/util"
 	util2 "github.com/koderover/zadig/v2/pkg/util"
 )
 
@@ -569,6 +570,25 @@ func (j FreestyleJobController) generateSubTask(taskID int64, jobSubTaskID int, 
 		}
 
 		taskRunProperties.Envs = renderedEnvs
+	}
+
+	if j.jobSpec.AdvancedSetting.Storages != nil && j.jobSpec.AdvancedSetting.Storages.Enabled {
+		if len(j.jobSpec.AdvancedSetting.Storages.StoragesProperties) > 0 {
+			newStorages := make([]*types.NFSProperties, 0)
+			for _, storage := range j.jobSpec.AdvancedSetting.Storages.StoragesProperties {
+				newStorage := &types.NFSProperties{}
+				err = pkgutil.DeepCopy(newStorage, storage)
+				if err != nil {
+					return nil, fmt.Errorf("failed to deep copy storage: %v", err)
+				}
+
+				newStorage.MountPath = commonutil.RenderEnv(storage.MountPath, taskRunProperties.Envs)
+				newStorage.Subpath = commonutil.RenderEnv(storage.Subpath, taskRunProperties.Envs)
+				newStorages = append(newStorages, newStorage)
+			}
+
+			taskRunProperties.Storages = newStorages
+		}
 	}
 
 	repos := j.jobSpec.Repos

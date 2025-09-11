@@ -1417,6 +1417,7 @@ type JobAdvancedSettings struct {
 	CustomLabels []*util.KeyValue `bson:"custom_labels"      json:"custom_labels"      yaml:"custom_labels"`
 	// 共享存储配置
 	ShareStorageInfo *ShareStorageInfo `bson:"share_storage_info"     json:"share_storage_info"    yaml:"share_storage_info"`
+	Storages         *Storages         `bson:"storages"      json:"storages"      yaml:"storages"`
 }
 
 type JobProperties struct {
@@ -1434,19 +1435,19 @@ type JobProperties struct {
 	Namespace       string              `bson:"namespace"              json:"namespace"             yaml:"namespace"`
 	Envs            KeyValList          `bson:"envs"                   json:"envs"                  yaml:"envs"`
 	// log user-defined variables, shows in workflow task detail.
-	CustomEnvs          []*KeyVal            `bson:"custom_envs"            json:"custom_envs"           yaml:"custom_envs,omitempty"`
-	Params              []*Param             `bson:"params"                 json:"params"                yaml:"params"`
-	LogFileName         string               `bson:"log_file_name"          json:"log_file_name"         yaml:"log_file_name"`
-	DockerHost          string               `bson:"-"                      json:"docker_host,omitempty" yaml:"docker_host,omitempty"`
-	Registries          []*RegistryNamespace `bson:"registries"             json:"registries"            yaml:"registries"`
-	Cache               types.Cache          `bson:"cache"                  json:"cache"                 yaml:"cache"`
-	CacheEnable         bool                 `bson:"cache_enable"           json:"cache_enable"          yaml:"cache_enable"`
-	CacheDirType        types.CacheDirType   `bson:"cache_dir_type"         json:"cache_dir_type"        yaml:"cache_dir_type"`
-	CacheUserDir        string               `bson:"cache_user_dir"         json:"cache_user_dir"        yaml:"cache_user_dir"`
-	ShareStorageDetails []*StorageDetail     `bson:"share_storage_details"  json:"share_storage_details" yaml:"-"`
-	EnablePrivileged    bool                 `bson:"enable_privileged,omitempty" json:"enable_privileged,omitempty" yaml:"enable_privileged,omitempty"`
-	UseHostDockerDaemon bool                 `bson:"use_host_docker_daemon,omitempty" json:"use_host_docker_daemon,omitempty" yaml:"use_host_docker_daemon"`
-	TemporaryStorage    *types.NFSProperties `bson:"temporary_storage"       json:"temporary_storage"     yaml:"temporary_storage"`
+	CustomEnvs          []*KeyVal              `bson:"custom_envs"            json:"custom_envs"           yaml:"custom_envs,omitempty"`
+	Params              []*Param               `bson:"params"                 json:"params"                yaml:"params"`
+	LogFileName         string                 `bson:"log_file_name"          json:"log_file_name"         yaml:"log_file_name"`
+	DockerHost          string                 `bson:"-"                      json:"docker_host,omitempty" yaml:"docker_host,omitempty"`
+	Registries          []*RegistryNamespace   `bson:"registries"             json:"registries"            yaml:"registries"`
+	Cache               types.Cache            `bson:"cache"                  json:"cache"                 yaml:"cache"`
+	CacheEnable         bool                   `bson:"cache_enable"           json:"cache_enable"          yaml:"cache_enable"`
+	CacheDirType        types.CacheDirType     `bson:"cache_dir_type"         json:"cache_dir_type"        yaml:"cache_dir_type"`
+	CacheUserDir        string                 `bson:"cache_user_dir"         json:"cache_user_dir"        yaml:"cache_user_dir"`
+	ShareStorageDetails []*StorageDetail       `bson:"share_storage_details"  json:"share_storage_details" yaml:"-"`
+	EnablePrivileged    bool                   `bson:"enable_privileged,omitempty" json:"enable_privileged,omitempty" yaml:"enable_privileged,omitempty"`
+	UseHostDockerDaemon bool                   `bson:"use_host_docker_daemon,omitempty" json:"use_host_docker_daemon,omitempty" yaml:"use_host_docker_daemon"`
+	Storages            []*types.NFSProperties `bson:"storages"                 json:"storages"                 yaml:"storages"`
 	// for VM deploy to get service name to save
 	ServiceName string `bson:"service_name" json:"service_name" yaml:"service_name"`
 

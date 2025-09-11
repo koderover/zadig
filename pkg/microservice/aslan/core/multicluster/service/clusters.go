@@ -1402,7 +1402,7 @@ func CreateDynamicPVC(clusterID, prefix string, nfsProperties *types.NFSProperti
 
 		accessMode := []corev1.PersistentVolumeAccessMode{corev1.ReadWriteMany}
 		if nfsProperties.AccessMode != "" {
-			accessMode = []corev1.PersistentVolumeAccessMode{corev1.PersistentVolumeAccessMode(nfsProperties.AccessMode)}
+			accessMode = []corev1.PersistentVolumeAccessMode{nfsProperties.AccessMode}
 		}
 
 		pvc = &corev1.PersistentVolumeClaim{

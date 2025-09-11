@@ -112,12 +112,11 @@ type JobLabel struct {
 	JobType string
 }
 
-func getTemporaryStoragePVCName(k8sJobName string) string {
-	return fmt.Sprintf("%s-temporary", k8sJobName)
+func getStoragePVCName(k8sJobName string, index int) string {
+	return fmt.Sprintf("%s-%d", k8sJobName, index)
 }
 
-func ensureDeletePVC(jobName, namespace string, storage *types.NFSProperties, kubeClient crClient.Client) error {
-	pvcName := service.GetPVCName(getTemporaryStoragePVCName(jobName), storage)
+func ensureDeletePVC(pvcName, namespace string, storage *types.NFSProperties, kubeClient crClient.Client) error {
 	return kubeClient.Delete(context.TODO(), &corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      pvcName,
@@ -481,7 +480,7 @@ EOF`,
 		},
 	}
 
-	setJobTemporaryStorages(job, workflowCtx, jobTaskSpec.Properties.TemporaryStorage, targetCluster)
+	setJobStorages(job, workflowCtx, jobTaskSpec.Properties.Storages, targetCluster)
 	setJobShareStorages(job, workflowCtx, jobTaskSpec.Properties.ShareStorageDetails, targetCluster)
 
 	if jobTaskSpec.Properties.CacheEnable && jobTaskSpec.Properties.Cache.MediumType == commontypes.NFSMedium {
@@ -569,29 +568,32 @@ func BuildCleanJob(jobName, clusterID, workflowName string, taskID int64) (*batc
 	return job, nil
 }
 
-func setJobTemporaryStorages(job *batchv1.Job, workflowCtx *commonmodels.WorkflowTaskCtx, temporaryStorage *types.NFSProperties, cluster *commonmodels.K8SCluster) {
-	if temporaryStorage == nil {
+func setJobStorages(job *batchv1.Job, workflowCtx *commonmodels.WorkflowTaskCtx, storages []*types.NFSProperties, cluster *commonmodels.K8SCluster) {
+	if len(storages) <= 0 {
 		return
 	}
 
 	// save cluster id so we can clean up share storage later
 	workflowCtx.ClusterIDAdd(cluster.ID.Hex())
 
-	volumeName := "temporary-storage"
-	job.Spec.Template.Spec.Volumes = append(job.Spec.Template.Spec.Volumes, corev1.Volume{
-		Name: volumeName,
-		VolumeSource: corev1.VolumeSource{
-			PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-				ClaimName: temporaryStorage.PVC,
+	for _, storage := range storages {
+		volumeName := fmt.Sprintf("storage-%s", storage.PVC)
+		job.Spec.Template.Spec.Volumes = append(job.Spec.Template.Spec.Volumes, corev1.Volume{
+			Name: volumeName,
+			VolumeSource: corev1.VolumeSource{
+				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+					ClaimName: storage.PVC,
+				},
 			},
-		},
-	})
+		})
 
-	job.Spec.Template.Spec.Containers[0].VolumeMounts = append(job.Spec.Template.Spec.Containers[0].VolumeMounts, corev1.VolumeMount{
-		Name:      volumeName,
-		MountPath: "/workspace",
-		SubPath:   fmt.Sprintf("%s/%s", job.Name, "temporary-storage"),
-	})
+		job.Spec.Template.Spec.Containers[0].VolumeMounts = append(job.Spec.Template.Spec.Containers[0].VolumeMounts, corev1.VolumeMount{
+			Name:      volumeName,
+			MountPath: storage.MountPath,
+			SubPath:   storage.Subpath,
+		})
+	}
+
 }
 
 func setJobShareStorages(job *batchv1.Job, workflowCtx *commonmodels.WorkflowTaskCtx, storageDetails []*commonmodels.StorageDetail, cluster *commonmodels.K8SCluster) {

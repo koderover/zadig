@@ -16,6 +16,10 @@ limitations under the License.
 
 package types
 
+import (
+	corev1 "k8s.io/api/core/v1"
+)
+
 type MediumType string
 
 const (
@@ -40,12 +44,14 @@ type ObjectProperties struct {
 }
 
 type NFSProperties struct {
-	ProvisionType    ProvisionType `json:"provision_type"      bson:"provision_type"         yaml:"provision_type"`
-	StorageClass     string        `json:"storage_class"       bson:"storage_class"          yaml:"storage_class"`
-	StorageSizeInGiB int64         `json:"storage_size_in_gib" bson:"storage_size_in_gib"    yaml:"storage_size_in_gib"`
-	PVC              string        `json:"pvc"                 bson:"pvc"                    yaml:"pvc"`
-	Subpath          string        `json:"subpath"             bson:"subpath"                yaml:"subpath"`
-	AccessMode       string        `json:"access_mode"         bson:"access_mode"            yaml:"access_mode"`
+	ProvisionType    ProvisionType                     `json:"provision_type"      bson:"provision_type"         yaml:"provision_type"`
+	StorageClass     string                            `json:"storage_class"       bson:"storage_class"          yaml:"storage_class"`
+	StorageSizeInGiB int64                             `json:"storage_size_in_gib" bson:"storage_size_in_gib"    yaml:"storage_size_in_gib"`
+	PVC              string                            `json:"pvc"                 bson:"pvc"                    yaml:"pvc"`
+	AccessMode       corev1.PersistentVolumeAccessMode `json:"access_mode"         bson:"access_mode"            yaml:"access_mode"`
+	Subpath          string                            `json:"sub_path"            bson:"sub_path"               yaml:"sub_path"`
+	MountPath        string                            `json:"mount_path"          bson:"mount_path"             yaml:"mount_path"`
+	IsTemporary      bool                              `json:"is_temporary"        bson:"is_temporary"           yaml:"is_temporary"`
 }
 
 type Cache struct {
