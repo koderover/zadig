@@ -312,6 +312,98 @@ func ListWorkflowV4(c *gin.Context) {
 	ctx.RespErr = err
 }
 
+type ListGlobalWorkflowV4Request struct {
+	ProjectName string                                `json:"projectName"    form:"projectName"`
+	IsFavorite  bool                                  `json:"isFavorite"     form:"isFavorite,default=false"`
+	PageSize    int64                                 `json:"pageSize"       form:"pageSize,default=10"`
+	PageNum     int64                                 `json:"pageNum"        form:"pageNum,default=1"`
+	SortBy      setting.ListWorkflowV4InGlobalSortBy  `json:"sortBy"         form:"sortBy"           binding:"omitempty,oneof=create_time name"`
+	OrderBy     setting.ListWorkflowV4InGlobalOrderBy `json:"orderBy"        form:"orderBy"          binding:"omitempty,oneof=1 -1"`
+}
+
+// @summary 全局工作流列表
+// @description
+// @tags 	workflow
+// @accept 	json
+// @produce json
+// @Param   projectName 	query 		string 							         false 	"项目标识"
+// @Param   isFavorite 		query 		bool 							         false 	"是否是收藏"
+// @Param   pageSize 		query 		int 							         true 	"每页条数"
+// @Param   pageNum 		query 		int 							         true 	"页码"
+// @Param   sortBy 			query 		setting.ListWorkflowV4InGlobalSortBy 	 false 	"排序字段"
+// @Param   orderBy 		query 		setting.ListWorkflowV4InGlobalOrderBy 	 false 	"排序方式"
+// @success 200             {object}     workflow.ListGlobalWorkflowV4Response
+// @router /api/aslan/workflow/v4/global [get]
+func ListGlobalWorkflowV4(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	if err != nil {
+		ctx.RespErr = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	args := &ListGlobalWorkflowV4Request{}
+	if err := c.ShouldBindQuery(args); err != nil {
+		ctx.RespErr = err
+		return
+	}
+
+	collModeWorkflowsWithVerb, err := internalhandler.ListAuthorizedWorkflowWithVerb(ctx.UserID, args.ProjectName)
+	if err != nil {
+		ctx.Logger.Errorf("failed to list collaboration mode authorized workflow resource, error: %s", err)
+		ctx.RespErr = err
+		return
+	}
+
+	query := &workflow.ListGlobalWorkflowV4Query{
+		ProjectName:    args.ProjectName,
+		IsFavorite:     args.IsFavorite,
+		ProjectAuthMap: make(map[string]*workflow.ProjectAuthWorkflow),
+		PageNum:        args.PageNum,
+		PageSize:       args.PageSize,
+		SortBy:         args.SortBy,
+		OrderBy:        args.OrderBy,
+	}
+
+	for projectName, project := range ctx.Resources.ProjectAuthInfo {
+		if args.ProjectName == "" && projectName != args.ProjectName {
+			continue
+		}
+
+		var authWorkflow *workflow.ProjectAuthWorkflow
+		if project.IsProjectAdmin || project.Workflow.View {
+			authWorkflow = &workflow.ProjectAuthWorkflow{
+				ProjectName:              projectName,
+				IsProjectAdmin:           project.IsProjectAdmin,
+				Actions:                  project.Workflow,
+				CollModeWorkflowPermsMap: make(map[string]*workflow.WorkflowWithAction),
+			}
+		}
+
+		if collModeWorkflowsWithVerb.ProjectWorkflowActionsMap[projectName] != nil {
+			if authWorkflow == nil {
+				authWorkflow = &workflow.ProjectAuthWorkflow{
+					ProjectName:              projectName,
+					CollModeWorkflowPermsMap: make(map[string]*workflow.WorkflowWithAction),
+				}
+			}
+
+			for workflowName, workflowAction := range collModeWorkflowsWithVerb.ProjectWorkflowActionsMap[projectName] {
+				authWorkflow.CollModeWorkflowPermsMap[workflowName] = &workflow.WorkflowWithAction{
+					WorkflowName: workflowName,
+					Action:       *workflowAction,
+				}
+			}
+		}
+	}
+
+	bytes, _ := json.Marshal(query)
+	log.Debugf("query: %s", string(bytes))
+
+	ctx.Resp, ctx.RespErr = workflow.ListWorkflowV4InGlobal(ctx, query)
+}
+
 func ListWorkflowV4CanTrigger(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

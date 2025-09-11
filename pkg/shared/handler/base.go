@@ -216,6 +216,11 @@ func ListAuthorizedWorkflows(uid, projectKey string) (authorizedWorkflow, author
 	return
 }
 
+func ListAuthorizedWorkflowWithVerb(uid, projectKey string) (*user.CollModeAuthorizedWorkflowWithVerb, error) {
+	authorizedWorkflow, err := user.New().ListAuthorizedWorkflowsWithVerb(uid, projectKey)
+	return authorizedWorkflow, err
+}
+
 func ListCollaborationEnvironmentsPermission(uid, projectKey string) (authorizedEnv *types.CollaborationEnvPermission, err error) {
 	if uid == "" {
 		err = errors.New("empty user ID")

@@ -28,6 +28,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/user/core/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/microservice/user/core/repository/orm"
 	"github.com/koderover/zadig/v2/pkg/microservice/user/core/service/common"
+	"github.com/koderover/zadig/v2/pkg/shared/client/user"
 	"github.com/koderover/zadig/v2/pkg/types"
 )
 
@@ -451,6 +452,61 @@ func ListAuthorizedWorkflow(uid, projectKey string, logger *zap.SugaredLogger) (
 	}
 
 	return authorizedWorkflows, authorizedCustomWorkflows, nil
+}
+
+type ListAuthorizedWorkflowWithVerbResp struct {
+	WorkflowList []string `json:"workflow_list"`
+}
+
+type AuthorizedWorkflowWithVerb struct {
+	WorkflowName string   `json:"workflow_name"`
+	Verbs        []string `json:"verbs"`
+}
+
+func ListAuthorizedWorkflowWithVerb(uid, projectKey string, logger *zap.SugaredLogger) (*user.CollModeAuthorizedWorkflowWithVerb, error) {
+	collaborationInstances, err := mongodb.NewCollaborationInstanceColl().FindInstance(uid, projectKey)
+	if err != nil {
+		fmtErr := fmt.Errorf("failed to find user collaboration mode, error: %s", err)
+		logger.Error(fmtErr)
+		return &user.CollModeAuthorizedWorkflowWithVerb{
+			ProjectWorkflowActionsMap: make(map[string]map[string]*user.WorkflowActions),
+			Error:                     fmtErr.Error(),
+		}, nil
+	}
+
+	resp := &user.CollModeAuthorizedWorkflowWithVerb{
+		ProjectWorkflowActionsMap: make(map[string]map[string]*user.WorkflowActions),
+	}
+
+	for _, collaborationInstance := range collaborationInstances {
+		for _, workflow := range collaborationInstance.Workflows {
+			for _, verb := range workflow.Verbs {
+				workflowActions := &user.WorkflowActions{}
+				switch workflow.WorkflowType {
+				case types.WorkflowTypeCustomeWorkflow:
+					if verb == types.WorkflowActionView {
+						workflowActions.View = true
+					}
+					if verb == types.WorkflowActionEdit {
+						workflowActions.Edit = true
+					}
+					if verb == types.WorkflowActionRun {
+						workflowActions.Execute = true
+					}
+					if verb == types.WorkflowActionDebug {
+						workflowActions.Debug = true
+					}
+				}
+				if _, ok := resp.ProjectWorkflowActionsMap[collaborationInstance.ProjectName]; !ok {
+					resp.ProjectWorkflowActionsMap[collaborationInstance.ProjectName] = make(map[string]*user.WorkflowActions)
+				}
+				resp.ProjectWorkflowActionsMap[collaborationInstance.ProjectName][workflow.Name] = workflowActions
+			}
+		}
+
+	}
+
+	return resp, nil
 }
 
 func ListAuthorizedEnvs(uid, projectKey string, logger *zap.SugaredLogger) (readEnvList, editEnvList []string, err error) {
