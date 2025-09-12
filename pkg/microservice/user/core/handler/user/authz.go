@@ -163,6 +163,19 @@ func ListAuthorizedWorkflows(c *gin.Context) {
 	}
 }
 
+func ListAuthorizedWorkflowsWithVerb(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	args := &types.ListAuthorizedWorkflowsReq{}
+	if err := c.ShouldBindQuery(args); err != nil {
+		ctx.RespErr = err
+		return
+	}
+
+	ctx.Resp, ctx.RespErr = userservice.ListAuthorizedWorkflowWithVerb(args.UID, args.ProjectKey, ctx.Logger)
+}
+
 func ListAuthorizedEnvs(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

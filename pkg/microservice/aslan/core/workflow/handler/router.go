@@ -68,6 +68,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		workflowV4.POST("/workflowtask/:workflowName/field", SetWorkflowTasksCustomFields)
 		workflowV4.GET("/workflowtask/:workflowName/field", GetWorkflowTasksCustomFields)
 		workflowV4.GET("", ListWorkflowV4)
+		workflowV4.GET("/global", ListGlobalWorkflowV4)
 		workflowV4.POST("/auto", AutoCreateWorkflow)
 		workflowV4.GET("/trigger", ListWorkflowV4CanTrigger)
 		workflowV4.POST("/lint", LintWorkflowV4)

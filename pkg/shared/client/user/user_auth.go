@@ -14,6 +14,11 @@ type AuthorizedResources struct {
 	SystemActions   *SystemActions             `json:"system_actions"`
 }
 
+type CollModeAuthorizedWorkflowWithVerb struct {
+	ProjectWorkflowActionsMap map[string]map[string]*WorkflowActions `json:"project_workflow_actions_map"`
+	Error                     string                                 `json:"error"`
+}
+
 type ProjectActions struct {
 	IsProjectAdmin    bool                      `json:"is_system_admin"`
 	Workflow          *WorkflowActions          `json:"workflow"`
@@ -322,6 +327,31 @@ func (c *Client) ListAuthorizedWorkflows(uid, projectKey string) ([]string, []st
 		return []string{}, []string{}, errors.New(resp.Error)
 	}
 	return resp.WorkflowList, resp.CustomWorkflowList, nil
+}
+
+func (c *Client) ListAuthorizedWorkflowsWithVerb(uid, projectKey string) (*CollModeAuthorizedWorkflowWithVerb, error) {
+	url := "/authorization/authorized-workflows/verb"
+
+	resp := &CollModeAuthorizedWorkflowWithVerb{}
+
+	queries := map[string]string{
+		"uid":         uid,
+		"project_key": projectKey,
+	}
+
+	res, err := c.Get(url, httpclient.SetQueryParams(queries), httpclient.SetResult(resp))
+	if err != nil {
+		return nil, err
+	}
+	if res.IsError() {
+		return nil, errors.New(res.String())
+	}
+
+	if len(resp.Error) > 0 {
+		return nil, errors.New(resp.Error)
+	}
+
+	return resp, nil
 }
 
 func (c *Client) ListCollaborationEnvironmentsPermission(uid, projectKey string) (*types.CollaborationEnvPermission, error) {

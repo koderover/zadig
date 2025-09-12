@@ -373,31 +373,9 @@ func ListWorkflowV4(projectName, viewName, userID string, names, v4Names []strin
 		return nil, err
 	}
 
-	var (
-		wg    sync.WaitGroup
-		mu    sync.Mutex
-		tasks []*models.WorkflowTask
-	)
-	for _, name := range workflowList {
-		wg.Add(1)
-		go func(workflowName string) {
-			defer wg.Done()
-			resp, _, err2 := commonrepo.NewworkflowTaskv4Coll().List(&commonrepo.ListWorkflowTaskV4Option{
-				WorkflowName: workflowName,
-				Limit:        10,
-			})
-			if err2 != nil {
-				err = err2
-				return
-			}
-			mu.Lock()
-			defer mu.Unlock()
-			tasks = append(tasks, resp...)
-		}(name)
-	}
-	wg.Wait()
+	tasks, err := getRecentWorkflowTask(workflowList)
 	if err != nil {
-		return resp, err
+		return nil, err
 	}
 
 	favorites, err := commonrepo.NewFavoriteColl().List(&commonrepo.FavoriteArgs{UserID: userID, Type: string(config.WorkflowTypeV4)})
@@ -442,12 +420,252 @@ func ListWorkflowV4(projectName, viewName, userID string, names, v4Names []strin
 		if favoriteSet.Has(workflow.Name) {
 			workflow.IsFavorite = true
 		}
-		getRecentTaskV4Info(workflow, tasks)
+		setRecentTaskV4Info(workflow, tasks)
 		setWorkflowStat(workflow, workflowStatMap)
 
 		resp = append(resp, workflow)
 	}
 	return resp, nil
+}
+
+type WorkflowWithAction struct {
+	WorkflowName string
+	Action       user.WorkflowActions
+}
+
+type ProjectAuthWorkflow struct {
+	ProjectName              string
+	IsProjectAdmin           bool
+	Actions                  *user.WorkflowActions
+	CollModeWorkflowPermsMap map[string]*WorkflowWithAction
+}
+
+type ListGlobalWorkflowV4Query struct {
+	ProjectName    string
+	IsFavorite     bool
+	ProjectAuthMap map[string]*ProjectAuthWorkflow
+	PageNum        int64
+	PageSize       int64
+	SortBy         setting.ListWorkflowV4InGlobalSortBy
+	OrderBy        setting.ListWorkflowV4InGlobalOrderBy
+}
+
+type ListGlobalWorkflowV4Response struct {
+	WorkflowList []*WorkflowWithActions `json:"workflow_list"`
+	Total        int64                  `json:"total"`
+}
+
+type WorkflowWithActions struct {
+	Workflow *Workflow             `json:"workflow"`
+	Actions  *user.WorkflowActions `json:"actions"`
+}
+
+func ListWorkflowV4InGlobal(ctx *internalhandler.Context, query *ListGlobalWorkflowV4Query) (*ListGlobalWorkflowV4Response, error) {
+	var (
+		err                      error
+		total                    int64
+		workflowModels           []*commonmodels.WorkflowV4
+		favoriteWorkflowSet      = sets.NewString()
+		favoriteWorkflowQueryArg = []string{}
+	)
+
+	favorites, err := commonrepo.NewFavoriteColl().List(&commonrepo.FavoriteArgs{
+		UserID:      ctx.UserID,
+		Type:        string(config.WorkflowTypeV4),
+		ProductName: query.ProjectName,
+	})
+	if err != nil {
+		return nil, errors.Errorf("failed to get workflow favorite data, err: %v", err)
+	}
+
+	for _, f := range favorites {
+		favoriteWorkflowSet.Insert(f.Name)
+	}
+
+	if query.IsFavorite {
+		if favoriteWorkflowSet.Len() == 0 {
+			return &ListGlobalWorkflowV4Response{
+				WorkflowList: make([]*WorkflowWithActions, 0),
+				Total:        0,
+			}, nil
+		}
+		favoriteWorkflowQueryArg = favoriteWorkflowSet.List()
+	}
+
+	if ctx.Resources.IsSystemAdmin {
+		workflowModels, total, err = commonrepo.NewWorkflowV4Coll().ListInGlobal(&commonrepo.ListWorkflowV4InGlobalOption{
+			ProjectName:           query.ProjectName,
+			FavoriteWorkflowNames: favoriteWorkflowQueryArg,
+			SortBy:                query.SortBy,
+			OrderBy:               query.OrderBy,
+			PageNum:               query.PageNum,
+			PageSize:              query.PageSize,
+		})
+		if err != nil {
+			return nil, errors.Errorf("failed to list workflow v4, err: %v", err)
+		}
+	} else {
+		projectNames := []string{}
+		collModeWorkflowNames := []string{}
+		for _, projectAuth := range query.ProjectAuthMap {
+			if projectAuth.IsProjectAdmin || projectAuth.Actions.View {
+				projectNames = append(projectNames, projectAuth.ProjectName)
+			} else {
+				for _, collModeWorkflowPerm := range projectAuth.CollModeWorkflowPermsMap {
+					collModeWorkflowNames = append(collModeWorkflowNames, collModeWorkflowPerm.WorkflowName)
+				}
+			}
+		}
+
+		workflowModels, total, err = commonrepo.NewWorkflowV4Coll().ListInGlobal(&commonrepo.ListWorkflowV4InGlobalOption{
+			ProjectName:           query.ProjectName,
+			ProjectNames:          projectNames,
+			CollModeWorkflowNames: collModeWorkflowNames,
+			FavoriteWorkflowNames: favoriteWorkflowQueryArg,
+			SortBy:                query.SortBy,
+			OrderBy:               query.OrderBy,
+			PageNum:               query.PageNum,
+			PageSize:              query.PageSize,
+		})
+		if err != nil {
+			return nil, errors.Errorf("failed to list workflow v4, err: %v", err)
+		}
+	}
+
+	workflowNames := []string{}
+	for _, workflowModel := range workflowModels {
+		workflowNames = append(workflowNames, workflowModel.Name)
+	}
+
+	workflowTasks, err := getRecentWorkflowTask(workflowNames)
+	if err != nil {
+		return nil, err
+	}
+	workflowStatMap := getWorkflowStatMap(workflowNames, config.WorkflowTypeV4)
+
+	workflows := make([]*Workflow, 0)
+	for _, workflowModel := range workflowModels {
+		stages := []string{}
+		for _, stage := range workflowModel.Stages {
+			stages = append(stages, stage.Name)
+		}
+
+		workflow := &Workflow{
+			Name:                 workflowModel.Name,
+			DisplayName:          workflowModel.DisplayName,
+			ProjectName:          workflowModel.Project,
+			Disabled:             workflowModel.Disabled,
+			IsFavorite:           favoriteWorkflowSet.Has(workflowModel.Name),
+			EnabledStages:        stages,
+			CreateTime:           workflowModel.CreateTime,
+			UpdateTime:           workflowModel.UpdateTime,
+			UpdateBy:             workflowModel.UpdatedBy,
+			WorkflowType:         setting.CustomWorkflowType,
+			Description:          workflowModel.Description,
+			BaseName:             workflowModel.BaseName,
+			EnableApprovalTicket: workflowModel.EnableApprovalTicket,
+		}
+
+		setRecentTaskV4Info(workflow, workflowTasks)
+		setWorkflowStat(workflow, workflowStatMap)
+
+		workflows = append(workflows, workflow)
+	}
+
+	log.Debugf("count workflows: %d", len(workflows))
+
+	WorkflowWithActionsList := genWorkflowActionsList(ctx, workflows, query.ProjectAuthMap)
+	return &ListGlobalWorkflowV4Response{
+		WorkflowList: WorkflowWithActionsList,
+		Total:        total,
+	}, nil
+}
+
+func getRecentWorkflowTask(workflowNames []string) ([]*commonmodels.WorkflowTask, error) {
+	var (
+		wg    sync.WaitGroup
+		mu    sync.Mutex
+		err   error
+		tasks []*models.WorkflowTask
+	)
+	for _, name := range workflowNames {
+		wg.Add(1)
+		go func(workflowName string) {
+			defer wg.Done()
+			resp, _, err2 := commonrepo.NewworkflowTaskv4Coll().List(&commonrepo.ListWorkflowTaskV4Option{
+				WorkflowName: workflowName,
+				Limit:        10,
+			})
+			if err2 != nil {
+				err = err2
+				return
+			}
+			mu.Lock()
+			defer mu.Unlock()
+			tasks = append(tasks, resp...)
+		}(name)
+	}
+	wg.Wait()
+	if err != nil {
+		return nil, fmt.Errorf("failed to list workflow tasks, err: %v", err)
+	}
+	return tasks, nil
+}
+
+func genWorkflowActionsList(ctx *internalhandler.Context, workflows []*Workflow, projectAuthMap map[string]*ProjectAuthWorkflow) []*WorkflowWithActions {
+	WorkflowWithActionsList := make([]*WorkflowWithActions, 0)
+	for _, workflow := range workflows {
+		actions := &user.WorkflowActions{}
+		if ctx.Resources.IsSystemAdmin {
+			actions.Create = true
+			actions.View = true
+			actions.Edit = true
+			actions.Delete = true
+			actions.Execute = true
+			actions.Debug = true
+		} else if projectAuth, ok := projectAuthMap[workflow.ProjectName]; ok {
+			if projectAuth.IsProjectAdmin {
+				actions.Create = true
+				actions.View = true
+				actions.Edit = true
+				actions.Delete = true
+				actions.Execute = true
+				actions.Debug = true
+			} else {
+				actions = projectAuth.Actions
+			}
+
+			// override with collaboration mode permissions
+			if projectAuth.CollModeWorkflowPermsMap != nil {
+				if collModeWorkflowPerm, ok := projectAuth.CollModeWorkflowPermsMap[workflow.Name]; ok {
+					if collModeWorkflowPerm.Action.Create {
+						actions.Create = true
+					}
+					if collModeWorkflowPerm.Action.View {
+						actions.View = true
+					}
+					if collModeWorkflowPerm.Action.Edit {
+						actions.Edit = true
+					}
+					if collModeWorkflowPerm.Action.Execute {
+						actions.Execute = true
+					}
+					if collModeWorkflowPerm.Action.Debug {
+						actions.Debug = true
+					}
+				}
+			}
+		}
+
+		workflowWithActions := &WorkflowWithActions{
+			Workflow: workflow,
+			Actions:  actions,
+		}
+
+		WorkflowWithActionsList = append(WorkflowWithActionsList, workflowWithActions)
+	}
+
+	return WorkflowWithActionsList
 }
 
 type NameWithParams struct {
@@ -895,7 +1113,7 @@ func intersection(a, b []string) []string {
 	return intersection
 }
 
-func getRecentTaskV4Info(workflow *Workflow, tasks []*commonmodels.WorkflowTask) {
+func setRecentTaskV4Info(workflow *Workflow, tasks []*commonmodels.WorkflowTask) {
 	recentTask := &commonmodels.WorkflowTask{}
 	recentFailedTask := &commonmodels.WorkflowTask{}
 	recentSucceedTask := &commonmodels.WorkflowTask{}
