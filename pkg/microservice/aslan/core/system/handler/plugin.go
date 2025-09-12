@@ -68,6 +68,7 @@ func CreatePlugin(c *gin.Context) {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc("name is required")
 		return
 	}
+	args.Identifier = c.PostForm("identifier")
 	if idxStr := c.PostForm("index"); idxStr != "" {
 		if parsed, err := strconv.Atoi(idxStr); err == nil {
 			args.Index = parsed
@@ -119,6 +120,7 @@ func UpdatePlugin(c *gin.Context) {
 		}
 		args := new(commonmodels.Plugin)
 		args.Name = c.PostForm("name")
+		args.Identifier = c.PostForm("identifier")
 		if idxStr := c.PostForm("index"); idxStr != "" {
 			if parsed, err := strconv.Atoi(idxStr); err == nil {
 				args.Index = parsed
