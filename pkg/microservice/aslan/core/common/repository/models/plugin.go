@@ -21,6 +21,7 @@ import "go.mongodb.org/mongo-driver/bson/primitive"
 type Plugin struct {
 	ID          primitive.ObjectID `bson:"_id,omitempty"  json:"id,omitempty"`
 	Name        string             `bson:"name"           json:"name"`
+	Identifier  string             `bson:"identifier"     json:"identifier"`
 	Index       int                `bson:"index"          json:"index"`
 	Type        string             `bson:"type"           json:"type"` // page or tab
 	Description string             `bson:"description"    json:"description"`

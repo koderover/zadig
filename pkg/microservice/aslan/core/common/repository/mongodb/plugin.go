@@ -94,6 +94,7 @@ func (c *PluginColl) Update(id string, m *models.Plugin) error {
 	}
 	change := bson.M{"$set": bson.M{
 		"name":        m.Name,
+		"identifier":  m.Identifier,
 		"index":       m.Index,
 		"type":        m.Type,
 		"description": m.Description,
