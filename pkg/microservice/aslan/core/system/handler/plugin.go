@@ -68,6 +68,7 @@ func CreatePlugin(c *gin.Context) {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc("name is required")
 		return
 	}
+	args.Identifier = c.PostForm("identifier")
 	if idxStr := c.PostForm("index"); idxStr != "" {
 		if parsed, err := strconv.Atoi(idxStr); err == nil {
 			args.Index = parsed
@@ -77,6 +78,16 @@ func CreatePlugin(c *gin.Context) {
 	args.Description = c.PostForm("description")
 	args.Route = c.PostForm("route")
 	args.Enabled = c.PostForm("enabled") == "true"
+
+	// parse filters if provided
+	if filtersStr := c.PostForm("filters"); filtersStr != "" {
+		var filters []*commonmodels.PluginFilter
+		if err := json.Unmarshal([]byte(filtersStr), &filters); err != nil {
+			ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid filters format, should be JSON array")
+			return
+		}
+		args.Filters = filters
+	}
 
 	file, header, err := c.Request.FormFile("file")
 	if err != nil {
@@ -119,6 +130,7 @@ func UpdatePlugin(c *gin.Context) {
 		}
 		args := new(commonmodels.Plugin)
 		args.Name = c.PostForm("name")
+		args.Identifier = c.PostForm("identifier")
 		if idxStr := c.PostForm("index"); idxStr != "" {
 			if parsed, err := strconv.Atoi(idxStr); err == nil {
 				args.Index = parsed
@@ -128,6 +140,16 @@ func UpdatePlugin(c *gin.Context) {
 		args.Description = c.PostForm("description")
 		args.Route = c.PostForm("route")
 		args.Enabled = c.PostForm("enabled") == "true"
+
+		// parse filters if provided
+		if filtersStr := c.PostForm("filters"); filtersStr != "" {
+			var filters []*commonmodels.PluginFilter
+			if err := json.Unmarshal([]byte(filtersStr), &filters); err != nil {
+				ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid filters format, should be JSON array")
+				return
+			}
+			args.Filters = filters
+		}
 
 		// try file
 		file, header, err := c.Request.FormFile("file")
