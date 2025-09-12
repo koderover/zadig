@@ -417,8 +417,14 @@ func responseHelper(response interface{}) interface{} {
 			k := iter.Key()
 			v := iter.Value()
 			// recursively handle nested value
-			newV := reflect.Indirect(reflect.ValueOf(responseHelper(v.Interface())))
-			resp.SetMapIndex(k, newV)
+			// Check if the map value type is a pointer, if so, keep it as pointer
+			if v.Kind() == reflect.Ptr {
+				newV := reflect.ValueOf(responseHelper(v.Interface()))
+				resp.SetMapIndex(k, newV)
+			} else {
+				newV := reflect.Indirect(reflect.ValueOf(responseHelper(v.Interface())))
+				resp.SetMapIndex(k, newV)
+			}
 		}
 		res.Elem().Set(resp)
 		return res.Interface()
