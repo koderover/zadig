@@ -32,6 +32,7 @@ import (
 
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow"
+	"github.com/koderover/zadig/v2/pkg/shared/client/user"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	"github.com/koderover/zadig/v2/pkg/tool/errors"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
@@ -356,6 +357,9 @@ func ListGlobalWorkflowV4(c *gin.Context) {
 		return
 	}
 
+	bytes, _ := json.Marshal(collModeWorkflowsWithVerb)
+	log.Debugf("collModeWorkflowsWithVerb: %s", string(bytes))
+
 	query := &workflow.ListGlobalWorkflowV4Query{
 		ProjectName:    args.ProjectName,
 		IsFavorite:     args.IsFavorite,
@@ -367,7 +371,7 @@ func ListGlobalWorkflowV4(c *gin.Context) {
 	}
 
 	for projectName, project := range ctx.Resources.ProjectAuthInfo {
-		if args.ProjectName == "" && projectName != args.ProjectName {
+		if args.ProjectName != "" && projectName != args.ProjectName {
 			continue
 		}
 
@@ -384,6 +388,14 @@ func ListGlobalWorkflowV4(c *gin.Context) {
 		if collModeWorkflowsWithVerb.ProjectWorkflowActionsMap[projectName] != nil {
 			if authWorkflow == nil {
 				authWorkflow = &workflow.ProjectAuthWorkflow{
+					IsProjectAdmin: false,
+					Actions: &user.WorkflowActions{
+						View:    false,
+						Edit:    false,
+						Create:  false,
+						Delete:  false,
+						Execute: false,
+					},
 					ProjectName:              projectName,
 					CollModeWorkflowPermsMap: make(map[string]*workflow.WorkflowWithAction),
 				}
@@ -396,9 +408,13 @@ func ListGlobalWorkflowV4(c *gin.Context) {
 				}
 			}
 		}
+
+		if authWorkflow != nil {
+			query.ProjectAuthMap[projectName] = authWorkflow
+		}
 	}
 
-	bytes, _ := json.Marshal(query)
+	bytes, _ = json.Marshal(query)
 	log.Debugf("query: %s", string(bytes))
 
 	ctx.Resp, ctx.RespErr = workflow.ListWorkflowV4InGlobal(ctx, query)

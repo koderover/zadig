@@ -333,7 +333,7 @@ func (c *WorkflowV4Coll) ListInGlobal(opt *ListWorkflowV4InGlobalOption) ([]*mod
 
 	log.Debugf("query: %+v", query)
 	log.Debugf("skip: %d, limit: %d", *findOption.Skip, *findOption.Limit)
-	log.Debugf("sort: %+v, orderBy: %d", findOption.Sort, opt.OrderBy)
+	log.Debugf("sort: %v, orderBy: %d", findOption.Sort, opt.OrderBy)
 
 	cursor, err := c.Collection.Find(context.TODO(), query, findOption)
 	if err != nil {

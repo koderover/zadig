@@ -572,8 +572,6 @@ func ListWorkflowV4InGlobal(ctx *internalhandler.Context, query *ListGlobalWorkf
 		workflows = append(workflows, workflow)
 	}
 
-	log.Debugf("count workflows: %d", len(workflows))
-
 	WorkflowWithActionsList := genWorkflowActionsList(ctx, workflows, query.ProjectAuthMap)
 	return &ListGlobalWorkflowV4Response{
 		WorkflowList: WorkflowWithActionsList,
@@ -624,6 +622,7 @@ func genWorkflowActionsList(ctx *internalhandler.Context, workflows []*Workflow,
 			actions.Execute = true
 			actions.Debug = true
 		} else if projectAuth, ok := projectAuthMap[workflow.ProjectName]; ok {
+			log.Debugf("projectName: %s, projectAuth: %+v", workflow.ProjectName, projectAuth)
 			if projectAuth.IsProjectAdmin {
 				actions.Create = true
 				actions.View = true
@@ -632,7 +631,12 @@ func genWorkflowActionsList(ctx *internalhandler.Context, workflows []*Workflow,
 				actions.Execute = true
 				actions.Debug = true
 			} else {
-				actions = projectAuth.Actions
+				actions.Create = projectAuth.Actions.Create
+				actions.View = projectAuth.Actions.View
+				actions.Edit = projectAuth.Actions.Edit
+				actions.Delete = projectAuth.Actions.Delete
+				actions.Execute = projectAuth.Actions.Execute
+				actions.Debug = projectAuth.Actions.Debug
 			}
 
 			// override with collaboration mode permissions

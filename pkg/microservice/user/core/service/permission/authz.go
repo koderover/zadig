@@ -480,8 +480,8 @@ func ListAuthorizedWorkflowWithVerb(uid, projectKey string, logger *zap.SugaredL
 
 	for _, collaborationInstance := range collaborationInstances {
 		for _, workflow := range collaborationInstance.Workflows {
+			workflowActions := &user.WorkflowActions{}
 			for _, verb := range workflow.Verbs {
-				workflowActions := &user.WorkflowActions{}
 				switch workflow.WorkflowType {
 				case types.WorkflowTypeCustomeWorkflow:
 					if verb == types.WorkflowActionView {
@@ -503,7 +503,6 @@ func ListAuthorizedWorkflowWithVerb(uid, projectKey string, logger *zap.SugaredL
 				resp.ProjectWorkflowActionsMap[collaborationInstance.ProjectName][workflow.Name] = workflowActions
 			}
 		}
-
 	}
 
 	return resp, nil
