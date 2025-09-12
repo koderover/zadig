@@ -79,6 +79,16 @@ func CreatePlugin(c *gin.Context) {
 	args.Route = c.PostForm("route")
 	args.Enabled = c.PostForm("enabled") == "true"
 
+	// parse filters if provided
+	if filtersStr := c.PostForm("filters"); filtersStr != "" {
+		var filters []*commonmodels.PluginFilter
+		if err := json.Unmarshal([]byte(filtersStr), &filters); err != nil {
+			ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid filters format, should be JSON array")
+			return
+		}
+		args.Filters = filters
+	}
+
 	file, header, err := c.Request.FormFile("file")
 	if err != nil {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc("file is required")
@@ -130,6 +140,16 @@ func UpdatePlugin(c *gin.Context) {
 		args.Description = c.PostForm("description")
 		args.Route = c.PostForm("route")
 		args.Enabled = c.PostForm("enabled") == "true"
+
+		// parse filters if provided
+		if filtersStr := c.PostForm("filters"); filtersStr != "" {
+			var filters []*commonmodels.PluginFilter
+			if err := json.Unmarshal([]byte(filtersStr), &filters); err != nil {
+				ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid filters format, should be JSON array")
+				return
+			}
+			args.Filters = filters
+		}
 
 		// try file
 		file, header, err := c.Request.FormFile("file")
