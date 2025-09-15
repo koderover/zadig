@@ -31,6 +31,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/setting"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 	mongotool "github.com/koderover/zadig/v2/pkg/tool/mongo"
 )
 
@@ -253,6 +254,95 @@ func (c *WorkflowV4Coll) List(opt *ListWorkflowV4Option, pageNum, pageSize int64
 			SetSkip((pageNum - 1) * pageSize).
 			SetLimit(pageSize)
 	}
+
+	cursor, err := c.Collection.Find(context.TODO(), query, findOption)
+	if err != nil {
+		return nil, count, err
+	}
+	err = cursor.All(context.TODO(), &resp)
+	if err != nil {
+		return nil, count, err
+	}
+	return resp, count, nil
+}
+
+type ListWorkflowV4InGlobalOption struct {
+	Keyword               string
+	ProjectName           string
+	ProjectNames          []string
+	FavoriteWorkflowNames []string
+	CollModeWorkflowNames []string
+	PageNum               int64
+	PageSize              int64
+	SortBy                setting.ListWorkflowV4InGlobalSortBy
+	OrderBy               setting.ListWorkflowV4InGlobalOrderBy
+}
+
+func (c *WorkflowV4Coll) ListInGlobal(opt *ListWorkflowV4InGlobalOption) ([]*models.WorkflowV4, int64, error) {
+	resp := make([]*models.WorkflowV4, 0)
+	query := bson.M{}
+
+	// 构建查询条件
+	var conditions []bson.M
+
+	// 如果存在 FavoriteWorkflowNames，只查询这些工作流，忽略其他条件
+	if len(opt.FavoriteWorkflowNames) > 0 {
+		conditions = append(conditions, bson.M{"name": bson.M{"$in": opt.FavoriteWorkflowNames}})
+	} else {
+		// 项目条件
+		if opt.ProjectName != "" {
+			conditions = append(conditions, bson.M{"project": opt.ProjectName})
+		} else if len(opt.ProjectNames) > 0 {
+			conditions = append(conditions, bson.M{"project": bson.M{"$in": opt.ProjectNames}})
+		}
+		// 协作模式工作流条件
+		if len(opt.CollModeWorkflowNames) > 0 {
+			conditions = append(conditions, bson.M{"name": bson.M{"$in": opt.CollModeWorkflowNames}})
+		}
+	}
+
+	// 关键字搜索条件
+	if opt.Keyword != "" {
+		keywordRegex := bson.M{"$regex": opt.Keyword, "$options": "i"}
+		conditions = append(conditions, bson.M{
+			"$or": bson.A{
+				bson.M{"name": keywordRegex},
+				bson.M{"display_name": keywordRegex},
+			},
+		})
+	}
+
+	// 构建最终查询
+	if len(conditions) == 1 {
+		query = conditions[0]
+	} else if len(conditions) > 1 {
+		query = bson.M{"$and": conditions}
+	}
+
+	count, err := c.CountDocuments(context.TODO(), query)
+	if err != nil {
+		return nil, count, err
+	}
+
+	var findOption *options.FindOptions
+	if opt.PageSize == 0 {
+		opt.PageSize = 10
+	}
+	if opt.PageNum == 0 {
+		opt.PageNum = 1
+	}
+
+	findOption = options.Find().
+		SetSkip((opt.PageNum - 1) * opt.PageSize).
+		SetLimit(opt.PageSize)
+
+	if opt.SortBy != "" && opt.OrderBy != 0 {
+		findOption.SetSort(bson.D{
+			bson.E{Key: string(opt.SortBy), Value: opt.OrderBy},
+		})
+	}
+
+	log.Debugf("query: %+v", query)
 
 	cursor, err := c.Collection.Find(context.TODO(), query, findOption)
 	if err != nil {

@@ -45,7 +45,9 @@ func (c *CollaborationInstanceColl) FindInstance(uid, projectKey string) ([]*mod
 	res := make([]*models.CollaborationInstance, 0)
 
 	query := bson.M{}
-	query["project_name"] = projectKey
+	if projectKey != "" {
+		query["project_name"] = projectKey
+	}
 	query["user_uid"] = uid
 	query["is_deleted"] = false
 

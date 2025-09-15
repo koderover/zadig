@@ -1010,3 +1010,17 @@ const (
 	ReleasePlanCallBackResultTypeSuccess ReleasePlanCallBackResultType = "success"
 	ReleasePlanCallBackResultTypeFailed  ReleasePlanCallBackResultType = "failed"
 )
+
+type ListWorkflowV4InGlobalSortBy string
+
+const (
+	ListWorkflowV4InGlobalSortByCreateTime ListWorkflowV4InGlobalSortBy = "create_time"
+	ListWorkflowV4InGlobalSortByName       ListWorkflowV4InGlobalSortBy = "name"
+)
+
+type ListWorkflowV4InGlobalOrderBy int
+
+const (
+	ListWorkflowV4InGlobalOrderByAsc  ListWorkflowV4InGlobalOrderBy = 1
+	ListWorkflowV4InGlobalOrderByDesc ListWorkflowV4InGlobalOrderBy = -1
+)
