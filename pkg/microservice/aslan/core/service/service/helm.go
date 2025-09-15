@@ -746,6 +746,11 @@ func createOrUpdateHelmServiceFromChartTemplate(templateArgs *CreateFromChartTem
 		return nil, err
 	}
 
+	loadPath := ""
+	if args.ValuesData != nil && args.ValuesData.GitRepoConfig != nil && len(args.ValuesData.GitRepoConfig.ValuesPaths) > 0 {
+		loadPath = args.ValuesData.GitRepoConfig.ValuesPaths[0]
+	}
+
 	svc, errCreate := createOrUpdateHelmService(
 		fsTree,
 		&helmServiceCreationArgs{
@@ -767,7 +772,7 @@ func createOrUpdateHelmServiceFromChartTemplate(templateArgs *CreateFromChartTem
 			AutoSync:         args.AutoSync,
 			Production:       args.Production,
 			// TODO: FIX valuePaths, it should be a single value in some situation
-			LoadPath:         args.ValuesData.GitRepoConfig.ValuesPaths[0],
+			LoadPath: loadPath,
 		}, force,
 		logger,
 	)
