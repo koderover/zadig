@@ -316,6 +316,7 @@ func ListWorkflowV4(c *gin.Context) {
 type ListGlobalWorkflowV4Request struct {
 	ProjectName string                                `json:"projectName"    form:"projectName"`
 	IsFavorite  bool                                  `json:"isFavorite"     form:"isFavorite,default=false"`
+	Keyword     string                                `json:"keyword"        form:"keyword"`
 	PageSize    int64                                 `json:"pageSize"       form:"pageSize,default=10"`
 	PageNum     int64                                 `json:"pageNum"        form:"pageNum,default=1"`
 	SortBy      setting.ListWorkflowV4InGlobalSortBy  `json:"sortBy"         form:"sortBy"           binding:"omitempty,oneof=create_time name"`
@@ -329,6 +330,7 @@ type ListGlobalWorkflowV4Request struct {
 // @produce json
 // @Param   projectName 	query 		string 							         false 	"项目标识"
 // @Param   isFavorite 		query 		bool 							         false 	"是否是收藏"
+// @Param   keyword 		query 		string 							         false 	"关键字搜索"
 // @Param   pageSize 		query 		int 							         true 	"每页条数"
 // @Param   pageNum 		query 		int 							         true 	"页码"
 // @Param   sortBy 			query 		setting.ListWorkflowV4InGlobalSortBy 	 false 	"排序字段"
@@ -363,6 +365,7 @@ func ListGlobalWorkflowV4(c *gin.Context) {
 	query := &workflow.ListGlobalWorkflowV4Query{
 		ProjectName:    args.ProjectName,
 		IsFavorite:     args.IsFavorite,
+		Keyword:        args.Keyword,
 		ProjectAuthMap: make(map[string]*workflow.ProjectAuthWorkflow),
 		PageNum:        args.PageNum,
 		PageSize:       args.PageSize,

@@ -267,6 +267,7 @@ func (c *WorkflowV4Coll) List(opt *ListWorkflowV4Option, pageNum, pageSize int64
 }
 
 type ListWorkflowV4InGlobalOption struct {
+	Keyword               string
 	ProjectName           string
 	ProjectNames          []string
 	FavoriteWorkflowNames []string
@@ -281,31 +282,41 @@ func (c *WorkflowV4Coll) ListInGlobal(opt *ListWorkflowV4InGlobalOption) ([]*mod
 	resp := make([]*models.WorkflowV4, 0)
 	query := bson.M{}
 
+	// 构建查询条件
+	var conditions []bson.M
+
 	// 如果存在 FavoriteWorkflowNames，只查询这些工作流，忽略其他条件
 	if len(opt.FavoriteWorkflowNames) > 0 {
-		query["name"] = bson.M{"$in": opt.FavoriteWorkflowNames}
+		conditions = append(conditions, bson.M{"name": bson.M{"$in": opt.FavoriteWorkflowNames}})
 	} else {
-		// 构建查询条件
-		var conditions bson.A
+		// 项目条件
 		if opt.ProjectName != "" {
 			conditions = append(conditions, bson.M{"project": opt.ProjectName})
 		} else if len(opt.ProjectNames) > 0 {
 			conditions = append(conditions, bson.M{"project": bson.M{"$in": opt.ProjectNames}})
 		}
+		// 协作模式工作流条件
 		if len(opt.CollModeWorkflowNames) > 0 {
 			conditions = append(conditions, bson.M{"name": bson.M{"$in": opt.CollModeWorkflowNames}})
 		}
+	}
 
-		// 根据条件数量构建查询
-		if len(conditions) == 1 {
-			// 只有一个条件，直接合并到主查询中
-			for k, v := range conditions[0].(bson.M) {
-				query[k] = v
-			}
-		} else if len(conditions) > 1 {
-			// 多个条件，使用 OR 连接
-			query["$or"] = conditions
-		}
+	// 关键字搜索条件
+	if opt.Keyword != "" {
+		keywordRegex := bson.M{"$regex": opt.Keyword, "$options": "i"}
+		conditions = append(conditions, bson.M{
+			"$or": bson.A{
+				bson.M{"name": keywordRegex},
+				bson.M{"display_name": keywordRegex},
+			},
+		})
+	}
+
+	// 构建最终查询
+	if len(conditions) == 1 {
+		query = conditions[0]
+	} else if len(conditions) > 1 {
+		query = bson.M{"$and": conditions}
 	}
 
 	count, err := c.CountDocuments(context.TODO(), query)
@@ -332,8 +343,6 @@ func (c *WorkflowV4Coll) ListInGlobal(opt *ListWorkflowV4InGlobalOption) ([]*mod
 	}
 
 	log.Debugf("query: %+v", query)
-	log.Debugf("skip: %d, limit: %d", *findOption.Skip, *findOption.Limit)
-	log.Debugf("sort: %v, orderBy: %d", findOption.Sort, opt.OrderBy)
 
 	cursor, err := c.Collection.Find(context.TODO(), query, findOption)
 	if err != nil {

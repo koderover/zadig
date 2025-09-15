@@ -443,6 +443,7 @@ type ProjectAuthWorkflow struct {
 type ListGlobalWorkflowV4Query struct {
 	ProjectName    string
 	IsFavorite     bool
+	Keyword        string
 	ProjectAuthMap map[string]*ProjectAuthWorkflow
 	PageNum        int64
 	PageSize       int64
@@ -495,6 +496,7 @@ func ListWorkflowV4InGlobal(ctx *internalhandler.Context, query *ListGlobalWorkf
 	if ctx.Resources.IsSystemAdmin {
 		workflowModels, total, err = commonrepo.NewWorkflowV4Coll().ListInGlobal(&commonrepo.ListWorkflowV4InGlobalOption{
 			ProjectName:           query.ProjectName,
+			Keyword:               query.Keyword,
 			FavoriteWorkflowNames: favoriteWorkflowQueryArg,
 			SortBy:                query.SortBy,
 			OrderBy:               query.OrderBy,
@@ -519,6 +521,7 @@ func ListWorkflowV4InGlobal(ctx *internalhandler.Context, query *ListGlobalWorkf
 
 		workflowModels, total, err = commonrepo.NewWorkflowV4Coll().ListInGlobal(&commonrepo.ListWorkflowV4InGlobalOption{
 			ProjectName:           query.ProjectName,
+			Keyword:               query.Keyword,
 			ProjectNames:          projectNames,
 			CollModeWorkflowNames: collModeWorkflowNames,
 			FavoriteWorkflowNames: favoriteWorkflowQueryArg,
@@ -622,7 +625,6 @@ func genWorkflowActionsList(ctx *internalhandler.Context, workflows []*Workflow,
 			actions.Execute = true
 			actions.Debug = true
 		} else if projectAuth, ok := projectAuthMap[workflow.ProjectName]; ok {
-			log.Debugf("projectName: %s, projectAuth: %+v", workflow.ProjectName, projectAuth)
 			if projectAuth.IsProjectAdmin {
 				actions.Create = true
 				actions.View = true
