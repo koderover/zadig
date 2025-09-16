@@ -64,6 +64,8 @@ func filterNavigationItems(ctx *internalhandler.Context, items []*commonmodels.N
 				// if not admin then skip
 				if err := util.CheckZadigLicenseFeatureDelivery(); err != nil {
 					continue
+				} else {
+					newItem = append(newItem, item)
 				}
 			} else {
 				newItem = append(newItem, item)
