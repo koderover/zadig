@@ -80,6 +80,15 @@ func getDefaultSystemNavigation() []*commonmodels.NavigationItem {
 			Icon:     "iconfont iconcate",
 			Children: []*commonmodels.NavigationItem{
 				{
+					Name:     "工作流",
+					Key:      "releaseWorkflow",
+					Type:     "page",
+					PageType: "system",
+					IconType: "class",
+					Icon:     "iconfont icongongzuoliucheng",
+					URL:      "releaseWorkflow",
+				},
+				{
 					Name:     "发布计划",
 					Key:      "releasePlan",
 					Type:     "page",
