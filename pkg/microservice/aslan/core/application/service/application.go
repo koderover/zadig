@@ -72,7 +72,7 @@ func validateAndPruneCustomFields(app *commonmodels.Application) error {
 		if def.Source == config.ApplicationFieldSourceBuiltin {
 			continue
 		}
-		
+
 		if def.Required {
 			v, ok := values[key]
 			if !ok {
@@ -999,7 +999,7 @@ func resolveField(field string, defs map[string]*commonmodels.ApplicationFieldDe
 		return field, cat, nil
 	}
 	switch field {
-	case "name", "key", "project", "description", "testing_service_id", "production_service_id", "owner", "type":
+	case "name", "key", "project", "description", "testing_service_config", "production_service_config", "owner", "type":
 		return field, string(config.ApplicationFilterFieldTypeString), nil
 	case "repository.codehost_id", "create_time", "update_time":
 		return field, string(config.ApplicationFilterFieldTypeNumber), nil
