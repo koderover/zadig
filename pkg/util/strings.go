@@ -17,6 +17,8 @@ limitations under the License.
 package util
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"regexp"
 	"strings"
@@ -159,4 +161,36 @@ func SanitizeName(input string) string {
 	}
 
 	return s
+}
+
+// TruncateName 截断名称以确保不超过指定的长度限制
+// 如果名称超过限制，会截断并添加哈希值以确保唯一性
+func TruncateName(name string, maxLength int) string {
+	if len(name) <= maxLength {
+		return name
+	}
+
+	// 为哈希值预留 9 个字符（包括连字符）
+	hashLength := 9
+	availableLength := maxLength - hashLength
+
+	if availableLength <= 0 {
+		// 如果可用长度太小，直接返回哈希值
+		hash := sha256.Sum256([]byte(name))
+		return "pvc-" + hex.EncodeToString(hash[:])[:maxLength-4] // 减去 "pvc-" 的长度
+	}
+
+	// 截取前面的字符
+	truncated := name[:availableLength]
+
+	// 使用 SHA256 生成真正的哈希值
+	hash := sha256.Sum256([]byte(name))
+	hashStr := hex.EncodeToString(hash[:])
+
+	// 截取哈希值的前几位
+	if len(hashStr) > hashLength-1 {
+		hashStr = hashStr[:hashLength-1]
+	}
+
+	return truncated + "-" + hashStr
 }

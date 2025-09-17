@@ -1366,7 +1366,8 @@ func UpgradeDind(kclient client.Client, cluster *commonmodels.K8SCluster, ns str
 }
 
 func GetPVCName(prefix string, nfsProperties *types.NFSProperties) string {
-	return fmt.Sprintf("%s-storage-%s-%d", prefix, nfsProperties.StorageClass, nfsProperties.StorageSizeInGiB)
+	name := fmt.Sprintf("%s-storage-%s-%d", prefix, nfsProperties.StorageClass, nfsProperties.StorageSizeInGiB)
+	return util.TruncateName(name, 63)
 }
 
 func CreateDynamicPVC(clusterID, prefix string, nfsProperties *types.NFSProperties, logger *zap.SugaredLogger) error {
