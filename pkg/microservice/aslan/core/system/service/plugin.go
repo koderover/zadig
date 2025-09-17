@@ -92,7 +92,7 @@ func CreatePluginWithFile(userName string, m *commonmodels.Plugin, fileHeader *m
 		return e.ErrCreateIDPPlugin.AddErr(err)
 	}
 
-	objectKey := store.GetObjectPath(getPluginFilePath(m.Name, fileHeader.Filename))
+	objectKey := store.GetObjectPath(getPluginFilePath(m.Identifier, fileHeader.Filename))
 	if err := client.Upload(store.Bucket, tempPath, objectKey); err != nil {
 		log.Errorf("failed to upload file to s3, err: %v", err)
 		return e.ErrCreateIDPPlugin.AddErr(err)
@@ -146,7 +146,7 @@ func UpdatePluginWithFile(userName string, id string, m *commonmodels.Plugin, fi
 		log.Errorf("failed to create s3 client, err: %v", err)
 		return e.ErrUpdateIDPPlugin.AddErr(err)
 	}
-	objectKey := store.GetObjectPath(getPluginFilePath(m.Name, fileHeader.Filename))
+	objectKey := store.GetObjectPath(getPluginFilePath(m.Identifier, fileHeader.Filename))
 	if err := client.Upload(store.Bucket, tempPath, objectKey); err != nil {
 		log.Errorf("failed to upload file to s3, err: %v", err)
 		return e.ErrUpdateIDPPlugin.AddErr(err)
@@ -173,7 +173,7 @@ func GetPluginFile(id string, log *zap.SugaredLogger) (string, string, error) {
 	}
 
 	// build cache path under local workspace
-	cachePath := filepath.Join(config.S3StoragePath(), "plugins", p.Name, p.FileName)
+	cachePath := filepath.Join(config.S3StoragePath(), "plugins", p.Identifier, p.FileName)
 	if err := os.MkdirAll(filepath.Dir(cachePath), 0755); err != nil {
 		return "", "", err
 	}
@@ -207,8 +207,8 @@ func GetPluginFile(id string, log *zap.SugaredLogger) (string, string, error) {
 	return cachePath, p.FileName, nil
 }
 
-func getPluginFilePath(name, fileName string) string {
-	return filepath.Join("plugins", name, fileName)
+func getPluginFilePath(identifier, fileName string) string {
+	return filepath.Join("plugins", identifier, fileName)
 }
 
 func verifyFileHash(path string, expected string) bool {
