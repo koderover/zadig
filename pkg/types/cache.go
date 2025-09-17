@@ -49,7 +49,7 @@ type NFSProperties struct {
 	StorageSizeInGiB int64                             `json:"storage_size_in_gib" bson:"storage_size_in_gib"    yaml:"storage_size_in_gib"`
 	PVC              string                            `json:"pvc"                 bson:"pvc"                    yaml:"pvc"`
 	AccessMode       corev1.PersistentVolumeAccessMode `json:"access_mode"         bson:"access_mode"            yaml:"access_mode"`
-	Subpath          string                            `json:"sub_path"            bson:"sub_path"               yaml:"sub_path"`
+	Subpath          string                            `json:"subpath"             bson:"subpath"                yaml:"subpath"`
 	MountPath        string                            `json:"mount_path"          bson:"mount_path"             yaml:"mount_path"`
 	IsTemporary      bool                              `json:"is_temporary"        bson:"is_temporary"           yaml:"is_temporary"`
 }
