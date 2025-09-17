@@ -577,7 +577,7 @@ func setJobStorages(job *batchv1.Job, workflowCtx *commonmodels.WorkflowTaskCtx,
 	workflowCtx.ClusterIDAdd(cluster.ID.Hex())
 
 	for _, storage := range storages {
-		volumeName := fmt.Sprintf("storage-%s", storage.PVC)
+		volumeName := fmt.Sprintf("%s", storage.PVC)
 		job.Spec.Template.Spec.Volumes = append(job.Spec.Template.Spec.Volumes, corev1.Volume{
 			Name: volumeName,
 			VolumeSource: corev1.VolumeSource{
