@@ -132,7 +132,7 @@ func TriggerScanningByGitlabEvent(event interface{}, baseURI, requestID string, 
 						// 发送本次commit的通知
 						if autoCancelOpt.Type == EventTypePR && notification == nil {
 							notification, _ = scmnotify.NewService().SendInitWebhookComment(
-								mainRepo, prID, baseURI, false, true, false, false, log,
+								mainRepo, prID, baseURI, false, false, true, false, log,
 							)
 						}
 					}
