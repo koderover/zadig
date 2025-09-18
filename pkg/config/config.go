@@ -295,3 +295,11 @@ func RedisPassword() string {
 func RedisCommonCacheTokenDB() int {
 	return viper.GetInt(setting.ENVRedisCommonCacheDB)
 }
+
+func LarkPluginID() string {
+	return viper.GetString(setting.ENVLarkPluginID)
+}
+
+func LarkPluginSecret() string {
+	return viper.GetString(setting.ENVLarkPluginSecret)
+}

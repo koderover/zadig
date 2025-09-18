@@ -53,6 +53,8 @@ const (
 	ENVServiceStartTimeout  = "SERVICE_START_TIMEOUT"
 	ENVDefaultEnvRecycleDay = "DEFAULT_ENV_RECYCLE_DAY"
 	ENVDefaultIngressClass  = "DEFAULT_INGRESS_CLASS"
+	ENVLarkPluginID         = "LARK_PLUGIN_ID"
+	ENVLarkPluginSecret     = "LARK_PLUGIN_SECRET"
 
 	ENVBuildBaseImage = "BUILD_BASE_IMAGE"
 
