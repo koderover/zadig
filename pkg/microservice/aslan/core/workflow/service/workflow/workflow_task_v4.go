@@ -443,12 +443,14 @@ func CheckWorkflowV4ApprovalInitiator(workflowName, uid string, log *zap.Sugared
 }
 
 type CreateWorkflowTaskV4Args struct {
-	Name               string
-	Account            string
-	UserID             string
-	Type               config.CustomWorkflowTaskType
-	ApprovalTicketID   string
-	SkipWorkflowUpdate bool
+	Name                string
+	Account             string
+	UserID              string
+	Type                config.CustomWorkflowTaskType
+	ApprovalTicketID    string
+	SkipWorkflowUpdate  bool
+	LarkWorkItemTypeKey string
+	LarkWorkItemID      string
 }
 
 func CreateWorkflowTaskV4ByBuildInTrigger(triggerName string, args *commonmodels.WorkflowV4, log *zap.SugaredLogger) (*CreateTaskV4Resp, error) {
@@ -591,6 +593,8 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 	workflowTask.ShareStorages = workflow.ShareStorages
 	workflowTask.IsDebug = workflow.Debug
 	workflowTask.Remark = workflow.Remark
+	workflowTask.LarkWorkItemID = args.LarkWorkItemID
+	workflowTask.LarkWorkItemTypeKey = args.LarkWorkItemTypeKey
 
 	workflowCtrl := workflowController.CreateWorkflowController(workflow)
 	if (args.Type == config.WorkflowTaskTypeWorkflow || args.Type == "") && !args.SkipWorkflowUpdate {
