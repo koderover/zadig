@@ -44,6 +44,15 @@ type ListWorkflowTaskV4Option struct {
 	IsSort          bool
 }
 
+type WorkflowNameAndID struct {
+	WorkflowName string
+	TaskID       int64
+}
+
+type ListWorkflowTaskV4ByNameAndIDsOption struct {
+	WorkflowNameAndIDs []WorkflowNameAndID
+}
+
 type WorkflowTaskv4Coll struct {
 	*mongo.Collection
 
@@ -148,6 +157,38 @@ func (c *WorkflowTaskv4Coll) List(opt *ListWorkflowTaskV4Option) ([]*models.Work
 		return nil, 0, err
 	}
 	return resp, count, nil
+}
+
+func (c *WorkflowTaskv4Coll) ListByNameAndIDs(opt *ListWorkflowTaskV4ByNameAndIDsOption) ([]*models.WorkflowTask, error) {
+	resp := make([]*models.WorkflowTask, 0)
+	query := bson.M{}
+
+	// 构建 $or 条件来查询多个 workflow_name 和 task_id 的组合
+	orConditions := make([]bson.M, 0, len(opt.WorkflowNameAndIDs))
+	for _, workflowNameAndID := range opt.WorkflowNameAndIDs {
+		orConditions = append(orConditions, bson.M{
+			"workflow_name": workflowNameAndID.WorkflowName,
+			"task_id":       workflowNameAndID.TaskID,
+		})
+	}
+
+	if len(orConditions) > 0 {
+		query["$or"] = orConditions
+	}
+
+	query["is_archived"] = false
+	query["is_deleted"] = false
+	findOption := options.Find()
+
+	cursor, err := c.Collection.Find(context.TODO(), query, findOption)
+	if err != nil {
+		return nil, err
+	}
+	err = cursor.All(context.TODO(), &resp)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
 }
 
 func (c *WorkflowTaskv4Coll) GetLatest(workflowName string) (*models.WorkflowTask, error) {

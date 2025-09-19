@@ -795,6 +795,8 @@ github.com/larksuite/oapi-sdk-go/v3 v3.0.10 h1:yf/0GBgpHtGpAZCzJBhOIQVHxe8gpveXi
 github.com/larksuite/oapi-sdk-go/v3 v3.0.10/go.mod h1:FKi8vBgtkBt/xNRQUwdWvoDmsPh7/wP75Sn5IBIBQLk=
 github.com/larksuite/oapi-sdk-go/v3 v3.4.20 h1:Ul1NWAHXYzbXBHFmUxMTSZ9v2ahy/O8EthYOQnLvPo0=
 github.com/larksuite/oapi-sdk-go/v3 v3.4.20/go.mod h1:ZEplY+kwuIrj/nqw5uSCINNATcH3KdxSN7y+UxYY5fI=
+github.com/larksuite/project-oapi-sdk-golang v1.0.15 h1:5GqWotqVDTWk3Sg+YjTtaocRx/0dHQabU6F2Qd7MUSk=
+github.com/larksuite/project-oapi-sdk-golang v1.0.15/go.mod h1:M4gZ6QA4sa6U9iukFsSVQ58LQwlWO8eqk13nArHRHCk=
 github.com/leodido/go-urn v1.2.1/go.mod h1:zt4jvISO2HfUBqxjfIshjdMTYS56ZS/qv49ictyFfxY=
 github.com/leodido/go-urn v1.2.4 h1:XlAE/cm/ms7TE/VMVoduSpNBoyc2dOxHs5MZSwAN63Q=
 github.com/leodido/go-urn v1.2.4/go.mod h1:7ZrI8mTSeBSHl/UaRyKQW1qZeMgak41ANeCNaVckg+4=
