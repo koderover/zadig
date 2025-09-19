@@ -270,9 +270,12 @@ func (j VMDeployJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, er
 		originS3StorageSubfolder = s3Storage.Subfolder
 	}
 
-	registry, err := commonservice.FindRegistryById(j.jobSpec.DockerRegistryID, true, log.SugaredLogger())
-	if err != nil {
-		return resp, fmt.Errorf("find registry: %s error: %v", j.jobSpec.DockerRegistryID, err)
+	var registry *commonmodels.RegistryNamespace
+	if j.jobSpec.DockerRegistryID != "" {
+		registry, err = commonservice.FindRegistryById(j.jobSpec.DockerRegistryID, true, log.SugaredLogger())
+		if err != nil {
+			return resp, fmt.Errorf("find registry: %s error: %v", j.jobSpec.DockerRegistryID, err)
+		}
 	}
 
 	buildSvc := commonservice.NewBuildService()
@@ -663,9 +666,11 @@ func getVMDeployJobVariables(vmDeploy *commonmodels.ServiceAndVMDeploy, buildInf
 	ret = append(ret, prepareDefaultWorkflowTaskEnvs(project, workflowName, workflowDisplayName, infrastructure, taskID)...)
 
 	// registry envs
-	ret = append(ret, &commonmodels.KeyVal{Key: "DOCKER_REGISTRY_HOST", Value: registry.RegAddr, IsCredential: false})
-	ret = append(ret, &commonmodels.KeyVal{Key: "DOCKER_REGISTRY_AK", Value: registry.AccessKey, IsCredential: false})
-	ret = append(ret, &commonmodels.KeyVal{Key: "DOCKER_REGISTRY_SK", Value: registry.SecretKey, IsCredential: true})
+	if registry != nil {
+		ret = append(ret, &commonmodels.KeyVal{Key: "DOCKER_REGISTRY_HOST", Value: registry.RegAddr, IsCredential: false})
+		ret = append(ret, &commonmodels.KeyVal{Key: "DOCKER_REGISTRY_AK", Value: registry.AccessKey, IsCredential: false})
+		ret = append(ret, &commonmodels.KeyVal{Key: "DOCKER_REGISTRY_SK", Value: registry.SecretKey, IsCredential: true})
+	}
 
 	// repo envs
 	ret = append(ret, getReposVariables(buildInfo.DeployRepos)...)
