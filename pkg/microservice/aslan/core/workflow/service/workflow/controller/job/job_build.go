@@ -301,12 +301,10 @@ func (j BuildJobController) SetOptions(ticket *commonmodels.ApprovalTicket) erro
 // ClearOptions removes the option field completely
 func (j BuildJobController) ClearOptions() {
 	j.jobSpec.ServiceAndBuildsOptions = make([]*commonmodels.ServiceAndBuild, 0)
-	return
 }
 
 func (j BuildJobController) ClearSelection() {
 	j.jobSpec.ServiceAndBuilds = make([]*commonmodels.ServiceAndBuild, 0)
-	return
 }
 
 func (j BuildJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, error) {

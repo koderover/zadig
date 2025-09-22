@@ -353,6 +353,8 @@ func (w *Workflow) getWorkflowDefaultParams(taskID int64, creator, account, uid 
 		newParam := &commonmodels.Param{Name: paramsKey, Value: param.Value, ParamsType: "string", IsCredential: false}
 		if param.ParamsType == string(commonmodels.MultiSelectType) {
 			newParam.Value = strings.Join(param.ChoiceValue, ",")
+		} else if param.ParamsType == string(commonmodels.FileType) {
+			continue
 		}
 		resp = append(resp, newParam)
 	}
@@ -602,7 +604,7 @@ func (w *Workflow) GetReferableVariables(currentJobName string, option GetWorkfl
 	}
 
 	for _, param := range w.Params {
-		if param.ParamsType == "repo" {
+		if param.ParamsType == "repo" || param.ParamsType == "file" {
 			continue
 		}
 

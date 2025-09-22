@@ -387,12 +387,12 @@ func modelToS3StepSpec(modelS3 *commonmodels.S3Storage) *step.S3 {
 	return resp
 }
 
-// generateKeyValsFromWorkflowParam generates kv from workflow parameters, ditching all parameters of repo type
+// generateKeyValsFromWorkflowParam generates kv from workflow parameters, ditching all parameters of repo type and file type
 func generateKeyValsFromWorkflowParam(params []*commonmodels.Param) []*commonmodels.KeyVal {
 	resp := make([]*commonmodels.KeyVal, 0)
 
 	for _, param := range params {
-		if param.ParamsType == "repo" {
+		if param.ParamsType == "repo" || param.ParamsType == "file" {
 			continue
 		}
 
@@ -573,10 +573,15 @@ func replaceServiceAndModules(envs commonmodels.KeyValList, serviceName string, 
 
 func renderString(value, template string, inputs []*commonmodels.Param) string {
 	for _, input := range inputs {
+		var inputValue string
 		if input.ParamsType == string(commonmodels.MultiSelectType) {
-			input.Value = strings.Join(input.ChoiceValue, ",")
+			inputValue = strings.Join(input.ChoiceValue, ",")
+		} else if input.ParamsType == string(commonmodels.FileType) {
+			inputValue = input.GetFileValue()
+		} else {
+			inputValue = input.Value
 		}
-		value = strings.ReplaceAll(value, fmt.Sprintf(template, input.Name), input.Value)
+		value = strings.ReplaceAll(value, fmt.Sprintf(template, input.Name), inputValue)
 	}
 	return value
 }

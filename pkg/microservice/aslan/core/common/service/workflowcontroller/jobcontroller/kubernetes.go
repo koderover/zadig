@@ -347,7 +347,7 @@ echo $result > %s
 	return job, nil
 }
 
-func buildJob(jobType, jobImage, jobName, clusterID, currentNamespace string, resReq setting.Request, resReqSpec setting.RequestSpec, jobTask *commonmodels.JobTask, jobTaskSpec *commonmodels.JobTaskFreestyleSpec, workflowCtx *commonmodels.WorkflowTaskCtx, customLabels, customAnnotations map[string]string) (*batchv1.Job, error) {
+func buildJobWithFiles(jobType, jobImage, jobName, clusterID, currentNamespace string, resReq setting.Request, resReqSpec setting.RequestSpec, jobTask *commonmodels.JobTask, jobTaskSpec *commonmodels.JobTaskFreestyleSpec, workflowCtx *commonmodels.WorkflowTaskCtx, customLabels, customAnnotations map[string]string, filesPVCNames map[string]string, hasFileTypes bool) (*batchv1.Job, error) {
 	var (
 		jobExecutorBootingScript string
 		jobExecutorBinaryFile    = JobExecutorFile
@@ -505,8 +505,39 @@ EOF`,
 			SubPath:   jobTaskSpec.Properties.Cache.NFSProperties.Subpath,
 		})
 	}
+
+	// Add files volumes if there are file type environment variables
+	if hasFileTypes && len(filesPVCNames) > 0 {
+		for mountPath, pvcName := range filesPVCNames {
+			volumeName := generateVolumeNameFromPath(mountPath)
+			job.Spec.Template.Spec.Volumes = append(job.Spec.Template.Spec.Volumes, corev1.Volume{
+				Name: volumeName,
+				VolumeSource: corev1.VolumeSource{
+					PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+						ClaimName: pvcName,
+					},
+				},
+			})
+
+			job.Spec.Template.Spec.Containers[0].VolumeMounts = append(job.Spec.Template.Spec.Containers[0].VolumeMounts, corev1.VolumeMount{
+				Name:      volumeName,
+				MountPath: mountPath,
+			})
+		}
+	}
+
 	ensureVolumeMounts(job)
 	return job, nil
+}
+
+// generateVolumeNameFromPath generates a safe volume name from mount path
+func generateVolumeNameFromPath(mountPath string) string {
+	volumeName := strings.ReplaceAll(mountPath, "/", "-")
+	volumeName = strings.Trim(volumeName, "-")
+	if volumeName == "" {
+		volumeName = "root"
+	}
+	return "files-" + volumeName
 }
 
 func BuildCleanJob(jobName, clusterID, workflowName string, taskID int64) (*batchv1.Job, error) {
