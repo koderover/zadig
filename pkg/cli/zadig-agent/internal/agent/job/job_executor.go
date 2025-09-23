@@ -442,7 +442,7 @@ func (e *JobExecutor) downloadJobFiles() error {
 		return nil // No files to download
 	}
 
-	e.Logger.Infof("Starting to download %d file(s) for job %s", len(e.JobCtx.Files), e.Job.JobName)
+	log.Infof("Starting to download %d file(s) for job %s", len(e.JobCtx.Files), e.Job.JobName)
 
 	// Download each file using the directory info from fileInfo
 	for _, fileInfo := range e.JobCtx.Files {
@@ -451,7 +451,7 @@ func (e *JobExecutor) downloadJobFiles() error {
 		}
 	}
 
-	e.Logger.Infof("Successfully downloaded all %d file(s) for job %s", len(e.JobCtx.Files), e.Job.JobName)
+	log.Infof("Successfully downloaded all %d file(s) for job %s", len(e.JobCtx.Files), e.Job.JobName)
 	return nil
 }
 
@@ -462,10 +462,10 @@ func (e *JobExecutor) downloadSingleFile(fileInfo *jobctl.JobFileInfo) error {
 	if fileInfo.FilePath != "" {
 		// Use the specified file path from fileInfo
 		if filepath.IsAbs(fileInfo.FilePath) {
-			targetPath = fileInfo.FilePath
+			targetPath = filepath.Join(fileInfo.FilePath, fileInfo.FileName)
 		} else {
 			// Make relative paths relative to the workspace
-			targetPath = filepath.Join(e.Dirs.Workspace, fileInfo.FilePath)
+			targetPath = filepath.Join(e.Dirs.Workspace, fileInfo.FilePath, fileInfo.FileName)
 		}
 	} else {
 		// If no path specified, use filename in workspace root
@@ -476,15 +476,14 @@ func (e *JobExecutor) downloadSingleFile(fileInfo *jobctl.JobFileInfo) error {
 		targetPath = filepath.Join(e.Dirs.Workspace, filename)
 	}
 
-	// Create the target directory if it doesn't exist
-	if err := os.MkdirAll(filepath.Dir(targetPath), 0755); err != nil {
-		return fmt.Errorf("failed to create target directory: %v", err)
-	}
-
-	e.Logger.Infof("Downloading file %s (ID: %s) to %s", fileInfo.FileName, fileInfo.FileID, targetPath)
+	log.Infof("Downloading file %s (ID: %s) to %s", fileInfo.FileName, fileInfo.FileID, targetPath)
 
 	// Download the file using the network client
-	err := e.Client.DownloadFile(fileInfo.FileID, fileInfo.FileName, targetPath)
+	// Pass the directory and filename separately (network client will create the directory)
+	targetDir := filepath.Dir(targetPath)
+	fileName := filepath.Base(targetPath)
+
+	err := e.Client.DownloadFile(fileInfo.FileID, fileName, targetDir)
 	if err != nil {
 		return fmt.Errorf("failed to download file %s: %v", fileInfo.FileName, err)
 	}
