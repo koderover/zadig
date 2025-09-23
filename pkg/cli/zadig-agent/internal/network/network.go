@@ -112,13 +112,9 @@ type DownloadFileRequest struct {
 
 // DownloadFile downloads a file from the server using the file ID
 func (c *ZadigClient) DownloadFile(fileID, targetPath string) error {
-	downloadURL := GetFullURL(c.AgentConfig.URL, fmt.Sprintf(DownloadFileBaseUrl, fileID))
+	downloadURL := GetFullURL(c.AgentConfig.URL, fmt.Sprintf(DownloadFileBaseUrl+"?token=%s", fileID, c.AgentConfig.Token))
 
-	request := &DownloadFileRequest{
-		Token: c.AgentConfig.Token,
-	}
-
-	err := httpclient.Download(downloadURL, targetPath, httpclient.SetBody(request))
+	err := httpclient.Download(downloadURL, targetPath)
 	if err != nil {
 		return fmt.Errorf("failed to download file (ID: %s) to %s: %v", fileID, targetPath, err)
 	}
