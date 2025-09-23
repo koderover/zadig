@@ -102,6 +102,8 @@ func applyKeyVals(base, input commonmodels.RuntimeKeyValList, useInputKVSource b
 			FunctionReference: baseKV.FunctionReference,
 			CallFunction:      baseKV.CallFunction,
 			Script:            baseKV.Script,
+			FileID:            baseKV.FileID,
+			FilePath:          baseKV.FilePath,
 		}
 		item := &commonmodels.RuntimeKeyVal{
 			KeyVal: newKV,
