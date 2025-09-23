@@ -274,7 +274,7 @@ func DownloadTemporaryFile(fileID string, c *gin.Context, log *zap.SugaredLogger
 	}
 
 	// Get file from S3
-	obj, err := client.GetFile(store.Bucket, temporaryFile.FilePath, nil)
+	obj, err := client.GetFile(store.Bucket, temporaryFile.FilePath, &s3tool.DownloadOption{IgnoreNotExistError: false, RetryNum: 2})
 	if err != nil {
 		log.Errorf("failed to download file from S3: %v", err)
 		return e.ErrInternalError.AddErr(err)
