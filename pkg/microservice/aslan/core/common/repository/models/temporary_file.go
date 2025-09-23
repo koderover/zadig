@@ -17,8 +17,6 @@ limitations under the License.
 package models
 
 import (
-	"time"
-
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
@@ -41,9 +39,9 @@ type TemporaryFile struct {
 	FilePath      string             `bson:"file_path" json:"file_path"`
 	StorageID     string             `bson:"storage_id" json:"storage_id"`
 	InstanceID    string             `bson:"instance_id" json:"instance_id"`
-	CreatedAt     time.Time          `bson:"created_at" json:"created_at"`
-	UpdatedAt     time.Time          `bson:"updated_at" json:"updated_at"`
-	ExpiresAt     time.Time          `bson:"expires_at" json:"expires_at"`
+	CreatedAt     int64              `bson:"created_at" json:"created_at"`
+	UpdatedAt     int64              `bson:"updated_at" json:"updated_at"`
+	ExpiresAt     int64              `bson:"expires_at" json:"expires_at"`
 }
 
 func (TemporaryFile) TableName() string {
@@ -61,15 +59,15 @@ type InitiateUploadResponse struct {
 }
 
 type UploadStatusResponse struct {
-	SessionID     string    `json:"session_id"`
-	Status        string    `json:"status"`
-	FileName      string    `json:"file_name"`
-	FileSize      int64     `json:"file_size"`
-	TotalParts    int       `json:"total_parts"`
-	UploadedParts []int     `json:"uploaded_parts"`
-	Progress      float64   `json:"progress"`
-	CreatedAt     time.Time `json:"created_at"`
-	UpdatedAt     time.Time `json:"updated_at"`
+	SessionID     string  `json:"session_id"`
+	Status        string  `json:"status"`
+	FileName      string  `json:"file_name"`
+	FileSize      int64   `json:"file_size"`
+	TotalParts    int     `json:"total_parts"`
+	UploadedParts []int   `json:"uploaded_parts"`
+	Progress      float64 `json:"progress"`
+	CreatedAt     int64   `json:"created_at"`
+	UpdatedAt     int64   `json:"updated_at"`
 }
 
 type CompleteUploadRequest struct {

@@ -484,7 +484,7 @@ func (e *JobExecutor) downloadSingleFile(fileInfo *jobctl.JobFileInfo) error {
 	e.Logger.Infof("Downloading file %s (ID: %s) to %s", fileInfo.FileName, fileInfo.FileID, targetPath)
 
 	// Download the file using the network client
-	err := e.Client.DownloadFile(fileInfo.FileID, targetPath)
+	err := e.Client.DownloadFile(fileInfo.FileID, fileInfo.FileName, targetPath)
 	if err != nil {
 		return fmt.Errorf("failed to download file %s: %v", fileInfo.FileName, err)
 	}

@@ -62,6 +62,7 @@ func InitiateMultipartUpload(req *models.InitiateUploadRequest, log *zap.Sugared
 		return nil, e.ErrInvalidParam.AddDesc(fmt.Sprintf("total parts mismatch, expected %d, got %d", expectedParts, req.TotalParts))
 	}
 
+	now := time.Now().Unix()
 	temporaryFile := &models.TemporaryFile{
 		SessionID:     sessionID,
 		FileName:      req.FileName,
@@ -70,7 +71,9 @@ func InitiateMultipartUpload(req *models.InitiateUploadRequest, log *zap.Sugared
 		UploadedParts: []int{},
 		Status:        models.TemporaryFileStatusUploading,
 		InstanceID:    instanceID,
-		ExpiresAt:     time.Now().Add(24 * time.Hour),
+		CreatedAt:     now,
+		UpdatedAt:     now,
+		ExpiresAt:     now + (24 * 60 * 60), // 24 hours in seconds
 	}
 
 	if err := commonrepo.NewTemporaryFileColl().Create(temporaryFile); err != nil {

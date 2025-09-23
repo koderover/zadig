@@ -82,13 +82,17 @@ func (c *TemporaryFileColl) Create(temporaryFile *models.TemporaryFile) error {
 		return nil
 	}
 
-	now := time.Now()
-	temporaryFile.CreatedAt = now
-	temporaryFile.UpdatedAt = now
+	now := time.Now().Unix()
+	if temporaryFile.CreatedAt == 0 {
+		temporaryFile.CreatedAt = now
+	}
+	if temporaryFile.UpdatedAt == 0 {
+		temporaryFile.UpdatedAt = now
+	}
 
 	// Set expiration to 24 hours from now if not set
-	if temporaryFile.ExpiresAt.IsZero() {
-		temporaryFile.ExpiresAt = now.Add(24 * time.Hour)
+	if temporaryFile.ExpiresAt == 0 {
+		temporaryFile.ExpiresAt = now + (24 * 60 * 60) // 24 hours in seconds
 	}
 
 	_, err := c.InsertOne(context.TODO(), temporaryFile)
@@ -125,7 +129,7 @@ func (c *TemporaryFileColl) UpdateStatus(sessionID string, status string) error 
 	update := bson.M{
 		"$set": bson.M{
 			"status":     status,
-			"updated_at": time.Now(),
+			"updated_at": time.Now().Unix(),
 		},
 	}
 	_, err := c.UpdateOne(context.TODO(), query, update)
@@ -137,7 +141,7 @@ func (c *TemporaryFileColl) UpdateUploadedParts(sessionID string, uploadedParts 
 	update := bson.M{
 		"$set": bson.M{
 			"uploaded_parts": uploadedParts,
-			"updated_at":     time.Now(),
+			"updated_at":     time.Now().Unix(),
 		},
 	}
 	_, err := c.UpdateOne(context.TODO(), query, update)
@@ -152,7 +156,7 @@ func (c *TemporaryFileColl) UpdateFileInfo(sessionID string, storageID, filePath
 			"file_path":  filePath,
 			"file_hash":  fileHash,
 			"status":     models.TemporaryFileStatusCompleted,
-			"updated_at": time.Now(),
+			"updated_at": time.Now().Unix(),
 		},
 	}
 	_, err := c.UpdateOne(context.TODO(), query, update)
@@ -179,7 +183,7 @@ func (c *TemporaryFileColl) DeleteByID(id string) error {
 func (c *TemporaryFileColl) ListExpired() ([]*models.TemporaryFile, error) {
 	var temporaryFiles []*models.TemporaryFile
 	query := bson.M{
-		"expires_at": bson.M{"$lt": time.Now()},
+		"expires_at": bson.M{"$lt": time.Now().Unix()},
 		"status":     bson.M{"$ne": models.TemporaryFileStatusCompleted},
 	}
 	cursor, err := c.Find(context.TODO(), query)
@@ -207,7 +211,7 @@ func (c *TemporaryFileColl) ListByInstanceID(instanceID string) ([]*models.Tempo
 
 func (c *TemporaryFileColl) CleanupExpired() error {
 	query := bson.M{
-		"expires_at": bson.M{"$lt": time.Now()},
+		"expires_at": bson.M{"$lt": time.Now().Unix()},
 		"status":     bson.M{"$ne": models.TemporaryFileStatusCompleted},
 	}
 	_, err := c.DeleteMany(context.TODO(), query)

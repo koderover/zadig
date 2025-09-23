@@ -18,6 +18,7 @@ package network
 
 import (
 	"fmt"
+	"path"
 
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/config"
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/common/types"
@@ -111,10 +112,10 @@ type DownloadFileRequest struct {
 }
 
 // DownloadFile downloads a file from the server using the file ID
-func (c *ZadigClient) DownloadFile(fileID, targetPath string) error {
+func (c *ZadigClient) DownloadFile(fileID, fileName, targetPath string) error {
 	downloadURL := GetFullURL(c.AgentConfig.URL, fmt.Sprintf(DownloadFileBaseUrl+"?token=%s", fileID, c.AgentConfig.Token))
 
-	err := httpclient.Download(downloadURL, targetPath)
+	err := httpclient.Download(downloadURL, path.Join(targetPath, fileName))
 	if err != nil {
 		return fmt.Errorf("failed to download file (ID: %s) to %s: %v", fileID, targetPath, err)
 	}
