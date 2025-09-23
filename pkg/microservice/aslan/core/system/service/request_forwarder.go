@@ -36,6 +36,8 @@ func ForwardUploadPart(sessionID string, partNumber int, fileHeader *multipart.F
 	targetInstance := GetInstanceForKey(sessionID)
 	currentInstance := GetCurrentInstanceID()
 
+	log.Infof("ForwardUploadPart: targetInstance: %s, currentInstance: %s", targetInstance, currentInstance)
+
 	// If this is the correct instance, handle locally
 	if targetInstance == currentInstance {
 		return UploadPart(sessionID, partNumber, fileHeader, file, log)
