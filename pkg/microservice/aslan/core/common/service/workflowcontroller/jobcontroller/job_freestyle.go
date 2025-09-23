@@ -150,8 +150,10 @@ func (c *FreestyleJobCtl) run(ctx context.Context) error {
 
 	// decide which docker host to use.
 	// TODO: do not use code in warpdrive moudule, should move to a public place
-	dockerhosts := dockerhost.NewDockerHosts(hubServerAddr, c.logger)
-	c.jobTaskSpec.Properties.DockerHost = dockerhosts.GetBestHost(dockerhost.ClusterID(c.jobTaskSpec.Properties.ClusterID), fmt.Sprintf("%v", c.workflowCtx.TaskID))
+	if !c.jobTaskSpec.Properties.UseHostDockerDaemon {
+		dockerhosts := dockerhost.NewDockerHosts(hubServerAddr, c.logger)
+		c.jobTaskSpec.Properties.DockerHost = dockerhosts.GetBestHost(dockerhost.ClusterID(c.jobTaskSpec.Properties.ClusterID), fmt.Sprintf("%v", c.workflowCtx.TaskID))
+	}
 
 	// not local cluster
 	var (
