@@ -114,7 +114,6 @@ func (s *TarArchiveStep) Run(ctx context.Context) error {
 	cmd := exec.Command("tar", cmdAndArtifactFullPaths...)
 	cmd.Stderr = os.Stderr
 
-	log.Debugf("tar cmd: %s", cmd.String())
 	if err = cmd.Run(); err != nil {
 		if s.spec.IgnoreErr {
 			s.logger.Errorf("failed to compress %s, cmd: %s, err: %s", tarName, cmd.String(), err)
