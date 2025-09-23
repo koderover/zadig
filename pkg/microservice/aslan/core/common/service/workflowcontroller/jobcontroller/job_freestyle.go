@@ -1000,7 +1000,36 @@ func getVMJobOutputFromJobDB(jobID, jobName string, job *commonmodels.JobTask, w
 
 func BuildJobExecutorContext(jobTaskSpec *commonmodels.JobTaskFreestyleSpec, job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, logger *zap.SugaredLogger) *JobContext {
 	var envVars, secretEnvVars []string
+	var files []*JobFileInfo
+
 	for _, env := range jobTaskSpec.Properties.Envs {
+		// Handle file type environment variables separately for VM jobs
+		if env.Type == commonmodels.FileType && env.FileID != "" && job.Infrastructure == setting.JobVMInfrastructure {
+			fileInfo := &JobFileInfo{
+				EnvKey:   env.Key,
+				FileID:   env.FileID,
+				FilePath: env.FilePath,
+			}
+
+			// Try to get the file name for better organization
+			if commonmodels.GetFileNameByID != nil {
+				if filename, err := commonmodels.GetFileNameByID(env.FileID); err == nil && filename != "" {
+					fileInfo.FileName = filename
+				} else {
+					// Fallback: use env key as filename if we can't resolve it
+					logger.Warnf("Failed to resolve filename for file ID %s (env: %s): %v", env.FileID, env.Key, err)
+					fileInfo.FileName = env.Key
+				}
+			} else {
+				// If resolver not available, use env key as filename
+				fileInfo.FileName = env.Key
+			}
+
+			files = append(files, fileInfo)
+			continue
+		}
+
+		// Handle regular environment variables
 		if env.IsCredential {
 			secretEnvVars = append(secretEnvVars, strings.Join([]string{env.Key, env.GetValue()}, "="))
 			continue
@@ -1027,6 +1056,7 @@ func BuildJobExecutorContext(jobTaskSpec *commonmodels.JobTaskFreestyleSpec, job
 		Paths:         jobTaskSpec.Properties.Paths,
 		Steps:         jobTaskSpec.Steps,
 		ConfigMapName: job.K8sJobName,
+		Files:         files,
 	}
 
 	if job.Infrastructure == setting.JobVMInfrastructure {

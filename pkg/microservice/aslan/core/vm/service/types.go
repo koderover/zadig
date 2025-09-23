@@ -144,6 +144,10 @@ type PollingJobArgs struct {
 	Token string `json:"token"`
 }
 
+type DownloadFileArgs struct {
+	Token string `json:"token"`
+}
+
 type ReportJobArgs struct {
 	Seq       int    `json:"seq"`
 	Token     string `json:"token"`

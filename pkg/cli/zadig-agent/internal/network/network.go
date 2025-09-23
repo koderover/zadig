@@ -105,3 +105,23 @@ func (c *ZadigClient) ReportJob(parameters *types.ReportJobParameters) (*types.R
 	}
 	return nil, fmt.Errorf("failed to report job to zadig server")
 }
+
+type DownloadFileRequest struct {
+	Token string `json:"token"`
+}
+
+// DownloadFile downloads a file from the server using the file ID
+func (c *ZadigClient) DownloadFile(fileID, targetPath string) error {
+	downloadURL := GetFullURL(c.AgentConfig.URL, fmt.Sprintf(DownloadFileBaseUrl, fileID))
+
+	request := &DownloadFileRequest{
+		Token: c.AgentConfig.Token,
+	}
+
+	err := httpclient.Download(downloadURL, targetPath, httpclient.SetBody(request))
+	if err != nil {
+		return fmt.Errorf("failed to download file (ID: %s) to %s: %v", fileID, targetPath, err)
+	}
+
+	return nil
+}

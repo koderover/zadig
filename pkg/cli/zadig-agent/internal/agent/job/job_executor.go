@@ -88,6 +88,13 @@ func (e *JobExecutor) BeforeExecute() error {
 		return err
 	}
 
+	// Download files if any are specified
+	err = e.downloadJobFiles()
+	if err != nil {
+		log.Errorf("failed to download job files, error: %v", err)
+		return err
+	}
+
 	return nil
 }
 
@@ -427,4 +434,61 @@ func (e *JobExecutor) CheckZadigCancel() bool {
 		return true
 	}
 	return false
+}
+
+// downloadJobFiles downloads all files specified in JobCtx.Files to the workspace
+func (e *JobExecutor) downloadJobFiles() error {
+	if len(e.JobCtx.Files) == 0 {
+		return nil // No files to download
+	}
+
+	e.Logger.Infof("Starting to download %d file(s) for job %s", len(e.JobCtx.Files), e.Job.JobName)
+
+	// Download each file using the directory info from fileInfo
+	for _, fileInfo := range e.JobCtx.Files {
+		if err := e.downloadSingleFile(fileInfo); err != nil {
+			return fmt.Errorf("failed to download file %s (ID: %s): %v", fileInfo.FileName, fileInfo.FileID, err)
+		}
+	}
+
+	e.Logger.Infof("Successfully downloaded all %d file(s) for job %s", len(e.JobCtx.Files), e.Job.JobName)
+	return nil
+}
+
+// downloadSingleFile downloads a single file and updates the environment variable
+func (e *JobExecutor) downloadSingleFile(fileInfo *jobctl.JobFileInfo) error {
+	var targetPath string
+
+	if fileInfo.FilePath != "" {
+		// Use the specified file path from fileInfo
+		if filepath.IsAbs(fileInfo.FilePath) {
+			targetPath = fileInfo.FilePath
+		} else {
+			// Make relative paths relative to the workspace
+			targetPath = filepath.Join(e.Dirs.Workspace, fileInfo.FilePath)
+		}
+	} else {
+		// If no path specified, use filename in workspace root
+		filename := fileInfo.FileName
+		if filename == "" {
+			filename = fileInfo.EnvKey // Fallback to environment key
+		}
+		targetPath = filepath.Join(e.Dirs.Workspace, filename)
+	}
+
+	// Create the target directory if it doesn't exist
+	if err := os.MkdirAll(filepath.Dir(targetPath), 0755); err != nil {
+		return fmt.Errorf("failed to create target directory: %v", err)
+	}
+
+	e.Logger.Infof("Downloading file %s (ID: %s) to %s", fileInfo.FileName, fileInfo.FileID, targetPath)
+
+	// Download the file using the network client
+	err := e.Client.DownloadFile(fileInfo.FileID, targetPath)
+	if err != nil {
+		return fmt.Errorf("failed to download file %s: %v", fileInfo.FileName, err)
+	}
+
+	e.Logger.Infof("Successfully downloaded %s and set environment variable %s=%s", fileInfo.FileName, fileInfo.EnvKey, targetPath)
+	return nil
 }
