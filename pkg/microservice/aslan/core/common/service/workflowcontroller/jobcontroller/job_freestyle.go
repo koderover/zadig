@@ -331,6 +331,11 @@ func (c *FreestyleJobCtl) runVMJob(ctx context.Context) (string, error) {
 }
 
 func (c *FreestyleJobCtl) checkAndPrepareFileTypes(ctx context.Context) error {
+	// the file will be downloaded by agent in VM type job
+	if c.job.Infrastructure == setting.JobVMInfrastructure {
+		return nil
+	}
+
 	// Analyze file environment variables and group by mount paths
 	mountPaths := c.analyzeFileMountPaths()
 	if len(mountPaths) == 0 {
