@@ -213,15 +213,15 @@ func DownloadTemporaryFile(c *gin.Context) {
 		return
 	}
 
-	args := new(service.DownloadFileArgs)
-	if err := c.ShouldBindJSON(args); err != nil {
-		ctx.RespErr = fmt.Errorf("invalid request: %s", err)
+	token := c.Query("token")
+	if token == "" {
+		ctx.RespErr = fmt.Errorf("invalid request: %s", "token is empty")
 		internalhandler.JSONResponse(c, ctx)
 		return
 	}
 
 	// Handle download with token validation
-	if err := service.DownloadTemporaryFile(fileID, args.Token, c, ctx.Logger); err != nil {
+	if err := service.DownloadTemporaryFile(fileID, token, c, ctx.Logger); err != nil {
 		ctx.RespErr = err
 		internalhandler.JSONResponse(c, ctx)
 		return
