@@ -50,6 +50,8 @@ func ForwardCompleteUpload(sessionID string, req *models.CompleteUploadRequest, 
 	targetInstance := GetInstanceForKey(sessionID)
 	currentInstance := GetCurrentInstanceID()
 
+	log.Infof("ForwardCompleteUpload: targetInstance: %s, currentInstance: %s", targetInstance, currentInstance)
+
 	// If this is the correct instance, handle locally
 	if targetInstance == currentInstance {
 		return CompleteMultipartUpload(sessionID, req, log)
