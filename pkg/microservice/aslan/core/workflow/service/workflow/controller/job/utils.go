@@ -309,6 +309,8 @@ func mergeKeyVals(source1, source2 []*commonmodels.KeyVal) []*commonmodels.KeyVa
 			FunctionReference: src1KV.FunctionReference,
 			CallFunction:      src1KV.CallFunction,
 			Script:            src1KV.Script,
+			FileID:            src1KV.FileID,
+			FilePath:          src1KV.FilePath,
 		}
 		existingKVMap[src1KV.Key] = src1KV
 		resp = append(resp, item)
@@ -330,6 +332,8 @@ func mergeKeyVals(source1, source2 []*commonmodels.KeyVal) []*commonmodels.KeyVa
 			FunctionReference: src2KV.FunctionReference,
 			CallFunction:      src2KV.CallFunction,
 			Script:            src2KV.Script,
+			FileID:            src2KV.FileID,
+			FilePath:          src2KV.FilePath,
 		}
 		existingKVMap[src2KV.Key] = src2KV
 		resp = append(resp, item)
