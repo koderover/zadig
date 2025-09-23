@@ -119,14 +119,15 @@ func applyKeyVals(base, input commonmodels.RuntimeKeyValList, useInputKVSource b
 			if (item.Source != config.ParamSourceFixed && item.Source != config.ParamSourceReference) || useInputKVSource {
 				if item.Type == commonmodels.MultiSelectType {
 					item.ChoiceValue = inputKV.ChoiceValue
-					item.FileID = inputKV.FileID
-					item.FilePath = inputKV.FilePath
 					// TODO: move this logic to somewhere else
 					if inputKV.Value == "" {
 						item.Value = strings.Join(item.ChoiceValue, ",")
 					} else {
 						item.Value = inputKV.Value
 					}
+				} else if item.Type == commonmodels.FileType {
+					item.FileID = inputKV.FileID
+					item.FilePath = inputKV.FilePath
 				} else {
 					// always use origin credential config.
 					item.Value = inputKV.Value
