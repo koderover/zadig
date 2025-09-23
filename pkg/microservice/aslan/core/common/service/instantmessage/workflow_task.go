@@ -589,7 +589,6 @@ func (w *Service) getApproveNotificationContent(notify *models.NotifyCtl, task *
 		lc.AddI18NElementsZhcnFeild(feildExecContent, idx == 0)
 	}
 
-	log.Debugf("jobContents: %+v", jobContents)
 	for _, feildContent := range jobContents {
 		feildExecContent, _ := getWorkflowTaskTplExec(feildContent, workflowNotification)
 		lc.AddI18NElementsZhcnFeild(feildExecContent, true)

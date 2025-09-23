@@ -359,9 +359,6 @@ func ListGlobalWorkflowV4(c *gin.Context) {
 		return
 	}
 
-	bytes, _ := json.Marshal(collModeWorkflowsWithVerb)
-	log.Debugf("collModeWorkflowsWithVerb: %s", string(bytes))
-
 	query := &workflow.ListGlobalWorkflowV4Query{
 		ProjectName:    args.ProjectName,
 		IsFavorite:     args.IsFavorite,
@@ -416,9 +413,6 @@ func ListGlobalWorkflowV4(c *gin.Context) {
 			query.ProjectAuthMap[projectName] = authWorkflow
 		}
 	}
-
-	bytes, _ = json.Marshal(query)
-	log.Debugf("query: %s", string(bytes))
 
 	ctx.Resp, ctx.RespErr = workflow.ListWorkflowV4InGlobal(ctx, query)
 }

@@ -23,7 +23,6 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/util"
 )
 
@@ -50,13 +49,10 @@ func renderScriptedVariableOptions(serviceName, moduleName, script, callFunction
 	if script == "" || callFunction == "" {
 		return []string{}, nil
 	}
-	log.Debugf("user input: %+v", userInput)
 
 	callFunction = strings.ReplaceAll(callFunction, "<SERVICE>", serviceName)
 	callFunction = strings.ReplaceAll(callFunction, "<MODULE>", moduleName)
 	callFunction = replaceJobVariables(callFunction)
-
-	log.Debugf("call function: %s", callFunction)
 
 	t, err := template.New("scriptRender").Parse(callFunction)
 	if err != nil {
