@@ -22,11 +22,13 @@ import (
 	"fmt"
 	"io"
 	"mime/multipart"
+	"net/http"
 	"os"
 	"path/filepath"
 	"sort"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 
@@ -242,6 +244,67 @@ func GetTemporaryFile(fileID string, log *zap.SugaredLogger) (*models.TemporaryF
 	}
 
 	return temporaryFile, nil
+}
+
+// DownloadTemporaryFile downloads a temporary file from S3 and streams it to the client
+func DownloadTemporaryFile(fileID string, c *gin.Context, log *zap.SugaredLogger) error {
+	// Get the temporary file record
+	temporaryFile, err := commonrepo.NewTemporaryFileColl().GetByID(fileID)
+	if err != nil {
+		log.Errorf("failed to get temporary file: %v", err)
+		return e.ErrNotFound.AddErr(err)
+	}
+
+	if temporaryFile.Status != models.TemporaryFileStatusCompleted {
+		return e.ErrNotFound.AddDesc("file not ready")
+	}
+
+	// Get the S3 storage configuration
+	store, err := s3service.FindS3ById(temporaryFile.StorageID)
+	if err != nil {
+		log.Errorf("failed to get S3 storage: %v", err)
+		return e.ErrInternalError.AddErr(err)
+	}
+
+	// Create S3 client
+	client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Region, store.Insecure, store.Provider)
+	if err != nil {
+		log.Errorf("failed to create S3 client: %v", err)
+		return e.ErrInternalError.AddErr(err)
+	}
+
+	// Get file from S3
+	obj, err := client.GetFile(store.Bucket, temporaryFile.FilePath, nil)
+	if err != nil {
+		log.Errorf("failed to download file from S3: %v", err)
+		return e.ErrInternalError.AddErr(err)
+	}
+	if obj == nil {
+		return e.ErrNotFound.AddDesc("file not found in storage")
+	}
+	defer obj.Body.Close()
+
+	// Set appropriate headers
+	filename := temporaryFile.FileName
+	if filename == "" {
+		filename = "download"
+	}
+
+	// Determine content type based on file extension
+	contentType := "application/octet-stream"
+
+	c.Header("Content-Type", contentType)
+	c.Header("Content-Length", fmt.Sprintf("%d", temporaryFile.FileSize))
+
+	c.Status(http.StatusOK)
+	_, err = io.Copy(c.Writer, obj.Body)
+	if err != nil {
+		log.Errorf("failed to stream file content: %v", err)
+		return e.ErrInternalError.AddErr(err)
+	}
+
+	log.Infof("successfully downloaded temporary file: %s (%s)", temporaryFile.FileName, fileID)
+	return nil
 }
 
 // Helper functions

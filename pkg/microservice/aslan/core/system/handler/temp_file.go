@@ -122,8 +122,8 @@ func GetUploadStatus(c *gin.Context) {
 	ctx.Resp, ctx.RespErr = service.ForwardGetUploadStatus(sessionID, ctx.Logger)
 }
 
-// GetTemporaryFile returns a temporary file by ID (for system use)
-func GetTemporaryFile(c *gin.Context) {
+// GetTemporaryFileInfo returns a temporary file info by ID (for system use)
+func GetTemporaryFileInfo(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
@@ -134,6 +134,25 @@ func GetTemporaryFile(c *gin.Context) {
 	}
 
 	ctx.Resp, ctx.RespErr = service.GetTemporaryFile(fileID, ctx.Logger)
+}
+
+// DownloadTemporaryFile downloads a temporary file by ID
+func DownloadTemporaryFile(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+
+	fileID := c.Param("fileId")
+	if fileID == "" {
+		ctx.RespErr = e.ErrInvalidParam.AddDesc("fileId is required")
+		internalhandler.JSONResponse(c, ctx)
+		return
+	}
+
+	// Handle download directly on any instance (files are stored in shared S3)
+	if err := service.DownloadTemporaryFile(fileID, c, ctx.Logger); err != nil {
+		ctx.RespErr = err
+		internalhandler.JSONResponse(c, ctx)
+		return
+	}
 }
 
 // CleanupExpiredUploads removes expired upload records and temp files (admin only)

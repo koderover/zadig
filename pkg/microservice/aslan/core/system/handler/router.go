@@ -534,7 +534,8 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		tempFile.POST("/upload/:sessionId/:partNumber", UploadPart)
 		tempFile.POST("/complete/:sessionId", CompleteUpload)
 		tempFile.GET("/status/:sessionId", GetUploadStatus)
-		tempFile.GET("/file/:fileId", GetTemporaryFile)
+		tempFile.GET("/fileInfo/:fileId", GetTemporaryFileInfo)
+		tempFile.GET("/download/:fileId", DownloadTemporaryFile)
 		tempFile.POST("/cleanup", CleanupExpiredUploads)
 	}
 }

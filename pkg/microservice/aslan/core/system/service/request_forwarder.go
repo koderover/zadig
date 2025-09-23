@@ -98,7 +98,7 @@ func forwardMultipartRequest(targetInstance, path string, fileHeader *multipart.
 	writer.Close()
 
 	// Create the request
-	url := fmt.Sprintf("http://%s%s", targetInstance, path)
+	url := fmt.Sprintf("http://%s:25000%s", targetInstance, path)
 	req, err := http.NewRequest("POST", url, &body)
 	if err != nil {
 		return e.ErrInternalError.AddErr(err)
@@ -130,7 +130,7 @@ func forwardJSONRequest[T any](targetInstance, path string, payload interface{},
 		return nil, e.ErrInternalError.AddErr(err)
 	}
 
-	url := fmt.Sprintf("http://%s%s", targetInstance, path)
+	url := fmt.Sprintf("http://%s:25000%s", targetInstance, path)
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
 	if err != nil {
 		return nil, e.ErrInternalError.AddErr(err)
@@ -161,7 +161,7 @@ func forwardJSONRequest[T any](targetInstance, path string, payload interface{},
 }
 
 func forwardGetRequest[T any](targetInstance, path string, log *zap.SugaredLogger) (*T, error) {
-	url := fmt.Sprintf("http://%s%s", targetInstance, path)
+	url := fmt.Sprintf("http://%s:25000%s", targetInstance, path)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, e.ErrInternalError.AddErr(err)
