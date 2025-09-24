@@ -1127,8 +1127,6 @@ func ensureChartFilesFromVersion(projectName, versionName string, chartRepo *com
 		return "", fmt.Errorf("failed rename chart files dir, old: %s, new: %s, err: %s", oldPath, newPath, err)
 	}
 
-	log.Debugf("chartRef: %s, deliveryChartPath: %s, chartTGZFileParent: %s", chartRef, newPath, chartFilesParent)
-
 	err = os.WriteFile(filepath.Join(newPath, setting.ValuesYaml), []byte(service.YamlContent), 0644)
 	if err != nil {
 		return "", errors.Wrapf(err, "failed to write values.yaml")

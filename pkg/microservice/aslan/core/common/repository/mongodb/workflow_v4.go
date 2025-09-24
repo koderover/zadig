@@ -31,7 +31,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/setting"
-	"github.com/koderover/zadig/v2/pkg/tool/log"
 	mongotool "github.com/koderover/zadig/v2/pkg/tool/mongo"
 )
 
@@ -341,8 +340,6 @@ func (c *WorkflowV4Coll) ListInGlobal(opt *ListWorkflowV4InGlobalOption) ([]*mod
 			bson.E{Key: string(opt.SortBy), Value: opt.OrderBy},
 		})
 	}
-
-	log.Debugf("query: %+v", query)
 
 	cursor, err := c.Collection.Find(context.TODO(), query, findOption)
 	if err != nil {

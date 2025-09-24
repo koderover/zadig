@@ -515,7 +515,6 @@ func setAuthInSubmoduleURL(u *url.URL, mainRepo *types.Repository, codeHost *cod
 		}
 	} else if mainRepo.Source == types.ProviderGithub {
 		if strings.HasPrefix(u.String(), mainRepo.Address) {
-			log.Debugf("1")
 			u.User = url.UserPassword("x-access-token", mainRepo.OauthToken)
 			return u, nil
 		}
@@ -543,7 +542,6 @@ func setAuthInSubmoduleURL(u *url.URL, mainRepo *types.Repository, codeHost *cod
 		}
 	} else if codeHost.Type == types.ProviderGithub {
 		if strings.HasPrefix(u.String(), codeHost.Address) {
-			log.Debugf("2")
 			u.User = url.UserPassword("x-access-token", codeHost.AccessToken)
 			return u, nil
 		}
