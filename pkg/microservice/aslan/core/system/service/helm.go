@@ -59,7 +59,6 @@ func ValidateHelmRepo(args *commonmodels.HelmRepo, log *zap.SugaredLogger) error
 		return fmt.Errorf("创建 Helm 客户端失败: %s", err)
 	}
 
-	log.Debugf("FetchIndexYaml: %+v", commonutil.GeneHelmRepo(args))
 	_, err = client.FetchIndexYaml(commonutil.GeneHelmRepo(args))
 	if err != nil {
 		return fmt.Errorf("验证 Helm 仓库失败: %s", err)

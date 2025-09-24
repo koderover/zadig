@@ -52,7 +52,6 @@ func TriggerScanningByGitlabEvent(event interface{}, baseURI, requestID string, 
 
 	for _, scanning := range scanningList {
 		if scanning.AdvancedSetting.HookCtl != nil && scanning.AdvancedSetting.HookCtl.Enabled {
-			log.Debugf("find %d hooks in scanning %s", len(scanning.AdvancedSetting.HookCtl.Items), scanning.Name)
 			for _, item := range scanning.AdvancedSetting.HookCtl.Items {
 				// 2. match webhook
 				matcher := createGitlabEventMatcherForScanning(event, diffSrv, scanning, log)

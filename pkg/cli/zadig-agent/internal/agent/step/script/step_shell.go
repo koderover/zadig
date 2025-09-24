@@ -72,6 +72,7 @@ func (s *ShellStep) Run(ctx context.Context) error {
 		s.Logger.Infof(fmt.Sprintf("Script Execution ended. Duration: %.2f seconds.", time.Since(start).Seconds()))
 	}()
 
+	s.envs = RenderArtifactWorkspace(s.envs, s.dirs.Workspace)
 	envmaps := util.MakeEnvMap(s.envs, s.secretEnvs)
 	userScriptFile, err := generateScript(s.spec, s.dirs, s.JobOutput, envmaps, s.Logger)
 	if err != nil {
@@ -121,10 +122,31 @@ func (s *ShellStep) Run(ctx context.Context) error {
 	return cmd.Wait()
 }
 
+func RenderArtifactWorkspace(envs []string, workspace string) []string {
+	newEnvs := []string{}
+	for _, env := range envs {
+		if strings.HasPrefix(env, "ARTIFACT=") {
+			envArr := strings.Split(env, "=")
+			if len(envArr) != 2 {
+				log.Errorf("RenderArtifactWorkspace: invalid env: %s", env)
+				continue
+			}
+			key := envArr[0]
+			value := envArr[1]
+			value = util.ReplaceEnvWithValue(value, map[string]string{"WORKSPACE": workspace})
+			newEnvs = append(newEnvs, fmt.Sprintf("%s=%s", key, value))
+		} else {
+			newEnvs = append(newEnvs, env)
+		}
+	}
+	return newEnvs
+}
+
 func generateScript(spec *StepShellSpec, dirs *types.AgentWorkDirs, jobOutput []string, envmaps map[string]string, logger *log.JobLogger) (string, error) {
 	if len(spec.Scripts) == 0 {
 		return "", nil
 	}
+
 	scripts := []string{}
 	scripts = append(scripts, spec.Scripts...)
 
