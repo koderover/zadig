@@ -370,6 +370,9 @@ func GetInputUpdater(job *commonmodels.Job, input interface{}) (CustomJobInput, 
 		updater := new(ZadigVMDeployJobInput)
 		err := commonmodels.IToi(input, updater)
 		return updater, err
+	case config.JobApproval:
+		updater := new(ApprovalJobInput)
+		return updater, nil
 	case config.JobSQL:
 		updater := new(SQLJobInput)
 		err := commonmodels.IToi(input, updater)
