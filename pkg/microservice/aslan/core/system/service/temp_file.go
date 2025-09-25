@@ -45,7 +45,7 @@ func init() {
 }
 
 const (
-	tempFilePartSize = 10 * 1024 * 1024 // 10MB per part
+	tempFilePartSize = 5 * 1024 * 1024 // 5MB per part
 )
 
 // InitiateMultipartUpload starts a new multipart upload session
