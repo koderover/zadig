@@ -821,7 +821,7 @@ func (c *FreestyleJobCtl) copyFileToCluster(ctx context.Context, client *kuberne
 
 	mkdirReq.VersionedParams(&corev1.PodExecOptions{
 		Container: "file-helper",
-		Command:   []string{"sh", "-c", fmt.Sprintf("mkdir -p %s", mountPath)},
+		Command:   []string{"mkdir", "-p", mountPath},
 		Stdin:     false,
 		Stdout:    true,
 		Stderr:    true,
@@ -832,8 +832,21 @@ func (c *FreestyleJobCtl) copyFileToCluster(ctx context.Context, client *kuberne
 	if err != nil {
 		return fmt.Errorf("failed to create SPDY executor for mkdir: %v", err)
 	}
-	if err := mkdirExecutor.Stream(remotecommand.StreamOptions{}); err != nil {
-		return fmt.Errorf("failed to create target dir in pod: %v", err)
+	c.logger.Infof("Starting mkdir exec in helper pod: pod=%s dir=%s", podName, mountPath)
+	var mkStdout, mkStderr bytes.Buffer
+	doneCh := make(chan error, 1)
+	go func() {
+		doneCh <- mkdirExecutor.Stream(remotecommand.StreamOptions{Stdout: &mkStdout, Stderr: &mkStderr})
+	}()
+	select {
+	case err := <-doneCh:
+		if err != nil {
+			return fmt.Errorf("failed to create target dir in pod: %v, stderr: %s", err, mkStderr.String())
+		}
+		c.logger.Infof("mkdir exec completed: pod=%s dir=%s stdout_len=%d stderr_len=%d", podName, mountPath, mkStdout.Len(), mkStderr.Len())
+	case <-time.After(2 * time.Minute):
+		c.logger.Warnf("mkdir exec timed out: pod=%s dir=%s", podName, mountPath)
+		return fmt.Errorf("mkdir exec timed out: pod=%s dir=%s", podName, mountPath)
 	}
 	c.logger.Infof("Target directory ready: pod=%s dir=%s", podName, mountPath)
 
@@ -904,7 +917,8 @@ func (c *FreestyleJobCtl) copyFileToCluster(ctx context.Context, client *kuberne
 		Namespace(namespace).
 		SubResource("exec")
 
-	untarCmd := []string{"sh", "-c", fmt.Sprintf("tar -xmf - -C %s", mountPath)}
+	// Use tar directly to avoid relying on shell; order of args is compatible with busybox tar
+	untarCmd := []string{"tar", "-x", "-C", mountPath, "-f", "-"}
 	untarReq.VersionedParams(&corev1.PodExecOptions{
 		Container: "file-helper",
 		Command:   untarCmd,
