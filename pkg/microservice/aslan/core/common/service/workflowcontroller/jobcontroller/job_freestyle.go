@@ -17,6 +17,7 @@ limitations under the License.
 package jobcontroller
 
 import (
+	"archive/tar"
 	"bytes"
 	"context"
 	"fmt"
@@ -810,58 +811,94 @@ func (c *FreestyleJobCtl) copyFileToHelper(ctx context.Context, client *kubernet
 }
 
 func (c *FreestyleJobCtl) copyFileToCluster(ctx context.Context, client *kubernetes.Clientset, namespace, podName, localFilePath, targetFileName, mountPath string) error {
-	fileData, err := os.ReadFile(localFilePath)
-	if err != nil {
-		return fmt.Errorf("failed to read local file: %v", err)
-	}
-
-	// Ensure the target directory exists and copy the file
-	execCmd := []string{"sh", "-c", fmt.Sprintf("mkdir -p %s && cat > %s/%s", mountPath, mountPath, targetFileName)}
-
-	c.logger.Infof("Exec in helper pod to place file: mkdir -p %s && cat > %s/%s", mountPath, mountPath, targetFileName)
-
-	req := client.CoreV1().RESTClient().Post().
+	// Step 1: ensure target directory exists
+	mkdirReq := client.CoreV1().RESTClient().Post().
 		Resource("pods").
 		Name(podName).
 		Namespace(namespace).
 		SubResource("exec")
 
-	req.VersionedParams(&corev1.PodExecOptions{
+	mkdirReq.VersionedParams(&corev1.PodExecOptions{
 		Container: "file-helper",
-		Command:   execCmd,
+		Command:   []string{"sh", "-c", fmt.Sprintf("mkdir -p %s", mountPath)},
+		Stdin:     false,
+		Stdout:    true,
+		Stderr:    true,
+		TTY:       false,
+	}, scheme.ParameterCodec)
+
+	mkdirExecutor, err := clientmanager.NewKubeClientManager().GetSPDYExecutor(c.jobTaskSpec.Properties.ClusterID, mkdirReq.URL())
+	if err != nil {
+		return fmt.Errorf("failed to create SPDY executor for mkdir: %v", err)
+	}
+	if err := mkdirExecutor.Stream(remotecommand.StreamOptions{}); err != nil {
+		return fmt.Errorf("failed to create target dir in pod: %v", err)
+	}
+
+	// Step 2: prepare tar stream from the local file
+	pr, pw := io.Pipe()
+	go func() {
+		defer pw.Close()
+		f, err := os.Open(localFilePath)
+		if err != nil {
+			_ = pw.CloseWithError(fmt.Errorf("open local file failed: %v", err))
+			return
+		}
+		defer f.Close()
+
+		tw := tar.NewWriter(pw)
+		defer tw.Close()
+
+		fi, err := f.Stat()
+		if err != nil {
+			_ = pw.CloseWithError(fmt.Errorf("stat local file failed: %v", err))
+			return
+		}
+
+		hdr := &tar.Header{
+			Name: targetFileName,
+			Mode: 0644,
+			Size: fi.Size(),
+		}
+		if err := tw.WriteHeader(hdr); err != nil {
+			_ = pw.CloseWithError(fmt.Errorf("write tar header failed: %v", err))
+			return
+		}
+		if _, err := io.Copy(tw, f); err != nil {
+			_ = pw.CloseWithError(fmt.Errorf("write tar body failed: %v", err))
+			return
+		}
+	}()
+
+	// Step 3: untar stream in the helper pod at the mount path
+	c.logger.Infof("Exec in helper pod to place file via tar: %s/%s", mountPath, targetFileName)
+	untarReq := client.CoreV1().RESTClient().Post().
+		Resource("pods").
+		Name(podName).
+		Namespace(namespace).
+		SubResource("exec")
+
+	untarCmd := []string{"sh", "-c", fmt.Sprintf("tar -xmf - -C %s", mountPath)}
+	untarReq.VersionedParams(&corev1.PodExecOptions{
+		Container: "file-helper",
+		Command:   untarCmd,
 		Stdin:     true,
 		Stdout:    true,
 		Stderr:    true,
 		TTY:       false,
 	}, scheme.ParameterCodec)
 
-	executor, err := clientmanager.NewKubeClientManager().GetSPDYExecutor(c.jobTaskSpec.Properties.ClusterID, req.URL())
+	untarExecutor, err := clientmanager.NewKubeClientManager().GetSPDYExecutor(c.jobTaskSpec.Properties.ClusterID, untarReq.URL())
 	if err != nil {
-		return fmt.Errorf("failed to create SPDY executor: %v", err)
+		return fmt.Errorf("failed to create SPDY executor for untar: %v", err)
 	}
 
-	stdinReader, stdinWriter := io.Pipe()
 	var stdout, stderr bytes.Buffer
-
-	go func() {
-		defer stdinWriter.Close()
-		_, err := stdinWriter.Write(fileData)
-		if err != nil {
-			c.logger.Errorf("Failed to write to stdin: %v", err)
-		}
-	}()
-
-	err = executor.Stream(remotecommand.StreamOptions{
-		Stdin:  stdinReader,
-		Stdout: &stdout,
-		Stderr: &stderr,
-	})
-
-	if err != nil {
-		return fmt.Errorf("failed to execute command in pod: %v, stderr: %s", err, stderr.String())
+	if err := untarExecutor.Stream(remotecommand.StreamOptions{Stdin: pr, Stdout: &stdout, Stderr: &stderr}); err != nil {
+		return fmt.Errorf("failed to untar in pod: %v, stderr: %s", err, stderr.String())
 	}
 
-	c.logger.Infof("Successfully copied file %s to pod %s via API", targetFileName, podName)
+	c.logger.Infof("Successfully copied file %s to pod %s via tar stream", targetFileName, podName)
 	return nil
 }
 
