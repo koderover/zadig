@@ -471,7 +471,7 @@ func (p *ZadigDeployJobInput) UpdateJobSpec(job *commonmodels.Job) (*commonmodel
 				}),
 			}
 			serviceMap[inputSvc.ServiceName] = &commonmodels.DeployServiceInfo{
-				DeployBasicInfo:    basicInfo,
+				DeployBasicInfo: basicInfo,
 				DeployVariableInfo: commonmodels.DeployVariableInfo{
 					ValueMergeStrategy: inputSvc.ValueMergeStrategy,
 				},
@@ -1175,4 +1175,11 @@ func (req *OpenAPICreateWorkflowViewReq) Validate() (bool, error) {
 		}
 	}
 	return true, nil
+}
+
+type ApprovalJobInput struct {
+}
+
+func (p *ApprovalJobInput) UpdateJobSpec(job *commonmodels.Job) (*commonmodels.Job, error) {
+	return job, nil
 }

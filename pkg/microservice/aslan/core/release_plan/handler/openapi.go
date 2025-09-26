@@ -121,7 +121,7 @@ func OpenAPICreateReleasePlan(c *gin.Context) {
 
 // @summary Update Release Plan
 // @description Update Release Plan
-// @tags 	Openapi
+// @tags 	OpenAPI
 // @accept 	json
 // @produce json
 // @Param 	body 			body 		service.OpenAPIUpdateReleasePlanWithJobsArgs 				true 	"body"
