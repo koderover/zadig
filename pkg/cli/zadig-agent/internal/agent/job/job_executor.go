@@ -457,34 +457,50 @@ func (e *JobExecutor) downloadJobFiles() error {
 
 // downloadSingleFile downloads a single file and updates the environment variable
 func (e *JobExecutor) downloadSingleFile(fileInfo *jobctl.JobFileInfo) error {
-	var targetPath string
-
-	if fileInfo.FilePath != "" {
-		// Use the specified file path from fileInfo
-		if filepath.IsAbs(fileInfo.FilePath) {
-			targetPath = filepath.Join(fileInfo.FilePath, fileInfo.FileName)
-		} else {
-			// Make relative paths relative to the workspace
-			targetPath = filepath.Join(e.Dirs.Workspace, fileInfo.FilePath, fileInfo.FileName)
-		}
-	} else {
-		// If no path specified, use filename in workspace root
-		filename := fileInfo.FileName
-		if filename == "" {
-			filename = fileInfo.EnvKey // Fallback to environment key
-		}
-		targetPath = filepath.Join(e.Dirs.Workspace, filename)
+	// Compute filename as the last segment of the provided path, and targetDir as the path without that segment.
+	// Validate and normalize similarly to controller logic, preventing workspace escapes for relative inputs.
+	mp := strings.TrimSpace(fileInfo.FilePath)
+	if mp == "" {
+		return fmt.Errorf("file env %s has empty path", fileInfo.EnvKey)
 	}
+
+	cleanMP := filepath.Clean(mp)
+	fileName := filepath.Base(cleanMP)
+	dirComponent := filepath.Dir(cleanMP)
+
+	// Handle degenerate cases where Base returns "." or root
+	if fileName == "." || fileName == string(os.PathSeparator) || fileName == "" {
+		// Fallback to provided names
+		if fileInfo.FileName != "" {
+			fileName = fileInfo.FileName
+		} else {
+			fileName = fileInfo.EnvKey
+		}
+		// In this case, treat the entire cleanMP as the directory component
+		dirComponent = cleanMP
+	}
+
+	var targetDir string
+	if filepath.IsAbs(cleanMP) {
+		targetDir = filepath.Clean(dirComponent)
+	} else {
+		targetDir = filepath.Clean(filepath.Join(e.Dirs.Workspace, dirComponent))
+		// Ensure the cleaned path is still within the workspace
+		ws := filepath.Clean(e.Dirs.Workspace)
+		wsPrefix := ws
+		if !strings.HasSuffix(wsPrefix, string(os.PathSeparator)) {
+			wsPrefix = wsPrefix + string(os.PathSeparator)
+		}
+		if targetDir != ws && !strings.HasPrefix(targetDir, wsPrefix) {
+			return fmt.Errorf("relative path for %s escapes workspace: %s", fileInfo.EnvKey, targetDir)
+		}
+	}
+
+	targetPath := filepath.Join(targetDir, fileName)
 
 	log.Infof("Downloading file %s (ID: %s) to %s", fileInfo.FileName, fileInfo.FileID, targetPath)
 
-	// Download the file using the network client
-	// Pass the directory and filename separately (network client will create the directory)
-	targetDir := filepath.Dir(targetPath)
-	fileName := filepath.Base(targetPath)
-
-	err := e.Client.DownloadFile(fileInfo.FileID, fileName, targetDir)
-	if err != nil {
+	if err := e.Client.DownloadFile(fileInfo.FileID, fileName, targetDir); err != nil {
 		return fmt.Errorf("failed to download file %s: %v", fileInfo.FileName, err)
 	}
 

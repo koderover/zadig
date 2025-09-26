@@ -24,6 +24,8 @@ import (
 	"io"
 	"net/url"
 	"os"
+	"path"
+	"path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -338,7 +340,10 @@ func (c *FreestyleJobCtl) checkAndPrepareFileTypes(ctx context.Context) error {
 	}
 
 	// Analyze file environment variables and group by mount paths
-	mountPaths := c.analyzeFileMountPaths()
+	mountPaths, err := c.analyzeFileMountPaths()
+	if err != nil {
+		return err
+	}
 	if len(mountPaths) == 0 {
 		return nil
 	}
@@ -359,27 +364,44 @@ func (c *FreestyleJobCtl) checkAndPrepareFileTypes(ctx context.Context) error {
 }
 
 // analyzeFileMountPaths analyzes file environment variables and returns optimized mount paths
-// Handles parent-child relationships by mounting only parent paths when possible
+// - If path is absolute, use it
+// - If path is relative, calculate final path relative to /workspace
+// - If path is empty, return error
 // Returns a map of mountPath -> list of file environment variables for that path
-func (c *FreestyleJobCtl) analyzeFileMountPaths() map[string][]*commonmodels.KeyVal {
+func (c *FreestyleJobCtl) analyzeFileMountPaths() (map[string][]*commonmodels.KeyVal, error) {
 	// First, collect all file paths and normalize them
 	allPaths := make(map[string][]*commonmodels.KeyVal)
 
 	for _, env := range c.jobTaskSpec.Properties.Envs {
 		if env.Type == commonmodels.FileType && env.FileID != "" {
-			mountPath := env.FilePath
-			if mountPath == "" {
-				// Default to /zadig_files if no path specified
-				mountPath = "/zadig_files"
+			mp := strings.TrimSpace(env.FilePath)
+			if mp == "" {
+				return nil, fmt.Errorf("file env %s has empty path", env.Key)
 			}
-			// Ensure mount path starts with /
+
+			var mountPath string
+			if path.IsAbs(mp) {
+				mountPath = mp
+			} else {
+				// relative path -> under /workspace
+				mountPath = path.Join("/workspace", mp)
+			}
+
+			// Clean the path to resolve '.' and '..'
+			mountPath = path.Clean(mountPath)
+			// Ensure absolute after clean
 			if !strings.HasPrefix(mountPath, "/") {
 				mountPath = "/" + mountPath
 			}
-			// Clean the path to avoid duplicates like /path and /path/
-			mountPath = strings.TrimSuffix(mountPath, "/")
-			if mountPath == "" {
-				mountPath = "/"
+			// For relative inputs, prevent escaping '/workspace' via '..'
+			if !path.IsAbs(mp) {
+				if mountPath != "/workspace" && !strings.HasPrefix(mountPath, "/workspace/") {
+					return nil, fmt.Errorf("relative path for %s escapes /workspace: %s", env.Key, mountPath)
+				}
+			}
+			// Special-case: clean may turn '/' + '' into '/', keep as-is; otherwise remove trailing '/'
+			if mountPath != "/" {
+				mountPath = strings.TrimSuffix(mountPath, "/")
 			}
 
 			allPaths[mountPath] = append(allPaths[mountPath], env)
@@ -387,7 +409,7 @@ func (c *FreestyleJobCtl) analyzeFileMountPaths() map[string][]*commonmodels.Key
 	}
 
 	if len(allPaths) == 0 {
-		return allPaths
+		return allPaths, nil
 	}
 
 	// Optimize by finding parent-child relationships
@@ -407,7 +429,7 @@ func (c *FreestyleJobCtl) analyzeFileMountPaths() map[string][]*commonmodels.Key
 		return paths
 	}())
 
-	return optimizedPaths
+	return optimizedPaths, nil
 }
 
 // optimizeMountPaths optimizes mount paths by consolidating child paths under parent paths
@@ -569,6 +591,23 @@ func (c *FreestyleJobCtl) createFilesPVCs(ctx context.Context, mountPathFiles ma
 func (c *FreestyleJobCtl) generatePVCName(mountPath string) string {
 	// Create a safe identifier from the mount path
 	pathIdentifier := strings.ReplaceAll(mountPath, "/", "-")
+	// Replace underscores and any invalid characters with dashes to satisfy DNS-1123 label rules
+	// Allowed: [a-z0-9]([-a-z0-9]*[a-z0-9])?
+	// Normalize to lowercase first
+	pathIdentifier = strings.ToLower(pathIdentifier)
+	// Replace underscores with dashes
+	pathIdentifier = strings.ReplaceAll(pathIdentifier, "_", "-")
+	// Replace any character not in [a-z0-9-] with '-'
+	clean := make([]rune, 0, len(pathIdentifier))
+	for _, r := range pathIdentifier {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-' {
+			clean = append(clean, r)
+		} else {
+			clean = append(clean, '-')
+		}
+	}
+	pathIdentifier = string(clean)
+	// Trim leading/trailing '-'
 	pathIdentifier = strings.Trim(pathIdentifier, "-")
 	if pathIdentifier == "" {
 		pathIdentifier = "root"
@@ -580,8 +619,19 @@ func (c *FreestyleJobCtl) generatePVCName(mountPath string) string {
 
 // sanitizeLabelValue sanitizes a string to be a valid Kubernetes label value
 func (c *FreestyleJobCtl) sanitizeLabelValue(value string) string {
-	// Replace invalid characters with dashes
-	sanitized := strings.ReplaceAll(value, "/", "-")
+	sanitized := strings.ToLower(value)
+	sanitized = strings.ReplaceAll(sanitized, "/", "-")
+	sanitized = strings.ReplaceAll(sanitized, "_", "-")
+	// Replace any character not in [a-z0-9-] with '-'
+	clean := make([]rune, 0, len(sanitized))
+	for _, r := range sanitized {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-' {
+			clean = append(clean, r)
+		} else {
+			clean = append(clean, '-')
+		}
+	}
+	sanitized = string(clean)
 	sanitized = strings.Trim(sanitized, "-")
 	if sanitized == "" {
 		sanitized = "root"
@@ -608,13 +658,6 @@ func (c *FreestyleJobCtl) copyFilesToPVCs(ctx context.Context, mountPathFiles ma
 		namespace = setting.AttachedClusterNamespace
 	}
 
-	// High-level progress log
-	totalFiles := 0
-	for _, files := range mountPathFiles {
-		totalFiles += len(files)
-	}
-	c.logger.Infof("Starting file copy: %d mount paths, %d files total (job=%s, namespace=%s)", len(mountPathFiles), totalFiles, c.job.K8sJobName, namespace)
-
 	helperPodBaseName := fmt.Sprintf("zadig-file-helper-%s", c.job.K8sJobName)
 	helperPodName := util.TruncateName(helperPodBaseName, 63)
 	if err := c.createHelperPodWithMultiplePVCs(ctx, crClient, namespace, helperPodName); err != nil {
@@ -628,17 +671,14 @@ func (c *FreestyleJobCtl) copyFilesToPVCs(ctx context.Context, mountPathFiles ma
 		}
 	}()
 
-	c.logger.Infof("Waiting for helper pod %s to be ready in namespace %s", helperPodName, namespace)
 	if err := c.waitForPodReady(ctx, kubeClient, namespace, helperPodName); err != nil {
 		return fmt.Errorf("failed to wait for helper pod: %v", err)
 	}
 
 	// Copy files to their respective mount paths
 	for mountPath, files := range mountPathFiles {
-		c.logger.Infof("Begin copying %d files into mount path %s", len(files), mountPath)
 		for _, env := range files {
 			targetPath := c.parseTargetPath(env.FilePath, mountPath)
-			c.logger.Infof("Copying file env=%s (id=%s) to %s", env.Key, env.FileID, targetPath)
 			if err := c.copyFileToHelper(ctx, kubeClient, namespace, helperPodName, env.FileID, env.Key, targetPath); err != nil {
 				c.logger.Errorf("Failed to copy file %s to %s: %v", env.Key, targetPath, err)
 				return fmt.Errorf("failed to copy file %s to %s: %v", env.Key, targetPath, err)
@@ -768,8 +808,6 @@ func (c *FreestyleJobCtl) copyFileToHelper(ctx context.Context, client *kubernet
 		return fmt.Errorf("file not ready, status: %s", temporaryFile.Status)
 	}
 
-	c.logger.Infof("Resolved temporary file: name=%s storageID=%s targetMount=%s", temporaryFile.FileName, temporaryFile.StorageID, mountPath)
-
 	s3Storage, err := mongodb.NewS3StorageColl().Find(temporaryFile.StorageID)
 	if err != nil {
 		return fmt.Errorf("failed to get default s3 storage: %v", err)
@@ -781,7 +819,6 @@ func (c *FreestyleJobCtl) copyFileToHelper(ctx context.Context, client *kubernet
 	}
 
 	localTempFile := fmt.Sprintf("/tmp/%s_%s", envKey, temporaryFile.FileName)
-	c.logger.Infof("Downloading from object storage: bucket=%s path=%s -> %s", s3Storage.Bucket, temporaryFile.FilePath, localTempFile)
 	if err := s3Client.Download(s3Storage.Bucket, temporaryFile.FilePath, localTempFile); err != nil {
 		return fmt.Errorf("failed to download file from s3: %v", err)
 	}
@@ -793,8 +830,7 @@ func (c *FreestyleJobCtl) copyFileToHelper(ctx context.Context, client *kubernet
 
 	retryCount := 3
 	for i := 0; i < retryCount; i++ {
-		c.logger.Infof("Uploading to cluster (attempt %d/%d): pod=%s path=%s/%s", i+1, retryCount, podName, mountPath, temporaryFile.FileName)
-		if err := c.copyFileToCluster(ctx, client, namespace, podName, localTempFile, temporaryFile.FileName, mountPath); err != nil {
+		if err := c.copyFileToCluster(ctx, client, namespace, podName, localTempFile, mountPath); err != nil {
 			c.logger.Warnf("Failed to copy file (attempt %d/%d): %v", i+1, retryCount, err)
 			if i < retryCount-1 {
 				// Exponential backoff
@@ -803,16 +839,13 @@ func (c *FreestyleJobCtl) copyFileToHelper(ctx context.Context, client *kubernet
 			}
 			return fmt.Errorf("failed to copy file after %d attempts: %v", retryCount, err)
 		}
-		c.logger.Infof("Successfully copied file %s to pod %s at %s", temporaryFile.FileName, podName, mountPath)
 		return nil
 	}
 
 	return fmt.Errorf("failed to copy file %s after %d attempts", temporaryFile.FileName, retryCount)
 }
 
-func (c *FreestyleJobCtl) copyFileToCluster(ctx context.Context, client *kubernetes.Clientset, namespace, podName, localFilePath, targetFileName, mountPath string) error {
-	// Step 1: ensure target directory exists
-	c.logger.Infof("Ensuring target directory exists in pod: pod=%s dir=%s", podName, mountPath)
+func (c *FreestyleJobCtl) copyFileToCluster(ctx context.Context, client *kubernetes.Clientset, namespace, podName, localFilePath, mountPath string) error {
 	mkdirReq := client.CoreV1().RESTClient().Post().
 		Resource("pods").
 		Name(podName).
@@ -832,7 +865,6 @@ func (c *FreestyleJobCtl) copyFileToCluster(ctx context.Context, client *kuberne
 	if err != nil {
 		return fmt.Errorf("failed to create SPDY executor for mkdir: %v", err)
 	}
-	c.logger.Infof("Starting mkdir exec in helper pod: pod=%s dir=%s", podName, mountPath)
 	var mkStdout, mkStderr bytes.Buffer
 	doneCh := make(chan error, 1)
 	go func() {
@@ -843,12 +875,9 @@ func (c *FreestyleJobCtl) copyFileToCluster(ctx context.Context, client *kuberne
 		if err != nil {
 			return fmt.Errorf("failed to create target dir in pod: %v, stderr: %s", err, mkStderr.String())
 		}
-		c.logger.Infof("mkdir exec completed: pod=%s dir=%s stdout_len=%d stderr_len=%d", podName, mountPath, mkStdout.Len(), mkStderr.Len())
 	case <-time.After(2 * time.Minute):
-		c.logger.Warnf("mkdir exec timed out: pod=%s dir=%s", podName, mountPath)
 		return fmt.Errorf("mkdir exec timed out: pod=%s dir=%s", podName, mountPath)
 	}
-	c.logger.Infof("Target directory ready: pod=%s dir=%s", podName, mountPath)
 
 	// Step 2: prepare tar stream from the local file
 	pr, pw := io.Pipe()
@@ -870,10 +899,8 @@ func (c *FreestyleJobCtl) copyFileToCluster(ctx context.Context, client *kuberne
 			return
 		}
 
-		c.logger.Infof("Starting tar stream: file=%s size=%dB -> %s/%s", fi.Name(), fi.Size(), mountPath, targetFileName)
-
 		hdr := &tar.Header{
-			Name: targetFileName,
+			Name: filepath.Base(localFilePath),
 			Mode: 0644,
 			Size: fi.Size(),
 		}
@@ -894,7 +921,6 @@ func (c *FreestyleJobCtl) copyFileToCluster(ctx context.Context, client *kuberne
 				}
 				written += int64(n)
 				if written-lastLog >= logEveryBytes {
-					c.logger.Infof("Tar stream progress: %d/%d bytes to %s/%s", written, fi.Size(), mountPath, targetFileName)
 					lastLog = written
 				}
 			}
@@ -906,11 +932,9 @@ func (c *FreestyleJobCtl) copyFileToCluster(ctx context.Context, client *kuberne
 				return
 			}
 		}
-		c.logger.Infof("Finished tar stream input: %d/%d bytes to %s/%s", written, fi.Size(), mountPath, targetFileName)
 	}()
 
 	// Step 3: untar stream in the helper pod at the mount path
-	c.logger.Infof("Starting untar exec in helper pod: pod=%s target=%s/%s", podName, mountPath, targetFileName)
 	untarReq := client.CoreV1().RESTClient().Post().
 		Resource("pods").
 		Name(podName).
@@ -938,8 +962,6 @@ func (c *FreestyleJobCtl) copyFileToCluster(ctx context.Context, client *kuberne
 		return fmt.Errorf("failed to untar in pod: %v, stderr: %s", err, stderr.String())
 	}
 
-	c.logger.Infof("Untar exec completed: pod=%s target=%s/%s stdout_len=%d stderr_len=%d", podName, mountPath, targetFileName, stdout.Len(), stderr.Len())
-	c.logger.Infof("Successfully copied file %s to pod %s via tar stream", targetFileName, podName)
 	return nil
 }
 
