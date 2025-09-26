@@ -607,32 +607,43 @@ func (c *FreestyleJobCtl) copyFilesToPVCs(ctx context.Context, mountPathFiles ma
 		namespace = setting.AttachedClusterNamespace
 	}
 
+	// High-level progress log
+	totalFiles := 0
+	for _, files := range mountPathFiles {
+		totalFiles += len(files)
+	}
+	c.logger.Infof("Starting file copy: %d mount paths, %d files total (job=%s, namespace=%s)", len(mountPathFiles), totalFiles, c.job.K8sJobName, namespace)
+
 	helperPodBaseName := fmt.Sprintf("zadig-file-helper-%s", c.job.K8sJobName)
 	helperPodName := util.TruncateName(helperPodBaseName, 63)
 	if err := c.createHelperPodWithMultiplePVCs(ctx, crClient, namespace, helperPodName); err != nil {
 		return fmt.Errorf("failed to create helper pod: %v", err)
 	}
 
+	// Ensure the helper pod is cleaned up regardless of success or failure
+	defer func() {
+		if err := c.cleanupHelperPod(context.Background(), crClient, namespace, helperPodName); err != nil {
+			c.logger.Errorf("Failed to cleanup helper pod: %v", err)
+		}
+	}()
+
+	c.logger.Infof("Waiting for helper pod %s to be ready in namespace %s", helperPodName, namespace)
 	if err := c.waitForPodReady(ctx, kubeClient, namespace, helperPodName); err != nil {
 		return fmt.Errorf("failed to wait for helper pod: %v", err)
 	}
 
 	// Copy files to their respective mount paths
 	for mountPath, files := range mountPathFiles {
+		c.logger.Infof("Begin copying %d files into mount path %s", len(files), mountPath)
 		for _, env := range files {
 			targetPath := c.parseTargetPath(env.FilePath, mountPath)
+			c.logger.Infof("Copying file env=%s (id=%s) to %s", env.Key, env.FileID, targetPath)
 			if err := c.copyFileToHelper(ctx, kubeClient, namespace, helperPodName, env.FileID, env.Key, targetPath); err != nil {
 				c.logger.Errorf("Failed to copy file %s to %s: %v", env.Key, targetPath, err)
 				return fmt.Errorf("failed to copy file %s to %s: %v", env.Key, targetPath, err)
 			}
 		}
 	}
-
-	go func() {
-		if err := c.cleanupHelperPod(context.Background(), crClient, namespace, helperPodName); err != nil {
-			c.logger.Errorf("Failed to cleanup helper pod: %v", err)
-		}
-	}()
 
 	return nil
 }
@@ -756,6 +767,8 @@ func (c *FreestyleJobCtl) copyFileToHelper(ctx context.Context, client *kubernet
 		return fmt.Errorf("file not ready, status: %s", temporaryFile.Status)
 	}
 
+	c.logger.Infof("Resolved temporary file: name=%s storageID=%s targetMount=%s", temporaryFile.FileName, temporaryFile.StorageID, mountPath)
+
 	s3Storage, err := mongodb.NewS3StorageColl().Find(temporaryFile.StorageID)
 	if err != nil {
 		return fmt.Errorf("failed to get default s3 storage: %v", err)
@@ -767,6 +780,7 @@ func (c *FreestyleJobCtl) copyFileToHelper(ctx context.Context, client *kubernet
 	}
 
 	localTempFile := fmt.Sprintf("/tmp/%s_%s", envKey, temporaryFile.FileName)
+	c.logger.Infof("Downloading from object storage: bucket=%s path=%s -> %s", s3Storage.Bucket, temporaryFile.FilePath, localTempFile)
 	if err := s3Client.Download(s3Storage.Bucket, temporaryFile.FilePath, localTempFile); err != nil {
 		return fmt.Errorf("failed to download file from s3: %v", err)
 	}
@@ -778,6 +792,7 @@ func (c *FreestyleJobCtl) copyFileToHelper(ctx context.Context, client *kubernet
 
 	retryCount := 3
 	for i := 0; i < retryCount; i++ {
+		c.logger.Infof("Uploading to cluster (attempt %d/%d): pod=%s path=%s/%s", i+1, retryCount, podName, mountPath, temporaryFile.FileName)
 		if err := c.copyFileToCluster(ctx, client, namespace, podName, localTempFile, temporaryFile.FileName, mountPath); err != nil {
 			c.logger.Warnf("Failed to copy file (attempt %d/%d): %v", i+1, retryCount, err)
 			if i < retryCount-1 {
@@ -802,6 +817,8 @@ func (c *FreestyleJobCtl) copyFileToCluster(ctx context.Context, client *kuberne
 
 	// Ensure the target directory exists and copy the file
 	execCmd := []string{"sh", "-c", fmt.Sprintf("mkdir -p %s && cat > %s/%s", mountPath, mountPath, targetFileName)}
+
+	c.logger.Infof("Exec in helper pod to place file: mkdir -p %s && cat > %s/%s", mountPath, mountPath, targetFileName)
 
 	req := client.CoreV1().RESTClient().Post().
 		Resource("pods").
