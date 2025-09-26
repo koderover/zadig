@@ -275,55 +275,39 @@ func (j ApprovalJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, er
 
 		for i, node := range jobSpec.LarkApproval.ApprovalNodes {
 			if node.ApproveNodeType == lark.ApproveNodeTypeUser {
+				if node.Type == lark.ApproveTypeStart || node.Type == lark.ApproveTypeEnd {
+					continue
+				}
+
 				if len(node.ApproveUsers) == 0 {
 					return nil, fmt.Errorf("num of approval-node %d approver is 0", i)
 				}
 			} else if node.ApproveNodeType == lark.ApproveNodeTypeUserGroup {
-				if len(node.ApproveGroups) == 0 {
-					return nil, fmt.Errorf("num of approval-node %d approver is 0", i)
-				}
-
-				approvalUserSet := sets.NewString()
-				approvalUsers := make([]*commonmodels.LarkApprovalUser, 0)
-				for _, group := range node.ApproveGroups {
-					userGroup, err := larkservice.GetLarkUserGroup(j.jobSpec.LarkApproval.ID, group.GroupID)
-					if err != nil {
-						return nil, fmt.Errorf("failed to get lark user group: %s", err)
-					}
-
-					if userGroup.MemberUserCount > 0 {
-						userInfos, err := larkservice.GetLarkUserGroupMembersInfo(j.jobSpec.LarkApproval.ID, group.GroupID, "user", setting.LarkUserOpenID, "")
-						if err != nil {
-							return nil, fmt.Errorf("failed to get lark department user infos: %s", err)
-						}
-
-						for _, user := range userInfos {
-							if !approvalUserSet.Has(user.ID) {
-								approvalUsers = append(approvalUsers, &commonmodels.LarkApprovalUser{
-									UserInfo: *user,
-								})
-								approvalUserSet.Insert(user.ID)
-							}
-						}
-					}
-
-					if userGroup.MemberDepartmentCount > 0 {
-						userInfos, err := larkservice.GetLarkUserGroupMembersInfo(j.jobSpec.LarkApproval.ID, group.GroupID, "department", setting.LarkDepartmentID, "")
-						if err != nil {
-							return nil, fmt.Errorf("failed to get lark department user infos: %s", err)
-						}
-
-						for _, user := range userInfos {
-							if !approvalUserSet.Has(user.ID) {
-								approvalUsers = append(approvalUsers, &commonmodels.LarkApprovalUser{
-									UserInfo: *user,
-								})
-								approvalUserSet.Insert(user.ID)
-							}
-						}
+				if node.Type != lark.ApproveTypeStart && node.Type != lark.ApproveTypeEnd {
+					if len(node.ApproveGroups) == 0 {
+						return nil, fmt.Errorf("num of approval-node %d approver is 0", i)
 					}
 				}
-				node.ApproveUsers = approvalUsers
+
+				users, err := convertLarkUserGroupToUser(j.jobSpec.LarkApproval.ID, node.ApproveGroups)
+				if err != nil {
+					return nil, fmt.Errorf("failed to convert lark user group to user: %s", err)
+				}
+
+				approveUsers := make([]*commonmodels.LarkApprovalUser, 0)
+				for _, user := range users {
+					approveUsers = append(approveUsers, &commonmodels.LarkApprovalUser{
+						UserInfo: *user,
+					})
+				}
+				node.ApproveUsers = approveUsers
+
+				users, err = convertLarkUserGroupToUser(j.jobSpec.LarkApproval.ID, node.CcGroups)
+				if err != nil {
+					return nil, fmt.Errorf("failed to convert lark user group to user: %s", err)
+				}
+				node.CcUsers = users
+
 				jobSpec.LarkApproval.ApprovalNodes[i] = node
 			}
 			if !lo.Contains([]string{"AND", "OR"}, string(node.Type)) {
@@ -345,6 +329,46 @@ func (j ApprovalJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, er
 	resp = append(resp, jobTask)
 
 	return resp, nil
+}
+
+func convertLarkUserGroupToUser(larkApprovalID string, groups []*commonmodels.LarkApprovalGroup) ([]*lark.UserInfo, error) {
+	userSet := sets.NewString()
+	users := make([]*lark.UserInfo, 0)
+	for _, group := range groups {
+		userGroup, err := larkservice.GetLarkUserGroup(larkApprovalID, group.GroupID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get lark user group: %s", err)
+		}
+
+		if userGroup.MemberUserCount > 0 {
+			userInfos, err := larkservice.GetLarkUserGroupMembersInfo(larkApprovalID, group.GroupID, "user", setting.LarkUserOpenID, "")
+			if err != nil {
+				return nil, fmt.Errorf("failed to get lark department user infos: %s", err)
+			}
+
+			for _, user := range userInfos {
+				if !userSet.Has(user.ID) {
+					users = append(users, user)
+					userSet.Insert(user.ID)
+				}
+			}
+		}
+
+		if userGroup.MemberDepartmentCount > 0 {
+			userInfos, err := larkservice.GetLarkUserGroupMembersInfo(larkApprovalID, group.GroupID, "department", setting.LarkDepartmentID, "")
+			if err != nil {
+				return nil, fmt.Errorf("failed to get lark department user infos: %s", err)
+			}
+
+			for _, user := range userInfos {
+				if !userSet.Has(user.ID) {
+					users = append(users, user)
+					userSet.Insert(user.ID)
+				}
+			}
+		}
+	}
+	return users, nil
 }
 
 func (j ApprovalJobController) SetRepo(repo *types.Repository) error {

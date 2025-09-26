@@ -207,6 +207,9 @@ type LarkApproval struct {
 func (l LarkApproval) GetNodeTypeKey() string {
 	var keys []string
 	for _, node := range l.ApprovalNodes {
+		if (node.Type == lark.ApproveTypeStart || node.Type == lark.ApproveTypeEnd) && len(node.CcUsers) == 0 && len(node.CcGroups) == 0 {
+			continue
+		}
 		keys = append(keys, string(node.Type))
 	}
 	return strings.Join(keys, "-")
@@ -215,15 +218,27 @@ func (l LarkApproval) GetNodeTypeKey() string {
 // GetLarkApprovalNode convert approval node to lark sdk approval node
 func (l LarkApproval) GetLarkApprovalNode() (resp []*lark.ApprovalNode) {
 	for _, node := range l.ApprovalNodes {
-		resp = append(resp, &lark.ApprovalNode{
-			ApproverIDList: func() (re []string) {
-				for _, user := range node.ApproveUsers {
-					re = append(re, user.ID)
-				}
-				return
-			}(),
-			Type: node.Type,
-		})
+		if node.Type == lark.ApproveTypeStart || node.Type == lark.ApproveTypeEnd {
+			resp = append(resp, &lark.ApprovalNode{
+				CcerIDList: func() (re []string) {
+					for _, user := range node.CcUsers {
+						re = append(re, user.ID)
+					}
+					return
+				}(),
+				Type: node.Type,
+			})
+		} else {
+			resp = append(resp, &lark.ApprovalNode{
+				ApproverIDList: func() (re []string) {
+					for _, user := range node.ApproveUsers {
+						re = append(re, user.ID)
+					}
+					return
+				}(),
+				Type: node.Type,
+			})
+		}
 	}
 	return
 }
@@ -231,8 +246,10 @@ func (l LarkApproval) GetLarkApprovalNode() (resp []*lark.ApprovalNode) {
 type LarkApprovalNode struct {
 	Type            lark.ApproveType      `bson:"type"                        yaml:"type"                       json:"type"`
 	ApproveNodeType lark.ApproveNodeType  `bson:"approve_node_type"           yaml:"approve_node_type"          json:"approve_node_type"`
-	ApproveUsers    []*LarkApprovalUser   `bson:"approve_users"               yaml:"approve_users"              json:"approve_users"`
 	ApproveGroups   []*LarkApprovalGroup  `bson:"approve_groups"              yaml:"approve_groups"             json:"approve_groups"`
+	ApproveUsers    []*LarkApprovalUser   `bson:"approve_users"               yaml:"approve_users"              json:"approve_users"`
+	CcUsers         []*lark.UserInfo      `bson:"cc_users"                    yaml:"cc_users"                   json:"cc_users"`
+	CcGroups        []*LarkApprovalGroup  `bson:"cc_groups"                   yaml:"cc_groups"                  json:"cc_groups"`
 	RejectOrApprove config.ApprovalStatus `bson:"reject_or_approve"           yaml:"-"                          json:"reject_or_approve"`
 }
 
