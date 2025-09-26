@@ -812,6 +812,7 @@ func (c *FreestyleJobCtl) copyFileToHelper(ctx context.Context, client *kubernet
 
 func (c *FreestyleJobCtl) copyFileToCluster(ctx context.Context, client *kubernetes.Clientset, namespace, podName, localFilePath, targetFileName, mountPath string) error {
 	// Step 1: ensure target directory exists
+	c.logger.Infof("Ensuring target directory exists in pod: pod=%s dir=%s", podName, mountPath)
 	mkdirReq := client.CoreV1().RESTClient().Post().
 		Resource("pods").
 		Name(podName).
@@ -834,6 +835,7 @@ func (c *FreestyleJobCtl) copyFileToCluster(ctx context.Context, client *kuberne
 	if err := mkdirExecutor.Stream(remotecommand.StreamOptions{}); err != nil {
 		return fmt.Errorf("failed to create target dir in pod: %v", err)
 	}
+	c.logger.Infof("Target directory ready: pod=%s dir=%s", podName, mountPath)
 
 	// Step 2: prepare tar stream from the local file
 	pr, pw := io.Pipe()
@@ -855,6 +857,8 @@ func (c *FreestyleJobCtl) copyFileToCluster(ctx context.Context, client *kuberne
 			return
 		}
 
+		c.logger.Infof("Starting tar stream: file=%s size=%dB -> %s/%s", fi.Name(), fi.Size(), mountPath, targetFileName)
+
 		hdr := &tar.Header{
 			Name: targetFileName,
 			Mode: 0644,
@@ -864,14 +868,36 @@ func (c *FreestyleJobCtl) copyFileToCluster(ctx context.Context, client *kuberne
 			_ = pw.CloseWithError(fmt.Errorf("write tar header failed: %v", err))
 			return
 		}
-		if _, err := io.Copy(tw, f); err != nil {
-			_ = pw.CloseWithError(fmt.Errorf("write tar body failed: %v", err))
-			return
+		const logEveryBytes = 8 * 1024 * 1024 // 8MB
+		buf := make([]byte, 2*1024*1024)      // 2MB chunks
+		var written int64
+		var lastLog int64
+		for {
+			n, rerr := f.Read(buf)
+			if n > 0 {
+				if _, werr := tw.Write(buf[:n]); werr != nil {
+					_ = pw.CloseWithError(fmt.Errorf("write tar body failed: %v", werr))
+					return
+				}
+				written += int64(n)
+				if written-lastLog >= logEveryBytes {
+					c.logger.Infof("Tar stream progress: %d/%d bytes to %s/%s", written, fi.Size(), mountPath, targetFileName)
+					lastLog = written
+				}
+			}
+			if rerr == io.EOF {
+				break
+			}
+			if rerr != nil {
+				_ = pw.CloseWithError(fmt.Errorf("read local file failed: %v", rerr))
+				return
+			}
 		}
+		c.logger.Infof("Finished tar stream input: %d/%d bytes to %s/%s", written, fi.Size(), mountPath, targetFileName)
 	}()
 
 	// Step 3: untar stream in the helper pod at the mount path
-	c.logger.Infof("Exec in helper pod to place file via tar: %s/%s", mountPath, targetFileName)
+	c.logger.Infof("Starting untar exec in helper pod: pod=%s target=%s/%s", podName, mountPath, targetFileName)
 	untarReq := client.CoreV1().RESTClient().Post().
 		Resource("pods").
 		Name(podName).
@@ -898,6 +924,7 @@ func (c *FreestyleJobCtl) copyFileToCluster(ctx context.Context, client *kuberne
 		return fmt.Errorf("failed to untar in pod: %v, stderr: %s", err, stderr.String())
 	}
 
+	c.logger.Infof("Untar exec completed: pod=%s target=%s/%s stdout_len=%d stderr_len=%d", podName, mountPath, targetFileName, stdout.Len(), stderr.Len())
 	c.logger.Infof("Successfully copied file %s to pod %s via tar stream", targetFileName, podName)
 	return nil
 }
