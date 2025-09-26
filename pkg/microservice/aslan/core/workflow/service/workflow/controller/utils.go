@@ -20,6 +20,8 @@ func renderMultiLineString(body string, inputs []*commonmodels.Param) string {
 		var inputValue string
 		if input.ParamsType == string(commonmodels.MultiSelectType) {
 			inputValue = strings.Join(input.ChoiceValue, ",")
+		} else if input.ParamsType == string(commonmodels.FileType) {
+			inputValue = input.GetFileValue()
 		} else {
 			inputValue = input.Value
 		}

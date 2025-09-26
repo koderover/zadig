@@ -102,6 +102,8 @@ func applyKeyVals(base, input commonmodels.RuntimeKeyValList, useInputKVSource b
 			FunctionReference: baseKV.FunctionReference,
 			CallFunction:      baseKV.CallFunction,
 			Script:            baseKV.Script,
+			FileID:            baseKV.FileID,
+			FilePath:          baseKV.FilePath,
 		}
 		item := &commonmodels.RuntimeKeyVal{
 			KeyVal: newKV,
@@ -123,6 +125,9 @@ func applyKeyVals(base, input commonmodels.RuntimeKeyValList, useInputKVSource b
 					} else {
 						item.Value = inputKV.Value
 					}
+				} else if item.Type == commonmodels.FileType {
+					item.FileID = inputKV.FileID
+					item.FilePath = inputKV.FilePath
 				} else {
 					// always use origin credential config.
 					item.Value = inputKV.Value
@@ -304,6 +309,8 @@ func mergeKeyVals(source1, source2 []*commonmodels.KeyVal) []*commonmodels.KeyVa
 			FunctionReference: src1KV.FunctionReference,
 			CallFunction:      src1KV.CallFunction,
 			Script:            src1KV.Script,
+			FileID:            src1KV.FileID,
+			FilePath:          src1KV.FilePath,
 		}
 		existingKVMap[src1KV.Key] = src1KV
 		resp = append(resp, item)
@@ -325,6 +332,8 @@ func mergeKeyVals(source1, source2 []*commonmodels.KeyVal) []*commonmodels.KeyVa
 			FunctionReference: src2KV.FunctionReference,
 			CallFunction:      src2KV.CallFunction,
 			Script:            src2KV.Script,
+			FileID:            src2KV.FileID,
+			FilePath:          src2KV.FilePath,
 		}
 		existingKVMap[src2KV.Key] = src2KV
 		resp = append(resp, item)
@@ -387,12 +396,12 @@ func modelToS3StepSpec(modelS3 *commonmodels.S3Storage) *step.S3 {
 	return resp
 }
 
-// generateKeyValsFromWorkflowParam generates kv from workflow parameters, ditching all parameters of repo type
+// generateKeyValsFromWorkflowParam generates kv from workflow parameters, ditching all parameters of repo type and file type
 func generateKeyValsFromWorkflowParam(params []*commonmodels.Param) []*commonmodels.KeyVal {
 	resp := make([]*commonmodels.KeyVal, 0)
 
 	for _, param := range params {
-		if param.ParamsType == "repo" {
+		if param.ParamsType == "repo" || param.ParamsType == "file" {
 			continue
 		}
 
@@ -573,10 +582,15 @@ func replaceServiceAndModules(envs commonmodels.KeyValList, serviceName string, 
 
 func renderString(value, template string, inputs []*commonmodels.Param) string {
 	for _, input := range inputs {
+		var inputValue string
 		if input.ParamsType == string(commonmodels.MultiSelectType) {
-			input.Value = strings.Join(input.ChoiceValue, ",")
+			inputValue = strings.Join(input.ChoiceValue, ",")
+		} else if input.ParamsType == string(commonmodels.FileType) {
+			inputValue = input.GetFileValue()
+		} else {
+			inputValue = input.Value
 		}
-		value = strings.ReplaceAll(value, fmt.Sprintf(template, input.Name), input.Value)
+		value = strings.ReplaceAll(value, fmt.Sprintf(template, input.Name), inputValue)
 	}
 	return value
 }

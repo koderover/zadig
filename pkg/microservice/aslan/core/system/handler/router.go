@@ -524,6 +524,20 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		sae.DELETE("/:id", DeleteSAE)
 		sae.POST("/validate", ValidateSAE)
 	}
+
+	// ---------------------------------------------------------------------------------------
+	// temporary file upload API (multi-part upload for large files)
+	// ---------------------------------------------------------------------------------------
+	tempFile := router.Group("tempFile")
+	{
+		tempFile.POST("/initiate", InitiateUpload)
+		tempFile.POST("/upload/:sessionId/:partNumber", UploadPart)
+		tempFile.POST("/complete/:sessionId", CompleteUpload)
+		tempFile.GET("/status/:sessionId", GetUploadStatus)
+		tempFile.GET("/fileInfo/:fileId", GetTemporaryFileInfo)
+		tempFile.GET("/download/:fileId", DownloadTemporaryFile)
+		tempFile.POST("/cleanup", CleanupExpiredUploads)
+	}
 }
 
 type OpenAPIRouter struct{}

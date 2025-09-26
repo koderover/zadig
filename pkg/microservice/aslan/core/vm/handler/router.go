@@ -38,5 +38,6 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		vmAgent.POST("/heartbeat", HeartbeatAgent)
 		vmAgent.GET("/job/request", PollingAgentJob)
 		vmAgent.POST("/job/report", ReportAgentJob)
+		vmAgent.GET("/tempFile/download/:fileId", DownloadTemporaryFile)
 	}
 }

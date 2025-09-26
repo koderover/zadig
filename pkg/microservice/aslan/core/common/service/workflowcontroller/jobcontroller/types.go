@@ -48,6 +48,8 @@ type JobContext struct {
 	Outputs []string                 `yaml:"outputs"`
 	// used to vm job
 	Cache *JobCacheConfig `yaml:"cache"`
+	// Files to be downloaded for VM jobs, DO NOT USE in k8s infrastructure
+	Files []*JobFileInfo `yaml:"files"`
 }
 
 func (j *JobContext) Decode(job string) error {
@@ -61,6 +63,18 @@ type JobCacheConfig struct {
 	CacheEnable  bool               `json:"cache_enable"`
 	CacheDirType types.CacheDirType `json:"cache_dir_type"`
 	CacheUserDir string             `json:"cache_user_dir"`
+}
+
+// JobFileInfo contains information about files that need to be downloaded for VM jobs
+type JobFileInfo struct {
+	// EnvKey is the environment variable name that will contain the file path
+	EnvKey string `yaml:"env_key"`
+	// FileID is the temporary file ID for downloading
+	FileID string `yaml:"file_id"`
+	// FileName is the actual name of the file
+	FileName string `yaml:"file_name"`
+	// FilePath is the target path where the file should be placed
+	FilePath string `yaml:"file_path"`
 }
 
 type EnvVar []string
