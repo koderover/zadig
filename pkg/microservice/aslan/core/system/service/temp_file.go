@@ -45,7 +45,8 @@ func init() {
 }
 
 const (
-	tempFilePartSize = 5 * 1024 * 1024 // 5MB per part
+	tempFilePartSize = 5 * 1024 * 1024   // 5MB per part
+	tempFileMaxSize  = 500 * 1024 * 1024 // 500MB
 )
 
 // InitiateMultipartUpload starts a new multipart upload session
@@ -60,6 +61,10 @@ func InitiateMultipartUpload(req *models.InitiateUploadRequest, log *zap.Sugared
 	expectedParts := int((req.FileSize + tempFilePartSize - 1) / tempFilePartSize)
 	if req.TotalParts != expectedParts {
 		return nil, e.ErrInvalidParam.AddDesc(fmt.Sprintf("total parts mismatch, expected %d, got %d", expectedParts, req.TotalParts))
+	}
+
+	if req.FileSize > tempFileMaxSize {
+		return nil, e.ErrInvalidParam.AddDesc(fmt.Sprintf("file size exceeds the maximum allowed size of %dMB", tempFileMaxSize/1024/1024))
 	}
 
 	now := time.Now().Unix()

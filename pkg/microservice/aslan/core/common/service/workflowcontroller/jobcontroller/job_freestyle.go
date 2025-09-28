@@ -427,11 +427,18 @@ func (c *FreestyleJobCtl) analyzeFileMountPaths() (map[string][]*commonmodels.Ke
 			mountPath := path.Dir(finalFilePath)
 
 			// Create file path info to store mapping without modifying env.FilePath
+			// Calculate the relative path from mount point to the final file location
+			relativePath := strings.TrimPrefix(finalFilePath, mountPath)
+			relativePath = strings.TrimPrefix(relativePath, "/") // Remove leading slash
+			if relativePath == "" {
+				relativePath = path.Base(finalFilePath) // Fallback for edge cases
+			}
+
 			fileInfo := &FilePathInfo{
 				UserFilePath:  filePath, // Keep original user input
 				FinalFilePath: finalFilePath,
 				MountPath:     mountPath,
-				RelativePath:  path.Base(finalFilePath),
+				RelativePath:  relativePath,
 			}
 
 			// Handle root directory files - move them to /uploaded_root_files instead of root
@@ -732,8 +739,15 @@ func (c *FreestyleJobCtl) copyFilesToPVCs(ctx context.Context, mountPathFiles ma
 	// Copy files to their respective mount paths
 	for mountPath, files := range mountPathFiles {
 		for _, env := range files {
-			// Determine the target filename based on the environment variable path
-			targetFilename := path.Base(env.FilePath)
+			// Get the file mapping to determine the correct relative path
+			fileInfo, exists := c.filePathMapping[env.Key]
+			if !exists {
+				c.logger.Errorf("No file mapping found for env %s", env.Key)
+				return fmt.Errorf("no file mapping found for env %s", env.Key)
+			}
+
+			// Use the relative path as the tar filename to preserve directory structure
+			targetFilename := fileInfo.RelativePath
 			c.logger.Infof("Processing file %s: env.FilePath=%s, targetFilename=%s, mountPath=%s",
 				env.Key, env.FilePath, targetFilename, mountPath)
 

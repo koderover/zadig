@@ -451,7 +451,7 @@ func (e *JobExecutor) downloadJobFiles() error {
 		}
 	}
 
-	log.Infof("Successfully downloaded all %d file(s) for job %s", len(e.JobCtx.Files), e.Job.JobName)
+	e.Logger.Infof("Successfully downloaded all %d file(s) for job %s", len(e.JobCtx.Files), e.Job.JobName)
 	return nil
 }
 
