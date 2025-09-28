@@ -25,7 +25,6 @@ import (
 	"net/url"
 	"os"
 	"path"
-	"path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -733,12 +732,10 @@ func (c *FreestyleJobCtl) copyFilesToPVCs(ctx context.Context, mountPathFiles ma
 	// Copy files to their respective mount paths
 	for mountPath, files := range mountPathFiles {
 		for _, env := range files {
-			targetPath := c.getTargetPathForEnv(env.Key, mountPath)
-
-			// Copy file to target location (simplified - no special root handling)
-			if err := c.copyFileToHelper(ctx, kubeClient, namespace, helperPodName, env.FileID, env.Key, targetPath); err != nil {
-				c.logger.Errorf("Failed to copy file %s to %s: %v", env.Key, targetPath, err)
-				return fmt.Errorf("failed to copy file %s to %s: %v", env.Key, targetPath, err)
+			// Copy file to target location - use mount path as extraction directory
+			if err := c.copyFileToHelper(ctx, kubeClient, namespace, helperPodName, env.FileID, env.Key, mountPath); err != nil {
+				c.logger.Errorf("Failed to copy file %s to %s: %v", env.Key, mountPath, err)
+				return fmt.Errorf("failed to copy file %s to %s: %v", env.Key, mountPath, err)
 			}
 		}
 	}
@@ -888,7 +885,7 @@ func (c *FreestyleJobCtl) copyFileToHelper(ctx context.Context, client *kubernet
 
 	retryCount := 3
 	for i := 0; i < retryCount; i++ {
-		if err := c.copyFileToCluster(ctx, client, namespace, podName, localTempFile, mountPath); err != nil {
+		if err := c.copyFileToClusterWithFilename(ctx, client, namespace, podName, localTempFile, mountPath, temporaryFile.FileName); err != nil {
 			c.logger.Warnf("Failed to copy file (attempt %d/%d): %v", i+1, retryCount, err)
 			if i < retryCount-1 {
 				// Exponential backoff
@@ -960,7 +957,7 @@ func (c *FreestyleJobCtl) createDirectoryInPod(ctx context.Context, client *kube
 	return nil
 }
 
-func (c *FreestyleJobCtl) copyFileToCluster(ctx context.Context, client *kubernetes.Clientset, namespace, podName, localFilePath, mountPath string) error {
+func (c *FreestyleJobCtl) copyFileToClusterWithFilename(ctx context.Context, client *kubernetes.Clientset, namespace, podName, localFilePath, mountPath, targetFileName string) error {
 	// Create target directory first
 	if err := c.createDirectoryInPod(ctx, client, namespace, podName, mountPath); err != nil {
 		c.logger.Errorf("Failed to create directory %s in pod %s: %v", mountPath, podName, err)
@@ -1002,8 +999,10 @@ func (c *FreestyleJobCtl) copyFileToCluster(ctx context.Context, client *kuberne
 			return
 		}
 
+		// Use the target filename passed as parameter
+		c.logger.Infof("Creating tar entry: filename='%s', extracting to directory='%s'", targetFileName, mountPath)
 		hdr := &tar.Header{
-			Name: filepath.Base(localFilePath),
+			Name: targetFileName,
 			Mode: 0644,
 			Size: fi.Size(),
 		}
