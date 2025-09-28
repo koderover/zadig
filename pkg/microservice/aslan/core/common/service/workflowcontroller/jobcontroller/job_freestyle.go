@@ -90,7 +90,6 @@ type FilePathInfo struct {
 	FinalFilePath string // Resolved absolute path
 	MountPath     string // Where we actually mount the PVC
 	RelativePath  string // Relative path within the mount
-	IsRootFile    bool   // Whether this file needs to be placed in root directory
 }
 
 func NewFreestyleJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, ack func(), logger *zap.SugaredLogger) *FreestyleJobCtl {
@@ -434,16 +433,12 @@ func (c *FreestyleJobCtl) analyzeFileMountPaths() (map[string][]*commonmodels.Ke
 				FinalFilePath: finalFilePath,
 				MountPath:     mountPath,
 				RelativePath:  path.Base(finalFilePath),
-				IsRootFile:    false,
 			}
 
-			// Security check: Avoid mounting root directory if possible
+			// Handle root directory mounting - mount directly since worker pod is controlled environment
 			if mountPath == "/" {
-				c.logger.Warnf("File %s requires mounting root directory (/), this may have security implications", env.Key)
-				// For root directory files, we'll use a special mount at /zadig-root-files
-				fileInfo.MountPath = "/zadig-root-files"
-				fileInfo.IsRootFile = true
-				mountPath = "/zadig-root-files" // Update local variable for grouping
+				c.logger.Infof("File %s requires mounting root directory directly", env.Key)
+				// Mount root directory directly - no special handling needed
 			}
 
 			// Store the mapping for this environment variable
@@ -733,26 +728,10 @@ func (c *FreestyleJobCtl) copyFilesToPVCs(ctx context.Context, mountPathFiles ma
 		for _, env := range files {
 			targetPath := c.getTargetPathForEnv(env.Key, mountPath)
 
-			// Check if this is a root directory file that needs special handling
-			finalTargetPath := c.getFinalTargetPathForEnv(env.Key)
-			if finalTargetPath != "" && mountPath == "/zadig-root-files" {
-				// Copy to the special mount first
-				if err := c.copyFileToHelper(ctx, kubeClient, namespace, helperPodName, env.FileID, env.Key, targetPath); err != nil {
-					c.logger.Errorf("Failed to copy file %s to temp path %s: %v", env.Key, targetPath, err)
-					return fmt.Errorf("failed to copy file %s to temp path %s: %v", env.Key, targetPath, err)
-				}
-
-				// Now move from temp path to actual root path
-				if err := c.moveFileInHelper(ctx, kubeClient, namespace, helperPodName, targetPath, finalTargetPath); err != nil {
-					c.logger.Errorf("Failed to move file %s from %s to %s: %v", env.Key, targetPath, finalTargetPath, err)
-					return fmt.Errorf("failed to move file %s from %s to %s: %v", env.Key, targetPath, finalTargetPath, err)
-				}
-			} else {
-				// Regular file copying
-				if err := c.copyFileToHelper(ctx, kubeClient, namespace, helperPodName, env.FileID, env.Key, targetPath); err != nil {
-					c.logger.Errorf("Failed to copy file %s to %s: %v", env.Key, targetPath, err)
-					return fmt.Errorf("failed to copy file %s to %s: %v", env.Key, targetPath, err)
-				}
+			// Copy file to target location (simplified - no special root handling)
+			if err := c.copyFileToHelper(ctx, kubeClient, namespace, helperPodName, env.FileID, env.Key, targetPath); err != nil {
+				c.logger.Errorf("Failed to copy file %s to %s: %v", env.Key, targetPath, err)
+				return fmt.Errorf("failed to copy file %s to %s: %v", env.Key, targetPath, err)
 			}
 		}
 	}
@@ -775,16 +754,6 @@ func (c *FreestyleJobCtl) getTargetPathForEnv(envKey, mountPath string) string {
 
 	// For files with relative paths within the mount
 	return mountPath + "/" + fileInfo.RelativePath
-}
-
-// getFinalTargetPathForEnv gets the final target path where a root file should be moved to
-func (c *FreestyleJobCtl) getFinalTargetPathForEnv(envKey string) string {
-	fileInfo, exists := c.filePathMapping[envKey]
-	if !exists || !fileInfo.IsRootFile {
-		return "" // Not a root file or no mapping
-	}
-
-	return fileInfo.FinalFilePath
 }
 
 // createHelperPodWithMultiplePVCs creates a helper pod that mounts all required PVCs
@@ -950,15 +919,33 @@ func (c *FreestyleJobCtl) createDirectoryInPod(ctx context.Context, client *kube
 
 	var mkStdout, mkStderr bytes.Buffer
 	doneCh := make(chan error, 1)
+
 	go func() {
-		doneCh <- mkdirExecutor.Stream(remotecommand.StreamOptions{Stdout: &mkStdout, Stderr: &mkStderr})
+		defer func() {
+			if r := recover(); r != nil {
+				c.logger.Errorf("Panic in mkdir operation goroutine: %v", r)
+				doneCh <- fmt.Errorf("panic in mkdir operation: %v", r)
+			}
+		}()
+
+		err := mkdirExecutor.Stream(remotecommand.StreamOptions{Stdout: &mkStdout, Stderr: &mkStderr})
+		if err != nil {
+			c.logger.Errorf("Failed to create directory %s: %v, stderr: %s", dirPath, err, mkStderr.String())
+		}
+		doneCh <- err
 	}()
+
 	select {
+	case <-ctx.Done():
+		c.logger.Errorf("createDirectoryInPod cancelled by context")
+		return fmt.Errorf("createDirectoryInPod cancelled: %v", ctx.Err())
 	case err := <-doneCh:
 		if err != nil {
+			c.logger.Errorf("Directory creation failed: %v, stdout: %s, stderr: %s", err, mkStdout.String(), mkStderr.String())
 			return fmt.Errorf("failed to create directory %s in pod: %v, stderr: %s", dirPath, err, mkStderr.String())
 		}
 	case <-time.After(2 * time.Minute):
+		c.logger.Errorf("Mkdir operation timed out after 2 minutes: pod=%s dir=%s", podName, dirPath)
 		return fmt.Errorf("mkdir exec timed out: pod=%s dir=%s", podName, dirPath)
 	}
 
@@ -968,16 +955,29 @@ func (c *FreestyleJobCtl) createDirectoryInPod(ctx context.Context, client *kube
 func (c *FreestyleJobCtl) copyFileToCluster(ctx context.Context, client *kubernetes.Clientset, namespace, podName, localFilePath, mountPath string) error {
 	// Create target directory first
 	if err := c.createDirectoryInPod(ctx, client, namespace, podName, mountPath); err != nil {
+		c.logger.Errorf("Failed to create directory %s in pod %s: %v", mountPath, podName, err)
 		return err
 	}
 
-	// Step 2: prepare tar stream from the local file
+	// Step 2: prepare tar stream from the local file with proper error handling
 	pr, pw := io.Pipe()
+	tarDone := make(chan error, 1)
+
 	go func() {
 		defer pw.Close()
+		defer func() {
+			if r := recover(); r != nil {
+				c.logger.Errorf("Panic in tar creation goroutine: %v", r)
+				tarDone <- fmt.Errorf("panic in tar creation: %v", r)
+			}
+		}()
+
 		f, err := os.Open(localFilePath)
 		if err != nil {
-			_ = pw.CloseWithError(fmt.Errorf("open local file failed: %v", err))
+			err = fmt.Errorf("open local file failed: %v", err)
+			c.logger.Errorf("copyFileToCluster: %v", err)
+			tarDone <- err
+			_ = pw.CloseWithError(err)
 			return
 		}
 		defer f.Close()
@@ -987,7 +987,10 @@ func (c *FreestyleJobCtl) copyFileToCluster(ctx context.Context, client *kuberne
 
 		fi, err := f.Stat()
 		if err != nil {
-			_ = pw.CloseWithError(fmt.Errorf("stat local file failed: %v", err))
+			err = fmt.Errorf("stat local file failed: %v", err)
+			c.logger.Errorf("copyFileToCluster: %v", err)
+			tarDone <- err
+			_ = pw.CloseWithError(err)
 			return
 		}
 
@@ -997,22 +1000,30 @@ func (c *FreestyleJobCtl) copyFileToCluster(ctx context.Context, client *kuberne
 			Size: fi.Size(),
 		}
 		if err := tw.WriteHeader(hdr); err != nil {
-			_ = pw.CloseWithError(fmt.Errorf("write tar header failed: %v", err))
+			err = fmt.Errorf("write tar header failed: %v", err)
+			c.logger.Errorf("copyFileToCluster: %v", err)
+			tarDone <- err
+			_ = pw.CloseWithError(err)
 			return
 		}
-		const logEveryBytes = 8 * 1024 * 1024 // 8MB
-		buf := make([]byte, 2*1024*1024)      // 2MB chunks
+
+		const logEveryBytes = 50 * 1024 * 1024 // 50MB - less frequent logging
+		buf := make([]byte, 2*1024*1024)       // 2MB chunks
 		var written int64
 		var lastLog int64
 		for {
 			n, rerr := f.Read(buf)
 			if n > 0 {
 				if _, werr := tw.Write(buf[:n]); werr != nil {
-					_ = pw.CloseWithError(fmt.Errorf("write tar body failed: %v", werr))
+					err = fmt.Errorf("write tar body failed: %v", werr)
+					c.logger.Errorf("copyFileToCluster: %v", err)
+					tarDone <- err
+					_ = pw.CloseWithError(err)
 					return
 				}
 				written += int64(n)
 				if written-lastLog >= logEveryBytes {
+					c.logger.Infof("Copying file %s: %d/%d bytes", path.Base(localFilePath), written, fi.Size())
 					lastLog = written
 				}
 			}
@@ -1020,10 +1031,14 @@ func (c *FreestyleJobCtl) copyFileToCluster(ctx context.Context, client *kuberne
 				break
 			}
 			if rerr != nil {
-				_ = pw.CloseWithError(fmt.Errorf("read local file failed: %v", rerr))
+				err = fmt.Errorf("read local file failed: %v", rerr)
+				c.logger.Errorf("copyFileToCluster: %v", err)
+				tarDone <- err
+				_ = pw.CloseWithError(err)
 				return
 			}
 		}
+		tarDone <- nil // Success
 	}()
 
 	// Step 3: untar stream in the helper pod at the mount path
@@ -1046,71 +1061,58 @@ func (c *FreestyleJobCtl) copyFileToCluster(ctx context.Context, client *kuberne
 
 	untarExecutor, err := clientmanager.NewKubeClientManager().GetSPDYExecutor(c.jobTaskSpec.Properties.ClusterID, untarReq.URL())
 	if err != nil {
+		c.logger.Errorf("Failed to create SPDY executor for untar: %v", err)
 		return fmt.Errorf("failed to create SPDY executor for untar: %v", err)
 	}
 
 	var stdout, stderr bytes.Buffer
-	if err := untarExecutor.Stream(remotecommand.StreamOptions{Stdin: pr, Stdout: &stdout, Stderr: &stderr}); err != nil {
-		return fmt.Errorf("failed to untar in pod: %v, stderr: %s", err, stderr.String())
-	}
+	execDone := make(chan error, 1)
 
-	return nil
-}
-
-// moveFileInHelper moves a file from source path to destination path within the helper pod
-func (c *FreestyleJobCtl) moveFileInHelper(ctx context.Context, client *kubernetes.Clientset, namespace, podName, sourcePath, destPath string) error {
-	// Validate paths
-	if sourcePath == "" || destPath == "" {
-		return fmt.Errorf("source path and destination path cannot be empty")
-	}
-
-	// Prevent moving to dangerous locations
-	if destPath == "/" || destPath == "/bin" || destPath == "/usr" || destPath == "/etc" {
-		c.logger.Warnf("Attempting to move file to potentially dangerous location: %s", destPath)
-	}
-
-	// Create destination directory first using shared function
-	destDir := path.Dir(destPath)
-	if err := c.createDirectoryInPod(ctx, client, namespace, podName, destDir); err != nil {
-		return err
-	}
-
-	// Move the file
-	moveReq := client.CoreV1().RESTClient().Post().
-		Resource("pods").
-		Name(podName).
-		Namespace(namespace).
-		SubResource("exec")
-
-	moveReq.VersionedParams(&corev1.PodExecOptions{
-		Container: "file-helper",
-		Command:   []string{"mv", sourcePath, destPath},
-		Stdin:     false,
-		Stdout:    true,
-		Stderr:    true,
-		TTY:       false,
-	}, scheme.ParameterCodec)
-
-	moveExecutor, err := clientmanager.NewKubeClientManager().GetSPDYExecutor(c.jobTaskSpec.Properties.ClusterID, moveReq.URL())
-	if err != nil {
-		return fmt.Errorf("failed to create SPDY executor for move: %v", err)
-	}
-
-	var mvStdout, mvStderr bytes.Buffer
-	doneCh2 := make(chan error, 1)
 	go func() {
-		doneCh2 <- moveExecutor.Stream(remotecommand.StreamOptions{Stdout: &mvStdout, Stderr: &mvStderr})
-	}()
-	select {
-	case err := <-doneCh2:
+		defer func() {
+			if r := recover(); r != nil {
+				c.logger.Errorf("Panic in exec goroutine: %v", r)
+				execDone <- fmt.Errorf("panic in exec: %v", r)
+			}
+		}()
+
+		err := untarExecutor.Stream(remotecommand.StreamOptions{Stdin: pr, Stdout: &stdout, Stderr: &stderr})
 		if err != nil {
-			return fmt.Errorf("failed to move file in pod: %v, stderr: %s", err, mvStderr.String())
+			c.logger.Errorf("Failed to untar file: %v, stderr: %s", err, stderr.String())
 		}
-	case <-time.After(1 * time.Minute):
-		return fmt.Errorf("move exec timed out: pod=%s from=%s to=%s", podName, sourcePath, destPath)
+		execDone <- err
+	}()
+
+	// Wait for both operations with timeout and context cancellation
+	select {
+	case <-ctx.Done():
+		c.logger.Errorf("copyFileToCluster cancelled by context")
+		return fmt.Errorf("copyFileToCluster cancelled: %v", ctx.Err())
+	case tarErr := <-tarDone:
+		if tarErr != nil {
+			c.logger.Errorf("Tar creation failed: %v", tarErr)
+			return fmt.Errorf("tar creation failed: %v", tarErr)
+		}
+		// Wait for exec to complete
+		select {
+		case <-ctx.Done():
+			c.logger.Errorf("copyFileToCluster cancelled by context while waiting for exec")
+			return fmt.Errorf("copyFileToCluster cancelled: %v", ctx.Err())
+		case execErr := <-execDone:
+			if execErr != nil {
+				c.logger.Errorf("Untar execution failed: %v, stdout: %s, stderr: %s", execErr, stdout.String(), stderr.String())
+				return fmt.Errorf("failed to untar in pod: %v, stderr: %s", execErr, stderr.String())
+			}
+		case <-time.After(5 * time.Minute):
+			c.logger.Errorf("Untar operation timed out after 5 minutes")
+			return fmt.Errorf("untar operation timed out after 5 minutes")
+		}
+	case <-time.After(10 * time.Minute):
+		c.logger.Errorf("copyFileToCluster operation timed out after 10 minutes")
+		return fmt.Errorf("copyFileToCluster operation timed out after 10 minutes")
 	}
 
-	c.logger.Infof("Successfully moved file from %s to %s in helper pod", sourcePath, destPath)
+	c.logger.Infof("Successfully copied file %s to %s", path.Base(localFilePath), mountPath)
 	return nil
 }
 
