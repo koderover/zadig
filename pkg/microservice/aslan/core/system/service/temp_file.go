@@ -83,7 +83,7 @@ func InitiateMultipartUpload(req *models.InitiateUploadRequest, log *zap.Sugared
 
 	if err := commonrepo.NewTemporaryFileColl().Create(temporaryFile); err != nil {
 		log.Errorf("failed to create temporary file record: %v", err)
-		return nil, e.ErrCreateIDPPlugin.AddErr(err)
+		return nil, e.ErrCreateTempFile.AddErr(err)
 	}
 
 	return &models.InitiateUploadResponse{
@@ -186,25 +186,25 @@ func CompleteMultipartUpload(sessionID string, req *models.CompleteUploadRequest
 	store, err := s3service.FindDefaultS3()
 	if err != nil {
 		log.Errorf("failed to find default s3: %v", err)
-		return nil, e.ErrCreateIDPPlugin.AddErr(err)
+		return nil, e.ErrCreateTempFile.AddErr(err)
 	}
 
 	client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Region, store.Insecure, store.Provider)
 	if err != nil {
 		log.Errorf("failed to create s3 client: %v", err)
-		return nil, e.ErrCreateIDPPlugin.AddErr(err)
+		return nil, e.ErrCreateTempFile.AddErr(err)
 	}
 
 	objectKey := store.GetObjectPath(getTempFileS3Path(sessionID, temporaryFile.FileName))
 	if err := client.Upload(store.Bucket, finalPath, objectKey); err != nil {
 		log.Errorf("failed to upload file to s3: %v", err)
-		return nil, e.ErrCreateIDPPlugin.AddErr(err)
+		return nil, e.ErrCreateTempFile.AddErr(err)
 	}
 
 	// Update database
 	if err := commonrepo.NewTemporaryFileColl().UpdateFileInfo(sessionID, store.ID.Hex(), objectKey, fileHash); err != nil {
 		log.Errorf("failed to update file info: %v", err)
-		return nil, e.ErrUpdateIDPPlugin.AddErr(err)
+		return nil, e.ErrUpdateTempFile.AddErr(err)
 	}
 
 	// Cleanup temp files
@@ -330,7 +330,7 @@ func assembleFile(sessionID string, temporaryFile *models.TemporaryFile, log *za
 
 	finalFile, err := os.Create(finalPath)
 	if err != nil {
-		return "", "", e.ErrCreateIDPPlugin.AddErr(err)
+		return "", "", e.ErrCreateTempFile.AddErr(err)
 	}
 	defer finalFile.Close()
 
@@ -342,13 +342,13 @@ func assembleFile(sessionID string, temporaryFile *models.TemporaryFile, log *za
 		partPath := filepath.Join(tempDir, fmt.Sprintf("part_%d", partNum))
 		partFile, err := os.Open(partPath)
 		if err != nil {
-			return "", "", e.ErrCreateIDPPlugin.AddErr(err)
+			return "", "", e.ErrCreateTempFile.AddErr(err)
 		}
 
 		_, err = io.Copy(multiWriter, partFile)
 		partFile.Close()
 		if err != nil {
-			return "", "", e.ErrCreateIDPPlugin.AddErr(err)
+			return "", "", e.ErrCreateTempFile.AddErr(err)
 		}
 	}
 
