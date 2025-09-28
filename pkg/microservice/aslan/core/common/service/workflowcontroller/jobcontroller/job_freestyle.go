@@ -435,10 +435,17 @@ func (c *FreestyleJobCtl) analyzeFileMountPaths() (map[string][]*commonmodels.Ke
 				RelativePath:  path.Base(finalFilePath),
 			}
 
-			// Handle root directory mounting - mount directly since worker pod is controlled environment
+			// Handle root directory files - move them to /uploaded_root_files instead of root
 			if mountPath == "/" {
-				c.logger.Infof("File %s requires mounting root directory directly", env.Key)
-				// Mount root directory directly - no special handling needed
+				originalPath := env.FilePath
+				newPath := "/uploaded_root_files/" + path.Base(finalFilePath)
+				c.logger.Infof("Moving root file %s from %s to %s", env.Key, originalPath, newPath)
+
+				// Change mount path to /uploaded_root_files
+				fileInfo.MountPath = "/uploaded_root_files"
+				mountPath = "/uploaded_root_files" // Update local variable for grouping
+				// Update the environment variable to reflect new location
+				env.FilePath = newPath
 			}
 
 			// Store the mapping for this environment variable
