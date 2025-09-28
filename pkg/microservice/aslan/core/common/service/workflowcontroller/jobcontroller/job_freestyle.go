@@ -732,8 +732,13 @@ func (c *FreestyleJobCtl) copyFilesToPVCs(ctx context.Context, mountPathFiles ma
 	// Copy files to their respective mount paths
 	for mountPath, files := range mountPathFiles {
 		for _, env := range files {
+			// Determine the target filename based on the environment variable path
+			targetFilename := path.Base(env.FilePath)
+			c.logger.Infof("Processing file %s: env.FilePath=%s, targetFilename=%s, mountPath=%s",
+				env.Key, env.FilePath, targetFilename, mountPath)
+
 			// Copy file to target location - use mount path as extraction directory
-			if err := c.copyFileToHelper(ctx, kubeClient, namespace, helperPodName, env.FileID, env.Key, mountPath); err != nil {
+			if err := c.copyFileToHelperWithFilename(ctx, kubeClient, namespace, helperPodName, env.FileID, env.Key, mountPath, targetFilename); err != nil {
 				c.logger.Errorf("Failed to copy file %s to %s: %v", env.Key, mountPath, err)
 				return fmt.Errorf("failed to copy file %s to %s: %v", env.Key, mountPath, err)
 			}
@@ -851,7 +856,7 @@ func (c *FreestyleJobCtl) waitForPodReady(ctx context.Context, client *kubernete
 	}
 }
 
-func (c *FreestyleJobCtl) copyFileToHelper(ctx context.Context, client *kubernetes.Clientset, namespace, podName, fileID, envKey, mountPath string) error {
+func (c *FreestyleJobCtl) copyFileToHelperWithFilename(ctx context.Context, client *kubernetes.Clientset, namespace, podName, fileID, envKey, mountPath, targetFilename string) error {
 	temporaryFile, err := mongodb.NewTemporaryFileColl().GetByID(fileID)
 	if err != nil {
 		return fmt.Errorf("failed to get temporary file: %v", err)
@@ -885,7 +890,7 @@ func (c *FreestyleJobCtl) copyFileToHelper(ctx context.Context, client *kubernet
 
 	retryCount := 3
 	for i := 0; i < retryCount; i++ {
-		if err := c.copyFileToClusterWithFilename(ctx, client, namespace, podName, localTempFile, mountPath, temporaryFile.FileName); err != nil {
+		if err := c.copyFileToClusterWithFilename(ctx, client, namespace, podName, localTempFile, mountPath, targetFilename); err != nil {
 			c.logger.Warnf("Failed to copy file (attempt %d/%d): %v", i+1, retryCount, err)
 			if i < retryCount-1 {
 				// Exponential backoff
@@ -1000,7 +1005,7 @@ func (c *FreestyleJobCtl) copyFileToClusterWithFilename(ctx context.Context, cli
 		}
 
 		// Use the target filename passed as parameter
-		c.logger.Infof("Creating tar entry: filename='%s', extracting to directory='%s'", targetFileName, mountPath)
+		c.logger.Infof("Creating tar entry: filename='%s', extracting to directory='%s', file name: '%s'", targetFileName, mountPath, targetFileName)
 		hdr := &tar.Header{
 			Name: targetFileName,
 			Mode: 0644,
