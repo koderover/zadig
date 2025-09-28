@@ -47,6 +47,7 @@ type Product struct {
 	Description                  string                `bson:"description,omitempty"     json:"desc,omitempty"`
 	ProductFeature               *ProductFeature       `bson:"product_feature,omitempty" json:"product_feature,omitempty"`
 	ImageSearchingRules          []*ImageSearchingRule `bson:"image_searching_rules,omitempty" json:"image_searching_rules,omitempty"`
+	ReleaseMaxHistory            int                   `bson:"release_max_history"       json:"release_max_history"`
 	// onboarding状态，0表示onboarding完成，1、2、3、4代表当前onboarding所在的步骤
 	OnboardingStatus int `bson:"onboarding_status"         json:"onboarding_status"`
 	// CI场景的onboarding流程创建的ci工作流id，用于前端跳转

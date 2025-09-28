@@ -864,6 +864,9 @@ func ensureProductTmpl(args *template.Product) error {
 
 	args.Revision = rev
 
+	// release max history default is 10
+	args.ReleaseMaxHistory = 10
+
 	args.ProjectNamePinyin, args.ProjectNamePinyinFirstLetter = util.GetPinyinFromChinese(args.ProjectName)
 	return nil
 }

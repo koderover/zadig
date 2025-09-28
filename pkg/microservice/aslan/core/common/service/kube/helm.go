@@ -46,6 +46,7 @@ import (
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	templatemodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	templaterepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	helmservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/helm"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/notify"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/repository"
@@ -74,6 +75,7 @@ type ReleaseInstallParam struct {
 	Timeout        int
 	DryRun         bool
 	Production     bool
+	MaxHistory     int
 }
 
 func InstallOrUpgradeHelmChartWithValues(param *ReleaseInstallParam, isRetry bool, helmClient *helmtool.HelmClient) error {
@@ -111,7 +113,7 @@ func InstallOrUpgradeHelmChartWithValues(param *ReleaseInstallParam, isRetry boo
 		ValuesYaml:    valuesYaml,
 		UpgradeCRDs:   true,
 		CleanupOnFail: true,
-		MaxHistory:    10,
+		MaxHistory:    param.MaxHistory,
 	}
 	if isRetry {
 		chartSpec.Replace = true
@@ -540,7 +542,7 @@ func EnsureDeleteZadigServiceBySvcName(ctx context.Context, env *commonmodels.Pr
 }
 
 func DeploySingleHelmRelease(product *commonmodels.Product, productSvc *commonmodels.ProductService,
-	svcTemp *commonmodels.Service, images []string, timeout int, user string) error {
+	svcTemp *commonmodels.Service, images []string, maxHistory, timeout int, user string) error {
 	chartInfo := productSvc.GetServiceRender()
 
 	var (
@@ -621,6 +623,7 @@ func DeploySingleHelmRelease(product *commonmodels.Product, productSvc *commonmo
 		ServiceObj:   svcTemp,
 		Timeout:      timeout,
 		Production:   product.Production,
+		MaxHistory:   maxHistory,
 	}
 	if !productSvc.FromZadig() {
 		param.IsChartInstall = true
@@ -668,6 +671,11 @@ func DeployMultiHelmRelease(productResp *commonmodels.Product, helmClient *helmt
 	err := mongotool.StartTransaction(session)
 	if err != nil {
 		return err
+	}
+
+	templateProduct, err := templaterepo.NewProductColl().Find(productResp.ProductName)
+	if err != nil {
+		return fmt.Errorf("failed to find template project %s, error: %v", productResp.ProductName, err)
 	}
 
 	handler := func(param *ReleaseInstallParam, isRetry bool, log *zap.SugaredLogger) (err error) {
@@ -750,7 +758,7 @@ func DeployMultiHelmRelease(productResp *commonmodels.Product, helmClient *helmt
 				continue
 			}
 
-			param, err := BuildInstallParam(productResp.DefaultValues, productResp, chartInfo, prodSvc)
+			param, err := BuildInstallParam(productResp.DefaultValues, productResp, chartInfo, prodSvc, templateProduct.ReleaseMaxHistory)
 			if err != nil {
 				log.Errorf("failed to generate install param, service: %s, namespace: %s, err: %s", prodSvc.ServiceName, productResp.Namespace, err)
 				mongotool.AbortTransaction(session)
@@ -792,7 +800,7 @@ func findRenderChartFromList(svc *commonmodels.ProductService, renderCharts []*t
 	return nil
 }
 
-func BuildInstallParam(defaultValues string, productInfo *commonmodels.Product, renderChart *templatemodels.ServiceRender, productSvc *commonmodels.ProductService) (*ReleaseInstallParam, error) {
+func BuildInstallParam(defaultValues string, productInfo *commonmodels.Product, renderChart *templatemodels.ServiceRender, productSvc *commonmodels.ProductService, maxHistory int) (*ReleaseInstallParam, error) {
 	productName, namespace, envName := productInfo.ProductName, productInfo.Namespace, productInfo.EnvName
 	productSvc.Render = renderChart
 
@@ -802,6 +810,7 @@ func BuildInstallParam(defaultValues string, productInfo *commonmodels.Product, 
 		RenderChart:    renderChart,
 		ProdService:    productSvc,
 		IsChartInstall: renderChart.IsHelmChartDeploy,
+		MaxHistory:     maxHistory,
 	}
 
 	if productSvc.FromZadig() {
