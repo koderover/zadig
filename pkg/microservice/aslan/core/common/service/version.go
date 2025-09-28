@@ -30,6 +30,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
+	templaterepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	helmservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/helm"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/notify"
@@ -488,6 +489,11 @@ func RollbackEnvServiceVersion(ctx *internalhandler.Context, projectName, envNam
 				return nil, e.ErrRollbackEnvServiceVersion.AddErr(err)
 			}
 		} else if envSvcVersion.Service.Type == setting.HelmDeployType || envSvcVersion.Service.Type == setting.HelmChartDeployType {
+			templateProduct, err := templaterepo.NewProductColl().Find(envSvcVersion.ProductName)
+			if err != nil {
+				return nil, e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to find project %s, error: %v", envSvcVersion.ProductName, err))
+			}
+
 			var svcTmpl *commonmodels.Service
 			if envSvcVersion.Service.Type == setting.HelmDeployType {
 				svcTmpl, err = repository.QueryTemplateService(&commonrepo.ServiceFindOption{
@@ -511,7 +517,7 @@ func RollbackEnvServiceVersion(ctx *internalhandler.Context, projectName, envNam
 			envSvcVersion.Service.GetServiceRender().SetOverrideYaml(string(mergedValuesYaml))
 
 			go func(done chan bool) {
-				err = kube.DeploySingleHelmRelease(env, envSvcVersion.Service, svcTmpl, nil, 0, ctx.UserName)
+				err = kube.DeploySingleHelmRelease(env, envSvcVersion.Service, svcTmpl, nil, templateProduct.ReleaseMaxHistory, 0, ctx.UserName)
 				if err != nil {
 					title := fmt.Sprintf("回滚 %s/%s 环境 %s 服务失败", projectName, envName, serviceName)
 					notify.SendErrorMessage(ctx.UserName, title, ctx.RequestID, err, log)

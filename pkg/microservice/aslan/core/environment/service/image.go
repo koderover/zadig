@@ -27,6 +27,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	templaterepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/repository"
@@ -49,7 +50,7 @@ type UpdateContainerImageArgs struct {
 	Production    bool   `json:"production"`
 }
 
-func updateContainerForHelmChart(username, serviceName, image, containerName string, product *models.Product) error {
+func updateContainerForHelmChart(username, serviceName, image, containerName string, maxHistory int, product *models.Product) error {
 	targetProductService := product.GetServiceMap()[serviceName]
 	if targetProductService == nil {
 		return fmt.Errorf("failed to find service in product: %s", serviceName)
@@ -69,7 +70,7 @@ func updateContainerForHelmChart(username, serviceName, image, containerName str
 	}
 
 	targetProductService.DeployStrategy = setting.ServiceDeployStrategyDeploy
-	err = kube.DeploySingleHelmRelease(product, targetProductService, serviceObj, []string{image}, 0, username)
+	err = kube.DeploySingleHelmRelease(product, targetProductService, serviceObj, []string{image}, maxHistory, 0, username)
 	if err != nil {
 		return fmt.Errorf("failed to upgrade helm release, err: %s", err.Error())
 	}
@@ -77,6 +78,11 @@ func updateContainerForHelmChart(username, serviceName, image, containerName str
 }
 
 func UpdateContainerImage(requestID, username string, args *UpdateContainerImageArgs, log *zap.SugaredLogger) error {
+	templateProduct, err := templaterepo.NewProductColl().Find(args.ProductName)
+	if err != nil {
+		return e.ErrUpdateConainterImage.AddErr(fmt.Errorf("failed to find template project %s, error: %v", args.ProductName, err))
+	}
+
 	product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
 		EnvName:    args.EnvName,
 		Name:       args.ProductName,
@@ -129,7 +135,7 @@ func UpdateContainerImage(requestID, username string, args *UpdateContainerImage
 		if err != nil {
 			return e.ErrUpdateConainterImage.AddErr(err)
 		}
-		err = updateContainerForHelmChart(username, serviceName, args.Image, args.ContainerName, product)
+		err = updateContainerForHelmChart(username, serviceName, args.Image, args.ContainerName, templateProduct.ReleaseMaxHistory, product)
 		if err != nil {
 			return e.ErrUpdateConainterImage.AddErr(err)
 		}

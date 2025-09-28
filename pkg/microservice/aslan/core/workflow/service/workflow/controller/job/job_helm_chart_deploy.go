@@ -218,6 +218,7 @@ func (j HelmChartDeployJobController) ToTask(taskID int64) ([]*commonmodels.JobT
 			SkipCheckRunStatus: j.jobSpec.SkipCheckRunStatus,
 			ClusterID:          product.ClusterID,
 			Timeout:            timeout,
+			MaxHistory:         templateProduct.ReleaseMaxHistory,
 		}
 
 		jobTask := &commonmodels.JobTask{
