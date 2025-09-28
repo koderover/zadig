@@ -17,15 +17,14 @@ limitations under the License.
 package models
 
 import (
-	"fmt"
 	"strings"
 
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
-	"github.com/koderover/zadig/v2/pkg/util"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/types"
+	"github.com/koderover/zadig/v2/pkg/util"
 )
 
 // FileNameResolver is a function type to resolve file ID to file name
