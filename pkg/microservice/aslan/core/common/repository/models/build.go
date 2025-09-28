@@ -239,27 +239,9 @@ func (kv *KeyVal) GetValue() string {
 		return strings.Join(kv.ChoiceValue, ",")
 	}
 	if kv.Type == FileType {
-		return kv.GetFileValue()
+		return kv.FilePath
 	}
 	return kv.Value
-}
-
-// GetFileValue returns the file path with /zadig_files/ prefix using the actual fileName
-func (kv *KeyVal) GetFileValue() string {
-	if kv.FileID == "" {
-		return ""
-	}
-
-	// Use the global resolver function if available
-	if GetFileNameByID != nil {
-		fileName, err := GetFileNameByID(kv.FileID)
-		if err == nil && fileName != "" {
-			return fmt.Sprintf("%s/%s", kv.FilePath, fileName)
-		}
-	}
-
-	// Fallback: return empty string if we can't resolve the file name
-	return ""
 }
 
 type KeyValList []*KeyVal
