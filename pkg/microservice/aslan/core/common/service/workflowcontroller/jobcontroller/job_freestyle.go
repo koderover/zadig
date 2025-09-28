@@ -80,6 +80,17 @@ type FreestyleJobCtl struct {
 	// File handling related fields
 	filesPVCNames map[string]string // mountPath -> PVCName mapping
 	hasFileTypes  bool
+	// File path mapping for internal routing: envKey -> FilePathInfo
+	filePathMapping map[string]*FilePathInfo
+}
+
+// FilePathInfo stores the mapping between user path and internal mount information
+type FilePathInfo struct {
+	UserFilePath  string // Original path provided by user (for environment variable)
+	FinalFilePath string // Resolved absolute path
+	MountPath     string // Where we actually mount the PVC
+	RelativePath  string // Relative path within the mount
+	IsRootFile    bool   // Whether this file needs to be placed in root directory
 }
 
 func NewFreestyleJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, ack func(), logger *zap.SugaredLogger) *FreestyleJobCtl {
@@ -90,13 +101,14 @@ func NewFreestyleJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.Wor
 	}
 	job.Spec = jobTaskSpec
 	return &FreestyleJobCtl{
-		job:           job,
-		workflowCtx:   workflowCtx,
-		logger:        logger,
-		ack:           ack,
-		paths:         &paths,
-		jobTaskSpec:   jobTaskSpec,
-		filesPVCNames: make(map[string]string),
+		job:             job,
+		workflowCtx:     workflowCtx,
+		logger:          logger,
+		ack:             ack,
+		paths:           &paths,
+		jobTaskSpec:     jobTaskSpec,
+		filesPVCNames:   make(map[string]string),
+		filePathMapping: make(map[string]*FilePathInfo),
 	}
 }
 
@@ -416,18 +428,26 @@ func (c *FreestyleJobCtl) analyzeFileMountPaths() (map[string][]*commonmodels.Ke
 			// Determine mount path (parent directory of the file)
 			mountPath := path.Dir(finalFilePath)
 
+			// Create file path info to store mapping without modifying env.FilePath
+			fileInfo := &FilePathInfo{
+				UserFilePath:  filePath, // Keep original user input
+				FinalFilePath: finalFilePath,
+				MountPath:     mountPath,
+				RelativePath:  path.Base(finalFilePath),
+				IsRootFile:    false,
+			}
+
 			// Security check: Avoid mounting root directory if possible
 			if mountPath == "/" {
 				c.logger.Warnf("File %s requires mounting root directory (/), this may have security implications", env.Key)
 				// For root directory files, we'll use a special mount at /zadig-root-files
-				mountPath = "/zadig-root-files"
-				// Store the original target path for later reference
-				env.FilePath = "/zadig-root-files:" + path.Base(finalFilePath) + ":/" + path.Base(finalFilePath)
-			} else {
-				// Store the relative path from mount point to target file
-				relativePath := path.Base(finalFilePath)
-				env.FilePath = mountPath + ":" + relativePath // Use colon separator
+				fileInfo.MountPath = "/zadig-root-files"
+				fileInfo.IsRootFile = true
+				mountPath = "/zadig-root-files" // Update local variable for grouping
 			}
+
+			// Store the mapping for this environment variable
+			c.filePathMapping[env.Key] = fileInfo
 
 			allPaths[mountPath] = append(allPaths[mountPath], env)
 		}
@@ -527,26 +547,24 @@ func (c *FreestyleJobCtl) isChildPath(childPath, parentPath string) bool {
 	return strings.HasPrefix(childPath, parentPath) && childPath != parentPath
 }
 
-// createFilePathMapping creates a mapping from original file paths to actual mount paths
+// createFilePathMapping updates the internal mapping when paths are optimized
 // This is needed because files might be mounted at parent paths but need to be copied to child paths
 func (c *FreestyleJobCtl) createFilePathMapping(pathMapping map[string]string, optimizedPaths map[string][]*commonmodels.KeyVal) {
-	// Store the mapping for use during file copying
-	for originalPath, mountPath := range pathMapping {
-		if originalPath != mountPath {
-			// Update the file entries to know their relative path within the mount
-			for _, files := range optimizedPaths {
-				for _, file := range files {
-					if file.FilePath == originalPath {
-						// Store the relative path from mount point to actual target
-						relativePath := strings.TrimPrefix(originalPath, mountPath)
-						relativePath = strings.TrimPrefix(relativePath, "/")
-						if relativePath != "" {
-							// We'll use this during file copying
-							file.FilePath = mountPath + ":" + relativePath // Use colon as separator
-						} else {
-							file.FilePath = mountPath
-						}
+	// Update the file path mapping when mount paths are optimized
+	for originalMountPath, finalMountPath := range pathMapping {
+		if originalMountPath != finalMountPath {
+			// Find all environment variables that were using the original mount path
+			for envKey, fileInfo := range c.filePathMapping {
+				if fileInfo.MountPath == originalMountPath {
+					// Update to use the optimized mount path
+					fileInfo.MountPath = finalMountPath
+					// Calculate the relative path from the new mount point to the target
+					relativePath := strings.TrimPrefix(fileInfo.FinalFilePath, finalMountPath)
+					relativePath = strings.TrimPrefix(relativePath, "/")
+					if relativePath != "" {
+						fileInfo.RelativePath = relativePath
 					}
+					c.logger.Infof("Updated file mapping for %s: mount path %s -> %s", envKey, originalMountPath, finalMountPath)
 				}
 			}
 		}
@@ -713,11 +731,11 @@ func (c *FreestyleJobCtl) copyFilesToPVCs(ctx context.Context, mountPathFiles ma
 	// Copy files to their respective mount paths
 	for mountPath, files := range mountPathFiles {
 		for _, env := range files {
-			targetPath := c.parseTargetPath(env.FilePath, mountPath)
+			targetPath := c.getTargetPathForEnv(env.Key, mountPath)
 
 			// Check if this is a root directory file that needs special handling
-			rootTargetPath := c.getRootTargetPath(env.FilePath)
-			if rootTargetPath != "" && mountPath == "/zadig-root-files" {
+			finalTargetPath := c.getFinalTargetPathForEnv(env.Key)
+			if finalTargetPath != "" && mountPath == "/zadig-root-files" {
 				// Copy to the special mount first
 				if err := c.copyFileToHelper(ctx, kubeClient, namespace, helperPodName, env.FileID, env.Key, targetPath); err != nil {
 					c.logger.Errorf("Failed to copy file %s to temp path %s: %v", env.Key, targetPath, err)
@@ -725,9 +743,9 @@ func (c *FreestyleJobCtl) copyFilesToPVCs(ctx context.Context, mountPathFiles ma
 				}
 
 				// Now move from temp path to actual root path
-				if err := c.moveFileInHelper(ctx, kubeClient, namespace, helperPodName, targetPath, rootTargetPath); err != nil {
-					c.logger.Errorf("Failed to move file %s from %s to %s: %v", env.Key, targetPath, rootTargetPath, err)
-					return fmt.Errorf("failed to move file %s from %s to %s: %v", env.Key, targetPath, rootTargetPath, err)
+				if err := c.moveFileInHelper(ctx, kubeClient, namespace, helperPodName, targetPath, finalTargetPath); err != nil {
+					c.logger.Errorf("Failed to move file %s from %s to %s: %v", env.Key, targetPath, finalTargetPath, err)
+					return fmt.Errorf("failed to move file %s from %s to %s: %v", env.Key, targetPath, finalTargetPath, err)
 				}
 			} else {
 				// Regular file copying
@@ -742,41 +760,31 @@ func (c *FreestyleJobCtl) copyFilesToPVCs(ctx context.Context, mountPathFiles ma
 	return nil
 }
 
-// parseTargetPath parses the target path from the file path, handling different formats
-// Format: "mountPath:relativePath" for regular files, "mountPath:filename:targetPath" for root files
-func (c *FreestyleJobCtl) parseTargetPath(filePath, mountPath string) string {
-	// Handle colon-separated formats
-	if strings.Contains(filePath, ":") {
-		parts := strings.Split(filePath, ":")
-
-		// Handle three-part format for root files: "mountPath:filename:targetPath"
-		if len(parts) == 3 && parts[0] == mountPath && mountPath == "/zadig-root-files" {
-			// Return the mount path + filename for initial copying
-			return mountPath + "/" + parts[1]
-		}
-
-		// Handle two-part format: "mountPath:relativePath"
-		if len(parts) == 2 && parts[0] == mountPath {
-			relativePath := parts[1]
-			if relativePath != "" {
-				return mountPath + "/" + relativePath
-			}
-		}
+// getTargetPathForEnv gets the target path where a file should be copied for a given environment variable
+func (c *FreestyleJobCtl) getTargetPathForEnv(envKey, mountPath string) string {
+	fileInfo, exists := c.filePathMapping[envKey]
+	if !exists {
+		c.logger.Warnf("No file mapping found for env %s, using mount path", envKey)
+		return mountPath
 	}
 
-	return mountPath
+	// For files that should be copied to the mount path directly
+	if fileInfo.RelativePath == "" || fileInfo.RelativePath == "." {
+		return mountPath
+	}
+
+	// For files with relative paths within the mount
+	return mountPath + "/" + fileInfo.RelativePath
 }
 
-// getRootTargetPath extracts the final target path for root directory files
-func (c *FreestyleJobCtl) getRootTargetPath(filePath string) string {
-	if strings.Contains(filePath, ":") {
-		parts := strings.Split(filePath, ":")
-		// Handle three-part format for root files: "mountPath:filename:targetPath"
-		if len(parts) == 3 && parts[0] == "/zadig-root-files" {
-			return parts[2] // Return the final target path
-		}
+// getFinalTargetPathForEnv gets the final target path where a root file should be moved to
+func (c *FreestyleJobCtl) getFinalTargetPathForEnv(envKey string) string {
+	fileInfo, exists := c.filePathMapping[envKey]
+	if !exists || !fileInfo.IsRootFile {
+		return "" // Not a root file or no mapping
 	}
-	return ""
+
+	return fileInfo.FinalFilePath
 }
 
 // createHelperPodWithMultiplePVCs creates a helper pod that mounts all required PVCs
