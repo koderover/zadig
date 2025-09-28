@@ -364,44 +364,69 @@ func (c *FreestyleJobCtl) checkAndPrepareFileTypes(ctx context.Context) error {
 }
 
 // analyzeFileMountPaths analyzes file environment variables and returns optimized mount paths
-// - If path is absolute, use it
-// - If path is relative, calculate final path relative to /workspace
-// - If path is empty, return error
+// - FilePath is where the file should be placed (target file path)
+// - Mount path is the directory that should be mounted (parent directory of the file)
+// - If file path is absolute, mount its parent directory
+// - If file path is relative, calculate final path relative to /workspace and mount parent
+// - Special handling for root directory mounting with security considerations
 // Returns a map of mountPath -> list of file environment variables for that path
 func (c *FreestyleJobCtl) analyzeFileMountPaths() (map[string][]*commonmodels.KeyVal, error) {
-	// First, collect all file paths and normalize them
+	// First, collect all file paths and determine their mount points
 	allPaths := make(map[string][]*commonmodels.KeyVal)
 
 	for _, env := range c.jobTaskSpec.Properties.Envs {
 		if env.Type == commonmodels.FileType && env.FileID != "" {
-			mp := strings.TrimSpace(env.FilePath)
-			if mp == "" {
+			filePath := strings.TrimSpace(env.FilePath)
+			if filePath == "" {
 				return nil, fmt.Errorf("file env %s has empty path", env.Key)
 			}
 
-			var mountPath string
-			if path.IsAbs(mp) {
-				mountPath = mp
+			// Security validation: prevent dangerous paths
+			if strings.Contains(filePath, "..") {
+				c.logger.Warnf("File path contains '..' which may be unsafe: %s", filePath)
+			}
+
+			// Validate file path doesn't contain null bytes or other dangerous characters
+			if strings.ContainsAny(filePath, "\x00\n\r") {
+				return nil, fmt.Errorf("file env %s contains invalid characters in path", env.Key)
+			}
+
+			var finalFilePath string
+			if path.IsAbs(filePath) {
+				finalFilePath = filePath
 			} else {
 				// relative path -> under /workspace
-				mountPath = path.Join("/workspace", mp)
+				finalFilePath = path.Join("/workspace", filePath)
 			}
 
 			// Clean the path to resolve '.' and '..'
-			mountPath = path.Clean(mountPath)
+			finalFilePath = path.Clean(finalFilePath)
 			// Ensure absolute after clean
-			if !strings.HasPrefix(mountPath, "/") {
-				mountPath = "/" + mountPath
+			if !strings.HasPrefix(finalFilePath, "/") {
+				finalFilePath = "/" + finalFilePath
 			}
+
 			// For relative inputs, prevent escaping '/workspace' via '..'
-			if !path.IsAbs(mp) {
-				if mountPath != "/workspace" && !strings.HasPrefix(mountPath, "/workspace/") {
-					return nil, fmt.Errorf("relative path for %s escapes /workspace: %s", env.Key, mountPath)
+			if !path.IsAbs(filePath) {
+				if finalFilePath != "/workspace" && !strings.HasPrefix(finalFilePath, "/workspace/") {
+					return nil, fmt.Errorf("relative path for %s escapes /workspace: %s", env.Key, finalFilePath)
 				}
 			}
-			// Special-case: clean may turn '/' + '' into '/', keep as-is; otherwise remove trailing '/'
-			if mountPath != "/" {
-				mountPath = strings.TrimSuffix(mountPath, "/")
+
+			// Determine mount path (parent directory of the file)
+			mountPath := path.Dir(finalFilePath)
+
+			// Security check: Avoid mounting root directory if possible
+			if mountPath == "/" {
+				c.logger.Warnf("File %s requires mounting root directory (/), this may have security implications", env.Key)
+				// For root directory files, we'll use a special mount at /zadig-root-files
+				mountPath = "/zadig-root-files"
+				// Store the original target path for later reference
+				env.FilePath = "/zadig-root-files:" + path.Base(finalFilePath) + ":/" + path.Base(finalFilePath)
+			} else {
+				// Store the relative path from mount point to target file
+				relativePath := path.Base(finalFilePath)
+				env.FilePath = mountPath + ":" + relativePath // Use colon separator
 			}
 
 			allPaths[mountPath] = append(allPaths[mountPath], env)
@@ -412,10 +437,20 @@ func (c *FreestyleJobCtl) analyzeFileMountPaths() (map[string][]*commonmodels.Ke
 		return allPaths, nil
 	}
 
+	// Check for reasonable limits to prevent resource exhaustion
+	if len(allPaths) > 50 {
+		return nil, fmt.Errorf("too many unique mount paths (%d), maximum allowed is 50", len(allPaths))
+	}
+
 	// Optimize by finding parent-child relationships
 	optimizedPaths := c.optimizeMountPaths(allPaths)
 
-	c.logger.Infof("Original paths: %v, Optimized paths: %v", func() []string {
+	// Final validation of optimized paths
+	if len(optimizedPaths) > 20 {
+		c.logger.Warnf("Large number of mount paths (%d) after optimization, this may impact performance", len(optimizedPaths))
+	}
+
+	c.logger.Infof("Original mount paths: %v, Optimized mount paths: %v", func() []string {
 		paths := make([]string, 0, len(allPaths))
 		for path := range allPaths {
 			paths = append(paths, path)
@@ -679,9 +714,27 @@ func (c *FreestyleJobCtl) copyFilesToPVCs(ctx context.Context, mountPathFiles ma
 	for mountPath, files := range mountPathFiles {
 		for _, env := range files {
 			targetPath := c.parseTargetPath(env.FilePath, mountPath)
-			if err := c.copyFileToHelper(ctx, kubeClient, namespace, helperPodName, env.FileID, env.Key, targetPath); err != nil {
-				c.logger.Errorf("Failed to copy file %s to %s: %v", env.Key, targetPath, err)
-				return fmt.Errorf("failed to copy file %s to %s: %v", env.Key, targetPath, err)
+
+			// Check if this is a root directory file that needs special handling
+			rootTargetPath := c.getRootTargetPath(env.FilePath)
+			if rootTargetPath != "" && mountPath == "/zadig-root-files" {
+				// Copy to the special mount first
+				if err := c.copyFileToHelper(ctx, kubeClient, namespace, helperPodName, env.FileID, env.Key, targetPath); err != nil {
+					c.logger.Errorf("Failed to copy file %s to temp path %s: %v", env.Key, targetPath, err)
+					return fmt.Errorf("failed to copy file %s to temp path %s: %v", env.Key, targetPath, err)
+				}
+
+				// Now move from temp path to actual root path
+				if err := c.moveFileInHelper(ctx, kubeClient, namespace, helperPodName, targetPath, rootTargetPath); err != nil {
+					c.logger.Errorf("Failed to move file %s from %s to %s: %v", env.Key, targetPath, rootTargetPath, err)
+					return fmt.Errorf("failed to move file %s from %s to %s: %v", env.Key, targetPath, rootTargetPath, err)
+				}
+			} else {
+				// Regular file copying
+				if err := c.copyFileToHelper(ctx, kubeClient, namespace, helperPodName, env.FileID, env.Key, targetPath); err != nil {
+					c.logger.Errorf("Failed to copy file %s to %s: %v", env.Key, targetPath, err)
+					return fmt.Errorf("failed to copy file %s to %s: %v", env.Key, targetPath, err)
+				}
 			}
 		}
 	}
@@ -689,12 +742,20 @@ func (c *FreestyleJobCtl) copyFilesToPVCs(ctx context.Context, mountPathFiles ma
 	return nil
 }
 
-// parseTargetPath parses the target path from the file path, handling the colon-separated format
-// Format: "mountPath:relativePath" or just "mountPath"
+// parseTargetPath parses the target path from the file path, handling different formats
+// Format: "mountPath:relativePath" for regular files, "mountPath:filename:targetPath" for root files
 func (c *FreestyleJobCtl) parseTargetPath(filePath, mountPath string) string {
+	// Handle colon-separated formats
 	if strings.Contains(filePath, ":") {
-		// Format is "mountPath:relativePath"
-		parts := strings.SplitN(filePath, ":", 2)
+		parts := strings.Split(filePath, ":")
+
+		// Handle three-part format for root files: "mountPath:filename:targetPath"
+		if len(parts) == 3 && parts[0] == mountPath && mountPath == "/zadig-root-files" {
+			// Return the mount path + filename for initial copying
+			return mountPath + "/" + parts[1]
+		}
+
+		// Handle two-part format: "mountPath:relativePath"
 		if len(parts) == 2 && parts[0] == mountPath {
 			relativePath := parts[1]
 			if relativePath != "" {
@@ -702,8 +763,20 @@ func (c *FreestyleJobCtl) parseTargetPath(filePath, mountPath string) string {
 			}
 		}
 	}
-	// Default to mount path
+
 	return mountPath
+}
+
+// getRootTargetPath extracts the final target path for root directory files
+func (c *FreestyleJobCtl) getRootTargetPath(filePath string) string {
+	if strings.Contains(filePath, ":") {
+		parts := strings.Split(filePath, ":")
+		// Handle three-part format for root files: "mountPath:filename:targetPath"
+		if len(parts) == 3 && parts[0] == "/zadig-root-files" {
+			return parts[2] // Return the final target path
+		}
+	}
+	return ""
 }
 
 // createHelperPodWithMultiplePVCs creates a helper pod that mounts all required PVCs
@@ -845,7 +918,8 @@ func (c *FreestyleJobCtl) copyFileToHelper(ctx context.Context, client *kubernet
 	return fmt.Errorf("failed to copy file %s after %d attempts", temporaryFile.FileName, retryCount)
 }
 
-func (c *FreestyleJobCtl) copyFileToCluster(ctx context.Context, client *kubernetes.Clientset, namespace, podName, localFilePath, mountPath string) error {
+// createDirectoryInPod creates a directory in the helper pod
+func (c *FreestyleJobCtl) createDirectoryInPod(ctx context.Context, client *kubernetes.Clientset, namespace, podName, dirPath string) error {
 	mkdirReq := client.CoreV1().RESTClient().Post().
 		Resource("pods").
 		Name(podName).
@@ -854,7 +928,7 @@ func (c *FreestyleJobCtl) copyFileToCluster(ctx context.Context, client *kuberne
 
 	mkdirReq.VersionedParams(&corev1.PodExecOptions{
 		Container: "file-helper",
-		Command:   []string{"mkdir", "-p", mountPath},
+		Command:   []string{"mkdir", "-p", dirPath},
 		Stdin:     false,
 		Stdout:    true,
 		Stderr:    true,
@@ -865,6 +939,7 @@ func (c *FreestyleJobCtl) copyFileToCluster(ctx context.Context, client *kuberne
 	if err != nil {
 		return fmt.Errorf("failed to create SPDY executor for mkdir: %v", err)
 	}
+
 	var mkStdout, mkStderr bytes.Buffer
 	doneCh := make(chan error, 1)
 	go func() {
@@ -873,10 +948,19 @@ func (c *FreestyleJobCtl) copyFileToCluster(ctx context.Context, client *kuberne
 	select {
 	case err := <-doneCh:
 		if err != nil {
-			return fmt.Errorf("failed to create target dir in pod: %v, stderr: %s", err, mkStderr.String())
+			return fmt.Errorf("failed to create directory %s in pod: %v, stderr: %s", dirPath, err, mkStderr.String())
 		}
 	case <-time.After(2 * time.Minute):
-		return fmt.Errorf("mkdir exec timed out: pod=%s dir=%s", podName, mountPath)
+		return fmt.Errorf("mkdir exec timed out: pod=%s dir=%s", podName, dirPath)
+	}
+
+	return nil
+}
+
+func (c *FreestyleJobCtl) copyFileToCluster(ctx context.Context, client *kubernetes.Clientset, namespace, podName, localFilePath, mountPath string) error {
+	// Create target directory first
+	if err := c.createDirectoryInPod(ctx, client, namespace, podName, mountPath); err != nil {
+		return err
 	}
 
 	// Step 2: prepare tar stream from the local file
@@ -962,6 +1046,63 @@ func (c *FreestyleJobCtl) copyFileToCluster(ctx context.Context, client *kuberne
 		return fmt.Errorf("failed to untar in pod: %v, stderr: %s", err, stderr.String())
 	}
 
+	return nil
+}
+
+// moveFileInHelper moves a file from source path to destination path within the helper pod
+func (c *FreestyleJobCtl) moveFileInHelper(ctx context.Context, client *kubernetes.Clientset, namespace, podName, sourcePath, destPath string) error {
+	// Validate paths
+	if sourcePath == "" || destPath == "" {
+		return fmt.Errorf("source path and destination path cannot be empty")
+	}
+
+	// Prevent moving to dangerous locations
+	if destPath == "/" || destPath == "/bin" || destPath == "/usr" || destPath == "/etc" {
+		c.logger.Warnf("Attempting to move file to potentially dangerous location: %s", destPath)
+	}
+
+	// Create destination directory first using shared function
+	destDir := path.Dir(destPath)
+	if err := c.createDirectoryInPod(ctx, client, namespace, podName, destDir); err != nil {
+		return err
+	}
+
+	// Move the file
+	moveReq := client.CoreV1().RESTClient().Post().
+		Resource("pods").
+		Name(podName).
+		Namespace(namespace).
+		SubResource("exec")
+
+	moveReq.VersionedParams(&corev1.PodExecOptions{
+		Container: "file-helper",
+		Command:   []string{"mv", sourcePath, destPath},
+		Stdin:     false,
+		Stdout:    true,
+		Stderr:    true,
+		TTY:       false,
+	}, scheme.ParameterCodec)
+
+	moveExecutor, err := clientmanager.NewKubeClientManager().GetSPDYExecutor(c.jobTaskSpec.Properties.ClusterID, moveReq.URL())
+	if err != nil {
+		return fmt.Errorf("failed to create SPDY executor for move: %v", err)
+	}
+
+	var mvStdout, mvStderr bytes.Buffer
+	doneCh2 := make(chan error, 1)
+	go func() {
+		doneCh2 <- moveExecutor.Stream(remotecommand.StreamOptions{Stdout: &mvStdout, Stderr: &mvStderr})
+	}()
+	select {
+	case err := <-doneCh2:
+		if err != nil {
+			return fmt.Errorf("failed to move file in pod: %v, stderr: %s", err, mvStderr.String())
+		}
+	case <-time.After(1 * time.Minute):
+		return fmt.Errorf("move exec timed out: pod=%s from=%s to=%s", podName, sourcePath, destPath)
+	}
+
+	c.logger.Infof("Successfully moved file from %s to %s in helper pod", sourcePath, destPath)
 	return nil
 }
 
