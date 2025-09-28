@@ -2594,7 +2594,7 @@ func getDefaultVars(workflow *commonmodels.WorkflowV4, currentJobName string) []
 	vars = append(vars, fmt.Sprintf(setting.RenderValueTemplate, "workflow.task.timestamp"))
 	vars = append(vars, fmt.Sprintf(setting.RenderValueTemplate, "workflow.task.id"))
 	for _, param := range workflow.Params {
-		if param.ParamsType == "repo" {
+		if param.ParamsType == "repo" || param.ParamsType == "file" {
 			continue
 		}
 		vars = append(vars, fmt.Sprintf(setting.RenderValueTemplate, strings.Join([]string{"workflow", "params", param.Name}, ".")))

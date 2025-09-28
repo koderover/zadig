@@ -120,6 +120,7 @@ const (
 	MultiSelectType ParameterSettingType = "multi-select"
 	ImageType       ParameterSettingType = "image"
 	Script          ParameterSettingType = "script"
+	FileType        ParameterSettingType = "file"
 	// Deprecated
 	ExternalType ParameterSettingType = "external"
 )
@@ -1543,12 +1544,14 @@ type GeneralHook struct {
 type Param struct {
 	Name        string `bson:"name"             json:"name"             yaml:"name"`
 	Description string `bson:"description"      json:"description"      yaml:"description"`
-	// support string/text/choice/repo type
+	// support string/text/choice/repo/file type
 	ParamsType   string                 `bson:"type"                      json:"type"                        yaml:"type"`
 	Value        string                 `bson:"value"                     json:"value"                       yaml:"value,omitempty"`
 	Repo         *types.Repository      `bson:"repo"                     json:"repo"                         yaml:"repo,omitempty"`
 	ChoiceOption []string               `bson:"choice_option,omitempty"   json:"choice_option,omitempty"     yaml:"choice_option,omitempty"`
 	ChoiceValue  []string               `bson:"choice_value,omitempty"    json:"choice_value,omitempty"      yaml:"choice_value,omitempty"`
+	FileID       string                 `bson:"file_id,omitempty"         json:"file_id,omitempty"           yaml:"file_id,omitempty"`
+	FilePath     string                 `bson:"file_path,omitempty"       json:"file_path,omitempty"         yaml:"file_path,omitempty"`
 	Default      string                 `bson:"default"                   json:"default"                     yaml:"default"`
 	IsCredential bool                   `bson:"is_credential"             json:"is_credential"               yaml:"is_credential"`
 	Source       config.ParamSourceType `bson:"source,omitempty"          json:"source,omitempty"            yaml:"source,omitempty"`
@@ -1558,7 +1561,28 @@ func (p *Param) GetValue() string {
 	if p.ParamsType == "multi-select" {
 		return strings.Join(p.ChoiceValue, ",")
 	}
+	if p.ParamsType == "file" {
+		return p.GetFileValue()
+	}
 	return p.Value
+}
+
+// GetFileValue returns the file path with /zadig_files/ prefix using the actual fileName
+func (p *Param) GetFileValue() string {
+	if p.FileID == "" {
+		return ""
+	}
+
+	// Use the global resolver function if available
+	if GetFileNameByID != nil {
+		fileName, err := GetFileNameByID(p.FileID)
+		if err == nil && fileName != "" {
+			return fmt.Sprintf("%s/%s", p.FilePath, fileName)
+		}
+	}
+
+	// Fallback: return empty string if we can't resolve the file name
+	return ""
 }
 
 type ShareStorage struct {

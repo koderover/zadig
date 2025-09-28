@@ -19,13 +19,19 @@ package models
 import (
 	"strings"
 
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
-	"github.com/koderover/zadig/v2/pkg/util"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/types"
+	"github.com/koderover/zadig/v2/pkg/util"
 )
+
+// FileNameResolver is a function type to resolve file ID to file name
+type FileNameResolver func(fileID string) (string, error)
+
+// Global file name resolver function - will be set by the service layer
+var GetFileNameByID FileNameResolver
 
 type Build struct {
 	ID         primitive.ObjectID `bson:"_id,omitempty"                json:"id,omitempty"`
@@ -221,6 +227,8 @@ type KeyVal struct {
 	Script            string               `bson:"script,omitempty"             json:"script,omitempty"             yaml:"script,omitempty"`
 	CallFunction      string               `bson:"call_function,omitempty"      json:"call_function,omitempty"      yaml:"call_function,omitempty"`
 	FunctionReference []string             `bson:"function_reference,omitempty" json:"function_reference,omitempty" yaml:"function_reference,omitempty"`
+	FilePath          string               `bson:"file_path,omitempty"          json:"file_path,omitempty"          yaml:"file_path,omitempty"`
+	FileID            string               `bson:"file_id,omitempty"            json:"file_id,omitempty"            yaml:"file_id,omitempty"`
 	IsCredential      bool                 `bson:"is_credential"                json:"is_credential"                yaml:"is_credential"`
 	Description       string               `bson:"description"                  json:"description"                  yaml:"description"`
 }
@@ -228,6 +236,9 @@ type KeyVal struct {
 func (kv *KeyVal) GetValue() string {
 	if kv.Type == MultiSelectType {
 		return strings.Join(kv.ChoiceValue, ",")
+	}
+	if kv.Type == FileType {
+		return kv.FilePath
 	}
 	return kv.Value
 }

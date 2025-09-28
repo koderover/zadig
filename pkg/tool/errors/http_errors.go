@@ -984,4 +984,9 @@ var (
 	ErrListIDPPlugin   = NewHTTPError(7121, "列出IDP插件单失败")
 	ErrUpdateIDPPlugin = NewHTTPError(7122, "更新IDP插件单失败")
 	ErrDeleteIDPPlugin = NewHTTPError(7123, "删除IDP插件单失败")
+
+	//-----------------------------------------------------------------------------------------------
+	// temp file management releated errors: 7140 - 7159
+	//-----------------------------------------------------------------------------------------------
+	ErrCreateTempFile = NewHTTPError(7140, "创建临时文件失败")
 )

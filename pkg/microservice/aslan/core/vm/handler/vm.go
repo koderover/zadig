@@ -202,3 +202,28 @@ func ReportAgentJob(c *gin.Context) {
 
 	ctx.Resp, ctx.RespErr = service.ReportAgentJob(args, ctx.Logger)
 }
+
+func DownloadTemporaryFile(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+
+	fileID := c.Param("fileId")
+	if fileID == "" {
+		ctx.RespErr = fmt.Errorf("invalid request: %s", "fileId is empty")
+		internalhandler.JSONResponse(c, ctx)
+		return
+	}
+
+	token := c.Query("token")
+	if token == "" {
+		ctx.RespErr = fmt.Errorf("invalid request: %s", "token is empty")
+		internalhandler.JSONResponse(c, ctx)
+		return
+	}
+
+	// Handle download with token validation
+	if err := service.DownloadTemporaryFile(fileID, token, c, ctx.Logger); err != nil {
+		ctx.RespErr = err
+		internalhandler.JSONResponse(c, ctx)
+		return
+	}
+}

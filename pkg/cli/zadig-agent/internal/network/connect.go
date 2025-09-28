@@ -24,11 +24,12 @@ import (
 )
 
 const (
-	RegisterBaseUrl   = "/api/aslan/vm/agents/register"
-	VerifyBaseUrl     = "/api/aslan/vm/agents/verify"
-	heartbeatBaseUrl  = "/api/aslan/vm/agents/heartbeat"
-	RequestJobBaseUrl = "/api/aslan/vm/agents/job/request"
-	ReportJobBaseUrl  = "/api/aslan/vm/agents/job/report"
+	RegisterBaseUrl     = "/api/aslan/vm/agents/register"
+	VerifyBaseUrl       = "/api/aslan/vm/agents/verify"
+	heartbeatBaseUrl    = "/api/aslan/vm/agents/heartbeat"
+	RequestJobBaseUrl   = "/api/aslan/vm/agents/job/request"
+	ReportJobBaseUrl    = "/api/aslan/vm/agents/job/report"
+	DownloadFileBaseUrl = "/api/aslan/vm/agents/tempFile/download/%s"
 )
 
 type RegisterAgentParameters struct {

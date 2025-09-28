@@ -59,6 +59,11 @@ func IsPublicURL(reqPath, method string) bool {
 		return true
 	}
 
+	// all agent related APIs do their authentication process in the business logic layer
+	if strings.HasPrefix(realPath, "/api/aslan/vm/agents") {
+		return true
+	}
+
 	if realPath == "/api/v1/reset" && method == http.MethodPost {
 		return true
 	}
@@ -160,26 +165,6 @@ func IsPublicURL(reqPath, method string) bool {
 	}
 
 	if realPath == "/api/callback" && method == http.MethodPost {
-		return true
-	}
-
-	if realPath == "/api/aslan/vm/agents/register" && method == http.MethodPost {
-		return true
-	}
-
-	if realPath == "/api/aslan/vm/agents/verify" && method == http.MethodPost {
-		return true
-	}
-
-	if realPath == "/api/aslan/vm/agents/heartbeat" && method == http.MethodPost {
-		return true
-	}
-
-	if realPath == "/api/aslan/vm/agents/job/request" && method == http.MethodGet {
-		return true
-	}
-
-	if realPath == "/api/aslan/vm/agents/job/report" && method == http.MethodPost {
 		return true
 	}
 

@@ -23,6 +23,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
@@ -34,6 +35,7 @@ import (
 	vmmodel "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models/vm"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	vmmongodb "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/vm"
+	systemservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/service"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	krkubeclient "github.com/koderover/zadig/v2/pkg/tool/kube/client"
@@ -575,19 +577,18 @@ func PollingAgentJob(token string, retry int, logger *zap.SugaredLogger) (*Polli
 		return nil, nil
 	}
 
-	jobID := job.ID.Hex()
-	if job != nil && jobGetter.AddGetter(jobID) {
-		defer jobGetter.RemoveGetter(jobID)
+	if job != nil && jobGetter.AddGetter(job.ID.Hex()) {
+		defer jobGetter.RemoveGetter(job.ID.Hex())
 		job.Status = string(config.StatusPrepare)
 		job.VMID = vm.ID.Hex()
-		err := vmmongodb.NewVMJobColl().Update(jobID, job)
+		err := vmmongodb.NewVMJobColl().Update(job.ID.Hex(), job)
 		if err != nil {
-			logger.Errorf("failed to update job %s, error: %s", jobID, err)
-			return nil, fmt.Errorf("failed to update job %s, error: %s", jobID, err)
+			logger.Errorf("failed to update job %s, error: %s", job.ID.Hex(), err)
+			return nil, fmt.Errorf("failed to update job %s, error: %s", job.ID.Hex(), err)
 		}
 
 		resp = &PollingJobResp{
-			ID:            jobID,
+			ID:            job.ID.Hex(),
 			ProjectName:   job.ProjectName,
 			WorkflowName:  job.WorkflowName,
 			TaskID:        job.TaskID,
@@ -777,4 +778,17 @@ func getRepoURL() (string, error) {
 		}
 	}
 	return "", fmt.Errorf("zadig-agent repo URL not found")
+}
+
+func DownloadTemporaryFile(fileID, token string, c *gin.Context, logger *zap.SugaredLogger) error {
+	_, err := commonrepo.NewPrivateKeyColl().Find(commonrepo.FindPrivateKeyOption{
+		Token: token,
+	})
+	if err != nil {
+		logger.Errorf("failed to find vm by token for file download, error: %s", err)
+		return fmt.Errorf("invalid token for file download: %v", err)
+	}
+
+	// Delegate to the system service for actual file download
+	return systemservice.DownloadTemporaryFile(fileID, c, logger)
 }

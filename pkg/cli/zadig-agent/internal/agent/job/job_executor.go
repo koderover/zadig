@@ -88,6 +88,13 @@ func (e *JobExecutor) BeforeExecute() error {
 		return err
 	}
 
+	// Download files if any are specified
+	err = e.downloadJobFiles()
+	if err != nil {
+		log.Errorf("failed to download job files, error: %v", err)
+		return err
+	}
+
 	return nil
 }
 
@@ -427,4 +434,76 @@ func (e *JobExecutor) CheckZadigCancel() bool {
 		return true
 	}
 	return false
+}
+
+// downloadJobFiles downloads all files specified in JobCtx.Files to the workspace
+func (e *JobExecutor) downloadJobFiles() error {
+	if len(e.JobCtx.Files) == 0 {
+		return nil // No files to download
+	}
+
+	log.Infof("Starting to download %d file(s) for job %s", len(e.JobCtx.Files), e.Job.JobName)
+
+	// Download each file using the directory info from fileInfo
+	for _, fileInfo := range e.JobCtx.Files {
+		if err := e.downloadSingleFile(fileInfo); err != nil {
+			return fmt.Errorf("failed to download file %s (ID: %s): %v", fileInfo.FileName, fileInfo.FileID, err)
+		}
+	}
+
+	e.Logger.Infof("Successfully downloaded all %d file(s) for job %s", len(e.JobCtx.Files), e.Job.JobName)
+	return nil
+}
+
+// downloadSingleFile downloads a single file and updates the environment variable
+func (e *JobExecutor) downloadSingleFile(fileInfo *jobctl.JobFileInfo) error {
+	// Compute filename as the last segment of the provided path, and targetDir as the path without that segment.
+	// Validate and normalize similarly to controller logic, preventing workspace escapes for relative inputs.
+	mp := strings.TrimSpace(fileInfo.FilePath)
+	if mp == "" {
+		return fmt.Errorf("file env %s has empty path", fileInfo.EnvKey)
+	}
+
+	cleanMP := filepath.Clean(mp)
+	fileName := filepath.Base(cleanMP)
+	dirComponent := filepath.Dir(cleanMP)
+
+	// Handle degenerate cases where Base returns "." or root
+	if fileName == "." || fileName == string(os.PathSeparator) || fileName == "" {
+		// Fallback to provided names
+		if fileInfo.FileName != "" {
+			fileName = fileInfo.FileName
+		} else {
+			fileName = fileInfo.EnvKey
+		}
+		// In this case, treat the entire cleanMP as the directory component
+		dirComponent = cleanMP
+	}
+
+	var targetDir string
+	if filepath.IsAbs(cleanMP) {
+		targetDir = filepath.Clean(dirComponent)
+	} else {
+		targetDir = filepath.Clean(filepath.Join(e.Dirs.Workspace, dirComponent))
+		// Ensure the cleaned path is still within the workspace
+		ws := filepath.Clean(e.Dirs.Workspace)
+		wsPrefix := ws
+		if !strings.HasSuffix(wsPrefix, string(os.PathSeparator)) {
+			wsPrefix = wsPrefix + string(os.PathSeparator)
+		}
+		if targetDir != ws && !strings.HasPrefix(targetDir, wsPrefix) {
+			return fmt.Errorf("relative path for %s escapes workspace: %s", fileInfo.EnvKey, targetDir)
+		}
+	}
+
+	targetPath := filepath.Join(targetDir, fileName)
+
+	log.Infof("Downloading file %s (ID: %s) to %s", fileInfo.FileName, fileInfo.FileID, targetPath)
+
+	if err := e.Client.DownloadFile(fileInfo.FileID, fileName, targetDir); err != nil {
+		return fmt.Errorf("failed to download file %s: %v", fileInfo.FileName, err)
+	}
+
+	e.Logger.Infof("Successfully downloaded %s and set environment variable %s=%s", fileInfo.FileName, fileInfo.EnvKey, targetPath)
+	return nil
 }
