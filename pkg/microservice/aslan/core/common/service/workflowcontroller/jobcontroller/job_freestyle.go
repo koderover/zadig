@@ -822,6 +822,7 @@ func (c *FreestyleJobCtl) createHelperPodWithMultiplePVCs(ctx context.Context, c
 // generateVolumeName generates a safe volume name from mount path
 func (c *FreestyleJobCtl) generateVolumeName(mountPath string) string {
 	volumeName := strings.ReplaceAll(mountPath, "/", "-")
+	volumeName = strings.ReplaceAll(volumeName, "_", "-")
 	volumeName = strings.Trim(volumeName, "-")
 	if volumeName == "" {
 		volumeName = "root"

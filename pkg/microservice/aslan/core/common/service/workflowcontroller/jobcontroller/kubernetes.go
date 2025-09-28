@@ -533,6 +533,7 @@ EOF`,
 // generateVolumeNameFromPath generates a safe volume name from mount path
 func generateVolumeNameFromPath(mountPath string) string {
 	volumeName := strings.ReplaceAll(mountPath, "/", "-")
+	volumeName = strings.ReplaceAll(volumeName, "_", "-")
 	volumeName = strings.Trim(volumeName, "-")
 	if volumeName == "" {
 		volumeName = "root"
