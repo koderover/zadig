@@ -989,4 +989,5 @@ var (
 	// temp file management releated errors: 7140 - 7159
 	//-----------------------------------------------------------------------------------------------
 	ErrCreateTempFile = NewHTTPError(7140, "创建临时文件失败")
+	ErrUpdateTempFile = NewHTTPError(7141, "更新临时文件失败")
 )
