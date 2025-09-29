@@ -135,20 +135,21 @@ type CreateScanningTaskReq struct {
 }
 
 type ScanningRepoInfo struct {
-	CodehostID    int    `json:"codehost_id"`
-	Source        string `json:"source"`
-	RepoOwner     string `json:"repo_owner"`
-	RepoNamespace string `json:"repo_namespace"`
-	RepoName      string `json:"repo_name"`
-	PR            int    `json:"pr"`
-	PRs           []int  `json:"prs"`
-	Branch        string `json:"branch"`
-	Tag           string `json:"tag"`
-	DepotType     string `json:"depot_type"`
-	Stream        string `json:"stream"`
-	ViewMapping   string `json:"view_mapping"`
-	ChangeListID  int    `json:"changelist_id"`
-	ShelveID      int    `json:"shelve_id"`
+	CodehostID    int      `json:"codehost_id"`
+	Source        string   `json:"source"`
+	RepoOwner     string   `json:"repo_owner"`
+	RepoNamespace string   `json:"repo_namespace"`
+	RepoName      string   `json:"repo_name"`
+	PR            int      `json:"pr"`
+	PRs           []int    `json:"prs"`
+	Branch        string   `json:"branch"`
+	MergeBranches []string `json:"merge_branches"`
+	Tag           string   `json:"tag"`
+	DepotType     string   `json:"depot_type"`
+	Stream        string   `json:"stream"`
+	ViewMapping   string   `json:"view_mapping"`
+	ChangeListID  int      `json:"changelist_id"`
+	ShelveID      int      `json:"shelve_id"`
 }
 
 func (repo *ScanningRepoInfo) GetRepoNamespace() string {

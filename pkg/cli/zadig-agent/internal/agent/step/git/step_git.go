@@ -261,7 +261,21 @@ func (s *GitStep) buildGitCommands(repo *types.Repository, hostNames sets.String
 	cmds = append(cmds, &common.Command{Cmd: gitcmd.Fetch(repo.RemoteName, ref)}, &common.Command{Cmd: gitcmd.CheckoutHead()})
 
 	// PR rebase branch 请求
-	if len(repo.PRs) > 0 && len(repo.Branch) > 0 {
+	if len(repo.MergeBranches) > 0 {
+		cmds = append(
+			cmds,
+			&common.Command{Cmd: gitcmd.DeepenedFetch(repo.RemoteName, repo.BranchRef(), repo.Source)},
+			&common.Command{Cmd: gitcmd.ResetMerge()},
+		)
+		for _, branch := range repo.MergeBranches {
+			ref := fmt.Sprintf("%s:%s", types.BranchRef(branch), branch)
+			cmds = append(
+				cmds,
+				&common.Command{Cmd: gitcmd.DeepenedFetch(repo.RemoteName, ref, repo.Source)},
+				&common.Command{Cmd: gitcmd.Merge(branch)},
+			)
+		}
+	} else if len(repo.PRs) > 0 && len(repo.Branch) > 0 {
 		cmds = append(
 			cmds,
 			&common.Command{Cmd: gitcmd.DeepenedFetch(repo.RemoteName, repo.BranchRef(), repo.Source)},

@@ -492,6 +492,7 @@ func generateCustomWorkflowFromScanningModule(scanInfo *commonmodels.Scanning, a
 			RepoOwner:          arg.RepoOwner,
 			RepoName:           arg.RepoName,
 			Branch:             arg.Branch,
+			MergeBranches:      arg.MergeBranches,
 			PR:                 arg.PR,
 			PRs:                arg.PRs,
 			CodehostID:         arg.CodehostID,

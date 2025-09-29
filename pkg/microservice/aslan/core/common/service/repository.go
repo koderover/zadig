@@ -54,6 +54,8 @@ func FillRepositoryInfo(repo *types.Repository) error {
 			var err error
 			if repo.Tag != "" {
 				commit, err = QueryByTag(repo.CodehostID, repo.GetRepoNamespace(), repo.RepoName, repo.Tag)
+			} else if repo.Branch != "" && len(repo.MergeBranches) > 0 {
+				commit, err = QueryByBranch(repo.CodehostID, repo.GetRepoNamespace(), repo.RepoName, repo.MergeBranches[len(repo.MergeBranches)-1])
 			} else if repo.Branch != "" && len(repo.PRs) == 0 {
 				commit, err = QueryByBranch(repo.CodehostID, repo.GetRepoNamespace(), repo.RepoName, repo.Branch)
 			} else if len(repo.PRs) > 0 {
