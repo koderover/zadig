@@ -49,13 +49,14 @@ import (
 // TODO2: Change note: KevVal in the serviceAndBuildOptions has been changed: added fixed
 
 const (
-	IMAGEKEY    = "IMAGE"
-	IMAGETAGKEY = "imageTag"
-	PKGFILEKEY  = "PKG_FILE"
-	BRANCHKEY   = "BRANCH"
-	REPONAMEKEY = "REPONAME"
-	GITURLKEY   = "GITURL"
-	COMMITIDKEY = "COMMITID"
+	IMAGEKEY               = "IMAGE"
+	IMAGETAGKEY            = "imageTag"
+	PKGFILEKEY             = "PKG_FILE"
+	BRANCHKEY              = "BRANCH"
+	REPONAMEKEY            = "REPONAME"
+	GITURLKEY              = "GITURL"
+	COMMITIDKEY            = "COMMITID"
+	PRE_MEGRE_BRANCHES_KEY = "PRE_MEGRE_BRANCHES"
 )
 
 type BuildJobController struct {
@@ -850,6 +851,13 @@ func (j BuildJobController) GetVariableList(jobName string, getAggregatedVariabl
 		})
 
 		resp = append(resp, &commonmodels.KeyVal{
+			Key:          fmt.Sprintf("%s.%s", jobKey, PRE_MEGRE_BRANCHES_KEY),
+			Value:        "",
+			Type:         "string",
+			IsCredential: false,
+		})
+
+		resp = append(resp, &commonmodels.KeyVal{
 			Key:          fmt.Sprintf("%s.%s", jobKey, "SERVICE_NAME"),
 			Value:        "",
 			Type:         "string",
@@ -931,6 +939,13 @@ func (j BuildJobController) GetVariableList(jobName string, getAggregatedVariabl
 				resp = append(resp, &commonmodels.KeyVal{
 					Key:          fmt.Sprintf("%s.%s", jobKey, REPONAMEKEY),
 					Value:        repo.RepoName,
+					Type:         "string",
+					IsCredential: false,
+				})
+
+				resp = append(resp, &commonmodels.KeyVal{
+					Key:          fmt.Sprintf("%s.%s", jobKey, PRE_MEGRE_BRANCHES_KEY),
+					Value:        repo.GetPreMergeBranches(),
 					Type:         "string",
 					IsCredential: false,
 				})

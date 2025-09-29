@@ -25,15 +25,16 @@ import (
 
 // Repository struct
 type Repository struct {
-	Source        string `bson:"source,omitempty"          json:"source,omitempty"         yaml:"source,omitempty"`
-	RepoOwner     string `bson:"repo_owner"                json:"repo_owner"               yaml:"repo_owner"`
-	RepoNamespace string `bson:"repo_namespace"            json:"repo_namespace"           yaml:"repo_namespace"`
-	RepoName      string `bson:"repo_name"                 json:"repo_name"                yaml:"repo_name"`
-	RemoteName    string `bson:"remote_name,omitempty"     json:"remote_name,omitempty"    yaml:"remote_name,omitempty"`
-	Branch        string `bson:"branch"                    json:"branch"                   yaml:"branch"`
-	PR            int    `bson:"pr,omitempty"              json:"pr,omitempty"             yaml:"pr,omitempty"`
-	PRs           []int  `bson:"prs,omitempty"             json:"prs,omitempty"            yaml:"prs,omitempty"`
-	Tag           string `bson:"tag,omitempty"             json:"tag,omitempty"            yaml:"tag,omitempty"`
+	Source        string   `bson:"source,omitempty"          json:"source,omitempty"         yaml:"source,omitempty"`
+	RepoOwner     string   `bson:"repo_owner"                json:"repo_owner"               yaml:"repo_owner"`
+	RepoNamespace string   `bson:"repo_namespace"            json:"repo_namespace"           yaml:"repo_namespace"`
+	RepoName      string   `bson:"repo_name"                 json:"repo_name"                yaml:"repo_name"`
+	RemoteName    string   `bson:"remote_name,omitempty"     json:"remote_name,omitempty"    yaml:"remote_name,omitempty"`
+	Branch        string   `bson:"branch"                    json:"branch"                   yaml:"branch"`
+	MergeBranches []string `bson:"merge_branches"            json:"merge_branches"           yaml:"merge_branches"`
+	PR            int      `bson:"pr,omitempty"              json:"pr,omitempty"             yaml:"pr,omitempty"`
+	PRs           []int    `bson:"prs,omitempty"             json:"prs,omitempty"            yaml:"prs,omitempty"`
+	Tag           string   `bson:"tag,omitempty"             json:"tag,omitempty"            yaml:"tag,omitempty"`
 	// EnableCommit marks if the pull uses a commit instead of branch/pr
 	EnableCommit  bool   `bson:"enable_commit"          json:"enable_commit"         yaml:"enable_commit"`
 	CommitID      string `bson:"commit_id,omitempty"       json:"commit_id,omitempty"      yaml:"commit_id,omitempty"`
@@ -77,7 +78,7 @@ type Repository struct {
 	JobRepoIndex    int        `bson:"repo_index" json:"repo_index" yaml:"repo_index"`
 	SubmissionID    string     `bson:"submission_id" json:"submission_id" yaml:"submission_id"`
 	// SSL settings, only used for gitlab now
-	DisableSSL      bool       `bson:"disable_ssl"   json:"disable_ssl"   yaml:"disable_ssl"`
+	DisableSSL bool `bson:"disable_ssl"   json:"disable_ssl"   yaml:"disable_ssl"`
 	// perforce settings
 	DepotType string `bson:"depot_type,omitempty"    json:"depot_type,omitempty"    yaml:"depot_type,omitempty"`
 	// Stream is used for stream type depot
@@ -152,6 +153,10 @@ func (repo *Repository) GetRepoNamespace() string {
 	return repo.RepoOwner
 }
 
+func (repo *Repository) GetPreMergeBranches() string {
+	return strings.Join(append([]string{repo.Branch}, repo.MergeBranches...), ",")
+}
+
 func (repo *Repository) GetKey() string {
 	return strings.Join([]string{repo.Source, repo.GetRepoNamespace(), repo.RepoName}, "/")
 }
@@ -213,6 +218,10 @@ func (r *Repository) PRRefByPRID(pr int) string {
 // e.g. refs/heads/master
 func (r *Repository) BranchRef() string {
 	return fmt.Sprintf("refs/heads/%s", r.Branch)
+}
+
+func BranchRef(branch string) string {
+	return fmt.Sprintf("refs/heads/%s", branch)
 }
 
 // TagRef returns the tag ref of current repo
