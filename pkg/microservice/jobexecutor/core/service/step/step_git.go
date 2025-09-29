@@ -181,6 +181,7 @@ func (s *GitStep) runGitCmds() error {
 			fmt.Printf("%s   %s\n", time.Now().Format(setting.WorkflowTimeFormat), strings.Join(c.Cmd.Args, " "))
 		}
 
+		log.Infof("run git command: %s", c.Cmd.String())
 		if err := c.Run(); err != nil {
 			return err
 		}
@@ -300,7 +301,21 @@ func (s *GitStep) buildGitCommands(repo *types.Repository, hostNames sets.String
 	cmds = append(cmds, &c.Command{Cmd: c.GitFetch(repo.RemoteName, ref)}, &c.Command{Cmd: c.GitCheckoutHead()})
 
 	// PR rebase branch 请求
-	if len(repo.PRs) > 0 && len(repo.Branch) > 0 {
+	if len(repo.MergeBranches) > 0 {
+		cmds = append(
+			cmds,
+			&c.Command{Cmd: c.GitDeepenedFetch(repo.RemoteName, repo.BranchRef(), repo.Source)},
+			&c.Command{Cmd: c.GitResetMerge()},
+		)
+		for _, branch := range repo.MergeBranches {
+			ref := fmt.Sprintf("%s:%s", types.BranchRef(branch), branch)
+			cmds = append(
+				cmds,
+				&c.Command{Cmd: c.GitDeepenedFetch(repo.RemoteName, ref, repo.Source)},
+				&c.Command{Cmd: c.GitMerge(branch)},
+			)
+		}
+	} else if len(repo.PRs) > 0 && len(repo.Branch) > 0 {
 		cmds = append(
 			cmds,
 			&c.Command{Cmd: c.GitDeepenedFetch(repo.RemoteName, repo.BranchRef(), repo.Source)},
