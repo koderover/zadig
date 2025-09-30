@@ -47,6 +47,7 @@ func getDefaultSystemNavigation() []*commonmodels.NavigationItem {
 	return []*commonmodels.NavigationItem{
 		{
 			Name:     "产品交付",
+			EnName:   "Product Delivery",
 			Key:      "productDelivery",
 			Type:     "folder",
 			IconType: "class",
@@ -54,6 +55,7 @@ func getDefaultSystemNavigation() []*commonmodels.NavigationItem {
 			Children: []*commonmodels.NavigationItem{
 				{
 					Name:     "运行状态",
+					EnName:   "Status",
 					Key:      "status",
 					Type:     "page",
 					PageType: "system",
@@ -63,6 +65,7 @@ func getDefaultSystemNavigation() []*commonmodels.NavigationItem {
 				},
 				{
 					Name:     "项目",
+					EnName:   "Projects",
 					Key:      "projects",
 					Type:     "page",
 					PageType: "system",
@@ -74,6 +77,7 @@ func getDefaultSystemNavigation() []*commonmodels.NavigationItem {
 		},
 		{
 			Name:     "发布管理",
+			EnName:   "Release Management",
 			Key:      "releaseManagement",
 			Type:     "folder",
 			IconType: "class",
@@ -81,6 +85,7 @@ func getDefaultSystemNavigation() []*commonmodels.NavigationItem {
 			Children: []*commonmodels.NavigationItem{
 				{
 					Name:     "工作流",
+					EnName:   "Workflows",
 					Key:      "releaseWorkflow",
 					Type:     "page",
 					PageType: "system",
@@ -90,6 +95,7 @@ func getDefaultSystemNavigation() []*commonmodels.NavigationItem {
 				},
 				{
 					Name:     "发布计划",
+					EnName:   "Plan",
 					Key:      "releasePlan",
 					Type:     "page",
 					PageType: "system",
@@ -99,6 +105,7 @@ func getDefaultSystemNavigation() []*commonmodels.NavigationItem {
 				},
 				{
 					Name:     "客户交付",
+					EnName:   "Customer Delivery",
 					Key:      "customerDelivery",
 					Type:     "page",
 					PageType: "system",
@@ -110,6 +117,7 @@ func getDefaultSystemNavigation() []*commonmodels.NavigationItem {
 		},
 		{
 			Name:     "资产管理",
+			EnName:   "Assets",
 			Key:      "assetManagement",
 			Type:     "folder",
 			IconType: "class",
@@ -117,6 +125,7 @@ func getDefaultSystemNavigation() []*commonmodels.NavigationItem {
 			Children: []*commonmodels.NavigationItem{
 				{
 					Name:     "业务目录",
+					EnName:   "Service Catalog",
 					Key:      "bizCatalog",
 					Type:     "page",
 					PageType: "system",
@@ -126,6 +135,7 @@ func getDefaultSystemNavigation() []*commonmodels.NavigationItem {
 				},
 				{
 					Name:     "模板库",
+					EnName:   "Templates",
 					Key:      "templateLibrary",
 					Type:     "page",
 					PageType: "system",
@@ -135,6 +145,7 @@ func getDefaultSystemNavigation() []*commonmodels.NavigationItem {
 				},
 				{
 					Name:     "质量中心",
+					EnName:   "Quality",
 					Key:      "qualityCenter",
 					Type:     "page",
 					PageType: "system",
@@ -144,6 +155,7 @@ func getDefaultSystemNavigation() []*commonmodels.NavigationItem {
 				},
 				{
 					Name:     "制品管理",
+					EnName:   "Artifacts",
 					Key:      "artifactManagement",
 					Type:     "page",
 					PageType: "system",
@@ -153,6 +165,7 @@ func getDefaultSystemNavigation() []*commonmodels.NavigationItem {
 				},
 				{
 					Name:     "资源配置",
+					EnName:   "Resourcing",
 					Key:      "resourceConfiguration",
 					Type:     "page",
 					PageType: "system",
@@ -164,6 +177,7 @@ func getDefaultSystemNavigation() []*commonmodels.NavigationItem {
 		},
 		{
 			Name:     "数据视图",
+			EnName:   "Statistics",
 			Key:      "dataView",
 			Type:     "folder",
 			IconType: "class",
@@ -171,6 +185,7 @@ func getDefaultSystemNavigation() []*commonmodels.NavigationItem {
 			Children: []*commonmodels.NavigationItem{
 				{
 					Name:     "数据概览",
+					EnName:   "Overview",
 					Key:      "dataOverview",
 					Type:     "page",
 					PageType: "system",
@@ -180,6 +195,7 @@ func getDefaultSystemNavigation() []*commonmodels.NavigationItem {
 				},
 				{
 					Name:     "效能洞察",
+					EnName:   "Insights",
 					Key:      "dataInsight",
 					Type:     "page",
 					PageType: "system",
