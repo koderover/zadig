@@ -21,9 +21,11 @@ type ApproveType string
 type ApproveNodeType string
 
 const (
+	ApproveTypeStart      ApproveType = "START"
 	ApproveTypeAnd        ApproveType = "AND"
 	ApproveTypeOr         ApproveType = "OR"
 	ApproveTypeSequential ApproveType = "SEQUENTIAL"
+	ApproveTypeEnd        ApproveType = "END"
 
 	ApproveNodeTypeUser             ApproveNodeType = ""
 	ApproveNodeTypeUserGroup        ApproveNodeType = "user_group"
