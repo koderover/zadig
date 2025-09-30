@@ -46,11 +46,12 @@ func NewMSENacosClient(endpoint, accessKeyId, accessKeySecret, instanceID string
 	return &MSENacosClient{Client: client, InstanceID: instanceID}, nil
 }
 
-func (c *MSENacosClient) ListConfigs(namespaceID string) ([]*types.NacosConfig, error) {
+func (c *MSENacosClient) ListConfigs(namespaceID, groupName string) ([]*types.NacosConfig, error) {
 	namespaceID = getNamespaceID(namespaceID)
 	listNacosConfigsRequest := &mse20190531.ListNacosConfigsRequest{
 		InstanceId:  tea.String(c.InstanceID),
 		NamespaceId: tea.String(namespaceID),
+		Group:       tea.String(groupName),
 		PageSize:    tea.Int32(999),
 		PageNum:     tea.Int32(1),
 	}
@@ -70,6 +71,33 @@ func (c *MSENacosClient) ListConfigs(namespaceID string) ([]*types.NacosConfig, 
 				Group:  tea.StringValue(config.Group),
 			},
 			NamespaceID: namespaceID,
+		})
+	}
+	return configs, nil
+}
+
+func (c *MSENacosClient) ListGroups(namespaceID, keyword string) ([]*types.NacosDataID, error) {
+	namespaceID = getNamespaceID(namespaceID)
+	listNacosConfigsRequest := &mse20190531.ListNacosConfigsRequest{
+		InstanceId:  tea.String(c.InstanceID),
+		NamespaceId: tea.String(namespaceID),
+		Group:       tea.String(keyword),
+		PageSize:    tea.Int32(999),
+		PageNum:     tea.Int32(1),
+	}
+
+	runtime := &teautil.RuntimeOptions{}
+	resp, err := c.ListNacosConfigsWithOptions(listNacosConfigsRequest, runtime)
+	if err != nil {
+		err = handleMSEError(err)
+		return nil, err
+	}
+
+	configs := []*types.NacosDataID{}
+	for _, config := range resp.Body.Configurations {
+		configs = append(configs, &types.NacosDataID{
+			DataID: tea.StringValue(config.DataId),
+			Group:  tea.StringValue(config.Group),
 		})
 	}
 	return configs, nil

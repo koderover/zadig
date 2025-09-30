@@ -34,5 +34,12 @@ func ListNacosConfig(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.RespErr = commonservice.ListNacosConfig(c.Param("nacosID"), c.Param("nacosNamespaceID"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = commonservice.ListNacosConfig(c.Param("nacosID"), c.Param("nacosNamespaceID"), c.Query("groupName"), ctx.Logger)
+}
+
+func ListNacosGroup(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	ctx.Resp, ctx.RespErr = commonservice.ListNacosGroup(c.Param("nacosID"), c.Param("nacosNamespaceID"), c.Query("keyword"), ctx.Logger)
 }

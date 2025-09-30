@@ -160,13 +160,15 @@ func (c *Nacos3Client) ListNamespaces() ([]*types.NacosNamespace, error) {
 	return resp, nil
 }
 
-func (c *Nacos3Client) ListConfigs(namespaceID string) ([]*types.NacosConfig, error) {
+func (c *Nacos3Client) ListConfigs(namespaceID, groupName string) ([]*types.NacosConfig, error) {
 	namespaceID = getNamespaceID(namespaceID)
 	url := "/v3/console/cs/history/configs"
 
 	nacosResp := &nacos3Resp{}
 	params := httpclient.SetQueryParams(map[string]string{
 		"namespaceId": namespaceID,
+		"search":      "blur",
+		"groupName":   groupName,
 		"accessToken": c.token,
 	})
 	if _, err := c.Client.Get(url, params, httpclient.SetResult(nacosResp)); err != nil {
@@ -190,6 +192,41 @@ func (c *Nacos3Client) ListConfigs(namespaceID string) ([]*types.NacosConfig, er
 				Group:  config.GroupName,
 			},
 			NamespaceID: namespaceID,
+		})
+	}
+
+	return configs, nil
+}
+
+func (c *Nacos3Client) ListGroups(namespaceID, keyword string) ([]*types.NacosDataID, error) {
+	namespaceID = getNamespaceID(namespaceID)
+	url := "/v3/console/cs/history/configs"
+
+	nacosResp := &nacos3Resp{}
+	params := httpclient.SetQueryParams(map[string]string{
+		"namespaceId": namespaceID,
+		"search":      "blur",
+		"groupName":   keyword,
+		"accessToken": c.token,
+	})
+	if _, err := c.Client.Get(url, params, httpclient.SetResult(nacosResp)); err != nil {
+		return nil, errors.Wrap(err, "list nacos config failed")
+	}
+
+	if err := nacosResp.handleError(); err != nil {
+		return nil, errors.Wrap(err, "list nacos config failed")
+	}
+
+	res := []*nacos3ConfigItem{}
+	if err := IToi(nacosResp.Data, &res); err != nil {
+		return nil, errors.Wrap(err, "unmarshal nacos config response failed")
+	}
+
+	configs := []*types.NacosDataID{}
+	for _, config := range res {
+		configs = append(configs, &types.NacosDataID{
+			DataID: config.DataID,
+			Group:  config.GroupName,
 		})
 	}
 
