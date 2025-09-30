@@ -137,7 +137,7 @@ func (c *NacosClient) ListNamespaces() ([]*types.NacosNamespace, error) {
 	return resp, nil
 }
 
-func (c *NacosClient) ListConfigs(namespaceID string) ([]*types.NacosConfig, error) {
+func (c *NacosClient) ListConfigs(namespaceID, groupName string) ([]*types.NacosConfig, error) {
 	namespaceID = getNamespaceID(namespaceID)
 	url := "/v1/cs/configs"
 	resp := []*types.NacosConfig{}
@@ -150,8 +150,8 @@ func (c *NacosClient) ListConfigs(namespaceID string) ([]*types.NacosConfig, err
 		sizeString := strconv.Itoa(pageSize)
 		params := httpclient.SetQueryParams(map[string]string{
 			"dataId":      "",
-			"group":       "",
-			"search":      "accurate",
+			"group":       groupName,
+			"search":      "blur",
 			"pageNo":      numString,
 			"pageSize":    sizeString,
 			"tenant":      namespaceID,

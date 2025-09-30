@@ -111,7 +111,7 @@ func (j NacosJobController) Update(useUserInput bool, ticket *commonmodels.Appro
 	if currJobSpec.DataFixed {
 		newDataList := make([]*types.NacosConfig, 0)
 
-		nacosConfigs, err := commonservice.ListNacosConfig(j.jobSpec.NacosID, j.jobSpec.NamespaceID, log.SugaredLogger())
+		nacosConfigs, err := commonservice.ListNacosConfig(j.jobSpec.NacosID, j.jobSpec.NamespaceID, j.jobSpec.GroupName, log.SugaredLogger())
 		if err != nil {
 			return fmt.Errorf("fail to list nacos config: %w", err)
 		}
@@ -163,7 +163,7 @@ func (j NacosJobController) Update(useUserInput bool, ticket *commonmodels.Appro
 }
 
 func (j NacosJobController) SetOptions(ticket *commonmodels.ApprovalTicket) error {
-	nacosConfigs, err := commonservice.ListNacosConfig(j.jobSpec.NacosID, j.jobSpec.NamespaceID, log.SugaredLogger())
+	nacosConfigs, err := commonservice.ListNacosConfig(j.jobSpec.NacosID, j.jobSpec.NamespaceID, j.jobSpec.GroupName, log.SugaredLogger())
 	if err != nil {
 		return fmt.Errorf("fail to list nacos config: %w", err)
 	}
