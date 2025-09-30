@@ -376,7 +376,7 @@ func ListNacosConfigByType(id, format string, log *zap.SugaredLogger) ([]*BriefN
 		return nil, e.ErrGetNacosInfo.AddErr(err)
 	}
 	for _, namespace := range namespaces {
-		configs, err := cli.ListConfigs(namespace.NamespaceID)
+		configs, err := cli.ListConfigs(namespace.NamespaceID, "")
 		if err != nil {
 			log.Errorf("failed to list nacos config for namespace: %s, error is: %s", namespace.NamespacedName, err)
 			return nil, e.ErrGetNacosInfo.AddErr(err)

@@ -43,7 +43,7 @@ func ListNacosNamespace(nacosID string, log *zap.SugaredLogger) ([]*types.NacosN
 	return resp, nil
 }
 
-func ListNacosConfig(nacosID, namespaceID string, log *zap.SugaredLogger) ([]*types.NacosConfig, error) {
+func ListNacosConfig(nacosID, namespaceID, groupName string, log *zap.SugaredLogger) ([]*types.NacosConfig, error) {
 	client, err := GetNacosClient(nacosID)
 	if err != nil {
 		err = errors.Wrap(err, "fail to get nacos client")
@@ -65,7 +65,7 @@ func ListNacosConfig(nacosID, namespaceID string, log *zap.SugaredLogger) ([]*ty
 		}
 	}
 
-	resp, err := client.ListConfigs(namespaceID)
+	resp, err := client.ListConfigs(namespaceID, groupName)
 	if err != nil {
 		err = errors.Wrap(err, "fail to list nacos config")
 		log.Error(err)
@@ -76,6 +76,24 @@ func ListNacosConfig(nacosID, namespaceID string, log *zap.SugaredLogger) ([]*ty
 		item.NamespaceName = namespaceName
 		item.OriginalContent = item.Content
 	}
+	return resp, nil
+}
+
+func ListNacosGroup(nacosID, namespaceID, keyword string, log *zap.SugaredLogger) ([]*types.NacosDataID, error) {
+	client, err := GetNacosClient(nacosID)
+	if err != nil {
+		err = errors.Wrap(err, "fail to get nacos client")
+		log.Error(err)
+		return []*types.NacosDataID{}, err
+	}
+
+	resp, err := client.ListGroups(namespaceID, keyword)
+	if err != nil {
+		err = errors.Wrap(err, "fail to list nacos config")
+		log.Error(err)
+		return []*types.NacosDataID{}, err
+	}
+
 	return resp, nil
 }
 

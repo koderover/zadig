@@ -12,7 +12,8 @@ import (
 type IClient interface {
 	GetConfig(dataID, group, namespaceID string) (*types.NacosConfig, error)
 	ListNamespaces() ([]*types.NacosNamespace, error)
-	ListConfigs(namespaceID string) ([]*types.NacosConfig, error)
+	ListConfigs(namespaceID, groupName string) ([]*types.NacosConfig, error)
+	ListGroups(namespaceID, keyword string) ([]*types.NacosDataID, error)
 	GetConfigHistory(dataID, group, namespaceID string) ([]*types.NacosConfigHistory, error)
 	UpdateConfig(dataID, group, namespaceID, content, format string) error
 	Validate() error

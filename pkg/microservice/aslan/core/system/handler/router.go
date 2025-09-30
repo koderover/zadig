@@ -397,6 +397,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	{
 		nacos.GET("/:nacosID", ListNacosNamespace)
 		nacos.GET("/:nacosID/namespace/:nacosNamespaceID", ListNacosConfig)
+		nacos.GET("/:nacosID/namespace/:nacosNamespaceID/group", ListNacosGroup)
 	}
 
 	// feishu project management module

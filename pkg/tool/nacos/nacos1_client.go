@@ -26,6 +26,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/tool/httpclient"
 	"github.com/koderover/zadig/v2/pkg/types"
 	"github.com/pkg/errors"
+	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 type NacosClient struct {
@@ -137,7 +138,51 @@ func (c *NacosClient) ListNamespaces() ([]*types.NacosNamespace, error) {
 	return resp, nil
 }
 
-func (c *NacosClient) ListConfigs(namespaceID string) ([]*types.NacosConfig, error) {
+func (c *NacosClient) ListGroups(namespaceID, keyword string) ([]*types.NacosDataID, error) {
+	namespaceID = getNamespaceID(namespaceID)
+	url := "/v1/cs/configs"
+	resp := []*types.NacosDataID{}
+	pageNum := 1
+	pageSize := 500
+	end := false
+
+	groupSet := sets.NewString()
+	for !end {
+		res := &nacosConfigResp{}
+		numString := strconv.Itoa(pageNum)
+		sizeString := strconv.Itoa(pageSize)
+		params := httpclient.SetQueryParams(map[string]string{
+			"dataId":      "",
+			"group":       keyword,
+			"search":      "blur",
+			"pageNo":      numString,
+			"pageSize":    sizeString,
+			"tenant":      namespaceID,
+			"accessToken": c.token,
+		})
+		if _, err := c.Client.Get(url, params, httpclient.SetResult(res)); err != nil {
+			return nil, errors.Wrap(err, "list nacos config failed")
+		}
+		for _, conf := range res.PageItems {
+			if groupSet.Has(conf.Group) {
+				continue
+			}
+
+			resp = append(resp, &types.NacosDataID{
+				Group: conf.Group,
+			})
+
+			groupSet.Insert(conf.Group)
+		}
+		pageNum++
+		if len(res.PageItems) < pageSize {
+			end = true
+		}
+	}
+	return resp, nil
+}
+
+func (c *NacosClient) ListConfigs(namespaceID, groupName string) ([]*types.NacosConfig, error) {
 	namespaceID = getNamespaceID(namespaceID)
 	url := "/v1/cs/configs"
 	resp := []*types.NacosConfig{}
@@ -150,8 +195,8 @@ func (c *NacosClient) ListConfigs(namespaceID string) ([]*types.NacosConfig, err
 		sizeString := strconv.Itoa(pageSize)
 		params := httpclient.SetQueryParams(map[string]string{
 			"dataId":      "",
-			"group":       "",
-			"search":      "accurate",
+			"group":       groupName,
+			"search":      "blur",
 			"pageNo":      numString,
 			"pageSize":    sizeString,
 			"tenant":      namespaceID,
