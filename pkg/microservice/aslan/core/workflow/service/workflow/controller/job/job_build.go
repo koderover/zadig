@@ -988,7 +988,37 @@ func (j BuildJobController) GetUsedRepos() ([]*types.Repository, error) {
 }
 
 func (j BuildJobController) RenderDynamicVariableOptions(key string, option *RenderDynamicVariableValue) ([]string, error) {
-	return nil, fmt.Errorf("invalid job type: %s to render dynamic variable", j.name)
+	// In build job, service name and service module must be provided
+	if option.ServiceName == "" || option.ServiceModule == "" {
+		return nil, fmt.Errorf("service name and service module are required for build job")
+	}
+
+	// Find the correct service/module from options
+	var targetBuild *commonmodels.ServiceAndBuild
+	for _, build := range j.jobSpec.ServiceAndBuildsOptions {
+		if build.ServiceName == option.ServiceName && build.ServiceModule == option.ServiceModule {
+			targetBuild = build
+			break
+		}
+	}
+
+	if targetBuild == nil {
+		return nil, fmt.Errorf("service %s/%s not found in build job options", option.ServiceName, option.ServiceModule)
+	}
+
+	// Find the KeyVal with the given key
+	for _, kv := range targetBuild.KeyVals {
+		if kv.Key == key {
+			resp, err := renderScriptedVariableOptions(option.ServiceName, option.ServiceModule, kv.Script, kv.CallFunction, option.Values)
+			if err != nil {
+				err = fmt.Errorf("Failed to render kv for key: %s, error: %s", key, err)
+				return nil, err
+			}
+			return resp, nil
+		}
+	}
+
+	return nil, fmt.Errorf("key: %s not found in service %s/%s of job: %s", key, option.ServiceName, option.ServiceModule, j.name)
 }
 
 func (j BuildJobController) IsServiceTypeJob() bool {
