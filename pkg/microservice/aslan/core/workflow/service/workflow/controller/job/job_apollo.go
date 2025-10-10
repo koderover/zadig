@@ -97,9 +97,11 @@ func (j ApolloJobController) Validate(isExecution bool) error {
 				return fmt.Errorf("duplicate apollo namespace: %s", nsKey)
 			}
 
-			envKey := fmt.Sprintf("%s++%s++%s", ns.ClusterID, ns.AppID, ns.Env)
-			if _, ok := envOptionMap[envKey]; !ok {
-				return fmt.Errorf("apollo env [%s] is not allowed to be changed", envKey)
+			if !j.jobSpec.DisableConfigRange {
+				envKey := fmt.Sprintf("%s++%s++%s", ns.ClusterID, ns.AppID, ns.Env)
+				if _, ok := envOptionMap[envKey]; !ok {
+					return fmt.Errorf("apollo env [%s] is not allowed to be changed", envKey)
+				}
 			}
 			nsMap[nsKey] = ns
 		}
@@ -131,7 +133,13 @@ func (j ApolloJobController) Update(useUserInput bool, ticket *commonmodels.Appr
 		j.jobSpec.NamespaceList = make([]*commonmodels.ApolloNamespace, 0)
 	}
 	j.jobSpec.ApolloID = currJobSpec.ApolloID
-	j.jobSpec.NamespaceListOption = currJobSpec.NamespaceListOption
+	j.jobSpec.DisableConfigRange = currJobSpec.DisableConfigRange
+
+	if j.jobSpec.DisableConfigRange {
+		j.jobSpec.NamespaceListOption = make([]*commonmodels.ApolloNamespace, 0)
+	} else {
+		j.jobSpec.NamespaceListOption = currJobSpec.NamespaceListOption
+	}
 
 	return nil
 }
@@ -143,8 +151,13 @@ func (j ApolloJobController) SetOptions(ticket *commonmodels.ApprovalTicket) err
 		return fmt.Errorf("failed to get apollo info from mongo: %v", err)
 	}
 
-	client := apollo.NewClient(info.ServerAddress, info.Token)
 	newNamespaces := []*commonmodels.ApolloNamespace{}
+	if j.jobSpec.DisableConfigRange {
+		j.jobSpec.NamespaceListOption = newNamespaces
+		return nil
+	}
+
+	client := apollo.NewClient(info.ServerAddress, info.Token)
 	for _, namespace := range j.jobSpec.NamespaceListOption {
 		if namespace.Namespace == "*" {
 			namespaces, err := client.ListAppNamespace(namespace.AppID, namespace.Env, namespace.ClusterID)

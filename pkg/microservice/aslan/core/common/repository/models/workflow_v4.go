@@ -939,9 +939,10 @@ type SQLJobSpec struct {
 }
 
 type ApolloJobSpec struct {
-	ApolloID            string             `bson:"apolloID"            json:"apolloID"             yaml:"apolloID"`
-	NamespaceList       []*ApolloNamespace `bson:"namespaceList"       json:"namespaceList"        yaml:"namespaceList"`
-	NamespaceListOption []*ApolloNamespace `bson:"namespaceListOption" json:"namespaceListOption"  yaml:"namespaceListOption"`
+	ApolloID            string             `bson:"apolloID"                    json:"apolloID"                     yaml:"apolloID"`
+	DisableConfigRange  bool               `bson:"disable_config_range"        json:"disable_config_range"         yaml:"disable_config_range"`
+	NamespaceList       []*ApolloNamespace `bson:"namespaceList"               json:"namespaceList"                yaml:"namespaceList"`
+	NamespaceListOption []*ApolloNamespace `bson:"namespaceListOption"         json:"namespaceListOption"          yaml:"namespaceListOption"`
 }
 
 type ApolloNamespace struct {
