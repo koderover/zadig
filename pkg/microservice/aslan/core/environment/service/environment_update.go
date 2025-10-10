@@ -129,6 +129,11 @@ func reInstallHelmServiceInEnv(productInfo *commonmodels.Product, templateSvc *c
 		finalError = setProductServiceError(productInfo, templateSvc.ServiceName, err)
 	}()
 
+	templateProduct, err := templaterepo.NewProductColl().Find(productInfo.ProductName)
+	if err != nil {
+		return fmt.Errorf("failed to find template project %s, error: %v", productInfo.ProductName, err)
+	}
+
 	renderChart := productInfo.GetSvcRender(serviceName)
 
 	helmClient, errCreateClient := helmtool.NewClientFromNamespace(productInfo.ClusterID, productInfo.Namespace)
@@ -153,7 +158,7 @@ func reInstallHelmServiceInEnv(productInfo *commonmodels.Product, templateSvc *c
 		return
 	}
 
-	param, errBuildParam := kube.BuildInstallParam(productInfo.DefaultValues, productInfo, renderChart, productSvc)
+	param, errBuildParam := kube.BuildInstallParam(productInfo.DefaultValues, productInfo, renderChart, productSvc, templateProduct.ReleaseMaxHistory)
 	if errBuildParam != nil {
 		err = fmt.Errorf("failed to generate install param, service: %s, namespace: %s, err: %s", templateSvc.ServiceName, productInfo.Namespace, errBuildParam)
 		return

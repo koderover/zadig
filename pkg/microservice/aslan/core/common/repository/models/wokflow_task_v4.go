@@ -278,6 +278,7 @@ type JobTaskHelmDeploySpec struct {
 	ReleaseName                  string                    `bson:"release_name"                     json:"release_name"                        yaml:"release_name"`
 	VersionName                  string                    `bson:"version_name"                     json:"version_name"                        yaml:"version_name"`
 	Timeout                      int                       `bson:"timeout"                          json:"timeout"                             yaml:"timeout"`
+	MaxHistory                   int                       `bson:"max_history"                      json:"max_history"                         yaml:"max_history"`
 	ReplaceResources             []Resource                `bson:"replace_resources"                json:"replace_resources"                   yaml:"replace_resources"`
 	OriginRevision               int64                     `bson:"origin_revision"                  json:"origin_revision"                     yaml:"origin_revision"`
 	ValueMergeStrategy           config.ValueMergeStrategy `bson:"value_merge_strategy"             json:"value_merge_strategy"                yaml:"value_merge_strategy"`
@@ -297,6 +298,7 @@ type JobTaskHelmChartDeploySpec struct {
 	SkipCheckRunStatus bool             `bson:"skip_check_run_status"            json:"skip_check_run_status"               yaml:"skip_check_run_status"`
 	ClusterID          string           `bson:"cluster_id"                       json:"cluster_id"                          yaml:"cluster_id"`
 	Timeout            int              `bson:"timeout"                          json:"timeout"                             yaml:"timeout"`
+	MaxHistory         int              `bson:"max_history"                      json:"max_history"                         yaml:"max_history"`
 }
 
 type ImageAndServiceModule struct {

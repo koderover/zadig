@@ -648,6 +648,7 @@ func (j DeployJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, erro
 				Timeout:                      timeout,
 				IsProduction:                 j.jobSpec.Production,
 				ValueMergeStrategy:           svc.ValueMergeStrategy,
+				MaxHistory:                   templateProduct.ReleaseMaxHistory,
 			}
 
 			for _, module := range svc.Modules {
