@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
+	"github.com/koderover/zadig/v2/pkg/tool/lark"
 	"github.com/pkg/errors"
 	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -102,6 +103,9 @@ func lintApproval(approval *models.Approval) error {
 			return errors.New("num of approval-node is 0")
 		}
 		for i, node := range approval.LarkApproval.ApprovalNodes {
+			if node.Type == lark.ApproveTypeStart || node.Type == lark.ApproveTypeEnd {
+				continue
+			}
 			if len(node.ApproveUsers) == 0 {
 				return errors.Errorf("num of approval-node %d approver is 0", i)
 			}

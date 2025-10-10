@@ -293,6 +293,8 @@ func waitForLarkApprove(ctx context.Context, spec *commonmodels.JobTaskApprovalS
 				}
 			}
 			return "", nil
+		case lark.ApproveTypeStart, lark.ApproveTypeEnd:
+			return config.ApprovalStatusApprove, nil
 		default:
 			return "", fmt.Errorf("unknown node type %s", node.Type)
 		}
@@ -332,6 +334,23 @@ func waitForLarkApprove(ctx context.Context, spec *commonmodels.JobTaskApprovalS
 		allResultMap := larkservice.GetUserApprovalResults(instance)
 		nodeKeyMap := larkservice.GetLarkApprovalInstanceManager(instance).GetNodeKeyMap()
 		for i, node := range larkApproval.ApprovalNodes {
+			if node.Type == lark.ApproveTypeStart || node.Type == lark.ApproveTypeEnd {
+
+				for _, user := range node.CcUsers {
+					userInfo, err := client.GetUserInfoByID(user.ID, setting.LarkUserOpenID)
+					if err != nil {
+						return false, fmt.Errorf("get user info %s failed, error: %s", userID, err)
+					}
+
+					user.Name = userInfo.Name
+					user.Avatar = userInfo.Avatar
+					userUpdated = true
+				}
+
+				node.RejectOrApprove = config.ApprovalStatusApprove
+				continue
+			}
+
 			resultMap, ok := allResultMap[lark.ApprovalNodeIDKey(i)]
 			if !ok {
 				continue
