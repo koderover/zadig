@@ -1006,12 +1006,13 @@ func (j BuildJobController) getReferredJobTargets(jobName string) ([]*commonmode
 
 	for _, build := range j.jobSpec.ServiceAndBuilds {
 		target := &commonmodels.ServiceAndBuild{
-			ServiceName:   build.ServiceName,
-			ServiceModule: build.ServiceModule,
-			BuildName:     build.BuildName,
-			ImageName:     build.ImageName,
-			KeyVals:       build.KeyVals,
-			Repos:         build.Repos,
+			ServiceName:      build.ServiceName,
+			ServiceModule:    build.ServiceModule,
+			BuildName:        build.BuildName,
+			ImageName:        build.ImageName,
+			KeyVals:          build.KeyVals,
+			Repos:            build.Repos,
+			ShareStorageInfo: build.ShareStorageInfo,
 		}
 
 		service := servicesMap[build.ServiceName]
