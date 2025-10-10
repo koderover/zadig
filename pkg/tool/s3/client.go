@@ -79,8 +79,8 @@ func NewClient(endpoint, ak, sk, region string, insecure bool, provider int8) (*
 
 // Validate the existence of bucket
 func (c *Client) ValidateBucket(bucketName string) error {
-	listObjectInput := &s3.ListObjectsInput{Bucket: aws.String(bucketName)}
-	_, err := c.ListObjects(listObjectInput)
+	headBucketInput := &s3.HeadBucketInput{Bucket: aws.String(bucketName)}
+	_, err := c.HeadBucket(headBucketInput)
 	if err != nil {
 		return fmt.Errorf("validate S3 error: %s", err.Error())
 	}
