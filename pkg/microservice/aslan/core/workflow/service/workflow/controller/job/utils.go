@@ -159,6 +159,7 @@ func applyRepos(base, input []*types.Repository) []*types.Repository {
 		// user can only set default branch in custom workflow.
 		if cv, ok := customRepoMap[repo.GetKey()]; ok {
 			item.Branch = cv.Branch
+			item.MergeBranches = cv.MergeBranches
 			item.Tag = cv.Tag
 			item.PR = cv.PR
 			item.PRs = cv.PRs
@@ -465,6 +466,8 @@ func getReposVariables(repos []*types.Repository) []*commonmodels.KeyVal {
 		if repo.PR > 0 {
 			ret = append(ret, &commonmodels.KeyVal{Key: fmt.Sprintf("%s_PR", repoName), Value: strconv.Itoa(repo.PR), IsCredential: false})
 		}
+
+		ret = append(ret, &commonmodels.KeyVal{Key: fmt.Sprintf("%s_PRE_MERGE_BRANCHES", repoName), Value: repo.GetPreMergeBranches(), IsCredential: false})
 
 		ret = append(ret, &commonmodels.KeyVal{Key: fmt.Sprintf("%s_ORG", repoName), Value: repo.RepoOwner, IsCredential: false})
 
