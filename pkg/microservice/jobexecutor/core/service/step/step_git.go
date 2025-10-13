@@ -366,7 +366,8 @@ func writeSSHFile(sshKey, hostName string) error {
 }
 
 func writeSSHConfigFile(hostNames sets.String, proxy *step.Proxy) error {
-	out := "\nHOST *\nStrictHostKeyChecking=no\nUserKnownHostsFile=/dev/null\n"
+	out := "Include ~/.ssh/config.d/*\n"
+	out += "\nHOST *\nStrictHostKeyChecking=no\nUserKnownHostsFile=/dev/null\n"
 	for _, hostName := range hostNames.List() {
 		name := strings.Replace(hostName, ".", "", -1)
 		name = strings.Replace(name, ":", "", -1)
