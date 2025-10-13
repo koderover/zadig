@@ -37,7 +37,6 @@ import (
 	"github.com/docker/distribution"
 	"github.com/docker/distribution/manifest/schema2"
 	"github.com/docker/distribution/reference"
-	regstryapiv2 "github.com/docker/distribution/registry/api/v2"
 	"github.com/docker/distribution/registry/client"
 	"github.com/docker/distribution/registry/client/auth"
 	"github.com/docker/distribution/registry/client/auth/challenge"
@@ -56,6 +55,7 @@ import (
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
 type Endpoint struct {
@@ -214,6 +214,54 @@ func (c *authClient) getRepository(repoName string) (repo distribution.Repositor
 	return
 }
 
+func (c *authClient) getRepositories(repoName string) (err error) {
+	creds := registry.NewStaticCredentialStore(&types.AuthConfig{
+		Username:      c.endpoint.Ak,
+		Password:      c.endpoint.Sk,
+		ServerAddress: c.endpoint.Addr,
+	})
+
+	basicHandler := auth.NewBasicHandler(creds)
+	// scope := auth.RepositoryScope{
+	// 	Repository: repoName,
+	// 	Actions:    []string{"pull"},
+	// 	Class:      "",
+	// }
+	scope := auth.RepositoryScope{
+		Repository: "", // 空字符串表示 catalog 权限
+		Actions:    []string{"*"},
+		Class:      "",
+	}
+
+	tokenHandlerOptions := auth.TokenHandlerOptions{
+		Transport:   c.tr,
+		Credentials: creds,
+		Scopes:      []auth.Scope{scope},
+		ClientID:    registry.AuthClientID,
+	}
+
+	tokenHandler := auth.NewTokenHandlerWithOptions(tokenHandlerOptions)
+	modifier := auth.NewAuthorizer(c.cm, tokenHandler, basicHandler)
+	tr := transport.NewTransport(c.tr, modifier)
+
+	log.Debugf("endpointURL: %s", c.endpointURL.String())
+	rclient, err := client.NewRegistry(c.endpointURL.String(), tr)
+	if err != nil {
+		return
+	}
+
+	log.Debugf("list repositories")
+	repos := []string{}
+	count, err := rclient.Repositories(c.ctx, repos, "")
+	if err != nil {
+		return
+	}
+
+	log.Debugf("repos: %v, count: %d", repos, count)
+
+	return
+}
+
 func (c *authClient) listTags(repoName string) (tags []string, err error) {
 	repo, err := c.getRepository(repoName)
 	if err != nil {
@@ -289,18 +337,9 @@ func (c *authClient) getImageInfo(repoName, tag string) (ci *containerInfo, err 
 }
 
 func (c *authClient) validateRegistry(repoName string) (err error) {
-	repo, err := c.getRepository(repoName + "/test")
+	err = c.getRepositories(repoName)
 	if err != nil {
 		return
-	}
-
-	// Try to list tags to verify repository access
-	_, err = repo.Tags(c.ctx).All(c.ctx)
-	if err != nil {
-		if strings.Contains(err.Error(), regstryapiv2.ErrorCodeNameUnknown.Message()) {
-			return nil
-		}
-		return errors.Wrap(err, "验证镜像仓库失败")
 	}
 
 	return nil
