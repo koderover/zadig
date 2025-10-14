@@ -736,6 +736,8 @@ func RetryWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredL
 		return errors.New("工作流任务数据异常, 无法重试")
 	}
 
+	task.RetryNum++
+
 	globalKeyMap := make(map[string]string)
 	jobTaskMap := make(map[string]*commonmodels.JobTask)
 	for _, stage := range task.WorkflowArgs.Stages {

@@ -58,6 +58,7 @@ type WorkflowTask struct {
 	IsArchived          bool                          `bson:"is_archived"               json:"is_archived"`
 	Error               string                        `bson:"error,omitempty"           json:"error,omitempty"`
 	IsRestart           bool                          `bson:"is_restart"                json:"is_restart"`
+	RetryNum            int                           `bson:"retry_num"                 json:"retry_num"`
 	IsDebug             bool                          `bson:"is_debug"                  json:"is_debug"`
 	ShareStorages       []*ShareStorage               `bson:"share_storages"            json:"share_storages"`
 	Type                config.CustomWorkflowTaskType `bson:"type"                      json:"type"`
@@ -786,6 +787,7 @@ type WorkflowTaskCtx struct {
 	ProjectName                 string
 	TaskID                      int64
 	Remark                      string
+	RetryNum                    int
 	DockerHost                  string
 	Workspace                   string
 	DistDir                     string

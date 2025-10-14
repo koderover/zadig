@@ -92,7 +92,7 @@ func instantiateStepCtl(step *commonmodels.StepTask, workflowCtx *commonmodels.W
 	case config.StepDownloadArchive:
 		stepCtl, err = NewDownloadArchiveCtl(step, logger)
 	case config.StepJunitReport:
-		stepCtl, err = NewJunitReportCtl(step, logger)
+		stepCtl, err = NewJunitReportCtl(step, workflowCtx, logger)
 	case config.StepTarArchive:
 		stepCtl, err = NewTarArchiveCtl(step, logger)
 	case config.StepSonarCheck:

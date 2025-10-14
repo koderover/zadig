@@ -24,6 +24,7 @@ type CustomWorkflowTestReport struct {
 	JobName          string             `bson:"job_name"`
 	JobTaskName      string             `bson:"job_task_name"`
 	TaskID           int64              `bson:"task_id"`
+	RetryNum         int                `bson:"retry_num"`
 	ServiceName      string             `bson:"service_name"`
 	ServiceModule    string             `bson:"service_module"`
 	ZadigTestName    string             `bson:"zadig_test_name"`

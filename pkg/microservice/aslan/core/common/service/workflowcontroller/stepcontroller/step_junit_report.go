@@ -41,10 +41,11 @@ import (
 type junitReportCtl struct {
 	step            *commonmodels.StepTask
 	junitReportSpec *step.StepJunitReportSpec
+	workflowCtx     *commonmodels.WorkflowTaskCtx
 	log             *zap.SugaredLogger
 }
 
-func NewJunitReportCtl(stepTask *commonmodels.StepTask, log *zap.SugaredLogger) (*junitReportCtl, error) {
+func NewJunitReportCtl(stepTask *commonmodels.StepTask, workflowCtx *commonmodels.WorkflowTaskCtx, log *zap.SugaredLogger) (*junitReportCtl, error) {
 	yamlString, err := yaml.Marshal(stepTask.Spec)
 	if err != nil {
 		return nil, fmt.Errorf("marshal junit report spec error: %v", err)
@@ -54,7 +55,7 @@ func NewJunitReportCtl(stepTask *commonmodels.StepTask, log *zap.SugaredLogger) 
 		return nil, fmt.Errorf("unmarshal junit report spec error: %v", err)
 	}
 	stepTask.Spec = junitReportSpec
-	return &junitReportCtl{junitReportSpec: junitReportSpec, log: log, step: stepTask}, nil
+	return &junitReportCtl{junitReportSpec: junitReportSpec, log: log, step: stepTask, workflowCtx: workflowCtx}, nil
 }
 
 func (s *junitReportCtl) PreRun(ctx context.Context) error {
@@ -142,6 +143,7 @@ func (s *junitReportCtl) AfterRun(ctx context.Context) error {
 		ServiceModule:    s.junitReportSpec.ServiceModule,
 		ZadigTestName:    s.junitReportSpec.TestName,
 		ZadigTestProject: s.junitReportSpec.TestProject,
+		RetryNum:         s.workflowCtx.RetryNum,
 		TestName:         testReport.Name,
 		TestCaseNum:      testReport.Tests,
 		SuccessCaseNum:   testReport.Successes,
