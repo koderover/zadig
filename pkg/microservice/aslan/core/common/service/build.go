@@ -203,7 +203,6 @@ func MergeBuildEnvs(templateEnvs, customEnvs commonmodels.RuntimeKeyValList) com
 			cv.Description = v.Description
 			cv.Script = v.Script
 			cv.FunctionReference = v.FunctionReference
-			cv.CallFunction = v.CallFunction
 			retEnvs = append(retEnvs, cv)
 		} else {
 			retEnvs = append(retEnvs, v)
