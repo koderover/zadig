@@ -27,6 +27,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/types"
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
+	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 type Nacos3Client struct {
@@ -160,13 +161,61 @@ func (c *Nacos3Client) ListNamespaces() ([]*types.NacosNamespace, error) {
 	return resp, nil
 }
 
-func (c *Nacos3Client) ListConfigs(namespaceID string) ([]*types.NacosConfig, error) {
+func (c *Nacos3Client) ListGroups(namespaceID, keyword string) ([]*types.NacosDataID, error) {
 	namespaceID = getNamespaceID(namespaceID)
 	url := "/v3/console/cs/history/configs"
 
 	nacosResp := &nacos3Resp{}
 	params := httpclient.SetQueryParams(map[string]string{
 		"namespaceId": namespaceID,
+		"search":      "blur",
+		"groupName":   keyword,
+		"accessToken": c.token,
+	})
+
+	if _, err := c.Client.Get(url, params, httpclient.SetResult(nacosResp)); err != nil {
+		return nil, errors.Wrap(err, "list nacos config failed")
+	}
+
+	if err := nacosResp.handleError(); err != nil {
+		return nil, errors.Wrap(err, "list nacos config failed")
+	}
+
+	res := []*nacos3ConfigItem{}
+	if err := IToi(nacosResp.Data, &res); err != nil {
+		return nil, errors.Wrap(err, "unmarshal nacos config response failed")
+	}
+
+	groupSet := sets.NewString()
+	configs := []*types.NacosDataID{}
+	for _, config := range res {
+		if groupSet.Has(config.GroupName) {
+			continue
+		}
+
+		if keyword != "" && config.GroupName != keyword {
+			continue
+		}
+
+		configs = append(configs, &types.NacosDataID{
+			Group: config.GroupName,
+		})
+
+		groupSet.Insert(config.GroupName)
+	}
+
+	return configs, nil
+}
+
+func (c *Nacos3Client) ListConfigs(namespaceID, groupName string) ([]*types.NacosConfig, error) {
+	namespaceID = getNamespaceID(namespaceID)
+	url := "/v3/console/cs/history/configs"
+
+	nacosResp := &nacos3Resp{}
+	params := httpclient.SetQueryParams(map[string]string{
+		"namespaceId": namespaceID,
+		"search":      "blur",
+		"groupName":   groupName,
 		"accessToken": c.token,
 	})
 	if _, err := c.Client.Get(url, params, httpclient.SetResult(nacosResp)); err != nil {
@@ -184,6 +233,10 @@ func (c *Nacos3Client) ListConfigs(namespaceID string) ([]*types.NacosConfig, er
 
 	configs := []*types.NacosConfig{}
 	for _, config := range res {
+		if groupName != "" && config.GroupName != groupName {
+			continue
+		}
+
 		configs = append(configs, &types.NacosConfig{
 			NacosDataID: types.NacosDataID{
 				DataID: config.DataID,

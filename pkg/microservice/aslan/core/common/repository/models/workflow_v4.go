@@ -1357,6 +1357,7 @@ type MseGrayOfflineJobSpec struct {
 type NacosJobSpec struct {
 	NacosID           string                 `bson:"nacos_id"            json:"nacos_id"            yaml:"nacos_id"`
 	NamespaceID       string                 `bson:"namespace_id"        json:"namespace_id"        yaml:"namespace_id"`
+	GroupName         string                 `bson:"group_name"          json:"group_name"          yaml:"group_name"`
 	Source            config.ParamSourceType `bson:"source"              json:"source"              yaml:"source"`
 	DefaultNacosDatas []*types.NacosDataID   `bson:"default_nacos_datas" json:"default_nacos_datas" yaml:"default_nacos_datas"`
 	NacosDatas        []*types.NacosConfig   `bson:"nacos_datas"         json:"nacos_datas"         yaml:"nacos_datas"`

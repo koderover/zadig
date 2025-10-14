@@ -30,9 +30,36 @@ func ListNacosNamespace(c *gin.Context) {
 	ctx.Resp, ctx.RespErr = commonservice.ListNacosNamespace(c.Param("nacosID"), ctx.Logger)
 }
 
+// @summary 获取nacos配置列表
+// @description
+// @tags 	system
+// @accept 	json
+// @produce json
+// @Param   nacosID 			path 		string 							         true 	"nacosID"
+// @Param   nacosNamespaceID 	path 		string 							         true 	"nacosNamespaceID"
+// @Param   groupName 			query 		string 							         false 	"group name"
+// @success 200              	{array}     types.NacosConfig
+// @router /api/aslan/system/nacos/{nacosID}/namespace/{nacosNamespaceID} [get]
 func ListNacosConfig(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.RespErr = commonservice.ListNacosConfig(c.Param("nacosID"), c.Param("nacosNamespaceID"), ctx.Logger)
+	ctx.Resp, ctx.RespErr = commonservice.ListNacosConfig(c.Param("nacosID"), c.Param("nacosNamespaceID"), c.Query("groupName"), ctx.Logger)
+}
+
+// @summary 获取nacos组列表
+// @description
+// @tags 	system
+// @accept 	json
+// @produce json
+// @Param   nacosID 			path 		string 							         true 	"nacosID"
+// @Param   nacosNamespaceID 	path 		string 							         true 	"nacosNamespaceID"
+// @Param   keyword 			query 		string 							         false 	"group name keyword"
+// @success 200              	{array}     types.NacosDataID
+// @router /api/aslan/system/nacos/{nacosID}/namespace/{nacosNamespaceID}/group [get]
+func ListNacosGroup(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	ctx.Resp, ctx.RespErr = commonservice.ListNacosGroup(c.Param("nacosID"), c.Param("nacosNamespaceID"), c.Query("keyword"), ctx.Logger)
 }
