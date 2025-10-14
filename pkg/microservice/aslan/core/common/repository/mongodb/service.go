@@ -221,8 +221,12 @@ func (c *ServiceColl) ListMaxRevisionsByProductWithFilter(productName string, re
 	}
 
 	if removeApplicationLinked {
-		// Only return services where ApplicationID is empty
-		m["application_id"] = ""
+		// Return services where ApplicationID doesn't have a value (missing, empty, or null)
+		m["$or"] = []bson.M{
+			{"application_id": bson.M{"$exists": false}}, // field doesn't exist
+			{"application_id": ""},                       // field exists but is empty string
+			{"application_id": nil},                      // field exists but is null
+		}
 	}
 
 	return c.listMaxRevisions(m, nil)
