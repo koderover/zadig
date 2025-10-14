@@ -218,7 +218,7 @@ func ListReleases(args *HelmReleaseQueryArgs, envName string, production bool, l
 	}
 
 	// set service template data
-	serviceTmpls, err := repository.ListMaxRevisionsServices(projectName, production)
+	serviceTmpls, err := repository.ListMaxRevisionsServices(projectName, production, false)
 	if err != nil {
 		return nil, errors.Errorf("failed to list service templates for project: %s", projectName)
 	}

@@ -434,7 +434,7 @@ func updateK8sProduct(exitedProd *commonmodels.Product, user, requestID string, 
 	}
 
 	// list services with max revision of project
-	allServices, err := repository.ListMaxRevisionsServices(productName, exitedProd.Production)
+	allServices, err := repository.ListMaxRevisionsServices(productName, exitedProd.Production, false)
 	if err != nil {
 		return e.ErrUpdateEnv.AddErr(fmt.Errorf("failed to list services with max revision of project %s, err: %v", productName, err))
 	}

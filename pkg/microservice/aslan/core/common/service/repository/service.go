@@ -67,11 +67,11 @@ func ListMaxRevisions(opt *mongodb.ServiceListOption, production bool) ([]*model
 	}
 }
 
-func ListMaxRevisionsServices(productName string, production bool) ([]*models.Service, error) {
+func ListMaxRevisionsServices(productName string, production bool, removeApplicationLinked bool) ([]*models.Service, error) {
 	if !production {
-		return mongodb.NewServiceColl().ListMaxRevisionsByProduct(productName)
+		return mongodb.NewServiceColl().ListMaxRevisionsByProductWithFilter(productName, removeApplicationLinked)
 	} else {
-		return mongodb.NewProductionServiceColl().ListMaxRevisionsByProduct(productName)
+		return mongodb.NewProductionServiceColl().ListMaxRevisionsByProductWithFilter(productName, removeApplicationLinked)
 	}
 }
 
@@ -85,7 +85,7 @@ func ListMaxRevisionsServicesWithSession(productName string, production bool, se
 
 func GetMaxRevisionsServicesMap(productName string, production bool) (map[string]*models.Service, error) {
 	svcMap := make(map[string]*models.Service)
-	services, err := ListMaxRevisionsServices(productName, production)
+	services, err := ListMaxRevisionsServices(productName, production, false)
 	if err != nil {
 		return nil, err
 	}

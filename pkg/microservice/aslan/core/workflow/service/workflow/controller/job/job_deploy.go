@@ -983,7 +983,7 @@ func generateDeployInfoForEnv(env, project string, production bool, configuredSe
 		serviceDefinitionMap[service.ServiceName] = service
 	}
 
-	serviceList, err := repository.ListMaxRevisionsServices(project, production)
+	serviceList, err := repository.ListMaxRevisionsServices(project, production, false)
 	if err != nil {
 		return nil, fmt.Errorf("get service definition list error: %v", err)
 	}

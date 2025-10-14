@@ -52,6 +52,7 @@ func ListServiceTemplate(c *gin.Context) {
 
 	projectName := c.Query("projectName")
 	production := c.Query("production") == "true"
+	removeApplicationLinked := c.Query("removeApplicationLinked") == "true"
 
 	// authorization check
 	// either they have the authorization, or they are system admins/project admins.
@@ -83,7 +84,7 @@ func ListServiceTemplate(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.RespErr = commonservice.ListServiceTemplate(projectName, production, ctx.Logger)
+	ctx.Resp, ctx.RespErr = commonservice.ListServiceTemplate(projectName, production, removeApplicationLinked, ctx.Logger)
 }
 
 func ListWorkloadTemplate(c *gin.Context) {

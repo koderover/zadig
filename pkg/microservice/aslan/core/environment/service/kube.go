@@ -955,7 +955,7 @@ func GetResourceDeployStatus(productName string, request *K8sDeployStatusCheckRe
 		return resourcesByType[deployStatus.Type][deployStatus.Name]
 	}
 
-	productServices, err := repository.ListMaxRevisionsServices(productName, production)
+	productServices, err := repository.ListMaxRevisionsServices(productName, production, false)
 	if err != nil {
 		return nil, e.ErrGetResourceDeployInfo.AddErr(fmt.Errorf("failed to find product services, err: %s", err))
 	}
@@ -1076,7 +1076,7 @@ func GetReleaseDeployStatus(productName string, production bool, request *HelmDe
 	if err != nil {
 		return nil, e.ErrGetResourceDeployInfo.AddErr(fmt.Errorf("failed to find product: %s/%s, err: %s", productName, envName, err))
 	}
-	productServices, err := repository.ListMaxRevisionsServices(productName, production)
+	productServices, err := repository.ListMaxRevisionsServices(productName, production, false)
 	if err != nil {
 		return nil, e.ErrGetResourceDeployInfo.AddErr(fmt.Errorf("failed to find product services, err: %s", err))
 	}

@@ -214,6 +214,20 @@ func (c *ServiceColl) ListMaxRevisionsByProduct(productName string) ([]*models.S
 	return c.listMaxRevisions(m, nil)
 }
 
+func (c *ServiceColl) ListMaxRevisionsByProductWithFilter(productName string, removeApplicationLinked bool) ([]*models.Service, error) {
+	m := bson.M{
+		"product_name": productName,
+		"status":       bson.M{"$ne": setting.ProductStatusDeleting},
+	}
+
+	if removeApplicationLinked {
+		// Only return services where ApplicationID is empty
+		m["application_id"] = ""
+	}
+
+	return c.listMaxRevisions(m, nil)
+}
+
 func (c *ServiceColl) ListMaxRevisionsAllSvcByProduct(productName string) ([]*models.Service, error) {
 	m := bson.M{
 		"product_name": productName,

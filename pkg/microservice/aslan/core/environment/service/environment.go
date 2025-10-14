@@ -637,7 +637,7 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]st
 	var prodRevs *ProductRevision
 
 	// list services with max revision of project
-	allServices, err = repository.ListMaxRevisionsServices(productName, existedProd.Production)
+	allServices, err = repository.ListMaxRevisionsServices(productName, existedProd.Production, false)
 	if err != nil {
 		log.Errorf("ListAllRevisions error: %s", err)
 		err = e.ErrUpdateEnv.AddDesc(err.Error())

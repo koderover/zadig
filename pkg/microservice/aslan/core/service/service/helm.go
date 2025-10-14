@@ -135,14 +135,14 @@ type GetFileContentParam struct {
 	DeliveryVersion bool   `json:"deliveryVersion" form:"deliveryVersion"`
 }
 
-func ListHelmServices(productName string, production bool, log *zap.SugaredLogger) (*HelmService, error) {
+func ListHelmServices(productName string, production bool, removeApplicationLinked bool, log *zap.SugaredLogger) (*HelmService, error) {
 	helmService := &HelmService{
 		ServiceInfos: []*commonmodels.Service{},
 		FileInfos:    []*types.FileInfo{},
 		Services:     [][]string{},
 	}
 
-	services, err := repository.ListMaxRevisionsServices(productName, production)
+	services, err := repository.ListMaxRevisionsServices(productName, production, removeApplicationLinked)
 	if err != nil {
 		log.Errorf("[helmService.list] err:%v", err)
 		return nil, e.ErrListTemplate.AddErr(err)

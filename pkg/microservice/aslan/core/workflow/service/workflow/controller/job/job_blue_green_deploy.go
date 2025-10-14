@@ -442,7 +442,7 @@ func generateBlueGreenEnvDeployServiceInfo(env string, production bool, project 
 		return nil, "", fmt.Errorf("failed to find product %s, env %s, err: %s", project, env, err)
 	}
 
-	latestSvcList, err := repository.ListMaxRevisionsServices(project, production)
+	latestSvcList, err := repository.ListMaxRevisionsServices(project, production, false)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to list services with max revisions in project: %s, error: %s")
 	}
@@ -488,7 +488,7 @@ func generateBlueGreenEnvDeployServiceInfo(env string, production bool, project 
 				if err != nil {
 					return nil, "", fmt.Errorf("failed to fetch %s current applied yaml, err: %s", envService.ServiceName, err)
 				}
-	
+
 				resources := make([]*unstructured.Unstructured, 0)
 				manifests := releaseutil.SplitManifests(yamlContent)
 				for _, item := range manifests {
@@ -498,7 +498,7 @@ func generateBlueGreenEnvDeployServiceInfo(env string, production bool, project 
 					}
 					resources = append(resources, u)
 				}
-	
+
 				serviceNum := 0
 				for _, resource := range resources {
 					switch resource.GetKind() {

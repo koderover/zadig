@@ -42,6 +42,7 @@ func ListHelmServices(c *gin.Context) {
 
 	projectKey := c.Param("productName")
 	production := c.Query("production") == "true"
+	removeApplicationLinked := c.Query("removeApplicationLinked") == "true"
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -73,7 +74,7 @@ func ListHelmServices(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.RespErr = svcservice.ListHelmServices(projectKey, production, ctx.Logger)
+	ctx.Resp, ctx.RespErr = svcservice.ListHelmServices(projectKey, production, removeApplicationLinked, ctx.Logger)
 }
 
 func GetHelmServiceModule(c *gin.Context) {

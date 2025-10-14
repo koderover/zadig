@@ -24,6 +24,7 @@ import (
 	"strings"
 
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"go.uber.org/zap"
 	"helm.sh/helm/v3/pkg/action"
@@ -180,6 +181,150 @@ func contains(arr []string, s string) bool {
 	return false
 }
 
+// validateAndLinkService validates service linking and checks for conflicts
+func validateAndLinkService(app *commonmodels.Application, oldApp *commonmodels.Application, logger *zap.SugaredLogger) error {
+	if app.TestingServiceName != "" {
+		if err := validateServiceLink(app.TestingServiceName, app.Project, app.ID, true, logger); err != nil {
+			return fmt.Errorf("testing service validation failed: %w", err)
+		}
+	} else if oldApp != nil && oldApp.TestingServiceName != "" {
+		// Service name changed from non-empty to empty, unlink the old service
+		serviceColl := commonrepo.NewServiceColl()
+		err := serviceColl.ClearServiceApplicationLinks(oldApp.TestingServiceName, oldApp.Project)
+		if err != nil {
+			logger.Errorf("Failed to unlink old testing service %s: %v", oldApp.TestingServiceName, err)
+			return fmt.Errorf("failed to unlink old testing service %s: %w", oldApp.TestingServiceName, err)
+		}
+		logger.Debugf("Unlinked testing service %s from application %s", oldApp.TestingServiceName, app.ID.Hex())
+	}
+
+	if app.ProductionServiceName != "" {
+		// Validate new production service link
+		if err := validateServiceLink(app.ProductionServiceName, app.Project, app.ID, false, logger); err != nil {
+			return fmt.Errorf("production service validation failed: %w", err)
+		}
+	} else if oldApp != nil && oldApp.ProductionServiceName != "" {
+		prodServiceColl := commonrepo.NewProductionServiceColl()
+		err := prodServiceColl.ClearProductionServiceApplicationLinks(oldApp.ProductionServiceName, oldApp.Project)
+		if err != nil {
+			logger.Errorf("Failed to unlink old production service %s: %v", oldApp.ProductionServiceName, err)
+			return fmt.Errorf("failed to unlink old production service %s: %w", oldApp.ProductionServiceName, err)
+		}
+		logger.Debugf("Unlinked production service %s from application %s", oldApp.ProductionServiceName, app.ID.Hex())
+	}
+
+	return nil
+}
+
+// validateServiceLink checks if a service can be linked to an application
+func validateServiceLink(serviceName, productName string, applicationID primitive.ObjectID, isTesting bool, logger *zap.SugaredLogger) error {
+	if serviceName == "" {
+		return nil
+	}
+
+	if isTesting {
+		// Check testing service
+		serviceColl := commonrepo.NewServiceColl()
+		service, err := serviceColl.Find(&commonrepo.ServiceFindOption{
+			ServiceName:   serviceName,
+			ProductName:   productName,
+			ExcludeStatus: setting.ProductStatusDeleting,
+		})
+		if err != nil {
+			return fmt.Errorf("testing service %s not found in project %s: %w", serviceName, productName, err)
+		}
+		if service == nil {
+			return fmt.Errorf("testing service %s not found in project %s", serviceName, productName)
+		}
+
+		// Check for conflicts - if service is already linked to another application
+		conflictService, err := serviceColl.CheckServiceApplicationConflict(serviceName, productName, applicationID)
+		if err != nil {
+			return fmt.Errorf("failed to check testing service conflicts: %w", err)
+		}
+		if conflictService != nil && conflictService.ApplicationID != nil {
+			return fmt.Errorf("testing service %s is already linked to another application (ID: %s)", serviceName, conflictService.ApplicationID.Hex())
+		}
+	} else {
+		// Check production service
+		prodServiceColl := commonrepo.NewProductionServiceColl()
+		service, err := prodServiceColl.Find(&commonrepo.ServiceFindOption{
+			ServiceName:   serviceName,
+			ProductName:   productName,
+			ExcludeStatus: setting.ProductStatusDeleting,
+		})
+		if err != nil {
+			return fmt.Errorf("production service %s not found in project %s: %w", serviceName, productName, err)
+		}
+		if service == nil {
+			return fmt.Errorf("production service %s not found in project %s", serviceName, productName)
+		}
+
+		// Check for conflicts - if service is already linked to another application
+		conflictService, err := prodServiceColl.CheckProductionServiceApplicationConflict(serviceName, productName, applicationID)
+		if err != nil {
+			return fmt.Errorf("failed to check production service conflicts: %w", err)
+		}
+		if conflictService != nil && conflictService.ApplicationID != nil {
+			return fmt.Errorf("production service %s is already linked to another application (ID: %s)", serviceName, conflictService.ApplicationID.Hex())
+		}
+	}
+
+	return nil
+}
+
+// linkServicesToApplication creates the bidirectional link between application and services
+func linkServicesToApplication(app *commonmodels.Application, logger *zap.SugaredLogger) error {
+	// Handle testing service
+	if app.TestingServiceName != "" {
+		serviceColl := commonrepo.NewServiceColl()
+		err := serviceColl.UpdateServiceApplicationLinks(app.TestingServiceName, app.Project, &app.ID)
+		if err != nil {
+			return fmt.Errorf("failed to link testing service %s: %w", app.TestingServiceName, err)
+		}
+		logger.Infof("Linked testing service %s to application %s", app.TestingServiceName, app.ID.Hex())
+	}
+
+	// Handle production service
+	if app.ProductionServiceName != "" {
+		prodServiceColl := commonrepo.NewProductionServiceColl()
+		err := prodServiceColl.UpdateProductionServiceApplicationLinks(app.ProductionServiceName, app.Project, &app.ID)
+		if err != nil {
+			return fmt.Errorf("failed to link production service %s: %w", app.ProductionServiceName, err)
+		}
+		logger.Infof("Linked production service %s to application %s", app.ProductionServiceName, app.ID.Hex())
+	}
+
+	return nil
+}
+
+// unlinkServicesFromApplication removes the bidirectional link between application and services
+func unlinkServicesFromApplication(app *commonmodels.Application, logger *zap.SugaredLogger) error {
+	// Handle testing service
+	if app.TestingServiceName != "" {
+		serviceColl := commonrepo.NewServiceColl()
+		err := serviceColl.ClearServiceApplicationLinks(app.TestingServiceName, app.Project)
+		if err != nil {
+			logger.Errorf("Failed to unlink testing service %s from application %s: %v", app.TestingServiceName, app.ID.Hex(), err)
+			return fmt.Errorf("failed to unlink testing service %s: %w", app.TestingServiceName, err)
+		}
+		logger.Infof("Unlinked testing service %s from application %s", app.TestingServiceName, app.ID.Hex())
+	}
+
+	// Handle production service
+	if app.ProductionServiceName != "" {
+		prodServiceColl := commonrepo.NewProductionServiceColl()
+		err := prodServiceColl.ClearProductionServiceApplicationLinks(app.ProductionServiceName, app.Project)
+		if err != nil {
+			logger.Errorf("Failed to unlink production service %s from application %s: %v", app.ProductionServiceName, app.ID.Hex(), err)
+			return fmt.Errorf("failed to unlink production service %s: %w", app.ProductionServiceName, err)
+		}
+		logger.Infof("Unlinked production service %s from application %s", app.ProductionServiceName, app.ID.Hex())
+	}
+
+	return nil
+}
+
 func CreateApplication(app *commonmodels.Application, logger *zap.SugaredLogger) (*commonmodels.Application, error) {
 	if app == nil {
 		return nil, e.ErrInvalidParam.AddDesc("empty body")
@@ -190,11 +335,33 @@ func CreateApplication(app *commonmodels.Application, logger *zap.SugaredLogger)
 	if err := validateAndPruneCustomFields(app); err != nil {
 		return nil, err
 	}
+
 	oid, err := commonrepo.NewApplicationColl().Create(context.Background(), app)
 	if err != nil {
 		return nil, err
 	}
 	app.ID = oid
+
+	// Validate service links after application creation (when ID is available)
+	if err := validateAndLinkService(app, nil, logger); err != nil {
+		// If validation fails, cleanup by deleting the created application
+		deleteErr := commonrepo.NewApplicationColl().DeleteByID(context.Background(), app.ID.Hex())
+		if deleteErr != nil {
+			logger.Errorf("Failed to cleanup application after service validation error: %v", deleteErr)
+		}
+		return nil, fmt.Errorf("service validation failed: %w", err)
+	}
+
+	// Link services to application
+	if err := linkServicesToApplication(app, logger); err != nil {
+		// If linking fails, cleanup by deleting the created application
+		deleteErr := commonrepo.NewApplicationColl().DeleteByID(context.Background(), app.ID.Hex())
+		if deleteErr != nil {
+			logger.Errorf("Failed to cleanup application after service linking error: %v", deleteErr)
+		}
+		return nil, fmt.Errorf("service linking failed: %w", err)
+	}
+
 	return app, nil
 }
 
@@ -522,6 +689,43 @@ func UpdateApplication(id string, app *commonmodels.Application, logger *zap.Sug
 	}
 
 	app.ID = old.ID
+
+	// Check if service links have changed
+	testingChanged := app.TestingServiceName != old.TestingServiceName
+	productionChanged := app.ProductionServiceName != old.ProductionServiceName
+
+	if testingChanged || productionChanged {
+		if err := validateAndLinkService(app, old, logger); err != nil {
+			return fmt.Errorf("service validation failed: %w", err)
+		}
+
+		// Unlink old services that are being replaced (not removed)
+		if testingChanged && old.TestingServiceName != "" && app.TestingServiceName != "" && old.TestingServiceName != app.TestingServiceName {
+			serviceColl := commonrepo.NewServiceColl()
+			err := serviceColl.ClearServiceApplicationLinks(old.TestingServiceName, old.Project)
+			if err != nil {
+				logger.Errorf("Failed to unlink old testing service %s: %v", old.TestingServiceName, err)
+			} else {
+				logger.Infof("Unlinked old testing service %s from application %s", old.TestingServiceName, app.ID.Hex())
+			}
+		}
+
+		if productionChanged && old.ProductionServiceName != "" && app.ProductionServiceName != "" && old.ProductionServiceName != app.ProductionServiceName {
+			prodServiceColl := commonrepo.NewProductionServiceColl()
+			err := prodServiceColl.ClearProductionServiceApplicationLinks(old.ProductionServiceName, old.Project)
+			if err != nil {
+				logger.Errorf("Failed to unlink old production service %s: %v", old.ProductionServiceName, err)
+			} else {
+				logger.Infof("Unlinked old production service %s from application %s", old.ProductionServiceName, app.ID.Hex())
+			}
+		}
+
+		// Link new services
+		if err := linkServicesToApplication(app, logger); err != nil {
+			return fmt.Errorf("service linking failed: %w", err)
+		}
+	}
+
 	if err := commonrepo.NewApplicationColl().UpdateByID(context.Background(), id, app); err != nil {
 		return err
 	}
@@ -529,6 +733,18 @@ func UpdateApplication(id string, app *commonmodels.Application, logger *zap.Sug
 }
 
 func DeleteApplication(id string, logger *zap.SugaredLogger) error {
+	// Get the application first to unlink services
+	app, err := commonrepo.NewApplicationColl().GetByID(context.Background(), id)
+	if err != nil {
+		return err
+	}
+
+	// Unlink services before deleting the application
+	if err := unlinkServicesFromApplication(app, logger); err != nil {
+		logger.Errorf("Failed to unlink services from application %s: %v", id, err)
+		// Continue with deletion even if unlinking fails to avoid orphaned applications
+	}
+
 	return commonrepo.NewApplicationColl().DeleteByID(context.Background(), id)
 }
 
