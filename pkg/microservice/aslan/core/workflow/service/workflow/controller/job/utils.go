@@ -130,6 +130,7 @@ func applyKeyVals(base, input commonmodels.RuntimeKeyValList, useInputKVSource b
 					item.FilePath = inputKV.FilePath
 				} else if item.Type == commonmodels.Script {
 					item.CallFunction = inputKV.CallFunction
+					item.Value = inputKV.Value
 				} else {
 					// always use origin credential config.
 					item.Value = inputKV.Value
