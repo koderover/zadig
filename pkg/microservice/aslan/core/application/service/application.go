@@ -325,6 +325,63 @@ func unlinkServicesFromApplication(app *commonmodels.Application, logger *zap.Su
 	return nil
 }
 
+// validateBulkServiceConflicts checks for service conflicts within the bulk application data
+func validateBulkServiceConflicts(apps []*commonmodels.Application, logger *zap.SugaredLogger) error {
+	// Track service usage within this bulk operation
+	testingServiceUsage := make(map[string]string)
+	productionServiceUsage := make(map[string]string)
+	for _, app := range apps {
+		if app.TestingServiceName != "" {
+			key := fmt.Sprintf("%s-%s", app.TestingServiceName, app.Project)
+			if existingApp, exists := testingServiceUsage[key]; exists {
+				return fmt.Errorf("testing service %s in project %s is used by multiple applications in bulk operation: %s and %s",
+					app.TestingServiceName, app.Project, existingApp, app.Name)
+			}
+			testingServiceUsage[key] = app.Name
+		}
+
+		if app.ProductionServiceName != "" {
+			key := fmt.Sprintf("%s-%s", app.ProductionServiceName, app.Project)
+			if existingApp, exists := productionServiceUsage[key]; exists {
+				return fmt.Errorf("production service %s in project %s is used by multiple applications in bulk operation: %s and %s",
+					app.ProductionServiceName, app.Project, existingApp, app.Name)
+			}
+			productionServiceUsage[key] = app.Name
+		}
+	}
+
+	return nil
+}
+
+// cleanupBulkApplications removes applications that were successfully created but failed during service linking
+func cleanupBulkApplications(apps []*commonmodels.Application, logger *zap.SugaredLogger) error {
+	var cleanupErrors []string
+
+	for _, app := range apps {
+		if app.ID.IsZero() {
+			continue // Skip applications that weren't actually created
+		}
+
+		// First unlink services
+		if unlinkErr := unlinkServicesFromApplication(app, logger); unlinkErr != nil {
+			cleanupErrors = append(cleanupErrors, fmt.Sprintf("failed to unlink services for app %s: %v", app.Name, unlinkErr))
+		}
+
+		// Then delete the application
+		if deleteErr := commonrepo.NewApplicationColl().DeleteByID(context.Background(), app.ID.Hex()); deleteErr != nil {
+			cleanupErrors = append(cleanupErrors, fmt.Sprintf("failed to delete app %s: %v", app.Name, deleteErr))
+		} else {
+			logger.Infof("Cleaned up application %s during bulk operation rollback", app.Name)
+		}
+	}
+
+	if len(cleanupErrors) > 0 {
+		return fmt.Errorf("cleanup errors: %s", strings.Join(cleanupErrors, "; "))
+	}
+
+	return nil
+}
+
 func CreateApplication(app *commonmodels.Application, logger *zap.SugaredLogger) (*commonmodels.Application, error) {
 	if app == nil {
 		return nil, e.ErrInvalidParam.AddDesc("empty body")
@@ -369,6 +426,7 @@ func BulkCreateApplications(apps []*commonmodels.Application, logger *zap.Sugare
 	if len(apps) == 0 {
 		return nil
 	}
+
 	// validate first to fail-fast before transaction
 	for _, app := range apps {
 		if app == nil {
@@ -382,10 +440,45 @@ func BulkCreateApplications(apps []*commonmodels.Application, logger *zap.Sugare
 		}
 	}
 
+	// Check for conflicts within the bulk data itself
+	if err := validateBulkServiceConflicts(apps, logger); err != nil {
+		return fmt.Errorf("bulk service conflicts detected: %w", err)
+	}
+
+	// Create all applications first to get IDs
 	_, err := commonrepo.NewApplicationColl().BulkCreate(context.TODO(), apps)
 	if err != nil {
 		return err
 	}
+
+	// Track successfully processed applications for cleanup on failure
+	var processedApps []*commonmodels.Application
+
+	// Validate and link services for each application
+	for _, app := range apps {
+		// Validate service links after application creation (when ID is available)
+		if err := validateAndLinkService(app, nil, logger); err != nil {
+			// If validation fails, cleanup all processed applications
+			cleanupErr := cleanupBulkApplications(processedApps, logger)
+			if cleanupErr != nil {
+				logger.Errorf("Failed to cleanup applications after bulk service validation error: %v", cleanupErr)
+			}
+			return fmt.Errorf("service validation failed for application %s: %w", app.Name, err)
+		}
+
+		// Link services to application
+		if err := linkServicesToApplication(app, logger); err != nil {
+			// If linking fails, cleanup all processed applications
+			cleanupErr := cleanupBulkApplications(processedApps, logger)
+			if cleanupErr != nil {
+				logger.Errorf("Failed to cleanup applications after bulk service linking error: %v", cleanupErr)
+			}
+			return fmt.Errorf("service linking failed for application %s: %w", app.Name, err)
+		}
+
+		processedApps = append(processedApps, app)
+	}
+
 	return nil
 }
 
