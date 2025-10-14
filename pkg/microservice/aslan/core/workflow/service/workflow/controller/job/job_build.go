@@ -995,7 +995,16 @@ func (j BuildJobController) RenderDynamicVariableOptions(key string, option *Ren
 
 	// Find the correct service/module from options
 	var targetBuild *commonmodels.ServiceAndBuild
-	for _, build := range j.jobSpec.ServiceAndBuildsOptions {
+	latestJob, err := j.workflow.FindJob(j.name, j.jobType)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find job: %s in workflow %s's latest config, error: %s", j.name, j.workflow.Name, err)
+	}
+	latestJobSpec := new(commonmodels.ZadigBuildJobSpec)
+	if err := commonmodels.IToi(latestJob.Spec, latestJobSpec); err != nil {
+		return nil, fmt.Errorf("failed to decode apollo job spec, error: %s", err)
+	}
+
+	for _, build := range latestJobSpec.ServiceAndBuildsOptions {
 		if build.ServiceName == option.ServiceName && build.ServiceModule == option.ServiceModule {
 			targetBuild = build
 			break
