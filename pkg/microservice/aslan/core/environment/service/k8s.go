@@ -661,6 +661,11 @@ func (k *K8sService) createGroup(username string, product *commonmodels.Product,
 				return fmt.Errorf("failed to fetch related containers: %s", err)
 			}
 			group[i].Containers = containers
+
+			err = commonutil.CreateEnvServiceVersion(product, group[i], username, config.EnvOperationDefault, "", nil, k.log)
+			if err != nil {
+				log.Errorf("failed to create env service version for service %s/%s, error: %v", product.EnvName, group[i].ServiceName, err)
+			}
 			continue
 		}
 		wg.Add(1)

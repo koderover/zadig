@@ -747,6 +747,8 @@ func DeployMultiHelmRelease(productResp *commonmodels.Product, helmClient *helmt
 				continue
 			}
 			if !commonutil.ChartDeployed(chartInfo, productResp.ServiceDeployStrategy) {
+				// import service, no need to deploy
+
 				// update import services' images in container and values yaml
 				_, err = helmservice.NewHelmDeployService().GenMergedValues(prodSvc, productResp.DefaultValues, nil)
 				if err != nil {
@@ -755,6 +757,12 @@ func DeployMultiHelmRelease(productResp *commonmodels.Product, helmClient *helmt
 					log.Error(err)
 					return err
 				}
+
+				err = commonutil.CreateEnvServiceVersion(productResp, prodSvc, user, config.EnvOperationDefault, "", session, log)
+				if err != nil {
+					log.Errorf("failed to create service version, err: %v", err)
+				}
+
 				continue
 			}
 

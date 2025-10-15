@@ -756,12 +756,20 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]st
 				go func(pSvc *commonmodels.ProductService) {
 					defer wg.Done()
 					if !commonutil.ServiceDeployed(pSvc.ServiceName, deployStrategy) {
+						// import service, no need to deploy
 						containers, errFetchImage := fetchWorkloadImages(pSvc, existedProd, kubeClient)
 						if errFetchImage != nil {
 							service.Error = errFetchImage.Error()
 							return
 						}
 						service.Containers = containers
+
+						updateProd.ServiceDeployStrategy = deployStrategy
+						err = commonutil.CreateEnvServiceVersion(updateProd, service, user, config.EnvOperationDefault, "", session, log)
+						if err != nil {
+							log.Errorf("CreateK8SEnvServiceVersion error: %v", err)
+						}
+
 						return
 					}
 
