@@ -607,6 +607,7 @@ func (f *workloadFilter) UnmarshalJSON(data []byte) error {
 
 func (f *workloadFilter) Match(workload *Workload) bool {
 	if len(f.Name) > 0 {
+		log.Debugf("workload.Name: %s, f.Name: %s", workload.Name, f.Name)
 		if !strings.Contains(workload.Name, f.Name) {
 			return false
 		}

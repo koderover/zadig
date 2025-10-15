@@ -93,19 +93,35 @@ func (c *CustomWorkflowTestReportColl) ListByWorkflowJobName(workflowName, jobNa
 }
 
 func (c *CustomWorkflowTestReportColl) ListByWorkflowJobTaskName(workflowName, jobTaskName string, taskID int64) ([]*models.CustomWorkflowTestReport, error) {
-	resp := make([]*models.CustomWorkflowTestReport, 0)
 	jobTaskName = strings.ToLower(jobTaskName)
 
+	// 先获取一条按 retry_num 降序排序的记录，找到最大值
 	query := bson.M{
 		"workflow_name": workflowName,
 		"job_task_name": jobTaskName,
 		"task_id":       taskID,
 	}
 
+	opts := options.FindOne().SetSort(bson.D{bson.E{Key: "retry_num", Value: -1}})
+
+	var maxRecord models.CustomWorkflowTestReport
+	err := c.Collection.FindOne(context.TODO(), query, opts).Decode(&maxRecord)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return []*models.CustomWorkflowTestReport{}, nil
+		}
+		return nil, err
+	}
+
+	// 查询所有具有最大 retry_num 的记录
+	query["retry_num"] = maxRecord.RetryNum
 	cursor, err := c.Collection.Find(context.TODO(), query)
 	if err != nil {
 		return nil, err
 	}
-	err = cursor.All(context.TODO(), &resp)
-	return resp, err
+	defer cursor.Close(context.TODO())
+
+	var result []*models.CustomWorkflowTestReport
+	err = cursor.All(context.TODO(), &result)
+	return result, err
 }
