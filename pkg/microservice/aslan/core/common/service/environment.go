@@ -586,6 +586,44 @@ type workloadFilter struct {
 
 type wfAlias workloadFilter
 
+// UnmarshalJSON 自定义解组方法，处理name字段可能是数字类型的情况
+func (w *wfAlias) UnmarshalJSON(data []byte) error {
+	// 先解析到map中
+	var raw map[string]interface{}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+
+	// 处理name字段，如果是数字则转换为字符串
+	if nameVal, exists := raw["name"]; exists {
+		switch v := nameVal.(type) {
+		case string:
+			w.Name = v
+		case float64:
+			w.Name = fmt.Sprintf("%.0f", v)
+		case int:
+			w.Name = fmt.Sprintf("%d", v)
+		default:
+			w.Name = fmt.Sprintf("%v", v)
+		}
+	}
+
+	// 处理其他字段
+	if releaseName, exists := raw["releaseName"]; exists {
+		if str, ok := releaseName.(string); ok {
+			w.ReleaseName = str
+		}
+	}
+
+	if chartName, exists := raw["chartName"]; exists {
+		if str, ok := chartName.(string); ok {
+			w.ChartName = str
+		}
+	}
+
+	return nil
+}
+
 func (f *workloadFilter) UnmarshalJSON(data []byte) error {
 	aliasData := &wfAlias{}
 	if err := json.Unmarshal(data, aliasData); err != nil {
