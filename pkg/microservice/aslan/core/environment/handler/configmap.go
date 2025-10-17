@@ -108,7 +108,7 @@ func RollBackConfigMap(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("RollBackConfigMap json.Unmarshal err : %v", err)
 	}
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, args.ProductName, setting.OperationSceneEnv, "回滚", "环境-服务-configMap", fmt.Sprintf("环境名称:%s,服务名称:%s", args.EnvName, args.ServiceName), string(data), types.RequestBodyTypeJSON, ctx.Logger, args.EnvName)
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, args.ProductName, setting.OperationSceneEnv, "回滚", "环境-服务-ConfigMap", fmt.Sprintf("环境名称:%s,服务名称:%s", args.EnvName, args.ServiceName), fmt.Sprintf("Environment Name: %s, Service Name: %s", args.EnvName, args.ServiceName), string(data), types.RequestBodyTypeJSON, ctx.Logger, args.EnvName)
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.BindJSON(args); err != nil {

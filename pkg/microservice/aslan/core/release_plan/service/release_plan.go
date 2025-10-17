@@ -310,7 +310,7 @@ func DeleteReleasePlan(c *gin.Context, username, id string) error {
 	if err != nil {
 		return errors.Wrap(err, "get plan")
 	}
-	internalhandler.InsertOperationLog(c, username, "", "删除", "发布计划", info.Name, "", types.RequestBodyTypeJSON, log.SugaredLogger())
+	internalhandler.InsertOperationLog(c, username, "", "删除", "发布计划", info.Name, info.Name, "", types.RequestBodyTypeJSON, log.SugaredLogger())
 
 	releasePlanCronName := util.GetReleasePlanCronName(id, info.Name, info.Index)
 	releasePlanCron, err := commonrepo.NewCronjobColl().GetByName(releasePlanCronName, setting.ReleasePlanCronjob)

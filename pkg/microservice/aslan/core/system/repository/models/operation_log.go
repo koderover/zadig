@@ -30,6 +30,7 @@ type OperationLog struct {
 	Scene       string                `bson:"scene"                       json:"scene"`
 	Targets     []string              `bson:"targets"                     json:"targets"`
 	Name        string                `bson:"name"                        json:"name"`
+	NameEn      string                `bson:"name_en"                     json:"name_en"`
 	RequestBody string                `bson:"request_body"                json:"request_body"`
 	BodyType    types.RequestBodyType `bson:"body_type"                   json:"body_type"`
 	Status      int                   `bson:"status"                      json:"status"`

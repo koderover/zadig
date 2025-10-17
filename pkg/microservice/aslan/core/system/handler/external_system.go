@@ -51,7 +51,10 @@ func CreateExternalSystem(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("CreateExternalSystem Unmarshal err : %s", err)
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, "", "新增", "系统配置-外部系统", fmt.Sprintf("name:%s server:%s", args.Name, args.Server), string(data), types.RequestBodyTypeJSON, ctx.Logger)
+
+	detail := fmt.Sprintf("name:%s server:%s", args.Name, args.Server)
+	detailEn := fmt.Sprintf("Name: %s, Server: %s", args.Name, args.Server)
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "新增", "系统配置-外部系统", detail, detailEn, string(data), types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -145,7 +148,10 @@ func UpdateExternalSystem(c *gin.Context) {
 	if err = json.Unmarshal(data, req); err != nil {
 		log.Errorf("UpdateExternalSystem Unmarshal err : %s", err)
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "系统配置-外部系统", fmt.Sprintf("name:%s server:%s", req.Name, req.Server), string(data), types.RequestBodyTypeJSON, ctx.Logger)
+
+	detail := fmt.Sprintf("name:%s server:%s", req.Name, req.Server)
+	detailEn := fmt.Sprintf("Name: %s, Server: %s", req.Name, req.Server)
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "系统配置-外部系统", detail, detailEn, string(data), types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -174,7 +180,9 @@ func DeleteExternalSystem(c *gin.Context) {
 		return
 	}
 
-	internalhandler.InsertOperationLog(c, ctx.UserName, "", "删除", "系统配置-外部系统", fmt.Sprintf("id:%s", c.Param("id")), "", types.RequestBodyTypeJSON, ctx.Logger)
+	detail := fmt.Sprintf("id:%s", c.Param("id"))
+	detailEn := fmt.Sprintf("ID: %s", c.Param("id"))
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "删除", "系统配置-外部系统", detail, detailEn, "", types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {

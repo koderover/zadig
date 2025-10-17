@@ -87,7 +87,9 @@ func CreatePMHost(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("CreatePMHost json.Unmarshal err : %v", err)
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, "", "新增", "项目资源-主机管理", fmt.Sprintf("hostName:%s ip:%s", args.Name, args.IP), string(data), types.RequestBodyTypeJSON, ctx.Logger)
+
+	detail := fmt.Sprintf("hostName:%s ip:%s", args.Name, args.IP)
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "新增", "项目资源-主机管理", detail, detail, string(data), types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -132,7 +134,7 @@ func BatchCreatePMHost(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("BatchCreatePMHost json.Unmarshal err : %v", err)
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "批量新增", "项目资源-主机管理", "", string(data), types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "批量新增", "项目资源-主机管理", "", "", string(data), types.RequestBodyTypeJSON, ctx.Logger)
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 	if err := c.ShouldBindJSON(&args); err != nil {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid physical machine args")
@@ -176,7 +178,9 @@ func UpdatePMHost(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("UpdatePhysicalHost json.Unmarshal err : %v", err)
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "项目资源-主机管理", fmt.Sprintf("hostName:%s ip:%s", args.Name, args.IP), string(data), types.RequestBodyTypeJSON, ctx.Logger)
+
+	detail := fmt.Sprintf("hostName:%s ip:%s", args.Name, args.IP)
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "项目资源-主机管理", detail, detail, string(data), types.RequestBodyTypeJSON, ctx.Logger)
 
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
@@ -232,7 +236,8 @@ func DeletePMHost(c *gin.Context) {
 		}
 	}
 
-	internalhandler.InsertOperationLog(c, ctx.UserName, "", "删除", "项目资源-主机管理", fmt.Sprintf("id:%s", c.Param("id")), "", types.RequestBodyTypeJSON, ctx.Logger)
+	detail := fmt.Sprintf("id:%s", c.Param("id"))
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "删除", "项目资源-主机管理", detail, detail, "", types.RequestBodyTypeJSON, ctx.Logger)
 	ctx.RespErr = systemservice.DeletePrivateKey(c.Param("id"), ctx.UserName, ctx.Logger)
 }
 
@@ -253,7 +258,7 @@ func GetAgentAccessCmd(c *gin.Context) {
 		return
 	}
 
-	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "接入主机", "项目资源-主机管理", vmID, "", types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "接入主机", "项目资源-主机管理", vmID, vmID, "", types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -288,7 +293,7 @@ func OfflineVM(c *gin.Context) {
 		return
 	}
 
-	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "下线主机", "项目资源-主机管理", vmID, "", types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "下线主机", "项目资源-主机管理", vmID, vmID, "", types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -323,7 +328,7 @@ func RecoveryVM(c *gin.Context) {
 		return
 	}
 
-	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "恢复主机", "项目资源-主机管理", vmID, "", types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "恢复主机", "项目资源-主机管理", vmID, vmID, "", types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -358,7 +363,7 @@ func UpgradeAgent(c *gin.Context) {
 		return
 	}
 
-	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "组件升级", "项目资源-主机管理", vmID, "", types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "组件升级", "项目资源-主机管理", vmID, vmID, "", types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {

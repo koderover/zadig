@@ -62,7 +62,7 @@ func UpdateStrategy(c *gin.Context) {
 	}
 
 	bs, _ := json.Marshal(args)
-	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "任务配置", "", string(bs), types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "任务配置", "", "", string(bs), types.RequestBodyTypeJSON, ctx.Logger)
 
 	if err := service.UpdateSysCapStrategy(args); err != nil {
 		ctx.RespErr = err

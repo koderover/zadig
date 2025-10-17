@@ -117,7 +117,10 @@ func CreateProxy(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("CreateProxy json.Unmarshal err : %v", err)
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, "", "新增", "代理", fmt.Sprintf("server:%s:%d", args.Address, args.Port), string(data), types.RequestBodyTypeJSON, ctx.Logger)
+
+	detail := fmt.Sprintf("server:%s:%d", args.Address, args.Port)
+	detailEn := fmt.Sprintf("Server: %s:%d", args.Address, args.Port)
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "新增", "代理", detail, detailEn, string(data), types.RequestBodyTypeJSON, ctx.Logger)
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	// authorization checks
@@ -154,7 +157,10 @@ func UpdateProxy(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("UpdateProxy json.Unmarshal err : %v", err)
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "代理", fmt.Sprintf("id:%s", args.ID), string(data), types.RequestBodyTypeJSON, ctx.Logger)
+
+	detail := fmt.Sprintf("id:%s", args.ID)
+	detailEn := fmt.Sprintf("ID: %s", args.ID)
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "代理", detail, detailEn, string(data), types.RequestBodyTypeJSON, ctx.Logger)
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	// authorization checks
@@ -183,7 +189,9 @@ func DeleteProxy(c *gin.Context) {
 		return
 	}
 
-	internalhandler.InsertOperationLog(c, ctx.UserName, "", "删除", "代理", fmt.Sprintf("id:%s", c.Param("id")), "", types.RequestBodyTypeJSON, ctx.Logger)
+	detail := fmt.Sprintf("id:%s", c.Param("id"))
+	detailEn := fmt.Sprintf("ID: %s", c.Param("id"))
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "删除", "代理", detail, detailEn, "", types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {

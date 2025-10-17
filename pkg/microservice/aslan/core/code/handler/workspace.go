@@ -43,7 +43,7 @@ func GetProductNameByWorkspacePipeline(c *gin.Context) {
 func CleanWorkspace(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	internalhandler.InsertOperationLog(c, ctx.UserName, c.GetString("productName"), "清理", "单服务工作流-工作目录", c.Query("pipelineName"), "", types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, c.GetString("productName"), "清理", "单服务工作流-工作目录", c.Query("pipelineName"), c.Query("pipelineName"),"", types.RequestBodyTypeJSON, ctx.Logger)
 	name := c.Query("pipelineName")
 	if name == "" {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc("empty pipeline name")

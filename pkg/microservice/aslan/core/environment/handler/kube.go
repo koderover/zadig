@@ -108,9 +108,12 @@ func DeletePod(c *gin.Context) {
 	envName := c.Query("envName")
 	projectName := c.Query("projectName")
 
+	detail := fmt.Sprintf("环境名称:%s,pod名称:%s",
+			c.Query("envName"), c.Param("podName"))
+	detailEn := fmt.Sprintf("Environment Name: %s, Pod Name: %s",
+		c.Query("envName"), c.Param("podName"))
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, c.Query("projectName"), setting.OperationSceneEnv,
-		"重启", "环境-服务实例", fmt.Sprintf("环境名称:%s,pod名称:%s",
-			c.Query("envName"), c.Param("podName")), "", types.RequestBodyTypeJSON, ctx.Logger, envName)
+		"重启", "环境-服务实例", detail, detailEn, "", types.RequestBodyTypeJSON, ctx.Logger, envName)
 
 	production := c.Query("production") == "true"
 	// authorization checks

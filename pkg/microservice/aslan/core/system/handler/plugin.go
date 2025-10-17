@@ -105,7 +105,9 @@ func CreatePlugin(c *gin.Context) {
 		"storage_id": args.StorageID,
 	}
 	metaBytes, _ := json.Marshal(meta)
-	internalhandler.InsertOperationLog(c, ctx.UserName, "", "新增", "系统设置-插件管理", fmt.Sprintf("name:%s", args.Name), string(metaBytes), types.RequestBodyTypeJSON, ctx.Logger)
+	detail := fmt.Sprintf("name:%s", args.Name)
+	detailEn := fmt.Sprintf("Name: %s", args.Name)
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "新增", "系统设置-插件管理", detail, detailEn, string(metaBytes), types.RequestBodyTypeJSON, ctx.Logger)
 }
 
 func UpdatePlugin(c *gin.Context) {
@@ -161,7 +163,9 @@ func UpdatePlugin(c *gin.Context) {
 		}
 		op := map[string]string{"id": c.Param("id"), "name": args.Name, "type": args.Type}
 		metaBytes, _ := json.Marshal(op)
-		internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "系统设置-插件管理", fmt.Sprintf("id:%s name:%s", c.Param("id"), args.Name), string(metaBytes), types.RequestBodyTypeJSON, ctx.Logger)
+		detail := fmt.Sprintf("id:%s name:%s", c.Param("id"), args.Name)
+		detailEn := fmt.Sprintf("ID: %s, Name: %s", c.Param("id"), args.Name)
+		internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "系统设置-插件管理", detail, detailEn, string(metaBytes), types.RequestBodyTypeJSON, ctx.Logger)
 		return
 	} else {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc(fmt.Sprintf("invalid content type: %s", contentType))
@@ -176,7 +180,10 @@ func DeletePlugin(c *gin.Context) {
 		ctx.UnAuthorized = true
 		return
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, "", "删除", "系统设置-插件管理", fmt.Sprintf("id:%s", c.Param("id")), "", types.RequestBodyTypeJSON, ctx.Logger)
+
+	detail := fmt.Sprintf("id:%s", c.Param("id"))
+	detailEn := fmt.Sprintf("ID: %s", c.Param("id"))
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "删除", "系统设置-插件管理", detail, detailEn, "", types.RequestBodyTypeJSON, ctx.Logger)
 	if !ctx.Resources.IsSystemAdmin {
 		ctx.UnAuthorized = true
 		return

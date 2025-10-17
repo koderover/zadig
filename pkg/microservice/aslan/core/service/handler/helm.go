@@ -319,13 +319,16 @@ func CreateOrUpdateHelmService(c *gin.Context) {
 	args.CreatedBy, args.RequestID = ctx.UserName, ctx.RequestID
 
 	production := c.Query("production") == "true"
-	detail := "项目管理-服务"
+	function := "项目管理-服务"
 	if production {
-		detail = "项目管理-生产服务"
+		function = "项目管理-生产服务"
 	}
 
+	detail := fmt.Sprintf("服务名称:%s", args.Name)
+	detailEn := fmt.Sprintf("Service Name: %s", args.Name)
+
 	bs, _ := json.Marshal(args)
-	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "新增", detail, fmt.Sprintf("服务名称:%s", args.Name), string(bs), types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "新增", function, detail, detailEn, string(bs), types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -384,13 +387,15 @@ func UpdateHelmService(c *gin.Context) {
 	args.CreatedBy, args.RequestID = ctx.UserName, ctx.RequestID
 
 	production := c.Query("production") == "true"
-	detail := "项目管理-服务"
+	function := "项目管理-服务"
 	if production {
-		detail = "项目管理-生产服务"
+		function = "项目管理-生产服务"
 	}
 
+	detail := fmt.Sprintf("服务名称:%s", args.Name)
+	detailEn := fmt.Sprintf("Service Name:%s", args.Name)
 	bs, _ := json.Marshal(args)
-	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "更新", detail, fmt.Sprintf("服务名称:%s", args.Name), string(bs), types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "更新", function, detail, detailEn, string(bs), types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -451,13 +456,13 @@ func CreateOrUpdateBulkHelmServices(c *gin.Context) {
 	args.CreatedBy, args.RequestID = ctx.UserName, ctx.RequestID
 
 	production := c.Query("production") == "true"
-	detail := "项目管理-服务"
+	function := "项目管理-服务"
 	if production {
-		detail = "项目管理-生产服务"
+		function = "项目管理-生产服务"
 	}
 
 	bs, _ := json.Marshal(args)
-	internalhandler.InsertOperationLog(c, ctx.UserName, c.Query("projectName"), "新增", detail, "", string(bs), types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, c.Query("projectName"), "新增", function, "", "", string(bs), types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {

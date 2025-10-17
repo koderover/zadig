@@ -54,7 +54,10 @@ func CreateSonarIntegration(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("Create sonar integration Unmarshal err : %s", err)
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, "", "新增", "系统配置-Sonar集成", fmt.Sprintf("server: %s, token: %s", args.ServerAddress, args.Token), string(data), types.RequestBodyTypeJSON, ctx.Logger)
+
+	detail := fmt.Sprintf("server: %s, token: %s", args.ServerAddress, args.Token)
+	detailEn := fmt.Sprintf("Server: %s, Token: %s", args.ServerAddress, args.Token)
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "新增", "系统配置-Sonar集成", detail, detailEn, string(data), types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -94,7 +97,10 @@ func UpdateSonarIntegration(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("Update sonar integration Unmarshal err : %s", err)
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "系统配置-Sonar集成", fmt.Sprintf("server: %s, token: %s", args.ServerAddress, args.Token), string(data), types.RequestBodyTypeJSON, ctx.Logger)
+
+	detail := fmt.Sprintf("server: %s, token: %s", args.ServerAddress, args.Token)
+	detailEn := fmt.Sprintf("Server: %s, Token: %s", args.ServerAddress, args.Token)
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "系统配置-Sonar集成", detail, detailEn, string(data), types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -220,7 +226,9 @@ func DeleteSonarIntegration(c *gin.Context) {
 		return
 	}
 
-	internalhandler.InsertOperationLog(c, ctx.UserName, "", "删除", "系统配置-Sonar集成", fmt.Sprintf("id:%s", c.Param("id")), "", types.RequestBodyTypeJSON, ctx.Logger)
+	detail := fmt.Sprintf("id:%s", c.Param("id"))
+	detailEn := fmt.Sprintf("ID: %s", c.Param("id"))
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "删除", "系统配置-Sonar集成", detail, detailEn, "", types.RequestBodyTypeJSON, ctx.Logger)
 	ctx.RespErr = service.DeleteSonarIntegration(c.Param("id"), ctx.Logger)
 }
 

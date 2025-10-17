@@ -257,7 +257,7 @@ func CreateK8SDeliveryVersionV2(c *gin.Context) {
 	}
 
 	bs, _ := json.Marshal(args)
-	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProjectName, "新建", "版本交付", fmt.Sprintf("%s", args.Version), string(bs), types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProjectName, "新建", "版本交付", args.Version, args.Version, string(bs), types.RequestBodyTypeJSON, ctx.Logger)
 
 	ctx.RespErr = deliveryservice.CreateK8SDeliveryVersionV2(args, ctx.Logger)
 }
@@ -303,7 +303,7 @@ func CreateHelmDeliveryVersionV2(c *gin.Context) {
 	}
 
 	bs, _ := json.Marshal(args)
-	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProjectName, "新建", "版本交付", fmt.Sprintf("%s-%s", args.EnvName, args.Version), string(bs), types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProjectName, "新建", "版本交付", fmt.Sprintf("%s-%s", args.EnvName, args.Version), fmt.Sprintf("%s-%s", args.EnvName, args.Version), string(bs), types.RequestBodyTypeJSON, ctx.Logger)
 
 	ctx.RespErr = deliveryservice.CreateHelmDeliveryVersionV2(args, ctx.Logger)
 }
@@ -367,7 +367,7 @@ func DeleteDeliveryVersion(c *gin.Context) {
 
 	projectKey := c.GetString("projectName")
 
-	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "删除", "版本交付", c.Param("id"), "", types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "删除", "版本交付", c.Param("id"), c.Param("id"), "", types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
