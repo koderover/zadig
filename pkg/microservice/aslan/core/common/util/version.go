@@ -60,6 +60,7 @@ func CreateEnvServiceVersion(env *models.Product, prodSvc *models.ProductService
 		Service:         prodSvc,
 		Operation:       operation,
 		Detail:          detail,
+		DeployStrategy:  env.ServiceDeployStrategy[prodSvc.ServiceName],
 		ProductFeature:  tempProd.ProductFeature,
 		GlobalVariables: env.GlobalVariables,
 		DefaultValues:   env.DefaultValues,
