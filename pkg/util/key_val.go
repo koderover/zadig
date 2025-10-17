@@ -25,7 +25,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-const GoTemplateKeyRegExp = `{{\.(job(\.[^{}]+){2}|job(\.[^{}]+){4}|workflow\.params(\.[^{}]+){1}|workflow(\.[^{}]+){1})}}`
+const GoTemplateKeyRegExp = `{{\.(job(\.[^{}]+){2}|job(\.[^{}]+){4}|workflow\.params(\.[^{}]+){1}|workflow(\.[^{}]+){1}|project(\.[^{}]+){1}|workflow(\.[^{}]+){3})}}`
 
 type KVInput []*KeyValue
 
