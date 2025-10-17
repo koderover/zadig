@@ -45,7 +45,7 @@ func ListProductsRevision(productName, envName string, production bool, log *zap
 	}
 
 	// list services with max revision of project
-	allServiceTmpls, err := repository.ListMaxRevisionsServices(productName, production)
+	allServiceTmpls, err := repository.ListMaxRevisionsServices(productName, production, false)
 	if err != nil {
 		log.Errorf("ListAllRevisions error: %v", err)
 		return prodRevs, e.ErrListProducts.AddDesc(err.Error())

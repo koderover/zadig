@@ -81,7 +81,7 @@ func ListServicesRenderKeys(services []*templatemodels.ServiceInfo, log *zap.Sug
 
 // GetLatestRenderSetFromProject returns the latest renderset created directly from service definition.
 func GetLatestRenderSetFromHelmProject(productName string, isProduction bool) (*commonmodels.RenderSet, error) {
-	serviceList, err := repository.ListMaxRevisionsServices(productName, isProduction)
+	serviceList, err := repository.ListMaxRevisionsServices(productName, isProduction, false)
 	if err != nil {
 		return nil, err
 	}

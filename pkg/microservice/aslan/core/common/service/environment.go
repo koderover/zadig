@@ -63,7 +63,7 @@ import (
 
 func FillProductTemplateValuesYamls(tmpl *templatemodels.Product, production bool, log *zap.SugaredLogger) error {
 	tmpl.ChartInfos = make([]*templatemodels.ServiceRender, 0)
-	latestSvcs, err := repository.ListMaxRevisionsServices(tmpl.ProductName, production)
+	latestSvcs, err := repository.ListMaxRevisionsServices(tmpl.ProductName, production, false)
 	if err != nil {
 		return fmt.Errorf("failed to list max revision services, err: %s", err)
 	}
@@ -229,7 +229,7 @@ func GetK8sSvcRenderArgs(productName, envName, serviceName string, production bo
 	svcRenders := make(map[string]*templatemodels.ServiceRender)
 
 	// product template svcs
-	templateSvcs, err := repository.ListMaxRevisionsServices(productName, production)
+	templateSvcs, err := repository.ListMaxRevisionsServices(productName, production, false)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to find template svcs, err: %s", err)
 	}

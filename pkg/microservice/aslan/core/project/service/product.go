@@ -807,7 +807,7 @@ func filterProductServices(productName string, source [][]string, production boo
 	if len(source) == 0 {
 		return ret
 	}
-	curServices, err := repository.ListMaxRevisionsServices(productName, production)
+	curServices, err := repository.ListMaxRevisionsServices(productName, production, false)
 	if err != nil {
 		log.Errorf("failed to query template services for product %s, production: %v, error: %v", productName, production, err)
 		return source
@@ -1023,7 +1023,7 @@ func UpdateCustomMatchRules(productName, userName, requestID string, matchRules 
 	productInfo.ImageSearchingRules = imageRulesToSave
 	productInfo.UpdateBy = userName
 
-	services, err := repository.ListMaxRevisionsServices(productName, false)
+	services, err := repository.ListMaxRevisionsServices(productName, false, false)
 	if err != nil {
 		return errors.Wrapf(err, "fail to list services of product %s", productName)
 	}
@@ -1032,7 +1032,7 @@ func UpdateCustomMatchRules(productName, userName, requestID string, matchRules 
 		return err
 	}
 
-	productionServices, err := repository.ListMaxRevisionsServices(productName, true)
+	productionServices, err := repository.ListMaxRevisionsServices(productName, true, false)
 	if err != nil {
 		return errors.Wrapf(err, "fail to list production services of product %s", productName)
 	}
@@ -1214,7 +1214,7 @@ func GetGlobalVariableCandidates(productName string, production bool, log *zap.S
 		return nil, fmt.Errorf("failed to find product %s, err: %w", productName, err)
 	}
 
-	services, err := repository.ListMaxRevisionsServices(productName, production)
+	services, err := repository.ListMaxRevisionsServices(productName, production, false)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list services by product %s, err: %w", productName, err)
 	}

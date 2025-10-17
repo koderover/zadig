@@ -219,7 +219,7 @@ func FillServiceCreationInfo(serviceTemplate *models.Service) error {
 }
 
 // ListServiceTemplate 列出服务模板
-func ListServiceTemplate(productName string, production bool, log *zap.SugaredLogger) (*ServiceTmplResp, error) {
+func ListServiceTemplate(productName string, production bool, removeApplicationLinked bool, log *zap.SugaredLogger) (*ServiceTmplResp, error) {
 	var err error
 	resp := new(ServiceTmplResp)
 	resp.Data = make([]*ServiceProductMap, 0)
@@ -229,7 +229,7 @@ func ListServiceTemplate(productName string, production bool, log *zap.SugaredLo
 		return resp, e.ErrListTemplate.AddDesc(err.Error())
 	}
 
-	services, err := repository.ListMaxRevisionsServices(productName, production)
+	services, err := repository.ListMaxRevisionsServices(productName, production, removeApplicationLinked)
 	if err != nil {
 		log.Errorf("Failed to list services by %+v, err: %s", productName, err)
 		return resp, e.ErrListTemplate.AddDesc(err.Error())
@@ -1105,7 +1105,7 @@ func ListServicesInEnv(envName, productName string, newSvcKVsMap map[string][]*c
 		return nil, e.ErrGetService.AddErr(fmt.Errorf("failed to find env %s:%s", productName, envName))
 	}
 
-	latestSvcs, err := repository.ListMaxRevisionsServices(productName, env.Production)
+	latestSvcs, err := repository.ListMaxRevisionsServices(productName, env.Production, false)
 	if err != nil {
 		return nil, e.ErrGetService.AddErr(errors.Wrapf(err, "failed to find latest services for env %s:%s", productName, envName))
 	}

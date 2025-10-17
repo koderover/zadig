@@ -1230,7 +1230,7 @@ func createGerritWebhookByService(codehostID int, serviceName, repoName, branchN
 }
 
 func ListServiceTemplateOpenAPI(projectKey string, logger *zap.SugaredLogger) ([]*OpenAPIServiceBrief, error) {
-	services, err := commonservice.ListServiceTemplate(projectKey, false, logger)
+	services, err := commonservice.ListServiceTemplate(projectKey, false, false, logger)
 	if err != nil {
 		log.Errorf("failed to list service from db, projectKey: %s, err:%v", projectKey, err)
 		return nil, fmt.Errorf("failed to list service from db, projectKey: %s, error:%v", projectKey, err)
@@ -1259,7 +1259,7 @@ func ListServiceTemplateOpenAPI(projectKey string, logger *zap.SugaredLogger) ([
 }
 
 func ListProductionServiceTemplateOpenAPI(projectKey string, logger *zap.SugaredLogger) ([]*OpenAPIServiceBrief, error) {
-	productionServices, err := commonservice.ListServiceTemplate(projectKey, true, logger)
+	productionServices, err := commonservice.ListServiceTemplate(projectKey, true, false, logger)
 	if err != nil {
 		log.Errorf("failed to list service from db, projectKey: %s, err:%v", projectKey, err)
 		return nil, fmt.Errorf("failed to list service from db, projectKey: %s, error:%v", projectKey, err)
