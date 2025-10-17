@@ -474,12 +474,17 @@ func (w *Workflow) SetRepo(repo *types.Repository) error {
 }
 
 func (w *Workflow) GetDynamicVariableValues(jobName, serviceName, moduleName, key string, buildInVarMap map[string]string) ([]string, error) {
+	latestWorkflowSettings, err := commonrepo.NewWorkflowV4Coll().Find(w.Name)
+	if err != nil {
+		return nil, e.ErrFindWorkflow.AddDesc(fmt.Sprintf("cannot find workflow [%s]'s latest setting, error: %s", w.Name, err))
+	}
+	
 	job, err := w.FindJob(jobName, "")
 	if err != nil {
 		return nil, err
 	}
 
-	ctrl, err := jobctrl.CreateJobController(job, w.WorkflowV4)
+	ctrl, err := jobctrl.CreateJobController(job, latestWorkflowSettings)
 	if err != nil {
 		return nil, err
 	}
