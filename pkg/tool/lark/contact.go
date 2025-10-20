@@ -190,8 +190,18 @@ func (client *Client) listUserFromDepartmentWithPage(departmentID, departmentIDT
 
 	var list []*UserInfo
 	for _, item := range resp.Data.Items {
+		var userID string
+		switch userIDType {
+		case setting.LarkUserOpenID:
+			userID = getStringFromPointer(item.OpenId)
+		case setting.LarkUserID:
+			userID = getStringFromPointer(item.UserId)
+		default:
+			// default to open_id
+			userID = getStringFromPointer(item.OpenId)
+		}
 		list = append(list, &UserInfo{
-			ID:     getStringFromPointer(item.OpenId),
+			ID:     userID,
 			Name:   getStringFromPointer(item.Name),
 			Avatar: getStringFromPointer(item.Avatar.Avatar240),
 		})
