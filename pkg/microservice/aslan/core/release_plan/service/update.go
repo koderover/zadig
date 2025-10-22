@@ -60,7 +60,38 @@ const (
 	VerbDelete  = "删除"
 	VerbExecute = "执行"
 	VerbSkip    = "跳过"
+
+	DetailApprovalReject = "审批被拒绝"
+	DetailApprovalPass   = "审批通过"
+
+	UserNameSystem = "系统"
 )
+
+var TargetTypeI18nMap = map[string]string{
+	TargetTypeReleasePlan:       "Release Plan",
+	TargetTypeReleasePlanStatus: "Release Plan Status",
+	TargetTypeMetadata:          "Metadata",
+	TargetTypeReleaseJob:        "Release Job",
+	TargetTypeApproval:          "Approval",
+	TargetTypeDescription:       "Description",
+}
+
+var VerbI18nMap = map[string]string{
+	VerbCreate:  "Create",
+	VerbUpdate:  "Update",
+	VerbDelete:  "Delete",
+	VerbExecute: "Execute",
+	VerbSkip:    "Skip",
+}
+
+var DetailI18nMap = map[string]string{
+	DetailApprovalReject: "Approval Rejected",
+	DetailApprovalPass:   "Approval Passed",
+}
+
+var UserNameI18nMap = map[string]string{
+	UserNameSystem: "System",
+}
 
 type PlanUpdater interface {
 	// Update returns the old data and the updated data

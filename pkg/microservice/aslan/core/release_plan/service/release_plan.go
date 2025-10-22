@@ -298,11 +298,36 @@ func GetReleasePlan(id string) (*models.ReleasePlan, error) {
 	return releasePlan, nil
 }
 
-func GetReleasePlanLogs(id string) ([]*models.ReleasePlanLog, error) {
-	return mongodb.NewReleasePlanLogColl().ListByOptions(&mongodb.ListReleasePlanLogOption{
+type ReleasePlanLogI18N struct {
+	VerbI18Map       map[string]string `json:"verb_i18_map"`
+	TargetTypeI18Map map[string]string `json:"target_type_i18_map"`
+	DetailI18Map     map[string]string `json:"detail_i18_map"`
+	UserNameI18Map   map[string]string `json:"user_name_i18_map"`
+}
+
+type GetReleasePlanLogsResponse struct {
+	I18N *ReleasePlanLogI18N      `json:"i18n"`
+	List []*models.ReleasePlanLog `json:"list"`
+}
+
+func GetReleasePlanLogs(id string) (*GetReleasePlanLogsResponse, error) {
+	logs, err := mongodb.NewReleasePlanLogColl().ListByOptions(&mongodb.ListReleasePlanLogOption{
 		PlanID: id,
 		IsSort: true,
 	})
+	if err != nil {
+		return nil, errors.Wrap(err, "get release plan logs")
+	}
+
+	return &GetReleasePlanLogsResponse{
+		List: logs,
+		I18N: &ReleasePlanLogI18N{
+			VerbI18Map:       VerbI18nMap,
+			TargetTypeI18Map: TargetTypeI18nMap,
+			DetailI18Map:     DetailI18nMap,
+			UserNameI18Map:   UserNameI18nMap,
+		},
+	}, nil
 }
 
 func DeleteReleasePlan(c *gin.Context, username, id string) error {
@@ -607,7 +632,7 @@ func ScheduleExecuteReleasePlan(c *handler.Context, planID, jobID string) error 
 			go func() {
 				if err := mongodb.NewReleasePlanLogColl().Create(&models.ReleasePlanLog{
 					PlanID:     planID,
-					Username:   "系统",
+					Username:   UserNameSystem,
 					Account:    "",
 					Verb:       VerbExecute,
 					TargetName: args.Name,
@@ -622,7 +647,7 @@ func ScheduleExecuteReleasePlan(c *handler.Context, planID, jobID string) error 
 				AuthResources: c.Resources,
 				UserID:        c.UserID,
 				Account:       "",
-				UserName:      "系统",
+				UserName:      UserNameSystem,
 			}, args)
 			if err != nil {
 				err = errors.Wrap(err, "new release job executor")
@@ -635,7 +660,7 @@ func ScheduleExecuteReleasePlan(c *handler.Context, planID, jobID string) error 
 				return err
 			}
 
-			plan.UpdatedBy = "系统"
+			plan.UpdatedBy = UserNameSystem
 			plan.UpdateTime = time.Now().Unix()
 
 			if checkReleasePlanJobsAllDone(plan) {
@@ -958,11 +983,11 @@ func ApproveReleasePlan(c *handler.Context, planID string, req *ApproveRequest) 
 	case config.StatusPassed:
 		planLog = &models.ReleasePlanLog{
 			PlanID:     planID,
-			Username:   "系统",
+			Username:   UserNameSystem,
 			Verb:       VerbUpdate,
 			TargetName: TargetTypeReleasePlanStatus,
 			TargetType: TargetTypeReleasePlanStatus,
-			Detail:     "审批通过",
+			Detail:     DetailApprovalPass,
 			After:      config.ReleasePlanStatusExecuting,
 			CreatedAt:  time.Now().Unix(),
 		}
@@ -990,7 +1015,7 @@ func ApproveReleasePlan(c *handler.Context, planID string, req *ApproveRequest) 
 	case config.StatusReject:
 		planLog = &models.ReleasePlanLog{
 			PlanID:    planID,
-			Detail:    "审批被拒绝",
+			Detail:    DetailApprovalReject,
 			CreatedAt: time.Now().Unix(),
 		}
 
