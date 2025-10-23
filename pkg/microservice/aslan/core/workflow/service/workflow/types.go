@@ -254,6 +254,8 @@ func (p *FreestyleJobInput) UpdateJobSpec(job *commonmodels.Job) (*commonmodels.
 						repo.Branch = inputRepo.Branch
 						repo.PR = inputRepo.PR
 						repo.PRs = inputRepo.PRs
+						repo.EnableCommit = inputRepo.EnableCommit
+						repo.CommitID = inputRepo.CommitID
 						newRepo = append(newRepo, repo)
 					}
 				} else {
@@ -406,6 +408,8 @@ func (p *ZadigBuildJobInput) UpdateJobSpec(job *commonmodels.Job) (*commonmodels
 								buildRepo.Branch = inputRepo.Branch
 								buildRepo.PR = inputRepo.PR
 								buildRepo.PRs = inputRepo.PRs
+								buildRepo.EnableCommit = inputRepo.EnableCommit
+								buildRepo.CommitID = inputRepo.CommitID
 							}
 						}
 					}
@@ -613,6 +617,8 @@ func (p *ZadigTestingJobInput) UpdateJobSpec(job *commonmodels.Job) (*commonmode
 								buildRepo.Branch = inputRepo.Branch
 								buildRepo.PR = inputRepo.PR
 								buildRepo.PRs = inputRepo.PRs
+								buildRepo.EnableCommit = inputRepo.EnableCommit
+								buildRepo.CommitID = inputRepo.CommitID
 							}
 						}
 					}
@@ -785,6 +791,8 @@ func (p *ZadigScanningJobInput) UpdateJobSpec(job *commonmodels.Job) (*commonmod
 								buildRepo.Branch = inputRepo.Branch
 								buildRepo.PR = inputRepo.PR
 								buildRepo.PRs = inputRepo.PRs
+								buildRepo.EnableCommit = inputRepo.EnableCommit
+								buildRepo.CommitID = inputRepo.CommitID
 							}
 						}
 					}
