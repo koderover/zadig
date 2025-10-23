@@ -29,6 +29,8 @@ type OpenAPIRepoInput struct {
 	Branch        string `json:"branch"`
 	PR            int    `json:"pr"`
 	PRs           []int  `json:"prs"`
+	EnableCommit  bool   `json:"enable_commit"`
+	CommitID      string `json:"commit_id"`
 	RemoteName    string `json:"remote_name"`
 	CheckoutPath  string `json:"checkout_path"`
 	SubModules    bool   `json:"submodules"`

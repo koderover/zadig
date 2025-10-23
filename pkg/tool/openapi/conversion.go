@@ -100,6 +100,8 @@ func ToScanningRepository(repo *types.OpenAPIRepoInput) (*types.Repository, erro
 		Branch:        repo.Branch,
 		PR:            repo.PR,
 		PRs:           repo.PRs,
+		EnableCommit:  repo.EnableCommit,
+		CommitID:      repo.CommitID,
 		CodehostID:    repoInfo.ID,
 		// this is not a required field in openAPI in scanning, we will leave it as origin for now
 		RemoteName: "origin",
@@ -119,6 +121,8 @@ func ToBuildRepository(repo *types.OpenAPIRepoInput) (*types.Repository, error) 
 		Branch:        repo.Branch,
 		PR:            repo.PR,
 		PRs:           repo.PRs,
+		EnableCommit:  repo.EnableCommit,
+		CommitID:      repo.CommitID,
 		CodehostID:    repoInfo.ID,
 		RemoteName:    repo.RemoteName,
 		SubModules:    repo.SubModules,
