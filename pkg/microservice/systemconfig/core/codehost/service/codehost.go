@@ -295,8 +295,9 @@ func ValidateCodeHost(ctx *internalhandler.Context, codeHost *models.CodeHost) e
 
 		// 解析端口
 		port := 22
-		if strings.Contains(codeHost.Address, ":") {
-			parts := strings.Split(codeHost.Address, ":")
+		address := strings.TrimPrefix(codeHost.Address, "ssh://")
+		if strings.Contains(address, ":") {
+			parts := strings.Split(address, ":")
 			if len(parts) > 1 {
 				portStr := strings.Split(parts[1], "/")[0]
 				var err error
