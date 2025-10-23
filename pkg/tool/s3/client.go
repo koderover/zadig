@@ -23,6 +23,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -77,12 +78,28 @@ func NewClient(endpoint, ak, sk, region string, insecure bool, provider int8) (*
 	return &Client{s3.New(session)}, nil
 }
 
-// Validate the existence of bucket
-func (c *Client) ValidateBucket(bucketName string) error {
-	headBucketInput := &s3.HeadBucketInput{Bucket: aws.String(bucketName)}
-	_, err := c.HeadBucket(headBucketInput)
+// ValidateBucketWithSubpath validates the bucket and subpath by attempting to write a test file.
+// The subpath can be empty. This function is idempotent - calling it multiple times with
+// the same parameters will produce the same result.
+func (c *Client) ValidateBucketWithSubpath(bucketName, subpath string) error {
+	// Create a test file path - using a fixed name for idempotency
+	testFileName := ".zadig-validate-test"
+	var objectKey string
+	if subpath != "" {
+		objectKey = path.Join(subpath, testFileName)
+	} else {
+		objectKey = testFileName
+	}
+
+	// Try to write a test file to the bucket/subpath
+	putInput := &s3.PutObjectInput{
+		Body:   strings.NewReader("test"),
+		Bucket: aws.String(bucketName),
+		Key:    aws.String(objectKey),
+	}
+	_, err := c.PutObject(putInput)
 	if err != nil {
-		return fmt.Errorf("validate S3 error: %s", err.Error())
+		return fmt.Errorf("validate S3 error: failed to write to bucket %s with subpath %s: %s", bucketName, subpath, err.Error())
 	}
 
 	return nil
