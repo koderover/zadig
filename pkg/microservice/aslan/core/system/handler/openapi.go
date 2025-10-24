@@ -59,7 +59,10 @@ func OpenAPICreateRegistry(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("CreateRegistryNamespace json.Unmarshal err : %v", err)
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName+"(openAPI)", "", "新增", "系统设置-Registry", fmt.Sprintf("提供商:%s,Namespace:%s", args.Provider, args.Namespace), string(data), types.RequestBodyTypeJSON, ctx.Logger)
+
+	detail := fmt.Sprintf("提供商:%s,Namespace:%s", args.Provider, args.Namespace)
+	detailEn := fmt.Sprintf("Provider: %s, Namespace: %s", args.Provider, args.Namespace)
+	internalhandler.InsertOperationLog(c, ctx.UserName+"(openAPI)", "", "新增", "资源配置-镜像仓库", detail, detailEn, string(data), types.RequestBodyTypeJSON, ctx.Logger)
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	// authorization checks
@@ -183,7 +186,7 @@ func OpenAPIUpdateRegistry(c *gin.Context) {
 		return
 	}
 
-	internalhandler.InsertOperationLog(c, ctx.UserName+"(openAPI)", "", "更新", "资源配置-镜像仓库", c.Param("id"), "", types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName+"(openAPI)", "", "更新", "资源配置-镜像仓库", c.Param("id"), c.Param("id"), "", types.RequestBodyTypeJSON, ctx.Logger)
 	ctx.RespErr = service.UpdateRegistryNamespace(ctx.UserName, c.Param("id"), registryInfo, ctx.Logger)
 }
 
@@ -224,7 +227,7 @@ func OpenAPICreateCluster(c *gin.Context) {
 		log.Errorf("Failed to bind data: %s", err)
 		return
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName+"(openAPI)", "", "创建", "资源配置-集群", req.Name, "", types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName+"(openAPI)", "", "创建", "资源配置-集群", req.Name, req.Name, "", types.RequestBodyTypeJSON, ctx.Logger)
 
 	clusterAccessYaml := `apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -364,7 +367,7 @@ func OpenAPIUpdateCluster(c *gin.Context) {
 		log.Errorf("Failed to bind data: %s", err)
 		return
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName+"(openAPI)", "", "更新", "资源配置-集群", c.Param("id"), "", types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName+"(openAPI)", "", "更新", "资源配置-集群", c.Param("id"), c.Param("id"), "", types.RequestBodyTypeJSON, ctx.Logger)
 
 	ctx.RespErr = service.OpenAPIUpdateCluster(ctx.UserName, c.Param("id"), args, ctx.Logger)
 }
@@ -385,7 +388,7 @@ func OpenAPIDeleteCluster(c *gin.Context) {
 		return
 	}
 
-	internalhandler.InsertOperationLog(c, ctx.UserName+"(openAPI)", "", "删除", "资源配置-集群", c.Param("id"), "", types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName+"(openAPI)", "", "删除", "资源配置-集群", c.Param("id"), c.Param("id"), "", types.RequestBodyTypeJSON, ctx.Logger)
 	ctx.RespErr = service.OpenAPIDeleteCluster(ctx.UserName, c.Param("id"), ctx.Logger)
 }
 
@@ -521,7 +524,7 @@ func OpenAPIGetOperationLogs(c *gin.Context) {
 
 	resp, count, err := service.FindOperation(args, ctx.Logger)
 	ctx.Resp = OpenAPIGetOperationLogsResponse{
-		OperationLogs: convertOperationLogsToOpenAPISpec(resp),
+		OperationLogs: convertOperationLogsToOpenAPISpec(resp.OperationLogs),
 		Total:         count,
 	}
 	ctx.RespErr = err
@@ -610,7 +613,7 @@ func OpenAPIGetEnvOperationLogs(c *gin.Context) {
 
 	resp, count, err := service.FindOperation(args, ctx.Logger)
 	ctx.Resp = OpenAPIGetOperationLogsResponse{
-		OperationLogs: convertOperationLogsToOpenAPISpec(resp),
+		OperationLogs: convertOperationLogsToOpenAPISpec(resp.OperationLogs),
 		Total:         count,
 	}
 	ctx.RespErr = err

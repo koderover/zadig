@@ -131,14 +131,14 @@ func LoadServiceTemplate(c *gin.Context) {
 	}
 
 	production := c.Query("production") == "true"
-	detail := "项目管理-服务"
+	function := "项目管理-服务"
 	if production {
-		detail = "项目管理-生产服务"
+		function = "项目管理-生产服务"
 	}
 
 	// Note we can't get the service name from handler layer since it parsed from files on git repo
 	bs, _ := json.Marshal(args)
-	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductName, "新增", detail, "", string(bs), types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductName, "新增", function, "", "", string(bs), types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -233,14 +233,14 @@ func SyncServiceTemplate(c *gin.Context) {
 	}
 
 	production := c.Query("production") == "true"
-	detail := "项目管理-服务"
+	function := "项目管理-服务"
 	if production {
-		detail = "项目管理-生产服务"
+		function = "项目管理-生产服务"
 	}
 
 	// Note we can't get the service name from handler layer since it parsed from files on git repo
 	bs, _ := json.Marshal(args)
-	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductName, "更新", detail, "", string(bs), types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductName, "更新", function, "", "", string(bs), types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {

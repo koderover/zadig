@@ -109,7 +109,9 @@ func CreateSprint(c *gin.Context) {
 		return
 	}
 
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneSprintManagement, "创建", "迭代管理-迭代", fmt.Sprintf("流程ID: %s, 迭代名称: %s", c.Query("templateID"), c.Query("name")), "", types.RequestBodyTypeJSON, ctx.Logger, "")
+	detail := fmt.Sprintf("流程ID: %s, 迭代名称: %s", c.Query("templateID"), c.Query("name"))
+	detailEn := fmt.Sprintf("Sprint Template ID: %s, Sprint Name: %s", c.Query("templateID"), c.Query("name"))
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneSprintManagement, "创建", "迭代管理-迭代", detail, detailEn, "", types.RequestBodyTypeJSON, ctx.Logger, "")
 
 	ctx.Resp, ctx.RespErr = service.CreateSprint(ctx, projectName, c.Query("templateID"), c.Query("name"))
 }
@@ -153,7 +155,9 @@ func UpdateSprintName(c *gin.Context) {
 		return
 	}
 
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneSprintManagement, "更新", "迭代管理-迭代", fmt.Sprintf("迭代ID: %s, 迭代名称: %s", c.Param("id"), c.Query("name")), "", types.RequestBodyTypeJSON, ctx.Logger, "")
+	detail := fmt.Sprintf("迭代ID: %s, 迭代名称: %s", c.Param("id"), c.Query("name"))
+	detailEn := fmt.Sprintf("Sprint ID: %s, Sprint Name: %s", c.Param("id"), c.Query("name"))
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneSprintManagement, "更新", "迭代管理-迭代", detail, detailEn, "", types.RequestBodyTypeJSON, ctx.Logger, "")
 
 	ctx.RespErr = service.UpdateSprintName(ctx, c.Param("id"), c.Query("name"))
 }
@@ -196,7 +200,9 @@ func DeleteSprint(c *gin.Context) {
 		return
 	}
 
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneSprintManagement, "删除", "迭代管理-迭代", fmt.Sprintf("迭代ID: %s", c.Param("id")), "", types.RequestBodyTypeJSON, ctx.Logger, "")
+	detail := fmt.Sprintf("迭代ID: %s", c.Param("id"))
+	detailEn := fmt.Sprintf("Sprint ID: %s", c.Param("id"))
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneSprintManagement, "删除", "迭代管理-迭代", detail, detailEn, "", types.RequestBodyTypeJSON, ctx.Logger, "")
 
 	ctx.RespErr = service.DeleteSprint(ctx, c.Param("id"))
 }
@@ -239,7 +245,9 @@ func ArchiveSprint(c *gin.Context) {
 		return
 	}
 
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneSprintManagement, "更新", "迭代管理-迭代", fmt.Sprintf("归档迭代ID: %s", c.Param("id")), "", types.RequestBodyTypeJSON, ctx.Logger, "")
+	detail := fmt.Sprintf("归档迭代ID: %s", c.Param("id"))
+	detailEn := fmt.Sprintf("Archive Sprint ID: %s", c.Param("id"))
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneSprintManagement, "更新", "迭代管理-迭代", detail, detailEn, "", types.RequestBodyTypeJSON, ctx.Logger, "")
 
 	ctx.RespErr = service.ArchiveSprint(ctx, c.Param("id"))
 }
@@ -282,7 +290,9 @@ func ActivateArchivedSprint(c *gin.Context) {
 		return
 	}
 
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneSprintManagement, "更新", "迭代管理-迭代", fmt.Sprintf("激活已归档迭代ID: %s", c.Param("id")), "", types.RequestBodyTypeJSON, ctx.Logger, "")
+	detail := fmt.Sprintf("激活已归档迭代ID: %s", c.Param("id"))
+	detailEn := fmt.Sprintf("Activate Archived Sprint ID: %s", c.Param("id"))
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneSprintManagement, "更新", "迭代管理-迭代", detail, detailEn, "", types.RequestBodyTypeJSON, ctx.Logger, "")
 
 	ctx.RespErr = service.ActivateArchivedSprint(ctx, c.Param("id"))
 }

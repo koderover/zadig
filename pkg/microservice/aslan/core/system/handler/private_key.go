@@ -109,7 +109,10 @@ func CreatePrivateKey(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("CreatePrivateKey json.Unmarshal err : %v", err)
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, "", "新增", "资源管理-主机管理", fmt.Sprintf("hostName:%s ip:%s", args.Name, args.IP), string(data), types.RequestBodyTypeJSON, ctx.Logger)
+
+	detail := fmt.Sprintf("hostName:%s ip:%s", args.Name, args.IP)
+	detailEn := fmt.Sprintf("Host Name: %s, IP: %s", args.Name, args.IP)
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "新增", "资源管理-主机管理", detail, detailEn, string(data), types.RequestBodyTypeJSON, ctx.Logger)
 
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
@@ -154,7 +157,10 @@ func UpdatePrivateKey(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("UpdatePrivateKey json.Unmarshal err : %v", err)
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "资源管理-主机管理", fmt.Sprintf("hostName:%s ip:%s", args.Name, args.IP), string(data), types.RequestBodyTypeJSON, ctx.Logger)
+
+	detail := fmt.Sprintf("hostName:%s ip:%s", args.Name, args.IP)
+	detailEn := fmt.Sprintf("Host Name: %s, IP: %s", args.Name, args.IP)
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "资源管理-主机管理", detail, detailEn, string(data), types.RequestBodyTypeJSON, ctx.Logger)
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	// authorization checks
@@ -225,7 +231,9 @@ func DeletePrivateKey(c *gin.Context) {
 		return
 	}
 
-	internalhandler.InsertOperationLog(c, ctx.UserName, "", "删除", "资源管理-主机管理", fmt.Sprintf("id:%s", c.Param("id")), "", types.RequestBodyTypeJSON, ctx.Logger)
+	detail := fmt.Sprintf("id:%s", c.Param("id"))
+	detailEn := fmt.Sprintf("ID: %s", c.Param("id"))
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "删除", "资源管理-主机管理", detail, detailEn, "", types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -269,7 +277,7 @@ func BatchCreatePrivateKey(c *gin.Context) {
 		log.Errorf("batchCreatePrivateKey json.Unmarshal err : %v", err)
 	}
 
-	internalhandler.InsertOperationLog(c, ctx.UserName, "", "批量新增", "资源管理-主机管理", "", string(data), types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "批量新增", "资源管理-主机管理", "", "", string(data), types.RequestBodyTypeJSON, ctx.Logger)
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	// authorization checks

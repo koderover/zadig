@@ -54,7 +54,7 @@ func OpenAPICreateProductTemplate(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("CreateProductTemplate json.Unmarshal err : %v", err)
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName+"(openAPI)", args.ProjectName, "新增", "项目管理-项目", args.ProjectName, string(data), types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName+"(openAPI)", args.ProjectName, "新增", "项目管理-项目", args.ProjectName, args.ProjectName, string(data), types.RequestBodyTypeJSON, ctx.Logger)
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.BindJSON(args); err != nil {
@@ -104,7 +104,7 @@ func OpenAPIInitializeYamlProject(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("Initialize project json.Unmarshal err : %v", err)
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName+"(openAPI)", args.ProjectName, "初始化", "项目管理-k8s项目", args.ProjectName, string(data), types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName+"(openAPI)", args.ProjectName, "初始化", "项目管理-k8s项目", args.ProjectName, args.ProjectName, string(data), types.RequestBodyTypeJSON, ctx.Logger)
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	// input validation for OpenAPI
@@ -142,7 +142,7 @@ func OpenAPIInitializeHelmProject(c *gin.Context) {
 		ctx.RespErr = err
 		return
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName+"(openAPI)", args.ProjectName, "OpenAPI"+"初始化", "项目管理-helm项目", args.ProjectName, string(data), types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName+"(openAPI)", args.ProjectName, "(OpenAPI)"+"初始化", "项目管理-helm项目", args.ProjectName, args.ProjectName, string(data), types.RequestBodyTypeJSON, ctx.Logger)
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	// input validation for OpenAPI
@@ -266,7 +266,7 @@ func OpenAPIDeleteProject(c *gin.Context) {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalid param isDelete")
 		return
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "OpenAPI"+"删除", "项目管理-项目", projectKey, "", types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "OpenAPI"+"删除", "项目管理-项目", projectKey, projectKey, "", types.RequestBodyTypeJSON, ctx.Logger)
 
 	ctx.RespErr = service.DeleteProjectOpenAPI(ctx.UserName, ctx.RequestID, projectKey, isDelete, ctx.Logger)
 }

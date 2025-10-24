@@ -58,10 +58,13 @@ func UpdateStatefulSetContainerImage(c *gin.Context) {
 		return
 	}
 
+	detail := fmt.Sprintf("环境名称:%s,服务名称:%s,StatefulSet:%s", args.EnvName, args.ServiceName, args.Name)
+	detailEn := fmt.Sprintf("Environment: %s, Service: %s, StatefulSet: %s", args.EnvName, args.ServiceName, args.Name)
 	internalhandler.InsertDetailedOperationLog(
 		c, ctx.UserName, args.ProductName, setting.OperationSceneEnv,
 		"更新", "环境-服务镜像",
-		fmt.Sprintf("环境名称:%s,服务名称:%s,StatefulSet:%s", args.EnvName, args.ServiceName, args.Name),
+		detail,
+		detailEn,
 		string(data), types.RequestBodyTypeJSON, ctx.Logger, args.EnvName)
 
 	// authorization checks
@@ -129,10 +132,13 @@ func UpdateDeploymentContainerImage(c *gin.Context) {
 		log.Errorf("UpdateDeploymentContainerImage json.Unmarshal err : %v", err)
 	}
 
+	detail := fmt.Sprintf("环境名称:%s,服务名称:%s,Deployment:%s", args.EnvName, args.ServiceName, args.Name)
+	detailEn := fmt.Sprintf("Environment Name: %s, Service Name: %s, Deployment: %s", args.EnvName, args.ServiceName, args.Name)
 	internalhandler.InsertDetailedOperationLog(
 		c, ctx.UserName, args.ProductName, setting.OperationSceneEnv,
 		"更新", "环境-服务镜像",
-		fmt.Sprintf("环境名称:%s,服务名称:%s,Deployment:%s", args.EnvName, args.ServiceName, args.Name),
+		detail,
+		detailEn,
 		string(data), types.RequestBodyTypeJSON, ctx.Logger, args.EnvName)
 
 	production := c.Query("production") == "true"
@@ -225,10 +231,13 @@ func UpdateCronJobContainerImage(c *gin.Context) {
 		log.Errorf("UpdateCronJobContainerImage json.Unmarshal err : %v", err)
 	}
 
+	detail := fmt.Sprintf("环境名称:%s,服务名称:%s,CronJob:%s", args.EnvName, args.ServiceName, args.Name)
+	detailEn := fmt.Sprintf("Environment Name: %s, Service Name: %s, CronJob: %s", args.EnvName, args.ServiceName, args.Name)
 	internalhandler.InsertDetailedOperationLog(
 		c, ctx.UserName, args.ProductName, setting.OperationSceneEnv,
 		"更新", "环境-服务镜像",
-		fmt.Sprintf("环境名称:%s,服务名称:%s,CronJob:%s", args.EnvName, args.ServiceName, args.Name),
+		detail,
+		detailEn,
 		string(data), types.RequestBodyTypeJSON, ctx.Logger, args.EnvName)
 
 	// authorization checks
@@ -306,10 +315,13 @@ func OpenAPIUpdateDeploymentContainerImage(c *gin.Context) {
 		log.Errorf("UpdateDeploymentContainerImage json.Unmarshal err : %v", err)
 	}
 
+	detail := fmt.Sprintf("环境名称:%s,服务名称:%s,Deployment:%s", args.EnvName, args.ServiceName, args.Name)
+	detailEn := fmt.Sprintf("Environment Name: %s, Service Name: %s, Deployment: %s", args.EnvName, args.ServiceName, args.Name)
 	internalhandler.InsertDetailedOperationLog(
 		c, ctx.UserName, args.ProductName, setting.OperationSceneEnv,
 		"更新", "OpenAPI-环境-服务镜像",
-		fmt.Sprintf("环境名称:%s,服务名称:%s,Deployment:%s", args.EnvName, args.ServiceName, args.Name),
+		detail,
+		detailEn,
 		string(data), types.RequestBodyTypeJSON, ctx.Logger, args.EnvName)
 
 	// authorization checks
@@ -384,10 +396,13 @@ func OpenAPIUpdateStatefulSetContainerImage(c *gin.Context) {
 		return
 	}
 
+	detail := fmt.Sprintf("环境名称:%s,服务名称:%s,StatefulSet:%s", args.EnvName, args.ServiceName, args.Name)
+	detailEn := fmt.Sprintf("Environment Name: %s, Service Name: %s, StatefulSet: %s", args.EnvName, args.ServiceName, args.Name)
 	internalhandler.InsertDetailedOperationLog(
 		c, ctx.UserName, args.ProductName, setting.OperationSceneEnv,
 		"更新", "OpenAPI-环境-服务镜像",
-		fmt.Sprintf("环境名称:%s,服务名称:%s,StatefulSet:%s", args.EnvName, args.ServiceName, args.Name),
+		detail,
+		detailEn,
 		string(data), types.RequestBodyTypeJSON, ctx.Logger, args.EnvName)
 
 	// authorization checks
@@ -447,10 +462,13 @@ func OpenAPIUpdateCronJobContainerImage(c *gin.Context) {
 		log.Errorf("UpdateDeploymentContainerImage json.Unmarshal err : %v", err)
 	}
 
+	detail := fmt.Sprintf("环境名称:%s,服务名称:%s,CronJob:%s", args.EnvName, args.ServiceName, args.Name)
+	detailEn := fmt.Sprintf("Environment Name: %s, Service Name: %s, CronJob: %s", args.EnvName, args.ServiceName, args.Name)
 	internalhandler.InsertDetailedOperationLog(
 		c, ctx.UserName, args.ProductName, setting.OperationSceneEnv,
 		"更新", "OpenAPI-环境-服务镜像",
-		fmt.Sprintf("环境名称:%s,服务名称:%s,CronJob:%s", args.EnvName, args.ServiceName, args.Name),
+		detail,
+		detailEn,
 		string(data), types.RequestBodyTypeJSON, ctx.Logger, args.EnvName)
 
 	// authorization checks

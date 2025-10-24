@@ -64,7 +64,10 @@ func CreateTestTask(c *gin.Context) {
 		log.Errorf("CreateTestTask json.Unmarshal err : %v", err)
 	}
 	projectKey := args.ProductName
-	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "新增", "测试-task", fmt.Sprintf("%s-%s", args.TestName, "job"), string(data), types.RequestBodyTypeJSON, ctx.Logger)
+
+	detail := fmt.Sprintf("%s-%s", args.TestName, "job")
+	detailEn := fmt.Sprintf("%s-%s", args.TestName, "job")
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "新增", "测试任务", detail, detailEn, string(data), types.RequestBodyTypeJSON, ctx.Logger)
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	// authorization check
@@ -164,7 +167,7 @@ func CancelTestTaskV3(c *gin.Context) {
 	testName := c.Query("testName")
 	taskIDStr := c.Query("taskID")
 
-	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "取消", "测试任务", c.Param("name"), "", types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "取消", "测试任务", c.Param("name"), c.Param("name"), "", types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization check
 	if !ctx.Resources.IsSystemAdmin {
@@ -345,7 +348,7 @@ func RestartTestTaskV2(c *gin.Context) {
 	testName := c.Query("testName")
 	taskIDStr := c.Query("taskID")
 
-	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "重启", "测试任务", c.Param("name"), "", types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "重启", "测试任务", c.Param("name"), c.Param("name"), "", types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization check
 	if !ctx.Resources.IsSystemAdmin {

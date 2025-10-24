@@ -79,7 +79,10 @@ func CreateBasicImage(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("CreateBasicImage json.Unmarshal err : %v", err)
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, "", "新增", "基础镜像", fmt.Sprintf("label:%s", args.Label), string(data), types.RequestBodyTypeJSON, ctx.Logger)
+
+	detail := fmt.Sprintf("label:%s", args.Label)
+	detailEn := fmt.Sprintf("Label: %s", args.Label)
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "新增", "基础镜像", detail, detailEn, string(data), types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -117,7 +120,10 @@ func UpdateBasicImage(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("UpdateBasicImage json.Unmarshal err : %v", err)
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "基础镜像", fmt.Sprintf("id:%s", args.ID), string(data), types.RequestBodyTypeJSON, ctx.Logger)
+
+	detail := fmt.Sprintf("id:%s", args.ID)
+	detailEn := fmt.Sprintf("ID: %s", args.ID)
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "基础镜像", detail, detailEn, string(data), types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -147,7 +153,8 @@ func DeleteBasicImage(c *gin.Context) {
 		return
 	}
 
-	internalhandler.InsertOperationLog(c, ctx.UserName, "", "删除", "基础镜像", fmt.Sprintf("id:%s", c.Param("id")), "", types.RequestBodyTypeJSON, ctx.Logger)
+	detail := fmt.Sprintf("id:%s", c.Param("id"))
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "删除", "基础镜像", detail, detail, "", types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {

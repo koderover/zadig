@@ -275,11 +275,14 @@ func RollbackServiceVersion(c *gin.Context) {
 		return
 	}
 
-	detail := "服务"
+	function := "服务"
 	if production {
-		detail = "生产服务"
+		function = "生产服务"
 	}
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneService, "回滚", detail, fmt.Sprintf("服务: %s, 版本: %d", serviceName, revision), "", types.RequestBodyTypeJSON, ctx.Logger)
+
+	detail := fmt.Sprintf("服务: %s, 版本: %d", serviceName, revision)
+	detailEn := fmt.Sprintf("Service: %s, Version: %d", serviceName, revision)
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneService, "回滚", function, detail, detailEn, "", types.RequestBodyTypeJSON, ctx.Logger)
 
 	ctx.RespErr = service.RollbackServiceVersion(ctx, projectKey, serviceName, revision, production, ctx.Logger)
 }

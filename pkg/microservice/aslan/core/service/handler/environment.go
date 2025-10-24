@@ -92,12 +92,14 @@ func LoadKubeWorkloadsYaml(c *gin.Context) {
 	}
 
 	production := c.Query("production") == "true"
-	detail := "项目管理-服务"
+	function := "项目管理-服务"
 	if production {
-		detail = "项目管理-生产服务"
+		function = "项目管理-生产服务"
 	}
 
-	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductName, "新增", detail, fmt.Sprintf("服务名称:%s", strings.Join(serviceNames, ",")), string(data), types.RequestBodyTypeJSON, ctx.Logger)
+	detail := fmt.Sprintf("服务名称:%s", strings.Join(serviceNames, ","))
+	detailEn := fmt.Sprintf("Service Name: %s", strings.Join(serviceNames, ","))
+	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductName, "新增", function, detail, detailEn, string(data), types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {

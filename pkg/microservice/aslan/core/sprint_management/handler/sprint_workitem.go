@@ -360,7 +360,9 @@ func DeleteSprintWorkItem(c *gin.Context) {
 		return
 	}
 
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneSprintManagement, "删除", "迭代管理-工作项", fmt.Sprintf("工作项ID: %s", c.Param("id")), "", types.RequestBodyTypeJSON, ctx.Logger, "")
+	detail := "工作项ID: "+c.Param("id")
+	detailEn := "Workitem ID: "+c.Param("id")
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneSprintManagement, "删除", "迭代管理-工作项", detail, detailEn, "", types.RequestBodyTypeJSON, ctx.Logger, "")
 
 	ctx.RespErr = service.DeleteSprintWorkItem(ctx, c.Param("id"))
 }

@@ -198,7 +198,10 @@ func CreateRegistryNamespace(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("CreateRegistryNamespace json.Unmarshal err : %v", err)
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, "", "新增", "系统设置-Registry", fmt.Sprintf("提供商:%s,Namespace:%s", args.RegProvider, args.Namespace), string(data), types.RequestBodyTypeJSON, ctx.Logger)
+
+	detail := fmt.Sprintf("提供商:%s,Namespace:%s", args.RegProvider, args.Namespace)
+	detailEn := fmt.Sprintf("Provider: %s, Namespace: %s", args.RegProvider, args.Namespace)
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "新增", "资源配置-镜像仓库", detail, detailEn, string(data), types.RequestBodyTypeJSON, ctx.Logger)
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	// authorization checks
@@ -244,7 +247,10 @@ func UpdateRegistryNamespace(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("UpdateRegistryNamespace json.Unmarshal err : %v", err)
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "系统设置-Registry", fmt.Sprintf("提供商:%s,Namespace:%s", args.RegProvider, args.Namespace), string(data), types.RequestBodyTypeJSON, ctx.Logger)
+
+	detail := fmt.Sprintf("提供商:%s,Namespace:%s", args.RegProvider, args.Namespace)
+	detailEn := fmt.Sprintf("Provider: %s, Namespace: %s", args.RegProvider, args.Namespace)
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "资源配置-镜像仓库", detail, detailEn, string(data), types.RequestBodyTypeJSON, ctx.Logger)
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	// authorization checks
@@ -322,7 +328,9 @@ func DeleteRegistryNamespace(c *gin.Context) {
 		return
 	}
 
-	internalhandler.InsertOperationLog(c, ctx.UserName, "", "删除", "系统设置-Registry", fmt.Sprintf("registry ID:%s", c.Param("id")), "", types.RequestBodyTypeJSON, ctx.Logger)
+	detail := fmt.Sprintf("registry ID:%s", c.Param("id"))
+	detailEn := fmt.Sprintf("Registry ID: %s", c.Param("id"))
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "删除", "资源配置-镜像仓库", detail, detailEn, "", types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {

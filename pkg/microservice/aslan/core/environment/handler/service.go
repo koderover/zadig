@@ -210,8 +210,10 @@ func RestartService(c *gin.Context) {
 		ServiceName: serviceName,
 	}
 
+	detail := fmt.Sprintf("环境名称:%s,服务名称:%s", c.Param("name"), c.Param("serviceName"))
+	detailEn := fmt.Sprintf("Environment Name: %s, Service Name: %s", c.Param("name"), c.Param("serviceName"))
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv,
-		"重启", "环境-服务", fmt.Sprintf("环境名称:%s,服务名称:%s", c.Param("name"), c.Param("serviceName")),
+		"重启", "环境-服务", detail, detailEn,
 		"", types.RequestBodyTypeJSON, ctx.Logger, args.EnvName)
 	ctx.RespErr = service.RestartService(args.EnvName, args, production, ctx.Logger)
 }
@@ -363,8 +365,11 @@ func UpdateService(c *gin.Context) {
 	envName := c.Param("name")
 	projectKey := c.Query("projectName")
 	production := c.Query("production") == "true"
+
+	detail := fmt.Sprintf("环境名称:%s,服务名称:%s", envName, c.Param("serviceName"))
+	detailEn := fmt.Sprintf("Environment Name: %s, Service Name: %s", envName, c.Param("serviceName"))
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv,
-		"更新", "环境-单服务", fmt.Sprintf("环境名称:%s,服务名称:%s", envName, c.Param("serviceName")),
+		"更新", "环境-单服务", detail, detailEn,
 		"", types.RequestBodyTypeJSON, ctx.Logger, envName)
 
 	// authorization checks
@@ -449,15 +454,15 @@ func RestartWorkload(c *gin.Context) {
 		Name:        workloadName,
 	}
 
+	detail := fmt.Sprintf("环境名称:%s,服务名称:%s,%s:%s", args.EnvName, args.ServiceName, args.Type, args.Name)
+	detailEn := fmt.Sprintf("Environment Name: %s, Service Name: %s,%s:%s", args.EnvName, args.ServiceName, args.Type, args.Name)
 	internalhandler.InsertDetailedOperationLog(
 		c, ctx.UserName,
 		projectKey,
 		setting.OperationSceneEnv,
 		"重启",
 		"环境-服务",
-		fmt.Sprintf(
-			"环境名称:%s,服务名称:%s,%s:%s", args.EnvName, args.ServiceName, args.Type, args.Name,
-		),
+		detail, detailEn,
 		"", types.RequestBodyTypeJSON, ctx.Logger, args.EnvName,
 	)
 
@@ -551,12 +556,14 @@ func ScaleNewService(c *gin.Context) {
 		}
 	}
 
+	detail := fmt.Sprintf("环境名称:%s,%s:%s", envName, resourceType, name)
+	detailEn := fmt.Sprintf("Environment Name: %s,%s:%s", envName, resourceType, name)
 	internalhandler.InsertDetailedOperationLog(
 		c, ctx.UserName,
 		projectKey, setting.OperationSceneEnv,
 		"伸缩",
 		"环境-服务",
-		fmt.Sprintf("环境名称:%s,%s:%s", envName, resourceType, name),
+		detail, detailEn,
 		"", types.RequestBodyTypeJSON, ctx.Logger, envName)
 
 	number, err := strconv.Atoi(c.Query("number"))

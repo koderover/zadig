@@ -358,6 +358,11 @@ func generateHostCustomWorkflow(arg *models.Product, enableBuildStage bool) (*mo
 		}
 	}
 
+	systemSetting, err := commonrepo.NewSystemSettingColl().Get()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get system setting, err: %s", err)
+	}
+
 	spec := &commonmodels.ZadigVMDeployJobSpec{
 		Env:         arg.EnvName,
 		Source:      config.SourceRuntime,
@@ -413,6 +418,9 @@ func generateHostCustomWorkflow(arg *models.Product, enableBuildStage bool) (*mo
 		}
 
 		buildJobName := "构建"
+		if systemSetting.Language == string(config.SystemLanguageEnUS) {
+			buildJobName = "build"
+		}
 		buildJob := &commonmodels.Job{
 			Name:    buildJobName,
 			JobType: config.JobZadigBuild,
@@ -421,8 +429,13 @@ func generateHostCustomWorkflow(arg *models.Product, enableBuildStage bool) (*mo
 				ServiceAndBuildsOptions: serviceAndBuilds,
 			},
 		}
+
+		buildStageName := "构建"
+		if systemSetting.Language == string(config.SystemLanguageEnUS) {
+			buildStageName = "build"
+		}
 		stage := &commonmodels.WorkflowStage{
-			Name:     "构建",
+			Name:     buildStageName,
 			Jobs:     []*commonmodels.Job{buildJob},
 			Parallel: true,
 		}
@@ -432,13 +445,23 @@ func generateHostCustomWorkflow(arg *models.Product, enableBuildStage bool) (*mo
 		spec.Source = config.SourceFromJob
 		spec.JobName = buildJobName
 	}
+
+	deployJobName := "主机部署"
+	if systemSetting.Language == string(config.SystemLanguageEnUS) {
+		deployJobName = "vm-deploy"
+	}
 	deployJob := &commonmodels.Job{
-		Name:    "主机部署",
+		Name:    deployJobName,
 		JobType: config.JobZadigVMDeploy,
 		Spec:    spec,
 	}
+
+	deployStageName := "主机部署"
+	if systemSetting.Language == string(config.SystemLanguageEnUS) {
+		deployStageName = "vm-deploy"
+	}
 	stage := &commonmodels.WorkflowStage{
-		Name: "主机部署",
+		Name: deployStageName,
 		Jobs: []*commonmodels.Job{deployJob},
 	}
 	stages = append(stages, stage)

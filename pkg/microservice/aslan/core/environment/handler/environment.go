@@ -184,7 +184,9 @@ func createProduct(c *gin.Context, param *service.CreateEnvRequest, createArgs [
 		arg.ProductName = param.ProjectName
 		envNameList = append(envNameList, arg.EnvName)
 	}
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, param.ProjectName, setting.OperationSceneEnv, "新增", "环境", strings.Join(envNameList, "-"), requestBody, types.RequestBodyTypeJSON, ctx.Logger, envNameList...)
+
+	detail := strings.Join(envNameList, "-")
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, param.ProjectName, setting.OperationSceneEnv, "新增", "环境", detail, detail, requestBody, types.RequestBodyTypeJSON, ctx.Logger, envNameList...)
 	switch param.Type {
 	case setting.K8SDeployType:
 		ctx.RespErr = service.CreateYamlProduct(param.ProjectName, ctx.UserName, ctx.RequestID, createArgs, ctx.Logger)
@@ -207,7 +209,9 @@ func copyProduct(c *gin.Context, param *service.CreateEnvRequest, createArgs []*
 		envNameCopyList = append(envNameCopyList, arg.BaseEnvName+"-->"+arg.EnvName)
 		envNames = append(envNames, arg.EnvName)
 	}
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, param.ProjectName, setting.OperationSceneEnv, "复制", "环境", strings.Join(envNameCopyList, ","), requestBody, types.RequestBodyTypeJSON, ctx.Logger, envNames...)
+
+	detail := strings.Join(envNameCopyList, ",")
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, param.ProjectName, setting.OperationSceneEnv, "复制", "环境", detail, detail, requestBody, types.RequestBodyTypeJSON, ctx.Logger, envNames...)
 	if param.Type == setting.K8SDeployType {
 		ctx.RespErr = service.CopyYamlProduct(ctx.UserName, ctx.RequestID, param.ProjectName, createArgs, ctx.Logger)
 	} else {
@@ -350,7 +354,7 @@ func CreateProduct(c *gin.Context) {
 			log.Errorf("CreateProduct json.Unmarshal err : %v", err)
 		}
 
-		internalhandler.InsertDetailedOperationLog(c, ctx.UserName, args.ProductName, setting.OperationSceneEnv, "新增", "环境", args.EnvName, string(data), types.RequestBodyTypeJSON, ctx.Logger, args.EnvName)
+		internalhandler.InsertDetailedOperationLog(c, ctx.UserName, args.ProductName, setting.OperationSceneEnv, "新增", "环境", args.EnvName, args.EnvName, string(data), types.RequestBodyTypeJSON, ctx.Logger, args.EnvName)
 		c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 		if err := c.BindJSON(args); err != nil {
@@ -455,7 +459,7 @@ func UpdateProduct(c *gin.Context) {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "更新", "环境变量", envName, string(data), types.RequestBodyTypeJSON, ctx.Logger, envName)
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "更新", "环境变量", envName, envName, string(data), types.RequestBodyTypeJSON, ctx.Logger, envName)
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.BindJSON(args); err != nil {
@@ -510,7 +514,7 @@ func UpdateProductRegistry(c *gin.Context) {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "更新", "环境", envName, string(data), types.RequestBodyTypeJSON, ctx.Logger, envName)
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "更新", "环境", envName, envName, string(data), types.RequestBodyTypeJSON, ctx.Logger, envName)
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.BindJSON(args); err != nil {
@@ -573,7 +577,7 @@ func UpdateProductRecycleDay(c *gin.Context) {
 	projectKey := c.Query("projectName")
 	recycleDayStr := c.Query("recycleDay")
 
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "更新", "环境-环境回收", envName, "", types.RequestBodyTypeJSON, ctx.Logger, envName)
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "更新", "环境-环境回收", envName, envName, "", types.RequestBodyTypeJSON, ctx.Logger, envName)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -815,7 +819,7 @@ func UpdateHelmProductDefaultValues(c *gin.Context) {
 	if err = json.Unmarshal(data, arg); err != nil {
 		log.Errorf("UpdateProductDefaultValues json.Unmarshal err : %v", err)
 	}
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "更新", "更新全局变量", envName, string(data), types.RequestBodyTypeJSON, ctx.Logger, envName)
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "更新", "更新全局变量", envName, envName, string(data), types.RequestBodyTypeJSON, ctx.Logger, envName)
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	production := c.Query("production") == "true"
@@ -1031,7 +1035,7 @@ func UpdateK8sProductGlobalVariables(c *gin.Context) {
 		log.Errorf("UpdateK8sProductDefaultValues c.GetRawData() err : %v", err)
 	}
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "更新", "更新全局变量", envName, string(data), types.RequestBodyTypeJSON, ctx.Logger, envName)
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "更新", "更新全局变量", envName, envName, string(data), types.RequestBodyTypeJSON, ctx.Logger, envName)
 
 	production := c.Query("production") == "true"
 	// authorization checks
@@ -1117,7 +1121,8 @@ func UpdateHelmProductCharts(c *gin.Context) {
 		serviceName = append(serviceName, cd.ServiceName)
 	}
 
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "更新", "更新服务", fmt.Sprintf("%s:[%s]", envName, strings.Join(serviceName, ",")), string(data), types.RequestBodyTypeJSON, ctx.Logger, envName)
+	detail := fmt.Sprintf("%s:[%s]", envName, strings.Join(serviceName, ","))
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "更新", "更新服务", detail, detail, string(data), types.RequestBodyTypeJSON, ctx.Logger, envName)
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	production := c.Query("production") == "true"
@@ -1218,7 +1223,8 @@ func updateMultiK8sEnv(c *gin.Context, request *service.UpdateEnvRequest, produc
 		envNames = append(envNames, arg.EnvName)
 	}
 
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, request.ProjectName, setting.OperationSceneEnv, "更新", "环境", strings.Join(envNames, ","), string(data), types.RequestBodyTypeJSON, ctx.Logger, envNames...)
+	detail := strings.Join(envNames, ",")
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, request.ProjectName, setting.OperationSceneEnv, "更新", "环境", detail, detail, string(data), types.RequestBodyTypeJSON, ctx.Logger, envNames...)
 
 	// authorization checks
 	permitted := false
@@ -1272,7 +1278,8 @@ func updateMultiHelmEnv(c *gin.Context, request *service.UpdateEnvRequest, produ
 	}
 	args.ProductName = request.ProjectName
 
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, request.ProjectName, setting.OperationSceneEnv, "更新", "环境", strings.Join(args.EnvNames, ","), string(data), types.RequestBodyTypeJSON, ctx.Logger, args.EnvNames...)
+	detail := strings.Join(args.EnvNames, ",")
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, request.ProjectName, setting.OperationSceneEnv, "更新", "环境", detail, detail, string(data), types.RequestBodyTypeJSON, ctx.Logger, args.EnvNames...)
 
 	// authorization checks
 	permitted := false
@@ -1328,7 +1335,8 @@ func updateMultiHelmChartEnv(c *gin.Context, request *service.UpdateEnvRequest, 
 	}
 	args.ProductName = request.ProjectName
 
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, request.ProjectName, setting.OperationSceneEnv, "更新", "环境", strings.Join(args.EnvNames, ","), string(data), types.RequestBodyTypeJSON, ctx.Logger, args.EnvNames...)
+	detail := strings.Join(args.EnvNames, ",")
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, request.ProjectName, setting.OperationSceneEnv, "更新", "环境", detail, detail, string(data), types.RequestBodyTypeJSON, ctx.Logger, args.EnvNames...)
 
 	// authorization checks
 	permitted := false
@@ -1407,7 +1415,8 @@ func updateMultiCvmEnv(c *gin.Context, request *service.UpdateEnvRequest, ctx *i
 		envNames = append(envNames, arg.EnvName)
 	}
 
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, request.ProjectName, setting.OperationSceneEnv, "更新", "环境", strings.Join(envNames, ","), string(data), types.RequestBodyTypeJSON, ctx.Logger, envNames...)
+	detail := strings.Join(envNames, ",")
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, request.ProjectName, setting.OperationSceneEnv, "更新", "环境", detail, detail, string(data), types.RequestBodyTypeJSON, ctx.Logger, envNames...)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -1588,7 +1597,7 @@ func DeleteProduct(c *gin.Context) {
 		ctx.RespErr = e.ErrInvalidParam.AddDesc("invalidParam is_delete")
 		return
 	}
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "删除", "环境", envName, "", types.RequestBodyTypeJSON, ctx.Logger, envName)
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "删除", "环境", envName, envName, "", types.RequestBodyTypeJSON, ctx.Logger, envName)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -1716,7 +1725,8 @@ func DeleteProductServices(c *gin.Context) {
 		}
 	}
 
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "删除", "环境的服务", fmt.Sprintf("%s:[%s]", envName, strings.Join(args.ServiceNames, ",")), "", types.RequestBodyTypeJSON, ctx.Logger, envName)
+	detail := fmt.Sprintf("%s:[%s]", envName, strings.Join(args.ServiceNames, ","))
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "删除", "环境的服务", detail, detail, "", types.RequestBodyTypeJSON, ctx.Logger, envName)
 	ctx.RespErr = service.DeleteProductServices(ctx.UserName, ctx.RequestID, envName, projectKey, args.ServiceNames, production, isDelete, ctx.Logger)
 }
 
@@ -1748,7 +1758,8 @@ func DeleteHelmReleases(c *gin.Context) {
 	production := c.Query("production") == "true"
 	isDelete := c.Query("is_delete") == "true"
 
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "删除", "环境的helm release", fmt.Sprintf("%s:[%s]", envName, releaseNames), "", types.RequestBodyTypeJSON, ctx.Logger, envName)
+	detail := fmt.Sprintf("%s:[%s]", envName, releaseNames)
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "删除", "环境的helm release", detail, detail, "", types.RequestBodyTypeJSON, ctx.Logger, envName)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -2125,7 +2136,7 @@ func UpdateEnvConfigs(c *gin.Context) {
 		log.Errorf("UpateEnvConfigs c.GetRawData() err : %v", err)
 	}
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "更新", "更新环境配置", envName, string(data), types.RequestBodyTypeJSON, ctx.Logger, envName)
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "更新", "更新环境配置", envName, envName, string(data), types.RequestBodyTypeJSON, ctx.Logger, envName)
 
 	if !ctx.Resources.IsSystemAdmin {
 		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
@@ -2292,7 +2303,7 @@ func UpsertEnvAnalysisCron(c *gin.Context) {
 		log.Errorf("UpsertEnvAnalysisCron c.GetRawData() err : %v", err)
 	}
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
-	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "更新", "环境巡检-cron", envName, string(data), types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "更新", "环境巡检-cron", envName, envName, string(data), types.RequestBodyTypeJSON, ctx.Logger)
 
 	arg := new(service.EnvAnalysisCronArg)
 	err = c.BindJSON(arg)
@@ -2474,7 +2485,7 @@ func EnvSleep(c *gin.Context) {
 	if action != "enable" {
 		method = "唤醒"
 	}
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, method, "环境", envName, "", types.RequestBodyTypeJSON, ctx.Logger, envName)
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, method, "环境", envName, envName, "", types.RequestBodyTypeJSON, ctx.Logger, envName)
 
 	permitted := false
 
@@ -2645,7 +2656,7 @@ func UpsertEnvSleepCron(c *gin.Context) {
 		log.Errorf("UpsertEnvSleepCron c.GetRawData() err : %v", err)
 	}
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "更新", "环境定时睡眠与唤醒", envName, string(data), types.RequestBodyTypeJSON, ctx.Logger, envName)
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "更新", "环境定时睡眠与唤醒", envName, envName, string(data), types.RequestBodyTypeJSON, ctx.Logger, envName)
 
 	arg := new(service.EnvSleepCronArg)
 	err = c.BindJSON(arg)
@@ -2852,7 +2863,7 @@ func CreateSAEEnv(c *gin.Context) {
 		log.Errorf("CreateSAEEnv GetRawData() err : %v", err)
 	}
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "新增", "SAE环境", envName, string(data), types.RequestBodyTypeJSON, ctx.Logger, envName)
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "新增", "SAE环境", envName, envName, string(data), types.RequestBodyTypeJSON, ctx.Logger, envName)
 
 	arg := new(models.SAEEnv)
 	err = c.BindJSON(arg)
@@ -2917,7 +2928,7 @@ func DeleteSAEEnv(c *gin.Context) {
 	envName := c.Param("name")
 	production := c.Query("production") == "true"
 
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "删除", "SAE环境", envName, "", types.RequestBodyTypeJSON, ctx.Logger, envName)
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "删除", "SAE环境", envName, envName, "", types.RequestBodyTypeJSON, ctx.Logger, envName)
 
 	// authorization check
 	if !ctx.Resources.IsSystemAdmin {
@@ -3091,8 +3102,10 @@ func RestartSAEApp(c *gin.Context) {
 	appID := c.Param("appID")
 	envName := c.Param("name")
 
+	detail := fmt.Sprintf("SAE环境名称:%s,应用ID:%s", envName, appID)
+	detailEn := fmt.Sprintf("SAE Environment Name: %s, Application ID: %s", envName, appID)
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv,
-		"重启", "SAE环境-应用", fmt.Sprintf("SAE环境名称:%s,应用ID:%s", envName, appID),
+		"重启", "SAE环境-应用", detail, detailEn,
 		"", types.RequestBodyTypeJSON, ctx.Logger, envName)
 
 	// authorization check
@@ -3171,8 +3184,10 @@ func BindSAEAppToService(c *gin.Context) {
 		return
 	}
 
+	detail := fmt.Sprintf("%s-%s 关联 服务 %s(%s)", envName, appID, arg.ServiceModule, arg.ServiceName)
+	detailEn := fmt.Sprintf("%s-%s associate service %s(%s)", envName, appID, arg.ServiceModule, arg.ServiceName)
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv,
-		"关联", "SAE 环境-应用", fmt.Sprintf("%s-%s 关联 服务 %s(%s)", envName, appID, arg.ServiceModule, arg.ServiceName),
+		"关联", "SAE 环境-应用", detail, detailEn,
 		"", types.RequestBodyTypeJSON, ctx.Logger, envName)
 
 	// authorization check
@@ -3244,8 +3259,10 @@ func RescaleSAEApp(c *gin.Context) {
 		return
 	}
 
+	detail := fmt.Sprintf("SAE环境名称:%s,应用ID:%s,副本数:%d", envName, appID, replicas)
+	detailEn := fmt.Sprintf("SAE Environment Name: %s, Application ID: %s, Replicas: %d", envName, appID, replicas)
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv,
-		"扩缩容", "SAE环境-应用", fmt.Sprintf("SAE环境名称:%s,应用ID:%s,副本数:%d", envName, appID, replicas),
+		"扩缩容", "SAE环境-应用", detail, detailEn,
 		"", types.RequestBodyTypeJSON, ctx.Logger, envName)
 
 	// authorization check
@@ -3313,8 +3330,10 @@ func RollbackSAEApp(c *gin.Context) {
 	envName := c.Param("name")
 	versionID := c.Query("versionID")
 
+	detail := fmt.Sprintf("SAE环境名称:%s,应用ID:%s,版本ID:%s", envName, appID, versionID)
+	detailEn := fmt.Sprintf("SAE Environment Name: %s, Application ID: %s, Version ID: %s", envName, appID, versionID)
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv,
-		"版本回滚", "SAE环境-应用", fmt.Sprintf("SAE环境名称:%s,应用ID:%s,版本ID:%s", envName, appID, versionID),
+		"版本回滚", "SAE环境-应用", detail, detailEn,
 		"", types.RequestBodyTypeJSON, ctx.Logger, envName)
 
 	// authorization check
@@ -3508,8 +3527,10 @@ func RestartSAEAppInstance(c *gin.Context) {
 	instanceID := c.Param("instanceID")
 	envName := c.Param("name")
 
+	detail := fmt.Sprintf("SAE环境名称:%s,应用ID:%s,实例ID:%s", envName, appID, instanceID)
+	detailEn := fmt.Sprintf("SAE Environment Name: %s, Application ID: %s, Instance ID: %s", envName, appID, instanceID)
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv,
-		"重启", "SAE环境-应用实例", fmt.Sprintf("SAE环境名称:%s,应用ID:%s,实例ID:%s", envName, appID, instanceID),
+		"重启", "SAE环境-应用实例", detail, detailEn,
 		"", types.RequestBodyTypeJSON, ctx.Logger, envName)
 
 	// authorization check
@@ -3697,8 +3718,10 @@ func AbortSAEChangeOrder(c *gin.Context) {
 	orderID := c.Param("orderID")
 	envName := c.Param("name")
 
+	detail := fmt.Sprintf("SAE环境名称:%s,应用ID:%s,变更流程ID:%s", envName, appID, orderID)
+	detailEn := fmt.Sprintf("SAE Environment Name: %s, Application ID: %s, Order ID: %s", envName, appID, orderID)
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv,
-		"执行终止", "SAE环境-应用", fmt.Sprintf("SAE环境名称:%s,应用ID:%s,变更流程ID:%s", envName, appID, orderID),
+		"执行终止", "SAE环境-应用", detail, detailEn,
 		"", types.RequestBodyTypeJSON, ctx.Logger, envName)
 
 	if !ctx.Resources.IsSystemAdmin {
@@ -3753,8 +3776,10 @@ func RollbackSAEChangeOrder(c *gin.Context) {
 	orderID := c.Param("orderID")
 	envName := c.Param("name")
 
+	detail := fmt.Sprintf("SAE环境名称:%s,应用ID:%s,变更流程ID:%s", envName, appID, orderID)
+	detailEn := fmt.Sprintf("SAE Environment Name: %s, Application ID: %s, Order ID: %s", envName, appID, orderID)
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv,
-		"部署回滚", "SAE环境-应用", fmt.Sprintf("SAE环境名称:%s,应用ID:%s,变更流程ID:%s", envName, appID, orderID),
+		"部署回滚", "SAE环境-应用", detail, detailEn,
 		"", types.RequestBodyTypeJSON, ctx.Logger, envName)
 
 	if !ctx.Resources.IsSystemAdmin {
@@ -3809,8 +3834,10 @@ func ConfirmSAEPipelineBatch(c *gin.Context) {
 	pipelineID := c.Param("pipelineID")
 	envName := c.Param("name")
 
+	detail := fmt.Sprintf("SAE环境名称:%s,应用ID:%s,变更流程ID:%s", envName, appID, pipelineID)
+	detailEn := fmt.Sprintf("SAE Environment Name: %s, Application ID: %s, Pipeline ID: %s", envName, appID, pipelineID)
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv,
-		"灰度执行", "SAE环境-应用", fmt.Sprintf("SAE环境名称:%s,应用ID:%s,变更流程ID:%s", envName, appID, pipelineID),
+		"灰度执行", "SAE环境-应用", detail, detailEn,
 		"", types.RequestBodyTypeJSON, ctx.Logger, envName)
 
 	if !ctx.Resources.IsSystemAdmin {
@@ -3998,7 +4025,8 @@ func AddSAEServiceToEnv(c *gin.Context) {
 		log.Errorf("UpdateSAEEnv GetRawData() err : %v", err)
 	}
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "更新", "SAE环境-添加应用", envName, string(data), types.RequestBodyTypeJSON, ctx.Logger, envName)
+
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "更新", "SAE环境-添加应用", envName, envName, string(data), types.RequestBodyTypeJSON, ctx.Logger, envName)
 
 	arg := new(service.AddSAEAppToEnvRequest)
 	err = c.BindJSON(arg)
@@ -4074,7 +4102,8 @@ func DeleteSAEServiceFromEnv(c *gin.Context) {
 		log.Errorf("UpdateSAEEnv GetRawData() err : %v", err)
 	}
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "更新", "SAE环境-删除应用", envName, string(data), types.RequestBodyTypeJSON, ctx.Logger, envName)
+
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "更新", "SAE环境-删除应用", envName, envName, string(data), types.RequestBodyTypeJSON, ctx.Logger, envName)
 
 	arg := new(service.DelSAEAppFromEnvRequest)
 	err = c.BindJSON(arg)

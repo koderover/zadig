@@ -787,6 +787,13 @@ func AutoCreateWorkflow(productName string, log *zap.SugaredLogger) *EnvStatus {
 		mut.Unlock()
 	}()
 
+	systemSetting, err := commonrepo.NewSystemSettingColl().Get()
+	if err != nil {
+		errMsg := fmt.Sprintf("failed to get system setting, err: %s", err)
+		log.Error(errMsg)
+		return &EnvStatus{Status: setting.ProductStatusFailed, ErrMessage: errMsg}
+	}
+
 	createArgs := &workflowCreateArgs{
 		productName: productName,
 		argsMap:     make(map[string]*workflowCreateArg),
@@ -887,7 +894,11 @@ func AutoCreateWorkflow(productName string, log *zap.SugaredLogger) *EnvStatus {
 						}
 					}
 				}
+
 				buildJobName = "构建"
+				if systemSetting.Language == string(config.SystemLanguageEnUS) {
+					buildJobName = "build"
+				}
 				buildJob := &commonmodels.Job{
 					Name:    buildJobName,
 					JobType: config.JobZadigBuild,
@@ -896,8 +907,13 @@ func AutoCreateWorkflow(productName string, log *zap.SugaredLogger) *EnvStatus {
 						ServiceAndBuildsOptions: serviceAndBuilds,
 					},
 				}
+
+				buildStageName := "构建"
+				if systemSetting.Language == string(config.SystemLanguageEnUS) {
+					buildStageName = "build"
+				}
 				stage := &commonmodels.WorkflowStage{
-					Name:     "构建",
+					Name:     buildStageName,
 					Parallel: true,
 					Jobs:     []*commonmodels.Job{buildJob},
 				}
@@ -905,6 +921,7 @@ func AutoCreateWorkflow(productName string, log *zap.SugaredLogger) *EnvStatus {
 			}
 
 			if productTmpl.IsCVMProduct() {
+				// logic move to generateHostCustomWorkflow function
 				spec := &commonmodels.ZadigVMDeployJobSpec{
 					Env:         workflowArg.envName,
 					Source:      config.SourceRuntime,
@@ -914,13 +931,23 @@ func AutoCreateWorkflow(productName string, log *zap.SugaredLogger) *EnvStatus {
 					spec.Source = config.SourceFromJob
 					spec.JobName = buildJobName
 				}
+
+				deployJobName := "主机部署"
+				if systemSetting.Language == string(config.SystemLanguageEnUS) {
+					deployJobName = "vm-deploy"
+				}
 				deployJob := &commonmodels.Job{
-					Name:    "主机部署",
+					Name:    deployJobName,
 					JobType: config.JobZadigVMDeploy,
 					Spec:    spec,
 				}
+
+				deployStageName := "主机部署"
+				if systemSetting.Language == string(config.SystemLanguageEnUS) {
+					deployStageName = "vm-deploy"
+				}
 				stage := &commonmodels.WorkflowStage{
-					Name:     "主机部署",
+					Name:     deployStageName,
 					Parallel: true,
 					Jobs:     []*commonmodels.Job{deployJob},
 				}
@@ -939,13 +966,23 @@ func AutoCreateWorkflow(productName string, log *zap.SugaredLogger) *EnvStatus {
 					spec.JobName = buildJobName
 					spec.Production = false
 				}
+
+				deployJobName := "部署"
+				if systemSetting.Language == string(config.SystemLanguageEnUS) {
+					deployJobName = "deploy"
+				}
 				deployJob := &commonmodels.Job{
-					Name:    "部署",
+					Name:    deployJobName,
 					JobType: config.JobZadigDeploy,
 					Spec:    spec,
 				}
+
+				deployStageName := "部署"
+				if systemSetting.Language == string(config.SystemLanguageEnUS) {
+					deployStageName = "deploy"
+				}
 				stage := &commonmodels.WorkflowStage{
-					Name:     "部署",
+					Name:     deployStageName,
 					Parallel: true,
 					Jobs:     []*commonmodels.Job{deployJob},
 				}

@@ -69,7 +69,7 @@ func CreateCollaborationMode(c *gin.Context) {
 		return
 	}
 
-	internalhandler.InsertOperationLog(c, ctx.Account, args.ProjectName, "新增", "协作模式", detail, string(data), types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.Account, args.ProjectName, "新增", "协作模式", detail, detail, string(data), types.RequestBodyTypeJSON, ctx.Logger)
 
 	ctx.RespErr = service.CreateCollaborationMode(ctx.Account, args, ctx.Logger)
 }
@@ -97,7 +97,7 @@ func UpdateCollaborationMode(c *gin.Context) {
 		return
 	}
 
-	internalhandler.InsertOperationLog(c, ctx.Account, args.ProjectName, "更新", "协作模式", detail, string(data), types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.Account, args.ProjectName, "更新", "协作模式", detail, detail, string(data), types.RequestBodyTypeJSON, ctx.Logger)
 
 	ctx.RespErr = service.UpdateCollaborationMode(ctx.Account, args, ctx.Logger)
 }
@@ -112,7 +112,7 @@ func DeleteCollaborationMode(c *gin.Context) {
 		return
 	}
 	name := c.Param("name")
-	internalhandler.InsertOperationLog(c, ctx.Account, projectName, "删除", "协作模式", name, "", types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.Account, projectName, "删除", "协作模式", name, name, "", types.RequestBodyTypeJSON, ctx.Logger)
 
 	ctx.RespErr = service.DeleteCollaborationMode(ctx.Account, projectName, name, ctx.Logger)
 }

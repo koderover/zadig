@@ -55,7 +55,7 @@ func CreateDockerfileTemplate(c *gin.Context) {
 	}
 
 	bs, _ := json.Marshal(req)
-	internalhandler.InsertOperationLog(c, ctx.UserName, "", "新建", "模板库-Dockerfile", req.Name, string(bs), types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "新建", "模板库-Dockerfile", req.Name, req.Name, string(bs), types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization check
 	if !ctx.Resources.IsSystemAdmin {
@@ -94,7 +94,7 @@ func UpdateDockerfileTemplate(c *gin.Context) {
 	}
 
 	bs, _ := json.Marshal(req)
-	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "模板库-Dockerfile", req.Name, string(bs), types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "模板库-Dockerfile", req.Name, req.Name, string(bs), types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization check
 	if !ctx.Resources.IsSystemAdmin {
@@ -186,7 +186,7 @@ func DeleteDockerfileTemplate(c *gin.Context) {
 		return
 	}
 
-	internalhandler.InsertOperationLog(c, ctx.UserName, "", "删除", "模板库-Dockerfile", c.Param("id"), "", types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "删除", "模板库-Dockerfile", c.Param("id"), c.Param("id"), "", types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization check
 	if !ctx.Resources.IsSystemAdmin {

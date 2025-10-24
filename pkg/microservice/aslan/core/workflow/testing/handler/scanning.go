@@ -103,7 +103,7 @@ func CreateScanningModule(c *gin.Context) {
 		log.Errorf("Create scanning module json.Unmarshal err : %s", err)
 	}
 
-	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProjectName, "新增", "项目管理-代码扫描", args.Name, string(data), types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProjectName, "新增", "项目管理-代码扫描", args.Name, args.Name, string(data), types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization check
 	if !ctx.Resources.IsSystemAdmin {
@@ -158,7 +158,7 @@ func UpdateScanningModule(c *gin.Context) {
 		log.Errorf("Update scanning module json.Unmarshal err : %s", err)
 	}
 
-	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProjectName, "修改", "项目管理-代码扫描", args.Name, string(data), types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProjectName, "修改", "项目管理-代码扫描", args.Name, args.Name, string(data), types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization check
 	if !ctx.Resources.IsSystemAdmin {
@@ -321,7 +321,7 @@ func DeleteScanningModule(c *gin.Context) {
 
 	projectKey := c.Query("projectName")
 
-	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "删除", "项目管理-测试", c.Param("name"), "", types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "删除", "项目管理-测试", c.Param("name"), c.Param("name"), "", types.RequestBodyTypeJSON, ctx.Logger)
 
 	if !ctx.Resources.IsSystemAdmin {
 		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
@@ -372,7 +372,7 @@ func CreateScanningTask(c *gin.Context) {
 		log.Errorf("Create scanning task json.Unmarshal err : %v", err)
 	}
 
-	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "新增", "代码扫描任务", scanningID, string(data), types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "新增", "代码扫描任务", scanningID, scanningID, string(data), types.RequestBodyTypeJSON, ctx.Logger)
 
 	if !ctx.Resources.IsSystemAdmin {
 		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
@@ -504,7 +504,7 @@ func CancelScanningTask(c *gin.Context) {
 		return
 	}
 
-	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "取消", "代码扫描任务", scanningID, taskIDStr, types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "取消", "代码扫描任务", scanningID, scanningID, taskIDStr, types.RequestBodyTypeJSON, ctx.Logger)
 
 	if !ctx.Resources.IsSystemAdmin {
 		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {

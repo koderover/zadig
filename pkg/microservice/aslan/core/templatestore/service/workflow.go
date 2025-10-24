@@ -107,13 +107,18 @@ func UpdateWorkflowTemplate(userName string, template *commonmodels.WorkflowV4Te
 	return nil
 }
 
-func ListWorkflowTemplate(category string, excludeBuildIn bool, logger *zap.SugaredLogger) ([]*WorkflowtemplatePreView, error) {
-	resp := []*WorkflowtemplatePreView{}
+type ListWorkflowTemplateResp struct {
+	WorkflowTemplates            []*WorkflowtemplatePreView `json:"workflow_templates"`
+	BuildInWorkflowTemplatei18ns []*WorkflowTemplatei18n    `json:"build_in_workflow_template_i18ns"`
+}
+
+func ListWorkflowTemplate(category string, excludeBuildIn bool, logger *zap.SugaredLogger) (*ListWorkflowTemplateResp, error) {
+	workflowTemplates := []*WorkflowtemplatePreView{}
 	templates, err := commonrepo.NewWorkflowV4TemplateColl().List(&commonrepo.WorkflowTemplateListOption{Category: category, ExcludeBuildIn: excludeBuildIn})
 	if err != nil {
 		errMsg := fmt.Sprintf("Failed to list workflow template err: %v", err)
 		logger.Error(errMsg)
-		return resp, e.ErrListWorkflowTemplate.AddDesc(errMsg)
+		return nil, e.ErrListWorkflowTemplate.AddDesc(errMsg)
 	}
 	for _, template := range templates {
 		stages := []string{}
@@ -136,7 +141,7 @@ func ListWorkflowTemplate(category string, excludeBuildIn bool, logger *zap.Suga
 			stageDetails = append(stageDetails, stageDetail)
 		}
 
-		resp = append(resp, &WorkflowtemplatePreView{
+		workflowTemplates = append(workflowTemplates, &WorkflowtemplatePreView{
 			ID:           template.ID,
 			TemplateName: template.TemplateName,
 			UpdateTime:   template.UpdateTime,
@@ -150,6 +155,12 @@ func ListWorkflowTemplate(category string, excludeBuildIn bool, logger *zap.Suga
 			BuildIn:      template.BuildIn,
 		})
 	}
+
+	resp := &ListWorkflowTemplateResp{
+		WorkflowTemplates:            workflowTemplates,
+		BuildInWorkflowTemplatei18ns: workflowTemplateNamei18ns,
+	}
+
 	return resp, nil
 }
 
@@ -246,8 +257,569 @@ func InitWorkflowTemplate() {
 
 func DeprecatedWorkflowTemplateName() []string {
 	return []string{
+		"单环境多服务更新",
+		"多环境多服务更新",
+		"上线服务",
+		"下线服务",
+		"API 测试",
+		"E2E 测试",
+		"静态代码检测",
+		"动态安全检测",
+		"Chart 实例化部署",
+		"多阶段灰度发布",
+		"蓝绿发布",
+		"金丝雀发布",
+		"Isito 发布",
+		"MSE 发布",
+		"JIRA 问题状态及业务变更",
+		"飞书工作项状态及业务变更",
+		"Nacos 配置及业务变更",
+		"Apollo 配置及业务变更",
+		"SQL 数据及业务变更",
+		"DMS 数据变更及服务升级",
 		"MySQL 数据库及业务变更",
 	}
+}
+
+type WorkflowTemplatei18n struct {
+	NameKey       string                       `json:"name_key"`
+	NameZh        string                       `json:"name_zh"`
+	NameEn        string                       `json:"name_en"`
+	DescriptionZh string                       `json:"description_zh"`
+	DescriptionEn string                       `json:"description_en"`
+	Stages        []*WorkflowTemplateStagei18n `json:"stages"`
+}
+
+type WorkflowTemplateStagei18n struct {
+	Key    string                     `json:"key"`
+	NameZh string                     `json:"name_zh"`
+	NameEn string                     `json:"name_en"`
+	Jobs   []*WorkflowTemplateJobi18n `json:"jobs"`
+}
+
+type WorkflowTemplateJobi18n struct {
+	Key           string
+	NameZh        string
+	NameEn        string
+	DescriptionZh string
+	DescriptionEn string
+}
+
+var workflowTemplateNamei18ns = []*WorkflowTemplatei18n{
+	{
+		NameKey:       "single-environment-multi-service-update",
+		NameZh:        "单环境多服务更新",
+		NameEn:        "Single Environment Multi Service Update",
+		DescriptionZh: "支持多个服务并行构建、部署过程",
+		DescriptionEn: "Support multiple services to build and deploy in parallel",
+		Stages: []*WorkflowTemplateStagei18n{
+			{
+				Key:    "stage-1-build",
+				NameZh: "构建",
+				NameEn: "Build",
+			},
+			{
+				Key:    "stage-2-deploy",
+				NameZh: "部署",
+				NameEn: "Deploy",
+			},
+		},
+	},
+	{
+		NameKey:       "multi-environment-multi-service-update",
+		NameZh:        "多环境多服务更新",
+		NameEn:        "Multi Environment Multi Service Update",
+		DescriptionZh: "支持一次构建部署多个环境",
+		DescriptionEn: "Support building and deploying multiple environments at once",
+		Stages: []*WorkflowTemplateStagei18n{
+			{
+				Key:    "stage-1-build",
+				NameZh: "构建",
+				NameEn: "Build",
+			},
+			{
+				Key:    "stage-2-deploy-env-dev",
+				NameZh: "部署环境 dev",
+				NameEn: "Deploy Environment Dev",
+			},
+			{
+				Key:    "stage-3-image-distribute",
+				NameZh: "镜像分发",
+				NameEn: "Image Distribute",
+			},
+			{
+				Key:    "stage-4-deploy-env-qa",
+				NameZh: "部署环境 qa",
+				NameEn: "Deploy Environment Qa",
+			},
+		},
+	},
+	{
+		NameKey:       "online-service",
+		NameZh:        "上线服务",
+		NameEn:        "Online Service",
+		DescriptionZh: "支持通过工作流上线服务",
+		DescriptionEn: "Support onlineing services through workflows",
+		Stages: []*WorkflowTemplateStagei18n{
+			{
+				Key:    "stage-1-deploy",
+				NameZh: "部署",
+				NameEn: "Deploy",
+			},
+			{
+				Key:    "stage-2-test",
+				NameZh: "测试",
+				NameEn: "Test",
+			},
+		},
+	},
+	{
+		NameKey:       "offline-service",
+		NameZh:        "下线服务",
+		NameEn:        "Offline Service",
+		DescriptionZh: "支持通过工作流下线服务",
+		DescriptionEn: "Support offlineing services through workflows",
+		Stages: []*WorkflowTemplateStagei18n{
+			{
+				Key:    "stage-1-offline-service",
+				NameZh: "下线服务",
+				NameEn: "Offline Service",
+			},
+		},
+	},
+	{
+		NameKey:       "api-test",
+		NameZh:        "API 测试",
+		NameEn:        "API Test",
+		DescriptionZh: "支持自动化执行服务级别 API 测试",
+		DescriptionEn: "Support automatically executing service-level API tests",
+		Stages: []*WorkflowTemplateStagei18n{
+			{
+				Key:    "stage-1-build",
+				NameZh: "构建",
+				NameEn: "Build",
+			},
+			{
+				Key:    "stage-2-deploy",
+				NameZh: "部署",
+				NameEn: "Deploy",
+			},
+			{
+				Key:    "stage-3-api-test",
+				NameZh: "API 测试",
+				NameEn: "API Test",
+			},
+		},
+	},
+	{
+		NameKey:       "e2e-test",
+		NameZh:        "E2E 测试",
+		NameEn:        "E2E Test",
+		DescriptionZh: "支持自动化执行产品级别 E2E 测试",
+		DescriptionEn: "Support automatically executing product-level E2E tests",
+		Stages: []*WorkflowTemplateStagei18n{
+			{
+				Key:    "stage-1-build",
+				NameZh: "构建",
+				NameEn: "Build",
+			},
+			{
+				Key:    "stage-2-deploy",
+				NameZh: "部署",
+				NameEn: "Deploy",
+			},
+			{
+				Key:    "stage-3-e2e-test",
+				NameZh: "E2E 测试",
+				NameEn: "E2E Test",
+			},
+		},
+	},
+	{
+		NameKey:       "static-code-scanning",
+		NameZh:        "静态代码检测",
+		NameEn:        "Static Code Scanning",
+		DescriptionZh: "支持自动化执行代码扫描和代码成分分析",
+		DescriptionEn: "Support automatically executing code scanning and code analysis",
+		Stages: []*WorkflowTemplateStagei18n{
+			{
+				Key:    "stage-1-code-scanning",
+				NameZh: "代码扫描",
+				NameEn: "Code Scanning",
+			},
+			{
+				Key:    "stage-2-code-analysis",
+				NameZh: "代码成分分析",
+				NameEn: "Code Analysis",
+			},
+			{
+				Key:    "stage-3-build",
+				NameZh: "构建",
+				NameEn: "Build",
+			},
+			{
+				Key:    "stage-4-deploy",
+				NameZh: "部署",
+				NameEn: "Deploy",
+			},
+		},
+	},
+	{
+		NameKey:       "dynamic-security-scanning",
+		NameZh:        "动态安全检测",
+		NameEn:        "Dynamic Security Scanning",
+		DescriptionZh: "支持自动化执行服务动态安全检测",
+		DescriptionEn: "Support automatically executing service-level dynamic security testing",
+		Stages: []*WorkflowTemplateStagei18n{
+			{
+				Key:    "stage-1-build",
+				NameZh: "构建",
+				NameEn: "Build",
+			},
+			{
+				Key:    "stage-2-deploy",
+				NameZh: "部署",
+				NameEn: "Deploy",
+			},
+			{
+				Key:    "stage-3-dynamic-security-scanning",
+				NameZh: "动态安全检测",
+				NameEn: "Dynamic Security Scanning",
+			},
+		},
+	},
+	{
+		NameKey:       "chart-deployment",
+		NameZh:        "Chart 实例化部署",
+		NameEn:        "Chart Deployment",
+		DescriptionZh: "支持自动化部署 Chart 仓库中已有的 Chart 到环境中（仅限 K8s Helm Chart 项目）",
+		DescriptionEn: "Support automatically deploying Chart repositories to environments (only supported for K8s Helm Chart projects)",
+		Stages: []*WorkflowTemplateStagei18n{
+			{
+				Key:    "stage-1-chart-deploy",
+				NameZh: "Chart 部署",
+				NameEn: "Chart Deploy",
+			},
+			{
+				Key:    "stage-2-test",
+				NameZh: "测试",
+				NameEn: "Test",
+			},
+		},
+	},
+	{
+		NameKey:       "multi-stage-gray-release",
+		NameZh:        "多阶段灰度发布",
+		NameEn:        "Multi-Stage Gray Release",
+		DescriptionZh: "支持通过工作流进行多阶段灰度发布，结合人工审批，确保灰度发布过程可控",
+		DescriptionEn: "Support multi-stage gray release through workflows, combined with manual approval, to ensure the gray release process is controllable",
+		Stages: []*WorkflowTemplateStagei18n{
+			{
+				Key:    "stage-1-gray-20",
+				NameZh: "灰度20%",
+				NameEn: "Gray 20%",
+			},
+			{
+				Key:    "stage-2-approval",
+				NameZh: "审批",
+				NameEn: "Approval",
+			},
+			{
+				Key:    "stage-3-gray-50",
+				NameZh: "灰度50%",
+				NameEn: "Gray 50%",
+			},
+			{
+				Key:    "stage-4-approval-2",
+				NameZh: "审批2",
+				NameEn: "Approval 2",
+			},
+			{
+				Key:    "stage-5-gray-100",
+				NameZh: "灰度100%",
+				NameEn: "Gray 100%",
+			},
+		},
+	},
+	{
+		NameKey:       "blue-green-release",
+		NameZh:        "蓝绿发布",
+		NameEn:        "Blue Green Release",
+		DescriptionZh: "支持自动化执行蓝绿发布，结合人工审批，确保蓝绿过程可控",
+		DescriptionEn: "Support automatically executing blue green release, combined with manual approval, to ensure the blue green process is controllable",
+		Stages: []*WorkflowTemplateStagei18n{
+			{
+				Key:    "stage-1-blue-green-deploy",
+				NameZh: "蓝绿部署",
+				NameEn: "Blue Green Deploy",
+			},
+			{
+				Key:    "stage-2-check",
+				NameZh: "检查",
+				NameEn: "Check",
+			},
+			{
+				Key:    "stage-3-approval",
+				NameZh: "审批",
+				NameEn: "Approval",
+			},
+			{
+				Key:    "stage-4-blue-green-release",
+				NameZh: "蓝绿发布",
+				NameEn: "Blue Green Release",
+			},
+		},
+	},
+	{
+		NameKey:       "canary-release",
+		NameZh:        "金丝雀发布",
+		NameEn:        "Canary Release",
+		DescriptionZh: "支持自动化执行金丝雀发布，结合人工审批，确保金丝雀发布过程可控",
+		DescriptionEn: "Support automatically executing canary release, combined with manual approval, to ensure the canary process is controllable",
+		Stages: []*WorkflowTemplateStagei18n{
+			{
+				Key:    "stage-1-canary-deploy",
+				NameZh: "金丝雀部署",
+				NameEn: "Canary Deploy",
+			},
+			{
+				Key:    "stage-2-check",
+				NameZh: "检查",
+				NameEn: "Check",
+			},
+			{
+				Key:    "stage-3-approval",
+				NameZh: "审批",
+				NameEn: "Approval",
+			},
+			{
+				Key:    "stage-4-canary-release",
+				NameZh: "金丝雀发布",
+				NameEn: "Canary Release",
+			},
+		},
+	},
+	{
+		NameKey:       "istio-release",
+		NameZh:        "Istio 发布",
+		NameEn:        "Istio Release",
+		DescriptionZh: "支持  istio 灰度发布，结合人工审批，确保发布过程可控",
+		DescriptionEn: "Support automatically executing istio release, combined with manual approval, to ensure the istio process is controllable",
+		Stages: []*WorkflowTemplateStagei18n{
+			{
+				Key:    "stage-1-istio-20",
+				NameZh: "Istio 流量 20%",
+				NameEn: "Istio 20% Traffic",
+			},
+			{
+				Key:    "stage-2-approval",
+				NameZh: "审批",
+				NameEn: "Approval",
+			},
+			{
+				Key:    "stage-3-istio-60",
+				NameZh: "Istio 流量 60%",
+				NameEn: "Istio 60% Traffic",
+			},
+			{
+				Key:    "stage-4-approval-2",
+				NameZh: "审批2",
+				NameEn: "Approval 2",
+			},
+			{
+				Key:    "stage-5-istio-100",
+				NameZh: "Istio 流量 100%",
+				NameEn: "Istio 100% Traffic",
+			},
+		},
+	},
+	{
+		NameKey:       "mse-release",
+		NameZh:        "MSE 发布",
+		NameEn:        "MSE Release",
+		DescriptionZh: "支持 MSE 发布，结合人工审批，确保发布过程可控",
+		DescriptionEn: "Support mse release, combined with manual approval, to ensure the release process is controllable",
+		Stages: []*WorkflowTemplateStagei18n{
+			{
+				Key:    "stage-1-approval",
+				NameZh: "审批",
+				NameEn: "Approval",
+			},
+			{
+				Key:    "stage-2-mse-release",
+				NameZh: "MSE 发布",
+				NameEn: "MSE Release",
+			},
+			{
+				Key:    "stage-3-check",
+				NameZh: "检查",
+				NameEn: "Check",
+			},
+		},
+	},
+	{
+		NameKey:       "jira-issue-status-change",
+		NameZh:        "JIRA 问题状态及业务变更",
+		NameEn:        "JIRA Issue Status and Business Change",
+		DescriptionZh: "支持自动化执行 JIRA 问题状态变更",
+		DescriptionEn: "Support automatically executing JIRA issue status change",
+		Stages: []*WorkflowTemplateStagei18n{
+			{
+				Key:    "stage-1-build",
+				NameZh: "构建",
+				NameEn: "Build",
+			},
+			{
+				Key:    "stage-2-deploy",
+				NameZh: "部署",
+				NameEn: "Deploy",
+			},
+			{
+				Key:    "stage-3-test",
+				NameZh: "测试",
+				NameEn: "Test",
+			},
+			{
+				Key:    "stage-4-jira-issue-status-change",
+				NameZh: "JIRA 问题状态变更",
+				NameEn: "JIRA Issue Status Change",
+			},
+		},
+	},
+	{
+		NameKey:       "lark-issue-status-change",
+		NameZh:        "飞书工作项状态及业务变更",
+		NameEn:        "Lark Issue Status and Business Change",
+		DescriptionZh: "支持自动化执行飞书工作项状态变更",
+		DescriptionEn: "Support automatically executing lark issue status change",
+		Stages: []*WorkflowTemplateStagei18n{
+			{
+				Key:    "stage-1-build",
+				NameZh: "构建",
+				NameEn: "Build",
+			},
+			{
+				Key:    "stage-2-deploy",
+				NameZh: "部署",
+				NameEn: "Deploy",
+			},
+			{
+				Key:    "stage-3-test",
+				NameZh: "测试",
+				NameEn: "Test",
+			},
+			{
+				Key:    "stage-4-lark-issue-status-change",
+				NameZh: "飞书工作项状态变更",
+				NameEn: "Lark Issue Status Change",
+			},
+		},
+	},
+	{
+		NameKey:       "nacos-configuration-change",
+		NameZh:        "Nacos 配置及业务变更",
+		NameEn:        "Nacos Configurations and Business Changes",
+		DescriptionZh: "支持自动化执行 Nacos 配置变更",
+		DescriptionEn: "Support automatically executing Nacos configuration change",
+		Stages: []*WorkflowTemplateStagei18n{
+			{
+				Key:    "stage-1-build",
+				NameZh: "构建",
+				NameEn: "Build",
+			},
+			{
+				Key:    "stage-2-nacos-configuration-change",
+				NameZh: "Nacos 配置变更",
+				NameEn: "Nacos Configuration Change",
+			},
+			{
+				Key:    "stage-3-deploy",
+				NameZh: "部署",
+				NameEn: "Deploy",
+			},
+		},
+	},
+	{
+		NameKey:       "apollo-configuration-change",
+		NameZh:        "Apollo 配置及业务变更",
+		NameEn:        "Apollo Configurations and Business Changes",
+		DescriptionZh: "支持自动化执行 Apollo 配置变更",
+		DescriptionEn: "Support automatically executing Apollo configuration change",
+		Stages: []*WorkflowTemplateStagei18n{
+			{
+				Key:    "stage-1-build",
+				NameZh: "构建",
+				NameEn: "Build",
+			},
+			{
+				Key:    "stage-2-apollo-configuration-change",
+				NameZh: "Apollo 配置变更",
+				NameEn: "Apollo Configuration Change",
+			},
+			{
+				Key:    "stage-3-deploy",
+				NameZh: "部署",
+				NameEn: "Deploy",
+			},
+		},
+	},
+	{
+		NameKey:       "sql-data-and-business-change",
+		NameZh:        "SQL 数据及业务变更",
+		NameEn:        "SQL Data and Business Changes",
+		DescriptionZh: "支持自动化执行 SQL 数据变更以及多服务并行构建、部署过程",
+		DescriptionEn: "Support automatically executing SQL data change and multi-service parallel build and deployment process",
+		Stages: []*WorkflowTemplateStagei18n{
+			{
+				Key:    "stage-1-sql-data-change",
+				NameZh: "SQL 数据变更",
+				NameEn: "SQL Data Change",
+			},
+			{
+				Key:    "stage-2-build",
+				NameZh: "构建",
+				NameEn: "Build",
+			},
+			{
+				Key:    "stage-3-deploy",
+				NameZh: "部署",
+				NameEn: "Deploy",
+			},
+		},
+	},
+	{
+		NameKey:       "dms-data-change-and-service-upgrade",
+		NameZh:        "DMS 数据变更及服务升级",
+		NameEn:        "DMS Data Change and Service Upgrade",
+		DescriptionZh: "支持自动化创建并跟踪 DMS 数据变更工单以及多服务并行构建、部署过程",
+		DescriptionEn: "Support automatically creating and tracking DMS data change work orders and multi-service parallel build and deployment process",
+		Stages: []*WorkflowTemplateStagei18n{
+			{
+				Key:    "stage-1-dms-data-change",
+				NameZh: "DMS 数据变更",
+				NameEn: "DMS Data Change",
+				Jobs: []*WorkflowTemplateJobi18n{
+					{
+						Key:           "plugin-job-dms-update",
+						NameZh:        "DMS 数据变更工单",
+						NameEn:        "DMS Data Change Ticket",
+						DescriptionZh: "创建并跟踪 DMS 数据变更工单",
+						DescriptionEn: "Create and track DMS data change ticket",
+					},
+				},
+			},
+			{
+				Key:    "stage-2-build",
+				NameZh: "构建",
+				NameEn: "Build",
+			},
+			{
+				Key:    "stage-3-deploy",
+				NameZh: "部署",
+				NameEn: "Deploy",
+			},
+		},
+	},
 }
 
 func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
@@ -275,12 +847,12 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 	buildInWorkflowTemplateInfos := []*commonmodels.WorkflowV4Template{
 		// deploy service
 		{
-			TemplateName: "单环境多服务更新",
+			TemplateName: "single-environment-multi-service-update",
 			BuildIn:      true,
-			Description:  "支持多个服务并行构建、部署过程",
+			// Description:  "支持多个服务并行构建、部署过程",
 			Stages: []*commonmodels.WorkflowStage{
 				{
-					Name:     "构建",
+					Name:     "stage-1-build",
 					Parallel: true,
 					Jobs: []*commonmodels.Job{
 						{
@@ -293,7 +865,7 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 					},
 				},
 				{
-					Name:     "部署",
+					Name:     "stage-2-deploy",
 					Parallel: true,
 					Jobs: []*commonmodels.Job{
 						{
@@ -310,12 +882,12 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 			},
 		},
 		{
-			TemplateName: "多环境多服务更新",
+			TemplateName: "multi-environment-multi-service-update",
 			BuildIn:      true,
-			Description:  "支持一次构建部署多个环境",
+			// Description:  "支持一次构建部署多个环境",
 			Stages: []*commonmodels.WorkflowStage{
 				{
-					Name:     "构建",
+					Name:     "stage-1-build",
 					Parallel: true,
 					Jobs: []*commonmodels.Job{
 						{
@@ -328,7 +900,7 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 					},
 				},
 				{
-					Name:     "部署环境 dev",
+					Name:     "stage-2-deploy-env-dev",
 					Parallel: true,
 					Jobs: []*commonmodels.Job{
 						{
@@ -343,7 +915,7 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 					},
 				},
 				{
-					Name:     "镜像分发",
+					Name:     "stage-3-image-distribute",
 					Parallel: true,
 					Jobs: []*commonmodels.Job{
 						{
@@ -357,7 +929,7 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 					},
 				},
 				{
-					Name:     "部署环境 qa",
+					Name:     "stage-4-deploy-env-qa",
 					Parallel: true,
 					Jobs: []*commonmodels.Job{
 						{
@@ -374,12 +946,12 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 			},
 		},
 		{
-			TemplateName: "上线服务",
+			TemplateName: "online-service",
 			BuildIn:      true,
-			Description:  "支持通过工作流上线服务",
+			// Description:  "支持通过工作流上线服务",
 			Stages: []*commonmodels.WorkflowStage{
 				{
-					Name:     "部署",
+					Name:     "stage-1-deploy",
 					Parallel: true,
 					Jobs: []*commonmodels.Job{
 						{
@@ -393,7 +965,7 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 					},
 				},
 				{
-					Name:     "测试",
+					Name:     "stage-2-test",
 					Parallel: true,
 					Jobs: []*commonmodels.Job{
 						{
@@ -408,12 +980,12 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 			},
 		},
 		{
-			TemplateName: "下线服务",
+			TemplateName: "offline-service",
 			BuildIn:      true,
-			Description:  "支持通过工作流下线服务",
+			// Description:  "支持通过工作流下线服务",
 			Stages: []*commonmodels.WorkflowStage{
 				{
-					Name:     "下线服务",
+					Name:     "stage-1-offline-service",
 					Parallel: true,
 					Jobs: []*commonmodels.Job{
 						{
@@ -428,12 +1000,12 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 
 		// test and security
 		{
-			TemplateName: "API 测试",
+			TemplateName: "api-test",
 			BuildIn:      true,
-			Description:  "支持自动化执行服务级别 API 测试",
+			// Description:  "支持自动化执行服务级别 API 测试",
 			Stages: []*commonmodels.WorkflowStage{
 				{
-					Name:     "构建",
+					Name:     "stage-1-build",
 					Parallel: true,
 					Jobs: []*commonmodels.Job{
 						{
@@ -446,7 +1018,7 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 					},
 				},
 				{
-					Name:     "部署",
+					Name:     "stage-2-deploy",
 					Parallel: true,
 					Jobs: []*commonmodels.Job{
 						{
@@ -461,7 +1033,7 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 					},
 				},
 				{
-					Name:     "API 测试",
+					Name:     "stage-3-api-test",
 					Parallel: true,
 					Jobs: []*commonmodels.Job{
 						{
@@ -476,12 +1048,12 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 			},
 		},
 		{
-			TemplateName: "E2E 测试",
+			TemplateName: "e2e-test",
 			BuildIn:      true,
-			Description:  "支持自动化执行产品级别 E2E 测试",
+			// Description:  "支持自动化执行产品级别 E2E 测试",
 			Stages: []*commonmodels.WorkflowStage{
 				{
-					Name:     "构建",
+					Name:     "stage-1-build",
 					Parallel: true,
 					Jobs: []*commonmodels.Job{
 						{
@@ -494,7 +1066,7 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 					},
 				},
 				{
-					Name:     "部署",
+					Name:     "stage-2-deploy",
 					Parallel: true,
 					Jobs: []*commonmodels.Job{
 						{
@@ -509,7 +1081,7 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 					},
 				},
 				{
-					Name:     "E2E 测试",
+					Name:     "stage-3-e2e-test",
 					Parallel: true,
 					Jobs: []*commonmodels.Job{
 						{
@@ -524,12 +1096,12 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 			},
 		},
 		{
-			TemplateName: "静态代码检测",
+			TemplateName: "static-code-scanning",
 			BuildIn:      true,
-			Description:  "支持自动化执行代码扫描和代码成分分析",
+			// Description:  "支持自动化执行代码扫描和代码成分分析",
 			Stages: []*commonmodels.WorkflowStage{
 				{
-					Name:     "代码扫描",
+					Name:     "stage-1-code-scanning",
 					Parallel: true,
 					Jobs: []*commonmodels.Job{
 						{
@@ -540,7 +1112,7 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 					},
 				},
 				{
-					Name:     "成分分析",
+					Name:     "stage-2-code-analysis",
 					Parallel: true,
 					Jobs: []*commonmodels.Job{
 						{
@@ -572,7 +1144,7 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 					},
 				},
 				{
-					Name:     "构建",
+					Name:     "stage-3-build",
 					Parallel: true,
 					Jobs: []*commonmodels.Job{
 						{
@@ -585,7 +1157,7 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 					},
 				},
 				{
-					Name:     "部署",
+					Name:     "stage-4-deploy",
 					Parallel: true,
 					Jobs: []*commonmodels.Job{
 						{
@@ -602,12 +1174,12 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 			},
 		},
 		{
-			TemplateName: "动态安全检测",
+			TemplateName: "dynamic-security-scanning",
 			BuildIn:      true,
-			Description:  "支持自动化执行服务动态安全检测",
+			// Description:  "支持自动化执行服务动态安全检测",
 			Stages: []*commonmodels.WorkflowStage{
 				{
-					Name:     "构建",
+					Name:     "stage-1-build",
 					Parallel: true,
 					Jobs: []*commonmodels.Job{
 						{
@@ -620,7 +1192,7 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 					},
 				},
 				{
-					Name:     "部署",
+					Name:     "stage-2-deploy",
 					Parallel: true,
 					Jobs: []*commonmodels.Job{
 						{
@@ -635,7 +1207,7 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 					},
 				},
 				{
-					Name:     "动态安全检测",
+					Name:     "stage-3-dynamic-security-scanning",
 					Parallel: true,
 					Jobs: []*commonmodels.Job{
 						{
@@ -652,12 +1224,12 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 
 		// release
 		{
-			TemplateName: "Chart 实例化部署",
+			TemplateName: "chart-deployment",
 			BuildIn:      true,
-			Description:  "支持自动化部署 Chart 仓库中已有的 Chart 到环境中（仅限 K8s Helm Chart 项目）",
+			// Description:  "支持自动化部署 Chart 仓库中已有的 Chart 到环境中（仅限 K8s Helm Chart 项目）",
 			Stages: []*commonmodels.WorkflowStage{
 				{
-					Name:     "Chart 部署",
+					Name:     "stage-1-chart-deploy",
 					Parallel: true,
 					Jobs: []*commonmodels.Job{
 						{
@@ -668,7 +1240,7 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 					},
 				},
 				{
-					Name:     "测试",
+					Name:     "stage-2-test",
 					Parallel: true,
 					Jobs: []*commonmodels.Job{
 						{
@@ -683,12 +1255,12 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 			},
 		},
 		{
-			TemplateName: "多阶段灰度发布",
-			Description:  "支持自动化执行多阶段的灰度发布，结合人工审批，确保灰度过程可控",
-			BuildIn:      true,
+			TemplateName: "multi-stage-gray-release",
+			// Description:  "支持自动化执行多阶段的灰度发布，结合人工审批，确保灰度过程可控",
+			BuildIn: true,
 			Stages: []*commonmodels.WorkflowStage{
 				{
-					Name:     "灰度20%",
+					Name:     "stage-1-gray-20",
 					Parallel: true,
 					Jobs: []*commonmodels.Job{
 						{
@@ -702,7 +1274,7 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 					},
 				},
 				{
-					Name:     "审批",
+					Name:     "stage-2-approval",
 					Parallel: false,
 					Jobs: []*commonmodels.Job{
 						{
@@ -721,7 +1293,7 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 					},
 				},
 				{
-					Name:     "灰度50%",
+					Name:     "stage-3-gray-50",
 					Parallel: true,
 					Jobs: []*commonmodels.Job{
 						{
@@ -736,7 +1308,7 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 					},
 				},
 				{
-					Name:     "审批2",
+					Name:     "stage-4-approval-2",
 					Parallel: false,
 					Jobs: []*commonmodels.Job{
 						{
@@ -756,7 +1328,7 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 					},
 				},
 				{
-					Name:     "灰度100%",
+					Name:     "stage-5-gray-100",
 					Parallel: true,
 					Jobs: []*commonmodels.Job{
 						{
@@ -773,12 +1345,12 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 			},
 		},
 		{
-			TemplateName: "蓝绿发布",
-			Description:  "支持自动化执行蓝绿发布，结合人工审批，确保蓝绿过程可控",
-			BuildIn:      true,
+			TemplateName: "blue-green-release",
+			// Description:  "支持自动化执行蓝绿发布，结合人工审批，确保蓝绿过程可控",
+			BuildIn: true,
 			Stages: []*commonmodels.WorkflowStage{
 				{
-					Name:     "蓝绿部署",
+					Name:     "stage-1-blue-green-deploy",
 					Parallel: true,
 					Jobs: []*commonmodels.Job{
 						{
@@ -792,7 +1364,7 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 					},
 				},
 				{
-					Name:     "检查",
+					Name:     "stage-2-check",
 					Parallel: true,
 					Jobs: []*commonmodels.Job{
 						{
@@ -824,7 +1396,7 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 					},
 				},
 				{
-					Name:     "审批",
+					Name:     "stage-3-approval",
 					Parallel: false,
 					Jobs: []*commonmodels.Job{
 						{
@@ -844,7 +1416,7 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 					},
 				},
 				{
-					Name:     "蓝绿发布",
+					Name:     "stage-4-blue-green-release",
 					Parallel: true,
 					Jobs: []*commonmodels.Job{
 						{
@@ -859,12 +1431,12 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 			},
 		},
 		{
-			TemplateName: "金丝雀发布",
-			Description:  "支持自动化执行金丝雀发布，结合人工审批，确保金丝雀发布过程可控",
-			BuildIn:      true,
+			TemplateName: "canary-release",
+			// Description:  "支持自动化执行金丝雀发布，结合人工审批，确保金丝雀发布过程可控",
+			BuildIn: true,
 			Stages: []*commonmodels.WorkflowStage{
 				{
-					Name:     "金丝雀部署",
+					Name:     "stage-1-canary-deploy",
 					Parallel: true,
 					Jobs: []*commonmodels.Job{
 						{
@@ -875,7 +1447,7 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 					},
 				},
 				{
-					Name:     "检查",
+					Name:     "stage-2-check",
 					Parallel: true,
 					Jobs: []*commonmodels.Job{
 						{
@@ -907,7 +1479,7 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 					},
 				},
 				{
-					Name:     "审批",
+					Name:     "stage-3-approval",
 					Parallel: false,
 					Jobs: []*commonmodels.Job{
 						{
@@ -927,7 +1499,7 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 					},
 				},
 				{
-					Name:     "金丝雀发布",
+					Name:     "stage-4-canary-release",
 					Parallel: true,
 					Jobs: []*commonmodels.Job{
 						{
@@ -943,12 +1515,12 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 			},
 		},
 		{
-			TemplateName: "Isito 发布",
-			Description:  "支持  istio 灰度发布，结合人工审批，确保发布过程可控",
-			BuildIn:      true,
+			TemplateName: "istio-release",
+			// Description:  "支持  istio 灰度发布，结合人工审批，确保发布过程可控",
+			BuildIn: true,
 			Stages: []*commonmodels.WorkflowStage{
 				{
-					Name:     "istio 流量 20%",
+					Name:     "stage-1-istio-20",
 					Parallel: true,
 					Jobs: []*commonmodels.Job{
 						{
@@ -965,7 +1537,7 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 					},
 				},
 				{
-					Name:     "审批",
+					Name:     "stage-2-approval",
 					Parallel: false,
 					Jobs: []*commonmodels.Job{
 						{
@@ -985,7 +1557,7 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 					},
 				},
 				{
-					Name:     "istio 流量 60%",
+					Name:     "stage-3-istio-60",
 					Parallel: true,
 					Jobs: []*commonmodels.Job{
 						{
@@ -1002,7 +1574,7 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 					},
 				},
 				{
-					Name:     "审批2",
+					Name:     "stage-4-approval-2",
 					Parallel: false,
 					Jobs: []*commonmodels.Job{
 						{
@@ -1022,7 +1594,7 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 					},
 				},
 				{
-					Name:     "istio 流量 100%",
+					Name:     "stage-5-istio-100",
 					Parallel: true,
 					Jobs: []*commonmodels.Job{
 						{
@@ -1041,12 +1613,12 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 			},
 		},
 		{
-			TemplateName: "MSE 发布",
-			Description:  "支持 MSE 发布，结合人工审批，确保发布过程可控",
-			BuildIn:      true,
+			TemplateName: "mse-release",
+			// Description:  "支持 MSE 发布，结合人工审批，确保发布过程可控",
+			BuildIn: true,
 			Stages: []*commonmodels.WorkflowStage{
 				{
-					Name:     "审批",
+					Name:     "stage-1-approval",
 					Parallel: false,
 					Jobs: []*commonmodels.Job{
 						{
@@ -1066,7 +1638,7 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 					},
 				},
 				{
-					Name:     "MSE 发布任务",
+					Name:     "stage-2-mse-release",
 					Parallel: true,
 					Jobs: []*commonmodels.Job{
 						{
@@ -1077,7 +1649,7 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 					},
 				},
 				{
-					Name:     "检查",
+					Name:     "stage-3-check",
 					Parallel: true,
 					Jobs: []*commonmodels.Job{
 						{
@@ -1113,12 +1685,12 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 
 		// project cooperation
 		{
-			TemplateName: "JIRA 问题状态及业务变更",
+			TemplateName: "jira-issue-status-change",
 			BuildIn:      true,
 			Description:  "支持自动化执行 JIRA 问题状态变更",
 			Stages: []*commonmodels.WorkflowStage{
 				{
-					Name:     "构建",
+					Name:     "stage-1-build",
 					Parallel: true,
 					Jobs: []*commonmodels.Job{
 						{
@@ -1131,7 +1703,7 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 					},
 				},
 				{
-					Name:     "部署",
+					Name:     "stage-2-deploy",
 					Parallel: true,
 					Jobs: []*commonmodels.Job{
 						{
@@ -1146,7 +1718,7 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 					},
 				},
 				{
-					Name:     "测试",
+					Name:     "stage-3-test",
 					Parallel: true,
 					Jobs: []*commonmodels.Job{
 						{
@@ -1159,7 +1731,7 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 					},
 				},
 				{
-					Name:     "JIRA 问题状态变更",
+					Name:     "stage-4-jira-issue-status-change",
 					Parallel: true,
 					Jobs: []*commonmodels.Job{
 						{
@@ -1172,12 +1744,12 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 			},
 		},
 		{
-			TemplateName: "飞书工作项状态及业务变更",
+			TemplateName: "lark-issue-status-change",
 			BuildIn:      true,
-			Description:  "支持自动化执行飞书工作项状态变更",
+			// Description:  "支持自动化执行飞书工作项状态变更",
 			Stages: []*commonmodels.WorkflowStage{
 				{
-					Name:     "构建",
+					Name:     "stage-1-build",
 					Parallel: true,
 					Jobs: []*commonmodels.Job{
 						{
@@ -1190,7 +1762,7 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 					},
 				},
 				{
-					Name:     "部署",
+					Name:     "stage-2-deploy",
 					Parallel: true,
 					Jobs: []*commonmodels.Job{
 						{
@@ -1205,7 +1777,7 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 					},
 				},
 				{
-					Name:     "测试",
+					Name:     "stage-3-test",
 					Parallel: true,
 					Jobs: []*commonmodels.Job{
 						{
@@ -1218,7 +1790,7 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 					},
 				},
 				{
-					Name:     "飞书工作项变更",
+					Name:     "stage-4-lark-issue-status-change",
 					Parallel: true,
 					Jobs: []*commonmodels.Job{
 						{
@@ -1233,12 +1805,12 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 
 		// config update
 		{
-			TemplateName: "Nacos 配置及业务变更",
+			TemplateName: "nacos-configuration-change",
 			BuildIn:      true,
-			Description:  "支持自动化执行 Nacos 配置变更",
+			// Description:  "支持自动化执行 Nacos 配置变更",
 			Stages: []*commonmodels.WorkflowStage{
 				{
-					Name:     "构建",
+					Name:     "stage-1-build",
 					Parallel: true,
 					Jobs: []*commonmodels.Job{
 						{
@@ -1251,7 +1823,7 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 					},
 				},
 				{
-					Name:     "Nacos 配置变更",
+					Name:     "stage-2-nacos-configuration-change",
 					Parallel: true,
 					Jobs: []*commonmodels.Job{
 						{
@@ -1262,7 +1834,7 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 					},
 				},
 				{
-					Name:     "部署",
+					Name:     "stage-3-deploy",
 					Parallel: true,
 					Jobs: []*commonmodels.Job{
 						{
@@ -1279,12 +1851,12 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 			},
 		},
 		{
-			TemplateName: "Apollo 配置及业务变更",
+			TemplateName: "apollo-configuration-change",
 			BuildIn:      true,
-			Description:  "支持自动化执行 Apollo 配置变更",
+			// Description:  "支持自动化执行 Apollo 配置变更",
 			Stages: []*commonmodels.WorkflowStage{
 				{
-					Name:     "构建",
+					Name:     "stage-1-build",
 					Parallel: true,
 					Jobs: []*commonmodels.Job{
 						{
@@ -1297,7 +1869,7 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 					},
 				},
 				{
-					Name:     "Apollo 配置变更",
+					Name:     "stage-2-apollo-configuration-change",
 					Parallel: true,
 					Jobs: []*commonmodels.Job{
 						{
@@ -1308,7 +1880,7 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 					},
 				},
 				{
-					Name:     "部署",
+					Name:     "stage-3-deploy",
 					Parallel: true,
 					Jobs: []*commonmodels.Job{
 						{
@@ -1327,12 +1899,12 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 
 		// data update
 		{
-			TemplateName: "SQL 数据及业务变更",
-			Description:  "支持自动化执行 SQL 数据变更以及多服务并行构建、部署过程",
-			BuildIn:      true,
+			TemplateName: "sql-data-and-business-change",
+			// Description:  "支持自动化执行 SQL 数据变更以及多服务并行构建、部署过程",
+			BuildIn: true,
 			Stages: []*commonmodels.WorkflowStage{
 				{
-					Name: "SQL 数据变更",
+					Name: "stage-1-sql-data-change",
 					Jobs: []*commonmodels.Job{
 						{
 							Name:    "sql-update",
@@ -1342,7 +1914,7 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 					},
 				},
 				{
-					Name:     "构建",
+					Name:     "stage-2-build",
 					Parallel: true,
 					Jobs: []*commonmodels.Job{
 						{
@@ -1355,7 +1927,7 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 					},
 				},
 				{
-					Name:     "部署",
+					Name:     "stage-3-deploy",
 					Parallel: true,
 					Jobs: []*commonmodels.Job{
 						{
@@ -1372,13 +1944,13 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 			},
 		},
 		{
-			TemplateName: "DMS 数据变更及服务升级",
-			Description:  "支持自动化创建并跟踪 DMS 数据变更工单以及多服务并行构建、部署过程",
-			BuildIn:      true,
-			Category:     setting.ReleaseWorkflow,
+			TemplateName: "dms-data-change-and-service-upgrade",
+			// Description:  "支持自动化创建并跟踪 DMS 数据变更工单以及多服务并行构建、部署过程",
+			BuildIn:  true,
+			Category: setting.ReleaseWorkflow,
 			Stages: []*commonmodels.WorkflowStage{
 				{
-					Name:     "DMS 数据变更",
+					Name:     "stage-1-dms-data-change",
 					Parallel: true,
 					Jobs: []*commonmodels.Job{
 						{
@@ -1391,12 +1963,12 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 									ResReqSpec:      setting.LowRequestSpec,
 								},
 								Plugin: &commonmodels.PluginTemplate{
-									Name:        "DMS 数据变更工单",
-									IsOffical:   true,
-									Category:    "",
-									Description: "创建并跟踪 DMS 数据变更工单",
-									Version:     "v0.0.1",
-									Image:       "koderover.tencentcloudcr.com/koderover-public/dms-approval:v0.0.1",
+									Name:      "plugin-job-dms-update",
+									IsOffical: true,
+									Category:  "",
+									// Description: "创建并跟踪 DMS 数据变更工单",
+									Version: "v0.0.1",
+									Image:   "koderover.tencentcloudcr.com/koderover-public/dms-approval:v0.0.1",
 									Envs: []*commonmodels.Env{
 										{
 											Name:  "AK",
@@ -1461,7 +2033,7 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 					},
 				},
 				{
-					Name:     "构建",
+					Name:     "stage-2-build",
 					Parallel: true,
 					Jobs: []*commonmodels.Job{
 						{
@@ -1474,7 +2046,7 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 					},
 				},
 				{
-					Name:     "部署",
+					Name:     "stage-3-deploy",
 					Parallel: true,
 					Jobs: []*commonmodels.Job{
 						{

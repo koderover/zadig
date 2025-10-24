@@ -227,11 +227,11 @@ func updatePlanApproval(plan *models.ReleasePlan) error {
 	case config.StatusPassed:
 		planLog = &models.ReleasePlanLog{
 			PlanID:     plan.ID.Hex(),
-			Username:   "系统",
+			Username:   UserNameSystem,
 			Verb:       VerbUpdate,
 			TargetName: TargetTypeReleasePlanStatus,
 			TargetType: TargetTypeReleasePlanStatus,
-			Detail:     "审批通过",
+			Detail:     DetailApprovalPass,
 			After:      config.ReleasePlanStatusExecuting,
 			CreatedAt:  time.Now().Unix(),
 		}
@@ -259,7 +259,7 @@ func updatePlanApproval(plan *models.ReleasePlan) error {
 	case config.StatusReject:
 		planLog = &models.ReleasePlanLog{
 			PlanID:    plan.ID.Hex(),
-			Detail:    "审批被拒绝",
+			Detail:    DetailApprovalReject,
 			CreatedAt: time.Now().Unix(),
 		}
 		plan.Status = config.ReleasePlanStatusApprovalDenied

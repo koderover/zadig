@@ -22,18 +22,12 @@ import (
 
 	"github.com/gin-gonic/gin"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/service"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/types"
 )
-
-type OperationLog struct {
-	Count int                    `json:"count"`
-	Logs  []*models.OperationLog `json:"logs"`
-}
 
 func GetOperationLogs(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
@@ -117,13 +111,8 @@ func GetOperationLogs(c *gin.Context) {
 		Detail:       c.Query("detail"),
 	}
 
-	logs, count, err := service.FindOperation(args, ctx.Logger)
-	if err != nil {
-		ctx.RespErr = err
-		return
-	}
-	ctx.Resp = &OperationLog{
-		Count: count,
-		Logs:  logs,
-	}
+	resp, count, err := service.FindOperation(args, ctx.Logger)
+	ctx.Resp = resp
+	ctx.RespErr = err
+	c.Writer.Header().Set("X-Total", strconv.Itoa(count))
 }
