@@ -36,7 +36,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/ecr"
 	"github.com/docker/distribution"
 	"github.com/docker/distribution/manifest/schema2"
-	"github.com/docker/distribution/reference"
 	"github.com/docker/distribution/registry/client"
 	"github.com/docker/distribution/registry/client/auth"
 	"github.com/docker/distribution/registry/client/auth/challenge"
@@ -177,10 +176,10 @@ func (s *v2RegistryService) createClient(ep Endpoint, logger *zap.SugaredLogger)
 }
 
 func (c *authClient) getRepository(repoName string) (repo distribution.Repository, err error) {
-	repoNameRef, err := reference.WithName(repoName)
-	if err != nil {
-		return
-	}
+	// repoNameRef, err := reference.WithName(repoName)
+	// if err != nil {
+	// 	return
+	// }
 
 	creds := registry.NewStaticCredentialStore(&types.AuthConfig{
 		Username:      c.endpoint.Ak,
@@ -189,10 +188,9 @@ func (c *authClient) getRepository(repoName string) (repo distribution.Repositor
 	})
 
 	basicHandler := auth.NewBasicHandler(creds)
-	scope := auth.RepositoryScope{
-		Repository: repoName,
-		Actions:    []string{"pull"},
-		Class:      "",
+	scope := auth.RegistryScope{
+		Name:    "",
+		Actions: []string{"*"},
 	}
 
 	tokenHandlerOptions := auth.TokenHandlerOptions{
@@ -206,10 +204,23 @@ func (c *authClient) getRepository(repoName string) (repo distribution.Repositor
 	modifier := auth.NewAuthorizer(c.cm, tokenHandler, basicHandler)
 	tr := transport.NewTransport(c.tr, modifier)
 
-	repo, err = client.NewRepository(repoNameRef, c.endpointURL.String(), tr)
+	reg, err := client.NewRegistry(c.endpoint.Addr, tr)
 	if err != nil {
-		return
+		return nil, errors.Wrapf(err, "failed to new registry")
 	}
+
+	repos := make([]string, 0)
+	count, err := reg.Repositories(c.ctx, repos, "")
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to list repositories")
+	}
+
+	log.Debugf("length of repos: %d", count)
+
+	// repo, err = client.NewRepository(repoNameRef, c.endpointURL.String(), tr)
+	// if err != nil {
+	// 	return
+	// }
 
 	return
 }
