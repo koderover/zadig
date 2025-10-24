@@ -36,8 +36,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/ecr"
 	"github.com/docker/distribution"
 	"github.com/docker/distribution/manifest/schema2"
-	"github.com/docker/distribution/reference"
-	regstryapiv2 "github.com/docker/distribution/registry/api/v2"
 	"github.com/docker/distribution/registry/client"
 	"github.com/docker/distribution/registry/client/auth"
 	"github.com/docker/distribution/registry/client/auth/challenge"
@@ -56,6 +54,7 @@ import (
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
 type Endpoint struct {
@@ -177,10 +176,10 @@ func (s *v2RegistryService) createClient(ep Endpoint, logger *zap.SugaredLogger)
 }
 
 func (c *authClient) getRepository(repoName string) (repo distribution.Repository, err error) {
-	repoNameRef, err := reference.WithName(repoName)
-	if err != nil {
-		return
-	}
+	// repoNameRef, err := reference.WithName(repoName)
+	// if err != nil {
+	// 	return
+	// }
 
 	creds := registry.NewStaticCredentialStore(&types.AuthConfig{
 		Username:      c.endpoint.Ak,
@@ -189,10 +188,9 @@ func (c *authClient) getRepository(repoName string) (repo distribution.Repositor
 	})
 
 	basicHandler := auth.NewBasicHandler(creds)
-	scope := auth.RepositoryScope{
-		Repository: repoName,
-		Actions:    []string{"pull"},
-		Class:      "",
+	scope := auth.RegistryScope{
+		Name:    "",
+		Actions: []string{"*"},
 	}
 
 	tokenHandlerOptions := auth.TokenHandlerOptions{
@@ -206,10 +204,23 @@ func (c *authClient) getRepository(repoName string) (repo distribution.Repositor
 	modifier := auth.NewAuthorizer(c.cm, tokenHandler, basicHandler)
 	tr := transport.NewTransport(c.tr, modifier)
 
-	repo, err = client.NewRepository(repoNameRef, c.endpointURL.String(), tr)
+	reg, err := client.NewRegistry(c.endpoint.Addr, tr)
 	if err != nil {
-		return
+		return nil, errors.Wrapf(err, "failed to new registry")
 	}
+
+	repos := make([]string, 0)
+	count, err := reg.Repositories(c.ctx, repos, "")
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to list repositories")
+	}
+
+	log.Debugf("length of repos: %d", count)
+
+	// repo, err = client.NewRepository(repoNameRef, c.endpointURL.String(), tr)
+	// if err != nil {
+	// 	return
+	// }
 
 	return
 }
@@ -289,19 +300,21 @@ func (c *authClient) getImageInfo(repoName, tag string) (ci *containerInfo, err 
 }
 
 func (c *authClient) validateRegistry(repoName string) (err error) {
-	repo, err := c.getRepository(repoName + "/test")
+	repo, err := c.getRepository(repoName)
 	if err != nil {
 		return
 	}
 
+	log.Debugf("repo: %+v", repo.Named())
+
 	// Try to list tags to verify repository access
-	_, err = repo.Tags(c.ctx).All(c.ctx)
-	if err != nil {
-		if strings.Contains(err.Error(), regstryapiv2.ErrorCodeNameUnknown.Message()) {
-			return nil
-		}
-		return errors.Wrap(err, "验证镜像仓库失败")
-	}
+	// _, err = repo.Tags(c.ctx).All(c.ctx)
+	// if err != nil {
+	// 	if strings.Contains(err.Error(), regstryapiv2.ErrorCodeNameUnknown.Message()) {
+	// 		return nil
+	// 	}
+	// 	return errors.Wrap(err, "验证镜像仓库失败")
+	// }
 
 	return nil
 }
