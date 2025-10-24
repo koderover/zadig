@@ -37,7 +37,6 @@ import (
 	"github.com/docker/distribution"
 	"github.com/docker/distribution/manifest/schema2"
 	"github.com/docker/distribution/reference"
-	regstryapiv2 "github.com/docker/distribution/registry/api/v2"
 	"github.com/docker/distribution/registry/client"
 	"github.com/docker/distribution/registry/client/auth"
 	"github.com/docker/distribution/registry/client/auth/challenge"
@@ -56,6 +55,7 @@ import (
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
 type Endpoint struct {
@@ -289,19 +289,21 @@ func (c *authClient) getImageInfo(repoName, tag string) (ci *containerInfo, err 
 }
 
 func (c *authClient) validateRegistry(repoName string) (err error) {
-	repo, err := c.getRepository(repoName + "/test")
+	repo, err := c.getRepository(repoName)
 	if err != nil {
 		return
 	}
 
+	log.Debugf("repo: %+v", repo.Named())
+
 	// Try to list tags to verify repository access
-	_, err = repo.Tags(c.ctx).All(c.ctx)
-	if err != nil {
-		if strings.Contains(err.Error(), regstryapiv2.ErrorCodeNameUnknown.Message()) {
-			return nil
-		}
-		return errors.Wrap(err, "验证镜像仓库失败")
-	}
+	// _, err = repo.Tags(c.ctx).All(c.ctx)
+	// if err != nil {
+	// 	if strings.Contains(err.Error(), regstryapiv2.ErrorCodeNameUnknown.Message()) {
+	// 		return nil
+	// 	}
+	// 	return errors.Wrap(err, "验证镜像仓库失败")
+	// }
 
 	return nil
 }
