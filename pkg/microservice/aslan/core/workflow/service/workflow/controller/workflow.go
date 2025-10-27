@@ -556,6 +556,13 @@ func (w *Workflow) GetReferableVariables(currentJobName string, option GetWorkfl
 			Type:         "string",
 			IsCredential: false,
 		})
+	} else {
+		resp = append(resp, &commonmodels.KeyVal{
+			Key:          "project.name",
+			Value:        "",
+			Type:         "string",
+			IsCredential: false,
+		})
 	}
 	
 	resp = append(resp, &commonmodels.KeyVal{
