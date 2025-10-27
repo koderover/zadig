@@ -543,18 +543,28 @@ func (w *Workflow) GetReferableVariables(currentJobName string, option GetWorkfl
 		IsCredential: false,
 	})
 
-	projectInfo, err := templaterepo.NewProductColl().Find(w.Project)
-	if err != nil {
-		return nil, fmt.Errorf("failed to find project info for project %s, error: %s", w.Project, err)
+	// compatible with workflow template: project is empty when this is a workflow template
+	if w.Project != "" {
+		projectInfo, err := templaterepo.NewProductColl().Find(w.Project)
+		if err != nil {
+			return nil, fmt.Errorf("failed to find project info for project %s, error: %s", w.Project, err)
+		}
+	
+		resp = append(resp, &commonmodels.KeyVal{
+			Key:          "project.name",
+			Value:        projectInfo.ProjectName,
+			Type:         "string",
+			IsCredential: false,
+		})
+	} else {
+		resp = append(resp, &commonmodels.KeyVal{
+			Key:          "project.name",
+			Value:        "",
+			Type:         "string",
+			IsCredential: false,
+		})
 	}
-
-	resp = append(resp, &commonmodels.KeyVal{
-		Key:          "project.name",
-		Value:        projectInfo.ProjectName,
-		Type:         "string",
-		IsCredential: false,
-	})
-
+	
 	resp = append(resp, &commonmodels.KeyVal{
 		Key:          "workflow.id",
 		Value:        w.Name,
