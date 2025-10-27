@@ -22,10 +22,13 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"net/url"
+	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -37,7 +40,6 @@ import (
 	"github.com/docker/distribution"
 	"github.com/docker/distribution/manifest/schema2"
 	"github.com/docker/distribution/reference"
-	regstryapiv2 "github.com/docker/distribution/registry/api/v2"
 	"github.com/docker/distribution/registry/client"
 	"github.com/docker/distribution/registry/client/auth"
 	"github.com/docker/distribution/registry/client/auth/challenge"
@@ -288,22 +290,172 @@ func (c *authClient) getImageInfo(repoName, tag string) (ci *containerInfo, err 
 	return
 }
 
-func (c *authClient) validateRegistry(repoName string) (err error) {
-	repo, err := c.getRepository(repoName + "/test")
-	if err != nil {
-		return
+func (c *authClient) validateRegistry() (err error) {
+	creds := registry.NewStaticCredentialStore(&types.AuthConfig{
+		Username:      c.endpoint.Ak,
+		Password:      c.endpoint.Sk,
+		ServerAddress: c.endpoint.Addr,
+	})
+
+	basicHandler := auth.NewBasicHandler(creds)
+
+	scope := auth.RegistryScope{
+		Name:    "catalog",
+		Actions: []string{"*"},
 	}
 
-	// Try to list tags to verify repository access
-	_, err = repo.Tags(c.ctx).All(c.ctx)
+	tokenHandlerOptions := auth.TokenHandlerOptions{
+		Transport:   c.tr,
+		Credentials: creds,
+		Scopes:      []auth.Scope{scope},
+		ClientID:    registry.AuthClientID,
+	}
+
+	tokenHandler := auth.NewTokenHandlerWithOptions(tokenHandlerOptions)
+	modifier := auth.NewAuthorizer(c.cm, tokenHandler, basicHandler)
+	tr := transport.NewTransport(c.tr, modifier)
+
+	reg, err := client.NewRegistry(c.endpointURL.String(), tr)
 	if err != nil {
-		if strings.Contains(err.Error(), regstryapiv2.ErrorCodeNameUnknown.Message()) {
-			return nil
-		}
-		return errors.Wrap(err, "验证镜像仓库失败")
+		return errors.Wrapf(err, "failed to new registry")
+	}
+
+	repos := make([]string, 10)
+	_, err = reg.Repositories(context.Background(), repos, "")
+	if err != nil {
+		return errors.Wrapf(err, "failed to list repositories with Docker Distribution client")
 	}
 
 	return nil
+}
+
+func (c *authClient) validateRegistryHttp() error {
+	// 1. 首先检查 registry 是否支持 v2 API
+	baseURL := strings.TrimSuffix(c.endpoint.Addr, "/") + "/v2/"
+	req, err := http.NewRequest("GET", baseURL, nil)
+	if err != nil {
+		return errors.Wrapf(err, "failed to create request")
+	}
+
+	client := &http.Client{
+		Transport: c.tr,
+		Timeout:   30 * time.Second,
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return errors.Wrapf(err, "failed to connect to registry")
+	}
+	defer resp.Body.Close()
+
+	// 如果不需要认证，直接返回成功
+	if resp.StatusCode == http.StatusOK {
+		c.log.Info("Registry supports Docker Registry API v2 (no auth required)")
+		return nil
+	}
+
+	// 如果需要认证，解析认证头并获取 token
+	if resp.StatusCode != http.StatusUnauthorized {
+		body, _ := io.ReadAll(resp.Body)
+		return errors.Wrapf(err, "unexpected status %d: %s", resp.StatusCode, string(body))
+	}
+
+	// 解析 WWW-Authenticate header 获取认证信息
+	authHeader := resp.Header.Get("WWW-Authenticate")
+	if authHeader == "" {
+		return errors.New("no WWW-Authenticate header found")
+	}
+
+	// 2. 获取认证 token
+	token, err := c.getAuthToken(authHeader)
+	if err != nil {
+		return errors.Wrapf(err, "failed to get auth token")
+	}
+
+	// 3. 使用 token 访问 v2 端点
+	req2, err := http.NewRequest("GET", baseURL, nil)
+	if err != nil {
+		return errors.Wrapf(err, "failed to create catalog request")
+	}
+
+	// 使用 Bearer token
+	req2.Header.Set("Authorization", "Bearer "+token)
+	resp2, err := client.Do(req2)
+	if err != nil {
+		return errors.Wrapf(err, "failed to access catalog")
+	}
+	defer resp2.Body.Close()
+
+	if resp2.StatusCode == http.StatusOK {
+		return nil
+	}
+
+	return errors.New("validate failed with status " + strconv.Itoa(resp2.StatusCode))
+}
+
+// getAuthToken 获取认证 token（参考测试项目的实现）
+func (c *authClient) getAuthToken(authHeader string) (string, error) {
+	// 解析认证头获取 realm 和 service
+	realm, service, err := c.parseAuthHeader(authHeader)
+	if err != nil {
+		return "", err
+	}
+
+	// 构建 token 请求 URL
+	tokenURL := fmt.Sprintf("%s?service=%s", realm, service)
+
+	// 创建 token 请求
+	req, err := http.NewRequest("GET", tokenURL, nil)
+	if err != nil {
+		return "", err
+	}
+
+	// 使用 Basic Auth
+	req.SetBasicAuth(c.endpoint.Ak, c.endpoint.Sk)
+
+	client := &http.Client{
+		Transport: c.tr,
+		Timeout:   30 * time.Second,
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return "", errors.Errorf("token request failed with status %d: %s", resp.StatusCode, string(body))
+	}
+
+	// 解析 token 响应
+	var tokenResp struct {
+		Token string `json:"token"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&tokenResp); err != nil {
+		return "", errors.Wrapf(err, "failed to decode token response")
+	}
+
+	if tokenResp.Token == "" {
+		return "", errors.New("empty token in response")
+	}
+
+	return tokenResp.Token, nil
+}
+
+// parseAuthHeader 解析认证头（参考测试项目的实现）
+func (c *authClient) parseAuthHeader(authHeader string) (realm, service string, err error) {
+	// 使用正则表达式解析 WWW-Authenticate header
+	// 格式: Bearer realm="...",service="..."
+	re := regexp.MustCompile(`Bearer realm="([^"]+)",service="([^"]+)"`)
+	matches := re.FindStringSubmatch(authHeader)
+	if len(matches) < 3 {
+		return "", "", errors.New("cannot parse WWW-Authenticate header")
+	}
+
+	return matches[1], matches[2], nil
 }
 
 func (s *v2RegistryService) ValidateRegistry(ep Endpoint, log *zap.SugaredLogger) (err error) {
@@ -312,7 +464,7 @@ func (s *v2RegistryService) ValidateRegistry(ep Endpoint, log *zap.SugaredLogger
 		return
 	}
 
-	err = c.validateRegistry(ep.Namespace)
+	err = c.validateRegistryHttp()
 	if err != nil {
 		return
 	}

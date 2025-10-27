@@ -737,6 +737,11 @@ func checkDeliveryVersionRegistry(args *CreateDeliveryVersionRequest, registryMa
 				break
 			}
 		}
+
+		if targetRegistry == nil {
+			return nil, fmt.Errorf("can not find target registry")
+		}
+
 		targetRegistryProjectSet := sets.NewString()
 		for _, project := range targetRegistry.Projects {
 			targetRegistryProjectSet.Insert(project)
