@@ -878,10 +878,16 @@ func AutoCreateWorkflow(productName string, log *zap.SugaredLogger) *EnvStatus {
 							}
 							buildTargetSet.Insert(key)
 
+							kvList := build.PreBuild.Envs.ToRuntimeList()
+							if build.TemplateID != "" {
+								kvList = target.Envs.ToRuntimeList()
+							}
+
 							serviceAndBuild := &commonmodels.ServiceAndBuild{
 								ServiceName:   target.ServiceName,
 								ServiceModule: target.ServiceModule,
 								BuildName:     build.Name,
+								KeyVals:       kvList,
 							}
 							serviceAndBuilds = append(serviceAndBuilds, serviceAndBuild)
 						}
