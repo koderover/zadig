@@ -117,20 +117,20 @@ func UploadPart(sessionID string, partNumber int, fileHeader *multipart.FileHead
 	// Save part to temporary directory
 	tempDir := getTempDir(sessionID)
 	if err := os.MkdirAll(tempDir, 0755); err != nil {
-		return e.ErrCreateIDPPlugin.AddErr(err)
+		return e.ErrCreateTempFile.AddErr(err)
 	}
 
 	partPath := filepath.Join(tempDir, fmt.Sprintf("part_%d", partNumber))
 	out, err := os.Create(partPath)
 	if err != nil {
-		return e.ErrCreateIDPPlugin.AddErr(err)
+		return e.ErrCreateTempFile.AddErr(err)
 	}
 	defer out.Close()
 
 	// Copy part data
 	_, err = io.Copy(out, file)
 	if err != nil {
-		return e.ErrCreateIDPPlugin.AddErr(err)
+		return e.ErrCreateTempFile.AddErr(err)
 	}
 
 	// Update uploaded parts
@@ -139,7 +139,7 @@ func UploadPart(sessionID string, partNumber int, fileHeader *multipart.FileHead
 
 	if err := commonrepo.NewTemporaryFileColl().UpdateUploadedParts(sessionID, updatedParts); err != nil {
 		log.Errorf("failed to update uploaded parts: %v", err)
-		return e.ErrUpdateIDPPlugin.AddErr(err)
+		return e.ErrUpdateTempFile.AddErr(err)
 	}
 
 	log.Infof("uploaded part %d/%d for session %s", partNumber, temporaryFile.TotalParts, sessionID)
