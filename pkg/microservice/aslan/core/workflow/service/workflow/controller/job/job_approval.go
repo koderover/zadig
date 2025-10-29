@@ -45,10 +45,11 @@ func CreateApprovalJobController(job *commonmodels.Job, workflow *commonmodels.W
 	}
 
 	basicInfo := &BasicInfo{
-		name:        job.Name,
-		jobType:     job.JobType,
-		errorPolicy: job.ErrorPolicy,
-		workflow:    workflow,
+		name:          job.Name,
+		jobType:       job.JobType,
+		errorPolicy:   job.ErrorPolicy,
+		executePolicy: job.ExecutePolicy,
+		workflow:      workflow,
 	}
 
 	return ApprovalJobController{
@@ -168,10 +169,11 @@ func (j ApprovalJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, er
 		JobInfo: map[string]string{
 			JobNameKey: j.name,
 		},
-		JobType:     string(config.JobApproval),
-		Spec:        jobSpec,
-		Timeout:     j.jobSpec.Timeout,
-		ErrorPolicy: j.errorPolicy,
+		JobType:       string(config.JobApproval),
+		Spec:          jobSpec,
+		Timeout:       j.jobSpec.Timeout,
+		ErrorPolicy:   j.errorPolicy,
+		ExecutePolicy: j.executePolicy,
 	}
 
 	if j.jobSpec.Source == config.SourceFromJob {

@@ -38,10 +38,11 @@ func CreateSQLJobController(job *commonmodels.Job, workflow *commonmodels.Workfl
 	}
 
 	basicInfo := &BasicInfo{
-		name:        job.Name,
-		jobType:     job.JobType,
-		errorPolicy: job.ErrorPolicy,
-		workflow:    workflow,
+		name:          job.Name,
+		jobType:       job.JobType,
+		errorPolicy:   job.ErrorPolicy,
+		executePolicy: job.ExecutePolicy,
+		workflow:      workflow,
 	}
 
 	return SQLJobController{
@@ -121,8 +122,9 @@ func (j SQLJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, error) 
 			Type: j.jobSpec.Type,
 			SQL:  j.jobSpec.SQL,
 		},
-		Timeout:     0,
-		ErrorPolicy: j.errorPolicy,
+		Timeout:       0,
+		ErrorPolicy:   j.errorPolicy,
+		ExecutePolicy: j.executePolicy,
 	}
 	resp = append(resp, jobTask)
 

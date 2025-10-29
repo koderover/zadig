@@ -39,10 +39,11 @@ func CreateJiraJobController(job *commonmodels.Job, workflow *commonmodels.Workf
 	}
 
 	basicInfo := &BasicInfo{
-		name:        job.Name,
-		jobType:     job.JobType,
-		errorPolicy: job.ErrorPolicy,
-		workflow:    workflow,
+		name:          job.Name,
+		jobType:       job.JobType,
+		errorPolicy:   job.ErrorPolicy,
+		executePolicy: job.ExecutePolicy,
+		workflow:      workflow,
 	}
 
 	return JiraJobController{
@@ -135,8 +136,9 @@ func (j JiraJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, error)
 			Issues:       j.jobSpec.Issues,
 			TargetStatus: j.jobSpec.TargetStatus,
 		},
-		Timeout:     0,
-		ErrorPolicy: j.errorPolicy,
+		Timeout:       0,
+		ErrorPolicy:   j.errorPolicy,
+		ExecutePolicy: j.executePolicy,
 	}
 
 	resp = append(resp, jobTask)

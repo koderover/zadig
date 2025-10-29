@@ -39,10 +39,11 @@ func CreateOfflineServiceJobController(job *commonmodels.Job, workflow *commonmo
 	}
 
 	basicInfo := &BasicInfo{
-		name:        job.Name,
-		jobType:     job.JobType,
-		errorPolicy: job.ErrorPolicy,
-		workflow:    workflow,
+		name:          job.Name,
+		jobType:       job.JobType,
+		errorPolicy:   job.ErrorPolicy,
+		executePolicy: job.ExecutePolicy,
+		workflow:      workflow,
 	}
 
 	return OfflineServiceJobController{
@@ -125,8 +126,9 @@ func (j OfflineServiceJobController) ToTask(taskID int64) ([]*commonmodels.JobTa
 				return
 			}(),
 		},
-		Timeout:     0,
-		ErrorPolicy: j.errorPolicy,
+		Timeout:       0,
+		ErrorPolicy:   j.errorPolicy,
+		ExecutePolicy: j.executePolicy,
 	}
 
 	resp = append(resp, jobTask)

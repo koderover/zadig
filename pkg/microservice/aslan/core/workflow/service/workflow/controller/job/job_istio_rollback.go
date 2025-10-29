@@ -42,10 +42,11 @@ func CreateIstioRollbackJobController(job *commonmodels.Job, workflow *commonmod
 	}
 
 	basicInfo := &BasicInfo{
-		name:        job.Name,
-		jobType:     job.JobType,
-		errorPolicy: job.ErrorPolicy,
-		workflow:    workflow,
+		name:          job.Name,
+		jobType:       job.JobType,
+		errorPolicy:   job.ErrorPolicy,
+		executePolicy: job.ExecutePolicy,
+		workflow:      workflow,
 	}
 
 	return IstioRollbackJobController{
@@ -183,7 +184,8 @@ func (j IstioRollbackJobController) ToTask(taskID int64) ([]*commonmodels.JobTas
 				Targets:     target,
 				Timeout:     j.jobSpec.Timeout,
 			},
-			ErrorPolicy: j.errorPolicy,
+			ErrorPolicy:   j.errorPolicy,
+			ExecutePolicy: j.executePolicy,
 		}
 		resp = append(resp, jobTask)
 	}

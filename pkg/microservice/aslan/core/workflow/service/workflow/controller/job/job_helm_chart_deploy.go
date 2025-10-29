@@ -42,10 +42,11 @@ func CreateHelmChartDeployJobController(job *commonmodels.Job, workflow *commonm
 	}
 
 	basicInfo := &BasicInfo{
-		name:        job.Name,
-		jobType:     job.JobType,
-		errorPolicy: job.ErrorPolicy,
-		workflow:    workflow,
+		name:          job.Name,
+		jobType:       job.JobType,
+		errorPolicy:   job.ErrorPolicy,
+		executePolicy: job.ExecutePolicy,
+		workflow:      workflow,
 	}
 
 	return HelmChartDeployJobController{
@@ -230,9 +231,10 @@ func (j HelmChartDeployJobController) ToTask(taskID int64) ([]*commonmodels.JobT
 				JobNameKey:     j.name,
 				"release_name": deploy.ReleaseName,
 			},
-			JobType:     string(config.JobZadigHelmChartDeploy),
-			Spec:        jobTaskSpec,
-			ErrorPolicy: j.errorPolicy,
+			JobType:       string(config.JobZadigHelmChartDeploy),
+			Spec:          jobTaskSpec,
+			ErrorPolicy:   j.errorPolicy,
+			ExecutePolicy: j.executePolicy,
 		}
 		resp = append(resp, jobTask)
 	}

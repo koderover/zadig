@@ -40,10 +40,11 @@ func CreateGrayReleaseJobController(job *commonmodels.Job, workflow *commonmodel
 	}
 
 	basicInfo := &BasicInfo{
-		name:        job.Name,
-		jobType:     job.JobType,
-		errorPolicy: job.ErrorPolicy,
-		workflow:    workflow,
+		name:          job.Name,
+		jobType:       job.JobType,
+		errorPolicy:   job.ErrorPolicy,
+		executePolicy: job.ExecutePolicy,
+		workflow:      workflow,
 	}
 
 	return GrayReleaseJobController{
@@ -241,7 +242,8 @@ func (j GrayReleaseJobController) ToTask(taskID int64) ([]*commonmodels.JobTask,
 				TotalReplica:     target.Replica,
 				GrayReplica:      int(grayReplica),
 			},
-			ErrorPolicy: j.errorPolicy,
+			ErrorPolicy:   j.errorPolicy,
+			ExecutePolicy: j.executePolicy,
 		}
 		resp = append(resp, jobTask)
 	}

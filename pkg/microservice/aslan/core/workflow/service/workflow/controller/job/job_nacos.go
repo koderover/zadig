@@ -44,10 +44,11 @@ func CreateNacosJobController(job *commonmodels.Job, workflow *commonmodels.Work
 	}
 
 	basicInfo := &BasicInfo{
-		name:        job.Name,
-		jobType:     job.JobType,
-		errorPolicy: job.ErrorPolicy,
-		workflow:    workflow,
+		name:          job.Name,
+		jobType:       job.JobType,
+		errorPolicy:   job.ErrorPolicy,
+		executePolicy: job.ExecutePolicy,
+		workflow:      workflow,
 	}
 
 	return NacosJobController{
@@ -254,7 +255,8 @@ func (j NacosJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, error
 			AuthConfig:    info.NacosAuthConfig,
 			NacosDatas:    transNacosDatas(j.jobSpec.NacosDatas),
 		},
-		ErrorPolicy: j.errorPolicy,
+		ErrorPolicy:   j.errorPolicy,
+		ExecutePolicy: j.executePolicy,
 	}
 	resp = append(resp, jobTask)
 

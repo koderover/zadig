@@ -57,10 +57,11 @@ func CreateDistributeImageJobController(job *commonmodels.Job, workflow *commonm
 	}
 
 	basicInfo := &BasicInfo{
-		name:        job.Name,
-		jobType:     job.JobType,
-		errorPolicy: job.ErrorPolicy,
-		workflow:    workflow,
+		name:          job.Name,
+		jobType:       job.JobType,
+		errorPolicy:   job.ErrorPolicy,
+		executePolicy: job.ExecutePolicy,
+		workflow:      workflow,
 	}
 
 	return DistributeImageJobController{
@@ -280,10 +281,11 @@ func (j DistributeImageJobController) ToTask(taskID int64) ([]*commonmodels.JobT
 		JobInfo: map[string]string{
 			JobNameKey: j.name,
 		},
-		JobType:     string(config.JobZadigDistributeImage),
-		Spec:        jobTaskSpec,
-		Timeout:     getTimeout(j.jobSpec.Timeout),
-		ErrorPolicy: j.errorPolicy,
+		JobType:       string(config.JobZadigDistributeImage),
+		Spec:          jobTaskSpec,
+		Timeout:       getTimeout(j.jobSpec.Timeout),
+		ErrorPolicy:   j.errorPolicy,
+		ExecutePolicy: j.executePolicy,
 	}
 	resp = append(resp, jobTask)
 

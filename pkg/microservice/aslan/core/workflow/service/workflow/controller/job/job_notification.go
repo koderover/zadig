@@ -39,10 +39,11 @@ func CreateNotificationJobController(job *commonmodels.Job, workflow *commonmode
 	}
 
 	basicInfo := &BasicInfo{
-		name:        job.Name,
-		jobType:     job.JobType,
-		errorPolicy: job.ErrorPolicy,
-		workflow:    workflow,
+		name:          job.Name,
+		jobType:       job.JobType,
+		errorPolicy:   job.ErrorPolicy,
+		executePolicy: job.ExecutePolicy,
+		workflow:      workflow,
 	}
 
 	return NotificationJobController{
@@ -157,10 +158,11 @@ func (j NotificationJobController) ToTask(taskID int64) ([]*commonmodels.JobTask
 		JobInfo: map[string]string{
 			JobNameKey: j.name,
 		},
-		JobType:     string(config.JobNotification),
-		Spec:        taskSpec,
-		Timeout:     0,
-		ErrorPolicy: j.errorPolicy,
+		JobType:       string(config.JobNotification),
+		Spec:          taskSpec,
+		Timeout:       0,
+		ErrorPolicy:   j.errorPolicy,
+		ExecutePolicy: j.executePolicy,
 	}
 
 	resp = append(resp, jobTask)

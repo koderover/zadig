@@ -61,10 +61,11 @@ func CreateBlueGreenDeployJobController(job *commonmodels.Job, workflow *commonm
 	}
 
 	basicInfo := &BasicInfo{
-		name:        job.Name,
-		jobType:     job.JobType,
-		errorPolicy: job.ErrorPolicy,
-		workflow:    workflow,
+		name:          job.Name,
+		jobType:       job.JobType,
+		errorPolicy:   job.ErrorPolicy,
+		executePolicy: job.ExecutePolicy,
+		workflow:      workflow,
 	}
 
 	return BlueGreenDeployJobController{
@@ -394,7 +395,8 @@ func (j BlueGreenDeployJobController) ToTask(taskID int64) ([]*commonmodels.JobT
 				},
 				DeployTimeout: timeout,
 			},
-			ErrorPolicy: j.errorPolicy,
+			ErrorPolicy:   j.errorPolicy,
+			ExecutePolicy: j.executePolicy,
 		}
 		resp = append(resp, task)
 	}
