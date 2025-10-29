@@ -121,6 +121,8 @@ func initJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTas
 }
 
 func runJob(ctx context.Context, job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, logger *zap.SugaredLogger, ack func()) {
+	setJobStartTimeContext(job, workflowCtx)
+
 	// should skip passed job when workflow task be restarted
 	if job.Status == config.StatusPassed || job.Status == config.StatusSkipped {
 		return
@@ -430,6 +432,14 @@ func evaluateExecuteRule(rule *commonmodels.JobExecuteRule) bool {
 	default:
 		return false
 	}
+}
+
+// setJobStartTimeContext sets the global context variable for job start time
+// Format: .job.<jobKey>.util.startTime
+func setJobStartTimeContext(job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx) {
+	startTimeStr := fmt.Sprintf("%d", job.StartTime)
+	contextKey := fmt.Sprintf(".job.%s.util.startTime", job.Key)
+	workflowCtx.GlobalContextSet(contextKey, startTimeStr)
 }
 
 // shouldExecuteJob determines whether a job should be executed based on its execute policy
