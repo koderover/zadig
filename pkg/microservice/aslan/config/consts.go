@@ -579,6 +579,14 @@ const (
 	JobErrorPolicyIgnoreError JobErrorPolicy = "ignore_error"
 	JobErrorPolicyManualCheck JobErrorPolicy = "manual_check"
 	JobErrorPolicyRetry       JobErrorPolicy = "retry"
+	JobErrorPolicyConditional JobErrorPolicy = "conditional"
+)
+
+type JobExecutePolicyType string
+
+const (
+	JobExecutePolicyTypeSkip JobExecutePolicyType = "skip"
+	JobExecutePolicyTypeExecute JobExecutePolicyType = "execute"
 )
 
 const DefaultDeleteDeploymentTimeout = 10 * time.Minute

@@ -53,10 +53,11 @@ func CreateVMDeployJobController(job *commonmodels.Job, workflow *commonmodels.W
 	}
 
 	basicInfo := &BasicInfo{
-		name:        job.Name,
-		jobType:     job.JobType,
-		errorPolicy: job.ErrorPolicy,
-		workflow:    workflow,
+		name:          job.Name,
+		jobType:       job.JobType,
+		errorPolicy:   job.ErrorPolicy,
+		executePolicy: job.ExecutePolicy,
+		workflow:      workflow,
 	}
 
 	return VMDeployJobController{
@@ -325,6 +326,7 @@ func (j VMDeployJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, er
 			Infrastructure: buildInfo.DeployInfrastructure,
 			VMLabels:       buildInfo.DeployVMLabels,
 			ErrorPolicy:    j.errorPolicy,
+			ExecutePolicy:  j.executePolicy,
 		}
 		jobTaskSpec.Properties = commonmodels.JobProperties{
 			Timeout:         int64(timeout),

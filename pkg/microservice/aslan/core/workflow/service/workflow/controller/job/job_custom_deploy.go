@@ -39,10 +39,11 @@ func CreateCustomDeployJobController(job *commonmodels.Job, workflow *commonmode
 	}
 
 	basicInfo := &BasicInfo{
-		name:        job.Name,
-		jobType:     job.JobType,
-		errorPolicy: job.ErrorPolicy,
-		workflow:    workflow,
+		name:          job.Name,
+		jobType:       job.JobType,
+		errorPolicy:   job.ErrorPolicy,
+		executePolicy: job.ExecutePolicy,
+		workflow:      workflow,
 	}
 
 	return CustomDeployJobController{
@@ -130,9 +131,10 @@ func (j CustomDeployJobController) ToTask(taskID int64) ([]*commonmodels.JobTask
 				"workload_name":  workloadName,
 				"container_name": containerName,
 			},
-			JobType:     string(config.JobCustomDeploy),
-			Spec:        jobTaskSpec,
-			ErrorPolicy: j.errorPolicy,
+			JobType:       string(config.JobCustomDeploy),
+			Spec:          jobTaskSpec,
+			ErrorPolicy:   j.errorPolicy,
+			ExecutePolicy: j.executePolicy,
 		}
 		resp = append(resp, jobTask)
 	}
