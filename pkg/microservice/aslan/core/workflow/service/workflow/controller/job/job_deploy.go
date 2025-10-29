@@ -53,10 +53,11 @@ func CreateDeployJobController(job *commonmodels.Job, workflow *commonmodels.Wor
 	}
 
 	basicInfo := &BasicInfo{
-		name:        job.Name,
-		jobType:     job.JobType,
-		errorPolicy: job.ErrorPolicy,
-		workflow:    workflow,
+		name:          job.Name,
+		jobType:       job.JobType,
+		errorPolicy:   job.ErrorPolicy,
+		executePolicy: job.ExecutePolicy,
+		workflow:      workflow,
 	}
 
 	return DeployJobController{
@@ -545,9 +546,10 @@ func (j DeployJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, erro
 					JobNameKey:     j.name,
 					"service_name": serviceName,
 				},
-				JobType:     string(config.JobZadigDeploy),
-				Spec:        jobTaskSpec,
-				ErrorPolicy: j.errorPolicy,
+				JobType:       string(config.JobZadigDeploy),
+				Spec:          jobTaskSpec,
+				ErrorPolicy:   j.errorPolicy,
+				ExecutePolicy: j.executePolicy,
 			}
 			if jobTaskSpec.CreateEnvType == "system" {
 				var updateRevision bool
@@ -686,9 +688,10 @@ func (j DeployJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, erro
 					JobNameKey:     j.name,
 					"service_name": svc.ServiceName,
 				},
-				JobType:     string(config.JobZadigHelmDeploy),
-				Spec:        jobTaskSpec,
-				ErrorPolicy: j.errorPolicy,
+				JobType:       string(config.JobZadigHelmDeploy),
+				Spec:          jobTaskSpec,
+				ErrorPolicy:   j.errorPolicy,
+				ExecutePolicy: j.executePolicy,
 			}
 			resp = append(resp, jobTask)
 		}

@@ -40,10 +40,11 @@ func CreateIstioReleaseJobController(job *commonmodels.Job, workflow *commonmode
 	}
 
 	basicInfo := &BasicInfo{
-		name:        job.Name,
-		jobType:     job.JobType,
-		errorPolicy: job.ErrorPolicy,
-		workflow:    workflow,
+		name:          job.Name,
+		jobType:       job.JobType,
+		errorPolicy:   job.ErrorPolicy,
+		executePolicy: job.ExecutePolicy,
+		workflow:      workflow,
 	}
 
 	return IstioReleaseJobController{
@@ -248,7 +249,8 @@ func (j IstioReleaseJobController) ToTask(taskID int64) ([]*commonmodels.JobTask
 				Replicas:          int64(newReplicaCount),
 				Targets:           target,
 			},
-			ErrorPolicy: j.errorPolicy,
+			ErrorPolicy:   j.errorPolicy,
+			ExecutePolicy: j.executePolicy,
 		}
 		resp = append(resp, jobTask)
 	}

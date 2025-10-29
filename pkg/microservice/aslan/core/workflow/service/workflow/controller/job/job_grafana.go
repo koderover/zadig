@@ -39,10 +39,11 @@ func CreateGrafanaJobJobController(job *commonmodels.Job, workflow *commonmodels
 	}
 
 	basicInfo := &BasicInfo{
-		name:        job.Name,
-		jobType:     job.JobType,
-		errorPolicy: job.ErrorPolicy,
-		workflow:    workflow,
+		name:          job.Name,
+		jobType:       job.JobType,
+		errorPolicy:   job.ErrorPolicy,
+		executePolicy: job.ExecutePolicy,
+		workflow:      workflow,
 	}
 
 	return GrafanaJobController{
@@ -146,8 +147,9 @@ func (j GrafanaJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, err
 			CheckMode: j.jobSpec.CheckMode,
 			Alerts:    j.jobSpec.Alerts,
 		},
-		ErrorPolicy: j.errorPolicy,
-		Timeout:     0,
+		ErrorPolicy:   j.errorPolicy,
+		ExecutePolicy: j.executePolicy,
+		Timeout:       0,
 	}
 
 	resp = append(resp, jobTask)

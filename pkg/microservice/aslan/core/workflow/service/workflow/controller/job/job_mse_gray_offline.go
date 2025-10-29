@@ -39,10 +39,11 @@ func CreateMseGrayOfflineJobController(job *commonmodels.Job, workflow *commonmo
 	}
 
 	basicInfo := &BasicInfo{
-		name:        job.Name,
-		jobType:     job.JobType,
-		errorPolicy: job.ErrorPolicy,
-		workflow:    workflow,
+		name:          job.Name,
+		jobType:       job.JobType,
+		errorPolicy:   job.ErrorPolicy,
+		executePolicy: job.ExecutePolicy,
+		workflow:      workflow,
 	}
 
 	return MseGrayOfflineJobController{
@@ -116,7 +117,8 @@ func (j MseGrayOfflineJobController) ToTask(taskID int64) ([]*commonmodels.JobTa
 			GrayTag:    j.jobSpec.GrayTag,
 			Production: j.jobSpec.Production,
 		},
-		ErrorPolicy: j.errorPolicy,
+		ErrorPolicy:   j.errorPolicy,
+		ExecutePolicy: j.executePolicy,
 	})
 
 	return resp, nil

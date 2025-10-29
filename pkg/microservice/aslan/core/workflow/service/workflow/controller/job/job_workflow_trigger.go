@@ -41,10 +41,11 @@ func CreateWorkflowTriggerJobController(job *commonmodels.Job, workflow *commonm
 	}
 
 	basicInfo := &BasicInfo{
-		name:        job.Name,
-		jobType:     job.JobType,
-		errorPolicy: job.ErrorPolicy,
-		workflow:    workflow,
+		name:          job.Name,
+		jobType:       job.JobType,
+		errorPolicy:   job.ErrorPolicy,
+		executePolicy: job.ExecutePolicy,
+		workflow:      workflow,
 	}
 
 	return WorkflowTriggerJobController{
@@ -257,8 +258,9 @@ func (j WorkflowTriggerJobController) ToTask(taskID int64) ([]*commonmodels.JobT
 			IsEnableCheck:         j.jobSpec.IsEnableCheck,
 			WorkflowTriggerEvents: workflowTriggerEvents,
 		},
-		Timeout:     0,
-		ErrorPolicy: j.errorPolicy,
+		Timeout:       0,
+		ErrorPolicy:   j.errorPolicy,
+		ExecutePolicy: j.executePolicy,
 	}
 
 	resp = append(resp, jobTask)

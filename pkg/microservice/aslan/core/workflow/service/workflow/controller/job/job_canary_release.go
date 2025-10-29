@@ -39,10 +39,11 @@ func CreateCanaryReleaseJobController(job *commonmodels.Job, workflow *commonmod
 	}
 
 	basicInfo := &BasicInfo{
-		name:        job.Name,
-		jobType:     job.JobType,
-		errorPolicy: job.ErrorPolicy,
-		workflow:    workflow,
+		name:          job.Name,
+		jobType:       job.JobType,
+		errorPolicy:   job.ErrorPolicy,
+		executePolicy: job.ExecutePolicy,
+		workflow:      workflow,
 	}
 
 	return CanaryReleaseJobController{
@@ -154,7 +155,8 @@ func (j CanaryReleaseJobController) ToTask(taskID int64) ([]*commonmodels.JobTas
 				ContainerName:  target.ContainerName,
 				Image:          target.Image,
 			},
-			ErrorPolicy: j.errorPolicy,
+			ErrorPolicy:   j.errorPolicy,
+			ExecutePolicy: j.executePolicy,
 		}
 		resp = append(resp, task)
 	}

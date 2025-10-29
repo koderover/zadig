@@ -40,10 +40,11 @@ func CreateTapdJobController(job *commonmodels.Job, workflow *commonmodels.Workf
 	}
 
 	basicInfo := &BasicInfo{
-		name:        job.Name,
-		jobType:     job.JobType,
-		errorPolicy: job.ErrorPolicy,
-		workflow:    workflow,
+		name:          job.Name,
+		jobType:       job.JobType,
+		errorPolicy:   job.ErrorPolicy,
+		executePolicy: job.ExecutePolicy,
+		workflow:      workflow,
 	}
 
 	return TapdJobController{
@@ -122,7 +123,8 @@ func (j TapdJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, error)
 			Status:           j.jobSpec.Status,
 			Iterations:       j.jobSpec.Iterations,
 		},
-		ErrorPolicy: j.errorPolicy,
+		ErrorPolicy:   j.errorPolicy,
+		ExecutePolicy: j.executePolicy,
 	}
 	resp = append(resp, jobTask)
 

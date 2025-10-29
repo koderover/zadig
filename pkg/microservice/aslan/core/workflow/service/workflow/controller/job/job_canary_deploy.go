@@ -45,10 +45,11 @@ func CreateCanaryDeployJobController(job *commonmodels.Job, workflow *commonmode
 	}
 
 	basicInfo := &BasicInfo{
-		name:        job.Name,
-		jobType:     job.JobType,
-		errorPolicy: job.ErrorPolicy,
-		workflow:    workflow,
+		name:          job.Name,
+		jobType:       job.JobType,
+		errorPolicy:   job.ErrorPolicy,
+		executePolicy: job.ExecutePolicy,
+		workflow:      workflow,
 	}
 
 	return CanaryDeployJobController{
@@ -145,7 +146,7 @@ func (j CanaryDeployJobController) Update(useUserInput bool, ticket *commonmodel
 
 	j.jobSpec.DockerRegistryID = currJobSpec.DockerRegistryID
 	j.jobSpec.Namespace = currJobSpec.Namespace
-	j.jobSpec.ClusterID = currJobSpec.ClusterID 
+	j.jobSpec.ClusterID = currJobSpec.ClusterID
 
 	// TODO: recalculate the resources in the namespace, for now we just use the configured options
 	j.jobSpec.TargetOptions = currJobSpec.TargetOptions
@@ -220,7 +221,8 @@ func (j CanaryDeployJobController) ToTask(taskID int64) ([]*commonmodels.JobTask
 				CanaryReplica:    int(canaryReplica),
 				Image:            target.Image,
 			},
-			ErrorPolicy: j.errorPolicy,
+			ErrorPolicy:   j.errorPolicy,
+			ExecutePolicy: j.executePolicy,
 		}
 		resp = append(resp, task)
 	}

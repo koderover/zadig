@@ -51,10 +51,11 @@ func CreateScanningJobController(job *commonmodels.Job, workflow *commonmodels.W
 	}
 
 	basicInfo := &BasicInfo{
-		name:        job.Name,
-		jobType:     job.JobType,
-		errorPolicy: job.ErrorPolicy,
-		workflow:    workflow,
+		name:          job.Name,
+		jobType:       job.JobType,
+		errorPolicy:   job.ErrorPolicy,
+		executePolicy: job.ExecutePolicy,
+		workflow:      workflow,
 	}
 
 	return ScanningJobController{
@@ -85,7 +86,7 @@ func (j ScanningJobController) Validate(isExecution bool) error {
 			}
 		}
 	}
-	
+
 	return nil
 }
 
@@ -151,14 +152,14 @@ func (j ScanningJobController) Update(useUserInput bool, ticket *commonmodels.Ap
 		for _, scanning := range j.jobSpec.Scannings {
 			userInputMap[scanning.Name] = scanning
 		}
-		
+
 		for _, option := range j.jobSpec.ScanningOptions {
 			item := &commonmodels.ScanningModule{
-				Name: option.Name,
-				ProjectName: option.ProjectName,
+				Name:             option.Name,
+				ProjectName:      option.ProjectName,
 				ShareStorageInfo: option.ShareStorageInfo,
-				KeyVals: option.KeyVals,
-				Repos: option.Repos,
+				KeyVals:          option.KeyVals,
+				Repos:            option.Repos,
 			}
 			if input, ok := userInputMap[option.Name]; ok {
 				item.KeyVals = applyKeyVals(item.KeyVals, input.KeyVals, false)
@@ -319,7 +320,7 @@ func (j ScanningJobController) GetVariableList(jobName string, getAggregatedVari
 				if getPlaceHolderVariables {
 					jobKey := strings.Join([]string{j.name, "<SERVICE>", "<MODULE>"}, ".")
 					for _, output := range scanningInfo.Outputs {
-						resp = append(resp,  &commonmodels.KeyVal{
+						resp = append(resp, &commonmodels.KeyVal{
 							Key:          strings.Join([]string{"job", jobKey, "output", output.Name}, "."),
 							Value:        "",
 							Type:         "string",
@@ -334,7 +335,7 @@ func (j ScanningJobController) GetVariableList(jobName string, getAggregatedVari
 						}
 						jobKey := strings.Join([]string{j.name, scanning.ServiceName, scanning.ServiceModule}, ".")
 						for _, output := range scanningInfo.Outputs {
-							resp = append(resp,  &commonmodels.KeyVal{
+							resp = append(resp, &commonmodels.KeyVal{
 								Key:          strings.Join([]string{"job", jobKey, "output", output.Name}, "."),
 								Value:        "",
 								Type:         "string",
@@ -424,7 +425,6 @@ func (j ScanningJobController) GetVariableList(jobName string, getAggregatedVari
 		}
 	}
 
-	
 	return resp, nil
 }
 
@@ -449,7 +449,7 @@ func (j ScanningJobController) GetUsedRepos() ([]*types.Repository, error) {
 			resp = append(resp, applyRepos(scanningInfo.Repos, scanning.Repos)...)
 		}
 	}
-	
+
 	return resp, nil
 }
 
@@ -517,6 +517,7 @@ func (j ScanningJobController) toJobTask(jobSubTaskID int, scanning *commonmodel
 		Infrastructure: scanningInfo.Infrastructure,
 		VMLabels:       scanningInfo.VMLabels,
 		ErrorPolicy:    j.errorPolicy,
+		ExecutePolicy:  j.executePolicy,
 	}
 
 	paramEnvs := generateKeyValsFromWorkflowParam(j.workflow.Params)
