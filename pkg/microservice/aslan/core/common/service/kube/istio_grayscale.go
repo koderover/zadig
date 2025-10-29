@@ -476,7 +476,7 @@ func ensureUpdateGrayscaleSerivce(ctx context.Context, curEnv *commonmodels.Prod
 		}
 
 		// 2. Create Default Service in all of the gray environments.
-		ensureServicesInAllGrayEnvs(ctx, curEnv, grayEnvs, svc, kclient, istioClient)
+		err = ensureServicesInAllGrayEnvs(ctx, curEnv, grayEnvs, svc, kclient, istioClient)
 		if err != nil {
 			return fmt.Errorf("failed to ensure service %s in all gray envs, err: %w", svc.Name, err)
 		}
@@ -854,7 +854,15 @@ func buildEnvoyStoreCacheOperation(headerKeys []string) (*types.Struct, error) {
     end
   end
 
+  if not traceid then
+    return
+  end
+
   local env = request_handle:headers():get("x-env")
+  if not env then
+    return
+  end
+
   local headers, body = request_handle:httpCall(
     "cache",
     {
@@ -870,18 +878,20 @@ func buildEnvoyStoreCacheOperation(headerKeys []string) (*types.Struct, error) {
 	for _, headerKey := range headerKeys {
 		tmpInlineCodeMid := `
   local header_key = "%s"
-  local key = traceid .. "-" .. header_key
   local value = request_handle:headers():get(header_key)
-  local headers, body = request_handle:httpCall(
-    "cache",
-    {
-      [":method"] = "POST",
-      [":path"] = string.format("/api/cache/%%s/%%s", key, value),
-      [":authority"] = "cache",
-    },
-    "",
-    5000
-  )
+  if value then
+    local key = traceid .. "-" .. header_key
+    local headers, body = request_handle:httpCall(
+      "cache",
+      {
+        [":method"] = "POST",
+        [":path"] = string.format("/api/cache/%%s/%%s", key, value),
+        [":authority"] = "cache",
+      },
+      "",
+      5000
+    )
+  end
 	`
 		tmpInlineCodeMid = fmt.Sprintf(tmpInlineCodeMid, headerKey)
 		inlineCodeMid += tmpInlineCodeMid
@@ -924,6 +934,10 @@ func buildEnvoyGetCacheOperation(headerKeys []string) (*types.Struct, error) {
     end
   end
 
+  if not traceid then
+    return
+  end
+
   local headers, body = request_handle:httpCall(
     "cache",
     {
@@ -935,7 +949,9 @@ func buildEnvoyGetCacheOperation(headerKeys []string) (*types.Struct, error) {
     5000
   )
 
-  request_handle:headers():add("x-env", headers["x-data"]);
+  if headers and headers["x-data"] then
+    request_handle:headers():add("x-env", headers["x-data"])
+  end
 `
 
 	inlineCodeMid := ``
@@ -954,7 +970,9 @@ func buildEnvoyGetCacheOperation(headerKeys []string) (*types.Struct, error) {
     5000
   )
 
-  request_handle:headers():add(header_key, headers["x-data"]);
+  if headers and headers["x-data"] then
+    request_handle:headers():add(header_key, headers["x-data"])
+  end
 	`
 		tmpInlineCodeMid = fmt.Sprintf(tmpInlineCodeMid, headerKey)
 		inlineCodeMid += tmpInlineCodeMid
