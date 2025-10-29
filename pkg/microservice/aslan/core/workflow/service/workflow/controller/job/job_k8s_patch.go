@@ -40,10 +40,11 @@ func CreateK8sPatchJobController(job *commonmodels.Job, workflow *commonmodels.W
 	}
 
 	basicInfo := &BasicInfo{
-		name:        job.Name,
-		jobType:     job.JobType,
-		errorPolicy: job.ErrorPolicy,
-		workflow:    workflow,
+		name:          job.Name,
+		jobType:       job.JobType,
+		errorPolicy:   job.ErrorPolicy,
+		executePolicy: job.ExecutePolicy,
+		workflow:      workflow,
 	}
 
 	return K8sPatchJobController{
@@ -126,9 +127,10 @@ func (j K8sPatchJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, er
 		JobInfo: map[string]string{
 			JobNameKey: j.name,
 		},
-		JobType:     string(config.JobK8sPatch),
-		Spec:        spec,
-		ErrorPolicy: j.errorPolicy,
+		JobType:       string(config.JobK8sPatch),
+		Spec:          spec,
+		ErrorPolicy:   j.errorPolicy,
+		ExecutePolicy: j.executePolicy,
 	}
 
 	resp = append(resp, jobTask)

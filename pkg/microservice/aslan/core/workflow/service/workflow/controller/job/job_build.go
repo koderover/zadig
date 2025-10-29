@@ -72,10 +72,11 @@ func CreateBuildJobController(job *commonmodels.Job, workflow *commonmodels.Work
 	}
 
 	basicInfo := &BasicInfo{
-		name:        job.Name,
-		jobType:     job.JobType,
-		errorPolicy: job.ErrorPolicy,
-		workflow:    workflow,
+		name:          job.Name,
+		jobType:       job.JobType,
+		errorPolicy:   job.ErrorPolicy,
+		executePolicy: job.ExecutePolicy,
+		workflow:      workflow,
 	}
 
 	return BuildJobController{
@@ -376,6 +377,7 @@ func (j BuildJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, error
 			Infrastructure: buildInfo.Infrastructure,
 			VMLabels:       buildInfo.VMLabels,
 			ErrorPolicy:    j.errorPolicy,
+			ExecutePolicy:  j.executePolicy,
 		}
 		customEnvs := applyKeyVals(buildInfo.PreBuild.Envs.ToRuntimeList(), build.KeyVals, true).ToKVList()
 		renderedCustomEnv, err := replaceServiceAndModules(customEnvs, build.ServiceName, build.ServiceModule)

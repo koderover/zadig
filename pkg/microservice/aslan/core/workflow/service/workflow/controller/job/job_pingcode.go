@@ -40,10 +40,11 @@ func CreatePingCodeJobController(job *commonmodels.Job, workflow *commonmodels.W
 	}
 
 	basicInfo := &BasicInfo{
-		name:        job.Name,
-		jobType:     job.JobType,
-		errorPolicy: job.ErrorPolicy,
-		workflow:    workflow,
+		name:          job.Name,
+		jobType:       job.JobType,
+		errorPolicy:   job.ErrorPolicy,
+		executePolicy: job.ExecutePolicy,
+		workflow:      workflow,
 	}
 
 	return PingCodeJobController{
@@ -128,7 +129,8 @@ func (j PingCodeJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, er
 			WorkItemStateIDs:     j.jobSpec.WorkItemStateIDs,
 			WorkItems:            j.jobSpec.WorkItems,
 		},
-		ErrorPolicy: j.errorPolicy,
+		ErrorPolicy:   j.errorPolicy,
+		ExecutePolicy: j.executePolicy,
 	}
 	resp = append(resp, jobTask)
 

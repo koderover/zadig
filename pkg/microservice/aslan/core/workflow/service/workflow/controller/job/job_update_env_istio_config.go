@@ -36,10 +36,11 @@ func CreateUpdateEnvIstioConfigJobController(job *commonmodels.Job, workflow *co
 	}
 
 	basicInfo := &BasicInfo{
-		name:        job.Name,
-		jobType:     job.JobType,
-		errorPolicy: job.ErrorPolicy,
-		workflow:    workflow,
+		name:          job.Name,
+		jobType:       job.JobType,
+		errorPolicy:   job.ErrorPolicy,
+		executePolicy: job.ExecutePolicy,
+		workflow:      workflow,
 	}
 
 	return UpdateEnvIstioConfigJobController{
@@ -191,9 +192,10 @@ func (j UpdateEnvIstioConfigJobController) ToTask(taskID int64) ([]*commonmodels
 		JobInfo: map[string]string{
 			JobNameKey: j.name,
 		},
-		JobType:     string(config.JobUpdateEnvIstioConfig),
-		Spec:        j.jobSpec,
-		ErrorPolicy: j.errorPolicy,
+		JobType:       string(config.JobUpdateEnvIstioConfig),
+		Spec:          j.jobSpec,
+		ErrorPolicy:   j.errorPolicy,
+		ExecutePolicy: j.executePolicy,
 	}
 	resp = append(resp, jobTask)
 

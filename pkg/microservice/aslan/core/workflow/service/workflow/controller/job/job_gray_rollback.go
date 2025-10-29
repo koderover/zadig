@@ -44,10 +44,11 @@ func CreateGrayRollbackJobController(job *commonmodels.Job, workflow *commonmode
 	}
 
 	basicInfo := &BasicInfo{
-		name:        job.Name,
-		jobType:     job.JobType,
-		errorPolicy: job.ErrorPolicy,
-		workflow:    workflow,
+		name:          job.Name,
+		jobType:       job.JobType,
+		errorPolicy:   job.ErrorPolicy,
+		executePolicy: job.ExecutePolicy,
+		workflow:      workflow,
 	}
 
 	return GrayRollbackJobController{
@@ -172,7 +173,8 @@ func (j GrayRollbackJobController) ToTask(taskID int64) ([]*commonmodels.JobTask
 				RollbackTimeout:  j.jobSpec.RollbackTimeout,
 				TotalReplica:     rollbackInfo.replica,
 			},
-			ErrorPolicy: j.errorPolicy,
+			ErrorPolicy:   j.errorPolicy,
+			ExecutePolicy: j.executePolicy,
 		}
 		resp = append(resp, jobTask)
 	}

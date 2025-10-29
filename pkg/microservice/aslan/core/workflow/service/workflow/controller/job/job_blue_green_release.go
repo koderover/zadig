@@ -40,10 +40,11 @@ func CreateBlueGreenReleaseJobController(job *commonmodels.Job, workflow *common
 	}
 
 	basicInfo := &BasicInfo{
-		name:        job.Name,
-		jobType:     job.JobType,
-		errorPolicy: job.ErrorPolicy,
-		workflow:    workflow,
+		name:          job.Name,
+		jobType:       job.JobType,
+		errorPolicy:   job.ErrorPolicy,
+		executePolicy: job.ExecutePolicy,
+		workflow:      workflow,
 	}
 
 	return BlueGreenReleaseJobController{
@@ -153,7 +154,8 @@ func (j BlueGreenReleaseJobController) ToTask(taskID int64) ([]*commonmodels.Job
 				Service:       target,
 				DeployTimeout: timeout,
 			},
-			ErrorPolicy: j.errorPolicy,
+			ErrorPolicy:   j.errorPolicy,
+			ExecutePolicy: j.executePolicy,
 		}
 		resp = append(resp, task)
 	}

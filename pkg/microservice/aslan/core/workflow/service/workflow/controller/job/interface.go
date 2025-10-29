@@ -64,9 +64,10 @@ type Job interface {
 }
 
 type BasicInfo struct {
-	name        string
-	jobType     config.JobType
-	errorPolicy *commonmodels.JobErrorPolicy
+	name          string
+	jobType       config.JobType
+	errorPolicy   *commonmodels.JobErrorPolicy
+	executePolicy *commonmodels.JobExecutePolicy
 
 	workflow *commonmodels.WorkflowV4
 }

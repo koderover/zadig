@@ -46,10 +46,11 @@ func CreateMseGrayReleaseJobController(job *commonmodels.Job, workflow *commonmo
 	}
 
 	basicInfo := &BasicInfo{
-		name:        job.Name,
-		jobType:     job.JobType,
-		errorPolicy: job.ErrorPolicy,
-		workflow:    workflow,
+		name:          job.Name,
+		jobType:       job.JobType,
+		errorPolicy:   job.ErrorPolicy,
+		executePolicy: job.ExecutePolicy,
+		workflow:      workflow,
 	}
 
 	return MseGrayReleaseJobController{
@@ -187,7 +188,8 @@ func (j MseGrayReleaseJobController) ToTask(taskID int64) ([]*commonmodels.JobTa
 				Timeout:            timeout,
 				Production:         j.jobSpec.Production,
 			},
-			ErrorPolicy: j.errorPolicy,
+			ErrorPolicy:   j.errorPolicy,
+			ExecutePolicy: j.executePolicy,
 		})
 	}
 

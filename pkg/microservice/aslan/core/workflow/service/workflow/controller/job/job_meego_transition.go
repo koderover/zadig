@@ -39,10 +39,11 @@ func CreateMeegoTransitionJobController(job *commonmodels.Job, workflow *commonm
 	}
 
 	basicInfo := &BasicInfo{
-		name:        job.Name,
-		jobType:     job.JobType,
-		errorPolicy: job.ErrorPolicy,
-		workflow:    workflow,
+		name:          job.Name,
+		jobType:       job.JobType,
+		errorPolicy:   job.ErrorPolicy,
+		executePolicy: job.ExecutePolicy,
+		workflow:      workflow,
 	}
 
 	return MeegoTransitionJobController{
@@ -128,7 +129,8 @@ func (j MeegoTransitionJobController) ToTask(taskID int64) ([]*commonmodels.JobT
 			WorkItemTypeKey: j.jobSpec.WorkItemTypeKey,
 			WorkItems:       j.jobSpec.WorkItems,
 		},
-		ErrorPolicy: j.errorPolicy,
+		ErrorPolicy:   j.errorPolicy,
+		ExecutePolicy: j.executePolicy,
 	}
 	resp = append(resp, jobTask)
 

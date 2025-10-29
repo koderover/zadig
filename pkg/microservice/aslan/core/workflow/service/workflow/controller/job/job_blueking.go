@@ -41,10 +41,11 @@ func CreateBlueKingJobController(job *commonmodels.Job, workflow *commonmodels.W
 	}
 
 	basicInfo := &BasicInfo{
-		name:        job.Name,
-		jobType:     job.JobType,
-		errorPolicy: job.ErrorPolicy,
-		workflow:    workflow,
+		name:          job.Name,
+		jobType:       job.JobType,
+		errorPolicy:   job.ErrorPolicy,
+		executePolicy: job.ExecutePolicy,
+		workflow:      workflow,
 	}
 
 	return BlueKingJobController{
@@ -140,8 +141,9 @@ func (j BlueKingJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, er
 			ExecutionPlanID: j.jobSpec.ExecutionPlanID,
 			Parameters:      j.jobSpec.Parameters,
 		},
-		Timeout:     0,
-		ErrorPolicy: j.errorPolicy,
+		Timeout:       0,
+		ErrorPolicy:   j.errorPolicy,
+		ExecutePolicy: j.executePolicy,
 	})
 
 	return resp, nil

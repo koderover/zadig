@@ -44,10 +44,11 @@ func CreateApolloJobController(job *commonmodels.Job, workflow *commonmodels.Wor
 	}
 
 	basicInfo := &BasicInfo{
-		name:        job.Name,
-		jobType:     job.JobType,
-		errorPolicy: job.ErrorPolicy,
-		workflow:    workflow,
+		name:          job.Name,
+		jobType:       job.JobType,
+		errorPolicy:   job.ErrorPolicy,
+		executePolicy: job.ExecutePolicy,
+		workflow:      workflow,
 	}
 
 	return ApolloJobController{
@@ -213,8 +214,9 @@ func (j ApolloJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, erro
 				return list
 			}(),
 		},
-		Timeout:     0,
-		ErrorPolicy: j.errorPolicy,
+		Timeout:       0,
+		ErrorPolicy:   j.errorPolicy,
+		ExecutePolicy: j.executePolicy,
 	}
 
 	return []*commonmodels.JobTask{jobTask}, nil

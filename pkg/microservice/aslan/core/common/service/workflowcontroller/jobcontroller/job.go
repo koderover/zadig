@@ -154,6 +154,16 @@ func runJob(ctx context.Context, job *commonmodels.JobTask, workflowCtx *commonm
 		return
 	}
 
+	// Check execute policy before running the job
+	if !shouldExecuteJob(job) {
+		logger.Infof("skipping job: %s due to execute policy", job.Name)
+		job.Status = config.StatusSkipped
+		job.StartTime = time.Now().Unix()
+		job.EndTime = time.Now().Unix()
+		ack()
+		return
+	}
+
 	job.Status = config.StatusPrepare
 	job.StartTime = time.Now().Unix()
 	job.K8sJobName = getJobName(workflowCtx.WorkflowName, workflowCtx.TaskID)
@@ -393,4 +403,56 @@ func getMatchedRegistries(image string, registries []*commonmodels.RegistryNames
 		}
 	}
 	return resp
+}
+
+// evaluateExecuteRule evaluates a single execute rule against the global context
+func evaluateExecuteRule(rule *commonmodels.JobExecuteRule) bool {
+	ruleValue := rule.Value
+	value := rule.Field
+
+	switch rule.Verb {
+	case string(config.ApplicationFilterActionEq):
+		return value == ruleValue
+	case string(config.ApplicationFilterActionNe):
+		return value != ruleValue
+	case string(config.ApplicationFilterActionBeginsWith):
+		return strings.HasPrefix(value, ruleValue)
+	case string(config.ApplicationFilterActionNotBeginsWith):
+		return !strings.HasPrefix(value, ruleValue)
+	case string(config.ApplicationFilterActionEndsWith):
+		return strings.HasSuffix(value, ruleValue)
+	case string(config.ApplicationFilterActionNotEndsWith):
+		return !strings.HasSuffix(value, ruleValue)
+	case string(config.ApplicationFilterActionContains):
+		return strings.Contains(value, ruleValue)
+	case string(config.ApplicationFilterActionNotContains):
+		return !strings.Contains(value, ruleValue)
+	default:
+		return false
+	}
+}
+
+// shouldExecuteJob determines whether a job should be executed based on its execute policy
+func shouldExecuteJob(job *commonmodels.JobTask) bool {
+	if job.ExecutePolicy == nil || len(job.ExecutePolicy.Rules) == 0 {
+		// No execute policy means the job should run
+		return true
+	}
+
+	// All rules must match (AND logic)
+	allRulesMatch := true
+	for _, rule := range job.ExecutePolicy.Rules {
+		if !evaluateExecuteRule(rule) {
+			allRulesMatch = false
+			break
+		}
+	}
+
+	if job.ExecutePolicy.Type == config.JobExecutePolicyTypeSkip {
+		return !allRulesMatch
+	} else if job.ExecutePolicy.Type == config.JobExecutePolicyTypeExecute {
+		return allRulesMatch
+	}
+
+	return true
 }

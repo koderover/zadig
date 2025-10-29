@@ -49,10 +49,11 @@ func CreateFreestyleJobController(job *commonmodels.Job, workflow *commonmodels.
 	}
 
 	basicInfo := &BasicInfo{
-		name:        job.Name,
-		jobType:     job.JobType,
-		errorPolicy: job.ErrorPolicy,
-		workflow:    workflow,
+		name:          job.Name,
+		jobType:       job.JobType,
+		errorPolicy:   job.ErrorPolicy,
+		executePolicy: job.ExecutePolicy,
+		workflow:      workflow,
 	}
 
 	return FreestyleJobController{
@@ -606,16 +607,17 @@ func (j FreestyleJobController) generateSubTask(taskID int64, jobSubTaskID int, 
 	}
 
 	jobTask := &commonmodels.JobTask{
-		Key:         jobKey,
-		Name:        jobName,
-		DisplayName: jobDisplayName,
-		OriginName:  j.name,
-		JobInfo:     jobInfo,
-		JobType:     string(config.JobFreestyle),
-		Spec:        jobTaskSpec,
-		Timeout:     j.jobSpec.AdvancedSetting.Timeout,
-		Outputs:     j.jobSpec.AdvancedSetting.Outputs,
-		ErrorPolicy: j.errorPolicy,
+		Key:           jobKey,
+		Name:          jobName,
+		DisplayName:   jobDisplayName,
+		OriginName:    j.name,
+		JobInfo:       jobInfo,
+		JobType:       string(config.JobFreestyle),
+		Spec:          jobTaskSpec,
+		Timeout:       j.jobSpec.AdvancedSetting.Timeout,
+		Outputs:       j.jobSpec.AdvancedSetting.Outputs,
+		ErrorPolicy:   j.errorPolicy,
+		ExecutePolicy: j.executePolicy,
 
 		Infrastructure: j.jobSpec.Runtime.Infrastructure,
 		VMLabels:       j.jobSpec.Runtime.VMLabels,
