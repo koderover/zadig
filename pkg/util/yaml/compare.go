@@ -18,6 +18,7 @@ package yaml
 
 import (
 	"reflect"
+	"strings"
 
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/yaml"
@@ -96,4 +97,37 @@ func ContainsFlatKey(source string, excludedKeys []string, keys []string) (bool,
 		}
 	}
 	return false, nil
+}
+
+func Diff(a, b string) string {
+	aLines := strings.Split(a, "\n")
+	bLines := strings.Split(b, "\n")
+	var result []string
+	i, j := 0, 0
+
+	for i < len(aLines) && j < len(bLines) {
+		if aLines[i] == bLines[j] {
+			// 相同时直接显示
+			result = append(result, " "+aLines[i])
+			i++
+			j++
+		} else {
+			// 差异时分别用“-”和“+”标记
+			result = append(result, "-"+aLines[i])
+			result = append(result, "+"+bLines[j])
+			i++
+			j++
+		}
+	}
+	// 处理a剩余
+	for i < len(aLines) {
+		result = append(result, "-"+aLines[i])
+		i++
+	}
+	// 处理b剩余
+	for j < len(bLines) {
+		result = append(result, "+"+bLines[j])
+		j++
+	}
+	return strings.Join(result, "\n")
 }
