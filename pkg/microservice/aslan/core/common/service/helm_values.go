@@ -80,6 +80,7 @@ func syncYamlFromGit(yamlData *templatemodels.CustomYaml, curValue string, origi
 	if err != nil || equal {
 		return false, string(valuesYAML), err
 	}
+	log.Debugf("repo %s yabml diff: %s", repoConfig.Repo, yamlutil.Diff(string(valuesYAML), originValue))
 	return true, string(valuesYAML), nil
 }
 
