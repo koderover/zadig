@@ -488,14 +488,15 @@ func ExecuteReleaseJob(c *handler.Context, planID string, args *ExecuteReleaseJo
 	plan.UpdatedBy = c.UserName
 	plan.UpdateTime = time.Now().Unix()
 
+	sendWebhook := false
+	hookSetting, err := mongodb.NewSystemSettingColl().GetReleasePlanHookSetting()
+	if err != nil {
+		fmtErr := fmt.Errorf("failed get release plan hook setting, err: %v", err)
+		log.Error(fmtErr)
+	}
+
 	if checkReleasePlanJobsAllDone(plan) {
 		plan.Status = config.ReleasePlanStatusSuccess
-
-		hookSetting, err := mongodb.NewSystemSettingColl().GetReleasePlanHookSetting()
-		if err != nil {
-			fmtErr := fmt.Errorf("failed get release plan hook setting, err: %v", err)
-			log.Error(fmtErr)
-		}
 
 		nextStatus, shouldWait := waitForExternalCheck(plan, hookSetting)
 		if shouldWait {
@@ -504,13 +505,17 @@ func ExecuteReleaseJob(c *handler.Context, planID string, args *ExecuteReleaseJo
 			plan.SuccessTime = time.Now().Unix()
 		}
 
-		if err := sendReleasePlanHook(plan, hookSetting); err != nil {
-			log.Errorf("send release plan hook error: %v", err)
-		}
+		sendWebhook = true
 	}
 
 	if err = mongodb.NewReleasePlanColl().UpdateByID(ctx, planID, plan); err != nil {
 		return errors.Wrap(err, "update plan")
+	}
+
+	if sendWebhook {
+		if err := sendReleasePlanHook(plan, hookSetting); err != nil {
+			log.Errorf("send release plan hook error: %v", err)
+		}
 	}
 
 	go func() {
@@ -592,6 +597,13 @@ func ScheduleExecuteReleasePlan(c *handler.Context, planID, jobID string) error 
 
 	log.Infof("schedule execute release plan, plan ID: %s, name: %s, index: %d", plan.ID.Hex(), plan.Name, plan.Index)
 
+	sendWebhook := false
+	hookSetting, err := mongodb.NewSystemSettingColl().GetReleasePlanHookSetting()
+	if err != nil {
+		fmtErr := fmt.Errorf("failed get release plan hook setting, err: %v", err)
+		log.Error(fmtErr)
+	}
+
 	for _, job := range plan.Jobs {
 		if job.Type == config.JobWorkflow {
 			if job.Status == config.ReleasePlanJobStatusDone || job.Status == config.ReleasePlanJobStatusSkipped || job.Status == config.ReleasePlanJobStatusRunning {
@@ -642,12 +654,6 @@ func ScheduleExecuteReleasePlan(c *handler.Context, planID, jobID string) error 
 				plan.SuccessTime = time.Now().Unix()
 				plan.Status = config.ReleasePlanStatusSuccess
 
-				hookSetting, err := mongodb.NewSystemSettingColl().GetReleasePlanHookSetting()
-				if err != nil {
-					fmtErr := fmt.Errorf("failed get release plan hook setting, err: %v", err)
-					log.Error(fmtErr)
-				}
-
 				nextStatus, shouldWait := waitForExternalCheck(plan, hookSetting)
 				if shouldWait {
 					plan.Status = *nextStatus
@@ -655,9 +661,7 @@ func ScheduleExecuteReleasePlan(c *handler.Context, planID, jobID string) error 
 					plan.SuccessTime = time.Now().Unix()
 				}
 
-				if err := sendReleasePlanHook(plan, hookSetting); err != nil {
-					log.Errorf("send release plan hook error: %v", err)
-				}
+				sendWebhook = true
 			}
 
 			log.Infof("schedule execute release job, plan ID: %s, name: %s, index: %d, job ID: %s, job name: %s", plan.ID.Hex(), plan.Name, plan.Index, job.ID, job.Name)
@@ -667,6 +671,12 @@ func ScheduleExecuteReleasePlan(c *handler.Context, planID, jobID string) error 
 				log.Error(err)
 				return err
 			}
+		}
+	}
+
+	if sendWebhook {
+		if err := sendReleasePlanHook(plan, hookSetting); err != nil {
+			log.Errorf("send release plan hook error: %v", err)
 		}
 	}
 
@@ -723,14 +733,15 @@ func SkipReleaseJob(c *handler.Context, planID string, args *SkipReleaseJobArgs,
 	plan.UpdatedBy = c.UserName
 	plan.UpdateTime = time.Now().Unix()
 
+	sendWebhook := false
+	hookSetting, err := mongodb.NewSystemSettingColl().GetReleasePlanHookSetting()
+	if err != nil {
+		fmtErr := fmt.Errorf("failed get release plan hook setting, err: %v", err)
+		log.Error(fmtErr)
+	}
+
 	if checkReleasePlanJobsAllDone(plan) {
 		plan.Status = config.ReleasePlanStatusSuccess
-
-		hookSetting, err := mongodb.NewSystemSettingColl().GetReleasePlanHookSetting()
-		if err != nil {
-			fmtErr := fmt.Errorf("failed get release plan hook setting, err: %v", err)
-			log.Error(fmtErr)
-		}
 
 		nextStatus, shouldWait := waitForExternalCheck(plan, hookSetting)
 		if shouldWait {
@@ -738,14 +749,16 @@ func SkipReleaseJob(c *handler.Context, planID string, args *SkipReleaseJobArgs,
 		} else {
 			plan.SuccessTime = time.Now().Unix()
 		}
-
-		if err := sendReleasePlanHook(plan, hookSetting); err != nil {
-			log.Errorf("send release plan hook error: %v", err)
-		}
 	}
 
 	if err = mongodb.NewReleasePlanColl().UpdateByID(ctx, planID, plan); err != nil {
 		return errors.Wrap(err, "update plan")
+	}
+
+	if sendWebhook {
+		if err := sendReleasePlanHook(plan, hookSetting); err != nil {
+			log.Errorf("send release plan hook error: %v", err)
+		}
 	}
 
 	go func() {
@@ -792,6 +805,7 @@ func UpdateReleasePlanStatus(c *handler.Context, planID, status string, isSystem
 
 	detail := ""
 
+	sendWebhook := false
 	hookSetting, err := mongodb.NewSystemSettingColl().GetReleasePlanHookSetting()
 	if err != nil {
 		fmtErr := fmt.Errorf("failed get release plan hook setting, err: %v", err)
@@ -837,11 +851,9 @@ func UpdateReleasePlanStatus(c *handler.Context, planID, status string, isSystem
 			plan.ExecutingTime = time.Now().Unix()
 		}
 
-		if err := sendReleasePlanHook(plan, hookSetting); err != nil {
-			log.Errorf("send release plan hook error: %v", err)
-		}
-
 		setReleaseJobsForExecuting(plan)
+
+		sendWebhook = true
 	case config.ReleasePlanStatusWaitForApprove:
 		nextStatus, shouldWait := waitForExternalCheck(plan, hookSetting)
 		if shouldWait {
@@ -856,10 +868,7 @@ func UpdateReleasePlanStatus(c *handler.Context, planID, status string, isSystem
 			}
 		}
 
-		if err := sendReleasePlanHook(plan, hookSetting); err != nil {
-			log.Errorf("send release plan hook error: %v", err)
-		}
-
+		sendWebhook = true
 	case config.ReleasePlanStatusCancel:
 		// set executing status final time
 		// plan.ExecutingTime = time.Now().Unix()
@@ -872,6 +881,12 @@ func UpdateReleasePlanStatus(c *handler.Context, planID, status string, isSystem
 
 	if err := upsertReleasePlanCron(plan.ID.Hex(), plan.Name, plan.Index, plan.Status, plan.ScheduleExecuteTime); err != nil {
 		return errors.Wrap(err, "upsert release plan cron")
+	}
+
+	if sendWebhook {
+		if err := sendReleasePlanHook(plan, hookSetting); err != nil {
+			log.Errorf("send release plan hook error: %v", err)
+		}
 	}
 
 	go func() {
@@ -919,6 +934,7 @@ func ApproveReleasePlan(c *handler.Context, planID string, req *ApproveRequest) 
 		return errors.Errorf("plan approval is nil or not native approval")
 	}
 
+	sendWebhook := false
 	hookSetting, err := mongodb.NewSystemSettingColl().GetReleasePlanHookSetting()
 	if err != nil {
 		fmtErr := fmt.Errorf("failed get release plan hook setting, err: %v", err)
@@ -982,10 +998,6 @@ func ApproveReleasePlan(c *handler.Context, planID string, req *ApproveRequest) 
 			plan.ExecutingTime = time.Now().Unix()
 		}
 
-		if err := sendReleasePlanHook(plan, hookSetting); err != nil {
-			log.Errorf("send release plan hook error: %v", err)
-		}
-
 		setReleaseJobsForExecuting(plan)
 	case config.StatusReject:
 		planLog = &models.ReleasePlanLog{
@@ -1000,6 +1012,12 @@ func ApproveReleasePlan(c *handler.Context, planID string, req *ApproveRequest) 
 
 	if err = mongodb.NewReleasePlanColl().UpdateByID(ctx, planID, plan); err != nil {
 		return errors.Wrap(err, "update plan")
+	}
+
+	if sendWebhook {
+		if err := sendReleasePlanHook(plan, hookSetting); err != nil {
+			log.Errorf("send release plan hook error: %v", err)
+		}
 	}
 
 	go func() {
@@ -1380,36 +1398,55 @@ func sendReleasePlanHook(plan *models.ReleasePlan, systemHookSetting *commonmode
 		return nil
 	}
 
-	hookEvent := commonmodels.ReleasePlanHookEvent("")
-	hookEventStatusMap := map[config.ReleasePlanStatus]bool{}
+	type EventStatus struct {
+		Event  commonmodels.ReleasePlanHookEvent
+		Status bool
+	}
+
+	hookEventStatusMap := map[config.ReleasePlanStatus]*EventStatus{}
 	for _, event := range hookSetting.HookEvents {
 		switch event {
 		case models.ReleasePlanHookEventSubmitApproval:
-			hookEvent = models.ReleasePlanHookEventSubmitApproval
 			if hookSetting.EnableCallBack {
-				hookEventStatusMap[config.ReleasePlanStatusWaitForApproveExternalCheck] = true
+				hookEventStatusMap[config.ReleasePlanStatusWaitForApproveExternalCheck] = &EventStatus{
+					Event:  models.ReleasePlanHookEventSubmitApproval,
+					Status: true,
+				}
 			} else {
-				hookEventStatusMap[config.ReleasePlanStatusWaitForApprove] = true
+				hookEventStatusMap[config.ReleasePlanStatusWaitForApprove] = &EventStatus{
+					Event:  models.ReleasePlanHookEventSubmitApproval,
+					Status: true,
+				}
 			}
 		case models.ReleasePlanHookEventStartExecute:
-			hookEvent = models.ReleasePlanHookEventStartExecute
 			if hookSetting.EnableCallBack {
-				hookEventStatusMap[config.ReleasePlanStatusWaitForExecuteExternalCheck] = true
+				hookEventStatusMap[config.ReleasePlanStatusWaitForExecuteExternalCheck] = &EventStatus{
+					Event:  models.ReleasePlanHookEventStartExecute,
+					Status: true,
+				}
 			} else {
-				hookEventStatusMap[config.ReleasePlanStatusExecuting] = true
+				hookEventStatusMap[config.ReleasePlanStatusExecuting] = &EventStatus{
+					Event:  models.ReleasePlanHookEventStartExecute,
+					Status: true,
+				}
 			}
 		case models.ReleasePlanHookEventAllJobDone:
-			hookEvent = models.ReleasePlanHookEventAllJobDone
 			if hookSetting.EnableCallBack {
-				hookEventStatusMap[config.ReleasePlanStatusWaitForAllDoneExternalCheck] = true
+				hookEventStatusMap[config.ReleasePlanStatusWaitForAllDoneExternalCheck] = &EventStatus{
+					Event:  models.ReleasePlanHookEventAllJobDone,
+					Status: true,
+				}
 			} else {
-				hookEventStatusMap[config.ReleasePlanStatusSuccess] = true
+				hookEventStatusMap[config.ReleasePlanStatusSuccess] = &EventStatus{
+					Event:  models.ReleasePlanHookEventAllJobDone,
+					Status: true,
+				}
 			}
 		}
 	}
 
-	if hookEventStatusMap[plan.Status] {
-		hookBody, err := convertReleasePlanToHookBody(plan, hookEvent)
+	if hookEventStatusMap[plan.Status] != nil && hookEventStatusMap[plan.Status].Status {
+		hookBody, err := convertReleasePlanToHookBody(plan, hookEventStatusMap[plan.Status].Event)
 		if err != nil {
 			log.Errorf("failed convert release plan to hook body, plan: %+v, err: %v", plan, err)
 			return err

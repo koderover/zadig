@@ -120,25 +120,30 @@ func updatePlanWorkflowReleaseJob(plan *models.ReleasePlan, log *zap.SugaredLogg
 	}
 
 	if changed {
-		if done {
-			hookSetting, err := mongodb.NewSystemSettingColl().GetReleasePlanHookSetting()
-			if err != nil {
-				fmtErr := fmt.Errorf("failed get release plan hook setting, err: %v", err)
-				log.Error(fmtErr)
-			}
+		sendWebhook := false
+		hookSetting, err := mongodb.NewSystemSettingColl().GetReleasePlanHookSetting()
+		if err != nil {
+			fmtErr := fmt.Errorf("failed get release plan hook setting, err: %v", err)
+			log.Error(fmtErr)
+		}
 
+		if done {
 			nextStatus, shouldWait := waitForExternalCheck(plan, hookSetting)
 			if shouldWait {
 				plan.Status = *nextStatus
 			}
 
-			if err := sendReleasePlanHook(plan, hookSetting); err != nil {
-				log.Errorf("send release plan hook error: %v", err)
-			}
+			sendWebhook = true
 		}
 
 		if err := mongodb.NewReleasePlanColl().UpdateByID(ctx, plan.ID.Hex(), plan); err != nil {
 			log.Errorf("update plan %s error: %v", plan.ID.Hex(), err)
+		}
+
+		if sendWebhook {
+			if err := sendReleasePlanHook(plan, hookSetting); err != nil {
+				log.Errorf("send release plan hook error: %v", err)
+			}
 		}
 	}
 	return
@@ -194,6 +199,7 @@ func updatePlanApproval(plan *models.ReleasePlan) error {
 		return nil
 	}
 
+	sendWebhook := false
 	hookSetting, err := mongodb.NewSystemSettingColl().GetReleasePlanHookSetting()
 	if err != nil {
 		fmtErr := fmt.Errorf("failed get release plan hook setting, err: %v", err)
@@ -251,9 +257,7 @@ func updatePlanApproval(plan *models.ReleasePlan) error {
 			plan.ExecutingTime = time.Now().Unix()
 		}
 
-		if err := sendReleasePlanHook(plan, hookSetting); err != nil {
-			log.Errorf("send release plan hook error: %v", err)
-		}
+		sendWebhook = true
 
 		setReleaseJobsForExecuting(plan)
 	case config.StatusReject:
@@ -268,6 +272,12 @@ func updatePlanApproval(plan *models.ReleasePlan) error {
 
 	if err := mongodb.NewReleasePlanColl().UpdateByID(ctx, plan.ID.Hex(), plan); err != nil {
 		return errors.Errorf("update plan %s error: %v", plan.ID.Hex(), err)
+	}
+
+	if sendWebhook {
+		if err := sendReleasePlanHook(plan, hookSetting); err != nil {
+			log.Errorf("send release plan hook error: %v", err)
+		}
 	}
 
 	go func() {
