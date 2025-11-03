@@ -1874,10 +1874,11 @@ func geneYamlData(args *commonservice.ValuesDataArgs) *templatemodels.CustomYaml
 }
 
 func SyncHelmProductEnvironment(productName, envName, requestID string, log *zap.SugaredLogger) error {
-	syncLock := cache.NewRedisLockWithExpiry(fmt.Sprintf("%s:%s:%s", SyncHelmEnvVariablesLockKey, productName, envName), time.Second*900)
-	err := syncLock.TryLock()
+	lockKey := fmt.Sprintf("%s:%s:%s", SyncHelmEnvVariablesLockKey, productName, envName)
+	syncLock := cache.NewRedisLockWithExpiry(lockKey, time.Second*900)
+	err := syncLock.TryLock2()
 	if err != nil {
-		log.Infof("sync helm env variables is processing, project: %s, env: %s", productName, envName)
+		log.Infof("sync helm env variables is processing, project: %s, env: %s, lock info: %v", productName, envName, err)
 		return nil
 	}
 	defer syncLock.Unlock()
@@ -1950,6 +1951,9 @@ func SyncHelmProductEnvironment(productName, envName, requestID string, log *zap
 	if err != nil {
 		return err
 	}
+
+	time.Sleep(120 * time.Second)
+	log.Debugf("end sync helm vars")
 	return err
 }
 

@@ -682,7 +682,7 @@ func DeployMultiHelmRelease(productResp *commonmodels.Product, helmClient *helmt
 		start := time.Now()
 		defer func() {
 			cost := time.Since(start).Seconds()
-			log.Debugf("deploy helm service: %s, cost: %v", param.ServiceObj.ServiceName, cost)
+			log.Infof("deploy helm service: %s, cost: %v", param.ServiceObj.ServiceName, cost)
 
 			if param.ProdService != nil {
 				if err != nil {

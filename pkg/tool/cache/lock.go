@@ -17,6 +17,7 @@ limitations under the License.
 package cache
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
@@ -47,6 +48,7 @@ func NewRedisLock(key string) *RedisLock {
 
 func NewRedisLockWithExpiry(key string, expiry time.Duration) *RedisLock {
 	return &RedisLock{
+		key:   key,
 		mutex: resync.NewMutex(key, redsync.WithRetryDelay(time.Millisecond*500), redsync.WithExpiry(expiry)),
 	}
 }
@@ -62,6 +64,14 @@ func (lock *RedisLock) Lock() error {
 }
 
 func (lock *RedisLock) TryLock() error {
+	err := lock.mutex.TryLock()
+	if err != nil {
+		return fmt.Errorf("try lock %s err: %s", lock.key, err)
+	}
+	return nil
+}
+
+func (lock *RedisLock) TryLock2() error {
 	err := lock.mutex.TryLock()
 	if err != nil {
 		if strings.Contains(err.Error(), "lock already taken") {
