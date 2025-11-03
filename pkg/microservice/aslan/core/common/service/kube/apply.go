@@ -432,13 +432,21 @@ func IsStatefulSetStuckInUpdate(sts *appsv1.StatefulSet, log *zap.SugaredLogger)
 
 	desiredReplicas := *spec.Replicas
 
+	// Check if StatefulSet is in the middle of an update
+	// The update is in progress when currentRevision != updateRevision
 	if status.CurrentRevision != "" && status.UpdateRevision != "" &&
 		status.CurrentRevision != status.UpdateRevision {
 
-		if status.UpdatedReplicas < desiredReplicas && status.UpdatedReplicas > 0 {
-			log.Infof("StatefulSet %s/%s appears to be stuck in update: currentRevision=%s, updateRevision=%s, replicas=%d, updatedReplicas=%d, currentReplicas=%d",
+		// StatefulSet is stuck if:
+		// 1. Not all replicas are updated (updatedReplicas < desiredReplicas)
+		// 2. OR not all replicas are ready (readyReplicas < desiredReplicas)
+		// 3. OR the update hasn't fully rolled out (currentRevision != updateRevision means rollout incomplete)
+		isStuck := status.UpdatedReplicas < desiredReplicas || status.ReadyReplicas < desiredReplicas
+
+		if isStuck {
+			log.Warnf("StatefulSet %s/%s appears to be stuck in update: currentRevision=%s, updateRevision=%s, replicas=%d, updatedReplicas=%d, readyReplicas=%d, currentReplicas=%d",
 				sts.Namespace, sts.Name, status.CurrentRevision, status.UpdateRevision,
-				desiredReplicas, status.UpdatedReplicas, status.CurrentReplicas)
+				desiredReplicas, status.UpdatedReplicas, status.ReadyReplicas, status.CurrentReplicas)
 			return true
 		}
 	}
