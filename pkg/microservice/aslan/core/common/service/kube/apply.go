@@ -418,7 +418,7 @@ func CheckResourceAppliedByOtherEnv(serviceYaml string, productInfo *commonmodel
 	return fmt.Errorf("resource is applied by other envs: %v", strings.Join(usedEnvStr, ","))
 }
 
-func isStatefulSetStuckInUpdate(sts *appsv1.StatefulSet, log *zap.SugaredLogger) bool {
+func IsStatefulSetStuckInUpdate(sts *appsv1.StatefulSet, log *zap.SugaredLogger) bool {
 	if sts == nil {
 		return false
 	}
@@ -446,7 +446,7 @@ func isStatefulSetStuckInUpdate(sts *appsv1.StatefulSet, log *zap.SugaredLogger)
 	return false
 }
 
-func isDeploymentStuckInUpdate(deploy *appsv1.Deployment, log *zap.SugaredLogger) bool {
+func IsDeploymentStuckInUpdate(deploy *appsv1.Deployment, log *zap.SugaredLogger) bool {
 	if deploy == nil {
 		return false
 	}
@@ -478,7 +478,7 @@ func isDeploymentStuckInUpdate(deploy *appsv1.Deployment, log *zap.SugaredLogger
 	return false
 }
 
-func handleStuckStatefulSet(sts *appsv1.StatefulSet, clientSet *kubernetes.Clientset, log *zap.SugaredLogger) error {
+func HandleStuckStatefulSet(sts *appsv1.StatefulSet, clientSet *kubernetes.Clientset, log *zap.SugaredLogger) error {
 	log.Warnf("Attempting to fix stuck StatefulSet %s/%s by deleting non-ready pods", sts.Namespace, sts.Name)
 
 	selector, err := metav1.LabelSelectorAsSelector(sts.Spec.Selector)
@@ -528,7 +528,9 @@ func handleStuckStatefulSet(sts *appsv1.StatefulSet, clientSet *kubernetes.Clien
 	}
 
 	if deletedCount > 0 {
-		log.Infof("Deleted %d stuck pod(s) for StatefulSet %s/%s", deletedCount, sts.Namespace, sts.Name)
+		log.Infof("Deleted %d stuck pod(s) for StatefulSet %s/%s, waiting briefly for controller to react", deletedCount, sts.Namespace, sts.Name)
+		// Brief pause to allow Kubernetes controller to process the deletions
+		time.Sleep(1 * time.Second)
 	} else {
 		log.Infof("No stuck pods found for StatefulSet %s/%s", sts.Namespace, sts.Name)
 	}
@@ -536,7 +538,7 @@ func handleStuckStatefulSet(sts *appsv1.StatefulSet, clientSet *kubernetes.Clien
 	return nil
 }
 
-func handleStuckDeployment(deploy *appsv1.Deployment, clientSet *kubernetes.Clientset, log *zap.SugaredLogger) error {
+func HandleStuckDeployment(deploy *appsv1.Deployment, clientSet *kubernetes.Clientset, log *zap.SugaredLogger) error {
 	log.Warnf("Attempting to fix stuck Deployment %s/%s by deleting non-ready pods", deploy.Namespace, deploy.Name)
 
 	selector, err := metav1.LabelSelectorAsSelector(deploy.Spec.Selector)
@@ -582,7 +584,9 @@ func handleStuckDeployment(deploy *appsv1.Deployment, clientSet *kubernetes.Clie
 	}
 
 	if deletedCount > 0 {
-		log.Infof("Deleted %d stuck pod(s) for Deployment %s/%s", deletedCount, deploy.Namespace, deploy.Name)
+		log.Infof("Deleted %d stuck pod(s) for Deployment %s/%s, waiting briefly for controller to react", deletedCount, deploy.Namespace, deploy.Name)
+		// Brief pause to allow Kubernetes controller to process the deletions
+		time.Sleep(1 * time.Second)
 	} else {
 		log.Infof("No stuck pods found for Deployment %s/%s", deploy.Namespace, deploy.Name)
 	}
@@ -790,7 +794,7 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 				if getErr != nil {
 					log.Warnf("Failed to get existing Deployment %s/%s: %v", namespace, res.Name, getErr)
 				} else if deployExists {
-					isStuck = isDeploymentStuckInUpdate(existingDeploy, log)
+					isStuck = IsDeploymentStuckInUpdate(existingDeploy, log)
 				}
 
 				// Inject imagePullSecrets if qn-registry-secret is not set
@@ -807,7 +811,7 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 
 				if isStuck && deployExists {
 					log.Infof("Deployment %s/%s was stuck, cleaning up stuck pods after applying patch", namespace, res.Name)
-					if fixErr := handleStuckDeployment(existingDeploy, clientSet, log); fixErr != nil {
+					if fixErr := HandleStuckDeployment(existingDeploy, clientSet, log); fixErr != nil {
 						log.Warnf("Failed to clean up stuck pods for Deployment %s/%s: %v", namespace, res.Name, fixErr)
 					}
 				}
@@ -818,7 +822,7 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 				if getErr != nil {
 					log.Warnf("Failed to get existing StatefulSet %s/%s: %v", namespace, res.Name, getErr)
 				} else if stsExists {
-					isStuck = isStatefulSetStuckInUpdate(existingSts, log)
+					isStuck = IsStatefulSetStuckInUpdate(existingSts, log)
 				}
 
 				// Inject imagePullSecrets if qn-registry-secret is not set
@@ -835,7 +839,7 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 
 				if isStuck && stsExists {
 					log.Infof("StatefulSet %s/%s was stuck, cleaning up stuck pods after applying patch", namespace, res.Name)
-					if fixErr := handleStuckStatefulSet(existingSts, clientSet, log); fixErr != nil {
+					if fixErr := HandleStuckStatefulSet(existingSts, clientSet, log); fixErr != nil {
 						log.Warnf("Failed to clean up stuck pods for StatefulSet %s/%s: %v", namespace, res.Name, fixErr)
 					}
 				}
