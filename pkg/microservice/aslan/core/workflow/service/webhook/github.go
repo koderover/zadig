@@ -520,7 +520,7 @@ func updateServiceTemplateByGithubPush(pushEvent *github.PushEvent, log *zap.Sug
 				}
 			}
 			if affected {
-				log.Infof("Started to sync service template %s from github %s", service.ServiceName, service.SrcPath)
+				log.Infof("Started to sync service template %s from github %s, production %v", service.ServiceName, service.SrcPath, production)
 				//TODO: 异步处理
 				service.CreateBy = "system"
 				service.Production = production
@@ -530,7 +530,7 @@ func updateServiceTemplateByGithubPush(pushEvent *github.PushEvent, log *zap.Sug
 					errs = multierror.Append(errs, err)
 				}
 			} else {
-				log.Infof("Service template %s from github %s is not affected, no sync", service.ServiceName, service.SrcPath)
+				log.Infof("Service template %s from github %s is not affected, no sync, production %v", service.ServiceName, service.SrcPath, production)
 			}
 		}
 	}
@@ -610,7 +610,7 @@ func updateServiceTemplateHelmValuesByGithubPush(pushEvent *github.PushEvent, lo
 				}
 			}
 			if affected {
-				log.Infof("Started to sync service template %s's helm values from github %s", service.ServiceName, sourceRepo.LoadPath)
+				log.Infof("Started to sync service template %s's helm values from github %s, production %v", service.ServiceName, sourceRepo.LoadPath, production)
 				//TODO: 异步处理
 				service.CreateBy = "system"
 				service.Production = production
@@ -620,7 +620,7 @@ func updateServiceTemplateHelmValuesByGithubPush(pushEvent *github.PushEvent, lo
 					errs = multierror.Append(errs, err)
 				}
 			} else {
-				log.Infof("Service template %s's helm values from github %s is not affected, no sync", service.ServiceName, sourceRepo.LoadPath)
+				log.Infof("Service template %s's helm values from github %s is not affected, no sync, production %v", service.ServiceName, sourceRepo.LoadPath, production)
 			}
 		}
 	}
