@@ -418,8 +418,198 @@ func CheckResourceAppliedByOtherEnv(serviceYaml string, productInfo *commonmodel
 	return fmt.Errorf("resource is applied by other envs: %v", strings.Join(usedEnvStr, ","))
 }
 
+func IsStatefulSetStuckInUpdate(sts *appsv1.StatefulSet, log *zap.SugaredLogger) bool {
+	if sts == nil {
+		return false
+	}
+
+	status := sts.Status
+	spec := sts.Spec
+
+	if spec.Replicas == nil {
+		return false
+	}
+
+	desiredReplicas := *spec.Replicas
+
+	// Check if StatefulSet is in the middle of an update
+	// The update is in progress when currentRevision != updateRevision
+	if status.CurrentRevision != "" && status.UpdateRevision != "" &&
+		status.CurrentRevision != status.UpdateRevision {
+
+		// StatefulSet is stuck if:
+		// 1. Not all replicas are updated (updatedReplicas < desiredReplicas)
+		// 2. OR not all replicas are ready (readyReplicas < desiredReplicas)
+		// 3. OR the update hasn't fully rolled out (currentRevision != updateRevision means rollout incomplete)
+		isStuck := status.UpdatedReplicas < desiredReplicas || status.ReadyReplicas < desiredReplicas
+
+		if isStuck {
+			log.Warnf("StatefulSet %s/%s appears to be stuck in update: currentRevision=%s, updateRevision=%s, replicas=%d, updatedReplicas=%d, readyReplicas=%d, currentReplicas=%d",
+				sts.Namespace, sts.Name, status.CurrentRevision, status.UpdateRevision,
+				desiredReplicas, status.UpdatedReplicas, status.ReadyReplicas, status.CurrentReplicas)
+			return true
+		}
+	}
+
+	return false
+}
+
+func IsDeploymentStuckInUpdate(deploy *appsv1.Deployment, log *zap.SugaredLogger) bool {
+	if deploy == nil {
+		return false
+	}
+
+	status := deploy.Status
+	spec := deploy.Spec
+
+	if spec.Replicas == nil {
+		return false
+	}
+
+	desiredReplicas := *spec.Replicas
+
+	for _, condition := range status.Conditions {
+		if condition.Type == appsv1.DeploymentProgressing && condition.Status == corev1.ConditionFalse {
+			log.Infof("Deployment %s/%s has Progressing condition=False, reason=%s, message=%s",
+				deploy.Namespace, deploy.Name, condition.Reason, condition.Message)
+			return true
+		}
+	}
+
+	if status.UpdatedReplicas > 0 && status.UpdatedReplicas < desiredReplicas &&
+		status.ReadyReplicas < desiredReplicas {
+		log.Infof("Deployment %s/%s appears to be stuck in update: replicas=%d, updatedReplicas=%d, readyReplicas=%d",
+			deploy.Namespace, deploy.Name, desiredReplicas, status.UpdatedReplicas, status.ReadyReplicas)
+		return true
+	}
+
+	return false
+}
+
+func HandleStuckStatefulSet(sts *appsv1.StatefulSet, clientSet *kubernetes.Clientset, log *zap.SugaredLogger) error {
+	log.Warnf("Attempting to fix stuck StatefulSet %s/%s by deleting non-ready pods", sts.Namespace, sts.Name)
+
+	selector, err := metav1.LabelSelectorAsSelector(sts.Spec.Selector)
+	if err != nil {
+		return errors.Wrapf(err, "failed to convert label selector for StatefulSet %s/%s", sts.Namespace, sts.Name)
+	}
+
+	pods, err := clientSet.CoreV1().Pods(sts.Namespace).List(context.TODO(), metav1.ListOptions{
+		LabelSelector: selector.String(),
+	})
+	if err != nil {
+		return errors.Wrapf(err, "failed to list pods for StatefulSet %s/%s", sts.Namespace, sts.Name)
+	}
+
+	// Delete non-ready pods to unblock the update
+	deletedCount := 0
+	for _, pod := range pods.Items {
+		// Check if pod is not ready
+		isReady := false
+		for _, condition := range pod.Status.Conditions {
+			if condition.Type == corev1.PodReady && condition.Status == corev1.ConditionTrue {
+				isReady = true
+				break
+			}
+		}
+
+		// Also check if pod is in a failed state
+		isStuck := !isReady || pod.Status.Phase == corev1.PodPending ||
+			pod.Status.Phase == corev1.PodFailed || pod.Status.Phase == corev1.PodUnknown
+
+		if isStuck {
+			log.Warnf("Deleting stuck pod %s/%s (phase=%s, ready=%v) to unblock StatefulSet update",
+				pod.Namespace, pod.Name, pod.Status.Phase, isReady)
+
+			// Use zero grace period to force delete if necessary
+			gracePeriodSeconds := int64(0)
+			err := clientSet.CoreV1().Pods(pod.Namespace).Delete(context.TODO(), pod.Name, metav1.DeleteOptions{
+				GracePeriodSeconds: &gracePeriodSeconds,
+			})
+			if err != nil && !apierrors.IsNotFound(err) {
+				log.Errorf("Failed to delete stuck pod %s/%s: %v", pod.Namespace, pod.Name, err)
+				// Continue trying to delete other pods
+				continue
+			}
+			deletedCount++
+		}
+	}
+
+	if deletedCount > 0 {
+		log.Infof("Deleted %d stuck pod(s) for StatefulSet %s/%s, waiting briefly for controller to react", deletedCount, sts.Namespace, sts.Name)
+		// Brief pause to allow Kubernetes controller to process the deletions
+		time.Sleep(1 * time.Second)
+	} else {
+		log.Infof("No stuck pods found for StatefulSet %s/%s", sts.Namespace, sts.Name)
+	}
+
+	return nil
+}
+
+func HandleStuckDeployment(deploy *appsv1.Deployment, clientSet *kubernetes.Clientset, log *zap.SugaredLogger) error {
+	log.Warnf("Attempting to fix stuck Deployment %s/%s by deleting non-ready pods", deploy.Namespace, deploy.Name)
+
+	selector, err := metav1.LabelSelectorAsSelector(deploy.Spec.Selector)
+	if err != nil {
+		return errors.Wrapf(err, "failed to convert label selector for Deployment %s/%s", deploy.Namespace, deploy.Name)
+	}
+
+	pods, err := clientSet.CoreV1().Pods(deploy.Namespace).List(context.TODO(), metav1.ListOptions{
+		LabelSelector: selector.String(),
+	})
+	if err != nil {
+		return errors.Wrapf(err, "failed to list pods for Deployment %s/%s", deploy.Namespace, deploy.Name)
+	}
+
+	// Delete non-ready pods to unblock the update
+	deletedCount := 0
+	for _, pod := range pods.Items {
+		// Check if pod is not ready
+		isReady := false
+		for _, condition := range pod.Status.Conditions {
+			if condition.Type == corev1.PodReady && condition.Status == corev1.ConditionTrue {
+				isReady = true
+				break
+			}
+		}
+
+		// Also check if pod is in a failed state
+		isStuck := !isReady || pod.Status.Phase == corev1.PodPending ||
+			pod.Status.Phase == corev1.PodFailed || pod.Status.Phase == corev1.PodUnknown
+
+		if isStuck {
+			log.Warnf("Deleting stuck pod %s/%s (phase=%s, ready=%v) to unblock Deployment update",
+				pod.Namespace, pod.Name, pod.Status.Phase, isReady)
+
+			err := clientSet.CoreV1().Pods(pod.Namespace).Delete(context.TODO(), pod.Name, metav1.DeleteOptions{})
+			if err != nil && !apierrors.IsNotFound(err) {
+				log.Errorf("Failed to delete stuck pod %s/%s: %v", pod.Namespace, pod.Name, err)
+				// Continue trying to delete other pods
+				continue
+			}
+			deletedCount++
+		}
+	}
+
+	if deletedCount > 0 {
+		log.Infof("Deleted %d stuck pod(s) for Deployment %s/%s, waiting briefly for controller to react", deletedCount, deploy.Namespace, deploy.Name)
+		// Brief pause to allow Kubernetes controller to process the deletions
+		time.Sleep(1 * time.Second)
+	} else {
+		log.Infof("No stuck pods found for Deployment %s/%s", deploy.Namespace, deploy.Name)
+	}
+
+	return nil
+}
+
 // CreateOrPatchResource create or patch resources defined in UpdateResourceYaml
 // `CurrentResourceYaml` will be used to determine if some resources will be deleted
+//
+// The function now:
+// 1. Detects if existing StatefulSets/Deployments are stuck in an update
+// 2. Applies the new patch FIRST to update the workload spec
+// 3. THEN deletes stuck pods (from the old spec) so they recreate with the NEW spec
+// 4. Logs all recovery attempts for troubleshooting
 func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogger) ([]*unstructured.Unstructured, error) {
 	var err error
 	productInfo := applyParam.ProductInfo
@@ -607,6 +797,14 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 
 			switch res := obj.(type) {
 			case *appsv1.Deployment:
+				existingDeploy, deployExists, getErr := getter.GetDeployment(namespace, res.Name, kubeClient)
+				isStuck := false
+				if getErr != nil {
+					log.Warnf("Failed to get existing Deployment %s/%s: %v", namespace, res.Name, getErr)
+				} else if deployExists {
+					isStuck = IsDeploymentStuckInUpdate(existingDeploy, log)
+				}
+
 				// Inject imagePullSecrets if qn-registry-secret is not set
 				if applyParam.InjectSecrets {
 					ApplySystemImagePullSecrets(&res.Spec.Template.Spec)
@@ -618,7 +816,23 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 					errList = multierror.Append(errList, err)
 					continue
 				}
+
+				if isStuck && deployExists {
+					log.Infof("Deployment %s/%s was stuck, cleaning up stuck pods after applying patch", namespace, res.Name)
+					if fixErr := HandleStuckDeployment(existingDeploy, clientSet, log); fixErr != nil {
+						log.Warnf("Failed to clean up stuck pods for Deployment %s/%s: %v", namespace, res.Name, fixErr)
+					}
+				}
+
 			case *appsv1.StatefulSet:
+				existingSts, stsExists, getErr := getter.GetStatefulSet(namespace, res.Name, kubeClient)
+				isStuck := false
+				if getErr != nil {
+					log.Warnf("Failed to get existing StatefulSet %s/%s: %v", namespace, res.Name, getErr)
+				} else if stsExists {
+					isStuck = IsStatefulSetStuckInUpdate(existingSts, log)
+				}
+
 				// Inject imagePullSecrets if qn-registry-secret is not set
 				if applyParam.InjectSecrets {
 					ApplySystemImagePullSecrets(&res.Spec.Template.Spec)
@@ -630,6 +844,14 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 					errList = multierror.Append(errList, errors.Wrapf(err, "failed to create or update %s/%s", u.GetKind(), u.GetName()))
 					continue
 				}
+
+				if isStuck && stsExists {
+					log.Infof("StatefulSet %s/%s was stuck, cleaning up stuck pods after applying patch", namespace, res.Name)
+					if fixErr := HandleStuckStatefulSet(existingSts, clientSet, log); fixErr != nil {
+						log.Warnf("Failed to clean up stuck pods for StatefulSet %s/%s: %v", namespace, res.Name, fixErr)
+					}
+				}
+
 			default:
 				errList = multierror.Append(errList, fmt.Errorf("object is not a appsv1.Deployment or appsv1.StatefulSet"))
 				continue
