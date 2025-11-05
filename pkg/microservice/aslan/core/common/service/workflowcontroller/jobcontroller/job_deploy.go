@@ -323,10 +323,22 @@ L:
 	for _, deploy := range deployments {
 		for _, container := range deploy.Spec.Template.Spec.Containers {
 			if container.Name == serviceModule.ServiceModule {
+				// Check if Deployment is stuck before updating
+				isStuck := kube.IsDeploymentStuckInUpdate(deploy, logger)
+
 				err = updater.UpdateDeploymentImage(deploy.Namespace, deploy.Name, serviceModule.ServiceModule, serviceModule.Image, kubeClient)
 				if err != nil {
 					return nil, nil, fmt.Errorf("failed to update container image in %s/deployments/%s/%s: %v", env.Namespace, deploy.Name, container.Name, err)
 				}
+
+				// If it was stuck, clean up stuck pods after the update
+				if isStuck {
+					logger.Infof("Deployment %s/%s was stuck, cleaning up stuck pods after image update", deploy.Namespace, deploy.Name)
+					if fixErr := kube.HandleStuckDeployment(deploy, clientSet, logger); fixErr != nil {
+						logger.Warnf("Failed to clean up stuck pods for Deployment %s/%s: %v", deploy.Namespace, deploy.Name, fixErr)
+					}
+				}
+
 				replaceResources = append(replaceResources, commonmodels.Resource{
 					Kind:      setting.Deployment,
 					Container: container.Name,
@@ -341,10 +353,12 @@ L:
 
 		for _, container := range deploy.Spec.Template.Spec.InitContainers {
 			if container.Name == serviceModule.ServiceModule {
+
 				err = updater.UpdateDeploymentInitImage(deploy.Namespace, deploy.Name, serviceModule.ServiceModule, serviceModule.Image, kubeClient)
 				if err != nil {
 					return nil, nil, fmt.Errorf("failed to update container image in %s/deployments/%s/%s: %v", env.Namespace, deploy.Name, container.Name, err)
 				}
+
 				replaceResources = append(replaceResources, commonmodels.Resource{
 					Kind:      setting.Deployment,
 					Container: container.Name,
@@ -361,10 +375,22 @@ Loop:
 	for _, sts := range statefulSets {
 		for _, container := range sts.Spec.Template.Spec.Containers {
 			if container.Name == serviceModule.ServiceModule {
+				// Check if StatefulSet is stuck before updating
+				isStuck := kube.IsStatefulSetStuckInUpdate(sts, logger)
+
 				err = updater.UpdateStatefulSetImage(sts.Namespace, sts.Name, serviceModule.ServiceModule, serviceModule.Image, kubeClient)
 				if err != nil {
 					return nil, nil, fmt.Errorf("failed to update container image in %s/statefulsets/%s/%s: %v", env.Namespace, sts.Name, container.Name, err)
 				}
+
+				// If it was stuck, clean up stuck pods after the update
+				if isStuck {
+					logger.Infof("StatefulSet %s/%s was stuck, cleaning up stuck pods after image update", sts.Namespace, sts.Name)
+					if fixErr := kube.HandleStuckStatefulSet(sts, clientSet, logger); fixErr != nil {
+						logger.Warnf("Failed to clean up stuck pods for StatefulSet %s/%s: %v", sts.Namespace, sts.Name, fixErr)
+					}
+				}
+
 				replaceResources = append(replaceResources, commonmodels.Resource{
 					Kind:      setting.StatefulSet,
 					Container: container.Name,
@@ -382,6 +408,7 @@ Loop:
 				if err != nil {
 					return nil, nil, fmt.Errorf("failed to update container image in %s/statefulsets/%s/%s: %v", env.Namespace, sts.Name, container.Name, err)
 				}
+
 				replaceResources = append(replaceResources, commonmodels.Resource{
 					Kind:      setting.StatefulSet,
 					Container: container.Name,
