@@ -36,7 +36,7 @@ func UpdateS3Storage(updateBy, id string, storage *commonmodels.S3Storage, logge
 		logger.Warnf("Failed to create s3 client, error is: %+v", err)
 		return errors.ErrValidateS3Storage.AddErr(err)
 	}
-	if err := client.ValidateBucket(storage.Bucket); err != nil {
+	if err := client.ValidateBucketWithSubpath(storage.Bucket, storage.Subfolder); err != nil {
 		logger.Warnf("failed to validate storage %s %v", storage.Endpoint, err)
 		return errors.ErrValidateS3Storage.AddErr(err)
 	}
@@ -52,7 +52,7 @@ func CreateS3Storage(updateBy string, storage *commonmodels.S3Storage, logger *z
 		logger.Warnf("Failed to create s3 client, error is: %+v", err)
 		return errors.ErrValidateS3Storage.AddErr(err)
 	}
-	if err := client.ValidateBucket(s3Storage.Bucket); err != nil {
+	if err := client.ValidateBucketWithSubpath(s3Storage.Bucket, s3Storage.Subfolder); err != nil {
 		logger.Warnf("failed to validate storage %s %v", storage.Endpoint, err)
 		return errors.ErrValidateS3Storage.AddErr(err)
 	}
@@ -68,7 +68,7 @@ func ValidateS3Storage(storage *commonmodels.S3Storage, logger *zap.SugaredLogge
 		logger.Warnf("Failed to create s3 client, error is: %+v", err)
 		return errors.ErrValidateS3Storage.AddErr(err)
 	}
-	if err := client.ValidateBucket(s3Storage.Bucket); err != nil {
+	if err := client.ValidateBucketWithSubpath(s3Storage.Bucket, s3Storage.Subfolder); err != nil {
 		logger.Warnf("failed to validate storage %s %v", storage.Endpoint, err)
 		return errors.ErrValidateS3Storage.AddErr(err)
 	}

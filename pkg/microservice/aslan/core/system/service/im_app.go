@@ -310,6 +310,8 @@ func CreateLarkSSEConnection(arg *commonmodels.IMApp) error {
 	eventHandler := dispatcher.NewEventDispatcher("", "").
 		OnCustomizedEvent("approval_task", larkSSEHandler)
 
+	eventHandler.InitConfig()
+
 	cli := larkws.NewClient(arg.AppID, arg.AppSecret,
 		larkws.WithEventHandler(eventHandler),
 		larkws.WithDomain(lark.GetLarkBaseUrl(arg.Type)),
