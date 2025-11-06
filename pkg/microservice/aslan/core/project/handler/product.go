@@ -91,7 +91,7 @@ func CreateProductTemplate(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("CreateProductTemplate json.Unmarshal err : %v", err)
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductName, "新增", "项目管理-项目", args.ProductName, string(data), types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductName, "新增", "项目管理-项目", args.ProductName, args.ProductName, string(data), types.RequestBodyTypeJSON, ctx.Logger)
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	// authorization checks
@@ -130,7 +130,7 @@ func UpdateProductTemplate(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("UpdateProductTemplate json.Unmarshal err : %v", err)
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductName, "更新", "项目管理-项目环境模板或变量", args.ProductName, string(data), types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductName, "更新", "项目管理-项目环境模板或变量", args.ProductName, args.ProductName, string(data), types.RequestBodyTypeJSON, ctx.Logger)
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.BindJSON(args); err != nil {
@@ -220,7 +220,7 @@ func UpdateProject(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("UpdateProject json.Unmarshal err : %v", err)
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductName, "更新", "项目管理-项目", args.ProductName, string(data), types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductName, "更新", "项目管理-项目", args.ProductName, args.ProductName, string(data), types.RequestBodyTypeJSON, ctx.Logger)
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.BindJSON(args); err != nil {
@@ -271,7 +271,7 @@ func UpdateServiceOrchestration(c *gin.Context) {
 		return
 	}
 
-	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "更新", "项目管理-项目服务编排", projectName, "", types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "更新", "项目管理-测试服务编排", projectName, projectName, "", types.RequestBodyTypeJSON, ctx.Logger)
 
 	args := new(UpdateOrchestrationServiceReq)
 	if err := c.BindJSON(args); err != nil {
@@ -312,7 +312,7 @@ func UpdateProductionServiceOrchestration(c *gin.Context) {
 		return
 	}
 
-	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "更新", "项目管理-生产服务编排", projectName, "", types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "更新", "项目管理-生产服务编排", projectName, projectName, "", types.RequestBodyTypeJSON, ctx.Logger)
 
 	args := new(UpdateOrchestrationServiceReq)
 	if err := c.BindJSON(args); err != nil {
@@ -348,7 +348,7 @@ func DeleteProductTemplate(c *gin.Context) {
 
 	projectKey := c.Param("name")
 
-	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "删除", "项目管理-项目", c.Param("name"), "", types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "删除", "项目管理-项目", projectKey, projectKey, "", types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -442,7 +442,7 @@ func CreateOrUpdateMatchRules(c *gin.Context) {
 		}
 	}
 
-	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "更新", "工程管理-项目", c.Param("name"), "", types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "更新", "工程管理-项目", c.Param("name"), c.Param("name"), "", types.RequestBodyTypeJSON, ctx.Logger)
 
 	args := new(projectservice.CustomParseDataArgs)
 	data, err := c.GetRawData()
@@ -600,7 +600,7 @@ func UpdateGlobalVariables(c *gin.Context) {
 		return
 	}
 
-	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "更新", "工程管理-项目", c.Param("name"), "", types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "更新", "工程管理-项目", c.Param("name"), c.Param("name"), "", types.RequestBodyTypeJSON, ctx.Logger)
 
 	args := new(updateGlobalVariablesRequest)
 	if err := c.BindJSON(args); err != nil {
@@ -652,7 +652,7 @@ func UpdateProductionGlobalVariables(c *gin.Context) {
 		return
 	}
 
-	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "更新", "工程管理-项目", c.Param("name"), "", types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "更新", "工程管理-项目", c.Param("name"), c.Param("name"), "", types.RequestBodyTypeJSON, ctx.Logger)
 
 	args := new(updateGlobalVariablesRequest)
 	if err := c.BindJSON(args); err != nil {
@@ -805,7 +805,7 @@ func CreateProjectGroup(c *gin.Context) {
 		ctx.RespErr = e.ErrCreateProjectGroup.AddErr(err)
 		return
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, "", "新增", "分组", args.GroupName, string(data), types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "新增", "分组", args.GroupName, args.GroupName, string(data), types.RequestBodyTypeJSON, ctx.Logger)
 
 	ctx.RespErr = projectservice.CreateProjectGroup(args, ctx.UserName, ctx.Logger)
 }
@@ -852,7 +852,7 @@ func UpdateProjectGroup(c *gin.Context) {
 		ctx.RespErr = e.ErrUpdateProjectGroup.AddErr(err)
 		return
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, "", "编辑", "分组", args.GroupName, string(data), types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "编辑", "分组", args.GroupName, args.GroupName, string(data), types.RequestBodyTypeJSON, ctx.Logger)
 
 	ctx.RespErr = projectservice.UpdateProjectGroup(args, ctx.UserName, ctx.Logger)
 }
@@ -887,7 +887,7 @@ func DeleteProjectGroup(c *gin.Context) {
 		ctx.RespErr = e.ErrDeleteProjectGroup.AddErr(errors.New("group name is empty"))
 		return
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, "", "删除", "分组", groupName, groupName, types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "删除", "分组", groupName, groupName, groupName, types.RequestBodyTypeJSON, ctx.Logger)
 
 	ctx.RespErr = projectservice.DeleteProjectGroup(groupName, ctx.Logger)
 }

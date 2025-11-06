@@ -48,7 +48,10 @@ func CreateOrUpdateSecuritySettings(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("upsert security settings Unmarshal err : %s", err)
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "安全与隐私", fmt.Sprintf("token expiration: %d \n improvement plan: %v", args.TokenExpirationTime, args.ImprovementPlan), string(data), types.RequestBodyTypeJSON, ctx.Logger)
+
+	detail := fmt.Sprintf("token expiration: %d \n improvement plan: %v", args.TokenExpirationTime, args.ImprovementPlan)
+	detailEn := fmt.Sprintf("Token Expiration: %d \n Improvement Plan: %v", args.TokenExpirationTime, args.ImprovementPlan)
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "安全与隐私", detail, detailEn, string(data), types.RequestBodyTypeJSON, ctx.Logger)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {

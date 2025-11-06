@@ -151,6 +151,7 @@ func CreateRoleBindingImpl(c *gin.Context, ctx *internalhandler.Context) {
 	}
 
 	detail := ""
+	detailEn := ""
 	for _, arg := range req.Identities {
 		if arg.IdentityType == "user" {
 			userInfo, err := permission.GetUser(arg.UID, ctx.Logger)
@@ -163,6 +164,7 @@ func CreateRoleBindingImpl(c *gin.Context, ctx *internalhandler.Context) {
 				username = userInfo.Name
 			}
 			detail += "用户：" + username + "，"
+			detailEn += "User: " + username + ", "
 		} else if arg.IdentityType == "group" {
 			groupInfo, err := permission.GetUserGroup(arg.GID, ctx.Logger)
 			if err != nil {
@@ -174,10 +176,12 @@ func CreateRoleBindingImpl(c *gin.Context, ctx *internalhandler.Context) {
 				username = groupInfo.Name
 			}
 			detail += "用户组：" + username + "，"
+			detailEn += "User Group: " + username + ", "
 		}
 	}
 	detail += "角色名称：" + req.Role + "\n"
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneProject, "创建", "角色绑定", detail, string(data), types.RequestBodyTypeJSON, ctx.Logger, "")
+	detailEn += "Role Name: " + req.Role + "\n"
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneProject, "创建", "角色绑定", detail, detailEn, string(data), types.RequestBodyTypeJSON, ctx.Logger, "")
 
 	if !ctx.Resources.IsSystemAdmin {
 		if projectName == "*" {
@@ -266,13 +270,12 @@ func UpdateRoleBindingForUserImpl(c *gin.Context, ctx *internalhandler.Context) 
 	if userInfo != nil {
 		username = userInfo.Name
 	}
-	detail := "用户：" + username + "，角色名称："
-	for _, arg := range args.Roles {
-		detail += arg + "，"
-	}
+	detail := "用户：" + username + "，角色名称：" + strings.Join(args.Roles, "， ")
+	detailEn := "User: " + username + ", Role Name: " + strings.Join(args.Roles, ", ")
 	detail = strings.Trim(detail, "，")
+	detailEn = strings.Trim(detailEn, ", ")
 
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneProject, "更新", "角色绑定", detail, string(data), types.RequestBodyTypeJSON, ctx.Logger, "")
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneProject, "更新", "角色绑定", detail, detailEn, string(data), types.RequestBodyTypeJSON, ctx.Logger, "")
 
 	if !ctx.Resources.IsSystemAdmin {
 		if projectName == "*" {
@@ -353,8 +356,8 @@ func DeleteRoleBindingForUserImpl(c *gin.Context, ctx *internalhandler.Context) 
 		username = userInfo.Name
 	}
 	detail := "用户：" + username
-
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneProject, "删除", "角色绑定", detail, string(data), types.RequestBodyTypeJSON, ctx.Logger, "")
+	detailEn := "User: " + username
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneProject, "删除", "角色绑定", detail, detailEn, string(data), types.RequestBodyTypeJSON, ctx.Logger, "")
 
 	if !ctx.Resources.IsSystemAdmin {
 		if projectName == "*" {
@@ -438,13 +441,12 @@ func UpdateRoleBindingForGroupImpl(c *gin.Context, ctx *internalhandler.Context)
 	if groupInfo != nil {
 		groupName = groupInfo.Name
 	}
-	detail := "用户组：" + groupName + "，角色名称："
-	for _, arg := range args.Roles {
-		detail += arg + "，"
-	}
+	detail := "用户组：" + groupName + "，角色名称：" + strings.Join(args.Roles, "， ")
+	detailEn := "User Group: " + groupName + ", Role Name: " + strings.Join(args.Roles, ", ")
 	detail = strings.Trim(detail, "，")
+	detailEn = strings.Trim(detailEn, ", ")
 
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneProject, "更新", "角色绑定", detail, string(data), types.RequestBodyTypeJSON, ctx.Logger, "")
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneProject, "更新", "角色绑定", detail, detailEn, string(data), types.RequestBodyTypeJSON, ctx.Logger, "")
 
 	if !ctx.Resources.IsSystemAdmin {
 		if projectName == "*" {
@@ -523,8 +525,9 @@ func DeleteRoleBindingForGroupImpl(c *gin.Context, ctx *internalhandler.Context)
 		groupName = groupInfo.Name
 	}
 	detail := "用户组：" + groupName
+	detailEn := "User Group: " + groupName
 
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneProject, "删除", "角色绑定", detail, string(data), types.RequestBodyTypeJSON, ctx.Logger, "")
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneProject, "删除", "角色绑定", detail, detailEn, string(data), types.RequestBodyTypeJSON, ctx.Logger, "")
 
 	if !ctx.Resources.IsSystemAdmin {
 		if projectName == "*" {

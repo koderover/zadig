@@ -98,7 +98,9 @@ func CreateRoleTemplate(c *gin.Context) {
 		return
 	}
 
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, "*", setting.OperationSceneProject, "创建", "全局角色", "角色名称："+args.Name, string(data), types.RequestBodyTypeJSON, ctx.Logger, args.Name)
+	detail := "角色名称：" + args.Name
+	detailEn := "Role Name: " + args.Name
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, "*", setting.OperationSceneProject, "创建", "全局角色", detail, detailEn, string(data), types.RequestBodyTypeJSON, ctx.Logger, args.Name)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -143,7 +145,9 @@ func CreateRoleImpl(c *gin.Context, ctx *internalhandler.Context) {
 		return
 	}
 
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneProject, "创建", "角色", "角色名称："+args.Name, string(data), types.RequestBodyTypeJSON, ctx.Logger, args.Name)
+	detail := "角色名称：" + args.Name
+	detailEn := "Role Name: " + args.Name
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneProject, "创建", "角色", detail, detailEn, string(data), types.RequestBodyTypeJSON, ctx.Logger, args.Name)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -215,7 +219,9 @@ func UpdateRoleImpl(c *gin.Context, ctx *internalhandler.Context) {
 	name := c.Param("name")
 	args.Name = name
 
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneProject, "更新", "角色", "角色名称："+args.Name, string(data), types.RequestBodyTypeJSON, ctx.Logger, args.Name)
+	detail := "角色名称：" + args.Name
+	detailEn := "Role Name: " + args.Name
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneProject, "更新", "角色", detail, detailEn, string(data), types.RequestBodyTypeJSON, ctx.Logger, args.Name)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -285,7 +291,9 @@ func UpdateRoleTemplate(c *gin.Context) {
 	name := c.Param("name")
 	args.Name = name
 
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, "*", setting.OperationSceneProject, "更新", "全局角色", "角色名称："+args.Name, string(data), types.RequestBodyTypeJSON, ctx.Logger, args.Name)
+	detail := fmt.Sprintf("角色名称：%s", args.Name)
+	detailEn := fmt.Sprintf("Role Name: %s", args.Name)
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, "*", setting.OperationSceneProject, "更新", "全局角色", detail, detailEn, string(data), types.RequestBodyTypeJSON, ctx.Logger, args.Name)
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -450,7 +458,9 @@ func DeleteRoleTemplate(c *gin.Context) {
 	}
 
 	name := c.Param("name")
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, "*", setting.OperationSceneProject, "删除", "角色", "角色名称："+name, "", types.RequestBodyTypeJSON, ctx.Logger, name)
+	detail := fmt.Sprintf("角色名称：%s", name)
+	detailEn := fmt.Sprintf("Role Name: %s", name)
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, "*", setting.OperationSceneProject, "删除", "角色", detail, detailEn, "", types.RequestBodyTypeJSON, ctx.Logger, name)
 
 	ctx.RespErr = permission.DeleteRoleTemplate(c.Param("name"), ctx.Logger)
 }
@@ -493,7 +503,9 @@ func DeleteRoleImpl(c *gin.Context, ctx *internalhandler.Context) {
 		}
 	}
 
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneProject, "删除", "角色", "角色名称："+name, "", types.RequestBodyTypeJSON, ctx.Logger, name)
+	detail := fmt.Sprintf("角色名称：%s", name)
+	detailEn := fmt.Sprintf("Role Name: %s", name)
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneProject, "删除", "角色", detail, detailEn, "", types.RequestBodyTypeJSON, ctx.Logger, name)
 
 	ctx.RespErr = permission.DeleteRole(name, projectName, ctx.Logger)
 }

@@ -149,7 +149,7 @@ func UpdateSystemNavigation(c *gin.Context) {
 	if err = json.Unmarshal(data, &body); err != nil {
 		log.Errorf("UpdateSystemNavigation json.Unmarshal err : %s", err)
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "系统配置-自定义导航", "", string(data), types.RequestBodyTypeJSON, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "系统配置-自定义导航", "", "", string(data), types.RequestBodyTypeJSON, ctx.Logger)
 
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 	if err := c.ShouldBindJSON(&body); err != nil {
