@@ -26,6 +26,7 @@ import (
 
 type NavigationItem struct {
 	Name     string                    `bson:"name"       json:"name"`
+	EnName   string                    `bson:"en_name"    json:"en_name"`
 	Key      config.NavigationItemKey  `bson:"key"        json:"key"`
 	Type     config.NavigationItemType `bson:"type"       json:"type"`
 	IconType string                    `bson:"icon_type"  json:"icon_type"`
