@@ -351,7 +351,7 @@ func GetHelmChartTemplateServiceTemplates() ([]*commonmodels.Service, error) {
 func GetHelmChartTemplateProductionServiceTemplates() ([]*commonmodels.Service, error) {
 	opt := &commonrepo.ServiceListOption{
 		Type:   setting.HelmDeployType,
-		Source: setting.SourceFromChartRepo,
+		Source: setting.SourceFromChartTemplate,
 	}
 	return commonrepo.NewProductionServiceColl().ListMaxRevisions(opt)
 }
@@ -498,7 +498,7 @@ func updateServiceTemplateValuesByPushEvent(ref string, diffs []string, pathWith
 					errs = multierror.Append(errs, err)
 				}
 			} else {
-				log.Infof("Service template %s's values from gitlab %s is not affected, no sync", service.ServiceName, sourceRepo.LoadPath)
+				log.Infof("Service template %s's values from gitlab %s is not affected, no sync, production %v", service.ServiceName, sourceRepo.LoadPath, production)
 			}
 		}
 	}
