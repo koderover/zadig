@@ -667,7 +667,10 @@ func getVMDeployJobVariables(vmDeploy *commonmodels.ServiceAndVMDeploy, buildInf
 
 	// registry envs
 	if registry != nil {
-		ret = append(ret, &commonmodels.KeyVal{Key: "DOCKER_REGISTRY_HOST", Value: registry.RegAddr, IsCredential: false})
+		registryHost := strings.TrimPrefix(registry.RegAddr, "http://")
+		registryHost = strings.TrimPrefix(registryHost, "https://")
+		ret = append(ret, &commonmodels.KeyVal{Key: "DOCKER_REGISTRY_HOST", Value: registryHost, IsCredential: false})
+		ret = append(ret, &commonmodels.KeyVal{Key: "DOCKER_REGISTRY_NAMESPACE", Value: registry.Namespace, IsCredential: false})
 		ret = append(ret, &commonmodels.KeyVal{Key: "DOCKER_REGISTRY_AK", Value: registry.AccessKey, IsCredential: false})
 		ret = append(ret, &commonmodels.KeyVal{Key: "DOCKER_REGISTRY_SK", Value: registry.SecretKey, IsCredential: true})
 	}
