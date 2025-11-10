@@ -45,14 +45,15 @@ import (
 )
 
 type ListEnvServiceVersionsResponse struct {
-	ServiceName string                    `json:"service_name"`
-	Revision    int64                     `json:"revision"`
-	Containers  []*commonmodels.Container `json:"containers"`
-	Operation   config.EnvOperation       `json:"operation"`
-	DeployType  string                    `json:"deploy_type"`
-	Detail      string                    `json:"detail"`
-	CreateTime  int64                     `json:"create_time"`
-	CreateBy    string                    `json:"create_by"`
+	ServiceName    string                    `json:"service_name"`
+	Revision       int64                     `json:"revision"`
+	Containers     []*commonmodels.Container `json:"containers"`
+	Operation      config.EnvOperation       `json:"operation"`
+	DeployType     string                    `json:"deploy_type"`
+	DeployStrategy string                    `json:"deploy_strategy"`
+	Detail         string                    `json:"detail"`
+	CreateTime     int64                     `json:"create_time"`
+	CreateBy       string                    `json:"create_by"`
 }
 
 func ListEnvServiceVersions(ctx *internalhandler.Context, projectName, envName, serviceName string, isHelmChart, isProduction bool, log *zap.SugaredLogger) ([]ListEnvServiceVersionsResponse, error) {
@@ -83,30 +84,32 @@ func ListEnvServiceVersions(ctx *internalhandler.Context, projectName, envName, 
 		}
 
 		resp = append(resp, ListEnvServiceVersionsResponse{
-			ServiceName: name,
-			Revision:    revision.Revision,
-			Containers:  revision.Service.Containers,
-			Operation:   revision.Operation,
-			DeployType:  deployType,
-			Detail:      revision.Detail,
-			CreateTime:  revision.CreateTime,
-			CreateBy:    revision.CreateBy,
+			ServiceName:    name,
+			Revision:       revision.Revision,
+			Containers:     revision.Service.Containers,
+			Operation:      revision.Operation,
+			DeployType:     deployType,
+			DeployStrategy: revision.DeployStrategy,
+			Detail:         revision.Detail,
+			CreateTime:     revision.CreateTime,
+			CreateBy:       revision.CreateBy,
 		})
 	}
 	return resp, nil
 }
 
 type GetEnvServiceVersionYamlResponse struct {
-	Type         string                    `json:"type"`
-	Yaml         string                    `json:"yaml"`
-	VariableYaml string                    `json:"variable_yaml"`
-	OverrideKVs  string                    `json:"override_kvs"`
-	Containers   []*commonmodels.Container `json:"containers"`
-	Operation    config.EnvOperation       `json:"operation"`
-	DeployType   string                    `json:"deploy_type"`
-	Detail       string                    `json:"detail"`
-	CreateTime   int64                     `json:"create_time"`
-	CreateBy     string                    `json:"create_by"`
+	Type           string                    `json:"type"`
+	Yaml           string                    `json:"yaml"`
+	VariableYaml   string                    `json:"variable_yaml"`
+	OverrideKVs    string                    `json:"override_kvs"`
+	Containers     []*commonmodels.Container `json:"containers"`
+	Operation      config.EnvOperation       `json:"operation"`
+	DeployType     string                    `json:"deploy_type"`
+	DeployStrategy string                    `json:"deploy_strategy"`
+	Detail         string                    `json:"detail"`
+	CreateTime     int64                     `json:"create_time"`
+	CreateBy       string                    `json:"create_by"`
 }
 
 func GetEnvServiceVersionYaml(ctx *internalhandler.Context, projectName, envName, serviceName string, revision int64, isHelmChart, isProduction bool, log *zap.SugaredLogger) (GetEnvServiceVersionYamlResponse, error) {
@@ -126,6 +129,7 @@ func GetEnvServiceVersionYaml(ctx *internalhandler.Context, projectName, envName
 	resp.Detail = envSvcRevision.Detail
 	resp.CreateTime = envSvcRevision.CreateTime
 	resp.CreateBy = envSvcRevision.CreateBy
+	resp.DeployStrategy = envSvcRevision.DeployStrategy
 	resp.Containers = envSvcRevision.Service.Containers
 
 	if envSvcRevision.ProductFeature.IsHostProduct() {
@@ -363,93 +367,139 @@ func RollbackEnvServiceVersion(ctx *internalhandler.Context, projectName, envNam
 				return nil, e.ErrRollbackEnvServiceVersion.AddDesc(err.Error())
 			}
 
-			fakeEnv := &commonmodels.Product{
-				ProductName: envSvcVersion.ProductName,
-				EnvName:     envSvcVersion.EnvName,
-				Namespace:   envSvcVersion.Namespace,
-				Production:  envSvcVersion.Production,
-			}
-			parsedYaml, err := kube.RenderEnvService(fakeEnv, envSvcVersion.Service.GetServiceRender(), envSvcVersion.Service)
-			if err != nil {
-				err = fmt.Errorf("Failed to render env %s, service %s, revision %d, error: %v", envSvcVersion.EnvName, envSvcVersion.Service.ServiceName, envSvcVersion.Service.Revision, err)
-				return nil, e.ErrRollbackEnvServiceVersion.AddErr(err)
-			}
-			envSvcVersion.Service.RenderedYaml = parsedYaml
-
-			preResourceYaml, err := kube.RenderEnvService(env, preProdSvc.GetServiceRender(), preProdSvc)
-			if err != nil {
-				err = fmt.Errorf("Failed to render env %s, service %s, revision %d, error: %v", envSvcVersion.EnvName, envSvcVersion.Service.ServiceName, envSvcVersion.Service.Revision, err)
-				return nil, e.ErrRollbackEnvServiceVersion.AddErr(err)
-			}
-			preProdSvc.RenderedYaml = preResourceYaml
-
-			err = kube.CheckResourceAppliedByOtherEnv(parsedYaml, env, envSvcVersion.Service.ServiceName)
+			clientSet, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(env.ClusterID)
 			if err != nil {
 				return nil, e.ErrRollbackEnvServiceVersion.AddErr(err)
 			}
 
-			resourceApplyParam := &kube.ResourceApplyParam{
-				ProductInfo:         env,
-				ServiceName:         envSvcVersion.Service.ServiceName,
-				CurrentResourceYaml: preResourceYaml,
-				UpdateResourceYaml:  parsedYaml,
-				Informer:            informer,
-				KubeClient:          kubeClient,
-				IstioClient:         istioClient,
-				InjectSecrets:       true,
-				Uninstall:           false,
-				AddZadigLabel:       !isProduction,
-				SharedEnvHandler:    kube.EnsureUpdateZadigService,
-			}
-
-			unstructuredList, err := kube.CreateOrPatchResource(resourceApplyParam, log)
-			if err != nil {
-				return nil, e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to create or patch resource for env %s, service %s, revision %d, error: %v", envSvcVersion.EnvName, envSvcVersion.Service.ServiceName, envSvcVersion.Service.Revision, err))
-			}
-
-			for _, us := range unstructuredList {
-				switch us.GetKind() {
-				case setting.Deployment, setting.StatefulSet:
-					podLabels, _, err := unstructured.NestedStringMap(us.Object, "spec", "template", "metadata", "labels")
-					if err == nil {
-						rollbackStatus.RelatedPodLabels = append(rollbackStatus.RelatedPodLabels, podLabels)
-					}
-					rollbackStatus.ReplaceResources = append(rollbackStatus.ReplaceResources, commonmodels.Resource{Name: us.GetName(), Kind: us.GetKind()})
-				case setting.CronJob, setting.Job:
-					rollbackStatus.ReplaceResources = append(rollbackStatus.ReplaceResources, commonmodels.Resource{Name: us.GetName(), Kind: us.GetKind()})
+			if envSvcVersion.DeployStrategy == setting.ServiceDeployStrategyImport {
+				currentDeployStrategy := env.ServiceDeployStrategy[envSvcVersion.Service.ServiceName]
+				if currentDeployStrategy != setting.ServiceDeployStrategyImport {
+					return nil, e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("服务 %s 的部署策略发生变化，不能回滚", envSvcVersion.Service.ServiceName))
 				}
-			}
 
-			err = mongotool.StartTransaction(session)
-			if err != nil {
-				return nil, e.ErrRollbackEnvServiceVersion.AddErr(err)
-			}
+				option := &kube.GeneSvcYamlOption{
+					ProductName:           env.ProductName,
+					EnvName:               envName,
+					ServiceName:           serviceName,
+					UpdateServiceRevision: false,
+					VariableYaml:          envSvcVersion.Service.GetServiceRender().GetOverrideYaml(),
+					VariableKVs:           envSvcVersion.Service.GetServiceRender().OverrideYaml.RenderVariableKVs,
+					Containers:            envSvcVersion.Service.Containers,
+				}
+				_, _, resources, err := kube.GenerateRenderedYaml(option)
+				if err != nil {
+					return nil, e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to generate service yaml, error: %v", err))
+				}
 
-			groupIndex := -1
-			svcIndex := -1
-			env.LintServices()
-			for i, group := range env.Services {
-				for j, svc := range group {
-					if svc.ServiceName == envSvcVersion.Service.ServiceName {
-						svcIndex = j
-						groupIndex = i
-						svc.Resources = kube.UnstructuredToResources(unstructuredList)
-						for _, kv := range envSvcVersion.Service.GetServiceRender().OverrideYaml.RenderVariableKVs {
-							kv.UseGlobalVariable = false
+				for _, rollbackContainer := range envSvcVersion.Service.Containers {
+					serviceModule := &commonmodels.DeployServiceModule{
+						ServiceModule: envSvcVersion.Service.ServiceName,
+						Image:         rollbackContainer.Image,
+						ImageName:     rollbackContainer.ImageName,
+					}
+
+					replaceResources, relatedPodLabels, err := jobcontroller.UpdateExternalServiceModule(ctx, kubeClient, clientSet, resources, env, serviceName, serviceModule, detail, ctx.UserName, log)
+					if err != nil {
+						return nil, e.ErrRollbackEnvServiceVersion.AddErr(err)
+					}
+					rollbackStatus.ReplaceResources = append(rollbackStatus.ReplaceResources, replaceResources...)
+					rollbackStatus.RelatedPodLabels = append(rollbackStatus.RelatedPodLabels, relatedPodLabels...)
+				}
+			} else {
+				currentDeployStrategy := env.ServiceDeployStrategy[envSvcVersion.Service.ServiceName]
+				if currentDeployStrategy != "" && currentDeployStrategy != setting.ServiceDeployStrategyDeploy {
+					return nil, e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("服务 %s 的部署策略发生变化，不能回滚", envSvcVersion.Service.ServiceName))
+				}
+
+				fakeEnv := &commonmodels.Product{
+					ProductName: envSvcVersion.ProductName,
+					EnvName:     envSvcVersion.EnvName,
+					Namespace:   envSvcVersion.Namespace,
+					Production:  envSvcVersion.Production,
+				}
+				parsedYaml, err := kube.RenderEnvService(fakeEnv, envSvcVersion.Service.GetServiceRender(), envSvcVersion.Service)
+				if err != nil {
+					err = fmt.Errorf("Failed to render env %s, service %s, revision %d, error: %v", envSvcVersion.EnvName, envSvcVersion.Service.ServiceName, envSvcVersion.Service.Revision, err)
+					return nil, e.ErrRollbackEnvServiceVersion.AddErr(err)
+				}
+				envSvcVersion.Service.RenderedYaml = parsedYaml
+
+				preResourceYaml, err := kube.RenderEnvService(env, preProdSvc.GetServiceRender(), preProdSvc)
+				if err != nil {
+					err = fmt.Errorf("Failed to render env %s, service %s, revision %d, error: %v", envSvcVersion.EnvName, envSvcVersion.Service.ServiceName, envSvcVersion.Service.Revision, err)
+					return nil, e.ErrRollbackEnvServiceVersion.AddErr(err)
+				}
+				preProdSvc.RenderedYaml = preResourceYaml
+
+				err = kube.CheckResourceAppliedByOtherEnv(parsedYaml, env, envSvcVersion.Service.ServiceName)
+				if err != nil {
+					return nil, e.ErrRollbackEnvServiceVersion.AddErr(err)
+				}
+
+				resourceApplyParam := &kube.ResourceApplyParam{
+					ProductInfo:         env,
+					ServiceName:         envSvcVersion.Service.ServiceName,
+					CurrentResourceYaml: preResourceYaml,
+					UpdateResourceYaml:  parsedYaml,
+					Informer:            informer,
+					KubeClient:          kubeClient,
+					IstioClient:         istioClient,
+					InjectSecrets:       true,
+					Uninstall:           false,
+					AddZadigLabel:       !isProduction,
+					SharedEnvHandler:    kube.EnsureUpdateZadigService,
+				}
+
+				unstructuredList, err := kube.CreateOrPatchResource(resourceApplyParam, log)
+				if err != nil {
+					return nil, e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to create or patch resource for env %s, service %s, revision %d, error: %v", envSvcVersion.EnvName, envSvcVersion.Service.ServiceName, envSvcVersion.Service.Revision, err))
+				}
+
+				for _, us := range unstructuredList {
+					switch us.GetKind() {
+					case setting.Deployment, setting.StatefulSet:
+						podLabels, _, err := unstructured.NestedStringMap(us.Object, "spec", "template", "metadata", "labels")
+						if err == nil {
+							rollbackStatus.RelatedPodLabels = append(rollbackStatus.RelatedPodLabels, podLabels)
 						}
-						break
+						rollbackStatus.ReplaceResources = append(rollbackStatus.ReplaceResources, commonmodels.Resource{Name: us.GetName(), Kind: us.GetKind()})
+					case setting.CronJob, setting.Job:
+						rollbackStatus.ReplaceResources = append(rollbackStatus.ReplaceResources, commonmodels.Resource{Name: us.GetName(), Kind: us.GetKind()})
 					}
 				}
-			}
-			if groupIndex < 0 || svcIndex < 0 {
-				mongotool.AbortTransaction(session)
-				return nil, e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to find service %s in env %s/%s, isProudction %v", envSvcVersion.Service.ServiceName, envSvcVersion.ProductName, envSvcVersion.EnvName, envSvcVersion.Production))
-			}
 
-			env.Services[groupIndex][svcIndex] = envSvcVersion.Service
-			err = helmservice.UpdateServiceInEnv(env, envSvcVersion.Service, ctx.UserName, config.EnvOperationRollback, detail)
-			if err != nil {
-				return nil, e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to update service %s in env %s/%s, isProudction %v", envSvcVersion.Service.ServiceName, envSvcVersion.ProductName, envSvcVersion.EnvName, envSvcVersion.Production))
+				err = mongotool.StartTransaction(session)
+				if err != nil {
+					return nil, e.ErrRollbackEnvServiceVersion.AddErr(err)
+				}
+
+				groupIndex := -1
+				svcIndex := -1
+				env.LintServices()
+				for i, group := range env.Services {
+					for j, svc := range group {
+						if svc.ServiceName == envSvcVersion.Service.ServiceName {
+							svcIndex = j
+							groupIndex = i
+							svc.Resources = kube.UnstructuredToResources(unstructuredList)
+							for _, kv := range envSvcVersion.Service.GetServiceRender().OverrideYaml.RenderVariableKVs {
+								kv.UseGlobalVariable = false
+							}
+							break
+						}
+					}
+				}
+				if groupIndex < 0 || svcIndex < 0 {
+					mongotool.AbortTransaction(session)
+					return nil, e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to find service %s in env %s/%s, isProudction %v", envSvcVersion.Service.ServiceName, envSvcVersion.ProductName, envSvcVersion.EnvName, envSvcVersion.Production))
+				}
+
+				env.Services[groupIndex][svcIndex] = envSvcVersion.Service
+				err = helmservice.UpdateServiceInEnv(env, envSvcVersion.Service, ctx.UserName, config.EnvOperationRollback, detail)
+				if err != nil {
+					return nil, e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to update service %s in env %s/%s, isProudction %v", envSvcVersion.Service.ServiceName, envSvcVersion.ProductName, envSvcVersion.EnvName, envSvcVersion.Production))
+				}
 			}
 
 			// create rollback record
@@ -489,6 +539,10 @@ func RollbackEnvServiceVersion(ctx *internalhandler.Context, projectName, envNam
 				return nil, e.ErrRollbackEnvServiceVersion.AddErr(err)
 			}
 		} else if envSvcVersion.Service.Type == setting.HelmDeployType || envSvcVersion.Service.Type == setting.HelmChartDeployType {
+			if envSvcVersion.DeployStrategy == setting.ServiceDeployStrategyImport {
+				return nil, e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("Helm 服务不能回滚至仅导入状态"))
+			}
+
 			templateProduct, err := templaterepo.NewProductColl().Find(envSvcVersion.ProductName)
 			if err != nil {
 				return nil, e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to find project %s, error: %v", envSvcVersion.ProductName, err))
