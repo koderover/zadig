@@ -64,10 +64,10 @@ type ResourceApplyParam struct {
 	UpdateResourceYaml  string
 
 	// used for helm services
-	Images                []string // all images need to be updated, used for helm services
-	VariableYaml          string   // variables
-	Timeout               int      // timeout for helm services
-	UpdateServiceRevision bool
+	Images               []string // all images need to be updated, used for helm services
+	VariableYaml         string   // variables
+	Timeout              int      // timeout for helm services
+	IsFromImportToDeploy bool
 
 	Informer                 informers.SharedInformerFactory
 	KubeClient               client.Client
@@ -661,7 +661,7 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 		if !ok {
 			removeRes = append(removeRes, cr.unstructured)
 		} else {
-			if r.mainfest == cr.mainfest {
+			if r.mainfest == cr.mainfest && !applyParam.IsFromImportToDeploy {
 				unchangedResources = append(unchangedResources, cr.unstructured)
 				delete(updateResourceMap, GVKN)
 			}
