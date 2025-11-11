@@ -31,11 +31,12 @@ import (
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
-func PrepareDinD(client *kubernetes.Clientset, namespace string, regList []*RegistryInfoForDinDUpdate) error {
+func PrepareDinD(client *kubernetes.Clientset, namespace string, regList []*RegistryInfoForDinDUpdate, storageDriver string) error {
 	insecureRegistryList := make([]string, 0)
 
 	mountFlag := false
 	insecureFlag := false
+	storageDriverFlag := false
 	sourceList := make([]corev1.VolumeProjection, 0)
 	insecureMap := sets.NewString()
 
@@ -155,7 +156,21 @@ func PrepareDinD(client *kubernetes.Clientset, namespace string, regList []*Regi
 		dindSts.Spec.Template.Spec.Volumes = newVolumes
 	}
 
-	if insecureFlag {
+	// Check if storage driver arg already exists in the current args
+	storageDriverArg := fmt.Sprintf("--storage-driver=%s", storageDriver)
+	if storageDriver != "" {
+		for _, arg := range dindSts.Spec.Template.Spec.Containers[0].Args {
+			if strings.HasPrefix(arg, "--storage-driver=") {
+				storageDriverFlag = true
+				break
+			}
+		}
+		if !storageDriverFlag {
+			insecureRegistryList = append(insecureRegistryList, storageDriverArg)
+		}
+	}
+
+	if insecureFlag || (storageDriver != "" && !storageDriverFlag) {
 		// update spec.template.spec.containers[0].args
 		dindSts.Spec.Template.Spec.Containers[0].Args = insecureRegistryList
 	}

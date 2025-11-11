@@ -141,7 +141,14 @@ func initResource() {
 			log.Fatalf("failed to create dynamic kubernetes clientset for clusterID: %s, the error is: %s", setting.LocalClusterID, err)
 		}
 
-		err = registrytool.PrepareDinD(clientSet, "koderover-agent", regList)
+		// Get storage driver from cluster config
+		storageDriver := ""
+		clusterInfo, err := client.GetClusterInfo(setting.LocalClusterID)
+		if err == nil && clusterInfo.DindCfg != nil {
+			storageDriver = clusterInfo.DindCfg.StorageDriver
+		}
+
+		err = registrytool.PrepareDinD(clientSet, "koderover-agent", regList, storageDriver)
 		if err != nil {
 			log.Fatalf("failed to update dind, the error is: %s", err)
 		}
