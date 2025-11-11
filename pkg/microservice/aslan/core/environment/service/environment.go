@@ -803,6 +803,8 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]st
 						return
 					}
 
+					service.DeployStrategy = commonutil.GetServiceDeployStrategy(service.ServiceName, deployStrategy)
+					curEnv.GetServiceMap()[service.ServiceName].DeployStrategy = commonutil.GetServiceDeployStrategy(service.ServiceName, curEnv.ServiceDeployStrategy)
 					items, errUpsertService := upsertService(
 						updateProd,
 						service,
@@ -2780,6 +2782,11 @@ func upsertService(env *commonmodels.Product, newService *commonmodels.ProductSe
 		}
 	}
 
+	isFromImportToDeploy := false
+	if prevSvc.DeployStrategy == setting.ServiceDeployStrategyImport && newService.DeployStrategy == setting.ServiceDeployStrategyDeploy {
+		isFromImportToDeploy = true
+	}
+
 	resourceApplyParam := &kube.ResourceApplyParam{
 		ProductInfo:              env,
 		ServiceName:              newService.ServiceName,
@@ -2793,6 +2800,7 @@ func upsertService(env *commonmodels.Product, newService *commonmodels.ProductSe
 		AddZadigLabel:            addLabel,
 		SharedEnvHandler:         EnsureUpdateZadigService,
 		IstioGrayscaleEnvHandler: kube.EnsureUpdateGrayscaleService,
+		IsFromImportToDeploy:     isFromImportToDeploy,
 	}
 
 	return kube.CreateOrPatchResource(resourceApplyParam, log)
