@@ -43,6 +43,7 @@ import (
 	userclient "github.com/koderover/zadig/v2/pkg/shared/client/user"
 	"github.com/koderover/zadig/v2/pkg/tool/lark"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
+	"github.com/koderover/zadig/v2/pkg/tool/sonar"
 	"github.com/koderover/zadig/v2/pkg/types"
 	jobspec "github.com/koderover/zadig/v2/pkg/types/job"
 	"github.com/koderover/zadig/v2/pkg/types/step"
@@ -107,6 +108,13 @@ var (
 		"testStatusFailed":  "失败",
 		"testTotal":         "总数",
 
+		"sonarQualityGateStatus": "质量检查",
+		"sonarNcloc":             "行数",
+		"sonarBugs":              "Bugs",
+		"sonarVulnerabilities":   "代码漏洞",
+		"sonarCodeSmells":        "容易出错",
+		"sonarCoverage":          "覆盖率",
+
 		"notificationTextWorkflow":           "工作流",
 		"notificationTextWaitingForApproval": "等待审批",
 		"notificationTextExecutor":           "执行用户",
@@ -121,6 +129,7 @@ var (
 		"notificationTextRepositoryInfo":     "代码信息",
 		"notificationTextImageInfo":          "镜像信息",
 		"notificationTextTestResult":         "测试结果",
+		"notificationTextSonarMetrics":       "扫描结果",
 	}
 
 	enTextMap = map[string]string{
@@ -179,6 +188,13 @@ var (
 		"testStatusFailed":        "Failed",
 		"testTotal":               "Total",
 
+		"sonarQualityGateStatus": "Quality Gate Status",
+		"sonarNcloc":             "Ncloc",
+		"sonarBugs":              "Bugs",
+		"sonarVulnerabilities":   "Vulnerabilities",
+		"sonarCodeSmells":        "Code Smells",
+		"sonarCoverage":          "Coverage",
+
 		"notificationTextWorkflow":           "Workflow",
 		"notificationTextWaitingForApproval": "waiting for approval",
 		"notificationTextExecutor":           "Executor",
@@ -193,6 +209,7 @@ var (
 		"notificationTextRepositoryInfo":     "Repository Information",
 		"notificationTextImageInfo":          "Image Information",
 		"notificationTextTestResult":         "Test Result",
+		"notificationTextSonarMetrics":       "Scanning Result",
 	}
 )
 
@@ -863,8 +880,21 @@ func (w *Service) getNotificationContent(notify *models.NotifyCtl, task *models.
 					return "", "", nil, nil, fmt.Errorf("genTestResultText err:%s", err)
 				}
 
-				jobTplcontent += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**{{getText \"notificationTextTestResult\"}}**：\n%s  \n", testResult)
-				mailJobTplcontent += fmt.Sprintf("{{getText \"notificationTextTestResult\"}}：%s \n", testResult)
+				jobTplcontent += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**{{getText \"notificationTextTestResult\"}}**: %s  \n", testResult)
+				mailJobTplcontent += fmt.Sprintf("{{getText \"notificationTextTestResult\"}}: %s \n", testResult)
+			case string(config.JobZadigScanning):
+				jobSpec := &models.JobTaskFreestyleSpec{}
+				models.IToi(job.Spec, jobSpec)
+				sonarMetricsText, mailSonarMetricsText, err := genSonartMetricsText(jobSpec, language)
+				if err != nil {
+					log.Errorf("genTestResultText err:%s", err)
+					return "", "", nil, nil, fmt.Errorf("genTestResultText err:%s", err)
+				}
+
+				if sonarMetricsText != "" {
+					jobTplcontent += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**{{getText \"notificationTextSonarMetrics\"}}**: %s  \n", sonarMetricsText)
+					mailJobTplcontent += fmt.Sprintf("{{getText \"notificationTextSonarMetrics\"}}: %s \n", mailSonarMetricsText)
+				}
 			}
 			jobNotifaication := &jobTaskNotification{
 				Job:         job,
@@ -1230,9 +1260,64 @@ func genTestResultText(workflowName, jobTaskName string, taskID int64, language 
 		totalNum := report.TestCaseNum
 		failedNum := report.FailedCaseNum
 		successNum := report.SuccessCaseNum
-		result += fmt.Sprintf("%d(%s)%d(%s)%d(%s) \n", successNum, getText("testStatusSuccess", language), failedNum, getText("testStatusFailed", language), totalNum, getText("testTotal", language))
+		result += fmt.Sprintf("%d(%s) %d(%s) %d(%s)\n", successNum, getText("testStatusSuccess", language), failedNum, getText("testStatusFailed", language), totalNum, getText("testTotal", language))
 	}
 	return result, nil
+}
+
+func genSonartMetricsText(jobSpec *models.JobTaskFreestyleSpec, language string) (string, string, error) {
+	getQualityGateStatusText := func(qualityGateStatus sonar.QualityGateStatus, language string) string {
+		if language == string(config.SystemLanguageEnUS) {
+			if qualityGateStatus == "" {
+				return "NONE"
+			} else {
+				return string(qualityGateStatus)
+			}
+		}
+
+		if qualityGateStatus == "OK" {
+			return "通过"
+		} else if qualityGateStatus == "WARN" {
+			return "警告"
+		} else if qualityGateStatus == "ERROR" {
+			return "未通过"
+		} else if qualityGateStatus == "NONE" || qualityGateStatus == "" {
+			return "未开启"
+		}
+		return ""
+	}
+
+	result := ""
+	mailResult := ""
+	for _, jobStep := range jobSpec.Steps {
+		if jobStep.StepType == config.StepSonarGetMetrics {
+			stepSpec := &step.StepSonarGetMetricsSpec{}
+			models.IToi(jobStep.Spec, stepSpec)
+
+			if stepSpec.SonarMetrics == nil {
+				return "", "", nil
+			}
+
+			result = fmt.Sprintf("**%s**(%s) **%s**(%s) **%s**(%s) **%s**(%s) **%s**(%s) **%s%%**(%s)",
+				getQualityGateStatusText(stepSpec.SonarMetrics.QualityGateStatus, language), getText("sonarQualityGateStatus", language),
+				stepSpec.SonarMetrics.Ncloc, getText("sonarNcloc", language),
+				stepSpec.SonarMetrics.Bugs, getText("sonarBugs", language),
+				stepSpec.SonarMetrics.Vulnerabilities, getText("sonarVulnerabilities", language),
+				stepSpec.SonarMetrics.CodeSmells, getText("sonarCodeSmells", language),
+				stepSpec.SonarMetrics.Coverage, getText("sonarCoverage", language),
+			)
+			mailResult = fmt.Sprintf("%s(%s) %s(%s) %s(%s) %s(%s) %s(%s) %s%%(%s)",
+				getQualityGateStatusText(stepSpec.SonarMetrics.QualityGateStatus, language), getText("sonarQualityGateStatus", language),
+				stepSpec.SonarMetrics.Ncloc, getText("sonarNcloc", language),
+				stepSpec.SonarMetrics.Bugs, getText("sonarBugs", language),
+				stepSpec.SonarMetrics.Vulnerabilities, getText("sonarVulnerabilities", language),
+				stepSpec.SonarMetrics.CodeSmells, getText("sonarCodeSmells", language),
+				stepSpec.SonarMetrics.Coverage, getText("sonarCoverage", language),
+			)
+		}
+	}
+
+	return result, mailResult, nil
 }
 
 func (w *Service) sendNotification(title, content string, notify *models.NotifyCtl, card *LarkCard, webhookNotify *webhooknotify.WorkflowNotify, taskStatus config.Status) error {
