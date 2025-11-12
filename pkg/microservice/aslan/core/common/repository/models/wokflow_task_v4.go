@@ -65,6 +65,9 @@ type WorkflowTask struct {
 	Hash                string                        `bson:"hash"                      json:"hash"`
 	ApprovalTicketID    string                        `bson:"approval_ticket_id"        json:"approval_ticket_id"`
 	ApprovalID          string                        `bson:"approval_id"               json:"approval_id"`
+
+	LarkWorkItemTypeKey string `bson:"lark_workitem_type_key"    json:"lark_workitem_type_key"`
+	LarkWorkItemID      string `bson:"lark_workitem_id"          json:"lark_workitem_id"`
 }
 
 func (WorkflowTask) TableName() string {
