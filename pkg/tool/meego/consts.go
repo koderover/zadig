@@ -28,6 +28,13 @@ const (
 	PluginTokenType        = 0
 	VirtualPluginTokenType = 1
 
-	WorkflowType   = 0
+	NodeFlowType   = 0
 	StatusFlowType = 1
+)
+
+type WorkItemPattern string
+
+const (
+	WorkItemPatternNode  WorkItemPattern = "Node"
+	WorkItemPatternState WorkItemPattern = "State"
 )

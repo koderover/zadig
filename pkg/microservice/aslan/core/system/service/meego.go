@@ -17,6 +17,8 @@
 package service
 
 import (
+	"fmt"
+
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/tool/meego"
@@ -98,6 +100,7 @@ func ListMeegoWorkItems(id, projectID, typeKey, nameQuery string, pageNum, pageS
 		meegoWorkItemList = append(meegoWorkItemList, &MeegoWorkItem{
 			ID:           workItem.ID,
 			Name:         workItem.Name,
+			Pattern:      workItem.Pattern,
 			CurrentState: workItem.WorkItemStatus.StateKey,
 		})
 	}
@@ -105,14 +108,59 @@ func ListMeegoWorkItems(id, projectID, typeKey, nameQuery string, pageNum, pageS
 	return &MeegoWorkItemResp{WorkItems: meegoWorkItemList}, nil
 }
 
-func ListAvailableWorkItemTransitions(id, projectID, typeKey string, workItemID int) (*MeegoTransitionResp, error) {
+type ListMeegoWorkItemNodesResp struct {
+	Nodes []*meego.WorkflowNode `json:"nodes"`
+}
+
+func ListMeegoWorkItemNodes(id, projectID, typeKey string, workitemID int) (*ListMeegoWorkItemNodesResp, error) {
 	spec, err := commonrepo.NewProjectManagementColl().GetMeegoSpec(id)
 	if err != nil {
-		log.Errorf("failed to get meego info, err: %s", err)
+		err = fmt.Errorf("failed to get meego info, err: %s", err)
+		log.Error(err)
 		return nil, err
 	}
 
+	client, err := meego.NewClient(spec.MeegoHost, spec.MeegoPluginID, spec.MeegoPluginSecret, spec.MeegoUserKey)
 	if err != nil {
+		err = fmt.Errorf("failed to new meego client, err: %s", err)
+		log.Error(err)
+		return nil, err
+	}
+
+	_, nodes, _, err := client.GetWorkFlowInfo(projectID, typeKey, meego.WorkItemPatternNode, workitemID)
+	if err != nil {
+		err = fmt.Errorf("failed to get workflow info, err: %s", err)
+		log.Error(err)
+		return nil, err
+	}
+
+	return &ListMeegoWorkItemNodesResp{Nodes: nodes}, nil
+}
+
+func ConfirmWorkItemNode(id, projectID, typeKey, workItemID, nodeID string) error {
+	spec, err := commonrepo.NewProjectManagementColl().GetMeegoSpec(id)
+	if err != nil {
+		log.Errorf("failed to get meego info, err: %s", err)
+		return err
+	}
+
+	client, err := meego.NewClient(spec.MeegoHost, spec.MeegoPluginID, spec.MeegoPluginSecret, spec.MeegoUserKey)
+	if err != nil {
+		return err
+	}
+
+	err = client.NodeOperate(projectID, typeKey, workItemID, nodeID)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func ListAvailableWorkItemTransitions(id, projectID, typeKey string, pattern meego.WorkItemPattern, workItemID int) (*MeegoTransitionResp, error) {
+	spec, err := commonrepo.NewProjectManagementColl().GetMeegoSpec(id)
+	if err != nil {
+		log.Errorf("failed to get meego info, err: %s", err)
 		return nil, err
 	}
 
@@ -126,13 +174,12 @@ func ListAvailableWorkItemTransitions(id, projectID, typeKey string, workItemID 
 		return nil, err
 	}
 
-	transitions, stateInfoList, err := client.GetWorkFlowInfo(projectID, typeKey, workItemID)
+	transitions, _, stateInfoList, err := client.GetWorkFlowInfo(projectID, typeKey, pattern, workItemID)
 	if err != nil {
 		return nil, err
 	}
 
 	targetStateMap := make(map[string]string)
-
 	for _, stateInfo := range stateInfoList {
 		targetStateMap[stateInfo.ID] = stateInfo.Name
 	}
