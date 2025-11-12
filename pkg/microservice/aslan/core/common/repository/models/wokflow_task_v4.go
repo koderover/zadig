@@ -441,14 +441,15 @@ type JobIstioRollbackSpec struct {
 }
 
 type MeegoTransitionSpec struct {
-	Link            string                     `bson:"link"               json:"link"               yaml:"link"`
-	Source          string                     `bson:"source"             json:"source"             yaml:"source"`
-	ProjectKey      string                     `bson:"project_key"        json:"project_key"        yaml:"project_key"`
-	ProjectName     string                     `bson:"project_name"       json:"project_name"       yaml:"project_name"`
-	MeegoID         string                     `bson:"meego_id"           json:"meego_id"           yaml:"meego_id"`
-	WorkItemType    string                     `bson:"work_item_type"     json:"work_item_type"     yaml:"work_item_type"`
-	WorkItemTypeKey string                     `bson:"work_item_type_key" json:"work_item_type_key" yaml:"work_item_type_key"`
-	WorkItems       []*MeegoWorkItemTransition `bson:"work_items"         json:"work_items"         yaml:"work_items"`
+	Link            string                      `bson:"link"               json:"link"               yaml:"link"`
+	Source          string                      `bson:"source"             json:"source"             yaml:"source"`
+	ProjectKey      string                      `bson:"project_key"        json:"project_key"        yaml:"project_key"`
+	ProjectName     string                      `bson:"project_name"       json:"project_name"       yaml:"project_name"`
+	MeegoID         string                      `bson:"meego_id"           json:"meego_id"           yaml:"meego_id"`
+	WorkItemType    string                      `bson:"work_item_type"     json:"work_item_type"     yaml:"work_item_type"`
+	WorkItemTypeKey string                      `bson:"work_item_type_key" json:"work_item_type_key" yaml:"work_item_type_key"`
+	StatusWorkItems []*MeegoWorkItemTransition  `bson:"work_items"         json:"work_items"         yaml:"work_items"`
+	NodeWorkItems   []*MeegoWorkItemNodeOperate `bson:"node_work_items"       json:"node_work_items"       yaml:"node_work_items"`
 }
 
 type JobTaskGrayRollbackSpec struct {

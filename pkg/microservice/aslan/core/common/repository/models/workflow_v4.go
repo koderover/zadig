@@ -973,16 +973,17 @@ type ApolloNamespace struct {
 }
 
 type MeegoTransitionJobSpec struct {
-	Source              string                     `bson:"source"                json:"source"`
-	ProjectKey          string                     `bson:"project_key"           json:"project_key"           yaml:"project_key"`
-	ProjectName         string                     `bson:"project_name"          json:"project_name"          yaml:"project_name"`
-	MeegoID             string                     `bson:"meego_id"              json:"meego_id"              yaml:"meego_id"`
-	MeegoSystemIdentity string                     `bson:"meego_system_identity" json:"meego_system_identity" yaml:"meego_system_identity"`
-	MeegoURL            string                     `bson:"meego_url"             json:"meego_url"             yaml:"meego_url"`
-	WorkItemType        string                     `bson:"work_item_type"        json:"work_item_type"        yaml:"work_item_type"`
-	WorkItemTypeKey     string                     `bson:"work_item_type_key"    json:"work_item_type_key"    yaml:"work_item_type_key"`
-	Link                string                     `bson:"link"                  json:"link"                  yaml:"link"`
-	WorkItems           []*MeegoWorkItemTransition `bson:"work_items"            json:"work_items"            yaml:"work_items"`
+	Source              string                      `bson:"source"                json:"source"`
+	ProjectKey          string                      `bson:"project_key"           json:"project_key"           yaml:"project_key"`
+	ProjectName         string                      `bson:"project_name"          json:"project_name"          yaml:"project_name"`
+	MeegoID             string                      `bson:"meego_id"              json:"meego_id"              yaml:"meego_id"`
+	MeegoSystemIdentity string                      `bson:"meego_system_identity" json:"meego_system_identity" yaml:"meego_system_identity"`
+	MeegoURL            string                      `bson:"meego_url"             json:"meego_url"             yaml:"meego_url"`
+	WorkItemType        string                      `bson:"work_item_type"        json:"work_item_type"        yaml:"work_item_type"`
+	WorkItemTypeKey     string                      `bson:"work_item_type_key"    json:"work_item_type_key"    yaml:"work_item_type_key"`
+	Link                string                      `bson:"link"                  json:"link"                  yaml:"link"`
+	StatusWorkItems     []*MeegoWorkItemTransition  `bson:"work_items"            json:"work_items"            yaml:"work_items"`
+	NodeWorkItems       []*MeegoWorkItemNodeOperate `bson:"node_work_items"       json:"node_work_items"       yaml:"node_work_items"`
 }
 
 type MeegoWorkItemTransition struct {
@@ -992,6 +993,14 @@ type MeegoWorkItemTransition struct {
 	TargetStateKey  string `bson:"target_state_key"  json:"target_state_key"  yaml:"target_state_key"`
 	TargetStateName string `bson:"target_state_name" json:"target_state_name" yaml:"target_state_name"`
 	Status          string `bson:"status"            json:"status"            yaml:"status,omitempty"`
+}
+
+type MeegoWorkItemNodeOperate struct {
+	ID       int    `bson:"id"                json:"id"                yaml:"id"`
+	Name     string `bson:"name"              json:"name"              yaml:"name"`
+	NodeID   string `bson:"node_id"           json:"node_id"           yaml:"node_id"`
+	NodeName string `bson:"node_name"         json:"node_name"         yaml:"node_name"`
+	Status   string `bson:"status"            json:"status"            yaml:"status,omitempty"`
 }
 
 type IstioJobTarget struct {

@@ -45,6 +45,7 @@ type WorkItem struct {
 	Name           string            `json:"name"`
 	SimpleName     string            `json:"simple_name"`
 	TemplateType   string            `json:"template_type"`
+	Pattern        WorkItemPattern   `json:"pattern"`
 	WorkItemStatus *WorkItemStatus   `json:"work_item_status"`
 	WorkflowInfos  *NodesConnections `json:"workflow_infos"`
 }
@@ -74,6 +75,7 @@ type NodesConnections struct {
 type WorkflowNode struct {
 	ID       string `json:"id"`
 	StateKey string `json:"state_key"`
+	Status   int    `json:"status"`
 	Name     string `json:"name"`
 }
 
@@ -177,13 +179,20 @@ func (c *Client) GetWorkItem(projectKey, workItemTypeKey string, workItemID int)
 	return nil, errors.New("no work item found")
 }
 
-func (c *Client) GetWorkFlowInfo(projectKey, workItemTypeKey string, workItemID int) ([]*Connection, []*StateFlowNode, error) {
+func (c *Client) GetWorkFlowInfo(projectKey, workItemTypeKey string, pattern WorkItemPattern, workItemID int) ([]*Connection, []*WorkflowNode, []*StateFlowNode, error) {
 	getWorkflowInfoAPI := fmt.Sprintf("%s/open_api/%s/work_item/%s/%d/workflow/query", c.Host, projectKey, workItemTypeKey, workItemID)
 
 	result := new(GetWorkflowResp)
 
+	flowType := NodeFlowType
+	if pattern == WorkItemPatternNode {
+		flowType = NodeFlowType
+	} else if pattern == WorkItemPatternState {
+		flowType = StatusFlowType
+	}
+
 	req := &GetWorkflowReq{
-		FlowType: StatusFlowType,
+		FlowType: int64(flowType),
 	}
 
 	_, err := httpclient.Post(getWorkflowInfoAPI,
@@ -195,16 +204,16 @@ func (c *Client) GetWorkFlowInfo(projectKey, workItemTypeKey string, workItemID 
 
 	if err != nil {
 		log.Errorf("error occurred when getting meego workflow status list, error: %s", err)
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	if result.ErrorCode != 0 {
 		errMsg := fmt.Sprintf("error response when getting meego workflow status list, error code: %d, error message: %s, error: %+v", result.ErrorCode, result.ErrorMessage, result.Error)
 		log.Error(errMsg)
-		return nil, nil, errors.New(errMsg)
+		return nil, nil, nil, errors.New(errMsg)
 	}
 
-	return result.Data.Connections, result.Data.StateflowNodes, nil
+	return result.Data.Connections, result.Data.WorkflowNodes, result.Data.StateflowNodes, nil
 }
 
 type StatusTransitionReq struct {
@@ -240,6 +249,44 @@ func (c *Client) StatusTransition(projectKey, workItemTypeKey string, workItemID
 
 	if result.ErrorCode != 0 {
 		errMsg := fmt.Sprintf("error response when updating work item status, error code: %d, error message: %s, error: %+v", result.ErrorCode, result.ErrorMessage, result.Error)
+		log.Error(errMsg)
+		return errors.New(errMsg)
+	}
+
+	return nil
+}
+
+type NodeOperateReq struct {
+	Action string `json:"action"`
+}
+
+type NodeOperateResp struct {
+	ErrorMessage string      `json:"err_msg"`
+	ErrorCode    int         `json:"err_code"`
+	Error        interface{} `json:"error"`
+}
+
+func (c *Client) NodeOperate(projectKey, workItemTypeKey string, workItemID string, nodeID string) error {
+	nodeOperateAPI := fmt.Sprintf("%s/open_api/%s/workflow/%s/%s/node/%s/operate", c.Host, projectKey, workItemTypeKey, workItemID, nodeID)
+
+	req := &NodeOperateReq{
+		Action: "confirm",
+	}
+
+	result := new(NodeOperateResp)
+	_, err := httpclient.Post(nodeOperateAPI,
+		httpclient.SetBody(req),
+		httpclient.SetHeader(PluginTokenHeader, c.PluginToken),
+		httpclient.SetHeader(UserKeyHeader, c.UserKey),
+	)
+
+	if err != nil {
+		log.Errorf("error occurred when operate node, error: %s", err)
+		return err
+	}
+
+	if result.ErrorCode != 0 {
+		errMsg := fmt.Sprintf("error response when operate node, error code: %d, error message: %s, error: %+v", result.ErrorCode, result.ErrorMessage, result.Error)
 		log.Error(errMsg)
 		return errors.New(errMsg)
 	}

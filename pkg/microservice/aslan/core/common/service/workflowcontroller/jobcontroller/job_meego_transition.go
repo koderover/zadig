@@ -75,7 +75,8 @@ func (c *MeegoTransitionJobCtl) Run(ctx context.Context) {
 		c.job.Status = config.StatusFailed
 		return
 	}
-	for _, task := range c.jobTaskSpec.WorkItems {
+
+	for _, task := range c.jobTaskSpec.StatusWorkItems {
 		err := client.StatusTransition(c.jobTaskSpec.ProjectKey, c.jobTaskSpec.WorkItemTypeKey, task.ID, task.TransitionID)
 		if err != nil {
 			errMsg := fmt.Sprintf("work item: [%d] failed to do transition, err: %s", task.ID, err)
@@ -86,6 +87,19 @@ func (c *MeegoTransitionJobCtl) Run(ctx context.Context) {
 		}
 		task.Status = string(config.StatusPassed)
 	}
+
+	for _, task := range c.jobTaskSpec.NodeWorkItems {
+		err := client.NodeOperate(c.jobTaskSpec.ProjectKey, c.jobTaskSpec.WorkItemTypeKey, fmt.Sprintf("%d", task.ID), task.NodeID)
+		if err != nil {
+			errMsg := fmt.Sprintf("work item: [%d] failed to operate, err: %s", task.ID, err)
+			logError(c.job, errMsg, c.logger)
+			task.Status = string(config.StatusFailed)
+			c.job.Status = config.StatusFailed
+			return
+		}
+		task.Status = string(config.StatusPassed)
+	}
+
 	c.job.Status = config.StatusPassed
 }
 

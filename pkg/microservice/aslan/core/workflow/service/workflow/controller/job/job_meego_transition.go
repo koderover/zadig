@@ -99,7 +99,7 @@ func (j MeegoTransitionJobController) ClearOptions() {
 }
 
 func (j MeegoTransitionJobController) ClearSelection() {
-	j.jobSpec.WorkItems = make([]*commonmodels.MeegoWorkItemTransition, 0)
+	j.jobSpec.StatusWorkItems = make([]*commonmodels.MeegoWorkItemTransition, 0)
 }
 
 func (j MeegoTransitionJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, error) {
@@ -126,7 +126,8 @@ func (j MeegoTransitionJobController) ToTask(taskID int64) ([]*commonmodels.JobT
 			ProjectName:     j.jobSpec.ProjectName,
 			WorkItemType:    j.jobSpec.WorkItemType,
 			WorkItemTypeKey: j.jobSpec.WorkItemTypeKey,
-			WorkItems:       j.jobSpec.WorkItems,
+			StatusWorkItems: j.jobSpec.StatusWorkItems,
+			NodeWorkItems:   j.jobSpec.NodeWorkItems,
 		},
 		ErrorPolicy: j.errorPolicy,
 	}
