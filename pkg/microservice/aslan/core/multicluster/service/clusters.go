@@ -1373,6 +1373,23 @@ func UpgradeDind(kclient client.Client, cluster *commonmodels.K8SCluster, ns str
 			return err
 		}
 	} else {
+		// Check if StatefulSet is stuck (e.g., due to wrong storage driver) and handle it
+		isStuck := kube.IsStatefulSetStuckInUpdate(dindSts, log.SugaredLogger())
+		if isStuck {
+			log.Warnf("StatefulSet %s/%s is stuck, attempting to fix by deleting stuck pods before update", ns, types.DindStatefulSetName)
+			clusterID := cluster.ID.Hex()
+			clientSet, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(clusterID)
+			if err != nil {
+				log.Warnf("Failed to get clientset for cluster %s to handle stuck StatefulSet: %v", clusterID, err)
+				// Continue with update even if we can't get clientset
+			} else {
+				if fixErr := kube.HandleStuckStatefulSet(dindSts, clientSet, log.SugaredLogger()); fixErr != nil {
+					log.Warnf("Failed to clean up stuck pods for StatefulSet %s/%s: %v", ns, types.DindStatefulSetName, fixErr)
+					// Continue with update even if cleanup fails
+				}
+			}
+		}
+
 		err = kclient.Update(ctx, dindSts)
 		if err != nil {
 			err = fmt.Errorf("failed to update StatefulSet `dind`: %s", err)

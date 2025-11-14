@@ -20,10 +20,13 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
-
 	"strings"
+	"time"
 
+	"github.com/pkg/errors"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/kubernetes"
@@ -94,6 +97,16 @@ func PrepareDinD(client *kubernetes.Clientset, namespace string, regList []*Regi
 
 	if len(dindSts.Spec.Template.Spec.Containers) == 0 {
 		return fmt.Errorf("failed to extract container from dind sts")
+	}
+
+	// Check if StatefulSet is stuck (e.g., due to wrong storage driver) and handle it
+	isStuck := isStatefulSetStuckInUpdate(dindSts)
+	if isStuck {
+		log.Warnf("StatefulSet %s/dind is stuck, attempting to fix by deleting stuck pods before update", namespace)
+		if fixErr := handleStuckStatefulSet(dindSts, client); fixErr != nil {
+			log.Warnf("Failed to clean up stuck pods for StatefulSet %s/dind: %v", namespace, fixErr)
+			// Continue with update even if cleanup fails
+		}
 	}
 
 	if mountFlag {
@@ -216,4 +229,102 @@ func ensureCertificateSecret(client *kubernetes.Clientset, secretName, namespace
 		}
 		return err
 	}
+}
+
+// isStatefulSetStuckInUpdate checks if a StatefulSet is stuck in an update state
+func isStatefulSetStuckInUpdate(sts *appsv1.StatefulSet) bool {
+	if sts == nil {
+		return false
+	}
+
+	status := sts.Status
+	spec := sts.Spec
+
+	if spec.Replicas == nil {
+		return false
+	}
+
+	desiredReplicas := *spec.Replicas
+
+	// Check if StatefulSet is in the middle of an update
+	// The update is in progress when currentRevision != updateRevision
+	if status.CurrentRevision != "" && status.UpdateRevision != "" &&
+		status.CurrentRevision != status.UpdateRevision {
+
+		// StatefulSet is stuck if:
+		// 1. Not all replicas are updated (updatedReplicas < desiredReplicas)
+		// 2. OR not all replicas are ready (readyReplicas < desiredReplicas)
+		// 3. OR the update hasn't fully rolled out (currentRevision != updateRevision means rollout incomplete)
+		isStuck := status.UpdatedReplicas < desiredReplicas || status.ReadyReplicas < desiredReplicas
+
+		if isStuck {
+			log.Warnf("StatefulSet %s/%s appears to be stuck in update: currentRevision=%s, updateRevision=%s, replicas=%d, updatedReplicas=%d, readyReplicas=%d, currentReplicas=%d",
+				sts.Namespace, sts.Name, status.CurrentRevision, status.UpdateRevision,
+				desiredReplicas, status.UpdatedReplicas, status.ReadyReplicas, status.CurrentReplicas)
+			return true
+		}
+	}
+
+	return false
+}
+
+// handleStuckStatefulSet attempts to fix a stuck StatefulSet by deleting non-ready pods
+func handleStuckStatefulSet(sts *appsv1.StatefulSet, clientSet *kubernetes.Clientset) error {
+	log.Warnf("Attempting to fix stuck StatefulSet %s/%s by deleting non-ready pods", sts.Namespace, sts.Name)
+
+	selector, err := metav1.LabelSelectorAsSelector(sts.Spec.Selector)
+	if err != nil {
+		return errors.Wrapf(err, "failed to convert label selector for StatefulSet %s/%s", sts.Namespace, sts.Name)
+	}
+
+	pods, err := clientSet.CoreV1().Pods(sts.Namespace).List(context.TODO(), metav1.ListOptions{
+		LabelSelector: selector.String(),
+	})
+	if err != nil {
+		return errors.Wrapf(err, "failed to list pods for StatefulSet %s/%s", sts.Namespace, sts.Name)
+	}
+
+	// Delete non-ready pods to unblock the update
+	deletedCount := 0
+	for _, pod := range pods.Items {
+		// Check if pod is not ready
+		isReady := false
+		for _, condition := range pod.Status.Conditions {
+			if condition.Type == corev1.PodReady && condition.Status == corev1.ConditionTrue {
+				isReady = true
+				break
+			}
+		}
+
+		// Also check if pod is in a failed state
+		isStuck := !isReady || pod.Status.Phase == corev1.PodPending ||
+			pod.Status.Phase == corev1.PodFailed || pod.Status.Phase == corev1.PodUnknown
+
+		if isStuck {
+			log.Warnf("Deleting stuck pod %s/%s (phase=%s, ready=%v) to unblock StatefulSet update",
+				pod.Namespace, pod.Name, pod.Status.Phase, isReady)
+
+			// Use zero grace period to force delete if necessary
+			gracePeriodSeconds := int64(0)
+			err := clientSet.CoreV1().Pods(pod.Namespace).Delete(context.TODO(), pod.Name, metav1.DeleteOptions{
+				GracePeriodSeconds: &gracePeriodSeconds,
+			})
+			if err != nil && !apierrors.IsNotFound(err) {
+				log.Errorf("Failed to delete stuck pod %s/%s: %v", pod.Namespace, pod.Name, err)
+				// Continue trying to delete other pods
+				continue
+			}
+			deletedCount++
+		}
+	}
+
+	if deletedCount > 0 {
+		log.Infof("Deleted %d stuck pod(s) for StatefulSet %s/%s, waiting briefly for controller to react", deletedCount, sts.Namespace, sts.Name)
+		// Brief pause to allow Kubernetes controller to process the deletions
+		time.Sleep(1 * time.Second)
+	} else {
+		log.Infof("No stuck pods found for StatefulSet %s/%s", sts.Namespace, sts.Name)
+	}
+
+	return nil
 }
