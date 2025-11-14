@@ -1181,11 +1181,6 @@ func UpgradeDind(kclient client.Client, cluster *commonmodels.K8SCluster, ns str
 		return fmt.Errorf("failed to get dind StatefulSet in local cluster: %s", err)
 	}
 
-	scaleupd := false
-	if *dindSts.Spec.Replicas < int32(cluster.DindCfg.Replicas) {
-		scaleupd = true
-	}
-
 	originalSts := new(appsv1.StatefulSet)
 	err = util.DeepCopy(originalSts, dindSts)
 	if err != nil {
