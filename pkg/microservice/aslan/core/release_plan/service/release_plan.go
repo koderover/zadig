@@ -24,8 +24,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/controller"
-
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/koderover/zadig/v2/pkg/types"
@@ -42,12 +40,16 @@ import (
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	approvalservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/approval"
+	dingservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/dingtalk"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/webhooknotify"
+	workwxservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/workwx"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/controller"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/shared/client/user"
 	"github.com/koderover/zadig/v2/pkg/shared/handler"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
+	"github.com/koderover/zadig/v2/pkg/tool/lark"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/util"
 )
@@ -881,6 +883,8 @@ func UpdateReleasePlanStatus(c *handler.Context, planID, targetStatus string, is
 		plan.WaitForExecuteExternalCheckTime = 0
 		plan.WaitForAllDoneExternalCheckTime = 0
 		plan.ExternalCheckFailedReason = ""
+
+		cancelReleasePlanApproval(c, plan)
 	case config.ReleasePlanStatusExecuting:
 		if plan.Approval != nil && plan.Approval.Enabled == true && plan.Approval.Status != config.StatusPassed {
 			return errors.Errorf("approval status is %s, can not execute", plan.Approval.Status)
@@ -2055,4 +2059,56 @@ func waitForExternalCheck(plan *models.ReleasePlan, systemHookSetting *commonmod
 	}
 
 	return &nextStatus, shouldWait
+}
+
+func cancelReleasePlanApproval(ctx *handler.Context, plan *models.ReleasePlan) error {
+	if plan == nil {
+		log.Warnf("cancelReleasePlanApproval: release plan is nil")
+		return nil
+	}
+
+	if plan.Approval == nil {
+		return nil
+	}
+
+	if !plan.Approval.Enabled {
+		return nil
+	}
+
+	if plan.Approval.Status == config.StatusPassed || plan.Approval.Status == config.StatusReject || plan.Approval.Status == config.StatusCancelled {
+		return nil
+	}
+
+	if plan.Approval.LarkApproval != nil {
+		data, err := mongodb.NewIMAppColl().GetByID(context.Background(), plan.Approval.LarkApproval.ID)
+		if err != nil {
+			return fmt.Errorf("get lark im app data error: %s", err)
+		}
+
+		approvalCode := data.LarkApprovalCodeListCommon[plan.Approval.LarkApproval.GetNodeTypeKey()]
+		if approvalCode == "" {
+			log.Warnf("failed to find approval code for node type %s", plan.Approval.LarkApproval.GetNodeTypeKey())
+			return nil
+		}
+
+		client := lark.NewClient(data.AppID, data.AppSecret, data.Type)
+		err = client.CancelApprovalInstance(&lark.CancelApprovalInstanceArgs{
+			ApprovalID: approvalCode,
+			InstanceID: plan.Approval.LarkApproval.InstanceCode,
+			UserID:     plan.Approval.LarkApproval.DefaultApprovalInitiator.ID,
+		})
+		if err != nil {
+			log.Errorf("cancel approval %s error: %v", plan.Approval.LarkApproval.InstanceCode, err)
+		}
+	}
+
+	if plan.Approval.DingTalkApproval != nil {
+		dingservice.RemoveDingTalkApprovalManager(plan.Approval.DingTalkApproval.InstanceCode)
+	}
+
+	if plan.Approval.WorkWXApproval != nil {
+		workwxservice.RemoveWorkWXApprovalManager(plan.Approval.WorkWXApproval.InstanceID)
+	}
+
+	return nil
 }
