@@ -33,6 +33,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	registrytool "github.com/koderover/zadig/v2/pkg/tool/registries"
+	"github.com/spf13/viper"
 )
 
 func init() {
@@ -143,7 +144,7 @@ func initResource() {
 
 		// Get storage driver from cluster config
 		storageDriver := ""
-		clusterInfo, err := client.GetClusterInfo(setting.LocalClusterID)
+		clusterInfo, err := client.GetClusterInfo(viper.GetString("CLUSTER_ID"))
 		if err == nil && clusterInfo.DindCfg != nil {
 			storageDriver = clusterInfo.DindCfg.StorageDriver
 		}
