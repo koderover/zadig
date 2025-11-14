@@ -818,7 +818,7 @@ spec:
               fieldPath: spec.nodeName
         - name: HUB_AGENT_TOKEN
           value: "{{.ClientToken}}"
-		- name: CLUSTER_ID
+        - name: CLUSTER_ID
 		  value: "{{.ClusterID}}"
         - name: HUB_SERVER_BASE_ADDR
           value: "{{.HubServerBaseAddr}}"
@@ -1010,7 +1010,7 @@ spec:
               fieldPath: spec.nodeName
         - name: HUB_AGENT_TOKEN
           value: "{{.ClientToken}}"
-		- name: CLUSTER_ID
+        - name: CLUSTER_ID
 		  value: "{{.ClusterID}}"
         - name: HUB_SERVER_BASE_ADDR
           value: "{{.HubServerBaseAddr}}"
