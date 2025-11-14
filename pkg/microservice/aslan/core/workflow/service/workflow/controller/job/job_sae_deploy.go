@@ -18,6 +18,7 @@ package job
 
 import (
 	"fmt"
+	"strings"
 
 	sae "github.com/alibabacloud-go/sae-20190506/client"
 	"github.com/alibabacloud-go/tea/tea"
@@ -46,10 +47,11 @@ func CreateSAEDeployJobController(job *commonmodels.Job, workflow *commonmodels.
 	}
 
 	basicInfo := &BasicInfo{
-		name:        job.Name,
-		jobType:     job.JobType,
-		errorPolicy: job.ErrorPolicy,
-		workflow:    workflow,
+		name:          job.Name,
+		jobType:       job.JobType,
+		errorPolicy:   job.ErrorPolicy,
+		executePolicy: job.ExecutePolicy,
+		workflow:      workflow,
 	}
 
 	return SAEDeployJobController{
@@ -167,9 +169,10 @@ func (j SAEDeployJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, e
 				JobNameKey:     j.name,
 				"service_name": svc.ServiceName,
 			},
-			JobType:     string(config.JobSAEDeploy),
-			Spec:        jobTaskSpec,
-			ErrorPolicy: j.errorPolicy,
+			JobType:       string(config.JobSAEDeploy),
+			Spec:          jobTaskSpec,
+			ErrorPolicy:   j.errorPolicy,
+			ExecutePolicy: j.executePolicy,
 		}
 
 		resp = append(resp, jobTask)
@@ -187,7 +190,16 @@ func (j SAEDeployJobController) SetRepoCommitInfo() error {
 }
 
 func (j SAEDeployJobController) GetVariableList(jobName string, getAggregatedVariables, getRuntimeVariables, getPlaceHolderVariables, getServiceSpecificVariables, useUserInputValue bool) ([]*commonmodels.KeyVal, error) {
-	return make([]*commonmodels.KeyVal, 0), nil
+	resp := make([]*commonmodels.KeyVal, 0)
+	if getRuntimeVariables {
+		resp = append(resp, &commonmodels.KeyVal{
+			Key:          strings.Join([]string{"job", j.name, "status"}, "."),
+			Value:        "",
+			Type:         "string",
+			IsCredential: false,
+		})
+	}
+	return resp, nil
 }
 
 func (j SAEDeployJobController) GetUsedRepos() ([]*types.Repository, error) {

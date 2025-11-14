@@ -19,6 +19,7 @@ package job
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
@@ -41,10 +42,11 @@ func CreateBlueKingJobController(job *commonmodels.Job, workflow *commonmodels.W
 	}
 
 	basicInfo := &BasicInfo{
-		name:        job.Name,
-		jobType:     job.JobType,
-		errorPolicy: job.ErrorPolicy,
-		workflow:    workflow,
+		name:          job.Name,
+		jobType:       job.JobType,
+		errorPolicy:   job.ErrorPolicy,
+		executePolicy: job.ExecutePolicy,
+		workflow:      workflow,
 	}
 
 	return BlueKingJobController{
@@ -140,8 +142,9 @@ func (j BlueKingJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, er
 			ExecutionPlanID: j.jobSpec.ExecutionPlanID,
 			Parameters:      j.jobSpec.Parameters,
 		},
-		Timeout:     0,
-		ErrorPolicy: j.errorPolicy,
+		Timeout:       0,
+		ErrorPolicy:   j.errorPolicy,
+		ExecutePolicy: j.executePolicy,
 	})
 
 	return resp, nil
@@ -156,7 +159,16 @@ func (j BlueKingJobController) SetRepoCommitInfo() error {
 }
 
 func (j BlueKingJobController) GetVariableList(jobName string, getAggregatedVariables, getRuntimeVariables, getPlaceHolderVariables, getServiceSpecificVariables, useUserInputValue bool) ([]*commonmodels.KeyVal, error) {
-	return make([]*commonmodels.KeyVal, 0), nil
+	resp := make([]*commonmodels.KeyVal, 0)
+	if getRuntimeVariables {
+		resp = append(resp, &commonmodels.KeyVal{
+			Key:          strings.Join([]string{"job", j.name, "status"}, "."),
+			Value:        "",
+			Type:         "string",
+			IsCredential: false,
+		})
+	}
+	return resp, nil
 }
 
 func (j BlueKingJobController) GetUsedRepos() ([]*types.Repository, error) {

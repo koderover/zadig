@@ -53,10 +53,11 @@ func CreateTestingJobController(job *commonmodels.Job, workflow *commonmodels.Wo
 	}
 
 	basicInfo := &BasicInfo{
-		name:        job.Name,
-		jobType:     job.JobType,
-		errorPolicy: job.ErrorPolicy,
-		workflow:    workflow,
+		name:          job.Name,
+		jobType:       job.JobType,
+		errorPolicy:   job.ErrorPolicy,
+		executePolicy: job.ExecutePolicy,
+		workflow:      workflow,
 	}
 
 	return TestingJobController{
@@ -87,7 +88,7 @@ func (j TestingJobController) Validate(isExecution bool) error {
 			}
 		}
 	}
-	
+
 	return nil
 }
 
@@ -156,11 +157,11 @@ func (j TestingJobController) Update(useUserInput bool, ticket *commonmodels.App
 
 		for _, option := range j.jobSpec.TestModuleOptions {
 			item := &commonmodels.TestModule{
-				Name: option.Name,
-				ProjectName: option.ProjectName,
+				Name:             option.Name,
+				ProjectName:      option.ProjectName,
 				ShareStorageInfo: option.ShareStorageInfo,
-				KeyVals: option.KeyVals,
-				Repos: option.Repos,
+				KeyVals:          option.KeyVals,
+				Repos:            option.Repos,
 			}
 			if input, ok := userInputMap[option.Name]; ok {
 				item.KeyVals = applyKeyVals(item.KeyVals, input.KeyVals, false)
@@ -329,13 +330,20 @@ func (j TestingJobController) GetVariableList(jobName string, getAggregatedVaria
 				if getPlaceHolderVariables {
 					jobKey := strings.Join([]string{j.name, "<SERVICE>", "<MODULE>"}, ".")
 					for _, output := range testInfo.Outputs {
-						resp = append(resp,  &commonmodels.KeyVal{
+						resp = append(resp, &commonmodels.KeyVal{
 							Key:          strings.Join([]string{"job", jobKey, "output", output.Name}, "."),
 							Value:        "",
 							Type:         "string",
 							IsCredential: false,
 						})
 					}
+					// Add placeholder status variable for service test type
+					resp = append(resp, &commonmodels.KeyVal{
+						Key:          strings.Join([]string{"job", jobKey, "status"}, "."),
+						Value:        "",
+						Type:         "string",
+						IsCredential: false,
+					})
 				}
 				if getServiceSpecificVariables {
 					for _, test := range j.jobSpec.ServiceTestOptions {
@@ -344,13 +352,20 @@ func (j TestingJobController) GetVariableList(jobName string, getAggregatedVaria
 						}
 						jobKey := strings.Join([]string{j.name, test.ServiceName, test.ServiceModule}, ".")
 						for _, output := range testInfo.Outputs {
-							resp = append(resp,  &commonmodels.KeyVal{
+							resp = append(resp, &commonmodels.KeyVal{
 								Key:          strings.Join([]string{"job", jobKey, "output", output.Name}, "."),
 								Value:        "",
 								Type:         "string",
 								IsCredential: false,
 							})
 						}
+						// Add status variable for each service/module
+						resp = append(resp, &commonmodels.KeyVal{
+							Key:          strings.Join([]string{"job", jobKey, "status"}, "."),
+							Value:        "",
+							Type:         "string",
+							IsCredential: false,
+						})
 					}
 				}
 			} else {
@@ -363,6 +378,13 @@ func (j TestingJobController) GetVariableList(jobName string, getAggregatedVaria
 						IsCredential: false,
 					})
 				}
+
+				resp = append(resp, &commonmodels.KeyVal{
+					Key:          strings.Join([]string{"job", jobKey, "status"}, "."),
+					Value:        "",
+					Type:         "string",
+					IsCredential: false,
+				})
 			}
 		}
 	}
@@ -458,7 +480,7 @@ func (j TestingJobController) GetUsedRepos() ([]*types.Repository, error) {
 			resp = append(resp, applyRepos(testingInfo.Repos, test.Repos)...)
 		}
 	}
-	
+
 	return resp, nil
 }
 
@@ -625,6 +647,7 @@ func (j TestingJobController) toJobTask(jobSubTaskID int, testing *commonmodels.
 		Infrastructure: testingInfo.Infrastructure,
 		VMLabels:       testingInfo.VMLabels,
 		ErrorPolicy:    j.errorPolicy,
+		ExecutePolicy:  j.executePolicy,
 	}
 	jobTaskSpec.Properties = commonmodels.JobProperties{
 		Timeout:             int64(testingInfo.Timeout),
@@ -934,7 +957,7 @@ func getTestingJobVariables(repos []*types.Repository, taskID int64, project, wo
 	ret = append(ret, &commonmodels.KeyVal{Key: "SERVICE_MODULE", Value: serviceModule, IsCredential: false})
 	buildURL := fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/custom/%s/%d?display_name=%s", configbase.SystemAddress(), project, workflowName, taskID, url.QueryEscape(workflowDisplayName))
 	ret = append(ret, &commonmodels.KeyVal{Key: "BUILD_URL", Value: buildURL, IsCredential: false})
-	
+
 	// TODO: remove it
 	ret = append(ret, &commonmodels.KeyVal{Key: "GIT_SSL_NO_VERIFY", Value: "true", IsCredential: false})
 	return ret

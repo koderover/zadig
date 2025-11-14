@@ -19,6 +19,7 @@ package job
 import (
 	"fmt"
 	"math"
+	"strings"
 
 	"k8s.io/apimachinery/pkg/labels"
 
@@ -45,10 +46,11 @@ func CreateCanaryDeployJobController(job *commonmodels.Job, workflow *commonmode
 	}
 
 	basicInfo := &BasicInfo{
-		name:        job.Name,
-		jobType:     job.JobType,
-		errorPolicy: job.ErrorPolicy,
-		workflow:    workflow,
+		name:          job.Name,
+		jobType:       job.JobType,
+		errorPolicy:   job.ErrorPolicy,
+		executePolicy: job.ExecutePolicy,
+		workflow:      workflow,
 	}
 
 	return CanaryDeployJobController{
@@ -145,7 +147,7 @@ func (j CanaryDeployJobController) Update(useUserInput bool, ticket *commonmodel
 
 	j.jobSpec.DockerRegistryID = currJobSpec.DockerRegistryID
 	j.jobSpec.Namespace = currJobSpec.Namespace
-	j.jobSpec.ClusterID = currJobSpec.ClusterID 
+	j.jobSpec.ClusterID = currJobSpec.ClusterID
 
 	// TODO: recalculate the resources in the namespace, for now we just use the configured options
 	j.jobSpec.TargetOptions = currJobSpec.TargetOptions
@@ -220,7 +222,8 @@ func (j CanaryDeployJobController) ToTask(taskID int64) ([]*commonmodels.JobTask
 				CanaryReplica:    int(canaryReplica),
 				Image:            target.Image,
 			},
-			ErrorPolicy: j.errorPolicy,
+			ErrorPolicy:   j.errorPolicy,
+			ExecutePolicy: j.executePolicy,
 		}
 		resp = append(resp, task)
 	}
@@ -237,7 +240,16 @@ func (j CanaryDeployJobController) SetRepoCommitInfo() error {
 }
 
 func (j CanaryDeployJobController) GetVariableList(jobName string, getAggregatedVariables, getRuntimeVariables, getPlaceHolderVariables, getServiceSpecificVariables, useUserInputValue bool) ([]*commonmodels.KeyVal, error) {
-	return make([]*commonmodels.KeyVal, 0), nil
+	resp := make([]*commonmodels.KeyVal, 0)
+	if getRuntimeVariables {
+		resp = append(resp, &commonmodels.KeyVal{
+			Key:          strings.Join([]string{"job", j.name, "status"}, "."),
+			Value:        "",
+			Type:         "string",
+			IsCredential: false,
+		})
+	}
+	return resp, nil
 }
 
 func (j CanaryDeployJobController) GetUsedRepos() ([]*types.Repository, error) {
