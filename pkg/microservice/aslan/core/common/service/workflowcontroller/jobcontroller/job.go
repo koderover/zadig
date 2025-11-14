@@ -129,11 +129,11 @@ func runJob(ctx context.Context, job *commonmodels.JobTask, workflowCtx *commonm
 			debug.PrintStack()
 			job.Status = config.StatusFailed
 			job.Error = errMsg
-			setJobStatusContext(job, workflowCtx)
+			setJobFinalStatusContext(job, workflowCtx)
 		}
 		job.EndTime = time.Now().Unix()
 		logger.Infof("finish job: %s,status: %s", job.Name, job.Status)
-		setJobStatusContext(job, workflowCtx)
+		setJobFinalStatusContext(job, workflowCtx)
 		ack()
 		logger.Infof("updating job info into db...")
 		err := jobCtl.SaveInfo(ctx)
@@ -447,7 +447,7 @@ func setJobStartTimeContext(job *commonmodels.JobTask, workflowCtx *commonmodels
 
 // setJobStatusContext sets the global context variable for job status
 // Format: .job.<jobKey>.status
-func setJobStatusContext(job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx) {
+func setJobFinalStatusContext(job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx) {
 	statusStr := string(job.Status)
 	contextKey := fmt.Sprintf(".job.%s.status", job.Key)
 	workflowCtx.GlobalContextSet(contextKey, statusStr)
