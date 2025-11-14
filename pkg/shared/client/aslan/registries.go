@@ -18,12 +18,11 @@ package aslan
 
 import "github.com/koderover/zadig/v2/pkg/tool/httpclient"
 
-func (c *Client) ListRegistries(token string) ([]*RegistryInfo, error) {
+func (c *Client) ListRegistries() ([]*RegistryInfo, error) {
 	url := "/system/registry/project"
 	res := make([]*RegistryInfo, 0)
 
 	_, err := c.Get(url,
-		httpclient.SetHeader("Authorization", "Bearer "+token),
 		httpclient.SetResult(&res),
 	)
 	if err != nil {

@@ -97,6 +97,7 @@ type ClusterDetail struct {
 	Provider     int8                     `json:"provider"                  bson:"provider"`
 	Local        bool                     `json:"local"                     bson:"local"`
 	Cache        types.Cache              `json:"cache"                     bson:"cache"`
+	DindCfg      *DindCfg                 `json:"dind_cfg"                  bson:"dind_cfg"`
 
 	// new field in 1.14, intended to enable kubeconfig for cluster management
 	Type       string `json:"type"           bson:"type"` // either agent or kubeconfig supported
@@ -115,6 +116,29 @@ type AdvancedConfig struct {
 	ScheduleWorkflow  bool     `json:"schedule_workflow"        bson:"schedule_workflow"`
 	EnableIRSA        bool     `json:"enable_irsa"              bson:"enable_irsa"`
 	IRSARoleARM       string   `json:"irsa_role_arn"            bson:"irsa_role_arn"`
+}
+
+type DindCfg struct {
+	Replicas      int          `json:"replicas"       bson:"replicas"`
+	Resources     *Resources   `json:"resources"      bson:"resources"`
+	Storage       *DindStorage `json:"storage"        bson:"storage"`
+	StrategyID    string       `json:"strategy_id"    bson:"strategy_id"`
+	StorageDriver string       `json:"storage_driver" bson:"storage_driver"`
+}
+
+type Resources struct {
+	Limits *Limits `json:"limits" bson:"limits"`
+}
+
+type Limits struct {
+	CPU    int `json:"cpu"    bson:"cpu"`
+	Memory int `json:"memory" bson:"memory"`
+}
+
+type DindStorage struct {
+	Type             string `json:"type"                bson:"type"`
+	StorageClass     string `json:"storage_class"       bson:"storage_class"`
+	StorageSizeInGiB int64  `json:"storage_size_in_gib" bson:"storage_size_in_gib"`
 }
 
 func (c *Client) GetClusterInfo(clusterID string) (*ClusterDetail, error) {

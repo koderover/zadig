@@ -305,7 +305,7 @@ func (s *Service) GetYaml(id, agentImage, aslanURL, hubURI string, useDeployment
 		return nil, err
 	}
 
-	dindReplicas, dindLimitsCPU, dindLimitsMemory, dindEnablePV, dindSCName, dindStorageSizeInGiB := getDindCfg(cluster)
+	dindReplicas, dindLimitsCPU, dindLimitsMemory, dindEnablePV, dindSCName, dindStorageSizeInGiB, dindStorageDriver := getDindCfg(cluster)
 
 	yaml := agentYaml
 	if cluster.AdvancedConfig != nil {
@@ -356,6 +356,7 @@ func (s *Service) GetYaml(id, agentImage, aslanURL, hubURI string, useDeployment
 			DindEnablePV:         dindEnablePV,
 			DindStorageClassName: dindSCName,
 			DindStorageSizeInGiB: dindStorageSizeInGiB,
+			DindStorageDriver:    dindStorageDriver,
 			ScheduleWorkflow:     scheduleWorkflow,
 			EnableIRSA:           cluster.AdvancedConfig.EnableIRSA,
 			IRSARoleARN:          cluster.AdvancedConfig.IRSARoleARM,
@@ -364,6 +365,7 @@ func (s *Service) GetYaml(id, agentImage, aslanURL, hubURI string, useDeployment
 			Affinity:             cluster.AdvancedConfig.AgentAffinity,
 			ImagePullPolicy:      configbase.ImagePullPolicy(),
 			SecretKey:            base64.StdEncoding.EncodeToString([]byte(configbase.SecretKey())),
+			ClusterID:            cluster.ID.Hex(),
 		})
 	} else {
 		err = YamlTemplateForNamespace.Execute(buffer, TemplateSchema{
@@ -380,6 +382,7 @@ func (s *Service) GetYaml(id, agentImage, aslanURL, hubURI string, useDeployment
 			DindEnablePV:         dindEnablePV,
 			DindStorageClassName: dindSCName,
 			DindStorageSizeInGiB: dindStorageSizeInGiB,
+			DindStorageDriver:    dindStorageDriver,
 			EnableIRSA:           cluster.AdvancedConfig.EnableIRSA,
 			NodeSelector:         cluster.AdvancedConfig.AgentNodeSelector,
 			Toleration:           cluster.AdvancedConfig.AgentToleration,
@@ -387,6 +390,7 @@ func (s *Service) GetYaml(id, agentImage, aslanURL, hubURI string, useDeployment
 			IRSARoleARN:          cluster.AdvancedConfig.IRSARoleARM,
 			ImagePullPolicy:      configbase.ImagePullPolicy(),
 			SecretKey:            base64.StdEncoding.EncodeToString([]byte(configbase.SecretKey())),
+			ClusterID:            cluster.ID.Hex(),
 		})
 	}
 
@@ -406,13 +410,14 @@ func (s *Service) UpdateUpgradeAgentInfo(id, updateHubagentErrorMsg string) erro
 	return err
 }
 
-func getDindCfg(cluster *models.K8SCluster) (replicas int, limitsCPU, limitsMemory string, enablePV bool, scName string, storageSizeInGiB int) {
+func getDindCfg(cluster *models.K8SCluster) (replicas int, limitsCPU, limitsMemory string, enablePV bool, scName string, storageSizeInGiB int, storageDriver string) {
 	replicas = DefaultDindReplicas
 	limitsCPU = strconv.Itoa(DefaultDindLimitsCPU) + setting.CpuUintM
 	limitsMemory = strconv.Itoa(DefaultDindLimitsMemory) + setting.MemoryUintMi
 	enablePV = DefaultDindEnablePV
 	scName = DefaultDindStorageClassName
 	storageSizeInGiB = DefaultDindStorageSizeInGiB
+	storageDriver = ""
 
 	if cluster.DindCfg != nil {
 		if cluster.DindCfg.Replicas > 0 {
@@ -432,6 +437,10 @@ func getDindCfg(cluster *models.K8SCluster) (replicas int, limitsCPU, limitsMemo
 			enablePV = true
 			scName = cluster.DindCfg.Storage.StorageClass
 			storageSizeInGiB = int(cluster.DindCfg.Storage.StorageSizeInGiB)
+		}
+
+		if cluster.DindCfg.StorageDriver != "" {
+			storageDriver = cluster.DindCfg.StorageDriver
 		}
 	}
 
@@ -676,6 +685,7 @@ type TemplateSchema struct {
 	DindEnablePV         bool
 	DindStorageClassName string
 	DindStorageSizeInGiB int
+	DindStorageDriver    string
 	ScheduleWorkflow     bool
 	EnableIRSA           bool
 	IRSARoleARN          string
@@ -684,6 +694,7 @@ type TemplateSchema struct {
 	NodeSelector         string
 	Toleration           string
 	Affinity             string
+	ClusterID            string
 }
 
 const (
@@ -807,6 +818,8 @@ spec:
               fieldPath: spec.nodeName
         - name: HUB_AGENT_TOKEN
           value: "{{.ClientToken}}"
+        - name: CLUSTER_ID
+          value: "{{.ClusterID}}"
         - name: HUB_SERVER_BASE_ADDR
           value: "{{.HubServerBaseAddr}}"
         - name: ASLAN_BASE_ADDR
@@ -997,6 +1010,8 @@ spec:
               fieldPath: spec.nodeName
         - name: HUB_AGENT_TOKEN
           value: "{{.ClientToken}}"
+        - name: CLUSTER_ID
+          value: "{{.ClusterID}}"
         - name: HUB_SERVER_BASE_ADDR
           value: "{{.HubServerBaseAddr}}"
         - name: ASLAN_BASE_ADDR
@@ -1047,6 +1062,10 @@ spec:
       containers:
         - name: dind
           image: {{.DindImage}}
+          {{- if .DindStorageDriver }}
+          args:
+            - --storage-driver={{.DindStorageDriver}}
+          {{- end }}
           env:
             - name: DOCKER_TLS_CERTDIR
               value: ""
@@ -1188,6 +1207,10 @@ spec:
       containers:
         - name: dind
           image: {{.DindImage}}
+          {{- if .DindStorageDriver }}
+          args:
+            - --storage-driver={{.DindStorageDriver}}
+          {{- end }}
           env:
             - name: DOCKER_TLS_CERTDIR
               value: ""

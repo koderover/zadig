@@ -108,10 +108,11 @@ type Resources struct {
 }
 
 type DindCfg struct {
-	Replicas   int          `json:"replicas"    bson:"replicas"`
-	Resources  *Resources   `json:"resources"   bson:"resources"`
-	Storage    *DindStorage `json:"storage"     bson:"storage"`
-	StrategyID string       `json:"strategy_id" bson:"strategy_id"`
+	Replicas      int          `json:"replicas"    bson:"replicas"`
+	Resources     *Resources   `json:"resources"      bson:"resources"`
+	Storage       *DindStorage `json:"storage"        bson:"storage"`
+	StrategyID    string       `json:"strategy_id"    bson:"strategy_id"`
+	StorageDriver string       `json:"storage_driver" bson:"storage_driver"`
 }
 
 type DindStorageType string

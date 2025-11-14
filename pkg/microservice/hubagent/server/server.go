@@ -33,6 +33,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/tool/clientmanager"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	registrytool "github.com/koderover/zadig/v2/pkg/tool/registries"
+	"github.com/spf13/viper"
 )
 
 func init() {
@@ -96,7 +97,11 @@ func Serve(ctx context.Context) error {
 }
 
 func initResource() {
-	client := aslan.NewExternal(config2.AslanBaseAddr(), "")
+	token, err := login.GetInternalToken("hub-agent")
+	if err != nil {
+		log.Fatalf("failed to get internal token, err: %s", err)
+	}
+	client := aslan.NewExternal(config2.AslanBaseAddr(), token)
 
 	scheduleWorkflow := config2.ScheduleWorkflow()
 	if scheduleWorkflow == "" {
@@ -110,13 +115,7 @@ func initResource() {
 	}
 
 	if schedule {
-		token, err := login.GetInternalToken("hub-agent")
-		if err != nil {
-			log.Fatalf("failed to get internal token, err: %s", err)
-		}
-		log.Infof("token: %s", token)
-
-		ls, err := client.ListRegistries(token)
+		ls, err := client.ListRegistries()
 		if err != nil {
 			log.Fatalf("failed to list registries from zadig server, error: %s", err)
 		}
@@ -141,7 +140,17 @@ func initResource() {
 			log.Fatalf("failed to create dynamic kubernetes clientset for clusterID: %s, the error is: %s", setting.LocalClusterID, err)
 		}
 
-		err = registrytool.PrepareDinD(clientSet, "koderover-agent", regList)
+		// Get storage driver from cluster config
+		storageDriver := ""
+		clusterInfo, err := client.GetClusterInfo(viper.GetString("CLUSTER_ID"))
+		if err == nil && clusterInfo.DindCfg != nil {
+			storageDriver = clusterInfo.DindCfg.StorageDriver
+		}
+
+		log.Infof("clusterInfo: %+v", clusterInfo)
+		log.Infof("error: %+v", err)
+
+		err = registrytool.PrepareDinD(clientSet, "koderover-agent", regList, storageDriver)
 		if err != nil {
 			log.Fatalf("failed to update dind, the error is: %s", err)
 		}
