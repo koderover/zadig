@@ -32,6 +32,7 @@ import (
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 	workflowtool "github.com/koderover/zadig/v2/pkg/tool/workflow"
 	"github.com/koderover/zadig/v2/pkg/util"
 	"github.com/koderover/zadig/v2/pkg/util/rand"
@@ -414,6 +415,9 @@ func getMatchedRegistries(image string, registries []*commonmodels.RegistryNames
 func evaluateExecuteRule(rule *commonmodels.JobExecuteRule) bool {
 	ruleValue := rule.Value
 	value := rule.Field
+
+	log.Infof("value: %s", value)
+	log.Infof("ruleValue: %s", ruleValue)
 
 	switch rule.Verb {
 	case string(config.ApplicationFilterActionEq):
