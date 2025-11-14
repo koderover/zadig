@@ -98,16 +98,6 @@ func PrepareDinD(client *kubernetes.Clientset, namespace string, regList []*Regi
 		return fmt.Errorf("failed to extract container from dind sts")
 	}
 
-	// Check if StatefulSet is stuck (e.g., due to wrong storage driver) and handle it
-	isStuck := isStatefulSetStuckInUpdate(dindSts)
-	if isStuck {
-		log.Warnf("StatefulSet %s/dind is stuck, attempting to fix by deleting stuck pods before update", namespace)
-		if fixErr := handleStuckStatefulSet(dindSts, client); fixErr != nil {
-			log.Warnf("Failed to clean up stuck pods for StatefulSet %s/dind: %v", namespace, fixErr)
-			// Continue with update even if cleanup fails
-		}
-	}
-
 	if mountFlag {
 		volumeMount := corev1.VolumeMount{
 			MountPath: "/etc/docker/certs.d",
@@ -204,6 +194,16 @@ func PrepareDinD(client *kubernetes.Clientset, namespace string, regList []*Regi
 
 	if needsUpdate || insecureFlag {
 		dindSts.Spec.Template.Spec.Containers[0].Args = finalArgs
+	}
+
+	// Check if StatefulSet is stuck (e.g., due to wrong storage driver) and handle it
+	isStuck := isStatefulSetStuckInUpdate(dindSts)
+	if isStuck {
+		log.Warnf("StatefulSet %s/dind is stuck, attempting to fix by deleting stuck pods before update", namespace)
+		if fixErr := handleStuckStatefulSet(dindSts, client); fixErr != nil {
+			log.Warnf("Failed to clean up stuck pods for StatefulSet %s/dind: %v", namespace, fixErr)
+			// Continue with update even if cleanup fails
+		}
 	}
 
 	_, updateErr := client.AppsV1().StatefulSets(namespace).Update(context.TODO(), dindSts, metav1.UpdateOptions{})
