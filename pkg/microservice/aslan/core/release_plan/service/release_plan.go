@@ -803,7 +803,7 @@ func SkipReleaseJob(c *handler.Context, planID string, args *SkipReleaseJobArgs,
 	return nil
 }
 
-func UpdateReleasePlanStatus(c *handler.Context, planID, status string, isSystemAdmin bool) error {
+func UpdateReleasePlanStatus(c *handler.Context, planID, targetStatus string, isSystemAdmin bool) error {
 	approveLock := getLock(planID)
 	approveLock.Lock()
 	defer approveLock.Unlock()
@@ -815,12 +815,16 @@ func UpdateReleasePlanStatus(c *handler.Context, planID, status string, isSystem
 		return errors.Wrap(err, "get plan")
 	}
 
+	if plan.Status == config.ReleasePlanStatus(targetStatus) {
+		return fmt.Errorf("current status can not equal to target status %s", targetStatus)
+	}
+
 	if c.UserID != plan.ManagerID && !isSystemAdmin {
 		return errors.Errorf("only manager can update plan status")
 	}
 
-	if !lo.Contains(config.ReleasePlanStatusMap[plan.Status], config.ReleasePlanStatus(status)) {
-		return errors.Errorf("can't convert plan status %s to %s", plan.Status, status)
+	if !lo.Contains(config.ReleasePlanStatusMap[plan.Status], config.ReleasePlanStatus(targetStatus)) {
+		return errors.Errorf("can't convert plan status %s to %s", plan.Status, targetStatus)
 	}
 
 	userInfo, err := user.New().GetUserByID(c.UserID)
@@ -846,11 +850,20 @@ func UpdateReleasePlanStatus(c *handler.Context, planID, status string, isSystem
 			return errors.Errorf("plan must not have no jobs")
 		}
 		plan.PlanningTime = time.Now().Unix()
+	case config.ReleasePlanStatusWaitForApproveExternalCheck,
+		config.ReleasePlanStatusWaitForApproveExternalCheckFailed,
+		config.ReleasePlanStatusWaitForExecuteExternalCheck,
+		config.ReleasePlanStatusWaitForExecuteExternalCheckFailed,
+		config.ReleasePlanStatusWaitForAllDoneExternalCheck,
+		config.ReleasePlanStatusWaitForAllDoneExternalCheckFailed:
+		if config.ReleasePlanStatus(targetStatus) != config.ReleasePlanStatusPlanning && config.ReleasePlanStatus(targetStatus) != config.ReleasePlanStatusCancel {
+			return fmt.Errorf("can't update status, current status: %s", plan.Status)
+		}
 	}
-	plan.Status = config.ReleasePlanStatus(status)
+	plan.Status = config.ReleasePlanStatus(targetStatus)
 
 	// target status check and update
-	switch config.ReleasePlanStatus(status) {
+	switch config.ReleasePlanStatus(targetStatus) {
 	case config.ReleasePlanStatusPlanning:
 		for _, job := range plan.Jobs {
 			job.LastStatus = job.Status
@@ -861,6 +874,9 @@ func UpdateReleasePlanStatus(c *handler.Context, planID, status string, isSystem
 		plan.HookSettings = hookSetting.ToHookSettings()
 
 		plan.PlanningTime = time.Now().Unix()
+		plan.ApprovalTime = 0
+		plan.ExecutingTime = 0
+		plan.SuccessTime = 0
 		plan.WaitForApproveExternalCheckTime = 0
 		plan.WaitForExecuteExternalCheckTime = 0
 		plan.WaitForAllDoneExternalCheckTime = 0
@@ -924,7 +940,7 @@ func UpdateReleasePlanStatus(c *handler.Context, planID, status string, isSystem
 			TargetType: TargetTypeReleasePlanStatus,
 			Detail:     detail,
 			Before:     plan.Status,
-			After:      status,
+			After:      targetStatus,
 			CreatedAt:  time.Now().Unix(),
 		}); err != nil {
 			log.Errorf("create release plan log error: %v", err)
@@ -1599,6 +1615,10 @@ func convertWorkflowV4ToOpenAPIWorkflowV4(workflow *commonmodels.WorkflowV4) (*w
 
 		hookSpec := interface{}(nil)
 		for _, job := range stage.Jobs {
+			if job.Skipped {
+				continue
+			}
+
 			switch job.JobType {
 			case config.JobZadigBuild:
 				spec := new(commonmodels.ZadigBuildJobSpec)
@@ -1934,7 +1954,9 @@ func convertWorkflowV4ToOpenAPIWorkflowV4(workflow *commonmodels.WorkflowV4) (*w
 			})
 		}
 
-		hookStages = append(hookStages, hookStage)
+		if len(hookStage.Jobs) != 0 {
+			hookStages = append(hookStages, hookStage)
+		}
 	}
 
 	return &webhooknotify.OpenAPIWorkflowV4{
