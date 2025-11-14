@@ -39,7 +39,6 @@ func PrepareDinD(client *kubernetes.Clientset, namespace string, regList []*Regi
 
 	mountFlag := false
 	insecureFlag := false
-	storageDriverFlag := false
 	sourceList := make([]corev1.VolumeProjection, 0)
 	insecureMap := sets.NewString()
 
@@ -169,23 +168,42 @@ func PrepareDinD(client *kubernetes.Clientset, namespace string, regList []*Regi
 		dindSts.Spec.Template.Spec.Volumes = newVolumes
 	}
 
-	// Check if storage driver arg already exists in the current args
-	storageDriverArg := fmt.Sprintf("--storage-driver=%s", storageDriver)
+	currentArgs := dindSts.Spec.Template.Spec.Containers[0].Args
+	finalArgs := make([]string, 0)
+
+	for _, arg := range currentArgs {
+		if strings.HasPrefix(arg, "--storage-driver=") {
+			continue
+		}
+		if strings.HasPrefix(arg, "--insecure-registry=") {
+			continue
+		}
+
+		finalArgs = append(finalArgs, arg)
+	}
+
+	finalArgs = append(finalArgs, insecureRegistryList...)
+
 	if storageDriver != "" {
-		for _, arg := range dindSts.Spec.Template.Spec.Containers[0].Args {
-			if strings.HasPrefix(arg, "--storage-driver=") {
-				storageDriverFlag = true
+		expectedStorageDriverArg := fmt.Sprintf("--storage-driver=%s", storageDriver)
+		// Add storage driver arg (it will replace any existing one since we removed all above)
+		finalArgs = append(finalArgs, expectedStorageDriverArg)
+	}
+
+	needsUpdate := false
+	if len(finalArgs) != len(currentArgs) {
+		needsUpdate = true
+	} else {
+		for i, arg := range finalArgs {
+			if currentArgs[i] != arg {
+				needsUpdate = true
 				break
 			}
 		}
-		if !storageDriverFlag {
-			insecureRegistryList = append(insecureRegistryList, storageDriverArg)
-		}
 	}
 
-	if insecureFlag || (storageDriver != "" && !storageDriverFlag) {
-		// update spec.template.spec.containers[0].args
-		dindSts.Spec.Template.Spec.Containers[0].Args = insecureRegistryList
+	if needsUpdate || insecureFlag {
+		dindSts.Spec.Template.Spec.Containers[0].Args = finalArgs
 	}
 
 	_, updateErr := client.AppsV1().StatefulSets(namespace).Update(context.TODO(), dindSts, metav1.UpdateOptions{})

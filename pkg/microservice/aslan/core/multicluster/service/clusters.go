@@ -1306,32 +1306,6 @@ func UpgradeDind(kclient client.Client, cluster *commonmodels.K8SCluster, ns str
 		}
 	}
 
-	// Handle storage driver configuration
-	if cluster.DindCfg.StorageDriver != "" {
-		storageDriverArg := fmt.Sprintf("--storage-driver=%s", cluster.DindCfg.StorageDriver)
-
-		for i, container := range dindSts.Spec.Template.Spec.Containers {
-			if container.Name != types.DindContainerName {
-				continue
-			}
-
-			// Check if storage driver arg already exists in the current args
-			storageDriverFlag := false
-			for _, arg := range container.Args {
-				if strings.HasPrefix(arg, "--storage-driver=") {
-					storageDriverFlag = true
-					break
-				}
-			}
-
-			// If storage driver arg doesn't exist, add it
-			if !storageDriverFlag {
-				container.Args = append(container.Args, storageDriverArg)
-			}
-			dindSts.Spec.Template.Spec.Containers[i] = container
-		}
-	}
-
 	if cluster.DindCfg.StrategyID != "" {
 		dindSts.Spec.Template.Spec.Tolerations = commonutil.BuildTolerations(cluster.AdvancedConfig, cluster.DindCfg.StrategyID)
 		dindSts.Spec.Template.Spec.Affinity = commonutil.AddNodeAffinity(cluster.AdvancedConfig, cluster.DindCfg.StrategyID)
@@ -1398,11 +1372,9 @@ func UpgradeDind(kclient client.Client, cluster *commonmodels.K8SCluster, ns str
 		}
 	}
 
-	if scaleupd {
-		err = commonutil.SyncDinDForRegistries()
-		if err != nil {
-			log.Errorf("SyncDinDForRegistries error: %v", err)
-		}
+	err = commonutil.SyncDinDForRegistries()
+	if err != nil {
+		log.Errorf("SyncDinDForRegistries error: %v", err)
 	}
 
 	return nil
