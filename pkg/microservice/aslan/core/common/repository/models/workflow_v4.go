@@ -313,9 +313,9 @@ type JobExecuteRule struct {
 }
 
 type JobExecutePolicy struct {
-	Type      config.JobExecutePolicyType      `bson:"type"       json:"type"`
-	MatchRule config.JobExecutePolicyMatchRule `bson:"match_rule" json:"match_rule"`
-	Rules     []*JobExecuteRule                `bson:"rules"      json:"rules"`
+	Type      config.JobExecutePolicyType      `bson:"type"       json:"type"       yaml:"type"`
+	MatchRule config.JobExecutePolicyMatchRule `bson:"match_rule" json:"match_rule" yaml:"match_rule"`
+	Rules     []*JobExecuteRule                `bson:"rules"      json:"rules"      yaml:"rules"`
 }
 
 type WorkflowServiceModule struct {
