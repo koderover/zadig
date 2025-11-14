@@ -321,6 +321,24 @@ func (j DistributeImageJobController) GetVariableList(jobName string, getAggrega
 				Type:         "string",
 				IsCredential: false,
 			})
+			// Add placeholder status variable
+			resp = append(resp, &commonmodels.KeyVal{
+				Key:          strings.Join([]string{"job", j.name, "<SERVICE>", "<MODULE>", "status"}, "."),
+				Value:        "",
+				Type:         "string",
+				IsCredential: false,
+			})
+		}
+		if getServiceSpecificVariables {
+			for _, target := range j.jobSpec.Targets {
+				targetKey := strings.Join([]string{j.name, target.ServiceName, target.ServiceModule}, ".")
+				resp = append(resp, &commonmodels.KeyVal{
+					Key:          strings.Join([]string{"job", targetKey, "status"}, "."),
+					Value:        "",
+					Type:         "string",
+					IsCredential: false,
+				})
+			}
 		}
 	}
 

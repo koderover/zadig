@@ -337,6 +337,13 @@ func (j TestingJobController) GetVariableList(jobName string, getAggregatedVaria
 							IsCredential: false,
 						})
 					}
+					// Add placeholder status variable for service test type
+					resp = append(resp, &commonmodels.KeyVal{
+						Key:          strings.Join([]string{"job", jobKey, "status"}, "."),
+						Value:        "",
+						Type:         "string",
+						IsCredential: false,
+					})
 				}
 				if getServiceSpecificVariables {
 					for _, test := range j.jobSpec.ServiceTestOptions {
@@ -352,6 +359,13 @@ func (j TestingJobController) GetVariableList(jobName string, getAggregatedVaria
 								IsCredential: false,
 							})
 						}
+						// Add status variable for each service/module
+						resp = append(resp, &commonmodels.KeyVal{
+							Key:          strings.Join([]string{"job", jobKey, "status"}, "."),
+							Value:        "",
+							Type:         "string",
+							IsCredential: false,
+						})
 					}
 				}
 			} else {
@@ -364,6 +378,13 @@ func (j TestingJobController) GetVariableList(jobName string, getAggregatedVaria
 						IsCredential: false,
 					})
 				}
+
+				resp = append(resp, &commonmodels.KeyVal{
+					Key:          strings.Join([]string{"job", jobKey, "status"}, "."),
+					Value:        "",
+					Type:         "string",
+					IsCredential: false,
+				})
 			}
 		}
 	}

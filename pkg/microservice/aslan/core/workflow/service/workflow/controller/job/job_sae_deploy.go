@@ -18,6 +18,7 @@ package job
 
 import (
 	"fmt"
+	"strings"
 
 	sae "github.com/alibabacloud-go/sae-20190506/client"
 	"github.com/alibabacloud-go/tea/tea"
@@ -189,7 +190,16 @@ func (j SAEDeployJobController) SetRepoCommitInfo() error {
 }
 
 func (j SAEDeployJobController) GetVariableList(jobName string, getAggregatedVariables, getRuntimeVariables, getPlaceHolderVariables, getServiceSpecificVariables, useUserInputValue bool) ([]*commonmodels.KeyVal, error) {
-	return make([]*commonmodels.KeyVal, 0), nil
+	resp := make([]*commonmodels.KeyVal, 0)
+	if getRuntimeVariables {
+		resp = append(resp, &commonmodels.KeyVal{
+			Key:          strings.Join([]string{"job", j.name, "status"}, "."),
+			Value:        "",
+			Type:         "string",
+			IsCredential: false,
+		})
+	}
+	return resp, nil
 }
 
 func (j SAEDeployJobController) GetUsedRepos() ([]*types.Repository, error) {

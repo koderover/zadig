@@ -764,9 +764,29 @@ func (j DeployJobController) GetVariableList(jobName string, getAggregatedVariab
 		IsCredential: false,
 	})
 
+	if getRuntimeVariables {
+		for _, target := range j.jobSpec.Services {
+			for _, targetModule := range target.Modules {
+				targetKey := strings.Join([]string{j.name, target.ServiceName, targetModule.ServiceModule}, ".")
+				resp = append(resp, &commonmodels.KeyVal{
+					Key:          strings.Join([]string{"job", targetKey, "status"}, "."),
+					Value:        "",
+					Type:         "string",
+					IsCredential: false,
+				})
+			}
+		}
+	}
+
 	if getPlaceHolderVariables {
 		resp = append(resp, &commonmodels.KeyVal{
 			Key:          strings.Join([]string{"job", j.name, "<SERVICE>", "<MODULE>", "IMAGE"}, "."),
+			Value:        "",
+			Type:         "string",
+			IsCredential: false,
+		})
+		resp = append(resp, &commonmodels.KeyVal{
+			Key:          strings.Join([]string{"job", j.name, "<SERVICE>", "<MODULE>", "status"}, "."),
 			Value:        "",
 			Type:         "string",
 			IsCredential: false,
