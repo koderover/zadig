@@ -97,7 +97,11 @@ func Serve(ctx context.Context) error {
 }
 
 func initResource() {
-	client := aslan.NewExternal(config2.AslanBaseAddr(), "")
+	token, err := login.GetInternalToken("hub-agent")
+	if err != nil {
+		log.Fatalf("failed to get internal token, err: %s", err)
+	}
+	client := aslan.NewExternal(config2.AslanBaseAddr(), token)
 
 	scheduleWorkflow := config2.ScheduleWorkflow()
 	if scheduleWorkflow == "" {
@@ -111,13 +115,7 @@ func initResource() {
 	}
 
 	if schedule {
-		token, err := login.GetInternalToken("hub-agent")
-		if err != nil {
-			log.Fatalf("failed to get internal token, err: %s", err)
-		}
-		log.Infof("token: %s", token)
-
-		ls, err := client.ListRegistries(token)
+		ls, err := client.ListRegistries()
 		if err != nil {
 			log.Fatalf("failed to list registries from zadig server, error: %s", err)
 		}
@@ -148,9 +146,6 @@ func initResource() {
 		if err == nil && clusterInfo.DindCfg != nil {
 			storageDriver = clusterInfo.DindCfg.StorageDriver
 		}
-
-		log.Infof("clusterInfo: %+v", clusterInfo)
-		log.Infof("error: %+v", err)
 
 		err = registrytool.PrepareDinD(clientSet, "koderover-agent", regList, storageDriver)
 		if err != nil {
