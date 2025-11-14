@@ -406,6 +406,8 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		meego.GET("/:id/projects", GetMeegoProjects)
 		meego.GET("/:id/projects/:projectID/work_item/types", GetWorkItemTypeList)
 		meego.GET("/:id/projects/:projectID/work_item", ListMeegoWorkItems)
+		meego.GET("/:id/projects/:projectID/work_item/:workItemID/node", ListMeegoWorkItemNodes)
+		meego.POST("/:id/projects/:projectID/work_item/:workItemID/node/:nodeID/operate", OperateMeegoWorkItemNode)
 		meego.GET("/:id/projects/:projectID/work_item/:workItemID/transitions", ListAvailableWorkItemTransitions)
 	}
 
