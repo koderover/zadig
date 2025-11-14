@@ -121,6 +121,27 @@ func initJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTas
 }
 
 func runJob(ctx context.Context, job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, logger *zap.SugaredLogger, ack func()) {
+	jobCtl := initJobCtl(job, workflowCtx, logger, ack)
+	defer func(jobInfo *JobCtl) {
+		if err := recover(); err != nil {
+			errMsg := fmt.Sprintf("job: %s panic: %v", job.Name, err)
+			logger.Errorf(errMsg)
+			debug.PrintStack()
+			job.Status = config.StatusFailed
+			job.Error = errMsg
+			setJobStatusContext(job, workflowCtx)
+		}
+		job.EndTime = time.Now().Unix()
+		logger.Infof("finish job: %s,status: %s", job.Name, job.Status)
+		setJobStatusContext(job, workflowCtx)
+		ack()
+		logger.Infof("updating job info into db...")
+		err := jobCtl.SaveInfo(ctx)
+		if err != nil {
+			logger.Errorf("update job info: %s into db error: %v", err)
+		}
+	}(&jobCtl)
+
 	setJobStartTimeContext(job, workflowCtx)
 
 	// should skip passed job when workflow task be restarted
@@ -172,24 +193,6 @@ func runJob(ctx context.Context, job *commonmodels.JobTask, workflowCtx *commonm
 	ack()
 
 	logger.Infof("start job: %s,status: %s", job.Name, job.Status)
-	jobCtl := initJobCtl(job, workflowCtx, logger, ack)
-	defer func(jobInfo *JobCtl) {
-		if err := recover(); err != nil {
-			errMsg := fmt.Sprintf("job: %s panic: %v", job.Name, err)
-			logger.Errorf(errMsg)
-			debug.PrintStack()
-			job.Status = config.StatusFailed
-			job.Error = errMsg
-		}
-		job.EndTime = time.Now().Unix()
-		logger.Infof("finish job: %s,status: %s", job.Name, job.Status)
-		ack()
-		logger.Infof("updating job info into db...")
-		err := jobCtl.SaveInfo(ctx)
-		if err != nil {
-			logger.Errorf("update job info: %s into db error: %v", err)
-		}
-	}(&jobCtl)
 
 	jobCtl.Run(ctx)
 
@@ -442,6 +445,14 @@ func setJobStartTimeContext(job *commonmodels.JobTask, workflowCtx *commonmodels
 	workflowCtx.GlobalContextSet(contextKey, startTimeStr)
 }
 
+// setJobStatusContext sets the global context variable for job status
+// Format: .job.<jobKey>.status
+func setJobStatusContext(job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx) {
+	statusStr := string(job.Status)
+	contextKey := fmt.Sprintf(".job.%s.status", job.Key)
+	workflowCtx.GlobalContextSet(contextKey, statusStr)
+}
+
 // shouldExecuteJob determines whether a job should be executed based on its execute policy
 func shouldExecuteJob(job *commonmodels.JobTask) bool {
 	if job.ExecutePolicy == nil || len(job.ExecutePolicy.Rules) == 0 {
@@ -449,19 +460,38 @@ func shouldExecuteJob(job *commonmodels.JobTask) bool {
 		return true
 	}
 
-	// All rules must match (AND logic)
-	allRulesMatch := true
-	for _, rule := range job.ExecutePolicy.Rules {
-		if !evaluateExecuteRule(rule) {
-			allRulesMatch = false
-			break
+	var rulesMatch bool
+
+	matchRule := job.ExecutePolicy.MatchRule
+	if matchRule == "" {
+		matchRule = config.JobExecutePolicyMatchRuleAll
+	}
+
+	switch matchRule {
+	case config.JobExecutePolicyMatchRuleAny:
+		rulesMatch = false
+		for _, rule := range job.ExecutePolicy.Rules {
+			if evaluateExecuteRule(rule) {
+				rulesMatch = true
+				break
+			}
+		}
+	case config.JobExecutePolicyMatchRuleAll:
+		fallthrough
+	default:
+		rulesMatch = true
+		for _, rule := range job.ExecutePolicy.Rules {
+			if !evaluateExecuteRule(rule) {
+				rulesMatch = false
+				break
+			}
 		}
 	}
 
 	if job.ExecutePolicy.Type == config.JobExecutePolicyTypeSkip {
-		return !allRulesMatch
+		return !rulesMatch
 	} else if job.ExecutePolicy.Type == config.JobExecutePolicyTypeExecute {
-		return allRulesMatch
+		return rulesMatch
 	}
 
 	return true

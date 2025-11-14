@@ -510,6 +510,28 @@ func (j VMDeployJobController) GetVariableList(jobName string, getAggregatedVari
 		})
 	}
 
+	if getRuntimeVariables {
+		for _, svc := range j.jobSpec.ServiceAndVMDeploys {
+			targetKey := strings.Join([]string{j.name, svc.ServiceName, svc.ServiceModule}, ".")
+			resp = append(resp, &commonmodels.KeyVal{
+				Key:          strings.Join([]string{"job", targetKey, "status"}, "."),
+				Value:        "",
+				Type:         "string",
+				IsCredential: false,
+			})
+		}
+	}
+
+	if getPlaceHolderVariables {
+		jobKey := strings.Join([]string{j.name, "<SERVICE>", "<MODULE>"}, ".")
+		resp = append(resp, &commonmodels.KeyVal{
+			Key:          strings.Join([]string{"job", jobKey, "status"}, "."),
+			Value:        "",
+			Type:         "string",
+			IsCredential: false,
+		})
+	}
+
 	return resp, nil
 }
 

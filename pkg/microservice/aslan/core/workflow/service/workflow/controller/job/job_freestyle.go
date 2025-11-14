@@ -238,6 +238,13 @@ func (j FreestyleJobController) GetVariableList(jobName string, getAggregatedVar
 					IsCredential: false,
 				})
 			}
+			// Add status variable for normal freestyle job
+			resp = append(resp, &commonmodels.KeyVal{
+				Key:          strings.Join([]string{"job", j.name, "status"}, "."),
+				Value:        "",
+				Type:         "string",
+				IsCredential: false,
+			})
 		} else {
 			for _, output := range j.jobSpec.AdvancedSetting.Outputs {
 				if getServiceSpecificVariables {
@@ -252,6 +259,16 @@ func (j FreestyleJobController) GetVariableList(jobName string, getAggregatedVar
 						IsCredential: false,
 					})
 				}
+			}
+			// Add placeholder status variable for service freestyle type
+			if getPlaceHolderVariables {
+				jobKey := strings.Join([]string{j.name, "<SERVICE>", "<MODULE>"}, ".")
+				resp = append(resp, &commonmodels.KeyVal{
+					Key:          strings.Join([]string{"job", jobKey, "status"}, "."),
+					Value:        "",
+					Type:         "string",
+					IsCredential: false,
+				})
 			}
 		}
 	}

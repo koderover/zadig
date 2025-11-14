@@ -806,6 +806,15 @@ func (j BuildJobController) GetVariableList(jobName string, getAggregatedVariabl
 				}
 				outputKeys = outputKeys.Insert(output.Name)
 			}
+			// Add status variable for each service/module
+			if getServiceSpecificVariables {
+				resp = append(resp, &commonmodels.KeyVal{
+					Key:          strings.Join([]string{"job", jobKey, "status"}, "."),
+					Value:        "",
+					Type:         "string",
+					IsCredential: false,
+				})
+			}
 		}
 		if getPlaceHolderVariables {
 			jobKey := strings.Join([]string{j.name, "<SERVICE>", "<MODULE>"}, ".")
@@ -817,6 +826,13 @@ func (j BuildJobController) GetVariableList(jobName string, getAggregatedVariabl
 					IsCredential: false,
 				})
 			}
+			// Add placeholder status variable
+			resp = append(resp, &commonmodels.KeyVal{
+				Key:          strings.Join([]string{"job", jobKey, "status"}, "."),
+				Value:        "",
+				Type:         "string",
+				IsCredential: false,
+			})
 		}
 	}
 

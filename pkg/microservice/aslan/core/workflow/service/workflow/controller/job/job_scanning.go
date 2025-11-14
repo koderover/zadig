@@ -327,6 +327,13 @@ func (j ScanningJobController) GetVariableList(jobName string, getAggregatedVari
 							IsCredential: false,
 						})
 					}
+					// Add placeholder status variable for service scanning type
+					resp = append(resp, &commonmodels.KeyVal{
+						Key:          strings.Join([]string{"job", jobKey, "status"}, "."),
+						Value:        "",
+						Type:         "string",
+						IsCredential: false,
+					})
 				}
 				if getServiceSpecificVariables {
 					for _, scanning := range j.jobSpec.ServiceScanningOptions {
@@ -342,6 +349,13 @@ func (j ScanningJobController) GetVariableList(jobName string, getAggregatedVari
 								IsCredential: false,
 							})
 						}
+						// Add status variable for each service/module
+						resp = append(resp, &commonmodels.KeyVal{
+							Key:          strings.Join([]string{"job", jobKey, "status"}, "."),
+							Value:        "",
+							Type:         "string",
+							IsCredential: false,
+						})
 					}
 				}
 			} else {
@@ -354,6 +368,13 @@ func (j ScanningJobController) GetVariableList(jobName string, getAggregatedVari
 						IsCredential: false,
 					})
 				}
+				
+				resp = append(resp, &commonmodels.KeyVal{
+					Key:          strings.Join([]string{"job", jobKey, "status"}, "."),
+					Value:        "",
+					Type:         "string",
+					IsCredential: false,
+				})
 			}
 		}
 	}
