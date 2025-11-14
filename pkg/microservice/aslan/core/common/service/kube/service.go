@@ -819,7 +819,7 @@ spec:
         - name: HUB_AGENT_TOKEN
           value: "{{.ClientToken}}"
         - name: CLUSTER_ID
-		  value: "{{.ClusterID}}"
+          value: "{{.ClusterID}}"
         - name: HUB_SERVER_BASE_ADDR
           value: "{{.HubServerBaseAddr}}"
         - name: ASLAN_BASE_ADDR
@@ -1011,7 +1011,7 @@ spec:
         - name: HUB_AGENT_TOKEN
           value: "{{.ClientToken}}"
         - name: CLUSTER_ID
-		  value: "{{.ClusterID}}"
+          value: "{{.ClusterID}}"
         - name: HUB_SERVER_BASE_ADDR
           value: "{{.HubServerBaseAddr}}"
         - name: ASLAN_BASE_ADDR
