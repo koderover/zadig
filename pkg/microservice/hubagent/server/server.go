@@ -149,6 +149,8 @@ func initResource() {
 			storageDriver = clusterInfo.DindCfg.StorageDriver
 		}
 
+		log.Infof("clusterInfo: %+v", clusterInfo)
+
 		err = registrytool.PrepareDinD(clientSet, "koderover-agent", regList, storageDriver)
 		if err != nil {
 			log.Fatalf("failed to update dind, the error is: %s", err)
