@@ -441,7 +441,7 @@ func evaluateExecuteRule(rule *commonmodels.JobExecuteRule) bool {
 // Format: .job.<jobKey>.util.startTime
 func setJobStartTimeContext(job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx) {
 	startTimeStr := fmt.Sprintf("%d", job.StartTime)
-	contextKey := fmt.Sprintf(".job.%s.util.startTime", job.Key)
+	contextKey := fmt.Sprintf("{{.job.%s.util.startTime}}", job.Key)
 	workflowCtx.GlobalContextSet(contextKey, startTimeStr)
 }
 
@@ -449,7 +449,7 @@ func setJobStartTimeContext(job *commonmodels.JobTask, workflowCtx *commonmodels
 // Format: .job.<jobKey>.status
 func setJobFinalStatusContext(job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx) {
 	statusStr := string(job.Status)
-	contextKey := fmt.Sprintf(".job.%s.status", job.Key)
+	contextKey := fmt.Sprintf("{{.job.%s.status}}", job.Key)
 	workflowCtx.GlobalContextSet(contextKey, statusStr)
 }
 
