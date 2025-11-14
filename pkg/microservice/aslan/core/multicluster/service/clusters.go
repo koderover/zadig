@@ -952,6 +952,7 @@ func UpgradeAgent(id string, logger *zap.SugaredLogger) error {
 		manifests := releaseutil.SplitManifests(string(yamls))
 		resources := make([]*unstructured.Unstructured, 0, len(manifests))
 		for _, item := range manifests {
+			logger.Infof("UpgradeAgent item: %s", item)
 			u, err := serializer.NewDecoder().YamlToUnstructured([]byte(item))
 			// kubeconfig cluster does not need to upgrade hub-agent.
 			uName := u.GetName()
