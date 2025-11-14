@@ -138,7 +138,7 @@ type Limits struct {
 type DindStorage struct {
 	Type             string `json:"type"                bson:"type"`
 	StorageClass     string `json:"storage_class"       bson:"storage_class"`
-	StorageSizeInGiB int64  `json:"storage_size_in_gib" bson:"storage_·size_in_gib"`
+	StorageSizeInGiB int64  `json:"storage_size_in_gib" bson:"storage_size_in_gib"`
 }
 
 func (c *Client) GetClusterInfo(clusterID string) (*ClusterDetail, error) {

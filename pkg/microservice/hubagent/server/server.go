@@ -150,6 +150,7 @@ func initResource() {
 		}
 
 		log.Infof("clusterInfo: %+v", clusterInfo)
+		log.Infof("error: %+v", err)
 
 		err = registrytool.PrepareDinD(clientSet, "koderover-agent", regList, storageDriver)
 		if err != nil {
