@@ -190,7 +190,8 @@ func runJob(ctx context.Context, job *commonmodels.JobTask, workflowCtx *commonm
 	}
 
 	// special case: if the workflow execution policy is default and the job stopped, just don't start the job.
-	if workflowEnded && job.ExecutePolicy == nil {
+	// note that for sometime the frontend will set the job execution policy to empty to mark default.
+	if workflowEnded && (job.ExecutePolicy == nil || job.ExecutePolicy.Type == "") {
 		return
 	}
 
