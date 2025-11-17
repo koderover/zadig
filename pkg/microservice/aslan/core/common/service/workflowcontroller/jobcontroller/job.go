@@ -121,7 +121,7 @@ func initJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTas
 	return jobCtl
 }
 
-func runJob(ctx context.Context, job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, logger *zap.SugaredLogger, ack func()) {
+func runJob(ctx context.Context, job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, workflowEnded bool, logger *zap.SugaredLogger, ack func()) {
 	jobCtl := initJobCtl(job, workflowCtx, logger, ack)
 	defer func(jobInfo *JobCtl) {
 		if err := recover(); err != nil {
@@ -142,8 +142,6 @@ func runJob(ctx context.Context, job *commonmodels.JobTask, workflowCtx *commonm
 			logger.Errorf("update job info: %s into db error: %v", err)
 		}
 	}(&jobCtl)
-
-	setJobStartTimeContext(job, workflowCtx)
 
 	// should skip passed job when workflow task be restarted
 	if job.Status == config.StatusPassed || job.Status == config.StatusSkipped {
@@ -180,11 +178,13 @@ func runJob(ctx context.Context, job *commonmodels.JobTask, workflowCtx *commonm
 
 	// Check execute policy before running the job
 	if !shouldExecuteJob(job) {
-		logger.Infof("skipping job: %s due to execute policy", job.Name)
-		job.Status = config.StatusSkipped
-		job.StartTime = time.Now().Unix()
-		job.EndTime = time.Now().Unix()
-		ack()
+		if !workflowEnded {
+			logger.Infof("skipping job: %s due to execute policy", job.Name)
+			job.Status = config.StatusSkipped
+			job.StartTime = time.Now().Unix()
+			job.EndTime = time.Now().Unix()
+			ack()
+		}
 		return
 	}
 
@@ -279,18 +279,18 @@ func waitForManualErrorHandling(ctx context.Context, workflowName string, taskID
 	}
 }
 
-func RunJobs(ctx context.Context, jobs []*commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, concurrency int, logger *zap.SugaredLogger, ack func()) {
+func RunJobs(ctx context.Context, jobs []*commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, concurrency int, workflowStopped bool, logger *zap.SugaredLogger, ack func()) {
 	if concurrency == 1 {
 		for _, job := range jobs {
-			runJob(ctx, job, workflowCtx, logger, ack)
+			runJob(ctx, job, workflowCtx, workflowStopped, logger, ack)
 			if jobStatusFailed(job.Status) {
-				return
+				workflowStopped = true
 			}
 		}
 		return
 	}
 	jobPool := NewPool(ctx, jobs, workflowCtx, concurrency, logger, ack)
-	jobPool.Run()
+	jobPool.Run(workflowStopped)
 }
 
 func CleanWorkflowJobs(ctx context.Context, workflowTask *commonmodels.WorkflowTask, workflowCtx *commonmodels.WorkflowTaskCtx, logger *zap.SugaredLogger, ack func()) {
@@ -331,9 +331,9 @@ func NewPool(ctx context.Context, jobs []*commonmodels.JobTask, workflowCtx *com
 
 // Run runs all job within the pool and blocks until it's
 // finished.
-func (p *Pool) Run() {
+func (p *Pool) Run(workflowStopped bool) {
 	for i := 0; i < p.concurrency; i++ {
-		go p.work()
+		go p.work(workflowStopped)
 	}
 
 	p.wg.Add(len(p.Jobs))
@@ -348,9 +348,9 @@ func (p *Pool) Run() {
 }
 
 // The work loop for any single goroutine.
-func (p *Pool) work() {
+func (p *Pool) work(workflowStopped bool) {
 	for job := range p.jobsChan {
-		runJob(p.ctx, job, p.workflowCtx, p.logger, p.ack)
+		runJob(p.ctx, job, p.workflowCtx, workflowStopped, p.logger, p.ack)
 		p.wg.Done()
 	}
 }
@@ -439,14 +439,6 @@ func evaluateExecuteRule(rule *commonmodels.JobExecuteRule) bool {
 	default:
 		return false
 	}
-}
-
-// setJobStartTimeContext sets the global context variable for job start time
-// Format: .job.<jobKey>.util.startTime
-func setJobStartTimeContext(job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx) {
-	startTimeStr := fmt.Sprintf("%d", job.StartTime)
-	contextKey := fmt.Sprintf("{{.job.%s.util.startTime}}", job.Key)
-	workflowCtx.GlobalContextSet(contextKey, startTimeStr)
 }
 
 // setJobStatusContext sets the global context variable for job status
