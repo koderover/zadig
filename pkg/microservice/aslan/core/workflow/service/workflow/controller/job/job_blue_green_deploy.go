@@ -19,6 +19,7 @@ package job
 import (
 	"bytes"
 	"fmt"
+	"strings"
 
 	"github.com/pkg/errors"
 	"helm.sh/helm/v3/pkg/releaseutil"
@@ -61,10 +62,11 @@ func CreateBlueGreenDeployJobController(job *commonmodels.Job, workflow *commonm
 	}
 
 	basicInfo := &BasicInfo{
-		name:        job.Name,
-		jobType:     job.JobType,
-		errorPolicy: job.ErrorPolicy,
-		workflow:    workflow,
+		name:          job.Name,
+		jobType:       job.JobType,
+		errorPolicy:   job.ErrorPolicy,
+		executePolicy: job.ExecutePolicy,
+		workflow:      workflow,
 	}
 
 	return BlueGreenDeployJobController{
@@ -394,7 +396,8 @@ func (j BlueGreenDeployJobController) ToTask(taskID int64) ([]*commonmodels.JobT
 				},
 				DeployTimeout: timeout,
 			},
-			ErrorPolicy: j.errorPolicy,
+			ErrorPolicy:   j.errorPolicy,
+			ExecutePolicy: j.executePolicy,
 		}
 		resp = append(resp, task)
 	}
@@ -411,7 +414,16 @@ func (j BlueGreenDeployJobController) SetRepoCommitInfo() error {
 }
 
 func (j BlueGreenDeployJobController) GetVariableList(jobName string, getAggregatedVariables, getRuntimeVariables, getPlaceHolderVariables, getServiceSpecificVariables, useUserInputValue bool) ([]*commonmodels.KeyVal, error) {
-	return make([]*commonmodels.KeyVal, 0), nil
+	resp := make([]*commonmodels.KeyVal, 0)
+	if getRuntimeVariables {
+		resp = append(resp, &commonmodels.KeyVal{
+			Key:          strings.Join([]string{"job", j.name, "status"}, "."),
+			Value:        "",
+			Type:         "string",
+			IsCredential: false,
+		})
+	}
+	return resp, nil
 }
 
 func (j BlueGreenDeployJobController) GetUsedRepos() ([]*types.Repository, error) {

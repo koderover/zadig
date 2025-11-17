@@ -32,7 +32,7 @@ type StageCtl interface {
 	Run(ctx context.Context, concurrency int)
 }
 
-func runStage(ctx context.Context, stage *commonmodels.StageTask, workflowCtx *commonmodels.WorkflowTaskCtx, concurrency int, logger *zap.SugaredLogger, ack func()) {
+func runStage(ctx context.Context, stage *commonmodels.StageTask, workflowCtx *commonmodels.WorkflowTaskCtx, concurrency int, workflowStopped bool, logger *zap.SugaredLogger, ack func()) {
 	stage.Status = config.StatusRunning
 	ack()
 	logger.Infof("start stage: %s,status: %s", stage.Name, stage.Status)
@@ -59,19 +59,23 @@ func runStage(ctx context.Context, stage *commonmodels.StageTask, workflowCtx *c
 	ack()
 	stageCtl := NewCustomStageCtl(stage, workflowCtx, logger, ack)
 
-	stageCtl.Run(ctx, concurrency)
+	stageCtl.Run(ctx, concurrency, workflowStopped)
 	stageCtl.AfterRun()
 }
 
 func RunStages(ctx context.Context, stages []*commonmodels.StageTask, workflowCtx *commonmodels.WorkflowTaskCtx, concurrency int, logger *zap.SugaredLogger, ack func()) {
+	workflowStopped := false
 	for _, stage := range stages {
 		// should skip passed stage when workflow task be restarted
 		if stage.Status == config.StatusPassed {
 			continue
 		}
-		runStage(ctx, stage, workflowCtx, concurrency, logger, ack)
-		if statusStopped(stage.Status) {
+		runStage(ctx, stage, workflowCtx, concurrency, workflowStopped, logger, ack)
+		if statusPaused(stage.Status) {
 			return
+		}
+		if statusStopped(stage.Status) {
+			workflowStopped = true
 		}
 	}
 }
@@ -102,6 +106,13 @@ func statusStopped(status config.Status) bool {
 	if status == config.StatusCancelled || status == config.StatusFailed ||
 		status == config.StatusTimeout || status == config.StatusReject ||
 		status == config.StatusPause {
+		return true
+	}
+	return false
+}
+
+func statusPaused(status config.Status) bool {
+	if status == config.StatusPause {
 		return true
 	}
 	return false

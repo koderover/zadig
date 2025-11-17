@@ -296,6 +296,7 @@ type Job struct {
 	Spec           interface{}              `bson:"spec"                 yaml:"spec"                 json:"spec"`
 	RunPolicy      config.JobRunPolicy      `bson:"run_policy"           yaml:"run_policy"           json:"run_policy"`
 	ErrorPolicy    *JobErrorPolicy          `bson:"error_policy"         yaml:"error_policy"         json:"error_policy"`
+	ExecutePolicy  *JobExecutePolicy        `bson:"execute_policy"       yaml:"execute_policy"       json:"execute_policy"`
 	ServiceModules []*WorkflowServiceModule `bson:"service_modules"                                  json:"service_modules"`
 }
 
@@ -303,6 +304,18 @@ type JobErrorPolicy struct {
 	Policy        config.JobErrorPolicy `bson:"policy"         yaml:"policy"         json:"policy"`
 	MaximumRetry  int                   `bson:"maximum_retry"  yaml:"maximum_retry"  json:"maximum_retry"`
 	ApprovalUsers []*User               `bson:"approval_users" yaml:"approval_users" json:"approval_users"`
+}
+
+type JobExecuteRule struct {
+	Field string `bson:"field" json:"field"`
+	Verb  string `bson:"verb"  json:"verb"`
+	Value string `bson:"value" json:"value"`
+}
+
+type JobExecutePolicy struct {
+	Type      config.JobExecutePolicyType      `bson:"type"       json:"type"       yaml:"type"`
+	MatchRule config.JobExecutePolicyMatchRule `bson:"match_rule" json:"match_rule" yaml:"match_rule"`
+	Rules     []*JobExecuteRule                `bson:"rules"      json:"rules"      yaml:"rules"`
 }
 
 type WorkflowServiceModule struct {

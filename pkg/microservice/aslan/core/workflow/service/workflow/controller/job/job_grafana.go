@@ -18,6 +18,7 @@ package job
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
@@ -39,10 +40,11 @@ func CreateGrafanaJobJobController(job *commonmodels.Job, workflow *commonmodels
 	}
 
 	basicInfo := &BasicInfo{
-		name:        job.Name,
-		jobType:     job.JobType,
-		errorPolicy: job.ErrorPolicy,
-		workflow:    workflow,
+		name:          job.Name,
+		jobType:       job.JobType,
+		errorPolicy:   job.ErrorPolicy,
+		executePolicy: job.ExecutePolicy,
+		workflow:      workflow,
 	}
 
 	return GrafanaJobController{
@@ -146,8 +148,9 @@ func (j GrafanaJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, err
 			CheckMode: j.jobSpec.CheckMode,
 			Alerts:    j.jobSpec.Alerts,
 		},
-		ErrorPolicy: j.errorPolicy,
-		Timeout:     0,
+		ErrorPolicy:   j.errorPolicy,
+		ExecutePolicy: j.executePolicy,
+		Timeout:       0,
 	}
 
 	resp = append(resp, jobTask)
@@ -163,7 +166,16 @@ func (j GrafanaJobController) SetRepoCommitInfo() error {
 }
 
 func (j GrafanaJobController) GetVariableList(jobName string, getAggregatedVariables, getRuntimeVariables, getPlaceHolderVariables, getServiceSpecificVariables, useUserInputValue bool) ([]*commonmodels.KeyVal, error) {
-	return make([]*commonmodels.KeyVal, 0), nil
+	resp := make([]*commonmodels.KeyVal, 0)
+	if getRuntimeVariables {
+		resp = append(resp, &commonmodels.KeyVal{
+			Key:          strings.Join([]string{"job", j.name, "status"}, "."),
+			Value:        "",
+			Type:         "string",
+			IsCredential: false,
+		})
+	}
+	return resp, nil
 }
 
 func (j GrafanaJobController) GetUsedRepos() ([]*types.Repository, error) {

@@ -19,6 +19,7 @@ package job
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/v2/pkg/types"
@@ -44,10 +45,11 @@ func CreateApolloJobController(job *commonmodels.Job, workflow *commonmodels.Wor
 	}
 
 	basicInfo := &BasicInfo{
-		name:        job.Name,
-		jobType:     job.JobType,
-		errorPolicy: job.ErrorPolicy,
-		workflow:    workflow,
+		name:          job.Name,
+		jobType:       job.JobType,
+		errorPolicy:   job.ErrorPolicy,
+		executePolicy: job.ExecutePolicy,
+		workflow:      workflow,
 	}
 
 	return ApolloJobController{
@@ -213,8 +215,9 @@ func (j ApolloJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, erro
 				return list
 			}(),
 		},
-		Timeout:     0,
-		ErrorPolicy: j.errorPolicy,
+		Timeout:       0,
+		ErrorPolicy:   j.errorPolicy,
+		ExecutePolicy: j.executePolicy,
 	}
 
 	return []*commonmodels.JobTask{jobTask}, nil
@@ -229,7 +232,16 @@ func (j ApolloJobController) SetRepoCommitInfo() error {
 }
 
 func (j ApolloJobController) GetVariableList(jobName string, getAggregatedVariables, getRuntimeVariables, getPlaceHolderVariables, getServiceSpecificVariables, useUserInputValue bool) ([]*commonmodels.KeyVal, error) {
-	return make([]*commonmodels.KeyVal, 0), nil
+	resp := make([]*commonmodels.KeyVal, 0)
+	if getRuntimeVariables {
+		resp = append(resp, &commonmodels.KeyVal{
+			Key:          strings.Join([]string{"job", j.name, "status"}, "."),
+			Value:        "",
+			Type:         "string",
+			IsCredential: false,
+		})
+	}
+	return resp, nil
 }
 
 func (j ApolloJobController) GetUsedRepos() ([]*types.Repository, error) {

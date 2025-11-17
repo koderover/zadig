@@ -18,6 +18,7 @@ package job
 
 import (
 	"fmt"
+	"strings"
 
 	"helm.sh/helm/v3/pkg/releaseutil"
 	v1 "k8s.io/api/apps/v1"
@@ -46,10 +47,11 @@ func CreateMseGrayReleaseJobController(job *commonmodels.Job, workflow *commonmo
 	}
 
 	basicInfo := &BasicInfo{
-		name:        job.Name,
-		jobType:     job.JobType,
-		errorPolicy: job.ErrorPolicy,
-		workflow:    workflow,
+		name:          job.Name,
+		jobType:       job.JobType,
+		errorPolicy:   job.ErrorPolicy,
+		executePolicy: job.ExecutePolicy,
+		workflow:      workflow,
 	}
 
 	return MseGrayReleaseJobController{
@@ -187,7 +189,8 @@ func (j MseGrayReleaseJobController) ToTask(taskID int64) ([]*commonmodels.JobTa
 				Timeout:            timeout,
 				Production:         j.jobSpec.Production,
 			},
-			ErrorPolicy: j.errorPolicy,
+			ErrorPolicy:   j.errorPolicy,
+			ExecutePolicy: j.executePolicy,
 		})
 	}
 
@@ -203,7 +206,16 @@ func (j MseGrayReleaseJobController) SetRepoCommitInfo() error {
 }
 
 func (j MseGrayReleaseJobController) GetVariableList(jobName string, getAggregatedVariables, getRuntimeVariables, getPlaceHolderVariables, getServiceSpecificVariables, useUserInputValue bool) ([]*commonmodels.KeyVal, error) {
-	return make([]*commonmodels.KeyVal, 0), nil
+	resp := make([]*commonmodels.KeyVal, 0)
+	if getRuntimeVariables {
+		resp = append(resp, &commonmodels.KeyVal{
+			Key:          strings.Join([]string{"job", j.name, "status"}, "."),
+			Value:        "",
+			Type:         "string",
+			IsCredential: false,
+		})
+	}
+	return resp, nil
 }
 
 func (j MseGrayReleaseJobController) GetUsedRepos() ([]*types.Repository, error) {

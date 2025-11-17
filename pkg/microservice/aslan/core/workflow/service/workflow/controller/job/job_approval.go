@@ -18,6 +18,7 @@ package job
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -45,10 +46,11 @@ func CreateApprovalJobController(job *commonmodels.Job, workflow *commonmodels.W
 	}
 
 	basicInfo := &BasicInfo{
-		name:        job.Name,
-		jobType:     job.JobType,
-		errorPolicy: job.ErrorPolicy,
-		workflow:    workflow,
+		name:          job.Name,
+		jobType:       job.JobType,
+		errorPolicy:   job.ErrorPolicy,
+		executePolicy: job.ExecutePolicy,
+		workflow:      workflow,
 	}
 
 	return ApprovalJobController{
@@ -168,10 +170,11 @@ func (j ApprovalJobController) ToTask(taskID int64) ([]*commonmodels.JobTask, er
 		JobInfo: map[string]string{
 			JobNameKey: j.name,
 		},
-		JobType:     string(config.JobApproval),
-		Spec:        jobSpec,
-		Timeout:     j.jobSpec.Timeout,
-		ErrorPolicy: j.errorPolicy,
+		JobType:       string(config.JobApproval),
+		Spec:          jobSpec,
+		Timeout:       j.jobSpec.Timeout,
+		ErrorPolicy:   j.errorPolicy,
+		ExecutePolicy: j.executePolicy,
 	}
 
 	if j.jobSpec.Source == config.SourceFromJob {
@@ -380,7 +383,16 @@ func (j ApprovalJobController) SetRepoCommitInfo() error {
 }
 
 func (j ApprovalJobController) GetVariableList(jobName string, getAggregatedVariables, getRuntimeVariables, getPlaceHolderVariables, getServiceSpecificVariables, useUserInputValue bool) ([]*commonmodels.KeyVal, error) {
-	return make([]*commonmodels.KeyVal, 0), nil
+	resp := make([]*commonmodels.KeyVal, 0)
+	if getRuntimeVariables {
+		resp = append(resp, &commonmodels.KeyVal{
+			Key:          strings.Join([]string{"job", j.name, "status"}, "."),
+			Value:        "",
+			Type:         "string",
+			IsCredential: false,
+		})
+	}
+	return resp, nil
 }
 
 func (j ApprovalJobController) GetUsedRepos() ([]*types.Repository, error) {

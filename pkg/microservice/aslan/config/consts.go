@@ -581,6 +581,20 @@ const (
 	JobErrorPolicyRetry       JobErrorPolicy = "retry"
 )
 
+type JobExecutePolicyType string
+
+const (
+	JobExecutePolicyTypeSkip    JobExecutePolicyType = "skip"
+	JobExecutePolicyTypeExecute JobExecutePolicyType = "execute"
+)
+
+type JobExecutePolicyMatchRule string
+
+const (
+	JobExecutePolicyMatchRuleAll JobExecutePolicyMatchRule = "all" // AND logic - all rules must match
+	JobExecutePolicyMatchRuleAny JobExecutePolicyMatchRule = "any" // OR logic - any rule must match
+)
+
 const DefaultDeleteDeploymentTimeout = 10 * time.Minute
 
 // Service creation source for openAPI
