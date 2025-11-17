@@ -178,6 +178,7 @@ func runJob(ctx context.Context, job *commonmodels.JobTask, workflowCtx *commonm
 
 	// Check execute policy before running the job
 	if !shouldExecuteJob(job) {
+		// if the workflow ended, don't mark the job as skipped. otherwise, mark the job as skipped.
 		if !workflowEnded {
 			logger.Infof("skipping job: %s due to execute policy", job.Name)
 			job.Status = config.StatusSkipped
@@ -185,6 +186,11 @@ func runJob(ctx context.Context, job *commonmodels.JobTask, workflowCtx *commonm
 			job.EndTime = time.Now().Unix()
 			ack()
 		}
+		return
+	}
+
+	// special case: if the workflow execution policy is default and the job stopped, just don't start the job.
+	if workflowEnded && job.ExecutePolicy == nil {
 		return
 	}
 
