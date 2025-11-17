@@ -29,6 +29,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/koderover/zadig/v2/pkg/tool/log"
@@ -88,15 +89,66 @@ func PrepareDinD(client *kubernetes.Clientset, namespace string, regList []*Regi
 		}
 	}
 
-	dindSts, err := client.AppsV1().StatefulSets(namespace).Get(context.TODO(), "dind", metav1.GetOptions{})
-	if err != nil {
-		log.Errorf("failed to get dind statefulset, the error is: %s", err)
-		return err
-	}
+	// Use retry mechanism to handle concurrent modification conflicts
+	return updateDindStatefulSetWithRetry(client, namespace, mountFlag, insecureFlag, sourceList, insecureRegistryList)
+}
 
-	if len(dindSts.Spec.Template.Spec.Containers) == 0 {
-		return fmt.Errorf("failed to extract container from dind sts")
-	}
+func updateDindStatefulSetWithRetry(client *kubernetes.Clientset, namespace string, mountFlag, insecureFlag bool, sourceList []corev1.VolumeProjection, insecureRegistryList []string) error {
+	// Retry with exponential backoff on conflict errors
+	return wait.ExponentialBackoff(wait.Backoff{
+		Steps:    5,
+		Duration: 100 * time.Millisecond,
+		Factor:   2.0,
+		Jitter:   0.1,
+	}, func() (bool, error) {
+		// Get the latest version of the StatefulSet
+		dindSts, err := client.AppsV1().StatefulSets(namespace).Get(context.TODO(), "dind", metav1.GetOptions{})
+		if err != nil {
+			log.Errorf("failed to get dind statefulset, the error is: %s", err)
+			return false, err
+		}
+
+		if len(dindSts.Spec.Template.Spec.Containers) == 0 {
+			return false, fmt.Errorf("failed to extract container from dind sts")
+		}
+
+		// Apply modifications to the StatefulSet
+		modified := applyDindModifications(dindSts, mountFlag, insecureFlag, sourceList, insecureRegistryList)
+
+		// Skip update if nothing changed
+		if !modified {
+			log.Infof("No changes needed for dind StatefulSet")
+			return true, nil
+		}
+
+		// Check if StatefulSet is stuck and handle it
+		isStuck := isStatefulSetStuckInUpdate(dindSts)
+		if isStuck {
+			log.Warnf("StatefulSet %s/dind is stuck, attempting to fix by deleting stuck pods before update", namespace)
+			if fixErr := handleStuckStatefulSet(dindSts, client); fixErr != nil {
+				log.Warnf("Failed to clean up stuck pods for StatefulSet %s/dind: %v", namespace, fixErr)
+				// Continue with update even if cleanup fails
+			}
+		}
+
+		// Attempt to update
+		_, updateErr := client.AppsV1().StatefulSets(namespace).Update(context.TODO(), dindSts, metav1.UpdateOptions{})
+		if updateErr != nil {
+			if apierrors.IsConflict(updateErr) {
+				log.Warnf("Conflict updating dind StatefulSet, will retry: %s", updateErr)
+				return false, nil // Retry on conflict
+			}
+			log.Errorf("failed to update dind, the error is: %s", updateErr)
+			return false, updateErr // Non-conflict error, don't retry
+		}
+
+		log.Infof("Successfully updated dind StatefulSet")
+		return true, nil
+	})
+}
+
+func applyDindModifications(dindSts *appsv1.StatefulSet, mountFlag, insecureFlag bool, sourceList []corev1.VolumeProjection, insecureRegistryList []string) bool {
+	modified := false
 
 	if mountFlag {
 		volumeMount := corev1.VolumeMount{
@@ -121,6 +173,7 @@ func PrepareDinD(client *kubernetes.Clientset, namespace string, regList []*Regi
 		}
 		if !found {
 			newVolumeMounts = append(newVolumeMounts, volumeMount)
+			modified = true
 		}
 
 		// update spec.template.spec.containers[0].volumeMounts
@@ -143,8 +196,9 @@ func PrepareDinD(client *kubernetes.Clientset, namespace string, regList []*Regi
 					// remove duplicate
 					continue
 				} else {
-					newVolumes = append(newVolumes, vol)
+					newVolumes = append(newVolumes, volume) // Use the new volume config
 					found = true
+					modified = true
 				}
 			} else {
 				newVolumes = append(newVolumes, vol)
@@ -152,12 +206,14 @@ func PrepareDinD(client *kubernetes.Clientset, namespace string, regList []*Regi
 		}
 		if !found {
 			newVolumes = append(newVolumes, volume)
+			modified = true
 		}
 
 		// update spec.template.spec.volumes
 		dindSts.Spec.Template.Spec.Volumes = newVolumes
 	}
 
+	// Handle insecure registry arguments
 	currentArgs := dindSts.Spec.Template.Spec.Containers[0].Args
 	finalArgs := make([]string, 0)
 
@@ -165,43 +221,30 @@ func PrepareDinD(client *kubernetes.Clientset, namespace string, regList []*Regi
 		if strings.HasPrefix(arg, "--insecure-registry=") {
 			continue
 		}
-
 		finalArgs = append(finalArgs, arg)
 	}
 
 	finalArgs = append(finalArgs, insecureRegistryList...)
 
-	needsUpdate := false
+	// Check if args changed
+	argsChanged := false
 	if len(finalArgs) != len(currentArgs) {
-		needsUpdate = true
+		argsChanged = true
 	} else {
 		for i, arg := range finalArgs {
 			if currentArgs[i] != arg {
-				needsUpdate = true
+				argsChanged = true
 				break
 			}
 		}
 	}
 
-	if needsUpdate || insecureFlag {
+	if argsChanged || insecureFlag {
 		dindSts.Spec.Template.Spec.Containers[0].Args = finalArgs
+		modified = true
 	}
 
-	// Check if StatefulSet is stuck (e.g., due to wrong storage driver) and handle it
-	isStuck := isStatefulSetStuckInUpdate(dindSts)
-	if isStuck {
-		log.Warnf("StatefulSet %s/dind is stuck, attempting to fix by deleting stuck pods before update", namespace)
-		if fixErr := handleStuckStatefulSet(dindSts, client); fixErr != nil {
-			log.Warnf("Failed to clean up stuck pods for StatefulSet %s/dind: %v", namespace, fixErr)
-			// Continue with update even if cleanup fails
-		}
-	}
-
-	_, updateErr := client.AppsV1().StatefulSets(namespace).Update(context.TODO(), dindSts, metav1.UpdateOptions{})
-	if updateErr != nil {
-		log.Errorf("failed to update dind, the error is: %s", updateErr)
-	}
-	return updateErr
+	return modified
 }
 
 func ensureCertificateSecret(client *kubernetes.Clientset, secretName, namespace, cert string) error {

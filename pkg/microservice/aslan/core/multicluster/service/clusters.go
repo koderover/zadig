@@ -1172,20 +1172,42 @@ func UpgradeDind(kclient client.Client, cluster *commonmodels.K8SCluster, ns str
 	}
 
 	ctx := context.TODO()
-	dindSts := &appsv1.StatefulSet{}
-	err := kclient.Get(ctx, client.ObjectKey{
-		Name:      types.DindStatefulSetName,
-		Namespace: ns,
-	}, dindSts)
+
+	// Retry logic for handling concurrent modifications
+	err := retryOnConflict(func() error {
+		dindSts := &appsv1.StatefulSet{}
+		err := kclient.Get(ctx, client.ObjectKey{
+			Name:      types.DindStatefulSetName,
+			Namespace: ns,
+		}, dindSts)
+		if err != nil {
+			return fmt.Errorf("failed to get dind StatefulSet in local cluster: %s", err)
+		}
+
+		originalSts := new(appsv1.StatefulSet)
+		err = util.DeepCopy(originalSts, dindSts)
+		if err != nil {
+			return fmt.Errorf("failed to deep copy original dind statefulset, error: %s", err)
+		}
+
+		return applyDindUpgrade(kclient, ctx, dindSts, originalSts, cluster, ns)
+	})
+
 	if err != nil {
-		return fmt.Errorf("failed to get dind StatefulSet in local cluster: %s", err)
+		return err
 	}
 
-	originalSts := new(appsv1.StatefulSet)
-	err = util.DeepCopy(originalSts, dindSts)
+	// Sync registry configuration after successful update
+	err = commonutil.SyncDinDForRegistries()
 	if err != nil {
-		return fmt.Errorf("failed to deep copy original dind statefulset, error: %s", err)
+		log.Errorf("SyncDinDForRegistries error: %v", err)
 	}
+
+	return nil
+}
+
+func applyDindUpgrade(kclient client.Client, ctx context.Context, dindSts, originalSts *appsv1.StatefulSet, cluster *commonmodels.K8SCluster, ns string) error {
+	var err error
 
 	dindSts.Spec.Replicas = util.GetInt32Pointer(int32(cluster.DindCfg.Replicas))
 
@@ -1381,20 +1403,34 @@ func UpgradeDind(kclient client.Client, cluster *commonmodels.K8SCluster, ns str
 			}
 		}
 
-		err = kclient.Update(ctx, dindSts)
+		err := kclient.Update(ctx, dindSts)
 		if err != nil {
-			err = fmt.Errorf("failed to update StatefulSet `dind`: %s", err)
-			log.Error(err)
-			return err
+			return fmt.Errorf("failed to update StatefulSet `dind`: %s", err)
 		}
 	}
 
-	err = commonutil.SyncDinDForRegistries()
-	if err != nil {
-		log.Errorf("SyncDinDForRegistries error: %v", err)
+	return nil
+}
+
+// retryOnConflict retries the given function on conflict errors
+func retryOnConflict(fn func() error) error {
+	for i := 0; i < 5; i++ {
+		err := fn()
+		if err == nil {
+			return nil
+		}
+
+		if apierrors.IsConflict(err) {
+			log.Warnf("Conflict updating StatefulSet (attempt %d/5), retrying: %s", i+1, err)
+			time.Sleep(time.Duration(100*(i+1)) * time.Millisecond)
+			continue
+		}
+
+		// Non-conflict error, return immediately
+		return err
 	}
 
-	return nil
+	return fmt.Errorf("failed to update after 5 retries due to conflicts")
 }
 
 func GetPVCName(prefix string, nfsProperties *types.NFSProperties) string {
