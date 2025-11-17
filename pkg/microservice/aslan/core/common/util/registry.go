@@ -142,12 +142,5 @@ func SyncDinDForRegistries() error {
 		return fmt.Errorf("failed to get dynamic client to update dind, err: %s", err)
 	}
 
-	// Get storage driver from cluster config
-	storageDriver := ""
-	cluster, err := mongodb.NewK8SClusterColl().Get(setting.LocalClusterID)
-	if err == nil && cluster.DindCfg != nil {
-		storageDriver = cluster.DindCfg.StorageDriver
-	}
-
-	return registrytool.PrepareDinD(dynamicClient, config.Namespace(), regList, storageDriver)
+	return registrytool.PrepareDinD(dynamicClient, config.Namespace(), regList)
 }

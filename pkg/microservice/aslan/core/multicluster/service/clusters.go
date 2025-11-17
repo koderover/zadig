@@ -1306,6 +1306,28 @@ func UpgradeDind(kclient client.Client, cluster *commonmodels.K8SCluster, ns str
 		dindSts.Spec.Template.Spec.Affinity = commonutil.AddNodeAffinity(cluster.AdvancedConfig, cluster.DindCfg.StrategyID)
 	}
 
+	// Update storage driver argument if configured
+	if len(dindSts.Spec.Template.Spec.Containers) > 0 {
+		currentArgs := dindSts.Spec.Template.Spec.Containers[0].Args
+		finalArgs := make([]string, 0)
+
+		// Filter out existing storage-driver arguments
+		for _, arg := range currentArgs {
+			if strings.HasPrefix(arg, "--storage-driver=") {
+				continue
+			}
+			finalArgs = append(finalArgs, arg)
+		}
+
+		// Add storage driver arg if configured
+		if cluster.DindCfg.StorageDriver != "" {
+			expectedStorageDriverArg := fmt.Sprintf("--storage-driver=%s", cluster.DindCfg.StorageDriver)
+			finalArgs = append(finalArgs, expectedStorageDriverArg)
+		}
+
+		dindSts.Spec.Template.Spec.Containers[0].Args = finalArgs
+	}
+
 	if stsHasImmutableFieldChanged(originalSts, dindSts) {
 		log.Infof("dind has immutable field changed, recreating dind.")
 		err = kclient.Delete(ctx, dindSts)

@@ -365,7 +365,6 @@ func (s *Service) GetYaml(id, agentImage, aslanURL, hubURI string, useDeployment
 			Affinity:             cluster.AdvancedConfig.AgentAffinity,
 			ImagePullPolicy:      configbase.ImagePullPolicy(),
 			SecretKey:            base64.StdEncoding.EncodeToString([]byte(configbase.SecretKey())),
-			ClusterID:            cluster.ID.Hex(),
 		})
 	} else {
 		err = YamlTemplateForNamespace.Execute(buffer, TemplateSchema{
@@ -390,7 +389,6 @@ func (s *Service) GetYaml(id, agentImage, aslanURL, hubURI string, useDeployment
 			IRSARoleARN:          cluster.AdvancedConfig.IRSARoleARM,
 			ImagePullPolicy:      configbase.ImagePullPolicy(),
 			SecretKey:            base64.StdEncoding.EncodeToString([]byte(configbase.SecretKey())),
-			ClusterID:            cluster.ID.Hex(),
 		})
 	}
 
@@ -694,7 +692,6 @@ type TemplateSchema struct {
 	NodeSelector         string
 	Toleration           string
 	Affinity             string
-	ClusterID            string
 }
 
 const (
@@ -818,8 +815,6 @@ spec:
               fieldPath: spec.nodeName
         - name: HUB_AGENT_TOKEN
           value: "{{.ClientToken}}"
-        - name: CLUSTER_ID
-          value: "{{.ClusterID}}"
         - name: HUB_SERVER_BASE_ADDR
           value: "{{.HubServerBaseAddr}}"
         - name: ASLAN_BASE_ADDR
@@ -1010,8 +1005,6 @@ spec:
               fieldPath: spec.nodeName
         - name: HUB_AGENT_TOKEN
           value: "{{.ClientToken}}"
-        - name: CLUSTER_ID
-          value: "{{.ClusterID}}"
         - name: HUB_SERVER_BASE_ADDR
           value: "{{.HubServerBaseAddr}}"
         - name: ASLAN_BASE_ADDR

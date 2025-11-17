@@ -34,7 +34,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
-func PrepareDinD(client *kubernetes.Clientset, namespace string, regList []*RegistryInfoForDinDUpdate, storageDriver string) error {
+func PrepareDinD(client *kubernetes.Clientset, namespace string, regList []*RegistryInfoForDinDUpdate) error {
 	insecureRegistryList := make([]string, 0)
 
 	mountFlag := false
@@ -162,9 +162,6 @@ func PrepareDinD(client *kubernetes.Clientset, namespace string, regList []*Regi
 	finalArgs := make([]string, 0)
 
 	for _, arg := range currentArgs {
-		if strings.HasPrefix(arg, "--storage-driver=") {
-			continue
-		}
 		if strings.HasPrefix(arg, "--insecure-registry=") {
 			continue
 		}
@@ -173,12 +170,6 @@ func PrepareDinD(client *kubernetes.Clientset, namespace string, regList []*Regi
 	}
 
 	finalArgs = append(finalArgs, insecureRegistryList...)
-
-	if storageDriver != "" {
-		expectedStorageDriverArg := fmt.Sprintf("--storage-driver=%s", storageDriver)
-		// Add storage driver arg (it will replace any existing one since we removed all above)
-		finalArgs = append(finalArgs, expectedStorageDriverArg)
-	}
 
 	needsUpdate := false
 	if len(finalArgs) != len(currentArgs) {
