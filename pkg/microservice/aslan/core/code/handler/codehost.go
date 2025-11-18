@@ -127,6 +127,19 @@ type CodeHostGetPageNateListArgs struct {
 	Key     string `json:"key"          form:"key"`
 }
 
+// @Summary 获取代码仓库分支列表
+// @Description
+// @Tags 	code
+// @Accept 	json
+// @Produce json
+// @Param 	codehostId		path		string							true	"代码仓库ID"
+// @Param 	repoOwner		query		string							true	"仓库拥有者"
+// @Param 	repoName		query		string							true	"仓库名称"
+// @Param 	per_page		query		int								false	"每页数量"
+// @Param 	page			query		int								false	"页码"
+// @Param 	key				query		string							false	"关键字"
+// @Success 200 			{array} 	client.Branch
+// @Router /api/aslan/code/codehost/{codehostId}/branches [get]
 func CodeHostGetBranchList(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -164,6 +177,19 @@ func CodeHostGetBranchList(c *gin.Context) {
 		ctx.Logger)
 }
 
+// @Summary 获取代码仓库标签列表
+// @Description
+// @Tags 	code
+// @Accept 	json
+// @Produce json
+// @Param 	codehostId		path		string							true	"代码仓库ID"
+// @Param 	repoOwner		query		string							true	"仓库拥有者"
+// @Param 	repoName		query		string							true	"仓库名称"
+// @Param 	per_page		query		int								false	"每页数量"
+// @Param 	page			query		int								false	"页码"
+// @Param 	key				query		string							false	"关键字"
+// @Success 200 			{array} 	client.Tag
+// @Router /api/aslan/code/codehost/{codehostId}/tags [get]
 func CodeHostGetTagList(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

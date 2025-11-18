@@ -235,9 +235,9 @@ func buildGitCommands(repo *Repo, hostNames sets.String) []*Command {
 		cmds = append(cmds, &Command{Cmd: RemoteAdd(repo.RemoteName, giteeURL), DisableTrace: true})
 	} else if repo.Source == setting.SourceFromOther {
 		if repo.AuthType == types.SSHAuthType {
-			host := getHost(repo.Address)
+			host := util.GetSSHHost(repo.Address)
 			if !hostNames.Has(host) {
-				if err := writeSSHFile(repo.SSHKey, host); err != nil {
+				if _, err := util.WriteSSHFile(repo.SSHKey, host); err != nil {
 					log.Errorf("failed to write ssh file, err: %v", err)
 				}
 				hostNames.Insert(host)
@@ -373,36 +373,6 @@ func setCmdsWorkDir(dir string, cmds []*Command) {
 	for _, c := range cmds {
 		c.Cmd.Dir = dir
 	}
-}
-
-// git@github.com or git@github.com:2000
-// return github.com
-func getHost(address string) string {
-	address = strings.TrimPrefix(address, "ssh://")
-	address = strings.TrimPrefix(address, "git@")
-	hostArr := strings.Split(address, ":")
-	return hostArr[0]
-}
-
-func writeSSHFile(sshKey, hostName string) error {
-	if sshKey == "" {
-		return fmt.Errorf("ssh cannot be empty")
-	}
-
-	if hostName == "" {
-		return fmt.Errorf("hostName cannot be empty")
-	}
-
-	dir := path.Join(config.Home(), "/.ssh")
-	if err := os.MkdirAll(dir, os.ModePerm); err != nil {
-		return err
-	}
-
-	hostName = strings.Replace(hostName, ".", "", -1)
-	hostName = strings.Replace(hostName, ":", "", -1)
-	pathName := fmt.Sprintf("/.ssh/id_rsa.%s", hostName)
-	file := path.Join(config.Home(), pathName)
-	return ioutil.WriteFile(file, []byte(sshKey), 0400)
 }
 
 func writeSSHConfigFile(hostNames sets.String) error {

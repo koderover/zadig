@@ -258,9 +258,9 @@ func (s *GitStep) buildGitCommands(repo *types.Repository, hostNames sets.String
 	} else if repo.Source == types.ProviderOther {
 		// other
 		if repo.AuthType == types.SSHAuthType {
-			host := getHost(repo.Address)
+			host := util.GetSSHHost(repo.Address)
 			if !hostNames.Has(host) {
-				if err := writeSSHFile(repo.SSHKey, host); err != nil {
+				if _, err := util.WriteSSHFile(repo.SSHKey, host); err != nil {
 					log.Errorf("failed to write ssh file, err: %v", err)
 				}
 				hostNames.Insert(host)
@@ -349,22 +349,6 @@ func (s *GitStep) buildGitCommands(repo *types.Repository, hostNames sets.String
 	return cmds
 }
 
-func writeSSHFile(sshKey, hostName string) error {
-	if sshKey == "" {
-		return fmt.Errorf("ssh cannot be empty")
-	}
-
-	if hostName == "" {
-		return fmt.Errorf("hostName cannot be empty")
-	}
-
-	hostName = strings.Replace(hostName, ".", "", -1)
-	hostName = strings.Replace(hostName, ":", "", -1)
-	pathName := fmt.Sprintf("/.ssh/id_rsa.%s", hostName)
-	file := path.Join(config.Home(), pathName)
-	return ioutil.WriteFile(file, []byte(sshKey), 0400)
-}
-
 func writeSSHConfigFile(hostNames sets.String, proxy *step.Proxy) error {
 	out := "Include ~/.ssh/config.d/*\n"
 	out += "\nHOST *\nStrictHostKeyChecking=no\nUserKnownHostsFile=/dev/null\n"
@@ -378,18 +362,6 @@ func writeSSHConfigFile(hostNames sets.String, proxy *step.Proxy) error {
 	}
 	file := path.Join(config.Home(), "/.ssh/config")
 	return ioutil.WriteFile(file, []byte(out), 0600)
-}
-
-// git@github.com or git@github.com:2000
-// return github.com
-func getHost(address string) string {
-	address = strings.TrimPrefix(address, "ssh://")
-	addressArr := strings.Split(address, "@")
-	if len(addressArr) == 2 {
-		address = addressArr[1]
-	}
-	hostArr := strings.Split(address, ":")
-	return hostArr[0]
 }
 
 // SSHCloneURL returns Oauth clone url

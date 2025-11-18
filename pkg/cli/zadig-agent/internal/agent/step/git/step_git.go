@@ -19,7 +19,6 @@ package git
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -36,7 +35,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/agent/step/helper"
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/common"
 	agenttypes "github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/common/types"
-	"github.com/koderover/zadig/v2/pkg/microservice/jobexecutor/config"
 	codehostmodels "github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/codehost/repository/models"
 	gittool "github.com/koderover/zadig/v2/pkg/tool/git"
 	"github.com/koderover/zadig/v2/pkg/types"
@@ -185,7 +183,7 @@ func (s *GitStep) buildGitCommands(repo *types.Repository, hostNames sets.String
 		u, _ := url.Parse(repo.Address)
 		host := strings.TrimSuffix(strings.Join([]string{u.Host, u.Path}, "/"), "/")
 		cmds = append(cmds, &common.Command{
-			Cmd:          gitcmd.RemoteAdd(repo.RemoteName, OAuthCloneURL(repo.Source, repo.OauthToken, host, owner, repo.RepoName, u.Scheme)),
+			Cmd:          gitcmd.RemoteAdd(repo.RemoteName, util.OAuthCloneURL(repo.Source, repo.OauthToken, host, owner, repo.RepoName, u.Scheme)),
 			DisableTrace: true,
 		})
 	} else if repo.Source == types.ProviderGerrit {
@@ -210,10 +208,10 @@ func (s *GitStep) buildGitCommands(repo *types.Repository, hostNames sets.String
 	} else if repo.Source == types.ProviderOther {
 		if repo.AuthType == types.SSHAuthType {
 			sshKeyPath := ""
-			host := getHost(repo.Address)
+			host := util.GetSSHHost(repo.Address)
 			if !hostNames.Has(host) {
 				var err error
-				sshKeyPath, err = writeSSHFile(repo.SSHKey, host)
+				sshKeyPath, err = util.WriteSSHFile(repo.SSHKey, host)
 				if err != nil {
 					s.Logger.Errorf("failed to write ssh file, err: %v", err)
 				}
@@ -243,7 +241,7 @@ func (s *GitStep) buildGitCommands(repo *types.Repository, hostNames sets.String
 			} else {
 				host := strings.TrimSuffix(strings.Join([]string{u.Host, u.Path}, "/"), "/")
 				cmds = append(cmds, &common.Command{
-					Cmd:          gitcmd.RemoteAdd(repo.RemoteName, OAuthCloneURL(repo.Source, repo.PrivateAccessToken, host, repo.RepoOwner, repo.RepoName, u.Scheme)),
+					Cmd:          gitcmd.RemoteAdd(repo.RemoteName, util.OAuthCloneURL(repo.Source, repo.PrivateAccessToken, host, repo.RepoOwner, repo.RepoName, u.Scheme)),
 					DisableTrace: true,
 				})
 			}
@@ -316,46 +314,6 @@ func (s *GitStep) GetWorkDir(repo *types.Repository) string {
 		workDir = filepath.Join(s.dirs.Workspace, repo.CheckoutPath)
 	}
 	return workDir
-}
-
-func writeSSHFile(sshKey, hostName string) (string, error) {
-	if sshKey == "" {
-		return "", fmt.Errorf("ssh cannot be empty")
-	}
-
-	if hostName == "" {
-		return "", fmt.Errorf("hostName cannot be empty")
-	}
-
-	hostName = strings.Replace(hostName, ".", "", -1)
-	hostName = strings.Replace(hostName, ":", "", -1)
-	pathName := fmt.Sprintf("/.ssh/id_rsa.%s", hostName)
-	file := filepath.Join(config.Home(), pathName)
-	return file, ioutil.WriteFile(file, []byte(sshKey), 0400)
-}
-
-// git@github.com or git@github.com:2000
-// return github.com
-func getHost(address string) string {
-	address = strings.TrimPrefix(address, "ssh://")
-	addressArr := strings.Split(address, "@")
-	if len(addressArr) == 2 {
-		address = addressArr[1]
-	}
-	hostArr := strings.Split(address, ":")
-	return hostArr[0]
-}
-
-// SSHCloneURL returns Oauth clone url
-// e.g.
-// https://oauth2:ACCESS_TOKEN@somegitlab.com/owner/name.git
-func OAuthCloneURL(source, token, address, owner, name, scheme string) string {
-	if strings.ToLower(source) == types.ProviderGitlab || strings.ToLower(source) == types.ProviderOther {
-		// address 需要传过来
-		return fmt.Sprintf("%s://%s:%s@%s/%s/%s.git", scheme, step.OauthTokenPrefix, token, address, owner, name)
-	}
-	//	GITHUB
-	return "github"
 }
 
 // HTTPSCloneURL returns HTTPS clone url

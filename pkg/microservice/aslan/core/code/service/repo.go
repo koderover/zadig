@@ -27,7 +27,6 @@ import (
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/code/client"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/code/client/open"
-	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/shared/client/systemconfig"
 )
 
@@ -72,7 +71,7 @@ func ListRepoInfos(infos []*GitRepoInfo, log *zap.SugaredLogger) ([]*GitRepoInfo
 			log.Errorf("get code host info err:%s", err)
 			return nil, err
 		}
-		if ch.Type == types.ProviderOther || ch.Type == types.ProviderPerforce {
+		if ch.Type == types.ProviderPerforce {
 			continue
 		}
 		codehostClient, err := open.OpenClient(ch, log)
@@ -84,6 +83,11 @@ func ListRepoInfos(infos []*GitRepoInfo, log *zap.SugaredLogger) ([]*GitRepoInfo
 			defer func() {
 				wg.Done()
 			}()
+			if ch.Type == types.ProviderOther {
+				info.PRs = []*client.PullRequest{}
+				return
+			}
+
 			info.PRs, err = codehostClient.ListPrs(client.ListOpt{
 				Namespace:   strings.Replace(info.GetNamespace(), "%2F", "/", -1),
 				ProjectName: info.Repo,
@@ -191,12 +195,6 @@ func MatchRegularList(codeHostID int, projectName, namespace, key string, page, 
 	if err != nil {
 		log.Errorf("get code host info err:%s", err)
 		return nil, err
-	}
-	if ch.Type == setting.SourceFromOther {
-		return &MatchBranchesListResponse{
-			Branches: []*client.Branch{},
-			Tags:     []*client.Tag{},
-		}, nil
 	}
 	cli, err := open.OpenClient(ch, log)
 	if err != nil {
