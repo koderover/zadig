@@ -1172,25 +1172,42 @@ func UpgradeDind(kclient client.Client, cluster *commonmodels.K8SCluster, ns str
 	}
 
 	ctx := context.TODO()
-	dindSts := &appsv1.StatefulSet{}
-	err := kclient.Get(ctx, client.ObjectKey{
-		Name:      types.DindStatefulSetName,
-		Namespace: ns,
-	}, dindSts)
+
+	// Retry logic for handling concurrent modifications
+	err := retryOnConflict(func() error {
+		dindSts := &appsv1.StatefulSet{}
+		err := kclient.Get(ctx, client.ObjectKey{
+			Name:      types.DindStatefulSetName,
+			Namespace: ns,
+		}, dindSts)
+		if err != nil {
+			return fmt.Errorf("failed to get dind StatefulSet in local cluster: %s", err)
+		}
+
+		originalSts := new(appsv1.StatefulSet)
+		err = util.DeepCopy(originalSts, dindSts)
+		if err != nil {
+			return fmt.Errorf("failed to deep copy original dind statefulset, error: %s", err)
+		}
+
+		return applyDindUpgrade(kclient, ctx, dindSts, originalSts, cluster, ns)
+	})
+
 	if err != nil {
-		return fmt.Errorf("failed to get dind StatefulSet in local cluster: %s", err)
+		return err
 	}
 
-	scaleupd := false
-	if *dindSts.Spec.Replicas < int32(cluster.DindCfg.Replicas) {
-		scaleupd = true
+	// Sync registry configuration after successful update
+	err = commonutil.SyncDinDForRegistries()
+	if err != nil {
+		log.Errorf("SyncDinDForRegistries error: %v", err)
 	}
 
-	originalSts := new(appsv1.StatefulSet)
-	err = util.DeepCopy(originalSts, dindSts)
-	if err != nil {
-		return fmt.Errorf("failed to deep copy original dind statefulset, error: %s", err)
-	}
+	return nil
+}
+
+func applyDindUpgrade(kclient client.Client, ctx context.Context, dindSts, originalSts *appsv1.StatefulSet, cluster *commonmodels.K8SCluster, ns string) error {
+	var err error
 
 	dindSts.Spec.Replicas = util.GetInt32Pointer(int32(cluster.DindCfg.Replicas))
 
@@ -1311,6 +1328,28 @@ func UpgradeDind(kclient client.Client, cluster *commonmodels.K8SCluster, ns str
 		dindSts.Spec.Template.Spec.Affinity = commonutil.AddNodeAffinity(cluster.AdvancedConfig, cluster.DindCfg.StrategyID)
 	}
 
+	// Update storage driver argument if configured
+	if len(dindSts.Spec.Template.Spec.Containers) > 0 {
+		currentArgs := dindSts.Spec.Template.Spec.Containers[0].Args
+		finalArgs := make([]string, 0)
+
+		// Filter out existing storage-driver arguments
+		for _, arg := range currentArgs {
+			if strings.HasPrefix(arg, "--storage-driver=") {
+				continue
+			}
+			finalArgs = append(finalArgs, arg)
+		}
+
+		// Add storage driver arg if configured
+		if cluster.DindCfg.StorageDriver != "" {
+			expectedStorageDriverArg := fmt.Sprintf("--storage-driver=%s", cluster.DindCfg.StorageDriver)
+			finalArgs = append(finalArgs, expectedStorageDriverArg)
+		}
+
+		dindSts.Spec.Template.Spec.Containers[0].Args = finalArgs
+	}
+
 	if stsHasImmutableFieldChanged(originalSts, dindSts) {
 		log.Infof("dind has immutable field changed, recreating dind.")
 		err = kclient.Delete(ctx, dindSts)
@@ -1347,22 +1386,51 @@ func UpgradeDind(kclient client.Client, cluster *commonmodels.K8SCluster, ns str
 			return err
 		}
 	} else {
-		err = kclient.Update(ctx, dindSts)
-		if err != nil {
-			err = fmt.Errorf("failed to update StatefulSet `dind`: %s", err)
-			log.Error(err)
-			return err
+		// Check if StatefulSet is stuck (e.g., due to wrong storage driver) and handle it
+		isStuck := kube.IsStatefulSetStuckInUpdate(dindSts, log.SugaredLogger())
+		if isStuck {
+			log.Warnf("StatefulSet %s/%s is stuck, attempting to fix by deleting stuck pods before update", ns, types.DindStatefulSetName)
+			clusterID := cluster.ID.Hex()
+			clientSet, err := clientmanager.NewKubeClientManager().GetKubernetesClientSet(clusterID)
+			if err != nil {
+				log.Warnf("Failed to get clientset for cluster %s to handle stuck StatefulSet: %v", clusterID, err)
+				// Continue with update even if we can't get clientset
+			} else {
+				if fixErr := kube.HandleStuckStatefulSet(dindSts, clientSet, log.SugaredLogger()); fixErr != nil {
+					log.Warnf("Failed to clean up stuck pods for StatefulSet %s/%s: %v", ns, types.DindStatefulSetName, fixErr)
+					// Continue with update even if cleanup fails
+				}
+			}
 		}
-	}
 
-	if scaleupd {
-		err = commonutil.SyncDinDForRegistries()
+		err := kclient.Update(ctx, dindSts)
 		if err != nil {
-			log.Errorf("SyncDinDForRegistries error: %v", err)
+			return fmt.Errorf("failed to update StatefulSet `dind`: %s", err)
 		}
 	}
 
 	return nil
+}
+
+// retryOnConflict retries the given function on conflict errors
+func retryOnConflict(fn func() error) error {
+	for i := 0; i < 5; i++ {
+		err := fn()
+		if err == nil {
+			return nil
+		}
+
+		if apierrors.IsConflict(err) {
+			log.Warnf("Conflict updating StatefulSet (attempt %d/5), retrying: %s", i+1, err)
+			time.Sleep(time.Duration(100*(i+1)) * time.Millisecond)
+			continue
+		}
+
+		// Non-conflict error, return immediately
+		return err
+	}
+
+	return fmt.Errorf("failed to update after 5 retries due to conflicts")
 }
 
 func GetPVCName(prefix string, nfsProperties *types.NFSProperties) string {

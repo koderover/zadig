@@ -20,12 +20,16 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
-
 	"strings"
+	"time"
 
+	"github.com/pkg/errors"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/koderover/zadig/v2/pkg/tool/log"
@@ -85,15 +89,66 @@ func PrepareDinD(client *kubernetes.Clientset, namespace string, regList []*Regi
 		}
 	}
 
-	dindSts, err := client.AppsV1().StatefulSets(namespace).Get(context.TODO(), "dind", metav1.GetOptions{})
-	if err != nil {
-		log.Errorf("failed to get dind statefulset, the error is: %s", err)
-		return err
-	}
+	// Use retry mechanism to handle concurrent modification conflicts
+	return updateDindStatefulSetWithRetry(client, namespace, mountFlag, insecureFlag, sourceList, insecureRegistryList)
+}
 
-	if len(dindSts.Spec.Template.Spec.Containers) == 0 {
-		return fmt.Errorf("failed to extract container from dind sts")
-	}
+func updateDindStatefulSetWithRetry(client *kubernetes.Clientset, namespace string, mountFlag, insecureFlag bool, sourceList []corev1.VolumeProjection, insecureRegistryList []string) error {
+	// Retry with exponential backoff on conflict errors
+	return wait.ExponentialBackoff(wait.Backoff{
+		Steps:    5,
+		Duration: 100 * time.Millisecond,
+		Factor:   2.0,
+		Jitter:   0.1,
+	}, func() (bool, error) {
+		// Get the latest version of the StatefulSet
+		dindSts, err := client.AppsV1().StatefulSets(namespace).Get(context.TODO(), "dind", metav1.GetOptions{})
+		if err != nil {
+			log.Errorf("failed to get dind statefulset, the error is: %s", err)
+			return false, err
+		}
+
+		if len(dindSts.Spec.Template.Spec.Containers) == 0 {
+			return false, fmt.Errorf("failed to extract container from dind sts")
+		}
+
+		// Apply modifications to the StatefulSet
+		modified := applyDindModifications(dindSts, mountFlag, insecureFlag, sourceList, insecureRegistryList)
+
+		// Skip update if nothing changed
+		if !modified {
+			log.Infof("No changes needed for dind StatefulSet")
+			return true, nil
+		}
+
+		// Check if StatefulSet is stuck and handle it
+		isStuck := isStatefulSetStuckInUpdate(dindSts)
+		if isStuck {
+			log.Warnf("StatefulSet %s/dind is stuck, attempting to fix by deleting stuck pods before update", namespace)
+			if fixErr := handleStuckStatefulSet(dindSts, client); fixErr != nil {
+				log.Warnf("Failed to clean up stuck pods for StatefulSet %s/dind: %v", namespace, fixErr)
+				// Continue with update even if cleanup fails
+			}
+		}
+
+		// Attempt to update
+		_, updateErr := client.AppsV1().StatefulSets(namespace).Update(context.TODO(), dindSts, metav1.UpdateOptions{})
+		if updateErr != nil {
+			if apierrors.IsConflict(updateErr) {
+				log.Warnf("Conflict updating dind StatefulSet, will retry: %s", updateErr)
+				return false, nil // Retry on conflict
+			}
+			log.Errorf("failed to update dind, the error is: %s", updateErr)
+			return false, updateErr // Non-conflict error, don't retry
+		}
+
+		log.Infof("Successfully updated dind StatefulSet")
+		return true, nil
+	})
+}
+
+func applyDindModifications(dindSts *appsv1.StatefulSet, mountFlag, insecureFlag bool, sourceList []corev1.VolumeProjection, insecureRegistryList []string) bool {
+	modified := false
 
 	if mountFlag {
 		volumeMount := corev1.VolumeMount{
@@ -118,6 +173,7 @@ func PrepareDinD(client *kubernetes.Clientset, namespace string, regList []*Regi
 		}
 		if !found {
 			newVolumeMounts = append(newVolumeMounts, volumeMount)
+			modified = true
 		}
 
 		// update spec.template.spec.containers[0].volumeMounts
@@ -140,8 +196,9 @@ func PrepareDinD(client *kubernetes.Clientset, namespace string, regList []*Regi
 					// remove duplicate
 					continue
 				} else {
-					newVolumes = append(newVolumes, vol)
+					newVolumes = append(newVolumes, volume) // Use the new volume config
 					found = true
+					modified = true
 				}
 			} else {
 				newVolumes = append(newVolumes, vol)
@@ -149,22 +206,45 @@ func PrepareDinD(client *kubernetes.Clientset, namespace string, regList []*Regi
 		}
 		if !found {
 			newVolumes = append(newVolumes, volume)
+			modified = true
 		}
 
 		// update spec.template.spec.volumes
 		dindSts.Spec.Template.Spec.Volumes = newVolumes
 	}
 
-	if insecureFlag {
-		// update spec.template.spec.containers[0].args
-		dindSts.Spec.Template.Spec.Containers[0].Args = insecureRegistryList
+	// Handle insecure registry arguments
+	currentArgs := dindSts.Spec.Template.Spec.Containers[0].Args
+	finalArgs := make([]string, 0)
+
+	for _, arg := range currentArgs {
+		if strings.HasPrefix(arg, "--insecure-registry=") {
+			continue
+		}
+		finalArgs = append(finalArgs, arg)
 	}
 
-	_, updateErr := client.AppsV1().StatefulSets(namespace).Update(context.TODO(), dindSts, metav1.UpdateOptions{})
-	if updateErr != nil {
-		log.Errorf("failed to update dind, the error is: %s", updateErr)
+	finalArgs = append(finalArgs, insecureRegistryList...)
+
+	// Check if args changed
+	argsChanged := false
+	if len(finalArgs) != len(currentArgs) {
+		argsChanged = true
+	} else {
+		for i, arg := range finalArgs {
+			if currentArgs[i] != arg {
+				argsChanged = true
+				break
+			}
+		}
 	}
-	return updateErr
+
+	if argsChanged || insecureFlag {
+		dindSts.Spec.Template.Spec.Containers[0].Args = finalArgs
+		modified = true
+	}
+
+	return modified
 }
 
 func ensureCertificateSecret(client *kubernetes.Clientset, secretName, namespace, cert string) error {
@@ -201,4 +281,102 @@ func ensureCertificateSecret(client *kubernetes.Clientset, secretName, namespace
 		}
 		return err
 	}
+}
+
+// isStatefulSetStuckInUpdate checks if a StatefulSet is stuck in an update state
+func isStatefulSetStuckInUpdate(sts *appsv1.StatefulSet) bool {
+	if sts == nil {
+		return false
+	}
+
+	status := sts.Status
+	spec := sts.Spec
+
+	if spec.Replicas == nil {
+		return false
+	}
+
+	desiredReplicas := *spec.Replicas
+
+	// Check if StatefulSet is in the middle of an update
+	// The update is in progress when currentRevision != updateRevision
+	if status.CurrentRevision != "" && status.UpdateRevision != "" &&
+		status.CurrentRevision != status.UpdateRevision {
+
+		// StatefulSet is stuck if:
+		// 1. Not all replicas are updated (updatedReplicas < desiredReplicas)
+		// 2. OR not all replicas are ready (readyReplicas < desiredReplicas)
+		// 3. OR the update hasn't fully rolled out (currentRevision != updateRevision means rollout incomplete)
+		isStuck := status.UpdatedReplicas < desiredReplicas || status.ReadyReplicas < desiredReplicas
+
+		if isStuck {
+			log.Warnf("StatefulSet %s/%s appears to be stuck in update: currentRevision=%s, updateRevision=%s, replicas=%d, updatedReplicas=%d, readyReplicas=%d, currentReplicas=%d",
+				sts.Namespace, sts.Name, status.CurrentRevision, status.UpdateRevision,
+				desiredReplicas, status.UpdatedReplicas, status.ReadyReplicas, status.CurrentReplicas)
+			return true
+		}
+	}
+
+	return false
+}
+
+// handleStuckStatefulSet attempts to fix a stuck StatefulSet by deleting non-ready pods
+func handleStuckStatefulSet(sts *appsv1.StatefulSet, clientSet *kubernetes.Clientset) error {
+	log.Warnf("Attempting to fix stuck StatefulSet %s/%s by deleting non-ready pods", sts.Namespace, sts.Name)
+
+	selector, err := metav1.LabelSelectorAsSelector(sts.Spec.Selector)
+	if err != nil {
+		return errors.Wrapf(err, "failed to convert label selector for StatefulSet %s/%s", sts.Namespace, sts.Name)
+	}
+
+	pods, err := clientSet.CoreV1().Pods(sts.Namespace).List(context.TODO(), metav1.ListOptions{
+		LabelSelector: selector.String(),
+	})
+	if err != nil {
+		return errors.Wrapf(err, "failed to list pods for StatefulSet %s/%s", sts.Namespace, sts.Name)
+	}
+
+	// Delete non-ready pods to unblock the update
+	deletedCount := 0
+	for _, pod := range pods.Items {
+		// Check if pod is not ready
+		isReady := false
+		for _, condition := range pod.Status.Conditions {
+			if condition.Type == corev1.PodReady && condition.Status == corev1.ConditionTrue {
+				isReady = true
+				break
+			}
+		}
+
+		// Also check if pod is in a failed state
+		isStuck := !isReady || pod.Status.Phase == corev1.PodPending ||
+			pod.Status.Phase == corev1.PodFailed || pod.Status.Phase == corev1.PodUnknown
+
+		if isStuck {
+			log.Warnf("Deleting stuck pod %s/%s (phase=%s, ready=%v) to unblock StatefulSet update",
+				pod.Namespace, pod.Name, pod.Status.Phase, isReady)
+
+			// Use zero grace period to force delete if necessary
+			gracePeriodSeconds := int64(0)
+			err := clientSet.CoreV1().Pods(pod.Namespace).Delete(context.TODO(), pod.Name, metav1.DeleteOptions{
+				GracePeriodSeconds: &gracePeriodSeconds,
+			})
+			if err != nil && !apierrors.IsNotFound(err) {
+				log.Errorf("Failed to delete stuck pod %s/%s: %v", pod.Namespace, pod.Name, err)
+				// Continue trying to delete other pods
+				continue
+			}
+			deletedCount++
+		}
+	}
+
+	if deletedCount > 0 {
+		log.Infof("Deleted %d stuck pod(s) for StatefulSet %s/%s, waiting briefly for controller to react", deletedCount, sts.Namespace, sts.Name)
+		// Brief pause to allow Kubernetes controller to process the deletions
+		time.Sleep(1 * time.Second)
+	} else {
+		log.Infof("No stuck pods found for StatefulSet %s/%s", sts.Namespace, sts.Name)
+	}
+
+	return nil
 }
