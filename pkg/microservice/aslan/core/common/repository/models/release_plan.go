@@ -51,6 +51,7 @@ type ReleasePlan struct {
 	ExecutingTime int64 `bson:"executing_time"      yaml:"executing_time"                  json:"executing_time"`
 	SuccessTime   int64 `bson:"success_time"        yaml:"success_time"                    json:"success_time"`
 
+	InstanceCode string        `bson:"instance_code"       yaml:"instance_code"                   json:"instance_code"`
 	HookSettings *HookSettings `bson:"hook_settings"       yaml:"hook_settings"                   json:"hook_settings"`
 
 	WaitForApproveExternalCheckTime int64  `bson:"wait_for_approve_external_check_time"       yaml:"wait_for_approve_external_check_time"                   json:"wait_for_approve_external_check_time"`

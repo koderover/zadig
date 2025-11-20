@@ -18,6 +18,8 @@ package service
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"strconv"
@@ -29,6 +31,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/types"
 	"github.com/pkg/errors"
 	"github.com/samber/lo"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 
@@ -401,6 +404,14 @@ func UpdateReleasePlan(c *handler.Context, planID string, args *UpdateReleasePla
 		return fmtErr
 	}
 	plan.HookSettings = hookSetting.ToHookSettings()
+
+	instanceCode, err := generateInstanceCode(plan)
+	if err != nil {
+		fmtErr := fmt.Errorf("failed generate instance code, err: %v", err)
+		log.Error(fmtErr)
+		return fmtErr
+	}
+	plan.InstanceCode = instanceCode
 
 	if err = mongodb.NewReleasePlanColl().UpdateByID(ctx, planID, plan); err != nil {
 		return errors.Wrap(err, "update plan")
@@ -883,6 +894,12 @@ func UpdateReleasePlanStatus(c *handler.Context, planID, targetStatus string, is
 		plan.WaitForExecuteExternalCheckTime = 0
 		plan.WaitForAllDoneExternalCheckTime = 0
 		plan.ExternalCheckFailedReason = ""
+		plan.InstanceCode, err = generateInstanceCode(plan)
+		if err != nil {
+			fmtErr := fmt.Errorf("failed generate instance code, err: %v", err)
+			log.Error(fmtErr)
+			return fmtErr
+		}
 
 		cancelReleasePlanApproval(c, plan)
 	case config.ReleasePlanStatusExecuting:
@@ -1297,13 +1314,14 @@ func UpdateReleasePlanHookSetting(c *handler.Context, req *models.ReleasePlanHoo
 
 type ReleasePlanCallBackBody struct {
 	ReleasePlanID string                                `json:"release_plan_id"`
+	InstanceCode  string                                `json:"instance_code"`
 	HookEvent     models.ReleasePlanHookEvent           `json:"hook_event"`
 	Result        setting.ReleasePlanCallBackResultType `json:"result"`
 	FailedReason  string                                `json:"failed_reason"`
 }
 
 func ReleasePlanHookCallback(c *handler.Context, callback *ReleasePlanCallBackBody) error {
-	log.Infof("release plan hook callback, id: %s, hook event: %s, result: %s, failed reason: %s", callback.ReleasePlanID, callback.HookEvent, callback.Result, callback.FailedReason)
+	log.Infof("release plan hook callback, id: %s, instance code: %s, hook event: %s, result: %s, failed reason: %s", callback.ReleasePlanID, callback.InstanceCode, callback.HookEvent, callback.Result, callback.FailedReason)
 
 	hookSetting, err := mongodb.NewSystemSettingColl().GetReleasePlanHookSetting()
 	if err != nil {
@@ -1335,6 +1353,12 @@ func ReleasePlanHookCallback(c *handler.Context, callback *ReleasePlanCallBackBo
 	releasePlan, err := mongodb.NewReleasePlanColl().GetByID(c, callback.ReleasePlanID)
 	if err != nil {
 		fmtErr := fmt.Errorf("failed get release plan, id: %s, err: %v", callback.ReleasePlanID, err)
+		log.Error(fmtErr)
+		return fmtErr
+	}
+
+	if releasePlan.InstanceCode != callback.InstanceCode {
+		fmtErr := fmt.Errorf("release plan instance code is not correct, name: %s, instance code: %s, expected: %s", releasePlan.Name, callback.InstanceCode, releasePlan.InstanceCode)
 		log.Error(fmtErr)
 		return fmtErr
 	}
@@ -1516,6 +1540,7 @@ func convertReleasePlanToHookBody(plan *models.ReleasePlan, hookEvent commonmode
 		Name:                plan.Name,
 		Manager:             plan.Manager,
 		ManagerID:           plan.ManagerID,
+		InstanceCode:        plan.InstanceCode,
 		StartTime:           plan.StartTime,
 		EndTime:             plan.EndTime,
 		ScheduleExecuteTime: plan.ScheduleExecuteTime,
@@ -2059,6 +2084,38 @@ func waitForExternalCheck(plan *models.ReleasePlan, systemHookSetting *commonmod
 	}
 
 	return &nextStatus, shouldWait
+}
+
+func generateInstanceCode(plan *models.ReleasePlan) (string, error) {
+	newPlan := new(models.ReleasePlan)
+	err := util.DeepCopy(newPlan, plan)
+	if err != nil {
+		err := fmt.Errorf("failed deep copy plan, err: %v", err)
+		log.Error(err)
+		return "", err
+	}
+	newPlan.UpdateTime = 0
+	newPlan.UpdatedBy = ""
+	newPlan.InstanceCode = ""
+	newPlan.Status = ""
+	newPlan.PlanningTime = 0
+	newPlan.ApprovalTime = 0
+	newPlan.ExecutingTime = 0
+	newPlan.SuccessTime = 0
+	newPlan.WaitForApproveExternalCheckTime = 0
+	newPlan.WaitForExecuteExternalCheckTime = 0
+	newPlan.WaitForAllDoneExternalCheckTime = 0
+	newPlan.ExternalCheckFailedReason = ""
+
+	newPlanBytes, err := bson.Marshal(newPlan)
+	if err != nil {
+		err := fmt.Errorf("failed marshal plan, err: %v", err)
+		log.Error(err)
+		return "", err
+	}
+
+	sum := sha256.Sum256([]byte(newPlanBytes))
+	return hex.EncodeToString(sum[:])[:16], nil
 }
 
 func cancelReleasePlanApproval(ctx *handler.Context, plan *models.ReleasePlan) error {
