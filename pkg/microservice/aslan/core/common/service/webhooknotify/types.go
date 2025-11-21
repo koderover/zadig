@@ -156,6 +156,8 @@ type ReleasePlanHookBody struct {
 	UpdatedBy string `json:"updated_by"`
 	// 更新时间
 	UpdateTime int64 `json:"update_time"`
+	// 实例代码
+	InstanceCode string `json:"instance_code"`
 
 	// 发布任务列表
 	Jobs []*ReleasePlanHookJob `json:"jobs"`
