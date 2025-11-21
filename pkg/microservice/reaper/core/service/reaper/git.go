@@ -34,6 +34,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/reaper/core/service/meta"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/types"
+	"github.com/koderover/zadig/v2/pkg/util"
 )
 
 func (r *Reaper) RunGitGc(folder string) error {
@@ -223,7 +224,7 @@ func (r *Reaper) buildGitCommands(repo *meta.Repo, hostNames sets.String) []*c.C
 		if repo.AuthType == types.SSHAuthType {
 			host := getHost(repo.Address)
 			if !hostNames.Has(host) {
-				if err := writeSSHFile(repo.SSHKey, host); err != nil {
+				if _, err := util.WriteSSHFile(repo.SSHKey, host); err != nil {
 					log.Errorf("failed to write ssh file, err: %s", err)
 				}
 				hostNames.Insert(host)
@@ -286,22 +287,6 @@ func (r *Reaper) buildGitCommands(repo *meta.Repo, hostNames sets.String) []*c.C
 	cmds = append(cmds, &c.Command{Cmd: c.ShowLastLog()})
 
 	return cmds
-}
-
-func writeSSHFile(sshKey, hostName string) error {
-	if sshKey == "" {
-		return fmt.Errorf("ssh cannot be empty")
-	}
-
-	if hostName == "" {
-		return fmt.Errorf("hostName cannot be empty")
-	}
-
-	hostName = strings.Replace(hostName, ".", "", -1)
-	hostName = strings.Replace(hostName, ":", "", -1)
-	pathName := fmt.Sprintf("/.ssh/id_rsa.%s", hostName)
-	file := path.Join(config.Home(), pathName)
-	return ioutil.WriteFile(file, []byte(sshKey), 0400)
 }
 
 func writeSSHConfigFile(hostNames sets.String, proxy *meta.Proxy) error {

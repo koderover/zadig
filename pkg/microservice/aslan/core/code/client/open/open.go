@@ -24,6 +24,7 @@ import (
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/code/client"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/code/client/gerrit"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/code/client/git"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/code/client/gitee"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/code/client/github"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/code/client/gitlab"
@@ -36,6 +37,7 @@ type ClientConfig interface {
 }
 
 var ClientsConfig = map[string]func() ClientConfig{
+	setting.SourceFromOther:   func() ClientConfig { return new(git.Config) },
 	setting.SourceFromGitlab:  func() ClientConfig { return new(gitlab.Config) },
 	setting.SourceFromGithub:  func() ClientConfig { return new(github.Config) },
 	setting.SourceFromGerrit:  func() ClientConfig { return new(gerrit.Config) },

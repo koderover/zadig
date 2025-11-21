@@ -44,6 +44,17 @@ func GitRemoteAdd(remoteName, remote string) *exec.Cmd {
 	)
 }
 
+// GitRemoteSetUrl sets the remote origin url for the repository.
+func GitRemoteSetUrl(remoteName, remote string) *exec.Cmd {
+	return exec.Command(
+		"git",
+		"remote",
+		"set-url",
+		remoteName,
+		remote,
+	)
+}
+
 // GitRemoteRemove removes the remote origin for the repository.
 func GitRemoteRemove(remoteName string) *exec.Cmd {
 	return exec.Command(
@@ -167,5 +178,27 @@ func GitShowLastLog() *exec.Cmd {
 		"log",
 		"--oneline",
 		"-1",
+	)
+}
+
+// GitListRemoteBranch returns command: git ls-remote --heads
+func GitListRemoteBranch(remote string) *exec.Cmd {
+	return exec.Command(
+		"git",
+		"ls-remote",
+		"--heads",
+		remote,
+	)
+}
+
+// GitListRemoteTags returns command: git ls-remote --tags --refs
+// --refs: only show refs, not peeled tags (^{}), which reduces output and improves performance
+func GitListRemoteTags(remote string) *exec.Cmd {
+	return exec.Command(
+		"git",
+		"ls-remote",
+		"--tags",
+		"--refs",
+		remote,
 	)
 }
