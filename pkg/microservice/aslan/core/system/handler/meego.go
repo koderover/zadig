@@ -24,6 +24,7 @@ import (
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/service"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
+	"github.com/koderover/zadig/v2/pkg/tool/meego"
 )
 
 // @Summary List Meego Projects
@@ -111,6 +112,58 @@ func ListMeegoWorkItems(c *gin.Context) {
 	ctx.Resp, ctx.RespErr = service.ListMeegoWorkItems(id, projectID, typeKey, nameQuery, pageNum, pageSize)
 }
 
+// @Summary List Meego Work Item Nodes
+// @Description List Meego Work Item Nodes
+// @Tags 	system
+// @Accept 	json
+// @Produce json
+// @Param 	id 		        path		string										true	"meego id"
+// @Param 	projectID 		path		string										true	"project id"
+// @Param 	workItemID 		path		string										true	"work item ID"
+// @Param 	type_key 		query		string										true	"type key"
+// @Success 200 			{object} 	service.ListMeegoWorkItemNodesResp
+// @Router /api/aslan/system/meego/{id}/projects/{projectID}/work_item/{workItemID}/node [get]
+func ListMeegoWorkItemNodes(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	projectID := c.Param("projectID")
+	typeKey := c.Query("type_key")
+	workItemIDStr := c.Param("workItemID")
+	workItemID, err := strconv.Atoi(workItemIDStr)
+	if err != nil {
+		ctx.RespErr = errors.New("invalid work item id")
+		return
+	}
+
+	id := c.Param("id")
+	ctx.Resp, ctx.RespErr = service.ListMeegoWorkItemNodes(id, projectID, typeKey, workItemID)
+}
+
+// @Summary Operate Meego Work Item Node
+// @Description Operate Meego Work Item Node
+// @Tags 	system
+// @Accept 	json
+// @Produce json
+// @Param 	id 		        path		string										true	"meego id"
+// @Param 	projectID 		path		string										true	"project id"
+// @Param 	workItemID 		path		string										true	"work item ID"
+// @Param 	type_key 		query		string										true	"type key"
+// @Success 200
+// @Router /api/aslan/system/meego/{id}/projects/{projectID}/work_item/{workItemID}/node/{nodeID}/operate [post]
+func OperateMeegoWorkItemNode(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	id := c.Param("id")
+	projectID := c.Param("projectID")
+	typeKey := c.Query("type_key")
+	workItemID := c.Param("workItemID")
+	nodeID := c.Param("nodeID")
+
+	ctx.RespErr = service.ConfirmWorkItemNode(id, projectID, typeKey, workItemID, nodeID)
+}
+
 func ListAvailableWorkItemTransitions(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -123,7 +176,8 @@ func ListAvailableWorkItemTransitions(c *gin.Context) {
 		return
 	}
 	workItemTypeKey := c.Query("type_key")
+	// pattern := c.Query("pattern")
 
 	id := c.Param("id")
-	ctx.Resp, ctx.RespErr = service.ListAvailableWorkItemTransitions(id, projectID, workItemTypeKey, workItemID)
+	ctx.Resp, ctx.RespErr = service.ListAvailableWorkItemTransitions(id, projectID, workItemTypeKey, meego.WorkItemPatternState, workItemID)
 }

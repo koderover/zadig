@@ -22,6 +22,7 @@ import (
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/v2/pkg/tool/meego"
 	"github.com/koderover/zadig/v2/pkg/util"
 )
 
@@ -190,9 +191,10 @@ type MeegoWorkItemResp struct {
 }
 
 type MeegoWorkItem struct {
-	ID           int    `json:"id"`
-	Name         string `json:"name"`
-	CurrentState string `json:"current_state"`
+	ID           int                   `json:"id"`
+	Name         string                `json:"name"`
+	Pattern      meego.WorkItemPattern `json:"pattern"`
+	CurrentState string                `json:"current_state"`
 }
 
 type MeegoTransitionResp struct {
